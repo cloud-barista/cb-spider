@@ -13,8 +13,8 @@ package resources
 
 import (
 	// "errors"
-	"fmt"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	// "github.com/davecgh/go-spew/spew"
@@ -74,7 +74,7 @@ func (securityHandler *NhnCloudSecurityHandler) CreateSecurity(securityReqInfo i
 	LoggingInfo(callLogInfo, start)
 	cblogger.Infof("New S/G SystemId : [%s]", newSG.ID)
 
-	newSGIID := irs.IID {
+	newSGIID := irs.IID{
 		SystemId: newSG.ID,
 	}
 
@@ -139,7 +139,7 @@ func (securityHandler *NhnCloudSecurityHandler) ListSecurity() ([]*irs.SecurityI
 			return nil, err
 		}
 		sgInfoList = append(sgInfoList, sgInfo)
-	}	
+	}
 	return sgInfoList, nil
 }
 
@@ -221,8 +221,8 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 		}
 
 		cblogger.Infof("curRule.IPProtocol : [%s]", curRule.IPProtocol)
-		
-		if strings.EqualFold(curRule.IPProtocol, "ALL") { 	// Add SecurityGroup Rules in case of 'All Traffic Open Rule'
+
+		if strings.EqualFold(curRule.IPProtocol, "ALL") { // Add SecurityGroup Rules in case of 'All Traffic Open Rule'
 			if strings.EqualFold(curRule.FromPort, "-1") && strings.EqualFold(curRule.ToPort, "-1") {
 				var direction string
 				if strings.EqualFold(curRule.Direction, "inbound") {
@@ -233,26 +233,26 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 					return irs.SecurityInfo{}, errors.New("Invalid Rule Direction!!")
 				}
 
-				allProtocolTypeCode := []string {"tcp", "udp", "icmp"}
+				allProtocolTypeCode := []string{"tcp", "udp", "icmp"}
 				allCIDR := "0.0.0.0/0"
 
 				for _, curProtocolType := range allProtocolTypeCode {
-					var createRuleOpts rules.CreateOpts		
-					if strings.EqualFold(curProtocolType, "icmp") {  // Without fromPort / toPort
+					var createRuleOpts rules.CreateOpts
+					if strings.EqualFold(curProtocolType, "icmp") { // Without fromPort / toPort
 						createRuleOpts = rules.CreateOpts{
 							Direction:      rules.RuleDirection(direction),
 							EtherType:      rules.EtherType4,
 							SecGroupID:     sgIID.SystemId,
-							Protocol:       rules.RuleProtocol(curProtocolType),  //Caution!!
-							RemoteIPPrefix: allCIDR, //Caution!!
+							Protocol:       rules.RuleProtocol(curProtocolType), //Caution!!
+							RemoteIPPrefix: allCIDR,                             //Caution!!
 						}
 					} else {
 						var fromPort int
 						var toPort int
-						if strings.EqualFold(curRule.FromPort, "-1") && strings.EqualFold(curRule.ToPort, "-1") {  // Check again
+						if strings.EqualFold(curRule.FromPort, "-1") && strings.EqualFold(curRule.ToPort, "-1") { // Check again
 							fromPort = 1
 							toPort = 65535
-						} 
+						}
 
 						createRuleOpts = rules.CreateOpts{
 							Direction:      rules.RuleDirection(direction),
@@ -260,11 +260,11 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 							SecGroupID:     sgIID.SystemId,
 							PortRangeMin:   fromPort,
 							PortRangeMax:   toPort,
-							Protocol:       rules.RuleProtocol(curProtocolType),  //Caution!!
-							RemoteIPPrefix: allCIDR, //Caution!!
+							Protocol:       rules.RuleProtocol(curProtocolType), //Caution!!
+							RemoteIPPrefix: allCIDR,                             //Caution!!
 						}
 					}
-		
+
 					start := call.Start()
 					_, err := rules.Create(securityHandler.NetworkClient, createRuleOpts).Extract()
 					if err != nil {
@@ -272,9 +272,9 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 						cblogger.Error(newErr.Error())
 						LoggingError(callLogInfo, newErr)
 						return irs.SecurityInfo{}, newErr
-					} 		
+					}
 					LoggingInfo(callLogInfo, start)
-					cblogger.Infof("Succeeded in Adding New [%s], [%s] Rule!!", curRule.Direction, curProtocolType)		
+					cblogger.Infof("Succeeded in Adding New [%s], [%s] Rule!!", curRule.Direction, curProtocolType)
 				}
 			} else {
 				return irs.SecurityInfo{}, errors.New("To Specify 'All Traffic Allow Rule', Specify '-1' as FromPort/ToPort!!")
@@ -333,7 +333,7 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 			LoggingInfo(callLogInfo, start)
 			// Note : OpenStack Bug : Sometimes this function makes an error (After adding a rule successfully ) like : "Security group rule already exists. Rule id is ~~~~~~~."
 			// Ref) https://bugzilla.redhat.com/show_bug.cgi?id=1786675
-			cblogger.Infof("Succeeded in Adding New [%s], [%s] Rule!!", curRule.Direction, rules.RuleProtocol(strings.ToLower(curRule.IPProtocol)))		
+			cblogger.Infof("Succeeded in Adding New [%s], [%s] Rule!!", curRule.Direction, rules.RuleProtocol(strings.ToLower(curRule.IPProtocol)))
 		}
 	}
 
@@ -346,7 +346,7 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 		return irs.SecurityInfo{}, newErr
 	}
 
-	// // AddServer will associate a server and a security group, enforcing the rules of the group on the server.		
+	// // AddServer will associate a server and a security group, enforcing the rules of the group on the server.
 	// addServerResult := secgroups.AddServer(securityHandler.VMClient, serverID, securityIID.NameId)
 
 	// // RemoveServer will disassociate a server from a security grou
@@ -356,7 +356,7 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 }
 
 func (securityHandler *NhnCloudSecurityHandler) RemoveRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
-	cblogger.Info("NHN Cloud Driver: called RemoveRules()!")	
+	cblogger.Info("NHN Cloud Driver: called RemoveRules()!")
 	callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, sgIID.SystemId, "RemoveRules()")
 
 	if sgIID.SystemId == "" {
@@ -392,8 +392,8 @@ func (securityHandler *NhnCloudSecurityHandler) RemoveRules(sgIID irs.IID, secur
 		}
 
 		cblogger.Infof("curRule.IPProtocol : [%s]", curRule.IPProtocol)
-		
-		if strings.EqualFold(curRule.IPProtocol, "ALL") { 	// Add SecurityGroup Rules in case of 'All Traffic Open Rule'
+
+		if strings.EqualFold(curRule.IPProtocol, "ALL") { // Add SecurityGroup Rules in case of 'All Traffic Open Rule'
 			if strings.EqualFold(curRule.FromPort, "-1") && strings.EqualFold(curRule.ToPort, "-1") {
 				var direction string
 				if strings.EqualFold(curRule.Direction, "inbound") {
@@ -404,29 +404,29 @@ func (securityHandler *NhnCloudSecurityHandler) RemoveRules(sgIID irs.IID, secur
 					return false, errors.New("Invalid Rule Direction!!")
 				}
 
-				allProtocolTypeCode := []string {"tcp", "udp", "icmp"}
+				allProtocolTypeCode := []string{"tcp", "udp", "icmp"}
 				allCIDR := "0.0.0.0/0"
 
 				for _, curProtocolType := range allProtocolTypeCode {
-					var ruleInfo irs.SecurityRuleInfo	
+					var ruleInfo irs.SecurityRuleInfo
 					if strings.EqualFold(curProtocolType, "icmp") {
-						ruleInfo = irs.SecurityRuleInfo {
-							Direction: direction,
+						ruleInfo = irs.SecurityRuleInfo{
+							Direction:  direction,
 							IPProtocol: curProtocolType,
-							FromPort: "-1",
-							ToPort: "-1",
-							CIDR: allCIDR,
+							FromPort:   "-1",
+							ToPort:     "-1",
+							CIDR:       allCIDR,
 						}
 					} else {
-						ruleInfo = irs.SecurityRuleInfo {
-							Direction: direction,
+						ruleInfo = irs.SecurityRuleInfo{
+							Direction:  direction,
 							IPProtocol: curProtocolType,
-							FromPort: "1",
-							ToPort: "65535",
-							CIDR: allCIDR,
+							FromPort:   "1",
+							ToPort:     "65535",
+							CIDR:       allCIDR,
 						}
 					}
-		
+
 					// Get the Rule ID from the S/G
 					ruleId, err := securityHandler.getRuleIdFromRuleInfo(sgIID, ruleInfo)
 					if err != nil {
@@ -435,7 +435,7 @@ func (securityHandler *NhnCloudSecurityHandler) RemoveRules(sgIID irs.IID, secur
 						LoggingError(callLogInfo, newErr)
 						return false, newErr
 					}
-				
+
 					cblogger.Infof("The RuleID of Current Rule : ", ruleId)
 
 					// Delete the Rule
@@ -465,7 +465,7 @@ func (securityHandler *NhnCloudSecurityHandler) RemoveRules(sgIID irs.IID, secur
 				LoggingError(callLogInfo, newErr)
 				return false, newErr
 			}
-		
+
 			cblogger.Infof("The RuleID of Current Rule : ", ruleId)
 
 			// Delete the Rule
@@ -480,11 +480,11 @@ func (securityHandler *NhnCloudSecurityHandler) RemoveRules(sgIID irs.IID, secur
 			LoggingInfo(callLogInfo, start)
 			// spew.Dump(delResult)
 
-			cblogger.Infof("Succeeded in Removing the [%s], [%s] Rule!!", curRule.Direction, curRule.IPProtocol)	
+			cblogger.Infof("Succeeded in Removing the [%s], [%s] Rule!!", curRule.Direction, curRule.IPProtocol)
 		}
 	}
 
-	// // AddServer will associate a server and a security group, enforcing the rules of the group on the server.		
+	// // AddServer will associate a server and a security group, enforcing the rules of the group on the server.
 	// addServerResult := secgroups.AddServer(securityHandler.VMClient, serverID, securityIID.NameId)
 
 	// // RemoveServer will disassociate a server from a security group
@@ -493,20 +493,20 @@ func (securityHandler *NhnCloudSecurityHandler) RemoveRules(sgIID irs.IID, secur
 	return true, nil
 }
 
-func (securityHandler *NhnCloudSecurityHandler) openOutboundAllProtocol(sgIID irs.IID) (error) {
-	cblogger.Info("NHN Cloud driver: called openOutboundAllProtocol()!")	
-    callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, sgIID.SystemId, "openOutboundAllProtocol()")
+func (securityHandler *NhnCloudSecurityHandler) openOutboundAllProtocol(sgIID irs.IID) error {
+	cblogger.Info("NHN Cloud driver: called openOutboundAllProtocol()!")
+	callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, sgIID.SystemId, "openOutboundAllProtocol()")
 
-	reqRules := []irs.SecurityRuleInfo {
-			{
-				Direction: 		"outbound",
-				IPProtocol:  	"ALL",
-				FromPort: 		"-1",
-				ToPort: 		"-1",
-				CIDR: 			"0.0.0.0/0",		
-			},
-		}
-	
+	reqRules := []irs.SecurityRuleInfo{
+		{
+			Direction:  "outbound",
+			IPProtocol: "ALL",
+			FromPort:   "-1",
+			ToPort:     "-1",
+			CIDR:       "0.0.0.0/0",
+		},
+	}
+
 	_, err := securityHandler.AddRules(sgIID, &reqRules)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Add Outbound All Protocol Opening Rule. : [%v]", err)
@@ -527,7 +527,7 @@ func (securityHandler *NhnCloudSecurityHandler) mappingSecurityInfo(nhnSG secgro
 			SystemId: nhnSG.ID,
 		},
 
-		VpcIID: irs.IID {
+		VpcIID: irs.IID{
 			// NameId:   "",
 			// SystemId: "",
 		},
@@ -560,7 +560,7 @@ func (securityHandler *NhnCloudSecurityHandler) mappingSecurityInfo(nhnSG secgro
 		// Set Security Rule info. list
 		var sgRuleList []irs.SecurityRuleInfo
 		for _, nhnRule := range nhnRuleList {
-			if !strings.EqualFold(nhnRule.Protocol, "") {   // Since on NHN Cloud Console ... 
+			if !strings.EqualFold(nhnRule.Protocol, "") { // Since on NHN Cloud Console ...
 				var direction string
 				if strings.EqualFold(nhnRule.Direction, string(rules.DirIngress)) {
 					direction = "inbound"
@@ -630,7 +630,7 @@ func (securityHandler *NhnCloudSecurityHandler) getRuleIdFromRuleInfo(sgIID irs.
 	} else {
 		// Set Security Rule info. list
 		for _, nhnRule := range nhnRuleList {
-			if !strings.EqualFold(nhnRule.Protocol, "") {   // Since on NHN Cloud Console ... 
+			if !strings.EqualFold(nhnRule.Protocol, "") { // Since on NHN Cloud Console ...
 				var direction string
 				if strings.EqualFold(nhnRule.Direction, string(rules.DirIngress)) {
 					direction = "inbound"
@@ -643,17 +643,17 @@ func (securityHandler *NhnCloudSecurityHandler) getRuleIdFromRuleInfo(sgIID irs.
 				var fromPort string
 				var toPort string
 				if strings.EqualFold(nhnRule.Protocol, "icmp") {
-					fromPort = "-1"  // Caution : Not strconv.Itoa(0) 
-					toPort = "-1"  	// Caution : Not strconv.Itoa(0)
+					fromPort = "-1" // Caution : Not strconv.Itoa(0)
+					toPort = "-1"   // Caution : Not strconv.Itoa(0)
 				} else {
 					fromPort = strconv.Itoa(nhnRule.PortRangeMin)
 					toPort = strconv.Itoa(nhnRule.PortRangeMax)
-				}				
-				
+				}
+
 				if strings.EqualFold(givenRule.Direction, direction) && strings.EqualFold(givenRule.IPProtocol, nhnRule.Protocol) && strings.EqualFold(givenRule.FromPort, fromPort) && strings.EqualFold(givenRule.ToPort, toPort) && strings.EqualFold(givenRule.CIDR, nhnRule.RemoteIPPrefix) {
 					ruleId = nhnRule.ID
 					break
-				}				
+				}
 			}
 		}
 	}

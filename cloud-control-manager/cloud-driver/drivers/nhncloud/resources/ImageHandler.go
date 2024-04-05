@@ -13,8 +13,8 @@ package resources
 
 import (
 	// "errors"
-	"strings"
 	"fmt"
+	"strings"
 	// "github.com/davecgh/go-spew/spew"
 
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
@@ -27,9 +27,9 @@ import (
 )
 
 type NhnCloudImageHandler struct {
-	RegionInfo    idrv.RegionInfo
-	VMClient      *nhnsdk.ServiceClient
-	ImageClient   *nhnsdk.ServiceClient
+	RegionInfo  idrv.RegionInfo
+	VMClient    *nhnsdk.ServiceClient
+	ImageClient *nhnsdk.ServiceClient
 }
 
 func (imageHandler *NhnCloudImageHandler) ListImage() ([]*irs.ImageInfo, error) {
@@ -37,7 +37,7 @@ func (imageHandler *NhnCloudImageHandler) ListImage() ([]*irs.ImageInfo, error) 
 	callLogInfo := getCallLogScheme(imageHandler.RegionInfo.Region, call.VMIMAGE, "ListImage()", "ListImage()")
 
 	start := call.Start()
-	listOpts :=	images.ListOpts{
+	listOpts := images.ListOpts{
 		Visibility: images.ImageVisibilityPublic, // Note : Public image only
 	}
 	allPages, err := images.List(imageHandler.ImageClient, listOpts).AllPages()
@@ -55,16 +55,16 @@ func (imageHandler *NhnCloudImageHandler) ListImage() ([]*irs.ImageInfo, error) 
 		return nil, newErr
 	}
 	LoggingInfo(callLogInfo, start)
-	
+
 	// cblogger.Info("\n\n### nhnImageList : ")
 	// spew.Dump(nhnImageList)
 	// cblogger.Info("# 출력 결과 수 : ", len(nhnImageList))
 
 	var imageInfoList []*irs.ImageInfo
-    for _, nhnImage := range nhnImageList {
+	for _, nhnImage := range nhnImageList {
 		imageInfo := imageHandler.mappingImageInfo(nhnImage)
 		imageInfoList = append(imageInfoList, imageInfo)
-    }
+	}
 	return imageInfoList, nil
 }
 
@@ -121,7 +121,7 @@ func (imageHandler *NhnCloudImageHandler) CheckWindowsImage(imageIID irs.IID) (b
 		return false, newErr
 	}
 	LoggingInfo(callLogInfo, start)
-	
+
 	isWindowsImage := false
 	if strings.Contains(nhnImage.Name, "Windows") {
 		isWindowsImage = true
@@ -145,13 +145,13 @@ func (imageHandler *NhnCloudImageHandler) mappingImageInfo(image images.Image) *
 		imgAvailability = "unavailable"
 	}
 
-	imageInfo := &irs.ImageInfo {
+	imageInfo := &irs.ImageInfo{
 		IId: irs.IID{
 			NameId:   image.ID, // Caution!!
 			SystemId: image.ID,
 		},
-		GuestOS:      image.Name, // Caution!!
-		Status: 	  imgAvailability,
+		GuestOS: image.Name, // Caution!!
+		Status:  imgAvailability,
 	}
 
 	keyValueList := []irs.KeyValue{
@@ -160,14 +160,14 @@ func (imageHandler *NhnCloudImageHandler) mappingImageInfo(image images.Image) *
 	}
 
 	for key, val := range image.Properties {
-		if (key == "os_architecture" || key == "hypervisor_type" || key == "release_date" || key == "description" || key == "os_distro" || key == "os_version" || key == "nhncloud_product"){
+		if key == "os_architecture" || key == "hypervisor_type" || key == "release_date" || key == "description" || key == "os_distro" || key == "os_version" || key == "nhncloud_product" {
 			metadata := irs.KeyValue{
 				Key:   strings.ToUpper(key),
 				Value: fmt.Sprintf("%v", val),
 			}
-		keyValueList = append(keyValueList, metadata)
+			keyValueList = append(keyValueList, metadata)
 		}
-	}	
+	}
 
 	imageInfo.KeyValueList = keyValueList
 	return imageInfo

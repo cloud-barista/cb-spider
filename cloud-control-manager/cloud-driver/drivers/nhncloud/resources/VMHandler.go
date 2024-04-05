@@ -28,8 +28,8 @@ import (
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/keypairs"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/startstop"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/flavors"
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/servers"
 	comimages "github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/images" // compute/v2/images
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/servers"
 	//	images "github.com/cloud-barista/nhncloud-sdk-go/openstack/imageservice/v2/images" // imageservice/v2/images : For Visibility parameter
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -38,12 +38,12 @@ import (
 )
 
 const (
-	DefaultVMUserName			string = "cb-user"
-	DefaultWindowsUserName 		string = "cb-user"
-	UbuntuCloudInitFilePath		string = "/cloud-driver-libs/.cloud-init-nhncloud/cloud-init-ubuntu"
-	WinCloudInitFilePath		string = "/cloud-driver-libs/.cloud-init-nhncloud/cloud-init-windows"
-	DefaultDiskSize				string = "20"
-	DefaultWinRootDiskSize		string = "50"
+	DefaultVMUserName       string = "cb-user"
+	DefaultWindowsUserName  string = "cb-user"
+	UbuntuCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-nhncloud/cloud-init-ubuntu"
+	WinCloudInitFilePath    string = "/cloud-driver-libs/.cloud-init-nhncloud/cloud-init-windows"
+	DefaultDiskSize         string = "20"
+	DefaultWinRootDiskSize  string = "50"
 )
 
 type NhnCloudVMHandler struct {
@@ -74,8 +74,8 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 
 	// # Check whether the Routing Table (of the VPC) is connected to an Internet Gateway
 	vpcHandler := NhnCloudVPCHandler{
-		RegionInfo: 	vmHandler.RegionInfo,
-		NetworkClient:  vmHandler.NetworkClient,
+		RegionInfo:    vmHandler.RegionInfo,
+		NetworkClient: vmHandler.NetworkClient,
 	}
 	isConnectedToGateway, err := vpcHandler.isConnectedToGateway(vmReqInfo.VpcIID.SystemId)
 	if err != nil {
@@ -130,7 +130,7 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 	for _, sgIID := range vmReqInfo.SecurityGroupIIDs {
 		sgIdList = append(sgIdList, sgIID.SystemId)
 	}
-	
+
 	// # Preparing for UserData String for Linux and Windows Platform
 	var initUserData *string
 	var keyPairId string
@@ -142,16 +142,16 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 	if vmReqInfo.ImageType == irs.PublicImage || vmReqInfo.ImageType == "" || vmReqInfo.ImageType == "default" {
 		// isPublicImage() in ImageHandler
 		imageHandler := NhnCloudImageHandler{
-			RegionInfo:  	vmHandler.RegionInfo,
-			VMClient:    	vmHandler.VMClient,
-			ImageClient:	vmHandler.ImageClient,
+			RegionInfo:  vmHandler.RegionInfo,
+			VMClient:    vmHandler.VMClient,
+			ImageClient: vmHandler.ImageClient,
 		}
 		isPublicImage, err := imageHandler.isPublicImage(vmReqInfo.ImageIID)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
 			cblogger.Error(newErr.Error())
 			return irs.VMInfo{}, newErr
-		}	
+		}
 		if !isPublicImage {
 			newErr := fmt.Errorf("'PublicImage' type is selected, but Specified image is Not a PublicImage in the region!!")
 			cblogger.Error(newErr.Error())
@@ -188,16 +188,16 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 	} else { // In case of MyImage
 		// isPublicImage() in 'MyImage'Handler
 		myImageHandler := NhnCloudMyImageHandler{
-			RegionInfo:  	vmHandler.RegionInfo,
-			VMClient:    	vmHandler.VMClient,
-			ImageClient:	vmHandler.ImageClient,
+			RegionInfo:  vmHandler.RegionInfo,
+			VMClient:    vmHandler.VMClient,
+			ImageClient: vmHandler.ImageClient,
 		}
 		isPublicImage, err := myImageHandler.isPublicImage(vmReqInfo.ImageIID)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
 			cblogger.Error(newErr.Error())
 			return irs.VMInfo{}, newErr
-		}	
+		}
 		if isPublicImage {
 			newErr := fmt.Errorf("'MyImage' type is selected, but Specified image is Not a MyImage!!")
 			cblogger.Error(newErr.Error())
@@ -236,15 +236,15 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 
 	// Preparing VM Creation Options
 	serverCreateOpts := servers.CreateOpts{
-		Name:      		vmReqInfo.IId.NameId,
-		SecurityGroups: sgIdList,		
-		ImageRef: 		vmReqInfo.ImageIID.SystemId,
-		FlavorRef: 		vmSpecId,
-		Networks:  		[]servers.Network{
-						{UUID: vmReqInfo.VpcIID.SystemId},
-						},
+		Name:           vmReqInfo.IId.NameId,
+		SecurityGroups: sgIdList,
+		ImageRef:       vmReqInfo.ImageIID.SystemId,
+		FlavorRef:      vmSpecId,
+		Networks: []servers.Network{
+			{UUID: vmReqInfo.VpcIID.SystemId},
+		},
 		AvailabilityZone: vmHandler.RegionInfo.Zone,
-		UserData: []byte(*initUserData), // Apply cloud-init script
+		UserData:         []byte(*initUserData), // Apply cloud-init script
 	}
 
 	// Add KeyPair Name
@@ -260,16 +260,16 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 
 	// Set VM RootDiskType
 	if strings.EqualFold(reqDiskType, "General_HDD") {
-		reqDiskType = HDD  // "General HDD"
+		reqDiskType = HDD // "General HDD"
 	} else if strings.EqualFold(reqDiskType, "General_SSD") {
-		reqDiskType = SSD  // "General SSD"
+		reqDiskType = SSD // "General SSD"
 	}
 
 	// In case, Volume Type is not specified.
 	if strings.EqualFold(reqDiskType, "") || strings.EqualFold(reqDiskType, "default") {
 		reqDiskType = HDD
 	}
-	
+
 	// When Volume Type is Incorrect
 	if strings.EqualFold(nhnVMSpecType, "u2") && !strings.EqualFold(reqDiskType, HDD) {
 		newErr := fmt.Errorf("Invalid RootDiskType!! Specified VMSpec [%s] supports only 'default' or 'General_HDD' RootDiskType!!", vmReqInfo.VMSpecName)
@@ -281,8 +281,8 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 	if strings.EqualFold(nhnVMSpecType, "u2") && (!strings.EqualFold(reqDiskSize, "") && !strings.EqualFold(reqDiskSize, "default")) {
 
 		vmSpecHandler := NhnCloudVMSpecHandler{
-			RegionInfo:  vmHandler.RegionInfo,
-			VMClient:    vmHandler.VMClient,
+			RegionInfo: vmHandler.RegionInfo,
+			VMClient:   vmHandler.VMClient,
 		}
 		vmSpec, err := vmSpecHandler.GetVMSpec(vmReqInfo.VMSpecName) // Check vmSpec info.
 		if err != nil {
@@ -336,7 +336,7 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 			LoggingError(callLogInfo, newErr)
 			return irs.VMInfo{}, newErr
 		}
-	
+
 		// Volume Size must be more than 50GB and less than 1000GB (for Windows OS)
 		if nhnVMSpecType != "u2" && (reqDiskSizeInt < 50 || reqDiskSizeInt > 1000) {
 			newErr := fmt.Errorf("Invalid RootDiskSize!! RootDiskSize range should be 50 to 1000(GB) for Windows OS!!")
@@ -355,7 +355,7 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 			LoggingError(callLogInfo, newErr)
 			return irs.VMInfo{}, newErr
 		}
-	
+
 		// Volume Size must be more than 20GB and less than 1000GB (for Linux OS)
 		if nhnVMSpecType != "u2" && (reqDiskSizeInt < 20 || reqDiskSizeInt > 1000) {
 			newErr := fmt.Errorf("Invalid RootDiskSize!! RootDiskSize range should be 20 to 1000(GB) for Linux OS!!")
@@ -364,12 +364,12 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 			return irs.VMInfo{}, newErr
 		}
 	}
-	
+
 	start := call.Start()
 	createOpts.CreateOptsBuilder = serverCreateOpts
 
 	var newNhnVM *servers.Server
-	if strings.EqualFold(nhnVMSpecType, "u2") {  // Only HDD and Default RootDiskSize according to the VMSpec
+	if strings.EqualFold(nhnVMSpecType, "u2") { // Only HDD and Default RootDiskSize according to the VMSpec
 		newNhnVM, err = servers.Create(vmHandler.VMClient, createOpts).Extract()
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Create a VM with the Local Disk!! [%v]", err)
@@ -380,12 +380,12 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 	} else {
 		blockDeviceSet := []bootfromvolume.BlockDevice{
 			{
-				UUID:                vmReqInfo.ImageIID.SystemId,
-				SourceType:          bootfromvolume.SourceImage, 
+				UUID:       vmReqInfo.ImageIID.SystemId,
+				SourceType: bootfromvolume.SourceImage,
 				// Note) In case of 'MyImage', SourceType is 'SourceImage', too.  Not 'bootfromvolume.SourceSnapshot'
-				VolumeType:			 reqDiskType,
+				VolumeType:          reqDiskType,
 				VolumeSize:          reqDiskSizeInt,
-				DestinationType:     bootfromvolume.DestinationVolume,  // Destination_type must be 'Volume'. Not 'bootfromvolume.DestinationLocal'
+				DestinationType:     bootfromvolume.DestinationVolume, // Destination_type must be 'Volume'. Not 'bootfromvolume.DestinationLocal'
 				DeleteOnTermination: true,
 			},
 		}
@@ -419,20 +419,20 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 
 	// Set Disk Attachment Info
 	diskHandler := NhnCloudDiskHandler{
-		RegionInfo:  	vmHandler.RegionInfo,
-		VMClient:    	vmHandler.VMClient,
-		VolumeClient: 	vmHandler.VolumeClient,
+		RegionInfo:   vmHandler.RegionInfo,
+		VMClient:     vmHandler.VMClient,
+		VolumeClient: vmHandler.VolumeClient,
 	}
 	if len(vmReqInfo.DataDiskIIDs) != 0 {
 		for _, DataDiskIID := range vmReqInfo.DataDiskIIDs {
 			_, err := diskHandler.AttachDisk(DataDiskIID, newVMIID)
-				if err != nil {
-					newErr := fmt.Errorf("Failed to Attach the Disk Volume to the VM!! [%v]", err)
-					cblogger.Error(newErr.Error())
-					LoggingError(callLogInfo, newErr)
-					return irs.VMInfo{}, newErr
-				}
-				cblogger.Infof("# Disk [%s] Attached Successfully!!", DataDiskIID.SystemId)
+			if err != nil {
+				newErr := fmt.Errorf("Failed to Attach the Disk Volume to the VM!! [%v]", err)
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
+			}
+			cblogger.Infof("# Disk [%s] Attached Successfully!!", DataDiskIID.SystemId)
 		}
 	}
 
@@ -646,7 +646,7 @@ func (vmHandler *NhnCloudVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error
 		rebootOpts := servers.RebootOpts{
 			Type: servers.SoftReboot,
 		}
-	
+
 		err := servers.Reboot(vmHandler.VMClient, vmIID.SystemId, rebootOpts).ExtractErr()
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Reboot the VM!! : [%v] ", err)
@@ -760,7 +760,7 @@ func (vmHandler *NhnCloudVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) 
 }
 
 func (vmHandler *NhnCloudVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) {
-	cblogger.Info("NHN Cloud Driver: called GetVMStatus()")	
+	cblogger.Info("NHN Cloud Driver: called GetVMStatus()")
 	callLogInfo := getCallLogScheme(vmHandler.RegionInfo.Region, call.VM, vmIID.SystemId, "GetVMStatus()")
 
 	if strings.EqualFold(vmIID.SystemId, "") {
@@ -790,7 +790,7 @@ func (vmHandler *NhnCloudVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	callLogInfo := getCallLogScheme(vmHandler.RegionInfo.Region, call.VM, "ListVM()", "ListVM()")
 
 	start := call.Start()
-	listOpts :=	servers.ListOpts{
+	listOpts := servers.ListOpts{
 		Limit: 100,
 	}
 	allPages, err := servers.List(vmHandler.VMClient, listOpts).AllPages()
@@ -809,7 +809,7 @@ func (vmHandler *NhnCloudVMHandler) ListVM() ([]*irs.VMInfo, error) {
 
 	// Mapping VM info list
 	var vmInfoList []*irs.VMInfo
-    for _, server := range serverList {
+	for _, server := range serverList {
 		vmInfo, err := vmHandler.mappingVMInfo(server)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Map New VM Info. %s", err)
@@ -818,7 +818,7 @@ func (vmHandler *NhnCloudVMHandler) ListVM() ([]*irs.VMInfo, error) {
 			return nil, newErr
 		}
 		vmInfoList = append(vmInfoList, &vmInfo)
-    }
+	}
 	return vmInfoList, nil
 }
 
@@ -887,7 +887,7 @@ func (vmHandler *NhnCloudVMHandler) associatePublicIP(serverID string) (bool, er
 			FloatingIP: publicIP.IP,
 		}
 		err = floatingips.AssociateInstance(vmHandler.VMClient, serverID, associateOpts).ExtractErr()
-		if err == nil {			
+		if err == nil {
 			break
 		} else {
 			newErr := fmt.Errorf("Failed to AssociateInstance the Public IP!! : [%v] ", err)
@@ -908,7 +908,7 @@ func (vmHandler *NhnCloudVMHandler) associatePublicIP(serverID string) (bool, er
 
 func getVmStatus(vmStatus string) irs.VMStatus {
 	cblogger.Info("NHN Cloud Driver: called getVmStatus()")
-	
+
 	var resultStatus string
 	switch strings.ToLower(vmStatus) {
 	case "build":
@@ -958,21 +958,21 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 		KeyPairIId: irs.IID{
 			NameId:   server.KeyName,
 			SystemId: server.KeyName,
-		},		
+		},
 		// VMUserPasswd:      "N/A",
-		NetworkInterface:  server.HostID,
+		NetworkInterface: server.HostID,
 	}
 	vmInfo.StartTime = convertedTime
 
 	// Image Info
-	imageId := server.Image["id"].(string)	
+	imageId := server.Image["id"].(string)
 	nhnImage, err := comimages.Get(vmHandler.VMClient, imageId).Extract() // Caution!!) Wtih VMClient (Not Like ImageHandler)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Image info from NHN Cloud!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		return irs.VMInfo{}, newErr
-	} else if nhnImage != nil {		
-		vmInfo.ImageIId.NameId	 = nhnImage.ID
+	} else if nhnImage != nil {
+		vmInfo.ImageIId.NameId = nhnImage.ID
 		vmInfo.ImageIId.SystemId = nhnImage.ID
 	}
 
@@ -985,10 +985,10 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 		newErr := fmt.Errorf("Failed to Get the Flavor info from NHN Cloud!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		return irs.VMInfo{}, newErr
-	} else if nhnFlavor != nil {		
+	} else if nhnFlavor != nil {
 		// spew.Dump(flavor)
 		vmInfo.VMSpecName = nhnFlavor.Name
-		if vmInfo.RootDiskSize == "" {  // In case of u2 VMSpec type
+		if vmInfo.RootDiskSize == "" { // In case of u2 VMSpec type
 			vmInfo.RootDiskType = "General_HDD" // u2 type VMSpec only supports 'General_HHD'.
 			vmInfo.RootDiskSize = strconv.Itoa(nhnFlavor.Disk)
 			vmInfo.RootDeviceName = "/dev/vda"
@@ -1018,7 +1018,7 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 				// spew.Dump(nhnVolume)
 				switch nhnVolume.VolumeType {
 				case HDD:
-					vmInfo.RootDiskType	= "General_HDD"
+					vmInfo.RootDiskType = "General_HDD"
 				case SSD:
 					vmInfo.RootDiskType = "General_SSD"
 				case "":
@@ -1037,13 +1037,13 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 	for key, subnet := range server.Addresses {
 		// VPC Info
 		vmInfo.VpcIID.NameId = key
-		nhnNetwork, err := getNetworkWithName(vmHandler.NetworkClient, vmInfo.VpcIID.NameId)
+		nhnVPC, err := getVPCWithName(vmHandler.NetworkClient, vmInfo.VpcIID.NameId)
 		if err != nil {
-			newErr := fmt.Errorf("Failed to Get the NHN Cloud Network Info!! : [%v] ", err)
+			newErr := fmt.Errorf("Failed to Get the NHN Cloud VPC Info!! : [%v] ", err)
 			cblogger.Error(newErr.Error())
 			return irs.VMInfo{}, newErr
-		} else if nhnNetwork != nil {
-			vmInfo.VpcIID.SystemId = nhnNetwork.ID
+		} else if nhnVPC != nil {
+			vmInfo.VpcIID.SystemId = nhnVPC.ID
 		}
 		// PrivateIP, PublicIp Info
 		for _, addr := range subnet.([]interface{}) {
@@ -1070,13 +1070,13 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 				vmInfo.SubnetIID.SystemId = nhnPort.FixedIPs[0].SubnetID
 			}
 
-			nhnSubnet, err := getSubnetWithId(vmHandler.NetworkClient, vmInfo.SubnetIID.SystemId)
+			nhnVpcsubnet, err := getVpcsubnetWithId(vmHandler.NetworkClient, vmInfo.SubnetIID.SystemId)
 			if err != nil {
 				newErr := fmt.Errorf("Failed to Get the Subnet Info!! : [%v] ", err)
 				cblogger.Error(newErr.Error())
 				return irs.VMInfo{}, newErr
-			} else if nhnSubnet != nil {
-				vmInfo.SubnetIID.NameId = nhnSubnet.Name
+			} else if nhnVpcsubnet != nil {
+				vmInfo.SubnetIID.NameId = nhnVpcsubnet.Name
 			}
 			// Network Interface Info
 			vmInfo.NetworkInterface = nhnPort.ID
@@ -1096,7 +1096,7 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 				newErr := fmt.Errorf("Failed to Get the Security Group Info!! : [%v] ", err)
 				cblogger.Error(newErr.Error())
 				return irs.VMInfo{}, newErr
-			} else	if secGroup != nil {
+			} else if secGroup != nil {
 				sgIIds[i].SystemId = secGroup.ID
 			}
 		}
@@ -1118,7 +1118,7 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 		vmInfo.VMUserId = DefaultVMUserName
 		vmInfo.SSHAccessPoint = vmInfo.PublicIP + ":22"
 	}
-	
+
 	var keyValueList []irs.KeyValue
 	if vCPU != "" {
 		keyValue := irs.KeyValue{Key: "vCPU", Value: vCPU}
@@ -1190,15 +1190,14 @@ func (vmHandler *NhnCloudVMHandler) getOSPlatformWithImageID(imageId string) (ir
 		cblogger.Error(newErr.Error())
 		return "", newErr
 	}
-	
+
 	if strings.EqualFold(osType, "windows") {
 		return irs.WINDOWS, nil
 	} else if strings.EqualFold(osType, "linux") {
 		return irs.LINUX_UNIX, nil
-	} 
+	}
 	return irs.LINUX_UNIX, nil
 }
-
 
 func (vmHandler *NhnCloudVMHandler) createLinuxInitUserData(imageIID irs.IID, keyPairId string) (*string, error) {
 	cblogger.Info("NHN Cloud driver: called createLinuxInitUserData()!!")
@@ -1221,7 +1220,7 @@ func (vmHandler *NhnCloudVMHandler) createLinuxInitUserData(imageIID irs.IID, ke
 		return nil, newErr
 	} else {
 		cblogger.Infof("Succeeded in Finding and Opening the S/G file: ")
-	}	
+	}
 	fileStr := string(fileData)
 	fileStr = strings.ReplaceAll(fileStr, "{{username}}", DefaultVMUserName)
 	fileStr = strings.ReplaceAll(fileStr, "{{public_key}}", keyPair.PublicKey)

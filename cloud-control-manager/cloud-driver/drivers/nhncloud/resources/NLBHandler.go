@@ -12,43 +12,46 @@ package resources
 
 import (
 	"fmt"
-	"strings"
 	"strconv"
+	"strings"
 	"time"
+
 	"github.com/davecgh/go-spew/spew"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	
+
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/loadbalancer/v2/loadbalancers"
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/vpcs"
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/subnets"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/loadbalancer/v2/listeners"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/loadbalancer/v2/loadbalancers"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/subnets"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/vpcs"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/vpcsubnets"
 
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/servers"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/loadbalancer/v2/monitors"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/loadbalancer/v2/pools"
+
 	// "github.com/cloud-barista/nhncloud-sdk-go/openstack/loadbalancer/v2/providers"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/extensions/layer3/floatingips"
 )
 
 type NhnCloudNLBHandler struct {
-	RegionInfo     idrv.RegionInfo
-	VMClient       *nhnsdk.ServiceClient
-	NetworkClient  *nhnsdk.ServiceClient
+	RegionInfo    idrv.RegionInfo
+	VMClient      *nhnsdk.ServiceClient
+	NetworkClient *nhnsdk.ServiceClient
 }
 
 const (
-	PublicType 					  string  = "shared"
-	InternalType 				  string  = "dedicated"
-	DefaultWeight 				  int 	  = 1
-	DefaultAdminStateUp			  bool 	  = true
+	PublicType          string = "shared"
+	InternalType        string = "dedicated"
+	DefaultWeight       int    = 1
+	DefaultAdminStateUp bool   = true
 
 	// NHN Cloud default value for Listener and Health Monitor
-	DefaultConnectionLimit    	  int = 2000 // NHN Cloud Listener ConnectionLimit range : 1 ~ 60000 (Dedicated LB : 1 ~ 480000)
-	DefaultKeepAliveTimeout 	  int = 300	 // NHN Cloud Listener KeepAliveTimeout range : 0 ~ 3600
+	DefaultConnectionLimit        int = 2000 // NHN Cloud Listener ConnectionLimit range : 1 ~ 60000 (Dedicated LB : 1 ~ 480000)
+	DefaultKeepAliveTimeout       int = 300  // NHN Cloud Listener KeepAliveTimeout range : 0 ~ 3600
 	DefaultHealthCheckerInterval  int = 30
 	DefaultHealthCheckerTimeout   int = 5
 	DefaultHealthCheckerThreshold int = 2
@@ -93,15 +96,15 @@ func (nlbHandler *NhnCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLB
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.NLBInfo{}, newErr
-	} 
+	}
 
 	callLogStart := call.Start()
-	createOpts := loadbalancers.CreateOpts {
-		Name:         		nlbReqInfo.IId.NameId,
-		Description:		"CB-NLB : " + nlbReqInfo.IId.NameId,
-		VipSubnetID:  		subnetId,
-		AdminStateUp: 		*nhnsdk.Enabled,
-		LoadBalancerType: 	nlbType,
+	createOpts := loadbalancers.CreateOpts{
+		Name:             nlbReqInfo.IId.NameId,
+		Description:      "CB-NLB : " + nlbReqInfo.IId.NameId,
+		VipSubnetID:      subnetId,
+		AdminStateUp:     *nhnsdk.Enabled,
+		LoadBalancerType: nlbType,
 	}
 	newNlb, err := loadbalancers.Create(nlbHandler.NetworkClient, createOpts).Extract()
 	if err != nil {
@@ -111,7 +114,7 @@ func (nlbHandler *NhnCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLB
 		return irs.NLBInfo{}, newErr
 	}
 	LoggingInfo(callLogInfo, callLogStart)
-	
+
 	// Wait for provisioning to complete.('provisioningStatus' is "ACTIVE")
 	_, err = nlbHandler.waitToGetNLBInfo(irs.IID{SystemId: newNlb.ID})
 	if err != nil {
@@ -124,7 +127,7 @@ func (nlbHandler *NhnCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLB
 	// spew.Dump(newNlb)
 
 	newNlbIID := irs.IID{SystemId: newNlb.ID}
-	
+
 	newListener, err := nlbHandler.createListener(newNlb.ID, nlbReqInfo)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Create Listener. [%v]", err.Error())
@@ -137,7 +140,7 @@ func (nlbHandler *NhnCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLB
 			newErr := fmt.Errorf("Failed to Clean up the NLB. [%v]", err.Error())
 			cblogger.Error(newErr.Error())
 			return irs.NLBInfo{}, newErr
-		} else { 
+		} else {
 			cblogger.Info("\n\n# Succeeded in Deleting the NLB.")
 		}
 
@@ -161,7 +164,7 @@ func (nlbHandler *NhnCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLB
 			newErr := fmt.Errorf("Failed to Clean up the NLB. [%v]", err.Error())
 			cblogger.Error(newErr.Error())
 			return irs.NLBInfo{}, newErr
-		} else { 
+		} else {
 			cblogger.Info("\n\n# Succeeded in Deleting the NLB.")
 		}
 
@@ -169,7 +172,7 @@ func (nlbHandler *NhnCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLB
 	}
 	// cblogger.Info("\n\n# New Pool : ")
 	// spew.Dump(newPool)
-	
+
 	cblogger.Info("\n\n#### Waiting for Provisioning the New Pool!!")
 	time.Sleep(25 * time.Second)
 
@@ -185,10 +188,10 @@ func (nlbHandler *NhnCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLB
 			newErr := fmt.Errorf("Failed to Clean up the NLB. [%v]", err.Error())
 			cblogger.Error(newErr.Error())
 			return irs.NLBInfo{}, newErr
-		} else { 
+		} else {
 			cblogger.Info("\n\n# Succeeded in Deleting the NLB.")
 		}
-				
+
 		return irs.NLBInfo{}, newErr
 	}
 	cblogger.Info("\n\n# New Health Monitor : ")
@@ -209,7 +212,7 @@ func (nlbHandler *NhnCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLB
 			newErr := fmt.Errorf("Failed to Clean up the NLB. [%v]", err.Error())
 			cblogger.Error(newErr.Error())
 			return irs.NLBInfo{}, newErr
-		} else { 
+		} else {
 			cblogger.Info("\n\n# Succeeded in Deleting the NLB.")
 		}
 
@@ -222,7 +225,7 @@ func (nlbHandler *NhnCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLB
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Create PublicIP for the NLB. [%v]", err.Error())
 		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)	
+		LoggingError(callLogInfo, newErr)
 		return irs.NLBInfo{}, newErr
 	}
 	if !strings.EqualFold(newFloatingIp, "") {
@@ -233,7 +236,7 @@ func (nlbHandler *NhnCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLB
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Created NLB Info. [%v]", err.Error())
 		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)	
+		LoggingError(callLogInfo, newErr)
 		return irs.NLBInfo{}, newErr
 	}
 	return nlbInfo, nil
@@ -266,7 +269,7 @@ func (nlbHandler *NhnCloudNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	// spew.Dump(nlbList)
 
 	var nlbInfoList []*irs.NLBInfo
-    for _, nlb := range nlbList {
+	for _, nlb := range nlbList {
 		nlbInfo, err := nlbHandler.mappingNlbInfo(nlb)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get NLB Info. : [%v]", err)
@@ -275,7 +278,7 @@ func (nlbHandler *NhnCloudNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 			return nil, newErr
 		}
 		nlbInfoList = append(nlbInfoList, &nlbInfo)
-    }
+	}
 	return nlbInfoList, nil
 }
 
@@ -343,12 +346,12 @@ func (nlbHandler *NhnCloudNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Delete the PublicIP of the NLB. [%v]", err.Error())
 		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)	
+		LoggingError(callLogInfo, newErr)
 		return false, newErr
 	}
 
 	callLogStart := call.Start()
-	delOpts := loadbalancers.DeleteOpts{Cascade: true}  // Note : 'Cascade' will delete all children of the LB (Listeners, Monitors, etc).
+	delOpts := loadbalancers.DeleteOpts{Cascade: true} // Note : 'Cascade' will delete all children of the LB (Listeners, Monitors, etc).
 	delErr := loadbalancers.Delete(nlbHandler.NetworkClient, nlbIID.SystemId, delOpts).ExtractErr()
 	if delErr != nil {
 		newErr := fmt.Errorf("Failed to Delete the NLB. : [%v]", delErr)
@@ -401,8 +404,8 @@ func (nlbHandler *NhnCloudNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup 
 		return oldVMGroupInfo, nil
 	}
 
-	if len(*vmGroup.VMs) < 1 {  // In case, the 'vmGroup' parameter does not contain VM IID value.
-		vmGroup.VMs = oldVMGroupInfo.VMs 
+	if len(*vmGroup.VMs) < 1 { // In case, the 'vmGroup' parameter does not contain VM IID value.
+		vmGroup.VMs = oldVMGroupInfo.VMs
 	}
 
 	newMembers, err := nlbHandler.createVMMembers(nlbInfo.VMGroup.CspID, vmGroup)
@@ -533,7 +536,7 @@ func (nlbHandler *NhnCloudNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.II
 	vmMembers := nlbInfo.VMGroup.VMs
 
 	for _, member := range *vmMembers {
-		for _, vmToDel := range *vmIIDs {		
+		for _, vmToDel := range *vmIIDs {
 			if strings.EqualFold(member.NameId, vmToDel.NameId) {
 				cblogger.Infof("\n\n#### Deleting VM [%s] from the VMGroup : ", vmToDel.NameId)
 				_, err = nlbHandler.deleteVMMember(nhnPoolList[0].ID, vmToDel)
@@ -560,15 +563,15 @@ func (nlbHandler *NhnCloudNLBHandler) createListener(nlbId string, nlbReqInfo ir
 		LoggingError(callLogInfo, newErr)
 		return listeners.Listener{}, newErr
 	}
-	
+
 	listenerProtocol, err := getListenerProtocol(nlbReqInfo.Listener.Protocol)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Listener Protocol : [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
-		return listeners.Listener{}, newErr		
+		return listeners.Listener{}, newErr
 	}
-	
+
 	portNum, err := strconv.Atoi(nlbReqInfo.Listener.Port)
 	if err != nil {
 		newErr := fmt.Errorf("Invalid Listener Port. : [%v]", err)
@@ -584,15 +587,15 @@ func (nlbHandler *NhnCloudNLBHandler) createListener(nlbId string, nlbReqInfo ir
 	}
 
 	callLogStart := call.Start()
-	createOpts := listeners.CreateOpts {
-		Protocol:       	listenerProtocol,
-		Description:		nlbReqInfo.IId.NameId,
-		Name:           	nlbReqInfo.IId.NameId,
-		LoadbalancerID: 	nlbId,
-		AdminStateUp:   	*nhnsdk.Enabled,
-		ConnLimit: 			DefaultConnectionLimit,	  // NHN Cloud Listener ConnectionLimit range : 1 ~ 60000 (Dedicated LB : 1 ~ 480000)
-		KeepAliveTimeout: 	DefaultKeepAliveTimeout,  // NHN Cloud Listener KeepAliveTimeout range : 0 ~ 3600
-		ProtocolPort:   	portNum,
+	createOpts := listeners.CreateOpts{
+		Protocol:         listenerProtocol,
+		Description:      nlbReqInfo.IId.NameId,
+		Name:             nlbReqInfo.IId.NameId,
+		LoadbalancerID:   nlbId,
+		AdminStateUp:     *nhnsdk.Enabled,
+		ConnLimit:        DefaultConnectionLimit,  // NHN Cloud Listener ConnectionLimit range : 1 ~ 60000 (Dedicated LB : 1 ~ 480000)
+		KeepAliveTimeout: DefaultKeepAliveTimeout, // NHN Cloud Listener KeepAliveTimeout range : 0 ~ 3600
+		ProtocolPort:     portNum,
 	}
 	listener, err := listeners.Create(nlbHandler.NetworkClient, createOpts).Extract()
 	if err != nil {
@@ -638,15 +641,15 @@ func (nlbHandler *NhnCloudNLBHandler) createPool(listenerId string, nlbReqInfo i
 
 	callLogStart := call.Start()
 	// # Note : NHN Cloud LBMethods on GoSDK(nhncloud-sdk-go)
-		// LBMethodRoundRobin       LBMethod = "ROUND_ROBIN"
-		// LBMethodLeastConnections LBMethod = "LEAST_CONNECTIONS"
-		// LBMethodSourceIp         LBMethod = "SOURCE_IP"
+	// LBMethodRoundRobin       LBMethod = "ROUND_ROBIN"
+	// LBMethodLeastConnections LBMethod = "LEAST_CONNECTIONS"
+	// LBMethodSourceIp         LBMethod = "SOURCE_IP"
 	createOpts := pools.CreateOpts{
-		ListenerID: 	listenerId,     			// required:"true"
-		LBMethod:       pools.LBMethodRoundRobin,   // required:"true"
-		Protocol:       poolProtocol,  				// required:"true". # Protocol of VM Member
-		Description:	nlbReqInfo.IId.NameId,
-		MemberPort: 	portNum,
+		ListenerID:  listenerId,               // required:"true"
+		LBMethod:    pools.LBMethodRoundRobin, // required:"true"
+		Protocol:    poolProtocol,             // required:"true". # Protocol of VM Member
+		Description: nlbReqInfo.IId.NameId,
+		MemberPort:  portNum,
 	}
 	newPool, err := pools.Create(nlbHandler.NetworkClient, createOpts).Extract()
 	if err != nil {
@@ -676,18 +679,18 @@ func (nlbHandler *NhnCloudNLBHandler) createHealthMonitor(poolId string, nlbReqI
 		return monitors.Monitor{}, fmt.Errorf("Invalid Health Monitor Type. (Must be 'TCP', 'HTTP' or 'HTTPS' for NHN Cloud.)") // According to the NHN Cloud API document
 	}
 
-	healthCheckerInterval  := nlbReqInfo.HealthChecker.Interval
-	healthCheckerTimeout   := nlbReqInfo.HealthChecker.Timeout
+	healthCheckerInterval := nlbReqInfo.HealthChecker.Interval
+	healthCheckerTimeout := nlbReqInfo.HealthChecker.Timeout
 	healthCheckerThreshold := nlbReqInfo.HealthChecker.Threshold
 
 	if healthCheckerInterval == -1 {
-	   healthCheckerInterval = DefaultHealthCheckerInterval  	// 30 seconds
+		healthCheckerInterval = DefaultHealthCheckerInterval // 30 seconds
 	}
 	if healthCheckerTimeout == -1 {
-		healthCheckerTimeout = DefaultHealthCheckerTimeout		// 5 seconds
+		healthCheckerTimeout = DefaultHealthCheckerTimeout // 5 seconds
 	}
 	if healthCheckerThreshold == -1 {
-		healthCheckerThreshold = DefaultHealthCheckerThreshold 	// 2 times
+		healthCheckerThreshold = DefaultHealthCheckerThreshold // 2 times
 	}
 
 	if healthCheckerInterval > 5000 || healthCheckerInterval < 1 {
@@ -725,12 +728,12 @@ func (nlbHandler *NhnCloudNLBHandler) createHealthMonitor(poolId string, nlbReqI
 	callLogStart := call.Start()
 	// Note : NHN Cloud HealthChecker Protocols : TCP, HTTP or HTTPS
 	creatOpts := monitors.CreateOpts{
-		PoolID:     		poolId,												// required:"true"
-		HealthCheckPort: 	portNum,
-		Delay:      		healthCheckerInterval,					// required:"true". Must be between 1 and 5000.
-		MaxRetries: 		healthCheckerThreshold,					// required:"true"  Must be between 1 and 10.
-		Timeout:    		healthCheckerTimeout,					// required:"true". Must be between 1 and 5000. Must be smaller than Interval time.
-		Type:       		strings.ToUpper(nlbReqInfo.HealthChecker.Protocol),	// required:"true"
+		PoolID:          poolId, // required:"true"
+		HealthCheckPort: portNum,
+		Delay:           healthCheckerInterval,                              // required:"true". Must be between 1 and 5000.
+		MaxRetries:      healthCheckerThreshold,                             // required:"true"  Must be between 1 and 10.
+		Timeout:         healthCheckerTimeout,                               // required:"true". Must be between 1 and 5000. Must be smaller than Interval time.
+		Type:            strings.ToUpper(nlbReqInfo.HealthChecker.Protocol), // required:"true"
 	}
 	newMonitor, err := monitors.Create(nlbHandler.NetworkClient, &creatOpts).Extract()
 	if err != nil {
@@ -788,11 +791,11 @@ func (nlbHandler *NhnCloudNLBHandler) createVMMembers(poolId string, vmGroupInfo
 
 		callLogStart := call.Start()
 		creatOpts := pools.CreateMemberOpts{
-			Weight: 		DefaultWeight,
-			AdminStateUp: 	DefaultAdminStateUp,
-			SubnetID:		subnetId,
-			Address:      	privateIp,
-			ProtocolPort:   portNum,
+			Weight:       DefaultWeight,
+			AdminStateUp: DefaultAdminStateUp,
+			SubnetID:     subnetId,
+			Address:      privateIp,
+			ProtocolPort: portNum,
 		}
 		createResult, err := pools.CreateMember(nlbHandler.NetworkClient, poolId, creatOpts).Extract()
 		if err != nil {
@@ -837,8 +840,8 @@ func (nlbHandler *NhnCloudNLBHandler) createPublicIP(nlbVipPortId string) (strin
 
 	callLogStart := call.Start()
 	createOpts := floatingips.CreateOpts{
-		FloatingNetworkID: 	externVPCID,
-		PortID:            	nlbVipPortId,
+		FloatingNetworkID: externVPCID,
+		PortID:            nlbVipPortId,
 	}
 	createResult, err := floatingips.Create(nlbHandler.NetworkClient, createOpts).Extract()
 	if err != nil {
@@ -867,7 +870,7 @@ func (nlbHandler *NhnCloudNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.
 
 	nlbInfo, err := nlbHandler.GetNLB(nlbIID)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get NLB info!! [%v]", err)		
+		newErr := fmt.Errorf("Failed to Get NLB info!! [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.HealthInfo{}, newErr
@@ -892,15 +895,15 @@ func (nlbHandler *NhnCloudNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.
 			cblogger.Error(newErr.Error())
 			return irs.HealthInfo{}, newErr
 		}
-		
-		allVMs = append(allVMs, irs.IID{NameId: vm.Name, SystemId: vm.ID})  // Caution : Not 'VM Member ID' but 'VM System ID'
+
+		allVMs = append(allVMs, irs.IID{NameId: vm.Name, SystemId: vm.ID}) // Caution : Not 'VM Member ID' but 'VM System ID'
 
 		if strings.EqualFold(member.OperatingStatus, "ACTIVE") {
 			cblogger.Infof("\n### [%s] is Healthy VM.", vm.Name)
 			healthVMs = append(healthVMs, irs.IID{NameId: vm.Name, SystemId: vm.ID})
 		} else {
 			cblogger.Infof("\n### [%s] is Unhealthy VM.", vm.Name)
-			unHealthVMs = append(unHealthVMs, irs.IID{NameId: vm.Name, SystemId: vm.ID})  // In case of "INACTIVE", ...
+			unHealthVMs = append(unHealthVMs, irs.IID{NameId: vm.Name, SystemId: vm.ID}) // In case of "INACTIVE", ...
 		}
 	}
 	LoggingInfo(callLogInfo, callLogStart)
@@ -970,7 +973,7 @@ func (nlbHandler *NhnCloudNLBHandler) getFirstSubnetIdWithVPCName(vpcName string
 	}
 
 	callLogStart := call.Start()
-	listOpts := vpcs.ListOpts {
+	listOpts := vpcs.ListOpts{
 		Name: vpcName,
 	}
 	allPages, err := vpcs.List(nlbHandler.NetworkClient, listOpts).AllPages()
@@ -993,10 +996,10 @@ func (nlbHandler *NhnCloudNLBHandler) getFirstSubnetIdWithVPCName(vpcName string
 
 	for _, vpc := range nhnVpcList {
 		// ### Since New NHN Cloud VPC API 'GET ~/v2.0/vpcs' VPC List does Not return Subnet List
-		listOpts := subnets.ListOpts{
+		listOpts := vpcsubnets.ListOpts{
 			VPCID: vpc.ID,
 		}
-		allPages, err := subnets.List(nlbHandler.NetworkClient, listOpts).AllPages()
+		allPages, err := vpcsubnets.List(nlbHandler.NetworkClient, listOpts).AllPages()
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get the Subnet Pages from NHN Cloud!! : [%v]", err)
 			cblogger.Error(newErr.Error())
@@ -1019,7 +1022,7 @@ func (nlbHandler *NhnCloudNLBHandler) getFirstSubnetIdWithVPCName(vpcName string
 	return "", nil
 }
 
-// Waiting for Provisioning to Complete. 
+// Waiting for Provisioning to Complete.
 func (nlbHandler *NhnCloudNLBHandler) waitToGetNLBInfo(nlbIID irs.IID) (bool, error) {
 	cblogger.Info("NHN Cloud Driver: called waitToGetNLBInfo()")
 
@@ -1069,13 +1072,13 @@ func (nlbHandler *NhnCloudNLBHandler) getNlbProvisioningStatus(nlbIID irs.IID) (
 	}
 
 	var status string
-    // Use Key/Value info of the nlbInfo.
-    for _, keyInfo := range nlbInfo.KeyValueList {
-        if strings.EqualFold(keyInfo.Key, "NLB_ProvisioningStatus") {
-            status = keyInfo.Value
-            break
-        }
-    }
+	// Use Key/Value info of the nlbInfo.
+	for _, keyInfo := range nlbInfo.KeyValueList {
+		if strings.EqualFold(keyInfo.Key, "NLB_ProvisioningStatus") {
+			status = keyInfo.Value
+			break
+		}
+	}
 	return status, nil
 }
 
@@ -1179,7 +1182,7 @@ func (nlbHandler *NhnCloudNLBHandler) getVMMemberOperatingStatus(poolId string, 
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return "", newErr
-	} 
+	}
 	if strings.EqualFold(vmMemberId, "") {
 		newErr := fmt.Errorf("Invalid NLB ID!!")
 		cblogger.Error(newErr.Error())
@@ -1304,14 +1307,14 @@ func (nlbHandler *NhnCloudNLBHandler) getHealthMonitorListWithPoolId(poolId stri
 
 	var healthCheckerInfoList []irs.HealthCheckerInfo
 
-    for _, nhnMonitor := range nhnMonitorlist {
+	for _, nhnMonitor := range nhnMonitorlist {
 		for _, pool := range nhnMonitor.Pools {
 			if pool.ID == poolId {
 				healthCheckerInfo := nlbHandler.mappingMonitorInfo(nhnMonitor)
 				healthCheckerInfoList = append(healthCheckerInfoList, healthCheckerInfo)
 			}
 		}
-    }
+	}
 
 	return healthCheckerInfoList, nil
 }
@@ -1326,7 +1329,7 @@ func (nlbHandler *NhnCloudNLBHandler) getNhnPoolListWithListenerId(listenerId st
 		LoggingError(callLogInfo, newErr)
 		return nil, newErr
 	}
-	
+
 	listOpts := pools.ListOpts{}
 	callLogStart := call.Start()
 	allPages, err := pools.List(nlbHandler.NetworkClient, listOpts).AllPages()
@@ -1348,13 +1351,13 @@ func (nlbHandler *NhnCloudNLBHandler) getNhnPoolListWithListenerId(listenerId st
 
 	var nhnPoolList []pools.Pool
 
-    for _, pool := range poolList {
+	for _, pool := range poolList {
 		for _, listener := range pool.Listeners {
 			if listener.ID == listenerId {
 				nhnPoolList = append(nhnPoolList, pool)
 			}
 		}
-    }
+	}
 
 	return nhnPoolList, nil
 }
@@ -1412,7 +1415,7 @@ func (nlbHandler *NhnCloudNLBHandler) getNetInfoWithVMName(vmName string) (strin
 		return "", "", newErr
 	}
 
-	listOpts :=	servers.ListOpts{
+	listOpts := servers.ListOpts{
 		Limit: 200,
 	}
 	allPages, err := servers.List(nlbHandler.VMClient, listOpts).AllPages()
@@ -1436,7 +1439,7 @@ func (nlbHandler *NhnCloudNLBHandler) getNetInfoWithVMName(vmName string) (strin
 			for _, subnet := range server.Addresses {
 				for _, addr := range subnet.([]interface{}) {
 					addrMap := addr.(map[string]interface{})
-					if addrMap["OS-EXT-IPS:type"] == "fixed" {  // In case of fixed IP (Private IP Address)
+					if addrMap["OS-EXT-IPS:type"] == "fixed" { // In case of fixed IP (Private IP Address)
 						ipAddress = addrMap["addr"].(string)
 					}
 				}
@@ -1459,7 +1462,7 @@ func (nlbHandler *NhnCloudNLBHandler) getNetInfoWithVMName(vmName string) (strin
 
 	return ipAddress, subnetId, nil
 }
-	
+
 func (nlbHandler *NhnCloudNLBHandler) deleteVMMember(poolId string, vmIID irs.IID) (bool, error) {
 	cblogger.Info("NHN Cloud Driver: called deleteVMMember()")
 	callLogInfo := getCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", poolId, "deleteVMMember()")
@@ -1469,7 +1472,7 @@ func (nlbHandler *NhnCloudNLBHandler) deleteVMMember(poolId string, vmIID irs.II
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
-	}	
+	}
 	if strings.EqualFold(vmIID.NameId, "") {
 		newErr := fmt.Errorf("Invalid VM NameId!!")
 		cblogger.Error(newErr.Error())
@@ -1507,7 +1510,7 @@ func (nlbHandler *NhnCloudNLBHandler) deleteVMMember(poolId string, vmIID irs.II
 		}
 
 	}
-		
+
 	cblogger.Info("\n\n#### Waiting for Deleting the Pool Member!!")
 	time.Sleep(10 * time.Second)
 
@@ -1540,9 +1543,9 @@ func (nlbHandler *NhnCloudNLBHandler) getVMGroupInfo(nlb loadbalancers.LoadBalan
 	}
 
 	vmGroupInfo := irs.VMGroupInfo{
-		Protocol: 	nhnPoolList[0].Protocol,  // Note : Protocol of the 'NHN Pool'
-		Port: 		strconv.Itoa(nhnPoolList[0].MemberPort), // Member's port for receiving. Deliver traffic to this port. Not Exits on API Manual.
-		CspID:    	nhnPoolList[0].ID,		// Note : ID of the 'NHN Pool'
+		Protocol: nhnPoolList[0].Protocol,                 // Note : Protocol of the 'NHN Pool'
+		Port:     strconv.Itoa(nhnPoolList[0].MemberPort), // Member's port for receiving. Deliver traffic to this port. Not Exits on API Manual.
+		CspID:    nhnPoolList[0].ID,                       // Note : ID of the 'NHN Pool'
 	}
 
 	vmMemberList, err := nlbHandler.getNhnVMMembersWithPoolId(nhnPoolList[0].ID)
@@ -1562,10 +1565,10 @@ func (nlbHandler *NhnCloudNLBHandler) getVMGroupInfo(nlb loadbalancers.LoadBalan
 			LoggingError(callLogInfo, newErr)
 			return irs.VMGroupInfo{}, newErr
 		}
-		
+
 		vmIIds = append(vmIIds, irs.IID{
-				NameId:   vm.Name,
-				SystemId: vm.ID,	// Caution : Not 'VM Member' ID
+			NameId:   vm.Name,
+			SystemId: vm.ID, // Caution : Not 'VM Member' ID
 		})
 	}
 	vmGroupInfo.VMs = &vmIIds
@@ -1581,7 +1584,7 @@ func (nlbHandler *NhnCloudNLBHandler) getNhnVMMembersWithPoolId(poolId string) (
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return nil, newErr
-	}	
+	}
 
 	callLogStart := call.Start()
 	lostOpts := pools.ListMembersOpts{}
@@ -1614,7 +1617,7 @@ func (nlbHandler *NhnCloudNLBHandler) getNhnVMMember(poolId string, memberId str
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return nil, newErr
-	}	
+	}
 	if strings.EqualFold(memberId, "") {
 		newErr := fmt.Errorf("Invalid VM Member ID!!")
 		cblogger.Error(newErr.Error())
@@ -1658,7 +1661,7 @@ func (nlbHandler *NhnCloudNLBHandler) getNhnVMWithPrivateIp(privateIp string) (*
 	}
 
 	callLogStart := call.Start()
-	listOpts :=	servers.ListOpts{
+	listOpts := servers.ListOpts{
 		Limit: 200,
 	}
 	allPages, err := servers.List(nlbHandler.VMClient, listOpts).AllPages()
@@ -1683,8 +1686,8 @@ func (nlbHandler *NhnCloudNLBHandler) getNhnVMWithPrivateIp(privateIp string) (*
 		for _, subnet := range server.Addresses {
 			for _, addr := range subnet.([]interface{}) {
 				addrMap := addr.(map[string]interface{})
-				if addrMap["OS-EXT-IPS:type"] == "fixed" {  // In case of fixed IP (Private IP Address)
-					if strings.EqualFold(addrMap["addr"].(string), privateIp){
+				if addrMap["OS-EXT-IPS:type"] == "fixed" { // In case of fixed IP (Private IP Address)
+					if strings.EqualFold(addrMap["addr"].(string), privateIp) {
 						nhnVM = server
 					}
 				}
@@ -1698,7 +1701,7 @@ func (nlbHandler *NhnCloudNLBHandler) getNhnVMWithPrivateIp(privateIp string) (*
 func (nlbHandler *NhnCloudNLBHandler) mappingNlbInfo(nhnNLB loadbalancers.LoadBalancer) (irs.NLBInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called mappingNlbInfo()")
 
-	vpcId, err := nlbHandler.getVPCIdWithSubnetId(nhnNLB.VipSubnetID)
+	vpcId, err := nlbHandler.getVPCIdWithVpcsubnetId(nhnNLB.VipSubnetID)
 	if err != nil {
 		cblogger.Error(err.Error())
 		return irs.NLBInfo{}, err
@@ -1707,7 +1710,7 @@ func (nlbHandler *NhnCloudNLBHandler) mappingNlbInfo(nhnNLB loadbalancers.LoadBa
 	var nlbType string
 	if strings.EqualFold(nhnNLB.LoadBalancerType, PublicType) {
 		nlbType = "PUBLIC"
-	} else if strings.EqualFold(nhnNLB.LoadBalancerType, InternalType){
+	} else if strings.EqualFold(nhnNLB.LoadBalancerType, InternalType) {
 		nlbType = "INTERNAL"
 	}
 
@@ -1719,8 +1722,8 @@ func (nlbHandler *NhnCloudNLBHandler) mappingNlbInfo(nhnNLB loadbalancers.LoadBa
 		VpcIID: irs.IID{
 			SystemId: vpcId,
 		},
-		Type:         nlbType,
-		Scope:        "REGION",
+		Type:  nlbType,
+		Scope: "REGION",
 	}
 
 	keyValueList := []irs.KeyValue{
@@ -1733,7 +1736,7 @@ func (nlbHandler *NhnCloudNLBHandler) mappingNlbInfo(nhnNLB loadbalancers.LoadBa
 	}
 
 	if len(nhnNLB.Listeners) > 0 {
-		nlbIID := irs.IID{SystemId:nhnNLB.ID}
+		nlbIID := irs.IID{SystemId: nhnNLB.ID}
 		publicIp, err := nlbHandler.getNlbPublicIP(nlbIID)
 		if err != nil {
 			cblogger.Error(err.Error())
@@ -1769,10 +1772,10 @@ func (nlbHandler *NhnCloudNLBHandler) mappingNlbInfo(nhnNLB loadbalancers.LoadBa
 			cblogger.Error(newErr.Error())
 			return irs.NLBInfo{}, newErr
 		}
-		
+
 		nlbInfo.VMGroup = vmGroupInfo
 
-		poolKeyValue := irs.KeyValue{Key: "PoolId", Value: nlbInfo.VMGroup.CspID}  // Note : VMGroup.CspID => PoolId
+		poolKeyValue := irs.KeyValue{Key: "PoolId", Value: nlbInfo.VMGroup.CspID} // Note : VMGroup.CspID => PoolId
 		keyValueList = append(keyValueList, poolKeyValue)
 	}
 
@@ -1800,25 +1803,25 @@ func (nlbHandler *NhnCloudNLBHandler) mappingListenerInfo(nhnListener listeners.
 	keyValueList := []irs.KeyValue{
 		{Key: "AdminStateUp", Value: strconv.FormatBool(nhnListener.AdminStateUp)},
 		{Key: "ConnectionLimit", Value: strconv.Itoa(nhnListener.ConnLimit)},
-		{Key: "KeepaliveTimeout(Sec)", Value: strconv.Itoa(nhnListener.KeepaliveTimeout)},		
+		{Key: "KeepaliveTimeout(Sec)", Value: strconv.Itoa(nhnListener.KeepaliveTimeout)},
 	}
 	listenerInfo.KeyValueList = keyValueList
 
 	return listenerInfo, nil
 }
 
-func (nlbHandler *NhnCloudNLBHandler) mappingMonitorInfo(nhnMonitor monitors.Monitor) (irs.HealthCheckerInfo) {
+func (nlbHandler *NhnCloudNLBHandler) mappingMonitorInfo(nhnMonitor monitors.Monitor) irs.HealthCheckerInfo {
 	cblogger.Info("NHN Cloud Driver: called mappingMonitorInfo()")
 
 	healthCheckerInfo := irs.HealthCheckerInfo{
 		Protocol:  nhnMonitor.Type,
-		Port: 	   strconv.Itoa(nhnMonitor.HealthCheckPort),
+		Port:      strconv.Itoa(nhnMonitor.HealthCheckPort),
 		Interval:  nhnMonitor.Delay,
 		Threshold: nhnMonitor.MaxRetries,
 		Timeout:   nhnMonitor.Timeout,
 		CspID:     nhnMonitor.ID,
 	}
-	
+
 	keyValueList := []irs.KeyValue{
 		{Key: "AdminStateUp", Value: strconv.FormatBool(nhnMonitor.AdminStateUp)},
 		{Key: "PoolId", Value: nhnMonitor.Pools[0].ID},
@@ -1840,7 +1843,7 @@ func (nlbHandler *NhnCloudNLBHandler) getNlbPublicIP(nlbIID irs.IID) (string, er
 
 	// To Get Floating IP(Public IP) Address Info.
 	listOpts := floatingips.ListOpts{
-		FixedIP: 	privateIp,
+		FixedIP: privateIp,
 	}
 	allPages, err := floatingips.List(nlbHandler.NetworkClient, listOpts).AllPages()
 	if err != nil {
@@ -1854,7 +1857,7 @@ func (nlbHandler *NhnCloudNLBHandler) getNlbPublicIP(nlbIID irs.IID) (string, er
 		cblogger.Error(newErr.Error())
 		return "", newErr
 	}
-	
+
 	var floatingIp string
 	if len(ipList) < 1 {
 		newErr := fmt.Errorf("Failed to Get Any FloatingIP Info of the NLB!! [%v]", err)
@@ -1864,7 +1867,7 @@ func (nlbHandler *NhnCloudNLBHandler) getNlbPublicIP(nlbIID irs.IID) (string, er
 		floatingIp = ipList[0].FloatingIP
 	}
 	cblogger.Info("\n# NLB Floating IP : " + floatingIp)
-	
+
 	return floatingIp, nil
 }
 
@@ -1880,7 +1883,7 @@ func (nlbHandler *NhnCloudNLBHandler) deletePublicIP(nlbIID irs.IID) (bool, erro
 
 	// To Get Floating IP(Public IP) Address Info.
 	listOpts := floatingips.ListOpts{
-		PortID:            vipPortId,
+		PortID: vipPortId,
 	}
 	allPages, err := floatingips.List(nlbHandler.NetworkClient, listOpts).AllPages()
 	if err != nil {
@@ -1894,7 +1897,7 @@ func (nlbHandler *NhnCloudNLBHandler) deletePublicIP(nlbIID irs.IID) (bool, erro
 		cblogger.Error(newErr.Error())
 		return false, newErr
 	}
-	
+
 	var floatingIpId string
 	if len(ipList) < 1 {
 		newErr := fmt.Errorf("Failed to Get Any FloatingIP Info!! [%v]", err)
@@ -1932,7 +1935,7 @@ func (nlbHandler *NhnCloudNLBHandler) cleanUpNLB(nlbIID irs.IID) (bool, error) {
 	time.Sleep(20 * time.Second)
 
 	callLogStart := call.Start()
-	delOpts := loadbalancers.DeleteOpts{Cascade: true}  // Note : 'Cascade' will delete all children of the LB (Listeners, Monitors, etc).
+	delOpts := loadbalancers.DeleteOpts{Cascade: true} // Note : 'Cascade' will delete all children of the LB (Listeners, Monitors, etc).
 	delErr := loadbalancers.Delete(nlbHandler.NetworkClient, nlbIID.SystemId, delOpts).ExtractErr()
 	if delErr != nil {
 		newErr := fmt.Errorf("Failed to Delete the NLB. : [%v]", delErr)
@@ -1945,22 +1948,22 @@ func (nlbHandler *NhnCloudNLBHandler) cleanUpNLB(nlbIID irs.IID) (bool, error) {
 	return true, nil
 }
 
-func (nlbHandler *NhnCloudNLBHandler) getVPCIdWithSubnetId(subnetId string) (string, error) {
-	cblogger.Info("NHN Cloud Driver: called getVPCIdWithSubnetId()")
+func (nlbHandler *NhnCloudNLBHandler) getVPCIdWithVpcsubnetId(vpcsubnetId string) (string, error) {
+	cblogger.Info("NHN Cloud Driver: called getVPCIdWithVpcsubnetId()")
 
-	if strings.EqualFold(subnetId, "") {
-		newErr := fmt.Errorf("Invalid Subnet ID!!")
+	if strings.EqualFold(vpcsubnetId, "") {
+		newErr := fmt.Errorf("Invalid Vpcsubnet ID!!")
 		cblogger.Error(newErr.Error())
 		return "", newErr
 	}
 
-	subnet, err := subnets.Get(nlbHandler.NetworkClient, subnetId).Extract()
+	vpcsubnet, err := vpcsubnets.Get(nlbHandler.NetworkClient, vpcsubnetId).Extract()
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get NHN Cloud Subnet Info with the Subnet ID [%s] : %v", subnetId, err.Error())
+		newErr := fmt.Errorf("Failed to Get NHN Cloud VPC Subnet Info with the Vpcsubnet ID [%s] : %v", vpcsubnetId, err.Error())
 		cblogger.Error(newErr.Error())
 		return "", nil
-	}	
-	VPCId := subnet.VPCID
+	}
+	VPCId := vpcsubnet.VPCID
 
 	return VPCId, nil
 }

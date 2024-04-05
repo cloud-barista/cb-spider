@@ -11,16 +11,16 @@
 package main
 
 import (
-	"os"
 	"errors"
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
+	"os"
 
+	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	cblog "github.com/cloud-barista/cb-log"
 
 	// nhndrv "github.com/cloud-barista/nhncloud/nhncloud"
 	nhndrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/nhncloud"
@@ -62,7 +62,7 @@ func handleMyImage() {
 		var commandNum int
 
 		myImageIId := irs.IID{
-			NameId: "nhn-myImage-01",
+			NameId:   "nhn-myImage-01",
 			SystemId: "adb48ac1-9355-45e5-a18a-84e0e647f98f",
 			// SystemId: "c44fe242-b51a-4d7b-be28-7b8028de3847",
 		}
@@ -72,9 +72,9 @@ func handleMyImage() {
 				NameId: "nhn-myimage-01",
 			},
 			SourceVM: irs.IID{
-				NameId: "nhn-vm-1",
+				NameId:   "nhn-vm-1",
 				SystemId: "fb333037-8652-4636-83ab-c21b91f7be75",
-			}, 
+			},
 		}
 
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -118,7 +118,7 @@ func handleMyImage() {
 				} else {
 					spew.Dump(delResult)
 				}
-				cblogger.Info("Finish DeleteMyImage()")			
+				cblogger.Info("Finish DeleteMyImage()")
 			}
 		}
 	}
@@ -134,8 +134,8 @@ func main() {
 	handleMyImage()
 }
 
-//handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
-//(예) ImageHandler.go -> "Image"
+// handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
+// (예) ImageHandler.go -> "Image"
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(nhndrv.NhnCloudDriver)
@@ -145,15 +145,15 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
-			IdentityEndpoint: 	  config.NhnCloud.IdentityEndpoint,
-			Username:         	  config.NhnCloud.Nhn_Username,
-			Password:         	  config.NhnCloud.Api_Password,
-			DomainName:      	  config.NhnCloud.DomainName,
-			TenantId:        	  config.NhnCloud.TenantId,
+			IdentityEndpoint: config.NhnCloud.IdentityEndpoint,
+			Username:         config.NhnCloud.Nhn_Username,
+			Password:         config.NhnCloud.Api_Password,
+			DomainName:       config.NhnCloud.DomainName,
+			TenantId:         config.NhnCloud.TenantId,
 		},
 		RegionInfo: idrv.RegionInfo{
 			Region: config.NhnCloud.Region,
-			Zone: 	config.NhnCloud.Zone,
+			Zone:   config.NhnCloud.Zone,
 		},
 	}
 
@@ -196,7 +196,7 @@ type Config struct {
 		DomainName       string `yaml:"domain_name"`
 		TenantId         string `yaml:"tenant_id"`
 		Region           string `yaml:"region"`
-		Zone           	 string `yaml:"zone"`
+		Zone             string `yaml:"zone"`
 	} `yaml:"nhncloud"`
 }
 

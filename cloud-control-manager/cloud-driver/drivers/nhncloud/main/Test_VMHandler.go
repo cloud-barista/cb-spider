@@ -12,16 +12,16 @@
 package main
 
 import (
-	"os"
 	"errors"
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
+	"os"
 
+	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	cblog "github.com/cloud-barista/cb-log"
 
 	// nhndrv "github.com/cloud-barista/nhncloud/nhncloud"
 	nhndrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/nhncloud"
@@ -87,7 +87,7 @@ func handleVM() {
 			case 1:
 				vmReqInfo := irs.VMReqInfo{
 					// ImageType:	irs.MyImage,
-					ImageType:	irs.PublicImage,
+					ImageType: irs.PublicImage,
 
 					VMUserPasswd: "cbuser357505**", // No Simple PW!!
 
@@ -95,30 +95,30 @@ func handleVM() {
 
 					// $$$ Needs NHN Cloud VPC 'SystemId'
 					VpcIID: irs.IID{
-						NameId: "nhn-vpc-1",
-						SystemId: "328d03c7-4656-4e14-88cb-fc4c222a97d4", 
+						NameId:   "nhn-vpc-1",
+						SystemId: "328d03c7-4656-4e14-88cb-fc4c222a97d4",
 					},
-					
+
 					SubnetIID: irs.IID{
-						NameId: "nhn-subnet-1",
+						NameId:   "nhn-subnet-1",
 						SystemId: "566a2f4d-6171-4b7f-8d42-fe1f47f91d86",
 					},
-					
+
 					SecurityGroupIIDs: []irs.IID{{NameId: "sg01-cls3so1jcupul75mcjkg", SystemId: "9f0a43a9-8c73-45ce-9aac-e9c226e99533"}},
 					// SecurityGroupIIDs: []irs.IID{{SystemId: "79965cd0-b9e9-42ef-9c66-201f824273cb"},{SystemId: "67167e2e-2390-48d6-8f27-78c9293b26f3"}},
 
 					KeyPairIID: irs.IID{NameId: "nhn-key-05"},
 					// KeyPairIID: irs.IID{NameId: "test-key-1-cn661b4i1q9k87qkue0g"},
-					// KeyPairIID: irs.IID{NameId: "nhn-key-01-c9584r9jcupvtimg81l0"},					
+					// KeyPairIID: irs.IID{NameId: "nhn-key-01-c9584r9jcupvtimg81l0"},
 					// KeyPairIID: irs.IID{SystemId: "nhn-key-01"},
 
-					//KR1					
+					//KR1
 					ImageIID: irs.IID{NameId: "Ubuntu Server 22.04.3 LTS (2023.11.21)", SystemId: "68fb7e1a-191c-45bf-8328-b7864f9fbaf4"},
 
 					// ImageIID: irs.IID{NameId: "Debian 11.8 Bullseye (2023.11.21)", SystemId: "7753643d-f0ea-4260-a2c0-5ead4e041725"},
 
 					// ImageIID: irs.IID{NameId: "Windows 2022 STD (2023.11.21) KO", SystemId: "4b2b5dfb-d325-4153-8a88-eb39cdb181c9"},
-					
+
 					// ImageIID: irs.IID{NameId: "Ubuntu Server 18.04.6 LTS (2021.12.21)", SystemId: "5396655e-166a-4875-80d2-ed8613aa054f"},
 
 					// ImageIID:  irs.IID{NameId: "CentOS 6.10 (2018.10.23)", SystemId: "1c868787-6207-4ff2-a1e7-ae1331d6829b"},
@@ -126,7 +126,7 @@ func handleVM() {
 					// VMSpecName: "u2.c2m4", //vCPU: 2, Mem: 4GB
 					// # U2 type does Not support Windows Image!!
 					// VMSpecName: "m2.c4m8", //vCPU: 4, Mem: 8GB, LocalDiskSize(GB): 0
-					// VMSpecName: "m2.c8m16", //vCPU: 8, Mem: 16GB, LocalDiskSize(GB): 0		
+					// VMSpecName: "m2.c8m16", //vCPU: 8, Mem: 16GB, LocalDiskSize(GB): 0
 					VMSpecName: "c2.c16m16",
 
 					RootDiskType: "General_SSD",
@@ -137,7 +137,7 @@ func handleVM() {
 					// RootDiskSize: "default", // When u2.~ type of VMSpec
 
 					// DataDiskIIDs: []irs.IID{ // Disk volume list to Attach
-					// 	{  
+					// 	{
 					// 	SystemId: "eface614-e6c0-40ee-8237-e1d28edb1bb4",
 					// 	},
 					// },
@@ -273,8 +273,8 @@ func main() {
 	handleVM()
 }
 
-//handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
-//(예) ImageHandler.go -> "Image"
+// handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
+// (예) ImageHandler.go -> "Image"
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(nhndrv.NhnCloudDriver)
@@ -285,14 +285,14 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
 			IdentityEndpoint: config.NhnCloud.IdentityEndpoint,
-			Username:         	  config.NhnCloud.Nhn_Username,
-			Password:         	  config.NhnCloud.Api_Password,
-			DomainName:      	  config.NhnCloud.DomainName,
-			TenantId:        	  config.NhnCloud.TenantId,
+			Username:         config.NhnCloud.Nhn_Username,
+			Password:         config.NhnCloud.Api_Password,
+			DomainName:       config.NhnCloud.DomainName,
+			TenantId:         config.NhnCloud.TenantId,
 		},
 		RegionInfo: idrv.RegionInfo{
 			Region: config.NhnCloud.Region,
-			Zone: 	config.NhnCloud.Zone,
+			Zone:   config.NhnCloud.Zone,
 		},
 	}
 
@@ -343,14 +343,14 @@ type Config struct {
 		DomainName       string `yaml:"domain_name"`
 		TenantId         string `yaml:"tenant_id"`
 		Region           string `yaml:"region"`
-		Zone           	 string `yaml:"zone"`
+		Zone             string `yaml:"zone"`
 
-		VMName           string `yaml:"vm_name"`
-		ImageId          string `yaml:"image_id"`
-		VMSpecId         string `yaml:"vmspec_id"`
-		NetworkId        string `yaml:"network_id"`
-		SecurityGroups   string `yaml:"security_groups"`
-		KeypairName      string `yaml:"keypair_name"`
+		VMName         string `yaml:"vm_name"`
+		ImageId        string `yaml:"image_id"`
+		VMSpecId       string `yaml:"vmspec_id"`
+		NetworkId      string `yaml:"network_id"`
+		SecurityGroups string `yaml:"security_groups"`
+		KeypairName    string `yaml:"keypair_name"`
 
 		VMId string `yaml:"vm_id"`
 

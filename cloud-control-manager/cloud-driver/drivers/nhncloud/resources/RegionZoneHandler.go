@@ -9,8 +9,8 @@
 package resources
 
 import (
-	"sync"
 	"strings"
+	"sync"
 	// "errors"
 	// "github.com/davecgh/go-spew/spew"
 
@@ -28,30 +28,30 @@ import (
 // KeyValueList Omission Issue : https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
 
 type NhnRegionInfo struct {
-    RegionCode 	string
-    RegionName	string
+	RegionCode string
+	RegionName string
 }
 
 // As Constant Variables
 func getSupportedRegions() []NhnRegionInfo {
-	regionInfoList := []NhnRegionInfo {
-		{	RegionCode: 	"KR1",
-			RegionName: 	"한국(판교)",
+	regionInfoList := []NhnRegionInfo{
+		{RegionCode: "KR1",
+			RegionName: "한국(판교)",
 		},
-		{	RegionCode: 	"KR2",
-			RegionName: 	"한국(평촌)",
+		{RegionCode: "KR2",
+			RegionName: "한국(평촌)",
 		},
-		{	RegionCode: 	"JP1",
-			RegionName: 	"일본",
+		{RegionCode: "JP1",
+			RegionName: "일본",
 		},
 	}
 	return regionInfoList
 }
 
 type NhnCloudRegionZoneHandler struct {
-	CredentialInfo 	idrv.CredentialInfo
-	RegionInfo    	idrv.RegionInfo
-	VMClient      	*nhnsdk.ServiceClient
+	CredentialInfo idrv.CredentialInfo
+	RegionInfo     idrv.RegionInfo
+	VMClient       *nhnsdk.ServiceClient
 }
 
 func (regionZoneHandler *NhnCloudRegionZoneHandler) ListRegionZone() ([]*irs.RegionZoneInfo, error) {
@@ -72,8 +72,8 @@ func (regionZoneHandler *NhnCloudRegionZoneHandler) ListRegionZone() ([]*irs.Reg
 			cblogger.Info("# NHN RegionCode : ", regionInfo.RegionCode)
 
 			regionZoneInfo := irs.RegionZoneInfo{
-				Name: 			regionInfo.RegionCode,
-				DisplayName: 	regionInfo.RegionName,
+				Name:        regionInfo.RegionCode,
+				DisplayName: regionInfo.RegionName,
 				// KeyValueList: []irs.KeyValue{
 				// 	{Key: "RegionCode", 	Value: regionInfo.RegionCode},
 				// },
@@ -84,7 +84,7 @@ func (regionZoneHandler *NhnCloudRegionZoneHandler) ListRegionZone() ([]*irs.Reg
 				zoneInfoListError = err
 				return
 			}
-			regionZoneInfo.ZoneList = zoneInfoList			
+			regionZoneInfo.ZoneList = zoneInfoList
 			regionZoneInfoList = append(regionZoneInfoList, &regionZoneInfo)
 		}(regionInfo)
 
@@ -109,9 +109,9 @@ func (regionZoneHandler NhnCloudRegionZoneHandler) GetRegionZone(regionCode stri
 		// cblogger.Info("# NCP RegionCode : ", regionInfo.RegionCode)
 
 		if strings.EqualFold(regionCode, regionInfo.RegionCode) {
-			regionZoneInfo = irs.RegionZoneInfo {
-				Name: regionInfo.RegionCode,
-				DisplayName: 	regionInfo.RegionName,
+			regionZoneInfo = irs.RegionZoneInfo{
+				Name:        regionInfo.RegionCode,
+				DisplayName: regionInfo.RegionName,
 				// KeyValueList: []irs.KeyValue{
 				// 	{Key: "RegionCode", 	Value: regionInfo.RegionCode},
 				// },
@@ -121,9 +121,9 @@ func (regionZoneHandler NhnCloudRegionZoneHandler) GetRegionZone(regionCode stri
 
 	// If there is no Region information in the driver, ...
 	if strings.EqualFold(regionZoneInfo.DisplayName, "") {
-		regionZoneInfo = irs.RegionZoneInfo {
-			Name: regionCode,
-			DisplayName: 	"",
+		regionZoneInfo = irs.RegionZoneInfo{
+			Name:        regionCode,
+			DisplayName: "",
 			// KeyValueList: []irs.KeyValue{
 			// 	{Key: "RegionCode", 	Value: regionCode},
 			// },
@@ -145,7 +145,7 @@ func (regionZoneHandler *NhnCloudRegionZoneHandler) ListOrgRegion() (string, err
 
 	// To return the results with a style similar to other CSPs.
 	type Regions struct {
-		RegionList 	[]NhnRegionInfo
+		RegionList []NhnRegionInfo
 	}
 
 	nhnRegionList := getSupportedRegions()
@@ -161,13 +161,13 @@ func (regionZoneHandler *NhnCloudRegionZoneHandler) ListOrgRegion() (string, err
 }
 
 func (regionZoneHandler *NhnCloudRegionZoneHandler) ListOrgZone() (string, error) {
-	cblogger.Info("NHN Cloud Driver: called ListOrgZone()!!")	
+	cblogger.Info("NHN Cloud Driver: called ListOrgZone()!!")
 
 	callLogInfo := getCallLogScheme(regionZoneHandler.RegionInfo.Zone, call.REGIONZONE, regionZoneHandler.RegionInfo.Region, "ListOrgZone()")
 
 	// To return the results with a style similar to other CSPs.
 	type Zones struct {
-		ZoneList 	[]az.AvailabilityZone
+		ZoneList []az.AvailabilityZone
 	}
 
 	nhnZoneList, err := regionZoneHandler.getNhnZoneList(regionZoneHandler.RegionInfo.Region)
@@ -211,14 +211,14 @@ func (regionZoneHandler NhnCloudRegionZoneHandler) getZoneInfoList(regionCode st
 		}
 
 		zoneInfo := irs.ZoneInfo{
-			Name: 			zone.ZoneName,
+			Name: zone.ZoneName,
 			// DisplayName: 	"N/A",
-			Status: 		zoneStatus,
+			Status: zoneStatus,
 			// KeyValueList: []irs.KeyValue{
 			// 	{Key: "ZoneCode", 	Value: zone.ZoneName},
 			// },
 		}
-		zoneInfoList = append(zoneInfoList, zoneInfo)		
+		zoneInfoList = append(zoneInfoList, zoneInfo)
 	}
 	return zoneInfoList, nil
 }
@@ -235,9 +235,9 @@ func (regionZoneHandler NhnCloudRegionZoneHandler) getNhnZoneList(regionCode str
 	regionInfo := idrv.RegionInfo{
 		Region: regionCode,
 	}
-	connInfo := idrv.ConnectionInfo {
+	connInfo := idrv.ConnectionInfo{
 		CredentialInfo: regionZoneHandler.CredentialInfo,
-		RegionInfo: 	regionInfo,
+		RegionInfo:     regionInfo,
 	}
 	vmClient, err := regionZoneHandler.getNhnVMClient(connInfo)
 	if err != nil {
@@ -247,8 +247,8 @@ func (regionZoneHandler NhnCloudRegionZoneHandler) getNhnZoneList(regionCode str
 	callLogStart := call.Start()
 	allPages, err := az.List(vmClient).AllPages()
 	if err != nil {
-	rtnErr := logAndReturnError(callLogInfo, "Failed to Get Zone Pages from NHN Cloud : ", err)
-	return nil, rtnErr
+		rtnErr := logAndReturnError(callLogInfo, "Failed to Get Zone Pages from NHN Cloud : ", err)
+		return nil, rtnErr
 	}
 	nhnZoneList, err := az.ExtractAvailabilityZones(allPages)
 	if err != nil {

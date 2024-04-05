@@ -11,16 +11,16 @@
 package main
 
 import (
-	"os"
 	"errors"
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
+	"os"
 
+	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	cblog "github.com/cloud-barista/cb-log"
 
 	// nhndrv "github.com/cloud-barista/nhncloud/nhncloud"
 	nhndrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/nhncloud"
@@ -71,39 +71,39 @@ func handleCluster() {
 
 		var commandNum int
 
-		clusterIId := irs.IID{  // For Get()/Delete() Test
-			NameId: "nhn-cluster-01",
+		clusterIId := irs.IID{ // For Get()/Delete() Test
+			NameId:   "nhn-cluster-01",
 			SystemId: "b80c6c3d-7db7-4aaa-9aa7-0891c7e95f89",
 		}
 
 		nodeGroupIId := irs.IID{ // For Get()/ChangeNodeGroupScaling()/Remove() Test
-			NameId: "nhn-nodeGroup-01",
+			NameId:   "nhn-nodeGroup-01",
 			SystemId: "b80c6c3d-7db7-4aaa-9aa7-0891c7e95f89",
 		}
-		
+
 		networkInfo := irs.NetworkInfo{
 			VpcIID: irs.IID{
-				NameId: "nhn-vpc-01",
+				NameId:   "nhn-vpc-01",
 				SystemId: "b80c6c3d-7db7-4aaa-9aa7-0891c7e95f89",
 			},
 			SubnetIIDs: []irs.IID{
 				{
-				NameId: "nhn-subnet-01",
-				SystemId: "b80c6c3d-7db7-4aaa-9aa7-0891c7e95f89",
+					NameId:   "nhn-subnet-01",
+					SystemId: "b80c6c3d-7db7-4aaa-9aa7-0891c7e95f89",
 				},
 			},
 			SecurityGroupIIDs: []irs.IID{
 				{
-				NameId: "nhn-sg-01",
-				SystemId: "b80c6c3d-7db7-4aaa-9aa7-0891c7e95f89",
+					NameId:   "nhn-sg-01",
+					SystemId: "b80c6c3d-7db7-4aaa-9aa7-0891c7e95f89",
 				},
 			},
 		}
-		
+
 		nodeReqInfolist := []irs.NodeGroupInfo{
 			{
 				IId: irs.IID{
-				NameId: "nhn-nodeGroup-01",
+					NameId: "nhn-nodeGroup-01",
 				},
 
 				// ImageIID     IID
@@ -130,17 +130,17 @@ func handleCluster() {
 			IId: irs.IID{
 				NameId: "nhn-cluster-01",
 			},
-			Version: 		"1.22.12", 		// Kubernetes Version, ex) 1.23.3	
-			Network:       	networkInfo,
-			NodeGroupList: 	nodeReqInfolist,
+			Version:       "1.22.12", // Kubernetes Version, ex) 1.23.3
+			Network:       networkInfo,
+			NodeGroupList: nodeReqInfolist,
 			// Addons        AddonsInfo
 		}
 
-		desiredNodeSize 		:= 10
-		minNodeSize 			:= 5
-		maxNodeSize 			:= 20
+		desiredNodeSize := 10
+		minNodeSize := 5
+		maxNodeSize := 20
 		setNodeGroupAutoScaling := true
-		newClusterVersion 		:= "1.23.9"
+		newClusterVersion := "1.23.9"
 
 		inputCnt, err := fmt.Scan(&commandNum)
 		if err != nil {
@@ -286,7 +286,7 @@ func handleCluster() {
 					spew.Dump(result)
 				}
 
-				cblogger.Info("RemoveNodeGroup Test Finished!!")			
+				cblogger.Info("RemoveNodeGroup Test Finished!!")
 			}
 		}
 	}
@@ -298,8 +298,8 @@ func main() {
 	handleCluster()
 }
 
-//handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
-//(예) ImageHandler.go -> "Image"
+// handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
+// (예) ImageHandler.go -> "Image"
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(nhndrv.NhnCloudDriver)
@@ -309,15 +309,15 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
-			IdentityEndpoint:     config.NhnCloud.IdentityEndpoint,
-			Username:         	  config.NhnCloud.Nhn_Username,
-			Password:         	  config.NhnCloud.Api_Password,
-			DomainName:      	  config.NhnCloud.DomainName,
-			TenantId:        	  config.NhnCloud.TenantId,
+			IdentityEndpoint: config.NhnCloud.IdentityEndpoint,
+			Username:         config.NhnCloud.Nhn_Username,
+			Password:         config.NhnCloud.Api_Password,
+			DomainName:       config.NhnCloud.DomainName,
+			TenantId:         config.NhnCloud.TenantId,
 		},
 		RegionInfo: idrv.RegionInfo{
 			Region: config.NhnCloud.Region,
-			Zone: 	config.NhnCloud.Zone,
+			Zone:   config.NhnCloud.Zone,
 		},
 	}
 
@@ -361,7 +361,7 @@ type Config struct {
 		DomainName       string `yaml:"domain_name"`
 		TenantId         string `yaml:"tenant_id"`
 		Region           string `yaml:"region"`
-		Zone           	 string `yaml:"zone"`
+		Zone             string `yaml:"zone"`
 	} `yaml:"nhncloud"`
 }
 

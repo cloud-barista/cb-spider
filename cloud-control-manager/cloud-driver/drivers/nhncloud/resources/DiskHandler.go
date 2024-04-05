@@ -18,10 +18,10 @@ import (
 	// "github.com/davecgh/go-spew/spew"
 
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/blockstorage/v2/volumes"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/blockstorage/extensions/volumeactions" // For Attachment
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/servers"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/blockstorage/v2/volumes"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/volumeattach"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/servers"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -34,13 +34,13 @@ const (
 )
 
 type NhnCloudDiskHandler struct {
-	RegionInfo    idrv.RegionInfo
-	VMClient      *nhnsdk.ServiceClient
-	VolumeClient  *nhnsdk.ServiceClient
+	RegionInfo   idrv.RegionInfo
+	VMClient     *nhnsdk.ServiceClient
+	VolumeClient *nhnsdk.ServiceClient
 }
 
 func (diskHandler *NhnCloudDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.DiskInfo, error) {
-	cblogger.Info("NHN Cloud Driver: called CreateDisk()")	
+	cblogger.Info("NHN Cloud Driver: called CreateDisk()")
 	callLogInfo := getCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, diskReqInfo.IId.NameId, "CreateDisk()")
 
 	if strings.EqualFold(diskReqInfo.IId.NameId, "") {
@@ -57,24 +57,24 @@ func (diskHandler *NhnCloudDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (ir
 		return irs.DiskInfo{}, newErr
 	}
 
-	reqDiskType := diskReqInfo.DiskType  // 'default', 'General_HDD' or 'General_SSD'
-	reqDiskSize := diskReqInfo.DiskSize  // 10~2000(GB)
-	
+	reqDiskType := diskReqInfo.DiskType // 'default', 'General_HDD' or 'General_SSD'
+	reqDiskSize := diskReqInfo.DiskSize // 10~2000(GB)
+
 	if strings.EqualFold(reqDiskType, "") || strings.EqualFold(reqDiskType, "default") {
-		reqDiskType = HDD  // In case, Volume Type is not specified.
+		reqDiskType = HDD // In case, Volume Type is not specified.
 	} else if strings.EqualFold(reqDiskType, "General_HDD") {
-		reqDiskType = HDD  // "General HDD"
+		reqDiskType = HDD // "General HDD"
 	} else if strings.EqualFold(reqDiskType, "General_SSD") {
-		reqDiskType = SSD  // "General SSD"
+		reqDiskType = SSD // "General SSD"
 	} else {
 		newErr := fmt.Errorf("Invalid Disk Type!!")
 		cblogger.Error(newErr.Error())
 	}
 
 	if strings.EqualFold(reqDiskSize, "") || strings.EqualFold(reqDiskSize, "default") {
-		reqDiskSize = DefaultDiskSize  // In case, Volume Size is not specified.
-	} 
-	
+		reqDiskSize = DefaultDiskSize // In case, Volume Size is not specified.
+	}
+
 	reqDiskSizeInt, err := strconv.Atoi(reqDiskSize)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Convert Disk Size to Int. type. [%v]", err)
@@ -82,7 +82,7 @@ func (diskHandler *NhnCloudDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (ir
 		LoggingError(callLogInfo, newErr)
 		return irs.DiskInfo{}, newErr
 	}
-	if reqDiskSizeInt < 10 || reqDiskSizeInt > 2000 {  // 10~2000(GB)
+	if reqDiskSizeInt < 10 || reqDiskSizeInt > 2000 { // 10~2000(GB)
 		newErr := fmt.Errorf("Invalid Disk Size. Disk Size Must be between 10 and 2000.")
 		cblogger.Error(newErr.Error())
 		return irs.DiskInfo{}, newErr
@@ -90,10 +90,10 @@ func (diskHandler *NhnCloudDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (ir
 
 	start := call.Start()
 	create0pts := volumes.CreateOpts{
-		Size: 				reqDiskSizeInt,
-		AvailabilityZone: 	diskHandler.RegionInfo.Zone,
-		Name:				diskReqInfo.IId.NameId,
-		VolumeType: 		reqDiskType,
+		Size:             reqDiskSizeInt,
+		AvailabilityZone: diskHandler.RegionInfo.Zone,
+		Name:             diskReqInfo.IId.NameId,
+		VolumeType:       reqDiskType,
 	}
 	diskResult, err := volumes.Create(diskHandler.VolumeClient, create0pts).Extract()
 	if err != nil {
@@ -141,7 +141,7 @@ func (diskHandler *NhnCloudDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	callLogInfo := getCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, "ListDisk()", "ListDisk()")
 
 	start := call.Start()
-	listOpts :=	volumes.ListOpts{}
+	listOpts := volumes.ListOpts{}
 	allPages, err := volumes.List(diskHandler.VolumeClient, listOpts).AllPages()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NHN Cloud Volume list!! : [%v] ", err)
@@ -236,7 +236,7 @@ func (diskHandler *NhnCloudDiskHandler) ChangeDiskSize(diskIID irs.IID, newDiskS
 		return false, newErr
 	}
 
-	if newDiskSizeInt < 10 || newDiskSizeInt > 2000 {  // 10~2000(GB)
+	if newDiskSizeInt < 10 || newDiskSizeInt > 2000 { // 10~2000(GB)
 		newErr := fmt.Errorf("Invalid Disk Size. Disk Size Must be between 10 and 2000.")
 		cblogger.Error(newErr.Error())
 		return false, newErr
@@ -292,8 +292,8 @@ func (diskHandler *NhnCloudDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error
 	}
 
 	start := call.Start()
-	delOpts := volumes.DeleteOpts {		
-		Cascade : true, // Delete all snapshots of this volume as well.
+	delOpts := volumes.DeleteOpts{
+		Cascade: true, // Delete all snapshots of this volume as well.
 	}
 	delErr := volumes.Delete(diskHandler.VolumeClient, diskIID.SystemId, delOpts).ExtractErr()
 	if err != nil {
@@ -338,7 +338,7 @@ func (diskHandler *NhnCloudDiskHandler) AttachDisk(diskIID irs.IID, vmIID irs.II
 	start := call.Start()
 	createOpts := volumeattach.CreateOpts{
 		VolumeID: diskIID.SystemId,
-	}	
+	}
 	_, createErr := volumeattach.Create(diskHandler.VMClient, vmIID.SystemId, createOpts).Extract()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Attach the Disk Volume!! : [%v] ", createErr)
@@ -383,7 +383,7 @@ func (diskHandler *NhnCloudDiskHandler) DetachDisk(diskIID irs.IID, vmIID irs.II
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
 	}
-	
+
 	curStatus, err := diskHandler.getDiskStatus(diskIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Disk Status : [%v] ", err)
@@ -474,7 +474,7 @@ func (diskHandler *NhnCloudDiskHandler) waitForDiskAttachment(diskIID irs.IID) (
 		cblogger.Infof("===> Disk Status : [%s]", string(curStatus))
 
 		switch string(curStatus) {
-		case string(irs.DiskCreating), string(irs.DiskAvailable), string(irs.DiskDeleting), string(irs.DiskError), "Unknown" :
+		case string(irs.DiskCreating), string(irs.DiskAvailable), string(irs.DiskDeleting), string(irs.DiskError), "Unknown":
 			curRetryCnt++
 			cblogger.Infof("The Disk is still [%s], so wait for a second more during the Disk 'Attachment'.", string(curStatus))
 			time.Sleep(time.Second * 2)
@@ -515,7 +515,7 @@ func (diskHandler *NhnCloudDiskHandler) getDiskStatus(diskIID irs.IID) (irs.Disk
 
 func convertDiskStatus(diskStatus string) irs.DiskStatus {
 	cblogger.Info("NHN Cloud Driver: called convertDiskStatus()")
-	
+
 	var resultStatus irs.DiskStatus
 	switch strings.ToLower(diskStatus) {
 	case "creating":
@@ -535,7 +535,7 @@ func convertDiskStatus(diskStatus string) irs.DiskStatus {
 	case "error_restoring":
 		resultStatus = irs.DiskError
 	case "error_extending":
-		resultStatus = irs.DiskError			
+		resultStatus = irs.DiskError
 	default:
 		resultStatus = "Unknown"
 	}
@@ -570,7 +570,7 @@ func (diskHandler *NhnCloudDiskHandler) isBootableDisk(diskIID irs.IID) (bool, e
 }
 
 func (diskHandler *NhnCloudDiskHandler) mappingDiskInfo(volume volumes.Volume) (irs.DiskInfo, error) {
-	cblogger.Info("NHN Cloud Driver: called mappingDiskInfo()")		
+	cblogger.Info("NHN Cloud Driver: called mappingDiskInfo()")
 	// cblogger.Info("\n\n### volume : ")
 	// spew.Dump(volume)
 	// cblogger.Info("\n")
@@ -580,17 +580,17 @@ func (diskHandler *NhnCloudDiskHandler) mappingDiskInfo(volume volumes.Volume) (
 			SystemId: volume.ID,
 		},
 		DiskSize:    strconv.Itoa(volume.Size),
-		Status:		 convertDiskStatus(volume.Status),
+		Status:      convertDiskStatus(volume.Status),
 		CreatedTime: volume.CreatedAt,
 	}
 
-	if strings.EqualFold(volume.Name, "") {  // Bootable disk of Not 'u2' VMSpec
+	if strings.EqualFold(volume.Name, "") { // Bootable disk of Not 'u2' VMSpec
 		diskInfo.IId.NameId = "Auto_Created_Booting_Disk"
 	} else {
 		diskInfo.IId.NameId = volume.Name
 	}
 
-	if strings.EqualFold(volume.VolumeType, HDD) {  // "General HDD"
+	if strings.EqualFold(volume.VolumeType, HDD) { // "General HDD"
 		diskInfo.DiskType = "General_HDD"
 	} else if strings.EqualFold(volume.VolumeType, SSD) { // "General SSD"
 		diskInfo.DiskType = "General_SSD"
@@ -613,10 +613,10 @@ func (diskHandler *NhnCloudDiskHandler) mappingDiskInfo(volume volumes.Volume) (
 	}
 
 	keyValueList := []irs.KeyValue{
-		{Key: "AvailabilityZone",   Value: volume.AvailabilityZone},		 
-		{Key: "IsBootable",   		Value: volume.Bootable},
-		{Key: "IsMultiattached", 	Value: strconv.FormatBool(volume.Multiattach)},
-		{Key: "IsEncrypted", 		Value: strconv.FormatBool(volume.Encrypted)},		
+		{Key: "AvailabilityZone", Value: volume.AvailabilityZone},
+		{Key: "IsBootable", Value: volume.Bootable},
+		{Key: "IsMultiattached", Value: strconv.FormatBool(volume.Multiattach)},
+		{Key: "IsEncrypted", Value: strconv.FormatBool(volume.Encrypted)},
 	}
 	diskInfo.KeyValueList = keyValueList
 
@@ -628,7 +628,7 @@ func (diskHandler *NhnCloudDiskHandler) getNhnVolumeList() ([]volumes.Volume, er
 	callLogInfo := getCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, "getNhnVolumeList()", "getNhnVolumeList()")
 
 	start := call.Start()
-	listOpts :=	volumes.ListOpts{}
+	listOpts := volumes.ListOpts{}
 	allPages, err := volumes.List(diskHandler.VolumeClient, listOpts).AllPages()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NHN Cloud Volume Pages!! : [%v] ", err)

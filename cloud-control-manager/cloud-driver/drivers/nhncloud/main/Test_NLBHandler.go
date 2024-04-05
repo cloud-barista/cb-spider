@@ -11,11 +11,11 @@
 package main
 
 import (
-	"os"
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
+	"os"
 
 	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -65,7 +65,7 @@ func handleNLB() {
 		cblogger.Info("\n # Num : ")
 
 		nlbIId := irs.IID{
-			NameId: "new_lb-1",
+			NameId:   "new_lb-1",
 			SystemId: "8637825b-d053-48c6-bdf3-7d3fd355f086",
 		}
 
@@ -124,7 +124,7 @@ func handleNLB() {
 			// {NameId: "nhn-vm-3"},
 			// {NameId: "nhn-vm-4"},
 		}
-	
+
 		updateHealthCheckerInfo := irs.HealthCheckerInfo{
 			Protocol:  "HTTP",
 			Port:      "8080",
@@ -235,8 +235,8 @@ func main() {
 	handleNLB()
 }
 
-//handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
-//(예) ImageHandler.go -> "Image"
+// handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
+// (예) ImageHandler.go -> "Image"
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(nhndrv.NhnCloudDriver)
@@ -247,14 +247,14 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
 			IdentityEndpoint: config.NhnCloud.IdentityEndpoint,
-			Username:         	  config.NhnCloud.Nhn_Username,
-			Password:         	  config.NhnCloud.Api_Password,
-			DomainName:      	  config.NhnCloud.DomainName,
-			TenantId:        	  config.NhnCloud.TenantId,
+			Username:         config.NhnCloud.Nhn_Username,
+			Password:         config.NhnCloud.Api_Password,
+			DomainName:       config.NhnCloud.DomainName,
+			TenantId:         config.NhnCloud.TenantId,
 		},
 		RegionInfo: idrv.RegionInfo{
 			Region: config.NhnCloud.Region,
-			Zone: 	config.NhnCloud.Zone,
+			Zone:   config.NhnCloud.Zone,
 		},
 	}
 
@@ -307,14 +307,14 @@ type Config struct {
 		DomainName       string `yaml:"domain_name"`
 		TenantId         string `yaml:"tenant_id"`
 		Region           string `yaml:"region"`
-		Zone           	 string `yaml:"zone"`
+		Zone             string `yaml:"zone"`
 
-		VMName           string `yaml:"vm_name"`
-		ImageId          string `yaml:"image_id"`
-		VMSpecId         string `yaml:"vmspec_id"`
-		NetworkId        string `yaml:"network_id"`
-		SecurityGroups   string `yaml:"security_groups"`
-		KeypairName      string `yaml:"keypair_name"`
+		VMName         string `yaml:"vm_name"`
+		ImageId        string `yaml:"image_id"`
+		VMSpecId       string `yaml:"vmspec_id"`
+		NetworkId      string `yaml:"network_id"`
+		SecurityGroups string `yaml:"security_groups"`
+		KeypairName    string `yaml:"keypair_name"`
 
 		VMId string `yaml:"vm_id"`
 

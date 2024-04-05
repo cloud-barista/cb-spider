@@ -22,8 +22,8 @@ import (
 )
 
 type NhnCloudKeyPairHandler struct {
-	RegionInfo    idrv.RegionInfo
-	VMClient 	  *nhnsdk.ServiceClient
+	RegionInfo idrv.RegionInfo
+	VMClient   *nhnsdk.ServiceClient
 }
 
 func (keyPairHandler *NhnCloudKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
@@ -131,7 +131,7 @@ func (keyPairHandler *NhnCloudKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPai
 func (keyPairHandler *NhnCloudKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error) {
 	cblogger.Info("NHN Cloud Driver: called DeleteKey()")
 	callLogInfo := getCallLogScheme(keyPairHandler.RegionInfo.Region, call.VMKEYPAIR, keyIID.NameId, "DeleteKey()")
-	
+
 	exist, err := checkExistKey(keyPairHandler.VMClient, keyIID)
 	if err != nil {
 		delErr := fmt.Errorf("Failed to Delete Key. %s", err)
@@ -142,7 +142,7 @@ func (keyPairHandler *NhnCloudKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, e
 
 	if !exist {
 		keyName := keyIID.SystemId
-		
+
 		if keyIID.SystemId == "" {
 			keyName = keyIID.NameId
 		}
@@ -224,7 +224,7 @@ func mappingKeypairInfo(keypair keypairs.KeyPair) *irs.KeyPairInfo {
 		Fingerprint: keypair.Fingerprint,
 		PublicKey:   keypair.PublicKey,
 		PrivateKey:  keypair.PrivateKey,
-		VMUserID: 	 DefaultVMUserName,
+		VMUserID:    DefaultVMUserName,
 	}
 
 	return keypairInfo
