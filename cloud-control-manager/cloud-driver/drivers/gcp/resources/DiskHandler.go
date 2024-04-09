@@ -41,6 +41,13 @@ func (DiskHandler *GCPDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 	zone := DiskHandler.Region.Zone
 	diskName := diskReqInfo.IId.NameId
 
+	if diskReqInfo.Zone != "" {// #1067 disk의 zone이 있으면 해당 zone 사용.
+		cblogger.Info("SetDisk zone before ", DiskHandler.Region)
+		zone = diskReqInfo.Zone
+		DiskHandler.Region.Zone = zone // Region은 동일할 것이고 zone을 새로 설정.
+		cblogger.Info("SetDisk zone after ", DiskHandler.Region)
+	}
+
 	disk := &compute.Disk{
 		Name: diskName,
 	}
@@ -79,7 +86,7 @@ func (DiskHandler *GCPDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 
 	// Disk 생성 대기
 	WaitOperationComplete(DiskHandler.Client, projectID, region, zone, op.Name, 3)
-
+	cblogger.Info("GetDisk zone ", DiskHandler.Region)
 	diskInfo, errDiskInfo := DiskHandler.GetDisk(irs.IID{NameId: diskName, SystemId: diskName})
 	if errDiskInfo != nil {
 		cblogger.Error(errDiskInfo)
@@ -96,25 +103,51 @@ func (DiskHandler *GCPDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	diskInfoList := []*irs.DiskInfo{}
 
 	projectID := DiskHandler.Credential.ProjectID
-	zone := DiskHandler.Region.Zone
+	regionID := DiskHandler.Region.Region
+	//zone := DiskHandler.Region.Zone
 
-	diskList, err := DiskHandler.Client.Disks.List(projectID, zone).Do()
-	hiscallInfo.ElapsedTime = call.Elapsed(start)
+	cblogger.Error("get ZoneInfo by region ")
+	//GetRegionZone(regionName string) (irs.RegionZoneInfo, error)
+	// #1067에 의해 connection의 zone -> region내 disk 조회로 변경
+	regionZoneHandler := GCPRegionZoneHandler{	
+							Client: DiskHandler.Client, 
+							Credential : DiskHandler.Credential,
+							Region:DiskHandler.Region,
+							Ctx : DiskHandler.Ctx,
+						}
+	regionZoneInfo, err := regionZoneHandler.GetRegionZone(regionID)
 	if err != nil {
+		cblogger.Error("failed to get ZoneInfo by region ", err)
+		// failed to get ZoneInfo by region
 		cblogger.Error(err)
-		LoggingError(hiscallInfo, err)
 		return nil, err
-	}
-	calllogger.Info(call.String(hiscallInfo))
+	} else {
+		cblogger.Error("get region zone Info ", regionZoneInfo)
+		for _, zoneItem := range regionZoneInfo.ZoneList {
+			cblogger.Error("zone Info ", zoneItem)
+			// get Disks by Zone
+			hiscallInfo.ElapsedTime = call.Elapsed(start)
+			diskList, err := DiskHandler.Client.Disks.List(projectID, zoneItem.Name).Do()			
+			if err != nil {
+				cblogger.Error(err)
+				LoggingError(hiscallInfo, err)
+				return nil, err
+			}
+			calllogger.Info(call.String(hiscallInfo))
 
-	for _, disk := range diskList.Items {
-		diskInfo, err := convertDiskInfo(disk)
-		if err != nil {
-			cblogger.Error(err)
-			return nil, err
+			for _, disk := range diskList.Items {
+				diskInfo, err := convertDiskInfo(disk)
+				if err != nil {
+					cblogger.Error(err)
+					return nil, err
+				}
+				diskInfoList = append(diskInfoList, &diskInfo)
+			}
 		}
-		diskInfoList = append(diskInfoList, &diskInfo)
+		
 	}
+	
+	
 
 	return diskInfoList, nil
 }
@@ -122,7 +155,7 @@ func (DiskHandler *GCPDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 func (DiskHandler *GCPDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, error) {
 	hiscallInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, diskIID.NameId, "GetDisk()")
 	start := call.Start()
-
+	cblogger.Info("GetDisk zone ", DiskHandler.Region)
 	diskResp, err := GetDiskInfo(DiskHandler.Client, DiskHandler.Credential, DiskHandler.Region, diskIID.SystemId)
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
@@ -429,6 +462,7 @@ func convertDiskInfo(diskResp *compute.Disk) (irs.DiskInfo, error) {
 	diskInfo.IId = irs.IID{NameId: diskResp.Name, SystemId: diskResp.Name}
 	diskInfo.DiskSize = strconv.FormatInt(diskResp.SizeGb, 10)
 	diskInfo.CreatedTime, _ = time.Parse(time.RFC3339, diskResp.CreationTimestamp)
+	diskInfo.Zone = diskResp.Zone
 
 	// Users : the users of the disk (attached instances)
 	if diskResp.Users != nil {
