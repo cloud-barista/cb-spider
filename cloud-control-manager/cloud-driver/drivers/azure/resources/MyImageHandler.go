@@ -57,7 +57,7 @@ func (myImageHandler *AzureMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImag
 		LoggingError(hiscallInfo, snapshotErr)
 		return irs.MyImageInfo{}, snapshotErr
 	}
-	exist, err = CheckExistVM(convertedVMIId, myImageHandler.Region.ResourceGroup, myImageHandler.VMClient, myImageHandler.Ctx)
+	exist, err = CheckExistVM(convertedVMIId, myImageHandler.Region.Region, myImageHandler.VMClient, myImageHandler.Ctx)
 	if err != nil {
 		snapshotErr = errors.New(fmt.Sprintf("Failed to SnapshotVM. err = %s", err))
 		cblogger.Error(snapshotErr.Error())
@@ -70,7 +70,7 @@ func (myImageHandler *AzureMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImag
 		LoggingError(hiscallInfo, snapshotErr)
 		return irs.MyImageInfo{}, snapshotErr
 	}
-	rawVm, err := GetRawVM(convertedVMIId, myImageHandler.Region.ResourceGroup, myImageHandler.VMClient, myImageHandler.Ctx)
+	rawVm, err := GetRawVM(convertedVMIId, myImageHandler.Region.Region, myImageHandler.VMClient, myImageHandler.Ctx)
 	if err != nil {
 		snapshotErr = errors.New(fmt.Sprintf("Failed to SnapshotVM. err = %s", err))
 		cblogger.Error(snapshotErr.Error())
@@ -98,14 +98,14 @@ func (myImageHandler *AzureMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImag
 		},
 	}
 
-	_, err = myImageHandler.VMClient.Generalize(myImageHandler.Ctx, myImageHandler.Region.ResourceGroup, convertedVMIId.NameId)
+	_, err = myImageHandler.VMClient.Generalize(myImageHandler.Ctx, myImageHandler.Region.Region, convertedVMIId.NameId)
 	if err != nil {
 		snapshotErr = errors.New(fmt.Sprintf("Failed to SnapshotVM. err = %s", err))
 		cblogger.Error(snapshotErr.Error())
 		LoggingError(hiscallInfo, snapshotErr)
 		return irs.MyImageInfo{}, snapshotErr
 	}
-	result, err := myImageHandler.ImageClient.CreateOrUpdate(myImageHandler.Ctx, myImageHandler.Region.ResourceGroup, convertedMyImageIId.NameId, imagecreatOpt)
+	result, err := myImageHandler.ImageClient.CreateOrUpdate(myImageHandler.Ctx, myImageHandler.Region.Region, convertedMyImageIId.NameId, imagecreatOpt)
 	if err != nil {
 		snapshotErr = errors.New(fmt.Sprintf("Failed to SnapshotVM. err = %s", err))
 		cblogger.Error(snapshotErr.Error())
@@ -114,7 +114,7 @@ func (myImageHandler *AzureMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImag
 	}
 	defer func() {
 		if snapshotErr != nil {
-			result, err := myImageHandler.ImageClient.Delete(myImageHandler.Ctx, myImageHandler.Region.ResourceGroup, convertedMyImageIId.NameId)
+			result, err := myImageHandler.ImageClient.Delete(myImageHandler.Ctx, myImageHandler.Region.Region, convertedMyImageIId.NameId)
 			if err == nil {
 				result.WaitForCompletionRef(myImageHandler.Ctx, myImageHandler.ImageClient.Client)
 			}
@@ -127,7 +127,7 @@ func (myImageHandler *AzureMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImag
 		LoggingError(hiscallInfo, snapshotErr)
 		return irs.MyImageInfo{}, snapshotErr
 	}
-	myImage, err := myImageHandler.ImageClient.Get(myImageHandler.Ctx, myImageHandler.Region.ResourceGroup, convertedMyImageIId.NameId, "")
+	myImage, err := myImageHandler.ImageClient.Get(myImageHandler.Ctx, myImageHandler.Region.Region, convertedMyImageIId.NameId, "")
 	if err != nil {
 		snapshotErr = errors.New(fmt.Sprintf("Failed to SnapshotVM. err = %s", err))
 		cblogger.Error(snapshotErr.Error())
@@ -148,7 +148,7 @@ func (myImageHandler *AzureMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImag
 func (myImageHandler *AzureMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error) {
 	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, "MyImage", "ListMyImage()")
 	start := call.Start()
-	myImageList, err := myImageHandler.ImageClient.ListByResourceGroup(myImageHandler.Ctx, myImageHandler.Region.ResourceGroup)
+	myImageList, err := myImageHandler.ImageClient.ListByResourceGroup(myImageHandler.Ctx, myImageHandler.Region.Region)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List MyImage. err = %s", err))
 		cblogger.Error(getErr.Error())
@@ -179,7 +179,7 @@ func (myImageHandler *AzureMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.M
 		LoggingError(hiscallInfo, getErr)
 		return irs.MyImageInfo{}, getErr
 	}
-	myImage, err := myImageHandler.ImageClient.Get(myImageHandler.Ctx, myImageHandler.Region.ResourceGroup, convertedMyImageIID.NameId, "")
+	myImage, err := myImageHandler.ImageClient.Get(myImageHandler.Ctx, myImageHandler.Region.Region, convertedMyImageIID.NameId, "")
 	info, err := setterMyImageInfo(myImage, myImageHandler.CredentialInfo, myImageHandler.Region)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Get MyImage. err = %s", err))
@@ -213,7 +213,7 @@ func (myImageHandler *AzureMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bo
 		LoggingError(hiscallInfo, getErr)
 		return false, getErr
 	}
-	result, err := myImageHandler.ImageClient.Delete(myImageHandler.Ctx, myImageHandler.Region.ResourceGroup, convertedMyImageIID.NameId)
+	result, err := myImageHandler.ImageClient.Delete(myImageHandler.Ctx, myImageHandler.Region.Region, convertedMyImageIID.NameId)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Delete MyImage. err = %s", err))
 		cblogger.Error(getErr.Error())
@@ -266,7 +266,7 @@ func ConvertMyImageIID(myImageIID irs.IID, credentialInfo idrv.CredentialInfo, r
 		return myImageIID, errors.New(fmt.Sprintf("invalid IID"))
 	}
 	if myImageIID.SystemId == "" {
-		sysID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/images/%s", credentialInfo.SubscriptionId, regionInfo.ResourceGroup, myImageIID.NameId)
+		sysID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/images/%s", credentialInfo.SubscriptionId, regionInfo.Region, myImageIID.NameId)
 		return irs.IID{NameId: myImageIID.NameId, SystemId: sysID}, nil
 	} else {
 		slist := strings.Split(myImageIID.SystemId, "/")
@@ -311,7 +311,7 @@ func preparationOperationForGeneralize(rawVm compute.VirtualMachine, vmClient *c
 				return errors.New(fmt.Sprintf("failed to PowerOff err = %s", err))
 			}
 		} else if vmStatus == irs.Suspended {
-			resumeFuture, err := vmClient.Start(ctx, region.ResourceGroup, *rawVm.Name)
+			resumeFuture, err := vmClient.Start(ctx, region.Region, *rawVm.Name)
 			if err != nil {
 				return errors.New(fmt.Sprintf("The VM failed to runnig to prepare for virtualization inside the VM err = %s", err))
 			}
@@ -322,7 +322,7 @@ func preparationOperationForGeneralize(rawVm compute.VirtualMachine, vmClient *c
 			curRetryCnt := 0
 			maxRetryCnt := 60
 			for {
-				instanceView, instanceViewErr := vmClient.InstanceView(ctx, region.ResourceGroup, *rawVm.Name)
+				instanceView, instanceViewErr := vmClient.InstanceView(ctx, region.Region, *rawVm.Name)
 				if instanceViewErr == nil && getVmStatus(instanceView) == irs.Running {
 					break
 				}
@@ -362,7 +362,7 @@ func suspendCheck(vmName string, vmClient *compute.VirtualMachinesClient, ctx co
 	curRetryCnt := 0
 	maxRetryCnt := 60
 	for {
-		instanceView, instanceViewErr := vmClient.InstanceView(ctx, region.ResourceGroup, vmName)
+		instanceView, instanceViewErr := vmClient.InstanceView(ctx, region.Region, vmName)
 		if instanceViewErr == nil && getVmStatus(instanceView) == irs.Suspended {
 			break
 		}
@@ -376,7 +376,7 @@ func suspendCheck(vmName string, vmClient *compute.VirtualMachinesClient, ctx co
 }
 
 func waitingVMSuspend(rawVm compute.VirtualMachine, vmClient *compute.VirtualMachinesClient, ctx context.Context, region idrv.RegionInfo) error {
-	offFuture, err := vmClient.PowerOff(ctx, region.ResourceGroup, *rawVm.Name, to.BoolPtr(false))
+	offFuture, err := vmClient.PowerOff(ctx, region.Region, *rawVm.Name, to.BoolPtr(false))
 	if err != nil {
 		return errors.New(fmt.Sprintf("failed to PowerOff err = %s", err))
 	}
@@ -402,7 +402,7 @@ func windowShellPreparationOperationForGeneralize(vmName string, virtualMachineR
 		Location: to.StringPtr(region.Region),
 	}
 
-	runCommandResult, err := virtualMachineRunCommandsClient.CreateOrUpdate(ctx, region.ResourceGroup, vmName, "RunPowerShellScript", runOpt)
+	runCommandResult, err := virtualMachineRunCommandsClient.CreateOrUpdate(ctx, region.Region, vmName, "RunPowerShellScript", runOpt)
 	if err != nil {
 		return errors.New(fmt.Sprintf("failed window PreworkForGeneralize %s", err.Error()))
 	}
@@ -423,7 +423,7 @@ func (myImageHandler *AzureMyImageHandler) CheckWindowsImage(myImageIID irs.IID)
 		LoggingError(hiscallInfo, checkWindowsImageErr)
 		return false, checkWindowsImageErr
 	}
-	myImage, err := myImageHandler.ImageClient.Get(myImageHandler.Ctx, myImageHandler.Region.ResourceGroup, convertedMyImageIID.NameId, "")
+	myImage, err := myImageHandler.ImageClient.Get(myImageHandler.Ctx, myImageHandler.Region.Region, convertedMyImageIID.NameId, "")
 	if err != nil {
 		checkWindowsImageErr := errors.New(fmt.Sprintf("Failed to CheckWindowsImage By MyImage. err = failed get MyImage err %s", err.Error()))
 		cblogger.Error(checkWindowsImageErr.Error())

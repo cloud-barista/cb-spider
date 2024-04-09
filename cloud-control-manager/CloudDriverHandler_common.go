@@ -136,10 +136,9 @@ func commonGetCloudConnection(cloudConnectName string, targetZoneName string) (i
 			ConnectionName:   cloudConnectName,
 		},
 		RegionInfo: idrv.RegionInfo{ // @todo powerkim
-			Region:        regionName,
-			Zone:          zoneName,       // default Zone
-			TargetZone:    targetZoneName, // Target Zone for Zone-Level Control(Ex. DiskHandler)
-			ResourceGroup: getValue(rgnInfo.KeyValueInfoList, "ResourceGroup"),
+			Region:     regionName,
+			Zone:       zoneName,       // default Zone
+			TargetZone: targetZoneName, // Target Zone for Zone-Level Control(Ex. DiskHandler)
 		},
 	}
 
