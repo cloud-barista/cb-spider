@@ -201,9 +201,13 @@ func (vpcHandler *KTVpcVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	cblogger.Info("KT Cloud VPC Driver: called DeleteVPC()!")	
 	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, vpcIID.SystemId, "DeleteVPC()")
 
-	//To check whether the VPC exists.
-	cblogger.Infof("vpcIID.SystemId to Delete : [%s]", vpcIID.SystemId)
+	if strings.EqualFold(vpcIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid VPC SystemId!!")
+		cblogger.Error(newErr.Error())
+		return false, newErr
+	}
 
+	// Check whether the VPC exists.
 	vpcInfo, err := vpcHandler.GetVPC(vpcIID)
 	if err != nil {
 		cblogger.Errorf("Failed to Find the VPC with the SystemID. : [%s] : [%v]", vpcIID.SystemId, err)
@@ -213,7 +217,7 @@ func (vpcHandler *KTVpcVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 
 	// Delete the Subnets belonged in the VPC
 	for _, subnetInfo := range vpcInfo.SubnetInfoList {
-		if !strings.EqualFold(subnetInfo.IId.NameId, "Private") && !strings.EqualFold(subnetInfo.IId.NameId, "DMZ") && !strings.EqualFold(subnetInfo.IId.NameId, "external"){
+		if !strings.EqualFold(subnetInfo.IId.NameId, "Private") && !strings.EqualFold(subnetInfo.IId.NameId, "DMZ") && !strings.EqualFold(subnetInfo.IId.NameId, "external") && !strings.EqualFold(subnetInfo.IId.NameId, "NLB-SUBNET") {
 			_, err := vpcHandler.RemoveSubnet(irs.IID{SystemId: vpcIID.SystemId}, irs.IID{SystemId: subnetInfo.IId.SystemId})
 			if !strings.Contains(err.Error(), ":true") { // Cauton!! : Abnormal Error when removing a subnet on D1 Platform
 				newErr := fmt.Errorf("Failed to Delete the Subnet : [%v]", err)
@@ -224,6 +228,7 @@ func (vpcHandler *KTVpcVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 		}
 	}
 
+	// Since KT Cloud VPC(D Platform) supports Single VPC
 	result, err := vpcHandler.GetVPC(vpcIID)
 	if err != nil {
 		cblogger.Errorf("Failed to Find the VPC with the SystemID. : [%s] : [%v]", vpcIID.SystemId, err)
