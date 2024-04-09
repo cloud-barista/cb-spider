@@ -68,6 +68,8 @@ const (
 	nodepoolStatusRemoving = "removing"
 	nodepoolStatusDeleting = "deleting"
 	nodepoolStatusUpdating = "updating"
+
+	eipStatusAvailable = "Available"
 )
 
 type AlibabaClusterHandler struct {
@@ -84,7 +86,7 @@ func (ach *AlibabaClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) 
 	hiscallInfo := GetCallLogScheme(ach.RegionInfo, call.CLUSTER, "CreateCluster()", "CreateCluster()")
 	start := call.Start()
 
-	cblogger.Info(fmt.Sprintf("Create Cluster"))
+	cblogger.Info("Create Cluster")
 
 	//
 	// Validation
@@ -123,7 +125,7 @@ func (ach *AlibabaClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) 
 	for _, vs := range vswitches {
 		vswitchIds = append(vswitchIds, tea.StringValue(vs.VSwitchId))
 	}
-	cblogger.Debug(fmt.Sprintf("VSwiches in VPC(%s): %v", vpcId, vswitchIds))
+	cblogger.Debugf("VSwiches in VPC(%s): %v", vpcId, vswitchIds)
 
 	cidrList, err := ach.getAvailableCidrList()
 	if err != nil {
@@ -141,7 +143,7 @@ func (ach *AlibabaClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) 
 		return emptyClusterInfo, err
 
 	}
-	cblogger.Debug(fmt.Sprintf("Available CIDR: ContainerCidr(%s), ServiceCidr(%s)", cidrList[0], cidrList[1]))
+	cblogger.Debugf("Available CIDR: ContainerCidr(%s), ServiceCidr(%s)", cidrList[0], cidrList[1])
 
 	//
 	// Create a Cluster
@@ -163,7 +165,7 @@ func (ach *AlibabaClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) 
 		LoggingError(hiscallInfo, err)
 		return emptyClusterInfo, err
 	}
-	cblogger.Debug(fmt.Sprintf("Selected Runtime (Name=%s, Version=%s)", runtimeName, runtimeVersion))
+	cblogger.Debugf("Selected Runtime (Name=%s, Version=%s)", runtimeName, runtimeVersion)
 
 	nodepools := getNodepoolsFromNodeGroupList(clusterReqInfo.NodeGroupList, runtimeName, runtimeVersion, vswitchIds)
 
@@ -174,13 +176,16 @@ func (ach *AlibabaClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) 
 		LoggingError(hiscallInfo, err)
 		return emptyClusterInfo, err
 	}
-	cblogger.Debug(fmt.Sprintf("Request to Create Cluster is In Progress."))
+	cblogger.Debugf("To Create Cluster is In Progress.")
 
 	var createErr error = nil
 	defer func() {
 		if createErr != nil {
+			cblogger.Error(createErr)
+			LoggingError(hiscallInfo, createErr)
+
 			cleanCluster(ach.CsClient, tea.StringValue(clusterId))
-			cblogger.Info(fmt.Sprintf("Cluster(%s) will be Deleted.", clusterName))
+			cblogger.Infof("Cluster(%s) will be Deleted.", clusterName)
 		}
 	}()
 
@@ -190,14 +195,12 @@ func (ach *AlibabaClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) 
 	clusterInfo, err := ach.getClusterInfo(regionId, tea.StringValue(clusterId))
 	if err != nil {
 		createErr = fmt.Errorf("Failed to Create Cluster: %v", err)
-		cblogger.Error(createErr)
-		LoggingError(hiscallInfo, createErr)
 		return emptyClusterInfo, createErr
 	}
 
 	LoggingInfo(hiscallInfo, start)
 
-	cblogger.Info(fmt.Sprintf("Creating Cluster(Name=%s, ID=%s).", clusterInfo.IId.NameId, clusterInfo.IId.SystemId))
+	cblogger.Infof("Creating Cluster(Name=%s, ID=%s).", clusterInfo.IId.NameId, clusterInfo.IId.SystemId)
 
 	return *clusterInfo, nil
 }
@@ -207,7 +210,7 @@ func (ach *AlibabaClusterHandler) ListCluster() ([]*irs.ClusterInfo, error) {
 	hiscallInfo := GetCallLogScheme(ach.RegionInfo, call.CLUSTER, "ListCluster()", "ListCluster()")
 	start := call.Start()
 
-	cblogger.Info(fmt.Sprintf("Get Cluster List"))
+	cblogger.Infof("Get Cluster List")
 
 	//
 	// Get Cluster List
@@ -248,6 +251,8 @@ func (ach *AlibabaClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInf
 	hiscallInfo := GetCallLogScheme(ach.RegionInfo, call.CLUSTER, clusterIID.NameId, "GetCluster()")
 	start := call.Start()
 
+	cblogger.Infof("Get Cluster")
+
 	//
 	// Get ClusterInfo
 	//
@@ -262,7 +267,7 @@ func (ach *AlibabaClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInf
 
 	LoggingInfo(hiscallInfo, start)
 
-	cblogger.Info(fmt.Sprintf("Get Cluster(Name=%s, ID=%s)", clusterInfo.IId.NameId, clusterInfo.IId.SystemId))
+	cblogger.Infof("Get Cluster(Name=%s, ID=%s)", clusterInfo.IId.NameId, clusterInfo.IId.SystemId)
 
 	return *clusterInfo, nil
 }
@@ -271,6 +276,8 @@ func (ach *AlibabaClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error
 	cblogger.Debug("Alibaba Cloud Driver: called DeleteCluster()")
 	hiscallInfo := GetCallLogScheme(ach.RegionInfo, call.CLUSTER, clusterIID.NameId, "DeleteCluster()")
 	start := call.Start()
+
+	cblogger.Infof("Delete Cluster")
 
 	//
 	// Get Cluster Detailed Information
@@ -286,7 +293,7 @@ func (ach *AlibabaClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error
 	//
 	// Check if there is a nat gateway automatically created with the cluster
 	//
-	cblogger.Debug(fmt.Sprintf("Check if NAT Gatway Automatically Created with Cluster(%s)", clusterIID.NameId))
+	cblogger.Debugf("Check if NAT Gatway Automatically Created with Cluster(%s)", clusterIID.NameId)
 
 	regionId := ach.RegionInfo.Region
 	vpcId := tea.StringValue(cluster.VpcId)
@@ -306,7 +313,7 @@ func (ach *AlibabaClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error
 		retainResources = append(retainResources, tea.StringValue(ngwsRetaining[0].NatGatewayId))
 	}
 	if len(retainResources) > 0 {
-		cblogger.Debug(fmt.Sprintf("The NAT Gateway(%v) is retained.", retainResources))
+		cblogger.Debugf("The NAT Gateway(IDs=%v) is retained.", retainResources)
 	}
 
 	//
@@ -320,12 +327,12 @@ func (ach *AlibabaClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error
 		calllogger.Error(call.String(hiscallInfo))
 		return false, err
 	}
-	cblogger.Debug(fmt.Sprintf("Request to Delete Cluster is In Progress."))
+	cblogger.Debugf("To Delete Cluster is In Progress.")
 
 	//
 	// Cleanup NAT Gateway if there is no more cluster created by CB-SPIDER
 	//
-	cblogger.Debug(fmt.Sprintf("Check if Cluster Created By CB-SPIDER Exists."))
+	cblogger.Debugf("Check if Cluster Created By CB-SPIDER Exists.")
 
 	exist, err := existNotDeletedClusterWithTagInVpc(ach.CsClient, tea.StringValue(cluster.RegionId), tea.StringValue(cluster.VpcId), tagKeyCbSpiderPmksCluster, tagValueOwned)
 	if err != nil {
@@ -335,7 +342,7 @@ func (ach *AlibabaClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error
 		return false, err
 	}
 	if exist == false {
-		cblogger.Debug(fmt.Sprintf("No More Cluster Created By CB-SPIDER."))
+		cblogger.Debugf("No More Cluster Created By CB-SPIDER.")
 
 		tagKey = tagKeyCbSpiderPmksCluster
 		tagValue = tagValueOwned
@@ -348,11 +355,11 @@ func (ach *AlibabaClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error
 		}
 
 		for _, ngw := range ngwsRetained {
-			aliDeleteNatGateway(ach.VpcClient, tea.StringValue(cluster.RegionId), tea.StringValue(ngw.NatGatewayId))
-			cblogger.Info(fmt.Sprintf("Internet NAT Gateway(%s) will be deleted", tea.StringValue(ngw.NatGatewayId)))
+			cleanNatGatewayWithEip(ach.VpcClient, tea.StringValue(cluster.RegionId), tea.StringValue(ngw.NatGatewayId))
+			cblogger.Infof("Internet NAT Gateway(ID=%s) will be deleted.", tea.StringValue(ngw.NatGatewayId))
 		}
 	} else {
-		cblogger.Debug(fmt.Sprintf("Cluster Created By CB-SPIDER Exists."))
+		cblogger.Debugf("Cluster Created By CB-SPIDER Exists.")
 	}
 
 	LoggingInfo(hiscallInfo, start)
@@ -368,7 +375,7 @@ func (ach *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqI
 	hiscallInfo := GetCallLogScheme(ach.RegionInfo, call.CLUSTER, clusterIID.NameId, "AddNodeGroup()")
 	start := call.Start()
 
-	cblogger.Info(fmt.Sprintf("Add NodeGroup"))
+	cblogger.Infof("Add NodeGroup")
 
 	//
 	// Validation
@@ -418,10 +425,10 @@ func (ach *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqI
 	for _, vs := range vswitches {
 		vswitchIds = append(vswitchIds, tea.StringValue(vs.VSwitchId))
 	}
-	cblogger.Debug(fmt.Sprintf("VSwiches in VPC(%s): %v", tea.StringValue(cluster.VpcId), vswitchIds))
+	cblogger.Debugf("VSwiches in VPC(%s): %v", tea.StringValue(cluster.VpcId), vswitchIds)
 
 	//
-	// Create Node Groups
+	// Create Node Group
 	//
 	name := nodeGroupReqInfo.IId.NameId
 	autoScalingEnable := nodeGroupReqInfo.OnAutoScaling
@@ -441,7 +448,7 @@ func (ach *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqI
 		LoggingError(hiscallInfo, err)
 		return emptyNodeGroupInfo, err
 	}
-	cblogger.Debug(fmt.Sprintf("Request to Create NodePool is In Progress."))
+	cblogger.Debugf("To Create NodePool is In Progress.")
 
 	//
 	// Get NodeGroupInfo
@@ -456,7 +463,7 @@ func (ach *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqI
 
 	LoggingInfo(hiscallInfo, start)
 
-	cblogger.Info(fmt.Sprintf("Adding NodeGroup(Name=%s, ID=%s) to Cluster(%s).", nodeGroupInfo.IId.NameId, nodeGroupInfo.IId.SystemId, clusterId))
+	cblogger.Infof("Adding NodeGroup(Name=%s, ID=%s) to Cluster(%s).", nodeGroupInfo.IId.NameId, nodeGroupInfo.IId.SystemId, clusterId)
 
 	return *nodeGroupInfo, nil
 }
@@ -466,7 +473,7 @@ func (ach *AlibabaClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, no
 	hiscallInfo := GetCallLogScheme(ach.RegionInfo, call.CLUSTER, clusterIID.NameId, "SetNodeGroupAutoScaling()")
 	start := call.Start()
 
-	cblogger.Info(fmt.Sprintf("Set NodeGroup AutoScaling"))
+	cblogger.Infof("Set NodeGroup AutoScaling")
 
 	//
 	// Set NodeGroup AutoScaling
@@ -483,7 +490,7 @@ func (ach *AlibabaClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, no
 
 	LoggingInfo(hiscallInfo, start)
 
-	cblogger.Info(fmt.Sprintf("Modifying AutoScaling of NodeGroup(Name=%s, ID=%s) in Cluster(%s).", nodeGroupIID.NameId, nodeGroupIID.SystemId, clusterIID.NameId))
+	cblogger.Infof("Modifying AutoScaling of NodeGroup(Name=%s, ID=%s) in Cluster(%s).", nodeGroupIID.NameId, nodeGroupIID.SystemId, clusterIID.NameId)
 
 	return true, nil
 }
@@ -494,7 +501,7 @@ func (ach *AlibabaClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nod
 	hiscallInfo := GetCallLogScheme(ach.RegionInfo, call.CLUSTER, clusterIID.NameId, "ChangeNodeGroupScaling()")
 	start := call.Start()
 
-	cblogger.Info(fmt.Sprintf("Change NodeGroup Scaling"))
+	cblogger.Infof("Change NodeGroup Scaling")
 
 	//
 	// Validation
@@ -536,7 +543,7 @@ func (ach *AlibabaClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nod
 
 	LoggingInfo(hiscallInfo, start)
 
-	cblogger.Info(fmt.Sprintf("Modifying Scaling of NodeGroup(Name=%s, ID=%s) in Cluster(%s).", nodeGroupInfo.IId.NameId, nodeGroupInfo.IId.SystemId, clusterIID.NameId))
+	cblogger.Infof("Modifying Scaling of NodeGroup(Name=%s, ID=%s) in Cluster(%s).", nodeGroupInfo.IId.NameId, nodeGroupInfo.IId.SystemId, clusterIID.NameId)
 
 	return *nodeGroupInfo, nil
 }
@@ -546,7 +553,7 @@ func (ach *AlibabaClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nodeGroupI
 	hiscallInfo := GetCallLogScheme(ach.RegionInfo, call.CLUSTER, clusterIID.NameId, "RemoveNodeGroup()")
 	start := call.Start()
 
-	cblogger.Info(fmt.Sprintf("Remove NodeGroup"))
+	cblogger.Infof("Remove NodeGroup")
 
 	//
 	// Remove NodeGroup
@@ -565,7 +572,7 @@ func (ach *AlibabaClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nodeGroupI
 
 	LoggingInfo(hiscallInfo, start)
 
-	cblogger.Info(fmt.Sprintf("Removing NodeGroup(Name=%s, ID=%s) to Cluster(%s).", nodeGroupIID.NameId, nodeGroupIID.SystemId, clusterIID.NameId))
+	cblogger.Infof("Removing NodeGroup(Name=%s, ID=%s) to Cluster(%s).", nodeGroupIID.NameId, nodeGroupIID.SystemId, clusterIID.NameId)
 
 	return true, nil
 }
@@ -576,7 +583,7 @@ func (ach *AlibabaClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion 
 	hiscallInfo := GetCallLogScheme(ach.RegionInfo, call.CLUSTER, clusterIID.NameId, "UpgradeCluster()")
 	start := call.Start()
 
-	cblogger.Info(fmt.Sprintf("Upgrade Cluster"))
+	cblogger.Infof("Upgrade Cluster")
 
 	//
 	// Upgrade Cluster
@@ -605,7 +612,7 @@ func (ach *AlibabaClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion 
 
 	LoggingInfo(hiscallInfo, start)
 
-	cblogger.Info(fmt.Sprintf("Upgrading Cluster(Name=%s, ID=%s)", clusterInfo.IId.NameId, clusterInfo.IId.SystemId))
+	cblogger.Infof("Upgrading Cluster(Name=%s, ID=%s)", clusterInfo.IId.NameId, clusterInfo.IId.SystemId)
 
 	return *clusterInfo, nil
 }
@@ -1192,7 +1199,7 @@ func waitUntilClusterIsState(csClient *cs2015.Client, clusterId, state string) e
 			break
 		}
 		time.Sleep(5 * time.Second)
-		cblogger.Info("Wait until cluster's state is ", state)
+		cblogger.Infof("Wait until cluster's state is %s", state)
 	}
 
 	return waitingErr
@@ -1423,11 +1430,195 @@ func aliUpgradeCluster(csClient *cs2015.Client, clusterId, nextVersion string) (
 	return upgradeClusterResponse.Body, nil
 }
 
+func aliDescribeSnatTableEntriesWithNatGateway(vpcClient *vpc2016.Client, regionId, natGatewayId string) ([]*vpc2016.DescribeSnatTableEntriesResponseBodySnatTableEntriesSnatTableEntry, error) {
+	describeSnatTableEntriesRequest := &vpc2016.DescribeSnatTableEntriesRequest{
+		RegionId:     tea.String(regionId),
+		NatGatewayId: tea.String(natGatewayId),
+	}
+	//spew.Dump(describeSnatTableEntriesRequest)
+	describeSnatTableEntriesResponse, err := vpcClient.DescribeSnatTableEntries(describeSnatTableEntriesRequest)
+	if err != nil {
+		return nil, err
+	}
+	//spew.Dump(describeSnatTableEntriesResponse.Body)
+
+	return describeSnatTableEntriesResponse.Body.SnatTableEntries.SnatTableEntry, err
+}
+
+func aliDeleteSnatEntry(vpcClient *vpc2016.Client, regionId, snatTableId, snatEntryId string) error {
+	deleteSnatEntryRequest := &vpc2016.DeleteSnatEntryRequest{
+		RegionId:    tea.String(regionId),
+		SnatTableId: tea.String(snatTableId),
+		SnatEntryId: tea.String(snatEntryId),
+	}
+	//spew.Dump(deleteSnatEntryRequest)
+	_, err := vpcClient.DeleteSnatEntry(deleteSnatEntryRequest)
+	if err != nil {
+		return err
+	}
+	//spew.Dump(deleteSnatEntryResponse.Body)
+
+	return nil
+}
+
+func waitUntilSnatTableEntriesWithNatGatewayIsEmpty(vpcClient *vpc2016.Client, regionId, natGatewayId string) error {
+	apiCallCount := 0
+	maxAPICallCount := 20
+
+	var waitingErr error
+	for {
+		snatEntries, err := aliDescribeSnatTableEntriesWithNatGateway(vpcClient, regionId, natGatewayId)
+		if err != nil {
+			maxAPICallCount = maxAPICallCount / 2
+		}
+		if len(snatEntries) == 0 {
+			break
+		}
+		apiCallCount++
+		if apiCallCount >= maxAPICallCount {
+			waitingErr = fmt.Errorf("failed to get SNAT table entries: The maximum number of verification requests has been exceeded while waiting for availability of that resource")
+			break
+		}
+		time.Sleep(5 * time.Second)
+	}
+
+	return waitingErr
+}
+
+func aliReleaseEipAddress(vpcClient *vpc2016.Client, regionId, eipId string) error {
+	releaseEipAddressRequest := &vpc2016.ReleaseEipAddressRequest{
+		RegionId:     tea.String(regionId),
+		AllocationId: tea.String(eipId),
+	}
+	//spew.Dump(releaseEipAddressRequest)
+	_, err := vpcClient.ReleaseEipAddress(releaseEipAddressRequest)
+	if err != nil {
+		return err
+	}
+	//spew.Dump(releaseEipAddressResponse.Body)
+
+	return nil
+}
+
+func aliUnassociateEipAddressFromNatGateway(vpcClient *vpc2016.Client, regionId, eipId, natGatewayId string) error {
+	unassociateEipAddressRequest := &vpc2016.UnassociateEipAddressRequest{
+		RegionId:     tea.String(regionId),
+		AllocationId: tea.String(eipId),
+		InstanceId:   tea.String(natGatewayId),
+		InstanceType: tea.String("Nat"),
+	}
+	//spew.Dump(unassociateEipAddressRequest)
+	_, err := vpcClient.UnassociateEipAddress(unassociateEipAddressRequest)
+	if err != nil {
+		return err
+	}
+	//spew.Dump(unassociateEipAddressResponse.Body)
+
+	return nil
+}
+
+func aliDescribeEipAddressesWithNatGateway(vpcClient *vpc2016.Client, regionId, natGatewayId string) (eipAddress []*vpc2016.DescribeEipAddressesResponseBodyEipAddressesEipAddress, err error) {
+	describeEipAddressesRequest := &vpc2016.DescribeEipAddressesRequest{
+		RegionId:               tea.String(regionId),
+		AssociatedInstanceType: tea.String("Nat"),
+		AssociatedInstanceId:   tea.String(natGatewayId),
+	}
+	//spew.Dump(describeEipAddressesRequest)
+	describeEipAddressesResponse, err := vpcClient.DescribeEipAddresses(describeEipAddressesRequest)
+	if err != nil {
+		return nil, err
+	}
+	//spew.Dump(describeEipAddressesResponse.Body)
+
+	return describeEipAddressesResponse.Body.EipAddresses.EipAddress, err
+}
+
+func waitUntilEipAddressesWithNatGatewayIsStatus(vpcClient *vpc2016.Client, regionId, natGatewayId, status string) error {
+	apiCallCount := 0
+	maxAPICallCount := 20
+
+	var waitingErr error
+	for {
+		eipAddrs, err := aliDescribeEipAddressesWithNatGateway(vpcClient, regionId, natGatewayId)
+		if err != nil {
+			maxAPICallCount = maxAPICallCount / 2
+		}
+		equalAll := true
+		for _, eip := range eipAddrs {
+			if !strings.EqualFold(tea.StringValue(eip.Status), status) {
+				equalAll = false
+				break
+			}
+		}
+		if equalAll == true {
+			break
+		}
+		apiCallCount++
+		if apiCallCount >= maxAPICallCount {
+			waitingErr = fmt.Errorf("failed to get eip addresses: The maximum number of verification requests has been exceeded while waiting for availability of that resource")
+			break
+		}
+		time.Sleep(5 * time.Second)
+	}
+
+	return waitingErr
+}
+
 func cleanCluster(csClient *cs2015.Client, clusterId string) error {
 	_, err := aliDeleteCluster(csClient, clusterId, []string{})
 	if err != nil {
 		return err
 	}
+
+	return nil
+}
+
+func cleanNatGatewayWithEip(vpcClient *vpc2016.Client, regionId, natGatewayId string) error {
+	snatEntries, err := aliDescribeSnatTableEntriesWithNatGateway(vpcClient, regionId, natGatewayId)
+	if err != nil {
+		err = fmt.Errorf("failed to get SNAT entries with NAT Gateway(ID=%s): %v", natGatewayId, err)
+		cblogger.Error(err)
+	} else {
+		for _, snat := range snatEntries {
+			aliDeleteSnatEntry(vpcClient, regionId, tea.StringValue(snat.SnatTableId), tea.StringValue(snat.SnatEntryId))
+		}
+
+		waitUntilSnatTableEntriesWithNatGatewayIsEmpty(vpcClient, regionId, natGatewayId)
+	}
+
+	eipAddrs, err := aliDescribeEipAddressesWithNatGateway(vpcClient, regionId, natGatewayId)
+	if err != nil {
+		err = fmt.Errorf("failed to get eip addresses with NAT Gateway(ID=%s): %v", natGatewayId, err)
+		cblogger.Error(err)
+	}
+
+	for _, eipAddr := range eipAddrs {
+		err = aliUnassociateEipAddressFromNatGateway(vpcClient, regionId, tea.StringValue(eipAddr.AllocationId), natGatewayId)
+		if err != nil {
+			err = fmt.Errorf("failed to unassociate eip address(ID=%s, IP=%s), it should be manually unassociated: %v", tea.StringValue(eipAddr.AllocationId), tea.StringValue(eipAddr.IpAddress), err)
+			cblogger.Error(err)
+		} else {
+			cblogger.Infof("EIP Address(ID=%s) from NAT Gateway(ID=%s) is Unassociating.", tea.StringValue(eipAddr.AllocationId), natGatewayId)
+		}
+	}
+
+	err = waitUntilEipAddressesWithNatGatewayIsStatus(vpcClient, regionId, natGatewayId, eipStatusAvailable)
+	if err != nil {
+		err = fmt.Errorf("failed to wait until eip addresses with NAT Gateway(ID=%s) is %s: %v", natGatewayId, eipStatusAvailable, err)
+		cblogger.Error(err)
+	}
+
+	for _, eipAddr := range eipAddrs {
+		err = aliReleaseEipAddress(vpcClient, regionId, tea.StringValue(eipAddr.AllocationId))
+		if err != nil {
+			err = fmt.Errorf("failed to release eip address(ID=%s, IP=%s), it should be manually unassociated: %v", tea.StringValue(eipAddr.AllocationId), tea.StringValue(eipAddr.IpAddress), err)
+			cblogger.Error(err)
+		} else {
+			cblogger.Infof("EIP Address(ID=%s) associated with Internet NAT Gateway(ID=%s) will be released.", tea.StringValue(eipAddr.AllocationId), natGatewayId)
+		}
+	}
+
+	aliDeleteNatGateway(vpcClient, regionId, natGatewayId)
 
 	return nil
 }
@@ -1461,7 +1652,7 @@ func validateAtAddNodeGroup(clusterIID irs.IID, nodeGroupInfo irs.NodeGroupInfo)
 		return fmt.Errorf("Node Group name is required")
 	}
 	if nodeGroupInfo.ImageIID.SystemId != "" {
-		cblogger.Info(fmt.Sprintf("User defined node image cannot be used, it will use a predefined node image"))
+		cblogger.Infof("User defined node image cannot be used, it will use a predefined node image")
 	}
 	if nodeGroupInfo.MaxNodeSize < 1 {
 		return fmt.Errorf("MaxNodeSize cannot be smaller than 1")
@@ -1626,21 +1817,6 @@ func aliDescribeEipAddressesWithNat(vpcClient *vpc2016.Client, regionId, natGate
 	return describeEipAddressesResponse.Body.EipAddresses.EipAddress, nil
 }
 
-func aliReleaseEipAddress(vpcClient *vpc2016.Client, regionId, eipId string) error {
-	releaseEipAddressRequest := &vpc2016.ReleaseEipAddressRequest{
-		RegionId:     tea.String(regionId),
-		AllocationId: tea.String(eipId),
-	}
-	//spew.Dump(releaseEipAddressRequest)
-	_, err := vpcClient.ReleaseEipAddress(releaseEipAddressRequest)
-	if err != nil {
-		return err
-	}
-	//spew.Dump(releaseEipAddressResponse.Body)
-
-	return nil
-}
-
 func aliCreateNatGateway(vpcClient *vpc2016.Client, regionId, vpcId, vSwitchId string) (*string, []*string, error) {
 	description := delimiterVpcId + vpcId
 
@@ -1757,23 +1933,6 @@ func aliAssociateEipAddressToNatGateway(vpcClient *vpc2016.Client, regionId, eip
 		return err
 	}
 	//spew.Dump(associateEipAddressResponse.Body)
-
-	return nil
-}
-
-func aliUnassociateEipAddressFromNatGateway(vpcClient *vpc2016.Client, regionId, eipId, natGatewayId string) error {
-	unassociateEipAddressRequest := &vpc2016.UnassociateEipAddressRequest{
-		RegionId:     tea.String(regionId),
-		AllocationId: tea.String(eipId),
-		InstanceId:   tea.String(natGatewayId),
-		InstanceType: tea.String("Nat"),
-	}
-	//spew.Dump(unassociateEipAddressRequest)
-	_, err := vpcClient.UnassociateEipAddress(unassociateEipAddressRequest)
-	if err != nil {
-		return err
-	}
-	//spew.Dump(unassociateEipAddressResponse.Body)
 
 	return nil
 }
