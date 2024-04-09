@@ -3,12 +3,15 @@ package resources
 import (
 	"errors"
 	"time"
+	"strconv"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	
 	cbs "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs/v20170312"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
+	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 
 	tencentError "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 )
@@ -280,4 +283,78 @@ func DescribeZones(client *cvm.Client) (*cvm.DescribeZonesResponse, error) {
 	}
 
 	return responseZones, nil
+}
+
+// subnet 목록 조회 by vpc
+func ListSubnet(client *vpc.Client, reqVpcId string) ([]irs.SubnetInfo, error){
+	cblogger.Infof("reqVpcId : [%s]", reqVpcId)
+	var arrSubnetInfoList []irs.SubnetInfo
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.TENCENT,
+		RegionZone:   client.GetRegion(),
+		ResourceType: call.VPCSUBNET,
+		ResourceName: "ListSubnet - VpcId:" + reqVpcId,
+		CloudOSAPI:   "DescribeSubnets()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	request := vpc.NewDescribeSubnetsRequest()
+	request.Filters = []*vpc.Filter{
+		&vpc.Filter{
+			Name:   common.StringPtr("vpc-id"),
+			Values: common.StringPtrs([]string{reqVpcId}),
+		},
+	}
+
+	callLogStart := call.Start()
+	response, err := client.DescribeSubnets(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	callogger.Info(call.String(callLogInfo))
+	if err != nil {
+		cblogger.Error(err)
+		return nil, err
+	}
+	
+	for _, curSubnet := range response.Response.SubnetSet {
+		cblogger.Infof("[%s] Check Subnet Information", *curSubnet.SubnetId)
+		resSubnetInfo := irs.SubnetInfo{
+			IId:       irs.IID{SystemId: *curSubnet.SubnetId, NameId: *curSubnet.SubnetName},
+			IPv4_CIDR: *curSubnet.CidrBlock,
+			Zone: *curSubnet.Zone,
+			//Status:    *subnetInfo.State,
+		}
+
+		keyValueList := []irs.KeyValue{
+			{Key: "VpcId", Value: *curSubnet.VpcId},
+			{Key: "IsDefault", Value: strconv.FormatBool(*curSubnet.IsDefault)},
+			{Key: "AvailabilityZone", Value: *curSubnet.Zone},
+		}
+		resSubnetInfo.KeyValueList = keyValueList
+		arrSubnetInfoList = append(arrSubnetInfoList, resSubnetInfo)
+	}
+
+	return arrSubnetInfoList, nil
+}
+
+// subnet 단건 조회
+func GetSubnet(client *vpc.Client, reqVpcId string, reqSubnetId string) (irs.SubnetInfo, error){
+	resultSubnetInfo := irs.SubnetInfo{}
+	subnetList, err := ListSubnet(client, reqVpcId)
+	if err != nil {
+		return resultSubnetInfo, err
+	}
+
+	
+	for _, curSubnet := range subnetList {
+		if curSubnet.IId.SystemId == reqSubnetId {
+			return curSubnet, nil
+		}
+	}
+
+	// 못찾으면 not found error
+	return resultSubnetInfo, errors.New("cannot find the subnet")	
 }

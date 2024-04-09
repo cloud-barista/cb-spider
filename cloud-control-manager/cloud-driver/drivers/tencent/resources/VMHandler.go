@@ -25,6 +25,7 @@ import (
 	tencentcbs "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs/v20170312"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
+	tencentvpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 	//lighthouse "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/lighthouse/v20200324"
 )
 
@@ -32,7 +33,9 @@ type TencentVMHandler struct {
 	Region     idrv.RegionInfo
 	Client     *cvm.Client
 	DiskClient *tencentcbs.Client
+	VPCClient *tencentvpc.Client
 }
+//Client *vpc.Client
 
 //type TencentCbsHandler struct {
 //	Region idrv.RegionInfo
@@ -68,8 +71,19 @@ type TencentVMHandler struct {
 // VM생성 시 Zone이 필수라서 Credential의 Zone에만 생성함.
 func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	cblogger.Info(vmReqInfo)
-
 	zoneId := vmHandler.Region.Zone
+
+	vpcHandler := TencentVPCHandler{
+		Region: vmHandler.Region,
+		Client: vmHandler.VPCClient,
+	}
+	subnetInfo, err := GetSubnet(vpcHandler.Client, vmReqInfo.VpcIID.SystemId, vmReqInfo.SubnetIID.SystemId)
+	if err != nil {
+		return irs.VMInfo{}, errors.New("there is no available subnet")
+	}
+	if subnetInfo.Zone != "" {
+		zoneId = subnetInfo.Zone
+	}
 	cblogger.Debugf("Zone : %s", zoneId)
 	if zoneId == "" {
 		cblogger.Error("Connection information does not contain Zone information.")
@@ -194,8 +208,9 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	//=============================
 	// Placement 처리
 	//=============================
+	// 이슈 #1097 : placement는 optional이며 vm생성시 subnet은 1개만 선택하므로 subnet에 정의된 zone 사용하도록. (subnet에서 선택할 zone과 다른 zone에 생성불가)
 	request.Placement = &cvm.Placement{
-		Zone: common.StringPtr(vmHandler.Region.Zone),
+		Zone: common.StringPtr(zoneId),
 	}
 
 	/* 이슈 #348에 의해 RootDisk 기능 지원하면서 기존 로직 제거

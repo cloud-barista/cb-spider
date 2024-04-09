@@ -43,12 +43,12 @@ func (VPCHandler *TencentVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 		return irs.VPCInfo{}, errors.New("A VPC with the name " + vpcReqInfo.IId.NameId + " already exists.")
 	}
 
-	zoneId := VPCHandler.Region.Zone
+	zoneId := VPCHandler.Region.Zone// default
 	cblogger.Infof("Zone : %s", zoneId)
-	if zoneId == "" {
-		cblogger.Error("Connection information does not contain Zone information.")
-		return irs.VPCInfo{}, errors.New("Connection information does not contain Zone information.")
-	}
+	// if zoneId == "" { // vpc 자체는 region dependency임.
+	// 	cblogger.Error("Connection information does not contain Zone information.")
+	// 	return irs.VPCInfo{}, errors.New("Connection information does not contain Zone information.")
+	// }
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -95,10 +95,15 @@ func (VPCHandler *TencentVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 
 	for _, curSubnet := range vpcReqInfo.SubnetInfoList {
 		cblogger.Infof("[%s] Subnet 처리", curSubnet.IId.NameId)
+		subnetZoneId := zoneId
+		if curSubnet.Zone != "" {
+			subnetZoneId = curSubnet.Zone
+		}
+		
 		reqSubnet := &vpc.SubnetInput{
 			CidrBlock:  common.StringPtr(curSubnet.IPv4_CIDR),
 			SubnetName: common.StringPtr(curSubnet.IId.NameId),
-			Zone:       common.StringPtr(zoneId),
+			Zone:       common.StringPtr(subnetZoneId),
 			//RouteTableId: common.StringPtr("route"),
 		}
 		requestSubnet.Subnets = append(requestSubnet.Subnets, reqSubnet)
@@ -106,7 +111,7 @@ func (VPCHandler *TencentVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 
 	responseSubnet, errSubnet := VPCHandler.Client.CreateSubnets(requestSubnet)
 	cblogger.Debug(responseSubnet.ToJsonString())
-	spew.Dump(responseSubnet)
+	//spew.Dump(responseSubnet)
 	if errSubnet != nil {
 		cblogger.Error(errSubnet)
 		return irs.VPCInfo{}, errSubnet
@@ -392,6 +397,9 @@ func (VPCHandler *TencentVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Su
 	cblogger.Infof("[%s] Add Subnet - CIDR : %s", subnetInfo.IId.NameId, subnetInfo.IPv4_CIDR)
 
 	zoneId := VPCHandler.Region.Zone
+	if subnetInfo.Zone != "" {
+		zoneId = subnetInfo.Zone
+	}
 	cblogger.Infof("Zone : %s", zoneId)
 	if zoneId == "" {
 		cblogger.Error("Connection information does not contain Zone information.")
@@ -433,7 +441,7 @@ func (VPCHandler *TencentVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Su
 	request.VpcId = common.StringPtr(vpcIID.SystemId)
 	request.SubnetName = common.StringPtr(subnetInfo.IId.NameId)
 	request.CidrBlock = common.StringPtr(subnetInfo.IPv4_CIDR)
-	request.Zone = common.StringPtr(VPCHandler.Region.Zone)
+	request.Zone = common.StringPtr(zoneId)
 
 	callLogStart := call.Start()
 	response, err := VPCHandler.Client.CreateSubnet(request)

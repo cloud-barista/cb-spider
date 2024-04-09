@@ -251,6 +251,7 @@ func convertDiskInfo(diskResp *cbs.Disk) (irs.DiskInfo, error) {
 	diskInfo.OwnerVM.SystemId = *diskResp.InstanceId
 	diskInfo.CreatedTime, _ = time.Parse("2006-01-02 15:04:05", *diskResp.CreateTime)
 	diskInfo.Status = convertTenStatusToDiskStatus(diskResp)
+	diskInfo.Zone = *diskResp.Placement.Zone
 
 	return diskInfo, nil
 }
