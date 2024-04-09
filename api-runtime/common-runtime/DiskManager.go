@@ -399,8 +399,8 @@ func ChangeDiskSize(connectionName string, diskName string, size string) (bool, 
 		return false, err
 	}
 
-	diskSPLock.RLock(connectionName, diskName)
-	defer diskSPLock.RUnlock(connectionName, diskName)
+	diskSPLock.Lock(connectionName, diskName)
+	defer diskSPLock.Unlock(connectionName, diskName)
 
 	// (1) get IID(NameId)
 	var iidInfo DiskIIDInfo
@@ -421,9 +421,6 @@ func ChangeDiskSize(connectionName string, diskName string, size string) (bool, 
 		cblog.Error(err)
 		return false, err
 	}
-
-	diskSPLock.Lock(connectionName, diskName)
-	defer diskSPLock.Unlock(connectionName, diskName)
 
 	// (1) check exist(diskName)
 	var diskIIDInfo DiskIIDInfo
@@ -468,8 +465,8 @@ func AttachDisk(connectionName string, diskName string, ownerVMName string) (*cr
 		return nil, err
 	}
 
-	diskSPLock.RLock(connectionName, diskName)
-	defer diskSPLock.RUnlock(connectionName, diskName)
+	diskSPLock.Lock(connectionName, diskName)
+	defer diskSPLock.Unlock(connectionName, diskName)
 
 	// (1) get IID(NameId)
 	var iidInfo DiskIIDInfo
@@ -490,9 +487,6 @@ func AttachDisk(connectionName string, diskName string, ownerVMName string) (*cr
 		cblog.Error(err)
 		return nil, err
 	}
-
-	diskSPLock.Lock(connectionName, diskName)
-	defer diskSPLock.Unlock(connectionName, diskName)
 
 	// (1) check exist(diskName)
 	var diskIIDInfo DiskIIDInfo
@@ -545,8 +539,8 @@ func DetachDisk(connectionName string, diskName string, ownerVMName string) (boo
 		return false, err
 	}
 
-	diskSPLock.RLock(connectionName, diskName)
-	defer diskSPLock.RUnlock(connectionName, diskName)
+	diskSPLock.Lock(connectionName, diskName)
+	defer diskSPLock.Unlock(connectionName, diskName)
 
 	// (1) get IID(NameId)
 	var iidInfo DiskIIDInfo
@@ -567,9 +561,6 @@ func DetachDisk(connectionName string, diskName string, ownerVMName string) (boo
 		cblog.Error(err)
 		return false, err
 	}
-
-	diskSPLock.Lock(connectionName, diskName)
-	defer diskSPLock.Unlock(connectionName, diskName)
 
 	// (1) check exist(diskName)
 	var diskIIDInfo DiskIIDInfo
