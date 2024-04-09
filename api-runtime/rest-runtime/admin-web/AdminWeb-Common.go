@@ -122,6 +122,16 @@ func vmStatus(connConfig string, vmName string) string {
 	return info.Status
 }
 
+func rootDiskTypeList(providerName string) []string {
+	// get Provider's Meta Info
+	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo(providerName)
+	if err != nil {
+		cblog.Error(err)
+		return []string{}
+	}
+	return cloudOSMetaInfo.RootDiskType
+}
+
 func diskTypeList(providerName string) []string {
 	// get Provider's Meta Info
 	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo(providerName)
