@@ -5,6 +5,9 @@ curl -X POST http://$RESTSERVER:1024/spider/driver -H 'Content-Type: application
 
  # for Cloud Credential Info
  # $$$ Need to append '/v3/' to identity_endpoint URL 
+ # $$$ For 'V3' verson auth., identity_endpoint, username, password and domain_name are required basically.
+ # $$$ And, need 'project_id' for the token role
+ # You can get the prject id on 'Servers' > 'Token' > 'Token' menu on KT Cloud Portal
 curl -X POST http://$RESTSERVER:1024/spider/credential -H 'Content-Type: application/json' -d '{
     "CredentialName":"ktcloudvpc-credential01",
     "ProviderName":"KTCLOUDVPC",
