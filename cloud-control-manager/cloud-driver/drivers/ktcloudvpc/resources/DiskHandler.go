@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"github.com/davecgh/go-spew/spew"
+	// "github.com/davecgh/go-spew/spew"
 
 	ktvpcsdk 	"github.com/cloud-barista/ktcloudvpc-sdk-go"
 	volumes2 	"github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/blockstorage/v2/volumes"
@@ -194,8 +194,8 @@ func (diskHandler *KTVpcDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, err
 		loggingError(callLogInfo, newErr)
 		return irs.DiskInfo{}, newErr
 	}
-	cblogger.Info(ktVolumeInfo)
-	spew.Dump(ktVolumeInfo)
+	// cblogger.Info(ktVolumeInfo)
+	// spew.Dump(ktVolumeInfo)
 
 	volumeInfo, err := diskHandler.mappingDiskInfo(*ktVolumeInfo)
 	if err != nil {
