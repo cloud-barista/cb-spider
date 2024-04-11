@@ -170,6 +170,13 @@ func (regionZoneHandler *AzureRegionZoneHandler) GetRegionZone(Name string) (irs
 		}
 	}
 
+	if location == nil {
+		getErr := errors.New("Failed to Get RegionZone. err = Location name not found. (" + Name + ")")
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.RegionZoneInfo{}, getErr
+	}
+
 	regionZoneInfo.Name = *location.Name
 	regionZoneInfo.DisplayName = *location.DisplayName
 

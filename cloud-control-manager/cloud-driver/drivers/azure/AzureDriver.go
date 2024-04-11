@@ -17,6 +17,8 @@ import (
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/to"
+	cblogger "github.com/cloud-barista/cb-log"
+	"github.com/sirupsen/logrus"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/profiles/2020-09-01/monitor/mgmt/insights"
@@ -29,6 +31,12 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
 )
+
+var cblog *logrus.Logger
+
+func init() {
+	cblog = cblogger.GetLogger("CLOUD-BARISTA")
+}
 
 type AzureDriver struct{}
 
@@ -264,6 +272,36 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 		GroupsClient:                    groupsClient,
 		ResourceSkusClient:              resourceSkusClient,
 	}
+
+	regionZoneHandler, err := iConn.CreateRegionZoneHandler()
+	if err != nil {
+		return nil, err
+	}
+	regionZoneInfo, err := regionZoneHandler.GetRegionZone(connectionInfo.RegionInfo.Region)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(regionZoneInfo.ZoneList) == 0 {
+		cblog.Warn("Zone is not available for this region. (" + connectionInfo.RegionInfo.Region + ")")
+		iConn.Region.Zone = ""
+	} else {
+		var zoneFound bool
+		for _, zone := range regionZoneInfo.ZoneList {
+			if zone.Name == connectionInfo.RegionInfo.Zone {
+				zoneFound = true
+				break
+			}
+		}
+
+		if !zoneFound {
+			cblog.Warn("Configured zone is not found in the selected region." +
+				" (Region: " + connectionInfo.RegionInfo.Region + ", Zone: " + connectionInfo.RegionInfo.Zone + ")")
+			cblog.Warn("1 will be used as the default zone.")
+			iConn.Region.Zone = "1"
+		}
+	}
+
 	return &iConn, nil
 }
 

@@ -225,8 +225,15 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			},
 		},
 	}
-	// 3-2. Set VmReqInfo - vmImage & storageType
 
+	// Setting zone if available
+	if vmHandler.Region.Zone != "" {
+		vmOpts.Zones = &[]string{
+			vmHandler.Region.Zone,
+		}
+	}
+
+	// 3-2. Set VmReqInfo - vmImage & storageType
 	var managedDisk = new(compute.ManagedDiskParameters)
 	if vmReqInfo.RootDiskType != "" && strings.ToLower(vmReqInfo.RootDiskType) != "default" {
 		storageType := GetVMDiskTypeInitType(vmReqInfo.RootDiskType)
@@ -959,7 +966,7 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 
 	// Set VM Zone
 	if server.Zones != nil {
-		vmInfo.Region.Zone = (*server.Zones)[0]
+		vmInfo.Region.Zone = vmHandler.Region.Zone
 	}
 
 	// Set VM Image Info
@@ -1114,7 +1121,7 @@ func CreatePublicIP(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo) (irs.IID
 	createOpts := network.PublicIPAddress{
 		Name: to.StringPtr(publicIPName),
 		Sku: &network.PublicIPAddressSku{
-			Name: network.PublicIPAddressSkuName("Basic"),
+			Name: network.PublicIPAddressSkuNameBasic,
 		},
 		PublicIPAddressPropertiesFormat: &network.PublicIPAddressPropertiesFormat{
 			PublicIPAddressVersion: network.IPVersion("IPv4"),
@@ -1126,6 +1133,17 @@ func CreatePublicIP(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo) (irs.IID
 		Tags: map[string]*string{
 			"createdBy": to.StringPtr(vmReqInfo.IId.NameId),
 		},
+	}
+
+	// Setting zone if available
+	if vmHandler.Region.Zone != "" {
+		createOpts.Sku = &network.PublicIPAddressSku{
+			Name: network.PublicIPAddressSkuNameStandard,
+		}
+		createOpts.PublicIPAllocationMethod = network.IPAllocationMethodStatic
+		createOpts.Zones = &[]string{
+			vmHandler.Region.Zone,
+		}
 	}
 
 	future, err := vmHandler.PublicIPClient.CreateOrUpdate(vmHandler.Ctx, vmHandler.Region.Region, publicIPName, createOpts)
