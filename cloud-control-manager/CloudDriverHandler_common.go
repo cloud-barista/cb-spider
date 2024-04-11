@@ -248,10 +248,7 @@ func getRegionNameByRegionInfo(rgnInfo *rim.RegionInfo) (string, string, error) 
 	var regionName string
 	var zoneName string
 	switch strings.ToUpper(rgnInfo.ProviderName) {
-	case "AZURE":
-		regionName = getValue(rgnInfo.KeyValueInfoList, "location")
-		zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
-	case "AWS", "ALIBABA", "GCP", "TENCENT", "IBM", "NCP", "NCPVPC", "KTCLOUD", "NHNCLOUD", "KTCLOUDVPC":
+	case "AWS", "AZURE", "ALIBABA", "GCP", "TENCENT", "IBM", "NCP", "NCPVPC", "KTCLOUD", "NHNCLOUD", "KTCLOUDVPC":
 		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
 		zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
 	case "OPENSTACK", "CLOUDIT", "DOCKER", "CLOUDTWIN", "MOCK":
