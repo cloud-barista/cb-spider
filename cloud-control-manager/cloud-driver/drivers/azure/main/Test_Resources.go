@@ -24,7 +24,6 @@ type Config struct {
 		TenantId       string `yaml:"tenant_id"`
 		SubscriptionID string `yaml:"subscription_id"`
 
-		GroupName string `yaml:"group_name"`
 		Location  string `yaml:"location"`
 		Resources struct {
 			Image struct {
@@ -179,8 +178,7 @@ func getResourceHandler(resourceType string, config Config) (interface{}, error)
 			SubscriptionId: config.Azure.SubscriptionID,
 		},
 		RegionInfo: idrv.RegionInfo{
-			Region:        config.Azure.Location,
-			ResourceGroup: config.Azure.GroupName,
+			Region: config.Azure.Location,
 		},
 	}
 

@@ -295,7 +295,7 @@ func (regionZoneHandler *AzureRegionZoneHandler) ListOrgZone() (string, error) {
 	hiscallInfo := GetCallLogScheme(regionZoneHandler.Region, call.REGIONZONE, "RegionZone", "ListOrgZone()")
 	start := call.Start()
 
-	resultGroupsClient, err := regionZoneHandler.GroupsClient.Get(regionZoneHandler.Ctx, regionZoneHandler.Region.ResourceGroup)
+	resultGroupsClient, err := regionZoneHandler.GroupsClient.Get(regionZoneHandler.Ctx, regionZoneHandler.Region.Region)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List OrgZone. err = %s", err))
 		cblogger.Error(getErr.Error())
