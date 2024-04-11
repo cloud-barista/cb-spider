@@ -8,7 +8,7 @@ curl -X POST http://$RESTSERVER:1024/spider/driver -H 'Content-Type: application
 curl -X POST http://$RESTSERVER:1024/spider/credential -H 'Content-Type: application/json' -d '{"CredentialName":"azure-credential01","ProviderName":"AZURE", "KeyValueInfoList": [{"Key":"ClientId", "Value":"XXXX-XXXX"}, {"Key":"ClientSecret", "Value":"xxxx-xxxx"}, {"Key":"TenantId", "Value":"xxxx-xxxx"}, {"Key":"SubscriptionId", "Value":"xxxx-xxxx"}]}'
 
  # for Cloud Region Info
-curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"azure-northeu","ProviderName":"AZURE", "KeyValueInfoList": [{"Key":"location", "Value":"northeurope"}, {"Key":"ResourceGroup", "Value":"CB-GROUP-POWERKIM"}]}'
+curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"azure-northeu","ProviderName":"AZURE", "KeyValueInfoList": [{"Key":"location", "Value":"northeurope"}, {"Key":"Zone", "Value":"1"}]}'
 
  # for Cloud Connection Config Info
 curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"azure-northeu-config","ProviderName":"AZURE", "DriverName":"azure-driver01", "CredentialName":"azure-credential01", "RegionName":"azure-northeu"}'

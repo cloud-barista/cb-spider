@@ -21,7 +21,6 @@ import (
 )
 
 const (
-	CBResourceGroupName  = "CB-GROUP"
 	CBVirtualNetworkName = "CB-VNet"
 	CBVnetDefaultCidr    = "130.0.0.0/16"
 	CBVMUser             = "cb-user"

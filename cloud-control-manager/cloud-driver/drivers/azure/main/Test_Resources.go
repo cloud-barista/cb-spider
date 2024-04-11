@@ -25,6 +25,7 @@ type Config struct {
 		SubscriptionID string `yaml:"subscription_id"`
 
 		Location  string `yaml:"location"`
+		Zone      string `yaml:"zone"`
 		Resources struct {
 			Image struct {
 				NameId string `yaml:"nameId"`
@@ -179,10 +180,15 @@ func getResourceHandler(resourceType string, config Config) (interface{}, error)
 		},
 		RegionInfo: idrv.RegionInfo{
 			Region: config.Azure.Location,
+			Zone:   config.Azure.Zone,
 		},
 	}
 
 	cloudConnection, err := cloudDriver.ConnectCloud(connectionInfo)
+	if err != nil {
+		panic(err)
+	}
+
 	var resourceHandler interface{}
 
 	switch resourceType {
