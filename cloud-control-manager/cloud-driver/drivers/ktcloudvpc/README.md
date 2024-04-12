@@ -98,8 +98,8 @@ ssh -i /private_key_경로/private_key_파일명(~~.pem) cb-user@VM의_public_ip
 
    - KTCloud VPC 서비스에서는 Subnet과 같은 개념으로 'Tier'라는 개념을 사용함.
      - VPC는 상기와 같이 단일 VPC를 제공하지만, subnet은 추가, 삭제 등의 제어가 가능함.(AddSubnet, RemoveSubnet 기능 지원함.)
-     - (주의) Default subnet(tier)인 'DMZ'과 'Private' subnet은 삭제 할 수 없으며, 기본적으로 아래의 CIDR을 사용하고 있으니 subnet 생성시 아래의 대역 외의 CIDR을 지정해야함.
-       - DMZ subnet : 172.25.0.1/24, Private	subnet : 172.25.1.1/24
+     - (주의) Default subnet(tier)인 'DMZ', 'Private', 'external' subnet은 삭제 할 수 없으며, 기본적으로 아래의 CIDR을 사용하고 있으니 subnet 생성시 아래의 대역 외의 CIDR을 지정해야함.
+       - DMZ subnet : 172.25.0.1/24, Private	subnet : 172.25.1.1/24, external	subnet : CIDR 없음.
 
      - VPC의 CIDR은 172.25.0.0/12 대역이지만, subnet (tier) 생성시 172.25.X.X 외에도 Custom Tier로서 10.10.X.X, 192.168.X.X 등의 대역을 자유롭게 지정해서 생성할 수 있음.(VM에 그 대역의 private IP가 할당됨.)
      - Subnet(Tier)는 기본적으로 B Class 네트워크를 Subnet으로 나누어서 사용함.
