@@ -54,8 +54,11 @@ const (
 	CentosCloudInitFilePath string 	= "/cloud-driver-libs/.cloud-init-ktcloudvpc/cloud-init-centos"
 	WinCloudInitFilePath 	string 	= "/cloud-driver-libs/.cloud-init-ktcloudvpc/cloud-init-windows"
 
-	DefaultUsagePlan  	string = "hourly"
-	DefaultDiskSize		string = "50"
+	DefaultUsagePlan  		string = "hourly"
+	DefaultDiskSize			string = "50"
+	DefaultDiskSize2  		string = "100"
+	DefaultWinRootDiskSize  string = "100"
+	DefaultWinRootDiskSize2  string = "150"
 )
 
 type KTVpcVMHandler struct {
@@ -156,6 +159,7 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	// # Preparing for UserData String for Linux and Windows Platform
 	var initUserData *string
 	var keyPairId string
+	var rootDiskSize string
 	if !strings.EqualFold(vmReqInfo.KeyPairIID.SystemId, "") {
 		keyPairId = vmReqInfo.KeyPairIID.SystemId
 	} else {
@@ -188,7 +192,23 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			loggingError(callLogInfo, newErr)
 			return irs.VMInfo{}, newErr
 		}
-		if isPublicWindowsImage {
+		if isPublicWindowsImage { // # Incase of Public Windows image
+			// Root Disk Size is supported at only 50GB for Linux and 100GB for Windows OS.
+			if !strings.EqualFold(vmReqInfo.RootDiskSize, "") && !strings.EqualFold(vmReqInfo.RootDiskSize, "default") && !strings.EqualFold(vmReqInfo.RootDiskSize, DefaultWinRootDiskSize) && !strings.EqualFold(vmReqInfo.RootDiskSize, DefaultWinRootDiskSize2) {
+				newErr := fmt.Errorf("Invalid RootDiskSize!! Root Disk Size is supported at only 50GB/100GB for Linux and 100GB/150GB for Windows OS.")
+				cblogger.Error(newErr.Error())
+				loggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
+			}
+
+			// In case the Root Volume Size is not specified.
+			reqDiskSize := vmReqInfo.RootDiskSize
+			if strings.EqualFold(reqDiskSize, "") || strings.EqualFold(reqDiskSize, "default") {
+				rootDiskSize = DefaultWinRootDiskSize
+			} else {
+				rootDiskSize = reqDiskSize
+			}
+	
 			var createErr error
 			initUserData, createErr = vmHandler.createWinInitUserData(vmReqInfo.VMUserPasswd)
 			if createErr != nil {
@@ -197,7 +217,23 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 				loggingError(callLogInfo, newErr)
 				return irs.VMInfo{}, newErr
 			}
-		} else {
+		} else { // # Incase of Public Linux image
+			// Root Disk Size is supported at only 50GB for Linux and 100GB for Windows OS.
+			if !strings.EqualFold(vmReqInfo.RootDiskSize, "") && !strings.EqualFold(vmReqInfo.RootDiskSize, "default") && !strings.EqualFold(vmReqInfo.RootDiskSize, DefaultDiskSize) && !strings.EqualFold(vmReqInfo.RootDiskSize, DefaultDiskSize2) {
+				newErr := fmt.Errorf("Invalid RootDiskSize!! Root Disk Size is supported at only 50GB/100GB for Linux and 100GB/150GB for Windows OS.")
+				cblogger.Error(newErr.Error())
+				loggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
+			}
+	
+			// In case the Root Volume Size is not specified.
+			reqDiskSize := vmReqInfo.RootDiskSize
+			if strings.EqualFold(reqDiskSize, "") || strings.EqualFold(reqDiskSize, "default") {
+				rootDiskSize = DefaultDiskSize
+			} else {
+				rootDiskSize = reqDiskSize
+			}
+
 			var createErr error
 			initUserData, createErr = vmHandler.createLinuxInitUserData(keyPairId)
 			if createErr != nil {
@@ -242,9 +278,9 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	blockDeviceSet := []volumeboot.BlockDevice{
 		{
 			DestinationType:     volumeboot.DestinationVolume, // DestinationType is the type that gets created. Possible values are "volume" and "local". volumeboot.DestinationType => "volume"
-			BootIndex: 			 0, 						// BootIndex is the boot index. It defaults to 0. Set as the Root Volume.
+			BootIndex: 			 0, 			 // BootIndex is the boot index. It defaults to 0. Set as the Root Volume.
 			SourceType:          bootSourceType, // volumeboot.SourceImage
-			VolumeSize:          reqDiskSize, 	 // VolumeSize is the size of the volume to create (in gigabytes). This can be omitted for existing volumes.
+			VolumeSize:          rootDiskSize, 	 // VolumeSize is the size of the volume to create (in gigabytes). This can be omitted for existing volumes.
 			UUID:                vmReqInfo.ImageIID.SystemId,
 		},
 	}

@@ -117,14 +117,18 @@ KTCLOUD:
   rootdisksize: HDD|20|50|GB / SSD|20|50|GB
   disktype: HDD / SSD-Provisioned
   disksize: HDD|10|500|GB / SSD-Provisioned|100|800|GB
-    # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage
-  idmaxlength: 0 / 0 / 0 / 100 / 100 / 50 / 30 / 32
+  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage
+  idmaxlength: 0 / 0 / 30 / 100 / 100 / 50 / 30 / 32
 
 KTCLOUDVPC:
   region: Region / Zone
   credential: IdentityEndpoint / Username / Password / DomainName / ProjectID
   rootdisktype: HDD / SSD
   rootdisksize: HDD|50|100|GB / SSD|50|100|GB
+  disktype: HDD / SSD
+  disksize: HDD|10|2000|GB / SSD|10|2000|GB
+  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage
+  idmaxlength: 300 / 300 / 30 / 100 / 300 / 50 / 300 / 50
 
 #--- PoC
 

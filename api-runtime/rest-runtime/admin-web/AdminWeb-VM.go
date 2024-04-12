@@ -570,6 +570,9 @@ func VM(c echo.Context) error {
 	case "KTCLOUD":
 		imageName = "87838094-af4f-449f-a2f4-f5b4b581eb29"
 		specName = "b6b360db-dcbf-48d4-b571-89a6e19bc4b4!_disk20GB"
+	case "KTCLOUDVPC":
+		imageName = "92e2be77-35e3-4f4c-96a3-2628475bb9e4"
+		specName = "4x8.itl"
 	case "NHNCLOUD":
 		imageName = "5396655e-166a-4875-80d2-ed8613aa054f"
 		specName = "m2.c4m8"

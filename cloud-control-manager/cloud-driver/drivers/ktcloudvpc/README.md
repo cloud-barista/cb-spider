@@ -98,10 +98,14 @@ ssh -i /private_key_경로/private_key_파일명(~~.pem) cb-user@VM의_public_ip
 
    - KTCloud VPC 서비스에서는 Subnet과 같은 개념으로 'Tier'라는 개념을 사용함.
      - VPC는 상기와 같이 단일 VPC를 제공하지만, subnet은 추가, 삭제 등의 제어가 가능함.(AddSubnet, RemoveSubnet 기능 지원함.)
-     - (주의) Default subnet(tier)인 'DMZ'과 'Private' subnet은 삭제 할 수 없으며, 기본적으로 아래의 CIDR을 사용하고 있으니 subnet 생성시 아래의 대역 외의 CIDR을 지정해야함.
-       - DMZ subnet : 172.25.0.1/24, Private	subnet : 172.25.1.1/24
+     - (주의) Default subnet(tier)인 'DMZ', 'Private', 'external' subnet은 삭제 할 수 없으며, 기본적으로 아래의 CIDR을 사용하고 있으니 subnet 생성시 아래의 대역 외의 CIDR을 지정해야함.
+       - DMZ subnet : 172.25.0.1/24, Private	subnet : 172.25.1.1/24, external	subnet : CIDR 없음.
 
-     - VPC의 CIDR은 위의 대역이지만, subnet (Tier) 생성시 172.25.X.X 외에도 Custom Tier로서 10.10.X.X, 192.168.X.X 등의 대역을 자유롭게 지정해서 생성할 수 있음.(VM에 그 대역의 private IP가 할당됨.)
+     - VPC의 CIDR은 172.25.0.0/12 대역이지만, subnet (tier) 생성시 172.25.X.X 외에도 Custom Tier로서 10.10.X.X, 192.168.X.X 등의 대역을 자유롭게 지정해서 생성할 수 있음.(VM에 그 대역의 private IP가 할당됨.)
+     - Subnet(Tier)는 기본적으로 B Class 네트워크를 Subnet으로 나누어서 사용함.
+       - 172.25.X.X 대역의 경우, 내부적으로 172.25.0.0/16의 B Class 네트워크를 나누어 사용됨.
+       - 실제 subnet(tier) 생성시 C Class 대역 기준으로 나누어 생성됨. Ex) C Class 숫자가 '3'이면 tier는 172.25.3.0/24 대역으로 생성됨.     
+         - 드라이버 내부적으로, VM 생성시 subnet C Class 대역에서 D Class가 11~140번까지의 privatge IP가 VM에 할당됨.
 
    - (참고) Create/Add Subnet시 log에 Error가 발생해도 무시하면됨. KT Cloud D1 Platform의 버그임.
 
@@ -110,3 +114,10 @@ ssh -i /private_key_경로/private_key_파일명(~~.pem) cb-user@VM의_public_ip
    - KTCloud VPC에서는 Security Group(S/G) 개념을 지원하지 않지만, 본 드라이버에서 S/G을 생성한 후 VM 생성시 그 S/G을 적용 가능함.
       - 사용자가 S/G을 정의하면, 드라이버 내부적으로, VM 생성시 public IP가 생성된 후 그 S/G rule들이 Port forwarding rule, Firewall rule로 전환되어 반영됨.
    - KTCloud VPC에서는 outbound rule도 지원하기 때문에 VM에서 outbound 통신이 필요시 반드시 S/G의 outbound 로서 해당 protocol 및 port를 열여줘야함.
+
+ O NLB 생성시 아래의 사항을 참고
+
+   - CB-Spider를 이용해 NLB 생성시, 내부적으로 'NLB-SUBNET' 이라는 이름의 subnet(Tier)가 지정되어 그 subnet 기준으로 NLB가 생성됨.
+      - VPC 내에 'NLB-SUBNET' 이라는 이름의 subnet이 없을 경우 미리 생성해야함.
+   - 위와 같은 이유로, VM에 NLB를 적용하기 위해서는 VM 생성시 'NLB-SUBNET' 기준으로 생성해야함.
+      - (참고) KT Cloud VPC는 다른 subnet 내에 생성된 VM을 특정 subnet에 생성된 NLB에 적용 불가함.     
