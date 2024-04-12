@@ -592,9 +592,17 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 		err := infostore.GetByConditionsAndContain(&sgIIdInfo, CONNECTION_NAME_COLUMN, connectionName,
 			OWNER_VPC_NAME_COLUMN, netInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, getMSShortID(sgIID.SystemId))
 		if err != nil {
-			// exception processing to Azure, Azure creates new SG for K8S.
+			providerName, getErr := ccm.GetProviderNameByConnectionName(connectionName)
+			if getErr != nil {
+				cblog.Error(getErr)
+				return getErr
+			}
+
+			// exception processing to Azure or NHNCLOUD, we create new SG for K8S.
 			if strings.Contains(sgIID.SystemId, "/Microsoft.") && strings.Contains(err.Error(), "not exist") {
 				sgIIdInfo.NameId = "#" + getMSShortID(sgIID.SystemId)
+			} else if strings.EqualFold(providerName, "NHNCLOUD") && strings.Contains(err.Error(), "not exist") {
+				sgIIdInfo.NameId = "#" + sgIID.SystemId
 			} else {
 				cblog.Error(err)
 				return err

@@ -140,3 +140,21 @@ ssh -i /private_key_파일_경로/private_key_파일명(~~.pem) cb-user@해당_V
 ​	O 본 드라이버를 통해 미국 region infra는 사용 불가
    - 현재 한국 : 2개 region X 2개 zone, 일본 : 1개 region X 2개 zone 지원
    - NHN Cloud에서 미국 region은 API endpoint를 제공하지 않으므로 미국 region은 console을 통해서만 사용 가능
+
+#### # 클러스터 핸들러 개발 관련 (aka. PMKS)
+   - #### 일반사항
+      - [cloud-barista/nhncloud-sdk-go](https://github.com/cloud-barista/nhncloud-sdk-go)를 기반으로 개발함
+      - 한국(판교) 리전과 한국(평촌) 리전만 NKS(NHN Kubernetes Service) 제공
+      - 노드 이미지 정보는 리전별로 지원하는 베이스 이미지 UUID로 설정해야 함 ([link](https://docs.nhncloud.com/ko/Container/NKS/ko/public-api/#uuid_3))
+      - 클러스터 생성시 1개의 노드그룹 설정만 지원하며, 클러스터 생성 이후 노드 그룹 추가를 지원함
+   - #### 특이사항
+      - 노드그룹에 포함된 노드의 Security Group을 사용자가 요청한 값으로 설정하지 않고 자체적으로 생성한 Security Group으로 설정되며, NetworkInfo.SecurityGroupIIDs.NameId를 '#'+SystemId로 리턴함 ([#1065](https://github.com/cloud-barista/cb-spider/issues/1065))
+   - #### CSP 제약 사항
+      - 첫번째 노드그룹 이름은 default-worker로 고정 생성됨 ([#867](https://github.com/cloud-barista/cb-spider/issues/867))
+      - 프로젝트당 클러스터 생성 개수 제한 존재 (기본 3개)
+      - 클러스터 업그레이드시 마스터/워커 노드그룹 단위 업그레이드만 가능하며 동시 업그레이드 미지원 ([#1129](https://github.com/cloud-barista/cb-spider/issues/1129))
+      - 현재 판교, 평촌만 NKS 지원 ([link](https://docs.nhncloud.com/ko/Container/NKS/ko/public-api/))
+      - 인터넷 게이트웨이가 연결된 VPC에서만 Public K8s 엔드포인트 지정 가능
+         - 인터넷 게이트웨어 제어 API를 미제공하므로 사전 생성 및 연결 절차 수행 필요 ([#1109](https://github.com/cloud-barista/cb-spider/issues/1109))
+      - 클러스터 업그레이드시 마스터/워커 노드그룹 단위 업그레이드만 가능하며 동시 업그레이드 미지원 ([#1129](https://github.com/cloud-barista/cb-spider/issues/1129))
+      - 노드그룹의 노드에 설정되는 Security Group을 자체적으로 생성하여 적용함 ([#1065](https://github.com/cloud-barista/cb-spider/issues/1065))

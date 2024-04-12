@@ -162,6 +162,10 @@ func getClusterClient(providerClient *nhnsdk.ProviderClient, connInfo idrv.Conne
 	client, err := ostack.NewContainerInfraV1(providerClient, nhnsdk.EndpointOpts{
 		Region: connInfo.RegionInfo.Region,
 	})
+
+	// If .Microversion is not set, NHN Cloud rejects the request that is
+	// 'GET https://kr1-api-kubernetes-infrastructure/v1/clusters/{UUID}/nodegroups'
+	client.Microversion = "latest"
 	if err != nil {
 		return nil, err
 	}

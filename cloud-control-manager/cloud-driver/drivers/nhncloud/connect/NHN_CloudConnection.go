@@ -107,7 +107,7 @@ func (cloudConn *NhnCloudConnection) CreateDiskHandler() (irs.DiskHandler, error
 
 func (cloudConn *NhnCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
 	cblogger.Info("NhnCloud Cloud Driver: called CreateClusterHandler()!")
-	clusterHandler := nhnrs.NhnCloudClusterHandler{RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VMClient, ClusterClient: cloudConn.ClusterClient}
+	clusterHandler := nhnrs.NhnCloudClusterHandler{RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VMClient, ImageClient: cloudConn.ImageClient, NetworkClient: cloudConn.NetworkClient, ClusterClient: cloudConn.ClusterClient}
 
 	return &clusterHandler, nil
 }

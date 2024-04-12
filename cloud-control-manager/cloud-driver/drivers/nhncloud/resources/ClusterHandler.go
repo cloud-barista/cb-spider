@@ -6,7 +6,7 @@
 //
 // This is a Cloud Driver Example for PoC Test.
 //
-// by ETRI, 2022.08.
+// by ETRI, 2022/08, 2024/04
 
 package resources
 
@@ -19,336 +19,296 @@ import (
 	"time"
 
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/flavors"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/servers"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/containerinfra/v1/clusters"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/containerinfra/v1/nodegroups"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/imageservice/v2/images"
+	netsecgroups "github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/extensions/security/groups"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/networks"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/subnets"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/vpcs"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/vpcsubnets"
 	"github.com/jeremywohl/flatten"
+	"golang.org/x/mod/semver"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
+const (
+	clusterTemplateId   = "iaas_console"
+	createTimeout       = 60
+	secgroupPostfix     = "secgroup_kube_minion"
+	masterNodeGroup     = "default-master"
+	publicNetworkSubnet = "Public Network Subnet"
+
+	clusterLabelsAvailabilityZone          = "availability_zone"
+	clusterLabelsCertManagerApi            = "cert_manager_api"
+	clusterLabelsClusterautoscale          = "clusterautoscale"
+	clusterLabelsExternalNetworkId         = "external_network_id"
+	clusterLabelsExternalSubnetIdList      = "external_subnet_id_list"
+	clusterLabelsKubeTag                   = "kube_tag"
+	clusterLabelsMasterLbFloatingIpEnabled = "master_lb_floating_ip_enabled"
+	clusterLabelsNodeImage                 = "node_image"
+	clusterLabelsCniDriver                 = "cni_driver"
+	clusterLabelsServiceClusterIpRange     = "service_cluster_ip_range"
+	clusterLabelsPodsNetworkCidr           = "pods_network_cidr"
+	clusterLabelsPodsNetworkSubnet         = "pods_network_subnet"
+	clusterLabelsAdditionalNetworkIdList   = "additional_network_id_list"
+	clusterLabelsAdditionalSubnetIdList    = "additional_subnet_id_list"
+	clusterLabelsBootVolumeType            = "boot_volume_type"
+	clusterLabelsBootVolumeSize            = "boot_volume_size"
+	clusterLabelsCaEnable                  = "ca_enable"
+	clusterLabelsCaMaxNodeCount            = "ca_max_node_count"
+	clusterLabelsCaMinNodeCount            = "ca_min_node_count"
+	clusterLabelsCaScaleDownEnable         = "ca_scale_down_enable"
+	clusterLabelsCaScaleDownUnneededTime   = "ca_scale_down_unneeded_time"
+	clusterLabelsCaScaleDownUtilThresh     = "ca_scale_down_util_thresh"
+	clusterLabelsCaScaleDownDelayAfterAdd  = "ca_scale_down_delay_after_add"
+	clusterLabelsUserScriptV2              = "user_script_v2"
+
+	clusterStatusCreateInProgress   = "CREATE_IN_PROGRESS"
+	clusterStatusCreateFailed       = "CREATE_FAILED"
+	clusterStatusCreateComplete     = "CREATE_COMPLETE"
+	clusterStatusUpdateInProgress   = "UPDATE_IN_PROGRESS"
+	clusterStatusUpdateFailed       = "UPDATE_FAILED"
+	clusterStatusUpdateComplete     = "UPDATE_COMPLETE"
+	clusterStatusDeleteInProgress   = "DELETE_IN_PROGRESS"
+	clusterStatusDeleteFailed       = "DELETE_FAILED"
+	clusterStatusDeleteComplete     = "DELETE_COMPLETE"
+	clusterStatusUpgradeInProgress  = "UPGRADE_IN_PROGRESS"
+	clusterStatusUpgradeFailed      = "UPGRADE_FAILED"
+	clusterStatusUpgradeComplete    = "UPGRADE_COMPLETE"
+	clusterStatusResumeComplete     = "RESUME_COMPLETE"
+	clusterStatusResumeFailed       = "RESUME_FAILED"
+	clusterStatusRestoreComplete    = "RESTORE_COMPLETE"
+	clusterStatusRollbackInProgress = "ROLLBACK_IN_PROGRESS"
+	clusterStatusRollbackFailed     = "ROLLBACK_FAILED"
+	clusterStatusRollbackComplete   = "ROLLBACK_COMPLETE"
+	clusterStatusSnapshotComplete   = "SNAPSHOT_COMPLETE"
+	clusterStatusCheckComplete      = "CHECK_COMPLETE"
+	clusterStatusAdoptComplete      = "ADOPT_COMPLETE"
+)
+
 type NhnCloudClusterHandler struct {
 	RegionInfo    idrv.RegionInfo
 	VMClient      *nhnsdk.ServiceClient
+	ImageClient   *nhnsdk.ServiceClient
+	NetworkClient *nhnsdk.ServiceClient
 	ClusterClient *nhnsdk.ServiceClient
 }
 
-func (clusterHandler *NhnCloudClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.ClusterInfo, error) {
-	cblogger.Info("NHN Cloud Driver: called CreateCluster()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterReqInfo.IId.NameId, "CreateCluster()")
-
-	start := call.Start()
-	// 클러스터 생성 요청을 JSON 요청으로 변환
-	payload, err := getClusterInfoRequestJSONString(clusterReqInfo, clusterHandler)
-	if err != nil {
-		err := fmt.Errorf("Failed to Get ClusterInfo JSON String :  %v", err)
-		cblogger.Error(err)
-		return irs.ClusterInfo{}, err
-	}
-	response_json_str, err := CreateCluster(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, payload)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
-	if err != nil {
-		err := fmt.Errorf("Failed to Create Cluster :  %v", err)
-		cblogger.Error(err)
-		cblogger.Error(call.String(callLogInfo))
-		return irs.ClusterInfo{}, err
-	}
-	cblogger.Info(call.String(callLogInfo))
-
-	// 클러스터를 생성하고 나서 바로 GetClusterInfo를 하면
-	// 클러스터 정보를 가져올 때도 있지만 못가져 오는 경우도 있다.
-	// 생성요청이 진행되는 중에 조회를 시도해서 그런것으로 추정된다.
-	// 실패를 방지하기 위해 10초간 대기한 후에 조회를 시도한다.
-	time.Sleep(time.Second * 10)
-
-	// 클러스터 생성이 성공하면 getClusterInfo로 조회해서 반환한다.
-	// 만약 getClusterInfo가 실패하면, 요청정보에 cluster_id를 포함해서 반환하는 것으로 처리한다.
-	var response_json_obj map[string]interface{}
-	json.Unmarshal([]byte(response_json_str), &response_json_obj)
-	clusterReqInfo.IId.SystemId = response_json_obj["uuid"].(string)
-
-	// // NodeGroup 생성 정보가 있는경우 생성을 시도한다.
-	// // 문제는 Cluster 생성이 완료되어야 NodeGroup 생성이 가능하다.
-	// // Cluster 생성이 완료되려면 최소 10분 이상 걸린다.
-	// // 성공할때까지 대기한 후에 생성을 시도해야 하는가?
-	// for {
-	// 	time.Sleep(10 * time.Second)
-	// 	clusterInfo, err := getClusterInfo(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, clusterReqInfo.IId.SystemId)
-	// 	if err != nil {
-	// 		err := fmt.Errorf("Failed to Get ClusterInfo :  %v", err)
-	// 		cblogger.Error(err)
-	// 		return irs.ClusterInfo{}, err
-	// 	}
-	// 	cblogger.Info(clusterInfo.Status)
-	// 	if clusterInfo.Status == irs.ClusterActive {
-	// 		break
-	// 	}
-	// }
-
-	// for _, node_group := range clusterReqInfo.NodeGroupList {
-	// 	node_group_info, err := clusterHandler.AddNodeGroup(cluster_info.IId, node_group)
-	// 	if err != nil {
-	// 		cblogger.Error(err)
-	// 		return irs.ClusterInfo{}, err
-	// 	}
-	// 	cluster_info.NodeGroupList = append(cluster_info.NodeGroupList, node_group_info)
-	// }
-
-	cluster_info, err := getClusterInfo(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, clusterReqInfo.IId.SystemId)
-	if err != nil {
-		err := fmt.Errorf("Failed to Get ClusterInfo :  %v", err)
-		cblogger.Error(err)
-		return irs.ClusterInfo{}, err
-	}
-	if cluster_info == nil {
-		err = fmt.Errorf("Succeeded in Creating Cluster but Failed to Get ClusterInfo")
-		cblogger.Error(err)
-		return clusterReqInfo, err
-	}
-
-	return *cluster_info, nil
-}
-
-func (clusterHandler *NhnCloudClusterHandler) ListCluster() ([]*irs.ClusterInfo, error) {
-
-	cblogger.Info("NHN Cloud Driver: called ListCluster()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, "ListCluster()", "ListCluster()") // HisCall logging
-
-	start := call.Start()
-	clusters_json_str, err := GetClusters(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
-	if err != nil {
-		err := fmt.Errorf("Failed to List Cluster :  %v", err)
-		cblogger.Error(err)
-		cblogger.Error(call.String(callLogInfo))
-		return nil, err
-	}
-	cblogger.Info(call.String(callLogInfo))
-
-	var clusters_json_obj map[string]interface{}
-	json.Unmarshal([]byte(clusters_json_str), &clusters_json_obj)
-	clusters := clusters_json_obj["clusters"].([]interface{})
-	cluster_info_list := make([]*irs.ClusterInfo, len(clusters))
-	for i, cluster := range clusters {
-		uuid := cluster.(map[string]interface{})["uuid"].(string)
-		cluster_info_list[i], err = getClusterInfo(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, uuid)
-		if err != nil {
-			err := fmt.Errorf("Failed to Get ClusterInfo :  %v", err)
+func (nch *NhnCloudClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.ClusterInfo, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err := fmt.Errorf("PANIC!!\n%v\n%v", r, string(debug.Stack()))
 			cblogger.Error(err)
-			return nil, err
 		}
+	}()
+
+	cblogger.Debug("NHN Cloud Driver: called CreateCluster()")
+	emptyClusterInfo := irs.ClusterInfo{}
+	hiscallInfo := getCallLogScheme(nch.RegionInfo.Region, call.CLUSTER, clusterReqInfo.IId.NameId, "CreateCluster()")
+	start := call.Start()
+
+	cblogger.Info("Create Cluster")
+
+	var clusterId string
+	var createErr error
+	defer func() {
+		if createErr != nil {
+			cblogger.Error(createErr)
+			LoggingError(hiscallInfo, createErr)
+
+			if clusterId != "" {
+				nch.deleteCluster(clusterId)
+				cblogger.Infof("Cluster(Name=%s) will be Deleted.", clusterReqInfo.IId.NameId)
+			}
+		}
+	}()
+
+	//
+	// Check if VPC is connected to an internet gateway
+	//
+	vpcId := clusterReqInfo.Network.VpcIID.SystemId
+	hasGateway, err := nch.isVpcConnectedToGateway(vpcId)
+	if err != nil {
+		createErr = fmt.Errorf("Failed to Create Cluster: %v", err)
+		return emptyClusterInfo, createErr
+	}
+	if hasGateway == false {
+		createErr = fmt.Errorf("Failed to Create Cluster: VPC Should Be Connected to Internet Gateway for Providing Public Endpoint")
+		return emptyClusterInfo, createErr
 	}
 
-	return cluster_info_list, nil
+	//
+	// Validation
+	//
+	err = validateAtCreateCluster(clusterReqInfo)
+	if err != nil {
+		createErr = fmt.Errorf("Failed to Create Cluster: %v", err)
+		return emptyClusterInfo, createErr
+	}
+
+	//
+	// Create Cluster
+	//
+	clusterId, err = nch.createCluster(clusterReqInfo)
+	if err != nil {
+		createErr = fmt.Errorf("Failed to Create Cluster: %v", err)
+		return emptyClusterInfo, createErr
+	}
+	cblogger.Debug("To Create a Cluster is In Progress.")
+
+	err = nch.waitUntilClusterSecGroupIsCreated(clusterId)
+	if err != nil {
+		createErr = fmt.Errorf("Failed to Create Cluster: %v", err)
+		return emptyClusterInfo, createErr
+	}
+
+	//
+	// Get ClusterInfo
+	//
+	clusterInfo, err := nch.getClusterInfo(clusterId)
+	if err != nil {
+		createErr = fmt.Errorf("Failed to Create Cluster: %v", err)
+		return emptyClusterInfo, createErr
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	cblogger.Infof("Creating Cluster(name=%s, id=%s)", clusterInfo.IId.NameId, clusterInfo.IId.SystemId)
+
+	return *clusterInfo, nil
 }
 
-func (clusterHandler *NhnCloudClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInfo, error) {
-	cblogger.Info("NHN Cloud Driver: called GetCluster()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "GetCluster()")
-
-	start := call.Start()
-	cluster_info, err := getClusterInfo(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, clusterIID.SystemId)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
-	if err != nil {
-		err := fmt.Errorf("Failed to Get ClusterInfo :  %v", err)
-		cblogger.Error(err)
-		cblogger.Error(call.String(callLogInfo))
-		return irs.ClusterInfo{}, err
-	}
-	cblogger.Info(call.String(callLogInfo))
-
-	return *cluster_info, nil
-}
-
-func (clusterHandler *NhnCloudClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
-	cblogger.Info("NHN Cloud Driver: called DeleteCluster()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "DeleteCluster()")
-
-	start := call.Start()
-	res, err := DeleteCluster(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, clusterIID.SystemId)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
-	if err != nil {
-		err := fmt.Errorf("Failed to Delete Cluster :  %v", err)
-		cblogger.Error(err)
-		cblogger.Error(call.String(callLogInfo))
-		return false, err
-	}
-	if res != "" {
-		// 삭제 처리를 성공하면 ""를 리턴한다.
-		// 삭제 처리를 실패하면 에러 메시지를 리턴한다.
-		err = fmt.Errorf("Failed to Delete Cluster :  %s", res)
-		cblogger.Error(err)
-		cblogger.Error(call.String(callLogInfo))
-		return false, err
-	}
-	cblogger.Info(call.String(callLogInfo))
-
-	return true, nil
-}
-
-func (clusterHandler *NhnCloudClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo irs.NodeGroupInfo) (irs.NodeGroupInfo, error) {
-	cblogger.Info("NHN Cloud Driver: called AddNodeGroup()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "AddNodeGroup()")
-
-	start := call.Start()
-	// 노드 그룹 생성 요청을 JSON 요청으로 변환
-	payload, err := getNodeGroupRequestJSONString(nodeGroupReqInfo, clusterHandler)
-	if err != nil {
-		err := fmt.Errorf("Failed to Get NodeGroup Request JSON String :  %v", err)
-		cblogger.Error(err)
-		return irs.NodeGroupInfo{}, err
-	}
-	result_json_str, err := CreateNodeGroup(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, clusterIID.SystemId, payload)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
-	if err != nil {
-		err := fmt.Errorf("Failed to Create NodeGroup :  %v", err)
-		cblogger.Error(err)
-		cblogger.Error(call.String(callLogInfo))
-		return irs.NodeGroupInfo{}, err
-	}
-	cblogger.Info(call.String(callLogInfo))
-
-	var result_json_obj map[string]interface{}
-	json.Unmarshal([]byte(result_json_str), &result_json_obj)
-	if result_json_obj["errors"] != nil {
-		err := fmt.Errorf("Failed to Create NodeGroup :  %s", result_json_str)
-		cblogger.Error(err)
-		return irs.NodeGroupInfo{}, err
-	}
-	uuid := result_json_obj["uuid"].(string)
-	node_group_info, err := getNodeGroupInfo(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, clusterIID.SystemId, uuid)
-	if err != nil {
-		err := fmt.Errorf("Failed to Get NodeGroupInfo :  %v", err)
-		cblogger.Error(err)
-		return irs.NodeGroupInfo{}, err
-	}
-
-	return *node_group_info, nil
-}
-
-func (clusterHandler *NhnCloudClusterHandler) ListNodeGroup(clusterIID irs.IID) ([]*irs.NodeGroupInfo, error) {
-	cblogger.Info("NHN Cloud Driver: called ListNodeGroup()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "ListNodeGroup()")
-
-	start := call.Start()
-	node_group_info_list := []*irs.NodeGroupInfo{}
-	node_groups_json_str, err := GetNodeGroups(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, clusterIID.SystemId)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
-	if err != nil {
-		err := fmt.Errorf("Failed to List NodeGroup :  %v", err)
-		cblogger.Error(err)
-		cblogger.Error(call.String(callLogInfo))
-		return node_group_info_list, err
-	}
-	cblogger.Info(call.String(callLogInfo))
-
-	var node_groups_json_obj map[string]interface{}
-	json.Unmarshal([]byte(node_groups_json_str), &node_groups_json_obj)
-	node_groups := node_groups_json_obj["nodegroups"].([]interface{})
-	for _, node_group := range node_groups {
-		node_group_info, err := getNodeGroupInfo(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, clusterIID.SystemId, node_group.(map[string]interface{})["uuid"].(string))
-		if err != nil {
-			err := fmt.Errorf("Failed to Get NodeGroupInfo :  %v", err)
+func (nch *NhnCloudClusterHandler) ListCluster() ([]*irs.ClusterInfo, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err := fmt.Errorf("PANIC!!\n%v\n%v", r, string(debug.Stack()))
 			cblogger.Error(err)
-			return node_group_info_list, err
 		}
-		node_group_info_list = append(node_group_info_list, node_group_info)
+	}()
+
+	cblogger.Debug("NHN Cloud Driver: called ListCluster()")
+	hiscallInfo := getCallLogScheme(nch.RegionInfo.Region, call.CLUSTER, "ListCluster()", "ListCluster()") // HisCall logging
+	start := call.Start()
+
+	cblogger.Info("Get Cluster List")
+
+	var listErr error
+	defer func() {
+		if listErr != nil {
+			cblogger.Error(listErr)
+			LoggingError(hiscallInfo, listErr)
+		}
+	}()
+
+	//
+	// Get Cluster List
+	//
+	clusterList, err := nhnGetClusterList(nch.ClusterClient)
+	if err != nil {
+		listErr = fmt.Errorf("Failed to List Cluster: %v", err)
+		return nil, listErr
 	}
 
-	return node_group_info_list, nil
+	//
+	// Get ClusterInfo List
+	//
+	var clusterInfoList []*irs.ClusterInfo
+	for _, cluster := range clusterList {
+		clusterInfo, err := nch.getClusterInfo(cluster.UUID)
+		if err != nil {
+			listErr = fmt.Errorf("Failed to List Cluster: %v", err)
+			return nil, listErr
+		}
+
+		clusterInfoList = append(clusterInfoList, clusterInfo)
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return clusterInfoList, nil
 }
 
-func (clusterHandler *NhnCloudClusterHandler) GetNodeGroup(clusterIID irs.IID, nodeGroupIID irs.IID) (irs.NodeGroupInfo, error) {
-	cblogger.Info("NHN Cloud Driver: called GetNodeGroup()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "GetNodeGroup()")
+func (nch *NhnCloudClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInfo, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err := fmt.Errorf("PANIC!!\n%v\n%v", r, string(debug.Stack()))
+			cblogger.Error(err)
+		}
+	}()
 
+	cblogger.Debug("NHN Cloud Driver: called GetCluster()")
+	emptyClusterInfo := irs.ClusterInfo{}
+	hiscallInfo := getCallLogScheme(nch.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "GetCluster()")
 	start := call.Start()
-	temp, err := getNodeGroupInfo(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, clusterIID.SystemId, nodeGroupIID.SystemId)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
-	if err != nil {
-		err := fmt.Errorf("Failed to Get NodeGroup :  %v", err)
-		cblogger.Error(err)
-		cblogger.Error(call.String(callLogInfo))
-		return irs.NodeGroupInfo{}, err
-	}
-	cblogger.Info(call.String(callLogInfo))
 
-	return *temp, nil
+	cblogger.Info("Get Cluster")
+
+	var getErr error
+	defer func() {
+		if getErr != nil {
+			cblogger.Error(getErr)
+			LoggingError(hiscallInfo, getErr)
+		}
+	}()
+
+	//
+	// Get ClusterInfo
+	//
+	clusterId := clusterIID.SystemId
+	clusterInfo, err := nch.getClusterInfo(clusterId)
+	if err != nil {
+		getErr = fmt.Errorf("Failed to Get Cluster: %v", err)
+		return emptyClusterInfo, getErr
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	cblogger.Infof("Get Cluster(Name=%s, ID=%s)", clusterInfo.IId.NameId, clusterInfo.IId.SystemId)
+
+	return *clusterInfo, nil
 }
 
-func (clusterHandler *NhnCloudClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, nodeGroupIID irs.IID, on bool) (bool, error) {
-	cblogger.Info("NHN Cloud Driver: called SetNodeGroupAutoScaling()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "GetNodeGroup()")
+func (nch *NhnCloudClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err := fmt.Errorf("PANIC!!\n%v\n%v", r, string(debug.Stack()))
+			cblogger.Error(err)
+		}
+	}()
 
+	cblogger.Debug("NHN Cloud Driver: called DeleteCluster()")
+	hiscallInfo := getCallLogScheme(nch.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "DeleteCluster()")
 	start := call.Start()
-	temp := `{"ca_enable": %t}`
-	payload := fmt.Sprintf(temp, on)
-	_, err := ChangeNodeGroupAutoScaler(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, clusterIID.SystemId, nodeGroupIID.SystemId, payload)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
+
+	cblogger.Info("Delete Cluster")
+
+	var delErr error
+	defer func() {
+		if delErr != nil {
+			cblogger.Error(delErr)
+			LoggingError(hiscallInfo, delErr)
+		}
+	}()
+
+	//
+	// Delete Cluster
+	//
+	clusterId := clusterIID.SystemId
+	err := nch.deleteCluster(clusterId)
 	if err != nil {
-		err := fmt.Errorf("Failed to Set NodeGroup AutoScaling :  %v", err)
-		cblogger.Error(err)
-		cblogger.Error(call.String(callLogInfo))
-		return false, err
-	}
-	cblogger.Info(call.String(callLogInfo))
-
-	return true, nil
-}
-
-func (clusterHandler *NhnCloudClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID, desiredNodeSize int, minNodeSize int, maxNodeSize int) (irs.NodeGroupInfo, error) {
-	cblogger.Info("NHN Cloud Driver: called ChangeNodeGroupScaling()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "GetNodeGroup()")
-
-	start := call.Start()
-	temp := `{
-		"ca_enable": true,
-		"ca_max_node_count": %d,
-		"ca_min_node_count": %d
-	}`
-	payload := fmt.Sprintf(temp, maxNodeSize, minNodeSize)
-	//desiredNodeSize is not supported in NHN Cloud
-	_, err := ChangeNodeGroupAutoScaler(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, clusterIID.SystemId, nodeGroupIID.SystemId, payload)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
-	if err != nil {
-		err := fmt.Errorf("Failed to Change NodeGroup Scaling :  %v", err)
-		cblogger.Error(err)
-		cblogger.Error(call.String(callLogInfo))
-		return irs.NodeGroupInfo{}, err
-	}
-	cblogger.Info(call.String(callLogInfo))
-
-	node_group_info, err := getNodeGroupInfo(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, clusterIID.SystemId, nodeGroupIID.SystemId)
-	if err != nil {
-		err := fmt.Errorf("Failed to Get NodeGroupInfo :  %v", err)
-		cblogger.Error(err)
-		return irs.NodeGroupInfo{}, err
+		delErr = fmt.Errorf("Failed to Delete Cluster: %v", err)
+		return false, delErr
 	}
 
-	return *node_group_info, nil
-}
+	LoggingInfo(hiscallInfo, start)
 
-func (clusterHandler *NhnCloudClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nodeGroupIID irs.IID) (bool, error) {
-	cblogger.Info("NHN Cloud Driver: called RemoveNodeGroup()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "RemoveNodeGroup()")
-
-	start := call.Start()
-	res, err := DeleteNodeGroup(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, clusterIID.SystemId, nodeGroupIID.SystemId)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
-	if err != nil {
-		err := fmt.Errorf("Failed to Remove NodeGroup :  %v", err)
-		cblogger.Error(err)
-		cblogger.Error(call.String(callLogInfo))
-		return false, err
-	}
-	if res != "" {
-		// 삭제 처리를 성공하면 ""를 리턴한다.
-		// 삭제 처리를 실패하면 에러 메시지를 리턴한다.
-		err := fmt.Errorf("Failed to Remove NodeGroup :  %s", res)
-		cblogger.Error(err)
-		cblogger.Error(call.String(callLogInfo))
-		return false, err
-	}
-	cblogger.Info(call.String(callLogInfo))
+	cblogger.Infof("Deleting Cluster(name=%s, id=%s)", clusterIID.NameId, clusterId)
 
 	return true, nil
 }
@@ -358,399 +318,1790 @@ func (clusterHandler *NhnCloudClusterHandler) RemoveNodeGroup(clusterIID irs.IID
 // default-master 업그레이드가 완료되면, worker 노드들을 업그레이드 한다.
 // default-master 업그레이드가 완료되기 전에는 worker 노드를 업그레이드 할 수 없다.
 // default-master 업그레이드가 완료된 후에 (10분? 정도 소요됨) worker 노드를 업그레이드해야 한다.
-func (clusterHandler *NhnCloudClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion string) (irs.ClusterInfo, error) {
-	cblogger.Info("NHN Cloud Driver: called UpgradeCluster()")
-	callLogInfo := getCallLogScheme(clusterHandler.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "UpgradeCluster()")
+func (nch *NhnCloudClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion string) (irs.ClusterInfo, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err := fmt.Errorf("PANIC!!\n%v\n%v", r, string(debug.Stack()))
+			cblogger.Error(err)
+		}
+	}()
 
+	cblogger.Debug("NHN Cloud Driver: called UpgradeCluster()")
+	emptyClusterInfo := irs.ClusterInfo{}
+	hiscallInfo := getCallLogScheme(nch.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "UpgradeCluster()")
 	start := call.Start()
-	temp := `{"version": "%s"}`
-	payload := fmt.Sprintf(temp, newVersion)
-	res, err := UpgradeCluster(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, clusterIID.SystemId, "default-master", payload)
-	callLogInfo.ElapsedTime = call.Elapsed(start)
+
+	cblogger.Info("Upgrade Cluster")
+
+	var upgradeErr error
+	defer func() {
+		if upgradeErr != nil {
+			cblogger.Error(upgradeErr)
+			LoggingError(hiscallInfo, upgradeErr)
+		}
+	}()
+
+	//
+	// Upgrade Cluster
+	// https://docs.nhncloud.com/ko/Container/NKS/ko/public-api/#_57
+	//
+	clusterId := clusterIID.SystemId
+	cluster, err := nhnGetCluster(nch.ClusterClient, clusterId)
 	if err != nil {
-		err := fmt.Errorf("Failed to Upgrade Cluster :  %v", err)
-		cblogger.Error(err)
-		cblogger.Error(call.String(callLogInfo))
-		return irs.ClusterInfo{}, err
+		upgradeErr = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
+		return emptyClusterInfo, upgradeErr
 	}
-	if strings.Contains(res, "errors") {
-		// {"errors": [{"request_id": "", "code": "", "status": 406, "title": "", "detail": "", "links": []}]}
-		err := fmt.Errorf("Failed to Upgrade Cluster :  %s", res)
-		cblogger.Error(err)
-		cblogger.Error(call.String(callLogInfo))
-		return irs.ClusterInfo{}, err
-	}
-	cblogger.Info(call.String(callLogInfo))
 
-	// // default-master 업그레이드 완료 확인 코드
-	// // 업그레이드가 완료되면 worker 노드 업그레이드 진행
-	// for {
-	// 	time.Sleep(10 * time.Second)
-	// 	clusterInfo, err := getClusterInfo(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, clusterIID.SystemId)
-	// 	if err != nil {
-	// 		err := fmt.Errorf("Failed to Get ClusterInfo :  %v", err)
-	// 		cblogger.Error(err)
-	// 		return irs.ClusterInfo{}, err
-	// 	}
-	// 	cblogger.Info(clusterInfo.Status)
-	// 	if clusterInfo.Status == irs.ClusterActive {
-	// 		break
-	// 	}
-	// }
-
-	// node_groups_json_str, err := GetNodeGroups(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, clusterIID.SystemId)
-	// if err != nil {
-	// 	err := fmt.Errorf("Failed to Get NodeGroups :  %v", err)
-	// 	cblogger.Error(err)
-	// 	return irs.ClusterInfo{}, err
-	// }
-	// var node_groups_json_obj map[string]interface{}
-	// json.Unmarshal([]byte(node_groups_json_str), &node_groups_json_obj)
-	// node_groups := node_groups_json_obj["nodegroups"].([]interface{})
-	// for _, node_group := range node_groups {
-	// 	start := call.Start()
-	// 	res, err := UpgradeCluster(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, clusterIID.SystemId, node_group.(map[string]interface{})["uuid"].(string), payload)
-	// 	callLogInfo.ElapsedTime = call.Elapsed(start)
-	// 	cblogger.Info(call.String(callLogInfo))
-	// 	if err != nil {
-	// 		err := fmt.Errorf("Failed to Upgrade Cluster :  %v", err)
-	// 		cblogger.Error(err)
-	// 		return irs.ClusterInfo{}, err
-	// 	}
-	// 	if strings.Contains(res, "errors") {
-	// 		// {"errors": [{"request_id": "", "code": "", "status": 406, "title": "", "detail": "", "links": []}]}
-	// 		err := fmt.Errorf("Failed to Upgrade Cluster :  %s", res)
-	// 		cblogger.Error(err)
-	// 		return irs.ClusterInfo{}, err
-	// 	}
-	// }
-
-	clusterInfo, err := getClusterInfo(clusterHandler.ClusterClient.Endpoint, clusterHandler.ClusterClient.TokenID, clusterIID.SystemId)
+	clusterVersion, err := getClusterVersion(cluster)
 	if err != nil {
-		err := fmt.Errorf("Failed to Get ClusterInfo :  %v", err)
-		cblogger.Error(err)
-		return irs.ClusterInfo{}, err
+		upgradeErr = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
+		return emptyClusterInfo, upgradeErr
 	}
+
+	if semver.Compare(clusterVersion, newVersion) < 0 {
+		// At first, upgrades a node group for master: it takes 8~10 minutes
+		err := nhnUpgradeCluster(nch.ClusterClient, clusterId, masterNodeGroup, newVersion)
+		if err != nil {
+			upgradeErr = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
+			return emptyClusterInfo, upgradeErr
+		}
+		cblogger.Debug("To Upgrade a Cluster is In Progress")
+
+		// When upgrading a cluster(masterNodeGroup), the status of cluster is UpdateInProgress
+		err = nch.waitUntilClusterIsStatus(clusterId, clusterStatusUpdateComplete)
+		if err != nil {
+			upgradeErr = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
+			return emptyClusterInfo, upgradeErr
+		}
+		cblogger.Info("To Upgrade a Cluster/Master(id=%s) is Completed", clusterId)
+	}
+
+	// And then, upgrades node groups for worker
+	nodeGroupList, err := nhnGetNodeGroupList(nch.ClusterClient, clusterId)
+	if err != nil {
+		upgradeErr = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
+		return emptyClusterInfo, upgradeErr
+	}
+
+	for _, nodeGroup := range nodeGroupList {
+		nodeGroupId := nodeGroup.UUID
+
+		nodeGroupDetail, err := nhnGetNodeGroup(nch.ClusterClient, clusterId, nodeGroupId)
+		if err != nil {
+			upgradeErr = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
+			return emptyClusterInfo, upgradeErr
+		}
+		cblogger.Debug("To Upgrade a NodeGroup is In Progress")
+
+		nodeGroupVersion, err := getNodeGroupVersion(nodeGroupDetail)
+		if err != nil {
+			upgradeErr = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
+			return emptyClusterInfo, upgradeErr
+		}
+
+		if semver.Compare(nodeGroupVersion, newVersion) < 0 {
+			err := nhnUpgradeCluster(nch.ClusterClient, clusterId, nodeGroupId, newVersion)
+			if err != nil {
+				upgradeErr = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
+				return emptyClusterInfo, upgradeErr
+			}
+
+			// When upgrading a nodegroup, the status of cluster is UpgradeInProress and the status of nodegroup is UpdateInProgress
+			err = nch.waitUntilNodeGroupIsStatus(clusterId, nodeGroupId, clusterStatusUpdateComplete)
+			if err != nil {
+				upgradeErr = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
+				return emptyClusterInfo, upgradeErr
+			}
+
+			cblogger.Infof("To Upgrade a NodeGroup(id=%s) is Completed", nodeGroupId)
+		}
+	}
+
+	//
+	// Get ClusterInfo
+	//
+	clusterInfo, err := nch.getClusterInfo(clusterId)
+	if err != nil {
+		err = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
+		return emptyClusterInfo, err
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	cblogger.Infof("Upgrading Cluster(name=%s, id=%s)", clusterInfo.IId.NameId, clusterInfo.IId.SystemId)
 
 	return *clusterInfo, nil
+
 }
 
-func getClusterInfo(host string, token string, cluster_id string) (clusterInfo *irs.ClusterInfo, err error) {
-
+func (nch *NhnCloudClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo irs.NodeGroupInfo) (irs.NodeGroupInfo, error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("Failed to Process GetClusterInfo() %v\n\n%v", r, string(debug.Stack()))
+			err := fmt.Errorf("PANIC!!\n%v\n%v", r, string(debug.Stack()))
 			cblogger.Error(err)
 		}
 	}()
 
-	cluster_json_str, err := GetCluster(host, token, cluster_id)
+	cblogger.Debug("NHN Cloud Driver: called AddNodeGroup()")
+	emptyNodeGroupInfo := irs.NodeGroupInfo{}
+	hiscallInfo := getCallLogScheme(nch.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "AddNodeGroup()")
+	start := call.Start()
+
+	cblogger.Info("Add NodeGroup")
+
+	var addErr error
+	var clusterId, nodeGroupId string
+	defer func() {
+		if addErr != nil {
+			cblogger.Error(addErr)
+			LoggingError(hiscallInfo, addErr)
+
+			if clusterId != "" && nodeGroupId != "" {
+				nch.deleteNodeGroup(clusterId, nodeGroupId)
+				cblogger.Infof("NodeGroup(id=%s) of Cluster(id=%s) will be Deleted", nodeGroupId, clusterId)
+			}
+		}
+	}()
+
+	//
+	// Validation
+	//
+	err := validateAtAddNodeGroup(clusterIID, nodeGroupReqInfo)
 	if err != nil {
-		err := fmt.Errorf("Failed to Get Cluster :  %v", err)
+		err = fmt.Errorf("Failed to Add Node Group: %v", err)
 		cblogger.Error(err)
-		return nil, err
-	}
-	var cluster_json_obj map[string]interface{}
-	json.Unmarshal([]byte(cluster_json_str), &cluster_json_obj)
-
-	health_status := cluster_json_obj["status"].(string)
-	cluster_status := irs.ClusterActive
-	if health_status == "CREATE_IN_PROGRESS" {
-		cluster_status = irs.ClusterCreating
-	} else if health_status == "UPDATE_IN_PROGRESS" {
-		cluster_status = irs.ClusterUpdating
-	} else if health_status == "UPDATE_FAILED" {
-		cluster_status = irs.ClusterInactive
-	} else if health_status == "DELETE_IN_PROGRESS" {
-		cluster_status = irs.ClusterDeleting
-	} else if health_status == "CREATE_COMPLETE" {
-		cluster_status = irs.ClusterActive
+		LoggingError(hiscallInfo, err)
+		return emptyNodeGroupInfo, err
 	}
 
-	created_at := cluster_json_obj["created_at"].(string)
-	datetime, err := time.Parse(time.RFC3339, created_at)
-	//RFC3339     = "2006-01-02T15:04:05Z07:00"
-	//datetime, err := time.Parse("2006-01-02T15:04:05+07:00", created_at)
+	//
+	// Create Node Group
+	//
+	clusterId = clusterIID.SystemId
+	nodeGroupId, err = nch.createNodeGroup(clusterId, &nodeGroupReqInfo)
 	if err != nil {
-		err := fmt.Errorf("Failed to Parse Created Time :  %v", err)
-		cblogger.Error(err)
-		panic(err)
+		err = fmt.Errorf("Failed to Add NodeGroup: %v", err)
+		return emptyNodeGroupInfo, err
 	}
+	cblogger.Debug("To Create a NodeGroup is In Progress")
 
-	version := ""
-	if cluster_json_obj["coe_version"] != nil {
-		version = cluster_json_obj["coe_version"].(string)
-	}
-
-	clusterInfo = &irs.ClusterInfo{
-		IId: irs.IID{
-			NameId:   cluster_json_obj["name"].(string),
-			SystemId: cluster_json_obj["uuid"].(string),
-		},
-		Version: version,
-		Network: irs.NetworkInfo{
-			VpcIID: irs.IID{
-				NameId:   "",
-				SystemId: cluster_json_obj["fixed_network"].(string),
-			},
-			SubnetIIDs: []irs.IID{
-				{
-					NameId:   "",
-					SystemId: cluster_json_obj["fixed_subnet"].(string),
-				},
-			},
-			SecurityGroupIIDs: []irs.IID{
-				{
-					NameId:   "",
-					SystemId: "",
-				},
-			},
-		},
-		Addons: irs.AddonsInfo{
-			KeyValueList: []irs.KeyValue{},
-		},
-		Status:       cluster_status,
-		CreatedTime:  datetime,
-		KeyValueList: []irs.KeyValue{},
-	}
-
-	// k,v 추출
-	// k,v 변환 규칙 작성 [k,v]:[ClusterInfo.k, ClusterInfo.v]
-	// 변환 규칙에 따라 k,v 변환
-	// flat, err := flatten.FlattenString(cluster_json_str, "", flatten.DotStyle)
-	flat, err := flatten.Flatten(cluster_json_obj, "", flatten.DotStyle)
+	//
+	// Get NodeGroupInfo
+	//
+	clusterKeyPair, err := nch.getClusterKeyPair(clusterId)
 	if err != nil {
-		err := fmt.Errorf("Failed to Flatten Cluster Info :  %v", err)
-		cblogger.Error(err)
-		return nil, err
-	}
-	for k, v := range flat {
-		temp := fmt.Sprintf("%v", v)
-		clusterInfo.KeyValueList = append(clusterInfo.KeyValueList, irs.KeyValue{Key: k, Value: temp})
+		addErr = fmt.Errorf("Failed to Add NodeGroup: %v", err)
+		return emptyNodeGroupInfo, addErr
 	}
 
-	// NodeGroups
-	node_groups_json_str, err := GetNodeGroups(host, token, cluster_id)
+	nodeGroupInfo, err := nch.getNodeGroupInfo(clusterId, nodeGroupId, clusterKeyPair)
 	if err != nil {
-		err := fmt.Errorf("Failed to Get NodeGroups :  %v", err)
-		cblogger.Error(err)
-		return nil, err
+		addErr = fmt.Errorf("Failed to Add NodeGroup: %v", err)
+		return emptyNodeGroupInfo, addErr
 	}
 
-	if node_groups_json_str == "" {
-		err := fmt.Errorf("Failed to Get Node Groups")
-		cblogger.Error(err)
-		return nil, err
-	}
+	LoggingInfo(hiscallInfo, start)
 
-	var node_groups_json_obj map[string]interface{}
-	json.Unmarshal([]byte(node_groups_json_str), &node_groups_json_obj)
-	node_groups := node_groups_json_obj["nodegroups"].([]interface{})
-	for _, node_group := range node_groups {
-		node_group_id := node_group.(map[string]interface{})["uuid"].(string)
-		node_group_info, err := getNodeGroupInfo(host, token, cluster_id, node_group_id)
-		if err != nil {
-			err := fmt.Errorf("Failed to Get NodeGroupInfo :  %v", err)
+	cblogger.Infof("Adding NodeGroup(name=%s, id=%s) to Cluster(%s)", nodeGroupInfo.IId.NameId, nodeGroupInfo.IId.SystemId, clusterId)
+
+	return *nodeGroupInfo, nil
+}
+
+func (nch *NhnCloudClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, nodeGroupIID irs.IID, on bool) (bool, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err := fmt.Errorf("PANIC!!\n%v\n%v", r, string(debug.Stack()))
 			cblogger.Error(err)
+		}
+	}()
+
+	cblogger.Debug("NHN Cloud Driver: called SetNodeGroupAutoScaling()")
+	hiscallInfo := getCallLogScheme(nch.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "GetNodeGroup()")
+	start := call.Start()
+
+	cblogger.Info("Set NodeGroup AutoScaling")
+
+	//
+	// Set NodeGroup AutoScaling
+	//
+	clusterId := clusterIID.SystemId
+	nodeGroupId := nodeGroupIID.SystemId
+	enable := on
+
+	_, err := nhnSetNodeGroupAutoscaleEnable(nch.ClusterClient, clusterId, nodeGroupId, enable)
+	if err != nil {
+		err := fmt.Errorf("Failed to Set NodeGroup AutoScaling: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	cblogger.Infof("Modifying AutoScaling of NodeGroup(name=%s, id=%s) in Cluster(%s)", nodeGroupIID.NameId, nodeGroupIID.SystemId, clusterIID.NameId)
+
+	return true, nil
+}
+
+func (nch *NhnCloudClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID, desiredNodeSize int, minNodeSize int, maxNodeSize int) (irs.NodeGroupInfo, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err := fmt.Errorf("PANIC!!\n%v\n%v", r, string(debug.Stack()))
+			cblogger.Error(err)
+		}
+	}()
+
+	cblogger.Debug("NHN Cloud Driver: called ChangeNodeGroupScaling()")
+	emptyNodeGroupInfo := irs.NodeGroupInfo{}
+	hiscallInfo := getCallLogScheme(nch.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "GetNodeGroup()")
+	start := call.Start()
+
+	cblogger.Info("Change NodeGroup Scaling")
+
+	//
+	// Validation
+	//
+	err := validateAtChangeNodeGroupScaling(clusterIID, nodeGroupIID, minNodeSize, maxNodeSize)
+	if err != nil {
+		err = fmt.Errorf("Failed to Change Node Group Scaling: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyNodeGroupInfo, err
+	}
+
+	//
+	// Change NodeGroup's Scaling Size
+	//
+	clusterId := clusterIID.SystemId
+	nodeGroupId := nodeGroupIID.SystemId
+
+	enable := true
+	// CAUTION: desiredNodeSize cannot be applied in NHN Cloud
+	minNodeCount := minNodeSize
+	maxNodeCount := maxNodeSize
+
+	// Check if CurrentNodeCount >= minNodeCount or minNodeCount >= 1
+	// And CurrentNodeCount <= maxNodeCount or maxNodeCount <= 10
+	nodeGroup, err := nhnGetNodeGroup(nch.ClusterClient, clusterId, nodeGroupId)
+	if err != nil {
+		err = fmt.Errorf("Failed to Change NodeGroup Scaling: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyNodeGroupInfo, err
+	}
+
+	nodeCount := nodeGroup.NodeCount
+	if minNodeCount < 1 {
+		minNodeCount = 1
+		cblogger.Info("MinNodeSize must be 1 or greater. It will be set to 1.")
+	}
+	if nodeCount < minNodeCount {
+		minNodeCount = nodeCount
+		cblogger.Infof("MinNodeSize must be less than or equal to current node count. It will be set to current node count(%d).", nodeCount)
+	}
+
+	if maxNodeCount > 10 {
+		maxNodeCount = 10
+		cblogger.Info("MaxNodeSize must be 10 or less. It will be set to 10.")
+	}
+	if nodeCount > maxNodeCount {
+		maxNodeCount = nodeCount
+		cblogger.Infof("MaxNodeSize must be greater than or equal to current node count. It will be set to current node count(%d).", nodeCount)
+	}
+
+	// Set NodeGroup's Autoscale
+	_, err = nhnSetNodeGroupAutoscale(nch.ClusterClient, clusterId, nodeGroupId, enable, minNodeCount, maxNodeCount)
+	if err != nil {
+		err = fmt.Errorf("Failed to Change NodeGroup Scaling: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyNodeGroupInfo, err
+	}
+
+	//
+	// Get NodeGroupInfo
+	//
+	clusterKeyPair, err := nch.getClusterKeyPair(clusterId)
+	if err != nil {
+		err = fmt.Errorf("Failed to Change NodeGroup Scaling: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyNodeGroupInfo, err
+	}
+
+	nodeGroupInfo, err := nch.getNodeGroupInfo(clusterId, nodeGroupId, clusterKeyPair)
+	if err != nil {
+		err = fmt.Errorf("Failed to Change NodeGroup Scaling: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyNodeGroupInfo, err
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	cblogger.Infof("Modifying Scaling of NodeGroup(id=%s) in Cluster(id=%s).", nodeGroupId, clusterId)
+
+	return *nodeGroupInfo, nil
+}
+
+func (nch *NhnCloudClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nodeGroupIID irs.IID) (bool, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err := fmt.Errorf("PANIC!!\n%v\n%v", r, string(debug.Stack()))
+			cblogger.Error(err)
+		}
+	}()
+
+	cblogger.Debug("NHN Cloud Driver: called RemoveNodeGroup()")
+	hiscallInfo := getCallLogScheme(nch.RegionInfo.Region, call.CLUSTER, clusterIID.NameId, "RemoveNodeGroup()")
+	start := call.Start()
+
+	cblogger.Info("Remove NodeGroup")
+
+	var removeErr error
+	var clusterId, nodeGroupId string
+	defer func() {
+		if removeErr != nil {
+			cblogger.Error(removeErr)
+			LoggingError(hiscallInfo, removeErr)
+		}
+	}()
+
+	//
+	// Remove NodeGroup
+	//
+	clusterId = clusterIID.SystemId
+	nodeGroupId = nodeGroupIID.SystemId
+	err := nch.deleteNodeGroup(clusterId, nodeGroupId)
+	if err != nil {
+		err := fmt.Errorf("Failed to Remove NodeGroup: %v", err)
+		return false, err
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	cblogger.Infof("Removing NodeGroup(name=%s, id=%s) to Cluster(%s)", nodeGroupIID.NameId, nodeGroupIID.SystemId, clusterIID.NameId)
+
+	return true, nil
+}
+
+func (nch *NhnCloudClusterHandler) getClusterInfoWithoutNodeGroupList(clusterId string) (*irs.ClusterInfo, string, error) {
+	//
+	// Fill clusterInfo
+	//
+	cluster, err := nhnGetCluster(nch.ClusterClient, clusterId)
+	if err != nil {
+		err = fmt.Errorf("failed to get cluster(id=%s): %v", clusterId, err)
+		return nil, "", err
+	}
+
+	clusterName := cluster.Name
+
+	version, err := getClusterVersion(cluster)
+	if err != nil {
+		err = fmt.Errorf("failed to get cluster version: %v", err)
+		return nil, "", err
+	}
+
+	networkInfo, err := nch.getClusterNetworkInfo(cluster)
+	if err != nil {
+		err = fmt.Errorf("failed to get network info: %v", err)
+		return nil, "", err
+	}
+
+	ciStatus := convertClusterStatusToClusterInfoStatus(cluster)
+	createdTime := cluster.CreatedAt
+	accessInfo, err := nch.getClusterAccessInfo(cluster)
+	if err != nil {
+		err = fmt.Errorf("failed to get access info: %v", err)
+		return nil, "", err
+	}
+
+	clusterInfo := &irs.ClusterInfo{
+		IId: irs.IID{
+			NameId:   clusterName,
+			SystemId: clusterId,
+		},
+		Version:     version,
+		Network:     *networkInfo,
+		Status:      ciStatus,
+		CreatedTime: createdTime,
+		AccessInfo:  *accessInfo,
+	}
+
+	//
+	// Fill clusterInfo.KeyValueList
+	//
+	kvList, err := nch.convertObjectToKeyValueList(cluster)
+	if err != nil {
+		err = fmt.Errorf("failed to get key value list: %v", err)
+		return nil, "", err
+	}
+
+	for _, kv := range kvList {
+		clusterInfo.KeyValueList = append(clusterInfo.KeyValueList, kv)
+	}
+
+	return clusterInfo, cluster.KeyPair, nil
+}
+
+func (nch *NhnCloudClusterHandler) getClusterInfoListWithoutNodeGroupList() ([]*irs.ClusterInfo, error) {
+	clusterList, err := nhnGetClusterList(nch.ClusterClient)
+	if err != nil {
+		err = fmt.Errorf("failed to get cluster list: %v", err)
+		return nil, err
+	}
+
+	var clusterInfoList []*irs.ClusterInfo
+	for _, cluster := range clusterList {
+		clusterInfo, _, err := nch.getClusterInfoWithoutNodeGroupList(cluster.UUID)
+		if err != nil {
+			err = fmt.Errorf("failed to get ClusterInfo: %v", err)
 			return nil, err
 		}
-		clusterInfo.NodeGroupList = append(clusterInfo.NodeGroupList, *node_group_info)
+
+		clusterInfoList = append(clusterInfoList, clusterInfo)
 	}
 
-	return clusterInfo, err
+	return clusterInfoList, nil
 }
 
-func getNodeGroupInfo(host string, token string, cluster_id string, node_group_id string) (nodeGroupInfo *irs.NodeGroupInfo, err error) {
-
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("Failed to Process NodeGroupInfo : %v\n\n%v", r, string(debug.Stack()))
-			cblogger.Error(err)
-		}
-	}()
-
-	node_group_json_str, err := GetNodeGroup(host, token, cluster_id, node_group_id)
+func (nch *NhnCloudClusterHandler) getClusterInfo(clusterId string) (clusterInfo *irs.ClusterInfo, err error) {
+	//
+	// Fill clusterInfo
+	//
+	clusterInfo, clusterKeyPair, err := nch.getClusterInfoWithoutNodeGroupList(clusterId)
 	if err != nil {
-		err := fmt.Errorf("Failed to Get NodeGroup :  %v", err)
-		cblogger.Error(err)
+		err = fmt.Errorf("failed to get ClusterInfo: %v", err)
 		return nil, err
 	}
 
-	if node_group_json_str == "" {
-		err := fmt.Errorf("Failed to Get NodeGroup")
-		cblogger.Error(err)
+	for _, kv := range clusterInfo.KeyValueList {
+		// If creation of a cluster is failed, DO NOT need to get nodegroups' information
+		if strings.EqualFold(kv.Key, "status") &&
+			strings.EqualFold(kv.Value, clusterStatusCreateFailed) {
+			return clusterInfo, nil
+		}
+	}
+
+	//
+	// Fill clusterInfo.NodeGroupList
+	//
+	nodeGroupList, err := nhnGetNodeGroupList(nch.ClusterClient, clusterId)
+	if err != nil {
+		err = fmt.Errorf("failed to get node group list: %v", err)
 		return nil, err
 	}
 
-	var node_group_json_obj map[string]interface{}
-	json.Unmarshal([]byte(node_group_json_str), &node_group_json_obj)
+	for _, nodeGroup := range nodeGroupList {
+		nodeGroupId := nodeGroup.UUID
+		nodeGroupInfo, err := nch.getNodeGroupInfo(clusterId, nodeGroupId, clusterKeyPair)
+		if err != nil {
+			err = fmt.Errorf("failed to get node group info: %v", err)
+			return nil, err
+		}
 
-	health_status := node_group_json_obj["status"].(string)
-	status := irs.NodeGroupActive
-	if strings.EqualFold(health_status, "UPDATE_COMPLETE") {
-		status = irs.NodeGroupActive
-	} else if strings.EqualFold(health_status, "CREATE_IN_PROGRESS") {
-		status = irs.NodeGroupUpdating
-	} else if strings.EqualFold(health_status, "UPDATE_IN_PROGRESS") {
-		status = irs.NodeGroupUpdating // removing is a kind of updating?
-	} else if strings.EqualFold(health_status, "DELETE_IN_PROGRESS") {
-		status = irs.NodeGroupDeleting
-	} else if strings.EqualFold(health_status, "UPDATE_IN_PROGRESS") {
-		status = irs.NodeGroupUpdating
-	} else if strings.EqualFold(health_status, "CREATE_COMPLETE") {
-		status = irs.NodeGroupActive
+		clusterInfo.NodeGroupList = append(clusterInfo.NodeGroupList, *nodeGroupInfo)
 	}
 
-	auto_scaling, _ := strconv.ParseBool(node_group_json_obj["labels"].(map[string]interface{})["ca_enable"].(string))
-	ca_min_node_count, _ := strconv.ParseInt(node_group_json_obj["labels"].(map[string]interface{})["ca_min_node_count"].(string), 10, 32)
-	ca_max_node_count, _ := strconv.ParseInt(node_group_json_obj["labels"].(map[string]interface{})["ca_max_node_count"].(string), 10, 32)
-	node_count := int(node_group_json_obj["node_count"].(float64))
+	return clusterInfo, nil
+}
 
-	nodeGroupInfo = &irs.NodeGroupInfo{
+func (nch *NhnCloudClusterHandler) getClusterNetworkInfo(cluster *clusters.Cluster) (*irs.NetworkInfo, error) {
+	fixedNetworkId := cluster.FixedNetwork
+	fixedNetworkName, err := nch.getVpcName(fixedNetworkId)
+	if err != nil {
+		err = fmt.Errorf("failed to get the cluster's vpc: %v", err)
+		return nil, err
+	}
+
+	fixedSubnetId := cluster.FixedSubnet
+	fixedSubnetName, err := nch.getVpcsubnetName(fixedSubnetId)
+	if err != nil {
+		err = fmt.Errorf("failed to get the cluster's subnet: %v", err)
+		return nil, err
+	}
+
+	secGroupId, err := nch.getClusterSecGroupId(cluster)
+	if err != nil {
+		err = fmt.Errorf("failed to get the cluster's securitygroup: %v", err)
+		return nil, err
+	}
+
+	networkInfo := &irs.NetworkInfo{
+		VpcIID: irs.IID{
+			NameId:   fixedNetworkName,
+			SystemId: fixedNetworkId,
+		},
+		SubnetIIDs:        []irs.IID{{NameId: fixedSubnetName, SystemId: fixedSubnetId}},
+		SecurityGroupIIDs: []irs.IID{*secGroupId},
+	}
+
+	return networkInfo, nil
+}
+
+func (nch *NhnCloudClusterHandler) getClusterAddonInfo(cluster *clusters.Cluster) (info irs.AddonsInfo, err error) {
+	keyvalues := make([]irs.KeyValue, 0)
+
+	info = irs.AddonsInfo{
+		keyvalues,
+	}
+	return info, nil
+}
+
+func (nch *NhnCloudClusterHandler) getClusterKeyPair(clusterId string) (string, error) {
+	cluster, err := nhnGetCluster(nch.ClusterClient, clusterId)
+	if err != nil {
+		err = fmt.Errorf("failed to get cluster's keypair: %v", err)
+		return "", err
+	}
+
+	return cluster.KeyPair, nil
+}
+
+func (nch *NhnCloudClusterHandler) getNodeGroupInfo(clusterId, nodeGroupId, keyPair string) (*irs.NodeGroupInfo, error) {
+	//
+	// Fill nodeGroupInfo
+	//
+	nodeGroup, err := nhnGetNodeGroup(nch.ClusterClient, clusterId, nodeGroupId)
+	if err != nil {
+		err = fmt.Errorf("failed to get nodegroup info: %v", err)
+		return nil, err
+	}
+
+	nodeGroupName := nodeGroup.Name
+
+	imageId := nodeGroup.ImageID
+	imageName, err := nch.getImageNameById(imageId)
+	if err != nil {
+		err = fmt.Errorf("failed to get image name by id(%s): %v", imageId, err)
+		return nil, err
+	}
+
+	flavorId := nodeGroup.FlavorID
+	flavorName, err := nch.getFlavorNameById(flavorId)
+	if err != nil {
+		err = fmt.Errorf("failed to get flavor name by id(%s): %v", flavorId, err)
+		return nil, err
+	}
+
+	var rootDiskType string
+	if bootVolumeType, ok := nodeGroup.Labels[clusterLabelsBootVolumeType]; !ok {
+		err = fmt.Errorf("failed to get nodegroup info: no %s field", clusterLabelsBootVolumeType)
+		return nil, err
+	} else {
+		rootDiskType = bootVolumeType
+	}
+
+	var rootDiskSize string
+	if bootVolumeSize, ok := nodeGroup.Labels[clusterLabelsBootVolumeSize]; !ok {
+		err = fmt.Errorf("failed to get nodegroup info: no %s field", clusterLabelsBootVolumeSize)
+		return nil, err
+	} else {
+		rootDiskSize = bootVolumeSize
+	}
+
+	ngiStatus := convertNodeGroupStatusToNodeGroupInfoStatus(nodeGroup)
+
+	var onAutoScaling bool
+	if caEnable, ok := nodeGroup.Labels[clusterLabelsCaEnable]; !ok {
+		err = fmt.Errorf("failed to get nodegroup info: no %s field", clusterLabelsCaEnable)
+		return nil, err
+	} else {
+		onAutoScaling, _ = strconv.ParseBool(caEnable)
+	}
+
+	var minNodeSize int
+	if caMinNodeCount, ok := nodeGroup.Labels[clusterLabelsCaMinNodeCount]; !ok {
+		err = fmt.Errorf("failed to get nodegroup info: no %s field", clusterLabelsCaMinNodeCount)
+		return nil, err
+	} else {
+		nodeSize, _ := strconv.ParseInt(caMinNodeCount, 10, 64)
+		minNodeSize = int(nodeSize)
+	}
+
+	var maxNodeSize int
+	if caMaxNodeCount, ok := nodeGroup.Labels[clusterLabelsCaMaxNodeCount]; !ok {
+		err = fmt.Errorf("failed to get nodegroup info: no %s field", clusterLabelsCaMaxNodeCount)
+		return nil, err
+	} else {
+		nodeSize, _ := strconv.ParseInt(caMaxNodeCount, 10, 64)
+		maxNodeSize = int(nodeSize)
+	}
+
+	desiredNodeSize := nodeGroup.NodeCount
+
+	nodeGroupInfo := &irs.NodeGroupInfo{
 		IId: irs.IID{
-			NameId:   node_group_json_obj["name"].(string),
-			SystemId: node_group_json_obj["uuid"].(string),
+			NameId:   nodeGroupName,
+			SystemId: nodeGroupId,
 		},
 		ImageIID: irs.IID{
-			NameId:   "",
-			SystemId: node_group_json_obj["image_id"].(string),
+			NameId:   imageName,
+			SystemId: imageId,
 		},
-		VMSpecName:      node_group_json_obj["flavor_id"].(string),
-		RootDiskType:    node_group_json_obj["labels"].(map[string]interface{})["boot_volume_size"].(string),
-		RootDiskSize:    node_group_json_obj["labels"].(map[string]interface{})["boot_volume_type"].(string),
-		KeyPairIID:      irs.IID{},
-		OnAutoScaling:   auto_scaling,
-		MinNodeSize:     int(ca_min_node_count),
-		MaxNodeSize:     int(ca_max_node_count),
-		DesiredNodeSize: int(node_count),
-		Nodes:           []irs.IID{},
-		KeyValueList:    []irs.KeyValue{},
-		Status:          status,
+		VMSpecName:   flavorName,
+		RootDiskType: rootDiskType,
+		RootDiskSize: rootDiskSize,
+		KeyPairIID: irs.IID{
+			NameId:   keyPair,
+			SystemId: keyPair,
+		},
+		Status:          ngiStatus,
+		OnAutoScaling:   onAutoScaling,
+		MinNodeSize:     minNodeSize,
+		MaxNodeSize:     maxNodeSize,
+		DesiredNodeSize: desiredNodeSize,
 	}
 
-	// k,v 추출
-	// k,v 변환 규칙 작성 [k,v]:[ClusterInfo.k, ClusterInfo.v]
-	// 변환 규칙에 따라 k,v 변환
-	// flat, err := flatten.FlattenString(cluster_json_str, "", flatten.DotStyle)
-	flat, err := flatten.Flatten(node_group_json_obj, "", flatten.DotStyle)
+	//
+	// Fill nodeGroupInfo.Nodes
+	//
+	if ngiStatus == irs.NodeGroupActive {
+		serverList, err := nch.getServerListByAddresses(imageId, flavorId, nodeGroup.NodeAddresses)
+		if err != nil {
+			err = fmt.Errorf("failed to get server lists by addresses(%v): %v", nodeGroup.NodeAddresses, err)
+			return nil, err
+		}
+		for _, server := range serverList {
+			nodeIId := irs.IID{NameId: server.Name, SystemId: server.ID}
+			nodeGroupInfo.Nodes = append(nodeGroupInfo.Nodes, nodeIId)
+		}
+	}
+
+	//
+	// Fill nodeGroupInfo.KeyValueList
+	//
+	kvList, err := nch.convertObjectToKeyValueList(nodeGroup)
 	if err != nil {
-		err := fmt.Errorf("Failed to Flatten NodeGroup")
-		cblogger.Error(err)
+		err = fmt.Errorf("failed to get key value list: %v", err)
 		return nil, err
 	}
-	for k, v := range flat {
-		temp := fmt.Sprintf("%v", v)
-		nodeGroupInfo.KeyValueList = append(nodeGroupInfo.KeyValueList, irs.KeyValue{Key: k, Value: temp})
+
+	for _, kv := range kvList {
+		nodeGroupInfo.KeyValueList = append(nodeGroupInfo.KeyValueList, kv)
 	}
 
 	return nodeGroupInfo, err
 }
 
-func getClusterInfoRequestJSONString(clusterInfo irs.ClusterInfo, clusterHandler *NhnCloudClusterHandler) (info string, err error) {
+func (nch *NhnCloudClusterHandler) getLabelsForCluster(clusterInfo *irs.ClusterInfo, nodeGroupInfo *irs.NodeGroupInfo) (map[string]string, error) {
+	emptyLabels := make(map[string]string, 0)
 
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("Failed to Process getClusterInfoRequestJSONString() : %v\n\n%v", r, string(debug.Stack()))
-			cblogger.Error(err)
-		}
-	}()
+	// https://docs.nhncloud.com/ko/Container/NKS/ko/public-api/#_15
 
-	fixed_network := clusterInfo.Network.VpcIID.SystemId
-	fixed_subnet := clusterInfo.Network.SubnetIIDs[0].SystemId
-	flavor_id := clusterInfo.NodeGroupList[0].VMSpecName
-	keypair := clusterInfo.NodeGroupList[0].KeyPairIID.NameId
+	nodeImage := nodeGroupInfo.ImageIID.SystemId
+	certManagerApi := "True"
+	clusterautoscale := "nodegroupfeature"
 
-	availability_zone := clusterHandler.RegionInfo.Zone
-	boot_volume_size := clusterInfo.NodeGroupList[0].RootDiskSize
-	boot_volume_type := clusterInfo.NodeGroupList[0].RootDiskType
+	kubeTag := clusterInfo.Version
+	masterLbFloatingIpEnabled := "True" // Kubernetes API Endpoint set to Public
 
-	ca_enable := "false"
-	if clusterInfo.NodeGroupList[0].OnAutoScaling {
-		ca_enable = "true"
-	}
-	ca_max_node_count := strconv.Itoa(clusterInfo.NodeGroupList[0].MaxNodeSize)
-	ca_min_node_count := strconv.Itoa(clusterInfo.NodeGroupList[0].MinNodeSize)
-	kube_tag := clusterInfo.Version
-	node_image := clusterInfo.NodeGroupList[0].ImageIID.SystemId
-	name := clusterInfo.IId.NameId
-	node_count := strconv.Itoa(clusterInfo.NodeGroupList[0].DesiredNodeSize)
+	var extNetworkId string
+	var extSubnetIdList string
 
-	for _, v := range clusterInfo.NodeGroupList[0].KeyValueList {
-		switch v.Key {
-		case "availability_zone":
-			availability_zone = v.Value
-		}
+	extNetworkList, err := nhnGetNetworkList(nch.NetworkClient, true)
+	if err != nil {
+		err = fmt.Errorf("failed to get networks' list with external: %v", err)
+		return emptyLabels, err
 	}
 
-	temp := `{
-		"cluster_template_id": "iaas_console", 
-		"create_timeout": 60,
-		"fixed_network": "%s",
-		"fixed_subnet": "%s",
-		"flavor_id": "%s",
-		"keypair": "%s",
-		"labels": {
-			"availability_zone": "%s",
-			"boot_volume_size": "%s",
-			"boot_volume_type": "%s",
-			"ca_enable": "%s",
-			"ca_max_node_count": "%s",
-			"ca_min_node_count": "%s",
-			"cert_manager_api": "True",
-			"clusterautoscale": "nodegroupfeature",
-			"kube_tag": "%s",
-			"master_lb_floating_ip_enabled": "False",
-			"node_image": "%s",
-			"user_script_v2": ""
-		},
-		"name": "%s",
-		"node_count": %s
-	}`
+	if len(extNetworkList) > 0 {
+		extNetworkId = extNetworkList[0].ID
+		if len(extNetworkList[0].Subnets) > 0 {
+			extSubnetList := extNetworkList[0].Subnets
+			for i, subnet := range extSubnetList {
+				if i > 0 {
+					extSubnetIdList = extSubnetIdList + ":"
+				}
+				extSubnetIdList = extSubnetIdList + subnet
+			}
 
-	info = fmt.Sprintf(temp, fixed_network, fixed_subnet, flavor_id, keypair, availability_zone, boot_volume_size, boot_volume_type, ca_enable, ca_max_node_count, ca_min_node_count, kube_tag, node_image, name, node_count)
+		} else {
+			err = fmt.Errorf("no subnet with external network(%s)", extNetworkId)
+			return emptyLabels, err
+		}
+	} else {
+		err = fmt.Errorf("no external network")
+		return emptyLabels, err
+	}
 
-	return info, err
+	labels := map[string]string{
+		clusterLabelsNodeImage:                 nodeImage,
+		clusterLabelsExternalNetworkId:         extNetworkId,
+		clusterLabelsExternalSubnetIdList:      extSubnetIdList,
+		clusterLabelsCertManagerApi:            certManagerApi,
+		clusterLabelsClusterautoscale:          clusterautoscale,
+		clusterLabelsKubeTag:                   kubeTag,
+		clusterLabelsMasterLbFloatingIpEnabled: masterLbFloatingIpEnabled,
+	}
+
+	var addVpcIdList string
+	var addSubnetIdList string
+	if len(clusterInfo.Network.SubnetIIDs) > 1 {
+		addVpcId := clusterInfo.Network.VpcIID.SystemId
+		for i, addSubnetId := range clusterInfo.Network.SubnetIIDs {
+			if i == 0 {
+				continue
+			} else {
+				addVpcIdList = addVpcIdList + ":"
+				addSubnetIdList = addSubnetIdList + ":"
+			}
+			addVpcIdList = addVpcIdList + addVpcId
+			addSubnetIdList = addSubnetIdList + addSubnetId.SystemId
+		}
+	}
+
+	labelsNodeGroup, err := nch.getLabelsForNodeGroup(nodeGroupInfo, addVpcIdList, addSubnetIdList)
+	if err != nil {
+		err = fmt.Errorf("failed to get labels for node group(%s) of cluster(%s): %v", nodeGroupInfo.IId.NameId, clusterInfo.IId.NameId, err)
+		return emptyLabels, err
+	}
+
+	for key, value := range labelsNodeGroup {
+		labels[key] = value
+	}
+
+	return labels, nil
 }
 
-func getNodeGroupRequestJSONString(nodeGroupReqInfo irs.NodeGroupInfo, clusterHandler *NhnCloudClusterHandler) (payload string, err error) {
+func (nch *NhnCloudClusterHandler) getLabelsForNodeGroup(nodeGroupInfo *irs.NodeGroupInfo, addVpcIdList, addSubnetIdList string) (map[string]string, error) {
 
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("Failed to Process getNodeGroupRequestJSONString() : %v\n\n%v", r, string(debug.Stack()))
-			cblogger.Error(err)
+	// https://docs.nhncloud.com/ko/Container/NKS/ko/public-api/#_39
+
+	availabilityZone := nch.RegionInfo.Zone
+	for _, v := range nodeGroupInfo.KeyValueList {
+		switch v.Key {
+		case "availability_zone":
+			availabilityZone = v.Value
+			break
 		}
-	}()
+	}
 
-	name := nodeGroupReqInfo.IId.NameId
-	node_count := nodeGroupReqInfo.DesiredNodeSize
-	flavor_id := nodeGroupReqInfo.VMSpecName
-	image_id := nodeGroupReqInfo.ImageIID.SystemId
+	if strings.EqualFold(nodeGroupInfo.RootDiskSize, "") || strings.EqualFold(nodeGroupInfo.RootDiskSize, "default") {
+		nodeGroupInfo.RootDiskSize = DefaultDiskSize
+	}
+	bootVolumeSize := nodeGroupInfo.RootDiskSize
 
-	boot_volume_size := nodeGroupReqInfo.RootDiskSize
-	boot_volume_type := nodeGroupReqInfo.RootDiskType
+	if strings.EqualFold(nodeGroupInfo.RootDiskType, "") || strings.EqualFold(nodeGroupInfo.RootDiskType, "default") {
+		nodeGroupInfo.RootDiskType = HDD
+	}
+	bootVolumeType := nodeGroupInfo.RootDiskType
 
-	ca_enable := strconv.FormatBool(nodeGroupReqInfo.OnAutoScaling)
-	ca_max_node_count := strconv.Itoa(nodeGroupReqInfo.MaxNodeSize)
-	ca_min_node_count := strconv.Itoa(nodeGroupReqInfo.MinNodeSize)
+	caEnable := "false"
+	if nodeGroupInfo.OnAutoScaling {
+		caEnable = "true"
+	}
+	caMaxNodeCount := strconv.Itoa(nodeGroupInfo.MaxNodeSize)
+	caMinNodeCount := strconv.Itoa(nodeGroupInfo.MinNodeSize)
+	caScaleDownEnable := "true"
 
-	availability_zone := clusterHandler.RegionInfo.Zone
+	labels := map[string]string{
+		clusterLabelsAvailabilityZone:        availabilityZone,
+		clusterLabelsBootVolumeSize:          bootVolumeSize,
+		clusterLabelsBootVolumeType:          bootVolumeType,
+		clusterLabelsCaEnable:                caEnable,
+		clusterLabelsCaMaxNodeCount:          caMaxNodeCount,
+		clusterLabelsCaMinNodeCount:          caMinNodeCount,
+		clusterLabelsCaScaleDownEnable:       caScaleDownEnable,
+		clusterLabelsAdditionalNetworkIdList: addVpcIdList,
+		clusterLabelsAdditionalSubnetIdList:  addSubnetIdList,
+	}
 
-	temp := `{
-	    "name": "%s",
-	    "node_count": %d,
-	    "flavor_id": "%s",
-	    "image_id": "%s",
-	    "labels": {
-	        "availability_zone": "%s",
-	        "boot_volume_size": "%s",
-	        "boot_volume_type": "%s",
-	        "ca_enable": "%s",
-			"ca_max_node_count": "%s",
-			"ca_min_node_count": "%s"
-	    }
-	}`
+	return labels, nil
+}
 
-	payload = fmt.Sprintf(temp, name, node_count, flavor_id, image_id, availability_zone, boot_volume_size, boot_volume_type, ca_enable, ca_max_node_count, ca_min_node_count)
+func (nch *NhnCloudClusterHandler) waitUntilClusterIsStatus(clusterId, status string) error {
+	apiCallCount := 0
+	maxAPICallCount := 240
 
-	return payload, err
+	var waitErr error
+	for {
+		cluster, err := nhnGetCluster(nch.ClusterClient, clusterId)
+		if err != nil {
+			maxAPICallCount = maxAPICallCount / 2
+			cblogger.Infof("failed to get cluster(id=%s): %v", clusterId, err)
+		} else {
+			if strings.EqualFold(cluster.Status, status) {
+				return nil
+			}
+		}
+
+		apiCallCount++
+		if apiCallCount >= maxAPICallCount {
+			waitErr = fmt.Errorf("failed to get cluster: " +
+				"The maximum number of verification requests has been exceeded " +
+				"while waiting for availability of that resource")
+			break
+		}
+		cblogger.Infof("Wait until cluster(id=%s)'s status is %s", clusterId, status)
+		time.Sleep(10 * time.Second)
+	}
+
+	return waitErr
+}
+
+func (nch *NhnCloudClusterHandler) waitUntilClusterSecGroupIsCreated(clusterId string) error {
+	var waitErr error
+
+	// Wait Cluster
+	apiCallCount := 0
+	maxAPICallCount := 240
+	var targetCluster *clusters.Cluster
+	for {
+		cluster, err := nhnGetCluster(nch.ClusterClient, clusterId)
+		if err != nil {
+			maxAPICallCount = maxAPICallCount / 2
+			cblogger.Infof("failed to get cluster(id=%s): %v", clusterId, err)
+		} else {
+			targetCluster = cluster
+			break
+		}
+		apiCallCount++
+		if apiCallCount >= maxAPICallCount {
+			waitErr = fmt.Errorf("failed to get cluster: " +
+				"The maximum number of verification requests has been exceeded " +
+				"while waiting for the creation of that resource")
+			return waitErr
+		}
+		cblogger.Infof("Wait until creation of cluster(id=%s) is started.", clusterId)
+		time.Sleep(10 * time.Second)
+	}
+
+	// Wait Security Group
+	apiCallCount = 0
+	maxAPICallCount = 240
+	var targetSecGroupId *irs.IID
+	for {
+		secGroupId, err := nch.getClusterSecGroupId(targetCluster)
+		if err != nil {
+			maxAPICallCount = maxAPICallCount / 2
+			cblogger.Infof("failed to get cluster(id=%s)'s security group': %v", clusterId, err)
+		} else {
+			if secGroupId != nil {
+				targetSecGroupId = secGroupId
+				break
+			}
+		}
+		apiCallCount++
+		if apiCallCount >= maxAPICallCount {
+			waitErr = fmt.Errorf("failed to get security group: " +
+				"The maximum number of verification requests has been exceeded " +
+				"while waiting for the creation of that resource")
+			return waitErr
+		}
+		cblogger.Infof("Wait until cluster(id=%s)'s security group is created.", clusterId)
+		time.Sleep(10 * time.Second)
+	}
+
+	if targetCluster == nil || targetSecGroupId == nil {
+		waitErr = fmt.Errorf("failed to get cluster security group: unknown reason")
+		return waitErr
+	}
+
+	return nil
+}
+
+func (nch *NhnCloudClusterHandler) waitUntilNodeGroupIsStatus(clusterId, nodeGroupId, status string) error {
+	apiCallCount := 0
+	maxAPICallCount := 240
+
+	var waitErr error
+	for {
+		nodeGroup, err := nhnGetNodeGroup(nch.ClusterClient, clusterId, nodeGroupId)
+		if err != nil {
+			maxAPICallCount = maxAPICallCount / 2
+			cblogger.Infof("failed to get node group(id=%s): %v", nodeGroupId, err)
+		} else {
+			if strings.EqualFold(nodeGroup.Status, status) {
+				return nil
+			}
+		}
+
+		apiCallCount++
+		if apiCallCount >= maxAPICallCount {
+			waitErr = fmt.Errorf("failed to get nodegroup: " +
+				"The maximum number of verification requests has been exceeded " +
+				"while waiting for availability of that resource")
+			break
+		}
+		cblogger.Infof("Wait until nodegroup(id=%s)'s status is %s", nodeGroupId, status)
+		time.Sleep(10 * time.Second)
+	}
+
+	return waitErr
+
+}
+
+func (nch *NhnCloudClusterHandler) getClusterSecGroupId(cluster *clusters.Cluster) (*irs.IID, error) {
+	secGroupList, err := nhnGetSecGroupListByProjectId(nch.NetworkClient, cluster.ProjectID)
+	if err != nil {
+		err = fmt.Errorf("failed to get security groups' list by project id(%s): %v", cluster.ProjectID, err)
+		return nil, err
+	}
+
+	for _, secGroup := range secGroupList {
+		if strings.Contains(secGroup.Name, secgroupPostfix) {
+			clusterNameWithDash := cluster.Name + "-"
+			if strings.Contains(secGroup.Name, clusterNameWithDash) {
+				return &irs.IID{secGroup.Name, secGroup.ID}, nil
+			}
+		}
+	}
+
+	return &irs.IID{}, nil
+}
+
+func (nch *NhnCloudClusterHandler) createCluster(clusterReqInfo irs.ClusterInfo) (string, error) {
+	firstNodeGroupInfo := clusterReqInfo.NodeGroupList[0]
+
+	flavorName := firstNodeGroupInfo.VMSpecName
+	flavorId, err := nch.getFlavorIdByName(flavorName)
+	if err != nil {
+		return "", err
+	}
+
+	fixedNetwork := clusterReqInfo.Network.VpcIID.SystemId
+	fixedSubnet := clusterReqInfo.Network.SubnetIIDs[0].SystemId
+	keyPair := firstNodeGroupInfo.KeyPairIID.NameId
+
+	labels, err := nch.getLabelsForCluster(&clusterReqInfo, &firstNodeGroupInfo)
+	if err != nil {
+		return "", err
+	}
+
+	clusterName := clusterReqInfo.IId.NameId
+	nodeCount := clusterReqInfo.NodeGroupList[0].DesiredNodeSize
+	timeout := createTimeout
+
+	uuid, err := nhnCreateCluster(nch.ClusterClient, clusterName, timeout, fixedNetwork, fixedSubnet, flavorId, keyPair, labels, nodeCount)
+	if err != nil {
+		err = fmt.Errorf("failed to create a cluster(%s): %v", clusterName, err)
+		return "", err
+	}
+
+	return uuid, nil
+}
+
+func (nch *NhnCloudClusterHandler) deleteCluster(clusterId string) error {
+	// cluster subresource Clean 현재 없음
+
+	err := nhnDeleteCluster(nch.ClusterClient, clusterId)
+	if err != nil {
+		err = fmt.Errorf("failed to delete a cluster(id=%s): %v", clusterId, err)
+		return err
+	}
+
+	return nil
+}
+
+func nhnCreateCluster(scCluster *nhnsdk.ServiceClient, clusterName string, timeout int, fixedNetwork, fixedSubnet, flavorId, keyPair string, labels map[string]string, nodeCount int) (string, error) {
+	createOpts := clusters.CreateOpts{
+		ClusterTemplateID: clusterTemplateId,
+		CreateTimeout:     &timeout,
+		FixedNetwork:      fixedNetwork,
+		FixedSubnet:       fixedSubnet,
+		FlavorID:          flavorId,
+		Keypair:           keyPair,
+		Labels:            labels,
+		Name:              clusterName,
+		NodeCount:         &nodeCount,
+	}
+	uuid, err := clusters.Create(scCluster, createOpts).Extract()
+	if err != nil {
+		return "", err
+	}
+
+	return uuid, nil
+}
+
+func nhnGetCluster(scCluster *nhnsdk.ServiceClient, clusterId string) (*clusters.Cluster, error) {
+	cluster, err := clusters.Get(scCluster, clusterId).Extract()
+	if err != nil {
+		return nil, err
+	}
+
+	return cluster, nil
+}
+
+func nhnGetClusterList(scCluster *nhnsdk.ServiceClient) ([]clusters.Cluster, error) {
+	emptyClusterList := make([]clusters.Cluster, 0)
+
+	allPages, err := clusters.List(scCluster, nil).AllPages()
+	if err != nil {
+		err = fmt.Errorf("failed to get clusters' list: %v", err)
+		return emptyClusterList, err
+	}
+
+	clusterList, err := clusters.ExtractClusters(allPages)
+	if err != nil {
+		err = fmt.Errorf("failed to extract clusters' list: %v", err)
+		return emptyClusterList, err
+	}
+
+	return clusterList, nil
+}
+
+func nhnDeleteCluster(scCluster *nhnsdk.ServiceClient, clusterId string) error {
+	err := clusters.Delete(scCluster, clusterId).ExtractErr()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func nhnUpgradeCluster(scCluster *nhnsdk.ServiceClient, clusterId, nodeGroupId, newVersion string) error {
+	upgradeOpts := nodegroups.UpgradeOpts{
+		Version: newVersion,
+	}
+
+	_, err := nodegroups.Upgrade(scCluster, clusterId, nodeGroupId, upgradeOpts).Extract()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func nhnGetSecGroupListByProjectId(scNetwork *nhnsdk.ServiceClient, projectId string) ([]netsecgroups.SecGroup, error) {
+	emptySecGroupList := []netsecgroups.SecGroup{}
+
+	listOpts := netsecgroups.ListOpts{
+		ProjectID: projectId,
+	}
+
+	allPages, err := netsecgroups.List(scNetwork, listOpts).AllPages()
+	if err != nil {
+		err = fmt.Errorf("failed to get secrutiry groups' list: %v", err)
+		return emptySecGroupList, err
+	}
+
+	secGroupList, err := netsecgroups.ExtractGroups(allPages)
+	if err != nil {
+		err = fmt.Errorf("failed to extract security groups' list: %v", err)
+		return emptySecGroupList, err
+	}
+
+	return secGroupList, nil
+}
+
+func convertNodeGroupStatusToNodeGroupInfoStatus(nodeGroup *nodegroups.NodeGroup) irs.NodeGroupStatus {
+	status := irs.NodeGroupInactive
+	if strings.EqualFold(nodeGroup.Status, clusterStatusCreateInProgress) {
+		status = irs.NodeGroupCreating
+	} else if strings.EqualFold(nodeGroup.Status, clusterStatusUpdateInProgress) {
+		status = irs.NodeGroupUpdating // removing is a kind of updating?
+	} else if strings.EqualFold(nodeGroup.Status, clusterStatusUpdateFailed) {
+		status = irs.NodeGroupInactive
+	} else if strings.EqualFold(nodeGroup.Status, clusterStatusDeleteInProgress) {
+		status = irs.NodeGroupDeleting
+	} else if strings.EqualFold(nodeGroup.Status, clusterStatusCreateComplete) {
+		status = irs.NodeGroupActive
+	} else if strings.EqualFold(nodeGroup.Status, clusterStatusUpdateComplete) {
+		status = irs.NodeGroupActive
+	}
+
+	return status
+}
+
+func convertClusterStatusToClusterInfoStatus(cluster *clusters.Cluster) irs.ClusterStatus {
+	status := irs.ClusterInactive
+	if strings.EqualFold(cluster.Status, clusterStatusCreateInProgress) {
+		status = irs.ClusterCreating
+	} else if strings.EqualFold(cluster.Status, clusterStatusUpdateInProgress) {
+		status = irs.ClusterUpdating
+	} else if strings.EqualFold(cluster.Status, clusterStatusUpdateFailed) {
+		status = irs.ClusterInactive
+	} else if strings.EqualFold(cluster.Status, clusterStatusDeleteInProgress) {
+		status = irs.ClusterDeleting
+	} else if strings.EqualFold(cluster.Status, clusterStatusCreateComplete) {
+		status = irs.ClusterActive
+	} else if strings.EqualFold(cluster.Status, clusterStatusUpdateComplete) {
+		status = irs.ClusterActive
+	}
+
+	return status
+}
+
+func (nch *NhnCloudClusterHandler) getClusterAccessInfo(cluster *clusters.Cluster) (*irs.AccessInfo, error) {
+	endpoint := "Endpoint is not ready yet!"
+	if !strings.EqualFold(cluster.APIAddress, "") {
+		endpoint = cluster.APIAddress
+	}
+
+	kubeconfig := "Kubeconfig is not ready yet!"
+	clusterId := cluster.UUID
+	config, err := nhnGetConfig(nch.ClusterClient, clusterId)
+	if err != nil {
+		cblogger.Info("Kubeconfig is not ready yet!")
+	} else {
+		kubeconfig = strings.TrimSpace(config)
+	}
+
+	accessInfo := &irs.AccessInfo{
+		Endpoint:   endpoint,
+		Kubeconfig: kubeconfig,
+	}
+
+	return accessInfo, nil
+}
+
+func (nch *NhnCloudClusterHandler) convertObjectToKeyValueList(v any) ([]irs.KeyValue, error) {
+	var emptyObjectKeyValueList []irs.KeyValue
+
+	jsonAny, err := json.Marshal(v)
+	if err != nil {
+		err = fmt.Errorf("failed to marshal object: %v", err)
+		return emptyObjectKeyValueList, err
+	}
+
+	var mapAny map[string]interface{}
+	err = json.Unmarshal(jsonAny, &mapAny)
+	if err != nil {
+		err = fmt.Errorf("failed to unmarshal object: %v", err)
+		return emptyObjectKeyValueList, err
+	}
+
+	flat, err := flatten.Flatten(mapAny, "", flatten.DotStyle)
+	if err != nil {
+		err = fmt.Errorf("failed to flatten object: %v", err)
+		return emptyObjectKeyValueList, err
+	}
+	delete(flat, "meta_data")
+
+	var objectKeyValueList []irs.KeyValue
+	for k, v := range flat {
+		objectKeyValueList = append(objectKeyValueList, irs.KeyValue{Key: k, Value: fmt.Sprintf("%v", v)})
+	}
+
+	return objectKeyValueList, nil
+}
+
+func (nch *NhnCloudClusterHandler) createNodeGroup(clusterId string, nodeGroupReqInfo *irs.NodeGroupInfo) (string, error) {
+	nodeGroupName := nodeGroupReqInfo.IId.NameId
+
+	cluster, err := nhnGetCluster(nch.ClusterClient, clusterId)
+	if err != nil {
+		err = fmt.Errorf("failed to a cluster(id=%s): %v",
+			nodeGroupName, clusterId, err)
+		return "", err
+	}
+
+	addVpcIdList, _ := cluster.Labels[clusterLabelsAdditionalNetworkIdList]
+	addSubnetIdList, _ := cluster.Labels[clusterLabelsAdditionalSubnetIdList]
+
+	labels, err := nch.getLabelsForNodeGroup(nodeGroupReqInfo, addVpcIdList, addSubnetIdList)
+	if err != nil {
+		err = fmt.Errorf("failed to create a node group(%s) of cluster(id=%s): %v",
+			nodeGroupName, clusterId, err)
+		return "", err
+	}
+
+	nodeCount := nodeGroupReqInfo.DesiredNodeSize
+	minNodeCount := nodeGroupReqInfo.MinNodeSize
+	maxNodeCount := nodeGroupReqInfo.MaxNodeSize
+	imageId := nodeGroupReqInfo.ImageIID.SystemId
+	flavorId, err := nch.getFlavorIdByName(nodeGroupReqInfo.VMSpecName)
+	if err != nil {
+		err = fmt.Errorf("failed to create a node group(%s) of cluster(id=%s): %v",
+			nodeGroupName, clusterId, err)
+		return "", err
+	}
+
+	nodeGroup, err := nhnCreateNodeGroup(nch.ClusterClient, clusterId, nodeGroupName,
+		labels, nodeCount, minNodeCount, maxNodeCount, imageId, flavorId)
+	if err != nil {
+		err = fmt.Errorf("failed to create a node group(%s) of cluster(id=%s): %v",
+			nodeGroupName, clusterId, err)
+		return "", err
+	}
+
+	return nodeGroup.UUID, nil
+}
+
+func (nch *NhnCloudClusterHandler) deleteNodeGroup(clusterId, nodeGroupId string) error {
+	// nodeGroup subresource Clean 현재 없음
+
+	err := nhnDeleteNodeGroup(nch.ClusterClient, clusterId, nodeGroupId)
+	if err != nil {
+		err = fmt.Errorf("failed to delete a node group(id=%s) of cluster(id=%s): %v",
+			nodeGroupId, clusterId, err)
+		return err
+	}
+
+	return nil
+}
+
+func (nch *NhnCloudClusterHandler) getFlavorIdByName(flavorName string) (string, error) {
+	flavorList, err := nhnGetFlavorList(nch.VMClient)
+	if err != nil {
+		return "", err
+	}
+
+	for _, flavor := range flavorList {
+		if strings.EqualFold(flavor.Name, flavorName) {
+			return flavor.ID, nil
+		}
+	}
+
+	return "", fmt.Errorf("failed to find a flavor by name(%s)", flavorName)
+}
+
+func (nch *NhnCloudClusterHandler) getFlavorNameById(flavorId string) (string, error) {
+	flavorList, err := nhnGetFlavorList(nch.VMClient)
+	if err != nil {
+		return "", err
+	}
+
+	for _, flavor := range flavorList {
+		if strings.EqualFold(flavor.ID, flavorId) {
+			return flavor.Name, nil
+		}
+	}
+
+	return "", fmt.Errorf("failed to find a flavor by id(%s)", flavorId)
+}
+
+func (nch *NhnCloudClusterHandler) getServerListByAddresses(imageId, flavorId string, addresses []string) ([]servers.Server, error) {
+	emptyServerList := make([]servers.Server, 0)
+
+	if len(addresses) == 0 {
+		return emptyServerList, nil
+	}
+
+	targetServerList, err := nhnGetServerListByIds(nch.VMClient, imageId, flavorId)
+	if err != nil {
+		err = fmt.Errorf("failed to get server list with image(id=%s) and flavor(id=%s)", imageId, flavorId)
+		return emptyServerList, err
+	}
+
+	var found bool
+	var serverList []servers.Server
+	for _, address := range addresses {
+		for _, server := range targetServerList {
+			found = false
+			for _, valueAddr := range server.Addresses {
+				for _, mapAddr := range valueAddr.([]interface{}) {
+					if addr, ok := mapAddr.(map[string]interface{})["addr"]; ok {
+						if strings.EqualFold(address, addr.(string)) {
+							serverList = append(serverList, server)
+							found = true
+							break
+						}
+					}
+				}
+			}
+			if found {
+				break
+			}
+		}
+	}
+
+	if len(serverList) == 0 {
+		err = fmt.Errorf("failed to find a server by addresses(%v)", addresses)
+		return emptyServerList, err
+	}
+
+	return serverList, nil
+}
+
+func (nch *NhnCloudClusterHandler) getVpcName(vpcId string) (string, error) {
+	vpc, err := nhnGetVpc(nch.NetworkClient, vpcId)
+	if err != nil {
+		err = fmt.Errorf("failed to get vpc name with id(%s): %v", vpcId, err)
+		return "", err
+	}
+
+	return vpc.Name, nil
+}
+
+func (nch *NhnCloudClusterHandler) getVpcsubnetName(vpcsubnetId string) (string, error) {
+	vpcsubnet, err := nhnGetVpcsubnet(nch.NetworkClient, vpcsubnetId)
+	if err != nil {
+		return "", err
+	}
+
+	return vpcsubnet.Name, nil
+}
+
+// # Check whether the Routing Table (of the VPC) is connected to an Internet Gateway
+func (nch *NhnCloudClusterHandler) isVpcConnectedToGateway(vpcId string) (bool, error) {
+	vpc, err := nhnGetVpc(nch.NetworkClient, vpcId)
+	if err != nil {
+		return false, err
+	}
+
+	hasInternetGateway := false
+	if len(vpc.RoutingTables) > 0 {
+		if !strings.EqualFold(vpc.RoutingTables[0].GatewayID, "") {
+			hasInternetGateway = true
+		}
+	}
+
+	return hasInternetGateway, nil
+}
+
+func nhnCreateNodeGroup(scCluster *nhnsdk.ServiceClient, clusterId, nodeGroupName string, labels map[string]string, nodeCount, minNodeCount, maxNodeCount int, imageId, flavorId string) (*nodegroups.NodeGroup, error) {
+	createOpts := nodegroups.CreateOpts{
+		Name:         nodeGroupName,
+		Labels:       labels,
+		NodeCount:    &nodeCount,
+		MinNodeCount: minNodeCount,
+		MaxNodeCount: &maxNodeCount,
+		ImageID:      imageId,
+		FlavorID:     flavorId,
+	}
+	nodeGroup, err := nodegroups.Create(scCluster, clusterId, createOpts).Extract()
+	if err != nil {
+		err = fmt.Errorf("failed to create nodgroup(%s) of cluster(id=%s): %v", nodeGroupName, clusterId, err)
+		return nil, err
+	}
+
+	return nodeGroup, nil
+}
+
+func nhnGetNodeGroup(scCluster *nhnsdk.ServiceClient, clusterId, nodeGroupId string) (*nodegroups.NodeGroup, error) {
+	nodeGroup, err := nodegroups.Get(scCluster, clusterId, nodeGroupId).Extract()
+	if err != nil {
+		err = fmt.Errorf("failed to get the cluster(id=%s)'s nodegroup(id=%s): %v", clusterId, nodeGroupId, err)
+		return nil, err
+	}
+
+	return nodeGroup, nil
+}
+
+func nhnGetNodeGroupList(scCluster *nhnsdk.ServiceClient, clusterId string) ([]nodegroups.NodeGroup, error) {
+	emptyNodeGroupList := make([]nodegroups.NodeGroup, 0)
+	nodeGroupListOpts := nodegroups.ListOpts{}
+	allPages, err := nodegroups.List(scCluster, clusterId, nodeGroupListOpts).AllPages()
+	if err != nil {
+		err = fmt.Errorf("failed to get the cluster(id=%s)'s nodegroups: %v", clusterId, err)
+		return emptyNodeGroupList, err
+	}
+
+	nodeGroupList, err := nodegroups.ExtractNodeGroups(allPages)
+	if err != nil {
+		err = fmt.Errorf("failed to extract the cluster(id=%s)'s nodegroups: %v", clusterId, err)
+		return emptyNodeGroupList, err
+	}
+
+	return nodeGroupList, nil
+}
+
+func nhnDeleteNodeGroup(scCluster *nhnsdk.ServiceClient, clusterId, nodeGroupId string) error {
+	err := nodegroups.Delete(scCluster, clusterId, nodeGroupId).ExtractErr()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func nhnGetNodeGroupAutoscale(scCluster *nhnsdk.ServiceClient, clusterId, nodeGroupId string) (*nodegroups.Autoscale, error) {
+	autoscale, err := nodegroups.GetAutoscale(scCluster, clusterId, nodeGroupId).Extract()
+	if err != nil {
+		err = fmt.Errorf("failed to get nodegroup(id=%s)'s autoscale of cluster(id=%s): %v", nodeGroupId, clusterId, err)
+		return nil, err
+	}
+
+	return autoscale, nil
+}
+
+func nhnSetNodeGroupAutoscale(scCluster *nhnsdk.ServiceClient, clusterId, nodeGroupId string, enable bool, minNodeCount, maxNodeCount int) (string, error) {
+	setAutoscaleOpts := nodegroups.SetAutoscaleOpts{
+		CaEnable:       &enable,
+		CaMaxNodeCount: maxNodeCount,
+		CaMinNodeCount: minNodeCount,
+	}
+	uuid, err := nodegroups.SetAutoscale(scCluster, clusterId, nodeGroupId, setAutoscaleOpts).Extract()
+	if err != nil {
+		err = fmt.Errorf("failed to set nodegroup(id=%s)'s autoscale of cluster(id=%s): %v", nodeGroupId, clusterId, err)
+		return "", err
+	}
+	if nodeGroupId != uuid {
+		err = fmt.Errorf("failed to set nodegroup(id=%s)'s autoscale of cluster(id=%s): %v", nodeGroupId, clusterId, err)
+		return "", err
+	}
+
+	return uuid, nil
+}
+
+func nhnSetNodeGroupAutoscaleEnable(scCluster *nhnsdk.ServiceClient, clusterId, nodeGroupId string, enable bool) (string, error) {
+	setAutoscaleOpts := nodegroups.SetAutoscaleOpts{
+		CaEnable: &enable,
+	}
+	uuid, err := nodegroups.SetAutoscale(scCluster, clusterId, nodeGroupId, setAutoscaleOpts).Extract()
+	if err != nil {
+		err = fmt.Errorf("failed to set nodegroup(id=%s)'s autoscale of cluster(id=%s): %v", nodeGroupId, clusterId, err)
+		return "", err
+	}
+	if nodeGroupId != uuid {
+		err = fmt.Errorf("failed to set nodegroup(id=%s)'s autoscale of cluster(id=%s): %v", nodeGroupId, clusterId, err)
+		return "", err
+	}
+
+	return uuid, nil
+}
+
+func nhnGetFlavorList(scVM *nhnsdk.ServiceClient) ([]flavors.Flavor, error) {
+	allPages, err := flavors.ListDetail(scVM, nil).AllPages()
+	if err != nil {
+		return make([]flavors.Flavor, 0), fmt.Errorf("failed to get flavors' list: %v", err)
+	}
+
+	flavorList, err := flavors.ExtractFlavors(allPages)
+	if err != nil {
+		return make([]flavors.Flavor, 0), fmt.Errorf("failed to extract flavors: %v", err)
+	}
+
+	return flavorList, nil
+}
+
+func nhnGetImageById(scVM *nhnsdk.ServiceClient, imageId string) (*images.Image, error) {
+	image, err := images.Get(scVM, imageId).Extract()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get a image by id(%s)", imageId)
+	}
+
+	return image, nil
+}
+
+func (nch *NhnCloudClusterHandler) getImageNameById(imageId string) (string, error) {
+	image, err := nhnGetImageById(nch.VMClient, imageId)
+	if err != nil {
+		return "", err
+	}
+
+	return image.Name, nil
+}
+
+func nhnGetServerListByIds(scVM *nhnsdk.ServiceClient, imageId, flavorId string) ([]servers.Server, error) {
+	listOpts := servers.ListOpts{Image: imageId, Flavor: flavorId}
+	allPages, err := servers.List(scVM, listOpts).AllPages()
+	if err != nil {
+		return make([]servers.Server, 0), fmt.Errorf("failed to get servers' list: %v", err)
+	}
+
+	serverList, err := servers.ExtractServers(allPages)
+	if err != nil {
+		return make([]servers.Server, 0), fmt.Errorf("failed to extract servers: %v", err)
+	}
+
+	return serverList, nil
+}
+
+func nhnGetConfig(scCluster *nhnsdk.ServiceClient, clusterId string) (string, error) {
+	config, err := clusters.GetConfig(scCluster, clusterId).Extract()
+	if err != nil {
+		err = fmt.Errorf("failed to get config by cluster(id=%s)", clusterId)
+		return "", err
+	}
+
+	return config, nil
+}
+
+func nhnGetVpcList(scNetwork *nhnsdk.ServiceClient, external bool) ([]vpcs.VPC, error) {
+	listOpts := vpcs.ListOpts{
+		RouterExternal: external,
+	}
+	allPages, err := vpcs.List(scNetwork, listOpts).AllPages()
+	if err != nil {
+		err = fmt.Errorf("failed to get vpcs' list: %v", err)
+		return nil, err
+	}
+
+	vpcList, err := vpcs.ExtractVPCs(allPages)
+	if err != nil {
+		err = fmt.Errorf("failed to extract vpcs' list: %v", err)
+		return nil, err
+	}
+
+	return vpcList, nil
+}
+
+func nhnGetNetworkList(scNetwork *nhnsdk.ServiceClient, external bool) ([]networks.Network, error) {
+	listOpts := networks.ListOpts{
+		RouterExternal: external,
+		//		Shared:         true,
+	}
+	allPages, err := networks.List(scNetwork, listOpts).AllPages()
+	if err != nil {
+		err = fmt.Errorf("failed to get networks' list: %v", err)
+		return nil, err
+	}
+
+	networkList, err := networks.ExtractNetworks(allPages)
+	if err != nil {
+		err = fmt.Errorf("failed to extract networks' list: %v", err)
+		return nil, err
+	}
+
+	return networkList, nil
+}
+
+func nhnGetSubnetListInNetwork(scNetwork *nhnsdk.ServiceClient, networkId string) ([]subnets.Subnet, error) {
+	listOpts := subnets.ListOpts{
+		NetworkID: networkId,
+	}
+	allPages, err := subnets.List(scNetwork, listOpts).AllPages()
+	if err != nil {
+		err = fmt.Errorf("failed to get subnets' list: %v", err)
+		return nil, err
+	}
+
+	subnetList, err := subnets.ExtractSubnets(allPages)
+	if err != nil {
+		err = fmt.Errorf("failed to extract subnets' list: %v", err)
+		return nil, err
+	}
+
+	return subnetList, nil
+}
+
+func nhnGetSubnetById(scNetwork *nhnsdk.ServiceClient, subnetId string) (*subnets.Subnet, error) {
+	listOpts := subnets.ListOpts{
+		ID: subnetId,
+		//RouterExternal: true,
+	}
+	allPages, err := subnets.List(scNetwork, listOpts).AllPages()
+	if err != nil {
+		err = fmt.Errorf("failed to get subnets' list: %v", err)
+		return nil, err
+	}
+
+	subnetList, err := subnets.ExtractSubnets(allPages)
+	if err != nil {
+		err = fmt.Errorf("failed to extract subnets' list: %v", err)
+		return nil, err
+	}
+
+	if len(subnetList) == 0 {
+		err = fmt.Errorf("failed to find a subnet with id(%s)", subnetId)
+		return nil, err
+	} else if len(subnetList) > 1 {
+		err = fmt.Errorf("failed to get only one subnet with id(%s)", subnetId)
+		return nil, err
+	}
+
+	return &subnetList[0], nil
+}
+
+func nhnGetVpc(scNetwork *nhnsdk.ServiceClient, vpcId string) (*vpcs.VPC, error) {
+	vpc, err := vpcs.Get(scNetwork, vpcId).Extract()
+	if err != nil {
+		err = fmt.Errorf("failed to get vpc: %v", err)
+		return nil, err
+	}
+
+	return vpc, nil
+}
+
+func nhnGetVpcById(scNetwork *nhnsdk.ServiceClient, vpcId string) (*vpcs.VPC, error) {
+	listOpts := vpcs.ListOpts{
+		ID: vpcId,
+		//RouterExternal: true,
+	}
+	allPages, err := vpcs.List(scNetwork, listOpts).AllPages()
+	if err != nil {
+		err = fmt.Errorf("failed to get vpcs' list: %v", err)
+		return nil, err
+	}
+
+	vpcList, err := vpcs.ExtractVPCs(allPages)
+	if err != nil {
+		err = fmt.Errorf("failed to extract vpcs' list: %v", err)
+		return nil, err
+	}
+
+	if len(vpcList) == 0 {
+		err = fmt.Errorf("failed to find a vpc with id(%s)", vpcId)
+		return nil, err
+	} else if len(vpcList) > 1 {
+		err = fmt.Errorf("failed to get only one vpc with id(%s)", vpcId)
+		return nil, err
+	}
+
+	return &vpcList[0], nil
+}
+
+func nhnGetVpcsubnetListInVpc(scNetwork *nhnsdk.ServiceClient, vpcId string) ([]vpcsubnets.Vpcsubnet, error) {
+	listOpts := vpcsubnets.ListOpts{
+		VPCID: vpcId,
+	}
+	allPages, err := vpcsubnets.List(scNetwork, listOpts).AllPages()
+	if err != nil {
+		err = fmt.Errorf("failed to get VPCs' list: %v", err)
+		return nil, err
+	}
+
+	vpcsubnetList, err := vpcsubnets.ExtractVpcsubnets(allPages)
+	if err != nil {
+		err = fmt.Errorf("failed to extract VPCs' list: %v", err)
+		return nil, err
+	}
+
+	return vpcsubnetList, nil
+}
+
+func nhnGetVpcsubnet(scNetwork *nhnsdk.ServiceClient, vpcsubnetId string) (*vpcsubnets.Vpcsubnet, error) {
+	vpcsubnet, err := vpcsubnets.Get(scNetwork, vpcsubnetId).Extract()
+	if err != nil {
+		err = fmt.Errorf("failed to get vpcsubnet with id(%s): %v", vpcsubnetId, err)
+		return nil, err
+	}
+
+	return vpcsubnet, nil
+}
+
+func getClusterVersion(cluster *clusters.Cluster) (string, error) {
+	if version, ok := cluster.Labels[clusterLabelsKubeTag]; !ok {
+		err := fmt.Errorf("failed to get version: labels.kube_tag")
+		return "", err
+	} else {
+		return version, nil
+	}
+}
+
+func getNodeGroupVersion(nodeGroup *nodegroups.NodeGroup) (string, error) {
+	if version, ok := nodeGroup.Labels[clusterLabelsKubeTag]; !ok {
+		err := fmt.Errorf("failed to get version: labels.kube_tag")
+		return "", err
+	} else {
+		return version, nil
+	}
+}
+
+func validateNodeGroupInfoList(nodeGroupInfoList []irs.NodeGroupInfo) error {
+	if len(nodeGroupInfoList) == 0 {
+		return fmt.Errorf("Node Group must be specified")
+	}
+
+	// NHN Cloud의 KeyPair는 클러스터 의존, NodeGroup에 의존하지 않음
+	var firstKeypairId *irs.IID
+	for i, nodeGroupInfo := range nodeGroupInfoList {
+		if nodeGroupInfo.IId.NameId == "" {
+			return fmt.Errorf("Node Group's name is required")
+		}
+		if nodeGroupInfo.VMSpecName == "" {
+			return fmt.Errorf("Node Group's vm spec name is required")
+		}
+		if i == 0 {
+			if nodeGroupInfo.KeyPairIID.NameId == "" && nodeGroupInfo.KeyPairIID.SystemId == "" {
+				return fmt.Errorf("Node Group's keypair is required")
+			}
+			firstKeypairId = &nodeGroupInfo.KeyPairIID
+
+			if nodeGroupInfo.ImageIID.NameId != "" || nodeGroupInfo.ImageIID.SystemId != "" {
+				cblogger.Info("User defined node image cannot be used, it will use a predefined node image")
+			}
+
+		} else {
+			// NameId, SystemId 둘다 값이 있음
+			if nodeGroupInfo.KeyPairIID.NameId != "" && nodeGroupInfo.KeyPairIID.SystemId != "" {
+				if nodeGroupInfo.KeyPairIID.NameId != firstKeypairId.NameId || nodeGroupInfo.KeyPairIID.SystemId != firstKeypairId.SystemId {
+					return fmt.Errorf("Node Group's keypair must all be the same")
+				}
+			} else if nodeGroupInfo.KeyPairIID.NameId != "" {
+				if nodeGroupInfo.KeyPairIID.NameId != firstKeypairId.NameId {
+					return fmt.Errorf("Node Group's keypair must all be the same")
+				}
+			} else if nodeGroupInfo.KeyPairIID.SystemId != "" {
+				if nodeGroupInfo.KeyPairIID.SystemId != firstKeypairId.SystemId {
+					return fmt.Errorf("Node Group's keypair must all be the same")
+				}
+			} else {
+				return fmt.Errorf("Node Group's keypair must all be the same")
+			}
+		}
+
+		// OnAutoScaling + MinNodeSize
+		// MaxNodeSize
+		// DesiredNodeSize
+		if nodeGroupInfo.OnAutoScaling && nodeGroupInfo.MinNodeSize < 1 {
+			return fmt.Errorf("MinNodeSize must be greater than 0 when OnAutoScaling is enabled.")
+		}
+		if nodeGroupInfo.MinNodeSize > 0 && !nodeGroupInfo.OnAutoScaling {
+			return fmt.Errorf("If MinNodeSize is specified, OnAutoScaling must be enabled.")
+		}
+		if nodeGroupInfo.MinNodeSize > 0 && (nodeGroupInfo.MinNodeSize > nodeGroupInfo.MaxNodeSize) {
+			return fmt.Errorf("MaxNodeSize must be greater than MinNodeSize.")
+		}
+		if nodeGroupInfo.MinNodeSize > 0 && (nodeGroupInfo.DesiredNodeSize < nodeGroupInfo.MinNodeSize) {
+			return fmt.Errorf("DesiredNodeSize must be greater than or equal to MinNodeSize.")
+		}
+	}
+
+	return nil
+}
+
+func validateAtCreateCluster(clusterInfo irs.ClusterInfo) error {
+	//
+	// Check clusterInfo.IId.NameId
+	//
+	if clusterInfo.IId.NameId == "" {
+		return fmt.Errorf("Cluster name is required")
+	}
+
+	//
+	// Check clusterInfo.Network
+	//
+	if clusterInfo.Network.VpcIID.SystemId == "" {
+		return fmt.Errorf("VPC id is required")
+	}
+	if len(clusterInfo.Network.SubnetIIDs) < 1 {
+		return fmt.Errorf("At least one Subnet must be specified")
+	}
+	if clusterInfo.Network.SubnetIIDs[0].SystemId == "" {
+		return fmt.Errorf("Subnet id is reguired")
+	}
+	if len(clusterInfo.Network.SecurityGroupIIDs) < 1 {
+		return fmt.Errorf("At least one Subnet must be specified")
+	}
+
+	//
+	// Check clusterInfo.NodeGroupList
+	//
+	err := validateNodeGroupInfoList(clusterInfo.NodeGroupList)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validateAtAddNodeGroup(clusterIID irs.IID, nodeGroupInfo irs.NodeGroupInfo) error {
+	//
+	// Check clusterIID
+	//
+	if clusterIID.SystemId == "" && clusterIID.NameId == "" {
+		return fmt.Errorf("Invalid Cluster IID")
+	}
+
+	//
+	// Check nodeGroupInfo
+	//
+	err := validateNodeGroupInfoList([]irs.NodeGroupInfo{nodeGroupInfo})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validateAtChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID, minNodeSize int, maxNodeSize int) error {
+	if clusterIID.SystemId == "" && clusterIID.NameId == "" {
+		return fmt.Errorf("Invalid Cluster IID")
+	}
+	if nodeGroupIID.SystemId == "" && nodeGroupIID.NameId == "" {
+		return fmt.Errorf("Invalid Node Group IID")
+	}
+	if minNodeSize < 1 {
+		return fmt.Errorf("MaxNodeSize cannot be smaller than 1")
+	}
+	if maxNodeSize < 1 {
+		return fmt.Errorf("MaxNodeSize cannot be smaller than 1")
+	}
+
+	return nil
 }
