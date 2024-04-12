@@ -225,7 +225,13 @@ func (DiskHandler *GCPDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 	projectID := DiskHandler.Credential.ProjectID
 	region := DiskHandler.Region.Region
 	zone := DiskHandler.Region.Zone
+	targetZone := DiskHandler.Region.TargetZone
 	disk := diskIID.SystemId
+
+	// 대상 zone이 다른경우 targetZone을 사용
+	if targetZone != ""{
+		zone = targetZone
+	}
 
 	op, err := DiskHandler.Client.Disks.Delete(projectID, zone, disk).Do()
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
@@ -243,6 +249,38 @@ func (DiskHandler *GCPDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 }
 
 func (DiskHandler *GCPDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) (irs.DiskInfo, error) {
+	// disk와 vm의 zone valid check
+	diskInfo, err := DiskHandler.GetDisk(diskIID)
+	if err != nil {
+		cblogger.Error(err)		
+		return irs.DiskInfo{}, err
+	}
+	
+	// check disk status : "available" state only
+	if diskInfo.Status != irs.DiskStatus("Available") {
+		return irs.DiskInfo{}, errors.New(string("The disk must be in the Available state : " + diskInfo.Status))
+	}
+
+	vmHandler := GCPVMHandler{
+		Client:     DiskHandler.Client,
+		Region:     DiskHandler.Region,
+		Ctx:        DiskHandler.Ctx,
+		Credential: DiskHandler.Credential,
+	}
+	vmInfo, err := vmHandler.GetVmById(ownerVM)
+	if err != nil {
+		cblogger.Error(err.Error())
+		return irs.DiskInfo{}, err
+	}
+	
+	if vmInfo.Region.Zone != diskInfo.Zone{
+		return irs.DiskInfo{}, errors.New(string("The disk and the VM must be in the same zone." + diskInfo.Status))
+	}
+
+	// vmStatus는 다시 조회해야 하기 때문에 attach할 수 있는 상태가 아니면 오류로 return
+	// valid check end
+
+
 	hiscallInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, diskIID.NameId, "AttachDisk()")
 	start := call.Start()
 
