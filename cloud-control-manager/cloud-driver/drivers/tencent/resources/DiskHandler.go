@@ -43,8 +43,14 @@ func (DiskHandler *TencentDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 		return irs.DiskInfo{}, errors.New("A disk with the name " + diskReqInfo.IId.NameId + " already exists.")
 	}
 
+	// region base이므로 특정 zone을 지정시 해당 zone에 생성.
+	zone := DiskHandler.Region.Zone
+	if diskReqInfo.Zone != ""{
+		zone = diskReqInfo.Zone
+	}
+
 	request := cbs.NewCreateDisksRequest()
-	request.Placement = &cbs.Placement{Zone: common.StringPtr(DiskHandler.Region.Zone)}
+	request.Placement = &cbs.Placement{Zone: common.StringPtr(zone)}
 	request.DiskChargeType = common.StringPtr("POSTPAID_BY_HOUR")
 
 	diskErr := validateDisk(&diskReqInfo)
@@ -251,6 +257,7 @@ func convertDiskInfo(diskResp *cbs.Disk) (irs.DiskInfo, error) {
 	diskInfo.OwnerVM.SystemId = *diskResp.InstanceId
 	diskInfo.CreatedTime, _ = time.Parse("2006-01-02 15:04:05", *diskResp.CreateTime)
 	diskInfo.Status = convertTenStatusToDiskStatus(diskResp)
+	diskInfo.Zone = *diskResp.Placement.Zone
 
 	return diskInfo, nil
 }

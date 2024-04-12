@@ -35,6 +35,7 @@ type GCPVPCHandler struct {
 }
 
 //@TODO : VPC 생성 로직 변경 필요 / 서브넷이 백그라운드로 생성되기 때문에 조회 시 모두 생성될 때까지 대기하는 로직 필요(그렇지 않으면 일부 정보가 누락됨)
+// #1067 : gcp는 subnet 생성시 zone을 사용하지 않음.
 func (vVPCHandler *GCPVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
 	cblogger.Info(vpcReqInfo)
 
@@ -141,7 +142,7 @@ func (vVPCHandler *GCPVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCI
 			return irs.VPCInfo{}, errors.New("Making Subnet Error - " + subnetName)
 		}
 
-		spew.Dump(infoSubnet)
+		//spew.Dump(infoSubnet)
 		//생성된 서브넷이 조회되는데 시간이 필요하기 때문에 홀딩 함.
 		/*
 			errChkSubnetStatus := vVPCHandler.WaitForRunSubnet(subnetName, true)
