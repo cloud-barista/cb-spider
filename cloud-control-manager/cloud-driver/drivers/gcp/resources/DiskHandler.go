@@ -273,14 +273,9 @@ func (DiskHandler *GCPDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 		return irs.DiskInfo{}, err
 	}
 	
-	diskZone := ""
-	index := strings.Index(attachDiskInfo.Zone, "zones/")  // "zones/"의 인덱스를 찾음
-	if index != -1 {
-		diskZone = attachDiskInfo.Zone[index+len("zones/"):]  // "zones/" 다음의 문자열을 추출
-	}
-	//https://www.googleapis.com/compute/v1/projects/csta-349809/zones/asia-northeast1-a 
-	if vmInfo.Region.Zone != diskZone{
-		cblogger.Error("The disk and the VM must be in the same zone." + vmInfo.Region.Zone, diskZone)
+	
+	if vmInfo.Region.Zone != attachDiskInfo.Zone{
+		cblogger.Error("The disk and the VM must be in the same zone." + vmInfo.Region.Zone, attachDiskInfo.Zone)
 		return irs.DiskInfo{}, errors.New(string("The disk and the VM must be in the same zone."))
 	}
 
@@ -509,7 +504,14 @@ func convertDiskInfo(diskResp *compute.Disk) (irs.DiskInfo, error) {
 	diskInfo.IId = irs.IID{NameId: diskResp.Name, SystemId: diskResp.Name}
 	diskInfo.DiskSize = strconv.FormatInt(diskResp.SizeGb, 10)
 	diskInfo.CreatedTime, _ = time.Parse(time.RFC3339, diskResp.CreationTimestamp)
-	diskInfo.Zone = diskResp.Zone
+	//diskInfo.Zone = diskResp.Zone // diskResp의 zone은 url 형태이므로 zone 만 추출
+	index := strings.Index(diskResp.Zone, "zones/")  // "zones/"의 인덱스를 찾음
+	if index != -1 {
+		diskInfo.Zone = diskResp.Zone[index+len("zones/"):]  // "zones/" 다음의 문자열을 추출
+	}else{
+		diskInfo.Zone = diskResp.Zone
+	}
+
 
 	// Users : the users of the disk (attached instances)
 	if diskResp.Users != nil {
