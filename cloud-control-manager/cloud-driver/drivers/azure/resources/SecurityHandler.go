@@ -33,7 +33,7 @@ type AzureSecurityHandler struct {
 }
 
 func (securityHandler *AzureSecurityHandler) setterSec(securityGroup network.SecurityGroup) *irs.SecurityInfo {
-	keyValues := []irs.KeyValue{{Key: "ResourceGroup", Value: securityHandler.Region.ResourceGroup}}
+	keyValues := []irs.KeyValue{{Key: "ResourceGroup", Value: securityHandler.Region.Region}}
 	security := &irs.SecurityInfo{
 		IId: irs.IID{
 			NameId:   *securityGroup.Name,
@@ -96,7 +96,7 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 	hiscallInfo := GetCallLogScheme(securityHandler.Region, call.SECURITYGROUP, securityReqInfo.IId.NameId, "CreateSecurity()")
 
 	// Check SecurityGroup Exists
-	security, _ := securityHandler.Client.Get(securityHandler.Ctx, securityHandler.Region.ResourceGroup, securityReqInfo.IId.NameId, "")
+	security, _ := securityHandler.Client.Get(securityHandler.Ctx, securityHandler.Region.Region, securityReqInfo.IId.NameId, "")
 	if security.ID != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = Security Group with name %s already exist", securityReqInfo.IId.NameId))
 		cblogger.Error(createErr.Error())
@@ -130,7 +130,7 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 	}
 
 	start := call.Start()
-	future, err := securityHandler.Client.CreateOrUpdate(securityHandler.Ctx, securityHandler.Region.ResourceGroup, securityReqInfo.IId.NameId, createOpts)
+	future, err := securityHandler.Client.CreateOrUpdate(securityHandler.Ctx, securityHandler.Region.Region, securityReqInfo.IId.NameId, createOpts)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
@@ -163,7 +163,7 @@ func (securityHandler *AzureSecurityHandler) ListSecurity() ([]*irs.SecurityInfo
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(securityHandler.Region, call.SECURITYGROUP, SecurityGroup, "ListSecurity()")
 	start := call.Start()
-	result, err := securityHandler.Client.List(securityHandler.Ctx, securityHandler.Region.ResourceGroup)
+	result, err := securityHandler.Client.List(securityHandler.Ctx, securityHandler.Region.Region)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List Security. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -185,7 +185,7 @@ func (securityHandler *AzureSecurityHandler) GetSecurity(securityIID irs.IID) (i
 	hiscallInfo := GetCallLogScheme(securityHandler.Region, call.SECURITYGROUP, securityIID.NameId, "GetSecurity()")
 
 	start := call.Start()
-	rawSecurityGroup, err := getRawSecurityGroup(securityIID, securityHandler.Client, securityHandler.Ctx, securityHandler.Region.ResourceGroup)
+	rawSecurityGroup, err := getRawSecurityGroup(securityIID, securityHandler.Client, securityHandler.Ctx, securityHandler.Region.Region)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Get Security. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -203,7 +203,7 @@ func (securityHandler *AzureSecurityHandler) DeleteSecurity(securityIID irs.IID)
 	hiscallInfo := GetCallLogScheme(securityHandler.Region, call.SECURITYGROUP, securityIID.NameId, "DeleteSecurity()")
 
 	start := call.Start()
-	future, err := securityHandler.Client.Delete(securityHandler.Ctx, securityHandler.Region.ResourceGroup, securityIID.NameId)
+	future, err := securityHandler.Client.Delete(securityHandler.Ctx, securityHandler.Region.Region, securityIID.NameId)
 	if err != nil {
 		delErr := errors.New(fmt.Sprintf("Failed to Delete Security. err = %s", err.Error()))
 		cblogger.Error(delErr.Error())
@@ -225,7 +225,7 @@ func (securityHandler *AzureSecurityHandler) AddRules(sgIID irs.IID, securityRul
 	hiscallInfo := GetCallLogScheme(securityHandler.Region, call.SECURITYGROUP, sgIID.NameId, "AddRules()")
 
 	start := call.Start()
-	security, err := getRawSecurityGroup(sgIID, securityHandler.Client, securityHandler.Ctx, securityHandler.Region.ResourceGroup)
+	security, err := getRawSecurityGroup(sgIID, securityHandler.Client, securityHandler.Ctx, securityHandler.Region.Region)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Add SecurityGroup Rules. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -272,7 +272,7 @@ func (securityHandler *AzureSecurityHandler) AddRules(sgIID irs.IID, securityRul
 	}
 
 	for _, ru := range *addAZRule {
-		future, err := securityHandler.RuleClient.CreateOrUpdate(securityHandler.Ctx, securityHandler.Region.ResourceGroup, sgIID.NameId, *ru.Name, ru)
+		future, err := securityHandler.RuleClient.CreateOrUpdate(securityHandler.Ctx, securityHandler.Region.Region, sgIID.NameId, *ru.Name, ru)
 		if err != nil {
 			getErr := errors.New(fmt.Sprintf("Failed to Add SecurityGroup Rules. err = %s", err.Error()))
 			cblogger.Error(getErr.Error())
@@ -289,7 +289,7 @@ func (securityHandler *AzureSecurityHandler) AddRules(sgIID irs.IID, securityRul
 	}
 
 	// 변된 SecurityGroup 정보 리턴
-	updatedSecurity, err := getRawSecurityGroup(sgIID, securityHandler.Client, securityHandler.Ctx, securityHandler.Region.ResourceGroup)
+	updatedSecurity, err := getRawSecurityGroup(sgIID, securityHandler.Client, securityHandler.Ctx, securityHandler.Region.Region)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Add SecurityGroup Rules. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -308,7 +308,7 @@ func (securityHandler *AzureSecurityHandler) RemoveRules(sgIID irs.IID, security
 
 	start := call.Start()
 
-	security, err := getRawSecurityGroup(sgIID, securityHandler.Client, securityHandler.Ctx, securityHandler.Region.ResourceGroup)
+	security, err := getRawSecurityGroup(sgIID, securityHandler.Client, securityHandler.Ctx, securityHandler.Region.Region)
 
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Remove SecurityGroup Rules. err = %s", err.Error()))
@@ -348,7 +348,7 @@ func (securityHandler *AzureSecurityHandler) RemoveRules(sgIID irs.IID, security
 	}
 
 	for _, deleteRuleName := range deleteRuleNames {
-		future, err := securityHandler.RuleClient.Delete(securityHandler.Ctx, securityHandler.Region.ResourceGroup, sgIID.NameId, deleteRuleName)
+		future, err := securityHandler.RuleClient.Delete(securityHandler.Ctx, securityHandler.Region.Region, sgIID.NameId, deleteRuleName)
 		if err != nil {
 			getErr := errors.New(fmt.Sprintf("Failed to Remove SecurityGroup Rules. err = %s", err.Error()))
 			cblogger.Error(getErr.Error())

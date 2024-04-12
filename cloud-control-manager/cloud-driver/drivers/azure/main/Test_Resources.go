@@ -24,8 +24,8 @@ type Config struct {
 		TenantId       string `yaml:"tenant_id"`
 		SubscriptionID string `yaml:"subscription_id"`
 
-		GroupName string `yaml:"group_name"`
 		Location  string `yaml:"location"`
+		Zone      string `yaml:"zone"`
 		Resources struct {
 			Image struct {
 				NameId string `yaml:"nameId"`
@@ -179,12 +179,16 @@ func getResourceHandler(resourceType string, config Config) (interface{}, error)
 			SubscriptionId: config.Azure.SubscriptionID,
 		},
 		RegionInfo: idrv.RegionInfo{
-			Region:        config.Azure.Location,
-			ResourceGroup: config.Azure.GroupName,
+			Region: config.Azure.Location,
+			Zone:   config.Azure.Zone,
 		},
 	}
 
 	cloudConnection, err := cloudDriver.ConnectCloud(connectionInfo)
+	if err != nil {
+		panic(err)
+	}
+
 	var resourceHandler interface{}
 
 	switch resourceType {

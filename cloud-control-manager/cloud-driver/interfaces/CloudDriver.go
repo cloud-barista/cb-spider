@@ -60,10 +60,9 @@ type CredentialInfo struct {
 }
 
 type RegionInfo struct {
-	Region        string
-	Zone          string
-	TargetZone    string // Used for Zone-Level Control(Ex. DiskHandler)
-	ResourceGroup string // Azure RegionInfo
+	Region     string // Azure uses region as ResourceGroup
+	Zone       string
+	TargetZone string // Used for Zone-Level Control(Ex. DiskHandler)
 }
 
 type ConnectionInfo struct {

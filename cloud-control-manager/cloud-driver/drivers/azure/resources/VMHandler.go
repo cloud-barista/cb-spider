@@ -67,7 +67,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	}
 	// 1. pre Check
 	// 1-1. Exist VM
-	vmExist, err := CheckExistVM(vmReqInfo.IId, vmHandler.Region.ResourceGroup, vmHandler.Client, vmHandler.Ctx)
+	vmExist, err := CheckExistVM(vmReqInfo.IId, vmHandler.Region.Region, vmHandler.Client, vmHandler.Ctx)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err))
 		cblogger.Error(createErr.Error())
@@ -124,7 +124,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			LoggingError(hiscallInfo, createErr)
 			return irs.VMInfo{}, createErr
 		}
-		_, err = vmHandler.ImageClient.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, convertMyImageIId.NameId, "")
+		_, err = vmHandler.ImageClient.Get(vmHandler.Ctx, vmHandler.Region.Region, convertMyImageIId.NameId, "")
 		if err != nil {
 			createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s", err.Error()))
 			cblogger.Error(createErr.Error())
@@ -143,7 +143,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 				LoggingError(hiscallInfo, createErr)
 				return irs.VMInfo{}, createErr
 			}
-			disk, err := GetRawDisk(convertedDiskIId, vmHandler.Region.ResourceGroup, vmHandler.DiskClient, vmHandler.Ctx)
+			disk, err := GetRawDisk(convertedDiskIId, vmHandler.Region.Region, vmHandler.DiskClient, vmHandler.Ctx)
 			if err != nil {
 				createErr := errors.New(fmt.Sprintf("Failed to Start VM. Failed to get DataDisk err = %s", err.Error()))
 				cblogger.Error(createErr.Error())
@@ -225,8 +225,15 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			},
 		},
 	}
-	// 3-2. Set VmReqInfo - vmImage & storageType
 
+	// Setting zone if available
+	if vmHandler.Region.Zone != "" {
+		vmOpts.Zones = &[]string{
+			vmHandler.Region.Zone,
+		}
+	}
+
+	// 3-2. Set VmReqInfo - vmImage & storageType
 	var managedDisk = new(compute.ManagedDiskParameters)
 	if vmReqInfo.RootDiskType != "" && strings.ToLower(vmReqInfo.RootDiskType) != "default" {
 		storageType := GetVMDiskTypeInitType(vmReqInfo.RootDiskType)
@@ -289,7 +296,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	if imageOsType == irs.LINUX_UNIX {
 		// 3-2. Set VmReqInfo - KeyPair & tagging
 		if vmReqInfo.KeyPairIID.NameId != "" {
-			key, keyErr := GetRawKey(vmReqInfo.KeyPairIID, vmHandler.Region.ResourceGroup, vmHandler.SshKeyClient, vmHandler.Ctx)
+			key, keyErr := GetRawKey(vmReqInfo.KeyPairIID, vmHandler.Region.Region, vmHandler.SshKeyClient, vmHandler.Ctx)
 			if keyErr != nil {
 				createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Finished to rollback deleting", err.Error()))
 				cleanResource := CleanVMClientRequestResource{
@@ -349,7 +356,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 
 	// 4. CreateVM
 	start := call.Start()
-	future, err := vmHandler.Client.CreateOrUpdate(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.IId.NameId, vmOpts)
+	future, err := vmHandler.Client.CreateOrUpdate(vmHandler.Ctx, vmHandler.Region.Region, vmReqInfo.IId.NameId, vmOpts)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Finished to rollback deleting", err.Error()))
 		clean, deperr := vmHandler.cleanVMRelatedResource(VMCleanRelatedResource{
@@ -374,7 +381,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	if err != nil {
 		// Exist VM? exist => vm delete, ResourceClean, not exist => ResourceClean
 		createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Finished to rollback deleting", err.Error()))
-		exist, err := CheckExistVM(vmReqInfo.IId, vmHandler.Region.ResourceGroup, vmHandler.Client, vmHandler.Ctx)
+		exist, err := CheckExistVM(vmReqInfo.IId, vmHandler.Region.Region, vmHandler.Client, vmHandler.Ctx)
 		if exist {
 			cleanErr := vmHandler.cleanDeleteVm(vmReqInfo.IId)
 			if cleanErr != nil {
@@ -402,7 +409,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		return irs.VMInfo{}, createErr
 	}
 	// 4-1. ResizeVMDisk
-	_, err = resizeVMOsDisk(vmReqInfo.RootDiskSize, vmReqInfo.IId, vmHandler.Region.ResourceGroup, vmHandler.Client, vmHandler.DiskClient, vmHandler.Ctx)
+	_, err = resizeVMOsDisk(vmReqInfo.RootDiskSize, vmReqInfo.IId, vmHandler.Region.Region, vmHandler.Client, vmHandler.DiskClient, vmHandler.Ctx)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Finished to rollback deleting", err.Error()))
 		cleanErr := vmHandler.cleanDeleteVm(vmReqInfo.IId)
@@ -417,7 +424,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	maxRetryCnt := 120
 	// 5. Wait Running
 	for {
-		instanceView, _ := vmHandler.Client.InstanceView(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.IId.NameId)
+		instanceView, _ := vmHandler.Client.InstanceView(vmHandler.Ctx, vmHandler.Region.Region, vmReqInfo.IId.NameId)
 		// Get powerState, provisioningState
 		vmStatus := getVmStatus(instanceView)
 		if vmStatus == irs.Running {
@@ -482,7 +489,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		LoggingInfo(hiscallInfo, start)
 		return vmInfo, nil
 	} else {
-		vm, err := vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.IId.NameId, compute.InstanceViewTypesInstanceView)
+		vm, err := vmHandler.Client.Get(vmHandler.Ctx, vmHandler.Region.Region, vmReqInfo.IId.NameId, compute.InstanceViewTypesInstanceView)
 		if err != nil {
 			createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Failed to rollback deleting", err.Error()))
 			cleanErr := vmHandler.cleanDeleteVm(vmReqInfo.IId)
@@ -516,7 +523,7 @@ func (vmHandler *AzureVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) 
 	}
 
 	// Check VM Exist
-	exist, err := CheckExistVM(convertedIID, vmHandler.Region.ResourceGroup, vmHandler.Client, vmHandler.Ctx)
+	exist, err := CheckExistVM(convertedIID, vmHandler.Region.Region, vmHandler.Client, vmHandler.Ctx)
 
 	if err != nil {
 		suspendErr := errors.New(fmt.Sprintf("Failed to Suspend VM. err = %s", err))
@@ -530,7 +537,7 @@ func (vmHandler *AzureVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) 
 		LoggingError(hiscallInfo, suspendErr)
 		return irs.Failed, suspendErr
 	}
-	instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, vmHandler.Region.ResourceGroup, convertedIID.NameId)
+	instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, vmHandler.Region.Region, convertedIID.NameId)
 	if err != nil {
 		suspendErr := errors.New(fmt.Sprintf("Failed to Suspend VM. err = %s", err))
 		cblogger.Error(suspendErr.Error())
@@ -540,7 +547,7 @@ func (vmHandler *AzureVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) 
 	vmStatus := getVmStatus(instanceView)
 	if vmStatus == irs.Running {
 		start := call.Start()
-		future, err := vmHandler.Client.PowerOff(vmHandler.Ctx, vmHandler.Region.ResourceGroup, convertedIID.NameId, to.BoolPtr(false))
+		future, err := vmHandler.Client.PowerOff(vmHandler.Ctx, vmHandler.Region.Region, convertedIID.NameId, to.BoolPtr(false))
 		if err != nil {
 			suspendErr := errors.New(fmt.Sprintf("Failed to Suspend VM. err = %s", err))
 			cblogger.Error(suspendErr.Error())
@@ -554,7 +561,7 @@ func (vmHandler *AzureVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) 
 			LoggingError(hiscallInfo, suspendErr)
 			return irs.Failed, suspendErr
 		}
-		instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, vmHandler.Region.ResourceGroup, convertedIID.NameId)
+		instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, vmHandler.Region.Region, convertedIID.NameId)
 		if err != nil {
 			suspendErr := errors.New(fmt.Sprintf("Failed to Suspend VM. but Failed Get Status err = %s", err))
 			cblogger.Error(suspendErr.Error())
@@ -585,7 +592,7 @@ func (vmHandler *AzureVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
 	// Suspend => running
 
 	// Check VM Exist
-	exist, err := CheckExistVM(convertedIID, vmHandler.Region.ResourceGroup, vmHandler.Client, vmHandler.Ctx)
+	exist, err := CheckExistVM(convertedIID, vmHandler.Region.Region, vmHandler.Client, vmHandler.Ctx)
 
 	if err != nil {
 		resumeErr := errors.New(fmt.Sprintf("Failed to Resume VM. err = %s", err))
@@ -599,7 +606,7 @@ func (vmHandler *AzureVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
 		LoggingError(hiscallInfo, resumeErr)
 		return irs.Failed, resumeErr
 	}
-	instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, vmHandler.Region.ResourceGroup, convertedIID.NameId)
+	instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, vmHandler.Region.Region, convertedIID.NameId)
 	if err != nil {
 		resumeErr := errors.New(fmt.Sprintf("Failed to Resume VM. err = %s", err))
 		cblogger.Error(resumeErr.Error())
@@ -609,7 +616,7 @@ func (vmHandler *AzureVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
 	vmStatus := getVmStatus(instanceView)
 	if vmStatus == irs.Suspended {
 		start := call.Start()
-		future, err := vmHandler.Client.Start(vmHandler.Ctx, vmHandler.Region.ResourceGroup, convertedIID.NameId)
+		future, err := vmHandler.Client.Start(vmHandler.Ctx, vmHandler.Region.Region, convertedIID.NameId)
 		if err != nil {
 			resumeErr := errors.New(fmt.Sprintf("Failed to Resume VM. err = %s", err))
 			cblogger.Error(resumeErr.Error())
@@ -623,7 +630,7 @@ func (vmHandler *AzureVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
 			LoggingError(hiscallInfo, resumeErr)
 			return irs.Failed, resumeErr
 		}
-		instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, vmHandler.Region.ResourceGroup, convertedIID.NameId)
+		instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, vmHandler.Region.Region, convertedIID.NameId)
 		if err != nil {
 			suspendErr := errors.New(fmt.Sprintf("Finish to Suspend VM. but Failed Get Status err = %s", err))
 			cblogger.Error(suspendErr.Error())
@@ -653,7 +660,7 @@ func (vmHandler *AzureVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 	}
 
 	// Check VM Exist
-	exist, err := CheckExistVM(convertedIID, vmHandler.Region.ResourceGroup, vmHandler.Client, vmHandler.Ctx)
+	exist, err := CheckExistVM(convertedIID, vmHandler.Region.Region, vmHandler.Client, vmHandler.Ctx)
 
 	if err != nil {
 		rebootErr := errors.New(fmt.Sprintf("Failed to Reboot VM. err = %s", err))
@@ -667,7 +674,7 @@ func (vmHandler *AzureVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 		LoggingError(hiscallInfo, rebootErr)
 		return irs.Failed, rebootErr
 	}
-	instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, vmHandler.Region.ResourceGroup, convertedIID.NameId)
+	instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, vmHandler.Region.Region, convertedIID.NameId)
 	if err != nil {
 		rebootErr := errors.New(fmt.Sprintf("Failed to Reboot VM. err = %s", err))
 		cblogger.Error(rebootErr.Error())
@@ -677,7 +684,7 @@ func (vmHandler *AzureVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 	vmStatus := getVmStatus(instanceView)
 	if vmStatus == irs.Running {
 		start := call.Start()
-		future, err := vmHandler.Client.Restart(vmHandler.Ctx, vmHandler.Region.ResourceGroup, convertedIID.NameId)
+		future, err := vmHandler.Client.Restart(vmHandler.Ctx, vmHandler.Region.Region, convertedIID.NameId)
 		if err != nil {
 			rebootErr := errors.New(fmt.Sprintf("Failed to Reboot VM. err = %s", err))
 			cblogger.Error(rebootErr.Error())
@@ -691,7 +698,7 @@ func (vmHandler *AzureVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 			LoggingError(hiscallInfo, rebootErr)
 			return irs.Failed, rebootErr
 		}
-		instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, vmHandler.Region.ResourceGroup, convertedIID.NameId)
+		instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, vmHandler.Region.Region, convertedIID.NameId)
 		if err != nil {
 			suspendErr := errors.New(fmt.Sprintf("Failed to Suspend VM. but Failed Get Status err = %s", err))
 			cblogger.Error(suspendErr.Error())
@@ -729,7 +736,7 @@ func (vmHandler *AzureVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, VM, "ListVMStatus()")
 
 	start := call.Start()
-	serverList, err := vmHandler.Client.List(vmHandler.Ctx, vmHandler.Region.ResourceGroup)
+	serverList, err := vmHandler.Client.List(vmHandler.Ctx, vmHandler.Region.Region)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List VMStatus. err = %s", err))
 		cblogger.Error(getErr.Error())
@@ -780,7 +787,7 @@ func (vmHandler *AzureVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error
 		return irs.Failed, getErr
 	}
 	start := call.Start()
-	instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, vmHandler.Region.ResourceGroup, convertedIID.NameId)
+	instanceView, err := vmHandler.Client.InstanceView(vmHandler.Ctx, vmHandler.Region.Region, convertedIID.NameId)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Get VM. err = %s", err))
 		cblogger.Error(getErr.Error())
@@ -799,7 +806,7 @@ func (vmHandler *AzureVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, VM, "ListVM()")
 
 	start := call.Start()
-	serverList, err := vmHandler.Client.List(vmHandler.Ctx, vmHandler.Region.ResourceGroup)
+	serverList, err := vmHandler.Client.List(vmHandler.Ctx, vmHandler.Region.Region)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Get VMList. err = %s", err))
 		cblogger.Error(getErr.Error())
@@ -829,7 +836,7 @@ func (vmHandler *AzureVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 		return irs.VMInfo{}, getErr
 	}
 
-	vm, err := GetRawVM(convertedIID, vmHandler.Region.ResourceGroup, vmHandler.Client, vmHandler.Ctx)
+	vm, err := GetRawVM(convertedIID, vmHandler.Region.Region, vmHandler.Client, vmHandler.Ctx)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Get VM. err = %s", err))
 		cblogger.Error(getErr.Error())
@@ -890,12 +897,12 @@ func getVmStatus(instanceView compute.VirtualMachineInstanceView) irs.VMStatus {
 
 func (vmHandler *AzureVMHandler) cleanDeleteVm(vmIId irs.IID) error {
 	convertedIID, err := ConvertVMIID(vmIId, vmHandler.CredentialInfo, vmHandler.Region)
-	exist, err := CheckExistVM(convertedIID, vmHandler.Region.ResourceGroup, vmHandler.Client, vmHandler.Ctx)
+	exist, err := CheckExistVM(convertedIID, vmHandler.Region.Region, vmHandler.Client, vmHandler.Ctx)
 	if err != nil {
 		return err
 	}
 	if exist {
-		vm, err := GetRawVM(convertedIID, vmHandler.Region.ResourceGroup, vmHandler.Client, vmHandler.Ctx)
+		vm, err := GetRawVM(convertedIID, vmHandler.Region.Region, vmHandler.Client, vmHandler.Ctx)
 		if err != nil {
 			return err
 		}
@@ -910,7 +917,7 @@ func (vmHandler *AzureVMHandler) cleanDeleteVm(vmIId irs.IID) error {
 		if vm.VirtualMachineProperties.StorageProfile.OsDisk.Name != nil {
 			cleanResources.VmDiskName = *vm.VirtualMachineProperties.StorageProfile.OsDisk.Name
 		}
-		vNic, vNicErr := vmHandler.NicClient.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmInfo.NetworkInterface, "")
+		vNic, vNicErr := vmHandler.NicClient.Get(vmHandler.Ctx, vmHandler.Region.Region, vmInfo.NetworkInterface, "")
 		if vNicErr != nil {
 			return vNicErr
 		}
@@ -922,7 +929,7 @@ func (vmHandler *AzureVMHandler) cleanDeleteVm(vmIId irs.IID) error {
 				}
 			}
 		}
-		vmDelete, vmDeleteErr := vmHandler.Client.Delete(vmHandler.Ctx, vmHandler.Region.ResourceGroup, *vm.Name, to.BoolPtr(true))
+		vmDelete, vmDeleteErr := vmHandler.Client.Delete(vmHandler.Ctx, vmHandler.Region.Region, *vm.Name, to.BoolPtr(true))
 		if vmDeleteErr != nil {
 			return vmDeleteErr
 		}
@@ -959,7 +966,7 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 
 	// Set VM Zone
 	if server.Zones != nil {
-		vmInfo.Region.Zone = (*server.Zones)[0]
+		vmInfo.Region.Zone = vmHandler.Region.Zone
 	}
 
 	// Set VM Image Info
@@ -986,7 +993,7 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 	// Get VNic
 	nicIdArr := strings.Split(VNicId, "/")
 	nicName := nicIdArr[len(nicIdArr)-1]
-	vNic, _ := vmHandler.NicClient.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, nicName, "")
+	vNic, _ := vmHandler.NicClient.Get(vmHandler.Ctx, vmHandler.Region.Region, nicName, "")
 	vmInfo.NetworkInterface = nicName
 
 	// Get SecurityGroup
@@ -1011,7 +1018,7 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 				publicIPIdArr := strings.Split(publicIPId, "/")
 				publicIPName := publicIPIdArr[len(publicIPIdArr)-1]
 
-				publicIP, _ := vmHandler.PublicIPClient.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, publicIPName, "")
+				publicIP, _ := vmHandler.PublicIPClient.Get(vmHandler.Ctx, vmHandler.Region.Region, publicIPName, "")
 				if publicIP.IPAddress != nil {
 					vmInfo.PublicIP = *publicIP.IPAddress
 				}
@@ -1114,7 +1121,7 @@ func CreatePublicIP(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo) (irs.IID
 	createOpts := network.PublicIPAddress{
 		Name: to.StringPtr(publicIPName),
 		Sku: &network.PublicIPAddressSku{
-			Name: network.PublicIPAddressSkuName("Basic"),
+			Name: network.PublicIPAddressSkuNameBasic,
 		},
 		PublicIPAddressPropertiesFormat: &network.PublicIPAddressPropertiesFormat{
 			PublicIPAddressVersion: network.IPVersion("IPv4"),
@@ -1128,7 +1135,18 @@ func CreatePublicIP(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo) (irs.IID
 		},
 	}
 
-	future, err := vmHandler.PublicIPClient.CreateOrUpdate(vmHandler.Ctx, vmHandler.Region.ResourceGroup, publicIPName, createOpts)
+	// Setting zone if available
+	if vmHandler.Region.Zone != "" {
+		createOpts.Sku = &network.PublicIPAddressSku{
+			Name: network.PublicIPAddressSkuNameStandard,
+		}
+		createOpts.PublicIPAllocationMethod = network.IPAllocationMethodStatic
+		createOpts.Zones = &[]string{
+			vmHandler.Region.Zone,
+		}
+	}
+
+	future, err := vmHandler.PublicIPClient.CreateOrUpdate(vmHandler.Ctx, vmHandler.Region.Region, publicIPName, createOpts)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to create PublicIP, error=%s", err))
 		return irs.IID{}, createErr
@@ -1140,7 +1158,7 @@ func CreatePublicIP(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo) (irs.IID
 	}
 
 	// 생성된 PublicIP 정보 리턴
-	publicIPInfo, err := vmHandler.PublicIPClient.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, publicIPName, "")
+	publicIPInfo, err := vmHandler.PublicIPClient.Get(vmHandler.Ctx, vmHandler.Region.Region, publicIPName, "")
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to get PublicIP, error=%s", err))
 		return irs.IID{}, getErr
@@ -1170,7 +1188,7 @@ func (vmHandler *AzureVMHandler) cleanVMRelatedResource(cleanRelatedResource VMC
 	networkInterfaceName := cleanRelatedResource.CleanTargetResource.NetworkInterfaceName
 	publicIPId := cleanRelatedResource.CleanTargetResource.PublicIPName
 	vmDiskId := cleanRelatedResource.CleanTargetResource.VmDiskName
-	resourceGroup := vmHandler.Region.ResourceGroup
+	resourceGroup := vmHandler.Region.Region
 	// VNic Delete
 	if networkInterfaceName != "" {
 		vnicExist, _ := CheckExistVNic(networkInterfaceName, resourceGroup, vmHandler.NicClient, vmHandler.Ctx)
@@ -1271,7 +1289,7 @@ func CreateVNic(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo, publicIPIId 
 	// 리소스 Id 정보 매핑
 	// Azure의 경우 VNic에 1개의 보안그룹만 할당 가능
 	secGroupId := GetSecGroupIdByName(vmHandler.CredentialInfo, vmHandler.Region, vmReqInfo.SecurityGroupIIDs[0].NameId)
-	subnet, err := vmHandler.SubnetClient.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, vmReqInfo.VpcIID.NameId, vmReqInfo.SubnetIID.NameId, "")
+	subnet, err := vmHandler.SubnetClient.Get(vmHandler.Ctx, vmHandler.Region.Region, vmReqInfo.VpcIID.NameId, vmReqInfo.SubnetIID.NameId, "")
 
 	var ipConfigArr []network.InterfaceIPConfiguration
 	ipConfig := network.InterfaceIPConfiguration{
@@ -1298,7 +1316,7 @@ func CreateVNic(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo, publicIPIId 
 			"createdBy": to.StringPtr(vmReqInfo.IId.NameId),
 		},
 	}
-	future, err := vmHandler.NicClient.CreateOrUpdate(vmHandler.Ctx, vmHandler.Region.ResourceGroup, VNicName, createOpts)
+	future, err := vmHandler.NicClient.CreateOrUpdate(vmHandler.Ctx, vmHandler.Region.Region, VNicName, createOpts)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to create NetworkInterface, error=%s", err))
 		return irs.IID{}, createErr
@@ -1310,7 +1328,7 @@ func CreateVNic(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo, publicIPIId 
 	}
 
 	// 생성된 VNic 정보 리턴
-	VNic, err := vmHandler.NicClient.Get(vmHandler.Ctx, vmHandler.Region.ResourceGroup, VNicName, "")
+	VNic, err := vmHandler.NicClient.Get(vmHandler.Ctx, vmHandler.Region.Region, VNicName, "")
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to create NetworkInterface, error=%s", err))
 		return irs.IID{}, createErr
@@ -1474,7 +1492,7 @@ func ConvertVMIID(vmIID irs.IID, credentialInfo idrv.CredentialInfo, regionInfo 
 		return vmIID, errors.New(fmt.Sprintf("nvalid IID"))
 	}
 	if vmIID.SystemId == "" {
-		sysID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachines/%s", credentialInfo.SubscriptionId, regionInfo.ResourceGroup, vmIID.NameId)
+		sysID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachines/%s", credentialInfo.SubscriptionId, regionInfo.Region, vmIID.NameId)
 		return irs.IID{NameId: vmIID.NameId, SystemId: sysID}, nil
 	} else {
 		slist := strings.Split(vmIID.SystemId, "/")
@@ -1548,7 +1566,7 @@ func checkVMReqInfo(vmReqInfo irs.VMReqInfo) error {
 }
 
 func createAdministratorUser(vmIID irs.IID, newusername string, newpassword string, virtualMachinesClient *compute.VirtualMachinesClient, virtualMachineRunCommandsClient *compute.VirtualMachineRunCommandsClient, ctx context.Context, region idrv.RegionInfo) error {
-	rawVm, err := GetRawVM(vmIID, region.ResourceGroup, virtualMachinesClient, ctx)
+	rawVm, err := GetRawVM(vmIID, region.Region, virtualMachinesClient, ctx)
 	if err != nil {
 		return errors.New(fmt.Sprintf("failed window User Add %s", err.Error()))
 	}
@@ -1561,7 +1579,7 @@ func createAdministratorUser(vmIID irs.IID, newusername string, newpassword stri
 		},
 		Location: to.StringPtr(region.Region),
 	}
-	runCommandResult, err := virtualMachineRunCommandsClient.CreateOrUpdate(ctx, region.ResourceGroup, *rawVm.Name, "RunPowerShellScript", runOpt)
+	runCommandResult, err := virtualMachineRunCommandsClient.CreateOrUpdate(ctx, region.Region, *rawVm.Name, "RunPowerShellScript", runOpt)
 	if err != nil {
 		return errors.New(fmt.Sprintf("failed window User Add %s", err.Error()))
 	}
@@ -1573,7 +1591,7 @@ func createAdministratorUser(vmIID irs.IID, newusername string, newpassword stri
 }
 
 func changeUserPassword(vmIID irs.IID, username string, newpassword string, virtualMachinesClient *compute.VirtualMachinesClient, virtualMachineRunCommandsClient *compute.VirtualMachineRunCommandsClient, ctx context.Context, region idrv.RegionInfo) error {
-	rawVm, err := GetRawVM(vmIID, region.ResourceGroup, virtualMachinesClient, ctx)
+	rawVm, err := GetRawVM(vmIID, region.Region, virtualMachinesClient, ctx)
 	if err != nil {
 		return errors.New(fmt.Sprintf("failed window User Add %s", err.Error()))
 	}
@@ -1585,7 +1603,7 @@ func changeUserPassword(vmIID irs.IID, username string, newpassword string, virt
 		},
 		Location: to.StringPtr(region.Region),
 	}
-	runCommandResult, err := virtualMachineRunCommandsClient.CreateOrUpdate(ctx, region.ResourceGroup, *rawVm.Name, "RunPowerShellScript", runOpt)
+	runCommandResult, err := virtualMachineRunCommandsClient.CreateOrUpdate(ctx, region.Region, *rawVm.Name, "RunPowerShellScript", runOpt)
 	if err != nil {
 		return errors.New(fmt.Sprintf("failed window User Add %s", err.Error()))
 	}
@@ -1635,7 +1653,7 @@ func getOSTypeByMyImage(myImageIID irs.IID, imageClient *compute.ImagesClient, c
 	if err != nil {
 		return "", errors.New(fmt.Sprintf("failed get OSType By MyImageIID err = %s", err.Error()))
 	}
-	myImage, err := imageClient.Get(ctx, region.ResourceGroup, convertedMyImageIID.NameId, "")
+	myImage, err := imageClient.Get(ctx, region.Region, convertedMyImageIID.NameId, "")
 	if err != nil {
 		return "", errors.New(fmt.Sprintf("failed get OSType By MyImageIID err = failed get MyImage err = %s", err.Error()))
 	}

@@ -625,7 +625,7 @@ func makeOnchangeRegionProviderFunc_js() string {
             region = '(ohio)us-east-2a'
             break;
           case "AZURE":
-            regionInfo = '[{"Key":"location", "Value":"northeurope"}, {"Key":"ResourceGroup", "Value":"CB-GROUP-POWERKIM"}]'
+            regionInfo = '[{"Key":"Region", "Value":"northeurope"}, {"Key":"Zone", "Value":"1"}]'
             region = 'northeurope'
             break;
           case "GCP":

@@ -21,7 +21,6 @@ import (
 )
 
 const (
-	CBResourceGroupName  = "CB-GROUP"
 	CBVirtualNetworkName = "CB-VNet"
 	CBVnetDefaultCidr    = "130.0.0.0/16"
 	CBVMUser             = "cb-user"
@@ -126,19 +125,19 @@ func generateRandName(prefix string) string {
 }
 
 func GetNetworksResourceIdByName(credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo, resourceKind AzureResourceKind, name string) string {
-	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s/%s", credentialInfo.SubscriptionId, regionInfo.ResourceGroup, AzureNetworkCategory, resourceKind, name)
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s/%s", credentialInfo.SubscriptionId, regionInfo.Region, AzureNetworkCategory, resourceKind, name)
 }
 
 func GetSecGroupIdByName(credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo, secGroupName string) string {
-	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s/%s", credentialInfo.SubscriptionId, regionInfo.ResourceGroup, AzureNetworkCategory, AzureSecurityGroups, secGroupName)
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s/%s", credentialInfo.SubscriptionId, regionInfo.Region, AzureNetworkCategory, AzureSecurityGroups, secGroupName)
 }
 
 func GetSshKeyIdByName(credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo, keyName string) string {
-	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s/%s", credentialInfo.SubscriptionId, regionInfo.ResourceGroup, AzureNetworkCategory, AzureSSHPublicKeys, keyName)
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s/%s", credentialInfo.SubscriptionId, regionInfo.Region, AzureNetworkCategory, AzureSSHPublicKeys, keyName)
 }
 
 func GetClusterIdByName(credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo, clusterName string) string {
-	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s/%s", credentialInfo.SubscriptionId, regionInfo.ResourceGroup, AzureContainerServiceCategory, AzureContainerService, clusterName)
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s/%s", credentialInfo.SubscriptionId, regionInfo.Region, AzureContainerServiceCategory, AzureContainerService, clusterName)
 }
 
 func getNodePoolIdByName(credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo, clusterName string, nodePoolName string) string {

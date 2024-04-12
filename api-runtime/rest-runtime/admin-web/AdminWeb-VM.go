@@ -184,9 +184,9 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
 
 		dataDiskList := ""
 		if len(one.DataDiskIIDs) > 0 {
-			dataDiskList = "<br>&nbsp;&nbsp;&nbsp;------ Data Disk ------<br>"
+			dataDiskList = "<br>&nbsp;&nbsp;&nbsp;--- Data Disk ---<br>"
 		} else {
-			dataDiskList = "<br>&nbsp;&nbsp;&nbsp;------ No Data Disk ------<br><br>"
+			dataDiskList = "<br>&nbsp;&nbsp;&nbsp;--- No Data Disk ---<br><br>"
 		}
 
 		for _, disk := range one.DataDiskIIDs {
@@ -278,7 +278,7 @@ func makePostVMFunc_js() string {
                         var textboxes = document.getElementsByName('text_box');
                         sendJson = '{ "ConnectionName" : "' + connConfig + '", "ReqInfo" : { "Name" : "$$VMNAME$$", "ImageType" : "$$IMAGETYPE$$",\
                                 "ImageName" : "$$IMAGE$$", "VMSpecName" : "$$SPEC$$", "VPCName" : "$$VPC$$", "SubnetName" : "$$SUBNET$$", \
-                                "SecurityGroupNames" : $$SECURITYGROUP$$, "DataDiskNames" : [$$DATADISK$$], "KeyPairName" : "$$ACCESSKEY$$", \
+                                "SecurityGroupNames" : $$SECURITYGROUP$$, "RootDiskType" : "$$ROOTDISKTYPE$$", "DataDiskNames" : [$$DATADISK$$], "KeyPairName" : "$$ACCESSKEY$$", \
                                 "VMUserId" : "$$ACCESSUSER$$", "VMUserPasswd" : "$$ACCESSPASSWD$$" }}'
 
                         for (var i = 0; i < textboxes.length; i++) { // @todo make parallel executions
@@ -308,7 +308,11 @@ func makePostVMFunc_js() string {
                                         case "7":
                                                 sendJson = sendJson.replace("$$SECURITYGROUP$$", textboxes[i].value);
                                                 break;
-                                        case "10":
+										case "100":
+												sendJson = sendJson.replace("$$ROOTDISKTYPE$$", textboxes[i].value);
+												break;
+						
+											case "10":
 						diskList = getSelectDisk(textboxes[i])
                                                 sendJson = sendJson.replace("$$DATADISK$$", diskList);
                                                 break;
@@ -340,6 +344,7 @@ func makePostVMFunc_js() string {
 
 			location.reload();
                 }
+
 
 		function getSelectDisk(select) {
 			  if (select.tagName != 'SELECT') {
@@ -523,6 +528,7 @@ func VM(c echo.Context) error {
 	keyNameList := keyPairList(connConfig)
 	diskNameList := availableDataDiskList(connConfig)
 	providerName, _ := getProviderName(connConfig)
+	rootDiskTypeList := rootDiskTypeList(providerName)
 
 	imageName := ""
 	specName := ""
@@ -541,8 +547,8 @@ func VM(c echo.Context) error {
 		imageName = "https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20191024"
 		specName = "f1-micro"
 	case "ALIBABA":
-		imageName = "ubuntu_18_04_x64_20G_alibase_20230718.vhd"
-		specName = "ecs.t5-lc1m2.small"
+		imageName = "ubuntu_22_04_x64_20G_alibase_20240220.vhd"
+		specName = "ecs.c7.large"
 	case "TENCENT":
 		imageName = "img-pi0ii46r"
 		specName = "S3.MEDIUM2"
@@ -630,6 +636,11 @@ func VM(c echo.Context) error {
                             </td>
                             <td style="vertical-align:top">
                             `
+	// Select format of RootDisk Type  name=text_box, id=100
+	htmlStr += makeRootDiskTypeSelect_html("", rootDiskTypeList, "100")
+
+	htmlStr += "<br>"
+
 	// Select format of Data  name=text_box, id=10
 	htmlStr += makeDataDiskSelect_html("", diskNameList, "10")
 
@@ -691,6 +702,27 @@ func makeKeyPairSelect_html(onchangeFunctionName string, strList []string, id st
         `
 
 	return strSelect
+}
+
+func makeRootDiskTypeSelect_html(onchangeFunctionName string, strList []string, id string) string {
+
+	strResult := "* RootDiskType"
+	if len(strList) == 0 {
+		noDiskStr := `<input style="font-size:12px;text-align:center;" type="text" name="text_box" id="` +
+			id + `" value="default">`
+		return strResult + noDiskStr
+	}
+	strSelect := `<select style="width:120px;" name="text_box" id="` + id + `" onchange="` + onchangeFunctionName + `(this)">`
+	strSelect += `<option value="default">default</option>`
+	for _, one := range strList {
+		strSelect += `<option value="` + one + `">` + one + `</option>`
+	}
+
+	strSelect += `
+                </select>
+        `
+
+	return strResult + strSelect
 }
 
 func makeDataDiskSelect_html(onchangeFunctionName string, strList []string, id string) string {

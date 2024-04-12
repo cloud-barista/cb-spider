@@ -14,6 +14,11 @@ import (
 	"context"
 	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2022-03-01/containerservice"
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2019-11-01/subscriptions"
+	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest/azure"
+	"github.com/Azure/go-autorest/autorest/to"
+	cblogger "github.com/cloud-barista/cb-log"
+	"github.com/sirupsen/logrus"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/profiles/2020-09-01/monitor/mgmt/insights"
@@ -21,13 +26,17 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-10-01/resources"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
-	"github.com/Azure/go-autorest/autorest/to"
-
 	azcon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure/connect"
 	azrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
 )
+
+var cblog *logrus.Logger
+
+func init() {
+	cblog = cblogger.GetLogger("CLOUD-BARISTA")
+}
 
 type AzureDriver struct{}
 
@@ -60,6 +69,58 @@ func (AzureDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	return drvCapabilityInfo
 }
 
+func getResourceClient(connectionInfo idrv.ConnectionInfo) (*resources.GroupsClient, *context.Context, error) {
+	config := auth.NewClientCredentialsConfig(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, connectionInfo.CredentialInfo.TenantId)
+	authorizer, err := config.Authorizer()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	resourceClient := resources.NewGroupsClient(connectionInfo.CredentialInfo.SubscriptionId)
+	resourceClient.Authorizer = authorizer
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+
+	return &resourceClient, &ctx, nil
+}
+
+func hasResourceGroup(connectionInfo idrv.ConnectionInfo) (bool, error) {
+	resourceClient, ctx, err := getResourceClient(connectionInfo)
+	if err != nil {
+		return false, err
+	}
+
+	_, err = (*resourceClient).Get(*ctx, connectionInfo.RegionInfo.Region)
+	if err != nil {
+		de, ok := err.(autorest.DetailedError)
+		if ok && de.Original != nil {
+			re, ok := de.Original.(*azure.RequestError)
+			if ok && re.ServiceError != nil && re.ServiceError.Code == "ResourceGroupNotFound" {
+				return false, nil
+			}
+		}
+	}
+
+	return true, nil
+}
+
+func createResourceGroup(connectionInfo idrv.ConnectionInfo) error {
+	resourceClient, ctx, err := getResourceClient(connectionInfo)
+	if err != nil {
+		return err
+	}
+
+	_, err = resourceClient.CreateOrUpdate(*ctx, connectionInfo.RegionInfo.Region,
+		resources.Group{
+			Name:     to.StringPtr(connectionInfo.RegionInfo.Region),
+			Location: to.StringPtr(connectionInfo.RegionInfo.Region),
+		})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	// 1. get info of credential and region for Test A Cloud from connectionInfo.
 	// 2. create a client object(or service  object) of Test A Cloud with credential info.
@@ -70,9 +131,15 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	azrs.InitLog()
 
 	// Credentail에 등록된 ResourceGroup 존재 여부 체크 및 생성
-	err := checkResourceGroup(connectionInfo.CredentialInfo, connectionInfo.RegionInfo)
+	exist, err := hasResourceGroup(connectionInfo)
 	if err != nil {
 		return nil, err
+	}
+	if !exist {
+		err = createResourceGroup(connectionInfo)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	Ctx, client, err := getClient(connectionInfo.CredentialInfo)
@@ -205,37 +272,37 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 		GroupsClient:                    groupsClient,
 		ResourceSkusClient:              resourceSkusClient,
 	}
-	return &iConn, nil
-}
 
-func checkResourceGroup(credential idrv.CredentialInfo, region idrv.RegionInfo) error {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+	regionZoneHandler, err := iConn.CreateRegionZoneHandler()
 	if err != nil {
-		return nil
+		return nil, err
+	}
+	regionZoneInfo, err := regionZoneHandler.GetRegionZone(connectionInfo.RegionInfo.Region)
+	if err != nil {
+		return nil, err
 	}
 
-	resourceClient := resources.NewGroupsClient(credential.SubscriptionId)
-	resourceClient.Authorizer = authorizer
-	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+	if len(regionZoneInfo.ZoneList) == 0 {
+		cblog.Warn("Zone is not available for this region. (" + connectionInfo.RegionInfo.Region + ")")
+		iConn.Region.Zone = ""
+	} else {
+		var zoneFound bool
+		for _, zone := range regionZoneInfo.ZoneList {
+			if zone.Name == connectionInfo.RegionInfo.Zone {
+				zoneFound = true
+				break
+			}
+		}
 
-	rg, err := resourceClient.Get(ctx, region.ResourceGroup)
-	if err != nil {
-		return nil
-	}
-
-	// 해당 리소스 그룹이 없을 경우 생성
-	if rg.ID == nil {
-		rg, err = resourceClient.CreateOrUpdate(ctx, region.ResourceGroup,
-			resources.Group{
-				Name:     to.StringPtr(region.ResourceGroup),
-				Location: to.StringPtr(region.Region),
-			})
-		if err != nil {
-			return err
+		if !zoneFound {
+			cblog.Warn("Configured zone is not found in the selected region." +
+				" (Region: " + connectionInfo.RegionInfo.Region + ", Zone: " + connectionInfo.RegionInfo.Zone + ")")
+			cblog.Warn("1 will be used as the default zone.")
+			iConn.Region.Zone = "1"
 		}
 	}
-	return nil
+
+	return &iConn, nil
 }
 
 func getClient(credential idrv.CredentialInfo) (context.Context, *subscriptions.Client, error) {

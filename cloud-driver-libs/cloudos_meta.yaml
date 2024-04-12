@@ -19,7 +19,7 @@ AWS:
   defaultregiontoquery: ap-northeast-2 / ap-northeast-2a
 
 AZURE:
-  region: location / ResourceGroup
+  region: Region / Zone
   credential: ClientId / ClientSecret / TenantId / SubscriptionId
   # type issues: https://github.com/cloud-barista/cb-spider/pull/529#issue-1051678985
   rootdisktype: PremiumSSD / StandardSSD / StandardHDD

@@ -170,6 +170,13 @@ func (regionZoneHandler *AzureRegionZoneHandler) GetRegionZone(Name string) (irs
 		}
 	}
 
+	if location == nil {
+		getErr := errors.New("Failed to Get RegionZone. err = Location name not found. (" + Name + ")")
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.RegionZoneInfo{}, getErr
+	}
+
 	regionZoneInfo.Name = *location.Name
 	regionZoneInfo.DisplayName = *location.DisplayName
 
@@ -295,7 +302,7 @@ func (regionZoneHandler *AzureRegionZoneHandler) ListOrgZone() (string, error) {
 	hiscallInfo := GetCallLogScheme(regionZoneHandler.Region, call.REGIONZONE, "RegionZone", "ListOrgZone()")
 	start := call.Start()
 
-	resultGroupsClient, err := regionZoneHandler.GroupsClient.Get(regionZoneHandler.Ctx, regionZoneHandler.Region.ResourceGroup)
+	resultGroupsClient, err := regionZoneHandler.GroupsClient.Get(regionZoneHandler.Ctx, regionZoneHandler.Region.Region)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List OrgZone. err = %s", err))
 		cblogger.Error(getErr.Error())

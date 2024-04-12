@@ -159,7 +159,7 @@ func (nlbHandler *AzureNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 			"createdAt": to.StringPtr(nowTime),
 		},
 	}
-	future, err := nlbHandler.NLBClient.CreateOrUpdate(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup, nlbReqInfo.IId.NameId, options)
+	future, err := nlbHandler.NLBClient.CreateOrUpdate(nlbHandler.Ctx, nlbHandler.Region.Region, nlbReqInfo.IId.NameId, options)
 	if err != nil {
 		createError = errors.New(fmt.Sprintf("Failed to Create NLB. err = %s", err.Error()))
 		cblogger.Error(createError)
@@ -185,8 +185,8 @@ func (nlbHandler *AzureNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 				LoggingError(hiscallInfo, getErr)
 				return irs.NLBInfo{}, getErr
 			}
-			//vm, err := GetRawVM(vmIId, nlbHandler.Region.ResourceGroup, nlbHandler.VMClient, nlbHandler.Ctx)
-			vm, err := GetRawVM(convertedIID, nlbHandler.Region.ResourceGroup, nlbHandler.VMClient, nlbHandler.Ctx)
+			//vm, err := GetRawVM(vmIId, nlbHandler.Region.Region, nlbHandler.VMClient, nlbHandler.Ctx)
+			vm, err := GetRawVM(convertedIID, nlbHandler.Region.Region, nlbHandler.VMClient, nlbHandler.Ctx)
 			if err != nil {
 				createError = errors.New(fmt.Sprintf("Failed to Create NLB. err = %s", err.Error()))
 				cblogger.Error(createError)
@@ -200,7 +200,7 @@ func (nlbHandler *AzureNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 		vpcId := GetNetworksResourceIdByName(nlbHandler.CredentialInfo, nlbHandler.Region, AzureVirtualNetworks, nlbReqInfo.VpcIID.NameId)
 		// subnetId := fmt.Sprintf("%s/subnets/%s", vpcId, subnetName)
 
-		pool, err := nlbHandler.NLBBackendAddressPoolsClient.Get(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup, nlbReqInfo.IId.NameId, backEndAddressPoolName)
+		pool, err := nlbHandler.NLBBackendAddressPoolsClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, nlbReqInfo.IId.NameId, backEndAddressPoolName)
 		if err != nil {
 			createError = errors.New(fmt.Sprintf("Failed to Create NLB. err = %s", err.Error()))
 			cblogger.Error(createError)
@@ -222,7 +222,7 @@ func (nlbHandler *AzureNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 
 		pool.LoadBalancerBackendAddresses = &LoadBalancerBackendAddresses
 
-		backendAddressPoolFuture, err := nlbHandler.NLBBackendAddressPoolsClient.CreateOrUpdate(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup, nlbReqInfo.IId.NameId, backEndAddressPoolName, pool)
+		backendAddressPoolFuture, err := nlbHandler.NLBBackendAddressPoolsClient.CreateOrUpdate(nlbHandler.Ctx, nlbHandler.Region.Region, nlbReqInfo.IId.NameId, backEndAddressPoolName, pool)
 		if err != nil {
 			createError = errors.New(fmt.Sprintf("Failed to Create NLB. err = %s", err.Error()))
 			cblogger.Error(createError)
@@ -259,7 +259,7 @@ func (nlbHandler *AzureNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	hiscallInfo := GetCallLogScheme(nlbHandler.Region, "NETWORKLOADBALANCE", "NLB", "ListNLB()")
 	start := call.Start()
 
-	rawNLBList, err := nlbHandler.NLBClient.List(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup)
+	rawNLBList, err := nlbHandler.NLBClient.List(nlbHandler.Ctx, nlbHandler.Region.Region)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List NLB. err = %s", err.Error()))
 		cblogger.Error(getErr)
@@ -356,7 +356,7 @@ func (nlbHandler *AzureNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.L
 	cbOnlyOneLoadBalancingRule.FrontendPort = to.Int32Ptr(int32(frontendPort))
 	nlb.LoadBalancingRules = &loadBalancingRules
 
-	future, err := nlbHandler.NLBClient.CreateOrUpdate(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup, *nlb.Name, *nlb)
+	future, err := nlbHandler.NLBClient.CreateOrUpdate(nlbHandler.Ctx, nlbHandler.Region.Region, *nlb.Name, *nlb)
 	if err != nil {
 		changeErr := errors.New(fmt.Sprintf("Failed to ChangeListener NLB. err = %s", err.Error()))
 		cblogger.Error(changeErr)
@@ -414,7 +414,7 @@ func (nlbHandler *AzureNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs
 	cbOnlyOneLoadBalancingRule.BackendPort = to.Int32Ptr(int32(backendPort))
 	nlb.LoadBalancingRules = &loadBalancingRules
 
-	future, err := nlbHandler.NLBClient.CreateOrUpdate(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup, *nlb.Name, *nlb)
+	future, err := nlbHandler.NLBClient.CreateOrUpdate(nlbHandler.Ctx, nlbHandler.Region.Region, *nlb.Name, *nlb)
 	if err != nil {
 		changeErr := errors.New(fmt.Sprintf("Failed to ChangeVMGroupInfo NLB. err = %s", err.Error()))
 		cblogger.Error(changeErr)
@@ -485,7 +485,7 @@ func (nlbHandler *AzureNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (ir
 		backendPoolName := *cbOnlyOneBackendPool.Name
 		privateIPs := make([]string, len(*vmIIDs))
 		for i, vmIId := range *vmIIDs {
-			vm, err := GetRawVM(vmIId, nlbHandler.Region.ResourceGroup, nlbHandler.VMClient, nlbHandler.Ctx)
+			vm, err := GetRawVM(vmIId, nlbHandler.Region.Region, nlbHandler.VMClient, nlbHandler.Ctx)
 			if err != nil {
 				cblogger.Error(err.Error())
 				LoggingError(hiscallInfo, err)
@@ -513,7 +513,7 @@ func (nlbHandler *AzureNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (ir
 			vpcId = vpcIId.SystemId
 		} else {
 			for _, vmIId := range *vmIIDs {
-				vm, err := GetRawVM(vmIId, nlbHandler.Region.ResourceGroup, nlbHandler.VMClient, nlbHandler.Ctx)
+				vm, err := GetRawVM(vmIId, nlbHandler.Region.Region, nlbHandler.VMClient, nlbHandler.Ctx)
 				if err != nil {
 					addErr := errors.New(fmt.Sprintf("Failed to AddVMs NLB. err = %s", err.Error()))
 					cblogger.Error(addErr.Error())
@@ -538,7 +538,7 @@ func (nlbHandler *AzureNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (ir
 			}
 		}
 
-		pool, err := nlbHandler.NLBBackendAddressPoolsClient.Get(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup, nlbIID.NameId, backendPoolName)
+		pool, err := nlbHandler.NLBBackendAddressPoolsClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, nlbIID.NameId, backendPoolName)
 		if err != nil {
 			addErr := errors.New(fmt.Sprintf("Failed to AddVMs NLB. err = %s", err.Error()))
 			cblogger.Error(addErr.Error())
@@ -560,7 +560,7 @@ func (nlbHandler *AzureNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (ir
 
 		pool.LoadBalancerBackendAddresses = &LoadBalancerBackendAddresses
 
-		backendAddressPoolFuture, err := nlbHandler.NLBBackendAddressPoolsClient.CreateOrUpdate(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup, nlbIID.NameId, backendPoolName, pool)
+		backendAddressPoolFuture, err := nlbHandler.NLBBackendAddressPoolsClient.CreateOrUpdate(nlbHandler.Ctx, nlbHandler.Region.Region, nlbIID.NameId, backendPoolName, pool)
 		if err != nil {
 			addErr := errors.New(fmt.Sprintf("Failed to AddVMs NLB. err = %s", err.Error()))
 			cblogger.Error(addErr.Error())
@@ -628,7 +628,7 @@ func (nlbHandler *AzureNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) 
 
 		removPrivateIPs := make([]string, len(*vmIIDs))
 		for i, vmIId := range *vmIIDs {
-			vm, err := GetRawVM(vmIId, nlbHandler.Region.ResourceGroup, nlbHandler.VMClient, nlbHandler.Ctx)
+			vm, err := GetRawVM(vmIId, nlbHandler.Region.Region, nlbHandler.VMClient, nlbHandler.Ctx)
 			if err != nil {
 				cblogger.Error(err.Error())
 				LoggingError(hiscallInfo, err)
@@ -644,7 +644,7 @@ func (nlbHandler *AzureNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) 
 			removPrivateIPs[i] = ip
 		}
 
-		pool, err := nlbHandler.NLBBackendAddressPoolsClient.Get(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup, nlbIID.NameId, backendPoolName)
+		pool, err := nlbHandler.NLBBackendAddressPoolsClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, nlbIID.NameId, backendPoolName)
 		if err != nil {
 			removeErr := errors.New(fmt.Sprintf("Failed to RemoveVMs NLB. err = %s", err.Error()))
 			cblogger.Error(removeErr.Error())
@@ -663,7 +663,7 @@ func (nlbHandler *AzureNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) 
 		currentVMPrivateIPs := make([]string, len(currentVMIIds))
 
 		for i, vmIId := range currentVMIIds {
-			vm, err := GetRawVM(vmIId, nlbHandler.Region.ResourceGroup, nlbHandler.VMClient, nlbHandler.Ctx)
+			vm, err := GetRawVM(vmIId, nlbHandler.Region.Region, nlbHandler.VMClient, nlbHandler.Ctx)
 			if err != nil {
 				removeErr := errors.New(fmt.Sprintf("Failed to RemoveVMs NLB. err = %s", err.Error()))
 				cblogger.Error(removeErr.Error())
@@ -710,7 +710,7 @@ func (nlbHandler *AzureNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) 
 		}
 		pool.LoadBalancerBackendAddresses = &newLoadBalancerBackendAddresses
 
-		backendAddressPoolFuture, err := nlbHandler.NLBBackendAddressPoolsClient.CreateOrUpdate(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup, nlbIID.NameId, backendPoolName, pool)
+		backendAddressPoolFuture, err := nlbHandler.NLBBackendAddressPoolsClient.CreateOrUpdate(nlbHandler.Ctx, nlbHandler.Region.Region, nlbIID.NameId, backendPoolName, pool)
 		if err != nil {
 			removeErr := errors.New(fmt.Sprintf("Failed to RemoveVMs NLB. err = %s", err.Error()))
 			cblogger.Error(removeErr.Error())
@@ -830,7 +830,7 @@ func (nlbHandler *AzureNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healt
 			currentProbes[0].RequestPath = nil
 		}
 		nlb.Probes = &currentProbes
-		future, err := nlbHandler.NLBClient.CreateOrUpdate(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup, *nlb.Name, *nlb)
+		future, err := nlbHandler.NLBClient.CreateOrUpdate(nlbHandler.Ctx, nlbHandler.Region.Region, *nlb.Name, *nlb)
 		if err != nil {
 			changeErr := errors.New(fmt.Sprintf("Failed to ChangeHealthCheckerInfo NLB. err = %s", err.Error()))
 			cblogger.Error(changeErr.Error())
@@ -913,7 +913,7 @@ func (nlbHandler *AzureNLBHandler) getVMIPs(nlbIId irs.IID) ([]vmIP, error) {
 	}
 	vmIPs := make([]vmIP, len(*info.VMGroup.VMs))
 	for i, vmiid := range *info.VMGroup.VMs {
-		rawvm, err := nlbHandler.VMClient.Get(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup, vmiid.NameId, "")
+		rawvm, err := nlbHandler.VMClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, vmiid.NameId, "")
 		if err != nil {
 			return nil, err
 		}
@@ -936,7 +936,7 @@ func (nlbHandler *AzureNLBHandler) getPrivateIPByRawVm(rawVm compute.VirtualMach
 			VNicId = *ni.ID
 		}
 	}
-	rawVnic, err := nlbHandler.VNicClient.Get(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup, GetResourceNameById(VNicId), "")
+	rawVnic, err := nlbHandler.VNicClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, GetResourceNameById(VNicId), "")
 	if err != nil {
 		return "", errors.New("not found IP")
 	}
@@ -955,14 +955,14 @@ func (nlbHandler *AzureNLBHandler) NLBCleaner(nlbIID irs.IID) (bool, error) {
 	}
 	if !exist {
 		// nlb not exist, check PublicIP related to nlb
-		ips, err := nlbHandler.PublicIPClient.List(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup)
+		ips, err := nlbHandler.PublicIPClient.List(nlbHandler.Ctx, nlbHandler.Region.Region)
 		if err != nil {
 			return false, errors.New("nlb does not exist, but you have failed a publicIP query related to nlb")
 		}
 		for _, pip := range ips.Values() {
 			// nlb not exist, exist PublicIP related to nlb
 			if strings.EqualFold(*pip.Name, nlbIID.NameId) && pip.Tags["createdBy"] != nil && strings.EqualFold(*pip.Tags["createdBy"], nlbIID.NameId) {
-				publicIPFeature, err := nlbHandler.PublicIPClient.Delete(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup, nlbIID.NameId)
+				publicIPFeature, err := nlbHandler.PublicIPClient.Delete(nlbHandler.Ctx, nlbHandler.Region.Region, nlbIID.NameId)
 				if err != nil {
 					return false, errors.New(fmt.Sprintf("not exist NLB, but failed To Delete PublicIP related to nlb err : %s", err.Error()))
 				}
@@ -989,7 +989,7 @@ func (nlbHandler *AzureNLBHandler) NLBCleaner(nlbIID irs.IID) (bool, error) {
 	}
 
 	// Delete
-	feature, err := nlbHandler.NLBClient.Delete(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup, nlbIID.NameId)
+	feature, err := nlbHandler.NLBClient.Delete(nlbHandler.Ctx, nlbHandler.Region.Region, nlbIID.NameId)
 	if err != nil {
 		return false, err
 	}
@@ -998,7 +998,7 @@ func (nlbHandler *AzureNLBHandler) NLBCleaner(nlbIID irs.IID) (bool, error) {
 		return false, err
 	}
 	if publicIPName != "" {
-		publicIPFeature, err := nlbHandler.PublicIPClient.Delete(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup, publicIPName)
+		publicIPFeature, err := nlbHandler.PublicIPClient.Delete(nlbHandler.Ctx, nlbHandler.Region.Region, publicIPName)
 		if err != nil {
 			return false, errors.New(fmt.Sprintf("Failed To Delete PublicIP err : %s", err.Error()))
 		}
@@ -1011,7 +1011,7 @@ func (nlbHandler *AzureNLBHandler) NLBCleaner(nlbIID irs.IID) (bool, error) {
 }
 func (nlbHandler *AzureNLBHandler) existNLB(nlbIID irs.IID) (bool, error) {
 	// exist Check
-	rawNLBList, err := nlbHandler.NLBClient.List(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup)
+	rawNLBList, err := nlbHandler.NLBClient.List(nlbHandler.Ctx, nlbHandler.Region.Region)
 	if err != nil {
 		return false, err
 	}
@@ -1101,7 +1101,7 @@ func (nlbHandler *AzureNLBHandler) getVMIIDsByLoadBalancerBackendAddresses(addre
 		return nil, err
 	}
 	if refType == BackendAddressesIPAddressRef {
-		allVMS, err := nlbHandler.VMClient.List(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup)
+		allVMS, err := nlbHandler.VMClient.List(nlbHandler.Ctx, nlbHandler.Region.Region)
 		if err != nil {
 			return nil, err
 		}
@@ -1118,7 +1118,7 @@ func (nlbHandler *AzureNLBHandler) getVMIIDsByLoadBalancerBackendAddresses(addre
 					VNicId = *ni.ID
 				}
 			}
-			rawVnic, err := nlbHandler.VNicClient.Get(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup, GetResourceNameById(VNicId), "")
+			rawVnic, err := nlbHandler.VNicClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, GetResourceNameById(VNicId), "")
 			if err != nil {
 				return nil, errors.New("not found VMIIDs")
 			}
@@ -1156,14 +1156,14 @@ func (nlbHandler *AzureNLBHandler) getRawNLB(nlbIId irs.IID) (*network.LoadBalan
 		return nil, errors.New("invalid IID")
 	}
 
-	nlb, err := nlbHandler.NLBClient.Get(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup, nlbIId.NameId, "")
+	nlb, err := nlbHandler.NLBClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, nlbIId.NameId, "")
 	return &nlb, err
 }
 func (nlbHandler *AzureNLBHandler) getRawNic(nicIID irs.IID) (*network.Interface, error) {
 	if nicIID.NameId == "" {
 		return nil, errors.New("invalid IID")
 	}
-	nic, err := nlbHandler.VNicClient.Get(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup, nicIID.NameId, "")
+	nic, err := nlbHandler.VNicClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, nicIID.NameId, "")
 	return &nic, err
 }
 func (nlbHandler *AzureNLBHandler) getVPCIIdByNic(nic network.Interface) (irs.IID, error) {
@@ -1315,7 +1315,7 @@ func (nlbHandler *AzureNLBHandler) getRawPublicIP(publicIPIId irs.IID) (*network
 		return nil, errors.New("invalid IID")
 	}
 
-	pIP, err := nlbHandler.PublicIPClient.Get(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup, publicIPIId.NameId, "")
+	pIP, err := nlbHandler.PublicIPClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, publicIPIId.NameId, "")
 	if err != nil {
 		return nil, err
 	}
@@ -1427,7 +1427,7 @@ func (nlbHandler *AzureNLBHandler) createPublicIP(nlbName string) (network.Publi
 		},
 	}
 
-	future, err := nlbHandler.PublicIPClient.CreateOrUpdate(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup, publicIPName, createOpts)
+	future, err := nlbHandler.PublicIPClient.CreateOrUpdate(nlbHandler.Ctx, nlbHandler.Region.Region, publicIPName, createOpts)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to create PublicIP, error=%s", err))
 		return network.PublicIPAddress{}, createErr
@@ -1439,7 +1439,7 @@ func (nlbHandler *AzureNLBHandler) createPublicIP(nlbName string) (network.Publi
 	}
 
 	// 생성된 PublicIP 정보 리턴
-	publicIP, err := nlbHandler.PublicIPClient.Get(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup, publicIPName, "")
+	publicIP, err := nlbHandler.PublicIPClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, publicIPName, "")
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to create PublicIP, error=%s", err))
 		return network.PublicIPAddress{}, createErr
@@ -1458,7 +1458,7 @@ func (nlbHandler *AzureNLBHandler) getVPCNameSubnetNameAndPrivateIPByVM(server c
 
 	nicIdArr := strings.Split(VNicId, "/")
 	nicName := nicIdArr[len(nicIdArr)-1]
-	vNic, err := nlbHandler.VNicClient.Get(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup, nicName, "")
+	vNic, err := nlbHandler.VNicClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, nicName, "")
 	if err != nil {
 		return "", err
 	}
@@ -1482,7 +1482,7 @@ func (nlbHandler *AzureNLBHandler) getVPCIIDByVM(server compute.VirtualMachine) 
 
 	nicIdArr := strings.Split(VNicId, "/")
 	nicName := nicIdArr[len(nicIdArr)-1]
-	vNic, err := nlbHandler.VNicClient.Get(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup, nicName, "")
+	vNic, err := nlbHandler.VNicClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, nicName, "")
 	if err != nil {
 		return irs.IID{}, err
 	}
@@ -1522,7 +1522,7 @@ func (nlbHandler *AzureNLBHandler) getNLBType(nlb network.LoadBalancer) (string,
 	}
 }
 func (nlbHandler *AzureNLBHandler) getPrivateIPBYNicName(nicName string) (string, error) {
-	vNic, err := nlbHandler.VNicClient.Get(nlbHandler.Ctx, nlbHandler.Region.ResourceGroup, nicName, "")
+	vNic, err := nlbHandler.VNicClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, nicName, "")
 	if err != nil {
 		return "", err
 	}

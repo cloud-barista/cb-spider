@@ -57,7 +57,7 @@ func (ac *AzureClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (in
 	}
 	defer func() {
 		if createErr != nil {
-			cleanCluster(clusterReqInfo.IId.NameId, ac.ManagedClustersClient, ac.Region.ResourceGroup, ac.Ctx)
+			cleanCluster(clusterReqInfo.IId.NameId, ac.ManagedClustersClient, ac.Region.Region, ac.Ctx)
 		}
 	}()
 	baseSecurityGroup, err := waitingClusterBaseSecurityGroup(irs.IID{NameId: clusterReqInfo.IId.NameId}, ac.ManagedClustersClient, ac.SecurityGroupsClient, ac.Ctx, ac.CredentialInfo, ac.Region)
@@ -140,7 +140,7 @@ func (ac *AzureClusterHandler) DeleteCluster(clusterIID irs.IID) (deleteResult b
 	hiscallInfo := GetCallLogScheme(ac.Region, call.CLUSTER, clusterIID.NameId, "DeleteCluster()")
 	start := call.Start()
 
-	err := cleanCluster(clusterIID.NameId, ac.ManagedClustersClient, ac.Region.ResourceGroup, ac.Ctx)
+	err := cleanCluster(clusterIID.NameId, ac.ManagedClustersClient, ac.Region.Region, ac.Ctx)
 	if err != nil {
 		delErr = errors.New(fmt.Sprintf("Failed to Delete Cluster. err = %s", err))
 		cblogger.Error(delErr.Error())
@@ -300,7 +300,7 @@ func upgradeCluter(cluster containerservice.ManagedCluster, newVersion string, m
 	}
 	updateCluster := cluster
 	updateCluster.KubernetesVersion = to.StringPtr(newVersion)
-	_, err = managedClustersClient.CreateOrUpdate(ctx, region.ResourceGroup, *cluster.Name, updateCluster)
+	_, err = managedClustersClient.CreateOrUpdate(ctx, region.Region, *cluster.Name, updateCluster)
 	if err != nil {
 		return err
 	}
@@ -336,7 +336,7 @@ func getRawCluster(clusterIID irs.IID, managedClustersClient *containerservice.M
 		}
 		clusterName = convertedIID.NameId
 	}
-	cluster, err := managedClustersClient.Get(ctx, regionInfo.ResourceGroup, clusterName)
+	cluster, err := managedClustersClient.Get(ctx, regionInfo.Region, clusterName)
 	if err != nil {
 		return containerservice.ManagedCluster{}, err
 	}
@@ -850,7 +850,7 @@ func createCluster(clusterReqInfo irs.ClusterInfo, virtualNetworksClient *networ
 	if err != nil {
 		return err
 	}
-	targetSubnet, err := getRawClusterTargetSubnet(clusterReqInfo.Network, virtualNetworksClient, ctx, regionInfo.ResourceGroup)
+	targetSubnet, err := getRawClusterTargetSubnet(clusterReqInfo.Network, virtualNetworksClient, ctx, regionInfo.Region)
 	if err != nil {
 		return err
 	}
@@ -865,7 +865,7 @@ func createCluster(clusterReqInfo irs.ClusterInfo, virtualNetworksClient *networ
 		return err
 	}
 	// mapping ssh
-	linuxProfileSSH, sshKey, err := generateManagedClusterLinuxProfileSSH(clusterReqInfo, sshPublicKeysClient, regionInfo.ResourceGroup, ctx)
+	linuxProfileSSH, sshKey, err := generateManagedClusterLinuxProfileSSH(clusterReqInfo, sshPublicKeysClient, regionInfo.Region, ctx)
 	if err != nil {
 		return err
 	}
@@ -889,14 +889,14 @@ func createCluster(clusterReqInfo irs.ClusterInfo, virtualNetworksClient *networ
 			KubernetesVersion: to.StringPtr(clusterReqInfo.Version),
 			EnableRBAC:        to.BoolPtr(true),
 			DNSPrefix:         to.StringPtr(getclusterDNSPrefix(clusterReqInfo.IId.NameId)),
-			NodeResourceGroup: to.StringPtr(getclusterNodeResourceGroup(clusterReqInfo.IId.NameId, regionInfo.ResourceGroup, regionInfo.Region)),
+			NodeResourceGroup: to.StringPtr(getclusterNodeResourceGroup(clusterReqInfo.IId.NameId, regionInfo.Region, regionInfo.Region)),
 			AgentPoolProfiles: &agentPoolProfiles,
 			NetworkProfile:    &networkProfile,
 			LinuxProfile:      &linuxProfileSSH,
 			AddonProfiles:     addonProfiles,
 		},
 	}
-	_, err = managedClustersClient.CreateOrUpdate(ctx, regionInfo.ResourceGroup, clusterReqInfo.IId.NameId, clusterCreateOpts)
+	_, err = managedClustersClient.CreateOrUpdate(ctx, regionInfo.Region, clusterReqInfo.IId.NameId, clusterCreateOpts)
 	if err != nil {
 		return err
 	}
@@ -912,10 +912,10 @@ func createCluster(clusterReqInfo irs.ClusterInfo, virtualNetworksClient *networ
 	return nil
 }
 
-func cleanCluster(clusterName string, managedClustersClient *containerservice.ManagedClustersClient, resourceGroup string, ctx context.Context) error {
+func cleanCluster(clusterName string, managedClustersClient *containerservice.ManagedClustersClient, region string, ctx context.Context) error {
 	// cluster subresource Clean 현재 없음
 	// delete Cluster
-	_, err := managedClustersClient.Delete(ctx, resourceGroup, clusterName)
+	_, err := managedClustersClient.Delete(ctx, region, clusterName)
 	if err != nil {
 		return err
 	}
@@ -1375,7 +1375,7 @@ func applySecurityGroup(clusterIID irs.IID, sourceSecurityGroupIID irs.IID, clus
 	//if err != nil {
 	//	return errors.New(fmt.Sprintf("failed get clusterResourceGroup err = %s", err.Error()))
 	//}
-	sourceSecurityGroup, err := getRawSecurityGroup(sourceSecurityGroupIID, securityGroupsClient, ctx, regionInfo.ResourceGroup)
+	sourceSecurityGroup, err := getRawSecurityGroup(sourceSecurityGroupIID, securityGroupsClient, ctx, regionInfo.Region)
 	if err != nil {
 		return errors.New(fmt.Sprintf("failed apply securityGroup err = %s", err.Error()))
 	}
@@ -1418,7 +1418,7 @@ func menualScaleModechangeNodeGroupScaling(cluster containerservice.ManagedClust
 	}
 	updateAgentPool := agentPool
 	updateAgentPool.Count = to.Int32Ptr(int32(desiredNodeSize))
-	_, err = agentPoolsClient.CreateOrUpdate(ctx, region.ResourceGroup, *cluster.Name, *agentPool.Name, updateAgentPool)
+	_, err = agentPoolsClient.CreateOrUpdate(ctx, region.Region, *cluster.Name, *agentPool.Name, updateAgentPool)
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed scalingChange agentPool err = %s", err.Error()))
 	}
@@ -1447,7 +1447,7 @@ func autoScaleModechangeNodeGroupScaling(cluster containerservice.ManagedCluster
 	updateAgentPool.MinCount = to.Int32Ptr(int32(minNodeSize))
 	updateAgentPool.MaxCount = to.Int32Ptr(int32(maxNodeSize))
 	updateAgentPool.Count = to.Int32Ptr(int32(desiredNodeSize))
-	_, err = agentPoolsClient.CreateOrUpdate(ctx, region.ResourceGroup, *cluster.Name, *agentPool.Name, updateAgentPool)
+	_, err = agentPoolsClient.CreateOrUpdate(ctx, region.Region, *cluster.Name, *agentPool.Name, updateAgentPool)
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed scalingChange agentPool err = %s", err.Error()))
 	}
@@ -1472,7 +1472,7 @@ func changeNodeGroupScaling(cluster containerservice.ManagedCluster, nodeGroupII
 	if nodeGroupIID.NameId == "" && nodeGroupIID.SystemId == "" {
 		return irs.NodeGroupInfo{}, errors.New("failed scalingChange agentPool err = invalid NodeGroup NameId")
 	}
-	agentPools, err := agentPoolsClient.List(ctx, region.ResourceGroup, *cluster.Name)
+	agentPools, err := agentPoolsClient.List(ctx, region.Region, *cluster.Name)
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed scalingChange agentPool err = %s", err.Error()))
 	}
@@ -1509,7 +1509,7 @@ func autoScalingChange(cluster containerservice.ManagedCluster, nodeGroupIID irs
 	if nodeGroupIID.NameId == "" && nodeGroupIID.SystemId == "" {
 		return errors.New("failed autoScalingChange agentPool err = invalid NodeGroup NameId")
 	}
-	agentPools, err := agentPoolsClient.List(ctx, region.ResourceGroup, *cluster.Name)
+	agentPools, err := agentPoolsClient.List(ctx, region.Region, *cluster.Name)
 	if err != nil {
 		return errors.New(fmt.Sprintf("failed autoScalingChange agentPool err = %s", err.Error()))
 	}
@@ -1549,7 +1549,7 @@ func autoScalingChange(cluster containerservice.ManagedCluster, nodeGroupIID irs
 		updateAgentPool.MaxCount = updateAgentPool.Count
 	}
 	updateAgentPool.EnableAutoScaling = to.BoolPtr(autoScalingSet)
-	_, err = agentPoolsClient.CreateOrUpdate(ctx, region.ResourceGroup, *cluster.Name, *targetAgentPool.Name, updateAgentPool)
+	_, err = agentPoolsClient.CreateOrUpdate(ctx, region.Region, *cluster.Name, *targetAgentPool.Name, updateAgentPool)
 	if err != nil {
 		return errors.New(fmt.Sprintf("failed autoScalingChange agentPool err = %s", err.Error()))
 	}
@@ -1565,7 +1565,7 @@ func deleteNodeGroup(cluster containerservice.ManagedCluster, nodeGroupIID irs.I
 	if nodeGroupIID.NameId == "" && nodeGroupIID.SystemId == "" {
 		return errors.New("failed remove agentPool err = invalid NodeGroup NameId")
 	}
-	agentPools, err := agentPoolsClient.List(ctx, region.ResourceGroup, *cluster.Name)
+	agentPools, err := agentPoolsClient.List(ctx, region.Region, *cluster.Name)
 	if err != nil {
 		return errors.New(fmt.Sprintf("failed remove agentPool err = %s", err.Error()))
 	}
@@ -1586,7 +1586,7 @@ func deleteNodeGroup(cluster containerservice.ManagedCluster, nodeGroupIID irs.I
 	if !existNodeGroup {
 		return errors.New("failed remove agentPool err = not Exist NodeGroup")
 	}
-	_, err = agentPoolsClient.Delete(ctx, region.ResourceGroup, *cluster.Name, nodeGroupIID.NameId)
+	_, err = agentPoolsClient.Delete(ctx, region.Region, *cluster.Name, nodeGroupIID.NameId)
 	if err != nil {
 		return errors.New(fmt.Sprintf("failed remove agentPool err = %s", err.Error()))
 	}
@@ -1620,7 +1620,7 @@ func addNodeGroupPool(cluster containerservice.ManagedCluster, nodeGroup irs.Nod
 			return irs.NodeGroupInfo{}, errors.New("The SSHkey in the Azure Cluster NodeGroup must all be the same")
 		}
 	}
-	agentPools, err := agentPoolsClient.List(ctx, region.ResourceGroup, *cluster.Name)
+	agentPools, err := agentPoolsClient.List(ctx, region.Region, *cluster.Name)
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed add agentPool err = %s", err.Error()))
 	}
@@ -1653,7 +1653,7 @@ func addNodeGroupPool(cluster containerservice.ManagedCluster, nodeGroup irs.Nod
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed add agentPool err = %s", err.Error()))
 	}
-	subnet, err := subnetClient.Get(ctx, region.ResourceGroup, vpcName, subnetName, "")
+	subnet, err := subnetClient.Get(ctx, region.Region, vpcName, subnetName, "")
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed addNodeGroupPool err = %s", err.Error()))
 	}
@@ -1662,7 +1662,7 @@ func addNodeGroupPool(cluster containerservice.ManagedCluster, nodeGroup irs.Nod
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed add agentPool err = %s", err.Error()))
 	}
-	_, err = agentPoolsClient.CreateOrUpdate(ctx, region.ResourceGroup, *cluster.Name, nodeGroup.IId.NameId, containerservice.AgentPool{ManagedClusterAgentPoolProfileProperties: &agentPoolProfileProperties})
+	_, err = agentPoolsClient.CreateOrUpdate(ctx, region.Region, *cluster.Name, nodeGroup.IId.NameId, containerservice.AgentPool{ManagedClusterAgentPoolProfileProperties: &agentPoolProfileProperties})
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed add agentPool err = %s", err.Error()))
 	}
@@ -1872,7 +1872,7 @@ func getClusterSSHKey(cluster containerservice.ManagedCluster) (irs.IID, error) 
 		}
 		if err == nil && subscriptionsErr == nil {
 			keyPairIID.SystemId = GetSshKeyIdByName(idrv.CredentialInfo{SubscriptionId: clusterSubscriptionsById}, idrv.RegionInfo{
-				ResourceGroup: clusterResourceGroup,
+				Region: clusterResourceGroup, // Azure uses region as ResourceGroup
 			}, *sshkeyName)
 		}
 	}

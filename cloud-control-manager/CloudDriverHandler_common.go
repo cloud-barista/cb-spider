@@ -136,10 +136,9 @@ func commonGetCloudConnection(cloudConnectName string, targetZoneName string) (i
 			ConnectionName:   cloudConnectName,
 		},
 		RegionInfo: idrv.RegionInfo{ // @todo powerkim
-			Region:        regionName,
-			Zone:          zoneName,       // default Zone
-			TargetZone:    targetZoneName, // Target Zone for Zone-Level Control(Ex. DiskHandler)
-			ResourceGroup: getValue(rgnInfo.KeyValueInfoList, "ResourceGroup"),
+			Region:     regionName,
+			Zone:       zoneName,       // default Zone
+			TargetZone: targetZoneName, // Target Zone for Zone-Level Control(Ex. DiskHandler)
 		},
 	}
 
@@ -249,9 +248,7 @@ func getRegionNameByRegionInfo(rgnInfo *rim.RegionInfo) (string, string, error) 
 	var regionName string
 	var zoneName string
 	switch strings.ToUpper(rgnInfo.ProviderName) {
-	case "AZURE":
-		regionName = getValue(rgnInfo.KeyValueInfoList, "location")
-	case "AWS", "ALIBABA", "GCP", "TENCENT", "IBM", "NCP", "NCPVPC", "KTCLOUD", "NHNCLOUD", "KTCLOUDVPC":
+	case "AWS", "AZURE", "ALIBABA", "GCP", "TENCENT", "IBM", "NCP", "NCPVPC", "KTCLOUD", "NHNCLOUD", "KTCLOUDVPC":
 		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
 		zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
 	case "OPENSTACK", "CLOUDIT", "DOCKER", "CLOUDTWIN", "MOCK":

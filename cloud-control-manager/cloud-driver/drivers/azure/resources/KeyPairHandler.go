@@ -51,7 +51,7 @@ func (keyPairHandler *AzureKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairR
 	}
 
 	// 1. Check Exist
-	exist, err := CheckExistKey(keyPairReqInfo.IId, keyPairHandler.Region.ResourceGroup, keyPairHandler.Client, keyPairHandler.Ctx)
+	exist, err := CheckExistKey(keyPairReqInfo.IId, keyPairHandler.Region.Region, keyPairHandler.Client, keyPairHandler.Ctx)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create Key. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
@@ -78,7 +78,7 @@ func (keyPairHandler *AzureKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairR
 
 	start := call.Start()
 	// 4. Create KeyPair(Azure SSH Resource)
-	keyResult, err := keyPairHandler.Client.Create(keyPairHandler.Ctx, keyPairHandler.Region.ResourceGroup, keyPairReqInfo.IId.NameId, createOpt)
+	keyResult, err := keyPairHandler.Client.Create(keyPairHandler.Ctx, keyPairHandler.Region.Region, keyPairReqInfo.IId.NameId, createOpt)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create Key. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
@@ -102,7 +102,7 @@ func (keyPairHandler *AzureKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error)
 	start := call.Start()
 
 	// 0. Get List Resource
-	listResult, err := keyPairHandler.Client.ListByResourceGroup(keyPairHandler.Ctx, keyPairHandler.Region.ResourceGroup)
+	listResult, err := keyPairHandler.Client.ListByResourceGroup(keyPairHandler.Ctx, keyPairHandler.Region.Region)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List Key. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -138,7 +138,7 @@ func (keyPairHandler *AzureKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairIn
 		return irs.KeyPairInfo{}, getErr
 	}
 	// 1. Get Resource
-	key, err := GetRawKey(keyIID, keyPairHandler.Region.ResourceGroup, keyPairHandler.Client, keyPairHandler.Ctx)
+	key, err := GetRawKey(keyIID, keyPairHandler.Region.Region, keyPairHandler.Client, keyPairHandler.Ctx)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Get Key. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -167,7 +167,7 @@ func (keyPairHandler *AzureKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, erro
 		return false, delErr
 	}
 	// 1. Check Exist
-	exist, err := CheckExistKey(keyIID, keyPairHandler.Region.ResourceGroup, keyPairHandler.Client, keyPairHandler.Ctx)
+	exist, err := CheckExistKey(keyIID, keyPairHandler.Region.Region, keyPairHandler.Client, keyPairHandler.Ctx)
 	if err != nil {
 		delErr := errors.New(fmt.Sprintf("Failed to Delete Key. err = %s", err.Error()))
 		cblogger.Error(delErr.Error())
@@ -184,7 +184,7 @@ func (keyPairHandler *AzureKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, erro
 
 	start := call.Start()
 	// 2. Delete Resource
-	_, err = keyPairHandler.Client.Delete(keyPairHandler.Ctx, keyPairHandler.Region.ResourceGroup, keyIID.NameId)
+	_, err = keyPairHandler.Client.Delete(keyPairHandler.Ctx, keyPairHandler.Region.Region, keyIID.NameId)
 
 	if err != nil {
 		delErr := errors.New(fmt.Sprintf("Failed to Delete Key. err = %s", err.Error()))

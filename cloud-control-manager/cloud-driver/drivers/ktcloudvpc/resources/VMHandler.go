@@ -603,7 +603,7 @@ func (vmHandler *KTVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error
 	if !strings.EqualFold(vm.PublicIP, "") {
 		// Delete Firewall Rules		
 		if !strings.EqualFold(vm.PublicIP, "") {
-			_, dellFwErr := vmHandler.removeFirewallRule(vm.PublicIP)
+			_, dellFwErr := vmHandler.removeFirewallRule(vm.PublicIP, vm.PrivateIP)
 			if dellFwErr != nil {
 				cblogger.Error(dellFwErr.Error())
 				loggingError(callLogInfo, dellFwErr)
@@ -1381,7 +1381,7 @@ func (vmHandler *KTVpcVMHandler) listPortForwarding() ([]portforward.PortForward
 	return pfRuleList, nil
 }
 
-func (vmHandler *KTVpcVMHandler) getFirewallRuleIDs(publicIpAddr string) ([]int, error) {
+func (vmHandler *KTVpcVMHandler) getFirewallRuleIDs(publicIpAddr string, privateIpAddr string) ([]int, error) {
 	cblogger.Info("KT Cloud VPC Driver: called getFirewallRuleIDs()!")	
 
 	if strings.EqualFold(publicIpAddr,"") {
@@ -1400,10 +1400,20 @@ func (vmHandler *KTVpcVMHandler) getFirewallRuleIDs(publicIpAddr string) ([]int,
 	var firewallRuleIds []int
 	for _, rule := range fwRuleList {
 		for _, acl := range rule.Acls {
-			for _, addrs := range acl.DstAddrs {
+			// # Get Inbound Rules IDs
+			for _, destAddrs := range acl.DstAddrs {
 				// cblogger.Infof("addrs.IP : [%s]", addrs.IP)
 				// cblogger.Infof("publicIpAddr : [%s]", publicIpAddr)
-				if strings.Contains(addrs.IP, publicIpAddr) {
+				if strings.Contains(destAddrs.IP, publicIpAddr) {
+					firewallRuleIds = append(firewallRuleIds, acl.ID)	// Caution!!) Not acl.Name
+				}
+			}
+
+			// # Get Outbound Rules IDs
+			for _, srcAddrs := range acl.SrcAddrs {
+				// cblogger.Infof("addrs.IP : [%s]", addrs.IP)
+				// cblogger.Infof("publicIpAddr : [%s]", publicIpAddr)
+				if strings.Contains(srcAddrs.IP, privateIpAddr) {
 					firewallRuleIds = append(firewallRuleIds, acl.ID)	// Caution!!) Not acl.Name
 				}
 			}
@@ -1510,7 +1520,7 @@ func (vmHandler *KTVpcVMHandler) getPortForwardingID(privateIpAddr string, proto
 	return portForwardingId, nil
 }
 
-func (vmHandler *KTVpcVMHandler) removeFirewallRule(publicIpAddr string) (bool, error) {
+func (vmHandler *KTVpcVMHandler) removeFirewallRule(publicIpAddr string, privateIpAddr string) (bool, error) {
 	cblogger.Info("KT Cloud VPC Driver: called removeFirewallRule()!")
 
 	if strings.EqualFold(publicIpAddr,"") {
@@ -1519,7 +1529,13 @@ func (vmHandler *KTVpcVMHandler) removeFirewallRule(publicIpAddr string) (bool, 
 		return false, newErr
 	}
 
-	pwRuleIds, err := vmHandler.getFirewallRuleIDs(publicIpAddr)
+	if strings.EqualFold(privateIpAddr,"") {
+		newErr := fmt.Errorf("Invalid Public IP Address!!")
+		cblogger.Error(newErr.Error())
+		return false, newErr
+	}
+
+	pwRuleIds, err := vmHandler.getFirewallRuleIDs(publicIpAddr, privateIpAddr)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get Firewall Rule Info. [%v]", err)
 		cblogger.Error(newErr.Error())

@@ -61,7 +61,7 @@ func (diskHandler *AzureDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (diskI
 		CreationData: &creationData,
 	}
 	diskCreateOpt := compute.Disk{DiskProperties: &diskProperties, Sku: &diskSku, Location: to.StringPtr(diskHandler.Region.Region)}
-	result, err := diskHandler.DiskClient.CreateOrUpdate(diskHandler.Ctx, diskHandler.Region.ResourceGroup, DiskReqInfo.IId.NameId, diskCreateOpt)
+	result, err := diskHandler.DiskClient.CreateOrUpdate(diskHandler.Ctx, diskHandler.Region.Region, DiskReqInfo.IId.NameId, diskCreateOpt)
 	if err != nil {
 		createErr = errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
@@ -82,7 +82,7 @@ func (diskHandler *AzureDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (diskI
 		LoggingError(hiscallInfo, createErr)
 		return irs.DiskInfo{}, createErr
 	}
-	disk, err := GetRawDisk(convertedIId, diskHandler.Region.ResourceGroup, diskHandler.DiskClient, diskHandler.Ctx)
+	disk, err := GetRawDisk(convertedIId, diskHandler.Region.Region, diskHandler.DiskClient, diskHandler.Ctx)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Get Disk. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -102,7 +102,7 @@ func (diskHandler *AzureDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (diskI
 func (diskHandler *AzureDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	hiscallInfo := GetCallLogScheme(diskHandler.Region, call.DISK, "DISK", "ListDisk()")
 	start := call.Start()
-	diskList, err := diskHandler.DiskClient.ListByResourceGroup(diskHandler.Ctx, diskHandler.Region.ResourceGroup)
+	diskList, err := diskHandler.DiskClient.ListByResourceGroup(diskHandler.Ctx, diskHandler.Region.Region)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -133,7 +133,7 @@ func (diskHandler *AzureDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, err
 		LoggingError(hiscallInfo, getErr)
 		return irs.DiskInfo{}, getErr
 	}
-	disk, err := GetRawDisk(convertedIId, diskHandler.Region.ResourceGroup, diskHandler.DiskClient, diskHandler.Ctx)
+	disk, err := GetRawDisk(convertedIId, diskHandler.Region.Region, diskHandler.DiskClient, diskHandler.Ctx)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Get Disk. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -161,7 +161,7 @@ func (diskHandler *AzureDiskHandler) ChangeDiskSize(diskIID irs.IID, size string
 		LoggingError(hiscallInfo, changeDiskSizeErr)
 		return false, changeDiskSizeErr
 	}
-	sizeChangeDisk, err := GetRawDisk(convertedDiskIId, diskHandler.Region.ResourceGroup, diskHandler.DiskClient, diskHandler.Ctx)
+	sizeChangeDisk, err := GetRawDisk(convertedDiskIId, diskHandler.Region.Region, diskHandler.DiskClient, diskHandler.Ctx)
 	if err != nil {
 		changeDiskSizeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", err.Error()))
 		cblogger.Error(changeDiskSizeErr.Error())
@@ -190,7 +190,7 @@ func (diskHandler *AzureDiskHandler) ChangeDiskSize(diskIID irs.IID, size string
 			DiskSizeGB: to.Int32Ptr(newSize),
 		},
 	}
-	result, err := diskHandler.DiskClient.Update(diskHandler.Ctx, diskHandler.Region.ResourceGroup, *sizeChangeDisk.Name, diskUpdateOpt)
+	result, err := diskHandler.DiskClient.Update(diskHandler.Ctx, diskHandler.Region.Region, *sizeChangeDisk.Name, diskUpdateOpt)
 	if err != nil {
 		changeDiskSizeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", err.Error()))
 		cblogger.Error(changeDiskSizeErr.Error())
@@ -217,7 +217,7 @@ func (diskHandler *AzureDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 		LoggingError(hiscallInfo, deleteDiskSizeErr)
 		return false, deleteDiskSizeErr
 	}
-	deleteDisk, err := GetRawDisk(convertedDiskIId, diskHandler.Region.ResourceGroup, diskHandler.DiskClient, diskHandler.Ctx)
+	deleteDisk, err := GetRawDisk(convertedDiskIId, diskHandler.Region.Region, diskHandler.DiskClient, diskHandler.Ctx)
 	if err != nil {
 		deleteDiskSizeErr := errors.New(fmt.Sprintf("Failed to DeleteDisk. err = %s", err.Error()))
 		cblogger.Error(deleteDiskSizeErr.Error())
@@ -232,7 +232,7 @@ func (diskHandler *AzureDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 		LoggingError(hiscallInfo, deleteDiskSizeErr)
 		return false, deleteDiskSizeErr
 	}
-	result, err := diskHandler.DiskClient.Delete(diskHandler.Ctx, diskHandler.Region.ResourceGroup, convertedDiskIId.NameId)
+	result, err := diskHandler.DiskClient.Delete(diskHandler.Ctx, diskHandler.Region.Region, convertedDiskIId.NameId)
 	if err != nil {
 		deleteDiskSizeErr := errors.New(fmt.Sprintf("Failed to DeleteDisk. err = %s", err.Error()))
 		cblogger.Error(deleteDiskSizeErr.Error())
@@ -282,7 +282,7 @@ func (diskHandler *AzureDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID
 		LoggingError(hiscallInfo, dettachErr)
 		return false, dettachErr
 	}
-	detachDisk, err := GetRawDisk(convertedDiskIId, diskHandler.Region.ResourceGroup, diskHandler.DiskClient, diskHandler.Ctx)
+	detachDisk, err := GetRawDisk(convertedDiskIId, diskHandler.Region.Region, diskHandler.DiskClient, diskHandler.Ctx)
 	if err != nil {
 		dettachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. err = %s", err.Error()))
 		cblogger.Error(dettachErr.Error())
@@ -296,7 +296,7 @@ func (diskHandler *AzureDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID
 		LoggingError(hiscallInfo, dettachErr)
 		return false, dettachErr
 	}
-	vm, err := GetRawVM(convertedVMIID, diskHandler.Region.ResourceGroup, diskHandler.VMClient, diskHandler.Ctx)
+	vm, err := GetRawVM(convertedVMIID, diskHandler.Region.Region, diskHandler.VMClient, diskHandler.Ctx)
 	if err != nil {
 		dettachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. GetVM err = %s", err.Error()))
 		cblogger.Error(dettachErr.Error())
@@ -336,7 +336,7 @@ func (diskHandler *AzureDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID
 			},
 		},
 	}
-	feature, err := diskHandler.VMClient.CreateOrUpdate(diskHandler.Ctx, diskHandler.Region.ResourceGroup, *vm.Name, vmOpts)
+	feature, err := diskHandler.VMClient.CreateOrUpdate(diskHandler.Ctx, diskHandler.Region.Region, *vm.Name, vmOpts)
 	if err != nil {
 		dettachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. err = %s", err.Error()))
 		cblogger.Error(dettachErr.Error())
@@ -425,7 +425,7 @@ func ConvertDiskIID(diskIID irs.IID, credentialInfo idrv.CredentialInfo, regionI
 		return diskIID, errors.New(fmt.Sprintf("invalid IID"))
 	}
 	if diskIID.SystemId == "" {
-		sysID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/disks/%s", credentialInfo.SubscriptionId, regionInfo.ResourceGroup, diskIID.NameId)
+		sysID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/disks/%s", credentialInfo.SubscriptionId, regionInfo.Region, diskIID.NameId)
 		return irs.IID{NameId: diskIID.NameId, SystemId: sysID}, nil
 	} else {
 		slist := strings.Split(diskIID.SystemId, "/")
@@ -441,7 +441,7 @@ func (diskHandler *AzureDiskHandler) validationDiskReq(diskReq irs.DiskInfo) err
 	if diskReq.IId.NameId == "" {
 		return errors.New("invalid DiskReqInfo NameId")
 	}
-	exist, err := CheckExistDisk(diskReq.IId, diskHandler.Region.ResourceGroup, diskHandler.DiskClient, diskHandler.Ctx)
+	exist, err := CheckExistDisk(diskReq.IId, diskHandler.Region.Region, diskHandler.DiskClient, diskHandler.Ctx)
 	if err != nil {
 		return errors.New("failed Check disk Name Exist")
 	}
@@ -556,7 +556,7 @@ func Attach(diskIID irs.IID, ownerVM irs.IID, credentialInfo idrv.CredentialInfo
 	if err != nil {
 		return compute.Disk{}, err
 	}
-	disk, err := GetRawDisk(convertedDiskIId, region.ResourceGroup, diskClient, ctx)
+	disk, err := GetRawDisk(convertedDiskIId, region.Region, diskClient, ctx)
 	if err != nil {
 		return compute.Disk{}, err
 	}
@@ -568,7 +568,7 @@ func Attach(diskIID irs.IID, ownerVM irs.IID, credentialInfo idrv.CredentialInfo
 	if err != nil {
 		return compute.Disk{}, errors.New(fmt.Sprintf("GetVM err = %s", err))
 	}
-	vm, err := GetRawVM(convertedVMIId, region.ResourceGroup, vmClient, ctx)
+	vm, err := GetRawVM(convertedVMIId, region.Region, vmClient, ctx)
 	if err != nil {
 		return compute.Disk{}, errors.New(fmt.Sprintf("GetVM err = %s", err))
 	}
@@ -592,7 +592,7 @@ func Attach(diskIID irs.IID, ownerVM irs.IID, credentialInfo idrv.CredentialInfo
 			},
 		},
 	}
-	feature, err := vmClient.CreateOrUpdate(ctx, region.ResourceGroup, *vm.Name, vmOpts)
+	feature, err := vmClient.CreateOrUpdate(ctx, region.Region, *vm.Name, vmOpts)
 	if err != nil {
 		return compute.Disk{}, err
 	}
@@ -600,7 +600,7 @@ func Attach(diskIID irs.IID, ownerVM irs.IID, credentialInfo idrv.CredentialInfo
 	if err != nil {
 		return compute.Disk{}, err
 	}
-	disk, err = GetRawDisk(convertedDiskIId, region.ResourceGroup, diskClient, ctx)
+	disk, err = GetRawDisk(convertedDiskIId, region.Region, diskClient, ctx)
 	if err != nil {
 		return compute.Disk{}, err
 	}
@@ -617,7 +617,7 @@ func AttachList(diskIIDList []irs.IID, ownerVM irs.IID, credentialInfo idrv.Cred
 				convertErr := errors.New(fmt.Sprintf("Failed to get DataDisk err = %s", err.Error()))
 				return compute.VirtualMachine{}, convertErr
 			}
-			disk, err := GetRawDisk(convertedDiskIId, region.ResourceGroup, diskClient, ctx)
+			disk, err := GetRawDisk(convertedDiskIId, region.Region, diskClient, ctx)
 			if err != nil {
 				convertErr := errors.New(fmt.Sprintf("Failed to get DataDisk err = %s", err.Error()))
 				return compute.VirtualMachine{}, convertErr
@@ -635,7 +635,7 @@ func AttachList(diskIIDList []irs.IID, ownerVM irs.IID, credentialInfo idrv.Cred
 	if err != nil {
 		return compute.VirtualMachine{}, errors.New(fmt.Sprintf("Failed to get VM err = %s", err))
 	}
-	vm, err := GetRawVM(convertedVMIId, region.ResourceGroup, vmClient, ctx)
+	vm, err := GetRawVM(convertedVMIId, region.Region, vmClient, ctx)
 	if err != nil {
 		return compute.VirtualMachine{}, errors.New(fmt.Sprintf("Failed to get VMerr = %s", err))
 	}
@@ -662,7 +662,7 @@ func AttachList(diskIIDList []irs.IID, ownerVM irs.IID, credentialInfo idrv.Cred
 			},
 		},
 	}
-	feature, err := vmClient.CreateOrUpdate(ctx, region.ResourceGroup, *vm.Name, vmOpts)
+	feature, err := vmClient.CreateOrUpdate(ctx, region.Region, *vm.Name, vmOpts)
 	if err != nil {
 		return compute.VirtualMachine{}, err
 	}
@@ -670,7 +670,7 @@ func AttachList(diskIIDList []irs.IID, ownerVM irs.IID, credentialInfo idrv.Cred
 	if err != nil {
 		return compute.VirtualMachine{}, err
 	}
-	vm, err = GetRawVM(convertedVMIId, region.ResourceGroup, vmClient, ctx)
+	vm, err = GetRawVM(convertedVMIId, region.Region, vmClient, ctx)
 	if err != nil {
 		return compute.VirtualMachine{}, errors.New(fmt.Sprintf("Failed to get VMerr = %s", err))
 	}
