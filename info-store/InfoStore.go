@@ -71,6 +71,28 @@ func (o KVList) Value() (driver.Value, error) {
 	return string(jsonData), nil
 }
 
+type AZList []string
+
+func (o *AZList) Scan(src any) error {
+	bytes := []byte(src.(string))
+	err := json.Unmarshal(bytes, o)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (o AZList) Value() (driver.Value, error) {
+	if len(o) == 0 {
+		return nil, nil
+	}
+	jsonData, err := json.Marshal(o)
+	if err != nil {
+		return nil, err
+	}
+	return string(jsonData), nil
+}
+
 // Meta DB Opener
 func Open() (*gorm.DB, error) {
 

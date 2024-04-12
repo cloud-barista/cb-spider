@@ -26,9 +26,10 @@ import (
 const KEY_COLUMN_NAME = "region_name"
 
 type RegionInfo struct {
-	RegionName       string           `gorm:"primaryKey"` // ex) "region01"
-	ProviderName     string           // ex) "GCP"
-	KeyValueInfoList infostore.KVList `gorm:"type:text"` // stored with json format, ex) { {region, us-east1}, {zone, us-east1-c}, ...}
+	RegionName        string           `gorm:"primaryKey"` // ex) "region01"
+	ProviderName      string           // ex) "GCP"
+	KeyValueInfoList  infostore.KVList `gorm:"type:text"` // stored with json format, ex) { {region, us-east1}, {zone, us-east1-c}, ...}
+	AvailableZoneList infostore.AZList `gorm:"type:text"` // stored with json format, ex) { us-east1-c, us-east1-d, ...}
 }
 
 //====================================================================
@@ -73,10 +74,10 @@ func RegisterRegionInfo(rgnInfo RegionInfo) (*RegionInfo, error) {
 	return &rgnInfo, nil
 }
 
-func RegisterRegion(regionName string, providerName string, keyValueInfoList []icdrs.KeyValue) (*RegionInfo, error) {
+func RegisterRegion(regionName string, providerName string, keyValueInfoList []icdrs.KeyValue, AZList []string) (*RegionInfo, error) {
 	cblog.Info("call RegisterRegion()")
 
-	return RegisterRegionInfo(RegionInfo{regionName, providerName, keyValueInfoList})
+	return RegisterRegionInfo(RegionInfo{regionName, providerName, keyValueInfoList, AZList})
 }
 
 func ListRegion() ([]*RegionInfo, error) {
