@@ -361,7 +361,12 @@ func WaitOperationComplete(client *compute.Service, project string, region strin
 func GetDiskInfo(client *compute.Service, credential idrv.CredentialInfo, region idrv.RegionInfo, diskName string) (*compute.Disk, error) {
 	projectID := credential.ProjectID
 	zone := region.Zone
+	targetZone := region.TargetZone
 
+	// 대상 zone이 다른경우 targetZone을 사용
+	if targetZone != ""{
+		zone = targetZone
+	}
 	diskResp, err := client.Disks.Get(projectID, zone, diskName).Do()
 	if err != nil {
 		cblogger.Error(err)

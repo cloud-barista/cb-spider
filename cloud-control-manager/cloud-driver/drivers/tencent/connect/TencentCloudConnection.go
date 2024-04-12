@@ -64,7 +64,7 @@ func (cloudConn *TencentCloudConnection) CreateKeyPairHandler() (irs.KeyPairHand
 func (cloudConn *TencentCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("Start CreateVMHandler()")
 
-	vmHandler := trs.TencentVMHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, DiskClient: cloudConn.DiskClient}
+	vmHandler := trs.TencentVMHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, DiskClient: cloudConn.DiskClient, VPCClient: cloudConn.VNetworkClient}
 	return &vmHandler, nil
 }
 
