@@ -250,15 +250,15 @@ func (DiskHandler *GCPDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 
 func (DiskHandler *GCPDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) (irs.DiskInfo, error) {
 	// disk와 vm의 zone valid check
-	diskInfo, err := DiskHandler.GetDisk(diskIID)
+	attachDiskInfo, err := DiskHandler.GetDisk(diskIID)	
 	if err != nil {
 		cblogger.Error(err)		
 		return irs.DiskInfo{}, err
 	}
 	
 	// check disk status : "available" state only
-	if diskInfo.Status != irs.DiskStatus("Available") {
-		return irs.DiskInfo{}, errors.New(string("The disk must be in the Available state : " + diskInfo.Status))
+	if attachDiskInfo.Status != irs.DiskStatus("Available") {
+		return irs.DiskInfo{}, errors.New(string("The disk must be in the Available state : " + attachDiskInfo.Status))
 	}
 
 	vmHandler := GCPVMHandler{
@@ -273,8 +273,15 @@ func (DiskHandler *GCPDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 		return irs.DiskInfo{}, err
 	}
 	
-	if vmInfo.Region.Zone != diskInfo.Zone{
-		return irs.DiskInfo{}, errors.New(string("The disk and the VM must be in the same zone." + diskInfo.Status))
+	diskZone := ""
+	index := strings.Index(attachDiskInfo.Zone, "zones/")  // "zones/"의 인덱스를 찾음
+	if index != -1 {
+		diskZone = attachDiskInfo.Zone[index+len("zones/"):]  // "zones/" 다음의 문자열을 추출
+	}
+	//https://www.googleapis.com/compute/v1/projects/csta-349809/zones/asia-northeast1-a 
+	if vmInfo.Region.Zone != diskZone{
+		cblogger.Error("The disk and the VM must be in the same zone." + vmInfo.Region.Zone, diskZone)
+		return irs.DiskInfo{}, errors.New(string("The disk and the VM must be in the same zone."))
 	}
 
 	// vmStatus는 다시 조회해야 하기 때문에 attach할 수 있는 상태가 아니면 오류로 return
@@ -286,7 +293,8 @@ func (DiskHandler *GCPDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 
 	projectID := DiskHandler.Credential.ProjectID
 	region := DiskHandler.Region.Region
-	zone := DiskHandler.Region.Zone
+	//zone := DiskHandler.Region.Zone
+	zone := vmInfo.Region.Zone// vm의 zone으로 설정
 	instance := ownerVM.SystemId
 
 	attachedDisk := &compute.AttachedDisk{
@@ -305,6 +313,7 @@ func (DiskHandler *GCPDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 
 	WaitOperationComplete(DiskHandler.Client, projectID, region, zone, op.Name, 3)
 
+	// attach가 끝나면 disk정보 return
 	diskInfo, errDiskInfo := DiskHandler.GetDisk(diskIID)
 	if errDiskInfo != nil {
 		cblogger.Error(errDiskInfo)
