@@ -128,7 +128,7 @@ KTCLOUDVPC:
   disktype: HDD / SSD
   disksize: HDD|10|2000|GB / SSD|10|2000|GB
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage
-  idmaxlength: 300 / 18 / 30 / 100 / 300 / 50 / 300 / 50
+  idmaxlength: 300 / 300 / 30 / 100 / 300 / 50 / 300 / 50
 
 #--- PoC
 
