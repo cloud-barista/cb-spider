@@ -16,6 +16,7 @@ import (
 	"errors"
 	_ "errors"
 	"fmt"
+	"net/http"
 	"regexp"
 	"strconv"
 	"strings"
@@ -25,6 +26,8 @@ import (
 	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	//cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
 	compute "google.golang.org/api/compute/v1"
+	"google.golang.org/api/googleapi"
+
 	// "golang.org/x/oauth2/google"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -292,14 +295,6 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		Tags: &compute.Tags{
 			Items: securityTags,
 		},
-
-		// Instances with guest accelerators, like GPUs, do not support live migration.
-		// This block of code is a temporary measure for testing GPU functionality.
-		// Setting 'OnHostMaintenance' to 'TERMINATE' prevents live migration
-		// by powerkim, 2024.03.22.
-		Scheduling: &compute.Scheduling{
-			OnHostMaintenance: "TERMINATE",
-		},
 	}
 
 	//Windows OS인 경우 administrator 계정 비번 설정 및 계정 활성화
@@ -441,17 +436,38 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	}
 	callLogStart := call.Start()
 	op, err1 := vmHandler.Client.Instances.Insert(projectID, zone, instance).Do()
+
+	if err1 != nil {
+		e, ok := err1.(*googleapi.Error)
+		
+		// Setting 'OnHostMaintenance' to 'TERMINATE' prevents live migration
+		if ok && e.Code == http.StatusBadRequest && strings.Contains(err1.Error(), "not support live migration") {	
+			cblogger.Info("vm creating with Scheduling")
+			instance.Scheduling = &compute.Scheduling{
+				OnHostMaintenance: "TERMINATE",
+			}
+			op, err1 = vmHandler.Client.Instances.Insert(projectID, zone, instance).Do()
+
+			if err1 != nil {
+				callLogInfo.ErrorMSG = err1.Error()
+				callogger.Error(call.String(callLogInfo))
+				cblogger.Error("fail to create vm with guest accelerator")
+				cblogger.Error(err1)
+				return irs.VMInfo{}, err1
+			}
+		} else {
+			callLogInfo.ErrorMSG = err1.Error()
+			callogger.Error(call.String(callLogInfo))
+			cblogger.Error("VM 생성 실패")
+			cblogger.Error(err1)
+			return irs.VMInfo{}, err1
+		}
+	}
+
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Info("VM 생성 요청 호출 완료")
 	cblogger.Info(op)
 	spew.Dump(op)
-	if err1 != nil {
-		callLogInfo.ErrorMSG = err1.Error()
-		callogger.Error(call.String(callLogInfo))
-		cblogger.Error("VM 생성 실패")
-		cblogger.Error(err1)
-		return irs.VMInfo{}, err1
-	}
 	callogger.Info(call.String(callLogInfo))
 
 	/*
