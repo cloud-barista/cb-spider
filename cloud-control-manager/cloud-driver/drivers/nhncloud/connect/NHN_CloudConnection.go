@@ -15,7 +15,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/davecgh/go-spew/spew"
+	// "github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 
 	cblog "github.com/cloud-barista/cb-log"
@@ -96,10 +96,6 @@ func (cloudConn *NhnCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) 
 
 func (cloudConn *NhnCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
 	cblogger.Info("NhnCloud Cloud Driver: called CreateDiskHandler()!")
-	cblogger.Info("\n### cloudConn.RegionInfo : ")
-	spew.Dump(cloudConn.RegionInfo)
-	cblogger.Info("\n")
-
 	diskHandler := nhnrs.NhnCloudDiskHandler{RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VMClient, VolumeClient: cloudConn.VolumeClient}
 
 	return &diskHandler, nil
@@ -127,9 +123,14 @@ func (cloudConn *NhnCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler,
 
 func (cloudConn *NhnCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
 	cblogger.Info("NhnCloud Cloud Driver: called CreateRegionZoneHandler()!")
-
 	regionZoneHandler := nhnrs.NhnCloudRegionZoneHandler{CredentialInfo: cloudConn.CredentialInfo, RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VMClient}
+
 	return &regionZoneHandler, nil
+}
+
+func (cloudConn *NhnCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
+	
+	return nil, errors.New("NHN Cloud Driver: not implemented")
 }
 
 func (cloudConn *NhnCloudConnection) IsConnected() (bool, error) {
@@ -143,8 +144,4 @@ func (cloudConn *NhnCloudConnection) IsConnected() (bool, error) {
 func (cloudConn *NhnCloudConnection) Close() error {
 
 	return nil
-}
-
-func (*NhnCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
-	return nil, errors.New("NHN Cloud Driver: not implemented")
 }
