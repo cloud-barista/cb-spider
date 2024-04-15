@@ -458,7 +458,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		} else {
 			callLogInfo.ErrorMSG = err1.Error()
 			callogger.Error(call.String(callLogInfo))
-			cblogger.Error("VM 생성 실패")
+			cblogger.Error("failed to create vm")
 			cblogger.Error(err1)
 			return irs.VMInfo{}, err1
 		}
