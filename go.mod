@@ -74,6 +74,7 @@ require (
 	github.com/labstack/echo/v4 v4.9.0
 	github.com/tencentcloud/tencentcloud-sdk-go-intl-en v3.0.531+incompatible
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs v1.0.492
+	golang.org/x/mod v0.8.0
 	k8s.io/api v0.22.5
 	k8s.io/apimachinery v0.22.5
 	k8s.io/client-go v0.22.5
