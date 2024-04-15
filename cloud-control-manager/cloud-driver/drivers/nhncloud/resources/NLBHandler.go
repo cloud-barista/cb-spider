@@ -7,6 +7,7 @@
 // This is a Cloud Driver Example for PoC Test.
 //
 // by ETRI Team, 2022.07.
+// by ETRI Team, 2024.04.
 
 package resources
 
@@ -25,7 +26,6 @@ import (
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/loadbalancer/v2/listeners"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/loadbalancer/v2/loadbalancers"
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/subnets"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/vpcs"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/vpcsubnets"
 
@@ -33,7 +33,6 @@ import (
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/loadbalancer/v2/monitors"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/loadbalancer/v2/pools"
 
-	// "github.com/cloud-barista/nhncloud-sdk-go/openstack/loadbalancer/v2/providers"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/extensions/layer3/floatingips"
 )
 
@@ -1005,7 +1004,7 @@ func (nlbHandler *NhnCloudNLBHandler) getFirstSubnetIdWithVPCName(vpcName string
 			cblogger.Error(newErr.Error())
 			return "", newErr
 		}
-		subnetList, err := subnets.ExtractSubnets(allPages)
+		subnetList, err := vpcsubnets.ExtractVpcsubnets(allPages)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get Subnet List from NHN Cloud!! : [%v]", err)
 			cblogger.Error(newErr.Error())
