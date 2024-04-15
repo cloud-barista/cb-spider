@@ -232,7 +232,7 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 			}
 		}
 	}
-	cblogger.Infof("init UserData : [%s]", *initUserData)
+	// cblogger.Infof("init UserData : [%s]", *initUserData)
 
 	// Preparing VM Creation Options
 	serverCreateOpts := servers.CreateOpts{
@@ -385,7 +385,7 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 				// Note) In case of 'MyImage', SourceType is 'SourceImage', too.  Not 'bootfromvolume.SourceSnapshot'
 				VolumeType:          reqDiskType,
 				VolumeSize:          reqDiskSizeInt,
-				DestinationType:     bootfromvolume.DestinationVolume, // Destination_type must be 'Volume'. Not 'bootfromvolume.DestinationLocal'
+				DestinationType:     bootfromvolume.DestinationVolume, // Destination_type must be 'Volume'. Not 'bootfromvolume.DestinationLocal' when Not u2 type.
 				DeleteOnTermination: true,
 			},
 		}
