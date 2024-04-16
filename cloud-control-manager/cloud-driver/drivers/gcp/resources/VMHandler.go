@@ -451,7 +451,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			if err1 != nil {
 				callLogInfo.ErrorMSG = err1.Error()
 				callogger.Error(call.String(callLogInfo))
-				cblogger.Error("fail to create vm with guest accelerator")
+				cblogger.Error("fail to create vm which does not support live migration")
 				cblogger.Error(err1)
 				return irs.VMInfo{}, err1
 			}
