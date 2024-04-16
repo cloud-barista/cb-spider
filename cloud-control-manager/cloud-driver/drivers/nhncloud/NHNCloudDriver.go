@@ -13,6 +13,9 @@ package nhncloud
 
 import (
 	// "github.com/davecgh/go-spew/spew"
+
+	"errors"
+
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
 	ostack "github.com/cloud-barista/nhncloud-sdk-go/openstack"
 
@@ -98,7 +101,13 @@ func (driver *NhnCloudDriver) ConnectCloud(connInfo idrv.ConnectionInfo) (icon.C
 
 	ClusterClient, err := getClusterClient(providerClient, connInfo)
 	if err != nil {
-		return nil, err
+		var endpointErr *nhnsdk.ErrEndpointNotFound
+		if errors.As(err, &endpointErr) {
+			// If a certain region(ex. JPN) do not provide a cluster service, there is no endpoint for that.
+			// In this case it is not an error.
+		} else {
+			return nil, err
+		}
 	}
 
 	iConn := nhncon.NhnCloudConnection{
