@@ -63,7 +63,7 @@ func handleImage() {
 
 		imageReqInfo := irs.ImageReqInfo{
 			// Zone : KOR-Central A
-			IId: irs.IID{NameId: "WIN 2019 STD [Korean] MSSQL 2019 ENT", SystemId: "297b2872-7ba9-4e6f-a8b7-e7f81fffc5f3-"},
+			IId: irs.IID{NameId: "WIN 2019 STD [Korean] MSSQL 2019 ENT", SystemId: "297b2872-7ba9-4e6f-a8b7-e7f81fffc5f3"},
 			
 			// Zone : KOR-Seoul M2
 			// IId: irs.IID{NameId: "Ubuntu 20.04 64bit", SystemId: "23bc4025-8a16-4ebf-aa49-3160ee2ac24b"},
@@ -116,23 +116,23 @@ func handleImage() {
 				cblogger.Info("\nGetImage() Test Finished")
 
 				// case 3:
-				// 	cblogger.Infof("[%s] Image Creation 테스트", imageReqInfo.IId.NameId)
+				// 	cblogger.Infof("[%s] Image Creation Test", imageReqInfo.IId.NameId)
 				// 	result, err := handler.CreateImage(imageReqInfo)
 				// 	if err != nil {
 				// 		cblogger.Infof(imageReqInfo.IId.NameId, " Image Creation 실패 : ", err)
 				// 	} else {
-				// 		cblogger.Infof("Image Creation 결과 : ", result)
+				// 		cblogger.Infof("Image Creation Result : ", result)
 				// 		imageReqInfo.IId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
 				// 		spew.Dump(result)
 				// 	}
 
 				// case 4:
-				// 	cblogger.Infof("[%s] Image 삭제 테스트", imageReqInfo.IId.NameId)
+				// 	cblogger.Infof("[%s] Image Deletion Test", imageReqInfo.IId.NameId)
 				// 	result, err := handler.DeleteImage(imageReqInfo.IId)
 				// 	if err != nil {
-				// 		cblogger.Infof("[%s] Image 삭제 실패 : ", imageReqInfo.IId.NameId, err)
+				// 		cblogger.Infof("Failed to Delete the Image : ", err)
 				// 	} else {
-				// 		cblogger.Infof("[%s] Image 삭제 결과 : [%s]", imageReqInfo.IId.NameId, result)
+				// 		cblogger.Infof("Image Deletion Result : ", result)
 				// 	}
 			}
 		}
