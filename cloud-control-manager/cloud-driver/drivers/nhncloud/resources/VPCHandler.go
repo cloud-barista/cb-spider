@@ -205,9 +205,29 @@ func (vpcHandler *NhnCloudVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 		return false, newErr
 	}
 
-	err := vpcs.Delete(vpcHandler.NetworkClient, vpcIID.SystemId).ExtractErr()
+	vpc, err := vpcHandler.getNnnVPC(vpcIID.SystemId)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Delete the VPC with the SystemID. : [%s] : [%v]", vpcIID.SystemId, err)
+		newErr := fmt.Errorf("Failed to Get the VPC Info : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return false, newErr
+	}
+
+	if len(vpc.Subnets) > 0 {
+		for _, subnet := range vpc.Subnets {
+			if _, err := vpcHandler.RemoveSubnet(irs.IID{SystemId: vpcIID.SystemId}, irs.IID{SystemId: subnet.ID}); err != nil {
+				newErr := fmt.Errorf("Failed to Remove the Subnet with the SystemID. : [%s] : [%v]", subnet.ID, err)
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, err)
+				return false, newErr
+			}
+			time.Sleep(time.Second * 2)
+		}
+	}
+
+	delErr := vpcs.Delete(vpcHandler.NetworkClient, vpcIID.SystemId).ExtractErr()
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Delete the VPC with the SystemID. : [%s] : [%v]", vpcIID.SystemId, delErr)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, err)
 		return false, newErr

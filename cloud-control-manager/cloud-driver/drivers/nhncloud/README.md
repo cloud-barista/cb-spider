@@ -92,12 +92,14 @@ ssh -i /private_key_파일_경로/private_key_파일명(~~.pem) cb-user@해당_V
    - CB-Spider log 설정 파일에서 loglevel을 'info'나 'debug' 로 설정
       - CB-Spider log 설정 파일 위치 : ./cb-spider/conf/log_conf.yaml
 
-​	O NHN Cloud infra가 논리적 네트워크 기반이지만, NHN Cloud에서 VPC 및 Subnet 생성/삭제 API는 지원하지 않고 조회 API만 제공하므로 본 driver에서는 아래와 같은 제약 사항이 있음.
-   - 현재는 사용자가 원하는 이름으로 VPC와 Subnet을 생성하면, driver 내부적으로 NHN Cloud에서 project별, region별로 기본적으로 생성되어 제공하는 'Default Network' VPC와 'Default Network' Subnet을 사용하게됨.
-      - Cloud-Barista를 통해 생성시, VPC와 Subnet의 이름(NameId)은 사용자가 원하는 이름으로 사용 가능하고, driver 내부적으로 VPC와 Subnet의 SystemId는 기본적으로 생성되어 있는 'Default Network' VPC와 'Default Network' Subnet의 SystemId가 적용됨.
-      - 'Default Network' VPC CIDR : 192.168.0.0/16, 'Default Network' Subnet CIDR : 192.168.0.0/24
-   - (주의) 위와 같은 제약에 대한 사용상의 문제를 최소화하기 위해, 하나의 project 내의 동일한 region에서는 위의 VPC를 이용해 <u>하나의 VPC만 생성하도록 제한</u>하고있음.
-   - (참고) 추후 NHN Cloud에서 VPC/Subnet 생성/삭제 API를 제공하면, driver에서 사용자가 원하는 CIDR 대역의 VPC와 Subnet이 생성 가능한 완전한 기능을 지원하도록 보완할 예정임.
+​	O NHN Cloud에서 VPC 및 Subnet 생성시 아래 사항을 주의해야함.
+   - VPC 생성시 가용 CIDR
+      - 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+      - /24보다 큰 CIDR 블록은 입력할 수 없음.
+
+   - Subnet 생성시 가용 CIDR
+      - Subnet CIDR은 VPC의 CIDR 범위 내에 있어야 함.
+      - /28보다 큰 CIDR 블록은 입력할 수 없음.
 
    - VPC/Subnet을 API를 이용해서(본 드라이버를 이용해서) 생성할때, NHN Cloud region별로 다른 API endpoint를 사용하기 때문에 config에 설정된 region에 VPC/Subnet이 생성됨.(Region 단위로 구분되어 생성됨.)
    - 그 특정 region에 생성된 VPC/Subnet은 그 region에 속하는 zone에 공유해서 사용함.(그 region 내 모든 zone에서 조회되고 사용 가능함.)
