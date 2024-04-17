@@ -60,7 +60,17 @@ func (diskHandler *AzureDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (diskI
 		DiskSizeGB:   to.Int32Ptr(int32(diskSizeInt)),
 		CreationData: &creationData,
 	}
-	diskCreateOpt := compute.Disk{DiskProperties: &diskProperties, Sku: &diskSku, Location: to.StringPtr(diskHandler.Region.Region)}
+	diskCreateOpt := compute.Disk{
+		DiskProperties: &diskProperties,
+		Sku:            &diskSku,
+		Location:       to.StringPtr(diskHandler.Region.Region),
+	}
+	// Setting zone if available
+	if diskHandler.Region.Zone != "" {
+		diskCreateOpt.Zones = &[]string{
+			DiskReqInfo.Zone,
+		}
+	}
 	result, err := diskHandler.DiskClient.CreateOrUpdate(diskHandler.Ctx, diskHandler.Region.Region, DiskReqInfo.IId.NameId, diskCreateOpt)
 	if err != nil {
 		createErr = errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err.Error()))
@@ -414,6 +424,11 @@ func setterDiskInfo(disk compute.Disk) (*irs.DiskInfo, error) {
 				NameId:   vmName,
 				SystemId: *disk.ManagedBy,
 			}
+		}
+	}
+	if disk.Zones != nil {
+		if len(*disk.Zones) > 0 {
+			diskStatus.Zone = (*disk.Zones)[0]
 		}
 	}
 	// TODO KeyValueList

@@ -965,8 +965,8 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 	}
 
 	// Set VM Zone
-	if server.Zones != nil {
-		vmInfo.Region.Zone = vmHandler.Region.Zone
+	if server.Zones != nil && len(*server.Zones) > 0 {
+		vmInfo.Region.Zone = (*server.Zones)[0]
 	}
 
 	// Set VM Image Info
