@@ -50,7 +50,7 @@ func (diskHandler *NhnCloudDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (ir
 		return irs.DiskInfo{}, newErr
 	}
 
-	if strings.EqualFold(diskHandler.RegionInfo.Zone, "") {
+	if strings.EqualFold(diskReqInfo.Zone, "") {
 		newErr := fmt.Errorf("Invalid Zone Info!!")
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
@@ -91,7 +91,7 @@ func (diskHandler *NhnCloudDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (ir
 	start := call.Start()
 	create0pts := volumes.CreateOpts{
 		Size:             reqDiskSizeInt,
-		AvailabilityZone: diskHandler.RegionInfo.Zone,
+		AvailabilityZone: diskReqInfo.Zone,
 		Name:             diskReqInfo.IId.NameId,
 		VolumeType:       reqDiskType,
 	}
@@ -579,6 +579,7 @@ func (diskHandler *NhnCloudDiskHandler) mappingDiskInfo(volume volumes.Volume) (
 		IId: irs.IID{
 			SystemId: volume.ID,
 		},
+		Zone: 		 volume.AvailabilityZone,
 		DiskSize:    strconv.Itoa(volume.Size),
 		Status:      convertDiskStatus(volume.Status),
 		CreatedTime: volume.CreatedAt,
@@ -613,7 +614,7 @@ func (diskHandler *NhnCloudDiskHandler) mappingDiskInfo(volume volumes.Volume) (
 	}
 
 	keyValueList := []irs.KeyValue{
-		{Key: "AvailabilityZone", Value: volume.AvailabilityZone},
+		// {Key: "AvailabilityZone", Value: volume.AvailabilityZone},
 		{Key: "IsBootable", Value: volume.Bootable},
 		{Key: "IsMultiattached", Value: strconv.FormatBool(volume.Multiattach)},
 		{Key: "IsEncrypted", Value: strconv.FormatBool(volume.Encrypted)},
