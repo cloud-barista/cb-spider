@@ -49,7 +49,7 @@ func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 	}
 
 	if vpcHandler.Region.Zone == "" {
-		createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = not exist Zone"))
+		createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = Zone is not provided"))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.VPCInfo{}, createErr
@@ -63,7 +63,7 @@ func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 		return irs.VPCInfo{}, createErr
 	}
 	if exist {
-		createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = already exist VPC"))
+		createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = VPC is already exist"))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.VPCInfo{}, createErr
@@ -84,13 +84,19 @@ func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 		NameId:   *vpc.Name,
 		SystemId: *vpc.ID,
 	}
+	if len(vpcReqInfo.SubnetInfoList) == 0 {
+		createErr := errors.New("Failed to Create VPC err = Subnet info list is not provided")
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VPCInfo{}, createErr
+	}
 	// createVPCAddressPrefix
 	createVPCAddressPrefixOptions := &vpcv1.CreateVPCAddressPrefixOptions{}
 	createVPCAddressPrefixOptions.SetVPCID(newVpcIId.SystemId)
 	createVPCAddressPrefixOptions.SetCIDR(vpcReqInfo.IPv4_CIDR)
 	createVPCAddressPrefixOptions.SetName(newVpcIId.NameId)
 	createVPCAddressPrefixOptions.SetZone(&vpcv1.ZoneIdentity{
-		Name: core.StringPtr(vpcHandler.Region.Zone),
+		Name: core.StringPtr(vpcReqInfo.SubnetInfoList[0].Zone),
 	})
 	_, _, err = vpcHandler.VpcService.CreateVPCAddressPrefixWithContext(vpcHandler.Ctx, createVPCAddressPrefixOptions)
 	// createVPCAddressPrefix error
@@ -407,10 +413,6 @@ func attachSubnet(vpc vpcv1.VPC, subnetInfo irs.SubnetInfo, vpcService *vpcv1.Vp
 		err = errors.New(fmt.Sprintf("already exist %s", subnetInfo.IId.NameId))
 		return err
 	}
-	zone, err := getFirstVPCZone(vpc, vpcService, ctx)
-	if err != nil {
-		return err
-	}
 	options := &vpcv1.CreateSubnetOptions{}
 	options.SetSubnetPrototype(&vpcv1.SubnetPrototype{
 		Ipv4CIDRBlock: core.StringPtr(subnetInfo.IPv4_CIDR),
@@ -419,7 +421,7 @@ func attachSubnet(vpc vpcv1.VPC, subnetInfo irs.SubnetInfo, vpcService *vpcv1.Vp
 			ID: vpc.ID,
 		},
 		Zone: &vpcv1.ZoneIdentity{
-			Name: &zone,
+			Name: &subnetInfo.Zone,
 		},
 	})
 	_, _, err = vpcService.CreateSubnetWithContext(ctx, options)
@@ -572,21 +574,6 @@ func GetRawVPC(vpcIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context) (vp
 	}
 }
 
-func getFirstVPCZone(vpc vpcv1.VPC, vpcService *vpcv1.VpcV1, ctx context.Context) (string, error) {
-	// get first AddressPrefix Zone
-	listVpcAddressPrefixesOptions := &vpcv1.ListVPCAddressPrefixesOptions{}
-	listVpcAddressPrefixesOptions.SetVPCID(*vpc.ID)
-	addressPrefixes, _, err := vpcService.ListVPCAddressPrefixesWithContext(ctx, listVpcAddressPrefixesOptions)
-	if err != nil {
-		return "", err
-	}
-	if *addressPrefixes.TotalCount > 0 {
-		return *addressPrefixes.AddressPrefixes[0].Zone.Name, nil
-	}
-	err = errors.New("VPC not found FirstVPCZone")
-	return "", err
-}
-
 func getVPCRawSubnets(vpc vpcv1.VPC, vpcService *vpcv1.VpcV1, ctx context.Context) ([]vpcv1.Subnet, error) {
 	options := &vpcv1.ListSubnetsOptions{}
 	subnets, _, err := vpcService.ListSubnetsWithContext(ctx, options)
@@ -679,6 +666,7 @@ func setVPCInfo(vpc vpcv1.VPC, vpcService *vpcv1.VpcV1, ctx context.Context) (ir
 					NameId:   *subnet.Name,
 					SystemId: *subnet.ID,
 				},
+				Zone:      *subnet.Zone.Name,
 				IPv4_CIDR: *subnet.Ipv4CIDRBlock,
 			}
 			newSubnetInfos = append(newSubnetInfos, subnetInfo)
