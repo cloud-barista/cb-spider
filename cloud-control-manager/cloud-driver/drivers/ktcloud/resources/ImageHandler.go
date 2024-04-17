@@ -11,9 +11,10 @@
 package resources
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
 	"strings"
+
 	//"github.com/davecgh/go-spew/spew"
 
 	ktsdk "github.com/cloud-barista/ktcloud-sdk-go"
@@ -59,15 +60,20 @@ func (imageHandler *KtCloudImageHandler) GetImage(imageIID irs.IID) (irs.ImageIn
 	}
 
 	if len(result.Listavailableproducttypesresponse.ProductTypes) < 1 {
-		return irs.ImageInfo{}, errors.New("Failed to Find Product Types!!")
+		return irs.ImageInfo{}, errors.New("Failed to Get Any Product Types!!")
 	}
 
+	var foundImgId string
 	for _, productType := range result.Listavailableproducttypesresponse.ProductTypes {
-		cblogger.Info("# Search criteria of Image Template ID : ", imageIID.SystemId)
-		if productType.TemplateId == imageIID.SystemId {
+		// cblogger.Info("# Search criteria of Image Template ID : ", imageIID.SystemId)
+		if strings.EqualFold(productType.TemplateId, imageIID.SystemId) {
+			foundImgId = productType.TemplateId
 			resultImageInfo = mappingImageInfo(productType)
 			break
 		}
+	}
+	if strings.EqualFold(foundImgId, "") {
+		return irs.ImageInfo{}, fmt.Errorf("Failed to Find Any Image(Template) info with the ID.")
 	}
 	return resultImageInfo, nil
 }
@@ -89,34 +95,6 @@ func (imageHandler *KtCloudImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	if len(result.Listavailableproducttypesresponse.ProductTypes) < 1 {
 		return []*irs.ImageInfo{}, errors.New("Failed to Find Product Types!!")
 	}
-
-	// ### 아래는 사용자가 생성한 image만 해당함. ###
-	// //templatefilter := "selfexecutable"
-	// templatefilter := "self"
-	// listall := true
-
-	// result, err := imageHandler.Client.ListTemplates(templatefilter, "", listall)
-	// if err != nil {
-	// 	cblogger.Error("Error listing images: %s", err)
-
-	// 	return []*irs.ImageInfo{}, err
-	// }
-
-	// spew.Dump(result)
-
-	// if len(result.Listtemplatesresponse.Template) < 1 {
-	// 	return []*irs.ImageInfo{}, errors.New("Image list Not found!!")
-	// }
-
-
-	// ### Without Deduplication of Templates
-	// for _, productType := range result.Listavailableproducttypesresponse.Producttypes {
-	// 	var serverProductType ktsdk.Producttypes
-	// 	serverProductType = productType
-
-	// 	imageInfo := mappingImageInfo(serverProductType)
-	// 	vmImageList = append(vmImageList, &imageInfo)
-	// }	
 
 	// ### In order to remove the list of identical duplicates over and over again
 	tempID := ""
