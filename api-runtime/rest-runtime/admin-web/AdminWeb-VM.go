@@ -309,7 +309,11 @@ func makePostVMFunc_js() string {
                                                 sendJson = sendJson.replace("$$SECURITYGROUP$$", textboxes[i].value);
                                                 break;
 										case "100":
+												if (textboxes[i].hidden==false) {
 												sendJson = sendJson.replace("$$ROOTDISKTYPE$$", textboxes[i].value);
+												}else {
+												sendJson = sendJson.replace("$$ROOTDISKTYPE$$", "");
+												}
 												break;
 						
 											case "10":
@@ -709,10 +713,9 @@ func makeKeyPairSelect_html(onchangeFunctionName string, strList []string, id st
 
 func makeRootDiskTypeSelect_html(onchangeFunctionName string, strList []string, id string) string {
 
-	strResult := "* RootDiskType"
+	strResult := "<div id='root-disk-type-text'>* RootDiskType</div>"
 	if len(strList) == 0 {
-		noDiskStr := `<input style="font-size:12px;text-align:center;" type="text" name="text_box" id="` +
-			id + `" value="default">`
+		noDiskStr := `<input style="font-size:12px;text-align:center;" type="text" name="text_box" id="` + id + `" value="default">`
 		return strResult + noDiskStr
 	}
 	strSelect := `<select style="width:120px;" name="text_box" id="` + id + `" onchange="` + onchangeFunctionName + `(this)">`
@@ -720,17 +723,14 @@ func makeRootDiskTypeSelect_html(onchangeFunctionName string, strList []string, 
 	for _, one := range strList {
 		strSelect += `<option value="` + one + `">` + one + `</option>`
 	}
-
-	strSelect += `
-                </select>
-        `
+	strSelect += "</select>"
 
 	return strResult + strSelect
 }
 
 func makeDataDiskSelect_html(onchangeFunctionName string, strList []string, id string) string {
 
-	strResult := "* DataDisk"
+	strResult := "<div>* DataDisk</div>"
 	if len(strList) == 0 {
 		noDiskStr := `<input style="font-size:12px;text-align:center;" type="text" name="text_box" id="` +
 			id + `" disabled value="N/A">`
@@ -772,13 +772,25 @@ func makeMyImageSelect_html(onchangeFunctionName string, strList []string, id st
 func makeOnchangeImageTypeFunc_js() string {
 	strFunc := `
               function onchangeImageType(source) {
-                var imageType = source.value
+			var imageType = source.value;
+			var rootDiskTypeText = document.getElementById('root-disk-type-text');
+		
                 if (imageType == 'MyImage') {
-                	document.getElementById('3').hidden=true;
-                	document.getElementById('33').hidden=false;
+				// Hide RootDiskType elements
+				if (rootDiskTypeText) rootDiskTypeText.style.display = 'none';
+		
+				// Toggle visibility of image input fields
+				document.getElementById('3').hidden = true;
+				document.getElementById('33').hidden = false;
+				document.getElementById('100').hidden = true;
                 } else {
-                	document.getElementById('3').hidden=false;
-                	document.getElementById('33').hidden=true;
+				// Show RootDiskType elements
+				if (rootDiskTypeText) rootDiskTypeText.style.display = 'block';
+		
+				// Toggle visibility of image input fields
+				document.getElementById('3').hidden = false;
+				document.getElementById('33').hidden = true;
+				document.getElementById('100').hidden = false;
                 }
               }
         `

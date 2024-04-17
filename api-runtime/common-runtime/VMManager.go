@@ -425,9 +425,21 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 		return nil, err
 	}
 
+	// (2) clone and translate the reqInfo with DriverIID
+	var reqInfoForDriver cres.VMReqInfo
+	if dockerTest == "ON" {
+		reqInfoForDriver = reqInfo
+	} else {
+		reqInfoForDriver, err = cloneReqInfoWithDriverIID(connectionName, reqInfo)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	}
+
 	// check Winddows GuestOS
 	isWindowsOS := false
-	isWindowsOS, err = checkImageWindowsOS(cldConn, reqInfo.ImageType, reqInfo.ImageIID)
+	isWindowsOS, err = checkImageWindowsOS(cldConn, reqInfoForDriver.ImageType, reqInfoForDriver.ImageIID)
 	if err != nil {
 		if strings.Contains(err.Error(), "yet!") {
 			cblog.Info(err)
@@ -441,7 +453,7 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 		rsType = "windowsvm" // be used for NCP and NCPVPC in IIDManager.New()
 	}
 
-	// (2) generate SP-XID and create reqIID, driverIID
+	// (3) generate SP-XID and create reqIID, driverIID
 	//     ex) SP-XID {"vm-01-9m4e2mr0ui3e8a215n4g"}
 	//
 	//     create reqIID: {reqNameID, reqSystemID}   # reqSystemID=SP-XID
@@ -449,7 +461,7 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 	//
 	//     create driverIID: {driverNameID, driverSystemID}   # driverNameID=SP-XID, driverSystemID=csp's ID
 	//         ex) driverIID {"vm-01-9m4e2mr0ui3e8a215n4g", "i-0bc7123b7e5cbf79d"}
-	spUUID, err := iidm.New(connectionName, rsType, reqInfo.IId.NameId)
+	spUUID, err := iidm.New(connectionName, rsType, reqInfoForDriver.IId.NameId)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
@@ -461,18 +473,7 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 	// driverIID
 	driverIId := cres.IID{NameId: spUUID, SystemId: ""}
 	reqInfo.IId = driverIId
-
-	// (3) clone the reqInfo with DriverIID
-	var reqInfoForDriver cres.VMReqInfo
-	if dockerTest == "ON" {
-		reqInfoForDriver = reqInfo
-	} else {
-		reqInfoForDriver, err = cloneReqInfoWithDriverIID(connectionName, reqInfo)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
-		}
-	}
+	reqInfoForDriver.IId = driverIId
 
 	if isWindowsOS {
 		adminID := "Administrator"
