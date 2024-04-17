@@ -213,21 +213,16 @@ func (vpcHandler *NhnCloudVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 		return false, newErr
 	}
 
-	var subnetIDs []string
 	if len(vpc.Subnets) > 0 {
 		for _, subnet := range vpc.Subnets {
-			subnetIDs = append(subnetIDs, subnet.ID)
+			if _, err := vpcHandler.RemoveSubnet(irs.IID{SystemId: vpcIID.SystemId}, irs.IID{SystemId: subnet.ID}); err != nil {
+				newErr := fmt.Errorf("Failed to Remove the Subnet with the SystemID. : [%s] : [%v]", subnet.ID, err)
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, err)
+				return false, newErr
+			}
+			time.Sleep(time.Second * 2)
 		}
-	}
-
-	for _, subnetID := range subnetIDs {
-		if _, err := vpcHandler.RemoveSubnet(irs.IID{SystemId: vpcIID.SystemId}, irs.IID{SystemId: subnetID}); err != nil {
-			newErr := fmt.Errorf("Failed to Remove the Subnet with the SystemID. : [%s] : [%v]", subnetID, err)
-			cblogger.Error(newErr.Error())
-			LoggingError(callLogInfo, err)
-			return false, newErr
-		}
-		time.Sleep(time.Second * 2)
 	}
 
 	delErr := vpcs.Delete(vpcHandler.NetworkClient, vpcIID.SystemId).ExtractErr()
