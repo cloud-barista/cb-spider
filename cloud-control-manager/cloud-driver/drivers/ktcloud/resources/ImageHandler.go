@@ -83,7 +83,6 @@ func (imageHandler *KtCloudImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	
 	var vmImageList []*irs.ImageInfo
 	zoneId := imageHandler.RegionInfo.Zone
-	cblogger.Info("RegionInfo.Zone : ", zoneId)
 
 	result, err := imageHandler.Client.ListAvailableProductTypes(zoneId)
 	if err != nil {
@@ -105,7 +104,7 @@ func (imageHandler *KtCloudImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 			vmImageList = append(vmImageList, &imageInfo)
 
 			tempID = productType.TemplateId
-			cblogger.Infof("\nImage Template Id : " + tempID)
+			// cblogger.Infof("\nImage Template Id : " + tempID)
 		}
 	}
 	cblogger.Info("# Supported Image Product Count : ", len(vmImageList))
