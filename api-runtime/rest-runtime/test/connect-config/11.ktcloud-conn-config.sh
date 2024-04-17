@@ -19,8 +19,6 @@ curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application
 
 curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"ktcloud-korea-cheonan2","ProviderName":"KTCLOUD", "KeyValueInfoList": [{"Key":"Region", "Value":"KOR-Central"}, {"Key":"Zone", "Value":"9845bd17-d438-4bde-816d-1b12f37d5080"}]}'
 
-curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"ktcloud-korea-kimhae","ProviderName":"KTCLOUD", "KeyValueInfoList": [{"Key":"Region", "Value":"KOR-HA"}, {"Key":"Zone", "Value":"dfd6f03d-dae5-458e-a2ea-cb6a55d0d994"}]}'
-
 # Cloud Connection Config Info
 curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"ktcloud-korea-seoul1-config","ProviderName":"KTCLOUD", "DriverName":"ktcloud-driver01", "CredentialName":"ktcloud-credential01", "RegionName":"ktcloud-korea-seoul1"}'
 
@@ -29,5 +27,3 @@ curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: a
 curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"ktcloud-korea-cheonan1-config","ProviderName":"KTCLOUD", "DriverName":"ktcloud-driver01", "CredentialName":"ktcloud-credential01", "RegionName":"ktcloud-korea-cheonan1"}'
 
 curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"ktcloud-korea-cheonan2-config","ProviderName":"KTCLOUD", "DriverName":"ktcloud-driver01", "CredentialName":"ktcloud-credential01", "RegionName":"ktcloud-korea-cheonan2"}'
-
-curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"ktcloud-korea-kimhae-config","ProviderName":"KTCLOUD", "DriverName":"ktcloud-driver01", "CredentialName":"ktcloud-credential01", "RegionName":"ktcloud-korea-kimhae"}'
