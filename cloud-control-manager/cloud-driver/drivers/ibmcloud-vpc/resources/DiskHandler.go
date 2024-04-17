@@ -43,7 +43,7 @@ func (diskHandler *IbmDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 			Name: &diskReqInfo.DiskType,
 		},
 		Zone: &vpcv1.ZoneIdentity{
-			Name: &diskHandler.Region.Zone,
+			Name: &diskReqInfo.Zone,
 		},
 		Name:     &diskReqInfo.IId.NameId,
 		Capacity: ptrCapacity,
@@ -293,6 +293,7 @@ func (diskHandler *IbmDiskHandler) ToIRSDisk(disk *vpcv1.Volume) *irs.DiskInfo {
 				SystemId: *disk.ID,
 				NameId:   *disk.Name,
 			},
+			Zone:         *disk.Zone.Name,
 			DiskType:     *disk.Profile.Name,
 			DiskSize:     strCapacity,
 			Status:       diskStatus,
