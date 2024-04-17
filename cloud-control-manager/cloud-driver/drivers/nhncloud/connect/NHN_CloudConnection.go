@@ -103,6 +103,13 @@ func (cloudConn *NhnCloudConnection) CreateDiskHandler() (irs.DiskHandler, error
 
 func (cloudConn *NhnCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
 	cblogger.Info("NhnCloud Cloud Driver: called CreateClusterHandler()!")
+
+	if cloudConn.ClusterClient == nil {
+		// Some regions(ex. JPN) do not support a cluster service.
+		err := fmt.Errorf("ClusterClient is invalid, indicating that no suitable endpoint was found in the service catalog.")
+		return nil, err
+	}
+
 	clusterHandler := nhnrs.NhnCloudClusterHandler{RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VMClient, ImageClient: cloudConn.ImageClient, NetworkClient: cloudConn.NetworkClient, ClusterClient: cloudConn.ClusterClient}
 
 	return &clusterHandler, nil
@@ -129,7 +136,7 @@ func (cloudConn *NhnCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHa
 }
 
 func (cloudConn *NhnCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
-	
+
 	return nil, errors.New("NHN Cloud Driver: not implemented")
 }
 
