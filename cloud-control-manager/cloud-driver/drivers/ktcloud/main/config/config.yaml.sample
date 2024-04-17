@@ -24,6 +24,9 @@ ktcloud:
   #zone: 9845bd17-d438-4bde-816d-1b12f37d5080
   # (참고) Zone name : KOR-Central B
 
-  # region: KOR-HA
-  # zone: dfd6f03d-dae5-458e-a2ea-cb6a55d0d994
-  # (참고) Zone name : KOR-HA
+  # Resources
+  ###########################################################
+  vm_id: ec0c4549-1782-4283-91f9-70ffedced7a2
+  req_vm_name: m2-vm-3
+
+  disk_id: 28ee704d-d005-4705-86ed-c6001de514ff

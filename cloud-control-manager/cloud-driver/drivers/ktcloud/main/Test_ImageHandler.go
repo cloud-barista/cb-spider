@@ -67,28 +67,9 @@ func handleImage() {
 			
 			// Zone : KOR-Seoul M2
 			// IId: irs.IID{NameId: "Ubuntu 20.04 64bit", SystemId: "23bc4025-8a16-4ebf-aa49-3160ee2ac24b"},
-			// # KT Cloud : Ubuntu 20.04 64bit
 
-			// IId: irs.IID{NameId: "Test OS Image", SystemId: "528fdf79-c57f-4f9a-b8ea-c887b9fed003"},
-			// # KT Cloud : ubuntu-18.04, Ubuntu Server 64-bit
+			// IId: irs.IID{NameId: "ubuntu-18.04, Ubuntu Server 64-bit", SystemId: "528fdf79-c57f-4f9a-b8ea-c887b9fed003"},			
 		}
-
-		/*
-		(*resources.ImageInfo)(0xc000576300)({
-			IId: (resources.IID) {
-			 NameId: (string) (len=36) "23bc4025-8a16-4ebf-aa49-3160ee2ac24b",
-			 SystemId: (string) (len=36) "23bc4025-8a16-4ebf-aa49-3160ee2ac24b"
-			},
-			GuestOS: (string) (len=18) "Ubuntu 20.04 64bit",
-			Status: (string) (len=9) "available",
-			KeyValueList: ([]resources.KeyValue) (len=1 cap=1) {
-			 (resources.KeyValue) {
-			  Key: (string) (len=4) "Zone",
-			  Value: (string) (len=12) "KOR-Seoul M2"
-			 }
-			}
-		   }),
-		*/
 
 		if inputCnt == 1 {
 			switch commandNum {
@@ -96,22 +77,21 @@ func handleImage() {
 				return
 
 			case 1:
-				cblogger.Infof("Image list 조회 테스트")
+				cblogger.Infof("Image list inquiry test")
 
 				result, err := handler.ListImage()
 				if err != nil {
-					cblogger.Error(err)
-					cblogger.Error("Image list 조회 실패 : ", err)
+					cblogger.Error("Failed to Get Image list : ", err)
 				} else {
 					fmt.Println("\n==================================================================================================================")
-					cblogger.Info("Image list 조회 결과")
+					cblogger.Info("Image list inquiry Result")
 					//cblogger.Info(result)
-					cblogger.Info("출력 결과 수 : ", len(result))
+					cblogger.Info("Image Info Count : ", len(result))
 
 					fmt.Println("\n")
 					spew.Dump(result)
 
-					cblogger.Info("출력 결과 수 : ", len(result))
+					cblogger.Info("Image Info Count : ", len(result))
 
 					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
 					if result != nil {
@@ -119,43 +99,40 @@ func handleImage() {
 					}
 				}
 
-				cblogger.Info("\nListImage Test Finished")
+				cblogger.Info("\nListImage() Test Finished")
 
 			case 2:
-				cblogger.Infof("[%s] Image 조회 테스트", imageReqInfo.IId)
+				cblogger.Infof("[%s] Image inquiry test with an ID", imageReqInfo.IId)
 
 				result, err := handler.GetImage(imageReqInfo.IId)
 				if err != nil {
-					cblogger.Error(err)
-					cblogger.Error("[%s] Image 조회 실패 : ", imageReqInfo.IId.SystemId, err)
+					cblogger.Error("Failed to Get Image Info : ", err)
 				} else {
 					fmt.Println("\n==================================================================================================================")
-					cblogger.Infof("[%s] Image 조회 결과 : \n[%s]", imageReqInfo.IId.SystemId, result)
-
-					fmt.Println("\n")
+					cblogger.Infof("[%s] Image Info inquiry Result : ", imageReqInfo.IId.SystemId)
 					spew.Dump(result)
 				}
 
-				cblogger.Info("\nGetImage Test Finished")
+				cblogger.Info("\nGetImage() Test Finished")
 
 				// case 3:
-				// 	cblogger.Infof("[%s] Image 생성 테스트", imageReqInfo.IId.NameId)
+				// 	cblogger.Infof("[%s] Image Creation Test", imageReqInfo.IId.NameId)
 				// 	result, err := handler.CreateImage(imageReqInfo)
 				// 	if err != nil {
-				// 		cblogger.Infof(imageReqInfo.IId.NameId, " Image 생성 실패 : ", err)
+				// 		cblogger.Infof(imageReqInfo.IId.NameId, " Image Creation 실패 : ", err)
 				// 	} else {
-				// 		cblogger.Infof("Image 생성 결과 : ", result)
+				// 		cblogger.Infof("Image Creation Result : ", result)
 				// 		imageReqInfo.IId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
 				// 		spew.Dump(result)
 				// 	}
 
 				// case 4:
-				// 	cblogger.Infof("[%s] Image 삭제 테스트", imageReqInfo.IId.NameId)
+				// 	cblogger.Infof("[%s] Image Deletion Test", imageReqInfo.IId.NameId)
 				// 	result, err := handler.DeleteImage(imageReqInfo.IId)
 				// 	if err != nil {
-				// 		cblogger.Infof("[%s] Image 삭제 실패 : ", imageReqInfo.IId.NameId, err)
+				// 		cblogger.Infof("Failed to Delete the Image : ", err)
 				// 	} else {
-				// 		cblogger.Infof("[%s] Image 삭제 결과 : [%s]", imageReqInfo.IId.NameId, result)
+				// 		cblogger.Infof("Image Deletion Result : ", result)
 				// 	}
 			}
 		}

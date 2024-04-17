@@ -43,9 +43,6 @@ func getSupportedRegions() []KtRegionInfo {
 		{	RegionCode: 	"KOR-Central",
 			RegionName: 	"천안",
 		},
-		{	RegionCode: 	"KOR-HA",
-			RegionName: 	"김해",
-		},
 	}
 	return regionInfoList
 }
