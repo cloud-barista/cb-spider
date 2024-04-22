@@ -1758,8 +1758,25 @@ func nhnGetFlavorList(scVM *nhnsdk.ServiceClient) ([]flavors.Flavor, error) {
 	return flavorList, nil
 }
 
-func nhnGetImageById(scVM *nhnsdk.ServiceClient, imageId string) (*images.Image, error) {
-	image, err := images.Get(scVM, imageId).Extract()
+func nhnGetImageList(scImage *nhnsdk.ServiceClient) ([]images.Image, error) {
+	emptyImageList := make([]images.Image, 0)
+
+	listOpts := images.ListOpts{}
+	allPages, err := images.List(scImage, listOpts).AllPages()
+	if err != nil {
+		return emptyImageList, fmt.Errorf("failed to get images' list: %v", err)
+	}
+
+	imageList, err := images.ExtractImages(allPages)
+	if err != nil {
+		return emptyImageList, fmt.Errorf("failed to extract images: %v", err)
+	}
+
+	return imageList, nil
+}
+
+func nhnGetImageById(scImage *nhnsdk.ServiceClient, imageId string) (*images.Image, error) {
+	image, err := images.Get(scImage, imageId).Extract()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get a image by id(%s)", imageId)
 	}
@@ -1768,7 +1785,7 @@ func nhnGetImageById(scVM *nhnsdk.ServiceClient, imageId string) (*images.Image,
 }
 
 func (nch *NhnCloudClusterHandler) getImageNameById(imageId string) (string, error) {
-	image, err := nhnGetImageById(nch.VMClient, imageId)
+	image, err := nhnGetImageById(nch.ImageClient, imageId)
 	if err != nil {
 		return "", err
 	}
