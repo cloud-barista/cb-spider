@@ -1992,8 +1992,8 @@ func validateNodeGroupInfoList(nodeGroupInfoList []irs.NodeGroupInfo) error {
 			}
 			firstKeypairId = &nodeGroupInfo.KeyPairIID
 
-			if nodeGroupInfo.ImageIID.NameId != "" || nodeGroupInfo.ImageIID.SystemId != "" {
-				cblogger.Info("User defined node image cannot be used, it will use a predefined node image")
+			if nodeGroupInfo.ImageIID.NameId == "" && nodeGroupInfo.ImageIID.SystemId == "" {
+				return fmt.Errorf("Node Group's image is required")
 			}
 
 		} else {
