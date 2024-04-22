@@ -438,10 +438,14 @@ func (ach *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqI
 	systemDiskCategory := nodeGroupReqInfo.RootDiskType
 	systemDiskSize, _ := strconv.ParseInt(nodeGroupReqInfo.RootDiskSize, 10, 64)
 	keyPair := nodeGroupReqInfo.KeyPairIID.NameId
+	imageId := nodeGroupReqInfo.ImageIID.NameId
+	if strings.EqualFold(imageId, "") || strings.EqualFold(imageId, "default") {
+		imageId = ""
+	}
 	desiredSize := int64(nodeGroupReqInfo.DesiredNodeSize)
 
 	nodepoolId, err := aliCreateClusterNodePool(ach.CsClient, clusterId, name,
-		autoScalingEnable, maxInstances, minInstances, vswitchIds, instanceTypes, systemDiskCategory, systemDiskSize, keyPair, desiredSize)
+		autoScalingEnable, maxInstances, minInstances, vswitchIds, instanceTypes, systemDiskCategory, systemDiskSize, keyPair, imageId, desiredSize)
 	if err != nil {
 		err = fmt.Errorf("Failed to Add NodeGroup: %v", err)
 		cblogger.Error(err)
@@ -1101,6 +1105,10 @@ func getNodepoolsFromNodeGroupList(nodeGroupInfoList []irs.NodeGroupInfo, runtim
 		systemDiskCategory := ngInfo.RootDiskType
 		systemDiskSize, _ := strconv.ParseInt(ngInfo.RootDiskSize, 10, 64)
 		keyPair := ngInfo.KeyPairIID.NameId
+		imageId := ngInfo.ImageIID.NameId
+		if strings.EqualFold(imageId, "") || strings.EqualFold(imageId, "default") {
+			imageId = ""
+		}
 
 		nodepool := cs2015.Nodepool{
 			NodepoolInfo: &cs2015.NodepoolNodepoolInfo{
@@ -1121,6 +1129,7 @@ func getNodepoolsFromNodeGroupList(nodeGroupInfoList []irs.NodeGroupInfo, runtim
 				SystemDiskCategory: tea.String(systemDiskCategory),
 				SystemDiskSize:     tea.Int64(systemDiskSize),
 				KeyPair:            tea.String(keyPair),
+				ImageId:            tea.String(imageId),
 				//DesiredSize:        tea.Int64(desiredSize),
 			},
 			Management: &cs2015.NodepoolManagement{
@@ -1280,7 +1289,7 @@ func aliDescribeKubernetesVersionMetadata(csClient *cs2015.Client, regionId, clu
 	return describeKubernetesVersionMetadataResponse.Body, nil
 }
 
-func aliCreateClusterNodePool(csClient *cs2015.Client, clusterId, name string, autoScalingEnable bool, maxInstances, minInstances int64, vswitchIds, instanceTypes []string, systemDiskCategory string, systemDiskSize int64, keyPair string, desiredSize int64) (*string, error) {
+func aliCreateClusterNodePool(csClient *cs2015.Client, clusterId, name string, autoScalingEnable bool, maxInstances, minInstances int64, vswitchIds, instanceTypes []string, systemDiskCategory string, systemDiskSize int64, keyPair, imageId string, desiredSize int64) (*string, error) {
 	createClusterNodePoolRequest := &cs2015.CreateClusterNodePoolRequest{
 		NodepoolInfo: &cs2015.CreateClusterNodePoolRequestNodepoolInfo{
 			Name: tea.String(name),
@@ -1296,6 +1305,7 @@ func aliCreateClusterNodePool(csClient *cs2015.Client, clusterId, name string, a
 			SystemDiskCategory: tea.String(systemDiskCategory),
 			SystemDiskSize:     tea.Int64(systemDiskSize),
 			KeyPair:            tea.String(keyPair),
+			ImageId:            tea.String(imageId),
 			//DesiredSize:        tea.Int64(desiredSize),
 		},
 		Management: &cs2015.CreateClusterNodePoolRequestManagement{
@@ -1649,10 +1659,7 @@ func validateAtAddNodeGroup(clusterIID irs.IID, nodeGroupInfo irs.NodeGroupInfo)
 		return fmt.Errorf("Invalid Cluster IID")
 	}
 	if nodeGroupInfo.IId.NameId == "" {
-		return fmt.Errorf("Node Group name is required")
-	}
-	if nodeGroupInfo.ImageIID.SystemId != "" {
-		cblogger.Infof("User defined node image cannot be used, it will use a predefined node image")
+		return fmt.Errorf("Node Group's name is required")
 	}
 	if nodeGroupInfo.MaxNodeSize < 1 {
 		return fmt.Errorf("MaxNodeSize cannot be smaller than 1")
