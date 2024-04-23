@@ -31,19 +31,6 @@ type AlibabaVMHandler struct {
 	Client *ecs.Client
 }
 
-type AlibabaSupportedResource struct {
-	Status string `json:"Status" xml:"Status"`
-	Value  string `json:"Value" xml:"Value"`
-	Max    int    `json:"Max" xml:"Max"`
-	Unit   string `json:"Unit" xml:"Unit"`
-	Min    int    `json:"Min" xml:"Min"`
-}
-type AlibabaAvailableResourceResp struct {
-	RequestId      string            `json:"RequestId"`
-	AvailableZones ecs.AvailableZone `json:"AvailableZones"`
-	RegionId       string            `json:"RegionId"`
-}
-
 // 주어진 이미지 id에 대한 이미지 사이즈 조회
 // -1 : 정보 조회 실패
 // deprecated
