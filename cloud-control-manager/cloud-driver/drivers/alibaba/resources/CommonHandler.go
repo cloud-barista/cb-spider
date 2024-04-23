@@ -208,6 +208,36 @@ func DescribeAvailableResource(client *ecs.Client, regionId string, zoneId strin
 }
 
 /*
+리전별로 AvailableResource 중에서 InstanceType 별로 사용 가능한 SystemDisk 목록 조회
+*/
+func DescribeAvailableSystemDisksByInstanceType(client *ecs.Client, regionId string, zoneId string, instanceChargeType string, destinationResource string, insTanceType string) (ecs.AvailableZonesInDescribeAvailableResource, error) {
+	request := ecs.CreateDescribeAvailableResourceRequest()
+	request.Scheme = "https"
+
+	request.RegionId = regionId
+	request.ZoneId = zoneId
+
+	request.DestinationResource = destinationResource
+	request.InstanceChargeType = instanceChargeType
+	request.InstanceType = insTanceType
+
+	result, err := client.DescribeAvailableResource(request)
+	cblogger.Info(result)
+	if err != nil {
+		cblogger.Errorf("DescribeAvailableResource %v.", err)
+	}
+
+	metaValue := reflect.ValueOf(result).Elem()
+	fieldAvailableZones := metaValue.FieldByName("AvailableZones")
+	if fieldAvailableZones == (reflect.Value{}) {
+		cblogger.Errorf("Field not exist")
+		cblogger.Errorf("Not available in this region")
+		return ecs.AvailableZonesInDescribeAvailableResource{}, errors.New("Not available in this region")
+	}
+	return result.AvailableZones, nil
+}
+
+/*
 *
 Instance에 Disk Attach
 한번에 1개씩.

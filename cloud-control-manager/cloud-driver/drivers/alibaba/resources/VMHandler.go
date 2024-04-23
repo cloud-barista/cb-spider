@@ -8,7 +8,6 @@ package resources
 import (
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -32,6 +31,19 @@ type AlibabaVMHandler struct {
 	Client *ecs.Client
 }
 
+type AlibabaSupportedResource struct {
+	Status string `json:"Status" xml:"Status"`
+	Value  string `json:"Value" xml:"Value"`
+	Max    int    `json:"Max" xml:"Max"`
+	Unit   string `json:"Unit" xml:"Unit"`
+	Min    int    `json:"Min" xml:"Min"`
+}
+type AlibabaAvailableResourceResp struct {
+	RequestId      string            `json:"RequestId"`
+	AvailableZones ecs.AvailableZone `json:"AvailableZones"`
+	RegionId       string            `json:"RegionId"`
+}
+
 // 주어진 이미지 id에 대한 이미지 사이즈 조회
 // -1 : 정보 조회 실패
 // deprecated
@@ -51,7 +63,7 @@ func (vmHandler *AlibabaVMHandler) GetImageSize(ImageSystemId string) (int64, er
 	}
 
 	if len(response.Images.Image) > 0 {
-		fmt.Println(response.Images.Image[0].Size)
+		cblogger.Info(response.Images.Image[0].Size)
 		imageSize := int64(response.Images.Image[0].Size)
 		return imageSize, nil
 
@@ -211,14 +223,80 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	request.InternetMaxBandwidthOut = requests.Integer("5") // 0보다 크면 Public IP가 할당 됨 - 최대 아웃 바운드 공용 대역폭 단위 : Mbit / s 유효한 값 : 0 ~ 100
 
 	//=============================
-	// Root Disk Type 변경
+	// Root Disk Type 설정
 	//=============================
-	if vmReqInfo.RootDiskType == "" || strings.EqualFold(vmReqInfo.RootDiskType, "default") {
-		//디스크 정보가 없으면 건드리지 않음.
-	} else {
-		request.SystemDiskCategory = vmReqInfo.RootDiskType
+
+	// 인스턴스 타입 별로 가능한 목록 불러오기
+	availableResourceResp, err := DescribeAvailableSystemDisksByInstanceType(vmHandler.Client, vmHandler.Region.Region, vmHandler.Region.Zone, "PostPaid", "SystemDisk", vmReqInfo.VMSpecName)
+	if err != nil {
+		cblogger.Error(err)
+	}
+	var supportedDiskTypes []string
+
+	for _, zone := range availableResourceResp.AvailableZone {
+		for _, resource := range zone.AvailableResources.AvailableResource {
+			for _, supportedResource := range resource.SupportedResources.SupportedResource {
+				supportedDiskTypes = append(supportedDiskTypes, supportedResource.Value)
+			}
+		}
 	}
 
+	if vmReqInfo.RootDiskType == "" || strings.EqualFold(vmReqInfo.RootDiskType, "default") {
+
+		// get Alibaba's Meta Info
+		cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("ALIBABA")
+		if err != nil {
+			cblogger.Error(err)
+		}
+
+		found := false
+		useDiskType := ""
+
+		// 가져온 목록과 Meta목록의 순서에 맞는 DiskType 찾기
+		for _, metaDisk := range cloudOSMetaInfo.RootDiskType {
+			if found {
+				break
+			}
+			for _, availableDiskType := range supportedDiskTypes {
+				if metaDisk == availableDiskType {
+					found = true
+					useDiskType = metaDisk
+					break
+				}
+			}
+		}
+
+		if !found {
+			request.SystemDiskCategory = useDiskType
+		} else {
+			request.SystemDiskCategory = supportedDiskTypes[0]
+		}
+	} else {
+		// default가 아닐 때
+		// vmReqInfo.RootDiskType와 비교
+		// 들어온 값이 가능 목록에 있는지 체크
+		// 있으면 set
+		// 없으면 에러 리턴
+		// InstanceType 별로 가능한 DiskType목록에 있는지 확인
+		// 있으면 Set, 없으면 err return
+
+		found := false
+		useDiskType := ""
+
+		for _, availableDiskType := range supportedDiskTypes {
+			if vmReqInfo.RootDiskType == availableDiskType {
+				found = true
+				useDiskType = vmReqInfo.RootDiskType
+				break
+			}
+		}
+
+		if found == false {
+			return irs.VMInfo{}, errors.New("The disktype you entered is not available for this instancetype.")
+		}
+
+		request.SystemDiskCategory = useDiskType
+	}
 	//=============================
 	// Root Disk Size 변경
 	//=============================
@@ -234,9 +312,10 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 
 		// cloudos_meta 에 DiskType, min, max 값 정의
 		cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("ALIBABA")
+
 		arrDiskSizeOfType := cloudOSMetaInfo.RootDiskSize
 
-		fmt.Println("arrDiskSizeOfType: ", arrDiskSizeOfType)
+		cblogger.Info("arrDiskSizeOfType: ", arrDiskSizeOfType)
 
 		diskSizeValue := DiskSize{}
 		// DiskType default 도 건드리지 않음
@@ -261,7 +340,7 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			isExists := false
 			for idx, _ := range arrDiskSizeOfType {
 				diskSizeArr := strings.Split(arrDiskSizeOfType[idx], "|")
-				fmt.Println("diskSizeArr: ", diskSizeArr)
+				cblogger.Info("diskSizeArr: ", diskSizeArr)
 
 				if strings.EqualFold(vmReqInfo.RootDiskType, diskSizeArr[0]) {
 					diskSizeValue.diskType = diskSizeArr[0]
@@ -285,13 +364,13 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			}
 
 			if rootDiskSize < diskSizeValue.diskMinSize {
-				fmt.Println("Disk Size Error!!: ", rootDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+				cblogger.Info("Disk Size Error!!: ", rootDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
 				//return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the minimum disk size, invalid")
 				return irs.VMInfo{}, errors.New("Root Disk Size must be at least the default size (" + strconv.FormatInt(diskSizeValue.diskMinSize, 10) + " GB).")
 			}
 
 			if rootDiskSize > diskSizeValue.diskMaxSize {
-				fmt.Println("Disk Size Error!!: ", rootDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+				cblogger.Info("Disk Size Error!!: ", rootDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
 				//return irs.VMInfo{}, errors.New("Requested disk size cannot be larger than the maximum disk size, invalid")
 				return irs.VMInfo{}, errors.New("Root Disk Size must be smaller than the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
 			}
@@ -303,7 +382,7 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			return irs.VMInfo{}, errors.New("요청된 이미지의 기본 사이즈 정보를 조회할 수 없습니다.")
 		} else {
 			if rootDiskSize < imageSize {
-				fmt.Println("Disk Size Error!!: ", rootDiskSize)
+				cblogger.Info("Disk Size Error!!: ", rootDiskSize)
 				return irs.VMInfo{}, errors.New("Root Disk Size must be larger then the image size (" + strconv.FormatInt(imageSize, 10) + " GB).")
 			}
 
@@ -1085,7 +1164,7 @@ func (vmHandler *AlibabaVMHandler) getDiskInfo(instanceId string) ecs.Disk {
 	if err != nil {
 		cblogger.Error(err.Error())
 	}
-	fmt.Println("response: ", response)
+	cblogger.Info("response: ", response)
 
 	return response.Disks.Disk[0]
 }
