@@ -439,10 +439,12 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	if err1 != nil {
 		e, ok := err1.(*googleapi.Error)
-		
+
 		// Setting 'OnHostMaintenance' to 'TERMINATE' prevents live migration
-		if ok && e.Code == http.StatusBadRequest && strings.Contains(err1.Error(), "not support live migration") {	
-			cblogger.Info("vm creating with Scheduling")
+		errorLower := strings.ToLower(err1.Error())
+		liveMigrationNotSupport := strings.Contains(errorLower, strings.ToLower("must be set to TERMINATE")) || strings.Contains(errorLower, strings.ToLower("not support live migration"))
+		if ok && e.Code == http.StatusBadRequest && liveMigrationNotSupport {
+			cblogger.Info("vm creating with Scheduling struct to set live migration to TERMINATE")
 			instance.Scheduling = &compute.Scheduling{
 				OnHostMaintenance: "TERMINATE",
 			}
