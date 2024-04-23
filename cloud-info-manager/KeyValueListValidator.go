@@ -9,6 +9,7 @@ package cloudos
 
 import (
 	"fmt"
+	"strings"
 
 	icdrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
@@ -24,7 +25,7 @@ func ValidateKeyValueList(inKeyValueList []icdrs.KeyValue, validKeyList []string
 	for idx, kv := range inKeyValueList {
 		inputKeyList[idx] = kv.Key
 		for _, key := range clonedKeyList {
-			if kv.Key == key {
+			if strings.EqualFold(kv.Key, key) { // ignore case
 				clonedKeyList = removeSlice(clonedKeyList, key)
 			}
 		}

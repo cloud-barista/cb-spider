@@ -263,7 +263,7 @@ func getRegionNameByRegionInfo(rgnInfo *rim.RegionInfo) (string, string, error) 
 
 func getValue(keyValueInfoList []icdrs.KeyValue, key string) string {
 	for _, kv := range keyValueInfoList {
-		if kv.Key == key {
+		if strings.EqualFold(kv.Key, key) { // ignore case
 			return kv.Value
 		}
 	}
