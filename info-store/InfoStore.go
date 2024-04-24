@@ -275,6 +275,11 @@ func GetByConditionAndContain(info interface{}, columnName1 string, columnValue1
 	}
 	defer Close(db)
 
+	// Check if columnValue3 is empty and handle accordingly
+	if columnContainValue2 == "" {
+		return fmt.Errorf("%s, %s: does not exist!", columnValue1, columnContainValue2)
+	}
+
 	// Use LIKE operator for columnName2 to check if it contains columnContainValue2
 	query := fmt.Sprintf("%s = ? AND %s LIKE ?", columnName1, columnName2)
 	if err := db.Where(query, columnValue1, "%"+columnContainValue2+"%").First(&info).Error; err != nil {
@@ -336,6 +341,11 @@ func GetByConditionsAndContain(info interface{}, columnName1 string, columnValue
 		return err
 	}
 	defer Close(db)
+
+	// Check if columnValue3 is empty and handle accordingly
+	if columnValue3 == "" {
+		return fmt.Errorf(columnValue1 + ", " + columnValue2 + ", " + columnValue3 + ": does not exist!")
+	}
 
 	if err := db.Where(columnName1+" = ? AND "+columnName2+" = ? AND "+columnName3+" LIKE ?",
 		columnValue1, columnValue2, fmt.Sprintf("%%%s%%", columnValue3)).First(&info).Error; err != nil {

@@ -717,6 +717,11 @@ func GetVPC(connectionName string, rsType string, nameID string) (*cres.VPCInfo,
 		err := infostore.GetByConditionsAndContain(&subnetIIDInfo, CONNECTION_NAME_COLUMN, connectionName,
 			OWNER_VPC_NAME_COLUMN, info.IId.NameId, SYSTEM_ID_COLUMN, getMSShortID(subnetInfo.IId.SystemId))
 		if err != nil {
+			// if not found, continue
+			if checkNotFoundError(err) {
+				cblog.Info(err)
+				continue
+			}
 			cblog.Error(err)
 			return nil, err
 		}
@@ -854,6 +859,11 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 		err := infostore.GetByConditionsAndContain(&subnetIIDInfo, CONNECTION_NAME_COLUMN, connectionName,
 			OWNER_VPC_NAME_COLUMN, vpcName, SYSTEM_ID_COLUMN, getMSShortID(subnetInfo.IId.SystemId))
 		if err != nil {
+			// if not found, continue
+			if checkNotFoundError(err) {
+				cblog.Info(err)
+				continue
+			}
 			cblog.Error(err)
 			return nil, err
 		}
