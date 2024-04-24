@@ -253,9 +253,10 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			}
 		}
 
-		if !found {
+		if found {
 			request.SystemDiskCategory = useDiskType
 		} else {
+			// TODO : 만약, alibaba에서 availableDisk의 우선순위가 있으면 적용한다. 없어서 0번째로 set
 			request.SystemDiskCategory = supportedDiskTypes[0]
 		}
 	} else {
