@@ -219,7 +219,7 @@ func (vpcHandler *KTVpcVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	for _, subnetInfo := range vpcInfo.SubnetInfoList {
 		if !strings.EqualFold(subnetInfo.IId.NameId, "Private") && !strings.EqualFold(subnetInfo.IId.NameId, "DMZ") && !strings.EqualFold(subnetInfo.IId.NameId, "external") && !strings.EqualFold(subnetInfo.IId.NameId, "NLB-SUBNET") {
 			_, err := vpcHandler.RemoveSubnet(irs.IID{SystemId: vpcIID.SystemId}, irs.IID{SystemId: subnetInfo.IId.SystemId})
-			if !strings.Contains(err.Error(), ":true") { // Cauton!! : Abnormal Error when removing a subnet on D1 Platform
+			if (err != nil) && !strings.Contains(err.Error(), ":true") { // Cauton!! : Abnormal Error when removing a subnet on D1 Platform
 				newErr := fmt.Errorf("Failed to Delete the Subnet : [%v]", err)
 				cblogger.Error(newErr.Error())
 				loggingError(callLogInfo, newErr)
@@ -415,6 +415,7 @@ func (vpcHandler *KTVpcVPCHandler) mappingSubnetInfo(subnet subnets.Subnet) *irs
 			NameId:   newName,
 			SystemId: subnet.OsNetworkID, // Caution!! Not 'ID' but 'OsNetworkID' to Create VM!!
 		},
+		Zone: subnet.ZoneID,
 		IPv4_CIDR: subnet.CIDR,
 	}
 
@@ -424,7 +425,6 @@ func (vpcHandler *KTVpcVPCHandler) mappingSubnetInfo(subnet subnets.Subnet) *irs
 		{Key: "EndIP", Value: subnet.EndIP},
 		{Key: "Gateway", Value: subnet.Gateway},
 		{Key: "TierUUID", Value: subnet.ID}, // Tier 'ID' on KT Cloud D platform Consol
-		{Key: "ZoneId", Value: subnet.ZoneID},
 	}
 	subnetInfo.KeyValueList = keyValueList
 	return &subnetInfo
