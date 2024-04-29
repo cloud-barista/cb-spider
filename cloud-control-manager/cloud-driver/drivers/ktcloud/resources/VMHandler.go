@@ -8,6 +8,7 @@
 //
 // by ETRI, 2021.05.
 // Updated by ETRI, 2023.11.
+// Updated by ETRI, 2024.04.
 
 package resources
 
@@ -793,7 +794,7 @@ func (vmHandler *KtCloudVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error
 			if curStatus != irs.VMStatus("Suspended") {
 				curRetryCnt++
 				cblogger.Infof("The VM status is not 'Suspended' yet, so wait more!!")
-				time.Sleep(time.Second * 3)
+				time.Sleep(time.Second * 5)
 				if curRetryCnt > maxRetryCnt {
 					cblogger.Error("Despite waiting for a long time(%d sec), the VM is not 'Suspended' yet, so it is forcibly terminated.", maxRetryCnt)
 				}
@@ -879,7 +880,7 @@ func (vmHandler *KtCloudVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error)
 			if curStatus != irs.VMStatus("Running") {
 				curRetryCnt++
 				cblogger.Infof("The VM is not 'Resumed' yet, so wait more!!")
-				time.Sleep(time.Second * 2)
+				time.Sleep(time.Second * 5)
 				if curRetryCnt > maxRetryCnt {
 					cblogger.Error("Despite waiting for a long time(%d sec), the VM is not 'Resumed' yet, so it is forcibly terminated.", maxRetryCnt)
 				}
@@ -958,7 +959,7 @@ func (vmHandler *KtCloudVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error)
 			if curStatus != irs.VMStatus("Running") {
 				curRetryCnt++
 				cblogger.Infof("The VM is not 'Running' yet, so wait more!!")
-				time.Sleep(time.Second * 2)
+				time.Sleep(time.Second * 5)
 				if curRetryCnt > maxRetryCnt {
 					cblogger.Error("Despite waiting for a long time(%d sec), the VM is not 'Running' yet, so it is forcibly terminated.", maxRetryCnt)
 				}
@@ -1047,7 +1048,7 @@ func (vmHandler *KtCloudVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 			if curStatus != irs.VMStatus("Suspended") {
 				curRetryCnt++
 				cblogger.Infof("The VM is not 'Suspended' yet, so wait more before inquiring Termination.")
-				time.Sleep(time.Second * 3)
+				time.Sleep(time.Second * 5)
 				if curRetryCnt > maxRetryCnt {
 					cblogger.Error("Despite waiting for a long time(%d sec), the VM is not 'Suspended' yet, so it is forcibly terminated.", maxRetryCnt)
 				}
@@ -1382,7 +1383,7 @@ func (vmHandler *KtCloudVMHandler) waitToGetInfo(vmIID irs.IID) (irs.VMStatus, e
 		case "Suspended", "Creating", "Booting" : // KT Cloud는 VM이 Suspended 상태로 시작함.
 			curRetryCnt++
 			cblogger.Infof("The VM status is still 'Creating', so wait more before inquiring the VM info.")
-			time.Sleep(time.Second * 3)
+			time.Sleep(time.Second * 5)
 			if curRetryCnt > maxRetryCnt {
 				cblogger.Errorf("Despite waiting for a long time(%d sec), the VM status is '%S', so it is forcibly finishied.", maxRetryCnt, curStatus)
 				return irs.VMStatus("Failed"), errors.New("Despite waiting for a long time, the VM status is 'Creating', so it is forcibly finishied.")
@@ -1407,19 +1408,28 @@ func (vmHandler *KtCloudVMHandler) deleteFirewall(publicIpId string) (irs.VMStat
 		IpAddressId:	publicIpId,
 	}
 	firewallRulesResult, err := vmHandler.Client.ListFirewallRules(firewallListReqInfo)
+	
 	if err != nil {
+		if strings.Contains(err.Error(), "not ready for firewall rules yet") { // Cauton!! : Abnormal Error when the PublicIP does Not have Firewall Rule
+			cblogger.Info("### The PublicIP does Not have Firewall Rule!!\n")
+			return irs.VMStatus("Terminating"), nil
+		}
+
 		cblogger.Errorf("Failed to Get List of Firewall Rules : [%v]", err)
 		return "", err
-	} else {
-		cblogger.Info("# Succeeded in Getting List of Firewall Rules!!")
 	}
 	// spew.Dump(firewallRulesResult.Listfirewallrulesresponse.FirewallRule)
+
+	if len(firewallRulesResult.Listfirewallrulesresponse.FirewallRule) < 1 {
+		cblogger.Info("### The PublicIP does Not have Firewall Rule!!\n")
+		return irs.VMStatus("Terminating"), nil
+  	}
 
 	for _, firewallRule := range firewallRulesResult.Listfirewallrulesresponse.FirewallRule {
 		// Delete any firewall rule (without leaving port number 22)
 		deleteRulesResult, err := vmHandler.Client.DeleteFirewallRule(firewallRule.ID)
 		if err != nil {
-			cblogger.Errorf("Failed to Delete the firewall Rule : [%v]", err)	
+			cblogger.Errorf("Failed to Delete the Firewall Rule : [%v]", err)	
 			return "", err
 		} else {
 			cblogger.Info("### Waiting for Firewall Rule to be Deleted(300sec)!!\n")
@@ -1445,6 +1455,11 @@ func (vmHandler *KtCloudVMHandler) deletePortForwarding(publicIpId string) (irs.
 	}
 	pfRulesResult, err := vmHandler.Client.ListPortForwardingRules(pfRulesListReqInfo)
 	if err != nil {
+		if strings.Contains(err.Error(), "not ready for port forwarding rules yet") { // Cauton!! : Abnormal Error when the PublicIP does Not have Port-Forwarding Rule
+			cblogger.Info("### The PublicIP does Not have Port-Forwarding Rule!!\n")
+			return irs.VMStatus("Terminating"), nil
+		}
+
 		cblogger.Errorf("Failed to Get list of PortForwarding Rule : [%v]", err)
 		return "", err
 	} else {
@@ -1484,7 +1499,7 @@ func (vmHandler *KtCloudVMHandler) deletePortForwarding(publicIpId string) (irs.
 	return irs.VMStatus("Terminating"), nil
 }
 
-// Whenever a VM is terminated, Delete the PortForwarding rule that the PublicIP has.
+// Whenever a VM is terminated, Delete the PublicIP that the VM has.
 func (vmHandler *KtCloudVMHandler) disassociatePublicIp(publicIpId string) (irs.VMStatus, error) {
 	cblogger.Info("KT Cloud cloud driver: called disassociatePublicIp()!")
 	disassociateIpResult, err := vmHandler.Client.DisassociateIpAddress(publicIpId)
@@ -1492,8 +1507,8 @@ func (vmHandler *KtCloudVMHandler) disassociatePublicIp(publicIpId string) (irs.
 		cblogger.Errorf("Failed to Disassociate the IP Address : [%v]", err)
 		return "", err
 	} else {
-		cblogger.Info("### Waiting for Public IP to be Disassociated(300sec)!!\n")
-		waitJobErr := vmHandler.Client.WaitForAsyncJob(disassociateIpResult.Disassociateipaddressresponse.JobId, 300000000000)
+		cblogger.Info("### Waiting for Public IP to be Disassociated(600sec)!!\n")
+		waitJobErr := vmHandler.Client.WaitForAsyncJob(disassociateIpResult.Disassociateipaddressresponse.JobId, 600000000000)
 		if waitJobErr != nil {
 			cblogger.Errorf("Failed to Wait the Job : [%v]", waitJobErr)	
 			return irs.VMStatus("Terminating"), waitJobErr
