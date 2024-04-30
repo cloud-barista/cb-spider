@@ -1154,7 +1154,7 @@ func (vmHandler *NhnCloudVMHandler) waitToGetVMInfo(vmIID irs.IID) (irs.VMStatus
 		case "Creating", "Booting":
 			curRetryCnt++
 			cblogger.Infof("The VM is still 'Creating', so wait for a second more before inquiring the VM info.")
-			time.Sleep(time.Second * 2)
+			time.Sleep(time.Second * 5)
 			if curRetryCnt > maxRetryCnt {
 				newErr := fmt.Errorf("Despite waiting for a long time(%d sec), the VM status is %s, so it is forcibly finished.", maxRetryCnt, curStatus)
 				cblogger.Error(newErr.Error())
