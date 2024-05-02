@@ -22,6 +22,8 @@ import (
 	cblogger "github.com/cloud-barista/cb-log"
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	aw "github.com/cloud-barista/cb-spider/api-runtime/rest-runtime/admin-web"
+	infostore "github.com/cloud-barista/cb-spider/info-store"
+
 	"github.com/sirupsen/logrus"
 
 	// REST API (echo)
@@ -186,10 +188,13 @@ func RunServer() {
 		{"GET", "/swagger/*", echoSwagger.WrapHandler},
 
 		//----------EndpointInfo
-		{"GET", "/endpointinfo", EndpointInfo},
+		{"GET", "/endpointinfo", endpointInfo},
 
-		//----------EndpointInfo
-		{"GET", "/healthcheck", EndpointInfo},
+		//----------healthcheck
+		{"GET", "/healthcheck", healthCheck},
+		{"GET", "/health", healthCheck},
+		{"GET", "/ping", healthCheck},
+		{"GET", "/readyz", healthCheck},
 
 		//----------CloudOS
 		{"GET", "/cloudos", ListCloudOS},
@@ -540,7 +545,7 @@ func apiInfo(c echo.Context) error {
 }
 
 // ================ Endpoint Info
-func EndpointInfo(c echo.Context) error {
+func endpointInfo(c echo.Context) error {
 	cblog.Info("call endpointInfo()")
 
 	endpointInfo := fmt.Sprintf("\n  <CB-Spider> Multi-Cloud Infrastructure Federation Framework\n")
@@ -554,6 +559,17 @@ func EndpointInfo(c echo.Context) error {
 	// endpointInfo += fmt.Sprintf("     - Go   API: %s\n", gRPCServer)
 
 	return c.String(http.StatusOK, endpointInfo)
+}
+
+// ================ Health Check
+func healthCheck(c echo.Context) error {
+	// check database connection
+	err := infostore.Ping()
+	if err != nil {
+		return echo.NewHTTPError(http.StatusServiceUnavailable, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"message": "CB-Spider is ready"})
 }
 
 func spiderBanner() {

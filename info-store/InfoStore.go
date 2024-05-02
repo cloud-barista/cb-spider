@@ -47,6 +47,27 @@ func init() {
 	}
 }
 
+func Ping() error {
+	// check database connection
+	db, err := Open()
+	if err != nil {
+		return err
+	}
+
+	sqlDB, err := db.DB()
+	if err != nil {
+		return fmt.Errorf("Failed to connect to database: %s", err.Error())
+	}
+
+	defer Close(db)
+	err = sqlDB.Ping()
+	if err != nil {
+		return fmt.Errorf("Database not responding: %s", err.Error())
+	}
+
+	return nil
+}
+
 // KeyValue is a struct for Key-Value pair
 // KVList type is used for storing a list of KeyValue with a json format
 type KVList []icdrs.KeyValue
