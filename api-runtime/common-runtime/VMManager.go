@@ -1154,10 +1154,15 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 		err := infostore.GetByConditionsAndContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName,
 			OWNER_VPC_NAME_COLUMN, vmInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, getMSShortID(sgIID.SystemId))
 		if err != nil {
-			cblog.Error(err)
-			return err
+			// Additional SecurityGroups may be attached from other sources.
+			cblog.Info(err)
+			continue
 		}
 		vmInfo.SecurityGroupIIds[i].NameId = iidInfo.NameId
+	}
+	if len(vmInfo.SecurityGroupIIds) < 1 {
+		cblog.Infof("%s: SecurityGroupIIds is empty", vmInfo.IId.NameId)
+		return fmt.Errorf("%s: SecurityGroupIIds is empty", vmInfo.IId.NameId)
 	}
 
 	if vmInfo.KeyPairIId.SystemId != "" {
