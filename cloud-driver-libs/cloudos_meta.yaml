@@ -9,6 +9,7 @@
 AWS:
   region: Region / Zone
   credential: ClientId / ClientSecret
+  credential_csp_format: aws_access_key_id / aws_secret_access_key
   # rootdisktype: standard / io1 / io2 / gp2 / sc1 / st1 / gp3
   # issues: https://github.com/cloud-barista/cb-spider/pull/523#issuecomment-965363272
   rootdisktype: standard / gp2 / gp3
@@ -21,6 +22,7 @@ AWS:
 AZURE:
   region: Region / Zone
   credential: ClientId / ClientSecret / TenantId / SubscriptionId
+  credential_csp_format: clientId / clientSecret / tenantId / subscriptionId
   # type issues: https://github.com/cloud-barista/cb-spider/pull/529#issue-1051678985
   rootdisktype: PremiumSSD / StandardSSD / StandardHDD
   disktype: PremiumSSD / StandardSSD / StandardHDD
@@ -30,6 +32,7 @@ AZURE:
 GCP:
   region: Region / Zone
   credential: PrivateKey / ProjectID / ClientEmail
+  credential_csp_format: private_key / project_id / client_email
   rootdisktype: pd-standard / pd-balanced / pd-ssd / pd-extreme
   disktype: pd-standard / pd-balanced / pd-ssd / pd-extreme
   disksize: pd-standard|10|65536|GB / pd-balanced|10|65536|GB / pd-ssd|10|65536|GB / pd-extreme|500|65536|GB
