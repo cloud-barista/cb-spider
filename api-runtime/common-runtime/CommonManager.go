@@ -10,6 +10,7 @@ package commonruntime
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"encoding/json"
@@ -126,6 +127,7 @@ func init() {
 	cblog = cblogger.GetLogger("CLOUD-BARISTA")
 	// logger for HisCall
 	callogger = call.GetLogger("HISCALL")
+	setLogLevel()
 }
 
 type AllResourceList struct {
@@ -133,6 +135,18 @@ type AllResourceList struct {
 		MappedList     []*cres.IID `json:"MappedList"`
 		OnlySpiderList []*cres.IID `json:"OnlySpiderList"`
 		OnlyCSPList    []*cres.IID `json:"OnlyCSPList"`
+	}
+}
+
+func setLogLevel() {
+	logLevel := strings.ToLower(os.Getenv("SPIDER_LOG_LEVEL"))
+	if logLevel != "" {
+		cblogger.SetLevel(logLevel)
+	}
+
+	callLogLevel := strings.ToLower(os.Getenv("SPIDER_HISCALL_LOG_LEVEL"))
+	if callLogLevel != "" {
+		call.SetLevel(callLogLevel)
 	}
 }
 
