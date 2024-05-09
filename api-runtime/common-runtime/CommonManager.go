@@ -150,6 +150,17 @@ func setLogLevel() {
 	}
 }
 
+func GetID_MGMT(thisMode string) string {
+
+	switch strings.ToUpper(thisMode) {
+	case "ON":
+		return "ON"
+	case "OFF":
+		return "OFF"
+	}
+	return os.Getenv("ID_MGMT_MODE")
+}
+
 func GetAllSPLockInfo() []string {
 	var results []string
 

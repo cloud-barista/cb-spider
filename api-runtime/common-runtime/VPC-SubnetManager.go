@@ -306,7 +306,7 @@ func UnregisterSubnet(connectionName string, vpcName string, nameId string) (boo
 // (4) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
 // (5) insert spiderIID
 // (6) create userIID
-func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*cres.VPCInfo, error) {
+func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo, ID_MGMT_MODE string) (*cres.VPCInfo, error) {
 	cblog.Info("call CreateVPC()")
 
 	// check empty and trim user inputs
@@ -377,18 +377,23 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*
 		}
 	}
 
-	// (2) generate SP-XID and create reqIID, driverIID
-	//     ex) SP-XID {"vm-01-9m4e2mr0ui3e8a215n4g"}
-	//
-	//     create reqIID: {reqNameID, reqSystemID}   # reqSystemID=SP-XID
-	//         ex) reqIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g"}
-	//
-	//     create driverIID: {driverNameID, driverSystemID}   # driverNameID=SP-XID, driverSystemID=csp's ID
-	//         ex) driverIID {"vm-01-9m4e2mr0ui3e8a215n4g", "i-0bc7123b7e5cbf79d"}
-	spUUID, err := iidm.New(connectionName, rsType, reqInfo.IId.NameId)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	spUUID := ""
+	if GetID_MGMT(ID_MGMT_MODE) == "ON" { // Use IID Management
+		// (2) generate SP-XID and create reqIID, driverIID
+		//     ex) SP-XID {"vm-01-9m4e2mr0ui3e8a215n4g"}
+		//
+		//     create reqIID: {reqNameID, reqSystemID}   # reqSystemID=SP-XID
+		//         ex) reqIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g"}
+		//
+		//     create driverIID: {driverNameID, driverSystemID}   # driverNameID=SP-XID, driverSystemID=csp's ID
+		//         ex) driverIID {"vm-01-9m4e2mr0ui3e8a215n4g", "i-0bc7123b7e5cbf79d"}
+		spUUID, err = iidm.New(connectionName, rsType, reqInfo.IId.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else { // No Use IID Management
+		spUUID = reqInfo.IId.NameId
 	}
 
 	// reqIID
@@ -407,10 +412,15 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo) (*
 	subnetReqIIdList := []cres.IID{}
 	subnetInfoList := []cres.SubnetInfo{}
 	for _, info := range reqInfo.SubnetInfoList {
-		subnetUUID, err := iidm.New(connectionName, rsSubnet, info.IId.NameId)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
+		subnetUUID := ""
+		if GetID_MGMT(ID_MGMT_MODE) == "ON" { // Use IID Management
+			subnetUUID, err = iidm.New(connectionName, rsSubnet, info.IId.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+		} else { // No Use IID Management
+			subnetUUID = reqInfo.IId.NameId
 		}
 
 		// special code for KT CLOUD VPC
@@ -738,7 +748,7 @@ func GetVPC(connectionName string, rsType string, nameID string) (*cres.VPCInfo,
 // (1) check exist(NameID)
 // (2) create Resource
 // (3) insert IID
-func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cres.SubnetInfo) (*cres.VPCInfo, error) {
+func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cres.SubnetInfo, ID_MGMT_MODE string) (*cres.VPCInfo, error) {
 	cblog.Info("call AddSubnet()")
 
 	// check empty and trim user inputs
@@ -788,10 +798,15 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 		return nil, err
 	}
 
-	subnetUUID, err := iidm.New(connectionName, rsType, reqInfo.IId.NameId)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	subnetUUID := ""
+	if GetID_MGMT(ID_MGMT_MODE) == "ON" { // Use IID Management
+		subnetUUID, err = iidm.New(connectionName, rsType, reqInfo.IId.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else { // No Use IID Management
+		subnetUUID = reqInfo.IId.NameId
 	}
 
 	// special code for KT CLOUD VPC

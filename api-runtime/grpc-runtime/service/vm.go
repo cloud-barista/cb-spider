@@ -60,7 +60,7 @@ func (s *CCMService) StartVM(ctx context.Context, req *pb.VMCreateRequest) (*pb.
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.StartVM(req.ConnectionName, rsVM, reqInfo)
+	result, err := cmrt.StartVM(req.ConnectionName, rsVM, reqInfo, "")
 	if err != nil {
 		return nil, gc.ConvGrpcStatusErr(err, "", "CCMService.StartVM()")
 	}

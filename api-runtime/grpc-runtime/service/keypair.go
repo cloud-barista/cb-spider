@@ -37,7 +37,7 @@ func (s *CCMService) CreateKey(ctx context.Context, req *pb.KeyPairCreateRequest
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.CreateKey(req.ConnectionName, rsKey, reqInfo)
+	result, err := cmrt.CreateKey(req.ConnectionName, rsKey, reqInfo, "")
 	if err != nil {
 		return nil, gc.ConvGrpcStatusErr(err, "", "CCMService.CreateKey()")
 	}

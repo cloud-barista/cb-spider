@@ -135,6 +135,7 @@ func UnregisterVPC(c echo.Context) error {
 
 type vpcCreateReq struct {
 	ConnectionName string
+	ID_MGMT_MODE   string // ON | OFF, default is ON
 	ReqInfo        struct {
 		Name           string
 		IPv4_CIDR      string
@@ -181,7 +182,7 @@ func CreateVPC(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.CreateVPC(req.ConnectionName, rsVPC, reqInfo)
+	result, err := cmrt.CreateVPC(req.ConnectionName, rsVPC, reqInfo, req.ID_MGMT_MODE)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -335,6 +336,7 @@ func AddSubnet(c echo.Context) error {
 
 	var req struct {
 		ConnectionName string
+		ID_MGMT_MODE   string // ON | OFF, default is ON
 		ReqInfo        struct {
 			Name      string
 			Zone      string
@@ -350,7 +352,7 @@ func AddSubnet(c echo.Context) error {
 	reqSubnetInfo := cres.SubnetInfo{IId: cres.IID{req.ReqInfo.Name, ""}, IPv4_CIDR: req.ReqInfo.IPv4_CIDR, Zone: req.ReqInfo.Zone}
 
 	// Call common-runtime API
-	result, err := cmrt.AddSubnet(req.ConnectionName, rsSubnet, c.Param("VPCName"), reqSubnetInfo)
+	result, err := cmrt.AddSubnet(req.ConnectionName, rsSubnet, c.Param("VPCName"), reqSubnetInfo, req.ID_MGMT_MODE)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

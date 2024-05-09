@@ -80,6 +80,7 @@ func UnregisterMyImage(c echo.Context) error {
 
 type MyImageReq struct {
 	ConnectionName string
+	ID_MGMT_MODE   string // ON | OFF, default is ON
 	ReqInfo        struct {
 		Name string
 
@@ -104,7 +105,7 @@ func SnapshotVM(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.SnapshotVM(req.ConnectionName, rsMyImage, reqInfo)
+	result, err := cmrt.SnapshotVM(req.ConnectionName, rsMyImage, reqInfo, req.ID_MGMT_MODE)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

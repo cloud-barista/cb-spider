@@ -108,6 +108,7 @@ func CreateKey(c echo.Context) error {
 
 	var req struct {
 		ConnectionName string
+		ID_MGMT_MODE   string // ON | OFF, default is ON
 		ReqInfo        struct {
 			Name string
 		}
@@ -123,7 +124,7 @@ func CreateKey(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.CreateKey(req.ConnectionName, rsKey, reqInfo)
+	result, err := cmrt.CreateKey(req.ConnectionName, rsKey, reqInfo, req.ID_MGMT_MODE)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

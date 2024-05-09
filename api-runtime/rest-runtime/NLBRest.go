@@ -105,6 +105,7 @@ func UnregisterNLB(c echo.Context) error {
 
 type NLBReq struct {
 	ConnectionName string
+	ID_MGMT_MODE   string // ON | OFF, default is ON
 	ReqInfo        struct {
 		Name    string
 		VPCName string
@@ -162,7 +163,7 @@ func CreateNLB(c echo.Context) error {
 	reqInfo.HealthChecker = healthChecker
 
 	// Call common-runtime API
-	result, err := cmrt.CreateNLB(req.ConnectionName, rsNLB, reqInfo)
+	result, err := cmrt.CreateNLB(req.ConnectionName, rsNLB, reqInfo, req.ID_MGMT_MODE)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

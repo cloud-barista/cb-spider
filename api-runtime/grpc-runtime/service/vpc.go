@@ -46,7 +46,7 @@ func (s *CCMService) CreateVPC(ctx context.Context, req *pb.VPCCreateRequest) (*
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.CreateVPC(req.ConnectionName, rsVPC, reqInfo)
+	result, err := cmrt.CreateVPC(req.ConnectionName, rsVPC, reqInfo, "")
 	if err != nil {
 		return nil, gc.ConvGrpcStatusErr(err, "", "CCMService.CreateVPC()")
 	}
@@ -172,7 +172,7 @@ func (s *CCMService) AddSubnet(ctx context.Context, req *pb.SubnetAddRequest) (*
 	reqSubnetInfo := cres.SubnetInfo{IId: cres.IID{req.Item.Name, ""}, IPv4_CIDR: req.Item.Ipv4Cidr}
 
 	// Call common-runtime API
-	result, err := cmrt.AddSubnet(req.ConnectionName, rsSubnet, req.VpcName, reqSubnetInfo)
+	result, err := cmrt.AddSubnet(req.ConnectionName, rsSubnet, req.VpcName, reqSubnetInfo, "")
 	if err != nil {
 		return nil, gc.ConvGrpcStatusErr(err, "", "CCMService.AddSubnet()")
 	}

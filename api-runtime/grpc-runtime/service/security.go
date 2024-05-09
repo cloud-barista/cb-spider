@@ -50,7 +50,7 @@ func (s *CCMService) CreateSecurity(ctx context.Context, req *pb.SecurityCreateR
 	reqInfo.VpcIID = cres.IID{NameId: req.Item.VpcName, SystemId: ""}
 
 	// Call common-runtime API
-	result, err := cmrt.CreateSecurity(req.ConnectionName, rsSG, reqInfo)
+	result, err := cmrt.CreateSecurity(req.ConnectionName, rsSG, reqInfo, "")
 	if err != nil {
 		return nil, gc.ConvGrpcStatusErr(err, "", "CCMService.CreateSecurity()")
 	}

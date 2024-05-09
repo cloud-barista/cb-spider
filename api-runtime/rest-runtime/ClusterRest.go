@@ -107,6 +107,7 @@ func UnregisterCluster(c echo.Context) error {
 type ClusterReq struct {
 	NameSpace      string
 	ConnectionName string
+	ID_MGMT_MODE   string // ON | OFF, default is ON
 	ReqInfo        struct {
 		// (1) Cluster Info
 		Name    string
@@ -168,7 +169,7 @@ func CreateCluster(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.CreateCluster(req.ConnectionName, rsCluster, reqInfo)
+	result, err := cmrt.CreateCluster(req.ConnectionName, rsCluster, reqInfo, req.ID_MGMT_MODE)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

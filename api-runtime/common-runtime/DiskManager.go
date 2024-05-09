@@ -128,7 +128,7 @@ func RegisterDisk(connectionName string, zoneId string, userIID cres.IID) (*cres
 // (4) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
 // (5) insert spiderIID
 // (6) create userIID
-func CreateDisk(connectionName string, rsType string, reqInfo cres.DiskInfo) (*cres.DiskInfo, error) {
+func CreateDisk(connectionName string, rsType string, reqInfo cres.DiskInfo, ID_MGMT_MODE string) (*cres.DiskInfo, error) {
 	cblog.Info("call CreateDisk()")
 
 	// check empty and trim user inputs
@@ -178,18 +178,23 @@ func CreateDisk(connectionName string, rsType string, reqInfo cres.DiskInfo) (*c
 		return nil, err
 	}
 
-	// (2) generate SP-XID and create reqIID, driverIID
-	//     ex) SP-XID {"vm-01-9m4e2mr0ui3e8a215n4g"}
-	//
-	//     create reqIID: {reqNameID, reqSystemID}   # reqSystemID=SP-XID
-	//         ex) reqIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g"}
-	//
-	//     create driverIID: {driverNameID, driverSystemID}   # driverNameID=SP-XID, driverSystemID=csp's ID
-	//         ex) driverIID {"vm-01-9m4e2mr0ui3e8a215n4g", "i-0bc7123b7e5cbf79d"}
-	spUUID, err := iidm.New(connectionName, rsType, reqInfo.IId.NameId)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	spUUID := ""
+	if GetID_MGMT(ID_MGMT_MODE) == "ON" { // Use IID Management
+		// (2) generate SP-XID and create reqIID, driverIID
+		//     ex) SP-XID {"vm-01-9m4e2mr0ui3e8a215n4g"}
+		//
+		//     create reqIID: {reqNameID, reqSystemID}   # reqSystemID=SP-XID
+		//         ex) reqIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g"}
+		//
+		//     create driverIID: {driverNameID, driverSystemID}   # driverNameID=SP-XID, driverSystemID=csp's ID
+		//         ex) driverIID {"vm-01-9m4e2mr0ui3e8a215n4g", "i-0bc7123b7e5cbf79d"}
+		spUUID, err = iidm.New(connectionName, rsType, reqInfo.IId.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else { // No Use IID Management
+		spUUID = reqInfo.IId.NameId
 	}
 
 	// reqIID

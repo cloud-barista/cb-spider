@@ -106,6 +106,7 @@ func StartVM(c echo.Context) error {
 
 	var req struct {
 		ConnectionName string
+		ID_MGMT_MODE   string // ON | OFF, default is ON
 		ReqInfo        struct {
 			Name               string
 			ImageType          string
@@ -170,7 +171,7 @@ func StartVM(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.StartVM(req.ConnectionName, rsVM, reqInfo)
+	result, err := cmrt.StartVM(req.ConnectionName, rsVM, reqInfo, req.ID_MGMT_MODE)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

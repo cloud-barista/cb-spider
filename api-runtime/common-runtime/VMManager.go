@@ -342,7 +342,7 @@ func RegisterVM(connectionName string, userIID cres.IID) (*cres.VMInfo, error) {
 // (5) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
 // (6) insert spiderIID
 // (7) create userIID
-func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cres.VMInfo, error) {
+func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, ID_MGMT_MODE string) (*cres.VMInfo, error) {
 	cblog.Info("call StartVM()")
 
 	// check empty and trim user inputs
@@ -453,18 +453,23 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo) (*cre
 		rsType = "windowsvm" // be used for NCP and NCPVPC in IIDManager.New()
 	}
 
-	// (3) generate SP-XID and create reqIID, driverIID
-	//     ex) SP-XID {"vm-01-9m4e2mr0ui3e8a215n4g"}
-	//
-	//     create reqIID: {reqNameID, reqSystemID}   # reqSystemID=SP-XID
-	//         ex) reqIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g"}
-	//
-	//     create driverIID: {driverNameID, driverSystemID}   # driverNameID=SP-XID, driverSystemID=csp's ID
-	//         ex) driverIID {"vm-01-9m4e2mr0ui3e8a215n4g", "i-0bc7123b7e5cbf79d"}
-	spUUID, err := iidm.New(connectionName, rsType, reqInfoForDriver.IId.NameId)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	spUUID := ""
+	if GetID_MGMT(ID_MGMT_MODE) == "ON" { // Use IID Management
+		// (3) generate SP-XID and create reqIID, driverIID
+		//     ex) SP-XID {"vm-01-9m4e2mr0ui3e8a215n4g"}
+		//
+		//     create reqIID: {reqNameID, reqSystemID}   # reqSystemID=SP-XID
+		//         ex) reqIID {"seoul-service", "vm-01-9m4e2mr0ui3e8a215n4g"}
+		//
+		//     create driverIID: {driverNameID, driverSystemID}   # driverNameID=SP-XID, driverSystemID=csp's ID
+		//         ex) driverIID {"vm-01-9m4e2mr0ui3e8a215n4g", "i-0bc7123b7e5cbf79d"}
+		spUUID, err = iidm.New(connectionName, rsType, reqInfoForDriver.IId.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else { // No Use IID Management
+		spUUID = reqInfo.IId.NameId
 	}
 
 	// reqIID
