@@ -278,7 +278,7 @@ func RegisterNLB(connectionName string, vpcUserID string, userIID cres.IID) (*cr
 // (4) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
 // (5) insert spiderIID
 // (6) create userIID
-func CreateNLB(connectionName string, rsType string, reqInfo cres.NLBInfo, ID_TRANSFORM_MODE string) (*cres.NLBInfo, error) {
+func CreateNLB(connectionName string, rsType string, reqInfo cres.NLBInfo, IDTransformMode string) (*cres.NLBInfo, error) {
 	cblog.Info("call CreateNLB()")
 
 	// check empty and trim user inputs
@@ -368,7 +368,7 @@ func CreateNLB(connectionName string, rsType string, reqInfo cres.NLBInfo, ID_TR
 	}
 
 	spUUID := ""
-	if GetID_MGMT(ID_TRANSFORM_MODE) == "ON" { // Use IID Management
+	if GetID_MGMT(IDTransformMode) == "ON" { // Use IID Management
 		// (2) generate SP-XID and create reqIID, driverIID
 		//     ex) SP-XID {"vm-01-9m4e2mr0ui3e8a215n4g"}
 		//

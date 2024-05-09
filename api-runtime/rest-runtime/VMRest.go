@@ -105,9 +105,9 @@ func StartVM(c echo.Context) error {
 	cblog.Info("call StartVM()")
 
 	var req struct {
-		ConnectionName    string
-		ID_TRANSFORM_MODE string // ON | OFF, default is ON
-		ReqInfo           struct {
+		ConnectionName  string
+		IDTransformMode string // ON | OFF, default is ON
+		ReqInfo         struct {
 			Name               string
 			ImageType          string
 			ImageName          string
@@ -171,7 +171,7 @@ func StartVM(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.StartVM(req.ConnectionName, rsVM, reqInfo, req.ID_TRANSFORM_MODE)
+	result, err := cmrt.StartVM(req.ConnectionName, rsVM, reqInfo, req.IDTransformMode)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

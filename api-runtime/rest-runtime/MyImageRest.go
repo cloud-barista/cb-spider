@@ -79,9 +79,9 @@ func UnregisterMyImage(c echo.Context) error {
 }
 
 type MyImageReq struct {
-	ConnectionName    string
-	ID_TRANSFORM_MODE string // ON | OFF, default is ON
-	ReqInfo           struct {
+	ConnectionName  string
+	IDTransformMode string // ON | OFF, default is ON
+	ReqInfo         struct {
 		Name string
 
 		SourceVM string
@@ -105,7 +105,7 @@ func SnapshotVM(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.SnapshotVM(req.ConnectionName, rsMyImage, reqInfo, req.ID_TRANSFORM_MODE)
+	result, err := cmrt.SnapshotVM(req.ConnectionName, rsMyImage, reqInfo, req.IDTransformMode)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

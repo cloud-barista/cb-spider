@@ -104,9 +104,9 @@ func UnregisterNLB(c echo.Context) error {
 }
 
 type NLBReq struct {
-	ConnectionName    string
-	ID_TRANSFORM_MODE string // ON | OFF, default is ON
-	ReqInfo           struct {
+	ConnectionName  string
+	IDTransformMode string // ON | OFF, default is ON
+	ReqInfo         struct {
 		Name    string
 		VPCName string
 		Type    string // PUBLIC(V) | INTERNAL
@@ -163,7 +163,7 @@ func CreateNLB(c echo.Context) error {
 	reqInfo.HealthChecker = healthChecker
 
 	// Call common-runtime API
-	result, err := cmrt.CreateNLB(req.ConnectionName, rsNLB, reqInfo, req.ID_TRANSFORM_MODE)
+	result, err := cmrt.CreateNLB(req.ConnectionName, rsNLB, reqInfo, req.IDTransformMode)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

@@ -80,9 +80,9 @@ func UnregisterDisk(c echo.Context) error {
 }
 
 type DiskReq struct {
-	ConnectionName    string
-	ID_TRANSFORM_MODE string // ON | OFF, default is ON
-	ReqInfo           struct {
+	ConnectionName  string
+	IDTransformMode string // ON | OFF, default is ON
+	ReqInfo         struct {
 		Name string
 		Zone string
 
@@ -109,7 +109,7 @@ func CreateDisk(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.CreateDisk(req.ConnectionName, rsDisk, reqInfo, req.ID_TRANSFORM_MODE)
+	result, err := cmrt.CreateDisk(req.ConnectionName, rsDisk, reqInfo, req.IDTransformMode)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

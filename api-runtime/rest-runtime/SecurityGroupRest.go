@@ -80,9 +80,9 @@ func UnregisterSecurity(c echo.Context) error {
 }
 
 type securityGroupCreateReq struct {
-	ConnectionName    string
-	ID_TRANSFORM_MODE string // ON | OFF, default is ON
-	ReqInfo           struct {
+	ConnectionName  string
+	IDTransformMode string // ON | OFF, default is ON
+	ReqInfo         struct {
 		Name          string
 		VPCName       string
 		Direction     string
@@ -123,7 +123,7 @@ func CreateSecurity(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.CreateSecurity(req.ConnectionName, rsSG, reqInfo, req.ID_TRANSFORM_MODE)
+	result, err := cmrt.CreateSecurity(req.ConnectionName, rsSG, reqInfo, req.IDTransformMode)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

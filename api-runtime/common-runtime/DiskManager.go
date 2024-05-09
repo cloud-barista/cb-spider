@@ -128,7 +128,7 @@ func RegisterDisk(connectionName string, zoneId string, userIID cres.IID) (*cres
 // (4) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
 // (5) insert spiderIID
 // (6) create userIID
-func CreateDisk(connectionName string, rsType string, reqInfo cres.DiskInfo, ID_TRANSFORM_MODE string) (*cres.DiskInfo, error) {
+func CreateDisk(connectionName string, rsType string, reqInfo cres.DiskInfo, IDTransformMode string) (*cres.DiskInfo, error) {
 	cblog.Info("call CreateDisk()")
 
 	// check empty and trim user inputs
@@ -179,7 +179,7 @@ func CreateDisk(connectionName string, rsType string, reqInfo cres.DiskInfo, ID_
 	}
 
 	spUUID := ""
-	if GetID_MGMT(ID_TRANSFORM_MODE) == "ON" { // Use IID Management
+	if GetID_MGMT(IDTransformMode) == "ON" { // Use IID Management
 		// (2) generate SP-XID and create reqIID, driverIID
 		//     ex) SP-XID {"vm-01-9m4e2mr0ui3e8a215n4g"}
 		//

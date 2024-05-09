@@ -107,9 +107,9 @@ func CreateKey(c echo.Context) error {
 	cblog.Info("call CreateKey()")
 
 	var req struct {
-		ConnectionName    string
-		ID_TRANSFORM_MODE string // ON | OFF, default is ON
-		ReqInfo           struct {
+		ConnectionName  string
+		IDTransformMode string // ON | OFF, default is ON
+		ReqInfo         struct {
 			Name string
 		}
 	}
@@ -124,7 +124,7 @@ func CreateKey(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.CreateKey(req.ConnectionName, rsKey, reqInfo, req.ID_TRANSFORM_MODE)
+	result, err := cmrt.CreateKey(req.ConnectionName, rsKey, reqInfo, req.IDTransformMode)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
