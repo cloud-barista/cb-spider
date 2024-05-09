@@ -158,7 +158,7 @@ func GetID_MGMT(thisMode string) string {
 	case "OFF":
 		return "OFF"
 	}
-	return os.Getenv("ID_MGMT_MODE")
+	return os.Getenv("ID_TRANSFORM_MODE")
 }
 
 func GetAllSPLockInfo() []string {

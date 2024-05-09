@@ -301,7 +301,7 @@ func registerNodeGroupList(connectionName string, info *cres.ClusterInfo) error 
 // (5) insert spiderIID
 // (6) create userIID
 // (7) set used Resources's userIID
-func CreateCluster(connectionName string, rsType string, reqInfo cres.ClusterInfo, ID_MGMT_MODE string) (*cres.ClusterInfo, error) {
+func CreateCluster(connectionName string, rsType string, reqInfo cres.ClusterInfo, ID_TRANSFORM_MODE string) (*cres.ClusterInfo, error) {
 	cblog.Info("call CreateCluster()")
 
 	// check empty and trim user inputs
@@ -425,7 +425,7 @@ func CreateCluster(connectionName string, rsType string, reqInfo cres.ClusterInf
 	}
 
 	spUUID := ""
-	if GetID_MGMT(ID_MGMT_MODE) == "ON" { // Use IID Management
+	if GetID_MGMT(ID_TRANSFORM_MODE) == "ON" { // Use IID Management
 		// (2) generate SP-XID and create reqIID, driverIID
 		//     ex) SP-XID {"vm-01-9m4e2mr0ui3e8a215n4g"}
 		//

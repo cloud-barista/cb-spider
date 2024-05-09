@@ -342,7 +342,7 @@ func RegisterVM(connectionName string, userIID cres.IID) (*cres.VMInfo, error) {
 // (5) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
 // (6) insert spiderIID
 // (7) create userIID
-func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, ID_MGMT_MODE string) (*cres.VMInfo, error) {
+func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, ID_TRANSFORM_MODE string) (*cres.VMInfo, error) {
 	cblog.Info("call StartVM()")
 
 	// check empty and trim user inputs
@@ -454,7 +454,7 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, ID_MG
 	}
 
 	spUUID := ""
-	if GetID_MGMT(ID_MGMT_MODE) == "ON" { // Use IID Management
+	if GetID_MGMT(ID_TRANSFORM_MODE) == "ON" { // Use IID Management
 		// (3) generate SP-XID and create reqIID, driverIID
 		//     ex) SP-XID {"vm-01-9m4e2mr0ui3e8a215n4g"}
 		//
