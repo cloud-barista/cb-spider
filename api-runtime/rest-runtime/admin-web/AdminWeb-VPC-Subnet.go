@@ -376,6 +376,16 @@ func VPC(c echo.Context) error {
 	// (4-2) make TR list with info list
 	htmlStr += makeVPCTRList_html("", "", "", info.ResultList, zoneId)
 
+	providerName, _ := getProviderName(connConfig)
+	vpcCIDR := "10.0.0.0/16"
+	subnetCIDR := "10.0.8.0/22"
+
+	switch providerName {
+	case "KTCLOUDVPC":
+		vpcCIDR = "172.25.0.0/12"
+		subnetCIDR = "172.25.10.0/24"
+	}
+
 	// (5) make input field and add
 	// attach text box for add
 	htmlStr += `
@@ -387,10 +397,10 @@ func VPC(c echo.Context) error {
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="1" value="vpc-01">
                             </td>
                             <td>
-                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="2" value="10.0.0.0/16">
+                                <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="2" value="$$VPCCIDR$$">
                             </td>
                             <td>
-                                <textarea style="font-size:12px;text-align:center;" name="text_box" id="3" cols=50>[ { "Name": "subnet-01", "Zone": "` + zoneId + `", "IPv4_CIDR": "10.0.8.0/22"} ]</textarea>
+                                <textarea style="font-size:12px;text-align:center;" name="text_box" id="3" cols=50>[ { "Name": "subnet-01", "Zone": "` + zoneId + `", "IPv4_CIDR": "$$SUBNETCIDR$$"} ]</textarea>
                             </td>
                             <td>
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="4" disabled value="N/A">
@@ -402,6 +412,11 @@ func VPC(c echo.Context) error {
                             </td>
                         </tr>
                 `
+
+	// set vpcCIDR & subnetCIDR
+	htmlStr = strings.ReplaceAll(htmlStr, "$$VPCCIDR$$", vpcCIDR)
+	htmlStr = strings.ReplaceAll(htmlStr, "$$SUBNETCIDR$$", subnetCIDR)
+
 	// make page tail
 	htmlStr += `
                     </table>
