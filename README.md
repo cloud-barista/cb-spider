@@ -68,6 +68,7 @@ If you have any difficulties in using Cloud-Barista, please let us know.
   | NCP VPC       | O             | O            | O               | O            | O             | O             | O               | O          | - |
   | NHN           | O             | O            | O               | O<br>(Type-2)| O             | O             | O<br>(Note-2)   | O          |Coming Soon |
   | KT Classic    | O             | O            | O               | O<br>(Type-1)| O             | O             | O               | O          | - |  
+  | KT VPC        | O             | O            | O               | O<br>(Type-3)| O             | O             | Coming Soon     | Coming Soon | - |  
   
 
     ※ VPC 특이사항(세부 내용: 각 드라이버 Readme 참고)
