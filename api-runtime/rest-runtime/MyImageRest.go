@@ -249,3 +249,37 @@ func DeleteCSPMyImage(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, &resultInfo)
 }
+
+func CountAllMyImages(c echo.Context) error {
+	// Call common-runtime API to get count of MyImages
+	count, err := cmrt.CountAllMyImages()
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Prepare JSON result
+	var jsonResult struct {
+		Count int `json:"count"`
+	}
+	jsonResult.Count = int(count)
+
+	// Return JSON response
+	return c.JSON(http.StatusOK, jsonResult)
+}
+
+func CountMyImagesByConnection(c echo.Context) error {
+	// Call common-runtime API to get count of MyImages
+	count, err := cmrt.CountMyImagesByConnection(c.Param("ConnectionName"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Prepare JSON result
+	var jsonResult struct {
+		Count int `json:"count"`
+	}
+	jsonResult.Count = int(count)
+
+	// Return JSON response
+	return c.JSON(http.StatusOK, jsonResult)
+}

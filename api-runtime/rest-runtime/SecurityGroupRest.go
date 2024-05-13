@@ -345,3 +345,37 @@ func RemoveRules(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, &resultInfo)
 }
+
+func CountAllSecurityGroups(c echo.Context) error {
+	// Call common-runtime API to get count of SecurityGroups
+	count, err := cmrt.CountAllSecurityGroups()
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Prepare JSON result
+	var jsonResult struct {
+		Count int `json:"count"`
+	}
+	jsonResult.Count = int(count)
+
+	// Return JSON response
+	return c.JSON(http.StatusOK, jsonResult)
+}
+
+func CountSecurityGroupsByConnection(c echo.Context) error {
+	// Call common-runtime API to get count of SecurityGroups
+	count, err := cmrt.CountSecurityGroupsByConnection(c.Param("ConnectionName"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Prepare JSON result
+	var jsonResult struct {
+		Count int `json:"count"`
+	}
+	jsonResult.Count = int(count)
+
+	// Return JSON response
+	return c.JSON(http.StatusOK, jsonResult)
+}

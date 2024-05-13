@@ -1623,3 +1623,25 @@ func DeleteVM(connectionName string, rsType string, nameID string, force string)
 
 	return true, vmStatus, nil
 }
+
+func CountAllVMs() (int64, error) {
+	var info VMIIDInfo
+	count, err := infostore.CountAllNameIDs(&info)
+	if err != nil {
+		cblog.Error(err)
+		return count, err
+	}
+
+	return count, nil
+}
+
+func CountVMsByConnection(connectionName string) (int64, error) {
+	var info VMIIDInfo
+	count, err := infostore.CountNameIDsByConnection(&info, connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return count, err
+	}
+
+	return count, nil
+}

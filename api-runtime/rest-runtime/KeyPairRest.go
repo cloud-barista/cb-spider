@@ -268,3 +268,37 @@ func DeleteCSPKey(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, &resultInfo)
 }
+
+func CountAllKeys(c echo.Context) error {
+	// Call common-runtime API to get count of Keys
+	count, err := cmrt.CountAllKeys()
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Prepare JSON result
+	var jsonResult struct {
+		Count int `json:"count"`
+	}
+	jsonResult.Count = int(count)
+
+	// Return JSON response
+	return c.JSON(http.StatusOK, jsonResult)
+}
+
+func CountKeysByConnection(c echo.Context) error {
+	// Call common-runtime API to get count of Keys
+	count, err := cmrt.CountKeysByConnection(c.Param("ConnectionName"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Prepare JSON result
+	var jsonResult struct {
+		Count int `json:"count"`
+	}
+	jsonResult.Count = int(count)
+
+	// Return JSON response
+	return c.JSON(http.StatusOK, jsonResult)
+}

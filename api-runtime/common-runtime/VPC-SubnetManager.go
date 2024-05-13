@@ -1109,3 +1109,47 @@ func DeleteVPC(connectionName string, rsType string, nameID string, force string
 	}
 	return result, nil
 }
+
+func CountAllVPCs() (int64, error) {
+	var info VPCIIDInfo
+	count, err := infostore.CountAllNameIDs(&info)
+	if err != nil {
+		cblog.Error(err)
+		return count, err
+	}
+
+	return count, nil
+}
+
+func CountVPCsByConnection(connectionName string) (int64, error) {
+	var info VPCIIDInfo
+	count, err := infostore.CountNameIDsByConnection(&info, connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return count, err
+	}
+
+	return count, nil
+}
+
+func CountAllSubnets() (int64, error) {
+	var info SubnetIIDInfo
+	count, err := infostore.CountAllNameIDs(&info)
+	if err != nil {
+		cblog.Error(err)
+		return count, err
+	}
+
+	return count, nil
+}
+
+func CountSubnetsByConnection(connectionName string) (int64, error) {
+	var info SubnetIIDInfo
+	count, err := infostore.CountNameIDsByConnection(&info, connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return count, err
+	}
+
+	return count, nil
+}

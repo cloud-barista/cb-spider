@@ -19,14 +19,15 @@ import (
 
 	// REST API (echo)
 	"net/http"
+
 	"github.com/labstack/echo/v4"
 
-	"os"
-	"io"
 	"fmt"
+	"io"
+	"os"
 )
 
-//================ List of support CloudOS
+// ================ List of support CloudOS
 func ListCloudOS(c echo.Context) error {
 	cblog.Info("call ListCloudOS()")
 
@@ -42,19 +43,19 @@ func ListCloudOS(c echo.Context) error {
 	return c.JSON(http.StatusOK, &jsonResult)
 }
 
-//================ CloudOS Metainfo
+// ================ CloudOS Metainfo
 func GetCloudOSMetaInfo(c echo.Context) error {
-        cblog.Info("call GetCloudOSMetaInfo()")
+	cblog.Info("call GetCloudOSMetaInfo()")
 
 	cldMetainfo, err := im.GetCloudOSMetaInfo(c.Param("CloudOSName"))
-        if err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 
-        return c.JSON(http.StatusOK, &cldMetainfo)
+	return c.JSON(http.StatusOK, &cldMetainfo)
 }
 
-//================ CloudDriver Handler
+// ================ CloudDriver Handler
 func RegisterCloudDriver(c echo.Context) error {
 	cblog.Info("call RegisterCloudDriver()")
 	req := &dim.CloudDriverInfo{}
@@ -118,34 +119,34 @@ func UnRegisterCloudDriver(c echo.Context) error {
 }
 
 func UploadCloudDriver(c echo.Context) error {
-        // Source
-        file, err := c.FormFile("file")
-        if err != nil {
-                return err
-        }
-        src, err := file.Open()
-        if err != nil {
-                return err
-        }
-        defer src.Close()
+	// Source
+	file, err := c.FormFile("file")
+	if err != nil {
+		return err
+	}
+	src, err := file.Open()
+	if err != nil {
+		return err
+	}
+	defer src.Close()
 
-        // Destination
+	// Destination
 	cbspiderRoot := os.Getenv("CBSPIDER_ROOT")
-        dst, err := os.Create(cbspiderRoot + "/cloud-driver-libs/" + file.Filename)
-        if err != nil {
-                return err
-        }
-        defer dst.Close()
+	dst, err := os.Create(cbspiderRoot + "/cloud-driver-libs/" + file.Filename)
+	if err != nil {
+		return err
+	}
+	defer dst.Close()
 
-        // Copy
-        if _, err = io.Copy(dst, src); err != nil {
-                return err
-        }
+	// Copy
+	if _, err = io.Copy(dst, src); err != nil {
+		return err
+	}
 
-        return c.HTML(http.StatusOK, fmt.Sprintf("<p>File %s uploaded successfully.</p>", file.Filename))
+	return c.HTML(http.StatusOK, fmt.Sprintf("<p>File %s uploaded successfully.</p>", file.Filename))
 }
 
-//================ Credential Handler
+// ================ Credential Handler
 func RegisterCredential(c echo.Context) error {
 	cblog.Info("call RegisterCredential()")
 
@@ -206,7 +207,7 @@ func UnRegisterCredential(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
-//================ Region Handler
+// ================ Region Handler
 func RegisterRegion(c echo.Context) error {
 	cblog.Info("call RegisterRegion()")
 
@@ -267,7 +268,7 @@ func UnRegisterRegion(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
-//================ ConnectionConfig Handler
+// ================ ConnectionConfig Handler
 func CreateConnectionConfig(c echo.Context) error {
 	cblog.Info("call CreateConnectionConfig()")
 
@@ -326,4 +327,36 @@ func DeleteConnectionConfig(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, &resultInfo)
+}
+
+func CountAllConnections(c echo.Context) error {
+	count, err := ccim.CountAllConnections()
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Prepare JSON result
+	var jsonResult struct {
+		Count int `json:"count"`
+	}
+	jsonResult.Count = int(count)
+
+	// Return JSON response
+	return c.JSON(http.StatusOK, jsonResult)
+}
+
+func CountConnectionsByProvider(c echo.Context) error {
+	count, err := ccim.CountConnectionsByProvider(c.Param("ProviderName"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Prepare JSON result
+	var jsonResult struct {
+		Count int `json:"count"`
+	}
+	jsonResult.Count = int(count)
+
+	// Return JSON response
+	return c.JSON(http.StatusOK, jsonResult)
 }

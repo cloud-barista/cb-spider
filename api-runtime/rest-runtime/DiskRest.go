@@ -327,3 +327,37 @@ func DetachDisk(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, result)
 }
+
+func CountAllDisks(c echo.Context) error {
+	// Call common-runtime API to get count of Disks
+	count, err := cmrt.CountAllDisks()
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Prepare JSON result
+	var jsonResult struct {
+		Count int `json:"count"`
+	}
+	jsonResult.Count = int(count)
+
+	// Return JSON response
+	return c.JSON(http.StatusOK, jsonResult)
+}
+
+func CountDisksByConnection(c echo.Context) error {
+	// Call common-runtime API to get count of Disks
+	count, err := cmrt.CountDisksByConnection(c.Param("ConnectionName"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Prepare JSON result
+	var jsonResult struct {
+		Count int `json:"count"`
+	}
+	jsonResult.Count = int(count)
+
+	// Return JSON response
+	return c.JSON(http.StatusOK, jsonResult)
+}

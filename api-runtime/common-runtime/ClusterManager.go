@@ -1493,3 +1493,25 @@ func DeleteCluster(connectionName string, rsType string, nameID string, force st
 
 	return result, nil
 }
+
+func CountAllClusters() (int64, error) {
+	var info ClusterIIDInfo
+	count, err := infostore.CountAllNameIDs(&info)
+	if err != nil {
+		cblog.Error(err)
+		return count, err
+	}
+
+	return count, nil
+}
+
+func CountClustersByConnection(connectionName string) (int64, error) {
+	var info ClusterIIDInfo
+	count, err := infostore.CountNameIDsByConnection(&info, connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return count, err
+	}
+
+	return count, nil
+}

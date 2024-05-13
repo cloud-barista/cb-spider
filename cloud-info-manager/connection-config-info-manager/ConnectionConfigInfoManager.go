@@ -150,3 +150,27 @@ func checkParams(configName string, providerName string, driverName string, cred
 
 	return nil
 }
+
+func CountAllConnections() (int64, error) {
+	cblog.Info("call ListConnectionConfig()")
+
+	var connectionConfigInfo ConnectionConfigInfo
+	count, err := infostore.CountAllConnections(&connectionConfigInfo)
+	if err != nil {
+		cblog.Error(err)
+		return count, err
+	}
+
+	return count, nil
+}
+
+func CountConnectionsByProvider(providerName string) (int64, error) {
+	var connectionConfigInfo ConnectionConfigInfo
+	count, err := infostore.CountConnectionsByProvider(&connectionConfigInfo, providerName)
+	if err != nil {
+		cblog.Error(err)
+		return count, err
+	}
+
+	return count, nil
+}

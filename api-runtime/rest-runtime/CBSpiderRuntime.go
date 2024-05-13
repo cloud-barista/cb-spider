@@ -226,6 +226,9 @@ func RunServer() {
 		{"GET", "/connectionconfig", ListConnectionConfig},
 		{"GET", "/connectionconfig/:ConfigName", GetConnectionConfig},
 		{"DELETE", "/connectionconfig/:ConfigName", DeleteConnectionConfig},
+		//-- for dashboard
+		{"GET", "/countconnectionconfig", CountAllConnections},
+		{"GET", "/countconnectionconfig/:ProviderName", CountConnectionsByProvider},
 
 		//-------------------------------------------------------------------//
 
@@ -271,6 +274,11 @@ func RunServer() {
 		//-- for management
 		{"GET", "/allvpc", ListAllVPC},
 		{"DELETE", "/cspvpc/:Id", DeleteCSPVPC},
+		//-- for dashboard
+		{"GET", "/countvpc", CountAllVPCs},
+		{"GET", "/countvpc/:ConnectionName", CountVPCsByConnection},
+		{"GET", "/countsubnet", CountAllSubnets},
+		{"GET", "/countsubnet/:ConnectionName", CountSubnetsByConnection},
 
 		//----------SecurityGroup Handler
 		{"GET", "/getsecuritygroupowner", GetSGOwnerVPC},
@@ -288,6 +296,9 @@ func RunServer() {
 		//-- for management
 		{"GET", "/allsecuritygroup", ListAllSecurity},
 		{"DELETE", "/cspsecuritygroup/:Id", DeleteCSPSecurity},
+		//-- for dashboard
+		{"GET", "/countsecuritygroup", CountAllSecurityGroups},
+		{"GET", "/countsecuritygroup/:ConnectionName", CountSecurityGroupsByConnection},
 
 		//----------KeyPair Handler
 		{"POST", "/regkeypair", RegisterKey},
@@ -300,6 +311,9 @@ func RunServer() {
 		//-- for management
 		{"GET", "/allkeypair", ListAllKey},
 		{"DELETE", "/cspkeypair/:Id", DeleteCSPKey},
+		//-- for dashboard
+		{"GET", "/countkeypair", CountAllKeys},
+		{"GET", "/countkeypair/:ConnectionName", CountKeysByConnection},
 		/*
 			//----------VNic Handler
 			{"POST", "/vnic", createVNic},
@@ -322,9 +336,6 @@ func RunServer() {
 		{"GET", "/vm", ListVM},
 		{"GET", "/vm/:Name", GetVM},
 		{"DELETE", "/vm/:Name", TerminateVM},
-		//-- for management
-		{"GET", "/allvm", ListAllVM},
-		{"DELETE", "/cspvm/:Id", TerminateCSPVM},
 
 		{"GET", "/vmstatus", ListVMStatus},
 		{"GET", "/vmstatus/:Name", GetVMStatus},
@@ -332,6 +343,13 @@ func RunServer() {
 		{"GET", "/controlvm/:Name", ControlVM}, // suspend, resume, reboot
 		// only for AdminWeb
 		{"PUT", "/controlvm/:Name", ControlVM}, // suspend, resume, reboot
+
+		//-- for management
+		{"GET", "/allvm", ListAllVM},
+		{"DELETE", "/cspvm/:Id", TerminateCSPVM},
+		//-- for dashboard
+		{"GET", "/countvm", CountAllVMs},
+		{"GET", "/countvm/:ConnectionName", CountVMsByConnection},
 
 		//----------NLB Handler
 		{"GET", "/getnlbowner", GetNLBOwnerVPC},
@@ -353,6 +371,9 @@ func RunServer() {
 		//-- for management
 		{"GET", "/allnlb", ListAllNLB},
 		{"DELETE", "/cspnlb/:Id", DeleteCSPNLB},
+		//-- for dashboard
+		{"GET", "/countnlb", CountAllNLBs},
+		{"GET", "/countnlb/:ConnectionName", CountNLBsByConnection},
 
 		//----------Disk Handler
 		{"POST", "/regdisk", RegisterDisk},
@@ -370,6 +391,9 @@ func RunServer() {
 		//-- for management
 		{"GET", "/alldisk", ListAllDisk},
 		{"DELETE", "/cspdisk/:Id", DeleteCSPDisk},
+		//-- for dashboard
+		{"GET", "/countdisk", CountAllDisks},
+		{"GET", "/countdisk/:ConnectionName", CountDisksByConnection},
 
 		//----------MyImage Handler
 		{"POST", "/regmyimage", RegisterMyImage},
@@ -383,6 +407,9 @@ func RunServer() {
 		//-- for management
 		{"GET", "/allmyimage", ListAllMyImage},
 		{"DELETE", "/cspmyimage/:Id", DeleteCSPMyImage},
+		//-- for dashboard
+		{"GET", "/countmyimage", CountAllMyImages},
+		{"GET", "/countmyimage/:ConnectionName", CountMyImagesByConnection},
 
 		//----------Cluster Handler
 		{"GET", "/getclusterowner", GetClusterOwnerVPC},
@@ -404,6 +431,9 @@ func RunServer() {
 		//-- for management
 		{"GET", "/allcluster", ListAllCluster},
 		{"DELETE", "/cspcluster/:Id", DeleteCSPCluster},
+		//-- for dashboard
+		{"GET", "/countcluster", CountAllClusters},
+		{"GET", "/countcluster/:ConnectionName", CountClustersByConnection},
 
 		//-- only for WebTool
 		{"GET", "/nscluster", AllClusterList},  // GET with a body for backward compatibility
@@ -427,10 +457,15 @@ func RunServer() {
 		{"GET", "/adminweb/top", aw.Top},
 		{"GET", "/adminweb/log", aw.Log},
 
+		{"GET", "/adminweb/dashboard", aw.Dashboard},
+
 		{"GET", "/adminweb/driver", aw.Driver},
 		{"GET", "/adminweb/credential", aw.Credential},
 		{"GET", "/adminweb/region", aw.Region},
 		{"GET", "/adminweb/connectionconfig", aw.Connectionconfig},
+
+		{"GET", "/adminweb/dashboard", aw.Dashboard},
+
 		{"GET", "/adminweb/spiderinfo", aw.SpiderInfo},
 
 		{"GET", "/adminweb/vpc/:ConnectConfig", aw.VPC},
@@ -445,7 +480,8 @@ func RunServer() {
 		{"GET", "/adminweb/nlbmgmt/:ConnectConfig", aw.NLBMgmt},
 		{"GET", "/adminweb/disk/:ConnectConfig", aw.Disk},
 		{"GET", "/adminweb/diskmgmt/:ConnectConfig", aw.DiskMgmt},
-
+		{"GET", "/adminweb/cluster/:ConnectConfig", aw.Cluster},
+		{"GET", "/adminweb/clustermgmt/:ConnectConfig", aw.ClusterMgmt},
 		{"GET", "/adminweb/myimage/:ConnectConfig", aw.MyImage},
 		{"GET", "/adminweb/myimagemgmt/:ConnectConfig", aw.MyImageMgmt},
 		{"GET", "/adminweb/vmimage/:ConnectConfig", aw.VMImage},
@@ -456,9 +492,6 @@ func RunServer() {
 		{"GET", "/adminweb/priceinfotablelist/:ProductFamily/:RegionName/:ConnectConfig", aw.PriceInfoTableList},
 		// download price info with JSON file
 		{"GET", "/adminweb/priceinfo/download/:FileName", aw.DownloadPriceInfo},
-
-		{"GET", "/adminweb/cluster/:ConnectConfig", aw.Cluster},
-		{"GET", "/adminweb/clustermgmt/:ConnectConfig", aw.ClusterMgmt},
 	}
 	//======================================= setup routes
 

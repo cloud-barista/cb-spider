@@ -800,3 +800,25 @@ func DeleteSecurity(connectionName string, rsType string, nameID string, force s
 
 	return result, nil
 }
+
+func CountAllSecurityGroups() (int64, error) {
+	var info SGIIDInfo
+	count, err := infostore.CountAllNameIDs(&info)
+	if err != nil {
+		cblog.Error(err)
+		return count, err
+	}
+
+	return count, nil
+}
+
+func CountSecurityGroupsByConnection(connectionName string) (int64, error) {
+	var info SGIIDInfo
+	count, err := infostore.CountNameIDsByConnection(&info, connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return count, err
+	}
+
+	return count, nil
+}

@@ -462,3 +462,25 @@ func DeleteMyImage(connectionName string, rsType string, nameID string, force st
 
 	return result, nil
 }
+
+func CountAllMyImages() (int64, error) {
+	var info MyImageIIDInfo
+	count, err := infostore.CountAllNameIDs(&info)
+	if err != nil {
+		cblog.Error(err)
+		return count, err
+	}
+
+	return count, nil
+}
+
+func CountMyImagesByConnection(connectionName string) (int64, error) {
+	var info MyImageIIDInfo
+	count, err := infostore.CountNameIDsByConnection(&info, connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return count, err
+	}
+
+	return count, nil
+}

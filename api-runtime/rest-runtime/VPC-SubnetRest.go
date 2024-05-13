@@ -436,3 +436,73 @@ func GetSGOwnerVPC(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, result)
 }
+
+func CountAllVPCs(c echo.Context) error {
+	cblog.Info("call CountAllVPCs()")
+
+	// Call common-runtime API to get count of VPCs
+	count, err := cmrt.CountAllVPCs()
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Prepare JSON result
+	var jsonResult struct {
+		Count int `json:"count"`
+	}
+	jsonResult.Count = int(count)
+
+	// Return JSON response
+	return c.JSON(http.StatusOK, jsonResult)
+}
+
+func CountVPCsByConnection(c echo.Context) error {
+	// Call common-runtime API to get count of VPCs
+	count, err := cmrt.CountVPCsByConnection(c.Param("ConnectionName"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Prepare JSON result
+	var jsonResult struct {
+		Count int `json:"count"`
+	}
+	jsonResult.Count = int(count)
+
+	// Return JSON response
+	return c.JSON(http.StatusOK, jsonResult)
+}
+
+func CountAllSubnets(c echo.Context) error {
+	// Call common-runtime API to get count of Subnets
+	count, err := cmrt.CountAllSubnets()
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Prepare JSON result
+	var jsonResult struct {
+		Count int `json:"count"`
+	}
+	jsonResult.Count = int(count)
+
+	// Return JSON response
+	return c.JSON(http.StatusOK, jsonResult)
+}
+
+func CountSubnetsByConnection(c echo.Context) error {
+	// Call common-runtime API to get count of Subnets
+	count, err := cmrt.CountSubnetsByConnection(c.Param("ConnectionName"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Prepare JSON result
+	var jsonResult struct {
+		Count int `json:"count"`
+	}
+	jsonResult.Count = int(count)
+
+	// Return JSON response
+	return c.JSON(http.StatusOK, jsonResult)
+}

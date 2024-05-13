@@ -662,3 +662,25 @@ func DeleteDisk(connectionName string, rsType string, nameID string, force strin
 
 	return result, nil
 }
+
+func CountAllDisks() (int64, error) {
+	var info DiskIIDInfo
+	count, err := infostore.CountAllNameIDs(&info)
+	if err != nil {
+		cblog.Error(err)
+		return count, err
+	}
+
+	return count, nil
+}
+
+func CountDisksByConnection(connectionName string) (int64, error) {
+	var info DiskIIDInfo
+	count, err := infostore.CountNameIDsByConnection(&info, connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return count, err
+	}
+
+	return count, nil
+}

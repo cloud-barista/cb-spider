@@ -64,44 +64,64 @@ func Top(c echo.Context) error {
 	cblog.Info("call Top()")
 
 	htmlStr := ` 
-<html>
-<head>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-    <style>
-        .selectedMenu {
-            background-color: #f0f0f0;
-            color: #000;
-            font-weight: bold;
-        }
-    </style>
-    <script>
-        function selectMenu(selectedId) {
-            document.querySelectorAll('td a').forEach(function(menu) {
-                menu.classList.remove('selectedMenu');
-            });
-            var selectedElement = document.getElementById(selectedId);
-            if (selectedElement) {
-                selectedElement.classList.add('selectedMenu');
-            } else {
-                console.error('Element not found:', selectedId);
+    <html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+        <style>
+            .selectedMenu {
+                background-color: #f0f0f0;
+                color: #000;
+                font-weight: bold;
             }
-        }
-        window.onload = function() {
-            selectMenu('menuDriver');
-        };
-    </script>
-</head>
-<body>    
-    <table border="0" bordercolordark="#FFFFFF" cellpadding="0" cellspacing="1" bgcolor="#FFFFFF"  style="font-size:small;">      
-        <tr bgcolor="#FFFFFF" align="left">
-            <td rowspan="2" width="70" bgcolor="#FFFFFF" align="center">
-                <!-- CB-Spider Logo -->
-                <a href="../adminweb" target="_top">
-                  <!-- <img height="45" width="42" src="https://cloud-barista.github.io/assets/img/frameworks/cb-spider.png" border='0' hspace='0' vspace='1' align="middle"> -->
-                  <img height="45" width="45" src="./images/logo.png" border='0' hspace='0' vspace='1' align="middle">
-                </a>
-		<font size=1>$$TIME$$</font>	
-            </td>
+            #menuDashboard {
+                display: block;
+                margin-top: 8px;
+                color: #FFFFFF;
+                text-decoration: none;
+                background-color: #87CEEB;
+                text-align: center;
+                padding: 6px 10px;
+                border-radius: 4px;
+                font-weight: bold;
+                font-size: 12px;
+                width: 60px;
+            }
+            #menuDashboard:hover {
+                background-color: #B0E0E6;
+            }
+        </style>
+        <script>
+            function selectMenu(selectedId) {
+                document.querySelectorAll('td a').forEach(function(menu) {
+                    menu.classList.remove('selectedMenu');
+                });
+                var selectedElement = document.getElementById(selectedId);
+                if (selectedElement) {
+                    selectedElement.classList.add('selectedMenu');
+                } else {
+                    console.error('Element not found:', selectedId);
+                }
+            }
+            window.onload = function() {
+                selectMenu('menuDriver');
+            };
+        </script>
+    </head>
+    <body>    
+        <table border="0" bordercolordark="#FFFFFF" cellpadding="0" cellspacing="1" bgcolor="#FFFFFF"  style="font-size:small;">      
+            <tr bgcolor="#FFFFFF" align="left">
+                <td rowspan="2" width="70" bgcolor="#FFFFFF" align="center">
+                    <!-- CB-Spider Logo -->
+                    <a href="../adminweb" target="_top">
+                        <img height="45" width="45" src="./images/logo.png" border='0' hspace='0' vspace='1' align="middle">
+                    </a>
+                    <font size=1>$$TIME$$</font>
+                    <br>
+                    <!-- Dashboard Button -->
+                    <a href="dashboard" target="main_frame" id="menuDashboard" onclick="selectMenu('menuDashboard')">
+                        Dashboard
+                    </a>
+                </td>
             
             <td width="150"> 
                 <!-- Drivers Management --> 

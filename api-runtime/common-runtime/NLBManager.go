@@ -1462,3 +1462,25 @@ func DeleteNLB(connectionName string, rsType string, nameID string, force string
 
 	return result, nil
 }
+
+func CountAllNLBs() (int64, error) {
+	var info NLBIIDInfo
+	count, err := infostore.CountAllNameIDs(&info)
+	if err != nil {
+		cblog.Error(err)
+		return count, err
+	}
+
+	return count, nil
+}
+
+func CountNLBsByConnection(connectionName string) (int64, error) {
+	var info NLBIIDInfo
+	count, err := infostore.CountNameIDsByConnection(&info, connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return count, err
+	}
+
+	return count, nil
+}

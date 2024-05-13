@@ -462,3 +462,69 @@ func DeleteBy3Conditions(info interface{}, columnName1 string, columnValue1 stri
 
 	return true, nil
 }
+
+// CountAllConnections counts all entries in the connection_config_infos table
+// info is a pointer to a ConnectionConfigInfo struct
+func CountAllConnections(info interface{}) (int64, error) {
+	db, err := Open()
+	if err != nil {
+		return 0, err
+	}
+	defer Close(db)
+
+	var count int64
+	if err := db.Model(&info).Count(&count).Error; err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
+// CountConnectionsByProvider counts entries in the connection_config_infos table by provider_name
+// info is a pointer to a ConnectionConfigInfo struct
+func CountConnectionsByProvider(info interface{}, providerName string) (int64, error) {
+	db, err := Open()
+	if err != nil {
+		return 0, err
+	}
+	defer Close(db)
+
+	var count int64
+	if err := db.Model(&info).Where("provider_name = ?", providerName).Count(&count).Error; err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
+// CountAllNameIDs counts all name_ids using the model type passed as info
+func CountAllNameIDs(info interface{}) (int64, error) {
+	db, err := Open()
+	if err != nil {
+		return 0, err
+	}
+	defer Close(db)
+
+	var count int64
+	if err := db.Model(&info).Count(&count).Error; err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}
+
+// CountNameIDsByConnection counts name_ids in a model filtered by connection_name
+func CountNameIDsByConnection(info interface{}, connectionName string) (int64, error) {
+	db, err := Open()
+	if err != nil {
+		return 0, err
+	}
+	defer Close(db)
+
+	var count int64
+	if err := db.Model(&info).Where("connection_name = ?", connectionName).Count(&count).Error; err != nil {
+		return 0, err
+	}
+
+	return count, nil
+}

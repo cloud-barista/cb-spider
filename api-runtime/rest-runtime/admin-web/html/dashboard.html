@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+    }
+    h1 {
+        font-size: 18px;
+        margin-bottom: 10px;
+    }
+    h2 {
+        font-size: 16px;
+        margin-bottom: 8px;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+    }
+    th, td {
+        border: 1px solid black;
+        padding: 6px;
+        text-align: center;
+        width: 10%;
+    }
+    th {
+        background-color: #f2f2f2;
+        font-size: 14px;
+    }
+    .highlight {
+        background-color: #ffff99;
+    }
+    /* Overlay style */
+    .overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: none; /* Initially hidden */
+    }
+    .overlay-content {
+        position: fixed;
+        top: 10%;
+        left: 10%;
+        width: 80%;
+        height: 80%;
+        padding: 20px;
+        box-shadow: 0 0 20px #000;
+        background: #fff;
+        overflow: auto;
+    }
+    .close-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        font-size: 24px;
+        cursor: pointer;
+    }
+    /* Progress Bar Style */
+    .progress-bar {
+        width: 100%;
+        background-color: #ddd;
+        padding: 3px;
+        position: absolute;
+        bottom: 0;
+    }
+    .progress-bar-inner {
+        height: 20px;
+        background-color: #8fbc8f;
+        width: 0%; /* Initial width of 0% */
+        text-align: center;
+        line-height: 20px;
+        color: white;
+    }
+</style>
+<script>
+function openOverlay(url) {
+    var overlay = document.createElement('div');
+    overlay.className = 'overlay';
+
+    var overlayContent = document.createElement('div');
+    overlayContent.className = 'overlay-content';
+    overlay.appendChild(overlayContent);
+
+    var content = document.createElement('iframe');
+    content.src = url;
+    content.style.width = '100%';
+    content.style.height = 'calc(100% - 20px)'; // Adjust for progress bar height
+    content.onload = function() {
+        progressBarInner.style.width = '100%'; // End progress
+        setTimeout(function() {
+            progressBar.style.display = 'none'; // Hide progress bar after loading
+        }, 500);
+    };
+    overlayContent.appendChild(content);
+
+    var progressBar = document.createElement('div');
+    progressBar.className = 'progress-bar';
+    var progressBarInner = document.createElement('div');
+    progressBarInner.className = 'progress-bar-inner';
+    progressBar.appendChild(progressBarInner);
+    overlayContent.appendChild(progressBar);
+
+    var closeButton = document.createElement('div');
+    closeButton.textContent = 'X';
+    closeButton.className = 'close-btn';
+    closeButton.onclick = function() { document.body.removeChild(overlay); };
+    overlayContent.appendChild(closeButton);
+
+    document.body.appendChild(overlay);
+    overlay.style.display = 'block'; // Make the overlay visible
+    setTimeout(function() { progressBarInner.style.width = '50%'; }, 500); // Simulate initial progress
+}
+</script>
+</head>
+<body>
+    <h1>Cloud Connection Dashboard</h1>
+    {{range $provider, $counts := .ResourceCounts}}
+    <h2>{{$provider}}</h2>
+    <table>
+        <tr>
+            <th>Connection Name</th>
+            <th>VPCs</th>
+            <th>Subnets</th>
+            <th>Security Groups</th>
+            <th>KeyPairs</th>
+            <th>VMs</th>
+            <th>Disks</th>
+            <th>My Images</th>
+            <th>NLBs</th>
+            <th>Clusters</th>
+        </tr>
+        {{range $counts}}
+        <tr>
+            <td>{{.ConnectionName}}</td>
+            <td class="{{if gt .VPCs 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/vpc/{{.ConnectionName}}'); return false;">{{.VPCs}}</a></td>
+            <td class="{{if gt .Subnets 0}}highlight{{end}}">{{.Subnets}}</td> <!-- Subnets 링크 제거 -->
+            <td class="{{if gt .SecurityGroups 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/securitygroup/{{.ConnectionName}}'); return false;">{{.SecurityGroups}}</a></td>
+            <td class="{{if gt .KeyPairs 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/keypair/{{.ConnectionName}}'); return false;">{{.KeyPairs}}</a></td>
+            <td class="{{if gt .VMs 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/vm/{{.ConnectionName}}'); return false;">{{.VMs}}</a></td>
+            <td class="{{if gt .Disks 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/disk/{{.ConnectionName}}'); return false;">{{.Disks}}</a></td>
+            <td class="{{if gt .MyImages 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/myimage/{{.ConnectionName}}'); return false;">{{.MyImages}}</a></td>
+            <td class="{{if gt .NetworkLoadBalancers 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/nlb/{{.ConnectionName}}'); return false;">{{.NetworkLoadBalancers}}</a></td>
+            <td class="{{if gt .Clusters 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/cluster/{{.ConnectionName}}'); return false;">{{.Clusters}}</a></td>
+        </tr>
+        {{end}}
+    </table>
+    {{end}}
+</body>
+</html>

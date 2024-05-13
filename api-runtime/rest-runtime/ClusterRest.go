@@ -821,3 +821,37 @@ func AllClusterList(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, &jsonResult)
 }
+
+func CountAllClusters(c echo.Context) error {
+	// Call common-runtime API to get count of Clusters
+	count, err := cmrt.CountAllClusters()
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Prepare JSON result
+	var jsonResult struct {
+		Count int `json:"count"`
+	}
+	jsonResult.Count = int(count)
+
+	// Return JSON response
+	return c.JSON(http.StatusOK, jsonResult)
+}
+
+func CountClustersByConnection(c echo.Context) error {
+	// Call common-runtime API to get count of Clusters
+	count, err := cmrt.CountClustersByConnection(c.Param("ConnectionName"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Prepare JSON result
+	var jsonResult struct {
+		Count int `json:"count"`
+	}
+	jsonResult.Count = int(count)
+
+	// Return JSON response
+	return c.JSON(http.StatusOK, jsonResult)
+}
