@@ -382,7 +382,7 @@ func (ach *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqI
 	//
 	err := validateAtAddNodeGroup(clusterIID, nodeGroupReqInfo)
 	if err != nil {
-		err = fmt.Errorf("Failed to Add Node GRoup: %v", err)
+		err = fmt.Errorf("Failed to Add Node Group: %v", err)
 		cblogger.Error(err)
 		LoggingError(hiscallInfo, err)
 		return emptyNodeGroupInfo, err
@@ -426,6 +426,25 @@ func (ach *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqI
 		vswitchIds = append(vswitchIds, tea.StringValue(vs.VSwitchId))
 	}
 	cblogger.Debugf("VSwiches in VPC(%s): %v", tea.StringValue(cluster.VpcId), vswitchIds)
+
+	//
+	// Check availability of Instance Type
+	//
+	instanceType := nodeGroupReqInfo.VMSpecName
+	isAvail, err := ach.isAvailableInstanceType(tea.StringValue(cluster.RegionId), tea.StringValue(cluster.ZoneId), instanceType)
+	if err != nil {
+		err = fmt.Errorf("Failed to Add NodeGroup: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyNodeGroupInfo, err
+	}
+	if isAvail == false {
+		err = fmt.Errorf("InstanceType(%s) is not availale", instanceType)
+		err = fmt.Errorf("Failed to Add NodeGroup: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return emptyNodeGroupInfo, err
+	}
 
 	//
 	// Create Node Group
@@ -1723,6 +1742,47 @@ func (ach *AlibabaClusterHandler) getAvailableCidrList() ([]string, error) {
 	}
 
 	return cidrList, nil
+}
+
+func aliDescribeAvailableResourceWithInstanceType(ecsClient *ecs2014.Client, regionId, zoneId, instanceType string) ([]*ecs2014.DescribeAvailableResourceResponseBodyAvailableZonesAvailableZone, error) {
+	emptyAz := make([]*ecs2014.DescribeAvailableResourceResponseBodyAvailableZonesAvailableZone, 0)
+	describeAvailableResourceRequest := &ecs2014.DescribeAvailableResourceRequest{
+		RegionId:            tea.String(regionId),
+		ZoneId:              tea.String(zoneId),
+		DestinationResource: tea.String("InstanceType"),
+		InstanceType:        tea.String(instanceType),
+	}
+	//spew.Dump(describeAvailableResourceRequest)
+	describeAvailableResourceResponse, err := ecsClient.DescribeAvailableResource(describeAvailableResourceRequest)
+	if err != nil {
+		return emptyAz, err
+	}
+	//spew.Dump(describeAvailableResourceResponse.Body)
+
+	if describeAvailableResourceResponse.Body.AvailableZones == nil {
+		// in case of invalid instanceType
+		err = fmt.Errorf("no available zone")
+		return emptyAz, err
+	}
+
+	return describeAvailableResourceResponse.Body.AvailableZones.AvailableZone, nil
+}
+
+func (ach *AlibabaClusterHandler) isAvailableInstanceType(regionId, zoneId, instanceType string) (bool, error) {
+	availableZones, err := aliDescribeAvailableResourceWithInstanceType(ach.EcsClient, regionId, zoneId, instanceType)
+	if err != nil {
+		err = fmt.Errorf("failed to describe available resource with instance type(%s): %v", instanceType, err)
+		return false, err
+	}
+
+	isAvailable := false
+	for _, az := range availableZones {
+		if strings.EqualFold(tea.StringValue(az.Status), "Available") {
+			isAvailable = true
+		}
+	}
+
+	return isAvailable, nil
 }
 
 /*
