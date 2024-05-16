@@ -153,7 +153,7 @@ func (diskHandler *NcpDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 		RegionInfo:     	diskHandler.RegionInfo,
 		VMClient:         	diskHandler.VMClient,
 	}
-	zoneNo, err := vmHandler.GetZoneNo(vmHandler.RegionInfo.Zone)
+	zoneNo, err := vmHandler.GetZoneNo(diskHandler.RegionInfo.Region, diskHandler.RegionInfo.Zone) // Region/Zone info of diskHandler
 	if err != nil {
 		rtnErr := logAndReturnError(callLogInfo, "Failed to Get NCP Zone No of the Zone Code : ", err)
 		return nil, rtnErr
@@ -458,7 +458,7 @@ func (diskHandler *NcpDiskHandler) GetNcpDiskInfo(diskIID irs.IID) (*server.Bloc
 		RegionInfo:     	diskHandler.RegionInfo,
 		VMClient:         	diskHandler.VMClient,
 	}
-	zoneNo, err := vmHandler.GetZoneNo(vmHandler.RegionInfo.Zone)
+	zoneNo, err := vmHandler.GetZoneNo(diskHandler.RegionInfo.Region, diskHandler.RegionInfo.Zone) // Region/Zone info of diskHandler
 	if err != nil {
 		rtnErr := logAndReturnError(callLogInfo, "Failed to Get NCP Zone No of the Zone Code : ", err)
 		return nil, rtnErr
@@ -705,7 +705,7 @@ func (diskHandler *NcpDiskHandler) GetNcpVMList() ([]*server.ServerInstance, err
 		rtnErr := logAndReturnError(callLogInfo, "Failed to Get NCP Region No of the Region Code : ", err)
 		return nil, rtnErr
 	}
-	zoneNo, err := vmHandler.GetZoneNo(vmHandler.RegionInfo.Zone)
+	zoneNo, err := vmHandler.GetZoneNo(diskHandler.RegionInfo.Region, diskHandler.RegionInfo.Zone) // Region/Zone info of diskHandler
 	if err != nil {
 		rtnErr := logAndReturnError(callLogInfo, "Failed to Get NCP Zone No of the Zone Code : ", err)
 		return nil, rtnErr

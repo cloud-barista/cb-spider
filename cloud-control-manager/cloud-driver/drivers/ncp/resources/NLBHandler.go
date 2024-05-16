@@ -107,7 +107,7 @@ func (nlbHandler *NcpNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB ir
 		LoggingError(callLogInfo, newErr)
 		return irs.NLBInfo{}, newErr
 	}
-	zoneNo, err := vmHandler.GetZoneNo(nlbHandler.RegionInfo.Zone)
+	zoneNo, err := vmHandler.GetZoneNo(nlbHandler.RegionInfo.Region, nlbHandler.RegionInfo.Zone)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NCP Zone No of the Zone Code : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -250,7 +250,7 @@ func (nlbHandler *NcpNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 		LoggingError(callLogInfo, newErr)
 		return nil, newErr
 	}
-	zoneNo, err := vmHandler.GetZoneNo(nlbHandler.RegionInfo.Zone)
+	zoneNo, err := vmHandler.GetZoneNo(nlbHandler.RegionInfo.Region, nlbHandler.RegionInfo.Zone)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NCP Zone No of the Zone Code : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -782,7 +782,7 @@ func (nlbHandler *NcpNLBHandler) GetNcpNlbInfo(nlbIID irs.IID) (*lb.LoadBalancer
 		LoggingError(callLogInfo, newErr)
 		return nil, newErr
 	}
-	zoneNo, err := vmHandler.GetZoneNo(nlbHandler.RegionInfo.Zone)
+	zoneNo, err := vmHandler.GetZoneNo(nlbHandler.RegionInfo.Region, nlbHandler.RegionInfo.Zone)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NCP Zone No of the Zone Code : [%v]", err)
 		cblogger.Error(newErr.Error())

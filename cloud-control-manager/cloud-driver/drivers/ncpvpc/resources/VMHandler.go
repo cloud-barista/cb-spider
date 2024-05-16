@@ -56,7 +56,7 @@ func init() {
 
 func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	cblogger.Info("NCPVPC Cloud driver: called StartVM()!!")
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.CredentialInfo.ClientId, call.VM, vmReqInfo.IId.NameId, "StartVM()")
 
 	if strings.EqualFold(vmReqInfo.IId.NameId, "") {
@@ -301,7 +301,7 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 
 func (vmHandler *NcpVpcVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	cblogger.Info("NCPVPC Cloud driver: called GetVM()!!")
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmIID.NameId, "GetVM()")
 
 	if strings.EqualFold(vmIID.SystemId, "") {
@@ -372,7 +372,7 @@ func (vmHandler *NcpVpcVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 
 func (vmHandler *NcpVpcVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Info("NCPVPC Cloud driver: called SuspendVM()!!")
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmIID.NameId, "SuspendVM()")
 
 	if strings.EqualFold(vmIID.SystemId, "") {
@@ -438,7 +438,7 @@ func (vmHandler *NcpVpcVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error)
 
 func (vmHandler *NcpVpcVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Info("NCPVPC Cloud driver: called ResumeVM()!")
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmIID.NameId, "ResumeVM()")
 
 	if strings.EqualFold(vmIID.SystemId, "") {
@@ -511,7 +511,7 @@ func (vmHandler *NcpVpcVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) 
 
 func (vmHandler *NcpVpcVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Info("NCPVPC Cloud driver: called RebootVM()!")
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmIID.NameId, "RebootVM()")
 
 	if strings.EqualFold(vmIID.SystemId, "") {
@@ -585,7 +585,7 @@ func (vmHandler *NcpVpcVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) 
 
 func (vmHandler *NcpVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Info("NCPVPC Cloud driver: called TerminateVM()!")
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmIID.NameId, "TerminateVM()")
 
 	if strings.EqualFold(vmIID.SystemId, "") {
@@ -671,7 +671,7 @@ func (vmHandler *NcpVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, erro
 			if curStatus != irs.VMStatus("Suspended") {
 				curRetryCnt++
 				cblogger.Infof("The VM is not 'Suspended' yet, so wait for a second more before inquiring Termination.")
-				time.Sleep(time.Second * 3)
+				time.Sleep(time.Second * 5)
 				if curRetryCnt > maxRetryCnt {
 					cblogger.Errorf("Despite waiting for a long time(%d sec), the VM is not 'suspended', so it is forcibly terminated.", maxRetryCnt)
 				}
@@ -740,7 +740,13 @@ repairing
 */
 
 func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
-	cblogger.Infof("NCP VPC vmStatus to Convert : [%s]", vmStatus)
+	// cblogger.Info("NCPVPC Cloud driver: called ConvertVMStatusString()!")
+
+	if strings.EqualFold(vmStatus, "") {
+		newErr := fmt.Errorf("Invalid VM Status")
+		cblogger.Error(newErr.Error())
+		return irs.VMStatus("Failed"), newErr
+	}
 
 	var resultStatus string
 	if strings.EqualFold(vmStatus, "creating") {
@@ -780,7 +786,7 @@ func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 
 func (vmHandler *NcpVpcVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Info("NCPVPC Cloud driver: called GetVMStatus()!")
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmIID.NameId, "GetVMStatus()")
 
 	if strings.EqualFold(vmIID.SystemId, "") {
@@ -790,9 +796,6 @@ func (vmHandler *NcpVpcVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, erro
 		return irs.VMStatus("Failed"), newErr
 	}
 
-	// instanceReq := vserver.GetServerInstanceListRequest{
-	// 	ServerInstanceNoList: []*string{nil},
-	// }
 	instanceReq := vserver.GetServerInstanceListRequest{
 		RegionCode: 			ncloud.String(vmHandler.RegionInfo.Region),   // $$$ Caution!!
 		ServerInstanceNoList: 	[]*string{
@@ -813,23 +816,16 @@ func (vmHandler *NcpVpcVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, erro
 		newErr := fmt.Errorf("The VM instance does Not Exist!!")
 		cblogger.Debug(newErr.Error())
 		return irs.VMStatus("Not Exist!!"), newErr
-	} else {
-		cblogger.Info("Succeeded in Getting ServerInstanceList from NCP VPC!!")
 	}
 
-	for _, vm := range result.ServerInstanceList {
-		//*vm.ServerInstanceStatusName
-		vmStatus, statusErr := ConvertVMStatusString(*vm.ServerInstanceStatusName)
-		cblogger.Infof("VM Status of [%s] : [%s]", vmIID.SystemId, vmStatus)
-		return vmStatus, statusErr
-	}
-
-	return irs.VMStatus("Failed."), errors.New("Failed to Get the VM Status info!!")
+	vmStatus, statusErr := ConvertVMStatusString(*result.ServerInstanceList[0].ServerInstanceStatusName)
+	cblogger.Infof("VM Status of [%s] : [%s]", vmIID.SystemId, vmStatus)
+	return vmStatus, statusErr
 }
 
 func (vmHandler *NcpVpcVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	cblogger.Info("NCPVPC Cloud driver: called ListVMStatus()!")
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, "ListVMStatus()", "ListVMStatus()")
 
 	instanceReq := vserver.GetServerInstanceListRequest{
@@ -866,7 +862,7 @@ func (vmHandler *NcpVpcVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 
 func (vmHandler *NcpVpcVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	cblogger.Info("NCPVPC Cloud driver: called ListVM()!")
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, "ListVMS()", "ListVM()")
 
 	instanceReq := vserver.GetServerInstanceListRequest{
@@ -1320,7 +1316,7 @@ func (vmHandler *NcpVpcVMHandler) WaitToGetInfo(vmIID irs.IID) (irs.VMStatus, er
 		case "Creating", "Booting":
 			curRetryCnt++
 			cblogger.Infof("The VM is 'Creating', so wait for a second more before inquiring the VM info.")
-			time.Sleep(time.Second * 3)
+			time.Sleep(time.Second * 5)
 			if curRetryCnt > maxRetryCnt {
 				cblogger.Errorf("Despite waiting for a long time(%d sec), the VM status is '%s', so it is forcibly finishied.", maxRetryCnt, curStatus)
 				return irs.VMStatus("Failed"), errors.New("Despite waiting for a long time, the VM status is 'Creating', so it is forcibly finishied.")
@@ -1355,7 +1351,7 @@ func (vmHandler *NcpVpcVMHandler) WaitToDelPublicIp(vmIID irs.IID) (irs.VMStatus
 		case "Suspended", "Terminating":
 			curRetryCnt++
 			cblogger.Infof("The VM is still 'Terminating', so wait for a second more before inquiring the VM info.")
-			time.Sleep(time.Second * 3)
+			time.Sleep(time.Second * 5)
 			if curRetryCnt > maxRetryCnt {
 				cblogger.Errorf("Despite waiting for a long time(%d sec), the VM status is '%s', so it is forcibly finishied.", maxRetryCnt, curStatus)
 				return irs.VMStatus("Failed"), errors.New("Despite waiting for a long time, the VM status is 'Creating', so it is forcibly finishied.")
@@ -1522,7 +1518,7 @@ func (vmHandler *NcpVpcVMHandler) GetNetworkInterfaceName(netInterfaceNo *string
 
 func (vmHandler *NcpVpcVMHandler) GetVmIdByName(vmNameId string) (string, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called GetVmIdByName()")
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Region, call.VM, vmNameId, "GetVmIdByName()")
 
 	if strings.EqualFold(vmNameId, "") {
@@ -1566,7 +1562,7 @@ func (vmHandler *NcpVpcVMHandler) GetVmIdByName(vmNameId string) (string, error)
 
 func (vmHandler *NcpVpcVMHandler) GetNcpVMInfo(instanceId string) (*vserver.ServerInstance, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called GetNcpVMInfo()")
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Region, call.VM, instanceId, "GetNcpVMInfo()")
 
 	if strings.EqualFold(instanceId, "") {

@@ -13,6 +13,7 @@ package resources
 
 import (
 	// "errors"
+	"fmt"
 	"sync"
 	"strings"
 	// "github.com/davecgh/go-spew/spew"
@@ -191,8 +192,10 @@ func (regionZoneHandler *NcpRegionZoneHandler) ListOrgZone() (string, error) {
 
 	ncpVpcZoneList, err := regionZoneHandler.getNcpVpcZoneList(&regionZoneHandler.RegionInfo.Region, "ListOrgZone()")
 	if err != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Get ZoneList from NCP Cloud : ", err)
-		return "", rtnErr
+		newErr := fmt.Errorf("Failed to Get ZoneList from NCP Cloud : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return "", newErr
 	}
 
 	ncpZoneList := Zones{
@@ -200,8 +203,10 @@ func (regionZoneHandler *NcpRegionZoneHandler) ListOrgZone() (string, error) {
 	}
 	jsonString, cvtErr := ConvertJsonString(ncpZoneList)
 	if cvtErr != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Convert the ZoneList to Json format string.", cvtErr)
-		return "", rtnErr
+		newErr := fmt.Errorf("Failed to Convert the ZoneList to Json format string. : [%v]", cvtErr)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return "", newErr
 	}
 	return jsonString, cvtErr
 }
