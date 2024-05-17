@@ -420,7 +420,7 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo, ID
 				return nil, err
 			}
 		} else { // No Use IID Management
-			subnetUUID = reqInfo.IId.NameId
+			subnetUUID = info.IId.NameId
 		}
 
 		// special code for KT CLOUD VPC
