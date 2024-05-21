@@ -48,6 +48,26 @@ type DashboardData struct {
 	ConnectionsByCloud map[string]int
 	Providers          []string
 	ResourceCounts     map[string][]ResourceCounts
+	ShowEmpty          bool
+}
+
+// Add a function to filter out empty connections
+func filterEmptyConnections(resourceCounts map[string][]ResourceCounts) map[string][]ResourceCounts {
+	filteredCounts := make(map[string][]ResourceCounts)
+	for provider, counts := range resourceCounts {
+		var nonEmptyCounts []ResourceCounts
+		for _, count := range counts {
+			if count.VPCs > 0 || count.Subnets > 0 || count.SecurityGroups > 0 || count.VMs > 0 ||
+				count.KeyPairs > 0 || count.Disks > 0 || count.NetworkLoadBalancers > 0 ||
+				count.Clusters > 0 || count.MyImages > 0 {
+				nonEmptyCounts = append(nonEmptyCounts, count)
+			}
+		}
+		if len(nonEmptyCounts) > 0 {
+			filteredCounts[provider] = nonEmptyCounts
+		}
+	}
+	return filteredCounts
 }
 
 // Fetch all providers
@@ -152,6 +172,8 @@ func Dashboard(c echo.Context) error {
 		serverIP = "localhost"
 	}
 
+	showEmpty := c.QueryParam("showEmpty") == "true"
+
 	providers, err := fetchProviders()
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -173,6 +195,10 @@ func Dashboard(c echo.Context) error {
 		}
 	}
 
+	if !showEmpty {
+		resourceCounts = filterEmptyConnections(resourceCounts)
+	}
+
 	templatePath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/dashboard.html")
 	tmpl, err := template.ParseFiles(templatePath)
 	if err != nil {
@@ -183,6 +209,7 @@ func Dashboard(c echo.Context) error {
 		ServerIP:       serverIP,
 		Providers:      providers,
 		ResourceCounts: resourceCounts,
+		ShowEmpty:      showEmpty,
 	}
 
 	return tmpl.Execute(c.Response().Writer, data)

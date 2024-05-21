@@ -26,7 +26,7 @@ import (
 //====================================== VPC
 
 // number, VPC Name, VPC CIDR, SUBNET Info, Additional Info, checkbox
-func makeVPCTRList_html(bgcolor string, height string, fontSize string, infoList []*cres.VPCInfo, zoneId string) string {
+func makeVPCTRList_html(bgcolor string, height string, fontSize string, connConfig string, infoList []*cres.VPCInfo, zoneId string) string {
 	if bgcolor == "" {
 		bgcolor = "#FFFFFF"
 	}
@@ -96,12 +96,12 @@ func makeVPCTRList_html(bgcolor string, height string, fontSize string, infoList
 			strSubnetList += "}"
 
 			var subnetName = one.IId.NameId
-			strSubnetList += strings.ReplaceAll(strRemoveSubnet, "$$REMOVESUBNET$$", "deleteSubnet('"+vpcName+"', '"+subnetName+"')")
+			strSubnetList += strings.ReplaceAll(strRemoveSubnet, "$$REMOVESUBNET$$", "deleteSubnet('"+connConfig+"', '"+vpcName+"', '"+subnetName+"')")
 
 			strSubnetList += "<br>"
 		}
 		vpcAddSubnet := strings.ReplaceAll(strAddSubnet, "$$ADDVPC$$", vpcName)
-		strSubnetList += strings.ReplaceAll(vpcAddSubnet, "$$ADDSUBNET$$", "postSubnet('"+vpcName+"')")
+		strSubnetList += strings.ReplaceAll(vpcAddSubnet, "$$ADDSUBNET$$", "postSubnet('"+connConfig+"', '"+vpcName+"')")
 		str = strings.ReplaceAll(str, "$$SUBNETINFO$$", strSubnetList)
 
 		// for KeyValueList
@@ -126,9 +126,7 @@ func makePostVPCFunc_js() string {
 	//              "SubnetInfoList": [ { "Name": "subnet-01", "IPv4_CIDR": "192.168.1.0/24"} ] } }'
 
 	strFunc := `
-                function postVPC() {
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
-
+                function postVPC(connConfig) {
                         var textboxes = document.getElementsByName('text_box');
             sendJson = '{ "ConnectionName" : "' + connConfig + '", "ReqInfo" : { "Name" : "$$VPCNAME$$", "IPv4_CIDR" : "$$VPCCIDR$$", "SubnetInfoList" : $$SUBNETINFOLIST$$ }}'
 
@@ -152,12 +150,19 @@ func makePostVPCFunc_js() string {
                         xhr.setRequestHeader('Content-Type', 'application/json');
 
 			// client logging
-			parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/vpc -H 'Content-Type: application/json' -d '" + sendJson + "'");
-
+			try {
+				parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/vpc -H 'Content-Type: application/json' -d '" + sendJson + "'");
+			} catch (e) {
+				// Do nothing if error occurs
+			}
                         xhr.send(sendJson);
 
 			// client logging
-                        parent.frames["log_frame"].Log("   ==> " + xhr.response);
+			try {
+				parent.frames["log_frame"].Log("   ==> " + xhr.response);
+			} catch (e) {
+				// Do nothing if error occurs
+			}
 
 			location.reload();
                 }
@@ -173,9 +178,7 @@ func makePostSubnetFunc_js() string {
 	//      -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "subnet-02", "IPv4_CIDR": "192.168.2.0/24" } }'
 
 	strFunc := `
-                function postSubnet(vpcName) {
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
-
+                function postSubnet(connConfig, vpcName) {
                         var textbox = document.getElementById('subnet_text_box_' + vpcName);
                         sendJson = '{ "ConnectionName" : "' + connConfig + '", "ReqInfo" :  $$SUBNETINFO$$ }'
 
@@ -186,12 +189,19 @@ func makePostSubnetFunc_js() string {
                         xhr.setRequestHeader('Content-Type', 'application/json');
 
 			 // client logging
-			parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/vpc/" + vpcName + "/subnet" + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
-
+			 try {
+				parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/vpc/" + vpcName + "/subnet" + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+			} catch (e) {
+				// Do nothing if error occurs
+			}
                         xhr.send(sendJson);
 
 			// client logging
-			parent.frames["log_frame"].Log("   => " + xhr.response);
+			try {
+				parent.frames["log_frame"].Log("   => " + xhr.response);
+			} catch (e) {
+				// Do nothing if error occurs
+			}
 
                         location.reload();
                 }
@@ -202,11 +212,8 @@ func makePostSubnetFunc_js() string {
 
 // make the string of javascript function
 func makeDeleteVPCFunc_js() string {
-	// curl -sX DELETE http://localhost:1024/spider/vpc/vpc-01 -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}'
-
 	strFunc := `
-                function deleteVPC() {
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+                function deleteVPC(connConfig) {
                         var checkboxes = document.getElementsByName('check_box');
                         for (var i = 0; i < checkboxes.length; i++) { // @todo make parallel executions
                                 if (checkboxes[i].checked) {
@@ -216,15 +223,23 @@ func makeDeleteVPCFunc_js() string {
 					sendJson = '{ "ConnectionName": "' + connConfig + '"}'
 
 					// client logging
-					parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/vpc/" + checkboxes[i].value +" -H 'Content-Type: application/json' -d '" + sendJson + "'");
+					try {
+					    parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/vpc/" + checkboxes[i].value +" -H 'Content-Type: application/json' -d '" + sendJson + "'");
+					} catch (e) {
+					    // Do nothing if error occurs
+					}
 
-                                        xhr.send(sendJson);
+                    xhr.send(sendJson);
 
 					// client logging
-					parent.frames["log_frame"].Log("   => " + xhr.response);
+					try {					    
+					    parent.frames["log_frame"].Log("   => " + xhr.response);
+					} catch (e) {
+					    // Do nothing if error occurs
+					}
                                 }
                         }
-			location.reload();
+					location.reload();
                 }
         `
 	strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
@@ -236,21 +251,26 @@ func makeDeleteSubnetFunc_js() string {
 	//curl -sX DELETE http://localhost:1024/spider/vpc/vpc-01/subnet/subnet-02 -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}'
 
 	strFunc := `
-                function deleteSubnet(vpcName, subnetName) {
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
-
+                function deleteSubnet(connConfig, vpcName, subnetName) {
                         var xhr = new XMLHttpRequest();
                         xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/vpc/" + vpcName + "/subnet/" + subnetName, false);
                         xhr.setRequestHeader('Content-Type', 'application/json');
                         sendJson = '{ "ConnectionName": "' + connConfig + '"}'
 
 			 // client logging
-			parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/vpc/" + vpcName + "/subnet/" + subnetName + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
-
+			try {
+				parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/vpc/" + vpcName + "/subnet/" + subnetName + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+			} catch (e) {
+				// Do nothing if error occurs
+			}
                         xhr.send(sendJson);
 
 			// client logging
-			parent.frames["log_frame"].Log("   => " + xhr.response);
+			try {
+				parent.frames["log_frame"].Log("   => " + xhr.response);
+			} catch (e) {
+				// Do nothing if error occurs
+			}
 
                         location.reload();
                 }
@@ -324,8 +344,7 @@ func VPC(c echo.Context) error {
 
 	// (2) make Table Action TR
 	// colspan, f5_href, delete_href, fontSize
-	//htmlStr += makeActionTR_html("6", "vpc", "deleteVPC()", "2")
-	htmlStr += makeActionTR_html("6", "", "deleteVPC()", "2")
+	htmlStr += makeActionTR_html("6", "", fmt.Sprintf("deleteVPC('%s')", connConfig), "2")
 
 	// (3) make Table Header TR
 	nameWidthList := []NameWidth{
@@ -374,7 +393,7 @@ func VPC(c echo.Context) error {
 	}
 
 	// (4-2) make TR list with info list
-	htmlStr += makeVPCTRList_html("", "", "", info.ResultList, zoneId)
+	htmlStr += makeVPCTRList_html("", "", "", connConfig, info.ResultList, zoneId)
 
 	providerName, _ := getProviderName(connConfig)
 	vpcCIDR := "10.0.0.0/16"
@@ -406,7 +425,7 @@ func VPC(c echo.Context) error {
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="4" disabled value="N/A">
                             </td>                            
                             <td>
-                                <a href="javascript:postVPC()">
+                                <a href="javascript:postVPC('` + connConfig + `')">
                                     <font size=4><mark><b>+</b></mark></font>
                                 </a>
                             </td>

@@ -432,12 +432,15 @@ func genLoggingGETURL(connConfig string, rsType string) string {
 
 	url := "http://" + "localhost" + cr.ServerPort + "/spider/" + rsType + " -H 'Content-Type: application/json' -d '{\\\"ConnectionName\\\": \\\"" + connConfig + "\\\"}'"
 	htmlStr := `
-                <script type="text/javascript">
-                `
-	htmlStr += `    parent.frames["log_frame"].Log("curl -sX GET ` + url + `");`
-	htmlStr += `
-                </script>
-                `
+	<script type="text/javascript">
+		try {
+			parent.frames["log_frame"].Log("curl -sX GET ` + url + `");
+		} catch (e) {
+			// Do nothing if error occurs
+		}
+	</script>
+	`
+
 	return htmlStr
 }
 
@@ -447,7 +450,16 @@ func genLoggingGETURL2(connConfig string, rsType string) string {
 	parent.frames["log_frame"].Log("curl -sX GET http://localhost:1024/spider/vpc -H 'Content-Type: application/json' -d '{"ConnectionName": "aws-ohio-config"}'   ");
 	*/
 	url := "http://" + "localhost" + cr.ServerPort + "/spider/" + rsType + " -H 'Content-Type: application/json' -d '{\\\"ConnectionName\\\": \\\"" + connConfig + "\\\"}'"
-	htmlStr := `    parent.frames["log_frame"].Log("curl -sX GET ` + url + `");`
+	htmlStr := `
+<script type="text/javascript">
+    try {
+        parent.frames["log_frame"].Log("curl -sX GET ` + url + `");
+    } catch (e) {
+        // Do nothing if error occurs
+    }
+</script>
+`
+
 	return htmlStr
 }
 
@@ -463,12 +475,15 @@ func genLoggingResult(response string) string {
 	response = strings.ReplaceAll(response, `\"`, `"`)
 
 	htmlStr := `
-                <script type="text/javascript">
-                `
-	htmlStr += `    parent.frames["log_frame"].Log("   ==> ` + strings.ReplaceAll(response, "\"", "\\\"") + `");`
-	htmlStr += `
-                </script>
-                `
+	<script type="text/javascript">
+		try {
+			parent.frames["log_frame"].Log("   ==> ` + strings.ReplaceAll(response, "\"", "\\\"") + `");
+		} catch (e) {
+			// Do nothing if error occurs
+		}
+	</script>
+	`
+
 	return htmlStr
 }
 

@@ -118,7 +118,7 @@ func Top(c echo.Context) error {
                     <font size=1>$$TIME$$</font>
                     <br>
                     <!-- Dashboard Button -->
-                    <a href="dashboard" target="main_frame" id="menuDashboard" onclick="selectMenu('menuDashboard')">
+                    <a href="dashboard?showEmpty=true" target="main_frame" id="menuDashboard" onclick="selectMenu('menuDashboard')">
                         Dashboard
                     </a>
                 </td>
