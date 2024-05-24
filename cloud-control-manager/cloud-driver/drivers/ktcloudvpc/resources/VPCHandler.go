@@ -273,32 +273,32 @@ func (vpcHandler *KTVpcVPCHandler) AddSubnet(vpcIID irs.IID, subnetReqInfo irs.S
 	}
 
 	// KT Cloud D1 platform API guide - Tier : https://cloud.kt.com/docs/open-api-guide/d/computing/tier
-	cidrBlock := strings.Split(subnetReqInfo.IPv4_CIDR, ".")
-	startIP := cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "11"
-	endIP := cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "140"
-	lbStartIP := cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "141"
-	lbEndIP := cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "200"
-	bmStartIP := cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "201"
-	bmEndIP := cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "250"
-	gatewayIP := cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "1"
+	cidrBlock 	:= strings.Split(subnetReqInfo.IPv4_CIDR, ".")
+	vmStartIP 	:= cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "6"
+	vmEndIP 	:= cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "180"
+	lbStartIP 	:= cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "181"
+	lbEndIP 	:= cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "199"
+	bmStartIP 	:= cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "201"
+	bmEndIP 	:= cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "250"
+	gatewayIP 	:= cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "1"
 
 	detailTierInfo := subnets.DetailInfo {
 		CIDR: 		subnetReqInfo.IPv4_CIDR,
-		StartIP: 	startIP,
-		EndIP: 		endIP,
-		LBStartIP: 	lbStartIP,
+		StartIP: 	vmStartIP,	// For VM
+		EndIP: 		vmEndIP,
+		LBStartIP: 	lbStartIP,  // For NLB
 		LBEndIP: 	lbEndIP,
-		BMStartIP: 	bmStartIP,
+		BMStartIP: 	bmStartIP,	// For BareMetal Machine
 		BMEndIP: 	bmEndIP,
 		Gateway:    gatewayIP,
 	}
 
 	// Create Subnet
 	createOpts := subnets.CreateOpts{
-		Name:        	subnetReqInfo.IId.NameId,   	// Mandatory (Required)
-		Zone: 			vpcHandler.RegionInfo.Zone, 	// Mandatory (Required)
-		Type:			"tier",							// Mandatory (Required)
-		UserCustom: 	"y",							// Mandatory (Required)
+		Name:        	subnetReqInfo.IId.NameId,   	// Required
+		Zone: 			vpcHandler.RegionInfo.Zone, 	// Required
+		Type:			"tier",							// Required
+		UserCustom: 	"y",							// Required
 		Detail: 		detailTierInfo,
 	}	
 	// cblogger.Info("\n### Subnet createOpts : ")
@@ -311,7 +311,7 @@ func (vpcHandler *KTVpcVPCHandler) AddSubnet(vpcIID irs.IID, subnetReqInfo irs.S
 	// subnet, err := subnets.Create(vpcHandler.NetworkClient, createOpts).Extract()
 	if err != nil {
 		if !strings.Contains(err.Error(), ":true") { // Cauton!! : Abnormal Error when creating a subnet on D1 Platform
-			newErr := fmt.Errorf("Failed to Add the Subnet on KTCoud : [%v]", err)
+			newErr := fmt.Errorf("Failed to Add the Subnet on KT Coud : [%v]", err)
 			cblogger.Error(newErr.Error())
 			loggingError(callLogInfo, newErr)
 			return irs.VPCInfo{}, newErr
@@ -552,6 +552,48 @@ func (vpcHandler *KTVpcVPCHandler) getOsNetworkIdWithTierId(vpcId string, tierId
 	return osNetworkId, nil
 }
 
+func (vpcHandler *KTVpcVPCHandler) getTierIdWithOsNetworkId(vpcId string, osNetworkId string) (string, error) {
+	cblogger.Info("KT Cloud VPC Driver: called getTierIdWithOsNetworkId()!")	
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, osNetworkId, "getTierIdWithOsNetworkId()")
+
+	if strings.EqualFold(vpcId, "") {
+		newErr := fmt.Errorf("Invalid VPC ID!!")
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return "", newErr
+	}
+
+	if strings.EqualFold(osNetworkId, "") {
+		newErr := fmt.Errorf("Invalid Subnet(Tier) ID!!")
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return "", newErr
+	}
+
+	ktVpc, err := vpcHandler.getKtCloudVpc(vpcId)
+	if err != nil {
+		cblogger.Errorf("Failed to Get the VPC Info from KT Cloud. [%v]", err)
+		loggingError(callLogInfo, err)
+		return "", err
+	}
+
+	var tierId string
+	for _, subnet := range ktVpc.Subnets {
+		if strings.EqualFold(subnet.OsNetworkID, osNetworkId){
+			tierId = subnet.ID
+			break
+		}				
+	}
+
+	if strings.EqualFold(tierId, "") {
+		newErr := fmt.Errorf("Failed to Find the Tier UUID ID!!")
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
+
+	return tierId, nil
+}
+
 func (vpcHandler *KTVpcVPCHandler) getOsNetworkIdWithTierName(tierName string) (string, error) {
 	cblogger.Info("KT Cloud VPC Driver: called getOsNetworkIdWithTierName()!")	
 	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, tierName, "getOsNetworkIdWithTierName()")
@@ -608,6 +650,60 @@ func (vpcHandler *KTVpcVPCHandler) getOsNetworkIdWithTierName(tierName string) (
 	}
 
 	return osNetworkId, nil
+}
+
+func (vpcHandler *KTVpcVPCHandler) getVPCIdWithOsNetworkID(osNetworkId string) (string, error) {
+	cblogger.Info("KT Cloud VPC Driver: called getVPCIdWithOsNetworkID()!")	
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, osNetworkId, "getVPCIdWithOsNetworkID()")
+
+	if strings.EqualFold(osNetworkId, "") {
+		newErr := fmt.Errorf("Invalid OSNetworkID!!")
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return "", newErr
+	}
+
+	start := call.Start()
+	listOpts := networks.ListOpts{}
+	firstPage, err := networks.List(vpcHandler.NetworkClient, listOpts).FirstPage() // Caution!! : First Page Only
+	if err != nil {
+		cblogger.Errorf("Failed to Get VPC Network info from KT Cloud VPC : [%v]", err)
+		loggingError(callLogInfo, err)
+		return "", err
+	}
+	loggingInfo(callLogInfo, start)
+
+	vpcList, err := networks.ExtractVPCs(firstPage)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get KT Cloud VPC Network list. [%v]", err)
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return "", newErr
+	}
+	if len(vpcList) < 1 {
+		newErr := fmt.Errorf("Failed to Get Any VPC Network Info.")
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return "", newErr
+	}
+	
+	var vpcId string
+	for _, vpc := range vpcList {
+		for _, subnet := range vpc.Subnets {
+			if strings.EqualFold(subnet.OsNetworkID, osNetworkId){
+				vpcId = subnet.VpcID
+				break
+			}				
+		}
+	}
+
+	if strings.EqualFold(vpcId, "") {
+		newErr := fmt.Errorf("Failed to Find the VPC ID!!")
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
+	
+	return vpcId, nil
 }
 
 // func (vpcHandler *KTVpcVPCHandler) getVpcIdWithName(vpcName string) (string, error) {
