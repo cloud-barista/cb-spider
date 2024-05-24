@@ -283,9 +283,11 @@ func (vmHandler *NcpVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 func (vmHandler *NcpVMHandler) MappingServerInfo(NcpInstance *server.ServerInstance) (irs.VMInfo, error) {
 	cblogger.Info("NCP Classic Cloud driver: called MappingServerInfo()!")
-
 	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, "MappingServerInfo()", "MappingServerInfo()")
+
+	// cblogger.Info("\n NcpInstance : ")
+	// spew.Dump(NcpInstance)
 
 	convertedTime, err := convertTimeFormat(*NcpInstance.CreateDate)
 	if err != nil {
@@ -359,33 +361,36 @@ func (vmHandler *NcpVMHandler) MappingServerInfo(NcpInstance *server.ServerInsta
 	cblogger.Infof("Succeeded in Getting Block Storage InstanceList!!")
 	// spew.Dump(blockStorageResult.BlockStorageInstanceList[0])
 
+	var sgList []irs.IID
+	if NcpInstance.AccessControlGroupList != nil {
+		for _, acg := range NcpInstance.AccessControlGroupList {
+			sgList = append(sgList, irs.IID{NameId: *acg.AccessControlGroupName, SystemId: *acg.AccessControlGroupConfigurationNo})
+		}
+	} else {
+		fmt.Println("AccessControlGroupList is empty or nil")
+	}
 
 	// To Get the VM resources Info.
 	vmInfo := irs.VMInfo{
 		IId: irs.IID{
-			NameId:   *NcpInstance.ServerName,
-			SystemId: *NcpInstance.ServerInstanceNo,
+			NameId:   	*NcpInstance.ServerName,
+			SystemId: 	*NcpInstance.ServerInstanceNo,
 		},
-		StartTime: convertedTime,
+		StartTime: 		convertedTime,
 
 		// (Ref) NCP region/zone info. example
 		// Region:  "KR", Zone: "KR-2"
 		Region: irs.RegionInfo{
-			Region: *NcpInstance.Region.RegionCode,
+			Region: 	*NcpInstance.Region.RegionCode,
 			//  *NcpInstance.Zone.ZoneCode,  // Zone info is bellow.
 		},
-		VMSpecName: ncloud.StringValue(NcpInstance.ServerProductCode), //Server Spec code임.
-		SecurityGroupIIds: []irs.IID{
-			{
-				NameId:   *NcpInstance.AccessControlGroupList[0].AccessControlGroupName,
-				SystemId: *NcpInstance.AccessControlGroupList[0].AccessControlGroupConfigurationNo,
-			},
-		},
+		VMSpecName: 		ncloud.StringValue(NcpInstance.ServerProductCode), //Server Spec code임.
+		SecurityGroupIIds: 	sgList,
 
 		//NCP Key에는 SystemID가 없으므로, 고유한 NameID 값을 SystemID에도 반영
 		KeyPairIId: irs.IID{
-			NameId: *NcpInstance.LoginKeyName,
-			SystemId: *NcpInstance.LoginKeyName,
+			NameId: 	*NcpInstance.LoginKeyName,
+			SystemId: 	*NcpInstance.LoginKeyName,
 		},
 
 		PublicIP:   	*publicIp,
