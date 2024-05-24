@@ -23,11 +23,12 @@ import (
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
 
-	cblog "github.com/cloud-barista/cb-log"
-	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
-	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	keycommon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
+	cblog 		"github.com/cloud-barista/cb-log"
+	call 		"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	idrv 		"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	irs 		"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	keycommon 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
+	sim 		"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncpvpc/resources/info_manager/security_group_info_manager"
 )
 
 type NcpVpcVMHandler struct {
@@ -195,11 +196,10 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 	//=========================================================
 	// Security Group IID(SystemId 기반) 변환 -> []*string 으로
 	//=========================================================
-	cblogger.Info("Convert : Security Group IID -> []*string")
+	// cblogger.Info("Convert : Security Group IID -> []*string")
 	var securityGroupIds []*string
-
 	for _, sgID := range vmReqInfo.SecurityGroupIIDs {
-		cblogger.Infof("Security Group IID : [%s]", sgID)
+		// cblogger.Infof("Security Group IID : [%s]", sgID)
 		securityGroupIds = append(securityGroupIds, ncloud.String(sgID.SystemId))
 	}
 
@@ -217,8 +217,6 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 	// VM Creation info. setting
 	//=========================================================
 	cblogger.Info("# Start to Create NCP VPC VM Instance!!")
-	cblogger.Info("Preparation of CreateServerInstancesRequest!!")
-
 	instanceReq := vserver.CreateServerInstancesRequest{
 		RegionCode: 					ncloud.String(vmHandler.RegionInfo.Region),
 		ServerName:             		ncloud.String(instanceName),
@@ -285,6 +283,24 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 		return irs.VMInfo{}, newErr
 	} 
 	cblogger.Infof("DeleteInitScript Result : [%s]", *scriptDelResult)
+
+
+	// Register SecurityGroupInfo to DB
+	var keyValueList []irs.KeyValue
+	for _, sgIID := range vmReqInfo.SecurityGroupIIDs {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key: 	sgIID.SystemId, 
+			Value: 	sgIID.SystemId,
+		})
+	}
+
+	providerName := "NCPVPC"
+	sgInfo, regErr := sim.RegisterSecurityGroup(newVMIID.SystemId, providerName, keyValueList)
+	if regErr != nil {
+		cblogger.Error(regErr)
+		return irs.VMInfo{}, regErr
+	}
+	cblogger.Infof(" === S/G Info to Register to DB : [%v]", sgInfo)	
 
 	vmInfo, error := vmHandler.GetVM(newVMIID)
 	if error != nil {
@@ -641,6 +657,13 @@ func (vmHandler *NcpVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, erro
 			}
 		}
 
+		// Delete the S/G info from DB
+		_, unRegErr := sim.UnRegisterSecurityGroup(vmIID.SystemId)
+		if unRegErr != nil {
+			cblogger.Debug(unRegErr.Error())
+			// return irs.Failed, unRegErr
+		}
+
 		return irs.VMStatus("Terminating"), nil
 
 	case "Running":
@@ -917,13 +940,13 @@ func (vmHandler *NcpVpcVMHandler) ListVM() ([]*irs.VMInfo, error) {
 
 func (vmHandler *NcpVpcVMHandler) MappingServerInfo(NcpInstance *vserver.ServerInstance) (irs.VMInfo, error) {
 	cblogger.Info("NCPVPC Cloud driver: called MappingServerInfo()!")
+	
+	// cblogger.Infof("# NcpInstance Info :")
+	// spew.Dump(NcpInstance)
 
 	var publicIp *string
 	var privateIp *string
 	var publicIpInstanceNo *string
-
-	// cblogger.Infof("# NcpInstance Info :")
-	// spew.Dump(NcpInstance)
 
 	convertedTime, err := convertTimeFormat(*NcpInstance.CreateDate)
 	if err != nil {
@@ -1007,21 +1030,15 @@ func (vmHandler *NcpVpcVMHandler) MappingServerInfo(NcpInstance *vserver.ServerI
 			Zone:   *NcpInstance.ZoneCode,
 		},
 
-		VMSpecName: ncloud.StringValue(NcpInstance.ServerProductCode), //Server Spec code
-
-		VpcIID:    irs.IID{SystemId: *NcpInstance.VpcNo},    // Cauton!!) 'NameId: "N/A"' makes an Error on CB-Spider
-		SubnetIID: irs.IID{SystemId: *NcpInstance.SubnetNo}, // Cauton!!) 'NameId: "N/A"' makes an Error on CB-Spider
-
-		// SecurityGroupIIds: []irs.IID{
-		// 	{NameId: "N/A", SystemId: "N/A"},
-		// },
-
-		KeyPairIId: 	irs.IID{NameId: *NcpInstance.LoginKeyName, SystemId: *NcpInstance.LoginKeyName},
-		NetworkInterface: *netInterfaceName, 
-		PublicIP:   	  *publicIp,
-		PrivateIP:  	  *privateIp,
-		RootDiskType: 	  *NcpInstance.BaseBlockStorageDiskDetailType.CodeName,
-		SSHAccessPoint:   *publicIp + ":22",
+		VMSpecName:			ncloud.StringValue(NcpInstance.ServerProductCode), //Server Spec code
+		VpcIID:    			irs.IID{SystemId: *NcpInstance.VpcNo},    // Cauton!!) 'NameId: "N/A"' makes an Error on CB-Spider
+		SubnetIID: 			irs.IID{SystemId: *NcpInstance.SubnetNo}, // Cauton!!) 'NameId: "N/A"' makes an Error on CB-Spider
+		KeyPairIId: 		irs.IID{NameId: *NcpInstance.LoginKeyName, SystemId: *NcpInstance.LoginKeyName},
+		NetworkInterface: 	*netInterfaceName, 
+		PublicIP:   	  	*publicIp,
+		PrivateIP:  	  	*privateIp,
+		RootDiskType: 	  	*NcpInstance.BaseBlockStorageDiskDetailType.CodeName,
+		SSHAccessPoint:   	*publicIp + ":22",
 
 		KeyValueList: []irs.KeyValue{
 			{Key: "ServerInstanceType", Value: *NcpInstance.ServerInstanceType.CodeName},
@@ -1032,12 +1049,35 @@ func (vmHandler *NcpVpcVMHandler) MappingServerInfo(NcpInstance *vserver.ServerI
 		},
 	}
 
-	imageHandler := NcpVpcImageHandler{
+	// Get SecurityGroupInfo from DB
+	sgInfo, getSGErr := sim.GetSecurityGroup(*NcpInstance.ServerInstanceNo)
+	if getSGErr != nil {
+		cblogger.Debug(getSGErr)
+		// return irs.VMInfo{}, getSGErr
+	}
+	securityHandler := NcpVpcSecurityHandler{
 		RegionInfo:  vmHandler.RegionInfo,
 		VMClient:    vmHandler.VMClient,
 	}
-	
+	if countSgKvList(*sgInfo) > 0 {
+		var sgIIDs []irs.IID
+		for _, kv := range sgInfo.KeyValueInfoList {
+			sgInfo, err := securityHandler.GetSecurity(irs.IID{SystemId: kv.Value})
+			if err != nil {
+				newErr := fmt.Errorf("Failed to Get the S/G info : [%v]", err)
+				cblogger.Debug(newErr.Error())
+				// return irs.VMInfo{}, newErr
+			}			
+			sgIIDs = append(sgIIDs, irs.IID{NameId: sgInfo.IId.NameId, SystemId: kv.Value})
+		}
+		vmInfo.SecurityGroupIIds = sgIIDs
+	}
+
 	// Set the VM Image Info
+	imageHandler := NcpVpcImageHandler{
+		RegionInfo:  vmHandler.RegionInfo,
+		VMClient:    vmHandler.VMClient,
+	}	
 	if !strings.EqualFold(*NcpInstance.ServerDescription, "") {
 		vmInfo.ImageIId.SystemId = *NcpInstance.ServerDescription // Note!! : Since MyImage ID is not included in the 'NcpInstance' info 
 		vmInfo.ImageIId.NameId = *NcpInstance.ServerDescription
@@ -1626,4 +1666,11 @@ func (vmHandler *NcpVpcVMHandler) GetRootPassword(vmId *string, privateKey *stri
 	}
 	
 	return result.RootPassword, nil
+}
+
+func countSgKvList(sg sim.SecurityGroupInfo) int {
+    if sg.KeyValueInfoList == nil {
+        return 0
+    }
+    return len(sg.KeyValueInfoList)
 }
