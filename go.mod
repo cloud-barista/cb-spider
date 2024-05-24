@@ -48,7 +48,7 @@ require (
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm v1.0.493
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc v1.0.206
 	github.com/uber/jaeger-client-go v2.30.0+incompatible
-	golang.org/x/crypto v0.22.0
+	golang.org/x/crypto v0.23.0
 	golang.org/x/oauth2 v0.17.0
 	google.golang.org/api v0.162.0
 	google.golang.org/grpc v1.63.2
@@ -59,7 +59,7 @@ require (
 require (
 	github.com/IBM/platform-services-go-sdk v0.30.0
 	github.com/Masterminds/semver/v3 v3.2.1
-	github.com/NaverCloudPlatform/ncloud-sdk-go-v2 v1.6.11
+	github.com/NaverCloudPlatform/ncloud-sdk-go-v2 v1.6.13
 	github.com/alibabacloud-go/cs-20151215/v4 v4.5.8
 	github.com/alibabacloud-go/darabonba-openapi/v2 v2.0.5
 	github.com/alibabacloud-go/ecs-20140526/v4 v4.24.17
@@ -187,10 +187,10 @@ require (
 	go.mongodb.org/mongo-driver v1.10.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
-	golang.org/x/net v0.24.0 // indirect
-	golang.org/x/sys v0.19.0 // indirect
-	golang.org/x/term v0.19.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/net v0.25.0 // indirect
+	golang.org/x/sys v0.20.0 // indirect
+	golang.org/x/term v0.20.0 // indirect
+	golang.org/x/text v0.15.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/tools v0.6.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
