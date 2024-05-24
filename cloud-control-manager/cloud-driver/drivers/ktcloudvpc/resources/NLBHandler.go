@@ -730,17 +730,7 @@ func (nlbHandler *KTVpcNLBHandler) getVMGroupInfo(nlbId string) (irs.VMGroupInfo
 	
 	if len(nlbVmList) < 1 {
 		cblogger.Debug("# NLB VM does Not Exist!!")
-		vmGroupInfo := irs.VMGroupInfo{
-			Protocol: 	"NA",
-			Port: 		"NA",
-			CspID:    	"NA",
-		}
-		vmIIds = append(vmIIds, irs.IID{
-			NameId:   "NA",
-			SystemId: "NA",
-		})
-		vmGroupInfo.VMs = &vmIIds
-		return vmGroupInfo, nil // Not Return Error
+		return irs.VMGroupInfo{}, nil // Not Return Error
 	}
 
 	vmGroupInfo := irs.VMGroupInfo{
