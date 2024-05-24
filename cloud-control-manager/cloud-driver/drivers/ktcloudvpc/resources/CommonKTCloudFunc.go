@@ -28,8 +28,8 @@ import (
 	"github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/networking/v2/ports"
 	"github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/networking/v2/subnets"
 	
-	cblog "github.com/cloud-barista/cb-log"
-	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	cblog 	 "github.com/cloud-barista/cb-log"
+	call 	 "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 )
 
 var once sync.Once
