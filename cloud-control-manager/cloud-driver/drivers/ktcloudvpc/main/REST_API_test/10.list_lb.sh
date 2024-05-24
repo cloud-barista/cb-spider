@@ -1,5 +1,5 @@
 #!/bin/bash
-source ./1.export.env_mine
+source ./1.export.env
 
 echo "### OS_LB_API - LB List"
 echo "curl -v $OS_LB_API?command=listLoadBalancers&zoneid=DX-M1&response=json"

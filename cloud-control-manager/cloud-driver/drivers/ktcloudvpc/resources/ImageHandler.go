@@ -94,7 +94,7 @@ func (imageHandler *KTVpcImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo
 
 	ktImage, err := imageHandler.getKTImage(imageIID)
 	if err != nil {
-		newErr := fmt.Errorf("MyImage(Image Template) having the ID does Not Exist!! [%v]", err)
+		newErr := fmt.Errorf("Failed to Find the Image info with the ID!! [%v]", err)
 		cblogger.Error(newErr.Error())
 		return irs.ImageInfo{}, newErr
 	}

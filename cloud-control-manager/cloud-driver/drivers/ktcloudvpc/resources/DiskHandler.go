@@ -531,6 +531,7 @@ func (diskHandler *KTVpcDiskHandler) mappingDiskInfo(volume volumes2.Volume) (ir
 		IId: irs.IID{
 			SystemId: volume.ID,
 		},
+		Zone: 		 volume.AvailabilityZone,
 		DiskSize:    strconv.Itoa(volume.Size),
 		Status:		 convertDiskStatus(volume.Status),
 		CreatedTime: convertedTime,
@@ -566,7 +567,7 @@ func (diskHandler *KTVpcDiskHandler) mappingDiskInfo(volume volumes2.Volume) (ir
 	}
 
 	keyValueList := []irs.KeyValue{
-		{Key: "AvailabilityZone",   Value: volume.AvailabilityZone},		 
+		// {Key: "AvailabilityZone",   Value: volume.AvailabilityZone},		 
 		{Key: "IsBootable",   		Value: volume.Bootable},
 		{Key: "IsMultiattached", 	Value: strconv.FormatBool(volume.Multiattach)},
 		{Key: "IsEncrypted", 		Value: strconv.FormatBool(volume.Encrypted)},
@@ -613,16 +614,12 @@ func (diskHandler *KTVpcDiskHandler) getImageNameandIDWithDiskID(diskId string) 
 		imageName, ok := diskResult.VolumeImageMetadata["image_name"]
 		if !ok {
 			fmt.Println("Image Name not found")
-		} else {
-			fmt.Println("Image Name:", imageName)
 		}
 
 		// Extract the image id
 		imageId, ok := diskResult.VolumeImageMetadata["image_id"]
 		if !ok {
 			fmt.Println("Image ID not found")
-		} else {
-			fmt.Println("Image ID:", imageId)
 		}
 		
 		if !strings.EqualFold(imageName, "") && !strings.EqualFold(imageId, "") {
