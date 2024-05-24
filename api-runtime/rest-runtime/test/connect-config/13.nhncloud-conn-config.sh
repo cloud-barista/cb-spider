@@ -8,7 +8,7 @@ curl -X POST http://$RESTSERVER:1024/spider/credential -H 'Content-Type: applica
     "CredentialName":"nhncloud-credential01",
     "ProviderName":"NHNCLOUD",
     "KeyValueInfoList": [
-        {"Key":"IdentityEndpoint", "Value":"https://api-identity.infrastructure.cloud.toast.com"},
+        {"Key":"IdentityEndpoint", "Value":"https://api-identity-infrastructure.nhncloudservice.com"},
         {"Key":"Username", "Value":"XXXXX@XXXXXXXXXXXXXXXX"},
         {"Key":"Password", "Value":"XXXXXXXXXXXXXXXXXX"},
         {"Key":"DomainName", "Value":"default"},
