@@ -1,6 +1,6 @@
 ## Config for NHN Cloud ##
 nhncloud:
-  identity_endpoint: https://api-identity.infrastructure.cloud.toast.com
+  identity_endpoint: https://api-identity-infrastructure.nhncloudservice.com
   nhn_username: ex) ~~~@~~~.com
   api_password: 
     # API 비밀번호 값 입력
