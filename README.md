@@ -75,17 +75,27 @@ If you have any difficulties in using Cloud-Barista, please let us know.
           - CSP: VPC 개념 제공하지 않음
           - CB-Spider: API 추상화를 위한 단일 VPC/Subnet 생성 제공 (두개 이상 VPC/Subnet 생성 불가)
           - CIDR: 제공하지 않음(설정 무의미)
-        ◉ Type-2: Internet 개방 조치 필요 (세부내용: #1109 참고)
+        ◉ Type-2: Console에서 사전 생성 후 등록 활용
           - CSP(NHN) IG(Internet Gateway) 제어 API 부재(추후 제공 예정)
-          - Console에서 IG 생성 후 VPC의 default Routing Table 연결 필요
+          - 사전 작업: Console에서 VPC 사전 생성 및 IG(Internet Gateway) 맵핑 필요(#1109 참고)
+          - CB-Spider: Register/UnRegister API 활용
+          - 등록 예시
+              curl -sX POST http://localhost:1024/spider/regvpc -H 'Content-Type: application/json' -d \
+                '{
+                  "ConnectionName": "'${CONN_CONFIG}'", 
+                  "ReqInfo": { "Name": "'${VPC_NAME}'", "CSPId": "'${VPC_CSPID}'"} 
+                }'
+
         ◉ Type-3: default VPC 활용 (KT VPC)
           - CSP: 생성 제공 없이 고정된 default VPC 1개만 제공
           - CB-Spider: API 추상화를 위한 단일 VPC 생성만 제공 (이름 등록 수준)
             - 두개 이상 VPC 생성 불가, Subnet은 추가/삭제 가능
 
     ※ Security Group 특이사항(세부 내용: 각 드라이버 Readme 참고)
-        ◉ Note-1: Console에서 사전 생성 후 동일 이름으로 생성 요청(CSP: Create API 부재)
-          - 또는 등록 기능 활용
+        ◉ Note-1: Console에서 사전 생성 후 등록 활용
+          - CSP: Security Group Create API 부재
+          - 사전 작업: Console에서 Security Group 사전 생성
+          - CB-Spider: Register/UnRegister API 활용
           - 등록 예시
               curl -sX POST http://localhost:1024/spider/regsecuritygroup -H 'Content-Type: application/json' -d \
                	'{
