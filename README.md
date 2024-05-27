@@ -55,20 +55,20 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 
 #### 3. 제공 자원
 
-| Provider      | Price<br>Info | Region/Zone<br>Info | Image<br>Info | VMSpec<br>Info | VPC<br>Subnet       | Security<br>Group | VM KeyPair      | VM             | NLB/Disk/<br>MyImage | managed-K8S |
-|:-------------:|:-------------:|:-------------------:|:-------------:|:--------------:|:-------------------:|:-----------------:|:---------------:|:--------------:|:---------------------:|:-----------:|
-| AWS           | O             | O                   | O             | O              | O                   | O                 | O               | O              | O                     | Soon        |
-| Azure         | O<br>(Spec제외)| O                  | O             | O              | O                   | O                 | O               | O              | O                     | Soon        |
-| GCP           | Soon          | O                   | O             | O              | O                   | O                 | O               | O              | O                     | Soon        |
-| Alibaba       | O             | O                   | O             | O              | O                   | O                 | O               | O              | O                     | O           |
-| Tencent       | O             | O                   | O             | O              | O                   | O                 | O               | O              | O                     | O           |
-| IBM VPC       | O<br>(Spec제외)| O                  | O             | O              | O                   | O                 | O               | O              | O                     | Soon        |
-| OpenStack     | -             | O                   | O             | O              | O                   | O                 | O               | O              | O                     | -           |
-| NCP Classic   | Soon          | O                   | O             | O              | O<br>(Type-1)       | O<br>(Note-1)     | O               | O              | O                     | -           |
-| NCP VPC       | Soon          | O                   | O             | O              | O                   | O                 | O               | O              | O                     | -           |
-| NHN           | -             | O                   | O             | O              | O<br>(Type-2)       | O                 | O               | O<br>(Note-2) | O                     | O           |
-| KT Classic    | -             | O                   | O             | O              | O<br>(Type-1)       | O                 | O               | O              | O                     | -           |
-| KT VPC        | -             | O                   | O             | O              | O<br>(Type-3)       | O                 | O               | O              | Soon                  | -           |  
+| Provider      | Price<br>Info | Region/Zone<br>Info | Image<br>Info | VMSpec<br>Info | VPC<br>Subnet       | Security<br>Group | VM KeyPair      | VM             | Disk | NLB | MyImage | managed-K8S |
+|:-------------:|:-------------:|:-------------------:|:-------------:|:--------------:|:-------------------:|:-----------------:|:---------------:|:--------------:|:----:|:---:|:-------:|:-----------:|
+| AWS           | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | Soon        |
+| Azure         | O<br>(Spec제외)| O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | Soon        |
+| GCP           | Soon          | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | Soon        |
+| Alibaba       | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O           |
+| Tencent       | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O           |
+| IBM VPC       | O<br>(Spec제외)| O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | Soon        |
+| OpenStack     | -             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | -           |
+| NCP Classic   | Soon          | O                   | O             | O              | O<br>(Type-1)       | O<br>(Note-1)     | O               | O              | O    | O   | O       | -           |
+| NCP VPC       | Soon          | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | -           |
+| NHN           | -             | O                   | O             | O              | O<br>(Type-2)       | O                 | O               | O<br>(Note-2)  | O    | Soon| Soon    | O           |
+| KT Classic    | -             | O                   | O             | O              | O<br>(Type-1)       | O                 | O               | O              | O    | O   | O       | -           |
+| KT VPC        | -             | O                   | O             | O              | O<br>(Type-3)       | O                 | O               | O              | O    | O   | Soon    | -           |
 
     ※ VPC 특이사항(세부 내용: 각 드라이버 Readme 참고)
         ◉ Type-1: VPC/Subnet Emulation
