@@ -64,21 +64,22 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 | Tencent       | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O           |
 | IBM VPC       | O<br>(Spec제외)| O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | WIP        |
 | OpenStack     | NA             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | ?           |
-| NCP Classic   | WIP            | O                   | O             | O              | O<br>(Type-1)       | O<br>(Note-1)     | O               | O              | O    | O   | O       | NA           |
+| NCP Classic   | WIP            | O                   | O             | O              | O<br>(Type1)       | O<br>(Note1)     | O               | O              | O    | O   | O       | NA           |
 | NCP VPC       | WIP            | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | ?           |
-| NHN           | NA             | O                   | O             | O              | O<br>(Type-2)       | O                 | O               | O<br>(Note-2)  | O    | WIP| WIP    | O           |
-| KT Classic    | NA             | O                   | O             | O              | O<br>(Type-1)       | O                 | O               | O              | O    | O   | O       | NA          |
-| KT VPC        | NA             | O                   | O             | O              | O<br>(Type-3)       | O                 | O               | O              | O    | WIP   | O<br>(Note-3)| Wait API    |
+| NHN           | NA             | O                   | O             | O              | O<br>(Type2)       | O                 | O               | O<br>(Note2)  | O    | WIP| WIP    | O           |
+| KT Classic    | NA             | O                   | O             | O              | O<br>(Type1)       | O                 | O               | O              | O    | O   | O       | NA          |
+| KT VPC        | NA             | O                   | O             | O              | O<br>(Type3)       | O                 | O               | O              | O    | WIP   | O<br>(Note3)| Wait API    |
+
 
     ※ WIP: Work In Progress, NA: Not Applicable, Wait API: CSP API 공개 대기, ?: 미정/분석필요
     
     ※ VPC 특이사항(세부 내용: 각 드라이버 Readme 참고)
-        ◉ Type-1: VPC/Subnet Emulation
+        ◉ Type1: VPC/Subnet Emulation
           - CSP: VPC 개념 제공하지 않음
           - CB-Spider: API 추상화를 위한 단일 VPC/Subnet 생성 제공 (두개 이상 VPC/Subnet 생성 불가)
           - CIDR: 제공하지 않음(설정 무의미)
           
-        ◉ Type-2: Console에서 사전 생성 후 등록 활용
+        ◉ Type2: Console에서 사전 생성 후 등록 활용
           - CSP(NHN) IG(Internet Gateway) 제어 API 부재(추후 제공 예정)
           - 사전 작업: Console에서 VPC 사전 생성 및 IG(Internet Gateway) 맵핑 필요(#1109 참고)
           - CB-Spider: Register/UnRegister API 활용
@@ -89,13 +90,13 @@ If you have any difficulties in using Cloud-Barista, please let us know.
                   "ReqInfo": { "Name": "'${VPC_NAME}'", "CSPId": "'${VPC_CSPID}'"} 
                 }'
 
-        ◉ Type-3: default VPC 활용 (KT VPC)
+        ◉ Type3: default VPC 활용 (KT VPC)
           - CSP: 생성 제공 없이 고정된 default VPC 1개만 제공
           - CB-Spider: API 추상화를 위한 단일 VPC 생성만 제공 (이름 등록 수준)
             - 두개 이상 VPC 생성 불가, Subnet은 추가/삭제 가능
 
     ※ Security Group 특이사항(세부 내용: 각 드라이버 Readme 참고)
-        ◉ Note-1: Console에서 사전 생성 후 등록 활용
+        ◉ Note1: Console에서 사전 생성 후 등록 활용
           - CSP: Security Group Create API 부재
           - 사전 작업: Console에서 Security Group 사전 생성
           - CB-Spider: Register/UnRegister API 활용
@@ -107,10 +108,10 @@ If you have any difficulties in using Cloud-Barista, please let us know.
                	}'
           
     ※ VM 특이사항(세부 내용: 각 드라이버 Readme 참고)
-        ◉ Note-2: Wdindows VM일 경우 SSH Key 사용한 VM 생성 후 Console에서 Key를 이용하여 PW 확인 필요
+        ◉ Note2: Wdindows VM일 경우 SSH Key 사용한 VM 생성 후 Console에서 Key를 이용하여 PW 확인 필요
 
     ※ NLB 특이사항(세부 내용: 각 드라이버 Readme 참고)
-        ◉ Note-3: NLB에 등록할 VM은 NLB와 동일 Subnet에 존재해야 함
+        ◉ Note3: NLB에 등록할 VM은 NLB와 동일 Subnet에 존재해야 함
 
 
 #### 4. VM 계정
