@@ -68,7 +68,7 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 | NCP VPC       | WIP            | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | ?           |
 | NHN           | NA             | O                   | O             | O              | O<br>(Type-2)       | O                 | O               | O<br>(Note-2)  | O    | WIP| WIP    | O           |
 | KT Classic    | NA             | O                   | O             | O              | O<br>(Type-1)       | O                 | O               | O              | O    | O   | O       | NA          |
-| KT VPC        | NA             | O                   | O             | O              | O<br>(Type-3)       | O                 | O               | O              | O    | WIP   | O    | Wait API    |
+| KT VPC        | NA             | O                   | O             | O              | O<br>(Type-3)       | O                 | O               | O              | O    | WIP   | O<br>(Note-3)| Wait API    |
 
     ※ WIP: Work In Progress, NA: Not Applicable, Wait API: CSP API 공개 대기, ?: 미정/분석필요
     
@@ -108,6 +108,9 @@ If you have any difficulties in using Cloud-Barista, please let us know.
           
     ※ VM 특이사항(세부 내용: 각 드라이버 Readme 참고)
         ◉ Note-2: Wdindows VM일 경우 SSH Key 사용한 VM 생성 후 Console에서 Key를 이용하여 PW 확인 필요
+
+    ※ NLB 특이사항(세부 내용: 각 드라이버 Readme 참고)
+        ◉ Note-3: NLB에 등록할 VM은 NLB와 동일 Subnet에 존재해야 함
 
 
 #### 4. VM 계정
