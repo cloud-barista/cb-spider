@@ -77,6 +77,7 @@ If you have any difficulties in using Cloud-Barista, please let us know.
           - CSP: VPC 개념 제공하지 않음
           - CB-Spider: API 추상화를 위한 단일 VPC/Subnet 생성 제공 (두개 이상 VPC/Subnet 생성 불가)
           - CIDR: 제공하지 않음(설정 무의미)
+          
         ◉ Type-2: Console에서 사전 생성 후 등록 활용
           - CSP(NHN) IG(Internet Gateway) 제어 API 부재(추후 제공 예정)
           - 사전 작업: Console에서 VPC 사전 생성 및 IG(Internet Gateway) 맵핑 필요(#1109 참고)
