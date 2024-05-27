@@ -55,7 +55,7 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 
 #### 3. 제공 자원
 
-| Provider      | Price<br>Info | Region/Zone<br>Info | Image<br>Info | VMSpec<br>Info | VPC<br>Subnet       | Security<br>Group | VM KeyPair      | VM             | Disk | NLB | MyImage | managed-K8S |
+| Provider      | Price<br>Info | Region/Zone<br>Info | Image<br>Info | VMSpec<br>Info | VPC<br>Subnet       | Security<br>Group | VM KeyPair      | VM             | Disk | MyImage | NLB | managed-K8S |
 |:-------------:|:-------------:|:-------------------:|:-------------:|:--------------:|:-------------------:|:-----------------:|:---------------:|:--------------:|:----:|:---:|:-------:|:-----------:|
 | AWS           | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | WIP        |
 | Azure         | O<br>(Spec제외)| O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | WIP        |
@@ -68,7 +68,7 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 | NCP VPC       | WIP            | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | ?           |
 | NHN           | NA             | O                   | O             | O              | O<br>(Type-2)       | O                 | O               | O<br>(Note-2)  | O    | WIP| WIP    | O           |
 | KT Classic    | NA             | O                   | O             | O              | O<br>(Type-1)       | O                 | O               | O              | O    | O   | O       | NA          |
-| KT VPC        | NA             | O                   | O             | O              | O<br>(Type-3)       | O                 | O               | O              | O    | O   | WIP    | Wait API    |
+| KT VPC        | NA             | O                   | O             | O              | O<br>(Type-3)       | O                 | O               | O              | O    | WIP   | O    | Wait API    |
 
     ※ WIP: Work In Progress, NA: Not Applicable, Wait API: CSP API 공개 대기, ?: 미정/분석필요
     
