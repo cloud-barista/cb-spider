@@ -57,19 +57,21 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 
 | Provider      | Price<br>Info | Region/Zone<br>Info | Image<br>Info | VMSpec<br>Info | VPC<br>Subnet       | Security<br>Group | VM KeyPair      | VM             | Disk | NLB | MyImage | managed-K8S |
 |:-------------:|:-------------:|:-------------------:|:-------------:|:--------------:|:-------------------:|:-----------------:|:---------------:|:--------------:|:----:|:---:|:-------:|:-----------:|
-| AWS           | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | Soon        |
-| Azure         | O<br>(Spec제외)| O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | Soon        |
-| GCP           | Soon          | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | Soon        |
+| AWS           | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | WIP        |
+| Azure         | O<br>(Spec제외)| O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | WIP        |
+| GCP           | WIP           | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | WIP        |
 | Alibaba       | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O           |
 | Tencent       | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O           |
-| IBM VPC       | O<br>(Spec제외)| O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | Soon        |
-| OpenStack     | -             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | -           |
-| NCP Classic   | Soon          | O                   | O             | O              | O<br>(Type-1)       | O<br>(Note-1)     | O               | O              | O    | O   | O       | -           |
-| NCP VPC       | Soon          | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | -           |
-| NHN           | -             | O                   | O             | O              | O<br>(Type-2)       | O                 | O               | O<br>(Note-2)  | O    | Soon| Soon    | O           |
-| KT Classic    | -             | O                   | O             | O              | O<br>(Type-1)       | O                 | O               | O              | O    | O   | O       | -           |
-| KT VPC        | -             | O                   | O             | O              | O<br>(Type-3)       | O                 | O               | O              | O    | O   | Soon    | -           |
+| IBM VPC       | O<br>(Spec제외)| O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | WIP        |
+| OpenStack     | NA             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | ?           |
+| NCP Classic   | WIP            | O                   | O             | O              | O<br>(Type-1)       | O<br>(Note-1)     | O               | O              | O    | O   | O       | NA           |
+| NCP VPC       | WIP            | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | ?           |
+| NHN           | NA             | O                   | O             | O              | O<br>(Type-2)       | O                 | O               | O<br>(Note-2)  | O    | WIP| WIP    | O           |
+| KT Classic    | NA             | O                   | O             | O              | O<br>(Type-1)       | O                 | O               | O              | O    | O   | O       | NA          |
+| KT VPC        | NA             | O                   | O             | O              | O<br>(Type-3)       | O                 | O               | O              | O    | O   | WIP    | Wait API    |
 
+    ※ WIP: Work In Progress, NA: Not Applicable, Wait API: CSP API 공개 대기, ?: 미정/분석필요
+    
     ※ VPC 특이사항(세부 내용: 각 드라이버 Readme 참고)
         ◉ Type-1: VPC/Subnet Emulation
           - CSP: VPC 개념 제공하지 않음
