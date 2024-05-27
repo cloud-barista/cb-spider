@@ -220,7 +220,7 @@ const htmlTemplate = `
 
     function clearSearchInput() {
         document.getElementById("searchInput").value = "";
-        searchTable(); // 검색 입력이 지워진 후 검색 결과를 업데이트합니다.
+        searchTable(); // Clear the search results
     }
 
     function filterStatus() {

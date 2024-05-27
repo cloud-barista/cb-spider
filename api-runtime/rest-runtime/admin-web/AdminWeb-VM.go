@@ -51,7 +51,7 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
 			    <font size=%s>$$VMCONTROL$$</font>
 			    <br>
 			    <input style="font-size:12px;text-align:center;" type="text" name="myimage-name" id="myimage-name" value="spider-myimage-$$NUM$$">
-			    <button type="button" onclick="postSnapshotVM('$$NUM$$', '$$VMNAME$$')">Snapshot</button>
+			    <button type="button" onclick="postSnapshotVM('`+connConfig+`', '$$NUM$$', '$$VMNAME$$')">Snapshot</button>
                     </td>
                     <td>
                             <font size=%s>$$VMSTATUS$$</font>
@@ -115,9 +115,9 @@ func makeVMTRList_html(connConfig string, bgcolor string, height string, fontSiz
 		str = strings.ReplaceAll(str, "$$VMSTATUS$$", status)
 
 		if cres.VMStatus(status) == cres.Running {
-			str = strings.ReplaceAll(str, "$$VMCONTROL$$", `<span id="vmcontrol-`+one.IId.NameId+`">[<a href="javascript:vmControl('`+one.IId.NameId+`','suspend')">Suspend</a> / <a href="javascript:vmControl('`+one.IId.NameId+`','reboot')">Reboot</a>]</span>`)
+			str = strings.ReplaceAll(str, "$$VMCONTROL$$", `<span id="vmcontrol-`+one.IId.NameId+`">[<a href="javascript:vmControl('`+connConfig+`', '`+one.IId.NameId+`','suspend')">Suspend</a> / <a href="javascript:vmControl('`+connConfig+`', '`+one.IId.NameId+`','reboot')">Reboot</a>]</span>`)
 		} else if cres.VMStatus(status) == cres.Suspended {
-			str = strings.ReplaceAll(str, "$$VMCONTROL$$", `<span id="vmcontrol-`+one.IId.NameId+`">[<a href="javascript:vmControl('`+one.IId.NameId+`','resume')">Resume</a>]</span>`)
+			str = strings.ReplaceAll(str, "$$VMCONTROL$$", `<span id="vmcontrol-`+one.IId.NameId+`">[<a href="javascript:vmControl('`+connConfig+`', '`+one.IId.NameId+`','resume')">Resume</a>]</span>`)
 		} else {
 			str = strings.ReplaceAll(str, "$$VMCONTROL$$", `[<span style="color:brown">vm control disabed</span>] <br> you can control when Running / Suspended. <br> try refresh page...`)
 		}
@@ -224,12 +224,15 @@ func genLoggingOneGETURL(connConfig string, rsType string, name string) string {
 
 	url := "http://" + "localhost" + cr.ServerPort + "/spider/" + rsType + "/" + name + " -H 'Content-Type: application/json' -d '{\\\"ConnectionName\\\": \\\"" + connConfig + "\\\"}'"
 	htmlStr := `
-                <script type="text/javascript">
-                `
-	htmlStr += `    parent.frames["log_frame"].Log("curl -sX GET ` + url + `");`
-	htmlStr += `
-                </script>
-                `
+    <script type="text/javascript">
+		try	{
+        	parent.frames["log_frame"].Log("curl -sX GET ` + url + `");
+		} catch(e) {
+			// Do nothing if error occurs
+		}
+    </script>
+`
+
 	return htmlStr
 }
 
@@ -238,8 +241,7 @@ func makeVMControlFunc_js() string {
 	//curl -sX PUT http://localhost:1024/spider/controlvm/vm-01?action=suspend -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}'
 
 	strFunc := `
-                function vmControl(vmName, action) {
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+                function vmControl(connConfig, vmName, action) {                        
 
 			document.getElementById("vmcontrol-" + vmName).innerHTML = '<span style="color:red">Waiting...</span>';
 			setTimeout(function(){
@@ -249,12 +251,20 @@ func makeVMControlFunc_js() string {
 				sendJson = '{ "ConnectionName": "' + connConfig + '"}'
 
 				// client logging
-				parent.frames["log_frame"].Log("PUT> " + "$$SPIDER_SERVER$$/spider/controlvm/" + vmName + "?action=" + action + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+				try	{
+					parent.frames["log_frame"].Log("PUT> " + "$$SPIDER_SERVER$$/spider/controlvm/" + vmName + "?action=" + action + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+				} catch(e) {
+					// Do nothing if error occurs
+				}
 
 				xhr.send(sendJson);
 
 				// client logging
-				parent.frames["log_frame"].Log("   ==> " + xhr.response);
+				try	{
+					parent.frames["log_frame"].Log("   ==> " + xhr.response);
+				} catch(e) {
+					// Do nothing if error occurs
+				}
 
 				location.reload();
 			}, 10);
@@ -273,8 +283,7 @@ func makePostVMFunc_js() string {
 	//  "SubnetName": "subnet-01", "SecurityGroupNames": [ "sg-01" ], "VMSpecName": "t2.micro", "KeyPairName": "keypair-01"} }'
 
 	strFunc := `
-                function postVM() {
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+                function postVM(connConfig) {                        
                         var textboxes = document.getElementsByName('text_box');
                         sendJson = '{ "ConnectionName" : "' + connConfig + '", "ReqInfo" : { "Name" : "$$VMNAME$$", "ImageType" : "$$IMAGETYPE$$",\
                                 "ImageName" : "$$IMAGE$$", "VMSpecName" : "$$SPEC$$", "VPCName" : "$$VPC$$", "SubnetName" : "$$SUBNET$$", \
@@ -339,12 +348,20 @@ func makePostVMFunc_js() string {
                         xhr.setRequestHeader('Content-Type', 'application/json');
 
 			// client logging
-			parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/vm -H 'Content-Type: application/json' -d '" + sendJson + "'");
+			try	{
+				parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/vm -H 'Content-Type: application/json' -d '" + sendJson + "'");
+			} catch(e) {
+				// Do nothing if error occurs
+			}
 
-                        xhr.send(sendJson);
+            xhr.send(sendJson);
 
 			// client logging
-			parent.frames["log_frame"].Log("   ==> " + xhr.response);
+			try	{
+				parent.frames["log_frame"].Log("   ==> " + xhr.response);
+			} catch(e) {
+				// Do nothing if error occurs
+			}
 
 			location.reload();
                 }
@@ -391,8 +408,7 @@ func makeDeleteVMFunc_js() string {
 	// curl -sX DELETE http://localhost:1024/spider/vm/vm-01 -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}'
 
 	strFunc := `
-                function deleteVM() {
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+                function deleteVM(connConfig) {                        
                         var checkboxes = document.getElementsByName('check_box');
                         for (var i = 0; i < checkboxes.length; i++) { // @todo make parallel executions
                                 if (checkboxes[i].checked) {
@@ -402,12 +418,20 @@ func makeDeleteVMFunc_js() string {
 					sendJson = '{ "ConnectionName": "' + connConfig + '"}'
 
 					// client logging
-					parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/vm/" + checkboxes[i].value + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+					try	{
+						parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/vm/" + checkboxes[i].value + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+					} catch(e) {
+						// Do nothing if error occurs
+					}
 
-                                        xhr.send(sendJson);
+                    xhr.send(sendJson);
 
 					// client logging
-					parent.frames["log_frame"].Log("   ==> " + xhr.response);
+					try	{
+						parent.frames["log_frame"].Log("   ==> " + xhr.response);
+					} catch(e) {
+						// Do nothing if error occurs
+					}
                                 }
                         }
             location.reload();
@@ -483,7 +507,7 @@ func VM(c echo.Context) error {
 
 	// (2) make Table Action TR
 	// colspan, f5_href, delete_href, fontSize
-	htmlStr += makeActionTR_html("11", "", "deleteVM()", "2")
+	htmlStr += makeActionTR_html("11", "", fmt.Sprintf("deleteVM('%s')", connConfig), "2")
 
 	// (3) make Table Header TR
 	nameWidthList := []NameWidth{
@@ -668,7 +692,7 @@ func VM(c echo.Context) error {
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="14" disabled value="N/A">
                             </td>
                             <td>
-                                <a href="javascript:postVM()">
+                                <a href="javascript:postVM('` + connConfig + `')">
                                     <font size=4><mark><b>+</b></mark></font>
                                 </a>
                             </td>
@@ -807,9 +831,7 @@ func makePostSnapshotVMFunc_js() string {
 	//      } }'
 
 	strFunc := `
-                function postSnapshotVM(i, vmName) {
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
-
+                function postSnapshotVM(connConfig, i, vmName) {
                         var myImages = document.getElementsByName('myimage-name');
                         var idx = parseInt(i)-1;                        
                         var myImageName = myImages[idx].value;
@@ -823,15 +845,22 @@ func makePostSnapshotVMFunc_js() string {
                         xhr.setRequestHeader('Content-Type', 'application/json');
 
                         // client logging
-                        parent.frames["log_frame"].Log("curl -sX POST " + 
+						try	{
+                        	parent.frames["log_frame"].Log("curl -sX POST " + 
                                 "$$SPIDER_SERVER$$/spider/myimage -H 'Content-Type: application/json' -d '" + sendJson + "'");
+						} catch(e) {
+							// Do nothing if error occurs
+						}						
 
                         xhr.send(sendJson);
 
                         // client logging
-                        parent.frames["log_frame"].Log("   ==> " + xhr.response);
+						try	{
+                        	parent.frames["log_frame"].Log("   ==> " + xhr.response);
+						} catch(e) {
+							// Do nothing if error occurs
+						}
                         var jsonVal = JSON.parse(xhr.response)
-
 
             location.reload();
                 }

@@ -23,7 +23,6 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-
 //====================================== KeyPair
 
 // number, KeyPair Name, KeyPair Info, Key User, Additional Info, checkbox
@@ -101,8 +100,7 @@ func makePostKeyPairFunc_js() string {
 	//      -d '{ "ConnectionName": "'${CONN_CONFIG}'", "ReqInfo": { "Name": "keypair-01" } }'
 
 	strFunc := `
-                function postKeyPair() {
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+                function postKeyPair(connConfig) {
 
                         var textboxes = document.getElementsByName('text_box');
             sendJson = '{ "ConnectionName" : "' + connConfig + '", "ReqInfo" : { "Name" : "$$KEYPAIRNAME$$"}}'
@@ -121,12 +119,20 @@ func makePostKeyPairFunc_js() string {
                         xhr.setRequestHeader('Content-Type', 'application/json');
 
 			// client logging
-			parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/keypair -H 'Content-Type: application/json' -d '" + sendJson + "'");
+			try {
+				parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/keypair -H 'Content-Type: application/json' -d '" + sendJson + "'");
+			} catch (e) {
+				// Do nothing if error occurs
+			}
 
-                        xhr.send(sendJson);
+            xhr.send(sendJson);
 
 			// client logging
-			parent.frames["log_frame"].Log("   ==> " + xhr.response);
+			try {
+				parent.frames["log_frame"].Log("   ==> " + xhr.response);
+			} catch (e) {
+				// Do nothing if error occurs
+			}
 			var jsonVal = JSON.parse(xhr.response)
 
 //---------------- download this private key 
@@ -154,8 +160,7 @@ func makeDeleteKeyPairFunc_js() string {
 	//           -d '{ "ConnectionName": "'${CONN_CONFIG}'"}'
 
 	strFunc := `
-                function deleteKeyPair() {
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+                function deleteKeyPair(connConfig) {
                         var checkboxes = document.getElementsByName('check_box');
                         for (var i = 0; i < checkboxes.length; i++) { // @todo make parallel executions
                                 if (checkboxes[i].checked) {
@@ -165,12 +170,19 @@ func makeDeleteKeyPairFunc_js() string {
 					sendJson = '{ "ConnectionName": "' + connConfig + '"}'
 
 					// client logging
-					parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/keypair/" + checkboxes[i].value + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
-
-                                        xhr.send(sendJson);
+					try {
+						parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/keypair/" + checkboxes[i].value + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+					} catch (e) {
+						// Do nothing if error occurs
+					}
+                    xhr.send(sendJson);
 
 					// client logging
-					parent.frames["log_frame"].Log("   ==> " + xhr.response);
+					try {
+						parent.frames["log_frame"].Log("   ==> " + xhr.response);
+					} catch (e) {
+						// Do nothing if error occurs
+					}
                                 }
                         }
             location.reload();
@@ -244,7 +256,7 @@ func KeyPair(c echo.Context) error {
 	// (2) make Table Action TR
 	// colspan, f5_href, delete_href, fontSize
 	//htmlStr += makeActionTR_html("6", "keypair", "deleteKeyPair()", "2")
-	htmlStr += makeActionTR_html("6", "", "deleteKeyPair()", "2")
+	htmlStr += makeActionTR_html("6", "", fmt.Sprintf("deleteKeyPair('%s')", connConfig), "2")
 
 	// (3) make Table Header TR
 	nameWidthList := []NameWidth{
@@ -265,7 +277,7 @@ func KeyPair(c echo.Context) error {
 	if err != nil {
 		cblog.Error(err)
 		// client logging
-                htmlStr += genLoggingResult(err.Error())
+		htmlStr += genLoggingResult(err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
@@ -300,7 +312,7 @@ func KeyPair(c echo.Context) error {
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="4" disabled value="N/A">
                             </td>
                             <td>
-                                <a href="javascript:postKeyPair()">
+                                <a href="javascript:postKeyPair('` + connConfig + `')">
                                     <font size=4><mark><b>+</b></mark></font>
                                 </a>
                             </td>

@@ -91,20 +91,68 @@
     .content {
         margin-top: 100px;
     }
+    /* Input styles */
+    .refresh-input {
+        width: 50px;
+    }
+    .form-inline {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .form-inline > * {
+        margin-right: 10px;
+    }
+    .interval-container {
+        display: none;
+        margin-left: 10px;
+    }
+    .right-controls {
+        display: flex;
+        align-items: center;
+    }
+    .right-controls > * {
+        margin-left: 10px;
+    }
 </style>
 <script>
+    var refreshIntervalId;
+
     function refreshDashboard() {
-        location.reload();
+        fetch(window.location.href, {cache: "no-store"})
+            .then(response => response.text())
+            .then(html => {
+                document.querySelector('.content').innerHTML = new DOMParser().parseFromString(html, 'text/html').querySelector('.content').innerHTML;
+            });
     }
-    
+
+    function toggleRefresh() {
+        var refreshOn = document.getElementById('refreshToggle').checked;
+        var intervalContainer = document.getElementById('intervalContainer');
+        var interval = parseInt(document.getElementById('refreshInterval').value) * 1000;
+
+        if (refreshOn) {
+            intervalContainer.style.display = 'inline';
+            refreshIntervalId = setInterval(refreshDashboard, interval);
+        } else {
+            intervalContainer.style.display = 'none';
+            clearInterval(refreshIntervalId);
+        }
+    }
+
+    function setRefresh() {
+        clearInterval(refreshIntervalId);
+        toggleRefresh();
+    }
+
     function openOverlay(url) {
         var overlay = document.createElement('div');
         overlay.className = 'overlay';
-    
+
         var overlayContent = document.createElement('div');
         overlayContent.className = 'overlay-content';
         overlay.appendChild(overlayContent);
-    
+
         var content = document.createElement('iframe');
         content.src = url;
         content.style.width = '100%';
@@ -116,38 +164,61 @@
             }, 500);
         };
         overlayContent.appendChild(content);
-    
+
         var progressBar = document.createElement('div');
         progressBar.className = 'progress-bar';
         var progressBarInner = document.createElement('div');
         progressBarInner.className = 'progress-bar-inner';
         progressBar.appendChild(progressBarInner);
         overlayContent.appendChild(progressBar);
-    
+
         var closeButton = document.createElement('div');
         closeButton.textContent = 'X';
         closeButton.className = 'close-btn';
-        closeButton.onclick = function() { 
-            document.body.removeChild(overlay); 
+        closeButton.onclick = function() {
+            document.body.removeChild(overlay);
             refreshDashboard();
         };
         overlayContent.appendChild(closeButton);
-    
+
         document.body.appendChild(overlay);
         overlay.style.display = 'block'; // Make the overlay visible
         setTimeout(function() { progressBarInner.style.width = '50%'; }, 500); // Simulate initial progress
     }
+
+    function toggleShowEmpty() {
+        var showEmpty = document.getElementById('showEmpty').checked;
+        var url = new URL(window.location.href);
+        if (showEmpty) {
+            url.searchParams.set('showEmpty', 'true');
+        } else {
+            url.searchParams.delete('showEmpty');
+        }
+        window.history.pushState({}, '', url);
+        refreshDashboard();
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        toggleRefresh();
+    });
 </script>
 </head>
 <body>
     <div class="fixed-header">
         <h1>Cloud Connection Dashboard</h1>
-        <form method="GET" action="/spider/adminweb/dashboard">
+        <div class="form-inline">
             <label>
-                <input type="checkbox" name="showEmpty" value="true" {{if .ShowEmpty}}checked{{end}}> Show Empty Connections
+                <input type="checkbox" id="showEmpty" name="showEmpty" value="true" {{if .ShowEmpty}}checked{{end}} onchange="toggleShowEmpty()"> Show Empty Connections
             </label>
-            <input type="submit" value="Apply">
-        </form>
+            <div class="right-controls">
+                <label>
+                    <input type="checkbox" id="refreshToggle" checked onchange="toggleRefresh()"> Refresh
+                </label>
+                <div id="intervalContainer" class="interval-container">
+                    <input type="number" id="refreshInterval" class="refresh-input" value="3" min="1" oninput="setRefresh()">
+                </div>
+            </div>
+        </div>
     </div>
     <div class="content">
         {{range $provider, $counts := .ResourceCounts}}
