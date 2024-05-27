@@ -210,17 +210,33 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	request.InternetMaxBandwidthOut = requests.Integer("5") // 0보다 크면 Public IP가 할당 됨 - 최대 아웃 바운드 공용 대역폭 단위 : Mbit / s 유효한 값 : 0 ~ 100
 
 	//=============================
+	// instance 사용 가능 검사
+	//=============================
+
+	availableResourceResp, err := DescribeAvailableResource(vmHandler.Client, vmHandler.Region.Region, vmHandler.Region.Zone, "instance", "InstanceType", vmReqInfo.VMSpecName)
+	if err != nil {
+		cblogger.Error(err)
+	}
+	if len(availableResourceResp.AvailableZone) == 0 {
+		return irs.VMInfo{}, errors.New("No AvailableInstanceType in the request region")
+	}
+
+	//=============================
 	// Root Disk Type 설정
 	//=============================
 
 	// 인스턴스 타입 별로 가능한 목록 불러오기
-	availableResourceResp, err := DescribeAvailableSystemDisksByInstanceType(vmHandler.Client, vmHandler.Region.Region, vmHandler.Region.Zone, "PostPaid", "SystemDisk", vmReqInfo.VMSpecName)
+	availableSystemDisksResp, err := DescribeAvailableSystemDisksByInstanceType(vmHandler.Client, vmHandler.Region.Region, vmHandler.Region.Zone, "PostPaid", "SystemDisk", vmReqInfo.VMSpecName)
 	if err != nil {
 		cblogger.Error(err)
 	}
+	if len(availableSystemDisksResp.AvailableZone) == 0 {
+		return irs.VMInfo{}, errors.New("No AvailableSystemDisk for that instance type in the request region")
+	}
+
 	var supportedDiskTypes []string
 
-	for _, zone := range availableResourceResp.AvailableZone {
+	for _, zone := range availableSystemDisksResp.AvailableZone {
 		for _, resource := range zone.AvailableResources.AvailableResource {
 			for _, supportedResource := range resource.SupportedResources.SupportedResource {
 				supportedDiskTypes = append(supportedDiskTypes, supportedResource.Value)
@@ -229,7 +245,6 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	}
 
 	if vmReqInfo.RootDiskType == "" || strings.EqualFold(vmReqInfo.RootDiskType, "default") {
-
 		// get Alibaba's Meta Info
 		cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("ALIBABA")
 		if err != nil {

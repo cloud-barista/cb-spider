@@ -396,7 +396,7 @@ func DescribeImageByImageId(client *ecs.Client, regionInfo idrv.RegionInfo, imag
 	//}
 
 	if len(imageList) == 0 {
-		return ecs.Image{}, errors.New("no result")
+		return ecs.Image{}, errors.New("no result with request image IID(NameId/SystemId) : " + imageIID.NameId + "/" + imageIID.SystemId)
 	} else if len(imageList) > 1 {
 		return ecs.Image{}, errors.New("search failed. too many results")
 	}
