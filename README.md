@@ -57,7 +57,7 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 
 | Provider      | Price<br>Info | Region/Zone<br>Info | Image<br>Info | VMSpec<br>Info | VPC<br>Subnet       | Security<br>Group | VM KeyPair      | VM             | Disk | MyImage | NLB | managed-K8S |
 |:-------------:|:-------------:|:-------------------:|:-------------:|:--------------:|:-------------------:|:-----------------:|:---------------:|:--------------:|:----:|:---:|:-------:|:-----------:|
-| AWS           | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | WIP        |
+| AWS           | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O        |
 | Azure         | O<br>(Spec제외)| O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | WIP        |
 | GCP           | WIP           | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | WIP        |
 | Alibaba       | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O           |
