@@ -23,13 +23,12 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-
 //====================================== NLB: Network Load Balancer
 
-// number, VPC Name, NLB Name, Type, Scope, 
+// number, VPC Name, NLB Name, Type, Scope,
 // Listner(IP/Protocol/Port), VMGroup(Protocol/Port/VMs), HealthChecker(Protocol/Port/Interval/Timeoute/Threshold),
 // Additional Info, checkbox
-func makeNLBTRList_html(bgcolor string, height string, fontSize string, infoList []*cres.NLBInfo) string {
+func makeNLBTRList_html(bgcolor string, height string, fontSize string, connConfig string, infoList []*cres.NLBInfo) string {
 	if bgcolor == "" {
 		bgcolor = "#FFFFFF"
 	}
@@ -101,19 +100,19 @@ func makeNLBTRList_html(bgcolor string, height string, fontSize string, infoList
 		//if one.Listener.CspID != "" {
 		//	strListener += "CspID:" + one.Listener.CspID + ", "
 		//}
-		/* complicated to see 
+		/* complicated to see
 		if strKeyList != "" {
 			strListener += "(etc) " + strKeyList + "<br>"
 			strListener += "--------------------------------<br>"
 		}
 		*/
 		strListener += one.Listener.Protocol + "<br>"
-                strListener += "--------------------------------<br>"
-                strListener += `
+		strListener += "--------------------------------<br>"
+		strListener += `
                         <input disabled='true' type='button' style="font-size:11px;color:gray" onclick="javascript:setListener('` + one.IId.NameId + `');" value='edit'/>
                         <br>
 			`
-		
+
 		str = strings.ReplaceAll(str, "$$LISTENER$$", strListener)
 
 		// for VMGroup info
@@ -136,7 +135,7 @@ func makeNLBTRList_html(bgcolor string, height string, fontSize string, infoList
 		//if one.VMGroup.CspID != "" {
 		//	strVMGroup += "CspID:" + one.VMGroup.CspID + ", "
 		//}
-		/* complicated to see 
+		/* complicated to see
 		if strKeyList != "" {
 			strVMGroup += "(etc) " + strKeyList + "<br>"
 			strVMGroup += "--------------------------------<br>"
@@ -150,7 +149,7 @@ func makeNLBTRList_html(bgcolor string, height string, fontSize string, infoList
 			<input disabled='true' type='button' style="font-size:11px;color:gray" onclick="javascript:removeVMs('` + one.IId.NameId + `');" value='-'/>
 			<br>
 			`
-		
+
 		str = strings.ReplaceAll(str, "$$VMGROUP$$", strVMGroup)
 
 		// for HealthChecker info
@@ -162,13 +161,13 @@ func makeNLBTRList_html(bgcolor string, height string, fontSize string, infoList
 		strKeyList = strings.TrimRight(strKeyList, ", ")
 
 		strHealthChecker := ""
-/* 
-		strHealthChecker := `
-			<div class="displayStatus">
-				<textarea id='displayStatus' hidden disabled="true" style="overflow:scroll;" wrap="off"></textarea>
-			</div>
-		`
-*/
+		/*
+			strHealthChecker := `
+				<div class="displayStatus">
+					<textarea id='displayStatus' hidden disabled="true" style="overflow:scroll;" wrap="off"></textarea>
+				</div>
+			`
+		*/
 		strHealthChecker += "<b> <= <mark>" + one.HealthChecker.Port + "</b> </mark><br>"
 		strHealthChecker += "--------------------------------<br>"
 		strHealthChecker += "Interval:   " + strconv.Itoa(one.HealthChecker.Interval) + "<br>"
@@ -178,7 +177,7 @@ func makeNLBTRList_html(bgcolor string, height string, fontSize string, infoList
 		//if one.HealthChecker.CspID != "" {
 		//	strHealthChecker += "CspID:" + one.HealthChecker.CspID + ", "
 		//}
-		/* complicated to see 
+		/* complicated to see
 		if strKeyList != "" {
 			strHealthChecker += "(etc) " + strKeyList + "<br>"
 			strHealthChecker += "------------------------<br>"
@@ -186,19 +185,18 @@ func makeNLBTRList_html(bgcolor string, height string, fontSize string, infoList
 		*/
 		strHealthChecker += one.HealthChecker.Protocol + "<br>"
 		strHealthChecker += "--------------------------------<br>"
-/*
-		strHealthChecker += `
-			<a href="javascript:healthStatus('` + one.IId.NameId + `');">
-			    <font color=blue size=2><b><div class='displayText'>Status</div></b></font>
-			</a><br>`
-*/
+		/*
+			strHealthChecker += `
+				<a href="javascript:healthStatus('` + one.IId.NameId + `');">
+				    <font color=blue size=2><b><div class='displayText'>Status</div></b></font>
+				</a><br>`
+		*/
 		strHealthChecker += `
 			<input disabled='true' type='button' style="font-size:11px;color:gray" onclick="javascript:setHealthChecker('` + one.IId.NameId + `');" value='edit'/>
-			<input type='button' style="font-size:11px;color:blue" onclick="javascript:healthStatus('` + one.IId.NameId + `');" value='Status'/>
+			<input type='button' style="font-size:11px;color:blue" onclick="javascript:healthStatus('` + connConfig + `', '` + one.IId.NameId + `');" value='Status'/>
 			<br>`
-		
-		str = strings.ReplaceAll(str, "$$HEALTHCHECKER$$", strHealthChecker)
 
+		str = strings.ReplaceAll(str, "$$HEALTHCHECKER$$", strHealthChecker)
 
 		// for KeyValueList
 		strKeyList = ""
@@ -217,37 +215,35 @@ func makeNLBTRList_html(bgcolor string, height string, fontSize string, infoList
 // make the string of javascript function
 func makePostNLBFunc_js() string {
 
-// curl -sX POST http://localhost:1024/spider/nlb -H 'Content-Type: application/json' -d \
-//         '{
-//                 "ConnectionName": "'${CONN_CONFIG}'",
-//                 "ReqInfo": {
-//                         "Name": "spider-nlb-01",
-//                         "VPCName": "vpc-01",
-//                         "Type": "PUBLIC",
-//                         "Scope": "REGION",
-//                         "Listener": {
-//                                 "Protocol" : "TCP",
-//                                 "Port" : "80"
-//                         },
-//                         "VMGroup": {
-//                                 "Protocol" : "TCP",
-//                                 "Port" : "80",
-//                                 "VMs" : ["vm-01", "vm-02"]
-//                         },
-//                         "HealthChecker": {
-//                                 "Protocol" : "TCP",
-//                                 "Port" : "80",
-//                                 "Interval" : "10",
-//                                 "Timeout" : "10",
-//                                 "Threshold" : "3"
-//                         }
-//                 }
-//         }'
+	// curl -sX POST http://localhost:1024/spider/nlb -H 'Content-Type: application/json' -d \
+	//         '{
+	//                 "ConnectionName": "'${CONN_CONFIG}'",
+	//                 "ReqInfo": {
+	//                         "Name": "spider-nlb-01",
+	//                         "VPCName": "vpc-01",
+	//                         "Type": "PUBLIC",
+	//                         "Scope": "REGION",
+	//                         "Listener": {
+	//                                 "Protocol" : "TCP",
+	//                                 "Port" : "80"
+	//                         },
+	//                         "VMGroup": {
+	//                                 "Protocol" : "TCP",
+	//                                 "Port" : "80",
+	//                                 "VMs" : ["vm-01", "vm-02"]
+	//                         },
+	//                         "HealthChecker": {
+	//                                 "Protocol" : "TCP",
+	//                                 "Port" : "80",
+	//                                 "Interval" : "10",
+	//                                 "Timeout" : "10",
+	//                                 "Threshold" : "3"
+	//                         }
+	//                 }
+	//         }'
 
 	strFunc := `
-                function postNLB() {
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
-
+                function postNLB(connConfig) {
                         var textboxes = document.getElementsByName('text_box');
                         sendJson = '{ "ConnectionName" : "' + connConfig + '", "ReqInfo" : \
                         			{ \
@@ -327,14 +323,20 @@ func makePostNLBFunc_js() string {
                         xhr.setRequestHeader('Content-Type', 'application/json');
 
 			// client logging
-			parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/nlb -H 'Content-Type: application/json' -d '" + sendJson + "'");
-
-                        xhr.send(sendJson);
+			try {
+				parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/nlb -H 'Content-Type: application/json' -d '" + sendJson + "'");
+			} catch (error) {
+				// Do nothing if error occurs
+			}
+			
+            xhr.send(sendJson);
 
 			// client logging
-			parent.frames["log_frame"].Log("   ==> " + xhr.response);
-
-
+			try {
+				parent.frames["log_frame"].Log("   ==> " + xhr.response);
+			} catch (error) {
+				// Do nothing if error occurs
+			}
 
             location.reload();
                 }
@@ -346,13 +348,12 @@ func makePostNLBFunc_js() string {
 // make the string of javascript function
 func makeDeleteNLBFunc_js() string {
 	// curl -sX DELETE http://localhost:1024/spider/nlb/spider-nlb-01 -H 'Content-Type: application/json' -d \
- //        '{
- //                "ConnectionName": "'${CONN_CONFIG}'"
- //        }'
+	//        '{
+	//                "ConnectionName": "'${CONN_CONFIG}'"
+	//        }'
 
 	strFunc := `
-                function deleteNLB() {
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+                function deleteNLB(connConfig) {
                         var checkboxes = document.getElementsByName('check_box');
                         for (var i = 0; i < checkboxes.length; i++) { // @todo make parallel executions
                                 if (checkboxes[i].checked) {
@@ -362,12 +363,20 @@ func makeDeleteNLBFunc_js() string {
 					sendJson = '{ "ConnectionName": "' + connConfig + '"}'
 
 					// client logging
-					parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/nlb/" + checkboxes[i].value + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+					try {						
+						parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/nlb/" + checkboxes[i].value + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+					} catch (error) {
+						// Do nothing if error occurs
+					}
 
-                                        xhr.send(sendJson);
+                    xhr.send(sendJson);
 
 					// client logging
-					parent.frames["log_frame"].Log("   ==> " + xhr.response);
+					try {
+						parent.frames["log_frame"].Log("   ==> " + xhr.response);
+					} catch (error) {
+						// Do nothing if error occurs
+					}
                                 }
                         }
             location.reload();
@@ -380,11 +389,11 @@ func makeDeleteNLBFunc_js() string {
 // make the string of javascript function
 func makeGetHealthStatusNLBFunc_js() string {
 	// curl -sX GET http://localhost:1024/spider/nlb/spider-nlb-01/health -H 'Content-Type: application/json' -d \
-        // '{
-        //        "ConnectionName": "'${CONN_CONFIG}'"
-        // }'
+	// '{
+	//        "ConnectionName": "'${CONN_CONFIG}'"
+	// }'
 
-        strFunc := `
+	strFunc := `
 		function convertHealthyInfo(org) {
 			const obj = JSON.parse(org);
 			var healthinfo = obj.healthinfo		
@@ -409,26 +418,33 @@ func makeGetHealthStatusNLBFunc_js() string {
 			return text
 		}
 
-                function healthStatus(nlbName) {
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+                function healthStatus(connConfig, nlbName) {                        
 			var xhr = new XMLHttpRequest();
 			xhr.open("GET", "$$SPIDER_SERVER$$/spider/nlb/" + nlbName + "/health?ConnectionName=" + connConfig, false);
 
 			// client logging
-			parent.frames["log_frame"].Log("curl -sX GET " + "$$SPIDER_SERVER$$/spider/nlb/" + nlbName + "/health?ConnectionName=" + connConfig);
+			try {
+				parent.frames["log_frame"].Log("curl -sX GET " + "$$SPIDER_SERVER$$/spider/nlb/" + nlbName + "/health?ConnectionName=" + connConfig);
+			} catch (error) {
+				// Do nothing if error occurs
+			}
 
 			xhr.send();
 
 			// client logging
-			parent.frames["log_frame"].Log("   ==> " + xhr.response);
+			try {
+				parent.frames["log_frame"].Log("   ==> " + xhr.response);
+			} catch (error) {
+				// Do nothing if error occurs
+			}
 
 			var healthy = convertHealthyInfo(xhr.response);
 			alert(healthy);
 		}
 
         `
-        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
-        return strFunc
+	strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
+	return strFunc
 }
 
 func NLB(c echo.Context) error {
@@ -495,7 +511,7 @@ func NLB(c echo.Context) error {
 
 	// (2) make Table Action TR
 	// colspan, f5_href, delete_href, fontSize
-	htmlStr += makeActionTR_html("10", "", "deleteNLB()", "2")
+	htmlStr += makeActionTR_html("10", "", fmt.Sprintf("deleteNLB('%s')", connConfig), "2")
 
 	// (3) make Table Header TR
 	nameWidthList := []NameWidth{
@@ -520,7 +536,7 @@ func NLB(c echo.Context) error {
 	if err != nil {
 		cblog.Error(err)
 		// client logging
-                htmlStr += genLoggingResult(err.Error())
+		htmlStr += genLoggingResult(err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
@@ -533,7 +549,7 @@ func NLB(c echo.Context) error {
 	json.Unmarshal(resBody, &info)
 
 	// (4-2) make TR list with info list
-	htmlStr += makeNLBTRList_html("", "", "", info.ResultList)
+	htmlStr += makeNLBTRList_html("", "", "", connConfig, info.ResultList)
 
 	// (5) make input field and add
 	// attach text box for add
@@ -606,7 +622,7 @@ func NLB(c echo.Context) error {
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="4" disabled value="N/A">                            
                             </td>
                             <td>
-                                <a href="javascript:postNLB()">
+                                <a href="javascript:postNLB('` + connConfig + `')">
                                     <font size=4><mark><b>+</b></mark></font>
                                 </a>
                             </td>

@@ -27,7 +27,7 @@ import (
 //====================================== Disk
 
 // number, Disk Name, Disk Type, Disk Size, Disk Status, Attach/Detach, Created Time, Additional Info, checkbox
-func makeDiskTRList_html(bgcolor string, height string, fontSize string, infoList []*cres.DiskInfo, vmList []string) string {
+func makeDiskTRList_html(bgcolor string, height string, fontSize string, connConfig string, infoList []*cres.DiskInfo, vmList []string) string {
 	if bgcolor == "" {
 		bgcolor = "#FFFFFF"
 	}
@@ -91,7 +91,7 @@ func makeDiskTRList_html(bgcolor string, height string, fontSize string, infoLis
 		sizeInputText := `<input style="font-size:12px;text-align:center;" type="text" name="size_box" size=6 id="size_input_text_` +
 			one.IId.NameId + `" value="` + one.DiskSize + `">&nbsp;GB &nbsp;`
 
-		sizeUpButton := `<button style="font-size:10px;" type="button" onclick="diskSizeUp('` + one.IId.NameId + `')">Upsize</button>`
+		sizeUpButton := `<button style="font-size:10px;" type="button" onclick="diskSizeUp('` + connConfig + `', '` + one.IId.NameId + `')">Upsize</button>`
 		str = strings.ReplaceAll(str, "$$DISKSIZE$$", sizeInputText+sizeUpButton)
 
 		// Status
@@ -99,11 +99,11 @@ func makeDiskTRList_html(bgcolor string, height string, fontSize string, infoLis
 
 		// Attach/Detach
 		if one.Status == cres.DiskAvailable {
-			attachButton := `<button style="font-size:10px;" type="button" onclick="diskAttach('` +
+			attachButton := `<button style="font-size:10px;" type="button" onclick="diskAttach('` + connConfig + `', '` +
 				one.IId.NameId + `')">Attach</button>`
 			str = strings.ReplaceAll(str, "$$ATTACHDETACH$$", selectHtml+"&nbsp;&nbsp;"+attachButton)
 		} else if one.Status == cres.DiskAttached {
-			detachButton := `<button style="font-size:10px;" type="button" onclick="diskDetach('` +
+			detachButton := `<button style="font-size:10px;" type="button" onclick="diskDetach('` + connConfig + `', '` +
 				one.IId.NameId + `', '` + one.OwnerVM.NameId + `')">Detach</button>`
 			str = strings.ReplaceAll(str, "$$ATTACHDETACH$$", one.OwnerVM.NameId+"&nbsp;&nbsp;"+detachButton)
 		} else {
@@ -138,9 +138,7 @@ func makePostDiskFunc_js() string {
 	//      } }'
 
 	strFunc := `
-                function postDisk() {
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
-
+                function postDisk(connConfig) {
                         var textboxes = document.getElementsByName('text_box');
             sendJson = '{ "ConnectionName" : "' + connConfig + '", "ReqInfo" : { "Name" : "$$DISKNAME$$", "Zone" : "$$ZONEID$$", "DiskType" : "$$DISKTYPE$$", "DiskSize" : "$$DISKSIZE$$"}}'
 
@@ -167,14 +165,22 @@ func makePostDiskFunc_js() string {
                         xhr.setRequestHeader('Content-Type', 'application/json');
 
                         // client logging
-                        parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/disk -H 'Content-Type: application/json' -d '" + sendJson + "'");
+						try {
+                        	parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/disk -H 'Content-Type: application/json' -d '" + sendJson + "'");
+						} catch (e) {
+							// Do nothing if error occurs
+						}
 
                         xhr.send(sendJson);
 
                         // client logging
-                        parent.frames["log_frame"].Log("   ==> " + xhr.response);
-                        var jsonVal = JSON.parse(xhr.response)
+						try {
+                        	parent.frames["log_frame"].Log("   ==> " + xhr.response);
+						} catch (e) {
+							// Do nothing if error occurs
+						}
 
+                        var jsonVal = JSON.parse(xhr.response)
 
             location.reload();
                 }
@@ -196,9 +202,7 @@ func makeDiskSizeUpFunc_js() string {
 	*/
 
 	strFunc := `
-                function diskSizeUp(diskName, sizeInputTextId) {
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
-
+                function diskSizeUp(connConfig, diskName, sizeInputTextId) {
                         var textbox = document.getElementById('size_input_text_'+diskName);
                         upSize = textbox.value
 
@@ -208,12 +212,20 @@ func makeDiskSizeUpFunc_js() string {
                         sendJson = '{ "ConnectionName": "' + connConfig + '", "ReqInfo": { "Size" : "' + upSize + '" } }'
 
                         // client logging
-                        parent.frames["log_frame"].Log("PUT> " + "$$SPIDER_SERVER$$/spider/disk/" + diskName + "/size" + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+						try {
+                        	parent.frames["log_frame"].Log("PUT> " + "$$SPIDER_SERVER$$/spider/disk/" + diskName + "/size" + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+						} catch (e) {
+							// Do nothing if error occurs
+						}
 
                         xhr.send(sendJson);
 
                         // client logging
-                        parent.frames["log_frame"].Log("   ==> " + xhr.response);
+						try {
+                        	parent.frames["log_frame"].Log("   ==> " + xhr.response);
+						} catch (e) {
+							// Do nothing if error occurs
+						}
 
                         location.reload();
                 }
@@ -234,9 +246,7 @@ func makeAttachDiskFunc_js() string {
 	*/
 
 	strFunc := `
-                function diskAttach(diskName) {
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
-
+                function diskAttach(connConfig, diskName) {
 			var textbox = document.getElementById('select_box_'+diskName);
 			vmName = textbox.value
 
@@ -246,12 +256,20 @@ func makeAttachDiskFunc_js() string {
                         sendJson = '{ "ConnectionName": "' + connConfig + '", "ReqInfo": { "VMName" : "' + vmName + '" } }'
 
                         // client logging
-                        parent.frames["log_frame"].Log("PUT> " + "$$SPIDER_SERVER$$/spider/disk/" + diskName + "/attach" + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+						try {
+                        	parent.frames["log_frame"].Log("PUT> " + "$$SPIDER_SERVER$$/spider/disk/" + diskName + "/attach" + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+						} catch (e) {
+							// Do nothing if error occurs
+						}
 
                         xhr.send(sendJson);
 
                         // client logging
-                        parent.frames["log_frame"].Log("   ==> " + xhr.response);
+						try {
+                        	parent.frames["log_frame"].Log("   ==> " + xhr.response);
+						} catch (e) {
+							// Do nothing if error occurs
+						}
 
                         location.reload();
                 }
@@ -272,21 +290,27 @@ func makeDetachDiskFunc_js() string {
 	*/
 
 	strFunc := `
-                function diskDetach(diskName, vmName) {
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
-
+                function diskDetach(connConfig, diskName, vmName) {
                         var xhr = new XMLHttpRequest();
                         xhr.open("PUT", "$$SPIDER_SERVER$$/spider/disk/" + diskName + "/detach", false);
                         xhr.setRequestHeader('Content-Type', 'application/json');
                         sendJson = '{ "ConnectionName": "' + connConfig + '", "ReqInfo": { "VMName" : "' + vmName + '" } }'
 
                         // client logging
-                        parent.frames["log_frame"].Log("PUT> " + "$$SPIDER_SERVER$$/spider/disk/" + diskName + "/detach" + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+						try {
+                        	parent.frames["log_frame"].Log("PUT> " + "$$SPIDER_SERVER$$/spider/disk/" + diskName + "/detach" + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+						} catch (e) {
+							// Do nothing if error occurs
+						}
 
                         xhr.send(sendJson);
 
                         // client logging
-                        parent.frames["log_frame"].Log("   ==> " + xhr.response);
+						try {
+                        	parent.frames["log_frame"].Log("   ==> " + xhr.response);
+						} catch (e) {
+							// Do nothing if error occurs
+						}
 
                         location.reload();
                 }
@@ -301,8 +325,7 @@ func makeDeleteDiskFunc_js() string {
 	//           -d '{ "ConnectionName": "'${CONN_CONFIG}'"}'
 
 	strFunc := `
-                function deleteDisk() {
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+                function deleteDisk(connConfig) {                        
                         var checkboxes = document.getElementsByName('check_box');
                         for (var i = 0; i < checkboxes.length; i++) { // @todo make parallel executions
                                 if (checkboxes[i].checked) {
@@ -312,12 +335,20 @@ func makeDeleteDiskFunc_js() string {
                                         sendJson = '{ "ConnectionName": "' + connConfig + '"}'
 
                                         // client logging
-                                        parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/disk/" + checkboxes[i].value + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+										try {
+                                        	parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/disk/" + checkboxes[i].value + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+										} catch (e) {
+											// Do nothing if error occurs
+										}
 
                                         xhr.send(sendJson);
 
                                         // client logging
-                                        parent.frames["log_frame"].Log("   ==> " + xhr.response);
+										try {
+                                        	parent.frames["log_frame"].Log("   ==> " + xhr.response);
+										} catch (e) {
+											// Do nothing if error occurs
+										}
                                 }
                         }
             location.reload();
@@ -393,7 +424,7 @@ func Disk(c echo.Context) error {
 
 	// (2) make Table Action TR
 	// colspan, f5_href, delete_href, fontSize
-	htmlStr += makeActionTR_html("10", "", "deleteDisk()", "2")
+	htmlStr += makeActionTR_html("10", "", fmt.Sprintf("deleteDisk('%s')", connConfig), "2")
 
 	// (3) make Table Header TR
 	nameWidthList := []NameWidth{
@@ -434,7 +465,7 @@ func Disk(c echo.Context) error {
 	vmList := vmList(connConfig)
 
 	// (4-2) make TR list with info list
-	htmlStr += makeDiskTRList_html("", "", "", info.ResultList, vmList)
+	htmlStr += makeDiskTRList_html("", "", "", connConfig, info.ResultList, vmList)
 
 	providerName, _ := getProviderName(connConfig)
 	diskTypeList := diskTypeList(providerName)
@@ -503,7 +534,7 @@ func Disk(c echo.Context) error {
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="8" disabled value="N/A">
                             </td>
                             <td>
-                                <a href="javascript:postDisk()">
+                                <a href="javascript:postDisk('` + connConfig + `')">
                                     <font size=4><mark><b>+</b></mark></font>
                                 </a>
                             </td>
