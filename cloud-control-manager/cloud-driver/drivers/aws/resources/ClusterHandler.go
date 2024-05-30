@@ -10,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/eks"
 	"github.com/aws/aws-sdk-go/service/iam"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -21,6 +22,7 @@ import (
 type AwsClusterHandler struct {
 	Region      idrv.RegionInfo
 	Client      *eks.EKS
+	EC2Client   *ec2.EC2
 	Iam         *iam.IAM
 	AutoScaling *autoscaling.AutoScaling
 }
@@ -562,6 +564,23 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 	for _, subnet := range networkInfo.SubnetIIDs {
 		subnetId := subnet.SystemId // 포인터라서 subnet.SystemId를 직접 Append하면 안 됨.
 		subnetList = append(subnetList, &subnetId)
+	}
+
+	// 이 부분에서 VPC subnet ID 를 바탕으로 리스트 순회하며 ModifySubnetAttribute 를 통해 Auto-assign public IPv4 address를 활성화
+	for _, subnetIdPtr := range subnetList {
+		input := &ec2.ModifySubnetAttributeInput{
+			MapPublicIpOnLaunch: &ec2.AttributeBooleanValue{
+				Value: aws.Bool(true),
+			},
+			SubnetId: subnetIdPtr,
+		}
+		_, err := ClusterHandler.EC2Client.ModifySubnetAttribute(input)
+		if err != nil {
+			errmsg := "error during ModifySubnetAttribute to MapPublicIpOnLaunch=TRUE on subnet : " + *subnetIdPtr
+			cblogger.Error(err)
+			cblogger.Error(errmsg)
+			// return irs.NodeGroupInfo{}, errors.New(errmsg) // 서브넷 순회 이므로 나머지 서브넷은 진행하도록 주석처리함.
+		}
 	}
 
 	cblogger.Debug("최종 Subnet 목록")
