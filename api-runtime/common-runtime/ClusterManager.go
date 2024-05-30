@@ -626,13 +626,20 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 		}
 		// (1) NodeGroup IID
 		var ngIIDInfo NodeGroupIIDInfo
+		hasNodeGroup := true
 		err := infostore.GetByConditionsAndContain(&ngIIDInfo, CONNECTION_NAME_COLUMN, connectionName,
 			OWNER_CLUSTER_NAME_COLUMN, info.IId.NameId, SYSTEM_ID_COLUMN, getMSShortID(ngInfo.IId.SystemId))
 		if err != nil {
-			cblog.Error(err)
-			return err
+			if checkNotFoundError(err) {
+				hasNodeGroup = false
+			} else {
+				cblog.Error(err)
+				return err
+			}
 		}
-		info.NodeGroupList[idx].IId.NameId = ngIIDInfo.NameId
+		if hasNodeGroup {
+			info.NodeGroupList[idx].IId.NameId = ngIIDInfo.NameId
+		}
 
 		// (2) ImageIID
 		info.NodeGroupList[idx].ImageIID.NameId = ngInfo.ImageIID.SystemId
