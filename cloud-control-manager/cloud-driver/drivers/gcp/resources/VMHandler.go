@@ -15,7 +15,6 @@ import (
 	"context"
 	"errors"
 	_ "errors"
-	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -136,7 +135,6 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		// if err != nil {
 		// 	log.Fatal(err)
 		// }
-		// spew.Dump(imageResp)
 		//osFeatures := imageResp.GuestOsFeatures
 		osFeatures := computeImage.GuestOsFeatures
 
@@ -227,7 +225,9 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		//pubKey := "cb-user:" + keypairInfo.PublicKey
 		pubKey = "cb-user:" + strings.TrimSpace(publicKey) + " " + "cb-user"
 		cblogger.Debug("keypairInfo 정보")
-		spew.Dump(keypairInfo)
+		if cblogger.Level.String() == "debug" {
+			spew.Dump(keypairInfo)
+		}
 	}
 
 	// Security Group Tags
@@ -365,11 +365,11 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				// RootDiskType을 조회하여 diskSize의 min, max, default값 추출 한 뒤 입력된 diskSize가 있으면 비교시 사용
 				diskSizeResp, err := vmHandler.Client.DiskTypes.Get(projectID, zone, diskType).Do()
 				if err != nil {
-					fmt.Println("Invalid Disk Type Error!!")
+					cblogger.Error("Invalid Disk Type Error!!")
 					return irs.VMInfo{}, err
 				}
 
-				fmt.Printf("valid disk size: %#v\n", diskSizeResp.ValidDiskSize)
+				cblogger.Info("valid disk size: %#v\n", diskSizeResp.ValidDiskSize)
 
 				//valid disk size 정의
 				re := regexp.MustCompile("GB-?") //ex) 10GB-65536GB
@@ -389,13 +389,13 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				// diskUnit := "GB" // 기본 단위는 GB
 
 				if iDiskSize < diskMinSize {
-					fmt.Println("Disk Size Error!!: ", iDiskSize)
+					cblogger.Error("Disk Size Error!!: ", iDiskSize)
 					//return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the minimum disk size, invalid")
 					return irs.VMInfo{}, errors.New("Root Disk Size must be at least the default size (" + strconv.FormatInt(diskMinSize, 10) + " GB).")
 				}
 
 				if iDiskSize > diskMaxSize {
-					fmt.Println("Disk Size Error!!: ", iDiskSize)
+					cblogger.Error("Disk Size Error!!: ", iDiskSize)
 					//return irs.VMInfo{}, errors.New("Requested disk size cannot be larger than the maximum disk size, invalid")
 					return irs.VMInfo{}, errors.New("Root Disk Size must be smaller than the maximum size (" + strconv.FormatInt(diskMaxSize, 10) + " GB).")
 				}
@@ -404,7 +404,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			//imageSize = imageResp.DiskSizeGb
 
 			if iDiskSize < imageSize {
-				fmt.Println("Disk Size Error!!: ", iDiskSize)
+				cblogger.Error("Disk Size Error!!: ", iDiskSize)
 				return irs.VMInfo{}, errors.New("Root Disk Size must be larger then the image size (" + strconv.FormatInt(imageSize, 10) + " GB).")
 			}
 
@@ -422,7 +422,9 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	cblogger.Info("VM 생성 시작")
 	cblogger.Debug(instance)
-	spew.Dump(instance)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(instance)
+	}
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
@@ -469,7 +471,9 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Info("VM 생성 요청 호출 완료")
 	cblogger.Info(op)
-	spew.Dump(op)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(op)
+	}
 	callogger.Info(call.String(callLogInfo))
 
 	/*
@@ -577,7 +581,9 @@ func (vmHandler *GCPVMHandler) SuspendVM(vmID irs.IID) (irs.VMStatus, error) {
 	//inst, err := vmHandler.Client.Instances.Stop(projectID, zone, vmID.SystemId).Context(ctx).Do()
 	inst, err := vmHandler.GCPInstanceStop(projectID, zone, vmID.SystemId)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	spew.Dump(inst)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(inst)
+	}
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
@@ -586,7 +592,7 @@ func (vmHandler *GCPVMHandler) SuspendVM(vmID irs.IID) (irs.VMStatus, error) {
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	fmt.Println("instance stop status :", inst.Status)
+	cblogger.Info("instance stop status :", inst.Status)
 	return irs.VMStatus("Suspending"), nil
 }
 
@@ -620,7 +626,9 @@ func (vmHandler *GCPVMHandler) ResumeVM(vmID irs.IID) (irs.VMStatus, error) {
 	callLogStart := call.Start()
 	inst, err := vmHandler.Client.Instances.Start(projectID, zone, vmID.SystemId).Context(ctx).Do()
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	spew.Dump(inst)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(inst)
+	}
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
@@ -629,7 +637,7 @@ func (vmHandler *GCPVMHandler) ResumeVM(vmID irs.IID) (irs.VMStatus, error) {
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	fmt.Println("instance resume status :", inst.Status)
+	cblogger.Info("instance resume status :", inst.Status)
 	return irs.VMStatus("Resuming"), nil
 }
 
@@ -764,7 +772,9 @@ func (vmHandler *GCPVMHandler) TerminateVM(vmID irs.IID) (irs.VMStatus, error) {
 	callLogStart := call.Start()
 	inst, err := vmHandler.Client.Instances.Delete(projectID, zone, vmID.SystemId).Context(ctx).Do()
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	spew.Dump(inst)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(inst)
+	}
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
@@ -773,7 +783,7 @@ func (vmHandler *GCPVMHandler) TerminateVM(vmID irs.IID) (irs.VMStatus, error) {
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	fmt.Println("instance status :", inst.Status)
+	cblogger.Info("instance status :", inst.Status)
 
 	return irs.VMStatus("Terminating"), nil
 }
@@ -946,7 +956,9 @@ func (vmHandler *GCPVMHandler) GetVM(vmID irs.IID) (irs.VMInfo, error) {
 		return irs.VMInfo{}, err
 	}
 	callogger.Info(call.String(callLogInfo))
-	spew.Dump(vm)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(vm)
+	}
 
 	vmInfo := vmHandler.mappingServerInfo(vm)
 	return vmInfo, nil
@@ -992,7 +1004,9 @@ func (vmHandler *GCPVMHandler) GetVmById(vmID irs.IID) (irs.VMInfo, error) {
 		if item.Instances != nil {
 			for _, instance := range item.Instances {
 				if strings.EqualFold(vmID.SystemId, instance.Name) {
-					spew.Dump(instance)
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(instance)
+					}
 					vmInfo = vmHandler.mappingServerInfo(instance)
 					foundVm = true
 					break
@@ -1032,9 +1046,11 @@ func (vmHandler *GCPVMHandler) GetVmById(vmID irs.IID) (irs.VMInfo, error) {
 // }
 
 func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.VMInfo {
-	cblogger.Info("================맵핑=====================================")
-	spew.Dump(server)
-	fmt.Println("server: ", server)
+	cblogger.Debug("================맵핑=====================================")
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(server)
+	}
+	cblogger.Info("server: ", server)
 
 	//var gcpHanler *GCPVMHandler
 	vpcArr := strings.Split(server.NetworkInterfaces[0].Network, "/")
@@ -1189,7 +1205,9 @@ func (vmHandler *GCPVMHandler) getImageIID(server *compute.Instance) irs.IID {
 		info, err := vmHandler.getDiskInfo(server.Disks[0].Source)
 
 		cblogger.Infof("********************************** Disk 정보 ****************")
-		spew.Dump(info)
+		if cblogger.Level.String() == "debug" {
+			spew.Dump(info)
+		}
 		if err != nil {
 			cblogger.Error(err)
 			return irs.IID{}
@@ -1226,7 +1244,9 @@ func (vmHandler *GCPVMHandler) getDiskInfo(diskname string) (*compute.Disk, erro
 	info, err := GetDiskInfo(vmHandler.Client, vmHandler.Credential, vmHandler.Region, result)
 
 	cblogger.Infof("********************************** Disk 정보 ****************")
-	spew.Dump(info)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(info)
+	}
 	if err != nil {
 		cblogger.Error(err)
 		return &compute.Disk{}, err
@@ -1244,8 +1264,6 @@ func (vmHandler *GCPVMHandler) getDiskInfo(diskname string) (*compute.Disk, erro
 // 		SystemId: "cb-user",
 // 	}
 // 	result, err := gcpKeyPairHandler.GetKey(iId)
-
-// 	spew.Dump(result)
 // 	if err != nil {
 // 		cblogger.Error(err)
 // 		return result

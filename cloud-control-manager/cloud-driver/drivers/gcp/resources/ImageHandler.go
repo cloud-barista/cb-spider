@@ -14,7 +14,6 @@ package resources
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -141,7 +140,9 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		for {
 			for _, item := range res.Items {
 				cnt++
-				spew.Dump(item)
+				if cblogger.Level.String() == "debug" {
+					spew.Dump(item)
+				}
 				info := mappingImageInfo(item)
 				imageList = append(imageList, &info)
 			} // for : 페이지 데이터 추출
@@ -159,7 +160,6 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	callogger.Info(call.String(callLogInfo))
 
-	//spew.Dump(imageList)
 	return imageList, nil
 }
 
@@ -183,7 +183,9 @@ type GcpImageInfo struct {
 // GCP 호출을 줄이기 위해 조회된 정보를 CB형태로 직접 변환해서 전달 함.
 func (imageHandler *GCPImageHandler) ConvertGcpImageInfoToCbImageInfo(imageInfo GcpImageInfo) irs.ImageInfo {
 	cblogger.Info(imageInfo)
-	spew.Dump(imageInfo)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(imageInfo)
+	}
 
 	cbImageInfo := irs.ImageInfo{
 		IId: irs.IID{
@@ -326,7 +328,7 @@ func (imageHandler *GCPImageHandler) DeleteImage(imageIID irs.IID) (bool, error)
 		return false, err
 	}
 	callogger.Info(call.String(callLogInfo))
-	fmt.Println(res)
+	cblogger.Debug(res)
 	return true, err
 }
 
@@ -440,7 +442,9 @@ func (imageHandler *GCPImageHandler) FindImageInfo(reqImageName string) (GcpImag
 					imageInfo.ProjectId = projectId
 
 					cblogger.Info("최종 이미지 정보")
-					//spew.Dump(imageInfo)
+					//if cblogger.Level.String() == "debug" {
+					//	spew.Dump(imageInfo)
+					//}
 					return imageInfo, nil
 				}
 			} // for : 조회 결과에서 일치하는 데이터 찾기
@@ -561,7 +565,9 @@ func (imageHandler *GCPImageHandler) FindImageInfoByName(reqImageName string) (G
 					imageInfo.ProjectId = projectId
 
 					cblogger.Info("최종 이미지 정보")
-					spew.Dump(imageInfo)
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(imageInfo)
+					}
 					return imageInfo, nil
 				}
 			} // for : 조회 결과에서 일치하는 데이터 찾기
@@ -622,7 +628,6 @@ func mappingImageInfo(imageInfo *compute.Image) irs.ImageInfo {
 	//os := lArr[len(lArr)-1]
 
 	//cblogger.Info("===================================")
-	//spew.Dump(imageInfo)
 
 	imageList := irs.ImageInfo{
 		IId: irs.IID{

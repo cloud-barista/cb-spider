@@ -2,7 +2,6 @@ package resources
 
 import (
 	"errors"
-	"fmt"
 	"reflect"
 	"strings"
 
@@ -234,10 +233,10 @@ func DescribeVolumnes(svc *ec2.EC2, volumeIdList []*string) (*ec2.DescribeVolume
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 		return nil, err
 	}
@@ -264,10 +263,10 @@ func DescribeVolumneById(svc *ec2.EC2, volumeId string) (*ec2.Volume, error) {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 		return nil, err
 	}
@@ -315,7 +314,9 @@ func DescribeVolumnesBySnapshot(svc *ec2.EC2, snapShotIIDs []string) (*ec2.Descr
 
 	result, err := svc.DescribeVolumes(input)
 	callogger.Info("DescribeVolumnesBySnapshot   IN PU T")
-	spew.Dump(input)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(input)
+	}
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	callogger.Info(call.String(callLogInfo))
 
@@ -323,16 +324,16 @@ func DescribeVolumnesBySnapshot(svc *ec2.EC2, snapShotIIDs []string) (*ec2.Descr
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 		return nil, err
 	}
-	//if cblogger.Level.String() == "debug" {
-	spew.Dump(result.Volumes)
-	//}
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result.Volumes)
+	}
 
 	return result, nil
 }
@@ -363,10 +364,10 @@ func AttachVolume(svc *ec2.EC2, deviceName string, instanceId string, volumeId s
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 		return err
 	}
@@ -395,12 +396,12 @@ func DeleteDisk(svc *ec2.EC2, disks []irs.IID) (bool, error) {
 				if aerr, ok := err.(awserr.Error); ok {
 					switch aerr.Code() {
 					default:
-						fmt.Println(aerr.Error())
+						cblogger.Error(aerr.Error())
 					}
 				} else {
 					// Print the error, cast err to awserr.Error to get the Code and
 					// Message from an error.
-					fmt.Println(err.Error())
+					cblogger.Error(err.Error())
 				}
 				return false, err
 			}
@@ -484,12 +485,12 @@ func DescribeImages(svc *ec2.EC2, imageIIDs []*irs.IID, owners []*string) (*ec2.
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 	}
 
@@ -513,12 +514,12 @@ func DescribeImageById(svc *ec2.EC2, imageIID *irs.IID, owners []*string) (*ec2.
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 	}
 
@@ -642,7 +643,7 @@ func GetOsTypeFromEc2Image(ec2Image *ec2.Image) string {
 //		}
 //		input.SnapshotIds = snapshotIds
 //	}
-//	//fmt.Println("sign name " + svc.Client.SigningName)// ec2
+//	//cblogger.Info("sign name " + svc.Client.SigningName)// ec2
 //
 //	//input.OwnerIds = []*string{aws.String("050864702683")}
 //	input.OwnerIds = []*string{aws.String("self")}
@@ -652,15 +653,15 @@ func GetOsTypeFromEc2Image(ec2Image *ec2.Image) string {
 //		if aerr, ok := err.(awserr.Error); ok {
 //			switch aerr.Code() {
 //			default:
-//				fmt.Println(aerr.Error())
+//				cblogger.Error(aerr.Error())
 //			}
 //		} else {
 //			// Print the error, cast err to awserr.Error to get the Code and
 //			// Message from an error.
-//			fmt.Println(err.Error())
+//			cblogger.Error(err.Error())
 //		}
 //	}
-//	spew.Dump(result)
+//
 //	return result, err
 //}
 //func DescribeSnapshotById(svc *ec2.EC2, snapshotIID *irs.IID) (*ec2.Snapshot, error) {
@@ -678,12 +679,12 @@ func GetOsTypeFromEc2Image(ec2Image *ec2.Image) string {
 //		if aerr, ok := err.(awserr.Error); ok {
 //			switch aerr.Code() {
 //			default:
-//				fmt.Println(aerr.Error())
+//				cblogger.Error(aerr.Error())
 //			}
 //		} else {
 //			// Print the error, cast err to awserr.Error to get the Code and
 //			// Message from an error.
-//			fmt.Println(err.Error())
+//			cblogger.Error(err.Error())
 //		}
 //		return nil, err
 //	}

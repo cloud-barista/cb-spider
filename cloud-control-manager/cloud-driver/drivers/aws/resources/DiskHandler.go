@@ -4,7 +4,6 @@ package resources
 
 import (
 	"errors"
-	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
@@ -65,7 +64,6 @@ func (DiskHandler *AwsDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 	if diskReqInfo.Zone != "" {
 		zone = diskReqInfo.Zone
 	}
-	//spew.Dump(DiskHandler.Region)
 	err := validateCreateDisk(&diskReqInfo)
 	if err != nil {
 		return irs.DiskInfo{}, err
@@ -108,17 +106,16 @@ func (DiskHandler *AwsDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 	// case3 : 암호화된 disk 생성
 	//input.Encrypted = true
 	//input.KmsKeyId = ""
-	//spew.Dump(input)
 	result, err := DiskHandler.Client.CreateVolume(input)
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 		cblogger.Error(err)
 		LoggingError(hiscallInfo, err)
@@ -165,7 +162,7 @@ func (DiskHandler *AwsDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	for _, volumeInfo := range result.Volumes {
 		diskInfo, err := DiskHandler.convertVolumeInfoToDiskInfo(volumeInfo)
 		if err != nil {
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 		returnDiskInfoList = append(returnDiskInfoList, &diskInfo)
 	}
@@ -236,12 +233,12 @@ func (DiskHandler *AwsDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) 
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 		cblogger.Error(err)
 		LoggingError(hiscallInfo, err)
@@ -272,12 +269,12 @@ func (DiskHandler *AwsDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 		cblogger.Error(err)
 		LoggingError(hiscallInfo, err)
@@ -335,7 +332,6 @@ func (DiskHandler *AwsDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 		return irs.DiskInfo{}, err
 	}
 
-	//spew.Dump(diskDeviceList)
 	if diskDeviceList != nil {
 		isAvailable := true
 		for _, avn := range availableVolumeNames {
@@ -398,10 +394,10 @@ func (DiskHandler *AwsDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 		cblogger.Error(err)
 		LoggingError(hiscallInfo, err)
@@ -452,10 +448,10 @@ func (DiskHandler *AwsDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) 
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 		cblogger.Error(err)
 		LoggingError(hiscallInfo, err)
@@ -592,12 +588,12 @@ func validateCreateDisk(diskReqInfo *irs.DiskInfo) error {
 	}
 
 	if volumeSize < diskSizeValue.diskMinSize {
-		fmt.Println("Disk Size Error!!: ", volumeSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+		cblogger.Error("Disk Size Error!!: ", volumeSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
 		return errors.New("Disk Size must be at least the default size (" + strconv.FormatInt(diskSizeValue.diskMinSize, 10) + " GB).")
 	}
 
 	if volumeSize > diskSizeValue.diskMaxSize {
-		fmt.Println("Disk Size Error!!: ", volumeSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+		cblogger.Error("Disk Size Error!!: ", volumeSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
 		return errors.New("Disk Size must be smaller than the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
 	}
 
@@ -728,12 +724,12 @@ func validateModifyDisk(diskReqInfo irs.DiskInfo, diskSize string) error {
 	}
 
 	if targetVolumeSize < diskSizeValue.diskMinSize {
-		fmt.Println("Disk Size Error!!: ", targetVolumeSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+		cblogger.Error("Disk Size Error!!: ", targetVolumeSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
 		return errors.New("Root Disk Size must be at least the default size (" + strconv.FormatInt(diskSizeValue.diskMinSize, 10) + " GB).")
 	}
 
 	if targetVolumeSize > diskSizeValue.diskMaxSize {
-		fmt.Println("Disk Size Error!!: ", targetVolumeSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+		cblogger.Error("Disk Size Error!!: ", targetVolumeSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
 		return errors.New("Root Disk Size must be smaller than the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
 	}
 
@@ -891,11 +887,9 @@ func (DiskHandler *AwsDiskHandler) convertVolumeInfoToDiskInfo(volumeInfo *ec2.V
 		//	return irs.DiskInfo{}, errStatus
 		//}
 		//diskInfo.OwnerVM = vmInfo.IId
-		//spew.Dump(vmInfo)
 	}
 
 	diskInfo.CreatedTime = *volumeInfo.CreateTime
-	//spew.Dump(volumeInfo)
 	//KeyValueList []KeyValue
 	var inKeyValueList []irs.KeyValue
 	//if !reflect.ValueOf(volumeInfo.Encrypted).IsNil() {

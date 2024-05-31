@@ -83,12 +83,12 @@ const (
 //		if aerr, ok := err.(awserr.Error); ok {
 //			switch aerr.Code() {
 //			default:
-//				fmt.Println(aerr.Error())
+//				cblogger.Error(aerr.Error())
 //			}
 //		} else {
 //			// Print the error, cast err to awserr.Error to get the Code and
 //			// Message from an error.
-//			fmt.Println(err.Error())
+//			cblogger.Error(err.Error())
 //		}
 //		return irs.MyImageInfo{}, err
 //	}
@@ -113,7 +113,6 @@ const (
 //	if err != nil {
 //		return nil, err
 //	}
-//	spew.Dump(result)
 //	for _, snapShot := range result.Snapshots {
 //		myImage, err := convertAWSSnapShopToMyImageInfo(snapShot)
 //		if err != nil {
@@ -152,12 +151,12 @@ const (
 //		if aerr, ok := err.(awserr.Error); ok {
 //			switch aerr.Code() {
 //			default:
-//				fmt.Println(aerr.Error())
+//				cblogger.Error(aerr.Error())
 //			}
 //		} else {
 //			// Print the error, cast err to awserr.Error to get the Code and
 //			// Message from an error.
-//			fmt.Println(err.Error())
+//			cblogger.Error(err.Error())
 //		}
 //		return false, err
 //	}
@@ -170,7 +169,6 @@ const (
 //	//	return false, err
 //	//}
 //	//
-//	spew.Dump(result)
 //	return true, nil
 //}
 //
@@ -316,12 +314,12 @@ func (ImageHandler *AwsMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInf
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 		cblogger.Error(err)
 		LoggingError(hiscallInfo, err)
@@ -551,7 +549,6 @@ func (MyImageHandler *AwsMyImageHandler) DeleteSnapshotById(snapshotId string) (
 	// if err != nil {
 	// 	return false, err
 	// }
-	// spew.Dump(result)
 
 	input := &ec2.DeleteSnapshotInput{
 		SnapshotId: aws.String(snapshotId),
@@ -562,10 +559,10 @@ func (MyImageHandler *AwsMyImageHandler) DeleteSnapshotById(snapshotId string) (
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 		return false, err
 	}

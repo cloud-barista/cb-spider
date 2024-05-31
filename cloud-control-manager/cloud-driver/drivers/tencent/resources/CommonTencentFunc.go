@@ -120,10 +120,6 @@ func ConvertJsonStringNoEscape(v interface{}) (string, error) {
 		return "", errJson
 	}
 
-	//fmt.Println("After marshal", string(buffer.Bytes()))
-	//spew.Dump(string(buffer.Bytes()))
-	//spew.Dump("\"TEST")
-
 	jsonString := string(buffer.Bytes())
 	//jsonString = strings.Replace(jsonString, "\n", "", -1)
 	jsonString = strings.Replace(jsonString, "\"", "", -1)
@@ -174,7 +170,6 @@ func ConvertToString(value interface{}) (string, error) {
 
 // Cloud Object를 CB-KeyValue 형식으로 변환이 필요할 경우 이용
 func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
-	//spew.Dump(v)
 	var keyValueList []irs.KeyValue
 	var i map[string]interface{}
 

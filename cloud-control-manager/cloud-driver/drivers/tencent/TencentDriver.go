@@ -193,9 +193,6 @@ func (driver *TencentDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 	// Initialize Logger
 	trs.InitLog()
 
-	//fmt.Println("ConnectCloud의 전달 받은 idrv.ConnectionInfo 정보")
-	//spew.Dump(connectionInfo)
-
 	// sample code, do not user like this^^
 	//var iConn icon.CloudConnection
 	vmClient, err := getVmClient(connectionInfo)

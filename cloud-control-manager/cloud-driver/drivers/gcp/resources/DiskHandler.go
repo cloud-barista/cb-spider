@@ -3,7 +3,6 @@ package resources
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -41,7 +40,7 @@ func (DiskHandler *GCPDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 	zone := DiskHandler.Region.Zone
 	diskName := diskReqInfo.IId.NameId
 
-	if diskReqInfo.Zone != "" {// #1067 disk의 zone이 있으면 해당 zone 사용.
+	if diskReqInfo.Zone != "" { // #1067 disk의 zone이 있으면 해당 zone 사용.
 		cblogger.Info("SetDisk zone before ", DiskHandler.Region)
 		zone = diskReqInfo.Zone
 		DiskHandler.Region.Zone = zone // Region은 동일할 것이고 zone을 새로 설정.
@@ -109,12 +108,12 @@ func (DiskHandler *GCPDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	cblogger.Error("get ZoneInfo by region ")
 	//GetRegionZone(regionName string) (irs.RegionZoneInfo, error)
 	// #1067에 의해 connection의 zone -> region내 disk 조회로 변경
-	regionZoneHandler := GCPRegionZoneHandler{	
-							Client: DiskHandler.Client, 
-							Credential : DiskHandler.Credential,
-							Region:DiskHandler.Region,
-							Ctx : DiskHandler.Ctx,
-						}
+	regionZoneHandler := GCPRegionZoneHandler{
+		Client:     DiskHandler.Client,
+		Credential: DiskHandler.Credential,
+		Region:     DiskHandler.Region,
+		Ctx:        DiskHandler.Ctx,
+	}
 	regionZoneInfo, err := regionZoneHandler.GetRegionZone(regionID)
 	if err != nil {
 		cblogger.Error("failed to get ZoneInfo by region ", err)
@@ -127,7 +126,7 @@ func (DiskHandler *GCPDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 			cblogger.Error("zone Info ", zoneItem)
 			// get Disks by Zone
 			hiscallInfo.ElapsedTime = call.Elapsed(start)
-			diskList, err := DiskHandler.Client.Disks.List(projectID, zoneItem.Name).Do()			
+			diskList, err := DiskHandler.Client.Disks.List(projectID, zoneItem.Name).Do()
 			if err != nil {
 				cblogger.Error(err)
 				LoggingError(hiscallInfo, err)
@@ -144,10 +143,8 @@ func (DiskHandler *GCPDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 				diskInfoList = append(diskInfoList, &diskInfo)
 			}
 		}
-		
+
 	}
-	
-	
 
 	return diskInfoList, nil
 }
@@ -229,7 +226,7 @@ func (DiskHandler *GCPDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 	disk := diskIID.SystemId
 
 	// 대상 zone이 다른경우 targetZone을 사용
-	if targetZone != ""{
+	if targetZone != "" {
 		zone = targetZone
 	}
 
@@ -250,12 +247,12 @@ func (DiskHandler *GCPDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 
 func (DiskHandler *GCPDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) (irs.DiskInfo, error) {
 	// disk와 vm의 zone valid check
-	attachDiskInfo, err := DiskHandler.GetDisk(diskIID)	
+	attachDiskInfo, err := DiskHandler.GetDisk(diskIID)
 	if err != nil {
-		cblogger.Error(err)		
+		cblogger.Error(err)
 		return irs.DiskInfo{}, err
 	}
-	
+
 	// check disk status : "available" state only
 	if attachDiskInfo.Status != irs.DiskStatus("Available") {
 		return irs.DiskInfo{}, errors.New(string("The disk must be in the Available state : " + attachDiskInfo.Status))
@@ -272,16 +269,14 @@ func (DiskHandler *GCPDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 		cblogger.Error(err.Error())
 		return irs.DiskInfo{}, err
 	}
-	
-	
-	if vmInfo.Region.Zone != attachDiskInfo.Zone{
-		cblogger.Error("The disk and the VM must be in the same zone." + vmInfo.Region.Zone, attachDiskInfo.Zone)
+
+	if vmInfo.Region.Zone != attachDiskInfo.Zone {
+		cblogger.Error("The disk and the VM must be in the same zone."+vmInfo.Region.Zone, attachDiskInfo.Zone)
 		return irs.DiskInfo{}, errors.New(string("The disk and the VM must be in the same zone."))
 	}
 
 	// vmStatus는 다시 조회해야 하기 때문에 attach할 수 있는 상태가 아니면 오류로 return
 	// valid check end
-
 
 	hiscallInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, diskIID.NameId, "AttachDisk()")
 	start := call.Start()
@@ -289,7 +284,7 @@ func (DiskHandler *GCPDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 	projectID := DiskHandler.Credential.ProjectID
 	region := DiskHandler.Region.Region
 	//zone := DiskHandler.Region.Zone
-	zone := vmInfo.Region.Zone// vm의 zone으로 설정
+	zone := vmInfo.Region.Zone // vm의 zone으로 설정
 	instance := ownerVM.SystemId
 
 	attachedDisk := &compute.AttachedDisk{
@@ -409,12 +404,12 @@ func validateDiskSize(diskInfo irs.DiskInfo) error {
 	}
 
 	if diskSize < diskSizeValue.diskMinSize {
-		fmt.Println("Disk Size Error!!: ", diskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+		cblogger.Error("Disk Size Error!!: ", diskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
 		return errors.New("Disk Size must be at least the minimum size (" + strconv.FormatInt(diskSizeValue.diskMinSize, 10) + " GB).")
 	}
 
 	if diskSize > diskSizeValue.diskMaxSize {
-		fmt.Println("Disk Size Error!!: ", diskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+		cblogger.Error("Disk Size Error!!: ", diskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
 		return errors.New("Disk Size must be smaller than or equal to the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
 	}
 
@@ -470,7 +465,7 @@ func validateChangeDiskSize(diskInfo irs.DiskInfo, newSize string) error {
 	}
 
 	if newDiskSize > diskSizeValue.diskMaxSize {
-		fmt.Println("Disk Size Error!!: ", diskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+		cblogger.Error("Disk Size Error!!: ", diskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
 		return errors.New("Disk Size must be smaller than or equal to the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
 	}
 
@@ -505,13 +500,12 @@ func convertDiskInfo(diskResp *compute.Disk) (irs.DiskInfo, error) {
 	diskInfo.DiskSize = strconv.FormatInt(diskResp.SizeGb, 10)
 	diskInfo.CreatedTime, _ = time.Parse(time.RFC3339, diskResp.CreationTimestamp)
 	//diskInfo.Zone = diskResp.Zone // diskResp의 zone은 url 형태이므로 zone 만 추출
-	index := strings.Index(diskResp.Zone, "zones/")  // "zones/"의 인덱스를 찾음
+	index := strings.Index(diskResp.Zone, "zones/") // "zones/"의 인덱스를 찾음
 	if index != -1 {
-		diskInfo.Zone = diskResp.Zone[index+len("zones/"):]  // "zones/" 다음의 문자열을 추출
-	}else{
+		diskInfo.Zone = diskResp.Zone[index+len("zones/"):] // "zones/" 다음의 문자열을 추출
+	} else {
 		diskInfo.Zone = diskResp.Zone
 	}
-
 
 	// Users : the users of the disk (attached instances)
 	if diskResp.Users != nil {

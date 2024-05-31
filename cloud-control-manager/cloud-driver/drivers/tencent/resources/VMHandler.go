@@ -7,7 +7,6 @@ package resources
 import (
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"reflect"
@@ -33,8 +32,9 @@ type TencentVMHandler struct {
 	Region     idrv.RegionInfo
 	Client     *cvm.Client
 	DiskClient *tencentcbs.Client
-	VPCClient *tencentvpc.Client
+	VPCClient  *tencentvpc.Client
 }
+
 //Client *vpc.Client
 
 //type TencentCbsHandler struct {
@@ -239,7 +239,7 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	//cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("TENCENT") // cloudos_meta 에 DiskType, min, max 값 정의 되어있음.
 	//arrDiskSizeOfType := cloudOSMetaInfo.RootDiskSize
 	//
-	//fmt.Println("arrDiskSizeOfType: ", arrDiskSizeOfType)
+	//cblogger.Info("arrDiskSizeOfType: ", arrDiskSizeOfType)
 	//
 
 	//if vmReqInfo.RootDiskType == "" || strings.EqualFold(vmReqInfo.RootDiskType, "default") {
@@ -267,7 +267,7 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		//	isExists := false
 		//	for idx, _ := range arrDiskSizeOfType {
 		//		diskSizeArr := strings.Split(arrDiskSizeOfType[idx], "|")
-		//		fmt.Println("diskSizeArr: ", diskSizeArr)
+		//		cblogger.Info(mt.Println("diskSizeArr: ", diskSizeArr)
 		//
 		//		if strings.EqualFold(vmReqInfo.RootDiskType, diskSizeArr[0]) {
 		//			diskSizeValue.diskType = diskSizeArr[0]
@@ -311,15 +311,15 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			}
 
 			imageSize := *imageInfo.ImageSize
-			fmt.Println("image : ", imageSize)
+			cblogger.Info("image : ", imageSize)
 
 			if rootDiskSize < imageSize {
-				fmt.Println("Disk Size Error!!: ", rootDiskSize, imageSize)
+				cblogger.Error("Disk Size Error!!: ", rootDiskSize, imageSize)
 				return irs.VMInfo{}, errors.New("Root Disk Size must be larger then the image size (" + strconv.FormatInt(imageSize, 10) + " GB).")
 			}
 
-			fmt.Println("rootDiskSize : ", rootDiskSize)
-			fmt.Println("rootDiskSize : ", common.Int64Ptr(rootDiskSize))
+			cblogger.Info("rootDiskSize : ", rootDiskSize)
+			cblogger.Info("rootDiskSize : ", common.Int64Ptr(rootDiskSize))
 
 			request.SystemDisk.DiskSize = common.Int64Ptr(rootDiskSize)
 			cblogger.Debug("request.SystemDisk.DiskSize ", request.SystemDisk.DiskSize)
@@ -359,7 +359,9 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	request.UserData = common.StringPtr(userDataBase64)
 
 	cblogger.Debug("===== Request object====")
-	spew.Config.Dump(request)
+	if cblogger.Level.String() == "debug" {
+		spew.Config.Dump(request)
+	}
 	callLogStart := call.Start()
 	response, err := vmHandler.Client.RunInstances(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
@@ -371,7 +373,9 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		cblogger.Error(err)
 		return irs.VMInfo{}, err
 	}
-	spew.Dump(response)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(response)
+	}
 	callogger.Info(call.String(callLogInfo))
 	cblogger.Debug(response.ToJsonString())
 
@@ -469,7 +473,6 @@ func (vmHandler *TencentVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error
 		cblogger.Error(err)
 		return irs.VMStatus("Failed"), err
 	}
-	//spew.Dump(response)
 	callogger.Info(call.String(callLogInfo))
 	cblogger.Debug(response.ToJsonString())
 
@@ -513,7 +516,6 @@ func (vmHandler *TencentVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error)
 		cblogger.Error(err)
 		return irs.VMStatus("Failed"), err
 	}
-	//spew.Dump(response)
 	callogger.Info(call.String(callLogInfo))
 	cblogger.Debug(response.ToJsonString())
 
@@ -554,7 +556,6 @@ func (vmHandler *TencentVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error)
 			cblogger.Error(err)
 			return irs.VMStatus("Failed"), err
 		}
-		//spew.Dump(response)
 		callogger.Info(call.String(callLogInfo))
 		cblogger.Debug(response.ToJsonString())
 	} else if curStatus == "Suspended" {
@@ -601,7 +602,6 @@ func (vmHandler *TencentVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 		cblogger.Error(err)
 		return irs.VMStatus("Failed"), err
 	}
-	//spew.Dump(response)
 	callogger.Info(call.String(callLogInfo))
 	cblogger.Debug(response.ToJsonString())
 
@@ -637,7 +637,6 @@ func (vmHandler *TencentVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 		return irs.VMInfo{}, err
 	}
 
-	//spew.Dump(response)
 	callogger.Info(call.String(callLogInfo))
 	cblogger.Debug(response.ToJsonString())
 
@@ -652,7 +651,6 @@ func (vmHandler *TencentVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 
 func (vmHandler *TencentVMHandler) ExtractDescribeInstances(curVm *cvm.Instance) (irs.VMInfo, error) {
 	//cblogger.Info("ExtractDescribeInstances", curVm)
-	//spew.Dump(curVm)
 
 	//VM상태와 무관하게 항상 값이 존재하는 항목들만 초기화
 	vmInfo := irs.VMInfo{
@@ -837,7 +835,6 @@ func (vmHandler *TencentVMHandler) ListVM() ([]*irs.VMInfo, error) {
 		return nil, err
 	}
 
-	//spew.Dump(response)
 	callogger.Info(call.String(callLogInfo))
 	cblogger.Debug(response.ToJsonString())
 
@@ -878,7 +875,6 @@ func (vmHandler *TencentVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, err
 		cblogger.Error(err)
 		return irs.VMStatus("Failed"), err
 	}
-	//spew.Dump(response)
 	callogger.Info(call.String(callLogInfo))
 	cblogger.Debug(response.ToJsonString())
 
@@ -919,7 +915,6 @@ func (vmHandler *TencentVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 		cblogger.Error(err)
 		return nil, err
 	}
-	//spew.Dump(response)
 	callogger.Info(call.String(callLogInfo))
 	cblogger.Debug(response.ToJsonString())
 
@@ -1102,7 +1097,6 @@ Lighthouse API가 있으나 ClientInterface 부분 처리 방법 필요
 //		cblogger.Error(err)
 //		return nil, err
 //	}
-//	//spew.Dump(response)
 //	callogger.Info(call.String(callLogInfo))
 //	cblogger.Debug(response.ToJsonString())
 //
@@ -1153,7 +1147,6 @@ Lighthouse API가 있으나 ClientInterface 부분 처리 방법 필요
 //		cblogger.Error(err)
 //		return nil, err
 //	}
-//	//spew.Dump(response)
 //	callogger.Info(call.String(callLogInfo))
 //	cblogger.Debug(response.ToJsonString())
 //	//

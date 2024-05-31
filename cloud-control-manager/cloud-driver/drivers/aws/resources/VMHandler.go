@@ -9,7 +9,6 @@ package resources
 import (
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"reflect"
@@ -40,7 +39,7 @@ func Connect(region string) *ec2.EC2 {
 	)
 
 	if err != nil {
-		fmt.Println("Could not create instance", err)
+		cblogger.Error("Could not create instance", err)
 		return nil
 	}
 
@@ -630,26 +629,27 @@ func (vmHandler *AwsVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
 
 	result, err := vmHandler.Client.StartInstances(input)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	spew.Dump(result)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
 	awsErr, ok := err.(awserr.Error)
 
 	if ok && awsErr.Code() == "DryRunOperation" {
 		// Let's now set dry run to be false. This will allow us to start the instances
 		input.DryRun = aws.Bool(false)
 		result, err = vmHandler.Client.StartInstances(input)
-		spew.Dump(result)
+		if cblogger.Level.String() == "debug" {
+			spew.Dump(result)
+		}
 		if err != nil {
-			//fmt.Println("Error", err)
 			cblogger.Error(err)
 			callLogInfo.ErrorMSG = err.Error()
 			callogger.Info(call.String(callLogInfo))
 			return irs.VMStatus("Failed"), err
 		} else {
-			//fmt.Println("Success", result.StartingInstances)
 			cblogger.Info("Success", result.StartingInstances)
 		}
 	} else { // This could be due to a lack of permissions
-		//fmt.Println("Error", err)
 		cblogger.Error(err)
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
@@ -700,7 +700,9 @@ func (vmHandler *AwsVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
 	if ok && awsErr.Code() == "DryRunOperation" {
 		input.DryRun = aws.Bool(false)
 		result, err = vmHandler.Client.StopInstances(input)
-		spew.Dump(result)
+		if cblogger.Level.String() == "debug" {
+			spew.Dump(result)
+		}
 		if err != nil {
 			callLogInfo.ErrorMSG = err.Error()
 			callogger.Info(call.String(callLogInfo))
@@ -768,7 +770,9 @@ func (vmHandler *AwsVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 		cblogger.Info("DryRun 권한 해제 후 리부팅을 요청 함.")
 		input.DryRun = aws.Bool(false)
 		result, err = vmHandler.Client.RebootInstances(input)
-		spew.Dump(result)
+		if cblogger.Level.String() == "debug" {
+			spew.Dump(result)
+		}
 		cblogger.Info("result 값 : ", result)
 		cblogger.Info("err 값 : ", err)
 		if err != nil {
@@ -819,7 +823,9 @@ func (vmHandler *AwsVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) 
 
 	result, err := vmHandler.Client.TerminateInstances(input)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	spew.Dump(result)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(result)
+	}
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
@@ -983,7 +989,6 @@ func (vmHandler *AwsVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 func (vmHandler *AwsVMHandler) ExtractDescribeInstanceToVmInfo(instance *ec2.Instance) irs.VMInfo {
 	//cblogger.Info("ExtractDescribeInstances", reservation)
 	cblogger.Info("Instance", instance)
-	//spew.Dump(reservation.Instances[0])
 
 	//"stopped" / "terminated" / "running" ...
 	var state string
@@ -1077,8 +1082,9 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstanceToVmInfo(instance *ec2.Ins
 		//awsImageInfo.OwnerId //
 		//awsImageInfo.ImageOwnerAlias
 	}
-	spew.Dump(awsImageInfo) //ImageId: "ami-00f1068284b9eca92",
-
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(awsImageInfo) //ImageId: "ami-00f1068284b9eca92",
+	}
 	// instance.ImageId
 	// describeImage -> is-public
 
@@ -1173,7 +1179,6 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstanceToVmInfo(instance *ec2.Ins
 func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reservation) irs.VMInfo {
 	//cblogger.Info("ExtractDescribeInstances", reservation)
 	cblogger.Info("Instances[0]", reservation.Instances[0])
-	//spew.Dump(reservation.Instances[0])
 
 	//"stopped" / "terminated" / "running" ...
 	var state string
