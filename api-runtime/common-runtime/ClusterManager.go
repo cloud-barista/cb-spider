@@ -564,6 +564,16 @@ func CreateCluster(connectionName string, rsType string, reqInfo cres.ClusterInf
 	return &info, nil
 }
 
+// Get reqNameId from reqIIdList whith driver NameId
+func getReqNameId(reqIIdList []cres.IID, driverNameId string) string {
+	for _, iid := range reqIIdList {
+		if iid.SystemId == driverNameId {
+			return iid.NameId
+		}
+	}
+	return ""
+}
+
 func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 	//+++++++++++++++++++++ Set NetworkInfo's NameId
 	netInfo := &info.Network

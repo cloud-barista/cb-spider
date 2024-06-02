@@ -111,6 +111,14 @@ type VPCDependentIIDInfo struct {
 	OwnerVPCName   string `gorm:"primaryKey"` // ex) "my_vpc" for NLB
 }
 
+type ZoneLevelVPCDependentIIDInfo struct {
+	ConnectionName string `gorm:"primaryKey"` // ex) "aws-seoul-config"
+	ZoneId         string // ex) "ap-northeast-2a"
+	NameId         string `gorm:"primaryKey"` // ex) "my_resource"
+	SystemId       string // ID in CSP, ex) "i7baab81a4ez"
+	OwnerVPCName   string `gorm:"primaryKey"` // ex) "my_vpc" for NLB
+}
+
 type ClusterDependentIIDInfo struct {
 	ConnectionName   string `gorm:"primaryKey"` // ex) "aws-seoul-config"
 	NameId           string `gorm:"primaryKey"` // ex) "my_resource"

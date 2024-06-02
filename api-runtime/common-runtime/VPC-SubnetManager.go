@@ -29,7 +29,7 @@ func (VPCIIDInfo) TableName() string {
 	return "vpc_iid_infos"
 }
 
-type SubnetIIDInfo VPCDependentIIDInfo
+type SubnetIIDInfo ZoneLevelVPCDependentIIDInfo
 
 func (SubnetIIDInfo) TableName() string {
 	return "subnet_iid_infos"
@@ -156,7 +156,7 @@ func RegisterVPC(connectionName string, userIID cres.IID) (*cres.VPCInfo, error)
 // (2) get resource info(CSP-ID)
 // (3) create spiderIID: {UserID, SP-XID:CSP-ID}
 // (4) insert spiderIID
-func RegisterSubnet(connectionName string, vpcName string, userIID cres.IID) (*cres.VPCInfo, error) {
+func RegisterSubnet(connectionName string, zoneId string, vpcName string, userIID cres.IID) (*cres.VPCInfo, error) {
 	cblog.Info("call RegisterSubnet()")
 
 	// check empty and trim user inputs
@@ -180,7 +180,7 @@ func RegisterSubnet(connectionName string, vpcName string, userIID cres.IID) (*c
 		return nil, err
 	}
 
-	cldConn, err := ccm.GetCloudConnection(connectionName)
+	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, zoneId)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
@@ -234,11 +234,20 @@ func RegisterSubnet(connectionName string, vpcName string, userIID cres.IID) (*c
 		if subnetInfo.IId.SystemId == userIID.SystemId {
 			// insert a subnet SpiderIID to metadb
 			subnetSpiderIId := cres.IID{NameId: subnetUserId, SystemId: systemId + ":" + subnetInfo.IId.SystemId}
-			err = infostore.Insert(&SubnetIIDInfo{ConnectionName: connectionName, NameId: subnetSpiderIId.NameId, SystemId: subnetSpiderIId.SystemId,
+			err = infostore.Insert(&SubnetIIDInfo{ConnectionName: connectionName, ZoneId: zoneId, NameId: subnetSpiderIId.NameId, SystemId: subnetSpiderIId.SystemId,
 				OwnerVPCName: vpcName})
 			if err != nil {
 				cblog.Error(err)
 				return nil, err
+			}
+			if subnetInfo.Zone == "" { // GCP has no Zone info
+				var iidInfo SubnetIIDInfo
+				err = infostore.GetBy3Conditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, subnetInfo.IId.NameId, OWNER_VPC_NAME_COLUMN, vpcName)
+				if err != nil {
+					cblog.Info(err)
+				} else {
+					subnetInfo.Zone = iidInfo.ZoneId
+				}
 			}
 
 			// setup subnet IID for return info
@@ -306,6 +315,12 @@ func UnregisterSubnet(connectionName string, vpcName string, nameId string) (boo
 // (4) create spiderIID: {reqNameID, "driverNameID:driverSystemID"}
 // (5) insert spiderIID
 // (6) create userIID
+
+type SubnetReqZoneInfo struct {
+	IId  cres.IID
+	Zone string
+}
+
 func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo, IDTransformMode string) (*cres.VPCInfo, error) {
 	cblog.Info("call CreateVPC()")
 
@@ -409,7 +424,7 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo, ID
 	}
 
 	// for subnet list
-	subnetReqIIdList := []cres.IID{}
+	subnetReqIIdZoneList := []SubnetReqZoneInfo{}
 	subnetInfoList := []cres.SubnetInfo{}
 	for _, info := range reqInfo.SubnetInfoList {
 		subnetUUID := ""
@@ -434,12 +449,14 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo, ID
 
 		// reqIID
 		subnetReqIId := cres.IID{NameId: info.IId.NameId, SystemId: subnetUUID}
-		subnetReqIIdList = append(subnetReqIIdList, subnetReqIId)
+		subnetReqInfo := SubnetReqZoneInfo{IId: subnetReqIId, Zone: info.Zone}
+		subnetReqIIdZoneList = append(subnetReqIIdZoneList, subnetReqInfo)
 		// driverIID
 		subnetDriverIId := cres.IID{NameId: subnetUUID, SystemId: ""}
 		info.IId = subnetDriverIId
 		subnetInfoList = append(subnetInfoList, info)
 	} // end of for _, info
+
 	reqInfo.SubnetInfoList = subnetInfoList
 
 	// (3) create Resource
@@ -470,13 +487,17 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo, ID
 	}
 	// for Subnet list
 	for _, subnetInfo := range info.SubnetInfoList {
-		subnetReqNameId := getReqNameId(subnetReqIIdList, subnetInfo.IId.NameId)
+		subnetReqNameId := getSubnetReqNameId(subnetReqIIdZoneList, subnetInfo.IId.NameId)
 		if subnetReqNameId == "" {
 			cblog.Error(subnetInfo.IId.NameId + "is not requested Subnet.")
 			continue
 		}
+		if subnetInfo.Zone == "" { // GCP has no Zone info
+			subnetInfo.Zone = getSubnetReqZoneId(subnetReqIIdZoneList, subnetInfo.IId.NameId)
+		}
+
 		subnetSpiderIId := cres.IID{NameId: subnetReqNameId, SystemId: subnetInfo.IId.NameId + ":" + subnetInfo.IId.SystemId}
-		err = infostore.Insert(&SubnetIIDInfo{ConnectionName: connectionName, NameId: subnetSpiderIId.NameId, SystemId: subnetSpiderIId.SystemId,
+		err = infostore.Insert(&SubnetIIDInfo{ConnectionName: connectionName, ZoneId: subnetInfo.Zone, NameId: subnetSpiderIId.NameId, SystemId: subnetSpiderIId.SystemId,
 			OwnerVPCName: reqIId.NameId})
 		if err != nil {
 			cblog.Error(err)
@@ -516,9 +537,12 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo, ID
 	// for Subnet list
 	subnetUserInfoList := []cres.SubnetInfo{}
 	for _, subnetInfo := range info.SubnetInfoList {
-		subnetReqNameId := getReqNameId(subnetReqIIdList, subnetInfo.IId.NameId)
+		subnetReqNameId := getSubnetReqNameId(subnetReqIIdZoneList, subnetInfo.IId.NameId)
 		userIId := cres.IID{NameId: subnetReqNameId, SystemId: subnetInfo.IId.SystemId}
 		subnetInfo.IId = userIId
+		if subnetInfo.Zone == "" { // GCP has no Zone info
+			subnetInfo.Zone = getSubnetReqZoneId(subnetReqIIdZoneList, subnetInfo.IId.NameId)
+		}
 		subnetUserInfoList = append(subnetUserInfoList, subnetInfo)
 	}
 	info.SubnetInfoList = subnetUserInfoList
@@ -526,11 +550,21 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo, ID
 	return &info, nil
 }
 
-// Get reqNameId from reqIIdList whith driver NameId
-func getReqNameId(reqIIdList []cres.IID, driverNameId string) string {
-	for _, iid := range reqIIdList {
-		if iid.SystemId == driverNameId {
-			return iid.NameId
+// Get reqNameId from reqIIdZoneList whith driver NameId
+func getSubnetReqNameId(reqIIdZoneList []SubnetReqZoneInfo, driverNameId string) string {
+	for _, reqInfo := range reqIIdZoneList {
+		if reqInfo.IId.SystemId == driverNameId {
+			return reqInfo.IId.NameId
+		}
+	}
+	return ""
+}
+
+// Get reqZoneId from reqIIdZoneList whith driver NameId
+func getSubnetReqZoneId(reqIIdZoneList []SubnetReqZoneInfo, driverNameId string) string {
+	for _, reqInfo := range reqIIdZoneList {
+		if reqInfo.IId.SystemId == driverNameId {
+			return reqInfo.Zone
 		}
 	}
 	return ""
@@ -659,6 +693,9 @@ func getVPCInfo(connectionName string, handler cres.VPCHandler, iid cres.IID, re
 		}
 		if subnetIIDInfo.NameId != "" { // insert only this user created.
 			subnetInfo.IId = getUserIID(cres.IID{NameId: subnetIIDInfo.NameId, SystemId: subnetIIDInfo.SystemId})
+			if subnetInfo.Zone == "" { // GCP has no Zone info
+				subnetInfo.Zone = subnetIIDInfo.ZoneId
+			}
 			subnetInfoList = append(subnetInfoList, subnetInfo)
 		}
 	}
@@ -737,6 +774,9 @@ func GetVPC(connectionName string, rsType string, nameID string) (*cres.VPCInfo,
 		}
 		if subnetIIDInfo.NameId != "" { // insert only this user created.
 			subnetInfo.IId = getUserIID(cres.IID{NameId: subnetIIDInfo.NameId, SystemId: subnetIIDInfo.SystemId})
+			if subnetInfo.Zone == "" { // GCP has no Zone info
+				subnetInfo.Zone = subnetIIDInfo.ZoneId
+			}
 			subnetInfoList = append(subnetInfoList, subnetInfo)
 		}
 	}
@@ -837,7 +877,7 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 	for _, subnetInfo := range info.SubnetInfoList {
 		if subnetInfo.IId.NameId == reqInfo.IId.NameId { // NameId => SS-UUID
 			subnetSpiderIId := cres.IID{NameId: subnetReqNameId, SystemId: subnetInfo.IId.NameId + ":" + subnetInfo.IId.SystemId}
-			err = infostore.Insert(&SubnetIIDInfo{ConnectionName: connectionName, NameId: subnetSpiderIId.NameId, SystemId: subnetSpiderIId.SystemId,
+			err = infostore.Insert(&SubnetIIDInfo{ConnectionName: connectionName, ZoneId: reqInfo.Zone, NameId: subnetSpiderIId.NameId, SystemId: subnetSpiderIId.SystemId,
 				OwnerVPCName: vpcName})
 			if err != nil {
 				cblog.Error(err)
@@ -884,6 +924,9 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 		}
 		if subnetIIDInfo.NameId != "" { // insert only this user created.
 			subnetInfo.IId = getUserIID(cres.IID{NameId: subnetIIDInfo.NameId, SystemId: subnetInfo.IId.SystemId})
+			if subnetInfo.Zone == "" { // GCP has no Zone info
+				subnetInfo.Zone = subnetIIDInfo.ZoneId
+			}
 			subnetInfoList = append(subnetInfoList, subnetInfo)
 		}
 	}
@@ -917,18 +960,6 @@ func RemoveSubnet(connectionName string, vpcName string, nameID string, force st
 		return false, err
 	}
 
-	cldConn, err := ccm.GetCloudConnection(connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return false, err
-	}
-
-	handler, err := cldConn.CreateVPCHandler()
-	if err != nil {
-		cblog.Error(err)
-		return false, err
-	}
-
 	vpcSPLock.Lock(connectionName, vpcName)
 	defer vpcSPLock.Unlock(connectionName, vpcName)
 
@@ -943,6 +974,18 @@ func RemoveSubnet(connectionName string, vpcName string, nameID string, force st
 	// (2) delete Resource(SystemId)
 	driverIId := getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
 	result := false
+
+	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, iidInfo.ZoneId)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+
+	handler, err := cldConn.CreateVPCHandler()
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
 
 	var iidVPCInfo VPCIIDInfo
 	err = infostore.GetByConditions(&iidVPCInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcName)
