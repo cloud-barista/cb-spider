@@ -12,7 +12,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 	compute "google.golang.org/api/compute/v1"
 	container "google.golang.org/api/container/v1"
 )
@@ -148,7 +147,7 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 		reqCluster.InitialNodeCount = 3 // Cluster.initial_node_count must be greater than zero
 	}
 
-	spew.Dump(rb)
+	cblogger.Debug(rb)
 	// if 1 == 1 {
 	// 	return irs.ClusterInfo{}, nil
 	// }
@@ -201,12 +200,12 @@ func (ClusterHandler *GCPClusterHandler) ListCluster() ([]*irs.ClusterInfo, erro
 		cblogger.Error(err)
 		return nil, err
 	}
-	//spew.Dump(resp)
+	//cblogger.Debug(resp)
 
 	clusterInfoList := []*irs.ClusterInfo{}
 
 	respClusters := resp.Clusters
-	cblogger.Info(respClusters)
+	cblogger.Debug(respClusters)
 	for _, cluster := range respClusters {
 		// clusterInfo, err := mappingClusterInfo(cluster)
 		// if err != nil {
@@ -330,7 +329,7 @@ func (ClusterHandler *GCPClusterHandler) DeleteCluster(clusterIID irs.IID) (bool
 		cblogger.Error(err)
 		return false, err
 	}
-	spew.Dump(op)
+	cblogger.Debug(op)
 
 	operationErr := WaitContainerOperationFail(ClusterHandler.ContainerClient, projectID, region, zone, op.Name, GCP_CONTAINER_OPERATION_DELETE_CLUSTER)
 	if operationErr != nil {
@@ -362,7 +361,7 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 			sgTags = append(sgTags, securityGroupIID.NameId)
 		}
 	}
-	//spew.Dump(nodeGroupReqInfo)
+	//cblogger.Debug(nodeGroupReqInfo)
 	// param set
 	reqNodePool := container.NodePool{}
 	reqNodePool.Name = nodeGroupReqInfo.IId.NameId
@@ -401,7 +400,7 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 
 	parent := getParentClusterAtContainer(projectID, zone, clusterIID.NameId)
 	cblogger.Info("parent : ", parent)
-	//spew.Dump(reqNodePool)
+	//cblogger.Debug(reqNodePool)
 
 	rb := &container.CreateNodePoolRequest{
 		NodePool: &reqNodePool,
@@ -415,7 +414,7 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 		cblogger.Error(err)
 		return nodeGroupInfo, err
 	}
-	//spew.Dump(op)
+	//cblogger.Debug(op)
 
 	operationErr := WaitContainerOperationFail(ClusterHandler.ContainerClient, projectID, region, zone, op.Name, GCP_CONTAINER_OPERATION_CREATE_NODE_POOL)
 	if operationErr != nil {
@@ -480,7 +479,7 @@ func (ClusterHandler *GCPClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.
 	rb := &container.SetNodePoolAutoscalingRequest{
 		Autoscaling: &container.NodePoolAutoscaling{Enabled: on},
 	}
-	spew.Dump(rb)
+	cblogger.Debug(rb)
 
 	hiscallInfo := GetCallLogScheme(ClusterHandler.Region, call.CLUSTER, clusterIID.NameId, "SetNodeGroupAutoScaling()")
 	start := call.Start()
@@ -491,7 +490,7 @@ func (ClusterHandler *GCPClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.
 		cblogger.Error(err)
 		return false, err
 	}
-	spew.Dump(op)
+	cblogger.Debug(op)
 
 	operationErr := WaitContainerOperationDone(ClusterHandler.ContainerClient, projectID, region, zone, op.Name, GCP_CONTAINER_OPERATION_SET_NODE_POOL_MANAGEMENT, 30)
 	if operationErr != nil {
@@ -575,7 +574,7 @@ func (ClusterHandler *GCPClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 			cblogger.Error(err)
 			return irs.NodeGroupInfo{}, err
 		}
-		spew.Dump(op)
+		cblogger.Debug(op)
 
 		operationErr := WaitContainerOperationDone(ClusterHandler.ContainerClient, projectID, region, zone, op.Name, GCP_CONTAINER_OPERATION_SET_NODE_POOL_MANAGEMENT, 30)
 		if operationErr != nil {
@@ -633,7 +632,7 @@ func (ClusterHandler *GCPClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 			cblogger.Error(err2)
 			return irs.NodeGroupInfo{}, err
 		}
-		spew.Dump(op2)
+		cblogger.Debug(op2)
 
 		operationErr2 := WaitContainerOperationDone(ClusterHandler.ContainerClient, projectID, region, zone, op2.Name, GCP_CONTAINER_OPERATION_SET_NODE_POOL_SIZE, 30)
 		if operationErr2 != nil {
@@ -671,7 +670,7 @@ func (ClusterHandler *GCPClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nod
 		cblogger.Error(err)
 		return false, err
 	}
-	spew.Dump(op)
+	cblogger.Debug(op)
 
 	operationErr := WaitContainerOperationDone(ClusterHandler.ContainerClient, projectID, region, zone, op.Name, GCP_CONTAINER_OPERATION_DELETE_NODE_POOL, 600)
 	if operationErr != nil {
@@ -708,7 +707,7 @@ func (ClusterHandler *GCPClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 		cblogger.Error(err)
 		return clusterInfo, err
 	}
-	spew.Dump(op)
+	cblogger.Debug(op)
 
 	operationErr := WaitContainerOperationFail(ClusterHandler.ContainerClient, projectID, region, zone, op.Name, GCP_CONTAINER_OPERATION_UPDATE_CLUSTER)
 	if operationErr != nil {
@@ -901,7 +900,7 @@ func mappingClusterInfo(cluster *container.Cluster) (ClusterInfo irs.ClusterInfo
 	clusterInfo.CreatedTime = createDatetime
 	clusterInfo.Addons = addOnsInfo
 
-	// spew.Dump(clusterInfo)
+	// cblogger.Debug(clusterInfo)
 
 	return clusterInfo, nil
 }
@@ -995,7 +994,7 @@ func getNodeGroupStatus(nodePoolStatus string) irs.NodeGroupStatus {
 // 	autoScaling := container.NodePoolAutoscaling{}
 
 // 	parent := getParentNodePoolsAtContainer(projectID, zone, clusterIID.NameId, nodeGroupReqInfo.IId.NameId)
-// 	spew.Dump(nodeGroupReqInfo)
+// 	cblogger.Debug(nodeGroupReqInfo)
 // 	if strings.EqualFold(autoscalingType, GCP_SET_AUTOSCALING_ENABLE) {
 // 		if orgNodeGroupReqInfo.OnAutoScaling != nodeGroupReqInfo.OnAutoScaling {
 // 			autoScaling.Enabled = nodeGroupReqInfo.OnAutoScaling
@@ -1045,7 +1044,7 @@ func getNodeGroupStatus(nodePoolStatus string) irs.NodeGroupStatus {
 // 		cblogger.Error(err)
 // 		return false, err
 // 	}
-// 	spew.Dump(op)
+// 	cblogger.Debug(op)
 
 // 	operationErr := WaitContainerOperationDone(containerClient, projectID, region, zone, op.Name, 3, 1200)
 // 	if operationErr != nil {
@@ -1104,7 +1103,7 @@ func convertNodeGroup(client *compute.Service, credential idrv.CredentialInfo, r
 	nodeGroupList := []irs.NodeGroupInfo{}
 	for _, nodeGroupInfo := range orgNodeGroupList {
 		cblogger.Info("convertNodeGroup ", nodeGroupInfo)
-		//spew.Dump(nodeGroupInfo)
+		//cblogger.Debug(nodeGroupInfo)
 		keyValueList := nodeGroupInfo.KeyValueList
 		for _, keyValue := range keyValueList {
 			cblogger.Info("keyValue ", keyValue)
@@ -1122,7 +1121,7 @@ func convertNodeGroup(client *compute.Service, credential idrv.CredentialInfo, r
 					if err != nil {
 						return nodeGroupList, err
 					}
-					//spew.Dump(instanceInfo)
+					//cblogger.Debug(instanceInfo)
 					// nodeGroup의 Instance ID
 					nodeIID := irs.IID{NameId: instanceInfo.Name, SystemId: instanceInfo.Name}
 					nodeList = append(nodeList, nodeIID)
@@ -1140,7 +1139,7 @@ func convertNodeGroup(client *compute.Service, credential idrv.CredentialInfo, r
 				cblogger.Info("nodeList ", nodeList)
 				nodeGroupInfo.Nodes = nodeList
 				//cblogger.Info("nodeGroupInfo ", nodeGroupInfo)
-				spew.Dump(nodeGroupInfo)
+				cblogger.Debug(nodeGroupInfo)
 			}
 		}
 		nodeGroupList = append(nodeGroupList, nodeGroupInfo)

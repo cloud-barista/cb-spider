@@ -32,7 +32,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 )
 
 type GCPVMHandler struct {
@@ -47,7 +46,7 @@ type GCPVMHandler struct {
 func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	// Set VM Create Information
 	// GCP 는 reqinfo에 ProjectID를 받아야 함.
-	cblogger.Info(vmReqInfo)
+	cblogger.Debug(vmReqInfo)
 
 	//ctx := vmHandler.Ctx
 	vmName := vmReqInfo.IId.NameId
@@ -108,7 +107,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			if disk.Boot { // Boot Device
 				//diskSize := disk.DiskSizeGb
 				imageSize = disk.DiskSizeGb // image size가 맞나??
-				cblogger.Info(imageSize)
+				cblogger.Debug(imageSize)
 				osFeatures := disk.GuestOsFeatures
 				for _, feature := range osFeatures {
 					if feature.Type == "WINDOWS" {
@@ -116,7 +115,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 						break
 					}
 				}
-				cblogger.Info(isWindows)
+				cblogger.Debug(isWindows)
 			}
 		}
 
@@ -126,7 +125,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 		computeImage, err := GetPublicImageInfo(vmHandler.Client, vmReqInfo.ImageIID)
 		if err != nil {
-			cblogger.Info("GetPublicImageInfo err : ", err)
+			cblogger.Error("GetPublicImageInfo err : ", err)
 			return irs.VMInfo{}, err
 		}
 
@@ -226,7 +225,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		pubKey = "cb-user:" + strings.TrimSpace(publicKey) + " " + "cb-user"
 		cblogger.Debug("keypairInfo 정보")
 		if cblogger.Level.String() == "debug" {
-			spew.Dump(keypairInfo)
+			cblogger.Debug(keypairInfo)
 		}
 	}
 
@@ -423,7 +422,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	cblogger.Info("VM 생성 시작")
 	cblogger.Debug(instance)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(instance)
+		cblogger.Debug(instance)
 	}
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -470,9 +469,9 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Info("VM 생성 요청 호출 완료")
-	cblogger.Info(op)
+	cblogger.Debug(op)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(op)
+		cblogger.Debug(op)
 	}
 	callogger.Info(call.String(callLogInfo))
 
@@ -582,7 +581,7 @@ func (vmHandler *GCPVMHandler) SuspendVM(vmID irs.IID) (irs.VMStatus, error) {
 	inst, err := vmHandler.GCPInstanceStop(projectID, zone, vmID.SystemId)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(inst)
+		cblogger.Debug(inst)
 	}
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
@@ -627,7 +626,7 @@ func (vmHandler *GCPVMHandler) ResumeVM(vmID irs.IID) (irs.VMStatus, error) {
 	inst, err := vmHandler.Client.Instances.Start(projectID, zone, vmID.SystemId).Context(ctx).Do()
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(inst)
+		cblogger.Debug(inst)
 	}
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
@@ -773,7 +772,7 @@ func (vmHandler *GCPVMHandler) TerminateVM(vmID irs.IID) (irs.VMStatus, error) {
 	inst, err := vmHandler.Client.Instances.Delete(projectID, zone, vmID.SystemId).Context(ctx).Do()
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(inst)
+		cblogger.Debug(inst)
 	}
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
@@ -957,7 +956,7 @@ func (vmHandler *GCPVMHandler) GetVM(vmID irs.IID) (irs.VMInfo, error) {
 	}
 	callogger.Info(call.String(callLogInfo))
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(vm)
+		cblogger.Debug(vm)
 	}
 
 	vmInfo := vmHandler.mappingServerInfo(vm)
@@ -1005,7 +1004,7 @@ func (vmHandler *GCPVMHandler) GetVmById(vmID irs.IID) (irs.VMInfo, error) {
 			for _, instance := range item.Instances {
 				if strings.EqualFold(vmID.SystemId, instance.Name) {
 					if cblogger.Level.String() == "debug" {
-						spew.Dump(instance)
+						cblogger.Debug(instance)
 					}
 					vmInfo = vmHandler.mappingServerInfo(instance)
 					foundVm = true
@@ -1048,7 +1047,7 @@ func (vmHandler *GCPVMHandler) GetVmById(vmID irs.IID) (irs.VMInfo, error) {
 func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.VMInfo {
 	cblogger.Debug("================맵핑=====================================")
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(server)
+		cblogger.Debug(server)
 	}
 	cblogger.Info("server: ", server)
 
@@ -1142,9 +1141,9 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 	vmInfo.ImageType = vmHandler.getImageType(server.SourceMachineImage)
 
 	arrVmSpec := strings.Split(server.MachineType, "/")
-	cblogger.Info(arrVmSpec)
+	cblogger.Debug(arrVmSpec)
 	if len(arrVmSpec) > 1 {
-		cblogger.Info(arrVmSpec[len(arrVmSpec)-1])
+		cblogger.Debug(arrVmSpec[len(arrVmSpec)-1])
 		vmInfo.VMSpecName = arrVmSpec[len(arrVmSpec)-1]
 	}
 
@@ -1206,7 +1205,7 @@ func (vmHandler *GCPVMHandler) getImageIID(server *compute.Instance) irs.IID {
 
 		cblogger.Infof("********************************** Disk 정보 ****************")
 		if cblogger.Level.String() == "debug" {
-			spew.Dump(info)
+			cblogger.Debug(info)
 		}
 		if err != nil {
 			cblogger.Error(err)
@@ -1245,7 +1244,7 @@ func (vmHandler *GCPVMHandler) getDiskInfo(diskname string) (*compute.Disk, erro
 
 	cblogger.Infof("********************************** Disk 정보 ****************")
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(info)
+		cblogger.Debug(info)
 	}
 	if err != nil {
 		cblogger.Error(err)

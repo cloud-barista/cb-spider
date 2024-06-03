@@ -29,7 +29,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	compute "google.golang.org/api/compute/v1"
 	container "google.golang.org/api/container/v1"
@@ -128,7 +127,7 @@ func GetKeyValueList(i map[string]interface{}) []irs.KeyValue {
 
 // Cloud Object를 CB-KeyValue 형식으로 변환이 필요할 경우 이용
 func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
-	//spew.Dump(v)
+	//cblogger.Debug(v)
 	var keyValueList []irs.KeyValue
 	var i map[string]interface{}
 
@@ -290,7 +289,7 @@ func WaitUntilComplete(client *compute.Service, project string, region string, r
 			opSatus, err = client.RegionOperations.Get(project, region, resourceId).Do()
 		}
 		if err != nil {
-			cblogger.Infof("WaitUntilComplete / [%s]", err)
+			cblogger.Errorf("WaitUntilComplete / [%s]", err)
 			return err
 		}
 		cblogger.Infof("==> 상태 : 진행율 : [%d] / [%s]", opSatus.Progress, opSatus.Status)
@@ -332,7 +331,7 @@ func WaitOperationComplete(client *compute.Service, project string, region strin
 			opSatus, err = client.ZoneOperations.Get(project, zone, resourceId).Do()
 		}
 		if err != nil {
-			cblogger.Infof("WaitUntilOperationComplete / [%s]", err)
+			cblogger.Errorf("WaitUntilOperationComplete / [%s]", err)
 			return err
 		}
 		cblogger.Infof("==> 상태 : 진행율 : [%d] / [%s]", opSatus.Progress, opSatus.Status)
@@ -364,7 +363,7 @@ func GetDiskInfo(client *compute.Service, credential idrv.CredentialInfo, region
 	targetZone := region.TargetZone
 
 	// 대상 zone이 다른경우 targetZone을 사용
-	if targetZone != ""{
+	if targetZone != "" {
 		zone = targetZone
 	}
 	diskResp, err := client.Disks.Get(projectID, zone, diskName).Do()
@@ -387,7 +386,7 @@ func GetMachineImageInfo(client *compute.Service, projectId string, imageName st
 		return nil, errors.New("Not Found : [" + imageName + "] Image information not found")
 	}
 	// cblogger.Infof("result ", imageResp)
-	// spew.Dump(imageResp)
+	// cblogger.Debug(imageResp)
 	return imageResp, nil
 }
 
@@ -465,14 +464,14 @@ func FindImageByID(client *compute.Service, imageIID irs.IID) (*compute.Image, e
 		cblogger.Info("NestPageToken : ", nextPageToken)
 
 		for {
-			cblogger.Info("Loop?")
+			cblogger.Debug("Loop?")
 			for _, item := range res.Items {
 				cnt++
 				if strings.EqualFold(reqImageName, item.SelfLink) {
-					cblogger.Info("found Image : ", item)
+					cblogger.Debug("found Image : ", item)
 					return item, nil
 				}
-				cblogger.Info("cnt : ", item)
+				cblogger.Debug("cnt : ", item)
 			}
 		}
 	}
@@ -492,7 +491,7 @@ func WaitContainerOperationComplete(client *container.Service, project string, r
 	for {
 		opSatus, err = client.Projects.Locations.Operations.Get(operationName).Do()
 		if err != nil {
-			cblogger.Infof("WaitUntilOperationComplete / [%s]", err)
+			cblogger.Errorf("WaitUntilOperationComplete / [%s]", err)
 			return err
 		}
 		cblogger.Infof("==> 상태 : 진행율 : [%d] / [%s]", opSatus.Progress, opSatus.Status)
@@ -536,7 +535,7 @@ func WaitContainerOperationFail(client *container.Service, project string, regio
 			cblogger.Infof("WaitContainerOperationFail / [%s]", err)
 			return err
 		}
-		spew.Dump(opSatus)
+		cblogger.Debug(opSatus)
 		cblogger.Infof("==> 상태 : 진행율 : [%d] / [%s]", opSatus.Progress, opSatus.Status)
 
 		//PENDING, RUNNING, or DONE.
@@ -574,10 +573,10 @@ func WaitContainerOperationDone(client *container.Service, project string, regio
 	for {
 		opSatus, err = client.Projects.Locations.Operations.Get(operationName).Do()
 		if err != nil {
-			cblogger.Infof("WaitContainerOperationDone / [%s]", err)
+			cblogger.Errorf("WaitContainerOperationDone / [%s]", err)
 			return err
 		}
-		spew.Dump(opSatus)
+		cblogger.Debug(opSatus)
 		cblogger.Infof("==> 상태 : 진행율 : [%d] / [%s]", opSatus.Progress, opSatus.Status)
 
 		//PENDING, RUNNING, or DONE.
@@ -695,7 +694,7 @@ func GetZoneListByRegion(client *compute.Service, projectId string, regionUrl st
 		cblogger.Error(err)
 		return nil, err
 	}
-	// spew.Dump(resp)
+	// cblogger.Debug(resp)
 	return resp, nil
 }
 

@@ -203,7 +203,7 @@ func (DiskHandler *GCPDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) 
 	op, err := DiskHandler.Client.Disks.Resize(projectID, zone, disk, diskSize).Do()
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
-		cblogger.Info(op)
+		cblogger.Error(op)
 		cblogger.Error(err)
 		LoggingError(hiscallInfo, err)
 		return false, err
@@ -233,7 +233,7 @@ func (DiskHandler *GCPDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 	op, err := DiskHandler.Client.Disks.Delete(projectID, zone, disk).Do()
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
-		cblogger.Info(op)
+		cblogger.Error(op)
 		cblogger.Error(err)
 		LoggingError(hiscallInfo, err)
 		return false, err
@@ -294,7 +294,7 @@ func (DiskHandler *GCPDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 	op, err := DiskHandler.Client.Instances.AttachDisk(projectID, zone, instance, attachedDisk).Do()
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
-		cblogger.Info(op)
+		cblogger.Error(op)
 		cblogger.Error(err)
 		LoggingError(hiscallInfo, err)
 		return irs.DiskInfo{}, err
@@ -347,7 +347,7 @@ func (DiskHandler *GCPDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) 
 	op, err := DiskHandler.Client.Instances.DetachDisk(projectID, zone, instance, deviceName).Do()
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
-		cblogger.Info(op)
+		cblogger.Error(op)
 		cblogger.Error(err)
 		LoggingError(hiscallInfo, err)
 		return false, err

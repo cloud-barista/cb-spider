@@ -21,7 +21,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 	compute "google.golang.org/api/compute/v1"
 )
 
@@ -241,7 +240,7 @@ SecurityGroup 생성. GCP는 firewall 추가 시 tag = securityGroupName
 .사용자의 요청에서 outbound all open 이 있는 경우. default로 생성하므로 skip
 */
 func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
-	cblogger.Info(securityReqInfo)
+	cblogger.Debug(securityReqInfo)
 
 	var addFilewallList []compute.Firewall // 추가할 firewall 목록
 	var errorFirewallList []string         // 에러발생시 error 항목을 담을 목록
@@ -255,7 +254,7 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 
 	vNetInfo, errVnet := vNetworkHandler.GetVPC(securityReqInfo.VpcIID)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(vNetInfo)
+		cblogger.Debug(vNetInfo)
 	}
 	if errVnet != nil {
 		cblogger.Error(errVnet)
@@ -367,7 +366,7 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		cblogger.Info("생성할 방화벽 정책 ", itemIndex, firewallDirection, reqEgressCount, reqIngressCount)
 		cblogger.Debug(fireWall)
 		if cblogger.Level.String() == "debug" {
-			spew.Dump(fireWall)
+			cblogger.Debug(fireWall)
 		}
 		addFilewallList = append(addFilewallList, fireWall)
 
@@ -840,7 +839,7 @@ func (securityHandler *GCPSecurityHandler) insertDefaultOutboundPolicy(projectID
 //}
 
 func (securityHandler *GCPSecurityHandler) AddRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
-	cblogger.Info(*securityRules)
+	cblogger.Debug(*securityRules)
 
 	projectID := securityHandler.Credential.ProjectID
 	securityGroupTag := sgIID.SystemId
@@ -1116,7 +1115,7 @@ func (securityHandler *GCPSecurityHandler) AddRules(sgIID irs.IID, securityRules
 // 요청받은 Security 그룹안의 SecurityRule이 동일한 firewall 삭제
 // 추가가 allow만 가능 하므로 삭제도 allow만 가능
 func (securityHandler *GCPSecurityHandler) RemoveRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
-	cblogger.Info(*securityRules)
+	cblogger.Debug(*securityRules)
 
 	projectID := securityHandler.Credential.ProjectID
 	securityGroupTag := sgIID.SystemId

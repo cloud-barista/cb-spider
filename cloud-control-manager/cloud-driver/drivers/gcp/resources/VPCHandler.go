@@ -24,7 +24,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 )
 
 type GCPVPCHandler struct {
@@ -34,10 +33,10 @@ type GCPVPCHandler struct {
 	Credential idrv.CredentialInfo
 }
 
-//@TODO : VPC 생성 로직 변경 필요 / 서브넷이 백그라운드로 생성되기 때문에 조회 시 모두 생성될 때까지 대기하는 로직 필요(그렇지 않으면 일부 정보가 누락됨)
+// @TODO : VPC 생성 로직 변경 필요 / 서브넷이 백그라운드로 생성되기 때문에 조회 시 모두 생성될 때까지 대기하는 로직 필요(그렇지 않으면 일부 정보가 누락됨)
 // #1067 : gcp는 subnet 생성시 zone을 사용하지 않음.
 func (vVPCHandler *GCPVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
-	cblogger.Info(vpcReqInfo)
+	cblogger.Debug(vpcReqInfo)
 
 	if vpcReqInfo.IId.NameId == "" {
 		cblogger.Infof("생성할 VPC 이름[%s]이 없습니다.", vpcReqInfo.IId.NameId)
@@ -70,7 +69,7 @@ func (vVPCHandler *GCPVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCI
 	}
 
 	cblogger.Infof("[%s] VPC 생성 시작", name)
-	cblogger.Info(network)
+	cblogger.Debug(network)
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -134,7 +133,7 @@ func (vVPCHandler *GCPVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCI
 			Network:     vpcNetworkUrl,
 		}
 		cblogger.Infof("[%s] Subnet 생성시작", subnetName)
-		cblogger.Info(subnetWork)
+		cblogger.Debug(subnetWork)
 
 		infoSubnet, errSubnet := vVPCHandler.Client.Subnetworks.Insert(projectID, region, subnetWork).Do()
 		if errSubnet != nil {
@@ -142,7 +141,7 @@ func (vVPCHandler *GCPVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCI
 			return irs.VPCInfo{}, errors.New("Making Subnet Error - " + subnetName)
 		}
 
-		//spew.Dump(infoSubnet)
+		//cblogger.Debug(infoSubnet)
 		//생성된 서브넷이 조회되는데 시간이 필요하기 때문에 홀딩 함.
 		/*
 			errChkSubnetStatus := vVPCHandler.WaitForRunSubnet(subnetName, true)
@@ -160,7 +159,7 @@ func (vVPCHandler *GCPVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCI
 		}
 
 		cblogger.Infof("[%s] Subnet 생성완료", subnetName)
-		cblogger.Info(infoSubnet)
+		cblogger.Debug(infoSubnet)
 	}
 
 	//최신 정보로 리턴 함.
@@ -175,8 +174,8 @@ func (vVPCHandler *GCPVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCI
 	return vpcInfo, nil
 }
 
-//VPC 정보가 조회될때까지 대기
-//waitFound : true - 정보가 조회될때까지 대기(생성 시) / false - 정보가 조회되지 않을때까지 대기(삭제 시)
+// VPC 정보가 조회될때까지 대기
+// waitFound : true - 정보가 조회될때까지 대기(생성 시) / false - 정보가 조회되지 않을때까지 대기(삭제 시)
 func (vVPCHandler *GCPVPCHandler) WaitForRunVpc(name string, waitFound bool) error {
 	cblogger.Info("======> VPC 정보가 조회될때까지 대기함.")
 
@@ -187,7 +186,7 @@ func (vVPCHandler *GCPVPCHandler) WaitForRunVpc(name string, waitFound bool) err
 	for {
 		cblogger.Infof("==> [%s] VPC 정보 조회", name)
 		vpcInfo, errVnet := vVPCHandler.Client.Networks.Get(vVPCHandler.Credential.ProjectID, name).Do()
-		//spew.Dump(vpcInfo)
+		//cblogger.Debug(vpcInfo)
 
 		//============================
 		//정보가 조회될때까지 대기
@@ -206,7 +205,7 @@ func (vVPCHandler *GCPVPCHandler) WaitForRunVpc(name string, waitFound bool) err
 				}
 			} else {
 				cblogger.Infof("==> [%s] VPC 정보 조회 완료", name)
-				spew.Dump(vpcInfo)
+				cblogger.Debug(vpcInfo)
 				//cblogger.Info(vpcInfo)
 				return nil
 			}
@@ -217,7 +216,7 @@ func (vVPCHandler *GCPVPCHandler) WaitForRunVpc(name string, waitFound bool) err
 			if errVnet == nil {
 				cblogger.Errorf("==> [%s] VPC 정보 조회 성공", name)
 				//cblogger.Info(vpcInfo)
-				spew.Dump(vpcInfo)
+				cblogger.Debug(vpcInfo)
 
 				time.Sleep(time.Second * 1)
 				after_time := time.Now()
@@ -236,8 +235,8 @@ func (vVPCHandler *GCPVPCHandler) WaitForRunVpc(name string, waitFound bool) err
 	return nil
 }
 
-//Subnet 정보가 조회될때까지 대기
-//waitFound : true - 정보가 조회될때까지 대기(생성 시) / false - 정보가 조회되지 않을때까지 대기(삭제 시)
+// Subnet 정보가 조회될때까지 대기
+// waitFound : true - 정보가 조회될때까지 대기(생성 시) / false - 정보가 조회되지 않을때까지 대기(삭제 시)
 func (vVPCHandler *GCPVPCHandler) WaitForRunSubnet(subnetName string, waitFound bool) error {
 	cblogger.Info("======> Subnet 정보가 조회될때까지 대기함.")
 
@@ -248,14 +247,14 @@ func (vVPCHandler *GCPVPCHandler) WaitForRunSubnet(subnetName string, waitFound 
 	for {
 		cblogger.Infof("--> 생성된 [%s] Subnet이 존재하는지 체크", subnetName)
 		chkInfo, err := vVPCHandler.Client.Subnetworks.Get(vVPCHandler.Credential.ProjectID, vVPCHandler.Region.Region, subnetName).Do()
-		//spew.Dump(chkInfo)
+		//cblogger.Debug(chkInfo)
 		//============================
 		//정보가 조회될때까지 대기
 		//============================
 		if waitFound {
 			if err != nil {
 				cblogger.Errorf("==> [%s] Subnet 정보 조회 실패", subnetName)
-				spew.Dump(err)
+				cblogger.Debug(err)
 
 				time.Sleep(time.Second * 1)
 				after_time := time.Now()
@@ -267,7 +266,7 @@ func (vVPCHandler *GCPVPCHandler) WaitForRunSubnet(subnetName string, waitFound 
 			} else {
 				cblogger.Infof("==> [%s] Subnet 정보 조회 완료", subnetName)
 				//cblogger.Info(chkInfo)
-				spew.Dump(chkInfo)
+				cblogger.Debug(chkInfo)
 				return nil
 			}
 		} else {
@@ -277,7 +276,7 @@ func (vVPCHandler *GCPVPCHandler) WaitForRunSubnet(subnetName string, waitFound 
 			if err == nil {
 				cblogger.Errorf("==> [%s] Subnet 정보 조회 성공", subnetName)
 				//cblogger.Info(chkInfo)
-				spew.Dump(chkInfo)
+				cblogger.Debug(chkInfo)
 
 				time.Sleep(time.Second * 1)
 				after_time := time.Now()
@@ -287,7 +286,7 @@ func (vVPCHandler *GCPVPCHandler) WaitForRunSubnet(subnetName string, waitFound 
 					return errors.New("300초를 기다려도 생성된 " + subnetName + " Subnet 정보가 조회되고 있어서 Wait을 강제로 종료함.")
 				}
 			} else {
-				spew.Dump(err)
+				cblogger.Debug(err)
 				cblogger.Infof("==> [%s] Subnet 정보가 사라졌음", subnetName)
 				return nil
 			}
@@ -302,13 +301,13 @@ func (vVPCHandler *GCPVPCHandler) WaitForRunSubnet(subnetName string, waitFound 
 //https://godoc.org/google.golang.org/api/compute/v1#GlobalOperationsGetCall.Do
 //https://cloud.google.com/compute/docs/reference/rest/v1/globalOperations/list
 
-//https://cloud.google.com/compute/docs/reference/rest/v1/globalOperations/get
+// https://cloud.google.com/compute/docs/reference/rest/v1/globalOperations/get
 //
 // resourceId : API 호출후 받은 리소스 값
-//VPC : 글로벌
-//https://www.googleapis.com/compute/v1/projects/mcloud-barista2020/global/networks/cb-vpc-load-test
-//Subnet : Regions
-//https://www.googleapis.com/compute/v1/projects/mcloud-barista2020/regions/asia-northeast3/operations/operation-1590139586815-5a6393937274c-71aebdca-1574e4d7
+// VPC : 글로벌
+// https://www.googleapis.com/compute/v1/projects/mcloud-barista2020/global/networks/cb-vpc-load-test
+// Subnet : Regions
+// https://www.googleapis.com/compute/v1/projects/mcloud-barista2020/regions/asia-northeast3/operations/operation-1590139586815-5a6393937274c-71aebdca-1574e4d7
 // 404 에러 체크해서 global과 region 자동으로 처리 가능하니 필요하면 나중에 공통 유틸로 변경할 것
 func (vVPCHandler *GCPVPCHandler) WaitUntilComplete(resourceId string, isGlobalAction bool) error {
 	//compute.ZoneOperationsGetCall
@@ -441,7 +440,7 @@ func (vVPCHandler *GCPVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 		return irs.VPCInfo{}, err
 	}
 	callogger.Info(call.String(callLogInfo))
-	spew.Dump(infoVPC)
+	cblogger.Debug(infoVPC)
 	if infoVPC.Subnetworks != nil {
 		for _, item := range infoVPC.Subnetworks {
 			str := strings.Split(item, "/")
@@ -562,7 +561,7 @@ func (vVPCHandler *GCPVPCHandler) DeleteVPC(vpcID irs.IID) (bool, error) {
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	//time.Sleep(time.Second * 15)
-	cblogger.Info(info)
+	cblogger.Debug(info)
 	if err != nil {
 		cblogger.Error(err)
 		callLogInfo.ErrorMSG = err.Error()
@@ -607,9 +606,9 @@ func (VPCHandler *GCPVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Subnet
 	//return irs.VPCInfo{}, nil
 }
 
-//리턴 값은 구현하지 않고 nil을 리턴함. - 현재 사용되는 곳이 없어서 시간상 누락 시킴.
+// 리턴 값은 구현하지 않고 nil을 리턴함. - 현재 사용되는 곳이 없어서 시간상 누락 시킴.
 func (vVPCHandler *GCPVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo irs.SubnetInfo) (irs.SubnetInfo, error) {
-	cblogger.Info(reqSubnetInfo)
+	cblogger.Debug(reqSubnetInfo)
 
 	projectID := vVPCHandler.Credential.ProjectID
 	region := vVPCHandler.Region.Region
@@ -649,7 +648,7 @@ func (vVPCHandler *GCPVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo irs.S
 		Network:     vpcNetworkUrl,
 	}
 	cblogger.Infof("[%s] Subnet 생성시작", subnetName)
-	cblogger.Info(subnetWork)
+	cblogger.Debug(subnetWork)
 
 	infoSubnet, errSubnet := vVPCHandler.Client.Subnetworks.Insert(projectID, region, subnetWork).Do()
 	if errSubnet != nil {
@@ -657,7 +656,7 @@ func (vVPCHandler *GCPVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo irs.S
 		return irs.SubnetInfo{}, errors.New("Making Subnet Error - " + subnetName)
 	}
 
-	spew.Dump(infoSubnet)
+	cblogger.Debug(infoSubnet)
 	//생성된 서브넷이 조회되는데 시간이 필요하기 때문에 홀딩 함.
 	cblogger.Infof("[%s] Subnet 생성 성공 - 리소스 ID : [%d]", subnetName, infoSubnet.Id)
 	errWait := vVPCHandler.WaitUntilComplete(strconv.FormatUint(infoSubnet.Id, 10), false)
@@ -668,7 +667,7 @@ func (vVPCHandler *GCPVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo irs.S
 	}
 
 	cblogger.Infof("[%s] Subnet 생성완료", subnetName)
-	cblogger.Info(infoSubnet)
+	cblogger.Debug(infoSubnet)
 
 	//생성된 정보 조회
 	//mappingSubnet() 이용하면 되지만 수정해야 함.
