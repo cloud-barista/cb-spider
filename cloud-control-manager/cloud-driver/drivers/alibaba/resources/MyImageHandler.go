@@ -85,7 +85,7 @@ func (myImageHandler AlibabaMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 		}
 		return irs.MyImageInfo{}, errStatus
 	}
-	cblogger.Info("==>생성된 Image[%s]의 현재 상태[%s]", imageIID, curStatus)
+	cblogger.Info("==> Current status [%s] of the created image [%s]", imageIID, curStatus)
 
 	myImageInfo, err := myImageHandler.GetMyImage(imageIID)
 	return myImageInfo, err

@@ -153,7 +153,7 @@ func SetNameTag(Client *ecs.Client, resourceId string, resourceType string, valu
 	}
 	_, errtag := Client.AddTags(request)
 	if errtag != nil {
-		cblogger.Error("Name Tag 설정 실패 : ")
+		cblogger.Error("Name Tag setting failed: ")
 		cblogger.Error(errtag)
 		return false
 	}
@@ -165,7 +165,7 @@ func SetNameTag(Client *ecs.Client, resourceId string, resourceType string, valu
 func ConvertJsonString(v interface{}) (string, error) {
 	jsonBytes, errJson := json.Marshal(v)
 	if errJson != nil {
-		cblogger.Error("JSON 변환 실패")
+		cblogger.Error("JSON conversion failed")
 		cblogger.Error(errJson)
 		return "", errJson
 	}
@@ -212,7 +212,7 @@ func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 
 	jsonBytes, errJson := json.Marshal(v)
 	if errJson != nil {
-		cblogger.Error("KeyValue 변환 실패")
+		cblogger.Error("KeyValue conversion failed")
 		cblogger.Error(errJson)
 		return nil, errJson
 	}
@@ -232,7 +232,7 @@ func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 		//value := fmt.Sprint(v)
 		value, errString := ConvertToString(v)
 		if errString != nil {
-			cblogger.Errorf("Key[%s]의 값은 변환 불가 - [%s]", k, errString)
+			cblogger.Errorf("The value for Key[%s] cannot be converted - [%s]", k, errString)
 			continue
 		}
 		keyValueList = append(keyValueList, irs.KeyValue{k, value})

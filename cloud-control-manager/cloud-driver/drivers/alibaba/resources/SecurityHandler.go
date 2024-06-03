@@ -48,7 +48,7 @@ func (securityHandler *AlibabaSecurityHandler) CreateSecurity(securityReqInfo ir
 	request.SecurityGroupName = securityReqInfo.IId.NameId
 	request.VpcId = securityReqInfo.VpcIID.SystemId
 	request.SecurityGroupType = "enterprise"
-	cblogger.Debugf("보안 그룹 생성 요청 정보", request)
+	cblogger.Debugf("Security group creation request information", request)
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -75,7 +75,7 @@ func (securityHandler *AlibabaSecurityHandler) CreateSecurity(securityReqInfo ir
 		return irs.SecurityInfo{}, err
 	}
 	callogger.Info(call.String(callLogInfo))
-	cblogger.Infof("[%s] 보안 그룹 생성완료: SecurityGroupId:[%s]", securityReqInfo.IId.NameId, createRes.SecurityGroupId)
+	cblogger.Infof("[%s] Security group creation complete: SecurityGroupId:[%s]", securityReqInfo.IId.NameId, createRes.SecurityGroupId)
 	//spew.Dump(createRes)
 
 	//=======================================
@@ -99,7 +99,7 @@ func (securityHandler *AlibabaSecurityHandler) CreateSecurity(securityReqInfo ir
 	}
 	cblogger.Infof("[%s] [%s] AuthorizeSecurityGroup Request success - RequestId:[%s]", defaultRuleRequest.IpProtocol, defaultRuleRequest.PortRange, response)
 
-	cblogger.Infof("보안 그룹[%s]에 인바운드/아웃바운드 보안 정책 처리", defaultRuleRequest.SecurityGroupId)
+	cblogger.Infof("Processing inbound/outbound security policies for security group [%s]", defaultRuleRequest.SecurityGroupId)
 	return securityHandler.AddRules(irs.IID{SystemId: createRes.SecurityGroupId}, securityReqInfo.SecurityRules)
 
 	//createRuleRes, errRule := securityHandler.AuthorizeSecurityRules(createRes.SecurityGroupId, securityReqInfo.VpcIID.SystemId, securityReqInfo.SecurityRules)

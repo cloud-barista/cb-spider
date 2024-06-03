@@ -83,7 +83,7 @@ func DescribeDisks(client *ecs.Client, regionInfo idrv.RegionInfo, instanceIID i
 		resultDiskList = append(resultDiskList, result.Disks.Disk...)
 		if CBPageOn {
 			totalCount = len(resultDiskList)
-			cblogger.Infof("CSP 전체 Disk 갯수 : [%d] - 현재 페이지:[%d] - 누적 결과 개수:[%d]", result.TotalCount, curPage, totalCount)
+			cblogger.Infof("Total number of disks across CSP: [%d] - Current page: [%d] - Accumulated result count: [%d]", result.TotalCount, curPage, totalCount)
 			if totalCount >= result.TotalCount {
 				break
 			}

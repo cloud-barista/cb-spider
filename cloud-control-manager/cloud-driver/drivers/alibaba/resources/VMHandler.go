@@ -55,8 +55,8 @@ func (vmHandler *AlibabaVMHandler) GetImageSize(ImageSystemId string) (int64, er
 		return imageSize, nil
 
 	} else {
-		cblogger.Error("요청된 Image 정보[" + ImageSystemId + "]를 찾을 수 없습니다.")
-		return -1, errors.New("요청된 Image 정보[" + ImageSystemId + "]를 찾을 수 없습니다.")
+		cblogger.Error("The requested Image information [" + ImageSystemId + "] could not be found.")
+		return -1, errors.New("The requested Image information [" + ImageSystemId + "] could not be found.")
 	}
 }
 
@@ -121,7 +121,7 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	vmImage, err := DescribeImageByImageId(vmHandler.Client, vmHandler.Region, vmReqInfo.ImageIID, false)
 	if err != nil {
 		cblogger.Error(err)
-		errMsg := "요청된 이미지의 정보를 조회할 수 없습니다." + err.Error()
+		errMsg := "We cannot retrieve information for the requested image." + err.Error()
 		return irs.VMInfo{}, errors.New(errMsg)
 	}
 
@@ -155,18 +155,18 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	//=============================
 	// 보안그룹 처리 - SystemId 기반
 	//=============================
-	cblogger.Debug("SystemId 기반으로 처리하기 위해 IID 기반의 보안그룹 배열을 SystemId 기반 보안그룹 배열로 조회및 변환함.")
+	cblogger.Debug("To process based on SystemId, the security group array based on IID is retrieved and converted into a security group array based on SystemId.")
 	var newSecurityGroupIds []string
 	//var firstSecurityGroupId string
 
 	for _, sgId := range vmReqInfo.SecurityGroupIIDs {
-		cblogger.Debugf("보안그룹 변환 : [%s]", sgId)
+		cblogger.Debugf("Security group transformation: [%s]", sgId)
 		newSecurityGroupIds = append(newSecurityGroupIds, sgId.SystemId)
 		//firstSecurityGroupId = sgId.SystemId
 		//break
 	}
 
-	cblogger.Debug("보안그룹 변환 완료")
+	cblogger.Debug("Security group transformation complete.")
 	cblogger.Debug(newSecurityGroupIds)
 
 	//request := ecs.CreateCreateInstanceRequest()	// CreateInstance는 PublicIp가 자동으로 할당되지 않음.
@@ -382,7 +382,7 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		//imageSize, err := vmHandler.GetImageSize(vmReqInfo.ImageIID.SystemId)
 		imageSize := int64(vmImage.Size)
 		if imageSize < 0 {
-			return irs.VMInfo{}, errors.New("요청된 이미지의 기본 사이즈 정보를 조회할 수 없습니다.")
+			return irs.VMInfo{}, errors.New("we cannot retrieve the basic size information for the requested image")
 		} else {
 			if rootDiskSize < imageSize {
 				cblogger.Error("Disk Size Error!!: ", rootDiskSize)
@@ -454,7 +454,7 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		cblogger.Error(errStatus.Error())
 		return irs.VMInfo{}, nil
 	}
-	cblogger.Info("==>생성된 VM[%s]의 현재 상태[%s]", newVmIID, curStatus)
+	cblogger.Debug("==> Current status [%s] of the created VM [%s]", newVmIID, curStatus)
 
 	// dataDisk attach
 	for _, dataDiskIID := range vmReqInfo.DataDiskIIDs {
@@ -501,7 +501,7 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 
 // VM 상태가 정보를 조회할 수 있는 상태가 될때까지 기다림(최대 30초간 대기)
 func (vmHandler *AlibabaVMHandler) WaitForExist(vmIID irs.IID) (irs.VMStatus, error) {
-	cblogger.Debug("======> VM 생성 직후에는 VM 정보를 조회할 수 없기 때문에 NotExist 상태가 아닐 때까지만 대기함.")
+	cblogger.Debug("======> After creating a VM, it's not possible to retrieve VM information immediately, so it waits until the status is not \"NotExist\" before proceeding.")
 
 	waitStatus := "NotExist" //VM정보 조회가 안됨.
 	//waitStatus := "Running"
@@ -521,17 +521,17 @@ func (vmHandler *AlibabaVMHandler) WaitForExist(vmIID irs.IID) (irs.VMStatus, er
 		cblogger.Info("===>VM Status : ", curStatus)
 
 		if curStatus != irs.VMStatus(waitStatus) { //|| curStatus == irs.VMStatus("Running") {
-			cblogger.Infof("===>VM 상태[%s]는 [%s]가 아니라서 대기를 중단합니다.", curStatus, waitStatus)
+			cblogger.Infof("===> Suspended waiting because the VM status [%s] is not [%s].", curStatus, waitStatus)
 			break
 		}
 
 		//if curStatus != irs.VMStatus(waitStatus) {
 		curRetryCnt++
-		cblogger.Errorf("VM 상태가 [%s]라서 1초 대기후 조회합니다.", curStatus)
+		cblogger.Errorf("Waiting for 1 second and then querying because the VM status is [%s].", curStatus)
 		time.Sleep(time.Second * 1)
 		if curRetryCnt > maxRetryCnt {
-			cblogger.Errorf("장시간(%d 초) 대기해도 VM의 Status 값이 [%s]를 유지해서 강제로 중단합니다.", maxRetryCnt, waitStatus)
-			return irs.VMStatus("Failed"), errors.New("장시간 기다렸으나 생성된 VM의 상태가 [" + waitStatus + "]외의 상태로 바뀌지 않아서 중단 합니다.")
+			cblogger.Errorf("Forcing termination as the VM status remains [%s] even after a long wait (%d seconds).", maxRetryCnt, waitStatus)
+			return irs.VMStatus("Failed"), errors.New("After waiting for a long time, the status of the created VM did not change to [" + waitStatus + "], so the process is being terminated.")
 		}
 		//} else {
 		//break
@@ -543,7 +543,7 @@ func (vmHandler *AlibabaVMHandler) WaitForExist(vmIID irs.IID) (irs.VMStatus, er
 
 // VM 정보를 조회할 수 있을 때까지 최대 30초간 대기
 func (vmHandler *AlibabaVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, error) {
-	cblogger.Info("======> VM 생성 직후에는 정보 조회가 안되기 때문에 Running 될 때까지 대기함.")
+	cblogger.Debug("======> Waiting until information retrieval is not possible immediately after VM creation because it is not running yet.")
 
 	//waitStatus := "NotExist"	//VM정보 조회가 안됨.
 	waitStatus := "Running"
@@ -563,17 +563,17 @@ func (vmHandler *AlibabaVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, erro
 		cblogger.Info("===>VM Status : ", curStatus)
 
 		if curStatus == irs.VMStatus(waitStatus) { //|| curStatus == irs.VMStatus("Running") {
-			cblogger.Infof("===>VM 상태가 [%s]라서 대기를 중단합니다.", curStatus)
+			cblogger.Infof("===> Stopping the wait because the VM status is [%s].", curStatus)
 			break
 		}
 
 		//if curStatus != irs.VMStatus(waitStatus) {
 		curRetryCnt++
-		cblogger.Errorf("VM 상태가 [%s]이 아니라서 1초 대기후 조회합니다.", waitStatus)
+		cblogger.Errorf("The VM status is not [%s], so waiting for 1 second before querying.", waitStatus)
 		time.Sleep(time.Second * 1)
 		if curRetryCnt > maxRetryCnt {
-			cblogger.Errorf("장시간(%d 초) 대기해도 VM의 Status 값이 [%s]으로 변경되지 않아서 강제로 중단합니다.", maxRetryCnt, waitStatus)
-			return irs.VMStatus("Failed"), errors.New("장시간 기다렸으나 생성된 VM의 상태가 [" + waitStatus + "]으로 바뀌지 않아서 중단 합니다.")
+			cblogger.Errorf("Forcing termination as the VM status remains unchanged as [%s] even after waiting for a long time (%d seconds).", maxRetryCnt, waitStatus)
+			return irs.VMStatus("Failed"), errors.New("After waiting for a long time, the status of the created VM did not change to [" + waitStatus + "], so the process is being terminated.")
 		}
 		//} else {
 		//break
@@ -610,7 +610,7 @@ func (vmHandler *AlibabaVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error)
 	}
 
 	if curStatus != "Suspended" {
-		return irs.VMStatus("Failed"), errors.New(string("vm 상태가 Suspended 가 아닙니다." + curStatus))
+		return irs.VMStatus("Failed"), errors.New(string("The VM status is not Suspended." + curStatus))
 	}
 	response, err := vmHandler.Client.StartInstance(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
@@ -914,15 +914,15 @@ func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instanceInfo *ecs.In
 	}
 
 	timeLen := len(instanceInfo.CreationTime)
-	cblogger.Infof("서버 구동 시간 포멧 변환 처리")
-	cblogger.Infof("======> 생성시간 길이 [%s]", timeLen)
+	cblogger.Infof("Server startup time format conversion processing")
+	cblogger.Infof("======> Length of creation time [%s]", timeLen)
 	if timeLen > 7 {
-		cblogger.Infof("======> 생성시간 마지막 문자열 [%s]", instanceInfo.CreationTime[timeLen-1:])
+		cblogger.Infof("======> Last character of creation time [%s]", instanceInfo.CreationTime[timeLen-1:])
 		var NewStartTime string
 		if instanceInfo.CreationTime[timeLen-1:] == "Z" && timeLen == 17 {
 			//cblogger.Infof("======> 문자열 변환 : [%s]", StartTime[:timeLen-1])
 			NewStartTime = instanceInfo.CreationTime[:timeLen-1] + ":00Z"
-			cblogger.Infof("======> 최종 문자열 변환 : [%s]", NewStartTime)
+			cblogger.Infof("======> Final string conversion: [%s]", NewStartTime)
 		} else {
 			NewStartTime = instanceInfo.CreationTime
 		}
@@ -982,7 +982,7 @@ func (vmHandler *AlibabaVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	for _, curInstance := range resultInstanceList {
 		//for _, curInstance := range response.Instances.Instance {
 
-		cblogger.Info("[%s] ECS 정보 조회", curInstance.InstanceId)
+		cblogger.Info("[%s] ECS information retrieval", curInstance.InstanceId)
 		vmInfo, errVmInfo := vmHandler.GetVM(irs.IID{SystemId: curInstance.InstanceId})
 		if errVmInfo != nil {
 			cblogger.Error(errVmInfo.Error())
@@ -1101,8 +1101,8 @@ func (vmHandler *AlibabaVMHandler) ConvertVMStatusString(vmStatus string) (irs.V
 		resultStatus = "Suspended"
 	} else {
 		//resultStatus = "Failed"
-		cblogger.Errorf("vmStatus [%s]와 일치하는 맵핑 정보를 찾지 못 함.", vmStatus)
-		return irs.VMStatus("Failed"), errors.New(vmStatus + "와 일치하는 CB VM 상태정보를 찾을 수 없습니다.")
+		cblogger.Errorf("Cannot find mapping information matching vmStatus [%s].", vmStatus)
+		return irs.VMStatus("Failed"), errors.New("Cannot find CB VM status information matching " + vmStatus)
 	}
 	cblogger.Infof("VM 상태 치환 : [%s] ==> [%s]", vmStatus, resultStatus)
 	return irs.VMStatus(resultStatus), nil

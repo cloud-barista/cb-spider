@@ -84,7 +84,7 @@ func (keyPairHandler *AlibabaKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, erro
 		}
 
 		totalCount = len(keyPairList)
-		cblogger.Infof("CSP 전체 키페어 갯수 : [%d] - 현재 페이지:[%d] - 누적 결과 개수:[%d]", result.TotalCount, curPage, totalCount)
+		cblogger.Infof("Total number of key pairs across CSP: [%d] - Current page: [%d] - Accumulated result count: [%d]", result.TotalCount, curPage, totalCount)
 		if totalCount >= result.TotalCount {
 			break
 		}
