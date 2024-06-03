@@ -68,7 +68,7 @@ func makeVPCTRList_html(bgcolor string, height string, fontSize string, connConf
                 `, fontSize)
 
 	strAddSubnet := fmt.Sprintf(`
-                <textarea style="font-size:12px;text-align:center;" name="subnet_text_box_$$ADDVPC$$" id="subnet_text_box_$$ADDVPC$$" cols=40>{ "Name": "subnet-02-add", "Zone": "%s", "IPv4_CIDR": "10.0.12.0/22"}</textarea>
+                <textarea style="font-size:12px;text-align:center;" name="subnet_text_box_$$ADDVPC$$" id="subnet_text_box_$$ADDVPC$$" cols=40>{ "Name": "subnet-02", "Zone": "%s", "IPv4_CIDR": "10.0.12.0/22"}</textarea>
                 <a href="javascript:$$ADDSUBNET$$;">
                         <font size=%s><mark><b>+</b></mark></font>
                 </a>
