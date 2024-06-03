@@ -315,7 +315,7 @@ func (imageHandler *AlibabaImageHandler) DeleteImage(imageIID irs.IID) (bool, er
 	callLogStart := call.Start()
 	result, err := imageHandler.Client.DeleteImage(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	cblogger.Info(result)
+	cblogger.Debug(result)
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Error(call.String(callLogInfo))

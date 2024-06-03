@@ -367,13 +367,13 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			}
 
 			if rootDiskSize < diskSizeValue.diskMinSize {
-				cblogger.Info("Disk Size Error!!: ", rootDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+				cblogger.Error("Disk Size Error!!: ", rootDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
 				//return irs.VMInfo{}, errors.New("Requested disk size cannot be smaller than the minimum disk size, invalid")
 				return irs.VMInfo{}, errors.New("Root Disk Size must be at least the default size (" + strconv.FormatInt(diskSizeValue.diskMinSize, 10) + " GB).")
 			}
 
 			if rootDiskSize > diskSizeValue.diskMaxSize {
-				cblogger.Info("Disk Size Error!!: ", rootDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+				cblogger.Error("Disk Size Error!!: ", rootDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
 				//return irs.VMInfo{}, errors.New("Requested disk size cannot be larger than the maximum disk size, invalid")
 				return irs.VMInfo{}, errors.New("Root Disk Size must be smaller than the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
 			}
@@ -385,7 +385,7 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			return irs.VMInfo{}, errors.New("요청된 이미지의 기본 사이즈 정보를 조회할 수 없습니다.")
 		} else {
 			if rootDiskSize < imageSize {
-				cblogger.Info("Disk Size Error!!: ", rootDiskSize)
+				cblogger.Error("Disk Size Error!!: ", rootDiskSize)
 				return irs.VMInfo{}, errors.New("Root Disk Size must be larger then the image size (" + strconv.FormatInt(imageSize, 10) + " GB).")
 			}
 
@@ -501,7 +501,7 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 
 // VM 상태가 정보를 조회할 수 있는 상태가 될때까지 기다림(최대 30초간 대기)
 func (vmHandler *AlibabaVMHandler) WaitForExist(vmIID irs.IID) (irs.VMStatus, error) {
-	cblogger.Info("======> VM 생성 직후에는 VM 정보를 조회할 수 없기 때문에 NotExist 상태가 아닐 때까지만 대기함.")
+	cblogger.Debug("======> VM 생성 직후에는 VM 정보를 조회할 수 없기 때문에 NotExist 상태가 아닐 때까지만 대기함.")
 
 	waitStatus := "NotExist" //VM정보 조회가 안됨.
 	//waitStatus := "Running"
@@ -621,9 +621,9 @@ func (vmHandler *AlibabaVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error)
 		cblogger.Error(err.Error())
 		return irs.VMStatus("Failed"), err
 	}
-	callogger.Info(call.String(callLogInfo))
+	callogger.Debug(call.String(callLogInfo))
 
-	cblogger.Info(response)
+	cblogger.Debug(response)
 	return irs.VMStatus("Resuming"), nil
 
 }
@@ -659,8 +659,8 @@ func (vmHandler *AlibabaVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error
 		cblogger.Error(err.Error())
 		return irs.VMStatus("Failed"), err
 	}
-	callogger.Info(call.String(callLogInfo))
-	cblogger.Info(response)
+	callogger.Debug(call.String(callLogInfo))
+	cblogger.Debug(response)
 	return irs.VMStatus("Suspending"), nil
 }
 
@@ -693,8 +693,8 @@ func (vmHandler *AlibabaVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error)
 		cblogger.Error(err.Error())
 		return irs.VMStatus("Failed"), err
 	}
-	callogger.Info(call.String(callLogInfo))
-	cblogger.Info(response)
+	callogger.Debug(call.String(callLogInfo))
+	cblogger.Debug(response)
 	return irs.VMStatus("Rebooting"), nil
 }
 
@@ -763,8 +763,8 @@ func (vmHandler *AlibabaVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 			if strings.Contains(err.Error(), "IncorrectInstanceStatus") {
 				// Loop: IncorrectInstanceStatus error
 				callLogInfo.ErrorMSG = err.Error()
-				callogger.Info(call.String(callLogInfo))
-				cblogger.Info(err.Error())
+				callogger.Error(call.String(callLogInfo))
+				cblogger.Error(err.Error())
 				time.Sleep(time.Second * 3)
 			} else { // general error
 				callLogInfo.ErrorMSG = err.Error()
@@ -773,8 +773,8 @@ func (vmHandler *AlibabaVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, err
 				return irs.VMStatus("Failed"), err
 			}
 		} else {
-			callogger.Info(call.String(callLogInfo))
-			cblogger.Info(response)
+			callogger.Debug(call.String(callLogInfo))
+			cblogger.Debug(response)
 			break
 		}
 	}
@@ -822,14 +822,14 @@ func (vmHandler *AlibabaVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 
 	instanceInfo, err := DescribeInstanceById(vmHandler.Client, vmHandler.Region, vmIID)
 	vmInfo, err := vmHandler.ExtractDescribeInstances(&instanceInfo)
-	cblogger.Info("vmInfo", vmInfo)
+	cblogger.Debug("vmInfo", vmInfo)
 	return vmInfo, err
 }
 
 // @TODO : 2020-03-26 Ali클라우드 API 구조가 바뀐 것 같아서 임시로 변경해 놓음.
 // func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances() irs.VMInfo {
 func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instanceInfo *ecs.Instance) (irs.VMInfo, error) {
-	cblogger.Info(instanceInfo)
+	cblogger.Debug(instanceInfo)
 	//diskInfo := vmHandler.getDiskInfo(instanceInfo.InstanceId)
 	diskInfoList, err := DescribeDisksByInstanceId(vmHandler.Client, vmHandler.Region, irs.IID{SystemId: instanceInfo.InstanceId})
 	if err != nil {
@@ -935,7 +935,7 @@ func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instanceInfo *ecs.In
 			cblogger.Error(err)
 			return irs.VMInfo{}, err
 		} else {
-			cblogger.Infof("======> [%v]", t)
+			cblogger.Debug("======> [%v]", t)
 			vmInfo.StartTime = t
 		}
 	}
@@ -989,14 +989,18 @@ func (vmHandler *AlibabaVMHandler) ListVM() ([]*irs.VMInfo, error) {
 			return nil, errVmInfo
 		}
 		//cblogger.Info("=======>VM 조회 결과")
-		spew.Dump(vmInfo)
+		if cblogger.Level.String() == "debug" {
+			spew.Dump(vmInfo)
+		}
 
 		vmInfoList = append(vmInfoList, &vmInfo)
 	}
+	if cblogger.Level.String() == "debug" {
+		//cblogger.Info("=======>VM 최종 목록결과")
+		spew.Dump(vmInfoList)
+		//cblogger.Info("=======>VM 목록 완료")
+	}
 
-	//cblogger.Info("=======>VM 최종 목록결과")
-	spew.Dump(vmInfoList)
-	//cblogger.Info("=======>VM 목록 완료")
 	return vmInfoList, nil
 }
 
@@ -1033,9 +1037,9 @@ func (vmHandler *AlibabaVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, err
 		cblogger.Error(err.Error())
 		return irs.VMStatus("Failed"), err
 	}
-	callogger.Info(call.String(callLogInfo))
+	callogger.Debug(call.String(callLogInfo))
 
-	cblogger.Info("Success", response)
+	cblogger.Debug("Success", response)
 	if response.TotalCount < 1 {
 		//return irs.VMStatus("Failed"), errors.New("Notfound: '" + vmIID.SystemId + "' VM Not found")
 		return irs.VMStatus("NotExist"), nil

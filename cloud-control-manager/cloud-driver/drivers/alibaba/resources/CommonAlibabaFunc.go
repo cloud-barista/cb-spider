@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"reflect"
 	"strconv"
 	"sync"
@@ -24,7 +25,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 )
 
@@ -203,7 +203,9 @@ func ConvertToString(value interface{}) (string, error) {
 
 // Cloud Object를 CB-KeyValue 형식으로 변환이 필요할 경우 이용
 func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
-	spew.Dump(v)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(v)
+	}
 
 	var keyValueList []irs.KeyValue
 	var i map[string]interface{}
@@ -244,8 +246,8 @@ func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 // array에 주어진 string이 있는지 체크
 func ContainString(s []string, str string) bool {
 	for _, v := range s {
-		cblogger.Info(v + " : " + str)
-		cblogger.Info(v == str)
+		cblogger.Debug(v + " : " + str)
+		cblogger.Debug(v == str)
 		if v == str {
 			return true
 		}
@@ -260,9 +262,9 @@ json 형태로 출력
 func printToJson(class interface{}) {
 	e, err := json.Marshal(class)
 	if err != nil {
-		cblogger.Info(err)
+		cblogger.Error(err)
 	}
-	cblogger.Info(string(e))
+	cblogger.Debug(string(e))
 }
 
 // irs.KeyValue 배열에서 특정 키를 가진 KeyValue 가 있는지 검사

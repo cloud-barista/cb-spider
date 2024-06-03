@@ -124,18 +124,14 @@ func (VPCHandler *AwsVPCHandler) GetAutoCBNetworkInfo() (AwsCBNetworkInfo, error
 
 		//VPC & Subnet을 생성했으므로 예외처리 없이 조회만 처리함.
 		awsVpcInfo, _ := VPCHandler.GetVpc(GetCBDefaultVNetName())
-		spew.Dump(awsVpcInfo)
 		awsCBNetworkInfo.VpcId = awsVpcInfo.Id
 		awsCBNetworkInfo.VpcName = awsVpcInfo.Name
 
 		awsSubnetInfo, _ := VPCHandler.GetVNetwork(irs.IID{})
-		spew.Dump(awsSubnetInfo)
 		//awsCBNetworkInfo.SubnetId = awsSubnetInfo.Id
 		//awsCBNetworkInfo.SubnetName = awsSubnetInfo.Name
 		awsCBNetworkInfo.SubnetId = awsSubnetInfo.IId.SystemId
 		awsCBNetworkInfo.SubnetName = awsSubnetInfo.IId.NameId
-
-		spew.Dump(awsCBNetworkInfo)
 
 		return awsCBNetworkInfo, nil
 }
@@ -248,7 +244,6 @@ func (VPCHandler *AwsVPCHandler) FindOrCreateMcloudBaristaDefaultVPC(vNetworkReq
 		}
 		cblogger.Infof("CB Default VPC[%s] 생성 완료 - CIDR : [%s]", GetCBDefaultVNetName(), result.CidrBlock)
 		cblogger.Info(result)
-		spew.Dump(result)
 
 		return result.Id, nil
 	}
@@ -304,10 +299,6 @@ func ConvertJsonStringNoEscape(v interface{}) (string, error) {
 		cblogger.Error(errJson)
 		return "", errJson
 	}
-
-	//fmt.Println("After marshal", string(buffer.Bytes()))
-	//spew.Dump(string(buffer.Bytes()))
-	//spew.Dump("\"TEST")
 
 	jsonString := string(buffer.Bytes())
 	//jsonString = strings.Replace(jsonString, "\n", "", -1)
@@ -365,7 +356,6 @@ func ConvertToString(value interface{}) (string, error) {
 
 // Cloud Object를 CB-KeyValue 형식으로 변환이 필요할 경우 이용
 func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
-	//spew.Dump(v)
 	var keyValueList []irs.KeyValue
 	var i map[string]interface{}
 
@@ -427,9 +417,9 @@ func ContainString(s []string, str string) bool {
 func PrintToJson(class interface{}) {
 	e, err := json.Marshal(class)
 	if err != nil {
-		cblogger.Info(err)
+		cblogger.Error(err)
 	}
-	cblogger.Info(string(e))
+	cblogger.Debug(string(e))
 }
 
 // ZoneStatus 일반화

@@ -11,9 +11,9 @@
 package resources
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
-	"encoding/json"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -30,7 +30,7 @@ type AlibabaSecurityHandler struct {
 type RuleAction string
 
 const (
-	Add RuleAction = "Add"
+	Add    RuleAction = "Add"
 	Remove RuleAction = "Remove"
 )
 
@@ -98,7 +98,7 @@ func (securityHandler *AlibabaSecurityHandler) CreateSecurity(securityReqInfo ir
 		return irs.SecurityInfo{}, err
 	}
 	cblogger.Infof("[%s] [%s] AuthorizeSecurityGroup Request success - RequestId:[%s]", defaultRuleRequest.IpProtocol, defaultRuleRequest.PortRange, response)
-	
+
 	cblogger.Infof("보안 그룹[%s]에 인바운드/아웃바운드 보안 정책 처리", defaultRuleRequest.SecurityGroupId)
 	return securityHandler.AddRules(irs.IID{SystemId: createRes.SecurityGroupId}, securityReqInfo.SecurityRules)
 
@@ -124,15 +124,18 @@ func (securityHandler *AlibabaSecurityHandler) CreateSecurity(securityReqInfo ir
 // 공통 함수명은 AddRules 이나 실제 Alibaba는 AuthorizeSecurityRules
 // SecurityGroup 생성시에도 호출
 // 저장 후 rule 목록 조회하여 return
-//  - vpcId deprecated
-//  - function name 변경 : AuthorizeSecurityRules to AddRules
-//func (securityHandler *AlibabaSecurityHandler) AuthorizeSecurityRules(securityGroupId string, vpcId string, securityRuleInfos *[]irs.SecurityRuleInfo) (*[]irs.SecurityRuleInfo, error) {
-//func (securityHandler *AlibabaSecurityHandler) AuthorizeSecurityRules(securityGroupId string, securityRuleInfos *[]irs.SecurityRuleInfo) (*[]irs.SecurityRuleInfo, error) {
+//   - vpcId deprecated
+//   - function name 변경 : AuthorizeSecurityRules to AddRules
+//
+// func (securityHandler *AlibabaSecurityHandler) AuthorizeSecurityRules(securityGroupId string, vpcId string, securityRuleInfos *[]irs.SecurityRuleInfo) (*[]irs.SecurityRuleInfo, error) {
+// func (securityHandler *AlibabaSecurityHandler) AuthorizeSecurityRules(securityGroupId string, securityRuleInfos *[]irs.SecurityRuleInfo) (*[]irs.SecurityRuleInfo, error) {
 func (securityHandler *AlibabaSecurityHandler) AddRules(securityIID irs.IID, reqSecurityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
 	securityGroupId := securityIID.SystemId
 	cblogger.Infof("securityGroupId : [%s]  / securityRuleInfos : [%v]", securityGroupId, reqSecurityRules)
 	//cblogger.Info("AuthorizeSecurityRules ", securityRuleInfos)
-	spew.Dump(reqSecurityRules)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(reqSecurityRules)
+	}
 
 	if len(*reqSecurityRules) < 1 {
 		return irs.SecurityInfo{}, errors.New("invalid value - The SecurityRules to add is empty")
@@ -155,7 +158,7 @@ func (securityHandler *AlibabaSecurityHandler) AddRules(securityIID irs.IID, req
 			}
 			errorMsg += string(jsonRule)
 		}
-		return irs.SecurityInfo{}, errors.New("invalid value - "+ errorMsg +" already exists!")
+		return irs.SecurityInfo{}, errors.New("invalid value - " + errorMsg + " already exists!")
 	}
 
 	for _, curRule := range *reqSecurityRules {
@@ -185,7 +188,10 @@ func (securityHandler *AlibabaSecurityHandler) AddRules(securityIID irs.IID, req
 			request.DestCidrIp = curRule.CIDR
 
 			cblogger.Infof("[%s] [%s] outbound rule Request", request.IpProtocol, request.PortRange)
-			spew.Dump(request)
+			if cblogger.Level.String() == "debug" {
+				spew.Dump(request)
+			}
+
 			response, err := securityHandler.Client.AuthorizeSecurityGroupEgress(request)
 			if err != nil {
 				cblogger.Errorf("Unable to create security group[%s] outbound rule - [%s] [%s] AuthorizeSecurityGroup Request", securityGroupId, request.IpProtocol, request.PortRange)
@@ -205,7 +211,7 @@ func (securityHandler *AlibabaSecurityHandler) AddRules(securityIID irs.IID, req
 // 공통 함수명은 RemoveRules 이나 실제 Alibaba는 RevokeSecurityRules
 
 // If the security group rule to be deleted does not exist, the RevokeSecurityGroup operation succeeds but no rule is deleted.
-//func (securityHandler *AlibabaSecurityHandler) RevokeSecurityRules(securityGroupId string, securityRuleInfos *[]irs.SecurityRuleInfo) (*[]irs.SecurityRuleInfo, error) {
+// func (securityHandler *AlibabaSecurityHandler) RevokeSecurityRules(securityGroupId string, securityRuleInfos *[]irs.SecurityRuleInfo) (*[]irs.SecurityRuleInfo, error) {
 func (securityHandler *AlibabaSecurityHandler) RemoveRules(securityIID irs.IID, reqSecurityRules *[]irs.SecurityRuleInfo) (bool, error) {
 	securityGroupId := securityIID.SystemId
 	cblogger.Infof("securityGroupId : [%s]  / securityRuleInfos : [%v]", securityGroupId, reqSecurityRules)
@@ -228,9 +234,8 @@ func (securityHandler *AlibabaSecurityHandler) RemoveRules(securityIID irs.IID, 
 			}
 			errorMsg += string(jsonRule)
 		}
-		return false, errors.New("invalid value - "+ errorMsg +" does not exist!")
+		return false, errors.New("invalid value - " + errorMsg + " does not exist!")
 	}
-
 
 	// "cidr": "string",
 	// "fromPort": "string",
@@ -332,9 +337,9 @@ func (securityHandler *AlibabaSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 		cblogger.Error(err)
 		return nil, err
 	}
-	callogger.Info(call.String(callLogInfo))
+	callogger.Debug(call.String(callLogInfo))
 
-	cblogger.Info(result)
+	cblogger.Debug(result)
 	//spew.Dump(result)
 	//ecs.DescribeSecurityGroupsResponse
 
@@ -509,14 +514,14 @@ func (securityHandler *AlibabaSecurityHandler) DeleteSecurity(securityIID irs.II
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	cblogger.Info(response)
+	cblogger.Debug(response)
 	cblogger.Infof("Successfully delete security group %q.", securityIID.SystemId)
 	return true, nil
 }
 
 // 동일한 rule이 있는지 체크
 // RuleAction이 Add면 중복인 rule 리턴, Remove면 없는 rule 리턴
-func sameRulesCheck(presentSecurityRules *[]irs.SecurityRuleInfo, reqSecurityRules *[]irs.SecurityRuleInfo, action RuleAction) (*[]irs.SecurityRuleInfo) {
+func sameRulesCheck(presentSecurityRules *[]irs.SecurityRuleInfo, reqSecurityRules *[]irs.SecurityRuleInfo, action RuleAction) *[]irs.SecurityRuleInfo {
 	var checkResult []irs.SecurityRuleInfo
 	cblogger.Infof("presentSecurityRules: [%v] / reqSecurityRules: [%v]", presentSecurityRules, reqSecurityRules)
 	for _, reqRule := range *reqSecurityRules {

@@ -5,12 +5,10 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
-	"github.com/davecgh/go-spew/spew"
-
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
@@ -241,7 +239,7 @@ func DescribeVolumnes(svc *ec2.EC2, volumeIdList []*string) (*ec2.DescribeVolume
 		return nil, err
 	}
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	return result, nil
@@ -271,7 +269,7 @@ func DescribeVolumneById(svc *ec2.EC2, volumeId string) (*ec2.Volume, error) {
 		return nil, err
 	}
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	for _, volume := range result.Volumes {
@@ -315,7 +313,7 @@ func DescribeVolumnesBySnapshot(svc *ec2.EC2, snapShotIIDs []string) (*ec2.Descr
 	result, err := svc.DescribeVolumes(input)
 	callogger.Info("DescribeVolumnesBySnapshot   IN PU T")
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(input)
+		cblogger.Debug(input)
 	}
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	callogger.Info(call.String(callLogInfo))
@@ -332,7 +330,7 @@ func DescribeVolumnesBySnapshot(svc *ec2.EC2, snapShotIIDs []string) (*ec2.Descr
 		return nil, err
 	}
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result.Volumes)
+		cblogger.Debug(result.Volumes)
 	}
 
 	return result, nil
@@ -373,7 +371,7 @@ func AttachVolume(svc *ec2.EC2, deviceName string, instanceId string, volumeId s
 	}
 
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	err = WaitUntilVolumeInUse(svc, volumeId)
@@ -407,7 +405,7 @@ func DeleteDisk(svc *ec2.EC2, disks []irs.IID) (bool, error) {
 			}
 
 			if cblogger.Level.String() == "debug" {
-				spew.Dump(result)
+				cblogger.Debug(result)
 			}
 
 			err = WaitUntilVolumeDeleted(svc, diskIID.SystemId)

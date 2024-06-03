@@ -1002,11 +1002,11 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 			nodeGroupTag = *val
 			break
 		}
-		cblogger.Info(key, *val)
+		cblogger.Debug(key, *val)
 	}
 	//printToJson(nodeGroupTagList)
-	cblogger.Info("nodeGroupName=", *nodeGroupName)
-	cblogger.Info("tag=", nodeGroupTagList[NODEGROUP_TAG])
+	cblogger.Debug("nodeGroupName=", *nodeGroupName)
+	cblogger.Debug("tag=", nodeGroupTagList[NODEGROUP_TAG])
 	nodeGroupInfo.IId = irs.IID{
 		NameId:   nodeGroupTag, // TAG에 이름
 		SystemId: *nodeGroupName,

@@ -19,8 +19,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ec2"
-	"github.com/davecgh/go-spew/spew"
-
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -100,7 +98,7 @@ func (vmHandler *AwsVMHandler) GetAmiDiskInfo(ImageSystemId string) (int64, erro
 func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	cblogger.Debug(vmReqInfo)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(vmReqInfo)
+		cblogger.Debug(vmReqInfo)
 	}
 
 	// amiImage, errImgInfo := DescribeImageById(imageHandler.Client, &vmReqInfo.ImageIID, nil)
@@ -279,7 +277,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		userData = userData + keyPairInfo.PublicKey
 		userDataBase64 := aws.String(base64.StdEncoding.EncodeToString([]byte(userData)))
 		cblogger.Infof("===== userData ===")
-		spew.Dump(userDataBase64)
+		cblogger.Debug(userDataBase64)
 	*/
 
 	//=============================
@@ -630,7 +628,7 @@ func (vmHandler *AwsVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
 	result, err := vmHandler.Client.StartInstances(input)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 	awsErr, ok := err.(awserr.Error)
 
@@ -639,7 +637,7 @@ func (vmHandler *AwsVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
 		input.DryRun = aws.Bool(false)
 		result, err = vmHandler.Client.StartInstances(input)
 		if cblogger.Level.String() == "debug" {
-			spew.Dump(result)
+			cblogger.Debug(result)
 		}
 		if err != nil {
 			cblogger.Error(err)
@@ -695,13 +693,13 @@ func (vmHandler *AwsVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
 	callLogStart := call.Start()
 	result, err := vmHandler.Client.StopInstances(input)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	spew.Dump(result)
+	cblogger.Debug(result)
 	awsErr, ok := err.(awserr.Error)
 	if ok && awsErr.Code() == "DryRunOperation" {
 		input.DryRun = aws.Bool(false)
 		result, err = vmHandler.Client.StopInstances(input)
 		if cblogger.Level.String() == "debug" {
-			spew.Dump(result)
+			cblogger.Debug(result)
 		}
 		if err != nil {
 			callLogInfo.ErrorMSG = err.Error()
@@ -771,7 +769,7 @@ func (vmHandler *AwsVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 		input.DryRun = aws.Bool(false)
 		result, err = vmHandler.Client.RebootInstances(input)
 		if cblogger.Level.String() == "debug" {
-			spew.Dump(result)
+			cblogger.Debug(result)
 		}
 		cblogger.Info("result 값 : ", result)
 		cblogger.Info("err 값 : ", err)
@@ -824,7 +822,7 @@ func (vmHandler *AwsVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) 
 	result, err := vmHandler.Client.TerminateInstances(input)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
@@ -866,7 +864,7 @@ func (vmHandler *AwsVMHandler) GetPasswordData(vmIID irs.IID) (string, error) {
 
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	if err != nil {
@@ -1083,7 +1081,7 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstanceToVmInfo(instance *ec2.Ins
 		//awsImageInfo.ImageOwnerAlias
 	}
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(awsImageInfo) //ImageId: "ami-00f1068284b9eca92",
+		cblogger.Debug(awsImageInfo) //ImageId: "ami-00f1068284b9eca92",
 	}
 	// instance.ImageId
 	// describeImage -> is-public
@@ -1639,7 +1637,7 @@ func (vmHandler *AwsVMHandler) AssociatePublicIP(allocationId string, instanceId
 		InstanceId:   aws.String(instanceId),
 	})
 
-	spew.Dump(assocRes)
+	cblogger.Debug(assocRes)
 	//cblogger.Infof("[%s] EC2에 EIP(AllocationId : [%s]) 할당 완료 - AssociationId Id : [%s]", instanceId, allocationId, *assocRes.AssociationId)
 
 	if err != nil {

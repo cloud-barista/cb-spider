@@ -95,7 +95,6 @@ func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	callLogStart := call.Start()
 
 	result, err := imageHandler.Client.DescribeImages(input)
-	//spew.Dump(result)	//출력 정보가 너무 많아서 생략
 
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
@@ -119,7 +118,6 @@ func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 	cnt := 0
 	for _, cur := range result.Images {
-		//spew.Dump(cur)
 		if reflect.ValueOf(cur.State).IsNil() {
 			cblogger.Errorf("===>[%s] AMI는 State 정보가 없어서 Skip함.", *cur.ImageId)
 			continue
@@ -144,7 +142,6 @@ func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	}
 
 	cblogger.Info("%d개의 이미지가 조회됨.", cnt)
-	//spew.Dump(imageInfoList)
 
 	return imageInfoList, nil
 }
@@ -152,7 +149,7 @@ func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 // Image 정보를 추출함
 // @TODO : GuestOS 쳌크할 것
 func ExtractImageDescribeInfo(image *ec2.Image) irs.ImageInfo {
-	//spew.Dump(image)
+
 	imageInfo := irs.ImageInfo{
 		//IId: irs.IID{*image.Name, *image.ImageId},
 		IId: irs.IID{*image.ImageId, *image.ImageId},
@@ -237,8 +234,8 @@ func (imageHandler *AwsImageHandler) GetAmiImage(imageIID irs.IID) (*ec2.Image, 
 
 	result, err := imageHandler.Client.DescribeImages(input)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	//spew.Dump(result)
-	cblogger.Info(result)
+
+	cblogger.Debug(result)
 
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()

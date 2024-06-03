@@ -148,7 +148,7 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) ListProductFamily(regionName st
 
 func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue) (string, error) {
 	priceMap := make(map[string]irs.Price)
-	cblogger.Info(filterList)
+	cblogger.Debug(filterList)
 	filter, _ := filterListToMap(filterList)
 
 	cblogger.Infof("filter value : %+v", filterList)

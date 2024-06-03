@@ -10,8 +10,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/davecgh/go-spew/spew"
-
 	//"github.com/aws/aws-sdk-go/service/elb"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -125,7 +123,7 @@ func (NLBHandler *AwsNLBHandler) CreateListener(nlbReqInfo irs.NLBInfo) (*elbv2.
 
 	cblogger.Debug("Listener 생성 결과")
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	return result, nil
@@ -210,7 +208,7 @@ func (NLBHandler *AwsNLBHandler) CreateTargetGroup(nlbReqInfo irs.NLBInfo) (*elb
 
 	cblogger.Debug("TargetGroup 생성 결과")
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	return result, nil
@@ -230,7 +228,7 @@ func (NLBHandler *AwsNLBHandler) ExtractNlbSubnets(vpcId string) ([]*string, err
 		},
 	}
 
-	//spew.Dump(input)
+	//cblogger.Debug(input)
 	result, err := NLBHandler.VMClient.DescribeSubnets(input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
@@ -247,7 +245,7 @@ func (NLBHandler *AwsNLBHandler) ExtractNlbSubnets(vpcId string) ([]*string, err
 	}
 
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	//서브넷 정보 추출
@@ -531,7 +529,7 @@ func (NLBHandler *AwsNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 	cblogger.Infof("[%s] NLB 생성 완료 - LoadBalancerArn : [%s]", nlbReqInfo.IId.NameId, *result.LoadBalancers[0].LoadBalancerArn)
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	nlbReqInfo.IId.SystemId = *result.LoadBalancers[0].LoadBalancerArn //리스너 생성및 장애시 삭제 처리를 위해 Req에 LoadBalancerArn 정보를 셋팅함.
@@ -558,7 +556,7 @@ func (NLBHandler *AwsNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 	}
 
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(targetGroup)
+		cblogger.Debug(targetGroup)
 	}
 
 	//===================
@@ -605,7 +603,7 @@ func (NLBHandler *AwsNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 	}
 
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(listener)
+		cblogger.Debug(listener)
 	}
 
 	//================================
@@ -648,7 +646,7 @@ func (NLBHandler *AwsNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	if err != nil {
@@ -745,7 +743,7 @@ func (NLBHandler *AwsNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	if err != nil {
@@ -813,7 +811,7 @@ func (NLBHandler *AwsNLBHandler) ExtractListenerInfo(nlbIID irs.IID) (irs.Listen
 
 	cblogger.Debug(resListener)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(resListener)
+		cblogger.Debug(resListener)
 	}
 
 	if len(resListener.Listeners) > 0 {
@@ -866,7 +864,7 @@ func (NLBHandler *AwsNLBHandler) ExtractVMGroupInfo(nlbIID irs.IID) (TargetGroup
 	}
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	if len(result.TargetGroups) > 0 {
@@ -942,7 +940,7 @@ func (NLBHandler *AwsNLBHandler) ExtractHealthCheckerInfo(targetGroupArn string)
 
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	return result.TargetHealthDescriptions, nil
@@ -1051,7 +1049,7 @@ func (NLBHandler *AwsNLBHandler) DeleteListener(listenerArn *string) (bool, erro
 	cblogger.Infof("Listener[%s] 삭제 완료", listenerArn)
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	return true, nil
@@ -1083,7 +1081,7 @@ func (NLBHandler *AwsNLBHandler) DeleteTargetGroup(targetGroupArn *string) (bool
 	cblogger.Infof("TargetGroup[%s] 삭제 완료", targetGroupArn)
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	return true, nil
@@ -1101,7 +1099,7 @@ func (NLBHandler *AwsNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	cblogger.Info("삭제할 NLB 정보")
 	cblogger.Info(nlbInfo)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(nlbInfo)
+		cblogger.Debug(nlbInfo)
 	}
 
 	//=========================
@@ -1186,7 +1184,7 @@ func (NLBHandler *AwsNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	cblogger.Infof("NLB[%s] 삭제 완료", nlbIID.SystemId)
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	return true, nil
@@ -1313,7 +1311,7 @@ func (NLBHandler *AwsNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.Lis
 	cblogger.Infof("리스너 정보 변경 완료")
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	//변경된 최종 리스너 정보를 리턴 함.
@@ -1405,7 +1403,7 @@ func (NLBHandler *AwsNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.
 	cblogger.Info(input)
 
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(input)
+		cblogger.Debug(input)
 	}
 
 	// logger for HisCall
@@ -1452,7 +1450,7 @@ func (NLBHandler *AwsNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.
 	cblogger.Infof("VM 그룹(%s)에 인스턴스 추가 완료", retTargetGroupInfo.VMGroup.CspID)
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	//최신 정보 전달을 위해 다시 호출함.
@@ -1503,7 +1501,7 @@ func (NLBHandler *AwsNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (b
 	cblogger.Infof("VM 그룹(%s)에서 삭제 예정 인스턴스 정보들", retTargetGroupInfo.VMGroup.CspID)
 	cblogger.Info(input)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(input)
+		cblogger.Debug(input)
 	}
 
 	// logger for HisCall
@@ -1544,7 +1542,7 @@ func (NLBHandler *AwsNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (b
 	cblogger.Infof("VM 그룹(%s)에서 인스턴스 삭제 성공", retTargetGroupInfo.VMGroup.CspID)
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	return true, nil
@@ -1580,7 +1578,7 @@ func (NLBHandler *AwsNLBHandler) ExtractVMGroupHealthInfo(targetGroupArn string)
 
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	retHealthInfo := irs.HealthInfo{}
@@ -1758,7 +1756,7 @@ func (NLBHandler *AwsNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthC
 	cblogger.Info("Health 정보 변경 완료")
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	//최신 정보 조회

@@ -15,7 +15,6 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
-	"github.com/davecgh/go-spew/spew"
 )
 
 type AwsDiskHandler struct {
@@ -283,7 +282,7 @@ func (DiskHandler *AwsDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 	calllogger.Info(call.String(hiscallInfo))
 
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	err = WaitUntilVolumeDeleted(DiskHandler.Client, diskIID.SystemId)
@@ -406,7 +405,7 @@ func (DiskHandler *AwsDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 	calllogger.Info(call.String(hiscallInfo))
 
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	err = WaitUntilVolumeInUse(DiskHandler.Client, diskIID.SystemId)
@@ -460,7 +459,7 @@ func (DiskHandler *AwsDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) 
 	calllogger.Info(call.String(hiscallInfo))
 
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	err = WaitUntilVolumeInUse(DiskHandler.Client, diskIID.SystemId)
@@ -511,7 +510,7 @@ func validateCreateDisk(diskReqInfo *irs.DiskInfo) error {
 	arrRootDiskType := cloudOSMetaInfo.RootDiskType
 	arrDiskSizeOfType := cloudOSMetaInfo.DiskSize
 
-	cblogger.Info(arrDiskType)
+	cblogger.Debug(arrDiskType)
 	reqDiskType := diskReqInfo.DiskType
 	reqDiskSize := diskReqInfo.DiskSize
 	if reqDiskType == "" || reqDiskType == "default" {
@@ -870,13 +869,13 @@ func (DiskHandler *AwsDiskHandler) convertVolumeInfoToDiskInfo(volumeInfo *ec2.V
 			}
 		}
 	}
-	cblogger.Info(vmId)
+	cblogger.Debug(vmId)
 	diskStatus, errStatus := convertVolumeStatusToDiskStatus(*volumeInfo.State, attachments, vmId)
 	if errStatus != nil {
 
 		return irs.DiskInfo{}, errStatus
 	}
-	cblogger.Info(diskStatus)
+	cblogger.Debug(diskStatus)
 	diskInfo.Status = diskStatus
 
 	if !strings.EqualFold(vmId, "") {
@@ -904,9 +903,9 @@ func (DiskHandler *AwsDiskHandler) convertVolumeInfoToDiskInfo(volumeInfo *ec2.V
 	//inKeyValueList = append(inKeyValueList, icbs.KeyValue{Key: "Tags", Value: strings.Join(volumeInfo.Tags, ",")})
 	//inKeyValueList = append(inKeyValueList, icbs.KeyValue{Key: "OutpostArn", Value: *volumeInfo.OutpostArn})
 	diskInfo.KeyValueList = inKeyValueList
-	cblogger.Info("keyvalue2")
+	cblogger.Debug("keyvalue2")
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(diskInfo)
+		cblogger.Debug(diskInfo)
 	}
 	return diskInfo, nil
 }

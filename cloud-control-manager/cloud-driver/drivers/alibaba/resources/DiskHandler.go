@@ -283,7 +283,7 @@ func (diskHandler *AlibabaDiskHandler) ChangeDiskSize(diskIID irs.IID, size stri
 
 	result, err := diskHandler.Client.ResizeDisk(request)
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
-	cblogger.Info(result)
+	cblogger.Debug(result)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 
@@ -311,7 +311,7 @@ func (diskHandler *AlibabaDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error)
 
 	result, err := diskHandler.Client.DeleteDisk(request)
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
-	cblogger.Info(result)
+	cblogger.Debug(result)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 
@@ -436,7 +436,7 @@ func (diskHandler *AlibabaDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.I
 
 	result, err := diskHandler.Client.DetachDisk(request)
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
-	cblogger.Info(result)
+	cblogger.Debug(result)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 

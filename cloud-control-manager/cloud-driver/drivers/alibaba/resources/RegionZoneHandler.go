@@ -57,10 +57,10 @@ func (regionZoneHandler AlibabaRegionZoneHandler) ListRegionZone() ([]*irs.Regio
 			regionId := item.RegionId
 			// ZoneList
 			var zoneInfoList []irs.ZoneInfo
-			cblogger.Info("regionId ", regionId)
+			cblogger.Debug("regionId ", regionId)
 			zonesResult, err := DescribeZonesByRegion(regionZoneHandler.Client, regionId)
 			if err != nil {
-				cblogger.Debug("DescribeZone failed ", err)
+				cblogger.Error("DescribeZone failed ", err)
 			}
 			for _, zone := range zonesResult.Zones.Zone {
 				zoneInfo := irs.ZoneInfo{}
@@ -241,10 +241,10 @@ func (regionZoneHandler AlibabaRegionZoneHandler) GetRegionZone(reqRegionId stri
 
 		// ZoneList
 		var zoneInfoList []irs.ZoneInfo
-		cblogger.Info("regionId ", regionId)
+		cblogger.Debug("regionId ", regionId)
 		zonesResult, err := DescribeZonesByRegion(regionZoneHandler.Client, regionId)
 		if err != nil {
-			cblogger.Debug("DescribeZone failed ", err)
+			cblogger.Error("DescribeZone failed ", err)
 		}
 		for _, zone := range zonesResult.Zones.Zone {
 			zoneInfo := irs.ZoneInfo{}
