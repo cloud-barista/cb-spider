@@ -70,7 +70,7 @@ type TencentVMHandler struct {
 
 // VM생성 시 Zone이 필수라서 Credential의 Zone에만 생성함.
 func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
-	cblogger.Info(vmReqInfo)
+	cblogger.Debug(vmReqInfo)
 	zoneId := vmHandler.Region.Zone
 
 	vpcHandler := TencentVPCHandler{
@@ -374,7 +374,7 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		return irs.VMInfo{}, err
 	}
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(response)
+		cblogger.Debug(response)
 	}
 	callogger.Info(call.String(callLogInfo))
 	cblogger.Debug(response.ToJsonString())

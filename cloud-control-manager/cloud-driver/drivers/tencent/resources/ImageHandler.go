@@ -30,7 +30,7 @@ type TencentImageHandler struct {
 
 // @TODO - 이미지 생성에 따른 구조체 정의 필요 - 현재는 IID뿐이 없어서 이미지 이름으로만 생성하도록 했음.(인스턴스Id가 없어서 에러 발생함.)
 func (imageHandler *TencentImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
-	cblogger.Info(imageReqInfo)
+	cblogger.Debug(imageReqInfo)
 
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
@@ -65,7 +65,7 @@ func (imageHandler *TencentImageHandler) CreateImage(imageReqInfo irs.ImageReqIn
 		cblogger.Error(err)
 		return irs.ImageInfo{}, err
 	}
-	//spew.Dump(response)
+	//cblogger.Debug(response)
 	cblogger.Debug(response.ToJsonString())
 	callogger.Info(call.String(callLogInfo))
 
@@ -112,7 +112,7 @@ func (imageHandler *TencentImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		cblogger.Error(err)
 		return nil, err
 	}
-	//spew.Dump(response)
+	//cblogger.Debug(response)
 	//cblogger.Debug(response.ToJsonString())
 	callogger.Info(call.String(callLogInfo))
 
@@ -123,12 +123,12 @@ func (imageHandler *TencentImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		imageInfoList = append(imageInfoList, &imageInfo)
 	}
 
-	//spew.Dump(imageInfoList)
+	//cblogger.Debug(imageInfoList)
 	return imageInfoList, nil
 }
 
 func ExtractImageDescribeInfo(image *cvm.Image) irs.ImageInfo {
-	//spew.Dump(image)
+	//cblogger.Debug(image)
 	imageInfo := irs.ImageInfo{
 		//IId: irs.IID{*image.Name, *image.ImageId},
 		IId:     irs.IID{NameId: *image.ImageId, SystemId: *image.ImageId},
@@ -181,7 +181,7 @@ func (imageHandler *TencentImageHandler) GetImage(imageIID irs.IID) (irs.ImageIn
 		return irs.ImageInfo{}, err
 	}
 
-	//spew.Dump(response)
+	//cblogger.Debug(response)
 	cblogger.Debug(response.ToJsonString())
 	callogger.Info(call.String(callLogInfo))
 
@@ -222,7 +222,7 @@ func (imageHandler *TencentImageHandler) DeleteImage(imageIID irs.IID) (bool, er
 		cblogger.Error(err)
 		return false, err
 	}
-	//spew.Dump(response)
+	//cblogger.Debug(response)
 	cblogger.Debug(response.ToJsonString())
 	callogger.Info(call.String(callLogInfo))
 
