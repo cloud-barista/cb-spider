@@ -273,7 +273,7 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	reqEgressCount := 1
 	reqIngressCount := 1
 
-	cblogger.Info("기본outbound deny 추가")
+	cblogger.Debug("Add default outbound deny.")
 	_, err := securityHandler.insertDefaultOutboundPolicy(projectID, securityReqInfo.VpcIID.SystemId, securityReqInfo.IId.NameId, reqEgressCount)
 	if err != nil {
 
@@ -293,7 +293,7 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	//}
 	//cblogger.Debug(defaultOutboundDenyFireWall)
 
-	cblogger.Info("기본outbound allow 추가")
+	cblogger.Debug("Add default outbound allow.")
 	reqEgressCount++ // count 증가
 
 	defaultOutboundAllowSecurityRuleInfo := irs.SecurityRuleInfo{
@@ -363,7 +363,7 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 			continue
 		}
 
-		cblogger.Info("생성할 방화벽 정책 ", itemIndex, firewallDirection, reqEgressCount, reqIngressCount)
+		cblogger.Info("Firewall policy to be created.", itemIndex, firewallDirection, reqEgressCount, reqIngressCount)
 		cblogger.Debug(fireWall)
 		if cblogger.Level.String() == "debug" {
 			cblogger.Debug(fireWall)
@@ -403,7 +403,7 @@ func (securityHandler GCPSecurityHandler) getOperationsStatus(ch chan string, pr
 
 	errWait := securityHandler.WaitUntilComplete(operationName)
 	if errWait != nil {
-		cblogger.Errorf("SecurityGroup create 완료 대기 실패")
+		cblogger.Errorf("Waiting for SecurityGroup creation completion failed.")
 		cblogger.Error(errWait)
 	}
 
@@ -760,7 +760,7 @@ func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityIID irs.IID) (
 		return false, err
 	}
 
-	cblogger.Info("Delete Security 삭제 대상 ", len(firewallList))
+	cblogger.Info("Deleting target SecurityGroup.", len(firewallList))
 	for index, firewallInfo := range firewallList {
 		//if index == 0 {
 		//	tempSecurityInfo, err := convertFromFirewallToSecurityInfo(firewallInfo) // securityInfo로 변환. securityInfo에 이름이 있어서 해당 이름 사용
@@ -770,7 +770,7 @@ func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityIID irs.IID) (
 		//	}
 		//	vpcIID = tempSecurityInfo.VpcIID
 		//}
-		cblogger.Info("Delete Security 삭제 대상item ", len(firewallInfo.Items), " index = ", index)
+		cblogger.Info("Deleting target SecurityGroup item.", len(firewallInfo.Items), " index = ", index)
 		securityHandler.firewallDelete(securityGroupTag, "", firewallInfo)
 		if err != nil {
 			//500  convert Error
@@ -789,7 +789,7 @@ func (securityHandler *GCPSecurityHandler) DeleteSecurity(securityIID irs.IID) (
 // GCP의 outbound는 ALL Allow 이기 때문에 ALL Deny rule 추가. 우선순위=65535로 낮게.
 func (securityHandler *GCPSecurityHandler) insertDefaultOutboundPolicy(projectID string, vpcID string, securityID string, egressCount int) (bool, error) {
 
-	cblogger.Info("기본outbound ")
+	cblogger.Info("Default outbound ")
 	defaultOutboundDenySecurityRuleInfo := irs.SecurityRuleInfo{
 		FromPort:   "", // 지정하지 않으면 전체임.
 		IPProtocol: "ALL",
@@ -1881,7 +1881,7 @@ func (securityHandler *GCPSecurityHandler) firewallInsert(firewallInfo compute.F
 
 	errWait := securityHandler.WaitUntilComplete(res.Name)
 	if errWait != nil {
-		cblogger.Errorf("SecurityGroup create 완료 대기 실패")
+		cblogger.Errorf("Waiting for SecurityGroup creation completion failed.")
 		cblogger.Error(errWait)
 		return compute.Firewall{}, errWait
 	}
@@ -1932,7 +1932,7 @@ func (securityHandler *GCPSecurityHandler) firewallDelete(securityGroupTag strin
 
 		errWait := securityHandler.WaitUntilComplete(res.Name)
 		if errWait != nil {
-			cblogger.Errorf("SecurityGroup Delete 완료 대기 실패")
+			cblogger.Errorf("Waiting for SecurityGroup deletion completion failed.")
 			cblogger.Error(errWait)
 			return false, errWait
 		}
@@ -1995,7 +1995,7 @@ func (securityHandler *GCPSecurityHandler) WaitUntilComplete(resourceId string) 
 		//PENDING, RUNNING, or DONE.
 		//if (opSatus.Status == "RUNNING" || opSatus.Status == "DONE") && opSatus.Progress >= 100 {
 		if opSatus.Status == "DONE" {
-			cblogger.Info("요청 작업이 정상적으로 처리되어서 Wait을 종료합니다.")
+			cblogger.Info("The request has been processed successfully, so we are ending the wait.")
 			return nil
 		}
 
@@ -2003,8 +2003,8 @@ func (securityHandler *GCPSecurityHandler) WaitUntilComplete(resourceId string) 
 		after_time := time.Now()
 		diff := after_time.Sub(before_time)
 		if int(diff.Seconds()) > max_time {
-			cblogger.Errorf("[%d]초 동안 리소스[%s]의 상태가 완료되지 않아서 Wait을 강제로 종료함.", max_time, resourceId)
-			return errors.New("장시간 요청 작업이 완료되지 않아서 Wait을 강제로 종료함.)")
+			cblogger.Errorf("Forcefully ending the wait because the status of resource [%s] has not been completed for [%d] seconds.", max_time, resourceId)
+			return errors.New("Forcefully ending the wait due to prolonged request completion.")
 		}
 	}
 

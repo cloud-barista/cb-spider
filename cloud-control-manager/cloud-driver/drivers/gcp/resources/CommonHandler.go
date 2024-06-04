@@ -111,7 +111,7 @@ func GetKeyValueList(i map[string]interface{}) []irs.KeyValue {
 		//cblogger.Infof("K:[%s]====>", k)
 		_, ok := v.(string)
 		if !ok {
-			cblogger.Errorf("Key[%s]의 값은 변환 불가", k)
+			cblogger.Errorf("The value for key [%s] cannot be converted.", k)
 			continue
 		}
 		//if strings.EqualFold(k, "users") {
@@ -133,7 +133,7 @@ func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 
 	jsonBytes, errJson := json.Marshal(v)
 	if errJson != nil {
-		cblogger.Error("KeyValue 변환 실패")
+		cblogger.Error("KeyValue conversion failed")
 		cblogger.Error(errJson)
 		return nil, errJson
 	}
@@ -292,13 +292,13 @@ func WaitUntilComplete(client *compute.Service, project string, region string, r
 			cblogger.Errorf("WaitUntilComplete / [%s]", err)
 			return err
 		}
-		cblogger.Infof("==> 상태 : 진행율 : [%d] / [%s]", opSatus.Progress, opSatus.Status)
+		cblogger.Infof("==> Status: Progress: [%d] / [%s]", opSatus.Progress, opSatus.Status)
 
 		//PENDING, RUNNING, or DONE.
 		if (opSatus.Status == "RUNNING" || opSatus.Status == "DONE") && opSatus.Progress >= 100 {
 			//if opSatus.Status == "RUNNING" || opSatus.Status == "DONE" {
 			//if opSatus.Status == "DONE" {
-			cblogger.Info("Wait을 종료합니다.", resourceId, ":", opSatus.Status)
+			cblogger.Info("Exiting Wait.", resourceId, ":", opSatus.Status)
 			return nil
 		}
 
@@ -306,8 +306,8 @@ func WaitUntilComplete(client *compute.Service, project string, region string, r
 		after_time := time.Now()
 		diff := after_time.Sub(before_time)
 		if int(diff.Seconds()) > max_time {
-			cblogger.Errorf("[%d]초 동안 리소스[%s]의 상태가 완료되지 않아서 Wait을 강제로 종료함.", max_time, resourceId)
-			return errors.New("장시간 요청 작업이 완료되지 않아서 Wait을 강제로 종료함.)")
+			cblogger.Errorf("Forcing termination of Wait because the status of resource [%s] has not completed within [%d] seconds.", max_time, resourceId)
+			return errors.New("Forcing termination of Wait due to the request operation not completing for a long time.")
 		}
 	}
 
@@ -334,13 +334,13 @@ func WaitOperationComplete(client *compute.Service, project string, region strin
 			cblogger.Errorf("WaitUntilOperationComplete / [%s]", err)
 			return err
 		}
-		cblogger.Infof("==> 상태 : 진행율 : [%d] / [%s]", opSatus.Progress, opSatus.Status)
+		cblogger.Infof("==> Status: Progress: [%d] / [%s]", opSatus.Progress, opSatus.Status)
 
 		//PENDING, RUNNING, or DONE.
 		if (opSatus.Status == "RUNNING" || opSatus.Status == "DONE") && opSatus.Progress >= 100 {
 			//if opSatus.Status == "RUNNING" || opSatus.Status == "DONE" {
 			//if opSatus.Status == "DONE" {
-			cblogger.Info("Wait을 종료합니다.", resourceId, ":", opSatus.Status)
+			cblogger.Info("Exiting Wait.", resourceId, ":", opSatus.Status)
 			return nil
 		}
 
@@ -348,8 +348,8 @@ func WaitOperationComplete(client *compute.Service, project string, region strin
 		after_time := time.Now()
 		diff := after_time.Sub(before_time)
 		if int(diff.Seconds()) > max_time {
-			cblogger.Errorf("[%d]초 동안 리소스[%s]의 상태가 완료되지 않아서 Wait을 강제로 종료함.", max_time, resourceId)
-			return errors.New("장시간 요청 작업이 완료되지 않아서 Wait을 강제로 종료함.)")
+			cblogger.Errorf("Forcing termination of Wait because the status of resource [%s] has not completed within [%d] seconds.", max_time, resourceId)
+			return errors.New("Forcing termination of Wait due to the request operation not completing for a long time.")
 		}
 	}
 
@@ -494,7 +494,7 @@ func WaitContainerOperationComplete(client *container.Service, project string, r
 			cblogger.Errorf("WaitUntilOperationComplete / [%s]", err)
 			return err
 		}
-		cblogger.Infof("==> 상태 : 진행율 : [%d] / [%s]", opSatus.Progress, opSatus.Status)
+		cblogger.Infof("==> Status: Progress: [%d] / [%s]", opSatus.Progress, opSatus.Status)
 
 		//PENDING, RUNNING, or DONE.
 
@@ -504,7 +504,7 @@ func WaitContainerOperationComplete(client *container.Service, project string, r
 		// DONE 	The operation is done, either cancelled or completed.
 		// ABORTING 	The operation is aborting.
 		if opSatus.Status == "DONE" {
-			cblogger.Info("Wait을 종료합니다.", resourceId, ":", opSatus.Status)
+			cblogger.Info("Exiting Wait.", resourceId, ":", opSatus.Status)
 			return nil
 		}
 
@@ -512,8 +512,8 @@ func WaitContainerOperationComplete(client *container.Service, project string, r
 		after_time := time.Now()
 		diff := after_time.Sub(before_time)
 		if int(diff.Seconds()) > max_time {
-			cblogger.Errorf("[%d]초 동안 리소스[%s]의 상태가 완료되지 않아서 Wait을 강제로 종료함.", max_time, resourceId)
-			return errors.New("장시간 요청 작업이 완료되지 않아서 Wait을 강제로 종료함.)")
+			cblogger.Errorf("Forcing termination of Wait because the status of resource [%s] has not completed within [%d] seconds.", max_time, resourceId)
+			return errors.New("Forcing termination of Wait due to the request operation not completing for a long time.")
 		}
 	}
 
@@ -536,7 +536,7 @@ func WaitContainerOperationFail(client *container.Service, project string, regio
 			return err
 		}
 		cblogger.Debug(opSatus)
-		cblogger.Infof("==> 상태 : 진행율 : [%d] / [%s]", opSatus.Progress, opSatus.Status)
+		cblogger.Infof("==> Status: Progress: [%d] / [%s]", opSatus.Progress, opSatus.Status)
 
 		//PENDING, RUNNING, or DONE.
 
@@ -546,7 +546,7 @@ func WaitContainerOperationFail(client *container.Service, project string, regio
 		// DONE 	The operation is done, either cancelled or completed.
 		// ABORTING 	The operation is aborting.
 		if opSatus.Status == "ABORTING" {
-			cblogger.Info("Wait을 종료합니다.", resourceId, ":", opSatus.Status)
+			cblogger.Info("Exiting Wait.", resourceId, ":", opSatus.Status)
 			return nil
 		}
 
@@ -554,7 +554,7 @@ func WaitContainerOperationFail(client *container.Service, project string, regio
 		after_time := time.Now()
 		diff := after_time.Sub(before_time)
 		if int(diff.Seconds()) > max_time {
-			cblogger.Errorf("[%d]초 동안 리소스[%s]의 상태가 완료되지 않아서 Wait을 강제로 종료함.", max_time, resourceId)
+			cblogger.Errorf("Forcing termination of Wait because the status of resource [%s] has not completed within [%d] seconds.", max_time, resourceId)
 			return nil
 		}
 	}
@@ -577,7 +577,7 @@ func WaitContainerOperationDone(client *container.Service, project string, regio
 			return err
 		}
 		cblogger.Debug(opSatus)
-		cblogger.Infof("==> 상태 : 진행율 : [%d] / [%s]", opSatus.Progress, opSatus.Status)
+		cblogger.Infof("==> Status: Progress: [%d] / [%s]", opSatus.Progress, opSatus.Status)
 
 		//PENDING, RUNNING, or DONE.
 
@@ -587,7 +587,7 @@ func WaitContainerOperationDone(client *container.Service, project string, regio
 		// DONE 	The operation is done, either cancelled or completed.
 		// ABORTING 	The operation is aborting.
 		if opSatus.Status == "DONE" {
-			cblogger.Info("Wait을 종료합니다.", resourceId, ":", opSatus.Status)
+			cblogger.Info("Exiting Wait.", resourceId, ":", opSatus.Status)
 			return nil
 		}
 
@@ -595,7 +595,7 @@ func WaitContainerOperationDone(client *container.Service, project string, regio
 		after_time := time.Now()
 		diff := after_time.Sub(before_time)
 		if int(diff.Seconds()) > maxTime {
-			cblogger.Errorf("[%d]초 동안 리소스[%s]의 상태가 완료되지 않아서 Wait을 강제로 종료함.", maxTime, resourceId)
+			cblogger.Errorf("Forcing termination of Wait because the status of resource [%s] has not completed within [%d] seconds.", maxTime, resourceId)
 			return nil
 		}
 	}

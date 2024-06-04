@@ -214,7 +214,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			return irs.VMInfo{}, errKeypair
 		}
 
-		cblogger.Debug("공개키 생성")
+		cblogger.Debug("Creation Public key")
 		publicKey, errPub := cdcom.MakePublicKeyFromPrivateKey(keypairInfo.PrivateKey)
 		if errPub != nil {
 			cblogger.Error(errPub)
@@ -223,7 +223,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 		//pubKey := "cb-user:" + keypairInfo.PublicKey
 		pubKey = "cb-user:" + strings.TrimSpace(publicKey) + " " + "cb-user"
-		cblogger.Debug("keypairInfo 정보")
+		cblogger.Debug("keypairInfo Information")
 		if cblogger.Level.String() == "debug" {
 			cblogger.Debug(keypairInfo)
 		}
@@ -235,7 +235,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		//securityTags = append(securityTags, item.NameId)
 		securityTags = append(securityTags, item.SystemId)
 	}
-	cblogger.Info("Security Tags 정보 : ", securityTags)
+	cblogger.Info("Security Tags Information : ", securityTags)
 	//networkURL := prefix + "/global/networks/" + vmReqInfo.VpcIID.NameId
 	networkURL := prefix + "/global/networks/" + vmReqInfo.VpcIID.SystemId
 	//subnetWorkURL := prefix + "/regions/" + region + "/subnetworks/" + vmReqInfo.SubnetIID.NameId
@@ -419,7 +419,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		instance.Disks = append(instance.Disks, &disk)
 	}
 
-	cblogger.Info("VM 생성 시작")
+	cblogger.Info("VM Creation Started")
 	cblogger.Debug(instance)
 	if cblogger.Level.String() == "debug" {
 		cblogger.Debug(instance)
@@ -468,7 +468,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	}
 
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	cblogger.Info("VM 생성 요청 호출 완료")
+	cblogger.Info("VM creation request call completed.")
 	cblogger.Debug(op)
 	if cblogger.Level.String() == "debug" {
 		cblogger.Debug(op)
@@ -493,13 +493,13 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	//2021-05-11 WaitForRun을 호출하지 않아도 GetVM() 호출 시 에러가 발생하지 않는 것은 확인했음. (우선은 정책이 최종 확정이 아니라서 WaitForRun을 사용하도록 원복함.)
 	vmStatus, _ := vmHandler.WaitForRun(irs.IID{NameId: vmName, SystemId: vmName})
-	cblogger.Info("VM 상태 : ", vmStatus)
+	cblogger.Info("VM Status : ", vmStatus)
 
-	cblogger.Info("VM 정보 조회 호출 - GetVM()")
+	cblogger.Debug("VM information retrieval call - GetVM()")
 	//만약 30초 이내에 VM이 Running 상태가 되지 않더라도 GetVM으로 VM의 정보 조회를 요청해 봄.
 	vmInfo, errVmInfo := vmHandler.GetVM(irs.IID{NameId: vmName, SystemId: vmName})
 	if errVmInfo != nil {
-		cblogger.Errorf("[%s] VM을 생성했지만 정보 조회는 실패 함.", vmName)
+		cblogger.Errorf("[%s] VM was created but the information retrieval failed.", vmName)
 		cblogger.Error(errVmInfo)
 
 		return irs.VMInfo{}, errVmInfo
@@ -668,7 +668,7 @@ func (vmHandler *GCPVMHandler) RebootVM(vmID irs.IID) (irs.VMStatus, error) {
 	}
 	// running 상태일 때는 reset
 	if status == "Running" {
-		callogger.Info("vm의 상태가 running이므로 reset 호춯")
+		callogger.Info("Since the VM is in a running state, reset is called.")
 		operation, err := vmHandler.Client.Instances.Reset(projectID, zone, vmID.SystemId).Context(ctx).Do()
 
 		if err != nil {
@@ -679,14 +679,14 @@ func (vmHandler *GCPVMHandler) RebootVM(vmID irs.IID) (irs.VMStatus, error) {
 			return irs.VMStatus("Failed"), err
 		}
 	} else if status == "Suspended" {
-		callogger.Info("vm의 상태가 Suspended이므로 ResumeVM 호춯")
+		callogger.Info("Since the VM is in a Suspended state, ResumeVM is called.")
 		_, err := vmHandler.ResumeVM(vmID)
 		if err != nil {
 			return irs.VMStatus("Failed"), err
 		}
 	} else {
 		// running/suspended 이외에는 비정상
-		return irs.VMStatus("Failed"), errors.New(string("VM의 상태가 [" + status + "] 입니다."))
+		return irs.VMStatus("Failed"), errors.New(string("The status of the VM is [" + status + "]."))
 	}
 	//callogger.Info(vmID)
 	//callogger.Info(status)
@@ -852,8 +852,8 @@ func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 		resultStatus = "Resuming"
 	} else {
 		//resultStatus = "Failed"
-		cblogger.Errorf("vmStatus [%s]와 일치하는 맵핑 정보를 찾지 못 함.", vmStatus)
-		return irs.VMStatus("Failed"), errors.New(vmStatus + "와 일치하는 CB VM 상태정보를 찾을 수 없습니다.")
+		cblogger.Errorf("Couldn't find mapping information matching vmStatus [%s].", vmStatus)
+		return irs.VMStatus("Failed"), errors.New("Couldn't find CB VM status information matching vmStatus " + vmStatus)
 	}
 	cblogger.Infof("VM 상태 치환 : [%s] ==> [%s]", vmStatus, resultStatus)
 	return irs.VMStatus(resultStatus), nil
@@ -916,7 +916,7 @@ func (vmHandler *GCPVMHandler) ListVM() ([]*irs.VMInfo, error) {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
 		cblogger.Error(err)
-		cblogger.Infof("해당존에 만들어진 Vm List 가 없음")
+		cblogger.Infof("There are no VM lists created in that zone.")
 		return nil, err
 	}
 	callogger.Info(call.String(callLogInfo))
@@ -1045,7 +1045,7 @@ func (vmHandler *GCPVMHandler) GetVmById(vmID irs.IID) (irs.VMInfo, error) {
 // }
 
 func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.VMInfo {
-	cblogger.Debug("================맵핑=====================================")
+	cblogger.Debug("================Mapping=====================================")
 	if cblogger.Level.String() == "debug" {
 		cblogger.Debug(server)
 	}
@@ -1160,7 +1160,7 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 
 	//2020-05-13T00:15:37.183-07:00
 	if len(server.CreationTimestamp) > 5 {
-		cblogger.Infof("서버 구동 시간 처리 : [%s]", server.CreationTimestamp)
+		cblogger.Infof("Server uptime processing: [%s]", server.CreationTimestamp)
 		t, err := time.Parse(time.RFC3339, server.CreationTimestamp)
 		if err != nil {
 			cblogger.Error(err)
@@ -1203,7 +1203,7 @@ func (vmHandler *GCPVMHandler) getImageIID(server *compute.Instance) irs.IID {
 	} else {
 		info, err := vmHandler.getDiskInfo(server.Disks[0].Source)
 
-		cblogger.Infof("********************************** Disk 정보 ****************")
+		cblogger.Infof("********************************** Disk Information ****************")
 		if cblogger.Level.String() == "debug" {
 			cblogger.Debug(info)
 		}
@@ -1242,7 +1242,7 @@ func (vmHandler *GCPVMHandler) getDiskInfo(diskname string) (*compute.Disk, erro
 
 	info, err := GetDiskInfo(vmHandler.Client, vmHandler.Credential, vmHandler.Region, result)
 
-	cblogger.Infof("********************************** Disk 정보 ****************")
+	cblogger.Infof("********************************** Disk Information ****************")
 	if cblogger.Level.String() == "debug" {
 		cblogger.Debug(info)
 	}
@@ -1273,7 +1273,7 @@ func (vmHandler *GCPVMHandler) getDiskInfo(diskname string) (*compute.Disk, erro
 
 // VM 정보를 조회할 수 있을 때까지 최대 30초간 대기
 func (vmHandler *GCPVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, error) {
-	cblogger.Info("======> 생성된 VM의 최종 정보 확인을 위해 Running 될 때까지 대기함.")
+	cblogger.Info("======> Waiting for the VM to be running to verify the final information of the created VM.")
 
 	waitStatus := "Running"
 
@@ -1290,17 +1290,17 @@ func (vmHandler *GCPVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, error) {
 
 		cblogger.Info("===>VM Status : ", curStatus)
 		if curStatus == irs.VMStatus(waitStatus) { //|| curStatus == irs.VMStatus("Running") {
-			cblogger.Infof("===>VM 상태가 [%s]라서 대기를 중단합니다.", curStatus)
+			cblogger.Infof("===> Stopping the wait because the VM status is [%s].", curStatus)
 			break
 		}
 
 		//if curStatus != irs.VMStatus(waitStatus) {
 		curRetryCnt++
-		cblogger.Errorf("VM 상태가 [%s]이 아니라서 1초 대기후 조회합니다.", waitStatus)
+		cblogger.Errorf("The VM status is not [%s], so waiting for 1 second before querying.", waitStatus)
 		time.Sleep(time.Second * 1)
 		if curRetryCnt > maxRetryCnt {
-			cblogger.Errorf("장시간(%d 초) 대기해도 VM의 Status 값이 [%s]으로 변경되지 않아서 강제로 중단합니다.", maxRetryCnt, waitStatus)
-			return irs.VMStatus("Failed"), errors.New("장시간 기다렸으나 생성된 VM의 상태가 [" + waitStatus + "]으로 바뀌지 않아서 중단 합니다.")
+			cblogger.Errorf("Forcibly stopping after waiting for a long time (%d seconds) as the VM's Status value hasn't changed to [%s].", maxRetryCnt, waitStatus)
+			return irs.VMStatus("Failed"), errors.New("Stopped waiting after waiting for a long time, but the status of the created VM did not change to [" + waitStatus + "].")
 		}
 	}
 
