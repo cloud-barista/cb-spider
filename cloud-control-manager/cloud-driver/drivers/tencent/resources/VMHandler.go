@@ -194,14 +194,14 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	//=============================
 	// 보안그룹 처리 - SystemId 기반
 	//=============================
-	cblogger.Debug("SystemId 기반으로 처리하기 위해 IID 기반의 보안그룹 배열을 SystemId 기반 보안그룹 배열로 조회및 변환함.")
+	cblogger.Debug("Retrieving and converting IID-based security group arrays to SystemId-based security group arrays for processing based on SystemId.")
 	var newSecurityGroupIds []string
 	for _, curSecurityGroup := range vmReqInfo.SecurityGroupIIDs {
-		cblogger.Debugf("보안그룹 변환 : [%s]", curSecurityGroup)
+		cblogger.Debugf("Security group conversion: [%s]", curSecurityGroup)
 		newSecurityGroupIds = append(newSecurityGroupIds, curSecurityGroup.SystemId)
 	}
 
-	cblogger.Debug("보안그룹 변환 완료")
+	cblogger.Debug("Security group conversion complete")
 	cblogger.Debug(newSecurityGroupIds)
 	request.SecurityGroupIds = common.StringPtrs(newSecurityGroupIds)
 
@@ -336,7 +336,7 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			dataDisk.SnapshotId = snapshot.SnapshotId
 			dataDisk.DiskSize = snapshot.DiskSize
 			dataDiskList = append(dataDiskList, &dataDisk)
-			cblogger.Info("Image에 DataDisk 포함 되어 있음. ")
+			cblogger.Info("The Image includes a DataDisk.")
 		}
 	}
 	request.DataDisks = dataDiskList
@@ -965,7 +965,7 @@ func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 	} else {
 		//resultStatus = "Failed"
 		cblogger.Debugf("Mapping information matching vmStatus [%s] not found.", vmStatus)
-		return irs.VMStatus("Failed"), errors.New(vmStatus + "와 일치하는 CB VM 상태정보를 찾을 수 없습니다.")
+		return irs.VMStatus("Failed"), errors.New("Cannot find CB VM status information matching " + vmStatus)
 	}
 	cblogger.Infof("VM 상태 치환 : [%s] ==> [%s]", vmStatus, resultStatus)
 	return irs.VMStatus(resultStatus), nil
@@ -973,7 +973,7 @@ func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 
 // VM 정보를 조회할 수 있을 때까지 최대 30초간 대기
 func (vmHandler *TencentVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, error) {
-	cblogger.Info("======> VM 생성 직후에는 Public IP등 일부 정보 조회가 안되기 때문에 Running 될 때까지 대기함.")
+	cblogger.Info("======> Waiting until Running status is reached as some information, such as Public IP, cannot be retrieved immediately after VM creation.")
 
 	//waitStatus := "NotExist"	//VM정보 조회가 안됨.
 	waitStatus := "Running"

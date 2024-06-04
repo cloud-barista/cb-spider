@@ -118,7 +118,7 @@ func (imageHandler *TencentImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 	//cnt := 0
 	for _, curImage := range response.Response.ImageSet {
-		cblogger.Debugf("[%s] AMI 정보 처리", *curImage.ImageId)
+		cblogger.Debugf("[%s] AMI information processing", *curImage.ImageId)
 		imageInfo := ExtractImageDescribeInfo(curImage)
 		imageInfoList = append(imageInfoList, &imageInfo)
 	}
@@ -189,7 +189,7 @@ func (imageHandler *TencentImageHandler) GetImage(imageIID irs.IID) (irs.ImageIn
 		imageInfo := ExtractImageDescribeInfo(response.Response.ImageSet[0])
 		return imageInfo, nil
 	} else {
-		return irs.ImageInfo{}, errors.New("정보를 찾을 수 없습니다")
+		return irs.ImageInfo{}, errors.New("I couldn't find the information.")
 	}
 
 }

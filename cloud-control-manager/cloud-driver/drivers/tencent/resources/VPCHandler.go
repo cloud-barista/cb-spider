@@ -92,7 +92,7 @@ func (VPCHandler *TencentVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 	requestSubnet.Subnets = []*vpc.SubnetInput{}
 
 	for _, curSubnet := range vpcReqInfo.SubnetInfoList {
-		cblogger.Infof("[%s] Subnet 처리", curSubnet.IId.NameId)
+		cblogger.Infof("[%s] Subnet processing", curSubnet.IId.NameId)
 		subnetZoneId := zoneId
 		if curSubnet.Zone != "" {
 			subnetZoneId = curSubnet.Zone
@@ -170,12 +170,12 @@ func (VPCHandler *TencentVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	cblogger.Info("VPC 개수 : ", *response.Response.TotalCount)
+	cblogger.Info("VPC Count : ", *response.Response.TotalCount)
 
 	var vpcInfoList []*irs.VPCInfo
 	if *response.Response.TotalCount > 0 {
 		for _, curVpc := range response.Response.VpcSet {
-			cblogger.Debugf("[%s] VPC 정보 조회 - [%s]", *curVpc.VpcId, *curVpc.VpcName)
+			cblogger.Debugf("[%s] VPC Infomation reteive - [%s]", *curVpc.VpcId, *curVpc.VpcName)
 			vpcInfo, vpcErr := VPCHandler.GetVPC(irs.IID{SystemId: *curVpc.VpcId})
 			// cblogger.Info("==>조회 결과")
 			// cblogger.Debug(vpcInfo)

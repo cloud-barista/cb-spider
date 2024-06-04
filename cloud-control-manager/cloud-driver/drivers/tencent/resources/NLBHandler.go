@@ -280,7 +280,7 @@ func (NLBHandler *TencentNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	var nlbInfoList []*irs.NLBInfo
 	if *response.Response.TotalCount > 0 {
 		for _, curNLB := range response.Response.LoadBalancerSet {
-			cblogger.Debugf("[%s] NLB 정보 조회 - [%s]", *curNLB.LoadBalancerId, *curNLB.LoadBalancerName)
+			cblogger.Debugf("[%s] NLB information retrieval - [%s]", *curNLB.LoadBalancerId, *curNLB.LoadBalancerName)
 			nlbInfo, nlbErr := NLBHandler.GetNLB(irs.IID{SystemId: *curNLB.LoadBalancerId})
 
 			if nlbErr != nil {
@@ -291,7 +291,7 @@ func (NLBHandler *TencentNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 		}
 	}
 
-	cblogger.Debugf("리턴 결과 목록 수 : [%d]", len(nlbInfoList))
+	cblogger.Debugf("Number of returned result items: [%d]", len(nlbInfoList))
 
 	return nlbInfoList, nil
 }
@@ -328,7 +328,7 @@ func (NLBHandler *TencentNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	cblogger.Debug("NLB 개수 : ", *response.Response.TotalCount)
+	cblogger.Debug("NLB Count : ", *response.Response.TotalCount)
 	if *response.Response.TotalCount < 1 {
 		return irs.NLBInfo{}, errors.New("Notfound: '" + nlbIID.SystemId + "' NLB Not found")
 	}

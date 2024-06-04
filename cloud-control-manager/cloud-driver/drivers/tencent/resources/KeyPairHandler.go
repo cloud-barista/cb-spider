@@ -301,7 +301,7 @@ func (keyPairHandler *TencentKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPair
 		//cblogger.Debug(keyPairInfo)
 		return keyPairInfo, nil
 	} else {
-		return irs.KeyPairInfo{}, errors.New("정보를 찾을 수 없습니다.")
+		return irs.KeyPairInfo{}, errors.New("I couldn't find the information.")
 	}
 }
 
@@ -327,7 +327,7 @@ func (keyPairHandler *TencentKeyPairHandler) GetLocalKeyId(keyIID irs.IID) (stri
 
 // 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 func (keyPairHandler *TencentKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error) {
-	cblogger.Infof("삭제 요청된 키페어 : [%s]", keyIID.SystemId)
+	cblogger.Infof("Key pair requested for deletion: [%s]", keyIID.SystemId)
 
 	/* 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 	keyPairId, errGet := keyPairHandler.GetLocalKeyId(keyIID)
