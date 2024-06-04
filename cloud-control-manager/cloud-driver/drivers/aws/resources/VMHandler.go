@@ -199,7 +199,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 			// 요청된 사이즈는 볼륨 사이즈 보다는 크거나 같아야 함.
 			if iChkDiskSize < imageVolumeSize {
-				cblogger.Errorf("루트볼륨은 %dGB보다 커야 합니다.", imageVolumeSize)
+				cblogger.Errorf("The root volume must be larger than %dGB.", imageVolumeSize)
 				return irs.VMInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "Root Disk Size must be at least the default size ("+strconv.FormatInt(imageVolumeSize, 10)+" GB).", nil)
 			}
 		}
@@ -236,15 +236,15 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	//=============================
 	// 보안그룹 처리 - SystemId 기반
 	//=============================
-	cblogger.Debug("SystemId 기반으로 처리하기 위해 IID 기반의 보안그룹 배열을 SystemId 기반 보안그룹 배열로 조회및 변환함.")
+	cblogger.Debug("To process based on SystemId, the security group array based on IID is retrieved and converted into a security group array based on SystemId.")
 	var newSecurityGroupIds []string
 
 	for _, sgName := range vmReqInfo.SecurityGroupIIDs {
-		cblogger.Debugf("보안그룹 변환 : [%s]", sgName)
+		cblogger.Debugf("Security group conversion: [%s]", sgName)
 		newSecurityGroupIds = append(newSecurityGroupIds, sgName.SystemId)
 	}
 
-	cblogger.Debug("보안그룹 변환 완료")
+	cblogger.Debug("Security group conversion completed")
 	cblogger.Debug(newSecurityGroupIds)
 
 	/* 2020-04-08 EIP 로직 제거
@@ -451,7 +451,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
-		cblogger.Errorf("EC2 인스턴스 생성 실패 : ", err)
+		cblogger.Errorf("EC2 instance creation failed: ", err)
 		return irs.VMInfo{}, err
 	}
 	callogger.Info(call.String(callLogInfo))
@@ -464,7 +464,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	// Name Tag 처리 - NameId 기반
 	//=============================
 	newVmId := *runResult.Instances[0].InstanceId
-	cblogger.Infof("[%s] VM이 생성되었습니다.", newVmId)
+	cblogger.Infof("[%s] VM has been created.", newVmId)
 
 	if baseName != "" {
 		// Tag에 VM Name 설정
@@ -478,21 +478,21 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			},
 		})
 		if errtag != nil {
-			cblogger.Errorf("[%s] VM에 Name Tag 설정 실패", newVmId)
+			cblogger.Errorf("Failed to set Name Tag for [%s] VM", newVmId)
 			cblogger.Error(errtag)
 			//return irs.VMInfo{}, errtag
 		}
 	} else {
-		cblogger.Error("vmReqInfo.IId.NameId가 전달되지 않아서 Name Tag를 설정하지않습니다.")
+		cblogger.Error("Name Tag will not be set because vmReqInfo.IId.NameId is not provided.")
 	}
 	//Public IP및 최신 정보 전달을 위해 부팅이 완료될 때까지 대기했다가 전달하는 것으로 변경 함.
 	//cblogger.Info("Public IP 할당 및 VM의 최신 정보 획득을 위해 EC2가 Running 상태가 될때까지 대기")
 
 	//2021-05-11 EIP 할당 로직이 제거되었으며 빠른 생성을 위해 Running 상태가 될때까지 대기하지 않음.
 	//2021-05-11 WaitForRun을 호출하지 않아도 GetVM() 호출 시 에러가 발생하지 않는 것은 확인했음. (우선은 정책이 최종 확정이 아니라서 WaitForRun을 사용하도록 원복함.)
-	cblogger.Debug("VM의 최신 정보 획득을 위해 EC2가 Running 상태가 될때까지 대기")
+	cblogger.Debug("Waiting for EC2 to be in the Running state to obtain the latest information about the VM")
 	WaitForRun(vmHandler.Client, newVmId)
-	cblogger.Debug("EC2 Running 상태 완료 : ", runResult.Instances[0].State.Name)
+	cblogger.Debug("EC2 Running state completed: ", runResult.Instances[0].State.Name)
 
 	/* 2020-04-08 EIP 로직 제거
 	//EC2에 EIP 할당 (펜딩 상태에서는 EIP 할당 불가)
@@ -587,7 +587,7 @@ func WaitForRun(svc *ec2.EC2, instanceID string) {
 	if err != nil {
 		cblogger.Errorf("failed to wait until instances exist: %v", err)
 	}
-	cblogger.Info("=========WaitForRun() 종료")
+	cblogger.Info("=========WaitForRun() ended")
 }
 
 // func (vmHandler *AwsVMHandler) ResumeVM(vmNameId string) (irs.VMStatus, error) {
@@ -755,24 +755,24 @@ func (vmHandler *AwsVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 	callLogStart := call.Start()
 	result, err := vmHandler.Client.RebootInstances(input)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	cblogger.Info("result 값 : ", result)
-	cblogger.Info("err 값 : ", err)
+	cblogger.Info("result value : ", result)
+	cblogger.Info("err value : ", err)
 
 	awsErr, ok := err.(awserr.Error)
-	cblogger.Info("ok 값 : ", ok)
-	cblogger.Info("awsErr 값 : ", awsErr)
+	cblogger.Info("ok value : ", ok)
+	cblogger.Info("awsErr value : ", awsErr)
 	if ok && awsErr.Code() == "DryRunOperation" {
-		cblogger.Info("Reboot 권한 있음 - awsErr.Code() : ", awsErr.Code())
+		cblogger.Info("Reboot permission granted - awsErr.Code(): ", awsErr.Code())
 
 		//DryRun 권한 해제 후 리부팅을 요청 함.
-		cblogger.Info("DryRun 권한 해제 후 리부팅을 요청 함.")
+		cblogger.Info("Requested reboot after releasing DryRun permission.")
 		input.DryRun = aws.Bool(false)
 		result, err = vmHandler.Client.RebootInstances(input)
 		if cblogger.Level.String() == "debug" {
 			cblogger.Debug(result)
 		}
-		cblogger.Info("result 값 : ", result)
-		cblogger.Info("err 값 : ", err)
+		cblogger.Info("result value : ", result)
+		cblogger.Info("err value : ", err)
 		if err != nil {
 			callLogInfo.ErrorMSG = err.Error()
 			callogger.Info(call.String(callLogInfo))
@@ -782,7 +782,7 @@ func (vmHandler *AwsVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 			cblogger.Info("Success", result)
 		}
 	} else { // This could be due to a lack of permissions
-		cblogger.Info("리부팅 권한이 없는 것같음.")
+		cblogger.Info("no permission to reboot.")
 		cblogger.Error("Error", err)
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
@@ -991,7 +991,7 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstanceToVmInfo(instance *ec2.Ins
 	//"stopped" / "terminated" / "running" ...
 	var state string
 	state = *instance.State.Name
-	cblogger.Infof("EC2 상태 : [%s]", state)
+	cblogger.Infof("EC2 state : [%s]", state)
 
 	//VM상태와 무관하게 항상 값이 존재하는 항목들만 초기화
 	vmInfo := irs.VMInfo{
@@ -1162,7 +1162,7 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstanceToVmInfo(instance *ec2.Ins
 	for _, t := range instance.Tags {
 		if *t.Key == "Name" {
 			vmInfo.IId.NameId = *t.Value
-			cblogger.Debug("EC2 명칭 : ", vmInfo.IId.NameId)
+			cblogger.Debug("EC2 Name : ", vmInfo.IId.NameId)
 			break
 		}
 	}
@@ -1181,7 +1181,7 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reserva
 	//"stopped" / "terminated" / "running" ...
 	var state string
 	state = *reservation.Instances[0].State.Name
-	cblogger.Infof("EC2 상태 : [%s]", state)
+	cblogger.Infof("EC2 State : [%s]", state)
 
 	//VM상태와 무관하게 항상 값이 존재하는 항목들만 초기화
 	vmInfo := irs.VMInfo{
@@ -1317,11 +1317,11 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reserva
 	}
 
 	//Name은 Tag의 "Name" 속성에만 저장됨
-	cblogger.Debug("Name Tag 찾기")
+	cblogger.Debug("Name Tag Search")
 	for _, t := range reservation.Instances[0].Tags {
 		if *t.Key == "Name" {
 			vmInfo.IId.NameId = *t.Value
-			cblogger.Debug("EC2 명칭 : ", vmInfo.IId.NameId)
+			cblogger.Debug("EC2 Name : ", vmInfo.IId.NameId)
 			break
 		}
 	}
@@ -1367,11 +1367,11 @@ func (vmHandler *AwsVMHandler) GetVolumInfo(volumeId string) (*ec2.Volume, error
 	}
 
 	//cblogger.Info(result)
-	cblogger.Infof("조회된 볼륨 수 : [%d]", len(result.Volumes))
+	cblogger.Infof("Number of retrieved volumes: [%d]", len(result.Volumes))
 	if len(result.Volumes) > 1 {
 		return nil, awserr.New("700", "One or more volumes exist.", nil)
 	} else if len(result.Volumes) == 0 {
-		cblogger.Errorf("[%s]와 일치하는 볼륨 정보가 존재하지 않습니다.", volumeId)
+		cblogger.Errorf("No volume information matching [%s] exists.", volumeId)
 		return nil, awserr.New("404", "["+volumeId+"] Volume Not Found", nil)
 	}
 
@@ -1382,7 +1382,7 @@ func (vmHandler *AwsVMHandler) GetVolumInfo(volumeId string) (*ec2.Volume, error
 func ExtractVmName(Tags []*ec2.Tag) string {
 	for _, t := range Tags {
 		if *t.Key == "Name" {
-			cblogger.Info("  --> EC2 명칭 : ", *t.Key)
+			cblogger.Info("  --> EC2 Name : ", *t.Key)
 			return *t.Value
 		}
 	}
@@ -1435,7 +1435,7 @@ func (vmHandler *AwsVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	//tmpVmName := ""
 	for _, i := range result.Reservations {
 		for _, vm := range i.Instances {
-			cblogger.Info("[%s] EC2 정보 조회", *vm.InstanceId)
+			cblogger.Info("[%s] EC2 information retrieve", *vm.InstanceId)
 			/*
 				tmpVmName = ExtractVmName(vm.Tags)
 				if tmpVmName == "" {
@@ -1628,7 +1628,7 @@ func (vmHandler *AwsVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 
 // AssociationId 대신 PublicIP로도 가능 함.
 func (vmHandler *AwsVMHandler) AssociatePublicIP(allocationId string, instanceId string) (bool, error) {
-	cblogger.Infof("EC2에 퍼블릭 IP할당 - AllocationId : [%s], InstanceId : [%s]", allocationId, instanceId)
+	cblogger.Infof("Assigning a public IP to EC2 - AllocationId: [%s], InstanceId: [%s]", allocationId, instanceId)
 
 	// EC2에 할당.
 	// Associate the new Elastic IP address with an existing EC2 instance.
@@ -1661,7 +1661,7 @@ func (vmHandler *AwsVMHandler) AssociatePublicIP(allocationId string, instanceId
 
 // 전달 받은 vNic을 VM에 추가함.
 func (vmHandler *AwsVMHandler) AttachNetworkInterface(vNicId string, instanceId string) (bool, error) {
-	cblogger.Infof("EC2[%s] VM에 vNic[%s] 추가 시작", vNicId, instanceId)
+	cblogger.Infof("Adding vNic [%s] to EC2 [%s] VM started", vNicId, instanceId)
 
 	input := &ec2.AttachNetworkInterfaceInput{
 		DeviceIndex:        aws.Int64(1),
@@ -1673,7 +1673,7 @@ func (vmHandler *AwsVMHandler) AttachNetworkInterface(vNicId string, instanceId 
 	cblogger.Info(result)
 
 	if err != nil {
-		cblogger.Errorf("EC2[%s] VM에 vNic[%s] 추가 실패", vNicId, instanceId)
+		cblogger.Errorf("Failed to add vNic [%s] to EC2 [%s] VM", vNicId, instanceId)
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:

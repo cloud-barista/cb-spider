@@ -211,7 +211,7 @@ func (ClusterHandler *AwsClusterHandler) WaitUntilClusterActive(clusterName stri
 		cblogger.Errorf("failed to wait until cluster Active: %v", err)
 		return err
 	}
-	cblogger.Debug("=========WaitUntilClusterActive() 종료")
+	cblogger.Debug("=========WaitUntilClusterActive() ended")
 	return nil
 }
 
@@ -412,7 +412,7 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 
 	//노드 그룹 타입 변환
 	for _, curNodeGroup := range resNodeGroupList {
-		cblogger.Debugf("노드 그룹 : [%s]", curNodeGroup.IId.NameId)
+		cblogger.Debugf("Nod Group : [%s]", curNodeGroup.IId.NameId)
 		clusterInfo.NodeGroupList = append(clusterInfo.NodeGroupList, *curNodeGroup)
 	}
 
@@ -538,7 +538,7 @@ NodeGroup에 다른 Subnet 설정이 꼭 필요시 추후 재논의
 func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo irs.NodeGroupInfo) (irs.NodeGroupInfo, error) {
 	// validation check
 	if nodeGroupReqInfo.MaxNodeSize < 1 { // nodeGroupReqInfo.MaxNodeSize 는 최소가 1이다.
-		return irs.NodeGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "MaxNodeSize 값은 1이상이 되어야 합니다.", nil)
+		return irs.NodeGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "The MaxNodeSize value must be greater than or equal to 1.", nil)
 	}
 
 	// get Role Arn
@@ -564,7 +564,7 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 		subnetList = append(subnetList, &subnetId)
 	}
 
-	cblogger.Debug("최종 Subnet 목록")
+	cblogger.Debug("Final Subnet List")
 	if cblogger.Level.String() == "debug" {
 		spew.Dump(subnetList)
 	}
@@ -709,7 +709,7 @@ func (ClusterHandler *AwsClusterHandler) GetNodeGroup(clusterIID irs.IID, nodeGr
 
 	result, err := ClusterHandler.Client.DescribeNodegroup(input)
 	if cblogger.Level.String() == "debug" {
-		cblogger.Debug("===> 노드 그룹 호출 결과")
+		cblogger.Debug("===> Node Group Invocation Result")
 		spew.Dump(result)
 	}
 	if err != nil {
@@ -766,7 +766,7 @@ func (ClusterHandler *AwsClusterHandler) GetAutoScalingGroups(autoScalingGroupNa
 		}
 	}
 
-	cblogger.Debug("**VM 인스턴스 목록**")
+	cblogger.Debug("**VM Instance List**")
 	spew.Dump(nodeList)
 	return nodeList, nil
 }

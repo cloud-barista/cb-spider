@@ -119,12 +119,12 @@ func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	cnt := 0
 	for _, cur := range result.Images {
 		if reflect.ValueOf(cur.State).IsNil() {
-			cblogger.Errorf("===>[%s] AMI는 State 정보가 없어서 Skip함.", *cur.ImageId)
+			cblogger.Errorf("===>[%s] AMI is skipped because it lacks State information.", *cur.ImageId)
 			continue
 		}
 
 		if reflect.ValueOf(cur.Name).IsNil() {
-			cblogger.Infof("===>[%s] AMI는 Name 정보가 없어서 Skip함.", *cur.ImageId)
+			cblogger.Infof("===>[%s] AMI is skipped because it lacks Name information.", *cur.ImageId)
 			continue
 		}
 
@@ -141,7 +141,7 @@ func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		*/
 	}
 
-	cblogger.Info("%d개의 이미지가 조회됨.", cnt)
+	cblogger.Info("%d images retrieved.", cnt)
 
 	return imageInfoList, nil
 }

@@ -159,7 +159,7 @@ func WaitUntilVolumeAvailable(svc *ec2.EC2, volumeID string) error {
 		cblogger.Errorf("failed to wait until volume available: %v", err)
 		return err
 	}
-	cblogger.Info("=========WaitUntilVolumeAvailable() 종료")
+	cblogger.Info("=========WaitUntilVolumeAvailable() ended")
 	return nil
 }
 
@@ -175,7 +175,7 @@ func WaitUntilVolumeDeleted(svc *ec2.EC2, volumeID string) error {
 		cblogger.Errorf("failed to wait until volume deleted: %v", err)
 		return err
 	}
-	cblogger.Info("=========WaitUntilVolumeDeleted() 종료")
+	cblogger.Info("=========WaitUntilVolumeDeleted() ended")
 	return nil
 }
 
@@ -191,7 +191,7 @@ func WaitUntilVolumeInUse(svc *ec2.EC2, volumeID string) error {
 		cblogger.Errorf("failed to wait until volume in use: %v", err)
 		return err
 	}
-	cblogger.Info("=========WaitUntilVolumeInUse() 종료")
+	cblogger.Info("=========WaitUntilVolumeInUse() ended")
 	return nil
 }
 

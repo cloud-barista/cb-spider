@@ -259,7 +259,7 @@ func (VPCHandler *AwsVPCHandler) IsAvailableAutoCBNet() bool {
 // Name Tag 설정
 func SetNameTag(Client *ec2.EC2, Id string, value string) bool {
 	// Tag에 Name 설정
-	cblogger.Infof("Name Tage 설정 - ResourceId : [%s]  Value : [%s] ", Id, value)
+	cblogger.Infof("Name Tage Set - ResourceId : [%s]  Value : [%s] ", Id, value)
 	_, errtag := Client.CreateTags(&ec2.CreateTagsInput{
 		Resources: []*string{&Id},
 		Tags: []*ec2.Tag{
@@ -270,7 +270,7 @@ func SetNameTag(Client *ec2.EC2, Id string, value string) bool {
 		},
 	})
 	if errtag != nil {
-		cblogger.Error("Name Tag 설정 실패 : ")
+		cblogger.Error("Failed to set Name Tag: ")
 		cblogger.Error(errtag)
 		return false
 	}
@@ -295,7 +295,7 @@ func ConvertJsonStringNoEscape(v interface{}) (string, error) {
 	encoder.SetEscapeHTML(false)
 	errJson := encoder.Encode(v)
 	if errJson != nil {
-		cblogger.Error("JSON 변환 실패")
+		cblogger.Error("JSON conversion failed")
 		cblogger.Error(errJson)
 		return "", errJson
 	}
@@ -312,7 +312,7 @@ func ConvertJsonString(v interface{}) (string, error) {
 	jsonBytes, errJson := json.Marshal(v)
 
 	if errJson != nil {
-		cblogger.Error("JSON 변환 실패")
+		cblogger.Error("JSON conversion failed")
 		cblogger.Error(errJson)
 		return "", errJson
 	}
@@ -361,7 +361,7 @@ func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 
 	jsonBytes, errJson := json.Marshal(v)
 	if errJson != nil {
-		cblogger.Error("KeyValue 변환 실패")
+		cblogger.Error("KeyValue conversion failed")
 		cblogger.Error(errJson)
 		return nil, errJson
 	}

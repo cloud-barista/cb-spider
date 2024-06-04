@@ -404,14 +404,14 @@ func (keyPairHandler *AwsKeyPairHandler) CheckKeyPairFolder(keyPairPath string) 
 	//키페어 생성 시 폴더가 존재하지 않으면 생성 함.
 	_, errChkDir := os.Stat(keyPairPath)
 	if os.IsNotExist(errChkDir) {
-		cblogger.Errorf("[%s] Path가 존재하지 않아서 생성합니다.", keyPairPath)
+		cblogger.Errorf("[%s] Path does not exist, so it will be created.", keyPairPath)
 
 		//errDir := os.MkdirAll(keyPairPath, 0755)
 		errDir := os.MkdirAll(keyPairPath, 0700)
 		//errDir := os.MkdirAll(keyPairPath, os.ModePerm) // os.ModePerm : 0777	//os.ModeDir
 		if errDir != nil {
 			//log.Fatal(err)
-			cblogger.Errorf("[%s] Path가 생성 실패", keyPairPath)
+			cblogger.Errorf("[%s] Failed to create path.", keyPairPath)
 			cblogger.Error(errDir)
 			return errDir
 		}

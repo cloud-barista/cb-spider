@@ -172,7 +172,7 @@ func (VPCHandler *AwsVPCHandler) CreateRouteIGW(vpcId string, igwId string) erro
 		return errRoute
 	}
 
-	cblogger.Infof("RouteTable[%s]에 IGW[%s]에 대한 라우팅(0.0.0.0/0) 정보를 추가 합니다.", routeTableId, igwId)
+	cblogger.Infof("Adding routing information for IGW [%s] to RouteTable [%s] for destination (0.0.0.0/0).", routeTableId, igwId)
 	input := &ec2.CreateRouteInput{
 		DestinationCidrBlock: aws.String("0.0.0.0/0"),
 		GatewayId:            aws.String(igwId),
@@ -197,7 +197,7 @@ func (VPCHandler *AwsVPCHandler) CreateRouteIGW(vpcId string, igwId string) erro
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	if err != nil {
-		cblogger.Errorf("RouteTable[%s]에 IGW[%s]에 대한 라우팅(0.0.0.0/0) 정보 추가 실패", routeTableId, igwId)
+		cblogger.Errorf("Failed to add routing information for IGW [%s] to RouteTable [%s] for destination (0.0.0.0/0).", routeTableId, igwId)
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
@@ -213,7 +213,7 @@ func (VPCHandler *AwsVPCHandler) CreateRouteIGW(vpcId string, igwId string) erro
 		callogger.Info(call.String(callLogInfo))
 		return err
 	}
-	cblogger.Infof("RouteTable[%s]에 IGW[%s]에 대한 라우팅(0.0.0.0/0) 정보를 추가 완료", routeTableId, igwId)
+	cblogger.Infof("Added routing information for IGW [%s] to RouteTable [%s] for destination (0.0.0.0/0) successfully.", routeTableId, igwId)
 	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Info(result)
@@ -256,7 +256,7 @@ func (VPCHandler *AwsVPCHandler) GetDefaultRouteTable(vpcId string) (string, err
 
 	if len(result.RouteTables) > 0 {
 		routeTableId := *result.RouteTables[0].RouteTableId
-		cblogger.Infof("라우팅 테이블 ID 찾음 : [%s]", routeTableId)
+		cblogger.Infof("Found routing table ID: [%s]", routeTableId)
 		return routeTableId, nil
 	} else {
 		return "", errors.New("The routing table ID assigned to the VPC could not be found.")
