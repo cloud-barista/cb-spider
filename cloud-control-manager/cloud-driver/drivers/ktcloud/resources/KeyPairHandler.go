@@ -75,7 +75,7 @@ func (keyPairHandler *KtCloudKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 	//***** Make sure that Keypair Name already exists *****
 	resultKey, keyGetError := keyPairHandler.GetKey(keyPairReqInfo.IId)
 	if keyGetError != nil {
-		cblogger.Errorf("The KeyPair with the Name does't exit!!: ", keyGetError)
+		cblogger.Debug("The KeyPair with the Name does't exit!!: [%v]", keyGetError)
 		// spew.Dump(keyGetError)
 	}
 

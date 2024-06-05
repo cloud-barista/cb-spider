@@ -318,7 +318,7 @@ func (vpcHandler *KTVpcVPCHandler) AddSubnet(vpcIID irs.IID, subnetReqInfo irs.S
 		}
 	} else {
 		cblogger.Info("\n### Waiting for Adding the Subnet!!")
-		time.Sleep(time.Second * 15)
+		time.Sleep(time.Second * 25)
 
 		// cblogger.Infof("Succeeded in Adding the Subnet : [%s]", subnet.ID)  // To prevent 'panic: runtime error', maded this line as a comment.
 	}
@@ -390,12 +390,15 @@ func (vpcHandler *KTVpcVPCHandler) mappingVpcInfo(nvpc *networks.Network) (*irs.
 	// Get Subnet info list.
 	var subnetInfoList []irs.SubnetInfo
 	for _, subnet := range nvpc.Subnets {
-		// if !strings.EqualFold(subnet.Name, "Private_Sub") && !strings.EqualFold(subnet.Name, "DMZ_Sub") && !strings.EqualFold(subnet.Name, "external"){
-			// # When apply filtering
+		if !strings.EqualFold(subnet.Name, "Private_Sub") && !strings.EqualFold(subnet.Name, "DMZ_Sub") && !strings.EqualFold(subnet.Name, "external"){
+		// # When apply filtering
+
+		cblogger.Info("# Subnet Name : [%s]", subnet.Name)
+		// if strings.EqualFold(subnet.Name, "NLB-SUBNET_Sub"){  // Note) '_Sub' is automatically appended to the original subnet name
 
 			subnetInfo := vpcHandler.mappingSubnetInfo(subnet)
 			subnetInfoList = append(subnetInfoList, *subnetInfo)
-		// }
+		}
 	}
 	vpcInfo.SubnetInfoList = subnetInfoList
 

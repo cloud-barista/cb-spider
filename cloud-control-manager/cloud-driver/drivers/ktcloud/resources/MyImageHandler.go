@@ -336,7 +336,7 @@ func (myImageHandler *KtCloudMyImageHandler) getKTImage(myImageIID irs.IID) (*kt
 		}
 		if imgInfo.ID == "" {
 			newErr := fmt.Errorf("Failed to Find any My Image(Image Template) with the Image ID!!")
-			cblogger.Error(newErr.Error())
+			cblogger.Debug(newErr.Error())
 			return nil, newErr
 		}
 	}	
