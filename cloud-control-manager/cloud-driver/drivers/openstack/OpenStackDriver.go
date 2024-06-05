@@ -68,27 +68,7 @@ func (driver *OpenStackDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) 
 	return iConn, nil
 }
 
-func getIdentityClient(connInfo idrv.ConnectionInfo) (*gophercloud.ServiceClient, error) {
-	authOpts := gophercloud.AuthOptions{
-		IdentityEndpoint: connInfo.CredentialInfo.IdentityEndpoint,
-		Username:         connInfo.CredentialInfo.Username,
-		Password:         connInfo.CredentialInfo.Password,
-		DomainName:       connInfo.CredentialInfo.DomainName,
-		TenantID:         connInfo.CredentialInfo.ProjectID,
-	}
-
-	provider, err := openstack.AuthenticatedClient(authOpts)
-	if err != nil {
-		return nil, err
-	}
-
-	config := &tls.Config{InsecureSkipVerify: true}
-	httpClient := &http.Client{
-		Transport: &http.Transport{TLSClientConfig: config},
-	}
-
-	provider.HTTPClient = *httpClient
-
+func getIdentityClient(provider *gophercloud.ProviderClient, connInfo idrv.ConnectionInfo) (*gophercloud.ServiceClient, error) {
 	client, err := openstack.NewIdentityV3(provider, gophercloud.EndpointOpts{
 		Region: connInfo.RegionInfo.Region,
 	})
@@ -100,7 +80,32 @@ func getIdentityClient(connInfo idrv.ConnectionInfo) (*gophercloud.ServiceClient
 }
 
 func clientCreator(connInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
-	identityClient, err := getIdentityClient(connInfo)
+	authOpts := gophercloud.AuthOptions{
+		IdentityEndpoint: connInfo.CredentialInfo.IdentityEndpoint,
+		Username:         connInfo.CredentialInfo.Username,
+		Password:         connInfo.CredentialInfo.Password,
+		DomainName:       connInfo.CredentialInfo.DomainName,
+		TenantID:         connInfo.CredentialInfo.ProjectID,
+	}
+
+	config := &tls.Config{InsecureSkipVerify: true}
+	httpClient := &http.Client{
+		Transport: &http.Transport{TLSClientConfig: config},
+	}
+
+	provider, err := openstack.NewClient(authOpts.IdentityEndpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	provider.HTTPClient = *httpClient
+
+	err = openstack.Authenticate(provider, authOpts)
+	if err != nil {
+		return nil, err
+	}
+
+	identityClient, err := getIdentityClient(provider, connInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -112,25 +117,6 @@ func clientCreator(connInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	if err != nil {
 		return nil, err
 	}
-	authOpts := gophercloud.AuthOptions{
-		IdentityEndpoint: connInfo.CredentialInfo.IdentityEndpoint,
-		Username:         connInfo.CredentialInfo.Username,
-		Password:         connInfo.CredentialInfo.Password,
-		DomainName:       connInfo.CredentialInfo.DomainName,
-		TenantID:         connInfo.CredentialInfo.ProjectID,
-	}
-
-	provider, err := openstack.AuthenticatedClient(authOpts)
-	if err != nil {
-		return nil, err
-	}
-
-	config := &tls.Config{InsecureSkipVerify: true}
-	httpClient := &http.Client{
-		Transport: &http.Transport{TLSClientConfig: config},
-	}
-
-	provider.HTTPClient = *httpClient
 
 	iConn := oscon.OpenStackCloudConnection{
 		CredentialInfo: connInfo.CredentialInfo,
