@@ -91,7 +91,7 @@ NCP:
   disktype: SSD / HDD
   disksize: SSD|10|2000|GB / HDD|10|2000|GB
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
-  idmaxlength: 0 / 0 / 0 / 30 / 30 / 30 / 30 / 30 / 0
+  idmaxlength: 30 / 30 / 30 / 30 / 30 / 30 / 30 / 30 / 0
 
 NCPVPC:
   region: Region / Zone
@@ -121,7 +121,7 @@ KTCLOUD:
   disktype: HDD / SSD-Provisioned
   disksize: HDD|10|500|GB / SSD-Provisioned|100|800|GB
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage
-  idmaxlength: 0 / 0 / 30 / 100 / 100 / 50 / 30 / 32
+  idmaxlength: 30 / 30 / 30 / 100 / 63 / 50 / 30 / 32
 
 KTCLOUDVPC:
   region: Region / Zone
@@ -131,7 +131,7 @@ KTCLOUDVPC:
   disktype: HDD / SSD
   disksize: HDD|10|2000|GB / SSD|10|2000|GB
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage
-  idmaxlength: 300 / 300 / 30 / 100 / 300 / 50 / 30 / 50
+  idmaxlength: 30 / 22 / 30 / 100 / 63 / 50 / 30 / 50
 
 #--- PoC
 

@@ -89,7 +89,7 @@ func (nlbHandler *KtCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 	LoggingInfo(callLogInfo, start)
 	cblogger.Infof("# New NLBId : %s", nlbResp.Createnlbresponse.NLBId)
 
-	cblogger.Info("\n### New NLB is Creating Now!!")
+	cblogger.Info("\n### Creating New NLB Now!!")
 	time.Sleep(time.Second * 7)
 
 	newNlbIID := irs.IID{SystemId: nlbResp.Createnlbresponse.NLBId}
