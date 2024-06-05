@@ -587,8 +587,8 @@ func VM(c echo.Context) error {
 		imageName = "ee441331-0872-49c3-886c-1873a6e32e09"
 		specName = "small-2"
 	case "OPENSTACK":
-		imageName = "ubuntu18.04"
-		specName = "DS-Demo"
+		imageName = "16681742-f408-444d-a430-dd21a4bef42c"
+		specName = "ETRI-small-2"
 	case "NCP":
 		imageName = "SPSW0LINUX000130"
 		specName = "SPSVRHICPUSSD002"
