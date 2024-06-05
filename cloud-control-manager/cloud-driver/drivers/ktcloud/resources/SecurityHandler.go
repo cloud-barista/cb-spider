@@ -13,6 +13,7 @@ package resources
 import (
 	"fmt"
 	"os"
+	"io"
 	"strings"
 	// "crypto/aes"
 	// "crypto/cipher"
@@ -23,7 +24,6 @@ import (
 
 	"encoding/json"
 	"errors"
-	"io/ioutil"
 	// "strconv"
 
 	cblog "github.com/cloud-barista/cb-log"
@@ -115,7 +115,7 @@ func (securityHandler *KtCloudSecurityHandler) CreateSecurity(securityReqInfo ir
 	cblogger.Infof("# Hashed FileName : "+ hashFileName + ".json")
 
 	file, _ := json.MarshalIndent(securityReqInfo, "", " ")
-	writeErr := ioutil.WriteFile(sgFilePath + hashFileName + ".json", file, 0644)
+	writeErr := os.WriteFile(sgFilePath + hashFileName + ".json", file, 0644)
 	if writeErr != nil {
 		cblogger.Error("Failed to write the file: "+ sgFilePath + hashFileName + ".json", writeErr)
 		return irs.SecurityInfo{}, writeErr
@@ -174,7 +174,7 @@ func (securityHandler *KtCloudSecurityHandler) GetSecurity(securityIID irs.IID) 
     defer jsonFile.Close()
 
 	var sg SecurityGroup
-	byteValue, readErr := ioutil.ReadAll(jsonFile)
+	byteValue, readErr := io.ReadAll(jsonFile)
 	if readErr != nil {
 		cblogger.Error("Failed to Read the S/G file : "+ sgFileName, readErr)
     }
@@ -221,7 +221,7 @@ func (securityHandler *KtCloudSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 	}
 
 	// File list on the local directory 
-	dirFiles, readRrr := ioutil.ReadDir(sgFilePath)
+	dirFiles, readRrr := os.ReadDir(sgFilePath)
 	if readRrr != nil {
 		return []*irs.SecurityInfo{}, readRrr
 	}
@@ -287,17 +287,14 @@ func (securityHandler *KtCloudSecurityHandler) DeleteSecurity(securityIID irs.II
 	}
 
 	// To Remove the S/G file on the Local machine.
-	cmdName := "rm"
-	cmdArgs := []string{sgFileName}
-
-	if cmdOut, cmdErr := RunCommand(cmdName, cmdArgs); cmdErr != nil {
-		cblogger.Errorf("Failed to run the command to remove the S/G file.")
-		return false, cmdErr
-	} else {
-		cblogger.Infof("Succeeded in Deleting the S/G File!!")
-		cblogger.Infof("cmdOut : " + cmdOut)
+	delErr := os.Remove(sgFileName) 
+	if delErr != nil {
+		newErr := fmt.Errorf("Failed to Delete the file : %s, [%v]", sgFileName, delErr)
+		cblogger.Error(newErr.Error())
+		return false, newErr
 	}
-	cblogger.Infof("Succeeded in Deleting the SecurityGroup : " + securityIID.SystemId)
+	cblogger.Infof("Succeeded in Deleting the SecurityGroup : " + securityIID.NameId)
+
 	return true, nil
 }
 
