@@ -672,7 +672,7 @@ func (NLBHandler *AwsNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	var results []*irs.NLBInfo
 	for _, curNLB := range result.LoadBalancers {
 		if !strings.EqualFold(*curNLB.Type, "network") {
-			cblogger.Infof("%s load balancer는 관리 대상이 아니라서 Skip함!!! - [%s]", *curNLB.Type, *curNLB.LoadBalancerName)
+			cblogger.Infof("%s Load balancer is not under management, so it is skipped - [%s]", *curNLB.Type, *curNLB.LoadBalancerName)
 			continue
 		}
 		nlbInfo, errNLBInfo := NLBHandler.GetNLB(irs.IID{SystemId: *curNLB.LoadBalancerArn})
@@ -1358,7 +1358,7 @@ func (NLBHandler *AwsNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.V
 // @TODO : 이미 등록된 AZ의 다른 서브넷을 사용하는 Instance 처리 필요
 func (NLBHandler *AwsNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.VMGroupInfo, error) {
 	if nlbIID.NameId == "" || nlbIID.SystemId == "" {
-		cblogger.Error("IID 값이 Null임.")
+		cblogger.Error("IID value is null.")
 		return irs.VMGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "nlbIID value of the input parameter is empty.", nil)
 	}
 

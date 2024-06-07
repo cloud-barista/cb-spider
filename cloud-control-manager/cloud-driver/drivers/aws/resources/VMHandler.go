@@ -312,7 +312,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	//OS 종류에 따른 Cloud Init Data 처리
 	if isWindowsImage {
 		userData = strings.Replace(string(fileDataCloudInit), "*PASSWORD*", vmReqInfo.VMUserPasswd, 1)
-		cblogger.Debugf("Windows용 Cloud-Init : [%s]", userData)
+		cblogger.Debugf("Windows Cloud-Init : [%s]", userData)
 	} else {
 		userData = string(fileDataCloudInit)
 	}
@@ -1475,7 +1475,7 @@ func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 		resultStatus = "Terminated"
 	} else {
 		//resultStatus = "Failed"
-		cblogger.Errorf("vmStatus [%s]와 일치하는 맵핑 정보를 찾지 못 함.", vmStatus)
+		cblogger.Errorf("No mapping information found matching vmStatus [%s", vmStatus)
 		return irs.VMStatus("Failed"), errors.New("Cannot find status information that matches " + vmStatus)
 	}
 	cblogger.Infof("VM 상태 치환 : [%s] ==> [%s]", vmStatus, resultStatus)

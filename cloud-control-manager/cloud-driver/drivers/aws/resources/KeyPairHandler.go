@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -14,7 +13,7 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	_ "github.com/davecgh/go-spew/spew"
+	//_ "github.com/davecgh/go-spew/spew"
 )
 
 type AwsKeyPairHandler struct {
@@ -251,8 +250,7 @@ func (keyPairHandler *AwsKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 			cblogger.Debug("aerr.Code()  : ", aerr.Code())
 			cblogger.Debug("ok : ", ok)
 			switch aerr.Code() {
-			default:
-				//fmt.Println(aerr.Error())
+			default:				
 				cblogger.Error(aerr.Error())
 				return irs.KeyPairInfo{}, aerr
 			}
@@ -424,8 +422,8 @@ func (keyPairHandler *AwsKeyPairHandler) CheckKeyPairFolder(keyPairPath string) 
 //
 // KeyPair 해시 생성 함수 (PK 이슈로 현재는 사용하지 않음)
 func CreateHashString(credentialInfo idrv.CredentialInfo, Region idrv.RegionInfo) (string, error) {
-	log.Println("credentialInfo.ClientId : " + credentialInfo.ClientId)
-	log.Println("Region.Region : " + Region.Region)
+	cblogger.Info("credentialInfo.ClientId : " + credentialInfo.ClientId)
+	cblogger.Info("Region.Region : " + Region.Region)
 	keyString := credentialInfo.ClientId + credentialInfo.ClientSecret + Region.Region
 	//keyString := credentialInfo
 	hasher := md5.New()

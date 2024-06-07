@@ -334,7 +334,7 @@ func (vVPCHandler *GCPVPCHandler) WaitUntilComplete(resourceId string, isGlobalA
 		if err != nil {
 			return err
 		}
-		cblogger.Infof("==> 상태 : 진행율 : [%d] / [%s]", opSatus.Progress, opSatus.Status)
+		cblogger.Infof("==> Status : Progress : [%d] / [%s]", opSatus.Progress, opSatus.Status)
 
 		//PENDING, RUNNING, or DONE.
 		//if (opSatus.Status == "RUNNING" || opSatus.Status == "DONE") && opSatus.Progress >= 100 {
@@ -634,7 +634,7 @@ func (vVPCHandler *GCPVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo irs.S
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err == nil {
 		callLogInfo.ErrorMSG = err.Error()
-		cblogger.Errorf("이미 [%s] Subnet이 존재함", subnetName)
+		cblogger.Errorf("[%s] Subnet already exists ", subnetName)
 		callogger.Info(call.String(callLogInfo))
 		return irs.SubnetInfo{}, errors.New("Already Exist - " + subnetName + " Subnet is exist")
 	}
@@ -647,7 +647,7 @@ func (vVPCHandler *GCPVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo irs.S
 		IpCidrRange: reqSubnetInfo.IPv4_CIDR,
 		Network:     vpcNetworkUrl,
 	}
-	cblogger.Infof("[%s] Subnet 생성시작", subnetName)
+	cblogger.Infof("[%s] Starting Subnet Creation ", subnetName)
 	cblogger.Debug(subnetWork)
 
 	infoSubnet, errSubnet := vVPCHandler.Client.Subnetworks.Insert(projectID, region, subnetWork).Do()

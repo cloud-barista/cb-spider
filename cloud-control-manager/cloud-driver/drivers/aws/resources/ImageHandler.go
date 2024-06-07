@@ -128,7 +128,7 @@ func (imageHandler *AwsImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 			continue
 		}
 
-		cblogger.Debugf("[%s] - [%s] - [%s] AMI 정보 처리", *cur.ImageId, *cur.State, *cur.Name)
+		cblogger.Debugf("[%s] - [%s] - [%s] AMI State name", *cur.ImageId, *cur.State, *cur.Name)
 		//cblogger.Infof("[%s] - [%s] - [%s] - [%s] AMI 정보 처리", *cur.ImageId, *cur.State, *cur.Name, *cur.UsageOperation)
 
 		imageInfo := ExtractImageDescribeInfo(cur)

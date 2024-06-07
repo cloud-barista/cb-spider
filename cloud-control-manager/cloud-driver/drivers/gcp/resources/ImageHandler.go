@@ -77,7 +77,7 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 // 리스트의 경우 Name 기반으로 조회해서 처리하기에는 너무 느리기 때문에 직접 컨버팅함.
 func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
-	cblogger.Debug("전체 이미지 조회")
+	cblogger.Debug("Retrieve All VM Images")
 
 	//https://cloud.google.com/compute/docs/images?hl=ko
 	arrImageProjectList := []string{

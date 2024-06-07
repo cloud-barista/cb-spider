@@ -344,9 +344,9 @@ func (nlbHandler *GCPNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 	}
 	resultMap[NLB_Component_TARGETPOOL] = targetPool.SelfLink
 	printToJson(targetPool)
-	cblogger.Info("backend TargetPool 생성 완료 ")
+	cblogger.Info("backend TargetPool created ")
 
-	cblogger.Info("frontend (forwarding rule) 생성 ")
+	cblogger.Info("frontend (forwarding rule) created ")
 	// targetPool 생성 후 selfLink 를 forwardingRule의 target으로 set.
 	newForwardingRule := convertNlbInfoToForwardingRule(nlbReqInfo.Listener, targetPool)
 	err = nlbHandler.insertRegionForwardingRules(regionID, &newForwardingRule)

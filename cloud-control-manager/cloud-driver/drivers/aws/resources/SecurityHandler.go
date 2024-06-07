@@ -414,7 +414,7 @@ func ExtractSecurityInfo(securityGroupResult *ec2.SecurityGroup) irs.SecurityInf
 	var ipPermissionsEgress []irs.SecurityRuleInfo
 	var securityRules []irs.SecurityRuleInfo
 
-	cblogger.Debugf("===[그룹아이디:%s]===", *securityGroupResult.GroupId)
+	cblogger.Debugf("===[SecurityGroup ID:%s]===", *securityGroupResult.GroupId)
 	ipPermissions = ExtractIpPermissions(securityGroupResult.IpPermissions, "inbound")
 	cblogger.Debug("InBouds : ", ipPermissions)
 	ipPermissionsEgress = ExtractIpPermissions(securityGroupResult.IpPermissionsEgress, "outbound")
@@ -438,7 +438,7 @@ func ExtractSecurityInfo(securityGroupResult *ec2.SecurityGroup) irs.SecurityInf
 	}
 
 	//Name은 Tag의 "Name" 속성에만 저장됨
-	cblogger.Debug("Name Tag 찾기")
+	cblogger.Debug("find Name Tag")
 	for _, t := range securityGroupResult.Tags {
 		if *t.Key == "Name" {
 			//securityInfo.Name = *t.Value

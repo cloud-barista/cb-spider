@@ -240,7 +240,7 @@ func (keyPairHandler *TencentKeyPairHandler) isExist(chkName string) (bool, erro
 		return false, nil
 	}
 
-	cblogger.Infof("SSH Key 정보 찾음 - KeyId:[%s] / KeyName:[%s]", *response.Response.KeyPairSet[0].KeyId, *response.Response.KeyPairSet[0].KeyName)
+	cblogger.Infof("SSH Key - KeyId:[%s] / KeyName:[%s]", *response.Response.KeyPairSet[0].KeyId, *response.Response.KeyPairSet[0].KeyName)
 	return true, nil
 }
 

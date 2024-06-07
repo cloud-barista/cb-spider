@@ -455,7 +455,7 @@ func FindImageByID(client *compute.Service, imageIID irs.IID) (*compute.Image, e
 
 		res, err = req.Do()
 		if err != nil {
-			cblogger.Errorf("[%s] 프로젝트 소유의 이미지 목록 조회 실패!", projectId)
+			cblogger.Errorf("[%s] Failed to retrieve the list of project-owned images", projectId)
 			cblogger.Error(err)
 			return nil, err
 		}
