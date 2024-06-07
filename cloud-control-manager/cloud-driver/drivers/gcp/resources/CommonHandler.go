@@ -29,7 +29,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	compute "google.golang.org/api/compute/v1"
 	container "google.golang.org/api/container/v1"
@@ -112,7 +111,7 @@ func GetKeyValueList(i map[string]interface{}) []irs.KeyValue {
 		//cblogger.Infof("K:[%s]====>", k)
 		_, ok := v.(string)
 		if !ok {
-			cblogger.Errorf("Key[%s]의 값은 변환 불가", k)
+			cblogger.Errorf("The value for key [%s] cannot be converted.", k)
 			continue
 		}
 		//if strings.EqualFold(k, "users") {
@@ -128,13 +127,13 @@ func GetKeyValueList(i map[string]interface{}) []irs.KeyValue {
 
 // Cloud Object를 CB-KeyValue 형식으로 변환이 필요할 경우 이용
 func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
-	//spew.Dump(v)
+	//cblogger.Debug(v)
 	var keyValueList []irs.KeyValue
 	var i map[string]interface{}
 
 	jsonBytes, errJson := json.Marshal(v)
 	if errJson != nil {
-		cblogger.Error("KeyValue 변환 실패")
+		cblogger.Error("KeyValue conversion failed")
 		cblogger.Error(errJson)
 		return nil, errJson
 	}
@@ -290,16 +289,16 @@ func WaitUntilComplete(client *compute.Service, project string, region string, r
 			opSatus, err = client.RegionOperations.Get(project, region, resourceId).Do()
 		}
 		if err != nil {
-			cblogger.Infof("WaitUntilComplete / [%s]", err)
+			cblogger.Errorf("WaitUntilComplete / [%s]", err)
 			return err
 		}
-		cblogger.Infof("==> 상태 : 진행율 : [%d] / [%s]", opSatus.Progress, opSatus.Status)
+		cblogger.Infof("==> Status: Progress: [%d] / [%s]", opSatus.Progress, opSatus.Status)
 
 		//PENDING, RUNNING, or DONE.
 		if (opSatus.Status == "RUNNING" || opSatus.Status == "DONE") && opSatus.Progress >= 100 {
 			//if opSatus.Status == "RUNNING" || opSatus.Status == "DONE" {
 			//if opSatus.Status == "DONE" {
-			cblogger.Info("Wait을 종료합니다.", resourceId, ":", opSatus.Status)
+			cblogger.Info("Exiting Wait.", resourceId, ":", opSatus.Status)
 			return nil
 		}
 
@@ -307,8 +306,8 @@ func WaitUntilComplete(client *compute.Service, project string, region string, r
 		after_time := time.Now()
 		diff := after_time.Sub(before_time)
 		if int(diff.Seconds()) > max_time {
-			cblogger.Errorf("[%d]초 동안 리소스[%s]의 상태가 완료되지 않아서 Wait을 강제로 종료함.", max_time, resourceId)
-			return errors.New("장시간 요청 작업이 완료되지 않아서 Wait을 강제로 종료함.)")
+			cblogger.Errorf("Forcing termination of Wait because the status of resource [%s] has not completed within [%d] seconds.", max_time, resourceId)
+			return errors.New("Forcing termination of Wait due to the request operation not completing for a long time.")
 		}
 	}
 
@@ -332,16 +331,16 @@ func WaitOperationComplete(client *compute.Service, project string, region strin
 			opSatus, err = client.ZoneOperations.Get(project, zone, resourceId).Do()
 		}
 		if err != nil {
-			cblogger.Infof("WaitUntilOperationComplete / [%s]", err)
+			cblogger.Errorf("WaitUntilOperationComplete / [%s]", err)
 			return err
 		}
-		cblogger.Infof("==> 상태 : 진행율 : [%d] / [%s]", opSatus.Progress, opSatus.Status)
+		cblogger.Infof("==> Status: Progress: [%d] / [%s]", opSatus.Progress, opSatus.Status)
 
 		//PENDING, RUNNING, or DONE.
 		if (opSatus.Status == "RUNNING" || opSatus.Status == "DONE") && opSatus.Progress >= 100 {
 			//if opSatus.Status == "RUNNING" || opSatus.Status == "DONE" {
 			//if opSatus.Status == "DONE" {
-			cblogger.Info("Wait을 종료합니다.", resourceId, ":", opSatus.Status)
+			cblogger.Info("Exiting Wait.", resourceId, ":", opSatus.Status)
 			return nil
 		}
 
@@ -349,8 +348,8 @@ func WaitOperationComplete(client *compute.Service, project string, region strin
 		after_time := time.Now()
 		diff := after_time.Sub(before_time)
 		if int(diff.Seconds()) > max_time {
-			cblogger.Errorf("[%d]초 동안 리소스[%s]의 상태가 완료되지 않아서 Wait을 강제로 종료함.", max_time, resourceId)
-			return errors.New("장시간 요청 작업이 완료되지 않아서 Wait을 강제로 종료함.)")
+			cblogger.Errorf("Forcing termination of Wait because the status of resource [%s] has not completed within [%d] seconds.", max_time, resourceId)
+			return errors.New("Forcing termination of Wait due to the request operation not completing for a long time.")
 		}
 	}
 
@@ -364,7 +363,7 @@ func GetDiskInfo(client *compute.Service, credential idrv.CredentialInfo, region
 	targetZone := region.TargetZone
 
 	// 대상 zone이 다른경우 targetZone을 사용
-	if targetZone != ""{
+	if targetZone != "" {
 		zone = targetZone
 	}
 	diskResp, err := client.Disks.Get(projectID, zone, diskName).Do()
@@ -387,7 +386,7 @@ func GetMachineImageInfo(client *compute.Service, projectId string, imageName st
 		return nil, errors.New("Not Found : [" + imageName + "] Image information not found")
 	}
 	// cblogger.Infof("result ", imageResp)
-	// spew.Dump(imageResp)
+	// cblogger.Debug(imageResp)
 	return imageResp, nil
 }
 
@@ -456,7 +455,7 @@ func FindImageByID(client *compute.Service, imageIID irs.IID) (*compute.Image, e
 
 		res, err = req.Do()
 		if err != nil {
-			cblogger.Errorf("[%s] 프로젝트 소유의 이미지 목록 조회 실패!", projectId)
+			cblogger.Errorf("[%s] Failed to retrieve the list of project-owned images", projectId)
 			cblogger.Error(err)
 			return nil, err
 		}
@@ -465,14 +464,14 @@ func FindImageByID(client *compute.Service, imageIID irs.IID) (*compute.Image, e
 		cblogger.Info("NestPageToken : ", nextPageToken)
 
 		for {
-			cblogger.Info("Loop?")
+			cblogger.Debug("Loop?")
 			for _, item := range res.Items {
 				cnt++
 				if strings.EqualFold(reqImageName, item.SelfLink) {
-					cblogger.Info("found Image : ", item)
+					cblogger.Debug("found Image : ", item)
 					return item, nil
 				}
-				cblogger.Info("cnt : ", item)
+				cblogger.Debug("cnt : ", item)
 			}
 		}
 	}
@@ -492,10 +491,10 @@ func WaitContainerOperationComplete(client *container.Service, project string, r
 	for {
 		opSatus, err = client.Projects.Locations.Operations.Get(operationName).Do()
 		if err != nil {
-			cblogger.Infof("WaitUntilOperationComplete / [%s]", err)
+			cblogger.Errorf("WaitUntilOperationComplete / [%s]", err)
 			return err
 		}
-		cblogger.Infof("==> 상태 : 진행율 : [%d] / [%s]", opSatus.Progress, opSatus.Status)
+		cblogger.Infof("==> Status: Progress: [%d] / [%s]", opSatus.Progress, opSatus.Status)
 
 		//PENDING, RUNNING, or DONE.
 
@@ -505,7 +504,7 @@ func WaitContainerOperationComplete(client *container.Service, project string, r
 		// DONE 	The operation is done, either cancelled or completed.
 		// ABORTING 	The operation is aborting.
 		if opSatus.Status == "DONE" {
-			cblogger.Info("Wait을 종료합니다.", resourceId, ":", opSatus.Status)
+			cblogger.Info("Exiting Wait.", resourceId, ":", opSatus.Status)
 			return nil
 		}
 
@@ -513,8 +512,8 @@ func WaitContainerOperationComplete(client *container.Service, project string, r
 		after_time := time.Now()
 		diff := after_time.Sub(before_time)
 		if int(diff.Seconds()) > max_time {
-			cblogger.Errorf("[%d]초 동안 리소스[%s]의 상태가 완료되지 않아서 Wait을 강제로 종료함.", max_time, resourceId)
-			return errors.New("장시간 요청 작업이 완료되지 않아서 Wait을 강제로 종료함.)")
+			cblogger.Errorf("Forcing termination of Wait because the status of resource [%s] has not completed within [%d] seconds.", max_time, resourceId)
+			return errors.New("Forcing termination of Wait due to the request operation not completing for a long time.")
 		}
 	}
 
@@ -536,8 +535,8 @@ func WaitContainerOperationFail(client *container.Service, project string, regio
 			cblogger.Infof("WaitContainerOperationFail / [%s]", err)
 			return err
 		}
-		spew.Dump(opSatus)
-		cblogger.Infof("==> 상태 : 진행율 : [%d] / [%s]", opSatus.Progress, opSatus.Status)
+		cblogger.Debug(opSatus)
+		cblogger.Infof("==> Status: Progress: [%d] / [%s]", opSatus.Progress, opSatus.Status)
 
 		//PENDING, RUNNING, or DONE.
 
@@ -547,7 +546,7 @@ func WaitContainerOperationFail(client *container.Service, project string, regio
 		// DONE 	The operation is done, either cancelled or completed.
 		// ABORTING 	The operation is aborting.
 		if opSatus.Status == "ABORTING" {
-			cblogger.Info("Wait을 종료합니다.", resourceId, ":", opSatus.Status)
+			cblogger.Info("Exiting Wait.", resourceId, ":", opSatus.Status)
 			return nil
 		}
 
@@ -555,7 +554,7 @@ func WaitContainerOperationFail(client *container.Service, project string, regio
 		after_time := time.Now()
 		diff := after_time.Sub(before_time)
 		if int(diff.Seconds()) > max_time {
-			cblogger.Errorf("[%d]초 동안 리소스[%s]의 상태가 완료되지 않아서 Wait을 강제로 종료함.", max_time, resourceId)
+			cblogger.Errorf("Forcing termination of Wait because the status of resource [%s] has not completed within [%d] seconds.", max_time, resourceId)
 			return nil
 		}
 	}
@@ -574,11 +573,11 @@ func WaitContainerOperationDone(client *container.Service, project string, regio
 	for {
 		opSatus, err = client.Projects.Locations.Operations.Get(operationName).Do()
 		if err != nil {
-			cblogger.Infof("WaitContainerOperationDone / [%s]", err)
+			cblogger.Errorf("WaitContainerOperationDone / [%s]", err)
 			return err
 		}
-		spew.Dump(opSatus)
-		cblogger.Infof("==> 상태 : 진행율 : [%d] / [%s]", opSatus.Progress, opSatus.Status)
+		cblogger.Debug(opSatus)
+		cblogger.Infof("==> Status: Progress: [%d] / [%s]", opSatus.Progress, opSatus.Status)
 
 		//PENDING, RUNNING, or DONE.
 
@@ -588,7 +587,7 @@ func WaitContainerOperationDone(client *container.Service, project string, regio
 		// DONE 	The operation is done, either cancelled or completed.
 		// ABORTING 	The operation is aborting.
 		if opSatus.Status == "DONE" {
-			cblogger.Info("Wait을 종료합니다.", resourceId, ":", opSatus.Status)
+			cblogger.Info("Exiting Wait.", resourceId, ":", opSatus.Status)
 			return nil
 		}
 
@@ -596,7 +595,7 @@ func WaitContainerOperationDone(client *container.Service, project string, regio
 		after_time := time.Now()
 		diff := after_time.Sub(before_time)
 		if int(diff.Seconds()) > maxTime {
-			cblogger.Errorf("[%d]초 동안 리소스[%s]의 상태가 완료되지 않아서 Wait을 강제로 종료함.", maxTime, resourceId)
+			cblogger.Errorf("Forcing termination of Wait because the status of resource [%s] has not completed within [%d] seconds.", maxTime, resourceId)
 			return nil
 		}
 	}
@@ -695,7 +694,7 @@ func GetZoneListByRegion(client *compute.Service, projectId string, regionUrl st
 		cblogger.Error(err)
 		return nil, err
 	}
-	// spew.Dump(resp)
+	// cblogger.Debug(resp)
 	return resp, nil
 }
 

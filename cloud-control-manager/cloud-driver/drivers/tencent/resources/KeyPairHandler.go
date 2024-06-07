@@ -6,7 +6,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 	_ "github.com/davecgh/go-spew/spew"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
@@ -46,7 +45,7 @@ func (keyPairHandler *TencentKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, erro
 		cblogger.Error(err)
 		return nil, err
 	}
-	//spew.Dump(response)
+	//cblogger.Debug(response)
 	cblogger.Debug(response.ToJsonString())
 	callogger.Info(call.String(callLogInfo))
 
@@ -55,7 +54,7 @@ func (keyPairHandler *TencentKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, erro
 		if errKeyPair != nil {
 			// 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 			//cblogger.Infof("[%s] KeyPair는 Local에서 관리하는 대상이 아니기 때문에 Skip합니다.", *pair.KeyName)
-			cblogger.Info(errKeyPair.Error())
+			cblogger.Error(errKeyPair.Error())
 			//return nil, errKeyPair
 		} else {
 			keyPairList = append(keyPairList, &keyPairInfo)
@@ -66,9 +65,9 @@ func (keyPairHandler *TencentKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, erro
 }
 
 // 2021-10-27 이슈#480에 의해 Local Key 로직 제거
-//KeyPair 정보를 추출함
+// KeyPair 정보를 추출함
 func ExtractKeyPairDescribeInfo(keyPair *cvm.KeyPair) (irs.KeyPairInfo, error) {
-	spew.Dump(keyPair)
+	cblogger.Debug(keyPair)
 	keyPairInfo := irs.KeyPairInfo{
 		IId: irs.IID{NameId: *keyPair.KeyName, SystemId: *keyPair.KeyId},
 		//PublicKey: *keyPair.PublicKey,
@@ -120,7 +119,7 @@ func ExtractKeyPairDescribeInfo(keyPair *cvm.KeyPair) (irs.KeyPairInfo, error) {
 }
 
 // 2021-10-27 이슈#480에 의해 Local Key 로직 제거
-//KeyPair 생성시 이름은 알파벳, 숫자 또는 밑줄 "_"만 지원
+// KeyPair 생성시 이름은 알파벳, 숫자 또는 밑줄 "_"만 지원
 func (keyPairHandler *TencentKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
 	cblogger.Info(keyPairReqInfo)
 
@@ -175,12 +174,12 @@ func (keyPairHandler *TencentKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 		cblogger.Error(err)
 		return irs.KeyPairInfo{}, err
 	}
-	//spew.Dump(response)
+	//cblogger.Debug(response)
 	cblogger.Debug(response.ToJsonString())
 	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Infof("Created [%s]key pair", *response.Response.KeyPair.KeyName)
-	//spew.Dump(result)
+	//cblogger.Debug(result)
 	keyPairInfo := irs.KeyPairInfo{
 		//Name:        *result.KeyName,
 		IId:        irs.IID{NameId: keyPairReqInfo.IId.NameId, SystemId: *response.Response.KeyPair.KeyId},
@@ -191,7 +190,7 @@ func (keyPairHandler *TencentKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 		},
 	}
 
-	//spew.Dump(keyPairInfo)
+	//cblogger.Debug(keyPairInfo)
 
 	/* 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 	//=============================
@@ -241,7 +240,7 @@ func (keyPairHandler *TencentKeyPairHandler) isExist(chkName string) (bool, erro
 		return false, nil
 	}
 
-	cblogger.Infof("SSH Key 정보 찾음 - KeyId:[%s] / KeyName:[%s]", *response.Response.KeyPairSet[0].KeyId, *response.Response.KeyPairSet[0].KeyName)
+	cblogger.Infof("SSH Key - KeyId:[%s] / KeyName:[%s]", *response.Response.KeyPairSet[0].KeyId, *response.Response.KeyPairSet[0].KeyName)
 	return true, nil
 }
 
@@ -288,7 +287,7 @@ func (keyPairHandler *TencentKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPair
 		cblogger.Error(err)
 		return irs.KeyPairInfo{}, err
 	}
-	//spew.Dump(response)
+	//cblogger.Debug(response)
 	cblogger.Debug(response.ToJsonString())
 	callogger.Info(call.String(callLogInfo))
 
@@ -299,10 +298,10 @@ func (keyPairHandler *TencentKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPair
 			return irs.KeyPairInfo{}, errKeyPair
 		}
 
-		//spew.Dump(keyPairInfo)
+		//cblogger.Debug(keyPairInfo)
 		return keyPairInfo, nil
 	} else {
-		return irs.KeyPairInfo{}, errors.New("정보를 찾을 수 없습니다.")
+		return irs.KeyPairInfo{}, errors.New("I couldn't find the information.")
 	}
 }
 
@@ -328,7 +327,7 @@ func (keyPairHandler *TencentKeyPairHandler) GetLocalKeyId(keyIID irs.IID) (stri
 
 // 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 func (keyPairHandler *TencentKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error) {
-	cblogger.Infof("삭제 요청된 키페어 : [%s]", keyIID.SystemId)
+	cblogger.Infof("Key pair requested for deletion: [%s]", keyIID.SystemId)
 
 	/* 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 	keyPairId, errGet := keyPairHandler.GetLocalKeyId(keyIID)
@@ -363,7 +362,7 @@ func (keyPairHandler *TencentKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, er
 		cblogger.Error(err)
 		return false, err
 	}
-	//spew.Dump(response)
+	//cblogger.Debug(response)
 	cblogger.Debug(response.ToJsonString())
 	callogger.Info(call.String(callLogInfo))
 

@@ -83,7 +83,7 @@ func DescribeDisks(client *ecs.Client, regionInfo idrv.RegionInfo, instanceIID i
 		resultDiskList = append(resultDiskList, result.Disks.Disk...)
 		if CBPageOn {
 			totalCount = len(resultDiskList)
-			cblogger.Infof("CSP 전체 Disk 갯수 : [%d] - 현재 페이지:[%d] - 누적 결과 개수:[%d]", result.TotalCount, curPage, totalCount)
+			cblogger.Infof("Total number of disks across CSP: [%d] - Current page: [%d] - Accumulated result count: [%d]", result.TotalCount, curPage, totalCount)
 			if totalCount >= result.TotalCount {
 				break
 			}
@@ -93,7 +93,7 @@ func DescribeDisks(client *ecs.Client, regionInfo idrv.RegionInfo, instanceIID i
 			break
 		}
 	}
-	cblogger.Info(cblogger.Level.String())
+
 	if cblogger.Level.String() == "debug" {
 		spew.Dump(resultDiskList)
 	}
@@ -190,7 +190,7 @@ func DescribeAvailableResource(client *ecs.Client, regionId string, zoneId strin
 	//request.DataDiskCategory = "cloud"
 	//spew.Dump(request)
 	result, err := client.DescribeAvailableResource(request)
-	cblogger.Info(result)
+	cblogger.Debug(result)
 	if err != nil {
 		cblogger.Errorf("DescribeAvailableResource %v.", err)
 	}
@@ -222,7 +222,7 @@ func DescribeAvailableSystemDisksByInstanceType(client *ecs.Client, regionId str
 	request.InstanceType = insTanceType
 
 	result, err := client.DescribeAvailableResource(request)
-	cblogger.Info(result)
+	cblogger.Debug(result)
 	if err != nil {
 		cblogger.Errorf("DescribeAvailableResource %v.", err)
 	}
@@ -267,7 +267,7 @@ func AttachDisk(client *ecs.Client, regionInfo idrv.RegionInfo, ownerVM irs.IID,
 	callLogStart := call.Start()
 	result, err := client.AttachDisk(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	cblogger.Info(result)
+	cblogger.Debug(result)
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Error(call.String(callLogInfo))

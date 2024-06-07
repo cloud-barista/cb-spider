@@ -7,7 +7,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 
 	//cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
@@ -113,7 +112,7 @@ func (myImageHandler *TencentMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIm
 	}
 	calllogger.Info(call.String(hiscallInfo))
 
-	spew.Dump(response)
+	cblogger.Debug(response)
 
 	myImageInfo, myImageErr := myImageHandler.GetMyImage(irs.IID{SystemId: *response.Response.ImageId})
 	if myImageErr != nil {

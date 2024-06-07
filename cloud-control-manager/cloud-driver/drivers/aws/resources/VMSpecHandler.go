@@ -23,7 +23,7 @@ type AwsVmSpecHandler struct {
 func ExtractGpuInfo(gpuDeviceInfo *ec2.GpuDeviceInfo) irs.GpuInfo {
 	cblogger.Debug(gpuDeviceInfo)
 	//cblogger.Info("================")
-	//spew.Dump(gpuDeviceInfo)
+	//cblogger.Debug(gpuDeviceInfo)
 
 	gpuInfo := irs.GpuInfo{
 		Count: strconv.FormatInt(*gpuDeviceInfo.Count, 10),
@@ -38,7 +38,7 @@ func ExtractGpuInfo(gpuDeviceInfo *ec2.GpuDeviceInfo) irs.GpuInfo {
 // 인스턴스 스펙 정보를 추출함
 func ExtractVMSpecInfo(Region string, instanceTypeInfo *ec2.InstanceTypeInfo) irs.VMSpecInfo {
 	cblogger.Debugf("ExtractVMSpecInfo : Region:[%s] / SpecName:[%s]", Region, *instanceTypeInfo.InstanceType)
-	//spew.Dump(instanceTypeInfo)
+	//cblogger.Debug(instanceTypeInfo)
 
 	vCpuInfo := irs.VCpuInfo{}
 	gpuInfoList := []irs.GpuInfo{}
@@ -66,7 +66,7 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo *ec2.InstanceTypeInfo) ir
 			gpuInfo := ExtractGpuInfo(curGpu)
 			gpuInfoList = append(gpuInfoList, gpuInfo)
 		}
-		//spew.Dump(gpuInfoList)
+		//cblogger.Debug(gpuInfoList)
 	}
 	vmSpecInfo.Gpu = gpuInfoList
 
@@ -157,7 +157,7 @@ func (vmSpecHandler *AwsVmSpecHandler) ListVMSpecAZ(ZoneName string) (map[string
 	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Infof("===> Total Check AZ Spec Count : [%d]", totCnt)
-	//spew.Dump(mapVmSpecIds)
+	//cblogger.Debug(mapVmSpecIds)
 
 	return mapVmSpecIds, nil
 }
@@ -258,7 +258,7 @@ func (vmSpecHandler *AwsVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 		return vMSpecInfoList, err
 	}
 	callogger.Info(call.String(callLogInfo))
-	//spew.Dump(vMSpecInfoList)
+	//cblogger.Debug(vMSpecInfoList)
 
 	//cblogger.Infof("===> Total Check Spec Count : [%d]", totCnt)
 	cblogger.Infof("==>In the [%s] AZ, [%d] specs are available from the [%s] region, and [%d] of them can be utilized.", zoneId, vmSpecHandler.Region.Region, totCnt, len(vMSpecInfoList))
@@ -415,7 +415,7 @@ func (vmSpecHandler *AwsVmSpecHandler) ListOrgVMSpec() (string, error) {
 		return "", err
 	}
 	callogger.Info(call.String(callLogInfo))
-	//spew.Dump(vMSpecInfoList)
+	//cblogger.Debug(vMSpecInfoList)
 
 	cblogger.Infof("==>In the [%s] AZ, [%d] specs are available from the [%s] region, and [%d] of them can be utilized.", zoneId, vmSpecHandler.Region.Region, totCnt, len(resp.InstanceTypes))
 

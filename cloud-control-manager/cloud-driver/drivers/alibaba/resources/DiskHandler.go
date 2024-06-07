@@ -2,7 +2,6 @@ package resources
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -284,7 +283,7 @@ func (diskHandler *AlibabaDiskHandler) ChangeDiskSize(diskIID irs.IID, size stri
 
 	result, err := diskHandler.Client.ResizeDisk(request)
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
-	cblogger.Info(result)
+	cblogger.Debug(result)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 
@@ -312,7 +311,7 @@ func (diskHandler *AlibabaDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error)
 
 	result, err := diskHandler.Client.DeleteDisk(request)
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
-	cblogger.Info(result)
+	cblogger.Debug(result)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 
@@ -437,7 +436,7 @@ func (diskHandler *AlibabaDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.I
 
 	result, err := diskHandler.Client.DetachDisk(request)
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
-	cblogger.Info(result)
+	cblogger.Debug(result)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 
@@ -531,12 +530,12 @@ func validateCreateDisk(diskReqInfo *irs.DiskInfo) error {
 	}
 
 	if reqDiskSize < diskSizeValue.diskMinSize {
-		fmt.Println("Disk Size Error!!: ", reqDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+		cblogger.Error("Disk Size Error!!: ", reqDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
 		return errors.New("Disk Size must be at least the default size (" + strconv.FormatInt(diskSizeValue.diskMinSize, 10) + " GB).")
 	}
 
 	if reqDiskSize > diskSizeValue.diskMaxSize {
-		fmt.Println("Disk Size Error!!: ", reqDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+		cblogger.Error("Disk Size Error!!: ", reqDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
 		return errors.New("Disk Size must be smaller than the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
 	}
 
@@ -606,12 +605,12 @@ func validateModifyDisk(diskReqInfo irs.DiskInfo, diskSize string) error {
 	}
 
 	if targetDiskSize < diskSizeValue.diskMinSize {
-		fmt.Println("Disk Size Error!!: ", targetDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+		cblogger.Error("Disk Size Error!!: ", targetDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
 		return errors.New("Disk Size must be at least the default size (" + strconv.FormatInt(diskSizeValue.diskMinSize, 10) + " GB).")
 	}
 
 	if targetDiskSize > diskSizeValue.diskMaxSize {
-		fmt.Println("Disk Size Error!!: ", targetDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+		cblogger.Error("Disk Size Error!!: ", targetDiskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
 		return errors.New("Disk Size must be smaller than the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
 	}
 

@@ -2,7 +2,6 @@ package resources
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 
 	"strings"
@@ -175,7 +174,7 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 			return irs.NLBInfo{}, listenerErr
 		}
 
-		fmt.Printf("%s", listenerResponse.ToJsonString())
+		cblogger.Info("%s", listenerResponse.ToJsonString())
 
 		newListenerId := *listenerResponse.Response.ListenerIds[0]
 		backendPort, backendErr := strconv.ParseInt(nlbReqInfo.VMGroup.Port, 10, 64)
@@ -216,7 +215,7 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 				}
 				return irs.NLBInfo{}, targetErr
 			}
-			fmt.Printf("%s", targetResponse.ToJsonString())
+			cblogger.Info("%s", targetResponse.ToJsonString())
 
 			// VM 연결되길 기다림
 			targetStatus, targetStatErr := NLBHandler.WaitForDone(*targetResponse.Response.RequestId)
@@ -238,7 +237,7 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 
 	callogger.Info(call.String(callLogInfo))
 
-	fmt.Printf("%s", nlbResponse.ToJsonString())
+	cblogger.Info("%s", nlbResponse.ToJsonString())
 
 	return nlbResult, nil
 }
@@ -281,7 +280,7 @@ func (NLBHandler *TencentNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	var nlbInfoList []*irs.NLBInfo
 	if *response.Response.TotalCount > 0 {
 		for _, curNLB := range response.Response.LoadBalancerSet {
-			cblogger.Debugf("[%s] NLB 정보 조회 - [%s]", *curNLB.LoadBalancerId, *curNLB.LoadBalancerName)
+			cblogger.Debugf("[%s] NLB information retrieval - [%s]", *curNLB.LoadBalancerId, *curNLB.LoadBalancerName)
 			nlbInfo, nlbErr := NLBHandler.GetNLB(irs.IID{SystemId: *curNLB.LoadBalancerId})
 
 			if nlbErr != nil {
@@ -292,7 +291,7 @@ func (NLBHandler *TencentNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 		}
 	}
 
-	cblogger.Debugf("리턴 결과 목록 수 : [%d]", len(nlbInfoList))
+	cblogger.Debugf("Number of returned result items: [%d]", len(nlbInfoList))
 
 	return nlbInfoList, nil
 }
@@ -329,7 +328,7 @@ func (NLBHandler *TencentNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	cblogger.Debug("NLB 개수 : ", *response.Response.TotalCount)
+	cblogger.Debug("NLB Count : ", *response.Response.TotalCount)
 	if *response.Response.TotalCount < 1 {
 		return irs.NLBInfo{}, errors.New("Notfound: '" + nlbIID.SystemId + "' NLB Not found")
 	}
@@ -532,7 +531,7 @@ func (NLBHandler *TencentNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (
 	if targetErr != nil {
 		return irs.VMGroupInfo{}, targetErr
 	}
-	fmt.Printf("%s", targetResponse.ToJsonString())
+	cblogger.Info("%s", targetResponse.ToJsonString())
 
 	callogger.Info(call.String(callLogInfo))
 
@@ -608,7 +607,7 @@ func (NLBHandler *TencentNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID
 	if targetErr != nil {
 		return false, targetErr
 	}
-	fmt.Printf("%s", targetResponse.ToJsonString())
+	cblogger.Info("%s", targetResponse.ToJsonString())
 
 	callogger.Info(call.String(callLogInfo))
 

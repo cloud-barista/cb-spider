@@ -10,8 +10,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/davecgh/go-spew/spew"
-
 	//"github.com/aws/aws-sdk-go/service/elb"
 
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -63,7 +61,7 @@ func (NLBHandler *AwsNLBHandler) CreateListener(nlbReqInfo irs.NLBInfo) (*elbv2.
 		if n, err := strconv.ParseInt(nlbReqInfo.Listener.Port, 10, 64); err == nil {
 			input.SetPort(n)
 		} else {
-			cblogger.Error(nlbReqInfo.Listener.Port, "은 숫자가 아님!!")
+			cblogger.Error(nlbReqInfo.Listener.Port, "is not number!!")
 			return nil, err
 		}
 	} else {
@@ -123,9 +121,9 @@ func (NLBHandler *AwsNLBHandler) CreateListener(nlbReqInfo irs.NLBInfo) (*elbv2.
 		return nil, err
 	}
 
-	cblogger.Debug("Listener 생성 결과")
+	cblogger.Debug("Listener creation result")
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	return result, nil
@@ -152,7 +150,7 @@ func (NLBHandler *AwsNLBHandler) CreateTargetGroup(nlbReqInfo irs.NLBInfo) (*elb
 		if n, err := strconv.ParseInt(nlbReqInfo.VMGroup.Port, 10, 64); err == nil {
 			input.SetPort(n)
 		} else {
-			cblogger.Error(nlbReqInfo.VMGroup.Port, "은 숫자가 아님!!")
+			cblogger.Error(nlbReqInfo.VMGroup.Port, "is not number!!")
 			return nil, err
 		}
 	} else {
@@ -208,9 +206,9 @@ func (NLBHandler *AwsNLBHandler) CreateTargetGroup(nlbReqInfo irs.NLBInfo) (*elb
 		return nil, err
 	}
 
-	cblogger.Debug("TargetGroup 생성 결과")
+	cblogger.Debug("TargetGroup creation result")
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	return result, nil
@@ -230,7 +228,7 @@ func (NLBHandler *AwsNLBHandler) ExtractNlbSubnets(vpcId string) ([]*string, err
 		},
 	}
 
-	//spew.Dump(input)
+	//cblogger.Debug(input)
 	result, err := NLBHandler.VMClient.DescribeSubnets(input)
 	if err != nil {
 		if aerr, ok := err.(awserr.Error); ok {
@@ -247,19 +245,19 @@ func (NLBHandler *AwsNLBHandler) ExtractNlbSubnets(vpcId string) ([]*string, err
 	}
 
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	//서브넷 정보 추출
 	mapZone := map[string]string{} //AZ별 1개의 서브넷만 사용 가능하기 때문에 중복을 제거 함. (형식) mapZone["AZ"]="서브넷"
-	cblogger.Debug("사용 가능한 Subnet 목록 조회")
+	cblogger.Debug("Retrieve available Subnet list")
 	for _, curSubnet := range result.Subnets {
 		cblogger.Debugf("[%s] AZ [%s] Subnet", *curSubnet.AvailabilityZone, *curSubnet.SubnetId)
 		mapZone[*curSubnet.AvailabilityZone] = *curSubnet.SubnetId
 	}
 
 	//최종 사용할 서브넷 목록만 추출함.
-	cblogger.Info("NLB에 사용하기 위해 최종 선택된 Subnet 목록")
+	cblogger.Info("Final selected Subnet list for NLB usage")
 	subnetList := []*string{}
 	for key, val := range mapZone {
 		cblogger.Infof("AZ[%s] Subnet[%s]", key, val)
@@ -298,14 +296,14 @@ func (NLBHandler *AwsNLBHandler) ExtractVmSubnets(VMs *[]irs.IID) ([]*string, er
 	}
 
 	cblogger.Debug(result)
-	cblogger.Infof("조회된 VM 정보 수 : [%d]", len(result.Reservations))
+	cblogger.Infof("Number of retrieved VM information: [%d]", len(result.Reservations))
 	if len(result.Reservations) == 0 {
-		cblogger.Error("조회된 VM 정보가 없습니다.")
+		cblogger.Error("No VM information retrieved.")
 		return nil, awserr.New(CUSTOM_ERR_CODE_NOTFOUND, "VM information was not found.", nil)
 	}
 
 	if len(*VMs) != len(result.Reservations) {
-		cblogger.Errorf("요청된 VM 수[%d]와 조회된 VM 수[%d]가 일치하지 않습니다.", len(*VMs), len(result.Reservations))
+		cblogger.Errorf("The requested VM count [%d] does not match the retrieved VM count [%d].", len(*VMs), len(result.Reservations))
 		return nil, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, fmt.Sprintf("Requested number of VMs [%d] and queried number of VMs [%d] do not match.", len(*VMs), len(result.Reservations)), nil)
 	}
 
@@ -352,10 +350,10 @@ func (NLBHandler *AwsNLBHandler) CheckHealthCheckerValidation(reqHealthCheckerIn
 		if strings.EqualFold(reqHealthCheckerInfo.Protocol, "TCP") || strings.EqualFold(reqHealthCheckerInfo.Protocol, "TLS") || strings.EqualFold(reqHealthCheckerInfo.Protocol, "UDP") || strings.EqualFold(reqHealthCheckerInfo.Protocol, "TCP_UDP") {
 			//헬스 체크 인터벌 값 검증
 			if reqHealthCheckerInfo.Interval == 10 || reqHealthCheckerInfo.Interval == 30 {
-				cblogger.Debugf("===================> 헬스 체크 인터벌 값 검증 : 통과 : [%d]", reqHealthCheckerInfo.Interval)
+				cblogger.Debugf("===================> Health check interval value validation: Passed: [%d]", reqHealthCheckerInfo.Interval)
 			} else {
-				cblogger.Errorf("===================> 헬스 체크 인터벌 값 검증 : 실패 - 입력 값 : [%d]", reqHealthCheckerInfo.Interval)
-				cblogger.Error("TCP 프로토콜의 헬스 체크 인터벌은 10 또는 30만 가능 함.")
+				cblogger.Errorf("===================> Health check interval value validation: Failed - Input value: [%d]", reqHealthCheckerInfo.Interval)
+				cblogger.Error("The health check interval for TCP protocol must be either 10 or 30.")
 				return awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "The health check interval for TCP protocol can only be 10 or 30.", nil)
 			}
 
@@ -370,10 +368,10 @@ func (NLBHandler *AwsNLBHandler) CheckHealthCheckerValidation(reqHealthCheckerIn
 	// If the target type is lambda, the default is 30 seconds.
 	if reqHealthCheckerInfo.Timeout > 0 {
 		if strings.EqualFold(reqHealthCheckerInfo.Protocol, "TCP") {
-			cblogger.Errorf("===================> TCP 프로토콜은 헬스 체크 타임아웃 값 설정을 지원하지 않음")
+			cblogger.Errorf("===================> TCP protocol does not support health check timeout value setting")
 			return awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "Custom health check timeouts are not supported for health checks for target groups with the TCP protocol.", nil)
 		} else {
-			cblogger.Debugf("===================> 헬스 체크 타임아웃 값 검증 : 통과 : [%d](TCP프로토콜 아님)", reqHealthCheckerInfo.Timeout)
+			cblogger.Debugf("===================> Health check timeout value validation: Passed: [%d] (Not TCP protocol)", reqHealthCheckerInfo.Timeout)
 		}
 	}
 
@@ -528,10 +526,10 @@ func (NLBHandler *AwsNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	cblogger.Infof("[%s] NLB 생성 완료 - LoadBalancerArn : [%s]", nlbReqInfo.IId.NameId, *result.LoadBalancers[0].LoadBalancerArn)
+	cblogger.Infof("[%s] NLB creation completed - LoadBalancerArn: [%s]", nlbReqInfo.IId.NameId, *result.LoadBalancers[0].LoadBalancerArn)
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	nlbReqInfo.IId.SystemId = *result.LoadBalancers[0].LoadBalancerArn //리스너 생성및 장애시 삭제 처리를 위해 Req에 LoadBalancerArn 정보를 셋팅함.
@@ -544,21 +542,21 @@ func (NLBHandler *AwsNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 		cblogger.Error(errTargetGroup.Error())
 
 		//생성된 NLB 포함 리소스들 삭제
-		cblogger.Infof("VM 그룹 생성 실패에 따른 NLB[%s]및 관련 리소스 삭제 작업 시작!!", nlbReqInfo.IId.NameId)
+		cblogger.Infof("Starting NLB [%s] and related resources deletion due to VM group creation failure!!", nlbReqInfo.IId.NameId)
 		_, errNlbInfo := NLBHandler.DeleteNLB(nlbReqInfo.IId)
 		if errNlbInfo != nil {
-			cblogger.Errorf("VM 그룹 생성 실패에 따른 NLB[%s]및 관련 리소스 삭제 작업 실패!!", nlbReqInfo.IId.NameId)
+			cblogger.Errorf("Failed to delete NLB [%s] and related resources due to VM group creation failure!!", nlbReqInfo.IId.NameId)
 			cblogger.Error(errNlbInfo.Error())
 			//만약 NLB 포함 관련 리소스 정보 제거에 실패해도 생성 에러 메시지 유지를 위해 다른 작업은 진행하지 않음.
 		} else {
-			cblogger.Infof("VM 그룹 생성 실패에 따른 NLB[%s]및 관련 리소스 삭제 작업 완료!!", nlbReqInfo.IId.NameId)
+			cblogger.Infof("NLB [%s] and related resources deletion completed due to VM group creation failure!!", nlbReqInfo.IId.NameId)
 		}
 
 		return irs.NLBInfo{}, errTargetGroup
 	}
 
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(targetGroup)
+		cblogger.Debug(targetGroup)
 	}
 
 	//===================
@@ -569,14 +567,14 @@ func (NLBHandler *AwsNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 		cblogger.Error(errAddVms.Error())
 
 		//생성된 NLB 포함 리소스들 삭제
-		cblogger.Infof("생성된 VM 그룹에 인스턴스 추가 실패에 따른 NLB[%s]및 관련 리소스 삭제 작업 시작!!", nlbReqInfo.IId.NameId)
+		cblogger.Infof("Starting NLB [%s] and related resources deletion due to failed addition of instances to the created VM group!!", nlbReqInfo.IId.NameId)
 		_, errNlbInfo := NLBHandler.DeleteNLB(nlbReqInfo.IId)
 		if errNlbInfo != nil {
-			cblogger.Errorf("생성된 VM 그룹에 인스턴스 추가 실패에 따른 NLB[%s]및 관련 리소스 삭제 작업 실패!!", nlbReqInfo.IId.NameId)
+			cblogger.Errorf("Failed to delete NLB [%s] and related resources due to failed addition of instances to the created VM group!!", nlbReqInfo.IId.NameId)
 			cblogger.Error(errNlbInfo.Error())
 			//만약 NLB 포함 관련 리소스 정보 제거에 실패해도 생성 에러 메시지 유지를 위해 다른 작업은 진행하지 않음.
 		} else {
-			cblogger.Infof("생성된 VM 그룹에 인스턴스 추가 실패에 따른 NLB[%s]및 관련 리소스 삭제 작업 완료!!", nlbReqInfo.IId.NameId)
+			cblogger.Infof("NLB [%s] and related resources deletion completed due to failed addition of instances to the created VM group!!", nlbReqInfo.IId.NameId)
 		}
 
 		return irs.NLBInfo{}, errAddVms
@@ -591,21 +589,21 @@ func (NLBHandler *AwsNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 		cblogger.Error(errListener.Error())
 
 		//생성된 NLB 포함 리소스들 삭제
-		cblogger.Infof("리스너 생성 실패에 따른 NLB[%s]및 관련 리소스 삭제 작업 시작!!", nlbReqInfo.IId.NameId)
+		cblogger.Infof("Starting NLB [%s] and related resources deletion due to listener creation failure!!", nlbReqInfo.IId.NameId)
 		_, errNlbInfo := NLBHandler.DeleteNLB(nlbReqInfo.IId)
 		if errNlbInfo != nil {
-			cblogger.Errorf("리스너 생성 실패에 따른 NLB[%s]및 관련 리소스 삭제 작업 실패!!", nlbReqInfo.IId.NameId)
+			cblogger.Errorf("Failed to delete NLB [%s] and related resources due to listener creation failure!!", nlbReqInfo.IId.NameId)
 			cblogger.Error(errNlbInfo.Error())
 			//만약 NLB 포함 관련 리소스 정보 제거에 실패해도 생성 에러 메시지 유지를 위해 다른 작업은 진행하지 않음.
 		} else {
-			cblogger.Infof("리스너 생성 실패에 따른 NLB[%s]및 관련 리소스 삭제 작업 완료!!", nlbReqInfo.IId.NameId)
+			cblogger.Infof("NLB [%s] and related resources deletion completed due to listener creation failure!!", nlbReqInfo.IId.NameId)
 		}
 
 		return irs.NLBInfo{}, errListener
 	}
 
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(listener)
+		cblogger.Debug(listener)
 	}
 
 	//================================
@@ -648,7 +646,7 @@ func (NLBHandler *AwsNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	if err != nil {
@@ -674,7 +672,7 @@ func (NLBHandler *AwsNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	var results []*irs.NLBInfo
 	for _, curNLB := range result.LoadBalancers {
 		if !strings.EqualFold(*curNLB.Type, "network") {
-			cblogger.Infof("%s load balancer는 관리 대상이 아니라서 Skip함!!! - [%s]", *curNLB.Type, *curNLB.LoadBalancerName)
+			cblogger.Infof("%s Load balancer is not under management, so it is skipped - [%s]", *curNLB.Type, *curNLB.LoadBalancerName)
 			continue
 		}
 		nlbInfo, errNLBInfo := NLBHandler.GetNLB(irs.IID{SystemId: *curNLB.LoadBalancerArn})
@@ -718,7 +716,7 @@ func (NLBHandler *AwsNLBHandler) IsExistNLB(nlbName string) (bool, error) {
 func (NLBHandler *AwsNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {
 	cblogger.Info("NLB IID : ", nlbIID.SystemId)
 	if nlbIID.SystemId == "" {
-		cblogger.Error("IID 값이 Null임.")
+		cblogger.Error("IID value is Null.")
 		return irs.NLBInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "nlbIID.systemId value of the input parameter is empty.", nil)
 	}
 
@@ -745,7 +743,7 @@ func (NLBHandler *AwsNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	if err != nil {
@@ -794,7 +792,7 @@ func (NLBHandler *AwsNLBHandler) ExtractListenerInfo(nlbIID irs.IID) (irs.Listen
 				cblogger.Error(elbv2.ErrCodeListenerNotFoundException, aerr.Error())
 				//Test 결과 NLB에 리스너가 할당되지 않아도 지금은 ErrCodeListenerNotFoundException 예외는 발생하지 않고 정상 결과로 처리되지만
 				//만약을 위해서 TargetGroup처럼 NotFound의 경우 정상 처리 함.
-				cblogger.Info("조회 및 삭제 로직을 위해 리스너 Not Found는 에러로 처리하지 않음.")
+				cblogger.Info("Listener Not Found is not treated as an error for retrieval and deletion logic.")
 				return irs.ListenerInfo{}, nil
 			case elbv2.ErrCodeLoadBalancerNotFoundException:
 				cblogger.Error(elbv2.ErrCodeLoadBalancerNotFoundException, aerr.Error())
@@ -813,7 +811,7 @@ func (NLBHandler *AwsNLBHandler) ExtractListenerInfo(nlbIID irs.IID) (irs.Listen
 
 	cblogger.Debug(resListener)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(resListener)
+		cblogger.Debug(resListener)
 	}
 
 	if len(resListener.Listeners) > 0 {
@@ -852,7 +850,7 @@ func (NLBHandler *AwsNLBHandler) ExtractVMGroupInfo(nlbIID irs.IID) (TargetGroup
 				cblogger.Error(elbv2.ErrCodeTargetGroupNotFoundException, aerr.Error())
 
 				//TargetGroup 정보가 없는 경우 생성 도중 실패나 AWS 콘솔 등에서 삭제된 경우를 감안해서 List및 삭제 작업 시 발생할 에러를 방지하기 위해 아무런 처리도 하지 않음.
-				cblogger.Info("조회 및 삭제 로직을 위해 타겟그룹 Not Found는 에러로 처리하지 않음.")
+				cblogger.Info("For retrieval and deletion logic, Target Group Not Found is not treated as an error.")
 				return TargetGroupInfo{}, nil
 			default:
 				cblogger.Error(aerr.Error())
@@ -866,7 +864,7 @@ func (NLBHandler *AwsNLBHandler) ExtractVMGroupInfo(nlbIID irs.IID) (TargetGroup
 	}
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	if len(result.TargetGroups) > 0 {
@@ -942,7 +940,7 @@ func (NLBHandler *AwsNLBHandler) ExtractHealthCheckerInfo(targetGroupArn string)
 
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	return result.TargetHealthDescriptions, nil
@@ -977,7 +975,7 @@ func (NLBHandler *AwsNLBHandler) ExtractNLBInfo(nlbResInfo *elbv2.LoadBalancer) 
 	//==================
 	// VM Group 처리
 	//==================
-	cblogger.Info("VM Group 정보 조회 시작")
+	cblogger.Info("VM Group information retrieval started")
 	retTargetGroupInfo, errVMGroupInfo := NLBHandler.ExtractVMGroupInfo(retNLBInfo.IId) //NLB Name으로 검색함.
 	//NLB에 연결되지 않았거나 아직 생성되지 않은 TargetGroup을 감안해서 404 Notfound는 에러처리 하지 않음
 	if errVMGroupInfo != nil {
@@ -990,7 +988,7 @@ func (NLBHandler *AwsNLBHandler) ExtractNLBInfo(nlbResInfo *elbv2.LoadBalancer) 
 	//==================
 	// 리스너 처리
 	//==================
-	cblogger.Info("Listener 정보 조회 시작")
+	cblogger.Info("Listener information retrieval started")
 	retListenerInfo, errListener := NLBHandler.ExtractListenerInfo(retNLBInfo.IId) //NLB Arn으로 검색 함.
 	if errListener != nil {
 		cblogger.Error(errListener.Error())
@@ -1030,7 +1028,7 @@ func (NLBHandler *AwsNLBHandler) DeleteListener(listenerArn *string) (bool, erro
 
 	result, err := NLBHandler.Client.DeleteListener(input)
 	if err != nil {
-		cblogger.Errorf("Listener[%s] 삭제 실패", listenerArn)
+		cblogger.Errorf("Listener[%s] deleted failed", listenerArn)
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case elbv2.ErrCodeListenerNotFoundException:
@@ -1048,10 +1046,10 @@ func (NLBHandler *AwsNLBHandler) DeleteListener(listenerArn *string) (bool, erro
 		return false, err
 	}
 
-	cblogger.Infof("Listener[%s] 삭제 완료", listenerArn)
+	cblogger.Infof("Listener[%s] deleted complate", listenerArn)
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	return true, nil
@@ -1064,7 +1062,7 @@ func (NLBHandler *AwsNLBHandler) DeleteTargetGroup(targetGroupArn *string) (bool
 
 	result, err := NLBHandler.Client.DeleteTargetGroup(input)
 	if err != nil {
-		cblogger.Errorf("TargetGroup[%s] 삭제 실패", targetGroupArn)
+		cblogger.Errorf("TargetGroup[%s] deleted failed", targetGroupArn)
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case elbv2.ErrCodeResourceInUseException:
@@ -1080,10 +1078,10 @@ func (NLBHandler *AwsNLBHandler) DeleteTargetGroup(targetGroupArn *string) (bool
 		return false, err
 	}
 
-	cblogger.Infof("TargetGroup[%s] 삭제 완료", targetGroupArn)
+	cblogger.Infof("TargetGroup[%s] deleted complate", targetGroupArn)
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	return true, nil
@@ -1098,10 +1096,10 @@ func (NLBHandler *AwsNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 		return false, errNlbInfo
 	}
 
-	cblogger.Info("삭제할 NLB 정보")
-	cblogger.Info(nlbInfo)
+	cblogger.Debug("NLB information to be deleted")
+	cblogger.Debug(nlbInfo)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(nlbInfo)
+		cblogger.Debug(nlbInfo)
 	}
 
 	//=========================
@@ -1110,7 +1108,7 @@ func (NLBHandler *AwsNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	// Listener 정보가 있는 경우에만 진행
 	//nlbInfo.Listener = irs.ListenerInfo{}
 	if nlbInfo.Listener.CspID != "" {
-		cblogger.Infof("[%s] Listener 삭제 시작", nlbInfo.Listener.CspID)
+		cblogger.Infof("[%s] Listener deletion started", nlbInfo.Listener.CspID)
 
 		_, errDeleteListener := NLBHandler.DeleteListener(&nlbInfo.Listener.CspID)
 		if errDeleteListener != nil {
@@ -1128,7 +1126,7 @@ func (NLBHandler *AwsNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	//if !reflect.ValueOf(nlbInfo.VMGroup).IsNil() && nlbInfo.VMGroup.CspID != "" {
 	//nlbInfo.VMGroup = irs.VMGroupInfo{}
 	if nlbInfo.VMGroup.CspID != "" {
-		cblogger.Infof("[%s] TargetGroup 삭제 시작", nlbInfo.VMGroup.CspID)
+		cblogger.Infof("[%s] TargetGroup deletion started", nlbInfo.VMGroup.CspID)
 		_, errDeleteTargetGroup := NLBHandler.DeleteTargetGroup(&nlbInfo.VMGroup.CspID)
 		if errDeleteTargetGroup != nil {
 			cblogger.Error(errDeleteTargetGroup.Error())
@@ -1162,7 +1160,7 @@ func (NLBHandler *AwsNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
 
-		cblogger.Errorf("NLB[%s] 삭제 실패", nlbIID.SystemId)
+		cblogger.Errorf("Failed to delete NLB [%s]", nlbIID.SystemId)
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case elbv2.ErrCodeLoadBalancerNotFoundException:
@@ -1183,10 +1181,10 @@ func (NLBHandler *AwsNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	cblogger.Infof("NLB[%s] 삭제 완료", nlbIID.SystemId)
+	cblogger.Infof("NLB [%s] deleted successfully", nlbIID.SystemId)
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	return true, nil
@@ -1196,7 +1194,7 @@ func (NLBHandler *AwsNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 // Protocol 하고 Port 정보만 변경 가능
 func (NLBHandler *AwsNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.ListenerInfo) (irs.ListenerInfo, error) {
 	if nlbIID.SystemId == "" {
-		cblogger.Error("IID 값이 Null임.")
+		cblogger.Error("IID value is Null.")
 		return irs.ListenerInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "nlbIID.systemId value of the input parameter is empty.", nil)
 	}
 
@@ -1208,7 +1206,7 @@ func (NLBHandler *AwsNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.Lis
 	}
 
 	if listenerInfo.CspID == "" {
-		cblogger.Error("NLB와 연결된 리스너의 ARN 값을 찾을 수 없음")
+		cblogger.Error("Cannot find the ARN value of the listener associated with the NLB")
 		return irs.ListenerInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "Listener associated with NLB does not exist.", nil)
 	}
 
@@ -1235,12 +1233,12 @@ func (NLBHandler *AwsNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.Lis
 		if n, err := strconv.ParseInt(listener.Port, 10, 64); err == nil {
 			input.SetPort(n)
 		} else {
-			cblogger.Error(listener.Port, "은 숫자가 아님!!")
+			cblogger.Error(listener.Port, "is not number!!")
 			return irs.ListenerInfo{}, err
 		}
 	}
 
-	cblogger.Info("리스너 정보 변경 시작")
+	cblogger.Info("Listener information modification started")
 	cblogger.Info(input)
 
 	// logger for HisCall
@@ -1310,10 +1308,10 @@ func (NLBHandler *AwsNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.Lis
 		return irs.ListenerInfo{}, err
 	}
 
-	cblogger.Infof("리스너 정보 변경 완료")
+	cblogger.Infof("Listener information modification completed")
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	//변경된 최종 리스너 정보를 리턴 함.
@@ -1360,7 +1358,7 @@ func (NLBHandler *AwsNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.V
 // @TODO : 이미 등록된 AZ의 다른 서브넷을 사용하는 Instance 처리 필요
 func (NLBHandler *AwsNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.VMGroupInfo, error) {
 	if nlbIID.NameId == "" || nlbIID.SystemId == "" {
-		cblogger.Error("IID 값이 Null임.")
+		cblogger.Error("IID value is null.")
 		return irs.VMGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "nlbIID value of the input parameter is empty.", nil)
 	}
 
@@ -1373,7 +1371,7 @@ func (NLBHandler *AwsNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.
 
 	//NLB과 관련된 Target 그룹이 존재하지 않을 경우
 	if retTargetGroupInfo.VMGroup.Port == "" {
-		cblogger.Errorf("[%s] NLB와 연결된 VM Group이 존재하지 않아서 요청된 Instance를 추가할 수 없음", nlbIID.NameId)
+		cblogger.Errorf("Cannot add the requested instances because there is no VM Group associated with the NLB [%s]", nlbIID.NameId)
 		return irs.VMGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "VM Group does not exist to add the instance.", nil)
 	}
 
@@ -1401,11 +1399,11 @@ func (NLBHandler *AwsNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.
 		input.Targets = append(input.Targets, &elbv2.TargetDescription{Id: aws.String(curVM.SystemId), Port: iTagetPort})
 	}
 
-	cblogger.Infof("VM 그룹(%s)에 추가 예정 인스턴스 정보들", retTargetGroupInfo.VMGroup.CspID)
+	cblogger.Infof("Information of instances scheduled to be added to VM group (%s)", retTargetGroupInfo.VMGroup.CspID)
 	cblogger.Info(input)
 
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(input)
+		cblogger.Debug(input)
 	}
 
 	// logger for HisCall
@@ -1449,10 +1447,10 @@ func (NLBHandler *AwsNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	cblogger.Infof("VM 그룹(%s)에 인스턴스 추가 완료", retTargetGroupInfo.VMGroup.CspID)
+	cblogger.Infof("Instances added to VM group (%s) successfully", retTargetGroupInfo.VMGroup.CspID)
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	//최신 정보 전달을 위해 다시 호출함.
@@ -1467,7 +1465,7 @@ func (NLBHandler *AwsNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.
 
 func (NLBHandler *AwsNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (bool, error) {
 	if nlbIID.NameId == "" || nlbIID.SystemId == "" {
-		cblogger.Error("IID 값이 Null임.")
+		cblogger.Error("IID value is Null.")
 		return false, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "nlbIID value of the input parameter is empty.", nil)
 	}
 
@@ -1480,7 +1478,7 @@ func (NLBHandler *AwsNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (b
 
 	//NLB과 관련된 Target 그룹이 존재하지 않을 경우
 	if retTargetGroupInfo.VMGroup.Port == "" {
-		cblogger.Errorf("[%s] NLB와 연결된 VM Group이 존재하지 않아서 요청된 Instance를 제거할 수 없음", nlbIID.NameId)
+		cblogger.Errorf("Cannot remove the requested instances because there is no VM Group associated with the NLB [%s]", nlbIID.NameId)
 		return false, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "VM Group does not exist to remove the instance.", nil)
 	}
 
@@ -1500,10 +1498,10 @@ func (NLBHandler *AwsNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (b
 		input.Targets = append(input.Targets, &elbv2.TargetDescription{Id: aws.String(curVM.SystemId)})
 	}
 
-	cblogger.Infof("VM 그룹(%s)에서 삭제 예정 인스턴스 정보들", retTargetGroupInfo.VMGroup.CspID)
+	cblogger.Infof("Information of instances scheduled to be removed from VM group (%s)", retTargetGroupInfo.VMGroup.CspID)
 	cblogger.Info(input)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(input)
+		cblogger.Debug(input)
 	}
 
 	// logger for HisCall
@@ -1541,10 +1539,10 @@ func (NLBHandler *AwsNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (b
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	cblogger.Infof("VM 그룹(%s)에서 인스턴스 삭제 성공", retTargetGroupInfo.VMGroup.CspID)
+	cblogger.Infof("Instances successfully removed from VM group (%s)", retTargetGroupInfo.VMGroup.CspID)
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	return true, nil
@@ -1580,7 +1578,7 @@ func (NLBHandler *AwsNLBHandler) ExtractVMGroupHealthInfo(targetGroupArn string)
 
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	retHealthInfo := irs.HealthInfo{}
@@ -1617,7 +1615,7 @@ func (NLBHandler *AwsNLBHandler) ExtractVMGroupHealthInfo(targetGroupArn string)
 // @TODO : 5가지의 상태(Healthy / Unhealthy / Unused / Initial / Draining)가 존재 하기 때문에 리턴 객체에 담을 Unhealthy의 범위 확정이 필요 함.
 func (NLBHandler *AwsNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.HealthInfo, error) {
 	if nlbIID.SystemId == "" {
-		cblogger.Error("IID 값이 Null임.")
+		cblogger.Error("IID value is Null.")
 		return irs.HealthInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "nlbIID.systemId value of the input parameter is empty.", nil)
 	}
 
@@ -1655,7 +1653,7 @@ func (NLBHandler *AwsNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.Healt
 
 func (NLBHandler *AwsNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthChecker irs.HealthCheckerInfo) (irs.HealthCheckerInfo, error) {
 	if nlbIID.SystemId == "" {
-		cblogger.Error("IID 값이 Null임.")
+		cblogger.Error("IID value is Null.")
 		return irs.HealthCheckerInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "nlbIID.systemId value of the input parameter is empty.", nil)
 	}
 
@@ -1668,7 +1666,7 @@ func (NLBHandler *AwsNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthC
 	//TCP의 경우 인터벌은 생성 후 변경 불가
 	if healthChecker.Interval > 0 {
 		if strings.EqualFold(healthChecker.Protocol, "TCP") {
-			cblogger.Errorf("===================> TCP 프로토콜은 인터벌 값 변경을 지원하지 않음")
+			cblogger.Errorf("===================> TCP protocol does not support interval value change")
 			return irs.HealthCheckerInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "You cannot change the health check interval for a target group with the TCP protocol.", nil)
 		}
 	}
@@ -1755,10 +1753,10 @@ func (NLBHandler *AwsNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthC
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	cblogger.Info("Health 정보 변경 완료")
+	cblogger.Info("Health information modification completed")
 	cblogger.Debug(result)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	//최신 정보 조회
