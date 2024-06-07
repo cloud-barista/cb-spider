@@ -23,11 +23,10 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-
 //====================================== Cluster: Provider Managed Kubernetes(PMKS)
 
-// number, CLUSTERNAME/Version, Status/CreatedTime, NetworkInfo(VPC/Sub/SG), AccessInfo(AccessPoint/KubeConfig), Addons, 
-// NodeGroups,  
+// number, CLUSTERNAME/Version, Status/CreatedTime, NetworkInfo(VPC/Sub/SG), AccessInfo(AccessPoint/KubeConfig), Addons,
+// NodeGroups,
 // Additional Info, checkbox
 func makeClusterTRList_html(bgcolor string, height string, fontSize string, providerName string, connConfig string, infoList []*cres.ClusterInfo) string {
 	if bgcolor == "" {
@@ -91,8 +90,8 @@ $$ADDITIONALINFO$$
                         <input type="checkbox" name="check_box" value=$$CLUSTERNAME$$>
                     </td>
                 </tr>
-                `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize, 
-                fontSize, fontSize, fontSize, fontSize, fontSize, fontSize)
+                `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize,
+		fontSize, fontSize, fontSize, fontSize, fontSize, fontSize)
 
 	strRemoveNodeGroup := fmt.Sprintf(`
                 <a href="javascript:$$REMOVENODEGROUP$$;">
@@ -108,8 +107,6 @@ $$ADDITIONALINFO$$
                         <font size=%s><mark><b>+</b></mark></font>
                 </a>
 		`, generateNodeGroupReqString(providerName), fontSize)
-
-
 
 	strData := ""
 	// set data and make TR list
@@ -127,19 +124,19 @@ $$ADDITIONALINFO$$
 		// for Subnet
 		strSRList := ""
 		for _, one := range one.Network.SubnetIIDs {
-			strSRList += one.NameId + "," 
+			strSRList += one.NameId + ","
 		}
 		strSRList = strings.TrimSuffix(strSRList, ",")
-		strSRList = "[" + strSRList +  "]"
+		strSRList = "[" + strSRList + "]"
 		str = strings.ReplaceAll(str, "$$SUBNET$$", strSRList)
 
 		// for security rules info
 		strSRList = ""
 		for _, one := range one.Network.SecurityGroupIIDs {
-			strSRList += one.NameId + "," 
+			strSRList += one.NameId + ","
 		}
 		strSRList = strings.TrimSuffix(strSRList, ",")
-		strSRList = "[" + strSRList +  "]"
+		strSRList = "[" + strSRList + "]"
 		str = strings.ReplaceAll(str, "$$SECURITYGROUP$$", strSRList)
 
 		str = strings.ReplaceAll(str, "$$ENDPOINT$$", one.AccessInfo.Endpoint)
@@ -178,7 +175,7 @@ $$ADDITIONALINFO$$
 				strVMList += generateNodeInfoHyperlinkNodeString(idx, connConfig, vmIID.SystemId) + ", "
 			}
 			strVMList = strings.TrimRight(strVMList, ", ")
-			
+
 			strNodeGroupList += "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Nodes: <mark> [ " + strVMList + " ] </mark>" + "<br>"
 			strNodeGroupList += "}"
 
@@ -192,13 +189,13 @@ $$ADDITIONALINFO$$
 			// strNodeGroupList += "}"
 
 			var nodegroupName = one.IId.NameId
-			strNodeGroupList += strings.ReplaceAll(strRemoveNodeGroup, "$$REMOVENODEGROUP$$", "removeNodeGroup('"+clusterName+"', '"+nodegroupName+"')")
+			strNodeGroupList += strings.ReplaceAll(strRemoveNodeGroup, "$$REMOVENODEGROUP$$", "removeNodeGroup('"+connConfig+"', '"+clusterName+"', '"+nodegroupName+"')")
 
 			strNodeGroupList += "<br>----------"
 			strNodeGroupList += "<br>"
 		}
 		clusterAddNodeGroup := strings.ReplaceAll(strAddNodegroup, "$$ADDCLUSTER$$", clusterName)
-		strNodeGroupList += strings.ReplaceAll(clusterAddNodeGroup, "$$ADDNODEGROUP$$", "postNodeGroup('"+clusterName+"')")
+		strNodeGroupList += strings.ReplaceAll(clusterAddNodeGroup, "$$ADDNODEGROUP$$", "postNodeGroup('"+connConfig+"', '"+clusterName+"')")
 		str = strings.ReplaceAll(str, "$$NODEGROUPS$$", strNodeGroupList)
 
 		// for KeyValueList
@@ -230,21 +227,29 @@ func makeOpenNodeInfoFunc_js() string {
 	strFunc := `
                 function openNodeInfoWindow(connConfig, nodeCSPName) {
 
-                        var xhr = new XMLHttpRequest();
-                        xhr.open("GET", "$$SPIDER_SERVER$$/spider/cspvm/" + nodeCSPName + "?ConnectionName=" + connConfig, false);
+                    var xhr = new XMLHttpRequest();
+                    xhr.open("GET", "$$SPIDER_SERVER$$/spider/cspvm/" + nodeCSPName + "?ConnectionName=" + connConfig, false);
 
-			 // client logging
-			parent.frames["log_frame"].Log("curl -sX GET " + "$$SPIDER_SERVER$$/spider/cspvm" + nodeCSPName + "?ConnectionName=" + connConfig);
+					// client logging
+					try {
+						parent.frames["log_frame"].Log("curl -sX GET " + "$$SPIDER_SERVER$$/spider/cspvm" + nodeCSPName + "?ConnectionName=" + connConfig);
+					} catch (e) {	
+						// Do nothing if error occurs
+					}				
 
-                        xhr.send(null);
+                    xhr.send(null);
 
-			// client logging
-			parent.frames["log_frame"].Log("   => " + xhr.response);
+					// client logging
+					try {
+						parent.frames["log_frame"].Log("   => " + xhr.response);
+					} catch (e) {
+						// Do nothing if error occurs
+					}
 
-                        var win = window.open("", "_blank", "width=500,height=690,location=no,scrollbars=no,menubar=no,status=no,titlebar=no,toolbar=no,resizable=no,top=300,left=500,");
-                        var jsonPretty = JSON.stringify(JSON.parse(xhr.response),null,2);  
-                        var textArea = '<textarea style="font-size:12px;text-align:left;resize:none;" disabled rows=47 cols=66>' + jsonPretty + '</textarea>'
-                        win.document.write(textArea);
+					var win = window.open("", "_blank", "width=500,height=690,location=no,scrollbars=no,menubar=no,status=no,titlebar=no,toolbar=no,resizable=no,top=300,left=500,");
+					var jsonPretty = JSON.stringify(JSON.parse(xhr.response),null,2);  
+					var textArea = '<textarea style="font-size:12px;text-align:left;resize:none;" disabled rows=47 cols=66>' + jsonPretty + '</textarea>'
+					win.document.write(textArea);
                 }
         `
 	strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
@@ -252,45 +257,44 @@ func makeOpenNodeInfoFunc_js() string {
 }
 
 func generateNodeGroupReqString(providerName string) string {
-                
-        Name := "economy"
-        ImageName := "" 
-        VMSpecName := "" 
-        RootDiskType := ""
-        RootDiskSize := "60" 
-        KeyPairName := "keypair-01"
-        OnAutoScaling := "true" 
-        DesiredNodeSize := "2" 
-        MinNodeSize := "1" 
-        MaxNodeSize := "3"
-        
 
-        switch providerName {
-        case "AWS":
-        case "AZURE":
-                VMSpecName = "Standard_B2s"
-        case "GCP":
-        case "ALIBABA":
-                VMSpecName = "ecs.c6.xlarge"
-                RootDiskType = "cloud_essd" 
-        case "TENCENT":
-                ImageName = "tlinux3.1x86_64"
-                VMSpecName = "S3.MEDIUM8"
-                RootDiskType = "CLOUD_BSSD" 
+	Name := "economy"
+	ImageName := ""
+	VMSpecName := ""
+	RootDiskType := ""
+	RootDiskSize := "60"
+	KeyPairName := "keypair-01"
+	OnAutoScaling := "true"
+	DesiredNodeSize := "2"
+	MinNodeSize := "1"
+	MaxNodeSize := "3"
 
-        case "IBM":
-        case "CLOUDIT":
-        case "OPENSTACK":
-        case "NCP":
-        case "KTCLOUD":
-        case "NHNCLOUD":
-        case "DOCKER":
-        case "MOCK":
-        case "CLOUDTWIN":
-        default:
-        }
+	switch providerName {
+	case "AWS":
+	case "AZURE":
+		VMSpecName = "Standard_B2s"
+	case "GCP":
+	case "ALIBABA":
+		VMSpecName = "ecs.c6.xlarge"
+		RootDiskType = "cloud_essd"
+	case "TENCENT":
+		ImageName = "tlinux3.1x86_64"
+		VMSpecName = "S3.MEDIUM8"
+		RootDiskType = "CLOUD_BSSD"
 
-        reqString := fmt.Sprintf(`{
+	case "IBM":
+	case "CLOUDIT":
+	case "OPENSTACK":
+	case "NCP":
+	case "KTCLOUD":
+	case "NHNCLOUD":
+	case "DOCKER":
+	case "MOCK":
+	case "CLOUDTWIN":
+	default:
+	}
+
+	reqString := fmt.Sprintf(`{
         "Name" :            "%s", 
         "ImageName" :       "%s", 
         "VMSpecName" :      "%s", 
@@ -301,31 +305,31 @@ func generateNodeGroupReqString(providerName string) string {
         "DesiredNodeSize" : "%s", 
         "MinNodeSize" :     "%s", 
         "MaxNodeSize" :     "%s"
-}`, Name, ImageName, VMSpecName, RootDiskType, RootDiskSize, KeyPairName, 
- 	OnAutoScaling, DesiredNodeSize, MinNodeSize, MaxNodeSize)
+}`, Name, ImageName, VMSpecName, RootDiskType, RootDiskSize, KeyPairName,
+		OnAutoScaling, DesiredNodeSize, MinNodeSize, MaxNodeSize)
 
 	return reqString
 }
+
 // make the string of javascript function
 func makePostClusterFunc_js() string {
 
-// curl -sX POST http://localhost:1024/spider/cluster -H 'Content-Type: application/json' -d \
-//         '{
-//                 "ConnectionName": "alibaba-tokyo-config",
+	// curl -sX POST http://localhost:1024/spider/cluster -H 'Content-Type: application/json' -d \
+	//         '{
+	//                 "ConnectionName": "alibaba-tokyo-config",
 
-//                 "ReqInfo": {
-//                         "Name": "spider-cluser-01",
-//                         "Version": "1.22.15-aliyun.1",
+	//                 "ReqInfo": {
+	//                         "Name": "spider-cluser-01",
+	//                         "Version": "1.22.15-aliyun.1",
 
-//                          "VPCName": "vpc-01",
-//                         "SubnetNames": ["subnet-01"],
-//                         "SecurityGroupNames": ["sg-01"]
-//                 }
-//         }' |json_pp
+	//                          "VPCName": "vpc-01",
+	//                         "SubnetNames": ["subnet-01"],
+	//                         "SecurityGroupNames": ["sg-01"]
+	//                 }
+	//         }' |json_pp
 
 	strFunc := `
-                function postCluster() {
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+                function postCluster(connConfig) {
                         var textboxes = document.getElementsByName('text_box');
 
                         sendJson = '{ "ConnectionName" : "' + connConfig + '", "ReqInfo" : \
@@ -372,12 +376,20 @@ func makePostClusterFunc_js() string {
                         xhr.setRequestHeader('Content-Type', 'application/json');
 
 			// client logging
-			parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/cluster -H 'Content-Type: application/json' -d '" + sendJson + "'");
+			try {
+				parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/cluster -H 'Content-Type: application/json' -d '" + sendJson + "'");
+			} catch (e) {
+				// Do nothing if error occurs
+			}
 
-                        xhr.send(sendJson);
+            xhr.send(sendJson);
 
 			// client logging
-			parent.frames["log_frame"].Log("   ==> " + xhr.response);
+			try {
+				parent.frames["log_frame"].Log("   ==> " + xhr.response);
+			} catch (e) {
+				// Do nothing if error occurs
+			}
 
             location.reload();
                 }
@@ -388,14 +400,13 @@ func makePostClusterFunc_js() string {
 
 // make the string of javascript function
 func makeDeleteClusterFunc_js() string {
-// curl -sX DELETE http://localhost:1024/spider/cluster/spider-cluser-01 -H 'Content-Type: application/json' -d \
-//         '{ 
-//                 "ConnectionName": "alibaba-tokyo-config"
-//         }' |json_pp
+	// curl -sX DELETE http://localhost:1024/spider/cluster/spider-cluser-01 -H 'Content-Type: application/json' -d \
+	//         '{
+	//                 "ConnectionName": "alibaba-tokyo-config"
+	//         }' |json_pp
 
 	strFunc := `
-                function deleteCluster() {
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+                function deleteCluster(connConfig) {
                         var checkboxes = document.getElementsByName('check_box');
 
                         for (var i = 0; i < checkboxes.length; i++) { // @todo make parallel executions
@@ -406,12 +417,20 @@ func makeDeleteClusterFunc_js() string {
 					sendJson = '{ "ConnectionName": "' + connConfig + '"}'
 
 					// client logging
-					parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/cluster/" + checkboxes[i].value + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+					try {
+						parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/cluster/" + checkboxes[i].value + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+					} catch (e) {
+						// Do nothing if error occurs
+					}
 
-                                        xhr.send(sendJson);
+                    xhr.send(sendJson);
 
 					// client logging
-					parent.frames["log_frame"].Log("   ==> " + xhr.response);
+					try {
+						parent.frames["log_frame"].Log("   ==> " + xhr.response);
+					} catch (e) {
+						// Do nothing if error occurs
+					}
                                 }
                         }
             location.reload();
@@ -424,28 +443,26 @@ func makeDeleteClusterFunc_js() string {
 // make the string of javascript function
 func makePostNodeGroupFunc_js() string {
 
-// curl -sX POST http://localhost:1024/spider/cluster/spider-cluser-01/nodegroup -H 'Content-Type: application/json' -d \
-//         '{
-//                 "ConnectionName": "alibaba-tokyo-config",
+	// curl -sX POST http://localhost:1024/spider/cluster/spider-cluser-01/nodegroup -H 'Content-Type: application/json' -d \
+	//         '{
+	//                 "ConnectionName": "alibaba-tokyo-config",
 
-//                 "ReqInfo": {
-//                         "Name": "Economy", 
-//                         "ImageName": "ubuntu_18_04_x64_20G_alibase_20220322.vhd", 
-//                         "VMSpecName": "ecs.c6.xlarge", 
-//                         "RootDiskType": "cloud_essd", 
-//                         "RootDiskSize": "70", 
-//                         "KeyPairName": "keypair-01",
-//                         "OnAutoScaling": "true", 
-//                         "DesiredNodeSize": "2", 
-//                         "MinNodeSize": "2", 
-//                         "MaxNodeSize": "2"
-//                 }
-//         }' |json_pp
+	//                 "ReqInfo": {
+	//                         "Name": "Economy",
+	//                         "ImageName": "ubuntu_18_04_x64_20G_alibase_20220322.vhd",
+	//                         "VMSpecName": "ecs.c6.xlarge",
+	//                         "RootDiskType": "cloud_essd",
+	//                         "RootDiskSize": "70",
+	//                         "KeyPairName": "keypair-01",
+	//                         "OnAutoScaling": "true",
+	//                         "DesiredNodeSize": "2",
+	//                         "MinNodeSize": "2",
+	//                         "MaxNodeSize": "2"
+	//                 }
+	//         }' |json_pp
 
 	strFunc := `
-                function postNodeGroup(clusterName) {
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
-
+                function postNodeGroup(connConfig, clusterName) {
                         var textbox = document.getElementById('nodegroup_text_box_' + clusterName);
                         sendJson = '{ "ConnectionName" : "' + connConfig + '", "ReqInfo" :  $$NODEGROUPINFO$$ }'
 
@@ -455,16 +472,23 @@ func makePostNodeGroupFunc_js() string {
                         xhr.open("POST", "$$SPIDER_SERVER$$/spider/cluster/" + clusterName + "/nodegroup", false);
                         xhr.setRequestHeader('Content-Type', 'application/json');
 
-			 // client logging
-			parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/cluster/" + clusterName + "/nodegroup" + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+						// client logging
+						try {
+							parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/cluster/" + clusterName + "/nodegroup" + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+						} catch (e) {
+							// Do nothing if error occurs
+						}
+						xhr.send(sendJson);
 
-                        xhr.send(sendJson);
+						// client logging
+						try {
+							parent.frames["log_frame"].Log("   => " + xhr.response);
+						} catch (e) {
+							// Do nothing if error occurs
+						}
 
-			// client logging
-			parent.frames["log_frame"].Log("   => " + xhr.response);
-
-                        location.reload();
-                }
+						location.reload();
+				}
         `
 	strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
 	return strFunc
@@ -475,21 +499,27 @@ func makeRemoveNodeGroupFunc_js() string {
 	//curl -sX DELETE http://localhost:1024/spider/cluster/spider-cluser-01/nodegroup/Economy -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}'
 
 	strFunc := `
-                function removeNodeGroup(clusterName, nodegroupName) {
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
-
+                function removeNodeGroup(connConfig, clusterName, nodegroupName) {
                         var xhr = new XMLHttpRequest();
                         xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/cluster/" + clusterName + "/nodegroup/" + nodegroupName, false);
                         xhr.setRequestHeader('Content-Type', 'application/json');
                         sendJson = '{ "ConnectionName": "' + connConfig + '"}'
 
-			 // client logging
-			parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/cluster/" + clusterName + "/nodegroup/" + nodegroupName + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+						// client logging
+						try {
+							parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/cluster/" + clusterName + "/nodegroup/" + nodegroupName + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+						} catch (e) {
+							// Do nothing if error occurs
+						}
 
                         xhr.send(sendJson);
 
-			// client logging
-			parent.frames["log_frame"].Log("   => " + xhr.response);
+						// client logging
+						try {
+							parent.frames["log_frame"].Log("   => " + xhr.response);
+						} catch (e) {
+							// Do nothing if error occurs
+						}
 
                         location.reload();
                 }
@@ -497,7 +527,6 @@ func makeRemoveNodeGroupFunc_js() string {
 	strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
 	return strFunc
 }
-
 
 func Cluster(c echo.Context) error {
 	cblog.Info("call Cluster()")
@@ -550,7 +579,7 @@ func Cluster(c echo.Context) error {
 	// (1) make Javascript Function
 	htmlStr += makeCheckBoxToggleFunc_js()
 	htmlStr += makePostClusterFunc_js()
-	htmlStr += makeDeleteClusterFunc_js()	
+	htmlStr += makeDeleteClusterFunc_js()
 	htmlStr += makePostNodeGroupFunc_js()
 	htmlStr += makeRemoveNodeGroupFunc_js()
 	htmlStr += makeOpenNodeInfoFunc_js()
@@ -565,7 +594,7 @@ func Cluster(c echo.Context) error {
 
 	// (2) make Table Action TR
 	// colspan, f5_href, delete_href, fontSize
-	htmlStr += makeActionTR_html("10", "", "deleteCluster()", "2")
+	htmlStr += makeActionTR_html("10", "", fmt.Sprintf("deleteCluster('%s')", connConfig), "2")
 
 	// (3) make Table Header TR
 	nameWidthList := []NameWidth{
@@ -589,14 +618,14 @@ func Cluster(c echo.Context) error {
 	if err != nil {
 		cblog.Error(err)
 		// client logging
-                htmlStr += genLoggingResult(err.Error())
+		htmlStr += genLoggingResult(err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	// client logging
 	htmlStr += genLoggingResult(string(resBody[:len(resBody)-1]))
 	var info struct {
-		Connection string
+		Connection      string
 		ClusterInfoList []*cres.ClusterInfo
 	}
 	json.Unmarshal(resBody, &info)
@@ -606,7 +635,7 @@ func Cluster(c echo.Context) error {
 	// (4-2) make TR list with info list
 	htmlStr += makeClusterTRList_html("", "", "", providerName, connConfig, info.ClusterInfoList)
 
-	// (5) make input field and add	
+	// (5) make input field and add
 	vpcList := vpcList(connConfig)
 
 	version := ""
@@ -670,8 +699,8 @@ func Cluster(c echo.Context) error {
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="7" value=##SECURITYGROUP##>
                             </td>                            
                    `
-        // AccessInfo and Addons 
-        htmlStr += `
+	// AccessInfo and Addons
+	htmlStr += `
                             <td style="vertical-align:top">
 				<input style="font-size:12px;text-align:center;" type="text" name="text_box" id="8" disabled value="N/A">
                             </td>
@@ -682,33 +711,32 @@ func Cluster(c echo.Context) error {
 
 	// NodeGroup
 	if nodegroupList == "" { // Tencent, Alibaba
-        	htmlStr += `
+		htmlStr += `
                             <td style="vertical-align:top">
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="11" disabled value="N/A">
                             </td>
         	`
-        } else {	// Azure, NHN
-        	htmlStr += fmt.Sprintf(`
+	} else { // Azure, NHN
+		htmlStr += fmt.Sprintf(`
                             <td style="vertical-align:top">
                 		<textarea style="font-size:12px;text-align:left;" name="text_box" id="11" rows=13 cols=50>
 %s
                 		</textarea>
                             </td>
 		`, nodegroupList)
-        }
+	}
 
 	// AdditionalInfo
-        htmlStr += `
+	htmlStr += `
                             <td style="vertical-align:top">
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="12" disabled value="N/A">
                             </td>
         	`
 
-
 	// create button with '+'
 	htmlStr += `
                             <td>
-                                <a href="javascript:postCluster()">
+                                <a href="javascript:postCluster('` + connConfig + `')">
                                     <font size=4><mark><b>+</b></mark></font>
                                 </a>
                             </td>

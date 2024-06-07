@@ -54,8 +54,9 @@ func RegisterVPC(c echo.Context) error {
 type subnetRegisterReq struct {
 	ConnectionName string
 	ReqInfo        struct {
-		VPCName string
 		Name    string
+		Zone    string
+		VPCName string
 		CSPId   string
 	}
 }
@@ -73,7 +74,7 @@ func RegisterSubnet(c echo.Context) error {
 	userIId := cres.IID{NameId: req.ReqInfo.Name, SystemId: req.ReqInfo.CSPId}
 
 	// Call common-runtime API
-	result, err := cmrt.RegisterSubnet(req.ConnectionName, req.ReqInfo.VPCName, userIId)
+	result, err := cmrt.RegisterSubnet(req.ConnectionName, req.ReqInfo.Zone, req.ReqInfo.VPCName, userIId)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
