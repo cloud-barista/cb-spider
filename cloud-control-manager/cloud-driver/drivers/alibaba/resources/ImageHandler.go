@@ -167,14 +167,14 @@ func (imageHandler *AlibabaImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 		//cnt := 0
 		for _, cur := range result.Images.Image {
-			cblogger.Debugf("[%s] Image 정보 처리", cur.ImageId)
+			cblogger.Debugf("[%s] Processing image information", cur.ImageId)
 			imageInfo := ExtractImageDescribeInfo(&cur)
 			imageInfoList = append(imageInfoList, &imageInfo)
 		}
 
 		if CBPageOn {
 			totalCount = len(imageInfoList)
-			cblogger.Infof("CSP 전체 이미지 갯수 : [%d] - 현재 페이지:[%d] - 누적 결과 개수:[%d]", result.TotalCount, curPage, totalCount)
+			cblogger.Infof("Total number of images across CSP: [%d] - Current page: [%d] - Accumulated result count: [%d]", result.TotalCount, curPage, totalCount)
 			if totalCount >= result.TotalCount {
 				break
 			}
@@ -315,7 +315,7 @@ func (imageHandler *AlibabaImageHandler) DeleteImage(imageIID irs.IID) (bool, er
 	callLogStart := call.Start()
 	result, err := imageHandler.Client.DeleteImage(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	cblogger.Info(result)
+	cblogger.Debug(result)
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Error(call.String(callLogInfo))

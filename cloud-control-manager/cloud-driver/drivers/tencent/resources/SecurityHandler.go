@@ -19,7 +19,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 )
@@ -99,11 +98,11 @@ func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo ir
 		callogger.Error(call.String(callLogInfo))
 
 		cblogger.Error(err)
-		spew.Dump(defaultEgressRequest)
+		cblogger.Debug(defaultEgressRequest)
 		return irs.SecurityInfo{}, err
 	}
 
-	//spew.Dump(defaultEgressResponse)
+	//cblogger.Debug(defaultEgressResponse)
 	cblogger.Debug(defaultEgressResponse.ToJsonString())
 	callogger.Info(call.String(callLogInfo))
 
@@ -148,10 +147,10 @@ func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo ir
 		callogger.Error(call.String(callLogInfo))
 
 		cblogger.Error(err)
-		spew.Dump(request)
+		cblogger.Debug(request)
 		return irs.SecurityInfo{}, err
 	}
-	//spew.Dump(response)
+	//cblogger.Debug(response)
 	cblogger.Debug(response.ToJsonString())
 	callogger.Info(call.String(callLogInfo))
 
@@ -192,7 +191,7 @@ func (securityHandler *TencentSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 		cblogger.Error(err)
 		return nil, err
 	}
-	//spew.Dump(response)
+	//cblogger.Debug(response)
 	cblogger.Debug(response.ToJsonString())
 	callogger.Info(call.String(callLogInfo))
 
@@ -263,7 +262,7 @@ func (securityHandler *TencentSecurityHandler) GetSecurity(securityIID irs.IID) 
 		cblogger.Error(err)
 		return irs.SecurityInfo{}, err
 	}
-	//spew.Dump(response)
+	//cblogger.Debug(response)
 	cblogger.Debug(response.ToJsonString())
 	callogger.Info(call.String(callLogInfo))
 
@@ -295,7 +294,7 @@ func (securityHandler *TencentSecurityHandler) GetSecurityRuleInfo(securityIID i
 		cblogger.Error(err)
 		return nil, err
 	}
-	//spew.Dump(response)
+	//cblogger.Debug(response)
 	cblogger.Debug(response.ToJsonString())
 
 	var securityRuleInfos []irs.SecurityRuleInfo
@@ -400,7 +399,7 @@ func (securityHandler *TencentSecurityHandler) DeleteSecurity(securityIID irs.II
 		cblogger.Error(err)
 		return false, err
 	}
-	//spew.Dump(response)
+	//cblogger.Debug(response)
 	cblogger.Debug(response.ToJsonString())
 	callogger.Info(call.String(callLogInfo))
 
@@ -497,7 +496,7 @@ func (securityHandler *TencentSecurityHandler) AddRules(securityIID irs.IID, req
 			cblogger.Error(err)
 			return irs.SecurityInfo{}, err
 		}
-		//spew.Dump(response)
+		//cblogger.Debug(response)
 		cblogger.Debug(ingressResponse.ToJsonString())
 		callogger.Info(call.String(callLogInfo))
 	}
@@ -519,7 +518,7 @@ func (securityHandler *TencentSecurityHandler) AddRules(securityIID irs.IID, req
 			cblogger.Error(err)
 			return irs.SecurityInfo{}, err
 		}
-		//spew.Dump(response)
+		//cblogger.Debug(response)
 		cblogger.Debug(egressResponse.ToJsonString())
 		callogger.Info(call.String(callLogInfo))
 	}
@@ -608,7 +607,7 @@ func (securityHandler *TencentSecurityHandler) RemoveRules(securityIID irs.IID, 
 			cblogger.Error(err)
 			return false, err
 		}
-		//spew.Dump(response)
+		//cblogger.Debug(response)
 		cblogger.Debug(ingressResponse.ToJsonString())
 		callogger.Info(call.String(callLogInfo))
 	}
@@ -629,7 +628,7 @@ func (securityHandler *TencentSecurityHandler) RemoveRules(securityIID irs.IID, 
 			cblogger.Error(err)
 			return false, err
 		}
-		//spew.Dump(response)
+		//cblogger.Debug(response)
 		cblogger.Debug(egressResponse.ToJsonString())
 		callogger.Info(call.String(callLogInfo))
 	}
@@ -686,7 +685,7 @@ func sameRulesCheck(presentSecurityRules *[]irs.SecurityRuleInfo, reqSecurityRul
 			}
 
 			if action == Add {
-				cblogger.Info("add")
+				cblogger.Debug("add")
 				checkResult = append(checkResult, reqRule)
 			}
 			hasFound = true

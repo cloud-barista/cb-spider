@@ -124,18 +124,14 @@ func (VPCHandler *AwsVPCHandler) GetAutoCBNetworkInfo() (AwsCBNetworkInfo, error
 
 		//VPC & Subnet을 생성했으므로 예외처리 없이 조회만 처리함.
 		awsVpcInfo, _ := VPCHandler.GetVpc(GetCBDefaultVNetName())
-		spew.Dump(awsVpcInfo)
 		awsCBNetworkInfo.VpcId = awsVpcInfo.Id
 		awsCBNetworkInfo.VpcName = awsVpcInfo.Name
 
 		awsSubnetInfo, _ := VPCHandler.GetVNetwork(irs.IID{})
-		spew.Dump(awsSubnetInfo)
 		//awsCBNetworkInfo.SubnetId = awsSubnetInfo.Id
 		//awsCBNetworkInfo.SubnetName = awsSubnetInfo.Name
 		awsCBNetworkInfo.SubnetId = awsSubnetInfo.IId.SystemId
 		awsCBNetworkInfo.SubnetName = awsSubnetInfo.IId.NameId
-
-		spew.Dump(awsCBNetworkInfo)
 
 		return awsCBNetworkInfo, nil
 }
@@ -248,7 +244,6 @@ func (VPCHandler *AwsVPCHandler) FindOrCreateMcloudBaristaDefaultVPC(vNetworkReq
 		}
 		cblogger.Infof("CB Default VPC[%s] 생성 완료 - CIDR : [%s]", GetCBDefaultVNetName(), result.CidrBlock)
 		cblogger.Info(result)
-		spew.Dump(result)
 
 		return result.Id, nil
 	}
@@ -264,7 +259,7 @@ func (VPCHandler *AwsVPCHandler) IsAvailableAutoCBNet() bool {
 // Name Tag 설정
 func SetNameTag(Client *ec2.EC2, Id string, value string) bool {
 	// Tag에 Name 설정
-	cblogger.Infof("Name Tage 설정 - ResourceId : [%s]  Value : [%s] ", Id, value)
+	cblogger.Infof("Name Tage Set - ResourceId : [%s]  Value : [%s] ", Id, value)
 	_, errtag := Client.CreateTags(&ec2.CreateTagsInput{
 		Resources: []*string{&Id},
 		Tags: []*ec2.Tag{
@@ -275,7 +270,7 @@ func SetNameTag(Client *ec2.EC2, Id string, value string) bool {
 		},
 	})
 	if errtag != nil {
-		cblogger.Error("Name Tag 설정 실패 : ")
+		cblogger.Error("Failed to set Name Tag: ")
 		cblogger.Error(errtag)
 		return false
 	}
@@ -300,14 +295,10 @@ func ConvertJsonStringNoEscape(v interface{}) (string, error) {
 	encoder.SetEscapeHTML(false)
 	errJson := encoder.Encode(v)
 	if errJson != nil {
-		cblogger.Error("JSON 변환 실패")
+		cblogger.Error("JSON conversion failed")
 		cblogger.Error(errJson)
 		return "", errJson
 	}
-
-	//fmt.Println("After marshal", string(buffer.Bytes()))
-	//spew.Dump(string(buffer.Bytes()))
-	//spew.Dump("\"TEST")
 
 	jsonString := string(buffer.Bytes())
 	//jsonString = strings.Replace(jsonString, "\n", "", -1)
@@ -321,7 +312,7 @@ func ConvertJsonString(v interface{}) (string, error) {
 	jsonBytes, errJson := json.Marshal(v)
 
 	if errJson != nil {
-		cblogger.Error("JSON 변환 실패")
+		cblogger.Error("JSON conversion failed")
 		cblogger.Error(errJson)
 		return "", errJson
 	}
@@ -365,13 +356,12 @@ func ConvertToString(value interface{}) (string, error) {
 
 // Cloud Object를 CB-KeyValue 형식으로 변환이 필요할 경우 이용
 func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
-	//spew.Dump(v)
 	var keyValueList []irs.KeyValue
 	var i map[string]interface{}
 
 	jsonBytes, errJson := json.Marshal(v)
 	if errJson != nil {
-		cblogger.Error("KeyValue 변환 실패")
+		cblogger.Error("KeyValue conversion failed")
 		cblogger.Error(errJson)
 		return nil, errJson
 	}
@@ -427,9 +417,9 @@ func ContainString(s []string, str string) bool {
 func PrintToJson(class interface{}) {
 	e, err := json.Marshal(class)
 	if err != nil {
-		cblogger.Info(err)
+		cblogger.Error(err)
 	}
-	cblogger.Info(string(e))
+	cblogger.Debug(string(e))
 }
 
 // ZoneStatus 일반화

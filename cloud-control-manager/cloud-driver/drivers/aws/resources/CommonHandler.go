@@ -2,16 +2,13 @@ package resources
 
 import (
 	"errors"
-	"fmt"
 	"reflect"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws/awserr"
-	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
-	"github.com/davecgh/go-spew/spew"
-
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
@@ -162,7 +159,7 @@ func WaitUntilVolumeAvailable(svc *ec2.EC2, volumeID string) error {
 		cblogger.Errorf("failed to wait until volume available: %v", err)
 		return err
 	}
-	cblogger.Info("=========WaitUntilVolumeAvailable() 종료")
+	cblogger.Info("=========WaitUntilVolumeAvailable() ended")
 	return nil
 }
 
@@ -178,7 +175,7 @@ func WaitUntilVolumeDeleted(svc *ec2.EC2, volumeID string) error {
 		cblogger.Errorf("failed to wait until volume deleted: %v", err)
 		return err
 	}
-	cblogger.Info("=========WaitUntilVolumeDeleted() 종료")
+	cblogger.Info("=========WaitUntilVolumeDeleted() ended")
 	return nil
 }
 
@@ -194,7 +191,7 @@ func WaitUntilVolumeInUse(svc *ec2.EC2, volumeID string) error {
 		cblogger.Errorf("failed to wait until volume in use: %v", err)
 		return err
 	}
-	cblogger.Info("=========WaitUntilVolumeInUse() 종료")
+	cblogger.Info("=========WaitUntilVolumeInUse() ended")
 	return nil
 }
 
@@ -234,15 +231,15 @@ func DescribeVolumnes(svc *ec2.EC2, volumeIdList []*string) (*ec2.DescribeVolume
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 		return nil, err
 	}
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	return result, nil
@@ -264,15 +261,15 @@ func DescribeVolumneById(svc *ec2.EC2, volumeId string) (*ec2.Volume, error) {
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 		return nil, err
 	}
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	for _, volume := range result.Volumes {
@@ -315,7 +312,9 @@ func DescribeVolumnesBySnapshot(svc *ec2.EC2, snapShotIIDs []string) (*ec2.Descr
 
 	result, err := svc.DescribeVolumes(input)
 	callogger.Info("DescribeVolumnesBySnapshot   IN PU T")
-	spew.Dump(input)
+	if cblogger.Level.String() == "debug" {
+		cblogger.Debug(input)
+	}
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	callogger.Info(call.String(callLogInfo))
 
@@ -323,16 +322,16 @@ func DescribeVolumnesBySnapshot(svc *ec2.EC2, snapShotIIDs []string) (*ec2.Descr
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 		return nil, err
 	}
-	//if cblogger.Level.String() == "debug" {
-	spew.Dump(result.Volumes)
-	//}
+	if cblogger.Level.String() == "debug" {
+		cblogger.Debug(result.Volumes)
+	}
 
 	return result, nil
 }
@@ -363,16 +362,16 @@ func AttachVolume(svc *ec2.EC2, deviceName string, instanceId string, volumeId s
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 		return err
 	}
 
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	err = WaitUntilVolumeInUse(svc, volumeId)
@@ -395,18 +394,18 @@ func DeleteDisk(svc *ec2.EC2, disks []irs.IID) (bool, error) {
 				if aerr, ok := err.(awserr.Error); ok {
 					switch aerr.Code() {
 					default:
-						fmt.Println(aerr.Error())
+						cblogger.Error(aerr.Error())
 					}
 				} else {
 					// Print the error, cast err to awserr.Error to get the Code and
 					// Message from an error.
-					fmt.Println(err.Error())
+					cblogger.Error(err.Error())
 				}
 				return false, err
 			}
 
 			if cblogger.Level.String() == "debug" {
-				spew.Dump(result)
+				cblogger.Debug(result)
 			}
 
 			err = WaitUntilVolumeDeleted(svc, diskIID.SystemId)
@@ -484,12 +483,12 @@ func DescribeImages(svc *ec2.EC2, imageIIDs []*irs.IID, owners []*string) (*ec2.
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 	}
 
@@ -513,12 +512,12 @@ func DescribeImageById(svc *ec2.EC2, imageIID *irs.IID, owners []*string) (*ec2.
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 	}
 
@@ -642,7 +641,7 @@ func GetOsTypeFromEc2Image(ec2Image *ec2.Image) string {
 //		}
 //		input.SnapshotIds = snapshotIds
 //	}
-//	//fmt.Println("sign name " + svc.Client.SigningName)// ec2
+//	//cblogger.Info("sign name " + svc.Client.SigningName)// ec2
 //
 //	//input.OwnerIds = []*string{aws.String("050864702683")}
 //	input.OwnerIds = []*string{aws.String("self")}
@@ -652,15 +651,15 @@ func GetOsTypeFromEc2Image(ec2Image *ec2.Image) string {
 //		if aerr, ok := err.(awserr.Error); ok {
 //			switch aerr.Code() {
 //			default:
-//				fmt.Println(aerr.Error())
+//				cblogger.Error(aerr.Error())
 //			}
 //		} else {
 //			// Print the error, cast err to awserr.Error to get the Code and
 //			// Message from an error.
-//			fmt.Println(err.Error())
+//			cblogger.Error(err.Error())
 //		}
 //	}
-//	spew.Dump(result)
+//
 //	return result, err
 //}
 //func DescribeSnapshotById(svc *ec2.EC2, snapshotIID *irs.IID) (*ec2.Snapshot, error) {
@@ -678,12 +677,12 @@ func GetOsTypeFromEc2Image(ec2Image *ec2.Image) string {
 //		if aerr, ok := err.(awserr.Error); ok {
 //			switch aerr.Code() {
 //			default:
-//				fmt.Println(aerr.Error())
+//				cblogger.Error(aerr.Error())
 //			}
 //		} else {
 //			// Print the error, cast err to awserr.Error to get the Code and
 //			// Message from an error.
-//			fmt.Println(err.Error())
+//			cblogger.Error(err.Error())
 //		}
 //		return nil, err
 //	}

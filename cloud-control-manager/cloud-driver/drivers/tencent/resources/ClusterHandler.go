@@ -287,7 +287,7 @@ func (clusterHandler *TencentClusterHandler) SetNodeGroupAutoScaling(clusterIID 
 		calllogger.Error(call.String(callLogInfo))
 		return false, err
 	}
-	cblogger.Info(temp.ToJsonString())
+	cblogger.Debug(temp.ToJsonString())
 	calllogger.Info(call.String(callLogInfo))
 
 	return true, nil
@@ -326,7 +326,7 @@ func (clusterHandler *TencentClusterHandler) ChangeNodeGroupScaling(clusterIID i
 		calllogger.Error(call.String(callLogInfo))
 		return irs.NodeGroupInfo{}, err
 	}
-	cblogger.Info(temp.ToJsonString())
+	cblogger.Debug(temp.ToJsonString())
 	calllogger.Info(call.String(callLogInfo))
 
 	node_group_info, err := getNodeGroupInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId, nodeGroupIID.SystemId)
@@ -353,7 +353,7 @@ func (clusterHandler *TencentClusterHandler) RemoveNodeGroup(clusterIID irs.IID,
 		calllogger.Error(call.String(callLogInfo))
 		return false, err
 	}
-	cblogger.Info(res.ToJsonString())
+	cblogger.Debug(res.ToJsonString())
 	calllogger.Info(call.String(callLogInfo))
 
 	return true, nil
@@ -373,7 +373,7 @@ func (clusterHandler *TencentClusterHandler) UpgradeCluster(clusterIID irs.IID, 
 		calllogger.Error(call.String(callLogInfo))
 		return irs.ClusterInfo{}, err
 	}
-	cblogger.Info(res.ToJsonString())
+	cblogger.Debug(res.ToJsonString())
 	calllogger.Info(call.String(callLogInfo))
 
 	clusterInfo, err := getClusterInfo(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region, clusterIID.SystemId)
@@ -539,7 +539,7 @@ func getClusterAccessInfo(access_key string, access_secret string, region_id str
 	res, err := tencent.GetClusterEndpoint(access_key, access_secret, region_id, cluster_id)
 	if err != nil {
 		if strings.Contains(err.Error(), "CLUSTER_IN_ABNORMAL_STAT") || strings.Contains(err.Error(), "CLUSTER_STATE_ERROR") {
-			cblogger.Info(cluster_id + err.Error())
+			cblogger.Error(cluster_id + err.Error())
 			accessInfo.Endpoint = "Cluster is not ready yet!"
 		} else {
 			err := fmt.Errorf("Failed to Get Cluster Endpoint:  %v", err)
@@ -556,10 +556,10 @@ func getClusterAccessInfo(access_key string, access_secret string, region_id str
 		_, err := tencent.CreateClusterEndpoint(access_key, access_secret, region_id, cluster_id, security_group_id)
 		if err != nil {
 			if strings.Contains(err.Error(), "CLUSTER_IN_ABNORMAL_STAT") || strings.Contains(err.Error(), "CLUSTER_STATE_ERROR") {
-				cblogger.Info(cluster_id + err.Error())
+				cblogger.Error(cluster_id + err.Error())
 				accessInfo.Endpoint = "First, add a nodegroup."
 			} else if strings.Contains(err.Error(), "same type task in execution") {
-				cblogger.Info(cluster_id + err.Error())
+				cblogger.Error(cluster_id + err.Error())
 				accessInfo.Endpoint = "Preparing...."
 			} else {
 				err := fmt.Errorf("Failed to Create Cluster Endpoint:  %v", err)
@@ -575,7 +575,7 @@ func getClusterAccessInfo(access_key string, access_secret string, region_id str
 	resKubeconfig, err := tencent.GetClusterKubeconfig(access_key, access_secret, region_id, cluster_id)
 	if err != nil {
 		if strings.Contains(err.Error(), "CLUSTER_IN_ABNORMAL_STAT") || strings.Contains(err.Error(), "CLUSTER_STATE_ERROR") {
-			cblogger.Info(cluster_id + err.Error())
+			cblogger.Error(cluster_id + err.Error())
 			accessInfo.Kubeconfig = "Cluster is not ready yet!"
 		} else {
 			err := fmt.Errorf("Failed to Get Cluster Kubeconfig:  %v", err)

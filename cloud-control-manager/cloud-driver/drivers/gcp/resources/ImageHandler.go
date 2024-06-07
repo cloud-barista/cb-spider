@@ -14,14 +14,12 @@ package resources
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 	compute "google.golang.org/api/compute/v1"
 )
 
@@ -72,14 +70,14 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		imageList = append(imageList, &info)
 	}
 
-	//spew.Dump(imageList)
+	//cblogger.Debug(imageList)
 	return imageList, nil
 }
 */
 
 // 리스트의 경우 Name 기반으로 조회해서 처리하기에는 너무 느리기 때문에 직접 컨버팅함.
 func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
-	cblogger.Debug("전체 이미지 조회")
+	cblogger.Debug("Retrieve All VM Images")
 
 	//https://cloud.google.com/compute/docs/images?hl=ko
 	arrImageProjectList := []string{
@@ -120,7 +118,7 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	callLogStart := call.Start()
 
 	for _, projectId := range arrImageProjectList {
-		cblogger.Infof("[%s] 프로젝트 소유의 이미지 목록 처리", projectId)
+		cblogger.Infof("Processing image list owned by [%s] project", projectId)
 
 		//첫번째 호출
 		req = imageHandler.Client.Images.List(projectId)
@@ -129,7 +127,7 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 			callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 			callLogInfo.ErrorMSG = err.Error()
 			callogger.Info(call.String(callLogInfo))
-			cblogger.Errorf("[%s] 프로젝트 소유의 이미지 목록 조회 실패!", projectId)
+			cblogger.Errorf("Failed to retrieve image list owned by [%s] project!", projectId)
 			cblogger.Error(err)
 			return nil, err
 		}
@@ -141,7 +139,9 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		for {
 			for _, item := range res.Items {
 				cnt++
-				spew.Dump(item)
+				if cblogger.Level.String() == "debug" {
+					cblogger.Debug(item)
+				}
 				info := mappingImageInfo(item)
 				imageList = append(imageList, &info)
 			} // for : 페이지 데이터 추출
@@ -159,7 +159,6 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	callogger.Info(call.String(callLogInfo))
 
-	//spew.Dump(imageList)
 	return imageList, nil
 }
 
@@ -182,8 +181,10 @@ type GcpImageInfo struct {
 
 // GCP 호출을 줄이기 위해 조회된 정보를 CB형태로 직접 변환해서 전달 함.
 func (imageHandler *GCPImageHandler) ConvertGcpImageInfoToCbImageInfo(imageInfo GcpImageInfo) irs.ImageInfo {
-	cblogger.Info(imageInfo)
-	spew.Dump(imageInfo)
+	cblogger.Debug(imageInfo)
+	if cblogger.Level.String() == "debug" {
+		cblogger.Debug(imageInfo)
+	}
 
 	cbImageInfo := irs.ImageInfo{
 		IId: irs.IID{
@@ -212,7 +213,7 @@ func (imageHandler *GCPImageHandler) ConvertGcpImageInfoToCbImageInfo(imageInfo 
 // 이슈 #239에 의해 Name 기반에서 URL 기반으로 로직 변경
 // 전달 받은 URL에서 projectId와 Name을 추출해서 조회함.
 func (imageHandler *GCPImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
-	cblogger.Info(imageIID)
+	cblogger.Debug(imageIID)
 
 	//"https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20200415"
 	//projectId := imageHandler.Credential.ProjectID
@@ -262,7 +263,7 @@ func (imageHandler *GCPImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, 
 // 이슈 #239에 의해 Name 기반에서 URL 기반으로 로직 변경
 // 전체 목록에서 이미지 정보를 조회 함. - 위의 GetImage()로 검색되지 않는 경우가 발생하면 이 함수를 이용할 것.
 func (imageHandler *GCPImageHandler) GetImageByUrl(imageIID irs.IID) (irs.ImageInfo, error) {
-	cblogger.Info(imageIID)
+	cblogger.Debug(imageIID)
 
 	//이미지 명을 기반으로 이미지 정보를 조회함.
 	gcpImageInfo, err := imageHandler.FindImageInfo(imageIID.SystemId)
@@ -271,7 +272,7 @@ func (imageHandler *GCPImageHandler) GetImageByUrl(imageIID irs.IID) (irs.ImageI
 		cblogger.Error(err)
 		return irs.ImageInfo{}, err
 	}
-	cblogger.Info(gcpImageInfo)
+	cblogger.Debug(gcpImageInfo)
 	//return irs.ImageInfo{}, nil
 	return imageHandler.ConvertGcpImageInfoToCbImageInfo(gcpImageInfo), nil
 
@@ -326,7 +327,7 @@ func (imageHandler *GCPImageHandler) DeleteImage(imageIID irs.IID) (bool, error)
 		return false, err
 	}
 	callogger.Info(call.String(callLogInfo))
-	fmt.Println(res)
+	cblogger.Debug(res)
 	return true, err
 }
 
@@ -335,7 +336,7 @@ func (imageHandler *GCPImageHandler) DeleteImage(imageIID irs.IID) (bool, error)
 // https://cloud.google.com/compute/docs/images?hl=ko
 // @TODO : 효율을 위해서 최소한 ProjectId 정보를 입력 받아야 하지만 현재는 이미지 URL만 전달 받기 때문에 하나로 통합해 놓음.
 func (imageHandler *GCPImageHandler) FindImageInfo(reqImageName string) (GcpImageInfo, error) {
-	cblogger.Infof("[%s] 이미지 정보 찾기 ", reqImageName)
+	cblogger.Infof("Finding information for [%s] image", reqImageName)
 
 	//https://cloud.google.com/compute/docs/images?hl=ko
 	arrImageProjectList := []string{
@@ -365,7 +366,7 @@ func (imageHandler *GCPImageHandler) FindImageInfo(reqImageName string) (GcpImag
 	var res *compute.ImageList
 	var err error
 	for _, projectId := range arrImageProjectList {
-		cblogger.Infof("[%s] 프로젝트 소유의 이미지 목록 조회 처리", projectId)
+		cblogger.Infof("Processing retrieval of image list owned by [%s] project", projectId)
 
 		//첫번째 호출
 		req = imageHandler.Client.Images.List(projectId)
@@ -374,7 +375,7 @@ func (imageHandler *GCPImageHandler) FindImageInfo(reqImageName string) (GcpImag
 
 		res, err = req.Do()
 		if err != nil {
-			cblogger.Errorf("[%s] 프로젝트 소유의 이미지 목록 조회 실패!", projectId)
+			cblogger.Errorf("Failed to retrieve image list owned by [%s] project!", projectId)
 			cblogger.Error(err)
 			return GcpImageInfo{}, err
 		}
@@ -418,10 +419,9 @@ func (imageHandler *GCPImageHandler) FindImageInfo(reqImageName string) (GcpImag
 				//2020-07-24 Name 기반에서 URL기반으로 바뀌었기 때문에 직접 SelfLink만 체크 함.
 				if strings.EqualFold(reqImageName, item.SelfLink) {
 					//if strings.EqualFold(reqImageName, item.Name) || strings.EqualFold(reqImageName, curImageLink) {
-					//cblogger.Debug("=====************** 찾았다!!! *********======")
-					cblogger.Debugf("=====************** [%d]번째에 찾았다!!! *********======", cnt)
+
 					if item.SelfLink == "" {
-						cblogger.Errorf("요청 받은 [%s] 이미지의 정보를 찾았지만 Image URL[SelfLink]정보가 없습니다.", reqImageName)
+						cblogger.Errorf("Found information for the requested [%s] image, but Image URL [SelfLink] information is missing.", reqImageName)
 						return GcpImageInfo{}, errors.New("Not Found : [" + reqImageName + "] Image information does not contain URL information.")
 					}
 					//imageInfo.Id = item.Id
@@ -439,8 +439,10 @@ func (imageHandler *GCPImageHandler) FindImageInfo(reqImageName string) (GcpImag
 					imageInfo.Family = item.Family
 					imageInfo.ProjectId = projectId
 
-					cblogger.Info("최종 이미지 정보")
-					//spew.Dump(imageInfo)
+					//cblogger.Info("최종 이미지 정보")
+					//if cblogger.Level.String() == "debug" {
+					//	cblogger.Debug(imageInfo)
+					//}
 					return imageInfo, nil
 				}
 			} // for : 조회 결과에서 일치하는 데이터 찾기
@@ -456,14 +458,14 @@ func (imageHandler *GCPImageHandler) FindImageInfo(reqImageName string) (GcpImag
 		} // for : 멀티 페이지 처리
 	}
 
-	cblogger.Errorf("요청 받은 [%s] 이미지에 대한 정보를 찾지 못 했습니다. - 총 이미지 체크 갯수 : [%d]", reqImageName, cnt)
+	cblogger.Errorf("Could not find information for the requested [%s] image. - Total image check count: [%d]", reqImageName, cnt)
 	return GcpImageInfo{}, errors.New("Not Found : [" + reqImageName + "] Image information not found")
 }
 
 // 목록에서 이미지 Name으로 정보를 찾아서 리턴 함. - 2020-07-24 URL기반으로 변경되어서 이 메소드는 사용 안 함.
 // @TODO : 효율을 위해서 최소한 ProjectId 정보를 입력 받아야 하지만 현재는 이미지 명만 전달 받기 때문에 하나로 통합해 놓음.
 func (imageHandler *GCPImageHandler) FindImageInfoByName(reqImageName string) (GcpImageInfo, error) {
-	cblogger.Infof("[%s] 이미지 정보 찾기 ", reqImageName)
+	cblogger.Infof("Finding information for [%s] image", reqImageName)
 
 	//https://cloud.google.com/compute/docs/images?hl=ko
 	arrImageProjectList := []string{
@@ -493,7 +495,7 @@ func (imageHandler *GCPImageHandler) FindImageInfoByName(reqImageName string) (G
 	var res *compute.ImageList
 	var err error
 	for _, projectId := range arrImageProjectList {
-		cblogger.Infof("[%s] 프로젝트 소유의 이미지 목록 조회 처리", projectId)
+		cblogger.Infof("[%s] Project Ownership Image List Retrieval Process", projectId)
 
 		//첫번째 호출
 		req = imageHandler.Client.Images.List(projectId)
@@ -501,7 +503,7 @@ func (imageHandler *GCPImageHandler) FindImageInfoByName(reqImageName string) (G
 
 		res, err = req.Do()
 		if err != nil {
-			cblogger.Errorf("[%s] 프로젝트 소유의 이미지 목록 조회 실패!", projectId)
+			cblogger.Errorf("[%s] Failed to Retrieve Image List Owned by the Project!", projectId)
 			cblogger.Error(err)
 			return GcpImageInfo{}, err
 		}
@@ -541,9 +543,9 @@ func (imageHandler *GCPImageHandler) FindImageInfoByName(reqImageName string) (G
 
 				if strings.EqualFold(reqImageName, item.Name) || strings.EqualFold(reqImageName, curImageLink) {
 					//cblogger.Debug("=====************** 찾았다!!! *********======")
-					cblogger.Infof("=====************** [%d]번째에 찾았다!!! *********======", cnt)
+					//cblogger.Infof("=====************** [%d]번째에 찾았다!!! *********======", cnt)
 					if item.SelfLink == "" {
-						cblogger.Errorf("요청 받은 [%s] 이미지의 정보를 찾았지만 Image URL[SelfLink]정보가 없습니다.", reqImageName)
+						cblogger.Errorf("We found information for the requested [%s] image, but there is no Image URL [SelfLink] available.", reqImageName)
 						return GcpImageInfo{}, errors.New("Not Found : [" + reqImageName + "] Image information does not contain URL information.")
 					}
 					//imageInfo.Id = item.Id
@@ -560,8 +562,9 @@ func (imageHandler *GCPImageHandler) FindImageInfoByName(reqImageName string) (G
 					imageInfo.Family = item.Family
 					imageInfo.ProjectId = projectId
 
-					cblogger.Info("최종 이미지 정보")
-					spew.Dump(imageInfo)
+					if cblogger.Level.String() == "debug" {
+						cblogger.Debug(imageInfo)
+					}
 					return imageInfo, nil
 				}
 			} // for : 조회 결과에서 일치하는 데이터 찾기
@@ -577,7 +580,7 @@ func (imageHandler *GCPImageHandler) FindImageInfoByName(reqImageName string) (G
 		} // for : 멀티 페이지 처리
 	}
 
-	cblogger.Errorf("요청 받은 [%s] 이미지에 대한 정보를 찾지 못 했습니다. - 총 이미지 체크 갯수 : [%d]", reqImageName, cnt)
+	cblogger.Errorf("We couldn't find information for the requested [%s] image. - Total Image Check Count: [%d]", reqImageName, cnt)
 	return GcpImageInfo{}, errors.New("Not Found : [" + reqImageName + "] Image information not found")
 }
 
@@ -622,7 +625,6 @@ func mappingImageInfo(imageInfo *compute.Image) irs.ImageInfo {
 	//os := lArr[len(lArr)-1]
 
 	//cblogger.Info("===================================")
-	//spew.Dump(imageInfo)
 
 	imageList := irs.ImageInfo{
 		IId: irs.IID{

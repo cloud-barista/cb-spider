@@ -15,12 +15,11 @@ import (
 	acon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/connect"
 	ars "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	"github.com/sirupsen/logrus"
 
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
 	//icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect/AwsNewIfCloudConnect"
 	//icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect/connect"
-
-	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -31,7 +30,14 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/pricing"
+	cblogger "github.com/cloud-barista/cb-log"
 )
+
+var cblog *logrus.Logger
+
+func init() {
+	cblog = cblogger.GetLogger("CLOUD-BARISTA")
+}
 
 type AwsDriver struct {
 }
@@ -62,10 +68,9 @@ func (AwsDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 func getVMClient(connectionInfo idrv.ConnectionInfo) (*ec2.EC2, error) {
 
 	// setup Region
-	// fmt.Println("AwsDriver : getVMClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
-	// fmt.Println("AwsDriver : getVMClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
-	//fmt.Println("전달 받은 커넥션 정보")
-	//spew.Dump(connectionInfo)
+	//cblog.Info("AwsDriver : getVMClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	//cblog.Info("AwsDriver : getVMClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
+	//cblog.Info("전달 받은 커넥션 정보")
 
 	sess, err := session.NewSession(&aws.Config{
 		CredentialsChainVerboseErrors: aws.Bool(true),
@@ -74,14 +79,14 @@ func getVMClient(connectionInfo idrv.ConnectionInfo) (*ec2.EC2, error) {
 		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
 	)
 	if err != nil {
-		fmt.Println("Could not create aws New Session", err)
+		cblog.Error("Could not create aws New Session", err)
 		return nil, err
 	}
 
 	// Create EC2 service client
 	svc := ec2.New(sess)
 	if err != nil {
-		fmt.Println("Could not create EC2 service client", err)
+		cblog.Error("Could not create EC2 service client", err)
 		return nil, err
 	}
 
@@ -93,10 +98,9 @@ func getNLBClient(connectionInfo idrv.ConnectionInfo) (*elbv2.ELBV2, error) {
 	//func getNLBClient(connectionInfo idrv.ConnectionInfo) (*elb.ELB, error) {
 
 	// setup Region
-	// fmt.Println("AwsDriver : getVMClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
-	// fmt.Println("AwsDriver : getVMClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
-	//fmt.Println("전달 받은 커넥션 정보")
-	//spew.Dump(connectionInfo)
+	//cblog.Info("AwsDriver : getVMClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	//cblog.Info("AwsDriver : getVMClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
+	//cblog.Info("전달 받은 커넥션 정보")
 
 	sess, err := session.NewSession(&aws.Config{
 		Region: aws.String(connectionInfo.RegionInfo.Region),
@@ -104,7 +108,7 @@ func getNLBClient(connectionInfo idrv.ConnectionInfo) (*elbv2.ELBV2, error) {
 		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
 	)
 	if err != nil {
-		fmt.Println("Could not create aws New Session", err)
+		cblog.Error("Could not create aws New Session", err)
 		return nil, err
 	}
 
@@ -112,7 +116,7 @@ func getNLBClient(connectionInfo idrv.ConnectionInfo) (*elbv2.ELBV2, error) {
 	// Create ELBv2 service client
 	svc := elbv2.New(sess)
 	if err != nil {
-		fmt.Println("Could not create ELBv2 service client", err)
+		cblog.Error("Could not create ELBv2 service client", err)
 		return nil, err
 	}
 
@@ -123,10 +127,9 @@ func getNLBClient(connectionInfo idrv.ConnectionInfo) (*elbv2.ELBV2, error) {
 func getEKSClient(connectionInfo idrv.ConnectionInfo) (*eks.EKS, error) {
 
 	// setup Region
-	// fmt.Println("AwsDriver : getEKSClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
-	// fmt.Println("AwsDriver : getEKSClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
-	//fmt.Println("전달 받은 커넥션 정보")
-	//spew.Dump(connectionInfo)
+	//cblog.Info("AwsDriver : getEKSClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	//cblog.Info("AwsDriver : getEKSClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
+	//cblog.Info("전달 받은 커넥션 정보")
 
 	sess, err := session.NewSession(&aws.Config{
 		Region: aws.String(connectionInfo.RegionInfo.Region),
@@ -134,15 +137,15 @@ func getEKSClient(connectionInfo idrv.ConnectionInfo) (*eks.EKS, error) {
 		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
 	)
 	if err != nil {
-		fmt.Println("Could not create aws New Session", err)
+		cblog.Error("Could not create aws New Session", err)
 		return nil, err
 	}
 
 	svc := eks.New(sess)
-	if err != nil {
-		fmt.Println("Could not create eks service client", err)
-		return nil, err
-	}
+	//if err != nil {
+	//	cblog.Error("Could not create eks service client", err)
+	//	return nil, err
+	//}
 
 	return svc, nil
 }
@@ -150,10 +153,9 @@ func getEKSClient(connectionInfo idrv.ConnectionInfo) (*eks.EKS, error) {
 // Iam 처리를 위한 iam 클라이언트 획득
 func getIamClient(connectionInfo idrv.ConnectionInfo) (*iam.IAM, error) {
 	// setup Region
-	// fmt.Println("AwsDriver : getIamClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
-	// fmt.Println("AwsDriver : getIamClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
-	//fmt.Println("전달 받은 커넥션 정보")
-	//spew.Dump(connectionInfo)
+	//cblog.Info("AwsDriver : getIamClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	//cblog.Info("AwsDriver : getIamClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
+	//cblog.Info("전달 받은 커넥션 정보")
 
 	sess, err := session.NewSession(&aws.Config{
 		Region: aws.String(connectionInfo.RegionInfo.Region),
@@ -161,15 +163,15 @@ func getIamClient(connectionInfo idrv.ConnectionInfo) (*iam.IAM, error) {
 		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
 	)
 	if err != nil {
-		fmt.Println("Could not create aws New Session", err)
+		cblog.Error("Could not create aws New Session", err)
 		return nil, err
 	}
 
 	svc := iam.New(sess)
-	if err != nil {
-		fmt.Println("Could not create iam service client", err)
-		return nil, err
-	}
+	//if err != nil {
+	//	cblog.Error("Could not create iam service client", err)
+	//	return nil, err
+	//}
 
 	return svc, nil
 }
@@ -178,27 +180,26 @@ func getIamClient(connectionInfo idrv.ConnectionInfo) (*iam.IAM, error) {
 func getAutoScalingClient(connectionInfo idrv.ConnectionInfo) (*autoscaling.AutoScaling, error) {
 
 	// setup Region
-	// fmt.Println("AwsDriver : getAutoScalingClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
-	// fmt.Println("AwsDriver : getAutoScalingClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
-	//fmt.Println("전달 받은 커넥션 정보")
-	//spew.Dump(connectionInfo)
+	//cblog.Info("AwsDriver : getAutoScalingClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	//cblog.Info("AwsDriver : getAutoScalingClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
+	//cblog.Info("전달 받은 커넥션 정보")
 
 	sess, err := session.NewSession(&aws.Config{
 		Region:      aws.String(connectionInfo.RegionInfo.Region),
 		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
 	)
 	if err != nil {
-		fmt.Println("Could not create aws New Session", err)
+		cblog.Error("Could not create aws New Session", err)
 		return nil, err
 	}
 
 	//svc := elb.New(sess)
 	// Create ELBv2 service client
 	svc := autoscaling.New(sess)
-	if err != nil {
-		fmt.Println("Could not create autoscaling service client", err)
-		return nil, err
-	}
+	//if err != nil {
+	//	cblog.Error("Could not create autoscaling service client", err)
+	//	return nil, err
+	//}
 
 	return svc, nil
 }
@@ -212,8 +213,7 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 	// Initialize Logger
 	ars.InitLog()
 
-	//fmt.Println("ConnectCloud의 전달 받은 idrv.ConnectionInfo 정보")
-	//spew.Dump(connectionInfo)
+	//cblog.Info("ConnectCloud의 전달 받은 idrv.ConnectionInfo 정보")
 
 	// sample code, do not user like this^^
 	//var iConn icon.CloudConnection

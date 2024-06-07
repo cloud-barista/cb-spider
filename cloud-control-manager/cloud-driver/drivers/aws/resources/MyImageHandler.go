@@ -14,7 +14,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 )
 
 // https://docs.aws.amazon.com/sdk-for-go/api/service/ec2/#EC2.CreateImage
@@ -83,12 +82,12 @@ const (
 //		if aerr, ok := err.(awserr.Error); ok {
 //			switch aerr.Code() {
 //			default:
-//				fmt.Println(aerr.Error())
+//				cblogger.Error(aerr.Error())
 //			}
 //		} else {
 //			// Print the error, cast err to awserr.Error to get the Code and
 //			// Message from an error.
-//			fmt.Println(err.Error())
+//			cblogger.Error(err.Error())
 //		}
 //		return irs.MyImageInfo{}, err
 //	}
@@ -113,7 +112,6 @@ const (
 //	if err != nil {
 //		return nil, err
 //	}
-//	spew.Dump(result)
 //	for _, snapShot := range result.Snapshots {
 //		myImage, err := convertAWSSnapShopToMyImageInfo(snapShot)
 //		if err != nil {
@@ -152,12 +150,12 @@ const (
 //		if aerr, ok := err.(awserr.Error); ok {
 //			switch aerr.Code() {
 //			default:
-//				fmt.Println(aerr.Error())
+//				cblogger.Error(aerr.Error())
 //			}
 //		} else {
 //			// Print the error, cast err to awserr.Error to get the Code and
 //			// Message from an error.
-//			fmt.Println(err.Error())
+//			cblogger.Error(err.Error())
 //		}
 //		return false, err
 //	}
@@ -170,7 +168,6 @@ const (
 //	//	return false, err
 //	//}
 //	//
-//	spew.Dump(result)
 //	return true, nil
 //}
 //
@@ -307,7 +304,7 @@ func (ImageHandler *AwsMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInf
 	}
 
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(input)
+		cblogger.Debug(input)
 	}
 
 	result, err := ImageHandler.Client.CreateImage(input)
@@ -316,12 +313,12 @@ func (ImageHandler *AwsMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInf
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
 			// Print the error, cast err to awserr.Error to get the Code and
 			// Message from an error.
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 		cblogger.Error(err)
 		LoggingError(hiscallInfo, err)
@@ -361,7 +358,7 @@ func (ImageHandler *AwsMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error)
 	calllogger.Info(call.String(hiscallInfo))
 
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 	for _, awsImage := range result.Images {
 		myImage, err := convertAWSImageToMyImageInfo(awsImage)
@@ -420,7 +417,7 @@ func (ImageHandler *AwsMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, 
 		return false, err
 	}
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(diskIIDs)
+		cblogger.Debug(diskIIDs)
 	}
 
 	input := &ec2.DeregisterImageInput{}
@@ -436,7 +433,7 @@ func (ImageHandler *AwsMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, 
 	calllogger.Info(call.String(hiscallInfo))
 
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	for _, snapshotId := range snapshotIds {
@@ -551,7 +548,6 @@ func (MyImageHandler *AwsMyImageHandler) DeleteSnapshotById(snapshotId string) (
 	// if err != nil {
 	// 	return false, err
 	// }
-	// spew.Dump(result)
 
 	input := &ec2.DeleteSnapshotInput{
 		SnapshotId: aws.String(snapshotId),
@@ -562,16 +558,16 @@ func (MyImageHandler *AwsMyImageHandler) DeleteSnapshotById(snapshotId string) (
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			default:
-				fmt.Println(aerr.Error())
+				cblogger.Error(aerr.Error())
 			}
 		} else {
-			fmt.Println(err.Error())
+			cblogger.Error(err.Error())
 		}
 		return false, err
 	}
 
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	return true, nil

@@ -17,8 +17,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
-
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
 )
@@ -29,7 +27,7 @@ type TencentVPCHandler struct {
 }
 
 func (VPCHandler *TencentVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
-	cblogger.Info(vpcReqInfo)
+	cblogger.Debug(vpcReqInfo)
 
 	//=================================================
 	// 동일 이름 생성 방지 추가(cb-spider 요청 필수 기능)
@@ -43,7 +41,7 @@ func (VPCHandler *TencentVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 		return irs.VPCInfo{}, errors.New("A VPC with the name " + vpcReqInfo.IId.NameId + " already exists.")
 	}
 
-	zoneId := VPCHandler.Region.Zone// default
+	zoneId := VPCHandler.Region.Zone // default
 	cblogger.Infof("Zone : %s", zoneId)
 	// if zoneId == "" { // vpc 자체는 region dependency임.
 	// 	cblogger.Error("Connection information does not contain Zone information.")
@@ -74,7 +72,7 @@ func (VPCHandler *TencentVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	cblogger.Debug(response.ToJsonString())
-	//spew.Dump(result)
+	//cblogger.Debug(result)
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Error(call.String(callLogInfo))
@@ -94,12 +92,12 @@ func (VPCHandler *TencentVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 	requestSubnet.Subnets = []*vpc.SubnetInput{}
 
 	for _, curSubnet := range vpcReqInfo.SubnetInfoList {
-		cblogger.Infof("[%s] Subnet 처리", curSubnet.IId.NameId)
+		cblogger.Infof("[%s] Subnet processing", curSubnet.IId.NameId)
 		subnetZoneId := zoneId
 		if curSubnet.Zone != "" {
 			subnetZoneId = curSubnet.Zone
 		}
-		
+
 		reqSubnet := &vpc.SubnetInput{
 			CidrBlock:  common.StringPtr(curSubnet.IPv4_CIDR),
 			SubnetName: common.StringPtr(curSubnet.IId.NameId),
@@ -111,7 +109,7 @@ func (VPCHandler *TencentVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 
 	responseSubnet, errSubnet := VPCHandler.Client.CreateSubnets(requestSubnet)
 	cblogger.Debug(responseSubnet.ToJsonString())
-	//spew.Dump(responseSubnet)
+	//cblogger.Debug(responseSubnet)
 	if errSubnet != nil {
 		cblogger.Error(errSubnet)
 		return irs.VPCInfo{}, errSubnet
@@ -132,7 +130,7 @@ func (VPCHandler *TencentVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 // VPC 정보를 추출함
 func ExtractVpcDescribeInfo(vpcInfo *vpc.Vpc) irs.VPCInfo {
 	// cblogger.Debug("전달 받은 내용")
-	// spew.Dump(vpcInfo)
+	// cblogger.Debug(vpcInfo)
 	resVpcInfo := irs.VPCInfo{
 		//NameId는 사용되지 않기 때문에 전달할 필요가 없지만 Tencent는 Name도 필수로 들어가니 전달함.
 		IId:       irs.IID{SystemId: *vpcInfo.VpcId, NameId: *vpcInfo.VpcName},
@@ -163,7 +161,7 @@ func (VPCHandler *TencentVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	cblogger.Debug(response.ToJsonString())
-	//spew.Dump(result)
+	//cblogger.Debug(result)
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Error(call.String(callLogInfo))
@@ -172,15 +170,15 @@ func (VPCHandler *TencentVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	cblogger.Info("VPC 개수 : ", *response.Response.TotalCount)
+	cblogger.Info("VPC Count : ", *response.Response.TotalCount)
 
 	var vpcInfoList []*irs.VPCInfo
 	if *response.Response.TotalCount > 0 {
 		for _, curVpc := range response.Response.VpcSet {
-			cblogger.Debugf("[%s] VPC 정보 조회 - [%s]", *curVpc.VpcId, *curVpc.VpcName)
+			cblogger.Debugf("[%s] VPC Infomation reteive - [%s]", *curVpc.VpcId, *curVpc.VpcName)
 			vpcInfo, vpcErr := VPCHandler.GetVPC(irs.IID{SystemId: *curVpc.VpcId})
 			// cblogger.Info("==>조회 결과")
-			// spew.Dump(vpcInfo)
+			// cblogger.Debug(vpcInfo)
 			if vpcErr != nil {
 				cblogger.Error(vpcErr)
 				return nil, vpcErr
@@ -190,7 +188,7 @@ func (VPCHandler *TencentVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	}
 
 	cblogger.Debugf("Number of Return Results List : [%d]", len(vpcInfoList))
-	// spew.Dump(vpcInfoList)
+	// cblogger.Debug(vpcInfoList)
 	return vpcInfoList, nil
 }
 
@@ -335,7 +333,7 @@ func (VPCHandler *TencentVPCHandler) ListSubnet(reqVpcId string) ([]irs.SubnetIn
 	// callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	//cblogger.Debug(response.ToJsonString())
-	spew.Dump(response)
+	cblogger.Debug(response)
 	if err != nil {
 		// callLogInfo.ErrorMSG = err.Error()
 		// callogger.Error(call.String(callLogInfo))
@@ -377,10 +375,10 @@ func (VPCHandler *TencentVPCHandler) isExistSubnet(reqSubnetNameId string) (bool
 		},
 	}
 
-	//spew.Dump(request)
+	//cblogger.Debug(request)
 	response, err := VPCHandler.Client.DescribeSubnets(request)
 	//cblogger.Debug("서브넷 실행 결과")
-	//spew.Dump(response)
+	//cblogger.Debug(response)
 	if err != nil {
 		cblogger.Error(err)
 		return false, err
@@ -448,7 +446,7 @@ func (VPCHandler *TencentVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Su
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	cblogger.Debug(response.ToJsonString())
-	spew.Dump(response)
+	cblogger.Debug(response)
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Error(call.String(callLogInfo))
@@ -491,7 +489,7 @@ func (VPCHandler *TencentVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	cblogger.Debug(response.ToJsonString())
-	//spew.Dump(response)
+	//cblogger.Debug(response)
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Error(call.String(callLogInfo))

@@ -63,7 +63,7 @@ func (NLBHandler *AlibabaNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 	//// validation check area
 	err := NLBHandler.validateCreateNLB(nlbReqInfo)
 	if err != nil {
-		cblogger.Info("validateCreateNLB ", err)
+		cblogger.Error("validateCreateNLB ", err)
 		return irs.NLBInfo{}, err
 	}
 
@@ -120,7 +120,7 @@ func (NLBHandler *AlibabaNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 
 		return irs.NLBInfo{}, err
 	}
-	cblogger.Info(response)
+	cblogger.Debug(response)
 
 	nlbIID := irs.IID{NameId: nlbReqInfo.IId.NameId, SystemId: response.LoadBalancerId}
 
@@ -149,7 +149,7 @@ func (NLBHandler *AlibabaNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 		// 자원 회수 : Listener
 		delListenerResult, delListenerErr := NLBHandler.deleteLoadBalancerListener(nlbIID, nlbReqInfo)
 		if delListenerErr != nil {
-			cblogger.Info("deleteLoadBalancerListener err ", delListenerErr)
+			cblogger.Error("deleteLoadBalancerListener err ", delListenerErr)
 		}
 		cblogger.Info("deleteLoadBalancerListener result ", delListenerResult)
 
@@ -179,12 +179,12 @@ func (NLBHandler *AlibabaNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 }
 
 /*
-	Load balancer 전체 목록 보기
+Load balancer 전체 목록 보기
 */
 func (NLBHandler *AlibabaNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 
 	//DescribeLoadBalancers
-	cblogger.Info("Start")
+	cblogger.Debug("Start")
 
 	request := slb.CreateDescribeLoadBalancersRequest()
 	request.RegionId = NLBHandler.Region.Region
@@ -237,10 +237,10 @@ func (NLBHandler *AlibabaNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 
 	lbAttributeResponse, err := NLBHandler.Client.DescribeLoadBalancerAttribute(request)
 	if err != nil {
-		cblogger.Info(err.Error())
+		cblogger.Error(err.Error())
 		return irs.NLBInfo{}, err
 	}
-	cblogger.Info(lbAttributeResponse)
+	cblogger.Debug(lbAttributeResponse)
 
 	nlbIID.NameId = lbAttributeResponse.LoadBalancerName
 	nlbInfo.IId = nlbIID
@@ -256,10 +256,10 @@ func (NLBHandler *AlibabaNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 	// Listener 는 여려개가능하나 CB-SP에서 1개로 fixed.
 	listener := irs.ListenerInfo{}
 	listenerProtocolAndPortList := lbAttributeResponse.ListenerPortsAndProtocol.ListenerPortAndProtocol // 이중으로 되어 있음.
-	cblogger.Info("listenerProtocolAndPortList")
-	cblogger.Info(listenerProtocolAndPortList)
+	cblogger.Debug("listenerProtocolAndPortList")
+	cblogger.Debug(listenerProtocolAndPortList)
 	for _, listenerProtocolAndPort := range listenerProtocolAndPortList {
-		cblogger.Info(listenerProtocolAndPort)
+		cblogger.Debug(listenerProtocolAndPort)
 		listener.Protocol = listenerProtocolAndPort.ListenerProtocol
 		listener.IP = lbAttributeResponse.Address
 		listener.Port = strconv.Itoa(listenerProtocolAndPort.ListenerPort)
@@ -297,7 +297,7 @@ func (NLBHandler *AlibabaNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 		vmIID := irs.IID{SystemId: backendServer.ServerId}
 		vmInfo, err := vmHandler.GetVM(vmIID)
 		if err != nil {
-			cblogger.Info(err.Error())
+			cblogger.Error(err.Error())
 			// vm 정보 조회 실패
 			var inKeyValueList []irs.KeyValue
 			keyValue := irs.KeyValue{"reason", err.Error()}
@@ -335,8 +335,8 @@ func (NLBHandler *AlibabaNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 }
 
 /*
-	NLB 삭제
-	After you delete an SLB instance, the listeners and tags added to the SLB instance are deleted.
+NLB 삭제
+After you delete an SLB instance, the listeners and tags added to the SLB instance are deleted.
 */
 func (NLBHandler *AlibabaNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	request := slb.CreateDeleteLoadBalancerRequest()
@@ -345,34 +345,34 @@ func (NLBHandler *AlibabaNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 
 	response, err := NLBHandler.Client.DeleteLoadBalancer(request)
 	if err != nil {
-		cblogger.Info(err.Error())
+		cblogger.Error(err.Error())
 		return false, err
 	}
-	cblogger.Info(response)
+	cblogger.Debug(response)
 	return true, nil
 }
 
 //------ Frontend Control
 
 /*
-	Spider에서 원하는 listener의 변경은 protocol, ip, port 의 변경아나
-	ALIBABA에서는 listener의 key 가 loadbalancerId, port 이므로 실제로 변경할 수 있는 parameter가 없음.
+Spider에서 원하는 listener의 변경은 protocol, ip, port 의 변경아나
+ALIBABA에서는 listener의 key 가 loadbalancerId, port 이므로 실제로 변경할 수 있는 parameter가 없음.
 
-	수정 가능한 항목은 healthcheck 부분으로 현재버전에서는 error로 return
-	향후 필요시 삭제 후 추가 하는 방법 고려.
+수정 가능한 항목은 healthcheck 부분으로 현재버전에서는 error로 return
+향후 필요시 삭제 후 추가 하는 방법 고려.
 */
 func (NLBHandler *AlibabaNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.ListenerInfo) (irs.ListenerInfo, error) {
 	return irs.ListenerInfo{}, errors.New("ALIBABA_CANNOT_CHANGE_LISTENER")
 }
 
-//------ Backend Control
+// ------ Backend Control
 func (NLBHandler *AlibabaNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.VMGroupInfo) (irs.VMGroupInfo, error) {
 	return irs.VMGroupInfo{}, errors.New("ALIBABA_CANNOT_CHANGE_VMGROUP")
 }
 
 /*
-	loadBalancer에 VM추가
-	vm만 추가
+loadBalancer에 VM추가
+vm만 추가
 */
 func (NLBHandler *AlibabaNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.VMGroupInfo, error) {
 	nlbReqInfo := irs.NLBInfo{}
@@ -386,8 +386,8 @@ func (NLBHandler *AlibabaNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (
 }
 
 /*
-	loadBalancer에 VM제거
-	vm만 제거
+loadBalancer에 VM제거
+vm만 제거
 */
 func (NLBHandler *AlibabaNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (bool, error) {
 	nlbReqInfo := irs.NLBInfo{}
@@ -413,10 +413,10 @@ func (NLBHandler *AlibabaNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.H
 
 	response, err := NLBHandler.Client.DescribeHealthStatus(request)
 	if err != nil {
-		cblogger.Info(err.Error())
+		cblogger.Error(err.Error())
 		return returnHealthInfo, err
 	}
-	cblogger.Info(response)
+	cblogger.Debug(response)
 
 	for _, backendServer := range response.BackendServers.BackendServer {
 		if strings.EqualFold(backendServer.ServerHealthStatus, ServerHealthStatus_NORMAL) {
@@ -435,10 +435,9 @@ func (NLBHandler *AlibabaNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.H
 }
 
 /*
-	HealthChecker 의 정보가 실제로는 listener에 들어있음.
-	따라서 nblId, port 에 해당하는 listener를 찾고
-	nlbInfo에 모든정보를 set(lb ID, listener protocol,port, healthchecker info)하여 healthchecker정보를 수정
-
+HealthChecker 의 정보가 실제로는 listener에 들어있음.
+따라서 nblId, port 에 해당하는 listener를 찾고
+nlbInfo에 모든정보를 set(lb ID, listener protocol,port, healthchecker info)하여 healthchecker정보를 수정
 */
 func (NLBHandler *AlibabaNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthChecker irs.HealthCheckerInfo) (irs.HealthCheckerInfo, error) {
 	returnHealthChecker := irs.HealthCheckerInfo{}
@@ -449,16 +448,16 @@ func (NLBHandler *AlibabaNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, hea
 
 	lbAttributeResponse, err := NLBHandler.Client.DescribeLoadBalancerAttribute(request)
 	if err != nil {
-		cblogger.Info(err.Error())
+		cblogger.Error(err.Error())
 		return returnHealthChecker, err
 	}
-	cblogger.Info(lbAttributeResponse)
+	cblogger.Debug(lbAttributeResponse)
 
 	// listener 정보 추출
 	listener := irs.ListenerInfo{}
 	listenerProtocolAndPortList := lbAttributeResponse.ListenerPortsAndProtocol.ListenerPortAndProtocol // 이중으로 되어 있음.
 	for _, listenerProtocolAndPort := range listenerProtocolAndPortList {
-		cblogger.Info(listenerProtocolAndPort)
+		cblogger.Debug(listenerProtocolAndPort)
 		listener.Protocol = listenerProtocolAndPort.ListenerProtocol
 		listener.IP = lbAttributeResponse.Address
 		listener.Port = strconv.Itoa(listenerProtocolAndPort.ListenerPort)
@@ -543,9 +542,9 @@ func (NLBHandler *AlibabaNLBHandler) AddLoadBalancerListener(nlbIID irs.IID, nlb
 }
 
 /*
-	중단된 Listener를 시작
-	stop 상태인 경우에만 호출가능
-	Listener를 생성하면 중단된 상태이므로 start를 시켜야 함.
+중단된 Listener를 시작
+stop 상태인 경우에만 호출가능
+Listener를 생성하면 중단된 상태이므로 start를 시켜야 함.
 */
 func (NLBHandler *AlibabaNLBHandler) startLoadBalancerListener(nlbIID irs.IID, nlbReqInfo irs.NLBInfo) (irs.ListenerInfo, error) {
 	listener := nlbReqInfo.Listener
@@ -586,6 +585,7 @@ func (NLBHandler *AlibabaNLBHandler) startLoadBalancerListener(nlbIID irs.IID, n
 
 /*
 // Loadbalancer에서 사용할 TCP Listener 등록
+
 	mandatory : loadBalancerId, Bandwidth, ListenerPort, RegionID
 	BackendServerport : vm 추가방식은 필수. vServer Group 방식은 해당 VServerGroupId set
 */
@@ -594,7 +594,7 @@ func (NLBHandler *AlibabaNLBHandler) addLoadBalancerTcpListener(nlbIID irs.IID, 
 	healthChecker := nlbReqInfo.HealthChecker
 	vmGroup := nlbReqInfo.VMGroup
 
-	cblogger.Info(listener)
+	cblogger.Debug(listener)
 	listenerRequest := slb.CreateCreateLoadBalancerTCPListenerRequest()
 
 	//// set listener area
@@ -651,7 +651,7 @@ func (NLBHandler *AlibabaNLBHandler) addLoadBalancerTcpListener(nlbIID irs.IID, 
 		ErrorMSG:     "",
 	}
 	callLogStart := call.Start()
-	cblogger.Info(listenerRequest)
+	cblogger.Debug(listenerRequest)
 	response, err := NLBHandler.Client.CreateLoadBalancerTCPListener(listenerRequest)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
@@ -730,21 +730,22 @@ func (NLBHandler *AlibabaNLBHandler) addLoadBalancerUdpListener(nlbIID irs.IID, 
 
 /*
 // Listener 수정
-	: Protocol, Port는 수정 불가, IP는 set하지 않음.
-	즉, 현재 cb-spider에서 alibaba listener는 수정 불가
 
-    Protocol     string
-    IP           string
-    Port         string
-    DNSName      string
-    CspID        string
-    KeyValueList []KeyValue
+		: Protocol, Port는 수정 불가, IP는 set하지 않음.
+		즉, 현재 cb-spider에서 alibaba listener는 수정 불가
 
-	ps : sting to Integer 는 requests.Integer가 되나, int to Integer는 requests.NewInteger로
+	    Protocol     string
+	    IP           string
+	    Port         string
+	    DNSName      string
+	    CspID        string
+	    KeyValueList []KeyValue
+
+		ps : sting to Integer 는 requests.Integer가 되나, int to Integer는 requests.NewInteger로
 */
 func (NLBHandler *AlibabaNLBHandler) modifyLoadBalancerTcpListener(nlbIID irs.IID, nlbReqInfo irs.NLBInfo) (irs.ListenerInfo, error) {
 	listener := nlbReqInfo.Listener
-	cblogger.Info(listener)
+	cblogger.Debug(listener)
 	listenerRequest := slb.CreateSetLoadBalancerTCPListenerAttributeRequest()
 	listenerRequest.LoadBalancerId = nlbIID.SystemId
 	listenerRequest.Bandwidth = requests.NewInteger(-1) //For a pay-by-data-transfer Internet-facing Classic Load Balancer (CLB) instance, set the value to -1. This indicates that the maximum bandwidth value is unlimited.
@@ -788,7 +789,7 @@ func (NLBHandler *AlibabaNLBHandler) modifyLoadBalancerTcpListener(nlbIID irs.II
 		ErrorMSG:     "",
 	}
 	callLogStart := call.Start()
-	cblogger.Info(listenerRequest)
+	cblogger.Debug(listenerRequest)
 	response, err := NLBHandler.Client.SetLoadBalancerTCPListenerAttribute(listenerRequest)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
@@ -806,12 +807,13 @@ func (NLBHandler *AlibabaNLBHandler) modifyLoadBalancerTcpListener(nlbIID irs.II
 
 /*
 //modifyLoadBalancerUdpListener
+
 	TCP Listener와 호출하는 객체와 function 이름만 다르고 다른 항목이 같음
 	HTTP.. 등 다른 Listener도 추가될 수 있어 따로 뺌.
 */
 func (NLBHandler *AlibabaNLBHandler) modifyLoadBalancerUdpListener(nlbIID irs.IID, nlbReqInfo irs.NLBInfo) (irs.ListenerInfo, error) {
 	listener := nlbReqInfo.Listener
-	cblogger.Info(listener)
+	cblogger.Debug(listener)
 	listenerRequest := slb.CreateSetLoadBalancerUDPListenerAttributeRequest()
 	listenerRequest.LoadBalancerId = nlbIID.SystemId
 	listenerRequest.Bandwidth = requests.NewInteger(-1) //For a pay-by-data-transfer Internet-facing Classic Load Balancer (CLB) instance, set the value to -1. This indicates that the maximum bandwidth value is unlimited.
@@ -829,7 +831,7 @@ func (NLBHandler *AlibabaNLBHandler) modifyLoadBalancerUdpListener(nlbIID irs.II
 		ErrorMSG:     "",
 	}
 	callLogStart := call.Start()
-	cblogger.Info(listenerRequest)
+	cblogger.Debug(listenerRequest)
 	response, err := NLBHandler.Client.SetLoadBalancerUDPListenerAttribute(listenerRequest)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
@@ -846,12 +848,12 @@ func (NLBHandler *AlibabaNLBHandler) modifyLoadBalancerUdpListener(nlbIID irs.II
 }
 
 /*
-	listenerPort : required
-	listenerProtocol : not required 이나, 동일한 포트를 쓰는 리스너가 여러개면 required
+listenerPort : required
+listenerProtocol : not required 이나, 동일한 포트를 쓰는 리스너가 여러개면 required
 */
 func (NLBHandler *AlibabaNLBHandler) deleteLoadBalancerListener(nlbIID irs.IID, nlbReqInfo irs.NLBInfo) (bool, error) {
 	listener := nlbReqInfo.Listener
-	cblogger.Info(listener)
+	cblogger.Debug(listener)
 	listenerRequest := slb.CreateDeleteLoadBalancerListenerRequest()
 	listenerRequest.LoadBalancerId = nlbIID.SystemId
 	listenerRequest.ListenerProtocol = listener.Protocol
@@ -869,7 +871,7 @@ func (NLBHandler *AlibabaNLBHandler) deleteLoadBalancerListener(nlbIID irs.IID, 
 		ErrorMSG:     "",
 	}
 	callLogStart := call.Start()
-	cblogger.Info(listenerRequest)
+	cblogger.Debug(listenerRequest)
 	response, err := NLBHandler.Client.DeleteLoadBalancerListener(listenerRequest)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
@@ -888,10 +890,12 @@ func (NLBHandler *AlibabaNLBHandler) deleteLoadBalancerListener(nlbIID irs.IID, 
 /*
 	현재는 Default ServerGroup 을 사용. VMGroup은 쓰지 않음.
 	// CreateVServerGroup
+
 Examples:
-    ECS instance: [{ "ServerId": "i-xxxxxxxxx", "Weight": "100", "Type": "ecs", "Port": "80", "Description": "test-112" }].
-    ENI: [{ "ServerId": "eni-xxxxxxxxx", "Weight": "100", "Type": "eni", "ServerIp": "192.168.**.**", "Port":"80","Description":"test-112" }]
-    ENI with multiple IP addresses: [{ "ServerId": "eni-xxxxxxxxx", "Weight": "100", "Type": "eni", "ServerIp": "192.168.**.**", "Port":"80","Description":"test-112" },{ "ServerId": "eni-xxxxxxxxx", "Weight": "100", "Type": "eni", "ServerIp": "172.166.**.**", "Port":"80","Description":"test-113" }]
+
+	ECS instance: [{ "ServerId": "i-xxxxxxxxx", "Weight": "100", "Type": "ecs", "Port": "80", "Description": "test-112" }].
+	ENI: [{ "ServerId": "eni-xxxxxxxxx", "Weight": "100", "Type": "eni", "ServerIp": "192.168.**.**", "Port":"80","Description":"test-112" }]
+	ENI with multiple IP addresses: [{ "ServerId": "eni-xxxxxxxxx", "Weight": "100", "Type": "eni", "ServerIp": "192.168.**.**", "Port":"80","Description":"test-112" },{ "ServerId": "eni-xxxxxxxxx", "Weight": "100", "Type": "eni", "ServerIp": "172.166.**.**", "Port":"80","Description":"test-113" }]
 
 You can add at most 20 backend servers to a CLB instance in each request.
 */
@@ -978,11 +982,11 @@ func (NLBHandler *AlibabaNLBHandler) addVMGroupInfo(nlbIID irs.IID, nlbReqInfo i
 /*
 // Default ServerGroup 으로 Vserver Group 없이 instance만 추가
 Examples:
-    ECS instance: [{ "ServerId": "i-xxxxxxxxx", "Weight": "100", "Type": "ecs", "Port":"80","Description":"test-112" }]
-    ENI: [{ "ServerId": "eni-xxxxxxxxx", "Weight": "100", "Type": "eni", "ServerIp": "192.168.**.**", "Port":"80","Description":"test-112" }]
-    ENI with multiple IP addresses: [{ "ServerId": "eni-xxxxxxxxx", "Weight": "100", "Type": "eni", "ServerIp": "192.168.**.**", "Port":"80","Description":"test-113" },{ "ServerId": "eni-xxxxxxxxx", "Weight": "100", "Type": "eni", "ServerIp": "172.166.**.**", "Port":"80","Description":"test-113" }]
-    Elastic container instance: [{ "ServerId": "eci-xxxxxxxxx", "Weight": "100", "Type": "eci", "ServerIp": "192.168.**.**", "Port":"80","Description":"test-114" }]
 
+	ECS instance: [{ "ServerId": "i-xxxxxxxxx", "Weight": "100", "Type": "ecs", "Port":"80","Description":"test-112" }]
+	ENI: [{ "ServerId": "eni-xxxxxxxxx", "Weight": "100", "Type": "eni", "ServerIp": "192.168.**.**", "Port":"80","Description":"test-112" }]
+	ENI with multiple IP addresses: [{ "ServerId": "eni-xxxxxxxxx", "Weight": "100", "Type": "eni", "ServerIp": "192.168.**.**", "Port":"80","Description":"test-113" },{ "ServerId": "eni-xxxxxxxxx", "Weight": "100", "Type": "eni", "ServerIp": "172.166.**.**", "Port":"80","Description":"test-113" }]
+	Elastic container instance: [{ "ServerId": "eci-xxxxxxxxx", "Weight": "100", "Type": "eci", "ServerIp": "192.168.**.**", "Port":"80","Description":"test-114" }]
 */
 func (NLBHandler *AlibabaNLBHandler) addBackendServer(nlbIID irs.IID, nlbReqInfo irs.NLBInfo) (irs.VMGroupInfo, error) {
 	vmGroup := nlbReqInfo.VMGroup
@@ -1043,8 +1047,8 @@ func (NLBHandler *AlibabaNLBHandler) addBackendServer(nlbIID irs.IID, nlbReqInfo
 		//vmIId.NameId = vmInfo.IId.NameId
 	}
 	backendServersRequest.BackendServers = "[" + strings.Join(vms, ",") + "]"
-	cblogger.Info("backendServersRequest---")
-	cblogger.Info(backendServersRequest)
+	cblogger.Debug("backendServersRequest---")
+	cblogger.Debug(backendServersRequest)
 	// The value of this parameter must be a STRING list in the JSON format. You can specify up to 20 elements in each request.
 	//vmGroupRequest.BackendServers
 
@@ -1079,9 +1083,9 @@ func (NLBHandler *AlibabaNLBHandler) addBackendServer(nlbIID irs.IID, nlbReqInfo
 }
 
 /*
-	ex) 현재는 ecs만 사용
-    Remove an ECS instance: [{"ServerId":"i-bp1fq61enf4loa5i****", "Type": "ecs","Weight":"100"}]
-    Remove an ENI: [{"ServerId":"eni-2ze1sdp5****","Type": "eni","Weight":"100"}]
+		ex) 현재는 ecs만 사용
+	    Remove an ECS instance: [{"ServerId":"i-bp1fq61enf4loa5i****", "Type": "ecs","Weight":"100"}]
+	    Remove an ENI: [{"ServerId":"eni-2ze1sdp5****","Type": "eni","Weight":"100"}]
 */
 func (NLBHandler *AlibabaNLBHandler) removeBackendServer(nlbIID irs.IID, nlbReqInfo irs.NLBInfo) (bool, error) {
 	vmGroup := nlbReqInfo.VMGroup
@@ -1133,13 +1137,13 @@ func (NLBHandler *AlibabaNLBHandler) removeBackendServer(nlbIID irs.IID, nlbReqI
 }
 
 /*
-	실제로는 Listener 수정이나, 항목이 healthchecker 부분이라 modify health checker라고 함
-	TCP는 protocol 변경 가능( http, tcp 중 택1), UDP는 protocol변경 불가능
+실제로는 Listener 수정이나, 항목이 healthchecker 부분이라 modify health checker라고 함
+TCP는 protocol 변경 가능( http, tcp 중 택1), UDP는 protocol변경 불가능
 */
 func (NLBHandler *AlibabaNLBHandler) modifyLoadBalancerTcpHealthChecker(nlbIID irs.IID, nlbReqInfo irs.NLBInfo) (irs.HealthCheckerInfo, error) {
 	listener := nlbReqInfo.Listener
 	healthChecker := nlbReqInfo.HealthChecker
-	cblogger.Info(listener)
+	cblogger.Debug(listener)
 	listenerRequest := slb.CreateSetLoadBalancerTCPListenerAttributeRequest()
 
 	// required key
@@ -1207,13 +1211,13 @@ func (NLBHandler *AlibabaNLBHandler) modifyLoadBalancerTcpHealthChecker(nlbIID i
 }
 
 /*
-	실제로는 Listener 수정이나, 항목이 healthchecker 부분이라 modify health checker라고 함.
-	UDP는 Protocol변경 불가. port만 변경 가능
+실제로는 Listener 수정이나, 항목이 healthchecker 부분이라 modify health checker라고 함.
+UDP는 Protocol변경 불가. port만 변경 가능
 */
 func (NLBHandler *AlibabaNLBHandler) modifyLoadBalancerUdpHealthChecker(nlbIID irs.IID, nlbReqInfo irs.NLBInfo) (irs.HealthCheckerInfo, error) {
 	listener := nlbReqInfo.Listener
 	healthChecker := nlbReqInfo.HealthChecker
-	cblogger.Info(listener)
+	cblogger.Debug(listener)
 	listenerRequest := slb.CreateSetLoadBalancerUDPListenerAttributeRequest()
 
 	// required key
@@ -1274,9 +1278,8 @@ func (NLBHandler *AlibabaNLBHandler) modifyLoadBalancerUdpHealthChecker(nlbIID i
 }
 
 /*
-	TCPListener를 조회하여 CB-Spider의 객체에 맞게 set하여 return
-	호출하는 곳에서 원하는 값을 추출하여 사용
-
+TCPListener를 조회하여 CB-Spider의 객체에 맞게 set하여 return
+호출하는 곳에서 원하는 값을 추출하여 사용
 */
 func (NLBHandler *AlibabaNLBHandler) describeLoadBalancerTcpListenerAttribute(nlbIID irs.IID, listener irs.ListenerInfo) (irs.NLBInfo, error) {
 	nlbInfo := irs.NLBInfo{}
@@ -1291,7 +1294,7 @@ func (NLBHandler *AlibabaNLBHandler) describeLoadBalancerTcpListenerAttribute(nl
 	printToJson(listenerAttributeRequest)
 	listenerAttributeResponse, err := NLBHandler.Client.DescribeLoadBalancerTCPListenerAttribute(listenerAttributeRequest)
 	if err != nil {
-		cblogger.Info(err.Error())
+		cblogger.Error(err.Error())
 		return irs.NLBInfo{}, err
 	}
 
@@ -1314,9 +1317,8 @@ func (NLBHandler *AlibabaNLBHandler) describeLoadBalancerTcpListenerAttribute(nl
 }
 
 /*
-	UDP Listener를 조회하여 CB-Spider의 객체에 맞게 set하여 return
-	호출하는 곳에서 원하는 값을 추출하여 사용
-
+UDP Listener를 조회하여 CB-Spider의 객체에 맞게 set하여 return
+호출하는 곳에서 원하는 값을 추출하여 사용
 */
 func (NLBHandler *AlibabaNLBHandler) describeLoadBalancerUdpListenerAttribute(nlbIID irs.IID, listener irs.ListenerInfo) (irs.NLBInfo, error) {
 	nlbInfo := irs.NLBInfo{}
@@ -1331,7 +1333,7 @@ func (NLBHandler *AlibabaNLBHandler) describeLoadBalancerUdpListenerAttribute(nl
 	printToJson(listenerAttributeRequest)
 	listenerAttributeResponse, err := NLBHandler.Client.DescribeLoadBalancerUDPListenerAttribute(listenerAttributeRequest)
 	if err != nil {
-		cblogger.Info(err.Error())
+		cblogger.Error(err.Error())
 		return irs.NLBInfo{}, err
 	}
 
@@ -1354,9 +1356,9 @@ func (NLBHandler *AlibabaNLBHandler) describeLoadBalancerUdpListenerAttribute(nl
 }
 
 /*
-	LB 생성 시 validation check
+LB 생성 시 validation check
 
-	udplistener : You cannot specify ports 250, 4789, or 4790 for UDP listeners. They are system reserved ports.
+udplistener : You cannot specify ports 250, 4789, or 4790 for UDP listeners. They are system reserved ports.
 */
 func (NLBHandler *AlibabaNLBHandler) validateCreateNLB(nlbReqInfo irs.NLBInfo) error {
 	// lb
