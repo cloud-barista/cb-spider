@@ -435,6 +435,9 @@ func RunServer() {
 		{"GET", "/countcluster", CountAllClusters},
 		{"GET", "/countcluster/:ConnectionName", CountClustersByConnection},
 
+		//----------Destory All Resources in a Connection
+		{"DELETE", "/destroy", Destroy},
+
 		//-- only for WebTool
 		{"GET", "/nscluster", AllClusterList},  // GET with a body for backward compatibility
 		{"POST", "/nscluster", AllClusterList}, // POST with a body for standard
