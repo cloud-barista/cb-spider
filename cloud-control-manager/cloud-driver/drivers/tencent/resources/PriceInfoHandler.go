@@ -9,7 +9,6 @@ import (
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 )
@@ -406,7 +405,7 @@ func mappingProductInfo(regionName string, i interface{}) irs.ProductInfo {
 		// storage 관련 정보 삭제
 		return productInfo
 	default:
-		spew.Dump(v)
+		cblogger.Debug(v)
 	}
 
 	return irs.ProductInfo{}
@@ -476,7 +475,7 @@ func mappingPricingPolicy(instanceChargeType *string, price any) irs.PricingPoli
 		policyInfo.OfferingClass = strPtrNilCheck(nil)
 
 	default:
-		//spew.Dump(objType)
+		//cblogger.Debug(objType)
 		cblogger.Info("Type doesn't match", reflect.TypeOf(price))
 	}
 

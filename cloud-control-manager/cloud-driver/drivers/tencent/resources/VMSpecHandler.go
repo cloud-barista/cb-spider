@@ -59,7 +59,7 @@ func (vmSpecHandler *TencentVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, erro
 		return nil, err
 	}
 
-	//spew.Dump(response)
+	//cblogger.Debug(response)
 	//cblogger.Debug(response.ToJsonString())
 	callogger.Info(call.String(callLogInfo))
 
@@ -72,7 +72,7 @@ func (vmSpecHandler *TencentVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, erro
 	}
 
 	cblogger.Debug(vmSpecInfoList)
-	//spew.Dump(vmSpecInfoList)
+	//cblogger.Debug(vmSpecInfoList)
 	return vmSpecInfoList, nil
 }
 
@@ -122,7 +122,7 @@ func (vmSpecHandler *TencentVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInf
 		return irs.VMSpecInfo{}, err
 	}
 
-	//spew.Dump(response)
+	//cblogger.Debug(response)
 	//cblogger.Debug(response.ToJsonString())
 	callogger.Info(call.String(callLogInfo))
 
@@ -176,7 +176,7 @@ func (vmSpecHandler *TencentVmSpecHandler) ListOrgVMSpec() (string, error) {
 		return "", err
 	}
 
-	//spew.Dump(response)
+	//cblogger.Debug(response)
 	// cblogger.Debug(response.ToJsonString())
 	callogger.Info(call.String(callLogInfo))
 
@@ -235,7 +235,7 @@ func (vmSpecHandler *TencentVmSpecHandler) GetOrgVMSpec(Name string) (string, er
 		return "", err
 	}
 
-	//spew.Dump(response)
+	//cblogger.Debug(response)
 	//cblogger.Debug(response.ToJsonString())
 	callogger.Info(call.String(callLogInfo))
 
@@ -257,7 +257,7 @@ func (vmSpecHandler *TencentVmSpecHandler) GetOrgVMSpec(Name string) (string, er
 // 인스턴스 스펙 정보를 추출함
 func ExtractVMSpecInfo(instanceTypeInfo *cvm.InstanceTypeConfig) irs.VMSpecInfo {
 	cblogger.Debugf("ExtractVMSpecInfo : SpecName:[%s]", *instanceTypeInfo.InstanceType)
-	//spew.Dump(instanceTypeInfo)
+	//cblogger.Debug(instanceTypeInfo)
 
 	vCpuInfo := irs.VCpuInfo{}
 	// gpuInfoList := []irs.GpuInfo{}

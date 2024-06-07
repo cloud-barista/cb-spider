@@ -195,7 +195,7 @@ func (MyImageHandler *GCPMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (
 
 				}
 			}
-			cblogger.Info(isWindows)
+			cblogger.Debug(isWindows)
 		}
 	}
 

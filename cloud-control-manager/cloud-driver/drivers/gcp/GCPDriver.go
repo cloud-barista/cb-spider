@@ -13,7 +13,8 @@ package gcp
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	cblogger "github.com/cloud-barista/cb-log"
+	"github.com/sirupsen/logrus"
 
 	gcpcon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp/connect"
 	gcps "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp/resources"
@@ -30,6 +31,12 @@ import (
 	"google.golang.org/api/container/v1"
 	"google.golang.org/api/option"
 )
+
+var cblog *logrus.Logger
+
+func init() {
+	cblog = cblogger.GetLogger("CLOUD-BARISTA")
+}
 
 type GCPDriver struct {
 }
@@ -69,33 +76,34 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 	gcps.InitLog()
 
 	Ctx, VMClient, err := getVMClient(connectionInfo.CredentialInfo)
-	fmt.Println("################## getVMClient ##################")
-	fmt.Println("getVMClient")
-	fmt.Println("################## getVMClient ##################")
+
+	cblog.Debug("################## getVMClient ##################")
+	cblog.Debug("getVMClient")
+	cblog.Debug("################## getVMClient ##################")
 	if err != nil {
 		return nil, err
 	}
 	//Ctx2, containerClient, err := getContainerClient(connectionInfo.CredentialInfo)
 	_, containerClient, err := getContainerClient(connectionInfo.CredentialInfo)
-	fmt.Println("################## getContainerClient ##################")
-	fmt.Println("getContainerClient")
-	fmt.Println("################## getContainerClient ##################")
+	cblog.Debug("################## getContainerClient ##################")
+	cblog.Debug("getContainerClient")
+	cblog.Debug("################## getContainerClient ##################")
 	if err != nil {
 		return nil, err
 	}
 
 	_, billingCatalogClient, err := getBillingCatalogClient(connectionInfo.CredentialInfo)
-	fmt.Println("################## getBillingCatalogClient ##################")
-	fmt.Println("getBillingCatalogClient")
-	fmt.Println("################## getBillingCatalogClient ##################")
+	cblog.Debug("################## getBillingCatalogClient ##################")
+	cblog.Debug("getBillingCatalogClient")
+	cblog.Debug("################## getBillingCatalogClient ##################")
 	if err != nil {
 		return nil, err
 	}
 
 	_, costEstimationClient, err := getCostEstimationClient(connectionInfo.CredentialInfo)
-	fmt.Println("################## getCostEstimationClient ##################")
-	fmt.Println("getCostEstimationClient")
-	fmt.Println("################## getCostEstimationClient ##################")
+	cblog.Debug("################## getCostEstimationClient ##################")
+	cblog.Debug("getCostEstimationClient")
+	cblog.Debug("################## getCostEstimationClient ##################")
 	if err != nil {
 		return nil, err
 	}
@@ -119,9 +127,9 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		CostEstimationClient: costEstimationClient,
 	}
 
-	//fmt.Println("################## resource ConnectionInfo ##################")
-	//fmt.Println("iConn : ", iConn)
-	//fmt.Println("################## resource ConnectionInfo ##################")
+	//cblog.Info("################## resource ConnectionInfo ##################")
+	//cblog.Info("iConn : ", iConn)
+	//cblog.Info("################## resource ConnectionInfo ##################")
 	return &iConn, nil
 }
 
@@ -140,9 +148,9 @@ func getVMClient(credential idrv.CredentialInfo) (context.Context, *compute.Serv
 	data["private_key"] = credential.PrivateKey
 	data["client_email"] = credential.ClientEmail
 
-	fmt.Println("################## data ##################")
-	//fmt.Println("data to json : ", data)
-	fmt.Println("################## data ##################")
+	//cblog.Debug("################## data ##################")
+	//cblog.Debug("data to json : ", data)
+	//cblog.Debug("################## data ##################")
 
 	res, _ := json.Marshal(data)
 	// data, err := ioutil.ReadFile(credential.ClientSecret)
@@ -175,9 +183,9 @@ func getContainerClient(credential idrv.CredentialInfo) (context.Context, *conta
 	data["private_key"] = credential.PrivateKey
 	data["client_email"] = credential.ClientEmail
 
-	fmt.Println("################## data ##################")
-	//fmt.Println("data to json : ", data)
-	fmt.Println("################## data ##################")
+	//cblog.Debug("################## data ##################")
+	//cblog.Debug("data to json : ", data)
+	//cblog.Debug("################## data ##################")
 
 	res, _ := json.Marshal(data)
 	authURL := "https://www.googleapis.com/auth/cloud-platform"
@@ -208,9 +216,9 @@ func getBillingCatalogClient(credential idrv.CredentialInfo) (context.Context, *
 	data["private_key"] = credential.PrivateKey
 	data["client_email"] = credential.ClientEmail
 
-	fmt.Println("################## data ##################")
-	//fmt.Println("data to json : ", data)
-	fmt.Println("################## data ##################")
+	//cblog.Debug("################## data ##################")
+	//cblog.Debug("data to json : ", data)
+	//cblog.Debug("################## data ##################")
 	// https://www.googleapis.com/auth/cloud-platform
 
 	// https://www.googleapis.com/auth/cloud-billing
@@ -221,7 +229,7 @@ func getBillingCatalogClient(credential idrv.CredentialInfo) (context.Context, *
 	conf, err := goo.JWTConfigFromJSON(res, authURL)
 
 	if err != nil {
-		fmt.Println("JWTConfig ", conf)
+		cblog.Error("JWTConfig ", conf)
 		return nil, nil, err
 	}
 
@@ -229,7 +237,7 @@ func getBillingCatalogClient(credential idrv.CredentialInfo) (context.Context, *
 
 	billingCatalogClient, err := cloudbilling.New(client)
 	if err != nil {
-		fmt.Println("billingCatalogClient err ", err)
+		cblog.Error("billingCatalogClient err ", err)
 		return nil, nil, err
 	}
 
@@ -248,9 +256,9 @@ func getCostEstimationClient(credential idrv.CredentialInfo) (context.Context, *
 	data["private_key"] = credential.PrivateKey
 	data["client_email"] = credential.ClientEmail
 
-	fmt.Println("################## data ##################")
-	//fmt.Println("data to json : ", data)
-	fmt.Println("################## data ##################")
+	//cblog.Debug("################## data ##################")
+	//cblog.Debug("data to json : ", data)
+	//cblog.Debug("################## data ##################")
 	// https://www.googleapis.com/auth/cloud-platform
 
 	// https://www.googleapis.com/auth/cloud-billing
@@ -261,7 +269,7 @@ func getCostEstimationClient(credential idrv.CredentialInfo) (context.Context, *
 	conf, err := goo.JWTConfigFromJSON(res, authURL)
 
 	if err != nil {
-		fmt.Println("JWTConfig ", conf)
+		cblog.Error("JWTConfig ", conf)
 		return nil, nil, err
 	}
 
@@ -272,7 +280,7 @@ func getCostEstimationClient(credential idrv.CredentialInfo) (context.Context, *
 	costEstimationClient, err := cbb.NewService(ctx, option.WithHTTPClient(client))
 
 	if err != nil {
-		fmt.Println("costEstimation Service create err ", err)
+		cblog.Error("costEstimation Service create err ", err)
 		return nil, nil, err
 	}
 

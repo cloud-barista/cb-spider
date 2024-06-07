@@ -9,7 +9,7 @@
 // by zephy@mz.co.kr, 2019.09.
 // by devunet@mz.co.kr, 2020.04.
 
-//VPC & Subnet 처리 (AlibabaCloud's Subnet --> VSwitch 임)
+// VPC & Subnet 처리 (AlibabaCloud's Subnet --> VSwitch 임)
 package resources
 
 import (
@@ -40,7 +40,7 @@ type AlibabaVPCHandler struct {
 }
 
 func (VPCHandler *AlibabaVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
-	cblogger.Info(vpcReqInfo)
+	cblogger.Debug(vpcReqInfo)
 
 	request := vpc.CreateCreateVpcRequest()
 	request.Scheme = "https"
@@ -81,7 +81,7 @@ func (VPCHandler *AlibabaVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 	//==========================
 	// Subnet 생성
 	//==========================
-	cblogger.Info("Subnet 생성 시작")
+	cblogger.Info("Subnet creation started")
 	//var resSubnetList []irs.SubnetInfo
 	for _, curSubnet := range vpcReqInfo.SubnetInfoList {
 		cblogger.Infof("[%s] Subnet 생성", curSubnet.IId.NameId)
@@ -105,7 +105,7 @@ func (VPCHandler *AlibabaVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 }
 
 func (VPCHandler *AlibabaVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo irs.SubnetInfo) (irs.SubnetInfo, error) {
-	cblogger.Info(reqSubnetInfo)
+	cblogger.Debug(reqSubnetInfo)
 
 	/*
 		vpcInfo, errVpcInfo := VPCHandler.GetSubnet(reqSubnetInfo.IId.SystemId)
@@ -117,7 +117,7 @@ func (VPCHandler *AlibabaVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo ir
 	*/
 
 	zoneId := VPCHandler.Region.Zone
-	if reqSubnetInfo.Zone != ""{
+	if reqSubnetInfo.Zone != "" {
 		zoneId = reqSubnetInfo.Zone
 	}
 	//서브넷 생성
@@ -147,7 +147,7 @@ func (VPCHandler *AlibabaVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo ir
 	cblogger.Info(response)
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
+		callogger.Error(call.String(callLogInfo))
 		cblogger.Error(err.Error())
 		return irs.SubnetInfo{}, err
 	}
@@ -195,7 +195,7 @@ func (VPCHandler *AlibabaVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 
 	var vpcInfoList []*irs.VPCInfo
 	for _, curVpc := range result.Vpcs.Vpc {
-		cblogger.Infof("[%s] VPC 정보 조회", curVpc.VpcId)
+		cblogger.Infof("[%s] VPC information retrieval", curVpc.VpcId)
 		//vpcInfo := ExtractVpcDescribeInfo(&curVpc)
 		vpcInfo, vpcErr := VPCHandler.GetVPC(irs.IID{SystemId: curVpc.VpcId})
 		if vpcErr != nil {
@@ -209,7 +209,7 @@ func (VPCHandler *AlibabaVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	return vpcInfoList, nil
 }
 
-//VPC 정보를 추출함
+// VPC 정보를 추출함
 func ExtractVpcDescribeInfo(vpcInfo *vpc.Vpc) irs.VPCInfo {
 	aliVpcInfo := irs.VPCInfo{
 		IId:       irs.IID{NameId: vpcInfo.VpcName, SystemId: vpcInfo.VpcId},
@@ -227,9 +227,9 @@ func ExtractVpcDescribeInfo(vpcInfo *vpc.Vpc) irs.VPCInfo {
 	return aliVpcInfo
 }
 
-//Pending , Available
+// Pending , Available
 func (VPCHandler *AlibabaVPCHandler) WaitForRun(vpcId string) error {
-	cblogger.Info("======> VPC가 Running 될 때까지 대기함.")
+	cblogger.Debug("======> Waiting until VPC is running.")
 
 	maxRetryCnt := 20
 	curRetryCnt := 0
@@ -252,10 +252,10 @@ func (VPCHandler *AlibabaVPCHandler) WaitForRun(vpcId string) error {
 		cblogger.Info("===>VPC Status : ", status)
 		if strings.EqualFold(status, "Pending") {
 			curRetryCnt++
-			cblogger.Error("VPC 상태가 Available이 아니라서 1초가 대기후 조회합니다.")
+			cblogger.Error("Waiting for 1 second and then querying because the VPC status is not Available.")
 			time.Sleep(time.Second * 1)
 			if curRetryCnt > maxRetryCnt {
-				cblogger.Error("장시간 VPC의 Status 값이 Available로 변경되지 않아서 강제로 중단합니다.")
+				cblogger.Error("Forcing termination as the VPC status remains unchanged as Available for a long time.")
 			}
 		} else {
 			if strings.EqualFold(status, "Available") {
@@ -299,7 +299,7 @@ func (VPCHandler *AlibabaVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	cblogger.Info("VPC 개수 : ", len(result.Vpcs.Vpc))
+	cblogger.Info("VPC Count : ", len(result.Vpcs.Vpc))
 	//if result.TotalCount < 1 {
 	if len(result.Vpcs.Vpc) < 1 {
 		return irs.VPCInfo{}, errors.New("Notfound: '" + vpcIID.SystemId + "' VPC Not found")
@@ -315,10 +315,10 @@ func (VPCHandler *AlibabaVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 	for _, curSubnet := range result.Vpcs.Vpc[0].VSwitchIds.VSwitchId {
 		//cblogger.Infof("\n\n\n\n")
 		//cblogger.Infof("---------------------------------------------------------------------")
-		cblogger.Infof("[%s] VSwitch 정보 조회", curSubnet)
+		cblogger.Infof("[%s] VSwitch Information retrieval", curSubnet)
 		subnetInfo, errSubnet := VPCHandler.GetSubnet(curSubnet)
 		if errSubnet != nil {
-			cblogger.Errorf("[%s] VSwitch 정보 조회 실패", curSubnet)
+			cblogger.Errorf("[%s] VSwitch Information retrieval failed", curSubnet)
 			cblogger.Error(errSubnet)
 			return irs.VPCInfo{}, errSubnet
 		}
@@ -356,7 +356,7 @@ func (VPCHandler *AlibabaVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	// Subnet삭제
 	//=================
 	for _, curSubnet := range vpcInfo.SubnetInfoList {
-		cblogger.Infof("[%s] VSwitch 삭제 처리", curSubnet.IId.SystemId)
+		cblogger.Infof("[%s] VSwitch deletion processing", curSubnet.IId.SystemId)
 		_, errSubnet := VPCHandler.DeleteSubnet(curSubnet.IId)
 		if errSubnet != nil {
 			return false, errSubnet
@@ -369,7 +369,7 @@ func (VPCHandler *AlibabaVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	//특정 시간 이후 자동 삭제되니 라우트 삭제 대신 3초 대기후 시도해 봄.
 	time.Sleep(time.Second * 3)
 
-	cblogger.Infof("[%s] VPC를 삭제 함.", vpcInfo.IId.SystemId)
+	cblogger.Infof("[%s] Deleting VPC.", vpcInfo.IId.SystemId)
 	//cblogger.Info("VPC 제거를 위해 생성된 IGW / Route들 제거 시작")
 
 	request := vpc.CreateDeleteVpcRequest()
@@ -480,12 +480,12 @@ func (VPCHandler *AlibabaVPCHandler) GetSubnet(reqSubnetId string) (irs.SubnetIn
 	}
 }
 
-//Subnet(VSwitch) 정보를 추출함
+// Subnet(VSwitch) 정보를 추출함
 func ExtractSubnetDescribeInfo(subnetInfo vpc.VSwitch) irs.SubnetInfo {
 	vNetworkInfo := irs.SubnetInfo{
 		IId:       irs.IID{NameId: subnetInfo.VSwitchName, SystemId: subnetInfo.VSwitchId},
 		IPv4_CIDR: subnetInfo.CidrBlock,
-		Zone: subnetInfo.ZoneId,
+		Zone:      subnetInfo.ZoneId,
 	}
 
 	keyValueList := []irs.KeyValue{
@@ -532,13 +532,13 @@ func (VPCHandler *AlibabaVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Su
 	}
 
 	findSubnet := false
-	cblogger.Debug("============== 체크할 값 =========")
+	cblogger.Debug("============== Checking Values =========")
 	for posSubnet, curSubnetInfo := range vpcInfo.SubnetInfoList {
-		cblogger.Debugf("%d - [%s] Subnet 처리 시작", posSubnet, curSubnetInfo.IId.SystemId)
+		cblogger.Debugf("%d - [%s] Subnet processing started", posSubnet, curSubnetInfo.IId.SystemId)
 		if resSubnet.IId.SystemId == curSubnetInfo.IId.SystemId {
-			cblogger.Infof("추가 요청 받은 [%s] Subnet을 발견 했습니다. - SystemID:[%s]", subnetInfo.IId.NameId, curSubnetInfo.IId.SystemId)
+			cblogger.Infof("Discovered additional requested [%s] Subnet. - SystemID:[%s]", subnetInfo.IId.NameId, curSubnetInfo.IId.SystemId)
 			//for ~ range는 포인터가 아니라서 값 수정이 안됨. for loop으로 직접 서브넷을 체크하거나 vpcInfo의 배열의 값을 수정해야 함.
-			cblogger.Infof("인덱스 위치 : %d", posSubnet)
+			cblogger.Infof("Index position: %d", posSubnet)
 			//vpcInfo.SubnetInfoList[posSubnet].IId.NameId = "테스트~"
 			vpcInfo.SubnetInfoList[posSubnet].IId.NameId = subnetInfo.IId.NameId
 			findSubnet = true
@@ -547,7 +547,7 @@ func (VPCHandler *AlibabaVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Su
 	}
 
 	if !findSubnet {
-		cblogger.Errorf("서브넷 생성은 성공했으나 VPC의 서브넷 목록에서 추가 요청한 [%s]서브넷의 정보[%s]를 찾지 못했습니다.", subnetInfo.IId.NameId, resSubnet.IId.SystemId)
+		cblogger.Errorf("Subnet creation was successful, but the information [%s] requested for the [%s] subnet could not be found in the VPC's subnet list.", subnetInfo.IId.NameId, resSubnet.IId.SystemId)
 		return irs.VPCInfo{}, errors.New("MismatchSubnet.NotFound: No SysmteId[" + resSubnet.IId.SystemId + "] found for newly created Subnet[" + subnetInfo.IId.NameId + "].")
 	}
 
@@ -557,7 +557,7 @@ func (VPCHandler *AlibabaVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Su
 }
 
 func (VPCHandler *AlibabaVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
-	cblogger.Infof("[%s] VPC의 [%s] Subnet 삭제", vpcIID.SystemId, subnetIID.SystemId)
+	cblogger.Infof("[%s] VPC의 [%s] Subnet Delete", vpcIID.SystemId, subnetIID.SystemId)
 
 	return VPCHandler.DeleteSubnet(subnetIID)
 }

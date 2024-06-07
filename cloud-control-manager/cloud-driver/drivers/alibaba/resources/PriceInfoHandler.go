@@ -148,7 +148,7 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) ListProductFamily(regionName st
 
 func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue) (string, error) {
 	priceMap := make(map[string]irs.Price)
-	cblogger.Info(filterList)
+	cblogger.Debug(filterList)
 	filter, _ := filterListToMap(filterList)
 
 	cblogger.Infof("filter value : %+v", filterList)
@@ -397,7 +397,7 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 								continue
 							}
 
-							fmt.Println("priceResponseStr::", priceResponseStr)
+							cblogger.Debug("priceResponseStr::", priceResponseStr)
 
 							pricingPolicy, err := BindpricingPolicy(priceResp, product.SubscriptionType, pricingModulePriceType, regionName, attr.Value)
 							if err != nil {
@@ -607,8 +607,8 @@ func toCamelCase(val string) string {
 	if val == "" {
 		return ""
 	}
-
-	return fmt.Sprintf("%s%s", strings.ToLower(val[:1]), val[1:])
+	returnString := fmt.Sprintf("%s%s", strings.ToLower(val[:1]), val[1:])
+	return returnString
 }
 
 func pricePolicyInfoFilter(policy interface{}, filter map[string]*string) bool {

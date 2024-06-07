@@ -137,7 +137,7 @@ func (keyPairHandler *GCPKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 func (keyPairHandler *GCPKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo, error) {
 	cblogger.Infof("keyPairName : [%s]", keyIID.SystemId)
 	keyPairName := strings.ToLower(keyIID.SystemId)
-	cblogger.Infof("keyPairName 소문자로 치환 : [%s]", keyPairName)
+	cblogger.Infof("Replace keyPairName with lowercase: [%s]", keyPairName)
 
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {
@@ -167,7 +167,7 @@ func (keyPairHandler *GCPKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 func (keyPairHandler *GCPKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error) {
 	cblogger.Infof("keyPairName : [%s]", keyIID.SystemId)
 	keyPairName := strings.ToLower(keyIID.SystemId)
-	cblogger.Infof("keyPairName 소문자로 치환 : [%s]", keyPairName)
+	cblogger.Infof("Replace keyPairName with lowercase: [%s]", keyPairName)
 
 	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
 	if err != nil {

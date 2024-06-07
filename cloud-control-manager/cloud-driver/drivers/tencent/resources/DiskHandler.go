@@ -2,7 +2,6 @@ package resources
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -45,7 +44,7 @@ func (DiskHandler *TencentDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 
 	// region base이므로 특정 zone을 지정시 해당 zone에 생성.
 	zone := DiskHandler.Region.Zone
-	if diskReqInfo.Zone != ""{
+	if diskReqInfo.Zone != "" {
 		zone = diskReqInfo.Zone
 	}
 
@@ -340,12 +339,12 @@ func validateDisk(diskReqInfo *irs.DiskInfo) error {
 	}
 
 	if diskSize < diskSizeValue.diskMinSize {
-		fmt.Println("Disk Size Error!!: ", diskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+		cblogger.Error("Disk Size Error!!: ", diskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
 		return errors.New("Disk Size must be at least the minimum size (" + strconv.FormatInt(diskSizeValue.diskMinSize, 10) + " GB).")
 	}
 
 	if diskSize > diskSizeValue.diskMaxSize {
-		fmt.Println("Disk Size Error!!: ", diskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+		cblogger.Error("Disk Size Error!!: ", diskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
 		return errors.New("Disk Size must be smaller than or equal to the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
 	}
 
@@ -401,7 +400,7 @@ func validateChangeDiskSize(diskInfo irs.DiskInfo, newSize string) error {
 	}
 
 	if newDiskSize > diskSizeValue.diskMaxSize {
-		fmt.Println("Disk Size Error!!: ", diskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
+		cblogger.Error("Disk Size Error!!: ", diskSize, diskSizeValue.diskMinSize, diskSizeValue.diskMaxSize)
 		return errors.New("Disk Size must be smaller than or equal to the maximum size (" + strconv.FormatInt(diskSizeValue.diskMaxSize, 10) + " GB).")
 	}
 

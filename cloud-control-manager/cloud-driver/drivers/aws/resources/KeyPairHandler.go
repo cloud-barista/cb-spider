@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -14,8 +13,7 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
-	_ "github.com/davecgh/go-spew/spew"
+	//_ "github.com/davecgh/go-spew/spew"
 )
 
 type AwsKeyPairHandler struct {
@@ -36,7 +34,7 @@ type KeyPairInfo struct {
 func (keyPairHandler *AwsKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 	cblogger.Debug("Start ListKey()")
 	var keyPairList []*irs.KeyPairInfo
-	//spew.Dump(keyPairHandler)
+	//cblogger.Debug(keyPairHandler)
 	cblogger.Debug(keyPairHandler)
 
 	input := &ec2.DescribeKeyPairsInput{
@@ -81,7 +79,7 @@ func (keyPairHandler *AwsKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 		keyPairInfo, errKeyPair := ExtractKeyPairDescribeInfo(pair)
 		if errKeyPair != nil {
 			//cblogger.Infof("[%s] KeyPair는 Local에서 관리하는 대상이 아니기 때문에 Skip합니다.", *pair.KeyName)
-			cblogger.Info(errKeyPair.Error())
+			cblogger.Error(errKeyPair.Error())
 			//return nil, errKeyPair
 		} else {
 			keyPairList = append(keyPairList, &keyPairInfo)
@@ -89,13 +87,13 @@ func (keyPairHandler *AwsKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 	}
 
 	cblogger.Debug(keyPairList)
-	//spew.Dump(keyPairList)
+	//cblogger.Debug(keyPairList)
 	return keyPairList, nil
 }
 
 // 2021-10-26 이슈#480에 의해 Local Key 로직 제거
 func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
-	cblogger.Info(keyPairReqInfo)
+	cblogger.Debug(keyPairReqInfo)
 	/* 2021-10-26 이슈#480에 의해 Local Key 로직 제거
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
 	cblogger.Infof("Getenv[CBSPIDER_ROOT] : [%s]", os.Getenv("CBSPIDER_ROOT"))
@@ -152,7 +150,7 @@ func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	*/
 
 	cblogger.Infof("Public Key")
-	//spew.Dump(publicKey)
+	//cblogger.Debug(publicKey)
 	keyPairInfo := irs.KeyPairInfo{
 		//Name:        *result.KeyName,
 		IId:         irs.IID{keyPairReqInfo.IId.NameId, *result.KeyName},
@@ -165,7 +163,7 @@ func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 		},
 	}
 
-	//spew.Dump(keyPairInfo)
+	//cblogger.Debug(keyPairInfo)
 
 	//	resultStr = strings.ReplaceAll(resultStr, "//", "/")
 	//@TODO : File에 저장할 키 파일 이름의 PK 특징 때문에 제약이 걸릴 수 있음. (인증정보로 해쉬를 하면 부모 하위의 IAM 계정에서 해당 키를 못 찾을 수 있으며 사용자 정보를 사용하지 않으면 Uniqueue하지 않아서 충돌 날 수 있음.) 현재는 핑거프린트와 리전을 키로 사용함.
@@ -240,20 +238,19 @@ func (keyPairHandler *AwsKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 
 	result, err := keyPairHandler.Client.DescribeKeyPairs(input)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	cblogger.Info("result : ", result)
-	cblogger.Info("err : ", err)
+	cblogger.Debug("result : ", result)
+	cblogger.Debug("err : ", err)
 
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
 
 		if aerr, ok := err.(awserr.Error); ok {
-			cblogger.Info("aerr : ", aerr)
-			cblogger.Info("aerr.Code()  : ", aerr.Code())
-			cblogger.Info("ok : ", ok)
+			cblogger.Debug("aerr : ", aerr)
+			cblogger.Debug("aerr.Code()  : ", aerr.Code())
+			cblogger.Debug("ok : ", ok)
 			switch aerr.Code() {
-			default:
-				//fmt.Println(aerr.Error())
+			default:				
 				cblogger.Error(aerr.Error())
 				return irs.KeyPairInfo{}, aerr
 			}
@@ -273,7 +270,7 @@ func (keyPairHandler *AwsKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 			return irs.KeyPairInfo{}, errKeyPair
 		}
 
-		spew.Dump(keyPairInfo)
+		cblogger.Debug(keyPairInfo)
 		return keyPairInfo, nil
 	} else {
 		return irs.KeyPairInfo{}, errors.New("No information found.")
@@ -282,7 +279,7 @@ func (keyPairHandler *AwsKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 
 // KeyPair 정보를 추출함
 func ExtractKeyPairDescribeInfo(keyPair *ec2.KeyPairInfo) (irs.KeyPairInfo, error) {
-	//spew.Dump(keyPair)
+	//cblogger.Debug(keyPair)
 	keyPairInfo := irs.KeyPairInfo{
 		IId: irs.IID{*keyPair.KeyName, *keyPair.KeyName},
 		//Name:        *keyPair.KeyName,
@@ -356,7 +353,7 @@ func (keyPairHandler *AwsKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error)
 	})
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
-	//spew.Dump(result)
+	//cblogger.Debug(result)
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
@@ -405,14 +402,14 @@ func (keyPairHandler *AwsKeyPairHandler) CheckKeyPairFolder(keyPairPath string) 
 	//키페어 생성 시 폴더가 존재하지 않으면 생성 함.
 	_, errChkDir := os.Stat(keyPairPath)
 	if os.IsNotExist(errChkDir) {
-		cblogger.Errorf("[%s] Path가 존재하지 않아서 생성합니다.", keyPairPath)
+		cblogger.Errorf("[%s] Path does not exist, so it will be created.", keyPairPath)
 
 		//errDir := os.MkdirAll(keyPairPath, 0755)
 		errDir := os.MkdirAll(keyPairPath, 0700)
 		//errDir := os.MkdirAll(keyPairPath, os.ModePerm) // os.ModePerm : 0777	//os.ModeDir
 		if errDir != nil {
 			//log.Fatal(err)
-			cblogger.Errorf("[%s] Path가 생성 실패", keyPairPath)
+			cblogger.Errorf("[%s] Failed to create path.", keyPairPath)
 			cblogger.Error(errDir)
 			return errDir
 		}
@@ -425,8 +422,8 @@ func (keyPairHandler *AwsKeyPairHandler) CheckKeyPairFolder(keyPairPath string) 
 //
 // KeyPair 해시 생성 함수 (PK 이슈로 현재는 사용하지 않음)
 func CreateHashString(credentialInfo idrv.CredentialInfo, Region idrv.RegionInfo) (string, error) {
-	log.Println("credentialInfo.ClientId : " + credentialInfo.ClientId)
-	log.Println("Region.Region : " + Region.Region)
+	cblogger.Info("credentialInfo.ClientId : " + credentialInfo.ClientId)
+	cblogger.Info("Region.Region : " + Region.Region)
 	keyString := credentialInfo.ClientId + credentialInfo.ClientSecret + Region.Region
 	//keyString := credentialInfo
 	hasher := md5.New()

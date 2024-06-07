@@ -11,13 +11,12 @@
 package alibaba
 
 import (
-	"fmt"
-
 	cs2015 "github.com/alibabacloud-go/cs-20151215/v4/client"
 	openapi "github.com/alibabacloud-go/darabonba-openapi/v2/client"
 	ecs2014 "github.com/alibabacloud-go/ecs-20140526/v4/client"
 	"github.com/alibabacloud-go/tea/tea"
 	vpc2016 "github.com/alibabacloud-go/vpc-20160428/v6/client"
+	"github.com/sirupsen/logrus"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/bssopenapi"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/slb"
@@ -28,12 +27,18 @@ import (
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/auth/credentials"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
+	cblogger "github.com/cloud-barista/cb-log"
 	alicon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba/connect"
 	alirs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
-	"github.com/davecgh/go-spew/spew"
 )
+
+var cblog *logrus.Logger
+
+func init() {
+	cblog = cblogger.GetLogger("CLOUD-BARISTA")
+}
 
 type AlibabaDriver struct{}
 
@@ -132,7 +137,7 @@ func (driver *AlibabaDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 func getECSClient(connectionInfo idrv.ConnectionInfo) (*ecs.Client, error) {
 
 	// Region Info
-	fmt.Println("AlibabaDriver : getECSClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	cblog.Info("AlibabaDriver : getECSClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
 
 	/*
 		// Customize config
@@ -142,8 +147,6 @@ func getECSClient(connectionInfo idrv.ConnectionInfo) (*ecs.Client, error) {
 			WithMaxTaskQueueSize(1000)
 			// 600*time.Second
 
-		//fmt.Println(config)
-		spew.Dump(config)
 	*/
 
 	// Create a credential object
@@ -169,12 +172,9 @@ func getECSClient(connectionInfo idrv.ConnectionInfo) (*ecs.Client, error) {
 
 	escClient, err := ecs.NewClientWithOptions(connectionInfo.RegionInfo.Region, config, credential)
 	if err != nil {
-		fmt.Println("Could not create alibaba's ecs service client", err)
-		spew.Dump(err)
+		cblog.Error("Could not create alibaba's ecs service client", err)
 		return nil, err
 	}
-
-	//spew.Dump(escClient)
 
 	/*
 		escClient, err := sdk.NewClientWithAccessKey("REGION_ID", "ACCESS_KEY_ID", "ACCESS_KEY_SECRET")
@@ -190,7 +190,7 @@ func getECSClient(connectionInfo idrv.ConnectionInfo) (*ecs.Client, error) {
 func getVPCClient(connectionInfo idrv.ConnectionInfo) (*vpc.Client, error) {
 
 	// Region Info
-	fmt.Println("AlibabaDriver : getVPCClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	cblog.Info("AlibabaDriver : getVPCClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
 
 	/*
 		// Customize config
@@ -199,7 +199,7 @@ func getVPCClient(connectionInfo idrv.ConnectionInfo) (*vpc.Client, error) {
 			WithGoRoutinePoolSize(5).
 			WithMaxTaskQueueSize(1000)
 		// 600*time.Second
-		//fmt.Println(config)
+
 	*/
 
 	// Create a credential object
@@ -224,7 +224,7 @@ func getVPCClient(connectionInfo idrv.ConnectionInfo) (*vpc.Client, error) {
 	//vpcClient, err := vpc.NewClientWithAccessKey(connectionInfo.RegionInfo.Region, credential.AccessKeyId, credential.AccessKeySecret)
 	vpcClient, err := vpc.NewClientWithOptions(connectionInfo.RegionInfo.Region, config, credential)
 	if err != nil {
-		fmt.Println("Could not create alibaba's vpc service client", err)
+		cblog.Error("Could not create alibaba's vpc service client", err)
 		return nil, err
 	}
 
@@ -234,7 +234,7 @@ func getVPCClient(connectionInfo idrv.ConnectionInfo) (*vpc.Client, error) {
 func getNLBClient(connectionInfo idrv.ConnectionInfo) (*slb.Client, error) {
 
 	// Region Info
-	fmt.Println("AlibabaDriver : getNLBClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	cblog.Info("AlibabaDriver : getNLBClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
 
 	credential := &credentials.AccessKeyCredential{
 		AccessKeyId:     connectionInfo.CredentialInfo.ClientId,
@@ -249,7 +249,7 @@ func getNLBClient(connectionInfo idrv.ConnectionInfo) (*slb.Client, error) {
 
 	nlbClient, err := slb.NewClientWithOptions(connectionInfo.RegionInfo.Region, config, credential)
 	if err != nil {
-		fmt.Println("Could not create alibaba's server loadbalancer service client", err)
+		cblog.Error("Could not create alibaba's server loadbalancer service client", err)
 		return nil, err
 	}
 
@@ -258,7 +258,7 @@ func getNLBClient(connectionInfo idrv.ConnectionInfo) (*slb.Client, error) {
 
 func getBssClient(connectionInfo idrv.ConnectionInfo) (*bssopenapi.Client, error) {
 	// Region Info
-	fmt.Println("AlibabaDriver : getBssClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	cblog.Info("AlibabaDriver : getBssClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
 
 	credential := &credentials.AccessKeyCredential{
 		AccessKeyId:     connectionInfo.CredentialInfo.ClientId,
@@ -298,7 +298,7 @@ func getBssClient(connectionInfo idrv.ConnectionInfo) (*bssopenapi.Client, error
 
 	bssClient, err := bssopenapi.NewClientWithOptions(targetRegion, config, credential)
 	if err != nil {
-		fmt.Println("Could not create alibaba's server bss open api client", err)
+		cblog.Error("Could not create alibaba's server bss open api client", err)
 		return nil, err
 	}
 
@@ -308,7 +308,7 @@ func getBssClient(connectionInfo idrv.ConnectionInfo) (*bssopenapi.Client, error
 func getVpc2016Client(connectionInfo idrv.ConnectionInfo) (*vpc2016.Client, error) {
 
 	// Region Info
-	fmt.Println("AlibabaDriver : getVpc2016Client() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	cblog.Info("AlibabaDriver : getVpc2016Client() - Region : [" + connectionInfo.RegionInfo.Region + "]")
 
 	config := &openapi.Config{
 		AccessKeyId:     tea.String(connectionInfo.CredentialInfo.ClientId),
@@ -318,7 +318,7 @@ func getVpc2016Client(connectionInfo idrv.ConnectionInfo) (*vpc2016.Client, erro
 
 	vpcClient, err := vpc2016.NewClient(config)
 	if err != nil {
-		fmt.Println("Could not create alibaba's vpc service client", err)
+		cblog.Error("Could not create alibaba's vpc service client", err)
 		return nil, err
 	}
 
@@ -328,7 +328,7 @@ func getVpc2016Client(connectionInfo idrv.ConnectionInfo) (*vpc2016.Client, erro
 func getCs2015Client(connectionInfo idrv.ConnectionInfo) (*cs2015.Client, error) {
 
 	// Region Info
-	fmt.Println("AlibabaDriver : getCs2015Client() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	cblog.Info("AlibabaDriver : getCs2015Client() - Region : [" + connectionInfo.RegionInfo.Region + "]")
 
 	config := &openapi.Config{
 		AccessKeyId:     tea.String(connectionInfo.CredentialInfo.ClientId),
@@ -338,7 +338,7 @@ func getCs2015Client(connectionInfo idrv.ConnectionInfo) (*cs2015.Client, error)
 
 	csClient, err := cs2015.NewClient(config)
 	if err != nil {
-		fmt.Println("Could not create alibaba's cs service client", err)
+		cblog.Error("Could not create alibaba's cs service client", err)
 		return nil, err
 	}
 
@@ -348,7 +348,7 @@ func getCs2015Client(connectionInfo idrv.ConnectionInfo) (*cs2015.Client, error)
 func getEcs2014Client(connectionInfo idrv.ConnectionInfo) (*ecs2014.Client, error) {
 
 	// Region Info
-	fmt.Println("AlibabaDriver : getEcs2014Client() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	cblog.Info("AlibabaDriver : getEcs2014Client() - Region : [" + connectionInfo.RegionInfo.Region + "]")
 
 	config := &openapi.Config{
 		AccessKeyId:     tea.String(connectionInfo.CredentialInfo.ClientId),
@@ -358,7 +358,7 @@ func getEcs2014Client(connectionInfo idrv.ConnectionInfo) (*ecs2014.Client, erro
 
 	ecsClient, err := ecs2014.NewClient(config)
 	if err != nil {
-		fmt.Println("Could not create alibaba's ecs service client", err)
+		cblog.Error("Could not create alibaba's ecs service client", err)
 		return nil, err
 	}
 

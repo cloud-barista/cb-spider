@@ -5,8 +5,6 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/davecgh/go-spew/spew"
-
 	"github.com/aws/aws-sdk-go/service/ec2"
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -101,7 +99,7 @@ func (regionZoneHandler *AwsRegionZoneHandler) GetRegionZone(Name string) (irs.R
 
 	var regionZoneInfo irs.RegionZoneInfo
 	for _, region := range responseRegions.Regions {
-		spew.Dump("####################", region.RegionName)
+		cblogger.Debug("####################", region.RegionName)
 		sess, err := session.NewSession(&aws.Config{
 			Region: region.RegionName,
 			//Region: aws.String("us-west-1"),
