@@ -522,15 +522,28 @@ func ApiServer(routes []route) {
 	API_USERNAME := os.Getenv("API_USERNAME")
 	API_PASSWORD := os.Getenv("API_PASSWORD")
 
+	// SkipAuthPaths defines paths to skip authentication
+	SkipAuthPaths := map[string]bool{
+		"/spider/healthcheck": true,
+		"/spider/health":      true,
+		"/spider/ping":        true,
+		"/spider/readyz":      true,
+	}
+
 	if API_USERNAME != "" && API_PASSWORD != "" {
 		cblog.Info("**** Rest Auth Enabled ****")
-		e.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
-			// Be careful to use constant time comparison to prevent timing attacks
-			if subtle.ConstantTimeCompare([]byte(username), []byte(API_USERNAME)) == 1 &&
-				subtle.ConstantTimeCompare([]byte(password), []byte(API_PASSWORD)) == 1 {
-				return true, nil
-			}
-			return false, nil
+		e.Use(middleware.BasicAuthWithConfig(middleware.BasicAuthConfig{
+			Skipper: func(c echo.Context) bool {
+				return SkipAuthPaths[c.Path()]
+			},
+			Validator: func(username, password string, c echo.Context) (bool, error) {
+				// Be careful to use constant time comparison to prevent timing attacks
+				if subtle.ConstantTimeCompare([]byte(username), []byte(API_USERNAME)) == 1 &&
+					subtle.ConstantTimeCompare([]byte(password), []byte(API_PASSWORD)) == 1 {
+					return true, nil
+				}
+				return false, nil
+			},
 		}))
 	} else {
 		cblog.Info("**** Rest Auth Disabled ****")
