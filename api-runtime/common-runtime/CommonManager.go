@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 
 	"encoding/json"
 
@@ -1315,22 +1316,47 @@ func Destroy(connectionName string) (DestroyedInfo, error) {
 		return DestroyedInfo{}, err
 	}
 
-	// order is important
-	resourceTypes := []string{rsCluster, rsMyImage, rsNLB, rsVM, rsDisk, rsKey, rsSG, rsVPC}
-
 	var destroyedInfo DestroyedInfo
 	destroyedInfo.IsAllDestroyed = true
 
-	for _, resourceType := range resourceTypes {
-		deletedResourceInfoList, err := deleteResources(connectionName, resourceType)
-		if err != nil {
-			cblog.Error(err)
-			return DestroyedInfo{}, err
+	// Define resource type groups
+	resourceTypeGroups := [][]string{
+		{rsCluster, rsMyImage, rsNLB},
+		{rsVM},
+		{rsDisk},
+		{rsKey, rsSG},
+		{rsVPC},
+	}
+
+	for _, resourceTypes := range resourceTypeGroups {
+		var wg sync.WaitGroup
+		var mu sync.Mutex
+		var groupErr error
+
+		for _, resourceType := range resourceTypes {
+			wg.Add(1)
+			go func(resourceType string) {
+				defer wg.Done()
+				deletedResourceInfoList, err := deleteResources(connectionName, resourceType)
+				mu.Lock()
+				defer mu.Unlock()
+				if err != nil {
+					cblog.Error(err)
+					groupErr = err
+					return
+				}
+				if !deletedResourceInfoList.IsAllDeleted {
+					destroyedInfo.IsAllDestroyed = false
+				}
+				destroyedInfo.DestroyedList = append(destroyedInfo.DestroyedList, deletedResourceInfoList)
+			}(resourceType)
 		}
-		if !deletedResourceInfoList.IsAllDeleted {
-			destroyedInfo.IsAllDestroyed = false
+
+		wg.Wait()
+
+		if groupErr != nil {
+			return DestroyedInfo{}, groupErr
 		}
-		destroyedInfo.DestroyedList = append(destroyedInfo.DestroyedList, deletedResourceInfoList)
 	}
 
 	return destroyedInfo, nil
@@ -1338,7 +1364,6 @@ func Destroy(connectionName string) (DestroyedInfo, error) {
 
 // deleteResources deletes all resources of a specific type in a connection
 func deleteResources(connectionName string, rsType string) (*DeletedResourceInfoList, error) {
-
 	deletedResourceInfoList := &DeletedResourceInfoList{
 		ResourceType: rsType,
 	}
@@ -1349,10 +1374,38 @@ func deleteResources(connectionName string, rsType string) (*DeletedResourceInfo
 		return nil, err
 	}
 
-	switch rsType {
-	case rsVPC:
-		for _, nameId := range nameList {
-			_, err := DeleteVPC(connectionName, rsVPC, nameId, "false")
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+
+	for _, nameId := range nameList {
+		wg.Add(1)
+		go func(nameId string) {
+			defer wg.Done()
+			var err error
+
+			switch rsType {
+			case rsVPC:
+				_, err = DeleteVPC(connectionName, rsVPC, nameId, "false")
+			case rsSG:
+				_, err = DeleteSecurity(connectionName, rsSG, nameId, "false")
+			case rsKey:
+				_, err = DeleteKey(connectionName, rsKey, nameId, "false")
+			case rsVM:
+				_, _, err = DeleteVM(connectionName, rsVM, nameId, "false")
+			case rsNLB:
+				_, err = DeleteNLB(connectionName, rsNLB, nameId, "false")
+			case rsDisk:
+				_, err = DeleteDisk(connectionName, rsDisk, nameId, "false")
+			case rsMyImage:
+				_, err = DeleteMyImage(connectionName, rsMyImage, nameId, "false")
+			case rsCluster:
+				_, err = DeleteCluster(connectionName, rsCluster, nameId, "false")
+			default:
+				err = fmt.Errorf("%s is not supported Resource!!", rsType)
+			}
+
+			mu.Lock()
+			defer mu.Unlock()
 			if err != nil {
 				deletedResourceInfoList.IsAllDeleted = false
 				deletedResourceInfoList.RemainedErrorInfoList = append(deletedResourceInfoList.RemainedErrorInfoList, &RemainedErrorInfo{
@@ -1362,109 +1415,10 @@ func deleteResources(connectionName string, rsType string) (*DeletedResourceInfo
 			} else {
 				deletedResourceInfoList.IsAllDeleted = true
 			}
-		}
-
-	case rsSG:
-		for _, nameId := range nameList {
-			_, err := DeleteSecurity(connectionName, rsSG, nameId, "false")
-			if err != nil {
-				deletedResourceInfoList.IsAllDeleted = false
-				deletedResourceInfoList.RemainedErrorInfoList = append(deletedResourceInfoList.RemainedErrorInfoList, &RemainedErrorInfo{
-					Name:     nameId,
-					ErrorMsg: err.Error(),
-				})
-			} else {
-				deletedResourceInfoList.IsAllDeleted = true
-			}
-		}
-
-	case rsKey:
-		for _, nameId := range nameList {
-			_, err := DeleteKey(connectionName, rsKey, nameId, "false")
-			if err != nil {
-				deletedResourceInfoList.IsAllDeleted = false
-				deletedResourceInfoList.RemainedErrorInfoList = append(deletedResourceInfoList.RemainedErrorInfoList, &RemainedErrorInfo{
-					Name:     nameId,
-					ErrorMsg: err.Error(),
-				})
-			} else {
-				deletedResourceInfoList.IsAllDeleted = true
-			}
-		}
-
-	case rsVM:
-		for _, nameId := range nameList {
-			_, _, err := DeleteVM(connectionName, rsVM, nameId, "false")
-			if err != nil {
-				deletedResourceInfoList.IsAllDeleted = false
-				deletedResourceInfoList.RemainedErrorInfoList = append(deletedResourceInfoList.RemainedErrorInfoList, &RemainedErrorInfo{
-					Name:     nameId,
-					ErrorMsg: err.Error(),
-				})
-			} else {
-				deletedResourceInfoList.IsAllDeleted = true
-			}
-		}
-
-	case rsNLB:
-		for _, nameId := range nameList {
-			_, err := DeleteNLB(connectionName, rsNLB, nameId, "false")
-			if err != nil {
-				deletedResourceInfoList.IsAllDeleted = false
-				deletedResourceInfoList.RemainedErrorInfoList = append(deletedResourceInfoList.RemainedErrorInfoList, &RemainedErrorInfo{
-					Name:     nameId,
-					ErrorMsg: err.Error(),
-				})
-			} else {
-				deletedResourceInfoList.IsAllDeleted = true
-			}
-		}
-
-	case rsDisk:
-		for _, nameId := range nameList {
-			_, err := DeleteDisk(connectionName, rsDisk, nameId, "false")
-			if err != nil {
-				deletedResourceInfoList.IsAllDeleted = false
-				deletedResourceInfoList.RemainedErrorInfoList = append(deletedResourceInfoList.RemainedErrorInfoList, &RemainedErrorInfo{
-					Name:     nameId,
-					ErrorMsg: err.Error(),
-				})
-			} else {
-				deletedResourceInfoList.IsAllDeleted = true
-			}
-		}
-
-	case rsMyImage:
-		for _, nameId := range nameList {
-			_, err := DeleteMyImage(connectionName, rsMyImage, nameId, "false")
-			if err != nil {
-				deletedResourceInfoList.IsAllDeleted = false
-				deletedResourceInfoList.RemainedErrorInfoList = append(deletedResourceInfoList.RemainedErrorInfoList, &RemainedErrorInfo{
-					Name:     nameId,
-					ErrorMsg: err.Error(),
-				})
-			} else {
-				deletedResourceInfoList.IsAllDeleted = true
-			}
-		}
-
-	case rsCluster:
-		for _, nameId := range nameList {
-			_, err := DeleteCluster(connectionName, rsCluster, nameId, "false")
-			if err != nil {
-				deletedResourceInfoList.IsAllDeleted = false
-				deletedResourceInfoList.RemainedErrorInfoList = append(deletedResourceInfoList.RemainedErrorInfoList, &RemainedErrorInfo{
-					Name:     nameId,
-					ErrorMsg: err.Error(),
-				})
-			} else {
-				deletedResourceInfoList.IsAllDeleted = true
-			}
-		}
-
-	default:
-		return nil, fmt.Errorf("%s is not supported Resource!!", rsType)
+		}(nameId)
 	}
+
+	wg.Wait()
 
 	return deletedResourceInfoList, nil
 }
