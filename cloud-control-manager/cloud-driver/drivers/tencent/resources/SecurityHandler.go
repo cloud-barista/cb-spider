@@ -15,7 +15,6 @@ import (
 	"errors"
 	"strings"
 
-	cblog "github.com/cloud-barista/cb-log"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -49,7 +48,6 @@ Action : ACCEPT or DROP
 // 1번의 request는 한반향만 가능(두가지 동시에 불가)
 func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 	cblogger.Infof("securityReqInfo : ", securityReqInfo)
-	cblog.SetLevel("debug")
 	//=================================================
 	// 동일 이름 생성 방지 추가(cb-spider 요청 필수 기능)
 	//=================================================
