@@ -1006,7 +1006,7 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(vpcIID irs.II
 
 					cblogger.Info("### Waiting for FireWall 'inbound' Rules to be Created(600sec) !!")
 
-					// To prevent - json: cannot unmarshal string into Go struct field AsyncJobResult.nc_queryasyncjobresultresponse.result of type job.JobResult
+					// $$$ To prevent - json: cannot unmarshal string into Go struct field AsyncJobResult.nc_queryasyncjobresultresponse.result of type job.JobResult
 					time.Sleep(time.Second * 3)
 
 					jobWaitErr := vmHandler.waitForAsyncJob(fwResult.JopID, 600000000000)
@@ -1072,6 +1072,10 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(vpcIID irs.II
 					// cblogger.Info("\n")
 
 					cblogger.Info("### Waiting for FireWall 'outbound' Rules to be Created(600sec) !!")
+
+					// $$$ To prevent - json: cannot unmarshal string into Go struct field AsyncJobResult.nc_queryasyncjobresultresponse.result of type job.JobResult
+					time.Sleep(time.Second * 3)
+
 					jobWaitErr := vmHandler.waitForAsyncJob(fwResult.JopID, 600000000000)
 					if jobWaitErr != nil {
 						cblogger.Errorf("Failed to Wait the Job : [%v]", jobWaitErr)			
@@ -1147,7 +1151,6 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 		cblogger.Debug(getSGErr)
 		// return irs.VMInfo{}, getSGErr
 	}
-
 	if countSgKvList(*sgInfo) > 0 {
 		// Since S/G is managed as a file, the systemID is the same as the name ID.
 		var sgIIDs []irs.IID
@@ -1815,7 +1818,7 @@ func (vmHandler *KTVpcVMHandler) waitForAsyncJob(jobId string, timeOut time.Dura
 			}
 
 			// Wait 3 seconds between requests
-			time.Sleep(5 * time.Second)
+			time.Sleep(3 * time.Second)
 
 			// Verify whether we shouldn't exit or ...
 			select {
