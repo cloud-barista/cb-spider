@@ -579,7 +579,7 @@ func VM(c echo.Context) error {
 		specName = "ecs.c7.large"
 	case "TENCENT":
 		imageName = "img-pi0ii46r"
-		specName = "S3.MEDIUM2"
+		specName = "S5.MEDIUM8"
 	case "IBM":
 		imageName = "r014-a044e2f5-dfe1-416c-8990-5dc895352728"
 		specName = "bx2-2x8"
