@@ -2,6 +2,7 @@ package resources
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
@@ -12,9 +13,13 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"gopkg.in/yaml.v2"
+	"io"
 	"math"
 	"net"
+	"net/http"
+	"net/url"
 	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -45,10 +50,146 @@ type AzureClusterHandler struct {
 	SSHPublicKeysClient             *compute.SSHPublicKeysClient
 }
 
+type auth struct {
+	AccessToken string `json:"access_token"`
+}
+
+func getToken(tenantID string, clientID string, clientSecret string) (string, error) {
+	URL := "https://login.microsoftonline.com/" + tenantID + "/oauth2/token"
+
+	params := url.Values{}
+	params.Add("client_id", clientID)
+	params.Add("grant_type", "client_credentials")
+	params.Add("resource", "https://management.azure.com/")
+	params.Add("client_secret", clientSecret)
+	body := strings.NewReader(params.Encode())
+
+	ctx := context.Background()
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodPost, URL, body)
+	if err != nil {
+		return "", err
+	}
+
+	req = req.WithContext(ctx)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	var azureAuth auth
+	err = json.Unmarshal(responseBody, &azureAuth)
+	if err != nil {
+		return "", err
+	}
+
+	return azureAuth.AccessToken, nil
+}
+
+type patchVersion struct {
+	Upgrades []string `json:"upgrades"`
+}
+
+type version struct {
+	Version       string                  `json:"version"`
+	IsDefault     bool                    `json:"isDefault,omitempty"`
+	Capabilities  map[string][]string     `json:"capabilities"`
+	PatchVersions map[string]patchVersion `json:"patchVersions"`
+}
+
+type k8sVersions struct {
+	Values []version `json:"values"`
+}
+
+func getK8SVersions(credentialInfo idrv.CredentialInfo, location string) ([]string, error) {
+	URL := "https://management.azure.com/subscriptions/" + credentialInfo.SubscriptionId +
+		"/providers/Microsoft.ContainerService/locations/" + location + "/kubernetesVersions?api-version=2024-02-01"
+
+	token, err := getToken(credentialInfo.TenantId, credentialInfo.ClientId, credentialInfo.ClientSecret)
+	if err != nil {
+		return nil, err
+	}
+	var bearer = "Bearer " + token
+
+	ctx := context.Background()
+	client := &http.Client{}
+	req, err := http.NewRequest(http.MethodGet, URL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Authorization", bearer)
+	req = req.WithContext(ctx)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var vs k8sVersions
+	err = json.Unmarshal(responseBody, &vs)
+	if err != nil {
+		return nil, err
+	}
+
+	var versions []string
+	for _, v := range vs.Values {
+		keys := reflect.ValueOf(v.PatchVersions).MapKeys()
+		for _, key := range keys {
+			versions = append(versions, key.Interface().(string))
+		}
+	}
+
+	sort.Slice(versions, func(i, j int) bool { return versions[i] > versions[j] })
+
+	return versions, nil
+}
+
 func (ac *AzureClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (info irs.ClusterInfo, createErr error) {
 	hiscallInfo := GetCallLogScheme(ac.Region, call.CLUSTER, clusterReqInfo.IId.NameId, "CreateCluster()")
 	start := call.Start()
-	err := createCluster(clusterReqInfo, ac.VirtualNetworksClient, ac.ManagedClustersClient, ac.VirtualMachineSizesClient, ac.SSHPublicKeysClient, ac.CredentialInfo, ac.Region, ac.Ctx)
+
+	versions, err := getK8SVersions(ac.CredentialInfo, ac.Region.Region)
+	if err != nil {
+		createErr = errors.New(fmt.Sprintf("Failed to get K8S versions while Creating Cluster. err = %s", err))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.ClusterInfo{}, createErr
+	}
+
+	var k8sVersionUnsupported = true
+	for _, version := range versions {
+		if clusterReqInfo.Version == version {
+			k8sVersionUnsupported = false
+			break
+		}
+	}
+	if k8sVersionUnsupported {
+		createErr = errors.New(fmt.Sprintf("Failed to Creating Cluster. " +
+			"err = Unsupported K8S version. (Available versions: " + strings.Join(versions[:], ", ") + ")"))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.ClusterInfo{}, createErr
+	}
+
+	err = createCluster(clusterReqInfo, ac.VirtualNetworksClient, ac.ManagedClustersClient, ac.VirtualMachineSizesClient, ac.SSHPublicKeysClient, ac.Region, ac.Ctx)
 	if err != nil {
 		createErr = errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", err))
 		cblogger.Error(createErr.Error())
@@ -844,7 +985,7 @@ func checkValidationCreateCluster(clusterReqInfo irs.ClusterInfo, virtualMachine
 	return nil
 }
 
-func createCluster(clusterReqInfo irs.ClusterInfo, virtualNetworksClient *network.VirtualNetworksClient, managedClustersClient *containerservice.ManagedClustersClient, virtualMachineSizesClient *compute.VirtualMachineSizesClient, sshPublicKeysClient *compute.SSHPublicKeysClient, credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo, ctx context.Context) error {
+func createCluster(clusterReqInfo irs.ClusterInfo, virtualNetworksClient *network.VirtualNetworksClient, managedClustersClient *containerservice.ManagedClustersClient, virtualMachineSizesClient *compute.VirtualMachineSizesClient, sshPublicKeysClient *compute.SSHPublicKeysClient, regionInfo idrv.RegionInfo, ctx context.Context) error {
 	// 사전 확인
 	err := checkValidationCreateCluster(clusterReqInfo, virtualMachineSizesClient, regionInfo, ctx)
 	if err != nil {
