@@ -1452,7 +1452,7 @@ func testClusterHandler(config Config) {
 			SubnetIIDs:        []irs.IID{{NameId: "cluster-tester-vpc-sb-01"}},
 			SecurityGroupIIDs: []irs.IID{{NameId: "test-cluster-applysg"}},
 		},
-		Version: "1.22.11",
+		Version: "1.29.4",
 		// ImageIID
 		NodeGroupList: []irs.NodeGroupInfo{
 			{

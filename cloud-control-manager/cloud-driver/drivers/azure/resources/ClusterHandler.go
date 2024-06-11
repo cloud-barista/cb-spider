@@ -57,7 +57,7 @@ func (ac *AzureClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (in
 	}
 	defer func() {
 		if createErr != nil {
-			cleanCluster(clusterReqInfo.IId.NameId, ac.ManagedClustersClient, ac.Region.Region, ac.Ctx)
+			_ = cleanCluster(clusterReqInfo.IId.NameId, ac.ManagedClustersClient, ac.Region.Region, ac.Ctx)
 		}
 	}()
 	baseSecurityGroup, err := waitingClusterBaseSecurityGroup(irs.IID{NameId: clusterReqInfo.IId.NameId}, ac.ManagedClustersClient, ac.SecurityGroupsClient, ac.Ctx, ac.CredentialInfo, ac.Region)
@@ -1478,17 +1478,15 @@ func changeNodeGroupScaling(cluster containerservice.ManagedCluster, nodeGroupII
 	}
 	var targetAgentPool *containerservice.AgentPool
 	for _, agentPool := range agentPools.Values() {
-		if targetAgentPool == nil {
-			if nodeGroupIID.NameId == "" {
-				if *agentPool.ID == nodeGroupIID.SystemId {
-					targetAgentPool = &agentPool
-					break
-				}
-			} else {
-				if *agentPool.Name == nodeGroupIID.NameId {
-					targetAgentPool = &agentPool
-					break
-				}
+		if nodeGroupIID.NameId == "" {
+			if *agentPool.ID == nodeGroupIID.SystemId {
+				targetAgentPool = &agentPool
+				break
+			}
+		} else {
+			if *agentPool.Name == nodeGroupIID.NameId {
+				targetAgentPool = &agentPool
+				break
 			}
 		}
 	}
@@ -1515,17 +1513,15 @@ func autoScalingChange(cluster containerservice.ManagedCluster, nodeGroupIID irs
 	}
 	var targetAgentPool *containerservice.AgentPool
 	for _, agentPool := range agentPools.Values() {
-		if targetAgentPool == nil {
-			if nodeGroupIID.NameId == "" {
-				if *agentPool.ID == nodeGroupIID.SystemId {
-					targetAgentPool = &agentPool
-					break
-				}
-			} else {
-				if *agentPool.Name == nodeGroupIID.NameId {
-					targetAgentPool = &agentPool
-					break
-				}
+		if nodeGroupIID.NameId == "" {
+			if *agentPool.ID == nodeGroupIID.SystemId {
+				targetAgentPool = &agentPool
+				break
+			}
+		} else {
+			if *agentPool.Name == nodeGroupIID.NameId {
+				targetAgentPool = &agentPool
+				break
 			}
 		}
 	}
@@ -1706,48 +1702,45 @@ func waitingClusterBaseSecurityGroup(createdClusterIID irs.IID, managedClustersC
 	apiCallCount := 0
 	maxAPICallCount := 240
 	var waitingErr error
-	var targetRawCluster *containerservice.ManagedCluster
+	var rawCluster containerservice.ManagedCluster
+	var err error
+
 	for {
-		rawCluster, err := getRawCluster(createdClusterIID, managedClustersClient, ctx, credentialInfo, regionInfo)
-		if err == nil && rawCluster.NodeResourceGroup != nil {
-			targetRawCluster = &rawCluster
+		rawCluster, err = getRawCluster(createdClusterIID, managedClustersClient, ctx, credentialInfo, regionInfo)
+		if err == nil {
 			break
 		}
 		apiCallCount++
 		if apiCallCount >= maxAPICallCount {
-			waitingErr = errors.New("failed get Cluster err = The maximum number of verification requests has been exceeded while waiting for the creation of that resource")
-			break
+			waitingErr = errors.New("failed get Cluster: The maximum number of verification requests has been exceeded while waiting for the creation of that resource, " +
+				"err = " + err.Error())
+			return network.SecurityGroup{}, waitingErr
 		}
 		time.Sleep(1 * time.Second)
 	}
 
-	if waitingErr != nil {
-		return network.SecurityGroup{}, waitingErr
-	}
 	// exist basicSecurity in clusterResourceGroup
 	apiCallCount = 0
-	clusterManagedResourceGroup := *targetRawCluster.NodeResourceGroup
-	if clusterManagedResourceGroup == "" {
+	if rawCluster.NodeResourceGroup == nil || *rawCluster.NodeResourceGroup == "" {
 		return network.SecurityGroup{}, errors.New("failed get Cluster Managed ResourceGroup err = Invalid value of NodeResourceGroup for cluster")
 	}
+	var clusterManagedResourceGroup = *rawCluster.NodeResourceGroup
 	var baseSecurityGroup network.SecurityGroup
 	for {
 		securityGroupList, err := securityGroupsClient.ListAll(ctx)
 		if err == nil && len(securityGroupList.Values()) > 0 {
-			// securityGroupList get Success
-			sgCheck := false
+			var isSGExist bool
 			for _, sg := range securityGroupList.Values() {
 				if sg.Tags != nil {
 					val, exist := sg.Tags[OwnerClusterKey]
-					if exist && val != nil && *val == *targetRawCluster.Name {
+					if exist && val != nil && *val == *rawCluster.Name {
 						baseSecurityGroup = sg
-						sgCheck = true
+						isSGExist = true
 						break
 					}
 				}
 			}
-			if sgCheck {
-				// base securityGroup Success
+			if isSGExist {
 				break
 			}
 
@@ -1757,7 +1750,7 @@ func waitingClusterBaseSecurityGroup(createdClusterIID irs.IID, managedClustersC
 			waitingErr = errors.New("failed get Cluster BaseSecurityGroup err = The maximum number of verification requests has been exceeded while waiting for the creation of that resource")
 			break
 		}
-		time.Sleep(4 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 	if waitingErr != nil {
 		return network.SecurityGroup{}, waitingErr
@@ -1765,27 +1758,54 @@ func waitingClusterBaseSecurityGroup(createdClusterIID irs.IID, managedClustersC
 	// check ClusterBaseRule..
 	apiCallCount = 0
 	for {
-		baseRuleCheck := 0
+		var isTcp80Exist bool
+		var isTcp443Exist bool
+		var defaultRulesExist bool
 		sg, err := securityGroupsClient.Get(ctx, clusterManagedResourceGroup, *baseSecurityGroup.Name, "")
-		if err == nil {
+		if err == nil && sg.SecurityRules != nil {
 			for _, rule := range *sg.SecurityRules {
-				if *rule.Priority == 500 && *rule.DestinationPortRange == "80" {
-					baseRuleCheck++
-				}
-				if *rule.Priority == 501 && *rule.DestinationPortRange == "443" {
-					baseRuleCheck++
+				if rule.Direction == network.SecurityRuleDirectionInbound && rule.Protocol == network.SecurityRuleProtocolTCP {
+					if rule.DestinationPortRanges != nil {
+						for _, portRange := range *rule.DestinationPortRanges {
+							if portRange == "80" {
+								isTcp80Exist = true
+							} else if portRange == "443" {
+								isTcp443Exist = true
+							}
+						}
+
+						if isTcp80Exist && isTcp443Exist {
+							defaultRulesExist = true
+							break
+						}
+					}
+
+					if rule.DestinationPortRange != nil {
+						if *rule.DestinationPortRange == "80" {
+							isTcp80Exist = true
+						} else if *rule.DestinationPortRange == "443" {
+							isTcp443Exist = true
+						}
+
+						if isTcp80Exist && isTcp443Exist {
+							defaultRulesExist = true
+							break
+						}
+					}
 				}
 			}
 		}
-		if baseRuleCheck == 2 {
+
+		if defaultRulesExist {
 			break
 		}
+
 		apiCallCount++
 		if apiCallCount >= maxAPICallCount {
 			waitingErr = errors.New("failed wait creating BaseRule in Cluster BaseSecurityGroup err = The maximum number of verification requests has been exceeded while waiting for the creation of that resource")
 			break
 		}
-		time.Sleep(4 * time.Second)
+		time.Sleep(1 * time.Second)
 	}
 	if waitingErr != nil {
 		return network.SecurityGroup{}, waitingErr
