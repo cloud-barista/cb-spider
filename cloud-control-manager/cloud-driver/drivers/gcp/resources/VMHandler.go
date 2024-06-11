@@ -1296,7 +1296,7 @@ func (vmHandler *GCPVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, error) {
 
 		//if curStatus != irs.VMStatus(waitStatus) {
 		curRetryCnt++
-		cblogger.Errorf("The VM status is not [%s], so waiting for 1 second before querying.", waitStatus)
+		cblogger.Debugf("The VM status is not [%s], so waiting for 1 second before querying.", waitStatus)
 		time.Sleep(time.Second * 1)
 		if curRetryCnt > maxRetryCnt {
 			cblogger.Errorf("Forcibly stopping after waiting for a long time (%d seconds) as the VM's Status value hasn't changed to [%s].", maxRetryCnt, waitStatus)

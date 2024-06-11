@@ -252,7 +252,7 @@ func (VPCHandler *AlibabaVPCHandler) WaitForRun(vpcId string) error {
 		cblogger.Info("===>VPC Status : ", status)
 		if strings.EqualFold(status, "Pending") {
 			curRetryCnt++
-			cblogger.Error("Waiting for 1 second and then querying because the VPC status is not Available.")
+			cblogger.Debug("Waiting for 1 second and then querying because the VPC status is not Available.")
 			time.Sleep(time.Second * 1)
 			if curRetryCnt > maxRetryCnt {
 				cblogger.Error("Forcing termination as the VPC status remains unchanged as Available for a long time.")

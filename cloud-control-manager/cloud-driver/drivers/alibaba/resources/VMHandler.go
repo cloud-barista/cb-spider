@@ -569,7 +569,7 @@ func (vmHandler *AlibabaVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, erro
 
 		//if curStatus != irs.VMStatus(waitStatus) {
 		curRetryCnt++
-		cblogger.Errorf("The VM status is not [%s], so waiting for 1 second before querying.", waitStatus)
+		cblogger.Debugf("The VM status is not [%s], so waiting for 1 second before querying.", waitStatus)
 		time.Sleep(time.Second * 1)
 		if curRetryCnt > maxRetryCnt {
 			cblogger.Errorf("Forcing termination as the VM status remains unchanged as [%s] even after waiting for a long time (%d seconds).", maxRetryCnt, waitStatus)
