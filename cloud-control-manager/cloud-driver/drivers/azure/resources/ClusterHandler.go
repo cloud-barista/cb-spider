@@ -182,7 +182,7 @@ func (ac *AzureClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (in
 		}
 	}
 	if k8sVersionUnsupported {
-		createErr = errors.New(fmt.Sprintf("Failed to Creating Cluster. " +
+		createErr = errors.New(fmt.Sprintf("Failed to Create Cluster. " +
 			"err = Unsupported K8S version. (Available versions: " + strings.Join(versions[:], ", ") + ")"))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
