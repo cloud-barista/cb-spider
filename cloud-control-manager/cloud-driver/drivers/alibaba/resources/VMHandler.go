@@ -21,7 +21,6 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
-	"github.com/davecgh/go-spew/spew"
 	/*
 		"github.com/davecgh/go-spew/spew"
 	*/)
@@ -996,12 +995,7 @@ func (vmHandler *AlibabaVMHandler) ListVM() ([]*irs.VMInfo, error) {
 
 		vmInfoList = append(vmInfoList, &vmInfo)
 	}
-	if cblogger.Level.String() == "debug" {
-		//cblogger.Info("=======>VM 최종 목록결과")
-		spew.Dump(vmInfoList)
-		//cblogger.Info("=======>VM 목록 완료")
-	}
-
+	cblogger.Debug(vmInfoList)
 	return vmInfoList, nil
 }
 
