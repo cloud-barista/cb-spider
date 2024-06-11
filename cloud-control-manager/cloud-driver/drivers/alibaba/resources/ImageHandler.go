@@ -199,7 +199,8 @@ func ExtractImageDescribeInfo(image *ecs.Image) irs.ImageInfo {
 	//*ecs.DescribeImagesResponse
 	if cblogger.Level.String() == "debug" {
 		cblogger.Debug("=====> ")
-		spew.Dump(image)
+		cblogger.Debug(image)
+		//spew.Dump(image)
 	}
 	imageInfo := irs.ImageInfo{
 		IId: irs.IID{NameId: image.ImageId, SystemId: image.ImageId},

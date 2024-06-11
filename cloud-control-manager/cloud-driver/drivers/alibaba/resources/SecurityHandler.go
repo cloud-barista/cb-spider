@@ -134,7 +134,8 @@ func (securityHandler *AlibabaSecurityHandler) AddRules(securityIID irs.IID, req
 	cblogger.Infof("securityGroupId : [%s]  / securityRuleInfos : [%v]", securityGroupId, reqSecurityRules)
 	//cblogger.Info("AuthorizeSecurityRules ", securityRuleInfos)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(reqSecurityRules)
+		cblogger.Debug(reqSecurityRules)
+		//spew.Dump(reqSecurityRules)
 	}
 
 	if len(*reqSecurityRules) < 1 {
@@ -189,7 +190,8 @@ func (securityHandler *AlibabaSecurityHandler) AddRules(securityIID irs.IID, req
 
 			cblogger.Infof("[%s] [%s] outbound rule Request", request.IpProtocol, request.PortRange)
 			if cblogger.Level.String() == "debug" {
-				spew.Dump(request)
+				//spew.Dump(request)
+				cblogger.Debug(request)
 			}
 
 			response, err := securityHandler.Client.AuthorizeSecurityGroupEgress(request)

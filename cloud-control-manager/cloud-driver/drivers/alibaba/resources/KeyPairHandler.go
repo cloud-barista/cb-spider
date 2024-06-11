@@ -144,7 +144,8 @@ func (keyPairHandler *AlibabaKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 
 	cblogger.Infof("Created key pair %q %s\n%s\n", result.KeyPairName, result.KeyPairFingerPrint, result.PrivateKeyBody)
 	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
+		//spew.Dump(result)
+		cblogger.Debug(result)
 	}
 
 	/* 2021-10-27 이슈#480에 의해 Local Key 로직 제거
@@ -256,7 +257,6 @@ func (keyPairHandler *AlibabaKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPair
 // 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 // KeyPair 정보를 추출함
 func ExtractKeyPairDescribeInfo(keyPair *ecs.KeyPair) (irs.KeyPairInfo, error) {
-	spew.Dump(keyPair)
 
 	keyPairInfo := irs.KeyPairInfo{
 		IId:         irs.IID{NameId: keyPair.KeyPairName, SystemId: keyPair.KeyPairName},

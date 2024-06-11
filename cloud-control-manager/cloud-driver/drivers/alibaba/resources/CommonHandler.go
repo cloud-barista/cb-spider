@@ -13,7 +13,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 )
 
 //// Alibaba API 1:1로 대응
@@ -94,9 +93,8 @@ func DescribeDisks(client *ecs.Client, regionInfo idrv.RegionInfo, instanceIID i
 		}
 	}
 
-	if cblogger.Level.String() == "debug" {
-		spew.Dump(resultDiskList)
-	}
+	cblogger.Debug(resultDiskList)
+
 	return resultDiskList, nil
 }
 

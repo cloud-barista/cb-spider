@@ -990,7 +990,8 @@ func (vmHandler *AlibabaVMHandler) ListVM() ([]*irs.VMInfo, error) {
 		}
 		//cblogger.Info("=======>VM 조회 결과")
 		if cblogger.Level.String() == "debug" {
-			spew.Dump(vmInfo)
+			//spew.Dump(vmInfo)
+			cblogger.Debug(vmInfo)
 		}
 
 		vmInfoList = append(vmInfoList, &vmInfo)
