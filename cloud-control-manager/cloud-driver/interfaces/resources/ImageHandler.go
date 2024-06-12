@@ -12,16 +12,17 @@
 package resources
 
 type ImageReqInfo struct {
-	IId   IID 	// {NameId, SystemId}
+	IId IID // {NameId, SystemId}
 	// @todo
 }
 
 type ImageInfo struct {
-	IId   IID 	// {NameId, SystemId}
+	IId     IID    // {NameId, SystemId}
 	GuestOS string // Windows7, Ubuntu etc.
-	Status string  // available, unavailable
+	Status  string // available, unavailable
 
-	KeyValueList []KeyValue 
+	TagList      []KeyValue
+	KeyValueList []KeyValue
 }
 
 type ImageHandler interface {

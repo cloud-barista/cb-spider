@@ -74,7 +74,7 @@ func GetVMUsingRS(connectionName string, cspID string) (VMUsingResources, error)
 		return VMUsingResources{}, err
 	}
 
-	rsType := rsVM
+	rsType := VM
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -246,7 +246,7 @@ func RegisterVM(connectionName string, userIID cres.IID) (*cres.VMInfo, error) {
 		return nil, err
 	}
 
-	rsType := rsVM
+	rsType := VM
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {

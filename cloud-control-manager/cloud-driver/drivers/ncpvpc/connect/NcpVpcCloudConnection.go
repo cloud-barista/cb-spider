@@ -165,3 +165,7 @@ func (cloudConn *NcpVpcCloudConnection) Close() error {
 
 	return nil
 }
+
+func (cloudConn *NcpVpcCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
+	return nil, fmt.Errorf("NCP VPC Cloud Driver: not implemented")
+}

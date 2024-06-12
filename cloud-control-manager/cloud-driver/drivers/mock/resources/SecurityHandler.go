@@ -45,7 +45,7 @@ func (securityHandler *MockSecurityHandler) CreateSecurity(securityReqInfo irs.S
 		securityReqInfo.VpcIID,
 		// deprecated; securityReqInfo.Direction,
 		securityReqInfo.SecurityRules,
-		nil}
+		nil, nil}
 
 	// (2) insert SecurityInfo into global Map
 	sgMapLock.Lock()

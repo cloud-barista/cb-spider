@@ -63,7 +63,7 @@ func RegisterKey(connectionName string, userIID cres.IID) (*cres.KeyPairInfo, er
 		return nil, err
 	}
 
-	rsType := rsKey
+	rsType := KEY
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {

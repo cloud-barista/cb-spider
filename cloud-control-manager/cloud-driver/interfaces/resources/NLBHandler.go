@@ -12,62 +12,63 @@ package resources
 
 import "time"
 
-//-------- Info Structure
+// -------- Info Structure
 type NLBInfo struct {
-	IId		IID 	// {NameId, SystemId}
-	VpcIID		IID	// {NameId, SystemId}
+	IId    IID // {NameId, SystemId}
+	VpcIID IID // {NameId, SystemId}
 
-	Type		string	// PUBLIC(V) | INTERNAL
-	Scope		string	// REGION(V) | GLOBAL
+	Type  string // PUBLIC(V) | INTERNAL
+	Scope string // REGION(V) | GLOBAL
 
 	//------ Frontend
-	Listener	ListenerInfo
+	Listener ListenerInfo
 
 	//------ Backend
-	VMGroup		VMGroupInfo
-	HealthChecker	HealthCheckerInfo
+	VMGroup       VMGroupInfo
+	HealthChecker HealthCheckerInfo
 
-	CreatedTime	time.Time
+	CreatedTime  time.Time
+	TagList      []KeyValue
 	KeyValueList []KeyValue
 }
 
 type ListenerInfo struct {
-	Protocol	string	// TCP|UDP
-	IP		string	// Auto Generated and attached
-	Port		string	// 1-65535
-	DNSName		string	// Optional, Auto Generated and attached
+	Protocol string // TCP|UDP
+	IP       string // Auto Generated and attached
+	Port     string // 1-65535
+	DNSName  string // Optional, Auto Generated and attached
 
-	CspID		string	// Optional, May be Used by Driver.
+	CspID        string // Optional, May be Used by Driver.
 	KeyValueList []KeyValue
 }
 
 type VMGroupInfo struct {
-        Protocol        string	// TCP|UDP
-        Port            string	// 1-65535
-	VMs		*[]IID
+	Protocol string // TCP|UDP
+	Port     string // 1-65535
+	VMs      *[]IID
 
-	CspID		string	// Optional, May be Used by Driver.
-        KeyValueList []KeyValue
+	CspID        string // Optional, May be Used by Driver.
+	KeyValueList []KeyValue
 }
 
 type HealthCheckerInfo struct {
-	Protocol	string	// TCP|HTTP
-	Port		string	// Listener Port or 1-65535
-	Interval	int	// secs, Interval time between health checks.
-	Timeout		int	// secs, Waiting time to decide an unhealthy VM when no response.
-	Threshold	int	// num, The number of continuous health checks to change the VM status.
+	Protocol  string // TCP|HTTP
+	Port      string // Listener Port or 1-65535
+	Interval  int    // secs, Interval time between health checks.
+	Timeout   int    // secs, Waiting time to decide an unhealthy VM when no response.
+	Threshold int    // num, The number of continuous health checks to change the VM status.
 
-	CspID		string	// Optional, May be Used by Driver.
-        KeyValueList	[]KeyValue
+	CspID        string // Optional, May be Used by Driver.
+	KeyValueList []KeyValue
 }
 
 type HealthInfo struct {
-	AllVMs		*[]IID
-	HealthyVMs	*[]IID
-	UnHealthyVMs	*[]IID
+	AllVMs       *[]IID
+	HealthyVMs   *[]IID
+	UnHealthyVMs *[]IID
 }
 
-//-------- API
+// -------- API
 type NLBHandler interface {
 
 	//------ NLB Management
@@ -80,10 +81,9 @@ type NLBHandler interface {
 	AddVMs(nlbIID IID, vmIIDs *[]IID) (VMGroupInfo, error)
 	RemoveVMs(nlbIID IID, vmIIDs *[]IID) (bool, error)
 
-
-//---------------------------------------------------//
-// @todo  To support or not will be decided later.   //
-//---------------------------------------------------//
+	//---------------------------------------------------//
+	// @todo  To support or not will be decided later.   //
+	//---------------------------------------------------//
 
 	//------ Frontend Control
 	ChangeListener(nlbIID IID, listener ListenerInfo) (ListenerInfo, error)
@@ -91,7 +91,7 @@ type NLBHandler interface {
 	ChangeVMGroupInfo(nlbIID IID, vmGroup VMGroupInfo) (VMGroupInfo, error)
 	ChangeHealthCheckerInfo(nlbIID IID, healthChecker HealthCheckerInfo) (HealthCheckerInfo, error)
 
-//---------------------------------------------------//
-// @todo  To support or not will be decided later.   //
-//---------------------------------------------------//
+	// ---------------------------------------------------//
+	// @todo  To support or not will be decided later.   //
+	// ---------------------------------------------------//
 }

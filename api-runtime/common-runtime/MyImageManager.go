@@ -63,7 +63,7 @@ func RegisterMyImage(connectionName string, userIID cres.IID) (*cres.MyImageInfo
 		return nil, err
 	}
 
-	rsType := rsMyImage
+	rsType := MYIMAGE
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {

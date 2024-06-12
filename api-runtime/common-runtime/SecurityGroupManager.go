@@ -57,7 +57,7 @@ func GetSGOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, err e
 		return cres.IID{}, err
 	}
 
-	rsType := rsSG
+	rsType := SG
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -173,7 +173,7 @@ func RegisterSecurity(connectionName string, vpcUserID string, userIID cres.IID)
 		return nil, err
 	}
 
-	rsType := rsSG
+	rsType := SG
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -199,7 +199,7 @@ func RegisterSecurity(connectionName string, vpcUserID string, userIID cres.IID)
 		return nil, err
 	}
 	if !bool_ret {
-		err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsVPC), vpcUserID)
+		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(VPC), vpcUserID)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -623,7 +623,7 @@ func AddRules(connectionName string, sgName string, reqInfoList []cres.SecurityR
 		return nil, err
 	}
 	if !bool_ret {
-		err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsSG), sgName)
+		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(SG), sgName)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -707,7 +707,7 @@ func RemoveRules(connectionName string, sgName string, reqRuleInfoList []cres.Se
 		return false, err
 	}
 	if !bool_ret {
-		err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsSG), sgName)
+		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(SG), sgName)
 		cblog.Error(err)
 		return false, err
 	}

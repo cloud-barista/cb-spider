@@ -30,48 +30,23 @@ import (
 )
 
 // define string of resource types
+// redefined for backward compatibility
 const (
-	rsImage     string = "image"
-	rsVPC       string = "vpc"
-	rsSubnet    string = "subnet"
-	rsSG        string = "sg"
-	rsKey       string = "keypair"
-	rsVM        string = "vm"
-	rsNLB       string = "nlb"
-	rsDisk      string = "disk"
-	rsMyImage   string = "myimage"
-	rsCluster   string = "cluster"
-	rsNodeGroup string = "nodegroup"
+	IMAGE     string = string(cres.IMAGE)
+	VPC       string = string(cres.VPC)
+	SUBNET    string = string(cres.SUBNET)
+	SG        string = string(cres.SG)
+	KEY       string = string(cres.KEY)
+	VM        string = string(cres.VM)
+	NLB       string = string(cres.NLB)
+	DISK      string = string(cres.DISK)
+	MYIMAGE   string = string(cres.MYIMAGE)
+	CLUSTER   string = string(cres.CLUSTER)
+	NODEGROUP string = string(cres.NODEGROUP)
 )
 
-func RsTypeString(rsType string) string {
-	switch rsType {
-	case rsImage:
-		return "VM Image"
-	case rsVPC:
-		return "VPC"
-	case rsSubnet:
-		return "Subnet"
-	case rsSG:
-		return "Security Group"
-	case rsKey:
-		return "VM KeyPair"
-	case rsVM:
-		return "VM"
-	case rsNLB:
-		return "nlb"
-	case rsDisk:
-		return "disk"
-	case rsMyImage:
-		return "MyImage"
-	case rsCluster:
-		return "Cluster"
-	case rsNodeGroup:
-		return "NodeGroup"
-	default:
-		return rsType + " is not supported Resource!!"
-
-	}
+func RSTypeString(rsType string) string {
+	return cres.RSTypeString(cres.RSType(rsType))
 }
 
 // definition of SPLock for each Resource Ops
@@ -287,28 +262,28 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 	}
 
 	switch rsType {
-	case rsVPC, rsSubnet:
+	case VPC, SUBNET:
 		vpcSPLock.Lock(connectionName, nameId)
 		defer vpcSPLock.Unlock(connectionName, nameId)
-	case rsSG:
+	case SG:
 		sgSPLock.Lock(connectionName, nameId)
 		defer sgSPLock.Unlock(connectionName, nameId)
-	case rsKey:
+	case KEY:
 		keySPLock.Lock(connectionName, nameId)
 		defer keySPLock.Unlock(connectionName, nameId)
-	case rsVM:
+	case VM:
 		vmSPLock.Lock(connectionName, nameId)
 		defer vmSPLock.Unlock(connectionName, nameId)
-	case rsNLB:
+	case NLB:
 		nlbSPLock.Lock(connectionName, nameId)
 		defer nlbSPLock.Unlock(connectionName, nameId)
-	case rsDisk:
+	case DISK:
 		diskSPLock.Lock(connectionName, nameId)
 		defer diskSPLock.Unlock(connectionName, nameId)
-	case rsMyImage:
+	case MYIMAGE:
 		myImageSPLock.Lock(connectionName, nameId)
 		defer myImageSPLock.Unlock(connectionName, nameId)
-	case rsCluster:
+	case CLUSTER:
 		clusterSPLock.Lock(connectionName, nameId)
 		defer clusterSPLock.Unlock(connectionName, nameId)
 	default:
@@ -317,7 +292,7 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 
 	// check existence(UserID) and unregister it from metadb
 	switch rsType {
-	case rsVPC:
+	case VPC:
 		var iidInfoList []*VPCIIDInfo
 		err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
 		if err != nil {
@@ -325,7 +300,7 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 			return false, err
 		}
 		if len(iidInfoList) <= 0 {
-			return false, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameId)
+			return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
 		}
 
 		_, err = infostore.DeleteByConditions(&VPCIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
@@ -342,7 +317,7 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 		}
 		return true, nil
 
-	case rsKey:
+	case KEY:
 		var iidInfoList []*KeyIIDInfo
 		err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
 		if err != nil {
@@ -350,7 +325,7 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 			return false, err
 		}
 		if len(iidInfoList) <= 0 {
-			return false, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameId)
+			return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
 		}
 
 		_, err = infostore.DeleteByConditions(&KeyIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
@@ -360,7 +335,7 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 		}
 		return true, nil
 
-	case rsVM:
+	case VM:
 		var iidInfoList []*VMIIDInfo
 		err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
 		if err != nil {
@@ -368,7 +343,7 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 			return false, err
 		}
 		if len(iidInfoList) <= 0 {
-			return false, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameId)
+			return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
 		}
 
 		_, err = infostore.DeleteByConditions(&VMIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
@@ -378,7 +353,7 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 		}
 		return true, nil
 
-	case rsDisk:
+	case DISK:
 		var iidInfoList []*DiskIIDInfo
 		err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
 		if err != nil {
@@ -386,7 +361,7 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 			return false, err
 		}
 		if len(iidInfoList) <= 0 {
-			return false, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameId)
+			return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
 		}
 
 		_, err = infostore.DeleteByConditions(&DiskIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
@@ -396,7 +371,7 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 		}
 		return true, nil
 
-	case rsMyImage:
+	case MYIMAGE:
 		var iidInfoList []*MyImageIIDInfo
 		err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
 		if err != nil {
@@ -404,7 +379,7 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 			return false, err
 		}
 		if len(iidInfoList) <= 0 {
-			return false, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameId)
+			return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
 		}
 
 		_, err = infostore.DeleteByConditions(&KeyIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
@@ -415,7 +390,7 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 		return true, nil
 
 	//// following resources are dependent on the VPC.
-	case rsSG:
+	case SG:
 		var iidInfoList []*SGIIDInfo
 		err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
 		if err != nil {
@@ -423,7 +398,7 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 			return false, err
 		}
 		if len(iidInfoList) <= 0 {
-			return false, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameId)
+			return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
 		}
 		for _, OneIIdInfo := range iidInfoList {
 			if OneIIdInfo.NameId == nameId {
@@ -437,7 +412,7 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 			}
 		}
 
-	case rsNLB:
+	case NLB:
 		var iidInfoList []*NLBIIDInfo
 		err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
 		if err != nil {
@@ -445,7 +420,7 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 			return false, err
 		}
 		if len(iidInfoList) <= 0 {
-			return false, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameId)
+			return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
 		}
 		for _, OneIIdInfo := range iidInfoList {
 			if OneIIdInfo.NameId == nameId {
@@ -459,7 +434,7 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 			}
 		}
 
-	case rsCluster:
+	case CLUSTER:
 		var iidInfoList []*ClusterIIDInfo
 		err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
 		if err != nil {
@@ -467,7 +442,7 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 			return false, err
 		}
 		if len(iidInfoList) <= 0 {
-			return false, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameId)
+			return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
 		}
 		for _, OneIIdInfo := range iidInfoList {
 			if OneIIdInfo.NameId == nameId {
@@ -485,7 +460,7 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 		return false, fmt.Errorf(rsType + " is not supported Resource!!")
 	}
 
-	return false, fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), nameId)
+	return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
 }
 
 // list all Resources for management
@@ -511,21 +486,21 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 	var handler interface{}
 
 	switch rsType {
-	case rsVPC:
+	case VPC:
 		handler, err = cldConn.CreateVPCHandler()
-	case rsSG:
+	case SG:
 		handler, err = cldConn.CreateSecurityHandler()
-	case rsKey:
+	case KEY:
 		handler, err = cldConn.CreateKeyPairHandler()
-	case rsVM:
+	case VM:
 		handler, err = cldConn.CreateVMHandler()
-	case rsNLB:
+	case NLB:
 		handler, err = cldConn.CreateNLBHandler()
-	case rsDisk:
+	case DISK:
 		handler, err = cldConn.CreateDiskHandler()
-	case rsMyImage:
+	case MYIMAGE:
 		handler, err = cldConn.CreateMyImageHandler()
-	case rsCluster:
+	case CLUSTER:
 		handler, err = cldConn.CreateClusterHandler()
 	default:
 		return AllResourceList{}, fmt.Errorf(rsType + " is not supported Resource!!")
@@ -539,7 +514,7 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 	// (1) get IID:list from metadb
 	iidList := []*cres.IID{}
 	switch rsType {
-	case rsVPC:
+	case VPC:
 		var iidInfoList []*VPCIIDInfo
 		err := infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
 		if err != nil {
@@ -550,7 +525,7 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 			iid := makeUserIID(info.NameId, info.SystemId)
 			iidList = append(iidList, &iid)
 		}
-	case rsKey:
+	case KEY:
 		var iidInfoList []*KeyIIDInfo
 		err := infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
 		if err != nil {
@@ -561,7 +536,7 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 			iid := makeUserIID(info.NameId, info.SystemId)
 			iidList = append(iidList, &iid)
 		}
-	case rsVM:
+	case VM:
 		var iidInfoList []*VMIIDInfo
 		err := infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
 		if err != nil {
@@ -572,7 +547,7 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 			iid := makeUserIID(info.NameId, info.SystemId)
 			iidList = append(iidList, &iid)
 		}
-	case rsDisk:
+	case DISK:
 		var iidInfoList []*DiskIIDInfo
 		err := infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
 		if err != nil {
@@ -583,7 +558,7 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 			iid := makeUserIID(info.NameId, info.SystemId)
 			iidList = append(iidList, &iid)
 		}
-	case rsMyImage:
+	case MYIMAGE:
 		var iidInfoList []*MyImageIIDInfo
 		err := infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
 		if err != nil {
@@ -594,7 +569,7 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 			iid := makeUserIID(info.NameId, info.SystemId)
 			iidList = append(iidList, &iid)
 		}
-	case rsSG:
+	case SG:
 		var iidInfoList []*SGIIDInfo
 		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
 		if err != nil {
@@ -605,7 +580,7 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 			iid := makeUserIID(info.NameId, info.SystemId)
 			iidList = append(iidList, &iid)
 		}
-	case rsNLB:
+	case NLB:
 		var iidInfoList []*NLBIIDInfo
 		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
 		if err != nil {
@@ -616,7 +591,7 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 			iid := makeUserIID(info.NameId, info.SystemId)
 			iidList = append(iidList, &iid)
 		}
-	case rsCluster:
+	case CLUSTER:
 		var iidInfoList []*ClusterIIDInfo
 		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
 		if err != nil {
@@ -642,7 +617,7 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 	// (2) get IID:list from CSP
 	iidCSPList := []*cres.IID{}
 	switch rsType {
-	case rsVPC:
+	case VPC:
 		infoList, err := handler.(cres.VPCHandler).ListVPC()
 		if err != nil {
 			cblog.Error(err)
@@ -653,7 +628,7 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 				iidCSPList = append(iidCSPList, &info.IId)
 			}
 		}
-	case rsSG:
+	case SG:
 		infoList, err := handler.(cres.SecurityHandler).ListSecurity()
 		if err != nil {
 			cblog.Error(err)
@@ -664,7 +639,7 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 				iidCSPList = append(iidCSPList, &info.IId)
 			}
 		}
-	case rsKey:
+	case KEY:
 		infoList, err := handler.(cres.KeyPairHandler).ListKey()
 		if err != nil {
 			cblog.Error(err)
@@ -675,7 +650,7 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 				iidCSPList = append(iidCSPList, &info.IId)
 			}
 		}
-	case rsVM:
+	case VM:
 		infoList, err := handler.(cres.VMHandler).ListVM()
 		if err != nil {
 			cblog.Error(err)
@@ -686,7 +661,7 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 				iidCSPList = append(iidCSPList, &info.IId)
 			}
 		}
-	case rsNLB:
+	case NLB:
 		infoList, err := handler.(cres.NLBHandler).ListNLB()
 		if err != nil {
 			cblog.Error(err)
@@ -697,7 +672,7 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 				iidCSPList = append(iidCSPList, &info.IId)
 			}
 		}
-	case rsDisk:
+	case DISK:
 		infoList, err := handler.(cres.DiskHandler).ListDisk()
 		if err != nil {
 			cblog.Error(err)
@@ -708,7 +683,7 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 				iidCSPList = append(iidCSPList, &info.IId)
 			}
 		}
-	case rsMyImage:
+	case MYIMAGE:
 		infoList, err := handler.(cres.MyImageHandler).ListMyImage()
 		if err != nil {
 			cblog.Error(err)
@@ -719,7 +694,7 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 				iidCSPList = append(iidCSPList, &info.IId)
 			}
 		}
-	case rsCluster:
+	case CLUSTER:
 		infoList, err := handler.(cres.ClusterHandler).ListCluster()
 		if err != nil {
 			cblog.Error(err)
@@ -826,7 +801,7 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
 	var cldConn icon.CloudConnection
 	zoneId := ""
 	switch rsType {
-	case rsDisk: // Zone-Level Control Resource(ex. Disk)
+	case DISK: // Zone-Level Control Resource(ex. Disk)
 		// (1) get IID(SystemId)
 		var iidInfo DiskIIDInfo
 		err = infostore.GetByConditionAndContain(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, systemID)
@@ -860,21 +835,21 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
 	var handler interface{}
 
 	switch rsType {
-	case rsVPC:
+	case VPC:
 		handler, err = cldConn.CreateVPCHandler()
-	case rsSG:
+	case SG:
 		handler, err = cldConn.CreateSecurityHandler()
-	case rsKey:
+	case KEY:
 		handler, err = cldConn.CreateKeyPairHandler()
-	case rsVM:
+	case VM:
 		handler, err = cldConn.CreateVMHandler()
-	case rsNLB:
+	case NLB:
 		handler, err = cldConn.CreateNLBHandler()
-	case rsDisk:
+	case DISK:
 		handler, err = cldConn.CreateDiskHandler()
-	case rsMyImage:
+	case MYIMAGE:
 		handler, err = cldConn.CreateMyImageHandler()
-	case rsCluster:
+	case CLUSTER:
 		handler, err = cldConn.CreateClusterHandler()
 	default:
 		return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
@@ -890,49 +865,49 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
 	result := false
 	var vmStatus cres.VMStatus
 	switch rsType {
-	case rsVPC:
+	case VPC:
 		result, err = handler.(cres.VPCHandler).DeleteVPC(iid)
 		if err != nil {
 			cblog.Error(err)
 			return false, "", err
 		}
-	case rsSG:
+	case SG:
 		result, err = handler.(cres.SecurityHandler).DeleteSecurity(iid)
 		if err != nil {
 			cblog.Error(err)
 			return false, "", err
 		}
-	case rsKey:
+	case KEY:
 		result, err = handler.(cres.KeyPairHandler).DeleteKey(iid)
 		if err != nil {
 			cblog.Error(err)
 			return false, "", err
 		}
-	case rsVM:
+	case VM:
 		vmStatus, err = handler.(cres.VMHandler).TerminateVM(iid)
 		if err != nil {
 			cblog.Error(err)
 			return false, vmStatus, err
 		}
-	case rsNLB:
+	case NLB:
 		result, err = handler.(cres.NLBHandler).DeleteNLB(iid)
 		if err != nil {
 			cblog.Error(err)
 			return false, "", err
 		}
-	case rsDisk:
+	case DISK:
 		result, err = handler.(cres.DiskHandler).DeleteDisk(iid)
 		if err != nil {
 			cblog.Error(err)
 			return false, "", err
 		}
-	case rsMyImage:
+	case MYIMAGE:
 		result, err = handler.(cres.MyImageHandler).DeleteMyImage(iid)
 		if err != nil {
 			cblog.Error(err)
 			return false, "", err
 		}
-	case rsCluster:
+	case CLUSTER:
 		result, err = handler.(cres.ClusterHandler).DeleteCluster(iid)
 		if err != nil {
 			cblog.Error(err)
@@ -943,13 +918,13 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
 		return false, "", fmt.Errorf(rsType + " is not supported Resource!!")
 	}
 
-	if rsType != rsVM {
+	if rsType != VM {
 		if !result {
 			return result, "", nil
 		}
 	}
 
-	if rsType == rsVM {
+	if rsType == VM {
 		return result, vmStatus, nil
 	} else {
 		return result, "", nil
@@ -1015,7 +990,7 @@ func GetCSPResourceInfo(connectionName string, rsType string, systemID string) (
 	var cldConn icon.CloudConnection
 	zoneId := ""
 	switch rsType {
-	case rsDisk: // Zone-Level Control Resource(ex. Disk)
+	case DISK: // Zone-Level Control Resource(ex. Disk)
 		// (1) get IID(SystemId)
 		var iidInfo DiskIIDInfo
 		err = infostore.GetByConditionAndContain(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, systemID)
@@ -1049,21 +1024,21 @@ func GetCSPResourceInfo(connectionName string, rsType string, systemID string) (
 	var handler interface{}
 
 	switch rsType {
-	case rsVPC:
+	case VPC:
 		handler, err = cldConn.CreateVPCHandler()
-	case rsSG:
+	case SG:
 		handler, err = cldConn.CreateSecurityHandler()
-	case rsKey:
+	case KEY:
 		handler, err = cldConn.CreateKeyPairHandler()
-	case rsVM:
+	case VM:
 		handler, err = cldConn.CreateVMHandler()
-	case rsNLB:
+	case NLB:
 		handler, err = cldConn.CreateNLBHandler()
-	case rsDisk:
+	case DISK:
 		handler, err = cldConn.CreateDiskHandler()
-	case rsMyImage:
+	case MYIMAGE:
 		handler, err = cldConn.CreateMyImageHandler()
-	case rsCluster:
+	case CLUSTER:
 		handler, err = cldConn.CreateClusterHandler()
 	default:
 		return nil, fmt.Errorf(rsType + " is not supported Resource!!")
@@ -1078,56 +1053,56 @@ func GetCSPResourceInfo(connectionName string, rsType string, systemID string) (
 	// Get CSP's Resource(SystemId)
 	jsonResult := []byte{}
 	switch rsType {
-	case rsVPC:
+	case VPC:
 		result, err := handler.(cres.VPCHandler).GetVPC(iid)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
 		}
 		jsonResult, _ = json.Marshal(result)
-	case rsSG:
+	case SG:
 		result, err := handler.(cres.SecurityHandler).GetSecurity(iid)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
 		}
 		jsonResult, _ = json.Marshal(result)
-	case rsKey:
+	case KEY:
 		result, err := handler.(cres.KeyPairHandler).GetKey(iid)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
 		}
 		jsonResult, _ = json.Marshal(result)
-	case rsVM:
+	case VM:
 		result, err := handler.(cres.VMHandler).GetVM(iid)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
 		}
 		jsonResult, _ = json.Marshal(result)
-	case rsNLB:
+	case NLB:
 		result, err := handler.(cres.NLBHandler).GetNLB(iid)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
 		}
 		jsonResult, _ = json.Marshal(result)
-	case rsDisk:
+	case DISK:
 		result, err := handler.(cres.DiskHandler).GetDisk(iid)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
 		}
 		jsonResult, _ = json.Marshal(result)
-	case rsMyImage:
+	case MYIMAGE:
 		result, err := handler.(cres.MyImageHandler).GetMyImage(iid)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
 		}
 		jsonResult, _ = json.Marshal(result)
-	case rsCluster:
+	case CLUSTER:
 		result, err := handler.(cres.ClusterHandler).GetCluster(iid)
 		if err != nil {
 			cblog.Error(err)
@@ -1161,7 +1136,7 @@ func GetCSPResourceName(connectionName string, rsType string, nameID string) (st
 	}
 
 	switch rsType {
-	case rsVPC:
+	case VPC:
 		// (1) get IID(NameId)
 		var iid VPCIIDInfo
 		err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
@@ -1171,7 +1146,7 @@ func GetCSPResourceName(connectionName string, rsType string, nameID string) (st
 		}
 		// (2) get DriverNameId and return it
 		return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
-	case rsSG:
+	case SG:
 		// (1) get IID(NameId)
 		var iid SGIIDInfo
 		err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
@@ -1181,7 +1156,7 @@ func GetCSPResourceName(connectionName string, rsType string, nameID string) (st
 		}
 		// (2) get DriverNameId and return it
 		return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
-	case rsKey:
+	case KEY:
 		// (1) get IID(NameId)
 		var iid KeyIIDInfo
 		err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
@@ -1191,7 +1166,7 @@ func GetCSPResourceName(connectionName string, rsType string, nameID string) (st
 		}
 		// (2) get DriverNameId and return it
 		return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
-	case rsVM:
+	case VM:
 		// (1) get IID(NameId)
 		var iid VMIIDInfo
 		err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
@@ -1201,7 +1176,7 @@ func GetCSPResourceName(connectionName string, rsType string, nameID string) (st
 		}
 		// (2) get DriverNameId and return it
 		return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
-	case rsNLB:
+	case NLB:
 		// (1) get IID(NameId)
 		var iid NLBIIDInfo
 		err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
@@ -1211,7 +1186,7 @@ func GetCSPResourceName(connectionName string, rsType string, nameID string) (st
 		}
 		// (2) get DriverNameId and return it
 		return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
-	case rsDisk:
+	case DISK:
 		// (1) get IID(NameId)
 		var iid DiskIIDInfo
 		err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
@@ -1221,7 +1196,7 @@ func GetCSPResourceName(connectionName string, rsType string, nameID string) (st
 		}
 		// (2) get DriverNameId and return it
 		return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
-	case rsMyImage:
+	case MYIMAGE:
 		// (1) get IID(NameId)
 		var iid MyImageIIDInfo
 		err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
@@ -1231,7 +1206,7 @@ func GetCSPResourceName(connectionName string, rsType string, nameID string) (st
 		}
 		// (2) get DriverNameId and return it
 		return makeDriverIID(iid.NameId, iid.SystemId).NameId, nil
-	case rsCluster:
+	case CLUSTER:
 		// (1) get IID(NameId)
 		var iid ClusterIIDInfo
 		err = infostore.GetByConditions(&iid, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
@@ -1252,28 +1227,28 @@ func ListResourceName(connectionName, rsType string) ([]string, error) {
 
 	// Determine the type of info based on rsType
 	switch rsType {
-	case rsVPC:
+	case VPC:
 		v := VPCIIDInfo{}
 		info = &v
-	case rsSG:
+	case SG:
 		v := SGIIDInfo{}
 		info = &v
-	case rsKey:
+	case KEY:
 		v := KeyIIDInfo{}
 		info = &v
-	case rsVM:
+	case VM:
 		v := VMIIDInfo{}
 		info = &v
-	case rsNLB:
+	case NLB:
 		v := NLBIIDInfo{}
 		info = &v
-	case rsDisk:
+	case DISK:
 		v := DiskIIDInfo{}
 		info = &v
-	case rsMyImage:
+	case MYIMAGE:
 		v := MyImageIIDInfo{}
 		info = &v
-	case rsCluster:
+	case CLUSTER:
 		v := ClusterIIDInfo{}
 		info = &v
 	default:
@@ -1321,11 +1296,11 @@ func Destroy(connectionName string) (DestroyedInfo, error) {
 
 	// Define resource type groups
 	resourceTypeGroups := [][]string{
-		{rsCluster, rsMyImage, rsNLB},
-		{rsVM},
-		{rsDisk},
-		{rsKey, rsSG},
-		{rsVPC},
+		{CLUSTER, MYIMAGE, NLB},
+		{VM},
+		{DISK},
+		{KEY, SG},
+		{VPC},
 	}
 
 	for _, resourceTypes := range resourceTypeGroups {
@@ -1384,22 +1359,22 @@ func deleteResources(connectionName string, rsType string) (*DeletedResourceInfo
 			var err error
 
 			switch rsType {
-			case rsVPC:
-				_, err = DeleteVPC(connectionName, rsVPC, nameId, "false")
-			case rsSG:
-				_, err = DeleteSecurity(connectionName, rsSG, nameId, "false")
-			case rsKey:
-				_, err = DeleteKey(connectionName, rsKey, nameId, "false")
-			case rsVM:
-				_, _, err = DeleteVM(connectionName, rsVM, nameId, "false")
-			case rsNLB:
-				_, err = DeleteNLB(connectionName, rsNLB, nameId, "false")
-			case rsDisk:
-				_, err = DeleteDisk(connectionName, rsDisk, nameId, "false")
-			case rsMyImage:
-				_, err = DeleteMyImage(connectionName, rsMyImage, nameId, "false")
-			case rsCluster:
-				_, err = DeleteCluster(connectionName, rsCluster, nameId, "false")
+			case VPC:
+				_, err = DeleteVPC(connectionName, VPC, nameId, "false")
+			case SG:
+				_, err = DeleteSecurity(connectionName, SG, nameId, "false")
+			case KEY:
+				_, err = DeleteKey(connectionName, KEY, nameId, "false")
+			case VM:
+				_, _, err = DeleteVM(connectionName, VM, nameId, "false")
+			case NLB:
+				_, err = DeleteNLB(connectionName, NLB, nameId, "false")
+			case DISK:
+				_, err = DeleteDisk(connectionName, DISK, nameId, "false")
+			case MYIMAGE:
+				_, err = DeleteMyImage(connectionName, MYIMAGE, nameId, "false")
+			case CLUSTER:
+				_, err = DeleteCluster(connectionName, CLUSTER, nameId, "false")
 			default:
 				err = fmt.Errorf("%s is not supported Resource!!", rsType)
 			}

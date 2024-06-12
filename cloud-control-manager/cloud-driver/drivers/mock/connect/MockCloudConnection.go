@@ -122,3 +122,7 @@ func (cloudConn *MockConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler,
 	handler := mkrs.MockPriceInfoHandler{Region: cloudConn.Region, MockName: cloudConn.MockName}
 	return &handler, nil
 }
+
+func (cloudConn *MockConnection) CreateTagHandler() (irs.TagHandler, error) {
+	return nil, errors.New("Mock Driver: not implemented")
+}

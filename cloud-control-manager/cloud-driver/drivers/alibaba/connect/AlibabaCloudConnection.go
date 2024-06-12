@@ -172,3 +172,7 @@ func (cloudConn *AlibabaCloudConnection) CreatePriceInfoHandler() (irs.PriceInfo
 	priceInfoHandler := alirs.AlibabaPriceInfoHandler{BssClient: cloudConn.BssClient}
 	return &priceInfoHandler, nil
 }
+
+func (cloudConn *AlibabaCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
+	return nil, errors.New("Alibaba Driver: not implemented")
+}

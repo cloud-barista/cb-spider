@@ -67,7 +67,7 @@ func UnregisterDisk(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.UnregisterResource(req.ConnectionName, rsDisk, c.Param("Name"))
+	result, err := cmrt.UnregisterResource(req.ConnectionName, DISK, c.Param("Name"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -109,7 +109,7 @@ func CreateDisk(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.CreateDisk(req.ConnectionName, rsDisk, reqInfo, req.IDTransformMode)
+	result, err := cmrt.CreateDisk(req.ConnectionName, DISK, reqInfo, req.IDTransformMode)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -134,7 +134,7 @@ func ListDisk(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.ListDisk(req.ConnectionName, rsDisk)
+	result, err := cmrt.ListDisk(req.ConnectionName, DISK)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -167,7 +167,7 @@ func ListAllDisk(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, rsDisk)
+	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, DISK)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -192,7 +192,7 @@ func GetDisk(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.GetDisk(req.ConnectionName, rsDisk, c.Param("Name"))
+	result, err := cmrt.GetDisk(req.ConnectionName, DISK, c.Param("Name"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -243,7 +243,7 @@ func DeleteDisk(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.DeleteDisk(req.ConnectionName, rsDisk, c.Param("Name"), c.QueryParam("force"))
+	result, err := cmrt.DeleteDisk(req.ConnectionName, DISK, c.Param("Name"), c.QueryParam("force"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -270,7 +270,7 @@ func DeleteCSPDisk(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, _, err := cmrt.DeleteCSPResource(req.ConnectionName, rsDisk, c.Param("Id"))
+	result, _, err := cmrt.DeleteCSPResource(req.ConnectionName, DISK, c.Param("Id"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

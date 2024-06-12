@@ -122,3 +122,7 @@ func (cloudConn *ClouditCloudConnection) CreateAnyCallHandler() (irs.AnyCallHand
 func (*ClouditCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
 	return nil, errors.New("Cloudit Driver: not implemented")
 }
+
+func (cloudConn *ClouditCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
+	return nil, errors.New("Cloudit Driver: not implemented")
+}

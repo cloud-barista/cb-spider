@@ -22,18 +22,19 @@ import (
 )
 
 // define string of resource types
+// redefined for backward compatibility
 const (
-	rsImage     string = "image"
-	rsVPC       string = "vpc"
-	rsSubnet    string = "subnet"
-	rsSG        string = "sg"
-	rsKey       string = "keypair"
-	rsVM        string = "vm"
-	rsNLB       string = "nlb"
-	rsDisk      string = "disk"
-	rsMyImage   string = "myimage"
-	rsCluster   string = "cluster"
-	rsNodeGroup string = "nodegroup"
+	IMAGE     string = string(cres.IMAGE)
+	VPC       string = string(cres.VPC)
+	SUBNET    string = string(cres.SUBNET)
+	SG        string = string(cres.SG)
+	KEY       string = string(cres.KEY)
+	VM        string = string(cres.VM)
+	NLB       string = string(cres.NLB)
+	DISK      string = string(cres.DISK)
+	MYIMAGE   string = string(cres.MYIMAGE)
+	CLUSTER   string = string(cres.CLUSTER)
+	NODEGROUP string = string(cres.NODEGROUP)
 )
 
 //================ Get CSP Resource Name
@@ -101,35 +102,35 @@ func GetCSPResourceInfo(c echo.Context) error {
 	}
 
 	switch req.ResourceType {
-	case rsVPC:
+	case VPC:
 		var Result cres.VPCInfo
 		json.Unmarshal(result, &Result)
 		return c.JSON(http.StatusOK, Result)
-	case rsSG:
+	case SG:
 		var Result cres.SecurityInfo
 		json.Unmarshal(result, &Result)
 		return c.JSON(http.StatusOK, Result)
-	case rsKey:
+	case KEY:
 		var Result cres.KeyPairInfo
 		json.Unmarshal(result, &Result)
 		return c.JSON(http.StatusOK, Result)
-	case rsVM:
+	case VM:
 		var Result cres.VMInfo
 		json.Unmarshal(result, &Result)
 		return c.JSON(http.StatusOK, Result)
-	case rsNLB:
+	case NLB:
 		var Result cres.NLBInfo
 		json.Unmarshal(result, &Result)
 		return c.JSON(http.StatusOK, Result)
-	case rsDisk:
+	case DISK:
 		var Result cres.DiskInfo
 		json.Unmarshal(result, &Result)
 		return c.JSON(http.StatusOK, Result)
-	case rsMyImage:
+	case MYIMAGE:
 		var Result cres.MyImageInfo
 		json.Unmarshal(result, &Result)
 		return c.JSON(http.StatusOK, Result)
-	case rsCluster:
+	case CLUSTER:
 		var Result cres.ClusterInfo
 		json.Unmarshal(result, &Result)
 		return c.JSON(http.StatusOK, Result)

@@ -66,7 +66,7 @@ func UnregisterKey(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.UnregisterResource(req.ConnectionName, rsKey, c.Param("Name"))
+	result, err := cmrt.UnregisterResource(req.ConnectionName, KEY, c.Param("Name"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -124,7 +124,7 @@ func CreateKey(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.CreateKey(req.ConnectionName, rsKey, reqInfo, req.IDTransformMode)
+	result, err := cmrt.CreateKey(req.ConnectionName, KEY, reqInfo, req.IDTransformMode)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -149,7 +149,7 @@ func ListKey(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.ListKey(req.ConnectionName, rsKey)
+	result, err := cmrt.ListKey(req.ConnectionName, KEY)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -182,7 +182,7 @@ func ListAllKey(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, rsKey)
+	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, KEY)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -207,7 +207,7 @@ func GetKey(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.GetKey(req.ConnectionName, rsKey, c.Param("Name"))
+	result, err := cmrt.GetKey(req.ConnectionName, KEY, c.Param("Name"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -230,7 +230,7 @@ func DeleteKey(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.DeleteKey(req.ConnectionName, rsKey, c.Param("Name"), c.QueryParam("force"))
+	result, err := cmrt.DeleteKey(req.ConnectionName, KEY, c.Param("Name"), c.QueryParam("force"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -257,7 +257,7 @@ func DeleteCSPKey(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, _, err := cmrt.DeleteCSPResource(req.ConnectionName, rsKey, c.Param("Id"))
+	result, _, err := cmrt.DeleteCSPResource(req.ConnectionName, KEY, c.Param("Id"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

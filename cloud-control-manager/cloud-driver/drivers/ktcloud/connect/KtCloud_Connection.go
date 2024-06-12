@@ -137,3 +137,7 @@ func (cloudConn *KtCloudConnection) Close() error {
 func (*KtCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
 	return nil, errors.New("KT Cloud Driver: not implemented")
 }
+
+func (cloudConn *KtCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
+	return nil, errors.New("KT Cloud Driver: not implemented")
+}

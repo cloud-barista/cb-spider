@@ -91,7 +91,7 @@ func UnregisterNLB(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.UnregisterResource(req.ConnectionName, rsNLB, c.Param("Name"))
+	result, err := cmrt.UnregisterResource(req.ConnectionName, NLB, c.Param("Name"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -163,7 +163,7 @@ func CreateNLB(c echo.Context) error {
 	reqInfo.HealthChecker = healthChecker
 
 	// Call common-runtime API
-	result, err := cmrt.CreateNLB(req.ConnectionName, rsNLB, reqInfo, req.IDTransformMode)
+	result, err := cmrt.CreateNLB(req.ConnectionName, NLB, reqInfo, req.IDTransformMode)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -242,7 +242,7 @@ func ListNLB(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.ListNLB(req.ConnectionName, rsNLB)
+	result, err := cmrt.ListNLB(req.ConnectionName, NLB)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -275,7 +275,7 @@ func ListAllNLB(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, rsNLB)
+	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, NLB)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -300,7 +300,7 @@ func GetNLB(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.GetNLB(req.ConnectionName, rsNLB, c.Param("Name"))
+	result, err := cmrt.GetNLB(req.ConnectionName, NLB, c.Param("Name"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -509,7 +509,7 @@ func DeleteNLB(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.DeleteNLB(req.ConnectionName, rsNLB, c.Param("Name"), c.QueryParam("force"))
+	result, err := cmrt.DeleteNLB(req.ConnectionName, NLB, c.Param("Name"), c.QueryParam("force"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -536,7 +536,7 @@ func DeleteCSPNLB(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, _, err := cmrt.DeleteCSPResource(req.ConnectionName, rsNLB, c.Param("Id"))
+	result, _, err := cmrt.DeleteCSPResource(req.ConnectionName, NLB, c.Param("Id"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

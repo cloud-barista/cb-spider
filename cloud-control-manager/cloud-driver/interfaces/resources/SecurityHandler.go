@@ -14,9 +14,11 @@ package resources
 type SecurityReqInfo struct {
 	IId IID // {NameId, SystemId}
 
-	VpcIID        IID    // {NameId, SystemId}
+	VpcIID IID // {NameId, SystemId}
 	//Direction     string // To be deprecated
 	SecurityRules *[]SecurityRuleInfo
+
+	TagList []KeyValue
 }
 
 // @definitionAlias cres.SecurityRuleInfo
@@ -31,10 +33,11 @@ type SecurityRuleInfo struct {
 type SecurityInfo struct {
 	IId IID // {NameId, SystemId}
 
-	VpcIID        IID    // {NameId, SystemId}
+	VpcIID IID // {NameId, SystemId}
 	//Direction     string // @todo userd??
 	SecurityRules *[]SecurityRuleInfo
 
+	TagList      []KeyValue
 	KeyValueList []KeyValue
 }
 

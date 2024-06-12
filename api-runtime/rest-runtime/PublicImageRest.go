@@ -37,7 +37,7 @@ func ListImage(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.ListImage(req.ConnectionName, rsImage)
+	result, err := cmrt.ListImage(req.ConnectionName, IMAGE)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -74,7 +74,7 @@ func GetImage(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	result, err := cmrt.GetImage(req.ConnectionName, rsImage, decodedImageName)
+	result, err := cmrt.GetImage(req.ConnectionName, IMAGE, decodedImageName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
