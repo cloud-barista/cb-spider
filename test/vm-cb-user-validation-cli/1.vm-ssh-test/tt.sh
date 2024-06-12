@@ -1,6 +1,10 @@
 #!/bin/bash
 
 CSPLIST=( mock mock2 mock3 mock4 mock5 aws azure gcp alibaba ncpvpc )
+CSPLIST=( ncpvpc )
+CSPLIST=( mock )
+CSPLIST=( aws )
+CSPLIST=( ncpvpc )
 
 function run() {
     param=$1
