@@ -13,6 +13,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"encoding/json"
 
@@ -1287,7 +1288,7 @@ func Destroy(connectionName string) (DestroyedInfo, error) {
 	// check empty and trim user inputs
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
 	if err != nil {
-		cblog.Error(err)
+		cblog.Println(err)
 		return DestroyedInfo{}, err
 	}
 
@@ -1312,18 +1313,44 @@ func Destroy(connectionName string) (DestroyedInfo, error) {
 			wg.Add(1)
 			go func(resourceType string) {
 				defer wg.Done()
-				deletedResourceInfoList, err := deleteResources(connectionName, resourceType)
+
+				var finalDeletedResourceInfoList DeletedResourceInfoList
+				finalDeletedResourceInfoList.ResourceType = resourceType
+
+				for retry := 0; retry < 10; retry++ {
+					deletedResourceInfoList, err := deleteAllResourcesInResType(connectionName, resourceType)
+					mu.Lock()
+					if err != nil {
+						cblog.Println(err)
+						groupErr = err
+						mu.Unlock()
+						return
+					}
+					if deletedResourceInfoList == nil {
+						mu.Unlock()
+						return
+					}
+
+					// Append the deleted resource info list
+					finalDeletedResourceInfoList.DeletedIIDList = append(finalDeletedResourceInfoList.DeletedIIDList, deletedResourceInfoList.DeletedIIDList...)
+					finalDeletedResourceInfoList.IsAllDeleted = deletedResourceInfoList.IsAllDeleted
+					if !deletedResourceInfoList.IsAllDeleted {
+						finalDeletedResourceInfoList.RemainedErrorInfoList = deletedResourceInfoList.RemainedErrorInfoList
+					}
+
+					if deletedResourceInfoList.IsAllDeleted {
+						destroyedInfo.DestroyedList = append(destroyedInfo.DestroyedList, &finalDeletedResourceInfoList)
+						mu.Unlock()
+						return
+					}
+					mu.Unlock()
+					time.Sleep(3 * time.Second)
+				}
+
 				mu.Lock()
-				defer mu.Unlock()
-				if err != nil {
-					cblog.Error(err)
-					groupErr = err
-					return
-				}
-				if !deletedResourceInfoList.IsAllDeleted {
-					destroyedInfo.IsAllDestroyed = false
-				}
-				destroyedInfo.DestroyedList = append(destroyedInfo.DestroyedList, deletedResourceInfoList)
+				destroyedInfo.IsAllDestroyed = false
+				destroyedInfo.DestroyedList = append(destroyedInfo.DestroyedList, &finalDeletedResourceInfoList)
+				mu.Unlock()
 			}(resourceType)
 		}
 
@@ -1337,16 +1364,22 @@ func Destroy(connectionName string) (DestroyedInfo, error) {
 	return destroyedInfo, nil
 }
 
-// deleteResources deletes all resources of a specific type in a connection
-func deleteResources(connectionName string, rsType string) (*DeletedResourceInfoList, error) {
-	deletedResourceInfoList := &DeletedResourceInfoList{
-		ResourceType: rsType,
-	}
+// deletes all resources of a specific resource type in a connection
+func deleteAllResourcesInResType(connectionName string, rsType string) (*DeletedResourceInfoList, error) {
 
 	nameList, err := ListResourceName(connectionName, rsType)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
+	}
+
+	if len(nameList) <= 0 {
+		return nil, nil
+	}
+
+	deletedResourceInfoList := &DeletedResourceInfoList{
+		ResourceType: rsType,
+		IsAllDeleted: true,
 	}
 
 	var wg sync.WaitGroup
@@ -1388,7 +1421,7 @@ func deleteResources(connectionName string, rsType string) (*DeletedResourceInfo
 					ErrorMsg: err.Error(),
 				})
 			} else {
-				deletedResourceInfoList.IsAllDeleted = true
+				deletedResourceInfoList.DeletedIIDList = append(deletedResourceInfoList.DeletedIIDList, &cres.IID{NameId: nameId})
 			}
 		}(nameId)
 	}
