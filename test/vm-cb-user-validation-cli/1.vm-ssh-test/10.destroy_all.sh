@@ -9,15 +9,13 @@ if [ "$1" = "" ]; then
 fi
 
 echo -e "###########################################################"
-echo -e "# 1.create: VPC/Subnet => SG01 => Keypair(save private key)"
+echo -e "# 1.destroy: All Resources in Connection                   "
 echo -e "###########################################################"
 
 source ../common/setup.env $1
 source setup.env $1
 
-
-### 1.create: VPC/Subnet => SG01 => Keypair(save private key)
-../common/1.prepare-resources.sh $1 
+../common/10.destroy.sh $1
 
 echo -e "\n\n"
 

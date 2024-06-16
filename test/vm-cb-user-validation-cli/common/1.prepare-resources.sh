@@ -42,9 +42,9 @@ $CLIPATH/spctl --config $CLIPATH/spctl.conf security create -i json -d \
         "SecurityRules": [
           {
             "Direction" : "inbound",
-            "IPProtocol" : "all",
-            "FromPort": "-1",
-            "ToPort" : "-1"
+            "IPProtocol" : "tcp",
+            "FromPort": "22",
+            "ToPort" : "22"
           }
         ]
       }

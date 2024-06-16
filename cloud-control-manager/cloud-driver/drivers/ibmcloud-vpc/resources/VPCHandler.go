@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"time"
+
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"net/url"
-	"time"
 )
 
 type IbmVPCHandler struct {
@@ -90,6 +91,14 @@ func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 		LoggingError(hiscallInfo, createErr)
 		return irs.VPCInfo{}, createErr
 	}
+
+	// If the zone is not specified in the subnet, use the zone of the connection.
+	for i, subnetInfo := range vpcReqInfo.SubnetInfoList {
+		if subnetInfo.Zone == "" {
+			vpcReqInfo.SubnetInfoList[i].Zone = vpcHandler.Region.Zone
+		}
+	}
+
 	// createVPCAddressPrefix
 	createVPCAddressPrefixOptions := &vpcv1.CreateVPCAddressPrefixOptions{}
 	createVPCAddressPrefixOptions.SetVPCID(newVpcIId.SystemId)
@@ -413,6 +422,7 @@ func attachSubnet(vpc vpcv1.VPC, subnetInfo irs.SubnetInfo, vpcService *vpcv1.Vp
 		err = errors.New(fmt.Sprintf("already exist %s", subnetInfo.IId.NameId))
 		return err
 	}
+
 	options := &vpcv1.CreateSubnetOptions{}
 	options.SetSubnetPrototype(&vpcv1.SubnetPrototype{
 		Ipv4CIDRBlock: core.StringPtr(subnetInfo.IPv4_CIDR),
