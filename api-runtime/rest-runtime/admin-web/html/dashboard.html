@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Dashboard</title>
+<title>CB-Spider Global Dashboard</title>
 <style>
     body {
         font-family: Arial, sans-serif;
@@ -33,6 +33,12 @@
     }
     .highlight {
         background-color: #ffff99;
+    }
+    .highlight-vms {
+        background-color: hwb(56 0% 0%);
+    }
+    .highlight-clusters {
+        background-color: hwb(56 0% 0%);
     }
     /* Overlay style */
     .overlay {
@@ -243,11 +249,11 @@
                 <td class="{{if gt .Subnets 0}}highlight{{end}}">{{.Subnets}}</td>
                 <td class="{{if gt .SecurityGroups 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/securitygroup/{{.ConnectionName}}'); return false;">{{.SecurityGroups}}</a></td>
                 <td class="{{if gt .KeyPairs 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/keypair/{{.ConnectionName}}'); return false;">{{.KeyPairs}}</a></td>
-                <td class="{{if gt .VMs 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/vm/{{.ConnectionName}}'); return false;">{{.VMs}}</a></td>
+                <td class="{{if gt .VMs 0}}highlight-vms{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/vm/{{.ConnectionName}}'); return false;">{{.VMs}}</a></td>
                 <td class="{{if gt .Disks 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/disk/{{.ConnectionName}}'); return false;">{{.Disks}}</a></td>
                 <td class="{{if gt .MyImages 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/myimage/{{.ConnectionName}}'); return false;">{{.MyImages}}</a></td>
                 <td class="{{if gt .NetworkLoadBalancers 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/nlb/{{.ConnectionName}}'); return false;">{{.NetworkLoadBalancers}}</a></td>
-                <td class="{{if gt .Clusters 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/cluster/{{.ConnectionName}}'); return false;">{{.Clusters}}</a></td>
+                <td class="{{if gt .Clusters 0}}highlight-clusters{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/cluster/{{.ConnectionName}}'); return false;">{{.Clusters}}</a></td>
             </tr>
             {{end}}
         </table>
