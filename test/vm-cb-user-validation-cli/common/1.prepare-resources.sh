@@ -13,7 +13,30 @@ SETUP_PATH=$CBSPIDER_ROOT/test/vm-cb-user-validation-cli/common
 source $SETUP_PATH/setup.env $1
 
 echo "============== before create VPC/Subnet: '${VPC_NAME}'"
-$CLIPATH/spctl --config $CLIPATH/spctl.conf vpc create -i json -d \
+if [ "$1" = "nhncloud" ]; then
+curl -sX POST http://localhost:1024/spider/regvpc \
+  -H 'Content-Type: application/json' \
+  -d '{
+        "ConnectionName": "'${CONN_CONFIG}'",
+        "ReqInfo": { 
+          "Name": "'${VPC_NAME}'",
+          "CSPId": "'${VPC_CSP_ID}'"
+        }
+      }' | json_pp
+
+curl -sX POST http://localhost:1024/spider/regsubnet \
+  -H 'Content-Type: application/json' \
+  -d '{
+        "ConnectionName": "'${CONN_CONFIG}'",
+        "ReqInfo": { 
+          "VpcName": "'${VPC_NAME}'",
+          "Name": "'${SUBNET_NAME}'",
+          "CSPId": "'${SUBNET_CSP_ID}'"
+        }
+      }' | json_pp
+
+else
+    $CLIPATH/spctl --config $CLIPATH/spctl.conf vpc create -i json -d \
     '{
       "ConnectionName":"'${CONN_CONFIG}'",
       "ReqInfo": {
@@ -27,6 +50,7 @@ $CLIPATH/spctl --config $CLIPATH/spctl.conf vpc create -i json -d \
         ]
       }
     }' 2> /dev/null
+fi
 
 echo "============== after create VPC/Subnet: '${VPC_NAME}'"
 

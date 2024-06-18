@@ -12,6 +12,24 @@ fi
 SETUP_PATH=$CBSPIDER_ROOT/test/vm-cb-user-validation-cli/common
 source $SETUP_PATH/setup.env $1
 
+if [ "$1" = "nhncloud" ]; then
+curl -sX DELETE http://localhost:1024/spider/regsubnet/SPIDER-VM-SSH-Test-subnet-01 \
+  -H 'Content-Type: application/json' \
+  -d '{
+        "ConnectionName": "'${CONN_CONFIG}'",
+        "ReqInfo": { 
+          "VpcName": "'${VPC_NAME}'"
+        }
+      }' | json_pp
+
+curl -sX DELETE http://localhost:1024/spider/regvpc/SPIDER-VM-SSH-Test-vpc-01 \
+  -H 'Content-Type: application/json' \
+  -d '{
+        "ConnectionName": "'${CONN_CONFIG}'"
+      }' | json_pp
+
+fi
+
 # URL to send the DELETE request to
 URL="http://localhost:1024/spider/destroy"
 
