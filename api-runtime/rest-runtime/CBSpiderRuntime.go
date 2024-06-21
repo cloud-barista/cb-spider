@@ -115,7 +115,6 @@ func getServerIPorName(env string) string {
 	}
 
 	strs := strings.Split(hostEnv, ":")
-	fmt.Println(len(strs))
 	if strs[0] == "" { // ":31024"
 		return getPublicIP()
 	} else { // "1.2.3.4:31024" or "localhost:31024"

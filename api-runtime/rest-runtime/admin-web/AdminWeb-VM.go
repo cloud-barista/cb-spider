@@ -575,7 +575,7 @@ func VM(c echo.Context) error {
 		imageName = "https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20191024"
 		specName = "f1-micro"
 	case "ALIBABA":
-		imageName = "ubuntu_22_04_x64_20G_alibase_20240220.vhd"
+		imageName = "ubuntu_22_04_x64_20G_alibase_20240530.vhd"
 		specName = "ecs.c7.large"
 	case "TENCENT":
 		imageName = "img-pi0ii46r"

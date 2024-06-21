@@ -67,8 +67,8 @@ $CLIPATH/spctl --config $CLIPATH/spctl.conf security create -i json -d \
           {
             "Direction" : "inbound",
             "IPProtocol" : "tcp",
-            "FromPort": "22",
-            "ToPort" : "22"
+            "FromPort": "1",
+            "ToPort" : "65535"
           }
         ]
       }
