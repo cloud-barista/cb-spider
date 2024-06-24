@@ -11,7 +11,7 @@
 package resources
 
 type TagInfo struct {
-	ResType RSType // "image" | "vpc", "subnet", etc.,.
+	ResType RSType // VPC, SUBNET, VM, etc.,.)
 	ResIId  IID    // {NameId, SystemId}
 
 	TagList      []KeyValue
@@ -19,11 +19,10 @@ type TagInfo struct {
 }
 
 type TagHandler interface {
-	// A resource level (e.g., VPC, VM, etc.,.)
-	AddTag(resTyp string, resIID IID, tag KeyValue) (TagInfo, error)
-	ListTag(resTyp string, resIID IID) ([]*TagInfo, error)
-	GetTag(resTyp string, resIID IID, key string) (TagInfo, error)
-	RemoveTag(resType string, resIID IID, key string) (bool, error)
+	AddTag(resTyp RSType, resIID IID, tag KeyValue) (TagInfo, error)
+	ListTag(resTyp RSType, resIID IID) ([]*TagInfo, error)
+	GetTag(resTyp RSType, resIID IID, key string) (TagInfo, error)
+	RemoveTag(resType RSType, resIID IID, key string) (bool, error)
 
 	// Find tags by tag key or value
 	// resType: ALL | VPC, SUBNET, etc.,.
