@@ -38,11 +38,12 @@ import (
 )
 
 const (
-	clusterTemplateId   = "iaas_console"
-	createTimeout       = 60
-	secgroupPostfix     = "secgroup_kube_minion"
-	masterNodeGroup     = "default-master"
-	publicNetworkSubnet = "Public Network Subnet"
+	clusterTemplateId               = "iaas_console"
+	createTimeout                   = 60
+	secgroupPostfix                 = "secgroup_kube_minion"
+	masterNodeGroup                 = "default-master"
+	publicNetworkSubnet             = "Public Network Subnet"
+	defaultContainerImageNamePrefix = "Ubuntu Server 22"
 
 	clusterLabelsAvailabilityZone          = "availability_zone"
 	clusterLabelsCertManagerApi            = "cert_manager_api"
@@ -155,7 +156,7 @@ func (nch *NhnCloudClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo)
 	//
 	// Create Cluster
 	//
-	clusterId, err = nch.createCluster(clusterReqInfo)
+	clusterId, err = nch.createCluster(&clusterReqInfo)
 	if err != nil {
 		createErr = fmt.Errorf("Failed to Create Cluster: %v", err)
 		return emptyClusterInfo, createErr
@@ -990,7 +991,7 @@ func (nch *NhnCloudClusterHandler) getLabelsForCluster(clusterInfo *irs.ClusterI
 
 	// https://docs.nhncloud.com/ko/Container/NKS/ko/public-api/#_15
 
-	nodeImage := nodeGroupInfo.ImageIID.SystemId
+	nodeImage := nodeGroupInfo.ImageIID.NameId
 	certManagerApi := "True"
 	clusterautoscale := "nodegroupfeature"
 
@@ -1252,8 +1253,36 @@ func (nch *NhnCloudClusterHandler) getClusterSecGroupId(cluster *clusters.Cluste
 	return &irs.IID{}, nil
 }
 
-func (nch *NhnCloudClusterHandler) createCluster(clusterReqInfo irs.ClusterInfo) (string, error) {
-	firstNodeGroupInfo := clusterReqInfo.NodeGroupList[0]
+func (nch *NhnCloudClusterHandler) createCluster(clusterReqInfo *irs.ClusterInfo) (string, error) {
+	clusterName := clusterReqInfo.IId.NameId
+	firstNodeGroupInfo := &clusterReqInfo.NodeGroupList[0]
+
+	imageName := firstNodeGroupInfo.ImageIID.NameId
+
+	if strings.EqualFold(imageName, "") || strings.EqualFold(imageName, "default") {
+		image, err := nch.getContainerImageByNamePrefix(defaultContainerImageNamePrefix)
+		if err != nil {
+			err = fmt.Errorf("failed to create a cluster(%s): %v", clusterName, err)
+			return "", err
+		}
+		firstNodeGroupInfo.ImageIID.NameId = image.ID
+	} else {
+		isValid, err := nch.isValidContainerImageId(imageName)
+		if err != nil {
+			err = fmt.Errorf("failed to create a cluster(%s): %v", clusterName, err)
+			return "", err
+		}
+		if isValid == false {
+			imageList, err := nch.getAvailableContainerImageList()
+			if err != nil {
+				err = fmt.Errorf("failed to create a cluster(%s): %v", clusterName, err)
+				return "", err
+			}
+
+			err = fmt.Errorf("available container images: (" + strings.Join(imageList, ", ") + ")")
+			return "", fmt.Errorf("failed to create a cluster(%s): %v", clusterName, err)
+		}
+	}
 
 	flavorName := firstNodeGroupInfo.VMSpecName
 	flavorId, err := nch.getFlavorIdByName(flavorName)
@@ -1265,13 +1294,12 @@ func (nch *NhnCloudClusterHandler) createCluster(clusterReqInfo irs.ClusterInfo)
 	fixedSubnet := clusterReqInfo.Network.SubnetIIDs[0].SystemId
 	keyPair := firstNodeGroupInfo.KeyPairIID.NameId
 
-	labels, err := nch.getLabelsForCluster(&clusterReqInfo, &firstNodeGroupInfo)
+	labels, err := nch.getLabelsForCluster(clusterReqInfo, firstNodeGroupInfo)
 	if err != nil {
 		return "", err
 	}
 
-	clusterName := clusterReqInfo.IId.NameId
-	nodeCount := clusterReqInfo.NodeGroupList[0].DesiredNodeSize
+	nodeCount := firstNodeGroupInfo.DesiredNodeSize
 	timeout := createTimeout
 
 	uuid, err := nhnCreateCluster(nch.ClusterClient, clusterName, timeout, fixedNetwork, fixedSubnet, flavorId, keyPair, labels, nodeCount)
@@ -1501,7 +1529,39 @@ func (nch *NhnCloudClusterHandler) createNodeGroup(clusterId string, nodeGroupRe
 	nodeCount := nodeGroupReqInfo.DesiredNodeSize
 	minNodeCount := nodeGroupReqInfo.MinNodeSize
 	maxNodeCount := nodeGroupReqInfo.MaxNodeSize
-	imageId := nodeGroupReqInfo.ImageIID.SystemId
+
+	imageName := nodeGroupReqInfo.ImageIID.NameId
+	imageId := ""
+
+	if strings.EqualFold(imageName, "") || strings.EqualFold(imageName, "default") {
+		image, err := nch.getContainerImageByNamePrefix(defaultContainerImageNamePrefix)
+		if err != nil {
+			err = fmt.Errorf("failed to create a node group(%s) of cluster(id=%s): %v",
+				nodeGroupName, clusterId, err)
+			return "", err
+		}
+		imageId = image.ID
+	} else {
+		isValid, err := nch.isValidContainerImageId(imageName)
+		if err != nil {
+			err = fmt.Errorf("failed to create a node group(%s) of cluster(id=%s): %v",
+				nodeGroupName, clusterId, err)
+			return "", err
+		}
+		if isValid == false {
+			imageList, err := nch.getAvailableContainerImageList()
+			if err != nil {
+				err = fmt.Errorf("failed to create a node group(%s) of cluster(id=%s): %v",
+					nodeGroupName, clusterId, err)
+				return "", err
+			}
+
+			err = fmt.Errorf("available container images: (" + strings.Join(imageList, ", ") + ")")
+			return "", fmt.Errorf("failed to create a node group(%s) of cluster(id=%s): %v",
+				nodeGroupName, clusterId, err)
+		}
+	}
+
 	flavorId, err := nch.getFlavorIdByName(nodeGroupReqInfo.VMSpecName)
 	if err != nil {
 		err = fmt.Errorf("failed to create a node group(%s) of cluster(id=%s): %v",
@@ -1561,6 +1621,51 @@ func (nch *NhnCloudClusterHandler) getFlavorNameById(flavorId string) (string, e
 	}
 
 	return "", fmt.Errorf("failed to find a flavor by id(%s)", flavorId)
+}
+
+func (nch *NhnCloudClusterHandler) isValidContainerImageId(imageId string) (bool, error) {
+	imageList, err := nhnGetContainerImageList(nch.ImageClient)
+	if err != nil {
+		return false, err
+	}
+
+	for _, image := range imageList {
+		if strings.EqualFold(image.ID, imageId) {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func (nch *NhnCloudClusterHandler) getContainerImageByNamePrefix(imageNamePrefix string) (images.Image, error) {
+	imageList, err := nhnGetContainerImageList(nch.ImageClient)
+	if err != nil {
+		return images.Image{}, err
+	}
+
+	for _, image := range imageList {
+		if strings.Contains(image.Name, imageNamePrefix) {
+			return image, nil
+		}
+	}
+
+	return images.Image{}, fmt.Errorf("no container image with name prefix(%s)", imageNamePrefix)
+}
+
+func (nch *NhnCloudClusterHandler) getAvailableContainerImageList() ([]string, error) {
+	var containerImageList []string
+	imageList, err := nhnGetContainerImageList(nch.ImageClient)
+	if err != nil {
+		return []string{}, err
+	}
+
+	for _, image := range imageList {
+		nameAndId := fmt.Sprintf("%s[ID=%s]", image.Name, image.ID)
+		containerImageList = append(containerImageList, nameAndId)
+	}
+
+	return containerImageList, nil
 }
 
 func (nch *NhnCloudClusterHandler) getServerListByAddresses(imageId, flavorId string, addresses []string) ([]servers.Server, error) {
@@ -1765,6 +1870,26 @@ func nhnGetImageList(scImage *nhnsdk.ServiceClient) ([]images.Image, error) {
 	allPages, err := images.List(scImage, listOpts).AllPages()
 	if err != nil {
 		return emptyImageList, fmt.Errorf("failed to get images' list: %v", err)
+	}
+
+	imageList, err := images.ExtractImages(allPages)
+	if err != nil {
+		return emptyImageList, fmt.Errorf("failed to extract images: %v", err)
+	}
+
+	return imageList, nil
+}
+
+func nhnGetContainerImageList(scImage *nhnsdk.ServiceClient) ([]images.Image, error) {
+	emptyImageList := make([]images.Image, 0)
+
+	listOpts := images.ListOpts{
+		Visibility:      images.ImageVisibilityPublic,
+		NhncloudProduct: images.ImageNhncloudProductContainer,
+	}
+	allPages, err := images.List(scImage, listOpts).AllPages()
+	if err != nil {
+		return emptyImageList, fmt.Errorf("failed to get container images' list: %v", err)
 	}
 
 	imageList, err := images.ExtractImages(allPages)
@@ -2008,11 +2133,6 @@ func validateNodeGroupInfoList(nodeGroupInfoList []irs.NodeGroupInfo) error {
 				return fmt.Errorf("Node Group's keypair is required")
 			}
 			firstKeypairId = &nodeGroupInfo.KeyPairIID
-
-			if nodeGroupInfo.ImageIID.NameId == "" && nodeGroupInfo.ImageIID.SystemId == "" {
-				return fmt.Errorf("Node Group's image is required")
-			}
-
 		} else {
 			// NameId, SystemId 둘다 값이 있음
 			if nodeGroupInfo.KeyPairIID.NameId != "" && nodeGroupInfo.KeyPairIID.SystemId != "" {
