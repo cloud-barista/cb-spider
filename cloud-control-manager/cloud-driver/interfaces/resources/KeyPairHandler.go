@@ -13,6 +13,8 @@ package resources
 
 type KeyPairReqInfo struct {
 	IId IID // {NameId, SystemId}
+
+	TagList []KeyValue
 }
 
 type KeyPairInfo struct {
