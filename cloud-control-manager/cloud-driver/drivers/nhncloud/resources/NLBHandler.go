@@ -68,7 +68,7 @@ func (nlbHandler *NhnCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLB
 		return irs.NLBInfo{}, newErr
 	}
 
-	subnetId, err := nlbHandler.getFirstSubnetIdWithVPCName(nlbReqInfo.VpcIID.NameId)
+	subnetId, err := nlbHandler.getFirstSubnetIdWithVPCId(nlbReqInfo.VpcIID.NameId)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get FirstSubnetId with VPC Name. : [%s]", err)
 		cblogger.Error(newErr.Error())
@@ -316,13 +316,13 @@ func (nlbHandler *NhnCloudNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error
 	if len(nlbList) > 0 {
 		nlbInfo, err = nlbHandler.mappingNlbInfo(nlbList[0])
 		if err != nil {
-			newErr := fmt.Errorf("Failed to Get NLB Info from NHN NLB. : [%v]", err)
+			newErr := fmt.Errorf("Failed to Get NLB Info from NHN Cloud. : [%v]", err)
 			cblogger.Error(newErr.Error())
 			LoggingError(callLogInfo, newErr)
 			return irs.NLBInfo{}, newErr
 		}
 	} else {
-		newErr := fmt.Errorf("Failed to Get Any NLB Info. with the NLB ID!!")
+		newErr := fmt.Errorf("Failed to Get Any NLB Info with the NLB ID!!")
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.NLBInfo{}, newErr
@@ -960,12 +960,12 @@ func (nlbHandler *NhnCloudNLBHandler) getListenerInfo(listenerId string) (irs.Li
 	return listenerInfo, nil
 }
 
-func (nlbHandler *NhnCloudNLBHandler) getFirstSubnetIdWithVPCName(vpcName string) (subnetId string, err error) {
+func (nlbHandler *NhnCloudNLBHandler) getFirstSubnetIdWithVPCId(vpcId string) (subnetId string, err error) {
 	cblogger.Info("NHN Cloud Driver: called getFirstSubnetIdWithVPCName()")
-	callLogInfo := getCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", vpcName, "getFirstSubnetIdWithVPCName()")
+	callLogInfo := getCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", vpcId, "getFirstSubnetIdWithVPCName()")
 
-	if strings.EqualFold(vpcName, "") {
-		newErr := fmt.Errorf("Invalid VPC Name required")
+	if strings.EqualFold(vpcId, "") {
+		newErr := fmt.Errorf("Invalid VPC ID required!!")
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return "", newErr
@@ -973,11 +973,11 @@ func (nlbHandler *NhnCloudNLBHandler) getFirstSubnetIdWithVPCName(vpcName string
 
 	callLogStart := call.Start()
 	listOpts := vpcs.ListOpts{
-		Name: vpcName,
+		ID: vpcId,
 	}
 	allPages, err := vpcs.List(nlbHandler.NetworkClient, listOpts).AllPages()
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get NHN VPC List with the Name : [%s]", vpcName)
+		newErr := fmt.Errorf("Failed to Get NHN VPC Info with the ID : [%s]", vpcId)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return "", newErr
