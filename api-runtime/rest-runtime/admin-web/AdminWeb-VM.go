@@ -575,11 +575,11 @@ func VM(c echo.Context) error {
 		imageName = "https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20191024"
 		specName = "f1-micro"
 	case "ALIBABA":
-		imageName = "ubuntu_22_04_x64_20G_alibase_20240220.vhd"
+		imageName = "ubuntu_22_04_x64_20G_alibase_20240530.vhd"
 		specName = "ecs.c7.large"
 	case "TENCENT":
 		imageName = "img-pi0ii46r"
-		specName = "S3.MEDIUM2"
+		specName = "S5.MEDIUM8"
 	case "IBM":
 		imageName = "r014-a044e2f5-dfe1-416c-8990-5dc895352728"
 		specName = "bx2-2x8"
@@ -587,8 +587,8 @@ func VM(c echo.Context) error {
 		imageName = "ee441331-0872-49c3-886c-1873a6e32e09"
 		specName = "small-2"
 	case "OPENSTACK":
-		imageName = "ubuntu18.04"
-		specName = "DS-Demo"
+		imageName = "16681742-f408-444d-a430-dd21a4bef42c"
+		specName = "ETRI-small-2"
 	case "NCP":
 		imageName = "SPSW0LINUX000130"
 		specName = "SPSVRHICPUSSD002"

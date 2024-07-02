@@ -14,122 +14,123 @@ import (
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
 	// REST API (echo)
-	"net/http"
-	"github.com/labstack/echo/v4"
-	"fmt"
 	"encoding/json"
+	"fmt"
+	"net/http"
+
+	"github.com/labstack/echo/v4"
 )
 
 // define string of resource types
+// redefined for backward compatibility
 const (
-	rsImage 	string = "image"
-	rsVPC   	string = "vpc"
-	rsSubnet 	string = "subnet"	
-	rsSG  		string = "sg"
-	rsKey 		string = "keypair"
-	rsVM  		string = "vm"
-	rsNLB  		string = "nlb"
-	rsDisk  	string = "disk"
-	rsMyImage 	string = "myimage"
-	rsCluster 	string = "cluster"
-	rsNodeGroup 	string = "nodegroup"
+	IMAGE     string = string(cres.IMAGE)
+	VPC       string = string(cres.VPC)
+	SUBNET    string = string(cres.SUBNET)
+	SG        string = string(cres.SG)
+	KEY       string = string(cres.KEY)
+	VM        string = string(cres.VM)
+	NLB       string = string(cres.NLB)
+	DISK      string = string(cres.DISK)
+	MYIMAGE   string = string(cres.MYIMAGE)
+	CLUSTER   string = string(cres.CLUSTER)
+	NODEGROUP string = string(cres.NODEGROUP)
 )
-
 
 //================ Get CSP Resource Name
 
 func GetCSPResourceName(c echo.Context) error {
-        cblog.Info("call GetCSPResourceName()")
+	cblog.Info("call GetCSPResourceName()")
 
-        var req struct {
-                ConnectionName string
-                ResourceType string
-        }
+	var req struct {
+		ConnectionName string
+		ResourceType   string
+	}
 
-        if err := c.Bind(&req); err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 
-        // To support for Get-Query Param Type API
-        if req.ConnectionName == "" {
-                req.ConnectionName = c.QueryParam("ConnectionName")
-        }
-        if req.ResourceType == "" {
-                req.ResourceType = c.QueryParam("ResourceType")
-        }
+	// To support for Get-Query Param Type API
+	if req.ConnectionName == "" {
+		req.ConnectionName = c.QueryParam("ConnectionName")
+	}
+	if req.ResourceType == "" {
+		req.ResourceType = c.QueryParam("ResourceType")
+	}
 
-        // Call common-runtime API
-        result, err := cmrt.GetCSPResourceName(req.ConnectionName, req.ResourceType, c.Param("Name"))
-        if err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
+	// Call common-runtime API
+	result, err := cmrt.GetCSPResourceName(req.ConnectionName, req.ResourceType, c.Param("Name"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 
-        var resultInfo struct {
-                Name string
-        }
+	var resultInfo struct {
+		Name string
+	}
 	resultInfo.Name = string(result)
 
-        return c.JSON(http.StatusOK, &resultInfo)
+	return c.JSON(http.StatusOK, &resultInfo)
 }
 
 //================ Get Json string of CSP's Resource Info
 
 func GetCSPResourceInfo(c echo.Context) error {
-        cblog.Info("call GetCSPResourceInfo()")
+	cblog.Info("call GetCSPResourceInfo()")
 
-        var req struct {
-                ConnectionName string
-                ResourceType string
-        }
+	var req struct {
+		ConnectionName string
+		ResourceType   string
+	}
 
-        if err := c.Bind(&req); err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 
-        // To support for Get-Query Param Type API
-        if req.ConnectionName == "" {
-                req.ConnectionName = c.QueryParam("ConnectionName")
-        }
-        if req.ResourceType == "" {
-                req.ResourceType = c.QueryParam("ResourceType")
-        }
+	// To support for Get-Query Param Type API
+	if req.ConnectionName == "" {
+		req.ConnectionName = c.QueryParam("ConnectionName")
+	}
+	if req.ResourceType == "" {
+		req.ResourceType = c.QueryParam("ResourceType")
+	}
 
-        // Call common-runtime API
-        result, err := cmrt.GetCSPResourceInfo(req.ConnectionName, req.ResourceType, c.Param("Name"))
-        if err != nil {
-                return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-        }
+	// Call common-runtime API
+	result, err := cmrt.GetCSPResourceInfo(req.ConnectionName, req.ResourceType, c.Param("Name"))
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
 
 	switch req.ResourceType {
-	case rsVPC:
+	case VPC:
 		var Result cres.VPCInfo
 		json.Unmarshal(result, &Result)
 		return c.JSON(http.StatusOK, Result)
-	case rsSG:
+	case SG:
 		var Result cres.SecurityInfo
 		json.Unmarshal(result, &Result)
 		return c.JSON(http.StatusOK, Result)
-	case rsKey:
+	case KEY:
 		var Result cres.KeyPairInfo
 		json.Unmarshal(result, &Result)
 		return c.JSON(http.StatusOK, Result)
-	case rsVM:
+	case VM:
 		var Result cres.VMInfo
 		json.Unmarshal(result, &Result)
 		return c.JSON(http.StatusOK, Result)
-	case rsNLB:
+	case NLB:
 		var Result cres.NLBInfo
 		json.Unmarshal(result, &Result)
 		return c.JSON(http.StatusOK, Result)
-	case rsDisk:
+	case DISK:
 		var Result cres.DiskInfo
 		json.Unmarshal(result, &Result)
 		return c.JSON(http.StatusOK, Result)
-	case rsMyImage:
+	case MYIMAGE:
 		var Result cres.MyImageInfo
 		json.Unmarshal(result, &Result)
 		return c.JSON(http.StatusOK, Result)
-	case rsCluster:
+	case CLUSTER:
 		var Result cres.ClusterInfo
 		json.Unmarshal(result, &Result)
 		return c.JSON(http.StatusOK, Result)
@@ -139,4 +140,29 @@ func GetCSPResourceInfo(c echo.Context) error {
 
 	return nil
 
+}
+
+func Destroy(c echo.Context) error {
+	cblog.Info("call Destroy()")
+
+	var req struct {
+		ConnectionName string
+	}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// To support for Get-Query Param Type API
+	if req.ConnectionName == "" {
+		req.ConnectionName = c.QueryParam("ConnectionName")
+	}
+
+	// Call common-runtime API
+	result, err := cmrt.Destroy(req.ConnectionName)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, &result)
 }

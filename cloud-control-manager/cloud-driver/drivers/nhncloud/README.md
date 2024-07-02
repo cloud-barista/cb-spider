@@ -134,10 +134,18 @@ ssh -i /private_key_파일_경로/private_key_파일명(~~.pem) cb-user@해당_V
       - (주의) 이와 같이, u2 type의 VMSpec으로 생성된 VM의 MyImage를 이용해 신규 VM을 생성할 경우, 그 신규 VM도 u2 type의 VMSpec을 이용해야함.
 
   ​O NHN Cloud에서 Windows VM instance 생성을 위한 제약 조건으로 아래의 사항을 공지함.
-   - VM 생성시, Linux 계열 VM과 같이 KyePair를 지정해야하며, Windows VM 생성 완료 후 콘솔에서 그 KeyPair를 이용해서 default 미밀번호를 확인할 수 있음.
+   - 비밀번호 적용 및 확인 방법으로, 본 드라이버를 이용해서 Windows 계정 VM 생성시 비밀번호를 지정하여 생성 가능하며, 사용자 계정은 'cb-user'로 생성됨을 주의해야함.(Administrator 계정은 생성 불가)
+      - NHN Cloud에서 기본적으로 제공하는 방법으로서, Linux 계열 VM과 같이 VM 생성시 KyePair를 지정하고 Windows VM 생성 완료 후 콘솔에서 그 KeyPair를 이용해서 default 비밀번호를 확인할 수 있음.
    - RAM이 최소 2GB 이상인 VMSpec 사용해야함.
    - 50GB 이상의 루트 블록 스토리지 필요
    - U2 type의 VMSpec은 Windows image를 사용할 수 없음.
+
+  ​O Public IP를 통해 외부에서 VM과 통신하기 위해서는 VPC의 routing table에 Internet Gateway를 연결 후 사용해야함.
+   - REST API를 통해 Internet Gateway 정보 조회, 제어가 불가능하므로, VM의 public IP를 통해 외부 네트워크에서 VM에 접속하기 위해서 미리 콘솔에서 수작업으로 Internet Gateway를 생성하고 해당 VPC의 routing table에 연결해줘야함. 
+      - NHN Cloud 웹 콘솔에서는 Internet Gateway 정보 조회 및 제어 기능을 지원하지만, REST API는 미지원하므로 웹 콘솔 UI를 통해서만 Internet Gateway 조회, 제어 가능
+
+![image](https://github.com/cloud-barista/cb-spider/assets/51111668/c5fc39cf-5a0e-4f10-89d7-0c80c655dd9e)
+
 
 ​	O 본 드라이버를 통해 미국 region infra는 사용 불가
    - 현재 한국 : 2개 region X 2개 zone, 일본 : 1개 region X 2개 zone 지원

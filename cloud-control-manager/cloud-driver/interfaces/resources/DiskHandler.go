@@ -35,6 +35,7 @@ type DiskInfo struct {
 	OwnerVM IID        // When the Status is DiskAttached
 
 	CreatedTime  time.Time
+	TagList      []KeyValue
 	KeyValueList []KeyValue
 }
 

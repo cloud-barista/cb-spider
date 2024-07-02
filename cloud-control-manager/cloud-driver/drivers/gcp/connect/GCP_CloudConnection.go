@@ -167,3 +167,7 @@ func (cloudConn *GCPCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHand
 
 	return &priceInfoHandler, nil
 }
+
+func (cloudConn *GCPCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
+	return nil, errors.New("GCP Cloud Driver: not implemented")
+}

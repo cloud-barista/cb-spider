@@ -67,7 +67,7 @@ func UnregisterSecurity(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.UnregisterResource(req.ConnectionName, rsSG, c.Param("Name"))
+	result, err := cmrt.UnregisterResource(req.ConnectionName, SG, c.Param("Name"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -123,7 +123,7 @@ func CreateSecurity(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.CreateSecurity(req.ConnectionName, rsSG, reqInfo, req.IDTransformMode)
+	result, err := cmrt.CreateSecurity(req.ConnectionName, SG, reqInfo, req.IDTransformMode)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -148,7 +148,7 @@ func ListSecurity(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.ListSecurity(req.ConnectionName, rsSG)
+	result, err := cmrt.ListSecurity(req.ConnectionName, SG)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -181,7 +181,7 @@ func ListAllSecurity(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, rsSG)
+	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, SG)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -206,7 +206,7 @@ func GetSecurity(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.GetSecurity(req.ConnectionName, rsSG, c.Param("Name"))
+	result, err := cmrt.GetSecurity(req.ConnectionName, SG, c.Param("Name"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -229,7 +229,7 @@ func DeleteSecurity(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.DeleteSecurity(req.ConnectionName, rsSG, c.Param("Name"), c.QueryParam("force"))
+	result, err := cmrt.DeleteSecurity(req.ConnectionName, SG, c.Param("Name"), c.QueryParam("force"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -256,7 +256,7 @@ func DeleteCSPSecurity(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, _, err := cmrt.DeleteCSPResource(req.ConnectionName, rsSG, c.Param("Id"))
+	result, _, err := cmrt.DeleteCSPResource(req.ConnectionName, SG, c.Param("Id"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

@@ -36,6 +36,8 @@ type CloudConnection interface {
 
 	CreatePriceInfoHandler() (irs.PriceInfoHandler, error)
 
+	CreateTagHandler() (irs.TagHandler, error)
+
 	IsConnected() (bool, error)
 	Close() error
 }

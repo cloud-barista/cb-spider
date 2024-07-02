@@ -38,7 +38,7 @@ type ClusterInfo struct {
 	IId IID // {NameId, SystemId}
 
 	Version string // Kubernetes Version, ex) 1.23.3
-	Network       NetworkInfo
+	Network NetworkInfo
 
 	// ---
 
@@ -46,9 +46,10 @@ type ClusterInfo struct {
 	AccessInfo    AccessInfo
 	Addons        AddonsInfo
 
-	Status        ClusterStatus
+	Status ClusterStatus
 
 	CreatedTime  time.Time
+	TagList      []KeyValue
 	KeyValueList []KeyValue
 }
 
@@ -80,15 +81,15 @@ type NodeGroupInfo struct {
 
 	// ---
 
-	Status       NodeGroupStatus
-	Nodes        []IID
+	Status NodeGroupStatus
+	Nodes  []IID
 
 	KeyValueList []KeyValue
 }
 
 type AccessInfo struct {
-	Endpoint 	string // ex) https://1.2.3.4:6443
-	Kubeconfig	string
+	Endpoint   string // ex) https://1.2.3.4:6443
+	Kubeconfig string
 }
 
 // CNI, DNS, .... @todo

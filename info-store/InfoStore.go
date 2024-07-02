@@ -528,3 +528,19 @@ func CountNameIDsByConnection(info interface{}, connectionName string) (int64, e
 
 	return count, nil
 }
+
+// ListNameIDByConnection retrieves a list of name_ids in a model filtered by connection_name
+func ListNameIDByConnection(info interface{}, connectionName string) ([]string, error) {
+	db, err := Open()
+	if err != nil {
+		return nil, err
+	}
+	defer Close(db)
+
+	var nameIds []string
+	if err := db.Model(&info).Where("connection_name = ?", connectionName).Pluck("name_id", &nameIds).Error; err != nil {
+		return nil, err
+	}
+
+	return nameIds, nil
+}

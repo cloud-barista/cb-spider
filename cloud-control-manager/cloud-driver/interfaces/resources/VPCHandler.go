@@ -16,6 +16,8 @@ type VPCReqInfo struct {
 	IId            IID // {NameId, SystemId}
 	IPv4_CIDR      string
 	SubnetInfoList []SubnetInfo
+
+	TagList []KeyValue
 }
 
 type VPCInfo struct {
@@ -23,14 +25,16 @@ type VPCInfo struct {
 	IPv4_CIDR      string
 	SubnetInfoList []SubnetInfo
 
+	TagList []KeyValue
 	KeyValueList []KeyValue
 }
 
 type SubnetInfo struct {
 	IId       IID    // {NameId, SystemId}
 	Zone      string // Target Zone Name
-
 	IPv4_CIDR string
+
+	TagList []KeyValue
 	KeyValueList []KeyValue
 }
 

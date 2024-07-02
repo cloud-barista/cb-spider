@@ -64,7 +64,7 @@ func RegisterDisk(connectionName string, zoneId string, userIID cres.IID) (*cres
 		return nil, err
 	}
 
-	rsType := rsDisk
+	rsType := DISK
 
 	diskSPLock.Lock(connectionName, userIID.NameId)
 	defer diskSPLock.Unlock(connectionName, userIID.NameId)

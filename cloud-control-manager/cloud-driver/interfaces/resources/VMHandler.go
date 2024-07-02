@@ -16,15 +16,17 @@ import (
 )
 
 type ImageType string
+
 const (
 	PublicImage ImageType = "PublicImage"
 	MyImage     ImageType = "MyImage"
 )
 
 type Platform string
+
 const (
-        LINUX_UNIX	Platform = "LINUX/UNIX"
-        WINDOWS		Platform = "WINDOWS"
+	LINUX_UNIX Platform = "LINUX/UNIX"
+	WINDOWS    Platform = "WINDOWS"
 )
 
 type VMReqInfo struct {
@@ -47,6 +49,8 @@ type VMReqInfo struct {
 	VMUserId     string
 	VMUserPasswd string
 	WindowsType  bool
+
+	TagList []KeyValue
 }
 
 type VMStatusInfo struct {
@@ -111,11 +115,12 @@ type VMInfo struct {
 	PrivateIP        string
 	PrivateDNS       string
 
-	Platform         Platform // LINUX | WINDOWS
+	Platform Platform // LINUX | WINDOWS
 
 	SSHAccessPoint string // ex) 10.2.3.2:22, 123.456.789.123:4321 ==> Deprecated
-	AccessPoint string // ex) 10.2.3.2:22, 123.456.789.123:4321
+	AccessPoint    string // ex) 10.2.3.2:22, 123.456.789.123:4321
 
+	TagList      []KeyValue
 	KeyValueList []KeyValue
 }
 

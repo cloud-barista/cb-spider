@@ -66,7 +66,7 @@ func GetClusterOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, 
 		return cres.IID{}, err
 	}
 
-	rsType := rsCluster
+	rsType := CLUSTER
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -182,7 +182,7 @@ func RegisterCluster(connectionName string, vpcUserID string, userIID cres.IID) 
 		return nil, err
 	}
 
-	rsType := rsCluster
+	rsType := CLUSTER
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
@@ -208,7 +208,7 @@ func RegisterCluster(connectionName string, vpcUserID string, userIID cres.IID) 
 		return nil, err
 	}
 	if !bool_ret {
-		err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsVPC), vpcUserID)
+		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(VPC), vpcUserID)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -463,7 +463,7 @@ func CreateCluster(connectionName string, rsType string, reqInfo cres.ClusterInf
 		if providerName == "NHNCLOUD" && idx == 0 {
 			nodeGroupUUID = "default-worker" // fixed name in NHN
 		} else {
-			nodeGroupUUID, err = iidm.New(connectionName, rsNodeGroup, info.IId.NameId)
+			nodeGroupUUID, err = iidm.New(connectionName, NODEGROUP, info.IId.NameId)
 			if err != nil {
 				cblog.Error(err)
 				return nil, err
@@ -806,7 +806,7 @@ func GetCluster(connectionName string, rsType string, clusterName string) (*cres
 		}
 	}
 	if bool_ret == false {
-		err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsType), clusterName)
+		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), clusterName)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -907,7 +907,7 @@ func AddNodeGroup(connectionName string, rsType string, clusterName string, reqI
 		}
 	}
 	if !bool_ret {
-		err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsCluster), clusterName)
+		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(CLUSTER), clusterName)
 		cblog.Error(err)
 		return nil, err
 	}
@@ -935,7 +935,7 @@ func AddNodeGroup(connectionName string, rsType string, clusterName string, reqI
 	// refine RootDisk and RootDiskSize in reqInfo(NodeGroupInfo)
 	translateRootDiskInfo(providerName, &reqInfo)
 
-	nodeGroupUUID, err := iidm.New(connectionName, rsNodeGroup, reqInfo.IId.NameId)
+	nodeGroupUUID, err := iidm.New(connectionName, NODEGROUP, reqInfo.IId.NameId)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
@@ -1115,7 +1115,7 @@ func getClusterDriverIIDNodeGroupDriverIID(connectionName string, clusterName st
 		}
 	}
 	if !bool_ret {
-		err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsNodeGroup), nodeGroupName)
+		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(NODEGROUP), nodeGroupName)
 		cblog.Error(err)
 		return cres.IID{}, cres.IID{}, err
 	}
@@ -1143,7 +1143,7 @@ func getClusterDriverIID(connectionName string, clusterName string) (cres.IID, e
 		}
 	}
 	if !bool_ret {
-		err := fmt.Errorf("The %s '%s' does not exist!", RsTypeString(rsCluster), clusterName)
+		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(CLUSTER), clusterName)
 		cblog.Error(err)
 		return cres.IID{}, err
 	}
@@ -1467,7 +1467,7 @@ func DeleteCluster(connectionName string, rsType string, nameID string, force st
 		}
 	}
 	if !bool_ret {
-		err := fmt.Errorf("[" + connectionName + ":" + RsTypeString(rsType) + ":" + nameID + "] does not exist!")
+		err := fmt.Errorf("[" + connectionName + ":" + RSTypeString(rsType) + ":" + nameID + "] does not exist!")
 		cblog.Error(err)
 		return false, err
 	}

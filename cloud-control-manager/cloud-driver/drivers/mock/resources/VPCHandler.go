@@ -52,6 +52,7 @@ func (vpcHandler *MockVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCI
 		vpcReqInfo.IId,
 		vpcReqInfo.IPv4_CIDR,
 		vpcReqInfo.SubnetInfoList,
+		nil,
 		nil}
 
 	// (2) insert VPCInfo into global Map

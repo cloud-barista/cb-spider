@@ -89,7 +89,7 @@ func UnregisterVM(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.UnregisterResource(req.ConnectionName, rsVM, c.Param("Name"))
+	result, err := cmrt.UnregisterResource(req.ConnectionName, VM, c.Param("Name"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -171,7 +171,7 @@ func StartVM(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.StartVM(req.ConnectionName, rsVM, reqInfo, req.IDTransformMode)
+	result, err := cmrt.StartVM(req.ConnectionName, VM, reqInfo, req.IDTransformMode)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -196,7 +196,7 @@ func ListVM(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.ListVM(req.ConnectionName, rsVM)
+	result, err := cmrt.ListVM(req.ConnectionName, VM)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -230,7 +230,7 @@ func ListAllVM(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, rsVM)
+	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, VM)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -255,7 +255,7 @@ func GetVM(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.GetVM(req.ConnectionName, rsVM, c.Param("Name"))
+	result, err := cmrt.GetVM(req.ConnectionName, VM, c.Param("Name"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -280,7 +280,7 @@ func GetCSPVM(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.GetCSPVM(req.ConnectionName, rsVM, c.Param("Id"))
+	result, err := cmrt.GetCSPVM(req.ConnectionName, VM, c.Param("Id"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -303,7 +303,7 @@ func TerminateVM(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	_, result, err := cmrt.DeleteVM(req.ConnectionName, rsVM, c.Param("Name"), c.QueryParam("force"))
+	_, result, err := cmrt.DeleteVM(req.ConnectionName, VM, c.Param("Name"), c.QueryParam("force"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -330,7 +330,7 @@ func TerminateCSPVM(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	_, result, err := cmrt.DeleteCSPResource(req.ConnectionName, rsVM, c.Param("Id"))
+	_, result, err := cmrt.DeleteCSPResource(req.ConnectionName, VM, c.Param("Id"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -359,7 +359,7 @@ func ListVMStatus(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.ListVMStatus(req.ConnectionName, rsVM)
+	result, err := cmrt.ListVMStatus(req.ConnectionName, VM)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -389,7 +389,7 @@ func GetVMStatus(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.GetVMStatus(req.ConnectionName, rsVM, c.Param("Name"))
+	result, err := cmrt.GetVMStatus(req.ConnectionName, VM, c.Param("Name"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -418,7 +418,7 @@ func ControlVM(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.ControlVM(req.ConnectionName, rsVM, c.Param("Name"), c.QueryParam("action"))
+	result, err := cmrt.ControlVM(req.ConnectionName, VM, c.Param("Name"), c.QueryParam("action"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

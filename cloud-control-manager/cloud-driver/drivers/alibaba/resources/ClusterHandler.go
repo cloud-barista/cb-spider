@@ -13,6 +13,7 @@ package resources
 import (
 	"encoding/json"
 	"fmt"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -45,6 +46,7 @@ const (
 	defaultClusterType        = "ManagedKubernetes"
 	defaultClusterSpec        = "ack.pro.small"
 	defaultClusterRuntimeName = "containerd"
+	defaultNodePoolImageType  = "AliyunLinux3" // AliyunLinux2 was expired
 
 	tagKeyAckAliyunCom        = "ack.aliyun.com"
 	tagKeyCbSpiderPmksCluster = "CB-SPIDER:PMKS:CLUSTER"
@@ -370,6 +372,13 @@ func (ach *AlibabaClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error
 }
 
 func (ach *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo irs.NodeGroupInfo) (irs.NodeGroupInfo, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err := fmt.Errorf("PANIC!!\n%v\n%v", r, string(debug.Stack()))
+			cblogger.Error(err)
+		}
+	}()
+
 	cblogger.Debug("Alibaba Cloud Driver: called AddNodeGroup()")
 	emptyNodeGroupInfo := irs.NodeGroupInfo{}
 	hiscallInfo := GetCallLogScheme(ach.RegionInfo, call.CLUSTER, clusterIID.NameId, "AddNodeGroup()")
@@ -458,13 +467,15 @@ func (ach *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqI
 	systemDiskSize, _ := strconv.ParseInt(nodeGroupReqInfo.RootDiskSize, 10, 64)
 	keyPair := nodeGroupReqInfo.KeyPairIID.NameId
 	imageId := nodeGroupReqInfo.ImageIID.NameId
+	imageType := ""
 	if strings.EqualFold(imageId, "") || strings.EqualFold(imageId, "default") {
 		imageId = ""
+		imageType = defaultNodePoolImageType
 	}
 	desiredSize := int64(nodeGroupReqInfo.DesiredNodeSize)
 
 	nodepoolId, err := aliCreateClusterNodePool(ach.CsClient, clusterId, name,
-		autoScalingEnable, maxInstances, minInstances, vswitchIds, instanceTypes, systemDiskCategory, systemDiskSize, keyPair, imageId, desiredSize)
+		autoScalingEnable, maxInstances, minInstances, vswitchIds, instanceTypes, systemDiskCategory, systemDiskSize, keyPair, imageId, imageType, desiredSize)
 	if err != nil {
 		err = fmt.Errorf("Failed to Add NodeGroup: %v", err)
 		cblogger.Error(err)
@@ -1308,7 +1319,7 @@ func aliDescribeKubernetesVersionMetadata(csClient *cs2015.Client, regionId, clu
 	return describeKubernetesVersionMetadataResponse.Body, nil
 }
 
-func aliCreateClusterNodePool(csClient *cs2015.Client, clusterId, name string, autoScalingEnable bool, maxInstances, minInstances int64, vswitchIds, instanceTypes []string, systemDiskCategory string, systemDiskSize int64, keyPair, imageId string, desiredSize int64) (*string, error) {
+func aliCreateClusterNodePool(csClient *cs2015.Client, clusterId, name string, autoScalingEnable bool, maxInstances, minInstances int64, vswitchIds, instanceTypes []string, systemDiskCategory string, systemDiskSize int64, keyPair, imageId, imageType string, desiredSize int64) (*string, error) {
 	createClusterNodePoolRequest := &cs2015.CreateClusterNodePoolRequest{
 		NodepoolInfo: &cs2015.CreateClusterNodePoolRequestNodepoolInfo{
 			Name: tea.String(name),
@@ -1325,6 +1336,7 @@ func aliCreateClusterNodePool(csClient *cs2015.Client, clusterId, name string, a
 			SystemDiskSize:     tea.Int64(systemDiskSize),
 			KeyPair:            tea.String(keyPair),
 			ImageId:            tea.String(imageId),
+			ImageType:          tea.String(imageType),
 			//DesiredSize:        tea.Int64(desiredSize),
 		},
 		Management: &cs2015.CreateClusterNodePoolRequestManagement{

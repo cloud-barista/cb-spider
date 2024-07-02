@@ -92,7 +92,7 @@ func UnregisterCluster(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.UnregisterResource(req.ConnectionName, rsCluster, c.Param("Name"))
+	result, err := cmrt.UnregisterResource(req.ConnectionName, CLUSTER, c.Param("Name"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -169,7 +169,7 @@ func CreateCluster(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.CreateCluster(req.ConnectionName, rsCluster, reqInfo, req.IDTransformMode)
+	result, err := cmrt.CreateCluster(req.ConnectionName, CLUSTER, reqInfo, req.IDTransformMode)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -271,7 +271,7 @@ func ListCluster(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.ListCluster(req.ConnectionName, req.NameSpace, rsCluster)
+	result, err := cmrt.ListCluster(req.ConnectionName, req.NameSpace, CLUSTER)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -344,7 +344,7 @@ func ListAllCluster(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, rsCluster)
+	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, CLUSTER)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -411,7 +411,7 @@ func GetCluster(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.GetCluster(req.ConnectionName, rsCluster, clusterName)
+	result, err := cmrt.GetCluster(req.ConnectionName, CLUSTER, clusterName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -489,7 +489,7 @@ func AddNodeGroup(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.AddNodeGroup(req.ConnectionName, rsNodeGroup, clusterName, reqInfo)
+	result, err := cmrt.AddNodeGroup(req.ConnectionName, NODEGROUP, clusterName, reqInfo)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -659,7 +659,7 @@ func DeleteCluster(c echo.Context) error {
 		clusterName = nameSpace + clusterName
 	}
 	// Call common-runtime API
-	result, err := cmrt.DeleteCluster(req.ConnectionName, rsCluster, clusterName, c.QueryParam("force"))
+	result, err := cmrt.DeleteCluster(req.ConnectionName, CLUSTER, clusterName, c.QueryParam("force"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -686,7 +686,7 @@ func DeleteCSPCluster(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, _, err := cmrt.DeleteCSPResource(req.ConnectionName, rsCluster, c.Param("Id"))
+	result, _, err := cmrt.DeleteCSPResource(req.ConnectionName, CLUSTER, c.Param("Id"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -790,7 +790,7 @@ func AllClusterList(c echo.Context) error {
 	for _, oneConn := range connInfoList {
 
 		// Call common-runtime API
-		oneClusterList, err := cmrt.ListCluster(oneConn.ConfigName, req.NameSpace, rsCluster)
+		oneClusterList, err := cmrt.ListCluster(oneConn.ConfigName, req.NameSpace, CLUSTER)
 		if err != nil {
 			if strings.Contains(err.Error(), "not implemented") {
 				continue

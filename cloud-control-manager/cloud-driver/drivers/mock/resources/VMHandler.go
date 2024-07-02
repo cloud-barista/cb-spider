@@ -421,7 +421,9 @@ func (vmHandler *MockVMHandler) GetVMStatus(iid irs.IID) (irs.VMStatus, error) {
 	}
 
 	errMSG := iid.NameId + " status iid does not exist!!"
-	cblogger.Error(errMSG)
+	// Log filtered because Spider Server could check the status of the VM even if it is not created.
+	// It will print out many error messages in the log.
+	//cblogger.Error(errMSG)
 	return "", fmt.Errorf(errMSG)
 }
 
@@ -550,7 +552,9 @@ func (vmHandler *MockVMHandler) GetVM(iid irs.IID) (irs.VMInfo, error) {
 	infoList, ok := vmInfoMap[mockName]
 	if !ok {
 		errMSG := iid.NameId + " vm iid does not exist!!"
-		cblogger.Error(errMSG)
+		// Log filtered because Spider Server could check the status of the VM even if it is not created.
+		// It will print out many error messages in the log.
+		// cblogger.Error(errMSG)
 		return irs.VMInfo{}, fmt.Errorf(errMSG)
 	}
 

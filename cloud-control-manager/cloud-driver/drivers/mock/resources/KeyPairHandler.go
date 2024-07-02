@@ -43,11 +43,11 @@ func (keyPairHandler *MockKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairRe
 
 	// (1) create keyPairInfo object
 	keyPairInfo := irs.KeyPairInfo{keyPairReqInfo.IId,
-		"XXXXFingerprint", "XXXXPublicKey", "XXXXPrivateKey", "cb-user", nil}
+		"XXXXFingerprint", "XXXXPublicKey", "XXXXPrivateKey", "cb-user", nil, nil}
 
 	// (2) insert KeyPairInfo into global Map
-keyMapLock.Lock()
-defer keyMapLock.Unlock()
+	keyMapLock.Lock()
+	defer keyMapLock.Unlock()
 	infoList, _ := keyPairInfoMap[mockName]
 	infoList = append(infoList, &keyPairInfo)
 	keyPairInfoMap[mockName] = infoList
@@ -56,16 +56,16 @@ defer keyMapLock.Unlock()
 }
 
 func CloneKeyPairInfoList(srcInfoList []*irs.KeyPairInfo) []*irs.KeyPairInfo {
-        clonedInfoList := []*irs.KeyPairInfo{}
-        for _, srcInfo := range srcInfoList {
-                clonedInfo := CloneKeyPairInfo(*srcInfo)
-                clonedInfoList = append(clonedInfoList, &clonedInfo)
-        }
-        return clonedInfoList
+	clonedInfoList := []*irs.KeyPairInfo{}
+	for _, srcInfo := range srcInfoList {
+		clonedInfo := CloneKeyPairInfo(*srcInfo)
+		clonedInfoList = append(clonedInfoList, &clonedInfo)
+	}
+	return clonedInfoList
 }
 
 func CloneKeyPairInfo(srcInfo irs.KeyPairInfo) irs.KeyPairInfo {
-        /*
+	/*
 		type KeyPairInfo struct {
 			IId   IID       // {NameId, SystemId}
 			Fingerprint string
@@ -75,19 +75,19 @@ func CloneKeyPairInfo(srcInfo irs.KeyPairInfo) irs.KeyPairInfo {
 
 			KeyValueList []KeyValue
 		}
-        */
+	*/
 
-        // clone KeyPairInfo
-        clonedInfo := irs.KeyPairInfo{
-                IId:       	irs.IID{srcInfo.IId.NameId, srcInfo.IId.SystemId},
-		Fingerprint: 	srcInfo.Fingerprint,
-		PublicKey: 	srcInfo.PublicKey, 
-		PrivateKey: 	srcInfo.PrivateKey,
-		VMUserID: 	srcInfo.VMUserID,
-                KeyValueList:  	srcInfo.KeyValueList, // now, do not need cloning
-        }
+	// clone KeyPairInfo
+	clonedInfo := irs.KeyPairInfo{
+		IId:          irs.IID{srcInfo.IId.NameId, srcInfo.IId.SystemId},
+		Fingerprint:  srcInfo.Fingerprint,
+		PublicKey:    srcInfo.PublicKey,
+		PrivateKey:   srcInfo.PrivateKey,
+		VMUserID:     srcInfo.VMUserID,
+		KeyValueList: srcInfo.KeyValueList, // now, do not need cloning
+	}
 
-        return clonedInfo
+	return clonedInfo
 }
 
 func (keyPairHandler *MockKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
@@ -95,8 +95,8 @@ func (keyPairHandler *MockKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) 
 	cblogger.Info("Mock Driver: called ListKey()!")
 
 	mockName := keyPairHandler.MockName
-keyMapLock.RLock()
-defer keyMapLock.RUnlock()
+	keyMapLock.RLock()
+	defer keyMapLock.RUnlock()
 	infoList, ok := keyPairInfoMap[mockName]
 	if !ok {
 		return []*irs.KeyPairInfo{}, nil
@@ -110,12 +110,12 @@ func (keyPairHandler *MockKeyPairHandler) GetKey(iid irs.IID) (irs.KeyPairInfo, 
 	cblogger.Info("Mock Driver: called GetKey()!")
 
 	mockName := keyPairHandler.MockName
-keyMapLock.RLock()
-defer keyMapLock.RUnlock()
-        infoList, ok := keyPairInfoMap[mockName]
-        if !ok {
+	keyMapLock.RLock()
+	defer keyMapLock.RUnlock()
+	infoList, ok := keyPairInfoMap[mockName]
+	if !ok {
 		return irs.KeyPairInfo{}, fmt.Errorf("%s Keypair does not exist!!", iid.NameId)
-        }
+	}
 
 	for _, info := range infoList {
 		if (*info).IId.NameId == iid.NameId {
@@ -130,15 +130,15 @@ func (keyPairHandler *MockKeyPairHandler) DeleteKey(iid irs.IID) (bool, error) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mock Driver: called DeleteKey()!")
 
-        mockName := keyPairHandler.MockName
+	mockName := keyPairHandler.MockName
 
-keyMapLock.Lock()
-defer keyMapLock.Unlock()
+	keyMapLock.Lock()
+	defer keyMapLock.Unlock()
 
-        infoList, ok := keyPairInfoMap[mockName]
-        if !ok {
-                return false, fmt.Errorf("%s Keypair does not exist!!", iid.NameId)
-        }
+	infoList, ok := keyPairInfoMap[mockName]
+	if !ok {
+		return false, fmt.Errorf("%s Keypair does not exist!!", iid.NameId)
+	}
 
 	for idx, info := range infoList {
 		if info.IId.SystemId == iid.SystemId {

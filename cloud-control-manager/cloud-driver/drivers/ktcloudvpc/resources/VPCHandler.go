@@ -318,7 +318,7 @@ func (vpcHandler *KTVpcVPCHandler) AddSubnet(vpcIID irs.IID, subnetReqInfo irs.S
 		}
 	} else {
 		cblogger.Info("\n### Waiting for Adding the Subnet!!")
-		time.Sleep(time.Second * 25)
+		time.Sleep(time.Second * 20)
 
 		// cblogger.Infof("Succeeded in Adding the Subnet : [%s]", subnet.ID)  // To prevent 'panic: runtime error', maded this line as a comment.
 	}

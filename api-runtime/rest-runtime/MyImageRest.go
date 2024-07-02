@@ -66,7 +66,7 @@ func UnregisterMyImage(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.UnregisterResource(req.ConnectionName, rsMyImage, c.Param("Name"))
+	result, err := cmrt.UnregisterResource(req.ConnectionName, MYIMAGE, c.Param("Name"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -105,7 +105,7 @@ func SnapshotVM(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.SnapshotVM(req.ConnectionName, rsMyImage, reqInfo, req.IDTransformMode)
+	result, err := cmrt.SnapshotVM(req.ConnectionName, MYIMAGE, reqInfo, req.IDTransformMode)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -130,7 +130,7 @@ func ListMyImage(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.ListMyImage(req.ConnectionName, rsMyImage)
+	result, err := cmrt.ListMyImage(req.ConnectionName, MYIMAGE)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -163,7 +163,7 @@ func ListAllMyImage(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, rsMyImage)
+	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, MYIMAGE)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -188,7 +188,7 @@ func GetMyImage(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.GetMyImage(req.ConnectionName, rsMyImage, c.Param("Name"))
+	result, err := cmrt.GetMyImage(req.ConnectionName, MYIMAGE, c.Param("Name"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -211,7 +211,7 @@ func DeleteMyImage(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.DeleteMyImage(req.ConnectionName, rsMyImage, c.Param("Name"), c.QueryParam("force"))
+	result, err := cmrt.DeleteMyImage(req.ConnectionName, MYIMAGE, c.Param("Name"), c.QueryParam("force"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -238,7 +238,7 @@ func DeleteCSPMyImage(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, _, err := cmrt.DeleteCSPResource(req.ConnectionName, rsMyImage, c.Param("Id"))
+	result, _, err := cmrt.DeleteCSPResource(req.ConnectionName, MYIMAGE, c.Param("Id"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

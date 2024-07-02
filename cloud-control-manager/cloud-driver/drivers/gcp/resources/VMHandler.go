@@ -15,6 +15,7 @@ import (
 	"context"
 	"errors"
 	_ "errors"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -475,6 +476,28 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	}
 	callogger.Info(call.String(callLogInfo))
 
+	// check operation status, wait until operation is completed
+	// This process is required because some operations have not error message but failed.
+	for {
+		result, err := vmHandler.Client.ZoneOperations.Get(projectID, zone, op.Name).Context(context.Background()).Do()
+		if err != nil {
+			cblogger.Errorf("Failed to get operation: %v", err)
+		}
+		if result.Status == "DONE" {
+			if result.Error != nil {
+				var errorMessages []string
+				for _, err := range result.Error.Errors {
+					cblogger.Errorf("Operation error: %v", err.Message)
+					errorMessages = append(errorMessages, err.Message)
+				}
+				combinedError := fmt.Errorf("Operation errors: %s", strings.Join(errorMessages, ", "))
+				return irs.VMInfo{}, combinedError
+			}
+			break
+		}
+		time.Sleep(5 * time.Second)
+	}
+
 	/*
 		js, err := op.MarshalJSON()
 		if err != nil {
@@ -879,9 +902,15 @@ func (vmHandler *GCPVMHandler) GetVMStatus(vmID irs.IID) (irs.VMStatus, error) {
 	instanceView, err := vmHandler.Client.Instances.Get(projectID, zone, vmID.SystemId).Do()
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
-		cblogger.Error(err)
+		// Filtered because Spider Server could check the status of the VM even if it is not created.
+		// It will print out many error messages in the log.
+		if !strings.Contains(err.Error(), "not found") {
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Error(call.String(callLogInfo))
+		}
+		if !strings.Contains(err.Error(), "not found") {
+			cblogger.Error(err)
+		}
 		return irs.VMStatus("Failed"), err
 	}
 	callogger.Info(call.String(callLogInfo))
@@ -949,9 +978,15 @@ func (vmHandler *GCPVMHandler) GetVM(vmID irs.IID) (irs.VMInfo, error) {
 	vm, err := vmHandler.Client.Instances.Get(projectID, zone, vmID.SystemId).Do()
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
-		cblogger.Error(err)
+		// Filtered because Spider Server could check the status of the VM even if it is not created.
+		// It will print out many error messages in the log.
+		if !strings.Contains(err.Error(), "not found") {
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Error(call.String(callLogInfo))
+		}
+		if !strings.Contains(err.Error(), "not found") {
+			cblogger.Error(err)
+		}
 		return irs.VMInfo{}, err
 	}
 	callogger.Info(call.String(callLogInfo))

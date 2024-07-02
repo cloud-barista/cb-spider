@@ -12,29 +12,28 @@ package resources
 
 import "time"
 
-
-//-------- Const
+// -------- Const
 type MyImageStatus string
 
 const (
-        MyImageAvailable	MyImageStatus = "Available"
-        MyImageUnavailable	MyImageStatus = "Unavailable"
+	MyImageAvailable   MyImageStatus = "Available"
+	MyImageUnavailable MyImageStatus = "Unavailable"
 )
 
-//-------- Info Structure
+// -------- Info Structure
 type MyImageInfo struct {
-	IId	IID 	// {NameId, SystemId}
+	IId IID // {NameId, SystemId}
 
-        SourceVM IID
-	
-        Status 		MyImageStatus  // Available | Unavailable
+	SourceVM IID
 
-	CreatedTime	time.Time
-	KeyValueList 	[]KeyValue
+	Status MyImageStatus // Available | Unavailable
+
+	CreatedTime  time.Time
+	TagList      []KeyValue
+	KeyValueList []KeyValue
 }
 
-
-//-------- MyImage API
+// -------- MyImage API
 type MyImageHandler interface {
 
 	//------ Snapshot to create a MyImage

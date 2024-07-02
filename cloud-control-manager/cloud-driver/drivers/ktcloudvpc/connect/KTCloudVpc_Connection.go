@@ -12,6 +12,7 @@ package connect
 
 import (
 	"fmt"
+
 	"github.com/sirupsen/logrus"
 
 	cblog "github.com/cloud-barista/cb-log"
@@ -21,7 +22,7 @@ import (
 	ktvpcsdk "github.com/cloud-barista/ktcloudvpc-sdk-go"
 
 	// ktvpcrs "github.com/cloud-barista/ktcloudvpc/ktcloudvpc/resources"
-	ktvpcrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ktcloudvpc/resources" //To be built in the container	
+	ktvpcrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ktcloudvpc/resources" //To be built in the container
 )
 
 var cblogger *logrus.Logger
@@ -32,13 +33,13 @@ func init() {
 }
 
 type KTCloudVpcConnection struct {
-	CredentialInfo  idrv.CredentialInfo
-	RegionInfo    	idrv.RegionInfo
-	VMClient      	*ktvpcsdk.ServiceClient
-	ImageClient   	*ktvpcsdk.ServiceClient
-	NetworkClient 	*ktvpcsdk.ServiceClient
-	VolumeClient  	*ktvpcsdk.ServiceClient
-	NLBClient  		*ktvpcsdk.ServiceClient
+	CredentialInfo idrv.CredentialInfo
+	RegionInfo     idrv.RegionInfo
+	VMClient       *ktvpcsdk.ServiceClient
+	ImageClient    *ktvpcsdk.ServiceClient
+	NetworkClient  *ktvpcsdk.ServiceClient
+	VolumeClient   *ktvpcsdk.ServiceClient
+	NLBClient      *ktvpcsdk.ServiceClient
 }
 
 func (cloudConn *KTCloudVpcConnection) CreateVMHandler() (irs.VMHandler, error) {
@@ -102,19 +103,19 @@ func (cloudConn *KTCloudVpcConnection) CreateMyImageHandler() (irs.MyImageHandle
 }
 
 func (cloudConn *KTCloudVpcConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
-    cblogger.Info("KT Cloud VPC Driver: called CreateAnyCallHandler()!")
+	cblogger.Info("KT Cloud VPC Driver: called CreateAnyCallHandler()!")
 
 	return nil, fmt.Errorf("KT Cloud VPC Driver does not support AnyCallHandler yet.")
 }
 
 func (cloudConn *KTCloudVpcConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
-	cblogger.Info("KT Cloud VPC Driver: called CreateRegionZoneHandler()!")	
-	regionZoneHandler := ktvpcrs.KTVpcRegionZoneHandler{RegionInfo: cloudConn.RegionInfo,}
+	cblogger.Info("KT Cloud VPC Driver: called CreateRegionZoneHandler()!")
+	regionZoneHandler := ktvpcrs.KTVpcRegionZoneHandler{RegionInfo: cloudConn.RegionInfo}
 	return &regionZoneHandler, nil
 }
 
 func (cloudConn *KTCloudVpcConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
-    cblogger.Info("KT Cloud VPC Driver: called CreatePriceInfoHandler()!")
+	cblogger.Info("KT Cloud VPC Driver: called CreatePriceInfoHandler()!")
 
 	return nil, fmt.Errorf("KT Cloud VPC Driver does not support PriceInfoHandler yet.")
 }
@@ -125,4 +126,8 @@ func (cloudConn *KTCloudVpcConnection) IsConnected() (bool, error) {
 
 func (cloudConn *KTCloudVpcConnection) Close() error {
 	return nil
+}
+
+func (cloudConn *KTCloudVpcConnection) CreateTagHandler() (irs.TagHandler, error) {
+	return nil, fmt.Errorf("KT Cloud VPC Driver: not implemented")
 }

@@ -149,3 +149,7 @@ func (cloudConn *OpenStackCloudConnection) CreateAnyCallHandler() (irs.AnyCallHa
 func (*OpenStackCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
 	return nil, errors.New("OpenStack Driver: Price info is not available for OpenStack.")
 }
+
+func (cloudConn *OpenStackCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
+	return nil, errors.New("OpenStack Driver: : not implemented")
+}

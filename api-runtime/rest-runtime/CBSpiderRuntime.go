@@ -115,7 +115,6 @@ func getServerIPorName(env string) string {
 	}
 
 	strs := strings.Split(hostEnv, ":")
-	fmt.Println(len(strs))
 	if strs[0] == "" { // ":31024"
 		return getPublicIP()
 	} else { // "1.2.3.4:31024" or "localhost:31024"
@@ -435,6 +434,9 @@ func RunServer() {
 		{"GET", "/countcluster", CountAllClusters},
 		{"GET", "/countcluster/:ConnectionName", CountClustersByConnection},
 
+		//----------Destory All Resources in a Connection
+		{"DELETE", "/destroy", Destroy},
+
 		//-- only for WebTool
 		{"GET", "/nscluster", AllClusterList},  // GET with a body for backward compatibility
 		{"POST", "/nscluster", AllClusterList}, // POST with a body for standard
@@ -522,15 +524,28 @@ func ApiServer(routes []route) {
 	API_USERNAME := os.Getenv("API_USERNAME")
 	API_PASSWORD := os.Getenv("API_PASSWORD")
 
+	// SkipAuthPaths defines paths to skip authentication
+	SkipAuthPaths := map[string]bool{
+		"/spider/healthcheck": true,
+		"/spider/health":      true,
+		"/spider/ping":        true,
+		"/spider/readyz":      true,
+	}
+
 	if API_USERNAME != "" && API_PASSWORD != "" {
 		cblog.Info("**** Rest Auth Enabled ****")
-		e.Use(middleware.BasicAuth(func(username, password string, c echo.Context) (bool, error) {
-			// Be careful to use constant time comparison to prevent timing attacks
-			if subtle.ConstantTimeCompare([]byte(username), []byte(API_USERNAME)) == 1 &&
-				subtle.ConstantTimeCompare([]byte(password), []byte(API_PASSWORD)) == 1 {
-				return true, nil
-			}
-			return false, nil
+		e.Use(middleware.BasicAuthWithConfig(middleware.BasicAuthConfig{
+			Skipper: func(c echo.Context) bool {
+				return SkipAuthPaths[c.Path()]
+			},
+			Validator: func(username, password string, c echo.Context) (bool, error) {
+				// Be careful to use constant time comparison to prevent timing attacks
+				if subtle.ConstantTimeCompare([]byte(username), []byte(API_USERNAME)) == 1 &&
+					subtle.ConstantTimeCompare([]byte(password), []byte(API_PASSWORD)) == 1 {
+					return true, nil
+				}
+				return false, nil
+			},
 		}))
 	} else {
 		cblog.Info("**** Rest Auth Disabled ****")

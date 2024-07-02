@@ -230,3 +230,7 @@ func (cloudConn *AzureCloudConnection) CreateClusterHandler() (irs.ClusterHandle
 func (cloudConn *AzureCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
 	return nil, errors.New("Azure Driver: not implemented")
 }
+
+func (cloudConn *AzureCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
+	return nil, errors.New("Azure Driver: not implemented")
+}

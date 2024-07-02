@@ -162,3 +162,7 @@ func (cloudConn *TencentCloudConnection) CreatePriceInfoHandler() (irs.PriceInfo
 	handler := trs.TencentPriceInfoHandler{Region: cloudConn.Region, Client: cloudConn.VMClient}
 	return &handler, nil
 }
+
+func (cloudConn *TencentCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
+	return nil, errors.New("Tencent Driver: not implemented")
+}

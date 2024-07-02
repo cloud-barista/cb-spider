@@ -21,7 +21,7 @@ require (
 	github.com/aws/aws-sdk-go v1.39.4
 	github.com/bramvdbogaerde/go-scp v1.0.0
 	github.com/chyeh/pubip v0.0.0-20170203095919-b7e679cf541c
-	github.com/cloud-barista/cb-log v0.8.0
+	github.com/cloud-barista/cb-log v0.8.2
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/docker v24.0.9+incompatible
 	github.com/docker/go-connections v0.4.0
@@ -67,14 +67,14 @@ require (
 	github.com/alibabacloud-go/vpc-20160428/v6 v6.4.0
 	github.com/cloud-barista/ktcloud-sdk-go v0.2.1-0.20240123114820-8684cfc5deeb
 	github.com/cloud-barista/ktcloudvpc-sdk-go v0.0.0-20240524035950-e31ad87778e0
-	github.com/cloud-barista/nhncloud-sdk-go v0.0.0-20240415072030-38f4f47c26a1
+	github.com/cloud-barista/nhncloud-sdk-go v0.0.0-20240625103041-e12be4707a93
 	github.com/go-openapi/strfmt v0.21.3
 	github.com/hashicorp/go-version v1.6.0
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/labstack/echo/v4 v4.9.0
 	github.com/tencentcloud/tencentcloud-sdk-go-intl-en v3.0.531+incompatible
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs v1.0.492
-	golang.org/x/mod v0.17.0
+	golang.org/x/mod v0.18.0
 	k8s.io/api v0.22.5
 	k8s.io/apimachinery v0.22.5
 	k8s.io/client-go v0.22.5
@@ -145,7 +145,7 @@ require (
 	github.com/googleapis/gax-go/v2 v2.12.0 // indirect
 	github.com/googleapis/gnostic v0.5.5 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
-	github.com/hashicorp/go-retryablehttp v0.7.1 // indirect
+	github.com/hashicorp/go-retryablehttp v0.7.7 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
@@ -188,7 +188,7 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/net v0.25.0 // indirect
-	golang.org/x/sys v0.20.0 // indirect
+	golang.org/x/sys v0.21.0 // indirect
 	golang.org/x/term v0.20.0 // indirect
 	golang.org/x/text v0.15.0 // indirect
 	golang.org/x/time v0.5.0 // indirect

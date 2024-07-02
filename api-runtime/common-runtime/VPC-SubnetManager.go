@@ -94,7 +94,7 @@ func RegisterVPC(connectionName string, userIID cres.IID) (*cres.VPCInfo, error)
 		cblog.Error(err)
 		return nil, err
 	}
-	rsType := rsVPC
+	rsType := VPC
 	if bool_ret {
 		err := fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
 		cblog.Error(err)
@@ -126,12 +126,27 @@ func RegisterVPC(connectionName string, userIID cres.IID) (*cres.VPCInfo, error)
 
 	// insert subnet's spiderIIDs to metadb and setup subnet IID for return info
 	for count, subnetInfo := range getInfo.SubnetInfoList {
+		//---------- original code ----------------
 		// generate subnet's UserID
 		subnetUserId := userIID.NameId + "-subnet-" + strconv.Itoa(count)
 
 		// insert a subnet SpiderIID to metadb
 		// Do not user NameId, because Azure driver use it like SystemId
 		systemId := getMSShortID(subnetInfo.IId.SystemId)
+		//---------- original code ----------------
+
+		/* ---------- new version code ----------------
+		// insert a subnet SpiderIID to metadb
+		// Do not user NameId, because Azure driver use it like SystemId
+		systemId := getMSShortID(subnetInfo.IId.SystemId)
+
+		// generate subnet's UserID
+		// subnetUserId := userIID.NameId + "-subnet-" + strconv.Itoa(count)
+		// => We use the same SystemId as the Subnet NameId
+		// User can redefine the NameId and ZoneId by calling RegisterSubnet
+		subnetUserId := systemId
+		---------- new version code ---------------- */
+
 		subnetSpiderIId := cres.IID{NameId: subnetUserId, SystemId: systemId + ":" + subnetInfo.IId.SystemId}
 		err = infostore.Insert(&SubnetIIDInfo{ConnectionName: connectionName, NameId: subnetSpiderIId.NameId, SystemId: subnetSpiderIId.SystemId,
 			OwnerVPCName: userIID.NameId})
@@ -201,7 +216,7 @@ func RegisterSubnet(connectionName string, zoneId string, vpcName string, userII
 		cblog.Error(err)
 		return nil, err
 	}
-	rsType := rsSubnet
+	rsType := SUBNET
 	if bool_ret {
 		err := fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
 		cblog.Error(err)
@@ -293,7 +308,7 @@ func UnregisterSubnet(connectionName string, vpcName string, nameId string) (boo
 		cblog.Error(err)
 		return false, err
 	}
-	rsType := rsSubnet
+	rsType := SUBNET
 	if !bool_ret {
 		err := fmt.Errorf("The " + rsType + "-" + nameId + " in " + vpcName + " does not exist!")
 		cblog.Error(err)
@@ -429,7 +444,7 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo, ID
 	for _, info := range reqInfo.SubnetInfoList {
 		subnetUUID := ""
 		if GetID_MGMT(IDTransformMode) == "ON" { // Use IID Management
-			subnetUUID, err = iidm.New(connectionName, rsSubnet, info.IId.NameId)
+			subnetUUID, err = iidm.New(connectionName, SUBNET, info.IId.NameId)
 			if err != nil {
 				cblog.Error(err)
 				return nil, err

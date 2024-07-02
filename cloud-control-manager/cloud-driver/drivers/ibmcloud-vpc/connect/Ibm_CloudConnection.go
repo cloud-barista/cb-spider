@@ -173,3 +173,7 @@ func (cloudConn *IbmCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHand
 	}
 	return &priceInfoHandler, nil
 }
+
+func (cloudConn *IbmCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
+	return nil, errors.New("Ibm Driver: not implemented")
+}

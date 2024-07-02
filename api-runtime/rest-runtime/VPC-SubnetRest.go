@@ -122,7 +122,7 @@ func UnregisterVPC(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.UnregisterResource(req.ConnectionName, rsVPC, c.Param("Name"))
+	result, err := cmrt.UnregisterResource(req.ConnectionName, VPC, c.Param("Name"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -183,7 +183,7 @@ func CreateVPC(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.CreateVPC(req.ConnectionName, rsVPC, reqInfo, req.IDTransformMode)
+	result, err := cmrt.CreateVPC(req.ConnectionName, VPC, reqInfo, req.IDTransformMode)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -208,7 +208,7 @@ func ListVPC(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.ListVPC(req.ConnectionName, rsVPC)
+	result, err := cmrt.ListVPC(req.ConnectionName, VPC)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -242,7 +242,7 @@ func ListAllVPC(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, rsVPC)
+	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, VPC)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -267,7 +267,7 @@ func GetVPC(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.GetVPC(req.ConnectionName, rsVPC, c.Param("Name"))
+	result, err := cmrt.GetVPC(req.ConnectionName, VPC, c.Param("Name"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -290,7 +290,7 @@ func DeleteVPC(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.DeleteVPC(req.ConnectionName, rsVPC, c.Param("Name"), c.QueryParam("force"))
+	result, err := cmrt.DeleteVPC(req.ConnectionName, VPC, c.Param("Name"), c.QueryParam("force"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -317,7 +317,7 @@ func DeleteCSPVPC(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, _, err := cmrt.DeleteCSPResource(req.ConnectionName, rsVPC, c.Param("Id"))
+	result, _, err := cmrt.DeleteCSPResource(req.ConnectionName, VPC, c.Param("Id"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -353,7 +353,7 @@ func AddSubnet(c echo.Context) error {
 	reqSubnetInfo := cres.SubnetInfo{IId: cres.IID{req.ReqInfo.Name, ""}, IPv4_CIDR: req.ReqInfo.IPv4_CIDR, Zone: req.ReqInfo.Zone}
 
 	// Call common-runtime API
-	result, err := cmrt.AddSubnet(req.ConnectionName, rsSubnet, c.Param("VPCName"), reqSubnetInfo, req.IDTransformMode)
+	result, err := cmrt.AddSubnet(req.ConnectionName, SUBNET, c.Param("VPCName"), reqSubnetInfo, req.IDTransformMode)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

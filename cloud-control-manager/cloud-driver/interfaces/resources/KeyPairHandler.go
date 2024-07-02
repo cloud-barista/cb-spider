@@ -12,22 +12,25 @@
 package resources
 
 type KeyPairReqInfo struct {
-	IId   IID       // {NameId, SystemId}
+	IId IID // {NameId, SystemId}
+
+	TagList []KeyValue
 }
 
 type KeyPairInfo struct {
-	IId   IID       // {NameId, SystemId}
+	IId         IID // {NameId, SystemId}
 	Fingerprint string
 	PublicKey   string
 	PrivateKey  string
-	VMUserID      string
+	VMUserID    string
 
-	KeyValueList []KeyValue 
+	TagList      []KeyValue
+	KeyValueList []KeyValue
 }
 
 type KeyPairHandler interface {
 	CreateKey(keyPairReqInfo KeyPairReqInfo) (KeyPairInfo, error)
 	ListKey() ([]*KeyPairInfo, error)
-	GetKey(keyIID IID) (KeyPairInfo, error) 
-	DeleteKey(keyIID IID) (bool, error)     
+	GetKey(keyIID IID) (KeyPairInfo, error)
+	DeleteKey(keyIID IID) (bool, error)
 }

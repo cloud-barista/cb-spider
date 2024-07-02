@@ -41,11 +41,11 @@ func PrepareVMImage(mockName string) {
 	}
 
 	PrepareImageInfoList = []*irs.ImageInfo{
-		{irs.IID{"mock-vmimage-01", "mock-vmimage-01"}, "TestGuestOS", "AVAILABLE", nil},
-		{irs.IID{"mock-vmimage-02", "mock-vmimage-02"}, "TestGuestOS", "AVAILABLE", nil},
-		{irs.IID{"mock-vmimage-03", "mock-vmimage-03"}, "TestGuestOS", "AVAILABLE", nil},
-		{irs.IID{"mock-vmimage-04", "mock-vmimage-04"}, "TestGuestOS", "AVAILABLE", nil},
-		{irs.IID{"mock-vmimage-05", "mock-vmimage-05"}, "TestGuestOS", "AVAILABLE", nil},
+		{irs.IID{"mock-vmimage-01", "mock-vmimage-01"}, "TestGuestOS", "AVAILABLE", nil, nil},
+		{irs.IID{"mock-vmimage-02", "mock-vmimage-02"}, "TestGuestOS", "AVAILABLE", nil, nil},
+		{irs.IID{"mock-vmimage-03", "mock-vmimage-03"}, "TestGuestOS", "AVAILABLE", nil, nil},
+		{irs.IID{"mock-vmimage-04", "mock-vmimage-04"}, "TestGuestOS", "AVAILABLE", nil, nil},
+		{irs.IID{"mock-vmimage-05", "mock-vmimage-05"}, "TestGuestOS", "AVAILABLE", nil, nil},
 	}
 	imgInfoMap[mockName] = PrepareImageInfoList
 }
@@ -60,7 +60,7 @@ func (imageHandler *MockImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo)
 	imageReqInfo.IId.SystemId = imageReqInfo.IId.NameId
 
 	// (1) create imageInfo object
-	imageInfo := irs.ImageInfo{irs.IID{imageReqInfo.IId.NameId, imageReqInfo.IId.SystemId}, "TestGuestOS", "TestStatus", nil}
+	imageInfo := irs.ImageInfo{irs.IID{imageReqInfo.IId.NameId, imageReqInfo.IId.SystemId}, "TestGuestOS", "TestStatus", nil, nil}
 
 	// (2) insert ImageInfo into global Map
 	imgInfoList, _ := imgInfoMap[mockName]
@@ -128,4 +128,3 @@ func (imageHandler *MockImageHandler) DeleteImage(imageIID irs.IID) (bool, error
 func (imageHandler *MockImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
 	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
 }
-

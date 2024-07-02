@@ -11,6 +11,8 @@
 package connect
 
 import (
+	"errors"
+
 	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 
@@ -179,4 +181,8 @@ func (cloudConn *AwsCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHa
 func (cloudConn *AwsCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
 	handler := ars.AwsPriceInfoHandler{cloudConn.Region, cloudConn.PriceInfoClient}
 	return &handler, nil
+}
+
+func (cloudConn *AwsCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
+	return nil, errors.New("AWS Driver: not implemented")
 }
