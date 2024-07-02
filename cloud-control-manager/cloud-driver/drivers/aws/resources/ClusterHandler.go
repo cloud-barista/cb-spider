@@ -571,11 +571,7 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 		}
 	}
 
-	cblogger.Debug("최종 Subnet 목록")
-
-	if cblogger.Level.String() == "debug" {
-		spew.Dump(subnetList)
-	}
+	cblogger.Debug("Subnet list")
 	cblogger.Debug(subnetList)
 
 	var nodeSecurityGroupList []*string
