@@ -163,7 +163,7 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 				cblogger.Error(err.Error())
 			}
 			if cblogger.Level.String() == "debug" {
-				spew.Dump(resultNodeGroupInfo)
+				cblogger.Debug(resultNodeGroupInfo)
 			}
 		}
 		//----- wait until Status=COMPLETE -----//  :  Nodegroup이 모두 생성되면 조회

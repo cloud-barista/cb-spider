@@ -69,7 +69,7 @@ func DescribeDisks(client *ecs.Client, regionInfo idrv.RegionInfo, instanceIID i
 	for {
 		result, err := client.DescribeDisks(request)
 		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-		//spew.Dump(result) //출력 정보가 너무 많아서 생략
+		//cblogger.Debug(result) //출력 정보가 너무 많아서 생략
 		if err != nil {
 			callLogInfo.ErrorMSG = err.Error()
 			callogger.Error(call.String(callLogInfo))
@@ -186,13 +186,13 @@ func DescribeAvailableResource(client *ecs.Client, regionId string, zoneId strin
 		request.DedicatedHostId = categoryValue
 	}
 	//request.DataDiskCategory = "cloud"
-	//spew.Dump(request)
+	//cblogger.Debug(request)
 	result, err := client.DescribeAvailableResource(request)
 	cblogger.Debug(result)
 	if err != nil {
 		cblogger.Errorf("DescribeAvailableResource %v.", err)
 	}
-	//spew.Dump(result)
+	//cblogger.Debug(result)
 
 	metaValue := reflect.ValueOf(result).Elem()
 	fieldAvailableZones := metaValue.FieldByName("AvailableZones")
@@ -365,13 +365,13 @@ func DescribeImages(client *ecs.Client, regionInfo idrv.RegionInfo, imageIIDs []
 	if isMyImage {
 		request.ImageOwnerAlias = "self"
 	}
-	//spew.Dump(request)
+	//cblogger.Debug(request)
 	result, err := client.DescribeImages(request)
 	if err != nil {
 		return nil, err
 	}
 
-	//spew.Dump(result)
+	//cblogger.Debug(result)
 	return result.Images.Image, nil
 }
 
@@ -435,7 +435,7 @@ func DescribeImageStatus(client *ecs.Client, regionInfo idrv.RegionInfo, myImage
 	if len(result.Images.Image) == 0 { // return을 empty string 으로 할까?
 		return ALIBABA_IMAGE_STATE_ERROR, errors.New("no result")
 	}
-	//spew.Dump(result)
+	//cblogger.Debug(result)
 	return result.Images.Image[0].Status, nil
 }
 

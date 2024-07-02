@@ -67,7 +67,7 @@ func (vmHandler *AlibabaVMHandler) GetImageSize(ImageSystemId string) (int64, er
 // @TODO : PublicIp 요금제 방식과 대역폭 설정 방법 논의 필요
 func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	cblogger.Debug(vmReqInfo)
-	//spew.Dump(vmReqInfo)
+	//cblogger.Debug(vmReqInfo)
 
 	/* 2021-10-26 이슈 #480에 의해 제거
 	// 2021-04-28 cbuser 추가에 따른 Local KeyPair만 VM 생성 가능하도록 강제
@@ -114,7 +114,7 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		userData = userData + keyPairInfo.PublicKey
 		userDataBase64 := base64.StdEncoding.EncodeToString([]byte(userData))
 		cblogger.Infof("===== userData ===")
-		spew.Dump(userDataBase64)
+		cblogger.Debug(userDataBase64)
 	*/
 
 	vmImage, err := DescribeImageByImageId(vmHandler.Client, vmHandler.Region, vmReqInfo.ImageIID, false)
@@ -434,7 +434,7 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		return irs.VMInfo{}, err
 	}
 	callogger.Info(call.String(callLogInfo))
-	//spew.Dump(response)
+	//cblogger.Debug(response)
 
 	if len(response.InstanceIdSets.InstanceIdSet) < 1 {
 		return irs.VMInfo{}, errors.New("No errors have occurred, but no VMs have been created.")
@@ -989,7 +989,7 @@ func (vmHandler *AlibabaVMHandler) ListVM() ([]*irs.VMInfo, error) {
 		}
 		//cblogger.Info("=======>VM 조회 결과")
 		if cblogger.Level.String() == "debug" {
-			//spew.Dump(vmInfo)
+			//cblogger.Debug(vmInfo)
 			cblogger.Debug(vmInfo)
 		}
 

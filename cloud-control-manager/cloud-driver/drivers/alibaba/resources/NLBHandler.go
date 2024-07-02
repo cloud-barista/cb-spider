@@ -204,7 +204,7 @@ func (NLBHandler *AlibabaNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 
 	result, err := NLBHandler.Client.DescribeLoadBalancers(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	//spew.Dump(result)
+	//cblogger.Debug(result)
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
@@ -224,7 +224,7 @@ func (NLBHandler *AlibabaNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	}
 
 	cblogger.Debug(result)
-	//spew.Dump(vpcInfoList)
+	//cblogger.Debug(vpcInfoList)
 	return nlbInfoList, nil
 }
 func (NLBHandler *AlibabaNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {
