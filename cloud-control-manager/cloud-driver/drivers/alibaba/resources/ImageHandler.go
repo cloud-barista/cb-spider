@@ -18,7 +18,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 )
 
 type AlibabaImageHandler struct {
@@ -104,7 +103,7 @@ func (imageHandler *AlibabaImageHandler) CreateImage(imageReqInfo irs.ImageReqIn
 	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Infof("Created Image %q %s\n %s\n", result.ImageId, imageReqInfo.IId.NameId, result.RequestId)
-	spew.Dump(result)
+	cblogger.Debug(result)
 
 	/*
 		ImageInfo := irs.ImageInfo{
@@ -155,7 +154,7 @@ func (imageHandler *AlibabaImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	for {
 		result, err := imageHandler.Client.DescribeImages(request)
 		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-		//spew.Dump(result) //출력 정보가 너무 많아서 생략
+		//cblogger.Debug(result) //출력 정보가 너무 많아서 생략
 		if err != nil {
 			callLogInfo.ErrorMSG = err.Error()
 			callogger.Error(call.String(callLogInfo))
@@ -184,7 +183,7 @@ func (imageHandler *AlibabaImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 			break
 		}
 	}
-	//spew.Dump(imageInfoList)
+	//cblogger.Debug(imageInfoList)
 	return imageInfoList, nil
 }
 
@@ -199,7 +198,8 @@ func ExtractImageDescribeInfo(image *ecs.Image) irs.ImageInfo {
 	//*ecs.DescribeImagesResponse
 	if cblogger.Level.String() == "debug" {
 		cblogger.Debug("=====> ")
-		spew.Dump(image)
+		cblogger.Debug(image)
+		//cblogger.Debug(image)
 	}
 	imageInfo := irs.ImageInfo{
 		IId: irs.IID{NameId: image.ImageId, SystemId: image.ImageId},
@@ -262,7 +262,7 @@ func (imageHandler *AlibabaImageHandler) GetImage(imageIID irs.IID) (irs.ImageIn
 	// callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	// //ecs.DescribeImagesResponse.Images.Image
-	// //spew.Dump(result)
+	// //cblogger.Debug(result)
 	// cblogger.Info(result)
 	// if err != nil {
 	// 	callLogInfo.ErrorMSG = err.Error()

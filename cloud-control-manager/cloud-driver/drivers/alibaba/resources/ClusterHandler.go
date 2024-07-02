@@ -982,12 +982,12 @@ func aliTagNatGateway(vpcClient *vpc2016.Client, regionId, natGatewayId, tagKey,
 		ResourceType: tea.String("NATGATEWAY"),
 		Tag:          tags,
 	}
-	//spew.Dump(tagResourcesRequest)
+	//cblogger.Debug(tagResourcesRequest)
 	_, err := vpcClient.TagResources(tagResourcesRequest)
 	if err != nil {
 		return err
 	}
-	//spew.Dump(tagResourcesResponse.Body)
+	//cblogger.Debug(tagResourcesResponse.Body)
 
 	return nil
 }
@@ -998,12 +998,12 @@ func aliDeleteNatGateway(vpcClient *vpc2016.Client, regionId, natGatewayId strin
 		Force:        tea.Bool(true), // When deleting the NAT Gateway, the Snat Entry will be deleted
 		NatGatewayId: tea.String(natGatewayId),
 	}
-	//spew.Dump(deleteNatGatewayRequest)
+	//cblogger.Debug(deleteNatGatewayRequest)
 	_, err := vpcClient.DeleteNatGateway(deleteNatGatewayRequest)
 	if err != nil {
 		return err
 	}
-	//spew.Dump(deleteNatGatewayResponse)
+	//cblogger.Debug(deleteNatGatewayResponse)
 
 	return nil
 }
@@ -1013,12 +1013,12 @@ func aliDescribeClustersV1(csClient *cs2015.Client, regionId string) ([]*cs2015.
 		ClusterType: tea.String("ManagedKubernetes"),
 		RegionId:    tea.String(regionId),
 	}
-	//spew.Dump(describeClustersV1Request)
+	//cblogger.Debug(describeClustersV1Request)
 	describeClustersV1Response, err := csClient.DescribeClustersV1(describeClustersV1Request)
 	if err != nil {
 		return make([]*cs2015.DescribeClustersV1ResponseBodyClusters, 0), err
 	}
-	//spew.Dump(describeClustersV1Response.Body)
+	//cblogger.Debug(describeClustersV1Response.Body)
 
 	return describeClustersV1Response.Body.Clusters, nil
 }
@@ -1028,7 +1028,7 @@ func aliDescribeClusterDetail(csClient *cs2015.Client, clusterId string) (*cs201
 	if err != nil {
 		return nil, err
 	}
-	//spew.Dump(describeClusterDetailResponse.Body)
+	//cblogger.Debug(describeClusterDetailResponse.Body)
 
 	return describeClusterDetailResponse.Body, nil
 }
@@ -1068,12 +1068,12 @@ func aliDescribeVSwitches(vpcClient *vpc2016.Client, regionId, vpcId string) ([]
 		RegionId: tea.String(regionId),
 		VpcId:    tea.String(vpcId),
 	}
-	//spew.Dump(describeVSwitchesRequest)
+	//cblogger.Debug(describeVSwitchesRequest)
 	describeVSwitchesResponse, err := vpcClient.DescribeVSwitches(describeVSwitchesRequest)
 	if err != nil {
 		return make([]*vpc2016.DescribeVSwitchesResponseBodyVSwitchesVSwitch, 0), err
 	}
-	//spew.Dump(describeVSwitchesResponse.Body.VSwitches.VSwitch)
+	//cblogger.Debug(describeVSwitchesResponse.Body.VSwitches.VSwitch)
 
 	return describeVSwitchesResponse.Body.VSwitches.VSwitch, nil
 }
@@ -1198,12 +1198,12 @@ func aliCreateCluster(csClient *cs2015.Client, name, regionId, clusterType, clus
 	if len(nodepools) > 0 {
 		createClusterRequest.Nodepools = nodepools
 	}
-	//spew.Dump(createClusterRequest)
+	//cblogger.Debug(createClusterRequest)
 	createClusterResponse, err := csClient.CreateCluster(createClusterRequest)
 	if err != nil {
 		return nil, err
 	}
-	//spew.Dump(createClusterResponse.Body)
+	//cblogger.Debug(createClusterResponse.Body)
 
 	return createClusterResponse.Body.ClusterId, nil
 }
@@ -1238,12 +1238,12 @@ func aliDescribeVpcAttribute(vpcClient *vpc2016.Client, regionId, vpcId string) 
 		RegionId: tea.String(regionId),
 		VpcId:    tea.String(vpcId),
 	}
-	//spew.Dump(describeVpcAttributeRequest)
+	//cblogger.Debug(describeVpcAttributeRequest)
 	describeVpcAttributeResponse, err := vpcClient.DescribeVpcAttribute(describeVpcAttributeRequest)
 	if err != nil {
 		return nil, err
 	}
-	//spew.Dump(describeVpcAttributeResponse.Body)
+	//cblogger.Debug(describeVpcAttributeResponse.Body)
 
 	return describeVpcAttributeResponse.Body, nil
 }
@@ -1253,12 +1253,12 @@ func aliDescribeVSwitchAttributes(vpcClient *vpc2016.Client, regionId, vswitchId
 		RegionId:  tea.String(regionId),
 		VSwitchId: tea.String(vswitchId),
 	}
-	//spew.Dump(describeVSwitchAttributesRequest)
+	//cblogger.Debug(describeVSwitchAttributesRequest)
 	describeVSwitchAttributesResponse, err := vpcClient.DescribeVSwitchAttributes(describeVSwitchAttributesRequest)
 	if err != nil {
 		return nil, err
 	}
-	//spew.Dump(describeVSwitchAttributesResponse.Body)
+	//cblogger.Debug(describeVSwitchAttributesResponse.Body)
 
 	return describeVSwitchAttributesResponse.Body, nil
 }
@@ -1268,12 +1268,12 @@ func aliDescribeSecurityGroupAttribute(ecsClient *ecs2014.Client, regionId, secu
 		RegionId:        tea.String(regionId),
 		SecurityGroupId: tea.String(securityGroupId),
 	}
-	//spew.Dump(describeSecurityGroupAttributeRequest)
+	//cblogger.Debug(describeSecurityGroupAttributeRequest)
 	describeSecurityGroupAttributeResponse, err := ecsClient.DescribeSecurityGroupAttribute(describeSecurityGroupAttributeRequest)
 	if err != nil {
 		return nil, err
 	}
-	//spew.Dump(describeSecurityGroupAttributeResponse.Body)
+	//cblogger.Debug(describeSecurityGroupAttributeResponse.Body)
 
 	return describeSecurityGroupAttributeResponse.Body, nil
 }
@@ -1282,12 +1282,12 @@ func aliDeleteCluster(csClient *cs2015.Client, clusterId string, retainResources
 	deleteClusterRequest := &cs2015.DeleteClusterRequest{
 		RetainResources: tea.StringSlice(retainResources),
 	}
-	//spew.Dump(deleteClusterRequest)
+	//cblogger.Debug(deleteClusterRequest)
 	deleteClusterResponse, err := csClient.DeleteCluster(tea.String(clusterId), deleteClusterRequest)
 	if err != nil {
 		return nil, err
 	}
-	//spew.Dump(deleteClusterResponse.Body)
+	//cblogger.Debug(deleteClusterResponse.Body)
 
 	return deleteClusterResponse.Body, nil
 }
@@ -1298,12 +1298,12 @@ func aliDescribeKubernetesVersionMetadata(csClient *cs2015.Client, regionId, clu
 		ClusterType:       tea.String(clusterType),
 		KubernetesVersion: tea.String(k8sVersion),
 	}
-	//spew.Dump(describeKubernetesVersionMetadataRequest)
+	//cblogger.Debug(describeKubernetesVersionMetadataRequest)
 	describeKubernetesVersionMetadataResponse, err := csClient.DescribeKubernetesVersionMetadata(describeKubernetesVersionMetadataRequest)
 	if err != nil {
 		return nil, err
 	}
-	//spew.Dump(describeKubernetesVersionMetadataResponse.Body)
+	//cblogger.Debug(describeKubernetesVersionMetadataResponse.Body)
 
 	return describeKubernetesVersionMetadataResponse.Body, nil
 }
@@ -1337,12 +1337,12 @@ func aliCreateClusterNodePool(csClient *cs2015.Client, clusterId, name string, a
 		createClusterNodePoolRequest.ScalingGroup.DesiredSize = tea.Int64(desiredSize)
 	}
 
-	//spew.Dump(createClusterNodePoolRequest)
+	//cblogger.Debug(createClusterNodePoolRequest)
 	createClusterNodePoolResponse, err := csClient.CreateClusterNodePool(tea.String(clusterId), createClusterNodePoolRequest)
 	if err != nil {
 		return nil, err
 	}
-	//spew.Dump(createClusterNodePoolResponse.Body)
+	//cblogger.Debug(createClusterNodePoolResponse.Body)
 
 	return createClusterNodePoolResponse.Body.NodepoolId, nil
 }
@@ -1351,12 +1351,12 @@ func aliDeleteClusterNodepool(csClient *cs2015.Client, clusterId, nodepoolId str
 	deleteClusterNodepoolRequest := &cs2015.DeleteClusterNodepoolRequest{
 		Force: tea.Bool(force),
 	}
-	//spew.Dump(deleteClusterNodepoolRequest)
+	//cblogger.Debug(deleteClusterNodepoolRequest)
 	deleteClusterNodepoolResponse, err := csClient.DeleteClusterNodepool(tea.String(clusterId), tea.String(nodepoolId), deleteClusterNodepoolRequest)
 	if err != nil {
 		return nil, err
 	}
-	//spew.Dump(deleteClusterNodepoolResponse.Body)
+	//cblogger.Debug(deleteClusterNodepoolResponse.Body)
 
 	return deleteClusterNodepoolResponse.Body, nil
 }
@@ -1376,7 +1376,7 @@ func aliDescribeClusterNodePools(csClient *cs2015.Client, clusterId string) ([]*
 	if err != nil {
 		return make([]*cs2015.DescribeClusterNodePoolsResponseBodyNodepools, 0), err
 	}
-	//spew.Dump(describeClusterNodePoolsResponse.Body)
+	//cblogger.Debug(describeClusterNodePoolsResponse.Body)
 
 	return describeClusterNodePoolsResponse.Body.Nodepools, nil
 }
@@ -1386,7 +1386,7 @@ func aliDescribeClusterNodePoolDetail(csClient *cs2015.Client, clusterId, nodepo
 	if err != nil {
 		return nil, err
 	}
-	//spew.Dump(describeClusterNodePoolDetailResponse.Body)
+	//cblogger.Debug(describeClusterNodePoolDetailResponse.Body)
 
 	return describeClusterNodePoolDetailResponse.Body, nil
 }
@@ -1395,12 +1395,12 @@ func aliDescribeClusterNodes(csClient *cs2015.Client, clusterId, nodepoolId stri
 	describeClusterNodesRequest := &cs2015.DescribeClusterNodesRequest{
 		NodepoolId: tea.String(nodepoolId),
 	}
-	//spew.Dump(describeClusterNodesRequest)
+	//cblogger.Debug(describeClusterNodesRequest)
 	describeClusterNodesResponse, err := csClient.DescribeClusterNodes(tea.String(clusterId), describeClusterNodesRequest)
 	if err != nil {
 		return nil, err
 	}
-	//spew.Dump(describeClusterNodesResponse.Body)
+	//cblogger.Debug(describeClusterNodesResponse.Body)
 
 	return describeClusterNodesResponse.Body.Nodes, nil
 }
@@ -1415,7 +1415,7 @@ func aliModifyClusterNodePoolAutoScalingEnable(csClient *cs2015.Client, clusterI
 	if err != nil {
 		return nil, err
 	}
-	//spew.Dump(modifyClusterNodePoolResponse.Body)
+	//cblogger.Debug(modifyClusterNodePoolResponse.Body)
 
 	return modifyClusterNodePoolResponse.Body, nil
 }
@@ -1433,14 +1433,14 @@ func aliModifyClusterNodePoolScalingSize(csClient *cs2015.Client, clusterId, nod
 	if autoScalingEnable == false {
 		modifyClusterNodePoolRequest.ScalingGroup.DesiredSize = tea.Int64(desiredSize)
 	}
-	//spew.Dump(modifyClusterNodePoolRequest)
+	//cblogger.Debug(modifyClusterNodePoolRequest)
 
 	modifyClusterNodePoolResponse, err := csClient.ModifyClusterNodePool(tea.String(clusterId), tea.String(nodepoolId), modifyClusterNodePoolRequest)
-	//spew.Dump("aliModifyClusterNodePoolScalingSize")
+	//cblogger.Debug("aliModifyClusterNodePoolScalingSize")
 	if err != nil {
 		return nil, err
 	}
-	//spew.Dump(modifyClusterNodePoolResponse.Body)
+	//cblogger.Debug(modifyClusterNodePoolResponse.Body)
 
 	return modifyClusterNodePoolResponse.Body, nil
 }
@@ -1449,12 +1449,12 @@ func aliUpgradeCluster(csClient *cs2015.Client, clusterId, nextVersion string) (
 	upgradeClusterRequest := &cs2015.UpgradeClusterRequest{
 		NextVersion: tea.String(nextVersion),
 	}
-	//spew.Dump(upgradeClusterRequest)
+	//cblogger.Debug(upgradeClusterRequest)
 	upgradeClusterResponse, err := csClient.UpgradeCluster(tea.String(clusterId), upgradeClusterRequest)
 	if err != nil {
 		return nil, err
 	}
-	//spew.Dump(upgradeClusterResponse.Body)
+	//cblogger.Debug(upgradeClusterResponse.Body)
 
 	return upgradeClusterResponse.Body, nil
 }
@@ -1464,12 +1464,12 @@ func aliDescribeSnatTableEntriesWithNatGateway(vpcClient *vpc2016.Client, region
 		RegionId:     tea.String(regionId),
 		NatGatewayId: tea.String(natGatewayId),
 	}
-	//spew.Dump(describeSnatTableEntriesRequest)
+	//cblogger.Debug(describeSnatTableEntriesRequest)
 	describeSnatTableEntriesResponse, err := vpcClient.DescribeSnatTableEntries(describeSnatTableEntriesRequest)
 	if err != nil {
 		return nil, err
 	}
-	//spew.Dump(describeSnatTableEntriesResponse.Body)
+	//cblogger.Debug(describeSnatTableEntriesResponse.Body)
 
 	return describeSnatTableEntriesResponse.Body.SnatTableEntries.SnatTableEntry, err
 }
@@ -1480,12 +1480,12 @@ func aliDeleteSnatEntry(vpcClient *vpc2016.Client, regionId, snatTableId, snatEn
 		SnatTableId: tea.String(snatTableId),
 		SnatEntryId: tea.String(snatEntryId),
 	}
-	//spew.Dump(deleteSnatEntryRequest)
+	//cblogger.Debug(deleteSnatEntryRequest)
 	_, err := vpcClient.DeleteSnatEntry(deleteSnatEntryRequest)
 	if err != nil {
 		return err
 	}
-	//spew.Dump(deleteSnatEntryResponse.Body)
+	//cblogger.Debug(deleteSnatEntryResponse.Body)
 
 	return nil
 }
@@ -1519,12 +1519,12 @@ func aliReleaseEipAddress(vpcClient *vpc2016.Client, regionId, eipId string) err
 		RegionId:     tea.String(regionId),
 		AllocationId: tea.String(eipId),
 	}
-	//spew.Dump(releaseEipAddressRequest)
+	//cblogger.Debug(releaseEipAddressRequest)
 	_, err := vpcClient.ReleaseEipAddress(releaseEipAddressRequest)
 	if err != nil {
 		return err
 	}
-	//spew.Dump(releaseEipAddressResponse.Body)
+	//cblogger.Debug(releaseEipAddressResponse.Body)
 
 	return nil
 }
@@ -1536,12 +1536,12 @@ func aliUnassociateEipAddressFromNatGateway(vpcClient *vpc2016.Client, regionId,
 		InstanceId:   tea.String(natGatewayId),
 		InstanceType: tea.String("Nat"),
 	}
-	//spew.Dump(unassociateEipAddressRequest)
+	//cblogger.Debug(unassociateEipAddressRequest)
 	_, err := vpcClient.UnassociateEipAddress(unassociateEipAddressRequest)
 	if err != nil {
 		return err
 	}
-	//spew.Dump(unassociateEipAddressResponse.Body)
+	//cblogger.Debug(unassociateEipAddressResponse.Body)
 
 	return nil
 }
@@ -1552,12 +1552,12 @@ func aliDescribeEipAddressesWithNatGateway(vpcClient *vpc2016.Client, regionId, 
 		AssociatedInstanceType: tea.String("Nat"),
 		AssociatedInstanceId:   tea.String(natGatewayId),
 	}
-	//spew.Dump(describeEipAddressesRequest)
+	//cblogger.Debug(describeEipAddressesRequest)
 	describeEipAddressesResponse, err := vpcClient.DescribeEipAddresses(describeEipAddressesRequest)
 	if err != nil {
 		return nil, err
 	}
-	//spew.Dump(describeEipAddressesResponse.Body)
+	//cblogger.Debug(describeEipAddressesResponse.Body)
 
 	return describeEipAddressesResponse.Body.EipAddresses.EipAddress, err
 }
@@ -1752,12 +1752,12 @@ func aliDescribeAvailableResourceWithInstanceType(ecsClient *ecs2014.Client, reg
 		DestinationResource: tea.String("InstanceType"),
 		InstanceType:        tea.String(instanceType),
 	}
-	//spew.Dump(describeAvailableResourceRequest)
+	//cblogger.Debug(describeAvailableResourceRequest)
 	describeAvailableResourceResponse, err := ecsClient.DescribeAvailableResource(describeAvailableResourceRequest)
 	if err != nil {
 		return emptyAz, err
 	}
-	//spew.Dump(describeAvailableResourceResponse.Body)
+	//cblogger.Debug(describeAvailableResourceResponse.Body)
 
 	if describeAvailableResourceResponse.Body.AvailableZones == nil {
 		// in case of invalid instanceType
@@ -1846,12 +1846,12 @@ func aliDescribeEipAddressWithIdAndNat(vpcClient *vpc2016.Client, regionId, eipI
 		AssociatedInstanceType: tea.String("Nat"),
 		AssociatedInstanceId:   tea.String(natGatewayId),
 	}
-	//spew.Dump(describeEipAddressesRequest)
+	//cblogger.Debug(describeEipAddressesRequest)
 	describeEipAddressesResponse, err := vpcClient.DescribeEipAddresses(describeEipAddressesRequest)
 	if err != nil {
 		return nil, err
 	}
-	//spew.Dump(describeEipAddressesResponse.Body)
+	//cblogger.Debug(describeEipAddressesResponse.Body)
 
 	eipCount := len(describeEipAddressesResponse.Body.EipAddresses.EipAddress)
 	if eipCount == 1 {
@@ -1874,12 +1874,12 @@ func aliDescribeEipAddressesWithNat(vpcClient *vpc2016.Client, regionId, natGate
 		AssociatedInstanceType: tea.String("Nat"),
 		AssociatedInstanceId:   tea.String(natGatewayId),
 	}
-	//spew.Dump(describeEipAddressesRequest)
+	//cblogger.Debug(describeEipAddressesRequest)
 	describeEipAddressesResponse, err := vpcClient.DescribeEipAddresses(describeEipAddressesRequest)
 	if err != nil {
 		return make([]*vpc2016.DescribeEipAddressesResponseBodyEipAddressesEipAddress, 0), err
 	}
-	//spew.Dump(describeEipAddressesResponse.Body)
+	//cblogger.Debug(describeEipAddressesResponse.Body)
 
 	return describeEipAddressesResponse.Body.EipAddresses.EipAddress, nil
 }
@@ -1896,12 +1896,12 @@ func aliCreateNatGateway(vpcClient *vpc2016.Client, regionId, vpcId, vSwitchId s
 		Description: tea.String(description),
 		EipBindMode: tea.String("NAT"),
 	}
-	//spew.Dump(createNatGatewayRequest)
+	//cblogger.Debug(createNatGatewayRequest)
 	createNatGatewayResponse, err := vpcClient.CreateNatGateway(createNatGatewayRequest)
 	if err != nil {
 		return nil, make([]*string, 0), err
 	}
-	//spew.Dump(createNatGatewayResponse.Body)
+	//cblogger.Debug(createNatGatewayResponse.Body)
 
 	return createNatGatewayResponse.Body.NatGatewayId, createNatGatewayResponse.Body.SnatTableIds.SnatTableId, nil
 }
@@ -1911,12 +1911,12 @@ func aliGetNatGatewayAttribute(vpcClient *vpc2016.Client, regionId, natGatewayId
 		RegionId:     tea.String(regionId),
 		NatGatewayId: tea.String(natGatewayId),
 	}
-	//spew.Dump(getNatGatewayAttributeRequest)
+	//cblogger.Debug(getNatGatewayAttributeRequest)
 	getNatGatewayAttributeResponse, err := vpcClient.GetNatGatewayAttribute(getNatGatewayAttributeRequest)
 	if err != nil {
 		return nil, err
 	}
-	//spew.Dump(getNatGatewayAttributeResponse.Body)
+	//cblogger.Debug(getNatGatewayAttributeResponse.Body)
 
 	return getNatGatewayAttributeResponse.Body, nil
 }
@@ -1952,12 +1952,12 @@ func aliCreateSnatEntryForVpc(vpcClient *vpc2016.Client, regionId, snatTableId, 
 		SnatTableId: tea.String(snatTableId),
 		SourceCIDR:  tea.String(srcCidr),
 	}
-	//spew.Dump(createSnatEntryRequest)
+	//cblogger.Debug(createSnatEntryRequest)
 	_, err := vpcClient.CreateSnatEntry(createSnatEntryRequest)
 	if err != nil {
 		return err
 	}
-	//spew.Dump(createSnatEntryResponse.Body)
+	//cblogger.Debug(createSnatEntryResponse.Body)
 
 	return nil
 }
@@ -1994,12 +1994,12 @@ func aliAssociateEipAddressToNatGateway(vpcClient *vpc2016.Client, regionId, eip
 		InstanceType: tea.String("Nat"),
 		VpcId:        tea.String(vpcId),
 	}
-	//spew.Dump(associateEipAddressRequest)
+	//cblogger.Debug(associateEipAddressRequest)
 	_, err := vpcClient.AssociateEipAddress(associateEipAddressRequest)
 	if err != nil {
 		return err
 	}
-	//spew.Dump(associateEipAddressResponse.Body)
+	//cblogger.Debug(associateEipAddressResponse.Body)
 
 	return nil
 }

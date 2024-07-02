@@ -20,8 +20,6 @@ import (
 	"time"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
-	"github.com/davecgh/go-spew/spew"
-
 	//"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -62,7 +60,7 @@ func (VPCHandler *AlibabaVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 	response, err := VPCHandler.Client.CreateVpc(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Info(response)
-	//spew.Dump(response)
+	//cblogger.Debug(response)
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
@@ -152,7 +150,7 @@ func (VPCHandler *AlibabaVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo ir
 		return irs.SubnetInfo{}, err
 	}
 	callogger.Info(call.String(callLogInfo))
-	//spew.Dump(response)
+	//cblogger.Debug(response)
 
 	subnetInfo, errSunetInfo := VPCHandler.GetSubnet(response.VSwitchId)
 	if errSunetInfo != nil {
@@ -185,7 +183,7 @@ func (VPCHandler *AlibabaVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	result, err := VPCHandler.Client.DescribeVpcs(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Debug(result)
-	//spew.Dump(result)
+	//cblogger.Debug(result)
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
@@ -205,7 +203,7 @@ func (VPCHandler *AlibabaVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	}
 
 	cblogger.Debug(result)
-	//spew.Dump(vpcInfoList)
+	//cblogger.Debug(vpcInfoList)
 	return vpcInfoList, nil
 }
 
@@ -252,7 +250,7 @@ func (VPCHandler *AlibabaVPCHandler) WaitForRun(vpcId string) error {
 		cblogger.Info("===>VPC Status : ", status)
 		if strings.EqualFold(status, "Pending") {
 			curRetryCnt++
-			cblogger.Error("Waiting for 1 second and then querying because the VPC status is not Available.")
+			cblogger.Debug("Waiting for 1 second and then querying because the VPC status is not Available.")
 			time.Sleep(time.Second * 1)
 			if curRetryCnt > maxRetryCnt {
 				cblogger.Error("Forcing termination as the VPC status remains unchanged as Available for a long time.")
@@ -291,7 +289,7 @@ func (VPCHandler *AlibabaVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 
 	result, err := VPCHandler.Client.DescribeVpcs(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	spew.Dump(result)
+	cblogger.Debug(result)
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
@@ -306,7 +304,7 @@ func (VPCHandler *AlibabaVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 	}
 
 	vpcInfo := ExtractVpcDescribeInfo(&result.Vpcs.Vpc[0])
-	//spew.Dump(vpcInfo)
+	//cblogger.Debug(vpcInfo)
 
 	//==========================
 	// VPC의 서브넷들 처리
@@ -323,11 +321,11 @@ func (VPCHandler *AlibabaVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 			return irs.VPCInfo{}, errSubnet
 		}
 		//cblogger.Infof("    =====> [%s] 조회 결과", curSubnet)
-		//spew.Dump(subnetInfo)
+		//cblogger.Debug(subnetInfo)
 		subnetInfoList = append(subnetInfoList, subnetInfo)
 	}
 	//cblogger.Info("===========> 서브넷 목록")
-	//spew.Dump(subnetInfoList)
+	//cblogger.Debug(subnetInfoList)
 
 	vpcInfo.SubnetInfoList = subnetInfoList
 	return vpcInfo, nil
@@ -458,7 +456,7 @@ func (VPCHandler *AlibabaVPCHandler) GetSubnet(reqSubnetId string) (irs.SubnetIn
 
 	result, err := VPCHandler.Client.DescribeVSwitches(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	//spew.Dump(result)
+	//cblogger.Debug(result)
 	//cblogger.Info(result)
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()

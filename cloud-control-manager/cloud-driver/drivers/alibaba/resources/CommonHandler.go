@@ -13,7 +13,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 )
 
 //// Alibaba API 1:1로 대응
@@ -70,7 +69,7 @@ func DescribeDisks(client *ecs.Client, regionInfo idrv.RegionInfo, instanceIID i
 	for {
 		result, err := client.DescribeDisks(request)
 		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-		//spew.Dump(result) //출력 정보가 너무 많아서 생략
+		//cblogger.Debug(result) //출력 정보가 너무 많아서 생략
 		if err != nil {
 			callLogInfo.ErrorMSG = err.Error()
 			callogger.Error(call.String(callLogInfo))
@@ -94,9 +93,8 @@ func DescribeDisks(client *ecs.Client, regionInfo idrv.RegionInfo, instanceIID i
 		}
 	}
 
-	if cblogger.Level.String() == "debug" {
-		spew.Dump(resultDiskList)
-	}
+	cblogger.Debug(resultDiskList)
+
 	return resultDiskList, nil
 }
 
@@ -188,13 +186,13 @@ func DescribeAvailableResource(client *ecs.Client, regionId string, zoneId strin
 		request.DedicatedHostId = categoryValue
 	}
 	//request.DataDiskCategory = "cloud"
-	//spew.Dump(request)
+	//cblogger.Debug(request)
 	result, err := client.DescribeAvailableResource(request)
 	cblogger.Debug(result)
 	if err != nil {
 		cblogger.Errorf("DescribeAvailableResource %v.", err)
 	}
-	//spew.Dump(result)
+	//cblogger.Debug(result)
 
 	metaValue := reflect.ValueOf(result).Elem()
 	fieldAvailableZones := metaValue.FieldByName("AvailableZones")
@@ -367,13 +365,13 @@ func DescribeImages(client *ecs.Client, regionInfo idrv.RegionInfo, imageIIDs []
 	if isMyImage {
 		request.ImageOwnerAlias = "self"
 	}
-	//spew.Dump(request)
+	//cblogger.Debug(request)
 	result, err := client.DescribeImages(request)
 	if err != nil {
 		return nil, err
 	}
 
-	//spew.Dump(result)
+	//cblogger.Debug(result)
 	return result.Images.Image, nil
 }
 
@@ -437,7 +435,7 @@ func DescribeImageStatus(client *ecs.Client, regionInfo idrv.RegionInfo, myImage
 	if len(result.Images.Image) == 0 { // return을 empty string 으로 할까?
 		return ALIBABA_IMAGE_STATE_ERROR, errors.New("no result")
 	}
-	//spew.Dump(result)
+	//cblogger.Debug(result)
 	return result.Images.Image[0].Status, nil
 }
 
@@ -494,11 +492,11 @@ func WaitForImageStatus(client *ecs.Client, regionInfo idrv.RegionInfo, imageIID
 		}
 
 		curRetryCnt++
-		cblogger.Errorf("MyImage의 상태가 [%s]이 아니라서 1초 대기후 조회합니다. 현재 [%s]", targetStatus, aliImageState)
+		cblogger.Debugf("Since the state of MyImage is not [%s], we will wait for 1 second and then check again. The current state is [%s].", targetStatus, aliImageState)
 		time.Sleep(time.Second * 1)
 		if curRetryCnt > maxRetryCnt {
-			cblogger.Errorf("장시간(%d 초) 대기해도 MyImage의 Status 값이 [%s]으로 변경되지 않아서 강제로 중단합니다.", maxRetryCnt, targetStatus)
-			return irs.MyImageStatus(failStatus), errors.New("장시간 기다렸으나 생성된 MyImage의 상태가 [" + string(targetStatus) + "]으로 바뀌지 않아서 중단 합니다.")
+			cblogger.Errorf("Even after waiting for a long time (%d seconds), the status of MyImage did not change to [%s], so we are forcibly terminating it.", maxRetryCnt, targetStatus)
+			return irs.MyImageStatus(failStatus), errors.New("After waiting for a long time, the status of the created MyImage did not change to [" + string(targetStatus) + "], so we are terminating it.")
 		}
 	}
 	return irs.MyImageStatus(resultImageState), nil

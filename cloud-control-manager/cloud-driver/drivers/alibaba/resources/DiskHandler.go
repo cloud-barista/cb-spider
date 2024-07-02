@@ -79,7 +79,7 @@ func (diskHandler *AlibabaDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 		},
 	}
 
-	//spew.Dump(request)
+	//cblogger.Debug(request)
 	// Creates a new custom Image with the given name
 	result, err := diskHandler.Client.CreateDisk(request)
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
@@ -92,7 +92,7 @@ func (diskHandler *AlibabaDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 	calllogger.Info(call.String(hiscallInfo))
 
 	cblogger.Infof("Created Disk %q %s\n %s\n", result.DiskId, diskReqInfo.IId.NameId, result.RequestId)
-	//spew.Dump(result)
+	//cblogger.Debug(result)
 
 	// 생성된 Disk 정보 획득 후, Image 정보 리턴
 	diskInfo, err := diskHandler.GetDisk(irs.IID{SystemId: result.DiskId})
@@ -151,10 +151,10 @@ func (diskHandler *AlibabaDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	//var totalCount = 0
 	//curPage := CBPageNumber
 	//for {
-	//	spew.Dump(request)
+	//	cblogger.Debug(request)
 	//	result, err := diskHandler.Client.DescribeDisks(request)
 	//	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	//	//spew.Dump(result) //출력 정보가 너무 많아서 생략
+	//	//cblogger.Debug(result) //출력 정보가 너무 많아서 생략
 	//	if err != nil {
 	//		callLogInfo.ErrorMSG = err.Error()
 	//		callogger.Error(call.String(callLogInfo))
@@ -186,7 +186,7 @@ func (diskHandler *AlibabaDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	//		break
 	//	}
 	//}
-	//spew.Dump(imageInfoList)
+	//cblogger.Debug(imageInfoList)
 
 	for _, aliDisk := range aliDiskInfoList {
 		diskInfo, err := ExtractDiskDescribeInfo(&aliDisk)

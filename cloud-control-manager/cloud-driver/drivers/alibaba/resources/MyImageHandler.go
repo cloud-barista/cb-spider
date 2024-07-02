@@ -62,7 +62,7 @@ func (myImageHandler AlibabaMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 		},
 	}
 
-	//spew.Dump(request)
+	//cblogger.Debug(request)
 	result, err := myImageHandler.Client.CreateImage(request)
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
@@ -120,7 +120,7 @@ func (myImageHandler AlibabaMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, e
 			myImageInfoList = append(myImageInfoList, &myImageInfo)
 		}
 	}
-	//spew.Dump(myImageInfoList)
+	//cblogger.Debug(myImageInfoList)
 	return myImageInfoList, err
 }
 
@@ -182,7 +182,7 @@ func (myImageHandler AlibabaMyImageHandler) DeleteMyImage(myImageIID irs.IID) (b
 	request.RegionId = myImageHandler.Region.Region
 	request.ImageId = myImageIID.SystemId
 
-	//spew.Dump(request)
+	//cblogger.Debug(request)
 	response, err := myImageHandler.Client.DeleteImage(request)
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
@@ -230,7 +230,7 @@ func (myImageHandler AlibabaMyImageHandler) DeleteMyImage(myImageIID irs.IID) (b
 		cblogger.Info("SnapShot deleted ", result, snapShotId)
 	}
 
-	//spew.Dump(response)
+	//cblogger.Debug(response)
 	return true, err
 }
 
@@ -363,7 +363,7 @@ func (myImageHandler *AlibabaMyImageHandler) DeleteSnapshotBySnapshotID(snapshot
 
 	// snapshot disk도 삭제
 
-	//spew.Dump(response)
+	//cblogger.Debug(response)
 
 	return true, err
 }
