@@ -26,7 +26,7 @@ import (
 //====================================== Security Group
 
 // number, VPC Name, SecurityGroup Name, Security Rules, Additional Info, checkbox
-func makeSecurityGroupTRList_html(bgcolor string, height string, fontSize string, infoList []*cres.SecurityInfo) string {
+func makeSecurityGroupTRList_html(bgcolor string, height string, fontSize string, connConfig string, infoList []*cres.SecurityInfo) string {
 	if bgcolor == "" {
 		bgcolor = "#FFFFFF"
 	}
@@ -61,8 +61,7 @@ func makeSecurityGroupTRList_html(bgcolor string, height string, fontSize string
                 </tr>
                 `, bgcolor, height, fontSize, fontSize, fontSize, fontSize, fontSize)
 
-
-        strRemoveRule := fmt.Sprintf(`
+	strRemoveRule := fmt.Sprintf(`
                 <a href="javascript:$$REMOVERULE$$;">
                         <font color=red size=%s><b>&nbsp;X</b></font>
                 </a>
@@ -74,7 +73,6 @@ func makeSecurityGroupTRList_html(bgcolor string, height string, fontSize string
                         <font size=%s><mark><b>+</b></mark></font>
                 </a>
                                                                 `, fontSize)
-
 
 	strData := ""
 	// set data and make TR list
@@ -89,11 +87,11 @@ func makeSecurityGroupTRList_html(bgcolor string, height string, fontSize string
 		strSRList := ""
 		if one.SecurityRules != nil {
 			for _, rule := range *one.SecurityRules {
-				oneSR := fmt.Sprintf("{ \"FromPort\" : \"%s\", \"ToPort\" : \"%s\", \"IPProtocol\" : \"%s\", \"Direction\" : \"%s\", \"CIDR\" : \"%s\" }", 
-						rule.FromPort, rule.ToPort, rule.IPProtocol, rule.Direction, rule.CIDR)
+				oneSR := fmt.Sprintf("{ \"FromPort\" : \"%s\", \"ToPort\" : \"%s\", \"IPProtocol\" : \"%s\", \"Direction\" : \"%s\", \"CIDR\" : \"%s\" }",
+					rule.FromPort, rule.ToPort, rule.IPProtocol, rule.Direction, rule.CIDR)
 
 				strSRList += oneSR
-				strDelete := "deleteRule('"+sgName+"', '"+rule.FromPort+"', '"+rule.ToPort+"', '"+rule.IPProtocol+"', '"+rule.Direction+"', '"+rule.CIDR+"')"
+				strDelete := "deleteRule('" + connConfig + "', '" + sgName + "', '" + rule.FromPort + "', '" + rule.ToPort + "', '" + rule.IPProtocol + "', '" + rule.Direction + "', '" + rule.CIDR + "')"
 				strSRList += strings.ReplaceAll(strRemoveRule, "$$REMOVERULE$$", strDelete)
 
 				strSRList += "<br>"
@@ -101,8 +99,8 @@ func makeSecurityGroupTRList_html(bgcolor string, height string, fontSize string
 			}
 		}
 
-                SGAddRule := strings.ReplaceAll(strAddRule, "$$ADDSG$$", sgName)
-                strSRList += strings.ReplaceAll(SGAddRule, "$$ADDRULE$$", "postRule('"+sgName+"')")
+		SGAddRule := strings.ReplaceAll(strAddRule, "$$ADDSG$$", sgName)
+		strSRList += strings.ReplaceAll(SGAddRule, "$$ADDRULE$$", "postRule('"+connConfig+"', '"+sgName+"')")
 
 		str = strings.ReplaceAll(str, "$$SECURITYRULES$$", strSRList)
 
@@ -128,8 +126,7 @@ func makePostSecurityGroupFunc_js() string {
 	//      "SecurityRules": [ {"FromPort": "1", "ToPort" : "65535", "IPProtocol" : "tcp", "Direction" : "inbound", "CIDR" : "0.0.0.0/0" } ] } }'
 
 	strFunc := `
-                function postSecurityGroup() {
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+                function postSecurityGroup(connConfig) {                        
 
                         var textboxes = document.getElementsByName('text_box');
                         sendJson = '{ "ConnectionName" : "' + connConfig + '", "ReqInfo" : { "Name" : "$$SGNAME$$", "VPCName" : "$$VPCNAME$$", "SecurityRules" : $$SECURITYRULES$$ }}'
@@ -154,13 +151,20 @@ func makePostSecurityGroupFunc_js() string {
                         xhr.setRequestHeader('Content-Type', 'application/json');
 
 			// client logging
-			parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/securitygroup -H 'Content-Type: application/json' -d '" + sendJson + "'");
+                        try {
+			        parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/securitygroup -H 'Content-Type: application/json' -d '" + sendJson + "'");
+                        } catch (e) {
+                                // Do nothing if error occurs
+                        }
 
                         xhr.send(sendJson);
 
 			// client logging
-			parent.frames["log_frame"].Log("   ==> " + xhr.response);
-
+                        try {
+			        parent.frames["log_frame"].Log("   ==> " + xhr.response);
+                        } catch (e) {
+                                // Do nothing if error occurs
+                        }
 
 
             location.reload();
@@ -175,8 +179,7 @@ func makeDeleteSecurityGroupFunc_js() string {
 	// curl -sX DELETE http://localhost:1024/spider/securitygroup/sg-01 -H 'Content-Type: application/json' -d '{ "ConnectionName": "'${CONN_CONFIG}'"}'
 
 	strFunc := `
-                function deleteSecurityGroup() {
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+                function deleteSecurityGroup(connConfig) {                        
                         var checkboxes = document.getElementsByName('check_box');
                         for (var i = 0; i < checkboxes.length; i++) { // @todo make parallel executions
                                 if (checkboxes[i].checked) {
@@ -186,12 +189,20 @@ func makeDeleteSecurityGroupFunc_js() string {
 					sendJson = '{ "ConnectionName": "' + connConfig + '"}'
 
 					// client logging
-					parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/securitygroup/" + checkboxes[i].value + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+                                        try {                                                
+					        parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/securitygroup/" + checkboxes[i].value + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+                                        } catch (e) {
+                                                // Do nothing if error occurs
+                                        }
 
                                         xhr.send(sendJson);
 
 					// client logging
-					parent.frames["log_frame"].Log("   ==> " + xhr.response);
+                                        try {
+					        parent.frames["log_frame"].Log("   ==> " + xhr.response);
+                                        } catch (e) {
+                                                // Do nothing if error occurs
+                                        }
                                 }
                         }
             location.reload();
@@ -203,29 +214,27 @@ func makeDeleteSecurityGroupFunc_js() string {
 
 // make the string of javascript function
 func makeDeleteRuleFunc_js() string {
-	/* 
-	curl -sX DELETE http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
-        '{
-                "ConnectionName": "'${CONN_CONFIG}'",
-                "ReqInfo": {
-                "RuleInfoList" :
-                        [
-                                {
-                                        "Direction": "inbound",
-                                        "IPProtocol": "ALL",
-                                        "FromPort": "-1",
-                                        "ToPort": "-1",
-                                        "CIDR" : "0.0.0.0/0"
-                                }
-                        ]
-                }
-        }'
+	/*
+			curl -sX DELETE http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
+		        '{
+		                "ConnectionName": "'${CONN_CONFIG}'",
+		                "ReqInfo": {
+		                "RuleInfoList" :
+		                        [
+		                                {
+		                                        "Direction": "inbound",
+		                                        "IPProtocol": "ALL",
+		                                        "FromPort": "-1",
+		                                        "ToPort": "-1",
+		                                        "CIDR" : "0.0.0.0/0"
+		                                }
+		                        ]
+		                }
+		        }'
 	*/
 
-        strFunc := `
-                function deleteRule(sgName, fromPort, toPort, protocol, direction, cidr) {
-
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+	strFunc := `
+                function deleteRule(connConfig, sgName, fromPort, toPort, protocol, direction, cidr) {
 
                         var xhr = new XMLHttpRequest();
                         xhr.open("DELETE", "$$SPIDER_SERVER$$/spider/securitygroup/" + sgName + "/rules", false);
@@ -245,44 +254,52 @@ func makeDeleteRuleFunc_js() string {
                         sendJson += '}'
 
                          // client logging
-                        parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/securitygroup/" + sgName + "/rules" + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+                         try {
+                                parent.frames["log_frame"].Log("curl -sX DELETE " + "$$SPIDER_SERVER$$/spider/securitygroup/" + sgName + "/rules" + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+                        } catch (e) {
+                                // Do nothing if error occurs
+                        }
+
 
                         xhr.send(sendJson);
 
                         // client logging
-                        parent.frames["log_frame"].Log("   => " + xhr.response);
+                        try {
+                                parent.frames["log_frame"].Log("   => " + xhr.response);
+                        } catch (e) {
+                                // Do nothing if error occurs
+                        }
 
                         location.reload();
                 }
         `
-        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
-        return strFunc
+	strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
+	return strFunc
 }
 
 // make the string of javascript function
 func makePostRuleFunc_js() string {
-        /*
-        curl -sX POST http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
-        '{
-                "ConnectionName": "'${CONN_CONFIG}'",
-                "ReqInfo": {
-                "RuleInfoList" :
-                        [
-                                {
-                                        "Direction": "inbound",
-                                        "IPProtocol": "ALL",
-                                        "FromPort": "-1",
-                                        "ToPort": "-1",
-                                        "CIDR" : "0.0.0.0/0"
-                                }
-                        ]
-                }
-        }'
-        */
+	/*
+	   curl -sX POST http://localhost:1024/spider/securitygroup/${SG_NAME}/rules -H 'Content-Type: application/json' -d \
+	   '{
+	           "ConnectionName": "'${CONN_CONFIG}'",
+	           "ReqInfo": {
+	           "RuleInfoList" :
+	                   [
+	                           {
+	                                   "Direction": "inbound",
+	                                   "IPProtocol": "ALL",
+	                                   "FromPort": "-1",
+	                                   "ToPort": "-1",
+	                                   "CIDR" : "0.0.0.0/0"
+	                           }
+	                   ]
+	           }
+	   }'
+	*/
 
-        strFunc := `
-                function postRule(sgName, rule) {
-                        var connConfig = parent.frames["top_frame"].document.getElementById("connConfig").innerHTML;
+	strFunc := `
+                function postRule(connConfig, sgName, rule) {                        
                         var textbox = document.getElementById('security_text_box_' + sgName);
 
                         var xhr = new XMLHttpRequest();
@@ -299,18 +316,26 @@ func makePostRuleFunc_js() string {
 
 
                          // client logging
-                        parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/securitygroup/" + sgName + "/rules" + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+                         try {
+                                parent.frames["log_frame"].Log("curl -sX POST " + "$$SPIDER_SERVER$$/spider/securitygroup/" + sgName + "/rules" + " -H 'Content-Type: application/json' -d '" + sendJson + "'");
+                         } catch (e) {
+                                // Do nothing if error occurs
+                        }
 
                         xhr.send(sendJson);
 
                         // client logging
-                        parent.frames["log_frame"].Log("   => " + xhr.response);
+                        try {
+                                parent.frames["log_frame"].Log("   => " + xhr.response);
+                        } catch (e) {
+                                // Do nothing if error occurs
+                        }
 
                         location.reload();
                 }
         `
-        strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
-        return strFunc
+	strFunc = strings.ReplaceAll(strFunc, "$$SPIDER_SERVER$$", "http://"+cr.ServiceIPorName+cr.ServicePort) // cr.ServicePort = ":1024"
+	return strFunc
 }
 
 func SecurityGroup(c echo.Context) error {
@@ -379,7 +404,7 @@ func SecurityGroup(c echo.Context) error {
 	// (2) make Table Action TR
 	// colspan, f5_href, delete_href, fontSize
 	//htmlStr += makeActionTR_html("6", "securitygroup", "deleteSecurityGroup()", "2")
-	htmlStr += makeActionTR_html("6", "", "deleteSecurityGroup()", "2")
+	htmlStr += makeActionTR_html("6", "", fmt.Sprintf("deleteSecurityGroup('%s')", connConfig), "2")
 
 	// (3) make Table Header TR
 	nameWidthList := []NameWidth{
@@ -400,7 +425,7 @@ func SecurityGroup(c echo.Context) error {
 	if err != nil {
 		cblog.Error(err)
 		// client logging
-                htmlStr += genLoggingResult(err.Error())
+		htmlStr += genLoggingResult(err.Error())
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
@@ -413,7 +438,7 @@ func SecurityGroup(c echo.Context) error {
 	json.Unmarshal(resBody, &info)
 
 	// (4-2) make TR list with info list
-	htmlStr += makeSecurityGroupTRList_html("", "", "", info.ResultList)
+	htmlStr += makeSecurityGroupTRList_html("", "", "", connConfig, info.ResultList)
 
 	// (5) make input field and add
 	// attach text box for add
@@ -441,7 +466,7 @@ func SecurityGroup(c echo.Context) error {
                                 <input style="font-size:12px;text-align:center;" type="text" name="text_box" id="4" disabled value="N/A">                            
                             </td>
                             <td>
-                                <a href="javascript:postSecurityGroup()">
+                                <a href="javascript:postSecurityGroup('` + connConfig + `')">
                                     <font size=4><mark><b>+</b></mark></font>
                                 </a>
                             </td>

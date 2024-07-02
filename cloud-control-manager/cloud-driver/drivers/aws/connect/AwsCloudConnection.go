@@ -153,13 +153,16 @@ func (cloudConn *AwsCloudConnection) CreateClusterHandler() (irs.ClusterHandler,
 	if cloudConn.EKSClient == nil {
 		cblogger.Info("cloudConn.EKSClient is nil")
 	}
+	if cloudConn.VNetworkClient == nil {
+		cblogger.Info("cloudConn.VNetworkClient is nil")
+	}
 	if cloudConn.IamClient == nil {
 		cblogger.Info("cloudConn.IamClient is nil")
 	}
 	if cloudConn.AutoScalingClient == nil {
 		cblogger.Info("cloudConn.AutoScalingClient is nil")
 	}
-	handler := ars.AwsClusterHandler{cloudConn.Region, cloudConn.EKSClient, cloudConn.IamClient, cloudConn.AutoScalingClient}
+	handler := ars.AwsClusterHandler{cloudConn.Region, cloudConn.EKSClient, cloudConn.VNetworkClient, cloudConn.IamClient, cloudConn.AutoScalingClient}
 	return &handler, nil
 }
 

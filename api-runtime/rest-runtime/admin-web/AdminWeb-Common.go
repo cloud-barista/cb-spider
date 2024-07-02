@@ -498,7 +498,15 @@ func genLoggingResult2(response string) string {
 	// to escape back-slash in the 'Property' Values
 	response = strings.ReplaceAll(response, `\"`, `"`)
 
-	htmlStr := `    parent.frames["log_frame"].Log("   ==> ` + strings.ReplaceAll(response, "\"", "\\\"") + `");`
+	htmlStr := `
+	<script type="text/javascript">
+		try {
+			parent.frames["log_frame"].Log("   ==> ` + strings.ReplaceAll(response, "\"", "\\\"") + `");;
+		} catch (e) {
+			// Do nothing if error occurs
+		}
+	</script>
+	`
 
 	return htmlStr
 }
