@@ -64,7 +64,7 @@ jobs:
             # type=semver,pattern={{major}}.{{minor}}
             ## Tags for a push branch event
             # Tags to reflect the last commit of the active branch
-            type=edge,enable=true,branch=main
+            type=edge,enable=true
             ## Other types (currently the followings may be out of scope in this project)
             ## Tags for a push branch event
             # minimal (short sha)
