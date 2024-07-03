@@ -1924,14 +1924,17 @@ type Config struct {
 }
 
 // 환경 설정 파일 읽기
-// 환경변수 CBSPIDER_PATH 설정 후 해당 폴더 하위에 /config/config.yaml 파일 생성해야 함.
+// 환경변수 CBSPIDER_TEST_CONF_PATH에 테스트에 사용할 파일 경로를 설정해야 함. (예: config/config.yaml)
 func readConfigFile() Config {
 	// Set Environment Value of Project Root Path
-	rootPath := os.Getenv("CBSPIDER_PATH")
-	cblogger.Infof("Test Data 설정파일 : [%s]", rootPath+"/config/config.yaml")
-	data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
-	data, err = ioutil.ReadFile("/Users/mzc01-swy/projects/feature_aws_filter_swy_240130/cloud-control-manager/cloud-driver/drivers/aws/main/Sample/config/config.yaml")
-
+	confPath := os.Getenv("CBSPIDER_TEST_CONF_PATH")
+	cblogger.Info("Set the full path to the config files you want to use for testing, including your AWS credentials, in the OS environment variable [CBSPIDER_TEST_CONF_PATH].")
+	cblogger.Infof("OS environment variable [CBSPIDER_TEST_CONF_PATH] : [%s]", confPath)
+	//cblogger.Infof("최종 환경 설정파일 경로 : [%s]", rootPath+"/config/config.yaml")
+	//data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
+	//data, err = ioutil.ReadFile("/Users/mzc01-swy/projects/feature_aws_filter_swy_240130/cloud-control-manager/cloud-driver/drivers/aws/main/Sample/config/config.yaml")
+	
+	data, err := ioutil.ReadFile(confPath)
 	if err != nil {
 		panic(err)
 	}
