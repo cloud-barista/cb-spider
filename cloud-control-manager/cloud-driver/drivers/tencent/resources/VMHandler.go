@@ -370,9 +370,8 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		cblogger.Error(err)
 		return irs.VMInfo{}, err
 	}
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(response)
-	}
+	cblogger.Debug(response)
+
 	callogger.Info(call.String(callLogInfo))
 	cblogger.Debug(response.ToJsonString())
 

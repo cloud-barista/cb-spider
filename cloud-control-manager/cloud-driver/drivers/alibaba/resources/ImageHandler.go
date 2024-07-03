@@ -196,11 +196,8 @@ func ExtractImageDescribeInfo(image *ecs.Image) irs.ImageInfo {
 	//@TODO : 2020-04-20 ecs.ImageInDescribeImages를 인식 못해서 다시 ecs.Image로 변경해 놓음.
 	//func ExtractImageDescribeInfo(image *ecs.Image) irs.ImageInfo {
 	//*ecs.DescribeImagesResponse
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug("=====> ")
-		cblogger.Debug(image)
-		//cblogger.Debug(image)
-	}
+	cblogger.Debug(image)
+
 	imageInfo := irs.ImageInfo{
 		IId: irs.IID{NameId: image.ImageId, SystemId: image.ImageId},
 		//Name:    image.ImageName,

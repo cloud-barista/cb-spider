@@ -142,10 +142,7 @@ func (keyPairHandler *AlibabaKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Infof("Created key pair %q %s\n%s\n", result.KeyPairName, result.KeyPairFingerPrint, result.PrivateKeyBody)
-	if cblogger.Level.String() == "debug" {
-		//cblogger.Debug(result)
-		cblogger.Debug(result)
-	}
+	cblogger.Debug(result)
 
 	/* 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 	cblogger.Info("공개키 생성")

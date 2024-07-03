@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
+	"strings"
+	"time"
+
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	compute "google.golang.org/api/compute/v1"
 	"google.golang.org/api/googleapi"
-	"strconv"
-	"strings"
-	"time"
 )
 
 /*
@@ -2913,9 +2914,7 @@ func (nlbHandler *GCPNLBHandler) getVmUrl(zoneID string, vmID irs.IID) (string, 
 		return "", err
 	}
 	callogger.Info(call.String(callLogInfo))
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(vm)
-	}
+	cblogger.Debug(vm)
 
 	return vm.SelfLink, nil
 }

@@ -94,9 +94,7 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 		}
 	}
 
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(input)
-	}
+	cblogger.Debug(input)
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -164,10 +162,8 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 			if nodeGroupErr != nil {
 				cblogger.Error(err.Error())
 			}
-			if cblogger.Level.String() == "debug" {
-				cblogger.Debug(resultNodeGroupInfo)
-			}
-		}
+			cblogger.Debug(resultNodeGroupInfo)
+
 		//----- wait until Status=COMPLETE -----//  :  Nodegroup이 모두 생성되면 조회
 	*/
 
@@ -292,9 +288,7 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 		Name: aws.String(clusterIID.SystemId),
 	}
 
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(input)
-	}
+	cblogger.Debug(input)
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -455,9 +449,7 @@ func (ClusterHandler *AwsClusterHandler) DeleteCluster(clusterIID irs.IID) (bool
 		Name: aws.String(clusterIID.SystemId),
 	}
 
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(input)
-	}
+	cblogger.Debug(input)
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")

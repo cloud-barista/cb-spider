@@ -238,9 +238,8 @@ func DescribeVolumnes(svc *ec2.EC2, volumeIdList []*string) (*ec2.DescribeVolume
 		}
 		return nil, err
 	}
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(result)
-	}
+
+	cblogger.Debug(result)
 
 	return result, nil
 }
@@ -268,9 +267,7 @@ func DescribeVolumneById(svc *ec2.EC2, volumeId string) (*ec2.Volume, error) {
 		}
 		return nil, err
 	}
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(result)
-	}
+	cblogger.Debug(result)
 
 	for _, volume := range result.Volumes {
 		if strings.EqualFold(volumeId, *volume.VolumeId) {
@@ -312,9 +309,8 @@ func DescribeVolumnesBySnapshot(svc *ec2.EC2, snapShotIIDs []string) (*ec2.Descr
 
 	result, err := svc.DescribeVolumes(input)
 	callogger.Info("DescribeVolumnesBySnapshot   IN PU T")
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(input)
-	}
+	cblogger.Debug(input)
+
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	callogger.Info(call.String(callLogInfo))
 
@@ -329,9 +325,7 @@ func DescribeVolumnesBySnapshot(svc *ec2.EC2, snapShotIIDs []string) (*ec2.Descr
 		}
 		return nil, err
 	}
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(result.Volumes)
-	}
+	cblogger.Debug(result.Volumes)
 
 	return result, nil
 }
@@ -370,9 +364,7 @@ func AttachVolume(svc *ec2.EC2, deviceName string, instanceId string, volumeId s
 		return err
 	}
 
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(result)
-	}
+	cblogger.Debug(result)
 
 	err = WaitUntilVolumeInUse(svc, volumeId)
 	if err != nil {
@@ -404,9 +396,7 @@ func DeleteDisk(svc *ec2.EC2, disks []irs.IID) (bool, error) {
 				return false, err
 			}
 
-			if cblogger.Level.String() == "debug" {
-				cblogger.Debug(result)
-			}
+			cblogger.Debug(result)
 
 			err = WaitUntilVolumeDeleted(svc, diskIID.SystemId)
 			if err != nil {

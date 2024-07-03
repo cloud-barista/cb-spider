@@ -132,10 +132,7 @@ func (securityHandler *AlibabaSecurityHandler) AddRules(securityIID irs.IID, req
 	securityGroupId := securityIID.SystemId
 	cblogger.Infof("securityGroupId : [%s]  / securityRuleInfos : [%v]", securityGroupId, reqSecurityRules)
 	//cblogger.Info("AuthorizeSecurityRules ", securityRuleInfos)
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(reqSecurityRules)
-		//cblogger.Debug(reqSecurityRules)
-	}
+	cblogger.Debug(reqSecurityRules)
 
 	if len(*reqSecurityRules) < 1 {
 		return irs.SecurityInfo{}, errors.New("invalid value - The SecurityRules to add is empty")
@@ -188,10 +185,7 @@ func (securityHandler *AlibabaSecurityHandler) AddRules(securityIID irs.IID, req
 			request.DestCidrIp = curRule.CIDR
 
 			cblogger.Infof("[%s] [%s] outbound rule Request", request.IpProtocol, request.PortRange)
-			if cblogger.Level.String() == "debug" {
-				//cblogger.Debug(request)
-				cblogger.Debug(request)
-			}
+			cblogger.Debug(request)
 
 			response, err := securityHandler.Client.AuthorizeSecurityGroupEgress(request)
 			if err != nil {
