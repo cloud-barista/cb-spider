@@ -21,7 +21,6 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cim "github.com/cloud-barista/cb-spider/cloud-info-manager"
-	"github.com/davecgh/go-spew/spew"
 	/*
 		"github.com/davecgh/go-spew/spew"
 	*/)
@@ -68,7 +67,7 @@ func (vmHandler *AlibabaVMHandler) GetImageSize(ImageSystemId string) (int64, er
 // @TODO : PublicIp 요금제 방식과 대역폭 설정 방법 논의 필요
 func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	cblogger.Debug(vmReqInfo)
-	//spew.Dump(vmReqInfo)
+	//cblogger.Debug(vmReqInfo)
 
 	/* 2021-10-26 이슈 #480에 의해 제거
 	// 2021-04-28 cbuser 추가에 따른 Local KeyPair만 VM 생성 가능하도록 강제
@@ -115,7 +114,7 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		userData = userData + keyPairInfo.PublicKey
 		userDataBase64 := base64.StdEncoding.EncodeToString([]byte(userData))
 		cblogger.Infof("===== userData ===")
-		spew.Dump(userDataBase64)
+		cblogger.Debug(userDataBase64)
 	*/
 
 	vmImage, err := DescribeImageByImageId(vmHandler.Client, vmHandler.Region, vmReqInfo.ImageIID, false)
@@ -435,7 +434,7 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		return irs.VMInfo{}, err
 	}
 	callogger.Info(call.String(callLogInfo))
-	//spew.Dump(response)
+	//cblogger.Debug(response)
 
 	if len(response.InstanceIdSets.InstanceIdSet) < 1 {
 		return irs.VMInfo{}, errors.New("No errors have occurred, but no VMs have been created.")
@@ -569,7 +568,7 @@ func (vmHandler *AlibabaVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, erro
 
 		//if curStatus != irs.VMStatus(waitStatus) {
 		curRetryCnt++
-		cblogger.Errorf("The VM status is not [%s], so waiting for 1 second before querying.", waitStatus)
+		cblogger.Debugf("The VM status is not [%s], so waiting for 1 second before querying.", waitStatus)
 		time.Sleep(time.Second * 1)
 		if curRetryCnt > maxRetryCnt {
 			cblogger.Errorf("Forcing termination as the VM status remains unchanged as [%s] even after waiting for a long time (%d seconds).", maxRetryCnt, waitStatus)
@@ -989,18 +988,11 @@ func (vmHandler *AlibabaVMHandler) ListVM() ([]*irs.VMInfo, error) {
 			return nil, errVmInfo
 		}
 		//cblogger.Info("=======>VM 조회 결과")
-		if cblogger.Level.String() == "debug" {
-			spew.Dump(vmInfo)
-		}
+		cblogger.Debug(vmInfo)
 
 		vmInfoList = append(vmInfoList, &vmInfo)
 	}
-	if cblogger.Level.String() == "debug" {
-		//cblogger.Info("=======>VM 최종 목록결과")
-		spew.Dump(vmInfoList)
-		//cblogger.Info("=======>VM 목록 완료")
-	}
-
+	cblogger.Debug(vmInfoList)
 	return vmInfoList, nil
 }
 

@@ -225,9 +225,8 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		//pubKey := "cb-user:" + keypairInfo.PublicKey
 		pubKey = "cb-user:" + strings.TrimSpace(publicKey) + " " + "cb-user"
 		cblogger.Debug("keypairInfo Information")
-		if cblogger.Level.String() == "debug" {
-			cblogger.Debug(keypairInfo)
-		}
+		cblogger.Debug(keypairInfo)
+
 	}
 
 	// Security Group Tags
@@ -422,9 +421,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	cblogger.Info("VM Creation Started")
 	cblogger.Debug(instance)
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(instance)
-	}
+
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
@@ -471,9 +468,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Info("VM creation request call completed.")
 	cblogger.Debug(op)
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(op)
-	}
+
 	callogger.Info(call.String(callLogInfo))
 
 	// check operation status, wait until operation is completed
@@ -603,9 +598,8 @@ func (vmHandler *GCPVMHandler) SuspendVM(vmID irs.IID) (irs.VMStatus, error) {
 	//inst, err := vmHandler.Client.Instances.Stop(projectID, zone, vmID.SystemId).Context(ctx).Do()
 	inst, err := vmHandler.GCPInstanceStop(projectID, zone, vmID.SystemId)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(inst)
-	}
+	cblogger.Debug(inst)
+
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
@@ -648,9 +642,8 @@ func (vmHandler *GCPVMHandler) ResumeVM(vmID irs.IID) (irs.VMStatus, error) {
 	callLogStart := call.Start()
 	inst, err := vmHandler.Client.Instances.Start(projectID, zone, vmID.SystemId).Context(ctx).Do()
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(inst)
-	}
+	cblogger.Debug(inst)
+
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
@@ -794,9 +787,8 @@ func (vmHandler *GCPVMHandler) TerminateVM(vmID irs.IID) (irs.VMStatus, error) {
 	callLogStart := call.Start()
 	inst, err := vmHandler.Client.Instances.Delete(projectID, zone, vmID.SystemId).Context(ctx).Do()
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(inst)
-	}
+	cblogger.Debug(inst)
+
 	if err != nil {
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
@@ -990,9 +982,7 @@ func (vmHandler *GCPVMHandler) GetVM(vmID irs.IID) (irs.VMInfo, error) {
 		return irs.VMInfo{}, err
 	}
 	callogger.Info(call.String(callLogInfo))
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(vm)
-	}
+	cblogger.Debug(vm)
 
 	vmInfo := vmHandler.mappingServerInfo(vm)
 	return vmInfo, nil
@@ -1038,9 +1028,8 @@ func (vmHandler *GCPVMHandler) GetVmById(vmID irs.IID) (irs.VMInfo, error) {
 		if item.Instances != nil {
 			for _, instance := range item.Instances {
 				if strings.EqualFold(vmID.SystemId, instance.Name) {
-					if cblogger.Level.String() == "debug" {
-						cblogger.Debug(instance)
-					}
+					cblogger.Debug(instance)
+
 					vmInfo = vmHandler.mappingServerInfo(instance)
 					foundVm = true
 					break
@@ -1081,10 +1070,7 @@ func (vmHandler *GCPVMHandler) GetVmById(vmID irs.IID) (irs.VMInfo, error) {
 
 func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.VMInfo {
 	cblogger.Debug("================Mapping=====================================")
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(server)
-	}
-	cblogger.Info("server: ", server)
+	cblogger.Debug("server: ", server)
 
 	//var gcpHanler *GCPVMHandler
 	vpcArr := strings.Split(server.NetworkInterfaces[0].Network, "/")
@@ -1239,9 +1225,7 @@ func (vmHandler *GCPVMHandler) getImageIID(server *compute.Instance) irs.IID {
 		info, err := vmHandler.getDiskInfo(server.Disks[0].Source)
 
 		cblogger.Infof("********************************** Disk Information ****************")
-		if cblogger.Level.String() == "debug" {
-			cblogger.Debug(info)
-		}
+		cblogger.Debug(info)
 		if err != nil {
 			cblogger.Error(err)
 			return irs.IID{}
@@ -1278,9 +1262,8 @@ func (vmHandler *GCPVMHandler) getDiskInfo(diskname string) (*compute.Disk, erro
 	info, err := GetDiskInfo(vmHandler.Client, vmHandler.Credential, vmHandler.Region, result)
 
 	cblogger.Infof("********************************** Disk Information ****************")
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(info)
-	}
+	cblogger.Debug(info)
+
 	if err != nil {
 		cblogger.Error(err)
 		return &compute.Disk{}, err
@@ -1331,7 +1314,7 @@ func (vmHandler *GCPVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, error) {
 
 		//if curStatus != irs.VMStatus(waitStatus) {
 		curRetryCnt++
-		cblogger.Errorf("The VM status is not [%s], so waiting for 1 second before querying.", waitStatus)
+		cblogger.Debugf("The VM status is not [%s], so waiting for 1 second before querying.", waitStatus)
 		time.Sleep(time.Second * 1)
 		if curRetryCnt > maxRetryCnt {
 			cblogger.Errorf("Forcibly stopping after waiting for a long time (%d seconds) as the VM's Status value hasn't changed to [%s].", maxRetryCnt, waitStatus)

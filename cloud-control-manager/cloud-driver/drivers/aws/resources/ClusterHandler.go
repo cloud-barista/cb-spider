@@ -16,7 +16,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 )
 
 type AwsClusterHandler struct {
@@ -95,9 +94,7 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 		}
 	}
 
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(input)
-	}
+	cblogger.Debug(input)
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -145,9 +142,7 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
-	}
+	cblogger.Debug(result)
 
 	/*// Sync Call에서 Async Call로 변경 - 이슈:#716
 	//----- wait until Status=COMPLETE -----//  :  cluster describe .status 로 확인
@@ -167,10 +162,8 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 			if nodeGroupErr != nil {
 				cblogger.Error(err.Error())
 			}
-			if cblogger.Level.String() == "debug" {
-				spew.Dump(resultNodeGroupInfo)
-			}
-		}
+			cblogger.Debug(resultNodeGroupInfo)
+
 		//----- wait until Status=COMPLETE -----//  :  Nodegroup이 모두 생성되면 조회
 	*/
 
@@ -273,9 +266,7 @@ func (ClusterHandler *AwsClusterHandler) ListCluster() ([]*irs.ClusterInfo, erro
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
-	}
+	cblogger.Debug(result)
 
 	clusterList := []*irs.ClusterInfo{}
 	for _, clusterName := range result.Clusters {
@@ -297,9 +288,7 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 		Name: aws.String(clusterIID.SystemId),
 	}
 
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(input)
-	}
+	cblogger.Debug(input)
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -340,9 +329,7 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
-	}
+	cblogger.Debug(result)
 
 	clusterInfo := irs.ClusterInfo{
 		IId:         irs.IID{NameId: "", SystemId: *result.Cluster.Name},
@@ -408,9 +395,8 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 		cblogger.Error(errNodeGroup)
 		return irs.ClusterInfo{}, errNodeGroup
 	}
-	if cblogger.Level.String() == "debug" {
-		spew.Dump(resNodeGroupList)
-	}
+
+	cblogger.Debug(resNodeGroupList)
 
 	//노드 그룹 타입 변환
 	for _, curNodeGroup := range resNodeGroupList {
@@ -418,9 +404,7 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 		clusterInfo.NodeGroupList = append(clusterInfo.NodeGroupList, *curNodeGroup)
 	}
 
-	if cblogger.Level.String() == "debug" {
-		spew.Dump(clusterInfo)
-	}
+	cblogger.Debug(clusterInfo)
 
 	return clusterInfo, nil
 }
@@ -465,9 +449,7 @@ func (ClusterHandler *AwsClusterHandler) DeleteCluster(clusterIID irs.IID) (bool
 		Name: aws.String(clusterIID.SystemId),
 	}
 
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(input)
-	}
+	cblogger.Debug(input)
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -513,10 +495,7 @@ func (ClusterHandler *AwsClusterHandler) DeleteCluster(clusterIID irs.IID) (bool
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
-	}
-
+	cblogger.Debug(result)
 	/*
 		waitInput := &eks.DescribeClusterInput{
 			Name: aws.String(clusterIID.SystemId),
@@ -584,11 +563,8 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 		}
 	}
 
-	cblogger.Debug("최종 Subnet 목록")
-
-	if cblogger.Level.String() == "debug" {
-		spew.Dump(subnetList)
-	}
+	cblogger.Debug("Subnet list")
+	cblogger.Debug(subnetList)
 
 	var nodeSecurityGroupList []*string
 	for _, securityGroup := range networkInfo.SecurityGroupIIDs {
@@ -655,9 +631,7 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 		input.InstanceTypes = aws.StringSlice(nodeSpec)
 	}
 
-	if cblogger.Level.String() == "debug" {
-		spew.Dump(input)
-	}
+	cblogger.Debug(input)
 
 	result, err := ClusterHandler.Client.CreateNodegroup(input) // 비동기
 	if err != nil {
@@ -665,9 +639,7 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 		return irs.NodeGroupInfo{}, err
 	}
 
-	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
-	}
+	cblogger.Debug(result)
 
 	nodegroupName := result.Nodegroup.NodegroupName
 
@@ -693,18 +665,14 @@ func (ClusterHandler *AwsClusterHandler) ListNodeGroup(clusterIID irs.IID) ([]*i
 	input := &eks.ListNodegroupsInput{
 		ClusterName: aws.String(clusterIID.SystemId),
 	}
-	if cblogger.Level.String() == "debug" {
-		spew.Dump(input)
-	}
+	cblogger.Debug(input)
 
 	result, err := ClusterHandler.Client.ListNodegroups(input)
 	if err != nil {
 		cblogger.Error(err)
 		return nil, err
 	}
-	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
-	}
+	cblogger.Debug(result)
 	nodeGroupInfoList := []*irs.NodeGroupInfo{}
 	for _, nodeGroupName := range result.Nodegroups {
 		nodeGroupInfo, err := ClusterHandler.GetNodeGroup(clusterIID, irs.IID{SystemId: *nodeGroupName})
@@ -729,10 +697,8 @@ func (ClusterHandler *AwsClusterHandler) GetNodeGroup(clusterIID irs.IID, nodeGr
 	}
 
 	result, err := ClusterHandler.Client.DescribeNodegroup(input)
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug("===> Node Group Invocation Result")
-		spew.Dump(result)
-	}
+	cblogger.Debug("===> Node Group Invocation Result")
+	cblogger.Debug(result)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
@@ -754,9 +720,7 @@ func (ClusterHandler *AwsClusterHandler) GetAutoScalingGroups(autoScalingGroupNa
 	}
 
 	result, err := ClusterHandler.AutoScaling.DescribeAutoScalingGroups(input)
-	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
-	}
+	cblogger.Debug(result)
 
 	if err != nil {
 		cblogger.Error(err)
@@ -788,7 +752,7 @@ func (ClusterHandler *AwsClusterHandler) GetAutoScalingGroups(autoScalingGroupNa
 	}
 
 	cblogger.Debug("**VM Instance List**")
-	spew.Dump(nodeList)
+	cblogger.Debug(nodeList)
 	return nodeList, nil
 }
 
@@ -814,9 +778,7 @@ func (ClusterHandler *AwsClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 	}
 
 	result, err := ClusterHandler.Client.DescribeNodegroup(input)
-	if cblogger.Level.String() == "debug" {
-		spew.Dump(result.Nodegroup)
-	}
+	cblogger.Debug(result.Nodegroup)
 	if err != nil {
 		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
@@ -838,9 +800,7 @@ func (ClusterHandler *AwsClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 			cblogger.Error(err)
 			return irs.NodeGroupInfo{}, err
 		}
-		if cblogger.Level.String() == "debug" {
-			spew.Dump(updateResult)
-		}
+		cblogger.Debug(updateResult)
 	}
 
 	nodeGroupInfo, err := ClusterHandler.GetNodeGroup(clusterIID, irs.IID{SystemId: *nodeGroupName})
@@ -864,10 +824,8 @@ func (ClusterHandler *AwsClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nod
 		return false, err
 	}
 
-	if cblogger.Level.String() == "debug" {
-		//spew.Dump(result.Nodegroup)
-		spew.Dump(result)
-	}
+	cblogger.Debug(result)
+
 	return true, nil
 }
 
@@ -905,9 +863,7 @@ func (ClusterHandler *AwsClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 			cblogger.Error(err.Error())
 		}
 	}
-	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
-	}
+	cblogger.Debug(result)
 	// getClusterInfo
 	return irs.ClusterInfo{}, nil
 

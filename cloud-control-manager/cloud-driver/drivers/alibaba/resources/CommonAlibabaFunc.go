@@ -14,7 +14,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"reflect"
 	"strconv"
 	"sync"
@@ -203,9 +202,7 @@ func ConvertToString(value interface{}) (string, error) {
 
 // Cloud Object를 CB-KeyValue 형식으로 변환이 필요할 경우 이용
 func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
-	if cblogger.Level.String() == "debug" {
-		spew.Dump(v)
-	}
+	cblogger.Debug(v)
 
 	var keyValueList []irs.KeyValue
 	var i map[string]interface{}

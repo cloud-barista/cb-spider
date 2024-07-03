@@ -20,7 +20,6 @@ import (
 	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 	tencentcbs "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs/v20170312"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
@@ -359,9 +358,7 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	request.UserData = common.StringPtr(userDataBase64)
 
 	cblogger.Debug("===== Request object====")
-	if cblogger.Level.String() == "debug" {
-		spew.Config.Dump(request)
-	}
+	cblogger.Debug(request)
 	callLogStart := call.Start()
 	response, err := vmHandler.Client.RunInstances(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
@@ -373,9 +370,8 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		cblogger.Error(err)
 		return irs.VMInfo{}, err
 	}
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(response)
-	}
+	cblogger.Debug(response)
+
 	callogger.Info(call.String(callLogInfo))
 	cblogger.Debug(response.ToJsonString())
 

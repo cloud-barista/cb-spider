@@ -303,9 +303,7 @@ func (ImageHandler *AwsMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInf
 		TagSpecifications:   tagSpecs,
 	}
 
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(input)
-	}
+	cblogger.Debug(input)
 
 	result, err := ImageHandler.Client.CreateImage(input)
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
@@ -357,9 +355,7 @@ func (ImageHandler *AwsMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error)
 	}
 	calllogger.Info(call.String(hiscallInfo))
 
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(result)
-	}
+	cblogger.Debug(result)
 	for _, awsImage := range result.Images {
 		myImage, err := convertAWSImageToMyImageInfo(awsImage)
 		if err != nil {
@@ -416,9 +412,7 @@ func (ImageHandler *AwsMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, 
 		cblogger.Error(err)
 		return false, err
 	}
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(diskIIDs)
-	}
+	cblogger.Debug(diskIIDs)
 
 	input := &ec2.DeregisterImageInput{}
 	input.ImageId = aws.String(myImageIID.SystemId)
@@ -432,9 +426,7 @@ func (ImageHandler *AwsMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool, 
 	}
 	calllogger.Info(call.String(hiscallInfo))
 
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(result)
-	}
+	cblogger.Debug(result)
 
 	for _, snapshotId := range snapshotIds {
 		snapShotDeleteResult, err := ImageHandler.DeleteSnapshotById(snapshotId)
@@ -566,9 +558,7 @@ func (MyImageHandler *AwsMyImageHandler) DeleteSnapshotById(snapshotId string) (
 		return false, err
 	}
 
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(result)
-	}
+	cblogger.Debug(result)
 
 	return true, nil
 }

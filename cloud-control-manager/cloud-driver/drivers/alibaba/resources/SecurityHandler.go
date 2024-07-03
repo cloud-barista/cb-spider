@@ -19,7 +19,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 )
 
 type AlibabaSecurityHandler struct {
@@ -36,7 +35,7 @@ const (
 
 func (securityHandler *AlibabaSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 	cblogger.Infof("securityReqInfo : ", securityReqInfo)
-	//spew.Dump(securityReqInfo)
+	//cblogger.Debug(securityReqInfo)
 
 	//=======================================
 	// 보안 그룹 생성
@@ -76,7 +75,7 @@ func (securityHandler *AlibabaSecurityHandler) CreateSecurity(securityReqInfo ir
 	}
 	callogger.Info(call.String(callLogInfo))
 	cblogger.Infof("[%s] Security group creation complete: SecurityGroupId:[%s]", securityReqInfo.IId.NameId, createRes.SecurityGroupId)
-	//spew.Dump(createRes)
+	//cblogger.Debug(createRes)
 
 	//=======================================
 	// 보안 정책 추가
@@ -90,7 +89,7 @@ func (securityHandler *AlibabaSecurityHandler) CreateSecurity(securityReqInfo ir
 	defaultRuleRequest.Priority = "100"
 
 	cblogger.Infof("[%s] [%s] outbound rule Request", defaultRuleRequest.IpProtocol, defaultRuleRequest.PortRange)
-	spew.Dump(request)
+	cblogger.Debug(request)
 	response, err := securityHandler.Client.AuthorizeSecurityGroupEgress(defaultRuleRequest)
 	if err != nil {
 		cblogger.Errorf("Unable to create security group[%s] outbound rule - [%s] [%s] AuthorizeSecurityGroup Request", defaultRuleRequest.SecurityGroupId, defaultRuleRequest.IpProtocol, defaultRuleRequest.PortRange)
@@ -112,7 +111,7 @@ func (securityHandler *AlibabaSecurityHandler) CreateSecurity(securityReqInfo ir
 	//}
 	//
 	//cblogger.Debug("AuthorizeSecurityRules Result")
-	//// spew.Dump(createRuleRes)
+	//// cblogger.Debug(createRuleRes)
 	//cblogger.Debug(createRuleRes)
 	//
 	//securityInfo, _ := securityHandler.GetSecurity(irs.IID{SystemId: createRes.SecurityGroupId})
@@ -133,9 +132,7 @@ func (securityHandler *AlibabaSecurityHandler) AddRules(securityIID irs.IID, req
 	securityGroupId := securityIID.SystemId
 	cblogger.Infof("securityGroupId : [%s]  / securityRuleInfos : [%v]", securityGroupId, reqSecurityRules)
 	//cblogger.Info("AuthorizeSecurityRules ", securityRuleInfos)
-	if cblogger.Level.String() == "debug" {
-		spew.Dump(reqSecurityRules)
-	}
+	cblogger.Debug(reqSecurityRules)
 
 	if len(*reqSecurityRules) < 1 {
 		return irs.SecurityInfo{}, errors.New("invalid value - The SecurityRules to add is empty")
@@ -171,7 +168,7 @@ func (securityHandler *AlibabaSecurityHandler) AddRules(securityIID irs.IID, req
 			request.SourceCidrIp = curRule.CIDR
 
 			cblogger.Infof("[%s] [%s] inbound rule Request", request.IpProtocol, request.PortRange)
-			spew.Dump(request)
+			cblogger.Debug(request)
 			response, err := securityHandler.Client.AuthorizeSecurityGroup(request)
 			if err != nil {
 				cblogger.Errorf("Unable to create security group[%s] inbound rule - [%s] [%s] AuthorizeSecurityGroup Request", securityGroupId, request.IpProtocol, request.PortRange)
@@ -188,9 +185,7 @@ func (securityHandler *AlibabaSecurityHandler) AddRules(securityIID irs.IID, req
 			request.DestCidrIp = curRule.CIDR
 
 			cblogger.Infof("[%s] [%s] outbound rule Request", request.IpProtocol, request.PortRange)
-			if cblogger.Level.String() == "debug" {
-				spew.Dump(request)
-			}
+			cblogger.Debug(request)
 
 			response, err := securityHandler.Client.AuthorizeSecurityGroupEgress(request)
 			if err != nil {
@@ -215,7 +210,7 @@ func (securityHandler *AlibabaSecurityHandler) AddRules(securityIID irs.IID, req
 func (securityHandler *AlibabaSecurityHandler) RemoveRules(securityIID irs.IID, reqSecurityRules *[]irs.SecurityRuleInfo) (bool, error) {
 	securityGroupId := securityIID.SystemId
 	cblogger.Infof("securityGroupId : [%s]  / securityRuleInfos : [%v]", securityGroupId, reqSecurityRules)
-	spew.Dump(reqSecurityRules)
+	cblogger.Debug(reqSecurityRules)
 
 	presentRules, presentRulesErr := securityHandler.ExtractSecurityRuleInfo(securityGroupId)
 	if presentRulesErr != nil {
@@ -275,7 +270,7 @@ func (securityHandler *AlibabaSecurityHandler) RemoveRules(securityIID irs.IID, 
 			////request.Policy =
 
 			cblogger.Infof("[%s] [%s] inbound rule Request", request.IpProtocol, request.PortRange)
-			spew.Dump(request)
+			cblogger.Debug(request)
 			response, err := securityHandler.Client.RevokeSecurityGroup(request)
 			if err != nil {
 				cblogger.Errorf("Unable to revoke security group[%s] inbound rule - [%s] [%s] RevokeSecurityGroup Request", securityGroupId, request.IpProtocol, request.PortRange)
@@ -292,7 +287,7 @@ func (securityHandler *AlibabaSecurityHandler) RemoveRules(securityIID irs.IID, 
 			request.DestCidrIp = curRule.CIDR
 
 			cblogger.Infof("[%s] [%s] outbound rule Request", request.IpProtocol, request.PortRange)
-			spew.Dump(request)
+			cblogger.Debug(request)
 			response, err := securityHandler.Client.RevokeSecurityGroupEgress(request)
 			if err != nil {
 				cblogger.Errorf("Unable to revoke security group[%s] outbound rule - [%s] [%s] RevokeSecurityGroupEgress Request", securityGroupId, request.IpProtocol, request.PortRange)
@@ -312,7 +307,7 @@ func (securityHandler *AlibabaSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 	// get SecurityGroup & SecurityGroupAttribute for Alibaba
 	request := ecs.CreateDescribeSecurityGroupsRequest()
 	request.Scheme = "https"
-	spew.Dump(request)
+	cblogger.Debug(request)
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -340,7 +335,7 @@ func (securityHandler *AlibabaSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 	callogger.Debug(call.String(callLogInfo))
 
 	cblogger.Debug(result)
-	//spew.Dump(result)
+	//cblogger.Debug(result)
 	//ecs.DescribeSecurityGroupsResponse
 
 	var securityInfoList []*irs.SecurityInfo
@@ -390,12 +385,12 @@ func (securityHandler *AlibabaSecurityHandler) GetSecurity(securityIID irs.IID) 
 	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Debug(result)
-	//spew.Dump(result)
+	//cblogger.Debug(result)
 	//ecs.DescribeSecurityGroupsResponse
 
 	//ecs.DescribeSecurityGroupsResponse.SecurityGroups
 	//ecs.SecurityGroups
-	//spew.Dump(result)
+	//cblogger.Debug(result)
 
 	//ecs.DescribeSecurityGroupsResponse
 	if result.TotalCount < 1 {

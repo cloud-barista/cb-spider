@@ -253,9 +253,8 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	}
 
 	vNetInfo, errVnet := vNetworkHandler.GetVPC(securityReqInfo.VpcIID)
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(vNetInfo)
-	}
+	cblogger.Debug(vNetInfo)
+
 	if errVnet != nil {
 		cblogger.Error(errVnet)
 		return irs.SecurityInfo{}, errVnet
@@ -365,9 +364,7 @@ func (securityHandler *GCPSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 
 		cblogger.Info("Firewall policy to be created.", itemIndex, firewallDirection, reqEgressCount, reqIngressCount)
 		cblogger.Debug(fireWall)
-		if cblogger.Level.String() == "debug" {
-			cblogger.Debug(fireWall)
-		}
+
 		addFilewallList = append(addFilewallList, fireWall)
 
 	}

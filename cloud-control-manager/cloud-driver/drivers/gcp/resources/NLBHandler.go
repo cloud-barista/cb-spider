@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strconv"
+	"strings"
+	"time"
+
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	compute "google.golang.org/api/compute/v1"
 	"google.golang.org/api/googleapi"
-	"strconv"
-	"strings"
-	"time"
 )
 
 /*
@@ -283,7 +284,7 @@ func (nlbHandler *GCPNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 		// 404면 없는게 맞으므로 진행
 		is404, checkErr := checkErrorCode(ErrorCode_NotFound, err) // 404 : not found면 pass
 		if is404 && checkErr {                                     // 하나라도 false 면 error return
-			cblogger.Error("existsTargetPoolChecks : ", err)
+			cblogger.Debug("existsTargetPoolChecks : ", err)
 		} else {
 			cblogger.Error("validateCreateNLB ", err)
 			return irs.NLBInfo{}, err
@@ -2100,7 +2101,7 @@ func (nlbHandler *GCPNLBHandler) getTargetPool(regionID string, targetPoolName s
 
 	resp, err := nlbHandler.Client.TargetPools.Get(projectID, regionID, targetPoolName).Do()
 	if err != nil {
-		cblogger.Error("TargetPools.Get ", err)
+		//cblogger.Error("TargetPools.Get ", err)
 		return nil, err
 	}
 	return resp, nil
@@ -2272,7 +2273,7 @@ func (nlbHandler *GCPNLBHandler) removeHttpHealthCheck(targetPoolName string, he
 	// TargetPool이 없으면 targetPool이름으로 삭제 시도
 	targetPool, err := nlbHandler.getTargetPool(regionID, targetPoolName)
 	if err != nil {
-		cblogger.Error("targetPoolList  list for removeHttpHealthCheck: ", err)
+		cblogger.Debug("targetPoolList  list for removeHttpHealthCheck: ", err)
 	}
 	// queryParam
 
@@ -2913,9 +2914,7 @@ func (nlbHandler *GCPNLBHandler) getVmUrl(zoneID string, vmID irs.IID) (string, 
 		return "", err
 	}
 	callogger.Info(call.String(callLogInfo))
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(vm)
-	}
+	cblogger.Debug(vm)
 
 	return vm.SelfLink, nil
 }
@@ -3106,11 +3105,11 @@ func checkErrorCode(expectErrorCode int, err error) (bool, bool) {
 
 	//var errorMessage string
 	errorDetail, ok := err.(*googleapi.Error) // casting이 정상이면 ok=true, 비정상이면 ok=false
-	cblogger.Error("errorDetail", errorDetail)
-	cblogger.Error("ok", ok)
+	cblogger.Debug("errorDetail", errorDetail)
+	cblogger.Debug("ok", ok)
 	if ok {
-		cblogger.Error("Error Code %v", errorDetail.Code)
-		cblogger.Error("Error Message %v", errorDetail.Message)
+		cblogger.Debug("Error Code %v", errorDetail.Code)
+		cblogger.Debug("Error Message %v", errorDetail.Message)
 		errorCode = errorDetail.Code
 		//errorMessage = errorDetail.Message
 	}

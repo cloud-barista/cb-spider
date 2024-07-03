@@ -28,7 +28,7 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMS
 	//func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMSpecInfo {
 	//ecs.InstanceType
 	cblogger.Infof("ExtractVMSpecInfo : Region:[%s] / SpecName:[%s]", Region, instanceTypeInfo.InstanceTypeFamily)
-	//spew.Dump(instanceTypeInfo)
+	//cblogger.Debug(instanceTypeInfo)
 
 	vCpuInfo := irs.VCpuInfo{
 		Clock: "N/A",
@@ -112,14 +112,14 @@ func (vmSpecHandler *AlibabaVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, erro
 	}
 	callogger.Info(call.String(callLogInfo))
 
-	//spew.Dump(resp)
+	//cblogger.Debug(resp)
 	cblogger.Info("Number of Retrieved Instance Types : ", len(resp.InstanceTypes.InstanceType))
 	for _, curInstance := range resp.InstanceTypes.InstanceType {
 		cblogger.Infof("[%s] VM Retrieve Specification Information", curInstance.InstanceTypeFamily)
 		vMSpecInfo := ExtractVMSpecInfo(Region, curInstance)
 		vMSpecInfoList = append(vMSpecInfoList, &vMSpecInfo)
 	}
-	//spew.Dump(vMSpecInfoList)
+	//cblogger.Debug(vMSpecInfoList)
 	return vMSpecInfoList, nil
 }
 
@@ -159,7 +159,7 @@ func (vmSpecHandler *AlibabaVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInf
 	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Info("Number of Retrieved Instance Types : ", len(resp.InstanceTypes.InstanceType))
-	//	spew.Dump(resp)
+	//	cblogger.Debug(resp)
 
 	if len(resp.InstanceTypes.InstanceType) < 1 {
 		return irs.VMSpecInfo{}, errors.New("Notfound: '" + Name + "'Cannot find Spec information for the specified item.")
@@ -258,7 +258,7 @@ func (vmSpecHandler *AlibabaVmSpecHandler) GetOrgVMSpec(Name string) (string, er
 	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Info("Number of Retrieved Instance Types : ", len(resp.InstanceTypes.InstanceType))
-	//	spew.Dump(resp)
+	//	cblogger.Debug(resp)
 
 	if len(resp.InstanceTypes.InstanceType) < 1 {
 		return "", errors.New(Name + "Cannot find Spec information for the specified item.")

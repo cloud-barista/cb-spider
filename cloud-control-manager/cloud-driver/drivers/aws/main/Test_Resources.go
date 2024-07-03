@@ -81,8 +81,8 @@ func handleSecurity() {
 					cblogger.Infof(" Security 목록 조회 실패 : ", err)
 				} else {
 					cblogger.Info("Security 목록 조회 결과")
-					//cblogger.Info(result)
-					spew.Dump(result)
+					cblogger.Info(result)
+
 					if result != nil {
 						securityId = result[0].IId.SystemId // 조회 및 삭제를 위해 생성된 ID로 변경
 					}

@@ -20,7 +20,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 )
 
 type AlibabaKeyPairHandler struct {
@@ -31,7 +30,7 @@ type AlibabaKeyPairHandler struct {
 func (keyPairHandler *AlibabaKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 	cblogger.Debug("Start ListKey()")
 	var keyPairList []*irs.KeyPairInfo
-	//spew.Dump(keyPairHandler)
+	//cblogger.Debug(keyPairHandler)
 	cblogger.Debug(keyPairHandler)
 
 	request := ecs.CreateDescribeKeyPairsRequest()
@@ -92,7 +91,7 @@ func (keyPairHandler *AlibabaKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, erro
 		request.PageNumber = requests.NewInteger(curPage)
 	}
 	cblogger.Debug(keyPairList)
-	//spew.Dump(keyPairList)
+	//cblogger.Debug(keyPairList)
 	return keyPairList, nil
 }
 
@@ -143,9 +142,7 @@ func (keyPairHandler *AlibabaKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 	callogger.Info(call.String(callLogInfo))
 
 	cblogger.Infof("Created key pair %q %s\n%s\n", result.KeyPairName, result.KeyPairFingerPrint, result.PrivateKeyBody)
-	if cblogger.Level.String() == "debug" {
-		spew.Dump(result)
-	}
+	cblogger.Debug(result)
 
 	/* 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 	cblogger.Info("공개키 생성")
@@ -156,7 +153,7 @@ func (keyPairHandler *AlibabaKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 	}
 
 	cblogger.Infof("Public Key")
-	spew.Dump(publicKey)
+	cblogger.Debug(publicKey)
 	*/
 	keyPairInfo := irs.KeyPairInfo{
 		IId:         irs.IID{NameId: result.KeyPairName, SystemId: result.KeyPairName},
@@ -256,7 +253,6 @@ func (keyPairHandler *AlibabaKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPair
 // 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 // KeyPair 정보를 추출함
 func ExtractKeyPairDescribeInfo(keyPair *ecs.KeyPair) (irs.KeyPairInfo, error) {
-	spew.Dump(keyPair)
 
 	keyPairInfo := irs.KeyPairInfo{
 		IId:         irs.IID{NameId: keyPair.KeyPairName, SystemId: keyPair.KeyPairName},
@@ -317,7 +313,7 @@ func (keyPairHandler *AlibabaKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, er
 	request.Scheme = "https"
 	request.KeyPairNames = "[" + "\"" + keyIID.SystemId + "\"]"
 
-	spew.Dump(request)
+	cblogger.Debug(request)
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")

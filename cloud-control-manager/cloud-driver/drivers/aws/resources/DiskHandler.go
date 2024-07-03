@@ -281,9 +281,7 @@ func (DiskHandler *AwsDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 	}
 	calllogger.Info(call.String(hiscallInfo))
 
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(result)
-	}
+	cblogger.Debug(result)
 
 	err = WaitUntilVolumeDeleted(DiskHandler.Client, diskIID.SystemId)
 	if err != nil {
@@ -404,9 +402,7 @@ func (DiskHandler *AwsDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 	}
 	calllogger.Info(call.String(hiscallInfo))
 
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(result)
-	}
+	cblogger.Debug(result)
 
 	err = WaitUntilVolumeInUse(DiskHandler.Client, diskIID.SystemId)
 	if err != nil {
@@ -458,9 +454,7 @@ func (DiskHandler *AwsDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) 
 	}
 	calllogger.Info(call.String(hiscallInfo))
 
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(result)
-	}
+	cblogger.Debug(result)
 
 	err = WaitUntilVolumeInUse(DiskHandler.Client, diskIID.SystemId)
 	if err != nil {
@@ -904,8 +898,7 @@ func (DiskHandler *AwsDiskHandler) convertVolumeInfoToDiskInfo(volumeInfo *ec2.V
 	//inKeyValueList = append(inKeyValueList, icbs.KeyValue{Key: "OutpostArn", Value: *volumeInfo.OutpostArn})
 	diskInfo.KeyValueList = inKeyValueList
 	cblogger.Debug("keyvalue2")
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(diskInfo)
-	}
+	cblogger.Debug(diskInfo)
+
 	return diskInfo, nil
 }
