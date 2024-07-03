@@ -12,7 +12,6 @@ package resources
 
 import (
 	"os"
-	"os/exec"
 	"fmt"
 	"strings"
 	"sync"
@@ -179,32 +178,6 @@ func reverse(s string) (result string) {
 		result = string(v) + result
 	}
 	return 
-}
-
-func runCommand(cmdName string, cmdArgs []string) (string, error) {
-	/*
-	Ref)
-	var (
-		cmdOut []byte
-		cmdErr   error		
-	)
-	*/
-	cblogger.Infof("cmdName : %s", cmdName)
-	cblogger.Infof("cmdArgs : %s", cmdArgs)
-
-	//if cmdOut, cmdErr = exec.Command(cmdName, cmdArgs...).Output(); cmdErr != nil {
-	if cmdOut, cmdErr := exec.Command(cmdName, cmdArgs...).CombinedOutput(); cmdErr != nil {
-		fmt.Fprintln(os.Stderr, "There was an Error running command : ", cmdErr)
-		//panic("Can't exec the command: " + cmdErr1.Error())
-		fmt.Println(fmt.Sprint(cmdErr) + ": " + string(cmdOut))
-		os.Exit(1)
-
-		return string(cmdOut), cmdErr
-	} else {
-	fmt.Println("cmdOut : ", string(cmdOut))
-
-	return string(cmdOut), nil
-	}
 }
 
 // Convert Cloud Object to JSON String type

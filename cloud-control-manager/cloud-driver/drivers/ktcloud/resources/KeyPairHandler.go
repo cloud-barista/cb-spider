@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"errors"
 	"strings"
-	"github.com/davecgh/go-spew/spew"
+	// "github.com/davecgh/go-spew/spew"
 
 	ktsdk "github.com/cloud-barista/ktcloud-sdk-go"
 
@@ -144,8 +144,9 @@ func (keyPairHandler *KtCloudKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPair
 	cblogger.Infof("keyName : [%s]", keyIID.NameId)
 	result, err := keyPairHandler.Client.ListSSHKeyPairs(keyIID.NameId)
 	if err != nil {
-		cblogger.Errorf("Failed to Get the KeyPair with the keyName : ", err)
-		return irs.KeyPairInfo{}, err
+		newErr := fmt.Errorf("Failed to Get the KeyPair with the keyName : ", err)
+		cblogger.Error(newErr.Error())
+		return irs.KeyPairInfo{}, newErr
 	}
 	// spew.Dump(result)
 
@@ -180,16 +181,16 @@ func (keyPairHandler *KtCloudKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, er
 	//It is necessary to check in advance because it succeeds unconditionally without Keypair.
 	_, keyError := keyPairHandler.GetKey(keyIID)
 	if keyError != nil {
-		cblogger.Errorf("Failed to Get the KeyPair : [%s]", keyIID.SystemId)
-		cblogger.Error(keyError)
-		return false, keyError
+		newErr := fmt.Errorf("Failed to Get the KeyPair : [%s], [%v]", keyIID.SystemId, keyError)
+		cblogger.Error(newErr.Error())
+		return false, newErr
 	}
 
 	result, err := keyPairHandler.Client.DeleteSSHKeyPair(keyIID.NameId)
 	if err != nil {
-		cblogger.Errorf("Failed to Delete the KeyPair : %s, %v", keyIID.NameId, err)
-		spew.Dump(err)
-		return false, err
+		newErr := fmt.Errorf("Failed to Delete the KeyPair : %s, %v", keyIID.NameId, err)
+		cblogger.Error(newErr.Error())
+		return false, newErr
 	}
 	cblogger.Infof("Deletion result on KT Cloud : %s", result.Deletesshkeypairresponse.Success)
 

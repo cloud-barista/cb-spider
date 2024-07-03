@@ -18,11 +18,10 @@ import (
 	"fmt"
 	"strconv"
 	// "encoding/base64"
-	// "log"
 	"io"
 	"strings"
 	"time"
-	"github.com/davecgh/go-spew/spew"
+	// "github.com/davecgh/go-spew/spew"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	cblog "github.com/cloud-barista/cb-log"
@@ -308,15 +307,15 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	LoggingInfo(callLogInfo, callLogStart)
 	//spew.Dump(newVM)
 	
-	jobResult, err := vmHandler.Client.QueryAsyncJobResult(newVM.Deployvirtualmachineresponse.JobId)
-	if err != nil {
-		cblogger.Errorf("Failed to Get the Job Result: [%v]", err)
-		return irs.VMInfo{}, err
+	// jobResult, queryErr := vmHandler.Client.QueryAsyncJobResult(newVM.Deployvirtualmachineresponse.JobId)
+	_, queryErr := vmHandler.Client.QueryAsyncJobResult(newVM.Deployvirtualmachineresponse.JobId)
+	if queryErr != nil {
+		newErr := fmt.Errorf("Failed to Get the Job Result: [%v]", queryErr)
+		cblogger.Error(newErr.Error())
+		return irs.VMInfo{}, newErr
 	}
-	cblogger.Info("\n### QueryAsyncJobResultResponse : ")
-	// spew.Dump(jobResult.Queryasyncjobresultresponse.JobResult.Virtualmachine[0])
-	spew.Dump(jobResult.Queryasyncjobresultresponse.JobResult)
-	// spew.Dump(jobResult)
+	// cblogger.Info("\n### QueryAsyncJobResultResponse : ")
+	// spew.Dump(jobResult.Queryasyncjobresultresponse.JobResult)
 
 	if strings.EqualFold(newVM.Deployvirtualmachineresponse.ID, "") {
 		newErr := fmt.Errorf("Failed to Find the VM Instance ID!!")
@@ -721,8 +720,9 @@ func (vmHandler *KtCloudVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	
 	vmInfo, err := vmHandler.mappingVMInfo(&result.Listvirtualmachinesresponse.Virtualmachine[0])
 	if err != nil {
-		cblogger.Errorf("Failed to Map the VM info: [%v]", err)
-		return irs.VMInfo{}, err
+		newErr := fmt.Errorf("Failed to Map the VM info: [%v]", err)
+		cblogger.Error(newErr.Error())
+		return irs.VMInfo{}, newErr
 	}
 	return vmInfo, nil
 }
@@ -772,12 +772,14 @@ func (vmHandler *KtCloudVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error
 			return "", err
 		}
 		
-		jobResult, err := vmHandler.Client.QueryAsyncJobResult(result.Stopvirtualmachineresponse.JobId)
-		if err != nil {
-			cblogger.Errorf("Failed to Get Job Result: [%v]", err)	
-			return "", err
-		}		
-		spew.Dump(jobResult.Queryasyncjobresultresponse.JobResult)
+		// jobResult, queryErr := vmHandler.Client.QueryAsyncJobResult(result.Stopvirtualmachineresponse.JobId)
+		_, queryErr := vmHandler.Client.QueryAsyncJobResult(result.Stopvirtualmachineresponse.JobId)
+		if queryErr != nil {
+			newErr := fmt.Errorf("Failed to Get Job Result: [%v]", queryErr)
+			cblogger.Error(newErr.Error())
+			return "", newErr
+		}
+		// spew.Dump(jobResult.Queryasyncjobresultresponse.JobResult)
 
 		//===================================
 		// 15-second wait for Suspending
@@ -858,12 +860,14 @@ func (vmHandler *KtCloudVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error)
 			return "", err
 		}
 		
-		jobResult, err := vmHandler.Client.QueryAsyncJobResult(result.Startvirtualmachineresponse.JobId)
-		if err != nil {
-			cblogger.Errorf("Failed to Get the Job Result : [%v]", err)	
-			return "", err
-		}		
-		spew.Dump(jobResult.Queryasyncjobresultresponse.JobResult)
+		// jobResult, queryErr := vmHandler.Client.QueryAsyncJobResult(result.Startvirtualmachineresponse.JobId)
+		_, queryErr := vmHandler.Client.QueryAsyncJobResult(result.Startvirtualmachineresponse.JobId)
+		if queryErr != nil {
+			newErr := fmt.Errorf("Failed to Get Job Result: [%v]", queryErr)
+			cblogger.Error(newErr.Error())
+			return "", newErr
+		}
+		// spew.Dump(jobResult.Queryasyncjobresultresponse.JobResult)
 
 		//===================================
 		// 60-second wait for Suspending
@@ -937,12 +941,14 @@ func (vmHandler *KtCloudVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error)
 			return "", err
 		}
 		
-		jobResult, err := vmHandler.Client.QueryAsyncJobResult(result.Rebootvirtualmachineresponse.JobId)
-		if err != nil {
-			cblogger.Errorf("Failed to Get the Job Result : [%v]", err)	
-			return "", err
-		}		
-		spew.Dump(jobResult.Queryasyncjobresultresponse.JobResult)
+		// jobResult, queryErr := vmHandler.Client.QueryAsyncJobResult(result.Rebootvirtualmachineresponse.JobId)
+		_, queryErr := vmHandler.Client.QueryAsyncJobResult(result.Rebootvirtualmachineresponse.JobId)
+		if queryErr != nil {
+			newErr := fmt.Errorf("Failed to Get Job Result: [%v]", queryErr)
+			cblogger.Error(newErr.Error())
+			return "", newErr
+		}
+		// spew.Dump(jobResult.Queryasyncjobresultresponse.JobResult)
 
 		// ===================================
 		// 15-second wait for Rebooting
@@ -1709,7 +1715,8 @@ func (vmHandler *KtCloudVMHandler) associateIpAddress() (string, string, error) 
 		if len(resp.Listpublicipaddressesresponse.PublicIpAddress) > 0 {
 			publicIp = resp.Listpublicipaddressesresponse.PublicIpAddress[0].IpAddress
 			ipState := resp.Listpublicipaddressesresponse.PublicIpAddress[0].State
-			fmt.Printf("New Public IP : %s, IP State : %s\n", publicIp, ipState)
+
+			cblogger.Infof("New Public IP : %s, IP State : %s\n", publicIp, ipState)
 		} else {
 			return "", "", errors.New("Failed to Find the Public IP!!\n")
 		}
@@ -1817,15 +1824,17 @@ func (vmHandler *KtCloudVMHandler) createPortForwardingFirewallRules(sgSystemIDs
 					pfRulesReqInfo := ktsdk.ListPortForwardingRulesReqInfo {
 						ID:			pfRuleResponse.Createportforwardingruleresponse.ID,
 					}					
-					pfRulesResult, err := vmHandler.Client.ListPortForwardingRules(pfRulesReqInfo)
-					if err != nil {
-						cblogger.Errorf("Failed to Get PortForwarding Rule List : [%v]", err)
-						return false, err
+					// pfRulesResult, listErr := vmHandler.Client.ListPortForwardingRules(pfRulesReqInfo)
+					_, listErr := vmHandler.Client.ListPortForwardingRules(pfRulesReqInfo)
+					if listErr != nil {
+						newErr := fmt.Errorf("Failed to Get PortForwarding Rule List : [%v]", listErr)
+						cblogger.Error(newErr.Error())
+						return false, newErr
 					} else {
 						cblogger.Info("# Succeeded in Getting PortForwarding Rule List!!")
 					}
-					cblogger.Info("### PortForwarding Rule List : ")
-					spew.Dump(pfRulesResult.Listportforwardingrulesresponse.PortForwardingRule)
+					// cblogger.Info("### PortForwarding Rule List : ")
+					// spew.Dump(pfRulesResult.Listportforwardingrulesresponse.PortForwardingRule)
 				}
 
 				// ### KT Cloud 'Firewall Rules' Setting for 'ICMP' protocol
@@ -1855,14 +1864,16 @@ func (vmHandler *KtCloudVMHandler) createPortForwardingFirewallRules(sgSystemIDs
 					firewallListReqInfo := ktsdk.ListFirewallRulesReqInfo {
 						ID:	firewallRuleResponse.Createfirewallruleresponse.ID,
 					}					
-					firewallRulesResult, err := vmHandler.Client.ListFirewallRules(firewallListReqInfo)
-					if err != nil {
-						cblogger.Errorf("Failed to Get List of Firewall Rules : [%v]", err)
-						return false, err
+					// firewallRulesResult, listError := vmHandler.Client.ListFirewallRules(firewallListReqInfo)
+					_, listError := vmHandler.Client.ListFirewallRules(firewallListReqInfo)
+					if listError != nil {
+						newErr := fmt.Errorf("Failed to Get Firewall Rule List : [%v]", listError)
+						cblogger.Error(newErr.Error())
+						return false, newErr
 					} else {
 						cblogger.Info("# Succeeded in Getting List of Firewall Rules!!")
 					}
-					spew.Dump(firewallRulesResult.Listfirewallrulesresponse.FirewallRule)
+					// spew.Dump(firewallRulesResult.Listfirewallrulesresponse.FirewallRule)
 				}
 			}
 		}

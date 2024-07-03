@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"time"
 	_ "time/tzdata" // To prevent 'unknown time zone Asia/Seoul' error
-	"github.com/davecgh/go-spew/spew"
+	// "github.com/davecgh/go-spew/spew"
 
 	ktvpcsdk 	"github.com/cloud-barista/ktcloudvpc-sdk-go"
 	// volumes2 	"github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/blockstorage/v2/volumes"
@@ -68,9 +68,9 @@ func (myImageHandler *KTVpcMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImag
 	loggingInfo(callLogInfo, start)
 	cblogger.Infof("\n\n# snapShotImageId : [%s]\n", volumeImage.ImageID)
 
-	cblogger.Info("\n\n### volumeImage : ")
-	spew.Dump(volumeImage)
-	cblogger.Info("\n")
+	// cblogger.Info("\n\n### volumeImage : ")
+	// spew.Dump(volumeImage)
+	// cblogger.Info("\n")
 
 	// To Wait for Creating a Snapshot Image
 	newImageIID := irs.IID{SystemId: volumeImage.ImageID}
@@ -138,9 +138,9 @@ func (myImageHandler *KTVpcMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, er
 	}
 	loggingInfo(callLogInfo, start)
 	
-	cblogger.Info("\n\n### ktImageList : ")
-	spew.Dump(ktImageList)
-	cblogger.Info("# ktImage count : ", len(ktImageList))
+	// cblogger.Info("\n\n### ktImageList : ")
+	// spew.Dump(ktImageList)
+	// cblogger.Info("# ktImage count : ", len(ktImageList))
 
 	// Note) Public image : ktImage.Visibility == "public", MyImage : ktImage.Visibility == "shared"
 	var imageInfoList []*irs.MyImageInfo

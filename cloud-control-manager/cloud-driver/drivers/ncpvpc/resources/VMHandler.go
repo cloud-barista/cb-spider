@@ -37,6 +37,10 @@ type NcpVpcVMHandler struct {
 	VMClient       *vserver.APIClient
 }
 
+type nicOrderInt32 struct {
+	nicOrder *int32
+}
+
 const (
 	lnxUserName string = "cb-user"
 	winUserName string = "Administrator"
@@ -203,15 +207,7 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 		securityGroupIds = append(securityGroupIds, ncloud.String(sgID.SystemId))
 	}
 
-	type intType struct {
-		nicOrder *int32
-	}
-
-	temp := int32(0) // Convert Int data type to Int32 !!
-	i32 := intType{
-		nicOrder: &temp,
-	}
-	fmt.Println(*i32.nicOrder)
+	nicOrderInt32 := getNicOrderInt32(0)
 
 	//=========================================================
 	// VM Creation info. setting
@@ -230,7 +226,7 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 
 		// ### Caution!! : AccessControlGroup은 NCPVPC console의 VPC > 'Network ACL'이 아닌 Server > 'ACG'에 해당됨.
 		NetworkInterfaceList: 		[]*vserver.NetworkInterfaceParameter{
-			{ NetworkInterfaceOrder: i32.nicOrder, AccessControlGroupNoList: securityGroupIds}, 
+			{ NetworkInterfaceOrder: nicOrderInt32, AccessControlGroupNoList: securityGroupIds}, 
 			// NetworkInterfaceNo를 입력하지 않으면 NetworkInterface가 자동 생성되어 적용됨.
 		},
 
@@ -1673,4 +1669,14 @@ func countSgKvList(sg sim.SecurityGroupInfo) int {
         return 0
     }
     return len(sg.KeyValueInfoList)
+}
+
+// Convert Int data type to Int32 type!!
+func getNicOrderInt32(initInt int) *int32 {
+	temp := int32(initInt)
+	i32 := nicOrderInt32{
+		nicOrder: &temp,
+	}
+	cblogger.Infof("NicOrderInt32 : [%d]", *i32.nicOrder)
+	return i32.nicOrder
 }
