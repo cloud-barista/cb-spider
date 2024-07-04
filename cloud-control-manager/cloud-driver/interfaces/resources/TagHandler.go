@@ -19,9 +19,9 @@ type TagInfo struct {
 }
 
 type TagHandler interface {
-	AddTag(resTyp RSType, resIID IID, tag KeyValue) (TagInfo, error)
-	ListTag(resTyp RSType, resIID IID) ([]*TagInfo, error)
-	GetTag(resTyp RSType, resIID IID, key string) (TagInfo, error)
+	AddTag(resType RSType, resIID IID, tag KeyValue) (TagInfo, error)
+	ListTag(resType RSType, resIID IID) ([]*TagInfo, error)
+	GetTag(resType RSType, resIID IID, key string) (TagInfo, error)
 	RemoveTag(resType RSType, resIID IID, key string) (bool, error)
 
 	// Find tags by tag key or value
