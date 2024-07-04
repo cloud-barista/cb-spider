@@ -16,8 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/davecgh/go-spew/spew"
+	// "github.com/davecgh/go-spew/spew"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -175,9 +174,10 @@ func (nlbHandler *NhnCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLB
 	cblogger.Info("\n\n#### Waiting for Provisioning the New Pool!!")
 	time.Sleep(25 * time.Second)
 
-	newHealthMonitor, err := nlbHandler.createHealthMonitor(newPool.ID, nlbReqInfo)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Create HealthMonitor. [%v]", err.Error())
+	// newHealthMonitor, createErr := nlbHandler.createHealthMonitor(newPool.ID, nlbReqInfo)
+	_, createErr := nlbHandler.createHealthMonitor(newPool.ID, nlbReqInfo)
+	if createErr != nil {
+		newErr := fmt.Errorf("Failed to Create HealthMonitor. [%v]", createErr.Error())
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 
@@ -193,15 +193,16 @@ func (nlbHandler *NhnCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLB
 
 		return irs.NLBInfo{}, newErr
 	}
-	cblogger.Info("\n\n# New Health Monitor : ")
-	spew.Dump(newHealthMonitor)
+	// cblogger.Info("\n\n# New Health Monitor : ")
+	// spew.Dump(newHealthMonitor)
 
 	cblogger.Info("\n\n#### Waiting for Provisioning the New Health Monitor!!")
 	time.Sleep(25 * time.Second)
 
-	newMembers, err := nlbHandler.createVMMembers(newPool.ID, nlbReqInfo.VMGroup)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Create NLB Pool Members. [%v]", err.Error())
+	// newMembers, createError := nlbHandler.createVMMembers(newPool.ID, nlbReqInfo.VMGroup)
+	_, createError := nlbHandler.createVMMembers(newPool.ID, nlbReqInfo.VMGroup)
+	if createError != nil {
+		newErr := fmt.Errorf("Failed to Create NLB Pool Members. [%v]", createError.Error())
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 
@@ -217,8 +218,8 @@ func (nlbHandler *NhnCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLB
 
 		return irs.NLBInfo{}, newErr
 	}
-	cblogger.Info("\n\n# New Members : ")
-	spew.Dump(newMembers)
+	// cblogger.Info("\n\n# New Members : ")
+	// spew.Dump(newMembers)
 
 	newFloatingIp, err := nlbHandler.createPublicIP(newNlb.VipPortID)
 	if err != nil {
@@ -407,15 +408,16 @@ func (nlbHandler *NhnCloudNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup 
 		vmGroup.VMs = oldVMGroupInfo.VMs
 	}
 
-	newMembers, err := nlbHandler.createVMMembers(nlbInfo.VMGroup.CspID, vmGroup)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Create NLB Pool Members. [%v]", err.Error())
+	// newMembers, createErr := nlbHandler.createVMMembers(nlbInfo.VMGroup.CspID, vmGroup)
+	_, createErr := nlbHandler.createVMMembers(nlbInfo.VMGroup.CspID, vmGroup)
+	if createErr != nil {
+		newErr := fmt.Errorf("Failed to Create NLB Pool Members. [%v]", createErr.Error())
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.VMGroupInfo{}, newErr
 	}
-	cblogger.Info("\n\n# New Members : ")
-	spew.Dump(newMembers)
+	// cblogger.Info("\n\n# New Members : ")
+	// spew.Dump(newMembers)
 
 	newVMGroupNlbInfo, err := nlbHandler.GetNLB(nlbIID)
 	if err != nil {
@@ -472,15 +474,16 @@ func (nlbHandler *NhnCloudNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) 
 	}
 
 	newVMsInfo.VMs = vmIIDs
-	newMembers, err := nlbHandler.createVMMembers(nlbInfo.VMGroup.CspID, newVMsInfo)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Create NLB Pool Members. [%v]", err.Error())
+	// newMembers, createErr := nlbHandler.createVMMembers(nlbInfo.VMGroup.CspID, newVMsInfo)
+	_, createErr := nlbHandler.createVMMembers(nlbInfo.VMGroup.CspID, newVMsInfo)
+	if createErr != nil {
+		newErr := fmt.Errorf("Failed to Create NLB Pool Members. [%v]", createErr.Error())
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.VMGroupInfo{}, newErr
 	}
-	cblogger.Info("\n\n# New VM Members : ")
-	spew.Dump(newMembers)
+	// cblogger.Info("\n\n# New VM Members : ")
+	// spew.Dump(newMembers)
 
 	newVMGroupNlbInfo, err := nlbHandler.GetNLB(nlbIID)
 	if err != nil {

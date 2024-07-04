@@ -15,8 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/davecgh/go-spew/spew"
+	// "github.com/davecgh/go-spew/spew"
 
 	ncloud "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
 	vlb "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vloadbalancer"
@@ -159,8 +158,8 @@ func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB
 
 	// To Get Subnet No list
 	subnetNoList := []*string{ncloud.String(lbTypeSubnetId)}
-	cblogger.Infof("\n### ID list of 'LB Type' Subnet : ")
-	spew.Dump(subnetNoList)
+	// cblogger.Infof("\n### ID list of 'LB Type' Subnet : ")
+	// spew.Dump(subnetNoList)
 
 	// Note!! : SubnetNoList[] : Range constraints: Minimum range of 1. Maximum range of 2.
 	if len(subnetNoList) < 1 || len(subnetNoList) > 2 {

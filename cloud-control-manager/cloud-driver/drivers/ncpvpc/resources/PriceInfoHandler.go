@@ -220,7 +220,7 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 		}
 	}
 	if found {
-		fmt.Printf("The ProductFamily '%s' is Included in the ProductFamily.\n", productFamily)
+		cblogger.Infof("The ProductFamily '%s' is Included in the ProductFamily.\n", productFamily)
 	} else {
 		newErr := fmt.Errorf("The ProductFamily '%s' is Not Included in the ProductFamily.\n", productFamily)
 		cblogger.Error(newErr.Error())
@@ -254,7 +254,7 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 					regionCode = price.Region.RegionCode
 					break
 				}
-				fmt.Printf("RegionCode: %s\n", price.Region.RegionCode)
+				cblogger.Infof("RegionCode: %s\n", price.Region.RegionCode)
 			}
 
 			var pricingPolicies []irs.PricingPolicies
@@ -310,7 +310,7 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 					regionCode = price.Region.RegionCode
 					break
 				}
-				fmt.Printf("RegionCode: %s\n", price.Region.RegionCode)
+				cblogger.Infof("RegionCode: %s\n", price.Region.RegionCode)
 			}
 
 			var pricingPolicies []irs.PricingPolicies

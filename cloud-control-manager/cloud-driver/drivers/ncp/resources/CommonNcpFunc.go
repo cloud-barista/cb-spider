@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 	"os"
-	"os/exec"
 	"strings"
 	"math/rand"
 
@@ -118,34 +117,6 @@ func Reverse(s string) (result string) {
 		result = string(v) + result
 	}
 	return 
-}
-
-func RunCommand(cmdName string, cmdArgs []string) (string, error) {
-
-	/*
-	Ref)
-	var (
-		cmdOut []byte
-		cmdErr   error		
-	)
-	*/
-
-	cblogger.Infof("cmdName : %s", cmdName)
-	cblogger.Infof("cmdArgs : %s", cmdArgs)
-
-	//if cmdOut, cmdErr = exec.Command(cmdName, cmdArgs...).Output(); cmdErr != nil {
-	if cmdOut, cmdErr := exec.Command(cmdName, cmdArgs...).CombinedOutput(); cmdErr != nil {
-		fmt.Fprintln(os.Stderr, "There was an error running command: ", cmdErr)
-		//panic("Can't exec the command: " + cmdErr1.Error())
-		fmt.Println(fmt.Sprint(cmdErr) + ": " + string(cmdOut))
-		os.Exit(1)
-
-		return string(cmdOut), cmdErr
-	} else {
-	fmt.Println("cmdOut : ", string(cmdOut))
-
-	return string(cmdOut), nil
-	}
 }
 
 func convertTimeFormat(inputTime string) (time.Time, error) {

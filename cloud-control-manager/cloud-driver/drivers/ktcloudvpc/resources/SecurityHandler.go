@@ -299,15 +299,11 @@ func (securityHandler *KTVpcSecurityHandler) DeleteSecurity(securityIID irs.IID)
 	}
 
 	// To Remove the S/G file on the Local machine.
-	cmdName := "rm"
-	cmdArgs := []string{sgFileName}
-
-	if cmdOut, cmdErr := runCommand(cmdName, cmdArgs); cmdErr != nil {
-		cblogger.Errorf("Failed to run the command to remove the S/G file.")
-		return false, cmdErr
-	} else {
-		cblogger.Infof("Succeeded in Deleting the S/G File!!")
-		cblogger.Infof("cmdOut : " + cmdOut)
+	delErr := os.Remove(sgFileName) 
+	if delErr != nil {
+		newErr := fmt.Errorf("Failed to Delete the file : %s, [%v]", sgFileName, delErr)
+		cblogger.Error(newErr.Error())
+		return false, newErr
 	}
 	cblogger.Infof("Succeeded in Deleting the SecurityGroup : " + securityIID.SystemId)
 

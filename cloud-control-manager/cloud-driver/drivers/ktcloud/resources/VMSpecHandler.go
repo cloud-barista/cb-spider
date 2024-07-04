@@ -15,7 +15,6 @@ import (
 	ktsdk "github.com/cloud-barista/ktcloud-sdk-go"
 
 	"errors"
-	"fmt"
 	"strings"
 	"strconv"
 	// "github.com/davecgh/go-spew/spew"
@@ -195,7 +194,7 @@ func mappingVMSpecInfo(ZoneId string, ImageId string, ktServerProductType ktsdk.
 	// Split 함수로 문자열을 " "(공백) 기준으로 분리
 	specSlice := strings.Split(ktVMSpecString, " ")
 	for _, str := range specSlice {
-		fmt.Println(str)
+		cblogger.Infof("Splited string : [%s]", str)
 	}
 
 	// KT Cloud에서 core 수를 '4vcore' or '16vCore'와 같은 형태로 제공함.(String 처리시 자리수, 대수문자 주의 필요)

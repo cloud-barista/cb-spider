@@ -15,20 +15,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
-
-	// "reflect"
-	// "crypto/aes"
-	// "crypto/cipher"
-	// "crypto/rand"
-	// "io"
 	"os"
-	"os/exec"
-
-	// "errors"
-	// "encoding/hex"
-	// "encoding/base64"
-	// "hash"
-	// "hash/fnv"
 	// "github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 
@@ -111,33 +98,6 @@ func logAndReturnError(callLogInfo call.CLOUDLOGSCHEMA, givenErrString string, v
 	cblogger.Error(newErr.Error())
 	LoggingError(callLogInfo, newErr)
 	return newErr
-}
-
-func RunCommand(cmdName string, cmdArgs []string) (string, error) {
-	/*
-	Ref)
-	var (
-		cmdOut []byte
-		cmdErr   error		
-	)
-	*/
-
-	cblogger.Infof("cmdName : %s", cmdName)
-	cblogger.Infof("cmdArgs : %s", cmdArgs)
-
-	//if cmdOut, cmdErr = exec.Command(cmdName, cmdArgs...).Output(); cmdErr != nil {
-	if cmdOut, cmdErr := exec.Command(cmdName, cmdArgs...).CombinedOutput(); cmdErr != nil {
-		fmt.Fprintln(os.Stderr, "There was an error running command: ", cmdErr)
-		//panic("Can't exec the command: " + cmdErr1.Error())
-		fmt.Println(fmt.Sprint(cmdErr) + ": " + string(cmdOut))
-		os.Exit(1)
-
-		return string(cmdOut), cmdErr
-	} else {
-	fmt.Println("cmdOut : ", string(cmdOut))
-
-	return string(cmdOut), nil
-	}
 }
 
 func CheckFolder(folderPath string) error {
