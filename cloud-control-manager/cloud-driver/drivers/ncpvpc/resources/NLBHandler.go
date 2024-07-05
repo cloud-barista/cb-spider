@@ -372,8 +372,7 @@ func (nlbHandler *NcpVpcNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	_, err = nlbHandler.WaitForDelNlb(newNlbIID) // Wait until 'provisioningStatus' is "Terminated"
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Wait For Deleting the NLB. [%v]", err.Error())
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
+		cblogger.Debug(newErr.Error())
 		// return false, newErr // Catuton!! : Incase the status is 'Terminated', fail to get NLB info.
 	}
 
@@ -1273,7 +1272,7 @@ func (nlbHandler *NcpVpcNLBHandler) WaitForDelNlb(nlbIID irs.IID) (bool, error) 
 		nlbStatus, err := nlbHandler.GetNcpNlbStatus(nlbIID)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get the NLB Provisioning Status : [%v]", err)
-			cblogger.Error(newErr.Error())
+			cblogger.Debug(newErr.Error())
 			return false, newErr
 		} else if !strings.EqualFold(nlbStatus, "Running") && !strings.EqualFold(nlbStatus, "Terminating") {
 			return true, nil
@@ -1300,8 +1299,7 @@ func (nlbHandler *NcpVpcNLBHandler) GetNcpNlbStatus(nlbIID irs.IID) (string, err
 	ncpNlbInfo, err := nlbHandler.GetNcpNlbInfo(nlbIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the NCP VPC NLB info!! [%v]", err)
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
+		cblogger.Debug(newErr.Error())
 		return "", newErr
 	}
 
@@ -1337,9 +1335,8 @@ func (nlbHandler *NcpVpcNLBHandler) GetNcpNlbInfo(nlbIID irs.IID) (*vlb.LoadBala
 	LoggingInfo(callLogInfo, callLogStart)
 
 	if *result.TotalRows < 1 {
-		newErr := fmt.Errorf("Failed to Get Any NLB Info with the ID from NCP VPC!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
+		newErr := fmt.Errorf("The NLB does not exist on NCP VPC!!")
+		cblogger.Debug(newErr.Error())
 		return nil, newErr
 	} else {
 		cblogger.Info("Succeeded in Getting the NLB Info.")
