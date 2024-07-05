@@ -86,6 +86,7 @@ CLOUDIT:
 NCP:
   region: Region / Zone
   credential: ClientId / ClientSecret
+  credential_csp_format: ncloud_access_key / ncloud_secret_key
   rootdisktype: SSD / HDD
   rootdisksize: SSD|50|100|GB / HDD|50|100|GB
   disktype: SSD / HDD
@@ -96,6 +97,7 @@ NCP:
 NCPVPC:
   region: Region / Zone
   credential: ClientId / ClientSecret
+  credential_csp_format: ncloud_access_key / ncloud_secret_key
   rootdisktype: SSD / HDD
   rootdisksize: SSD|50|100|GB / HDD|50|100|GB
   disktype: SSD / HDD
