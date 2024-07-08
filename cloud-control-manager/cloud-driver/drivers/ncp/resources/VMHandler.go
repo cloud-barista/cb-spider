@@ -248,7 +248,7 @@ func (vmHandler *NcpVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	// Create a Public IP for the New VM
 	// Caution!!) The number of Public IPs cannot be more than the number of instances on NCP cloud default service.
-	time.Sleep(time.Second * 4)
+	time.Sleep(time.Second * 5)
 	cblogger.Info("### Start Creating a Public IP!!")
 	publicIpReq := server.CreatePublicIpInstanceRequest{
 		ServerInstanceNo: 	runResult.ServerInstanceList[0].ServerInstanceNo,
@@ -358,7 +358,7 @@ func (vmHandler *NcpVMHandler) MappingServerInfo(NcpInstance *server.ServerInsta
 		cblogger.Errorf("Failed to Find Any BlockStorageInstance!!")
 		return irs.VMInfo{}, errors.New("Failed to Find Any BlockStorageInstance.")
 	}
-	cblogger.Infof("Succeeded in Getting Block Storage InstanceList!!")
+	cblogger.Info("Succeeded in Getting Block Storage InstanceList!!")
 	// spew.Dump(blockStorageResult.BlockStorageInstanceList[0])
 
 	var sgList []irs.IID
@@ -367,7 +367,7 @@ func (vmHandler *NcpVMHandler) MappingServerInfo(NcpInstance *server.ServerInsta
 			sgList = append(sgList, irs.IID{NameId: *acg.AccessControlGroupName, SystemId: *acg.AccessControlGroupConfigurationNo})
 		}
 	} else {
-		fmt.Println("AccessControlGroupList is empty or nil")
+		cblogger.Info("AccessControlGroupList is empty or nil")
 	}
 
 	// To Get the VM resources Info.
@@ -1795,7 +1795,7 @@ func (vmHandler *NcpVMHandler) checkAndSetZoneNoList(regionNo string, zoneCode s
 			}
 		}
 	} else {
-		fmt.Printf("Region No '%s' not found from the Map. So Set ZoneNo List!!\n", regionNo)
+		cblogger.Infof("Region No '%s' not found from the Map. So Set ZoneNo List!!\n", regionNo)
 
 		err := vmHandler.setZoneNoList()
 		if err != nil {

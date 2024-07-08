@@ -12,8 +12,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-
-	"github.com/davecgh/go-spew/spew"
+	// "github.com/davecgh/go-spew/spew"
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
 	cblog "github.com/cloud-barista/cb-log"
@@ -83,28 +82,28 @@ func (imageHandler *NcpVpcImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	ncpVpcRegion := imageHandler.RegionInfo.Region
 	cblogger.Infof("imageHandler.RegionInfo.Region : [%s}", ncpVpcRegion)
 
-	// Search NCP VPC All Region
-	if len(ncpVpcRegion) > 0 {
-		regionListReq := vserver.GetRegionListRequest{}
+	// // Search NCP VPC All Region
+	// if len(ncpVpcRegion) > 0 {
+	// 	regionListReq := vserver.GetRegionListRequest{}
 
-		regionListResult, err := imageHandler.VMClient.V2Api.GetRegionList(&regionListReq)
-		if err != nil {
-			cblogger.Error(*regionListResult.ReturnMessage)
-			newErr := fmt.Errorf("Failed to Get Region list!! : [%v]", err)
-			cblogger.Error(newErr.Error())
-			LoggingError(callLogInfo, newErr)
-		}
+	// 	regionListResult, err := imageHandler.VMClient.V2Api.GetRegionList(&regionListReq)
+	// 	if err != nil {
+	// 		cblogger.Error(*regionListResult.ReturnMessage)
+	// 		newErr := fmt.Errorf("Failed to Get Region list!! : [%v]", err)
+	// 		cblogger.Error(newErr.Error())
+	// 		LoggingError(callLogInfo, newErr)
+	// 	}
 
-		if *regionListResult.TotalRows < 1 {
-			cblogger.Info("### Region info does Not Exist!!")
-		}  else {
-			cblogger.Infof("Succeeded in Getting NCP VPC Region list!! : ")
-		}
+	// 	if *regionListResult.TotalRows < 1 {
+	// 		cblogger.Info("### Region info does Not Exist!!")
+	// 	}  else {
+	// 		cblogger.Infof("Succeeded in Getting NCP VPC Region list!! : ")
+	// 	}
 
-		cblogger.Infof("# Supporting All Region (by NCP VPC) Count : [%d]", len(regionListResult.RegionList))
-		cblogger.Info("\n# Supporting All Region (by NCP VPC) List : ")
-		spew.Dump(regionListResult.RegionList)
-	}
+	// 	cblogger.Infof("# Supporting All Region (by NCP VPC) Count : [%d]", len(regionListResult.RegionList))
+	// 	cblogger.Info("\n# Supporting All Region (by NCP VPC) List : ")
+	// 	spew.Dump(regionListResult.RegionList)
+	// }
 
 	imageReq := vserver.GetServerImageProductListRequest{
 		ProductCode:  	nil,

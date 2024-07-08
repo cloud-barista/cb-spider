@@ -17,10 +17,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	// "github.com/davecgh/go-spew/spew"
 
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
-	"github.com/davecgh/go-spew/spew"
 
 	cblog "github.com/cloud-barista/cb-log"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -1012,14 +1012,14 @@ func (securityHandler *NcpVpcSecurityHandler) RemoveRules(sgIID irs.IID, securit
 		}
 	}
 
-	// Return Current S/G Info.
-	sgInfo, err := securityHandler.GetSecurity(irs.IID{SystemId: sgNo})
-	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(callLogInfo, err)
-		return false, err
-	}
-	spew.Dump(sgInfo)
+	// // Return Current S/G Info.
+	// sgInfo, err := securityHandler.GetSecurity(irs.IID{SystemId: sgNo})
+	// if err != nil {
+	// 	cblogger.Error(err.Error())
+	// 	LoggingError(callLogInfo, err)
+	// 	return false, err
+	// }
+	// spew.Dump(sgInfo)
 
 	return true, nil
 }

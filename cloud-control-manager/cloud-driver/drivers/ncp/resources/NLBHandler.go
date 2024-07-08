@@ -581,18 +581,22 @@ func (nlbHandler *NcpNLBHandler) GetListenerInfo(nlb lb.LoadBalancerInstance) (i
 		Port: 		strconv.FormatInt(int64(*nlb.LoadBalancerRuleList[0].LoadBalancerPort), 10),
 		DNSName:	*nlb.DomainName,
 	}
-	virtualIPs := strings.Split(*nlb.VirtualIp, ",")	
+
+	virtualIPs := strings.Split(*nlb.VirtualIp, ",")
+
 	if len(virtualIPs) >= 2 {
-		fmt.Println("First part:", virtualIPs[0])
+		cblogger.Infof("First part: %s", virtualIPs[0])
 		listenerInfo.IP = virtualIPs[0]
 	} else {
-		fmt.Println("nlb.VirtualIp does not contain a comma.")
+		cblogger.Info("nlb.VirtualIp does not contain a comma.")
 		listenerInfo.IP = *nlb.VirtualIp
 	}
+
 	listenerKVList := []irs.KeyValue{
 		// {Key: "NLB_DomainName", Value: *nlb.DomainName},
 	}
 	listenerInfo.KeyValueList = listenerKVList
+	
 	return listenerInfo, nil
 }
 

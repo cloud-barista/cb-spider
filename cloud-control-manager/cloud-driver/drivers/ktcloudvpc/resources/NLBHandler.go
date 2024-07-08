@@ -15,7 +15,7 @@ import (
 	"strings"
 	"strconv"
 	"time"
-	"github.com/davecgh/go-spew/spew"
+	// "github.com/davecgh/go-spew/spew"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -1063,10 +1063,9 @@ func (nlbHandler *KTVpcNLBHandler) createStaticNatForNLB(ktNLB *ktvpclb.LoadBala
 	}
 	cblogger.Info("\n### Creating the Static NAT to the NLB!!")
 	time.Sleep(time.Second * 3)
+	// cblogger.Info("\n\n### natResult")
+	// spew.Dump(natResult)
 	cblogger.Infof("\n# Static NAT ID : [%s]", natResult.ID)
-
-	cblogger.Info("\n\n### natResult")
-	spew.Dump(natResult)
 
 	// ### Set FireWall Rules ("Inbound" FireWall Rules)
 	vpcHandler := KTVpcVPCHandler{
@@ -1096,7 +1095,7 @@ func (nlbHandler *KTVpcNLBHandler) createStaticNatForNLB(ktNLB *ktvpclb.LoadBala
 		cblogger.Errorf("Failed to Get Dest Net Band : [%v]", err)			
 		return "", "", err
 	} else {
-		fmt.Println(destCIDR)
+		cblogger.Infof("Dest CIDR : %s", destCIDR)
 	}
 
 	tierId, getError := vpcHandler.getTierIdWithOsNetworkId(vpcId, ktNLB.NetworkID)

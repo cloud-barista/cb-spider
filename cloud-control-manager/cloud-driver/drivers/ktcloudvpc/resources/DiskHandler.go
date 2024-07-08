@@ -579,7 +579,7 @@ func (diskHandler *KTVpcDiskHandler) mappingDiskInfo(volume volumes2.Volume) (ir
         // fmt.Printf("Image Name: %s\n", imageName)
 		keyValue = irs.KeyValue{Key: "ImageName", Value: imageName}		
     } else {
-        fmt.Println("Image Name not found in volume info.")
+		cblogger.Info("Image Name not found in volume info.")
     }
 	keyValueList = append(keyValueList, keyValue)
 	diskInfo.KeyValueList = keyValueList
@@ -613,13 +613,13 @@ func (diskHandler *KTVpcDiskHandler) getImageNameandIDWithDiskID(diskId string) 
 		// Extract the image name
 		imageName, ok := diskResult.VolumeImageMetadata["image_name"]
 		if !ok {
-			fmt.Println("Image Name not found")
+			cblogger.Info("Image Name not found")
 		}
 
 		// Extract the image id
 		imageId, ok := diskResult.VolumeImageMetadata["image_id"]
 		if !ok {
-			fmt.Println("Image ID not found")
+			cblogger.Info("Image ID not found")
 		}
 		
 		if !strings.EqualFold(imageName, "") && !strings.EqualFold(imageId, "") {

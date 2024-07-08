@@ -970,8 +970,8 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(vpcIID irs.II
 					if err != nil {
 						cblogger.Errorf("Failed to Get Dest Net Band : [%v]", err)			
 						return false, err
-					} else {
-						fmt.Println(destCIDR)
+					} else {						
+						cblogger.Infof("Dest CIDR : %s", destCIDR)
 					}
 
 					// After Port-Forwarding Creation!!
@@ -1051,10 +1051,10 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(vpcIID irs.II
 
 					srcCIDR, err := ipToCidr32(privateIP) // Output format ex) "172.25.1.5/32",  ipToCidr24() : Output format ex) "172.25.1.0/24"
 					if err != nil {
-						cblogger.Errorf("Failed to Get Dest Net Band : [%v]", err)			
+						cblogger.Errorf("Failed to Get Source Net Band : [%v]", err)			
 						return false, err
 					} else {
-						fmt.Println(srcCIDR)
+						cblogger.Infof("Source CIDR : %s", srcCIDR)
 					}
 
 					// Set FireWall Rules
