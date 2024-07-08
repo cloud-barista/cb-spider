@@ -83,6 +83,7 @@ var resTypeList = []call.RES_TYPE{
 	call.VM,
 	call.MYIMAGE,
 	call.NLB,
+	call.TAG,
 }
 
 func setRandom(info *call.CLOUDLOGSCHEMA) {
