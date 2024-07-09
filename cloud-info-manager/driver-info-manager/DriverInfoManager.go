@@ -21,6 +21,7 @@ import (
 
 // ====================================================================
 const KEY_COLUMN_NAME = "driver_name"
+const PROVIDER_NAME_COLUMN = "provider_name"
 
 type CloudDriverInfo struct {
 	DriverName        string `gorm:"primaryKey"` // ex) "AWS-Test-Driver-V0.5"
@@ -88,6 +89,18 @@ func ListCloudDriver() ([]*CloudDriverInfo, error) {
 
 	var cloudDriverInfoList []*CloudDriverInfo
 	err := infostore.List(&cloudDriverInfoList)
+	if err != nil {
+		return nil, err
+	}
+
+	return cloudDriverInfoList, nil
+}
+
+func ListCloudDriverByProvider(providerName string) ([]*CloudDriverInfo, error) {
+	cblog.Info("call ListCloudDriverByProvider()")
+
+	var cloudDriverInfoList []*CloudDriverInfo
+	err := infostore.ListByCondition(&cloudDriverInfoList, PROVIDER_NAME_COLUMN, providerName)
 	if err != nil {
 		return nil, err
 	}

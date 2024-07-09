@@ -14,6 +14,7 @@ import (
 type CloudOSMetaInfo struct {
 	Region               []string
 	Credential           []string
+	CredentialCSP        []string
 	RootDiskType         []string
 	RootDiskSize         []string
 	DiskType             []string
@@ -26,6 +27,7 @@ type CloudOSMetaInfo struct {
 type YamlMetaInfo struct {
 	Region               string
 	Credential           string
+	CredentialCSP        string
 	RootDiskType         string
 	RootDiskSize         string
 	DiskType             string
@@ -66,6 +68,7 @@ func GetCloudOSMetaInfo(cloudOS string) (CloudOSMetaInfo, error) {
 	ret := CloudOSMetaInfo{
 		Region:               cloneSlice(mInfo.Region),
 		Credential:           cloneSlice(mInfo.Credential),
+		CredentialCSP:        cloneSlice(mInfo.CredentialCSP),
 		RootDiskType:         cloneSlice(mInfo.RootDiskType),
 		RootDiskSize:         cloneSlice(mInfo.RootDiskSize),
 		DiskType:             cloneSlice(mInfo.DiskType),
@@ -126,6 +129,7 @@ func convertAndSetMetaInfo(yamlMetaInfo map[string]YamlMetaInfo) {
 		cloudOSMetaInfo := CloudOSMetaInfo{
 			Region:               splitAndTrim(v.Region),
 			Credential:           splitAndTrim(v.Credential),
+			CredentialCSP:        splitAndTrim(v.CredentialCSP),
 			RootDiskType:         splitAndTrim(v.RootDiskType),
 			RootDiskSize:         splitAndTrim(v.RootDiskSize),
 			DiskType:             splitAndTrim(v.DiskType),

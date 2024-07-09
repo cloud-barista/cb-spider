@@ -24,6 +24,7 @@ import (
 
 // ====================================================================
 const KEY_COLUMN_NAME = "region_name"
+const PROVIDER_NAME_COLUMN = "provider_name"
 
 type RegionInfo struct {
 	RegionName        string           `gorm:"primaryKey"` // ex) "region01"
@@ -85,6 +86,18 @@ func ListRegion() ([]*RegionInfo, error) {
 
 	var regionInfoList []*RegionInfo
 	err := infostore.List(&regionInfoList)
+	if err != nil {
+		return nil, err
+	}
+
+	return regionInfoList, nil
+}
+
+func ListRegionByProvider(providerName string) ([]*RegionInfo, error) {
+	cblog.Info("call ListRegionByProvider()")
+
+	var regionInfoList []*RegionInfo
+	err := infostore.ListByCondition(&regionInfoList, PROVIDER_NAME_COLUMN, providerName)
 	if err != nil {
 		return nil, err
 	}
