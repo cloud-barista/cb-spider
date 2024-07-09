@@ -163,7 +163,8 @@ func (vmSpecHandler *NhnCloudVMSpecHandler) mappingVMSpecInfo(vmSpec flavors.Fla
 		// Gpu:          []irs.GpuInfo{{Count: "N/A", Mfr: "N/A", Model: "N/A", Mem: "N/A"}},
 
 		KeyValueList: []irs.KeyValue{
-			{Key: "Region", Value: vmSpecHandler.RegionInfo.Region},
+			{Key: "Region", 		   Value: vmSpecHandler.RegionInfo.Region},
+			{Key: "VMSpecType", 	   Value: vmSpec.ExtraSpecs.FlavorType},			
 			{Key: "LocalDiskSize(GB)", Value: strconv.Itoa(vmSpec.Disk)},
 		},
 	}
