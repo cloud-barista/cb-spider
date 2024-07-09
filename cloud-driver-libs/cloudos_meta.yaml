@@ -124,7 +124,7 @@ NHNCLOUD:
 KTCLOUD:
   region: Region / Zone
   credential: ClientId / ClientSecret
-  credential_csp_format: apikey / secretkey
+  credential_csp_format: API_Key / Secret_Key
   rootdisktype: HDD / SSD
   rootdisksize: HDD|20|50|GB / SSD|20|50|GB
   disktype: HDD / SSD-Provisioned
