@@ -9,7 +9,7 @@
 AWS:
   region: Region / Zone
   credential: ClientId / ClientSecret
-  credential_csp_format: aws_access_key_id / aws_secret_access_key
+  credentialcsp: aws_access_key_id / aws_secret_access_key
   # rootdisktype: standard / io1 / io2 / gp2 / sc1 / st1 / gp3
   # issues: https://github.com/cloud-barista/cb-spider/pull/523#issuecomment-965363272
   rootdisktype: standard / gp2 / gp3
@@ -22,7 +22,7 @@ AWS:
 AZURE:
   region: Region / Zone
   credential: ClientId / ClientSecret / TenantId / SubscriptionId
-  credential_csp_format: clientId / clientSecret / tenantId / subscriptionId
+  credentialcsp: clientId / clientSecret / tenantId / subscriptionId
   # type issues: https://github.com/cloud-barista/cb-spider/pull/529#issue-1051678985
   rootdisktype: PremiumSSD / StandardSSD / StandardHDD
   disktype: PremiumSSD / StandardSSD / StandardHDD
@@ -32,7 +32,7 @@ AZURE:
 GCP:
   region: Region / Zone
   credential: PrivateKey / ProjectID / ClientEmail
-  credential_csp_format: private_key / project_id / client_email
+  credentialcsp: private_key / project_id / client_email
   rootdisktype: pd-standard / pd-balanced / pd-ssd / pd-extreme
   disktype: pd-standard / pd-balanced / pd-ssd / pd-extreme
   disksize: pd-standard|10|65536|GB / pd-balanced|10|65536|GB / pd-ssd|10|65536|GB / pd-extreme|500|65536|GB
@@ -43,7 +43,7 @@ GCP:
 ALIBABA:
   region: Region / Zone
   credential: ClientId / ClientSecret
-  credential_csp_format: AccessKeyId / AccessKeySecret
+  credentialcsp: AccessKeyId / AccessKeySecret
   rootdisktype: cloud_essd / cloud_efficiency / cloud / cloud_ssd
   #rootdisktype: cloud_efficiency / cloud / cloud_ssd
   rootdisksize: cloud_essd|20|32768|GB / cloud_efficiency|20|32768|GB / cloud|5|2000|GB / cloud_ssd|20|32768|GB
@@ -57,7 +57,7 @@ ALIBABA:
 TENCENT:
   region: Region / Zone
   credential: ClientId / ClientSecret
-  credential_csp_format: SecretId / SecretKey
+  credentialcsp: SecretId / SecretKey
   #rootdisktype: CLOUD_PREMIUM / LOCAL_BASIC / LOCAL_SSD / CLOUD_BASIC / CLOUD_SSD
   rootdisktype: CLOUD_PREMIUM / CLOUD_SSD
   rootdisksize: CLOUD_PREMIUM|50|16000|GB / CLOUD_SSD|50|16000|GB
@@ -70,28 +70,28 @@ TENCENT:
 IBM:
   region: Region / Zone
   credential: ApiKey
-  credential_csp_format: ApiKey
+  credentialcsp: ApiKey
   #idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
   idmaxlength: 63 / 63 / 63 / 63 / 63 / 63 / 63 / 63 / 63
 
 OPENSTACK:
   region: Region
   credential: IdentityEndpoint / Username / Password / DomainName / ProjectID
-  credential_csp_format: IdentityEndpoint / Username / Password / DomainName / ProjectID
+  credentialcsp: IdentityEndpoint / Username / Password / DomainName / ProjectID
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage
   idmaxlength: 255 / 255 / 255 / 255 / 255 / 255 / 255 / 255
 
 CLOUDIT:
   region: Region
   credential: IdentityEndpoint / AuthToken / Username / Password / TenantId / ClusterId
-  credential_csp_format: IdentityEndpoint / AuthToken / Username / Password / TenantId / ClusterId
+  credentialcsp: IdentityEndpoint / AuthToken / Username / Password / TenantId / ClusterId
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
   idmaxlength: 0 / 45 / 45 / 0 / 45 / 45 / 45 / 45 / 45
 
 NCP:
   region: Region / Zone
   credential: ClientId / ClientSecret
-  credential_csp_format: ncloud_access_key / ncloud_secret_key
+  credentialcsp: ncloud_access_key / ncloud_secret_key
   rootdisktype: SSD / HDD
   rootdisksize: SSD|50|100|GB / HDD|50|100|GB
   disktype: SSD / HDD
@@ -102,7 +102,7 @@ NCP:
 NCPVPC:
   region: Region / Zone
   credential: ClientId / ClientSecret
-  credential_csp_format: ncloud_access_key / ncloud_secret_key
+  credentialcsp: ncloud_access_key / ncloud_secret_key
   rootdisktype: SSD / HDD
   rootdisksize: SSD|50|100|GB / HDD|50|100|GB
   disktype: SSD / HDD
@@ -113,7 +113,7 @@ NCPVPC:
 NHNCLOUD:
   region: Region / Zone
   credential: IdentityEndpoint / Username / Password / DomainName / TenantId
-  credential_csp_format: IdentityEndpoint / Username / Password / DomainName / TenantId
+  credentialcsp: IdentityEndpoint / Username / Password / DomainName / TenantId
   rootdisktype: General_HDD / General_SSD
   rootdisksize: General_HDD|20|1000|GB / General_SSD|20|1000|GB
   disktype: General_HDD / General_SSD
@@ -124,7 +124,7 @@ NHNCLOUD:
 KTCLOUD:
   region: Region / Zone
   credential: ClientId / ClientSecret
-  credential_csp_format: API_Key / Secret_Key
+  credentialcsp: API_Key / Secret_Key
   rootdisktype: HDD / SSD
   rootdisksize: HDD|20|50|GB / SSD|20|50|GB
   disktype: HDD / SSD-Provisioned
@@ -135,7 +135,7 @@ KTCLOUD:
 KTCLOUDVPC:
   region: Region / Zone
   credential: IdentityEndpoint / Username / Password / DomainName / ProjectID
-  credential_csp_format: IdentityEndpoint / Username / Password / DomainName / ProjectID
+  credentialcsp: IdentityEndpoint / Username / Password / DomainName / ProjectID
   rootdisktype: HDD / SSD
   rootdisksize: HDD|50|100|GB / SSD|50|100|GB
   disktype: HDD / SSD
@@ -148,7 +148,7 @@ KTCLOUDVPC:
 DOCKER:
   region: Region
   credential: Host / APIVersion
-  credential_csp_format: Host / APIVersion
+  credentialcsp: Host / APIVersion
 
 
 #--- Emulation
@@ -156,7 +156,7 @@ DOCKER:
 MOCK:
   region: Region
   credential: MockName
-  credential_csp_format: MockName
+  credentialcsp: MockName
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
   idmaxlength: 255 / 255 / 255 / 255 / 255 / 255 / 255 / 255 / 255
   rootdisktype: SSD /HDD / MEM
@@ -166,5 +166,5 @@ MOCK:
 CLOUDTWIN:
   region: Region
   credential: IdentityEndpoint / DomainName / MockName
-  credential_csp_format: IdentityEndpoint / DomainName / MockName
+  credentialcsp: IdentityEndpoint / DomainName / MockName
 
