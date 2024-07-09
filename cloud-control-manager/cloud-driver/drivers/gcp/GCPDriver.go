@@ -18,6 +18,7 @@ import (
 
 	gcpcon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp/connect"
 	gcps "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp/resources"
+	ires "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
@@ -62,6 +63,8 @@ func (GCPDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.RegionZoneHandler = true
 	drvCapabilityInfo.ClusterHandler = true
 	drvCapabilityInfo.PriceInfoHandler = true
+	drvCapabilityInfo.TagHandler = true
+	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.VM, ires.DISK, ires.CLUSTER}
 
 	return drvCapabilityInfo
 }
