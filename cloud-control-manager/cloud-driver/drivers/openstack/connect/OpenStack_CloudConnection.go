@@ -151,5 +151,14 @@ func (*OpenStackCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler,
 }
 
 func (cloudConn *OpenStackCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
-	return nil, errors.New("OpenStack Driver: : not implemented")
+	cblogger.Info("OpenStack Driver: called CreateTagHandler()!")
+
+	tagHandler := osrs.OpenStackTagHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
+		IdentityClient: cloudConn.IdentityClient,
+		ComputeClient:  cloudConn.ComputeClient,
+		NetworkClient:  cloudConn.NetworkClient,
+		NLBClient:      cloudConn.NLBClient,
+	}
+	return &tagHandler, nil
 }
