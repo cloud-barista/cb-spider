@@ -1777,7 +1777,7 @@ func handlePriceInfo() {
 	}
 }
 
-// Test AMI
+// Test Tag
 func handleTag() {
 	cblogger.Debug("Start TagHandler Resource Test")
 
@@ -1790,7 +1790,7 @@ func handleTag() {
 	var reqType irs.RSType = irs.VM
 	reqIID := irs.IID{SystemId: "i-02ac1c4ff1d40815c"}
 	reqTag := irs.KeyValue{Key: "tag3", Value: "태그3"}
-	reqKey := "Name"
+	reqKey := "tag3"
 
 	for {
 		fmt.Println("TagHandler Management")
@@ -1800,7 +1800,6 @@ func handleTag() {
 		fmt.Println("3. Tag Get")
 		fmt.Println("4. Tag Delete")
 		fmt.Println("5. Tag Find")
-		fmt.Println("6. Tag Create")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -1842,6 +1841,8 @@ func handleTag() {
 					cblogger.Infof(reqIID.SystemId, " Tag 생성 실패 : ", err)
 				} else {
 					cblogger.Info("Tag 생성 결과 : ", result)
+					reqKey = result.Key
+					cblogger.Infof("요청 대상 Tag Key가 [%s]로 변경 됨", reqKey)
 					spew.Dump(result)
 				}
 
@@ -1864,7 +1865,7 @@ func handleTag() {
 					cblogger.Infof("[%s] Tag 삭제 결과 : [%v]", reqKey, result)
 				}
 
-			case 7:
+			case 5:
 
 			}
 		}
