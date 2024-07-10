@@ -425,6 +425,7 @@ func (tagHandler *OpenStackTagHandler) FindTag(resType irs.RSType, keyword strin
 				tagInfo := getTagInfo(resType, vpc.Name, vpc.ID, tag, vpc.Tags, keyword)
 				if tagInfo != nil {
 					tagInfos = append(tagInfos, tagInfo)
+					break
 				}
 			}
 		}
@@ -451,6 +452,7 @@ func (tagHandler *OpenStackTagHandler) FindTag(resType irs.RSType, keyword strin
 				tagInfo := getTagInfo(resType, subnet.Name, subnet.ID, tag, subnet.Tags, keyword)
 				if tagInfo != nil {
 					tagInfos = append(tagInfos, tagInfo)
+					break
 				}
 			}
 		}
@@ -487,6 +489,7 @@ func (tagHandler *OpenStackTagHandler) FindTag(resType irs.RSType, keyword strin
 				tagInfo := getTagInfo(resType, sg.Name, sg.ID, tag, tags, keyword)
 				if tagInfo != nil {
 					tagInfos = append(tagInfos, tagInfo)
+					break
 				}
 			}
 		}
@@ -513,6 +516,7 @@ func (tagHandler *OpenStackTagHandler) FindTag(resType irs.RSType, keyword strin
 				tagInfo := getTagInfo(resType, nlb.Name, nlb.ID, tag, nlb.Tags, keyword)
 				if tagInfo != nil {
 					tagInfos = append(tagInfos, tagInfo)
+					break
 				}
 			}
 		}
@@ -537,6 +541,7 @@ func (tagHandler *OpenStackTagHandler) FindTag(resType irs.RSType, keyword strin
 					tagInfo := getTagInfo(resType, vm.Name, vm.ID, tag, *vm.Tags, keyword)
 					if tagInfo != nil {
 						tagInfos = append(tagInfos, tagInfo)
+						break
 					}
 				}
 			}
