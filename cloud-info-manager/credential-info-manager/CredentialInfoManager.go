@@ -29,6 +29,7 @@ import (
 
 // ====================================================================
 const KEY_COLUMN_NAME = "credential_name"
+const PROVIDER_NAME_COLUMN = "provider_name"
 
 type CredentialInfo struct {
 	CredentialName   string           `gorm:"primaryKey"` // ex) "credential01"
@@ -55,19 +56,24 @@ func init() {
 func RegisterCredentialInfo(crdInfo CredentialInfo) (*CredentialInfo, error) {
 	cblog.Info("call RegisterCredentialInfo()")
 
-	cblog.Debug("check params")
-	err := checkParams(crdInfo.CredentialName, crdInfo.ProviderName, crdInfo.KeyValueInfoList)
+	// If Input credential Key are csp format, we convert Key Names to spider Key Names
+	kvInfoList, err := MapCredentialsCSPKeyToSpiderKeys(crdInfo.ProviderName, crdInfo.KeyValueInfoList)
 	if err != nil {
 		return nil, err
+	}
+	crdInfo.KeyValueInfoList = kvInfoList
 
+	// check params and validation of credential-key
+	err = checkParams(crdInfo.CredentialName, crdInfo.ProviderName, crdInfo.KeyValueInfoList)
+	if err != nil {
+		return nil, err
 	}
 
 	// trim user inputs
 	crdInfo.CredentialName = strings.TrimSpace(crdInfo.CredentialName)
 	crdInfo.ProviderName = strings.ToUpper(strings.TrimSpace(crdInfo.ProviderName))
 
-	cblog.Debug("insert metainfo into store")
-
+	// insert metainfo into store
 	err = encryptKeyValueList(crdInfo.KeyValueInfoList)
 	if err != nil {
 		return &CredentialInfo{}, err
@@ -89,6 +95,35 @@ func RegisterCredentialInfo(crdInfo CredentialInfo) (*CredentialInfo, error) {
 	return &crdInfo, nil
 }
 
+func MapCredentialsCSPKeyToSpiderKeys(providerName string, kvList infostore.KVList) (infostore.KVList, error) {
+	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo(providerName)
+	if err != nil {
+		cblog.Error(err)
+		return infostore.KVList{}, err
+	}
+	// Create a map for CredentialCSP to Credential
+	cspToSpiderMap := make(map[string]string)
+	for i, cspKey := range cloudOSMetaInfo.CredentialCSP {
+		if i < len(cloudOSMetaInfo.Credential) {
+			cspToSpiderMap[cspKey] = cloudOSMetaInfo.Credential[i]
+		}
+	}
+
+	// Map the KeyValueInfoList keys to Spider keys
+	mappedKVList := infostore.KVList{}
+	for _, kv := range kvList {
+		if spiderKey, found := cspToSpiderMap[kv.Key]; found {
+			mappedKVList = append(mappedKVList, icdrs.KeyValue{Key: spiderKey, Value: kv.Value})
+		} else {
+			// If the key is not found in the map, keep the original key
+			mappedKVList = append(mappedKVList, kv)
+		}
+	}
+
+	// Return the updated CredentialInfo with mapped keys
+	return mappedKVList, nil
+}
+
 func RegisterCredential(credentialName string, providerName string, keyValueInfoList []icdrs.KeyValue) (*CredentialInfo, error) {
 	cblog.Info("call RegisterCredential()")
 
@@ -100,6 +135,32 @@ func ListCredential() ([]*CredentialInfo, error) {
 
 	var credentialInfoList []*CredentialInfo
 	err := infostore.List(&credentialInfoList)
+	if err != nil {
+		return nil, err
+	}
+
+	// Hide credential data for security
+	returnInfoList := []*CredentialInfo{}
+	for _, info := range credentialInfoList {
+
+		kvList := []icdrs.KeyValue{}
+		for _, kv := range info.KeyValueInfoList {
+			kv.Value = "Hidden for security."
+			kvList = append(kvList, kv)
+		}
+		info.KeyValueInfoList = kvList
+
+		returnInfoList = append(returnInfoList, info)
+	}
+
+	return returnInfoList, nil
+}
+
+func ListCredentialByProvider(providerName string) ([]*CredentialInfo, error) {
+	cblog.Info("call ListCredentialByProvider()")
+
+	var credentialInfoList []*CredentialInfo
+	err := infostore.ListByCondition(&credentialInfoList, PROVIDER_NAME_COLUMN, providerName)
 	if err != nil {
 		return nil, err
 	}
