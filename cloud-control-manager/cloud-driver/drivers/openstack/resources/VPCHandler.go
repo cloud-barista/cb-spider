@@ -3,6 +3,7 @@ package resources
 import (
 	"errors"
 	"fmt"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/external"
@@ -19,8 +20,11 @@ const (
 )
 
 type OpenStackVPCHandler struct {
-	Client   *gophercloud.ServiceClient
-	VMClient *gophercloud.ServiceClient
+	CredentialInfo idrv.CredentialInfo
+	IdentityClient *gophercloud.ServiceClient
+	ComputeClient  *gophercloud.ServiceClient
+	NetworkClient  *gophercloud.ServiceClient
+	NLBClient      *gophercloud.ServiceClient
 }
 
 type NetworkWithExt struct {
@@ -29,6 +33,11 @@ type NetworkWithExt struct {
 }
 
 func (vpcHandler *OpenStackVPCHandler) setterVPC(nvpc NetworkWithExt) *irs.VPCInfo {
+	var tags []irs.KeyValue
+
+	for _, tag := range nvpc.Tags {
+		tags = append(tags, tagsToKeyValue(tag))
+	}
 
 	// VPC 정보 맵핑
 	vpcInfo := irs.VPCInfo{
@@ -36,6 +45,7 @@ func (vpcHandler *OpenStackVPCHandler) setterVPC(nvpc NetworkWithExt) *irs.VPCIn
 			NameId:   nvpc.Name,
 			SystemId: nvpc.ID,
 		},
+		TagList: tags,
 	}
 	var External string
 	if nvpc.External == true {
@@ -65,24 +75,31 @@ func (vpcHandler *OpenStackVPCHandler) setterVPC(nvpc NetworkWithExt) *irs.VPCIn
 }
 
 func (vpcHandler *OpenStackVPCHandler) setterSubnet(subnet subnets.Subnet) *irs.SubnetInfo {
+	var tags []irs.KeyValue
+
+	for _, tag := range subnet.Tags {
+		tags = append(tags, tagsToKeyValue(tag))
+	}
+
 	subnetInfo := irs.SubnetInfo{
 		IId: irs.IID{
 			NameId:   subnet.Name,
 			SystemId: subnet.ID,
 		},
 		IPv4_CIDR: subnet.CIDR,
+		TagList:   tags,
 	}
 	return &subnetInfo
 }
 
 func (vpcHandler *OpenStackVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (createdVPC irs.VPCInfo, createErr error) {
 	// log HisCall
-	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, vpcReqInfo.IId.NameId, "CreateVPC()")
+	hiscallInfo := GetCallLogScheme(vpcHandler.NetworkClient.IdentityEndpoint, call.VPCSUBNET, vpcReqInfo.IId.NameId, "CreateVPC()")
 	start := call.Start()
 
 	// Check VPC Exists
 	listOpts := networks.ListOpts{Name: vpcReqInfo.IId.NameId}
-	page, err := networks.List(vpcHandler.Client, listOpts).AllPages()
+	page, err := networks.List(vpcHandler.NetworkClient, listOpts).AllPages()
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
@@ -108,7 +125,7 @@ func (vpcHandler *OpenStackVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (cre
 		Name: vpcReqInfo.IId.NameId,
 	}
 
-	vpc, err := networks.Create(vpcHandler.Client, createOpts).Extract()
+	vpc, err := networks.Create(vpcHandler.NetworkClient, createOpts).Extract()
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create VPC with name %s err=%s and Finished to rollback deleting", vpcReqInfo.IId.NameId, err.Error()))
 		cblogger.Error(createErr.Error())
@@ -152,6 +169,29 @@ func (vpcHandler *OpenStackVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (cre
 		}
 	}
 
+	// Tagging
+	tagHandler := OpenStackTagHandler{
+		CredentialInfo: vpcHandler.CredentialInfo,
+		IdentityClient: vpcHandler.IdentityClient,
+		ComputeClient:  vpcHandler.ComputeClient,
+		NetworkClient:  vpcHandler.NetworkClient,
+		NLBClient:      vpcHandler.NLBClient,
+	}
+
+	var errTags []irs.KeyValue
+	var errMsg string
+	for _, tag := range vpcReqInfo.TagList {
+		_, err = tagHandler.AddTag(irs.VPC, irs.IID{SystemId: vpc.ID}, tag)
+		if err != nil {
+			cblogger.Error(err)
+			errTags = append(errTags, tag)
+			errMsg += err.Error() + ", "
+		}
+	}
+	if len(errTags) > 0 {
+		return irs.VPCInfo{}, returnTaggingError(errTags, errMsg[:len(errMsg)-2])
+	}
+
 	vpcInfo, err := vpcHandler.GetVPC(irs.IID{SystemId: vpc.ID})
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = %s", err.Error()))
@@ -178,14 +218,14 @@ func (vpcHandler *OpenStackVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (cre
 }
 func (vpcHandler *OpenStackVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	// log HisCall
-	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, VPC, "ListVPC()")
+	hiscallInfo := GetCallLogScheme(vpcHandler.NetworkClient.IdentityEndpoint, call.VPCSUBNET, VPC, "ListVPC()")
 
 	listOpts := external.ListOptsExt{
 		ListOptsBuilder: networks.ListOpts{},
 	}
 
 	start := call.Start()
-	page, err := networks.List(vpcHandler.Client, listOpts).AllPages()
+	page, err := networks.List(vpcHandler.NetworkClient, listOpts).AllPages()
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List VPC err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -214,7 +254,7 @@ func (vpcHandler *OpenStackVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 
 func (vpcHandler *OpenStackVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 	// log HisCall
-	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, vpcIID.NameId, "GetVPC()")
+	hiscallInfo := GetCallLogScheme(vpcHandler.NetworkClient.IdentityEndpoint, call.VPCSUBNET, vpcIID.NameId, "GetVPC()")
 	//var vpc NetworkWithExt
 	start := call.Start()
 	vpc, err := vpcHandler.getRawVPC(vpcIID)
@@ -231,7 +271,7 @@ func (vpcHandler *OpenStackVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, erro
 
 func (vpcHandler *OpenStackVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	// log HisCall
-	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, vpcIID.NameId, "DeleteVPC()")
+	hiscallInfo := GetCallLogScheme(vpcHandler.NetworkClient.IdentityEndpoint, call.VPCSUBNET, vpcIID.NameId, "DeleteVPC()")
 
 	start := call.Start()
 	err := vpcHandler.vpcCleaner(vpcIID)
@@ -254,17 +294,42 @@ func (vpcHandler *OpenStackVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo 
 		IPVersion:      gophercloud.IPv4,
 		DNSNameservers: []string{DNSNameservers},
 	}
-	subnet, err := subnets.Create(vpcHandler.Client, subnetCreateOpts).Extract()
+	subnet, err := subnets.Create(vpcHandler.NetworkClient, subnetCreateOpts).Extract()
 	if err != nil {
 		cblogger.Error("Failed to Create Subnet with name %s, err=%s", reqSubnetInfo.IId.NameId, err)
 		return irs.SubnetInfo{}, err
 	}
+
+	// Tagging
+	tagHandler := OpenStackTagHandler{
+		CredentialInfo: vpcHandler.CredentialInfo,
+		IdentityClient: vpcHandler.IdentityClient,
+		ComputeClient:  vpcHandler.ComputeClient,
+		NetworkClient:  vpcHandler.NetworkClient,
+		NLBClient:      vpcHandler.NLBClient,
+	}
+
+	var errTags []irs.KeyValue
+	var errMsg string
+	for _, tag := range reqSubnetInfo.TagList {
+		_, err = tagHandler.AddTag(irs.SUBNET, irs.IID{SystemId: subnet.ID}, tag)
+		if err != nil {
+			cblogger.Error(err)
+			errTags = append(errTags, tag)
+			errMsg += err.Error() + ", "
+		}
+	}
+	if len(errTags) > 0 {
+		return irs.SubnetInfo{}, returnTaggingError(errTags, errMsg[:len(errMsg)-2])
+	}
+
 	subnetInfo := vpcHandler.setterSubnet(*subnet)
+
 	return *subnetInfo, nil
 }
 
 func (vpcHandler *OpenStackVPCHandler) GetSubnet(subnetIId irs.IID) (irs.SubnetInfo, error) {
-	subnet, err := subnets.Get(vpcHandler.Client, subnetIId.SystemId).Extract()
+	subnet, err := subnets.Get(vpcHandler.NetworkClient, subnetIId.SystemId).Extract()
 	if err != nil {
 		cblogger.Error("Failed to Get Subnet with Id %s, err=%s", subnetIId.SystemId, err)
 		return irs.SubnetInfo{}, nil
@@ -274,7 +339,7 @@ func (vpcHandler *OpenStackVPCHandler) GetSubnet(subnetIId irs.IID) (irs.SubnetI
 }
 
 func (vpcHandler *OpenStackVPCHandler) DeleteSubnet(subnetIId irs.IID) (bool, error) {
-	err := subnets.Delete(vpcHandler.Client, subnetIId.SystemId).ExtractErr()
+	err := subnets.Delete(vpcHandler.NetworkClient, subnetIId.SystemId).ExtractErr()
 	if err != nil {
 		cblogger.Error("Failed to Delete Subnet with Id %s, err=%s", subnetIId.SystemId, err)
 		return false, err
@@ -283,7 +348,7 @@ func (vpcHandler *OpenStackVPCHandler) DeleteSubnet(subnetIId irs.IID) (bool, er
 }
 
 func (vpcHandler *OpenStackVPCHandler) CreateRouter(vpcName string) (*string, error) {
-	externVPCId, _ := GetPublicVPCInfo(vpcHandler.Client, "ID")
+	externVPCId, _ := GetPublicVPCInfo(vpcHandler.NetworkClient, "ID")
 	routerName := vpcName
 	AdminStateUp := true
 	createOpts := routers.CreateOpts{
@@ -295,7 +360,7 @@ func (vpcHandler *OpenStackVPCHandler) CreateRouter(vpcName string) (*string, er
 	}
 
 	// Create Router
-	router, err := routers.Create(vpcHandler.Client, createOpts).Extract()
+	router, err := routers.Create(vpcHandler.NetworkClient, createOpts).Extract()
 	if err != nil {
 		return nil, err
 	}
@@ -306,7 +371,7 @@ func (vpcHandler *OpenStackVPCHandler) GetRouter(vpcName string) (*string, error
 	// Get Router Info
 	routerName := vpcName
 	listOpts := routers.ListOpts{Name: routerName}
-	page, err := routers.List(vpcHandler.Client, listOpts).AllPages()
+	page, err := routers.List(vpcHandler.NetworkClient, listOpts).AllPages()
 	if err != nil {
 		cblogger.Error("Failed to Get Router List, err=%s", err)
 		return nil, err
@@ -338,7 +403,7 @@ func (vpcHandler *OpenStackVPCHandler) DeleteRouter(vpcName string) (bool, error
 		return false, err
 	}
 	// Delete Router
-	err = routers.Delete(vpcHandler.Client, *routerId).ExtractErr()
+	err = routers.Delete(vpcHandler.NetworkClient, *routerId).ExtractErr()
 	if err != nil {
 		cblogger.Error("Failed to Delete Router with Id %s, err=%s", routerId)
 		return false, err
@@ -352,7 +417,7 @@ func (vpcHandler *OpenStackVPCHandler) AddInterface(subnetId string, routerId st
 	}
 
 	// Add Interface
-	_, err := routers.AddInterface(vpcHandler.Client, routerId, createOpts).Extract()
+	_, err := routers.AddInterface(vpcHandler.NetworkClient, routerId, createOpts).Extract()
 	if err != nil {
 		return false, err
 	}
@@ -365,7 +430,7 @@ func (vpcHandler *OpenStackVPCHandler) DeleteInterface(subnetId string, routerId
 	}
 
 	// Delete Interface
-	_, err := routers.RemoveInterface(vpcHandler.Client, routerId, deleteOpts).Extract()
+	_, err := routers.RemoveInterface(vpcHandler.NetworkClient, routerId, deleteOpts).Extract()
 	if err != nil {
 		return false, err
 	}
@@ -374,7 +439,7 @@ func (vpcHandler *OpenStackVPCHandler) DeleteInterface(subnetId string, routerId
 
 func (vpcHandler *OpenStackVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
 	// log HisCall
-	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, subnetInfo.IId.NameId, "AddSubnet()")
+	hiscallInfo := GetCallLogScheme(vpcHandler.NetworkClient.IdentityEndpoint, call.VPCSUBNET, subnetInfo.IId.NameId, "AddSubnet()")
 
 	subnetCreateOpts := subnets.CreateOpts{
 		NetworkID:      vpcIID.SystemId,
@@ -385,7 +450,7 @@ func (vpcHandler *OpenStackVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.
 	}
 
 	start := call.Start()
-	_, err := subnets.Create(vpcHandler.Client, subnetCreateOpts).Extract()
+	_, err := subnets.Create(vpcHandler.NetworkClient, subnetCreateOpts).Extract()
 	if err != nil {
 		addSubnetErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err.Error()))
 		cblogger.Error(addSubnetErr.Error())
@@ -406,10 +471,10 @@ func (vpcHandler *OpenStackVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.
 
 func (vpcHandler *OpenStackVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
 	// log HisCall
-	hiscallInfo := GetCallLogScheme(vpcHandler.Client.IdentityEndpoint, call.VPCSUBNET, subnetIID.NameId, "RemoveSubnet()")
+	hiscallInfo := GetCallLogScheme(vpcHandler.NetworkClient.IdentityEndpoint, call.VPCSUBNET, subnetIID.NameId, "RemoveSubnet()")
 
 	start := call.Start()
-	err := subnets.Delete(vpcHandler.Client, subnetIID.SystemId).ExtractErr()
+	err := subnets.Delete(vpcHandler.NetworkClient, subnetIID.SystemId).ExtractErr()
 	if err != nil {
 		delErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = %s", err.Error()))
 		cblogger.Error(delErr.Error())
@@ -424,7 +489,7 @@ func (vpcHandler *OpenStackVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID ir
 func (vpcHandler *OpenStackVPCHandler) getRawRouter(vpcName string) (router routers.Router, err error) {
 	routerName := vpcName
 	listOpts := routers.ListOpts{Name: routerName}
-	page, err := routers.List(vpcHandler.Client, listOpts).AllPages()
+	page, err := routers.List(vpcHandler.NetworkClient, listOpts).AllPages()
 	if err != nil {
 		cblogger.Error("Failed to Get Router List, err=%s", err)
 		return routers.Router{}, err
@@ -448,7 +513,7 @@ func (vpcHandler *OpenStackVPCHandler) vpcCleaner(vpcIId irs.IID) error {
 	if err != nil {
 		return err
 	}
-	pager, err := servers.List(vpcHandler.VMClient, nil).AllPages()
+	pager, err := servers.List(vpcHandler.ComputeClient, nil).AllPages()
 	if err != nil {
 		return err
 	}
@@ -465,7 +530,7 @@ func (vpcHandler *OpenStackVPCHandler) vpcCleaner(vpcIId irs.IID) error {
 		}
 	}
 	listOpts := routers.ListOpts{Name: vpc.IId.NameId}
-	page, err := routers.List(vpcHandler.Client, listOpts).AllPages()
+	page, err := routers.List(vpcHandler.NetworkClient, listOpts).AllPages()
 	if err != nil {
 		return err
 	}
@@ -475,7 +540,7 @@ func (vpcHandler *OpenStackVPCHandler) vpcCleaner(vpcIId irs.IID) error {
 	}
 	if len(routerList) == 0 {
 		// Not Exist Route Only VPC Delete
-		err = networks.Delete(vpcHandler.Client, vpc.IId.SystemId).ExtractErr()
+		err = networks.Delete(vpcHandler.NetworkClient, vpc.IId.SystemId).ExtractErr()
 		if err != nil {
 			return err
 		}
@@ -487,11 +552,11 @@ func (vpcHandler *OpenStackVPCHandler) vpcCleaner(vpcIId irs.IID) error {
 		for _, subnet := range vpc.SubnetInfoList {
 			vpcHandler.DeleteInterface(subnet.IId.SystemId, router.ID)
 		}
-		err = routers.Delete(vpcHandler.Client, router.ID).ExtractErr()
+		err = routers.Delete(vpcHandler.NetworkClient, router.ID).ExtractErr()
 		if err != nil {
 			return err
 		}
-		err = networks.Delete(vpcHandler.Client, vpc.IId.SystemId).ExtractErr()
+		err = networks.Delete(vpcHandler.NetworkClient, vpc.IId.SystemId).ExtractErr()
 		if err != nil {
 			return err
 		}
@@ -511,7 +576,7 @@ func (vpcHandler *OpenStackVPCHandler) getRawVPC(vpcIID irs.IID) (*NetworkWithEx
 				Name: vpcIID.NameId,
 			},
 		}
-		page, err := networks.List(vpcHandler.Client, listOpts).AllPages()
+		page, err := networks.List(vpcHandler.NetworkClient, listOpts).AllPages()
 		if err != nil {
 			return nil, err
 		}
@@ -529,7 +594,7 @@ func (vpcHandler *OpenStackVPCHandler) getRawVPC(vpcIID irs.IID) (*NetworkWithEx
 		}
 		return nil, errors.New("not found vpc")
 	} else {
-		err := networks.Get(vpcHandler.Client, vpcIID.SystemId).ExtractInto(&vpc)
+		err := networks.Get(vpcHandler.NetworkClient, vpcIID.SystemId).ExtractInto(&vpc)
 		if err != nil {
 			return nil, err
 		}

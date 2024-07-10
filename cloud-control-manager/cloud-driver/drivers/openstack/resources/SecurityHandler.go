@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	networkTags "github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/attributestags"
 	"net"
 	"strconv"
 	"strings"
@@ -24,16 +26,31 @@ const (
 )
 
 type OpenStackSecurityHandler struct {
-	Client        *gophercloud.ServiceClient
-	NetworkClient *gophercloud.ServiceClient
+	CredentialInfo idrv.CredentialInfo
+	IdentityClient *gophercloud.ServiceClient
+	ComputeClient  *gophercloud.ServiceClient
+	NetworkClient  *gophercloud.ServiceClient
+	NLBClient      *gophercloud.ServiceClient
 }
 
 func (securityHandler *OpenStackSecurityHandler) setterSeg(secGroup secgroups.SecurityGroup) *irs.SecurityInfo {
+	var tags []irs.KeyValue
+
+	tagStrings, err := networkTags.List(securityHandler.NetworkClient, "security-groups", secGroup.ID).Extract()
+	if err != nil {
+		cblogger.Error(err)
+	}
+
+	for _, tag := range tagStrings {
+		tags = append(tags, tagsToKeyValue(tag))
+	}
+
 	secInfo := &irs.SecurityInfo{
 		IId: irs.IID{
 			NameId:   secGroup.Name,
 			SystemId: secGroup.ID,
 		},
+		TagList: tags,
 	}
 
 	listOpts := rules.ListOpts{
@@ -61,7 +78,7 @@ func (securityHandler *OpenStackSecurityHandler) setterSeg(secGroup secgroups.Se
 
 func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (createdSG irs.SecurityInfo, creteErr error) {
 	// log HisCall
-	hiscallInfo := GetCallLogScheme(securityHandler.Client.IdentityEndpoint, call.SECURITYGROUP, securityReqInfo.IId.NameId, "CreateSecurity()")
+	hiscallInfo := GetCallLogScheme(securityHandler.ComputeClient.IdentityEndpoint, call.SECURITYGROUP, securityReqInfo.IId.NameId, "CreateSecurity()")
 
 	// Check SecurityGroup Exists
 	secGroupList, err := securityHandler.ListSecurity()
@@ -87,7 +104,7 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 	}
 
 	start := call.Start()
-	group, err := secgroups.Create(securityHandler.Client, createOpts).Extract()
+	group, err := secgroups.Create(securityHandler.ComputeClient, createOpts).Extract()
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
@@ -97,7 +114,7 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 
 	defer func() {
 		if creteErr != nil {
-			secgroups.Delete(securityHandler.Client, group.ID)
+			secgroups.Delete(securityHandler.ComputeClient, group.ID)
 		}
 	}()
 
@@ -136,6 +153,29 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 		}
 	}
 
+	// Tagging
+	tagHandler := OpenStackTagHandler{
+		CredentialInfo: securityHandler.CredentialInfo,
+		IdentityClient: securityHandler.IdentityClient,
+		ComputeClient:  securityHandler.ComputeClient,
+		NetworkClient:  securityHandler.NetworkClient,
+		NLBClient:      securityHandler.NLBClient,
+	}
+
+	var errTags []irs.KeyValue
+	var errMsg string
+	for _, tag := range securityReqInfo.TagList {
+		_, err = tagHandler.AddTag(irs.SG, irs.IID{SystemId: group.ID}, tag)
+		if err != nil {
+			cblogger.Error(err)
+			errTags = append(errTags, tag)
+			errMsg += err.Error() + ", "
+		}
+	}
+	if len(errTags) > 0 {
+		return irs.SecurityInfo{}, returnTaggingError(errTags, errMsg[:len(errMsg)-2])
+	}
+
 	// 생성된 SecurityGroup 정보 리턴
 	securityInfo, err := securityHandler.GetSecurity(irs.IID{SystemId: group.ID})
 	if err != nil {
@@ -150,11 +190,11 @@ func (securityHandler *OpenStackSecurityHandler) CreateSecurity(securityReqInfo 
 
 func (securityHandler *OpenStackSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
 	// log HisCall
-	hiscallInfo := GetCallLogScheme(securityHandler.Client.IdentityEndpoint, call.SECURITYGROUP, SecurityGroup, "ListSecurity()")
+	hiscallInfo := GetCallLogScheme(securityHandler.ComputeClient.IdentityEndpoint, call.SECURITYGROUP, SecurityGroup, "ListSecurity()")
 
 	// 보안그룹 목록 조회
 	start := call.Start()
-	pager, err := secgroups.List(securityHandler.Client).AllPages()
+	pager, err := secgroups.List(securityHandler.ComputeClient).AllPages()
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to List Security. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -182,7 +222,7 @@ func (securityHandler *OpenStackSecurityHandler) ListSecurity() ([]*irs.Security
 
 func (securityHandler *OpenStackSecurityHandler) GetSecurity(securityIID irs.IID) (irs.SecurityInfo, error) {
 	// log HisCall
-	hiscallInfo := GetCallLogScheme(securityHandler.Client.IdentityEndpoint, call.SECURITYGROUP, securityIID.NameId, "GetSecurity()")
+	hiscallInfo := GetCallLogScheme(securityHandler.ComputeClient.IdentityEndpoint, call.SECURITYGROUP, securityIID.NameId, "GetSecurity()")
 
 	start := call.Start()
 	securityGroup, err := securityHandler.getRawSecurity(securityIID)
@@ -200,10 +240,18 @@ func (securityHandler *OpenStackSecurityHandler) GetSecurity(securityIID irs.IID
 
 func (securityHandler *OpenStackSecurityHandler) DeleteSecurity(securityIID irs.IID) (bool, error) {
 	// log HisCall
-	hiscallInfo := GetCallLogScheme(securityHandler.Client.IdentityEndpoint, call.SECURITYGROUP, securityIID.NameId, "DeleteSecurity()")
+	hiscallInfo := GetCallLogScheme(securityHandler.ComputeClient.IdentityEndpoint, call.SECURITYGROUP, securityIID.NameId, "DeleteSecurity()")
 
 	start := call.Start()
-	result := secgroups.Delete(securityHandler.Client, securityIID.SystemId)
+	securityGroup, err := securityHandler.getRawSecurity(securityIID)
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to Delete Security. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return false, getErr
+	}
+
+	result := secgroups.Delete(securityHandler.ComputeClient, securityGroup.ID)
 	if result.Err != nil {
 		delErr := errors.New(fmt.Sprintf("Failed to Delete Security. err = %s", result.Err.Error()))
 		cblogger.Error(delErr.Error())
@@ -215,7 +263,7 @@ func (securityHandler *OpenStackSecurityHandler) DeleteSecurity(securityIID irs.
 }
 
 func (securityHandler *OpenStackSecurityHandler) AddRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (irs.SecurityInfo, error) {
-	hiscallInfo := GetCallLogScheme(securityHandler.Client.IdentityEndpoint, call.SECURITYGROUP, sgIID.NameId, "AddRules()")
+	hiscallInfo := GetCallLogScheme(securityHandler.ComputeClient.IdentityEndpoint, call.SECURITYGROUP, sgIID.NameId, "AddRules()")
 
 	start := call.Start()
 	securityGroup, err := securityHandler.getRawSecurity(sgIID)
@@ -280,7 +328,7 @@ func (securityHandler *OpenStackSecurityHandler) AddRules(sgIID irs.IID, securit
 }
 
 func (securityHandler *OpenStackSecurityHandler) RemoveRules(sgIID irs.IID, securityRules *[]irs.SecurityRuleInfo) (bool, error) {
-	hiscallInfo := GetCallLogScheme(securityHandler.Client.IdentityEndpoint, call.SECURITYGROUP, sgIID.NameId, "AddRules()")
+	hiscallInfo := GetCallLogScheme(securityHandler.ComputeClient.IdentityEndpoint, call.SECURITYGROUP, sgIID.NameId, "AddRules()")
 
 	start := call.Start()
 	rawseg, err := securityHandler.getRawSecurity(sgIID)
@@ -520,9 +568,9 @@ func (securityHandler *OpenStackSecurityHandler) getRawSecurity(securityIID irs.
 		return nil, errors.New("invalid IID")
 	}
 	if securityIID.SystemId != "" {
-		return secgroups.Get(securityHandler.Client, securityIID.SystemId).Extract()
+		return secgroups.Get(securityHandler.ComputeClient, securityIID.SystemId).Extract()
 	} else {
-		pager, err := secgroups.List(securityHandler.Client).AllPages()
+		pager, err := secgroups.List(securityHandler.ComputeClient).AllPages()
 		if err != nil {
 			return nil, err
 		}
