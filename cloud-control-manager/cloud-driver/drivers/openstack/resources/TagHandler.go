@@ -422,7 +422,7 @@ func (tagHandler *OpenStackTagHandler) FindTag(resType irs.RSType, keyword strin
 		}
 		for _, vpc := range vpcList {
 			for _, tag := range vpc.Tags {
-				tagInfo := getTagInfo(resType, vpc.Name, vpc.ID, tag, vpc.Tags, keyword)
+				tagInfo := getTagInfo(irs.VPC, vpc.Name, vpc.ID, tag, vpc.Tags, keyword)
 				if tagInfo != nil {
 					tagInfos = append(tagInfos, tagInfo)
 					break
@@ -449,7 +449,7 @@ func (tagHandler *OpenStackTagHandler) FindTag(resType irs.RSType, keyword strin
 		}
 		for _, subnet := range ss {
 			for _, tag := range subnet.Tags {
-				tagInfo := getTagInfo(resType, subnet.Name, subnet.ID, tag, subnet.Tags, keyword)
+				tagInfo := getTagInfo(irs.SUBNET, subnet.Name, subnet.ID, tag, subnet.Tags, keyword)
 				if tagInfo != nil {
 					tagInfos = append(tagInfos, tagInfo)
 					break
@@ -486,7 +486,7 @@ func (tagHandler *OpenStackTagHandler) FindTag(resType irs.RSType, keyword strin
 			}
 
 			for _, tag := range tags {
-				tagInfo := getTagInfo(resType, sg.Name, sg.ID, tag, tags, keyword)
+				tagInfo := getTagInfo(irs.SG, sg.Name, sg.ID, tag, tags, keyword)
 				if tagInfo != nil {
 					tagInfos = append(tagInfos, tagInfo)
 					break
@@ -513,7 +513,7 @@ func (tagHandler *OpenStackTagHandler) FindTag(resType irs.RSType, keyword strin
 		}
 		for _, nlb := range nlbs {
 			for _, tag := range nlb.Tags {
-				tagInfo := getTagInfo(resType, nlb.Name, nlb.ID, tag, nlb.Tags, keyword)
+				tagInfo := getTagInfo(irs.NLB, nlb.Name, nlb.ID, tag, nlb.Tags, keyword)
 				if tagInfo != nil {
 					tagInfos = append(tagInfos, tagInfo)
 					break
@@ -538,7 +538,7 @@ func (tagHandler *OpenStackTagHandler) FindTag(resType irs.RSType, keyword strin
 		for _, vm := range vms {
 			if vm.Tags != nil {
 				for _, tag := range *vm.Tags {
-					tagInfo := getTagInfo(resType, vm.Name, vm.ID, tag, *vm.Tags, keyword)
+					tagInfo := getTagInfo(irs.VM, vm.Name, vm.ID, tag, *vm.Tags, keyword)
 					if tagInfo != nil {
 						tagInfos = append(tagInfos, tagInfo)
 						break
