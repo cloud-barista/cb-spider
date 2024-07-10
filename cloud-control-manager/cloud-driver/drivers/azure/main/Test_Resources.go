@@ -164,7 +164,8 @@ func showTestHandlerInfo() {
 	cblogger.Info("10. RegionZoneHandler")
 	cblogger.Info("11. PriceInfoHandler")
 	cblogger.Info("12. ClusterHandler")
-	cblogger.Info("13. Exit")
+	cblogger.Info("13. TagHandler")
+	cblogger.Info("14. Exit")
 	cblogger.Info("==========================================================")
 }
 
@@ -216,6 +217,8 @@ func getResourceHandler(resourceType string, config Config) (interface{}, error)
 		resourceHandler, err = cloudConnection.CreatePriceInfoHandler()
 	case "cluster":
 		resourceHandler, err = cloudConnection.CreateClusterHandler()
+	case "tag": 
+		resourceHandler, err = cloudConnection.CreateTagHandler()
 	}
 
 	if err != nil {
@@ -1937,6 +1940,91 @@ Loop:
 	}
 }
 
+func testTagHandlerListPrint() {
+	cblogger.Info("Test TagHandler")
+	cblogger.Info("0. Print Menu")
+	cblogger.Info("1. AddTag()")
+	cblogger.Info("2. ListTag()")
+	cblogger.Info("3. GetTag()")
+	cblogger.Info("4. RemoveTag()")
+	cblogger.Info("5. FindTag()")
+	cblogger.Info("6. Exit")
+}
+
+func testTagHandler(config Config) {
+	resourceHandler, err := getResourceHandler("tag", config)
+	if err != nil {
+		cblogger.Error(err)
+		return
+	}
+
+	tagHandler := resourceHandler.(irs.TagHandler)
+	testTagHandlerListPrint()
+
+	tagReq := irs.KeyValue{Key: "Environment", Value: "Production"}
+	resType := irs.RSType("VPC")
+	resIID := irs.IID{NameId: "test-vm", SystemId: "test-system-id"}
+
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			cblogger.Error(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				testTagHandlerListPrint()
+			case 1:
+				cblogger.Info("Start AddTag() ...")
+				if tag, err := tagHandler.AddTag(resType, resIID, tagReq); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(tag)
+				}
+				cblogger.Info("Finish AddTag()")
+			case 2:
+				cblogger.Info("Start ListTag() ...")
+				if tags, err := tagHandler.ListTag(resType, resIID); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(tags)
+				}
+				cblogger.Info("Finish ListTag()")
+			case 3:
+				cblogger.Info("Start GetTag() ...")
+				if tag, err := tagHandler.GetTag(resType, resIID, tagReq.Key); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(tag)
+				}
+				cblogger.Info("Finish GetTag()")
+			case 4:
+				cblogger.Info("Start RemoveTag() ...")
+				if success, err := tagHandler.RemoveTag(resType, resIID, tagReq.Key); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(success)
+				}
+				cblogger.Info("Finish RemoveTag()")
+			case 5:
+				cblogger.Info("Start FindTag() ...")
+				keyword := "Environment"
+				if tagInfos, err := tagHandler.FindTag(resType, keyword); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(tagInfos)
+				}
+				cblogger.Info("Finish FindTag()")
+			case 6:
+				break Loop
+			}
+		}
+	}
+}
+
 func main() {
 	showTestHandlerInfo()
 	config := readConfigFile()
@@ -1987,6 +2075,9 @@ Loop:
 				testClusterHandler(config)
 				showTestHandlerInfo()
 			case 13:
+				testTagHandler(config)
+				showTestHandlerInfo()
+			case 14:
 				cblogger.Info("Exit Test ResourceHandler Program")
 				break Loop
 			}
