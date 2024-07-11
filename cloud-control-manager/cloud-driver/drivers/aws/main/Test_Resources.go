@@ -1791,6 +1791,8 @@ func handleTag() {
 	reqIID := irs.IID{SystemId: "i-02ac1c4ff1d40815c"}
 	reqTag := irs.KeyValue{Key: "tag3", Value: "태그3"}
 	reqKey := "tag3"
+	reqKey = ""
+	reqType = irs.ALL
 
 	for {
 		fmt.Println("TagHandler Management")
@@ -1866,7 +1868,15 @@ func handleTag() {
 				}
 
 			case 5:
-
+				cblogger.Infof("[%s] Tag 찾기 테스트 - Key[%s]", reqType, reqKey)
+				result, err := handler.FindTag(reqType, reqKey)
+				if err != nil {
+					cblogger.Infof("[%s] Tag 검색 실패 : [%s]", reqKey, err)
+				} else {
+					cblogger.Infof("[%s] Tag 검색 결과 : [%d]건", reqKey, len(result))
+					spew.Dump(result)
+					cblogger.Infof("Tag 검색 결과 : [%d]건", len(result))
+				}
 			}
 		}
 	}

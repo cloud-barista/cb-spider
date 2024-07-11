@@ -17,8 +17,10 @@ import (
 	//"strconv"
 
 	"errors"
+	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
+
 	//"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -29,6 +31,36 @@ import (
 type AwsTagHandler struct {
 	Region idrv.RegionInfo
 	Client *ec2.EC2
+}
+
+// Map of RSType to AWS resource types
+var rsTypeToAwsResourceTypeMap = map[irs.RSType]string{
+	irs.IMAGE:     "image",
+	irs.VPC:       "vpc",
+	irs.SUBNET:    "subnet",
+	irs.SG:        "security-group",
+	irs.KEY:       "key-pair",
+	irs.VM:        "instance",
+	irs.NLB:       "network-load-balancer",
+	irs.DISK:      "volume",
+	irs.MYIMAGE:   "image",
+	irs.CLUSTER:   "cluster",
+	irs.NODEGROUP: "nodegroup",
+}
+
+// Map of AWS resource types to RSType for response handling
+var awsResourceTypeToRSTypeMap = map[string]irs.RSType{
+	"image":                 irs.IMAGE,
+	"vpc":                   irs.VPC,
+	"subnet":                irs.SUBNET,
+	"security-group":        irs.SG,
+	"key-pair":              irs.KEY,
+	"instance":              irs.VM,
+	"network-load-balancer": irs.NLB,
+	"volume":                irs.DISK,
+	//"image":                 irs.MYIMAGE,
+	"cluster":   irs.CLUSTER,
+	"nodegroup": irs.NODEGROUP,
 }
 
 func (tagHandler *AwsTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag irs.KeyValue) (irs.KeyValue, error) {
@@ -162,7 +194,9 @@ func (tagHandler *AwsTagHandler) GetTag(resType irs.RSType, resIID irs.IID, key 
 	LoggingInfo(hiscallInfo, start)
 
 	if cblogger.Level.String() == "debug" {
+		cblogger.Info("---------------------")
 		cblogger.Info(result)
+		cblogger.Info("---------------------")
 	}
 
 	if len(result.Tags) == 0 {
@@ -231,7 +265,118 @@ func (tagHandler *AwsTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, k
 // keyword: The keyword to search for in the tag key or value.
 // if you want to find all tags, set keyword to "" or "*".
 func (tagHandler *AwsTagHandler) FindTag(resType irs.RSType, keyword string) ([]*irs.TagInfo, error) {
-	cblogger.Info("resTyp : ", resType)
-	cblogger.Info("keyword : ", keyword)
-	return nil, errors.New("not yet implemented")
+	cblogger.Debugf("resType : [%s] / keyword : [%s]", resType, keyword)
+
+	var filters []*ec2.Filter
+
+	// Add resource type filter if resType is not ALL
+	if resType != irs.ALL {
+		if awsResType, ok := rsTypeToAwsResourceTypeMap[resType]; ok {
+			filters = append(filters, &ec2.Filter{
+				Name: aws.String("resource-type"),
+				Values: []*string{
+					aws.String(awsResType),
+				},
+			})
+		} else {
+			return nil, fmt.Errorf("unsupported resource type: %s", resType)
+		}
+	}
+
+	tagInfoMap := make(map[string]*irs.TagInfo)
+
+	// Function to process tags and add them to tagInfoMap
+	processTags := func(result *ec2.DescribeTagsOutput) {
+		if cblogger.Level.String() == "debug" {
+			cblogger.Debug(result)
+			//cblogger.Debug("=================================")
+			//spew.Dump(result)
+			//cblogger.Debug("=================================")
+		}
+
+		for _, tag := range result.Tags {
+			resID := aws.StringValue(tag.ResourceId)
+
+			awsResType := aws.StringValue(tag.ResourceType)
+			rType, exists := awsResourceTypeToRSTypeMap[awsResType]
+			if !exists {
+				//@TODO - 변환 실패한 리소스의 경우 UNKNOWN을 만들거나 에러 로그만 찍거나 결정 필요할 듯
+				cblogger.Errorf("No RSType matching [%s] found.", awsResType)
+
+				rType = irs.RSType(awsResType) // Use the raw AWS resource type if not mapped
+			}
+
+			if _, exists := tagInfoMap[resID]; !exists {
+				tagInfoMap[resID] = &irs.TagInfo{
+					ResType: rType,
+					ResIId: irs.IID{
+						SystemId: resID,
+					},
+				}
+			}
+			tagInfoMap[resID].TagList = append(tagInfoMap[resID].TagList, irs.KeyValue{
+				Key:   aws.StringValue(tag.Key),
+				Value: aws.StringValue(tag.Value),
+			})
+		}
+	}
+
+	// Search by tag-key if keyword is not empty or "*"
+	if keyword != "" && keyword != "*" {
+		keyInput := &ec2.DescribeTagsInput{
+			Filters: append(filters, &ec2.Filter{
+				Name: aws.String("tag-key"),
+				Values: []*string{
+					aws.String(keyword),
+				},
+			}),
+		}
+
+		if cblogger.Level.String() == "debug" {
+			cblogger.Debug(keyInput)
+		}
+
+		keyResult, err := tagHandler.Client.DescribeTags(keyInput)
+		if err != nil {
+			return nil, fmt.Errorf("failed to describe tags by key: %w", err)
+		}
+		processTags(keyResult)
+
+		valueInput := &ec2.DescribeTagsInput{
+			Filters: append(filters, &ec2.Filter{
+				Name: aws.String("tag-value"),
+				Values: []*string{
+					aws.String(keyword),
+				},
+			}),
+		}
+
+		if cblogger.Level.String() == "debug" {
+			cblogger.Debug(valueInput)
+		}
+
+		valueResult, err := tagHandler.Client.DescribeTags(valueInput)
+		if err != nil {
+			return nil, fmt.Errorf("failed to describe tags by value: %w", err)
+		}
+		processTags(valueResult)
+	} else {
+		// Search all tags if keyword is empty or "*"
+		input := &ec2.DescribeTagsInput{
+			Filters: filters,
+		}
+
+		result, err := tagHandler.Client.DescribeTags(input)
+		if err != nil {
+			return nil, fmt.Errorf("failed to describe tags: %w", err)
+		}
+		processTags(result)
+	}
+
+	var tagInfos []*irs.TagInfo
+	for _, tagInfo := range tagInfoMap {
+		tagInfos = append(tagInfos, tagInfo)
+	}
+
+	return tagInfos, nil
 }
