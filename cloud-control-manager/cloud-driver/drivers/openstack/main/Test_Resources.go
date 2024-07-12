@@ -335,10 +335,18 @@ Loop:
 				fmt.Println("Finish GetSecurity()")
 			case 3:
 				fmt.Println("Start CreateSecurity() ...")
+				var tags []irs.KeyValue
+				for _, tag := range config.Openstack.Resources.Security.Tags {
+					tags = append(tags, irs.KeyValue{
+						Key:   tag.Key,
+						Value: tag.Value,
+					})
+				}
 				reqInfo := irs.SecurityReqInfo{
 					IId:           securityIId,
 					SecurityRules: &securityRulesInfos,
 					VpcIID:        targetVPCIId,
+					TagList:       tags,
 				}
 				security, err := securityHandler.CreateSecurity(reqInfo)
 				if err != nil {
@@ -403,19 +411,35 @@ func testVPCHandler(config Config) {
 	subnetLists := config.Openstack.Resources.VPC.Subnets
 	var subnetInfoList []irs.SubnetInfo
 	for _, sb := range subnetLists {
+		var tags []irs.KeyValue
+		for _, tag := range sb.Tags {
+			tags = append(tags, irs.KeyValue{
+				Key:   tag.Key,
+				Value: tag.Value,
+			})
+		}
 		info := irs.SubnetInfo{
 			IId: irs.IID{
 				NameId: sb.NameId,
 			},
 			IPv4_CIDR: sb.IPv4CIDR,
+			TagList:   tags,
 		}
 		subnetInfoList = append(subnetInfoList, info)
+	}
+	var tags []irs.KeyValue
+	for _, tag := range config.Openstack.Resources.VPC.Tags {
+		tags = append(tags, irs.KeyValue{
+			Key:   tag.Key,
+			Value: tag.Value,
+		})
 	}
 
 	VPCReqInfo := irs.VPCReqInfo{
 		IId:            vpcIID,
 		IPv4_CIDR:      config.Openstack.Resources.VPC.IPv4CIDR,
 		SubnetInfoList: subnetInfoList,
+		TagList:        tags,
 	}
 	addSubnet := config.Openstack.Resources.VPC.AddSubnet
 	addSubnetInfo := irs.SubnetInfo{
@@ -546,6 +570,13 @@ func testVMHandler(config Config) {
 	if config.Openstack.Resources.Vm.ImageType == "MyImage" {
 		imageType = irs.MyImage
 	}
+	var tags []irs.KeyValue
+	for _, tag := range config.Openstack.Resources.Vm.Tags {
+		tags = append(tags, irs.KeyValue{
+			Key:   tag.Key,
+			Value: tag.Value,
+		})
+	}
 	vmReqInfo := irs.VMReqInfo{
 		IId: irs.IID{
 			NameId: config.Openstack.Resources.Vm.IID.NameId,
@@ -565,13 +596,15 @@ func testVMHandler(config Config) {
 		},
 		VMSpecName: config.Openstack.Resources.Vm.VmSpecName,
 		KeyPairIID: irs.IID{
-			NameId: config.Openstack.Resources.Vm.KeyPairIID.NameId,
+			NameId:   config.Openstack.Resources.Vm.KeyPairIID.NameId,
+			SystemId: config.Openstack.Resources.Vm.KeyPairIID.SystemId,
 		},
 		RootDiskSize:      config.Openstack.Resources.Vm.RootDiskSize,
 		RootDiskType:      config.Openstack.Resources.Vm.RootDiskType,
 		SecurityGroupIIDs: SecurityGroupIIDs,
 		VMUserId:          config.Openstack.Resources.Vm.VMUserId,
 		VMUserPasswd:      config.Openstack.Resources.Vm.VMUserPasswd,
+		TagList:           tags,
 	}
 
 Loop:
@@ -779,6 +812,9 @@ func testNLBHandler(config Config) {
 			Interval:  5,
 			Timeout:   4,
 			Threshold: 3,
+		},
+		TagList: []irs.KeyValue{
+			{Key: "nlb-tag-key", Value: "nlb-tag-value"},
 		},
 	}
 	updateListener := irs.ListenerInfo{
@@ -1552,6 +1588,10 @@ type Config struct {
 					CIDR       string `yaml:"CIDR"`
 					Direction  string `yaml:"Direction"`
 				} `yaml:"removeRules"`
+				Tags []struct {
+					Key   string `yaml:"key"`
+					Value string `yaml:"value"`
+				} `yaml:"tags"`
 			} `yaml:"security"`
 			KeyPair struct {
 				NameId   string `yaml:"nameId"`
@@ -1568,11 +1608,19 @@ type Config struct {
 				Subnets  []struct {
 					NameId   string `yaml:"nameId"`
 					IPv4CIDR string `yaml:"ipv4CIDR"`
+					Tags     []struct {
+						Key   string `yaml:"key"`
+						Value string `yaml:"value"`
+					} `yaml:"tags"`
 				} `yaml:"subnets"`
 				AddSubnet struct {
 					NameId   string `yaml:"nameId"`
 					IPv4CIDR string `yaml:"ipv4CIDR"`
 				} `yaml:"addSubnet"`
+				Tags []struct {
+					Key   string `yaml:"key"`
+					Value string `yaml:"value"`
+				} `yaml:"tags"`
 			} `yaml:"vpc"`
 			Vm struct {
 				IID struct {
@@ -1586,7 +1634,8 @@ type Config struct {
 				ImageType  string `yaml:"ImageType"`
 				VmSpecName string `yaml:"VmSpecName"`
 				KeyPairIID struct {
-					NameId string `yaml:"nameId"`
+					NameId   string `yaml:"nameId"`
+					SystemId string `yaml:"systemId"`
 				} `yaml:"KeyPairIID"`
 				VpcIID struct {
 					NameId   string `yaml:"nameId"`
@@ -1604,6 +1653,10 @@ type Config struct {
 				RootDiskType string `yaml:"RootDiskType"`
 				VMUserId     string `yaml:"VMUserId"`
 				VMUserPasswd string `yaml:"VMUserPasswd"`
+				Tags         []struct {
+					Key   string `yaml:"key"`
+					Value string `yaml:"value"`
+				} `yaml:"tags"`
 			} `yaml:"vm"`
 		} `yaml:"resources"`
 	} `yaml:"openstack"`

@@ -60,6 +60,7 @@ func (AwsDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.NLBHandler = true
 	drvCapabilityInfo.RegionZoneHandler = true
 	drvCapabilityInfo.PriceInfoHandler = true
+	drvCapabilityInfo.TagHandler = true
 
 	return drvCapabilityInfo
 }
@@ -254,6 +255,8 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 
 		// Connection for AnyCall
 		AnyCallClient: vmClient,
+
+		TagClient: vmClient,
 	}
 
 	return &iConn, nil // return type: (icon.CloudConnection, error)

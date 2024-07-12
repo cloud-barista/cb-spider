@@ -88,20 +88,25 @@ $CBSPIDER_ROOT/cloud-control-manager/cloud-driver/drivers/ncp/main/
 
    - 사용자가 keyPair 생성시 생성되는 private key를 local에 저장해놓고, 그 private key를 이용해 'cb-user' 계정으로 SSH를 이용해 로그인하는 방법을 제공함.
 
-   - Private ket 파일을 이용한 VM 접속 방법 
+   - Private key 파일을 이용한 Linux 계열 VM 접속 방법 (on CLI)
 
 ```
 ssh -i /private_key_경로/private_key_파일명(~~.pem) cb-user@VM의_public_ip
 ```
 
-
-​	(참고) NCP CSP에서 제공하는 VM 접속 방법
-
-   - VM 생성 후, NCP console에서 사용자가 생성한 private key를 이용해 해당 VM의 root 비밀번호를 알아내어 SSH를 이용해 root 계정과 비밀번호로 로그인함.
-
 ​	O Cloud-Barista NCP driver를 이용해 생성된 VM에 로그인하는 방법(Windows 계열 guest OS 경우)
 
-   - 'Administrator' 계정으로 VM 생성시 지정한 사용자가 password 로그인함.
+   - 'Administrator' 계정으로 VM 생성시 사용자가 지정한 password로 로그인함.
+
+<br>
+
+​	(참고-1) NCP CSP에서 기본적으로 제공하는 VM 접속 방법
+
+   - VM 생성 후, 사용자가 생성한 private key를 이용해 NCP console에서 해당 VM의 root 비밀번호를 알아내어 SSH를 이용해 root 계정과 비밀번호로 로그인함.
+
+​	(참고-2) NCP CSP 콘솔에서 key pair 목록 확인 방법
+
+   - Sever 메뉴 > Sever > 상단의 '서버 관리 및 설정 변경' > '인증키 관리' 선택
 
 <p><br>
 
@@ -133,5 +138,8 @@ ssh -i /private_key_경로/private_key_파일명(~~.pem) cb-user@VM의_public_ip
      - Public IP를 반납하지 않으면, NCP driver를 통해 VM instance 신규 생성시 public IP를  추가 생성할때 public IP 수가 instance 개수보다 많게 되어 error return
 
      - 단, NCP driver나 CB-Spider API를 이용해 NCP VM 반납시에는 VM 반납 후 자동으로 public IP까지 반납됨.
+
+
+  O  NCP Classic은 클라우드 자원들중 VM 기준으로만 tag 생성이 가능함.
 
 ​	O  NCP 정책상, VM이 생성된 후 한번 정지시킨 상태에서 연속으로 최대 90일, 12개월 누적 180일을 초과하여 정지할 수 없으며, 해당 기간을 초과할 경우 반납(Terminate)하도록 안내하고 있음.

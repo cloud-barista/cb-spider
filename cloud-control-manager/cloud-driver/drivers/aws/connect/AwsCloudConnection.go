@@ -11,8 +11,6 @@
 package connect
 
 import (
-	"errors"
-
 	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 
@@ -63,6 +61,7 @@ type AwsCloudConnection struct {
 	AutoScalingClient *autoscaling.AutoScaling
 
 	AnyCallClient *ec2.EC2
+	TagClient     *ec2.EC2
 }
 
 var cblogger *logrus.Logger
@@ -108,6 +107,11 @@ func (cloudConn *AwsCloudConnection) CreateImageHandler() (irs.ImageHandler, err
 func (cloudConn *AwsCloudConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
 	handler := ars.AwsSecurityHandler{cloudConn.Region, cloudConn.SecurityClient}
 
+	return &handler, nil
+}
+
+func (cloudConn *AwsCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
+	handler := ars.AwsTagHandler{cloudConn.Region, cloudConn.VMClient}
 	return &handler, nil
 }
 
@@ -181,8 +185,4 @@ func (cloudConn *AwsCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHa
 func (cloudConn *AwsCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
 	handler := ars.AwsPriceInfoHandler{cloudConn.Region, cloudConn.PriceInfoClient}
 	return &handler, nil
-}
-
-func (cloudConn *AwsCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
-	return nil, errors.New("AWS Driver: not implemented")
 }

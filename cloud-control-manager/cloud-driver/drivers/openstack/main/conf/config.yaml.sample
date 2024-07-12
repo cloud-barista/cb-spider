@@ -1,6 +1,6 @@
 openstack:
   identity_endpoint: TBD
-  project_id: TBD
+  project_id: 	TBD
   domain_name: TBD
   username: TBD
   password: TBD
@@ -33,6 +33,9 @@ openstack:
           IPProtocol: "tcp"
           CIDR: "0.0.0.0/0"
           Direction: "inbound"
+      tags:
+        - key: sg-tag-key
+          value: sg-tag-value
     keyPair:
       nameId: mcb-test-key
       systemId:
@@ -40,17 +43,26 @@ openstack:
       nameId: m1.small
       systemId:
     vpc:
-      nameId:  mcb-test-vpc
+      nameId:  nlb-tester-vpc
       systemId:
       ipv4CIDR: 180.0.0.0/16
       subnets:
         - nameId: mcb-test-vpc-subnet1
           ipv4CIDR: 180.0.40.0/24
+          tags:
+            - key: subnet1-tag-key
+              value: subnet1-tag-value
         - nameId: mcb-test-vpc-subnet2
           ipv4CIDR: 180.0.30.0/24
+          tags:
+            - key: subnet2-tag-key
+              value: subnet2-tag-value
       addSubnet:
         nameId: mcb-test-vpc-subnet3
         ipv4CIDR: 180.0.50.0/24
+      tags:
+        - key: vpc-tag-key
+          value: vpc-tag-value
     vm:
       IID:
         nameId: mcb-test-vm
@@ -71,3 +83,6 @@ openstack:
       SecurityGroupIIDs:
         - nameId: mcb-test-security
           systemId:
+      tags:
+        - key: vm-tag-key
+          value: vm-tag-value
