@@ -135,7 +135,10 @@ func (cloudConn *NcpCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHand
 }
 
 func (cloudConn *NcpCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
-	return nil, fmt.Errorf("NCP Cloud Driver does not support CreateTagHandler() yet.")
+	cblogger.Info("NCP Cloud Driver: called CreateTagHandler()!")
+
+	tagHandler := ncprs.NcpTagHandler{cloudConn.CredentialInfo, cloudConn.RegionInfo, cloudConn.VmClient}
+	return &tagHandler, nil
 }
 
 func (cloudConn *NcpCloudConnection) IsConnected() (bool, error) {
