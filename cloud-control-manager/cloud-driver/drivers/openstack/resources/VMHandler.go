@@ -44,10 +44,13 @@ const (
 )
 
 type OpenStackVMHandler struct {
-	Region        idrv.RegionInfo
-	ComputeClient *gophercloud.ServiceClient
-	NetworkClient *gophercloud.ServiceClient
-	VolumeClient  *gophercloud.ServiceClient
+	Region         idrv.RegionInfo
+	CredentialInfo idrv.CredentialInfo
+	IdentityClient *gophercloud.ServiceClient
+	ComputeClient  *gophercloud.ServiceClient
+	NetworkClient  *gophercloud.ServiceClient
+	NLBClient      *gophercloud.ServiceClient
+	VolumeClient   *gophercloud.ServiceClient
 }
 
 func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm irs.VMInfo, createErr error) {
@@ -115,8 +118,8 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 	// Private IP 할당 서브넷 매핑
 	// Private IP 할당 서브넷 매핑 - vpc 및 서브넷 확인
 	vpcHandler := OpenStackVPCHandler{
-		Client:   vmHandler.NetworkClient,
-		VMClient: vmHandler.ComputeClient,
+		NetworkClient: vmHandler.NetworkClient,
+		ComputeClient: vmHandler.ComputeClient,
 	}
 	rawVpc, err := vpcHandler.getRawVPC(vmReqInfo.VpcIID)
 	if err != nil {
@@ -155,7 +158,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 	}
 	// SecurityGroup 준비
 	segHandler := OpenStackSecurityHandler{
-		Client:        vmHandler.ComputeClient,
+		ComputeClient: vmHandler.ComputeClient,
 		NetworkClient: vmHandler.NetworkClient,
 	}
 
@@ -299,6 +302,30 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 			return irs.VMInfo{}, createErr
 		}
 	}
+
+	// Tagging
+	tagHandler := OpenStackTagHandler{
+		CredentialInfo: vpcHandler.CredentialInfo,
+		IdentityClient: vpcHandler.IdentityClient,
+		ComputeClient:  vpcHandler.ComputeClient,
+		NetworkClient:  vpcHandler.NetworkClient,
+		NLBClient:      vpcHandler.NLBClient,
+	}
+
+	var errTags []irs.KeyValue
+	var errMsg string
+	for _, tag := range vmReqInfo.TagList {
+		_, err = tagHandler.AddTag(irs.VM, irs.IID{SystemId: server.ID}, tag)
+		if err != nil {
+			cblogger.Error(err)
+			errTags = append(errTags, tag)
+			errMsg += err.Error() + ", "
+		}
+	}
+	if len(errTags) > 0 {
+		return irs.VMInfo{}, returnTaggingError(errTags, errMsg[:len(errMsg)-2])
+	}
+
 	serverInfo = vmHandler.mappingServerInfo(*serverResult)
 	password, err := getPassword(*serverResult)
 	if err == nil {
@@ -570,6 +597,13 @@ func getVmStatus(vmStatus string) irs.VMStatus {
 }
 
 func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) irs.VMInfo {
+	var tags []irs.KeyValue
+
+	if server.Tags != nil {
+		for _, tag := range *server.Tags {
+			tags = append(tags, tagsToKeyValue(tag))
+		}
+	}
 
 	// Get Default VM Info
 	vmInfo := irs.VMInfo{
@@ -587,6 +621,7 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 		NetworkInterface:  server.HostID,
 		KeyValueList:      nil,
 		SecurityGroupIIds: nil,
+		TagList:           tags,
 	}
 	OSType, err := getOSTypeByServer(server)
 	if err == nil {

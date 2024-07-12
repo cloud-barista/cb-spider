@@ -26,7 +26,8 @@ import (
 type OpenStackNLBHandler struct {
 	CredentialInfo idrv.CredentialInfo
 	Region         idrv.RegionInfo
-	VMClient       *gophercloud.ServiceClient
+	IdentityClient *gophercloud.ServiceClient
+	ComputeClient  *gophercloud.ServiceClient
 	NetworkClient  *gophercloud.ServiceClient
 	NLBClient      *gophercloud.ServiceClient
 }
@@ -781,6 +782,12 @@ func (nlbHandler *OpenStackNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, h
 }
 
 func (nlbHandler *OpenStackNLBHandler) setterNLB(rawNLB loadbalancers.LoadBalancer) (irs.NLBInfo, error) {
+	var tags []irs.KeyValue
+
+	for _, tag := range rawNLB.Tags {
+		tags = append(tags, tagsToKeyValue(tag))
+	}
+
 	nlbInfo := irs.NLBInfo{
 		IId: irs.IID{
 			NameId:   rawNLB.Name,
@@ -789,6 +796,7 @@ func (nlbHandler *OpenStackNLBHandler) setterNLB(rawNLB loadbalancers.LoadBalanc
 		Scope:       string(NLBRegionType),
 		Type:        string(NLBPublicType),
 		CreatedTime: rawNLB.CreatedAt,
+		TagList:     tags,
 	}
 	vpcIId, err := nlbHandler.getVPCIID(rawNLB)
 	if err == nil {
@@ -867,7 +875,7 @@ func (nlbHandler *OpenStackNLBHandler) getRawVMByName(name string) (*servers.Ser
 	opts := servers.ListOpts{
 		Name: name,
 	}
-	pager, err := servers.List(nlbHandler.VMClient, opts).AllPages()
+	pager, err := servers.List(nlbHandler.ComputeClient, opts).AllPages()
 	if err != nil {
 		return nil, err
 	}
@@ -882,7 +890,7 @@ func (nlbHandler *OpenStackNLBHandler) getRawVMByIP(ip string) (*servers.Server,
 	opts := servers.ListOpts{
 		IP: ip,
 	}
-	pager, err := servers.List(nlbHandler.VMClient, opts).AllPages()
+	pager, err := servers.List(nlbHandler.ComputeClient, opts).AllPages()
 	if err != nil {
 		return nil, err
 	}

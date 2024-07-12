@@ -174,3 +174,25 @@ func CheckIIDValidation(IId irs.IID) bool {
 	}
 	return true
 }
+
+func tagsToKeyValue(tagString string) irs.KeyValue {
+	split := strings.Split(tagString, "=")
+
+	if len(split) == 2 {
+		return irs.KeyValue{
+			Key:   split[0],
+			Value: split[1],
+		}
+	}
+
+	return irs.KeyValue{}
+}
+
+func returnTaggingError(errTags []irs.KeyValue, originalErrMsg string) error {
+	errMsg := "TaggingError: "
+	for _, tag := range errTags {
+		errMsg = errMsg + "{" + tag.Key + ", " + tag.Value + "}, "
+	}
+
+	return errors.New(errMsg[:len(errMsg)-2] + ": " + originalErrMsg)
+}
