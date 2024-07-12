@@ -4,6 +4,11 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"strings"
+	"time"
+
 	cblog "github.com/cloud-barista/cb-log"
 	azdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -11,10 +16,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
-	"io/ioutil"
-	"os"
-	"strings"
-	"time"
 )
 
 type Config struct {
@@ -1962,8 +1963,12 @@ func testTagHandler(config Config) {
 	testTagHandlerListPrint()
 
 	tagReq := irs.KeyValue{Key: "Environment", Value: "Production"}
-	resType := irs.RSType("VPC")
-	resIID := irs.IID{NameId: "test-vm", SystemId: "test-system-id"}
+	resType := irs.RSType("all")
+	// resIID := irs.IID{NameId: "vpc-01", SystemId: ""}
+	// resIID := irs.IID{NameId: "sg01", SystemId: ""}
+	// resIID := irs.IID{NameId: "keypair-01", SystemId: ""}
+	resIID := irs.IID{NameId: "vm-01", SystemId: ""}
+
 
 Loop:
 	for {
@@ -2011,7 +2016,8 @@ Loop:
 				cblogger.Info("Finish RemoveTag()")
 			case 5:
 				cblogger.Info("Start FindTag() ...")
-				keyword := "Environment"
+				// keyword := "Environment"
+				keyword := "createdBy"
 				if tagInfos, err := tagHandler.FindTag(resType, keyword); err != nil {
 					cblogger.Error(err)
 				} else {

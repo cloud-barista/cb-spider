@@ -235,6 +235,7 @@ func (cloudConn *AzureCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandle
 func (cloudConn *AzureCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateTagHandler()!")
 	tagHandler := azrs.AzureTagHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
 		Region : cloudConn.Region,
 		Ctx    : cloudConn.Ctx,
 		Client : cloudConn.TagsClient,
