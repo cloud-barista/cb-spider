@@ -258,7 +258,7 @@ func (tagHandler *AzureTagHandler) FindTag(resType irs.RSType, keyword string) (
 	case irs.KEY:
 		url = fmt.Sprintf(urlByProvider,tagHandler.CredentialInfo.SubscriptionId,"Microsoft.Compute/sshPublicKeys")
 	case irs.CLUSTER:
-		url = fmt.Sprintf(urlByProvider,tagHandler.CredentialInfo.SubscriptionId,"Microsoft.ContainerService/managedClusters")
+		url = fmt.Sprintf("https://management.azure.com/subscriptions/%s/providers/%s?api-version=2024-05-01",tagHandler.CredentialInfo.SubscriptionId,"Microsoft.ContainerService/managedClusters")
 	default:
 		fmt.Println(errors.New(string(resType) + " is not supported Resource!!"))
 	}
