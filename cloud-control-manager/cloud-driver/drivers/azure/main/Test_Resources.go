@@ -1963,11 +1963,11 @@ func testTagHandler(config Config) {
 	testTagHandlerListPrint()
 
 	tagReq := irs.KeyValue{Key: "Environment", Value: "Production"}
-	resType := irs.RSType("all")
-	// resIID := irs.IID{NameId: "vpc-01", SystemId: ""}
+	resType := irs.RSType("vpc")
+	resIID := irs.IID{NameId: "vpc-01", SystemId: ""}
 	// resIID := irs.IID{NameId: "sg01", SystemId: ""}
 	// resIID := irs.IID{NameId: "keypair-01", SystemId: ""}
-	resIID := irs.IID{NameId: "vm-01", SystemId: ""}
+	// resIID := irs.IID{NameId: "vm-01", SystemId: ""}
 
 
 Loop:
@@ -2016,8 +2016,8 @@ Loop:
 				cblogger.Info("Finish RemoveTag()")
 			case 5:
 				cblogger.Info("Start FindTag() ...")
-				// keyword := "Environment"
-				keyword := "createdBy"
+				keyword := "Environment"
+				// keyword := "createdBy"
 				if tagInfos, err := tagHandler.FindTag(resType, keyword); err != nil {
 					cblogger.Error(err)
 				} else {
