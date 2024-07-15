@@ -57,7 +57,7 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 	config, _ := readFileConfig(credentialFilePath)
 	//region := "europe-west1"
 	region := "asia-northeast3"
-	zone := "asia-northeast3-a"
+	zone := "asia-northeast3-c"
 
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
@@ -104,6 +104,8 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateRegionZoneHandler()
 	case "PriceInfo":
 		resourceHandler, err = cloudConnection.CreatePriceInfoHandler()
+	case "Tag":
+		resourceHandler, err = cloudConnection.CreateTagHandler()
 	}
 
 	if err != nil {

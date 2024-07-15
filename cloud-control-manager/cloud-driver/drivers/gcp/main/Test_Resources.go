@@ -11,7 +11,11 @@
 package main
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
+	"os"
+	"strings"
 
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
@@ -1979,6 +1983,140 @@ func handlePriceInfo() {
 		}
 	}
 }
+
+func handleTags() {
+	ResourceHandler, err := testconf.GetResourceHandler("Tag")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.TagHandler)
+
+	for {
+		fmt.Println("Tag Management")
+		fmt.Println("0. quit")
+		fmt.Println("1. list tags")
+		fmt.Println("2. add tags")
+		fmt.Println("3. remove tags")
+		fmt.Println("4. get tags")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		reader := bufio.NewReader(os.Stdin)
+
+		fmt.Println("resource type [v(m)/d(isk)/c(luster - temporary not usable)]: ")
+		key, err := reader.ReadString('\n')
+
+		if err != nil {
+			panic(err)
+		}
+		key = strings.TrimSpace(key)
+
+		var sampleId string
+		var sampleType irs.RSType
+		if strings.EqualFold(strings.ToLower(key), "v") {
+			sampleId = "2504669692882076487"
+			sampleType = irs.VM
+		} else if strings.EqualFold(strings.ToLower(key), "d") {
+			sampleId = "mcmp-demo"
+			sampleType = irs.DISK
+		} else {
+			fmt.Println(errors.New("chose vm or disk currently"))
+			continue
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				r, err := handler.ListTag(sampleType, irs.IID{NameId: sampleId, SystemId: sampleId})
+				if err != nil {
+					fmt.Println("error while call list tag", err)
+					continue
+				}
+
+				fmt.Printf("%+v\n", r)
+			case 2:
+
+				reader := bufio.NewReader(os.Stdin)
+
+				fmt.Println("key name : ")
+				key, err := reader.ReadString('\n')
+
+				if err != nil {
+					panic(err)
+				}
+				key = strings.TrimSpace(key)
+				fmt.Println("value name : ")
+				val, err := reader.ReadString('\n')
+
+				if err != nil {
+					panic(err)
+				}
+				val = strings.TrimSpace(val)
+
+				r, err := handler.AddTag(sampleType,
+					irs.IID{NameId: sampleId, SystemId: sampleId},
+					irs.KeyValue{Key: key, Value: val})
+				if err != nil {
+					fmt.Println("error while call add tag", err)
+					continue
+				}
+
+				fmt.Printf("%+v\n", r)
+			case 3:
+
+				reader := bufio.NewReader(os.Stdin)
+
+				fmt.Println("key name : ")
+				key, err := reader.ReadString('\n')
+
+				if err != nil {
+					panic(err)
+				}
+				key = strings.TrimSpace(key)
+
+				r, err := handler.RemoveTag(sampleType,
+					irs.IID{NameId: sampleId, SystemId: sampleId},
+					key)
+				if err != nil {
+					fmt.Println("error while call remove tag", err)
+					continue
+				}
+
+				fmt.Printf("%+v\n", r)
+
+			case 4:
+
+				reader := bufio.NewReader(os.Stdin)
+
+				fmt.Println("key name : ")
+				key, err := reader.ReadString('\n')
+
+				if err != nil {
+					panic(err)
+				}
+				key = strings.TrimSpace(key)
+
+				r, err := handler.GetTag(sampleType,
+					irs.IID{NameId: sampleId, SystemId: sampleId},
+					key)
+				if err != nil {
+					fmt.Println("error while call get tag", err)
+					continue
+				}
+
+				fmt.Printf("%+v\n", r)
+
+			}
+		}
+	}
+}
 func main() {
 	cblogger.Info("GCP Resource Test")
 	//handleVPC()
@@ -1991,7 +2129,8 @@ func main() {
 	//handleDisk()
 	//handleMyImage()
 	//handleRegionZone()
-	handlePriceInfo()
+	// handlePriceInfo()
 	//cblogger.Info(filepath.Join("a/b", "\\cloud-driver-libs\\.ssh-gcp\\"))
 	//cblogger.Info(filepath.Join("\\cloud-driver-libs\\.ssh-gcp\\", "/b/c/d"))
+	handleTags()
 }

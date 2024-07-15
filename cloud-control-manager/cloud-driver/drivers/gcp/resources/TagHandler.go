@@ -72,9 +72,9 @@ func (t *GCPTagHandler) getCluster(resIID irs.IID) (*container.Cluster, error) {
 	return cluster, nil
 }
 
-func (t *GCPTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag KeyValue) (KeyValue, error) {
+func (t *GCPTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag irs.KeyValue) (irs.KeyValue, error) {
 	err := validateSupportRS(resType)
-	errRes := KeyValue{}
+	errRes := irs.KeyValue{}
 	if err != nil {
 		return errRes, err
 	}
@@ -89,10 +89,13 @@ func (t *GCPTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag KeyValue)
 		}
 
 		existLabels := vm.Labels
+		if existLabels == nil {
+			existLabels = make(map[string]string)
+		}
 		existLabels[tag.Key] = tag.Value
 
 		req := &compute.InstancesSetLabelsRequest{
-			LabelFingerprint: vm.Fingerprint,
+			LabelFingerprint: vm.LabelFingerprint,
 			Labels:           existLabels,
 		}
 
@@ -115,6 +118,9 @@ func (t *GCPTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag KeyValue)
 		}
 
 		existLabels := disk.Labels
+		if existLabels == nil {
+			existLabels = make(map[string]string)
+		}
 		existLabels[tag.Key] = tag.Value
 
 		req := &compute.ZoneSetLabelsRequest{
@@ -140,6 +146,9 @@ func (t *GCPTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag KeyValue)
 		}
 
 		existLabels := cluster.ResourceLabels
+		if existLabels == nil {
+			existLabels = make(map[string]string)
+		}
 		existLabels[tag.Key] = tag.Value
 
 		name := getParentClusterAtContainer(projectId, zone, resIID.SystemId)
@@ -191,9 +200,9 @@ func (t *GCPTagHandler) waitForOperation(o *compute.Operation) error {
 	return errors.New("operation has not been finished.")
 }
 
-func (t *GCPTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]KeyValue, error) {
+func (t *GCPTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]irs.KeyValue, error) {
 	err := validateSupportRS(resType)
-	res := []KeyValue{}
+	res := []irs.KeyValue{}
 	if err != nil {
 		return res, err
 	}
@@ -207,7 +216,7 @@ func (t *GCPTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]KeyValue,
 			return res, err
 		}
 		for k, v := range vm.Labels {
-			kv := KeyValue{
+			kv := irs.KeyValue{
 				Key:   k,
 				Value: v,
 			}
@@ -221,7 +230,7 @@ func (t *GCPTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]KeyValue,
 		}
 
 		for k, v := range disk.Labels {
-			kv := KeyValue{
+			kv := irs.KeyValue{
 				Key:   k,
 				Value: v,
 			}
@@ -236,7 +245,7 @@ func (t *GCPTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]KeyValue,
 		}
 
 		for k, v := range cluster.ResourceLabels {
-			kv := KeyValue{
+			kv := irs.KeyValue{
 				Key:   k,
 				Value: v,
 			}
@@ -247,9 +256,9 @@ func (t *GCPTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]KeyValue,
 		return res, errors.New("unsupport resources type")
 	}
 }
-func (t *GCPTagHandler) GetTag(resType irs.RSType, resIID irs.IID, key string) (KeyValue, error) {
+func (t *GCPTagHandler) GetTag(resType irs.RSType, resIID irs.IID, key string) (irs.KeyValue, error) {
 	labels, err := t.ListTag(resType, resIID)
-	res := KeyValue{}
+	res := irs.KeyValue{}
 	if err != nil {
 		return res, err
 	}
@@ -280,12 +289,17 @@ func (t *GCPTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, key string
 		}
 
 		existLabels := vm.Labels
+		if existLabels == nil {
+			return false, errors.New("key does not exist")
+		}
 		if _, ok := existLabels[key]; ok {
 			delete(existLabels, key)
+		} else {
+			return false, errors.New("key does not exist")
 		}
 
 		req := &compute.InstancesSetLabelsRequest{
-			LabelFingerprint: vm.Fingerprint,
+			LabelFingerprint: vm.LabelFingerprint,
 			Labels:           existLabels,
 		}
 
@@ -308,8 +322,15 @@ func (t *GCPTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, key string
 		}
 
 		existLabels := disk.Labels
+
+		if existLabels == nil {
+			return false, errors.New("key does not exist")
+		}
+
 		if _, ok := existLabels[key]; ok {
 			delete(existLabels, key)
+		} else {
+			return false, errors.New("key does not exist")
 		}
 		req := &compute.ZoneSetLabelsRequest{
 			LabelFingerprint: disk.LabelFingerprint,
@@ -334,8 +355,14 @@ func (t *GCPTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, key string
 		}
 
 		existLabels := cluster.ResourceLabels
+		if existLabels == nil {
+			return false, errors.New("key does not exist")
+		}
+
 		if _, ok := existLabels[key]; ok {
 			delete(existLabels, key)
+		} else {
+			return false, errors.New("key does not exist")
 		}
 
 		name := getParentClusterAtContainer(projectId, zone, resIID.SystemId)
