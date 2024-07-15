@@ -78,9 +78,9 @@ func handleSecurity() {
 			case 1:
 				result, err := handler.ListSecurity()
 				if err != nil {
-					cblogger.Infof(" Security 목록 조회 실패 : ", err)
+					cblogger.Infof(" Security List Lookup Failed : ", err)
 				} else {
-					cblogger.Info("Security 목록 조회 결과")
+					cblogger.Info("Security List Lookup Result")
 					cblogger.Info(result)
 
 					if result != nil {
@@ -401,9 +401,9 @@ func handlePublicIP() {
 				fmt.Println("Start ListPublicIP() ...")
 				result, err := handler.ListPublicIP()
 				if err != nil {
-					cblogger.Error("PublicIP 목록 조회 실패 : ", err)
+					cblogger.Error("PublicIP List Lookup Failed : ", err)
 				} else {
-					cblogger.Info("PublicIP 목록 조회 결과")
+					cblogger.Info("PublicIP List Lookup Result")
 					spew.Dump(result)
 				}
 
@@ -491,9 +491,9 @@ func handleKeyPair() {
 			case 1:
 				result, err := KeyPairHandler.ListKey()
 				if err != nil {
-					cblogger.Infof(" 키 페어 목록 조회 실패 : ", err)
+					cblogger.Infof(" 키 페어 List Lookup Failed : ", err)
 				} else {
-					cblogger.Info("키 페어 목록 조회 결과")
+					cblogger.Info("키 페어 List Lookup Result")
 					//cblogger.Info(result)
 					spew.Dump(result)
 				}
@@ -575,9 +575,9 @@ func handleVNetwork() {
 			case 1:
 				result, err := VPCHandler.ListVNetwork()
 				if err != nil {
-					cblogger.Infof(" VNetwork 목록 조회 실패 : ", err)
+					cblogger.Infof(" VNetwork List Lookup Failed : ", err)
 				} else {
-					cblogger.Info("VNetwork 목록 조회 결과")
+					cblogger.Info("VNetwork List Lookup Result")
 					//cblogger.Info(result)
 					spew.Dump(result)
 
@@ -690,9 +690,9 @@ func handleVPC() {
 			case 1:
 				result, err := VPCHandler.ListVPC()
 				if err != nil {
-					cblogger.Infof(" VNetwork 목록 조회 실패 : ", err)
+					cblogger.Infof(" VNetwork List Lookup Failed : ", err)
 				} else {
-					cblogger.Info("VNetwork 목록 조회 결과")
+					cblogger.Info("VNetwork List Lookup Result")
 					//cblogger.Info(result)
 					spew.Dump(result)
 
@@ -798,11 +798,11 @@ func handleImage() {
 			case 1:
 				result, err := handler.ListImage()
 				if err != nil {
-					cblogger.Infof(" Image 목록 조회 실패 : ", err)
+					cblogger.Infof(" Image List Lookup Failed : ", err)
 				} else {
-					cblogger.Info("Image 목록 조회 결과")
+					cblogger.Info("Image List Lookup Result")
 					cblogger.Debug(result)
-					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
 					//spew.Dump(result)
 					cblogger.Info("출력 결과 수 : ", len(result))
 
@@ -887,9 +887,9 @@ func handleVNic() {
 			case 1:
 				result, err := handler.ListVNic()
 				if err != nil {
-					cblogger.Infof(" VNic 목록 조회 실패 : ", err)
+					cblogger.Infof(" VNic List Lookup Failed : ", err)
 				} else {
-					cblogger.Info("VNic 목록 조회 결과")
+					cblogger.Info("VNic List Lookup Result")
 					spew.Dump(result)
 					if len(result) > 0 {
 						reqVnicID = result[0].Id // 조회 및 삭제 편의를 위해 목록의 첫번째 ID로 변경
@@ -1153,9 +1153,9 @@ func handleVMSpec() {
 				fmt.Println("Start ListVMSpec() ...")
 				result, err := handler.ListVMSpec()
 				if err != nil {
-					cblogger.Error("VMSpec 목록 조회 실패 : ", err)
+					cblogger.Error("VMSpec List Lookup Failed : ", err)
 				} else {
-					cblogger.Debug("VMSpec 목록 조회 결과")
+					cblogger.Debug("VMSpec List Lookup Result")
 					//spew.Dump(result)
 					cblogger.Debug(result)
 					cblogger.Infof("전체 목록 개수 : [%d]", len(result))
@@ -1179,9 +1179,9 @@ func handleVMSpec() {
 				fmt.Println("Start ListOrgVMSpec() ...")
 				result, err := handler.ListOrgVMSpec()
 				if err != nil {
-					cblogger.Error("VMSpec Org 목록 조회 실패 : ", err)
+					cblogger.Error("VMSpec Org List Lookup Failed : ", err)
 				} else {
-					cblogger.Debug("VMSpec Org 목록 조회 결과")
+					cblogger.Debug("VMSpec Org List Lookup Result")
 					//spew.Dump(result)
 					cblogger.Debug(result)
 					//spew.Dump(result)
@@ -1283,11 +1283,11 @@ func handleNLB() {
 			case 1:
 				result, err := handler.ListNLB()
 				if err != nil {
-					cblogger.Infof(" NLB 목록 조회 실패 : ", err)
+					cblogger.Infof(" NLB List Lookup Failed : ", err)
 				} else {
-					cblogger.Info("NLB 목록 조회 결과")
+					cblogger.Info("NLB List Lookup Result")
 					cblogger.Debug(result)
-					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
 					//spew.Dump(result)
 					cblogger.Info("출력 결과 수 : ", len(result))
 
@@ -1497,11 +1497,11 @@ func handleCluster() {
 			case 1:
 				result, err := handler.ListCluster()
 				if err != nil {
-					cblogger.Infof(" Cluster 목록 조회 실패 : ", err)
+					cblogger.Infof(" Cluster List Lookup Failed : ", err)
 				} else {
-					cblogger.Info("Cluster 목록 조회 결과")
+					cblogger.Info("Cluster List Lookup Result")
 					cblogger.Debug(result)
-					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
 					//spew.Dump(result)
 					cblogger.Info("출력 결과 수 : ", len(result))
 
@@ -1657,12 +1657,12 @@ func handleRegionZone() {
 			case 1:
 				result, err := handler.ListRegionZone()
 				if err != nil {
-					cblogger.Infof("ListRegionZone 목록 조회 실패 : %s", err)
+					cblogger.Infof("ListRegionZone List Lookup Failed : %s", err)
 				} else {
-					cblogger.Info("ListRegionZone 목록 조회 결과")
+					cblogger.Info("ListRegionZone List Lookup Result")
 					// cblogger.Debugf("결과 %s", result[0])
 					spew.Dump(result)
-					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
 					//spew.Dump(result)
 					cblogger.Info("출력 결과 수 : ", len(result))
 				}
@@ -1674,29 +1674,29 @@ func handleRegionZone() {
 				} else {
 					cblogger.Info("GetRegionZone 조회 결과")
 					cblogger.Debug(result)
-					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
 					// spew.Dump(result)
 				}
 
 			case 3:
 				result, err := handler.ListOrgRegion()
 				if err != nil {
-					cblogger.Infof("ListOrgRegion 목록 조회 실패 : ", err)
+					cblogger.Infof("ListOrgRegion List Lookup Failed : ", err)
 				} else {
-					cblogger.Info("ListOrgRegion 목록 조회 결과")
+					cblogger.Info("ListOrgRegion List Lookup Result")
 					cblogger.Debug(result)
-					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
 					//spew.Dump(result)
 					cblogger.Info("출력 결과 수 : ", len(result))
 				}
 			case 4:
 				result, err := handler.ListOrgZone()
 				if err != nil {
-					cblogger.Infof("ListOrgZone 목록 조회 실패 : %s", err)
+					cblogger.Infof("ListOrgZone List Lookup Failed : %s", err)
 				} else {
-					cblogger.Info("ListOrgZone 목록 조회 결과")
+					cblogger.Info("ListOrgZone List Lookup Result")
 					cblogger.Debug(result)
-					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
 					//spew.Dump(result)
 					cblogger.Info("출력 결과 수 : ", len(result))
 				}
@@ -1736,12 +1736,12 @@ func handlePriceInfo() {
 			case 1:
 				result, err := handler.ListProductFamily("us-west-1")
 				if err != nil {
-					cblogger.Infof("ListProductFamily 목록 조회 실패 : %s", err)
+					cblogger.Infof("ListProductFamily List Lookup Failed : %s", err)
 				} else {
-					cblogger.Info("ListProductFamily 목록 조회 결과")
+					cblogger.Info("ListProductFamily List Lookup Result")
 					// cblogger.Debugf("결과 %s", result[0])
 					spew.Dump(result)
-					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
 					//spew.Dump(result)
 					cblogger.Info("출력 결과 수 : ", len(result))
 				}
@@ -1770,7 +1770,7 @@ func handlePriceInfo() {
 				} else {
 					cblogger.Info("GetPriceInfo 조회 결과")
 					cblogger.Info(result)
-					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
 				}
 			}
 		}
@@ -1815,18 +1815,18 @@ func handleTag() {
 				return
 
 			case 1:
-				cblogger.Infof("조회 요청 태그 타입 : [%s]", reqType)
+				cblogger.Infof("Lookup request tag type : [%s]", reqType)
 				if reqType == irs.VM {
-					cblogger.Debug("VM 요청됨")
+					cblogger.Debug("VM Requested")
 				}
 
 				result, err := handler.ListTag(reqType, reqIID)
 				if err != nil {
-					cblogger.Info(" Tag 목록 조회 실패 : ", err)
+					cblogger.Info(" Tag List Lookup Failed : ", err)
 				} else {
-					cblogger.Info("Tag 목록 조회 결과")
+					cblogger.Info("Tag List Lookup Result")
 					cblogger.Debug(result)
-					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
 					//spew.Dump(result)
 					cblogger.Info("출력 결과 수 : ", len(result))
 
