@@ -1963,8 +1963,8 @@ func testTagHandler(config Config) {
 	testTagHandlerListPrint()
 
 	tagReq := irs.KeyValue{Key: "Environment", Value: "Production"}
-	resType := irs.RSType("vpc")
-	resIID := irs.IID{NameId: "vpc-01", SystemId: ""}
+	resType := irs.RSType("cluster")
+	resIID := irs.IID{NameId: "test-cluster-2", SystemId: ""}
 	// resIID := irs.IID{NameId: "sg01", SystemId: ""}
 	// resIID := irs.IID{NameId: "keypair-01", SystemId: ""}
 	// resIID := irs.IID{NameId: "vm-01", SystemId: ""}

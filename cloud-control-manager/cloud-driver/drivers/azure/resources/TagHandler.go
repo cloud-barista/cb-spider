@@ -106,7 +106,7 @@ func findRSType(azureType string) (irs.RSType, error) {
 		return irs.SG, nil
 	case "Microsoft.Compute/sshPublicKeys":
 		return irs.KEY, nil
-	case "Microsoft.ContainerService/managedClusters":
+	case "Microsoft.ContainerService/ManagedClusters":
 		return irs.CLUSTER, nil
 	default:
 		return "", errors.New(azureType + " is not supported Resource!!")
