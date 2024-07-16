@@ -27,7 +27,6 @@ import (
 )
 
 type NcpRegionZoneHandler struct {
-	CredentialInfo 	idrv.CredentialInfo
 	RegionInfo     	idrv.RegionInfo
 	VMClient        *vserver.APIClient
 }
