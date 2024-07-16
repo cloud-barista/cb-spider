@@ -99,6 +99,16 @@ func (VPCHandler *AlibabaVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 	}
 	retVpcInfo.IId.NameId = vpcReqInfo.IId.NameId // NameId는 요청 받은 값으로 리턴해야 함.
 
+	if vpcReqInfo.TagList != nil && len(vpcReqInfo.TagList) > 0 {
+		//tagHandler.Client, tagHandler.Region, resType, resIID, key
+		for _, vpcTag := range vpcReqInfo.TagList {
+			response, err := AddVpcTags(VPCHandler.Client, VPCHandler.Region, irs.RSType("VPC"), retVpcInfo.IId, vpcTag)
+			if err != nil {
+				cblogger.Error(errVpc)
+			}
+			cblogger.Debug("vpc add tag response ", response)
+		}
+	}
 	return retVpcInfo, nil
 }
 

@@ -174,5 +174,7 @@ func (cloudConn *AlibabaCloudConnection) CreatePriceInfoHandler() (irs.PriceInfo
 }
 
 func (cloudConn *AlibabaCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
-	return nil, errors.New("Alibaba Driver: not implemented")
+	cblogger.Info("Start")
+	handler := alirs.AlibabaTagHandler{cloudConn.Region, cloudConn.VMClient, cloudConn.Cs2015Client}
+	return &handler, nil
 }

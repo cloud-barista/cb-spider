@@ -100,6 +100,20 @@ func (diskHandler *AlibabaDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 		return irs.DiskInfo{}, err
 	}
 
+	// Add Tag
+	if diskReqInfo.TagList != nil {
+		// TagHandler.AddTag
+		for _, diskTag := range diskReqInfo.TagList {
+			cblogger.Debug("aliTag ", diskTag)
+			response, err := AddEcsTags(diskHandler.Client, diskHandler.Region, irs.RSType("DISK"), diskInfo.IId, diskTag)
+			if err != nil {
+				cblogger.Error(err)
+				//return tag, err
+			}
+			cblogger.Debug("AddEcsTags response", response)
+		}
+	}
+
 	return diskInfo, nil
 }
 

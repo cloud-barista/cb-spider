@@ -1024,12 +1024,12 @@ func aliDescribeClustersV1(csClient *cs2015.Client, regionId string) ([]*cs2015.
 		ClusterType: tea.String("ManagedKubernetes"),
 		RegionId:    tea.String(regionId),
 	}
-	//cblogger.Debug(describeClustersV1Request)
+	cblogger.Debug(describeClustersV1Request)
 	describeClustersV1Response, err := csClient.DescribeClustersV1(describeClustersV1Request)
 	if err != nil {
 		return make([]*cs2015.DescribeClustersV1ResponseBodyClusters, 0), err
 	}
-	//cblogger.Debug(describeClustersV1Response.Body)
+	cblogger.Debug(describeClustersV1Response.Body)
 
 	return describeClustersV1Response.Body.Clusters, nil
 }
