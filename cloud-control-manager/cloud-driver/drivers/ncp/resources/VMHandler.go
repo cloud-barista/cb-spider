@@ -533,11 +533,11 @@ func (vmHandler *NcpVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 
 	// Since it's impossible to get VM info. during Creation, ...
 	switch string(curStatus) {
-	case "Creating", "Booting":
+	case "Creating":
 		cblogger.Infof("Wait for the VM creation before inquiring VM info. The VM status : [%s]", string(curStatus))
-		return irs.VMInfo{}, errors.New("The VM status is 'Creating' or 'Booting', wait for the VM creation before inquiring VM info. : " + vmIID.SystemId)
+		return irs.VMInfo{}, errors.New("The VM status is 'Creating', wait for the VM creation before inquiring VM info. : " + vmIID.SystemId)
 	default:
-		cblogger.Infof("===> The VM status not 'Creating' or 'Booting', you can get the VM info.")
+		cblogger.Infof("===> The VM status not 'Creating', you can get the VM info.")
 	}
 
 	regionNo, err := vmHandler.GetRegionNo(vmHandler.RegionInfo.Region)
@@ -969,7 +969,7 @@ func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 		//Caution!!
 		resultStatus = "Booting"
 	} else if strings.EqualFold(vmStatus, "setting up") {
-		resultStatus = "Creating"
+		resultStatus = "Setting_up"
 	} else if strings.EqualFold(vmStatus, "running") {
 		resultStatus = "Running"
 	} else if strings.EqualFold(vmStatus, "shutting down") {
@@ -1136,29 +1136,23 @@ func (vmHandler *NcpVMHandler) ListVM() ([]*irs.VMInfo, error) {
 		cblogger.Debug(newErr.Error())
 		return nil, nil // Not returns Error message		
 	} else {
-		cblogger.Info("Succeeded in Getting ServerInstanceList!!")
+		cblogger.Info("Succeeded in Getting ServerInstanceList from NCP!!")
 	}	
 	
 	var vmInfoList []*irs.VMInfo
 	for _, vm := range result.ServerInstanceList {
-		cblogger.Info("NCP VM Instance Info. inquiry : ", *vm.ServerInstanceNo)
-
-		curStatus, errStatus := vmHandler.GetVMStatus(irs.IID{SystemId: *vm.ServerInstanceNo})
-		if errStatus != nil {
-			rtnErr := logAndReturnError(callLogInfo, "Failed to Get the VM Status : ", errStatus)
-			return nil, rtnErr
+		curStatus, statusErr := vmHandler.GetVMStatus(irs.IID{SystemId: *vm.ServerInstanceNo})
+		if statusErr != nil {
+			newErr := fmt.Errorf("Failed to Get the Status of VM : [%s], [%v]", *vm.ServerInstanceNo, statusErr.Error())
+			cblogger.Error(newErr.Error())
+			return nil, newErr
 		} else {
-			cblogger.Infof("Succeeded to Get the VM Status of [%s] : [%s]", irs.IID{SystemId: *vm.ServerInstanceNo}, curStatus)
+			cblogger.Infof("Succeeded to Get the Status of VM [%s] : [%s]", *vm.ServerInstanceNo, string(curStatus))
 		}
-		cblogger.Info("===> VM Status : ", curStatus)
+		cblogger.Infof("===> VM Status : [%s]", string(curStatus))
 
-		switch string(curStatus) {
-		case "Creating", "Booting":
-			cblogger.Errorf("The VM status : [%s], Can Not Get the VM info.", string(curStatus))
-			return nil, nil
-
-		default:
-			cblogger.Infof("===> The VM status not 'Creating' or 'Booting', you can get the VM info.")
+		if (string(curStatus) != "Creating") && (string(curStatus) != "Terminating") {
+			cblogger.Infof("===> The VM Status not 'Creating' or 'Terminating', you can get the VM info.")
 			vmInfo, error := vmHandler.GetVM(irs.IID{SystemId: *vm.ServerInstanceNo})
 			if error != nil {
 				cblogger.Error(error.Error())
@@ -1189,9 +1183,9 @@ func (vmHandler *NcpVMHandler) WaitToGetInfo(vmIID irs.IID) (irs.VMStatus, error
 		cblogger.Infof("===> VM Status : [%s]", curStatus)
 
 		switch string(curStatus) {
-		case "Creating", "Booting":
+		case "Creating", "Booting", "Setting_up":
 			curRetryCnt++
-			cblogger.Infof("The VM is still 'Creating', so wait for a second more before inquiring the VM info.")
+			cblogger.Infof("The VM is still 'Creating' and 'Booting', so wait for a second more before inquiring the VM info.")
 			time.Sleep(time.Second * 5)
 			if curRetryCnt > maxRetryCnt {
 				cblogger.Errorf("Despite waiting for a long time(%d sec), the VM status is %s, so it is forcibly finishied.", maxRetryCnt, curStatus)
