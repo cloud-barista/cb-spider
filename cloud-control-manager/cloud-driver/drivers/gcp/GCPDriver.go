@@ -64,7 +64,7 @@ func (GCPDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.ClusterHandler = true
 	drvCapabilityInfo.PriceInfoHandler = true
 	drvCapabilityInfo.TagHandler = true
-	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.VM, ires.DISK, ires.CLUSTER}
+	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.ALL, ires.VM, ires.DISK, ires.CLUSTER}
 
 	return drvCapabilityInfo
 }

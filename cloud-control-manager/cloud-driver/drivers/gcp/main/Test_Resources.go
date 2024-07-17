@@ -1998,6 +1998,7 @@ func handleTags() {
 		fmt.Println("2. add tags")
 		fmt.Println("3. remove tags")
 		fmt.Println("4. get tags")
+		fmt.Println("5. find tags")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -2007,7 +2008,7 @@ func handleTags() {
 
 		reader := bufio.NewReader(os.Stdin)
 
-		fmt.Println("resource type [v(m)/d(isk)/c(luster - temporary not usable)]: ")
+		fmt.Println("resource type [a(ll)/v(m)/d(isk)/c(luster - temporary not usable)]: ")
 		key, err := reader.ReadString('\n')
 
 		if err != nil {
@@ -2023,6 +2024,8 @@ func handleTags() {
 		} else if strings.EqualFold(strings.ToLower(key), "d") {
 			sampleId = "mcmp-demo"
 			sampleType = irs.DISK
+		} else if strings.EqualFold(strings.ToLower(key), "a") {
+			sampleType = irs.ALL
 		} else {
 			fmt.Println(errors.New("chose vm or disk currently"))
 			continue
@@ -2112,7 +2115,27 @@ func handleTags() {
 				}
 
 				fmt.Printf("%+v\n", r)
+			case 5:
 
+				reader := bufio.NewReader(os.Stdin)
+
+				fmt.Println("key name : ")
+				keyword, err := reader.ReadString('\n')
+
+				if err != nil {
+					panic(err)
+				}
+				keyword = strings.TrimSpace(keyword)
+
+				re, err := handler.FindTag(sampleType, keyword)
+				if err != nil {
+					fmt.Println("error while call get tag", err)
+					continue
+				}
+
+				for _, r := range re {
+					fmt.Printf("%+v\n", *r)
+				}
 			}
 		}
 	}

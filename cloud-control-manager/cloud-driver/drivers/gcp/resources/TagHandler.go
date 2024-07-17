@@ -389,57 +389,185 @@ func (t *GCPTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, key string
 		return false, errors.New("unsupported resource type")
 	}
 }
+func (t *GCPTagHandler) getVms() ([]*compute.Instance, error) {
+	vms, err := t.ComputeClient.Instances.List(t.Credential.ProjectID, t.Region.Zone).Do()
+	if err != nil {
+		return nil, err
+	}
+
+	return vms.Items, nil
+}
+
+func (t *GCPTagHandler) getDisks() ([]*compute.Disk, error) {
+	disks, err := t.ComputeClient.Disks.List(t.Credential.ProjectID, t.Region.Zone).Do()
+	if err != nil {
+		return nil, err
+	}
+	return disks.Items, nil
+}
+
+func (t *GCPTagHandler) getClusters() ([]*container.Cluster, error) {
+	parent := getParentAtContainer(t.Credential.ProjectID, t.Region.Zone)
+	clusters, err := t.ContainerClient.Projects.Locations.Clusters.List(parent).Do()
+	if err != nil {
+		return nil, err
+	}
+
+	return clusters.Clusters, nil
+}
+
 func (t *GCPTagHandler) FindTag(resType irs.RSType, keyword string) ([]*irs.TagInfo, error) {
-	// err := validateSupportRS(resType)
-	// errRes := []*irs.TagInfo{}
-	// if err != nil {
-	// 	return errRes, err
-	// }
+	var res []*irs.TagInfo
+	var err error
 
-	// projectId := t.Credential.ProjectID
-	// zone := t.Region.Zone
-	// switch resType {
-	// case irs.VM:
-	// 	vms, err := t.ComputeClient.Instances.List(projectId, zone).Do()
-	// 	if err != nil {
-	// 		return errRes, err
-	// 	}
+	if resType == irs.ALL {
+		res1, err := getResult(
+			keyword,
+			irs.VM,
+			t.getVms,
+			func(item *compute.Instance) string {
+				return item.Name
+			},
+			func(item *compute.Instance) map[string]string {
+				return item.Labels
+			},
+		)
 
-	// 	for _, i := range vms.Items {
-	// 		irs.TagInfo{
-	// 			ResType: resType,
-	// 			ResIId: irs.IID{
-	// 				NameId: "",
-	// 				SystemId: "",
-	// 			},
-	// 		}
-	// 		for k, v := range i.Labels {
-	// 			if strings.Contains(k, keyword) || strings.Contains(v, keyword) {
+		if err != nil {
+			return res, err
+		}
 
-	// 					irs.KeyValue{
+		res = append(res, res1...)
+		res2, err := getResult(
+			keyword,
+			irs.DISK,
+			t.getDisks,
+			func(item *compute.Disk) string {
+				return item.Name
+			},
+			func(item *compute.Disk) map[string]string {
+				return item.Labels
+			},
+		)
 
-	// 					}
+		if err != nil {
+			return res, err
+		}
+		res = append(res, res2...)
+		res3, err := getResult(
+			keyword,
+			irs.CLUSTER,
+			t.getClusters,
+			func(item *container.Cluster) string {
+				return item.Name
+			},
+			func(item *container.Cluster) map[string]string {
+				return item.ResourceLabels
+			},
+		)
 
-	// 			}
-	// 		}
-	// 	}
+		if err != nil {
+			return res, err
+		}
+		res = append(res, res3...)
+	} else {
+		err = validateSupportRS(resType)
+		if err != nil {
+			return res, err
+		}
 
-	// case irs.DISK:
-	// 	disks, err := t.ComputeClient.Disks.List(projectId, zone).Do()
-	// 	if err != nil {
-	// 		return errRes, err
-	// 	}
+		switch resType {
+		case irs.VM:
+			res, err = getResult(
+				keyword,
+				resType,
+				t.getVms,
+				func(item *compute.Instance) string {
+					return item.Name
+				},
+				func(item *compute.Instance) map[string]string {
+					return item.Labels
+				},
+			)
 
-	// case irs.CLUSTER:
-	// 	parent := getParentAtContainer(projectId, zone)
-	// 	clusters, err := t.ContainerClient.Projects.Locations.Clusters.List(parent).Do()
-	// 	if err != nil {
-	// 		return errRes, err
-	// 	}
+			if err != nil {
+				return res, err
+			}
+		case irs.DISK:
+			res, err = getResult(
+				keyword,
+				resType,
+				t.getDisks,
+				func(item *compute.Disk) string {
+					return item.Name
+				},
+				func(item *compute.Disk) map[string]string {
+					return item.Labels
+				},
+			)
 
-	// default:
+			if err != nil {
+				return res, err
+			}
+		case irs.CLUSTER:
+			res, err = getResult(
+				keyword,
+				resType,
+				t.getClusters,
+				func(item *container.Cluster) string {
+					return item.Name
+				},
+				func(item *container.Cluster) map[string]string {
+					return item.ResourceLabels
+				},
+			)
 
-	// }
+			if err != nil {
+				return res, err
+			}
 
-	return []*irs.TagInfo{}, nil
+		default:
+			return nil, errors.New("unsupport resource type")
+		}
+	}
+
+	return res, nil
+}
+
+func getResult[T *compute.Instance | *compute.Disk | *container.Cluster](
+	keyword string,
+	resType irs.RSType,
+	resultFn func() ([]T, error),
+	getNameFn func(item T) string,
+	getLabelFn func(item T) map[string]string,
+) ([]*irs.TagInfo, error) {
+	var res []*irs.TagInfo
+	items, err := resultFn()
+	if err != nil {
+		return res, err
+	}
+
+	for _, item := range items {
+		name := getNameFn(item)
+		var ti *irs.TagInfo
+		for k, v := range getLabelFn(item) {
+			if strings.Contains(k, keyword) || strings.Contains(v, keyword) {
+				if ti == nil {
+					ti = &irs.TagInfo{
+						ResType: resType,
+						ResIId: irs.IID{
+							NameId:   name,
+							SystemId: name,
+						},
+					}
+				}
+				ti.TagList = append(ti.TagList, irs.KeyValue{Key: k, Value: v})
+			}
+		}
+		if ti != nil {
+			res = append(res, ti)
+		}
+	}
+
+	return res, nil
 }
