@@ -91,12 +91,9 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 		switch len(arrVer) {
 		case 2: // 그대로 적용
 			input.Version = aws.String(reqK8sVersion)
-			break
 		case 3: // 앞의 2자리만 취함. (정상적인 입력 형태)
 			input.Version = aws.String(arrVer[0] + "." + arrVer[1])
-			break
 		default: // 위 2가지 외에는 CSP의 기본값(최신버전)을 적용 함.
-			break
 		}
 	}
 
@@ -977,6 +974,7 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 	nodeGroupInfo.MaxNodeSize = int(*scalingConfig.MaxSize)
 
 	if nodeGroupTagList == nil {
+		nodeGroupTagList = make(map[string]*string)     // nil 체크 후 초기화
 		nodeGroupTagList[NODEGROUP_TAG] = nodeGroupName // 값이없으면 nodeGroupName이랑 같은값으로 set.
 	}
 	nodeGroupTag := ""
