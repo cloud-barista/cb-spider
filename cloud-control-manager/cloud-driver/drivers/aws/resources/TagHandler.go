@@ -336,10 +336,15 @@ func (tagHandler *AwsTagHandler) FindTag(resType irs.RSType, keyword string) ([]
 			cblogger.Debug(keyInput)
 		}
 
+		hiscallInfo := GetCallLogScheme(tagHandler.Region, call.TAG, keyword, "FindTag(key):DescribeTags()")
+		start := call.Start()
+
 		keyResult, err := tagHandler.Client.DescribeTags(keyInput)
 		if err != nil {
+			LoggingError(hiscallInfo, err)
 			return nil, fmt.Errorf("failed to describe tags by key: %w", err)
 		}
+		LoggingInfo(hiscallInfo, start)
 		processTags(keyResult)
 
 		valueInput := &ec2.DescribeTagsInput{
@@ -355,10 +360,15 @@ func (tagHandler *AwsTagHandler) FindTag(resType irs.RSType, keyword string) ([]
 			cblogger.Debug(valueInput)
 		}
 
+		hiscallInfo2 := GetCallLogScheme(tagHandler.Region, call.TAG, keyword, "FindTag(value):DescribeTags()")
+		start2 := call.Start()
+
 		valueResult, err := tagHandler.Client.DescribeTags(valueInput)
 		if err != nil {
+			LoggingError(hiscallInfo2, err)
 			return nil, fmt.Errorf("failed to describe tags by value: %w", err)
 		}
+		LoggingInfo(hiscallInfo2, start2)
 		processTags(valueResult)
 	} else {
 		// Search all tags if keyword is empty or "*"
@@ -366,10 +376,15 @@ func (tagHandler *AwsTagHandler) FindTag(resType irs.RSType, keyword string) ([]
 			Filters: filters,
 		}
 
+		hiscallInfo := GetCallLogScheme(tagHandler.Region, call.TAG, keyword, "FindTag(all):DescribeTags()")
+		start := call.Start()
+
 		result, err := tagHandler.Client.DescribeTags(input)
 		if err != nil {
+			LoggingError(hiscallInfo, err)
 			return nil, fmt.Errorf("failed to describe tags: %w", err)
 		}
+		LoggingInfo(hiscallInfo, start)
 		processTags(result)
 	}
 
