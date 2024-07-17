@@ -9,6 +9,7 @@ package resources
 import (
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"reflect"
@@ -210,7 +211,7 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	minCount := aws.Int64(1)
 	maxCount := aws.Int64(1)
 	keyName := vmReqInfo.KeyPairIID.SystemId
-	baseName := vmReqInfo.IId.NameId
+	//baseName := vmReqInfo.IId.NameId
 	subnetID := vmReqInfo.SubnetIID.SystemId
 
 	/* 2021-10-26 이슈 #480에 의해 제거
@@ -330,6 +331,15 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	*/
 
 	//=============================
+	// Tag
+	//=============================
+	// Convert TagList to TagSpecifications
+	tagSpecifications, err := ConvertTagListToTagSpecifications("instance", vmReqInfo.TagList, vmReqInfo.IId.NameId)
+	if err != nil {
+		return irs.VMInfo{}, fmt.Errorf("failed to convert tag list: %w", err)
+	}
+
+	//=============================
 	// VM생성 처리
 	//=============================
 	cblogger.Debug("Create EC2 Instance")
@@ -363,7 +373,8 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		},
 
 		//ec2.InstanceNetworkInterfaceSpecification
-		UserData: userDataBase64,
+		UserData:          userDataBase64,
+		TagSpecifications: tagSpecifications,
 	}
 
 	//=============================
@@ -466,25 +477,28 @@ func (vmHandler *AwsVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	newVmId := *runResult.Instances[0].InstanceId
 	cblogger.Infof("[%s] VM has been created.", newVmId)
 
-	if baseName != "" {
-		// Tag에 VM Name 설정
-		_, errtag := vmHandler.Client.CreateTags(&ec2.CreateTagsInput{
-			Resources: []*string{runResult.Instances[0].InstanceId},
-			Tags: []*ec2.Tag{
-				{
-					Key:   aws.String("Name"),
-					Value: aws.String(baseName),
+	/*
+		if baseName != "" {
+			// Tag에 VM Name 설정
+			_, errtag := vmHandler.Client.CreateTags(&ec2.CreateTagsInput{
+				Resources: []*string{runResult.Instances[0].InstanceId},
+				Tags: []*ec2.Tag{
+					{
+						Key:   aws.String("Name"),
+						Value: aws.String(baseName),
+					},
 				},
-			},
-		})
-		if errtag != nil {
-			cblogger.Errorf("Failed to set Name Tag for [%s] VM", newVmId)
-			cblogger.Error(errtag)
-			//return irs.VMInfo{}, errtag
+			})
+			if errtag != nil {
+				cblogger.Errorf("Failed to set Name Tag for [%s] VM", newVmId)
+				cblogger.Error(errtag)
+				//return irs.VMInfo{}, errtag
+			}
+		} else {
+			cblogger.Error("Name Tag will not be set because vmReqInfo.IId.NameId is not provided.")
 		}
-	} else {
-		cblogger.Error("Name Tag will not be set because vmReqInfo.IId.NameId is not provided.")
-	}
+	*/
+
 	//Public IP및 최신 정보 전달을 위해 부팅이 완료될 때까지 대기했다가 전달하는 것으로 변경 함.
 	//cblogger.Info("Public IP 할당 및 VM의 최신 정보 획득을 위해 EC2가 Running 상태가 될때까지 대기")
 

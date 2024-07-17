@@ -12,6 +12,7 @@ package resources
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"strconv"
 
@@ -52,6 +53,12 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	*/
 	vpcId := securityReqInfo.VpcIID.SystemId
 
+	// Convert TagList to TagSpecifications
+	tagSpecifications, err := ConvertTagListToTagSpecifications("security-group", securityReqInfo.TagList, securityReqInfo.IId.NameId)
+	if err != nil {
+		return irs.SecurityInfo{}, fmt.Errorf("failed to convert tag list: %w", err)
+	}
+
 	// Create the security group with the VPC, name and description.
 	//createRes, err := securityHandler.Client.CreateSecurityGroup(&ec2.CreateSecurityGroupInput{
 	input := ec2.CreateSecurityGroupInput{
@@ -60,7 +67,8 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		//Description: aws.String(securityReqInfo.Name),
 		Description: aws.String(securityReqInfo.IId.NameId),
 		//		VpcId:       aws.String(securityReqInfo.VpcId),awsCBNetworkInfo
-		VpcId: aws.String(vpcId),
+		VpcId:             aws.String(vpcId),
+		TagSpecifications: tagSpecifications,
 	}
 	cblogger.Debugf("Security group creation request information", input)
 	// logger for HisCall

@@ -67,6 +67,11 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 
 	reqK8sVersion := clusterReqInfo.Version
 
+	tagsMap, err := ConvertTagListToTagsMap(clusterReqInfo.TagList, clusterReqInfo.IId.NameId)
+	if err != nil {
+		return irs.ClusterInfo{}, fmt.Errorf("failed to convert tags map: %w", err)
+	}
+
 	// create cluster
 	input := &eks.CreateClusterInput{
 		Name: aws.String(clusterReqInfo.IId.NameId),
@@ -77,6 +82,7 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 		//RoleArn: aws.String("arn:aws:iam::012345678910:role/eks-service-role-AWSServiceRoleForAmazonEKS-J7ONKE3BQ4PI"),
 		//RoleArn: aws.String(roleArn),
 		RoleArn: roleArn,
+		Tags:    tagsMap,
 	}
 
 	//EKS버전 처리(Spider 입력 값 형태 : "1.23.4" / AWS 버전 형태 : "1.23")

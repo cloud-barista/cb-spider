@@ -12,6 +12,7 @@ package resources
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"strconv"
 
@@ -38,8 +39,16 @@ func (VPCHandler *AwsVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 		return irs.VPCInfo{}, errors.New("Connection information does not contain Zone information.")
 	}
 
+	// Convert TagList to TagSpecifications
+	tagSpecifications, err := ConvertTagListToTagSpecifications("vpc", vpcReqInfo.TagList, vpcReqInfo.IId.NameId)
+	if err != nil {
+		return irs.VPCInfo{}, fmt.Errorf("failed to convert tag list: %w", err)
+	}
+
+	// Create VPC input with tag specifications
 	input := &ec2.CreateVpcInput{
-		CidrBlock: aws.String(vpcReqInfo.IPv4_CIDR),
+		CidrBlock:         aws.String(vpcReqInfo.IPv4_CIDR),
+		TagSpecifications: tagSpecifications,
 	}
 
 	//cblogger.Debug(input)
@@ -81,12 +90,17 @@ func (VPCHandler *AwsVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 	retVpcInfo := ExtractVpcDescribeInfo(result.Vpc)
 	retVpcInfo.IId.NameId = vpcReqInfo.IId.NameId // NameId는 요청 받은 값으로 리턴해야 함.
 
-	//IGW Name Tag 설정
-	if SetNameTag(VPCHandler.Client, *result.Vpc.VpcId, vpcReqInfo.IId.NameId) {
-		cblogger.Infof("set name %s to VPC", vpcReqInfo.IId.NameId)
-	} else {
-		cblogger.Errorf("set name  %s to VPC failed", vpcReqInfo.IId.NameId)
-	}
+	/*
+		// 2024.07.16 Delete with Tag support
+		if len(tagSpecifications) == 0 {
+			//IGW Name Tag 설정
+			if SetNameTag(VPCHandler.Client, *result.Vpc.VpcId, vpcReqInfo.IId.NameId) {
+				cblogger.Infof("set name %s to VPC", vpcReqInfo.IId.NameId)
+			} else {
+				cblogger.Errorf("set name  %s to VPC failed", vpcReqInfo.IId.NameId)
+			}
+		}
+	*/
 
 	//====================================
 	// PublicIP 할당을 위해 IGW 생성및 연결

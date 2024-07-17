@@ -4,6 +4,7 @@ package resources
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
@@ -71,25 +72,33 @@ func (DiskHandler *AwsDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 	volumeSize, _ := strconv.ParseInt(diskReqInfo.DiskSize, 10, 64)
 	volumeType := diskReqInfo.DiskType
 
-	// volume 이름을 위해 Tag 지정.
-	tag := &ec2.Tag{
-		Key:   aws.String(VOLUME_TAG_DEFAULT),
-		Value: &diskReqInfo.IId.NameId,
-	}
+	/*
+		// volume 이름을 위해 Tag 지정.
+		tag := &ec2.Tag{
+			Key:   aws.String(VOLUME_TAG_DEFAULT),
+			Value: &diskReqInfo.IId.NameId,
+		}
 
-	var tags []*ec2.Tag
-	tags = append(tags, tag)
-	tagSpec := &ec2.TagSpecification{
-		ResourceType: aws.String(RESOURCE_TYPE_VOLUME),
-		Tags:         tags,
+		var tags []*ec2.Tag
+		tags = append(tags, tag)
+		tagSpec := &ec2.TagSpecification{
+			ResourceType: aws.String(RESOURCE_TYPE_VOLUME),
+			Tags:         tags,
+		}
+		var tagSpecs []*ec2.TagSpecification
+		tagSpecs = append(tagSpecs, tagSpec)
+	*/
+
+	// Convert TagList to TagSpecifications
+	tagSpecifications, err := ConvertTagListToTagSpecifications(*aws.String(RESOURCE_TYPE_VOLUME), diskReqInfo.TagList, diskReqInfo.IId.NameId)
+	if err != nil {
+		return irs.DiskInfo{}, fmt.Errorf("failed to convert tag list: %w", err)
 	}
-	var tagSpecs []*ec2.TagSpecification
-	tagSpecs = append(tagSpecs, tagSpec)
 
 	input := &ec2.CreateVolumeInput{
 		AvailabilityZone:  aws.String(zone),
 		Size:              aws.Int64(volumeSize),
-		TagSpecifications: tagSpecs,
+		TagSpecifications: tagSpecifications,
 	}
 
 	switch diskReqInfo.DiskType {

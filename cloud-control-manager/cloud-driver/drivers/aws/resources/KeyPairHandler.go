@@ -106,6 +106,12 @@ func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	}
 	*/
 
+	// Convert TagList to TagSpecifications
+	tagSpecifications, err := ConvertTagListToTagSpecifications("key-pair", keyPairReqInfo.TagList)
+	if err != nil {
+		return irs.KeyPairInfo{}, fmt.Errorf("failed to convert tag list: %w", err)
+	}
+
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
@@ -121,7 +127,8 @@ func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	// Creates a new  key pair with the given name
 	result, err := keyPairHandler.Client.CreateKeyPair(&ec2.CreateKeyPairInput{
 		//KeyName: aws.String(keyPairReqInfo.Name),
-		KeyName: aws.String(keyPairReqInfo.IId.NameId),
+		KeyName:           aws.String(keyPairReqInfo.IId.NameId),
+		TagSpecifications: tagSpecifications,
 	})
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
@@ -250,7 +257,7 @@ func (keyPairHandler *AwsKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 			cblogger.Debug("aerr.Code()  : ", aerr.Code())
 			cblogger.Debug("ok : ", ok)
 			switch aerr.Code() {
-			default:				
+			default:
 				cblogger.Error(aerr.Error())
 				return irs.KeyPairInfo{}, aerr
 			}
@@ -259,7 +266,7 @@ func (keyPairHandler *AwsKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 			cblogger.Error(err.Error())
 			return irs.KeyPairInfo{}, err
 		}
-		return irs.KeyPairInfo{}, nil
+		//return irs.KeyPairInfo{}, nil
 	}
 	callogger.Info(call.String(callLogInfo))
 
