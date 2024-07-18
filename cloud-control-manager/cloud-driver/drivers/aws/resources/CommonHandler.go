@@ -2,6 +2,7 @@ package resources
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
@@ -57,7 +59,7 @@ func DescribeInstanceById(svc *ec2.EC2, vmIID irs.IID) (*ec2.Instance, error) {
 	var iid irs.IID
 
 	if vmIID == iid {
-		return nil, errors.New("instanceID is empty.")
+		return nil, errors.New("instanceID is empty")
 	}
 
 	vmIIDs = append(vmIIDs, vmIID)
@@ -69,7 +71,7 @@ func DescribeInstanceById(svc *ec2.EC2, vmIID irs.IID) (*ec2.Instance, error) {
 
 	if len(result.Reservations) < 1 || len(result.Reservations[0].Instances) < 1 {
 
-		return nil, errors.New(vmIID.SystemId + " instance not found.")
+		return nil, errors.New(vmIID.SystemId + " instance not found")
 
 	}
 	instance := result.Reservations[0].Instances[0]
@@ -492,7 +494,7 @@ func DescribeImageById(svc *ec2.EC2, imageIID *irs.IID, owners []*string) (*ec2.
 	var iid irs.IID
 
 	if *imageIID == iid {
-		return nil, errors.New("imageID is empty.")
+		return nil, errors.New("imageID is empty")
 	}
 
 	imageIIDs = append(imageIIDs, imageIID)
@@ -526,11 +528,11 @@ func GetImageSizeFromEc2Image(ec2Image *ec2.Image) (int64, error) {
 			return *isize, nil
 		} else {
 			cblogger.Error("Ebs information not found in BlockDeviceMappings.")
-			return -1, errors.New("Ebs information not found in BlockDeviceMappings.")
+			return -1, errors.New("Ebs information not found in BlockDeviceMappings")
 		}
 	} else {
 		cblogger.Error("BlockDeviceMappings information not found.")
-		return -1, errors.New("BlockDeviceMappings information not found.")
+		return -1, errors.New("BlockDeviceMappings information not found")
 	}
 }
 
@@ -569,7 +571,7 @@ func GetSnapshotIdFromEc2Image(ec2Image *ec2.Image) ([]string, error) {
 		}
 	} else {
 		cblogger.Error("BlockDeviceMappings information not found.")
-		return snapshotIds, errors.New("BlockDeviceMappings information not found.")
+		return snapshotIds, errors.New("BlockDeviceMappings information not found")
 	}
 
 	return snapshotIds, nil
@@ -584,11 +586,11 @@ func GetDisksFromEc2Image(ec2Image *ec2.Image) ([]irs.IID, error) {
 			return diskIIDs, nil
 		} else {
 			cblogger.Error("Ebs information not found in BlockDeviceMappings.")
-			return diskIIDs, errors.New("Ebs information not found in BlockDeviceMappings.")
+			return diskIIDs, errors.New("Ebs information not found in BlockDeviceMappings")
 		}
 	} else {
 		cblogger.Error("BlockDeviceMappings information not found.")
-		return diskIIDs, errors.New("BlockDeviceMappings information not found.")
+		return diskIIDs, errors.New("BlockDeviceMappings information not found")
 	}
 }
 
@@ -765,3 +767,142 @@ func DescribeAvailabilityZones(client *ec2.EC2, AllRegionsBool bool) (*ec2.Descr
 }
 
 // ---------------- RegionZone area end ----------//
+
+// ---------------- Tag area start ----------//
+// Find tags by tag key or value
+// resType: ALL | VPC, SUBNET, etc.,.
+// keyword: The keyword to search for in the tag key or value.
+// if you want to find all tags, set keyword to "" or "*".
+func FindTagOrValue(client *ec2.EC2, regionInfo idrv.RegionInfo, resType irs.RSType, keyword string) ([]*irs.TagInfo, error) {
+	cblogger.Debugf("resType : [%s] / keyword : [%s]", resType, keyword)
+
+	var filters []*ec2.Filter
+
+	// Add resource type filter if resType is not ALL
+	if resType != irs.ALL {
+		if awsResType, ok := rsTypeToAwsResourceTypeMap[resType]; ok {
+			filters = append(filters, &ec2.Filter{
+				Name: aws.String("resource-type"),
+				Values: []*string{
+					aws.String(awsResType),
+				},
+			})
+		} else {
+			return nil, fmt.Errorf("unsupported resource type: %s", resType)
+		}
+	}
+
+	tagInfoMap := make(map[string]*irs.TagInfo)
+
+	// Function to process tags and add them to tagInfoMap
+	processTags := func(result *ec2.DescribeTagsOutput) {
+		if cblogger.Level.String() == "debug" {
+			cblogger.Debug(result)
+			//cblogger.Debug("=================================")
+			//spew.Dump(result)
+			//cblogger.Debug("=================================")
+		}
+
+		for _, tag := range result.Tags {
+			resID := aws.StringValue(tag.ResourceId)
+
+			awsResType := aws.StringValue(tag.ResourceType)
+			rType, exists := awsResourceTypeToRSTypeMap[awsResType]
+			if !exists {
+				//@TODO - 변환 실패한 리소스의 경우 UNKNOWN을 만들거나 에러 로그만 찍거나 결정 필요할 듯
+				cblogger.Errorf("No RSType matching [%s] found.", awsResType)
+
+				rType = irs.RSType(awsResType) // Use the raw AWS resource type if not mapped
+			}
+
+			if _, exists := tagInfoMap[resID]; !exists {
+				tagInfoMap[resID] = &irs.TagInfo{
+					ResType: rType,
+					ResIId: irs.IID{
+						SystemId: resID,
+					},
+				}
+			}
+			tagInfoMap[resID].TagList = append(tagInfoMap[resID].TagList, irs.KeyValue{
+				Key:   aws.StringValue(tag.Key),
+				Value: aws.StringValue(tag.Value),
+			})
+		}
+	}
+
+	// Search by tag-key if keyword is not empty or "*"
+	if keyword != "" && keyword != "*" {
+		keyInput := &ec2.DescribeTagsInput{
+			Filters: append(filters, &ec2.Filter{
+				Name: aws.String("tag-key"),
+				Values: []*string{
+					aws.String(keyword),
+				},
+			}),
+		}
+
+		if cblogger.Level.String() == "debug" {
+			cblogger.Debug(keyInput)
+		}
+
+		hiscallInfo := GetCallLogScheme(regionInfo, call.TAG, keyword, "FindTag(key):DescribeTags()")
+		start := call.Start()
+
+		keyResult, err := client.DescribeTags(keyInput)
+		if err != nil {
+			LoggingError(hiscallInfo, err)
+			return nil, fmt.Errorf("failed to describe tags by key: %w", err)
+		}
+		LoggingInfo(hiscallInfo, start)
+		processTags(keyResult)
+
+		valueInput := &ec2.DescribeTagsInput{
+			Filters: append(filters, &ec2.Filter{
+				Name: aws.String("tag-value"),
+				Values: []*string{
+					aws.String(keyword),
+				},
+			}),
+		}
+
+		if cblogger.Level.String() == "debug" {
+			cblogger.Debug(valueInput)
+		}
+
+		hiscallInfo2 := GetCallLogScheme(regionInfo, call.TAG, keyword, "FindTag(value):DescribeTags()")
+		start2 := call.Start()
+
+		valueResult, err := client.DescribeTags(valueInput)
+		if err != nil {
+			LoggingError(hiscallInfo2, err)
+			return nil, fmt.Errorf("failed to describe tags by value: %w", err)
+		}
+		LoggingInfo(hiscallInfo2, start2)
+		processTags(valueResult)
+	} else {
+		// Search all tags if keyword is empty or "*"
+		input := &ec2.DescribeTagsInput{
+			Filters: filters,
+		}
+
+		hiscallInfo := GetCallLogScheme(regionInfo, call.TAG, keyword, "FindTag(all):DescribeTags()")
+		start := call.Start()
+
+		result, err := client.DescribeTags(input)
+		if err != nil {
+			LoggingError(hiscallInfo, err)
+			return nil, fmt.Errorf("failed to describe tags: %w", err)
+		}
+		LoggingInfo(hiscallInfo, start)
+		processTags(result)
+	}
+
+	var tagInfos []*irs.TagInfo
+	for _, tagInfo := range tagInfoMap {
+		tagInfos = append(tagInfos, tagInfo)
+	}
+
+	return tagInfos, nil
+}
+
+// ---------------- Tag area end ----------//
