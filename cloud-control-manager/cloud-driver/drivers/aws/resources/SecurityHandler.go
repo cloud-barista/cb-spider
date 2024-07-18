@@ -28,8 +28,9 @@ import (
 )
 
 type AwsSecurityHandler struct {
-	Region idrv.RegionInfo
-	Client *ec2.EC2
+	Region     idrv.RegionInfo
+	Client     *ec2.EC2
+	TagHandler *AwsTagHandler // 2024-07-18 TagHandler add
 }
 
 // 2019-11-16부로 CB-Driver 전체 로직이 NameId 기반으로 변경됨. (보안 그룹은 그룹명으로 처리 가능하기 때문에 Name 태깅시 에러는 무시함)

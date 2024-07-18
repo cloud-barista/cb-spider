@@ -19,8 +19,9 @@ import (
 )
 
 type AwsDiskHandler struct {
-	Region idrv.RegionInfo
-	Client *ec2.EC2
+	Region     idrv.RegionInfo
+	Client     *ec2.EC2
+	TagHandler *AwsTagHandler // 2024-07-18 TagHandler add
 }
 
 var VOLUME_TYPE = []string{"standard", "io1", "io2", "gp2", "gp3", "sc1", "st1"} // array 는 const 불가하여 변수로 처리.

@@ -23,8 +23,9 @@ import (
 type AwsNLBHandler struct {
 	Region idrv.RegionInfo
 	//Client *elb.ELB
-	Client   *elbv2.ELBV2 //elbV2
-	VMClient *ec2.EC2
+	Client     *elbv2.ELBV2 //elbV2
+	VMClient   *ec2.EC2
+	TagHandler *AwsTagHandler // 2024-07-18 TagHandler add
 }
 
 type TargetGroupInfo struct {

@@ -25,8 +25,9 @@ import (
 )
 
 type AwsVPCHandler struct {
-	Region idrv.RegionInfo
-	Client *ec2.EC2
+	Region     idrv.RegionInfo
+	Client     *ec2.EC2
+	TagHandler *AwsTagHandler // 2024-07-18 TagHandler add
 }
 
 func (VPCHandler *AwsVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
@@ -175,6 +176,8 @@ func (VPCHandler *AwsVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 		resSubnetList = append(resSubnetList, resSubnet)
 	}
 	retVpcInfo.SubnetInfoList = resSubnetList
+
+	retVpcInfo.TagList, _ = VPCHandler.TagHandler.ListTag(irs.VM, retVpcInfo.IId)
 	return retVpcInfo, nil
 }
 
@@ -523,6 +526,7 @@ func (VPCHandler *AwsVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 		return awsVpcInfo, errSubnet
 	}
 
+	awsVpcInfo.TagList, _ = VPCHandler.TagHandler.ListTag(irs.VM, awsVpcInfo.IId)
 	return awsVpcInfo, nil
 }
 

@@ -22,8 +22,9 @@ import (
 // CB-Spider MyImage 관리 기능은 VM Snapshot 실행과 결과로 생성된 VM Image(MyImage)를 관리하는 기능을 제공한다
 // CB-Spider VM Snapshot은 운영 중인 VM의 상태와 VM에 Attach된 Data-Disk의 상태도 저장된다.
 type AwsMyImageHandler struct {
-	Region idrv.RegionInfo
-	Client *ec2.EC2
+	Region     idrv.RegionInfo
+	Client     *ec2.EC2
+	TagHandler *AwsTagHandler // 2024-07-18 TagHandler add
 }
 
 const (

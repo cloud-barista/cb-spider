@@ -24,6 +24,7 @@ type AwsClusterHandler struct {
 	EC2Client   *ec2.EC2
 	Iam         *iam.IAM
 	AutoScaling *autoscaling.AutoScaling
+	TagHandler  *AwsTagHandler // 2024-07-18 TagHandler add
 }
 
 const (

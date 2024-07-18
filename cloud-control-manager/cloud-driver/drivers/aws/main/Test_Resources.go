@@ -951,7 +951,7 @@ func handleVM() {
 	//config := readConfigFile()
 	//VmID := irs.IID{NameId: config.Aws.BaseName, SystemId: config.Aws.VmID}
 	// VmID := irs.IID{SystemId: "i-0cea86282a9e2a569"}
-	VmID := irs.IID{SystemId: "i-0c70f696e5f8e690c"}
+	VmID := irs.IID{SystemId: "i-02ac1c4ff1d40815c"}
 
 	for {
 		fmt.Println("VM Management")
@@ -2061,7 +2061,7 @@ func main() {
 	// handleKeyPair()
 	// handlePublicIP() // PublicIP 생성 후 conf
 	// handleSecurity()
-	// handleVM()
+	handleVM()
 	// handleImage() //AMI
 	// handleVNic() //Lancard
 	// handleVMSpec()
@@ -2069,5 +2069,5 @@ func main() {
 	// handleCluster()
 	//handleRegionZone()
 	//handlePriceInfo()
-	handleTag()
+	//handleTag()
 }

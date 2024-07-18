@@ -20,6 +20,7 @@ type AwsKeyPairHandler struct {
 	CredentialInfo idrv.CredentialInfo
 	Region         idrv.RegionInfo
 	Client         *ec2.EC2
+	TagHandler     *AwsTagHandler // 2024-07-18 TagHandler add
 }
 
 /*

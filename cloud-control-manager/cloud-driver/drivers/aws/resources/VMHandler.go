@@ -27,8 +27,9 @@ import (
 )
 
 type AwsVMHandler struct {
-	Region idrv.RegionInfo
-	Client *ec2.EC2
+	Region     idrv.RegionInfo
+	Client     *ec2.EC2
+	TagHandler *AwsTagHandler // 2024-07-18 TagHandler add
 }
 
 func Connect(region string) *ec2.EC2 {
@@ -1182,6 +1183,8 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstanceToVmInfo(instance *ec2.Ins
 	}
 
 	vmInfo.KeyValueList = keyValueList
+	vmInfo.TagList, _ = vmHandler.TagHandler.ListTag(irs.VM, vmInfo.IId)
+	//vmInfo.TagList, _ = GetResourceTag(vmHandler, vmInfo.IId)
 	return vmInfo
 }
 
