@@ -34,6 +34,24 @@ func init() {
 	cblog.SetLevel("debug")
 }
 
+const (
+	diskId    = "cb-disk-03"
+	vmId      = "mcloud-barista-vm-test"
+	vpcId     = "cb-vpc-load-test"
+	subnetId  = "vpc-loadtest-sub1"
+	sgId      = "sg10"
+	keypairId = "cb-keypairtest123123"
+)
+
+var (
+	tagList = []irs.KeyValue{
+		{
+			Key:   "test-key",
+			Value: "test-value",
+		},
+	}
+)
+
 // Test SecurityHandler
 func handleSecurityOld() {
 	cblogger.Debug("Start handler")
@@ -132,11 +150,11 @@ func handleSecurity() {
 
 	// securityName := "cb-securitytest1"
 	// securityId := "cb-securitytest1"
-	securityName := "sg10"
-	securityId := "sg10"
+	securityName := sgId
+	securityId := sgId
 	//securityId := "cb-secu-all"
 	//vpcId := "cb-vpc"
-	vpcId := "cb-vpc-load-test"
+	vpcId := vpcId
 
 	for {
 		fmt.Println("Security Management")
@@ -677,10 +695,10 @@ func handleVPC() {
 	cblogger.Debug(reqSubnetId)
 
 	vpcReqInfo := irs.VPCReqInfo{
-		IId: irs.IID{NameId: "cb-vpc-load-test"},
+		IId: irs.IID{NameId: vpcId},
 		SubnetInfoList: []irs.SubnetInfo{
 			{
-				IId:       irs.IID{NameId: "vpc-loadtest-sub1"},
+				IId:       irs.IID{NameId: subnetId},
 				IPv4_CIDR: "10.0.3.0/24",
 			},
 			{
@@ -895,7 +913,7 @@ func handleKeyPair() {
 	//config := readConfigFile()
 	//VmID := config.Aws.VmID
 
-	keyPairName := "CB-KeyPairTest123123"
+	keyPairName := keypairId
 	//keyPairName := config.Aws.KeyName
 
 	for {
@@ -1071,7 +1089,7 @@ func handleVM() {
 
 	//config := readConfigFile()
 	//VmID := irs.IID{NameId: config.Aws.BaseName, SystemId: config.Aws.VmID}
-	VmID := irs.IID{SystemId: "mcloud-barista-vm-test"}
+	VmID := irs.IID{SystemId: vmId}
 
 	for {
 		fmt.Println("VM Management")
@@ -1100,7 +1118,7 @@ func handleVM() {
 
 			case 1:
 				vmReqInfo := irs.VMReqInfo{
-					IId: irs.IID{NameId: "mcloud-barista-vm-test"},
+					IId: irs.IID{NameId: vmId},
 					ImageIID: irs.IID{
 						NameId: "Test",
 						//SystemId: "ubuntu-minimal-1804-bionic-v20200415",
@@ -1117,21 +1135,22 @@ func handleVM() {
 					},
 					//VpcIID:            irs.IID{SystemId: "cb-vpc"},
 					//SubnetIID:         irs.IID{SystemId: "cb-sub1"},
-					VpcIID:            irs.IID{SystemId: "cb-vpc-load-test"},
-					SubnetIID:         irs.IID{SystemId: "vpc-loadtest-sub1"},
-					SecurityGroupIIDs: []irs.IID{{SystemId: "sg10"}},
+					VpcIID:            irs.IID{SystemId: vpcId},
+					SubnetIID:         irs.IID{SystemId: subnetId},
+					SecurityGroupIIDs: []irs.IID{{SystemId: sgId}},
 					VMSpecName:        "e2-small",
-					KeyPairIID:        irs.IID{SystemId: "cb-keypairtest123123"},
+					KeyPairIID:        irs.IID{SystemId: keypairId},
 					VMUserId:          "cb-user",
 
 					//RootDiskType: "pd-ssd",      //pd-standard/pd-balanced/pd-ssd/pd-extreme
 					RootDiskType: "pd-balanced", //pd-standard/pd-balanced/pd-ssd/pd-extreme
 					//RootDiskSize: "12",     //최소 10GB 이상이어야 함.
 					RootDiskSize: "default", //10GB
-					DataDiskIIDs: []irs.IID{{SystemId: "cb-disk-02"}},
+					DataDiskIIDs: []irs.IID{{SystemId: diskId}},
 
 					VMUserPasswd: "1234qwer!@#$", //윈도우즈용 비밀번호
 					WindowsType:  true,           //윈도우즈 테스트
+					TagList:      tagList,
 				}
 
 				vmInfo, err := vmHandler.StartVM(vmReqInfo)
@@ -1608,9 +1627,10 @@ func handleDisk() {
 
 	//imageReqInfo := irs2.ImageReqInfo{
 	diskReqInfo := irs.DiskInfo{
-		IId:      irs.IID{NameId: "cb-disk-03", SystemId: "cb-disk-03"},
+		IId:      irs.IID{NameId: diskId, SystemId: diskId},
 		DiskType: "",
 		DiskSize: "20",
+		TagList:  tagList,
 	}
 
 	for {
@@ -1692,7 +1712,7 @@ func handleDisk() {
 				}
 			case 6:
 				cblogger.Infof("[%s] Disk Attach 테스트", diskReqInfo.IId.NameId)
-				result, err := handler.AttachDisk(diskReqInfo.IId, irs.IID{SystemId: "mcloud-barista-vm-test"})
+				result, err := handler.AttachDisk(diskReqInfo.IId, irs.IID{SystemId: vmId})
 				if err != nil {
 					cblogger.Infof("[%s] Disk Attach 실패 : ", diskReqInfo.IId.NameId, err)
 				} else {
@@ -1701,7 +1721,7 @@ func handleDisk() {
 				}
 			case 7:
 				cblogger.Infof("[%s] Disk Detach 테스트", diskReqInfo.IId.NameId)
-				result, err := handler.DetachDisk(diskReqInfo.IId, irs.IID{SystemId: "mcloud-barista-vm-test"})
+				result, err := handler.DetachDisk(diskReqInfo.IId, irs.IID{SystemId: vmId})
 				if err != nil {
 					cblogger.Infof("[%s] Disk Detach 실패 : ", diskReqInfo.IId.NameId, err)
 				} else {
@@ -2022,7 +2042,7 @@ func handleTags() {
 			sampleId = "2504669692882076487"
 			sampleType = irs.VM
 		} else if strings.EqualFold(strings.ToLower(key), "d") {
-			sampleId = "mcmp-demo"
+			sampleId = diskId
 			sampleType = irs.DISK
 		} else if strings.EqualFold(strings.ToLower(key), "a") {
 			sampleType = irs.ALL
@@ -2142,14 +2162,14 @@ func handleTags() {
 }
 func main() {
 	cblogger.Info("GCP Resource Test")
-	//handleVPC()
+	// handleVPC()
 	//handleVMSpec()
 	//handleImage() //AMI
 	//handleKeyPair()
 	//handleSecurity()
 	// handleVM()
 	//handleLoadBalancer()
-	//handleDisk()
+	// handleDisk()
 	//handleMyImage()
 	//handleRegionZone()
 	// handlePriceInfo()

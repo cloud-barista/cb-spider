@@ -92,6 +92,8 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 	// 	resourceHandler, err = cloudConnection.CreateVNetworkHandler()
 	// case "VNic":
 	// 	resourceHandler, err = cloudConnection.CreateVNicHandler()
+	case "Disk":
+		resourceHandler, err = cloudConnection.CreateDiskHandler()
 	case "VM":
 		resourceHandler, err = cloudConnection.CreateVMHandler()
 	case "KeyPair":
