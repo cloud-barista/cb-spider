@@ -467,6 +467,8 @@ func handleKeyPair() {
 	//VmID := config.Aws.VmID
 
 	keyPairName := "CB-KeyPairTest123123"
+	//keyPairName := "key-0a58c9a7b0a07a2d2"
+
 	//keyPairName := config.Aws.KeyName
 
 	for {
@@ -503,6 +505,8 @@ func handleKeyPair() {
 				keyPairReqInfo := irs.KeyPairReqInfo{
 					IId: irs.IID{NameId: keyPairName},
 					//Name: keyPairName,
+					//TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}, {Key: "Name", Value: keyPairName+"123"}},
+					TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}},
 				}
 				result, err := KeyPairHandler.CreateKey(keyPairReqInfo)
 				if err != nil {
@@ -635,6 +639,8 @@ func handleVPC() {
 	subnetReqInfo := irs.SubnetInfo{
 		IId:       irs.IID{NameId: "AddTest-Subnet"},
 		IPv4_CIDR: "10.0.2.0/24",
+		//TagList: []irs.KeyValue{{Key: "Name1", Value: "Subnet Name Value1"}, {Key: "Name2", Value: "Subnet Name Value2"}, {Key: "Name", Value: "AddTest-Subnet123"}},
+		TagList: []irs.KeyValue{{Key: "Name1", Value: "Subnet Name Value1"}, {Key: "Name2", Value: "Subnet Name Value2"}},
 	}
 
 	subnetReqVpcInfo := irs.IID{SystemId: "vpc-00e513fd64a7d9972"}
@@ -649,6 +655,8 @@ func handleVPC() {
 			{
 				IId:       irs.IID{NameId: "New-CB-Subnet"},
 				IPv4_CIDR: "10.0.1.0/24",
+				TagList:   []irs.KeyValue{{Key: "Name1", Value: "Subnet Name Value1"}, {Key: "Name2", Value: "Subnet Name Value2"}, {Key: "Name", Value: "AddTest-Subnet123"}},
+				//TagList: []irs.KeyValue{{Key: "Name1", Value: "Subnet Name Value1"}, {Key: "Name2", Value: "Subnet Name Value2"}},
 			},
 			/*
 				{
@@ -661,6 +669,8 @@ func handleVPC() {
 		//Name: "CB-VNet-Subnet", // 웹 도구 등 외부에서 전달 받지 않고 드라이버 내부적으로 자동 구현때문에 사용하지 않음.
 		//CidrBlock: "10.0.0.0/16",
 		//CidrBlock: "192.168.0.0/16",
+		TagList: []irs.KeyValue{{Key: "Name1", Value: "Subnet Name Value1"}, {Key: "Name2", Value: "Subnet Name Value2"}, {Key: "Name", Value: "New-CB-VPC123"}},
+		//TagList: []irs.KeyValue{{Key: "Name1", Value: "VPC Name Value1"}, {Key: "Name2", Value: "VPC Name Value2"}},
 	}
 
 	reqSubnetId := irs.IID{SystemId: "vpc-04f6de5c2af880978"}
@@ -1787,12 +1797,14 @@ func handleTag() {
 	}
 	handler := ResourceHandler.(irs.TagHandler)
 
-	var reqType irs.RSType = irs.VM
-	reqIID := irs.IID{SystemId: "i-02ac1c4ff1d40815c"}
+	var reqType irs.RSType = irs.KEY
+	//reqIID := irs.IID{SystemId: "i-02ac1c4ff1d40815c"}
+	reqIID := irs.IID{SystemId: "CB-KeyPairTest123123"}
+
 	reqTag := irs.KeyValue{Key: "tag3", Value: "tag3 test"}
 	reqKey := "tag3"
 	reqKey = ""
-	reqType = irs.ALL
+	//reqType = irs.ALL
 
 	for {
 		fmt.Println("TagHandler Management")
@@ -2057,17 +2069,18 @@ func readConfigFile() Config {
 }
 
 func main() {
+	handleKeyPair()
+	handleTag()
 	//handleVPC()
-	// handleKeyPair()
 	// handlePublicIP() // PublicIP 생성 후 conf
-	// handleSecurity()
+	handleSecurity()
 	handleVM()
 	// handleImage() //AMI
 	// handleVNic() //Lancard
 	// handleVMSpec()
-	// handleNLB()
-	// handleCluster()
+	handleNLB()
+	handleCluster()
 	//handleRegionZone()
 	//handlePriceInfo()
-	//handleTag()
+	handleTag()
 }

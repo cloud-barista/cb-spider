@@ -13,6 +13,7 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/davecgh/go-spew/spew"
 	//_ "github.com/davecgh/go-spew/spew"
 )
 
@@ -108,7 +109,7 @@ func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	*/
 
 	// Convert TagList to TagSpecifications
-	tagSpecifications, err := ConvertTagListToTagSpecifications("key-pair", keyPairReqInfo.TagList)
+	tagSpecifications, err := ConvertTagListToTagSpecifications("key-pair", keyPairReqInfo.TagList, keyPairReqInfo.IId.NameId)
 	if err != nil {
 		return irs.KeyPairInfo{}, fmt.Errorf("failed to convert tag list: %w", err)
 	}
@@ -125,12 +126,16 @@ func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 		ErrorMSG:     "",
 	}
 	callLogStart := call.Start()
-	// Creates a new  key pair with the given name
-	result, err := keyPairHandler.Client.CreateKeyPair(&ec2.CreateKeyPairInput{
+
+	input := &ec2.CreateKeyPairInput{
 		//KeyName: aws.String(keyPairReqInfo.Name),
 		KeyName:           aws.String(keyPairReqInfo.IId.NameId),
 		TagSpecifications: tagSpecifications,
-	})
+	}
+	// Creates a new  key pair with the given name
+	result, err := keyPairHandler.Client.CreateKeyPair(input)
+	spew.Dump(result)
+
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	if err != nil {
@@ -204,6 +209,9 @@ func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 		return irs.KeyPairInfo{}, err
 	}
 	*/
+
+	keyPairInfo.TagList, _ = keyPairHandler.TagHandler.ListTag(irs.KEY, keyPairInfo.IId)
+
 	return keyPairInfo, nil
 }
 
@@ -245,6 +253,7 @@ func (keyPairHandler *AwsKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 	callLogStart := call.Start()
 
 	result, err := keyPairHandler.Client.DescribeKeyPairs(input)
+	spew.Dump(result)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Debug("result : ", result)
 	cblogger.Debug("err : ", err)
@@ -277,6 +286,9 @@ func (keyPairHandler *AwsKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 			cblogger.Error(errKeyPair.Error())
 			return irs.KeyPairInfo{}, errKeyPair
 		}
+
+		keyPairInfo.TagList, _ = keyPairHandler.TagHandler.ListTag(irs.KEY, keyPairInfo.IId)
+		spew.Dump(keyPairInfo.TagList)
 
 		cblogger.Debug(keyPairInfo)
 		return keyPairInfo, nil

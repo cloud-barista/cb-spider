@@ -813,6 +813,9 @@ func (NLBHandler *AwsNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {
 		if errInfo != nil {
 			return irs.NLBInfo{}, errInfo
 		}
+
+		nlbInfo.TagList, _ = NLBHandler.TagHandler.ListTag(irs.NLB, nlbInfo.IId)
+
 		return nlbInfo, nil
 	} else {
 		return irs.NLBInfo{}, errors.New("InvalidNLBArn.NotFound: The NLB Arn '" + nlbIID.SystemId + "' does not exist")

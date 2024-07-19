@@ -411,6 +411,8 @@ func (securityHandler *AwsSecurityHandler) GetSecurity(securityIID irs.IID) (irs
 
 	if len(result.SecurityGroups) > 0 {
 		securityInfo := ExtractSecurityInfo(result.SecurityGroups[0])
+		securityInfo.TagList, _ = securityHandler.TagHandler.ListTag(irs.SG, securityInfo.IId)
+
 		return securityInfo, nil
 	} else {
 		//return irs.SecurityInfo{}, errors.New("[" + securityNameId + "] 정보를 찾을 수 없습니다.")

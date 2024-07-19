@@ -407,6 +407,8 @@ func (ImageHandler *AwsMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyIma
 		return irs.MyImageInfo{}, err
 	}
 
+	returnMyImage.TagList, _ = ImageHandler.TagHandler.ListTag(irs.MYIMAGE, returnMyImage.IId)
+
 	return returnMyImage, nil
 }
 

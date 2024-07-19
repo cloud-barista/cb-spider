@@ -298,18 +298,25 @@ func (VPCHandler *AwsVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo irs.Su
 	if reqSubnetInfo.IId.SystemId != "" {
 		vpcInfo, errVpcInfo := VPCHandler.GetSubnet(reqSubnetInfo.IId.SystemId)
 		if errVpcInfo == nil {
-			cblogger.Errorf("[%S] subnet already exists. returns an error without creating it.", reqSubnetInfo.IId.SystemId)
+			cblogger.Errorf("[%s] subnet already exists. returns an error without creating it", reqSubnetInfo.IId.SystemId)
 			cblogger.Info(vpcInfo)
 			return vpcInfo, errors.New("InvalidVNetwork.Duplicate: The Subnet '" + reqSubnetInfo.IId.SystemId + "' already exists.")
 		}
 	}
 
-	//서브넷 생성
+	// Convert TagList to TagSpecifications
+	tagSpecifications, err := ConvertTagListToTagSpecifications("subnet", reqSubnetInfo.TagList, reqSubnetInfo.IId.NameId)
+	if err != nil {
+		return irs.SubnetInfo{}, fmt.Errorf("failed to convert tag list: %w", err)
+	}
+
+	// Create subnet input with tag specifications
 	input := &ec2.CreateSubnetInput{
 		CidrBlock: aws.String(reqSubnetInfo.IPv4_CIDR),
 		VpcId:     aws.String(vpcId),
 		//AvailabilityZoneId: aws.String(zoneId),	//use1-az1, use1-az2, use1-az3, use1-az4, use1-az5, use1-az6
-		AvailabilityZone: aws.String(zoneId),
+		AvailabilityZone:  aws.String(zoneId),
+		TagSpecifications: tagSpecifications,
 	}
 
 	// logger for HisCall
@@ -351,13 +358,16 @@ func (VPCHandler *AwsVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo irs.Su
 
 	//vNetworkInfo := irs.VNetworkInfo{}
 	vNetworkInfo := ExtractSubnetDescribeInfo(result.Subnet)
+	vNetworkInfo.TagList, _ = VPCHandler.TagHandler.ListTag(irs.SUBNET, vNetworkInfo.IId)
 
-	//Subnet Name 태깅
-	if SetNameTag(VPCHandler.Client, *result.Subnet.SubnetId, reqSubnetInfo.IId.NameId) {
-		cblogger.Infof("set %s Name to subnet", reqSubnetInfo.IId.NameId)
-	} else {
-		cblogger.Errorf("set %s Name to subnet failed", reqSubnetInfo.IId.NameId)
-	}
+	/*
+		//Subnet Name 태깅
+		if SetNameTag(VPCHandler.Client, *result.Subnet.SubnetId, reqSubnetInfo.IId.NameId) {
+			cblogger.Infof("set %s Name to subnet", reqSubnetInfo.IId.NameId)
+		} else {
+			cblogger.Errorf("set %s Name to subnet failed", reqSubnetInfo.IId.NameId)
+		}
+	*/
 
 	vNetworkInfo.IId.NameId = reqSubnetInfo.IId.NameId
 
@@ -985,6 +995,8 @@ func (VPCHandler *AwsVPCHandler) ListSubnet(vpcId string) ([]irs.SubnetInfo, err
 	for _, curSubnet := range result.Subnets {
 		cblogger.Infof("Retrieve [%s] Subnet info", *curSubnet.SubnetId)
 		arrSubnetInfo := ExtractSubnetDescribeInfo(curSubnet)
+		arrSubnetInfo.TagList, _ = VPCHandler.TagHandler.ListTag(irs.SUBNET, arrSubnetInfo.IId)
+
 		//arrSubnetInfo, errSubnet := VPCHandler.GetSubnet(*curSubnet.SubnetId)
 		/*
 			if errSubnet != nil {
@@ -1046,6 +1058,8 @@ func (VPCHandler *AwsVPCHandler) GetSubnet(reqSubnetId string) (irs.SubnetInfo, 
 
 	if !reflect.ValueOf(result.Subnets).IsNil() {
 		retSubnetInfo := ExtractSubnetDescribeInfo(result.Subnets[0])
+		retSubnetInfo.TagList, _ = VPCHandler.TagHandler.ListTag(irs.SUBNET, retSubnetInfo.IId)
+
 		return retSubnetInfo, nil
 	} else {
 		return irs.SubnetInfo{}, errors.New("InvalidSubnet.NotFound: The CBVnetwork '" + reqSubnetId + "' does not exist")

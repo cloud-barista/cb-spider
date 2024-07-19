@@ -197,7 +197,7 @@ func (DiskHandler *AwsDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, error
 	}
 	calllogger.Info(call.String(hiscallInfo))
 
-	diskInfo, err := DiskHandler.convertVolumeInfoToDiskInfo(result.Volumes[0])
+	diskInfo, _ := DiskHandler.convertVolumeInfoToDiskInfo(result.Volumes[0])
 	return diskInfo, nil
 }
 
@@ -909,6 +909,8 @@ func (DiskHandler *AwsDiskHandler) convertVolumeInfoToDiskInfo(volumeInfo *ec2.V
 	diskInfo.KeyValueList = inKeyValueList
 	cblogger.Debug("keyvalue2")
 	cblogger.Debug(diskInfo)
+
+	diskInfo.TagList, _ = DiskHandler.TagHandler.ListTag(irs.DISK, diskInfo.IId)
 
 	return diskInfo, nil
 }

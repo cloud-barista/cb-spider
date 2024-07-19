@@ -178,6 +178,8 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 		return irs.ClusterInfo{}, errClusterInfo
 	}
 	clusterInfo.IId.NameId = clusterReqInfo.IId.NameId
+	clusterInfo.TagList, _ = ClusterHandler.TagHandler.ListTag(irs.CLUSTER, clusterInfo.IId)
+
 	return clusterInfo, nil
 }
 
@@ -392,6 +394,8 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 		{Key: "RoleArn", Value: *result.Cluster.RoleArn},
 	}
 	clusterInfo.KeyValueList = keyValueList
+
+	clusterInfo.TagList, _ = ClusterHandler.TagHandler.ListTag(irs.CLUSTER, clusterInfo.IId)
 
 	//노드 그룹 처리
 	resNodeGroupList, errNodeGroup := ClusterHandler.ListNodeGroup(clusterInfo.IId)

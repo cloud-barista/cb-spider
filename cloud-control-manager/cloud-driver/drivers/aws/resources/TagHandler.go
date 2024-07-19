@@ -20,6 +20,7 @@ import (
 	"fmt"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/davecgh/go-spew/spew"
 
 	//"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
@@ -72,6 +73,8 @@ func (tagHandler *AwsTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag 
 		return irs.KeyValue{}, errors.New(msg)
 	}
 
+	resIID = tagHandler.GetRealResourceId(resType, resIID) // fix some resource id error
+
 	hiscallInfo := GetCallLogScheme(tagHandler.Region, call.TAG, resIID.SystemId, "CreateTags()")
 	start := call.Start()
 
@@ -109,6 +112,7 @@ func (tagHandler *AwsTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]
 		return nil, errors.New(msg)
 	}
 
+	resIID = tagHandler.GetRealResourceId(resType, resIID) // fix some resource id error
 	input := &ec2.DescribeTagsInput{
 		Filters: []*ec2.Filter{
 			{
@@ -159,6 +163,7 @@ func (tagHandler *AwsTagHandler) GetTag(resType irs.RSType, resIID irs.IID, key 
 		cblogger.Error(msg)
 		return irs.KeyValue{}, errors.New(msg)
 	}
+	resIID = tagHandler.GetRealResourceId(resType, resIID) // fix some resource id error
 
 	input := &ec2.DescribeTagsInput{
 		Filters: []*ec2.Filter{
@@ -217,6 +222,40 @@ func (tagHandler *AwsTagHandler) GetTag(resType irs.RSType, resIID irs.IID, key 
 	return retTag, nil
 }
 
+// Handles targets that have a Name-based to Id conversion task, like Keypair.
+// Keypair should use id, not name.
+func (tagHandler *AwsTagHandler) GetRealResourceId(resType irs.RSType, resIID irs.IID) irs.IID {
+
+	cblogger.Debugf("resType : [%s] / resIID : [%s]", resType, resIID.SystemId)
+
+	if resType != irs.KEY {
+		return resIID
+	}
+
+	//
+	// Keypair should use id, not name, when using Tag-related APIs.
+	//
+	input := &ec2.DescribeKeyPairsInput{
+		KeyNames: []*string{
+			aws.String(resIID.SystemId),
+		},
+	}
+
+	result, err := tagHandler.Client.DescribeKeyPairs(input)
+	spew.Dump(result)
+	if err != nil {
+		cblogger.Error(err)
+		return resIID
+	}
+
+	if len(result.KeyPairs) > 0 {
+		newIID := irs.IID{NameId: *result.KeyPairs[0].KeyName, SystemId: *result.KeyPairs[0].KeyPairId}
+		return newIID
+	}
+
+	return resIID
+}
+
 func (tagHandler *AwsTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, key string) (bool, error) {
 	cblogger.Debugf("Req resTyp:[%s] / resIID:[%s] / key:[%s]", resType, resIID, key)
 
@@ -225,6 +264,7 @@ func (tagHandler *AwsTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, k
 		cblogger.Error(msg)
 		return false, errors.New(msg)
 	}
+	resIID = tagHandler.GetRealResourceId(resType, resIID) // fix some resource id error
 
 	input := &ec2.DeleteTagsInput{
 		Resources: []*string{
@@ -268,6 +308,11 @@ func (tagHandler *AwsTagHandler) FindTag(resType irs.RSType, keyword string) ([]
 	cblogger.Debugf("resType : [%s] / keyword : [%s]", resType, keyword)
 
 	var filters []*ec2.Filter
+
+	if resType == irs.KEY {
+		resIID := tagHandler.GetRealResourceId(resType, irs.IID{SystemId: keyword}) // fix some resource id error
+		keyword = resIID.SystemId
+	}
 
 	// Add resource type filter if resType is not ALL
 	if resType != irs.ALL {
