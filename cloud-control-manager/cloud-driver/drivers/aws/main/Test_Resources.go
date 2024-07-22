@@ -1777,6 +1777,111 @@ func handlePriceInfo() {
 	}
 }
 
+// Test Tag
+func handleTag() {
+	cblogger.Debug("Start TagHandler Resource Test")
+
+	ResourceHandler, err := getResourceHandler("Tag")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.TagHandler)
+
+	var reqType irs.RSType = irs.VM
+	reqIID := irs.IID{SystemId: "i-02ac1c4ff1d40815c"}
+	reqTag := irs.KeyValue{Key: "tag3", Value: "태그3"}
+	reqKey := "tag3"
+	reqKey = ""
+	reqType = irs.ALL
+
+	for {
+		fmt.Println("TagHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. Tag List")
+		fmt.Println("2. Tag Add")
+		fmt.Println("3. Tag Get")
+		fmt.Println("4. Tag Delete")
+		fmt.Println("5. Tag Find")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				cblogger.Infof("조회 요청 태그 타입 : [%s]", reqType)
+				if reqType == irs.VM {
+					cblogger.Debug("VM 요청됨")
+				}
+
+				result, err := handler.ListTag(reqType, reqIID)
+				if err != nil {
+					cblogger.Info(" Tag 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("Tag 목록 조회 결과")
+					cblogger.Debug(result)
+					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					//spew.Dump(result)
+					cblogger.Info("출력 결과 수 : ", len(result))
+
+					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
+					if result != nil {
+						//tagReqInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					}
+				}
+
+			case 2:
+				cblogger.Infof("[%s] Tag 추가 테스트", reqIID.SystemId)
+				result, err := handler.AddTag(reqType, reqIID, reqTag)
+				if err != nil {
+					cblogger.Infof(reqIID.SystemId, " Tag 생성 실패 : ", err)
+				} else {
+					cblogger.Info("Tag 생성 결과 : ", result)
+					reqKey = result.Key
+					cblogger.Infof("요청 대상 Tag Key가 [%s]로 변경 됨", reqKey)
+					spew.Dump(result)
+				}
+
+			case 3:
+				cblogger.Infof("[%s] Tag 조회 테스트 - Key[%s]", reqIID.SystemId, reqKey)
+				result, err := handler.GetTag(reqType, reqIID, reqKey)
+				if err != nil {
+					cblogger.Infof("[%s] Tag 조회 실패 : [%v]", reqKey, err)
+				} else {
+					cblogger.Infof("[%s] Tag 조회 결과 : [%s]", reqKey, result)
+					spew.Dump(result)
+				}
+
+			case 4:
+				cblogger.Infof("[%s] Tag 삭제 테스트 - Key[%s]", reqIID.SystemId, reqKey)
+				result, err := handler.RemoveTag(reqType, reqIID, reqKey)
+				if err != nil {
+					cblogger.Infof("[%s] Tag 삭제 실패 : [%v]", reqKey, err)
+				} else {
+					cblogger.Infof("[%s] Tag 삭제 결과 : [%v]", reqKey, result)
+				}
+
+			case 5:
+				cblogger.Infof("[%s] Tag 찾기 테스트 - Key[%s]", reqType, reqKey)
+				result, err := handler.FindTag(reqType, reqKey)
+				if err != nil {
+					cblogger.Infof("[%s] Tag 검색 실패 : [%s]", reqKey, err)
+				} else {
+					cblogger.Infof("[%s] Tag 검색 결과 : [%d]건", reqKey, len(result))
+					spew.Dump(result)
+					cblogger.Infof("Tag 검색 결과 : [%d]건", len(result))
+				}
+			}
+		}
+	}
+}
+
 // handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
 // (예) ImageHandler.go -> "Image"
 func getResourceHandler(handlerType string) (interface{}, error) {
@@ -1826,6 +1931,8 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateRegionZoneHandler()
 	case "PriceInfo":
 		resourceHandler, err = cloudConnection.CreatePriceInfoHandler()
+	case "Tag":
+		resourceHandler, err = cloudConnection.CreateTagHandler()
 	}
 
 	if err != nil {
@@ -1933,7 +2040,7 @@ func readConfigFile() Config {
 	//cblogger.Infof("최종 환경 설정파일 경로 : [%s]", rootPath+"/config/config.yaml")
 	//data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
 	//data, err = ioutil.ReadFile("/Users/mzc01-swy/projects/feature_aws_filter_swy_240130/cloud-control-manager/cloud-driver/drivers/aws/main/Sample/config/config.yaml")
-	
+
 	data, err := ioutil.ReadFile(confPath)
 	if err != nil {
 		panic(err)
@@ -1951,8 +2058,7 @@ func readConfigFile() Config {
 }
 
 func main() {
-	cblogger.Info("AWS Resource Test")
-	// handleVPC()
+	//handleVPC()
 	// handleKeyPair()
 	// handlePublicIP() // PublicIP 생성 후 conf
 	// handleSecurity()
@@ -1963,5 +2069,6 @@ func main() {
 	// handleNLB()
 	// handleCluster()
 	//handleRegionZone()
-	handlePriceInfo()
+	//handlePriceInfo()
+	handleTag()
 }

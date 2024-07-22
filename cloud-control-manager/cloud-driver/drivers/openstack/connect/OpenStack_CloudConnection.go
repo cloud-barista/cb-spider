@@ -50,13 +50,25 @@ func (cloudConn *OpenStackCloudConnection) CreateImageHandler() (irs.ImageHandle
 
 func (cloudConn *OpenStackCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
 	cblogger.Info("OpenStack Cloud Driver: called CreateVPCHandler()!")
-	vpcHandler := osrs.OpenStackVPCHandler{Client: cloudConn.NetworkClient, VMClient: cloudConn.ComputeClient}
+	vpcHandler := osrs.OpenStackVPCHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
+		IdentityClient: cloudConn.IdentityClient,
+		ComputeClient:  cloudConn.ComputeClient,
+		NetworkClient:  cloudConn.NetworkClient,
+		NLBClient:      cloudConn.NLBClient,
+	}
 	return &vpcHandler, nil
 }
 
 func (cloudConn OpenStackCloudConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
 	cblogger.Info("OpenStack Cloud Driver: called CreateSecurityHandler()!")
-	securityHandler := osrs.OpenStackSecurityHandler{Client: cloudConn.ComputeClient, NetworkClient: cloudConn.NetworkClient}
+	securityHandler := osrs.OpenStackSecurityHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
+		IdentityClient: cloudConn.IdentityClient,
+		ComputeClient:  cloudConn.ComputeClient,
+		NetworkClient:  cloudConn.NetworkClient,
+		NLBClient:      cloudConn.NLBClient,
+	}
 	return &securityHandler, nil
 }
 
@@ -68,7 +80,15 @@ func (cloudConn *OpenStackCloudConnection) CreateKeyPairHandler() (irs.KeyPairHa
 
 func (cloudConn *OpenStackCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("OpenStack Cloud Driver: called CreateVMHandler()!")
-	vmHandler := osrs.OpenStackVMHandler{Region: cloudConn.Region, ComputeClient: cloudConn.ComputeClient, NetworkClient: cloudConn.NetworkClient, VolumeClient: cloudConn.Volume3Client}
+	vmHandler := osrs.OpenStackVMHandler{
+		Region:         cloudConn.Region,
+		CredentialInfo: cloudConn.CredentialInfo,
+		IdentityClient: cloudConn.IdentityClient,
+		ComputeClient:  cloudConn.ComputeClient,
+		NetworkClient:  cloudConn.NetworkClient,
+		NLBClient:      cloudConn.NLBClient,
+		VolumeClient:   cloudConn.Volume3Client,
+	}
 	if vmHandler.VolumeClient == nil {
 		vmHandler.VolumeClient = cloudConn.Volume2Client
 	}
@@ -83,7 +103,14 @@ func (cloudConn *OpenStackCloudConnection) CreateVMSpecHandler() (irs.VMSpecHand
 
 func (cloudConn *OpenStackCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
 	cblogger.Info("OpenStack Cloud Driver: called CreateNLBHandler()!")
-	nlbHandler := osrs.OpenStackNLBHandler{CredentialInfo: cloudConn.CredentialInfo, Region: cloudConn.Region, VMClient: cloudConn.ComputeClient, NetworkClient: cloudConn.NetworkClient, NLBClient: cloudConn.NLBClient}
+	nlbHandler := osrs.OpenStackNLBHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
+		Region:         cloudConn.Region,
+		IdentityClient: cloudConn.IdentityClient,
+		ComputeClient:  cloudConn.ComputeClient,
+		NetworkClient:  cloudConn.NetworkClient,
+		NLBClient:      cloudConn.NLBClient,
+	}
 	return &nlbHandler, nil
 }
 

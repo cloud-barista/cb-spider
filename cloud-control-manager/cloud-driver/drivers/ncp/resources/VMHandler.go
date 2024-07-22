@@ -82,7 +82,7 @@ func (vmHandler *NcpVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	// Check whether the VM name exists. Search by instanceName converted to lowercase
 	vmId, err := vmHandler.GetVmIdByName(instanceName)
 	if err != nil {
-		cblogger.Error("The VM with the name is not exists : " + instanceName)
+		cblogger.Debug("The VM with the name does not exists : " + instanceName)
 		// return irs.VMInfo{}, err  //Caution!!
     }
 	if vmId != "" {
