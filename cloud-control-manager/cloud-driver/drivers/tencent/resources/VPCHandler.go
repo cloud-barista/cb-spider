@@ -452,6 +452,17 @@ func (VPCHandler *TencentVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Su
 	request.CidrBlock = common.StringPtr(subnetInfo.IPv4_CIDR)
 	request.Zone = common.StringPtr(zoneId)
 
+	var tags []*vpc.Tag
+	for _, inputTag := range subnetInfo.TagList {
+		tag := &vpc.Tag{
+			Key:   &inputTag.Key,
+			Value: &inputTag.Value,
+		}
+		tags = append(tags, tag)
+	}
+
+	request.Tags = tags
+
 	callLogStart := call.Start()
 	response, err := VPCHandler.Client.CreateSubnet(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
