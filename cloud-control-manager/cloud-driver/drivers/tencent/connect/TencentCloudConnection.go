@@ -97,7 +97,7 @@ func (cloudConn *TencentCloudConnection) CreateImageHandler() (irs.ImageHandler,
 
 func (cloudConn *TencentCloudConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
 	cblogger.Info("Start")
-	handler := trs.TencentSecurityHandler{Region: cloudConn.Region, Client: cloudConn.SecurityClient}
+	handler := trs.TencentSecurityHandler{Region: cloudConn.Region, Client: cloudConn.SecurityClient, TagClient: cloudConn.TagClient}
 
 	return &handler, nil
 }
