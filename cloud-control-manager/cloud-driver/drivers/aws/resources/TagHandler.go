@@ -24,14 +24,17 @@ import (
 
 	//"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/elbv2"
+
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
 type AwsTagHandler struct {
-	Region idrv.RegionInfo
-	Client *ec2.EC2
+	Region    idrv.RegionInfo
+	Client    *ec2.EC2
+	NLBClient *elbv2.ELBV2
 }
 
 // Map of RSType to AWS resource types
@@ -103,6 +106,88 @@ func (tagHandler *AwsTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag 
 	return tag, nil
 }
 
+func (tagHandler *AwsTagHandler) GetAllNLBTags() ([]*irs.TagInfo, error) {
+	// Step 1: List all load balancers and store their ARNs and Names
+	lbArnToName := make(map[string]string)
+
+	err := tagHandler.NLBClient.DescribeLoadBalancersPages(&elbv2.DescribeLoadBalancersInput{}, func(page *elbv2.DescribeLoadBalancersOutput, lastPage bool) bool {
+		for _, lb := range page.LoadBalancers {
+			lbArnToName[*lb.LoadBalancerArn] = *lb.LoadBalancerName
+		}
+		return !lastPage
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to describe load balancers: %w", err)
+	}
+
+	if len(lbArnToName) == 0 {
+		return nil, fmt.Errorf("no load balancers found")
+	}
+
+	// Step 2: Describe tags for each load balancer using the GetNLBTags function
+	var allTagInfos []*irs.TagInfo
+
+	for arn, name := range lbArnToName {
+		resIID := irs.IID{
+			NameId:   name,
+			SystemId: arn,
+		}
+
+		tagInfos, err := tagHandler.GetNLBTags(resIID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get tags for load balancer %s: %w", arn, err)
+		}
+
+		// Process only if Tag exists
+		if len(tagInfos) == 0 {
+			continue
+		}
+
+		// Convert tags into TagInfo with the correct ResType
+		tagInfo := &irs.TagInfo{
+			ResType: irs.NLB,
+			ResIId:  resIID,
+			TagList: tagInfos,
+		}
+
+		allTagInfos = append(allTagInfos, tagInfo)
+	}
+
+	return allTagInfos, nil
+}
+
+func (tagHandler *AwsTagHandler) GetNLBTags(resIID irs.IID) ([]irs.KeyValue, error) {
+	input := &elbv2.DescribeTagsInput{
+		ResourceArns: []*string{
+			aws.String(resIID.SystemId),
+		},
+	}
+
+	result, err := tagHandler.NLBClient.DescribeTags(input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to describe load balancer tags: %w", err)
+	}
+
+	if len(result.TagDescriptions) == 0 {
+		return nil, fmt.Errorf("no tags found for load balancer: %s", resIID.SystemId)
+	}
+
+	if cblogger.Level.String() == "debug" {
+		cblogger.Debug(result)
+	}
+
+	var retTagList []irs.KeyValue
+	for _, tag := range result.TagDescriptions[0].Tags {
+		retTagList = append(retTagList, irs.KeyValue{
+			Key:   aws.StringValue(tag.Key),
+			Value: aws.StringValue(tag.Value),
+		})
+	}
+
+	return retTagList, nil
+}
+
 func (tagHandler *AwsTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]irs.KeyValue, error) {
 	cblogger.Debugf("Req resTyp:[%s] / resIID:[%s]", resType, resIID)
 
@@ -110,6 +195,10 @@ func (tagHandler *AwsTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]
 		msg := "resIID.SystemId is not provided"
 		cblogger.Error(msg)
 		return nil, errors.New(msg)
+	}
+
+	if resType == irs.NLB {
+		return tagHandler.GetNLBTags(resIID)
 	}
 
 	resIID = tagHandler.GetRealResourceId(resType, resIID) // fix some resource id error
@@ -140,7 +229,7 @@ func (tagHandler *AwsTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]
 	LoggingInfo(hiscallInfo, start)
 
 	if cblogger.Level.String() == "debug" {
-		cblogger.Info(result)
+		cblogger.Debug(result)
 	}
 
 	var retTagList []irs.KeyValue
@@ -300,6 +389,48 @@ func (tagHandler *AwsTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, k
 	return true, nil
 }
 
+// Extracts a list of Key or Value tags corresponding to keyword from the tagInfos array.
+func (tagHandler *AwsTagHandler) ExtractTagKeyValue(tagInfos []*irs.TagInfo, keyword string) []*irs.TagInfo {
+	var matchingTagInfos []*irs.TagInfo
+	cblogger.Debugf("tagInfos count : [%d] / keyword : [%s]", len(tagInfos), keyword)
+	if cblogger.Level.String() == "debug" {
+		spew.Dump(tagInfos)
+	}
+
+	/*
+		for _, tagInfo := range tagInfos {
+			for _, kv := range tagInfo.TagList {
+				if kv.Key == keyword || kv.Value == keyword {
+					matchingTagInfos = append(matchingTagInfos, tagInfo)
+					break //  If any match, add that tagInfo and move on to the next tagInfo
+				}
+			}
+		}
+	*/
+
+	// The DescribeTags() API used by FindTag() only includes matching Keys, so we modified it with the same logic.
+	for _, tagInfo := range tagInfos {
+		var filteredTagList []irs.KeyValue
+
+		for _, kv := range tagInfo.TagList {
+			if kv.Key == keyword || kv.Value == keyword {
+				filteredTagList = append(filteredTagList, kv)
+			}
+		}
+
+		if len(filteredTagList) > 0 {
+			matchingTagInfo := &irs.TagInfo{
+				ResType:      tagInfo.ResType,
+				ResIId:       tagInfo.ResIId,
+				TagList:      filteredTagList,
+				KeyValueList: tagInfo.KeyValueList,
+			}
+			matchingTagInfos = append(matchingTagInfos, matchingTagInfo)
+		}
+	}
+	return matchingTagInfos
+}
+
 // Find tags by tag key or value
 // resType: ALL | VPC, SUBNET, etc.,.
 // keyword: The keyword to search for in the tag key or value.
@@ -307,15 +438,22 @@ func (tagHandler *AwsTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, k
 func (tagHandler *AwsTagHandler) FindTag(resType irs.RSType, keyword string) ([]*irs.TagInfo, error) {
 	cblogger.Debugf("resType : [%s] / keyword : [%s]", resType, keyword)
 
+	var tagInfos []*irs.TagInfo
 	var filters []*ec2.Filter
-
-	if resType == irs.KEY {
-		resIID := tagHandler.GetRealResourceId(resType, irs.IID{SystemId: keyword}) // fix some resource id error
-		keyword = resIID.SystemId
-	}
 
 	// Add resource type filter if resType is not ALL
 	if resType != irs.ALL {
+		if resType == irs.NLB {
+			// Add a list of NLB Tags if this is a all search
+			if keyword == "" || keyword == "*" {
+				return tagHandler.GetAllNLBTags()
+			} else {
+				nlbTaginfos, _ := tagHandler.GetAllNLBTags()
+				//spew.Dump(nlbTaginfos)
+				return tagHandler.ExtractTagKeyValue(nlbTaginfos, keyword), nil
+			}
+		}
+
 		if awsResType, ok := rsTypeToAwsResourceTypeMap[resType]; ok {
 			filters = append(filters, &ec2.Filter{
 				Name: aws.String("resource-type"),
@@ -333,10 +471,10 @@ func (tagHandler *AwsTagHandler) FindTag(resType irs.RSType, keyword string) ([]
 	// Function to process tags and add them to tagInfoMap
 	processTags := func(result *ec2.DescribeTagsOutput) {
 		if cblogger.Level.String() == "debug" {
-			cblogger.Debug(result)
-			//cblogger.Debug("=================================")
-			//spew.Dump(result)
-			//cblogger.Debug("=================================")
+			//cblogger.Debug(result)
+			cblogger.Debug("=================================")
+			spew.Dump(result)
+			cblogger.Debug("=================================")
 		}
 
 		for _, tag := range result.Tags {
@@ -433,9 +571,18 @@ func (tagHandler *AwsTagHandler) FindTag(resType irs.RSType, keyword string) ([]
 		processTags(result)
 	}
 
-	var tagInfos []*irs.TagInfo
+	//var tagInfos []*irs.TagInfo
 	for _, tagInfo := range tagInfoMap {
 		tagInfos = append(tagInfos, tagInfo)
+	}
+
+	// Add a list of NLB Tags if this is a all search
+	if resType == irs.ALL {
+		nlbTaginfos, _ := tagHandler.GetAllNLBTags()
+		if keyword != "" && keyword != "*" {
+			nlbTaginfos = tagHandler.ExtractTagKeyValue(nlbTaginfos, keyword)
+		}
+		tagInfos = append(tagInfos, nlbTaginfos...)
 	}
 
 	return tagInfos, nil

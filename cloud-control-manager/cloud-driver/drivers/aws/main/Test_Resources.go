@@ -50,9 +50,9 @@ func handleSecurity() {
 	//config := readConfigFile()
 	//VmID := config.Aws.VmID
 
-	securityName := "CB-SecurityAddTest1"
+	securityName := "CB-SecurityTagTest"
 	securityId := "sg-0d6a2bb960481ce68"
-	vpcId := "vpc-c0479cab"
+	vpcId := "vpc-0a115f43d4fcbab36" //New-CB-VPC
 
 	for {
 		fmt.Println("Security Management")
@@ -78,7 +78,7 @@ func handleSecurity() {
 			case 1:
 				result, err := handler.ListSecurity()
 				if err != nil {
-					cblogger.Infof(" Security List Lookup Failed : ", err)
+					cblogger.Info(" Security List Lookup Failed : ", err)
 				} else {
 					cblogger.Info("Security List Lookup Result")
 					cblogger.Info(result)
@@ -94,6 +94,8 @@ func handleSecurity() {
 				securityReqInfo := irs.SecurityReqInfo{
 					IId:    irs.IID{NameId: securityName},
 					VpcIID: irs.IID{SystemId: vpcId},
+					//TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}, {Key: "Name", Value: securityName+"123"}},
+					TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}},
 					SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
 						//CIDR 테스트
 						{
@@ -193,7 +195,7 @@ func handleSecurity() {
 				if err != nil {
 					cblogger.Infof(securityId, " Security Delete Failed : ", err)
 				} else {
-					cblogger.Infof("[%s] Security Delete Result : [%s]", securityId, result)
+					cblogger.Infof("[%s] Security Delete Result : [%t]", securityId, result)
 				}
 
 			case 5:
@@ -466,9 +468,7 @@ func handleKeyPair() {
 	//config := readConfigFile()
 	//VmID := config.Aws.VmID
 
-	keyPairName := "CB-KeyPairTest123123"
-	//keyPairName := "key-0a58c9a7b0a07a2d2"
-
+	keyPairName := "CB-KeyPairTagTest"
 	//keyPairName := config.Aws.KeyName
 
 	for {
@@ -505,7 +505,7 @@ func handleKeyPair() {
 				keyPairReqInfo := irs.KeyPairReqInfo{
 					IId: irs.IID{NameId: keyPairName},
 					//Name: keyPairName,
-					//TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}, {Key: "Name", Value: keyPairName+"123"}},
+					//TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}, {Key: "Name", Value: keyPairName + "123"}},
 					TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}},
 				}
 				result, err := KeyPairHandler.CreateKey(keyPairReqInfo)
@@ -990,17 +990,19 @@ func handleVM() {
 
 			case 1:
 				vmReqInfo := irs.VMReqInfo{
-					IId: irs.IID{NameId: "mcloud-barista-windows-test"},
+					IId:     irs.IID{NameId: "mcloud-barista-tag-test"},
+					TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}, {Key: "Name", Value: "mcloud-barista-tag-test123"}},
+					//TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}},
 					//ImageIID:          irs.IID{SystemId: "ami-001b6f8703b50e077"}, //centos-stable-7.2003.13-ebs-202005201235
-					//ImageIID:          irs.IID{SystemId: "ami-059b6d3840b03d6dd"}, //Ubuntu Server 20.04 LTS (HVM)
+					ImageIID: irs.IID{SystemId: "ami-056a29f2eddc40520"}, //Ubuntu Server 22.04 LTS (HVM), SSD Volume Type
 					//ImageIID:          irs.IID{SystemId: "ami-09e67e426f25ce0d7"}, //Ubuntu Server 20.04 LTS (HVM) - 버지니아 북부 리전
 					//ImageIID:          irs.IID{SystemId: "ami-059b6d3840b03d6dd"}, //Ubuntu Server 20.04 LTS (HVM)
 					//ImageIID: irs.IID{SystemId: "ami-0fe22bffdec36361c"}, //Ubuntu Server 18.04 LTS (HVM) - Japan 리전
-					ImageIID:          irs.IID{SystemId: "ami-093f427eb324bb754"}, //Microsoft Windows Server 2012 R2 RTM 64-bit Locale English AMI provided by Amazon - Japan 리전
-					SubnetIID:         irs.IID{SystemId: "subnet-0a6ca346752be1ca4"},
-					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-0f4532a525ad09de1"}}, //3389 RDP 포트 Open
+					//ImageIID:          irs.IID{SystemId: "ami-093f427eb324bb754"}, //Microsoft Windows Server 2012 R2 RTM 64-bit Locale English AMI provided by Amazon - Japan 리전
+					SubnetIID:         irs.IID{SystemId: "subnet-02127b9d8c84f7440"},
+					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-0209d9dc23ebd4cdd"}}, //3389 RDP 포트 Open
 					VMSpecName:        "t2.micro",
-					KeyPairIID:        irs.IID{SystemId: "japan-test"},
+					KeyPairIID:        irs.IID{SystemId: "CB-KeyPairTagTest"},
 					VMUserPasswd:      "1234qwer!@#$", //윈도우즈용 비밀번호
 
 					RootDiskType: "standard", //gp2/standard/io1/io2/sc1/st1/gp3
@@ -1236,9 +1238,12 @@ func handleNLB() {
 
 	nlbReqInfo := irs.NLBInfo{
 		IId:    irs.IID{NameId: "cb-nlb-test01"},
-		VpcIID: irs.IID{SystemId: "vpc-0c4d36a3ac3924419"},
+		VpcIID: irs.IID{SystemId: "vpc-0a115f43d4fcbab36"},
 		Type:   "PUBLIC",
 		Scope:  "REGION",
+
+		TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}, {Key: "Name", Value: "cb-nlb-test01123"}},
+		//TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}},
 
 		Listener: irs.ListenerInfo{
 			Protocol: "TCP", // AWS NLB : TCP, TLS, UDP, or TCP_UDP
@@ -1249,7 +1254,7 @@ func handleNLB() {
 		VMGroup: irs.VMGroupInfo{
 			Protocol: "TCP", //TCP|UDP|HTTP|HTTPS
 			Port:     "22",  //1-65535
-			VMs:      &[]irs.IID{irs.IID{SystemId: "i-0dcbcbeadbb14212f"}, irs.IID{SystemId: "i-0cba8efe123ab0b42"}, irs.IID{SystemId: "i-010c858cbe5b6fe93"}},
+			VMs:      &[]irs.IID{irs.IID{SystemId: "i-0c65033e158e0fd99"}},
 		},
 
 		HealthChecker: irs.HealthCheckerInfo{
@@ -1803,8 +1808,10 @@ func handleTag() {
 
 	reqTag := irs.KeyValue{Key: "tag3", Value: "tag3 test"}
 	reqKey := "tag3"
+	reqKey = "CB-KeyPairTagTest"
+	reqKey = "cb-nlb-test01123"
 	reqKey = ""
-	//reqType = irs.ALL
+	reqType = irs.ALL
 
 	for {
 		fmt.Println("TagHandler Management")
@@ -2069,12 +2076,13 @@ func readConfigFile() Config {
 }
 
 func main() {
-	handleKeyPair()
 	handleTag()
-	//handleVPC()
 	// handlePublicIP() // PublicIP 생성 후 conf
-	handleSecurity()
-	handleVM()
+
+	//handleKeyPair()
+	//handleVPC()
+	//handleSecurity()
+	//handleVM()
 	// handleImage() //AMI
 	// handleVNic() //Lancard
 	// handleVMSpec()
