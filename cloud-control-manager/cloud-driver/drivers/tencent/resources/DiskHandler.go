@@ -52,6 +52,16 @@ func (DiskHandler *TencentDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 	request.Placement = &cbs.Placement{Zone: common.StringPtr(zone)}
 	request.DiskChargeType = common.StringPtr("POSTPAID_BY_HOUR")
 
+	var tags []*cbs.Tag
+	for _, inputTag := range diskReqInfo.TagList {
+		tag := &cbs.Tag{
+			Key:   &inputTag.Key,
+			Value: &inputTag.Value,
+		}
+		tags = append(tags, tag)
+	}
+	request.Tags = tags
+
 	diskErr := validateDisk(&diskReqInfo)
 	if diskErr != nil {
 		cblogger.Error(diskErr)

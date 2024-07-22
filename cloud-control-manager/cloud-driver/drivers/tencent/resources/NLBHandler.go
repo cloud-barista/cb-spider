@@ -104,6 +104,16 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 
 	nlbRequest.VpcId = common.StringPtr(nlbReqInfo.VpcIID.SystemId)
 
+	var tags []*clb.TagInfo
+	for _, inputTag := range nlbReqInfo.TagList {
+		tag := &clb.TagInfo{
+			TagKey:   &inputTag.Key,
+			TagValue: &inputTag.Value,
+		}
+		tags = append(tags, tag)
+	}
+	nlbRequest.Tags = tags
+
 	nlbResponse, nlbErr := NLBHandler.Client.CreateLoadBalancer(nlbRequest)
 	if nlbErr != nil {
 		return irs.NLBInfo{}, nlbErr

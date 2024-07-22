@@ -178,6 +178,22 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 
 	request.InstanceName = common.StringPtr(vmReqInfo.IId.NameId)
 
+	var tags []*cvm.Tag
+	for _, inputTag := range vmReqInfo.TagList {
+		tag := &cvm.Tag{
+			Key:   &inputTag.Key,
+			Value: &inputTag.Value,
+		}
+		tags = append(tags, tag)
+	}
+
+	request.TagSpecification = []*cvm.TagSpecification{
+		{
+			ResourceType: common.StringPtr("instance"),
+			Tags:         tags,
+		},
+	}
+
 	// windows의 경우 keyPair set 하면 오류. password setting 되어있는지 확인
 	if isWindow {
 		//user := vmReqInfo.VMUserId // administrator

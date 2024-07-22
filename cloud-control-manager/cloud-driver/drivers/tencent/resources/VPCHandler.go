@@ -67,6 +67,17 @@ func (VPCHandler *TencentVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 	request.VpcName = common.StringPtr(vpcReqInfo.IId.NameId)
 	request.CidrBlock = common.StringPtr(vpcReqInfo.IPv4_CIDR)
 
+	var tags []*vpc.Tag
+	for _, inputTag := range vpcReqInfo.TagList {
+		tag := &vpc.Tag{
+			Key:   &inputTag.Key,
+			Value: &inputTag.Value,
+		}
+		tags = append(tags, tag)
+	}
+
+	request.Tags = tags
+
 	callLogStart := call.Start()
 	response, err := VPCHandler.Client.CreateVpc(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
