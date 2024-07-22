@@ -468,6 +468,7 @@ func (t *TencentTagHandler) FindTag(resType irs.RSType, keyword string) ([]*irs.
 
 		response, err := t.TagClient.DescribeResourceTagsByResourceIds(request)
 		if err != nil {
+			err := fmt.Errorf("An DescribeResourceTagsByResourceIds error has returned: %s", err.Error())
 			return nil, err
 		}
 
