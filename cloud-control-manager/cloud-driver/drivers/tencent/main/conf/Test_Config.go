@@ -12,6 +12,7 @@ package TencentTestConfig
 
 import (
 	"io/ioutil"
+	"os"
 
 	tdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -43,10 +44,12 @@ type Config struct {
 // 환경변수 CBSPIDER_PATH 설정 후 해당 폴더 하위에 /config/configTencent.yaml 파일 생성해야 함.
 func ReadConfigFile() Config {
 	// Set Environment Value of Project Root Path
-	// /mnt/d/Workspace/mcloud-barista-config/config/config.yaml
-	//testFilePath := os.Getenv("CBSPIDER_PATH") + "/config/configTencent.yaml" //혹시 모를 키 노출 대비 시스템 외부에 존재(개발용용)
-	testFilePath := "./conf/testConfigTencent.yaml"
-	cblogger.Debugf("Test Data 설정파일 : [%]", testFilePath)
+	testFilePath := os.Getenv("CBSPIDER_TEST_CONF_PATH")
+	cblogger.Info("Set the full path to the config files you want to use for testing, including your AWS credentials, in the OS environment variable [CBSPIDER_TEST_CONF_PATH].")
+	cblogger.Infof("OS environment variable [CBSPIDER_TEST_CONF_PATH] : [%s]", testFilePath)
+
+	// testFilePath := "./conf/testConfigTencent.yaml"
+	// cblogger.Debugf("Test Data 설정파일 : [%]", testFilePath)
 
 	data, err := ioutil.ReadFile(testFilePath)
 	if err != nil {
@@ -122,7 +125,8 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateRegionZoneHandler()
 	case "PriceInfo":
 		resourceHandler, err = cloudConnection.CreatePriceInfoHandler()
-
+	case "Tag":
+		resourceHandler, err = cloudConnection.CreateTagHandler()
 	}
 
 	if err != nil {

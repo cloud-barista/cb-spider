@@ -17,14 +17,13 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
 
-	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
-	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
-	//"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
-
 	cbs "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs/v20170312"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
+	tag "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tag/v20180813"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
+
+	tke "github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/tke/v20180525"
 
 	"errors"
 )
@@ -42,8 +41,8 @@ type TencentCloudConnection struct {
 	DiskClient       *cbs.Client
 	MyImageClient    *cvm.Client
 	RegionZoneClient *cvm.Client
-	//VNicClient     *cvm.Client
-	//PublicIPClient *cvm.Client
+	TagClient        *tag.Client
+	ClusterClient    *tke.Client
 }
 
 var cblogger *logrus.Logger
@@ -109,22 +108,6 @@ func (cloudConn *TencentCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandle
 	return &handler, nil
 }
 
-/*
-func (cloudConn *TencentCloudConnection) CreateVNicHandler() (irs.VNicHandler, error) {
-	cblogger.Info("Start")
-	handler := trs.TencentVNicHandler{cloudConn.Region, cloudConn.VNicClient}
-
-	return &handler, nil
-}
-
-func (cloudConn *TencentCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandler, error) {
-	cblogger.Info("Start")
-	handler := trs.TencentPublicIPHandler{cloudConn.Region, cloudConn.PublicIPClient}
-
-	return &handler, nil
-}
-*/
-
 func (cloudConn *TencentCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
 
 	cblogger.Info("Start")
@@ -164,5 +147,15 @@ func (cloudConn *TencentCloudConnection) CreatePriceInfoHandler() (irs.PriceInfo
 }
 
 func (cloudConn *TencentCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
-	return nil, errors.New("Tencent Driver: not implemented")
+	handler := trs.TencentTagHandler{
+		Region:    cloudConn.Region,
+		TagClient: cloudConn.TagClient,
+		// below client is for validate resources
+		VNetworkClient: cloudConn.VNetworkClient,
+		VMClient:       cloudConn.VMClient,
+		NLBClient:      cloudConn.NLBClient,
+		DiskClient:     cloudConn.DiskClient,
+		ClusterClient:  cloudConn.ClusterClient,
+	}
+	return &handler, nil
 }
