@@ -180,11 +180,10 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 
 	var tags []*cvm.Tag
 	for _, inputTag := range vmReqInfo.TagList {
-		tag := &cvm.Tag{
-			Key:   &inputTag.Key,
-			Value: &inputTag.Value,
-		}
-		tags = append(tags, tag)
+		tags = append(tags, &cvm.Tag{
+			Key:   common.StringPtr(inputTag.Key),
+			Value: common.StringPtr(inputTag.Value),
+		})
 	}
 
 	request.TagSpecification = []*cvm.TagSpecification{
@@ -354,7 +353,9 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			cblogger.Info("The Image includes a DataDisk.")
 		}
 	}
-	request.DataDisks = dataDiskList
+	if len(dataDiskList) > 0 {
+		request.DataDisks = dataDiskList
+	}
 
 	//=============================
 	// UserData생성 처리(File기반)

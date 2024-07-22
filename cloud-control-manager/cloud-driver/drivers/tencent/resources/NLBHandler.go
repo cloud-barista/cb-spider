@@ -106,11 +106,10 @@ func (NLBHandler *TencentNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 
 	var tags []*clb.TagInfo
 	for _, inputTag := range nlbReqInfo.TagList {
-		tag := &clb.TagInfo{
-			TagKey:   &inputTag.Key,
-			TagValue: &inputTag.Value,
-		}
-		tags = append(tags, tag)
+		tags = append(tags, &clb.TagInfo{
+			TagKey:   common.StringPtr(inputTag.Key),
+			TagValue: common.StringPtr(inputTag.Value),
+		})
 	}
 	nlbRequest.Tags = tags
 

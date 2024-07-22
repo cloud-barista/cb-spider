@@ -69,11 +69,10 @@ func (VPCHandler *TencentVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 
 	var tags []*vpc.Tag
 	for _, inputTag := range vpcReqInfo.TagList {
-		tag := &vpc.Tag{
-			Key:   &inputTag.Key,
-			Value: &inputTag.Value,
-		}
-		tags = append(tags, tag)
+		tags = append(tags, &vpc.Tag{
+			Key:   common.StringPtr(inputTag.Key),
+			Value: common.StringPtr(inputTag.Value),
+		})
 	}
 
 	request.Tags = tags
@@ -117,6 +116,8 @@ func (VPCHandler *TencentVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 		}
 		requestSubnet.Subnets = append(requestSubnet.Subnets, reqSubnet)
 	}
+
+	requestSubnet.Tags = tags
 
 	responseSubnet, errSubnet := VPCHandler.Client.CreateSubnets(requestSubnet)
 	cblogger.Debug(responseSubnet.ToJsonString())
@@ -454,11 +455,10 @@ func (VPCHandler *TencentVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Su
 
 	var tags []*vpc.Tag
 	for _, inputTag := range subnetInfo.TagList {
-		tag := &vpc.Tag{
-			Key:   &inputTag.Key,
-			Value: &inputTag.Value,
-		}
-		tags = append(tags, tag)
+		tags = append(tags, &vpc.Tag{
+			Key:   common.StringPtr(inputTag.Key),
+			Value: common.StringPtr(inputTag.Value),
+		})
 	}
 
 	request.Tags = tags

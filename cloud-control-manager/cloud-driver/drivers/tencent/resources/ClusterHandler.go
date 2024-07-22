@@ -795,11 +795,10 @@ func getCreateClusterRequest(clusterHandler *TencentClusterHandler, clusterInfo 
 
 	var tags []*tke.Tag
 	for _, inputTag := range clusterInfo.TagList {
-		tag := &tke.Tag{
-			Key:   &inputTag.Key,
-			Value: &inputTag.Value,
-		}
-		tags = append(tags, tag)
+		tags = append(tags, &tke.Tag{
+			Key:   common.StringPtr(inputTag.Key),
+			Value: common.StringPtr(inputTag.Value),
+		})
 	}
 
 	request.ClusterBasicSettings = &tke.ClusterBasicSettings{

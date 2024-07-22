@@ -54,11 +54,10 @@ func (DiskHandler *TencentDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 
 	var tags []*cbs.Tag
 	for _, inputTag := range diskReqInfo.TagList {
-		tag := &cbs.Tag{
-			Key:   &inputTag.Key,
-			Value: &inputTag.Value,
-		}
-		tags = append(tags, tag)
+		tags = append(tags, &cbs.Tag{
+			Key:   common.StringPtr(inputTag.Key),
+			Value: common.StringPtr(inputTag.Value),
+		})
 	}
 	request.Tags = tags
 
