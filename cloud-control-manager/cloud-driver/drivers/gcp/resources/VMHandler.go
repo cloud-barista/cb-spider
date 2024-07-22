@@ -244,6 +244,17 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	cblogger.Info("networkURL 정보 : ", networkURL)
 	cblogger.Info("subnetWorkURL 정보 : ", subnetWorkURL)
 
+	labels := map[string]string{
+		"keypair": strings.ToLower(vmReqInfo.KeyPairIID.SystemId),
+	}
+
+	for _, t := range vmReqInfo.TagList {
+		if t.Key == "keypair" {
+			continue
+		}
+		labels[t.Key] = t.Value
+	}
+
 	instance := &compute.Instance{
 		Name: vmName,
 		Metadata: &compute.Metadata{
@@ -252,10 +263,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 					Value: &pubKey},
 			},
 		},
-		Labels: map[string]string{
-			//"keypair": strings.ToLower(vmReqInfo.KeyPairIID.NameId),
-			"keypair": strings.ToLower(vmReqInfo.KeyPairIID.SystemId),
-		},
+		Labels:      labels,
 		Description: "compute sample instance",
 		MachineType: prefix + "/zones/" + zone + "/machineTypes/" + vmReqInfo.VMSpecName,
 		Disks: []*compute.AttachedDisk{
@@ -1190,6 +1198,14 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 			vmInfo.StartTime = t
 		}
 	}
+
+	tags := make([]irs.KeyValue, 0)
+	if server.Labels != nil {
+		for k, v := range server.Labels {
+			tags = append(tags, irs.KeyValue{Key: k, Value: v})
+		}
+	}
+	vmInfo.TagList = tags
 
 	return vmInfo
 }
