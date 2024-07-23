@@ -9,19 +9,20 @@
 package mocktest
 
 import (
-	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	mockdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/mock"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
 	"testing"
+
 	cblog "github.com/cloud-barista/cb-log"
 )
 
 var vmHandler irs.VMHandler
 
 func init() {
-        // make the log level lower to print clearly
-        cblog.SetLevel("error")
+	// make the log level lower to print clearly
+	cblog.SetLevel("error")
 
 	cred := idrv.CredentialInfo{
 		MockName: "MockDriver-77", // *** 주의 *** : 다른 테스트의 데이터와 충돌 방지를 위해 별도 이름 지정
