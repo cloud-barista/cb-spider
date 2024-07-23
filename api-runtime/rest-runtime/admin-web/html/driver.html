@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Driver Management</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+    }
+    .header-container {
+        display: flex;
+        align-items: flex-end; /* Align items to the bottom */
+    }
+    .header-container img {
+        margin-right: 10px;
+        height: 28px; /* Adjust the height as needed */
+    }
+    .header-container a {
+        font-size: 18px;
+    }
+    .header-container .separator {
+        font-size: 18px;
+        margin: 0 10px;
+    }
+    h1 {
+        font-size: 16px;
+        margin: 0;
+    }
+    h2 {
+        font-size: 16px;
+        margin: 10px 0;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-bottom: 20px;
+    }
+    th, td {
+        border: 1px solid black;
+        padding: 6px;
+        text-align: center;
+    }
+    th {
+        background-color: #f2f2f2;
+        font-size: 14px;
+    }
+    .provider-title {
+        display: flex;
+        align-items: center;
+        font-size: 16px;
+    }
+    .overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        justify-content: center;
+        align-items: center;
+    }
+    .overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+    }
+    .fixed-header {
+        position: fixed;
+        top: 0;
+        width: 97%;
+        background-color: white;
+        z-index: 1000;
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 20px;
+        align-items: center;
+        box-shadow: 0 4px 6px -6px #222;
+    }
+    .fixed-action-buttons {
+        display: flex;
+        align-items: center;
+        margin-left: 5cm;
+    }
+    .fixed-action-buttons button {
+        margin-left: 10px;
+    }
+    .add-button {
+        font-size: 14px;
+        font-weight: bold;
+        margin-left: 15px;
+    }
+    .content {
+        margin-top: 70px;
+    }
+    .checkbox-cell {
+        width: 5%;
+    }
+    .highlight-pastel-blue {
+        color: #4A90E2;
+        font-weight: bold;
+    }
+    .disabled-input {
+        background-color: #f0f0f0;
+        color: #a0a0a0;
+        border: 1px solid #d0d0d0;
+    }
+    .blue-pastel-background {
+        background-color: #D0E4FF;
+    }
+    .form-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .form-group label {
+        flex: 1;
+        text-align: right;
+        margin-right: 10px;
+    }
+    .form-group input {
+        flex: 2;
+    }
+    .form-group button {
+        margin-left: 10px;
+    }
+</style>
+<script>
+    function deleteDriver(driverName) {
+        fetch(`/spider/driver/${driverName}`, { method: 'DELETE' })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.Result === "true") {
+                    location.reload();
+                } else {
+                    alert("Failed to delete driver");
+                }
+            })
+            .catch(error => {
+                alert("Error deleting driver");
+                console.error('Error:', error);
+            });
+    }
+
+    function deleteSelectedDrivers() {
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
+        if (checkboxes.length === 0) {
+            alert("Please select drivers to delete.");
+            return;
+        }
+
+        if (!confirm("Are you sure you want to delete the selected drivers?")) {
+            return;
+        }
+
+        const deletePromises = Array.from(checkboxes).map(checkbox => {
+            const driverName = checkbox.value;
+            return fetch(`/spider/driver/${driverName}`, { method: 'DELETE' });
+        });
+
+        Promise.all(deletePromises)
+            .then(responses => {
+                for (let response of responses) {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                }
+                return Promise.all(responses.map(response => response.json()));
+            })
+            .then(dataList => {
+                for (let data of dataList) {
+                    if (data.Result !== "true") {
+                        alert("Failed to delete some drivers");
+                        return;
+                    }
+                }
+                location.reload();
+            })
+            .catch(error => {
+                alert("Error deleting drivers");
+                console.error('Error:', error);
+            });
+    }
+
+    function toggleSelectAll(source) {
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]');
+        for (const checkbox of checkboxes) {
+            checkbox.checked = source.checked;
+        }
+    }
+
+    function toggleSelectTable(source, tableId) {
+        const table = document.getElementById(tableId);
+        const checkboxes = table.querySelectorAll('input[name="deleteCheckbox"]');
+        for (const checkbox of checkboxes) {
+            checkbox.checked = source.checked;
+        }
+    }
+
+    function validateForm() {
+        const driverName = document.getElementById('driverName').value;
+        const driverLibFileName = document.getElementById('driverLibFileName').value;
+
+        if (!driverName || !driverLibFileName) {
+            alert("Please fill in all the fields.");
+            return false;
+        }
+        return true;
+    }
+
+    function postDriver() {
+        if (!validateForm()) {
+            return;
+        }
+
+        const driverName = document.getElementById('driverName').value;
+        const driverLibFileName = document.getElementById('driverLibFileName').value;
+        const providerName = document.getElementById('providerName').value;
+
+        const data = {
+            DriverName: driverName,
+            DriverLibFileName: driverLibFileName,
+            ProviderName: providerName
+        };
+
+        fetch('/spider/driver', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (validateForm()) {
+                location.reload();
+            }
+        })
+        .catch(error => {
+            alert("Error creating driver");
+            console.error('Error:', error);
+        });
+    }
+
+    function showOverlay(providerName) {
+        const driverLibFileName = providerName.toLowerCase() + "-driver-v1.0.so";
+        document.getElementById('providerName').value = providerName;
+        document.getElementById('driverLibFileName').value = driverLibFileName;
+        document.getElementById('driverName').value = driverLibFileName.replace(".so", "");
+        document.getElementById('overlay').style.display = 'flex';
+        document.addEventListener('keydown', handleEsc);
+    }
+
+    function hideOverlay() {
+        document.getElementById('overlay').style.display = 'none';
+        document.removeEventListener('keydown', handleEsc);
+        clearFormFields();
+    }
+
+    function handleEsc(event) {
+        if (event.key === "Escape") {
+            hideOverlay();
+        }
+    }
+
+    function clearFormFields() {
+        document.getElementById('driverName').value = '';
+        document.getElementById('driverLibFileName').value = '';
+    }
+</script>
+</head>
+<body>
+    <div class="fixed-header">
+        <div class="header-container">
+            <img src="/spider/adminweb/images/connection_small.png" alt="Connection Icon">
+            <a href="javascript:history.back()" style="text-decoration: underline;color: black">
+                <h1>Connection Info Management</h1>
+            </a>
+            <span class="separator"><h1>></h1></span>
+            <h1>Driver Info Management</h1>
+        </div>
+        <div class="fixed-action-buttons">
+            <input type="checkbox" onclick="toggleSelectAll(this)">
+            <button onclick="deleteSelectedDrivers()">Delete</button>
+        </div>
+    </div>
+
+    <div class="content">
+        {{range $provider := .Providers}}
+        <div class="provider-title">
+            <h2>{{$provider}}</h2>
+            <button class="add-button" onclick="showOverlay('{{$provider}}')">+</button>
+        </div>
+        <table id="table-{{$provider}}">
+            <tr>
+                <th>Driver Name</th>
+                <th>Driver Library</th>
+                <th class="checkbox-cell"><input type="checkbox" onclick="toggleSelectTable(this, 'table-{{$provider}}')"></th>
+            </tr>
+            {{if index $.Drivers $provider}}
+                {{range $driver := index $.Drivers $provider}}
+                <tr>
+                    <td>{{$driver.DriverName}}</td>
+                    <td>{{$driver.DriverLibFileName}}</td>
+                    <td class="checkbox-cell">
+                        <input type="checkbox" name="deleteCheckbox" value="{{$driver.DriverName}}">
+                    </td>
+                </tr>
+                {{end}}
+            {{else}}
+            <tr>
+                <td colspan="3">No drivers found for {{$provider}}</td>
+            </tr>
+            {{end}}
+        </table>
+        {{end}}
+    </div>
+
+    <div id="overlay" class="overlay">
+        <div class="overlay-content">
+            <h2>Add New Driver Info</h2>
+            <form id="addDriverForm" onsubmit="event.preventDefault(); postDriver();">
+                <div class="form-group">
+                    <label for="driverName">Driver Name:</label>
+                    <input type="text" id="driverName" name="DriverName" required>
+                </div>
+                <div class="form-group">
+                    <label for="providerName">Provider Name:</label>
+                    <input type="text" id="providerName" name="ProviderName" class="disabled-input" required readonly>
+                </div>
+                <div class="form-group">
+                    <label for="driverLibFileName">Driver Library:</label>
+                    <input type="text" id="driverLibFileName" name="DriverLibFileName" required class="blue-pastel-background">
+                </div>
+                <div class="form-group">
+                    <button type="submit">Add Driver</button>
+                    <button type="button" onclick="hideOverlay()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Region Management</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+    }
+    .header-container {
+        display: flex;
+        align-items: flex-end; /* Align items to the bottom */
+    }
+    .header-container img {
+        margin-right: 10px;
+        height: 28px; /* Adjust the height as needed */
+    }
+    .header-container a {
+        font-size: 18px;
+    }
+    .header-container .separator {
+        font-size: 18px;
+        margin: 0 10px;
+    }
+    h1 {
+        font-size: 16px;
+        margin: 0;
+    }
+    h2 {
+        font-size: 16px;
+        margin: 10px 0;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-bottom: 20px;
+    }
+    th, td {
+        border: 1px solid black;
+        padding: 6px;
+        text-align: center;
+        vertical-align: middle;
+    }
+    th {
+        background-color: #f2f2f2;
+        font-size: 14px;
+    }
+    .provider-title {
+        display: flex;
+        align-items: center;
+        font-size: 16px;
+    }
+    .overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.8);
+        justify-content: center;
+        align-items: center;
+    }
+    .overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+    }
+    .import-overlay {
+        display: none;
+        position: fixed;
+        top: 70px;
+        left: 0;
+        width: 100%;
+        height: calc(100% - 70px);
+        background-color: rgba(0,0,0,0.8);
+        justify-content: center;
+        align-items: flex-start;
+        overflow: auto;
+    }
+    .import-overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+        width: 66.67%;
+        margin: 20px auto;
+    }
+    .fixed-header {
+        position: fixed;
+        top: 0;
+        width: 97%;
+        background-color: white;
+        z-index: 1000;
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 20px;
+        align-items: center;
+        box-shadow: 0 4px 6px -6px #222;
+    }
+    .fixed-action-buttons {
+        display: flex;
+        align-items: center;
+        margin-left: -1cm; /* Move 1cm to the left */
+    }
+    .fixed-action-buttons button {
+        margin-left: 10px;
+    }
+    .add-button, .import-button {
+        font-size: 14px;
+        font-weight: bold;
+        margin-left: 15px;
+    }
+    .content {
+        margin-top: 70px;
+    }
+    .checkbox-cell {
+        width: 5%;
+    }
+    .highlight-pastel-blue {
+        color: #4A90E2;
+        font-weight: bold;
+    }
+    .disabled-input {
+        background-color: #f0f0f0;
+        color: #a0a0a0;
+        border: 1px solid #d0d0d0;
+    }
+    .form-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .form-group label {
+        flex: 1;
+        text-align: right;
+        margin-right: 10px;
+    }
+    .form-group input, .form-group textarea, .form-group select {
+        flex: 2;
+    }
+    .form-group button {
+        margin-left: 10px;
+    }
+    .sensitive-input {
+        background-color: #f8d7da;
+        color: #495057;
+        border: 1px solid #ced4da;
+        border-radius: 0.25rem;
+    }
+    .pastel-blue-input {
+        background-color: #cce4f7;
+        color: #495057;
+        border: 1px solid #ced4da;
+        border-radius: 0.25rem;
+    }
+    .pastel-blue-text {
+        color: #4A90E2;
+        font-weight: bold;
+    }
+    .inline-form-group {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+    .region-section {
+        margin-top: 20px;
+    }
+    .overlay-header {
+        position: sticky;
+        top: 0;
+        background-color: white;
+        z-index: 1001;
+        padding: 10px;
+        border-bottom: 1px solid #ddd;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .overlay-header .inline-form-group {
+        margin: 0;
+        flex: 1;
+    }
+    .overlay-header .add-form-group {
+        display: flex;
+        gap: 5px;
+        align-items: center;
+    }
+    .overlay-header .add-form-group input[type="checkbox"] {
+        margin: 0;
+        vertical-align: middle;
+    }
+    .overlay-header .add-form-group button {
+        margin-left: 5px;
+    }
+</style>
+<script>
+    let currentProviderKeys = [];
+    let currentProviderRegionKeys = [];
+    let currentRegions = [];
+    let currentProviderName = "";
+
+    function deleteRegion(regionName) {
+        fetch(`/spider/region/${regionName}`, { method: 'DELETE' })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.Result === "true") {
+                    location.reload();
+                } else {
+                    alert("Failed to delete region");
+                }
+            })
+            .catch(error => {
+                alert("Error deleting region");
+                console.error('Error:', error);
+            });
+    }
+
+    function deleteSelectedRegions() {
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
+        if (checkboxes.length === 0) {
+            alert("Please select regions to delete.");
+            return;
+        }
+
+        if (!confirm("Are you sure you want to delete the selected regions?")) {
+            return;
+        }
+
+        const deletePromises = Array.from(checkboxes).map(checkbox => {
+            const regionName = checkbox.value;
+            return fetch(`/spider/region/${regionName}`, { method: 'DELETE' });
+        });
+
+        Promise.all(deletePromises)
+            .then(responses => {
+                for (let response of responses) {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                }
+                return Promise.all(responses.map(response => response.json()));
+            })
+            .then(dataList => {
+                for (let data of dataList) {
+                    if (data.Result !== "true") {
+                        alert("Failed to delete some regions");
+                        return;
+                    }
+                }
+                location.reload();
+            })
+            .catch(error => {
+                alert("Error deleting regions");
+                console.error('Error:', error);
+            });
+    }
+
+    function toggleSelectAll(source) {
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]');
+        for (const checkbox of checkboxes) {
+            checkbox.checked = source.checked;
+        }
+    }
+
+    function toggleSelectTable(source, tableId) {
+        const table = document.getElementById(tableId);
+        const checkboxes = table.querySelectorAll('input[name="deleteCheckbox"]');
+        for (const checkbox of checkboxes) {
+            checkbox.checked = source.checked;
+        }
+    }
+
+    function toggleImportSelectAll(source) {
+        const checkboxes = document.querySelectorAll('input[name="importCheckbox"]');
+        for (const checkbox of checkboxes) {
+            checkbox.checked = source.checked;
+        }
+    }
+
+    function toggleTableSelectAll(source, tableId) {
+        const table = document.getElementById(tableId);
+        const checkboxes = table.querySelectorAll('input[name="importCheckbox"]');
+        for (const checkbox of checkboxes) {
+            checkbox.checked = source.checked;
+        }
+    }
+
+    function validateForm() {
+        const regionName = document.getElementById('regionName').value;
+        const providerName = document.getElementById('providerName').value;
+        let valid = true;
+
+        currentProviderKeys.forEach((key, index) => {
+            if (!document.getElementById(currentProviderRegionKeys[index]).value) {
+                valid = false;
+            }
+        });
+
+        if (!regionName || !providerName || !valid) {
+            alert("Please fill in all the fields.");
+            return false;
+        }
+        return true;
+    }
+
+    function escapeNewlines(str) {
+        return str.replace(/\\n/g, "\n");
+    }
+
+    function postRegion() {
+        if (!validateForm()) {
+            return;
+        }
+
+        const regionName = document.getElementById('regionName').value;
+        const providerName = document.getElementById('providerName').value;
+        const keyValueInfoList = currentProviderKeys.map((key, index) => {
+            const value = escapeNewlines(document.getElementById(currentProviderRegionKeys[index]).value);
+            return { Key: key, Value: value };
+        });
+
+        const data = {
+            RegionName: regionName,
+            ProviderName: providerName,
+            KeyValueInfoList: keyValueInfoList
+        };
+
+        fetch('/spider/region', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            location.reload();
+        })
+        .catch(error => {
+            alert("Error creating region");
+            console.error('Error:', error);
+        });
+    }
+
+    function showOverlay(providerName) {
+        fetch(`/spider/cloudos/metainfo/${providerName}`)
+            .then(response => response.json())
+            .then(data => {
+                currentProviderKeys = data.Region;
+                currentProviderRegionKeys = data.Region;
+                const regionInfoDiv = document.getElementById('regionInfo');
+                regionInfoDiv.innerHTML = ''; // Clear previous inputs
+                currentProviderKeys.forEach((key, index) => {
+                    const regionKey = currentProviderRegionKeys[index];
+                    const inputDiv = document.createElement('div');
+                    inputDiv.className = 'form-group';
+                    inputDiv.innerHTML = `<label for="${regionKey}">${regionKey}:</label><input type="text" id="${regionKey}" name="${regionKey}" class="pastel-blue-input" required oninput="generateRegionName()">`;
+                    regionInfoDiv.appendChild(inputDiv);
+                });
+                document.getElementById('providerName').value = providerName.toLowerCase();
+                document.getElementById('overlay').style.display = 'flex';
+                document.addEventListener('keydown', handleEsc);
+            })
+            .catch(error => {
+                alert("Error fetching region keys");
+                console.error('Error:', error);
+            });
+    }
+
+    function showImportOverlay(providerName) {
+        currentProviderName = providerName;
+        document.getElementById('currentProviderName').innerText = `${providerName}`;
+        
+        fetch('/spider/driver')
+            .then(response => response.json())
+            .then(data => {
+                const driverSelect = document.getElementById('importDriverSelect');
+                driverSelect.innerHTML = '';
+                data.driver.forEach(driver => {
+                    if (driver.ProviderName.toLowerCase() === providerName.toLowerCase()) {
+                        const option = document.createElement('option');
+                        option.value = driver.DriverName;
+                        option.text = driver.DriverName;
+                        driverSelect.add(option);
+                    }
+                });
+            });
+
+        fetch('/spider/credential')
+            .then(response => response.json())
+            .then(data => {
+                const credentialSelect = document.getElementById('importCredentialSelect');
+                credentialSelect.innerHTML = '';
+                data.credential.forEach(credential => {
+                    if (credential.ProviderName.toLowerCase() === providerName.toLowerCase()) {
+                        const option = document.createElement('option');
+                        option.value = credential.CredentialName;
+                        option.text = credential.CredentialName;
+                        credentialSelect.add(option);
+                    }
+                });
+            });
+
+        document.getElementById('importOverlay').style.display = 'flex';
+        document.addEventListener('keydown', handleEsc);
+    }
+
+    function hideOverlay() {
+        document.getElementById('overlay').style.display = 'none';
+        document.removeEventListener('keydown', handleEsc);
+        clearForm();
+    }
+
+    function hideImportOverlay() {
+        document.getElementById('importOverlay').style.display = 'none';
+        document.removeEventListener('keydown', handleEsc);
+        clearImportOverlay();
+    }
+
+    function clearForm() {
+        document.getElementById('addRegionForm').reset();
+        document.getElementById('providerName').value = '';
+        document.getElementById('regionInfo').innerHTML = '';
+    }
+
+    function clearImportOverlay() {
+        document.getElementById('importDriverSelect').innerHTML = '';
+        document.getElementById('importCredentialSelect').innerHTML = '';
+        document.getElementById('importTableBody').innerHTML = '';
+        document.querySelector('.add-form-group[style]').style.display = 'none';
+        document.getElementById('currentProviderName').innerText = '';
+    }
+
+    function generateRegionName() {
+        const providerName = currentProviderName.toLowerCase();
+        const region = document.getElementById('Region').value;
+        let zone = document.getElementById('Zone').value;
+
+        if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(zone)) {
+            zone = zone.split('-')[0];
+        }
+
+        const regionName = `${providerName}_${region}_${zone}`;
+        document.getElementById('regionName').value = regionName;
+    }
+
+    function fetchRegionZone() {
+        const driverName = document.getElementById('importDriverSelect').value;
+        const credentialName = document.getElementById('importCredentialSelect').value;
+
+        if (!driverName || !credentialName) {
+            alert('Please register and select a Driver and Credential first.');
+            return;
+        }
+
+        const fetchUrl = `/spider/preconfig/regionzone?DriverName=${driverName}&CredentialName=${credentialName}`;
+
+        fetch(fetchUrl)
+            .then(response => response.json())
+            .then(data => {
+                currentRegions = data.regionzone || [];
+                renderImportTable();
+            })
+            .catch(error => {
+                alert(`Error fetching region and zone information: ${error}`);
+                console.error('Error:', error);
+            });
+    }
+
+    function renderImportTable() {
+        const importTableBody = document.getElementById('importTableBody');
+        importTableBody.innerHTML = '';
+
+        currentRegions.forEach((region, index) => {
+            const regionSection = document.createElement('div');
+            regionSection.className = 'region-section';
+            
+            const regionTitle = document.createElement('h2');
+            regionTitle.textContent = region.Name;
+            regionSection.appendChild(regionTitle);
+            
+            const tableId = `table-${index}`;
+            const table = document.createElement('table');
+            table.id = tableId;
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Region Name</th>
+                        <th>Region</th>
+                        <th>Zone</th>
+                        <th class="checkbox-cell"><input type="checkbox" onclick="toggleTableSelectAll(this, '${tableId}')"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            `;
+            
+            region.ZoneList.forEach(zone => {
+                let zoneName = zone.Name;
+                if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(zoneName)) {
+                    zoneName = zoneName.split('-')[0];
+                }
+
+                const regionName = `${currentProviderName.toLowerCase()}_${region.Name}_${zoneName}`;
+                const row = document.createElement('tr');
+
+                row.innerHTML = `
+                    <td><input type="text" value="${regionName}" style="width: calc(100% - 2mm);" /></td>
+                    <td class="pastel-blue-text">${region.Name}</td>
+                    <td class="pastel-blue-text">${zone.Name}</td>
+                    <td class="checkbox-cell"><input type="checkbox" name="importCheckbox" /></td>
+                `;
+                table.querySelector('tbody').appendChild(row);
+            });
+            
+            regionSection.appendChild(table);
+            importTableBody.appendChild(regionSection);
+        });
+
+        const importHeader = document.querySelector('.add-form-group[style]');
+        if (importTableBody.innerHTML.trim()) {
+            importHeader.style.display = 'flex';
+        } else {
+            importHeader.style.display = 'none';
+        }
+    }
+
+    function addImportedRegions() {
+        const checkboxes = document.querySelectorAll('input[name="importCheckbox"]:checked');
+        if (checkboxes.length === 0) {
+            alert("Please select regions to add.");
+            return;
+        }
+
+        const addPromises = Array.from(checkboxes).map(checkbox => {
+            const row = checkbox.closest('tr');
+            const regionName = row.querySelector('input[type="text"]').value;
+            const region = row.cells[1].innerText;
+            const zone = row.cells[2].innerText;
+
+            const keyValueInfoList = [
+                { Key: "Region", Value: region },
+                { Key: "Zone", Value: zone }
+            ];
+
+            const data = {
+                RegionName: regionName,
+                ProviderName: currentProviderName,
+                KeyValueInfoList: keyValueInfoList
+            };
+
+            return fetch('/spider/region', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+        });
+
+        Promise.all(addPromises)
+            .then(responses => {
+                for (let response of responses) {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                }
+                return Promise.all(responses.map(response => response.json()));
+            })
+            .then(() => {
+                location.reload();
+            })
+            .catch(error => {
+                alert("Error adding regions");
+                console.error('Error:', error);
+            });
+    }
+
+    function handleEsc(event) {
+        if (event.key === 'Escape') {
+            hideOverlay();
+            hideImportOverlay();
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', (event) => {
+        document.getElementById('Region').addEventListener('input', generateRegionName);
+        document.getElementById('Zone').addEventListener('input', generateRegionName);
+    });
+</script>
+</head>
+<body>
+    <div class="fixed-header">
+        <div class="header-container">
+            <img src="/spider/adminweb/images/connection_small.png" alt="Connection Icon">
+            <a href="javascript:history.back()" style="text-decoration: underline;color: black">
+                <h1>Connection Info Management</h1>
+            </a>
+            <span class="separator"><h1>></h1></span>
+            <h1>Region Info Management</h1>
+        </div>
+        <div class="fixed-action-buttons">
+            <input type="checkbox" onclick="toggleSelectAll(this)">
+            <button onclick="deleteSelectedRegions()">Delete</button>
+        </div>
+    </div>
+    
+    <div class="content">
+        {{range $provider := .Providers}}
+        <div class="provider-title">
+            <h2>{{$provider}}</h2>
+            <button class="add-button" onclick="showOverlay('{{$provider}}')">+</button>
+            <button class="import-button" onclick="showImportOverlay('{{$provider}}')">Import</button>
+        </div>
+        <table id="table-{{$provider}}">
+            <tr>
+                <th>Region Name</th>
+                <th>Region</th>
+                <th>Zone</th>
+                <th class="checkbox-cell"><input type="checkbox" onclick="toggleSelectTable(this, 'table-{{$provider}}')"></th>
+            </tr>
+            {{if index $.Regions $provider}}
+                {{range $region := index $.Regions $provider}}
+                <tr>
+                    <td>{{$region.RegionName}}</td>
+                    <td>{{(index $region.KeyValueInfoList 0).Value}}</td>
+                    <td>
+                        {{if lt 1 (len $region.KeyValueInfoList) }}
+                            {{(index $region.KeyValueInfoList 1).Value}}
+                        {{else}}
+                            N/A
+                        {{end}}
+                    </td>
+                    <td class="checkbox-cell">
+                        <input type="checkbox" name="deleteCheckbox" value="{{$region.RegionName}}">
+                    </td>
+                </tr>
+                {{end}}
+            {{else}}
+            <tr>
+                <td colspan="4">No regions found for {{$provider}}</td>
+            </tr>
+            {{end}}
+        </table>
+        {{end}}
+    </div>
+
+    <div id="overlay" class="overlay">
+        <div class="overlay-content">
+            <h2>Add New Region</h2>
+            <form id="addRegionForm" onsubmit="event.preventDefault(); postRegion();">
+                <div class="form-group">
+                    <label for="regionName">Region Name:</label>
+                    <input type="text" id="regionName" name="RegionName" required>
+                </div>
+                <div class="form-group">
+                    <label for="providerName">Provider Name:</label>
+                    <input type="text" id="providerName" name="ProviderName" class="disabled-input" required readonly>
+                </div>
+                <div id="regionInfo">
+                    <!-- Region Info inputs will be appended here dynamically -->
+                </div>
+                <div class="form-group">
+                    <button type="submit">Add Region</button>
+                    <button type="button" onclick="hideOverlay()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="importOverlay" class="import-overlay">
+        <div class="import-overlay-content">
+            <h2>Import Regions: <span id="currentProviderName"></span></h2>
+            <div class="overlay-header">
+                <div class="inline-form-group">
+                    <label for="importDriverSelect">Driver:</label>
+                    <select id="importDriverSelect" required></select>
+                    <label for="importCredentialSelect">Credential:</label>
+                    <select id="importCredentialSelect" required></select>
+                    <button type="button" onclick="fetchRegionZone()">Fetch</button>
+                    <button type="button" onclick="hideImportOverlay()">Cancel</button>
+                </div>
+                <div class="add-form-group" style="display: none;">
+                    <input type="checkbox" onclick="toggleImportSelectAll(this)">
+                    <button type="button" onclick="addImportedRegions()">Add</button>
+                </div>
+            </div>
+            <div id="importTableBody">
+                <!-- Dynamically generated region sections will go here -->
+            </div>
+        </div>
+    </div>
+</body>
+</html>
