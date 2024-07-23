@@ -312,7 +312,11 @@
             if (filterList) {
                 apiURL += ` -H 'Content-Type: application/json' -d '${filterList}'`
             }
-            parent.frames["log_frame"].Log("curl -sX GET http://" + `${hostname}` + ":" + `${port}`  + apiURL);
+            try {
+                parent.frames["log_frame"].Log("curl -sX GET http://" + `${hostname}` + ":" + `${port}`  + apiURL);
+            } catch (e) {
+                // Do nothing if error occurs
+            }
 
             let fetchText = 'fetching';
             let intervalId = setInterval(() => {
@@ -333,17 +337,25 @@
                 .then(data => {
                     clearInterval(intervalId); // stop the interval
                     fetchOverlayContent.srcdoc = data; // set the HTML content in the iframe
-
-                    // logging the fetch success
-                    parent.frames["log_frame"].Log("   ==> Fetch Success");
+                    
+                    try {
+                        // logging the fetch success
+                        parent.frames["log_frame"].Log("   ==> Fetch Success");
+                    } catch (e) {
+                                    // Do nothing if error occurs
+                    }
                 })
                 .catch(error => {
                     console.error('Error:', error);
                     alert(error);
                     clearInterval(intervalId); // when error occurs, stop the interval
 
-                    // logging the fetch error
-                    parent.frames["log_frame"].Log("   ==> Fetch Error: " + error.message);
+                    try {
+                        // logging the fetch error
+                        parent.frames["log_frame"].Log("   ==> Fetch Error: " + error.message);
+                    } catch (e) {
+                                    // Do nothing if error occurs
+                    }
                 });
         }
 
