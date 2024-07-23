@@ -23,6 +23,17 @@ import (
 
 var cblogger *logrus.Logger
 
+var testReourceTags = []irs.KeyValue{
+	{
+		Key:   "allTestKey",
+		Value: "allTestValue",
+	},
+	{
+		Key:   "allTestKey2",
+		Value: "allTestValue2",
+	},
+}
+
 func init() {
 	// cblog is a global variable.
 	cblogger = cblog.GetLogger("TencentCloud Resource Test")
@@ -136,9 +147,10 @@ func handleSecurity() {
 	}
 	handler := ResourceHandler.(irs.SecurityHandler)
 
-	securityName := "sg20"
+	securityName := "New-CB-SG"
+
 	securityId := "sg-5m5pezaj"
-	vpcId := "vpc-f3teez1l"
+	// vpcId := "vpc-f3teez1l"
 
 	for {
 		fmt.Println("Security Management")
@@ -177,8 +189,9 @@ func handleSecurity() {
 			case 2:
 				cblogger.Infof("[%s] Security 생성 테스트", securityName)
 				securityReqInfo := irs.SecurityReqInfo{
-					IId:    irs.IID{NameId: securityName},
-					VpcIID: irs.IID{SystemId: vpcId},
+					IId: irs.IID{NameId: securityName},
+					// VpcIID: irs.IID{SystemId: vpcId},
+					VpcIID: irs.IID{SystemId: "vpc-nqjv5krw"},
 					SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
 						//CIDR 테스트
 						{
@@ -260,6 +273,7 @@ func handleSecurity() {
 							},
 						*/
 					},
+					TagList: testReourceTags,
 				}
 
 				result, err := handler.CreateSecurity(securityReqInfo)
@@ -651,7 +665,8 @@ func handleKeyPair() {
 			case 2:
 				cblogger.Infof("[%s] 키 페어 생성 테스트", keyPairName)
 				keyPairReqInfo := irs.KeyPairReqInfo{
-					IId: irs.IID{NameId: keyPairName},
+					IId:     irs.IID{NameId: keyPairName},
+					TagList: testReourceTags,
 				}
 				result, err := handler.CreateKey(keyPairReqInfo)
 				if err != nil {
@@ -697,10 +712,12 @@ func handleVPC() {
 	subnetReqInfo := irs.SubnetInfo{
 		IId:       irs.IID{NameId: "AddTest-Subnet"},
 		IPv4_CIDR: "10.0.3.0/24",
+		TagList:   testReourceTags,
 	}
 
 	subnetReqVpcInfo := irs.IID{SystemId: "vpc-6wex2mrx1fovfecsl44mx"}
 	reqSubnetId := irs.IID{SystemId: "vsw-6we4h4n4wp9xdtakrno15"}
+
 	cblogger.Debug(subnetReqInfo)
 	cblogger.Debug(subnetReqVpcInfo)
 	cblogger.Debug(reqSubnetId)
@@ -712,13 +729,15 @@ func handleVPC() {
 			{
 				IId:       irs.IID{NameId: "New-CB-Subnet"},
 				IPv4_CIDR: "10.0.1.0/24",
+				TagList:   testReourceTags,
 			},
-
 			{
 				IId:       irs.IID{NameId: "New-CB-Subnet2"},
 				IPv4_CIDR: "10.0.2.0/24",
+				TagList:   testReourceTags,
 			},
 		},
+		TagList: testReourceTags,
 		//Id:   "subnet-044a2b57145e5afc5",
 		//Name: "CB-VNet-Subnet", // 웹 도구 등 외부에서 전달 받지 않고 드라이버 내부적으로 자동 구현때문에 사용하지 않음.
 		//CidrBlock: "10.0.0.0/16",
@@ -946,23 +965,24 @@ func handleVM() {
 
 			case 1:
 				vmReqInfo := irs.VMReqInfo{
-					IId: irs.IID{NameId: "mcloud-barista-vm-test"},
+					IId: irs.IID{NameId: "New-CB-VM"},
 					//IId:      irs.IID{NameId: "bill-test"},
 					//ImageIID: irs.IID{SystemId: "img-22trbn9x"}, //Ubuntu Server 20.04 LTS 64
 
-					ImageIID:          irs.IID{SystemId: "img-9x5o844i"}, //Ubuntu Server 18.04.1 LTS 64
-					VpcIID:            irs.IID{SystemId: "vpc-g3imdykc"},
-					SubnetIID:         irs.IID{SystemId: "subnet-rlr71m6n"}, //Zone2
-					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-j43bvarj"}},
+					ImageIID:          irs.IID{SystemId: "img-j5e5hadz"}, //Ubuntu Server 18.04.1 LTS 64
+					VpcIID:            irs.IID{SystemId: "vpc-nqjv5krw"},
+					SubnetIID:         irs.IID{SystemId: "subnet-q6etxdzn"}, //subnet-q6etxdzn
+					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-mezlp15n"}},
 					VMSpecName:        "SA2.MEDIUM2",
-					KeyPairIID:        irs.IID{SystemId: "skey-cp2013rp"}, //cb_user_test
+					KeyPairIID:        irs.IID{SystemId: "skey-6zud5qb7"}, //cb_user_test
 					//VMUserId:          "root", //root만 가능
 					//VMUserPasswd: "Cbuser!@#", //대문자 소문자 모두 사용되어야 함. 그리고 숫자나 특수 기호 중 하나가 포함되어야 함.
 					//RootDiskType: "CLOUD_PREMIUM", //LOCAL_BASIC/LOCAL_SSD/CLOUD_BASIC/CLOUD_SSD/CLOUD_PREMIUM
-					RootDiskType: "CLOUD_PREMIUM", //LOCAL_BASIC/LOCAL_SSD/CLOUD_BASIC/CLOUD_SSD/CLOUD_PREMIUM
-					RootDiskSize: "60",            //Image Size 보다 작으면 에러 남
+					RootDiskType: "CLOUD_SSD", //LOCAL_BASIC/LOCAL_SSD/CLOUD_BASIC/CLOUD_SSD/CLOUD_PREMIUM
+					RootDiskSize: "60",        //Image Size 보다 작으면 에러 남
 					//RootDiskSize: "Default", //Image Size 보다 작으면 에러 남
-					//DataDiskIIDs: []irs.IID{{SystemId: "disk-obk07o6e"}},
+					// DataDiskIIDs: []irs.IID{{SystemId: "disk-d0wn492r"}},
+					TagList: testReourceTags,
 				}
 
 				vmInfo, err := vmHandler.StartVM(vmReqInfo)
@@ -1084,15 +1104,16 @@ func handleNLB() {
 	nlbReqInfo := irs.NLBInfo{
 
 		IId:           irs.IID{NameId: "New-CB-NLB03"},
-		VpcIID:        irs.IID{SystemId: "vpc-i614yona"},
+		VpcIID:        irs.IID{SystemId: "vpc-nqjv5krw"},
 		Type:          "PUBLIC",
 		Listener:      irs.ListenerInfo{Protocol: "TCP", Port: "80"},
 		HealthChecker: irs.HealthCheckerInfo{Port: "1234"},
 		VMGroup: irs.VMGroupInfo{
 			Protocol: "TCP",
 			Port:     "80",
-			VMs:      &[]irs.IID{{SystemId: "ins-5tf50w2x"}, {SystemId: "ins-lqds5b1h"}},
+			VMs:      &[]irs.IID{{SystemId: "ins-grur8hw9"}, {SystemId: "ins-lqds5b1h"}},
 		},
+		TagList: testReourceTags,
 	}
 
 	reqNLBId := irs.IID{SystemId: "lb-qfipv1il"}
@@ -1245,6 +1266,7 @@ func handleDisk() {
 		IId:      irs.IID{NameId: "cb-disk-01"},
 		DiskType: "CLOUD_PREMIUM",
 		DiskSize: "20",
+		TagList:  testReourceTags,
 	}
 
 	for {
@@ -1521,10 +1543,24 @@ func handleTag() {
 
 	var reqType irs.RSType = irs.VM
 	reqIID := irs.IID{SystemId: "ins-grur8hw9"}
-	reqTag := irs.KeyValue{Key: "testTagKey", Value: "testTagValue"}
+	// reqTag := irs.KeyValue{Key: "testTagKey", Value: "testTagValue"}
+	addreqTag := irs.KeyValue{Key: "tagkey5", Value: "tagvalue5"}
 	reqKey := "testTagKey"
-	reqKey = ""
-	reqType = irs.ALL
+	reqKey = "tagkey5"
+	// reqType = irs.ALL
+
+	// tags := []irs.KeyValue{
+	// 	{
+	// 		Key:   "allTestKey",
+	// 		Value: "allTestValue",
+	// 	},
+	// 	{
+	// 		Key:   "allTestKey2",
+	// 		Value: "allTestValue2",
+	// 	},
+	// }
+
+	// vpcSystemId := ""
 
 	for {
 		fmt.Println("TagHandler Management")
@@ -1534,6 +1570,9 @@ func handleTag() {
 		fmt.Println("3. Tag Get")
 		fmt.Println("4. Tag Delete")
 		fmt.Println("5. Tag Find")
+		// fmt.Println("6. ALL Create And Tagging")
+		// fmt.Println("7. ALL Created Resource Delete")
+		// fmt.Println("8. print ALL Created Resource SystemId")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -1547,21 +1586,19 @@ func handleTag() {
 				return
 
 			case 1:
-				reqIID = irs.IID{SystemId: "ins-grur8hw9"}
-				reqType = irs.VM
-				cblogger.Infof("조회 요청 태그 타입 : [%s]", reqType)
+				cblogger.Infof("Inquiry Request Tag Type : [%s]", reqType)
 				if reqType == irs.VM {
-					cblogger.Debug("VM 요청됨")
+					cblogger.Debug("VM Inquiry")
 				}
 				result, err := handler.ListTag(reqType, reqIID)
 				if err != nil {
 					cblogger.Info(" Tag 목록 조회 실패 : ", err)
 				} else {
-					cblogger.Info("Tag 목록 조회 결과")
+					cblogger.Info("Tag list lookup results")
 					cblogger.Debug(result)
-					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
 					//spew.Dump(result)
-					cblogger.Info("출력 결과 수 : ", len(result))
+					cblogger.Info("Number of output results : ", len(result))
 
 					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
 					if result != nil {
@@ -1570,58 +1607,152 @@ func handleTag() {
 				}
 
 			case 2:
-				reqIID = irs.IID{SystemId: "ins-grur8hw9"}
-				reqTag = irs.KeyValue{Key: "tagkey5", Value: "tagvalue5"}
-				reqType = irs.VM
-				cblogger.Infof("[%s] Tag 추가 테스트", reqIID.SystemId)
-				result, err := handler.AddTag(reqType, reqIID, reqTag)
+				cblogger.Infof("[%s][%+v] Tag Add Test", reqIID.SystemId, addreqTag)
+				result, err := handler.AddTag(reqType, reqIID, addreqTag)
 				if err != nil {
-					cblogger.Infof(reqIID.SystemId, " Tag 생성 실패 : ", err)
+					cblogger.Infof(reqIID.SystemId, " Tag Add failed : ", err)
 				} else {
-					cblogger.Info("Tag 생성 결과 : ", result)
+					cblogger.Info("Tag Add results : ", result)
 					reqKey = result.Key
-					cblogger.Infof("요청 대상 Tag Key가 [%s]로 변경 됨", reqKey)
+					cblogger.Infof("target Tag Key is now [%s]", reqKey)
 					spew.Dump(result)
 				}
 
 			case 3:
-				reqIID = irs.IID{SystemId: "ins-grur8hw9"}
-				reqKey = "tagkey5"
-				reqType = irs.VM
-				cblogger.Infof("[%s] Tag 조회 테스트 - Key[%s]", reqIID.SystemId, reqKey)
+				cblogger.Infof("[%s] Tag Inquiry Test - Key[%s]", reqIID.SystemId, reqKey)
 				result, err := handler.GetTag(reqType, reqIID, reqKey)
 				if err != nil {
-					cblogger.Infof("[%s] Tag 조회 실패 : [%v]", reqKey, err)
+					cblogger.Infof("[%s] Tag inquiry failed : [%v]", reqKey, err)
 				} else {
-					cblogger.Infof("[%s] Tag 조회 결과 : [%s]", reqKey, result)
+					cblogger.Infof("[%s] Tag Inquiry Results : [%s]", reqKey, result)
 					spew.Dump(result)
 				}
 
 			case 4:
-				reqIID = irs.IID{SystemId: "ins-grur8hw9"}
-				reqKey = "tagkey5"
-				reqType = irs.VM
-				cblogger.Infof("[%s] Tag 삭제 테스트 - Key[%s]", reqIID.SystemId, reqKey)
+				cblogger.Infof("[%s] Tag Delete Test - Key[%s]", reqIID.SystemId, addreqTag)
 				result, err := handler.RemoveTag(reqType, reqIID, reqKey)
 				if err != nil {
-					cblogger.Infof("[%s] Tag 삭제 실패 : [%v]", reqKey, err)
+					cblogger.Infof("[%s] Tag deletion failed : [%v]", reqKey, err)
 				} else {
-					cblogger.Infof("[%s] Tag 삭제 결과 : [%v]", reqKey, result)
+					cblogger.Infof("[%s] Tag Delete Results : [%v]", reqKey, result)
 				}
 
 			case 5:
-				reqKey = "tagkey5"
-				// reqKey = "testTagValue"
 				reqType = irs.ALL
-				cblogger.Infof("[%s] Tag 찾기 테스트 - Key[%s]", reqType, reqKey)
+				cblogger.Infof("[%s] Tag Find Test - Key[%s]", reqType, reqKey)
 				result, err := handler.FindTag(reqType, reqKey)
 				if err != nil {
-					cblogger.Infof("[%s] Tag 검색 실패 : [%s]", reqKey, err)
+					cblogger.Infof("[%s] Tag search failed : [%s]", reqKey, err)
 				} else {
-					cblogger.Infof("[%s] Tag 검색 결과 : [%d]건", reqKey, len(result))
+					cblogger.Infof("[%s]Tag search Results : [%d]건", reqKey, len(result))
 					spew.Dump(result)
-					cblogger.Infof("Tag 검색 결과 : [%d]건", len(result))
+					cblogger.Infof("Tag search Results : [%d]건", len(result))
 				}
+
+				// case 6:
+				// 	MyImageResourceHandler, err := testconf.GetResourceHandler("MyImage")
+				// 	if err != nil {
+				// 		panic(err)
+				// 	}
+				// 	MyImageHandler := MyImageResourceHandler.(irs.MyImageHandler)
+
+				// 	SecurityResourceHandler, err := testconf.GetResourceHandler("Security")
+				// 	if err != nil {
+				// 		panic(err)
+				// 	}
+				// 	SecurityHandler := SecurityResourceHandler.(irs.SecurityHandler)
+
+				// 	KeyPairResourceHandler, err := testconf.GetResourceHandler("KeyPair")
+				// 	if err != nil {
+				// 		panic(err)
+				// 	}
+				// 	KeyPairHandler := KeyPairResourceHandler.(irs.KeyPairHandler)
+
+				// 	VPCResourceHandler, err := testconf.GetResourceHandler("VPC")
+				// 	if err != nil {
+				// 		panic(err)
+				// 	}
+				// 	VPCHandler := VPCResourceHandler.(irs.VPCHandler)
+
+				// 	NLBResourceHandler, err := testconf.GetResourceHandler("NLB")
+				// 	if err != nil {
+				// 		panic(err)
+				// 	}
+				// 	NLBHandler := NLBResourceHandler.(irs.NLBHandler)
+
+				// 	DiskResourceHandler, err := testconf.GetResourceHandler("Disk")
+				// 	if err != nil {
+				// 		panic(err)
+				// 	}
+				// 	DiskHandler := DiskResourceHandler.(irs.DiskHandler)
+
+				// 	var errs []error
+				// 	fmt.Println("@@ START VPCHandler")
+				// 	fmt.Println("@ CreateVPC")
+				// 	vpcReqInfo := irs.VPCReqInfo{
+				// 		IId:       irs.IID{NameId: "TAG-VPC"},
+				// 		IPv4_CIDR: "10.0.0.0/16",
+				// 		SubnetInfoList: []irs.SubnetInfo{
+				// 			{
+				// 				IId:       irs.IID{NameId: "TAG-Subnet-1"},
+				// 				IPv4_CIDR: "10.0.1.0/24",
+				// 				TagList:   tags,
+				// 			},
+				// 			// {
+				// 			// 	IId:       irs.IID{NameId: "New-TAG-Subnet-2"},
+				// 			// 	IPv4_CIDR: "10.0.2.0/24",
+				// 			// },
+				// 		},
+				// 		TagList: tags,
+				// 	}
+				// 	createVPCRes, err := VPCHandler.CreateVPC(vpcReqInfo)
+				// 	if err != nil {
+				// 		errs = append(errs, err)
+				// 		fmt.Println("@@@@@@@@@@@@ " + err.Error())
+				// 	} else {
+				// 		fmt.Printf("Res : %+v \n", createVPCRes)
+				// 		vpcSystemId = createVPCRes.IId.SystemId
+				// 	}
+				// 	fmt.Println("@ AddSubnet")
+				// 	subnetReqVpcInfo := irs.IID{SystemId: vpcSystemId}
+				// 	subnetReqInfo := irs.SubnetInfo{
+				// 		IId:       irs.IID{NameId: "TAG-Subnet-2"},
+				// 		IPv4_CIDR: "10.0.3.0/24",
+				// 		TagList:   tags,
+				// 	}
+				// 	addSubnetRes, err := VPCHandler.AddSubnet(subnetReqVpcInfo, subnetReqInfo)
+				// 	if err != nil {
+				// 		errs = append(errs, err)
+				// 		fmt.Println("@@@@@@@@@@@@ " + err.Error())
+				// 	} else {
+				// 		fmt.Printf("Res : %+v \n", addSubnetRes)
+				// 	}
+
+				// 	fmt.Println("@@ START MyImageHandler")
+				// 	myImageReqInfo := irs.MyImageInfo{
+				// 		SourceVM: irs.IID{SystemId: instanceId},
+				// 		TagList:  tags,
+				// 	}
+				// 	myIamgeRes, err := MyImageHandler.SnapshotVM(myImageReqInfo)
+				// 	if err != nil {
+				// 		errs = append(errs, err)
+				// 	}
+				// 	fmt.Printf("Res : %+v \n", myIamgeRes)
+
+				// 	fmt.Println("@@ START MyImageHandler")
+				// 	myImageReqInfo := irs.SecurityReqInfo{
+				// 		SourceVM: irs.IID{SystemId: instanceId},
+				// 		TagList:  tags,
+				// 	}
+				// 	myIamgeRes, err := SecurityHandler.CreateSecurity()
+				// 	if err != nil {
+				// 		errs = append(errs, err)
+				// 	}
+				// 	fmt.Printf("Res : %+v \n", myIamgeRes)
+
+				// case 8:
+				// 	fmt.Println("### vpcSystemId:", vpcSystemId)
+
 			}
 		}
 	}
@@ -1691,18 +1822,18 @@ func handlePriceInfo() {
 
 func main() {
 	cblogger.Info("Tencent Cloud Resource Test")
-	// handleVPC() //VPC
-	// //handleNLB()
+	// handleVPC() //VPC -
+	// handleNLB()
 	//handleVMSpec()
-	//handleSecurity()
+	// handleSecurity() -
 	//handleImage() //AMI
-	//handleKeyPair()
-	//handleVM()
-	//handleDisk()
+	// handleKeyPair() -
+	// handleVM() -
+	// handleDisk() -
 	// handleMyImage()
 	//handlePublicIP() // PublicIP 생성 후 conf
 	// handleRegionZone()
 	//handleVNic() //Lancard
 	// handlePriceInfo()
-	handleTag()
+	// handleTag()
 }
