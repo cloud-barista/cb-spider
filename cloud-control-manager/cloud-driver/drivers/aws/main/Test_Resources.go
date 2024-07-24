@@ -1449,32 +1449,33 @@ func handleCluster() {
 	}
 
 	subnets := []irs.IID{}
-	subnets = append(subnets, irs.IID{SystemId: "subnet-0d30ee6b367974a39"}) //a1
-	subnets = append(subnets, irs.IID{SystemId: "subnet-06d5c04b32019b81f"}) //c1
-	subnets = append(subnets, irs.IID{SystemId: "subnet-05c5d26bd2f014591"}) //a2
+	subnets = append(subnets, irs.IID{SystemId: "subnet-02127b9d8c84f7440"}) //2a
+	subnets = append(subnets, irs.IID{SystemId: "subnet-0c2b7e03a5f397e25"}) //2c
 
 	//vpc-0c4d36a3ac3924419
 	clusterReqInfo := irs.ClusterInfo{
-		IId: irs.IID{NameId: "cb-eks-cluster-test01"},
+		//TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}, {Key: "Name", Value: securityName+"123"}},
+		TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}},
+		IId:     irs.IID{NameId: "cb-eks-cluster-tag-test", SystemId: "cb-eks-cluster-tag-test"},
 		//Version : "1.23.3", //K8s version
 		Network: irs.NetworkInfo{
-			VpcIID: irs.IID{SystemId: "vpc-0c4d36a3ac3924419"},
+			VpcIID: irs.IID{SystemId: "vpc-0a115f43d4fcbab36"},
 			//SubnetIID: [irs.IID{SystemId: "subnet-262d6d7a"},irs.IID{SystemId: "vpc-c0479cab"}],
 			SubnetIIDs: subnets,
 		},
 	} // nlbReqInfo
 
 	reqNodeGroupInfo := irs.NodeGroupInfo{
-		IId:         irs.IID{NameId: "cb-eks-node-test01"},
+		IId:         irs.IID{NameId: "cb-eks-node-tag-test"},
 		MinNodeSize: 1,
 		MaxNodeSize: 2,
 
 		// VM config.
-		ImageIID:     irs.IID{SystemId: "ami-00e07ff65a55e3ca5"}, // Amazon Linux 2 (AL2_x86_64) - https://docs.aws.amazon.com/eks/latest/userguide/eks-optimized-ami.html
+		ImageIID:     irs.IID{SystemId: "ami-056a29f2eddc40520"}, // Amazon Linux 2 (AL2_x86_64) - https://docs.aws.amazon.com/eks/latest/userguide/eks-optimized-ami.html
 		VMSpecName:   "t3.medium",
 		RootDiskType: "SSD(gp2)", // "SSD(gp2)", "Premium SSD", ...
 		RootDiskSize: "20",       // "", "default", "50", "1000" (GB)
-		KeyPairIID:   irs.IID{SystemId: "japan-test"},
+		KeyPairIID:   irs.IID{SystemId: "CB-KeyPairTagTest"},
 
 		//Status NodeGroupStatus
 
@@ -1512,7 +1513,7 @@ func handleCluster() {
 			case 1:
 				result, err := handler.ListCluster()
 				if err != nil {
-					cblogger.Infof(" Cluster List Lookup Failed : ", err)
+					cblogger.Info(" Cluster List Lookup Failed : ", err)
 				} else {
 					cblogger.Info("Cluster List Lookup Result")
 					cblogger.Debug(result)
@@ -1532,7 +1533,7 @@ func handleCluster() {
 				if err != nil {
 					cblogger.Infof(clusterReqInfo.IId.NameId, " Cluster Create Fail : ", err)
 				} else {
-					cblogger.Infof("Cluster Create Success : ", result)
+					cblogger.Info("Cluster Create Success : ", result)
 					clusterReqInfo.IId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
 					if cblogger.Level.String() == "debug" {
 						spew.Dump(result)
@@ -2076,7 +2077,8 @@ func readConfigFile() Config {
 }
 
 func main() {
-	handleTag()
+	// myimage / disk
+	//handleTag()
 	// handlePublicIP() // PublicIP 생성 후 conf
 
 	//handleKeyPair()
@@ -2086,9 +2088,9 @@ func main() {
 	// handleImage() //AMI
 	// handleVNic() //Lancard
 	// handleVMSpec()
-	handleNLB()
+	//handleNLB()
 	handleCluster()
 	//handleRegionZone()
 	//handlePriceInfo()
-	handleTag()
+	//handleTag()
 }

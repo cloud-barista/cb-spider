@@ -24,6 +24,7 @@ import (
 
 	//"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/eks"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -35,6 +36,7 @@ type AwsTagHandler struct {
 	Region    idrv.RegionInfo
 	Client    *ec2.EC2
 	NLBClient *elbv2.ELBV2
+	EKSClient *eks.EKS
 }
 
 // Map of RSType to AWS resource types
@@ -76,6 +78,20 @@ func (tagHandler *AwsTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag 
 		return irs.KeyValue{}, errors.New(msg)
 	}
 
+	if resType == irs.NLB || resType == irs.CLUSTER {
+		var err error
+		if resType == irs.NLB {
+			err = tagHandler.AddNLBTag(resIID, tag)
+		} else if resType == irs.CLUSTER {
+			err = tagHandler.AddClusterTag(resIID, tag)
+		}
+
+		if err != nil {
+			return irs.KeyValue{}, err
+		}
+		return tagHandler.GetTag(resType, resIID, tag.Key)
+	}
+
 	resIID = tagHandler.GetRealResourceId(resType, resIID) // fix some resource id error
 
 	hiscallInfo := GetCallLogScheme(tagHandler.Region, call.TAG, resIID.SystemId, "CreateTags()")
@@ -104,6 +120,41 @@ func (tagHandler *AwsTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag 
 	}
 
 	return tag, nil
+}
+
+func (tagHandler *AwsTagHandler) AddNLBTag(resIID irs.IID, tag irs.KeyValue) error {
+	input := &elbv2.AddTagsInput{
+		ResourceArns: []*string{aws.String(resIID.SystemId)},
+		Tags: []*elbv2.Tag{
+			{
+				Key:   aws.String(tag.Key),
+				Value: aws.String(tag.Value),
+			},
+		},
+	}
+
+	_, err := tagHandler.NLBClient.AddTags(input)
+	if err != nil {
+		return fmt.Errorf("failed to add tag to NLB: %w", err)
+	}
+
+	return nil
+}
+
+func (tagHandler *AwsTagHandler) AddClusterTag(resIID irs.IID, tag irs.KeyValue) error {
+	input := &eks.TagResourceInput{
+		ResourceArn: aws.String(resIID.SystemId),
+		Tags: map[string]*string{
+			tag.Key: aws.String(tag.Value),
+		},
+	}
+
+	_, err := tagHandler.EKSClient.TagResource(input)
+	if err != nil {
+		return fmt.Errorf("failed to add tag to EKS cluster: %w", err)
+	}
+
+	return nil
 }
 
 func (tagHandler *AwsTagHandler) GetAllNLBTags() ([]*irs.TagInfo, error) {
@@ -157,7 +208,87 @@ func (tagHandler *AwsTagHandler) GetAllNLBTags() ([]*irs.TagInfo, error) {
 	return allTagInfos, nil
 }
 
-func (tagHandler *AwsTagHandler) GetNLBTags(resIID irs.IID) ([]irs.KeyValue, error) {
+// GetAllClusterTags retrieves tags for all EKS clusters.
+func (tagHandler *AwsTagHandler) GetAllClusterTags() ([]*irs.TagInfo, error) {
+	var allTagInfos []*irs.TagInfo
+
+	err := tagHandler.EKSClient.ListClustersPages(&eks.ListClustersInput{}, func(page *eks.ListClustersOutput, lastPage bool) bool {
+		for _, clusterName := range page.Clusters {
+			resIID := irs.IID{
+				NameId:   *clusterName,
+				SystemId: *clusterName,
+			}
+
+			tagInfos, err := tagHandler.GetClusterTags(resIID)
+			if err != nil {
+				cblogger.Errorf("failed to get tags for EKS cluster %s: %v", *clusterName, err)
+				continue
+			}
+
+			// Process only if Tag exists
+			if len(tagInfos) == 0 {
+				continue
+			}
+
+			tagInfo := &irs.TagInfo{
+				ResType: irs.CLUSTER,
+				ResIId:  resIID,
+				TagList: tagInfos,
+			}
+
+			allTagInfos = append(allTagInfos, tagInfo)
+		}
+		return !lastPage
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to list EKS clusters: %w", err)
+	}
+
+	if len(allTagInfos) == 0 {
+		return nil, fmt.Errorf("no EKS clusters found")
+	}
+
+	return allTagInfos, nil
+}
+
+func (tagHandler *AwsTagHandler) GetClusterTags(resIID irs.IID, key ...string) ([]irs.KeyValue, error) {
+	cblogger.Debugf("Req resIID:[%s]", resIID)
+	input := &eks.DescribeClusterInput{
+		Name: aws.String(resIID.SystemId),
+	}
+
+	result, err := tagHandler.EKSClient.DescribeCluster(input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to describe EKS cluster: %w", err)
+	}
+
+	if cblogger.Level.String() == "debug" {
+		cblogger.Debug(result)
+	}
+
+	var retTagList []irs.KeyValue
+	if len(key) > 0 { // If the key value exists
+		specificKey := key[0]
+		if value, exists := result.Cluster.Tags[specificKey]; exists {
+			retTagList = append(retTagList, irs.KeyValue{
+				Key:   specificKey,
+				Value: *value,
+			})
+		}
+	} else { // If the key value not exists
+		for k, v := range result.Cluster.Tags {
+			retTagList = append(retTagList, irs.KeyValue{
+				Key:   k,
+				Value: *v,
+			})
+		}
+	}
+
+	return retTagList, nil
+}
+
+func (tagHandler *AwsTagHandler) GetNLBTags(resIID irs.IID, key ...string) ([]irs.KeyValue, error) {
 	input := &elbv2.DescribeTagsInput{
 		ResourceArns: []*string{
 			aws.String(resIID.SystemId),
@@ -173,16 +304,27 @@ func (tagHandler *AwsTagHandler) GetNLBTags(resIID irs.IID) ([]irs.KeyValue, err
 		return nil, fmt.Errorf("no tags found for load balancer: %s", resIID.SystemId)
 	}
 
-	if cblogger.Level.String() == "debug" {
-		cblogger.Debug(result)
-	}
+	cblogger.Debug(result)
 
 	var retTagList []irs.KeyValue
-	for _, tag := range result.TagDescriptions[0].Tags {
-		retTagList = append(retTagList, irs.KeyValue{
-			Key:   aws.StringValue(tag.Key),
-			Value: aws.StringValue(tag.Value),
-		})
+	if len(key) > 0 { // If the key value exists
+		specificKey := key[0]
+		for _, tag := range result.TagDescriptions[0].Tags {
+			if aws.StringValue(tag.Key) == specificKey {
+				retTagList = append(retTagList, irs.KeyValue{
+					Key:   aws.StringValue(tag.Key),
+					Value: aws.StringValue(tag.Value),
+				})
+				break
+			}
+		}
+	} else { // If the key value not exists
+		for _, tag := range result.TagDescriptions[0].Tags {
+			retTagList = append(retTagList, irs.KeyValue{
+				Key:   aws.StringValue(tag.Key),
+				Value: aws.StringValue(tag.Value),
+			})
+		}
 	}
 
 	return retTagList, nil
@@ -199,6 +341,8 @@ func (tagHandler *AwsTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]
 
 	if resType == irs.NLB {
 		return tagHandler.GetNLBTags(resIID)
+	} else if resType == irs.CLUSTER {
+		return tagHandler.GetClusterTags(resIID)
 	}
 
 	resIID = tagHandler.GetRealResourceId(resType, resIID) // fix some resource id error
@@ -252,6 +396,29 @@ func (tagHandler *AwsTagHandler) GetTag(resType irs.RSType, resIID irs.IID, key 
 		cblogger.Error(msg)
 		return irs.KeyValue{}, errors.New(msg)
 	}
+
+	// NLB and Cluster use different APIs
+	if resType == irs.NLB || resType == irs.CLUSTER {
+		var tagList []irs.KeyValue
+		var err error
+
+		if resType == irs.NLB {
+			tagList, err = tagHandler.GetNLBTags(resIID, key)
+		} else if resType == irs.CLUSTER {
+			tagList, err = tagHandler.GetClusterTags(resIID, key)
+		}
+
+		if err != nil {
+			return irs.KeyValue{}, fmt.Errorf("failed to get tags: %w", err)
+		}
+
+		if len(tagList) == 0 {
+			return irs.KeyValue{}, nil
+		} else {
+			return tagList[0], nil
+		}
+	}
+
 	resIID = tagHandler.GetRealResourceId(resType, resIID) // fix some resource id error
 
 	input := &ec2.DescribeTagsInput{
@@ -353,6 +520,13 @@ func (tagHandler *AwsTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, k
 		cblogger.Error(msg)
 		return false, errors.New(msg)
 	}
+
+	if resType == irs.NLB {
+		return tagHandler.RemoveNLBTag(resIID, key)
+	} else if resType == irs.CLUSTER {
+		return tagHandler.RemoveClusterTag(resIID, key)
+	}
+
 	resIID = tagHandler.GetRealResourceId(resType, resIID) // fix some resource id error
 
 	input := &ec2.DeleteTagsInput{
@@ -389,6 +563,38 @@ func (tagHandler *AwsTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, k
 	return true, nil
 }
 
+func (tagHandler *AwsTagHandler) RemoveNLBTag(resIID irs.IID, tagKey string) (bool, error) {
+	input := &elbv2.RemoveTagsInput{
+		ResourceArns: []*string{aws.String(resIID.SystemId)},
+		TagKeys: []*string{
+			aws.String(tagKey),
+		},
+	}
+
+	_, err := tagHandler.NLBClient.RemoveTags(input)
+	if err != nil {
+		return false, fmt.Errorf("failed to remove tag from NLB: %w", err)
+	}
+
+	return true, nil
+}
+
+func (tagHandler *AwsTagHandler) RemoveClusterTag(resIID irs.IID, tagKey string) (bool, error) {
+	input := &eks.UntagResourceInput{
+		ResourceArn: aws.String(resIID.SystemId),
+		TagKeys: []*string{
+			aws.String(tagKey),
+		},
+	}
+
+	_, err := tagHandler.EKSClient.UntagResource(input)
+	if err != nil {
+		return false, fmt.Errorf("failed to remove tag from EKS cluster: %w", err)
+	}
+
+	return true, nil
+}
+
 // Extracts a list of Key or Value tags corresponding to keyword from the tagInfos array.
 func (tagHandler *AwsTagHandler) ExtractTagKeyValue(tagInfos []*irs.TagInfo, keyword string) []*irs.TagInfo {
 	var matchingTagInfos []*irs.TagInfo
@@ -398,6 +604,7 @@ func (tagHandler *AwsTagHandler) ExtractTagKeyValue(tagInfos []*irs.TagInfo, key
 	}
 
 	/*
+		// All tags
 		for _, tagInfo := range tagInfos {
 			for _, kv := range tagInfo.TagList {
 				if kv.Key == keyword || kv.Value == keyword {
@@ -452,6 +659,15 @@ func (tagHandler *AwsTagHandler) FindTag(resType irs.RSType, keyword string) ([]
 				//spew.Dump(nlbTaginfos)
 				return tagHandler.ExtractTagKeyValue(nlbTaginfos, keyword), nil
 			}
+		} else if resType == irs.CLUSTER {
+			// Add a list of k8s Tags if this is a all search
+			if keyword == "" || keyword == "*" {
+				return tagHandler.GetAllClusterTags()
+			} else {
+				k8sTaginfos, _ := tagHandler.GetAllClusterTags()
+				//spew.Dump(k8sTaginfos)
+				return tagHandler.ExtractTagKeyValue(k8sTaginfos, keyword), nil
+			}
 		}
 
 		if awsResType, ok := rsTypeToAwsResourceTypeMap[resType]; ok {
@@ -472,9 +688,9 @@ func (tagHandler *AwsTagHandler) FindTag(resType irs.RSType, keyword string) ([]
 	processTags := func(result *ec2.DescribeTagsOutput) {
 		if cblogger.Level.String() == "debug" {
 			//cblogger.Debug(result)
-			cblogger.Debug("=================================")
-			spew.Dump(result)
-			cblogger.Debug("=================================")
+			//cblogger.Debug("=================================")
+			//spew.Dump(result)
+			//cblogger.Debug("=================================")
 		}
 
 		for _, tag := range result.Tags {
@@ -578,11 +794,19 @@ func (tagHandler *AwsTagHandler) FindTag(resType irs.RSType, keyword string) ([]
 
 	// Add a list of NLB Tags if this is a all search
 	if resType == irs.ALL {
+		//nlb
 		nlbTaginfos, _ := tagHandler.GetAllNLBTags()
 		if keyword != "" && keyword != "*" {
 			nlbTaginfos = tagHandler.ExtractTagKeyValue(nlbTaginfos, keyword)
 		}
 		tagInfos = append(tagInfos, nlbTaginfos...)
+
+		//cluster
+		k8sTaginfos, _ := tagHandler.GetAllClusterTags()
+		if keyword != "" && keyword != "*" {
+			k8sTaginfos = tagHandler.ExtractTagKeyValue(k8sTaginfos, keyword)
+		}
+		tagInfos = append(tagInfos, k8sTaginfos...)
 	}
 
 	return tagInfos, nil
