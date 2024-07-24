@@ -175,6 +175,6 @@ func (cloudConn *AlibabaCloudConnection) CreatePriceInfoHandler() (irs.PriceInfo
 
 func (cloudConn *AlibabaCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
 	cblogger.Info("Start")
-	handler := alirs.AlibabaTagHandler{cloudConn.Region, cloudConn.VMClient, cloudConn.Cs2015Client}
+	handler := alirs.AlibabaTagHandler{cloudConn.Region, cloudConn.VMClient, cloudConn.Cs2015Client, cloudConn.VpcClient}
 	return &handler, nil
 }
