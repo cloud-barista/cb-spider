@@ -62,7 +62,6 @@ func init() {
 
 func (vmHandler *NcpVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	cblogger.Info("NCP Classic Cloud driver: called StartVM()!!")
-
 	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmReqInfo.IId.NameId, "StartVM()")
 
@@ -481,7 +480,6 @@ func (vmHandler *NcpVMHandler) MappingServerInfo(NcpInstance *server.ServerInsta
 	} else {
 		// To get the VPC info.
 		vpcHandler := NcpVPCHandler {
-			CredentialInfo: 	vmHandler.CredentialInfo,
 			RegionInfo:			vmHandler.RegionInfo,
 			VMClient:         	vmHandler.VMClient,
 		}
@@ -502,7 +500,7 @@ func (vmHandler *NcpVMHandler) MappingServerInfo(NcpInstance *server.ServerInsta
 			}
 		}
 	}
-	cblogger.Infof("NCP Instance Uptime : [%s]", *NcpInstance.Uptime)
+	// cblogger.Infof("NCP Instance Uptime : [%s]", *NcpInstance.Uptime)
 
 	// Note : NCP VPC PlatformType : LNX32, LNX64, WND32, WND64, UBD64, UBS64
 	if strings.Contains(*NcpInstance.PlatformType.Code, "LNX") || strings.Contains(*NcpInstance.PlatformType.Code, "UB") {
@@ -543,8 +541,6 @@ func (vmHandler *NcpVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 
 func (vmHandler *NcpVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Info("NCP Classic Cloud driver: called SuspendVM()!!")
-	cblogger.Infof("vmID : [%s]", vmIID.SystemId)
-
 	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmIID.NameId, "SuspendVM()")
 
@@ -605,8 +601,6 @@ func (vmHandler *NcpVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
 
 func (vmHandler *NcpVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Info("NCP Classic Cloud driver: called ResumeVM()!")
-	cblogger.Infof("vmID : " + vmIID.SystemId)
-
 	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmIID.NameId, "ResumeVM()")
 
@@ -673,8 +667,6 @@ func (vmHandler *NcpVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
 
 func (vmHandler *NcpVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Info("NCP Classic Cloud driver: called RebootVM()!")
-	cblogger.Infof("vmID : [%s]", vmIID.SystemId)
-
 	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmIID.NameId, "RebootVM()")
 
@@ -742,8 +734,6 @@ func (vmHandler *NcpVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 
 func (vmHandler *NcpVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Info("NCP Classic Cloud driver: called TerminateVM()!")
-	cblogger.Infof("vmID : [%s]", vmIID.SystemId)
-
 	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmIID.NameId, "TerminateVM()")
 
@@ -961,7 +951,6 @@ func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 
 func (vmHandler *NcpVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Info("NCP Classic Cloud driver: called GetVMStatus()!")
-
 	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmIID.NameId, "GetVMStatus()")
 
@@ -1000,13 +989,12 @@ func (vmHandler *NcpVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) 
 	// cblogger.Info("Succeeded in Getting ServerInstanceList!!")
 
 	vmStatus, errStatus := ConvertVMStatusString(*result.ServerInstanceList[0].ServerInstanceStatusName)
-	cblogger.Info("# Converted VM Status : " + vmStatus)
+	// cblogger.Info("# Converted VM Status : " + vmStatus)
 	return vmStatus, errStatus
 }
 
 func (vmHandler *NcpVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	cblogger.Info("NCP Classic Cloud driver: called ListVMStatus()!")
-
 	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, "ListVMStatus()", "ListVMStatus()")
 
