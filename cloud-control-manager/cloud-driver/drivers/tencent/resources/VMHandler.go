@@ -178,6 +178,21 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 
 	request.InstanceName = common.StringPtr(vmReqInfo.IId.NameId)
 
+	var tags []*cvm.Tag
+	for _, inputTag := range vmReqInfo.TagList {
+		tags = append(tags, &cvm.Tag{
+			Key:   common.StringPtr(inputTag.Key),
+			Value: common.StringPtr(inputTag.Value),
+		})
+	}
+
+	request.TagSpecification = []*cvm.TagSpecification{
+		{
+			ResourceType: common.StringPtr("instance"),
+			Tags:         tags,
+		},
+	}
+
 	// windows의 경우 keyPair set 하면 오류. password setting 되어있는지 확인
 	if isWindow {
 		//user := vmReqInfo.VMUserId // administrator
@@ -338,7 +353,9 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			cblogger.Info("The Image includes a DataDisk.")
 		}
 	}
-	request.DataDisks = dataDiskList
+	if len(dataDiskList) > 0 {
+		request.DataDisks = dataDiskList
+	}
 
 	//=============================
 	// UserData생성 처리(File기반)
