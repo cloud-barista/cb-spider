@@ -68,6 +68,7 @@ type Config struct {
 func ReadConfigFile() Config {
 	// Set Environment Value of Project Root Path
 	rootPath := os.Getenv("CBSPIDER_PATH")
+
 	cblogger.Debugf("Test Data 설정파일 : [%s]", rootPath+"/config/config.yaml")
 	data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
 
@@ -139,6 +140,14 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateRegionZoneHandler()
 	case "PriceInfo":
 		resourceHandler, err = cloudConnection.CreatePriceInfoHandler()
+	case "Disk":
+		resourceHandler, err = cloudConnection.CreateDiskHandler()
+	case "MyImage":
+		resourceHandler, err = cloudConnection.CreateMyImageHandler()
+	case "Cluster":
+		resourceHandler, err = cloudConnection.CreateClusterHandler()
+	case "Tag":
+		resourceHandler, err = cloudConnection.CreateTagHandler()
 	}
 
 	if err != nil {

@@ -11,7 +11,11 @@
 package main
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
+	"os"
+	"strings"
 
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
@@ -29,6 +33,24 @@ func init() {
 	cblogger = cblog.GetLogger("GCP Resource Test")
 	cblog.SetLevel("debug")
 }
+
+const (
+	diskId    = "cb-disk-03"
+	vmId      = "mcloud-barista-vm-test"
+	vpcId     = "cb-vpc-load-test"
+	subnetId  = "vpc-loadtest-sub1"
+	sgId      = "sg10"
+	keypairId = "cb-keypairtest123123"
+)
+
+var (
+	tagList = []irs.KeyValue{
+		{
+			Key:   "test-key",
+			Value: "test-value",
+		},
+	}
+)
 
 // Test SecurityHandler
 func handleSecurityOld() {
@@ -128,11 +150,11 @@ func handleSecurity() {
 
 	// securityName := "cb-securitytest1"
 	// securityId := "cb-securitytest1"
-	securityName := "sg10"
-	securityId := "sg10"
+	securityName := sgId
+	securityId := sgId
 	//securityId := "cb-secu-all"
 	//vpcId := "cb-vpc"
-	vpcId := "cb-vpc-load-test"
+	vpcId := vpcId
 
 	for {
 		fmt.Println("Security Management")
@@ -673,10 +695,10 @@ func handleVPC() {
 	cblogger.Debug(reqSubnetId)
 
 	vpcReqInfo := irs.VPCReqInfo{
-		IId: irs.IID{NameId: "cb-vpc-load-test"},
+		IId: irs.IID{NameId: vpcId},
 		SubnetInfoList: []irs.SubnetInfo{
 			{
-				IId:       irs.IID{NameId: "vpc-loadtest-sub1"},
+				IId:       irs.IID{NameId: subnetId},
 				IPv4_CIDR: "10.0.3.0/24",
 			},
 			{
@@ -891,7 +913,7 @@ func handleKeyPair() {
 	//config := readConfigFile()
 	//VmID := config.Aws.VmID
 
-	keyPairName := "CB-KeyPairTest123123"
+	keyPairName := keypairId
 	//keyPairName := config.Aws.KeyName
 
 	for {
@@ -1067,7 +1089,7 @@ func handleVM() {
 
 	//config := readConfigFile()
 	//VmID := irs.IID{NameId: config.Aws.BaseName, SystemId: config.Aws.VmID}
-	VmID := irs.IID{SystemId: "mcloud-barista-vm-test"}
+	VmID := irs.IID{SystemId: vmId}
 
 	for {
 		fmt.Println("VM Management")
@@ -1096,7 +1118,7 @@ func handleVM() {
 
 			case 1:
 				vmReqInfo := irs.VMReqInfo{
-					IId: irs.IID{NameId: "mcloud-barista-vm-test"},
+					IId: irs.IID{NameId: vmId},
 					ImageIID: irs.IID{
 						NameId: "Test",
 						//SystemId: "ubuntu-minimal-1804-bionic-v20200415",
@@ -1113,21 +1135,22 @@ func handleVM() {
 					},
 					//VpcIID:            irs.IID{SystemId: "cb-vpc"},
 					//SubnetIID:         irs.IID{SystemId: "cb-sub1"},
-					VpcIID:            irs.IID{SystemId: "cb-vpc-load-test"},
-					SubnetIID:         irs.IID{SystemId: "vpc-loadtest-sub1"},
-					SecurityGroupIIDs: []irs.IID{{SystemId: "sg10"}},
+					VpcIID:            irs.IID{SystemId: vpcId},
+					SubnetIID:         irs.IID{SystemId: subnetId},
+					SecurityGroupIIDs: []irs.IID{{SystemId: sgId}},
 					VMSpecName:        "e2-small",
-					KeyPairIID:        irs.IID{SystemId: "cb-keypairtest123123"},
+					KeyPairIID:        irs.IID{SystemId: keypairId},
 					VMUserId:          "cb-user",
 
 					//RootDiskType: "pd-ssd",      //pd-standard/pd-balanced/pd-ssd/pd-extreme
 					RootDiskType: "pd-balanced", //pd-standard/pd-balanced/pd-ssd/pd-extreme
 					//RootDiskSize: "12",     //최소 10GB 이상이어야 함.
 					RootDiskSize: "default", //10GB
-					DataDiskIIDs: []irs.IID{{SystemId: "cb-disk-02"}},
+					DataDiskIIDs: []irs.IID{{SystemId: diskId}},
 
 					VMUserPasswd: "1234qwer!@#$", //윈도우즈용 비밀번호
 					WindowsType:  true,           //윈도우즈 테스트
+					TagList:      tagList,
 				}
 
 				vmInfo, err := vmHandler.StartVM(vmReqInfo)
@@ -1604,9 +1627,10 @@ func handleDisk() {
 
 	//imageReqInfo := irs2.ImageReqInfo{
 	diskReqInfo := irs.DiskInfo{
-		IId:      irs.IID{NameId: "cb-disk-03", SystemId: "cb-disk-03"},
+		IId:      irs.IID{NameId: diskId, SystemId: diskId},
 		DiskType: "",
 		DiskSize: "20",
+		TagList:  tagList,
 	}
 
 	for {
@@ -1688,7 +1712,7 @@ func handleDisk() {
 				}
 			case 6:
 				cblogger.Infof("[%s] Disk Attach 테스트", diskReqInfo.IId.NameId)
-				result, err := handler.AttachDisk(diskReqInfo.IId, irs.IID{SystemId: "mcloud-barista-vm-test"})
+				result, err := handler.AttachDisk(diskReqInfo.IId, irs.IID{SystemId: vmId})
 				if err != nil {
 					cblogger.Infof("[%s] Disk Attach 실패 : ", diskReqInfo.IId.NameId, err)
 				} else {
@@ -1697,7 +1721,7 @@ func handleDisk() {
 				}
 			case 7:
 				cblogger.Infof("[%s] Disk Detach 테스트", diskReqInfo.IId.NameId)
-				result, err := handler.DetachDisk(diskReqInfo.IId, irs.IID{SystemId: "mcloud-barista-vm-test"})
+				result, err := handler.DetachDisk(diskReqInfo.IId, irs.IID{SystemId: vmId})
 				if err != nil {
 					cblogger.Infof("[%s] Disk Detach 실패 : ", diskReqInfo.IId.NameId, err)
 				} else {
@@ -1979,19 +2003,177 @@ func handlePriceInfo() {
 		}
 	}
 }
+
+func handleTags() {
+	ResourceHandler, err := testconf.GetResourceHandler("Tag")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.TagHandler)
+
+	for {
+		fmt.Println("Tag Management")
+		fmt.Println("0. quit")
+		fmt.Println("1. list tags")
+		fmt.Println("2. add tags")
+		fmt.Println("3. remove tags")
+		fmt.Println("4. get tags")
+		fmt.Println("5. find tags")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		reader := bufio.NewReader(os.Stdin)
+
+		fmt.Println("resource type [a(ll)/v(m)/d(isk)/c(luster - temporary not usable)]: ")
+		key, err := reader.ReadString('\n')
+
+		if err != nil {
+			panic(err)
+		}
+		key = strings.TrimSpace(key)
+
+		var sampleId string
+		var sampleType irs.RSType
+		if strings.EqualFold(strings.ToLower(key), "v") {
+			sampleId = "2504669692882076487"
+			sampleType = irs.VM
+		} else if strings.EqualFold(strings.ToLower(key), "d") {
+			sampleId = diskId
+			sampleType = irs.DISK
+		} else if strings.EqualFold(strings.ToLower(key), "a") {
+			sampleType = irs.ALL
+		} else {
+			fmt.Println(errors.New("chose vm or disk currently"))
+			continue
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				r, err := handler.ListTag(sampleType, irs.IID{NameId: sampleId, SystemId: sampleId})
+				if err != nil {
+					fmt.Println("error while call list tag", err)
+					continue
+				}
+
+				fmt.Printf("%+v\n", r)
+			case 2:
+
+				reader := bufio.NewReader(os.Stdin)
+
+				fmt.Println("key name : ")
+				key, err := reader.ReadString('\n')
+
+				if err != nil {
+					panic(err)
+				}
+				key = strings.TrimSpace(key)
+				fmt.Println("value name : ")
+				val, err := reader.ReadString('\n')
+
+				if err != nil {
+					panic(err)
+				}
+				val = strings.TrimSpace(val)
+
+				r, err := handler.AddTag(sampleType,
+					irs.IID{NameId: sampleId, SystemId: sampleId},
+					irs.KeyValue{Key: key, Value: val})
+				if err != nil {
+					fmt.Println("error while call add tag", err)
+					continue
+				}
+
+				fmt.Printf("%+v\n", r)
+			case 3:
+
+				reader := bufio.NewReader(os.Stdin)
+
+				fmt.Println("key name : ")
+				key, err := reader.ReadString('\n')
+
+				if err != nil {
+					panic(err)
+				}
+				key = strings.TrimSpace(key)
+
+				r, err := handler.RemoveTag(sampleType,
+					irs.IID{NameId: sampleId, SystemId: sampleId},
+					key)
+				if err != nil {
+					fmt.Println("error while call remove tag", err)
+					continue
+				}
+
+				fmt.Printf("%+v\n", r)
+
+			case 4:
+
+				reader := bufio.NewReader(os.Stdin)
+
+				fmt.Println("key name : ")
+				key, err := reader.ReadString('\n')
+
+				if err != nil {
+					panic(err)
+				}
+				key = strings.TrimSpace(key)
+
+				r, err := handler.GetTag(sampleType,
+					irs.IID{NameId: sampleId, SystemId: sampleId},
+					key)
+				if err != nil {
+					fmt.Println("error while call get tag", err)
+					continue
+				}
+
+				fmt.Printf("%+v\n", r)
+			case 5:
+
+				reader := bufio.NewReader(os.Stdin)
+
+				fmt.Println("key name : ")
+				keyword, err := reader.ReadString('\n')
+
+				if err != nil {
+					panic(err)
+				}
+				keyword = strings.TrimSpace(keyword)
+
+				re, err := handler.FindTag(sampleType, keyword)
+				if err != nil {
+					fmt.Println("error while call get tag", err)
+					continue
+				}
+
+				for _, r := range re {
+					fmt.Printf("%+v\n", *r)
+				}
+			}
+		}
+	}
+}
 func main() {
 	cblogger.Info("GCP Resource Test")
-	//handleVPC()
+	// handleVPC()
 	//handleVMSpec()
 	//handleImage() //AMI
 	//handleKeyPair()
 	//handleSecurity()
 	// handleVM()
 	//handleLoadBalancer()
-	//handleDisk()
+	// handleDisk()
 	//handleMyImage()
 	//handleRegionZone()
-	handlePriceInfo()
+	// handlePriceInfo()
 	//cblogger.Info(filepath.Join("a/b", "\\cloud-driver-libs\\.ssh-gcp\\"))
 	//cblogger.Info(filepath.Join("\\cloud-driver-libs\\.ssh-gcp\\", "/b/c/d"))
+	handleTags()
 }

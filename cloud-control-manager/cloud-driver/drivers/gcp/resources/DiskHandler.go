@@ -47,8 +47,14 @@ func (DiskHandler *GCPDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 		cblogger.Info("SetDisk zone after ", DiskHandler.Region)
 	}
 
+	labels := make(map[string]string)
+
+	for _, t := range diskReqInfo.TagList {
+		labels[t.Key] = t.Value
+	}
 	disk := &compute.Disk{
-		Name: diskName,
+		Name:   diskName,
+		Labels: labels,
 	}
 
 	if diskReqInfo.DiskType != "" && diskReqInfo.DiskType != "default" {
@@ -523,6 +529,14 @@ func convertDiskInfo(diskResp *compute.Disk) (irs.DiskInfo, error) {
 	}
 
 	diskInfo.Status = diskStatus
+
+	tags := make([]irs.KeyValue, 0)
+	if diskResp.Labels != nil {
+		for k, v := range diskResp.Labels {
+			tags = append(tags, irs.KeyValue{Key: k, Value: v})
+		}
+	}
+	diskInfo.TagList = tags
 
 	return diskInfo, nil
 }
