@@ -28,7 +28,7 @@ var cblogger *logrus.Logger
 func init() {
 	// cblog is a global variable.
 	cblogger = cblog.GetLogger("AlibabaCloud Resource Test")
-	cblog.SetLevel("info")
+	cblog.SetLevel("debug")
 }
 
 /*
@@ -340,9 +340,9 @@ func handleSecurity() {
 	//VmID := config.Aws.VmID
 
 	//securityName := "CB-SecurityTestCidr"
-	securityName := "sg10"
-	securityId := "sg-6we0jr4qremmfu2wyd8q"
-	vpcId := "vpc-6weuepknbuvs90y6k1ss2"
+	securityName := ""
+	securityId := ""
+	vpcId := ""
 
 	for {
 		fmt.Println("Security Management")
@@ -380,9 +380,11 @@ func handleSecurity() {
 
 			case 2:
 				cblogger.Infof("[%s] Security 생성 테스트", securityName)
+				tag1 := irs.KeyValue{Key: "", Value: ""}
 				securityReqInfo := irs.SecurityReqInfo{
-					IId:    irs.IID{NameId: securityName},
-					VpcIID: irs.IID{SystemId: vpcId},
+					IId:     irs.IID{NameId: securityName},
+					VpcIID:  irs.IID{SystemId: vpcId},
+					TagList: []irs.KeyValue{tag1},
 					SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
 						//CIDR 테스트
 						/*{
@@ -834,8 +836,9 @@ func handleKeyPair() {
 	//config := readConfigFile()
 	//VmID := config.Aws.VmID
 
-	keyPairName := "CB-KeyPairTest123123"
+	keyPairName := ""
 	//keyPairName := config.Aws.KeyName
+	tag1 := irs.KeyValue{Key: "aaa", Value: "bbb"}
 
 	for {
 		fmt.Println("KeyPair Management")
@@ -873,7 +876,8 @@ func handleKeyPair() {
 			case 2:
 				cblogger.Infof("[%s] 키 페어 생성 테스트", keyPairName)
 				keyPairReqInfo := irs.KeyPairReqInfo{
-					IId: irs.IID{NameId: keyPairName},
+					IId:     irs.IID{NameId: keyPairName},
+					TagList: []irs.KeyValue{tag1},
 				}
 				result, err := handler.CreateKey(keyPairReqInfo)
 				if err != nil {
@@ -944,7 +948,9 @@ func handleVPC() {
 	cblogger.Debug(subnetReqInfo)
 	cblogger.Debug(subnetReqVpcInfo)
 	cblogger.Debug(reqSubnetId)
-
+	// tag1 := irs.KeyValue{Key: "aaa", Value: "bbb"}
+	// stag1 := irs.KeyValue{Key: "saa", Value: "sbb"}
+	// stag2 := irs.KeyValue{Key: "scc", Value: "sdd"}
 	vpcReqInfo := irs.VPCReqInfo{
 		IId:       irs.IID{NameId: "New-CB-VPC"},
 		IPv4_CIDR: "10.0.0.0/16",
@@ -952,20 +958,23 @@ func handleVPC() {
 			{
 				IId:       irs.IID{NameId: "New-CB-Subnet"},
 				IPv4_CIDR: "10.0.1.0/24",
+				// TagList:   []irs.KeyValue{stag1},
 			},
 
 			{
 				IId:       irs.IID{NameId: "New-CB-Subnet2"},
 				IPv4_CIDR: "10.0.2.0/24",
+				// TagList:   []irs.KeyValue{stag2},
 			},
 		},
+		// TagList: []irs.KeyValue{tag1},
 		//Id:   "subnet-044a2b57145e5afc5",
 		//Name: "CB-VNet-Subnet", // 웹 도구 등 외부에서 전달 받지 않고 드라이버 내부적으로 자동 구현때문에 사용하지 않음.
 		//CidrBlock: "10.0.0.0/16",
 		//CidrBlock: "192.168.0.0/16",
 	}
 
-	reqVpcId := irs.IID{SystemId: "vpc-6we11xwqjc9tyma5i68z0"}
+	reqVpcId := irs.IID{SystemId: "vpc-j6c64o9vym4zqqmvx3j3c"}
 
 	for {
 		fmt.Println("Handler Management")
@@ -1161,7 +1170,7 @@ func handleVM() {
 
 	//config := readConfigFile()
 	//VmID := irs.IID{NameId: config.Aws.BaseName, SystemId: config.Aws.VmID}
-	VmID := irs.IID{SystemId: "i-6weayupx7qvidhmyl48d"}
+	VmID := irs.IID{SystemId: ""}
 
 	for {
 		fmt.Println("VM Management")
@@ -1189,28 +1198,35 @@ func handleVM() {
 				return
 
 			case 1:
+				tag1 := irs.KeyValue{Key: "vaa", Value: "vbb"}
+
 				vmReqInfo := irs.VMReqInfo{
-					IId: irs.IID{NameId: "mcloud-barista-vm-test"},
-					//ImageIID: irs.IID{SystemId: "aliyun_3_x64_20G_alibase_20210425.vhd"},
+					// IId: irs.IID{NameId: ""},
+					// ImageIID: irs.IID{SystemId: "aliyun_3_x64_20G_alibase_20210425.vhd"},
+					ImageIID: irs.IID{SystemId: "aliyun_2_1903_x64_20G_dengbao_alibase_20240705.vhd"},
 					//ImageIID: irs.IID{SystemId: "aliyun_2_1903_x64_20G_alibase_20200324.vhd"},
 					//ImageIID:  irs.IID{SystemId: "ubuntu_18_04_x64_20G_alibase_20210318.vhd"},
-					ImageIID: irs.IID{SystemId: "ubuntu_18_04_x64_20G_alibase_20210420.vhd"},
-					//VpcIID:    irs.IID{SystemId: "vpc-0jl4l19l51gn2exrohgci"},
+					// ImageIID: irs.IID{SystemId: "ubuntu_18_04_x64_20G_alibase_20210420.vhd"},
+					VpcIID: irs.IID{SystemId: "vpc-j6cjneevz77bun1f0hodv"},
 					//SubnetIID: irs.IID{SystemId: "vsw-0jlj155cbwhjumtipnm6d"},
-					SubnetIID: irs.IID{SystemId: "vsw-6we8tac8w7dzqbxbyhj9o"}, //Tokyo Zone B
-					//SecurityGroupIIDs: []irs.IID{{SystemId: "sg-6we0rxnoai067qbkdkgw"}, {SystemId: "sg-6weeb9xaodr65g7bq10c"}},
-					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-6we7156yw8c8xbzi9f7v"}},
+					// SubnetIID: irs.IID{SystemId: ""}, //Tokyo Zone B
+					SubnetIID: irs.IID{SystemId: "vsw-j6c37ennotvnfcvuw23ku"}, //hongkong-c
+					//SecurityGroupIIDs: []irs.IID{{SystemId: ""}, {SystemId: ""}},
+					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-j6cauy6gbpy26deg8iz9"}}, // 홍콩 리전
 					//VMSpecName:        "ecs.t5-lc2m1.nano",
 					//VMSpecName: "ecs.g6.large", //cn-wulanchabu 리전
-					VMSpecName: "ecs.t5-lc2m1.nano", //도쿄리전
-					KeyPairIID: irs.IID{SystemId: "cb-japan"},
+					// VMSpecName: "ecs.t5-lc2m1.nano", //도쿄리전
+					VMSpecName: "ecs.t5-lc2m1.nano", //홍콩리전
+					// KeyPairIID: irs.IID{SystemId: ""},
+					KeyPairIID: irs.IID{SystemId: "keypair-honkong-cqbnlg6iuvoi0eb89lq0"}, //홍콩리전
 					//VMUserId:          "root", //root만 가능
 					//VMUserPasswd: "Cbuser!@#", //대문자 소문자 모두 사용되어야 함. 그리고 숫자나 특수 기호 중 하나가 포함되어야 함.
 
-					RootDiskType: "cloud_efficiency", //cloud / cloud_efficiency / cloud_ssd / cloud_essd
-					RootDiskSize: "default",
+					// RootDiskType: "cloud_efficiency", //cloud / cloud_efficiency / cloud_ssd / cloud_essd
+					// RootDiskSize: "default",
 					//RootDiskType: "cloud_ssd", //cloud / cloud_efficiency / cloud_ssd / cloud_essd
 					//RootDiskSize: "22",
+					TagList: []irs.KeyValue{tag1},
 				}
 
 				vmInfo, err := vmHandler.StartVM(vmReqInfo)
@@ -1330,23 +1346,25 @@ func handleNLB() {
 	}
 	handler := ResourceHandler.(irs.NLBHandler)
 	cblogger.Info(handler)
+	tag1 := irs.KeyValue{Key: "naa", Value: "vbb"}
+
 	nlbReqInfo := irs.NLBInfo{
 		// TCP
-		IId:           irs.IID{NameId: "New-CB-TCPNLB4"},
-		VpcIID:        irs.IID{SystemId: "vpc-t4naidq3kbofx4y09ignm"},
+		IId:           irs.IID{NameId: ""},
+		VpcIID:        irs.IID{SystemId: "j6cjneevz77bun1f0hodv"},
 		Type:          "PUBLIC",
 		Listener:      irs.ListenerInfo{Protocol: "TCP", Port: "80"},
-		HealthChecker: irs.HealthCheckerInfo{Protocol: "HTTP", Port: "80", Interval: 5, Timeout: 2, Threshold: 3},
+		HealthChecker: irs.HealthCheckerInfo{Protocol: "TCP", Port: "80", Interval: 5, Timeout: 2, Threshold: 3},
 		VMGroup: irs.VMGroupInfo{
 			Protocol: "TCP",
 			Port:     "80",
 
-			VMs: &[]irs.IID{{SystemId: "i-t4ndzu5q27yow3xhk9ns"}, {SystemId: "i-t4ndzu5q27yow3xhk9nt"}},
+			VMs: &[]irs.IID{{SystemId: "i-j6camjyolcjjhbs3ack7"}, {SystemId: "i-j6cgtrzdfo2tvrjzjw34"}},
 		},
-
+		TagList: []irs.KeyValue{tag1},
 		// UDP
-		//IId:    irs.IID{NameId: "New-CB-UDPNLB2"},
-		//VpcIID:   irs.IID{SystemId: "vpc-t4naidq3kbofx4y09ignm"},
+		//IId:    irs.IID{NameId: ""},
+		//VpcIID:   irs.IID{SystemId: ""},
 		//Type:     "PUBLIC",
 		//Listener: irs.ListenerInfo{Protocol: "UDP", Port: "23"},
 		//HealthChecker: irs.HealthCheckerInfo{Protocol: "UDP", Port: "23", Interval: 5, Timeout: 2, Threshold: 3},
@@ -1354,11 +1372,11 @@ func handleNLB() {
 		//	//Protocol: "UDP",
 		//	//Port:     "23",
 		//
-		//	VMs: &[]irs.IID{{SystemId: "i-t4ndzu5q27yow3xhk9ns"}, {SystemId: "i-t4ndzu5q27yow3xhk9nt"}},
+		//	VMs: &[]irs.IID{{SystemId: ""}, {SystemId: ""}},
 		//},
 	}
 
-	reqNLBId := irs.IID{SystemId: "lb-ecyd4pb5"}
+	reqNLBId := irs.IID{SystemId: ""}
 
 	for {
 		fmt.Println("Handler Management")
@@ -1408,7 +1426,7 @@ func handleNLB() {
 				}
 
 			case 3:
-				reqNLBId = irs.IID{SystemId: "lb-gs5xf7uv5iiwzpwwpx39e"}
+				reqNLBId = irs.IID{SystemId: ""}
 				cblogger.Infof("[%s] NLB 조회 테스트", reqNLBId)
 				result, err := handler.GetNLB(reqNLBId)
 				if err != nil {
@@ -1419,7 +1437,7 @@ func handleNLB() {
 				}
 
 			case 4:
-				reqNLBId.SystemId = "lb-gs5x5ab796t61x95m7upp"
+				reqNLBId.SystemId = ""
 				cblogger.Infof("[%s] NLB 삭제 테스트", reqNLBId)
 				result, err := handler.DeleteNLB(reqNLBId)
 				if err != nil {
@@ -1430,8 +1448,8 @@ func handleNLB() {
 
 			case 5:
 				cblogger.Infof("[%s] VM 추가 테스트", reqNLBId)
-				reqNLBId.SystemId = "lb-gs5xf7uv5iiwzpwwpx39e"
-				vmIID := irs.IID{SystemId: "i-t4n771gareh1wzo7ghpe"}
+				reqNLBId.SystemId = ""
+				vmIID := irs.IID{SystemId: ""}
 				result, err := handler.AddVMs(reqNLBId, &[]irs.IID{vmIID})
 				if err != nil {
 					cblogger.Infof("VM 추가 실패 : ", err)
@@ -1444,8 +1462,8 @@ func handleNLB() {
 			case 6:
 				cblogger.Infof("[%s] VM 삭제 테스트", reqNLBId.SystemId)
 
-				reqNLBId.SystemId = "lb-gs5xf7uv5iiwzpwwpx39e"
-				vmIID := irs.IID{SystemId: "i-t4n771gareh1wzo7ghpe"}
+				reqNLBId.SystemId = ""
+				vmIID := irs.IID{SystemId: ""}
 				result, err := handler.RemoveVMs(reqNLBId, &[]irs.IID{vmIID})
 				if err != nil {
 					cblogger.Infof("VM 삭제 실패 : ", err)
@@ -1455,7 +1473,7 @@ func handleNLB() {
 			case 7:
 				cblogger.Infof("[%s] NLB VM Health 조회 테스트", reqNLBId)
 				cblogger.Infof("[%s] VM 추가 테스트", reqNLBId)
-				reqNLBId.SystemId = "lb-gs5xf7uv5iiwzpwwpx39e"
+				reqNLBId.SystemId = ""
 				result, err := handler.GetVMGroupHealthInfo(reqNLBId)
 				if err != nil {
 					cblogger.Infof("[%s] NLB VM Health 조회 실패 : ", reqNLBId.SystemId, err)
@@ -1465,7 +1483,7 @@ func handleNLB() {
 				}
 			case 8:
 				cblogger.Infof("[%s] NLB Listener 변경 테스트", reqNLBId)
-				reqNLBId.SystemId = "lb-gs5xf7uv5iiwzpwwpx39e"
+				reqNLBId.SystemId = ""
 				changeListener := irs.ListenerInfo{}
 				changeListener.Protocol = "tcp"
 				changeListener.Port = "8080" // 포트만 변경
@@ -1489,7 +1507,7 @@ func handleNLB() {
 					spew.Dump(result)
 				}
 			case 10:
-				reqNLBId.SystemId = "lb-gs5xf7uv5iiwzpwwpx39e"
+				reqNLBId.SystemId = ""
 				reqHealthCheckInfo := irs.HealthCheckerInfo{
 					Protocol:  "tcp",
 					Port:      "85",
@@ -1634,22 +1652,426 @@ func handlePriceInfo() {
 	}
 }
 
+func handleTagInfo() {
+	cblogger.Debug("Start handleTagInfo Test")
+	ResourceHandler, err := testconf.GetResourceHandler("Tag")
+	if err != nil {
+		//panic(err)
+		cblogger.Error(err)
+	}
+	handler := ResourceHandler.(irs.TagHandler)
+	cblogger.Info(handler)
+
+	for {
+		fmt.Println("Handler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. ListTag List")
+		fmt.Println("2. GetTag ")
+		fmt.Println("3. FindTag ")
+		fmt.Println("4. AddTag ")
+		fmt.Println("5. RemoveTag ")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		// resourceType := irs.RSType("VM")
+		resourceType := irs.ALL
+
+		resourceIID := irs.IID{NameId: "", SystemId: "i-j6cd7rv72uwjyx8qy304"}
+		// resourceType := irs.RSType("CLUSTER")
+		// resourceIID := irs.IID{NameId: "cs-issue-test", SystemId: ""}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+			case 1:
+
+				result, err := handler.ListTag(resourceType, resourceIID)
+				if err != nil {
+					cblogger.Infof(" Tag 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("Tag 목록 조회 결과")
+					spew.Dump(result)
+				}
+
+			case 2:
+				tagName := "tagntest3"
+				tagName = ""
+				result, err := handler.GetTag(resourceType, resourceIID, tagName)
+				if err != nil {
+					cblogger.Info(" Tag 조회 실패 : ", err)
+				} else {
+					cblogger.Info("GetTag 조회 결과")
+					//spew.Dump(result)
+					cblogger.Info(result)
+				}
+			case 3:
+				tagName := "aaa"
+
+				result, err := handler.FindTag(resourceType, tagName)
+				if err != nil {
+					cblogger.Info(" Tag 조회 실패 : ", err)
+				} else {
+					cblogger.Info("FindTag 조회 결과")
+					spew.Dump(result)
+					// cblogger.Info(result)
+				}
+			case 4:
+				newTag := irs.KeyValue{}
+				newTag.Key = "addKeyT1"
+				newTag.Value = "addValueT1"
+				result, err := handler.AddTag(resourceType, resourceIID, newTag)
+				if err != nil {
+					cblogger.Info(" Tag 조회 실패 : ", err)
+				} else {
+					cblogger.Info("AddTag 조회 결과")
+					//spew.Dump(result)
+					cblogger.Info(result)
+				}
+			case 5:
+				tagName := "addKeyT1"
+				result, err := handler.RemoveTag(resourceType, resourceIID, tagName)
+				if err != nil {
+					cblogger.Info(" Tag 조회 실패 : ", err)
+				} else {
+					cblogger.Info("RemoveTag 조회 결과")
+					//spew.Dump(result)
+					cblogger.Info(result)
+				}
+			}
+		}
+	}
+}
+
+func handleDisk() {
+	cblogger.Debug("Start handleDisk Test")
+	ResourceHandler, err := testconf.GetResourceHandler("Disk")
+	if err != nil {
+		//panic(err)
+		cblogger.Error(err)
+	}
+	handler := ResourceHandler.(irs.DiskHandler)
+	cblogger.Info(handler)
+
+	tag1 := irs.KeyValue{Key: "daa", Value: "dbb"}
+	diskReqInfo := irs.DiskInfo{
+		// IID: irs.IID{},
+		TagList: []irs.KeyValue{tag1},
+	}
+
+	for {
+		fmt.Println("Handler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. Disk List")
+		fmt.Println("2. GetDisk ")
+		fmt.Println("3. CreateDisk ")
+		fmt.Println("4. AddDisk ")
+		fmt.Println("5. RemoveDisk ")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+		// resourceType := irs.RSType("disk")
+		resourceIID := irs.IID{NameId: "", SystemId: "i-j6cd7rv72uwjyx8qy304"}
+		// resourceType := irs.RSType("CLUSTER")
+		// resourceIID := irs.IID{NameId: "cs-issue-test", SystemId: ""}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+			case 1:
+
+				result, err := handler.ListDisk()
+				if err != nil {
+					cblogger.Infof(" Tag 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("Tag 목록 조회 결과")
+					spew.Dump(result)
+				}
+
+			case 2:
+				// tagName := "tagntest3"
+				// tagName = ""
+				result, err := handler.GetDisk(resourceIID)
+				if err != nil {
+					cblogger.Info(" Tag 조회 실패 : ", err)
+				} else {
+					cblogger.Info("GetTag 조회 결과")
+					//spew.Dump(result)
+					cblogger.Info(result)
+				}
+			case 3:
+				// tagName := "tagntest3"
+				// tagName = ""
+				result, err := handler.CreateDisk(diskReqInfo)
+				if err != nil {
+					cblogger.Info(" Tag 조회 실패 : ", err)
+				} else {
+					cblogger.Info("FindTag 조회 결과")
+					//spew.Dump(result)
+					cblogger.Info(result)
+				}
+				// case 4:
+				// 	newTag := irs.KeyValue{}
+				// 	newTag.Key = "addKeyT1"
+				// 	newTag.Value = "addValueT1"
+				// 	result, err := handler.AddTag(resourceType, resourceIID, newTag)
+				// 	if err != nil {
+				// 		cblogger.Info(" Tag 조회 실패 : ", err)
+				// 	} else {
+				// 		cblogger.Info("AddTag 조회 결과")
+				// 		//spew.Dump(result)
+				// 		cblogger.Info(result)
+				// 	}
+				// case 5:
+				// 	tagName := "addKeyT1"
+				// 	result, err := handler.RemoveTag(resourceType, resourceIID, tagName)
+				// 	if err != nil {
+				// 		cblogger.Info(" Tag 조회 실패 : ", err)
+				// 	} else {
+				// 		cblogger.Info("RemoveTag 조회 결과")
+				// 		//spew.Dump(result)
+				// 		cblogger.Info(result)
+				// 	}
+			}
+		}
+	}
+}
+
+func handleMyImage() {
+	cblogger.Debug("Start handleMyImage Test")
+	ResourceHandler, err := testconf.GetResourceHandler("MyImage")
+	if err != nil {
+		//panic(err)
+		cblogger.Error(err)
+	}
+	handler := ResourceHandler.(irs.MyImageHandler)
+	cblogger.Info(handler)
+
+	tag1 := irs.KeyValue{Key: "daa", Value: "dbb"}
+	snapshotReqInfo := irs.MyImageInfo{
+		SourceVM: irs.IID{SystemId: "i-j6camjyolcjjhbs3ack7"},
+		IId:      irs.IID{NameId: "tagtestimage2"},
+		TagList:  []irs.KeyValue{tag1},
+	}
+
+	for {
+		fmt.Println("Handler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. MyImage List")
+		fmt.Println("2. GetMyImage ")
+		fmt.Println("3. CreateMyImage ")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+		// resourceType := irs.RSType("disk")
+		resourceIID := irs.IID{NameId: "", SystemId: "i-j6cd7rv72uwjyx8qy304"}
+		// resourceType := irs.RSType("CLUSTER")
+		// resourceIID := irs.IID{NameId: "cs-issue-test", SystemId: ""}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+			case 1:
+
+				result, err := handler.ListMyImage()
+				if err != nil {
+					cblogger.Infof(" MyImage 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("MyImage 목록 조회 결과")
+					spew.Dump(result)
+				}
+
+			case 2:
+				// tagName := "tagntest3"
+				// tagName = ""
+				result, err := handler.GetMyImage(resourceIID)
+				if err != nil {
+					cblogger.Info(" MyImage 조회 실패 : ", err)
+				} else {
+					cblogger.Info("GetMyImage 조회 결과")
+					//spew.Dump(result)
+					cblogger.Info(result)
+				}
+			case 3:
+				// tagName := "tagntest3"
+				// tagName = ""
+				result, err := handler.SnapshotVM(snapshotReqInfo)
+				if err != nil {
+					cblogger.Info(" MyImage 조회 실패 : ", err)
+				} else {
+					cblogger.Info("CreateMyImage 조회 결과")
+					//spew.Dump(result)
+					cblogger.Info(result)
+				}
+				// case 4:
+				// 	newTag := irs.KeyValue{}
+				// 	newTag.Key = "addKeyT1"
+				// 	newTag.Value = "addValueT1"
+				// 	result, err := handler.AddTag(resourceType, resourceIID, newTag)
+				// 	if err != nil {
+				// 		cblogger.Info(" Tag 조회 실패 : ", err)
+				// 	} else {
+				// 		cblogger.Info("AddTag 조회 결과")
+				// 		//spew.Dump(result)
+				// 		cblogger.Info(result)
+				// 	}
+				// case 5:
+				// 	tagName := "addKeyT1"
+				// 	result, err := handler.RemoveTag(resourceType, resourceIID, tagName)
+				// 	if err != nil {
+				// 		cblogger.Info(" Tag 조회 실패 : ", err)
+				// 	} else {
+				// 		cblogger.Info("RemoveTag 조회 결과")
+				// 		//spew.Dump(result)
+				// 		cblogger.Info(result)
+				// 	}
+			}
+		}
+	}
+}
+
+func handleCluster() {
+	cblogger.Debug("Start Cluster Test")
+	ResourceHandler, err := testconf.GetResourceHandler("Cluster")
+	if err != nil {
+		//panic(err)
+		cblogger.Error(err)
+	}
+	handler := ResourceHandler.(irs.ClusterHandler)
+	cblogger.Info(handler)
+
+	vpcID := "vpc-j6ctiyol6osnuy9sfj2xm"
+	vswitchID := "vsw-j6cgu2z3paapkojcj918q"
+	securityGroupIIDs := "sg-j6cauy6gbpy261k9k74c"
+
+	tag1 := irs.KeyValue{Key: "caa", Value: "cbb"}
+
+	clusterReqInfo := irs.ClusterInfo{
+		IId: irs.IID{NameId: "tagtestcluster22"},
+		Network: irs.NetworkInfo{
+			VpcIID: irs.IID{SystemId: vpcID},
+			SubnetIIDs: []irs.IID{
+				{SystemId: vswitchID},
+			},
+			SecurityGroupIIDs: []irs.IID{
+				{SystemId: securityGroupIIDs},
+			},
+			// Optionally, add other network-related fields if necessary
+		},
+		TagList: []irs.KeyValue{tag1},
+	}
+
+	for {
+		fmt.Println("Handler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. Cluster List")
+		fmt.Println("2. GetCluster ")
+		fmt.Println("3. CreateCluster")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+		// resourceType := irs.RSType("disk")
+		resourceIID := irs.IID{NameId: "", SystemId: "i-j6cd7rv72uwjyx8qy304"}
+		// resourceType := irs.RSType("CLUSTER")
+		// resourceIID := irs.IID{NameId: "cs-issue-test", SystemId: ""}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+			case 1:
+
+				result, err := handler.ListCluster()
+				if err != nil {
+					cblogger.Infof(" MyImage 목록 조회 실패 : ", err)
+				} else {
+					cblogger.Info("MyImage 목록 조회 결과")
+					spew.Dump(result)
+				}
+			case 2:
+				// tagName := "tagntest3"
+				// tagName = ""
+				result, err := handler.GetCluster(resourceIID)
+				if err != nil {
+					cblogger.Info(" MyImage 조회 실패 : ", err)
+				} else {
+					cblogger.Info("GetMyImage 조회 결과")
+					//spew.Dump(result)
+					cblogger.Info(result)
+				}
+			case 3:
+				// tagName := "tagntest3"
+				// tagName = ""
+				result, err := handler.CreateCluster(clusterReqInfo)
+				if err != nil {
+					cblogger.Info(" MyImage 조회 실패 : ", err)
+				} else {
+					cblogger.Info("CreateMyImage 조회 결과")
+					//spew.Dump(result)
+					cblogger.Info(result)
+				}
+				// case 4:
+				// 	newTag := irs.KeyValue{}
+				// 	newTag.Key = "addKeyT1"
+				// 	newTag.Value = "addValueT1"
+				// 	result, err := handler.AddTag(resourceType, resourceIID, newTag)
+				// 	if err != nil {
+				// 		cblogger.Info(" Tag 조회 실패 : ", err)
+				// 	} else {
+				// 		cblogger.Info("AddTag 조회 결과")
+				// 		//spew.Dump(result)
+				// 		cblogger.Info(result)
+				// 	}
+				// case 5:
+				// 	tagName := "addKeyT1"
+				// 	result, err := handler.RemoveTag(resourceType, resourceIID, tagName)
+				// 	if err != nil {
+				// 		cblogger.Info(" Tag 조회 실패 : ", err)
+				// 	} else {
+				// 		cblogger.Info("RemoveTag 조회 결과")
+				// 		//spew.Dump(result)
+				// 		cblogger.Info(result)
+				// 	}
+			}
+		}
+	}
+}
+
 func main() {
 	cblogger.Info("Alibaba Cloud Resource Test")
 	cblogger.Debug("Debug mode")
 
-	//handleVPC() //VPC
+	// handleVPC() //VPC
 	//handleVMSpec()
 	//handleImage() //AMI
-	//handleSecurity()
-	//handleKeyPair()
-	//handleVM()
-	//handleNLB()
+	// handleSecurity()
+	// handleKeyPair()
+	// handleVM()
+	// handleNLB()
+	// handleDisk()
+	// handleMyImage()
+	// handleCluster()
 	//handlePublicIP() // PublicIP 생성 후 conf
 
 	//handleVNic() //Lancard
 	//handleRegionZone()
-	handlePriceInfo()
+	//handlePriceInfo()
+	handleTagInfo()
 	/*
 	   //StartTime := "2020-05-07T01:35:00Z"
 	   StartTime := "2020-05-07T01:35Z"

@@ -47,6 +47,25 @@ func (securityHandler *AlibabaSecurityHandler) CreateSecurity(securityReqInfo ir
 	request.SecurityGroupName = securityReqInfo.IId.NameId
 	request.VpcId = securityReqInfo.VpcIID.SystemId
 	request.SecurityGroupType = "enterprise"
+
+	/// 0717 ///
+
+	if securityReqInfo.TagList != nil && len(securityReqInfo.TagList) > 0 {
+
+		sgTags := []ecs.CreateSecurityGroupTag{}
+		for _, sgTag := range securityReqInfo.TagList {
+			tag0 := ecs.CreateSecurityGroupTag{
+				Key:   sgTag.Key,
+				Value: sgTag.Value,
+			}
+			sgTags = append(sgTags, tag0)
+
+		}
+		request.Tag = &sgTags
+	}
+
+	/// 0717 ///
+
 	cblogger.Debugf("Security group creation request information", request)
 
 	// logger for HisCall
