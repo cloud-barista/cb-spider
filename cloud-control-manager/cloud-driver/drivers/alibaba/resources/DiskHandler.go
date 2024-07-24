@@ -648,6 +648,17 @@ func ExtractDiskDescribeInfo(aliDisk *ecs.Disk) (irs.DiskInfo, error) {
 		aliDisk.CreationTime)
 	diskInfo.OwnerVM = irs.IID{SystemId: aliDisk.InstanceId}
 	diskStatus, errStatus := convertAlibabaDiskStatusToDiskStatus(aliDisk.Status)
+
+	tagList := []irs.KeyValue{}
+	for _, aliTag := range aliDisk.Tags.Tag {
+		sTag := irs.KeyValue{}
+		sTag.Key = aliTag.Key
+		sTag.Value = aliTag.Value
+
+		tagList = append(tagList, sTag)
+	}
+	diskInfo.TagList = tagList
+
 	if errStatus != nil {
 		return irs.DiskInfo{}, errStatus
 	}

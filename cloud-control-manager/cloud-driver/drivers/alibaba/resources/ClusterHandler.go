@@ -160,6 +160,21 @@ func (ach *AlibabaClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) 
 	snatEntry := true
 	epPublicAccess := true
 
+	var tagList *[]cs2015.Tag
+	if clusterReqInfo.TagList != nil && len(clusterReqInfo.TagList) > 0 {
+
+		clusterTags := []cs2015.Tag{}
+		for _, clusterTag := range clusterReqInfo.TagList {
+			tag0 := cs2015.Tag{
+				Key:   &clusterTag.Key,
+				Value: &clusterTag.Value,
+			}
+			clusterTags = append(clusterTags, tag0)
+
+		}
+		tagList = &clusterTags
+	}
+
 	runtimeName, runtimeVersion, err := getLatestRuntime(ach.CsClient, regionId, clusterType, k8sVersion)
 	if err != nil {
 		err := fmt.Errorf("Failed to Create Cluster: %v", err)
@@ -171,7 +186,7 @@ func (ach *AlibabaClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) 
 
 	nodepools := getNodepoolsFromNodeGroupList(clusterReqInfo.NodeGroupList, runtimeName, runtimeVersion, vswitchIds)
 
-	clusterId, err := aliCreateCluster(ach.CsClient, clusterName, regionId, clusterType, clusterSpec, k8sVersion, runtimeName, runtimeVersion, vpcId, containerCidr, serviceCidr, secGroupId, snatEntry, epPublicAccess, vswitchIds, tagKeyCbSpiderPmksCluster, tagValueOwned, nodepools)
+	clusterId, err := aliCreateCluster(ach.CsClient, clusterName, regionId, clusterType, clusterSpec, k8sVersion, runtimeName, runtimeVersion, vpcId, containerCidr, serviceCidr, secGroupId, snatEntry, epPublicAccess, vswitchIds, tagKeyCbSpiderPmksCluster, tagValueOwned, tagList, nodepools)
 	if err != nil {
 		err := fmt.Errorf("Failed to Create Cluster: %v", err)
 		cblogger.Error(err)
@@ -1178,12 +1193,23 @@ func getNodepoolsFromNodeGroupList(nodeGroupInfoList []irs.NodeGroupInfo, runtim
 	return nodepools
 }
 
-func aliCreateCluster(csClient *cs2015.Client, name, regionId, clusterType, clusterSpec, k8sVersion, runtimeName, runtimeVersion, vpcId, containerCidr, serviceCidr, secGroupId string, snatEntry, endpointPublicAccess bool, masterVswitchIds []string, tagKey, tagValue string, nodepools []*cs2015.Nodepool) (*string, error) {
+func aliCreateCluster(csClient *cs2015.Client, name, regionId, clusterType, clusterSpec, k8sVersion, runtimeName, runtimeVersion, vpcId, containerCidr, serviceCidr, secGroupId string, snatEntry, endpointPublicAccess bool, masterVswitchIds []string, tagKey, tagValue string, tagList *[]cs2015.Tag, nodepools []*cs2015.Nodepool) (*string, error) {
 	tags := []*cs2015.Tag{
-		&cs2015.Tag{
+		{
 			Key:   tea.String(tagKey),
 			Value: tea.String(tagValue),
 		},
+	}
+
+	// tagList가 nil이 아니고 요소가 있으면 tags에 추가
+	if tagList != nil && len(*tagList) > 0 {
+		for _, tag := range *tagList {
+			newTag := &cs2015.Tag{
+				Key:   tag.Key,
+				Value: tag.Value,
+			}
+			tags = append(tags, newTag)
+		}
 	}
 
 	createClusterRequest := &cs2015.CreateClusterRequest{

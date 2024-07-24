@@ -208,6 +208,22 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	request.InternetChargeType = "PayByBandwidth"           //Public Ip요금 방식을 1시간 단위(PayByBandwidth) 요금으로 설정 / PayByTraffic(기본값) : 1GB단위 시간당 트래픽 요금 청구
 	request.InternetMaxBandwidthOut = requests.Integer("5") // 0보다 크면 Public IP가 할당 됨 - 최대 아웃 바운드 공용 대역폭 단위 : Mbit / s 유효한 값 : 0 ~ 100
 
+	/// 0717 ///
+
+	if vmReqInfo.TagList != nil && len(vmReqInfo.TagList) > 0 {
+		vmTags := []ecs.RunInstancesTag{}
+		for _, vmTag := range vmReqInfo.TagList {
+			tag0 := ecs.RunInstancesTag{
+				Key:   vmTag.Key,
+				Value: vmTag.Value,
+			}
+			vmTags = append(vmTags, tag0)
+
+		}
+		request.Tag = &vmTags
+	}
+
+	/// 0717 ///
 	//=============================
 	// instance 사용 가능 검사
 	//=============================
@@ -858,6 +874,16 @@ func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instanceInfo *ecs.In
 
 		KeyValueList: []irs.KeyValue{{Key: "", Value: ""}},
 	}
+	tagList := []irs.KeyValue{}
+
+	for _, aliTag := range instanceInfo.Tags.Tag {
+		sTag := irs.KeyValue{}
+		sTag.Key = aliTag.TagKey
+		sTag.Value = aliTag.TagValue
+
+		tagList = append(tagList, sTag)
+	}
+	vmInfo.TagList = tagList
 
 	// Platform 정보 추가
 	if instanceInfo.OSType == "windows" {

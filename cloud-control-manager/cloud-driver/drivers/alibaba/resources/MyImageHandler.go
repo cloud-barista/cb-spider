@@ -45,25 +45,41 @@ func (myImageHandler AlibabaMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 	request.RegionId = myImageHandler.Region.Region
 	request.InstanceId = snapshotReqInfo.SourceVM.SystemId
 	request.ImageName = snapshotReqInfo.IId.NameId
+	// 0717 tag 추가
 
-	// TAG에 연관 instanceID set 할 것
-	request.Tag = &[]ecs.CreateImageTag{ // Default Hidden Tags Info
-		{
-			Key:   CBMetaDefaultTagName,  // "cbCat",
-			Value: CBMetaDefaultTagValue, // "cbAlibaba",
-		},
-		{
-			Key:   IMAGE_TAG_DEFAULT, // "Name",
-			Value: snapshotReqInfo.IId.NameId,
-		},
-		{
-			Key:   IMAGE_TAG_SOURCE_VM,
-			Value: snapshotReqInfo.SourceVM.SystemId,
-		},
+	if snapshotReqInfo.TagList != nil && len(snapshotReqInfo.TagList) > 0 {
+
+		myImageTags := []ecs.CreateImageTag{}
+		for _, myImageTag := range snapshotReqInfo.TagList {
+			tag0 := ecs.CreateImageTag{
+				Key:   myImageTag.Key,
+				Value: myImageTag.Value,
+			}
+			myImageTags = append(myImageTags, tag0)
+
+		}
+		request.Tag = &myImageTags
 	}
 
-	//cblogger.Debug(request)
+	///
+
+	// TAG에 연관 instanceID set 할 것
+	// request.Tag = &[]ecs.CreateImageTag{ // Default Hidden Tags Info
+	// 	{
+	// 		Key:   CBMetaDefaultTagName,  // "cbCat",
+	// 		Value: CBMetaDefaultTagValue, // "cbAlibaba",
+	// 	},
+	// 	{
+	// 		Key:   IMAGE_TAG_DEFAULT, // "Name",
+	// 		Value: snapshotReqInfo.IId.NameId,
+	// 	},
+	// 	{
+	// 		Key:   IMAGE_TAG_SOURCE_VM,
+	// 		Value: snapshotReqInfo.SourceVM.SystemId,
+	// 	},
+	// }
 	result, err := myImageHandler.Client.CreateImage(request)
+
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
 		cblogger.Error(err)
@@ -237,6 +253,15 @@ func (myImageHandler AlibabaMyImageHandler) DeleteMyImage(myImageIID irs.IID) (b
 func ExtractMyImageDescribeInfo(aliMyImage *ecs.Image) (irs.MyImageInfo, error) {
 	returnMyImageInfo := irs.MyImageInfo{}
 
+	tagList := []irs.KeyValue{}
+	for _, aliTag := range aliMyImage.Tags.Tag {
+		sTag := irs.KeyValue{}
+		sTag.Key = aliTag.Key
+		sTag.Value = aliTag.Value
+
+		tagList = append(tagList, sTag)
+	}
+	returnMyImageInfo.TagList = tagList
 	//IId	IID 	// {NameId, SystemId}
 	//
 	//SourceVM IID

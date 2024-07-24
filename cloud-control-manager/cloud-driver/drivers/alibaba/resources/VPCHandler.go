@@ -19,8 +19,9 @@ import (
 	"strings"
 	"time"
 
+	//vpc "github.com/alibabacloud-go/vpc-20160428/v6/client"
+
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
-	//"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -44,6 +45,22 @@ func (VPCHandler *AlibabaVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 	request.Scheme = "https"
 	request.VpcName = vpcReqInfo.IId.NameId
 	request.CidrBlock = vpcReqInfo.IPv4_CIDR
+
+	// tag 받아서 배열로 추가
+
+	if vpcReqInfo.TagList != nil && len(vpcReqInfo.TagList) > 0 {
+
+		vpcTags := []vpc.CreateVpcTag{}
+		for _, vpcTag := range vpcReqInfo.TagList {
+			tag0 := vpc.CreateVpcTag{
+				Key:   vpcTag.Key,
+				Value: vpcTag.Value,
+			}
+			vpcTags = append(vpcTags, tag0)
+
+		}
+		request.Tag = &vpcTags
+	}
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -99,16 +116,17 @@ func (VPCHandler *AlibabaVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 	}
 	retVpcInfo.IId.NameId = vpcReqInfo.IId.NameId // NameId는 요청 받은 값으로 리턴해야 함.
 
-	if vpcReqInfo.TagList != nil && len(vpcReqInfo.TagList) > 0 {
-		//tagHandler.Client, tagHandler.Region, resType, resIID, key
-		for _, vpcTag := range vpcReqInfo.TagList {
-			response, err := AddVpcTags(VPCHandler.Client, VPCHandler.Region, irs.RSType("VPC"), retVpcInfo.IId, vpcTag)
-			if err != nil {
-				cblogger.Error(errVpc)
-			}
-			cblogger.Debug("vpc add tag response ", response)
-		}
-	}
+	// if vpcReqInfo.TagList != nil && len(vpcReqInfo.TagList) > 0 {
+	// 	//tagHandler.Client, tagHandler.Region, resType, resIID, key
+	// 	for _, vpcTag := range vpcReqInfo.TagList {
+	// 		response, err := AddVpcTags(VPCHandler.Client, VPCHandler.Region, irs.RSType("VPC"), retVpcInfo.IId, vpcTag)
+	// 		cblogger.Info("AddVpcTage", response)
+	// 		if err != nil {
+	// 			cblogger.Error(errVpc)
+	// 		}
+	// 		cblogger.Debug("vpc add tag response ", response)
+	// 	}
+	// }
 	return retVpcInfo, nil
 }
 
@@ -135,6 +153,24 @@ func (VPCHandler *AlibabaVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo ir
 	request.CidrBlock = reqSubnetInfo.IPv4_CIDR
 	request.VSwitchName = reqSubnetInfo.IId.NameId
 	request.ZoneId = zoneId
+	// 0717 tag 추가
+
+	if reqSubnetInfo.TagList != nil && len(reqSubnetInfo.TagList) > 0 {
+
+		subnetTags := []vpc.CreateVSwitchTag{}
+		for _, vpcTag := range reqSubnetInfo.TagList {
+			tag0 := vpc.CreateVSwitchTag{
+				Key:   vpcTag.Key,
+				Value: vpcTag.Value,
+			}
+			subnetTags = append(subnetTags, tag0)
+
+		}
+		request.Tag = &subnetTags
+	}
+
+	/////
+
 	cblogger.Info(request)
 
 	// logger for HisCall
@@ -223,6 +259,16 @@ func ExtractVpcDescribeInfo(vpcInfo *vpc.Vpc) irs.VPCInfo {
 		IId:       irs.IID{NameId: vpcInfo.VpcName, SystemId: vpcInfo.VpcId},
 		IPv4_CIDR: vpcInfo.CidrBlock,
 	}
+
+	tagList := []irs.KeyValue{}
+	for _, aliTag := range vpcInfo.Tags.Tag {
+		sTag := irs.KeyValue{}
+		sTag.Key = aliTag.Key
+		sTag.Value = aliTag.Value
+
+		tagList = append(tagList, sTag)
+	}
+	aliVpcInfo.TagList = tagList
 
 	keyValueList := []irs.KeyValue{
 		{Key: "IsDefault", Value: strconv.FormatBool(vpcInfo.IsDefault)},
@@ -495,6 +541,20 @@ func ExtractSubnetDescribeInfo(subnetInfo vpc.VSwitch) irs.SubnetInfo {
 		IPv4_CIDR: subnetInfo.CidrBlock,
 		Zone:      subnetInfo.ZoneId,
 	}
+	/////
+	// 0717 tag 추출
+
+	tagList := []irs.KeyValue{}
+	for _, aliTag := range subnetInfo.Tags.Tag {
+		sTag := irs.KeyValue{}
+		sTag.Key = aliTag.Key
+		sTag.Value = aliTag.Value
+
+		tagList = append(tagList, sTag)
+	}
+	vNetworkInfo.TagList = tagList
+
+	/////
 
 	keyValueList := []irs.KeyValue{
 		{Key: "Status", Value: subnetInfo.Status},
