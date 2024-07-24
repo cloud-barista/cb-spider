@@ -16,14 +16,15 @@ import (
 
 	_ "fmt"
 	"testing"
-        cblog "github.com/cloud-barista/cb-log"
+
+	cblog "github.com/cloud-barista/cb-log"
 )
 
 var vpcHandler irs.VPCHandler
 
 func init() {
-        // make the log level lower to print clearly
-        cblog.SetLevel("error")
+	// make the log level lower to print clearly
+	cblog.SetLevel("error")
 
 	cred := idrv.CredentialInfo{
 		MockName: "MockDriver-01",
@@ -33,7 +34,7 @@ func init() {
 		RegionInfo:     idrv.RegionInfo{},
 	}
 	cloudConn, _ := (&mockdrv.MockDriver{}).ConnectCloud(connInfo)
-	vpcHandler, _ = cloudConn.CreateVPCHandler()
+	vpcTestHandler, _ = cloudConn.CreateVPCHandler()
 }
 
 type VPCTestInfo struct {
@@ -70,14 +71,14 @@ func TestVPCCreateList(t *testing.T) {
 			IPv4_CIDR:      info.VpcCIDR,
 			SubnetInfoList: []irs.SubnetInfo{{IId: irs.IID{info.SubnetIID, ""}, IPv4_CIDR: info.SubnetCIDR}},
 		}
-		_, err := vpcHandler.CreateVPC(reqInfo)
+		_, err := vpcTestHandler.CreateVPC(reqInfo)
 		if err != nil {
 			t.Error(err.Error())
 		}
 	}
 
 	// check the list size and values
-	infoList, err := vpcHandler.ListVPC()
+	infoList, err := vpcTestHandler.ListVPC()
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -99,14 +100,14 @@ func TestVPCAddSubnet(t *testing.T) {
 			IId:       irs.IID{info.SubnetIID, ""},
 			IPv4_CIDR: info.SubnetCIDR,
 		}
-		_, err := vpcHandler.AddSubnet(irs.IID{info.VpcIID, ""}, subnetInfo)
+		_, err := vpcTestHandler.AddSubnet(irs.IID{info.VpcIID, ""}, subnetInfo)
 		if err != nil {
 			t.Error(err.Error())
 		}
 	}
 
 	// check the result of two AddSubnet()
-	info, err := vpcHandler.GetVPC(irs.IID{subnetTestInfoList[0].VpcIID, ""})
+	info, err := vpcTestHandler.GetVPC(irs.IID{subnetTestInfoList[0].VpcIID, ""})
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -125,14 +126,14 @@ func TestVPCAddSubnet(t *testing.T) {
 func TestVPCRemoveSubnet(t *testing.T) {
 	// remove subnet
 	for _, info := range subnetTestInfoList {
-		_, err := vpcHandler.RemoveSubnet(irs.IID{info.VpcIID, ""}, irs.IID{"", info.SubnetIID})
+		_, err := vpcTestHandler.RemoveSubnet(irs.IID{info.VpcIID, ""}, irs.IID{"", info.SubnetIID})
 		if err != nil {
 			t.Error(err.Error())
 		}
 	}
 
 	// check the result of two RemoveSubnet()
-	info, err := vpcHandler.GetVPC(irs.IID{subnetTestInfoList[0].VpcIID, ""})
+	info, err := vpcTestHandler.GetVPC(irs.IID{subnetTestInfoList[0].VpcIID, ""})
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -150,7 +151,7 @@ func TestVPCRemoveSubnet(t *testing.T) {
 
 func TestVPCDeleteGet(t *testing.T) {
 	// Get & check the Value
-	info, err := vpcHandler.GetVPC(irs.IID{vpcTestInfoList[0].IId, ""})
+	info, err := vpcTestHandler.GetVPC(irs.IID{vpcTestInfoList[0].IId, ""})
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -159,12 +160,12 @@ func TestVPCDeleteGet(t *testing.T) {
 	}
 
 	// delete all
-	infoList, err := vpcHandler.ListVPC()
+	infoList, err := vpcTestHandler.ListVPC()
 	if err != nil {
 		t.Error(err.Error())
 	}
 	for _, info := range infoList {
-		ret, err := vpcHandler.DeleteVPC(info.IId)
+		ret, err := vpcTestHandler.DeleteVPC(info.IId)
 		if err != nil {
 			t.Error(err.Error())
 		}
@@ -173,7 +174,7 @@ func TestVPCDeleteGet(t *testing.T) {
 		}
 	}
 	// check the result of Delete Op
-	infoList, err = vpcHandler.ListVPC()
+	infoList, err = vpcTestHandler.ListVPC()
 	if err != nil {
 		t.Error(err.Error())
 	}

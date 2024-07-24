@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CB-Spider Admin Web Tool</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            font-size: 16px;
+        }
+        .container {
+            display: flex;
+            height: 100%;
+        }
+        .left-menu {
+            width: 150px;
+            border-right: 1px solid #ccc;
+            height: 100%;
+            flex-shrink: 0;
+        }
+        .right-content {
+            flex-grow: 1;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .top-menu {
+            height: 5%;
+            border-bottom: 1px solid #ccc;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 10px;
+        }
+        .body-frame {
+            height: 95%;
+            position: relative;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            background-color: #000; /* Background color */
+            color: #fff; /* Font color */
+            font-size: 14px; /* Font size increased */
+            min-width: 100px; /* Increased the width */
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            z-index: 1000; /* Ensure dropdown appears above everything else */
+            top: 100%; /* Show dropdown below the button */
+            left: -1cm; /* Move the dropdown 1cm to the left */
+            padding: 10px; /* Padding for content */
+            border-radius: 8px; /* Rounded corners */
+        }
+        .dropdown-content a {
+            color: #fff; /* Font color */
+            text-decoration: none;
+            display: block;
+            margin-bottom: 10px; /* Space between items */
+        }
+        .dropdown-content a:hover {
+            background-color: #555; /* Hover background color */
+        }
+        .dropdown-content p {
+            margin: 0; /* Remove margin for the paragraph */
+        }
+        .dropdown:hover .dropdown-content {
+            display: block;
+        }
+        .top-menu-right {
+            margin-left: auto;
+            display: flex;
+            gap: 20px; /* Increased gap */
+            padding-right: 0.5cm; /* Move the menu items 0.5cm to the left */
+            align-items: center;
+        }
+        .connection-info {
+            display: flex;
+            gap: 10px; /* Increased gap */
+            align-items: center;
+        }
+        .connection-info img {
+            height: 30px; /* Image height */
+            position: relative;
+            margin-left: 0.5cm; /* Move the image 1cm to the right */
+        }
+        .menu-item {
+            margin: 10px 0;
+            padding: 7px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #0645AD;
+            text-decoration: none;
+            text-align: center;
+            cursor: pointer;
+            vertical-align: bottom;
+        }
+        .menu-item img {
+            vertical-align: bottom;
+            height: 2em; /* Set image height to 2 times text height */
+            width: auto; /* Maintain aspect ratio */
+            margin-right: 2px;
+        }
+        .menu-item:hover {
+            background-color: #f0f0f0;
+        }
+        h1 {
+            font-size: 18px;
+            margin: 0;
+        }
+        .hidden {
+            display: none;
+        }
+        .selectedConfigName {
+            margin-left: 0.5cm; /* Move the text 1cm to the right */
+            color: #08aab0; 
+        }
+        .digital-font {
+            font-size: 16px; 
+            font-weight: bold;
+            color: #08aab0;
+        }
+        .separator {
+            height: 25px; /* Height of the separator */
+            border-left: 1px solid #ccc; /* Vertical separator */
+        }
+        .progress-bar {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50%;
+            height: 30px;
+            background-color: #e0f7fa;
+            border: 1px solid #b2ebf2;
+            border-radius: 5px;
+            overflow: hidden;
+            display: none; /* Initially hidden */
+        }
+        .progress-bar-inner {
+            height: 100%;
+            width: 0;
+            background-color: #81d4fa;
+            animation: progress-animation 2s linear infinite;
+        }
+        @keyframes progress-animation {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+        .error-message {
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+            z-index: 1000;
+        }
+    </style>
+    <script>
+        function updateTopMenu(configName, provider, region) {
+            const selectedConfigNameElement = document.getElementById('selectedConfigName');
+            const topMenuRight = document.querySelector('.top-menu-right');
+            if (!provider || provider === 'None') {
+                selectedConfigNameElement.innerHTML = '<h1 class="selectedConfigName">Please select a connection first.</h1>';
+                selectedConfigNameElement.classList.remove('hidden');
+                document.getElementById('selectedProvider').innerHTML = '';
+                document.getElementById('selectedRegion').innerHTML = '';
+                document.querySelector('.dynamic-menu').innerHTML = '';
+            } else {
+                const providerImg = `<img src="/spider/adminweb/images/${provider.toLowerCase()}.png" alt="${configName}" title="${configName}">`;
+                selectedConfigNameElement.innerHTML = configName;
+                selectedConfigNameElement.classList.add('hidden');
+                document.getElementById('selectedProvider').innerHTML = providerImg;
+                document.getElementById('selectedRegion').innerHTML = '<div class="digital-font">' + region + '</div>';
+                
+                const dynamicMenuHtml = `
+                    <a href="/spider/adminweb/regionzone/${configName}" target="body_frame" class="menu-item" id="region-zone-menu" onclick="selectMainMenu('region-zone')">
+                        <img id="region-zone-img" src="/spider/adminweb/images/top-menu/region-zone.png" alt="Region/Zone Icon">Region/Zone
+                    </a>
+                    <a href="/spider/adminweb/priceinfo/${configName}" target="body_frame" class="menu-item" id="price-menu" onclick="selectMainMenu('price')">
+                        <img id="price-img" src="/spider/adminweb/images/top-menu/price.png" alt="Price Icon">Price
+                    </a>
+                    <a href="/spider/adminweb/vmimage/${configName}" target="body_frame" class="menu-item" id="vm-image-menu" onclick="selectMainMenu('vm-image')">
+                        <img id="vm-image-img" src="/spider/adminweb/images/top-menu/vm-image.png" alt="VM Image Icon">VM image
+                    </a>
+                    <a href="/spider/adminweb/vmspec/${configName}" target="body_frame" class="menu-item" id="vm-specs-menu" onclick="selectMainMenu('vm-specs')">
+                        <img id="vm-specs-img" src="/spider/adminweb/images/top-menu/vm-specs.png" alt="VM Specs Icon">VM Specs
+                    </a>
+                `;
+                document.querySelector('.dynamic-menu').innerHTML = dynamicMenuHtml;
+            }
+            sessionStorage.setItem('selectedConfigName', configName);
+            sessionStorage.setItem('selectedProvider', provider);
+            sessionStorage.setItem('selectedRegion', region);
+        }
+
+        function showProgressBar() {
+            const progressBar = document.querySelector('.progress-bar');
+            progressBar.style.display = 'block';
+        }
+
+        function hideProgressBar() {
+            const progressBar = document.querySelector('.progress-bar');
+            progressBar.style.display = 'none';
+        }
+
+        function showError(message) {
+            const errorMessage = document.querySelector('.error-message');
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            setTimeout(() => {
+                errorMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        function selectMainMenu(selectedMenu) {
+            showProgressBar();
+            const menus = ['region-zone', 'price', 'vm-image', 'vm-specs'];
+            menus.forEach(menu => {
+                const imgElement = document.getElementById(menu + '-img');
+                if (menu === selectedMenu) {
+                    imgElement.src = `/spider/adminweb/images/top-menu/${menu}_selected.png`;
+                } else {
+                    imgElement.src = `/spider/adminweb/images/top-menu/${menu}.png`;
+                }
+            });
+            parent.frames['left_menu'].postMessage({ type: 'deselectLeftMenu' }, '*');
+            
+            const iframe = document.querySelector('iframe[name="body_frame"]');
+            iframe.onload = function() {
+                hideProgressBar();
+            };
+            iframe.onerror = function() {
+                hideProgressBar();
+                showError('Failed to load the page. Please try again.');
+            };
+        }
+
+        window.addEventListener('message', function(event) {
+            if (event.data.type === 'deselectMainMenu') {
+                const menus = ['region-zone', 'price', 'vm-image', 'vm-specs'];
+                menus.forEach(menu => {
+                    const imgElement = document.getElementById(menu + '-img');
+                    imgElement.src = `/spider/adminweb/images/top-menu/${menu}.png`;
+                });
+            }
+        });
+
+        window.addEventListener('message', function(event) {
+            if (event.data.type === 'updateTopMenu') {
+                updateTopMenu(event.data.configName, event.data.provider, event.data.region);
+            }
+        });
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div class="left-menu">
+            <iframe src="/spider/adminweb/left_menu" name="left_menu"></iframe>
+        </div>
+        <div class="right-content">
+            <div class="top-menu">
+                <div class="connection-info">
+                    <div id="selectedConfigName" class=""><h1 class="selectedConfigName">Please select a connection first.</h1></div>
+                    <div id="selectedProvider"></div>
+                    <div id="selectedRegion"></div>
+                </div>
+                <div class="top-menu-right">
+                    <div class="dynamic-menu"></div>
+                    <div class="separator"></div>
+                    <div class="dropdown">
+                        <span>help</span>
+                        <div class="dropdown-content">
+                            <a href="https://github.com/cloud-barista/cb-spider" target="_blank">Github</a>
+                            <a href="https://github.com/cloud-barista/cb-spider/wiki" target="_blank">Wiki</a>
+                            <a href="https://github.com/cloud-barista/cb-spider/wiki/CB-Spider-User-Interface" target="_blank">API Docs</a>
+                        </div>
+                    </div>
+                    <div class="dropdown">
+                        <span>login</span>
+                        <div class="dropdown-content">
+                            <p>WIP</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="body-frame">
+                <iframe src="/spider/adminweb/body_frame" name="body_frame"></iframe>
+                <div class="progress-bar">
+                    <div class="progress-bar-inner"></div>
+                </div>
+                <div class="error-message"></div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

@@ -41,11 +41,13 @@ func (securityHandler *MockSecurityHandler) CreateSecurity(securityReqInfo irs.S
 	securityReqInfo.IId.SystemId = securityReqInfo.IId.NameId
 	securityReqInfo.VpcIID.SystemId = securityReqInfo.VpcIID.NameId
 	// (1) create securityInfo object
-	securityInfo := irs.SecurityInfo{securityReqInfo.IId,
-		securityReqInfo.VpcIID,
-		// deprecated; securityReqInfo.Direction,
-		securityReqInfo.SecurityRules,
-		nil, nil}
+	securityInfo := irs.SecurityInfo{
+		IId:           securityReqInfo.IId,
+		VpcIID:        securityReqInfo.VpcIID,
+		SecurityRules: securityReqInfo.SecurityRules,
+		TagList:       securityReqInfo.TagList,
+		KeyValueList:  nil,
+	}
 
 	// (2) insert SecurityInfo into global Map
 	sgMapLock.Lock()
@@ -79,12 +81,10 @@ func CloneSecurityInfo(srcInfo irs.SecurityInfo) irs.SecurityInfo {
 
 	// clone SecurityInfo
 	clonedInfo := irs.SecurityInfo{
-		IId:    irs.IID{srcInfo.IId.NameId, srcInfo.IId.SystemId},
-		VpcIID: irs.IID{srcInfo.VpcIID.NameId, srcInfo.VpcIID.SystemId},
-		// deprecated; Direction: srcInfo.Direction,
-
-		// Need not clone
+		IId:           irs.IID{srcInfo.IId.NameId, srcInfo.IId.SystemId},
+		VpcIID:        irs.IID{srcInfo.VpcIID.NameId, srcInfo.VpcIID.SystemId},
 		SecurityRules: srcInfo.SecurityRules,
+		TagList:       srcInfo.TagList, // clone TagList
 		KeyValueList:  srcInfo.KeyValueList,
 	}
 
@@ -224,13 +224,12 @@ func (securityHandler *MockSecurityHandler) RemoveRules(sgIID irs.IID, securityR
 	}
 
 	for _, info := range infoList {
-		if (*info).IId.NameId == sgIID.NameId {
+		if info.IId.NameId == sgIID.NameId {
 			for idx := len(*info.SecurityRules) - 1; idx >= 0; idx-- {
 				ruleInfo := (*info.SecurityRules)[idx]
 				for _, reqRuleInfo := range *securityRules {
 					if isEqualRule(&ruleInfo, &reqRuleInfo) {
 						*info.SecurityRules = removeRule(info.SecurityRules, idx)
-						//return true, nil
 					}
 				}
 			}

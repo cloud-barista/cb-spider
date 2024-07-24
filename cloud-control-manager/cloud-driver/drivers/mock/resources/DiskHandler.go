@@ -94,6 +94,7 @@ func CloneDiskInfo(srcInfo irs.DiskInfo) irs.DiskInfo {
 		Status:       srcInfo.Status,
 		OwnerVM:      irs.IID{srcInfo.OwnerVM.NameId, srcInfo.OwnerVM.SystemId},
 		CreatedTime:  srcInfo.CreatedTime,
+		TagList:      srcInfo.TagList,      // clone TagList
 		KeyValueList: srcInfo.KeyValueList, // now, do not need cloning
 	}
 

@@ -1,18 +1,6 @@
-// Cloud Driver Interface of CB-Spider.
-// The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
-// The CB-Spider Mission is to connect all the clouds with a single interface.
-//
-//      * Cloud-Barista: https://github.com/cloud-barista
-//
-// This is Mock Driver.
-//
-// by CB-Spider Team, 2020.05.
-
 package connect
 
 import (
-	"errors"
-
 	cblog "github.com/cloud-barista/cb-log"
 	mkrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/mock/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -95,7 +83,9 @@ func (cloudConn *MockConnection) CreateDiskHandler() (irs.DiskHandler, error) {
 }
 
 func (cloudConn *MockConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
-	return nil, errors.New("Mock Driver: not implemented")
+	cblogger.Info("Mock Driver: called CreateClusterHandler()!")
+	handler := mkrs.MockClusterHandler{cloudConn.MockName}
+	return &handler, nil
 }
 
 func (cloudConn *MockConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
@@ -124,5 +114,7 @@ func (cloudConn *MockConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler,
 }
 
 func (cloudConn *MockConnection) CreateTagHandler() (irs.TagHandler, error) {
-	return nil, errors.New("Mock Driver: not implemented")
+	cblogger.Info("Mock Driver: called CreateTagHandler()!")
+	handler := mkrs.MockTagHandler{MockName: cloudConn.MockName}
+	return &handler, nil
 }
