@@ -6,6 +6,7 @@ import (
 
 	cs "github.com/alibabacloud-go/cs-20151215/v4/client" // cs  : container service
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs" // ecs : elastic compute service
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -13,9 +14,10 @@ import (
 )
 
 type AlibabaTagHandler struct {
-	Region   idrv.RegionInfo
-	Client   *ecs.Client
-	CsClient *cs.Client
+	Region    idrv.RegionInfo
+	Client    *ecs.Client
+	CsClient  *cs.Client
+	VpcClient *vpc.Client
 }
 
 type AliTagResponse struct {
@@ -50,6 +52,8 @@ type AliTagResourcesResponse struct {
 	PageNumber      int             `json:"PageNumber" xml:"PageNumber"`
 	TotalCount      int             `json:"TotalCount" xml:"TotalCount"`
 	AliTagResources AliTagResources `json:"Resources" xml:"Resources"`
+
+	// AliTagResources AliTagResources `json:"Resources" xml:"Resources"`
 }
 
 type AliResourceTypeCount struct {
@@ -72,6 +76,88 @@ type DescribeTagsResponse struct {
 	PageSize   int                    `json:"PageSize" xml:"PageSize"`
 	PageNumber int                    `json:"PageNumber" xml:"PageNumber"`
 	Tags       ecs.TagsInDescribeTags `json:"Tags" xml:"Tags"`
+}
+type DescribeVpcsResponse struct {
+	TotalCount int    `json:"TotalCount"`
+	PageSize   int    `json:"PageSize"`
+	RequestId  string `json:"RequestId"`
+	PageNumber int    `json:"PageNumber"`
+	Vpcs       struct {
+		Vpc []struct {
+			Status          string `json:"Status"`
+			IsDefault       bool   `json:"IsDefault"`
+			CenStatus       string `json:"CenStatus"`
+			Description     string `json:"Description"`
+			ResourceGroupId string `json:"ResourceGroupId"`
+			VSwitchIds      struct {
+				VSwitchId []string `json:"VSwitchId"`
+			} `json:"VSwitchIds"`
+			SecondaryCidrBlocks struct {
+				SecondaryCidrBlock []string `json:"SecondaryCidrBlock"`
+			} `json:"SecondaryCidrBlocks"`
+			CidrBlock      string `json:"CidrBlock"`
+			RouterTableIds struct {
+				RouterTableIds []string `json:"RouterTableIds"`
+			} `json:"RouterTableIds"`
+			UserCidrs struct {
+				UserCidr []string `json:"UserCidr"`
+			} `json:"UserCidrs"`
+			NetworkAclNum    int    `json:"NetworkAclNum"`
+			AdvancedResource bool   `json:"AdvancedResource"`
+			VRouterId        string `json:"VRouterId"`
+			NatGatewayIds    struct {
+				NatGatewayIds []string `json:"NatGatewayIds"`
+			} `json:"NatGatewayIds"`
+			VpcId         string `json:"VpcId"`
+			OwnerId       int64  `json:"OwnerId"`
+			CreationTime  string `json:"CreationTime"`
+			VpcName       string `json:"VpcName"`
+			EnabledIpv6   bool   `json:"EnabledIpv6"`
+			RegionId      string `json:"RegionId"`
+			Ipv6CidrBlock string `json:"Ipv6CidrBlock"`
+			Tags          struct {
+				Tag []struct {
+					Value string `json:"Value"`
+					Key   string `json:"Key"`
+				} `json:"Tag"`
+			} `json:"Tags"`
+		} `json:"Vpc"`
+	} `json:"Vpcs"`
+}
+type DescribeVSwitchesResponse struct {
+	TotalCount int    `json:"TotalCount"`
+	PageSize   int    `json:"PageSize"`
+	RequestId  string `json:"RequestId"`
+	PageNumber int    `json:"PageNumber"`
+	VSwitches  struct {
+		VSwitch []struct {
+			Status                  string `json:"Status"`
+			IsDefault               bool   `json:"IsDefault"`
+			Description             string `json:"Description"`
+			ResourceGroupId         string `json:"ResourceGroupId"`
+			ZoneId                  string `json:"ZoneId"`
+			NetworkAclId            string `json:"NetworkAclId"`
+			AvailableIpAddressCount int    `json:"AvailableIpAddressCount"`
+			VSwitchId               string `json:"VSwitchId"`
+			CidrBlock               string `json:"CidrBlock"`
+			RouteTable              struct {
+				RouteTableId   string `json:"RouteTableId"`
+				RouteTableType string `json:"RouteTableType"`
+			} `json:"RouteTable"`
+			VpcId         string `json:"VpcId"`
+			OwnerId       int64  `json:"OwnerId"`
+			CreationTime  string `json:"CreationTime"`
+			VSwitchName   string `json:"VSwitchName"`
+			Ipv6CidrBlock string `json:"Ipv6CidrBlock"`
+			Tags          struct {
+				Tag []struct {
+					Value string `json:"Value"`
+					Key   string `json:"Key"`
+				} `json:"Tag"`
+			} `json:"Tags"`
+			ShareType string `json:"ShareType"`
+		} `json:"VSwitch"`
+	} `json:"VSwitches"`
 }
 
 /*
@@ -243,8 +329,8 @@ func (tagHandler *AlibabaTagHandler) ListTag(resType irs.RSType, resIID irs.IID)
 		resTagResources := AliTagResourcesResponse{}
 
 		cblogger.Debug("resTagResources ", resTagResources)
-		cblogger.Debug("resTagResources.AliTagResources ", resTagResources.AliTagResources)
-		cblogger.Debug("resTagResources.AliTagResources.Resources ", resTagResources.AliTagResources.Resources)
+		// cblogger.Debug("resTagResources.AliTagResources ", resTagResources.AliTagResources)
+		// cblogger.Debug("resTagResources.AliTagResources.Resources ", resTagResources.AliTagResources.Resources)
 
 		for _, aliTagResource := range response.TagResource {
 			cblogger.Debug("aliTagResource ", aliTagResource)
@@ -335,8 +421,8 @@ func (tagHandler *AlibabaTagHandler) GetTag(resType irs.RSType, resIID irs.IID, 
 		resTagResources := AliTagResourcesResponse{}
 
 		cblogger.Debug("resTagResources ", resTagResources)
-		cblogger.Debug("resTagResources.AliTagResources ", resTagResources.AliTagResources)
-		cblogger.Debug("resTagResources.AliTagResources.Resources ", resTagResources.AliTagResources.Resources)
+		// cblogger.Debug("resTagResources.AliTagResources ", resTagResources.AliTagResources)
+		// cblogger.Debug("resTagResources.AliTagResources.Resources ", resTagResources.AliTagResources.Resources)
 
 		for _, aliTagResource := range response.TagResource {
 			cblogger.Debug("aliTagResource ", aliTagResource)
@@ -428,205 +514,158 @@ func (tagHandler *AlibabaTagHandler) RemoveTag(resType irs.RSType, resIID irs.II
 // if you want to find all tags, set keyword to "" or "*".
 // 해당 Resource Type에 tag가 있는 것들. ListTag는 resourceId가 있으나 당 function은 더 넒음
 func (tagHandler *AlibabaTagHandler) FindTag(resType irs.RSType, keyword string) ([]*irs.TagInfo, error) {
+
 	var tagInfoList []*irs.TagInfo
 
-	//start := call.Start()
-	//regionID := tagHandler.Region.Region
-	//regionID = "ap-northeast-1" // for the test
-
-	// alibabaResourceType, err := GetAlibabaResourceType(resType)
-	// if err != nil {
-	// 	return tagInfoList, err
-	// }
-
-	// alibabaApiType, err := GetAliTargetApi(resType)
-	// if err != nil {
-	// 	return tagInfoList, err
-	// }
-
-	// switch alibabaApiType {
-	// case "ecs":
-
-	// 	queryParams := map[string]string{}
-	// 	queryParams["RegionId"] = regionID
-	// 	queryParams["ResourceType"] = alibabaResourceType //string(resType)
-	// 	queryParams["Tag.1.Key"] = keyword
-
-	// 	start := call.Start()
-	// 	response, err := CallEcsRequest(resType, tagHandler.Client, tagHandler.Region, "DescribeResourceByTags", queryParams)
-	// 	LoggingInfo(hiscallInfo, start)
-
-	// 	if err != nil {
-	// 		cblogger.Error(err.Error())
-	// 		LoggingError(hiscallInfo, err)
-	// 	}
-	// 	cblogger.Debug(response.GetHttpContentString())
-
-	// 	resTagResources := AliTagResourcesResponse{}
-
-	// 	tagResponseStr := response.GetHttpContentString()
-	// 	err = json.Unmarshal([]byte(tagResponseStr), &resTagResources)
-	// 	if err != nil {
-	// 		cblogger.Error(err.Error())
-	// 		return tagInfoList, nil
-	// 	}
-	// 	cblogger.Debug("resTagResources ", resTagResources)
-	// 	cblogger.Debug("resTagResources.AliTagResources ", resTagResources.AliTagResources)
-	// 	cblogger.Debug("resTagResources.AliTagResources.Resources ", resTagResources.AliTagResources.Resources)
-
-	// 	for _, aliTagResource := range resTagResources.AliTagResources.Resources {
-	// 		cblogger.Debug("aliTagResource ", aliTagResource)
-	// 		aTagInfo, err := ExtractTagResourceInfo(&aliTagResource)
-	// 		if err != nil {
-	// 			cblogger.Error(err.Error())
-	// 			continue
-	// 		}
-
-	// 		aTagInfo.ResType = resType
-
-	// 		cblogger.Debug("tagInfo ", aTagInfo)
-	// 		tagInfoList = append(tagInfoList, &aTagInfo)
-	// 	}
-	// case "cs": // cs : container service
-	// 	clusters, err := aliDescribeClustersV1(tagHandler.CsClient, regionID)
-	// 	if err != nil {
-	// 		cblogger.Error(err)
-	// 		LoggingError(hiscallInfo, err)
-	// 		return nil, err
-	// 	}
-
-	// 	//cblogger.Debug("clusters ", clusters)
-	// 	// 모든 cluster를 돌면서 Tag 찾기
-	// 	for _, cluster := range clusters {
-	// 		cblogger.Debug("inCluster ")
-	// 		for _, aliTag := range cluster.Tags {
-	// 			//cblogger.Debug("aliTag ", aliTag)
-	// 			//cblogger.Debug("keyword ", keyword)
-	// 			//cblogger.Debug("aliTag.Key ", *(aliTag.Key))
-	// 			if *(aliTag.Key) == keyword {
-	// 				var tagInfo irs.TagInfo
-	// 				tagInfo.ResIId = irs.IID{SystemId: *cluster.ClusterId}
-	// 				tagInfo.ResType = resType
-
-	// 				tagList := []irs.KeyValue{}
-	// 				tagList = append(tagList, irs.KeyValue{Key: "TagKey", Value: *aliTag.Key})
-	// 				tagList = append(tagList, irs.KeyValue{Key: "TagValue", Value: *aliTag.Value})
-	// 				tagInfo.TagList = tagList
-	// 				//cblogger.Debug("append Tag ", &tagInfo)
-	// 				tagInfoList = append(tagInfoList, &tagInfo)
-	// 			}
-	// 		}
-	// 	}
-	// }
-
-	switch string(resType) {
-	case "ALL":
-		// for 모든 resource
-	default:
-
-		tagInfo, err := FindTag(tagHandler, resType, keyword)
-		if err != nil {
-			cblogger.Error(err.Error())
-			return tagInfoList, err
-		}
-		tagInfoList = append(tagInfoList, tagInfo)
-	}
-
-	return tagInfoList, nil
-}
-
-// 1개의 resource Type에 대한 Tag 정보
-func FindTag(tagHandler *AlibabaTagHandler, resType irs.RSType, keyword string) (*irs.TagInfo, error) {
-	hiscallInfo := GetCallLogScheme(tagHandler.Region, call.TAG, keyword, "FindTag()")
-	var tagInfo *irs.TagInfo
-
+	regionInfo := tagHandler.Region
 	regionID := tagHandler.Region.Region
 
 	alibabaResourceType, err := GetAlibabaResourceType(resType)
+
 	if err != nil {
-		return tagInfo, err
+		return tagInfoList, err
 	}
 
-	alibabaApiType, err := GetAliTargetApi(resType)
-	if err != nil {
-		return tagInfo, err
-	}
+	cblogger.Debug("resType : ", resType)
+	switch resType {
 
-	switch alibabaApiType {
-	case "ecs":
-
-		queryParams := map[string]string{}
-		queryParams["RegionId"] = regionID
-		queryParams["ResourceType"] = alibabaResourceType //string(resType)
-		queryParams["Tag.1.Key"] = keyword
-
-		start := call.Start()
-		response, err := CallEcsRequest(resType, tagHandler.Client, tagHandler.Region, "DescribeResourceByTags", queryParams)
-		LoggingInfo(hiscallInfo, start)
-
-		if err != nil {
-			cblogger.Error(err.Error())
-			LoggingError(hiscallInfo, err)
-		}
-		cblogger.Debug(response.GetHttpContentString())
-
-		resTagResources := AliTagResourcesResponse{}
-
-		tagResponseStr := response.GetHttpContentString()
-		err = json.Unmarshal([]byte(tagResponseStr), &resTagResources)
-		if err != nil {
-			cblogger.Error(err.Error())
-			return tagInfo, nil
-		}
-		cblogger.Debug("resTagResources ", resTagResources)
-		cblogger.Debug("resTagResources.AliTagResources ", resTagResources.AliTagResources)
-		cblogger.Debug("resTagResources.AliTagResources.Resources ", resTagResources.AliTagResources.Resources)
-
-		for _, aliTagResource := range resTagResources.AliTagResources.Resources {
-			cblogger.Debug("aliTagResource ", aliTagResource)
-			aTagInfo, err := ExtractTagResourceInfo(&aliTagResource)
-			if err != nil {
-				cblogger.Error(err.Error())
-				continue
-			}
-
-			aTagInfo.ResType = resType
-
-			cblogger.Debug("tagInfo ", aTagInfo)
-			tagInfo = &aTagInfo
-		}
-	case "cs": // cs : container service
-		clusters, err := aliDescribeClustersV1(tagHandler.CsClient, regionID)
+	case "VM", irs.VM:
+		responseTagList, err := aliEcsTagList(tagHandler.Client, regionInfo, alibabaResourceType, resType, keyword)
 		if err != nil {
 			cblogger.Error(err)
-			LoggingError(hiscallInfo, err)
-			return nil, err
 		}
+		cblogger.Debug("aliEcsTag response : ", responseTagList)
 
-		//cblogger.Debug("clusters ", clusters)
-		// 모든 cluster를 돌면서 Tag 찾기
-		for _, cluster := range clusters {
-			cblogger.Debug("inCluster ")
-			for _, aliTag := range cluster.Tags {
-				//cblogger.Debug("aliTag ", aliTag)
-				//cblogger.Debug("keyword ", keyword)
-				//cblogger.Debug("aliTag.Key ", *(aliTag.Key))
-				if *(aliTag.Key) == keyword {
-					var aTagInfo irs.TagInfo
-					aTagInfo.ResIId = irs.IID{SystemId: *cluster.ClusterId}
-					aTagInfo.ResType = resType
+		tagInfoList = append(tagInfoList, responseTagList...)
 
-					tagList := []irs.KeyValue{}
-					tagList = append(tagList, irs.KeyValue{Key: "TagKey", Value: *aliTag.Key})
-					tagList = append(tagList, irs.KeyValue{Key: "TagValue", Value: *aliTag.Value})
-					aTagInfo.TagList = tagList
-					//cblogger.Debug("append Tag ", &tagInfo)
-					tagInfo = &aTagInfo
+	case "KEY", irs.KEY:
+		responseTagList, err := aliEcsTagList(tagHandler.Client, regionInfo, alibabaResourceType, resType, keyword)
+		if err != nil {
+			cblogger.Error(err)
+		}
+		cblogger.Debug("aliEcsTag response : ", responseTagList)
+
+		tagInfoList = append(tagInfoList, responseTagList...)
+
+	case "SG", irs.SG:
+		responseTagList, err := aliEcsTagList(tagHandler.Client, regionInfo, alibabaResourceType, resType, keyword)
+		if err != nil {
+			cblogger.Error(err)
+		}
+		cblogger.Debug("aliEcsTag response : ", responseTagList)
+
+		tagInfoList = append(tagInfoList, responseTagList...)
+
+	case "DISK", irs.DISK:
+		responseTagList, err := aliEcsTagList(tagHandler.Client, regionInfo, alibabaResourceType, resType, keyword)
+		if err != nil {
+			cblogger.Error(err)
+		}
+		cblogger.Debug("aliEcsTag response : ", responseTagList)
+
+		tagInfoList = append(tagInfoList, responseTagList...)
+
+	case "MYIMAGE", irs.MYIMAGE:
+		responseTagList, err := aliMyImageTagList(tagHandler.Client, regionInfo, keyword)
+		if err != nil {
+			cblogger.Error(err)
+		}
+		cblogger.Debug("aliEcsTag response : ", responseTagList)
+
+		tagInfoList = append(tagInfoList, responseTagList...)
+
+	case "VPC", irs.VPC:
+		responseTagList, err := aliVpcTagList(tagHandler.VpcClient, regionInfo, alibabaResourceType, resType, keyword)
+		if err != nil {
+			cblogger.Error(err)
+		}
+		cblogger.Debug("aliEcsTag response : ", responseTagList)
+
+		tagInfoList = append(tagInfoList, responseTagList...)
+
+	case "SUBNET", irs.SUBNET:
+		responseTagList, err := aliSubnetTagList(tagHandler.VpcClient, regionInfo, alibabaResourceType, resType, keyword)
+		if err != nil {
+			cblogger.Error(err)
+		}
+		cblogger.Debug("aliEcsTag response : ", responseTagList)
+
+		tagInfoList = append(tagInfoList, responseTagList...)
+
+	case "CLUSTER", irs.CLUSTER: // cs : container service
+		responseTagList, err := aliClusterTagList(tagHandler.CsClient, regionInfo, resType, keyword)
+		if err != nil {
+			cblogger.Error(err)
+		}
+		cblogger.Debug("aliEcsTag response : ", responseTagList)
+
+		tagInfoList = append(tagInfoList, responseTagList...)
+
+	case "ALL", irs.ALL:
+		// 모든 자원 유형을 포함하는 슬라이스를 선언
+		allResourceTypes := []irs.RSType{irs.VM, irs.KEY, irs.SG, irs.DISK, irs.MYIMAGE, irs.VPC, irs.SUBNET, irs.CLUSTER}
+
+		// 각 자원 유형별로 태그 정보 조회
+		for _, resourceType := range allResourceTypes {
+			switch resourceType {
+			case irs.VM, irs.KEY, irs.SG, irs.DISK:
+				responseTagList, err := aliEcsTagList(tagHandler.Client, regionInfo, alibabaResourceType, resourceType, keyword)
+				if err != nil {
+					cblogger.Errorf("Error retrieving tags for %s: %v", resourceType, err)
+				} else {
+					tagInfoList = append(tagInfoList, responseTagList...)
+				}
+
+			case irs.MYIMAGE:
+				responseTagList, err := aliMyImageTagList(tagHandler.Client, regionInfo, keyword)
+				if err != nil {
+					cblogger.Errorf("Error retrieving tags for MYIMAGE: %v", err)
+				} else {
+					tagInfoList = append(tagInfoList, responseTagList...)
+				}
+
+			case irs.VPC:
+				responseTagList, err := aliVpcTagList(tagHandler.VpcClient, regionInfo, alibabaResourceType, resourceType, keyword)
+				if err != nil {
+					cblogger.Errorf("Error retrieving tags for VPC: %v", err)
+				} else {
+					tagInfoList = append(tagInfoList, responseTagList...)
+				}
+
+			case irs.SUBNET:
+				responseTagList, err := aliSubnetTagList(tagHandler.VpcClient, regionInfo, alibabaResourceType, resourceType, keyword)
+				if err != nil {
+					cblogger.Errorf("Error retrieving tags for SUBNET: %v", err)
+				} else {
+					tagInfoList = append(tagInfoList, responseTagList...)
+				}
+
+			case irs.CLUSTER:
+				// CLUSTER 태그 정보 조회 로직
+				clusters, err := aliDescribeClustersV1(tagHandler.CsClient, regionID)
+				if err != nil {
+					cblogger.Errorf("Error retrieving clusters: %v", err)
+				} else {
+					for _, cluster := range clusters {
+						for _, aliTag := range cluster.Tags {
+							if *(aliTag.Key) == keyword {
+								aTagInfo := irs.TagInfo{
+									ResIId:  irs.IID{SystemId: *cluster.ClusterId},
+									ResType: resourceType,
+									TagList: []irs.KeyValue{
+										{Key: "TagKey", Value: *aliTag.Key},
+										{Key: "TagValue", Value: *aliTag.Value},
+									},
+								}
+								tagInfoList = append(tagInfoList, &aTagInfo)
+							}
+						}
+					}
 				}
 			}
 		}
 	}
-	return tagInfo, nil
+	return tagInfoList, nil
 }
 
 /*
@@ -690,7 +729,6 @@ func ExtractTagResourceInfo(tagResource *AliTagResource) (irs.TagInfo, error) {
 	//cblogger.Debug("tag ", aliTag)
 	//cblogger.Debug("TagKey ", aliTag.TagKey)
 	//cblogger.Debug("TagValue ", aliTag.TagValue)
-
 	tagInfo.ResType = irs.RSType(tagResource.ResourceType)
 	tagInfo.ResIId = irs.IID{SystemId: tagResource.ResourceId}
 

@@ -358,18 +358,20 @@ func DescribeImages(client *ecs.Client, regionInfo idrv.RegionInfo, imageIIDs []
 	request.RegionId = regionInfo.Region
 
 	var imageIIDList []string
-	for _, imageIID := range imageIIDs {
-		imageIIDList = append(imageIIDList, imageIID.SystemId)
-	}
+	if imageIIDs != nil {
+		for _, imageIID := range imageIIDs {
+			imageIIDList = append(imageIIDList, imageIID.SystemId)
+		}
 
-	if len(imageIIDList) > 0 {
-		request.ImageId = strings.Join(imageIIDList, ",")
+		if len(imageIIDList) > 0 {
+			request.ImageId = strings.Join(imageIIDList, ",")
+		}
 	}
-
 	// MyImage 여부
 	if isMyImage {
 		request.ImageOwnerAlias = "self"
 	}
+
 	//cblogger.Debug(request)
 	result, err := client.DescribeImages(request)
 	if err != nil {
@@ -1033,8 +1035,11 @@ func DescribeDescribeVpcTags(client *vpc.Client, regionInfo idrv.RegionInfo, res
 // EcsRequest : Elastic Compute Service(ECS)
 func CallEcsRequest(resType irs.RSType, client *ecs.Client, regionInfo idrv.RegionInfo, apiName string, queryParams map[string]string) (*responses.CommonResponse, error) {
 	regionID := regionInfo.Region
-
-	apiProductCode, err := GetAlibabaProductCode(irs.RSType(resType))
+	apiProductCode, err := GetAlibabaProductCode(resType)
+	if err != nil {
+		cblogger.Error(err.Error())
+		return nil, err
+	}
 
 	// call logger set
 	callogger := call.GetLogger("HISCALL")
@@ -1052,26 +1057,23 @@ func CallEcsRequest(resType irs.RSType, client *ecs.Client, regionInfo idrv.Regi
 
 	request.Method = "POST"
 	request.Scheme = "https" // https | http
-	//request.Domain = "ecs.cn-hongkong.aliyuncs.com"
 	request.Domain = GetAlibabaApiEndPoint(regionID, apiProductCode)
 	request.Version = "2014-05-26"
 	request.ApiName = apiName
-	request.QueryParams["RegionId"] = regionID
+	request.QueryParams = queryParams
 
-	// Tag가 있으면
-	if queryParams != nil {
-		request.QueryParams = queryParams
-	}
+	cblogger.Debug("API Request : ", request)
 
 	callLogStart := call.Start()
 	response, err := client.ProcessCommonRequest(request)
-
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	callogger.Info(call.String(callLogInfo))
 	if err != nil {
 		cblogger.Error(err.Error())
 		return nil, err
 	}
+
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	callogger.Info(call.String(callLogInfo))
+
 	cblogger.Debug(response.GetHttpContentString())
 	return response, nil
 }
@@ -1097,9 +1099,8 @@ func CallVpcRequest(resType irs.RSType, client *vpc.Client, regionInfo idrv.Regi
 
 	request.Method = "POST"
 	request.Scheme = "https" // https | http
-	//request.Domain = "ecs.cn-hongkong.aliyuncs.com"
 	request.Domain = GetAlibabaApiEndPoint(regionID, apiProductCode)
-	request.Version = "2014-05-26"
+	request.Version = "2016-04-28"
 	request.ApiName = apiName
 	request.QueryParams["RegionId"] = regionID
 
@@ -1258,4 +1259,229 @@ func aliRemoveCsTag(csClient *cs.Client, regionInfo idrv.RegionInfo, resType irs
 	cblogger.Debug(tagResourcesResponse.Body)
 
 	return true, nil
+}
+
+// ALibaba tag 검색 for ecs
+// myimage는 aliMyImageTag() 사용
+func aliEcsTagList(Client *ecs.Client, regionInfo idrv.RegionInfo, alibabaResourceType string, resType irs.RSType, keyword string) ([]*irs.TagInfo, error) {
+	hiscallInfo := GetCallLogScheme(regionInfo, call.TAG, keyword, "FindTag()")
+	regionID := regionInfo.Region
+	var tagInfo []*irs.TagInfo
+
+	queryParams := map[string]string{}
+	queryParams["RegionId"] = regionID
+	queryParams["ResourceType"] = alibabaResourceType //string(resType)//keypair
+	if keyword != "" {
+		queryParams["Tag.1.Key"] = keyword
+		cblogger.Info("쿼리", queryParams)
+	}
+
+	start := call.Start()
+	response, err := CallEcsRequest(resType, Client, regionInfo, "DescribeResourceByTags", queryParams)
+	LoggingInfo(hiscallInfo, start)
+	if err != nil {
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+	}
+	cblogger.Debug(response.GetHttpContentString())
+	resResources := AliTagResourcesResponse{}
+
+	tagResponseStr := response.GetHttpContentString()
+	err = json.Unmarshal([]byte(tagResponseStr), &resResources)
+
+	if err != nil {
+		cblogger.Error(err.Error())
+		return tagInfo, nil
+	}
+
+	for _, aliTagResource := range resResources.AliTagResources.Resources {
+
+		cblogger.Debug("aliTagResource ", aliTagResource)
+		aTagInfo, err := ExtractTagResourceInfo(&aliTagResource)
+		if err != nil {
+			cblogger.Error(err.Error())
+			continue
+		}
+		cblogger.Info("aTagInfoaTagInfoaTagInfo", aTagInfo)
+		// api
+		aTagInfo.ResType = resType
+
+		queryParams := map[string]string{
+			"ResourceId": aTagInfo.ResIId.SystemId,
+		}
+		response, err := CallEcsRequest(resType, Client, regionInfo, "DescribeTags", queryParams)
+		if err != nil {
+			cblogger.Error(err.Error())
+			continue
+		}
+
+		var tagsResponse DescribeTagsResponse
+		err = json.Unmarshal([]byte(response.GetHttpContentString()), &tagsResponse)
+		if err != nil {
+			cblogger.Error("Failed to unmarshal response: ", err)
+			continue
+		}
+
+		aTagInfo.TagList = []irs.KeyValue{}
+		for _, tag := range tagsResponse.Tags.Tag {
+			aTagInfo.TagList = append(aTagInfo.TagList, irs.KeyValue{
+				Key:   tag.TagKey,
+				Value: tag.TagValue,
+			})
+		}
+
+		cblogger.Debug("Updated tagInfo ", aTagInfo)
+		tagInfo = append(tagInfo, &aTagInfo)
+	}
+	return tagInfo, nil
+}
+
+func aliMyImageTagList(Client *ecs.Client, regionInfo idrv.RegionInfo, keyword string) ([]*irs.TagInfo, error) {
+	var tagInfo []*irs.TagInfo
+	// TODO: keyword tag 검색 기능
+	res, err := DescribeImages(Client, regionInfo, nil, true)
+
+	cblogger.Info("resresresresres", err)
+	cblogger.Info("resresresresres", res)
+	// spew.Dump(res)
+
+	return tagInfo, nil
+}
+
+func aliVpcTagList(VpcClient *vpc.Client, regionInfo idrv.RegionInfo, alibabaResourceType string, resType irs.RSType, keyword string) ([]*irs.TagInfo, error) {
+	hiscallInfo := GetCallLogScheme(regionInfo, call.TAG, keyword, "FindTag()")
+	regionID := regionInfo.Region
+	var tagInfo []*irs.TagInfo
+
+	queryParams := map[string]string{}
+	queryParams["RegionId"] = regionID
+	queryParams["ResourceType"] = alibabaResourceType //string(resType)//keypair
+	// queryParams["Tag.1.Key"] = keyword
+	// cblogger.Info("쿼리", queryParams)
+
+	start := call.Start()
+
+	response, err := CallVpcRequest(resType, VpcClient, regionInfo, "DescribeVpcs", queryParams)
+	LoggingInfo(hiscallInfo, start)
+	if err != nil {
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+	}
+	cblogger.Debug(response.GetHttpContentString())
+	resResources := DescribeVpcsResponse{}
+
+	tagResponseStr := response.GetHttpContentString()
+	err = json.Unmarshal([]byte(tagResponseStr), &resResources)
+
+	if err != nil {
+		cblogger.Error(err.Error())
+		return tagInfo, nil
+	}
+
+	for _, vpc := range resResources.Vpcs.Vpc {
+		for _, tag := range vpc.Tags.Tag {
+			aliTagResource := AliTagResource{
+				ResourceType: "VPC",
+				ResourceId:   vpc.VpcId,
+				TagKey:       tag.Key,
+				TagValue:     tag.Value,
+			}
+			aTagInfo, err := ExtractTagResourceInfo(&aliTagResource)
+			if err != nil {
+				cblogger.Error(err.Error())
+				continue
+			}
+			tagInfo = append(tagInfo, &aTagInfo)
+		}
+	}
+	return tagInfo, nil
+}
+
+func aliSubnetTagList(VpcClient *vpc.Client, regionInfo idrv.RegionInfo, alibabaResourceType string, resType irs.RSType, keyword string) ([]*irs.TagInfo, error) {
+	hiscallInfo := GetCallLogScheme(regionInfo, call.TAG, keyword, "FindTag()")
+	regionID := regionInfo.Region
+	var tagInfo []*irs.TagInfo
+
+	queryParams := map[string]string{}
+	queryParams["RegionId"] = regionID
+	queryParams["ResourceType"] = alibabaResourceType //string(resType)//keypair
+	// queryParams["Tag.1.Key"] = keyword
+	// cblogger.Info("쿼리", queryParams)
+
+	start := call.Start()
+	response, err := CallVpcRequest(resType, VpcClient, regionInfo, "DescribeVSwitches", queryParams)
+	LoggingInfo(hiscallInfo, start)
+	if err != nil {
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+	}
+	cblogger.Debug(response.GetHttpContentString())
+	resResources := DescribeVSwitchesResponse{}
+
+	tagResponseStr := response.GetHttpContentString()
+	err = json.Unmarshal([]byte(tagResponseStr), &resResources)
+
+	if err != nil {
+		cblogger.Error("Failed to unmarshal response: ", err)
+	}
+
+	for _, vswitch := range resResources.VSwitches.VSwitch {
+		if len(vswitch.Tags.Tag) == 0 {
+			continue
+		}
+		for _, tag := range vswitch.Tags.Tag {
+			aliTagResource := AliTagResource{
+				ResourceType: "VSwitch",
+				ResourceId:   vswitch.VSwitchId,
+				TagKey:       tag.Key,
+				TagValue:     tag.Value,
+			}
+			cblogger.Debug("aliTagResourcealiTagResourcealiTagResourcealiTagResource", resType)
+
+			vswitchTagInfo, err := ExtractTagResourceInfo(&aliTagResource)
+			cblogger.Debug("vswitchTagInfovswitchTagInfovswitchTagInfo", vswitchTagInfo)
+			if err != nil {
+				cblogger.Error(err.Error())
+				continue
+			}
+			tagInfo = append(tagInfo, &vswitchTagInfo)
+		}
+	}
+	return tagInfo, nil
+}
+
+func aliClusterTagList(CsClient *cs.Client, regionInfo idrv.RegionInfo, resType irs.RSType, keyword string) ([]*irs.TagInfo, error) {
+	hiscallInfo := GetCallLogScheme(regionInfo, call.TAG, keyword, "FindTag()")
+	var tagInfoList []*irs.TagInfo
+
+	regionID := regionInfo.Region
+	clusters, err := aliDescribeClustersV1(CsClient, regionID)
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return nil, err
+	}
+	//cblogger.Debug("clusters ", clusters)
+	// 모든 cluster를 돌면서 Tag 찾기
+	for _, cluster := range clusters {
+		cblogger.Debug("inCluster ")
+		for _, aliTag := range cluster.Tags {
+			//cblogger.Debug("aliTag ", aliTag)
+			//cblogger.Debug("keyword ", keyword)
+			//cblogger.Debug("aliTag.Key ", *(aliTag.Key))
+			if *(aliTag.Key) == keyword {
+				var aTagInfo irs.TagInfo
+				aTagInfo.ResIId = irs.IID{SystemId: *cluster.ClusterId}
+				aTagInfo.ResType = resType
+
+				tagList := []irs.KeyValue{}
+				tagList = append(tagList, irs.KeyValue{Key: "TagKey", Value: *aliTag.Key})
+				tagList = append(tagList, irs.KeyValue{Key: "TagValue", Value: *aliTag.Value})
+				aTagInfo.TagList = tagList
+				//cblogger.Debug("append Tag ", &tagInfo)
+				// tagInfo = &aTagInfo
+			}
+		}
+	}
+	return tagInfoList, err
 }
