@@ -15,16 +15,21 @@ import (
 	"errors"
 	"strings"
 
+	taglib "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tag/v20180813"
+
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
+
+	tencentError "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/errors"
 )
 
 type TencentSecurityHandler struct {
-	Region idrv.RegionInfo
-	Client *vpc.Client
+	Region    idrv.RegionInfo
+	Client    *vpc.Client
+	TagClient *taglib.Client
 }
 
 type RuleAction string
@@ -150,6 +155,7 @@ func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo ir
 	}
 	//cblogger.Debug(response)
 	cblogger.Debug(response.ToJsonString())
+
 	callogger.Info(call.String(callLogInfo))
 
 	securityInfo, errSecurity := securityHandler.GetSecurity(irs.IID{SystemId: *defaultEgressResponse.Response.SecurityGroup.SecurityGroupId})
@@ -159,6 +165,37 @@ func (securityHandler *TencentSecurityHandler) CreateSecurity(securityReqInfo ir
 	}
 
 	securityInfo.IId.NameId = securityReqInfo.IId.NameId
+
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+	for _, tag := range securityReqInfo.TagList {
+		createTagReq := taglib.NewCreateTagRequest()
+		createTagReq.TagKey = common.StringPtr(tag.Key)
+		createTagReq.TagValue = common.StringPtr(tag.Value)
+		_, err := securityHandler.TagClient.CreateTag(createTagReq)
+		if err != nil && err.(*tencentError.TencentCloudSDKError).GetCode() != taglib.RESOURCEINUSE_TAGDUPLICATE {
+			msg := "createTag error has returned: " + err.Error() + " but, CreateSecurity is success.."
+			cblogger.Error(msg)
+			return securityInfo, err
+		}
+
+		attachTagReq := taglib.NewAttachResourcesTagRequest()
+		attachTagReq.ServiceType = common.StringPtr("cvm")
+		attachTagReq.ResourcePrefix = common.StringPtr("sg")
+		attachTagReq.ResourceRegion = common.StringPtr(securityHandler.Region.Region)
+		attachTagReq.ResourceIds = common.StringPtrs([]string{*defaultEgressResponse.Response.SecurityGroup.SecurityGroupId})
+		attachTagReq.TagKey = common.StringPtr(tag.Key)
+		attachTagReq.TagValue = common.StringPtr(tag.Value)
+		_, err = securityHandler.TagClient.AttachResourcesTag(attachTagReq)
+		if err != nil {
+			msg := "attachTag error has returned: " + err.Error() + " but, CreateSecurity is success.."
+			cblogger.Error(msg)
+			return securityInfo, err
+		}
+	}
+
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
 	return securityInfo, nil
 }
 

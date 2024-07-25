@@ -43,7 +43,7 @@ COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/conf/ /root/go/sr
 
 COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/api-runtime/cb-spider /root/go/src/github.com/cloud-barista/cb-spider/api-runtime/
 
-COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/api-runtime/rest-runtime/admin-web/images/cb-spider-circle-logo.png /root/go/src/github.com/cloud-barista/cb-spider/api-runtime/rest-runtime/admin-web/images/
+COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/api-runtime/rest-runtime/admin-web/images/ /root/go/src/github.com/cloud-barista/cb-spider/api-runtime/rest-runtime/admin-web/images/
 
 COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/api-runtime/rest-runtime/admin-web/html/ /root/go/src/github.com/cloud-barista/cb-spider/api-runtime/rest-runtime/admin-web/html/
 
@@ -52,10 +52,8 @@ COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/api-runtime/rest-
 ENV CBSPIDER_ROOT /root/go/src/github.com/cloud-barista/cb-spider
 ENV CBLOG_ROOT /root/go/src/github.com/cloud-barista/cb-spider
 ENV PLUGIN_SW OFF
-ENV MEERKAT OFF
 
 ENTRYPOINT [ "/root/go/src/github.com/cloud-barista/cb-spider/api-runtime/cb-spider" ]
 
 EXPOSE 1024
 EXPOSE 2048
-EXPOSE 4096

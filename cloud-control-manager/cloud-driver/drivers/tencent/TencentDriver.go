@@ -23,7 +23,11 @@ import (
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common/profile"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
+	tag "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tag/v20180813"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
+
+	tkeprofile "github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/common/profile"
+	tke "github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/tke/v20180525"
 
 	cblog "github.com/cloud-barista/cb-log"
 	"github.com/sirupsen/logrus"
@@ -62,9 +66,9 @@ func init() {
 
 func getVmClient(connectionInfo idrv.ConnectionInfo) (*cvm.Client, error) {
 	// setup Region
-	cblogger.Debug("TencentDriver : getVpcClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
-	cblogger.Debug("TencentDriver : getVpcClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
-	cblogger.Debug("TencentDriver : getVpcClient() - ClientId : [" + connectionInfo.CredentialInfo.ClientId + "]")
+	cblogger.Debug("TencentDriver : getVmClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	cblogger.Debug("TencentDriver : getVmClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
+	cblogger.Debug("TencentDriver : getVmClient() - ClientId : [" + connectionInfo.CredentialInfo.ClientId + "]")
 
 	zoneId := connectionInfo.RegionInfo.Zone
 	if len(zoneId) < 1 {
@@ -124,9 +128,9 @@ func getVpcClient(connectionInfo idrv.ConnectionInfo) (*vpc.Client, error) {
 
 func getClbClient(connectionInfo idrv.ConnectionInfo) (*clb.Client, error) {
 	// setup Region
-	cblogger.Debug("TencentDriver : getVpcClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
-	cblogger.Debug("TencentDriver : getVpcClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
-	cblogger.Debug("TencentDriver : getVpcClient() - ClientId : [" + connectionInfo.CredentialInfo.ClientId + "]")
+	cblogger.Debug("TencentDriver : getClbClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	cblogger.Debug("TencentDriver : getClbClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
+	cblogger.Debug("TencentDriver : getClbClient() - ClientId : [" + connectionInfo.CredentialInfo.ClientId + "]")
 
 	zoneId := connectionInfo.RegionInfo.Zone
 	if len(zoneId) < 1 {
@@ -155,9 +159,9 @@ func getClbClient(connectionInfo idrv.ConnectionInfo) (*clb.Client, error) {
 
 func getCbsClient(connectionInfo idrv.ConnectionInfo) (*cbs.Client, error) {
 	// setup Region
-	cblogger.Debug("TencentDriver : getVpcClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
-	cblogger.Debug("TencentDriver : getVpcClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
-	cblogger.Debug("TencentDriver : getVpcClient() - ClientId : [" + connectionInfo.CredentialInfo.ClientId + "]")
+	cblogger.Debug("TencentDriver : getCbsClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	cblogger.Debug("TencentDriver : getCbsClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
+	cblogger.Debug("TencentDriver : getCbsClient() - ClientId : [" + connectionInfo.CredentialInfo.ClientId + "]")
 
 	zoneId := connectionInfo.RegionInfo.Zone
 	if len(zoneId) < 1 {
@@ -175,6 +179,48 @@ func getCbsClient(connectionInfo idrv.ConnectionInfo) (*cbs.Client, error) {
 	cpf.Language = "en-US" //메시지를 영어로 설정
 	client, err := cbs.NewClient(credential, connectionInfo.RegionInfo.Region, cpf)
 
+	if err != nil {
+		cblogger.Error("Could not create New Session")
+		cblogger.Error(err)
+		return nil, err
+	}
+
+	return client, nil
+}
+
+func getTagClient(connectionInfo idrv.ConnectionInfo) (*tag.Client, error) {
+	cblogger.Debug("TencentDriver : getTagClient() - ClientId : [" + connectionInfo.CredentialInfo.ClientId + "]")
+
+	credential := common.NewCredential(
+		connectionInfo.CredentialInfo.ClientId,
+		connectionInfo.CredentialInfo.ClientSecret,
+	)
+
+	cpf := profile.NewClientProfile()
+	cpf.HttpProfile.Endpoint = "tag.tencentcloudapi.com"
+	cpf.Language = "en-US" //메시지를 영어로 설정
+	client, err := tag.NewClient(credential, "", cpf)
+	if err != nil {
+		cblogger.Error("Could not create New Session")
+		cblogger.Error(err)
+		return nil, err
+	}
+
+	return client, nil
+}
+
+func getClusterClient(connectionInfo idrv.ConnectionInfo) (*tke.Client, error) {
+	cblogger.Debug("TencentDriver : getClusterClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+	cblogger.Debug("TencentDriver : getClusterClient() - ClientId : [" + connectionInfo.CredentialInfo.ClientId + "]")
+
+	credential := common.NewCredential(
+		connectionInfo.CredentialInfo.ClientId,
+		connectionInfo.CredentialInfo.ClientSecret,
+	)
+
+	cpf := tkeprofile.NewClientProfile()
+	cpf.HttpProfile.Endpoint = "tke.tencentcloudapi.com"
+	client, err := tke.NewClient(credential, connectionInfo.RegionInfo.Region, cpf)
 	if err != nil {
 		cblogger.Error("Could not create New Session")
 		cblogger.Error(err)
@@ -219,6 +265,18 @@ func (driver *TencentDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		return nil, err
 	}
 
+	tagClient, err := getTagClient(connectionInfo)
+	if err != nil {
+		cblogger.Error(err)
+		return nil, err
+	}
+
+	clusterClient, err := getClusterClient(connectionInfo)
+	if err != nil {
+		cblogger.Error(err)
+		return nil, err
+	}
+
 	iConn := tcon.TencentCloudConnection{
 		CredentialInfo:   connectionInfo.CredentialInfo,
 		Region:           connectionInfo.RegionInfo,
@@ -232,9 +290,8 @@ func (driver *TencentDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		DiskClient:       cbsClient,
 		MyImageClient:    vmClient,
 		RegionZoneClient: vmClient,
-
-		//VNicClient:     vmClient,
-		//PublicIPClient: vmClient,
+		TagClient:        tagClient,
+		ClusterClient:    clusterClient,
 	}
 
 	return &iConn, nil // return type: (icon.CloudConnection, error)
