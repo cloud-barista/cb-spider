@@ -286,26 +286,26 @@ func GetAlibabaApiVPCEndpoint(regionId string, productCode string) string {
 // Alibaba에서 사용되는 리소스별 api product type
 func GetAlibabaProductCode(resType irs.RSType) (string, error) {
 	switch resType {
-	case irs.RSType("VM"), irs.VM:
+	case irs.VM:
 		return "ecs", nil
-	case irs.RSType("VPC"), irs.VPC:
+	case irs.VPC:
 		return "vpc", nil
-	case irs.RSType("SUBNET"), irs.SUBNET:
+	case irs.SUBNET:
 		// return "ecs", nil
 		return "vpc", nil
-	case irs.RSType("SG"), irs.SG:
+	case irs.SG:
 		return "ecs", nil
-	case irs.RSType("KEY"), irs.KEY:
+	case irs.KEY:
 		return "ecs", nil
-	case irs.RSType("NLB"), irs.NLB:
+	case irs.NLB:
 		return "slb", nil
-	case irs.RSType("DISK"), irs.DISK:
+	case irs.DISK:
 		return "ecs", nil
-	case irs.RSType("MYIMAGE"), irs.MYIMAGE:
+	case irs.MYIMAGE:
 		return "ecs", nil
-	case irs.RSType("CLUSTER"), irs.CLUSTER:
+	case irs.CLUSTER:
 		return "ack", nil
-	case irs.RSType("NODEGROUP"), irs.NODEGROUP:
+	case irs.NODEGROUP:
 		return "ack", nil
 	default:
 		//return "", nil
@@ -316,29 +316,29 @@ func GetAlibabaProductCode(resType irs.RSType) (string, error) {
 // cb-spider의 resourceType 을 alibaba의 resourceType으로
 func GetAlibabaResourceType(resType irs.RSType) (string, error) {
 	switch resType {
-	case irs.RSType("VM"), irs.VM:
+	case irs.VM:
 		return "instance", nil
-	case irs.RSType("VPC"), irs.VPC:
+	case irs.VPC:
 		return "vpc", nil
-	case irs.RSType("SUBNET"), irs.SUBNET:
+	case irs.SUBNET:
 		// return "ecs", nil
 		return "vpc", nil
-	case irs.RSType("SG"), irs.SG:
+	case irs.SG:
 		return "securitygroup", nil
-	case irs.RSType("KEY"), irs.KEY:
+	case irs.KEY:
 		return "keypair", nil
-	// case irs.RSType("NLB"):
+	// case irs.NLB:
 	// 	return "slb", nil
-	case irs.RSType("DISK"), irs.DISK:
+	case irs.DISK:
 		return "disk", nil
-	case irs.RSType("MYIMAGE"), irs.MYIMAGE:
+	case irs.MYIMAGE:
 		// return "snapshot", nil
 		return "ecs", nil
-	case irs.RSType("CLUSTER"), irs.CLUSTER:
+	case irs.CLUSTER:
 		return "CLUSTER", nil
-	case irs.RSType("ALL"), irs.ALL:
+	case irs.ALL:
 		return "", nil
-	// case irs.RSType("NODEGROUP"):
+	// case irs.NODEGROUP"
 	// 	return "", nil
 	default:
 		//return "", nil
@@ -356,27 +356,27 @@ func GetAlibabaResourceType(resType irs.RSType) (string, error) {
 // resource Type별로 바라보는 api가 다름. ( ecs, bss, ... )
 func GetAliTargetApi(resType irs.RSType) (string, error) {
 	switch resType {
-	case irs.RSType("VM"):
+	case irs.VM:
 		return "ecs", nil
-	case irs.RSType("VPC"):
+	case irs.VPC:
 		return "vpc", nil
-	case irs.RSType("SUBNET"):
+	case irs.SUBNET:
 		return "vpc", nil
-	case irs.RSType("SG"):
+	case irs.SG:
 		return "ecs", nil
-	case irs.RSType("KEY"):
+	case irs.KEY:
 		return "ecs", nil
-	case irs.RSType("NLB"):
+	case irs.NLB:
 		return "slb", nil
-	case irs.RSType("DISK"):
+	case irs.DISK:
 		return "ecs", nil
-	case irs.RSType("MYIMAGE"):
+	case irs.MYIMAGE:
 		return "ecs", nil
-	case irs.RSType("CLUSTER"):
+	case irs.CLUSTER:
 		return "cs", nil
-	case irs.RSType("ALL"):
+	case irs.ALL:
 		return "all", nil
-	// case irs.RSType("NODEGROUP"):
+	// case NODEGROUP"):
 	// 	return "", nil
 	default:
 		//return "", nil
