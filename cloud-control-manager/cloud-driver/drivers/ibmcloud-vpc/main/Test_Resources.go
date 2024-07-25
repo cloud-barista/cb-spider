@@ -4,6 +4,11 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"strconv"
+	"strings"
+
 	cblog "github.com/cloud-barista/cb-log"
 	ibm "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -11,10 +16,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
-	"io/ioutil"
-	"os"
-	"strconv"
-	"strings"
 )
 
 type Config struct {
@@ -256,7 +257,8 @@ func showTestHandlerInfo() {
 	cblogger.Info("10. RegionZoneHandler")
 	cblogger.Info("11. PriceInfoHandler")
 	cblogger.Info("12. ClusterHandler")
-	cblogger.Info("13. Exit")
+	cblogger.Info("13. TagHandler")
+	cblogger.Info("14. Exit")
 	cblogger.Info("==========================================================")
 }
 
@@ -307,7 +309,10 @@ func getResourceHandler(resourceType string, config Config) (interface{}, error)
 		resourceHandler, err = ibmCon.CreatePriceInfoHandler()
 	case "cluster":
 		resourceHandler, err = ibmCon.CreateClusterHandler()
+	case "tag":
+		resourceHandler, err = ibmCon.CreateTagHandler()
 	}
+
 
 	return resourceHandler, nil
 }
@@ -1716,6 +1721,118 @@ Loop:
 	}
 }
 
+func testTagHandlerListPrint() {
+	cblogger.Info("Test TagHandler")
+	cblogger.Info("0. Menu")
+	cblogger.Info("1. ListTag()")
+	cblogger.Info("2. GetTag()")
+	cblogger.Info("3. FindTag()")
+	cblogger.Info("4. AddTag()")
+	cblogger.Info("5. RemoveTag()")
+	cblogger.Info("6. Exit")
+}
+
+func testTagHandler(config Config) {
+	resourceHandler, err := getResourceHandler("tag", config)
+	if err != nil {
+		cblogger.Error(err)
+		return
+	}
+	tagHandler := resourceHandler.(irs.TagHandler)
+
+	testTagHandlerListPrint()
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			cblogger.Error(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				testTagHandlerListPrint()
+			case 1:
+				cblogger.Info("Start ListTag() ...")
+				if listTag, err := tagHandler.ListTag("VPC", irs.IID{NameId: "vpc-01-coadt9u8iqburq79175g",SystemId: "r006-6b9522df-6a21-47f3-8755-d8c217868367"}); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listTag)
+				}
+				cblogger.Info("Finish listTag()")
+			case 2:
+				cblogger.Info("Start GetTag() ...")
+				var getTagName string
+				fmt.Print("Enter Get TagName: ")
+				if _, err := fmt.Scanln(&getTagName); err != nil {
+					cblogger.Error(err)
+				}
+
+				if listTag, err := tagHandler.GetTag("VPC", irs.IID{NameId: "vpc-01-coadt9u8iqburq79175g",SystemId: "r006-6b9522df-6a21-47f3-8755-d8c217868367"}, getTagName); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listTag)
+				}
+				cblogger.Info("Finish GetTag()")
+			case 3:
+				cblogger.Info("Start FindTag() ...")
+				var keyword string
+				fmt.Print("Enter keyword: ")
+				if _, err := fmt.Scanln(&keyword); err != nil {
+					cblogger.Error(err)
+				}
+				if listTag, err := tagHandler.FindTag("VPC", keyword); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listTag)
+				}
+				cblogger.Info("Finish FindTag()")
+			case 4:
+				cblogger.Info("Start AddTag() ...")
+				var addKey string
+				var addValue string
+
+				fmt.Print("Enter Add Key: ")
+				if _, err := fmt.Scanln(&addKey); err != nil {
+					cblogger.Error(err)
+				}
+
+				fmt.Print("Enter Add Value: ")
+				if _, err := fmt.Scanln(&addValue); err != nil {
+					cblogger.Error(err)
+				}
+
+				if listTag, err := tagHandler.AddTag("SecurityGroup", irs.IID{NameId: "sg01-coadudu8iqburq79176g",SystemId: "r006-a2fab93c-7964-4585-8900-9e13fbec4048"},irs.KeyValue{Key: addKey,Value: addValue}); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listTag)
+				}
+				cblogger.Info("Finish AddTag()")
+			case 5:
+				cblogger.Info("Start RemoveTag() ...")
+				var removeKey string
+				fmt.Print("Enter Remove Key: ")
+				if _, err := fmt.Scanln(&removeKey); err != nil {
+					cblogger.Error(err)
+				}
+
+				removeTagStatus, err := tagHandler.RemoveTag("VPC", irs.IID{NameId: "vpc-01-coadt9u8iqburq79175g",SystemId: "r006-6b9522df-6a21-47f3-8755-d8c217868367"}, removeKey)
+				if err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(removeTagStatus)
+				}
+				cblogger.Info("Finish RemoveTag()")
+			case 6:
+				cblogger.Info("Exit")
+				break Loop
+			}
+		}
+	}
+}
+
+
 func main() {
 	showTestHandlerInfo()
 	config := readConfigFile()
@@ -1768,6 +1885,9 @@ Loop:
 				testClusterHandler(config)
 				showTestHandlerInfo()
 			case 13:
+				testTagHandler(config)
+				showTestHandlerInfo()
+			case 14:
 				cblogger.Info("Exit Test ResourceHandler Program")
 				break Loop
 			}

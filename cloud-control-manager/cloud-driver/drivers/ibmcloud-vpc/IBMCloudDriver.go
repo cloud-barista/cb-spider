@@ -3,6 +3,8 @@ package ibmcloudvpc
 import (
 	"context"
 	"errors"
+	"time"
+
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	vpc0230 "github.com/IBM/vpc-go-sdk/0.23.0/vpcv1"
@@ -12,7 +14,6 @@ import (
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/utils/kubernetesserviceapiv1"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
-	"time"
 )
 
 type IbmCloudDriver struct{}
@@ -38,6 +39,7 @@ func (IbmCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.NLBHandler = true
 	drvCapabilityInfo.RegionZoneHandler = true
 	drvCapabilityInfo.PriceInfoHandler = true
+	drvCapabilityInfo.TagHandler = true
 
 	return drvCapabilityInfo
 }

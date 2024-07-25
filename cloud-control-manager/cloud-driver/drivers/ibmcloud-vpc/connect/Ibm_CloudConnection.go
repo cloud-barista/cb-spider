@@ -175,5 +175,12 @@ func (cloudConn *IbmCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHand
 }
 
 func (cloudConn *IbmCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
-	return nil, errors.New("Ibm Driver: not implemented")
+	cblogger.Info("Ibm Cloud Driver: called CreateTagHandler()!")
+	TagHandler := ibmrs.IbmTagHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
+		Region:         cloudConn.Region,
+		VpcService:     cloudConn.VpcService,
+		Ctx:            cloudConn.Ctx,
+	}
+	return &TagHandler, nil
 }
