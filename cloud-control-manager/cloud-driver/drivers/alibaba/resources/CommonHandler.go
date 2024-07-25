@@ -1273,7 +1273,6 @@ func aliEcsTagList(Client *ecs.Client, regionInfo idrv.RegionInfo, alibabaResour
 	queryParams["ResourceType"] = alibabaResourceType //string(resType)//keypair
 	if keyword != "" {
 		queryParams["Tag.1.Key"] = keyword
-		cblogger.Info("쿼리", queryParams)
 	}
 
 	start := call.Start()
@@ -1356,8 +1355,6 @@ func aliVpcTagList(VpcClient *vpc.Client, regionInfo idrv.RegionInfo, alibabaRes
 	queryParams := map[string]string{}
 	queryParams["RegionId"] = regionID
 	queryParams["ResourceType"] = alibabaResourceType //string(resType)//keypair
-	// queryParams["Tag.1.Key"] = keyword
-	// cblogger.Info("쿼리", queryParams)
 
 	start := call.Start()
 
@@ -1405,8 +1402,6 @@ func aliSubnetTagList(VpcClient *vpc.Client, regionInfo idrv.RegionInfo, alibaba
 	queryParams := map[string]string{}
 	queryParams["RegionId"] = regionID
 	queryParams["ResourceType"] = alibabaResourceType //string(resType)//keypair
-	// queryParams["Tag.1.Key"] = keyword
-	// cblogger.Info("쿼리", queryParams)
 
 	start := call.Start()
 	response, err := CallVpcRequest(resType, VpcClient, regionInfo, "DescribeVSwitches", queryParams)
