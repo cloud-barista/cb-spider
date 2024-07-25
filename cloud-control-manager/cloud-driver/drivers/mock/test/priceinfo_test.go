@@ -29,7 +29,7 @@ func TestListProductFamily(t *testing.T) {
 	initLog()
 	handler := &mockres.MockPriceInfoHandler{}
 
-	results, err := handler.ListProductFamily()
+	results, err := handler.ListProductFamily("mercury")
 	if err != nil {
 		t.Errorf("ListProductFamily returned an error: %v", err)
 	}
@@ -54,13 +54,13 @@ func TestGetComputeInstancePriceInfo(t *testing.T) {
 		filterList    []irs.KeyValue
 		expectedMatch int // expected product count of result
 	}{
-		{"mercury", nil, 2},
-		{"mercury", []irs.KeyValue{}, 2},
+		{"mercury", nil, 3},
+		{"mercury", []irs.KeyValue{}, 3},
 		{"mercury", []irs.KeyValue{{Key: "productId", Value: "mock.enhnace1.mercury"}}, 1},
 		{"mercury", []irs.KeyValue{{Key: "noField", Value: "mock.enhnace1.mercury"}}, 0},
-		{"mercury", []irs.KeyValue{{Key: "vcpu", Value: "8"}}, 2},
-		{"mercury", []irs.KeyValue{{Key: "pricingPolicy", Value: "OnDemand"}}, 2},
-		{"mercury", []irs.KeyValue{{Key: "LeaseContractLength", Value: "1 Year"}}, 2},
+		{"mercury", []irs.KeyValue{{Key: "vcpu", Value: "8"}}, 1},
+		{"mercury", []irs.KeyValue{{Key: "pricingPolicy", Value: "OnDemand"}}, 3},
+		{"mercury", []irs.KeyValue{{Key: "LeaseContractLength", Value: "1 Year"}}, 3},
 	}
 
 	for _, tc := range testCases {
