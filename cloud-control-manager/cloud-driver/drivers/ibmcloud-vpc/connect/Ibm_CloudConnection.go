@@ -3,6 +3,7 @@ package connect
 import (
 	"context"
 	"errors"
+	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	vpcv0230 "github.com/IBM/vpc-go-sdk/0.23.0/vpcv1"
@@ -28,6 +29,7 @@ type IbmCloudConnection struct {
 	VpcService     *vpcv1.VpcV1
 	ClusterService *kubernetesserviceapiv1.KubernetesServiceApiV1
 	TaggingService *globaltaggingv1.GlobalTaggingV1
+	SearchService  *globalsearchv2.GlobalSearchV2
 	VpcService0230 *vpcv0230.VpcV1
 	Ctx            context.Context
 }
@@ -181,6 +183,8 @@ func (cloudConn *IbmCloudConnection) CreateTagHandler() (irs.TagHandler, error) 
 		Region:         cloudConn.Region,
 		VpcService:     cloudConn.VpcService,
 		Ctx:            cloudConn.Ctx,
+		TaggingService: cloudConn.TaggingService,
+		SearchService:  cloudConn.SearchService,
 	}
 	return &TagHandler, nil
 }

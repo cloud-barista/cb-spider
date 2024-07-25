@@ -3,6 +3,7 @@ package ibmcloudvpc
 import (
 	"context"
 	"errors"
+	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"time"
 
 	"github.com/IBM/go-sdk-core/v5/core"
@@ -111,6 +112,14 @@ func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (
 	if err != nil {
 		return nil, err
 	}
+	searchService, err := globalsearchv2.NewGlobalSearchV2(&globalsearchv2.GlobalSearchV2Options{
+		Authenticator: &core.IamAuthenticator{
+			ApiKey: connectionInfo.CredentialInfo.ApiKey,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	iConn := connect.IbmCloudConnection{
 		CredentialInfo: connectionInfo.CredentialInfo,
@@ -119,6 +128,7 @@ func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (
 		VpcService0230: vpcService0230,
 		ClusterService: clusterService,
 		TaggingService: taggingService,
+		SearchService:  searchService,
 		Ctx:            ctx,
 	}
 	return &iConn, nil
