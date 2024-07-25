@@ -122,6 +122,8 @@ func (regionZoneHandler *GCPRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 			resultZones, err := GetZoneListByRegion(regionZoneHandler.Client, projectID, item.SelfLink)
 			if err != nil {
 				// failed to get ZoneInfo by region
+				cblogger.Error("DescribeZone failed ", err.Error())
+				return
 			}
 			for _, zone := range resultZones.Items {
 

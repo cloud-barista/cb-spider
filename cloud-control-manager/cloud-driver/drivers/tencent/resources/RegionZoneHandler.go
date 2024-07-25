@@ -33,9 +33,16 @@ func (regionZoneHandler *TencentRegionZoneHandler) ListRegionZone() ([]*irs.Regi
 		wg.Add(1)
 		go func(region *cvm.RegionInfo) {
 			defer wg.Done()
-			tempClient, _ := cvm.NewClient(regionZoneHandler.Client.Client.GetCredential(), *region.Region, clientProfile)
-			responseZones, _ := DescribeZones(tempClient)
-
+			tempClient, err := cvm.NewClient(regionZoneHandler.Client.Client.GetCredential(), *region.Region, clientProfile)
+			if err != nil {
+				cblogger.Error("NewClient failed on ", region, err.Error())
+				return
+			}
+			responseZones, err := DescribeZones(tempClient)
+			if err != nil {
+				cblogger.Error("DescribeZones failed ", err.Error())
+				return
+			}
 			var zoneInfoList []irs.ZoneInfo
 			for _, zone := range responseZones.Response.ZoneSet {
 				zoneInfo := irs.ZoneInfo{}
