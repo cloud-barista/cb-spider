@@ -77,87 +77,106 @@ type DescribeTagsResponse struct {
 	PageNumber int                    `json:"PageNumber" xml:"PageNumber"`
 	Tags       ecs.TagsInDescribeTags `json:"Tags" xml:"Tags"`
 }
+type VSwitchIds struct {
+	VSwitchId []string `json:"VSwitchId"`
+}
+
+type SecondaryCidrBlocks struct {
+	SecondaryCidrBlock []string `json:"SecondaryCidrBlock"`
+}
+
+type RouterTableIds struct {
+	RouterTableIds []string `json:"RouterTableIds"`
+}
+
+type UserCidrs struct {
+	UserCidr []string `json:"UserCidr"`
+}
+
+type NatGatewayIds struct {
+	NatGatewayIds []string `json:"NatGatewayIds"`
+}
+
+type Vpc struct {
+	Status              string              `json:"Status"`
+	IsDefault           bool                `json:"IsDefault"`
+	CenStatus           string              `json:"CenStatus"`
+	Description         string              `json:"Description"`
+	ResourceGroupId     string              `json:"ResourceGroupId"`
+	VSwitchIds          VSwitchIds          `json:"VSwitchIds"`
+	SecondaryCidrBlocks SecondaryCidrBlocks `json:"SecondaryCidrBlocks"`
+	CidrBlock           string              `json:"CidrBlock"`
+	RouterTableIds      RouterTableIds      `json:"RouterTableIds"`
+	UserCidrs           UserCidrs           `json:"UserCidrs"`
+	NetworkAclNum       int                 `json:"NetworkAclNum"`
+	AdvancedResource    bool                `json:"AdvancedResource"`
+	VRouterId           string              `json:"VRouterId"`
+	NatGatewayIds       NatGatewayIds       `json:"NatGatewayIds"`
+	VpcId               string              `json:"VpcId"`
+	OwnerId             int64               `json:"OwnerId"`
+	CreationTime        string              `json:"CreationTime"`
+	VpcName             string              `json:"VpcName"`
+	EnabledIpv6         bool                `json:"EnabledIpv6"`
+	RegionId            string              `json:"RegionId"`
+	Ipv6CidrBlock       string              `json:"Ipv6CidrBlock"`
+	Tags                Tags                `json:"Tags"`
+}
+
+type Vpcs struct {
+	Vpc []Vpc `json:"Vpc"`
+}
+
 type DescribeVpcsResponse struct {
 	TotalCount int    `json:"TotalCount"`
 	PageSize   int    `json:"PageSize"`
 	RequestId  string `json:"RequestId"`
 	PageNumber int    `json:"PageNumber"`
-	Vpcs       struct {
-		Vpc []struct {
-			Status          string `json:"Status"`
-			IsDefault       bool   `json:"IsDefault"`
-			CenStatus       string `json:"CenStatus"`
-			Description     string `json:"Description"`
-			ResourceGroupId string `json:"ResourceGroupId"`
-			VSwitchIds      struct {
-				VSwitchId []string `json:"VSwitchId"`
-			} `json:"VSwitchIds"`
-			SecondaryCidrBlocks struct {
-				SecondaryCidrBlock []string `json:"SecondaryCidrBlock"`
-			} `json:"SecondaryCidrBlocks"`
-			CidrBlock      string `json:"CidrBlock"`
-			RouterTableIds struct {
-				RouterTableIds []string `json:"RouterTableIds"`
-			} `json:"RouterTableIds"`
-			UserCidrs struct {
-				UserCidr []string `json:"UserCidr"`
-			} `json:"UserCidrs"`
-			NetworkAclNum    int    `json:"NetworkAclNum"`
-			AdvancedResource bool   `json:"AdvancedResource"`
-			VRouterId        string `json:"VRouterId"`
-			NatGatewayIds    struct {
-				NatGatewayIds []string `json:"NatGatewayIds"`
-			} `json:"NatGatewayIds"`
-			VpcId         string `json:"VpcId"`
-			OwnerId       int64  `json:"OwnerId"`
-			CreationTime  string `json:"CreationTime"`
-			VpcName       string `json:"VpcName"`
-			EnabledIpv6   bool   `json:"EnabledIpv6"`
-			RegionId      string `json:"RegionId"`
-			Ipv6CidrBlock string `json:"Ipv6CidrBlock"`
-			Tags          struct {
-				Tag []struct {
-					Value string `json:"Value"`
-					Key   string `json:"Key"`
-				} `json:"Tag"`
-			} `json:"Tags"`
-		} `json:"Vpc"`
-	} `json:"Vpcs"`
+	Vpcs       Vpcs   `json:"Vpcs"`
+}
+
+type Tag struct {
+	Value string `json:"Value"`
+	Key   string `json:"Key"`
+}
+
+type Tags struct {
+	Tag []Tag `json:"Tag"`
+}
+
+type RouteTable struct {
+	RouteTableId   string `json:"RouteTableId"`
+	RouteTableType string `json:"RouteTableType"`
+}
+
+type VSwitch struct {
+	Status                  string     `json:"Status"`
+	IsDefault               bool       `json:"IsDefault"`
+	Description             string     `json:"Description"`
+	ResourceGroupId         string     `json:"ResourceGroupId"`
+	ZoneId                  string     `json:"ZoneId"`
+	NetworkAclId            string     `json:"NetworkAclId"`
+	AvailableIpAddressCount int        `json:"AvailableIpAddressCount"`
+	VSwitchId               string     `json:"VSwitchId"`
+	CidrBlock               string     `json:"CidrBlock"`
+	RouteTable              RouteTable `json:"RouteTable"`
+	VpcId                   string     `json:"VpcId"`
+	OwnerId                 int64      `json:"OwnerId"`
+	CreationTime            string     `json:"CreationTime"`
+	VSwitchName             string     `json:"VSwitchName"`
+	Ipv6CidrBlock           string     `json:"Ipv6CidrBlock"`
+	Tags                    Tags       `json:"Tags"`
+	ShareType               string     `json:"ShareType"`
+}
+
+type VSwitches struct {
+	VSwitch []VSwitch `json:"VSwitch"`
 }
 type DescribeVSwitchesResponse struct {
-	TotalCount int    `json:"TotalCount"`
-	PageSize   int    `json:"PageSize"`
-	RequestId  string `json:"RequestId"`
-	PageNumber int    `json:"PageNumber"`
-	VSwitches  struct {
-		VSwitch []struct {
-			Status                  string `json:"Status"`
-			IsDefault               bool   `json:"IsDefault"`
-			Description             string `json:"Description"`
-			ResourceGroupId         string `json:"ResourceGroupId"`
-			ZoneId                  string `json:"ZoneId"`
-			NetworkAclId            string `json:"NetworkAclId"`
-			AvailableIpAddressCount int    `json:"AvailableIpAddressCount"`
-			VSwitchId               string `json:"VSwitchId"`
-			CidrBlock               string `json:"CidrBlock"`
-			RouteTable              struct {
-				RouteTableId   string `json:"RouteTableId"`
-				RouteTableType string `json:"RouteTableType"`
-			} `json:"RouteTable"`
-			VpcId         string `json:"VpcId"`
-			OwnerId       int64  `json:"OwnerId"`
-			CreationTime  string `json:"CreationTime"`
-			VSwitchName   string `json:"VSwitchName"`
-			Ipv6CidrBlock string `json:"Ipv6CidrBlock"`
-			Tags          struct {
-				Tag []struct {
-					Value string `json:"Value"`
-					Key   string `json:"Key"`
-				} `json:"Tag"`
-			} `json:"Tags"`
-			ShareType string `json:"ShareType"`
-		} `json:"VSwitch"`
-	} `json:"VSwitches"`
+	TotalCount int       `json:"TotalCount"`
+	PageSize   int       `json:"PageSize"`
+	RequestId  string    `json:"RequestId"`
+	PageNumber int       `json:"PageNumber"`
+	VSwitches  VSwitches `json:"VSwitches"`
 }
 
 /*
