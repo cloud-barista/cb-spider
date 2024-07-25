@@ -141,15 +141,33 @@ func (tagHandler *AwsTagHandler) AddNLBTag(resIID irs.IID, tag irs.KeyValue) err
 	return nil
 }
 
+func (tagHandler *AwsTagHandler) getClusterArn(clusterName string) (string, error) {
+	input := &eks.DescribeClusterInput{
+		Name: aws.String(clusterName),
+	}
+
+	result, err := tagHandler.EKSClient.DescribeCluster(input)
+	if err != nil {
+		return "", fmt.Errorf("failed to describe EKS cluster: %w", err)
+	}
+
+	return aws.StringValue(result.Cluster.Arn), nil
+}
+
 func (tagHandler *AwsTagHandler) AddClusterTag(resIID irs.IID, tag irs.KeyValue) error {
+	clusterArn, err := tagHandler.getClusterArn(resIID.SystemId)
+	if err != nil {
+		return err
+	}
+
 	input := &eks.TagResourceInput{
-		ResourceArn: aws.String(resIID.SystemId),
+		ResourceArn: aws.String(clusterArn),
 		Tags: map[string]*string{
 			tag.Key: aws.String(tag.Value),
 		},
 	}
 
-	_, err := tagHandler.EKSClient.TagResource(input)
+	_, err = tagHandler.EKSClient.TagResource(input)
 	if err != nil {
 		return fmt.Errorf("failed to add tag to EKS cluster: %w", err)
 	}
@@ -413,7 +431,7 @@ func (tagHandler *AwsTagHandler) GetTag(resType irs.RSType, resIID irs.IID, key 
 		}
 
 		if len(tagList) == 0 {
-			return irs.KeyValue{}, nil
+			return irs.KeyValue{}, fmt.Errorf("%s tag key does not exist", key)
 		} else {
 			return tagList[0], nil
 		}
@@ -580,14 +598,19 @@ func (tagHandler *AwsTagHandler) RemoveNLBTag(resIID irs.IID, tagKey string) (bo
 }
 
 func (tagHandler *AwsTagHandler) RemoveClusterTag(resIID irs.IID, tagKey string) (bool, error) {
+	clusterArn, err := tagHandler.getClusterArn(resIID.SystemId)
+	if err != nil {
+		return false, err
+	}
+
 	input := &eks.UntagResourceInput{
-		ResourceArn: aws.String(resIID.SystemId),
+		ResourceArn: aws.String(clusterArn),
 		TagKeys: []*string{
 			aws.String(tagKey),
 		},
 	}
 
-	_, err := tagHandler.EKSClient.UntagResource(input)
+	_, err = tagHandler.EKSClient.UntagResource(input)
 	if err != nil {
 		return false, fmt.Errorf("failed to remove tag from EKS cluster: %w", err)
 	}

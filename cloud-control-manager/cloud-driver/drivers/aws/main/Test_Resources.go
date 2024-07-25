@@ -1806,12 +1806,15 @@ func handleTag() {
 	var reqType irs.RSType = irs.KEY
 	//reqIID := irs.IID{SystemId: "i-02ac1c4ff1d40815c"}
 	reqIID := irs.IID{SystemId: "CB-KeyPairTest123123"}
+	reqIID = irs.IID{SystemId: "ami-03cda261fe3252863"}
 
 	reqTag := irs.KeyValue{Key: "tag3", Value: "tag3 test"}
 	reqKey := "tag3"
 	reqKey = "CB-KeyPairTagTest"
 	reqKey = "cb-nlb-test01123"
-	reqKey = ""
+	reqKey = "Name2"
+	reqKey = "cb-eks-cluster-tag-test"
+	reqKey = "tag3"
 	reqType = irs.ALL
 
 	for {
@@ -1901,11 +1904,184 @@ func handleTag() {
 	}
 }
 
+// Test Disk
+func handleDisk() {
+	cblogger.Debug("Start Disk Resource Test")
+
+	ResourceHandler, err := getResourceHandler("Disk")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.DiskHandler)
+
+	reqIID := irs.IID{NameId: "tag-test", SystemId: "vol-0d0bdcd08f027c2a1"}
+	reqKey := "tag3"
+	reqInfo := irs.DiskInfo{
+		IId:      reqIID,
+		DiskType: "gp2",
+		DiskSize: "50",
+
+		//TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}, {Key: "Name", Value: securityName+"123"}},
+		TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}},
+	}
+
+	for {
+		fmt.Println("TagHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. Disk List")
+		fmt.Println("2. Disk Create")
+		fmt.Println("3. Disk Get")
+		fmt.Println("4. Disk Delete")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				cblogger.Infof("Lookup disk list")
+				result, err := handler.ListDisk()
+				if err != nil {
+					cblogger.Info(" Disk List Lookup Failed : ", err)
+				} else {
+					cblogger.Info("Disk List Lookup Result")
+					cblogger.Debug(result)
+					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
+					//spew.Dump(result)
+					cblogger.Info("Number of output results : ", len(result))
+				}
+
+			case 2:
+				cblogger.Infof("[%s] Disk Create Test", reqIID.SystemId)
+				result, err := handler.CreateDisk(reqInfo)
+				if err != nil {
+					cblogger.Infof(reqIID.SystemId, " Disk Create Failed : ", err)
+				} else {
+					cblogger.Info("Disk Create Result : ", result)
+					spew.Dump(result)
+				}
+
+			case 3:
+				cblogger.Infof("[%s] Disk Lookup Test - Key[%s]", reqIID.SystemId, reqKey)
+				result, err := handler.GetDisk(reqIID)
+				if err != nil {
+					cblogger.Infof("[%s] Disk Lookup Failed : [%v]", reqKey, err)
+				} else {
+					cblogger.Infof("[%s] Disk Lookup Result : [%s]", reqKey, result)
+					spew.Dump(result)
+				}
+
+			case 4:
+				cblogger.Infof("[%s] Disk Delete Test - Key[%s]", reqIID.SystemId, reqKey)
+				result, err := handler.DeleteDisk(reqIID)
+				if err != nil {
+					cblogger.Infof("[%s] Disk Delete Failed : [%v]", reqKey, err)
+				} else {
+					cblogger.Infof("[%s] Disk Delete Result : [%v]", reqKey, result)
+				}
+			}
+		}
+	}
+}
+
+// Test MyImage
+func handleMyImage() {
+	cblogger.Debug("Start MyImage Resource Test")
+
+	ResourceHandler, err := getResourceHandler("MyImage")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.MyImageHandler)
+
+	reqIID := irs.IID{NameId: "tag-test", SystemId: "ami-03cda261fe3252863"}
+	reqKey := "tag3"
+	reqInfo := irs.MyImageInfo{
+		IId:      reqIID,
+		SourceVM: irs.IID{SystemId: "i-0c65033e158e0fd99"},
+
+		//TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}, {Key: "Name", Value: securityName+"123"}},
+		TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}},
+	}
+
+	for {
+		fmt.Println("TagHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. MyImage List")
+		fmt.Println("2. MyImage Create")
+		fmt.Println("3. MyImage Get")
+		fmt.Println("4. MyImage Delete")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				cblogger.Infof("Lookup MyImage list")
+				result, err := handler.ListMyImage()
+				if err != nil {
+					cblogger.Info(" MyImage List Lookup Failed : ", err)
+				} else {
+					cblogger.Info("MyImage List Lookup Result")
+					cblogger.Debug(result)
+					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
+					//spew.Dump(result)
+					cblogger.Info("Number of output results : ", len(result))
+				}
+
+			case 2:
+				cblogger.Infof("[%s] MyImage Create Test", reqIID.NameId)
+				result, err := handler.SnapshotVM(reqInfo)
+				if err != nil {
+					cblogger.Infof(reqIID.NameId, " MyImage Create Failed : ", err)
+				} else {
+					cblogger.Info("MyImage Create Result : ", result)
+					reqIID = result.IId
+					spew.Dump(result)
+				}
+
+			case 3:
+				cblogger.Infof("[%s] MyImage Lookup Test - Key[%s]", reqIID.SystemId, reqKey)
+				result, err := handler.GetMyImage(reqIID)
+				if err != nil {
+					cblogger.Infof("[%s] MyImage Lookup Failed : [%v]", reqKey, err)
+				} else {
+					cblogger.Infof("[%s] MyImage Lookup Result : [%s]", reqKey, result)
+					spew.Dump(result)
+				}
+
+			case 4:
+				cblogger.Infof("[%s] MyImage Delete Test - Key[%s]", reqIID.SystemId, reqKey)
+				result, err := handler.DeleteMyImage(reqIID)
+				if err != nil {
+					cblogger.Infof("[%s] MyImage Delete Failed : [%v]", reqKey, err)
+				} else {
+					cblogger.Infof("[%s] MyImage Delete Result : [%v]", reqKey, result)
+				}
+			}
+		}
+	}
+}
+
 // handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
 // (예) ImageHandler.go -> "Image"
 func getResourceHandler(handlerType string) (interface{}, error) {
-	var cloudDriver idrv.CloudDriver
-	cloudDriver = new(awsdrv.AwsDriver)
+	//var cloudDriver idrv.CloudDriver
+	//cloudDriver = new(awsdrv.AwsDriver)
+	cloudDriver := new(awsdrv.AwsDriver)
 
 	config := readConfigFile()
 	connectionInfo := idrv.ConnectionInfo{
@@ -1952,6 +2128,10 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreatePriceInfoHandler()
 	case "Tag":
 		resourceHandler, err = cloudConnection.CreateTagHandler()
+	case "Disk":
+		resourceHandler, err = cloudConnection.CreateDiskHandler()
+	case "MyImage":
+		resourceHandler, err = cloudConnection.CreateMyImageHandler()
 	}
 
 	if err != nil {
@@ -2077,9 +2257,11 @@ func readConfigFile() Config {
 }
 
 func main() {
-	// myimage / disk
+	handleMyImage()
+	// myimage
 	//handleTag()
 	// handlePublicIP() // PublicIP 생성 후 conf
+	// handleDisk()
 
 	//handleKeyPair()
 	//handleVPC()
@@ -2089,8 +2271,8 @@ func main() {
 	// handleVNic() //Lancard
 	// handleVMSpec()
 	//handleNLB()
-	handleCluster()
+	//handleCluster()
 	//handleRegionZone()
 	//handlePriceInfo()
-	//handleTag()
+	handleTag()
 }
