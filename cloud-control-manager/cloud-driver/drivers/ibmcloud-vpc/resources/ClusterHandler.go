@@ -162,7 +162,7 @@ func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.
 		if getRawVpcErr != nil {
 			cblogger.Error(getRawVpcErr)
 			LoggingError(hiscallInfo, getRawVpcErr)
-			ic.DeleteCluster(clusterReqInfo.IId)
+			_, _ = ic.DeleteCluster(clusterReqInfo.IId)
 			return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", getRawVpcErr))
 		}
 
@@ -1385,7 +1385,6 @@ func (ic *IbmClusterHandler) getWorkerPoolFromNodeGroupInfo(nodeGroupInfo irs.No
 			ID:       core.StringPtr(ic.Region.Zone),
 			SubnetID: core.StringPtr(subnetId),
 		}},
-		OperatingSystem: core.StringPtr("UBUNTU_18_64"),
 	}
 }
 
