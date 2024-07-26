@@ -1413,15 +1413,29 @@ func (ic *IbmClusterHandler) initSecurityGroup(clusterReqInfo irs.ClusterInfo, c
 				if getSgErr != nil {
 					initSuccess = false
 					ic.manageStatusTag(clusterCrn, SecurityGroupStatus, FAILED)
-					ic.DeleteCluster(clusterReqInfo.IId)
+					_, _ = ic.DeleteCluster(clusterReqInfo.IId)
 					break
 				}
 
-				_, sgUpdateErr := sgHandler.AddRules(defaultSgInfo.IId, sgInfo.SecurityRules)
+				var updateRules []irs.SecurityRuleInfo
+				for _, newRule := range *sgInfo.SecurityRules {
+					existCheck := false
+					for _, baseRule := range *defaultSgInfo.SecurityRules {
+						if equalsRule(newRule, baseRule) {
+							existCheck = true
+							break
+						}
+					}
+					if existCheck {
+						continue
+					}
+					updateRules = append(updateRules, newRule)
+				}
+				_, sgUpdateErr := sgHandler.AddRules(defaultSgInfo.IId, &updateRules)
 				if sgUpdateErr != nil {
 					initSuccess = false
 					ic.manageStatusTag(clusterCrn, SecurityGroupStatus, FAILED)
-					ic.DeleteCluster(clusterReqInfo.IId)
+					_, _ = ic.DeleteCluster(clusterReqInfo.IId)
 					break
 				}
 			}
