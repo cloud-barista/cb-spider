@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
 	"github.com/Azure/go-autorest/autorest/to"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"strconv"
-	"strings"
 )
 
 type AzureDiskHandler struct {
@@ -22,6 +23,7 @@ type AzureDiskHandler struct {
 }
 
 func (diskHandler *AzureDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (diskInfo irs.DiskInfo, createErr error) {
+	fmt.Printf("disk req : %+v", DiskReqInfo)
 	hiscallInfo := GetCallLogScheme(diskHandler.Region, call.DISK, DiskReqInfo.IId.NameId, "CreateDisk()")
 	start := call.Start()
 	err := diskHandler.validationDiskReq(DiskReqInfo)
@@ -41,6 +43,9 @@ func (diskHandler *AzureDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (diskI
 	diskSku := compute.DiskSku{
 		Name: diskType,
 	}
+	// Create Tag
+	tags := setTags(DiskReqInfo.TagList)
+
 	creationData := compute.CreationData{
 		CreateOption: compute.DiskCreateOptionEmpty,
 	}
@@ -64,6 +69,7 @@ func (diskHandler *AzureDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (diskI
 		DiskProperties: &diskProperties,
 		Sku:            &diskSku,
 		Location:       to.StringPtr(diskHandler.Region.Region),
+		Tags: tags,
 	}
 	// Setting zone if available
 	if diskHandler.Region.Zone != "" {
@@ -430,6 +436,9 @@ func setterDiskInfo(disk compute.Disk) (*irs.DiskInfo, error) {
 		if len(*disk.Zones) > 0 {
 			diskStatus.Zone = (*disk.Zones)[0]
 		}
+	}
+	if disk.Tags != nil {
+		diskStatus.TagList = setTagList(disk.Tags)
 	}
 	// TODO KeyValueList
 	return &diskStatus, nil

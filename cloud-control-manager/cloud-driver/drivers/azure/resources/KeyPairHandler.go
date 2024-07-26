@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/Azure/go-autorest/autorest/to"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
@@ -36,6 +37,11 @@ func (keyPairHandler *AzureKeyPairHandler) setterKey(key compute.SSHPublicKeyRes
 		PublicKey:  *key.PublicKey,
 		PrivateKey: privateKey,
 	}
+	
+	if key.Tags != nil {
+		keypairInfo.TagList = setTagList(key.Tags)
+	}
+
 	return &keypairInfo, nil
 }
 
@@ -65,6 +71,9 @@ func (keyPairHandler *AzureKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairR
 		LoggingError(hiscallInfo, createErr)
 		return irs.KeyPairInfo{}, createErr
 	}
+	// Create Tag
+	tags := setTags(keyPairReqInfo.TagList)
+
 	// 2. Create KeyPairData
 	privateKey, publicKey, err := keypair.GenKeyPair()
 
@@ -74,6 +83,7 @@ func (keyPairHandler *AzureKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairR
 		SSHPublicKeyResourceProperties: &compute.SSHPublicKeyResourceProperties{
 			PublicKey: to.StringPtr(string(publicKey)),
 		},
+		Tags: tags,
 	}
 
 	start := call.Start()

@@ -388,6 +388,7 @@ Loop:
 				reqInfo := irs.SecurityReqInfo{
 					IId:           securityIId,
 					SecurityRules: &securityRulesInfos,
+					TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
 					VpcIID:        targetVPCIId,
 				}
 				security, err := securityHandler.CreateSecurity(reqInfo)
@@ -467,6 +468,7 @@ func testVPCHandler(config Config) {
 	VPCReqInfo := irs.VPCReqInfo{
 		IId:            vpcIID,
 		IPv4_CIDR:      config.Azure.Resources.VPC.IPv4CIDR,
+		TagList:[]irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
 		SubnetInfoList: subnetInfoList,
 	}
 	addSubnet := config.Azure.Resources.VPC.AddSubnet
@@ -616,6 +618,7 @@ Loop:
 				cblogger.Info("Start CreateKey() ...")
 				reqInfo := irs.KeyPairReqInfo{
 					IId: keypairIId,
+					TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
 				}
 				if keyInfo, err := keyPairHandler.CreateKey(reqInfo); err != nil {
 					cblogger.Error(err)
@@ -772,6 +775,7 @@ func testVMHandler(config Config) {
 		SecurityGroupIIDs: SecurityGroupIIDs,
 		VMUserId:          config.Azure.Resources.Vm.VMUserId,
 		VMUserPasswd:      config.Azure.Resources.Vm.VMUserPasswd,
+		TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
 	}
 
 Loop:
@@ -901,26 +905,29 @@ func testNLBHandler(config Config) {
 			NameId: "nlb-tester",
 		},
 		VpcIID: irs.IID{
-			NameId: "nlb-tester-vpc",
+			NameId: "mcb-test-vpc",
 		},
+		// Type: "PUBLIC",
+		// Scope: "REGION",
 		Listener: irs.ListenerInfo{
 			Protocol: "TCP",
-			Port:     "8080",
+			Port:     "22",
 		},
 		VMGroup: irs.VMGroupInfo{
-			Port:     "80",
-			Protocol: "TCP",
+			Port:     "22",
+			Protocol: "TCP", 
 			VMs: &[]irs.IID{
-				{NameId: "tj-vm-tester"},
-				//{NameId: "nlb-tester-vm-02"},
+				{NameId: "vm-01"},
+				{NameId: "vm-02"},
 			},
 		},
 		HealthChecker: irs.HealthCheckerInfo{
 			Protocol:  "TCP",
-			Port:      "80",
+			Port:      "22",
 			Interval:  10,
 			Threshold: 429496728,
 		},
+		TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
 	}
 	updateListener := irs.ListenerInfo{
 		Protocol: "TCP",
@@ -930,17 +937,17 @@ func testNLBHandler(config Config) {
 		Protocol: "TCP",
 		Port:     "8087",
 		VMs: &[]irs.IID{
-			{NameId: "nlb-tester-vm-01"},
-			{NameId: "nlb-tester-vm-02"},
+			{NameId: "mcb-test-vm"},
+			{NameId: "mcb-test-vm2"},
 		},
 	}
 	addVMs := []irs.IID{
-		{NameId: "nlb-tester-vm-01"},
-		{NameId: "nlb-tester-vm-02"},
+		{NameId: "mcb-test-vm"},
+		{NameId: "mcb-test-vm2"},
 	}
 	removeVMs := []irs.IID{
-		{NameId: "nlb-tester-vm-01"},
-		{NameId: "nlb-tester-vm-02"},
+		{NameId: "mcb-test-vm"},
+		{NameId: "mcb-test-vm2"},
 	}
 
 	updateHealthCheckerInfo := irs.HealthCheckerInfo{
@@ -1077,6 +1084,8 @@ func testDiskHandler(config Config) {
 		IId: irs.IID{
 			NameId: config.Azure.Resources.Disk.IID.NameId,
 		},
+		Zone: config.Azure.Zone,
+		TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
 		DiskSize: config.Azure.Resources.Disk.DiskSize,
 		DiskType: config.Azure.Resources.Disk.DiskType,
 	}
@@ -1189,6 +1198,7 @@ func testMyImageHandler(config Config) {
 	targetvm := irs.MyImageInfo{
 		IId:      irs.IID{NameId: config.Azure.Resources.MyImage.IID.NameId},
 		SourceVM: irs.IID{NameId: config.Azure.Resources.MyImage.SourceVM.NameId},
+		TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
 	}
 	delimageIId := irs.IID{NameId: config.Azure.Resources.MyImage.IID.NameId}
 Loop:
@@ -1449,12 +1459,12 @@ func testClusterHandler(config Config) {
 	testClusterHandlerListPrint()
 	createreq := irs.ClusterInfo{
 		IId: irs.IID{
-			NameId: "test-cluster-2",
+			NameId: "test-cluster-1",
 		},
 		Network: irs.NetworkInfo{
-			VpcIID:            irs.IID{NameId: "cluster-tester-vpc"},
-			SubnetIIDs:        []irs.IID{{NameId: "cluster-tester-vpc-sb-01"}},
-			SecurityGroupIIDs: []irs.IID{{NameId: "test-cluster-applysg"}},
+			VpcIID:            irs.IID{NameId: "mcb-test-vpc"},
+			SubnetIIDs:        []irs.IID{{NameId: "mcb-test-vpc-subnet1"}},
+			SecurityGroupIIDs: []irs.IID{{NameId: "mcb-test-sg"}},
 		},
 		Version: "1.29.4",
 		// ImageIID
@@ -1463,7 +1473,7 @@ func testClusterHandler(config Config) {
 				IId:             irs.IID{NameId: "nodegroup0"},
 				VMSpecName:      "Standard_B2s",
 				RootDiskSize:    "default",
-				KeyPairIID:      irs.IID{NameId: "azure0916"},
+				KeyPairIID:      irs.IID{NameId: "mcb-test-key"},
 				DesiredNodeSize: 1,
 				MaxNodeSize:     2,
 				MinNodeSize:     1,
@@ -1480,12 +1490,13 @@ func testClusterHandler(config Config) {
 			//	OnAutoScaling:   true,
 			//},
 		},
+		TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
 	}
 	addNodeGroup := irs.NodeGroupInfo{
 		IId:             irs.IID{NameId: "nodegroup3"},
 		VMSpecName:      "Standard_B2s",
 		RootDiskSize:    "default",
-		KeyPairIID:      irs.IID{NameId: "azure0916"},
+		KeyPairIID:      irs.IID{NameId: "mcb-test-key"},
 		DesiredNodeSize: 3,
 		MaxNodeSize:     5,
 		MinNodeSize:     2,

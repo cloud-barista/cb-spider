@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
 	"github.com/Azure/go-autorest/autorest/to"
 
@@ -32,13 +33,15 @@ func (vpcHandler *AzureVPCHandler) setterVPC(network network.VirtualNetwork) *ir
 		IPv4_CIDR:    (*network.AddressSpace.AddressPrefixes)[0],
 		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: vpcHandler.Region.Region}},
 	}
-
 	subnetArr := make([]irs.SubnetInfo, len(*network.Subnets))
 	for i, subnet := range *network.Subnets {
 		subnetArr[i] = *vpcHandler.setterSubnet(subnet)
 	}
 	vpcInfo.SubnetInfoList = subnetArr
 
+	if network.Tags != nil {
+		vpcInfo.TagList = setTagList(network.Tags)
+	}
 	return vpcInfo
 }
 
@@ -66,6 +69,8 @@ func (vpcHandler *AzureVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPC
 		LoggingError(hiscallInfo, createErr)
 		return irs.VPCInfo{}, createErr
 	}
+	// Create Tag
+	tags := setTags(vpcReqInfo.TagList)
 
 	// Create VPC
 	createOpts := network.VirtualNetwork{
@@ -76,6 +81,7 @@ func (vpcHandler *AzureVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPC
 			},
 		},
 		Location: &vpcHandler.Region.Region,
+		Tags: tags,
 	}
 
 	start := call.Start()
@@ -161,7 +167,7 @@ func (vpcHandler *AzureVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 		return irs.VPCInfo{}, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
-
+	fmt.Printf("vpc : %+v" , vpc)
 	vpcInfo := vpcHandler.setterVPC(*vpc)
 	return *vpcInfo, nil
 }
