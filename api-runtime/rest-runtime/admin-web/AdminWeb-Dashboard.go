@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -12,20 +11,6 @@ import (
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	"github.com/labstack/echo/v4"
 )
-
-// Define struct for connection configurations
-type ConnectionConfig struct {
-	ConfigName     string `json:"ConfigName"`
-	ProviderName   string `json:"ProviderName"`
-	DriverName     string `json:"DriverName"`
-	CredentialName string `json:"CredentialName"`
-	RegionName     string `json:"RegionName"`
-}
-
-// Wrapper for a slice of ConnectionConfig to match JSON structure
-type ConnectionConfigs struct {
-	ConnectionConfigs []ConnectionConfig `json:"connectionconfig"`
-}
 
 // ResourceCounts holds the counts for various resources
 type ResourceCounts struct {
@@ -70,48 +55,21 @@ func filterEmptyConnections(resourceCounts map[string][]ResourceCounts) map[stri
 	return filteredCounts
 }
 
-// Fetch all providers
-func fetchProviders() ([]string, error) {
-	resp, err := http.Get("http://localhost:1024/spider/cloudos")
-	if err != nil {
-		return nil, fmt.Errorf("error fetching providers: %v", err)
-	}
-	defer resp.Body.Close()
+// // Fetch all providers
+// func fetchProviders() ([]string, error) {
+// 	resp, err := http.Get("http://localhost:1024/spider/cloudos")
+// 	if err != nil {
+// 		return nil, fmt.Errorf("error fetching providers: %v", err)
+// 	}
+// 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("error reading response body: %v", err)
-	}
+// 	var providers Providers
+// 	if err := json.NewDecoder(resp.Body).Decode(&providers); err != nil {
+// 		return nil, fmt.Errorf("error decoding providers: %v", err)
+// 	}
 
-	var providers struct {
-		Providers []string `json:"providers"`
-	}
-	if err = json.Unmarshal(body, &providers); err != nil {
-		return nil, fmt.Errorf("error unmarshalling provider list: %v", err)
-	}
-
-	return providers.Providers, nil
-}
-
-func fetchConnectionConfigs() (map[string][]ConnectionConfig, error) {
-	resp, err := http.Get("http://localhost:1024/spider/connectionconfig")
-	if err != nil {
-		return nil, fmt.Errorf("error fetching connection configurations: %v", err)
-	}
-	defer resp.Body.Close()
-
-	var configs ConnectionConfigs
-	if err := json.NewDecoder(resp.Body).Decode(&configs); err != nil {
-		return nil, fmt.Errorf("error decoding connection configurations: %v", err)
-	}
-
-	connectionMap := make(map[string][]ConnectionConfig)
-	for _, config := range configs.ConnectionConfigs {
-		connectionMap[config.ProviderName] = append(connectionMap[config.ProviderName], config)
-	}
-
-	return connectionMap, nil
-}
+// 	return providers.Providers, nil
+// }
 
 type CountResponse struct {
 	Count int `json:"count"`

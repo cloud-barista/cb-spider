@@ -44,6 +44,7 @@ func (MockDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.VMHandler = true
 	drvCapabilityInfo.VMSpecHandler = true
+	drvCapabilityInfo.TagHandler = true // Add this line to indicate that TagHandler is supported
 
 	return drvCapabilityInfo
 }

@@ -76,9 +76,24 @@ func RegisterCloudDriver(c echo.Context) error {
 func ListCloudDriver(c echo.Context) error {
 	cblog.Info("call ListCloudDriver()")
 
-	infoList, err := dim.ListCloudDriver()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	var providerName string
+	providerName = c.QueryParam("provider")
+	if providerName == "" {
+		providerName = c.QueryParam("ProviderName")
+	}
+
+	infoList := []*dim.CloudDriverInfo{}
+	var err error
+	if providerName != "" {
+		infoList, err = dim.ListCloudDriverByProvider(providerName)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+	} else {
+		infoList, err = dim.ListCloudDriver()
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
 	}
 
 	var jsonResult struct {
@@ -166,9 +181,24 @@ func RegisterCredential(c echo.Context) error {
 func ListCredential(c echo.Context) error {
 	cblog.Info("call ListCredential()")
 
-	infoList, err := cim.ListCredential()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	var providerName string
+	providerName = c.QueryParam("provider")
+	if providerName == "" {
+		providerName = c.QueryParam("ProviderName")
+	}
+
+	infoList := []*cim.CredentialInfo{}
+	var err error
+	if providerName != "" {
+		infoList, err = cim.ListCredentialByProvider(providerName)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+	} else {
+		infoList, err = cim.ListCredential()
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
 	}
 
 	var jsonResult struct {
@@ -227,9 +257,24 @@ func RegisterRegion(c echo.Context) error {
 func ListRegion(c echo.Context) error {
 	cblog.Info("call ListRegion()")
 
-	infoList, err := rim.ListRegion()
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	var providerName string
+	providerName = c.QueryParam("provider")
+	if providerName == "" {
+		providerName = c.QueryParam("ProviderName")
+	}
+
+	infoList := []*rim.RegionInfo{}
+	var err error
+	if providerName != "" {
+		infoList, err = rim.ListRegionByProvider(providerName)
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
+	} else {
+		infoList, err = rim.ListRegion()
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		}
 	}
 
 	var jsonResult struct {

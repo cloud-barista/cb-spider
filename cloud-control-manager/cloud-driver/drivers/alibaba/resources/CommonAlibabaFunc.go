@@ -273,3 +273,120 @@ func HasKey(key string, keyValueList []irs.KeyValue) bool {
 	}
 	return false
 }
+
+// Endpoint format：[product_code].[region_id].aliyuncs.com
+func GetAlibabaApiEndPoint(regionId string, productCode string) string {
+	return productCode + "." + regionId + ".aliyuncs.com"
+}
+
+func GetAlibabaApiVPCEndpoint(regionId string, productCode string) string {
+	return productCode + "-vpc" + "." + regionId + ".aliyuncs.com"
+}
+
+// Alibaba에서 사용되는 리소스별 api product type
+func GetAlibabaProductCode(resType irs.RSType) (string, error) {
+	switch resType {
+	case irs.VM:
+		return "ecs", nil
+	case irs.VPC:
+		return "vpc", nil
+	case irs.SUBNET:
+		// return "ecs", nil
+		return "vpc", nil
+	case irs.SG:
+		return "ecs", nil
+	case irs.KEY:
+		return "ecs", nil
+	case irs.NLB:
+		return "slb", nil
+	case irs.DISK:
+		return "ecs", nil
+	case irs.MYIMAGE:
+		return "ecs", nil
+	case irs.CLUSTER:
+		return "ack", nil
+	case irs.NODEGROUP:
+		return "ack", nil
+	default:
+		//return "", nil
+	}
+	return "", errors.New("not found productCode " + string(resType))
+}
+
+// cb-spider의 resourceType 을 alibaba의 resourceType으로
+func GetAlibabaResourceType(resType irs.RSType) (string, error) {
+	switch resType {
+	case irs.VM:
+		return "instance", nil
+	case irs.VPC:
+		return "vpc", nil
+	case irs.SUBNET:
+		// return "ecs", nil
+		return "vpc", nil
+	case irs.SG:
+		return "securitygroup", nil
+	case irs.KEY:
+		return "keypair", nil
+	// case irs.NLB:
+	// 	return "slb", nil
+	case irs.DISK:
+		return "disk", nil
+	case irs.MYIMAGE:
+		// return "snapshot", nil
+		return "ecs", nil
+	case irs.CLUSTER:
+		return "CLUSTER", nil
+	case irs.ALL:
+		return "", nil
+	// case irs.NODEGROUP"
+	// 	return "", nil
+	default:
+		//return "", nil
+	}
+	//image: image.
+	//volume: storage volume.
+	//eni: elastic network interface (ENI).
+	//ddh: dedicated host.
+	//launchtemplate: launch template.
+	//reservedinstance: reserved instance.
+	//snapshotpolicy: automatic snapshot policy.
+	return "", errors.New("not found ResourceType " + string(resType))
+}
+
+// resource Type별로 바라보는 api가 다름. ( ecs, bss, ... )
+func GetAliTargetApi(resType irs.RSType) (string, error) {
+	switch resType {
+	case irs.VM:
+		return "ecs", nil
+	case irs.VPC:
+		return "vpc", nil
+	case irs.SUBNET:
+		return "vpc", nil
+	case irs.SG:
+		return "ecs", nil
+	case irs.KEY:
+		return "ecs", nil
+	case irs.NLB:
+		return "slb", nil
+	case irs.DISK:
+		return "ecs", nil
+	case irs.MYIMAGE:
+		return "ecs", nil
+	case irs.CLUSTER:
+		return "cs", nil
+	case irs.ALL:
+		return "all", nil
+	// case NODEGROUP"):
+	// 	return "", nil
+	default:
+		//return "", nil
+	}
+	//image: image.
+	//volume: storage volume.
+	//eni: elastic network interface (ENI).
+	//ddh: dedicated host.
+	//launchtemplate: launch template.
+	//reservedinstance: reserved instance.
+	//snapshotpolicy: automatic snapshot policy.
+	return "", errors.New("not found ResourceType " + string(resType))
+}

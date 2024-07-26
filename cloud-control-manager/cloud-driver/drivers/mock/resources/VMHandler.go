@@ -182,6 +182,7 @@ func (vmHandler *MockVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, er
 
 		DataDiskIIDs: validatedDiskIIDs,
 
+		TagList:      vmReqInfo.TagList,
 		KeyValueList: nil,
 	}
 
@@ -526,6 +527,7 @@ func CloneVMInfo(srcInfo irs.VMInfo) irs.VMInfo {
 
 		SSHAccessPoint: srcInfo.SSHAccessPoint,
 
+		TagList:      srcInfo.TagList,      // clone TagList
 		KeyValueList: srcInfo.KeyValueList, // now, do not need cloning
 	}
 

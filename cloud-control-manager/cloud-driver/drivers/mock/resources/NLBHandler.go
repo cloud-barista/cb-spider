@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
 	"github.com/rs/xid"
 
 	cblog "github.com/cloud-barista/cb-log"
@@ -41,16 +42,16 @@ func (nlbHandler *MockNLBHandler) CreateNLB(nlbInfo irs.NLBInfo) (irs.NLBInfo, e
 	nlbInfo.IId.SystemId = nlbInfo.IId.NameId
 	nlbInfo.VpcIID.SystemId = nlbInfo.VpcIID.NameId
 
-	// insert.NLBInfo into global Map
-nlbMapLock.Lock()
-defer nlbMapLock.Unlock()
+	// insert NLBInfo into global Map
+	nlbMapLock.Lock()
+	defer nlbMapLock.Unlock()
 	infoList, _ := nlbInfoMap[mockName]
-        nlbInfo.CreatedTime = time.Now()
-        nlbInfo.Listener.IP = "1.2.3.4"
-        nlbInfo.Listener.DNSName = ""
-        nlbInfo.Listener.CspID = nlbInfo.IId.NameId + "-Listener-" + xid.New().String()
-        nlbInfo.VMGroup.CspID = nlbInfo.IId.NameId + "-VMGroup-" + xid.New().String()
-        nlbInfo.HealthChecker.CspID = nlbInfo.IId.NameId + "-HealthChecker-" + xid.New().String()
+	nlbInfo.CreatedTime = time.Now()
+	nlbInfo.Listener.IP = "1.2.3.4"
+	nlbInfo.Listener.DNSName = ""
+	nlbInfo.Listener.CspID = nlbInfo.IId.NameId + "-Listener-" + xid.New().String()
+	nlbInfo.VMGroup.CspID = nlbInfo.IId.NameId + "-VMGroup-" + xid.New().String()
+	nlbInfo.HealthChecker.CspID = nlbInfo.IId.NameId + "-HealthChecker-" + xid.New().String()
 	clonedInfo := CloneNLBInfo(nlbInfo)
 	infoList = append(infoList, &clonedInfo)
 	nlbInfoMap[mockName] = infoList
@@ -88,20 +89,17 @@ func CloneNLBInfo(srcInfo irs.NLBInfo) irs.NLBInfo {
 		}
 	*/
 
-	// clone.NLBInfo
+	// clone NLBInfo
 	clonedInfo := irs.NLBInfo{
-		IId:       irs.IID{srcInfo.IId.NameId, srcInfo.IId.SystemId},
-		VpcIID:    irs.IID{srcInfo.VpcIID.NameId, srcInfo.VpcIID.SystemId},
-
-		Type:    srcInfo.Type,
-		Scope:    srcInfo.Scope,
-
-		// Need not clone
-		Listener: srcInfo.Listener,
-		VMGroup: srcInfo.VMGroup,
+		IId:           irs.IID{srcInfo.IId.NameId, srcInfo.IId.SystemId},
+		VpcIID:        irs.IID{srcInfo.VpcIID.NameId, srcInfo.VpcIID.SystemId},
+		Type:          srcInfo.Type,
+		Scope:         srcInfo.Scope,
+		Listener:      srcInfo.Listener,
+		VMGroup:       srcInfo.VMGroup,
 		HealthChecker: srcInfo.HealthChecker,
-
-		CreatedTime: srcInfo.CreatedTime,
+		CreatedTime:   srcInfo.CreatedTime,
+		TagList:       srcInfo.TagList, // clone TagList
 		KeyValueList:  srcInfo.KeyValueList,
 	}
 
@@ -113,8 +111,8 @@ func (nlbHandler *MockNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	cblogger.Info("Mock Driver: called ListNLB()!")
 
 	mockName := nlbHandler.MockName
-nlbMapLock.RLock()
-defer nlbMapLock.RUnlock()
+	nlbMapLock.RLock()
+	defer nlbMapLock.RUnlock()
 	infoList, ok := nlbInfoMap[mockName]
 	if !ok {
 		return []*irs.NLBInfo{}, nil
@@ -127,14 +125,14 @@ func (nlbHandler *MockNLBHandler) GetNLB(iid irs.IID) (irs.NLBInfo, error) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mock Driver: called GetNLB()!")
 
-nlbMapLock.RLock()
-defer nlbMapLock.RUnlock()
+	nlbMapLock.RLock()
+	defer nlbMapLock.RUnlock()
 
 	mockName := nlbHandler.MockName
-        infoList, ok := nlbInfoMap[mockName]
-        if !ok {
+	infoList, ok := nlbInfoMap[mockName]
+	if !ok {
 		return irs.NLBInfo{}, fmt.Errorf("%s NLB does not exist!!", iid.NameId)
-        }
+	}
 
 	for _, info := range infoList {
 		if info.IId.NameId == iid.NameId {
@@ -149,14 +147,14 @@ func (nlbHandler *MockNLBHandler) DeleteNLB(iid irs.IID) (bool, error) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mock Driver: called DeleteNLB()!")
 
-nlbMapLock.Lock()
-defer nlbMapLock.Unlock()
+	nlbMapLock.Lock()
+	defer nlbMapLock.Unlock()
 
 	mockName := nlbHandler.MockName
-        infoList, ok := nlbInfoMap[mockName]
-        if !ok {
-                return false, fmt.Errorf("%s NLB does not exist!!", iid.NameId)
-        }
+	infoList, ok := nlbInfoMap[mockName]
+	if !ok {
+		return false, fmt.Errorf("%s NLB does not exist!!", iid.NameId)
+	}
 
 	for idx, info := range infoList {
 		if info.IId.SystemId == iid.SystemId {
@@ -168,129 +166,125 @@ defer nlbMapLock.Unlock()
 	return false, nil
 }
 
-
 func (nlbHandler *MockNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.VMGroupInfo, error) {
-        cblogger := cblog.GetLogger("CB-SPIDER")
-        cblogger.Info("Mock Driver: called AddVMs()!")
+	cblogger := cblog.GetLogger("CB-SPIDER")
+	cblogger.Info("Mock Driver: called AddVMs()!")
 
-nlbMapLock.Lock()
-defer nlbMapLock.Unlock()
+	nlbMapLock.Lock()
+	defer nlbMapLock.Unlock()
 
-        mockName := nlbHandler.MockName
-        infoList, ok := nlbInfoMap[mockName]
-        if !ok {
-                return irs.VMGroupInfo{}, fmt.Errorf("%s NLB does not exist!!", nlbIID.NameId)
-        }
+	mockName := nlbHandler.MockName
+	infoList, ok := nlbInfoMap[mockName]
+	if !ok {
+		return irs.VMGroupInfo{}, fmt.Errorf("%s NLB does not exist!!", nlbIID.NameId)
+	}
 
-	// check if all input rules exist
-        for _, info := range infoList {
-                if info.IId.NameId == nlbIID.NameId {
-                        for _, vmIID := range *vmIIDs {
-                                for _, vm := range *info.VMGroup.VMs {
-                                        if vm.NameId == vmIID.NameId {
-                                                errMSG := fmt.Sprintf("%s NLB already has this VM: %v!!", nlbIID.NameId, vmIID)
-                                                errMSG += fmt.Sprintf(" #### %s NLB has %v!!", nlbIID.NameId, *info.VMGroup.VMs)
-                                                return irs.VMGroupInfo{}, fmt.Errorf(errMSG)
-                                        }
-                                }
-                        }
-                }
-        }
+	// check if all input VMs exist
+	for _, info := range infoList {
+		if info.IId.NameId == nlbIID.NameId {
+			for _, vmIID := range *vmIIDs {
+				for _, vm := range *info.VMGroup.VMs {
+					if vm.NameId == vmIID.NameId {
+						errMSG := fmt.Sprintf("%s NLB already has this VM: %v!!", nlbIID.NameId, vmIID)
+						errMSG += fmt.Sprintf(" #### %s NLB has %v!!", nlbIID.NameId, *info.VMGroup.VMs)
+						return irs.VMGroupInfo{}, fmt.Errorf(errMSG)
+					}
+				}
+			}
+		}
+	}
 
 	// Add all VMs
-        for _, info := range infoList {
-                if info.IId.NameId == nlbIID.NameId {
+	for _, info := range infoList {
+		if info.IId.NameId == nlbIID.NameId {
 			*info.VMGroup.VMs = append(*info.VMGroup.VMs, *vmIIDs...)
-                        return CloneNLBInfo(*info).VMGroup, nil
-                }
-        }
+			return CloneNLBInfo(*info).VMGroup, nil
+		}
+	}
 
 	return irs.VMGroupInfo{}, fmt.Errorf("%s NLB does not exist!!", nlbIID.NameId)
 }
 
 func (nlbHandler *MockNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (bool, error) {
-        cblogger := cblog.GetLogger("CB-SPIDER")
-        cblogger.Info("Mock Driver: called RemoveVMs()!")
+	cblogger := cblog.GetLogger("CB-SPIDER")
+	cblogger.Info("Mock Driver: called RemoveVMs()!")
 
-nlbMapLock.Lock()
-defer nlbMapLock.Unlock()
+	nlbMapLock.Lock()
+	defer nlbMapLock.Unlock()
 
-        mockName := nlbHandler.MockName
-        infoList, ok := nlbInfoMap[mockName]
-        if !ok {
-                return false, fmt.Errorf("%s NLB does not exist!!", nlbIID.NameId)
-        }
+	mockName := nlbHandler.MockName
+	infoList, ok := nlbInfoMap[mockName]
+	if !ok {
+		return false, fmt.Errorf("%s NLB does not exist!!", nlbIID.NameId)
+	}
 
-        // check if all input rules do not exist
-        for _, info := range infoList {
-                if info.IId.NameId == nlbIID.NameId {
-                        for _, vmIID := range *vmIIDs {
+	// check if all input VMs do not exist
+	for _, info := range infoList {
+		if info.IId.NameId == nlbIID.NameId {
+			for _, vmIID := range *vmIIDs {
 				existFlag := false
-                                for _, vm := range *info.VMGroup.VMs {
-                                        if vm.NameId == vmIID.NameId {
+				for _, vm := range *info.VMGroup.VMs {
+					if vm.NameId == vmIID.NameId {
 						existFlag = true
-                                        }
-                                }
-				if !existFlag {
-                                                errMSG := fmt.Sprintf("%s NLB does not have this VM: %v!!", nlbIID.NameId, vmIID)
-                                                errMSG += fmt.Sprintf(" #### %s NLB has %v!!", nlbIID.NameId, *info.VMGroup.VMs)
-                                                return false, fmt.Errorf(errMSG)
+					}
 				}
-                        }
-                }
-        }
+				if !existFlag {
+					errMSG := fmt.Sprintf("%s NLB does not have this VM: %v!!", nlbIID.NameId, vmIID)
+					errMSG += fmt.Sprintf(" #### %s NLB has %v!!", nlbIID.NameId, *info.VMGroup.VMs)
+					return false, fmt.Errorf(errMSG)
+				}
+			}
+		}
+	}
 
-        for _, info := range infoList {
-                if (*info).IId.NameId == nlbIID.NameId {
+	for _, info := range infoList {
+		if (*info).IId.NameId == nlbIID.NameId {
 			for _, vmIID := range *vmIIDs {
 				for idx, vm := range *info.VMGroup.VMs {
 					if vm.NameId == vmIID.NameId {
 						*info.VMGroup.VMs = removeVM(info.VMGroup.VMs, idx)
-						break;
+						break
 					}
 				}
 			}
-			break;
-                }
-        }
+			break
+		}
+	}
 
-
-        return true, nil
+	return true, nil
 }
 
 func removeVM(list *[]irs.IID, idx int) []irs.IID {
 	return append((*list)[:idx], (*list)[idx+1:]...)
 }
 
-
-//------ Frontend Control
+// ------ Frontend Control
 func (nlbHandler *MockNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.ListenerInfo) (irs.ListenerInfo, error) {
-        cblogger := cblog.GetLogger("CB-SPIDER")
-        cblogger.Info("Mock Driver: called ChangeListener()!")
+	cblogger := cblog.GetLogger("CB-SPIDER")
+	cblogger.Info("Mock Driver: called ChangeListener()!")
 
-nlbMapLock.RLock()
-defer nlbMapLock.RUnlock()
+	nlbMapLock.RLock()
+	defer nlbMapLock.RUnlock()
 
-        mockName := nlbHandler.MockName
-        infoList, ok := nlbInfoMap[mockName]
-        if !ok {
-                return irs.ListenerInfo{}, fmt.Errorf("%s NLB does not exist!!", nlbIID.NameId)
-        }
+	mockName := nlbHandler.MockName
+	infoList, ok := nlbInfoMap[mockName]
+	if !ok {
+		return irs.ListenerInfo{}, fmt.Errorf("%s NLB does not exist!!", nlbIID.NameId)
+	}
 
-        for _, info := range infoList {
-                if info.IId.NameId == nlbIID.NameId {
+	for _, info := range infoList {
+		if info.IId.NameId == nlbIID.NameId {
 			info.Listener.Protocol = listener.Protocol
 			info.Listener.Port = listener.Port
-                        return CloneListenerInfo(info.Listener), nil
-                }
-        }
+			return CloneListenerInfo(info.Listener), nil
+		}
+	}
 
-        return irs.ListenerInfo{}, fmt.Errorf("%s NLB does not exist!!", nlbIID.NameId)
+	return irs.ListenerInfo{}, fmt.Errorf("%s NLB does not exist!!", nlbIID.NameId)
 }
 
-
 func CloneListenerInfo(srcInfo irs.ListenerInfo) irs.ListenerInfo {
-        /*
+	/*
 		type ListenerInfo struct {
 			Protocol        string  // TCP|UDP
 			IP              string  // Auto Generated and attached
@@ -300,76 +294,74 @@ func CloneListenerInfo(srcInfo irs.ListenerInfo) irs.ListenerInfo {
 			CspID           string  // Optional, May be Used by Driver.
 			KeyValueList []KeyValue
 		}
-        */
+	*/
 
-        clonedInfo := irs.ListenerInfo{
-                Protocol:    	srcInfo.Protocol,
-                IP:      	srcInfo.IP,
-                Port:    	srcInfo.Port,
-                DNSName:    	srcInfo.DNSName,
+	clonedInfo := irs.ListenerInfo{
+		Protocol:     srcInfo.Protocol,
+		IP:           srcInfo.IP,
+		Port:         srcInfo.Port,
+		DNSName:      srcInfo.DNSName,
+		CspID:        srcInfo.CspID,
+		KeyValueList: srcInfo.KeyValueList,
+	}
 
-                CspID:		srcInfo.CspID,
-                KeyValueList:  	srcInfo.KeyValueList,
-        }
-
-        return clonedInfo
+	return clonedInfo
 }
 
-//------ Backend Control
+// ------ Backend Control
 func (nlbHandler *MockNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.VMGroupInfo) (irs.VMGroupInfo, error) {
-        cblogger := cblog.GetLogger("CB-SPIDER")
-        cblogger.Info("Mock Driver: called ChangeVMGroupInfo()!")
+	cblogger := cblog.GetLogger("CB-SPIDER")
+	cblogger.Info("Mock Driver: called ChangeVMGroupInfo()!")
 
-nlbMapLock.RLock()
-defer nlbMapLock.RUnlock()
+	nlbMapLock.RLock()
+	defer nlbMapLock.RUnlock()
 
-        mockName := nlbHandler.MockName
-        infoList, ok := nlbInfoMap[mockName]
-        if !ok {
-                return irs.VMGroupInfo{}, fmt.Errorf("%s NLB does not exist!!", nlbIID.NameId)
-        }
+	mockName := nlbHandler.MockName
+	infoList, ok := nlbInfoMap[mockName]
+	if !ok {
+		return irs.VMGroupInfo{}, fmt.Errorf("%s NLB does not exist!!", nlbIID.NameId)
+	}
 
-        for _, info := range infoList {
-                if info.IId.NameId == nlbIID.NameId {
-                        info.VMGroup.Protocol = vmGroup.Protocol
-                        info.VMGroup.Port = vmGroup.Port
-                        return CloneVMGroupInfo(info.VMGroup), nil
-                }
-        }
+	for _, info := range infoList {
+		if info.IId.NameId == nlbIID.NameId {
+			info.VMGroup.Protocol = vmGroup.Protocol
+			info.VMGroup.Port = vmGroup.Port
+			return CloneVMGroupInfo(info.VMGroup), nil
+		}
+	}
 
-        return irs.VMGroupInfo{}, fmt.Errorf("%s NLB does not exist!!", nlbIID.NameId)
+	return irs.VMGroupInfo{}, fmt.Errorf("%s NLB does not exist!!", nlbIID.NameId)
 }
 
 func CloneVMGroupInfo(srcInfo irs.VMGroupInfo) irs.VMGroupInfo {
-        /*
+	/*
 		type VMGroupInfo struct {
-			Protocol        string  // TCP|UDP|HTTP|HTTPS
+			Protocol        string  // TCP|UDP
 			Port            string  // 1-65535
 			VMs             *[]IID
 
 			CspID           string  // Optional, May be Used by Driver.
 			KeyValueList []KeyValue
 		}
-        */
+	*/
 
-        clonedInfo := irs.VMGroupInfo{
-                Protocol:       srcInfo.Protocol,
-                Port:           srcInfo.Port,
-                VMs:            CloneVMs(srcInfo.VMs),
+	clonedInfo := irs.VMGroupInfo{
+		Protocol:     srcInfo.Protocol,
+		Port:         srcInfo.Port,
+		VMs:          CloneVMs(srcInfo.VMs),
+		CspID:        srcInfo.CspID,
+		KeyValueList: srcInfo.KeyValueList,
+	}
 
-                CspID:          srcInfo.CspID,
-                KeyValueList:   srcInfo.KeyValueList,
-        }
-
-        return clonedInfo
+	return clonedInfo
 }
 
 func CloneVMs(srcInfo *[]irs.IID) *[]irs.IID {
 	clonedList := []irs.IID{}
 	for _, one := range *srcInfo {
 		clonedInfo := irs.IID{
-			NameId: one.NameId, 
-			SystemId: one.SystemId, 
+			NameId:   one.NameId,
+			SystemId: one.SystemId,
 		}
 		clonedList = append(clonedList, clonedInfo)
 	}
@@ -377,88 +369,86 @@ func CloneVMs(srcInfo *[]irs.IID) *[]irs.IID {
 }
 
 func (nlbHandler *MockNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthChecker irs.HealthCheckerInfo) (irs.HealthCheckerInfo, error) {
-        cblogger := cblog.GetLogger("CB-SPIDER")
-        cblogger.Info("Mock Driver: called ChangeHealthCheckerInfo()!")
+	cblogger := cblog.GetLogger("CB-SPIDER")
+	cblogger.Info("Mock Driver: called ChangeHealthCheckerInfo()!")
 
-nlbMapLock.RLock()
-defer nlbMapLock.RUnlock()
+	nlbMapLock.RLock()
+	defer nlbMapLock.RUnlock()
 
-        mockName := nlbHandler.MockName
-        infoList, ok := nlbInfoMap[mockName]
-        if !ok {
-                return irs.HealthCheckerInfo{}, fmt.Errorf("%s NLB does not exist!!", nlbIID.NameId)
-        }
+	mockName := nlbHandler.MockName
+	infoList, ok := nlbInfoMap[mockName]
+	if !ok {
+		return irs.HealthCheckerInfo{}, fmt.Errorf("%s NLB does not exist!!", nlbIID.NameId)
+	}
 
-        for _, info := range infoList {
-                if info.IId.NameId == nlbIID.NameId {
-                        info.HealthChecker.Protocol = healthChecker.Protocol
-                        info.HealthChecker.Port = healthChecker.Port
-                        info.HealthChecker.Interval = healthChecker.Interval
-                        info.HealthChecker.Timeout = healthChecker.Timeout
-                        info.HealthChecker.Threshold = healthChecker.Threshold
-                        return CloneHealthCheckerInfo(info.HealthChecker), nil
-                }
-        }
+	for _, info := range infoList {
+		if info.IId.NameId == nlbIID.NameId {
+			info.HealthChecker.Protocol = healthChecker.Protocol
+			info.HealthChecker.Port = healthChecker.Port
+			info.HealthChecker.Interval = healthChecker.Interval
+			info.HealthChecker.Timeout = healthChecker.Timeout
+			info.HealthChecker.Threshold = healthChecker.Threshold
+			return CloneHealthCheckerInfo(info.HealthChecker), nil
+		}
+	}
 
-        return irs.HealthCheckerInfo{}, fmt.Errorf("%s NLB does not exist!!", nlbIID.NameId)
+	return irs.HealthCheckerInfo{}, fmt.Errorf("%s NLB does not exist!!", nlbIID.NameId)
 }
 
 func CloneHealthCheckerInfo(srcInfo irs.HealthCheckerInfo) irs.HealthCheckerInfo {
-        /*
+	/*
 		type HealthCheckerInfo struct {
-			Protocol        string  // TCP|HTTP|HTTPS
+			Protocol        string  // TCP|HTTP
 			Port            string  // Listener Port or 1-65535
 			Interval        int     // secs, Interval time between health checks.
 			Timeout         int     // secs, Waiting time to decide an unhealthy VM when no response.
 			Threshold       int     // num, The number of continuous health checks to change the VM status.
 
 			CspID           string  // Optional, May be Used by Driver.
-			KeyValueList    []KeyValue
+			KeyValueList []KeyValue
 		}
-        */
+	*/
 
-        clonedInfo := irs.HealthCheckerInfo{
-                Protocol:       srcInfo.Protocol,
-                Port:           srcInfo.Port,
-                Interval:      	srcInfo.Interval,
-                Timeout:      	srcInfo.Timeout,
-                Threshold:     	srcInfo.Threshold,
+	clonedInfo := irs.HealthCheckerInfo{
+		Protocol:     srcInfo.Protocol,
+		Port:         srcInfo.Port,
+		Interval:     srcInfo.Interval,
+		Timeout:      srcInfo.Timeout,
+		Threshold:    srcInfo.Threshold,
+		CspID:        srcInfo.CspID,
+		KeyValueList: srcInfo.KeyValueList,
+	}
 
-                CspID:          srcInfo.CspID,
-                KeyValueList:   srcInfo.KeyValueList,
-        }
-
-        return clonedInfo
+	return clonedInfo
 }
 
 func (nlbHandler *MockNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.HealthInfo, error) {
-        cblogger := cblog.GetLogger("CB-SPIDER")
-        cblogger.Info("Mock Driver: called GetVMGroupHealthInfo()!")
+	cblogger := cblog.GetLogger("CB-SPIDER")
+	cblogger.Info("Mock Driver: called GetVMGroupHealthInfo()!")
 
-nlbMapLock.RLock()
-defer nlbMapLock.RUnlock()
+	nlbMapLock.RLock()
+	defer nlbMapLock.RUnlock()
 
-        mockName := nlbHandler.MockName
-        infoList, ok := nlbInfoMap[mockName]
-        if !ok {
-                return irs.HealthInfo{}, fmt.Errorf("%s NLB does not exist!!", nlbIID.NameId)
-        }
+	mockName := nlbHandler.MockName
+	infoList, ok := nlbInfoMap[mockName]
+	if !ok {
+		return irs.HealthInfo{}, fmt.Errorf("%s NLB does not exist!!", nlbIID.NameId)
+	}
 
-	healthInfo := irs.HealthInfo{ &[]irs.IID{}, &[]irs.IID{}, &[]irs.IID{}}
-        for _, info := range infoList {
-                if info.IId.NameId == nlbIID.NameId {
-                        for idx, vm := range *info.VMGroup.VMs {
+	healthInfo := irs.HealthInfo{&[]irs.IID{}, &[]irs.IID{}, &[]irs.IID{}}
+	for _, info := range infoList {
+		if info.IId.NameId == nlbIID.NameId {
+			for idx, vm := range *info.VMGroup.VMs {
 				*healthInfo.AllVMs = append(*healthInfo.AllVMs, vm)
-				if (idx+1) == len(*info.VMGroup.VMs) {
-					*healthInfo.UnHealthyVMs = append (*healthInfo.UnHealthyVMs, vm)
-				}else {
-					*healthInfo.HealthyVMs = append (*healthInfo.HealthyVMs, vm)
+				if (idx + 1) == len(*info.VMGroup.VMs) {
+					*healthInfo.UnHealthyVMs = append(*healthInfo.UnHealthyVMs, vm)
+				} else {
+					*healthInfo.HealthyVMs = append(*healthInfo.HealthyVMs, vm)
 				}
 			}
-                        return healthInfo, nil
-                }
-        }
+			return healthInfo, nil
+		}
+	}
 
-        return irs.HealthInfo{}, fmt.Errorf("%s NLB VMGroup does not have VMs!!", nlbIID.NameId)
+	return irs.HealthInfo{}, fmt.Errorf("%s NLB VMGroup does not have VMs!!", nlbIID.NameId)
 }
-

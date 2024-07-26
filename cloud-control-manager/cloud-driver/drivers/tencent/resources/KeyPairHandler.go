@@ -163,6 +163,21 @@ func (keyPairHandler *TencentKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 	request.KeyName = common.StringPtr(keyPairReqInfo.IId.NameId)
 	request.ProjectId = common.Int64Ptr(0)
 
+	var tags []*cvm.Tag
+	for _, inputTag := range keyPairReqInfo.TagList {
+		tags = append(tags, &cvm.Tag{
+			Key:   common.StringPtr(inputTag.Key),
+			Value: common.StringPtr(inputTag.Value),
+		})
+	}
+
+	request.TagSpecification = []*cvm.TagSpecification{
+		{
+			ResourceType: common.StringPtr("instance"),
+			Tags:         tags,
+		},
+	}
+
 	callLogStart := call.Start()
 	response, err := keyPairHandler.Client.CreateKeyPair(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        .menu-item {
+            margin: 10px 0;
+            padding: 10px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #0645AD;
+            text-decoration: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+        }
+        .menu-item:hover {
+            background-color: #f0f0f0;
+        }
+        .menu-item img {
+            vertical-align: middle;
+            height: 35px; /* Set height to 40px */
+            width: auto; /* Maintain aspect ratio */
+        }
+        .logo img {
+            height: 47px; /* Set height to 50px */
+            width: auto; /* Maintain aspect ratio */
+        }
+        .menu-text {
+            margin-top: 0; /* Remove or minimize the top margin */
+            text-align: center;
+        }
+    </style>
+    <script>
+        function checkConnectionAndRedirect(menu, event) {
+            const topMenuFrame = parent.document.querySelector('.top-menu');
+            const connectionNameElement = topMenuFrame ? topMenuFrame.querySelector('#selectedConfigName') : null;
+            const connectionName = connectionNameElement ? connectionNameElement.innerText.replace('Connection Name: ', '') : '';
+            if (!connectionName || connectionName === 'Please select a connection first.') {
+                alert('Please select a connection first.');
+                event.preventDefault();
+                return;
+            }
+
+            const menuUrlMap = {
+                vpc: "/spider/adminweb/vpc",
+                securitygroup: "/spider/adminweb/securitygroup",
+                keypair: "/spider/adminweb/keypair",
+                vm: "/spider/adminweb/vm",
+                disk: "/spider/adminweb/disk",
+                myimage: "/spider/adminweb/myimage",
+                nlb: "/spider/adminweb/nlb",
+                cluster: "/spider/adminweb/cluster"
+            };
+
+            const targetUrl = `${menuUrlMap[menu]}/${encodeURIComponent(connectionName)}`;
+            parent.frames['body_frame'].location.href = targetUrl;
+
+            // Change selected image
+            changeSelectedImage(menu);
+            // Notify main.html to deselect its menus
+            parent.postMessage({ type: 'deselectMainMenu' }, '*');
+        }
+
+        function selectLeftMenu(menu) {
+            changeSelectedImage(menu);
+            const menuUrlMap = {
+                dashboard: "/spider/adminweb/dashboard?showEmpty=true",
+                connection: "/spider/adminweb2/connectionconfig"
+            };
+
+            const targetUrl = menuUrlMap[menu];
+            if (targetUrl) {
+                parent.frames['body_frame'].location.href = targetUrl;
+            }
+            // Notify main.html to deselect its menus
+            parent.postMessage({ type: 'deselectMainMenu' }, '*');
+        }
+
+        function changeSelectedImage(selectedMenu) {
+            const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'disk', 'myimage', 'nlb', 'cluster'];
+            menus.forEach(menu => {
+                const imgElement = document.getElementById(menu + '-img');
+                if (imgElement) {
+                    if (menu === selectedMenu) {
+                        imgElement.src = `./images/left-menu/${menu}_selected.png`;
+                    } else {
+                        imgElement.src = `./images/left-menu/${menu}.png`;
+                    }
+                }
+            });
+        }
+
+        window.addEventListener('message', function(event) {
+            if (event.data.type === 'deselectLeftMenu') {
+                const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'disk', 'myimage', 'nlb', 'cluster'];
+                menus.forEach(menu => {
+                    const imgElement = document.getElementById(menu + '-img');
+                    imgElement.src = `./images/left-menu/${menu}.png`;
+                });
+            }
+        });
+    </script>
+</head>
+<body>
+    <a href="/spider/adminweb2" target="_top" class="menu-item logo">
+        <img src="./images/logo.png" border="0">
+    </a>
+    <div class="menu-item" onclick="selectLeftMenu('dashboard')">
+        <img id="dashboard-img" src="./images/left-menu/dashboard.png" alt="Dashboard Icon">
+        <div class="menu-text">Dashboard</div>
+    </div>
+    <div class="menu-item" onclick="selectLeftMenu('connection')">
+        <img id="connection-img" src="./images/left-menu/connection.png" alt="Connection Icon">
+        <div class="menu-text">Connection</div>
+    </div>
+    <div class="menu-item" onclick="checkConnectionAndRedirect('vpc', event)">
+        <img id="vpc-img" src="./images/left-menu/vpc.png" alt="VPC/Subnet Icon">
+        <div class="menu-text">VPC/Subnet</div>
+    </div>
+    <div class="menu-item" onclick="checkConnectionAndRedirect('securitygroup', event)">
+        <img id="securitygroup-img" src="./images/left-menu/securitygroup.png" alt="SecurityGroup Icon">
+        <div class="menu-text">SecurityGroup</div>
+    </div>
+    <div class="menu-item" onclick="checkConnectionAndRedirect('keypair', event)">
+        <img id="keypair-img" src="./images/left-menu/keypair.png" alt="KeyPair Icon">
+        <div class="menu-text">KeyPair</div>
+    </div>
+    <div class="menu-item" onclick="checkConnectionAndRedirect('vm', event)">
+        <img id="vm-img" src="./images/left-menu/vm.png" alt="VM Icon">
+        <div class="menu-text">VM</div>
+    </div>
+    <div class="menu-item" onclick="checkConnectionAndRedirect('disk', event)">
+        <img id="disk-img" src="./images/left-menu/disk.png" alt="Disk Icon">
+        <div class="menu-text">Disk</div>
+    </div>
+    <div class="menu-item" onclick="checkConnectionAndRedirect('myimage', event)">
+        <img id="myimage-img" src="./images/left-menu/myimage.png" alt="MyImage Icon">
+        <div class="menu-text">MyImage</div>
+    </div>
+    <div class="menu-item" onclick="checkConnectionAndRedirect('nlb', event)">
+        <img id="nlb-img" src="./images/left-menu/nlb.png" alt="NLB Icon">
+        <div class="menu-text">NLB</div>
+    </div>
+    <div class="menu-item" onclick="checkConnectionAndRedirect('cluster', event)">
+        <img id="cluster-img" src="./images/left-menu/cluster.png" alt="Cluster Icon">
+        <div class="menu-text">Cluster</div>
+    </div>
+</body>
+</html>

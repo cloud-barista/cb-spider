@@ -115,6 +115,19 @@ func (keyPairHandler *AlibabaKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 
 	request.KeyPairName = keyPairReqInfo.IId.NameId
 
+	if keyPairReqInfo.TagList != nil && len(keyPairReqInfo.TagList) > 0 {
+		keyPairTags := []ecs.CreateKeyPairTag{}
+		for _, keyPairTag := range keyPairReqInfo.TagList {
+			tag0 := ecs.CreateKeyPairTag{
+				Key:   keyPairTag.Key,
+				Value: keyPairTag.Value,
+			}
+			keyPairTags = append(keyPairTags, tag0)
+
+		}
+		request.Tag = &keyPairTags
+	}
+
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
@@ -258,6 +271,17 @@ func ExtractKeyPairDescribeInfo(keyPair *ecs.KeyPair) (irs.KeyPairInfo, error) {
 		IId:         irs.IID{NameId: keyPair.KeyPairName, SystemId: keyPair.KeyPairName},
 		Fingerprint: keyPair.KeyPairFingerPrint,
 	}
+
+	tagList := []irs.KeyValue{}
+	cblogger.Info("eeeeeeeeeee", keyPair.Tags)
+	for _, aliTag := range keyPair.Tags.Tag {
+		kTag := irs.KeyValue{}
+		kTag.Key = aliTag.TagKey
+		kTag.Value = aliTag.TagValue
+
+		tagList = append(tagList, kTag)
+	}
+	keyPairInfo.TagList = tagList
 
 	/* 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 	// Local Keyfile 처리
