@@ -20,6 +20,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2022-03-01/containerservice"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2019-11-01/subscriptions"
+	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-10-01/resources"
 	"github.com/Azure/go-autorest/autorest/to"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -39,6 +41,9 @@ type AzureClusterHandler struct {
 	CredentialInfo                  idrv.CredentialInfo
 	Region                          idrv.RegionInfo
 	Ctx                             context.Context
+	Client                          *subscriptions.Client
+	GroupsClient                    *resources.GroupsClient
+	ResourceSkusClient              *compute.ResourceSkusClient
 	ManagedClustersClient           *containerservice.ManagedClustersClient
 	VirtualNetworksClient           *network.VirtualNetworksClient
 	AgentPoolsClient                *containerservice.AgentPoolsClient
@@ -190,7 +195,7 @@ func (ac *AzureClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (in
 		return irs.ClusterInfo{}, createErr
 	}
 
-	err = createCluster(clusterReqInfo, ac.VirtualNetworksClient, ac.ManagedClustersClient, ac.VirtualMachineSizesClient, ac.SSHPublicKeysClient, ac.Region, ac.Ctx)
+	err = createCluster(clusterReqInfo, ac)
 	if err != nil {
 		createErr = errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", err))
 		cblogger.Error(createErr.Error())
@@ -303,7 +308,7 @@ func (ac *AzureClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo
 		LoggingError(hiscallInfo, addNodeErr)
 		return irs.NodeGroupInfo{}, addNodeErr
 	}
-	nodeGroupInfo, err := addNodeGroupPool(cluster, nodeGroupReqInfo, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.SubnetClient, ac.CredentialInfo, ac.Region, ac.Ctx)
+	nodeGroupInfo, err := addNodeGroupPool(cluster, nodeGroupReqInfo, ac)
 	if err != nil {
 		addNodeErr = errors.New(fmt.Sprintf("Failed to Add NodeGroup. err = %s", err))
 		cblogger.Error(addNodeErr.Error())
@@ -988,18 +993,18 @@ func checkValidationCreateCluster(clusterReqInfo irs.ClusterInfo, virtualMachine
 	return nil
 }
 
-func createCluster(clusterReqInfo irs.ClusterInfo, virtualNetworksClient *network.VirtualNetworksClient, managedClustersClient *containerservice.ManagedClustersClient, virtualMachineSizesClient *compute.VirtualMachineSizesClient, sshPublicKeysClient *compute.SSHPublicKeysClient, regionInfo idrv.RegionInfo, ctx context.Context) error {
+func createCluster(clusterReqInfo irs.ClusterInfo, ac *AzureClusterHandler) error {
 	// 사전 확인
-	err := checkValidationCreateCluster(clusterReqInfo, virtualMachineSizesClient, regionInfo, ctx)
+	err := checkValidationCreateCluster(clusterReqInfo, ac.VirtualMachineSizesClient, ac.Region, ac.Ctx)
 	if err != nil {
 		return err
 	}
-	targetSubnet, err := getRawClusterTargetSubnet(clusterReqInfo.Network, virtualNetworksClient, ctx, regionInfo.Region)
+	targetSubnet, err := getRawClusterTargetSubnet(clusterReqInfo.Network, ac.VirtualNetworksClient, ac.Ctx, ac.Region.Region)
 	if err != nil {
 		return err
 	}
 	// agentPoolProfiles
-	agentPoolProfiles, err := generateAgentPoolProfileList(clusterReqInfo, targetSubnet)
+	agentPoolProfiles, err := generateAgentPoolProfileList(clusterReqInfo, targetSubnet, ac)
 	if err != nil {
 		return err
 	}
@@ -1009,7 +1014,7 @@ func createCluster(clusterReqInfo irs.ClusterInfo, virtualNetworksClient *networ
 		return err
 	}
 	// mapping ssh
-	linuxProfileSSH, sshKey, err := generateManagedClusterLinuxProfileSSH(clusterReqInfo, sshPublicKeysClient, regionInfo.Region, ctx)
+	linuxProfileSSH, sshKey, err := generateManagedClusterLinuxProfileSSH(clusterReqInfo, ac.SSHPublicKeysClient, ac.Region.Region, ac.Ctx)
 	if err != nil {
 		return err
 	}
@@ -1020,7 +1025,7 @@ func createCluster(clusterReqInfo irs.ClusterInfo, virtualNetworksClient *networ
 	addonProfiles := generatePreparedAddonProfiles()
 
 	clusterCreateOpts := containerservice.ManagedCluster{
-		Location: to.StringPtr(regionInfo.Region),
+		Location: to.StringPtr(ac.Region.Region),
 		Sku: &containerservice.ManagedClusterSKU{
 			Name: containerservice.ManagedClusterSKUNameBasic,
 			Tier: containerservice.ManagedClusterSKUTierPaid,
@@ -1033,20 +1038,20 @@ func createCluster(clusterReqInfo irs.ClusterInfo, virtualNetworksClient *networ
 			KubernetesVersion: to.StringPtr(clusterReqInfo.Version),
 			EnableRBAC:        to.BoolPtr(true),
 			DNSPrefix:         to.StringPtr(getclusterDNSPrefix(clusterReqInfo.IId.NameId)),
-			NodeResourceGroup: to.StringPtr(getclusterNodeResourceGroup(clusterReqInfo.IId.NameId, regionInfo.Region, regionInfo.Region)),
+			NodeResourceGroup: to.StringPtr(getclusterNodeResourceGroup(clusterReqInfo.IId.NameId, ac.Region.Region, ac.Region.Region)),
 			AgentPoolProfiles: &agentPoolProfiles,
 			NetworkProfile:    &networkProfile,
 			LinuxProfile:      &linuxProfileSSH,
 			AddonProfiles:     addonProfiles,
 		},
 	}
-	if clusterReqInfo.TagList != nil{
+	if clusterReqInfo.TagList != nil {
 		for _, tag := range clusterReqInfo.TagList {
 			clusterCreateOpts.Tags[tag.Key] = to.StringPtr(tag.Value)
 		}
 	}
 
-	_, err = managedClustersClient.CreateOrUpdate(ctx, regionInfo.Region, clusterReqInfo.IId.NameId, clusterCreateOpts)
+	_, err = ac.ManagedClustersClient.CreateOrUpdate(ac.Ctx, ac.Region.Region, clusterReqInfo.IId.NameId, clusterCreateOpts)
 	if err != nil {
 		return err
 	}
@@ -1285,10 +1290,10 @@ func generateManagedClusterLinuxProfileSSH(clusterReqInfo irs.ClusterInfo, sshPu
 	return linuxProfile, key, nil
 }
 
-func generateAgentPoolProfileList(info irs.ClusterInfo, targetSubnet network.Subnet) ([]containerservice.ManagedClusterAgentPoolProfile, error) {
+func generateAgentPoolProfileList(info irs.ClusterInfo, targetSubnet network.Subnet, ac *AzureClusterHandler) ([]containerservice.ManagedClusterAgentPoolProfile, error) {
 	agentPoolProfiles := make([]containerservice.ManagedClusterAgentPoolProfile, len(info.NodeGroupList))
 	for i, nodeGroupInfo := range info.NodeGroupList {
-		agentPoolProfile, err := generateAgentPoolProfile(nodeGroupInfo, targetSubnet)
+		agentPoolProfile, err := generateAgentPoolProfile(nodeGroupInfo, targetSubnet, ac)
 		if err != nil {
 			return make([]containerservice.ManagedClusterAgentPoolProfile, 0), err
 		}
@@ -1297,8 +1302,36 @@ func generateAgentPoolProfileList(info irs.ClusterInfo, targetSubnet network.Sub
 	return agentPoolProfiles, nil
 }
 
-func generateAgentPoolProfileProperties(nodeGroupInfo irs.NodeGroupInfo, subnet network.Subnet) (containerservice.ManagedClusterAgentPoolProfileProperties, error) {
+func (ac *AzureClusterHandler) getAvailabilityZones() (*[]string, error) {
+	regionZoneHandler := AzureRegionZoneHandler{
+		CredentialInfo:     ac.CredentialInfo,
+		Region:             ac.Region,
+		Ctx:                ac.Ctx,
+		Client:             ac.Client,
+		GroupsClient:       ac.GroupsClient,
+		ResourceSkusClient: ac.ResourceSkusClient,
+	}
+
+	regionZoneInfo, err := regionZoneHandler.GetRegionZone(ac.Region.Region)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(regionZoneInfo.ZoneList) == 0 {
+		return nil, nil
+	}
+
+	var availabilityZones []string
+	for _, zone := range regionZoneInfo.ZoneList {
+		availabilityZones = append(availabilityZones, zone.Name)
+	}
+
+	return &availabilityZones, nil
+}
+
+func generateAgentPoolProfileProperties(nodeGroupInfo irs.NodeGroupInfo, subnet network.Subnet, ac *AzureClusterHandler) (containerservice.ManagedClusterAgentPoolProfileProperties, error) {
 	var nodeOSDiskSize *int32
+
 	if nodeGroupInfo.RootDiskSize == "" || nodeGroupInfo.RootDiskSize == "default" {
 		nodeOSDiskSize = nil
 	} else {
@@ -1308,21 +1341,29 @@ func generateAgentPoolProfileProperties(nodeGroupInfo irs.NodeGroupInfo, subnet 
 		}
 		nodeOSDiskSize = to.Int32Ptr(int32(osDiskSize))
 	}
+
+	availabilityZones, err := ac.getAvailabilityZones()
+	if err != nil {
+		return containerservice.ManagedClusterAgentPoolProfileProperties{}, err
+	}
+
+	var targetZones *[]string = nil
+	if availabilityZones != nil && len(*availabilityZones) > 0 {
+		targetZones = &[]string{ac.Region.Zone}
+	}
+
 	agentPoolProfileProperties := containerservice.ManagedClusterAgentPoolProfileProperties{
 		// Name:         to.StringPtr(nodeGroupInfo.IId.NameId),
-		Count:        to.Int32Ptr(int32(nodeGroupInfo.DesiredNodeSize)),
-		MinCount:     to.Int32Ptr(int32(nodeGroupInfo.MinNodeSize)),
-		MaxCount:     to.Int32Ptr(int32(nodeGroupInfo.MaxNodeSize)),
-		VMSize:       to.StringPtr(nodeGroupInfo.VMSpecName),
-		OsDiskSizeGB: nodeOSDiskSize,
-		OsType:       containerservice.OSTypeLinux,
-		Type:         containerservice.AgentPoolTypeVirtualMachineScaleSets,
-		MaxPods:      to.Int32Ptr(maxPodCount),
-		Mode:         containerservice.AgentPoolModeSystem, // User? System?
-		// https://learn.microsoft.com/en-us/azure/availability-zones/az-overview#availability-zones
-		// Azure availability zones : To ensure resiliency, a minimum of three separate availability zones are present in all availability zone-enabled regions.
-		//AvailabilityZones:  &[]string{"1", "2", "3"},
-		AvailabilityZones:  &[]string{"1"},
+		Count:              to.Int32Ptr(int32(nodeGroupInfo.DesiredNodeSize)),
+		MinCount:           to.Int32Ptr(int32(nodeGroupInfo.MinNodeSize)),
+		MaxCount:           to.Int32Ptr(int32(nodeGroupInfo.MaxNodeSize)),
+		VMSize:             to.StringPtr(nodeGroupInfo.VMSpecName),
+		OsDiskSizeGB:       nodeOSDiskSize,
+		OsType:             containerservice.OSTypeLinux,
+		Type:               containerservice.AgentPoolTypeVirtualMachineScaleSets,
+		MaxPods:            to.Int32Ptr(maxPodCount),
+		Mode:               containerservice.AgentPoolModeSystem, // User? System?
+		AvailabilityZones:  targetZones,
 		EnableNodePublicIP: to.BoolPtr(true),
 		EnableAutoScaling:  to.BoolPtr(nodeGroupInfo.OnAutoScaling),
 		// MinCount가 있으려면 true 여야함
@@ -1331,8 +1372,9 @@ func generateAgentPoolProfileProperties(nodeGroupInfo irs.NodeGroupInfo, subnet 
 	return agentPoolProfileProperties, nil
 }
 
-func generateAgentPoolProfile(nodeGroupInfo irs.NodeGroupInfo, subnet network.Subnet) (containerservice.ManagedClusterAgentPoolProfile, error) {
+func generateAgentPoolProfile(nodeGroupInfo irs.NodeGroupInfo, subnet network.Subnet, ac *AzureClusterHandler) (containerservice.ManagedClusterAgentPoolProfile, error) {
 	var nodeOSDiskSize *int32
+
 	if nodeGroupInfo.RootDiskSize == "" || nodeGroupInfo.RootDiskSize == "default" {
 		nodeOSDiskSize = nil
 	} else {
@@ -1342,21 +1384,29 @@ func generateAgentPoolProfile(nodeGroupInfo irs.NodeGroupInfo, subnet network.Su
 		}
 		nodeOSDiskSize = to.Int32Ptr(int32(osDiskSize))
 	}
+
+	availabilityZones, err := ac.getAvailabilityZones()
+	if err != nil {
+		return containerservice.ManagedClusterAgentPoolProfile{}, err
+	}
+
+	var targetZones *[]string = nil
+	if availabilityZones != nil && len(*availabilityZones) > 0 {
+		targetZones = &[]string{ac.Region.Zone}
+	}
+
 	agentPoolProfile := containerservice.ManagedClusterAgentPoolProfile{
-		Name:         to.StringPtr(nodeGroupInfo.IId.NameId),
-		Count:        to.Int32Ptr(int32(nodeGroupInfo.DesiredNodeSize)),
-		MinCount:     to.Int32Ptr(int32(nodeGroupInfo.MinNodeSize)),
-		MaxCount:     to.Int32Ptr(int32(nodeGroupInfo.MaxNodeSize)),
-		VMSize:       to.StringPtr(nodeGroupInfo.VMSpecName),
-		OsDiskSizeGB: nodeOSDiskSize,
-		OsType:       containerservice.OSTypeLinux,
-		Type:         containerservice.AgentPoolTypeVirtualMachineScaleSets,
-		MaxPods:      to.Int32Ptr(maxPodCount),
-		Mode:         containerservice.AgentPoolModeSystem, // User? System?
-		// https://learn.microsoft.com/en-us/azure/availability-zones/az-overview#availability-zones
-		// Azure availability zones : To ensure resiliency, a minimum of three separate availability zones are present in all availability zone-enabled regions.
-		//AvailabilityZones:  &[]string{"1", "2", "3"},
-		AvailabilityZones:  &[]string{"1"},
+		Name:               to.StringPtr(nodeGroupInfo.IId.NameId),
+		Count:              to.Int32Ptr(int32(nodeGroupInfo.DesiredNodeSize)),
+		MinCount:           to.Int32Ptr(int32(nodeGroupInfo.MinNodeSize)),
+		MaxCount:           to.Int32Ptr(int32(nodeGroupInfo.MaxNodeSize)),
+		VMSize:             to.StringPtr(nodeGroupInfo.VMSpecName),
+		OsDiskSizeGB:       nodeOSDiskSize,
+		OsType:             containerservice.OSTypeLinux,
+		Type:               containerservice.AgentPoolTypeVirtualMachineScaleSets,
+		MaxPods:            to.Int32Ptr(maxPodCount),
+		Mode:               containerservice.AgentPoolModeSystem, // User? System?
+		AvailabilityZones:  targetZones,
 		EnableNodePublicIP: to.BoolPtr(true),
 		EnableAutoScaling:  to.BoolPtr(nodeGroupInfo.OnAutoScaling),
 		// MinCount가 있으려면 true 여야함
@@ -1742,7 +1792,7 @@ func deleteNodeGroup(cluster containerservice.ManagedCluster, nodeGroupIID irs.I
 	//}
 	return nil
 }
-func addNodeGroupPool(cluster containerservice.ManagedCluster, nodeGroup irs.NodeGroupInfo, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient, subnetClient *network.SubnetsClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (irs.NodeGroupInfo, error) {
+func addNodeGroupPool(cluster containerservice.ManagedCluster, nodeGroup irs.NodeGroupInfo, ac *AzureClusterHandler) (irs.NodeGroupInfo, error) {
 	// exist Check
 	if nodeGroup.IId.NameId == "" && nodeGroup.IId.SystemId == "" {
 		return irs.NodeGroupInfo{}, errors.New("failed add agentPool err = invalid NodeGroup NameId")
@@ -1761,12 +1811,12 @@ func addNodeGroupPool(cluster containerservice.ManagedCluster, nodeGroup irs.Nod
 			return irs.NodeGroupInfo{}, errors.New("The SSHkey in the Azure Cluster NodeGroup must all be the same")
 		}
 	} else {
-		clusterSShKeyId := GetSshKeyIdByName(credentialInfo, region, clusterNodeSSHkey.NameId)
+		clusterSShKeyId := GetSshKeyIdByName(ac.CredentialInfo, ac.Region, clusterNodeSSHkey.NameId)
 		if nodeGroup.KeyPairIID.SystemId != clusterSShKeyId {
 			return irs.NodeGroupInfo{}, errors.New("The SSHkey in the Azure Cluster NodeGroup must all be the same")
 		}
 	}
-	agentPools, err := agentPoolsClient.List(ctx, region.Region, *cluster.Name)
+	agentPools, err := ac.AgentPoolsClient.List(ac.Ctx, ac.Region.Region, *cluster.Name)
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed add agentPool err = %s", err.Error()))
 	}
@@ -1799,20 +1849,20 @@ func addNodeGroupPool(cluster containerservice.ManagedCluster, nodeGroup irs.Nod
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed add agentPool err = %s", err.Error()))
 	}
-	subnet, err := subnetClient.Get(ctx, region.Region, vpcName, subnetName, "")
+	subnet, err := ac.SubnetClient.Get(ac.Ctx, ac.Region.Region, vpcName, subnetName, "")
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed addNodeGroupPool err = %s", err.Error()))
 	}
 	// Add AgentPoolProfiles
-	agentPoolProfileProperties, err := generateAgentPoolProfileProperties(nodeGroup, subnet)
+	agentPoolProfileProperties, err := generateAgentPoolProfileProperties(nodeGroup, subnet, ac)
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed add agentPool err = %s", err.Error()))
 	}
-	_, err = agentPoolsClient.CreateOrUpdate(ctx, region.Region, *cluster.Name, nodeGroup.IId.NameId, containerservice.AgentPool{ManagedClusterAgentPoolProfileProperties: &agentPoolProfileProperties})
+	_, err = ac.AgentPoolsClient.CreateOrUpdate(ac.Ctx, ac.Region.Region, *cluster.Name, nodeGroup.IId.NameId, containerservice.AgentPool{ManagedClusterAgentPoolProfileProperties: &agentPoolProfileProperties})
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed add agentPool err = %s", err.Error()))
 	}
-	nodePoolPair, err := waitingSpecifiedNodePoolPair(cluster, nodeGroup.IId.NameId, agentPoolsClient, virtualMachineScaleSetsClient, ctx)
+	nodePoolPair, err := waitingSpecifiedNodePoolPair(cluster, nodeGroup.IId.NameId, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.Ctx)
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed add agentPool err = %s", err.Error()))
 	}
@@ -1820,7 +1870,7 @@ func addNodeGroupPool(cluster containerservice.ManagedCluster, nodeGroup irs.Nod
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed add agentPool err = %s", err.Error()))
 	}
-	info := convertNodePairToNodeInfo(nodePoolPair, clusterSSHKey, virtualMachineScaleSetVMsClient, *cluster.NodeResourceGroup, ctx)
+	info := convertNodePairToNodeInfo(nodePoolPair, clusterSSHKey, ac.VirtualMachineScaleSetVMsClient, *cluster.NodeResourceGroup, ac.Ctx)
 	//err = result.WaitForCompletionRef(ctx, agentPoolsClient.Client)
 	//if err != nil {
 	//	return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed add agentPool err = %s", err.Error()))
