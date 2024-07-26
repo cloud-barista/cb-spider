@@ -317,6 +317,42 @@ func (ic *IbmClusterHandler) ListCluster() ([]*irs.ClusterInfo, error) {
 	return ret, nil
 }
 
+func (ic *IbmClusterHandler) getRawCluster(clusterIID irs.IID) (kubernetesserviceapiv1.GetClusterDetailResponse, error) {
+	rawCluster := kubernetesserviceapiv1.GetClusterDetailResponse{}
+
+	if clusterIID.NameId == "" && clusterIID.SystemId == "" {
+		return rawCluster, errors.New("Failed to Get Cluster. err = invalid IID")
+	}
+
+	resourceGroupId, getResourceGroupIdErr := ic.getDefaultResourceGroupId()
+	if getResourceGroupIdErr != nil {
+		return rawCluster, errors.New(fmt.Sprintf("Failed to Get Cluster. err = %s", getResourceGroupIdErr))
+	}
+
+	var cluster string
+	if clusterIID.SystemId != "" {
+		cluster = clusterIID.SystemId
+	} else {
+		cluster = clusterIID.NameId
+	}
+	rawClusters, _, getClustersErr := ic.ClusterService.VpcGetClusterWithContext(ic.Ctx, &kubernetesserviceapiv1.VpcGetClusterOptions{
+		Cluster:            core.StringPtr(cluster),
+		XAuthResourceGroup: core.StringPtr(resourceGroupId),
+		ShowResources:      core.StringPtr("true"),
+	})
+	if getClustersErr != nil {
+		return rawCluster, errors.New(fmt.Sprintf("Failed to Get Cluster. err = %s", getClustersErr))
+	}
+
+	for _, rCluster := range *rawClusters {
+		if rCluster.Id == clusterIID.SystemId || rCluster.Name == clusterIID.NameId {
+			return rCluster, nil
+		}
+	}
+
+	return rawCluster, errors.New("Failed to Get Cluster. err = cluster not found")
+}
+
 func (ic *IbmClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInfo, error) {
 	hiscallInfo := GetCallLogScheme(ic.Region, call.CLUSTER, clusterIID.NameId, "GetCluster()")
 	start := call.Start()

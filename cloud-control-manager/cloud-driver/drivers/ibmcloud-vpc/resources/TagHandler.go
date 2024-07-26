@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/utils/kubernetesserviceapiv1"
 	"strings"
 
 	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
@@ -18,6 +19,7 @@ type IbmTagHandler struct {
 	Region         idrv.RegionInfo
 	CredentialInfo idrv.CredentialInfo
 	VpcService     *vpcv1.VpcV1
+	ClusterService *kubernetesserviceapiv1.KubernetesServiceApiV1
 	Ctx            context.Context
 	TaggingService *globaltaggingv1.GlobalTaggingV1
 	SearchService  *globalsearchv2.GlobalSearchV2
@@ -73,7 +75,7 @@ func rsTypeToIBMType(resType irs.RSType) string {
 	case irs.MYIMAGE:
 		return "snapshot"
 	case irs.CLUSTER:
-		return ""
+		return "k8-cluster"
 	case irs.NODEGROUP:
 		return "instance-group"
 	default:
@@ -82,8 +84,6 @@ func rsTypeToIBMType(resType irs.RSType) string {
 }
 
 func ibmTypeToRSType(ibmType string) (irs.RSType, error) {
-	fmt.Println(ibmType)
-
 	switch ibmType {
 	case "image":
 		return irs.IMAGE, nil
@@ -103,8 +103,8 @@ func ibmTypeToRSType(ibmType string) (irs.RSType, error) {
 		return irs.DISK, nil
 	case "snapshot":
 		return irs.MYIMAGE, nil
-	//case "???":
-	//	return irs.CLUSTER
+	case "k8-cluster":
+		return irs.CLUSTER, nil
 	case "instance-group":
 		return irs.NODEGROUP, nil
 	default:
@@ -303,6 +303,22 @@ func handleTagAddOrRemove(tagHandler *IbmTagHandler, resType irs.RSType, resIID 
 		}
 
 		err2 = attachOrDetachTag(tagHandler.TaggingService, tag, *rawNLB.CRN, action)
+	case irs.CLUSTER:
+		clusterHandler := &IbmClusterHandler{
+			CredentialInfo: tagHandler.CredentialInfo,
+			Region:         tagHandler.Region,
+			Ctx:            tagHandler.Ctx,
+			VpcService:     tagHandler.VpcService,
+			ClusterService: tagHandler.ClusterService,
+			TaggingService: tagHandler.TaggingService,
+		}
+		rawCluster, err := clusterHandler.getRawCluster(resIID)
+		if err != nil {
+			err2 = errors.New(fmt.Sprintf("Failed to add tag. err = %s", err))
+			break
+		}
+
+		err2 = attachOrDetachTag(tagHandler.TaggingService, tag, rawCluster.Crn, action)
 	default:
 		return errors.New("invalid resource type")
 	}
@@ -346,9 +362,9 @@ func (tagHandler *IbmTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]
 	var query string
 
 	if resIID.NameId != "" {
-		query = fmt.Sprintf("type:%s AND name:%s", resType, resIID.NameId)
+		query = fmt.Sprintf("type:%s AND name:%s", ibmType, resIID.NameId)
 	} else {
-		query = fmt.Sprintf("type:%s AND id:%s", resType, resIID.SystemId)
+		query = fmt.Sprintf("type:%s AND id:%s", ibmType, resIID.SystemId)
 	}
 
 	searchOptions.SetQuery(query)
@@ -514,9 +530,37 @@ func (tagHandler *IbmTagHandler) FindTag(resType irs.RSType, keyword string) ([]
 					continue
 				}
 
+				name, ok := item.GetProperty("name").(string)
+				if !ok {
+					cblogger.Error("name is not a string")
+					continue
+				}
+				resourceId, ok := item.GetProperty("resource_id").(string)
+				if !ok {
+					cblogger.Error("resource_id is not a string")
+					continue
+				}
+
+				if rsType == irs.CLUSTER {
+					clusterHandler := &IbmClusterHandler{
+						CredentialInfo: tagHandler.CredentialInfo,
+						Region:         tagHandler.Region,
+						Ctx:            tagHandler.Ctx,
+						VpcService:     tagHandler.VpcService,
+						ClusterService: tagHandler.ClusterService,
+						TaggingService: tagHandler.TaggingService,
+					}
+					rawCluster, err := clusterHandler.getRawCluster(irs.IID{NameId: name})
+					if err != nil {
+						cblogger.Error(err)
+						continue
+					}
+					resourceId = rawCluster.Id
+				}
+
 				tagInfo = append(tagInfo, &irs.TagInfo{
 					ResType:      rsType,
-					ResIId:       irs.IID{NameId: (item.GetProperty("name")).(string), SystemId: (item.GetProperty("resource_id").(string))},
+					ResIId:       irs.IID{NameId: name, SystemId: resourceId},
 					TagList:      tagKeyValue,
 					KeyValueList: []irs.KeyValue{}, // reserved for optional usage
 				})

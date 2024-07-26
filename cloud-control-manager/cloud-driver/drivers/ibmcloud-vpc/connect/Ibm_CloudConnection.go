@@ -182,6 +182,7 @@ func (cloudConn *IbmCloudConnection) CreateTagHandler() (irs.TagHandler, error) 
 		CredentialInfo: cloudConn.CredentialInfo,
 		Region:         cloudConn.Region,
 		VpcService:     cloudConn.VpcService,
+		ClusterService: cloudConn.ClusterService,
 		Ctx:            cloudConn.Ctx,
 		TaggingService: cloudConn.TaggingService,
 		SearchService:  cloudConn.SearchService,
