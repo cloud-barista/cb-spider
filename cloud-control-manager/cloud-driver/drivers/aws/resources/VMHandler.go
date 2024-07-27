@@ -1495,7 +1495,7 @@ func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 		cblogger.Errorf("No mapping information found matching vmStatus [%s", vmStatus)
 		return irs.VMStatus("Failed"), errors.New("Cannot find status information that matches " + vmStatus)
 	}
-	cblogger.Infof("VM 상태 치환 : [%s] ==> [%s]", vmStatus, resultStatus)
+	cblogger.Infof("VReplace VMStatus : [%s] ==> [%s]", vmStatus, resultStatus)
 	return irs.VMStatus(resultStatus), nil
 }
 
