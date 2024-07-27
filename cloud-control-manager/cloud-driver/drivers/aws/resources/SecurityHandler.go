@@ -12,6 +12,7 @@ package resources
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"strconv"
 
@@ -27,8 +28,9 @@ import (
 )
 
 type AwsSecurityHandler struct {
-	Region idrv.RegionInfo
-	Client *ec2.EC2
+	Region     idrv.RegionInfo
+	Client     *ec2.EC2
+	TagHandler *AwsTagHandler // 2024-07-18 TagHandler add
 }
 
 // 2019-11-16부로 CB-Driver 전체 로직이 NameId 기반으로 변경됨. (보안 그룹은 그룹명으로 처리 가능하기 때문에 Name 태깅시 에러는 무시함)
@@ -52,6 +54,12 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 	*/
 	vpcId := securityReqInfo.VpcIID.SystemId
 
+	// Convert TagList to TagSpecifications
+	tagSpecifications, err := ConvertTagListToTagSpecifications("security-group", securityReqInfo.TagList, securityReqInfo.IId.NameId)
+	if err != nil {
+		return irs.SecurityInfo{}, fmt.Errorf("failed to convert tag list: %w", err)
+	}
+
 	// Create the security group with the VPC, name and description.
 	//createRes, err := securityHandler.Client.CreateSecurityGroup(&ec2.CreateSecurityGroupInput{
 	input := ec2.CreateSecurityGroupInput{
@@ -60,7 +68,8 @@ func (securityHandler *AwsSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		//Description: aws.String(securityReqInfo.Name),
 		Description: aws.String(securityReqInfo.IId.NameId),
 		//		VpcId:       aws.String(securityReqInfo.VpcId),awsCBNetworkInfo
-		VpcId: aws.String(vpcId),
+		VpcId:             aws.String(vpcId),
+		TagSpecifications: tagSpecifications,
 	}
 	cblogger.Debugf("Security group creation request information", input)
 	// logger for HisCall
@@ -402,6 +411,8 @@ func (securityHandler *AwsSecurityHandler) GetSecurity(securityIID irs.IID) (irs
 
 	if len(result.SecurityGroups) > 0 {
 		securityInfo := ExtractSecurityInfo(result.SecurityGroups[0])
+		securityInfo.TagList, _ = securityHandler.TagHandler.ListTag(irs.SG, securityInfo.IId)
+
 		return securityInfo, nil
 	} else {
 		//return irs.SecurityInfo{}, errors.New("[" + securityNameId + "] 정보를 찾을 수 없습니다.")

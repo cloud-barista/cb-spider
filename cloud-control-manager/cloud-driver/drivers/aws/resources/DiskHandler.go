@@ -4,6 +4,7 @@ package resources
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
@@ -18,8 +19,9 @@ import (
 )
 
 type AwsDiskHandler struct {
-	Region idrv.RegionInfo
-	Client *ec2.EC2
+	Region     idrv.RegionInfo
+	Client     *ec2.EC2
+	TagHandler *AwsTagHandler // 2024-07-18 TagHandler add
 }
 
 var VOLUME_TYPE = []string{"standard", "io1", "io2", "gp2", "gp3", "sc1", "st1"} // array 는 const 불가하여 변수로 처리.
@@ -71,25 +73,33 @@ func (DiskHandler *AwsDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 	volumeSize, _ := strconv.ParseInt(diskReqInfo.DiskSize, 10, 64)
 	volumeType := diskReqInfo.DiskType
 
-	// volume 이름을 위해 Tag 지정.
-	tag := &ec2.Tag{
-		Key:   aws.String(VOLUME_TAG_DEFAULT),
-		Value: &diskReqInfo.IId.NameId,
-	}
+	/*
+		// volume 이름을 위해 Tag 지정.
+		tag := &ec2.Tag{
+			Key:   aws.String(VOLUME_TAG_DEFAULT),
+			Value: &diskReqInfo.IId.NameId,
+		}
 
-	var tags []*ec2.Tag
-	tags = append(tags, tag)
-	tagSpec := &ec2.TagSpecification{
-		ResourceType: aws.String(RESOURCE_TYPE_VOLUME),
-		Tags:         tags,
+		var tags []*ec2.Tag
+		tags = append(tags, tag)
+		tagSpec := &ec2.TagSpecification{
+			ResourceType: aws.String(RESOURCE_TYPE_VOLUME),
+			Tags:         tags,
+		}
+		var tagSpecs []*ec2.TagSpecification
+		tagSpecs = append(tagSpecs, tagSpec)
+	*/
+
+	// Convert TagList to TagSpecifications
+	tagSpecifications, err := ConvertTagListToTagSpecifications(*aws.String(RESOURCE_TYPE_VOLUME), diskReqInfo.TagList, diskReqInfo.IId.NameId)
+	if err != nil {
+		return irs.DiskInfo{}, fmt.Errorf("failed to convert tag list: %w", err)
 	}
-	var tagSpecs []*ec2.TagSpecification
-	tagSpecs = append(tagSpecs, tagSpec)
 
 	input := &ec2.CreateVolumeInput{
 		AvailabilityZone:  aws.String(zone),
 		Size:              aws.Int64(volumeSize),
-		TagSpecifications: tagSpecs,
+		TagSpecifications: tagSpecifications,
 	}
 
 	switch diskReqInfo.DiskType {
@@ -187,7 +197,7 @@ func (DiskHandler *AwsDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, error
 	}
 	calllogger.Info(call.String(hiscallInfo))
 
-	diskInfo, err := DiskHandler.convertVolumeInfoToDiskInfo(result.Volumes[0])
+	diskInfo, _ := DiskHandler.convertVolumeInfoToDiskInfo(result.Volumes[0])
 	return diskInfo, nil
 }
 
@@ -899,6 +909,8 @@ func (DiskHandler *AwsDiskHandler) convertVolumeInfoToDiskInfo(volumeInfo *ec2.V
 	diskInfo.KeyValueList = inKeyValueList
 	cblogger.Debug("keyvalue2")
 	cblogger.Debug(diskInfo)
+
+	diskInfo.TagList, _ = DiskHandler.TagHandler.ListTag(irs.DISK, diskInfo.IId)
 
 	return diskInfo, nil
 }
