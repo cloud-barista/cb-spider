@@ -3,6 +3,9 @@ package ibmcloudvpc
 import (
 	"context"
 	"errors"
+	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
+	"time"
+
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	vpc0230 "github.com/IBM/vpc-go-sdk/0.23.0/vpcv1"
@@ -12,7 +15,6 @@ import (
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/utils/kubernetesserviceapiv1"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
-	"time"
 )
 
 type IbmCloudDriver struct{}
@@ -38,6 +40,7 @@ func (IbmCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.NLBHandler = true
 	drvCapabilityInfo.RegionZoneHandler = true
 	drvCapabilityInfo.PriceInfoHandler = true
+	drvCapabilityInfo.TagHandler = true
 
 	return drvCapabilityInfo
 }
@@ -109,6 +112,14 @@ func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (
 	if err != nil {
 		return nil, err
 	}
+	searchService, err := globalsearchv2.NewGlobalSearchV2(&globalsearchv2.GlobalSearchV2Options{
+		Authenticator: &core.IamAuthenticator{
+			ApiKey: connectionInfo.CredentialInfo.ApiKey,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	iConn := connect.IbmCloudConnection{
 		CredentialInfo: connectionInfo.CredentialInfo,
@@ -117,6 +128,7 @@ func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (
 		VpcService0230: vpcService0230,
 		ClusterService: clusterService,
 		TaggingService: taggingService,
+		SearchService:  searchService,
 		Ctx:            ctx,
 	}
 	return &iConn, nil

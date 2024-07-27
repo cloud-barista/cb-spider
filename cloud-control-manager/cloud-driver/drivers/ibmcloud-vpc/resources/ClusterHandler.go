@@ -162,7 +162,7 @@ func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.
 		if getRawVpcErr != nil {
 			cblogger.Error(getRawVpcErr)
 			LoggingError(hiscallInfo, getRawVpcErr)
-			ic.DeleteCluster(clusterReqInfo.IId)
+			_, _ = ic.DeleteCluster(clusterReqInfo.IId)
 			return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", getRawVpcErr))
 		}
 
@@ -315,6 +315,42 @@ func (ic *IbmClusterHandler) ListCluster() ([]*irs.ClusterInfo, error) {
 	LoggingInfo(hiscallInfo, start)
 
 	return ret, nil
+}
+
+func (ic *IbmClusterHandler) getRawCluster(clusterIID irs.IID) (kubernetesserviceapiv1.GetClusterDetailResponse, error) {
+	rawCluster := kubernetesserviceapiv1.GetClusterDetailResponse{}
+
+	if clusterIID.NameId == "" && clusterIID.SystemId == "" {
+		return rawCluster, errors.New("Failed to Get Cluster. err = invalid IID")
+	}
+
+	resourceGroupId, getResourceGroupIdErr := ic.getDefaultResourceGroupId()
+	if getResourceGroupIdErr != nil {
+		return rawCluster, errors.New(fmt.Sprintf("Failed to Get Cluster. err = %s", getResourceGroupIdErr))
+	}
+
+	var cluster string
+	if clusterIID.SystemId != "" {
+		cluster = clusterIID.SystemId
+	} else {
+		cluster = clusterIID.NameId
+	}
+	rawClusters, _, getClustersErr := ic.ClusterService.VpcGetClusterWithContext(ic.Ctx, &kubernetesserviceapiv1.VpcGetClusterOptions{
+		Cluster:            core.StringPtr(cluster),
+		XAuthResourceGroup: core.StringPtr(resourceGroupId),
+		ShowResources:      core.StringPtr("true"),
+	})
+	if getClustersErr != nil {
+		return rawCluster, errors.New(fmt.Sprintf("Failed to Get Cluster. err = %s", getClustersErr))
+	}
+
+	for _, rCluster := range *rawClusters {
+		if rCluster.Id == clusterIID.SystemId || rCluster.Name == clusterIID.NameId {
+			return rCluster, nil
+		}
+	}
+
+	return rawCluster, errors.New("Failed to Get Cluster. err = cluster not found")
 }
 
 func (ic *IbmClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInfo, error) {
@@ -1385,7 +1421,6 @@ func (ic *IbmClusterHandler) getWorkerPoolFromNodeGroupInfo(nodeGroupInfo irs.No
 			ID:       core.StringPtr(ic.Region.Zone),
 			SubnetID: core.StringPtr(subnetId),
 		}},
-		OperatingSystem: core.StringPtr("UBUNTU_18_64"),
 	}
 }
 
@@ -1414,15 +1449,29 @@ func (ic *IbmClusterHandler) initSecurityGroup(clusterReqInfo irs.ClusterInfo, c
 				if getSgErr != nil {
 					initSuccess = false
 					ic.manageStatusTag(clusterCrn, SecurityGroupStatus, FAILED)
-					ic.DeleteCluster(clusterReqInfo.IId)
+					_, _ = ic.DeleteCluster(clusterReqInfo.IId)
 					break
 				}
 
-				_, sgUpdateErr := sgHandler.AddRules(defaultSgInfo.IId, sgInfo.SecurityRules)
+				var updateRules []irs.SecurityRuleInfo
+				for _, newRule := range *sgInfo.SecurityRules {
+					existCheck := false
+					for _, baseRule := range *defaultSgInfo.SecurityRules {
+						if equalsRule(newRule, baseRule) {
+							existCheck = true
+							break
+						}
+					}
+					if existCheck {
+						continue
+					}
+					updateRules = append(updateRules, newRule)
+				}
+				_, sgUpdateErr := sgHandler.AddRules(defaultSgInfo.IId, &updateRules)
 				if sgUpdateErr != nil {
 					initSuccess = false
 					ic.manageStatusTag(clusterCrn, SecurityGroupStatus, FAILED)
-					ic.DeleteCluster(clusterReqInfo.IId)
+					_, _ = ic.DeleteCluster(clusterReqInfo.IId)
 					break
 				}
 			}

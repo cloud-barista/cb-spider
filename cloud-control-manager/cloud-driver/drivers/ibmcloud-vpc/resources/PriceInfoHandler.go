@@ -326,8 +326,8 @@ func (priceInfoHandler *IbmPriceInfoHandler) ListProductFamily(regionName string
 
 				mutex.Lock()
 				for _, resource := range rsInfoTemp.Resources {
-					// Only accept name starts with 'is.'
-					if strings.HasPrefix(resource.Name, "is.") {
+					// Only accept name starts with 'is.' or find kubernetes
+					if strings.HasPrefix(resource.Name, "is.") || resource.Name == "containers-kubernetes" {
 						for _, geo := range resource.GeoTags {
 							if geo == regionName {
 								kinds = append(kinds, resource.Name)
