@@ -366,7 +366,7 @@ func (vpcHandler *NcpVpcVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	subnetStatus, err := vpcHandler.WaitForDeleteSubnet(vpcIID.SystemId, lastSubentIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Wait for Subnet Deletion : [%v]", err)
-		cblogger.Error(newErr.Error())
+		cblogger.Debug(newErr.Error()) // For Termination Completion of a Subnet
 		LoggingError(callLogInfo, newErr)
 		// return false, newErr
 	}
@@ -611,7 +611,7 @@ func (vpcHandler *NcpVpcVPCHandler) GetNcpSubnetInfo(sunbnetId *string) (*vpc.Su
 
 	if len(result.SubnetList) < 1 {
 		newErr := fmt.Errorf("Failed to Get any Subnet Info with the ID!!")
-		cblogger.Error(newErr.Error())
+		cblogger.Debug(newErr.Error()) // For Termination Completion of a Subnet
 		LoggingError(callLogInfo, newErr)
 		return nil, newErr
 	} else {
@@ -843,7 +843,7 @@ func (vpcHandler *NcpVpcVPCHandler) WaitForDeleteSubnet(vpcNo string, subnetIID 
 			ncpSubnetInfo, getErr := vpcHandler.GetNcpSubnetInfo(&subnetIID.SystemId)
 			if getErr != nil {
 				newErr := fmt.Errorf("Failed to Get the Subnet Info : [%v]", getErr)
-				cblogger.Error(newErr.Error())
+				cblogger.Debug(newErr.Error()) // For Termination Completion of a Subnet
 				return "", newErr
 			} else {
 				cblogger.Infof("Succeeded in Getting the Subnet Info of [%s]", subnetIID.SystemId)

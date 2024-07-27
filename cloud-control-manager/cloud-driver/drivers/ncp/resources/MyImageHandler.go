@@ -338,6 +338,7 @@ func (myImageHandler *NcpMyImageHandler) MappingMyImageInfo(myImage *server.Memb
 		{Key: "Region", 						Value: myImageHandler.RegionInfo.Region},
 		{Key: "OriginalImageProductCode",		Value: *myImage.OriginalServerImageProductCode},
 		{Key: "MyImagePlatformType",			Value: *myImage.MemberServerImagePlatformType.CodeName},
+		{Key: "OriginalOsInformation",			Value: *myImage.OriginalOsInformation},
 		{Key: "CreateDate",						Value: *myImage.CreateDate},
 	}
 	myImageInfo.KeyValueList = keyValueList
@@ -383,8 +384,8 @@ func (myImageHandler *NcpMyImageHandler) GetNcpMemberServerImageInfo(myImageIID 
 	LoggingInfo(callLogInfo, callLogStart)
 
 	if len(result.MemberServerImageList) < 1 {
-		newErr := fmt.Errorf("Failed to Get the Member Server Image List from NCP. Member Server Image does Not Exist!!")
-		cblogger.Error(newErr.Error())
+		newErr := fmt.Errorf("The Member Server Image does Not Exist!!")
+		cblogger.Debug(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return server.MemberServerImage{}, newErr
 	} else {
@@ -424,7 +425,9 @@ func (myImageHandler *NcpMyImageHandler) GetOriginImageOSPlatform(imageIID irs.I
 			LoggingError(callLogInfo, newErr)
 			return "", newErr
 		} else {				
-			imagePlatformType := strings.ToUpper(*ncpImageInfo.PlatformType.CodeName)
+			// cblogger.Infof("### ImageOsInformation : [%s]", *ncpImageInfo.OsInformation)
+			imagePlatformType := strings.ToUpper(*ncpImageInfo.OsInformation)
+
 			var originImagePlatform string
 			if strings.Contains(imagePlatformType, "UBUNTU") {
 				originImagePlatform = "UBUNTU"
@@ -444,13 +447,13 @@ func (myImageHandler *NcpMyImageHandler) GetOriginImageOSPlatform(imageIID irs.I
 		memberServerImageInfo, err := myImageHandler.GetNcpMemberServerImageInfo(imageIID)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get NCP Member Server Image Info. [%v]", err.Error())
-			cblogger.Error(newErr.Error())
+			cblogger.Debug(newErr.Error())
 			LoggingError(callLogInfo, newErr)
 			return "", newErr
 		}
-		cblogger.Infof("### MyImagePlatformType : [%s]", *memberServerImageInfo.MemberServerImagePlatformType.CodeName)
-		
-		imagePlatformType := strings.ToUpper(*memberServerImageInfo.MemberServerImagePlatformType.CodeName)
+		// cblogger.Infof("### MyImageOriginalOsInformation : [%s]", *memberServerImageInfo.OriginalOsInformation)		
+		imagePlatformType := strings.ToUpper(*memberServerImageInfo.OriginalOsInformation)
+
 		var originImagePlatform string
 		if strings.Contains(imagePlatformType, "UBUNTU") {
 			originImagePlatform = "UBUNTU"
