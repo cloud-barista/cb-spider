@@ -57,7 +57,6 @@ type AzureVMHandler struct {
 }
 
 func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
-	fmt.Printf("vmReqInfo : %+v", vmReqInfo)
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, vmReqInfo.IId.NameId, "StartVM()")
 	// 0. Check vmReqInfo

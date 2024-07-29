@@ -52,7 +52,6 @@ const (
 
 // ------ NLB Management
 func (nlbHandler *AzureNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB irs.NLBInfo, createError error) {
-	fmt.Printf("nlbReqInfo : %+v", nlbReqInfo)
 	hiscallInfo := GetCallLogScheme(nlbHandler.Region, "NETWORKLOADBALANCE", nlbReqInfo.IId.NameId, "CreateNLB()")
 	start := call.Start()
 	err := checkValidationNLB(nlbReqInfo)

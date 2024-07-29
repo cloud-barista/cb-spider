@@ -23,7 +23,6 @@ type AzureDiskHandler struct {
 }
 
 func (diskHandler *AzureDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (diskInfo irs.DiskInfo, createErr error) {
-	fmt.Printf("disk req : %+v", DiskReqInfo)
 	hiscallInfo := GetCallLogScheme(diskHandler.Region, call.DISK, DiskReqInfo.IId.NameId, "CreateDisk()")
 	start := call.Start()
 	err := diskHandler.validationDiskReq(DiskReqInfo)

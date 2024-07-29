@@ -167,7 +167,6 @@ func (vpcHandler *AzureVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 		return irs.VPCInfo{}, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
-	fmt.Printf("vpc : %+v" , vpc)
 	vpcInfo := vpcHandler.setterVPC(*vpc)
 	return *vpcInfo, nil
 }
