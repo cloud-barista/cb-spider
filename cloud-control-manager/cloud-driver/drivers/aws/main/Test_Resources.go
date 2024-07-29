@@ -50,9 +50,9 @@ func handleSecurity() {
 	//config := readConfigFile()
 	//VmID := config.Aws.VmID
 
-	securityName := "CB-SecurityAddTest1"
+	securityName := "CB-SecurityTagTest"
 	securityId := "sg-0d6a2bb960481ce68"
-	vpcId := "vpc-c0479cab"
+	vpcId := "vpc-0a115f43d4fcbab36" //New-CB-VPC
 
 	for {
 		fmt.Println("Security Management")
@@ -78,9 +78,9 @@ func handleSecurity() {
 			case 1:
 				result, err := handler.ListSecurity()
 				if err != nil {
-					cblogger.Infof(" Security 목록 조회 실패 : ", err)
+					cblogger.Info(" Security List Lookup Failed : ", err)
 				} else {
-					cblogger.Info("Security 목록 조회 결과")
+					cblogger.Info("Security List Lookup Result")
 					cblogger.Info(result)
 
 					if result != nil {
@@ -89,11 +89,13 @@ func handleSecurity() {
 				}
 
 			case 2:
-				cblogger.Infof("[%s] Security 생성 테스트", securityName)
+				cblogger.Infof("[%s] Security Create Test", securityName)
 
 				securityReqInfo := irs.SecurityReqInfo{
 					IId:    irs.IID{NameId: securityName},
 					VpcIID: irs.IID{SystemId: vpcId},
+					//TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}, {Key: "Name", Value: securityName+"123"}},
+					TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}},
 					SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
 						//CIDR 테스트
 						{
@@ -170,34 +172,34 @@ func handleSecurity() {
 
 				result, err := handler.CreateSecurity(securityReqInfo)
 				if err != nil {
-					cblogger.Infof(securityName, " Security 생성 실패 : ", err)
+					cblogger.Infof(securityName, " Security Create Failed : ", err)
 				} else {
-					cblogger.Infof("[%s] Security 생성 결과 : [%v]", securityName, result)
+					cblogger.Infof("[%s] Security Create Result : [%v]", securityName, result)
 					securityId = result.IId.SystemId
 					spew.Dump(result)
 				}
 
 			case 3:
-				cblogger.Infof("[%s] Security 조회 테스트", securityId)
+				cblogger.Infof("[%s] Security Lookup Test", securityId)
 				result, err := handler.GetSecurity(irs.IID{SystemId: securityId})
 				if err != nil {
-					cblogger.Infof(securityId, " Security 조회 실패 : ", err)
+					cblogger.Infof(securityId, " Security Lookup Failed : ", err)
 				} else {
-					cblogger.Infof("[%s] Security 조회 결과 : [%v]", securityId, result)
+					cblogger.Infof("[%s] Security Lookup Result : [%v]", securityId, result)
 					spew.Dump(result)
 				}
 
 			case 4:
-				cblogger.Infof("[%s] Security 삭제 테스트", securityId)
+				cblogger.Infof("[%s] Security Delete Test", securityId)
 				result, err := handler.DeleteSecurity(irs.IID{SystemId: securityId})
 				if err != nil {
-					cblogger.Infof(securityId, " Security 삭제 실패 : ", err)
+					cblogger.Infof(securityId, " Security Delete Failed : ", err)
 				} else {
-					cblogger.Infof("[%s] Security 삭제 결과 : [%s]", securityId, result)
+					cblogger.Infof("[%s] Security Delete Result : [%t]", securityId, result)
 				}
 
 			case 5:
-				cblogger.Infof("[%s] Security 그룹 룰 추가 테스트", securityId)
+				cblogger.Infof("[%s] Security Group Rule - Add Test", securityId)
 				result, err := handler.AddRules(irs.IID{SystemId: securityId}, &[]irs.SecurityRuleInfo{
 					{
 						FromPort:   "80",
@@ -229,13 +231,13 @@ func handleSecurity() {
 					},
 				})
 				if err != nil {
-					cblogger.Infof(securityId, " Security 그룹 룰 추가 실패 : ", err)
+					cblogger.Infof(securityId, " Security Group Rule - Add Failed : ", err)
 				} else {
-					cblogger.Infof("[%s] Security 그룹 룰 추가 결과 : [%s]", securityId, result)
+					cblogger.Infof("[%s] Security Group Rule - Add Result : [%s]", securityId, result)
 				}
 
 			case 6:
-				cblogger.Infof("[%s] Security 그룹 룰 제거 테스트", securityId)
+				cblogger.Infof("[%s] Security Group Rule - Delete Test", securityId)
 				result, err := handler.RemoveRules(irs.IID{SystemId: securityId}, &[]irs.SecurityRuleInfo{
 					{
 						FromPort:   "80",
@@ -267,9 +269,9 @@ func handleSecurity() {
 					},
 				})
 				if err != nil {
-					cblogger.Infof(securityId, " Security 그룹 룰 제거 실패 : ", err)
+					cblogger.Infof(securityId, " Security Group Rule - Delete Failed : ", err)
 				} else {
-					cblogger.Infof("[%s] Security 그룹 룰 제거 결과 : [%s]", securityId, result)
+					cblogger.Infof("[%s] Security Group Rule - Delete Result : [%s]", securityId, result)
 				}
 			}
 		}
@@ -348,9 +350,9 @@ func handleSecurityOld() {
 	//result, err := handler.CreateSecurity(securityReqInfo)
 
 	if err != nil {
-		cblogger.Infof("보안 그룹 조회 실패 : ", err)
+		cblogger.Infof("Security Group Lookup Failed : ", err)
 	} else {
-		cblogger.Info("보안 그룹 조회 결과")
+		cblogger.Info("Security Group Lookup Result")
 		//cblogger.Info(result)
 		spew.Dump(result)
 	}
@@ -401,9 +403,9 @@ func handlePublicIP() {
 				fmt.Println("Start ListPublicIP() ...")
 				result, err := handler.ListPublicIP()
 				if err != nil {
-					cblogger.Error("PublicIP 목록 조회 실패 : ", err)
+					cblogger.Error("PublicIP List Lookup Failed : ", err)
 				} else {
-					cblogger.Info("PublicIP 목록 조회 결과")
+					cblogger.Info("PublicIP List Lookup Result")
 					spew.Dump(result)
 				}
 
@@ -413,9 +415,9 @@ func handlePublicIP() {
 				fmt.Println("Start GetPublicIP() ...")
 				result, err := handler.GetPublicIP(reqPublicIP)
 				if err != nil {
-					cblogger.Error(reqPublicIP, " PublicIP 정보 조회 실패 : ", err)
+					cblogger.Error(reqPublicIP, " PublicIP 정보 Lookup Failed : ", err)
 				} else {
-					cblogger.Infof("PublicIP[%s]  정보 조회 결과", reqPublicIP)
+					cblogger.Infof("PublicIP[%s]  정보 Lookup Result", reqPublicIP)
 					spew.Dump(result)
 				}
 				fmt.Println("Finish GetPublicIP()")
@@ -425,9 +427,9 @@ func handlePublicIP() {
 				reqInfo := irs.PublicIPReqInfo{Name: "mcloud-barista-eip-test"}
 				result, err := handler.CreatePublicIP(reqInfo)
 				if err != nil {
-					cblogger.Error("PublicIP 생성 실패 : ", err)
+					cblogger.Error("PublicIP Create Failed : ", err)
 				} else {
-					cblogger.Info("PublicIP 생성 성공 ", result)
+					cblogger.Info("PublicIP 생성 Success ", result)
 					spew.Dump(result)
 				}
 				fmt.Println("Finish CreatePublicIP()")
@@ -436,12 +438,12 @@ func handlePublicIP() {
 				fmt.Println("Start DeletePublicIP() ...")
 				result, err := handler.DeletePublicIP(reqPublicIP)
 				if err != nil {
-					cblogger.Error(reqDelIP, " PublicIP 삭제 실패 : ", err)
+					cblogger.Error(reqDelIP, " PublicIP Delete Failed : ", err)
 				} else {
 					if result {
 						cblogger.Infof("PublicIP[%s] 삭제 완료", reqDelIP)
 					} else {
-						cblogger.Errorf("PublicIP[%s] 삭제 실패", reqDelIP)
+						cblogger.Errorf("PublicIP[%s] Delete Failed", reqDelIP)
 					}
 				}
 				fmt.Println("Finish DeletePublicIP()")
@@ -466,7 +468,7 @@ func handleKeyPair() {
 	//config := readConfigFile()
 	//VmID := config.Aws.VmID
 
-	keyPairName := "CB-KeyPairTest123123"
+	keyPairName := "CB-KeyPairTagTest"
 	//keyPairName := config.Aws.KeyName
 
 	for {
@@ -491,41 +493,43 @@ func handleKeyPair() {
 			case 1:
 				result, err := KeyPairHandler.ListKey()
 				if err != nil {
-					cblogger.Infof(" 키 페어 목록 조회 실패 : ", err)
+					cblogger.Infof(" KeyPair List Lookup Failed : ", err)
 				} else {
-					cblogger.Info("키 페어 목록 조회 결과")
+					cblogger.Info("KeyPair List Lookup Result")
 					//cblogger.Info(result)
 					spew.Dump(result)
 				}
 
 			case 2:
-				cblogger.Infof("[%s] 키 페어 생성 테스트", keyPairName)
+				cblogger.Infof("[%s] KeyPair Create Test", keyPairName)
 				keyPairReqInfo := irs.KeyPairReqInfo{
 					IId: irs.IID{NameId: keyPairName},
 					//Name: keyPairName,
+					//TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}, {Key: "Name", Value: keyPairName + "123"}},
+					TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}},
 				}
 				result, err := KeyPairHandler.CreateKey(keyPairReqInfo)
 				if err != nil {
-					cblogger.Infof(keyPairName, " 키 페어 생성 실패 : ", err)
+					cblogger.Infof(keyPairName, " KeyPair Create Failed : ", err)
 				} else {
-					cblogger.Infof("[%s] 키 페어 생성 결과 : [%s]", keyPairName, result)
+					cblogger.Infof("[%s] KeyPair Create Result : [%s]", keyPairName, result)
 					spew.Dump(result)
 				}
 			case 3:
-				cblogger.Infof("[%s] 키 페어 조회 테스트", keyPairName)
+				cblogger.Infof("[%s] KeyPair Lookup Test", keyPairName)
 				result, err := KeyPairHandler.GetKey(irs.IID{SystemId: keyPairName})
 				if err != nil {
-					cblogger.Infof(keyPairName, " 키 페어 조회 실패 : ", err)
+					cblogger.Infof(keyPairName, " KeyPair Lookup Failed : ", err)
 				} else {
-					cblogger.Infof("[%s] 키 페어 조회 결과 : [%s]", keyPairName, result)
+					cblogger.Infof("[%s] KeyPair Lookup Result : [%s]", keyPairName, result)
 				}
 			case 4:
-				cblogger.Infof("[%s] 키 페어 삭제 테스트", keyPairName)
+				cblogger.Infof("[%s] KeyPair Delete Test", keyPairName)
 				result, err := KeyPairHandler.DeleteKey(irs.IID{SystemId: keyPairName})
 				if err != nil {
-					cblogger.Infof(keyPairName, " 키 페어 삭제 실패 : ", err)
+					cblogger.Infof(keyPairName, " KeyPair Delete Failed : ", err)
 				} else {
-					cblogger.Infof("[%s] 키 페어 삭제 결과 : [%s]", keyPairName, result)
+					cblogger.Infof("[%s] KeyPair Delete Result : [%s]", keyPairName, result)
 				}
 			}
 		}
@@ -575,48 +579,48 @@ func handleVNetwork() {
 			case 1:
 				result, err := VPCHandler.ListVNetwork()
 				if err != nil {
-					cblogger.Infof(" VNetwork 목록 조회 실패 : ", err)
+					cblogger.Infof(" VNetwork List Lookup Failed : ", err)
 				} else {
-					cblogger.Info("VNetwork 목록 조회 결과")
+					cblogger.Info("VNetwork List Lookup Result")
 					//cblogger.Info(result)
 					spew.Dump(result)
 
 					// 내부적으로 1개만 존재함.
-					//조회및 삭제 테스트를 위해 리스트의 첫번째 서브넷 ID를 요청ID로 자동 갱신함.
+					//조회및 Delete Test를 위해 리스트의 첫번째 서브넷 ID를 요청ID로 자동 갱신함.
 					if result != nil {
 						reqSubnetId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
 					}
 				}
 
 			case 2:
-				cblogger.Infof("[%s] VNetwork 생성 테스트", vNetworkReqInfo.IId.NameId)
+				cblogger.Infof("[%s] VNetwork Create Test", vNetworkReqInfo.IId.NameId)
 				//vNetworkReqInfo := irs.VNetworkReqInfo{}
 				result, err := VPCHandler.CreateVNetwork(vNetworkReqInfo)
 				if err != nil {
-					cblogger.Infof(reqSubnetId.NameId, " VNetwork 생성 실패 : ", err)
+					cblogger.Infof(reqSubnetId.NameId, " VNetwork Create Failed : ", err)
 				} else {
-					cblogger.Infof("VNetwork 생성 결과 : ", result)
+					cblogger.Infof("VNetwork Create Result : ", result)
 					reqSubnetId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
 					spew.Dump(result)
 				}
 
 			case 3:
-				cblogger.Infof("[%s] VNetwork 조회 테스트", reqSubnetId)
+				cblogger.Infof("[%s] VNetwork Lookup Test", reqSubnetId)
 				result, err := VPCHandler.GetVNetwork(reqSubnetId)
 				if err != nil {
-					cblogger.Infof("[%s] VNetwork 조회 실패 : ", reqSubnetId, err)
+					cblogger.Infof("[%s] VNetwork Lookup Failed : ", reqSubnetId, err)
 				} else {
-					cblogger.Infof("[%s] VNetwork 조회 결과 : [%s]", reqSubnetId, result)
+					cblogger.Infof("[%s] VNetwork Lookup Result : [%s]", reqSubnetId, result)
 					spew.Dump(result)
 				}
 
 			case 4:
-				cblogger.Infof("[%s] VNetwork 삭제 테스트", reqSubnetId)
+				cblogger.Infof("[%s] VNetwork Delete Test", reqSubnetId)
 				result, err := VPCHandler.DeleteVNetwork(reqSubnetId)
 				if err != nil {
-					cblogger.Infof("[%s] VNetwork 삭제 실패 : ", reqSubnetId, err)
+					cblogger.Infof("[%s] VNetwork Delete Failed : ", reqSubnetId, err)
 				} else {
-					cblogger.Infof("[%s] VNetwork 삭제 결과 : [%s]", reqSubnetId, result)
+					cblogger.Infof("[%s] VNetwork Delete Result : [%s]", reqSubnetId, result)
 				}
 			}
 		}
@@ -635,6 +639,8 @@ func handleVPC() {
 	subnetReqInfo := irs.SubnetInfo{
 		IId:       irs.IID{NameId: "AddTest-Subnet"},
 		IPv4_CIDR: "10.0.2.0/24",
+		//TagList: []irs.KeyValue{{Key: "Name1", Value: "Subnet Name Value1"}, {Key: "Name2", Value: "Subnet Name Value2"}, {Key: "Name", Value: "AddTest-Subnet123"}},
+		TagList: []irs.KeyValue{{Key: "Name1", Value: "Subnet Name Value1"}, {Key: "Name2", Value: "Subnet Name Value2"}},
 	}
 
 	subnetReqVpcInfo := irs.IID{SystemId: "vpc-00e513fd64a7d9972"}
@@ -649,6 +655,8 @@ func handleVPC() {
 			{
 				IId:       irs.IID{NameId: "New-CB-Subnet"},
 				IPv4_CIDR: "10.0.1.0/24",
+				TagList:   []irs.KeyValue{{Key: "Name1", Value: "Subnet Name Value1"}, {Key: "Name2", Value: "Subnet Name Value2"}, {Key: "Name", Value: "AddTest-Subnet123"}},
+				//TagList: []irs.KeyValue{{Key: "Name1", Value: "Subnet Name Value1"}, {Key: "Name2", Value: "Subnet Name Value2"}},
 			},
 			/*
 				{
@@ -661,6 +669,8 @@ func handleVPC() {
 		//Name: "CB-VNet-Subnet", // 웹 도구 등 외부에서 전달 받지 않고 드라이버 내부적으로 자동 구현때문에 사용하지 않음.
 		//CidrBlock: "10.0.0.0/16",
 		//CidrBlock: "192.168.0.0/16",
+		TagList: []irs.KeyValue{{Key: "Name1", Value: "Subnet Name Value1"}, {Key: "Name2", Value: "Subnet Name Value2"}, {Key: "Name", Value: "New-CB-VPC123"}},
+		//TagList: []irs.KeyValue{{Key: "Name1", Value: "VPC Name Value1"}, {Key: "Name2", Value: "VPC Name Value2"}},
 	}
 
 	reqSubnetId := irs.IID{SystemId: "vpc-04f6de5c2af880978"}
@@ -690,69 +700,69 @@ func handleVPC() {
 			case 1:
 				result, err := VPCHandler.ListVPC()
 				if err != nil {
-					cblogger.Infof(" VNetwork 목록 조회 실패 : ", err)
+					cblogger.Infof(" VNetwork List Lookup Failed : ", err)
 				} else {
-					cblogger.Info("VNetwork 목록 조회 결과")
+					cblogger.Info("VNetwork List Lookup Result")
 					//cblogger.Info(result)
 					spew.Dump(result)
 
 					// 내부적으로 1개만 존재함.
-					//조회및 삭제 테스트를 위해 리스트의 첫번째 서브넷 ID를 요청ID로 자동 갱신함.
+					//조회및 Delete Test를 위해 리스트의 첫번째 서브넷 ID를 요청ID로 자동 갱신함.
 					if result != nil {
 						reqSubnetId = result[0].IId    // 조회 및 삭제를 위해 생성된 ID로 변경
-						subnetReqVpcInfo = reqSubnetId //Subnet 추가/삭제 테스트용
+						subnetReqVpcInfo = reqSubnetId //Subnet 추가/Delete Test용
 					}
 				}
 
 			case 2:
-				cblogger.Infof("[%s] VNetwork 생성 테스트", vpcReqInfo.IId.NameId)
+				cblogger.Infof("[%s] VNetwork Create Test", vpcReqInfo.IId.NameId)
 				//vpcReqInfo := irs.VPCReqInfo{}
 				result, err := VPCHandler.CreateVPC(vpcReqInfo)
 				if err != nil {
-					cblogger.Infof(reqSubnetId.NameId, " VNetwork 생성 실패 : ", err)
+					cblogger.Infof(reqSubnetId.NameId, " VNetwork Create Failed : ", err)
 				} else {
-					cblogger.Infof("VNetwork 생성 결과 : ", result)
+					cblogger.Infof("VNetwork Create Result : ", result)
 					reqSubnetId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
 					spew.Dump(result)
 				}
 
 			case 3:
-				cblogger.Infof("[%s] VNetwork 조회 테스트", reqSubnetId)
+				cblogger.Infof("[%s] VNetwork Lookup Test", reqSubnetId)
 				result, err := VPCHandler.GetVPC(reqSubnetId)
 				if err != nil {
-					cblogger.Infof("[%s] VNetwork 조회 실패 : ", reqSubnetId, err)
+					cblogger.Infof("[%s] VNetwork Lookup Failed : ", reqSubnetId, err)
 				} else {
-					cblogger.Infof("[%s] VNetwork 조회 결과 : [%s]", reqSubnetId, result)
+					cblogger.Infof("[%s] VNetwork Lookup Result : [%s]", reqSubnetId, result)
 					spew.Dump(result)
 				}
 
 			case 4:
-				cblogger.Infof("[%s] VNetwork 삭제 테스트", reqSubnetId)
+				cblogger.Infof("[%s] VNetwork Delete Test", reqSubnetId)
 				result, err := VPCHandler.DeleteVPC(reqSubnetId)
 				if err != nil {
-					cblogger.Infof("[%s] VNetwork 삭제 실패 : ", reqSubnetId, err)
+					cblogger.Infof("[%s] VNetwork Delete Failed : ", reqSubnetId, err)
 				} else {
-					cblogger.Infof("[%s] VNetwork 삭제 결과 : [%s]", reqSubnetId, result)
+					cblogger.Infof("[%s] VNetwork Delete Result : [%s]", reqSubnetId, result)
 				}
 
 			case 5:
-				cblogger.Infof("[%s] Subnet 추가 테스트", vpcReqInfo.IId.NameId)
+				cblogger.Infof("[%s] Subnet Add Test", vpcReqInfo.IId.NameId)
 				result, err := VPCHandler.AddSubnet(subnetReqVpcInfo, subnetReqInfo)
 				if err != nil {
-					cblogger.Infof(reqSubnetId.NameId, " VNetwork 생성 실패 : ", err)
+					cblogger.Infof(reqSubnetId.NameId, " VNetwork Create Failed : ", err)
 				} else {
-					cblogger.Infof("VNetwork 생성 결과 : ", result)
+					cblogger.Infof("VNetwork Create Result : ", result)
 					//reqSubnetId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
 					spew.Dump(result)
 				}
 
 			case 6:
-				cblogger.Infof("[%s] Subnet 삭제 테스트", reqSubnetId.SystemId)
+				cblogger.Infof("[%s] Subnet Delete Test", reqSubnetId.SystemId)
 				result, err := VPCHandler.RemoveSubnet(subnetReqVpcInfo, reqSubnetId)
 				if err != nil {
-					cblogger.Infof("[%s] Subnet 삭제 실패 : ", reqSubnetId.SystemId, err)
+					cblogger.Infof("[%s] Subnet Delete Failed : ", reqSubnetId.SystemId, err)
 				} else {
-					cblogger.Infof("[%s] Subnet 삭제 결과 : [%s]", reqSubnetId.SystemId, result)
+					cblogger.Infof("[%s] Subnet Delete Result : [%s]", reqSubnetId.SystemId, result)
 				}
 			}
 		}
@@ -798,48 +808,48 @@ func handleImage() {
 			case 1:
 				result, err := handler.ListImage()
 				if err != nil {
-					cblogger.Infof(" Image 목록 조회 실패 : ", err)
+					cblogger.Infof(" Image List Lookup Failed : ", err)
 				} else {
-					cblogger.Info("Image 목록 조회 결과")
+					cblogger.Info("Image List Lookup Result")
 					cblogger.Debug(result)
-					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
 					//spew.Dump(result)
-					cblogger.Info("출력 결과 수 : ", len(result))
+					cblogger.Info("Number of output results : ", len(result))
 
-					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
+					//조회및 Delete Test를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
 					if result != nil {
 						imageReqInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
 					}
 				}
 
 			case 2:
-				cblogger.Infof("[%s] Image 생성 테스트", imageReqInfo.IId.NameId)
+				cblogger.Infof("[%s] Image Create Test", imageReqInfo.IId.NameId)
 				result, err := handler.CreateImage(imageReqInfo)
 				if err != nil {
-					cblogger.Infof(imageReqInfo.IId.NameId, " Image 생성 실패 : ", err)
+					cblogger.Infof(imageReqInfo.IId.NameId, " Image Create Failed : ", err)
 				} else {
-					cblogger.Infof("Image 생성 결과 : ", result)
+					cblogger.Infof("Image Create Result : ", result)
 					imageReqInfo.IId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
 					spew.Dump(result)
 				}
 
 			case 3:
-				cblogger.Infof("[%s] Image 조회 테스트", imageReqInfo.IId)
+				cblogger.Infof("[%s] Image Lookup Test", imageReqInfo.IId)
 				result, err := handler.GetImage(imageReqInfo.IId)
 				if err != nil {
-					cblogger.Infof("[%s] Image 조회 실패 : ", imageReqInfo.IId.NameId, err)
+					cblogger.Infof("[%s] Image Lookup Failed : ", imageReqInfo.IId.NameId, err)
 				} else {
-					cblogger.Infof("[%s] Image 조회 결과 : [%s]", imageReqInfo.IId.NameId, result)
+					cblogger.Infof("[%s] Image Lookup Result : [%s]", imageReqInfo.IId.NameId, result)
 					spew.Dump(result)
 				}
 
 			case 4:
-				cblogger.Infof("[%s] Image 삭제 테스트", imageReqInfo.IId.NameId)
+				cblogger.Infof("[%s] Image Delete Test", imageReqInfo.IId.NameId)
 				result, err := handler.DeleteImage(imageReqInfo.IId)
 				if err != nil {
-					cblogger.Infof("[%s] Image 삭제 실패 : ", imageReqInfo.IId.NameId, err)
+					cblogger.Infof("[%s] Image Delete Failed : ", imageReqInfo.IId.NameId, err)
 				} else {
-					cblogger.Infof("[%s] Image 삭제 결과 : [%s]", imageReqInfo.IId.NameId, result)
+					cblogger.Infof("[%s] Image Delete Result : [%s]", imageReqInfo.IId.NameId, result)
 				}
 			}
 		}
@@ -887,9 +897,9 @@ func handleVNic() {
 			case 1:
 				result, err := handler.ListVNic()
 				if err != nil {
-					cblogger.Infof(" VNic 목록 조회 실패 : ", err)
+					cblogger.Infof(" VNic List Lookup Failed : ", err)
 				} else {
-					cblogger.Info("VNic 목록 조회 결과")
+					cblogger.Info("VNic List Lookup Result")
 					spew.Dump(result)
 					if len(result) > 0 {
 						reqVnicID = result[0].Id // 조회 및 삭제 편의를 위해 목록의 첫번째 ID로 변경
@@ -897,33 +907,33 @@ func handleVNic() {
 				}
 
 			case 2:
-				cblogger.Infof("[%s] VNic 생성 테스트", vNicReqInfo.Name)
+				cblogger.Infof("[%s] VNic Create Test", vNicReqInfo.Name)
 				result, err := handler.CreateVNic(vNicReqInfo)
 				if err != nil {
-					cblogger.Infof(reqVnicID, " VNic 생성 실패 : ", err)
+					cblogger.Infof(reqVnicID, " VNic Create Failed : ", err)
 				} else {
-					cblogger.Infof("VNic 생성 결과 : ", result)
+					cblogger.Infof("VNic Create Result : ", result)
 					reqVnicID = result.Id // 조회 및 삭제를 위해 생성된 ID로 변경
 					spew.Dump(result)
 				}
 
 			case 3:
-				cblogger.Infof("[%s] VNic 조회 테스트", reqVnicID)
+				cblogger.Infof("[%s] VNic Lookup Test", reqVnicID)
 				result, err := handler.GetVNic(reqVnicID)
 				if err != nil {
-					cblogger.Infof("[%s] VNic 조회 실패 : ", reqVnicID, err)
+					cblogger.Infof("[%s] VNic Lookup Failed : ", reqVnicID, err)
 				} else {
-					cblogger.Infof("[%s] VNic 조회 결과 : [%s]", reqVnicID, result)
+					cblogger.Infof("[%s] VNic Lookup Result : [%s]", reqVnicID, result)
 					spew.Dump(result)
 				}
 
 			case 4:
-				cblogger.Infof("[%s] VNic 삭제 테스트", reqVnicID)
+				cblogger.Infof("[%s] VNic Delete Test", reqVnicID)
 				result, err := handler.DeleteVNic(reqVnicID)
 				if err != nil {
-					cblogger.Infof("[%s] VNic 삭제 실패 : ", reqVnicID, err)
+					cblogger.Infof("[%s] VNic Delete Failed : ", reqVnicID, err)
 				} else {
-					cblogger.Infof("[%s] VNic 삭제 결과 : [%s]", reqVnicID, result)
+					cblogger.Infof("[%s] VNic Delete Result : [%s]", reqVnicID, result)
 				}
 			}
 		}
@@ -934,7 +944,7 @@ func handleVNic() {
 func testErr() error {
 	//return awserr.Error("")
 	//return errors.New("")
-	return awserr.New("504", "찾을 수 없음", nil)
+	return awserr.New("504", "not found", nil)
 }
 
 // Test VM Lifecycle Management (Create/Suspend/Resume/Reboot/Terminate)
@@ -951,7 +961,7 @@ func handleVM() {
 	//config := readConfigFile()
 	//VmID := irs.IID{NameId: config.Aws.BaseName, SystemId: config.Aws.VmID}
 	// VmID := irs.IID{SystemId: "i-0cea86282a9e2a569"}
-	VmID := irs.IID{SystemId: "i-0c70f696e5f8e690c"}
+	VmID := irs.IID{SystemId: "i-02ac1c4ff1d40815c"}
 
 	for {
 		fmt.Println("VM Management")
@@ -980,17 +990,19 @@ func handleVM() {
 
 			case 1:
 				vmReqInfo := irs.VMReqInfo{
-					IId: irs.IID{NameId: "mcloud-barista-windows-test"},
+					IId:     irs.IID{NameId: "mcloud-barista-tag-test"},
+					TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}, {Key: "Name", Value: "mcloud-barista-tag-test123"}},
+					//TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}},
 					//ImageIID:          irs.IID{SystemId: "ami-001b6f8703b50e077"}, //centos-stable-7.2003.13-ebs-202005201235
-					//ImageIID:          irs.IID{SystemId: "ami-059b6d3840b03d6dd"}, //Ubuntu Server 20.04 LTS (HVM)
+					ImageIID: irs.IID{SystemId: "ami-056a29f2eddc40520"}, //Ubuntu Server 22.04 LTS (HVM), SSD Volume Type
 					//ImageIID:          irs.IID{SystemId: "ami-09e67e426f25ce0d7"}, //Ubuntu Server 20.04 LTS (HVM) - 버지니아 북부 리전
 					//ImageIID:          irs.IID{SystemId: "ami-059b6d3840b03d6dd"}, //Ubuntu Server 20.04 LTS (HVM)
 					//ImageIID: irs.IID{SystemId: "ami-0fe22bffdec36361c"}, //Ubuntu Server 18.04 LTS (HVM) - Japan 리전
-					ImageIID:          irs.IID{SystemId: "ami-093f427eb324bb754"}, //Microsoft Windows Server 2012 R2 RTM 64-bit Locale English AMI provided by Amazon - Japan 리전
-					SubnetIID:         irs.IID{SystemId: "subnet-0a6ca346752be1ca4"},
-					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-0f4532a525ad09de1"}}, //3389 RDP 포트 Open
+					//ImageIID:          irs.IID{SystemId: "ami-093f427eb324bb754"}, //Microsoft Windows Server 2012 R2 RTM 64-bit Locale English AMI provided by Amazon - Japan 리전
+					SubnetIID:         irs.IID{SystemId: "subnet-02127b9d8c84f7440"},
+					SecurityGroupIIDs: []irs.IID{{SystemId: "sg-0209d9dc23ebd4cdd"}}, //3389 RDP 포트 Open
 					VMSpecName:        "t2.micro",
-					KeyPairIID:        irs.IID{SystemId: "japan-test"},
+					KeyPairIID:        irs.IID{SystemId: "CB-KeyPairTagTest"},
 					VMUserPasswd:      "1234qwer!@#$", //윈도우즈용 비밀번호
 
 					RootDiskType: "standard", //gp2/standard/io1/io2/sc1/st1/gp3
@@ -1006,7 +1018,7 @@ func handleVM() {
 					//panic(err)
 					cblogger.Error(err)
 				} else {
-					cblogger.Info("VM 생성 완료!!", vmInfo)
+					cblogger.Info("VM Created!!", vmInfo)
 					spew.Dump(vmInfo)
 					VmID = vmInfo.IId
 				}
@@ -1017,10 +1029,10 @@ func handleVM() {
 			case 2:
 				vmInfo, err := vmHandler.GetVM(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM 정보 조회 실패", VmID)
+					cblogger.Errorf("[%s] VM Info Lookup Failed", VmID)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM 정보 조회 결과", VmID)
+					cblogger.Infof("[%s] VM Info Lookup Result", VmID)
 					cblogger.Info(vmInfo)
 					spew.Dump(vmInfo)
 				}
@@ -1029,60 +1041,60 @@ func handleVM() {
 				cblogger.Info("Start Suspend VM ...")
 				result, err := vmHandler.SuspendVM(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM Suspend 실패 - [%s]", VmID, result)
+					cblogger.Errorf("[%s] VM Suspend Fail - [%s]", VmID, result)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM Suspend 성공 - [%s]", VmID, result)
+					cblogger.Infof("[%s] VM Suspend Success - [%s]", VmID, result)
 				}
 
 			case 4:
 				cblogger.Info("Start Resume  VM ...")
 				result, err := vmHandler.ResumeVM(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM Resume 실패 - [%s]", VmID, result)
+					cblogger.Errorf("[%s] VM Resume Fail - [%s]", VmID, result)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM Resume 성공 - [%s]", VmID, result)
+					cblogger.Infof("[%s] VM Resume Success - [%s]", VmID, result)
 				}
 
 			case 5:
 				cblogger.Info("Start Reboot  VM ...")
 				result, err := vmHandler.RebootVM(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM Reboot 실패 - [%s]", VmID, result)
+					cblogger.Errorf("[%s] VM Reboot Fail - [%s]", VmID, result)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM Reboot 성공 - [%s]", VmID, result)
+					cblogger.Infof("[%s] VM Reboot Success - [%s]", VmID, result)
 				}
 
 			case 6:
 				cblogger.Info("Start Terminate  VM ...")
 				result, err := vmHandler.TerminateVM(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM Terminate 실패 - [%s]", VmID, result)
+					cblogger.Errorf("[%s] VM Terminate Fail - [%s]", VmID, result)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM Terminate 성공 - [%s]", VmID, result)
+					cblogger.Infof("[%s] VM Terminate Success - [%s]", VmID, result)
 				}
 
 			case 7:
 				cblogger.Info("Start Get VM Status...")
 				vmStatus, err := vmHandler.GetVMStatus(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM Get Status 실패", VmID)
+					cblogger.Errorf("[%s] VM Get Status Fail", VmID)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM Get Status 성공 : [%s]", VmID, vmStatus)
+					cblogger.Infof("[%s] VM Get Status Success : [%s]", VmID, vmStatus)
 				}
 
 			case 8:
 				cblogger.Info("Start ListVMStatus ...")
 				vmStatusInfos, err := vmHandler.ListVMStatus()
 				if err != nil {
-					cblogger.Error("ListVMStatus 실패")
+					cblogger.Error("ListVMStatus Fail")
 					cblogger.Error(err)
 				} else {
-					cblogger.Info("ListVMStatus 성공")
+					cblogger.Info("ListVMStatus Success")
 					cblogger.Info(vmStatusInfos)
 					spew.Dump(vmStatusInfos)
 				}
@@ -1091,14 +1103,14 @@ func handleVM() {
 				cblogger.Info("Start ListVM ...")
 				vmList, err := vmHandler.ListVM()
 				if err != nil {
-					cblogger.Error("ListVM 실패")
+					cblogger.Error("ListVM Fail")
 					cblogger.Error(err)
 				} else {
-					cblogger.Info("ListVM 성공")
-					cblogger.Info("=========== VM 목록 ================")
+					cblogger.Info("ListVM Success")
+					cblogger.Info("=========== VM List ================")
 					cblogger.Info(vmList)
 					spew.Dump(vmList)
-					cblogger.Infof("=========== VM 목록 수 : [%d] ================", len(vmList))
+					cblogger.Infof("=========== VM List count : [%d] ================", len(vmList))
 					if len(vmList) > 0 {
 						VmID = vmList[0].IId
 					}
@@ -1153,12 +1165,12 @@ func handleVMSpec() {
 				fmt.Println("Start ListVMSpec() ...")
 				result, err := handler.ListVMSpec()
 				if err != nil {
-					cblogger.Error("VMSpec 목록 조회 실패 : ", err)
+					cblogger.Error("VMSpec List Lookup Failed : ", err)
 				} else {
-					cblogger.Debug("VMSpec 목록 조회 결과")
+					cblogger.Debug("VMSpec List Lookup Result")
 					//spew.Dump(result)
 					cblogger.Debug(result)
-					cblogger.Infof("전체 목록 개수 : [%d]", len(result))
+					cblogger.Infof("Total number of lists : [%d]", len(result))
 				}
 
 				fmt.Println("Finish ListVMSpec()")
@@ -1167,9 +1179,9 @@ func handleVMSpec() {
 				fmt.Println("Start GetVMSpec() ...")
 				result, err := handler.GetVMSpec(reqVMSpec)
 				if err != nil {
-					cblogger.Error(reqVMSpec, " VMSpec 정보 조회 실패 : ", err)
+					cblogger.Error(reqVMSpec, " VMSpec Info Lookup Failed : ", err)
 				} else {
-					cblogger.Debugf("VMSpec[%s]  정보 조회 결과", reqVMSpec)
+					cblogger.Debugf("VMSpec[%s] Info Lookup Result", reqVMSpec)
 					//spew.Dump(result)
 					cblogger.Debug(result)
 				}
@@ -1179,16 +1191,16 @@ func handleVMSpec() {
 				fmt.Println("Start ListOrgVMSpec() ...")
 				result, err := handler.ListOrgVMSpec()
 				if err != nil {
-					cblogger.Error("VMSpec Org 목록 조회 실패 : ", err)
+					cblogger.Error("VMSpec Org List Lookup Failed : ", err)
 				} else {
-					cblogger.Debug("VMSpec Org 목록 조회 결과")
+					cblogger.Debug("VMSpec Org List Lookup Result")
 					//spew.Dump(result)
 					cblogger.Debug(result)
 					//spew.Dump(result)
 					//fmt.Println(result)
 					//fmt.Println("=========================")
 					//fmt.Println(result)
-					cblogger.Infof("전체 목록 개수 : [%d]", len(result))
+					cblogger.Infof("Total number of lists : [%d]", len(result))
 				}
 
 				fmt.Println("Finish ListOrgVMSpec()")
@@ -1197,9 +1209,9 @@ func handleVMSpec() {
 				fmt.Println("Start GetOrgVMSpec() ...")
 				result, err := handler.GetOrgVMSpec(reqVMSpec)
 				if err != nil {
-					cblogger.Error(reqVMSpec, " VMSpec Org 정보 조회 실패 : ", err)
+					cblogger.Error(reqVMSpec, " VMSpec Org Info Lookup Failed : ", err)
 				} else {
-					cblogger.Debugf("VMSpec[%s] Org 정보 조회 결과", reqVMSpec)
+					cblogger.Debugf("VMSpec[%s] Org Info Lookup Result", reqVMSpec)
 					//spew.Dump(result)
 					cblogger.Debug(result)
 					//fmt.Println(result)
@@ -1226,9 +1238,12 @@ func handleNLB() {
 
 	nlbReqInfo := irs.NLBInfo{
 		IId:    irs.IID{NameId: "cb-nlb-test01"},
-		VpcIID: irs.IID{SystemId: "vpc-0c4d36a3ac3924419"},
+		VpcIID: irs.IID{SystemId: "vpc-0a115f43d4fcbab36"},
 		Type:   "PUBLIC",
 		Scope:  "REGION",
+
+		TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}, {Key: "Name", Value: "cb-nlb-test01123"}},
+		//TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}},
 
 		Listener: irs.ListenerInfo{
 			Protocol: "TCP", // AWS NLB : TCP, TLS, UDP, or TCP_UDP
@@ -1239,7 +1254,7 @@ func handleNLB() {
 		VMGroup: irs.VMGroupInfo{
 			Protocol: "TCP", //TCP|UDP|HTTP|HTTPS
 			Port:     "22",  //1-65535
-			VMs:      &[]irs.IID{irs.IID{SystemId: "i-0dcbcbeadbb14212f"}, irs.IID{SystemId: "i-0cba8efe123ab0b42"}, irs.IID{SystemId: "i-010c858cbe5b6fe93"}},
+			VMs:      &[]irs.IID{irs.IID{SystemId: "i-0c65033e158e0fd99"}},
 		},
 
 		HealthChecker: irs.HealthCheckerInfo{
@@ -1283,27 +1298,27 @@ func handleNLB() {
 			case 1:
 				result, err := handler.ListNLB()
 				if err != nil {
-					cblogger.Infof(" NLB 목록 조회 실패 : ", err)
+					cblogger.Infof(" NLB List Lookup Failed : ", err)
 				} else {
-					cblogger.Info("NLB 목록 조회 결과")
+					cblogger.Info("NLB List Lookup Result")
 					cblogger.Debug(result)
-					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
 					//spew.Dump(result)
-					cblogger.Info("출력 결과 수 : ", len(result))
+					cblogger.Info("Number of output results : ", len(result))
 
-					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
+					//조회및 Delete Test를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
 					if result != nil {
 						nlbReqInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
 					}
 				}
 
 			case 2:
-				cblogger.Infof("[%s] NLB 생성 테스트", nlbReqInfo.IId.NameId)
+				cblogger.Infof("[%s] NLB Create Test", nlbReqInfo.IId.NameId)
 				result, err := handler.CreateNLB(nlbReqInfo)
 				if err != nil {
-					cblogger.Infof(nlbReqInfo.IId.NameId, " NLB 생성 실패 : ", err)
+					cblogger.Infof(nlbReqInfo.IId.NameId, " NLB Create Failed : ", err)
 				} else {
-					cblogger.Infof("NLB 생성 성공 : ", result)
+					cblogger.Infof("NLB Create Success : ", result)
 					nlbReqInfo.IId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
 					if cblogger.Level.String() == "debug" {
 						spew.Dump(result)
@@ -1311,29 +1326,29 @@ func handleNLB() {
 				}
 
 			case 3:
-				cblogger.Infof("[%s] NLB 조회 테스트", nlbReqInfo.IId)
+				cblogger.Infof("[%s] NLB Lookup Test", nlbReqInfo.IId)
 				result, err := handler.GetNLB(nlbReqInfo.IId)
 				if err != nil {
-					cblogger.Infof("[%s] NLB 조회 실패 : ", nlbReqInfo.IId.NameId, err)
+					cblogger.Infof("[%s] NLB Lookup Failed : ", nlbReqInfo.IId.NameId, err)
 				} else {
-					cblogger.Infof("[%s] NLB 조회 성공 : [%s]", nlbReqInfo.IId.NameId, result)
+					cblogger.Infof("[%s] NLB Lookup Success : [%s]", nlbReqInfo.IId.NameId, result)
 					if cblogger.Level.String() == "debug" {
 						spew.Dump(result)
 					}
 				}
 
 			case 4:
-				cblogger.Infof("[%s] NLB 삭제 테스트", nlbReqInfo.IId.NameId)
+				cblogger.Infof("[%s] NLB Delete Test", nlbReqInfo.IId.NameId)
 				result, err := handler.DeleteNLB(nlbReqInfo.IId)
 				if err != nil {
-					cblogger.Infof("[%s] NLB 삭제 실패 : ", nlbReqInfo.IId.NameId, err)
+					cblogger.Infof("[%s] NLB Delete Failed : ", nlbReqInfo.IId.NameId, err)
 				} else {
-					cblogger.Info("성공")
-					cblogger.Infof("[%s] NLB 삭제 성공 : [%s]", nlbReqInfo.IId.NameId, result)
+					cblogger.Info("Success")
+					cblogger.Infof("[%s] NLB Delete Success : [%s]", nlbReqInfo.IId.NameId, result)
 				}
 
 			case 5:
-				cblogger.Infof("[%s] 리스너 변경 테스트", nlbReqInfo.IId)
+				cblogger.Infof("[%s] Change listener Test", nlbReqInfo.IId)
 				reqListenerInfo := irs.ListenerInfo{
 					Protocol: "TCP", // AWS NLB : TCP, TLS, UDP, or TCP_UDP
 					//IP: "",
@@ -1341,64 +1356,64 @@ func handleNLB() {
 				}
 				result, err := handler.ChangeListener(nlbReqInfo.IId, reqListenerInfo)
 				if err != nil {
-					cblogger.Infof("[%s] 리스너 변경 실패 : ", nlbReqInfo.IId.NameId, err)
+					cblogger.Infof("[%s] Change listener Fail : ", nlbReqInfo.IId.NameId, err)
 				} else {
-					cblogger.Infof("[%s] 리스너 변경 성공 : [%s]", nlbReqInfo.IId.NameId, result)
+					cblogger.Infof("[%s] Change listener Success : [%s]", nlbReqInfo.IId.NameId, result)
 					if cblogger.Level.String() == "debug" {
 						spew.Dump(result)
 					}
 				}
 
 			case 7:
-				cblogger.Infof("[%s] AddVMs 테스트", nlbReqInfo.IId.NameId)
+				cblogger.Infof("[%s] AddVMs Test", nlbReqInfo.IId.NameId)
 				cblogger.Info(reqAddVMs)
 				result, err := handler.AddVMs(nlbReqInfo.IId, reqAddVMs)
 				if err != nil {
-					cblogger.Infof("[%s] AddVMs 실패 : ", nlbReqInfo.IId.NameId, err)
+					cblogger.Infof("[%s] AddVMs Fail : ", nlbReqInfo.IId.NameId, err)
 				} else {
-					cblogger.Info("성공")
-					cblogger.Infof("[%s] AddVMs 성공 : [%s]", nlbReqInfo.IId.NameId, result)
+					cblogger.Info("Success")
+					cblogger.Infof("[%s] AddVMs Success : [%s]", nlbReqInfo.IId.NameId, result)
 				}
 
 			case 8:
-				cblogger.Infof("[%s] RemoveVMs 테스트", nlbReqInfo.IId.NameId)
+				cblogger.Infof("[%s] RemoveVMs Test", nlbReqInfo.IId.NameId)
 				cblogger.Info(reqRemoveVMs)
 				result, err := handler.RemoveVMs(nlbReqInfo.IId, reqRemoveVMs)
 				if err != nil {
-					cblogger.Infof("[%s] RemoveVMs 실패 : ", nlbReqInfo.IId.NameId, err)
+					cblogger.Infof("[%s] RemoveVMs Fail : ", nlbReqInfo.IId.NameId, err)
 				} else {
-					cblogger.Info("성공")
-					cblogger.Infof("[%s] RemoveVMs 성공 : [%s]", nlbReqInfo.IId.NameId, result)
+					cblogger.Info("Success")
+					cblogger.Infof("[%s] RemoveVMs Success : [%s]", nlbReqInfo.IId.NameId, result)
 				}
 
 			case 9:
-				cblogger.Infof("[%s] GetVMGroupHealthInfo 테스트", nlbReqInfo.IId)
+				cblogger.Infof("[%s] GetVMGroupHealthInfo Test", nlbReqInfo.IId)
 				result, err := handler.GetVMGroupHealthInfo(nlbReqInfo.IId)
 				if err != nil {
-					cblogger.Infof("[%s] GetVMGroupHealthInfo 실패 : ", nlbReqInfo.IId.NameId, err)
+					cblogger.Infof("[%s] GetVMGroupHealthInfo Fail : ", nlbReqInfo.IId.NameId, err)
 				} else {
-					cblogger.Infof("[%s] GetVMGroupHealthInfo 성공 : [%s]", nlbReqInfo.IId.NameId, result)
+					cblogger.Infof("[%s] GetVMGroupHealthInfo Success : [%s]", nlbReqInfo.IId.NameId, result)
 					if cblogger.Level.String() == "debug" {
 						spew.Dump(result)
 					}
 				}
 
 			case 6:
-				cblogger.Infof("[%s] NLB VM Group 변경 테스트", nlbReqInfo.IId.NameId)
+				cblogger.Infof("[%s] NLB VM Group Change Test", nlbReqInfo.IId.NameId)
 				result, err := handler.ChangeVMGroupInfo(nlbReqInfo.IId, irs.VMGroupInfo{
 					Protocol: "TCP",
 					Port:     "8080",
 				})
 				if err != nil {
-					cblogger.Infof("[%s] NLB VM Group 변경 실패 : ", nlbReqInfo.IId.NameId, err)
+					cblogger.Infof("[%s] NLB VM Group Change Fail : ", nlbReqInfo.IId.NameId, err)
 				} else {
-					cblogger.Infof("[%s] NLB VM Group 변경 성공 : [%s]", nlbReqInfo.IId.NameId, result)
+					cblogger.Infof("[%s] NLB VM Group Change Success : [%s]", nlbReqInfo.IId.NameId, result)
 					if cblogger.Level.String() == "debug" {
 						spew.Dump(result)
 					}
 				}
 			case 10:
-				cblogger.Infof("[%s] NLB Health Checker 변경 테스트", nlbReqInfo.IId.NameId)
+				cblogger.Infof("[%s] NLB Health Checker Change Test", nlbReqInfo.IId.NameId)
 				result, err := handler.ChangeHealthCheckerInfo(nlbReqInfo.IId, irs.HealthCheckerInfo{
 					Protocol: "TCP",
 					Port:     "22",
@@ -1407,9 +1422,9 @@ func handleNLB() {
 					Threshold: 5,
 				})
 				if err != nil {
-					cblogger.Infof("[%s] NLB Health Checker 변경 실패 : ", nlbReqInfo.IId.NameId, err)
+					cblogger.Infof("[%s] NLB Health Checker Change Fail : ", nlbReqInfo.IId.NameId, err)
 				} else {
-					cblogger.Infof("[%s] NLB Health Checker 변경 성공 : [%s]", nlbReqInfo.IId.NameId, result)
+					cblogger.Infof("[%s] NLB Health Checker Change Success : [%s]", nlbReqInfo.IId.NameId, result)
 					if cblogger.Level.String() == "debug" {
 						spew.Dump(result)
 					}
@@ -1434,32 +1449,33 @@ func handleCluster() {
 	}
 
 	subnets := []irs.IID{}
-	subnets = append(subnets, irs.IID{SystemId: "subnet-0d30ee6b367974a39"}) //a1
-	subnets = append(subnets, irs.IID{SystemId: "subnet-06d5c04b32019b81f"}) //c1
-	subnets = append(subnets, irs.IID{SystemId: "subnet-05c5d26bd2f014591"}) //a2
+	subnets = append(subnets, irs.IID{SystemId: "subnet-02127b9d8c84f7440"}) //2a
+	subnets = append(subnets, irs.IID{SystemId: "subnet-0c2b7e03a5f397e25"}) //2c
 
 	//vpc-0c4d36a3ac3924419
 	clusterReqInfo := irs.ClusterInfo{
-		IId: irs.IID{NameId: "cb-eks-cluster-test01"},
+		//TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}, {Key: "Name", Value: securityName+"123"}},
+		TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}},
+		IId:     irs.IID{NameId: "cb-eks-cluster-tag-test", SystemId: "cb-eks-cluster-tag-test"},
 		//Version : "1.23.3", //K8s version
 		Network: irs.NetworkInfo{
-			VpcIID: irs.IID{SystemId: "vpc-0c4d36a3ac3924419"},
+			VpcIID: irs.IID{SystemId: "vpc-0a115f43d4fcbab36"},
 			//SubnetIID: [irs.IID{SystemId: "subnet-262d6d7a"},irs.IID{SystemId: "vpc-c0479cab"}],
 			SubnetIIDs: subnets,
 		},
 	} // nlbReqInfo
 
 	reqNodeGroupInfo := irs.NodeGroupInfo{
-		IId:         irs.IID{NameId: "cb-eks-node-test01"},
+		IId:         irs.IID{NameId: "cb-eks-node-tag-test"},
 		MinNodeSize: 1,
 		MaxNodeSize: 2,
 
 		// VM config.
-		ImageIID:     irs.IID{SystemId: "ami-00e07ff65a55e3ca5"}, // Amazon Linux 2 (AL2_x86_64) - https://docs.aws.amazon.com/eks/latest/userguide/eks-optimized-ami.html
+		ImageIID:     irs.IID{SystemId: "ami-056a29f2eddc40520"}, // Amazon Linux 2 (AL2_x86_64) - https://docs.aws.amazon.com/eks/latest/userguide/eks-optimized-ami.html
 		VMSpecName:   "t3.medium",
 		RootDiskType: "SSD(gp2)", // "SSD(gp2)", "Premium SSD", ...
 		RootDiskSize: "20",       // "", "default", "50", "1000" (GB)
-		KeyPairIID:   irs.IID{SystemId: "japan-test"},
+		KeyPairIID:   irs.IID{SystemId: "CB-KeyPairTagTest"},
 
 		//Status NodeGroupStatus
 
@@ -1497,27 +1513,27 @@ func handleCluster() {
 			case 1:
 				result, err := handler.ListCluster()
 				if err != nil {
-					cblogger.Infof(" Cluster 목록 조회 실패 : ", err)
+					cblogger.Info(" Cluster List Lookup Failed : ", err)
 				} else {
-					cblogger.Info("Cluster 목록 조회 결과")
+					cblogger.Info("Cluster List Lookup Result")
 					cblogger.Debug(result)
-					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
 					//spew.Dump(result)
-					cblogger.Info("출력 결과 수 : ", len(result))
+					cblogger.Info("Number of output results : ", len(result))
 
 					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
 					if len(result) > 0 {
 						clusterReqInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
-						cblogger.Info("---> Req IID 변경 : ", clusterReqInfo.IId)
+						cblogger.Info("---> Req IID Change : ", clusterReqInfo.IId)
 					}
 				}
 			case 2:
-				cblogger.Infof("[%s] Cluster Create 테스트", clusterReqInfo.IId.NameId)
+				cblogger.Infof("[%s] Cluster Create Test", clusterReqInfo.IId.NameId)
 				result, err := handler.CreateCluster(clusterReqInfo)
 				if err != nil {
-					cblogger.Infof(clusterReqInfo.IId.NameId, " Cluster Create 실패 : ", err)
+					cblogger.Infof(clusterReqInfo.IId.NameId, " Cluster Create Fail : ", err)
 				} else {
-					cblogger.Infof("Cluster Create 성공 : ", result)
+					cblogger.Info("Cluster Create Success : ", result)
 					clusterReqInfo.IId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
 					if cblogger.Level.String() == "debug" {
 						spew.Dump(result)
@@ -1527,42 +1543,42 @@ func handleCluster() {
 				//eks-cb-eks-node-test02a-aws-9cc2876a-d3cb-2c25-55a8-9a19c431e716
 
 			case 3:
-				cblogger.Infof("[%s] Cluster Get 테스트", clusterReqInfo.IId)
+				cblogger.Infof("[%s] Cluster Get Test", clusterReqInfo.IId)
 				result, err := handler.GetCluster(clusterReqInfo.IId)
 				if err != nil {
-					cblogger.Infof("[%s] Cluster Get 실패 : ", clusterReqInfo.IId.NameId, err)
+					cblogger.Infof("[%s] Cluster Get Fail : ", clusterReqInfo.IId.NameId, err)
 				} else {
-					cblogger.Infof("[%s] Cluster Get 성공 : [%s]", clusterReqInfo.IId.NameId, result)
+					cblogger.Infof("[%s] Cluster Get Success : [%s]", clusterReqInfo.IId.NameId, result)
 					if cblogger.Level.String() == "debug" {
 						spew.Dump(result)
 					}
 				}
 
 			case 4:
-				cblogger.Infof("[%s] Cluster Delete 테스트", clusterReqInfo.IId.NameId)
+				cblogger.Infof("[%s] Cluster Delete Test", clusterReqInfo.IId.NameId)
 				result, err := handler.DeleteCluster(clusterReqInfo.IId)
 				if err != nil {
-					cblogger.Infof("[%s] Cluster Delete 실패 : ", clusterReqInfo.IId.NameId, err)
+					cblogger.Infof("[%s] Cluster Delete Fail : ", clusterReqInfo.IId.NameId, err)
 				} else {
-					cblogger.Info("성공")
-					cblogger.Infof("[%s] Cluster Delete 성공 : [%s]", clusterReqInfo.IId.NameId, result)
+					cblogger.Info("Success")
+					cblogger.Infof("[%s] Cluster Delete Success : [%s]", clusterReqInfo.IId.NameId, result)
 				}
 
 			/*
 				case 5:
-					cblogger.Infof("[%s] ListNodeGroup 테스트", clusterReqInfo.IId)
+					cblogger.Infof("[%s] ListNodeGroup Test", clusterReqInfo.IId)
 					result, err := handler.ListNodeGroup(clusterReqInfo.IId)
 					if err != nil {
-						cblogger.Infof("[%s] ListNodeGroup 실패 : ", clusterReqInfo.IId.NameId, err)
+						cblogger.Infof("[%s] ListNodeGroup Fail : ", clusterReqInfo.IId.NameId, err)
 					} else {
-						cblogger.Infof("[%s] ListNodeGroup 성공 : [%s]", clusterReqInfo.IId.NameId, result)
+						cblogger.Infof("[%s] ListNodeGroup Success : [%s]", clusterReqInfo.IId.NameId, result)
 						if cblogger.Level.String() == "debug" {
 							spew.Dump(result)
 						}
 
-						cblogger.Info("출력 결과 수 : ", len(result))
+						cblogger.Info("Number of output results : ", len(result))
 
-						//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
+						//조회및 삭제 Test를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
 						if len(result) > 0 {
 							reqNodeGroupInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
 							cblogger.Info("---> Req IID 변경 : ", reqNodeGroupInfo.IId)
@@ -1571,49 +1587,49 @@ func handleCluster() {
 			*/
 
 			case 6:
-				cblogger.Infof("[%s] AddNodeGroup 테스트", clusterReqInfo.IId)
+				cblogger.Infof("[%s] AddNodeGroup Test", clusterReqInfo.IId)
 				result, err := handler.AddNodeGroup(clusterReqInfo.IId, reqNodeGroupInfo)
 				if err != nil {
-					cblogger.Infof("[%s] AddNodeGroup 실패 : ", clusterReqInfo.IId.NameId, err)
+					cblogger.Infof("[%s] AddNodeGroup Fail : ", clusterReqInfo.IId.NameId, err)
 				} else {
-					cblogger.Infof("[%s] AddNodeGroup 성공 : [%s]", clusterReqInfo.IId.NameId, result)
+					cblogger.Infof("[%s] AddNodeGroup Success : [%s]", clusterReqInfo.IId.NameId, result)
 					if cblogger.Level.String() == "debug" {
 						spew.Dump(result)
 					}
 				}
 
 			case 7:
-				cblogger.Infof("[%s] RemoveNodeGroup 테스트", clusterReqInfo.IId)
+				cblogger.Infof("[%s] RemoveNodeGroup Test", clusterReqInfo.IId)
 				result, err := handler.RemoveNodeGroup(clusterReqInfo.IId, reqNodeGroupInfo.IId)
 				if err != nil {
-					cblogger.Infof("[%s] RemoveNodeGroup 실패 : ", reqNodeGroupInfo.IId.SystemId, err)
+					cblogger.Infof("[%s] RemoveNodeGroup Fail : ", reqNodeGroupInfo.IId.SystemId, err)
 				} else {
-					cblogger.Infof("[%s] RemoveNodeGroup 성공", reqNodeGroupInfo.IId.SystemId)
+					cblogger.Infof("[%s] RemoveNodeGroup Success", reqNodeGroupInfo.IId.SystemId)
 					if cblogger.Level.String() == "debug" {
 						spew.Dump(result)
 					}
 				}
 
 			case 8:
-				cblogger.Infof("[%s] UpgradeCluster 테스트", clusterReqInfo.IId)
+				cblogger.Infof("[%s] UpgradeCluster Test", clusterReqInfo.IId)
 				result, err := handler.UpgradeCluster(clusterReqInfo.IId, "1.24")
 				if err != nil {
-					cblogger.Infof("[%s] UpgradeCluster 실패 : ", clusterReqInfo.IId.NameId, err)
+					cblogger.Infof("[%s] UpgradeCluster Fail : ", clusterReqInfo.IId.NameId, err)
 				} else {
-					cblogger.Infof("[%s] UpgradeCluster 성공 : [%s]", clusterReqInfo.IId.NameId, result)
+					cblogger.Infof("[%s] UpgradeCluster Success : [%s]", clusterReqInfo.IId.NameId, result)
 					if cblogger.Level.String() == "debug" {
 						spew.Dump(result)
 					}
 				}
 
 			case 9:
-				cblogger.Infof("[%s] ChangeNodeGroupScaling 테스트", clusterReqInfo.IId)
+				cblogger.Infof("[%s] ChangeNodeGroupScaling Test", clusterReqInfo.IId)
 				//원하는 크기 / 최소 크기 / 최대 크기
 				result, err := handler.ChangeNodeGroupScaling(clusterReqInfo.IId, reqNodeGroupInfo.IId, 2, 2, 4)
 				if err != nil {
-					cblogger.Infof("[%s] ChangeNodeGroupScaling 실패 : ", clusterReqInfo.IId.NameId, err)
+					cblogger.Infof("[%s] ChangeNodeGroupScaling Fail : ", clusterReqInfo.IId.NameId, err)
 				} else {
-					cblogger.Infof("[%s] ChangeNodeGroupScaling 성공 : [%s]", clusterReqInfo.IId.NameId, result)
+					cblogger.Infof("[%s] ChangeNodeGroupScaling Success : [%s]", clusterReqInfo.IId.NameId, result)
 					if cblogger.Level.String() == "debug" {
 						spew.Dump(result)
 					}
@@ -1657,48 +1673,48 @@ func handleRegionZone() {
 			case 1:
 				result, err := handler.ListRegionZone()
 				if err != nil {
-					cblogger.Infof("ListRegionZone 목록 조회 실패 : %s", err)
+					cblogger.Infof("ListRegionZone List Lookup Failed : %s", err)
 				} else {
-					cblogger.Info("ListRegionZone 목록 조회 결과")
+					cblogger.Info("ListRegionZone List Lookup Result")
 					// cblogger.Debugf("결과 %s", result[0])
 					spew.Dump(result)
-					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
 					//spew.Dump(result)
-					cblogger.Info("출력 결과 수 : ", len(result))
+					cblogger.Info("Number of output results : ", len(result))
 				}
 
 			case 2:
 				result, err := handler.GetRegionZone("us-west-1")
 				if err != nil {
-					cblogger.Infof("GetRegionZone 조회 실패 : ", err)
+					cblogger.Infof("GetRegionZone Lookup Failed : ", err)
 				} else {
-					cblogger.Info("GetRegionZone 조회 결과")
+					cblogger.Info("GetRegionZone Lookup Result")
 					cblogger.Debug(result)
-					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
 					// spew.Dump(result)
 				}
 
 			case 3:
 				result, err := handler.ListOrgRegion()
 				if err != nil {
-					cblogger.Infof("ListOrgRegion 목록 조회 실패 : ", err)
+					cblogger.Infof("ListOrgRegion List Lookup Failed : ", err)
 				} else {
-					cblogger.Info("ListOrgRegion 목록 조회 결과")
+					cblogger.Info("ListOrgRegion List Lookup Result")
 					cblogger.Debug(result)
-					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
 					//spew.Dump(result)
-					cblogger.Info("출력 결과 수 : ", len(result))
+					cblogger.Info("Number of output results : ", len(result))
 				}
 			case 4:
 				result, err := handler.ListOrgZone()
 				if err != nil {
-					cblogger.Infof("ListOrgZone 목록 조회 실패 : %s", err)
+					cblogger.Infof("ListOrgZone List Lookup Failed : %s", err)
 				} else {
-					cblogger.Info("ListOrgZone 목록 조회 결과")
+					cblogger.Info("ListOrgZone List Lookup Result")
 					cblogger.Debug(result)
-					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
 					//spew.Dump(result)
-					cblogger.Info("출력 결과 수 : ", len(result))
+					cblogger.Info("Number of output results : ", len(result))
 				}
 			}
 		}
@@ -1736,14 +1752,14 @@ func handlePriceInfo() {
 			case 1:
 				result, err := handler.ListProductFamily("us-west-1")
 				if err != nil {
-					cblogger.Infof("ListProductFamily 목록 조회 실패 : %s", err)
+					cblogger.Infof("ListProductFamily List Lookup Failed : %s", err)
 				} else {
-					cblogger.Info("ListProductFamily 목록 조회 결과")
+					cblogger.Info("ListProductFamily List Lookup Result")
 					// cblogger.Debugf("결과 %s", result[0])
 					spew.Dump(result)
-					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
 					//spew.Dump(result)
-					cblogger.Info("출력 결과 수 : ", len(result))
+					cblogger.Info("Number of output results : ", len(result))
 				}
 
 			case 2:
@@ -1766,11 +1782,11 @@ func handlePriceInfo() {
 				result, err := handler.GetPriceInfo("Compute Instance", "us-west-1", filterList)
 
 				if err != nil {
-					cblogger.Infof("GetPriceInfo 조회 실패 : ", err)
+					cblogger.Infof("GetPriceInfo Lookup Failed : ", err)
 				} else {
-					cblogger.Info("GetPriceInfo 조회 결과")
+					cblogger.Info("GetPriceInfo Lookup Result")
 					cblogger.Info(result)
-					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
 				}
 			}
 		}
@@ -1787,11 +1803,18 @@ func handleTag() {
 	}
 	handler := ResourceHandler.(irs.TagHandler)
 
-	var reqType irs.RSType = irs.VM
-	reqIID := irs.IID{SystemId: "i-02ac1c4ff1d40815c"}
-	reqTag := irs.KeyValue{Key: "tag3", Value: "태그3"}
+	var reqType irs.RSType = irs.KEY
+	//reqIID := irs.IID{SystemId: "i-02ac1c4ff1d40815c"}
+	reqIID := irs.IID{SystemId: "CB-KeyPairTest123123"}
+	reqIID = irs.IID{SystemId: "ami-03cda261fe3252863"}
+
+	reqTag := irs.KeyValue{Key: "tag3", Value: "tag3 test"}
 	reqKey := "tag3"
-	reqKey = ""
+	reqKey = "CB-KeyPairTagTest"
+	reqKey = "cb-nlb-test01123"
+	reqKey = "Name2"
+	reqKey = "cb-eks-cluster-tag-test"
+	reqKey = "tag3"
 	reqType = irs.ALL
 
 	for {
@@ -1815,20 +1838,20 @@ func handleTag() {
 				return
 
 			case 1:
-				cblogger.Infof("조회 요청 태그 타입 : [%s]", reqType)
+				cblogger.Infof("Lookup request tag type : [%s]", reqType)
 				if reqType == irs.VM {
-					cblogger.Debug("VM 요청됨")
+					cblogger.Debug("VM Requested")
 				}
 
 				result, err := handler.ListTag(reqType, reqIID)
 				if err != nil {
-					cblogger.Info(" Tag 목록 조회 실패 : ", err)
+					cblogger.Info(" Tag List Lookup Failed : ", err)
 				} else {
-					cblogger.Info("Tag 목록 조회 결과")
+					cblogger.Info("Tag List Lookup Result")
 					cblogger.Debug(result)
-					cblogger.Infof("로그 레벨 : [%s]", cblog.GetLevel())
+					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
 					//spew.Dump(result)
-					cblogger.Info("출력 결과 수 : ", len(result))
+					cblogger.Info("Number of output results : ", len(result))
 
 					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
 					if result != nil {
@@ -1837,45 +1860,216 @@ func handleTag() {
 				}
 
 			case 2:
-				cblogger.Infof("[%s] Tag 추가 테스트", reqIID.SystemId)
+				cblogger.Infof("[%s] Tag Add Test", reqIID.SystemId)
 				result, err := handler.AddTag(reqType, reqIID, reqTag)
 				if err != nil {
-					cblogger.Infof(reqIID.SystemId, " Tag 생성 실패 : ", err)
+					cblogger.Infof(reqIID.SystemId, " Tag Create Failed : ", err)
 				} else {
-					cblogger.Info("Tag 생성 결과 : ", result)
+					cblogger.Info("Tag Create Result : ", result)
 					reqKey = result.Key
-					cblogger.Infof("요청 대상 Tag Key가 [%s]로 변경 됨", reqKey)
+					cblogger.Infof("Request Target Tag Key changed to [%s]", reqKey)
 					spew.Dump(result)
 				}
 
 			case 3:
-				cblogger.Infof("[%s] Tag 조회 테스트 - Key[%s]", reqIID.SystemId, reqKey)
+				cblogger.Infof("[%s] Tag Lookup Test - Key[%s]", reqIID.SystemId, reqKey)
 				result, err := handler.GetTag(reqType, reqIID, reqKey)
 				if err != nil {
-					cblogger.Infof("[%s] Tag 조회 실패 : [%v]", reqKey, err)
+					cblogger.Infof("[%s] Tag Lookup Failed : [%v]", reqKey, err)
 				} else {
-					cblogger.Infof("[%s] Tag 조회 결과 : [%s]", reqKey, result)
+					cblogger.Infof("[%s] Tag Lookup Result : [%s]", reqKey, result)
 					spew.Dump(result)
 				}
 
 			case 4:
-				cblogger.Infof("[%s] Tag 삭제 테스트 - Key[%s]", reqIID.SystemId, reqKey)
+				cblogger.Infof("[%s] Tag Delete Test - Key[%s]", reqIID.SystemId, reqKey)
 				result, err := handler.RemoveTag(reqType, reqIID, reqKey)
 				if err != nil {
-					cblogger.Infof("[%s] Tag 삭제 실패 : [%v]", reqKey, err)
+					cblogger.Infof("[%s] Tag Delete Failed : [%v]", reqKey, err)
 				} else {
-					cblogger.Infof("[%s] Tag 삭제 결과 : [%v]", reqKey, result)
+					cblogger.Infof("[%s] Tag Delete Result : [%v]", reqKey, result)
 				}
 
 			case 5:
-				cblogger.Infof("[%s] Tag 찾기 테스트 - Key[%s]", reqType, reqKey)
+				cblogger.Infof("[%s] Tag Find Test - Key[%s]", reqType, reqKey)
 				result, err := handler.FindTag(reqType, reqKey)
 				if err != nil {
-					cblogger.Infof("[%s] Tag 검색 실패 : [%s]", reqKey, err)
+					cblogger.Infof("[%s] Tag Find Failed : [%s]", reqKey, err)
 				} else {
-					cblogger.Infof("[%s] Tag 검색 결과 : [%d]건", reqKey, len(result))
 					spew.Dump(result)
-					cblogger.Infof("Tag 검색 결과 : [%d]건", len(result))
+					cblogger.Infof("[%s] Tag Find Result : [%d] count", reqKey, len(result))
+				}
+			}
+		}
+	}
+}
+
+// Test Disk
+func handleDisk() {
+	cblogger.Debug("Start Disk Resource Test")
+
+	ResourceHandler, err := getResourceHandler("Disk")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.DiskHandler)
+
+	reqIID := irs.IID{NameId: "tag-test", SystemId: "vol-0d0bdcd08f027c2a1"}
+	reqKey := "tag3"
+	reqInfo := irs.DiskInfo{
+		IId:      reqIID,
+		DiskType: "gp2",
+		DiskSize: "50",
+
+		//TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}, {Key: "Name", Value: securityName+"123"}},
+		TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}},
+	}
+
+	for {
+		fmt.Println("TagHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. Disk List")
+		fmt.Println("2. Disk Create")
+		fmt.Println("3. Disk Get")
+		fmt.Println("4. Disk Delete")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				cblogger.Infof("Lookup disk list")
+				result, err := handler.ListDisk()
+				if err != nil {
+					cblogger.Info(" Disk List Lookup Failed : ", err)
+				} else {
+					cblogger.Info("Disk List Lookup Result")
+					cblogger.Debug(result)
+					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
+					//spew.Dump(result)
+					cblogger.Info("Number of output results : ", len(result))
+				}
+
+			case 2:
+				cblogger.Infof("[%s] Disk Create Test", reqIID.SystemId)
+				result, err := handler.CreateDisk(reqInfo)
+				if err != nil {
+					cblogger.Infof(reqIID.SystemId, " Disk Create Failed : ", err)
+				} else {
+					cblogger.Info("Disk Create Result : ", result)
+					spew.Dump(result)
+				}
+
+			case 3:
+				cblogger.Infof("[%s] Disk Lookup Test - Key[%s]", reqIID.SystemId, reqKey)
+				result, err := handler.GetDisk(reqIID)
+				if err != nil {
+					cblogger.Infof("[%s] Disk Lookup Failed : [%v]", reqKey, err)
+				} else {
+					cblogger.Infof("[%s] Disk Lookup Result : [%s]", reqKey, result)
+					spew.Dump(result)
+				}
+
+			case 4:
+				cblogger.Infof("[%s] Disk Delete Test - Key[%s]", reqIID.SystemId, reqKey)
+				result, err := handler.DeleteDisk(reqIID)
+				if err != nil {
+					cblogger.Infof("[%s] Disk Delete Failed : [%v]", reqKey, err)
+				} else {
+					cblogger.Infof("[%s] Disk Delete Result : [%v]", reqKey, result)
+				}
+			}
+		}
+	}
+}
+
+// Test MyImage
+func handleMyImage() {
+	cblogger.Debug("Start MyImage Resource Test")
+
+	ResourceHandler, err := getResourceHandler("MyImage")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.MyImageHandler)
+
+	reqIID := irs.IID{NameId: "tag-test", SystemId: "ami-03cda261fe3252863"}
+	reqKey := "tag3"
+	reqInfo := irs.MyImageInfo{
+		IId:      reqIID,
+		SourceVM: irs.IID{SystemId: "i-0c65033e158e0fd99"},
+
+		//TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}, {Key: "Name", Value: securityName+"123"}},
+		TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}},
+	}
+
+	for {
+		fmt.Println("TagHandler Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. MyImage List")
+		fmt.Println("2. MyImage Create")
+		fmt.Println("3. MyImage Get")
+		fmt.Println("4. MyImage Delete")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				cblogger.Infof("Lookup MyImage list")
+				result, err := handler.ListMyImage()
+				if err != nil {
+					cblogger.Info(" MyImage List Lookup Failed : ", err)
+				} else {
+					cblogger.Info("MyImage List Lookup Result")
+					cblogger.Debug(result)
+					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
+					//spew.Dump(result)
+					cblogger.Info("Number of output results : ", len(result))
+				}
+
+			case 2:
+				cblogger.Infof("[%s] MyImage Create Test", reqIID.NameId)
+				result, err := handler.SnapshotVM(reqInfo)
+				if err != nil {
+					cblogger.Infof(reqIID.NameId, " MyImage Create Failed : ", err)
+				} else {
+					cblogger.Info("MyImage Create Result : ", result)
+					reqIID = result.IId
+					spew.Dump(result)
+				}
+
+			case 3:
+				cblogger.Infof("[%s] MyImage Lookup Test - Key[%s]", reqIID.SystemId, reqKey)
+				result, err := handler.GetMyImage(reqIID)
+				if err != nil {
+					cblogger.Infof("[%s] MyImage Lookup Failed : [%v]", reqKey, err)
+				} else {
+					cblogger.Infof("[%s] MyImage Lookup Result : [%s]", reqKey, result)
+					spew.Dump(result)
+				}
+
+			case 4:
+				cblogger.Infof("[%s] MyImage Delete Test - Key[%s]", reqIID.SystemId, reqKey)
+				result, err := handler.DeleteMyImage(reqIID)
+				if err != nil {
+					cblogger.Infof("[%s] MyImage Delete Failed : [%v]", reqKey, err)
+				} else {
+					cblogger.Infof("[%s] MyImage Delete Result : [%v]", reqKey, result)
 				}
 			}
 		}
@@ -1885,8 +2079,9 @@ func handleTag() {
 // handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
 // (예) ImageHandler.go -> "Image"
 func getResourceHandler(handlerType string) (interface{}, error) {
-	var cloudDriver idrv.CloudDriver
-	cloudDriver = new(awsdrv.AwsDriver)
+	//var cloudDriver idrv.CloudDriver
+	//cloudDriver = new(awsdrv.AwsDriver)
+	cloudDriver := new(awsdrv.AwsDriver)
 
 	config := readConfigFile()
 	connectionInfo := idrv.ConnectionInfo{
@@ -1933,6 +2128,10 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreatePriceInfoHandler()
 	case "Tag":
 		resourceHandler, err = cloudConnection.CreateTagHandler()
+	case "Disk":
+		resourceHandler, err = cloudConnection.CreateDiskHandler()
+	case "MyImage":
+		resourceHandler, err = cloudConnection.CreateMyImageHandler()
 	}
 
 	if err != nil {
@@ -2058,16 +2257,21 @@ func readConfigFile() Config {
 }
 
 func main() {
-	//handleVPC()
-	// handleKeyPair()
+	handleMyImage()
+	// myimage
+	//handleTag()
 	// handlePublicIP() // PublicIP 생성 후 conf
-	// handleSecurity()
-	// handleVM()
+	// handleDisk()
+
+	//handleKeyPair()
+	//handleVPC()
+	//handleSecurity()
+	//handleVM()
 	// handleImage() //AMI
 	// handleVNic() //Lancard
 	// handleVMSpec()
-	// handleNLB()
-	// handleCluster()
+	//handleNLB()
+	//handleCluster()
 	//handleRegionZone()
 	//handlePriceInfo()
 	handleTag()

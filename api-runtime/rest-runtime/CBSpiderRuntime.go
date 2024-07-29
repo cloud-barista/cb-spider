@@ -11,6 +11,7 @@ package restruntime
 import (
 	"crypto/subtle"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -434,6 +435,12 @@ func RunServer() {
 		{"GET", "/countcluster", CountAllClusters},
 		{"GET", "/countcluster/:ConnectionName", CountClustersByConnection},
 
+		//----------Tag Handler
+		{"POST", "/tag", AddTag},
+		{"GET", "/tag", ListTag},
+		{"GET", "/tag/:Name", GetTag},
+		{"DELETE", "/tag/:Name", RemoveTag},
+
 		//----------Destory All Resources in a Connection
 		{"DELETE", "/destroy", Destroy},
 
@@ -459,12 +466,24 @@ func RunServer() {
 		{"GET", "/adminweb/top", aw.Top},
 		{"GET", "/adminweb/log", aw.Log},
 
+		{"GET", "/adminweb2", aw.MainPage},
+		{"GET", "/adminweb2/", aw.MainPage},
+		{"GET", "/adminweb/left_menu", aw.LeftMenu},
+		{"GET", "/adminweb/body_frame", aw.BodyFrame},
+
 		{"GET", "/adminweb/dashboard", aw.Dashboard},
 
 		{"GET", "/adminweb/driver", aw.Driver},
+		{"GET", "/adminweb2/driver", aw.DriverManagement},
+
 		{"GET", "/adminweb/credential", aw.Credential},
+		{"GET", "/adminweb2/credential", aw.CredentialManagement},
+
 		{"GET", "/adminweb/region", aw.Region},
+		{"GET", "/adminweb2/region", aw.RegionManagement},
+
 		{"GET", "/adminweb/connectionconfig", aw.Connectionconfig},
+		{"GET", "/adminweb2/connectionconfig", aw.ConnectionManagement},
 
 		{"GET", "/adminweb/dashboard", aw.Dashboard},
 
@@ -568,7 +587,7 @@ func ApiServer(routes []route) {
 	}
 
 	// for spider logo
-	e.File("/spider/adminweb/images/logo.png", cbspiderRoot+"/api-runtime/rest-runtime/admin-web/images/cb-spider-circle-logo.png")
+	e.Static("/spider/adminweb/images", filepath.Join(cbspiderRoot, "api-runtime/rest-runtime/admin-web/images"))
 
 	// for admin-web
 	e.File("/spider/adminweb/html/priceinfo-filter-gen.html", cbspiderRoot+"/api-runtime/rest-runtime/admin-web/html/priceinfo-filter-gen.html")

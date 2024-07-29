@@ -1364,7 +1364,7 @@ func ListVMStatus(connectionName string, rsType string) ([]*cres.VMStatusInfo, e
 		return infoList, nil
 	}
 
-	// (2) get VMStatusInfo List with iidInoList
+	// (2) get VMStatusInfo List with iidInfoList
 	infoList2 := []*cres.VMStatusInfo{}
 	for _, iidInfo := range iidInfoList {
 
@@ -1373,17 +1373,36 @@ func ListVMStatus(connectionName string, rsType string) ([]*cres.VMStatusInfo, e
 		*/
 
 		// 2. get CSP:VMStatus(SystemId)
-		statusInfo, err := handler.GetVMStatus(getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}))
-		if err != nil {
-			//vmSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
-			if checkNotFoundError(err) {
-				cblog.Info(err)
-				continue
+		var statusInfo cres.VMStatus
+		driverIID := getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
+
+		// need to wait for https://github.com/cloud-barista/cb-spider/pull/1244#issuecomment-2253741979
+		waiter := NewWaiter(3, 60) // 3 seconds sleep, 60 seconds timeout
+
+		for {
+			statusInfo, err = handler.GetVMStatus(driverIID)
+			if statusInfo == cres.NotExist {
+				err = fmt.Errorf("Not Found %s", driverIID.SystemId)
 			}
-			cblog.Error(err)
-			return nil, err
+			if err != nil {
+				if checkNotFoundError(err) {
+					statusInfo = cres.NotExist
+					break
+				}
+				cblog.Error(err)
+				return nil, err
+			}
+
+			if statusInfo == cres.Creating || statusInfo == cres.Running || statusInfo == cres.Suspending || statusInfo == cres.Suspended ||
+				statusInfo == cres.Resuming || statusInfo == cres.Rebooting || statusInfo == cres.Terminating || statusInfo == cres.Terminated ||
+				statusInfo == cres.NotExist || statusInfo == cres.Failed {
+				break
+			}
+
+			if !waiter.Wait() {
+				return nil, fmt.Errorf("Unable to provide current VM status for VM '%s'. Timeout after %v seconds", iidInfo.NameId, waiter.Timeout)
+			}
 		}
-		//vmSPLock.RUnlock(connectionName, iidInfo.IId.NameId)
 
 		infoList2 = append(infoList2, &cres.VMStatusInfo{IId: getUserIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}), VmStatus: statusInfo})
 	}
@@ -1433,14 +1452,34 @@ func GetVMStatus(connectionName string, rsType string, nameID string) (cres.VMSt
 		return "", err
 	}
 
-	// (2) get CSP:VMStatus(SystemId)
-	info, err := handler.GetVMStatus(getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}))
-	if err != nil {
-		cblog.Error(err)
-		return "", err
-	}
+	driverIID := getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
 
-	return info, nil
+	// need to wait for https://github.com/cloud-barista/cb-spider/pull/1244#issuecomment-2253741979
+	waiter := NewWaiter(3, 60) // 3 seconds sleep, 60 seconds timeout
+
+	for {
+		info, err := handler.GetVMStatus(driverIID)
+		if info == cres.NotExist {
+			err = fmt.Errorf("Not Found %s", driverIID.SystemId)
+		}
+		if err != nil {
+			if checkNotFoundError(err) {
+				return "", err
+			}
+			cblog.Error(err)
+			return "", err
+		}
+
+		if info == cres.Creating || info == cres.Running || info == cres.Suspending || info == cres.Suspended ||
+			info == cres.Resuming || info == cres.Rebooting || info == cres.Terminating || info == cres.Terminated ||
+			info == cres.NotExist || info == cres.Failed {
+			return info, nil
+		}
+
+		if !waiter.Wait() {
+			return "", fmt.Errorf("Unable to provide current VM status for VM '%s'. Timeout after %v seconds", nameID, waiter.Timeout)
+		}
+	}
 }
 
 // (1) get IID(NameId)

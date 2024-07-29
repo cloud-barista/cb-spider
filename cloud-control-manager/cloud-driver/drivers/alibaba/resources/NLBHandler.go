@@ -3,6 +3,7 @@ package resources
 import (
 	"encoding/json"
 	"errors"
+
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/slb"
@@ -112,6 +113,20 @@ func (NLBHandler *AlibabaNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 	// slb.s1.small, slb.s2.small, slb.s2.medium, slb.s3.small, slb.s3.medium, slb.s3.large
 	// If InstanceChargeType is set to PayByCLCU, the LoadBalancerSpec parameter is invalid and you do not need to set this parameter.
 	loadBalancerRequest.LoadBalancerSpec = "slb.s1.small" // required
+
+	if nlbReqInfo.TagList != nil && len(nlbReqInfo.TagList) > 0 {
+
+		nlbTags := []slb.CreateLoadBalancerTag{}
+		for _, nlbTag := range nlbReqInfo.TagList {
+			tag0 := slb.CreateLoadBalancerTag{
+				Key:   nlbTag.Key,
+				Value: nlbTag.Value,
+			}
+			nlbTags = append(nlbTags, tag0)
+
+		}
+		loadBalancerRequest.Tag = &nlbTags
+	}
 
 	response, err := NLBHandler.Client.CreateLoadBalancer(loadBalancerRequest)
 	if err != nil {

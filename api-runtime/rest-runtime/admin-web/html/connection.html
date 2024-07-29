@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Connection Management</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+    }
+    .header-container {
+        display: flex;
+        align-items: flex-end; /* Align items to the bottom */
+    }
+    .header-container img {
+        margin-right: 10px;
+        height: 28px; /* Adjust the height as needed */
+    }
+    h1 {
+        font-size: 16px;
+        margin: 0;
+    }
+    h2 {
+        font-size: 16px;
+        margin: 10px 0;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-bottom: 20px; /* Add space between tables */
+    }
+    th, td {
+        border: 1px solid black;
+        padding: 6px;
+        text-align: center;
+        position: relative;
+    }
+    th {
+        background-color: #f2f2f2;
+        font-size: 14px;
+    }
+    .provider-title {
+        display: flex;
+        align-items: center;
+        font-size: 16px;
+    }
+    .overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        justify-content: center;
+        align-items: center;
+    }
+    .overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+    }
+    .fixed-header {
+        position: fixed;
+        top: 0;
+        width: 97%;
+        background-color: white;
+        z-index: 1000;
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 20px;
+        align-items: center;
+        box-shadow: 0 4px 6px -6px #222;
+    }
+    .fixed-action-buttons {
+        display: flex;
+        align-items: center;
+        margin-left: 5cm; /* Move buttons to the left by 5cm */
+    }
+    .fixed-action-buttons button {
+        margin-left: 10px;
+    }
+    .add-button {
+        font-size: 14px;
+        font-weight: bold;
+        margin-left: 15px;        
+    }
+    .content {
+        margin-top: 70px; /* Adjusted height for the fixed header */
+    }
+    .checkbox-cell {
+        width: 5%; /* Adjusted width for checkboxes */
+    }
+    .highlight-pastel-blue {
+        color: #4A90E2; /* Darker pastel blue color */
+        font-weight: bold;
+    }
+    .select-button {
+        margin-left: 10px;
+        font-size: 10px;
+        padding: 3px 5px;
+    }
+    .disabled-input {
+        background-color: #f0f0f0;
+        color: #a0a0a0;
+        border: 1px solid #d0d0d0;
+    }
+    .select-list-item {
+        color: #0645AD;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+    .select-list-item:hover {
+        color: #0B0080;
+    }
+    .form-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .form-group label {
+        flex: 1;
+        text-align: right;
+        margin-right: 10px;
+    }
+    .form-group input {
+        flex: 2;
+    }
+    .form-group button {
+        margin-left: 10px;
+    }
+    .mgmt-link img {
+        width: 18px; /* Slightly larger than text */
+        height: 18px; /* Slightly larger than text */
+        position: absolute;
+        right: 5px;
+        top: 50%;
+        transform: translateY(-50%);
+    }
+</style>
+<script>
+    let currentProviderDrivers = [];
+    let currentProviderCredentials = [];
+    let currentProviderRegions = [];
+
+    function deleteConnection(configName) {
+        fetch(`/spider/connectionconfig/${configName}`, { method: 'DELETE' })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Response Data:', data);
+                if (data.Result === "true") {
+                    location.reload();
+                } else {
+                    alert("Failed to delete connection");
+                }
+            })
+            .catch(error => {
+                alert("Error deleting connection");
+                console.error('Error:', error);
+            });
+    }
+
+    function deleteSelectedConnections() {
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
+        if (checkboxes.length === 0) {
+            alert("Please select connections to delete.");
+            return;
+        }
+
+        if (!confirm("Are you sure you want to delete the selected connections?")) {
+            return;
+        }
+
+        const deletePromises = Array.from(checkboxes).map(checkbox => {
+            const configName = checkbox.value;
+            return fetch(`/spider/connectionconfig/${configName}`, { method: 'DELETE' });
+        });
+
+        Promise.all(deletePromises)
+            .then(responses => {
+                for (let response of responses) {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                }
+                return Promise.all(responses.map(response => response.json()));
+            })
+            .then(dataList => {
+                for (let data of dataList) {
+                    if (data.Result !== "true") {
+                        alert("Failed to delete some connections");
+                        return;
+                    }
+                }
+                location.reload();
+            })
+            .catch(error => {
+                alert("Error deleting connections");
+                console.error('Error:', error);
+            });
+    }
+
+    function toggleSelectAll(source) {
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]');
+        for (const checkbox of checkboxes) {
+            checkbox.checked = source.checked;
+        }
+    }
+
+    function toggleSelectTable(source, tableId) {
+        const table = document.getElementById(tableId);
+        const checkboxes = table.querySelectorAll('input[name="deleteCheckbox"]');
+        for (const checkbox of checkboxes) {
+            checkbox.checked = source.checked;
+        }
+    }
+
+    function validateForm() {
+        const configName = document.getElementById('configName').value;
+        const providerName = document.getElementById('providerName').value;
+        const driverName = document.getElementById('driverName').value;
+        const credentialName = document.getElementById('credentialName').value;
+        const regionName = document.getElementById('regionName').value;
+
+        if (!configName || !providerName || !driverName || !credentialName || !regionName) {
+            alert("Please fill in all the fields.");
+            return false;
+        }
+        return true;
+    }
+
+    function postConnectionConfig() {
+        if (!validateForm()) {
+            return;
+        }
+
+        var configName = document.getElementById('configName').value;
+        var providerName = document.getElementById('providerName').value;
+        var driverName = document.getElementById('driverName').value;
+        var credentialName = document.getElementById('credentialName').value;
+        var regionName = document.getElementById('regionName').value;
+
+        var data = {
+            ConfigName: configName,
+            ProviderName: providerName,
+            DriverName: driverName,
+            CredentialName: credentialName,
+            RegionName: regionName
+        };
+
+        fetch('/spider/connectionconfig', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Response Data:', data);
+            if (validateForm()) {
+                location.reload();
+            }
+        })
+        .catch(error => {
+            alert("Error creating connection configuration");
+            console.error('Error:', error);
+        });
+    }
+
+    function showOverlay(providerName) {
+        // Fetch driver information for the provider
+        fetch(`/spider/driver?provider=${providerName}`)
+            .then(response => response.json())
+            .then(data => {
+                currentProviderDrivers = data.driver.map(driver => driver.DriverName);
+                document.getElementById('driverSelectButton').onclick = () => showDriverSelection(currentProviderDrivers);
+                document.getElementById('providerName').value = providerName;
+                document.getElementById('overlay').style.display = 'flex';
+                document.addEventListener('keydown', handleEsc);
+            })
+            .catch(error => {
+                console.error('Error fetching driver information:', error);
+                alert('Error fetching driver information');
+            });
+
+        // Fetch credential information for the provider
+        fetch(`/spider/credential?provider=${providerName}`)
+            .then(response => response.json())
+            .then(data => {
+                currentProviderCredentials = data.credential.map(cred => cred.CredentialName);
+                document.getElementById('credentialSelectButton').onclick = () => showCredentialSelection(currentProviderCredentials);
+            })
+            .catch(error => {
+                console.error('Error fetching credential information:', error);
+                alert('Error fetching credential information');
+            });
+
+        // Fetch region information for the provider
+        fetch(`/spider/region?provider=${providerName}`)
+            .then(response => response.json())
+            .then(data => {
+                currentProviderRegions = data.region.map(region => {
+                    const regionInfo = region.KeyValueInfoList.reduce((info, item) => {
+                        if (item.Key === 'Region') info.region = item.Value;
+                        if (item.Key === 'Zone') info.zone = item.Value;
+                        return info;
+                    }, { region: '', zone: '' });
+                    return {
+                        display: `${region.RegionName} : ${regionInfo.region} / ${regionInfo.zone}`,
+                        value: region.RegionName
+                    };
+                });
+                document.getElementById('regionSelectButton').onclick = () => showRegionSelection(currentProviderRegions);
+            })
+            .catch(error => {
+                console.error('Error fetching region information:', error);
+                alert('Error fetching region information');
+            });
+    }
+
+    function hideOverlay() {
+        document.getElementById('overlay').style.display = 'none';
+        document.removeEventListener('keydown', handleEsc);
+        clearFormFields();
+    }
+
+    function handleEsc(event) {
+        if (event.key === "Escape") {
+            hideOverlay();
+        }
+    }
+
+    function clearFormFields() {
+        document.getElementById('configName').value = '';
+        document.getElementById('driverName').value = '';
+        document.getElementById('credentialName').value = '';
+        document.getElementById('regionName').value = '';
+    }
+
+    function showDriverSelection(drivers) {
+        const driverOverlay = document.getElementById('driverOverlay');
+        const driverList = document.getElementById('driverList');
+        driverList.innerHTML = ''; // Clear existing list
+        drivers.forEach(driver => {
+            const listItem = document.createElement('li');
+            listItem.textContent = driver;
+            listItem.className = 'select-list-item';
+            listItem.onclick = () => selectDriver(driver);
+            driverList.appendChild(listItem);
+        });
+        driverOverlay.style.display = 'flex';
+    }
+
+    function hideDriverOverlay() {
+        document.getElementById('driverOverlay').style.display = 'none';
+    }
+
+    function selectDriver(driverName) {
+        document.getElementById('driverName').value = driverName;
+        hideDriverOverlay();
+        updateConfigName();
+    }
+
+    function showCredentialSelection(credentials) {
+        const credentialOverlay = document.getElementById('credentialOverlay');
+        const credentialList = document.getElementById('credentialList');
+        credentialList.innerHTML = ''; // Clear existing list
+        credentials.forEach(credential => {
+            const listItem = document.createElement('li');
+            listItem.textContent = credential;
+            listItem.className = 'select-list-item';
+            listItem.onclick = () => selectCredential(credential);
+            credentialList.appendChild(listItem);
+        });
+        credentialOverlay.style.display = 'flex';
+    }
+
+    function hideCredentialOverlay() {
+        document.getElementById('credentialOverlay').style.display = 'none';
+    }
+
+    function selectCredential(credentialName) {
+        document.getElementById('credentialName').value = credentialName;
+        hideCredentialOverlay();
+        updateConfigName();
+    }
+
+    function showRegionSelection(regions) {
+        const regionOverlay = document.getElementById('regionOverlay');
+        const regionList = document.getElementById('regionList');
+        regionList.innerHTML = ''; // Clear existing list
+        regions.forEach(region => {
+            const listItem = document.createElement('li');
+            listItem.textContent = region.display;
+            listItem.className = 'select-list-item';
+            listItem.onclick = () => selectRegion(region.value);
+            regionList.appendChild(listItem);
+        });
+        regionOverlay.style.display = 'flex';
+    }
+
+    function hideRegionOverlay() {
+        document.getElementById('regionOverlay').style.display = 'none';
+    }
+
+    function selectRegion(regionName) {
+        document.getElementById('regionName').value = regionName;
+        hideRegionOverlay();
+        updateConfigName();
+    }
+
+    function updateConfigName() {
+        const providerName = document.getElementById('providerName').value.toLowerCase();
+        let regionName = document.getElementById('regionName').value;
+        let credentialName = document.getElementById('credentialName').value;
+
+        regionName = regionName.replace(new RegExp(providerName, 'gi'), '').trim();
+        credentialName = credentialName.replace(new RegExp(providerName, 'gi'), '').trim();
+
+        let configName = `${providerName}-${regionName}-${credentialName}`;
+        configName = configName.replace(/[-_]{2,}/g, '-'); // Replace multiple dashes or underscores with a single dash
+
+        document.getElementById('configName').value = configName;
+    }
+
+    function setTopMenu(configName, provider, region) {
+        window.parent.postMessage({
+            type: 'updateTopMenu',
+            configName: configName,
+            provider: provider,
+            region: region
+        }, '*');
+    }
+</script>
+</head>
+<body>
+    <div class="fixed-header">
+        <div class="header-container">
+            <img src="/spider/adminweb/images/connection_small.png" alt="Connection Icon">
+            <h1>Connection Info Management</h1>
+        </div>
+        <div class="fixed-action-buttons">
+            <input type="checkbox" onclick="toggleSelectAll(this)">
+            <button onclick="deleteSelectedConnections()">Delete</button>
+        </div>
+    </div>
+    
+    <div class="content">
+        {{range $provider := .Providers}}
+        <div class="provider-title">
+            <h2>{{$provider}}</h2>
+            <button class="add-button" onclick="showOverlay('{{$provider}}')">+</button>
+        </div>
+        <table id="table-{{$provider}}">
+            <tr>
+                <th>Connection Name</th>
+                <th>
+                    Driver Name : Driver Library
+                    <a href="/spider/adminweb2/driver" class="mgmt-link">
+                        <img src="/spider/adminweb/images/mgmt.png" alt="Manage Driver">
+                    </a>
+                </th>
+                <th>
+                    Credential Name
+                    <a href="/spider/adminweb2/credential" class="mgmt-link">
+                        <img src="/spider/adminweb/images/mgmt.png" alt="Manage Credential">
+                    </a>
+                </th>
+                <th>
+                    Region Name : Region / Zone
+                    <a href="/spider/adminweb2/region" class="mgmt-link">
+                        <img src="/spider/adminweb/images/mgmt.png" alt="Manage Region">
+                    </a>
+                </th>
+                <th class="checkbox-cell"><input type="checkbox" onclick="toggleSelectTable(this, 'table-{{$provider}}')"></th>
+            </tr>
+            {{if index $.ConnectionConfigs $provider}}
+                {{range $config := index $.ConnectionConfigs $provider}}
+                <tr>
+                    <td>
+                        <a href="javascript:void(0)" onclick="setTopMenu('{{$config.ConfigName}}', '{{$provider}}', '{{index $.Regions $config.RegionName}}')">
+                            {{$config.ConfigName}}
+                        </a>
+                    </td>
+                    <td>{{$config.DriverName}} : {{index $.Drivers $config.DriverName}}</td>
+                    <td>{{$config.CredentialName}}</td>
+                    <td>{{$config.RegionName}} : <span class="highlight-pastel-blue">{{index $.Regions $config.RegionName}}</span></td>
+                    <td class="checkbox-cell">
+                        <input type="checkbox" name="deleteCheckbox" value="{{$config.ConfigName}}">
+                    </td>
+                </tr>
+                {{end}}
+            {{else}}
+            <tr>
+                <td colspan="5">No connections found for {{$provider}}</td>
+            </tr>
+            {{end}}
+        </table>
+        {{end}}
+    </div>
+
+    <div id="overlay" class="overlay">
+        <div class="overlay-content">
+            <h2>Add New Connection</h2>
+            <form id="addConnectionForm" onsubmit="event.preventDefault(); postConnectionConfig();">
+                <div class="form-group">
+                    <label for="configName">Config Name:</label>
+                    <input type="text" id="configName" name="ConfigName" required>
+                </div>
+                <div class="form-group">
+                    <label for="providerName">Provider Name:</label>
+                    <input type="text" id="providerName" name="ProviderName" class="disabled-input" required readonly>
+                </div>
+                <div class="form-group">
+                    <label for="driverName">Driver Name:</label>
+                    <input type="text" id="driverName" name="DriverName" class="disabled-input" required readonly>
+                    <button type="button" id="driverSelectButton" class="select-button">Select</button>
+                </div>
+                <div class="form-group">
+                    <label for="credentialName">Credential Name:</label>
+                    <input type="text" id="credentialName" name="CredentialName" class="disabled-input" required readonly>
+                    <button type="button" id="credentialSelectButton" class="select-button">Select</button>
+                </div>
+                <div class="form-group">
+                    <label for="regionName">Region Name:</label>
+                    <input type="text" id="regionName" name="RegionName" class="disabled-input" required readonly>
+                    <button type="button" id="regionSelectButton" class="select-button">Select</button>
+                </div>
+                <div class="form-group">
+                    <button type="submit">Add Connection</button>
+                    <button type="button" onclick="hideOverlay()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Driver Selection Overlay -->
+    <div id="driverOverlay" class="overlay">
+        <div class="overlay-content">
+            <h2>Select Driver</h2>
+            <ul id="driverList">
+                <!-- Driver list items will be appended here -->
+            </ul>
+            <button type="button" onclick="hideDriverOverlay()">Close</button>
+        </div>
+    </div>
+
+    <!-- Credential Selection Overlay -->
+    <div id="credentialOverlay" class="overlay">
+        <div class="overlay-content">
+            <h2>Select Credential</h2>
+            <ul id="credentialList">
+                <!-- Credential list items will be appended here -->
+            </ul>
+            <button type="button" onclick="hideCredentialOverlay()">Close</button>
+        </div>
+    </div>
+
+    <!-- Region Selection Overlay -->
+    <div id="regionOverlay" class="overlay">
+        <div class="overlay-content">
+            <h2>Select Region</h2>
+            <ul id="regionList">
+                <!-- Region list items will be appended here -->
+            </ul>
+            <button type="button" onclick="hideRegionOverlay()">Close</button>
+        </div>
+    </div>
+
+</body>
+</html>

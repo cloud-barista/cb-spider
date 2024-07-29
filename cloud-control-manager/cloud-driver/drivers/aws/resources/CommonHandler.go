@@ -2,6 +2,7 @@ package resources
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -57,7 +58,7 @@ func DescribeInstanceById(svc *ec2.EC2, vmIID irs.IID) (*ec2.Instance, error) {
 	var iid irs.IID
 
 	if vmIID == iid {
-		return nil, errors.New("instanceID is empty.")
+		return nil, errors.New("instanceID is empty")
 	}
 
 	vmIIDs = append(vmIIDs, vmIID)
@@ -69,7 +70,7 @@ func DescribeInstanceById(svc *ec2.EC2, vmIID irs.IID) (*ec2.Instance, error) {
 
 	if len(result.Reservations) < 1 || len(result.Reservations[0].Instances) < 1 {
 
-		return nil, errors.New(vmIID.SystemId + " instance not found.")
+		return nil, errors.New(vmIID.SystemId + " instance not found")
 
 	}
 	instance := result.Reservations[0].Instances[0]
@@ -492,7 +493,7 @@ func DescribeImageById(svc *ec2.EC2, imageIID *irs.IID, owners []*string) (*ec2.
 	var iid irs.IID
 
 	if *imageIID == iid {
-		return nil, errors.New("imageID is empty.")
+		return nil, errors.New("imageID is empty")
 	}
 
 	imageIIDs = append(imageIIDs, imageIID)
@@ -526,11 +527,11 @@ func GetImageSizeFromEc2Image(ec2Image *ec2.Image) (int64, error) {
 			return *isize, nil
 		} else {
 			cblogger.Error("Ebs information not found in BlockDeviceMappings.")
-			return -1, errors.New("Ebs information not found in BlockDeviceMappings.")
+			return -1, errors.New("Ebs information not found in BlockDeviceMappings")
 		}
 	} else {
 		cblogger.Error("BlockDeviceMappings information not found.")
-		return -1, errors.New("BlockDeviceMappings information not found.")
+		return -1, errors.New("BlockDeviceMappings information not found")
 	}
 }
 
@@ -569,7 +570,7 @@ func GetSnapshotIdFromEc2Image(ec2Image *ec2.Image) ([]string, error) {
 		}
 	} else {
 		cblogger.Error("BlockDeviceMappings information not found.")
-		return snapshotIds, errors.New("BlockDeviceMappings information not found.")
+		return snapshotIds, errors.New("BlockDeviceMappings information not found")
 	}
 
 	return snapshotIds, nil
@@ -584,11 +585,11 @@ func GetDisksFromEc2Image(ec2Image *ec2.Image) ([]irs.IID, error) {
 			return diskIIDs, nil
 		} else {
 			cblogger.Error("Ebs information not found in BlockDeviceMappings.")
-			return diskIIDs, errors.New("Ebs information not found in BlockDeviceMappings.")
+			return diskIIDs, errors.New("Ebs information not found in BlockDeviceMappings")
 		}
 	} else {
 		cblogger.Error("BlockDeviceMappings information not found.")
-		return diskIIDs, errors.New("BlockDeviceMappings information not found.")
+		return diskIIDs, errors.New("BlockDeviceMappings information not found")
 	}
 }
 
@@ -765,3 +766,26 @@ func DescribeAvailabilityZones(client *ec2.EC2, AllRegionsBool bool) (*ec2.Descr
 }
 
 // ---------------- RegionZone area end ----------//
+
+// ---------------- Tag area start ----------//
+// This is a deprecated function, created as a reference for how to call it in various handlers.
+//
+// (exam) How to call from VMHandler
+//
+//	vmInfo.TagList, _ = GetResourceTag(vmHandler, vmInfo.IId)
+func GetResourceTag(handler interface{}, resIID irs.IID) ([]irs.KeyValue, error) {
+	var resType irs.RSType
+
+	switch h := handler.(type) {
+	case *AwsVMHandler:
+		resType = irs.VM
+		return h.TagHandler.ListTag(resType, resIID)
+	case *AwsVPCHandler:
+		resType = irs.VPC
+		return h.TagHandler.ListTag(resType, resIID)
+	default:
+		return nil, fmt.Errorf("unsupported handler type")
+	}
+}
+
+// ---------------- Tag area end ----------//

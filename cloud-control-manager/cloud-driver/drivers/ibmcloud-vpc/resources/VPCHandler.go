@@ -615,6 +615,50 @@ func getVPCRawSubnets(vpc vpcv1.VPC, vpcService *vpcv1.VpcV1, ctx context.Contex
 	return newSubnetInfos, nil
 }
 
+func getRawSubnet(subnetIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context) (vpcv1.Subnet, error) {
+	options := &vpcv1.ListSubnetsOptions{}
+	subnets, _, err := vpcService.ListSubnetsWithContext(ctx, options)
+	if err != nil {
+		return vpcv1.Subnet{}, err
+	}
+	var subnetFoundByName bool
+	var foundedSubnetByName vpcv1.Subnet
+	for {
+		if *subnets.TotalCount > 0 {
+			for _, subnet := range subnets.Subnets {
+				if subnetIID.SystemId != "" && *subnet.ID == subnetIID.SystemId {
+					return subnet, nil
+				}
+				if subnetIID.NameId == *subnet.Name {
+					if subnetFoundByName {
+						return vpcv1.Subnet{}, errors.New("found multiple subnets")
+					}
+					subnetFoundByName = true
+					foundedSubnetByName = subnet
+				}
+			}
+		}
+		nextstr, _ := getSubnetNextHref(subnets.Next)
+		if nextstr != "" {
+			options := &vpcv1.ListSubnetsOptions{
+				Start: core.StringPtr(nextstr),
+			}
+			subnets, _, err = vpcService.ListSubnetsWithContext(ctx, options)
+			if err != nil {
+				break
+			}
+		} else {
+			break
+		}
+	}
+
+	if subnetFoundByName {
+		return foundedSubnetByName, nil
+	}
+
+	return vpcv1.Subnet{}, err
+}
+
 func getVPCRawSubnet(vpc vpcv1.VPC, subnetIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context) (vpcv1.Subnet, error) {
 	options := &vpcv1.ListSubnetsOptions{}
 	subnets, _, err := vpcService.ListSubnetsWithContext(ctx, options)

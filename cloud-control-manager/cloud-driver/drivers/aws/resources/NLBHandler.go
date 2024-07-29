@@ -23,8 +23,9 @@ import (
 type AwsNLBHandler struct {
 	Region idrv.RegionInfo
 	//Client *elb.ELB
-	Client   *elbv2.ELBV2 //elbV2
-	VMClient *ec2.EC2
+	Client     *elbv2.ELBV2 //elbV2
+	VMClient   *ec2.EC2
+	TagHandler *AwsTagHandler // 2024-07-18 TagHandler add
 }
 
 type TargetGroupInfo struct {
@@ -44,7 +45,51 @@ type TargetGroupInfo struct {
 	*/
 }
 
+// Function to convert tag list to ec2 tags array
+// nameValue : Automatically adds the "Name" Tag when there is no "Name" Tag in the tagList, and specifies the value you want to use for the "Name" Tag.
+func ConvertTagListToTags(tagList []irs.KeyValue, nameValue ...string) ([]*elbv2.Tag, error) {
+	// Convert KeyValue list to ec2.Tag list
+	var elbTags []*elbv2.Tag
+	for _, kv := range tagList {
+		elbTags = append(elbTags, &elbv2.Tag{
+			Key:   aws.String(kv.Key),
+			Value: aws.String(kv.Value),
+		})
+	}
+
+	// Add a "Name" tag if nameValue is provided using a variable argument
+	if len(nameValue) > 0 && nameValue[0] != "" {
+		nameTagExists := false
+		for _, tag := range elbTags {
+			if *tag.Key == "Name" {
+				nameTagExists = true
+				break
+			}
+		}
+		if !nameTagExists {
+			elbTags = append(elbTags, &elbv2.Tag{
+				Key:   aws.String("Name"),
+				Value: aws.String(nameValue[0]),
+			})
+		}
+	}
+
+	// If no tags are provided, return an empty slice
+	if len(elbTags) == 0 {
+		return []*elbv2.Tag{}, nil
+	}
+
+	return elbTags, nil
+}
+
 func (NLBHandler *AwsNLBHandler) CreateListener(nlbReqInfo irs.NLBInfo) (*elbv2.CreateListenerOutput, error) {
+
+	// Convert TagList to ec2 Tags array
+	tags, err := ConvertTagListToTags(nlbReqInfo.TagList, nlbReqInfo.IId.NameId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert tag list: %w", err)
+	}
+
 	input := &elbv2.CreateListenerInput{
 		DefaultActions: []*elbv2.Action{
 			{
@@ -55,6 +100,7 @@ func (NLBHandler *AwsNLBHandler) CreateListener(nlbReqInfo irs.NLBInfo) (*elbv2.
 		LoadBalancerArn: aws.String(nlbReqInfo.IId.SystemId), //생성된 NLB의 ARN 값
 		//Port:            aws.Int64(80), //숫자 값 검증 후 적용
 		Protocol: aws.String(nlbReqInfo.Listener.Protocol), // AWS NLB : TCP, TLS, UDP, or TCP_UDP
+		Tags:     tags,
 	}
 
 	//리스너 포트 포메팅 검증 및 셋팅
@@ -129,6 +175,12 @@ func (NLBHandler *AwsNLBHandler) CreateListener(nlbReqInfo irs.NLBInfo) (*elbv2.
 }
 
 func (NLBHandler *AwsNLBHandler) CreateTargetGroup(nlbReqInfo irs.NLBInfo) (*elbv2.CreateTargetGroupOutput, error) {
+	// Convert TagList to ec2 Tags array
+	tags, err := ConvertTagListToTags(nlbReqInfo.TagList, nlbReqInfo.IId.NameId)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert tag list: %w", err)
+	}
+
 	input := &elbv2.CreateTargetGroupInput{
 		Name:       aws.String(nlbReqInfo.IId.NameId),
 		TargetType: aws.String("instance"), // instance , ip, lambda
@@ -142,6 +194,7 @@ func (NLBHandler *AwsNLBHandler) CreateTargetGroup(nlbReqInfo irs.NLBInfo) (*elb
 		HealthCheckPort:     aws.String(nlbReqInfo.HealthChecker.Port),
 		//HealthCheckIntervalSeconds: aws.Int64(int64(nlbReqInfo.HealthChecker.Interval)), // 5초이상	// 0 이상의 값이 있을 때만 설정하도록 변경
 		//HealthCheckTimeoutSeconds: aws.Int64(int64(nlbReqInfo.HealthChecker.Timeout)), // 0 이상의 값이 있을 때만 설정하도록 변경
+		Tags: tags,
 	}
 
 	//AWS TargetGroup 포트 포메팅 검증 및 셋팅
@@ -314,7 +367,7 @@ func (NLBHandler *AwsNLBHandler) ExtractVmSubnets(VMs *[]irs.IID) ([]*string, er
 	//최종 사용할 서브넷 목록만 추출함.
 	subnetList := []*string{}
 	for key, val := range mapZone {
-		cblogger.Debug("AZ[%s] Subnet[%s]", key, val)
+		cblogger.Debugf("AZ[%s] Subnet[%s]", key, val)
 		subnetList = append(subnetList, aws.String(val))
 	}
 
@@ -427,6 +480,12 @@ func (NLBHandler *AwsNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 		return irs.NLBInfo{}, errVmInfo
 	}
 
+	// Convert TagList to ec2 Tags array
+	tags, err := ConvertTagListToTags(nlbReqInfo.TagList, nlbReqInfo.IId.NameId)
+	if err != nil {
+		return irs.NLBInfo{}, fmt.Errorf("failed to convert tag list: %w", err)
+	}
+
 	input := &elbv2.CreateLoadBalancerInput{
 		Name: aws.String(nlbReqInfo.IId.NameId),
 		Type: aws.String("network"), //NLB 생성
@@ -443,6 +502,7 @@ func (NLBHandler *AwsNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 				//aws.String("subnet-0cf7417f83fd0fd47"), //New-CB-Subnet-NLB-1d1
 			},
 		*/
+		Tags: tags,
 	}
 
 	if nlbReqInfo.Listener.IP == "" {
@@ -753,6 +813,9 @@ func (NLBHandler *AwsNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {
 		if errInfo != nil {
 			return irs.NLBInfo{}, errInfo
 		}
+
+		nlbInfo.TagList, _ = NLBHandler.TagHandler.ListTag(irs.NLB, nlbInfo.IId)
+
 		return nlbInfo, nil
 	} else {
 		return irs.NLBInfo{}, errors.New("InvalidNLBArn.NotFound: The NLB Arn '" + nlbIID.SystemId + "' does not exist")
@@ -874,7 +937,7 @@ func (NLBHandler *AwsNLBHandler) ExtractVMGroupInfo(nlbIID irs.IID) (TargetGroup
 		// 헬스 상태별 VM 목록 처리
 		//=========================
 		targetHealthInfo, errHealthInfo := NLBHandler.ExtractVMGroupHealthInfo(*result.TargetGroups[0].TargetGroupArn)
-		if err != nil {
+		if errHealthInfo != nil {
 			return TargetGroupInfo{}, errHealthInfo
 		}
 		targetGroupInfo.VMGroup.VMs = targetHealthInfo.AllVMs
@@ -1001,7 +1064,7 @@ func (NLBHandler *AwsNLBHandler) DeleteListener(listenerArn *string) (bool, erro
 
 	result, err := NLBHandler.Client.DeleteListener(input)
 	if err != nil {
-		cblogger.Errorf("Listener[%s] deleted failed", listenerArn)
+		cblogger.Errorf("Listener[%s] deleted failed", *listenerArn)
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case elbv2.ErrCodeListenerNotFoundException:
@@ -1019,7 +1082,7 @@ func (NLBHandler *AwsNLBHandler) DeleteListener(listenerArn *string) (bool, erro
 		return false, err
 	}
 
-	cblogger.Infof("Listener[%s] deleted complate", listenerArn)
+	cblogger.Infof("Listener[%s] deleted complate", *listenerArn)
 	cblogger.Debug(result)
 
 	return true, nil
@@ -1032,7 +1095,7 @@ func (NLBHandler *AwsNLBHandler) DeleteTargetGroup(targetGroupArn *string) (bool
 
 	result, err := NLBHandler.Client.DeleteTargetGroup(input)
 	if err != nil {
-		cblogger.Errorf("TargetGroup[%s] deleted failed", targetGroupArn)
+		cblogger.Errorf("TargetGroup[%s] deleted failed", *targetGroupArn)
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case elbv2.ErrCodeResourceInUseException:
@@ -1048,7 +1111,7 @@ func (NLBHandler *AwsNLBHandler) DeleteTargetGroup(targetGroupArn *string) (bool
 		return false, err
 	}
 
-	cblogger.Infof("TargetGroup[%s] deleted complate", targetGroupArn)
+	cblogger.Infof("TargetGroup[%s] deleted complate", *targetGroupArn)
 	cblogger.Debug(result)
 
 	return true, nil

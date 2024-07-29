@@ -45,8 +45,8 @@ func (myImageHandler *MockMyImageHandler) SnapshotVM(myImageReqInfo irs.MyImageI
 	myImageReqInfo.CreatedTime = time.Now()
 
 	// (2) insert MyImageInfo into global Map
-myImageMapLock.Lock()
-defer myImageMapLock.Unlock()
+	myImageMapLock.Lock()
+	defer myImageMapLock.Unlock()
 	infoList, _ := myImageInfoMap[mockName]
 	infoList = append(infoList, &myImageReqInfo)
 	myImageInfoMap[mockName] = infoList
@@ -55,39 +55,37 @@ defer myImageMapLock.Unlock()
 }
 
 func CloneMyImageInfoList(srcInfoList []*irs.MyImageInfo) []*irs.MyImageInfo {
-        clonedInfoList := []*irs.MyImageInfo{}
-        for _, srcInfo := range srcInfoList {
-                clonedInfo := CloneMyImageInfo(*srcInfo)
-                clonedInfoList = append(clonedInfoList, &clonedInfo)
-        }
-        return clonedInfoList
+	clonedInfoList := []*irs.MyImageInfo{}
+	for _, srcInfo := range srcInfoList {
+		clonedInfo := CloneMyImageInfo(*srcInfo)
+		clonedInfoList = append(clonedInfoList, &clonedInfo)
+	}
+	return clonedInfoList
 }
 
 func CloneMyImageInfo(srcInfo irs.MyImageInfo) irs.MyImageInfo {
-        /*
+	/*
 		type MyImageInfo struct {
-		        IId     IID     // {NameId, SystemId}
-
-		        SourceVM IID
-
-		        Status          MyImageStatus  // Available | Deleting
-
-		        CreatedTime     time.Time
-		        KeyValueList    []KeyValue
+			IId         IID     // {NameId, SystemId}
+			SourceVM    IID
+			Status      MyImageStatus  // Available | Unavailable
+			CreatedTime time.Time
+			TagList     []KeyValue
+			KeyValueList []KeyValue
 		}
-        */
+	*/
 
-        // clone MyImageInfo
-        clonedInfo := irs.MyImageInfo{
-                IId:       	irs.IID{srcInfo.IId.NameId, srcInfo.IId.SystemId},
-		SourceVM: 	irs.IID{srcInfo.SourceVM.NameId, srcInfo.SourceVM.SystemId},
-		Status: 	srcInfo.Status,
+	// clone MyImageInfo
+	clonedInfo := irs.MyImageInfo{
+		IId:          irs.IID{srcInfo.IId.NameId, srcInfo.IId.SystemId},
+		SourceVM:     irs.IID{srcInfo.SourceVM.NameId, srcInfo.SourceVM.SystemId},
+		Status:       srcInfo.Status,
+		CreatedTime:  srcInfo.CreatedTime,
+		TagList:      srcInfo.TagList,
+		KeyValueList: srcInfo.KeyValueList, // now, do not need cloning
+	}
 
-		CreatedTime: 	srcInfo.CreatedTime,
-                KeyValueList:  	srcInfo.KeyValueList, // now, do not need cloning
-        }
-
-        return clonedInfo
+	return clonedInfo
 }
 
 func (myImageHandler *MockMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error) {
@@ -95,8 +93,8 @@ func (myImageHandler *MockMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, err
 	cblogger.Info("Mock Driver: called ListMyImage()!")
 
 	mockName := myImageHandler.MockName
-myImageMapLock.RLock()
-defer myImageMapLock.RUnlock()
+	myImageMapLock.RLock()
+	defer myImageMapLock.RUnlock()
 	infoList, ok := myImageInfoMap[mockName]
 	if !ok {
 		return []*irs.MyImageInfo{}, nil
@@ -110,12 +108,12 @@ func (myImageHandler *MockMyImageHandler) GetMyImage(iid irs.IID) (irs.MyImageIn
 	cblogger.Info("Mock Driver: called GetMyImage()!")
 
 	mockName := myImageHandler.MockName
-myImageMapLock.RLock()
-defer myImageMapLock.RUnlock()
-        infoList, ok := myImageInfoMap[mockName]
-        if !ok {
+	myImageMapLock.RLock()
+	defer myImageMapLock.RUnlock()
+	infoList, ok := myImageInfoMap[mockName]
+	if !ok {
 		return irs.MyImageInfo{}, fmt.Errorf("%s MyImage does not exist!!", iid.NameId)
-        }
+	}
 
 	for _, info := range infoList {
 		if (*info).IId.NameId == iid.NameId {
@@ -130,15 +128,15 @@ func (myImageHandler *MockMyImageHandler) DeleteMyImage(iid irs.IID) (bool, erro
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mock Driver: called DeleteMyImage()!")
 
-        mockName := myImageHandler.MockName
+	mockName := myImageHandler.MockName
 
-myImageMapLock.Lock()
-defer myImageMapLock.Unlock()
+	myImageMapLock.Lock()
+	defer myImageMapLock.Unlock()
 
-        infoList, ok := myImageInfoMap[mockName]
-        if !ok {
-                return false, fmt.Errorf("%s MyImage does not exist!!", iid.NameId)
-        }
+	infoList, ok := myImageInfoMap[mockName]
+	if !ok {
+		return false, fmt.Errorf("%s MyImage does not exist!!", iid.NameId)
+	}
 
 	for idx, info := range infoList {
 		if info.IId.SystemId == iid.SystemId {
@@ -153,4 +151,3 @@ defer myImageMapLock.Unlock()
 func (myImageHandler *MockMyImageHandler) CheckWindowsImage(iid irs.IID) (bool, error) {
 	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
 }
-

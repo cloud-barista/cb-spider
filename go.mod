@@ -44,7 +44,7 @@ require (
 	github.com/swaggo/echo-swagger v1.1.0
 	github.com/swaggo/swag v1.7.0
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb v1.0.415
-	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.493
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.964
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm v1.0.493
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc v1.0.206
 	github.com/uber/jaeger-client-go v2.30.0+incompatible
@@ -74,6 +74,7 @@ require (
 	github.com/labstack/echo/v4 v4.9.0
 	github.com/tencentcloud/tencentcloud-sdk-go-intl-en v3.0.531+incompatible
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs v1.0.492
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tag v1.0.964
 	golang.org/x/mod v0.18.0
 	k8s.io/api v0.22.5
 	k8s.io/apimachinery v0.22.5

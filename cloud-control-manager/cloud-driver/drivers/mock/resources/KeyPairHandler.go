@@ -42,8 +42,15 @@ func (keyPairHandler *MockKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairRe
 	keyPairReqInfo.IId.SystemId = keyPairReqInfo.IId.NameId
 
 	// (1) create keyPairInfo object
-	keyPairInfo := irs.KeyPairInfo{keyPairReqInfo.IId,
-		"XXXXFingerprint", "XXXXPublicKey", "XXXXPrivateKey", "cb-user", nil, nil}
+	keyPairInfo := irs.KeyPairInfo{
+		IId:          keyPairReqInfo.IId,
+		Fingerprint:  "XXXXFingerprint",
+		PublicKey:    "XXXXPublicKey",
+		PrivateKey:   "XXXXPrivateKey",
+		VMUserID:     "cb-user",
+		TagList:      keyPairReqInfo.TagList,
+		KeyValueList: nil,
+	}
 
 	// (2) insert KeyPairInfo into global Map
 	keyMapLock.Lock()
@@ -73,6 +80,7 @@ func CloneKeyPairInfo(srcInfo irs.KeyPairInfo) irs.KeyPairInfo {
 			PrivateKey  string
 			VMUserID      string
 
+			TagList      []KeyValue
 			KeyValueList []KeyValue
 		}
 	*/
@@ -84,7 +92,8 @@ func CloneKeyPairInfo(srcInfo irs.KeyPairInfo) irs.KeyPairInfo {
 		PublicKey:    srcInfo.PublicKey,
 		PrivateKey:   srcInfo.PrivateKey,
 		VMUserID:     srcInfo.VMUserID,
-		KeyValueList: srcInfo.KeyValueList, // now, do not need cloning
+		TagList:      srcInfo.TagList, // clone TagList
+		KeyValueList: srcInfo.KeyValueList,
 	}
 
 	return clonedInfo
@@ -118,7 +127,7 @@ func (keyPairHandler *MockKeyPairHandler) GetKey(iid irs.IID) (irs.KeyPairInfo, 
 	}
 
 	for _, info := range infoList {
-		if (*info).IId.NameId == iid.NameId {
+		if info.IId.NameId == iid.NameId {
 			return CloneKeyPairInfo(*info), nil
 		}
 	}

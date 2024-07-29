@@ -169,5 +169,15 @@ func (cloudConn *GCPCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHand
 }
 
 func (cloudConn *GCPCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
-	return nil, errors.New("GCP Cloud Driver: not implemented")
+	cblogger.Info("GCP Cloud Driver: called CreateTagHandler()!")
+
+	tagHandler := gcprs.GCPTagHandler{
+		Region:          cloudConn.Region,
+		Ctx:             cloudConn.Ctx,
+		Credential:      cloudConn.Credential,
+		ComputeClient:   cloudConn.VMClient,
+		ContainerClient: cloudConn.ContainerClient,
+	}
+
+	return &tagHandler, nil
 }

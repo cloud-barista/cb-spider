@@ -227,7 +227,8 @@
         </div>
     </div>
     <div class="content">
-        {{range $provider, $counts := .ResourceCounts}}
+        {{range $provider := .Providers}}
+        {{if or $.ShowEmpty (index $.ResourceCounts $provider)}}
         <h2>{{$provider}}</h2>
         <table>
             <tr>
@@ -242,21 +243,28 @@
                 <th>NLBs</th>
                 <th>Clusters</th>
             </tr>
-            {{range $counts}}
+            {{if index $.ResourceCounts $provider}}
+                {{range $count := index $.ResourceCounts $provider}}
+                <tr>
+                    <td>{{$count.ConnectionName}}</td>
+                    <td class="{{if gt $count.VPCs 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/vpc/{{$count.ConnectionName}}'); return false;">{{$count.VPCs}}</a></td>
+                    <td class="{{if gt $count.Subnets 0}}highlight{{end}}">{{$count.Subnets}}</td>
+                    <td class="{{if gt $count.SecurityGroups 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/securitygroup/{{$count.ConnectionName}}'); return false;">{{$count.SecurityGroups}}</a></td>
+                    <td class="{{if gt $count.KeyPairs 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/keypair/{{$count.ConnectionName}}'); return false;">{{$count.KeyPairs}}</a></td>
+                    <td class="{{if gt $count.VMs 0}}highlight-vms{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/vm/{{$count.ConnectionName}}'); return false;">{{$count.VMs}}</a></td>
+                    <td class="{{if gt $count.Disks 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/disk/{{$count.ConnectionName}}'); return false;">{{$count.Disks}}</a></td>
+                    <td class="{{if gt $count.MyImages 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/myimage/{{$count.ConnectionName}}'); return false;">{{$count.MyImages}}</a></td>
+                    <td class="{{if gt $count.NetworkLoadBalancers 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/nlb/{{$count.ConnectionName}}'); return false;">{{$count.NetworkLoadBalancers}}</a></td>
+                    <td class="{{if gt $count.Clusters 0}}highlight-clusters{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/cluster/{{$count.ConnectionName}}'); return false;">{{$count.Clusters}}</a></td>
+                </tr>
+                {{end}}
+            {{else}}
             <tr>
-                <td>{{.ConnectionName}}</td>
-                <td class="{{if gt .VPCs 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/vpc/{{.ConnectionName}}'); return false;">{{.VPCs}}</a></td>
-                <td class="{{if gt .Subnets 0}}highlight{{end}}">{{.Subnets}}</td>
-                <td class="{{if gt .SecurityGroups 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/securitygroup/{{.ConnectionName}}'); return false;">{{.SecurityGroups}}</a></td>
-                <td class="{{if gt .KeyPairs 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/keypair/{{.ConnectionName}}'); return false;">{{.KeyPairs}}</a></td>
-                <td class="{{if gt .VMs 0}}highlight-vms{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/vm/{{.ConnectionName}}'); return false;">{{.VMs}}</a></td>
-                <td class="{{if gt .Disks 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/disk/{{.ConnectionName}}'); return false;">{{.Disks}}</a></td>
-                <td class="{{if gt .MyImages 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/myimage/{{.ConnectionName}}'); return false;">{{.MyImages}}</a></td>
-                <td class="{{if gt .NetworkLoadBalancers 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/nlb/{{.ConnectionName}}'); return false;">{{.NetworkLoadBalancers}}</a></td>
-                <td class="{{if gt .Clusters 0}}highlight-clusters{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/cluster/{{.ConnectionName}}'); return false;">{{.Clusters}}</a></td>
+                <td colspan="10">No connections found for {{$provider}}</td>
             </tr>
             {{end}}
         </table>
+        {{end}}
         {{end}}
     </div>
 </body>

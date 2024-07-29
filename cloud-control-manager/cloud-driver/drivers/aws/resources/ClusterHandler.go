@@ -24,6 +24,7 @@ type AwsClusterHandler struct {
 	EC2Client   *ec2.EC2
 	Iam         *iam.IAM
 	AutoScaling *autoscaling.AutoScaling
+	TagHandler  *AwsTagHandler // 2024-07-18 TagHandler add
 }
 
 const (
@@ -67,6 +68,11 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 
 	reqK8sVersion := clusterReqInfo.Version
 
+	tagsMap, err := ConvertTagListToTagsMap(clusterReqInfo.TagList, clusterReqInfo.IId.NameId)
+	if err != nil {
+		return irs.ClusterInfo{}, fmt.Errorf("failed to convert tags map: %w", err)
+	}
+
 	// create cluster
 	input := &eks.CreateClusterInput{
 		Name: aws.String(clusterReqInfo.IId.NameId),
@@ -77,6 +83,7 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 		//RoleArn: aws.String("arn:aws:iam::012345678910:role/eks-service-role-AWSServiceRoleForAmazonEKS-J7ONKE3BQ4PI"),
 		//RoleArn: aws.String(roleArn),
 		RoleArn: roleArn,
+		Tags:    tagsMap,
 	}
 
 	//EKS버전 처리(Spider 입력 값 형태 : "1.23.4" / AWS 버전 형태 : "1.23")
@@ -85,12 +92,9 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 		switch len(arrVer) {
 		case 2: // 그대로 적용
 			input.Version = aws.String(reqK8sVersion)
-			break
 		case 3: // 앞의 2자리만 취함. (정상적인 입력 형태)
 			input.Version = aws.String(arrVer[0] + "." + arrVer[1])
-			break
 		default: // 위 2가지 외에는 CSP의 기본값(최신버전)을 적용 함.
-			break
 		}
 	}
 
@@ -174,6 +178,8 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 		return irs.ClusterInfo{}, errClusterInfo
 	}
 	clusterInfo.IId.NameId = clusterReqInfo.IId.NameId
+	clusterInfo.TagList, _ = ClusterHandler.TagHandler.ListTag(irs.CLUSTER, clusterInfo.IId)
+
 	return clusterInfo, nil
 }
 
@@ -388,6 +394,8 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 		{Key: "RoleArn", Value: *result.Cluster.RoleArn},
 	}
 	clusterInfo.KeyValueList = keyValueList
+
+	clusterInfo.TagList, _ = ClusterHandler.TagHandler.ListTag(irs.CLUSTER, clusterInfo.IId)
 
 	//노드 그룹 처리
 	resNodeGroupList, errNodeGroup := ClusterHandler.ListNodeGroup(clusterInfo.IId)
@@ -971,6 +979,7 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 	nodeGroupInfo.MaxNodeSize = int(*scalingConfig.MaxSize)
 
 	if nodeGroupTagList == nil {
+		nodeGroupTagList = make(map[string]*string)     // nil 체크 후 초기화
 		nodeGroupTagList[NODEGROUP_TAG] = nodeGroupName // 값이없으면 nodeGroupName이랑 같은값으로 set.
 	}
 	nodeGroupTag := ""

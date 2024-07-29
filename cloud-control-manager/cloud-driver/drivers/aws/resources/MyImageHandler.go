@@ -22,8 +22,9 @@ import (
 // CB-Spider MyImage 관리 기능은 VM Snapshot 실행과 결과로 생성된 VM Image(MyImage)를 관리하는 기능을 제공한다
 // CB-Spider VM Snapshot은 운영 중인 VM의 상태와 VM에 Attach된 Data-Disk의 상태도 저장된다.
 type AwsMyImageHandler struct {
-	Region idrv.RegionInfo
-	Client *ec2.EC2
+	Region     idrv.RegionInfo
+	Client     *ec2.EC2
+	TagHandler *AwsTagHandler // 2024-07-18 TagHandler add
 }
 
 const (
@@ -259,26 +260,43 @@ func (ImageHandler *AwsMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInf
 		blockDeviceMappingList = append(blockDeviceMappingList, &blockDeviceMapping)
 	}
 
-	var tags []*ec2.Tag
-	nameTag := &ec2.Tag{
-		Key:   aws.String(IMAGE_TAG_DEFAULT),
-		Value: aws.String(snapshotReqInfo.IId.NameId),
+	/*
+		var tags []*ec2.Tag
+		nameTag := &ec2.Tag{
+			Key:   aws.String(IMAGE_TAG_DEFAULT),
+			Value: aws.String(snapshotReqInfo.IId.NameId),
+		}
+		tags = append(tags, nameTag)
+		sourceVMTag := &ec2.Tag{
+			Key:   aws.String(IMAGE_TAG_SOURCE_VM),
+			Value: aws.String(snapshotReqInfo.SourceVM.SystemId),
+		}
+		tags = append(tags, sourceVMTag)
+		tagSpec := &ec2.TagSpecification{
+			ResourceType: aws.String(RESOURCE_TYPE_MYIMAGE),
+			Tags:         tags,
+		}
+		var tagSpecs []*ec2.TagSpecification
+		tagSpecs = append(tagSpecs, tagSpec)
+	*/
+
+	// Convert TagList to TagSpecifications
+	tagSpecifications, err := ConvertTagListToTagSpecifications(RESOURCE_TYPE_MYIMAGE, snapshotReqInfo.TagList, snapshotReqInfo.IId.NameId)
+	if err != nil {
+		return irs.MyImageInfo{}, fmt.Errorf("failed to convert tag list: %w", err)
 	}
-	tags = append(tags, nameTag)
+
+	// Add new tags to results
 	sourceVMTag := &ec2.Tag{
 		Key:   aws.String(IMAGE_TAG_SOURCE_VM),
 		Value: aws.String(snapshotReqInfo.SourceVM.SystemId),
 	}
-	tags = append(tags, sourceVMTag)
-	tagSpec := &ec2.TagSpecification{
-		ResourceType: aws.String(RESOURCE_TYPE_MYIMAGE),
-		Tags:         tags,
+
+	if len(tagSpecifications) > 0 {
+		tagSpecifications[0].Tags = append(tagSpecifications[0].Tags, sourceVMTag)
 	}
-	var tagSpecs []*ec2.TagSpecification
-	tagSpecs = append(tagSpecs, tagSpec)
 
 	// Image parameter set
-
 	input := &ec2.CreateImageInput{
 		//BlockDeviceMappings: []*ec2.BlockDeviceMapping{
 		//	{
@@ -300,7 +318,8 @@ func (ImageHandler *AwsMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInf
 		InstanceId:          aws.String(snapshotReqInfo.SourceVM.SystemId),
 		Description:         aws.String(snapshotReqInfo.IId.NameId),
 		BlockDeviceMappings: blockDeviceMappingList,
-		TagSpecifications:   tagSpecs,
+		//TagSpecifications:   tagSpecs,
+		TagSpecifications: tagSpecifications,
 	}
 
 	cblogger.Debug(input)
@@ -387,6 +406,8 @@ func (ImageHandler *AwsMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyIma
 		cblogger.Error(err)
 		return irs.MyImageInfo{}, err
 	}
+
+	returnMyImage.TagList, _ = ImageHandler.TagHandler.ListTag(irs.MYIMAGE, returnMyImage.IId)
 
 	return returnMyImage, nil
 }

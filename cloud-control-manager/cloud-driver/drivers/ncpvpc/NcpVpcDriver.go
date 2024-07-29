@@ -46,15 +46,20 @@ func (NcpVpcDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
 	// NOTE Temporary Setting
-	drvCapabilityInfo.ImageHandler = true
 	drvCapabilityInfo.VPCHandler = true
-	drvCapabilityInfo.SecurityHandler = true
-	drvCapabilityInfo.KeyPairHandler = true
 	drvCapabilityInfo.VNicHandler = false
+	drvCapabilityInfo.ImageHandler = true
+	drvCapabilityInfo.VMSpecHandler = true
+	drvCapabilityInfo.SecurityHandler = true
+	drvCapabilityInfo.KeyPairHandler = true	
 	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.VMHandler = true
-	drvCapabilityInfo.VMSpecHandler = true
+	drvCapabilityInfo.DiskHandler = true
+	drvCapabilityInfo.MyImageHandler = true
 	drvCapabilityInfo.NLBHandler = true
+	drvCapabilityInfo.PriceInfoHandler = true
+	drvCapabilityInfo.RegionZoneHandler = true	
+	drvCapabilityInfo.TagHandler = false
 
 	return drvCapabilityInfo
 }

@@ -386,7 +386,7 @@ func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 			//cblogger.Debugf("Key[%s]의 값은 변환 불가 - [%s]", k, errString) //요구에 의해서 Error에서 Warn으로 낮춤
 			continue
 		}
-		keyValueList = append(keyValueList, irs.KeyValue{k, value})
+		keyValueList = append(keyValueList, irs.KeyValue{Key: k, Value: value})
 
 		/*
 			_, ok := v.(string)
@@ -503,4 +503,69 @@ func ReplaceEmptyWithNAforLoadBalancerNetwork(obj interface{}) {
 			// 빈 문자열 필드 무시
 		}
 	}
+}
+
+// Function to convert tag list to tag specifications
+// nameValue : Automatically adds the "Name" Tag when there is no "Name" Tag in the tagList, and specifies the value you want to use for the "Name" Tag.
+func ConvertTagListToTagSpecifications(resourceType string, tagList []irs.KeyValue, nameValue ...string) ([]*ec2.TagSpecification, error) {
+	// Convert KeyValue list to ec2.Tag list
+	var ec2Tags []*ec2.Tag
+	for _, kv := range tagList {
+		ec2Tags = append(ec2Tags, &ec2.Tag{
+			Key:   aws.String(kv.Key),
+			Value: aws.String(kv.Value),
+		})
+	}
+
+	// Add a "Name" tag if nameValue is provided using a variable argument
+	if len(nameValue) > 0 && nameValue[0] != "" {
+		nameTagExists := false
+		for _, tag := range ec2Tags {
+			if *tag.Key == "Name" {
+				nameTagExists = true
+				break
+			}
+		}
+		if !nameTagExists {
+			ec2Tags = append(ec2Tags, &ec2.Tag{
+				Key:   aws.String("Name"),
+				Value: aws.String(nameValue[0]),
+			})
+		}
+	}
+
+	// If no tags are provided, return an empty slice
+	if len(ec2Tags) == 0 {
+		return []*ec2.TagSpecification{}, nil
+	}
+
+	// Create TagSpecifications
+	tagSpecifications := []*ec2.TagSpecification{
+		{
+			ResourceType: aws.String(resourceType),
+			Tags:         ec2Tags,
+		},
+	}
+
+	return tagSpecifications, nil
+}
+
+// Function to ConvertTagListToTagsMap
+// nameValue : Automatically adds the "Name" Tag when there is no "Name" Tag in the tagList, and specifies the value you want to use for the "Name" Tag.
+func ConvertTagListToTagsMap(tagList []irs.KeyValue, nameValue ...string) (map[string]*string, error) {
+	tagsMap := make(map[string]*string)
+
+	// tagList Convert a list of tags to tagsMap
+	for _, kv := range tagList {
+		tagsMap[kv.Key] = aws.String(kv.Value)
+	}
+
+	// If nameValue is provided using a variable argument, add a "Name" Tag if it doesn't already exist
+	if len(nameValue) > 0 && nameValue[0] != "" {
+		if _, exists := tagsMap["Name"]; !exists {
+			tagsMap["Name"] = aws.String(nameValue[0])
+		}
+	}
+
+	return tagsMap, nil
 }
