@@ -590,8 +590,8 @@ func VM(c echo.Context) error {
 		imageName = "16681742-f408-444d-a430-dd21a4bef42c"
 		specName = "ETRI-small-2"
 	case "NCP":
-		imageName = "SPSW0LINUX000052"
-		specName = "SPSVRHICPUSSD002"
+		imageName = "SPSW0LINUX000139"
+		specName = "SPSVRSTAND000005"
 	case "NCPVPC":
 		imageName = "SW.VSVR.OS.LNX64.UBNTU.SVR2004.B050"
 		specName = "SVR.VSVR.HICPU.C004.M008.NET.SSD.B050.G002"

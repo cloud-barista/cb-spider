@@ -1122,7 +1122,7 @@ func (vmHandler *AlibabaVMHandler) ConvertVMStatusString(vmStatus string) (irs.V
 		cblogger.Errorf("Cannot find mapping information matching vmStatus [%s].", vmStatus)
 		return irs.VMStatus("Failed"), errors.New("Cannot find CB VM status information matching " + vmStatus)
 	}
-	cblogger.Infof("VM 상태 치환 : [%s] ==> [%s]", vmStatus, resultStatus)
+	cblogger.Infof("Replace VMStatus : [%s] ==> [%s]", vmStatus, resultStatus)
 	return irs.VMStatus(resultStatus), nil
 }
 

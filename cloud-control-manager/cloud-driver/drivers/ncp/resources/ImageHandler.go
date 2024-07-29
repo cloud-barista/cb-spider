@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	// "github.com/davecgh/go-spew/spew"
 
 	ncloud "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
 	server "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/server"
@@ -117,7 +118,7 @@ func MappingImageInfo(serverImage server.Product) irs.ImageInfo {
 			NameId: 	*serverImage.ProductCode, 
 			SystemId: 	*serverImage.ProductCode,
 		},
-		GuestOS: *serverImage.ProductDescription,
+		GuestOS: *serverImage.OsInformation,
 		Status: "available",
 	}
 
@@ -126,9 +127,9 @@ func MappingImageInfo(serverImage server.Product) irs.ImageInfo {
 		{Key: "PlatformType", Value: *serverImage.PlatformType.CodeName},
 		{Key: "InfraResourceType", Value: *serverImage.InfraResourceType.CodeName},
 		{Key: "BaseBlockStorageSize(GB)", Value: strconv.FormatFloat(float64(*serverImage.BaseBlockStorageSize)/(1024*1024*1024), 'f', 0, 64)},
-		//{Key: "OsInformation", Value: *serverImage.OsInformation},	
-		//{Key: "DB Type", Value: *serverImage.DbKindCode},
-		//{Key: "NCP GenerationCode", Value: *serverImage.GenerationCode},
+		// {Key: "OsInformation", Value: *serverImage.OsInformation},	
+		// {Key: "DB Type", Value: *serverImage.DbKindCode},
+		// {Key: "NCP GenerationCode", Value: *serverImage.GenerationCode},
 	}
 	keyValueList = append(keyValueList, irs.KeyValue{Key: "Description", Value: *serverImage.ProductDescription})
 	imageInfo.KeyValueList = keyValueList
@@ -192,11 +193,30 @@ func (imageHandler *NcpImageHandler) GetNcpImageInfo(imageIID irs.IID) (*server.
 		return nil, createErr
 	}
 
-	imageReq := server.GetServerImageProductListRequest{ProductCode: ncloud.String(imageIID.SystemId)}
+	// cblogger.Info("\n\n### imageIID : ")
+	// spew.Dump(imageIID)
+	// cblogger.Info("\n")
+
+	vmHandler := NcpVMHandler{
+		RegionInfo:     	imageHandler.RegionInfo,
+		VMClient:         	imageHandler.VMClient,
+	}
+	regionNo, err := vmHandler.GetRegionNo(imageHandler.RegionInfo.Region)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get NCP Region No of the Region Code : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+
+	imageReq := server.GetServerImageProductListRequest{
+		ProductCode: ncloud.String(imageIID.SystemId),
+		RegionNo: 	 regionNo,
+	}
 	callLogStart := call.Start()
 	result, err := imageHandler.VMClient.V2Api.GetServerImageProductList(&imageReq)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Find Image list from NCP : [%v]", err)
+		newErr := fmt.Errorf("Failed to Get Image list from NCP : [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return nil, newErr
