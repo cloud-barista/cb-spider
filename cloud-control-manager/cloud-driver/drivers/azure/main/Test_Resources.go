@@ -925,7 +925,9 @@ func testNLBHandler(config Config) {
 			Protocol:  "TCP",
 			Port:      "22",
 			Interval:  10,
-			Threshold: 429496728,
+			Timeout: -1,
+			Threshold: 5,
+			// Threshold: 429496728,
 		},
 		TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
 	}
