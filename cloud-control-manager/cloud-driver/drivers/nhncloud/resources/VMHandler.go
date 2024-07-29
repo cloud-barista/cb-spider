@@ -65,19 +65,19 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 		return irs.VMInfo{}, newErr
 	}
 
-	if strings.EqualFold(vmReqInfo.VpcIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid VPC SystemId!!")
+	// # Check whether the Routing Table (of the VPC) is connected to an Internet Gateway
+	vpcHandler := NhnCloudVPCHandler{
+		NetworkClient: vmHandler.NetworkClient,
+	}
+	vpc, err := vpcHandler.getRawVPC(vmReqInfo.VpcIID)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to get VPC info : [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.VMInfo{}, newErr
 	}
 
-	// # Check whether the Routing Table (of the VPC) is connected to an Internet Gateway
-	vpcHandler := NhnCloudVPCHandler{
-		RegionInfo:    vmHandler.RegionInfo,
-		NetworkClient: vmHandler.NetworkClient,
-	}
-	isConnectedToGateway, err := vpcHandler.isConnectedToGateway(vmReqInfo.VpcIID.SystemId)
+	isConnectedToGateway, err := vpcHandler.isConnectedToGateway(vpc.ID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Check whether the VPC connected to an Internet Gateway : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -128,6 +128,19 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 	// Get SecurityGroupId list
 	var sgIdList []string
 	for _, sgIID := range vmReqInfo.SecurityGroupIIDs {
+		if sgIID.SystemId == "" {
+			sgHandler := NhnCloudSecurityHandler{
+				VMClient: vmHandler.VMClient,
+			}
+			sg, err := sgHandler.getRawSecurity(sgIID)
+			if err != nil {
+				newErr := fmt.Errorf("Failed to Get Security Group with the name : %v", err)
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
+			}
+			sgIID.SystemId = sg.ID
+		}
 		sgIdList = append(sgIdList, sgIID.SystemId)
 	}
 
@@ -241,7 +254,7 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 		ImageRef:       vmReqInfo.ImageIID.SystemId,
 		FlavorRef:      vmSpecId,
 		Networks: []servers.Network{
-			{UUID: vmReqInfo.VpcIID.SystemId},
+			{UUID: vpc.ID},
 		},
 		AvailabilityZone: vmHandler.RegionInfo.Zone,
 		UserData:         []byte(*initUserData), // Apply cloud-init script
