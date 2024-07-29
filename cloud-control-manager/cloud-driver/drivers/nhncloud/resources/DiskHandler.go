@@ -11,6 +11,7 @@
 package resources
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -37,6 +38,37 @@ type NhnCloudDiskHandler struct {
 	RegionInfo   idrv.RegionInfo
 	VMClient     *nhnsdk.ServiceClient
 	VolumeClient *nhnsdk.ServiceClient
+}
+
+func getRawDisk(diskIID irs.IID, volumeClient *nhnsdk.ServiceClient) (volumes.Volume, error) {
+	if diskIID.NameId == "" && diskIID.SystemId == "" {
+		return volumes.Volume{}, errors.New("invalid diskIID")
+	}
+	if diskIID.SystemId != "" {
+		disk, err := volumes.Get(volumeClient, diskIID.SystemId).Extract()
+		if err != nil {
+			return volumes.Volume{}, err
+		}
+		return *disk, err
+	}
+
+	nameOpts := volumes.ListOpts{}
+	pager, err := volumes.List(volumeClient, nameOpts).AllPages()
+	if err != nil {
+		return volumes.Volume{}, err
+	}
+	volumeList, err := volumes.ExtractVolumes(pager)
+	if err != nil {
+		return volumes.Volume{}, err
+	}
+
+	for _, volume := range volumeList {
+		if volume.Name == diskIID.NameId {
+			return volume, nil
+		}
+	}
+
+	return volumes.Volume{}, errors.New("Disk not found")
 }
 
 func (diskHandler *NhnCloudDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.DiskInfo, error) {
@@ -177,14 +209,7 @@ func (diskHandler *NhnCloudDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, 
 	cblogger.Info("NHN Cloud Driver: called GetDisk()")
 	callLogInfo := getCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, diskIID.SystemId, "GetDisk()")
 
-	if strings.EqualFold(diskIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid Disk SystemId!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.DiskInfo{}, newErr
-	}
-
-	nhnVolumeInfo, err := volumes.Get(diskHandler.VolumeClient, diskIID.SystemId).Extract()
+	nhnVolume, err := getRawDisk(diskIID, diskHandler.VolumeClient)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the NHN Disk Info!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
@@ -192,7 +217,7 @@ func (diskHandler *NhnCloudDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, 
 		return irs.DiskInfo{}, newErr
 	}
 
-	volumeInfo, err := diskHandler.mappingDiskInfo(*nhnVolumeInfo)
+	volumeInfo, err := diskHandler.mappingDiskInfo(nhnVolume)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get Disk Info!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
@@ -205,12 +230,6 @@ func (diskHandler *NhnCloudDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, 
 func (diskHandler *NhnCloudDiskHandler) ChangeDiskSize(diskIID irs.IID, newDiskSize string) (bool, error) {
 	cblogger.Info("NHN Cloud Driver: called ChangeDiskSize()")
 	callLogInfo := getCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, diskIID.SystemId, "ChangeDiskSize()")
-
-	if strings.EqualFold(diskIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid Disk SystemId!!")
-		cblogger.Error(newErr.Error())
-		return false, newErr
-	}
 
 	newDiskSizeInt, err := strconv.Atoi(newDiskSize)
 	if err != nil {
@@ -256,9 +275,9 @@ func (diskHandler *NhnCloudDiskHandler) ChangeDiskSize(diskIID irs.IID, newDiskS
 	extendOpts := volumeactions.ExtendSizeOpts{
 		NewSize: newDiskSizeInt,
 	}
-	extendErr := volumeactions.ExtendSize(diskHandler.VolumeClient, diskIID.SystemId, extendOpts).ExtractErr()
+	err = volumeactions.ExtendSize(diskHandler.VolumeClient, diskInfo.IId.SystemId, extendOpts).ExtractErr()
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Change the Disk Size!! : [%v] ", extendErr)
+		newErr := fmt.Errorf("Failed to Change the Disk Size!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
@@ -272,14 +291,7 @@ func (diskHandler *NhnCloudDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error
 	cblogger.Info("NHN Cloud Driver: called DeleteDisk()")
 	callLogInfo := getCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, "DeleteDisk()", "DeleteDisk()")
 
-	if strings.EqualFold(diskIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid Disk SystemId!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return false, newErr
-	}
-
-	curStatus, err := diskHandler.getDiskStatus(diskIID)
+	nhnVolume, curStatus, err := diskHandler.getDiskStatus(diskIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Disk Status : [%v] ", err)
 		cblogger.Error(newErr.Error())
@@ -295,9 +307,9 @@ func (diskHandler *NhnCloudDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error
 	delOpts := volumes.DeleteOpts{
 		Cascade: true, // Delete all snapshots of this volume as well.
 	}
-	delErr := volumes.Delete(diskHandler.VolumeClient, diskIID.SystemId, delOpts).ExtractErr()
+	err = volumes.Delete(diskHandler.VolumeClient, nhnVolume.ID, delOpts).ExtractErr()
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Delete the Disk Volume!! : [%v] ", delErr)
+		newErr := fmt.Errorf("Failed to Delete the Disk Volume!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
@@ -311,19 +323,14 @@ func (diskHandler *NhnCloudDiskHandler) AttachDisk(diskIID irs.IID, vmIID irs.II
 	cblogger.Info("NHN Cloud Driver: called AttachDisk()")
 	callLogInfo := getCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, diskIID.SystemId, "AttachDisk()")
 
-	if strings.EqualFold(diskIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid Disk SystemId!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.DiskInfo{}, newErr
-	} else if strings.EqualFold(vmIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid Disk SystemId!!")
+	if strings.EqualFold(vmIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid VM SystemId!!")
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.DiskInfo{}, newErr
 	}
 
-	curStatus, err := diskHandler.getDiskStatus(diskIID)
+	nhnVolume, curStatus, err := diskHandler.getDiskStatus(diskIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Disk Status : [%v] ", err)
 		cblogger.Error(newErr.Error())
@@ -337,11 +344,11 @@ func (diskHandler *NhnCloudDiskHandler) AttachDisk(diskIID irs.IID, vmIID irs.II
 
 	start := call.Start()
 	createOpts := volumeattach.CreateOpts{
-		VolumeID: diskIID.SystemId,
+		VolumeID: nhnVolume.ID,
 	}
-	_, createErr := volumeattach.Create(diskHandler.VMClient, vmIID.SystemId, createOpts).Extract()
+	_, err = volumeattach.Create(diskHandler.VMClient, vmIID.SystemId, createOpts).Extract()
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Attach the Disk Volume!! : [%v] ", createErr)
+		newErr := fmt.Errorf("Failed to Attach the Disk Volume!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.DiskInfo{}, newErr
@@ -349,9 +356,9 @@ func (diskHandler *NhnCloudDiskHandler) AttachDisk(diskIID irs.IID, vmIID irs.II
 	LoggingInfo(callLogInfo, start)
 
 	// Wait for Disk Attachment finished
-	curStatus, waitErr := diskHandler.waitForDiskAttachment(diskIID)
+	curStatus, err = diskHandler.waitForDiskAttachment(diskIID)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Wait to Get Disk Info. [%v]", waitErr.Error())
+		newErr := fmt.Errorf("Failed to Wait to Get Disk Info. [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.DiskInfo{}, newErr
@@ -372,19 +379,14 @@ func (diskHandler *NhnCloudDiskHandler) DetachDisk(diskIID irs.IID, vmIID irs.II
 	cblogger.Info("NHN Cloud Driver: called DetachDisk()")
 	callLogInfo := getCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, diskIID.SystemId, "DetachDisk()")
 
-	if strings.EqualFold(diskIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid Disk SystemId!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return false, newErr
-	} else if strings.EqualFold(vmIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid Disk SystemId!!")
+	if strings.EqualFold(vmIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid VM SystemId!!")
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
 	}
 
-	curStatus, err := diskHandler.getDiskStatus(diskIID)
+	nhnVolume, curStatus, err := diskHandler.getDiskStatus(diskIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Disk Status : [%v] ", err)
 		cblogger.Error(newErr.Error())
@@ -396,7 +398,7 @@ func (diskHandler *NhnCloudDiskHandler) DetachDisk(diskIID irs.IID, vmIID irs.II
 		return false, newErr
 	}
 
-	isBootable, err := diskHandler.isBootableDisk(diskIID)
+	isBootable, err := diskHandler.isBootableDisk(nhnVolume.ID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Bootable Disk Info. : [%v] ", err)
 		cblogger.Error(newErr.Error())
@@ -409,9 +411,9 @@ func (diskHandler *NhnCloudDiskHandler) DetachDisk(diskIID irs.IID, vmIID irs.II
 	}
 
 	start := call.Start()
-	delErr := volumeattach.Delete(diskHandler.VMClient, vmIID.SystemId, diskIID.SystemId).ExtractErr()
+	err = volumeattach.Delete(diskHandler.VMClient, vmIID.SystemId, nhnVolume.ID).ExtractErr()
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Detach the Disk Volume!! : [%v] ", delErr)
+		newErr := fmt.Errorf("Failed to Detach the Disk Volume!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
@@ -428,13 +430,13 @@ func (diskHandler *NhnCloudDiskHandler) waitForDiskCreation(diskIID irs.IID) (ir
 	curRetryCnt := 0
 	maxRetryCnt := 500
 	for {
-		curStatus, err := diskHandler.getDiskStatus(diskIID)
+		nhnVolume, curStatus, err := diskHandler.getDiskStatus(diskIID)
 		if err != nil {
-			newErr := fmt.Errorf("Failed to Get the Disk Status of [%s] : [%v] ", diskIID.NameId, err)
+			newErr := fmt.Errorf("Failed to Get the Disk Status of [%s] : [%v] ", nhnVolume.Name, err)
 			cblogger.Error(newErr.Error())
 			return "Failed. ", newErr
 		} else {
-			cblogger.Infof("Succeeded in Getting the Disk Status of [%s] : [%s]", diskIID.NameId, string(curStatus))
+			cblogger.Infof("Succeeded in Getting the Disk Status of [%s] : [%s]", nhnVolume.Name, string(curStatus))
 		}
 
 		cblogger.Infof("===> Disk Status : [%s]", string(curStatus))
@@ -462,13 +464,13 @@ func (diskHandler *NhnCloudDiskHandler) waitForDiskAttachment(diskIID irs.IID) (
 	curRetryCnt := 0
 	maxRetryCnt := 500
 	for {
-		curStatus, err := diskHandler.getDiskStatus(diskIID)
+		nhnVolume, curStatus, err := diskHandler.getDiskStatus(diskIID)
 		if err != nil {
-			newErr := fmt.Errorf("Failed to Get the Disk Status of [%s] : [%v] ", diskIID.NameId, err)
+			newErr := fmt.Errorf("Failed to Get the Disk Status of [%s] : [%v] ", nhnVolume.Name, err)
 			cblogger.Error(newErr.Error())
 			return "Failed. ", newErr
 		} else {
-			cblogger.Infof("Succeeded in Getting the Disk Status of [%s] : [%s]", diskIID.NameId, curStatus)
+			cblogger.Infof("Succeeded in Getting the Disk Status of [%s] : [%s]", nhnVolume.Name, curStatus)
 		}
 
 		cblogger.Infof("===> Disk Status : [%s]", string(curStatus))
@@ -491,26 +493,20 @@ func (diskHandler *NhnCloudDiskHandler) waitForDiskAttachment(diskIID irs.IID) (
 	}
 }
 
-func (diskHandler *NhnCloudDiskHandler) getDiskStatus(diskIID irs.IID) (irs.DiskStatus, error) {
+func (diskHandler *NhnCloudDiskHandler) getDiskStatus(diskIID irs.IID) (volumes.Volume, irs.DiskStatus, error) {
 	cblogger.Info("NHN Cloud Driver: called getDiskStatus()")
 
-	if strings.EqualFold(diskIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid Disk SystemId!!")
-		cblogger.Error(newErr.Error())
-		return irs.DiskError, newErr
-	}
-
-	diskResult, err := volumes.Get(diskHandler.VolumeClient, diskIID.SystemId).Extract()
+	nhnVolume, err := getRawDisk(diskIID, diskHandler.VolumeClient)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the NHN Disk Info!! : [%v]", err)
+		newErr := fmt.Errorf("Failed to Get the NHN Disk Info!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
-		return irs.DiskError, newErr
+		return volumes.Volume{}, irs.DiskError, newErr
 	}
 
-	cblogger.Infof("# diskResult.Status of NHN Cloud : [%s]", diskResult.Status)
-	diskStatus := convertDiskStatus(diskResult.Status)
+	cblogger.Infof("# diskResult.Status of NHN Cloud : [%s]", nhnVolume.Status)
+	diskStatus := convertDiskStatus(nhnVolume.Status)
 
-	return diskStatus, nil
+	return nhnVolume, diskStatus, nil
 }
 
 func convertDiskStatus(diskStatus string) irs.DiskStatus {
@@ -543,16 +539,16 @@ func convertDiskStatus(diskStatus string) irs.DiskStatus {
 	return resultStatus
 }
 
-func (diskHandler *NhnCloudDiskHandler) isBootableDisk(diskIID irs.IID) (bool, error) {
+func (diskHandler *NhnCloudDiskHandler) isBootableDisk(diskSystemId string) (bool, error) {
 	cblogger.Info("NHN Cloud Driver: called isBootableDisk()")
 
-	if strings.EqualFold(diskIID.SystemId, "") {
+	if strings.EqualFold(diskSystemId, "") {
 		newErr := fmt.Errorf("Invalid Disk SystemId!!")
 		cblogger.Error(newErr.Error())
 		return false, newErr
 	}
 
-	diskResult, err := volumes.Get(diskHandler.VolumeClient, diskIID.SystemId).Extract()
+	diskResult, err := volumes.Get(diskHandler.VolumeClient, diskSystemId).Extract()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the NHN Disk Info!! : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -579,7 +575,7 @@ func (diskHandler *NhnCloudDiskHandler) mappingDiskInfo(volume volumes.Volume) (
 		IId: irs.IID{
 			SystemId: volume.ID,
 		},
-		Zone: 		 volume.AvailabilityZone,
+		Zone:        volume.AvailabilityZone,
 		DiskSize:    strconv.Itoa(volume.Size),
 		Status:      convertDiskStatus(volume.Status),
 		CreatedTime: volume.CreatedAt,
