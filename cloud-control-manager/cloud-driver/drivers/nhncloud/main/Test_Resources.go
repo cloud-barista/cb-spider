@@ -2,10 +2,9 @@ package main
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	cblog "github.com/cloud-barista/cb-log"
-	azdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure"
+	nhndrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/nhncloud"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
@@ -18,17 +17,17 @@ import (
 )
 
 type Config struct {
-	Azure struct {
-		ClientId       string `yaml:"client_id"`
-		ClientSecret   string `yaml:"client_secret"`
-		TenantId       string `yaml:"tenant_id"`
-		SubscriptionID string `yaml:"subscription_id"`
-
-		Location  string `yaml:"location"`
-		Zone      string `yaml:"zone"`
-		Resources struct {
+	NhnCloud struct {
+		IdentityEndpoint string `yaml:"identity_endpoint"`
+		NhnUsername      string `yaml:"nhn_username"`
+		APIPassword      string `yaml:"api_password"`
+		DomainName       string `yaml:"domain_name"`
+		TenantID         string `yaml:"tenant_id"`
+		Region           string `yaml:"region"`
+		Zone             string `yaml:"zone"`
+		Resources        struct {
 			Image struct {
-				NameId string `yaml:"nameId"`
+				SystemId string `yaml:"systemId"`
 			} `yaml:"image"`
 			Security struct {
 				NameId string `yaml:"nameId"`
@@ -60,7 +59,7 @@ type Config struct {
 			KeyPair struct {
 				NameId string `yaml:"nameId"`
 			} `yaml:"keyPair"`
-			VmSpec struct {
+			VMSpec struct {
 				NameId string `yaml:"nameId"`
 			} `yaml:"vmSpec"`
 			VPC struct {
@@ -75,15 +74,15 @@ type Config struct {
 					IPv4CIDR string `yaml:"ipv4CIDR"`
 				} `yaml:"addSubnet"`
 			} `yaml:"vpc"`
-			Vm struct {
+			VM struct {
 				IID struct {
 					NameId string `yaml:"nameId"`
 				} `yaml:"IID"`
 				ImageIID struct {
-					NameId string `yaml:"nameId"`
+					SystemId string `yaml:"systemId"`
 				} `yaml:"ImageIID"`
 				ImageType  string `yaml:"ImageType"`
-				VmSpecName string `yaml:"VmSpecName"`
+				VMSpecName string `yaml:"VmSpecName"`
 				KeyPairIID struct {
 					NameId string `yaml:"nameId"`
 				} `yaml:"KeyPairIID"`
@@ -121,7 +120,7 @@ type Config struct {
 				} `yaml:"attachedVM"`
 			} `yaml:"disk"`
 		} `yaml:"resources"`
-	} `yaml:"azure"`
+	} `yaml:"nhncloud"`
 }
 
 var cblogger *logrus.Logger
@@ -134,7 +133,7 @@ func init() {
 func readConfigFile() Config {
 	// Set Environment Value of Project Root Path
 	rootPath := os.Getenv("CBSPIDER_ROOT")
-	data, err := ioutil.ReadFile(rootPath + "/cloud-control-manager/cloud-driver/drivers/azure/main/conf/config.yaml")
+	data, err := ioutil.ReadFile(rootPath + "/cloud-control-manager/cloud-driver/drivers/nhncloud/main/conf/config.yaml")
 
 	if err != nil {
 		cblogger.Error(err)
@@ -170,17 +169,18 @@ func showTestHandlerInfo() {
 
 func getResourceHandler(resourceType string, config Config) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
-	cloudDriver = new(azdrv.AzureDriver)
+	cloudDriver = new(nhndrv.NhnCloudDriver)
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
-			ClientId:       config.Azure.ClientId,
-			ClientSecret:   config.Azure.ClientSecret,
-			TenantId:       config.Azure.TenantId,
-			SubscriptionId: config.Azure.SubscriptionID,
+			IdentityEndpoint: config.NhnCloud.IdentityEndpoint,
+			Username:         config.NhnCloud.NhnUsername,
+			Password:         config.NhnCloud.APIPassword,
+			DomainName:       config.NhnCloud.DomainName,
+			TenantId:         config.NhnCloud.TenantID,
 		},
 		RegionInfo: idrv.RegionInfo{
-			Region: config.Azure.Location,
-			Zone:   config.Azure.Zone,
+			Region: config.NhnCloud.Region,
+			Zone:   config.NhnCloud.Zone,
 		},
 	}
 
@@ -230,7 +230,8 @@ func testImageHandlerListPrint() {
 	cblogger.Info("2. GetImage()")
 	cblogger.Info("3. CreateImage()")
 	cblogger.Info("4. DeleteImage()")
-	cblogger.Info("5. Exit")
+	cblogger.Info("5. CheckWindowsImage()")
+	cblogger.Info("6. Exit")
 }
 func testImageHandler(config Config) {
 	resourceHandler, err := getResourceHandler("image", config)
@@ -243,7 +244,9 @@ func testImageHandler(config Config) {
 
 	testImageHandlerListPrint()
 
-	imageIID := irs.IID{NameId: config.Azure.Resources.Image.NameId}
+	imageIID := irs.IID{
+		SystemId: config.NhnCloud.Resources.Image.SystemId,
+	}
 
 Loop:
 	for {
@@ -280,6 +283,15 @@ Loop:
 				cblogger.Info("Start DeleteImage() ...")
 				cblogger.Info("Finish DeleteImage()")
 			case 5:
+				cblogger.Info("Start CheckWindowsImage() ...")
+				result, err := imageHandler.CheckWindowsImage(imageIID)
+				if err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(result)
+				}
+				cblogger.Info("Finish CheckWindowsImage()")
+			case 6:
 				cblogger.Info("Exit")
 				break Loop
 			}
@@ -311,8 +323,8 @@ func testSecurityHandler(config Config) {
 
 	testSecurityHandlerListPrint()
 
-	securityIId := irs.IID{NameId: config.Azure.Resources.Security.NameId}
-	securityRules := config.Azure.Resources.Security.Rules
+	securityIId := irs.IID{NameId: config.NhnCloud.Resources.Security.NameId}
+	securityRules := config.NhnCloud.Resources.Security.Rules
 	var securityRulesInfos []irs.SecurityRuleInfo
 	for _, securityRule := range securityRules {
 		infos := irs.SecurityRuleInfo{
@@ -325,9 +337,9 @@ func testSecurityHandler(config Config) {
 		securityRulesInfos = append(securityRulesInfos, infos)
 	}
 	targetVPCIId := irs.IID{
-		NameId: config.Azure.Resources.Security.VpcIID.NameId,
+		NameId: config.NhnCloud.Resources.Security.VpcIID.NameId,
 	}
-	securityAddRules := config.Azure.Resources.Security.AddRules
+	securityAddRules := config.NhnCloud.Resources.Security.AddRules
 	var securityAddRulesInfos []irs.SecurityRuleInfo
 	for _, securityRule := range securityAddRules {
 		infos := irs.SecurityRuleInfo{
@@ -339,7 +351,7 @@ func testSecurityHandler(config Config) {
 		}
 		securityAddRulesInfos = append(securityAddRulesInfos, infos)
 	}
-	securityRemoveRules := config.Azure.Resources.Security.RemoveRules
+	securityRemoveRules := config.NhnCloud.Resources.Security.RemoveRules
 	var securityRemoveRulesInfos []irs.SecurityRuleInfo
 	for _, securityRule := range securityRemoveRules {
 		infos := irs.SecurityRuleInfo{
@@ -446,9 +458,9 @@ func testVPCHandler(config Config) {
 
 	testVPCHandlerListPrint()
 
-	vpcIID := irs.IID{NameId: config.Azure.Resources.VPC.NameId}
+	vpcIID := irs.IID{NameId: config.NhnCloud.Resources.VPC.NameId}
 
-	subnetLists := config.Azure.Resources.VPC.Subnets
+	subnetLists := config.NhnCloud.Resources.VPC.Subnets
 	var subnetInfoList []irs.SubnetInfo
 	for _, sb := range subnetLists {
 		info := irs.SubnetInfo{
@@ -462,19 +474,16 @@ func testVPCHandler(config Config) {
 
 	VPCReqInfo := irs.VPCReqInfo{
 		IId:            vpcIID,
-		IPv4_CIDR:      config.Azure.Resources.VPC.IPv4CIDR,
+		IPv4_CIDR:      config.NhnCloud.Resources.VPC.IPv4CIDR,
 		SubnetInfoList: subnetInfoList,
 	}
-	addSubnet := config.Azure.Resources.VPC.AddSubnet
+	addSubnet := config.NhnCloud.Resources.VPC.AddSubnet
 	addSubnetInfo := irs.SubnetInfo{
 		IId: irs.IID{
 			NameId: addSubnet.NameId,
 		},
 		IPv4_CIDR: addSubnet.IPv4CIDR,
 	}
-	//deleteVpcid := irs.IID{
-	//	NameId: "bcr02a.tok02.774",
-	//}
 Loop:
 
 	for {
@@ -530,22 +539,10 @@ Loop:
 				cblogger.Info("Finish AddSubnet()")
 			case 6:
 				cblogger.Info("Start RemoveSubnet() ...")
-				vpcInfo, err := vpcHandler.GetVPC(vpcIID)
-				if err != nil {
+				if result, err := vpcHandler.RemoveSubnet(vpcIID, addSubnetInfo.IId); err != nil {
 					cblogger.Error(err)
-				}
-				if vpcInfo.SubnetInfoList != nil && len(vpcInfo.SubnetInfoList) > 0 {
-					firstSubnet := vpcInfo.SubnetInfoList[0]
-					cblogger.Info(fmt.Sprintf("RemoveSubnet : %s %s", firstSubnet.IId.NameId, firstSubnet.IPv4_CIDR))
-					result, err := vpcHandler.RemoveSubnet(vpcIID, firstSubnet.IId)
-					if err != nil {
-						cblogger.Error(err)
-					} else {
-						spew.Dump(result)
-					}
 				} else {
-					err = errors.New("not exist subnet")
-					cblogger.Error(err)
+					spew.Dump(result)
 				}
 				cblogger.Info("Finish RemoveSubnet()")
 			case 7:
@@ -577,7 +574,7 @@ func testKeyPairHandler(config Config) {
 	testKeyPairHandlerListPrint()
 
 	keypairIId := irs.IID{
-		NameId: config.Azure.Resources.KeyPair.NameId,
+		NameId: config.NhnCloud.Resources.KeyPair.NameId,
 	}
 
 Loop:
@@ -677,7 +674,7 @@ Loop:
 				cblogger.Info("Finish ListVMSpec()")
 			case 2:
 				cblogger.Info("Start GetVMSpec() ...")
-				if vmSpecInfo, err := vmSpecHandler.GetVMSpec(config.Azure.Resources.VmSpec.NameId); err != nil {
+				if vmSpecInfo, err := vmSpecHandler.GetVMSpec(config.NhnCloud.Resources.VMSpec.NameId); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(vmSpecInfo)
@@ -693,7 +690,7 @@ Loop:
 				cblogger.Info("Finish ListOrgVMSpec()")
 			case 4:
 				cblogger.Info("Start GetOrgVMSpec() ...")
-				if vmSpecStr, err := vmSpecHandler.GetOrgVMSpec(config.Azure.Resources.VmSpec.NameId); err != nil {
+				if vmSpecStr, err := vmSpecHandler.GetOrgVMSpec(config.NhnCloud.Resources.VMSpec.NameId); err != nil {
 					cblogger.Error(err)
 				} else {
 					fmt.Println(vmSpecStr)
@@ -733,41 +730,41 @@ func testVMHandler(config Config) {
 
 	testVMHandlerListPrint()
 
-	configsgIIDs := config.Azure.Resources.Vm.SecurityGroupIIDs
+	configsgIIDs := config.NhnCloud.Resources.VM.SecurityGroupIIDs
 	var SecurityGroupIIDs []irs.IID
 	for _, sg := range configsgIIDs {
 		SecurityGroupIIDs = append(SecurityGroupIIDs, irs.IID{NameId: sg.NameId})
 	}
 	imageType := irs.PublicImage
-	if config.Azure.Resources.Vm.ImageType == "MyImage" {
+	if config.NhnCloud.Resources.VM.ImageType == "MyImage" {
 		imageType = irs.MyImage
 	}
 	vmIID := irs.IID{
-		NameId: config.Azure.Resources.Vm.IID.NameId,
+		NameId: config.NhnCloud.Resources.VM.IID.NameId,
 	}
 	vmReqInfo := irs.VMReqInfo{
 		IId: irs.IID{
-			NameId: config.Azure.Resources.Vm.IID.NameId,
+			NameId: config.NhnCloud.Resources.VM.IID.NameId,
 		},
 		ImageType: imageType,
 		ImageIID: irs.IID{
-			NameId: config.Azure.Resources.Vm.ImageIID.NameId,
+			SystemId: config.NhnCloud.Resources.VM.ImageIID.SystemId,
 		},
 		VpcIID: irs.IID{
-			NameId: config.Azure.Resources.Vm.VpcIID.NameId,
+			NameId: config.NhnCloud.Resources.VM.VpcIID.NameId,
 		},
 		SubnetIID: irs.IID{
-			NameId: config.Azure.Resources.Vm.SubnetIID.NameId,
+			NameId: config.NhnCloud.Resources.VM.SubnetIID.NameId,
 		},
-		VMSpecName: config.Azure.Resources.Vm.VmSpecName,
+		VMSpecName: config.NhnCloud.Resources.VM.VMSpecName,
 		KeyPairIID: irs.IID{
-			NameId: config.Azure.Resources.Vm.KeyPairIID.NameId,
+			NameId: config.NhnCloud.Resources.VM.KeyPairIID.NameId,
 		},
-		RootDiskSize:      config.Azure.Resources.Vm.RootDiskSize,
-		RootDiskType:      config.Azure.Resources.Vm.RootDiskType,
+		RootDiskSize:      config.NhnCloud.Resources.VM.RootDiskSize,
+		RootDiskType:      config.NhnCloud.Resources.VM.RootDiskType,
 		SecurityGroupIIDs: SecurityGroupIIDs,
-		VMUserId:          config.Azure.Resources.Vm.VMUserId,
-		VMUserPasswd:      config.Azure.Resources.Vm.VMUserPasswd,
+		VMUserId:          config.NhnCloud.Resources.VM.VMUserId,
+		VMUserPasswd:      config.NhnCloud.Resources.VM.VMUserPasswd,
 	}
 
 Loop:
@@ -890,33 +887,41 @@ func testNLBHandler(config Config) {
 	testNLBHandlerListPrint()
 
 	nlbIId := irs.IID{
-		NameId: "nlb-tester",
+		NameId: "nhn-nlb-01",
 	}
 	nlbCreateReqInfo := irs.NLBInfo{
 		IId: irs.IID{
-			NameId: "nlb-tester",
+			NameId: "nhn-nlb-01",
 		},
 		VpcIID: irs.IID{
-			NameId: "nlb-tester-vpc",
+			NameId: "nhn-vpc-01",
 		},
 		Listener: irs.ListenerInfo{
 			Protocol: "TCP",
-			Port:     "8080",
+			Port:     "80",
 		},
 		VMGroup: irs.VMGroupInfo{
 			Port:     "80",
 			Protocol: "TCP",
 			VMs: &[]irs.IID{
-				{NameId: "tj-vm-tester"},
-				//{NameId: "nlb-tester-vm-02"},
+				{NameId: "nhn-vm-01"},
+				//{NameId: "nhn-vm-02"},
 			},
 		},
 		HealthChecker: irs.HealthCheckerInfo{
 			Protocol:  "TCP",
 			Port:      "80",
-			Interval:  10,
-			Threshold: 429496728,
+			Interval:  -1,
+			Timeout:   -1,
+			Threshold: -1,
 		},
+		// HealthChecker: irs.HealthCheckerInfo{
+		// 	Protocol:  "TCP",
+		// 	Port:      "8080",
+		// 	Interval:  30,
+		// 	Timeout:   5,
+		// 	Threshold: 3,
+		// },
 	}
 	updateListener := irs.ListenerInfo{
 		Protocol: "TCP",
@@ -925,25 +930,22 @@ func testNLBHandler(config Config) {
 	updateVMGroups := irs.VMGroupInfo{
 		Protocol: "TCP",
 		Port:     "8087",
-		VMs: &[]irs.IID{
-			{NameId: "nlb-tester-vm-01"},
-			{NameId: "nlb-tester-vm-02"},
-		},
 	}
 	addVMs := []irs.IID{
-		{NameId: "nlb-tester-vm-01"},
-		{NameId: "nlb-tester-vm-02"},
+		{NameId: "nhn-vm-02"},
+		{NameId: "nhn-vm-03"},
 	}
 	removeVMs := []irs.IID{
-		{NameId: "nlb-tester-vm-01"},
-		{NameId: "nlb-tester-vm-02"},
+		{NameId: "nhn-vm-02"},
+		{NameId: "nhn-vm-03"},
 	}
 
 	updateHealthCheckerInfo := irs.HealthCheckerInfo{
-		Protocol:  "TCP",
-		Port:      "80",
-		Interval:  10,
-		Threshold: 1,
+		Protocol:  "HTTP",
+		Port:      "8080",
+		Interval:  7,
+		Timeout:   5,
+		Threshold: 4,
 	}
 Loop:
 	for {
@@ -1067,25 +1069,26 @@ func testDiskHandler(config Config) {
 
 	testDiskHandlerListPrint()
 	diskIId := irs.IID{
-		NameId: config.Azure.Resources.Disk.IID.NameId,
+		NameId: config.NhnCloud.Resources.Disk.IID.NameId,
 	}
 	createDiskReqInfo := irs.DiskInfo{
 		IId: irs.IID{
-			NameId: config.Azure.Resources.Disk.IID.NameId,
+			NameId: config.NhnCloud.Resources.Disk.IID.NameId,
 		},
-		DiskSize: config.Azure.Resources.Disk.DiskSize,
-		DiskType: config.Azure.Resources.Disk.DiskType,
+		Zone:     config.NhnCloud.Zone,
+		DiskSize: config.NhnCloud.Resources.Disk.DiskSize,
+		DiskType: config.NhnCloud.Resources.Disk.DiskType,
 	}
 	delDiskIId := irs.IID{
-		NameId: config.Azure.Resources.Disk.IID.NameId,
+		NameId: config.NhnCloud.Resources.Disk.IID.NameId,
 	}
 	attachDiskIId := irs.IID{
-		NameId: config.Azure.Resources.Disk.IID.NameId,
+		NameId: config.NhnCloud.Resources.Disk.IID.NameId,
 	}
 	attachVMIId := irs.IID{
-		NameId: config.Azure.Resources.Disk.AttachedVM.NameId,
+		NameId: config.NhnCloud.Resources.Disk.AttachedVM.NameId,
 	}
-	updateSize := config.Azure.Resources.Disk.UpdateDiskSize
+	updateSize := config.NhnCloud.Resources.Disk.UpdateDiskSize
 Loop:
 	for {
 		var commandNum int
@@ -1181,12 +1184,12 @@ func testMyImageHandler(config Config) {
 	myimageHandler := resourceHandler.(irs.MyImageHandler)
 
 	testMyImageHandlerListPrint()
-	getimageIId := irs.IID{NameId: config.Azure.Resources.MyImage.IID.NameId}
+	getimageIId := irs.IID{NameId: config.NhnCloud.Resources.MyImage.IID.NameId}
 	targetvm := irs.MyImageInfo{
-		IId:      irs.IID{NameId: config.Azure.Resources.MyImage.IID.NameId},
-		SourceVM: irs.IID{NameId: config.Azure.Resources.MyImage.SourceVM.NameId},
+		IId:      irs.IID{NameId: config.NhnCloud.Resources.MyImage.IID.NameId},
+		SourceVM: irs.IID{NameId: config.NhnCloud.Resources.MyImage.SourceVM.NameId},
 	}
-	delimageIId := irs.IID{NameId: config.Azure.Resources.MyImage.IID.NameId}
+	delimageIId := irs.IID{NameId: config.NhnCloud.Resources.MyImage.IID.NameId}
 Loop:
 	for {
 		var commandNum int
@@ -1445,31 +1448,31 @@ func testClusterHandler(config Config) {
 	testClusterHandlerListPrint()
 	createreq := irs.ClusterInfo{
 		IId: irs.IID{
-			NameId: "test-cluster-2",
+			NameId: "nhn-cluster-01",
 		},
 		Network: irs.NetworkInfo{
-			VpcIID:            irs.IID{NameId: "cluster-tester-vpc"},
-			SubnetIIDs:        []irs.IID{{NameId: "cluster-tester-vpc-sb-01"}},
-			SecurityGroupIIDs: []irs.IID{{NameId: "test-cluster-applysg"}},
+			VpcIID:            irs.IID{NameId: "nhn-vpc-01"},
+			SubnetIIDs:        []irs.IID{{NameId: "nhn-vpc-sb-01"}},
+			SecurityGroupIIDs: []irs.IID{{NameId: "nhn-sg-01"}},
 		},
-		Version: "1.29.4",
+		Version: "v1.29.3",
 		// ImageIID
 		NodeGroupList: []irs.NodeGroupInfo{
 			{
-				IId:             irs.IID{NameId: "nodegroup0"},
-				VMSpecName:      "Standard_B2s",
-				RootDiskSize:    "default",
-				KeyPairIID:      irs.IID{NameId: "azure0916"},
+				IId:             irs.IID{NameId: "nhn-nodegroup-01"},
+				VMSpecName:      "c2.c16m16",
+				RootDiskSize:    "100",
+				KeyPairIID:      irs.IID{NameId: "nhn-test-key"},
 				DesiredNodeSize: 1,
 				MaxNodeSize:     2,
 				MinNodeSize:     1,
 				OnAutoScaling:   true,
 			},
 			//{
-			//	IId:             irs.IID{NameId: "nodegroup1"},
-			//	VMSpecName:      "Standard_B2s",
+			//	IId:             irs.IID{NameId: "nhn-nodegroup-02"},
+			//	VMSpecName:      "c2.c16m16",
 			//	RootDiskSize:    "default",
-			//	KeyPairIID:      irs.IID{NameId: "azure0916"},
+			//	KeyPairIID:      irs.IID{NameId: "nhn-test-key"},
 			//	DesiredNodeSize: 1,
 			//	MaxNodeSize:     3,
 			//	MinNodeSize:     1,
@@ -1478,10 +1481,10 @@ func testClusterHandler(config Config) {
 		},
 	}
 	addNodeGroup := irs.NodeGroupInfo{
-		IId:             irs.IID{NameId: "nodegroup3"},
-		VMSpecName:      "Standard_B2s",
+		IId:             irs.IID{NameId: "nhn-nodegroup-03"},
+		VMSpecName:      "c2.c16m16",
 		RootDiskSize:    "default",
-		KeyPairIID:      irs.IID{NameId: "azure0916"},
+		KeyPairIID:      irs.IID{NameId: "nhn-test-key"},
 		DesiredNodeSize: 3,
 		MaxNodeSize:     5,
 		MinNodeSize:     2,
