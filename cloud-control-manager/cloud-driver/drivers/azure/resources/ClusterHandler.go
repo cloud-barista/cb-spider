@@ -5,14 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2022-03-01/containerservice"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
-	"github.com/Azure/go-autorest/autorest/to"
-	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
-	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"gopkg.in/yaml.v2"
 	"io"
 	"math"
 	"net"
@@ -24,6 +16,15 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
+	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2022-03-01/containerservice"
+	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
+	"github.com/Azure/go-autorest/autorest/to"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -589,7 +590,9 @@ func setterClusterInfo(cluster containerservice.ManagedCluster, managedClustersC
 		}
 		clusterInfo.KeyValueList = keyValues
 	}
-
+	if cluster.Tags != nil {
+		clusterInfo.TagList = setTagList(cluster.Tags)
+	}
 	return clusterInfo, nil
 }
 
@@ -1037,6 +1040,12 @@ func createCluster(clusterReqInfo irs.ClusterInfo, virtualNetworksClient *networ
 			AddonProfiles:     addonProfiles,
 		},
 	}
+	if clusterReqInfo.TagList != nil{
+		for _, tag := range clusterReqInfo.TagList {
+			clusterCreateOpts.Tags[tag.Key] = to.StringPtr(tag.Value)
+		}
+	}
+
 	_, err = managedClustersClient.CreateOrUpdate(ctx, regionInfo.Region, clusterReqInfo.IId.NameId, clusterCreateOpts)
 	if err != nil {
 		return err

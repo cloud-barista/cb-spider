@@ -65,6 +65,7 @@ func (AzureDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.RegionZoneHandler = true
 	drvCapabilityInfo.PriceInfoHandler = true
 	drvCapabilityInfo.ClusterHandler = true
+	drvCapabilityInfo.TagHandler = true
 
 	return drvCapabilityInfo
 }
@@ -242,6 +243,10 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	if err != nil {
 		return nil, err
 	}
+	Ctx, tagsClient, err := getTagsClient(connectionInfo.CredentialInfo)
+    if err != nil {
+        return nil, err
+  }
 	iConn := azcon.AzureCloudConnection{
 		CredentialInfo:                  connectionInfo.CredentialInfo,
 		Region:                          connectionInfo.RegionInfo,
@@ -270,6 +275,7 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 		VirtualMachineScaleSetVMsClient: virtualMachineScaleSetVMsClient,
 		VirtualMachineRunCommandsClient: virtualMachineRunCommandClient,
 		GroupsClient:                    groupsClient,
+		TagsClient: 										 tagsClient,
 		ResourceSkusClient:              resourceSkusClient,
 	}
 
@@ -646,4 +652,17 @@ func getResourceSkusClient(credential idrv.CredentialInfo) (context.Context, *co
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
 	return ctx, &resourceSkusClient, nil
+}
+func getTagsClient(credential idrv.CredentialInfo) (context.Context, *resources.TagsClient, error) {
+	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
+	authorizer, err := config.Authorizer()
+	if err != nil {
+			return nil, nil, err
+	}
+
+	tagsClient := resources.NewTagsClient(credential.SubscriptionId)
+	tagsClient.Authorizer = authorizer
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+
+	return ctx, &tagsClient, nil
 }

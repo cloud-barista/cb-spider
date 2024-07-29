@@ -4,6 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/Azure/azure-sdk-for-go/profiles/2020-09-01/monitor/mgmt/insights"
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
@@ -11,9 +15,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"strconv"
-	"strings"
-	"time"
 )
 
 type AzureNLBHandler struct {
@@ -159,6 +160,13 @@ func (nlbHandler *AzureNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 			"createdAt": to.StringPtr(nowTime),
 		},
 	}
+
+	if nlbReqInfo.TagList != nil{
+		for _, tag := range nlbReqInfo.TagList {
+			options.Tags[tag.Key] = to.StringPtr(tag.Value)
+		}
+	}
+
 	future, err := nlbHandler.NLBClient.CreateOrUpdate(nlbHandler.Ctx, nlbHandler.Region.Region, nlbReqInfo.IId.NameId, options)
 	if err != nil {
 		createError = errors.New(fmt.Sprintf("Failed to Create NLB. err = %s", err.Error()))
@@ -1064,6 +1072,11 @@ func (nlbHandler *AzureNLBHandler) setterNLB(nlb network.LoadBalancer) (*irs.NLB
 	} else {
 		nlbInfo.Scope = string(NLBGlobalType)
 	}
+	
+	if nlb.Tags != nil {
+		nlbInfo.TagList = setTagList(nlb.Tags)
+	}
+
 	return &nlbInfo, nil
 }
 func (nlbHandler *AzureNLBHandler) getVPCIIDByLoadBalancerBackendAddresses(address []network.LoadBalancerBackendAddress) (irs.IID, error) {
