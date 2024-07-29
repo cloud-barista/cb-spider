@@ -79,9 +79,9 @@ func (securityHandler *NhnCloudSecurityHandler) CreateSecurity(securityReqInfo i
 	}
 
 	// Add Requested S/G Rules to the New S/G
-	_, addErr := securityHandler.AddRules(newSGIID, securityReqInfo.SecurityRules)
+	_, err = securityHandler.AddRules(newSGIID, securityReqInfo.SecurityRules)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Add Rule on the S/G!! : [%v] ", addErr)
+		newErr := fmt.Errorf("Failed to Add Rule on the S/G!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.SecurityInfo{}, newErr
@@ -96,9 +96,9 @@ func (securityHandler *NhnCloudSecurityHandler) CreateSecurity(securityReqInfo i
 	}
 
 	// Return Created S/G Info.
-	newSGInfo, getErr := securityHandler.GetSecurity(newSGIID)
+	newSGInfo, err := securityHandler.GetSecurity(newSGIID)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get New S/G info!! : [%v] ", getErr)
+		newErr := fmt.Errorf("Failed to Get New S/G info!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.SecurityInfo{}, newErr
@@ -143,12 +143,33 @@ func (securityHandler *NhnCloudSecurityHandler) ListSecurity() ([]*irs.SecurityI
 	return sgInfoList, nil
 }
 
+func (securityHandler *NhnCloudSecurityHandler) getRawSecurity(securityIID irs.IID) (*secgroups.SecurityGroup, error) {
+	if securityIID.SystemId == "" && securityIID.NameId == "" {
+		return nil, errors.New("invalid IID")
+	}
+	if securityIID.SystemId != "" {
+		return secgroups.Get(securityHandler.VMClient, securityIID.SystemId).Extract()
+	} else {
+		pager, err := secgroups.List(securityHandler.VMClient).AllPages()
+		if err != nil {
+			return nil, err
+		}
+		rawSecurityGroups, err := secgroups.ExtractSecurityGroups(pager)
+		for _, rawSeg := range rawSecurityGroups {
+			if securityIID.NameId == rawSeg.Name {
+				return &rawSeg, nil
+			}
+		}
+		return nil, errors.New("SecurityGroup not found")
+	}
+}
+
 func (securityHandler *NhnCloudSecurityHandler) GetSecurity(securityIID irs.IID) (irs.SecurityInfo, error) {
 	cblogger.Info("NHN Cloud Cloud Driver: called GetSecurity()!")
 	callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, securityIID.SystemId, "GetSecurity()")
 
 	start := call.Start()
-	nhnSG, err := secgroups.Get(securityHandler.VMClient, securityIID.SystemId).Extract()
+	nhnSG, err := securityHandler.getRawSecurity(securityIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the S/G info from NHNCLOUD!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
@@ -172,7 +193,15 @@ func (securityHandler *NhnCloudSecurityHandler) DeleteSecurity(securityIID irs.I
 	callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, securityIID.SystemId, "DeleteSecurity()")
 
 	start := call.Start()
-	result := secgroups.Delete(securityHandler.VMClient, securityIID.SystemId)
+	nhnSG, err := securityHandler.getRawSecurity(securityIID)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get the S/G info from NHNCLOUD!! : [%v] ", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return false, newErr
+	}
+
+	result := secgroups.Delete(securityHandler.VMClient, nhnSG.ID)
 	if result.Err != nil {
 		newErr := fmt.Errorf("Failed to Delete the S/G on NHNCLOUD!! : [%v] ", result.Err)
 		cblogger.Error(newErr.Error())
@@ -188,23 +217,13 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 	cblogger.Info("NHN Cloud Driver: called AddRules()!")
 	callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, sgIID.SystemId, "AddRules()")
 
-	if sgIID.SystemId == "" {
-		newErr := fmt.Errorf("Invalid S/G SystemId!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.SecurityInfo{}, newErr
-	}
-
-	// Check if the S/G exists
-	sgInfo, err := securityHandler.GetSecurity(sgIID)
+	nhnSG, err := securityHandler.getRawSecurity(sgIID)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Find any S/G info. with the SystemId : [%s] : [%v]", sgIID.SystemId, err)
+		newErr := fmt.Errorf("Failed to Get the S/G info from NHNCLOUD!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.SecurityInfo{}, newErr
 	}
-
-	cblogger.Infof("S/G SystemId to Add the Rules [%s]", sgInfo.IId.NameId)
 
 	// Add SecurityGroup Rules to the S/G
 	for _, curRule := range *securityRules {
@@ -219,8 +238,6 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 		} else if curRule.CIDR == "" {
 			return irs.SecurityInfo{}, errors.New("Failed to Find 'CIDR' Value in the requested rule!!")
 		}
-
-		cblogger.Infof("curRule.IPProtocol : [%s]", curRule.IPProtocol)
 
 		if strings.EqualFold(curRule.IPProtocol, "ALL") { // Add SecurityGroup Rules in case of 'All Traffic Open Rule'
 			if strings.EqualFold(curRule.FromPort, "-1") && strings.EqualFold(curRule.ToPort, "-1") {
@@ -242,7 +259,7 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 						createRuleOpts = rules.CreateOpts{
 							Direction:      rules.RuleDirection(direction),
 							EtherType:      rules.EtherType4,
-							SecGroupID:     sgIID.SystemId,
+							SecGroupID:     nhnSG.ID,
 							Protocol:       rules.RuleProtocol(curProtocolType), //Caution!!
 							RemoteIPPrefix: allCIDR,                             //Caution!!
 						}
@@ -257,7 +274,7 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 						createRuleOpts = rules.CreateOpts{
 							Direction:      rules.RuleDirection(direction),
 							EtherType:      rules.EtherType4,
-							SecGroupID:     sgIID.SystemId,
+							SecGroupID:     nhnSG.ID,
 							PortRangeMin:   fromPort,
 							PortRangeMax:   toPort,
 							Protocol:       rules.RuleProtocol(curProtocolType), //Caution!!
@@ -268,7 +285,7 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 					start := call.Start()
 					_, err := rules.Create(securityHandler.NetworkClient, createRuleOpts).Extract()
 					if err != nil {
-						newErr := fmt.Errorf("Failed to Create New Rule to the S/G : [%s] : [%v]", sgIID.SystemId, err)
+						newErr := fmt.Errorf("Failed to Create New Rule to the S/G : [%s] : [%v]", nhnSG.ID, err)
 						cblogger.Error(newErr.Error())
 						LoggingError(callLogInfo, newErr)
 						return irs.SecurityInfo{}, newErr
@@ -296,7 +313,7 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 				createRuleOpts = rules.CreateOpts{
 					Direction:      rules.RuleDirection(direction),
 					EtherType:      rules.EtherType4,
-					SecGroupID:     sgIID.SystemId,
+					SecGroupID:     nhnSG.ID,
 					Protocol:       rules.RuleProtocol(strings.ToLower(curRule.IPProtocol)),
 					RemoteIPPrefix: curRule.CIDR,
 				}
@@ -314,7 +331,7 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 				createRuleOpts = rules.CreateOpts{
 					Direction:      rules.RuleDirection(direction),
 					EtherType:      rules.EtherType4,
-					SecGroupID:     sgIID.SystemId,
+					SecGroupID:     nhnSG.ID,
 					PortRangeMin:   fromPort,
 					PortRangeMax:   toPort,
 					Protocol:       rules.RuleProtocol(strings.ToLower(curRule.IPProtocol)),
@@ -325,7 +342,7 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 			start := call.Start()
 			_, err := rules.Create(securityHandler.NetworkClient, createRuleOpts).Extract()
 			if err != nil {
-				newErr := fmt.Errorf("Failed to Create New Rule to the S/G : [%s] : [%v]", sgIID.SystemId, err)
+				newErr := fmt.Errorf("Failed to Create New Rule to the S/G : [%s] : [%v]", nhnSG.ID, err)
 				cblogger.Error(newErr.Error())
 				LoggingError(callLogInfo, newErr)
 				return irs.SecurityInfo{}, newErr
@@ -340,7 +357,7 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 	// Return Current SecurityGroup Info.
 	securityInfo, err := securityHandler.GetSecurity(sgIID)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the S/G Info : [%s] : [%v]", sgIID.SystemId, err)
+		newErr := fmt.Errorf("Failed to Get the S/G Info : [%s] : [%v]", nhnSG.ID, err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.SecurityInfo{}, newErr
@@ -359,23 +376,15 @@ func (securityHandler *NhnCloudSecurityHandler) RemoveRules(sgIID irs.IID, secur
 	cblogger.Info("NHN Cloud Driver: called RemoveRules()!")
 	callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, sgIID.SystemId, "RemoveRules()")
 
-	if sgIID.SystemId == "" {
-		newErr := fmt.Errorf("Invalid S/G SystemId!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return false, newErr
-	}
-
-	// Check if the S/G exists
-	sgInfo, err := securityHandler.GetSecurity(sgIID)
+	nhnSG, err := securityHandler.getRawSecurity(sgIID)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Find any S/G info. with the SystemId : [%s] : [%v]", sgIID.SystemId, err)
+		newErr := fmt.Errorf("Failed to Get the S/G info from NHNCLOUD!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
 	}
 
-	cblogger.Infof("S/G SystemId to Remove the Rules [%s]", sgInfo.IId.SystemId)
+	cblogger.Infof("S/G SystemId to Remove the Rules [%s]", nhnSG.ID)
 
 	// Deletge the given S/G Rules
 	for _, curRule := range *securityRules {
@@ -428,9 +437,9 @@ func (securityHandler *NhnCloudSecurityHandler) RemoveRules(sgIID irs.IID, secur
 					}
 
 					// Get the Rule ID from the S/G
-					ruleId, err := securityHandler.getRuleIdFromRuleInfo(sgIID, ruleInfo)
+					ruleId, err := securityHandler.getRuleIdFromRuleInfo(nhnSG.ID, ruleInfo)
 					if err != nil {
-						newErr := fmt.Errorf("Failed to Find any S/G info. with the SystemId : [%s] : [%v]", sgIID.SystemId, err)
+						newErr := fmt.Errorf("Failed to Find any S/G info. with the SystemId : [%s] : [%v]", nhnSG.ID, err)
 						cblogger.Error(newErr.Error())
 						LoggingError(callLogInfo, newErr)
 						return false, newErr
@@ -443,7 +452,7 @@ func (securityHandler *NhnCloudSecurityHandler) RemoveRules(sgIID irs.IID, secur
 					delResult := rules.Delete(securityHandler.NetworkClient, ruleId)
 					LoggingInfo(callLogInfo, start)
 					if delResult.Err != nil {
-						newErr := fmt.Errorf("Failed to Remove Rules of the S/G : [%s] : [%v]", sgIID.SystemId, delResult.Err)
+						newErr := fmt.Errorf("Failed to Remove Rules of the S/G : [%s] : [%v]", nhnSG.ID, delResult.Err)
 						cblogger.Error(newErr.Error())
 						LoggingError(callLogInfo, newErr)
 						return false, newErr
@@ -458,9 +467,9 @@ func (securityHandler *NhnCloudSecurityHandler) RemoveRules(sgIID irs.IID, secur
 			}
 		} else {
 			// Get the Rule ID from the S/G
-			ruleId, err := securityHandler.getRuleIdFromRuleInfo(sgIID, curRule)
+			ruleId, err := securityHandler.getRuleIdFromRuleInfo(nhnSG.ID, curRule)
 			if err != nil {
-				newErr := fmt.Errorf("Failed to Find any S/G info. with the SystemId : [%s], [%v]", sgIID.SystemId, err)
+				newErr := fmt.Errorf("Failed to Find any S/G info. with the SystemId : [%s], [%v]", nhnSG.ID, err)
 				cblogger.Error(newErr.Error())
 				LoggingError(callLogInfo, newErr)
 				return false, newErr
@@ -472,7 +481,7 @@ func (securityHandler *NhnCloudSecurityHandler) RemoveRules(sgIID irs.IID, secur
 			start := call.Start()
 			delResult := rules.Delete(securityHandler.NetworkClient, ruleId)
 			if delResult.Err != nil {
-				newErr := fmt.Errorf("Failed to Remove Rules of the S/G : [%s] : [%v]", sgIID.SystemId, delResult.Err)
+				newErr := fmt.Errorf("Failed to Remove Rules of the S/G : [%s] : [%v]", nhnSG.ID, delResult.Err)
 				cblogger.Error(newErr.Error())
 				LoggingError(callLogInfo, newErr)
 				return false, newErr
@@ -593,20 +602,11 @@ func (securityHandler *NhnCloudSecurityHandler) mappingSecurityInfo(nhnSG secgro
 	return secInfo, nil
 }
 
-func (securityHandler *NhnCloudSecurityHandler) getRuleIdFromRuleInfo(sgIID irs.IID, givenRule irs.SecurityRuleInfo) (string, error) {
+func (securityHandler *NhnCloudSecurityHandler) getRuleIdFromRuleInfo(systemId string, givenRule irs.SecurityRuleInfo) (string, error) {
 	cblogger.Info("NHN Cloud Driver: called getRuleIdFromRuleInfo()!")
-	callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, sgIID.SystemId, "getRuleIdFromRuleInfo()")
-
-	// Get NHN Cloud S/G Raw Info
-	nhnSG, err := secgroups.Get(securityHandler.VMClient, sgIID.SystemId).Extract()
-	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(callLogInfo, err)
-		return "", err
-	}
 
 	listOpts := rules.ListOpts{
-		SecGroupID: nhnSG.ID,
+		SecGroupID: systemId,
 	}
 
 	allPages, err := rules.List(securityHandler.NetworkClient, listOpts).AllPages()
@@ -625,7 +625,7 @@ func (securityHandler *NhnCloudSecurityHandler) getRuleIdFromRuleInfo(sgIID irs.
 	var ruleId string
 
 	if len(nhnRuleList) < 1 {
-		cblogger.Infof("$$$ The S/G [%s] contains No Rule!!", nhnSG.ID)
+		cblogger.Infof("$$$ The S/G [%s] contains No Rule!!", systemId)
 		return "", nil // Caution!!
 	} else {
 		// Set Security Rule info. list
