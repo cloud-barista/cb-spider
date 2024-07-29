@@ -13,6 +13,7 @@
 package resources
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -52,6 +53,30 @@ type NhnCloudVMHandler struct {
 	ImageClient   *nhnsdk.ServiceClient
 	NetworkClient *nhnsdk.ServiceClient
 	VolumeClient  *nhnsdk.ServiceClient
+}
+
+func (vmHandler *NhnCloudVMHandler) getRawVM(vmIId irs.IID) (*servers.Server, error) {
+	if vmIId.SystemId == "" && vmIId.NameId == "" {
+		return nil, errors.New("invalid IID")
+	}
+	if vmIId.SystemId == "" {
+		pager, err := servers.List(vmHandler.VMClient, nil).AllPages()
+		if err != nil {
+			return nil, err
+		}
+		rawServers, err := servers.ExtractServers(pager)
+		if err != nil {
+			return nil, err
+		}
+		for _, vm := range rawServers {
+			if vm.Name == vmIId.NameId {
+				return &vm, nil
+			}
+		}
+		return nil, errors.New("VM not found")
+	} else {
+		return servers.Get(vmHandler.VMClient, vmIId.SystemId).Extract()
+	}
 }
 
 func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {

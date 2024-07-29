@@ -323,13 +323,6 @@ func (diskHandler *NhnCloudDiskHandler) AttachDisk(diskIID irs.IID, vmIID irs.II
 	cblogger.Info("NHN Cloud Driver: called AttachDisk()")
 	callLogInfo := getCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, diskIID.SystemId, "AttachDisk()")
 
-	if strings.EqualFold(vmIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid VM SystemId!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.DiskInfo{}, newErr
-	}
-
 	nhnVolume, curStatus, err := diskHandler.getDiskStatus(diskIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Disk Status : [%v] ", err)
@@ -342,11 +335,22 @@ func (diskHandler *NhnCloudDiskHandler) AttachDisk(diskIID irs.IID, vmIID irs.II
 		return irs.DiskInfo{}, newErr
 	}
 
+	vmHandler := NhnCloudVMHandler{
+		VMClient: diskHandler.VMClient,
+	}
+	vm, err := vmHandler.getRawVM(vmIID)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get the VM Info!! : [%v] ", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.DiskInfo{}, newErr
+	}
+
 	start := call.Start()
 	createOpts := volumeattach.CreateOpts{
 		VolumeID: nhnVolume.ID,
 	}
-	_, err = volumeattach.Create(diskHandler.VMClient, vmIID.SystemId, createOpts).Extract()
+	_, err = volumeattach.Create(diskHandler.VMClient, vm.ID, createOpts).Extract()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Attach the Disk Volume!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
@@ -379,13 +383,6 @@ func (diskHandler *NhnCloudDiskHandler) DetachDisk(diskIID irs.IID, vmIID irs.II
 	cblogger.Info("NHN Cloud Driver: called DetachDisk()")
 	callLogInfo := getCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, diskIID.SystemId, "DetachDisk()")
 
-	if strings.EqualFold(vmIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid VM SystemId!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return false, newErr
-	}
-
 	nhnVolume, curStatus, err := diskHandler.getDiskStatus(diskIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Disk Status : [%v] ", err)
@@ -410,8 +407,19 @@ func (diskHandler *NhnCloudDiskHandler) DetachDisk(diskIID irs.IID, vmIID irs.II
 		return false, newErr
 	}
 
+	vmHandler := NhnCloudVMHandler{
+		VMClient: diskHandler.VMClient,
+	}
+	vm, err := vmHandler.getRawVM(vmIID)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get the VM Info!! : [%v] ", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return false, newErr
+	}
+
 	start := call.Start()
-	err = volumeattach.Delete(diskHandler.VMClient, vmIID.SystemId, nhnVolume.ID).ExtractErr()
+	err = volumeattach.Delete(diskHandler.VMClient, vm.ID, nhnVolume.ID).ExtractErr()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Detach the Disk Volume!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
