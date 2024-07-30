@@ -1302,33 +1302,6 @@ func generateAgentPoolProfileList(info irs.ClusterInfo, targetSubnet network.Sub
 	return agentPoolProfiles, nil
 }
 
-func (ac *AzureClusterHandler) getAvailabilityZones() (*[]string, error) {
-	regionZoneHandler := AzureRegionZoneHandler{
-		CredentialInfo:     ac.CredentialInfo,
-		Region:             ac.Region,
-		Ctx:                ac.Ctx,
-		Client:             ac.Client,
-		GroupsClient:       ac.GroupsClient,
-		ResourceSkusClient: ac.ResourceSkusClient,
-	}
-
-	regionZoneInfo, err := regionZoneHandler.GetRegionZone(ac.Region.Region)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(regionZoneInfo.ZoneList) == 0 {
-		return nil, nil
-	}
-
-	var availabilityZones []string
-	for _, zone := range regionZoneInfo.ZoneList {
-		availabilityZones = append(availabilityZones, zone.Name)
-	}
-
-	return &availabilityZones, nil
-}
-
 func generateAgentPoolProfileProperties(nodeGroupInfo irs.NodeGroupInfo, subnet network.Subnet, ac *AzureClusterHandler) (containerservice.ManagedClusterAgentPoolProfileProperties, error) {
 	var nodeOSDiskSize *int32
 
@@ -1342,15 +1315,7 @@ func generateAgentPoolProfileProperties(nodeGroupInfo irs.NodeGroupInfo, subnet 
 		nodeOSDiskSize = to.Int32Ptr(int32(osDiskSize))
 	}
 
-	availabilityZones, err := ac.getAvailabilityZones()
-	if err != nil {
-		return containerservice.ManagedClusterAgentPoolProfileProperties{}, err
-	}
-
-	var targetZones *[]string = nil
-	if availabilityZones != nil && len(*availabilityZones) > 0 {
-		targetZones = &[]string{ac.Region.Zone}
-	}
+	targetZones := &[]string{ac.Region.Zone}
 
 	agentPoolProfileProperties := containerservice.ManagedClusterAgentPoolProfileProperties{
 		// Name:         to.StringPtr(nodeGroupInfo.IId.NameId),
@@ -1385,15 +1350,7 @@ func generateAgentPoolProfile(nodeGroupInfo irs.NodeGroupInfo, subnet network.Su
 		nodeOSDiskSize = to.Int32Ptr(int32(osDiskSize))
 	}
 
-	availabilityZones, err := ac.getAvailabilityZones()
-	if err != nil {
-		return containerservice.ManagedClusterAgentPoolProfile{}, err
-	}
-
-	var targetZones *[]string = nil
-	if availabilityZones != nil && len(*availabilityZones) > 0 {
-		targetZones = &[]string{ac.Region.Zone}
-	}
+	targetZones := &[]string{ac.Region.Zone}
 
 	agentPoolProfile := containerservice.ManagedClusterAgentPoolProfile{
 		Name:               to.StringPtr(nodeGroupInfo.IId.NameId),
