@@ -438,8 +438,8 @@ func RunServer() {
 		//----------Tag Handler
 		{"POST", "/tag", AddTag},
 		{"GET", "/tag", ListTag},
-		{"GET", "/tag/:Name", GetTag},
-		{"DELETE", "/tag/:Name", RemoveTag},
+		{"GET", "/tag/:Key", GetTag},
+		{"DELETE", "/tag/:Key", RemoveTag},
 
 		//----------Destory All Resources in a Connection
 		{"DELETE", "/destroy", Destroy},

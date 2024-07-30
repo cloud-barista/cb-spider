@@ -29,11 +29,16 @@
         font-size: 16px;
         margin: 10px 0;
     }
+    h3 {
+        font-size: 14px;
+        margin: 10px 0;
+        margin-left: 1cm;
+    }
     table {
         width: 100%;
         border-collapse: collapse;
         table-layout: fixed;
-        margin-bottom: 0; /* Remove margin at the bottom of the table */
+        margin-bottom: 0;
     }
     th, td {
         border: 1px solid black;
@@ -67,6 +72,29 @@
         padding: 20px;
         border-radius: 5px;
         text-align: left;
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+    }
+    .tag-overlay {
+        display: none;
+        position: absolute;
+        background-color: white;
+        border: 1px solid black;
+        padding: 20px;
+        z-index: 1001;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        max-width: 300px;
+        word-wrap: break-word;
+    }
+    .tag-overlay .close-btn {
+        position: absolute;
+        top: 5px;
+        right: 10px;
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
     }
     .fixed-header {
         position: fixed;
@@ -136,11 +164,32 @@
         text-align: right;
         margin-right: 10px;
     }
-    .form-group input {
+    .form-group input, .form-group textarea {
         flex: 2;
     }
     .form-group button {
         margin-left: 10px;
+    }
+    .form-group .tag-inputs {
+        display: flex;
+        flex: 2;
+        margin-left: 10px;
+    }
+    .form-group .tag-inputs input {
+        flex: 1;
+        margin-right: 5px;
+    }
+    .tag-input-group {
+        display: flex;
+        align-items: center;
+        flex: 2;
+    }
+    .tag-input-group input {
+        flex: 0.5;
+        margin-right: 5px;
+    }
+    .tag-input-group button {
+        margin-left: 5px;
     }
     .error-message {
         background-color: #F8D7DA;
@@ -166,24 +215,29 @@
         border-radius: 3px;
         padding: 2px 5px;
         margin: 2px;
-        white-space: nowrap; /* Ensure tags do not wrap to a new line */
-        overflow: hidden; /* Ensure tags do not overflow their container */
-        text-overflow: ellipsis; /* Ensure tags are properly truncated */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: pointer;
+        max-width: calc(100% - 2ch); /* 기존보다 2문자 길이 줄이기 */
+    }
+    .tag-container:hover {
+        background-color: #c1e1c1;
     }
     .vpc-name {
-        width: 10%; /* Reduced width for Name */
+        width: 10%;
     }
     .vpc-cidr {
-        width: 10%; /* Reduced width for CIDR */
+        width: 10%;
     }
     .subnet-info {
-        width: 35%; /* Slightly increased width for Subnet Info */
+        width: 40%;
     }
     .tags {
-        width: 25%; /* Increased width for Cloud Tags */
+        width: 15%;
     }
     .misc {
-        width: 15%; /* Adjusted width for Misc */
+        width: 15%;
     }
     .inner-table th {
         background-color: #f9f9f9;
@@ -195,29 +249,30 @@
         text-align: center;
     }
     .inner-table .tags-cell {
-        text-align: left; /* Left align for Cloud Tags cell */
-        width: 50%; /* Increased width for Cloud Tags cell */
+        text-align: left;
+        width: 50%;
     }
     .inner-table .actions-cell {
-        width: 5%; /* Reduced width for actions cell */
+        width: 10%;
     }
     .inner-table .tags-cell div {
         display: inline-block;
         padding: 2px 5px;
-        max-width: 100%;
-        white-space: nowrap; /* Ensure tags do not wrap to a new line */
-        overflow: hidden; /* Ensure tags do not overflow their container */
-        text-overflow: ellipsis; /* Ensure tags are properly truncated */
+        max-width: calc(100% - 2ch); /* 기존보다 2문자 길이 줄이기 */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     .inner-table button.delete-btn {
-        width: auto; /* Restore original width for delete button */
-        font-size: 14px; /* Match VPC button font size */
-        font-weight: bold; /* Match VPC button font weight */
+        width: auto;
+        font-size: 12px;
+        font-weight: bold;
+        color: red;
     }
     .inner-table button.add-btn {
-        width: auto; /* Reduced width for add button */
-        font-size: 14px; /* Match VPC button font size */
-        font-weight: bold; /* Match VPC button font weight */
+        width: auto;
+        font-size: 12px;
+        font-weight: bold;
     }
 </style>
 <script>
@@ -341,9 +396,11 @@
     function validateForm() {
         const vpcName = document.getElementById('vpcName').value;
         const vpcCIDR = document.getElementById('vpcCIDR').value;
-        const subnetInfo = document.getElementById('subnetInfo').value;
+        const subnetName = document.getElementById('subnetName').value;
+        const subnetCIDR = document.getElementById('subnetCIDR').value;
+        const subnetZone = document.getElementById('subnetZone').value;
 
-        if (!vpcName || !vpcCIDR || !subnetInfo) {
+        if (!vpcName || !vpcCIDR || !subnetName || !subnetCIDR || !subnetZone) {
             alert("Please fill in all the fields.");
             return false;
         }
@@ -358,14 +415,28 @@
         const connConfig = document.getElementById('connConfig').value;
         const vpcName = document.getElementById('vpcName').value;
         const vpcCIDR = document.getElementById('vpcCIDR').value;
-        const subnetInfo = document.getElementById('subnetInfo').value;
+        const subnetInfo = [{
+            Name: document.getElementById('subnetName').value,
+            IPv4_CIDR: document.getElementById('subnetCIDR').value,
+            Zone: document.getElementById('subnetZone').value,
+            TagList: Array.from(document.querySelectorAll('.subnet-tag-input')).map(tagInput => ({
+                Key: tagInput.querySelector('.subnet-tag-key').value,
+                Value: tagInput.querySelector('.subnet-tag-value').value
+            }))
+        }];
+
+        const tags = Array.from(document.querySelectorAll('.vpc-tag-input')).map(tagInput => ({
+            Key: tagInput.querySelector('.vpc-tag-key').value,
+            Value: tagInput.querySelector('.vpc-tag-value').value
+        }));
 
         const data = {
             ConnectionName: connConfig,
             ReqInfo: {
                 Name: vpcName,
                 IPv4_CIDR: vpcCIDR,
-                SubnetInfoList: JSON.parse(subnetInfo)
+                SubnetInfoList: subnetInfo,
+                TagList: tags
             }
         };
 
@@ -395,8 +466,21 @@
     }
 
     function showOverlay() {
+        const region = '{{.RegionName}}';
+        const vpcNameInput = document.getElementById('vpcName');
+        const subnetNameInput = document.getElementById('subnetName');
+        const zoneInput = document.getElementById('subnetZone');
+        const zone = '{{.Zone}}';  // 현재 Zone 정보
+
+        vpcNameInput.value = `${region}-vpc-${Math.random().toString(36).substring(2, 5)}`;
+        document.getElementById('vpcCIDR').value = '10.0.0.0/16';
+        zoneInput.value = zone;
+        subnetNameInput.value = `${region}-${zone}-subnet-${Math.random().toString(36).substring(2, 5)}`;
+        document.getElementById('subnetCIDR').value = '10.0.1.0/24';
+
         document.getElementById('overlay').style.display = 'flex';
         document.addEventListener('keydown', handleEsc);
+        clearFormFields();
     }
 
     function hideOverlay() {
@@ -412,16 +496,34 @@
     }
 
     function clearFormFields() {
-        document.getElementById('vpcName').value = '';
-        document.getElementById('vpcCIDR').value = '';
-        document.getElementById('subnetInfo').value = '';
+        const region = '{{.RegionName}}';
+        const zone = '{{.Zone}}';  // 현재 Zone 정보
+        const vpcNameInput = document.getElementById('vpcName');
+        const subnetNameInput = document.getElementById('subnetName');
+        const zoneInput = document.getElementById('subnetZone');
+
+        vpcNameInput.value = `${region}-vpc-${Math.random().toString(36).substring(2, 5)}`;
+        document.getElementById('vpcCIDR').value = '10.0.0.0/16';
+        zoneInput.value = zone;
+        subnetNameInput.value = `${region}-${zone}-subnet-${Math.random().toString(36).substring(2, 5)}`;
+        document.getElementById('subnetCIDR').value = '10.0.1.0/24';
+
+        document.querySelectorAll('.vpc-tag-input, .subnet-tag-input').forEach(tagInput => tagInput.remove());
     }
 
     function showSubnetOverlay(vpcName) {
+        const region = '{{.RegionName}}';
+        const zone = '{{.Zone}}';  // 현재 Zone 정보
+
         document.getElementById('subnetVPCName').value = vpcName;
         document.getElementById('subnetVPCNameDisplay').value = vpcName;
+        document.getElementById('subnetZone').value = zone;
+        document.getElementById('subnetName').value = `${region}-${zone}-subnet-${Math.random().toString(36).substring(2, 5)}`;
+        document.getElementById('subnetCIDR').value = '10.0.1.0/24';
+
         document.getElementById('subnet-overlay').style.display = 'flex';
         document.addEventListener('keydown', handleEscSubnet);
+        clearSubnetFormFields();
     }
 
     function hideSubnetOverlay() {
@@ -437,10 +539,7 @@
     }
 
     function clearSubnetFormFields() {
-        document.getElementById('subnetVPCName').value = '';
-        document.getElementById('subnetName').value = '';
-        document.getElementById('subnetCIDR').value = '';
-        document.getElementById('subnetZone').value = '';
+        document.querySelectorAll('.subnet-tag-input').forEach(tagInput => tagInput.remove());
     }
 
     function addSubnet() {
@@ -455,7 +554,11 @@
             ReqInfo: {
                 Name: subnetName,
                 IPv4_CIDR: subnetCIDR,
-                Zone: subnetZone
+                Zone: subnetZone,
+                TagList: Array.from(document.querySelectorAll('.subnet-tag-input')).map(tagInput => ({
+                    Key: tagInput.querySelector('.subnet-tag-key').value,
+                    Value: tagInput.querySelector('.subnet-tag-value').value
+                }))
             }
         };
 
@@ -515,6 +618,69 @@
             showError("Error deleting Subnet: " + error.message, "Subnet Name: " + subnetName);
         });
     }
+
+    function showTagOverlay(event, tag) {
+        event.stopPropagation();
+        const tagOverlay = document.getElementById('tag-overlay');
+        const tagOverlayContent = document.querySelector('.tag-overlay-content');
+        tagOverlayContent.innerHTML = `
+            <button class="close-btn" onclick="closeTagOverlay()">x</button>
+            <p>${tag}</p>
+        `;
+        tagOverlay.style.display = 'block';
+        tagOverlay.style.top = `${event.clientY}px`;
+        tagOverlay.style.left = `${event.clientX}px`;
+        document.addEventListener('click', handleClickOutsideOverlay);
+        document.addEventListener('keydown', handleEscTagOverlay);
+    }
+
+    function closeTagOverlay() {
+        const tagOverlay = document.getElementById('tag-overlay');
+        tagOverlay.style.display = 'none';
+        document.removeEventListener('click', handleClickOutsideOverlay);
+        document.removeEventListener('keydown', handleEscTagOverlay);
+    }
+
+    function handleEscTagOverlay(event) {
+        if (event.key === "Escape") {
+            closeTagOverlay();
+        }
+    }
+
+    function handleClickOutsideOverlay(event) {
+        const tagOverlay = document.getElementById('tag-overlay');
+        if (!tagOverlay.contains(event.target)) {
+            closeTagOverlay();
+        }
+    }
+
+    function addVPCTagField() {
+        const tagContainer = document.getElementById('vpc-tag-container');
+        const tagInput = document.createElement('div');
+        tagInput.className = 'vpc-tag-input tag-input-group';
+        tagInput.innerHTML = `
+            <input type="text" class="vpc-tag-key" placeholder="Key" required>
+            <input type="text" class="vpc-tag-value" placeholder="Value" required>
+            <button type="button" onclick="removeTagField(this)">-</button>
+        `;
+        tagContainer.appendChild(tagInput);
+    }
+
+    function addSubnetTagField() {
+        const tagContainer = document.getElementById('subnet-tag-container');
+        const tagInput = document.createElement('div');
+        tagInput.className = 'subnet-tag-input tag-input-group';
+        tagInput.innerHTML = `
+            <input type="text" class="subnet-tag-key" placeholder="Key" required>
+            <input type="text" class="subnet-tag-value" placeholder="Value" required>
+            <button type="button" onclick="removeTagField(this)">-</button>
+        `;
+        tagContainer.appendChild(tagInput);
+    }
+
+    function removeTagField(button) {
+        button.parentElement.remove();
+    }
 </script>
 </head>
 <body>
@@ -536,7 +702,7 @@
                 <th class="vpc-name center-align">Name</th>
                 <th class="vpc-cidr center-align">CIDR</th>
                 <th class="subnet-info">Subnet Info</th>
-                <th class="tags center-align">Cloud Tags</th>
+                <th class="tags center-align">Tags</th>
                 <th class="misc center-align">Misc</th>
                 <th class="checkbox-cell center-align"><input type="checkbox" onclick="toggleSelectAll(this)"></th>
             </tr>
@@ -551,7 +717,7 @@
                             <th>Name</th>
                             <th>CIDR</th>
                             <th>Zone</th>
-                            <th>Cloud Tags</th>
+                            <th>Tags</th>
                             <th><button class="add-btn" onclick="showSubnetOverlay('{{$vpcNameId}}')">+</button></th>
                         </tr>
                         {{range .SubnetInfoList}}
@@ -561,11 +727,11 @@
                             <td>{{.Zone}}</td>
                             <td class="tags-cell">
                                 {{range .TagList}}
-                                    <div class="tag-container">{{.Key}}: {{.Value}}</div>
+                                    <div class="tag-container" onclick="showTagOverlay(event, '{{.Key}}: {{.Value}}')">{{.Key}}: {{.Value}}</div>
                                 {{end}}
                             </td>
                             <td class="actions-cell">
-                                <button class="delete-btn" onclick="deleteSubnet('{{$vpcNameId}}', '{{.IId.NameId}}')">-</button>
+                                <button class="delete-btn" onclick="deleteSubnet('{{$vpcNameId}}', '{{.IId.NameId}}')">x</button>
                             </td>
                         </tr>
                         {{end}}
@@ -573,7 +739,7 @@
                 </td>
                 <td class="tags">
                     {{range .TagList}}
-                        <div class="tag-container">{{.Key}}: {{.Value}}</div>
+                        <div class="tag-container" onclick="showTagOverlay(event, '{{.Key}}: {{.Value}}')">{{.Key}}: {{.Value}}</div>
                     {{end}}
                 </td>
                 <td class="misc">
@@ -595,20 +761,48 @@
             <h2>Add New VPC/Subnet</h2>
             <form id="addVPCForm" onsubmit="event.preventDefault(); postVPC();">
                 <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
-                <div class="form-group">
-                    <label for="vpcName">VPC Name:</label>
-                    <input type="text" id="vpcName" name="vpcName" required>
+                <div id="vpc-info-group">
+                    <h3>VPC Info:</h3>
+                    <div class="form-group">
+                        <label for="vpcName">Name:</label>
+                        <input type="text" id="vpcName" name="vpcName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="vpcCIDR">CIDR:</label>
+                        <input type="text" id="vpcCIDR" name="vpcCIDR" required>
+                    </div>
+                    <div class="form-group" style="padding-left: 145px;">
+                        <label for="vpcTags">Tags:</label>
+                        <div id="vpc-tag-container">
+                            <!-- 초기 화면에서는 비워둠 -->
+                        </div>
+                        <button type="button" onclick="addVPCTagField()">+</button>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="vpcCIDR">VPC CIDR:</label>
-                    <input type="text" id="vpcCIDR" name="vpcCIDR" required>
+                <div id="subnet-info-group" style="margin-top: 20px;">
+                    <h3>Subnet Info:</h3>
+                    <div class="form-group">
+                        <label for="subnetName">Name:</label>
+                        <input type="text" id="subnetName" name="subnetName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="subnetCIDR">CIDR:</label>
+                        <input type="text" id="subnetCIDR" name="subnetCIDR" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="subnetZone">Zone:</label>
+                        <input type="text" id="subnetZone" name="subnetZone" required>
+                    </div>
+                    <div class="form-group" style="padding-left: 145px;">
+                        <label for="subnetTags">Tags:</label>
+                        <div id="subnet-tag-container">
+                            <!-- 초기 화면에서는 비워둠 -->
+                        </div>
+                        <button type="button" onclick="addSubnetTagField()">+</button>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label for="subnetInfo">Subnet Info:</label>
-                    <textarea id="subnetInfo" name="subnetInfo" rows="5" cols="33" required>[{ "Name": "subnet-01", "Zone": "zone-1", "IPv4_CIDR": "10.0.1.0/24" }]</textarea>
-                </div>
-                <div class="form-group">
-                    <button type="submit">Add VPC</button>
+                <div class="form-group" style="margin-top: 20px;padding-left: 30px;">
+                    <button type="submit">Add VPC/Subnet</button>
                     <button type="button" onclick="hideOverlay()">Cancel</button>
                 </div>
             </form>
@@ -626,23 +820,34 @@
                     <input type="text" id="subnetVPCNameDisplay" name="subnetVPCNameDisplay" readonly>
                 </div>
                 <div class="form-group">
-                    <label for="subnetName">Subnet Name:</label>
+                    <label for="subnetName">Name:</label>
                     <input type="text" id="subnetName" name="subnetName" required>
                 </div>
                 <div class="form-group">
-                    <label for="subnetCIDR">Subnet CIDR:</label>
+                    <label for="subnetCIDR">CIDR:</label>
                     <input type="text" id="subnetCIDR" name="subnetCIDR" required>
                 </div>
                 <div class="form-group">
-                    <label for="subnetZone">Subnet Zone:</label>
+                    <label for="subnetZone">Zone:</label>
                     <input type="text" id="subnetZone" name="subnetZone" required>
                 </div>
-                <div class="form-group">
+                <div class="form-group" style="padding-left: 20px;">
+                    <label for="subnetTags">Tags:</label>
+                    <div id="subnet-tag-container">
+                        <!-- 초기 화면에서는 비워둠 -->
+                    </div>
+                    <button type="button" onclick="addSubnetTagField()">+</button>
+                </div>
+                <div class="form-group" style="margin-top: 20px;">
                     <button type="submit">Add Subnet</button>
                     <button type="button" onclick="hideSubnetOverlay()">Cancel</button>
                 </div>
             </form>
         </div>
+    </div>
+
+    <div id="tag-overlay" class="tag-overlay">
+        <div class="tag-overlay-content"></div>
     </div>
 
     <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">

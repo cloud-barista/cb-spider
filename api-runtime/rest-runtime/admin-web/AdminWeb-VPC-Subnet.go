@@ -69,6 +69,16 @@ func VPCSubnetManagement(c echo.Context) error {
 		return c.HTML(http.StatusOK, htmlStr)
 	}
 
+	regionName, err := getRegionName(connConfig)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	region, zone, err := getRegionZone(regionName)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
 	// Fetch VPCs
 	vpcs, err := fetchVPCs(connConfig)
 	if err != nil {
@@ -77,9 +87,15 @@ func VPCSubnetManagement(c echo.Context) error {
 
 	data := struct {
 		ConnectionConfig string
+		RegionName       string
+		Region           string
+		Zone             string
 		VPCs             []*cres.VPCInfo
 	}{
 		ConnectionConfig: connConfig,
+		RegionName:       regionName,
+		Region:           region,
+		Zone:             zone,
 		VPCs:             vpcs,
 	}
 

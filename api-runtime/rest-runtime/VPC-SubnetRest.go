@@ -10,6 +10,7 @@ package restruntime
 
 import (
 	cmrt "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
+
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
 	// REST API (echo)
@@ -17,6 +18,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	dri "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"strconv"
 )
 
@@ -144,7 +146,9 @@ type vpcCreateReq struct {
 			Name      string
 			Zone      string
 			IPv4_CIDR string
+			TagList   []dri.KeyValue
 		}
+		TagList []dri.KeyValue
 	}
 }
 
@@ -172,7 +176,7 @@ func CreateVPC(c echo.Context) error {
 	// (1) create SubnetInfo List
 	subnetInfoList := []cres.SubnetInfo{}
 	for _, info := range req.ReqInfo.SubnetInfoList {
-		subnetInfo := cres.SubnetInfo{IId: cres.IID{info.Name, ""}, IPv4_CIDR: info.IPv4_CIDR, Zone: info.Zone}
+		subnetInfo := cres.SubnetInfo{IId: cres.IID{info.Name, ""}, IPv4_CIDR: info.IPv4_CIDR, Zone: info.Zone, TagList: info.TagList}
 		subnetInfoList = append(subnetInfoList, subnetInfo)
 	}
 	// (2) create VPCReqInfo with SubnetInfo List
@@ -180,6 +184,7 @@ func CreateVPC(c echo.Context) error {
 		IId:            cres.IID{req.ReqInfo.Name, ""},
 		IPv4_CIDR:      req.ReqInfo.IPv4_CIDR,
 		SubnetInfoList: subnetInfoList,
+		TagList:        req.ReqInfo.TagList,
 	}
 
 	// Call common-runtime API
