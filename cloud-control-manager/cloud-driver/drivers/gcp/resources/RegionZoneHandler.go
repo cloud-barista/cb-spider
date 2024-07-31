@@ -147,9 +147,10 @@ func (regionZoneHandler *GCPRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 
 	if len(errlist) > 0 {
 		errlistjoin := errors.Join(errlist...)
+		cblogger.Error("ListRegionZone() error : ", errlistjoin)
 		return regionZoneInfoList, errlistjoin
 	}
-	
+
 	return regionZoneInfoList, nil
 }
 func (regionZoneHandler *GCPRegionZoneHandler) ListOrgRegion() (string, error) {

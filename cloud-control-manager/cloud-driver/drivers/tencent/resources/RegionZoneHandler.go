@@ -76,6 +76,7 @@ func (regionZoneHandler *TencentRegionZoneHandler) ListRegionZone() ([]*irs.Regi
 
 	if len(errlist) > 0 {
 		errlistjoin := errors.Join(errlist...)
+		cblogger.Error("ListRegionZone() error : ", errlistjoin)
 		return regionZoneInfoList, errlistjoin
 	}
 
