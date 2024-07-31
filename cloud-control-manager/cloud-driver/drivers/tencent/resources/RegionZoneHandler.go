@@ -1,6 +1,7 @@
 package resources
 
 import (
+	"errors"
 	"sync"
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -25,7 +26,7 @@ func (regionZoneHandler *TencentRegionZoneHandler) ListRegionZone() ([]*irs.Regi
 
 	chanRegionZoneInfos := make(chan irs.RegionZoneInfo, len(responseRegions.Response.RegionSet))
 	var wg sync.WaitGroup
-
+	var errlist []error
 	clientProfile := profile.NewClientProfile()
 	clientProfile.Language = "en-US" // lang default set is zh-CN -> set as en-US.
 
@@ -36,11 +37,13 @@ func (regionZoneHandler *TencentRegionZoneHandler) ListRegionZone() ([]*irs.Regi
 			tempClient, err := cvm.NewClient(regionZoneHandler.Client.Client.GetCredential(), *region.Region, clientProfile)
 			if err != nil {
 				cblogger.Error("NewClient failed on ", region, err.Error())
+				errlist = append(errlist, err)
 				return
 			}
 			responseZones, err := DescribeZones(tempClient)
 			if err != nil {
 				cblogger.Error("DescribeZones failed ", err.Error())
+				errlist = append(errlist, err)
 				return
 			}
 			var zoneInfoList []irs.ZoneInfo
@@ -49,16 +52,6 @@ func (regionZoneHandler *TencentRegionZoneHandler) ListRegionZone() ([]*irs.Regi
 				zoneInfo.Name = *zone.Zone
 				zoneInfo.DisplayName = *zone.ZoneName
 				zoneInfo.Status = GetZoneStatus(*zone.ZoneState)
-
-				// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
-				// keyValueList, err := ConvertKeyValueList(zone)
-				// if err != nil {
-				// 	cblogger.Errorf("err : ConvertKeyValueList [%s]", *zone.ZoneName)
-				// 	cblogger.Error(err)
-				// 	keyValueList = nil
-				// }
-				// zoneInfo.KeyValueList = keyValueList
-
 				zoneInfoList = append(zoneInfoList, zoneInfo)
 			}
 
@@ -67,15 +60,6 @@ func (regionZoneHandler *TencentRegionZoneHandler) ListRegionZone() ([]*irs.Regi
 			regionInfo.DisplayName = *region.RegionName
 			regionInfo.ZoneList = zoneInfoList
 			chanRegionZoneInfos <- regionInfo
-			// regionZoneInfoList = append(regionZoneInfoList, &regionInfo)
-			// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
-			// keyValueList, err := ConvertKeyValueList(region)
-			// if err != nil {
-			// 	cblogger.Errorf("err : ConvertKeyValueList [%s]", *region.Region)
-			// 	cblogger.Error(err)
-			// 	keyValueList = nil
-			// }
-			// regionInfo.KeyValueList = keyValueList
 
 		}(region)
 
@@ -88,6 +72,11 @@ func (regionZoneHandler *TencentRegionZoneHandler) ListRegionZone() ([]*irs.Regi
 	for regionZoneInfo := range chanRegionZoneInfos {
 		insertRegionZoneInfo := regionZoneInfo
 		regionZoneInfoList = append(regionZoneInfoList, &insertRegionZoneInfo)
+	}
+
+	if len(errlist) > 0 {
+		errlistjoin := errors.Join(errlist...)
+		return regionZoneInfoList, errlistjoin
 	}
 
 	return regionZoneInfoList, nil

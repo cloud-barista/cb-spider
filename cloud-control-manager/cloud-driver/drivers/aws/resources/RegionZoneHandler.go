@@ -1,6 +1,7 @@
 package resources
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -24,6 +25,7 @@ func (regionZoneHandler *AwsRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 		return nil, err
 	}
 
+	var errlist []error
 	chanRegionZoneInfos := make(chan irs.RegionZoneInfo, len(responseRegions.Regions))
 	var wg sync.WaitGroup
 	for _, region := range responseRegions.Regions {
@@ -41,10 +43,9 @@ func (regionZoneHandler *AwsRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 
 			responseZones, err := DescribeAvailabilityZones(tempclient, false)
 			if err != nil {
-				cblogger.Infof("AuthFailure on [%s]", *region.RegionName)
+				cblogger.Infof("error on [%s]", *region.RegionName)
 				cblogger.Infof(err.Error())
-				// cblogger.Errorf("AuthFailure on [%s]", *region.RegionName)
-				// cblogger.Error(err)
+				errlist = append(errlist, err)
 			} else {
 				var zoneInfoList []irs.ZoneInfo
 				for _, zone := range responseZones.AvailabilityZones {
@@ -52,12 +53,6 @@ func (regionZoneHandler *AwsRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 					zoneInfo.Name = *zone.ZoneName
 					zoneInfo.DisplayName = *zone.ZoneName
 					zoneInfo.Status = GetZoneStatus(*zone.State)
-					// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
-					// zoneInfo.KeyValueList, err = ConvertKeyValueList(zone)
-					// if err != nil {
-					// 	cblogger.Error(err)
-					// 	zoneInfo.KeyValueList = nil
-					// }
 					zoneInfoList = append(zoneInfoList, zoneInfo)
 				}
 				regionInfo := irs.RegionZoneInfo{}
@@ -66,14 +61,6 @@ func (regionZoneHandler *AwsRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 				regionInfo.ZoneList = zoneInfoList
 
 				chanRegionZoneInfos <- regionInfo
-
-				// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
-				// regionInfo.KeyValueList, err = ConvertKeyValueList(region)
-				// if err != nil {
-				// 	cblogger.Error(err)
-				// 	regionInfo.KeyValueList = nil
-				// }
-				// regionZoneInfoList = append(regionZoneInfoList, &regionInfo)
 			}
 		}(region)
 
@@ -85,6 +72,11 @@ func (regionZoneHandler *AwsRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 	for regionZoneInfo := range chanRegionZoneInfos {
 		insertRegionZoneInfo := regionZoneInfo
 		regionZoneInfoList = append(regionZoneInfoList, &insertRegionZoneInfo)
+	}
+
+	if len(errlist) > 0 {
+		errlistjoin := errors.Join(errlist...)
+		return regionZoneInfoList, errlistjoin
 	}
 
 	return regionZoneInfoList, nil
@@ -99,11 +91,9 @@ func (regionZoneHandler *AwsRegionZoneHandler) GetRegionZone(Name string) (irs.R
 
 	var regionZoneInfo irs.RegionZoneInfo
 	for _, region := range responseRegions.Regions {
-		cblogger.Debug("####################", region.RegionName)
+		cblogger.Debug("#################### region.RegionName", region.RegionName)
 		sess, err := session.NewSession(&aws.Config{
 			Region: region.RegionName,
-			//Region: aws.String("us-west-1"),
-
 		})
 		if err != nil {
 			cblogger.Error(err)
@@ -112,7 +102,7 @@ func (regionZoneHandler *AwsRegionZoneHandler) GetRegionZone(Name string) (irs.R
 
 		responseZones, err := DescribeAvailabilityZones(tempclient, false)
 		if err != nil {
-			cblogger.Errorf("AuthFailure on [%s]", *region.RegionName)
+			cblogger.Errorf("error on [%s]", *region.RegionName)
 			cblogger.Error(err)
 		} else {
 			var zoneInfoList []irs.ZoneInfo
@@ -122,27 +112,12 @@ func (regionZoneHandler *AwsRegionZoneHandler) GetRegionZone(Name string) (irs.R
 				zoneInfo.DisplayName = *zone.ZoneName
 				zoneInfo.Status = GetZoneStatus(*zone.State)
 
-				// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
-				// zoneInfo.KeyValueList, err = ConvertKeyValueList(zone)
-				// if err != nil {
-				// 	cblogger.Error(err)
-				// 	zoneInfo.KeyValueList = nil
-				// }
-
 				zoneInfoList = append(zoneInfoList, zoneInfo)
 			}
 
 			regionZoneInfo.Name = *region.RegionName
 			regionZoneInfo.DisplayName = *region.RegionName
 			regionZoneInfo.ZoneList = zoneInfoList
-
-			// // keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
-			// regionZoneInfo.KeyValueList, err = ConvertKeyValueList(region)
-			// if err != nil {
-			// 	cblogger.Error(err)
-			// 	regionZoneInfo.KeyValueList = nil
-			// }
-
 		}
 	}
 
