@@ -258,32 +258,30 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 											return
 										}
 
-										var imageVersions []string
-										for _, iv := range *imageVersionList.Value {
-											if iv.ID == nil {
-												continue
-											}
-											imageVersions = append(imageVersions, *iv.ID)
+										if len(*imageVersionList.Value) == 0 {
+											return
 										}
-										sort.Strings(skuNames)
 
-										for _, vID := range imageVersions {
-											imageIdArr := strings.Split(vID, "/")
-											imageVersion := imageIdArr[len(imageIdArr)-1]
-
-											vmImage, err := imageHandler.VMImageClient.Get(ctx, imageHandler.Region.Region, pName, oName, sName, imageVersion)
-											if err != nil {
-												errMutex.Lock()
-												errList = append(errList, err.Error())
-												errMutex.Unlock()
-
-												continue
-											}
-											vmImageInfo := imageHandler.setterVMImage(vmImage)
-											mutex.Lock()
-											imageList = append(imageList, vmImageInfo)
-											mutex.Unlock()
+										latest := (*imageVersionList.Value)[len(*imageVersionList.Value)-1]
+										if latest.ID == nil {
+											return
 										}
+
+										imageIdArr := strings.Split(*latest.ID, "/")
+										imageVersion := imageIdArr[len(imageIdArr)-1]
+
+										vmImage, err := imageHandler.VMImageClient.Get(ctx, imageHandler.Region.Region, pName, oName, sName, imageVersion)
+										if err != nil {
+											errMutex.Lock()
+											errList = append(errList, err.Error())
+											errMutex.Unlock()
+
+											return
+										}
+										vmImageInfo := imageHandler.setterVMImage(vmImage)
+										mutex.Lock()
+										imageList = append(imageList, vmImageInfo)
+										mutex.Unlock()
 									}(&wait3, skuNames[i])
 
 									i++
