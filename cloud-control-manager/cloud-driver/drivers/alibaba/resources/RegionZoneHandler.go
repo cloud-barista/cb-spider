@@ -5,6 +5,7 @@ package resources
 // https://next.api.alibabacloud.com/api/Ecs/2014-05-26/DescribeRegions?lang=GO
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
@@ -19,79 +20,32 @@ type AlibabaRegionZoneHandler struct {
 
 // 모든 Region 및 Zone 정보 조회
 func (regionZoneHandler AlibabaRegionZoneHandler) ListRegionZone() ([]*irs.RegionZoneInfo, error) {
-	// request := ecs.CreateDescribeRegionsRequest()
-	// request.AcceptLanguage = "en-US" // Only Chinese (zh-CN : default), English (en-US), and Japanese (ja) are allowed
-
-	// callogger := call.GetLogger("HISCALL")
-	// callLogInfo := call.CLOUDLOGSCHEMA{
-	// 	CloudOS:      call.ALIBABA,
-	// 	RegionZone:   regionZoneHandler.Region.Zone,
-	// 	ResourceType: call.REGIONZONE,
-	// 	ResourceName: "Regions",
-	// 	CloudOSAPI:   "ListRegionZone()",
-	// 	ElapsedTime:  "",
-	// 	ErrorMSG:     "",
-	// }
-	// callLogStart := call.Start()
-	// result, err := regionZoneHandler.Client.DescribeRegions(request)
-	// callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	// if err != nil {
-	// 	callLogInfo.ErrorMSG = err.Error()
-	// 	callogger.Error(call.String(callLogInfo))
-	// 	return regionZoneInfoList, err
-	// }
-	// callogger.Info(call.String(callLogInfo))
 	result, err := DescribeRegions(regionZoneHandler.Client)
 	if err != nil {
 		return nil, err
 	}
 
 	chanRegionZoneInfos := make(chan irs.RegionZoneInfo, len(result.Regions.Region))
+	var errlist []error
 	var wg sync.WaitGroup
 	for _, item := range result.Regions.Region {
 		wg.Add(1)
 		go func(item ecs.Region) {
 			defer wg.Done()
-			// regionStatus := GetRegionStatus(item.Status)
-			// cblogger.Info("regionStatus ", regionStatus)
 			regionId := item.RegionId
-			// ZoneList
 			var zoneInfoList []irs.ZoneInfo
 			cblogger.Debug("regionId ", regionId)
 			zonesResult, err := DescribeZonesByRegion(regionZoneHandler.Client, regionId)
 			if err != nil {
-				cblogger.Error("DescribeZone failed ", err)
+				cblogger.Error("DescribeZone failed ", err.Error())
+				errlist = append(errlist, err)
+				return
 			}
 			for _, zone := range zonesResult.Zones.Zone {
 				zoneInfo := irs.ZoneInfo{}
 				zoneInfo.Name = zone.ZoneId
 				zoneInfo.DisplayName = zone.LocalName
-				zoneInfo.Status = GetZoneStatus("") // Zone의 상태값이 없으므로 set하지 않도록 변경.
-
-				// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
-				// keyValueList := []irs.KeyValue{}
-				// itemType := reflect.TypeOf(zone)
-				// if itemType.Kind() == reflect.Ptr {
-				// 	itemType = itemType.Elem()
-				// }
-				// itemValue := reflect.ValueOf(zone)
-				// if itemValue.Kind() == reflect.Ptr {
-				// 	itemValue = itemValue.Elem()
-				// }
-				// numFields := itemType.NumField()
-
-				// // 속성 이름과 값을 출력합니다.
-				// for i := 0; i < numFields; i++ {
-				// 	field := itemType.Field(i)
-				// 	value := itemValue.Field(i).Interface()
-
-				// 	keyValue := irs.KeyValue{}
-				// 	keyValue.Key = field.Name
-				// 	keyValue.Value = fmt.Sprintf("%v", value)
-				// 	keyValueList = append(keyValueList, keyValue)
-				// }
-				// zoneInfo.KeyValueList = keyValueList
-
+				zoneInfo.Status = GetZoneStatus("")
 				zoneInfoList = append(zoneInfoList, zoneInfo)
 			}
 
@@ -100,18 +54,6 @@ func (regionZoneHandler AlibabaRegionZoneHandler) ListRegionZone() ([]*irs.Regio
 			info.DisplayName = item.LocalName
 			info.ZoneList = zoneInfoList
 			chanRegionZoneInfos <- info
-			// regionZoneInfoList = append(regionZoneInfoList, &info)
-			// "ZoneType": "AvailabilityZone",
-			// "LocalName": "曼谷 可用区A",
-			// "ZoneId": "ap-southeast-7a",
-
-			// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
-			// keyValueList := []irs.KeyValue{}
-			// keyValue := irs.KeyValue{}
-			// keyValue.Key = "RegionEndpoint"
-			// keyValue.Value = item.RegionEndpoint
-			// info.KeyValueList = keyValueList
-
 		}(item)
 
 	}
@@ -124,35 +66,17 @@ func (regionZoneHandler AlibabaRegionZoneHandler) ListRegionZone() ([]*irs.Regio
 		regionZoneInfoList = append(regionZoneInfoList, &insertRegionZoneInfo)
 	}
 
-	return regionZoneInfoList, err
+	if len(errlist) > 0 {
+		errlistjoin := errors.Join(errlist...)
+		cblogger.Error("ListRegionZone() error : ", errlistjoin)
+		return regionZoneInfoList, errlistjoin
+	}
+
+	return regionZoneInfoList, nil
 }
 
 // 모든 Region 정보 조회(json return)
 func (regionZoneHandler AlibabaRegionZoneHandler) ListOrgRegion() (string, error) {
-	// request := ecs.CreateDescribeRegionsRequest()
-	// request.AcceptLanguage = "en-US" // Only Chinese (zh-CN : default), English (en-US), and Japanese (ja) are allowed
-
-	// callogger := call.GetLogger("HISCALL")
-	// callLogInfo := call.CLOUDLOGSCHEMA{
-	// 	CloudOS:      call.ALIBABA,
-	// 	RegionZone:   regionZoneHandler.Region.Zone,
-	// 	ResourceType: call.REGIONZONE,
-	// 	ResourceName: "",
-	// 	CloudOSAPI:   "ListOrgRegion()",
-	// 	ElapsedTime:  "",
-	// 	ErrorMSG:     "",
-	// }
-
-	// callLogStart := call.Start()
-	// result, err := regionZoneHandler.Client.DescribeRegions(request)
-	// callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	// if err != nil {
-	// 	callLogInfo.ErrorMSG = err.Error()
-	// 	callogger.Error(call.String(callLogInfo))
-	// 	return "", err
-	// }
-	// callogger.Info(call.String(callLogInfo))
-
 	result, err := DescribeRegions(regionZoneHandler.Client)
 	if err != nil {
 		return "", err
@@ -168,37 +92,11 @@ func (regionZoneHandler AlibabaRegionZoneHandler) ListOrgRegion() (string, error
 // 모든 Zone 정보 조회(json return)
 // Region에 따라 zone 정보가 달려있으므로 region 조회 후 -> zone 정보 조회
 func (regionZoneHandler AlibabaRegionZoneHandler) ListOrgZone() (string, error) {
-
-	// request := ecs.CreateDescribeZonesRequest()
-	// request.AcceptLanguage = "en-US" // Only Chinese (zh-CN : default), English (en-US), and Japanese (ja) are allowed
-
-	// callogger := call.GetLogger("HISCALL")
-	// callLogInfo := call.CLOUDLOGSCHEMA{
-	// 	CloudOS:      call.ALIBABA,
-	// 	RegionZone:   regionZoneHandler.Region.Zone,
-	// 	ResourceType: call.REGIONZONE,
-	// 	ResourceName: "",
-	// 	CloudOSAPI:   "ListOrgZone()",
-	// 	ElapsedTime:  "",
-	// 	ErrorMSG:     "",
-	// }
-
-	// callLogStart := call.Start()
-	// result, err := regionZoneHandler.Client.DescribeZones(request)
-	// callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	// if err != nil {
-	// 	callLogInfo.ErrorMSG = err.Error()
-	// 	callogger.Error(call.String(callLogInfo))
-	// 	return "", err
-	// }
-	// callogger.Info(call.String(callLogInfo))
-
 	regionsResult, err := DescribeRegions(regionZoneHandler.Client)
 	if err != nil {
 		return "", err
 	}
 
-	//zoneList := map[string]*ecs.DescribeZonesResponse{}
 	zoneList := make(map[string]*ecs.DescribeZonesResponse)
 	for _, item := range regionsResult.Regions.Region {
 
@@ -236,9 +134,6 @@ func (regionZoneHandler AlibabaRegionZoneHandler) GetRegionZone(reqRegionId stri
 		regionInfo.Name = regionId
 		regionInfo.DisplayName = item.LocalName
 
-		// regionStatus := GetRegionStatus(item.Status)
-		// cblogger.Info("regionStatus ", regionStatus)
-
 		// ZoneList
 		var zoneInfoList []irs.ZoneInfo
 		cblogger.Debug("regionId ", regionId)
@@ -250,141 +145,11 @@ func (regionZoneHandler AlibabaRegionZoneHandler) GetRegionZone(reqRegionId stri
 			zoneInfo := irs.ZoneInfo{}
 			zoneInfo.Name = zone.ZoneId
 			zoneInfo.DisplayName = zone.LocalName
-			zoneInfo.Status = GetZoneStatus("") // Zone의 상태값이 없으므로 set하지 않도록 변경.
-
-			// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
-			// keyValueList := []irs.KeyValue{}
-			// itemType := reflect.TypeOf(zone)
-			// if itemType.Kind() == reflect.Ptr {
-			// 	itemType = itemType.Elem()
-			// }
-			// itemValue := reflect.ValueOf(zone)
-			// if itemValue.Kind() == reflect.Ptr {
-			// 	itemValue = itemValue.Elem()
-			// }
-			// numFields := itemType.NumField()
-
-			// // 속성 이름과 값을 출력합니다.
-			// for i := 0; i < numFields; i++ {
-			// 	field := itemType.Field(i)
-			// 	value := itemValue.Field(i).Interface()
-
-			// 	keyValue := irs.KeyValue{}
-			// 	keyValue.Key = field.Name
-			// 	keyValue.Value = fmt.Sprintf("%v", value)
-			// 	keyValueList = append(keyValueList, keyValue)
-			// }
-			// zoneInfo.KeyValueList = keyValueList
+			zoneInfo.Status = GetZoneStatus("")
 
 			zoneInfoList = append(zoneInfoList, zoneInfo)
 		}
 		regionInfo.ZoneList = zoneInfoList
-		// "ZoneType": "AvailabilityZone",
-		// "LocalName": "曼谷 可用区A",
-		// "ZoneId": "ap-southeast-7a",
-
-		// keyValueList 삭제 https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
-		// keyValueList := []irs.KeyValue{}
-		// keyValue := irs.KeyValue{}
-		// keyValue.Key = "RegionEndpoint"
-		// keyValue.Value = item.RegionEndpoint
-		// regionInfo.KeyValueList = keyValueList
 	}
 	return regionInfo, nil
 }
-
-// regionList Result
-// {
-// 	"RequestId": "509F4448-81A7-3EB2-9D9D-2FC0BFD1AE86",
-// 	"Regions": {
-// 	  "Region": [
-// 		{
-// 		  "RegionId": "cn-qingdao",
-// 		  "RegionEndpoint": "ecs.cn-qingdao.aliyuncs.com",
-// 		  "LocalName": "China (Qingdao)"
-// 		},
-// 		{
-// 		  "RegionId": "cn-beijing",
-// 		  "RegionEndpoint": "ecs.cn-beijing.aliyuncs.com",
-// 		  "LocalName": "China (Beijing)"
-// 		},
-
-// zoneList Result
-// {
-// 	"RequestId": "153128B3-EAE6-316D-A0DF-9B33D71C4C6B",
-// 	"Zones": {
-// 	  "Zone": [
-// 		{
-// 		  "ZoneId": "ap-southeast-7a",
-// 		  "ZoneType": "AvailabilityZone",
-// 		  "LocalName": "曼谷 可用区A",
-// 		  "AvailableResourceCreation": {
-// 			"ResourceTypes": [
-// 			  "VSwitch", "IoOptimized", "Instance", "DedicatedHost", "Disk"
-// 			]
-// 		  },
-// 		  "DedicatedHostGenerations": {
-// 			"DedicatedHostGeneration": [
-// 			  "ddh-5",
-// 			  "ddh-4"
-// 			]
-// 		  },
-// 		  "AvailableInstanceTypes": {
-// 			"InstanceTypes": [
-// 			  "ecs.c6e.8xlarge",...
-// 			]
-// 		  },
-// 		  "AvailableDedicatedHostTypes": {
-// 			"DedicatedHostType": [
-// 			  "ddh.g6", "ddh.g5nse", "ddh.g6e", "ddh.c6"
-// 			]
-// 		  },
-// 		  "AvailableResources": {
-// 			"ResourcesInfo": [
-// 			  {
-// 				"InstanceGenerations": {
-// 				  "supportedInstanceGeneration": [
-// 					"ecs-5", "ecs-4", "ecs-6"
-// 				  ]
-// 				},
-// 				"NetworkTypes": {
-// 				  "supportedNetworkCategory": [
-// 					"vpc"
-// 				  ]
-// 				},
-// 				"IoOptimized": true,
-// 				"SystemDiskCategories": {
-// 				  "supportedSystemDiskCategory": [
-// 					"cloud_auto", "cloud_essd"
-// 				  ]
-// 				},
-// 				"InstanceTypes": {
-// 				  "supportedInstanceType": [
-// 					"ecs.c6e.8xlarge", ...
-// 				  ]
-// 				},
-// 				"InstanceTypeFamilies": {
-// 				  "supportedInstanceTypeFamily": [
-// 					"ecs.gn7i",...
-// 				  ]
-// 				},
-// 				"DataDiskCategories": {
-// 				  "supportedDataDiskCategory": [
-// 					"cloud_auto", "cloud_essd"
-// 				  ]
-// 				}
-// 			  }
-// 			]
-// 		  },
-// 		  "AvailableDiskCategories": {
-// 			"DiskCategories": [
-// 			  "cloud_auto", "cloud_essd"
-// 			]
-// 		  },
-// 		  "AvailableVolumeCategories": {
-// 			"VolumeCategories": []
-// 		  }
-// 		}
-// 	  ]
-// 	}
-//   }
