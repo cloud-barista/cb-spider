@@ -206,7 +206,7 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 							continue
 						}
 
-						cblogger.Error(fmt.Sprintf("1.>>>>>> %s", err.Error()))
+						cblogger.Error(err)
 						errMutex.Lock()
 						errList = append(errList, err.Error())
 						errMutex.Unlock()
@@ -252,7 +252,7 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 										continue
 									}
 
-									cblogger.Error(fmt.Sprintf("2.>>>>>> %s", err.Error()))
+									cblogger.Error(err)
 									errMutex.Lock()
 									errList = append(errList, err.Error())
 									errMutex.Unlock()
@@ -299,7 +299,7 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 												}
 
 												errMutex.Lock()
-												cblogger.Error(fmt.Sprintf("3.>>>>>> %s", err.Error()))
+												cblogger.Error(err)
 												errList = append(errList, err.Error())
 												errMutex.Unlock()
 
@@ -386,7 +386,7 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 								continue
 							}
 
-							cblogger.Error(fmt.Sprintf("4.>>>>>> %s", err.Error()))
+							cblogger.Error(err)
 							errMutex.Lock()
 							errList = append(errList, err.Error())
 							errMutex.Unlock()
