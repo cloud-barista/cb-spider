@@ -479,6 +479,16 @@ Loop:
 					SecurityRules: &securityRulesInfos,
 					VpcIID:        targetVPCIId,
 				}
+
+				// Add TagList
+				var tagList []irs.KeyValue
+				tagList, err = SetResourceTagList()
+				if err != nil {
+					cblogger.Error(err)
+				}
+
+				reqInfo.TagList = tagList
+
 				security, err := securityHandler.CreateSecurity(reqInfo)
 				if err != nil {
 					fmt.Println(err)
@@ -572,6 +582,15 @@ Loop:
 				reqInfo := irs.KeyPairReqInfo{
 					IId: keypairIId,
 				}
+				// Add TagList
+				var tagList []irs.KeyValue
+				tagList, err = SetResourceTagList()
+				if err != nil {
+					cblogger.Error(err)
+				}
+
+				reqInfo.TagList = tagList
+
 				if keyInfo, err := keyPairHandler.CreateKey(reqInfo); err != nil {
 					cblogger.Error(err)
 				} else {
@@ -749,6 +768,15 @@ Loop:
 				cblogger.Info("Finish GetVPC()")
 			case 3:
 				cblogger.Info("Start CreateVPC() ...")
+				// Add TagList
+				var tagList []irs.KeyValue
+				tagList, err = SetResourceTagList()
+				if err != nil {
+					cblogger.Error(err)
+				}
+
+				VPCReqInfo.TagList = tagList
+				
 				if vpcInfo, err := vpcHandler.CreateVPC(VPCReqInfo); err != nil {
 					cblogger.Error(err)
 				} else {
@@ -765,6 +793,15 @@ Loop:
 				cblogger.Info("Finish DeleteVPC()")
 			case 5:
 				cblogger.Info("Start AddSubnet() ...")
+				// Add TagList
+				var tagList []irs.KeyValue
+				tagList, err = SetResourceTagList()
+				if err != nil {
+					cblogger.Error(err)
+				}
+
+				addSubnetInfo.TagList = tagList
+
 				if vpcInfo, err := vpcHandler.AddSubnet(vpcIID, addSubnetInfo); err != nil {
 					cblogger.Error(err)
 				} else {
@@ -933,6 +970,16 @@ Loop:
 			case 5:
 				cblogger.Info("Start StartVM() ...")
 				vmReqInfo.ImageType = irs.PublicImage
+				
+				// Add TagList
+				var tagList []irs.KeyValue
+				tagList, err = SetResourceTagList()
+				if err != nil {
+					cblogger.Error(err)
+				}
+
+				vmReqInfo.TagList = tagList
+
 				if vm, err := vmHandler.StartVM(vmReqInfo); err != nil {
 					cblogger.Error(err)
 				} else {
@@ -1096,6 +1143,16 @@ Loop:
 				cblogger.Info("Finish GetNLB()")
 			case 3:
 				cblogger.Info("Start CreateNLB() ...")
+				
+				// Add TagList
+				var tagList []irs.KeyValue
+				tagList, err = SetResourceTagList()
+				if err != nil {
+					cblogger.Error(err)
+				}
+
+				nlbCreateReqInfo.TagList = tagList
+
 				if createInfo, err := nlbHandler.CreateNLB(nlbCreateReqInfo); err != nil {
 					cblogger.Error(err)
 				} else {
@@ -1233,6 +1290,17 @@ Loop:
 				cblogger.Info("Finish GetDisk()")
 			case 3:
 				cblogger.Info("Start CreateDisk() ...")
+
+				
+				// Add TagList
+				var tagList []irs.KeyValue
+				tagList, err = SetResourceTagList()
+				if err != nil {
+					cblogger.Error(err)
+				}
+
+				diskCreateReqInfo.TagList = tagList
+
 				if createInfo, err := diskHandler.CreateDisk(diskCreateReqInfo); err != nil {
 					cblogger.Error(err)
 				} else {
@@ -1348,6 +1416,16 @@ Loop:
 				cblogger.Info("Finish GetMyImage()")
 			case 3:
 				cblogger.Info("Start CreateMyImage() ...")
+				
+				// Add TagList
+				var tagList []irs.KeyValue
+				tagList, err = SetResourceTagList()
+				if err != nil {
+					cblogger.Error(err)
+				}
+
+				snapshotCreateReqInfo.TagList = tagList
+
 				if createInfo, err := myImageHandler.SnapshotVM(snapshotCreateReqInfo); err != nil {
 					cblogger.Error(err)
 				} else {
@@ -1649,6 +1727,15 @@ Loop:
 				cblogger.Info("Finish GetCluster()")
 			case 3:
 				cblogger.Info("Start CreateCluster() ...")
+				// Add TagList
+				var tagList []irs.KeyValue
+				tagList, err = SetResourceTagList()
+				if err != nil {
+					cblogger.Error(err)
+				}
+
+				clusterCreateReqInfo.TagList = tagList
+				
 				if createInfo, err := clusterHandler.CreateCluster(clusterCreateReqInfo); err != nil {
 					cblogger.Error(err)
 				} else {
@@ -1972,6 +2059,55 @@ Loop:
 		}
 	}
 }
+
+func SetResourceTagList()([]irs.KeyValue, error){
+	cblogger.Info("0. TagList Setting")
+	cblogger.Info("1. Continue without TagList")
+	var tagSetNum int
+	_, err := fmt.Scan(&tagSetNum)
+	if err != nil {
+		return []irs.KeyValue{}, err
+	}
+	
+	var KeyValue []irs.KeyValue
+	switch tagSetNum{
+	case 0:
+		var tagCount int
+	
+		fmt.Print("How many tag? ")
+		_, err := fmt.Scanln(&tagCount)
+		if err != nil {
+			return []irs.KeyValue{}, err
+		}
+		
+		i := 0
+		for i < tagCount {
+			fmt.Println("=== Enter KeyValue ===")
+			var key string
+			var value string
+	
+			fmt.Print("Key: ")
+			_, err := fmt.Scanln(&key)
+			if err != nil {
+				return []irs.KeyValue{}, err
+			}
+			
+			fmt.Print("Value: ")
+			_, err = fmt.Scanln(&value)
+			if err != nil {
+				return []irs.KeyValue{}, err
+			}
+			
+			KeyValue = append(KeyValue, irs.KeyValue{Key: key, Value: value})
+			i++
+		}
+	case 1:
+		break
+	}
+
+	return KeyValue, nil
+}
+
 
 func main() {
 	showTestHandlerInfo()

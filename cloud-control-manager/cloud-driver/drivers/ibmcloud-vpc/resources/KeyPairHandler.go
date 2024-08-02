@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/IBM/go-sdk-core/v5/core"
+	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
@@ -76,6 +77,19 @@ func (keyPairHandler *IbmKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 		return irs.KeyPairInfo{}, createErr
 	}
 	LoggingInfo(hiscallInfo, start)
+
+	// Attach Tag
+	if keyPairReqInfo.TagList != nil && len(keyPairReqInfo.TagList) > 0{
+		var tagHandler irs.TagHandler // TagHandler 초기화
+		for _, tag := range keyPairReqInfo.TagList{
+			_, err := tagHandler.AddTag("KEY", keyPairReqInfo.IId, tag)
+			if err != nil {
+				createErr := errors.New(fmt.Sprintf("Failed to Attach Tag on KEY err = %s", err.Error()))
+				cblogger.Error(createErr.Error())
+			}
+		}
+	}
+
 	return createKeypairInfo, nil
 }
 
@@ -182,6 +196,18 @@ func (keyPairHandler *IbmKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error)
 		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
+	
+	// Detach Tag Auto Delete 
+	var tagService *globaltaggingv1.GlobalTaggingV1
+	deleteTagAllOptions := tagService.NewDeleteTagAllOptions()
+	deleteTagAllOptions.SetTagType("user")
+
+	_, _, err = tagService.DeleteTagAll(deleteTagAllOptions)
+	if err != nil {
+		delErr := errors.New(fmt.Sprintf("Failed to Delete KEY Detached Tag err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+	}
+
 	return true, nil
 }
 

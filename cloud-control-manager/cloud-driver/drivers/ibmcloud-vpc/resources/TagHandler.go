@@ -76,8 +76,9 @@ func rsTypeToIBMType(resType irs.RSType) string {
 		return "snapshot"
 	case irs.CLUSTER:
 		return "k8-cluster"
-	case irs.NODEGROUP:
-		return "instance-group"
+	// NODEGROUP's Not Support
+	// case irs.NODEGROUP:
+	// 	return "instance-group"
 	default:
 		return ""
 	}
@@ -286,16 +287,26 @@ func handleTagAddOrRemove(tagHandler *IbmTagHandler, resType irs.RSType, resIID 
 		}
 
 		err2 = attachOrDetachTag(tagHandler.TaggingService, tag, *disk.CRN, action)
-	// case irs.MYIMAGE:
-	// 	imageHandler := &IbmMyImageHandler{}
-	// 	rawMyimage, err := imageHandler.GetMyImage(resIID)
-	//     if err != nil {
-	//         err2 = errors.New(fmt.Sprintf("Failed to add tag. err = %s", err))
-	//         break
-	//     }
-	// 	err2 = attachOrDetachTag(tagHandler.TaggingService, tag, *rawMyimage.CRN, action
+	case irs.MYIMAGE:
+		imageHandler := &IbmMyImageHandler{
+			CredentialInfo: tagHandler.CredentialInfo,
+			Region: tagHandler.Region,
+			VpcService: tagHandler.VpcService,
+			Ctx: tagHandler.Ctx,
+		}
+		rawMyimage, err := imageHandler.GetRawMyImage(resIID)
+	    if err != nil {
+	        err2 = errors.New(fmt.Sprintf("Failed to add tag. err = %s", err))
+	        break
+	    }
+		err2 = attachOrDetachTag(tagHandler.TaggingService, tag, *rawMyimage.CRN, action)
 	case irs.NLB:
-		nlbHandler := &IbmNLBHandler{} // or however you initialize IbmNLBHandler
+		nlbHandler := &IbmNLBHandler{
+			CredentialInfo: tagHandler.CredentialInfo,
+			Region: tagHandler.Region,
+			VpcService: tagHandler.VpcService,
+			Ctx: tagHandler.Ctx,
+		}
 		rawNLB, err := nlbHandler.getRawNLBByName(resIID.NameId)
 		if err != nil {
 			err2 = errors.New(fmt.Sprintf("Failed to add tag. err = %s", err))
