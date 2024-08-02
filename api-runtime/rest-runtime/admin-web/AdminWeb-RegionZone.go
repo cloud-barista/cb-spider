@@ -1,11 +1,3 @@
-// Cloud Info Manager's Rest Runtime of CB-Spider.
-// The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
-// The CB-Spider Mission is to connect all the clouds with a single interface.
-//
-//      * Cloud-Barista: https://github.com/cloud-barista
-//
-// by CB-Spider Team, 2023.09.
-
 package adminweb
 
 import (
@@ -13,10 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"net/http"
+	"os"
+	"path/filepath"
 
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-
-	"net/http"
 
 	"github.com/labstack/echo/v4"
 )
@@ -115,7 +108,12 @@ func RegionZone(c echo.Context) error {
 	}
 
 	// Parse the HTML template
-	tmpl, err := addFuncsToTemplate(template.New("index")).Parse(htmlTemplate)
+	tmplPath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/region-zone.html")
+	tmpl, err := template.New("region-zone.html").Funcs(template.FuncMap{
+		"inc": func(i int) int {
+			return i + 1
+		},
+	}).ParseFiles(tmplPath)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -137,156 +135,3 @@ func addFuncsToTemplate(t *template.Template) *template.Template {
 		},
 	})
 }
-
-const htmlTemplate = `
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Multi-Cloud Region/Zone Info</title>
-<style>
-    table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-    th, td {
-        border: 1px solid black;
-        padding: 8px;
-        text-align: center;
-    }
-    th {
-        background-color: #f2f2f2;
-    }
-    .inner-th {
-        background-color: #d9edf7;
-    }
-
-    #searchInputWrapper {
-        position: relative;
-        display: inline-block;
-    }
-
-    #searchInput {
-        width: 190px
-    }
-
-    #clearSearch {
-        position: absolute;
-        right: 3px;
-        top: 50%;
-        transform: translateY(-50%);
-        border: none;
-        background-color: transparent;
-        cursor: pointer;
-    }
-
-</style>
-<script>
-    function showAlert(regionName, innerTableId) {
-        var table = document.getElementById(innerTableId);
-        var rows = table.rows;
-
-        for (var i = 1; i < rows.length; i++) {
-            var cells = rows[i].cells;
-            var input = cells[2].getElementsByTagName('input')[0];
-
-            if (input.checked) {
-                var zoneName = cells[0].innerText;
-                alert('Region Name: ' + regionName + '\nZone Name: ' + zoneName);
-                break;
-            }
-        }
-    }
-
-    function searchTable() {
-        var input, filter, table, tr, td;
-        input = document.getElementById("searchInput");
-        filter = input.value.toUpperCase();
-        table = document.getElementsByTagName("table")[0];
-        tr = table.getElementsByTagName("tr");
-
-        for (var i = 1; i < tr.length; i++) {
-            td = tr[i].getElementsByTagName("td")[1];
-            if (td) {
-                var txtValue = td.textContent || td.innerText;
-                if (txtValue.toUpperCase().indexOf(filter) > -1) {
-                    tr[i].style.display = "";
-                } else {
-                    tr[i].style.display = "none";
-                }
-            }
-        }
-    }
-
-    function clearSearchInput() {
-        document.getElementById("searchInput").value = "";
-        searchTable(); // Clear the search results
-    }
-
-    function filterStatus() {
-        var statusFilter = document.getElementById("statusFilter").value;
-        var tables = document.querySelectorAll("table table");
-        tables.forEach(function(table) {
-            var rows = table.rows;
-            for (var i = 1; i < rows.length; i++) {
-                var cells = rows[i].cells;
-                var status = cells[2].innerText;
-                if (statusFilter === "All" || status === statusFilter) {
-                    rows[i].style.display = "";
-                } else {
-                    rows[i].style.display = "none";
-                }
-            }
-        });
-    }
-</script>
-<script>
-    {{.LoggingUrl}}
-    {{.LoggingResult}}
-</script>
-</head>
-<body>
-<div id="searchInputWrapper">
-    <input type="text" id="searchInput" onkeyup="searchTable()" placeholder="Search for Region Names..">
-    <button id="clearSearch" onclick="clearSearchInput()">X</button>
-</div>
-<select id="statusFilter" onchange="filterStatus()">
-    <option value="All">All</option>
-    <option value="Available">Available</option>
-    <option value="Unavailable">Unavailable</option>
-    <option value="StatusNotSupported">StatusNotSupported</option>
-</select>
-<table>
-    <tr>
-        <th>#</th>
-        <th>Region Name</th>
-        <th>Display Name</th>
-        <th>Zone List</th>
-    </tr>
-    {{range $index, $region := .RegionInfo}}
-    <tr>
-        <td>{{inc $index}}</td>
-        <td>{{$region.RegionName}}</td>
-        <td>{{$region.DisplayName}}</td>
-        <td>
-            <table id="{{.InnerTableID}}">
-                <tr>
-                    <th class="inner-th">Zone Name</th>
-                    <th class="inner-th">Display Name</th>
-                    <th class="inner-th">Zone Status</th>
-                </tr>
-                {{range .ZoneInfo}}
-                <tr>
-                    <td>{{.ZoneName}}</td>
-                    <td>{{.DisplayName}}</td>
-                    <td>{{.ZoneStatus}}</td>
-                </tr>
-                {{end}}
-            </table>
-        </td>
-    </tr>
-    {{end}}
-</table>
-</body>
-</html>
-`

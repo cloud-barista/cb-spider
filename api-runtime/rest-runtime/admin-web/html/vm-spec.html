@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VM Spec List</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+        padding-top: 42px; /* to avoid content being hidden behind the fixed search bar */
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-top: 0;
+        font-size: 12px;
+    }
+    th, td {
+        border: 1px solid black;
+        padding: 4px 8px; /* Reduced padding to minimize vertical space */
+    }
+    th {
+        background-color: #f2f2f2;
+        font-size: 14px;
+        text-align: center;
+    }
+    .th-column-Misc {
+        width: 25%;
+        text-align: center;
+    }    
+    .column-num {
+        width: 5%;
+        text-align: center;
+    }
+    .column-vmspecname {
+        width: 25%;
+        text-align: center;
+    }
+    .column-vcpuinfo {
+        width: 25%;
+        text-align: left;
+        padding-left: 0.5cm; /* Left padding to create a 0.5cm gap */
+    }
+    .column-meminfo {
+        width: 20%;
+        text-align: center;
+    }
+    .column-gpuinfo {
+        width: 25%;
+        text-align: left;
+        padding-left: 0.5cm; /* Left padding to create a 0.5cm gap */
+    }
+    .column-Misc {
+        width: 25%;
+        text-align: left;
+    }
+
+    #searchInputWrapper {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        background-color: white;
+        padding: 10px 10px;
+        border-bottom: 1px solid #ccc;
+        z-index: 1000;
+        display: flex;
+        align-items: center;        
+    }
+
+    #searchInput {
+        width: 190px;
+        font-family: Arial, sans-serif;
+        padding-right: 2.5cm; /* Space for the clear button inside the input */
+    }
+
+    #clearSearch {
+        position: absolute;
+        right: 0.1cm;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+    }
+
+    .searchContainer {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .searchContainer button {
+        position: absolute;
+        right: 0.5cm;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+    }
+</style>
+<script>
+    function searchKeyword() {
+        var input, filter, table, tr, td, i, j, txtValue;
+        input = document.getElementById("searchInput");
+        filter = input.value.toUpperCase();
+        table = document.getElementsByTagName("table")[0];
+        tr = table.getElementsByTagName("tr");
+
+        for (i = 1; i < tr.length; i++) {
+            tr[i].style.display = "none";
+            td = tr[i].getElementsByTagName("td");
+            for (j = 0; j < td.length; j++) {
+                if (td[j]) {
+                    txtValue = td[j].textContent || td[j].innerText;
+                    if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                        tr[i].style.display = "";
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    function clearSearchInput() {
+        document.getElementById("searchInput").value = "";
+        searchKeyword();
+    }
+</script>
+</head>
+<body>
+<div id="searchInputWrapper">
+    <div class="searchContainer">
+        <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
+        <button id="clearSearch" onclick="clearSearchInput()">X</button>
+    </div>
+</div>
+<table>
+    <tr>
+        <th class="column-num">#</th>
+        <th class="column-vmspecname">VMSpec Name</th>
+        <th>VCPU</th>
+        <th class="column-meminfo">Memory</th>
+        <th>GPU</th>
+        <th class="th-column-Misc">Misc</th>
+    </tr>
+    {{range $index, $spec := .VMSpecs}}
+    <tr>
+        <td class="column-num">{{$index | inc}}</td>
+        <td class="column-vmspecname">{{$spec.Name}}</td>
+        <td class="column-vcpuinfo">
+            &nbsp;* Count: {{$spec.VCpu.Count}}<br>
+            &nbsp;* Clock: {{$spec.VCpu.Clock}} GHz<br>
+        </td>
+        <td class="column-meminfo">{{$spec.Mem}} MB</td>
+        <td class="column-gpuinfo">
+            {{range $gpu := $spec.Gpu}}
+                &nbsp;* Mfr: {{$gpu.Mfr}}<br>
+                &nbsp;* Model: {{$gpu.Model}}<br>
+                &nbsp;* Memory: {{$gpu.Mem}} MB<br>
+                &nbsp;* Count: {{$gpu.Count}}<br><br>
+            {{end}}
+        </td>
+        <td class="column-Misc">
+            {{range $kv := $spec.KeyValueList}}
+                {{$kv.Key}}: {{$kv.Value}}<br>
+            {{end}}
+        </td>
+    </tr>
+    {{end}}
+</table>
+</body>
+</html>
