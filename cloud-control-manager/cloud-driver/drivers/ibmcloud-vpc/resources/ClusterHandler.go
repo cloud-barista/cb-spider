@@ -274,6 +274,18 @@ func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.
 
 	LoggingInfo(hiscallInfo, start)
 
+	// Attach Tag
+	if clusterReqInfo.TagList != nil && len(clusterReqInfo.TagList) > 0 {
+		var tagHandler irs.TagHandler // TagHandler 초기화
+		for _, tag := range clusterReqInfo.TagList{
+			_, err := tagHandler.AddTag("CLUSTER", clusterReqInfo.IId, tag)
+			if err != nil {
+				createErr := errors.New(fmt.Sprintf("Failed to Attach Tag on Cluster err = %s", err.Error()))
+				cblogger.Error(createErr.Error())
+			}
+		}
+	}
+
 	return clusterInfo, nil
 }
 
@@ -450,6 +462,18 @@ func (ic *IbmClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
 	}
 
 	LoggingInfo(hiscallInfo, start)
+	
+	// Detach Tag Auto Delete 
+	var tagService *globaltaggingv1.GlobalTaggingV1
+	deleteTagAllOptions := tagService.NewDeleteTagAllOptions()
+	deleteTagAllOptions.SetTagType("user")
+
+	_, _, err := tagService.DeleteTagAll(deleteTagAllOptions)
+	if err != nil {
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Cluster Detached Tag err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+	}
+
 
 	return true, nil
 }

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/IBM/go-sdk-core/v5/core"
+	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -133,6 +134,17 @@ func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 				LoggingError(hiscallInfo, createErr)
 				return irs.VPCInfo{}, createErr
 			}
+			// Attach Tag
+			if subnetInfo.TagList != nil && len(subnetInfo.TagList) > 0 {
+				var tagHandler irs.TagHandler // TagHandler 초기화
+				for _, tag := range subnetInfo.TagList{
+					_, err := tagHandler.AddTag("SUBNET", subnetInfo.IId, tag)
+					if err != nil {
+						createErr := errors.New(fmt.Sprintf("Failed to Attach Tag on Subnet err = %s", err.Error()))
+						cblogger.Error(createErr.Error())
+					}
+				}
+			}
 		}
 	}
 	//// default SecurityGroup modify
@@ -175,6 +187,19 @@ func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 		LoggingError(hiscallInfo, createErr)
 		return irs.VPCInfo{}, createErr
 	}
+
+	// Attach Tag
+	if vpcInfo.TagList != nil && len(vpcInfo.TagList) > 0 {
+		var tagHandler irs.TagHandler // TagHandler 초기화
+		for _, tag := range vpcInfo.TagList{
+			_, err := tagHandler.AddTag("VPC", vpcInfo.IId, tag)
+			if err != nil {
+				createErr := errors.New(fmt.Sprintf("Failed to Attach Tag on VPC err = %s", err.Error()))
+				cblogger.Error(createErr.Error())
+			}
+		}
+	}
+
 	LoggingInfo(hiscallInfo, start)
 	return vpcInfo, nil
 }
@@ -327,6 +352,18 @@ func (vpcHandler *IbmVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
+
+	// Detach Tag Auto Delete 
+	var tagService *globaltaggingv1.GlobalTaggingV1
+	deleteTagAllOptions := tagService.NewDeleteTagAllOptions()
+	deleteTagAllOptions.SetTagType("user")
+
+	_, _, err = tagService.DeleteTagAll(deleteTagAllOptions)
+	if err != nil {
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Subnet Detached Tag err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+	}
+
 	return true, nil
 }
 func (vpcHandler *IbmVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
@@ -408,6 +445,18 @@ func (vpcHandler *IbmVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID)
 	delErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = %s", err.Error()))
 	cblogger.Error(delErr.Error())
 	LoggingError(hiscallInfo, delErr)
+
+	// Detach Tag Auto Delete 
+	var tagService *globaltaggingv1.GlobalTaggingV1
+	deleteTagAllOptions := tagService.NewDeleteTagAllOptions()
+	deleteTagAllOptions.SetTagType("user")
+
+	_, _, err = tagService.DeleteTagAll(deleteTagAllOptions)
+	if err != nil {
+		delErr := errors.New(fmt.Sprintf("Failed to Delete SUBNET Detached Tag err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+	}
+
 	return false, delErr
 }
 
