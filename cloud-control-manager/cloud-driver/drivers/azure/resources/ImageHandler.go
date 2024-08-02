@@ -166,10 +166,12 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		wait.Add(routineMax)
 
 		for j := 0; j < routineMax; j++ {
-			go func(ctx context.Context, wait *sync.WaitGroup, mutex *sync.Mutex, errList []string, errMutex *sync.Mutex, pName string) {
+			pName := publisherNames[i]
+			go func(ctx context.Context, wait *sync.WaitGroup, mutex *sync.Mutex, errMutex *sync.Mutex, pName string) {
 				defer wait.Done()
 				offers, err := imageHandler.VMImageClient.ListOffers(ctx, imageHandler.Region.Region, pName)
 				if err != nil {
+					cblogger.Error(fmt.Sprintf("1.>>>>>> %s", err.Error()))
 					errMutex.Lock()
 					errList = append(errList, err.Error())
 					errMutex.Unlock()
@@ -210,6 +212,7 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 							skus, err := imageHandler.VMImageClient.ListSkus(ctx, imageHandler.Region.Region, pName, oName)
 							if err != nil {
+								cblogger.Error(fmt.Sprintf("2.>>>>>> %s", err.Error()))
 								errMutex.Lock()
 								errList = append(errList, err.Error())
 								errMutex.Unlock()
@@ -248,6 +251,7 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 										imageVersionList, err := imageHandler.VMImageClient.List(ctx, imageHandler.Region.Region, pName, oName, sName, "", nil, "")
 										if err != nil {
 											errMutex.Lock()
+											cblogger.Error(fmt.Sprintf("3.>>>>>> %s", err.Error()))
 											errList = append(errList, err.Error())
 											errMutex.Unlock()
 
@@ -272,6 +276,7 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 										vmImage, err := imageHandler.VMImageClient.Get(ctx, imageHandler.Region.Region, pName, oName, sName, imageVersion)
 										if err != nil {
+											cblogger.Error(fmt.Sprintf("4.>>>>>> %s", err.Error()))
 											errMutex.Lock()
 											errList = append(errList, err.Error())
 											errMutex.Unlock()
@@ -303,7 +308,7 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 					wait2.Wait()
 				}
-			}(imageHandler.Ctx, &wait, mutex, errList, errMutex, publisherNames[i])
+			}(imageHandler.Ctx, &wait, mutex, errMutex, pName)
 
 			i++
 			if i == lenPublisherNames {
