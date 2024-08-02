@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
@@ -395,39 +394,6 @@ func (nlbHandler *IbmNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.V
 	}
 	LoggingInfo(hiscallInfo, start)
 	return info.VMGroup, nil
-}
-
-func (nlbHandler *IbmNLBHandler) GetRawNLBVMGroup(vmGroupID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context)(vpcv1.LoadBalancerPool, error){
-	listLoadBalancersOptions := &vpcv1.ListLoadBalancersOptions{}
-    loadBalancers, response, err := vpcService.ListLoadBalancers(listLoadBalancersOptions)
-    if err != nil {
-        log.Fatalf("Failed to list NLBs: %v\n%v", err, response)
-    }
-
-    // Iterate through all Load Balancers
-    for _, lb := range loadBalancers.LoadBalancers {
-        // Iterate through each VMGroup (LoadBalancerPoolReference) in the Load Balancer
-        for _, poolReference := range lb.Pools {
-            // Get detailed information about each VMGroup
-            getPoolOptions := &vpcv1.GetLoadBalancerPoolOptions{
-                LoadBalancerID: lb.ID,
-                ID:             poolReference.ID,
-            }
-            pool, response, err := vpcService.GetLoadBalancerPool(getPoolOptions)
-            if err != nil {
-                log.Printf("Failed to get VMGroup %s in NLB %s: %v\n%v", *poolReference.ID, *lb.ID, err, response)
-                continue
-            }
-
-            // Check if the VMGroup matches the target IID
-            if *pool.Name == vmGroupID.NameId || *pool.ID == vmGroupID.SystemId {
-                // Print the VMGroup details
-                return *pool, nil
-            }
-        }
-    }
-
-	return vpcv1.LoadBalancerPool{}, nil
 }
 
 func (nlbHandler *IbmNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.VMGroupInfo, error) {
