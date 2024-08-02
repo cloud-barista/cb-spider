@@ -162,8 +162,7 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 	var publisherNames []string
 	for _, p := range *publishers.Value {
-		if p.Name == nil ||
-			strings.Contains(strings.ToLower(*p.Name), "test") {
+		if p.Name == nil {
 			continue
 		}
 		publisherNames = append(publisherNames, *p.Name)
@@ -223,10 +222,7 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 				var offerNames []string
 				for _, o := range *offers.Value {
-					if o.Name == nil ||
-						strings.Contains(strings.ToLower(*o.Name), "test") ||
-						strings.Contains(strings.ToLower(*o.Name), "preview") ||
-						strings.Contains(strings.ToLower(*o.Name), "daily") {
+					if o.Name == nil {
 						continue
 					}
 					offerNames = append(offerNames, *o.Name)
@@ -316,27 +312,23 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 											return
 										}
 
-										if len(*imageVersionList.Value) == 0 {
-											return
+										for _, iv := range *imageVersionList.Value {
+											if iv.ID == nil {
+												continue
+											}
+
+											imageIdArr := strings.Split(*iv.ID, "/")
+											imageVersion := imageIdArr[len(imageIdArr)-1]
+
+											imageSearchInfosMutex.Lock()
+											imageSearchInfos = append(imageSearchInfos, imageSearchInfo{
+												PublisherName: pName,
+												OfferName:     oName,
+												Sku:           sName,
+												Version:       imageVersion,
+											})
+											imageSearchInfosMutex.Unlock()
 										}
-
-										latest := (*imageVersionList.Value)[len(*imageVersionList.Value)-1]
-										if latest.ID == nil {
-											return
-										}
-
-										imageIdArr := strings.Split(*latest.ID, "/")
-										imageVersion := imageIdArr[len(imageIdArr)-1]
-
-										imageSearchInfosMutex.Lock()
-										fmt.Println(pName, oName, sName, imageVersion)
-										imageSearchInfos = append(imageSearchInfos, imageSearchInfo{
-											PublisherName: pName,
-											OfferName:     oName,
-											Sku:           sName,
-											Version:       imageVersion,
-										})
-										imageSearchInfosMutex.Unlock()
 									}(&wait3, skuNames[i])
 
 									i++
