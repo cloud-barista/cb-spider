@@ -94,6 +94,11 @@
             position: relative;
             margin-left: 0.5cm; /* Move the image 1cm to the right */
         }
+        .connection-info .conn-name {
+            font-size: 16px;
+            margin-left: 10px;
+            color: #888;
+        }
         .menu-item {
             margin: 10px 0;
             padding: 7px;
@@ -187,7 +192,7 @@
                 selectedConfigNameElement.innerHTML = configName;
                 selectedConfigNameElement.classList.add('hidden');
                 document.getElementById('selectedProvider').innerHTML = providerImg;
-                document.getElementById('selectedRegion').innerHTML = '<div class="digital-font">' + region + '</div>';
+                document.getElementById('selectedRegion').innerHTML = '<div class="digital-font">' + region + '<span class="conn-name">(' + configName + ')</span></div>';
                 
                 const dynamicMenuHtml = `
                     <a href="/spider/adminweb/regionzone/${configName}" target="body_frame" class="menu-item" id="region-zone-menu" onclick="selectMainMenu('region-zone')">
