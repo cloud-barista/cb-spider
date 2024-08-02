@@ -13,6 +13,7 @@
 package resources
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -54,6 +55,35 @@ type NhnCloudVMHandler struct {
 	VolumeClient  *nhnsdk.ServiceClient
 }
 
+func (vmHandler *NhnCloudVMHandler) getRawVM(vmIId irs.IID) (servers.Server, error) {
+	if vmIId.SystemId == "" && vmIId.NameId == "" {
+		return servers.Server{}, errors.New("invalid IID")
+	}
+	if vmIId.SystemId == "" {
+		pager, err := servers.List(vmHandler.VMClient, nil).AllPages()
+		if err != nil {
+			return servers.Server{}, err
+		}
+		rawServers, err := servers.ExtractServers(pager)
+		if err != nil {
+			return servers.Server{}, err
+		}
+		for _, vm := range rawServers {
+			if vm.Name == vmIId.NameId {
+				return vm, nil
+			}
+		}
+		return servers.Server{}, errors.New("VM not found")
+	} else {
+		vm, err := servers.Get(vmHandler.VMClient, vmIId.SystemId).Extract()
+		if err != nil {
+			return servers.Server{}, err
+		}
+
+		return *vm, nil
+	}
+}
+
 func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called StartVM()")
 	callLogInfo := getCallLogScheme(vmHandler.RegionInfo.Region, call.VM, vmReqInfo.IId.NameId, "StartVM()")
@@ -65,19 +95,19 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 		return irs.VMInfo{}, newErr
 	}
 
-	if strings.EqualFold(vmReqInfo.VpcIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid VPC SystemId!!")
+	// # Check whether the Routing Table (of the VPC) is connected to an Internet Gateway
+	vpcHandler := NhnCloudVPCHandler{
+		NetworkClient: vmHandler.NetworkClient,
+	}
+	vpc, err := vpcHandler.getRawVPC(vmReqInfo.VpcIID)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to get VPC info : [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.VMInfo{}, newErr
 	}
 
-	// # Check whether the Routing Table (of the VPC) is connected to an Internet Gateway
-	vpcHandler := NhnCloudVPCHandler{
-		RegionInfo:    vmHandler.RegionInfo,
-		NetworkClient: vmHandler.NetworkClient,
-	}
-	isConnectedToGateway, err := vpcHandler.isConnectedToGateway(vmReqInfo.VpcIID.SystemId)
+	isConnectedToGateway, err := vpcHandler.isConnectedToGateway(vpc.ID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Check whether the VPC connected to an Internet Gateway : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -128,6 +158,19 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 	// Get SecurityGroupId list
 	var sgIdList []string
 	for _, sgIID := range vmReqInfo.SecurityGroupIIDs {
+		if sgIID.SystemId == "" {
+			sgHandler := NhnCloudSecurityHandler{
+				VMClient: vmHandler.VMClient,
+			}
+			sg, err := sgHandler.getRawSecurity(sgIID)
+			if err != nil {
+				newErr := fmt.Errorf("Failed to Get Security Group with the name : %v", err)
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
+			}
+			sgIID.SystemId = sg.ID
+		}
 		sgIdList = append(sgIdList, sgIID.SystemId)
 	}
 
@@ -241,7 +284,7 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 		ImageRef:       vmReqInfo.ImageIID.SystemId,
 		FlavorRef:      vmSpecId,
 		Networks: []servers.Network{
-			{UUID: vmReqInfo.VpcIID.SystemId},
+			{UUID: vpc.ID},
 		},
 		AvailabilityZone: vmHandler.RegionInfo.Zone,
 		UserData:         []byte(*initUserData), // Apply cloud-init script
@@ -437,9 +480,9 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 	}
 
 	// To Check VM Deployment Status
-	nhnVM, getErr := servers.Get(vmHandler.VMClient, newNhnVM.ID).Extract()
+	nhnVM, err := servers.Get(vmHandler.VMClient, newNhnVM.ID).Extract()
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get VMInfo : [%v]", getErr)
+		newErr := fmt.Errorf("Failed to Get VMInfo : [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.VMInfo{}, newErr
@@ -479,24 +522,17 @@ func (vmHandler *NhnCloudVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, erro
 	cblogger.Info("NHN Cloud Driver: called SuspendVM()")
 	callLogInfo := getCallLogScheme(vmHandler.RegionInfo.Region, call.VM, vmIID.SystemId, "SuspendVM()")
 
-	if strings.EqualFold(vmIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid VM SystemId!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.Failed, newErr
-	}
-
 	var resultStatus string
 
 	cblogger.Info("Start Get VM Status...")
-	vmStatus, err := vmHandler.GetVMStatus(vmIID)
+	vm, vmStatus, err := vmHandler.getVMStatus(vmIID)
 	if err != nil {
-		cblogger.Errorf("[%s] Failed to Get the VM Status of VM : ", vmIID.SystemId)
+		cblogger.Errorf("[%s] Failed to Get the VM Status of VM : ", vm.ID)
 		cblogger.Error(err)
 		LoggingError(callLogInfo, err)
 		return irs.VMStatus("Failed to Get the VM Status of VM. "), err
 	} else {
-		cblogger.Infof("Succeeded in Getting the VM Status of [%s] : [%s]", vmIID.SystemId, vmStatus)
+		cblogger.Infof("Succeeded in Getting the VM Status of [%s] : [%s]", vm.ID, vmStatus)
 	}
 
 	if strings.EqualFold(string(vmStatus), "Suspended") {
@@ -521,7 +557,7 @@ func (vmHandler *NhnCloudVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, erro
 		return irs.VMStatus("Failed. " + resultStatus), err
 	} else {
 		start := call.Start()
-		err := startstop.Stop(vmHandler.VMClient, vmIID.SystemId).Err
+		err := startstop.Stop(vmHandler.VMClient, vm.ID).Err
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Suspend the VM!! : [%v] ", err)
 			cblogger.Error(newErr.Error())
@@ -538,24 +574,17 @@ func (vmHandler *NhnCloudVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error
 	cblogger.Info("NHN Cloud Driver: called ResumeVM()")
 	callLogInfo := getCallLogScheme(vmHandler.RegionInfo.Region, call.VM, vmIID.NameId, "ResumeVM()")
 
-	if strings.EqualFold(vmIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid VM SystemId!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.Failed, newErr
-	}
-
 	var resultStatus string
 
 	cblogger.Info("Start Get VM Status...")
-	vmStatus, err := vmHandler.GetVMStatus(vmIID)
+	vm, vmStatus, err := vmHandler.getVMStatus(vmIID)
 	if err != nil {
-		cblogger.Errorf("Failed to Get the VM Status of : [%s]", vmIID.SystemId)
+		cblogger.Errorf("Failed to Get the VM Status of : [%s]", vm.ID)
 		cblogger.Error(err)
 		LoggingError(callLogInfo, err)
 		return irs.VMStatus("Failed. "), err
 	} else {
-		cblogger.Infof("Succeeded in Getting the VM Status of [%s] : [%s]", vmIID.SystemId, vmStatus)
+		cblogger.Infof("Succeeded in Getting the VM Status of [%s] : [%s]", vm.ID, vmStatus)
 	}
 
 	if strings.EqualFold(string(vmStatus), "Running") {
@@ -580,7 +609,7 @@ func (vmHandler *NhnCloudVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error
 		return irs.VMStatus("Failed. " + resultStatus), err
 	} else {
 		start := call.Start()
-		err := startstop.Start(vmHandler.VMClient, vmIID.SystemId).Err
+		err := startstop.Start(vmHandler.VMClient, vm.ID).Err
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Start the VM!! : [%v] ", err)
 			cblogger.Error(newErr.Error())
@@ -597,15 +626,8 @@ func (vmHandler *NhnCloudVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error
 	cblogger.Info("NHN Cloud Driver: called RebootVM()")
 	callLogInfo := getCallLogScheme(vmHandler.RegionInfo.Region, call.VM, vmIID.SystemId, "RebootVM()")
 
-	if strings.EqualFold(vmIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid VM SystemId!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.Failed, newErr
-	}
-
 	cblogger.Info("Start Get VM Status...")
-	vmStatus, err := vmHandler.GetVMStatus(vmIID)
+	vm, vmStatus, err := vmHandler.getVMStatus(vmIID)
 	if err != nil {
 		cblogger.Errorf("[%s] Failed to Get the VM Status.", vmIID)
 		cblogger.Error(err)
@@ -647,7 +669,7 @@ func (vmHandler *NhnCloudVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error
 			Type: servers.SoftReboot,
 		}
 
-		err := servers.Reboot(vmHandler.VMClient, vmIID.SystemId, rebootOpts).ExtractErr()
+		err := servers.Reboot(vmHandler.VMClient, vm.ID, rebootOpts).ExtractErr()
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Reboot the VM!! : [%v] ", err)
 			cblogger.Error(newErr.Error())
@@ -663,13 +685,6 @@ func (vmHandler *NhnCloudVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error
 func (vmHandler *NhnCloudVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Info("NHN Cloud Driver: called TerminateVM()")
 	callLogInfo := getCallLogScheme(vmHandler.RegionInfo.Region, call.VM, vmIID.SystemId, "TerminateVM()")
-
-	if strings.EqualFold(vmIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid VM SystemId!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.Failed, newErr
-	}
 
 	server, err := vmHandler.GetVM(vmIID)
 	if err != nil {
@@ -735,7 +750,7 @@ func (vmHandler *NhnCloudVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) 
 	}
 	LoggingInfo(callLogInfo, start)
 
-	servers, err := servers.ExtractServers(allPages)
+	ss, err := servers.ExtractServers(allPages)
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(callLogInfo, err)
@@ -743,8 +758,8 @@ func (vmHandler *NhnCloudVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) 
 	}
 
 	// Add to List
-	vmStatusList := make([]*irs.VMStatusInfo, len(servers))
-	for idx, s := range servers {
+	vmStatusList := make([]*irs.VMStatusInfo, len(ss))
+	for idx, s := range ss {
 		vmStatus := getVmStatus(s.Status)
 		vmStatusInfo := irs.VMStatusInfo{
 			IId: irs.IID{
@@ -759,30 +774,28 @@ func (vmHandler *NhnCloudVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) 
 	return vmStatusList, nil
 }
 
-func (vmHandler *NhnCloudVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) {
+func (vmHandler *NhnCloudVMHandler) getVMStatus(vmIID irs.IID) (servers.Server, irs.VMStatus, error) {
 	cblogger.Info("NHN Cloud Driver: called GetVMStatus()")
 	callLogInfo := getCallLogScheme(vmHandler.RegionInfo.Region, call.VM, vmIID.SystemId, "GetVMStatus()")
 
-	if strings.EqualFold(vmIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid VM SystemId!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.Failed, newErr
-	}
-
 	start := call.Start()
-	serverResult, err := servers.Get(vmHandler.VMClient, vmIID.SystemId).Extract()
+	nhnVM, err := vmHandler.getRawVM(vmIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the VM info.!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
-		return irs.Failed, newErr
+		return servers.Server{}, irs.Failed, newErr
 	}
 	LoggingInfo(callLogInfo, start)
 
-	cblogger.Infof("# serverResult.Status of NHN Cloud : [%s]", serverResult.Status)
-	vmStatus := getVmStatus(serverResult.Status)
-	return vmStatus, nil
+	cblogger.Infof("# serverResult.Status of NHN Cloud : [%s]", nhnVM.Status)
+	vmStatus := getVmStatus(nhnVM.Status)
+	return nhnVM, vmStatus, nil
+}
+
+func (vmHandler *NhnCloudVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) {
+	_, vmStatus, err := vmHandler.getVMStatus(vmIID)
+	return vmStatus, err
 }
 
 func (vmHandler *NhnCloudVMHandler) ListVM() ([]*irs.VMInfo, error) {
@@ -826,15 +839,8 @@ func (vmHandler *NhnCloudVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called GetVM()")
 	callLogInfo := getCallLogScheme(vmHandler.RegionInfo.Region, call.VM, vmIID.SystemId, "GetVM()")
 
-	if strings.EqualFold(vmIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid VM SystemId!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.VMInfo{}, newErr
-	}
-
 	start := call.Start()
-	nhnVM, err := servers.Get(vmHandler.VMClient, vmIID.SystemId).Extract()
+	nhnVM, err := vmHandler.getRawVM(vmIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the VM info.!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
@@ -843,17 +849,15 @@ func (vmHandler *NhnCloudVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	}
 	LoggingInfo(callLogInfo, start)
 
-	if nhnVM != nil {
-		vmInfo, mappingErr := vmHandler.mappingVMInfo(*nhnVM)
-		if mappingErr != nil {
-			newErr := fmt.Errorf("Failed to Map New VM Info. %s", mappingErr)
-			cblogger.Error(newErr.Error())
-			LoggingError(callLogInfo, newErr)
-			return irs.VMInfo{}, newErr
-		}
-		return vmInfo, nil
+	vmInfo, err := vmHandler.mappingVMInfo(nhnVM)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Map New VM Info. %s", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMInfo{}, newErr
 	}
-	return irs.VMInfo{}, nil
+
+	return vmInfo, nil
 }
 
 func (vmHandler *NhnCloudVMHandler) associatePublicIP(serverID string) (bool, error) {
@@ -1139,7 +1143,7 @@ func (vmHandler *NhnCloudVMHandler) waitToGetVMInfo(vmIID irs.IID) (irs.VMStatus
 	curRetryCnt := 0
 	maxRetryCnt := 500
 	for {
-		curStatus, err := vmHandler.GetVMStatus(vmIID)
+		_, curStatus, err := vmHandler.getVMStatus(vmIID)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get the VM Status of [%s] : [%v] ", vmIID.NameId, err)
 			cblogger.Error(newErr.Error())

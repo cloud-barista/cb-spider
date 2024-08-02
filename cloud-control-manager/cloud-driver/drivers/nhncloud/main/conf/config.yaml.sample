@@ -1,12 +1,11 @@
 ## Config for NHN Cloud ##
 nhncloud:
-  identity_endpoint: https://api-identity-infrastructure.nhncloudservice.com
-  nhn_username: ex) ~~~@~~~.com
-  api_password: 
-    # API 비밀번호 값 입력
-  domain_name: ex) default
-  tenant_id: 
-    # => NHN > Instance > 관리 > API 엔드포인트 설정 > TenantID를 입력해야함. (NHNCloudDriver.go의 각 client 참고)
+  identity_endpoint: https://api-identity-infrastructure.nhncloudservice.com/v2.0
+  nhn_username: ~~~@~~~.com
+  api_password:
+  domain_name: default
+  tenant_id:
+  # => NHN > Instance > 관리 > API 엔드포인트 설정 > TenantID를 입력해야함. (NHNCloudDriver.go의 각 client 참고)
 
   region: KR1
   zone: kr-pub-a
@@ -15,10 +14,80 @@ nhncloud:
   # region: KR2
   # zone: kr2-pub-a
   # zone: kr2-pub-b
-  
+
   # region: JP1
   # zone: jp-pub-a
   # zone: jp-pub-b
 
   ##### (Note) NHN Cloud only provides detailed Zone information with the API, but unlike other CSPs, the API Endpoint is different for each Region, so when calling with API, only the zone information of the Region comes out without the Region information.
-  
+
+  resources:
+    image:
+      systemId: 280399f1-af96-41b7-b13b-2fae3752e97f # Ubuntu Server 22.04.4 LTS (2024.05.21)
+    security:
+      nameId: nhn-sg-01
+      VpcIID:
+        nameId: nhn-vpc-01
+      rules:
+        - FromPort: "22"
+          ToPort: "22"
+          IPProtocol: "tcp"
+          CIDR: "0.0.0.0/0"
+          Direction: "inbound"
+      addRules:
+        - FromPort: "66"
+          ToPort: "88"
+          IPProtocol: "tcp"
+          CIDR: "0.0.0.0/0"
+          Direction: "inbound"
+      removeRules:
+        - FromPort: "66"
+          ToPort: "88"
+          IPProtocol: "tcp"
+          CIDR: "0.0.0.0/0"
+          Direction: "inbound"
+    keyPair:
+      nameId: nhn-test-key
+    vmSpec:
+      nameId: c2.c16m16
+    vpc:
+      nameId:  nhn-vpc-01
+      ipv4CIDR: 10.1.0.0/16
+      subnets:
+        - nameId: nhn-vpc-sb-01
+          ipv4CIDR: 10.1.0.0/24
+        - nameId: nhn-vpc-sb-02
+          ipv4CIDR: 10.1.1.0/24
+      addSubnet:
+        nameId: nhn-vpc-sb-03
+        ipv4CIDR: 10.1.2.0/24
+    vm:
+      IID:
+        nameId: nhn-vm-01
+      ImageIID:
+        systemId: 280399f1-af96-41b7-b13b-2fae3752e97f # Ubuntu Server 22.04.4 LTS (2024.05.21)
+      ImageType: PublicImage
+      VmSpecName: c2.c16m16
+      KeyPairIID:
+        nameId: nhn-test-key
+      VpcIID:
+        nameId:  nhn-vpc-01
+      SubnetIID:
+        nameId:  nhn-vpc-sb-01
+      SecurityGroupIIDs:
+        - nameId:  nhn-sg-01
+      RootDiskSize: default
+      RootDiskType: PremiumSSD
+    myImage:
+      IID:
+        nameId: nhn-myimage-01
+      sourceVM:
+        nameId: nhn-vm-01
+    disk:
+      IID:
+        nameId: nhn-disk-01
+      diskType: default # General_HDD, General_SSD
+      diskSize: default # 50
+      updateDiskSize: 100
+      attachedVM:
+        nameId: nhn-vm-01
