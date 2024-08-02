@@ -14,13 +14,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	"math/rand"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
@@ -351,6 +352,12 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		vmOpts.Tags = map[string]*string{
 			"publicip":  to.StringPtr(publicIPIId.NameId),
 			"createdBy": to.StringPtr(vmReqInfo.IId.NameId),
+		}
+	}
+	// tags := setTags(vmReqInfo.TagList)
+	if vmReqInfo.TagList != nil{
+		for _, tag := range vmReqInfo.TagList {
+			vmOpts.Tags[tag.Key] = to.StringPtr(tag.Value)
 		}
 	}
 
@@ -1109,6 +1116,10 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server compute.VirtualMachine
 			vmInfo.AccessPoint = fmt.Sprintf("%s:%s", vmInfo.PublicIP, "22")
 		}
 	}
+	if server.Tags != nil {
+		vmInfo.TagList = setTagList(server.Tags)
+	}
+	
 	return vmInfo
 }
 

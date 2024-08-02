@@ -4,6 +4,11 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"strings"
+	"time"
+
 	cblog "github.com/cloud-barista/cb-log"
 	azdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -11,10 +16,6 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
-	"io/ioutil"
-	"os"
-	"strings"
-	"time"
 )
 
 type Config struct {
@@ -164,7 +165,8 @@ func showTestHandlerInfo() {
 	cblogger.Info("10. RegionZoneHandler")
 	cblogger.Info("11. PriceInfoHandler")
 	cblogger.Info("12. ClusterHandler")
-	cblogger.Info("13. Exit")
+	cblogger.Info("13. TagHandler")
+	cblogger.Info("14. Exit")
 	cblogger.Info("==========================================================")
 }
 
@@ -216,6 +218,8 @@ func getResourceHandler(resourceType string, config Config) (interface{}, error)
 		resourceHandler, err = cloudConnection.CreatePriceInfoHandler()
 	case "cluster":
 		resourceHandler, err = cloudConnection.CreateClusterHandler()
+	case "tag": 
+		resourceHandler, err = cloudConnection.CreateTagHandler()
 	}
 
 	if err != nil {
@@ -384,6 +388,7 @@ Loop:
 				reqInfo := irs.SecurityReqInfo{
 					IId:           securityIId,
 					SecurityRules: &securityRulesInfos,
+					TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
 					VpcIID:        targetVPCIId,
 				}
 				security, err := securityHandler.CreateSecurity(reqInfo)
@@ -463,6 +468,7 @@ func testVPCHandler(config Config) {
 	VPCReqInfo := irs.VPCReqInfo{
 		IId:            vpcIID,
 		IPv4_CIDR:      config.Azure.Resources.VPC.IPv4CIDR,
+		TagList:[]irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
 		SubnetInfoList: subnetInfoList,
 	}
 	addSubnet := config.Azure.Resources.VPC.AddSubnet
@@ -612,6 +618,7 @@ Loop:
 				cblogger.Info("Start CreateKey() ...")
 				reqInfo := irs.KeyPairReqInfo{
 					IId: keypairIId,
+					TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
 				}
 				if keyInfo, err := keyPairHandler.CreateKey(reqInfo); err != nil {
 					cblogger.Error(err)
@@ -768,6 +775,7 @@ func testVMHandler(config Config) {
 		SecurityGroupIIDs: SecurityGroupIIDs,
 		VMUserId:          config.Azure.Resources.Vm.VMUserId,
 		VMUserPasswd:      config.Azure.Resources.Vm.VMUserPasswd,
+		TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
 	}
 
 Loop:
@@ -897,26 +905,31 @@ func testNLBHandler(config Config) {
 			NameId: "nlb-tester",
 		},
 		VpcIID: irs.IID{
-			NameId: "nlb-tester-vpc",
+			NameId: "mcb-test-vpc",
 		},
+		// Type: "PUBLIC",
+		// Scope: "REGION",
 		Listener: irs.ListenerInfo{
 			Protocol: "TCP",
-			Port:     "8080",
+			Port:     "22",
 		},
 		VMGroup: irs.VMGroupInfo{
-			Port:     "80",
-			Protocol: "TCP",
+			Port:     "22",
+			Protocol: "TCP", 
 			VMs: &[]irs.IID{
-				{NameId: "tj-vm-tester"},
-				//{NameId: "nlb-tester-vm-02"},
+				{NameId: "vm-01"},
+				{NameId: "vm-02"},
 			},
 		},
 		HealthChecker: irs.HealthCheckerInfo{
 			Protocol:  "TCP",
-			Port:      "80",
+			Port:      "22",
 			Interval:  10,
-			Threshold: 429496728,
+			Timeout: -1,
+			Threshold: 5,
+			// Threshold: 429496728,
 		},
+		TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
 	}
 	updateListener := irs.ListenerInfo{
 		Protocol: "TCP",
@@ -926,17 +939,17 @@ func testNLBHandler(config Config) {
 		Protocol: "TCP",
 		Port:     "8087",
 		VMs: &[]irs.IID{
-			{NameId: "nlb-tester-vm-01"},
-			{NameId: "nlb-tester-vm-02"},
+			{NameId: "mcb-test-vm"},
+			{NameId: "mcb-test-vm2"},
 		},
 	}
 	addVMs := []irs.IID{
-		{NameId: "nlb-tester-vm-01"},
-		{NameId: "nlb-tester-vm-02"},
+		{NameId: "mcb-test-vm"},
+		{NameId: "mcb-test-vm2"},
 	}
 	removeVMs := []irs.IID{
-		{NameId: "nlb-tester-vm-01"},
-		{NameId: "nlb-tester-vm-02"},
+		{NameId: "mcb-test-vm"},
+		{NameId: "mcb-test-vm2"},
 	}
 
 	updateHealthCheckerInfo := irs.HealthCheckerInfo{
@@ -1073,6 +1086,8 @@ func testDiskHandler(config Config) {
 		IId: irs.IID{
 			NameId: config.Azure.Resources.Disk.IID.NameId,
 		},
+		Zone: config.Azure.Zone,
+		TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
 		DiskSize: config.Azure.Resources.Disk.DiskSize,
 		DiskType: config.Azure.Resources.Disk.DiskType,
 	}
@@ -1185,6 +1200,7 @@ func testMyImageHandler(config Config) {
 	targetvm := irs.MyImageInfo{
 		IId:      irs.IID{NameId: config.Azure.Resources.MyImage.IID.NameId},
 		SourceVM: irs.IID{NameId: config.Azure.Resources.MyImage.SourceVM.NameId},
+		TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
 	}
 	delimageIId := irs.IID{NameId: config.Azure.Resources.MyImage.IID.NameId}
 Loop:
@@ -1445,12 +1461,12 @@ func testClusterHandler(config Config) {
 	testClusterHandlerListPrint()
 	createreq := irs.ClusterInfo{
 		IId: irs.IID{
-			NameId: "test-cluster-2",
+			NameId: "test-cluster-1",
 		},
 		Network: irs.NetworkInfo{
-			VpcIID:            irs.IID{NameId: "cluster-tester-vpc"},
-			SubnetIIDs:        []irs.IID{{NameId: "cluster-tester-vpc-sb-01"}},
-			SecurityGroupIIDs: []irs.IID{{NameId: "test-cluster-applysg"}},
+			VpcIID:            irs.IID{NameId: "mcb-test-vpc"},
+			SubnetIIDs:        []irs.IID{{NameId: "mcb-test-vpc-subnet1"}},
+			SecurityGroupIIDs: []irs.IID{{NameId: "mcb-test-sg"}},
 		},
 		Version: "1.29.4",
 		// ImageIID
@@ -1459,7 +1475,7 @@ func testClusterHandler(config Config) {
 				IId:             irs.IID{NameId: "nodegroup0"},
 				VMSpecName:      "Standard_B2s",
 				RootDiskSize:    "default",
-				KeyPairIID:      irs.IID{NameId: "azure0916"},
+				KeyPairIID:      irs.IID{NameId: "mcb-test-key"},
 				DesiredNodeSize: 1,
 				MaxNodeSize:     2,
 				MinNodeSize:     1,
@@ -1476,12 +1492,13 @@ func testClusterHandler(config Config) {
 			//	OnAutoScaling:   true,
 			//},
 		},
+		TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
 	}
 	addNodeGroup := irs.NodeGroupInfo{
 		IId:             irs.IID{NameId: "nodegroup3"},
 		VMSpecName:      "Standard_B2s",
 		RootDiskSize:    "default",
-		KeyPairIID:      irs.IID{NameId: "azure0916"},
+		KeyPairIID:      irs.IID{NameId: "mcb-test-key"},
 		DesiredNodeSize: 3,
 		MaxNodeSize:     5,
 		MinNodeSize:     2,
@@ -1937,6 +1954,96 @@ Loop:
 	}
 }
 
+func testTagHandlerListPrint() {
+	cblogger.Info("Test TagHandler")
+	cblogger.Info("0. Print Menu")
+	cblogger.Info("1. AddTag()")
+	cblogger.Info("2. ListTag()")
+	cblogger.Info("3. GetTag()")
+	cblogger.Info("4. RemoveTag()")
+	cblogger.Info("5. FindTag()")
+	cblogger.Info("6. Exit")
+}
+
+func testTagHandler(config Config) {
+	resourceHandler, err := getResourceHandler("tag", config)
+	if err != nil {
+		cblogger.Error(err)
+		return
+	}
+
+	tagHandler := resourceHandler.(irs.TagHandler)
+	testTagHandlerListPrint()
+
+	tagReq := irs.KeyValue{Key: "Environment", Value: "Production"}
+	resType := irs.RSType("cluster")
+	resIID := irs.IID{NameId: "test-cluster-2", SystemId: ""}
+	// resIID := irs.IID{NameId: "sg01", SystemId: ""}
+	// resIID := irs.IID{NameId: "keypair-01", SystemId: ""}
+	// resIID := irs.IID{NameId: "vm-01", SystemId: ""}
+
+
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			cblogger.Error(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				testTagHandlerListPrint()
+			case 1:
+				cblogger.Info("Start AddTag() ...")
+				if tag, err := tagHandler.AddTag(resType, resIID, tagReq); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(tag)
+				}
+				cblogger.Info("Finish AddTag()")
+			case 2:
+				cblogger.Info("Start ListTag() ...")
+				if tags, err := tagHandler.ListTag(resType, resIID); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(tags)
+				}
+				cblogger.Info("Finish ListTag()")
+			case 3:
+				cblogger.Info("Start GetTag() ...")
+				if tag, err := tagHandler.GetTag(resType, resIID, tagReq.Key); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(tag)
+				}
+				cblogger.Info("Finish GetTag()")
+			case 4:
+				cblogger.Info("Start RemoveTag() ...")
+				if success, err := tagHandler.RemoveTag(resType, resIID, tagReq.Key); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(success)
+				}
+				cblogger.Info("Finish RemoveTag()")
+			case 5:
+				cblogger.Info("Start FindTag() ...")
+				keyword := "Environment"
+				// keyword := "createdBy"
+				if tagInfos, err := tagHandler.FindTag(resType, keyword); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(tagInfos)
+				}
+				cblogger.Info("Finish FindTag()")
+			case 6:
+				break Loop
+			}
+		}
+	}
+}
+
 func main() {
 	showTestHandlerInfo()
 	config := readConfigFile()
@@ -1987,6 +2094,9 @@ Loop:
 				testClusterHandler(config)
 				showTestHandlerInfo()
 			case 13:
+				testTagHandler(config)
+				showTestHandlerInfo()
+			case 14:
 				cblogger.Info("Exit Test ResourceHandler Program")
 				break Loop
 			}

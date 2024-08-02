@@ -438,8 +438,8 @@ func RunServer() {
 		//----------Tag Handler
 		{"POST", "/tag", AddTag},
 		{"GET", "/tag", ListTag},
-		{"GET", "/tag/:Name", GetTag},
-		{"DELETE", "/tag/:Name", RemoveTag},
+		{"GET", "/tag/:Key", GetTag},
+		{"DELETE", "/tag/:Key", RemoveTag},
 
 		//----------Destory All Resources in a Connection
 		{"DELETE", "/destroy", Destroy},
@@ -489,7 +489,7 @@ func RunServer() {
 
 		{"GET", "/adminweb/spiderinfo", aw.SpiderInfo},
 
-		{"GET", "/adminweb/vpc/:ConnectConfig", aw.VPC},
+		{"GET", "/adminweb/vpc/:ConnectConfig", aw.VPCSubnetManagement},
 		{"GET", "/adminweb/vpcmgmt/:ConnectConfig", aw.VPCMgmt},
 		{"GET", "/adminweb/securitygroup/:ConnectConfig", aw.SecurityGroup},
 		{"GET", "/adminweb/securitygroupmgmt/:ConnectConfig", aw.SecurityGroupMgmt},
