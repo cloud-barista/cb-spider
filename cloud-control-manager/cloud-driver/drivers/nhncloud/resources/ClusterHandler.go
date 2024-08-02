@@ -12,6 +12,7 @@ package resources
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"runtime/debug"
 	"strconv"
@@ -124,30 +125,16 @@ func (nch *NhnCloudClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo)
 			LoggingError(hiscallInfo, createErr)
 
 			if clusterId != "" {
-				nch.deleteCluster(clusterId)
+				_ = nch.deleteCluster(clusterId)
 				cblogger.Infof("Cluster(Name=%s) will be Deleted.", clusterReqInfo.IId.NameId)
 			}
 		}
 	}()
 
 	//
-	// Check if VPC is connected to an internet gateway
-	//
-	vpcId := clusterReqInfo.Network.VpcIID.SystemId
-	hasGateway, err := nch.isVpcConnectedToGateway(vpcId)
-	if err != nil {
-		createErr = fmt.Errorf("Failed to Create Cluster: %v", err)
-		return emptyClusterInfo, createErr
-	}
-	if hasGateway == false {
-		createErr = fmt.Errorf("Failed to Create Cluster: VPC Should Be Connected to Internet Gateway for Providing Public Endpoint")
-		return emptyClusterInfo, createErr
-	}
-
-	//
 	// Validation
 	//
-	err = validateAtCreateCluster(clusterReqInfo)
+	err := validateAtCreateCluster(clusterReqInfo)
 	if err != nil {
 		createErr = fmt.Errorf("Failed to Create Cluster: %v", err)
 		return emptyClusterInfo, createErr
@@ -261,8 +248,13 @@ func (nch *NhnCloudClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterIn
 	//
 	// Get ClusterInfo
 	//
-	clusterId := clusterIID.SystemId
-	clusterInfo, err := nch.getClusterInfo(clusterId)
+	cluster, err := nhnGetRawCluster(nch.ClusterClient, clusterIID)
+	if err != nil {
+		getErr = fmt.Errorf("Failed to Get Cluster: %v", err)
+		return emptyClusterInfo, getErr
+	}
+
+	clusterInfo, err := nch.getClusterInfo(cluster.UUID)
 	if err != nil {
 		getErr = fmt.Errorf("Failed to Get Cluster: %v", err)
 		return emptyClusterInfo, getErr
@@ -300,8 +292,13 @@ func (nch *NhnCloudClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, erro
 	//
 	// Delete Cluster
 	//
-	clusterId := clusterIID.SystemId
-	err := nch.deleteCluster(clusterId)
+	cluster, err := nhnGetRawCluster(nch.ClusterClient, clusterIID)
+	if err != nil {
+		delErr = fmt.Errorf("Failed to Get Cluster: %v", err)
+		return false, delErr
+	}
+
+	err = nch.deleteCluster(cluster.UUID)
 	if err != nil {
 		delErr = fmt.Errorf("Failed to Delete Cluster: %v", err)
 		return false, delErr
@@ -309,7 +306,7 @@ func (nch *NhnCloudClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, erro
 
 	LoggingInfo(hiscallInfo, start)
 
-	cblogger.Infof("Deleting Cluster(name=%s, id=%s)", clusterIID.NameId, clusterId)
+	cblogger.Infof("Deleting Cluster(name=%s, id=%s)", cluster.Name, cluster.UUID)
 
 	return true, nil
 }
@@ -346,8 +343,7 @@ func (nch *NhnCloudClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion
 	// Upgrade Cluster
 	// https://docs.nhncloud.com/ko/Container/NKS/ko/public-api/#_57
 	//
-	clusterId := clusterIID.SystemId
-	cluster, err := nhnGetCluster(nch.ClusterClient, clusterId)
+	cluster, err := nhnGetRawCluster(nch.ClusterClient, clusterIID)
 	if err != nil {
 		upgradeErr = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
 		return emptyClusterInfo, upgradeErr
@@ -361,7 +357,7 @@ func (nch *NhnCloudClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion
 
 	if semver.Compare(clusterVersion, newVersion) < 0 {
 		// At first, upgrades a node group for master: it takes 8~10 minutes
-		err := nhnUpgradeCluster(nch.ClusterClient, clusterId, masterNodeGroup, newVersion)
+		err := nhnUpgradeCluster(nch.ClusterClient, cluster.UUID, masterNodeGroup, newVersion)
 		if err != nil {
 			upgradeErr = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
 			return emptyClusterInfo, upgradeErr
@@ -369,16 +365,16 @@ func (nch *NhnCloudClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion
 		cblogger.Debug("To Upgrade a Cluster is In Progress")
 
 		// When upgrading a cluster(masterNodeGroup), the status of cluster is UpdateInProgress
-		err = nch.waitUntilClusterIsStatus(clusterId, clusterStatusUpdateComplete)
+		err = nch.waitUntilClusterIsStatus(cluster.UUID, clusterStatusUpdateComplete)
 		if err != nil {
 			upgradeErr = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
 			return emptyClusterInfo, upgradeErr
 		}
-		cblogger.Info("To Upgrade a Cluster/Master(id=%s) is Completed", clusterId)
+		cblogger.Info("To Upgrade a Cluster/Master(id=%s) is Completed", cluster.UUID)
 	}
 
 	// And then, upgrades node groups for worker
-	nodeGroupList, err := nhnGetNodeGroupList(nch.ClusterClient, clusterId)
+	nodeGroupList, err := nhnGetNodeGroupList(nch.ClusterClient, cluster.UUID)
 	if err != nil {
 		upgradeErr = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
 		return emptyClusterInfo, upgradeErr
@@ -387,7 +383,7 @@ func (nch *NhnCloudClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion
 	for _, nodeGroup := range nodeGroupList {
 		nodeGroupId := nodeGroup.UUID
 
-		nodeGroupDetail, err := nhnGetNodeGroup(nch.ClusterClient, clusterId, nodeGroupId)
+		nodeGroupDetail, err := nhnGetRawNodeGroup(nch.ClusterClient, cluster.UUID, irs.IID{SystemId: nodeGroupId})
 		if err != nil {
 			upgradeErr = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
 			return emptyClusterInfo, upgradeErr
@@ -401,14 +397,14 @@ func (nch *NhnCloudClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion
 		}
 
 		if semver.Compare(nodeGroupVersion, newVersion) < 0 {
-			err := nhnUpgradeCluster(nch.ClusterClient, clusterId, nodeGroupId, newVersion)
+			err := nhnUpgradeCluster(nch.ClusterClient, cluster.UUID, nodeGroupId, newVersion)
 			if err != nil {
 				upgradeErr = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
 				return emptyClusterInfo, upgradeErr
 			}
 
 			// When upgrading a nodegroup, the status of cluster is UpgradeInProress and the status of nodegroup is UpdateInProgress
-			err = nch.waitUntilNodeGroupIsStatus(clusterId, nodeGroupId, clusterStatusUpdateComplete)
+			err = nch.waitUntilNodeGroupIsStatus(cluster.UUID, nodeGroupId, clusterStatusUpdateComplete)
 			if err != nil {
 				upgradeErr = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
 				return emptyClusterInfo, upgradeErr
@@ -421,7 +417,7 @@ func (nch *NhnCloudClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion
 	//
 	// Get ClusterInfo
 	//
-	clusterInfo, err := nch.getClusterInfo(clusterId)
+	clusterInfo, err := nch.getClusterInfo(cluster.UUID)
 	if err != nil {
 		err = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
 		return emptyClusterInfo, err
@@ -458,7 +454,7 @@ func (nch *NhnCloudClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReq
 			LoggingError(hiscallInfo, addErr)
 
 			if clusterId != "" && nodeGroupId != "" {
-				nch.deleteNodeGroup(clusterId, nodeGroupId)
+				_ = nch.deleteNodeGroup(clusterId, nodeGroupId)
 				cblogger.Infof("NodeGroup(id=%s) of Cluster(id=%s) will be Deleted", nodeGroupId, clusterId)
 			}
 		}
@@ -478,8 +474,13 @@ func (nch *NhnCloudClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReq
 	//
 	// Create Node Group
 	//
-	clusterId = clusterIID.SystemId
-	nodeGroupId, err = nch.createNodeGroup(clusterId, &nodeGroupReqInfo)
+	cluster, err := nhnGetRawCluster(nch.ClusterClient, clusterIID)
+	if err != nil {
+		err = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
+		return emptyNodeGroupInfo, err
+	}
+
+	nodeGroupId, err = nch.createNodeGroup(cluster.UUID, &nodeGroupReqInfo)
 	if err != nil {
 		err = fmt.Errorf("Failed to Add NodeGroup: %v", err)
 		return emptyNodeGroupInfo, err
@@ -489,13 +490,7 @@ func (nch *NhnCloudClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReq
 	//
 	// Get NodeGroupInfo
 	//
-	clusterKeyPair, err := nch.getClusterKeyPair(clusterId)
-	if err != nil {
-		addErr = fmt.Errorf("Failed to Add NodeGroup: %v", err)
-		return emptyNodeGroupInfo, addErr
-	}
-
-	nodeGroupInfo, err := nch.getNodeGroupInfo(clusterId, nodeGroupId, clusterKeyPair)
+	nodeGroupInfo, err := nch.getNodeGroupInfo(cluster.UUID, nodeGroupId, cluster.KeyPair)
 	if err != nil {
 		addErr = fmt.Errorf("Failed to Add NodeGroup: %v", err)
 		return emptyNodeGroupInfo, addErr
@@ -525,11 +520,23 @@ func (nch *NhnCloudClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, n
 	//
 	// Set NodeGroup AutoScaling
 	//
-	clusterId := clusterIID.SystemId
-	nodeGroupId := nodeGroupIID.SystemId
+	cluster, err := nhnGetRawCluster(nch.ClusterClient, clusterIID)
+	if err != nil {
+		err = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
+		return false, err
+	}
+
+	nodeGroup, err := nhnGetRawNodeGroup(nch.ClusterClient, cluster.UUID, nodeGroupIID)
+	if err != nil {
+		err = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
+		return false, err
+	}
+
+	clusterId := cluster.UUID
+	nodeGroupId := nodeGroup.UUID
 	enable := on
 
-	_, err := nhnSetNodeGroupAutoscaleEnable(nch.ClusterClient, clusterId, nodeGroupId, enable)
+	_, err = nhnSetNodeGroupAutoscaleEnable(nch.ClusterClient, clusterId, nodeGroupId, enable)
 	if err != nil {
 		err := fmt.Errorf("Failed to Set NodeGroup AutoScaling: %v", err)
 		cblogger.Error(err)
@@ -539,7 +546,7 @@ func (nch *NhnCloudClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, n
 
 	LoggingInfo(hiscallInfo, start)
 
-	cblogger.Infof("Modifying AutoScaling of NodeGroup(name=%s, id=%s) in Cluster(%s)", nodeGroupIID.NameId, nodeGroupIID.SystemId, clusterIID.NameId)
+	cblogger.Infof("Modifying AutoScaling of NodeGroup(name=%s, id=%s) in Cluster(%s)", nodeGroup.Name, nodeGroup.UUID, cluster.Name)
 
 	return true, nil
 }
@@ -562,7 +569,7 @@ func (nch *NhnCloudClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, no
 	//
 	// Validation
 	//
-	err := validateAtChangeNodeGroupScaling(clusterIID, nodeGroupIID, minNodeSize, maxNodeSize)
+	err := validateAtChangeNodeGroupScaling(minNodeSize, maxNodeSize)
 	if err != nil {
 		err = fmt.Errorf("Failed to Change Node Group Scaling: %v", err)
 		cblogger.Error(err)
@@ -573,8 +580,19 @@ func (nch *NhnCloudClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, no
 	//
 	// Change NodeGroup's Scaling Size
 	//
-	clusterId := clusterIID.SystemId
-	nodeGroupId := nodeGroupIID.SystemId
+	cluster, err := nhnGetRawCluster(nch.ClusterClient, clusterIID)
+	if err != nil {
+		err = fmt.Errorf("Failed to Change NodeGroup Scaling: %v", err)
+		return emptyNodeGroupInfo, err
+	}
+
+	nodeGroup, err := nhnGetRawNodeGroup(nch.ClusterClient, cluster.UUID, nodeGroupIID)
+	if err != nil {
+		err = fmt.Errorf("Failed to Change NodeGroup Scaling: %v", err)
+		return emptyNodeGroupInfo, err
+	}
+
+	nodeGroupId := nodeGroup.UUID
 
 	enable := true
 	// CAUTION: desiredNodeSize cannot be applied in NHN Cloud
@@ -583,14 +601,6 @@ func (nch *NhnCloudClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, no
 
 	// Check if CurrentNodeCount >= minNodeCount or minNodeCount >= 1
 	// And CurrentNodeCount <= maxNodeCount or maxNodeCount <= 10
-	nodeGroup, err := nhnGetNodeGroup(nch.ClusterClient, clusterId, nodeGroupId)
-	if err != nil {
-		err = fmt.Errorf("Failed to Change NodeGroup Scaling: %v", err)
-		cblogger.Error(err)
-		LoggingError(hiscallInfo, err)
-		return emptyNodeGroupInfo, err
-	}
-
 	nodeCount := nodeGroup.NodeCount
 	if minNodeCount < 1 {
 		minNodeCount = 1
@@ -611,7 +621,7 @@ func (nch *NhnCloudClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, no
 	}
 
 	// Set NodeGroup's Autoscale
-	_, err = nhnSetNodeGroupAutoscale(nch.ClusterClient, clusterId, nodeGroupId, enable, minNodeCount, maxNodeCount)
+	_, err = nhnSetNodeGroupAutoscale(nch.ClusterClient, cluster.UUID, nodeGroupId, enable, minNodeCount, maxNodeCount)
 	if err != nil {
 		err = fmt.Errorf("Failed to Change NodeGroup Scaling: %v", err)
 		cblogger.Error(err)
@@ -622,15 +632,7 @@ func (nch *NhnCloudClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, no
 	//
 	// Get NodeGroupInfo
 	//
-	clusterKeyPair, err := nch.getClusterKeyPair(clusterId)
-	if err != nil {
-		err = fmt.Errorf("Failed to Change NodeGroup Scaling: %v", err)
-		cblogger.Error(err)
-		LoggingError(hiscallInfo, err)
-		return emptyNodeGroupInfo, err
-	}
-
-	nodeGroupInfo, err := nch.getNodeGroupInfo(clusterId, nodeGroupId, clusterKeyPair)
+	nodeGroupInfo, err := nch.getNodeGroupInfo(cluster.UUID, nodeGroupId, cluster.KeyPair)
 	if err != nil {
 		err = fmt.Errorf("Failed to Change NodeGroup Scaling: %v", err)
 		cblogger.Error(err)
@@ -640,7 +642,7 @@ func (nch *NhnCloudClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, no
 
 	LoggingInfo(hiscallInfo, start)
 
-	cblogger.Infof("Modifying Scaling of NodeGroup(id=%s) in Cluster(id=%s).", nodeGroupId, clusterId)
+	cblogger.Infof("Modifying Scaling of NodeGroup(id=%s) in Cluster(id=%s).", nodeGroupId, cluster.UUID)
 
 	return *nodeGroupInfo, nil
 }
@@ -660,7 +662,6 @@ func (nch *NhnCloudClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nodeGroup
 	cblogger.Info("Remove NodeGroup")
 
 	var removeErr error
-	var clusterId, nodeGroupId string
 	defer func() {
 		if removeErr != nil {
 			cblogger.Error(removeErr)
@@ -671,9 +672,19 @@ func (nch *NhnCloudClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nodeGroup
 	//
 	// Remove NodeGroup
 	//
-	clusterId = clusterIID.SystemId
-	nodeGroupId = nodeGroupIID.SystemId
-	err := nch.deleteNodeGroup(clusterId, nodeGroupId)
+	cluster, err := nhnGetRawCluster(nch.ClusterClient, clusterIID)
+	if err != nil {
+		err = fmt.Errorf("Failed to Upgrade Cluster: %v", err)
+		return false, err
+	}
+
+	nodeGroup, err := nhnGetRawNodeGroup(nch.ClusterClient, cluster.UUID, nodeGroupIID)
+	if err != nil {
+		err = fmt.Errorf("Failed to Change NodeGroup Scaling: %v", err)
+		return false, err
+	}
+
+	err = nch.deleteNodeGroup(cluster.UUID, nodeGroup.UUID)
 	if err != nil {
 		err := fmt.Errorf("Failed to Remove NodeGroup: %v", err)
 		return false, err
@@ -681,7 +692,7 @@ func (nch *NhnCloudClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nodeGroup
 
 	LoggingInfo(hiscallInfo, start)
 
-	cblogger.Infof("Removing NodeGroup(name=%s, id=%s) to Cluster(%s)", nodeGroupIID.NameId, nodeGroupIID.SystemId, clusterIID.NameId)
+	cblogger.Infof("Removing NodeGroup(name=%s, id=%s) to Cluster(%s)", nodeGroup.Name, nodeGroup.UUID, cluster.Name)
 
 	return true, nil
 }
@@ -690,7 +701,7 @@ func (nch *NhnCloudClusterHandler) getClusterInfoWithoutNodeGroupList(clusterId 
 	//
 	// Fill clusterInfo
 	//
-	cluster, err := nhnGetCluster(nch.ClusterClient, clusterId)
+	cluster, err := nhnGetRawCluster(nch.ClusterClient, irs.IID{SystemId: clusterId})
 	if err != nil {
 		err = fmt.Errorf("failed to get cluster(id=%s): %v", clusterId, err)
 		return nil, "", err
@@ -850,21 +861,11 @@ func (nch *NhnCloudClusterHandler) getClusterAddonInfo(cluster *clusters.Cluster
 	return info, nil
 }
 
-func (nch *NhnCloudClusterHandler) getClusterKeyPair(clusterId string) (string, error) {
-	cluster, err := nhnGetCluster(nch.ClusterClient, clusterId)
-	if err != nil {
-		err = fmt.Errorf("failed to get cluster's keypair: %v", err)
-		return "", err
-	}
-
-	return cluster.KeyPair, nil
-}
-
 func (nch *NhnCloudClusterHandler) getNodeGroupInfo(clusterId, nodeGroupId, keyPair string) (*irs.NodeGroupInfo, error) {
 	//
 	// Fill nodeGroupInfo
 	//
-	nodeGroup, err := nhnGetNodeGroup(nch.ClusterClient, clusterId, nodeGroupId)
+	nodeGroup, err := nhnGetRawNodeGroup(nch.ClusterClient, clusterId, irs.IID{SystemId: nodeGroupId})
 	if err != nil {
 		err = fmt.Errorf("failed to get nodegroup info: %v", err)
 		return nil, err
@@ -1118,7 +1119,7 @@ func (nch *NhnCloudClusterHandler) waitUntilClusterIsStatus(clusterId, status st
 
 	var waitErr error
 	for {
-		cluster, err := nhnGetCluster(nch.ClusterClient, clusterId)
+		cluster, err := nhnGetRawCluster(nch.ClusterClient, irs.IID{SystemId: clusterId})
 		if err != nil {
 			maxAPICallCount = maxAPICallCount / 2
 			cblogger.Infof("failed to get cluster(id=%s): %v", clusterId, err)
@@ -1150,7 +1151,7 @@ func (nch *NhnCloudClusterHandler) waitUntilClusterSecGroupIsCreated(clusterId s
 	maxAPICallCount := 240
 	var targetCluster *clusters.Cluster
 	for {
-		cluster, err := nhnGetCluster(nch.ClusterClient, clusterId)
+		cluster, err := nhnGetRawCluster(nch.ClusterClient, irs.IID{SystemId: clusterId})
 		if err != nil {
 			maxAPICallCount = maxAPICallCount / 2
 			cblogger.Infof("failed to get cluster(id=%s): %v", clusterId, err)
@@ -1209,7 +1210,7 @@ func (nch *NhnCloudClusterHandler) waitUntilNodeGroupIsStatus(clusterId, nodeGro
 
 	var waitErr error
 	for {
-		nodeGroup, err := nhnGetNodeGroup(nch.ClusterClient, clusterId, nodeGroupId)
+		nodeGroup, err := nhnGetRawNodeGroup(nch.ClusterClient, clusterId, irs.IID{SystemId: nodeGroupId})
 		if err != nil {
 			maxAPICallCount = maxAPICallCount / 2
 			cblogger.Infof("failed to get node group(id=%s): %v", nodeGroupId, err)
@@ -1254,6 +1255,24 @@ func (nch *NhnCloudClusterHandler) getClusterSecGroupId(cluster *clusters.Cluste
 }
 
 func (nch *NhnCloudClusterHandler) createCluster(clusterReqInfo *irs.ClusterInfo) (string, error) {
+	//
+	// Check if VPC is connected to an internet gateway
+	//
+	vpcHanlder := NhnCloudVPCHandler{
+		NetworkClient: nch.NetworkClient,
+	}
+	vpc, err := vpcHanlder.getRawVPC(clusterReqInfo.Network.VpcIID)
+	if err != nil {
+		return "", fmt.Errorf("Failed to get VPC: %v", err)
+	}
+	hasGateway, err := nch.isVpcConnectedToGateway(vpc.ID)
+	if err != nil {
+		return "", fmt.Errorf("Failed to Create Cluster: %v", err)
+	}
+	if hasGateway == false {
+		return "", fmt.Errorf("Failed to Create Cluster: VPC Should Be Connected to Internet Gateway for Providing Public Endpoint")
+	}
+
 	clusterName := clusterReqInfo.IId.NameId
 	firstNodeGroupInfo := &clusterReqInfo.NodeGroupList[0]
 
@@ -1290,9 +1309,25 @@ func (nch *NhnCloudClusterHandler) createCluster(clusterReqInfo *irs.ClusterInfo
 		return "", err
 	}
 
-	fixedNetwork := clusterReqInfo.Network.VpcIID.SystemId
-	fixedSubnet := clusterReqInfo.Network.SubnetIIDs[0].SystemId
+	fixedNetwork := vpc.ID
+	var fixedSubnet string
+	if clusterReqInfo.Network.SubnetIIDs[0].SystemId == "" {
+		if len(vpc.Subnets) > 0 {
+			for _, subnet := range vpc.Subnets {
+				if subnet.Name == clusterReqInfo.Network.SubnetIIDs[0].NameId {
+					fixedSubnet = subnet.ID
+					break
+				}
+			}
+		}
+	} else {
+		fixedSubnet = clusterReqInfo.Network.SubnetIIDs[0].SystemId
+	}
+
 	keyPair := firstNodeGroupInfo.KeyPairIID.NameId
+	if firstNodeGroupInfo.KeyPairIID.NameId == "" {
+		keyPair = firstNodeGroupInfo.KeyPairIID.SystemId
+	}
 
 	labels, err := nch.getLabelsForCluster(clusterReqInfo, firstNodeGroupInfo)
 	if err != nil {
@@ -1343,15 +1378,6 @@ func nhnCreateCluster(scCluster *nhnsdk.ServiceClient, clusterName string, timeo
 	return uuid, nil
 }
 
-func nhnGetCluster(scCluster *nhnsdk.ServiceClient, clusterId string) (*clusters.Cluster, error) {
-	cluster, err := clusters.Get(scCluster, clusterId).Extract()
-	if err != nil {
-		return nil, err
-	}
-
-	return cluster, nil
-}
-
 func nhnGetClusterList(scCluster *nhnsdk.ServiceClient) ([]clusters.Cluster, error) {
 	emptyClusterList := make([]clusters.Cluster, 0)
 
@@ -1368,6 +1394,29 @@ func nhnGetClusterList(scCluster *nhnsdk.ServiceClient) ([]clusters.Cluster, err
 	}
 
 	return clusterList, nil
+}
+
+func nhnGetRawCluster(scCluster *nhnsdk.ServiceClient, clusterIID irs.IID) (*clusters.Cluster, error) {
+	if clusterIID.SystemId != "" {
+		cluster, err := clusters.Get(scCluster, clusterIID.SystemId).Extract()
+		if err != nil {
+			return nil, err
+		}
+
+		return cluster, nil
+	}
+
+	clusterList, err := nhnGetClusterList(scCluster)
+	if err != nil {
+		return nil, err
+	}
+	for _, cluster := range clusterList {
+		if cluster.Name == clusterIID.NameId {
+			return &cluster, nil
+		}
+	}
+
+	return nil, errors.New("cluster not found")
 }
 
 func nhnDeleteCluster(scCluster *nhnsdk.ServiceClient, clusterId string) error {
@@ -1509,7 +1558,7 @@ func (nch *NhnCloudClusterHandler) convertObjectToKeyValueList(v any) ([]irs.Key
 func (nch *NhnCloudClusterHandler) createNodeGroup(clusterId string, nodeGroupReqInfo *irs.NodeGroupInfo) (string, error) {
 	nodeGroupName := nodeGroupReqInfo.IId.NameId
 
-	cluster, err := nhnGetCluster(nch.ClusterClient, clusterId)
+	cluster, err := nhnGetRawCluster(nch.ClusterClient, irs.IID{SystemId: clusterId})
 	if err != nil {
 		err = fmt.Errorf("failed to a cluster(id=%s): %v",
 			nodeGroupName, clusterId, err)
@@ -1766,16 +1815,6 @@ func nhnCreateNodeGroup(scCluster *nhnsdk.ServiceClient, clusterId, nodeGroupNam
 	return nodeGroup, nil
 }
 
-func nhnGetNodeGroup(scCluster *nhnsdk.ServiceClient, clusterId, nodeGroupId string) (*nodegroups.NodeGroup, error) {
-	nodeGroup, err := nodegroups.Get(scCluster, clusterId, nodeGroupId).Extract()
-	if err != nil {
-		err = fmt.Errorf("failed to get the cluster(id=%s)'s nodegroup(id=%s): %v", clusterId, nodeGroupId, err)
-		return nil, err
-	}
-
-	return nodeGroup, nil
-}
-
 func nhnGetNodeGroupList(scCluster *nhnsdk.ServiceClient, clusterId string) ([]nodegroups.NodeGroup, error) {
 	emptyNodeGroupList := make([]nodegroups.NodeGroup, 0)
 	nodeGroupListOpts := nodegroups.ListOpts{}
@@ -1792,6 +1831,31 @@ func nhnGetNodeGroupList(scCluster *nhnsdk.ServiceClient, clusterId string) ([]n
 	}
 
 	return nodeGroupList, nil
+}
+
+func nhnGetRawNodeGroup(scCluster *nhnsdk.ServiceClient, clusterId string, nodeGroupIID irs.IID) (*nodegroups.NodeGroup, error) {
+	if nodeGroupIID.SystemId != "" {
+		nodeGroup, err := nodegroups.Get(scCluster, clusterId, nodeGroupIID.SystemId).Extract()
+		if err != nil {
+			err = fmt.Errorf("failed to get the cluster(id=%s)'s nodegroup(id=%s): %v", clusterId, nodeGroupIID.SystemId, err)
+			return nil, err
+		}
+
+		return nodeGroup, nil
+	}
+
+	nodeGroupList, err := nhnGetNodeGroupList(scCluster, clusterId)
+	if err != nil {
+		err = fmt.Errorf("failed to get the cluster(id=%s)'s nodegroups: %v", clusterId, err)
+	}
+
+	for _, nodeGroup := range nodeGroupList {
+		if nodeGroup.Name == nodeGroupIID.NameId {
+			return &nodeGroup, nil
+		}
+	}
+
+	return nil, errors.New("node group not found")
 }
 
 func nhnDeleteNodeGroup(scCluster *nhnsdk.ServiceClient, clusterId, nodeGroupId string) error {
@@ -2183,14 +2247,8 @@ func validateAtCreateCluster(clusterInfo irs.ClusterInfo) error {
 	//
 	// Check clusterInfo.Network
 	//
-	if clusterInfo.Network.VpcIID.SystemId == "" {
-		return fmt.Errorf("VPC id is required")
-	}
 	if len(clusterInfo.Network.SubnetIIDs) < 1 {
 		return fmt.Errorf("At least one Subnet must be specified")
-	}
-	if clusterInfo.Network.SubnetIIDs[0].SystemId == "" {
-		return fmt.Errorf("Subnet id is reguired")
 	}
 	if len(clusterInfo.Network.SecurityGroupIIDs) < 1 {
 		return fmt.Errorf("At least one Subnet must be specified")
@@ -2209,13 +2267,6 @@ func validateAtCreateCluster(clusterInfo irs.ClusterInfo) error {
 
 func validateAtAddNodeGroup(clusterIID irs.IID, nodeGroupInfo irs.NodeGroupInfo) error {
 	//
-	// Check clusterIID
-	//
-	if clusterIID.SystemId == "" && clusterIID.NameId == "" {
-		return fmt.Errorf("Invalid Cluster IID")
-	}
-
-	//
 	// Check nodeGroupInfo
 	//
 	err := validateNodeGroupInfoList([]irs.NodeGroupInfo{nodeGroupInfo})
@@ -2226,13 +2277,7 @@ func validateAtAddNodeGroup(clusterIID irs.IID, nodeGroupInfo irs.NodeGroupInfo)
 	return nil
 }
 
-func validateAtChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID, minNodeSize int, maxNodeSize int) error {
-	if clusterIID.SystemId == "" && clusterIID.NameId == "" {
-		return fmt.Errorf("Invalid Cluster IID")
-	}
-	if nodeGroupIID.SystemId == "" && nodeGroupIID.NameId == "" {
-		return fmt.Errorf("Invalid Node Group IID")
-	}
+func validateAtChangeNodeGroupScaling(minNodeSize int, maxNodeSize int) error {
 	if minNodeSize < 1 {
 		return fmt.Errorf("MaxNodeSize cannot be smaller than 1")
 	}
