@@ -10,7 +10,7 @@
     }
     .header-container {
         display: flex;
-        align-items: flex-end; /* Align items to the bottom */
+        align-items: center; /* Align items to the center */
     }
     .header-container img {
         margin-right: 10px;
@@ -26,6 +26,8 @@
     h1 {
         font-size: 16px;
         margin: 0;
+        display: flex;
+        align-items: center;
     }
     h2 {
         font-size: 16px;
@@ -104,7 +106,7 @@
     .fixed-action-buttons {
         display: flex;
         align-items: center;
-        margin-left: -1cm; /* Move 1cm to the left */
+        margin-left: 1cm;
     }
     .fixed-action-buttons button {
         margin-left: 10px;
@@ -190,6 +192,7 @@
         display: flex;
         gap: 5px;
         align-items: center;
+        display: none; /* Initially hide this group */
     }
     .overlay-header .add-form-group input[type="checkbox"] {
         margin: 0;
@@ -197,6 +200,26 @@
     }
     .overlay-header .add-form-group button {
         margin-left: 5px;
+    }
+    .first-button {
+        background-color: white;
+        border: 1px solid #ced4da;
+        border-radius: 3px;
+        padding: 1px 4px;
+        font-size: 10px;
+        height: 22px;
+        cursor: pointer;
+    }
+    .first-button:hover {
+        background-color: #f2f2f2;
+    }
+    #providerFilterWrapper {
+        display: flex;
+        align-items: center;
+        margin-left: 15px; /* Space between the filter and the title */
+    }
+    #providerFilter {
+        margin-left: 5px; /* Space between the label and the filter */
     }
 </style>
 <script>
@@ -227,6 +250,7 @@
     }
 
     function deleteSelectedRegions() {
+        const providerFilter = document.getElementById("providerFilter").value;
         const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
         if (checkboxes.length === 0) {
             alert("Please select regions to delete.");
@@ -237,10 +261,15 @@
             return;
         }
 
-        const deletePromises = Array.from(checkboxes).map(checkbox => {
-            const regionName = checkbox.value;
-            return fetch(`/spider/region/${regionName}`, { method: 'DELETE' });
-        });
+        const deletePromises = Array.from(checkboxes)
+            .filter(checkbox => {
+                const row = checkbox.closest('tr');
+                return row.style.display !== 'none' && (providerFilter === "All" || row.closest('table').id.includes(providerFilter));
+            })
+            .map(checkbox => {
+                const regionName = checkbox.value;
+                return fetch(`/spider/region/${regionName}`, { method: 'DELETE' });
+            });
 
         Promise.all(deletePromises)
             .then(responses => {
@@ -269,7 +298,10 @@
     function toggleSelectAll(source) {
         const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]');
         for (const checkbox of checkboxes) {
-            checkbox.checked = source.checked;
+            const row = checkbox.closest('tr');
+            if (row.style.display !== 'none') {
+                checkbox.checked = source.checked;
+            }
         }
     }
 
@@ -277,14 +309,20 @@
         const table = document.getElementById(tableId);
         const checkboxes = table.querySelectorAll('input[name="deleteCheckbox"]');
         for (const checkbox of checkboxes) {
-            checkbox.checked = source.checked;
+            const row = checkbox.closest('tr');
+            if (row.style.display !== 'none') {
+                checkbox.checked = source.checked;
+            }
         }
     }
 
     function toggleImportSelectAll(source) {
         const checkboxes = document.querySelectorAll('input[name="importCheckbox"]');
         for (const checkbox of checkboxes) {
-            checkbox.checked = source.checked;
+            const row = checkbox.closest('tr');
+            if (row.style.display !== 'none') {
+                checkbox.checked = source.checked;
+            }
         }
     }
 
@@ -292,7 +330,10 @@
         const table = document.getElementById(tableId);
         const checkboxes = table.querySelectorAll('input[name="importCheckbox"]');
         for (const checkbox of checkboxes) {
-            checkbox.checked = source.checked;
+            const row = checkbox.closest('tr');
+            if (row.style.display !== 'none') {
+                checkbox.checked = source.checked;
+            }
         }
     }
 
@@ -443,8 +484,9 @@
         document.getElementById('importDriverSelect').innerHTML = '';
         document.getElementById('importCredentialSelect').innerHTML = '';
         document.getElementById('importTableBody').innerHTML = '';
-        document.querySelector('.add-form-group[style]').style.display = 'none';
+        document.querySelector('.add-form-group').style.display = 'none';
         document.getElementById('currentProviderName').innerText = '';
+        document.getElementById('zoneStatusFilter').value = 'All'; // Reset zoneStatusFilter to 'All'
     }
 
     function generateRegionName() {
@@ -469,6 +511,8 @@
             return;
         }
 
+        document.getElementById('zoneStatusFilter').value = 'All'; // Reset zoneStatusFilter to 'All'
+
         const fetchUrl = `/spider/preconfig/regionzone?DriverName=${driverName}&CredentialName=${credentialName}`;
 
         fetch(fetchUrl)
@@ -476,6 +520,7 @@
             .then(data => {
                 currentRegions = data.regionzone || [];
                 renderImportTable();
+                document.querySelector('.add-form-group').style.display = 'flex'; // Show the filter and buttons group
             })
             .catch(error => {
                 alert(`Error fetching region and zone information: ${error}`);
@@ -504,6 +549,7 @@
                         <th>Region Name</th>
                         <th>Region</th>
                         <th>Zone</th>
+                        <th>Zone Status</th>
                         <th class="checkbox-cell"><input type="checkbox" onclick="toggleTableSelectAll(this, '${tableId}')"></th>
                     </tr>
                 </thead>
@@ -524,6 +570,7 @@
                     <td><input type="text" value="${regionName}" style="width: calc(100% - 2mm);" /></td>
                     <td class="pastel-blue-text">${region.Name}</td>
                     <td class="pastel-blue-text">${zone.Name}</td>
+                    <td class="pastel-blue-text">${zone.Status}</td>
                     <td class="checkbox-cell"><input type="checkbox" name="importCheckbox" /></td>
                 `;
                 table.querySelector('tbody').appendChild(row);
@@ -533,7 +580,7 @@
             importTableBody.appendChild(regionSection);
         });
 
-        const importHeader = document.querySelector('.add-form-group[style]');
+        const importHeader = document.querySelector('.add-form-group');
         if (importTableBody.innerHTML.trim()) {
             importHeader.style.display = 'flex';
         } else {
@@ -553,10 +600,12 @@
             const regionName = row.querySelector('input[type="text"]').value;
             const region = row.cells[1].innerText;
             const zone = row.cells[2].innerText;
+            const zoneStatus = row.cells[3].innerText;
 
             const keyValueInfoList = [
                 { Key: "Region", Value: region },
-                { Key: "Zone", Value: zone }
+                { Key: "Zone", Value: zone },
+                { Key: "ZoneStatus", Value: zoneStatus }
             ];
 
             const data = {
@@ -592,11 +641,66 @@
             });
     }
 
+    function checkFirstItems() {
+        const tables = document.querySelectorAll('#importTableBody table');
+        tables.forEach(table => {
+            const firstVisibleRow = Array.from(table.querySelectorAll('tbody tr')).find(row => row.style.display !== 'none');
+            if (firstVisibleRow) {
+                const firstCheckbox = firstVisibleRow.querySelector('input[name="importCheckbox"]');
+                if (firstCheckbox) {
+                    firstCheckbox.checked = !firstCheckbox.checked; // Toggle check status
+                }
+            }
+        });
+    }
+
     function handleEsc(event) {
         if (event.key === 'Escape') {
             hideOverlay();
             hideImportOverlay();
         }
+    }
+
+    function filterProvider() {
+        var providerFilter = document.getElementById("providerFilter").value;
+        var titles = document.querySelectorAll(".provider-title");
+        var tables = document.querySelectorAll("table");
+
+        titles.forEach(function(title) {
+            var providerName = title.id.replace("title-", "");
+            if (providerFilter === "All" || providerFilter === providerName) {
+                title.style.display = "";
+            } else {
+                title.style.display = "none";
+            }
+        });
+
+        tables.forEach(function(table) {
+            var providerName = table.id.replace("table-", "");
+            if (providerFilter === "All" || providerFilter === providerName) {
+                table.style.display = "";
+            } else {
+                table.style.display = "none";
+            }
+        });
+    }
+
+    function filterZoneStatus() {
+        var zoneStatusFilter = document.getElementById("zoneStatusFilter").value;
+        var tables = document.querySelectorAll("div.region-section table");
+
+        tables.forEach(function(table) {
+            var rows = table.querySelectorAll("tbody tr");
+            rows.forEach(function(row) {
+                var zoneStatus = row.cells[3].innerText;
+                if (zoneStatusFilter === "All" || zoneStatus === zoneStatusFilter) {
+                    row.style.display = "";
+                } else {
+                    row.style.display = "none";
+                    row.querySelector('input[name="importCheckbox"]').checked = false; // Uncheck hidden items
+                }
+            });
+        });
     }
 
     document.addEventListener('DOMContentLoaded', (event) => {
@@ -613,7 +717,16 @@
                 <h1>Connection Info Management</h1>
             </a>
             <span class="separator"><h1>></h1></span>
-            <h1>Region Info Management</h1>
+            <h1>Region Info Management
+                <div id="providerFilterWrapper">                    
+                    <select id="providerFilter" onchange="filterProvider()">
+                        <option value="All">All</option>
+                        {{range $provider := .Providers}}
+                        <option value="{{$provider}}">{{$provider}}</option>
+                        {{end}}
+                    </select>
+                </div>
+            </h1>
         </div>
         <div class="fixed-action-buttons">
             <input type="checkbox" onclick="toggleSelectAll(this)">
@@ -623,7 +736,7 @@
     
     <div class="content">
         {{range $provider := .Providers}}
-        <div class="provider-title">
+        <div class="provider-title" id="title-{{$provider}}">
             <h2>{{$provider}}</h2>
             <button class="add-button" onclick="showOverlay('{{$provider}}')">+</button>
             <button class="import-button" onclick="showImportOverlay('{{$provider}}')">Import</button>
@@ -696,7 +809,15 @@
                     <button type="button" onclick="fetchRegionZone()">Fetch</button>
                     <button type="button" onclick="hideImportOverlay()">Cancel</button>
                 </div>
-                <div class="add-form-group" style="display: none;">
+                <div class="add-form-group">
+                    <label for="zoneStatusFilter">Zone Status:</label>
+                    <select id="zoneStatusFilter" onchange="filterZoneStatus()">
+                        <option value="All">All</option>
+                        <option value="Available">Available</option>
+                        <option value="Unavailable">Unavailable</option>
+                        <option value="StatusNotSupported">StatusNotSupported</option>
+                    </select>
+                    <button class="first-button" type="button" onclick="checkFirstItems()">1st</button>
                     <input type="checkbox" onclick="toggleImportSelectAll(this)">
                     <button type="button" onclick="addImportedRegions()">Add</button>
                 </div>
