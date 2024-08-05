@@ -147,8 +147,8 @@
             transform: translate(-50%, -50%);
             width: 50%;
             height: 30px;
-            background-color: #e0f7fa;
-            border: 1px solid #b2ebf2;
+            background-color: #e2e0e0;
+            border: 1px solid #bdbdbd;
             border-radius: 5px;
             overflow: hidden;
             display: none; /* Initially hidden */
@@ -156,7 +156,7 @@
         .progress-bar-inner {
             height: 100%;
             width: 0;
-            background-color: #81d4fa;
+            background-color: #cdcaca;
             animation: progress-animation 2s linear infinite;
         }
         @keyframes progress-animation {
@@ -272,6 +272,22 @@
                 updateTopMenu(event.data.configName, event.data.provider, event.data.region);
             }
         });
+
+        // Event listener to handle showing and hiding progress bar
+        window.addEventListener('message', function(event) {
+            if (event.data.type === 'showProgressBar') {
+                showProgressBar();
+            } else if (event.data.type === 'hideProgressBar') {
+                hideProgressBar();
+            }
+        });
+
+        // Add event listener to handle iframe load completion
+        window.addEventListener('message', function(event) {
+            if (event.data.type === 'iframeLoaded') {
+                hideProgressBar();
+            }
+        });
     </script>
 </head>
 <body>
@@ -306,7 +322,7 @@
                 </div>
             </div>
             <div class="body-frame">
-                <iframe src="/spider/adminweb/body_frame" name="body_frame"></iframe>
+                <iframe src="/spider/adminweb/body_frame" name="body_frame" onload="parent.postMessage({ type: 'iframeLoaded' }, '*')"></iframe>
                 <div class="progress-bar">
                     <div class="progress-bar-inner"></div>
                 </div>

@@ -64,7 +64,20 @@
             };
 
             const targetUrl = `${menuUrlMap[menu]}/${encodeURIComponent(connectionName)}`;
-            parent.frames['body_frame'].location.href = targetUrl;
+            const iframe = parent.frames['body_frame'];
+
+            // Show progress bar
+            parent.postMessage({ type: 'showProgressBar' }, '*');
+
+            iframe.onload = function() {
+                parent.postMessage({ type: 'iframeLoaded' }, '*');
+            };
+            iframe.onerror = function() {
+                parent.postMessage({ type: 'hideProgressBar' }, '*');
+                alert('Failed to load the page. Please try again.');
+            };
+
+            iframe.location.href = targetUrl;
 
             // Change selected image
             changeSelectedImage(menu);
@@ -80,9 +93,23 @@
             };
 
             const targetUrl = menuUrlMap[menu];
+            const iframe = parent.frames['body_frame'];
+
             if (targetUrl) {
-                parent.frames['body_frame'].location.href = targetUrl;
+                // Show progress bar
+                parent.postMessage({ type: 'showProgressBar' }, '*');
+
+                iframe.onload = function() {
+                    parent.postMessage({ type: 'iframeLoaded' }, '*');
+                };
+                iframe.onerror = function() {
+                    parent.postMessage({ type: 'hideProgressBar' }, '*');
+                    alert('Failed to load the page. Please try again.');
+                };
+
+                iframe.location.href = targetUrl;
             }
+
             // Notify main.html to deselect its menus
             parent.postMessage({ type: 'deselectMainMenu' }, '*');
         }
