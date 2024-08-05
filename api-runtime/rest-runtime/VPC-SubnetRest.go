@@ -347,6 +347,7 @@ func AddSubnet(c echo.Context) error {
 			Name      string
 			Zone      string
 			IPv4_CIDR string
+			TagList   []dri.KeyValue
 		}
 	}
 
@@ -355,7 +356,7 @@ func AddSubnet(c echo.Context) error {
 	}
 
 	// Rest RegInfo => Driver ReqInfo
-	reqSubnetInfo := cres.SubnetInfo{IId: cres.IID{req.ReqInfo.Name, ""}, IPv4_CIDR: req.ReqInfo.IPv4_CIDR, Zone: req.ReqInfo.Zone}
+	reqSubnetInfo := cres.SubnetInfo{IId: cres.IID{req.ReqInfo.Name, ""}, IPv4_CIDR: req.ReqInfo.IPv4_CIDR, Zone: req.ReqInfo.Zone, TagList: req.ReqInfo.TagList}
 
 	// Call common-runtime API
 	result, err := cmrt.AddSubnet(req.ConnectionName, SUBNET, c.Param("VPCName"), reqSubnetInfo, req.IDTransformMode)
