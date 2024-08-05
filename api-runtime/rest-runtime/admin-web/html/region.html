@@ -250,9 +250,12 @@
     }
 
     function deleteSelectedRegions() {
-        const providerFilter = document.getElementById("providerFilter").value;
         const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
-        if (checkboxes.length === 0) {
+        const visibleCheckboxes = Array.from(checkboxes).filter(checkbox => {
+            return checkbox.closest('tr').offsetParent !== null; // Check if the row is visible
+        });
+
+        if (visibleCheckboxes.length === 0) {
             alert("Please select regions to delete.");
             return;
         }
@@ -261,15 +264,10 @@
             return;
         }
 
-        const deletePromises = Array.from(checkboxes)
-            .filter(checkbox => {
-                const row = checkbox.closest('tr');
-                return row.style.display !== 'none' && (providerFilter === "All" || row.closest('table').id.includes(providerFilter));
-            })
-            .map(checkbox => {
-                const regionName = checkbox.value;
-                return fetch(`/spider/region/${regionName}`, { method: 'DELETE' });
-            });
+        const deletePromises = visibleCheckboxes.map(checkbox => {
+            const regionName = checkbox.value;
+            return fetch(`/spider/region/${regionName}`, { method: 'DELETE' });
+        });
 
         Promise.all(deletePromises)
             .then(responses => {
@@ -301,6 +299,8 @@
             const row = checkbox.closest('tr');
             if (row.style.display !== 'none') {
                 checkbox.checked = source.checked;
+            } else {
+                checkbox.checked = false;
             }
         }
     }
@@ -312,6 +312,8 @@
             const row = checkbox.closest('tr');
             if (row.style.display !== 'none') {
                 checkbox.checked = source.checked;
+            } else {
+                checkbox.checked = false;
             }
         }
     }
@@ -322,6 +324,8 @@
             const row = checkbox.closest('tr');
             if (row.style.display !== 'none') {
                 checkbox.checked = source.checked;
+            } else {
+                checkbox.checked = false;
             }
         }
     }
@@ -333,6 +337,8 @@
             const row = checkbox.closest('tr');
             if (row.style.display !== 'none') {
                 checkbox.checked = source.checked;
+            } else {
+                checkbox.checked = false;
             }
         }
     }
@@ -590,12 +596,16 @@
 
     function addImportedRegions() {
         const checkboxes = document.querySelectorAll('input[name="importCheckbox"]:checked');
-        if (checkboxes.length === 0) {
+        const visibleCheckboxes = Array.from(checkboxes).filter(checkbox => {
+            return checkbox.closest('tr').offsetParent !== null; // Check if the row is visible
+        });
+
+        if (visibleCheckboxes.length === 0) {
             alert("Please select regions to add.");
             return;
         }
 
-        const addPromises = Array.from(checkboxes).map(checkbox => {
+        const addPromises = visibleCheckboxes.map(checkbox => {
             const row = checkbox.closest('tr');
             const regionName = row.querySelector('input[type="text"]').value;
             const region = row.cells[1].innerText;
@@ -683,6 +693,18 @@
                 table.style.display = "none";
             }
         });
+
+        // Uncheck all checkboxes when the filter changes
+        uncheckAllCheckboxes();
+        // Uncheck the main delete checkbox
+        document.querySelector('.fixed-action-buttons input[type="checkbox"]').checked = false;
+    }
+
+    function uncheckAllCheckboxes() {
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]');
+        for (const checkbox of checkboxes) {
+            checkbox.checked = false;
+        }
     }
 
     function filterZoneStatus() {
@@ -701,11 +723,25 @@
                 }
             });
         });
+
+        // Uncheck all import checkboxes when the filter changes
+        uncheckAllImportCheckboxes();
+        // Uncheck the main import checkbox
+        document.querySelector('.add-form-group input[type="checkbox"]').checked = false;
+    }
+
+    function uncheckAllImportCheckboxes() {
+        const checkboxes = document.querySelectorAll('input[name="importCheckbox"]');
+        for (const checkbox of checkboxes) {
+            checkbox.checked = false;
+        }
     }
 
     document.addEventListener('DOMContentLoaded', (event) => {
         document.getElementById('Region').addEventListener('input', generateRegionName);
         document.getElementById('Zone').addEventListener('input', generateRegionName);
+        document.getElementById("providerFilter").addEventListener('change', filterProvider);
+        document.getElementById("zoneStatusFilter").addEventListener('change', filterZoneStatus);
     });
 </script>
 </head>
