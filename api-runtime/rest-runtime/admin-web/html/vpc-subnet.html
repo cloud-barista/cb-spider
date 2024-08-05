@@ -20,11 +20,6 @@
         font-size: 16px;
         margin: 0;
     }
-    .header-container .conn-name {
-        font-size: 16px;
-        margin-left: 10px;
-        color: #888;
-    }
     h2 {
         font-size: 16px;
         margin: 10px 0;
@@ -116,8 +111,6 @@
     }
     .fixed-action-buttons button {
         margin-left: 10px;
-        font-size: 14px;
-        font-weight: bold;
     }
     .add-button {
         font-size: 14px;
@@ -219,7 +212,7 @@
         overflow: hidden;
         text-overflow: ellipsis;
         cursor: pointer;
-        max-width: calc(100% - 2ch); /* 기존보다 2문자 길이 줄이기 */
+        max-width: calc(100% - 2ch);
     }
     .tag-container:hover {
         background-color: #c1e1c1;
@@ -250,15 +243,16 @@
     }
     .inner-table .tags-cell {
         text-align: left;
-        width: 50%;
+        width: auto;
     }
     .inner-table .actions-cell {
-        width: 10%;
+        width: 60px;
+        white-space: nowrap;
     }
     .inner-table .tags-cell div {
         display: inline-block;
         padding: 2px 5px;
-        max-width: calc(100% - 2ch); /* 기존보다 2문자 길이 줄이기 */
+        max-width: calc(100% - 2ch);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
@@ -267,12 +261,31 @@
         width: auto;
         font-size: 12px;
         font-weight: bold;
-        color: red;
+        white-space: nowrap;
     }
     .inner-table button.add-btn {
         width: auto;
         font-size: 12px;
         font-weight: bold;
+        white-space: nowrap;
+    }
+    .inner-table .name-column {
+        width: 20%;
+    }
+    .inner-table .cidr-column {
+        width: 20%;
+    }
+    .inner-table .zone-column {
+        width: 20%;
+    }
+    .inner-table .tags-column {
+        width: 25%;
+    }
+    button.add-btn {
+        width: 45px;
+        font-size: 12px;
+        font-weight: bold;
+        white-space: nowrap;
     }
 </style>
 <script>
@@ -470,7 +483,7 @@
         const vpcNameInput = document.getElementById('vpcName');
         const subnetNameInput = document.getElementById('subnetName');
         const zoneInput = document.getElementById('subnetZone');
-        const zone = '{{.Zone}}';  // 현재 Zone 정보
+        const zone = '{{.Zone}}';
 
         vpcNameInput.value = `${region}-vpc-${Math.random().toString(36).substring(2, 5)}`;
         document.getElementById('vpcCIDR').value = '10.0.0.0/16';
@@ -497,7 +510,7 @@
 
     function clearFormFields() {
         const region = '{{.RegionName}}';
-        const zone = '{{.Zone}}';  // 현재 Zone 정보
+        const zone = '{{.Zone}}';
         const vpcNameInput = document.getElementById('vpcName');
         const subnetNameInput = document.getElementById('subnetName');
         const zoneInput = document.getElementById('subnetZone');
@@ -513,13 +526,13 @@
 
     function showSubnetOverlay(vpcName) {
         const region = '{{.RegionName}}';
-        const zone = '{{.Zone}}';  // 현재 Zone 정보
+        const zone = '{{.Zone}}';
 
         document.getElementById('subnetVPCName').value = vpcName;
         document.getElementById('subnetVPCNameDisplay').value = vpcName;
-        document.getElementById('subnetZone').value = zone;
-        document.getElementById('subnetName').value = `${region}-${zone}-subnet-${Math.random().toString(36).substring(2, 5)}`;
-        document.getElementById('subnetCIDR').value = '10.0.1.0/24';
+        document.getElementById('addSubnetZone').value = zone;
+        document.getElementById('addSubnetName').value = `${region}-${zone}-subnet-${Math.random().toString(36).substring(2, 5)}`;
+        document.getElementById('addSubnetCIDR').value = '10.0.2.0/24';
 
         document.getElementById('subnet-overlay').style.display = 'flex';
         document.addEventListener('keydown', handleEscSubnet);
@@ -539,15 +552,15 @@
     }
 
     function clearSubnetFormFields() {
-        document.querySelectorAll('.subnet-tag-input').forEach(tagInput => tagInput.remove());
+        document.querySelectorAll('.add-subnet-tag-input').forEach(tagInput => tagInput.remove());
     }
 
     function addSubnet() {
         const vpcName = document.getElementById('subnetVPCName').value;
         const connConfig = document.getElementById('connConfig').value;
-        const subnetName = document.getElementById('subnetName').value;
-        const subnetCIDR = document.getElementById('subnetCIDR').value;
-        const subnetZone = document.getElementById('subnetZone').value;
+        const subnetName = document.getElementById('addSubnetName').value;
+        const subnetCIDR = document.getElementById('addSubnetCIDR').value;
+        const subnetZone = document.getElementById('addSubnetZone').value;
 
         const data = {
             ConnectionName: connConfig,
@@ -555,9 +568,9 @@
                 Name: subnetName,
                 IPv4_CIDR: subnetCIDR,
                 Zone: subnetZone,
-                TagList: Array.from(document.querySelectorAll('.subnet-tag-input')).map(tagInput => ({
-                    Key: tagInput.querySelector('.subnet-tag-key').value,
-                    Value: tagInput.querySelector('.subnet-tag-value').value
+                TagList: Array.from(document.querySelectorAll('.add-subnet-tag-input')).map(tagInput => ({
+                    Key: tagInput.querySelector('.add-subnet-tag-key').value,
+                    Value: tagInput.querySelector('.add-subnet-tag-value').value
                 }))
             }
         };
@@ -681,13 +694,27 @@
     function removeTagField(button) {
         button.parentElement.remove();
     }
+
+    function addAddSubnetTagField() {
+        const tagContainer = document.getElementById('add-subnet-tag-container');
+        const tagInput = document.createElement('div');
+        tagInput.className = 'add-subnet-tag-input add-tag-input-group';
+        tagInput.innerHTML = `
+            <input type="text" class="add-subnet-tag-key" placeholder="Key" required>
+            <input type="text" class="add-subnet-tag-value" placeholder="Value" required>
+            <button type="button" onclick="removeTagField(this)">-</button>
+        `;
+        tagContainer.appendChild(tagInput);
+    }
+
+
 </script>
 </head>
 <body>
     <div class="fixed-header">
         <div class="header-container">
             <img src="/spider/adminweb/images/left-menu/vpc.png" alt="VPC Icon">
-            <h1>VPC/Subnet Management <span class="conn-name">({{.ConnectionConfig}})</span></h1>
+            <h1>VPC/Subnet Management</h1>
         </div>
         <div class="fixed-action-buttons">
             <input type="checkbox" onclick="toggleSelectAll(this)">
@@ -714,11 +741,11 @@
                 <td class="subnet-info">
                     <table class="inner-table">
                         <tr>
-                            <th>Name</th>
-                            <th>CIDR</th>
-                            <th>Zone</th>
-                            <th>Tags</th>
-                            <th><button class="add-btn" onclick="showSubnetOverlay('{{$vpcNameId}}')">+</button></th>
+                            <th class="name-column">Name</th>
+                            <th class="cidr-column">CIDR</th>
+                            <th class="zone-column">Zone</th>
+                            <th class="tags-column">Tags</th>
+                            <th class="actions-cell"><button class="add-btn" onclick="showSubnetOverlay('{{$vpcNameId}}')">add</button></th>
                         </tr>
                         {{range .SubnetInfoList}}
                         <tr>
@@ -731,7 +758,7 @@
                                 {{end}}
                             </td>
                             <td class="actions-cell">
-                                <button class="delete-btn" onclick="deleteSubnet('{{$vpcNameId}}', '{{.IId.NameId}}')">x</button>
+                                <button class="delete-btn" onclick="deleteSubnet('{{$vpcNameId}}', '{{.IId.NameId}}')">del</button>
                             </td>
                         </tr>
                         {{end}}
@@ -750,10 +777,12 @@
                 </td>
             </tr>
             {{end}}
+            {{if not .VPCs}}
+            <tr>
+                <td colspan="6" class="center-align">No VPCs found for this connection.</td>
+            </tr>
+            {{end}}
         </table>
-        {{if not .VPCs}}
-        <p>No VPCs found for this connection.</p>
-        {{end}}
     </div>
 
     <div id="overlay" class="overlay">
@@ -774,7 +803,6 @@
                     <div class="form-group" style="padding-left: 145px;">
                         <label for="vpcTags">Tags:</label>
                         <div id="vpc-tag-container">
-                            <!-- 초기 화면에서는 비워둠 -->
                         </div>
                         <button type="button" onclick="addVPCTagField()">+</button>
                     </div>
@@ -796,7 +824,6 @@
                     <div class="form-group" style="padding-left: 145px;">
                         <label for="subnetTags">Tags:</label>
                         <div id="subnet-tag-container">
-                            <!-- 초기 화면에서는 비워둠 -->
                         </div>
                         <button type="button" onclick="addSubnetTagField()">+</button>
                     </div>
@@ -820,23 +847,22 @@
                     <input type="text" id="subnetVPCNameDisplay" name="subnetVPCNameDisplay" readonly>
                 </div>
                 <div class="form-group">
-                    <label for="subnetName">Name:</label>
-                    <input type="text" id="subnetName" name="subnetName" required>
+                    <label for="addSubnetName">Name:</label>
+                    <input type="text" id="addSubnetName" name="addSubnetName" required>
                 </div>
                 <div class="form-group">
-                    <label for="subnetCIDR">CIDR:</label>
-                    <input type="text" id="subnetCIDR" name="subnetCIDR" required>
+                    <label for="addSubnetCIDR">CIDR:</label>
+                    <input type="text" id="addSubnetCIDR" name="addSubnetCIDR" required>
                 </div>
                 <div class="form-group">
-                    <label for="subnetZone">Zone:</label>
-                    <input type="text" id="subnetZone" name="subnetZone" required>
+                    <label for="addSubnetZone">Zone:</label>
+                    <input type="text" id="addSubnetZone" name="addSubnetZone" required>
                 </div>
                 <div class="form-group" style="padding-left: 20px;">
-                    <label for="subnetTags">Tags:</label>
-                    <div id="subnet-tag-container">
-                        <!-- 초기 화면에서는 비워둠 -->
+                    <label for="addSubnetTags">Tags:</label>
+                    <div id="add-subnet-tag-container">
                     </div>
-                    <button type="button" onclick="addSubnetTagField()">+</button>
+                    <button type="button" onclick="addAddSubnetTagField()">+</button>
                 </div>
                 <div class="form-group" style="margin-top: 20px;">
                     <button type="submit">Add Subnet</button>
