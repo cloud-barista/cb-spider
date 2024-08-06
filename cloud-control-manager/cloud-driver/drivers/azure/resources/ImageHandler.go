@@ -120,7 +120,6 @@ func checkRequest(errMessage string) (repeat bool) {
 	if len(matches) > 1 {
 		number := matches[1]
 		sec, _ := strconv.Atoi(number)
-		fmt.Println(sec)
 		time.Sleep(time.Second * time.Duration(sec))
 
 		return true
