@@ -1315,8 +1315,6 @@ func generateAgentPoolProfileProperties(nodeGroupInfo irs.NodeGroupInfo, subnet 
 		nodeOSDiskSize = to.Int32Ptr(int32(osDiskSize))
 	}
 
-	targetZones := &[]string{ac.Region.Zone}
-
 	agentPoolProfileProperties := containerservice.ManagedClusterAgentPoolProfileProperties{
 		// Name:         to.StringPtr(nodeGroupInfo.IId.NameId),
 		Count:              to.Int32Ptr(int32(nodeGroupInfo.DesiredNodeSize)),
@@ -1328,12 +1326,16 @@ func generateAgentPoolProfileProperties(nodeGroupInfo irs.NodeGroupInfo, subnet 
 		Type:               containerservice.AgentPoolTypeVirtualMachineScaleSets,
 		MaxPods:            to.Int32Ptr(maxPodCount),
 		Mode:               containerservice.AgentPoolModeSystem, // User? System?
-		AvailabilityZones:  targetZones,
 		EnableNodePublicIP: to.BoolPtr(true),
 		EnableAutoScaling:  to.BoolPtr(nodeGroupInfo.OnAutoScaling),
 		// MinCount가 있으려면 true 여야함
 		VnetSubnetID: subnet.ID,
 	}
+
+	if !strings.EqualFold(ac.Region.Zone, "") {
+		agentPoolProfileProperties.AvailabilityZones = &[]string{ac.Region.Zone}
+	}
+
 	return agentPoolProfileProperties, nil
 }
 
@@ -1350,8 +1352,6 @@ func generateAgentPoolProfile(nodeGroupInfo irs.NodeGroupInfo, subnet network.Su
 		nodeOSDiskSize = to.Int32Ptr(int32(osDiskSize))
 	}
 
-	targetZones := &[]string{ac.Region.Zone}
-
 	agentPoolProfile := containerservice.ManagedClusterAgentPoolProfile{
 		Name:               to.StringPtr(nodeGroupInfo.IId.NameId),
 		Count:              to.Int32Ptr(int32(nodeGroupInfo.DesiredNodeSize)),
@@ -1363,7 +1363,6 @@ func generateAgentPoolProfile(nodeGroupInfo irs.NodeGroupInfo, subnet network.Su
 		Type:               containerservice.AgentPoolTypeVirtualMachineScaleSets,
 		MaxPods:            to.Int32Ptr(maxPodCount),
 		Mode:               containerservice.AgentPoolModeSystem, // User? System?
-		AvailabilityZones:  targetZones,
 		EnableNodePublicIP: to.BoolPtr(true),
 		EnableAutoScaling:  to.BoolPtr(nodeGroupInfo.OnAutoScaling),
 		// MinCount가 있으려면 true 여야함
@@ -1373,6 +1372,11 @@ func generateAgentPoolProfile(nodeGroupInfo irs.NodeGroupInfo, subnet network.Su
 		agentPoolProfile.MinCount = nil
 		agentPoolProfile.MaxCount = nil
 	}
+
+	if !strings.EqualFold(ac.Region.Zone, "") {
+		agentPoolProfile.AvailabilityZones = &[]string{ac.Region.Zone}
+	}
+
 	return agentPoolProfile, nil
 }
 
