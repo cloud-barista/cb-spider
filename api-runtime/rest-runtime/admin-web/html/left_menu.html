@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <style>
         .menu-item {
-            margin: 10px 0;
+            margin: 3px 0; /* Further reduced margin */
             padding: 10px;
             font-size: 12px;
             font-weight: bold;
@@ -20,16 +20,25 @@
         }
         .menu-item img {
             vertical-align: middle;
-            height: 35px; /* Set height to 40px */
+            height: 35px; /* Set height to 30px */
             width: auto; /* Maintain aspect ratio */
         }
         .logo img {
-            height: 47px; /* Set height to 50px */
+            margin-top: 0;
+            margin-bottom: 0;
+            height: 50px;
             width: auto; /* Maintain aspect ratio */
         }
         .menu-text {
             margin-top: 0; /* Remove or minimize the top margin */
             text-align: center;
+            font-size: 11px;
+        }
+        .divider {
+            width: 80%;
+            height: 1px;
+            background-color: #666; /* Change color to a darker shade */
+            margin: 5px auto; /* Add margin to separate the divider and center it */
         }
     </style>
     <script>
@@ -55,7 +64,20 @@
             };
 
             const targetUrl = `${menuUrlMap[menu]}/${encodeURIComponent(connectionName)}`;
-            parent.frames['body_frame'].location.href = targetUrl;
+            const iframe = parent.frames['body_frame'];
+
+            // Show progress bar
+            parent.postMessage({ type: 'showProgressBar' }, '*');
+
+            iframe.onload = function() {
+                parent.postMessage({ type: 'iframeLoaded' }, '*');
+            };
+            iframe.onerror = function() {
+                parent.postMessage({ type: 'hideProgressBar' }, '*');
+                alert('Failed to load the page. Please try again.');
+            };
+
+            iframe.location.href = targetUrl;
 
             // Change selected image
             changeSelectedImage(menu);
@@ -71,9 +93,23 @@
             };
 
             const targetUrl = menuUrlMap[menu];
+            const iframe = parent.frames['body_frame'];
+
             if (targetUrl) {
-                parent.frames['body_frame'].location.href = targetUrl;
+                // Show progress bar
+                parent.postMessage({ type: 'showProgressBar' }, '*');
+
+                iframe.onload = function() {
+                    parent.postMessage({ type: 'iframeLoaded' }, '*');
+                };
+                iframe.onerror = function() {
+                    parent.postMessage({ type: 'hideProgressBar' }, '*');
+                    alert('Failed to load the page. Please try again.');
+                };
+
+                iframe.location.href = targetUrl;
             }
+
             // Notify main.html to deselect its menus
             parent.postMessage({ type: 'deselectMainMenu' }, '*');
         }
@@ -107,6 +143,7 @@
     <a href="/spider/adminweb2" target="_top" class="menu-item logo">
         <img src="./images/logo.png" border="0">
     </a>
+    <div class="divider"></div> <!-- Divider after logo -->
     <div class="menu-item" onclick="selectLeftMenu('dashboard')">
         <img id="dashboard-img" src="./images/left-menu/dashboard.png" alt="Dashboard Icon">
         <div class="menu-text">Dashboard</div>
@@ -115,6 +152,7 @@
         <img id="connection-img" src="./images/left-menu/connection.png" alt="Connection Icon">
         <div class="menu-text">Connection</div>
     </div>
+    <div class="divider"></div> <!-- Divider after Connection -->
     <div class="menu-item" onclick="checkConnectionAndRedirect('vpc', event)">
         <img id="vpc-img" src="./images/left-menu/vpc.png" alt="VPC/Subnet Icon">
         <div class="menu-text">VPC/Subnet</div>
@@ -127,6 +165,7 @@
         <img id="keypair-img" src="./images/left-menu/keypair.png" alt="KeyPair Icon">
         <div class="menu-text">KeyPair</div>
     </div>
+    <div class="divider"></div> <!-- Divider after Keypair -->
     <div class="menu-item" onclick="checkConnectionAndRedirect('vm', event)">
         <img id="vm-img" src="./images/left-menu/vm.png" alt="VM Icon">
         <div class="menu-text">VM</div>
@@ -143,9 +182,11 @@
         <img id="nlb-img" src="./images/left-menu/nlb.png" alt="NLB Icon">
         <div class="menu-text">NLB</div>
     </div>
+    <div class="divider"></div> <!-- Divider after NLB -->
     <div class="menu-item" onclick="checkConnectionAndRedirect('cluster', event)">
         <img id="cluster-img" src="./images/left-menu/cluster.png" alt="Cluster Icon">
         <div class="menu-text">Cluster</div>
     </div>
+    <div class="divider"></div> <!-- Divider after Cluster -->
 </body>
 </html>

@@ -72,13 +72,17 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 	//projects/csta-349809/locations/asia-northeast3-a
 
 	// Meta정보에 securityGroup 정보를 Key,Val 형태로 넣고 실제 값(val)은 nodeConfig 에 set하여 사용
-	securityGroupMap := make(map[string]string)
+	labels := make(map[string]string)
 	var sgTags []string
 	if clusterReqInfo.Network.SecurityGroupIIDs != nil && len(clusterReqInfo.Network.SecurityGroupIIDs) > 0 {
 		for idx, securityGroupIID := range clusterReqInfo.Network.SecurityGroupIIDs {
-			securityGroupMap[GCP_PMKS_SECURITYGROUP_TAG+strconv.Itoa(idx)] = securityGroupIID.NameId
+			labels[GCP_PMKS_SECURITYGROUP_TAG+strconv.Itoa(idx)] = securityGroupIID.NameId
 			sgTags = append(sgTags, securityGroupIID.NameId)
 		}
+	}
+
+	for _, t := range clusterReqInfo.TagList {
+		labels[t.Key] = t.Value
 	}
 
 	reqCluster := container.Cluster{}
@@ -96,7 +100,7 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 
 	rb := &container.CreateClusterRequest{}
 	rb.Cluster = &reqCluster
-	rb.Cluster.ResourceLabels = securityGroupMap
+	rb.Cluster.ResourceLabels = labels
 
 	// nodeGroup List set
 	nodePools := []*container.NodePool{}
@@ -761,12 +765,19 @@ func mappingClusterInfo(cluster *container.Cluster) (ClusterInfo irs.ClusterInfo
 	// 3. Network       NetworkInfo
 	securityGroups := []irs.IID{} // SecurityGroup으로 정의된 Label추출
 	var metaSecurityGroupTags []string
-	for resourceKey, resourceVal := range cluster.ResourceLabels {
-		if strings.HasPrefix(resourceKey, GCP_PMKS_SECURITYGROUP_TAG) {
-			//securityGroups = append(securityGroups, irs.IID{NameId: resourceVal, SystemId: resourceVal})
-			metaSecurityGroupTags = append(metaSecurityGroupTags, resourceVal)
+
+	tags := make([]irs.KeyValue, 0)
+	if cluster.ResourceLabels != nil {
+		for resourceKey, resourceVal := range cluster.ResourceLabels {
+			if strings.HasPrefix(resourceKey, GCP_PMKS_SECURITYGROUP_TAG) {
+				//securityGroups = append(securityGroups, irs.IID{NameId: resourceVal, SystemId: resourceVal})
+				metaSecurityGroupTags = append(metaSecurityGroupTags, resourceVal)
+			}
+			tags = append(tags, irs.KeyValue{Key: resourceKey, Value: resourceVal})
 		}
 	}
+	clusterInfo.TagList = tags
+
 	cblogger.Info("metaSecurityGroupTags : ", metaSecurityGroupTags)
 	// NodeConfig의 Tag가 SecurityGroup으로 사용하는 Tag인지 알려면
 	// Metadata에 Label이 정의되어있는지 여부로 확인

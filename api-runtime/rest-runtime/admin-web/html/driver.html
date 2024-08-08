@@ -10,7 +10,7 @@
     }
     .header-container {
         display: flex;
-        align-items: flex-end; /* Align items to the bottom */
+        align-items: center; /* Align items to the center */
     }
     .header-container img {
         margin-right: 10px;
@@ -26,6 +26,8 @@
     h1 {
         font-size: 16px;
         margin: 0;
+        display: flex;
+        align-items: center;
     }
     h2 {
         font-size: 16px;
@@ -127,6 +129,14 @@
     .form-group button {
         margin-left: 10px;
     }
+    #providerFilterWrapper {
+        display: flex;
+        align-items: center;
+        margin-left: 15px; /* Space between the filter and the title */
+    }
+    #providerFilter {
+        margin-left: 5px; /* Space between the label and the filter */
+    }
 </style>
 <script>
     function deleteDriver(driverName) {
@@ -152,7 +162,11 @@
 
     function deleteSelectedDrivers() {
         const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
-        if (checkboxes.length === 0) {
+        const visibleCheckboxes = Array.from(checkboxes).filter(checkbox => {
+            return checkbox.closest('tr').offsetParent !== null; // Check if the row is visible
+        });
+
+        if (visibleCheckboxes.length === 0) {
             alert("Please select drivers to delete.");
             return;
         }
@@ -161,7 +175,7 @@
             return;
         }
 
-        const deletePromises = Array.from(checkboxes).map(checkbox => {
+        const deletePromises = visibleCheckboxes.map(checkbox => {
             const driverName = checkbox.value;
             return fetch(`/spider/driver/${driverName}`, { method: 'DELETE' });
         });
@@ -192,9 +206,11 @@
 
     function toggleSelectAll(source) {
         const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]');
-        for (const checkbox of checkboxes) {
-            checkbox.checked = source.checked;
-        }
+        checkboxes.forEach(checkbox => {
+            if (checkbox.closest('tr').offsetParent !== null) { // Check if the row is visible
+                checkbox.checked = source.checked;
+            }
+        });
     }
 
     function toggleSelectTable(source, tableId) {
@@ -280,6 +296,46 @@
         document.getElementById('driverName').value = '';
         document.getElementById('driverLibFileName').value = '';
     }
+
+    function filterProvider() {
+        var providerFilter = document.getElementById("providerFilter").value;
+        var titles = document.querySelectorAll(".provider-title");
+        var tables = document.querySelectorAll("table");
+
+        titles.forEach(function(title) {
+            var providerName = title.id.replace("title-", "");
+            if (providerFilter === "All" || providerFilter === providerName) {
+                title.style.display = "";
+            } else {
+                title.style.display = "none";
+            }
+        });
+
+        tables.forEach(function(table) {
+            var providerName = table.id.replace("table-", "");
+            if (providerFilter === "All" || providerFilter === providerName) {
+                table.style.display = "";
+            } else {
+                table.style.display = "none";
+            }
+        });
+
+        // Uncheck all checkboxes when the filter changes
+        uncheckAllCheckboxes();
+        // Uncheck the main delete checkbox
+        document.querySelector('.fixed-action-buttons input[type="checkbox"]').checked = false;
+    }
+
+    function uncheckAllCheckboxes() {
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]');
+        for (const checkbox of checkboxes) {
+            checkbox.checked = false;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', (event) => {
+        document.getElementById("providerFilter").addEventListener('change', filterProvider);
+    });
 </script>
 </head>
 <body>
@@ -290,7 +346,16 @@
                 <h1>Connection Info Management</h1>
             </a>
             <span class="separator"><h1>></h1></span>
-            <h1>Driver Info Management</h1>
+            <h1>Driver Info Management
+                <div id="providerFilterWrapper">                    
+                    <select id="providerFilter">
+                        <option value="All">All</option>
+                        {{range $provider := .Providers}}
+                        <option value="{{$provider}}">{{$provider}}</option>
+                        {{end}}
+                    </select>
+                </div>
+            </h1>
         </div>
         <div class="fixed-action-buttons">
             <input type="checkbox" onclick="toggleSelectAll(this)">
@@ -300,7 +365,7 @@
 
     <div class="content">
         {{range $provider := .Providers}}
-        <div class="provider-title">
+        <div class="provider-title" id="title-{{$provider}}">
             <h2>{{$provider}}</h2>
             <button class="add-button" onclick="showOverlay('{{$provider}}')">+</button>
         </div>

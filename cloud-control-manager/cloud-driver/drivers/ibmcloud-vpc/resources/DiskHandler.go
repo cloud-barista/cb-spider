@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/IBM/go-sdk-core/v5/core"
+	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -57,6 +58,18 @@ func (diskHandler *IbmDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 		return irs.DiskInfo{}, createErr
 	}
 	LoggingInfo(hiscallInfo, start)
+
+	// Attach Tag
+	if diskReqInfo.TagList != nil && len(diskReqInfo.TagList) > 0 {
+		var tagHandler irs.TagHandler // TagHandler 초기화
+		for _, tag := range diskReqInfo.TagList{
+			_, err := tagHandler.AddTag("DISK", diskReqInfo.IId, tag)
+			if err != nil {
+				createErr := errors.New(fmt.Sprintf("Failed to Attach Tag on Disk err = %s", err.Error()))
+				cblogger.Error(createErr.Error())
+			}
+		}
+	}
 
 	return *diskHandler.ToIRSDisk(createdDisk), nil
 }
@@ -157,6 +170,17 @@ func (diskHandler *IbmDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
+	
+	// Detach Tag Auto Delete 
+	var tagService *globaltaggingv1.GlobalTaggingV1
+	deleteTagAllOptions := tagService.NewDeleteTagAllOptions()
+	deleteTagAllOptions.SetTagType("user")
+
+	_, _, err := tagService.DeleteTagAll(deleteTagAllOptions)
+	if err != nil {
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Disk Detached Tag err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+	}
 
 	return true, nil
 }

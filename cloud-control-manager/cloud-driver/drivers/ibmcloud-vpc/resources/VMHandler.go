@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/IBM/go-sdk-core/v5/core"
+	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	vpcv0230 "github.com/IBM/vpc-go-sdk/0.23.0/vpcv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -306,6 +307,18 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
+	}
+
+	// 2-1. Attach Tag
+	if vmReqInfo.TagList != nil && len(vmReqInfo.TagList) > 0 {
+		var tagHandler irs.TagHandler // TagHandler 초기화
+		for _, tag := range vmReqInfo.TagList{
+			_, err := tagHandler.AddTag("VM", vmReqInfo.IId, tag)
+			if err != nil {
+				createErr := errors.New(fmt.Sprintf("Failed to Attach Tag on VM err = %s", err.Error()))
+				cblogger.Error(createErr.Error())
+			}
+		}
 	}
 
 	// 3.Attach SecurityGroup
@@ -652,6 +665,18 @@ func (vmHandler *IbmVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) 
 		return irs.Failed, TerminateErr
 	}
 	LoggingInfo(hiscallInfo, start)
+
+	// Detach Tag Auto Delete 
+	var tagService *globaltaggingv1.GlobalTaggingV1
+	deleteTagAllOptions := tagService.NewDeleteTagAllOptions()
+	deleteTagAllOptions.SetTagType("user")
+
+	_, _, err = tagService.DeleteTagAll(deleteTagAllOptions)
+	if err != nil {
+		delErr := errors.New(fmt.Sprintf("Failed to Delete VM Detached Tag err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+	}
+
 	return irs.Terminating, nil
 }
 

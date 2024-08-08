@@ -89,16 +89,26 @@ func (myImageHandler *TencentMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIm
 	request.InstanceId = common.StringPtr(snapshotReqInfo.SourceVM.SystemId)
 
 	// Tag 추가 ResourceType : instance(for CVM), host(for CDH), image(for image), keypair(for key)
+
+	var tags []*cvm.Tag
+	for _, inputTag := range snapshotReqInfo.TagList {
+		tags = append(tags, &cvm.Tag{
+			Key:   common.StringPtr(inputTag.Key),
+			Value: common.StringPtr(inputTag.Value),
+		})
+	}
+
+	imageTagSourceVm := &cvm.Tag{
+		Key:   common.StringPtr(IMAGE_TAG_SOURCE_VM),
+		Value: common.StringPtr(snapshotReqInfo.SourceVM.SystemId),
+	}
+
+	tags = append(tags, imageTagSourceVm)
+
 	request.TagSpecification = []*cvm.TagSpecification{
 		{
 			ResourceType: common.StringPtr(RESOURCE_TYPE_MYIMAGE),
-			Tags: []*cvm.Tag{
-				{
-
-					Key:   common.StringPtr(IMAGE_TAG_SOURCE_VM),
-					Value: common.StringPtr(snapshotReqInfo.SourceVM.SystemId),
-				},
-			},
+			Tags:         tags,
 		},
 	}
 

@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VPC/Subnet Management</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+    }
+    .header-container {
+        display: flex;
+        align-items: flex-end;
+    }
+    .header-container img {
+        margin-right: 10px;
+        height: 28px;
+    }
+    .header-container h1 {
+        font-size: 16px;
+        margin: 0;
+    }
+    h2 {
+        font-size: 16px;
+        margin: 10px 0;
+    }
+    h3 {
+        font-size: 14px;
+        margin: 10px 0;
+        margin-left: 1cm;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-bottom: 0;
+    }
+    th, td {
+        border: 1px solid black;
+        padding: 6px;
+        position: relative;
+    }
+    th {
+        background-color: #f2f2f2;
+        font-size: 14px;
+        text-align: center;
+    }
+    td {
+        text-align: left;
+    }
+    .center-align {
+        text-align: center;
+    }
+    .overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        justify-content: center;
+        align-items: center;
+    }
+    .overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+    }
+    .tag-overlay {
+        display: none;
+        position: absolute;
+        background-color: white;
+        border: 1px solid black;
+        padding: 20px;
+        z-index: 1001;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        max-width: 300px;
+        word-wrap: break-word;
+    }
+    .tag-overlay .close-btn {
+        position: absolute;
+        top: 5px;
+        right: 10px;
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+    }
+    .fixed-header {
+        position: fixed;
+        top: 0;
+        width: 97%;
+        background-color: white;
+        z-index: 1000;
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 20px;
+        align-items: center;
+        box-shadow: 0 4px 6px -6px #222;
+    }
+    .fixed-action-buttons {
+        display: flex;
+        align-items: center;
+        position: relative;
+        top: 57px;
+    }
+    .fixed-action-buttons button {
+        margin-left: 10px;
+    }
+    .add-button {
+        font-size: 14px;
+        font-weight: bold;
+        margin-left: 1px;
+        margin-bottom: 10px;
+    }
+    .content {
+        margin-top: 70px;
+    }
+    .checkbox-cell {
+        width: 5%;
+        text-align: center;
+    }
+    .highlight-pastel-blue {
+        color: #4A90E2;
+        font-weight: bold;
+    }
+    .select-button {
+        margin-left: 10px;
+        font-size: 10px;
+        padding: 3px 5px;
+    }
+    .disabled-input {
+        background-color: #f0f0f0;
+        color: #a0a0a0;
+        border: 1px solid #d0d0d0;
+    }
+    .select-list-item {
+        color: #0645AD;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+    .select-list-item:hover {
+        color: #0B0080;
+    }
+    .form-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .form-group label {
+        flex: 1;
+        text-align: right;
+        margin-right: 10px;
+    }
+    .form-group input, .form-group textarea {
+        flex: 2;
+    }
+    .form-group button {
+        margin-left: 10px;
+    }
+    .form-group .tag-inputs {
+        display: flex;
+        flex: 2;
+        margin-left: 10px;
+    }
+    .form-group .tag-inputs input {
+        flex: 1;
+        margin-right: 5px;
+    }
+    .tag-input-group {
+        display: flex;
+        align-items: center;
+        flex: 2;
+    }
+    .tag-input-group input {
+        flex: 0.5;
+        margin-right: 5px;
+    }
+    .tag-input-group button {
+        margin-left: 5px;
+    }
+    .error-message {
+        background-color: #F8D7DA;
+        color: #721C24;
+        padding: 20px;
+        border-radius: 5px;
+        font-size: 16px;
+        margin-bottom: 20px;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 2000;
+        text-align: center;
+    }
+    .error-message button {
+        display: block;
+        margin: 20px auto 0;
+    }
+    .tag-container {
+        display: inline-block;
+        background-color: #e1e1e1;
+        border-radius: 3px;
+        padding: 2px 5px;
+        margin: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: pointer;
+        max-width: calc(100% - 2ch);
+    }
+    .tag-container:hover {
+        background-color: #c1e1c1;
+    }
+    .vpc-name {
+        width: 10%;
+    }
+    .vpc-cidr {
+        width: 10%;
+    }
+    .subnet-info {
+        width: 40%;
+    }
+    .tags {
+        width: 15%;
+    }
+    .misc {
+        width: 15%;
+    }
+    .inner-table th {
+        background-color: #f9f9f9;
+        font-size: 12px;
+        text-align: center;
+    }
+    .inner-table td {
+        font-size: 12px;
+        text-align: center;
+    }
+    .inner-table .tags-cell {
+        text-align: left;
+        width: auto;
+    }
+    .inner-table .actions-cell {
+        width: 60px;
+        white-space: nowrap;
+    }
+    .inner-table .tags-cell div {
+        display: inline-block;
+        padding: 2px 5px;
+        max-width: calc(100% - 2ch);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .inner-table button.delete-btn {
+        width: auto;
+        font-size: 12px;
+        font-weight: bold;
+        white-space: nowrap;
+    }
+    .inner-table button.add-btn {
+        width: auto;
+        font-size: 12px;
+        font-weight: bold;
+        white-space: nowrap;
+    }
+    .inner-table .name-column {
+        width: 20%;
+    }
+    .inner-table .cidr-column {
+        width: 20%;
+    }
+    .inner-table .zone-column {
+        width: 20%;
+    }
+    .inner-table .tags-column {
+        width: 25%;
+    }
+    button.add-btn {
+        width: 45px;
+        font-size: 12px;
+        font-weight: bold;
+        white-space: nowrap;
+    }
+</style>
+<script>
+    let currentProvider = '';
+
+    function showError(message, title) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        const formattedMessage = message.split('.').join('.<br>');
+        errorDiv.innerHTML = `<p>${title}</p><p>${formattedMessage}</p><button onclick="closeError()">OK</button>`;
+        document.body.appendChild(errorDiv);
+        document.addEventListener('keydown', handleEscError);
+    }
+
+    function closeError() {
+        const errorDiv = document.querySelector('.error-message');
+        if (errorDiv) {
+            errorDiv.remove();
+            document.removeEventListener('keydown', handleEscError);
+        }
+    }
+
+    function handleEscError(event) {
+        if (event.key === "Escape") {
+            closeError();
+        }
+    }
+
+    function deleteVPC(vpcName) {
+        const connConfig = document.getElementById('connConfig').value;
+        const data = {
+            ConnectionName: connConfig
+        };
+
+        fetch(`/spider/vpc/${vpcName}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.message);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.Result === "true") {
+                location.reload();
+            } else {
+                showError("Failed to delete VPC: " + (data.Message || "Unknown error"), "VPC Name: " + vpcName);
+            }
+        })
+        .catch(error => {
+            showError("Error deleting VPC: " + error.message, "VPC Name: " + vpcName);
+        });
+    }
+
+    function deleteSelectedVPCs() {
+        const connConfig = document.getElementById('connConfig').value;
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
+        if (checkboxes.length === 0) {
+            alert("Please select VPCs to delete.");
+            return;
+        }
+
+        if (!confirm("Are you sure you want to delete the selected VPCs?")) {
+            return;
+        }
+
+        const deletePromises = Array.from(checkboxes).map(checkbox => {
+            const vpcName = checkbox.value;
+            const data = {
+                ConnectionName: connConfig
+            };
+
+            return fetch(`/spider/vpc/${vpcName}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            }).then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => {
+                        throw new Error(error.message);
+                    });
+                }
+                return response.json();
+            });
+        });
+
+        Promise.all(deletePromises)
+            .then(dataList => {
+                let allSuccess = true;
+                dataList.forEach((data, index) => {
+                    if (data.Result !== "true") {
+                        allSuccess = false;
+                        showError("Failed to delete some VPCs: " + (data.Message || "Unknown error"), "VPC Name: " + checkboxes[index].value);
+                    }
+                });
+                if (allSuccess) {
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                showError("Error deleting VPCs: " + error.message, "Multiple VPCs");
+            });
+    }
+
+    function toggleSelectAll(source) {
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]');
+        for (const checkbox of checkboxes) {
+            checkbox.checked = source.checked;
+        }
+    }
+
+    function validateForm() {
+        const vpcName = document.getElementById('vpcName').value;
+        const vpcCIDR = document.getElementById('vpcCIDR').value;
+        const subnetName = document.getElementById('subnetName').value;
+        const subnetCIDR = document.getElementById('subnetCIDR').value;
+        const subnetZone = document.getElementById('subnetZone').value;
+
+        if (!vpcName || !vpcCIDR || !subnetName || !subnetCIDR || !subnetZone) {
+            alert("Please fill in all the fields.");
+            return false;
+        }
+        return true;
+    }
+
+    function postVPC() {
+        if (!validateForm()) {
+            return;
+        }
+
+        const connConfig = document.getElementById('connConfig').value;
+        const vpcName = document.getElementById('vpcName').value;
+        const vpcCIDR = document.getElementById('vpcCIDR').value;
+        const subnetInfo = [{
+            Name: document.getElementById('subnetName').value,
+            IPv4_CIDR: document.getElementById('subnetCIDR').value,
+            Zone: document.getElementById('subnetZone').value,
+            TagList: Array.from(document.querySelectorAll('.subnet-tag-input')).map(tagInput => ({
+                Key: tagInput.querySelector('.subnet-tag-key').value,
+                Value: tagInput.querySelector('.subnet-tag-value').value
+            }))
+        }];
+
+        const tags = Array.from(document.querySelectorAll('.vpc-tag-input')).map(tagInput => ({
+            Key: tagInput.querySelector('.vpc-tag-key').value,
+            Value: tagInput.querySelector('.vpc-tag-value').value
+        }));
+
+        const data = {
+            ConnectionName: connConfig,
+            ReqInfo: {
+                Name: vpcName,
+                IPv4_CIDR: vpcCIDR,
+                SubnetInfoList: subnetInfo,
+                TagList: tags
+            }
+        };
+
+        fetch('/spider/vpc', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.message);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data) {
+                location.reload();
+            }
+        })
+        .catch(error => {
+            showError("Error creating VPC: " + error.message, "VPC Name: " + vpcName);
+        });
+    }
+
+    function showOverlay() {
+        const region = '{{.RegionName}}';
+        const vpcNameInput = document.getElementById('vpcName');
+        const subnetNameInput = document.getElementById('subnetName');
+        const zoneInput = document.getElementById('subnetZone');
+        const zone = '{{.Zone}}';
+
+        vpcNameInput.value = `${region}-vpc-${Math.random().toString(36).substring(2, 5)}`;
+        document.getElementById('vpcCIDR').value = '10.0.0.0/16';
+        zoneInput.value = zone;
+        subnetNameInput.value = `${region}-${zone}-subnet-${Math.random().toString(36).substring(2, 5)}`;
+        document.getElementById('subnetCIDR').value = '10.0.1.0/24';
+
+        document.getElementById('overlay').style.display = 'flex';
+        document.addEventListener('keydown', handleEsc);
+        clearFormFields();
+    }
+
+    function hideOverlay() {
+        document.getElementById('overlay').style.display = 'none';
+        document.removeEventListener('keydown', handleEsc);
+        clearFormFields();
+    }
+
+    function handleEsc(event) {
+        if (event.key === "Escape") {
+            hideOverlay();
+        }
+    }
+
+    function clearFormFields() {
+        const region = '{{.RegionName}}';
+        const zone = '{{.Zone}}';
+        const vpcNameInput = document.getElementById('vpcName');
+        const subnetNameInput = document.getElementById('subnetName');
+        const zoneInput = document.getElementById('subnetZone');
+
+        vpcNameInput.value = `${region}-vpc-${Math.random().toString(36).substring(2, 5)}`;
+        document.getElementById('vpcCIDR').value = '10.0.0.0/16';
+        zoneInput.value = zone;
+        subnetNameInput.value = `${region}-${zone}-subnet-${Math.random().toString(36).substring(2, 5)}`;
+        document.getElementById('subnetCIDR').value = '10.0.1.0/24';
+
+        document.querySelectorAll('.vpc-tag-input, .subnet-tag-input').forEach(tagInput => tagInput.remove());
+    }
+
+    function showSubnetOverlay(vpcName) {
+        const region = '{{.RegionName}}';
+        const zone = '{{.Zone}}';
+
+        document.getElementById('subnetVPCName').value = vpcName;
+        document.getElementById('subnetVPCNameDisplay').value = vpcName;
+        document.getElementById('addSubnetZone').value = zone;
+        document.getElementById('addSubnetName').value = `${region}-${zone}-subnet-${Math.random().toString(36).substring(2, 5)}`;
+        document.getElementById('addSubnetCIDR').value = '10.0.2.0/24';
+
+        document.getElementById('subnet-overlay').style.display = 'flex';
+        document.addEventListener('keydown', handleEscSubnet);
+        clearSubnetFormFields();
+    }
+
+    function hideSubnetOverlay() {
+        document.getElementById('subnet-overlay').style.display = 'none';
+        document.removeEventListener('keydown', handleEscSubnet);
+        clearSubnetFormFields();
+    }
+
+    function handleEscSubnet(event) {
+        if (event.key === "Escape") {
+            hideSubnetOverlay();
+        }
+    }
+
+    function clearSubnetFormFields() {
+        document.querySelectorAll('.add-subnet-tag-input').forEach(tagInput => tagInput.remove());
+    }
+
+    function addSubnet() {
+        const vpcName = document.getElementById('subnetVPCName').value;
+        const connConfig = document.getElementById('connConfig').value;
+        const subnetName = document.getElementById('addSubnetName').value;
+        const subnetCIDR = document.getElementById('addSubnetCIDR').value;
+        const subnetZone = document.getElementById('addSubnetZone').value;
+
+        const data = {
+            ConnectionName: connConfig,
+            ReqInfo: {
+                Name: subnetName,
+                IPv4_CIDR: subnetCIDR,
+                Zone: subnetZone,
+                TagList: Array.from(document.querySelectorAll('.add-subnet-tag-input')).map(tagInput => ({
+                    Key: tagInput.querySelector('.add-subnet-tag-key').value,
+                    Value: tagInput.querySelector('.add-subnet-tag-value').value
+                }))
+            }
+        };
+
+        fetch(`/spider/vpc/${vpcName}/subnet`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.message);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data) {
+                location.reload();
+            }
+        })
+        .catch(error => {
+            showError("Error creating Subnet: " + error.message, "Subnet Name: " + subnetName);
+        });
+    }
+
+    function deleteSubnet(vpcName, subnetName) {
+        const connConfig = document.getElementById('connConfig').value;
+        const data = {
+                ConnectionName: connConfig
+            };
+        fetch(`/spider/vpc/${vpcName}/subnet/${subnetName}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.message);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.Result === "true") {
+                location.reload();
+            } else {
+                showError("Failed to delete Subnet: " + (data.Message || "Unknown error"), "Subnet Name: " + subnetName);
+            }
+        })
+        .catch(error => {
+            showError("Error deleting Subnet: " + error.message, "Subnet Name: " + subnetName);
+        });
+    }
+
+    function showTagOverlay(event, tag) {
+        event.stopPropagation();
+        const tagOverlay = document.getElementById('tag-overlay');
+        const tagOverlayContent = document.querySelector('.tag-overlay-content');
+        tagOverlayContent.innerHTML = `
+            <button class="close-btn" onclick="closeTagOverlay()">x</button>
+            <p>${tag}</p>
+        `;
+        tagOverlay.style.display = 'block';
+        tagOverlay.style.top = `${event.clientY}px`;
+        tagOverlay.style.left = `${event.clientX}px`;
+        document.addEventListener('click', handleClickOutsideOverlay);
+        document.addEventListener('keydown', handleEscTagOverlay);
+    }
+
+    function closeTagOverlay() {
+        const tagOverlay = document.getElementById('tag-overlay');
+        tagOverlay.style.display = 'none';
+        document.removeEventListener('click', handleClickOutsideOverlay);
+        document.removeEventListener('keydown', handleEscTagOverlay);
+    }
+
+    function handleEscTagOverlay(event) {
+        if (event.key === "Escape") {
+            closeTagOverlay();
+        }
+    }
+
+    function handleClickOutsideOverlay(event) {
+        const tagOverlay = document.getElementById('tag-overlay');
+        if (!tagOverlay.contains(event.target)) {
+            closeTagOverlay();
+        }
+    }
+
+    function addVPCTagField() {
+        const tagContainer = document.getElementById('vpc-tag-container');
+        const tagInput = document.createElement('div');
+        tagInput.className = 'vpc-tag-input tag-input-group';
+        tagInput.innerHTML = `
+            <input type="text" class="vpc-tag-key" placeholder="Key" required>
+            <input type="text" class="vpc-tag-value" placeholder="Value" required>
+            <button type="button" onclick="removeTagField(this)">-</button>
+        `;
+        tagContainer.appendChild(tagInput);
+    }
+
+    function addSubnetTagField() {
+        const tagContainer = document.getElementById('subnet-tag-container');
+        const tagInput = document.createElement('div');
+        tagInput.className = 'subnet-tag-input tag-input-group';
+        tagInput.innerHTML = `
+            <input type="text" class="subnet-tag-key" placeholder="Key" required>
+            <input type="text" class="subnet-tag-value" placeholder="Value" required>
+            <button type="button" onclick="removeTagField(this)">-</button>
+        `;
+        tagContainer.appendChild(tagInput);
+    }
+
+    function removeTagField(button) {
+        button.parentElement.remove();
+    }
+
+    function addAddSubnetTagField() {
+        const tagContainer = document.getElementById('add-subnet-tag-container');
+        const tagInput = document.createElement('div');
+        tagInput.className = 'add-subnet-tag-input add-tag-input-group';
+        tagInput.innerHTML = `
+            <input type="text" class="add-subnet-tag-key" placeholder="Key" required>
+            <input type="text" class="add-subnet-tag-value" placeholder="Value" required>
+            <button type="button" onclick="removeTagField(this)">-</button>
+        `;
+        tagContainer.appendChild(tagInput);
+    }
+
+
+</script>
+</head>
+<body>
+    <div class="fixed-header">
+        <div class="header-container">
+            <img src="/spider/adminweb/images/left-menu/vpc.png" alt="VPC Icon">
+            <h1>VPC/Subnet Management</h1>
+        </div>
+        <div class="fixed-action-buttons">
+            <input type="checkbox" onclick="toggleSelectAll(this)">
+            <button onclick="deleteSelectedVPCs()">Delete</button>
+        </div>
+    </div>
+    
+    <div class="content">
+        <button class="add-button" onclick="showOverlay()">+</button>
+        <table id="vpc-table">
+            <tr>
+                <th class="vpc-name center-align">Name</th>
+                <th class="vpc-cidr center-align">CIDR</th>
+                <th class="subnet-info">Subnet Info</th>
+                <th class="tags center-align">Tags</th>
+                <th class="misc center-align">Misc</th>
+                <th class="checkbox-cell center-align"><input type="checkbox" onclick="toggleSelectAll(this)"></th>
+            </tr>
+            {{range .VPCs}}
+            {{ $vpcNameId := .IId.NameId }}
+            <tr>
+                <td class="vpc-name center-align">{{.IId.NameId}}</td>
+                <td class="vpc-cidr center-align">{{.IPv4_CIDR}}</td>
+                <td class="subnet-info">
+                    <table class="inner-table">
+                        <tr>
+                            <th class="name-column">Name</th>
+                            <th class="cidr-column">CIDR</th>
+                            <th class="zone-column">Zone</th>
+                            <th class="tags-column">Tags</th>
+                            <th class="actions-cell"><button class="add-btn" onclick="showSubnetOverlay('{{$vpcNameId}}')">add</button></th>
+                        </tr>
+                        {{range .SubnetInfoList}}
+                        <tr>
+                            <td>{{.IId.NameId}}</td>
+                            <td>{{.IPv4_CIDR}}</td>
+                            <td>{{.Zone}}</td>
+                            <td class="tags-cell">
+                                {{range .TagList}}
+                                    <div class="tag-container" onclick="showTagOverlay(event, '{{.Key}}: {{.Value}}')">{{.Key}}: {{.Value}}</div>
+                                {{end}}
+                            </td>
+                            <td class="actions-cell">
+                                <button class="delete-btn" onclick="deleteSubnet('{{$vpcNameId}}', '{{.IId.NameId}}')">del</button>
+                            </td>
+                        </tr>
+                        {{end}}
+                    </table>
+                </td>
+                <td class="tags">
+                    {{range .TagList}}
+                        <div class="tag-container" onclick="showTagOverlay(event, '{{.Key}}: {{.Value}}')">{{.Key}}: {{.Value}}</div>
+                    {{end}}
+                </td>
+                <td class="misc">
+                    {{range .KeyValueList}}{{.Key}} : {{.Value}}<br>{{end}}
+                </td>
+                <td class="checkbox-cell center-align">
+                    <input type="checkbox" name="deleteCheckbox" value="{{.IId.NameId}}">
+                </td>
+            </tr>
+            {{end}}
+            {{if not .VPCs}}
+            <tr>
+                <td colspan="6" class="center-align">No VPCs found for this connection.</td>
+            </tr>
+            {{end}}
+        </table>
+    </div>
+
+    <div id="overlay" class="overlay">
+        <div class="overlay-content">
+            <h2>Add New VPC/Subnet</h2>
+            <form id="addVPCForm" onsubmit="event.preventDefault(); postVPC();">
+                <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
+                <div id="vpc-info-group">
+                    <h3>VPC Info:</h3>
+                    <div class="form-group">
+                        <label for="vpcName">Name:</label>
+                        <input type="text" id="vpcName" name="vpcName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="vpcCIDR">CIDR:</label>
+                        <input type="text" id="vpcCIDR" name="vpcCIDR" required>
+                    </div>
+                    <div class="form-group" style="padding-left: 145px;">
+                        <label for="vpcTags">Tags:</label>
+                        <div id="vpc-tag-container">
+                        </div>
+                        <button type="button" onclick="addVPCTagField()">+</button>
+                    </div>
+                </div>
+                <div id="subnet-info-group" style="margin-top: 20px;">
+                    <h3>Subnet Info:</h3>
+                    <div class="form-group">
+                        <label for="subnetName">Name:</label>
+                        <input type="text" id="subnetName" name="subnetName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="subnetCIDR">CIDR:</label>
+                        <input type="text" id="subnetCIDR" name="subnetCIDR" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="subnetZone">Zone:</label>
+                        <input type="text" id="subnetZone" name="subnetZone" required>
+                    </div>
+                    <div class="form-group" style="padding-left: 145px;">
+                        <label for="subnetTags">Tags:</label>
+                        <div id="subnet-tag-container">
+                        </div>
+                        <button type="button" onclick="addSubnetTagField()">+</button>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-top: 20px;padding-left: 30px;">
+                    <button type="submit">Add VPC/Subnet</button>
+                    <button type="button" onclick="hideOverlay()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="subnet-overlay" class="overlay">
+        <div class="overlay-content">
+            <h2>Add New Subnet</h2>
+            <form id="addSubnetForm" onsubmit="event.preventDefault(); addSubnet();">
+                <input type="hidden" id="subnetVPCName">
+                <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
+                <div class="form-group">
+                    <label for="subnetVPCNameDisplay">VPC Name:</label>
+                    <input type="text" id="subnetVPCNameDisplay" name="subnetVPCNameDisplay" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="addSubnetName">Name:</label>
+                    <input type="text" id="addSubnetName" name="addSubnetName" required>
+                </div>
+                <div class="form-group">
+                    <label for="addSubnetCIDR">CIDR:</label>
+                    <input type="text" id="addSubnetCIDR" name="addSubnetCIDR" required>
+                </div>
+                <div class="form-group">
+                    <label for="addSubnetZone">Zone:</label>
+                    <input type="text" id="addSubnetZone" name="addSubnetZone" required>
+                </div>
+                <div class="form-group" style="padding-left: 20px;">
+                    <label for="addSubnetTags">Tags:</label>
+                    <div id="add-subnet-tag-container">
+                    </div>
+                    <button type="button" onclick="addAddSubnetTagField()">+</button>
+                </div>
+                <div class="form-group" style="margin-top: 20px;">
+                    <button type="submit">Add Subnet</button>
+                    <button type="button" onclick="hideSubnetOverlay()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="tag-overlay" class="tag-overlay">
+        <div class="tag-overlay-content"></div>
+    </div>
+
+    <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
+</body>
+</html>

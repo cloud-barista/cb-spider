@@ -75,31 +75,6 @@ func (regionZoneHandler *GCPRegionZoneHandler) GetRegionZone(regionName string) 
 // required Compute Engine IAM ROLE : compute.regions.list
 func (regionZoneHandler *GCPRegionZoneHandler) ListRegionZone() ([]*irs.RegionZoneInfo, error) {
 	projectID := regionZoneHandler.Credential.ProjectID
-	//prefix := "https://www.googleapis.com/compute/v1/projects/" + projectID
-	//GET https://compute.googleapis.com/compute/v1/projects/{project}/regions
-
-	// logger for HisCall
-	// callogger := call.GetLogger("HISCALL")
-	// callLogInfo := call.CLOUDLOGSCHEMA{
-	// 	CloudOS:      call.GCP,
-	// 	RegionZone:   regionZoneHandler.Region.Zone,
-	// 	ResourceType: call.REGIONZONE,
-	// 	ResourceName: "",
-	// 	CloudOSAPI:   "List()",
-	// 	ElapsedTime:  "",
-	// 	ErrorMSG:     "",
-	// }
-
-	// callLogStart := call.Start()
-	// resp, err := regionZoneHandler.Client.Regions.List(projectID).Do()
-	// callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	// callogger.Info(call.String(callLogInfo))
-	// if err != nil {
-	// 	callLogInfo.ErrorMSG = err.Error()
-	// 	cblogger.Error(err)
-	// 	return regionZoneInfoList, err
-	// }
-
 	resp, err := ListRegion(regionZoneHandler.Client, projectID)
 	if err != nil {
 		cblogger.Error(err)
@@ -112,6 +87,8 @@ func (regionZoneHandler *GCPRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 	chanRegionZoneInfos := make(chan irs.RegionZoneInfo, len(resp.Items))
 	var wg sync.WaitGroup
 
+	var errlist []error
+
 	for _, item := range resp.Items {
 		wg.Add(1)
 		go func(item *compute.Region) {
@@ -122,6 +99,9 @@ func (regionZoneHandler *GCPRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 			resultZones, err := GetZoneListByRegion(regionZoneHandler.Client, projectID, item.SelfLink)
 			if err != nil {
 				// failed to get ZoneInfo by region
+				cblogger.Error("DescribeZone failed ", err.Error())
+				errlist = append(errlist, err)
+				return
 			}
 			for _, zone := range resultZones.Items {
 
@@ -163,6 +143,12 @@ func (regionZoneHandler *GCPRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 	for regionZoneInfo := range chanRegionZoneInfos {
 		insertRegionZoneInfo := regionZoneInfo
 		regionZoneInfoList = append(regionZoneInfoList, &insertRegionZoneInfo)
+	}
+
+	if len(errlist) > 0 {
+		errlistjoin := errors.Join(errlist...)
+		cblogger.Error("ListRegionZone() error : ", errlistjoin)
+		return regionZoneInfoList, errlistjoin
 	}
 
 	return regionZoneInfoList, nil

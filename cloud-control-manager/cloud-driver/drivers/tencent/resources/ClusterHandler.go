@@ -793,11 +793,23 @@ func getCreateClusterRequest(clusterHandler *TencentClusterHandler, clusterInfo 
 	desc_str := `#CB-SPIDER:PMKS:SECURITYGROUP:ID:%s #CB-SPIDER:PMKS:SUBNET:ID:%s`
 	desc_str = fmt.Sprintf(desc_str, clusterInfo.Network.SecurityGroupIIDs[0].SystemId, clusterInfo.Network.SubnetIIDs[0].SystemId)
 
+	var tags []*tke.Tag
+	for _, inputTag := range clusterInfo.TagList {
+		tags = append(tags, &tke.Tag{
+			Key:   common.StringPtr(inputTag.Key),
+			Value: common.StringPtr(inputTag.Value),
+		})
+	}
+
 	request.ClusterBasicSettings = &tke.ClusterBasicSettings{
 		ClusterName:        common.StringPtr(clusterInfo.IId.NameId),
 		VpcId:              common.StringPtr(clusterInfo.Network.VpcIID.SystemId),
 		ClusterVersion:     common.StringPtr(clusterInfo.Version), // option, version: 1.22.5
 		ClusterDescription: common.StringPtr(desc_str),            // option, #CB-SPIDER:PMKS:SECURITYGROUP:sg-c00t00ih
+		TagSpecification: []*tke.TagSpecification{{
+			ResourceType: common.StringPtr("cluster"),
+			Tags:         tags,
+		}},
 	}
 	request.ClusterType = common.StringPtr("MANAGED_CLUSTER") //default value
 	request.ClusterAdvancedSettings = &tke.ClusterAdvancedSettings{

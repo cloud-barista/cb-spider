@@ -4,15 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
 	"github.com/Azure/go-autorest/autorest/to"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"reflect"
-	"strconv"
-	"strings"
-	"time"
 )
 
 type AzureMyImageHandler struct {
@@ -96,6 +97,11 @@ func (myImageHandler *AzureMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImag
 		Tags: map[string]*string{
 			"createdAt": to.StringPtr(strconv.FormatInt(time.Now().Unix(), 10)),
 		},
+	}
+	if snapshotReqInfo.TagList != nil{
+		for _, tag := range snapshotReqInfo.TagList {
+			imagecreatOpt.Tags[tag.Key] = to.StringPtr(tag.Value)
+		}
 	}
 
 	_, err = myImageHandler.VMClient.Generalize(myImageHandler.Ctx, myImageHandler.Region.Region, convertedVMIId.NameId)
@@ -258,6 +264,10 @@ func setterMyImageInfo(myImage compute.Image, credentialInfo idrv.CredentialInfo
 			myImageInfo.CreatedTime = time.Unix(timeInt64, 0)
 		}
 	}
+	if myImage.Tags != nil {
+		myImageInfo.TagList = setTagList(myImage.Tags)
+	}
+
 	return myImageInfo, nil
 }
 

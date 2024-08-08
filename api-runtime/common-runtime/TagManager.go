@@ -11,12 +11,13 @@ package commonruntime
 import (
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	infostore "github.com/cloud-barista/cb-spider/info-store"
 )
 
 //================ Tag Handler
 
 // AddTag adds a tag to a resource.
-func AddTag(connectionName string, resType cres.RSType, resIID cres.IID, tag cres.KeyValue) (cres.KeyValue, error) {
+func AddTag(connectionName string, resType cres.RSType, resName string, tag cres.KeyValue) (cres.KeyValue, error) {
 	cblog.Info("call AddTag()")
 
 	// check empty and trim user inputs
@@ -26,6 +27,17 @@ func AddTag(connectionName string, resType cres.RSType, resIID cres.IID, tag cre
 		return cres.KeyValue{}, err
 	}
 
+	vpcSPLock.RLock(connectionName, resName)
+	defer vpcSPLock.RUnlock(connectionName, resName)
+
+	// (1) get IID(NameId)
+	var iidInfo VPCIIDInfo
+	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, resName)
+	if err != nil {
+		cblog.Error(err)
+		return cres.KeyValue{}, err
+	}
+
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
@@ -38,11 +50,11 @@ func AddTag(connectionName string, resType cres.RSType, resIID cres.IID, tag cre
 		return cres.KeyValue{}, err
 	}
 
-	return handler.AddTag(resType, resIID, tag)
+	return handler.AddTag(resType, getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}), tag)
 }
 
 // ListTag lists all tags of a resource.
-func ListTag(connectionName string, resType cres.RSType, resIID cres.IID) ([]cres.KeyValue, error) {
+func ListTag(connectionName string, resType cres.RSType, resName string) ([]cres.KeyValue, error) {
 	cblog.Info("call ListTag()")
 
 	// check empty and trim user inputs
@@ -52,6 +64,17 @@ func ListTag(connectionName string, resType cres.RSType, resIID cres.IID) ([]cre
 		return nil, err
 	}
 
+	vpcSPLock.RLock(connectionName, resName)
+	defer vpcSPLock.RUnlock(connectionName, resName)
+
+	// (1) get IID(NameId)
+	var iidInfo VPCIIDInfo
+	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, resName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
@@ -64,11 +87,11 @@ func ListTag(connectionName string, resType cres.RSType, resIID cres.IID) ([]cre
 		return nil, err
 	}
 
-	return handler.ListTag(resType, resIID)
+	return handler.ListTag(resType, getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}))
 }
 
 // GetTag gets a specific tag of a resource.
-func GetTag(connectionName string, resType cres.RSType, resIID cres.IID, key string) (cres.KeyValue, error) {
+func GetTag(connectionName string, resType cres.RSType, resName string, key string) (cres.KeyValue, error) {
 	cblog.Info("call GetTag()")
 
 	// check empty and trim user inputs
@@ -78,6 +101,17 @@ func GetTag(connectionName string, resType cres.RSType, resIID cres.IID, key str
 		return cres.KeyValue{}, err
 	}
 
+	vpcSPLock.RLock(connectionName, resName)
+	defer vpcSPLock.RUnlock(connectionName, resName)
+
+	// (1) get IID(NameId)
+	var iidInfo VPCIIDInfo
+	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, resName)
+	if err != nil {
+		cblog.Error(err)
+		return cres.KeyValue{}, err
+	}
+
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
@@ -90,11 +124,11 @@ func GetTag(connectionName string, resType cres.RSType, resIID cres.IID, key str
 		return cres.KeyValue{}, err
 	}
 
-	return handler.GetTag(resType, resIID, key)
+	return handler.GetTag(resType, getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}), key)
 }
 
 // RemoveTag removes a specific tag from a resource.
-func RemoveTag(connectionName string, resType cres.RSType, resIID cres.IID, key string) (bool, error) {
+func RemoveTag(connectionName string, resType cres.RSType, resName string, key string) (bool, error) {
 	cblog.Info("call RemoveTag()")
 
 	// check empty and trim user inputs
@@ -104,6 +138,17 @@ func RemoveTag(connectionName string, resType cres.RSType, resIID cres.IID, key 
 		return false, err
 	}
 
+	vpcSPLock.RLock(connectionName, resName)
+	defer vpcSPLock.RUnlock(connectionName, resName)
+
+	// (1) get IID(NameId)
+	var iidInfo VPCIIDInfo
+	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, resName)
+	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
@@ -116,7 +161,7 @@ func RemoveTag(connectionName string, resType cres.RSType, resIID cres.IID, key 
 		return false, err
 	}
 
-	return handler.RemoveTag(resType, resIID, key)
+	return handler.RemoveTag(resType, getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}), key)
 }
 
 // FindTag finds tags by key or value.

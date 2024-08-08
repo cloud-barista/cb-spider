@@ -80,39 +80,48 @@ func (cloudConn *AwsCloudConnection) Close() error {
 }
 
 func (cloudConn *AwsCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
-	keyPairHandler := ars.AwsKeyPairHandler{cloudConn.CredentialInfo, cloudConn.Region, cloudConn.KeyPairClient}
+	tagHandler := cloudConn.CreateAwsTagHandler()
+	keyPairHandler := ars.AwsKeyPairHandler{CredentialInfo: cloudConn.CredentialInfo, Region: cloudConn.Region, Client: cloudConn.KeyPairClient, TagHandler: &tagHandler}
 	//keyPairHandler := ars.AwsKeyPairHandler{cloudConn.Region, cloudConn.KeyPairClient}
 
 	return &keyPairHandler, nil
 }
 
 func (cloudConn *AwsCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
-	vmHandler := ars.AwsVMHandler{cloudConn.Region, cloudConn.VMClient}
+	tagHandler := cloudConn.CreateAwsTagHandler()
+	vmHandler := ars.AwsVMHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, TagHandler: &tagHandler}
 	return &vmHandler, nil
 }
 
 func (cloudConn *AwsCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
-	handler := ars.AwsVPCHandler{cloudConn.Region, cloudConn.VNetworkClient}
+	tagHandler := cloudConn.CreateAwsTagHandler()
+	handler := ars.AwsVPCHandler{Region: cloudConn.Region, Client: cloudConn.VNetworkClient, TagHandler: &tagHandler}
 
 	return &handler, nil
 }
 
 // func (cloudConn *AwsCloudConnection) CreateImageHandler() (irs2.ImageHandler, error) {
 func (cloudConn *AwsCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
-	handler := ars.AwsImageHandler{cloudConn.Region, cloudConn.ImageClient}
+	handler := ars.AwsImageHandler{Region: cloudConn.Region, Client: cloudConn.ImageClient}
 
 	return &handler, nil
 }
 
 func (cloudConn *AwsCloudConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
-	handler := ars.AwsSecurityHandler{cloudConn.Region, cloudConn.SecurityClient}
+	tagHandler := cloudConn.CreateAwsTagHandler()
+	handler := ars.AwsSecurityHandler{Region: cloudConn.Region, Client: cloudConn.SecurityClient, TagHandler: &tagHandler}
 
 	return &handler, nil
 }
 
 func (cloudConn *AwsCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
-	handler := ars.AwsTagHandler{cloudConn.Region, cloudConn.VMClient}
+	handler := ars.AwsTagHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, NLBClient: cloudConn.NLBClient, EKSClient: cloudConn.EKSClient}
 	return &handler, nil
+}
+
+func (cloudConn *AwsCloudConnection) CreateAwsTagHandler() ars.AwsTagHandler {
+	handler := ars.AwsTagHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, NLBClient: cloudConn.NLBClient, EKSClient: cloudConn.EKSClient}
+	return handler
 }
 
 /*
@@ -132,26 +141,30 @@ func (cloudConn *AwsCloudConnection) CreatePublicIPHandler() (irs.PublicIPHandle
 */
 
 func (cloudConn *AwsCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
-	handler := ars.AwsVmSpecHandler{cloudConn.Region, cloudConn.VmSpecClient}
+	handler := ars.AwsVmSpecHandler{Region: cloudConn.Region, Client: cloudConn.VmSpecClient}
 	return &handler, nil
 }
 
 func (cloudConn *AwsCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
-	handler := ars.AwsNLBHandler{cloudConn.Region, cloudConn.NLBClient, cloudConn.VMClient}
+	tagHandler := cloudConn.CreateAwsTagHandler()
+	handler := ars.AwsNLBHandler{Region: cloudConn.Region, Client: cloudConn.NLBClient, VMClient: cloudConn.VMClient, TagHandler: &tagHandler}
 	return &handler, nil
 }
 
 func (cloudConn *AwsCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
-	handler := ars.AwsDiskHandler{cloudConn.Region, cloudConn.DiskClient}
+	tagHandler := cloudConn.CreateAwsTagHandler()
+	handler := ars.AwsDiskHandler{Region: cloudConn.Region, Client: cloudConn.DiskClient, TagHandler: &tagHandler}
 	return &handler, nil
 }
 
 func (cloudConn *AwsCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
-	handler := ars.AwsMyImageHandler{cloudConn.Region, cloudConn.MyImageClient}
+	tagHandler := cloudConn.CreateAwsTagHandler()
+	handler := ars.AwsMyImageHandler{Region: cloudConn.Region, Client: cloudConn.MyImageClient, TagHandler: &tagHandler}
 	return &handler, nil
 }
 
 func (cloudConn *AwsCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
+	tagHandler := cloudConn.CreateAwsTagHandler()
 	cblogger.Info("CreateClusterHandler through")
 	if cloudConn.MyImageClient == nil {
 		cblogger.Info("cloudConn.MyImageClient is nil")
@@ -168,21 +181,21 @@ func (cloudConn *AwsCloudConnection) CreateClusterHandler() (irs.ClusterHandler,
 	if cloudConn.AutoScalingClient == nil {
 		cblogger.Info("cloudConn.AutoScalingClient is nil")
 	}
-	handler := ars.AwsClusterHandler{cloudConn.Region, cloudConn.EKSClient, cloudConn.VNetworkClient, cloudConn.IamClient, cloudConn.AutoScalingClient}
+	handler := ars.AwsClusterHandler{Region: cloudConn.Region, Client: cloudConn.EKSClient, EC2Client: cloudConn.VNetworkClient, Iam: cloudConn.IamClient, AutoScaling: cloudConn.AutoScalingClient, TagHandler: &tagHandler}
 	return &handler, nil
 }
 
 func (cloudConn *AwsCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
-	handler := ars.AwsAnyCallHandler{cloudConn.Region, cloudConn.CredentialInfo, cloudConn.AnyCallClient}
+	handler := ars.AwsAnyCallHandler{Region: cloudConn.Region, CredentialInfo: cloudConn.CredentialInfo, Client: cloudConn.AnyCallClient}
 	return &handler, nil
 }
 
 func (cloudConn *AwsCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
-	handler := ars.AwsRegionZoneHandler{cloudConn.Region, cloudConn.RegionZoneClient}
+	handler := ars.AwsRegionZoneHandler{Region: cloudConn.Region, Client: cloudConn.RegionZoneClient}
 	return &handler, nil
 }
 
 func (cloudConn *AwsCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
-	handler := ars.AwsPriceInfoHandler{cloudConn.Region, cloudConn.PriceInfoClient}
+	handler := ars.AwsPriceInfoHandler{Region: cloudConn.Region, Client: cloudConn.PriceInfoClient}
 	return &handler, nil
 }

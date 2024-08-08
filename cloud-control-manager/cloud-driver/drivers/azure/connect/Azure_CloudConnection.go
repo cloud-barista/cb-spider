@@ -63,6 +63,7 @@ type AzureCloudConnection struct {
 	VirtualMachineRunCommandsClient *compute.VirtualMachineRunCommandsClient
 	GroupsClient                    *resources.GroupsClient
 	ResourceSkusClient              *compute.ResourceSkusClient
+	TagsClient											*resources.TagsClient
 }
 
 func (cloudConn *AzureCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
@@ -213,6 +214,9 @@ func (cloudConn *AzureCloudConnection) CreateClusterHandler() (irs.ClusterHandle
 		CredentialInfo:                  cloudConn.CredentialInfo,
 		Region:                          cloudConn.Region,
 		Ctx:                             cloudConn.Ctx,
+		Client:                          cloudConn.Client,
+		GroupsClient:                    cloudConn.GroupsClient,
+		ResourceSkusClient:              cloudConn.ResourceSkusClient,
 		ManagedClustersClient:           cloudConn.ManagedClustersClient,
 		VirtualNetworksClient:           cloudConn.VNetClient,
 		AgentPoolsClient:                cloudConn.AgentPoolsClient,
@@ -232,5 +236,13 @@ func (cloudConn *AzureCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandle
 }
 
 func (cloudConn *AzureCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
-	return nil, errors.New("Azure Driver: not implemented")
+	cblogger.Info("Azure Cloud Driver: called CreateTagHandler()!")
+	tagHandler := azrs.AzureTagHandler{
+		CredentialInfo: cloudConn.CredentialInfo,
+		Region : cloudConn.Region,
+		Ctx    : cloudConn.Ctx,
+		Client : cloudConn.TagsClient,
+	}
+	return &tagHandler, nil
+	// return nil, errors.New("Azure Driver: not implemented")
 }

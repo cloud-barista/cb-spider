@@ -1,6 +1,7 @@
 package resources
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -29,13 +30,56 @@ type NhnCloudMyImageHandler struct {
 	VolumeClient  *nhnsdk.ServiceClient
 }
 
+func (myImageHandler *NhnCloudMyImageHandler) getRawSnapshot(snapshotIID irs.IID) (images.Image, error) {
+	if snapshotIID.NameId == "" && snapshotIID.SystemId == "" {
+		return images.Image{}, errors.New("invalid IID")
+	}
+	if snapshotIID.SystemId != "" {
+		image, err := images.Get(myImageHandler.ImageClient, snapshotIID.SystemId).Extract()
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Get NHN Cloud Image. [%v]", err)
+			cblogger.Error(newErr.Error())
+			return images.Image{}, newErr
+		}
+		return *image, nil
+	}
+
+	listOpts := images.ListOpts{
+		Visibility: images.ImageVisibilityPrivate, // Note : Private image only
+	}
+	allPages, err := images.List(myImageHandler.ImageClient, listOpts).AllPages()
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get NHN Cloud Image pages. [%v]", err)
+		cblogger.Error(newErr.Error())
+		return images.Image{}, newErr
+	}
+	nhnImageList, err := images.ExtractImages(allPages)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get NHN Cloud Image List. [%v]", err)
+		cblogger.Error(newErr.Error())
+		return images.Image{}, newErr
+	}
+
+	for _, nhnImage := range nhnImageList {
+		if nhnImage.Name == snapshotIID.NameId {
+			return nhnImage, nil
+		}
+	}
+
+	return images.Image{}, errors.New("MyImage not found")
+}
+
 // To Take a Snapshot with VM ID (To Create My Image)
 func (myImageHandler *NhnCloudMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInfo) (irs.MyImageInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called SnapshotVM()")
 	callLogInfo := getCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, snapshotReqInfo.SourceVM.SystemId, "SnapshotVM()")
 
-	if strings.EqualFold(snapshotReqInfo.SourceVM.SystemId, "") {
-		newErr := fmt.Errorf("Invalid VM SystemId!!")
+	vmHandler := NhnCloudVMHandler{
+		VMClient: myImageHandler.VMClient,
+	}
+	vm, err := vmHandler.getRawVM(snapshotReqInfo.SourceVM)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get the VM. [%v]", err.Error())
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.MyImageInfo{}, newErr
@@ -46,7 +90,7 @@ func (myImageHandler *NhnCloudMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyI
 		snapshotName = snapshotReqInfo.IId.NameId
 	}
 
-	nhnVMSpecType, err := myImageHandler.getVMSpecType(irs.IID{SystemId: snapshotReqInfo.SourceVM.SystemId})
+	nhnVMSpecType, err := myImageHandler.getVMSpecType(vm.ID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the VM Spec Type. [%v]", err.Error())
 		cblogger.Error(newErr.Error())
@@ -71,7 +115,7 @@ func (myImageHandler *NhnCloudMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyI
 			Name: snapshotName,
 			// Metadata: 	snapShotMap,
 		}
-		snapShotImageId, err := servers.CreateImage(myImageHandler.VMClient, snapshotReqInfo.SourceVM.SystemId, snapshotOpts).ExtractImageID() // Not images.CreateImage()
+		snapShotImageId, err := servers.CreateImage(myImageHandler.VMClient, vm.ID, snapshotOpts).ExtractImageID() // Not images.CreateImage()
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Create Snapshot of the VM. [%v]", err)
 			cblogger.Error(newErr.Error())
@@ -83,7 +127,7 @@ func (myImageHandler *NhnCloudMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyI
 
 		newImageIID = irs.IID{SystemId: snapShotImageId}
 	} else {
-		bootableVolumeId, err := myImageHandler.getBootableVolumeID(snapshotReqInfo.SourceVM)
+		bootableVolumeId, err := myImageHandler.getBootableVolumeID(vm.ID)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get Bootable VolumeID of the VM. [%v]", err.Error())
 			cblogger.Error(newErr.Error())
@@ -170,16 +214,9 @@ func (myImageHandler *NhnCloudMyImageHandler) GetMyImage(myImageIID irs.IID) (ir
 	cblogger.Info("NHN Cloud Driver: called GetMyImage()")
 	callLogInfo := getCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, myImageIID.SystemId, "GetMyImage()")
 
-	if strings.EqualFold(myImageIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid SystemId!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.MyImageInfo{}, newErr
-	}
-
 	start := call.Start()
 	// nhnImage, err := comimages.Get(myImageHandler.VMClient, myImageIID.SystemId).Extract() // VM Client
-	nhnImage, err := images.Get(myImageHandler.ImageClient, myImageIID.SystemId).Extract() // Image Client
+	nhnImage, err := myImageHandler.getRawSnapshot(myImageIID) // Image Client
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NHN Cloud My Image Info. [%v]", err.Error())
 		cblogger.Error(newErr.Error())
@@ -188,7 +225,7 @@ func (myImageHandler *NhnCloudMyImageHandler) GetMyImage(myImageIID irs.IID) (ir
 	}
 	LoggingInfo(callLogInfo, start)
 
-	imageInfo := myImageHandler.mappingMyImageInfo(*nhnImage)
+	imageInfo := myImageHandler.mappingMyImageInfo(nhnImage)
 	return *imageInfo, nil
 }
 
@@ -196,15 +233,8 @@ func (myImageHandler *NhnCloudMyImageHandler) CheckWindowsImage(myImageIID irs.I
 	cblogger.Info("NHN Cloud Driver: called CheckWindowsImage()")
 	callLogInfo := getCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, myImageIID.SystemId, "GetMyImage()")
 
-	if strings.EqualFold(myImageIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid SystemId!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return false, newErr
-	}
-
 	start := call.Start()
-	nhnImage, err := images.Get(myImageHandler.ImageClient, myImageIID.SystemId).Extract() // Image Client
+	nhnImage, err := myImageHandler.getRawSnapshot(myImageIID) // Image Client
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NHN Cloud My Image Info. [%v]", err.Error())
 		cblogger.Error(newErr.Error())
@@ -233,14 +263,15 @@ func (myImageHandler *NhnCloudMyImageHandler) DeleteMyImage(myImageIID irs.IID) 
 	cblogger.Info("NHN Cloud Driver: called DeleteMyImage()")
 	callLogInfo := getCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, myImageIID.SystemId, "DeleteMyImage()")
 
-	if strings.EqualFold(myImageIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid SystemId!!")
+	nhnImage, err := myImageHandler.getRawSnapshot(myImageIID) // Image Client
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get NHN Cloud My Image Info. [%v]", err.Error())
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
 	}
 
-	err := images.Delete(myImageHandler.ImageClient, myImageIID.SystemId).ExtractErr()
+	err = images.Delete(myImageHandler.ImageClient, nhnImage.ID).ExtractErr()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Delete the Image. [%v]", err.Error())
 		cblogger.Error(newErr.Error())
@@ -255,16 +286,9 @@ func (myImageHandler *NhnCloudMyImageHandler) getImageStatus(myImageIID irs.IID)
 	cblogger.Info("NHN Cloud Driver: called getImageStatus()")
 	callLogInfo := getCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, myImageIID.SystemId, "getImageStatus()")
 
-	if strings.EqualFold(myImageIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid SystemId!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return "", newErr
-	}
-
 	start := call.Start()
 	// nhnImage, err := comimages.Get(myImageHandler.VMClient, myImageIID.SystemId).Extract() // VM Client
-	nhnImage, err := images.Get(myImageHandler.ImageClient, myImageIID.SystemId).Extract() // Image Client
+	nhnImage, err := myImageHandler.getRawSnapshot(myImageIID) // Image Client
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NHN Cloud My Image Info. [%v]", err.Error())
 		cblogger.Error(newErr.Error())
@@ -281,12 +305,6 @@ func (myImageHandler *NhnCloudMyImageHandler) getImageStatus(myImageIID irs.IID)
 func (myImageHandler *NhnCloudMyImageHandler) waitForImageSnapshot(myImageIID irs.IID) (irs.MyImageStatus, error) {
 	cblogger.Info("===> Since Snapshot info. cannot be retrieved immediately after taking a snapshot, waits ....")
 
-	if strings.EqualFold(myImageIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid SystemId!!")
-		cblogger.Error(newErr.Error())
-		return "", newErr
-	}
-
 	curRetryCnt := 0
 	maxRetryCnt := 500
 	for {
@@ -296,7 +314,7 @@ func (myImageHandler *NhnCloudMyImageHandler) waitForImageSnapshot(myImageIID ir
 			cblogger.Error(newErr.Error())
 			return "Failed. ", newErr
 		} else {
-			cblogger.Infof("Succeeded in Getting the Image Status of [%s] : [%s]", myImageIID.SystemId, string(curStatus))
+			cblogger.Infof("Succeeded in Getting the Image Status of [%s] : [%s]", myImageIID.NameId, string(curStatus))
 		}
 
 		cblogger.Infof("===> Image Status : [%s]", string(curStatus))
@@ -380,16 +398,10 @@ func ConvertImageStatus(myImageStatus images.ImageStatus) irs.MyImageStatus {
 	return resultStatus
 }
 
-func (myImageHandler *NhnCloudMyImageHandler) getVMSpecType(vmIID irs.IID) (string, error) {
+func (myImageHandler *NhnCloudMyImageHandler) getVMSpecType(vmSystemId string) (string, error) {
 	cblogger.Info("NHN Cloud Driver: called getVMSpecType()")
 
-	if strings.EqualFold(vmIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid VM SystemId!!")
-		cblogger.Error(newErr.Error())
-		return "", newErr
-	}
-
-	nhnVM, err := servers.Get(myImageHandler.VMClient, vmIID.SystemId).Extract()
+	nhnVM, err := servers.Get(myImageHandler.VMClient, vmSystemId).Extract()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the VM info form NHN Cloud!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
@@ -410,7 +422,7 @@ func (myImageHandler *NhnCloudMyImageHandler) getVMSpecType(vmIID irs.IID) (stri
 	return vmSpecType, nil
 }
 
-func (myImageHandler *NhnCloudMyImageHandler) getBootableVolumeID(vmIID irs.IID) (string, error) {
+func (myImageHandler *NhnCloudMyImageHandler) getBootableVolumeID(vmSystemId string) (string, error) {
 	cblogger.Info("NHN Cloud Driver: called getBootableVolumeID()")
 
 	diskHandler := NhnCloudDiskHandler{
@@ -437,7 +449,7 @@ func (myImageHandler *NhnCloudMyImageHandler) getBootableVolumeID(vmIID irs.IID)
 
 		if isBootable && nhnVolume.Attachments != nil && len(nhnVolume.Attachments) > 0 {
 			for _, attachment := range nhnVolume.Attachments {
-				if strings.EqualFold(attachment.ServerID, vmIID.SystemId) {
+				if strings.EqualFold(attachment.ServerID, vmSystemId) {
 					bootableVolumeId = attachment.VolumeID
 					break
 				}
@@ -458,15 +470,8 @@ func (myImageHandler *NhnCloudMyImageHandler) isPublicImage(myImageIID irs.IID) 
 	cblogger.Info("NHN Cloud Driver: called isPublicImage()")
 	callLogInfo := getCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, myImageIID.SystemId, "isPublicImage()")
 
-	if strings.EqualFold(myImageIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid SystemId!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return false, newErr
-	}
-
 	start := call.Start()
-	nhnImage, err := images.Get(myImageHandler.ImageClient, myImageIID.SystemId).Extract() // Image Client
+	nhnImage, err := myImageHandler.getRawSnapshot(myImageIID) // Image Client
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NHN Cloud My Image Info. [%v]", err.Error())
 		cblogger.Error(newErr.Error())

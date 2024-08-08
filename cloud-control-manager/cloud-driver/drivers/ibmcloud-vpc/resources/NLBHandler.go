@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/IBM/go-sdk-core/v5/core"
+	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -60,6 +61,18 @@ func (nlbHandler *IbmNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 		return irs.NLBInfo{}, createErr
 	}
 	LoggingInfo(hiscallInfo, start)
+
+	if nlbReqInfo.TagList != nil && len(nlbReqInfo.TagList) > 0 {
+		var tagHandler irs.TagHandler // TagHandler 초기화
+		for _, tag := range nlbReqInfo.TagList{
+			_, err := tagHandler.AddTag("NLB", nlbReqInfo.IId, tag)
+			if err != nil {
+				createErr := errors.New(fmt.Sprintf("Failed to Attach Tag on NLB err = %s", err.Error()))
+				cblogger.Error(createErr.Error())
+			}
+		}
+	}
+
 	return *info, nil
 }
 func (nlbHandler *IbmNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
@@ -137,6 +150,18 @@ func (nlbHandler *IbmNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
+	
+	// Detach Tag Auto Delete 
+	var tagService *globaltaggingv1.GlobalTaggingV1
+	deleteTagAllOptions := tagService.NewDeleteTagAllOptions()
+	deleteTagAllOptions.SetTagType("user")
+
+	_, _, err = tagService.DeleteTagAll(deleteTagAllOptions)
+	if err != nil {
+		delErr := errors.New(fmt.Sprintf("Failed to Delete NLB Detached Tag err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+	}
+
 	return true, nil
 }
 
@@ -370,6 +395,7 @@ func (nlbHandler *IbmNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.V
 	LoggingInfo(hiscallInfo, start)
 	return info.VMGroup, nil
 }
+
 func (nlbHandler *IbmNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.VMGroupInfo, error) {
 	hiscallInfo := GetCallLogScheme(nlbHandler.Region, "NETWORKLOADBALANCE", nlbIID.NameId, "AddVMs()")
 	start := call.Start()

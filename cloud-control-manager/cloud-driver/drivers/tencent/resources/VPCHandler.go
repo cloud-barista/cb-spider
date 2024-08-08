@@ -67,6 +67,16 @@ func (VPCHandler *TencentVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 	request.VpcName = common.StringPtr(vpcReqInfo.IId.NameId)
 	request.CidrBlock = common.StringPtr(vpcReqInfo.IPv4_CIDR)
 
+	var tags []*vpc.Tag
+	for _, inputTag := range vpcReqInfo.TagList {
+		tags = append(tags, &vpc.Tag{
+			Key:   common.StringPtr(inputTag.Key),
+			Value: common.StringPtr(inputTag.Value),
+		})
+	}
+
+	request.Tags = tags
+
 	callLogStart := call.Start()
 	response, err := VPCHandler.Client.CreateVpc(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
@@ -106,6 +116,8 @@ func (VPCHandler *TencentVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 		}
 		requestSubnet.Subnets = append(requestSubnet.Subnets, reqSubnet)
 	}
+
+	requestSubnet.Tags = tags
 
 	responseSubnet, errSubnet := VPCHandler.Client.CreateSubnets(requestSubnet)
 	cblogger.Debug(responseSubnet.ToJsonString())
@@ -440,6 +452,16 @@ func (VPCHandler *TencentVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Su
 	request.SubnetName = common.StringPtr(subnetInfo.IId.NameId)
 	request.CidrBlock = common.StringPtr(subnetInfo.IPv4_CIDR)
 	request.Zone = common.StringPtr(zoneId)
+
+	var tags []*vpc.Tag
+	for _, inputTag := range subnetInfo.TagList {
+		tags = append(tags, &vpc.Tag{
+			Key:   common.StringPtr(inputTag.Key),
+			Value: common.StringPtr(inputTag.Value),
+		})
+	}
+
+	request.Tags = tags
 
 	callLogStart := call.Start()
 	response, err := VPCHandler.Client.CreateSubnet(request)

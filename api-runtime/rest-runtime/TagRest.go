@@ -24,9 +24,11 @@ import (
 
 type tagAddReq struct {
 	ConnectionName string
-	ResType        cres.RSType
-	ResIID         cres.IID
-	Tag            cres.KeyValue
+	ReqInfo        struct {
+		ResourceType cres.RSType
+		ResourceName string
+		Tag          cres.KeyValue
+	}
 }
 
 func AddTag(c echo.Context) error {
@@ -38,7 +40,7 @@ func AddTag(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.AddTag(req.ConnectionName, req.ResType, req.ResIID, req.Tag)
+	result, err := cmrt.AddTag(req.ConnectionName, req.ReqInfo.ResourceType, req.ReqInfo.ResourceName, req.ReqInfo.Tag)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -48,8 +50,10 @@ func AddTag(c echo.Context) error {
 
 type tagListReq struct {
 	ConnectionName string
-	ResType        cres.RSType
-	ResIID         cres.IID
+	ReqInfo        struct {
+		ResourceType cres.RSType
+		ResourceName string
+	}
 }
 
 func ListTag(c echo.Context) error {
@@ -66,7 +70,7 @@ func ListTag(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.ListTag(req.ConnectionName, req.ResType, req.ResIID)
+	result, err := cmrt.ListTag(req.ConnectionName, req.ReqInfo.ResourceType, req.ReqInfo.ResourceName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -80,9 +84,10 @@ func ListTag(c echo.Context) error {
 
 type tagGetReq struct {
 	ConnectionName string
-	ResType        cres.RSType
-	ResIID         cres.IID
-	Key            string
+	ReqInfo        struct {
+		ResourceType cres.RSType
+		ResourceName string
+	}
 }
 
 func GetTag(c echo.Context) error {
@@ -99,7 +104,7 @@ func GetTag(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.GetTag(req.ConnectionName, req.ResType, req.ResIID, req.Key)
+	result, err := cmrt.GetTag(req.ConnectionName, req.ReqInfo.ResourceType, req.ReqInfo.ResourceName, c.Param("Key"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -109,9 +114,10 @@ func GetTag(c echo.Context) error {
 
 type tagRemoveReq struct {
 	ConnectionName string
-	ResType        cres.RSType
-	ResIID         cres.IID
-	Key            string
+	ReqInfo        struct {
+		ResourceType cres.RSType
+		ResourceName string
+	}
 }
 
 func RemoveTag(c echo.Context) error {
@@ -123,7 +129,7 @@ func RemoveTag(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.RemoveTag(req.ConnectionName, req.ResType, req.ResIID, req.Key)
+	result, err := cmrt.RemoveTag(req.ConnectionName, req.ReqInfo.ResourceType, req.ReqInfo.ResourceName, c.Param("Key"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -137,8 +143,10 @@ func RemoveTag(c echo.Context) error {
 
 type tagFindReq struct {
 	ConnectionName string
-	ResType        cres.RSType
-	Keyword        string
+	ReqInfo        struct {
+		ResourceType cres.RSType
+		Keyword      string
+	}
 }
 
 func FindTag(c echo.Context) error {
@@ -150,7 +158,7 @@ func FindTag(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.FindTag(req.ConnectionName, req.ResType, req.Keyword)
+	result, err := cmrt.FindTag(req.ConnectionName, req.ReqInfo.ResourceType, req.ReqInfo.Keyword)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

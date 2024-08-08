@@ -3,7 +3,6 @@ package resources
 import (
 	"errors"
 	"fmt"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"math/rand"
 	"net"
 	"sort"
@@ -12,7 +11,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Azure/go-autorest/autorest/to"
 	cblog "github.com/cloud-barista/cb-log"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
@@ -317,4 +318,28 @@ func removeDuplicateStr(array []string) []string {
 	}
 
 	return array[:prev]
+}
+
+func setTags(tagList []irs.KeyValue) map[string]*string{
+	tags := make(map[string]*string)
+	for _, tag := range tagList {
+			tags[tag.Key] = to.StringPtr(tag.Value)
+	}
+	return tags
+}
+
+func setTagList(tags map[string]*string) []irs.KeyValue{
+	tagList := make([]irs.KeyValue, 0, len(tags))
+	if len(tags) != 0 {
+		for key, value := range tags {
+			if value != nil {
+					tagList = append(tagList, irs.KeyValue{
+							Key:   key,
+							Value: *value,
+					})
+			}
+		}
+		return tagList
+	}
+	return nil
 }

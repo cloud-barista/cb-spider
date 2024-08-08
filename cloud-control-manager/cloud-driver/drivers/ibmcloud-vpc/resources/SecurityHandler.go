@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/IBM/go-sdk-core/v5/core"
+	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -119,6 +120,19 @@ func (securityHandler *IbmSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		return irs.SecurityInfo{}, createErr
 	}
 	LoggingInfo(hiscallInfo, start)
+
+	// Attach Tag
+	if securityReqInfo.TagList != nil && len(securityReqInfo.TagList) > 0{
+		var tagHandler irs.TagHandler // TagHandler 초기화
+		for _, tag := range securityReqInfo.TagList{
+			_, err := tagHandler.AddTag("SG", securityReqInfo.IId, tag)
+			if err != nil {
+				createErr := errors.New(fmt.Sprintf("Failed to Attach Tag on SG err = %s", err.Error()))
+				cblogger.Error(createErr.Error())
+			}
+		}
+	}
+
 	return securityGroupInfo, nil
 }
 
@@ -224,6 +238,18 @@ func (securityHandler *IbmSecurityHandler) DeleteSecurity(securityIID irs.IID) (
 	}
 	if res.StatusCode == 204 {
 		LoggingInfo(hiscallInfo, start)
+		
+		// Detach Tag Auto Delete 
+		var tagService *globaltaggingv1.GlobalTaggingV1
+		deleteTagAllOptions := tagService.NewDeleteTagAllOptions()
+		deleteTagAllOptions.SetTagType("user")
+
+		_, _, err = tagService.DeleteTagAll(deleteTagAllOptions)
+		if err != nil {
+			delErr := errors.New(fmt.Sprintf("Failed to Delete SG Detached Tag err = %s", err.Error()))
+			cblogger.Error(delErr.Error())
+		}
+
 		return true, nil
 	} else {
 		delErr := errors.New(fmt.Sprintf("Failed to Delete Security. err = %s", err.Error()))

@@ -85,6 +85,11 @@ func (securityHandler *AzureSecurityHandler) setterSec(securityGroup network.Sec
 			})
 		}
 	}
+
+	if securityGroup.Tags != nil {
+		security.TagList = setTagList(securityGroup.Tags)
+	}
+	
 	security.KeyValueList = keyValues
 	security.SecurityRules = &securityRuleArr
 
@@ -103,7 +108,8 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 		LoggingError(hiscallInfo, createErr)
 		return irs.SecurityInfo{}, createErr
 	}
-
+	// Create Tag
+	tags := setTags(securityReqInfo.TagList)
 	sgRuleList, err := convertRuleInfoListCBToAZ(*securityReqInfo.SecurityRules)
 
 	if err != nil {
@@ -127,6 +133,7 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 			SecurityRules: sgRuleList,
 		},
 		Location: &securityHandler.Region.Region,
+		Tags: tags,
 	}
 
 	start := call.Start()

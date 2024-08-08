@@ -69,7 +69,12 @@ func ReadConfigFile() Config {
 	// Set Environment Value of Project Root Path
 	rootPath := os.Getenv("CBSPIDER_PATH")
 	cblogger.Debugf("Test Data 설정파일 : [%s]", rootPath+"/config/config.yaml")
-	data, err := ioutil.ReadFile(rootPath + "/config/config.yaml")
+
+	confPath := os.Getenv("CBSPIDER_TEST_CONF_PATH")
+	cblogger.Info("Set the full path to the config files you want to use for testing, including your ALIBABA credentials, in the OS environment variable [CBSPIDER_TEST_CONF_PATH].")
+	cblogger.Infof("OS environment variable [CBSPIDER_TEST_CONF_PATH] : [%s]", confPath)
+
+	data, err := ioutil.ReadFile(confPath)
 
 	if err != nil {
 		panic(err)
@@ -139,6 +144,14 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateRegionZoneHandler()
 	case "PriceInfo":
 		resourceHandler, err = cloudConnection.CreatePriceInfoHandler()
+	case "Disk":
+		resourceHandler, err = cloudConnection.CreateDiskHandler()
+	case "MyImage":
+		resourceHandler, err = cloudConnection.CreateMyImageHandler()
+	case "Cluster":
+		resourceHandler, err = cloudConnection.CreateClusterHandler()
+	case "Tag":
+		resourceHandler, err = cloudConnection.CreateTagHandler()
 	}
 
 	if err != nil {
