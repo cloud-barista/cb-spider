@@ -65,7 +65,8 @@ func handleTag() {
 
 		rsIId := irs.IID{
 			NameId: "MyVM-1",
-			SystemId: "25453063",
+			// SystemId: "25504672",
+			SystemId: "25927580",
 		}
 
 		tagKV := irs.KeyValue{
@@ -75,7 +76,7 @@ func handleTag() {
 
 		tagKey := "VPCNameTest"
 
-		keyword := "VPC"
+		keyword := "vpc"
 
 		inputCnt, err := fmt.Scan(&commandNum)
 		if err != nil {
