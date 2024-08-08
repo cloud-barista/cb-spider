@@ -1241,10 +1241,14 @@ type CleanVMClientSet struct {
 
 // VMCleanRelatedResource
 func (vmHandler *AzureVMHandler) cleanVMRelatedResource(cleanRelatedResource VMCleanRelatedResource) (bool, error) {
+	curRetryCnt := 0
+	maxRetryCnt := 120
+
 	networkInterfaceName := cleanRelatedResource.CleanTargetResource.NetworkInterfaceName
 	publicIPId := cleanRelatedResource.CleanTargetResource.PublicIPName
 	vmDiskId := cleanRelatedResource.CleanTargetResource.VmDiskName
 	resourceGroup := vmHandler.Region.Region
+
 	// VNic Delete
 	if networkInterfaceName != "" {
 		vnicExist, _ := CheckExistVNic(networkInterfaceName, resourceGroup, vmHandler.NicClient, vmHandler.Ctx)
@@ -1271,54 +1275,83 @@ func (vmHandler *AzureVMHandler) cleanVMRelatedResource(cleanRelatedResource VMC
 			Location: toStrPtr(vmHandler.Region.Region),
 		}
 		if vnicExist {
-			poller, err := vmHandler.NicClient.BeginCreateOrUpdate(vmHandler.Ctx, resourceGroup, networkInterfaceName, detachOpts, nil)
-			if err != nil {
-				return false, err
-			}
-			_, err = poller.PollUntilDone(vmHandler.Ctx, nil)
-			if err != nil {
-				return false, err
-			}
-			poller2, err := vmHandler.NicClient.BeginDelete(vmHandler.Ctx, resourceGroup, networkInterfaceName, nil)
-			if err != nil {
-				cblogger.Error(err)
-				return false, err
-			}
-			_, err = poller2.PollUntilDone(vmHandler.Ctx, nil)
-			if err != nil {
-				return false, err
+			for {
+				vnicExist, _ = CheckExistVNic(networkInterfaceName, resourceGroup, vmHandler.NicClient, vmHandler.Ctx)
+				if !vnicExist {
+					break
+				}
+
+				curRetryCnt++
+				time.Sleep(1 * time.Second)
+				if curRetryCnt > maxRetryCnt {
+					createErr := errors.New(fmt.Sprintf("Failed to clean remained vnic ("+networkInterfaceName+"). exceeded maximum retry count %d", maxRetryCnt))
+					cblogger.Warn(createErr.Error())
+				}
+
+				poller, _ := vmHandler.NicClient.BeginCreateOrUpdate(vmHandler.Ctx, resourceGroup, networkInterfaceName, detachOpts, nil)
+				if poller != nil {
+					_, _ = poller.PollUntilDone(vmHandler.Ctx, nil)
+				}
+				poller2, _ := vmHandler.NicClient.BeginDelete(vmHandler.Ctx, resourceGroup, networkInterfaceName, nil)
+				if poller2 != nil {
+					_, _ = poller2.PollUntilDone(vmHandler.Ctx, nil)
+				}
 			}
 		}
 	}
+
+	// publicIPId Delete
 	if publicIPId != "" {
 		publicIPExist, err := CheckExistPublicIp(publicIPId, resourceGroup, vmHandler.PublicIPClient, vmHandler.Ctx)
 		if err != nil {
 			return false, err
 		}
 		if publicIPExist {
-			poller, delErr := vmHandler.PublicIPClient.BeginDelete(vmHandler.Ctx, resourceGroup, publicIPId, nil)
-			if delErr != nil {
-				return false, delErr
-			}
-			_, err = poller.PollUntilDone(vmHandler.Ctx, nil)
-			if err != nil {
-				return false, err
+			for {
+				publicIPExist, _ = CheckExistPublicIp(publicIPId, resourceGroup, vmHandler.PublicIPClient, vmHandler.Ctx)
+				if !publicIPExist {
+					break
+				}
+
+				curRetryCnt++
+				time.Sleep(1 * time.Second)
+				if curRetryCnt > maxRetryCnt {
+					createErr := errors.New(fmt.Sprintf("Failed to clean remained public IP ("+publicIPId+"). exceeded maximum retry count %d", maxRetryCnt))
+					cblogger.Warn(createErr.Error())
+				}
+
+				poller, _ := vmHandler.PublicIPClient.BeginDelete(vmHandler.Ctx, resourceGroup, publicIPId, nil)
+				if poller != nil {
+					_, _ = poller.PollUntilDone(vmHandler.Ctx, nil)
+				}
 			}
 		}
 	}
+
+	// Disk Delete
 	if vmDiskId != "" {
 		vmDiskExist, err := CheckExistVMDisk(vmDiskId, vmHandler.DiskClient, vmHandler.Ctx)
 		if err != nil {
 			return false, err
 		}
 		if vmDiskExist {
-			poller, delErr := vmHandler.DiskClient.BeginDelete(vmHandler.Ctx, resourceGroup, vmDiskId, nil)
-			if delErr != nil {
-				return false, delErr
-			}
-			_, err = poller.PollUntilDone(vmHandler.Ctx, nil)
-			if err != nil {
-				return false, err
+			for {
+				vmDiskExist, _ = CheckExistVMDisk(vmDiskId, vmHandler.DiskClient, vmHandler.Ctx)
+				if !vmDiskExist {
+					break
+				}
+
+				curRetryCnt++
+				time.Sleep(1 * time.Second)
+				if curRetryCnt > maxRetryCnt {
+					createErr := errors.New(fmt.Sprintf("Failed to clean remained disk ("+vmDiskId+"). exceeded maximum retry count %d", maxRetryCnt))
+					cblogger.Warn(createErr.Error())
+				}
+
+				poller, _ := vmHandler.DiskClient.BeginDelete(vmHandler.Ctx, resourceGroup, vmDiskId, nil)
+				if poller != nil {
+					_, _ = poller.PollUntilDone(vmHandler.Ctx, nil)
+				}
 			}
 		}
 	}
