@@ -170,7 +170,7 @@ func handleVM() {
 					//panic(err)
 					cblogger.Error(err)
 				} else {
-					cblogger.Info("VM 생성 완료!!", vmInfo)
+					cblogger.Info("Succeeded in VM Creation!!", vmInfo)
 					spew.Dump(vmInfo)
 				}
 				cblogger.Info("\nCreateVM Test Finished")
@@ -178,10 +178,10 @@ func handleVM() {
 			case 2:
 				vmInfo, err := vmHandler.GetVM(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM info. 조회 실패", VmID)
+					cblogger.Errorf("[%s] Failed to Get VM info!!", VmID)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM info. 조회 결과", VmID)
+					cblogger.Infof("[%s] Result : ", VmID)
 					spew.Dump(vmInfo)
 				}
 				cblogger.Info("\nGetVM Test Finished")
@@ -190,10 +190,10 @@ func handleVM() {
 				cblogger.Info("Start Suspend VM ...")
 				result, err := vmHandler.SuspendVM(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM Suspend 실패 - [%s]", VmID, result)
+					cblogger.Errorf("[%s] Failed to Suspend VM : [%s]", VmID, result)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM Suspend 실행 성공 - [%s]", VmID, result)
+					cblogger.Infof("[%s] Succeeded in VM Suspend : [%s]", VmID, result)
 				}
 				cblogger.Info("\nSuspendVM Test Finished")
 
@@ -201,10 +201,10 @@ func handleVM() {
 				cblogger.Info("Start Resume  VM ...")
 				result, err := vmHandler.ResumeVM(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM Resume 실패 - [%s]", VmID, result)
+					cblogger.Errorf("[%s] Failed to Resume VM : [%s]", VmID, result)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM Resume 실행 성공 - [%s]", VmID, result)
+					cblogger.Infof("[%s] Succeeded in VM Resumme : [%s]", VmID, result)
 				}
 				cblogger.Info("\nResumeVM Test Finished")
 
@@ -212,10 +212,10 @@ func handleVM() {
 				cblogger.Info("Start Reboot  VM ...")
 				result, err := vmHandler.RebootVM(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM Reboot 실패 - [%s]", VmID, result)
+					cblogger.Errorf("[%s] Failed to Reboot VM : [%s]", VmID, result)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM Reboot 실행 성공 - [%s]", VmID, result)
+					cblogger.Infof("[%s] Succeeded in VM Reboot : [%s]", VmID, result)
 				}
 				cblogger.Info("\nRebootVM Test Finished")
 
@@ -223,10 +223,10 @@ func handleVM() {
 				cblogger.Info("Start Terminate  VM ...")
 				result, err := vmHandler.TerminateVM(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM Terminate 실패 - [%s]", VmID, result)
+					cblogger.Errorf("[%s] Failed to Terminate VM : [%s]", VmID, result)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM Terminate 실행 성공 - [%s]", VmID, result)
+					cblogger.Infof("[%s] Succeeded in VM Terminate : [%s]", VmID, result)
 				}
 				cblogger.Info("\nTerminateVM Test Finished")
 
@@ -234,10 +234,10 @@ func handleVM() {
 				cblogger.Info("Start Get VM Status...")
 				vmStatus, err := vmHandler.GetVMStatus(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] Get VM Status 실패", VmID)
+					cblogger.Errorf("[%s] Failed to Get VM Status : ", VmID)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] Get VM Status 실행 성공 : [%s]", VmID, vmStatus)
+					cblogger.Infof("[%s] Succeeded in Getting VM Status : [%s]", VmID, vmStatus)
 				}
 				cblogger.Info("\nGet VMStatus Test Finished")
 
@@ -245,10 +245,10 @@ func handleVM() {
 				cblogger.Info("Start ListVMStatus ...")
 				vmStatusInfos, err := vmHandler.ListVMStatus()
 				if err != nil {
-					cblogger.Error("ListVMStatus 실패")
+					cblogger.Error("Failed to List VMStatus")
 					cblogger.Error(err)
 				} else {
-					cblogger.Info("ListVMStatus 실행 성공")
+					cblogger.Info("Succeeded in Listing VMStatus")
 					spew.Dump(vmStatusInfos)
 				}
 				cblogger.Info("\nListVM Status Test Finished")
@@ -257,13 +257,12 @@ func handleVM() {
 				cblogger.Info("Start ListVM ...")
 				vmList, err := vmHandler.ListVM()
 				if err != nil {
-					cblogger.Error("ListVM 실패")
+					cblogger.Error("Failed to List VM")
 					cblogger.Error(err)
 				} else {
-					cblogger.Info("ListVM 실행 성공")
-					cblogger.Info("=========== VM 목록 ================")
+					cblogger.Info("Succeeded in Listing VM")
 					spew.Dump(vmList)
-					cblogger.Infof("=========== VM 목록 수 : [%d] ================", len(vmList))
+					cblogger.Infof("=========== Count VM : [%d] ================", len(vmList))
 					if len(vmList) > 0 {
 						VmID = vmList[0].IId
 					}
