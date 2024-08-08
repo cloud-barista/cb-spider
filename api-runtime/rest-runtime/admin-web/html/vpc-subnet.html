@@ -48,6 +48,10 @@
     td {
         text-align: left;
     }
+    .column-num {
+        width: 5%;
+        text-align: center;
+    }
     .center-align {
         text-align: center;
     }
@@ -91,6 +95,11 @@
         font-size: 16px;
         cursor: pointer;
     }
+    .tag-overlay .button-group {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+    }
     .fixed-header {
         position: fixed;
         top: 0;
@@ -106,8 +115,6 @@
     .fixed-action-buttons {
         display: flex;
         align-items: center;
-        position: relative;
-        top: 57px;
     }
     .fixed-action-buttons button {
         margin-left: 10px;
@@ -124,6 +131,9 @@
     .checkbox-cell {
         width: 5%;
         text-align: center;
+    }
+    .highlight {
+        background-color: #fffab6
     }
     .highlight-pastel-blue {
         color: #4A90E2;
@@ -162,6 +172,9 @@
     }
     .form-group button {
         margin-left: 10px;
+    }
+    .vpc-count {
+        width: 50px;
     }
     .form-group .tag-inputs {
         display: flex;
@@ -269,6 +282,12 @@
         font-weight: bold;
         white-space: nowrap;
     }
+    .inner-table button.plus-btn {
+        width: 20px;
+        font-size: 12px;
+        font-weight: bold;
+        white-space: nowrap;
+    }
     .inner-table .name-column {
         width: 20%;
     }
@@ -282,10 +301,45 @@
         width: 25%;
     }
     button.add-btn {
-        width: 45px;
+        width: 20px;
         font-size: 12px;
         font-weight: bold;
         white-space: nowrap;
+    }
+
+    #searchInput {
+        width: 190px;
+        font-family: Arial, sans-serif;
+        padding-right: 2.5cm; /* Space for the clear button inside the input */
+    }
+
+    #clearSearch {
+        position: absolute;
+        right: 0.1cm;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+    }
+
+    .searchContainer {
+        position: relative;
+        display: flex;
+        align-items: center;
+        padding-left: 0.5cm;
+    }
+
+    .searchContainer button {
+        position: absolute;
+        right: 0.5cm;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
     }
 </style>
 <script>
@@ -412,9 +466,14 @@
         const subnetName = document.getElementById('subnetName').value;
         const subnetCIDR = document.getElementById('subnetCIDR').value;
         const subnetZone = document.getElementById('subnetZone').value;
+        const vpcCount = document.getElementById('vpcCount').value;
 
-        if (!vpcName || !vpcCIDR || !subnetName || !subnetCIDR || !subnetZone) {
+        if (!vpcName || !vpcCIDR || !subnetName || !subnetCIDR || !subnetZone || !vpcCount) {
             alert("Please fill in all the fields.");
+            return false;
+        }
+        if (vpcCount < 1 || vpcCount > 10) {
+            alert("Please enter a valid count between 1 and 10.");
             return false;
         }
         return true;
@@ -425,57 +484,69 @@
             return;
         }
 
+        const vpcCount = parseInt(document.getElementById('vpcCount').value);
+        if (vpcCount > 1) {
+            if (!confirm(`Are you sure you want to create ${vpcCount} VPCs/Subnets?`)) {
+                return;
+            }
+        }
+
         const connConfig = document.getElementById('connConfig').value;
-        const vpcName = document.getElementById('vpcName').value;
         const vpcCIDR = document.getElementById('vpcCIDR').value;
-        const subnetInfo = [{
-            Name: document.getElementById('subnetName').value,
-            IPv4_CIDR: document.getElementById('subnetCIDR').value,
-            Zone: document.getElementById('subnetZone').value,
-            TagList: Array.from(document.querySelectorAll('.subnet-tag-input')).map(tagInput => ({
-                Key: tagInput.querySelector('.subnet-tag-key').value,
-                Value: tagInput.querySelector('.subnet-tag-value').value
-            }))
-        }];
+        const subnetCIDR = document.getElementById('subnetCIDR').value;
+        const subnetZone = document.getElementById('subnetZone').value;
 
-        const tags = Array.from(document.querySelectorAll('.vpc-tag-input')).map(tagInput => ({
-            Key: tagInput.querySelector('.vpc-tag-key').value,
-            Value: tagInput.querySelector('.vpc-tag-value').value
-        }));
+        const vpcPromises = Array.from({ length: vpcCount }).map((_, index) => {
+            const vpcName = `${document.getElementById('vpcName').value}-${index + 1}`;
+            const subnetName = `${document.getElementById('subnetName').value}-${index + 1}`;
+            const subnetInfo = [{
+                Name: subnetName,
+                IPv4_CIDR: subnetCIDR,
+                Zone: subnetZone,
+                TagList: Array.from(document.querySelectorAll('.subnet-tag-input')).map(tagInput => ({
+                    Key: tagInput.querySelector('.subnet-tag-key').value,
+                    Value: tagInput.querySelector('.subnet-tag-value').value
+                }))
+            }];
 
-        const data = {
-            ConnectionName: connConfig,
-            ReqInfo: {
-                Name: vpcName,
-                IPv4_CIDR: vpcCIDR,
-                SubnetInfoList: subnetInfo,
-                TagList: tags
-            }
-        };
+            const tags = Array.from(document.querySelectorAll('.vpc-tag-input')).map(tagInput => ({
+                Key: tagInput.querySelector('.vpc-tag-key').value,
+                Value: tagInput.querySelector('.vpc-tag-value').value
+            }));
 
-        fetch('/spider/vpc', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        })
-        .then(response => {
-            if (!response.ok) {
-                return response.json().then(error => {
-                    throw new Error(error.message);
-                });
-            }
-            return response.json();
-        })
-        .then(data => {
-            if (data) {
-                location.reload();
-            }
-        })
-        .catch(error => {
-            showError("Error creating VPC: " + error.message, "VPC Name: " + vpcName);
+            const data = {
+                ConnectionName: connConfig,
+                ReqInfo: {
+                    Name: vpcName,
+                    IPv4_CIDR: vpcCIDR,
+                    SubnetInfoList: subnetInfo,
+                    TagList: tags
+                }
+            };
+
+            return fetch('/spider/vpc', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            }).then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => {
+                        throw new Error(error.message);
+                    });
+                }
+                return response.json();
+            });
         });
+
+        Promise.all(vpcPromises)
+            .then(() => {
+                location.reload();
+            })
+            .catch(error => {
+                showError("Error creating VPCs: " + error.message, "Multiple VPCs");
+            });
     }
 
     function showOverlay() {
@@ -601,10 +672,15 @@
     }
 
     function deleteSubnet(vpcName, subnetName) {
+        if (!confirm(`Are you sure you want to delete the subnet: ${subnetName}?`)) {
+            return;
+        }
+
         const connConfig = document.getElementById('connConfig').value;
         const data = {
-                ConnectionName: connConfig
-            };
+            ConnectionName: connConfig
+        };
+
         fetch(`/spider/vpc/${vpcName}/subnet/${subnetName}`, {
             method: 'DELETE',
             headers: {
@@ -632,19 +708,63 @@
         });
     }
 
-    function showTagOverlay(event, tag) {
+    function showTagOverlay(event, tag, resourceType, resourceName) {
         event.stopPropagation();
         const tagOverlay = document.getElementById('tag-overlay');
         const tagOverlayContent = document.querySelector('.tag-overlay-content');
         tagOverlayContent.innerHTML = `
             <button class="close-btn" onclick="closeTagOverlay()">x</button>
             <p>${tag}</p>
+            <div class="button-group">
+                <button onclick="deleteTag('${tag}', '${resourceType}', '${resourceName}')">Delete</button>
+                <button onclick="closeTagOverlay()">Cancel</button>
+            </div>
         `;
         tagOverlay.style.display = 'block';
         tagOverlay.style.top = `${event.clientY}px`;
         tagOverlay.style.left = `${event.clientX}px`;
         document.addEventListener('click', handleClickOutsideOverlay);
         document.addEventListener('keydown', handleEscTagOverlay);
+    }
+
+    function deleteTag(tag, resourceType, resourceName) {
+        const connConfig = document.getElementById('connConfig').value;
+        const [tagKey, tagValue] = tag.split(': ');
+
+        const data = {
+            ConnectionName: connConfig,
+            ReqInfo: {
+                ResourceType: resourceType.trim(),
+                ResourceName: resourceName.trim()
+            }
+        };
+
+        fetch(`/spider/tag/${tagKey.trim()}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.message);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.Result === "true") {
+                closeTagOverlay();
+                location.reload();
+            } else {
+                alert('Failed to delete tag');
+            }
+        })
+        .catch(error => {
+            alert("Error deleting tag: " + error.message);
+        });
     }
 
     function closeTagOverlay() {
@@ -707,6 +827,305 @@
         tagContainer.appendChild(tagInput);
     }
 
+    function createMultipleVPCs(count) {
+        const connConfig = document.getElementById('connConfig').value;
+        const region = '{{.RegionName}}';
+        const zone = '{{.Zone}}';
+
+        const createPromises = Array.from({ length: count }, () => {
+            const vpcName = `${region}-vpc-${Math.random().toString(36).substring(2, 5)}`;
+            const vpcCIDR = '10.0.0.0/16';
+            const subnetName = `${region}-${zone}-subnet-${Math.random().toString(36).substring(2, 5)}`;
+            const subnetCIDR = '10.0.1.0/24';
+            const subnetInfo = [{
+                Name: subnetName,
+                IPv4_CIDR: subnetCIDR,
+                Zone: zone,
+                TagList: [
+                    { Key: 'SubnetTagKey1', Value: 'SubnetTagValue1' },
+                    { Key: 'SubnetTagKey2', Value: 'SubnetTagValue2' }
+                ]
+            }];
+            const tags = [
+                { Key: 'VPCTagKey1', Value: 'VPCTagValue1' },
+                { Key: 'VPCTagKey2', Value: 'VPCTagValue2' }
+            ];
+
+            const data = {
+                ConnectionName: connConfig,
+                ReqInfo: {
+                    Name: vpcName,
+                    IPv4_CIDR: vpcCIDR,
+                    SubnetInfoList: subnetInfo,
+                    TagList: tags
+                }
+            };
+
+            return fetch('/spider/vpc', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            }).then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => {
+                        throw new Error(error.message);
+                    });
+                }
+                return response.json();
+            });
+        });
+
+        Promise.all(createPromises)
+            .then(() => {
+                location.reload();
+            })
+            .catch(error => {
+                showError("Error creating VPCs: " + error.message, "Multiple VPCs");
+            });
+    }
+
+    function showAddTagOverlay(vpcName) {
+        const addTagOverlay = document.getElementById('add-tag-overlay');
+        const addTagOverlayContent = document.querySelector('.add-tag-overlay-content');
+        addTagOverlayContent.innerHTML = `
+            <button class="close-btn" onclick="closeAddTagOverlay()">x</button>
+            <div>
+                <label for="tagKey">Tag Key:</label>
+                <input type="text" id="tagKey" name="tagKey" required>
+            </div>
+            <div>
+                <label for="tagValue">Tag Value:</label>
+                <input type="text" id="tagValue" name="tagValue" required>
+            </div>
+            <div class="button-group">
+                <button onclick="addTag('${vpcName}')">Add</button>
+                <button onclick="closeAddTagOverlay()">Cancel</button>
+            </div>
+        `;
+        addTagOverlay.style.display = 'flex';
+        document.addEventListener('keydown', handleEscAddTagOverlay);
+    }
+
+    function closeAddTagOverlay() {
+        const addTagOverlay = document.getElementById('add-tag-overlay');
+        addTagOverlay.style.display = 'none';
+        document.removeEventListener('keydown', handleEscAddTagOverlay);
+    }
+
+    function handleEscAddTagOverlay(event) {
+        if (event.key === "Escape") {
+            closeAddTagOverlay();
+        }
+    }
+
+    function addTag(vpcName) {
+        const tagKey = document.getElementById('tagKey').value;
+        const tagValue = document.getElementById('tagValue').value;
+        const connConfig = document.getElementById('connConfig').value;
+
+        const data = {
+            ConnectionName: connConfig,
+            ReqInfo: {
+                ResourceType: 'VPC',
+                ResourceName: vpcName,
+                Tag: { Key: tagKey, Value: tagValue }
+            }
+        };
+
+        fetch('/spider/tag', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.message);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.Key && data.Value) {
+                closeAddTagOverlay();
+                location.reload();
+            } else {
+                showError("Failed to add tag: Unknown error", "VPC Name: " + vpcName);
+            }
+        })
+        .catch(error => {
+            showError("Error adding tag: " + error.message, "VPC Name: " + vpcName);
+        });
+    }
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        fetch('/spider/connectionconfig/{{.ConnectionConfig}}')
+            .then(response => response.json())
+            .then(data => {
+                currentProvider = data.ProviderName;
+                if (currentProvider === 'MOCK') {
+                    const contentDiv = document.querySelector('.content');
+                    const button10 = document.createElement('button');
+                    button10.className = 'add-button';
+                    button10.textContent = '+10';
+                    button10.onclick = () => createMultipleVPCs(10);
+
+                    const button20 = document.createElement('button');
+                    button20.className = 'add-button';
+                    button20.textContent = '+20';
+                    button20.onclick = () => createMultipleVPCs(20);
+
+                    contentDiv.insertBefore(button10, contentDiv.querySelector('table'));
+                    contentDiv.insertBefore(button20, contentDiv.querySelector('table'));
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching provider info:', error);
+            });
+    });
+
+    function showAddSubnetTagOverlay(vpcName, subnetName) {
+        const addTagOverlay = document.getElementById('add-subnet-tag-overlay');
+        const addTagOverlayContent = document.querySelector('.add-subnet-tag-overlay-content');
+        addTagOverlayContent.innerHTML = `
+            <button class="close-btn" onclick="closeAddSubnetTagOverlay()">x</button>
+            <div>
+                <label for="subnetTagKey">Tag Key:</label>
+                <input type="text" id="subnetTagKey" name="subnetTagKey" required>
+            </div>
+            <div>
+                <label for="subnetTagValue">Tag Value:</label>
+                <input type="text" id="subnetTagValue" name="subnetTagValue" required>
+            </div>
+            <div class="button-group">
+                <button onclick="addSubnetTag('${vpcName}', '${subnetName}')">Add</button>
+                <button onclick="closeAddSubnetTagOverlay()">Cancel</button>
+            </div>
+        `;
+        addTagOverlay.style.display = 'flex';
+        document.addEventListener('keydown', handleEscAddSubnetTagOverlay);
+    }
+
+    function closeAddSubnetTagOverlay() {
+        const addTagOverlay = document.getElementById('add-subnet-tag-overlay');
+        addTagOverlay.style.display = 'none';
+        document.removeEventListener('keydown', handleEscAddSubnetTagOverlay);
+    }
+
+    function handleEscAddSubnetTagOverlay(event) {
+        if (event.key === "Escape") {
+            closeAddSubnetTagOverlay();
+        }
+    }
+
+    function addSubnetTag(vpcName, subnetName) {
+        const tagKey = document.getElementById('subnetTagKey').value;
+        const tagValue = document.getElementById('subnetTagValue').value;
+        const connConfig = document.getElementById('connConfig').value;
+
+        const data = {
+            ConnectionName: connConfig,
+            ReqInfo: {
+                ResourceType: 'SUBNET',
+                ResourceName: subnetName,
+                Tag: { Key: tagKey, Value: tagValue }
+            }
+        };
+
+        fetch(`/spider/tag`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.message);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.Key && data.Value) {
+                closeAddSubnetTagOverlay();
+                location.reload();
+            } else {
+                showError("Failed to add tag: Unknown error", "Subnet Name: " + subnetName);
+            }
+        })
+        .catch(error => {
+            showError("Error adding tag: " + error.message, "Subnet Name: " + subnetName);
+        });
+    }
+
+    function searchKeyword() {
+        let input, filter, table, tr, td, i, j, k, innerTable, innerTr, innerTd, txtValue;
+        input = document.getElementById('searchInput');
+        filter = input.value.toUpperCase().trim(); // trim whitespace
+        if (!filter) {
+            clearSearchInput();
+            return;
+        }
+
+        table = document.getElementById('vpc-table');
+        tr = table.getElementsByTagName('tr');
+        
+        for (i = 1; i < tr.length; i++) {
+            for (j = 0; j < tr[i].cells.length; j++) {
+                td = tr[i].cells[j];
+                if (td) {
+                    txtValue = td.textContent || td.innerText;
+                    if (td.querySelector('table.inner-table')) {
+                        innerTable = td.querySelector('table.inner-table');
+                        innerTr = innerTable.getElementsByTagName('tr');
+                        for (k = 1; k < innerTr.length; k++) {
+                            for (let l = 0; l < innerTr[k].cells.length; l++) {
+                                innerTd = innerTr[k].cells[l];
+                                txtValue = innerTd.textContent || innerTd.innerText;
+                                if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                                    innerTd.classList.add('highlight');
+                                } else {
+                                    innerTd.classList.remove('highlight');
+                                }
+                            }
+                        }
+                    } else {
+                        if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                            td.classList.add('highlight');
+                        } else {
+                            td.classList.remove('highlight');
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    function clearSearchInput() {
+        document.getElementById("searchInput").value = "";
+        let table = document.getElementById('vpc-table');
+        let tr = table.getElementsByTagName('tr');
+        for (let i = 1; i < tr.length; i++) {
+            for (let j = 0; j < tr[i].cells.length; j++) {
+                tr[i].cells[j].classList.remove('highlight');
+                if (tr[i].cells[j].querySelector('table.inner-table')) {
+                    let innerTable = tr[i].cells[j].querySelector('table.inner-table');
+                    let innerTr = innerTable.getElementsByTagName('tr');
+                    for (let k = 1; k < innerTr.length; k++) {
+                        for (let l = 0; l < innerTr[k].cells.length; l++) {
+                            innerTr[k].cells[l].classList.remove('highlight');
+                        }
+                    }
+                }
+            }
+        }
+    }
 
 </script>
 </head>
@@ -715,7 +1134,11 @@
         <div class="header-container">
             <img src="/spider/adminweb/images/left-menu/vpc.png" alt="VPC Icon">
             <h1>VPC/Subnet Management</h1>
-        </div>
+            <div class="searchContainer">
+                <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
+                <button id="clearSearch" onclick="clearSearchInput()">X</button>
+            </div>
+        </div>        
         <div class="fixed-action-buttons">
             <input type="checkbox" onclick="toggleSelectAll(this)">
             <button onclick="deleteSelectedVPCs()">Delete</button>
@@ -726,6 +1149,7 @@
         <button class="add-button" onclick="showOverlay()">+</button>
         <table id="vpc-table">
             <tr>
+                <th class="column-num">#</th>
                 <th class="vpc-name center-align">Name</th>
                 <th class="vpc-cidr center-align">CIDR</th>
                 <th class="subnet-info">Subnet Info</th>
@@ -733,11 +1157,12 @@
                 <th class="misc center-align">Misc</th>
                 <th class="checkbox-cell center-align"><input type="checkbox" onclick="toggleSelectAll(this)"></th>
             </tr>
-            {{range .VPCs}}
-            {{ $vpcNameId := .IId.NameId }}
+            {{range $index, $vpc := .VPCs}}
+            {{ $vpcNameId := $vpc.IId.NameId }}
             <tr>
-                <td class="vpc-name center-align">{{.IId.NameId}}</td>
-                <td class="vpc-cidr center-align">{{.IPv4_CIDR}}</td>
+                <td class="column-num">{{$index | inc}}</td>
+                <td class="vpc-name center-align">{{$vpc.IId.NameId}}</td>
+                <td class="vpc-cidr center-align">{{$vpc.IPv4_CIDR}}</td>
                 <td class="subnet-info">
                     <table class="inner-table">
                         <tr>
@@ -747,39 +1172,46 @@
                             <th class="tags-column">Tags</th>
                             <th class="actions-cell"><button class="add-btn" onclick="showSubnetOverlay('{{$vpcNameId}}')">add</button></th>
                         </tr>
-                        {{range .SubnetInfoList}}
+                        {{range $subnetIndex, $subnet := $vpc.SubnetInfoList}}
+                        {{ $subnetNameId := $subnet.IId.NameId }}
                         <tr>
-                            <td>{{.IId.NameId}}</td>
-                            <td>{{.IPv4_CIDR}}</td>
-                            <td>{{.Zone}}</td>
+                            <td>{{$subnet.IId.NameId}}</td>
+                            <td>{{$subnet.IPv4_CIDR}}</td>
+                            <td>{{$subnet.Zone}}</td>
                             <td class="tags-cell">
-                                {{range .TagList}}
-                                    <div class="tag-container" onclick="showTagOverlay(event, '{{.Key}}: {{.Value}}')">{{.Key}}: {{.Value}}</div>
+                                {{range $tag := $subnet.TagList}}
+                                <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'SUBNET', '{{$subnetNameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
                                 {{end}}
+                                <div class="add-btn-container">
+                                    <button class="plus-btn" onclick="showAddSubnetTagOverlay('{{$vpcNameId}}', '{{$subnetNameId}}')">+</button>
+                                </div>
                             </td>
                             <td class="actions-cell">
-                                <button class="delete-btn" onclick="deleteSubnet('{{$vpcNameId}}', '{{.IId.NameId}}')">del</button>
+                                <button class="delete-btn" onclick="deleteSubnet('{{$vpcNameId}}', '{{$subnet.IId.NameId}}')">del</button>
                             </td>
                         </tr>
                         {{end}}
                     </table>
                 </td>
                 <td class="tags">
-                    {{range .TagList}}
-                        <div class="tag-container" onclick="showTagOverlay(event, '{{.Key}}: {{.Value}}')">{{.Key}}: {{.Value}}</div>
+                    {{range $tag := $vpc.TagList}}
+                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'VPC', '{{$vpcNameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
                     {{end}}
-                </td>
+                    <div class="add-btn-container">
+                        <button class="add-btn" onclick="showAddTagOverlay('{{$vpcNameId}}')">+</button>
+                    </div>
+                </td>                
                 <td class="misc">
-                    {{range .KeyValueList}}{{.Key}} : {{.Value}}<br>{{end}}
+                    {{range $kv := $vpc.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
                 </td>
                 <td class="checkbox-cell center-align">
-                    <input type="checkbox" name="deleteCheckbox" value="{{.IId.NameId}}">
+                    <input type="checkbox" name="deleteCheckbox" value="{{$vpc.IId.NameId}}">
                 </td>
             </tr>
             {{end}}
             {{if not .VPCs}}
             <tr>
-                <td colspan="6" class="center-align">No VPCs found for this connection.</td>
+                <td colspan="7" class="center-align">No VPCs found for this connection.</td>
             </tr>
             {{end}}
         </table>
@@ -802,8 +1234,7 @@
                     </div>
                     <div class="form-group" style="padding-left: 145px;">
                         <label for="vpcTags">Tags:</label>
-                        <div id="vpc-tag-container">
-                        </div>
+                        <div id="vpc-tag-container"></div>
                         <button type="button" onclick="addVPCTagField()">+</button>
                     </div>
                 </div>
@@ -823,15 +1254,17 @@
                     </div>
                     <div class="form-group" style="padding-left: 145px;">
                         <label for="subnetTags">Tags:</label>
-                        <div id="subnet-tag-container">
-                        </div>
+                        <div id="subnet-tag-container"></div>
                         <button type="button" onclick="addSubnetTagField()">+</button>
                     </div>
                 </div>
-                <div class="form-group" style="margin-top: 20px;padding-left: 30px;">
+                <div style="display: flex; align-items: center; margin-top: 20px;">
+                    <label for="vpcCount" style="margin-right: 5px;margin-left: 40px;">#:</label>
+                    <input type="number" id="vpcCount" name="vpcCount" class="vpc-count" value="1" min="1" max="10" style="width: 50px; margin-right: 10px;">
                     <button type="submit">Add VPC/Subnet</button>
-                    <button type="button" onclick="hideOverlay()">Cancel</button>
+                    <button type="button" onclick="hideOverlay()" style="margin-left: 10px;">Cancel</button>
                 </div>
+                
             </form>
         </div>
     </div>
@@ -874,6 +1307,14 @@
 
     <div id="tag-overlay" class="tag-overlay">
         <div class="tag-overlay-content"></div>
+    </div>
+
+    <div id="add-tag-overlay" class="overlay">
+        <div class="add-tag-overlay-content overlay-content"></div>
+    </div>
+
+    <div id="add-subnet-tag-overlay" class="overlay">
+        <div class="add-subnet-tag-overlay-content overlay-content"></div>
     </div>
 
     <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">

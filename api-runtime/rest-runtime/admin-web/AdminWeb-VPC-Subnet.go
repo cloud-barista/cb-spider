@@ -100,7 +100,11 @@ func VPCSubnetManagement(c echo.Context) error {
 	}
 
 	templatePath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/vpc-subnet.html")
-	tmpl, err := template.ParseFiles(templatePath)
+	tmpl, err := template.New("vpc-subnet.html").Funcs(template.FuncMap{
+		"inc": func(i int) int {
+			return i + 1
+		},
+	}).ParseFiles(templatePath)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error loading template: " + err.Error()})
 	}

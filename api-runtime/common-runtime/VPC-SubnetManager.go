@@ -1211,3 +1211,7 @@ func CountSubnetsByConnection(connectionName string) (int64, error) {
 
 	return count, nil
 }
+
+func inc(i int) int {
+	return i + 1
+}
