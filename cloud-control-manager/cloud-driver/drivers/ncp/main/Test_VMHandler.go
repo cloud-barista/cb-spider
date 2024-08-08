@@ -68,7 +68,7 @@ func handleVM() {
 		fmt.Println("============================================================================================")
 
 		//config := readConfigFile()
-		VmID := irs.IID{SystemId: "19313606"}
+		VmID := irs.IID{SystemId: "25504672"}
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -77,80 +77,94 @@ func handleVM() {
 			panic(err)
 		}
 
+		vmReqInfo := irs.VMReqInfo{
+			// ImageType:	irs.MyImage,
+			ImageType:	irs.PublicImage,
+
+			// # NCP에서는 VM instance 이름에 대문자 허용 안되므로 VMHandler 내부에서 소문자로 변환되어 반영됨.	
+			// Caution!! : Under bar 문자 허용 안됨.
+			IId: irs.IID{NameId: "ncp-test-vm-10"},
+
+			// Caution!!) /home/sean/go/src/github.com/cloud-barista/ncp/ncp/main/config/config.yaml 에서 해당 region을 설정해야 그 region에 VM이 생성됨.
+
+			//(참고) When Region is 'DEN'. 
+			//VMSpec := "SPSVRSTAND000063"   vCPU 8EA, Memory 64GB, [SSD]Disk 50GB", 
+			//Image ID : SPSW0LINUX000031
+
+			// KR
+			// ImageIID:   irs.IID{NameId: "Ubuntu Server 18.04 (64-bit)", SystemId: "SPSW0LINUX000130"}, // $$$ PublicImage $$$
+			// VMSpecName: "SPSVRSTAND000006",
+
+			// KR
+			ImageIID:   irs.IID{NameId: "CentOS 7.8 (64-bit)", SystemId: "SPSW0LINUX000139"}, // $$$ PublicImage $$$
+			VMSpecName: "SPSVRSTAND000005",
+
+			// KR
+			// ImageIID:   irs.IID{NameId: "Windows Server 2016 (64-bit) English Edition", SystemId: "SPSW0WINNTEN0016A"}, // $$$ PublicImage $$$
+			// SPSW0WINNTEN0016A - 'Windows' Server 2016 (64-bit) English Edition
+			// # VMSpecName: "SPSVRSSD00000005A" // 상기 win server와 호환
+
+			// KR
+			// ImageIID:   irs.IID{NameId: "Windows Server 2012 (64bit) R2 English Edition", SystemId: "SPSW0WINNTEN0015A"},
+			// VMSpecName: "SPSVRSTAND000005A",
+
+			// KR
+			// ImageIID:   irs.IID{NameId: "Windows Server (64bit)", SystemId: "96215"}, // $$$ MyImage $$$
+			// VMSpecName: "SPSVRSTAND000005A",
+
+			// USWN
+			//ImageIID: irs.IID{NameId: "Ubuntu Server 18.04 (64-bit)", SystemId: "SPSW0LINUX000130"},
+			//VMSpecName: "SPSVRSTAND000025",
+
+			// USWN
+			//ImageIID: irs.IID{NameId: "WordPress-Ubuntu-16.04-64", SystemId: "SPSW0LINUX000088"},
+			//VMSpecName: "SPSVRSTAND000050",
+
+			// DEN :
+			//ImageIID:   irs.IID{NameId: "Ubuntu Server 18.04 (64-bit)", SystemId: "SPSW0LINUX000130"},
+			//VMSpecName: "SPSVRSTAND000025",
+
+			// DEN :
+			//ImageIID:   irs.IID{NameId: "centOS-6.3-64", SystemId: "SPSW0LINUX000031"},
+			//VMSpecName: "SPSVRSSD00000006",
+
+			// JPN
+			//ImageIID: irs.IID{NameId: "Ubuntu Server 18.04 (64-bit)", SystemId: "SPSW0LINUX000130"},
+			//VMSpecName: "SPSVRSTAND000025",
+
+			// SGN
+			//ImageIID: irs.IID{NameId: "Ubuntu Server 18.04 (64-bit)", SystemId: "SPSW0LINUX000130"},
+			//VMSpecName: "SPSVRSTAND000025",
+
+			// HK
+			//ImageIID:   irs.IID{NameId: "ubuntu-16.04", SystemId: "SPSW0LINUX000095"},
+			//VMSpecName: "SPSVRSTAND000052",
+
+			KeyPairIID: irs.IID{SystemId: "oh-keypai-cqccsj4vtts7hk9ghtmg"},
+			// KeyPairIID: irs.IID{SystemId: "ncp-key-0-cjheqe9jcupqtmoaa6bg"},
+
+			// # NCP Classic 2세대 service에서 subnet, VPC 지정은 미지원
+			VpcIID:    irs.IID{SystemId: "oh-vpc-01-cqab15kvtts35l1k5c6g"},
+			SubnetIID: irs.IID{SystemId: "oh-subnet-cqab15kvtts35l1k5c70"},
+
+			// SecurityGroupIIDs 미지정시, NCP default 값으로서 "ncloud-default-acg"인 "293807이 적용됨.
+			// SecurityGroupIIDs: []irs.IID{{SystemId: "293807"},{SystemId: "332703"}},
+			SecurityGroupIIDs: []irs.IID{{SystemId: "1333707"}},
+
+			VMUserPasswd: "abcd000abcd",
+
+			TagList: []irs.KeyValue{
+				{ Key: "aaa", Value: "aaaAAAAA"},
+				{ Key: "ccc", Value: "cccCCCCC"},
+			},
+		}
+
 		if inputCnt == 1 {
 			switch commandNum {
 			case 0:
 				return
 
 			case 1:
-				vmReqInfo := irs.VMReqInfo{
-					// ImageType:	irs.MyImage,
-					ImageType:	irs.PublicImage,
-
-					// # NCP에서는 VM instance 이름에 대문자 허용 안되므로 VMHandler 내부에서 소문자로 변환되어 반영됨.	
-					// Caution!! : Under bar 문자 허용 안됨.
-					IId: irs.IID{NameId: "ncp-test-vm-007"},
-
-					// Caution!!) /home/sean/go/src/github.com/cloud-barista/ncp/ncp/main/config/config.yaml 에서 해당 region을 설정해야 그 region에 VM이 생성됨.
-
-					//(참고) When Region is 'DEN'. 
-					//VMSpec := "SPSVRSTAND000063"   vCPU 8EA, Memory 64GB, [SSD]Disk 50GB", 
-					//Image ID : SPSW0LINUX000031
-
-					// KR
-					ImageIID:   irs.IID{NameId: "Ubuntu Server 18.04 (64-bit)", SystemId: "SPSW0LINUX000130"}, // $$$ PublicImage $$$
-					VMSpecName: "SPSVRSTAND000073",
-
-					// KR
-					// ImageIID:   irs.IID{NameId: "Windows Server 2012 (64bit) R2 English Edition", SystemId: "SPSW0WINNTEN0015A"},
-					// VMSpecName: "SPSVRSTAND000005A",
-
-					// KR
-					// ImageIID:   irs.IID{NameId: "Windows Server (64bit)", SystemId: "96215"}, // $$$ MyImage $$$
-					// VMSpecName: "SPSVRSTAND000005A",
-
-					// USWN
-					//ImageIID: irs.IID{NameId: "Ubuntu Server 18.04 (64-bit)", SystemId: "SPSW0LINUX000130"},
-					//VMSpecName: "SPSVRSTAND000025",
-
-					// USWN
-					//ImageIID: irs.IID{NameId: "WordPress-Ubuntu-16.04-64", SystemId: "SPSW0LINUX000088"},
-					//VMSpecName: "SPSVRSTAND000050",
-
-					// DEN :
-					//ImageIID:   irs.IID{NameId: "Ubuntu Server 18.04 (64-bit)", SystemId: "SPSW0LINUX000130"},
-					//VMSpecName: "SPSVRSTAND000025",
-
-					// DEN :
-					//ImageIID:   irs.IID{NameId: "centOS-6.3-64", SystemId: "SPSW0LINUX000031"},
-					//VMSpecName: "SPSVRSSD00000006",
-
-					// JPN
-					//ImageIID: irs.IID{NameId: "Ubuntu Server 18.04 (64-bit)", SystemId: "SPSW0LINUX000130"},
-					//VMSpecName: "SPSVRSTAND000025",
-
-					// SGN
-					//ImageIID: irs.IID{NameId: "Ubuntu Server 18.04 (64-bit)", SystemId: "SPSW0LINUX000130"},
-					//VMSpecName: "SPSVRSTAND000025",
-
-					// HK
-					//ImageIID:   irs.IID{NameId: "ubuntu-16.04", SystemId: "SPSW0LINUX000095"},
-					//VMSpecName: "SPSVRSTAND000052",
-
-					KeyPairIID: irs.IID{SystemId: "NCP-keypair-06"},
-					// KeyPairIID: irs.IID{SystemId: "ncp-key-0-cjheqe9jcupqtmoaa6bg"},
-
-					// # NCP Classic 2세대 service에서 subnet, VPC 지정은 미지원
-					VpcIID:    irs.IID{SystemId: "vpc-01-cdn00lhjcupqjjlde1rg"},
-					SubnetIID: irs.IID{SystemId: "subnet-01-cdn00lhjcupqjjlde1s0"},
-
-					// SecurityGroupIIDs 미지정시, NCP default 값으로서 "ncloud-default-acg"인 "293807이 적용됨.
-					// SecurityGroupIIDs: []irs.IID{{SystemId: "293807"},{SystemId: "332703"}},
-					SecurityGroupIIDs: []irs.IID{{SystemId: "1333707"}},
-
-					VMUserPasswd: "abcd000abcd",
-				}
-
 				vmInfo, err := vmHandler.StartVM(vmReqInfo)
 				if err != nil {
 					//panic(err)

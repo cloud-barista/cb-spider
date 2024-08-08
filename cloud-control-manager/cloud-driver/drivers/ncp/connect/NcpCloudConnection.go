@@ -137,7 +137,7 @@ func (cloudConn *NcpCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHand
 func (cloudConn *NcpCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
 	cblogger.Info("NCP Cloud Driver: called CreateTagHandler()!")
 
-	tagHandler := ncprs.NcpTagHandler{cloudConn.CredentialInfo, cloudConn.RegionInfo, cloudConn.VmClient}
+	tagHandler := ncprs.NcpTagHandler{cloudConn.RegionInfo, cloudConn.VmClient}
 	return &tagHandler, nil
 }
 
