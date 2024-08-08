@@ -1,12 +1,12 @@
 name: Korean checker
 
 # Controls/triggers when the action will run.
-on: 
+on:
   pull_request:
     branches:
-      - 'master'
+      - "master"
     paths:
-      - '**.go'
+      - "**.go"
 
 # Environment variables
 env:
@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Fetch all history for all branches and tags
-    
+
       - name: Setup to check Korean and upload the results
         run: |
           # Make an output directory
@@ -40,28 +40,28 @@ jobs:
           ls -al
           git status
           git branch
-          
+
           # Default environment variables 
           BASE_BRANCH="origin/${{github.base_ref}}"  # origin/master
           PR_BRANCH=${GITHUB_REF#refs/}              # pull/xx/merge
           echo "Base branch: ${BASE_BRANCH}"
           echo "Extract branch: ${GITHUB_REF#refs/}"
-          
+
           # `github` context information
           echo "(DEBUG) github.ref: ${{github.ref}}"
           echo "(DEBUG) github.head_ref: ${{github.head_ref}}"
           echo "(DEBUG) github.base_ref: ${{github.base_ref}}"
           #####################################################
-          
+
           temp_output="temp.md"
           OUTPUT="${OUTPUT_DIR}/${OUTPUT_FILE}"
-          
+
           # Get changed files in the PR
-          files=$(git diff --name-only ${BASE_BRANCH}...${PR_BRANCH} | grep '\.go$')
-          
+          files=$(git diff --name-only ${BASE_BRANCH}...${PR_BRANCH} | grep '\.go$' || true)
+
           # Create a temp file
           echo "" > $temp_output
-          
+
           # Process each changed file
           for file in $files; do              
             found_korean=false
@@ -86,13 +86,13 @@ jobs:
               echo "" >> $temp_output
             fi          
           done
-          
+
           # Output the results to check if Korean exists
           # Check if the temp_output exists and has content
           if [ -s "$temp_output" ]; then
             
             # Trim before checking if the file has content
-            trimmed_temp_outputs=$(cat "$temp_output" | xargs)
+            trimmed_temp_outputs=$(cat "$temp_output" | tr '\n' ' ' | tr -s ' ')
             echo "(DEBUG) Trimmed temp_output:"
             echo "$trimmed_temp_outputs"
               
@@ -104,8 +104,11 @@ jobs:
               echo "(DEBUG) No Korean content detected."
               # echo "KOREAN_EXISTS=false" >> $GITHUB_OUTPUT
             fi
-          fi          
-          
+          fi
+
+          # Clean up
+          rm -f "$temp_output"
+
       - name: Upload Korean check results
         # if: steps.check-korean.outputs.KOREAN_EXISTS == 'true'
         uses: actions/upload-artifact@v4
@@ -118,7 +121,6 @@ jobs:
       #   run: |
       #     echo "Korean content detected. Failing the workflow on purpose."
       #     exit 1
-
 # https://securitylab.github.com/research/github-actions-preventing-pwn-requests/
 # https://github.com/actions/upload-artifact
 # https://github.com/actions/download-artifact
