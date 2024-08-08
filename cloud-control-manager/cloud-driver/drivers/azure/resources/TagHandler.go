@@ -5,11 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"net/http"
 	"strings"
-
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-10-01/resources"
-	"github.com/Azure/go-autorest/autorest/to"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -18,14 +16,14 @@ import (
 
 type AzureTagHandler struct {
 	CredentialInfo idrv.CredentialInfo
-	Region idrv.RegionInfo
-	Ctx    context.Context
-	Client *resources.TagsClient
+	Region         idrv.RegionInfo
+	Ctx            context.Context
+	Client         *armresources.TagsClient
 }
 type Resource struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
-	Type string `json:"type"`
+	Id   string            `json:"id"`
+	Name string            `json:"name"`
+	Type string            `json:"type"`
 	Tags map[string]string `json:"tags"`
 }
 
@@ -34,14 +32,13 @@ type Response struct {
 }
 
 // find all resource by subscription ID
-func GetResourceInfo(credentailInfo idrv.CredentialInfo, url string) (*Response, error){
+func GetResourceInfo(credentailInfo idrv.CredentialInfo, url string) (*Response, error) {
 	token, err := getToken(credentailInfo.TenantId, credentailInfo.ClientId, credentailInfo.ClientSecret)
 	if err != nil {
 		return nil, err
 	}
 	URL := url
-	
-	
+
 	var bearer = "Bearer " + token
 
 	ctx := context.Background()
@@ -61,7 +58,7 @@ func GetResourceInfo(credentailInfo idrv.CredentialInfo, url string) (*Response,
 	defer func() {
 		_ = resp.Body.Close()
 	}()
-	
+
 	var response Response
 	err = json.NewDecoder(resp.Body).Decode(&response)
 	if err != nil {
@@ -69,6 +66,7 @@ func GetResourceInfo(credentailInfo idrv.CredentialInfo, url string) (*Response,
 	}
 	return &response, nil
 }
+
 // find SystemId by NameId
 func FindIdByName(credentailInfo idrv.CredentialInfo, resIID irs.IID) (string, error) {
 	if resIID.SystemId != "" {
@@ -112,6 +110,7 @@ func findRSType(azureType string) (irs.RSType, error) {
 		return "", errors.New(azureType + " is not supported Resource!!")
 	}
 }
+
 // AddTag adds a tag to the specified resource
 func (tagHandler *AzureTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag irs.KeyValue) (irs.KeyValue, error) {
 	resourceID, err := FindIdByName(tagHandler.CredentialInfo, resIID)
@@ -121,7 +120,7 @@ func (tagHandler *AzureTagHandler) AddTag(resType irs.RSType, resIID irs.IID, ta
 	resIID.SystemId = resourceID
 	hiscallInfo := GetCallLogScheme(tagHandler.Region, call.TAG, string(resType), "AddTag()")
 	// Fetch existing tags
-	tagsResource, err := tagHandler.Client.GetAtScope(tagHandler.Ctx, resIID.SystemId)
+	resp, err := tagHandler.Client.GetAtScope(tagHandler.Ctx, resIID.SystemId, nil)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to get existing tags for resource ID %s: %s", resIID.SystemId, err.Error()))
 		cblogger.Error(createErr.Error())
@@ -130,14 +129,14 @@ func (tagHandler *AzureTagHandler) AddTag(resType irs.RSType, resIID irs.IID, ta
 	}
 
 	// Add new tag
-	if tagsResource.Properties.Tags == nil {
-		tagsResource.Properties.Tags = make(map[string]*string)
+	if resp.Properties.Tags == nil {
+		resp.Properties.Tags = make(map[string]*string)
 	}
-	tagsResource.Properties.Tags[tag.Key] = to.StringPtr(tag.Value)
+	resp.Properties.Tags[tag.Key] = &tag.Value
 
 	// Update tags
 	start := call.Start()
-	_, err = tagHandler.Client.CreateOrUpdateAtScope(tagHandler.Ctx, resIID.SystemId, tagsResource)
+	_, err = tagHandler.Client.CreateOrUpdateAtScope(tagHandler.Ctx, resIID.SystemId, resp.TagsResource, nil)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to add tag to resource ID %s: %s", resIID.SystemId, err.Error()))
 		cblogger.Error(createErr.Error())
@@ -158,7 +157,7 @@ func (tagHandler *AzureTagHandler) ListTag(resType irs.RSType, resIID irs.IID) (
 	hiscallInfo := GetCallLogScheme(tagHandler.Region, call.TAG, string(resType), "ListTag()")
 
 	start := call.Start()
-	tagsResource, err := tagHandler.Client.GetAtScope(tagHandler.Ctx, resIID.SystemId)
+	tagsResource, err := tagHandler.Client.GetAtScope(tagHandler.Ctx, resIID.SystemId, nil)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to list tags for resource ID %s: %s", resIID.SystemId, err.Error()))
 		cblogger.Error(getErr.Error())
@@ -184,7 +183,7 @@ func (tagHandler *AzureTagHandler) GetTag(resType irs.RSType, resIID irs.IID, ke
 	resIID.SystemId = resourceID
 	hiscallInfo := GetCallLogScheme(tagHandler.Region, call.TAG, string(resType), "GetTag()")
 	start := call.Start()
-	tagsResource, err := tagHandler.Client.GetAtScope(tagHandler.Ctx, resIID.SystemId)
+	tagsResource, err := tagHandler.Client.GetAtScope(tagHandler.Ctx, resIID.SystemId, nil)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to get tag for resource ID %s: %s", resIID.SystemId, err.Error()))
 		cblogger.Error(getErr.Error())
@@ -209,7 +208,7 @@ func (tagHandler *AzureTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID,
 	resIID.SystemId = resourceID
 	hiscallInfo := GetCallLogScheme(tagHandler.Region, call.TAG, string(resType), "RemoveTag()")
 	// Fetch existing tags
-	tagsResource, err := tagHandler.Client.GetAtScope(tagHandler.Ctx, resIID.SystemId)
+	resp, err := tagHandler.Client.GetAtScope(tagHandler.Ctx, resIID.SystemId, nil)
 	if err != nil {
 		delErr := errors.New(fmt.Sprintf("Failed to get existing tags for resource ID %s: %s", resIID.SystemId, err.Error()))
 		cblogger.Error(delErr.Error())
@@ -217,14 +216,14 @@ func (tagHandler *AzureTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID,
 		return false, delErr
 	}
 	// Remove the tag
-	if _, exists := tagsResource.Properties.Tags[key]; !exists {
+	if _, exists := resp.Properties.Tags[key]; !exists {
 		return false, errors.New("tag not found")
 	}
-	delete(tagsResource.Properties.Tags, key)
+	delete(resp.Properties.Tags, key)
 
 	// Update tags
 	start := call.Start()
-	_, err = tagHandler.Client.CreateOrUpdateAtScope(tagHandler.Ctx, resIID.SystemId, tagsResource)
+	_, err = tagHandler.Client.CreateOrUpdateAtScope(tagHandler.Ctx, resIID.SystemId, resp.TagsResource, nil)
 	if err != nil {
 		delErr := errors.New(fmt.Sprintf("Failed to remove tag from resource ID %s: %s", resIID.SystemId, err.Error()))
 		cblogger.Error(delErr.Error())
@@ -236,40 +235,40 @@ func (tagHandler *AzureTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID,
 	return true, nil
 }
 
-//FindTag finds tags by key or value
+// FindTag finds tags by key or value
 func (tagHandler *AzureTagHandler) FindTag(resType irs.RSType, keyword string) ([]*irs.TagInfo, error) {
-	urlByProvider:="https://management.azure.com/subscriptions/%s/providers/%s?api-version=2021-04-01"
+	urlByProvider := "https://management.azure.com/subscriptions/%s/providers/%s?api-version=2021-04-01"
 	var url string
 	switch resType {
 	case irs.ALL:
-		url = fmt.Sprintf("https://management.azure.com/subscriptions/%s/resources?api-version=2021-04-01",tagHandler.CredentialInfo.SubscriptionId)
+		url = fmt.Sprintf("https://management.azure.com/subscriptions/%s/resources?api-version=2021-04-01", tagHandler.CredentialInfo.SubscriptionId)
 	case irs.VM:
-		url = fmt.Sprintf(urlByProvider,tagHandler.CredentialInfo.SubscriptionId,"Microsoft.Compute/virtualMachines")
+		url = fmt.Sprintf(urlByProvider, tagHandler.CredentialInfo.SubscriptionId, "Microsoft.Compute/virtualMachines")
 	case irs.DISK:
-		url = fmt.Sprintf(urlByProvider,tagHandler.CredentialInfo.SubscriptionId,"Microsoft.Compute/disks")
+		url = fmt.Sprintf(urlByProvider, tagHandler.CredentialInfo.SubscriptionId, "Microsoft.Compute/disks")
 	case irs.VPC:
-		url = fmt.Sprintf(urlByProvider,tagHandler.CredentialInfo.SubscriptionId,"Microsoft.Network/virtualNetworks")
+		url = fmt.Sprintf(urlByProvider, tagHandler.CredentialInfo.SubscriptionId, "Microsoft.Network/virtualNetworks")
 	case irs.MYIMAGE:
-		url = fmt.Sprintf(urlByProvider,tagHandler.CredentialInfo.SubscriptionId,"Microsoft.Compute/snapshots")
+		url = fmt.Sprintf(urlByProvider, tagHandler.CredentialInfo.SubscriptionId, "Microsoft.Compute/snapshots")
 	case irs.NLB:
-		url = fmt.Sprintf(urlByProvider,tagHandler.CredentialInfo.SubscriptionId,"Microsoft.Network/loadBalancers")
+		url = fmt.Sprintf(urlByProvider, tagHandler.CredentialInfo.SubscriptionId, "Microsoft.Network/loadBalancers")
 	case irs.SG:
-		url = fmt.Sprintf(urlByProvider,tagHandler.CredentialInfo.SubscriptionId,"Microsoft.Network/networkSecurityGroups")
+		url = fmt.Sprintf(urlByProvider, tagHandler.CredentialInfo.SubscriptionId, "Microsoft.Network/networkSecurityGroups")
 	case irs.KEY:
-		url = fmt.Sprintf(urlByProvider,tagHandler.CredentialInfo.SubscriptionId,"Microsoft.Compute/sshPublicKeys")
+		url = fmt.Sprintf(urlByProvider, tagHandler.CredentialInfo.SubscriptionId, "Microsoft.Compute/sshPublicKeys")
 	case irs.CLUSTER:
-		url = fmt.Sprintf("https://management.azure.com/subscriptions/%s/providers/%s?api-version=2024-05-01",tagHandler.CredentialInfo.SubscriptionId,"Microsoft.ContainerService/managedClusters")
+		url = fmt.Sprintf("https://management.azure.com/subscriptions/%s/providers/%s?api-version=2024-05-01", tagHandler.CredentialInfo.SubscriptionId, "Microsoft.ContainerService/managedClusters")
 	default:
 		fmt.Println(errors.New(string(resType) + " is not supported Resource!!"))
 	}
 	hiscallInfo := GetCallLogScheme(tagHandler.Region, call.TAG, string(resType), "FindTag()")
 	start := call.Start()
-	response, _:= GetResourceInfo(tagHandler.CredentialInfo, url)
+	response, _ := GetResourceInfo(tagHandler.CredentialInfo, url)
 	LoggingInfo(hiscallInfo, start)
 
 	var foundTags []*irs.TagInfo
 	for _, resource := range response.Value {
-				var tagList []irs.KeyValue
+		var tagList []irs.KeyValue
 		for key, value := range resource.Tags {
 			if strings.Contains(key, keyword) || strings.Contains(value, keyword) {
 				tagList = append(tagList, irs.KeyValue{Key: key, Value: value})

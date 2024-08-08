@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	"io"
 	"math"
 	"net"
@@ -17,12 +20,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2022-03-01/containerservice"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2019-11-01/subscriptions"
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-10-01/resources"
-	"github.com/Azure/go-autorest/autorest/to"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -41,19 +38,16 @@ type AzureClusterHandler struct {
 	CredentialInfo                  idrv.CredentialInfo
 	Region                          idrv.RegionInfo
 	Ctx                             context.Context
-	Client                          *subscriptions.Client
-	GroupsClient                    *resources.GroupsClient
-	ResourceSkusClient              *compute.ResourceSkusClient
-	ManagedClustersClient           *containerservice.ManagedClustersClient
-	VirtualNetworksClient           *network.VirtualNetworksClient
-	AgentPoolsClient                *containerservice.AgentPoolsClient
-	VirtualMachineScaleSetsClient   *compute.VirtualMachineScaleSetsClient
-	VirtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient
-	SubnetClient                    *network.SubnetsClient
-	SecurityGroupsClient            *network.SecurityGroupsClient
-	SecurityRulesClient             *network.SecurityRulesClient
-	VirtualMachineSizesClient       *compute.VirtualMachineSizesClient
-	SSHPublicKeysClient             *compute.SSHPublicKeysClient
+	ManagedClustersClient           *armcontainerservice.ManagedClustersClient
+	VirtualNetworksClient           *armnetwork.VirtualNetworksClient
+	AgentPoolsClient                *armcontainerservice.AgentPoolsClient
+	VirtualMachineScaleSetsClient   *armcompute.VirtualMachineScaleSetsClient
+	VirtualMachineScaleSetVMsClient *armcompute.VirtualMachineScaleSetVMsClient
+	SubnetClient                    *armnetwork.SubnetsClient
+	SecurityGroupsClient            *armnetwork.SecurityGroupsClient
+	SecurityRulesClient             *armnetwork.SecurityRulesClient
+	VirtualMachineSizesClient       *armcompute.VirtualMachineSizesClient
+	SSHPublicKeysClient             *armcompute.SSHPublicKeysClient
 }
 
 type auth struct {
@@ -230,7 +224,7 @@ func (ac *AzureClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (in
 		LoggingError(hiscallInfo, createErr)
 		return irs.ClusterInfo{}, createErr
 	}
-	info, err = setterClusterInfo(cluster, ac.ManagedClustersClient, ac.SecurityGroupsClient, ac.VirtualNetworksClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.CredentialInfo, ac.Region, ac.Ctx)
+	info, err = setterClusterInfo(&cluster, ac.ManagedClustersClient, ac.SecurityGroupsClient, ac.VirtualNetworksClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.CredentialInfo, ac.Region, ac.Ctx)
 	if err != nil {
 		createErr = errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", err))
 		cblogger.Error(createErr.Error())
@@ -244,14 +238,26 @@ func (ac *AzureClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (in
 func (ac *AzureClusterHandler) ListCluster() (listInfo []*irs.ClusterInfo, getErr error) {
 	hiscallInfo := GetCallLogScheme(ac.Region, call.CLUSTER, "CLUSTER", "ListCluster()")
 	start := call.Start()
-	clusterList, err := ac.ManagedClustersClient.List(ac.Ctx)
-	if err != nil {
-		getErr = errors.New(fmt.Sprintf("Failed to List Cluster. err = %s", err))
-		cblogger.Error(getErr.Error())
-		LoggingError(hiscallInfo, getErr)
-		return make([]*irs.ClusterInfo, 0), getErr
+
+	var clusterList []*armcontainerservice.ManagedCluster
+
+	pager := ac.ManagedClustersClient.NewListPager(nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(ac.Ctx)
+		if err != nil {
+			getErr = errors.New(fmt.Sprintf("Failed to List Cluster. err = %s", err))
+			cblogger.Error(getErr.Error())
+			LoggingError(hiscallInfo, getErr)
+			return make([]*irs.ClusterInfo, 0), getErr
+		}
+
+		for _, cluster := range page.Value {
+			clusterList = append(clusterList, cluster)
+		}
 	}
-	listInfo, err = setterClusterInfoList(clusterList.Values(), ac.ManagedClustersClient, ac.SecurityGroupsClient, ac.VirtualNetworksClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.CredentialInfo, ac.Region, ac.Ctx)
+
+	listInfo, err := setterClusterInfoList(clusterList, ac.ManagedClustersClient, ac.SecurityGroupsClient, ac.VirtualNetworksClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.CredentialInfo, ac.Region, ac.Ctx)
 	if err != nil {
 		getErr = errors.New(fmt.Sprintf("Failed to List Cluster. err = %s", err))
 		cblogger.Error(getErr.Error())
@@ -273,7 +279,7 @@ func (ac *AzureClusterHandler) GetCluster(clusterIID irs.IID) (info irs.ClusterI
 		LoggingError(hiscallInfo, getErr)
 		return irs.ClusterInfo{}, getErr
 	}
-	info, err = setterClusterInfo(cluster, ac.ManagedClustersClient, ac.SecurityGroupsClient, ac.VirtualNetworksClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.CredentialInfo, ac.Region, ac.Ctx)
+	info, err = setterClusterInfo(&cluster, ac.ManagedClustersClient, ac.SecurityGroupsClient, ac.VirtualNetworksClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.CredentialInfo, ac.Region, ac.Ctx)
 	if err != nil {
 		getErr = errors.New(fmt.Sprintf("Failed to Get Cluster. err = %s", err))
 		cblogger.Error(getErr.Error())
@@ -308,7 +314,7 @@ func (ac *AzureClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo
 		LoggingError(hiscallInfo, addNodeErr)
 		return irs.NodeGroupInfo{}, addNodeErr
 	}
-	nodeGroupInfo, err := addNodeGroupPool(cluster, nodeGroupReqInfo, ac)
+	nodeGroupInfo, err := addNodeGroupPool(&cluster, nodeGroupReqInfo, ac)
 	if err != nil {
 		addNodeErr = errors.New(fmt.Sprintf("Failed to Add NodeGroup. err = %s", err))
 		cblogger.Error(addNodeErr.Error())
@@ -393,7 +399,7 @@ func (ac *AzureClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion str
 		LoggingError(hiscallInfo, upgradeErr)
 		return irs.ClusterInfo{}, upgradeErr
 	}
-	err = upgradeCluter(cluster, newVersion, ac.ManagedClustersClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.Ctx, ac.Region)
+	err = upgradeCluter(&cluster, newVersion, ac.ManagedClustersClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.Ctx, ac.Region)
 	if err != nil {
 		upgradeErr = errors.New(fmt.Sprintf("Failed to Upgrade Cluster. err = %s", err))
 		cblogger.Error(upgradeErr.Error())
@@ -407,7 +413,7 @@ func (ac *AzureClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion str
 		LoggingError(hiscallInfo, upgradeErr)
 		return irs.ClusterInfo{}, upgradeErr
 	}
-	info, err = setterClusterInfo(cluster, ac.ManagedClustersClient, ac.SecurityGroupsClient, ac.VirtualNetworksClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.CredentialInfo, ac.Region, ac.Ctx)
+	info, err = setterClusterInfo(&cluster, ac.ManagedClustersClient, ac.SecurityGroupsClient, ac.VirtualNetworksClient, ac.AgentPoolsClient, ac.VirtualMachineScaleSetsClient, ac.VirtualMachineScaleSetVMsClient, ac.CredentialInfo, ac.Region, ac.Ctx)
 	if err != nil {
 		upgradeErr = errors.New(fmt.Sprintf("Failed to Upgrade Cluster. err = %s", err))
 		cblogger.Error(upgradeErr.Error())
@@ -418,7 +424,7 @@ func (ac *AzureClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion str
 	return info, nil
 }
 
-func checkUpgradeCluster(cluster containerservice.ManagedCluster, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, ctx context.Context) error {
+func checkUpgradeCluster(cluster *armcontainerservice.ManagedCluster, agentPoolsClient *armcontainerservice.AgentPoolsClient, virtualMachineScaleSetsClient *armcompute.VirtualMachineScaleSetsClient, ctx context.Context) error {
 	if getClusterStatus(cluster) != irs.ClusterActive {
 		return errors.New("failed Upgrade Cluster err = Cluster's status must be Active")
 
@@ -440,14 +446,14 @@ func checkUpgradeCluster(cluster containerservice.ManagedCluster, agentPoolsClie
 	return nil
 }
 
-func upgradeCluter(cluster containerservice.ManagedCluster, newVersion string, managedClustersClient *containerservice.ManagedClustersClient, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, ctx context.Context, region idrv.RegionInfo) error {
+func upgradeCluter(cluster *armcontainerservice.ManagedCluster, newVersion string, managedClustersClient *armcontainerservice.ManagedClustersClient, agentPoolsClient *armcontainerservice.AgentPoolsClient, virtualMachineScaleSetsClient *armcompute.VirtualMachineScaleSetsClient, ctx context.Context, region idrv.RegionInfo) error {
 	err := checkUpgradeCluster(cluster, agentPoolsClient, virtualMachineScaleSetsClient, ctx)
 	if err != nil {
 		return err
 	}
 	updateCluster := cluster
-	updateCluster.KubernetesVersion = to.StringPtr(newVersion)
-	_, err = managedClustersClient.CreateOrUpdate(ctx, region.Region, *cluster.Name, updateCluster)
+	updateCluster.Properties.KubernetesVersion = &newVersion
+	_, err = managedClustersClient.BeginCreateOrUpdate(ctx, region.Region, *cluster.Name, *updateCluster, nil)
 	if err != nil {
 		return err
 	}
@@ -474,20 +480,20 @@ func convertedClusterIID(clusterIID irs.IID, credentialInfo idrv.CredentialInfo,
 	}
 }
 
-func getRawCluster(clusterIID irs.IID, managedClustersClient *containerservice.ManagedClustersClient, ctx context.Context, credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo) (containerservice.ManagedCluster, error) {
+func getRawCluster(clusterIID irs.IID, managedClustersClient *armcontainerservice.ManagedClustersClient, ctx context.Context, credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo) (armcontainerservice.ManagedCluster, error) {
 	clusterName := clusterIID.NameId
 	if clusterName == "" {
 		convertedIID, err := convertedClusterIID(clusterIID, credentialInfo, regionInfo)
 		if err != nil {
-			return containerservice.ManagedCluster{}, err
+			return armcontainerservice.ManagedCluster{}, err
 		}
 		clusterName = convertedIID.NameId
 	}
-	cluster, err := managedClustersClient.Get(ctx, regionInfo.Region, clusterName)
+	result, err := managedClustersClient.Get(ctx, regionInfo.Region, clusterName, nil)
 	if err != nil {
-		return containerservice.ManagedCluster{}, err
+		return armcontainerservice.ManagedCluster{}, err
 	}
-	return cluster, nil
+	return result.ManagedCluster, nil
 }
 
 type ClusterInfoWithError struct {
@@ -495,7 +501,7 @@ type ClusterInfoWithError struct {
 	err         error
 }
 
-func setterClusterInfoWithCancel(cluster containerservice.ManagedCluster, managedClustersClient *containerservice.ManagedClustersClient, securityGroupsClient *network.SecurityGroupsClient, virtualNetworksClient *network.VirtualNetworksClient, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context, cancelCtx context.Context) (irs.ClusterInfo, error) {
+func setterClusterInfoWithCancel(cluster *armcontainerservice.ManagedCluster, managedClustersClient *armcontainerservice.ManagedClustersClient, securityGroupsClient *armnetwork.SecurityGroupsClient, virtualNetworksClient *armnetwork.VirtualNetworksClient, agentPoolsClient *armcontainerservice.AgentPoolsClient, virtualMachineScaleSetsClient *armcompute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *armcompute.VirtualMachineScaleSetVMsClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context, cancelCtx context.Context) (irs.ClusterInfo, error) {
 	done := make(chan ClusterInfoWithError)
 
 	go func() {
@@ -513,7 +519,7 @@ func setterClusterInfoWithCancel(cluster containerservice.ManagedCluster, manage
 	}
 }
 
-func setterClusterInfoList(clusterList []containerservice.ManagedCluster, managedClustersClient *containerservice.ManagedClustersClient, securityGroupsClient *network.SecurityGroupsClient, virtualNetworksClient *network.VirtualNetworksClient, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (clusterInfoList []*irs.ClusterInfo, err error) {
+func setterClusterInfoList(clusterList []*armcontainerservice.ManagedCluster, managedClustersClient *armcontainerservice.ManagedClustersClient, securityGroupsClient *armnetwork.SecurityGroupsClient, virtualNetworksClient *armnetwork.VirtualNetworksClient, agentPoolsClient *armcontainerservice.AgentPoolsClient, virtualMachineScaleSetsClient *armcompute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *armcompute.VirtualMachineScaleSetVMsClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (clusterInfoList []*irs.ClusterInfo, err error) {
 	clusterListCount := len(clusterList)
 
 	clusterInfos := make([]*irs.ClusterInfo, clusterListCount)
@@ -550,12 +556,19 @@ func setterClusterInfoList(clusterList []containerservice.ManagedCluster, manage
 	return clusterInfos, nil
 }
 
-func setterClusterInfo(cluster containerservice.ManagedCluster, managedClustersClient *containerservice.ManagedClustersClient, securityGroupsClient *network.SecurityGroupsClient, virtualNetworksClient *network.VirtualNetworksClient, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (clusterInfo irs.ClusterInfo, err error) {
+func setterClusterInfo(cluster *armcontainerservice.ManagedCluster,
+	managedClustersClient *armcontainerservice.ManagedClustersClient,
+	securityGroupsClient *armnetwork.SecurityGroupsClient,
+	virtualNetworksClient *armnetwork.VirtualNetworksClient,
+	agentPoolsClient *armcontainerservice.AgentPoolsClient,
+	virtualMachineScaleSetsClient *armcompute.VirtualMachineScaleSetsClient,
+	virtualMachineScaleSetVMsClient *armcompute.VirtualMachineScaleSetVMsClient,
+	credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (clusterInfo irs.ClusterInfo, err error) {
 	clusterInfo.IId = irs.IID{*cluster.Name, *cluster.ID}
-	if cluster.ManagedClusterProperties != nil {
+	if cluster.Properties != nil {
 		// Version
-		if cluster.ManagedClusterProperties.KubernetesVersion != nil {
-			clusterInfo.Version = *cluster.ManagedClusterProperties.KubernetesVersion
+		if cluster.Properties.KubernetesVersion != nil {
+			clusterInfo.Version = *cluster.Properties.KubernetesVersion
 		}
 		// NetworkInfo - Network Configuration AzureCNI
 		networkInfo, err := getNetworkInfo(cluster, securityGroupsClient, virtualNetworksClient, credentialInfo, region, ctx)
@@ -601,19 +614,19 @@ func setterClusterInfo(cluster containerservice.ManagedCluster, managedClustersC
 	return clusterInfo, nil
 }
 
-func getClusterStatus(cluster containerservice.ManagedCluster) (resultStatus irs.ClusterStatus) {
+func getClusterStatus(cluster *armcontainerservice.ManagedCluster) (resultStatus irs.ClusterStatus) {
 	defer func() {
 		if r := recover(); r != nil {
 			resultStatus = irs.ClusterInactive
 		}
 	}()
 	resultStatus = irs.ClusterInactive
-	if cluster.ProvisioningState == nil || cluster.PowerState == nil {
+	if cluster.Properties.ProvisioningState == nil || cluster.Properties.PowerState == nil {
 		return resultStatus
 	}
-	provisioningState := *cluster.ProvisioningState
-	powerState := cluster.PowerState.Code
-	if powerState != containerservice.CodeRunning {
+	provisioningState := *cluster.Properties.ProvisioningState
+	powerState := *cluster.Properties.PowerState.Code
+	if powerState != armcontainerservice.CodeRunning {
 		resultStatus = irs.ClusterInactive
 	}
 	if provisioningState == "Creating" {
@@ -631,7 +644,7 @@ func getClusterStatus(cluster containerservice.ManagedCluster) (resultStatus irs
 	return resultStatus
 }
 
-func getAddonInfo(cluster containerservice.ManagedCluster) (info irs.AddonsInfo, err error) {
+func getAddonInfo(cluster *armcontainerservice.ManagedCluster) (info irs.AddonsInfo, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			info = irs.AddonsInfo{}
@@ -639,7 +652,7 @@ func getAddonInfo(cluster containerservice.ManagedCluster) (info irs.AddonsInfo,
 		}
 	}()
 	keyvalues := make([]irs.KeyValue, 0)
-	for AddonProName, AddonProfile := range cluster.ManagedClusterProperties.AddonProfiles {
+	for AddonProName, AddonProfile := range cluster.Properties.AddonProfiles {
 		val := "Disabled"
 		if *AddonProfile.Enabled {
 			val = "Enabled"
@@ -652,10 +665,10 @@ func getAddonInfo(cluster containerservice.ManagedCluster) (info irs.AddonsInfo,
 	return info, nil
 }
 
-func getSubnetIdByAgentPoolProfiles(agentPoolProfiles []containerservice.ManagedClusterAgentPoolProfile) (subnetId string, err error) {
+func getSubnetIdByAgentPoolProfiles(agentPoolProfiles []*armcontainerservice.ManagedClusterAgentPoolProfile) (subnetId string, err error) {
 	var targetSubnetId *string
 	for _, agentPool := range agentPoolProfiles {
-		if targetSubnetId == nil && agentPool.VnetSubnetID != nil {
+		if agentPool.VnetSubnetID != nil {
 			targetSubnetId = agentPool.VnetSubnetID
 			break
 		}
@@ -666,16 +679,16 @@ func getSubnetIdByAgentPoolProfiles(agentPoolProfiles []containerservice.Managed
 	return *targetSubnetId, nil
 }
 
-func getNetworkInfo(cluster containerservice.ManagedCluster, securityGroupsClient *network.SecurityGroupsClient, virtualNetworksClient *network.VirtualNetworksClient, CredentialInfo idrv.CredentialInfo, Region idrv.RegionInfo, ctx context.Context) (info irs.NetworkInfo, err error) {
+func getNetworkInfo(cluster *armcontainerservice.ManagedCluster, securityGroupsClient *armnetwork.SecurityGroupsClient, virtualNetworksClient *armnetwork.VirtualNetworksClient, CredentialInfo idrv.CredentialInfo, Region idrv.RegionInfo, ctx context.Context) (info irs.NetworkInfo, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			info = irs.NetworkInfo{}
 			err = errors.New("invalid cluster Network")
 		}
 	}()
-	if cluster.ManagedClusterProperties.NetworkProfile.NetworkPlugin == containerservice.NetworkPluginAzure {
-		if cluster.ManagedClusterProperties.AgentPoolProfiles != nil && len(*cluster.ManagedClusterProperties.AgentPoolProfiles) > 0 {
-			subnetId, err := getSubnetIdByAgentPoolProfiles(*cluster.ManagedClusterProperties.AgentPoolProfiles)
+	if *cluster.Properties.NetworkProfile.NetworkPlugin == armcontainerservice.NetworkPluginAzure {
+		if cluster.Properties.AgentPoolProfiles != nil && len(cluster.Properties.AgentPoolProfiles) > 0 {
+			subnetId, err := getSubnetIdByAgentPoolProfiles(cluster.Properties.AgentPoolProfiles)
 			if subnetId == "" {
 				return irs.NetworkInfo{}, errors.New("invalid cluster Network")
 			}
@@ -710,64 +723,95 @@ func getNetworkInfo(cluster containerservice.ManagedCluster, securityGroupsClien
 
 			return info, nil
 		}
-	} else if cluster.ManagedClusterProperties.NetworkProfile.NetworkPlugin == containerservice.NetworkPluginKubenet {
+	} else if *cluster.Properties.NetworkProfile.NetworkPlugin == armcontainerservice.NetworkPluginKubenet {
 		// NetworkInfo - Network Configuration Kubenet
-		if cluster.ManagedClusterProperties.NodeResourceGroup != nil {
-			NetworkInfo := irs.NetworkInfo{}
-			networkList, err := virtualNetworksClient.List(ctx, *cluster.ManagedClusterProperties.NodeResourceGroup)
-			if err == nil && len(networkList.Values()) > 0 {
-				vpcNetwork := networkList.Values()[0]
-				NetworkInfo.VpcIID = irs.IID{*vpcNetwork.Name, *vpcNetwork.ID}
-				subnetIIDArray := make([]irs.IID, len(*vpcNetwork.Subnets))
-				segIIDArray := make([]irs.IID, 0)
-				for i, subnet := range *vpcNetwork.Subnets {
-					subnetIIDArray[i] = irs.IID{*subnet.Name, *subnet.ID}
+		if cluster.Properties.NodeResourceGroup != nil {
+			var networkList []*armnetwork.VirtualNetwork
+
+			pager := virtualNetworksClient.NewListPager(*cluster.Properties.NodeResourceGroup, nil)
+
+			for pager.More() {
+				page, err := pager.NextPage(ctx)
+				if err != nil {
+					return irs.NetworkInfo{}, err
 				}
-				NetworkInfo.SubnetIIDs = segIIDArray
-				NetworkInfo.SecurityGroupIIDs = segIIDArray
+
+				for _, vpcNetwork := range page.Value {
+					networkList = append(networkList, vpcNetwork)
+				}
 			}
+
+			vpcNetwork := networkList[0]
+			info.VpcIID = irs.IID{*vpcNetwork.Name, *vpcNetwork.ID}
+			subnetIIDArray := make([]irs.IID, len(vpcNetwork.Properties.Subnets))
+			segIIDArray := make([]irs.IID, 0)
+			for i, subnet := range vpcNetwork.Properties.Subnets {
+				subnetIIDArray[i] = irs.IID{*subnet.Name, *subnet.ID}
+			}
+			info.SubnetIIDs = segIIDArray
+			info.SecurityGroupIIDs = segIIDArray
+
+			return info, nil
 		}
 	}
 	return irs.NetworkInfo{}, errors.New("empty cluster AgentPoolProfiles")
 }
 
 type NodePoolPair struct {
-	AgentPool              containerservice.AgentPool
-	virtualMachineScaleSet compute.VirtualMachineScaleSet
+	AgentPool              armcontainerservice.AgentPool
+	virtualMachineScaleSet armcompute.VirtualMachineScaleSet
 }
 
-func getRawNodePoolPairList(cluster containerservice.ManagedCluster, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, ctx context.Context) ([]NodePoolPair, error) {
+func getRawNodePoolPairList(cluster *armcontainerservice.ManagedCluster, agentPoolsClient *armcontainerservice.AgentPoolsClient, virtualMachineScaleSetsClient *armcompute.VirtualMachineScaleSetsClient, ctx context.Context) ([]NodePoolPair, error) {
 	clusterResourceGroup, err := getResourceGroupById(*cluster.ID)
 	if err != nil {
 		return make([]NodePoolPair, 0), errors.New(fmt.Sprintf("failed get clusterResourceGroup err = %s", err.Error()))
 	}
-	if cluster.ManagedClusterProperties.NodeResourceGroup == nil {
+	if cluster.Properties.NodeResourceGroup == nil {
 		return make([]NodePoolPair, 0), errors.New("invalid cluster Resource")
 	}
-	resourceGroupManagedK8s := *cluster.ManagedClusterProperties.NodeResourceGroup
-	agentPoolList, err := agentPoolsClient.List(ctx, clusterResourceGroup, *cluster.Name)
-	if err != nil {
-		return nil, err
-	}
-	if len(agentPoolList.Values()) == 0 {
-		return make([]NodePoolPair, 0), err
+	resourceGroupManagedK8s := *cluster.Properties.NodeResourceGroup
+
+	var agentPoolList []*armcontainerservice.AgentPool
+
+	pager := agentPoolsClient.NewListPager(clusterResourceGroup, *cluster.Name, nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, agentPool := range page.Value {
+			agentPoolList = append(agentPoolList, agentPool)
+		}
 	}
 
-	sacleSetList, err := virtualMachineScaleSetsClient.List(ctx, resourceGroupManagedK8s)
-	if err != nil {
-		return nil, err
+	var scaleSetList []*armcompute.VirtualMachineScaleSet
+
+	pager2 := virtualMachineScaleSetsClient.NewListPager(resourceGroupManagedK8s, nil)
+
+	for pager2.More() {
+		page, err := pager2.NextPage(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, scaleSet := range page.Value {
+			scaleSetList = append(scaleSetList, scaleSet)
+		}
 	}
 
 	var filteredNodePoolPairList []NodePoolPair
 
-	for _, scaleSet := range sacleSetList.Values() {
+	for _, scaleSet := range scaleSetList {
 		value, exist := scaleSet.Tags["aks-managed-poolName"]
 		if exist {
-			for _, agentPool := range agentPoolList.Values() {
+			for _, agentPool := range agentPoolList {
 				if *value == *agentPool.Name {
 					filteredNodePoolPairList = append(filteredNodePoolPairList, NodePoolPair{
-						AgentPool:              agentPool,
-						virtualMachineScaleSet: scaleSet,
+						AgentPool:              *agentPool,
+						virtualMachineScaleSet: *scaleSet,
 					})
 					break
 				}
@@ -777,11 +821,11 @@ func getRawNodePoolPairList(cluster containerservice.ManagedCluster, agentPoolsC
 	return filteredNodePoolPairList, nil
 }
 
-func convertNodePoolPairSpecifiedNodePool(cluster containerservice.ManagedCluster, nodePoolName string, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient, ctx context.Context) (irs.NodeGroupInfo, error) {
-	if cluster.ManagedClusterProperties.NodeResourceGroup == nil {
+func convertNodePoolPairSpecifiedNodePool(cluster *armcontainerservice.ManagedCluster, nodePoolName string, agentPoolsClient *armcontainerservice.AgentPoolsClient, virtualMachineScaleSetsClient *armcompute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *armcompute.VirtualMachineScaleSetVMsClient, ctx context.Context) (irs.NodeGroupInfo, error) {
+	if cluster.Properties.NodeResourceGroup == nil {
 		return irs.NodeGroupInfo{}, errors.New("invalid cluster resource")
 	}
-	resourceGroupManagedK8s := *cluster.ManagedClusterProperties.NodeResourceGroup
+	resourceGroupManagedK8s := *cluster.Properties.NodeResourceGroup
 	nodePoolPairList, err := getRawNodePoolPairList(cluster, agentPoolsClient, virtualMachineScaleSetsClient, ctx)
 	if err != nil {
 		return irs.NodeGroupInfo{}, err
@@ -810,11 +854,14 @@ func convertNodePoolPairSpecifiedNodePool(cluster containerservice.ManagedCluste
 	return *nodeInfo, nil
 }
 
-func convertNodePoolPair(cluster containerservice.ManagedCluster, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient, ctx context.Context) ([]irs.NodeGroupInfo, error) {
-	if cluster.ManagedClusterProperties.NodeResourceGroup == nil {
+func convertNodePoolPair(cluster *armcontainerservice.ManagedCluster,
+	agentPoolsClient *armcontainerservice.AgentPoolsClient,
+	virtualMachineScaleSetsClient *armcompute.VirtualMachineScaleSetsClient,
+	virtualMachineScaleSetVMsClient *armcompute.VirtualMachineScaleSetVMsClient, ctx context.Context) ([]irs.NodeGroupInfo, error) {
+	if cluster.Properties.NodeResourceGroup == nil {
 		return make([]irs.NodeGroupInfo, 0), errors.New("invalid cluster resource")
 	}
-	resourceGroupManagedK8s := *cluster.ManagedClusterProperties.NodeResourceGroup
+	resourceGroupManagedK8s := *cluster.Properties.NodeResourceGroup
 	nodePoolPairList, err := getRawNodePoolPairList(cluster, agentPoolsClient, virtualMachineScaleSetsClient, ctx)
 	if err != nil {
 		return make([]irs.NodeGroupInfo, 0), err
@@ -831,7 +878,7 @@ func convertNodePoolPair(cluster containerservice.ManagedCluster, agentPoolsClie
 	return nodeInfoGroupList, nil
 }
 
-func getNodeGroupInfoSpecifiedNodePool(cluster containerservice.ManagedCluster, nodePoolName string, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient, ctx context.Context) (irs.NodeGroupInfo, error) {
+func getNodeGroupInfoSpecifiedNodePool(cluster *armcontainerservice.ManagedCluster, nodePoolName string, agentPoolsClient *armcontainerservice.AgentPoolsClient, virtualMachineScaleSetsClient *armcompute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *armcompute.VirtualMachineScaleSetVMsClient, ctx context.Context) (irs.NodeGroupInfo, error) {
 	nodeInfoGroup, err := convertNodePoolPairSpecifiedNodePool(cluster, nodePoolName, agentPoolsClient, virtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient, ctx)
 	if err != nil {
 		return irs.NodeGroupInfo{}, err
@@ -839,7 +886,7 @@ func getNodeGroupInfoSpecifiedNodePool(cluster containerservice.ManagedCluster, 
 	return nodeInfoGroup, nil
 }
 
-func getNodeGroupInfoList(cluster containerservice.ManagedCluster, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient, ctx context.Context) ([]irs.NodeGroupInfo, error) {
+func getNodeGroupInfoList(cluster *armcontainerservice.ManagedCluster, agentPoolsClient *armcontainerservice.AgentPoolsClient, virtualMachineScaleSetsClient *armcompute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *armcompute.VirtualMachineScaleSetVMsClient, ctx context.Context) ([]irs.NodeGroupInfo, error) {
 	nodeInfoGroupList, err := convertNodePoolPair(cluster, agentPoolsClient, virtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient, ctx)
 	if err != nil {
 		return make([]irs.NodeGroupInfo, 0), err
@@ -847,27 +894,27 @@ func getNodeGroupInfoList(cluster containerservice.ManagedCluster, agentPoolsCli
 	return nodeInfoGroupList, nil
 }
 
-func getNodeInfoStatus(agentPool containerservice.AgentPool, virtualMachineScaleSet compute.VirtualMachineScaleSet) (status irs.NodeGroupStatus) {
+func getNodeInfoStatus(agentPool armcontainerservice.AgentPool, virtualMachineScaleSet armcompute.VirtualMachineScaleSet) (status irs.NodeGroupStatus) {
 	defer func() {
 		if r := recover(); r != nil {
 			status = irs.NodeGroupInactive
 		}
 	}()
-	if reflect.ValueOf(virtualMachineScaleSet.ProvisioningState).IsNil() || reflect.ValueOf(agentPool.ProvisioningState).IsNil() {
+	if reflect.ValueOf(virtualMachineScaleSet.Properties.ProvisioningState).IsNil() || reflect.ValueOf(agentPool.Properties.ProvisioningState).IsNil() {
 		return irs.NodeGroupInactive
 	}
-	if *virtualMachineScaleSet.ProvisioningState == "Succeeded" && *agentPool.ProvisioningState == "Succeeded" {
+	if *virtualMachineScaleSet.Properties.ProvisioningState == "Succeeded" && *agentPool.Properties.ProvisioningState == "Succeeded" {
 		return irs.NodeGroupActive
 	}
-	if *virtualMachineScaleSet.ProvisioningState == "Creating" || *agentPool.ProvisioningState == "Creating" {
+	if *virtualMachineScaleSet.Properties.ProvisioningState == "Creating" || *agentPool.Properties.ProvisioningState == "Creating" {
 		return irs.NodeGroupCreating
 	}
-	if *virtualMachineScaleSet.ProvisioningState == "Updating" || *agentPool.ProvisioningState == "Updating" ||
-		*virtualMachineScaleSet.ProvisioningState == "Upgrading" || *agentPool.ProvisioningState == "Upgrading" ||
-		*virtualMachineScaleSet.ProvisioningState == "Scaling" || *agentPool.ProvisioningState == "Scaling" {
+	if *virtualMachineScaleSet.Properties.ProvisioningState == "Updating" || *agentPool.Properties.ProvisioningState == "Updating" ||
+		*virtualMachineScaleSet.Properties.ProvisioningState == "Upgrading" || *agentPool.Properties.ProvisioningState == "Upgrading" ||
+		*virtualMachineScaleSet.Properties.ProvisioningState == "Scaling" || *agentPool.Properties.ProvisioningState == "Scaling" {
 		return irs.NodeGroupUpdating
 	}
-	if *virtualMachineScaleSet.ProvisioningState == "Deleting" || *agentPool.ProvisioningState == "Deleting" {
+	if *virtualMachineScaleSet.Properties.ProvisioningState == "Deleting" || *agentPool.Properties.ProvisioningState == "Deleting" {
 		return irs.NodeGroupDeleting
 	}
 	return irs.NodeGroupInactive
@@ -881,15 +928,27 @@ func getclusterNodeResourceGroup(clusterName string, resourceGroup string, regio
 	return fmt.Sprintf("CB_%s_%s_%s", resourceGroup, clusterName, regionString)
 }
 
-func checkValidationNodeGroups(nodeGroups []irs.NodeGroupInfo, virtualMachineSizesClient *compute.VirtualMachineSizesClient, regionInfo idrv.RegionInfo, ctx context.Context) error {
+func checkValidationNodeGroups(nodeGroups []irs.NodeGroupInfo, virtualMachineSizesClient *armcompute.VirtualMachineSizesClient, regionInfo idrv.RegionInfo, ctx context.Context) error {
 	// https://learn.microsoft.com/en-us/azure/aks/quotas-skus-regions
 	if len(nodeGroups) == 0 {
 		return errors.New("nodeGroup Empty")
 	}
-	vmspecListResult, err := virtualMachineSizesClient.List(ctx, regionInfo.Region)
-	if err != nil {
-		return errors.New(fmt.Sprintf("Failed get VMSPEC List"))
+
+	var vmSpecList []*armcompute.VirtualMachineSize
+
+	pager := virtualMachineSizesClient.NewListPager(regionInfo.Region, nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return errors.New(fmt.Sprintf("Failed get VMSPEC List"))
+		}
+
+		for _, vmSpec := range page.Value {
+			vmSpecList = append(vmSpecList, vmSpec)
+		}
 	}
+
 	// Azure의 SSH키는 클러스터 의존, NodeGroup에 의존하지 않음
 	var sshKeyIID *irs.IID
 	for i, nodeGroup := range nodeGroups {
@@ -912,7 +971,7 @@ func checkValidationNodeGroups(nodeGroups []irs.NodeGroupInfo, virtualMachineSiz
 			keyIID := nodeGroup.KeyPairIID
 			sshKeyIID = &keyIID
 		}
-		if i != 0 {
+		if i != 0 && sshKeyIID != nil {
 			// NameId, SystemId 둘다 값이 있음
 			if nodeGroup.KeyPairIID.NameId != "" && nodeGroup.KeyPairIID.SystemId != "" {
 				if nodeGroup.KeyPairIID.NameId != sshKeyIID.NameId || nodeGroup.KeyPairIID.SystemId != sshKeyIID.SystemId {
@@ -933,7 +992,7 @@ func checkValidationNodeGroups(nodeGroups []irs.NodeGroupInfo, virtualMachineSiz
 		}
 		checkVMSpecCore := false
 		checkVMSpecExist := false
-		for _, rawspec := range *vmspecListResult.Value {
+		for _, rawspec := range vmSpecList {
 			if *rawspec.Name == nodeGroup.VMSpecName {
 				checkVMSpecExist = true
 				if *rawspec.NumberOfCores >= 2 {
@@ -983,7 +1042,7 @@ func checkValidationNodeGroups(nodeGroups []irs.NodeGroupInfo, virtualMachineSiz
 	return nil
 }
 
-func checkValidationCreateCluster(clusterReqInfo irs.ClusterInfo, virtualMachineSizesClient *compute.VirtualMachineSizesClient, regionInfo idrv.RegionInfo, ctx context.Context) error {
+func checkValidationCreateCluster(clusterReqInfo irs.ClusterInfo, virtualMachineSizesClient *armcompute.VirtualMachineSizesClient, regionInfo idrv.RegionInfo, ctx context.Context) error {
 	// nodegroup 확인
 	err := checkValidationNodeGroups(clusterReqInfo.NodeGroupList, virtualMachineSizesClient, regionInfo, ctx)
 	// network
@@ -1024,22 +1083,22 @@ func createCluster(clusterReqInfo irs.ClusterInfo, ac *AzureClusterHandler) erro
 	}
 	addonProfiles := generatePreparedAddonProfiles()
 
-	clusterCreateOpts := containerservice.ManagedCluster{
-		Location: to.StringPtr(ac.Region.Region),
-		Sku: &containerservice.ManagedClusterSKU{
-			Name: containerservice.ManagedClusterSKUNameBasic,
-			Tier: containerservice.ManagedClusterSKUTierPaid,
+	clusterCreateOpts := armcontainerservice.ManagedCluster{
+		Location: toStrPtr(ac.Region.Region),
+		SKU: &armcontainerservice.ManagedClusterSKU{
+			Name: (*armcontainerservice.ManagedClusterSKUName)(toStrPtr(string(armcontainerservice.ManagedClusterSKUNameBase))),
+			Tier: (*armcontainerservice.ManagedClusterSKUTier)(toStrPtr(string(armcontainerservice.ManagedClusterSKUTierStandard))),
 		},
-		Identity: &containerservice.ManagedClusterIdentity{
-			Type: containerservice.ResourceIdentityTypeSystemAssigned,
+		Identity: &armcontainerservice.ManagedClusterIdentity{
+			Type: (*armcontainerservice.ResourceIdentityType)(toStrPtr(string(armcontainerservice.ResourceIdentityTypeSystemAssigned))),
 		},
 		Tags: tags,
-		ManagedClusterProperties: &containerservice.ManagedClusterProperties{
-			KubernetesVersion: to.StringPtr(clusterReqInfo.Version),
-			EnableRBAC:        to.BoolPtr(true),
-			DNSPrefix:         to.StringPtr(getclusterDNSPrefix(clusterReqInfo.IId.NameId)),
-			NodeResourceGroup: to.StringPtr(getclusterNodeResourceGroup(clusterReqInfo.IId.NameId, ac.Region.Region, ac.Region.Region)),
-			AgentPoolProfiles: &agentPoolProfiles,
+		Properties: &armcontainerservice.ManagedClusterProperties{
+			KubernetesVersion: toStrPtr(clusterReqInfo.Version),
+			EnableRBAC:        toBoolPtr(true),
+			DNSPrefix:         toStrPtr(getclusterDNSPrefix(clusterReqInfo.IId.NameId)),
+			NodeResourceGroup: toStrPtr(getclusterNodeResourceGroup(clusterReqInfo.IId.NameId, ac.Region.Region, ac.Region.Region)),
+			AgentPoolProfiles: agentPoolProfiles,
 			NetworkProfile:    &networkProfile,
 			LinuxProfile:      &linuxProfileSSH,
 			AddonProfiles:     addonProfiles,
@@ -1047,50 +1106,43 @@ func createCluster(clusterReqInfo irs.ClusterInfo, ac *AzureClusterHandler) erro
 	}
 	if clusterReqInfo.TagList != nil {
 		for _, tag := range clusterReqInfo.TagList {
-			clusterCreateOpts.Tags[tag.Key] = to.StringPtr(tag.Value)
+			clusterCreateOpts.Tags[tag.Key] = &tag.Value
 		}
 	}
 
-	_, err = ac.ManagedClustersClient.CreateOrUpdate(ac.Ctx, ac.Region.Region, clusterReqInfo.IId.NameId, clusterCreateOpts)
+	_, err = ac.ManagedClustersClient.BeginCreateOrUpdate(ac.Ctx, ac.Region.Region, clusterReqInfo.IId.NameId, clusterCreateOpts, nil)
 	if err != nil {
 		return err
 	}
-	//err = result.WaitForCompletionRef(ctx, managedClustersClient.Client)
-	//if err != nil {
-	//	return containerservice.ManagedCluster{}, err
-	//}
 	//newCluster, err := getRawCluster(irs.IID{NameId: clusterReqInfo.IId.NameId}, managedClustersClient, ctx, credentialInfo, regionInfo)
 	//if err != nil {
-	//	return containerservice.ManagedCluster{}, err
+	//	return armcontainerservice.ManagedCluster{}, err
 	//}
 	//return newCluster, nil
 	return nil
 }
 
-func cleanCluster(clusterName string, managedClustersClient *containerservice.ManagedClustersClient, region string, ctx context.Context) error {
+func cleanCluster(clusterName string, managedClustersClient *armcontainerservice.ManagedClustersClient, region string, ctx context.Context) error {
 	// cluster subresource Clean 현재 없음
 	// delete Cluster
-	_, err := managedClustersClient.Delete(ctx, region, clusterName)
+	_, err := managedClustersClient.BeginDelete(ctx, region, clusterName, nil)
 	if err != nil {
 		return err
 	}
-	//err = clsuterDeleteResult.WaitForCompletionRef(ctx, managedClustersClient.Client)
-	//if err != nil {
-	//	return err
-	//}
+
 	return nil
 }
 
-func checkSubnetRequireIPRange(subnet network.Subnet, NodeGroupInfos []irs.NodeGroupInfo) error {
-	_, ipnet, err := net.ParseCIDR(*subnet.SubnetPropertiesFormat.AddressPrefix)
+func checkSubnetRequireIPRange(subnet armnetwork.Subnet, NodeGroupInfos []irs.NodeGroupInfo) error {
+	_, ipnet, err := net.ParseCIDR(*subnet.Properties.AddressPrefix)
 	if err != nil {
 		return errors.New("invalid Cidr")
 	}
 	ones, octaBits := ipnet.Mask.Size()
 	realRangeBit := float64(octaBits - ones)
 	inUsedIPCount := float64(5) // default Azure reserved
-	if subnet.SubnetPropertiesFormat.IPConfigurations != nil {
-		inUsedIPCount += float64(len(*subnet.SubnetPropertiesFormat.IPConfigurations))
+	if subnet.Properties.IPConfigurations != nil {
+		inUsedIPCount += float64(len(subnet.Properties.IPConfigurations))
 	}
 	subnetAvailableCount := math.Pow(2, realRangeBit) - (inUsedIPCount)
 	requireIPCount := float64(0)
@@ -1105,12 +1157,12 @@ func checkSubnetRequireIPRange(subnet network.Subnet, NodeGroupInfos []irs.NodeG
 	return nil
 }
 
-func getRawClusterTargetSubnet(networkInfo irs.NetworkInfo, virtualNetworksClient *network.VirtualNetworksClient, ctx context.Context, resourceGroup string) (network.Subnet, error) {
+func getRawClusterTargetSubnet(networkInfo irs.NetworkInfo, virtualNetworksClient *armnetwork.VirtualNetworksClient, ctx context.Context, resourceGroup string) (armnetwork.Subnet, error) {
 	if len(networkInfo.SubnetIIDs) != 1 {
-		return network.Subnet{}, errors.New("The Azure Cluster uses only one subnet in the VPC.")
+		return armnetwork.Subnet{}, errors.New("The Azure Cluster uses only one subnet in the VPC.")
 	}
 	if networkInfo.SubnetIIDs[0].NameId == "" && networkInfo.SubnetIIDs[0].SystemId == "" {
-		return network.Subnet{}, errors.New("subnet IID within networkInfo is empty")
+		return armnetwork.Subnet{}, errors.New("subnet IID within networkInfo is empty")
 	}
 	targetSubnetName := ""
 	if networkInfo.SubnetIIDs[0].NameId != "" {
@@ -1118,24 +1170,24 @@ func getRawClusterTargetSubnet(networkInfo irs.NetworkInfo, virtualNetworksClien
 	} else {
 		name, err := getNameById(networkInfo.SubnetIIDs[0].SystemId, AzureSubnet)
 		if err != nil {
-			return network.Subnet{}, errors.New("subnet IID within networkInfo is invalid ID")
+			return armnetwork.Subnet{}, errors.New("subnet IID within networkInfo is invalid ID")
 		}
 		targetSubnetName = name
 	}
 	rawVPC, err := getRawVirtualNetwork(networkInfo.VpcIID, virtualNetworksClient, ctx, resourceGroup)
 	if err != nil {
-		return network.Subnet{}, errors.New("failed get Cluster Vpc And Subnet")
+		return armnetwork.Subnet{}, errors.New("failed get Cluster Vpc And Subnet")
 	}
 	// first Subnet
-	var targetSubnet *network.Subnet
-	for _, subnet := range *rawVPC.Subnets {
+	var targetSubnet *armnetwork.Subnet
+	for _, subnet := range rawVPC.Properties.Subnets {
 		if subnet.Name != nil && *subnet.Name == targetSubnetName {
-			targetSubnet = &subnet
+			targetSubnet = subnet
 			break
 		}
 	}
 	if targetSubnet == nil {
-		return network.Subnet{}, errors.New(fmt.Sprintf("subnet within that vpc does not exist."))
+		return armnetwork.Subnet{}, errors.New(fmt.Sprintf("subnet within that vpc does not exist."))
 	}
 	return *targetSubnet, nil
 }
@@ -1164,7 +1216,7 @@ func createServiceCidrList(networkRange int) ([]string, error) {
 	return nil, errors.New("invalid networkRange only 8,16")
 }
 
-func generatorServiceCidrDNSServiceIP(subnetCidr string) (ServiceCidr string, DNSServiceIP string, DockerBridgeCidr string, err error) {
+func generatorServiceCidrDNSServiceIP(subnetCidr string) (ServiceCidr string, DNSServiceIP string, err error) {
 	//Kubernetes service address range: This parameter is the set of virtual IPs that Kubernetes assigns to internal services in your cluster. You can use any private address range that satisfies the following requirements:
 	//
 	//Must not be within the virtual network IP address range of your cluster
@@ -1180,12 +1232,12 @@ func generatorServiceCidrDNSServiceIP(subnetCidr string) (ServiceCidr string, DN
 	}()
 	subnetIP, _, err := net.ParseCIDR(subnetCidr)
 	if err != nil {
-		return "", "", "", errors.New("invalid subnet Cidr")
+		return "", "", errors.New("invalid subnet Cidr")
 	}
 
 	ipSplits := strings.Split(subnetIP.String(), ".")
 	if len(ipSplits) != 4 {
-		return "", "", "", errors.New("invalid subnet Cidr")
+		return "", "", errors.New("invalid subnet Cidr")
 	}
 	serviceCidrList, _ := createServiceCidrList(16)
 	for _, tempCidr := range serviceCidrList {
@@ -1198,41 +1250,35 @@ func generatorServiceCidrDNSServiceIP(subnetCidr string) (ServiceCidr string, DN
 	// 허용 범위중 서브넷 범위중 가장 큰 ?.?.?.?/9 대역이여도,
 	//ServiceCidr = fmt.Sprintf("10.128.0.0/%d", networkRange)
 	if ServiceCidr == "" {
-		return "", "", "", errors.New("the cidr on the current subnet and the serviceCidr on the cb-spider are overlapping. The areas of ServiceCidr checking for superposition in cb-spider are 10.0.0.0/16 to 10.255.0.0/16, and 172.16.0.0 to 172.29.0")
+		return "", "", errors.New("the cidr on the current subnet and the serviceCidr on the cb-spider are overlapping. The areas of ServiceCidr checking for superposition in cb-spider are 10.0.0.0/16 to 10.255.0.0/16, and 172.16.0.0 to 172.29.0")
 	}
 	newip, _, err := net.ParseCIDR(ServiceCidr)
 	netipSplits := strings.Split(newip.String(), ".")
 	if len(ipSplits) != 4 {
-		return "", "", "", errors.New("invalid subnet Cidr")
+		return "", "", errors.New("invalid subnet Cidr")
 	}
 	netipSplits[3] = "10"
 	DNSServiceIP = strings.Join(netipSplits, ".")
-	if ServiceCidr == "172.17.0.1/16" {
-		DockerBridgeCidr = "172.18.0.1/16"
-	} else {
-		DockerBridgeCidr = "172.17.0.1/16"
-	}
-	return ServiceCidr, DNSServiceIP, DockerBridgeCidr, nil
+	return ServiceCidr, DNSServiceIP, nil
 }
 
-func generatorNetworkProfile(ClusterInfo irs.ClusterInfo, targetSubnet network.Subnet) (containerservice.NetworkProfile, error) {
+func generatorNetworkProfile(ClusterInfo irs.ClusterInfo, targetSubnet armnetwork.Subnet) (armcontainerservice.NetworkProfile, error) {
 	err := checkSubnetRequireIPRange(targetSubnet, ClusterInfo.NodeGroupList)
 	if err != nil {
-		return containerservice.NetworkProfile{}, errors.New(fmt.Sprintf("failed get vpc err = %s", err.Error()))
+		return armcontainerservice.NetworkProfile{}, errors.New(fmt.Sprintf("failed get vpc err = %s", err.Error()))
 	}
 
-	ServiceCidr, DNSServiceIP, DockerBridgeCidr, err := generatorServiceCidrDNSServiceIP(*targetSubnet.AddressPrefix)
+	serviceCidr, DNSServiceIP, err := generatorServiceCidrDNSServiceIP(*targetSubnet.Properties.AddressPrefix)
 	if err != nil {
-		return containerservice.NetworkProfile{}, errors.New(fmt.Sprintf("failed calculate ServiceCidr, DNSServiceIP err = %s", err.Error()))
+		return armcontainerservice.NetworkProfile{}, errors.New(fmt.Sprintf("failed calculate ServiceCidr, DNSServiceIP err = %s", err.Error()))
 	}
 
-	return containerservice.NetworkProfile{
-		LoadBalancerSku:  containerservice.LoadBalancerSkuStandard,
-		NetworkPlugin:    containerservice.NetworkPluginAzure,
-		NetworkPolicy:    containerservice.NetworkPolicyAzure,
-		ServiceCidr:      to.StringPtr(ServiceCidr),
-		DNSServiceIP:     to.StringPtr(DNSServiceIP),
-		DockerBridgeCidr: to.StringPtr(DockerBridgeCidr),
+	return armcontainerservice.NetworkProfile{
+		LoadBalancerSKU: (*armcontainerservice.LoadBalancerSKU)(toStrPtr(string(armcontainerservice.LoadBalancerSKUStandard))),
+		NetworkPlugin:   (*armcontainerservice.NetworkPlugin)(toStrPtr(string(armcontainerservice.NetworkPluginAzure))),
+		NetworkPolicy:   (*armcontainerservice.NetworkPolicy)(toStrPtr(string(armcontainerservice.NetworkPolicyAzure))),
+		ServiceCidr:     &serviceCidr,
+		DNSServiceIP:    &DNSServiceIP,
 	}, nil
 
 }
@@ -1240,16 +1286,16 @@ func generatorNetworkProfile(ClusterInfo irs.ClusterInfo, targetSubnet network.S
 func generatorClusterTags(sshKeyName string, clusterName string) (map[string]*string, error) {
 	tags := make(map[string]*string)
 	nowTime := strconv.FormatInt(time.Now().Unix(), 10)
-	tags[ClusterNodeSSHKeyKey] = to.StringPtr(sshKeyName)
-	tags["createdAt"] = to.StringPtr(nowTime)
-	tags[OwnerClusterKey] = to.StringPtr(clusterName)
+	tags[ClusterNodeSSHKeyKey] = &sshKeyName
+	tags["createdAt"] = &nowTime
+	tags[OwnerClusterKey] = &clusterName
 	return tags, nil
 }
 
 func getSSHKeyIIDByNodeGroups(NodeGroupInfos []irs.NodeGroupInfo) (irs.IID, error) {
 	var key *irs.IID
 	for _, nodeGroup := range NodeGroupInfos {
-		if key == nil && !(nodeGroup.KeyPairIID.NameId == "" && nodeGroup.KeyPairIID.SystemId == "") {
+		if nodeGroup.KeyPairIID.NameId != "" && nodeGroup.KeyPairIID.SystemId != "" {
 			key = &nodeGroup.KeyPairIID
 			break
 		}
@@ -1260,29 +1306,29 @@ func getSSHKeyIIDByNodeGroups(NodeGroupInfos []irs.NodeGroupInfo) (irs.IID, erro
 	return *key, nil
 }
 
-func generatePreparedAddonProfiles() map[string]*containerservice.ManagedClusterAddonProfile {
-	return map[string]*containerservice.ManagedClusterAddonProfile{
-		"httpApplicationRouting": &containerservice.ManagedClusterAddonProfile{
-			Enabled: to.BoolPtr(true),
+func generatePreparedAddonProfiles() map[string]*armcontainerservice.ManagedClusterAddonProfile {
+	return map[string]*armcontainerservice.ManagedClusterAddonProfile{
+		"httpApplicationRouting": {
+			Enabled: toBoolPtr(true),
 		},
 	}
 }
 
-func generateManagedClusterLinuxProfileSSH(clusterReqInfo irs.ClusterInfo, sshPublicKeysClient *compute.SSHPublicKeysClient, resourceGroup string, ctx context.Context) (containerservice.LinuxProfile, compute.SSHPublicKeyResource, error) {
+func generateManagedClusterLinuxProfileSSH(clusterReqInfo irs.ClusterInfo, sshPublicKeysClient *armcompute.SSHPublicKeysClient, resourceGroup string, ctx context.Context) (armcontainerservice.LinuxProfile, armcompute.SSHPublicKeyResource, error) {
 	sshkeyId, err := getSSHKeyIIDByNodeGroups(clusterReqInfo.NodeGroupList)
 	if err != nil {
-		return containerservice.LinuxProfile{}, compute.SSHPublicKeyResource{}, err
+		return armcontainerservice.LinuxProfile{}, armcompute.SSHPublicKeyResource{}, err
 	}
 	key, err := GetRawKey(sshkeyId, resourceGroup, sshPublicKeysClient, ctx)
 	if err != nil {
-		return containerservice.LinuxProfile{}, compute.SSHPublicKeyResource{}, errors.New(fmt.Sprintf("failed get ssh Key, err = %s", err.Error()))
+		return armcontainerservice.LinuxProfile{}, armcompute.SSHPublicKeyResource{}, errors.New(fmt.Sprintf("failed get ssh Key, err = %s", err.Error()))
 	}
-	linuxProfile := containerservice.LinuxProfile{
-		AdminUsername: to.StringPtr(CBVMUser),
-		SSH: &containerservice.SSHConfiguration{
-			PublicKeys: &[]containerservice.SSHPublicKey{
+	linuxProfile := armcontainerservice.LinuxProfile{
+		AdminUsername: toStrPtr(CBVMUser),
+		SSH: &armcontainerservice.SSHConfiguration{
+			PublicKeys: []*armcontainerservice.SSHPublicKey{
 				{
-					KeyData: key.PublicKey,
+					KeyData: key.Properties.PublicKey,
 				},
 			},
 		},
@@ -1290,19 +1336,19 @@ func generateManagedClusterLinuxProfileSSH(clusterReqInfo irs.ClusterInfo, sshPu
 	return linuxProfile, key, nil
 }
 
-func generateAgentPoolProfileList(info irs.ClusterInfo, targetSubnet network.Subnet, ac *AzureClusterHandler) ([]containerservice.ManagedClusterAgentPoolProfile, error) {
-	agentPoolProfiles := make([]containerservice.ManagedClusterAgentPoolProfile, len(info.NodeGroupList))
+func generateAgentPoolProfileList(info irs.ClusterInfo, targetSubnet armnetwork.Subnet, ac *AzureClusterHandler) ([]*armcontainerservice.ManagedClusterAgentPoolProfile, error) {
+	agentPoolProfiles := make([]*armcontainerservice.ManagedClusterAgentPoolProfile, len(info.NodeGroupList))
 	for i, nodeGroupInfo := range info.NodeGroupList {
 		agentPoolProfile, err := generateAgentPoolProfile(nodeGroupInfo, targetSubnet, ac)
 		if err != nil {
-			return make([]containerservice.ManagedClusterAgentPoolProfile, 0), err
+			return make([]*armcontainerservice.ManagedClusterAgentPoolProfile, 0), err
 		}
-		agentPoolProfiles[i] = agentPoolProfile
+		agentPoolProfiles[i] = &agentPoolProfile
 	}
 	return agentPoolProfiles, nil
 }
 
-func generateAgentPoolProfileProperties(nodeGroupInfo irs.NodeGroupInfo, subnet network.Subnet, ac *AzureClusterHandler) (containerservice.ManagedClusterAgentPoolProfileProperties, error) {
+func generateAgentPoolProfileProperties(nodeGroupInfo irs.NodeGroupInfo, subnet armnetwork.Subnet, ac *AzureClusterHandler) (armcontainerservice.ManagedClusterAgentPoolProfileProperties, error) {
 	var nodeOSDiskSize *int32
 
 	if nodeGroupInfo.RootDiskSize == "" || nodeGroupInfo.RootDiskSize == "default" {
@@ -1310,34 +1356,34 @@ func generateAgentPoolProfileProperties(nodeGroupInfo irs.NodeGroupInfo, subnet 
 	} else {
 		osDiskSize, err := strconv.Atoi(nodeGroupInfo.RootDiskSize)
 		if err != nil {
-			return containerservice.ManagedClusterAgentPoolProfileProperties{}, errors.New("invalid NodeGroup RootDiskSize")
+			return armcontainerservice.ManagedClusterAgentPoolProfileProperties{}, errors.New("invalid NodeGroup RootDiskSize")
 		}
-		nodeOSDiskSize = to.Int32Ptr(int32(osDiskSize))
+		nodeOSDiskSize = toInt32Ptr(osDiskSize)
 	}
 
-	targetZones := &[]string{ac.Region.Zone}
+	targetZones := []*string{&ac.Region.Zone}
 
-	agentPoolProfileProperties := containerservice.ManagedClusterAgentPoolProfileProperties{
+	agentPoolProfileProperties := armcontainerservice.ManagedClusterAgentPoolProfileProperties{
 		// Name:         to.StringPtr(nodeGroupInfo.IId.NameId),
-		Count:              to.Int32Ptr(int32(nodeGroupInfo.DesiredNodeSize)),
-		MinCount:           to.Int32Ptr(int32(nodeGroupInfo.MinNodeSize)),
-		MaxCount:           to.Int32Ptr(int32(nodeGroupInfo.MaxNodeSize)),
-		VMSize:             to.StringPtr(nodeGroupInfo.VMSpecName),
-		OsDiskSizeGB:       nodeOSDiskSize,
-		OsType:             containerservice.OSTypeLinux,
-		Type:               containerservice.AgentPoolTypeVirtualMachineScaleSets,
-		MaxPods:            to.Int32Ptr(maxPodCount),
-		Mode:               containerservice.AgentPoolModeSystem, // User? System?
+		Count:              toInt32Ptr(nodeGroupInfo.DesiredNodeSize),
+		MinCount:           toInt32Ptr(nodeGroupInfo.MinNodeSize),
+		MaxCount:           toInt32Ptr(nodeGroupInfo.MaxNodeSize),
+		VMSize:             &nodeGroupInfo.VMSpecName,
+		OSDiskSizeGB:       nodeOSDiskSize,
+		OSType:             (*armcontainerservice.OSType)(toStrPtr(string(armcontainerservice.OSTypeLinux))),
+		Type:               (*armcontainerservice.AgentPoolType)(toStrPtr(string(armcontainerservice.AgentPoolTypeVirtualMachineScaleSets))),
+		MaxPods:            toInt32Ptr(maxPodCount),
+		Mode:               (*armcontainerservice.AgentPoolMode)(toStrPtr(string(armcontainerservice.AgentPoolModeSystem))), // User? System?
 		AvailabilityZones:  targetZones,
-		EnableNodePublicIP: to.BoolPtr(true),
-		EnableAutoScaling:  to.BoolPtr(nodeGroupInfo.OnAutoScaling),
+		EnableNodePublicIP: toBoolPtr(true),
+		EnableAutoScaling:  toBoolPtr(nodeGroupInfo.OnAutoScaling),
 		// MinCount가 있으려면 true 여야함
 		VnetSubnetID: subnet.ID,
 	}
 	return agentPoolProfileProperties, nil
 }
 
-func generateAgentPoolProfile(nodeGroupInfo irs.NodeGroupInfo, subnet network.Subnet, ac *AzureClusterHandler) (containerservice.ManagedClusterAgentPoolProfile, error) {
+func generateAgentPoolProfile(nodeGroupInfo irs.NodeGroupInfo, subnet armnetwork.Subnet, ac *AzureClusterHandler) (armcontainerservice.ManagedClusterAgentPoolProfile, error) {
 	var nodeOSDiskSize *int32
 
 	if nodeGroupInfo.RootDiskSize == "" || nodeGroupInfo.RootDiskSize == "default" {
@@ -1345,27 +1391,28 @@ func generateAgentPoolProfile(nodeGroupInfo irs.NodeGroupInfo, subnet network.Su
 	} else {
 		osDiskSize, err := strconv.Atoi(nodeGroupInfo.RootDiskSize)
 		if err != nil {
-			return containerservice.ManagedClusterAgentPoolProfile{}, errors.New("invalid NodeGroup RootDiskSize")
+			return armcontainerservice.ManagedClusterAgentPoolProfile{}, errors.New("invalid NodeGroup RootDiskSize")
 		}
-		nodeOSDiskSize = to.Int32Ptr(int32(osDiskSize))
+		osDiskSizeInt32 := int32(osDiskSize)
+		nodeOSDiskSize = &osDiskSizeInt32
 	}
 
-	targetZones := &[]string{ac.Region.Zone}
+	targetZones := []*string{&ac.Region.Zone}
 
-	agentPoolProfile := containerservice.ManagedClusterAgentPoolProfile{
-		Name:               to.StringPtr(nodeGroupInfo.IId.NameId),
-		Count:              to.Int32Ptr(int32(nodeGroupInfo.DesiredNodeSize)),
-		MinCount:           to.Int32Ptr(int32(nodeGroupInfo.MinNodeSize)),
-		MaxCount:           to.Int32Ptr(int32(nodeGroupInfo.MaxNodeSize)),
-		VMSize:             to.StringPtr(nodeGroupInfo.VMSpecName),
-		OsDiskSizeGB:       nodeOSDiskSize,
-		OsType:             containerservice.OSTypeLinux,
-		Type:               containerservice.AgentPoolTypeVirtualMachineScaleSets,
-		MaxPods:            to.Int32Ptr(maxPodCount),
-		Mode:               containerservice.AgentPoolModeSystem, // User? System?
+	agentPoolProfile := armcontainerservice.ManagedClusterAgentPoolProfile{
+		Name:               &nodeGroupInfo.IId.NameId,
+		Count:              toInt32Ptr(nodeGroupInfo.DesiredNodeSize),
+		MinCount:           toInt32Ptr(nodeGroupInfo.MinNodeSize),
+		MaxCount:           toInt32Ptr(nodeGroupInfo.MaxNodeSize),
+		VMSize:             &nodeGroupInfo.VMSpecName,
+		OSDiskSizeGB:       nodeOSDiskSize,
+		OSType:             (*armcontainerservice.OSType)(toStrPtr(string(armcontainerservice.OSTypeLinux))),
+		Type:               (*armcontainerservice.AgentPoolType)(toStrPtr(string(armcontainerservice.AgentPoolTypeVirtualMachineScaleSets))),
+		MaxPods:            toInt32Ptr(maxPodCount),
+		Mode:               (*armcontainerservice.AgentPoolMode)(toStrPtr(string(armcontainerservice.AgentPoolModeSystem))), // User? System?
 		AvailabilityZones:  targetZones,
-		EnableNodePublicIP: to.BoolPtr(true),
-		EnableAutoScaling:  to.BoolPtr(nodeGroupInfo.OnAutoScaling),
+		EnableNodePublicIP: toBoolPtr(true),
+		EnableAutoScaling:  toBoolPtr(nodeGroupInfo.OnAutoScaling),
 		// MinCount가 있으려면 true 여야함
 		VnetSubnetID: subnet.ID,
 	}
@@ -1376,19 +1423,19 @@ func generateAgentPoolProfile(nodeGroupInfo irs.NodeGroupInfo, subnet network.Su
 	return agentPoolProfile, nil
 }
 
-func getSecurityGroupIdForVirtualMachineScaleSet(virtualMachineScaleSet compute.VirtualMachineScaleSet) (securityGroupId string, err error) {
+func getSecurityGroupIdForVirtualMachineScaleSet(virtualMachineScaleSet armcompute.VirtualMachineScaleSet) (securityGroupId string, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = errors.New(fmt.Sprintf("failed get securityGroup in VirtualMachineScaleSet err = %s", err.Error()))
 			securityGroupId = ""
 		}
 	}()
-	if virtualMachineScaleSet.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations != nil {
-		networkInterfaceConfigurations := *virtualMachineScaleSet.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations
+	if virtualMachineScaleSet.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations != nil {
+		networkInterfaceConfigurations := virtualMachineScaleSet.Properties.VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations
 		var targetSecurityGroupId *string
 		for _, niconfig := range networkInterfaceConfigurations {
-			if targetSecurityGroupId == nil && *niconfig.Primary {
-				targetSecurityGroupId = niconfig.NetworkSecurityGroup.ID
+			if *niconfig.Properties.Primary {
+				targetSecurityGroupId = niconfig.Properties.NetworkSecurityGroup.ID
 				break
 			}
 		}
@@ -1400,15 +1447,15 @@ func getSecurityGroupIdForVirtualMachineScaleSet(virtualMachineScaleSet compute.
 	return "", errors.New(fmt.Sprintf("failed get securityGroup in VirtualMachineScaleSet err = %s", err.Error()))
 }
 
-func getNextSecurityGroupRulePriority(sourceSecurity network.SecurityGroup) (inboundPriority int, outboundPriority int, err error) {
+func getNextSecurityGroupRulePriority(sourceSecurity armnetwork.SecurityGroup) (inboundPriority int, outboundPriority int, err error) {
 	inboundPriority = initPriority
 	outboundPriority = initPriority
-	for _, sgrule := range *sourceSecurity.SecurityRules {
-		if sgrule.Direction == network.SecurityRuleDirectionInbound {
-			inboundPriority = int(*sgrule.Priority)
+	for _, sgrule := range sourceSecurity.Properties.SecurityRules {
+		if *sgrule.Properties.Direction == armnetwork.SecurityRuleDirectionInbound {
+			inboundPriority = int(*sgrule.Properties.Priority)
 		}
-		if sgrule.Direction == network.SecurityRuleDirectionOutbound {
-			outboundPriority = int(*sgrule.Priority)
+		if *sgrule.Properties.Direction == armnetwork.SecurityRuleDirectionOutbound {
+			outboundPriority = int(*sgrule.Properties.Priority)
 		}
 	}
 	inboundPriority = inboundPriority + 1
@@ -1416,24 +1463,22 @@ func getNextSecurityGroupRulePriority(sourceSecurity network.SecurityGroup) (inb
 	return inboundPriority, outboundPriority, nil
 }
 
-func sliceSecurityGroupRuleINAndOUT(copySourceSGRules []network.SecurityRule) (inboundRules []network.SecurityRule, outboundRules []network.SecurityRule, err error) {
-	inboundRules = make([]network.SecurityRule, 0)
-	outboundRules = make([]network.SecurityRule, 0)
+func sliceSecurityGroupRuleINAndOUT(copySourceSGRules []*armnetwork.SecurityRule) (inboundRules []*armnetwork.SecurityRule, outboundRules []*armnetwork.SecurityRule, err error) {
 	for _, sourcesgrule := range copySourceSGRules {
-		if sourcesgrule.Direction == network.SecurityRuleDirectionInbound {
+		if *sourcesgrule.Properties.Direction == armnetwork.SecurityRuleDirectionInbound {
 			inboundRules = append(inboundRules, sourcesgrule)
-		} else if sourcesgrule.Direction == network.SecurityRuleDirectionOutbound {
+		} else if *sourcesgrule.Properties.Direction == armnetwork.SecurityRuleDirectionOutbound {
 			outboundRules = append(outboundRules, sourcesgrule)
 		} else {
-			return make([]network.SecurityRule, 0), make([]network.SecurityRule, 0), errors.New("invalid SecurityRules")
+			return []*armnetwork.SecurityRule{}, []*armnetwork.SecurityRule{}, errors.New("invalid SecurityRules")
 		}
 
 	}
 	return inboundRules, outboundRules, nil
 }
 
-func applySecurityGroupList(sourceSecurity network.SecurityGroup, targetSecurityGroupList []network.SecurityGroup, SecurityRulesClient *network.SecurityRulesClient, ctx context.Context) error {
-	sourceSGRules := *sourceSecurity.SecurityRules
+func applySecurityGroupList(sourceSecurity armnetwork.SecurityGroup, targetSecurityGroupList []armnetwork.SecurityGroup, SecurityRulesClient *armnetwork.SecurityRulesClient, ctx context.Context) error {
+	sourceSGRules := sourceSecurity.Properties.SecurityRules
 	for _, targetsg := range targetSecurityGroupList {
 		copySourceSGRules := sourceSGRules
 		sgresourceGroup, _ := getResourceGroupById(*targetsg.ID)
@@ -1443,28 +1488,29 @@ func applySecurityGroupList(sourceSecurity network.SecurityGroup, targetSecurity
 		}
 		for _, inboundsgRule := range inboundsgRules {
 			update := inboundsgRule
-			update.Priority = inboundsgRule.Priority
-			if *update.Priority >= 500 {
+			update.Properties.Priority = inboundsgRule.Properties.Priority
+			if *update.Properties.Priority >= 500 {
 				// AKS baseRule 회피
-				update.Priority = to.Int32Ptr(*inboundsgRule.Priority + 100)
+				priority := *inboundsgRule.Properties.Priority + 100
+				update.Properties.Priority = &priority
 			}
-			updateResult, err := SecurityRulesClient.CreateOrUpdate(ctx, sgresourceGroup, *targetsg.Name, *inboundsgRule.Name, update)
+			poller, err := SecurityRulesClient.BeginCreateOrUpdate(ctx, sgresourceGroup, *targetsg.Name, *inboundsgRule.Name, *update, nil)
 			if err != nil {
 				return err
 			}
-			err = updateResult.WaitForCompletionRef(ctx, SecurityRulesClient.Client)
+			_, err = poller.PollUntilDone(ctx, nil)
 			if err != nil {
 				return err
 			}
 		}
 		for _, outboundsgRule := range outboundsgRules {
 			update := outboundsgRule
-			update.Priority = outboundsgRule.Priority
-			updateResult, err := SecurityRulesClient.CreateOrUpdate(ctx, sgresourceGroup, *targetsg.Name, *outboundsgRule.Name, update)
+			update.Properties.Priority = outboundsgRule.Properties.Priority
+			poller, err := SecurityRulesClient.BeginCreateOrUpdate(ctx, sgresourceGroup, *targetsg.Name, *outboundsgRule.Name, *update, nil)
 			if err != nil {
 				return err
 			}
-			err = updateResult.WaitForCompletionRef(ctx, SecurityRulesClient.Client)
+			_, err = poller.PollUntilDone(ctx, nil)
 			if err != nil {
 				return err
 			}
@@ -1473,7 +1519,7 @@ func applySecurityGroupList(sourceSecurity network.SecurityGroup, targetSecurity
 	return nil
 }
 
-func getClusterAgentPoolSecurityGroupId(cluster containerservice.ManagedCluster, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, ctx context.Context) ([]string, error) {
+func getClusterAgentPoolSecurityGroupId(cluster *armcontainerservice.ManagedCluster, agentPoolsClient *armcontainerservice.AgentPoolsClient, virtualMachineScaleSetsClient *armcompute.VirtualMachineScaleSetsClient, ctx context.Context) ([]string, error) {
 	filteredNodePoolPairList, err := getRawNodePoolPairList(cluster, agentPoolsClient, virtualMachineScaleSetsClient, ctx)
 	if err != nil {
 		return make([]string, 0), errors.New(fmt.Sprintf("failed apply securityGroup err = %s", err.Error()))
@@ -1497,17 +1543,17 @@ func getClusterAgentPoolSecurityGroupId(cluster containerservice.ManagedCluster,
 	return targetSecurityGroupIdsList, nil
 }
 
-func getClusterAgentPoolSecurityGroup(cluster containerservice.ManagedCluster, agentPoolsClient *containerservice.AgentPoolsClient, securityGroupsClient *network.SecurityGroupsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, ctx context.Context) ([]network.SecurityGroup, error) {
+func getClusterAgentPoolSecurityGroup(cluster *armcontainerservice.ManagedCluster, agentPoolsClient *armcontainerservice.AgentPoolsClient, securityGroupsClient *armnetwork.SecurityGroupsClient, virtualMachineScaleSetsClient *armcompute.VirtualMachineScaleSetsClient, ctx context.Context) ([]armnetwork.SecurityGroup, error) {
 	filteredNodePoolPairList, err := getRawNodePoolPairList(cluster, agentPoolsClient, virtualMachineScaleSetsClient, ctx)
 	if err != nil {
-		return make([]network.SecurityGroup, 0), errors.New(fmt.Sprintf("failed apply securityGroup err = %s", err.Error()))
+		return make([]armnetwork.SecurityGroup, 0), errors.New(fmt.Sprintf("failed apply securityGroup err = %s", err.Error()))
 	}
 
-	sgmap := make(map[string]network.SecurityGroup)
+	sgmap := make(map[string]armnetwork.SecurityGroup)
 	for _, poolPair := range filteredNodePoolPairList {
 		sgid, err := getSecurityGroupIdForVirtualMachineScaleSet(poolPair.virtualMachineScaleSet)
 		if err != nil {
-			return make([]network.SecurityGroup, 0), errors.New(fmt.Sprintf("failed apply securityGroup err = %s", err.Error()))
+			return make([]armnetwork.SecurityGroup, 0), errors.New(fmt.Sprintf("failed apply securityGroup err = %s", err.Error()))
 		}
 		sgName, _ := getNameById(sgid, AzureSecurityGroups)
 		sgresourceGroup, _ := getResourceGroupById(sgid)
@@ -1515,19 +1561,19 @@ func getClusterAgentPoolSecurityGroup(cluster containerservice.ManagedCluster, a
 		if !exist {
 			sg, err := getRawSecurityGroup(irs.IID{NameId: sgName}, securityGroupsClient, ctx, sgresourceGroup)
 			if err != nil {
-				return make([]network.SecurityGroup, 0), errors.New(fmt.Sprintf("failed apply securityGroup err = %s", err.Error()))
+				return make([]armnetwork.SecurityGroup, 0), errors.New(fmt.Sprintf("failed apply securityGroup err = %s", err.Error()))
 			}
 			sgmap[sgName] = *sg
 		}
 	}
-	targetSecurityGroupList := make([]network.SecurityGroup, 0, len(sgmap))
+	targetSecurityGroupList := make([]armnetwork.SecurityGroup, 0, len(sgmap))
 	for _, sg := range sgmap {
 		targetSecurityGroupList = append(targetSecurityGroupList, sg)
 	}
 	return targetSecurityGroupList, nil
 }
 
-func applySecurityGroup(clusterIID irs.IID, sourceSecurityGroupIID irs.IID, clusterBaseSecurityGroup network.SecurityGroup, managedClustersClient *containerservice.ManagedClustersClient, securityGroupsClient *network.SecurityGroupsClient, securityRulesClient *network.SecurityRulesClient, ctx context.Context, credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo) error {
+func applySecurityGroup(clusterIID irs.IID, sourceSecurityGroupIID irs.IID, clusterBaseSecurityGroup armnetwork.SecurityGroup, managedClustersClient *armcontainerservice.ManagedClustersClient, securityGroupsClient *armnetwork.SecurityGroupsClient, securityRulesClient *armnetwork.SecurityRulesClient, ctx context.Context, credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo) error {
 	//clusterResourceGroup, err := getResourceGroupById(*cluster.ID)
 	//if err != nil {
 	//	return errors.New(fmt.Sprintf("failed get clusterResourceGroup err = %s", err.Error()))
@@ -1541,7 +1587,7 @@ func applySecurityGroup(clusterIID irs.IID, sourceSecurityGroupIID irs.IID, clus
 	//if err != nil {
 	//	return errors.New(fmt.Sprintf("failed get BaseSecurityGroup by Cluster err = %s", err.Error()))
 	//}
-	err = applySecurityGroupList(*sourceSecurityGroup, []network.SecurityGroup{clusterBaseSecurityGroup}, securityRulesClient, ctx)
+	err = applySecurityGroupList(*sourceSecurityGroup, []armnetwork.SecurityGroup{clusterBaseSecurityGroup}, securityRulesClient, ctx)
 	return err
 	// virtualMachineScaleSet에서, VirtualMachineProfile.NetworkProfile.NetworkInterfaceConfigurations에서 Primary 확인 후, NetworkSecurityGroup를 가져와, 수정
 }
@@ -1568,26 +1614,23 @@ func checkmanualScaleModeNodeGroupScaleValid(minNodeSize int, maxNodeSize int) e
 	return nil
 }
 
-func menualScaleModechangeNodeGroupScaling(cluster containerservice.ManagedCluster, agentPool containerservice.AgentPool, desiredNodeSize int, minNodeSize int, maxNodeSize int, managedClustersClient *containerservice.ManagedClustersClient, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (irs.NodeGroupInfo, error) {
+func menualScaleModechangeNodeGroupScaling(cluster armcontainerservice.ManagedCluster, agentPool armcontainerservice.AgentPool, desiredNodeSize int, minNodeSize int, maxNodeSize int, managedClustersClient *armcontainerservice.ManagedClustersClient, agentPoolsClient *armcontainerservice.AgentPoolsClient, virtualMachineScaleSetsClient *armcompute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *armcompute.VirtualMachineScaleSetVMsClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (irs.NodeGroupInfo, error) {
 	err := checkmanualScaleModeNodeGroupScaleValid(minNodeSize, maxNodeSize)
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed scalingChange agentPool err = %s", err.Error()))
 	}
 	updateAgentPool := agentPool
-	updateAgentPool.Count = to.Int32Ptr(int32(desiredNodeSize))
-	_, err = agentPoolsClient.CreateOrUpdate(ctx, region.Region, *cluster.Name, *agentPool.Name, updateAgentPool)
+	desiredNodeSizeInt32 := int32(desiredNodeSize)
+	updateAgentPool.Properties.Count = &desiredNodeSizeInt32
+	_, err = agentPoolsClient.BeginCreateOrUpdate(ctx, region.Region, *cluster.Name, *agentPool.Name, updateAgentPool, nil)
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed scalingChange agentPool err = %s", err.Error()))
 	}
-	//err = updateResult.WaitForCompletionRef(ctx, agentPoolsClient.Client)
-	//if err != nil {
-	//	return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed scalingChange agentPool err = %s", err.Error()))
-	//}
 	newCluster, err := getRawCluster(irs.IID{NameId: *cluster.Name}, managedClustersClient, ctx, credentialInfo, region)
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed get agentPool err = %s", err.Error()))
 	}
-	nodeGroupInfo, err := getNodeGroupInfoSpecifiedNodePool(newCluster, *agentPool.Name, agentPoolsClient, virtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient, ctx)
+	nodeGroupInfo, err := getNodeGroupInfoSpecifiedNodePool(&newCluster, *agentPool.Name, agentPoolsClient, virtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient, ctx)
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed get agentPool err = %s", err.Error()))
 	}
@@ -1595,29 +1638,28 @@ func menualScaleModechangeNodeGroupScaling(cluster containerservice.ManagedClust
 	return nodeGroupInfo, nil
 }
 
-func autoScaleModechangeNodeGroupScaling(cluster containerservice.ManagedCluster, agentPool containerservice.AgentPool, desiredNodeSize int, minNodeSize int, maxNodeSize int, managedClustersClient *containerservice.ManagedClustersClient, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (irs.NodeGroupInfo, error) {
+func autoScaleModechangeNodeGroupScaling(cluster armcontainerservice.ManagedCluster, agentPool armcontainerservice.AgentPool, desiredNodeSize int, minNodeSize int, maxNodeSize int, managedClustersClient *armcontainerservice.ManagedClustersClient, agentPoolsClient *armcontainerservice.AgentPoolsClient, virtualMachineScaleSetsClient *armcompute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *armcompute.VirtualMachineScaleSetVMsClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (irs.NodeGroupInfo, error) {
 	err := checkAutoScaleModeNodeGroupScaleValid(desiredNodeSize, minNodeSize, maxNodeSize)
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed scalingChange agentPool err = %s", err.Error()))
 	}
 	updateAgentPool := agentPool
-	updateAgentPool.MinCount = to.Int32Ptr(int32(minNodeSize))
-	updateAgentPool.MaxCount = to.Int32Ptr(int32(maxNodeSize))
-	updateAgentPool.Count = to.Int32Ptr(int32(desiredNodeSize))
-	_, err = agentPoolsClient.CreateOrUpdate(ctx, region.Region, *cluster.Name, *agentPool.Name, updateAgentPool)
+	minNodeSizeInt32 := int32(minNodeSize)
+	maxNodeSizeInt32 := int32(maxNodeSize)
+	desiredNodeSizeInt32 := int32(desiredNodeSize)
+	updateAgentPool.Properties.MinCount = &minNodeSizeInt32
+	updateAgentPool.Properties.MaxCount = &maxNodeSizeInt32
+	updateAgentPool.Properties.Count = &desiredNodeSizeInt32
+	_, err = agentPoolsClient.BeginCreateOrUpdate(ctx, region.Region, *cluster.Name, *agentPool.Name, updateAgentPool, nil)
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed scalingChange agentPool err = %s", err.Error()))
 	}
 
-	//err = updateResult.WaitForCompletionRef(ctx, agentPoolsClient.Client)
-	//if err != nil {
-	//	return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed scalingChange agentPool err = %s", err.Error()))
-	//}
 	newCluster, err := getRawCluster(irs.IID{NameId: *cluster.Name}, managedClustersClient, ctx, credentialInfo, region)
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed get agentPool err = %s", err.Error()))
 	}
-	nodeGroupInfo, err := getNodeGroupInfoSpecifiedNodePool(newCluster, *agentPool.Name, agentPoolsClient, virtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient, ctx)
+	nodeGroupInfo, err := getNodeGroupInfoSpecifiedNodePool(&newCluster, *agentPool.Name, agentPoolsClient, virtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient, ctx)
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed get agentPool err = %s", err.Error()))
 	}
@@ -1625,24 +1667,36 @@ func autoScaleModechangeNodeGroupScaling(cluster containerservice.ManagedCluster
 	return nodeGroupInfo, nil
 }
 
-func changeNodeGroupScaling(cluster containerservice.ManagedCluster, nodeGroupIID irs.IID, desiredNodeSize int, minNodeSize int, maxNodeSize int, managedClustersClient *containerservice.ManagedClustersClient, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (irs.NodeGroupInfo, error) {
+func changeNodeGroupScaling(cluster armcontainerservice.ManagedCluster, nodeGroupIID irs.IID, desiredNodeSize int, minNodeSize int, maxNodeSize int, managedClustersClient *armcontainerservice.ManagedClustersClient, agentPoolsClient *armcontainerservice.AgentPoolsClient, virtualMachineScaleSetsClient *armcompute.VirtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient *armcompute.VirtualMachineScaleSetVMsClient, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) (irs.NodeGroupInfo, error) {
 	if nodeGroupIID.NameId == "" && nodeGroupIID.SystemId == "" {
 		return irs.NodeGroupInfo{}, errors.New("failed scalingChange agentPool err = invalid NodeGroup NameId")
 	}
-	agentPools, err := agentPoolsClient.List(ctx, region.Region, *cluster.Name)
-	if err != nil {
-		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed scalingChange agentPool err = %s", err.Error()))
+
+	var agentPoolList []*armcontainerservice.AgentPool
+
+	pager := agentPoolsClient.NewListPager(region.Region, *cluster.Name, nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed scalingChange agentPool err = %s", err.Error()))
+		}
+
+		for _, agentPool := range page.Value {
+			agentPoolList = append(agentPoolList, agentPool)
+		}
 	}
-	var targetAgentPool *containerservice.AgentPool
-	for _, agentPool := range agentPools.Values() {
+
+	var targetAgentPool *armcontainerservice.AgentPool
+	for _, agentPool := range agentPoolList {
 		if nodeGroupIID.NameId == "" {
 			if *agentPool.ID == nodeGroupIID.SystemId {
-				targetAgentPool = &agentPool
+				targetAgentPool = agentPool
 				break
 			}
 		} else {
 			if *agentPool.Name == nodeGroupIID.NameId {
-				targetAgentPool = &agentPool
+				targetAgentPool = agentPool
 				break
 			}
 		}
@@ -1650,7 +1704,7 @@ func changeNodeGroupScaling(cluster containerservice.ManagedCluster, nodeGroupII
 	if targetAgentPool == nil {
 		return irs.NodeGroupInfo{}, errors.New("failed scalingChange agentPool err = not Exist NodeGroup")
 	}
-	if *targetAgentPool.EnableAutoScaling {
+	if *targetAgentPool.Properties.EnableAutoScaling {
 		// AutoScale
 		return autoScaleModechangeNodeGroupScaling(cluster, *targetAgentPool, desiredNodeSize, minNodeSize, maxNodeSize, managedClustersClient, agentPoolsClient, virtualMachineScaleSetsClient, virtualMachineScaleSetVMsClient, credentialInfo, region, ctx)
 	} else {
@@ -1659,25 +1713,37 @@ func changeNodeGroupScaling(cluster containerservice.ManagedCluster, nodeGroupII
 	}
 }
 
-func autoScalingChange(cluster containerservice.ManagedCluster, nodeGroupIID irs.IID, autoScalingSet bool, agentPoolsClient *containerservice.AgentPoolsClient, region idrv.RegionInfo, ctx context.Context) error {
+func autoScalingChange(cluster armcontainerservice.ManagedCluster, nodeGroupIID irs.IID, autoScalingSet bool, agentPoolsClient *armcontainerservice.AgentPoolsClient, region idrv.RegionInfo, ctx context.Context) error {
 	// exist Check
 	if nodeGroupIID.NameId == "" && nodeGroupIID.SystemId == "" {
 		return errors.New("failed autoScalingChange agentPool err = invalid NodeGroup NameId")
 	}
-	agentPools, err := agentPoolsClient.List(ctx, region.Region, *cluster.Name)
-	if err != nil {
-		return errors.New(fmt.Sprintf("failed autoScalingChange agentPool err = %s", err.Error()))
+
+	var agentPoolList []*armcontainerservice.AgentPool
+
+	pager := agentPoolsClient.NewListPager(region.Region, *cluster.Name, nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return errors.New(fmt.Sprintf("failed autoScalingChange agentPool err = %s", err.Error()))
+		}
+
+		for _, agentPool := range page.Value {
+			agentPoolList = append(agentPoolList, agentPool)
+		}
 	}
-	var targetAgentPool *containerservice.AgentPool
-	for _, agentPool := range agentPools.Values() {
+
+	var targetAgentPool *armcontainerservice.AgentPool
+	for _, agentPool := range agentPoolList {
 		if nodeGroupIID.NameId == "" {
 			if *agentPool.ID == nodeGroupIID.SystemId {
-				targetAgentPool = &agentPool
+				targetAgentPool = agentPool
 				break
 			}
 		} else {
 			if *agentPool.Name == nodeGroupIID.NameId {
-				targetAgentPool = &agentPool
+				targetAgentPool = agentPool
 				break
 			}
 		}
@@ -1685,45 +1751,54 @@ func autoScalingChange(cluster containerservice.ManagedCluster, nodeGroupIID irs
 	if targetAgentPool == nil {
 		return errors.New("failed autoScalingChange agentPool err = not Exist NodeGroup")
 	}
-	if *targetAgentPool.EnableAutoScaling == autoScalingSet {
+	if *targetAgentPool.Properties.EnableAutoScaling == autoScalingSet {
 		return errors.New("failed autoScalingChange agentPool err = already autoScaling status Equal")
 	}
 	updateAgentPool := *targetAgentPool
-	if *updateAgentPool.ProvisioningState != "Succeeded" {
-		return errors.New(fmt.Sprintf("failed autoScalingChange agentPool err = The status of the Agent Pool is currently %s. You cannot change the Agent Pool at this time.", *updateAgentPool.ProvisioningState))
+	if *updateAgentPool.Properties.ProvisioningState != "Succeeded" {
+		return errors.New(fmt.Sprintf("failed autoScalingChange agentPool err = The status of the Agent Pool is currently %s. You cannot change the Agent Pool at this time.", *updateAgentPool.Properties.ProvisioningState))
 	}
 	if !autoScalingSet {
 		// False
-		updateAgentPool.MinCount = nil
-		updateAgentPool.MaxCount = nil
+		updateAgentPool.Properties.MinCount = nil
+		updateAgentPool.Properties.MaxCount = nil
 	} else {
 		// TODO autoScale 시, Min, Max 값 필요
-		updateAgentPool.MinCount = to.Int32Ptr(1)
-		updateAgentPool.MaxCount = updateAgentPool.Count
+		minCount := int32(1)
+		updateAgentPool.Properties.MinCount = &minCount
+		updateAgentPool.Properties.MaxCount = updateAgentPool.Properties.Count
 	}
-	updateAgentPool.EnableAutoScaling = to.BoolPtr(autoScalingSet)
-	_, err = agentPoolsClient.CreateOrUpdate(ctx, region.Region, *cluster.Name, *targetAgentPool.Name, updateAgentPool)
+	updateAgentPool.Properties.EnableAutoScaling = &autoScalingSet
+	_, err := agentPoolsClient.BeginCreateOrUpdate(ctx, region.Region, *cluster.Name, *targetAgentPool.Name, updateAgentPool, nil)
 	if err != nil {
 		return errors.New(fmt.Sprintf("failed autoScalingChange agentPool err = %s", err.Error()))
 	}
-	//err = updateResult.WaitForCompletionRef(ctx, agentPoolsClient.Client)
-	//if err != nil {
-	//	return errors.New(fmt.Sprintf("failed autoScalingChange agentPool err = %s", err.Error()))
-	//}
 	return nil
 }
 
-func deleteNodeGroup(cluster containerservice.ManagedCluster, nodeGroupIID irs.IID, agentPoolsClient *containerservice.AgentPoolsClient, region idrv.RegionInfo, ctx context.Context) error {
+func deleteNodeGroup(cluster armcontainerservice.ManagedCluster, nodeGroupIID irs.IID, agentPoolsClient *armcontainerservice.AgentPoolsClient, region idrv.RegionInfo, ctx context.Context) error {
 	// exist Check
 	if nodeGroupIID.NameId == "" && nodeGroupIID.SystemId == "" {
 		return errors.New("failed remove agentPool err = invalid NodeGroup NameId")
 	}
-	agentPools, err := agentPoolsClient.List(ctx, region.Region, *cluster.Name)
-	if err != nil {
-		return errors.New(fmt.Sprintf("failed remove agentPool err = %s", err.Error()))
+
+	var agentPoolList []*armcontainerservice.AgentPool
+
+	pager := agentPoolsClient.NewListPager(region.Region, *cluster.Name, nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return errors.New(fmt.Sprintf("failed autoScalingChange agentPool err = %s", err.Error()))
+		}
+
+		for _, agentPool := range page.Value {
+			agentPoolList = append(agentPoolList, agentPool)
+		}
 	}
+
 	existNodeGroup := false
-	for _, agentPool := range agentPools.Values() {
+	for _, agentPool := range agentPoolList {
 		if nodeGroupIID.NameId == "" {
 			if *agentPool.ID == nodeGroupIID.SystemId {
 				existNodeGroup = true
@@ -1739,17 +1814,13 @@ func deleteNodeGroup(cluster containerservice.ManagedCluster, nodeGroupIID irs.I
 	if !existNodeGroup {
 		return errors.New("failed remove agentPool err = not Exist NodeGroup")
 	}
-	_, err = agentPoolsClient.Delete(ctx, region.Region, *cluster.Name, nodeGroupIID.NameId)
+	_, err := agentPoolsClient.BeginDelete(ctx, region.Region, *cluster.Name, nodeGroupIID.NameId, nil)
 	if err != nil {
 		return errors.New(fmt.Sprintf("failed remove agentPool err = %s", err.Error()))
 	}
-	//err = deleteResult.WaitForCompletionRef(ctx, agentPoolsClient.Client)
-	//if err != nil {
-	//	return errors.New(fmt.Sprintf("failed remove agentPool err = %s", err.Error()))
-	//}
 	return nil
 }
-func addNodeGroupPool(cluster containerservice.ManagedCluster, nodeGroup irs.NodeGroupInfo, ac *AzureClusterHandler) (irs.NodeGroupInfo, error) {
+func addNodeGroupPool(cluster *armcontainerservice.ManagedCluster, nodeGroup irs.NodeGroupInfo, ac *AzureClusterHandler) (irs.NodeGroupInfo, error) {
 	// exist Check
 	if nodeGroup.IId.NameId == "" && nodeGroup.IId.SystemId == "" {
 		return irs.NodeGroupInfo{}, errors.New("failed add agentPool err = invalid NodeGroup NameId")
@@ -1773,12 +1844,24 @@ func addNodeGroupPool(cluster containerservice.ManagedCluster, nodeGroup irs.Nod
 			return irs.NodeGroupInfo{}, errors.New("The SSHkey in the Azure Cluster NodeGroup must all be the same")
 		}
 	}
-	agentPools, err := ac.AgentPoolsClient.List(ac.Ctx, ac.Region.Region, *cluster.Name)
-	if err != nil {
-		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed add agentPool err = %s", err.Error()))
+
+	var agentPoolList []*armcontainerservice.AgentPool
+
+	pager := ac.AgentPoolsClient.NewListPager(ac.Region.Region, *cluster.Name, nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(ac.Ctx)
+		if err != nil {
+			return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed add agentPool err = %s", err.Error()))
+		}
+
+		for _, agentPool := range page.Value {
+			agentPoolList = append(agentPoolList, agentPool)
+		}
 	}
+
 	existNodeGroup := false
-	for _, agentPool := range agentPools.Values() {
+	for _, agentPool := range agentPoolList {
 		if nodeGroup.IId.NameId == "" {
 			if *agentPool.ID == nodeGroup.IId.SystemId {
 				existNodeGroup = true
@@ -1794,7 +1877,7 @@ func addNodeGroupPool(cluster containerservice.ManagedCluster, nodeGroup irs.Nod
 	if existNodeGroup {
 		return irs.NodeGroupInfo{}, errors.New("failed add agentPool err = already Exist NodeGroup")
 	}
-	subnetId, err := getSubnetIdByAgentPoolProfiles(*cluster.AgentPoolProfiles)
+	subnetId, err := getSubnetIdByAgentPoolProfiles(cluster.Properties.AgentPoolProfiles)
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed add agentPool err = %s", err.Error()))
 	}
@@ -1806,16 +1889,16 @@ func addNodeGroupPool(cluster containerservice.ManagedCluster, nodeGroup irs.Nod
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed add agentPool err = %s", err.Error()))
 	}
-	subnet, err := ac.SubnetClient.Get(ac.Ctx, ac.Region.Region, vpcName, subnetName, "")
+	resp, err := ac.SubnetClient.Get(ac.Ctx, ac.Region.Region, vpcName, subnetName, nil)
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed addNodeGroupPool err = %s", err.Error()))
 	}
 	// Add AgentPoolProfiles
-	agentPoolProfileProperties, err := generateAgentPoolProfileProperties(nodeGroup, subnet, ac)
+	agentPoolProfileProperties, err := generateAgentPoolProfileProperties(nodeGroup, resp.Subnet, ac)
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed add agentPool err = %s", err.Error()))
 	}
-	_, err = ac.AgentPoolsClient.CreateOrUpdate(ac.Ctx, ac.Region.Region, *cluster.Name, nodeGroup.IId.NameId, containerservice.AgentPool{ManagedClusterAgentPoolProfileProperties: &agentPoolProfileProperties})
+	_, err = ac.AgentPoolsClient.BeginCreateOrUpdate(ac.Ctx, ac.Region.Region, *cluster.Name, nodeGroup.IId.NameId, armcontainerservice.AgentPool{Properties: &agentPoolProfileProperties}, nil)
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed add agentPool err = %s", err.Error()))
 	}
@@ -1827,7 +1910,7 @@ func addNodeGroupPool(cluster containerservice.ManagedCluster, nodeGroup irs.Nod
 	if err != nil {
 		return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed add agentPool err = %s", err.Error()))
 	}
-	info := convertNodePairToNodeInfo(nodePoolPair, clusterSSHKey, ac.VirtualMachineScaleSetVMsClient, *cluster.NodeResourceGroup, ac.Ctx)
+	info := convertNodePairToNodeInfo(nodePoolPair, clusterSSHKey, ac.VirtualMachineScaleSetVMsClient, *cluster.Properties.NodeResourceGroup, ac.Ctx)
 	//err = result.WaitForCompletionRef(ctx, agentPoolsClient.Client)
 	//if err != nil {
 	//	return irs.NodeGroupInfo{}, errors.New(fmt.Sprintf("failed add agentPool err = %s", err.Error()))
@@ -1843,23 +1926,35 @@ func addNodeGroupPool(cluster containerservice.ManagedCluster, nodeGroup irs.Nod
 	return info, nil
 }
 
-func getClusterSecurityGroup(cluster containerservice.ManagedCluster, securityGroupsClient *network.SecurityGroupsClient, ctx context.Context) ([]network.SecurityGroup, error) {
-	if cluster.ManagedClusterProperties.NodeResourceGroup == nil {
-		return make([]network.SecurityGroup, 0), errors.New("failed get Cluster Managed ResourceGroup")
+func getClusterSecurityGroup(cluster *armcontainerservice.ManagedCluster, securityGroupsClient *armnetwork.SecurityGroupsClient, ctx context.Context) ([]*armnetwork.SecurityGroup, error) {
+	var securityGroupList []*armnetwork.SecurityGroup
+
+	if cluster.Properties.NodeResourceGroup == nil {
+		return securityGroupList, errors.New("failed get Cluster Managed ResourceGroup")
 	}
-	securityGroupList, err := securityGroupsClient.List(ctx, *cluster.ManagedClusterProperties.NodeResourceGroup)
-	if err != nil {
-		return make([]network.SecurityGroup, 0), err
+
+	pager := securityGroupsClient.NewListPager(*cluster.Properties.NodeResourceGroup, nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return securityGroupList, err
+		}
+
+		for _, sg := range page.Value {
+			securityGroupList = append(securityGroupList, sg)
+		}
 	}
-	return securityGroupList.Values(), nil
+
+	return securityGroupList, nil
 }
 
-func waitingClusterBaseSecurityGroup(createdClusterIID irs.IID, managedClustersClient *containerservice.ManagedClustersClient, securityGroupsClient *network.SecurityGroupsClient, ctx context.Context, credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo) (network.SecurityGroup, error) {
+func waitingClusterBaseSecurityGroup(createdClusterIID irs.IID, managedClustersClient *armcontainerservice.ManagedClustersClient, securityGroupsClient *armnetwork.SecurityGroupsClient, ctx context.Context, credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo) (armnetwork.SecurityGroup, error) {
 	// exist Cluster
 	apiCallCount := 0
 	maxAPICallCount := 240
 	var waitingErr error
-	var rawCluster containerservice.ManagedCluster
+	var rawCluster armcontainerservice.ManagedCluster
 	var err error
 
 	for {
@@ -1871,37 +1966,49 @@ func waitingClusterBaseSecurityGroup(createdClusterIID irs.IID, managedClustersC
 		if apiCallCount >= maxAPICallCount {
 			waitingErr = errors.New("failed get Cluster: The maximum number of verification requests has been exceeded while waiting for the creation of that resource, " +
 				"err = " + err.Error())
-			return network.SecurityGroup{}, waitingErr
+			return armnetwork.SecurityGroup{}, waitingErr
 		}
 		time.Sleep(1 * time.Second)
 	}
 
 	// exist basicSecurity in clusterResourceGroup
 	apiCallCount = 0
-	if rawCluster.NodeResourceGroup == nil || *rawCluster.NodeResourceGroup == "" {
-		return network.SecurityGroup{}, errors.New("failed get Cluster Managed ResourceGroup err = Invalid value of NodeResourceGroup for cluster")
+	if rawCluster.Properties.NodeResourceGroup == nil || *rawCluster.Properties.NodeResourceGroup == "" {
+		return armnetwork.SecurityGroup{}, errors.New("failed get Cluster Managed ResourceGroup err = Invalid value of NodeResourceGroup for cluster")
 	}
-	var clusterManagedResourceGroup = *rawCluster.NodeResourceGroup
-	var baseSecurityGroup network.SecurityGroup
+	var clusterManagedResourceGroup = *rawCluster.Properties.NodeResourceGroup
+	var baseSecurityGroup armnetwork.SecurityGroup
 	for {
-		securityGroupList, err := securityGroupsClient.ListAll(ctx)
-		if err == nil && len(securityGroupList.Values()) > 0 {
-			var isSGExist bool
-			for _, sg := range securityGroupList.Values() {
-				if sg.Tags != nil {
-					val, exist := sg.Tags[OwnerClusterKey]
-					if exist && val != nil && *val == *rawCluster.Name {
-						baseSecurityGroup = sg
-						isSGExist = true
-						break
-					}
-				}
-			}
-			if isSGExist {
-				break
+		var securityGroupList []*armnetwork.SecurityGroup
+
+		pager := securityGroupsClient.NewListPager(regionInfo.Region, nil)
+
+		for pager.More() {
+			page, err := pager.NextPage(ctx)
+			if err != nil {
+				return armnetwork.SecurityGroup{}, errors.New("failed get Cluster Managed ResourceGroup err = " + err.Error())
 			}
 
+			for _, securityGroup := range page.Value {
+				securityGroupList = append(securityGroupList, securityGroup)
+			}
 		}
+
+		var isSGExist bool
+		for _, sg := range securityGroupList {
+			if sg.Tags != nil {
+				val, exist := sg.Tags[OwnerClusterKey]
+				if exist && val != nil && *val == *rawCluster.Name {
+					baseSecurityGroup = *sg
+					isSGExist = true
+					break
+				}
+			}
+		}
+		if isSGExist {
+			break
+		}
+
 		apiCallCount++
 		if apiCallCount >= maxAPICallCount {
 			waitingErr = errors.New("failed get Cluster BaseSecurityGroup err = The maximum number of verification requests has been exceeded while waiting for the creation of that resource")
@@ -1910,7 +2017,7 @@ func waitingClusterBaseSecurityGroup(createdClusterIID irs.IID, managedClustersC
 		time.Sleep(1 * time.Second)
 	}
 	if waitingErr != nil {
-		return network.SecurityGroup{}, waitingErr
+		return armnetwork.SecurityGroup{}, waitingErr
 	}
 	// check ClusterBaseRule..
 	apiCallCount = 0
@@ -1918,29 +2025,36 @@ func waitingClusterBaseSecurityGroup(createdClusterIID irs.IID, managedClustersC
 		var isTcp80Exist bool
 		var isTcp443Exist bool
 		var defaultRulesExist bool
-		sg, err := securityGroupsClient.Get(ctx, clusterManagedResourceGroup, *baseSecurityGroup.Name, "")
-		if err == nil && sg.SecurityRules != nil {
-			for _, rule := range *sg.SecurityRules {
-				if rule.Direction == network.SecurityRuleDirectionInbound && rule.Protocol == network.SecurityRuleProtocolTCP {
-					if rule.DestinationPortRanges != nil {
-						for _, portRange := range *rule.DestinationPortRanges {
-							if portRange == "80" {
-								isTcp80Exist = true
-							} else if portRange == "443" {
-								isTcp443Exist = true
-							}
+		resp, err := securityGroupsClient.Get(ctx, clusterManagedResourceGroup, *baseSecurityGroup.Name, nil)
+		if err == nil && resp.SecurityGroup.Properties != nil {
+			for _, rule := range resp.SecurityGroup.Properties.SecurityRules {
+				if rule.Properties.Direction == nil || rule.Properties.Protocol == nil {
+					cblogger.Warn("Failed to get security group info of the cluster!")
+					continue
+				}
+				if *rule.Properties.Direction == armnetwork.SecurityRuleDirectionInbound && *rule.Properties.Protocol == armnetwork.SecurityRuleProtocolTCP {
+					for _, portRange := range rule.Properties.DestinationPortRanges {
+						if portRange == nil {
+							cblogger.Warn("Failed to get security group rule's port range of the cluster!")
+							continue
 						}
 
-						if isTcp80Exist && isTcp443Exist {
-							defaultRulesExist = true
-							break
+						if *portRange == "80" {
+							isTcp80Exist = true
+						} else if *portRange == "443" {
+							isTcp443Exist = true
 						}
 					}
 
-					if rule.DestinationPortRange != nil {
-						if *rule.DestinationPortRange == "80" {
+					if isTcp80Exist && isTcp443Exist {
+						defaultRulesExist = true
+						break
+					}
+
+					if rule.Properties.DestinationPortRange != nil {
+						if *rule.Properties.DestinationPortRange == "80" {
 							isTcp80Exist = true
-						} else if *rule.DestinationPortRange == "443" {
+						} else if *rule.Properties.DestinationPortRange == "443" {
 							isTcp443Exist = true
 						}
 
@@ -1965,46 +2079,46 @@ func waitingClusterBaseSecurityGroup(createdClusterIID irs.IID, managedClustersC
 		time.Sleep(1 * time.Second)
 	}
 	if waitingErr != nil {
-		return network.SecurityGroup{}, waitingErr
+		return armnetwork.SecurityGroup{}, waitingErr
 	}
 	return baseSecurityGroup, nil
 	// exist basicSecurity
 }
 
-func convertNodePairToNodeInfo(nodePoolPair NodePoolPair, clusterCommonSSHKey irs.IID, virtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient, resourceGroupManagedK8s string, ctx context.Context) irs.NodeGroupInfo {
+func convertNodePairToNodeInfo(nodePoolPair NodePoolPair, clusterCommonSSHKey irs.IID, virtualMachineScaleSetVMsClient *armcompute.VirtualMachineScaleSetVMsClient, resourceGroupManagedK8s string, ctx context.Context) irs.NodeGroupInfo {
 	scaleSet := nodePoolPair.virtualMachineScaleSet
 	agentPool := nodePoolPair.AgentPool
 	rootDiskType := ""
-	if reflect.ValueOf(scaleSet.VirtualMachineProfile.StorageProfile.OsDisk.ManagedDisk.StorageAccountType).String() != "" {
-		rootDiskType = GetVMDiskInfoType(scaleSet.VirtualMachineProfile.StorageProfile.OsDisk.ManagedDisk.StorageAccountType)
+	if reflect.ValueOf(scaleSet.Properties.VirtualMachineProfile.StorageProfile.OSDisk.ManagedDisk.StorageAccountType).String() != "" {
+		rootDiskType = GetVMDiskInfoType(scaleSet.Properties.VirtualMachineProfile.StorageProfile.OSDisk.ManagedDisk.StorageAccountType)
 	}
 	VMSpecName := ""
-	if !reflect.ValueOf(scaleSet.Sku.Name).IsNil() {
-		VMSpecName = *scaleSet.Sku.Name
+	if !reflect.ValueOf(scaleSet.SKU.Name).IsNil() {
+		VMSpecName = *scaleSet.SKU.Name
 	}
 	RootDiskSize := ""
-	if !reflect.ValueOf(scaleSet.VirtualMachineProfile.StorageProfile.OsDisk.DiskSizeGB).IsNil() {
-		RootDiskSize = strconv.Itoa(int(*scaleSet.VirtualMachineProfile.StorageProfile.OsDisk.DiskSizeGB))
+	if !reflect.ValueOf(scaleSet.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiskSizeGB).IsNil() {
+		RootDiskSize = strconv.Itoa(int(*scaleSet.Properties.VirtualMachineProfile.StorageProfile.OSDisk.DiskSizeGB))
 	}
 	OnAutoScaling := false
-	if !reflect.ValueOf(agentPool.EnableAutoScaling).IsNil() {
-		OnAutoScaling = *agentPool.EnableAutoScaling
+	if !reflect.ValueOf(agentPool.Properties.EnableAutoScaling).IsNil() {
+		OnAutoScaling = *agentPool.Properties.EnableAutoScaling
 	}
 	DesiredNodeSize := 0
-	if !reflect.ValueOf(agentPool.Count).IsNil() {
-		DesiredNodeSize = int(*agentPool.Count)
+	if !reflect.ValueOf(agentPool.Properties.Count).IsNil() {
+		DesiredNodeSize = int(*agentPool.Properties.Count)
 	}
 	MinNodeSize := 0
-	if !reflect.ValueOf(agentPool.MinCount).IsNil() {
-		MinNodeSize = int(*agentPool.MinCount)
+	if !reflect.ValueOf(agentPool.Properties.MinCount).IsNil() {
+		MinNodeSize = int(*agentPool.Properties.MinCount)
 	}
 	MaxNodeSize := 0
-	if !reflect.ValueOf(agentPool.MaxCount).IsNil() {
-		MaxNodeSize = int(*agentPool.MaxCount)
+	if !reflect.ValueOf(agentPool.Properties.MaxCount).IsNil() {
+		MaxNodeSize = int(*agentPool.Properties.MaxCount)
 	}
 	imageName := ""
-	if !reflect.ValueOf(scaleSet.VirtualMachineProfile.StorageProfile.ImageReference.ID).IsNil() {
-		imageName = *scaleSet.VirtualMachineProfile.StorageProfile.ImageReference.ID
+	if !reflect.ValueOf(scaleSet.Properties.VirtualMachineProfile.StorageProfile.ImageReference.ID).IsNil() {
+		imageName = *scaleSet.Properties.VirtualMachineProfile.StorageProfile.ImageReference.ID
 	}
 	nodeInfo := irs.NodeGroupInfo{
 		IId: irs.IID{
@@ -2026,17 +2140,32 @@ func convertNodePairToNodeInfo(nodePoolPair NodePoolPair, clusterCommonSSHKey ir
 		MaxNodeSize:     MaxNodeSize,
 	}
 	vmIIds := make([]irs.IID, 0)
-	vms, err := virtualMachineScaleSetVMsClient.List(ctx, resourceGroupManagedK8s, *scaleSet.Name, "", "", "")
-	if err == nil {
-		for _, vm := range vms.Values() {
-			vmIIds = append(vmIIds, irs.IID{*vm.Name, *vm.ID})
+
+	var scaleSetList []*armcompute.VirtualMachineScaleSetVM
+
+	pager := virtualMachineScaleSetVMsClient.NewListPager(resourceGroupManagedK8s, *scaleSet.Name, nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			break
+		}
+
+		for _, scSet := range page.Value {
+			scaleSetList = append(scaleSetList, scSet)
 		}
 	}
+
+	for _, vm := range scaleSetList {
+		vmIIds = append(vmIIds, irs.IID{*vm.Name, *vm.ID})
+	}
+
 	nodeInfo.Nodes = vmIIds
+
 	return nodeInfo
 }
 
-func getClusterSSHKey(cluster containerservice.ManagedCluster) (irs.IID, error) {
+func getClusterSSHKey(cluster *armcontainerservice.ManagedCluster) (irs.IID, error) {
 	sshkeyName, sshKeyExist := cluster.Tags[ClusterNodeSSHKeyKey]
 	keyPairIID := irs.IID{}
 
@@ -2047,7 +2176,7 @@ func getClusterSSHKey(cluster containerservice.ManagedCluster) (irs.IID, error) 
 		if err != nil {
 			return irs.IID{}, errors.New("failed get Cluster Node SSHKey err = invalid Cluster ID")
 		}
-		if err == nil && subscriptionsErr == nil {
+		if subscriptionsErr == nil {
 			keyPairIID.SystemId = GetSshKeyIdByName(idrv.CredentialInfo{SubscriptionId: clusterSubscriptionsById}, idrv.RegionInfo{
 				Region: clusterResourceGroup, // Azure uses region as ResourceGroup
 			}, *sshkeyName)
@@ -2056,25 +2185,25 @@ func getClusterSSHKey(cluster containerservice.ManagedCluster) (irs.IID, error) 
 	return keyPairIID, nil
 }
 
-func waitingSpecifiedNodePoolPair(cluster containerservice.ManagedCluster, agentPoolName string, agentPoolsClient *containerservice.AgentPoolsClient, virtualMachineScaleSetsClient *compute.VirtualMachineScaleSetsClient, ctx context.Context) (NodePoolPair, error) {
+func waitingSpecifiedNodePoolPair(cluster *armcontainerservice.ManagedCluster, agentPoolName string, agentPoolsClient *armcontainerservice.AgentPoolsClient, virtualMachineScaleSetsClient *armcompute.VirtualMachineScaleSetsClient, ctx context.Context) (NodePoolPair, error) {
 	clusterResourceGroup, err := getResourceGroupById(*cluster.ID)
 	if err != nil {
 		return NodePoolPair{}, errors.New(fmt.Sprintf("failed get clusterResourceGroup err = %s", err.Error()))
 	}
-	if cluster.NodeResourceGroup == nil {
+	if cluster.Properties.NodeResourceGroup == nil {
 		return NodePoolPair{}, errors.New(fmt.Sprintf("failed get Cluster Managed ResourceGroup err = Invalid value of NodeResourceGroup for cluster"))
 	}
 	clusterManagedResourceGroup := ""
-	clusterManagedResourceGroup = *cluster.NodeResourceGroup
+	clusterManagedResourceGroup = *cluster.Properties.NodeResourceGroup
 	apiCallCount := 0
 	maxAPICallCount := 100
 	returnNodePoolPair := NodePoolPair{}
-	// var targetAgentPool *containerservice.AgentPool
+	// var targetAgentPool *armcontainerservice.AgentPool
 	var waitingErr error
 	for {
-		agentPool, err := agentPoolsClient.Get(ctx, clusterResourceGroup, *cluster.Name, agentPoolName)
+		resp, err := agentPoolsClient.Get(ctx, clusterResourceGroup, *cluster.Name, agentPoolName, nil)
 		if err == nil {
-			returnNodePoolPair.AgentPool = agentPool
+			returnNodePoolPair.AgentPool = resp.AgentPool
 			break
 		}
 		apiCallCount++
@@ -2089,13 +2218,30 @@ func waitingSpecifiedNodePoolPair(cluster containerservice.ManagedCluster, agent
 	}
 	apiCallCount = 0
 	for {
-		scaleSetList, err := virtualMachineScaleSetsClient.List(ctx, clusterManagedResourceGroup)
+		var scaleSetList []*armcompute.VirtualMachineScaleSet
+
+		var page armcompute.VirtualMachineScaleSetsClientListResponse
+		var err error
+
+		pager := virtualMachineScaleSetsClient.NewListPager(clusterManagedResourceGroup, nil)
+
+		for pager.More() {
+			page, err = pager.NextPage(ctx)
+			if err != nil {
+				break
+			}
+
+			for _, scaleSet := range page.Value {
+				scaleSetList = append(scaleSetList, scaleSet)
+			}
+		}
+
 		if err == nil {
 			scaleSetCheck := false
-			for _, scaleSet := range scaleSetList.Values() {
+			for _, scaleSet := range scaleSetList {
 				val, exist := scaleSet.Tags[ScaleSetOwnerKey]
 				if exist && *val == agentPoolName {
-					returnNodePoolPair.virtualMachineScaleSet = scaleSet
+					returnNodePoolPair.virtualMachineScaleSet = *scaleSet
 					scaleSetCheck = true
 					break
 				}
@@ -2144,7 +2290,7 @@ type ServerKubeConfig struct {
 	} `yaml:"users"`
 }
 
-func getClusterAccessInfo(cluster containerservice.ManagedCluster, managedClustersClient *containerservice.ManagedClustersClient, ctx context.Context) (accessInfo irs.AccessInfo, err error) {
+func getClusterAccessInfo(cluster *armcontainerservice.ManagedCluster, managedClustersClient *armcontainerservice.ManagedClustersClient, ctx context.Context) (accessInfo irs.AccessInfo, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = errors.New(fmt.Sprintf("faild get AccessInfo"))
@@ -2155,14 +2301,14 @@ func getClusterAccessInfo(cluster containerservice.ManagedCluster, managedCluste
 	if err != nil {
 		return irs.AccessInfo{}, errors.New(fmt.Sprintf("faild get AccessInfo err = %s", err.Error()))
 	}
-	config, err := managedClustersClient.GetAccessProfile(ctx, clusterResourceGroup, *cluster.Name, ClusterAdminKey)
+	profile, err := managedClustersClient.GetAccessProfile(ctx, clusterResourceGroup, *cluster.Name, ClusterAdminKey, nil)
 	if err != nil {
 		return irs.AccessInfo{}, errors.New(fmt.Sprintf("faild get AccessInfo err = %s", err.Error()))
 	}
-	accessInfo.Kubeconfig = string(*config.KubeConfig)
+	accessInfo.Kubeconfig = string(profile.Properties.KubeConfig)
 
 	kubeConfig := ServerKubeConfig{}
-	err = yaml.Unmarshal(*config.KubeConfig, &kubeConfig)
+	err = yaml.Unmarshal(profile.Properties.KubeConfig, &kubeConfig)
 	if err != nil {
 		return irs.AccessInfo{}, errors.New(fmt.Sprintf("faild get AccessInfo err = %s", err.Error()))
 	}

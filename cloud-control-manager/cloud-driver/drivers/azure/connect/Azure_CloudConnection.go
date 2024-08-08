@@ -13,13 +13,13 @@ package connect
 import (
 	"context"
 	"errors"
+	"github.com/Azure/azure-sdk-for-go/sdk/monitor/azquery"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/subscription/armsubscription"
 
-	"github.com/Azure/azure-sdk-for-go/profiles/2020-09-01/monitor/mgmt/insights"
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2022-03-01/containerservice"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2019-11-01/subscriptions"
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-10-01/resources"
 	cblog "github.com/cloud-barista/cb-log"
 	azrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -38,32 +38,32 @@ type AzureCloudConnection struct {
 	CredentialInfo                  idrv.CredentialInfo
 	Region                          idrv.RegionInfo
 	Ctx                             context.Context
-	Client                          *subscriptions.Client
-	VMClient                        *compute.VirtualMachinesClient
-	ImageClient                     *compute.ImagesClient
-	VMImageClient                   *compute.VirtualMachineImagesClient
-	PublicIPClient                  *network.PublicIPAddressesClient
-	SecurityGroupClient             *network.SecurityGroupsClient
-	SecurityGroupRuleClient         *network.SecurityRulesClient
-	VNetClient                      *network.VirtualNetworksClient
-	VNicClient                      *network.InterfacesClient
-	IPConfigClient                  *network.InterfaceIPConfigurationsClient
-	SubnetClient                    *network.SubnetsClient
-	DiskClient                      *compute.DisksClient
-	VmSpecClient                    *compute.VirtualMachineSizesClient
-	SshKeyClient                    *compute.SSHPublicKeysClient
-	NLBClient                       *network.LoadBalancersClient
-	NLBBackendAddressPoolsClient    *network.LoadBalancerBackendAddressPoolsClient
-	NLBLoadBalancingRulesClient     *network.LoadBalancerLoadBalancingRulesClient
-	MetricClient                    *insights.MetricsClient
-	ManagedClustersClient           *containerservice.ManagedClustersClient
-	AgentPoolsClient                *containerservice.AgentPoolsClient
-	VirtualMachineScaleSetsClient   *compute.VirtualMachineScaleSetsClient
-	VirtualMachineScaleSetVMsClient *compute.VirtualMachineScaleSetVMsClient
-	VirtualMachineRunCommandsClient *compute.VirtualMachineRunCommandsClient
-	GroupsClient                    *resources.GroupsClient
-	ResourceSkusClient              *compute.ResourceSkusClient
-	TagsClient											*resources.TagsClient
+	SubscriptionsClient             *armsubscription.SubscriptionsClient
+	VMClient                        *armcompute.VirtualMachinesClient
+	ImageClient                     *armcompute.ImagesClient
+	VMImageClient                   *armcompute.VirtualMachineImagesClient
+	PublicIPClient                  *armnetwork.PublicIPAddressesClient
+	SecurityGroupClient             *armnetwork.SecurityGroupsClient
+	SecurityGroupRuleClient         *armnetwork.SecurityRulesClient
+	VNetClient                      *armnetwork.VirtualNetworksClient
+	VNicClient                      *armnetwork.InterfacesClient
+	IPConfigClient                  *armnetwork.InterfaceIPConfigurationsClient
+	SubnetClient                    *armnetwork.SubnetsClient
+	DiskClient                      *armcompute.DisksClient
+	VmSpecClient                    *armcompute.VirtualMachineSizesClient
+	SshKeyClient                    *armcompute.SSHPublicKeysClient
+	NLBClient                       *armnetwork.LoadBalancersClient
+	NLBBackendAddressPoolsClient    *armnetwork.LoadBalancerBackendAddressPoolsClient
+	NLBLoadBalancingRulesClient     *armnetwork.LoadBalancerLoadBalancingRulesClient
+	MetricClient                    *azquery.MetricsClient
+	ManagedClustersClient           *armcontainerservice.ManagedClustersClient
+	AgentPoolsClient                *armcontainerservice.AgentPoolsClient
+	VirtualMachineScaleSetsClient   *armcompute.VirtualMachineScaleSetsClient
+	VirtualMachineScaleSetVMsClient *armcompute.VirtualMachineScaleSetVMsClient
+	VirtualMachineRunCommandsClient *armcompute.VirtualMachineRunCommandsClient
+	ResourceGroupsClient            *armresources.ResourceGroupsClient
+	ResourceSKUsClient              *armcompute.ResourceSKUsClient
+	TagsClient                      *armresources.TagsClient
 }
 
 func (cloudConn *AzureCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
@@ -179,12 +179,12 @@ func (cloudConn *AzureCloudConnection) CreateMyImageHandler() (irs.MyImageHandle
 func (cloudConn *AzureCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateRegionZoneHandler()!")
 	regionZoneHandler := azrs.AzureRegionZoneHandler{
-		CredentialInfo:     cloudConn.CredentialInfo,
-		Region:             cloudConn.Region,
-		Ctx:                cloudConn.Ctx,
-		Client:             cloudConn.Client,
-		GroupsClient:       cloudConn.GroupsClient,
-		ResourceSkusClient: cloudConn.ResourceSkusClient,
+		CredentialInfo:      cloudConn.CredentialInfo,
+		Region:              cloudConn.Region,
+		Ctx:                 cloudConn.Ctx,
+		SubscriptionsClient: cloudConn.SubscriptionsClient,
+		GroupsClient:        cloudConn.ResourceGroupsClient,
+		ResourceSkusClient:  cloudConn.ResourceSKUsClient,
 	}
 	return &regionZoneHandler, nil
 }
@@ -195,7 +195,7 @@ func (cloudConn *AzureCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHa
 		CredentialInfo:     cloudConn.CredentialInfo,
 		Region:             cloudConn.Region,
 		Ctx:                cloudConn.Ctx,
-		ResourceSkusClient: cloudConn.ResourceSkusClient,
+		ResourceSkusClient: cloudConn.ResourceSKUsClient,
 	}
 	return &priceInfoHandler, nil
 }
@@ -214,9 +214,6 @@ func (cloudConn *AzureCloudConnection) CreateClusterHandler() (irs.ClusterHandle
 		CredentialInfo:                  cloudConn.CredentialInfo,
 		Region:                          cloudConn.Region,
 		Ctx:                             cloudConn.Ctx,
-		Client:                          cloudConn.Client,
-		GroupsClient:                    cloudConn.GroupsClient,
-		ResourceSkusClient:              cloudConn.ResourceSkusClient,
 		ManagedClustersClient:           cloudConn.ManagedClustersClient,
 		VirtualNetworksClient:           cloudConn.VNetClient,
 		AgentPoolsClient:                cloudConn.AgentPoolsClient,
@@ -239,9 +236,9 @@ func (cloudConn *AzureCloudConnection) CreateTagHandler() (irs.TagHandler, error
 	cblogger.Info("Azure Cloud Driver: called CreateTagHandler()!")
 	tagHandler := azrs.AzureTagHandler{
 		CredentialInfo: cloudConn.CredentialInfo,
-		Region : cloudConn.Region,
-		Ctx    : cloudConn.Ctx,
-		Client : cloudConn.TagsClient,
+		Region:         cloudConn.Region,
+		Ctx:            cloudConn.Ctx,
+		Client:         cloudConn.TagsClient,
 	}
 	return &tagHandler, nil
 	// return nil, errors.New("Azure Driver: not implemented")

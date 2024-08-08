@@ -4,11 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"strconv"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
-	"github.com/Azure/go-autorest/autorest/to"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -18,8 +17,8 @@ type AzureDiskHandler struct {
 	CredentialInfo idrv.CredentialInfo
 	Region         idrv.RegionInfo
 	Ctx            context.Context
-	VMClient       *compute.VirtualMachinesClient
-	DiskClient     *compute.DisksClient
+	VMClient       *armcompute.VirtualMachinesClient
+	DiskClient     *armcompute.DisksClient
 }
 
 func (diskHandler *AzureDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (diskInfo irs.DiskInfo, createErr error) {
@@ -39,14 +38,14 @@ func (diskHandler *AzureDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (diskI
 		LoggingError(hiscallInfo, createErr)
 		return irs.DiskInfo{}, createErr
 	}
-	diskSku := compute.DiskSku{
-		Name: diskType,
+	diskSKU := armcompute.DiskSKU{
+		Name: &diskType,
 	}
 	// Create Tag
 	tags := setTags(DiskReqInfo.TagList)
 
-	creationData := compute.CreationData{
-		CreateOption: compute.DiskCreateOptionEmpty,
+	creationData := armcompute.CreationData{
+		CreateOption: (*armcompute.DiskCreateOption)(toStrPtr(string(armcompute.DiskCreateOptionEmpty))),
 	}
 
 	diskSizeInt, err := strconv.Atoi(DiskReqInfo.DiskSize)
@@ -60,30 +59,30 @@ func (diskHandler *AzureDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (diskI
 		LoggingError(hiscallInfo, createErr)
 		return irs.DiskInfo{}, createErr
 	}
-	diskProperties := compute.DiskProperties{
-		DiskSizeGB:   to.Int32Ptr(int32(diskSizeInt)),
+	diskProperties := armcompute.DiskProperties{
+		DiskSizeGB:   toInt32Ptr(diskSizeInt),
 		CreationData: &creationData,
 	}
-	diskCreateOpt := compute.Disk{
-		DiskProperties: &diskProperties,
-		Sku:            &diskSku,
-		Location:       to.StringPtr(diskHandler.Region.Region),
-		Tags: tags,
+	diskCreateOpt := armcompute.Disk{
+		Properties: &diskProperties,
+		SKU:        &diskSKU,
+		Location:   &diskHandler.Region.Region,
+		Tags:       tags,
 	}
 	// Setting zone if available
 	if diskHandler.Region.Zone != "" {
-		diskCreateOpt.Zones = &[]string{
-			DiskReqInfo.Zone,
+		diskCreateOpt.Zones = []*string{
+			&DiskReqInfo.Zone,
 		}
 	}
-	result, err := diskHandler.DiskClient.CreateOrUpdate(diskHandler.Ctx, diskHandler.Region.Region, DiskReqInfo.IId.NameId, diskCreateOpt)
+	poller, err := diskHandler.DiskClient.BeginCreateOrUpdate(diskHandler.Ctx, diskHandler.Region.Region, DiskReqInfo.IId.NameId, diskCreateOpt, nil)
 	if err != nil {
 		createErr = errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.DiskInfo{}, createErr
 	}
-	err = result.WaitForCompletionRef(diskHandler.Ctx, diskHandler.DiskClient.Client)
+	_, err = poller.PollUntilDone(diskHandler.Ctx, nil)
 	if err != nil {
 		createErr = errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
@@ -104,7 +103,7 @@ func (diskHandler *AzureDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (diskI
 		LoggingError(hiscallInfo, getErr)
 		return irs.DiskInfo{}, getErr
 	}
-	info, err := setterDiskInfo(disk)
+	info, err := setterDiskInfo(&disk)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Get Disk. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -117,15 +116,27 @@ func (diskHandler *AzureDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (diskI
 func (diskHandler *AzureDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	hiscallInfo := GetCallLogScheme(diskHandler.Region, call.DISK, "DISK", "ListDisk()")
 	start := call.Start()
-	diskList, err := diskHandler.DiskClient.ListByResourceGroup(diskHandler.Ctx, diskHandler.Region.Region)
-	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err.Error()))
-		cblogger.Error(getErr.Error())
-		LoggingError(hiscallInfo, getErr)
-		return []*irs.DiskInfo{}, getErr
+
+	var diskList []*armcompute.Disk
+
+	pager := diskHandler.DiskClient.NewListPager(nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(diskHandler.Ctx)
+		if err != nil {
+			getErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err.Error()))
+			cblogger.Error(getErr.Error())
+			LoggingError(hiscallInfo, getErr)
+			return []*irs.DiskInfo{}, getErr
+		}
+
+		for _, disk := range page.Value {
+			diskList = append(diskList, disk)
+		}
 	}
+
 	var diskStatusList []*irs.DiskInfo
-	for _, disk := range diskList.Values() {
+	for _, disk := range diskList {
 		diskStatus, err := setterDiskInfo(disk)
 		if err != nil {
 			getErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err.Error()))
@@ -156,7 +167,7 @@ func (diskHandler *AzureDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, err
 		return irs.DiskInfo{}, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
-	info, err := setterDiskInfo(disk)
+	info, err := setterDiskInfo(&disk)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Get Disk. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -184,7 +195,7 @@ func (diskHandler *AzureDiskHandler) ChangeDiskSize(diskIID irs.IID, size string
 		return false, changeDiskSizeErr
 	}
 	// size Check
-	newSize, err := checkSize(size, *sizeChangeDisk.DiskSizeGB)
+	newSize, err := checkSize(size, *sizeChangeDisk.Properties.DiskSizeGB)
 	if err != nil {
 		changeDiskSizeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", err.Error()))
 		cblogger.Error(changeDiskSizeErr.Error())
@@ -200,19 +211,19 @@ func (diskHandler *AzureDiskHandler) ChangeDiskSize(diskIID irs.IID, size string
 		return false, changeDiskSizeErr
 	}
 	// Size Change
-	diskUpdateOpt := compute.DiskUpdate{
-		DiskUpdateProperties: &compute.DiskUpdateProperties{
-			DiskSizeGB: to.Int32Ptr(newSize),
+	diskUpdateOpt := armcompute.DiskUpdate{
+		Properties: &armcompute.DiskUpdateProperties{
+			DiskSizeGB: &newSize,
 		},
 	}
-	result, err := diskHandler.DiskClient.Update(diskHandler.Ctx, diskHandler.Region.Region, *sizeChangeDisk.Name, diskUpdateOpt)
+	poller, err := diskHandler.DiskClient.BeginUpdate(diskHandler.Ctx, diskHandler.Region.Region, *sizeChangeDisk.Name, diskUpdateOpt, nil)
 	if err != nil {
 		changeDiskSizeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", err.Error()))
 		cblogger.Error(changeDiskSizeErr.Error())
 		LoggingError(hiscallInfo, changeDiskSizeErr)
 		return false, changeDiskSizeErr
 	}
-	err = result.WaitForCompletionRef(diskHandler.Ctx, diskHandler.DiskClient.Client)
+	_, err = poller.PollUntilDone(diskHandler.Ctx, nil)
 	if err != nil {
 		changeDiskSizeErr := errors.New(fmt.Sprintf("Failed to ChangeDiskSize. err = %s", err.Error()))
 		cblogger.Error(changeDiskSizeErr.Error())
@@ -247,14 +258,14 @@ func (diskHandler *AzureDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 		LoggingError(hiscallInfo, deleteDiskSizeErr)
 		return false, deleteDiskSizeErr
 	}
-	result, err := diskHandler.DiskClient.Delete(diskHandler.Ctx, diskHandler.Region.Region, convertedDiskIId.NameId)
+	poller, err := diskHandler.DiskClient.BeginDelete(diskHandler.Ctx, diskHandler.Region.Region, convertedDiskIId.NameId, nil)
 	if err != nil {
 		deleteDiskSizeErr := errors.New(fmt.Sprintf("Failed to DeleteDisk. err = %s", err.Error()))
 		cblogger.Error(deleteDiskSizeErr.Error())
 		LoggingError(hiscallInfo, deleteDiskSizeErr)
 		return false, deleteDiskSizeErr
 	}
-	err = result.WaitForCompletionRef(diskHandler.Ctx, diskHandler.DiskClient.Client)
+	_, err = poller.PollUntilDone(diskHandler.Ctx, nil)
 	if err != nil {
 		deleteDiskSizeErr := errors.New(fmt.Sprintf("Failed to DeleteDisk. err = %s", err.Error()))
 		cblogger.Error(deleteDiskSizeErr.Error())
@@ -276,7 +287,7 @@ func (diskHandler *AzureDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID
 		LoggingError(hiscallInfo, attachErr)
 		return irs.DiskInfo{}, attachErr
 	}
-	info, err := setterDiskInfo(disk)
+	info, err := setterDiskInfo(&disk)
 	if err != nil {
 		attachErr := errors.New(fmt.Sprintf("Failed to AttachDisk. err = %s", err.Error()))
 		cblogger.Error(attachErr.Error())
@@ -318,14 +329,14 @@ func (diskHandler *AzureDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID
 		LoggingError(hiscallInfo, dettachErr)
 		return false, dettachErr
 	}
-	vmManagedDiskList := *vm.StorageProfile.DataDisks
+	vmManagedDiskList := vm.Properties.StorageProfile.DataDisks
 	if len(vmManagedDiskList) == 0 || vmManagedDiskList == nil {
 		dettachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. Not Eixst Disk : %s", diskIID.NameId))
 		cblogger.Error(dettachErr.Error())
 		LoggingError(hiscallInfo, dettachErr)
 		return false, dettachErr
 	}
-	var newDiskList []compute.DataDisk
+	var newDiskList []*armcompute.DataDisk
 	diskExistCheck := false
 	for _, vmManagedDisk := range vmManagedDiskList {
 		if *vmManagedDisk.ManagedDisk.ID == *detachDisk.ID {
@@ -340,25 +351,22 @@ func (diskHandler *AzureDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID
 		LoggingError(hiscallInfo, dettachErr)
 		return false, dettachErr
 	}
-	if len(newDiskList) == 0 {
-		newDiskList = make([]compute.DataDisk, 0)
-	}
-	vmOpts := compute.VirtualMachine{
-		Location: to.StringPtr(diskHandler.Region.Region),
-		VirtualMachineProperties: &compute.VirtualMachineProperties{
-			StorageProfile: &compute.StorageProfile{
-				DataDisks: &newDiskList,
+	vmOpts := armcompute.VirtualMachine{
+		Location: &diskHandler.Region.Region,
+		Properties: &armcompute.VirtualMachineProperties{
+			StorageProfile: &armcompute.StorageProfile{
+				DataDisks: newDiskList,
 			},
 		},
 	}
-	feature, err := diskHandler.VMClient.CreateOrUpdate(diskHandler.Ctx, diskHandler.Region.Region, *vm.Name, vmOpts)
+	poller, err := diskHandler.VMClient.BeginCreateOrUpdate(diskHandler.Ctx, diskHandler.Region.Region, *vm.Name, vmOpts, nil)
 	if err != nil {
 		dettachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. err = %s", err.Error()))
 		cblogger.Error(dettachErr.Error())
 		LoggingError(hiscallInfo, dettachErr)
 		return false, dettachErr
 	}
-	err = feature.WaitForCompletionRef(diskHandler.Ctx, diskHandler.VMClient.Client)
+	_, err = poller.PollUntilDone(diskHandler.Ctx, nil)
 	if err != nil {
 		dettachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. err = %s", err.Error()))
 		cblogger.Error(dettachErr.Error())
@@ -369,41 +377,57 @@ func (diskHandler *AzureDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID
 	return true, nil
 }
 
-func GetRawDisk(diskIID irs.IID, resourceGroup string, client *compute.DisksClient, ctx context.Context) (compute.Disk, error) {
+func GetRawDisk(diskIID irs.IID, resourceGroup string, client *armcompute.DisksClient, ctx context.Context) (armcompute.Disk, error) {
 	if diskIID.NameId == "" {
-		diskList, err := client.ListByResourceGroup(ctx, resourceGroup)
-		if err != nil {
-			return compute.Disk{}, err
+		var diskList []*armcompute.Disk
+
+		pager := client.NewListPager(nil)
+
+		for pager.More() {
+			page, err := pager.NextPage(ctx)
+			if err != nil {
+				return armcompute.Disk{}, err
+			}
+
+			for _, disk := range page.Value {
+				diskList = append(diskList, disk)
+			}
 		}
-		for _, disk := range diskList.Values() {
+
+		for _, disk := range diskList {
 			if *disk.ID == diskIID.SystemId {
-				return disk, nil
+				return *disk, nil
 			}
 		}
 		notExistVpcErr := errors.New(fmt.Sprintf("The Disk id %s not found", diskIID.SystemId))
-		return compute.Disk{}, notExistVpcErr
+		return armcompute.Disk{}, notExistVpcErr
 	} else {
-		return client.Get(ctx, resourceGroup, diskIID.NameId)
+		resp, err := client.Get(ctx, resourceGroup, diskIID.NameId, nil)
+		if err != nil {
+			return armcompute.Disk{}, err
+		}
+
+		return resp.Disk, nil
 	}
 }
 
-func setterDiskInfo(disk compute.Disk) (*irs.DiskInfo, error) {
+func setterDiskInfo(disk *armcompute.Disk) (*irs.DiskInfo, error) {
 	diskStatus := irs.DiskInfo{
 		IId: irs.IID{
 			NameId:   *disk.Name,
 			SystemId: *disk.ID,
 		},
 	}
-	if disk.Sku != nil {
-		diskStatus.DiskType = GetDiskInfoType(disk.Sku.Name)
+	if disk.SKU != nil {
+		diskStatus.DiskType = GetDiskInfoType(*disk.SKU.Name)
 	}
-	if disk.DiskProperties != nil {
-		if disk.DiskProperties.DiskSizeGB != nil {
-			diskStatus.DiskSize = strconv.Itoa(int(*disk.DiskProperties.DiskSizeGB))
+	if disk.Properties != nil {
+		if disk.Properties.DiskSizeGB != nil {
+			diskStatus.DiskSize = strconv.Itoa(int(*disk.Properties.DiskSizeGB))
 		}
 		//https://docs.microsoft.com/en-us/dotnet/api/microsoft.azure.management.compute.models.galleryprovisioningstate?view=azure-dotnet
-		if disk.DiskProperties.ProvisioningState != nil {
-			switch *disk.DiskProperties.ProvisioningState {
+		if disk.Properties.ProvisioningState != nil {
+			switch *disk.Properties.ProvisioningState {
 			case "Creating":
 				diskStatus.Status = irs.DiskCreating
 			case "Deleting":
@@ -413,14 +437,14 @@ func setterDiskInfo(disk compute.Disk) (*irs.DiskInfo, error) {
 			case "Migrating", "Updating":
 				diskStatus.Status = irs.DiskAttached
 			case "Succeeded":
-				if disk.DiskProperties.DiskState == compute.DiskStateUnattached {
+				if *disk.Properties.DiskState == armcompute.DiskStateUnattached {
 					diskStatus.Status = irs.DiskAvailable
 				} else {
 					diskStatus.Status = irs.DiskAttached
 				}
 			}
 		}
-		diskStatus.CreatedTime = disk.DiskProperties.TimeCreated.Time
+		diskStatus.CreatedTime = *disk.Properties.TimeCreated
 	}
 	if disk.ManagedBy != nil && *disk.ManagedBy != "" {
 		vmName, err := GetVMNameById(*disk.ManagedBy)
@@ -431,10 +455,8 @@ func setterDiskInfo(disk compute.Disk) (*irs.DiskInfo, error) {
 			}
 		}
 	}
-	if disk.Zones != nil {
-		if len(*disk.Zones) > 0 {
-			diskStatus.Zone = (*disk.Zones)[0]
-		}
+	if len(disk.Zones) > 0 {
+		diskStatus.Zone = *disk.Zones[0]
 	}
 	if disk.Tags != nil {
 		diskStatus.TagList = setTagList(disk.Tags)
@@ -495,12 +517,23 @@ func (diskHandler *AzureDiskHandler) validationDiskReq(diskReq irs.DiskInfo) err
 	return nil
 }
 
-func CheckExistDisk(diskIID irs.IID, resourceGroup string, client *compute.DisksClient, ctx context.Context) (bool, error) {
-	diskList, err := client.ListByResourceGroup(ctx, resourceGroup)
-	if err != nil {
-		return false, err
+func CheckExistDisk(diskIID irs.IID, resourceGroup string, client *armcompute.DisksClient, ctx context.Context) (bool, error) {
+	var diskList []*armcompute.Disk
+
+	pager := client.NewListPager(nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return false, err
+		}
+
+		for _, disk := range page.Value {
+			diskList = append(diskList, disk)
+		}
 	}
-	for _, disk := range diskList.Values() {
+
+	for _, disk := range diskList {
 		if diskIID.SystemId != "" && diskIID.SystemId == *disk.ID {
 			return true, nil
 		}
@@ -511,12 +544,15 @@ func CheckExistDisk(diskIID irs.IID, resourceGroup string, client *compute.Disks
 	return false, nil
 }
 
-func getMinDataDiskLun(dataDisks *[]compute.DataDisk) (int32, error) {
-	if dataDisks == nil || len(*dataDisks) == 0 {
+func getMinDataDiskLun(dataDisks []*armcompute.DataDisk) (int32, error) {
+	if len(dataDisks) == 0 {
 		return int32(0), nil
 	}
-	oldlunIntArray := make([]int32, len(*dataDisks))
-	for i, disk := range *dataDisks {
+	oldlunIntArray := make([]int32, len(dataDisks))
+	for i, disk := range dataDisks {
+		if disk == nil {
+			continue
+		}
 		oldlunIntArray[i] = *disk.Lun
 	}
 	for lunNum := 0; lunNum < 64; lunNum++ {
@@ -546,156 +582,155 @@ func checkSize(newSize string, oldSize int32) (int32, error) {
 	return int32(newSizeNum), nil
 }
 
-func checkChangeStatus(disk compute.Disk) error {
-	if disk.DiskProperties != nil && disk.DiskProperties.ProvisioningState != nil {
-		if *disk.DiskProperties.ProvisioningState == "Succeeded" && (disk.DiskProperties.DiskState == compute.DiskStateUnattached || disk.DiskProperties.DiskState == compute.DiskStateReserved) {
+func checkChangeStatus(disk armcompute.Disk) error {
+	if disk.Properties != nil && disk.Properties.ProvisioningState != nil && disk.Properties.DiskState != nil {
+		if *disk.Properties.ProvisioningState == "Succeeded" && (*disk.Properties.DiskState == armcompute.DiskStateUnattached || *disk.Properties.DiskState == armcompute.DiskStateReserved) {
 			return nil
 		}
 	}
 	return errors.New(fmt.Sprintf("Resizing is only possible if it is mounted on a VM in the deallocated state or if it is in the Unattached state."))
 }
 
-func checkDeleteStatus(disk compute.Disk) error {
-	if disk.DiskProperties != nil && disk.DiskProperties.ProvisioningState != nil {
-		if *disk.DiskProperties.ProvisioningState == "Succeeded" && (disk.DiskProperties.DiskState == compute.DiskStateUnattached || disk.DiskProperties.DiskState == compute.DiskStateReserved) {
+func checkDeleteStatus(disk armcompute.Disk) error {
+	if disk.Properties != nil && disk.Properties.ProvisioningState != nil && disk.Properties.DiskState != nil {
+		if *disk.Properties.ProvisioningState == "Succeeded" && (*disk.Properties.DiskState == armcompute.DiskStateUnattached || *disk.Properties.DiskState == armcompute.DiskStateReserved) {
 			return nil
 		}
 	}
 	return errors.New(fmt.Sprintf("Deleting is only possible if it is mounted on a VM in the deallocated state or if it is in the Unattached state."))
 }
 
-func CheckAttachStatus(disk compute.Disk) error {
-	if disk.DiskProperties != nil && disk.DiskProperties.ProvisioningState != nil {
-		if *disk.DiskProperties.ProvisioningState == "Succeeded" && disk.DiskProperties.DiskState == compute.DiskStateUnattached {
+func CheckAttachStatus(disk *armcompute.Disk) error {
+	if disk.Properties != nil && disk.Properties.ProvisioningState != nil && disk.Properties.DiskState != nil {
+		if *disk.Properties.ProvisioningState == "Succeeded" && *disk.Properties.DiskState == armcompute.DiskStateUnattached {
 			return nil
 		}
 	}
 	return errors.New(fmt.Sprintf("Attach is only available when UnAttached"))
 }
 
-func Attach(diskIID irs.IID, ownerVM irs.IID, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context, vmClient *compute.VirtualMachinesClient, diskClient *compute.DisksClient) (compute.Disk, error) {
-
+func Attach(diskIID irs.IID, ownerVM irs.IID, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context, vmClient *armcompute.VirtualMachinesClient, diskClient *armcompute.DisksClient) (armcompute.Disk, error) {
 	convertedDiskIId, err := ConvertDiskIID(diskIID, credentialInfo, region)
 	if err != nil {
-		return compute.Disk{}, err
+		return armcompute.Disk{}, err
 	}
 	disk, err := GetRawDisk(convertedDiskIId, region.Region, diskClient, ctx)
 	if err != nil {
-		return compute.Disk{}, err
+		return armcompute.Disk{}, err
 	}
-	err = CheckAttachStatus(disk)
+	err = CheckAttachStatus(&disk)
 	if err != nil {
-		return compute.Disk{}, err
+		return armcompute.Disk{}, err
 	}
 	convertedVMIId, err := ConvertVMIID(ownerVM, credentialInfo, region)
 	if err != nil {
-		return compute.Disk{}, errors.New(fmt.Sprintf("GetVM err = %s", err))
+		return armcompute.Disk{}, errors.New(fmt.Sprintf("GetVM err = %s", err))
 	}
 	vm, err := GetRawVM(convertedVMIId, region.Region, vmClient, ctx)
 	if err != nil {
-		return compute.Disk{}, errors.New(fmt.Sprintf("GetVM err = %s", err))
+		return armcompute.Disk{}, errors.New(fmt.Sprintf("GetVM err = %s", err))
 	}
-	oldDataDisks := *vm.StorageProfile.DataDisks
-	minLunNums, err := getMinDataDiskLun(&oldDataDisks)
+	oldDataDisks := vm.Properties.StorageProfile.DataDisks
+	minLunNums, err := getMinDataDiskLun(oldDataDisks)
 	if err != nil {
-		return compute.Disk{}, err
+		return armcompute.Disk{}, err
 	}
-	oldDataDisks = append(oldDataDisks, compute.DataDisk{
-		Lun:          to.Int32Ptr(minLunNums),
-		CreateOption: compute.DiskCreateOptionTypesAttach,
-		ManagedDisk: &compute.ManagedDiskParameters{
-			ID: to.StringPtr(*disk.ID),
+	oldDataDisks = append(oldDataDisks, &armcompute.DataDisk{
+		Lun:          &minLunNums,
+		CreateOption: (*armcompute.DiskCreateOptionTypes)(toStrPtr(string(armcompute.DiskCreateOptionTypesAttach))),
+		ManagedDisk: &armcompute.ManagedDiskParameters{
+			ID: disk.ID,
 		},
 	})
-	vmOpts := compute.VirtualMachine{
-		Location: to.StringPtr(region.Region),
-		VirtualMachineProperties: &compute.VirtualMachineProperties{
-			StorageProfile: &compute.StorageProfile{
-				DataDisks: &oldDataDisks,
+	vmOpts := armcompute.VirtualMachine{
+		Location: toStrPtr(region.Region),
+		Properties: &armcompute.VirtualMachineProperties{
+			StorageProfile: &armcompute.StorageProfile{
+				DataDisks: oldDataDisks,
 			},
 		},
 	}
-	feature, err := vmClient.CreateOrUpdate(ctx, region.Region, *vm.Name, vmOpts)
+	poller, err := vmClient.BeginCreateOrUpdate(ctx, region.Region, *vm.Name, vmOpts, nil)
 	if err != nil {
-		return compute.Disk{}, err
+		return armcompute.Disk{}, err
 	}
-	err = feature.WaitForCompletionRef(ctx, vmClient.Client)
+	_, err = poller.PollUntilDone(ctx, nil)
 	if err != nil {
-		return compute.Disk{}, err
+		return armcompute.Disk{}, err
 	}
 	disk, err = GetRawDisk(convertedDiskIId, region.Region, diskClient, ctx)
 	if err != nil {
-		return compute.Disk{}, err
+		return armcompute.Disk{}, err
 	}
 	return disk, err
 }
 
-func AttachList(diskIIDList []irs.IID, ownerVM irs.IID, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context, vmClient *compute.VirtualMachinesClient, diskClient *compute.DisksClient) (compute.VirtualMachine, error) {
-	rawDataDiskList := make([]compute.Disk, len(diskIIDList))
+func AttachList(diskIIDList []irs.IID, ownerVM irs.IID, credentialInfo idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context, vmClient *armcompute.VirtualMachinesClient, diskClient *armcompute.DisksClient) (armcompute.VirtualMachine, error) {
+	rawDataDiskList := make([]armcompute.Disk, len(diskIIDList))
 	// get RawDisk List
 	if len(diskIIDList) > 0 {
 		for i, dataDiskIID := range diskIIDList {
 			convertedDiskIId, err := ConvertDiskIID(dataDiskIID, credentialInfo, region)
 			if err != nil {
 				convertErr := errors.New(fmt.Sprintf("Failed to get DataDisk err = %s", err.Error()))
-				return compute.VirtualMachine{}, convertErr
+				return armcompute.VirtualMachine{}, convertErr
 			}
 			disk, err := GetRawDisk(convertedDiskIId, region.Region, diskClient, ctx)
 			if err != nil {
 				convertErr := errors.New(fmt.Sprintf("Failed to get DataDisk err = %s", err.Error()))
-				return compute.VirtualMachine{}, convertErr
+				return armcompute.VirtualMachine{}, convertErr
 			}
-			err = CheckAttachStatus(disk)
+			err = CheckAttachStatus(&disk)
 			if err != nil {
-				return compute.VirtualMachine{}, err
+				return armcompute.VirtualMachine{}, err
 			}
 			rawDataDiskList[i] = disk
 		}
 	} else {
-		return compute.VirtualMachine{}, nil
+		return armcompute.VirtualMachine{}, nil
 	}
 	convertedVMIId, err := ConvertVMIID(ownerVM, credentialInfo, region)
 	if err != nil {
-		return compute.VirtualMachine{}, errors.New(fmt.Sprintf("Failed to get VM err = %s", err))
+		return armcompute.VirtualMachine{}, errors.New(fmt.Sprintf("Failed to get VM err = %s", err))
 	}
 	vm, err := GetRawVM(convertedVMIId, region.Region, vmClient, ctx)
 	if err != nil {
-		return compute.VirtualMachine{}, errors.New(fmt.Sprintf("Failed to get VMerr = %s", err))
+		return armcompute.VirtualMachine{}, errors.New(fmt.Sprintf("Failed to get VMerr = %s", err))
 	}
-	oldDataDisks := *vm.StorageProfile.DataDisks
-
-	minLunNums, err := getMinDataDiskLun(&oldDataDisks)
+	oldDataDisks := vm.Properties.StorageProfile.DataDisks
+	minLunNums, err := getMinDataDiskLun(oldDataDisks)
 	if err != nil {
-		return compute.VirtualMachine{}, err
+		return armcompute.VirtualMachine{}, err
 	}
 	for i, rawDisk := range rawDataDiskList {
-		oldDataDisks = append(oldDataDisks, compute.DataDisk{
-			Lun:          to.Int32Ptr(minLunNums + int32(i)),
-			CreateOption: compute.DiskCreateOptionTypesAttach,
-			ManagedDisk: &compute.ManagedDiskParameters{
-				ID: to.StringPtr(*rawDisk.ID),
+		createOption := armcompute.DiskCreateOptionTypesAttach
+		oldDataDisks = append(oldDataDisks, &armcompute.DataDisk{
+			Lun:          toInt32Ptr(int(minLunNums) + i),
+			CreateOption: &createOption,
+			ManagedDisk: &armcompute.ManagedDiskParameters{
+				ID: rawDisk.ID,
 			},
 		})
 	}
-	vmOpts := compute.VirtualMachine{
-		Location: to.StringPtr(region.Region),
-		VirtualMachineProperties: &compute.VirtualMachineProperties{
-			StorageProfile: &compute.StorageProfile{
-				DataDisks: &oldDataDisks,
+	vmOpts := armcompute.VirtualMachine{
+		Location: toStrPtr(region.Region),
+		Properties: &armcompute.VirtualMachineProperties{
+			StorageProfile: &armcompute.StorageProfile{
+				DataDisks: oldDataDisks,
 			},
 		},
 	}
-	feature, err := vmClient.CreateOrUpdate(ctx, region.Region, *vm.Name, vmOpts)
+	poller, err := vmClient.BeginCreateOrUpdate(ctx, region.Region, *vm.Name, vmOpts, nil)
 	if err != nil {
-		return compute.VirtualMachine{}, err
+		return armcompute.VirtualMachine{}, err
 	}
-	err = feature.WaitForCompletionRef(ctx, vmClient.Client)
+	_, err = poller.PollUntilDone(ctx, nil)
 	if err != nil {
-		return compute.VirtualMachine{}, err
+		return armcompute.VirtualMachine{}, err
 	}
 	vm, err = GetRawVM(convertedVMIId, region.Region, vmClient, ctx)
 	if err != nil {
-		return compute.VirtualMachine{}, errors.New(fmt.Sprintf("Failed to get VMerr = %s", err))
+		return armcompute.VirtualMachine{}, errors.New(fmt.Sprintf("Failed to get VMerr = %s", err))
 	}
 	return vm, nil
 }
