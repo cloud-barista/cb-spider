@@ -86,19 +86,17 @@ func (vmHandler *NcpVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
     }
 	if vmId != "" {
 		cblogger.Info("The vmId : ", vmId)
-		createErr := fmt.Errorf("VM with the name '%s' already exist!!", vmReqInfo.IId.NameId)
+		createErr := fmt.Errorf("VM has the name '%s' already exist!!", vmReqInfo.IId.NameId)
 		LoggingError(callLogInfo, createErr)
 		return irs.VMInfo{}, createErr
 	}
 
-	// Security Group IID 처리 - SystemId 기반
-	cblogger.Info("Security Group IID 변환")
+	// Set S/G IID (SystemId based)
 	var newSecurityGroupIds []*string
 	for _, sgID := range vmReqInfo.SecurityGroupIIDs {
-		cblogger.Infof("Security Group IID : [%s]", sgID)
+		// cblogger.Infof("Security Group IID : [%s]", sgID)
 		newSecurityGroupIds = append(newSecurityGroupIds, ncloud.String(sgID.SystemId))
 	}
-	cblogger.Info(newSecurityGroupIds)
 
 	// Set cloud-init script
 	var publicImageId string
@@ -266,13 +264,24 @@ func (vmHandler *NcpVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	cblogger.Infof("*** NcpInstance.PublicIp : [%s]", ncloud.StringValue(result.PublicIpInstanceList[0].PublicIp))
 	time.Sleep(time.Second * 2)
 
+	// Create the Tag List on the VM
+	tagHandler := NcpTagHandler {
+		RegionInfo:  vmHandler.RegionInfo,
+		VMClient:    vmHandler.VMClient,
+	}
+	_, createErr := tagHandler.createVMTagList(runResult.ServerInstanceList[0].ServerInstanceNo, vmReqInfo.TagList)
+	if err != nil {		
+		newErr := fmt.Errorf("Failed to Create the Tag List on the VM : [%v]", createErr)
+		cblogger.Error(newErr.Error())
+		return irs.VMInfo{}, newErr
+	}
+
 	// Get Created New VM Info
 	vmInfo, error := vmHandler.GetVM(newVMIID)
 	if error != nil {
 		rtnErr := logAndReturnError(callLogInfo, "Failed to Get the VM Info : ", error)
 		return irs.VMInfo{}, rtnErr
 	}
-	cblogger.Info("### VM Creation Processes have been Finished !!")
 	
 	if vmInfo.Platform == irs.WINDOWS {
 		vmInfo.VMUserPasswd = vmReqInfo.VMUserPasswd
@@ -350,7 +359,7 @@ func (vmHandler *NcpVMHandler) MappingServerInfo(NcpInstance *server.ServerInsta
 	}
 	blockStorageResult, err := vmHandler.VMClient.V2Api.GetBlockStorageInstanceList(&blockStorageReq)
 	if err != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Get Block Storage InstanceList : ", err)
+		rtnErr := logAndReturnError(callLogInfo, "Failed to Get Block Storage List : ", err)
 		return irs.VMInfo{}, rtnErr
 	}
 	if len(blockStorageResult.BlockStorageInstanceList) < 1 {
@@ -407,6 +416,7 @@ func (vmHandler *NcpVMHandler) MappingServerInfo(NcpInstance *server.ServerInsta
 			{Key: "DiskType", Value: ncloud.StringValue(blockStorageResult.BlockStorageInstanceList[0].DiskType.CodeName)},
 			{Key: "DiskDetailType", Value: ncloud.StringValue(blockStorageResult.BlockStorageInstanceList[0].DiskDetailType.CodeName)},
 			{Key: "PlatformType", Value: *NcpInstance.PlatformType.CodeName},
+			{Key: "ServerImageName", Value: *NcpInstance.ServerImageName},
 			{Key: "ZoneCode", Value: *NcpInstance.Zone.ZoneCode},
 			//{Key: "ZoneNo", Value: *NcpInstance.Zone.ZoneNo},
 			{Key: "PublicIpID", Value: *publicIpInstanceNo}, // # To use it when delete the PublicIP
@@ -425,7 +435,6 @@ func (vmHandler *NcpVMHandler) MappingServerInfo(NcpInstance *server.ServerInsta
 		isPublicImage, err := myImageHandler.isPublicImage(irs.IID{SystemId: *NcpInstance.ServerDescription}) // Caution!! : Not '*NcpInstance.ServerImageProductCode'
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
-			cblogger.Error(newErr.Error())
 			return irs.VMInfo{}, newErr
 		}
 		if isPublicImage {
@@ -465,11 +474,11 @@ func (vmHandler *NcpVMHandler) MappingServerInfo(NcpInstance *server.ServerInsta
 		// *NcpInstance.Zone.ZoneCode or *NcpInstance.Zone.ZoneName etc...
 	}
 
-	// To Get the VPC Name from Tag of the VM instance
+	// Get the VPC Name from Tag of the VM
 	vpcName, subnetName, error := vmHandler.GetVPCnSubnetNameFromTag(NcpInstance.ServerInstanceNo)
 	if error != nil {
-		cblogger.Debug(error.Error())
-		cblogger.Debug("Failed to Get VPC Name from Tag of the VM instance!!")
+		newErr := fmt.Errorf("Failed to Get VPC Name from Tag of the VM instance!! : [%v]", error)
+		cblogger.Debug(newErr.Error())
 		// return irs.VMInfo{}, error  // Caution!!
 	}
 	// cblogger.Infof("# vpcName : [%s]", vpcName)
@@ -478,7 +487,7 @@ func (vmHandler *NcpVMHandler) MappingServerInfo(NcpInstance *server.ServerInsta
 	if len(vpcName) < 1 {
 		cblogger.Debug("Failed to Get VPC Name from Tag!!")
 	} else {
-		// To get the VPC info.
+		// Get the VPC info
 		vpcHandler := NcpVPCHandler {
 			RegionInfo:			vmHandler.RegionInfo,
 			VMClient:         	vmHandler.VMClient,
@@ -493,7 +502,7 @@ func (vmHandler *NcpVMHandler) MappingServerInfo(NcpInstance *server.ServerInsta
 		vmInfo.VpcIID.SystemId = vpcInfo.IId.SystemId
 		vmInfo.SubnetIID.NameId = subnetName
 		for _, curSubnet := range vpcInfo.SubnetInfoList {
-			cblogger.Infof("Subnet NameId : [%s]", curSubnet.IId.NameId)
+			// cblogger.Infof("Subnet NameId : [%s]", curSubnet.IId.NameId)
 			if strings.EqualFold(curSubnet.IId.NameId, subnetName) {
 				vmInfo.SubnetIID.SystemId = curSubnet.IId.SystemId
 				break
@@ -510,6 +519,30 @@ func (vmHandler *NcpVMHandler) MappingServerInfo(NcpInstance *server.ServerInsta
 		vmInfo.VMUserId = winUserName
 		vmInfo.Platform = irs.WINDOWS
 	}
+
+	// Get the Tag List of the VM
+	var kvList []irs.KeyValue
+	tagHandler := NcpTagHandler {
+		RegionInfo:  vmHandler.RegionInfo,
+		VMClient:    vmHandler.VMClient,
+	}
+	tagList, err := tagHandler.getVMTagListWithVMId(NcpInstance.ServerInstanceNo)
+	if err != nil {		
+		newErr := fmt.Errorf("Failed to Get the Tag List with the VM SystemID : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return irs.VMInfo{}, newErr
+	}	
+	if len(tagList) > 0 {
+		for _, curTag := range tagList {
+			kv := irs.KeyValue {
+				Key : 	ncloud.StringValue(curTag.TagKey),
+				Value:  ncloud.StringValue(curTag.TagValue),
+			}
+			kvList = append(kvList, kv)
+		}
+		vmInfo.TagList = kvList
+	}
+
 	return vmInfo, nil
 }
 
@@ -844,7 +877,6 @@ func (vmHandler *NcpVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) 
 				break
 			}
 		}
-
 		cblogger.Info("# SuspendVM() Finished")
 
 		// To Delete Tags of the VM instance
@@ -942,8 +974,9 @@ func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 	} else if strings.EqualFold(vmStatus, "terminating") {
 		resultStatus = "Terminating"
 	} else {
-		cblogger.Errorf("No mapping information found matching with the vmStatus [%s].", string(vmStatus))
-		return irs.VMStatus("Failed. "), errors.New(vmStatus + "No mapping information found matching with the vmStatus.")
+		newErr := fmt.Errorf("No mapping information found matching with the vmStatus [%s].", string(vmStatus))
+		cblogger.Error(newErr.Error())
+		return irs.VMStatus("Failed. "), newErr
 	}
 	cblogger.Infof("Succeeded in Converting the VM Status : [%s] ==> [%s]", vmStatus, resultStatus)
 	return irs.VMStatus(resultStatus), nil
@@ -1263,41 +1296,31 @@ func (vmHandler *NcpVMHandler) GetVmIdByName(vmNameID string) (string, error) {
 	}
 }
 
+// Save VPC/Subnet Name info as Tags on the VM
 func (vmHandler *NcpVMHandler) CreateVPCnSubnetTag(vmID *string, vpcName string, subnetName string) (bool, error) {
 	cblogger.Info("NCP Classic Cloud driver: called CreateVPCnSubnetTag()!")
 
-	var instanceNos []*string
-	var instanceTags []*server.InstanceTagParameter
-
 	tagKey := []string {"VPCName", "SubnetName"}
 
-	instanceNos = append(instanceNos, vmID)
-	instanceTags = []*server.InstanceTagParameter {
+	tagHandler := NcpTagHandler {
+		RegionInfo:  vmHandler.RegionInfo,
+		VMClient:    vmHandler.VMClient,
+	}
+	tagKVList := []irs.KeyValue {
 		{
-			TagKey: 	ncloud.String(tagKey[0]), 
-			TagValue: 	ncloud.String(vpcName),
+			Key: 	tagKey[0], 
+			Value: 	vpcName,
 		}, 
 		{
-			TagKey: 	ncloud.String(tagKey[1]), 
-			TagValue: 	ncloud.String(subnetName),
+			Key: 	tagKey[1], 
+			Value: 	subnetName,
 		},
 	}
-	// cblogger.Info("\n instanceTags : ")
-	// spew.Dump(instanceTags)
-
-	tagReq := server.CreateInstanceTagsRequest{
-		InstanceNoList:     instanceNos,
-		InstanceTagList: 	instanceTags,
-	}
-	// cblogger.Info("\n tagReq : ")
-	// spew.Dump(tagReq)
-	tagResult, err := vmHandler.VMClient.V2Api.CreateInstanceTags(&tagReq)
+	_, err := tagHandler.createVMTagList(vmID, tagKVList)
 	if err != nil {		
-		cblogger.Errorf("Failed to Create NCP VM Tag. : [%v]", err)
-		cblogger.Error(*tagResult.ReturnMessage)
-		return false, err
-	} else {
-		cblogger.Infof("tagResult.ReturnMessage : [%s]", *tagResult.ReturnMessage)
+		newErr := fmt.Errorf("Failed to Add New Tag List : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return false, newErr
 	}
 
 	return true, nil
@@ -1306,42 +1329,49 @@ func (vmHandler *NcpVMHandler) CreateVPCnSubnetTag(vmID *string, vpcName string,
 func (vmHandler *NcpVMHandler) GetVPCnSubnetNameFromTag(vmID *string) (string, string, error) {
 	cblogger.Info("NCP Classic Cloud driver: called GetVPCnSubnetNameFromTag()!")
 
-	var instanceNos []*string
-	instanceNos = append(instanceNos, vmID)
+	tagHandler := NcpTagHandler {
+		RegionInfo:  vmHandler.RegionInfo,
+		VMClient:    vmHandler.VMClient,
+	}
+	tagList, err := tagHandler.getVMTagListWithVMId(vmID)
+	if err != nil {		
+		newErr := fmt.Errorf("Failed to Get the Tag List with the VM SystemID : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return "", "", newErr
+	}
+
+	if len(tagList) < 1 {
+		newErr := fmt.Errorf("Failed to Get Any Tag info with the VM SystemID!!")
+		return "", "", newErr
+	}
+
+	var kvList []irs.KeyValue
+	for _, curTag := range tagList {
+		kv := irs.KeyValue {
+			Key : 	ncloud.StringValue(curTag.TagKey),
+			Value:  ncloud.StringValue(curTag.TagValue),
+		}
+		kvList = append(kvList, kv)
+	}
+
 	var vpcName string
 	var subnetName string
-
-	instanceTagReq := server.GetInstanceTagListRequest{InstanceNoList: instanceNos}
-	// spew.Dump(instanceTagReq)
-	getTagListResult, err := vmHandler.VMClient.V2Api.GetInstanceTagList(&instanceTagReq)
-	if err != nil {
-		cblogger.Error(*getTagListResult.ReturnMessage)
-		newErr := fmt.Errorf("Failed to Find VM Tag List from NCP : [%v]", err)
-		return "", "", newErr
-	}
-	if len(getTagListResult.InstanceTagList) < 1 {
-		newErr := fmt.Errorf("Failed to Find Any Tag from the VM SystemID!!")
-		return "", "", newErr
-	} else {
-		cblogger.Infof("getTagListResult.ReturnMessage : [%s]", *getTagListResult.ReturnMessage)
-		// spew.Dump("\n getTagListResult : ", *getTagListResult)		
-	}
-	cblogger.Infof("Succeeded in Getting Tag info from the VM!!")
-
-	for _, curTag := range getTagListResult.InstanceTagList {
-		if ncloud.StringValue(curTag.TagKey) == "VPCName" {			
-			vpcName = ncloud.StringValue(curTag.TagValue)
-		} else if ncloud.StringValue(curTag.TagKey) == "SubnetName" {			
-			subnetName = ncloud.StringValue(curTag.TagValue)
+	for _, kv := range kvList {
+		if strings.EqualFold(kv.Key, "VPCName") {			
+			vpcName = kv.Value
+		} else if strings.EqualFold(kv.Key, "SubnetName") {			
+			subnetName = kv.Value
 		}
 	}
 	if len(vpcName) < 1 {
-		cblogger.Errorf("Failed to Get VPC Name from the Tag!!")
-		return "", "", errors.New("Failed to Get VPC Name from the Tag!!")
+		newErr := fmt.Errorf("Failed to Get VPC Name from the Tag!!")
+		cblogger.Debug(newErr.Error())
+		return "", "", newErr
 	}
 	if len(subnetName) < 1 {
-		cblogger.Errorf("Failed to Get Subnet Name from the Tag!!")
-		return "", "", errors.New("Failed to Get Subnet Name from the Tag!!")
+		newErr := fmt.Errorf("Failed to Get Subnet Name from the Tag!!")
+		cblogger.Debug(newErr.Error())
+		return "", "", newErr
 	}
 	return vpcName, subnetName, nil
 }
