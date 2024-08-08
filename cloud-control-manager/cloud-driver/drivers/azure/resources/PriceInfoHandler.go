@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"io"
 	"net/http"
 	"net/url"
@@ -12,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -22,7 +22,7 @@ type AzurePriceInfoHandler struct {
 	CredentialInfo     idrv.CredentialInfo
 	Region             idrv.RegionInfo
 	Ctx                context.Context
-	ResourceSkusClient *compute.ResourceSkusClient
+	ResourceSkusClient *armcompute.ResourceSKUsClient
 }
 
 const AzurePriceApiEndpoint = "https://prices.azure.com/api/retail/prices"
@@ -218,15 +218,25 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 		return "", getErr
 	}
 
-	var resultResourceSkusClient compute.ResourceSkusResultPage
+	var skuList []*armcompute.ResourceSKU
 
 	if strings.ToLower(productFamily) == "compute" {
-		resultResourceSkusClient, err = priceInfoHandler.ResourceSkusClient.List(priceInfoHandler.Ctx, "location eq '"+regionName+"'")
-		if err != nil {
-			getErr := errors.New(fmt.Sprintf("Failed to get PriceInfo. err = %s", err))
-			cblogger.Error(getErr.Error())
-			LoggingError(hiscallInfo, getErr)
-			return "", getErr
+		pager := priceInfoHandler.ResourceSkusClient.NewListPager(&armcompute.ResourceSKUsClientListOptions{
+			Filter: toStrPtr("location eq '" + regionName + "'"),
+		})
+
+		for pager.More() {
+			page, err := pager.NextPage(priceInfoHandler.Ctx)
+			if err != nil {
+				getErr := errors.New(fmt.Sprintf("Failed to get PriceInfo. err = %s", err))
+				cblogger.Error(getErr.Error())
+				LoggingError(hiscallInfo, getErr)
+				return "", getErr
+			}
+
+			for _, sku := range page.Value {
+				skuList = append(skuList, sku)
+			}
 		}
 	}
 
@@ -249,9 +259,9 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 		}
 
 		if strings.ToLower(productFamily) == "compute" {
-			for _, val := range resultResourceSkusClient.Values() {
-				if value[0].SkuName == *val.Name {
-					for _, capability := range *val.Capabilities {
+			for _, sku := range skuList {
+				if value[0].SkuName == *sku.Name {
+					for _, capability := range sku.Capabilities {
 						if *capability.Name == "OSVhdSizeMB" {
 							sizeMB, _ := strconv.Atoi(*capability.Value)
 							sizeGB := float64(sizeMB) / 1024
