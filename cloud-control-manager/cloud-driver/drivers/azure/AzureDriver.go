@@ -12,6 +12,7 @@ package azure
 
 import (
 	"context"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/monitor/azquery"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
@@ -19,8 +20,6 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/subscription/armsubscription"
-	"github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/go-autorest/autorest/azure"
 	cblogger "github.com/cloud-barista/cb-log"
 	"github.com/sirupsen/logrus"
 	"time"
@@ -91,10 +90,9 @@ func hasResourceGroup(connectionInfo idrv.ConnectionInfo) (bool, error) {
 
 	_, err = (*resourceGroupsClient).Get(ctx, connectionInfo.RegionInfo.Region, nil)
 	if err != nil {
-		de, ok := err.(autorest.DetailedError)
-		if ok && de.Original != nil {
-			re, ok := de.Original.(*azure.RequestError)
-			if ok && re.ServiceError != nil && re.ServiceError.Code == "ResourceGroupNotFound" {
+		reErr, ok := err.(*azcore.ResponseError)
+		if ok {
+			if reErr.ErrorCode == "ResourceGroupNotFound" {
 				return false, nil
 			}
 		}
