@@ -34,6 +34,7 @@ func (myImageHandler *AzureMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImag
 		LoggingError(hiscallInfo, snapshotErr)
 		return irs.MyImageInfo{}, snapshotErr
 	}
+
 	// image 이름 확인
 	exist, err := CheckExistMyImage(convertedMyImageIId, myImageHandler.ImageClient, myImageHandler.Ctx)
 	if err != nil {
@@ -84,7 +85,6 @@ func (myImageHandler *AzureMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImag
 		LoggingError(hiscallInfo, snapshotErr)
 		return irs.MyImageInfo{}, snapshotErr
 	}
-
 	// 이미지 생성
 	imagecreatOpt := armcompute.Image{
 		Location: &myImageHandler.Region.Region,
@@ -102,7 +102,6 @@ func (myImageHandler *AzureMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImag
 			imagecreatOpt.Tags[tag.Key] = &tag.Value
 		}
 	}
-
 	_, err = myImageHandler.VMClient.Generalize(myImageHandler.Ctx, myImageHandler.Region.Region, convertedVMIId.NameId, nil)
 	if err != nil {
 		snapshotErr = errors.New(fmt.Sprintf("Failed to SnapshotVM. err = %s", err))
@@ -350,14 +349,16 @@ func CheckExistMyImage(myImageIID irs.IID, client *armcompute.ImagesClient, ctx 
 }
 
 func preparationOperationForGeneralize(rawVm armcompute.VirtualMachine, vmClient *armcompute.VirtualMachinesClient, virtualMachineRunCommandsClient *armcompute.VirtualMachineRunCommandsClient, ctx context.Context, region idrv.RegionInfo) error {
-	sourceVMOSType, err := getOSTypeByVM(rawVm)
-	if err != nil {
-		return err
+	sourceVMOSType := getOSTypeByVM(rawVm)
+
+	if rawVm.Properties.InstanceView == nil {
+		return errors.New(fmt.Sprintf("Failed to get VM status."))
 	}
+
 	vmStatus := getVmStatus(*rawVm.Properties.InstanceView)
 	if sourceVMOSType == irs.WINDOWS {
 		if vmStatus == irs.Running {
-			err = windowShellPreparationOperationForGeneralize(*rawVm.Name, virtualMachineRunCommandsClient, ctx, region)
+			err := windowShellPreparationOperationForGeneralize(*rawVm.Name, virtualMachineRunCommandsClient, ctx, region)
 			if err != nil {
 				return err
 			}
@@ -402,7 +403,7 @@ func preparationOperationForGeneralize(rawVm armcompute.VirtualMachine, vmClient
 	} else {
 		// Linux
 		if vmStatus == irs.Running {
-			err = waitingVMSuspend(rawVm, vmClient, ctx, region)
+			err := waitingVMSuspend(rawVm, vmClient, ctx, region)
 			if err != nil {
 				return err
 			}

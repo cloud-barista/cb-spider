@@ -1085,14 +1085,12 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server armcompute.VirtualMach
 			vmInfo.VpcIID = irs.IID{NameId: vpcName, SystemId: strings.Join(vpcIdArr, "/")}
 		}
 	}
-	osType, err := getOSTypeByVM(server)
-	if err == nil {
-		if osType == irs.WINDOWS {
-			vmInfo.VMUserId = WindowBaseUser
-		}
-		if osType == irs.LINUX_UNIX {
-			vmInfo.VMUserId = CBVMUser
-		}
+	osType := getOSTypeByVM(server)
+	if osType == irs.WINDOWS {
+		vmInfo.VMUserId = WindowBaseUser
+	}
+	if osType == irs.LINUX_UNIX {
+		vmInfo.VMUserId = CBVMUser
 	}
 	// Set GuestUser Id/Pwd
 	//if server.VirtualMachineProperties.OsProfile.AdminUsername != nil {
@@ -1148,10 +1146,8 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server armcompute.VirtualMach
 		}
 		vmInfo.DataDiskIIDs = dataDiskIIDList
 	}
-	osPlatform, err := getOSTypeByVM(server)
-	if err == nil {
-		vmInfo.Platform = osPlatform
-	}
+	osPlatform := getOSTypeByVM(server)
+	vmInfo.Platform = osPlatform
 	if vmInfo.PublicIP != "" {
 		if osPlatform == irs.WINDOWS {
 			vmInfo.AccessPoint = fmt.Sprintf("%s:%s", vmInfo.PublicIP, "3389")
@@ -1542,7 +1538,9 @@ func GetRawVM(vmIID irs.IID, resourceGroup string, client *armcompute.VirtualMac
 		notExistVpcErr := errors.New(fmt.Sprintf("The VM id %s not found", vmIID.SystemId))
 		return armcompute.VirtualMachine{}, notExistVpcErr
 	} else {
-		resp, err := client.Get(ctx, resourceGroup, vmIID.NameId, nil)
+		resp, err := client.Get(ctx, resourceGroup, vmIID.NameId, &armcompute.VirtualMachinesClientGetOptions{
+			Expand: (*armcompute.InstanceViewTypes)(toStrPtr(string(armcompute.InstanceViewTypesInstanceView))),
+		})
 		if err != nil {
 			return armcompute.VirtualMachine{}, err
 		}
@@ -1788,11 +1786,11 @@ func CheckVMReqInfoOSType(vmReqInfo irs.VMReqInfo, imageClient *armcompute.Image
 	}
 }
 
-func getOSTypeByVM(server armcompute.VirtualMachine) (irs.Platform, error) {
+func getOSTypeByVM(server armcompute.VirtualMachine) irs.Platform {
 	if server.Properties.OSProfile.LinuxConfiguration != nil {
-		return irs.LINUX_UNIX, nil
+		return irs.LINUX_UNIX
 	}
-	return irs.WINDOWS, nil
+	return irs.WINDOWS
 }
 
 func getOSTypeByPublicImage(imageIID irs.IID) (irs.Platform, error) {
