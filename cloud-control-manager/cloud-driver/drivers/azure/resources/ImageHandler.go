@@ -217,48 +217,44 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 					break
 				}
 
-				var imageVersions []string
+				if len(imageResourceArray) == 0 {
+					continue
+				}
+
+				latest := imageResourceArray[len(imageResourceArray)-1]
+				if latest.ID == nil {
+					continue
+				}
+
+				imageIdArr := strings.Split(*latest.ID, "/")
+				imageVersion := imageIdArr[len(imageIdArr)-1]
+
 				var os string
 
-				for _, iv := range imageResourceArray {
-					if iv.ID == nil {
-						continue
-					}
-
-					imageIdArr := strings.Split(*iv.ID, "/")
-					imageVersion := imageIdArr[len(imageIdArr)-1]
-
-					imageVersions = append(imageVersions, imageVersion)
-				}
-
-				for ivIdx, imageVersion := range imageVersions {
-					if ivIdx == 0 {
-						for {
-							resp, err := imageHandler.VMImageClient.Get(imageHandler.Ctx, imageHandler.Region.Region, pName, oName, sName, imageVersion, nil)
-							if err != nil {
-								if checkRequest(err.Error()) {
-									continue
-								}
-
-								cblogger.Error(err)
-								return nil, err
-							}
-
-							if resp.VirtualMachineImage.Properties != nil &&
-								resp.VirtualMachineImage.Properties.OSDiskImage != nil &&
-								resp.VirtualMachineImage.Properties.OSDiskImage.OperatingSystem != nil {
-								os = string(*resp.VirtualMachineImage.Properties.OSDiskImage.OperatingSystem)
-							}
-
-							break
+				for {
+					resp, err := imageHandler.VMImageClient.Get(imageHandler.Ctx, imageHandler.Region.Region, pName, oName, sName, imageVersion, nil)
+					if err != nil {
+						if checkRequest(err.Error()) {
+							continue
 						}
+
+						cblogger.Error(err)
+						return nil, err
 					}
 
-					imageName := pName + ":" + oName + ":" + sName + ":" + imageVersion
+					if resp.VirtualMachineImage.Properties != nil &&
+						resp.VirtualMachineImage.Properties.OSDiskImage != nil &&
+						resp.VirtualMachineImage.Properties.OSDiskImage.OperatingSystem != nil {
+						os = string(*resp.VirtualMachineImage.Properties.OSDiskImage.OperatingSystem)
+					}
 
-					vmImageInfo := imageHandler.setterVMImage(imageName, os)
-					imageList = append(imageList, vmImageInfo)
+					break
 				}
+
+				imageName := pName + ":" + oName + ":" + sName + ":" + imageVersion
+
+				vmImageInfo := imageHandler.setterVMImage(imageName, os)
+				imageList = append(imageList, vmImageInfo)
 			}
 		}
 	}
