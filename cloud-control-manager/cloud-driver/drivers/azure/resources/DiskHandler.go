@@ -331,7 +331,7 @@ func (diskHandler *AzureDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID
 	}
 	vmManagedDiskList := vm.Properties.StorageProfile.DataDisks
 	if len(vmManagedDiskList) == 0 || vmManagedDiskList == nil {
-		dettachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. Not Eixst Disk : %s", diskIID.NameId))
+		dettachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. Not Exist Disk : %s", diskIID.NameId))
 		cblogger.Error(dettachErr.Error())
 		LoggingError(hiscallInfo, dettachErr)
 		return false, dettachErr
@@ -346,7 +346,7 @@ func (diskHandler *AzureDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID
 		}
 	}
 	if !diskExistCheck {
-		dettachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. Not Eixst Disk : %s", diskIID.NameId))
+		dettachErr := errors.New(fmt.Sprintf("Failed to DetachDisk. Not Exist Disk : %s", diskIID.NameId))
 		cblogger.Error(dettachErr.Error())
 		LoggingError(hiscallInfo, dettachErr)
 		return false, dettachErr
