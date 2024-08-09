@@ -341,6 +341,39 @@
         cursor: pointer;
         font-family: Arial, sans-serif;
     }
+
+    .tag-overlay-content {
+        position: relative;
+        padding: 20px;
+        border-radius: 5px;
+        background-color: white;
+        text-align: left;
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+    }
+
+    .tag-overlay-input-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .tag-overlay-input-group label {
+        flex: 1;
+        text-align: right;
+        margin-right: 10px;
+    }
+
+    .tag-overlay-input-group input {
+        flex: 2;
+    }
+
+    .tag-overlay-button-group {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+    }
+
 </style>
 <script>
     let currentProvider = '';
@@ -890,16 +923,15 @@
         const addTagOverlay = document.getElementById('add-tag-overlay');
         const addTagOverlayContent = document.querySelector('.add-tag-overlay-content');
         addTagOverlayContent.innerHTML = `
-            <button class="close-btn" onclick="closeAddTagOverlay()">x</button>
-            <div>
-                <label for="tagKey">Tag Key:</label>
-                <input type="text" id="tagKey" name="tagKey" required>
+            <div class="tag-overlay-input-group">
+                <label for="tagOverlayTagKey">Tag Key:</label>
+                <input type="text" id="tagOverlayTagKey" name="tagKey" required>
             </div>
-            <div>
-                <label for="tagValue">Tag Value:</label>
-                <input type="text" id="tagValue" name="tagValue" required>
+            <div class="tag-overlay-input-group">
+                <label for="tagOverlayTagValue">Tag Value:</label>
+                <input type="text" id="tagOverlayTagValue" name="tagValue" required>
             </div>
-            <div class="button-group">
+            <div class="tag-overlay-button-group">
                 <button onclick="addTag('${vpcName}')">Add</button>
                 <button onclick="closeAddTagOverlay()">Cancel</button>
             </div>
@@ -921,8 +953,8 @@
     }
 
     function addTag(vpcName) {
-        const tagKey = document.getElementById('tagKey').value;
-        const tagValue = document.getElementById('tagValue').value;
+        const tagKey = document.getElementById('tagOverlayTagKey').value;
+        const tagValue = document.getElementById('tagOverlayTagValue').value;
         const connConfig = document.getElementById('connConfig').value;
 
         const data = {
@@ -992,16 +1024,15 @@
         const addTagOverlay = document.getElementById('add-subnet-tag-overlay');
         const addTagOverlayContent = document.querySelector('.add-subnet-tag-overlay-content');
         addTagOverlayContent.innerHTML = `
-            <button class="close-btn" onclick="closeAddSubnetTagOverlay()">x</button>
-            <div>
-                <label for="subnetTagKey">Tag Key:</label>
-                <input type="text" id="subnetTagKey" name="subnetTagKey" required>
+            <div class="tag-overlay-input-group">
+                <label for="subnetOverlayTagKey">Tag Key:</label>
+                <input type="text" id="subnetOverlayTagKey" name="subnetTagKey" required>
             </div>
-            <div>
-                <label for="subnetTagValue">Tag Value:</label>
-                <input type="text" id="subnetTagValue" name="subnetTagValue" required>
+            <div class="tag-overlay-input-group">
+                <label for="subnetOverlayTagValue">Tag Value:</label>
+                <input type="text" id="subnetOverlayTagValue" name="subnetTagValue" required>
             </div>
-            <div class="button-group">
+            <div class="tag-overlay-button-group">
                 <button onclick="addSubnetTag('${vpcName}', '${subnetName}')">Add</button>
                 <button onclick="closeAddSubnetTagOverlay()">Cancel</button>
             </div>
@@ -1009,6 +1040,7 @@
         addTagOverlay.style.display = 'flex';
         document.addEventListener('keydown', handleEscAddSubnetTagOverlay);
     }
+
 
     function closeAddSubnetTagOverlay() {
         const addTagOverlay = document.getElementById('add-subnet-tag-overlay');
@@ -1023,8 +1055,8 @@
     }
 
     function addSubnetTag(vpcName, subnetName) {
-        const tagKey = document.getElementById('subnetTagKey').value;
-        const tagValue = document.getElementById('subnetTagValue').value;
+        const tagKey = document.getElementById('subnetOverlayTagKey').value;
+        const tagValue = document.getElementById('subnetOverlayTagValue').value;
         const connConfig = document.getElementById('connConfig').value;
 
         const data = {
@@ -1036,7 +1068,7 @@
             }
         };
 
-        fetch(`/spider/tag`, {
+        fetch('/spider/tag', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
