@@ -12,6 +12,7 @@ package resources
 
 import (
 	"fmt"
+	"strings"
 
 	cblog "github.com/cloud-barista/cb-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -26,6 +27,7 @@ func (tagHandler *MockTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag
 	cblogger.Info("Mock Driver: called AddTag()!")
 
 	mockName := tagHandler.MockName
+	resType = irs.RSType(strings.ToLower(string(resType)))
 
 	switch resType {
 	case irs.VPC:
@@ -58,9 +60,9 @@ func addTagToVPC(mockName string, resIID irs.IID, tag irs.KeyValue) (irs.KeyValu
 	if !ok {
 		return irs.KeyValue{}, fmt.Errorf("resource not found for %s", resIID.NameId)
 	}
-	for _, info := range infoList {
+	for i, info := range infoList {
 		if info.IId.NameId == resIID.NameId {
-			info.TagList = append(info.TagList, tag)
+			vpcInfoMap[mockName][i].TagList = append(info.TagList, tag)
 			return tag, nil
 		}
 	}
@@ -70,14 +72,16 @@ func addTagToVPC(mockName string, resIID irs.IID, tag irs.KeyValue) (irs.KeyValu
 func addTagToSubnet(mockName string, resIID irs.IID, tag irs.KeyValue) (irs.KeyValue, error) {
 	vpcMapLock.Lock()
 	defer vpcMapLock.Unlock()
+
 	vpcInfoList, ok := vpcInfoMap[mockName]
 	if !ok {
 		return irs.KeyValue{}, fmt.Errorf("VPC not found for %s", resIID.NameId)
 	}
-	for _, vpcInfo := range vpcInfoList {
-		for _, subnetInfo := range vpcInfo.SubnetInfoList {
+
+	for vpcIdx, vpcInfo := range vpcInfoList {
+		for subnetIdx, subnetInfo := range vpcInfo.SubnetInfoList {
 			if subnetInfo.IId.NameId == resIID.NameId {
-				subnetInfo.TagList = append(subnetInfo.TagList, tag)
+				vpcInfoMap[mockName][vpcIdx].SubnetInfoList[subnetIdx].TagList = append(subnetInfo.TagList, tag)
 				return tag, nil
 			}
 		}
@@ -92,9 +96,9 @@ func addTagToSG(mockName string, resIID irs.IID, tag irs.KeyValue) (irs.KeyValue
 	if !ok {
 		return irs.KeyValue{}, fmt.Errorf("resource not found for %s", resIID.NameId)
 	}
-	for _, info := range infoList {
+	for i, info := range infoList {
 		if info.IId.NameId == resIID.NameId {
-			info.TagList = append(info.TagList, tag)
+			securityInfoMap[mockName][i].TagList = append(info.TagList, tag)
 			return tag, nil
 		}
 	}
@@ -108,9 +112,9 @@ func addTagToKeyPair(mockName string, resIID irs.IID, tag irs.KeyValue) (irs.Key
 	if !ok {
 		return irs.KeyValue{}, fmt.Errorf("resource not found for %s", resIID.NameId)
 	}
-	for _, info := range infoList {
+	for i, info := range infoList {
 		if info.IId.NameId == resIID.NameId {
-			info.TagList = append(info.TagList, tag)
+			keyPairInfoMap[mockName][i].TagList = append(info.TagList, tag)
 			return tag, nil
 		}
 	}
@@ -124,9 +128,9 @@ func addTagToVM(mockName string, resIID irs.IID, tag irs.KeyValue) (irs.KeyValue
 	if !ok {
 		return irs.KeyValue{}, fmt.Errorf("resource not found for %s", resIID.NameId)
 	}
-	for _, info := range infoList {
+	for i, info := range infoList {
 		if info.IId.NameId == resIID.NameId {
-			info.TagList = append(info.TagList, tag)
+			vmInfoMap[mockName][i].TagList = append(info.TagList, tag)
 			return tag, nil
 		}
 	}
@@ -140,9 +144,9 @@ func addTagToNLB(mockName string, resIID irs.IID, tag irs.KeyValue) (irs.KeyValu
 	if !ok {
 		return irs.KeyValue{}, fmt.Errorf("resource not found for %s", resIID.NameId)
 	}
-	for _, info := range infoList {
+	for i, info := range infoList {
 		if info.IId.NameId == resIID.NameId {
-			info.TagList = append(info.TagList, tag)
+			nlbInfoMap[mockName][i].TagList = append(info.TagList, tag)
 			return tag, nil
 		}
 	}
@@ -156,9 +160,9 @@ func addTagToDisk(mockName string, resIID irs.IID, tag irs.KeyValue) (irs.KeyVal
 	if !ok {
 		return irs.KeyValue{}, fmt.Errorf("resource not found for %s", resIID.NameId)
 	}
-	for _, info := range infoList {
+	for i, info := range infoList {
 		if info.IId.NameId == resIID.NameId {
-			info.TagList = append(info.TagList, tag)
+			diskInfoMap[mockName][i].TagList = append(info.TagList, tag)
 			return tag, nil
 		}
 	}
@@ -172,9 +176,9 @@ func addTagToMyImage(mockName string, resIID irs.IID, tag irs.KeyValue) (irs.Key
 	if !ok {
 		return irs.KeyValue{}, fmt.Errorf("resource not found for %s", resIID.NameId)
 	}
-	for _, info := range infoList {
+	for i, info := range infoList {
 		if info.IId.NameId == resIID.NameId {
-			info.TagList = append(info.TagList, tag)
+			myImageInfoMap[mockName][i].TagList = append(info.TagList, tag)
 			return tag, nil
 		}
 	}
@@ -188,9 +192,9 @@ func addTagToCluster(mockName string, resIID irs.IID, tag irs.KeyValue) (irs.Key
 	if !ok {
 		return irs.KeyValue{}, fmt.Errorf("resource not found for %s", resIID.NameId)
 	}
-	for _, info := range infoList {
+	for i, info := range infoList {
 		if info.IId.NameId == resIID.NameId {
-			info.TagList = append(info.TagList, tag)
+			clusterInfoMap[mockName][i].TagList = append(info.TagList, tag)
 			return tag, nil
 		}
 	}
@@ -202,6 +206,7 @@ func (tagHandler *MockTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([
 	cblogger.Info("Mock Driver: called ListTag()!")
 
 	mockName := tagHandler.MockName
+	resType = irs.RSType(strings.ToLower(string(resType)))
 
 	switch resType {
 	case irs.VPC:
@@ -369,6 +374,7 @@ func (tagHandler *MockTagHandler) GetTag(resType irs.RSType, resIID irs.IID, key
 	cblogger.Info("Mock Driver: called GetTag()!")
 
 	mockName := tagHandler.MockName
+	resType = irs.RSType(strings.ToLower(string(resType)))
 
 	switch resType {
 	case irs.VPC:
@@ -572,6 +578,7 @@ func (tagHandler *MockTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, 
 	cblogger.Info("Mock Driver: called RemoveTag()!")
 
 	mockName := tagHandler.MockName
+	resType = irs.RSType(strings.ToLower(string(resType)))
 
 	switch resType {
 	case irs.VPC:
@@ -604,11 +611,11 @@ func removeTagFromVPC(mockName string, resIID irs.IID, key string) (bool, error)
 	if !ok {
 		return false, fmt.Errorf("resource not found for %s", resIID.NameId)
 	}
-	for _, info := range infoList {
+	for i, info := range infoList {
 		if info.IId.NameId == resIID.NameId {
 			for idx, tag := range info.TagList {
 				if tag.Key == key {
-					info.TagList = append(info.TagList[:idx], info.TagList[idx+1:]...)
+					vpcInfoMap[mockName][i].TagList = append(info.TagList[:idx], info.TagList[idx+1:]...)
 					return true, nil
 				}
 			}
@@ -624,12 +631,12 @@ func removeTagFromSubnet(mockName string, resIID irs.IID, key string) (bool, err
 	if !ok {
 		return false, fmt.Errorf("VPC not found for %s", resIID.NameId)
 	}
-	for _, vpcInfo := range vpcInfoList {
-		for _, subnetInfo := range vpcInfo.SubnetInfoList {
+	for vpcIdx, vpcInfo := range vpcInfoList {
+		for subnetIdx, subnetInfo := range vpcInfo.SubnetInfoList {
 			if subnetInfo.IId.NameId == resIID.NameId {
 				for idx, tag := range subnetInfo.TagList {
 					if tag.Key == key {
-						subnetInfo.TagList = append(subnetInfo.TagList[:idx], subnetInfo.TagList[idx+1:]...)
+						vpcInfoMap[mockName][vpcIdx].SubnetInfoList[subnetIdx].TagList = append(subnetInfo.TagList[:idx], subnetInfo.TagList[idx+1:]...)
 						return true, nil
 					}
 				}
@@ -646,11 +653,11 @@ func removeTagFromSG(mockName string, resIID irs.IID, key string) (bool, error) 
 	if !ok {
 		return false, fmt.Errorf("resource not found for %s", resIID.NameId)
 	}
-	for _, info := range infoList {
+	for i, info := range infoList {
 		if info.IId.NameId == resIID.NameId {
 			for idx, tag := range info.TagList {
 				if tag.Key == key {
-					info.TagList = append(info.TagList[:idx], info.TagList[idx+1:]...)
+					securityInfoMap[mockName][i].TagList = append(info.TagList[:idx], info.TagList[idx+1:]...)
 					return true, nil
 				}
 			}
@@ -666,11 +673,11 @@ func removeTagFromKeyPair(mockName string, resIID irs.IID, key string) (bool, er
 	if !ok {
 		return false, fmt.Errorf("resource not found for %s", resIID.NameId)
 	}
-	for _, info := range infoList {
+	for i, info := range infoList {
 		if info.IId.NameId == resIID.NameId {
 			for idx, tag := range info.TagList {
 				if tag.Key == key {
-					info.TagList = append(info.TagList[:idx], info.TagList[idx+1:]...)
+					keyPairInfoMap[mockName][i].TagList = append(info.TagList[:idx], info.TagList[idx+1:]...)
 					return true, nil
 				}
 			}
@@ -686,11 +693,11 @@ func removeTagFromVM(mockName string, resIID irs.IID, key string) (bool, error) 
 	if !ok {
 		return false, fmt.Errorf("resource not found for %s", resIID.NameId)
 	}
-	for _, info := range infoList {
+	for i, info := range infoList {
 		if info.IId.NameId == resIID.NameId {
 			for idx, tag := range info.TagList {
 				if tag.Key == key {
-					info.TagList = append(info.TagList[:idx], info.TagList[idx+1:]...)
+					vmInfoMap[mockName][i].TagList = append(info.TagList[:idx], info.TagList[idx+1:]...)
 					return true, nil
 				}
 			}
@@ -706,11 +713,11 @@ func removeTagFromNLB(mockName string, resIID irs.IID, key string) (bool, error)
 	if !ok {
 		return false, fmt.Errorf("resource not found for %s", resIID.NameId)
 	}
-	for _, info := range infoList {
+	for i, info := range infoList {
 		if info.IId.NameId == resIID.NameId {
 			for idx, tag := range info.TagList {
 				if tag.Key == key {
-					info.TagList = append(info.TagList[:idx], info.TagList[idx+1:]...)
+					nlbInfoMap[mockName][i].TagList = append(info.TagList[:idx], info.TagList[idx+1:]...)
 					return true, nil
 				}
 			}
@@ -726,11 +733,11 @@ func removeTagFromDisk(mockName string, resIID irs.IID, key string) (bool, error
 	if !ok {
 		return false, fmt.Errorf("resource not found for %s", resIID.NameId)
 	}
-	for _, info := range infoList {
+	for i, info := range infoList {
 		if info.IId.NameId == resIID.NameId {
 			for idx, tag := range info.TagList {
 				if tag.Key == key {
-					info.TagList = append(info.TagList[:idx], info.TagList[idx+1:]...)
+					diskInfoMap[mockName][i].TagList = append(info.TagList[:idx], info.TagList[idx+1:]...)
 					return true, nil
 				}
 			}
@@ -746,11 +753,11 @@ func removeTagFromMyImage(mockName string, resIID irs.IID, key string) (bool, er
 	if !ok {
 		return false, fmt.Errorf("resource not found for %s", resIID.NameId)
 	}
-	for _, info := range infoList {
+	for i, info := range infoList {
 		if info.IId.NameId == resIID.NameId {
 			for idx, tag := range info.TagList {
 				if tag.Key == key {
-					info.TagList = append(info.TagList[:idx], info.TagList[idx+1:]...)
+					myImageInfoMap[mockName][i].TagList = append(info.TagList[:idx], info.TagList[idx+1:]...)
 					return true, nil
 				}
 			}
@@ -766,11 +773,11 @@ func removeTagFromCluster(mockName string, resIID irs.IID, key string) (bool, er
 	if !ok {
 		return false, fmt.Errorf("resource not found for %s", resIID.NameId)
 	}
-	for _, info := range infoList {
+	for i, info := range infoList {
 		if info.IId.NameId == resIID.NameId {
 			for idx, tag := range info.TagList {
 				if tag.Key == key {
-					info.TagList = append(info.TagList[:idx], info.TagList[idx+1:]...)
+					clusterInfoMap[mockName][i].TagList = append(info.TagList[:idx], info.TagList[idx+1:]...)
 					return true, nil
 				}
 			}
@@ -784,6 +791,7 @@ func (tagHandler *MockTagHandler) FindTag(resType irs.RSType, keyword string) ([
 	cblogger.Info("Mock Driver: called FindTag()!")
 
 	mockName := tagHandler.MockName
+	resType = irs.RSType(strings.ToLower(string(resType)))
 
 	switch resType {
 	case irs.VPC:

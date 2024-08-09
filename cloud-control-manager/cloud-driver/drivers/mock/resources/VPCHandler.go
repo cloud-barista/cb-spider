@@ -1,13 +1,3 @@
-// Cloud Driver Interface of CB-Spider.
-// The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
-// The CB-Spider Mission is to connect all the clouds with a single interface.
-//
-//      * Cloud-Barista: https://github.com/cloud-barista
-//
-// This is Mock Driver.
-//
-// by CB-Spider Team, 2020.10.
-
 package resources
 
 import (
@@ -16,7 +6,6 @@ import (
 
 	cblog "github.com/cloud-barista/cb-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	_ "github.com/sirupsen/logrus"
 )
 
 var vpcInfoMap map[string][]*irs.VPCInfo
@@ -26,7 +15,6 @@ type MockVPCHandler struct {
 }
 
 func init() {
-	// cblog is a global variable.
 	vpcInfoMap = make(map[string][]*irs.VPCInfo)
 }
 
@@ -42,9 +30,8 @@ func (vpcHandler *MockVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCI
 	vpcReqInfo.IId.SystemId = vpcReqInfo.IId.NameId
 
 	// set SystemID of Subnet list
-	for i, subnetInfo := range vpcReqInfo.SubnetInfoList {
-		subnetInfo.IId.SystemId = subnetInfo.IId.NameId
-		vpcReqInfo.SubnetInfoList[i] = subnetInfo
+	for i := range vpcReqInfo.SubnetInfoList {
+		vpcReqInfo.SubnetInfoList[i].IId.SystemId = vpcReqInfo.SubnetInfoList[i].IId.NameId
 	}
 
 	// (1) create vpcInfo object
@@ -59,9 +46,7 @@ func (vpcHandler *MockVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCI
 	// (2) insert VPCInfo into global Map
 	vpcMapLock.Lock()
 	defer vpcMapLock.Unlock()
-	infoList, _ := vpcInfoMap[mockName]
-	infoList = append(infoList, &vpcInfo)
-	vpcInfoMap[mockName] = infoList
+	vpcInfoMap[mockName] = append(vpcInfoMap[mockName], &vpcInfo)
 
 	return CloneVPCInfo(vpcInfo), nil
 }
@@ -78,37 +63,24 @@ func (vpcHandler *MockVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 		return []*irs.VPCInfo{}, nil
 	}
 
-	// cloning list of VPC
 	return CloneVPCInfoList(infoList), nil
 }
 
 func CloneVPCInfoList(srcInfoList []*irs.VPCInfo) []*irs.VPCInfo {
-	clonedInfoList := []*irs.VPCInfo{}
-	for _, srcInfo := range srcInfoList {
+	clonedInfoList := make([]*irs.VPCInfo, len(srcInfoList))
+	for i, srcInfo := range srcInfoList {
 		clonedInfo := CloneVPCInfo(*srcInfo)
-		clonedInfoList = append(clonedInfoList, &clonedInfo)
+		clonedInfoList[i] = &clonedInfo
 	}
 	return clonedInfoList
 }
 
 func CloneVPCInfo(srcInfo irs.VPCInfo) irs.VPCInfo {
-	/*
-		type VPCInfo struct {
-			IId            IID // {NameId, SystemId}
-			IPv4_CIDR      string
-			SubnetInfoList []SubnetInfo
-
-			TagList      []KeyValue
-			KeyValueList []KeyValue
-		}
-	*/
-
-	// clone VPCInfo
 	clonedInfo := irs.VPCInfo{
 		IId:            irs.IID{srcInfo.IId.NameId, srcInfo.IId.SystemId},
 		IPv4_CIDR:      srcInfo.IPv4_CIDR,
 		SubnetInfoList: CloneSubnetInfoList(srcInfo.SubnetInfoList),
-		TagList:        srcInfo.TagList, // clone TagList
+		TagList:        srcInfo.TagList, // 필요시 깊은 복사 추가 가능
 		KeyValueList:   srcInfo.KeyValueList,
 	}
 
@@ -116,32 +88,19 @@ func CloneVPCInfo(srcInfo irs.VPCInfo) irs.VPCInfo {
 }
 
 func CloneSubnetInfoList(srcInfoList []irs.SubnetInfo) []irs.SubnetInfo {
-	clonedInfoList := []irs.SubnetInfo{}
-	for _, srcInfo := range srcInfoList {
-		clonedInfo := CloneSubnetInfo(srcInfo)
-		clonedInfoList = append(clonedInfoList, clonedInfo)
+	clonedInfoList := make([]irs.SubnetInfo, len(srcInfoList))
+	for i, srcInfo := range srcInfoList {
+		clonedInfoList[i] = CloneSubnetInfo(srcInfo)
 	}
 	return clonedInfoList
 }
 
 func CloneSubnetInfo(srcInfo irs.SubnetInfo) irs.SubnetInfo {
-	/*
-		type SubnetInfo struct {
-			IId       IID    // {NameId, SystemId}
-			Zone      string // Target Zone Name
-			IPv4_CIDR string
-
-			TagList      []KeyValue
-			KeyValueList []KeyValue
-		}
-	*/
-
-	// clone SubnetInfo
 	clonedInfo := irs.SubnetInfo{
 		IId:          irs.IID{srcInfo.IId.NameId, srcInfo.IId.SystemId},
 		Zone:         srcInfo.Zone,
 		IPv4_CIDR:    srcInfo.IPv4_CIDR,
-		TagList:      srcInfo.TagList, // clone TagList
+		TagList:      srcInfo.TagList, // 필요시 깊은 복사 추가 가능
 		KeyValueList: srcInfo.KeyValueList,
 	}
 
@@ -184,8 +143,7 @@ func (vpcHandler *MockVPCHandler) DeleteVPC(iid irs.IID) (bool, error) {
 
 	for idx, info := range infoList {
 		if info.IId.SystemId == iid.SystemId {
-			infoList = append(infoList[:idx], infoList[idx+1:]...)
-			vpcInfoMap[mockName] = infoList
+			vpcInfoMap[mockName] = append(infoList[:idx], infoList[idx+1:]...)
 			return true, nil
 		}
 	}
@@ -206,10 +164,9 @@ func (vpcHandler *MockVPCHandler) AddSubnet(iid irs.IID, subnetInfo irs.SubnetIn
 	}
 
 	subnetInfo.IId.SystemId = subnetInfo.IId.NameId
-	for _, info := range infoList {
+	for i, info := range infoList {
 		if info.IId.NameId == iid.NameId {
-			info.SubnetInfoList = append(info.SubnetInfoList, subnetInfo)
-
+			vpcInfoMap[mockName][i].SubnetInfoList = append(info.SubnetInfoList, subnetInfo)
 			return CloneVPCInfo(*info), nil
 		}
 	}
@@ -230,11 +187,11 @@ func (vpcHandler *MockVPCHandler) RemoveSubnet(iid irs.IID, subnetIID irs.IID) (
 		return false, fmt.Errorf("%s VPC does not exist!!", iid.NameId)
 	}
 
-	for _, info := range infoList {
+	for i, info := range infoList {
 		if info.IId.NameId == iid.NameId {
 			for idx, subInfo := range info.SubnetInfoList {
 				if subInfo.IId.SystemId == subnetIID.SystemId {
-					info.SubnetInfoList = append(info.SubnetInfoList[:idx], info.SubnetInfoList[idx+1:]...)
+					vpcInfoMap[mockName][i].SubnetInfoList = append(info.SubnetInfoList[:idx], info.SubnetInfoList[idx+1:]...)
 					return true, nil
 				}
 			}
