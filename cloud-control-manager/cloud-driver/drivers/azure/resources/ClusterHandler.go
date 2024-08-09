@@ -1986,7 +1986,7 @@ func waitingClusterBaseSecurityGroup(createdClusterIID irs.IID, managedClustersC
 	for {
 		var securityGroupList []*armnetwork.SecurityGroup
 
-		pager := securityGroupsClient.NewListPager(regionInfo.Region, nil)
+		pager := securityGroupsClient.NewListAllPager(nil)
 
 		for pager.More() {
 			page, err := pager.NextPage(ctx)
