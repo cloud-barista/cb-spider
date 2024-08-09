@@ -779,7 +779,7 @@ func getRawNodePoolPairList(cluster *armcontainerservice.ManagedCluster, agentPo
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
-			return nil, err
+			return make([]NodePoolPair, 0), err
 		}
 
 		for _, agentPool := range page.Value {
@@ -1464,15 +1464,16 @@ func getNextSecurityGroupRulePriority(sourceSecurity armnetwork.SecurityGroup) (
 }
 
 func sliceSecurityGroupRuleINAndOUT(copySourceSGRules []*armnetwork.SecurityRule) (inboundRules []*armnetwork.SecurityRule, outboundRules []*armnetwork.SecurityRule, err error) {
+	inboundRules = make([]*armnetwork.SecurityRule, 0)
+	outboundRules = make([]*armnetwork.SecurityRule, 0)
 	for _, sourcesgrule := range copySourceSGRules {
 		if *sourcesgrule.Properties.Direction == armnetwork.SecurityRuleDirectionInbound {
 			inboundRules = append(inboundRules, sourcesgrule)
 		} else if *sourcesgrule.Properties.Direction == armnetwork.SecurityRuleDirectionOutbound {
 			outboundRules = append(outboundRules, sourcesgrule)
 		} else {
-			return []*armnetwork.SecurityRule{}, []*armnetwork.SecurityRule{}, errors.New("invalid SecurityRules")
+			return make([]*armnetwork.SecurityRule, 0), make([]*armnetwork.SecurityRule, 0), errors.New("invalid SecurityRules")
 		}
-
 	}
 	return inboundRules, outboundRules, nil
 }
