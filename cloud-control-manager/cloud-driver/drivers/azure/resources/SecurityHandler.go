@@ -5,17 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
-	"strconv"
-	"strings"
-	"time"
-
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
-	"github.com/Azure/go-autorest/autorest/to"
-
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"math/rand"
+	"strconv"
+	"strings"
 )
 
 const (
@@ -28,11 +24,11 @@ const (
 type AzureSecurityHandler struct {
 	Region     idrv.RegionInfo
 	Ctx        context.Context
-	Client     *network.SecurityGroupsClient
-	RuleClient *network.SecurityRulesClient
+	Client     *armnetwork.SecurityGroupsClient
+	RuleClient *armnetwork.SecurityRulesClient
 }
 
-func (securityHandler *AzureSecurityHandler) setterSec(securityGroup network.SecurityGroup) *irs.SecurityInfo {
+func (securityHandler *AzureSecurityHandler) setterSec(securityGroup *armnetwork.SecurityGroup) *irs.SecurityInfo {
 	keyValues := []irs.KeyValue{{Key: "ResourceGroup", Value: securityHandler.Region.Region}}
 	security := &irs.SecurityInfo{
 		IId: irs.IID{
@@ -42,18 +38,18 @@ func (securityHandler *AzureSecurityHandler) setterSec(securityGroup network.Sec
 	}
 
 	var securityRuleArr []irs.SecurityRuleInfo
-	for _, sgRule := range *securityGroup.SecurityRules {
-		if sgRule.Access == network.SecurityRuleAccessAllow {
+	for _, sgRule := range securityGroup.Properties.SecurityRules {
+		if *sgRule.Properties.Access == armnetwork.SecurityRuleAccessAllow {
 			ruleInfo, _ := convertRuleInfoAZToCB(sgRule)
 			securityRuleArr = append(securityRuleArr, ruleInfo)
 		} else {
 			unControlledRule := unControlledRule{
 				Name:        *sgRule.Name,
-				Port:        *sgRule.DestinationPortRange,
-				Protocol:    fmt.Sprint(sgRule.Protocol),
-				source:      *sgRule.SourceAddressPrefix,
-				Destination: *sgRule.DestinationAddressPrefix,
-				Action:      "Deny",
+				Port:        *sgRule.Properties.DestinationPortRange,
+				Protocol:    fmt.Sprint(*sgRule.Properties.Protocol),
+				source:      *sgRule.Properties.SourceAddressPrefix,
+				Destination: *sgRule.Properties.DestinationAddressPrefix,
+				Action:      string(armnetwork.SecurityRuleAccessDeny),
 			}
 			b, err := json.Marshal(unControlledRule)
 			if err == nil {
@@ -64,17 +60,17 @@ func (securityHandler *AzureSecurityHandler) setterSec(securityGroup network.Sec
 			}
 		}
 	}
-	for _, sgRule := range *securityGroup.DefaultSecurityRules {
-		action := "Deny"
-		if sgRule.Access == network.SecurityRuleAccessAllow {
-			action = "Allow"
+	for _, sgRule := range securityGroup.Properties.DefaultSecurityRules {
+		action := string(armnetwork.SecurityRuleAccessDeny)
+		if *sgRule.Properties.Access == armnetwork.SecurityRuleAccessAllow {
+			action = string(armnetwork.SecurityRuleAccessAllow)
 		}
 		unControlledRule := unControlledRule{
 			Name:        *sgRule.Name,
-			Port:        *sgRule.DestinationPortRange,
-			Protocol:    fmt.Sprint(sgRule.Protocol),
-			source:      *sgRule.SourceAddressPrefix,
-			Destination: *sgRule.DestinationAddressPrefix,
+			Port:        *sgRule.Properties.DestinationPortRange,
+			Protocol:    fmt.Sprint(*sgRule.Properties.Protocol),
+			source:      *sgRule.Properties.SourceAddressPrefix,
+			Destination: *sgRule.Properties.DestinationAddressPrefix,
 			Action:      action,
 		}
 		b, err := json.Marshal(unControlledRule)
@@ -89,7 +85,7 @@ func (securityHandler *AzureSecurityHandler) setterSec(securityGroup network.Sec
 	if securityGroup.Tags != nil {
 		security.TagList = setTagList(securityGroup.Tags)
 	}
-	
+
 	security.KeyValueList = keyValues
 	security.SecurityRules = &securityRuleArr
 
@@ -101,8 +97,8 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 	hiscallInfo := GetCallLogScheme(securityHandler.Region, call.SECURITYGROUP, securityReqInfo.IId.NameId, "CreateSecurity()")
 
 	// Check SecurityGroup Exists
-	security, _ := securityHandler.Client.Get(securityHandler.Ctx, securityHandler.Region.Region, securityReqInfo.IId.NameId, "")
-	if security.ID != nil {
+	resp, _ := securityHandler.Client.Get(securityHandler.Ctx, securityHandler.Region.Region, securityReqInfo.IId.NameId, nil)
+	if resp.SecurityGroup.ID != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = Security Group with name %s already exist", securityReqInfo.IId.NameId))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
@@ -128,16 +124,23 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 		return irs.SecurityInfo{}, createErr
 	}
 
-	createOpts := network.SecurityGroup{
-		SecurityGroupPropertiesFormat: &network.SecurityGroupPropertiesFormat{
+	createOpts := armnetwork.SecurityGroup{
+		Properties: &armnetwork.SecurityGroupPropertiesFormat{
 			SecurityRules: sgRuleList,
 		},
 		Location: &securityHandler.Region.Region,
-		Tags: tags,
+		Tags:     tags,
 	}
 
 	start := call.Start()
-	future, err := securityHandler.Client.CreateOrUpdate(securityHandler.Ctx, securityHandler.Region.Region, securityReqInfo.IId.NameId, createOpts)
+	poller, err := securityHandler.Client.BeginCreateOrUpdate(securityHandler.Ctx, securityHandler.Region.Region, securityReqInfo.IId.NameId, createOpts, nil)
+	if err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.SecurityInfo{}, createErr
+	}
+	_, err = poller.PollUntilDone(securityHandler.Ctx, nil)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
@@ -145,14 +148,6 @@ func (securityHandler *AzureSecurityHandler) CreateSecurity(securityReqInfo irs.
 		return irs.SecurityInfo{}, createErr
 	}
 	LoggingInfo(hiscallInfo, start)
-
-	err = future.WaitForCompletionRef(securityHandler.Ctx, securityHandler.Client.Client)
-	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.SecurityInfo{}, createErr
-	}
 
 	// 생성된 SecurityGroup 정보 리턴
 	securityInfo, err := securityHandler.GetSecurity(securityReqInfo.IId)
@@ -170,16 +165,27 @@ func (securityHandler *AzureSecurityHandler) ListSecurity() ([]*irs.SecurityInfo
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(securityHandler.Region, call.SECURITYGROUP, SecurityGroup, "ListSecurity()")
 	start := call.Start()
-	result, err := securityHandler.Client.List(securityHandler.Ctx, securityHandler.Region.Region)
-	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to List Security. err = %s", err.Error()))
-		cblogger.Error(getErr.Error())
-		LoggingError(hiscallInfo, getErr)
-		return nil, getErr
+
+	var securityGroupList []*armnetwork.SecurityGroup
+
+	pager := securityHandler.Client.NewListPager(securityHandler.Region.Region, nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(securityHandler.Ctx)
+		if err != nil {
+			getErr := errors.New(fmt.Sprintf("Failed to List Security. err = %s", err))
+			cblogger.Error(getErr.Error())
+			LoggingError(hiscallInfo, getErr)
+			return []*irs.SecurityInfo{}, getErr
+		}
+
+		for _, securityGroup := range page.Value {
+			securityGroupList = append(securityGroupList, securityGroup)
+		}
 	}
 
 	var securityList []*irs.SecurityInfo
-	for _, security := range result.Values() {
+	for _, security := range securityGroupList {
 		securityInfo := securityHandler.setterSec(security)
 		securityList = append(securityList, securityInfo)
 	}
@@ -201,7 +207,7 @@ func (securityHandler *AzureSecurityHandler) GetSecurity(securityIID irs.IID) (i
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	securityInfo := securityHandler.setterSec(*rawSecurityGroup)
+	securityInfo := securityHandler.setterSec(rawSecurityGroup)
 	return *securityInfo, nil
 }
 
@@ -210,14 +216,14 @@ func (securityHandler *AzureSecurityHandler) DeleteSecurity(securityIID irs.IID)
 	hiscallInfo := GetCallLogScheme(securityHandler.Region, call.SECURITYGROUP, securityIID.NameId, "DeleteSecurity()")
 
 	start := call.Start()
-	future, err := securityHandler.Client.Delete(securityHandler.Ctx, securityHandler.Region.Region, securityIID.NameId)
+	poller, err := securityHandler.Client.BeginDelete(securityHandler.Ctx, securityHandler.Region.Region, securityIID.NameId, nil)
 	if err != nil {
 		delErr := errors.New(fmt.Sprintf("Failed to Delete Security. err = %s", err.Error()))
 		cblogger.Error(delErr.Error())
 		LoggingError(hiscallInfo, delErr)
 		return false, delErr
 	}
-	err = future.WaitForCompletionRef(securityHandler.Ctx, securityHandler.Client.Client)
+	_, err = poller.PollUntilDone(securityHandler.Ctx, nil)
 	if err != nil {
 		delErr := errors.New(fmt.Sprintf("Failed to Delete Security. err = %s", err.Error()))
 		cblogger.Error(delErr.Error())
@@ -240,7 +246,7 @@ func (securityHandler *AzureSecurityHandler) AddRules(sgIID irs.IID, securityRul
 		return irs.SecurityInfo{}, getErr
 	}
 
-	baseRuleWithNames, err := getRuleInfoWithNames(security.SecurityRules)
+	baseRuleWithNames, err := getRuleInfoWithNames(security.Properties.SecurityRules)
 
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Add SecurityGroup Rules. err = %s", err.Error()))
@@ -270,7 +276,7 @@ func (securityHandler *AzureSecurityHandler) AddRules(sgIID irs.IID, securityRul
 		addRuleInfos = append(addRuleInfos, addRule)
 	}
 
-	addAZRule, err := getAddAzureRules(security.SecurityRules, &addRuleInfos)
+	addAZRule, err := getAddAzureRules(security.Properties.SecurityRules, &addRuleInfos)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Add SecurityGroup Rules. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -279,14 +285,14 @@ func (securityHandler *AzureSecurityHandler) AddRules(sgIID irs.IID, securityRul
 	}
 
 	for _, ru := range *addAZRule {
-		future, err := securityHandler.RuleClient.CreateOrUpdate(securityHandler.Ctx, securityHandler.Region.Region, sgIID.NameId, *ru.Name, ru)
+		poller, err := securityHandler.RuleClient.BeginCreateOrUpdate(securityHandler.Ctx, securityHandler.Region.Region, sgIID.NameId, *ru.Name, ru, nil)
 		if err != nil {
 			getErr := errors.New(fmt.Sprintf("Failed to Add SecurityGroup Rules. err = %s", err.Error()))
 			cblogger.Error(getErr.Error())
 			LoggingError(hiscallInfo, getErr)
 			return irs.SecurityInfo{}, getErr
 		}
-		err = future.WaitForCompletionRef(securityHandler.Ctx, securityHandler.RuleClient.Client)
+		_, err = poller.PollUntilDone(securityHandler.Ctx, nil)
 		if err != nil {
 			getErr := errors.New(fmt.Sprintf("Failed to Add SecurityGroup Rules. err = %s", err.Error()))
 			cblogger.Error(getErr.Error())
@@ -304,7 +310,7 @@ func (securityHandler *AzureSecurityHandler) AddRules(sgIID irs.IID, securityRul
 		return irs.SecurityInfo{}, getErr
 	}
 
-	updatedSecurityInfo := securityHandler.setterSec(*updatedSecurity)
+	updatedSecurityInfo := securityHandler.setterSec(updatedSecurity)
 	LoggingInfo(hiscallInfo, start)
 
 	return *updatedSecurityInfo, nil
@@ -324,7 +330,7 @@ func (securityHandler *AzureSecurityHandler) RemoveRules(sgIID irs.IID, security
 		return false, getErr
 	}
 
-	baseRuleWithNames, err := getRuleInfoWithNames(security.SecurityRules)
+	baseRuleWithNames, err := getRuleInfoWithNames(security.Properties.SecurityRules)
 
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Remove SecurityGroup Rules. err = %s", err.Error()))
@@ -355,14 +361,14 @@ func (securityHandler *AzureSecurityHandler) RemoveRules(sgIID irs.IID, security
 	}
 
 	for _, deleteRuleName := range deleteRuleNames {
-		future, err := securityHandler.RuleClient.Delete(securityHandler.Ctx, securityHandler.Region.Region, sgIID.NameId, deleteRuleName)
+		poller, err := securityHandler.RuleClient.BeginDelete(securityHandler.Ctx, securityHandler.Region.Region, sgIID.NameId, deleteRuleName, nil)
 		if err != nil {
 			getErr := errors.New(fmt.Sprintf("Failed to Remove SecurityGroup Rules. err = %s", err.Error()))
 			cblogger.Error(getErr.Error())
 			LoggingError(hiscallInfo, getErr)
 			return false, getErr
 		}
-		err = future.WaitForCompletionRef(securityHandler.Ctx, securityHandler.RuleClient.Client)
+		_, err = poller.PollUntilDone(securityHandler.Ctx, nil)
 		if err != nil {
 			getErr := errors.New(fmt.Sprintf("Failed to Remove SecurityGroup Rules. err = %s", err.Error()))
 			cblogger.Error(getErr.Error())
@@ -376,24 +382,39 @@ func (securityHandler *AzureSecurityHandler) RemoveRules(sgIID irs.IID, security
 	return true, nil
 }
 
-func getRawSecurityGroup(sgIID irs.IID, client *network.SecurityGroupsClient, ctx context.Context, resourceGroup string) (*network.SecurityGroup, error) {
+func getRawSecurityGroup(sgIID irs.IID, client *armnetwork.SecurityGroupsClient, ctx context.Context, resourceGroup string) (*armnetwork.SecurityGroup, error) {
 	if sgIID.SystemId == "" && sgIID.NameId == "" {
 		return nil, errors.New("invalid IID")
 	}
 	if sgIID.NameId == "" {
-		result, err := client.List(ctx, resourceGroup)
-		if err != nil {
-			return nil, err
+		var securityGroupList []*armnetwork.SecurityGroup
+
+		pager := client.NewListPager(resourceGroup, nil)
+
+		for pager.More() {
+			page, err := pager.NextPage(ctx)
+			if err != nil {
+				return nil, err
+			}
+
+			for _, securityGroup := range page.Value {
+				securityGroupList = append(securityGroupList, securityGroup)
+			}
 		}
-		for _, sg := range result.Values() {
+
+		for _, sg := range securityGroupList {
 			if *sg.ID == sgIID.SystemId {
-				return &sg, nil
+				return sg, nil
 			}
 		}
 		return nil, errors.New("not found SecurityGroup")
 	} else {
-		security, err := client.Get(ctx, resourceGroup, sgIID.NameId, "")
-		return &security, err
+		resp, err := client.Get(ctx, resourceGroup, sgIID.NameId, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		return &resp.SecurityGroup, err
 	}
 }
 
@@ -406,12 +427,16 @@ func convertRuleProtocolAZToCB(protocol string) string {
 	}
 }
 
-func convertRuleProtocolCBToAZ(protocol string) (string, error) {
+func convertRuleProtocolCBToAZ(protocol string) (armnetwork.SecurityRuleProtocol, error) {
 	switch strings.ToUpper(protocol) {
 	case "ALL":
-		return strings.ToUpper("*"), nil
-	case "ICMP", "TCP", "UDP":
-		return strings.ToUpper(protocol), nil
+		return armnetwork.SecurityRuleProtocolAsterisk, nil
+	case "ICMP":
+		return armnetwork.SecurityRuleProtocolIcmp, nil
+	case "TCP":
+		return armnetwork.SecurityRuleProtocolTCP, nil
+	case "UDP":
+		return armnetwork.SecurityRuleProtocolUDP, nil
 	}
 	return "", errors.New("invalid Rule Protocol")
 }
@@ -442,21 +467,21 @@ func equalsRule(pre irs.SecurityRuleInfo, post irs.SecurityRuleInfo) bool {
 	return strings.ToLower(fmt.Sprintf("%#v", pre)) == strings.ToLower(fmt.Sprintf("%#v", post))
 }
 
-func convertRuleDirectionCBToAZ(direction string) (network.SecurityRuleDirection, error) {
+func convertRuleDirectionCBToAZ(direction string) (armnetwork.SecurityRuleDirection, error) {
 	if strings.ToLower(direction) == "inbound" {
-		return network.SecurityRuleDirectionInbound, nil
+		return armnetwork.SecurityRuleDirectionInbound, nil
 	}
 	if strings.ToLower(direction) == "outbound" {
-		return network.SecurityRuleDirectionOutbound, nil
+		return armnetwork.SecurityRuleDirectionOutbound, nil
 	}
 	return "", errors.New("invalid rule Direction")
 }
 
-func convertRuleDirectionAZToCB(direction network.SecurityRuleDirection) (string, error) {
-	if direction == network.SecurityRuleDirectionInbound {
+func convertRuleDirectionAZToCB(direction armnetwork.SecurityRuleDirection) (string, error) {
+	if direction == armnetwork.SecurityRuleDirectionInbound {
 		return "inbound", nil
 	}
-	if direction == network.SecurityRuleDirectionOutbound {
+	if direction == armnetwork.SecurityRuleDirectionOutbound {
 		return "outbound", nil
 	}
 	return "", errors.New("invalid rule Direction")
@@ -497,69 +522,69 @@ func convertRulePortRangeCBToAZ(from string, to string, protocol string) (string
 	}
 }
 
-func addCBDefaultRule(azureSGRuleList *[]network.SecurityRule) (*[]network.SecurityRule, error) {
+func addCBDefaultRule(azureSGRuleList []*armnetwork.SecurityRule) ([]*armnetwork.SecurityRule, error) {
 	outboundPriority := initPriority
-	var addCBDefaultRuleList []network.SecurityRule
-	for _, sgRule := range *azureSGRuleList {
-		if sgRule.Access == network.SecurityRuleAccessAllow {
-			if sgRule.Direction == network.SecurityRuleDirectionOutbound && outboundPriority < int(*sgRule.Priority) {
-				outboundPriority = int(*sgRule.Priority)
+	var addCBDefaultRuleList []*armnetwork.SecurityRule
+	for _, sgRule := range azureSGRuleList {
+		if *sgRule.Properties.Access == armnetwork.SecurityRuleAccessAllow {
+			if *sgRule.Properties.Direction == armnetwork.SecurityRuleDirectionOutbound && outboundPriority < int(*sgRule.Properties.Priority) {
+				outboundPriority = int(*sgRule.Properties.Priority)
 			}
 		}
 	}
 
-	cbDefaultDenySGRule := network.SecurityRule{
-		Name: to.StringPtr("deny-outbound"),
-		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-			SourceAddressPrefix:      to.StringPtr("*"),
-			SourcePortRange:          to.StringPtr("*"),
-			DestinationAddressPrefix: to.StringPtr("0.0.0.0/0"),
-			DestinationPortRange:     to.StringPtr("*"),
-			Protocol:                 network.SecurityRuleProtocol("*"),
-			Access:                   network.SecurityRuleAccessDeny,
-			Priority:                 to.Int32Ptr(maxPriority),
-			Direction:                network.SecurityRuleDirectionOutbound,
+	cbDefaultDenySGRule := &armnetwork.SecurityRule{
+		Name: toStrPtr("deny-outbound"),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			SourceAddressPrefix:      toStrPtr("*"),
+			SourcePortRange:          toStrPtr("*"),
+			DestinationAddressPrefix: toStrPtr("0.0.0.0/0"),
+			DestinationPortRange:     toStrPtr("*"),
+			Protocol:                 (*armnetwork.SecurityRuleProtocol)(toStrPtr(string(armnetwork.SecurityRuleProtocolAsterisk))),
+			Access:                   (*armnetwork.SecurityRuleAccess)(toStrPtr(string(armnetwork.SecurityRuleAccessDeny))),
+			Priority:                 toInt32Ptr(maxPriority),
+			Direction:                (*armnetwork.SecurityRuleDirection)(toStrPtr(string(armnetwork.SecurityRuleDirectionOutbound))),
 		},
 	}
-	addCBDefaultRuleList = append(*azureSGRuleList, cbDefaultDenySGRule)
+	addCBDefaultRuleList = append(azureSGRuleList, cbDefaultDenySGRule)
 
-	cbDefaultAllowSGRule := network.SecurityRule{
-		Name: to.StringPtr("allow-outbound"),
-		SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-			SourceAddressPrefix:      to.StringPtr("*"),
-			SourcePortRange:          to.StringPtr("*"),
-			DestinationAddressPrefix: to.StringPtr("0.0.0.0/0"),
-			DestinationPortRange:     to.StringPtr("*"),
-			Protocol:                 network.SecurityRuleProtocol("*"),
-			Access:                   network.SecurityRuleAccessAllow,
-			Priority:                 to.Int32Ptr(int32(outboundPriority) + 1),
-			Direction:                network.SecurityRuleDirectionOutbound,
+	cbDefaultAllowSGRule := &armnetwork.SecurityRule{
+		Name: toStrPtr("allow-outbound"),
+		Properties: &armnetwork.SecurityRulePropertiesFormat{
+			SourceAddressPrefix:      toStrPtr("*"),
+			SourcePortRange:          toStrPtr("*"),
+			DestinationAddressPrefix: toStrPtr("0.0.0.0/0"),
+			DestinationPortRange:     toStrPtr("*"),
+			Protocol:                 (*armnetwork.SecurityRuleProtocol)(toStrPtr(string(armnetwork.SecurityRuleProtocolAsterisk))),
+			Access:                   (*armnetwork.SecurityRuleAccess)(toStrPtr(string(armnetwork.SecurityRuleAccessAllow))),
+			Priority:                 toInt32Ptr(outboundPriority + 1),
+			Direction:                (*armnetwork.SecurityRuleDirection)(toStrPtr(string(armnetwork.SecurityRuleDirectionOutbound))),
 		},
 	}
-	protocols := convertRuleProtocolAZToCB(fmt.Sprint(cbDefaultAllowSGRule.Protocol))
-	fromPort, toPort := convertRulePortRangeAZToCB(*cbDefaultAllowSGRule.DestinationPortRange, protocols)
-	direction, err := convertRuleDirectionAZToCB(cbDefaultAllowSGRule.Direction)
+	protocols := convertRuleProtocolAZToCB(fmt.Sprint(*cbDefaultAllowSGRule.Properties.Protocol))
+	fromPort, toPort := convertRulePortRangeAZToCB(*cbDefaultAllowSGRule.Properties.DestinationPortRange, protocols)
+	cbDirection, err := convertRuleDirectionAZToCB(*cbDefaultAllowSGRule.Properties.Direction)
 	if err != nil {
 		return nil, err
 	}
-	cidr := convertRuleCIDRAZToCB(*cbDefaultAllowSGRule.SourceAddressPrefix)
+	cidr := convertRuleCIDRAZToCB(*cbDefaultAllowSGRule.Properties.SourceAddressPrefix)
 	cbDefaultAllowSGRuleInfo := irs.SecurityRuleInfo{
 		IPProtocol: protocols,
-		Direction:  direction,
+		Direction:  cbDirection,
 		CIDR:       cidr,
 		FromPort:   fromPort,
 		ToPort:     toPort,
 	}
 	addAllowDefaultRule := false
-	for _, sgRule := range *azureSGRuleList {
-		if sgRule.Access == network.SecurityRuleAccessAllow {
-			protocols := convertRuleProtocolAZToCB(fmt.Sprint(sgRule.Protocol))
-			fromPort, toPort := convertRulePortRangeAZToCB(*sgRule.DestinationPortRange, protocols)
-			direction, err := convertRuleDirectionAZToCB(sgRule.Direction)
+	for _, sgRule := range azureSGRuleList {
+		if *sgRule.Properties.Access == armnetwork.SecurityRuleAccessAllow {
+			protocols := convertRuleProtocolAZToCB(fmt.Sprint(*sgRule.Properties.Protocol))
+			fromPort, toPort := convertRulePortRangeAZToCB(*sgRule.Properties.DestinationPortRange, protocols)
+			direction, err := convertRuleDirectionAZToCB(*sgRule.Properties.Direction)
 			if err != nil {
 				return nil, err
 			}
-			cidr := convertRuleCIDRAZToCB(*sgRule.SourceAddressPrefix)
+			cidr := convertRuleCIDRAZToCB(*sgRule.Properties.SourceAddressPrefix)
 			ruleInfo := irs.SecurityRuleInfo{
 				IPProtocol: protocols,
 				Direction:  direction,
@@ -576,23 +601,22 @@ func addCBDefaultRule(azureSGRuleList *[]network.SecurityRule) (*[]network.Secur
 		addCBDefaultRuleList = append(addCBDefaultRuleList, cbDefaultAllowSGRule)
 	}
 
-	return &addCBDefaultRuleList, nil
+	return addCBDefaultRuleList, nil
 }
 
 func generateRuleName(direct string) string {
-	rand.Seed(time.Now().UnixNano())
 	return fmt.Sprintf("%s-rules-%s", direct, strconv.FormatInt(rand.Int63n(100000), 10))
 }
 
-func convertRuleInfoAZToCB(rawRule network.SecurityRule) (irs.SecurityRuleInfo, error) {
-	protocols := convertRuleProtocolAZToCB(fmt.Sprint(rawRule.Protocol))
-	fromPort, toPort := convertRulePortRangeAZToCB(*rawRule.DestinationPortRange, protocols)
-	direction, err := convertRuleDirectionAZToCB(rawRule.Direction)
+func convertRuleInfoAZToCB(rawRule *armnetwork.SecurityRule) (irs.SecurityRuleInfo, error) {
+	protocols := convertRuleProtocolAZToCB(fmt.Sprint(*rawRule.Properties.Protocol))
+	fromPort, toPort := convertRulePortRangeAZToCB(*rawRule.Properties.DestinationPortRange, protocols)
+	direction, err := convertRuleDirectionAZToCB(*rawRule.Properties.Direction)
 	if err != nil {
 		return irs.SecurityRuleInfo{}, err
 	}
-	cidr := convertRuleCIDRAZToCB(*rawRule.SourceAddressPrefix)
-	if rawRule.Direction == network.SecurityRuleDirectionInbound {
+	cidr := convertRuleCIDRAZToCB(*rawRule.Properties.SourceAddressPrefix)
+	if *rawRule.Properties.Direction == armnetwork.SecurityRuleDirectionInbound {
 		RuleInfo := irs.SecurityRuleInfo{
 			IPProtocol: protocols,
 			Direction:  direction,
@@ -614,46 +638,47 @@ func convertRuleInfoAZToCB(rawRule network.SecurityRule) (irs.SecurityRuleInfo, 
 
 }
 
-func convertRuleInfoCBToAZ(rule irs.SecurityRuleInfo, priority int32) (network.SecurityRule, error) {
+func convertRuleInfoCBToAZ(rule irs.SecurityRuleInfo, priority int) (armnetwork.SecurityRule, error) {
 	protocol, err := convertRuleProtocolCBToAZ(rule.IPProtocol)
 	if err != nil {
-		return network.SecurityRule{}, err
+		return armnetwork.SecurityRule{}, err
 	}
 	portRange, err := convertRulePortRangeCBToAZ(rule.FromPort, rule.ToPort, rule.IPProtocol)
 	if err != nil {
-		return network.SecurityRule{}, err
+		return armnetwork.SecurityRule{}, err
 	}
 	direction, err := convertRuleDirectionCBToAZ(rule.Direction)
 	if err != nil {
-		return network.SecurityRule{}, err
+		return armnetwork.SecurityRule{}, err
 	}
-	if direction == network.SecurityRuleDirectionInbound {
-		sgRuleInfo := network.SecurityRule{
-			Name: to.StringPtr(fmt.Sprintf("%s-%s-%s-%s", generateRuleName(rule.Direction), rule.FromPort, rule.ToPort, rule.IPProtocol)),
-			SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-				SourceAddressPrefix:      to.StringPtr(rule.CIDR),
-				SourcePortRange:          to.StringPtr("*"),
-				DestinationAddressPrefix: to.StringPtr("*"),
-				DestinationPortRange:     to.StringPtr(portRange),
-				Protocol:                 network.SecurityRuleProtocol(protocol),
-				Access:                   network.SecurityRuleAccessAllow,
-				Priority:                 to.Int32Ptr(priority),
-				Direction:                direction,
+
+	if direction == armnetwork.SecurityRuleDirectionInbound {
+		sgRuleInfo := armnetwork.SecurityRule{
+			Name: toStrPtr(fmt.Sprintf("%s-%s-%s-%s", generateRuleName(rule.Direction), rule.FromPort, rule.ToPort, rule.IPProtocol)),
+			Properties: &armnetwork.SecurityRulePropertiesFormat{
+				SourceAddressPrefix:      toStrPtr(rule.CIDR),
+				SourcePortRange:          toStrPtr("*"),
+				DestinationAddressPrefix: toStrPtr("*"),
+				DestinationPortRange:     toStrPtr(portRange),
+				Protocol:                 &protocol,
+				Access:                   (*armnetwork.SecurityRuleAccess)(toStrPtr(string(armnetwork.SecurityRuleAccessAllow))),
+				Priority:                 toInt32Ptr(priority),
+				Direction:                &direction,
 			},
 		}
 		return sgRuleInfo, nil
 	} else {
-		sgRuleInfo := network.SecurityRule{
-			Name: to.StringPtr(fmt.Sprintf("%s-%s-%s-%s", generateRuleName(rule.Direction), rule.FromPort, rule.ToPort, rule.IPProtocol)),
-			SecurityRulePropertiesFormat: &network.SecurityRulePropertiesFormat{
-				SourceAddressPrefix:      to.StringPtr("*"),
-				SourcePortRange:          to.StringPtr("*"),
-				DestinationAddressPrefix: to.StringPtr(rule.CIDR),
-				DestinationPortRange:     to.StringPtr(portRange),
-				Protocol:                 network.SecurityRuleProtocol(protocol),
-				Access:                   network.SecurityRuleAccessAllow,
-				Priority:                 to.Int32Ptr(priority),
-				Direction:                direction,
+		sgRuleInfo := armnetwork.SecurityRule{
+			Name: toStrPtr(fmt.Sprintf("%s-%s-%s-%s", generateRuleName(rule.Direction), rule.FromPort, rule.ToPort, rule.IPProtocol)),
+			Properties: &armnetwork.SecurityRulePropertiesFormat{
+				SourceAddressPrefix:      toStrPtr("*"),
+				SourcePortRange:          toStrPtr("*"),
+				DestinationAddressPrefix: toStrPtr(rule.CIDR),
+				DestinationPortRange:     toStrPtr(portRange),
+				Protocol:                 &protocol,
+				Access:                   (*armnetwork.SecurityRuleAccess)(toStrPtr(string(armnetwork.SecurityRuleAccessAllow))),
+				Priority:                 toInt32Ptr(priority),
+				Direction:                &direction,
 			},
 		}
 		return sgRuleInfo, nil
@@ -661,18 +686,17 @@ func convertRuleInfoCBToAZ(rule irs.SecurityRuleInfo, priority int32) (network.S
 
 }
 
-func convertRuleInfoListCBToAZ(rules []irs.SecurityRuleInfo) (*[]network.SecurityRule, error) {
-	var azureSGRuleList []network.SecurityRule
-	var priorityNum int32
+func convertRuleInfoListCBToAZ(rules []irs.SecurityRuleInfo) ([]*armnetwork.SecurityRule, error) {
+	var azureSGRuleList []*armnetwork.SecurityRule
 	for idx, rule := range rules {
-		priorityNum = int32(initPriority + idx)
+		priorityNum := initPriority + idx
 		sgRuleInfo, err := convertRuleInfoCBToAZ(rule, priorityNum)
 		if err != nil {
 			return nil, err
 		}
-		azureSGRuleList = append(azureSGRuleList, sgRuleInfo)
+		azureSGRuleList = append(azureSGRuleList, &sgRuleInfo)
 	}
-	return &azureSGRuleList, nil
+	return azureSGRuleList, nil
 }
 
 type securityRuleInfoWithName struct {
@@ -680,10 +704,10 @@ type securityRuleInfoWithName struct {
 	RuleInfo irs.SecurityRuleInfo
 }
 
-func getRuleInfoWithNames(rawRules *[]network.SecurityRule) (*[]securityRuleInfoWithName, error) {
+func getRuleInfoWithNames(rawRules []*armnetwork.SecurityRule) (*[]securityRuleInfoWithName, error) {
 	var ruleInfoWithNames []securityRuleInfoWithName
-	for _, sgRule := range *rawRules {
-		if sgRule.Access == network.SecurityRuleAccessAllow {
+	for _, sgRule := range rawRules {
+		if *sgRule.Properties.Access == armnetwork.SecurityRuleAccessAllow {
 			ruleInfo, err := convertRuleInfoAZToCB(sgRule)
 			if err != nil {
 				return nil, err
@@ -707,29 +731,29 @@ type unControlledRule struct {
 	Action      string
 }
 
-func getAddAzureRules(baseRawRules *[]network.SecurityRule, addRuleInfo *[]irs.SecurityRuleInfo) (*[]network.SecurityRule, error) {
+func getAddAzureRules(baseRawRules []*armnetwork.SecurityRule, addRuleInfo *[]irs.SecurityRuleInfo) (*[]armnetwork.SecurityRule, error) {
 	inboundPriority := initPriority
 	outboundPriority := initPriority
-	for _, sgRule := range *baseRawRules {
-		if sgRule.Access == network.SecurityRuleAccessAllow {
-			if sgRule.Direction == network.SecurityRuleDirectionInbound && inboundPriority < int(*sgRule.Priority) {
-				inboundPriority = int(*sgRule.Priority)
+	for _, sgRule := range baseRawRules {
+		if *sgRule.Properties.Access == armnetwork.SecurityRuleAccessAllow {
+			if *sgRule.Properties.Direction == armnetwork.SecurityRuleDirectionInbound && inboundPriority < int(*sgRule.Properties.Priority) {
+				inboundPriority = int(*sgRule.Properties.Priority)
 			}
-			if sgRule.Direction == network.SecurityRuleDirectionOutbound && outboundPriority < int(*sgRule.Priority) {
-				outboundPriority = int(*sgRule.Priority)
+			if *sgRule.Properties.Direction == armnetwork.SecurityRuleDirectionOutbound && outboundPriority < int(*sgRule.Properties.Priority) {
+				outboundPriority = int(*sgRule.Properties.Priority)
 			}
 		}
 	}
-	var azureSGRuleList []network.SecurityRule
+	var azureSGRuleList []armnetwork.SecurityRule
 
 	for idx, rule := range *addRuleInfo {
-		priorityNum := int32(initPriority + 1 + idx)
+		priorityNum := initPriority + 1 + idx
 		if strings.ToLower(rule.Direction) == "inbound" {
-			priorityNum = int32(inboundPriority + 1 + idx)
+			priorityNum = inboundPriority + 1 + idx
 			inboundPriority = inboundPriority + 1 + idx
 		}
 		if strings.ToLower(rule.Direction) == "outbound" {
-			priorityNum = int32(outboundPriority + 1 + idx)
+			priorityNum = outboundPriority + 1 + idx
 			outboundPriority = outboundPriority + 1 + idx
 		}
 		sgRuleInfo, err := convertRuleInfoCBToAZ(rule, priorityNum)
