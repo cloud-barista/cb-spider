@@ -16,6 +16,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -113,6 +114,9 @@ func SecurityGroupManagement(c echo.Context) error {
 	tmpl, err := template.New("security-group.html").Funcs(template.FuncMap{
 		"inc": func(i int) int {
 			return i + 1
+		},
+		"trim": func(s string) string {
+			return strings.TrimSpace(s)
 		},
 	}).ParseFiles(templatePath)
 	if err != nil {

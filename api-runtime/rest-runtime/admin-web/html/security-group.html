@@ -245,9 +245,83 @@
     .tags {
         width: 15%;
     }
+
     .misc {
         width: 15%;
     }
+
+    .overlay-dark-background {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.7);
+        z-index: 1999;
+        display: none;
+    }
+
+    .misc-overlay {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        width: 50%;
+        height: 50%;
+        transform: translate(-50%, -50%);
+        background-color: white;
+        border: 1px solid black;
+        padding: 20px;
+        z-index: 2000;
+        overflow-y: auto;
+        user-select: text;
+    }
+
+    .misc-overlay .close-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+    }
+
+    .misc-overlay-content {
+        width: 100%;
+        height: 100%;
+        overflow-y: auto;
+        white-space: pre-wrap;
+    }
+
+    .misc-content {
+        max-height: 2.5em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .more-btn {
+        display: none;
+        background-color: transparent;
+        border: none;
+        color: blue;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+
+    .misc-cell {
+        position: relative;
+    }
+
+    .misc-cell .more-btn {
+        position: absolute;
+        right: 5px;
+        bottom: 5px;
+    }
+
+
+
     .inner-table th {
         background-color: #f9f9f9;
         font-size: 12px;
@@ -368,7 +442,7 @@
     }
 
     .progress-bar-container {
-        width: 400px;
+        width: 600px;
         margin-left: 10px;
         margin-bottom: 10px;
         height: 22px;
@@ -376,6 +450,7 @@
         border-radius: 4px;
         overflow: hidden;
         display: none;
+        position: relative;
         z-index: 20;
     }
 
@@ -387,7 +462,15 @@
         transition: width 3s ease;
     }
 
-
+    #timeDisplay {
+        position: absolute;
+        top: 50%;
+        right: 10px;
+        transform: translateY(-50%);
+        font-size: 14px;
+        color: #333;
+        z-index: 30;
+    }
 
 </style>
 <script>
@@ -416,6 +499,30 @@
         }
     }
 
+    function fetchWithProgress(url, options) {
+        showProgressBar();
+        
+        const startTime = Date.now();
+        const timerInterval = 500; 
+        let timerId = setInterval(() => {
+            const elapsedTime = (Date.now() - startTime) / 1000;
+            const timeDisplay = document.getElementById('timeDisplay');
+            timeDisplay.textContent = `${(Math.floor(elapsedTime * 2) / 2).toFixed(1)}s`;
+        }, timerInterval);
+
+        return fetch(url, options)
+            .then(response => {
+                clearInterval(timerId); 
+                hideProgressBar();
+                return response;
+            })
+            .catch(error => {
+                clearInterval(timerId);
+                hideProgressBar();
+                throw error;
+            });
+    }
+
     function showProgressBar() {
         const progressBarContainer = document.getElementById('progressBarContainer');
         const progressBar = document.getElementById('progressBar');
@@ -429,24 +536,12 @@
 
     function hideProgressBar() {
         const progressBarContainer = document.getElementById('progressBarContainer');
-        
         setTimeout(() => {
             progressBarContainer.style.display = 'none';
+            document.getElementById('timeDisplay').textContent = ''; 
         }, 500);
     }
 
-    function fetchWithProgress(url, options) {
-        showProgressBar();
-        return fetch(url, options)
-            .then(response => {
-                hideProgressBar();
-                return response;
-            })
-            .catch(error => {
-                hideProgressBar();
-                throw error;
-            });
-    }
 
     function deleteSecurityGroup(sgName) {
         const connConfig = document.getElementById('connConfig').value;
@@ -614,6 +709,7 @@
     }
 
     function showOverlay() {
+        loadVPCs(); 
         const region = '{{.RegionName}}';
         const sgNameInput = document.getElementById('sgName');
         const vpcNameInput = document.getElementById('vpcName');
@@ -799,7 +895,7 @@
 
         const protocol = ruleRow.cells[0].innerText.trim();
         const portRange = ruleRow.cells[1].innerText.trim();
-        const [fromPort, toPort] = portRange.split(' ~ ').map(port => port.trim()); // Port Range를 올바르게 파싱
+        const [fromPort, toPort] = portRange.split(' ~ ').map(port => port.trim());
         const direction = ruleRow.cells[2].innerText.trim();
         const cidr = ruleRow.cells[3].innerText.trim();
 
@@ -829,7 +925,7 @@
             }
         };
 
-        fetch(`/spider/securitygroup/${sgName}/rules`, {
+        fetchWithProgress(`/spider/securitygroup/${sgName}/rules`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json'
@@ -855,6 +951,7 @@
             showError("Error deleting security rule: " + error.message, "SecurityGroup Name: " + sgName);
         });
     }
+
 
     function showTagOverlay(event, tag, resourceType, resourceName) {
         event.stopPropagation();
@@ -1215,9 +1312,67 @@
         }
     }
 
+    function showMiscOverlay(button) {
+        const miscContent = button.previousElementSibling.innerHTML;
+
+        const overlayDarkBackground = document.createElement('div');
+        overlayDarkBackground.className = 'overlay-dark-background';
+        document.body.appendChild(overlayDarkBackground);
+
+        const overlay = document.createElement('div');
+        overlay.className = 'misc-overlay';
+        overlay.innerHTML = `
+            <button class="close-btn">x</button>
+            <div class="misc-overlay-content" tabindex="0">${miscContent}</div>
+        `;
+
+        document.body.appendChild(overlay);
+        overlayDarkBackground.style.display = 'block';
+        overlay.style.display = 'block';
+
+        const overlayContent = overlay.querySelector('.misc-overlay-content');
+        overlayContent.focus();
+
+        document.addEventListener('keydown', handleEscKey);
+        overlayDarkBackground.addEventListener('click', handleClickOutside);
+        overlay.querySelector('.close-btn').addEventListener('click', closeMiscOverlay);
+
+        function closeMiscOverlay() {
+            if (overlay) overlay.remove();
+            if (overlayDarkBackground) overlayDarkBackground.remove();
+            document.removeEventListener('keydown', handleEscKey);
+            overlayDarkBackground.removeEventListener('click', handleClickOutside);
+        }
+
+        function handleEscKey(event) {
+            if (event.key === 'Escape') {
+                closeMiscOverlay();
+            }
+        }
+
+        function handleClickOutside(event) {
+            if (event.target === overlayDarkBackground) {
+                closeMiscOverlay();
+            }
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
-        loadVPCs();
+        const miscCells = document.querySelectorAll('.misc-cell');
+
+        miscCells.forEach(cell => {
+            const content = cell.querySelector('.misc-content');
+            const button = cell.querySelector('.more-btn');
+
+            if (content.scrollHeight > content.clientHeight) {
+                button.style.display = 'inline-block';
+            } else {
+                button.style.display = 'none';
+            }
+        });
     });
+
+
 </script>
 </head>
 <body>
@@ -1242,7 +1397,8 @@
             <div id="mockButtonsContainer" style="display: flex; align-items: center;"></div>
             <div class="progress-bar-container" id="progressBarContainer">
                 <div class="progress-bar" id="progressBar"></div>
-            </div>
+                <span id="timeDisplay"></span>
+            </div>  
         </div>
         <table id="sg-table">
             <tr>
@@ -1290,9 +1446,13 @@
                         <button class="add-btn" onclick="showAddTagOverlay('{{$sgNameId}}')">+</button>
                     </div>
                 </td>                
-                <td class="misc">
-                    {{range $kv := $sg.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
-                </td>
+                <td class="misc center-align misc-cell">
+                    <div class="misc-content">
+                        {{range $kv := $sg.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
+                    </div>
+                    <button class="more-btn" onclick="showMiscOverlay(this)">more...</button>
+                </td>                
+                
                 <td class="checkbox-cell center-align">
                     <input type="checkbox" name="deleteCheckbox" value="{{$sg.IId.NameId}}">
                 </td>

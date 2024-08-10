@@ -310,7 +310,7 @@
     #searchInput {
         width: 190px;
         font-family: Arial, sans-serif;
-        padding-right: 2.5cm; /* Space for the clear button inside the input */
+        padding-right: 2.5cm;
     }
 
     #clearSearch {
@@ -374,6 +374,44 @@
         margin-top: 20px;
     }
 
+    .header-with-progress {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0px;
+    }
+
+    .progress-bar-container {
+        width: 600px;
+        margin-left: 10px;
+        margin-bottom: 10px;
+        height: 22px;
+        background-color: #f0f5ff;
+        border-radius: 4px;
+        overflow: hidden;
+        display: none;
+        position: relative;
+        z-index: 20;
+    }
+
+    .progress-bar {
+        width: 0;
+        height: 100%;
+        background-color: #cce6ff;
+        border-radius: 4px;
+        transition: width 3s ease;
+    }
+
+    #timeDisplay {
+        position: absolute;
+        top: 50%;
+        right: 10px;
+        transform: translateY(-50%);
+        font-size: 14px;
+        color: #333;
+        z-index: 30;
+    }
+
+
 </style>
 <script>
     let currentProvider = '';
@@ -407,7 +445,7 @@
             ConnectionName: connConfig
         };
 
-        fetch(`/spider/vpc/${vpcName}`, {
+        fetchWithProgress(`/spider/vpc/${vpcName}`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json'
@@ -452,7 +490,7 @@
                 ConnectionName: connConfig
             };
 
-            return fetch(`/spider/vpc/${vpcName}`, {
+            return fetchWithProgress(`/spider/vpc/${vpcName}`, {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json'
@@ -557,7 +595,7 @@
                 }
             };
 
-            return fetch('/spider/vpc', {
+            return fetchWithProgress('/spider/vpc', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -679,7 +717,7 @@
             }
         };
 
-        fetch(`/spider/vpc/${vpcName}/subnet`, {
+        fetchWithProgress(`/spider/vpc/${vpcName}/subnet`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -714,7 +752,7 @@
             ConnectionName: connConfig
         };
 
-        fetch(`/spider/vpc/${vpcName}/subnet/${subnetName}`, {
+        fetchWithProgress(`/spider/vpc/${vpcName}/subnet/${subnetName}`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json'
@@ -772,7 +810,7 @@
             }
         };
 
-        fetch(`/spider/tag/${tagKey.trim()}`, {
+        fetchWithProgress(`/spider/tag/${tagKey.trim()}`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json'
@@ -894,7 +932,7 @@
                 }
             };
 
-            return fetch('/spider/vpc', {
+            return fetchWithProgress('/spider/vpc', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -966,7 +1004,7 @@
             }
         };
 
-        fetch('/spider/tag', {
+        fetchWithProgress('/spider/tag', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -995,7 +1033,7 @@
     }
     
     document.addEventListener('DOMContentLoaded', () => {
-        fetch('/spider/connectionconfig/{{.ConnectionConfig}}')
+        fetchWithProgress('/spider/connectionconfig/{{.ConnectionConfig}}')
             .then(response => response.json())
             .then(data => {
                 currentProvider = data.ProviderName;
@@ -1068,7 +1106,7 @@
             }
         };
 
-        fetch('/spider/tag', {
+        fetchWithProgress('/spider/tag', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -1099,7 +1137,7 @@
     function searchKeyword() {
         let input, filter, table, tr, td, i, j, k, innerTable, innerTr, innerTd, txtValue;
         input = document.getElementById('searchInput');
-        filter = input.value.toUpperCase().trim(); // trim whitespace
+        filter = input.value.toUpperCase().trim(); 
         if (!filter) {
             clearSearchInput();
             return;
@@ -1159,6 +1197,50 @@
         }
     }
 
+    function fetchWithProgress(url, options) {
+        showProgressBar();
+        
+        const startTime = Date.now();
+        const timerInterval = 500; 
+        let timerId = setInterval(() => {
+            const elapsedTime = (Date.now() - startTime) / 1000;
+            const timeDisplay = document.getElementById('timeDisplay');
+            timeDisplay.textContent = `${(Math.floor(elapsedTime * 2) / 2).toFixed(1)}s`;
+        }, timerInterval);
+
+        return fetch(url, options)
+            .then(response => {
+                clearInterval(timerId); 
+                hideProgressBar();
+                return response;
+            })
+            .catch(error => {
+                clearInterval(timerId);
+                hideProgressBar();
+                throw error;
+            });
+    }
+
+    function showProgressBar() {
+        const progressBarContainer = document.getElementById('progressBarContainer');
+        const progressBar = document.getElementById('progressBar');
+        progressBar.style.width = '0%';
+        progressBarContainer.style.display = 'block';
+
+        setTimeout(() => {
+            progressBar.style.width = '100%';
+        }, 100);
+    }
+
+    function hideProgressBar() {
+        const progressBarContainer = document.getElementById('progressBarContainer');
+        setTimeout(() => {
+            progressBarContainer.style.display = 'none';
+            document.getElementById('timeDisplay').textContent = ''; 
+        }, 500);
+    }
+
+
 </script>
 </head>
 <body>
@@ -1178,7 +1260,14 @@
     </div>
     
     <div class="content">
-        <button class="add-button" onclick="showOverlay()">+</button>
+        <div class="header-with-progress">
+            <button class="add-button" onclick="showOverlay()">+</button>
+            <div id="mockButtonsContainer" style="display: flex; align-items: center;"></div>
+            <div class="progress-bar-container" id="progressBarContainer">
+                <div class="progress-bar" id="progressBar"></div>
+                <span id="timeDisplay"></span>
+            </div>                       
+        </div>
         <table id="vpc-table">
             <tr>
                 <th class="column-num">#</th>
