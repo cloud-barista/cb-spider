@@ -491,7 +491,7 @@ func RunServer() {
 
 		{"GET", "/adminweb/vpc/:ConnectConfig", aw.VPCSubnetManagement},
 		{"GET", "/adminweb/vpcmgmt/:ConnectConfig", aw.VPCMgmt},
-		{"GET", "/adminweb/securitygroup/:ConnectConfig", aw.SecurityGroup},
+		{"GET", "/adminweb/securitygroup/:ConnectConfig", aw.SecurityGroupManagement},
 		{"GET", "/adminweb/securitygroupmgmt/:ConnectConfig", aw.SecurityGroupMgmt},
 		{"GET", "/adminweb/keypair/:ConnectConfig", aw.KeyPair},
 		{"GET", "/adminweb/keypairmgmt/:ConnectConfig", aw.KeyPairMgmt},

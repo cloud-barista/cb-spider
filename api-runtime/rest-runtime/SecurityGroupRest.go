@@ -11,6 +11,7 @@ package restruntime
 import (
 	cmrt "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	dri "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
 	// REST API (echo)
 	"net/http"
@@ -87,6 +88,7 @@ type securityGroupCreateReq struct {
 		VPCName       string
 		Direction     string
 		SecurityRules *[]cres.SecurityRuleInfo
+		TagList       []dri.KeyValue
 	}
 }
 
@@ -120,6 +122,7 @@ func CreateSecurity(c echo.Context) error {
 		VpcIID: cres.IID{req.ReqInfo.VPCName, ""},
 		// deprecated; Direction:     req.ReqInfo.Direction,
 		SecurityRules: req.ReqInfo.SecurityRules,
+		TagList:       req.ReqInfo.TagList,
 	}
 
 	// Call common-runtime API
