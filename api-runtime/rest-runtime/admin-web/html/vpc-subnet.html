@@ -123,7 +123,11 @@
         font-size: 14px;
         font-weight: bold;
         margin-left: 1px;
+        margin-right: 5px;
         margin-bottom: 10px;
+    }
+    .mock-add-button {
+        margin-right: 1px;
     }
     .content {
         margin-top: 70px;
@@ -245,6 +249,68 @@
     .misc {
         width: 15%;
     }
+    .overlay-dark-background {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.7);
+        z-index: 1999;
+        display: none;
+    }
+    .misc-overlay {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        width: 50%;
+        height: 50%;
+        transform: translate(-50%, -50%);
+        background-color: white;
+        border: 1px solid black;
+        padding: 20px;
+        z-index: 2000;
+        overflow-y: auto;
+        user-select: text;
+    }
+    .misc-overlay .close-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+    }
+    .misc-overlay-content {
+        width: 100%;
+        height: 100%;
+        overflow-y: auto;
+        white-space: pre-wrap;
+    }
+    .misc-content {
+        max-height: 2.5em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .more-btn {
+        display: none;
+        background-color: transparent;
+        border: none;
+        color: blue;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+    .misc-cell {
+        position: relative;
+    }
+    .misc-cell .more-btn {
+        position: absolute;
+        right: 5px;
+        bottom: 5px;
+    }
     .inner-table th {
         background-color: #f9f9f9;
         font-size: 12px;
@@ -306,13 +372,11 @@
         font-weight: bold;
         white-space: nowrap;
     }
-
     #searchInput {
         width: 190px;
         font-family: Arial, sans-serif;
         padding-right: 2.5cm;
     }
-
     #clearSearch {
         position: absolute;
         right: 0.1cm;
@@ -323,14 +387,12 @@
         cursor: pointer;
         font-family: Arial, sans-serif;
     }
-
     .searchContainer {
         position: relative;
         display: flex;
         align-items: center;
         padding-left: 0.5cm;
     }
-
     .searchContainer button {
         position: absolute;
         right: 0.5cm;
@@ -341,7 +403,6 @@
         cursor: pointer;
         font-family: Arial, sans-serif;
     }
-
     .tag-overlay-content {
         position: relative;
         padding: 20px;
@@ -351,35 +412,29 @@
         font-family: Arial, sans-serif;
         font-size: 12px;
     }
-
     .tag-overlay-input-group {
         display: flex;
         align-items: center;
         margin-bottom: 10px;
     }
-
     .tag-overlay-input-group label {
         flex: 1;
         text-align: right;
         margin-right: 10px;
     }
-
     .tag-overlay-input-group input {
         flex: 2;
     }
-
     .tag-overlay-button-group {
         display: flex;
         justify-content: space-between;
         margin-top: 20px;
     }
-
     .header-with-progress {
         display: flex;
         align-items: center;
         margin-bottom: 0px;
     }
-
     .progress-bar-container {
         width: 600px;
         margin-left: 10px;
@@ -400,7 +455,6 @@
         border-radius: 4px;
         transition: width 3s ease;
     }
-
     #timeDisplay {
         position: absolute;
         top: 50%;
@@ -1038,19 +1092,20 @@
             .then(data => {
                 currentProvider = data.ProviderName;
                 if (currentProvider === 'MOCK') {
-                    const contentDiv = document.querySelector('.content');
+                    const mockButtonsContainer = document.getElementById('mockButtonsContainer');
+
                     const button10 = document.createElement('button');
-                    button10.className = 'add-button';
+                    button10.className = 'mock-add-button add-button';
                     button10.textContent = '+10';
                     button10.onclick = () => createMultipleVPCs(10);
 
                     const button20 = document.createElement('button');
-                    button20.className = 'add-button';
-                    button20.textContent = '+20';
-                    button20.onclick = () => createMultipleVPCs(20);
+                    button20.className = 'mock-add-button add-button';
+                    button20.textContent = '+50';
+                    button20.onclick = () => createMultipleVPCs(50);
 
-                    contentDiv.insertBefore(button10, contentDiv.querySelector('table'));
-                    contentDiv.insertBefore(button20, contentDiv.querySelector('table'));
+                    mockButtonsContainer.appendChild(button10);
+                    mockButtonsContainer.appendChild(button20);
                 }
             })
             .catch(error => {
@@ -1239,7 +1294,66 @@
             document.getElementById('timeDisplay').textContent = ''; 
         }, 500);
     }
+        
+    function showMiscOverlay(button) {
+        const miscContent = button.previousElementSibling.innerHTML;
 
+        const overlayDarkBackground = document.createElement('div');
+        overlayDarkBackground.className = 'overlay-dark-background';
+        document.body.appendChild(overlayDarkBackground);
+
+        const overlay = document.createElement('div');
+        overlay.className = 'misc-overlay';
+        overlay.innerHTML = `
+            <button class="close-btn">x</button>
+            <div class="misc-overlay-content" tabindex="0">${miscContent}</div>
+        `;
+
+        document.body.appendChild(overlay);
+        overlayDarkBackground.style.display = 'block';
+        overlay.style.display = 'block';
+
+        const overlayContent = overlay.querySelector('.misc-overlay-content');
+        overlayContent.focus();
+
+        document.addEventListener('keydown', handleEscKey);
+        overlayDarkBackground.addEventListener('click', handleClickOutside);
+        overlay.querySelector('.close-btn').addEventListener('click', closeMiscOverlay);
+
+        function closeMiscOverlay() {
+            if (overlay) overlay.remove();
+            if (overlayDarkBackground) overlayDarkBackground.remove();
+            document.removeEventListener('keydown', handleEscKey);
+            overlayDarkBackground.removeEventListener('click', handleClickOutside);
+        }
+
+        function handleEscKey(event) {
+            if (event.key === 'Escape') {
+                closeMiscOverlay();
+            }
+        }
+
+        function handleClickOutside(event) {
+            if (event.target === overlayDarkBackground) {
+                closeMiscOverlay();
+            }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const miscCells = document.querySelectorAll('.misc-cell');
+
+        miscCells.forEach(cell => {
+            const content = cell.querySelector('.misc-content');
+            const button = cell.querySelector('.more-btn');
+
+            if (content.scrollHeight > content.clientHeight) {
+                button.style.display = 'inline-block';
+            } else {
+                button.style.display = 'none';
+            }
+        });
+    });
 
 </script>
 </head>
@@ -1322,8 +1436,11 @@
                         <button class="add-btn" onclick="showAddTagOverlay('{{$vpcNameId}}')">+</button>
                     </div>
                 </td>                
-                <td class="misc">
+                <td class="misc center-align misc-cell">
+                    <div class="misc-content">
                     {{range $kv := $vpc.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
+                    </div>
+                    <button class="more-btn" onclick="showMiscOverlay(this)">more...</button>
                 </td>
                 <td class="checkbox-cell center-align">
                     <input type="checkbox" name="deleteCheckbox" value="{{$vpc.IId.NameId}}">
