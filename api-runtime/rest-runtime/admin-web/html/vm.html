@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>KeyPair Management</title>
+<title>VM Management</title>
 <style>
     body {
         font-family: Arial, sans-serif;
@@ -161,7 +161,7 @@
         text-align: center;
     }
     .highlight {
-        background-color: #fffab6;
+        background-color: #fffab6
     }
     .misc {
         width: 15%;
@@ -176,7 +176,6 @@
         background-color: rgba(0,0,0,0.5);
         justify-content: center;
         align-items: center;
-        z-index: 1000;
     }
     .overlay-content {
         background-color: white;
@@ -200,45 +199,7 @@
     }
     .tag-container:hover {
         background-color: #c1e1c1;
-    }    
-    .add-btn-container {
-        margin-top: 5px;
     }
-
-    .add-tag-overlay-content {
-        background-color: white;
-        padding: 20px;
-        border-radius: 5px;
-        text-align: left;
-        font-family: Arial, sans-serif;
-        font-size: 14px;
-        max-width: 300px;
-        word-wrap: break-word;
-        position: relative;
-    }
-
-    .add-tag-overlay-content .tag-overlay-input-group {
-        display: flex;
-        align-items: center;
-        margin-bottom: 10px;
-    }
-
-    .add-tag-overlay-content .tag-overlay-input-group label {
-        flex: 1;
-        text-align: right;
-        margin-right: 10px;
-    }
-
-    .add-tag-overlay-content .tag-overlay-input-group input {
-        flex: 2;
-    }
-
-    .add-tag-overlay-content .tag-overlay-button-group {
-        display: flex;
-        justify-content: space-between;
-        margin-top: 20px;
-    }
-
     .form-group {
         display: flex;
         align-items: center;
@@ -268,7 +229,7 @@
         margin-left: 5px;
     }
 
-    #keypair-tag-container {
+    #vm-tag-container {
         display: flex;
         flex-direction: column;
     }
@@ -336,27 +297,115 @@
         right: 5px;
         bottom: 5px;
     }
+    .vm-control-buttons a {
+        font-size: 12px;
+        color: #007bff;
+        text-decoration: none;
+        margin: 0 5px;
+    }
+
+    .vm-control-buttons a:hover {
+        text-decoration: underline;
+        color: #0056b3;
+    }
+    .vm-control-buttons input[type="text"] {
+        width: 120px;
+        padding: 3px;
+        font-size: 12px;
+        margin-right: 5px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+    }
+
+    .vm-control-buttons button {
+        font-size: 12px;
+        padding: 3px 8px;
+        border-radius: 4px;
+        border: 1px solid #007bff;
+        background-color: #007bff;
+        color: #fff;
+        cursor: pointer;
+    }
+
+    .vm-control-buttons button:hover {
+        background-color: #0056b3;
+        border-color: #0056b3;
+    }
+
 </style>
 <script>
-    function deleteSelectedKeyPairs() {
+    function vmControl(connConfig, vmName, action) {
+        const controlCell = document.getElementById(`vmcontrol-${vmName}`);
+        controlCell.innerHTML = '<span style="color:red">Waiting...</span>';
+
+        fetchWithProgress(`/spider/controlvm/${vmName}?action=${action}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ ConnectionName: connConfig })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.Status === "Success") {
+                location.reload();
+            } else {
+                showError("Failed to control VM: " + (data.Message || "Unknown error"), "VM Name: " + vmName);
+            }
+        })
+        .catch(error => {
+            showError("Error controlling VM: " + error.message, "VM Name: " + vmName);
+        });
+    }
+
+    function postSnapshotVM(connConfig, vmName, snapshotName) {
+        const snapshotData = {
+            ConnectionName: connConfig,
+            ReqInfo: {
+                Name: snapshotName,
+                SourceVM: vmName
+            }
+        };
+
+        fetchWithProgress(`/spider/myimage`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(snapshotData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.Result === "true") {
+                alert(`Snapshot "${snapshotName}" created successfully.`);
+            } else {
+                showError("Failed to create snapshot: " + (data.Message || "Unknown error"), "VM Name: " + vmName);
+            }
+        })
+        .catch(error => {
+            showError("Error creating snapshot: " + error.message, "VM Name: " + vmName);
+        });
+    }
+
+    function deleteSelectedVMs() {
         const connConfig = document.getElementById('connConfig').value;
         const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
         if (checkboxes.length === 0) {
-            alert("Please select KeyPairs to delete.");
+            alert("Please select VMs to delete.");
             return;
         }
 
-        if (!confirm("Are you sure you want to delete the selected KeyPairs?")) {
+        if (!confirm("Are you sure you want to delete the selected VMs?")) {
             return;
         }
 
         const deletePromises = Array.from(checkboxes).map(checkbox => {
-            const keyPairName = checkbox.value;
+            const vmName = checkbox.value;
             const data = {
                 ConnectionName: connConfig
             };
 
-            return fetchWithProgress(`/spider/keypair/${keyPairName}`, {
+            return fetchWithProgress(`/spider/vm/${vmName}`, {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json'
@@ -375,7 +424,7 @@
         Promise.all(deletePromises)
             .then(() => location.reload())
             .catch(error => {
-                alert("Error deleting KeyPairs: " + error.message);
+                alert("Error deleting VMs: " + error.message);
             });
     }
     function toggleSelectAll(source) {
@@ -384,13 +433,13 @@
             checkbox.checked = source.checked;
         }
     }
-    function deleteKeyPair(keyPairName) {
+    function deleteVM(vmName) {
         const connConfig = document.getElementById('connConfig').value;
         const data = {
             ConnectionName: connConfig
         };
 
-        fetchWithProgress(`/spider/keypair/${keyPairName}`, {
+        fetchWithProgress(`/spider/vm/${vmName}`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json'
@@ -402,41 +451,60 @@
             if (data.Result === "true") {
                 location.reload();
             } else {
-                showError("Failed to delete KeyPair: " + (data.Message || "Unknown error"), "KeyPair Name: " + keyPairName);
+                showError("Failed to delete VM: " + (data.Message || "Unknown error"), "VM Name: " + vmName);
             }
         })
         .catch(error => {
-            showError("Error deleting KeyPair: " + error.message, "KeyPair Name: " + keyPairName);
+            showError("Error deleting VM: " + error.message, "VM Name: " + vmName);
         });
     }
 
-    function postKeyPair() {
-        const keyPairCount = parseInt(document.getElementById('keyPairCount').value);
-        if (keyPairCount > 1) {
-            if (!confirm(`Are you sure you want to create ${keyPairCount} KeyPairs?`)) {
+    function postVM() {
+        const vmCount = parseInt(document.getElementById('vmCount').value);
+        if (vmCount > 1) {
+            if (!confirm(`Are you sure you want to create ${vmCount} VMs?`)) {
                 return;
             }
         }
 
         const connConfig = document.getElementById('connConfig').value;
+        const vmName = document.getElementById('vmName').value;
+        const imageName = document.getElementById('imageName').value;
+        const vmSpecName = document.getElementById('vmSpecName').value;
+        const vpcName = document.getElementById('vpcSelect').options[document.getElementById('vpcSelect').selectedIndex].text.split(' ')[0];
+        const subnetName = document.getElementById('subnetSelect').value;
+        const securityGroupName = document.getElementById('securityGroupSelect').value;
+        const rootDiskType = document.getElementById('rootDiskType').value;
+        const keypairName = document.getElementById('keypairSelect').value;
+        const vmUserId = document.getElementById('vmUserId').value;
+        const vmUserPasswd = document.getElementById('vmUserPasswd').value;
 
-        const keyPairPromises = Array.from({ length: keyPairCount }).map((_, index) => {
-            const keyPairName = `${document.getElementById('keyPairName').value}-${index + 1}`;
+        const tags = Array.from(document.querySelectorAll('.vm-tag-input')).map(tagInput => ({
+            Key: tagInput.querySelector('.vm-tag-key').value.trim(),
+            Value: tagInput.querySelector('.vm-tag-value').value.trim()
+        }));
 
-            const tags = Array.from(document.querySelectorAll('.keypair-tag-input')).map(tagInput => ({
-                Key: tagInput.querySelector('.keypair-tag-key').value.trim(),
-                Value: tagInput.querySelector('.keypair-tag-value').value.trim()
-            }));
-
+        const vmPromises = Array.from({ length: vmCount }).map((_, index) => {
             const requestData = {
                 ConnectionName: connConfig,
                 ReqInfo: {
-                    Name: keyPairName,
+                    Name: `${vmName}-${index + 1}`,
+                    ImageType: "PublicImage",
+                    ImageName: imageName,
+                    VMSpecName: vmSpecName,
+                    VPCName: vpcName,
+                    SubnetName: subnetName,
+                    SecurityGroupNames: [securityGroupName],
+                    RootDiskType: rootDiskType,
+                    DataDiskNames: [],
+                    KeyPairName: keypairName,
+                    VMUserId: vmUserId,
+                    VMUserPasswd: vmUserPasswd,
                     TagList: tags
                 }
             };
 
-            return fetchWithProgress('/spider/keypair', {
+            return fetchWithProgress('/spider/vm', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -445,31 +513,19 @@
             })
             .then(response => response.json())
             .then(data => {
-                if (data.IId && data.IId.NameId) {
-                    if (confirm(`KeyPair "${keyPairName}" created successfully. Do you want to download the private key?`)) {
-                        downloadPrivateKey(keyPairName, data.PrivateKey);
-                    }
-                } else {
-                    showError("Failed to create KeyPair: " + (data.Message || "Unknown error"), "KeyPair Name: " + keyPairName);
+                if (!data.IId || !data.IId.NameId) {
+                    showError("Failed to create VM: " + (data.Message || "Unknown error"), `VM Name: ${requestData.ReqInfo.Name}`);
                 }
             });
         });
 
-        Promise.all(keyPairPromises)
+        Promise.all(vmPromises)
             .then(() => location.reload())
             .catch(error => {
-                showError("Error creating KeyPairs: " + error.message, "Multiple KeyPairs");
+                showError("Error creating VMs: " + error.message, "Multiple VMs");
             });
     }
 
-    function downloadPrivateKey(keyPairName, privateKey) {
-        const element = document.createElement('a');
-        const file = new Blob([privateKey], { type: 'text/plain' });
-        element.href = URL.createObjectURL(file);
-        element.download = `${keyPairName}.pem`;
-        document.body.appendChild(element); 
-        element.click();
-    }
 
     function searchKeyword() {
         let input, filter, table, tr, td, i;
@@ -480,7 +536,7 @@
             return;
         }
 
-        table = document.getElementById('keypair-table');
+        table = document.getElementById('vm-table');
         tr = table.getElementsByTagName('tr');
         
         for (i = 1; i < tr.length; i++) {
@@ -500,7 +556,7 @@
 
     function clearSearchInput() {
         document.getElementById("searchInput").value = "";
-        let table = document.getElementById('keypair-table');
+        let table = document.getElementById('vm-table');
         let tr = table.getElementsByTagName('tr');
         for (let i = 1; i < tr.length; i++) {
             for (let j = 0; j < tr[i].cells.length; j++) {
@@ -511,9 +567,9 @@
 
     function showOverlay() {
         const region = '{{.RegionName}}';
-        const keyPairNameInput = document.getElementById('keyPairName');
+        const vmNameInput = document.getElementById('vmName');
 
-        keyPairNameInput.value = `${region}-keypair-${Math.random().toString(36).substring(2, 8)}`;
+        vmNameInput.value = `${region}-vm-${Math.random().toString(36).substring(2, 8)}`;
 
         document.getElementById('overlay').style.display = 'flex';
         document.addEventListener('keydown', handleEsc);
@@ -522,10 +578,10 @@
 
     function clearFormFields() {
         const region = '{{.RegionName}}';
-        const keyPairNameInput = document.getElementById('keyPairName');
-        keyPairNameInput.value = `${region}-keypair-${Math.random().toString(36).substring(2, 5)}`;
+        const vmNameInput = document.getElementById('vmName');
+        vmNameInput.value = `${region}-vm-${Math.random().toString(36).substring(2, 5)}`;
 
-        const tagContainer = document.getElementById('keypair-tag-container');
+        const tagContainer = document.getElementById('vm-tag-container');
         while (tagContainer.firstChild) {
             tagContainer.removeChild(tagContainer.firstChild);
         }
@@ -537,19 +593,20 @@
         clearFormFields();
     }
 
+
     function handleEsc(event) {
         if (event.key === "Escape") {
             hideOverlay();
         }
     }
 
-    function addKeyPairTagField() {
-        const tagContainer = document.getElementById('keypair-tag-container');
+    function addVMTagField() {
+        const tagContainer = document.getElementById('vm-tag-container');
         const tagInput = document.createElement('div');
-        tagInput.className = 'keypair-tag-input tag-input-group';
+        tagInput.className = 'vm-tag-input tag-input-group';
         tagInput.innerHTML = `
-            <input type="text" class="keypair-tag-key" placeholder="Key" required>
-            <input type="text" class="keypair-tag-value" placeholder="Value" required>
+            <input type="text" class="vm-tag-key" placeholder="Key" required>
+            <input type="text" class="vm-tag-value" placeholder="Value" required>
             <button type="button" onclick="removeTagField(this)">-</button>
         `;
         tagContainer.appendChild(tagInput);
@@ -584,74 +641,6 @@
         tagOverlay.style.display = 'none';
         document.removeEventListener('keydown', handleEscTagOverlay);
         document.removeEventListener('click', handleClickOutsideOverlay);
-    }
-
-    function showAddTagOverlay(keyPairName) {
-        const addTagOverlay = document.getElementById('add-tag-overlay');
-        const addTagOverlayContent = document.querySelector('.add-tag-overlay-content');
-        addTagOverlayContent.innerHTML = `
-            <div class="tag-overlay-input-group">
-                <label for="tagOverlayTagKey">Tag Key:</label>
-                <input type="text" id="tagOverlayTagKey" name="tagKey" required>
-            </div>
-            <div class="tag-overlay-input-group">
-                <label for="tagOverlayTagValue">Tag Value:</label>
-                <input type="text" id="tagOverlayTagValue" name="tagValue" required>
-            </div>
-            <div class="tag-overlay-button-group">
-                <button onclick="addTag('${keyPairName}')">Add</button>
-                <button onclick="closeAddTagOverlay()">Cancel</button>
-            </div>
-        `;
-        addTagOverlay.style.display = 'flex';
-        document.addEventListener('keydown', handleEscAddTagOverlay);
-    }
-
-    function closeAddTagOverlay() {
-        const addTagOverlay = document.getElementById('add-tag-overlay');
-        addTagOverlay.style.display = 'none';
-        document.removeEventListener('keydown', handleEscAddTagOverlay);
-    }
-
-    function handleEscAddTagOverlay(event) {
-        if (event.key === "Escape") {
-            closeAddTagOverlay();
-        }
-    }
-
-    function addTag(keyPairName) {
-        const tagKey = document.getElementById('tagOverlayTagKey').value;
-        const tagValue = document.getElementById('tagOverlayTagValue').value;
-        const connConfig = document.getElementById('connConfig').value;
-
-        const data = {
-            ConnectionName: connConfig,
-            ReqInfo: {
-                ResourceType: 'KEYPAIR',
-                ResourceName: keyPairName,
-                Tag: { Key: tagKey, Value: tagValue }
-            }
-        };
-
-        fetchWithProgress('/spider/tag', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        }).then(response => {
-            if (!response.ok) {
-                return response.json().then(error => {
-                    throw new Error(error.message);
-                });
-            }
-            return response.json();
-        }).then(() => {
-            closeAddTagOverlay();
-            location.reload();
-        }).catch(error => {
-            showError("Error adding tag: " + error.message, "KeyPair Name: " + keyPairName);
-        });
     }
 
     function handleEscTagOverlay(event) {
@@ -722,12 +711,12 @@
                     const button10 = document.createElement('button');
                     button10.className = 'mock-add-button add-button';
                     button10.textContent = '+10';
-                    button10.onclick = () => createMultipleKeyPairs(10);
+                    button10.onclick = () => createMultipleVMs(10);
 
                     const button50 = document.createElement('button');
                     button50.className = 'mock-add-button add-button';
                     button50.textContent = '+50';
-                    button50.onclick = () => createMultipleKeyPairs(50);
+                    button50.onclick = () => createMultipleVMs(50);
 
                     mockButtonsContainer.appendChild(button10);
                     mockButtonsContainer.appendChild(button50);
@@ -738,21 +727,21 @@
             });
     });
 
-    function createMultipleKeyPairs(count) {
+    function createMultipleVMs(count) {
         const connConfig = document.getElementById('connConfig').value;
 
-        const keyPairPromises = Array.from({ length: count }).map(() => {
-            const keyPairName = `mock-keypair-${Math.random().toString(36).substring(2, 7)}`;
+        const vmPromises = Array.from({ length: count }).map(() => {
+            const vmName = `mock-vm-${Math.random().toString(36).substring(2, 7)}`;
 
             const requestData = {
                 ConnectionName: connConfig,
                 ReqInfo: {
-                    Name: keyPairName,
+                    Name: vmName,
                     TagList: []
                 }
             };
 
-            return fetchWithProgress('/spider/keypair', {
+            return fetchWithProgress('/spider/vm', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -768,10 +757,10 @@
             });
         });
 
-        Promise.all(keyPairPromises)
+        Promise.all(vmPromises)
             .then(() => location.reload())
             .catch(error => {
-                showError("Error creating KeyPairs: " + error.message, "KeyPair Creation Error");
+                showError("Error creating VMs: " + error.message, "VM Creation Error");
             });
     }
 
@@ -817,13 +806,128 @@
             document.getElementById('timeDisplay').textContent = ''; 
         }, 500);
     }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        loadVPCs();
+        loadKeyPairs();
+        loadSecurityGroups();
+    });
+
+    function loadVPCs() {
+        const connConfig = document.getElementById('connConfig').value;
+
+        fetch(`/spider/vpc?ConnectionName=${connConfig}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            const vpcSelect = document.getElementById('vpcSelect');
+            vpcSelect.innerHTML = '';
+            if (data.vpc && data.vpc.length > 0) {
+                data.vpc.forEach(vpc => {
+                    const option = document.createElement('option');
+                    option.value = JSON.stringify(vpc.SubnetInfoList);
+                    option.textContent = `${vpc.IId.NameId} (${vpc.IPv4_CIDR})`;
+                    vpcSelect.appendChild(option);
+                });
+                updateSubnets();
+            } else {
+                vpcSelect.innerHTML = '<option>No VPCs. Create one.</option>';
+            }
+        })
+        .catch(error => {
+            alert('Error loading VPCs: ' + error.message);
+        });
+    }
+
+    function updateSubnets() {
+        const vpcSelect = document.getElementById('vpcSelect');
+        const selectedSubnets = JSON.parse(vpcSelect.value);
+
+        const subnetSelect = document.getElementById('subnetSelect');
+        subnetSelect.innerHTML = '';
+        
+        if (selectedSubnets && selectedSubnets.length > 0) {
+            selectedSubnets.forEach(subnet => {
+                const option = document.createElement('option');
+                option.value = subnet.IId.NameId;
+                option.textContent = `${subnet.IId.NameId} (${subnet.IPv4_CIDR})`;
+                subnetSelect.appendChild(option);
+            });
+        } else {
+            subnetSelect.innerHTML = '<option>No subnets available for this VPC.</option>';
+        }
+    }
+
+    function loadKeyPairs() {
+        const connConfig = document.getElementById('connConfig').value;
+
+        fetch(`/spider/keypair?ConnectionName=${connConfig}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            const keypairSelect = document.getElementById('keypairSelect');
+            keypairSelect.innerHTML = '';
+            if (data.keypair && data.keypair.length > 0) {
+                data.keypair.forEach(keypair => {
+                    const option = document.createElement('option');
+                    option.value = keypair.IId.NameId;
+                    option.textContent = keypair.IId.NameId;
+                    keypairSelect.appendChild(option);
+                });
+            } else {
+                keypairSelect.innerHTML = '<option>No keypairs available.</option>';
+            }
+        })
+        .catch(error => {
+            alert('Error loading keypairs: ' + error.message);
+        });
+    }
+
+    function loadSecurityGroups() {
+        const connConfig = document.getElementById('connConfig').value;
+
+        fetch(`/spider/securitygroup?ConnectionName=${connConfig}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            const securityGroupSelect = document.getElementById('securityGroupSelect');
+            securityGroupSelect.innerHTML = '';
+            if (data.securitygroup && data.securitygroup.length > 0) {
+                data.securitygroup.forEach(sg => {
+                    const option = document.createElement('option');
+                    option.value = sg.IId.NameId;
+                    option.textContent = `${sg.IId.NameId}`;
+                    securityGroupSelect.appendChild(option);
+                });
+            } else {
+                securityGroupSelect.innerHTML = '<option>No security groups available.</option>';
+            }
+        })
+        .catch(error => {
+            alert('Error loading security groups: ' + error.message);
+        });
+    }
+
+
 </script>
 </head>
 <body>
     <div class="fixed-header">
         <div class="header-container">
-            <img src="/spider/adminweb/images/left-menu/keypair.png" alt="KeyPair Icon">
-            <h1>KeyPair Management</h1>
+            <img src="/spider/adminweb/images/left-menu/vm.png" alt="VM Icon">
+            <h1>VM Management</h1>
             <div class="searchContainer">
                 <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
                 <button id="clearSearch" onclick="clearSearchInput()">X</button>
@@ -831,7 +935,7 @@
         </div>        
         <div class="fixed-action-buttons">
             <input type="checkbox" onclick="toggleSelectAll(this)">
-            <button onclick="deleteSelectedKeyPairs()">Delete</button>
+            <button onclick="deleteSelectedVMs()">Delete</button>
         </div>
     </div>
 
@@ -844,44 +948,60 @@
                 <span id="timeDisplay"></span>
             </div>                       
         </div>
-        <table id="keypair-table">
+        <table id="vm-table">
             <tr>
                 <th class="column-num">#</th>
                 <th class="center-align">Name</th>
-                <th class="center-align fingerprint">Fingerprint</th>
+                <th class="center-align">VM Status</th>
+                <th class="center-align">SSH Access</th>
+                <th class="center-align">Actions</th>
                 <th class="center-align">Tags</th>
                 <th class="center-align">Misc</th>
                 <th class="check-column">
                     <input type="checkbox" onclick="toggleSelectAll(this)">
                 </th>
             </tr>
-            {{range $index, $keyPair := .KeyPairs}}
+            {{range $index, $vm := .VMs}}
             <tr>
                 <td class="column-num">{{$index | inc}}</td>
-                <td class="center-align">{{$keyPair.IId.NameId}}</td>
-                <td class="center-align fingerprint">{{$keyPair.Fingerprint}}</td>
-                <td>
-                    {{range $tag := $keyPair.TagList}}
-                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'KEYPAIR', '{{$keyPair.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                <td class="center-align">{{$vm.IId.NameId}}</td>
+                <td class="center-align">
+                    {{index $.VMStatusMap $vm.IId.NameId}}
+                </td>
+                <td class="center-align">{{$vm.SSHAccessPoint}}</td>
+                <td id="vmcontrol-{{$vm.IId.NameId}}" class="center-align vm-control-buttons">
+                    {{if eq (index $.VMStatusMap $vm.IId.NameId) "Running"}}
+                        <a href="javascript:vmControl('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}', 'suspend')">Suspend</a> /
+                        <a href="javascript:vmControl('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}', 'reboot')">Reboot</a> /
+                    {{else if eq (index $.VMStatusMap $vm.IId.NameId) "Suspended"}}
+                        <a href="javascript:vmControl('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}', 'resume')">Resume</a> /
                     {{end}}
-                    <div class="add-btn-container">
-                        <button class="add-btn" onclick="showAddTagOverlay('{{$keyPair.IId.NameId}}')">+</button>
-                    </div>
+                    <input type="text" id="snapshot-name-{{$vm.IId.NameId}}" value="snapshot-{{$index | inc}}">
+                    <button type="button" onclick="postSnapshotVM('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}', document.getElementById('snapshot-name-{{$vm.IId.NameId}}').value)">Snapshot</button>
+                </td>                
+                <td>
+                    {{range $tag := $vm.TagList}}
+                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'VM', '{{$vm.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                    {{end}}
                 </td>
                 <td class="center-align misc-cell">
                     <div class="misc-content">
-                        {{range $kv := $keyPair.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
+                        {{range $kv := $vm.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
                     </div>
-                    <button class="more-btn" onclick="showMiscOverlay(this)">more...</button>
-                </td>
+                    {{if $vm.KeyValueList}}
+                    <button class="more-btn" onclick="showMiscOverlay(this)" style="display: inline;">more...</button>
+                    {{else}}
+                    <button class="more-btn" style="display: none;">more...</button>
+                    {{end}}
+                </td>                
                 <td class="check-column">
-                    <input type="checkbox" name="deleteCheckbox" value="{{$keyPair.IId.NameId}}">
+                    <input type="checkbox" name="deleteCheckbox" value="{{$vm.IId.NameId}}">
                 </td>
             </tr>
             {{end}}
-            {{if not .KeyPairs}}
+            {{if not .VMs}}
             <tr>
-                <td colspan="6" class="center-align">No KeyPairs found for this connection.</td>
+                <td colspan="8" class="center-align">No VMs found for this connection.</td>
             </tr>
             {{end}}
         </table>       
@@ -889,24 +1009,74 @@
 
     <div id="overlay" class="overlay">
         <div class="overlay-content">
-            <h2>Add New KeyPair</h2>
-            <form id="addKeyPairForm" onsubmit="event.preventDefault(); postKeyPair();">
+            <h2>Add New VM</h2>
+            <form id="addVMForm" onsubmit="event.preventDefault(); postVM();">
                 <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
                 <div class="form-group">
-                    <label for="keyPairName">Name:</label>
-                    <input type="text" id="keyPairName" name="keyPairName" required>
+                    <label for="vmName">Name:</label>
+                    <input type="text" id="vmName" name="vmName" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="vpcSelect">VPC:</label>
+                    <select id="vpcSelect" name="vpcSelect" required onchange="updateSubnets()">
+                    </select>
                 </div>
                 
+                <div class="form-group">
+                    <label for="subnetSelect">Subnet:</label>
+                    <select id="subnetSelect" name="subnetSelect" required>
+                        <option value="">Please select a VPC first.</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="securityGroupSelect">Security Group:</label>
+                    <select id="securityGroupSelect" name="securityGroupSelect" required>
+                    </select>
+                </div>
+               
+                <div class="form-group">
+                    <label for="keypairSelect">KeyPair:</label>
+                    <select id="keypairSelect" name="keypairSelect" required>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="imageName">Image Name:</label>
+                    <input type="text" id="imageName" name="imageName" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="vmSpecName">VM Spec Name:</label>
+                    <input type="text" id="vmSpecName" name="vmSpecName" required>
+                </div>                
+                
+                <div class="form-group">
+                    <label for="rootDiskType">Root Disk Type:</label>
+                    <input type="text" id="rootDiskType" name="rootDiskType" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="vmUserId">VM User ID:</label>
+                    <input type="text" id="vmUserId" name="vmUserId" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="vmUserPasswd">VM User Password:</label>
+                    <input type="password" id="vmUserPasswd" name="vmUserPasswd" required>
+                </div>
+
                 <div class="form-group" style="padding-left: 100px;">
-                    <label for="keyPairTags">Tags:</label>
-                    <div id="keypair-tag-container"></div>
-                    <button type="button" onclick="addKeyPairTagField()">+</button>
+                    <label for="vmTags">Tags:</label>
+                    <div id="vm-tag-container"></div>
+                    <button type="button" onclick="addVMTagField()">+</button>
                 </div>
                 
                 <div class="form-group" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
-                    <label for="keyPairCount" style="margin-right: 5px;margin-left: 40px;">#:</label>
-                    <input type="number" id="keyPairCount" name="keyPairCount" class="keypair-count" value="1" min="1" max="10" style="width: 50px; margin-right: 10px;">                
-                    <button type="submit">Add KeyPair</button>
+                    <label for="vmCount" style="margin-right: 5px;margin-left: 40px;">#:</label>
+                    <input type="number" id="vmCount" name="vmCount" class="vm-count" value="1" min="1" max="10" style="width: 50px; margin-right: 10px;">                
+                    <button type="submit">Add VM</button>
                     <button type="button" onclick="hideOverlay()" style="margin-left: 10px;">Cancel</button>
                 </div>                
             </form>
@@ -915,10 +1085,6 @@
 
     <div id="tag-overlay" class="tag-overlay">
         <div class="tag-overlay-content"></div>
-    </div>
-    
-    <div id="add-tag-overlay" class="overlay">
-        <div class="add-tag-overlay-content"></div>
     </div>
 
 </body>

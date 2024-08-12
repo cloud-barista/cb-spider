@@ -18,41 +18,19 @@ import (
 	"strings"
 
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
+	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/labstack/echo/v4"
 )
 
-// KeyPairInfo structure
-type KeyPairInfo struct {
-	IId          IID
-	Fingerprint  string
-	TagList      []Tag
-	KeyValueList []KeyValue
-}
-
-type IID struct {
-	NameId   string
-	SystemId string
-}
-
-type Tag struct {
-	Key   string
-	Value string
-}
-
-type KeyValue struct {
-	Key   string
-	Value string
-}
-
 // Function to fetch KeyPairs
-func fetchKeyPairs(connConfig string) ([]*KeyPairInfo, error) {
+func fetchKeyPairs(connConfig string) ([]*cres.KeyPairInfo, error) {
 	resBody, err := getResourceList_with_Connection_JsonByte(connConfig, "keypair")
 	if err != nil {
 		return nil, fmt.Errorf("error fetching KeyPairs: %v", err)
 	}
 
 	var info struct {
-		ResultList []*KeyPairInfo `json:"keypair"`
+		ResultList []*cres.KeyPairInfo `json:"keypair"`
 	}
 	if err := json.Unmarshal(resBody, &info); err != nil {
 		return nil, fmt.Errorf("error decoding KeyPairs: %v", err)
@@ -109,7 +87,7 @@ func KeyPairManagement(c echo.Context) error {
 	data := struct {
 		ConnectionConfig string
 		RegionName       string
-		KeyPairs         []*KeyPairInfo
+		KeyPairs         []*cres.KeyPairInfo
 	}{
 		ConnectionConfig: connConfig,
 		RegionName:       regionName,
@@ -153,7 +131,7 @@ func CreateKeyPair(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create KeyPair"})
 	}
 
-	var keyPair KeyPairInfo
+	var keyPair cres.KeyPairInfo
 	if err := json.NewDecoder(resp.Body).Decode(&keyPair); err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}

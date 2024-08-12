@@ -495,7 +495,7 @@ func RunServer() {
 		{"GET", "/adminweb/securitygroupmgmt/:ConnectConfig", aw.SecurityGroupMgmt},
 		{"GET", "/adminweb/keypair/:ConnectConfig", aw.KeyPairManagement},
 		{"GET", "/adminweb/keypairmgmt/:ConnectConfig", aw.KeyPairMgmt},
-		{"GET", "/adminweb/vm/:ConnectConfig", aw.VM},
+		{"GET", "/adminweb/vm/:ConnectConfig", aw.VMManagement},
 		{"GET", "/adminweb/vmmgmt/:ConnectConfig", aw.VMMgmt},
 		{"GET", "/adminweb/nlb/:ConnectConfig", aw.NLB},
 		{"GET", "/adminweb/nlbmgmt/:ConnectConfig", aw.NLBMgmt},
