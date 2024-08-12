@@ -124,6 +124,8 @@ func StartVM(c echo.Context) error {
 
 			VMUserId     string
 			VMUserPasswd string
+
+			TagList []cres.KeyValue
 		}
 	}
 
@@ -168,6 +170,8 @@ func StartVM(c echo.Context) error {
 
 		VMUserId:     req.ReqInfo.VMUserId,
 		VMUserPasswd: req.ReqInfo.VMUserPasswd,
+
+		TagList: req.ReqInfo.TagList,
 	}
 
 	// Call common-runtime API

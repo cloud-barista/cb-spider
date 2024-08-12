@@ -687,6 +687,8 @@ func cloneReqInfoWithDriverIID(ConnectionName string, reqInfo cres.VMReqInfo) (c
 
 		VMUserId:     reqInfo.VMUserId,
 		VMUserPasswd: reqInfo.VMUserPasswd,
+
+		TagList: reqInfo.TagList,
 	}
 
 	// set Image SystemId
