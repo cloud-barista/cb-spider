@@ -657,8 +657,14 @@
             return;
         }
 
+        const sgCount = parseInt(document.getElementById('sgCount').value);
+        if (sgCount > 1) {
+            if (!confirm(`Are you sure you want to create ${sgCount} Security Groups?`)) {
+                return;
+            }
+        }
+
         const connConfig = document.getElementById('connConfig').value;
-        const sgName = document.getElementById('sgName').value;
         const vpcName = document.getElementById('vpcName').value;
         const fromPort = document.getElementById('fromPort').value;
         const toPort = document.getElementById('toPort').value;
@@ -679,34 +685,42 @@
             CIDR: cidr
         }];
 
-        const data = {
-            ConnectionName: connConfig,
-            ReqInfo: {
-                Name: sgName,
-                VPCName: vpcName,
-                SecurityRules: ruleInfo,
-                TagList: tags
-            }
-        };
+        const sgPromises = Array.from({ length: sgCount }).map((_, index) => {
+            const sgName = `${document.getElementById('sgName').value}-${index + 1}`;
 
-        fetchWithProgress('/spider/securitygroup', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        }).then(response => {
-            if (!response.ok) {
-                return response.json().then(error => {
-                    throw new Error(error.message);
-                });
-            }
-            return response.json();
-        }).then(() => {
-            location.reload();
-        }).catch(error => {
-            showError("Error creating SecurityGroup: " + error.message, "SecurityGroup Creation Error");
+            const data = {
+                ConnectionName: connConfig,
+                ReqInfo: {
+                    Name: sgName,
+                    VPCName: vpcName,
+                    SecurityRules: ruleInfo,
+                    TagList: tags
+                }
+            };
+
+            return fetchWithProgress('/spider/securitygroup', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            }).then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => {
+                        throw new Error(error.message);
+                    });
+                }
+                return response.json();
+            });
         });
+
+        Promise.all(sgPromises)
+            .then(() => {
+                location.reload();
+            })
+            .catch(error => {
+                showError("Error creating SecurityGroups: " + error.message, "SecurityGroup Creation Error");
+            });
     }
 
     function showOverlay() {
@@ -1528,6 +1542,8 @@
                     </div>
                 </div>
                 <div style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+                    <label for="sgCount" style="margin-right: 5px;margin-left: 40px;">#:</label>
+                    <input type="number" id="sgCount" name="sgCount" class="sg-count" value="1" min="1" max="10" style="width: 50px; margin-right: 10px;">                
                     <button type="submit">Add SecurityGroup</button>
                     <button type="button" onclick="hideOverlay()" style="margin-left: 10px;">Cancel</button>
                 </div>
