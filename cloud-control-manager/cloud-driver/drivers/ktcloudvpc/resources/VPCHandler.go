@@ -81,12 +81,12 @@ func (vpcHandler *KTVpcVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPC
 
 	// Create the Requested Subnets
 	for _, subnetReqInfo := range vpcReqInfo.SubnetInfoList {
-		_, err := vpcHandler.AddSubnet(irs.IID{SystemId: vpcList[0].ID}, subnetReqInfo)
+		_, err := vpcHandler.createSubnet(&subnetReqInfo)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Create New Subnet : [%v]", err)
 			cblogger.Error(newErr.Error())
 			loggingError(callLogInfo, newErr)
-			return irs.VPCInfo{}, newErr // Caution!!) D1 Platform Abnormal Error
+			return irs.VPCInfo{}, newErr
 		}
 	}
 
@@ -265,68 +265,26 @@ func (vpcHandler *KTVpcVPCHandler) AddSubnet(vpcIID irs.IID, subnetReqInfo irs.S
 	cblogger.Info("KT Cloud VPC driver: called AddSubnet()!!")
 	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, subnetReqInfo.IId.NameId, "AddSubnet()")
 
+	if strings.EqualFold(vpcIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid VPC ID!!")
+		cblogger.Error(newErr.Error())
+		return irs.VPCInfo{}, newErr
+	}
+
 	if subnetReqInfo.IId.NameId == "" {
 		newErr := fmt.Errorf("Invalid Sunbet NameId!!")
+		cblogger.Error(newErr.Error())
+		return irs.VPCInfo{}, newErr
+	}
+
+	_, err := vpcHandler.createSubnet(&subnetReqInfo)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Add New Subnet : [%v]", err)
 		cblogger.Error(newErr.Error())
 		loggingError(callLogInfo, newErr)
 		return irs.VPCInfo{}, newErr
 	}
-
-	// KT Cloud D1 platform API guide - Tier : https://cloud.kt.com/docs/open-api-guide/d/computing/tier
-	cidrBlock 	:= strings.Split(subnetReqInfo.IPv4_CIDR, ".")
-	vmStartIP 	:= cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "6"
-	vmEndIP 	:= cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "180"
-	lbStartIP 	:= cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "181"
-	lbEndIP 	:= cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "199"
-	bmStartIP 	:= cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "201"
-	bmEndIP 	:= cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "250"
-	gatewayIP 	:= cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "1"
-
-	detailTierInfo := subnets.DetailInfo {
-		CIDR: 		subnetReqInfo.IPv4_CIDR,
-		StartIP: 	vmStartIP,	// For VM
-		EndIP: 		vmEndIP,
-		LBStartIP: 	lbStartIP,  // For NLB
-		LBEndIP: 	lbEndIP,
-		BMStartIP: 	bmStartIP,	// For BareMetal Machine
-		BMEndIP: 	bmEndIP,
-		Gateway:    gatewayIP,
-	}
-
-	// Create Subnet
-	createOpts := subnets.CreateOpts{
-		Name:        	subnetReqInfo.IId.NameId,   	// Required
-		Zone: 			vpcHandler.RegionInfo.Zone, 	// Required
-		Type:			"tier",							// Required
-		UserCustom: 	"y",							// Required
-		Detail: 		detailTierInfo,
-	}	
-	// cblogger.Info("\n### Subnet createOpts : ")
-	// spew.Dump(createOpts)
-	// cblogger.Info("\n")
-
-	cblogger.Info("\n### Adding New Subnet Now!!")
-	start := call.Start()
-	_, err := subnets.Create(vpcHandler.NetworkClient, createOpts).Extract()
-	// subnet, err := subnets.Create(vpcHandler.NetworkClient, createOpts).Extract()
-	if err != nil {
-		if !strings.Contains(err.Error(), ":true") { // Cauton!! : Abnormal Error when creating a subnet on D1 Platform
-			newErr := fmt.Errorf("Failed to Add the Subnet on KT Coud : [%v]", err)
-			cblogger.Error(newErr.Error())
-			loggingError(callLogInfo, newErr)
-			return irs.VPCInfo{}, newErr
-		}
-	} else {
-		cblogger.Info("\n### Waiting for Adding the Subnet!!")
-		time.Sleep(time.Second * 20)
-
-		// cblogger.Infof("Succeeded in Adding the Subnet : [%s]", subnet.ID)  // To prevent 'panic: runtime error', maded this line as a comment.
-	}
-	loggingInfo(callLogInfo, start)
 	
-	// subnetInfo := vpcHandler.setterSubnet(*subnet)
-	// return *subnetInfo, nil
-
 	vpcInfo, err := vpcHandler.GetVPC(irs.IID{SystemId: vpcIID.SystemId})
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the VPC Info!! : [%v] ", err)
@@ -393,7 +351,7 @@ func (vpcHandler *KTVpcVPCHandler) mappingVpcInfo(nvpc *networks.Network) (*irs.
 		if !strings.EqualFold(subnet.Name, "Private_Sub") && !strings.EqualFold(subnet.Name, "DMZ_Sub") && !strings.EqualFold(subnet.Name, "external"){
 		// # When apply filtering
 
-		cblogger.Info("# Subnet Name : [%s]", subnet.Name)
+		// cblogger.Infof("# Subnet Name : [%s]", subnet.Name)
 		// if strings.EqualFold(subnet.Name, "NLB-SUBNET_Sub"){  // Note) '_Sub' is automatically appended to the original subnet name
 
 			subnetInfo := vpcHandler.mappingSubnetInfo(subnet)
@@ -431,6 +389,75 @@ func (vpcHandler *KTVpcVPCHandler) mappingSubnetInfo(subnet subnets.Subnet) *irs
 	}
 	subnetInfo.KeyValueList = keyValueList
 	return &subnetInfo
+}
+
+// Create New Subnet (Tire) and Return OS Network ID
+func (vpcHandler *KTVpcVPCHandler) createSubnet(subnetReqInfo *irs.SubnetInfo) (string, error) {
+	cblogger.Info("KT Cloud VPC driver: called createSubnet()!!")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, subnetReqInfo.IId.NameId, "createSubnet()")
+
+	if subnetReqInfo.IId.NameId == "" {
+		newErr := fmt.Errorf("Invalid Sunbet NameId!!")
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return "", newErr
+	}
+
+	// KT Cloud D1 platform API guide - Tier : https://cloud.kt.com/docs/open-api-guide/d/computing/tier
+	cidrBlock 	:= strings.Split(subnetReqInfo.IPv4_CIDR, ".")
+	vmStartIP 	:= cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "6"
+	vmEndIP 	:= cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "180"
+	lbStartIP 	:= cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "181"
+	lbEndIP 	:= cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "199"
+	bmStartIP 	:= cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "201"
+	bmEndIP 	:= cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "250"
+	gatewayIP 	:= cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + "." + "1"
+
+	detailTierInfo := subnets.DetailInfo {
+		CIDR: 		subnetReqInfo.IPv4_CIDR,
+		StartIP: 	vmStartIP,	// For VM
+		EndIP: 		vmEndIP,
+		LBStartIP: 	lbStartIP,  // For NLB
+		LBEndIP: 	lbEndIP,
+		BMStartIP: 	bmStartIP,	// For BareMetal Machine
+		BMEndIP: 	bmEndIP,
+		Gateway:    gatewayIP,
+	}
+
+	// Create Subnet
+	createOpts := subnets.CreateOpts{
+		Name:        	subnetReqInfo.IId.NameId,   	// Required
+		Zone: 			vpcHandler.RegionInfo.Zone, 	// Required
+		Type:			"tier",							// Required
+		UserCustom: 	"y",							// Required
+		Detail: 		detailTierInfo,
+	}	
+	// cblogger.Info("\n### Subnet createOpts : ")
+	// spew.Dump(createOpts)
+	// cblogger.Info("\n")
+
+	cblogger.Info("\n### Adding New Subnet Now!!")
+	start := call.Start()
+	result, err := subnets.Create(vpcHandler.NetworkClient, createOpts).ExtractCreateInfo()
+	if err != nil {
+		if !strings.Contains(err.Error(), ":true") {
+			newErr := fmt.Errorf("Failed to Create the Subnet : [%v]", err)
+			cblogger.Error(newErr.Error())
+			loggingError(callLogInfo, newErr)
+			return "", newErr
+		}
+	} else if strings.EqualFold(result.NetworkID, "") {
+		newErr := fmt.Errorf("Failed to Create the Subnet!!")
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return "", newErr
+	} else {
+		cblogger.Info("\n### Waiting for Creating the Subnet!!")
+		time.Sleep(time.Second * 20)
+	}
+	loggingInfo(callLogInfo, start)	
+
+	return result.NetworkID, nil
 }
 
 func (vpcHandler *KTVpcVPCHandler) getKtCloudVpc(vpcId string) (*networks.Network, error) {
