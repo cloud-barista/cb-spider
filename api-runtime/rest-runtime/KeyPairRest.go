@@ -110,7 +110,8 @@ func CreateKey(c echo.Context) error {
 		ConnectionName  string
 		IDTransformMode string // ON | OFF, default is ON
 		ReqInfo         struct {
-			Name string
+			Name    string
+			TagList []cres.KeyValue
 		}
 	}
 
@@ -120,7 +121,8 @@ func CreateKey(c echo.Context) error {
 
 	// Rest RegInfo => Driver ReqInfo
 	reqInfo := cres.KeyPairReqInfo{
-		IId: cres.IID{NameId: req.ReqInfo.Name, SystemId: ""},
+		IId:     cres.IID{NameId: req.ReqInfo.Name, SystemId: ""},
+		TagList: req.ReqInfo.TagList,
 	}
 
 	// Call common-runtime API
