@@ -888,7 +888,7 @@
             }
         })
         .catch(error => {
-            alert("Error deleting tag: " + error.message);
+            showError("Error deleting tag: " + error.message, "Resource Name: " + resourceName);
         });
     }
 
