@@ -186,11 +186,13 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		})
 	}
 
-	request.TagSpecification = []*cvm.TagSpecification{
-		{
-			ResourceType: common.StringPtr("instance"),
-			Tags:         tags,
-		},
+	if len(tags) > 0 {
+		request.TagSpecification = []*cvm.TagSpecification{
+			{
+				ResourceType: common.StringPtr("instance"),
+				Tags:         tags,
+			},
+		}
 	}
 
 	// windows의 경우 keyPair set 하면 오류. password setting 되어있는지 확인
