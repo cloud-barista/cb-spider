@@ -171,11 +171,13 @@ func (keyPairHandler *TencentKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 		})
 	}
 
-	request.TagSpecification = []*cvm.TagSpecification{
-		{
-			ResourceType: common.StringPtr("instance"),
-			Tags:         tags,
-		},
+	if len(tags) > 0 {
+		request.TagSpecification = []*cvm.TagSpecification{
+			{
+				ResourceType: common.StringPtr("instance"),
+				Tags:         tags,
+			},
+		}
 	}
 
 	callLogStart := call.Start()
