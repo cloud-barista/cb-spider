@@ -485,6 +485,52 @@
         background-color: #0056b3;
         border-color: #0056b3;
     }
+
+    .add-btn-container {
+        margin-top: 5px;
+    }
+    .add-btn {
+        background-color: transparent;
+        border: none;
+        color: blue;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+
+    .add-tag-overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        max-width: 300px;
+        word-wrap: break-word;
+        position: relative;
+    }
+    
+    .add-tag-overlay-content .tag-overlay-input-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .add-tag-overlay-content .tag-overlay-input-group label {
+        flex: 1;
+        text-align: right;
+        margin-right: 10px;
+    }
+
+    .add-tag-overlay-content .tag-overlay-input-group input {
+        flex: 2;
+    }
+
+    .add-tag-overlay-content .tag-overlay-button-group {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+    }
+
 </style>
 <script>
     function vmControl(connConfig, vmName, action) {
@@ -1408,6 +1454,74 @@
         });
     }
 
+    function showAddTagOverlay(vmName) {
+        const addTagOverlay = document.getElementById('add-tag-overlay');
+        const addTagOverlayContent = document.querySelector('.add-tag-overlay-content');
+        addTagOverlayContent.innerHTML = `
+            <div class="tag-overlay-input-group">
+                <label for="tagOverlayTagKey">Tag Key:</label>
+                <input type="text" id="tagOverlayTagKey" name="tagKey" required>
+            </div>
+            <div class="tag-overlay-input-group">
+                <label for="tagOverlayTagValue">Tag Value:</label>
+                <input type="text" id="tagOverlayTagValue" name="tagValue" required>
+            </div>
+            <div class="tag-overlay-button-group">
+                <button onclick="addTag('${vmName}')">Add</button>
+                <button onclick="closeAddTagOverlay()">Cancel</button>
+            </div>
+        `;
+        addTagOverlay.style.display = 'flex';
+        document.addEventListener('keydown', handleEscAddTagOverlay);
+    }
+
+    function closeAddTagOverlay() {
+        const addTagOverlay = document.getElementById('add-tag-overlay');
+        addTagOverlay.style.display = 'none';
+        document.removeEventListener('keydown', handleEscAddTagOverlay);
+    }
+
+    function handleEscAddTagOverlay(event) {
+        if (event.key === "Escape") {
+            closeAddTagOverlay();
+        }
+    }
+    
+    function addTag(vmName) {
+        const tagKey = document.getElementById('tagOverlayTagKey').value;
+        const tagValue = document.getElementById('tagOverlayTagValue').value;
+        const connConfig = document.getElementById('connConfig').value;
+
+        const data = {
+            ConnectionName: connConfig,
+            ReqInfo: {
+                ResourceType: 'VM',
+                ResourceName: vmName,
+                Tag: { Key: tagKey, Value: tagValue }
+            }
+        };
+
+        fetchWithProgress('/spider/tag', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        }).then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.message);
+                });
+            }
+            return response.json();
+        }).then(() => {
+            closeAddTagOverlay();
+            location.reload();
+        }).catch(error => {
+            showError("Error adding tag: " + error.message, "VM Name: " + keyPairName);
+        });
+    }
+
 </script>
 </head>
 <body>
@@ -1516,7 +1630,10 @@
                     {{range $tag := $vm.TagList}}
                     <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'VM', '{{$vm.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
                     {{end}}
-                </td>
+                    <div class="add-btn-container">
+                        <button class="add-btn" onclick="showAddTagOverlay('{{$vm.IId.NameId}}')">+</button>
+                    </div>
+                </td>                
                 <td class="center-align misc-cell">
                     <div class="misc-content">
                         {{range $kv := $vm.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
@@ -1640,6 +1757,10 @@
 
     <div id="tag-overlay" class="tag-overlay">
         <div class="tag-overlay-content"></div>
+    </div>
+
+    <div id="add-tag-overlay" class="overlay">
+        <div class="add-tag-overlay-content"></div>
     </div>
 
     <div id="miscOverlay" class="overlay">
