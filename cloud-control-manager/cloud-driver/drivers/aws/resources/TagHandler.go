@@ -516,7 +516,7 @@ func (tagHandler *AwsTagHandler) GetRealResourceId(resType irs.RSType, resIID ir
 	}
 
 	result, err := tagHandler.Client.DescribeKeyPairs(input)
-	spew.Dump(result)
+	// spew.Dump(result)
 	if err != nil {
 		cblogger.Error(err)
 		return resIID

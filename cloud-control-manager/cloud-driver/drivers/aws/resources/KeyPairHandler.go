@@ -13,7 +13,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/davecgh/go-spew/spew"
 	//_ "github.com/davecgh/go-spew/spew"
 )
 
@@ -134,7 +133,7 @@ func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	}
 	// Creates a new  key pair with the given name
 	result, err := keyPairHandler.Client.CreateKeyPair(input)
-	spew.Dump(result)
+	// spew.Dump(result)
 
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
@@ -253,7 +252,7 @@ func (keyPairHandler *AwsKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 	callLogStart := call.Start()
 
 	result, err := keyPairHandler.Client.DescribeKeyPairs(input)
-	spew.Dump(result)
+	// spew.Dump(result)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Debug("result : ", result)
 	cblogger.Debug("err : ", err)
@@ -288,7 +287,7 @@ func (keyPairHandler *AwsKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 		}
 
 		keyPairInfo.TagList, _ = keyPairHandler.TagHandler.ListTag(irs.KEY, keyPairInfo.IId)
-		spew.Dump(keyPairInfo.TagList)
+		// spew.Dump(keyPairInfo.TagList)
 
 		cblogger.Debug(keyPairInfo)
 		return keyPairInfo, nil
