@@ -580,17 +580,19 @@
             },
             body: JSON.stringify(snapshotData)
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.Result === "true") {
-                alert(`Snapshot "${snapshotName}" created successfully.`);
-            } else {
-                showError("Failed to create snapshot: " + (data.Message || "Unknown error"), "VM Name: " + vmName);
+        .then(response => response.json().then(data => ({ data, ok: response.ok })))
+        .then(({ data, ok }) => {
+            if (!ok || data.message) {
+                const errorMessage = data.message || "Unknown error";
+                showError(`VM Name: ${vmName}: Failed to create snapshot: ${errorMessage}`);
+            } else if (data.IId && data.IId.NameId) {
+                alert(`Snapshot "${data.IId.NameId}" created successfully.`);
             }
         })
         .catch(error => {
-            showError("Error creating snapshot: " + error.message, "VM Name: " + vmName);
+            showError(`VM Name: ${vmName}: Error creating snapshot: ${error.message}`);
         });
+
     }
 
     function deleteSelectedVMs() {
@@ -689,7 +691,7 @@
         const vmUserPasswd = document.getElementById('vmUserPasswd').value;
 
         const dataDiskNames = Array.from(document.getElementById('dataDiskSelect').selectedOptions)
-                                .map(option => option.value);
+                                    .map(option => option.value);
 
         const tags = Array.from(document.querySelectorAll('.vm-tag-input')).map(tagInput => ({
             Key: tagInput.querySelector('.vm-tag-key').value.trim(),
@@ -701,7 +703,7 @@
                 ConnectionName: connConfig,
                 ReqInfo: {
                     Name: `${vmName}-${index + 1}`,
-                    ImageType: "PublicImage",
+                    ImageType: document.getElementById('imageType').value, // Image Type 추가
                     ImageName: imageName,
                     VMSpecName: vmSpecName,
                     VPCName: vpcName,
@@ -724,11 +726,17 @@
                 },
                 body: JSON.stringify(requestData)
             })
-            .then(response => response.json())
-            .then(data => {
-                if (!data.IId || !data.IId.NameId) {
-                    showError("Failed to create VM: " + (data.Message || "Unknown error"), `VM Name: ${requestData.ReqInfo.Name}`);
+            .then(response => response.json().then(data => ({ data, ok: response.ok })))
+            .then(({ data, ok }) => {
+                if (!ok || data.message) {
+                    const errorMessage = data.message || "Unknown error";
+                    showError(`VM Name: ${requestData.ReqInfo.Name}: Failed to create VM: ${errorMessage}`);
+                } else if (data.IId && data.IId.NameId) {
+                    console.log(`VM "${data.IId.NameId}" created successfully.`);
                 }
+            })
+            .catch(error => {
+                showError(`VM Name: ${requestData.ReqInfo.Name}: Error creating VM: ${error.message}`);
             });
         });
 
@@ -738,7 +746,6 @@
                 showError("Error creating VMs: " + error.message, "Multiple VMs");
             });
     }
-
 
 
     function searchKeyword() {
@@ -1198,8 +1205,7 @@
                         <ul class="bullet-list">
                             <li>Root Disk Type: ${vmInfo.rootDiskType || 'N/A'} (${vmInfo.rootDiskSize || 'N/A'})</li>
                             <li>Root Device: ${vmInfo.rootDeviceName || 'N/A'}</li>
-                            <li>
-                                Data Disks: ${(vmInfo.dataDisks && vmInfo.dataDisks.length > 0) 
+                            <li>Data Disks: ${(vmInfo.dataDisks && vmInfo.dataDisks.length > 0) 
                                     ? vmInfo.dataDisks.join('</li><li>') 
                                     : 'N/A'}
                             </li>
@@ -1350,6 +1356,57 @@
         document.getElementById('miscOverlay').style.display = 'none';
     }
 
+    function updateImageNameField() {
+        const imageType = document.getElementById('imageType').value;
+        const imageNameField = document.getElementById('imageNameField');
+        const rootDiskTypeField = document.getElementById('rootDiskType');
+        const rootDiskSizeField = document.getElementById('rootDiskSize');
+        
+        if (imageType === 'MyImage') {
+            rootDiskTypeField.value = '';
+            rootDiskSizeField.value = '';
+            rootDiskTypeField.disabled = true;
+            rootDiskSizeField.disabled = true;
+            fetchMyImages();
+        } else if (imageType === 'PublicImage') {
+            rootDiskTypeField.value = 'default';
+            rootDiskTypeField.disabled = false;
+            rootDiskSizeField.disabled = false;
+            imageNameField.innerHTML = `
+                <input type="text" id="imageName" name="imageName" required style="background-color: #f7f7e6;">
+            `;
+        }
+    }
+
+
+    function fetchMyImages() {
+        const connConfig = document.getElementById('connConfig').value;
+        
+        fetch(`/spider/myimage?ConnectionName=${connConfig}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            const imageNameField = document.getElementById('imageNameField');
+            const images = data.myImage || [];
+            
+            if (images.length > 0) {
+                imageNameField.innerHTML = `
+                    <select id="imageName" name="imageName" required style="background-color: #f7f7e6;">
+                        ${images.map(image => `<option value="${image.IId.NameId}">${image.IId.NameId} (${image.Status})</option>`).join('')}
+                    </select>
+                `;
+            } else {
+                imageNameField.innerHTML = '<p>No available MyImages</p>';
+            }
+        })
+        .catch(error => {
+            alert('Error fetching MyImages: ' + error.message);
+        });
+    }
 
 </script>
 </head>
@@ -1519,9 +1576,19 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="imageName">Image Name:</label>
-                    <input type="text" id="imageName" name="imageName" required style="background-color: #f7f7e6;">
+                    <label for="imageType">Image Type:</label>
+                    <select id="imageType" name="imageType" required onchange="updateImageNameField()" style="background-color: #f7f7e6;">
+                        <option value="PublicImage">PublicImage</option>
+                        <option value="MyImage">MyImage</option>
+                    </select>
                 </div>
+                
+                <div class="form-group">
+                    <label for="imageName">Image Name:</label>
+                    <div id="imageNameField">
+                        <input type="text" id="imageName" name="imageName" required style="background-color: #f7f7e6;">
+                    </div>
+                </div>                
                 
                 <div class="form-group">
                     <label for="vmSpecName">VM Spec Name:</label>
@@ -1547,7 +1614,7 @@
                                 
                 <div class="form-group">
                     <label for="vmUserId">VM User ID:</label>
-                    <input type="text" id="vmUserId" name="vmUserId" placeholder="Windows Only">
+                    <input type="text" id="vmUserId" name="vmUserId" placeholder="Administrator" disabled style="background-color: #e9ecef; cursor: not-allowed;">
                 </div>
                 
                 <div class="form-group">
