@@ -11,6 +11,7 @@
 package resources
 
 import (
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -19,8 +20,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/costexplorer"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -30,19 +33,24 @@ type AwsAnyCallHandler struct {
 	Region         idrv.RegionInfo
 	CredentialInfo idrv.CredentialInfo
 	Client         *ec2.EC2
+	CeClient       *costexplorer.CostExplorer
 }
 
-/********************************************************
-        // call example
-        curl -sX POST http://localhost:1024/spider/anycall -H 'Content-Type: application/json' -d \
-        '{
-                "ConnectionName" : "aws-ohio-config",
-                "ReqInfo" : {
-                        "FID" : "createTags",
-                        "IKeyValueList" : [{"Key":"key1", "Value":"value1"}, {"Key":"key2", "Value":"value2"}]
-                }
-        }' | json_pp
-********************************************************/
+/*
+*******************************************************
+
+	// call example
+	curl -sX POST http://localhost:1024/spider/anycall -H 'Content-Type: application/json' -d \
+	'{
+	        "ConnectionName" : "aws-ohio-config",
+	        "ReqInfo" : {
+	                "FID" : "createTags",
+	                "IKeyValueList" : [{"Key":"key1", "Value":"value1"}, {"Key":"key2", "Value":"value2"}]
+	        }
+	}' | json_pp
+
+*******************************************************
+*/
 func (anyCallHandler *AwsAnyCallHandler) AnyCall(callInfo irs.AnyCallInfo) (irs.AnyCallInfo, error) {
 	cblogger.Info("AWS Driver: called AnyCall()!")
 
@@ -53,16 +61,17 @@ func (anyCallHandler *AwsAnyCallHandler) AnyCall(callInfo irs.AnyCallInfo) (irs.
 		return associateIamInstanceProfile(anyCallHandler, callInfo)
 	case "getRegionInfo":
 		return getRegionInfo(anyCallHandler, callInfo)
-	// add more ...
+	case "getCostWithResource":
+		return getCostWithResource(anyCallHandler, callInfo)
 
 	default:
 		return irs.AnyCallInfo{}, errors.New("AWS Driver: " + callInfo.FID + " Function is not implemented!")
 	}
 }
 
-///////////////////////////////////////////////////////////////////////
+// /////////////////////////////////////////////////////////////////////
 // implemented by developer user, like 'createTags(kv []KeyVale) bool'
-///////////////////////////////////////////////////////////////////////
+// /////////////////////////////////////////////////////////////////////
 const (
 	CreateTagsResourceId = "ResourceId"
 	CreateTagsTag        = "Tag"
@@ -131,9 +140,9 @@ const (
 	AssociateIamInstanceProfileRole       = "Role"
 )
 
-///////////////////////////////////////////////////////////////////
+// /////////////////////////////////////////////////////////////////
 // implemented by developer user, like 'associateIamInstanceProfile(kv []KeyValue) bool'
-///////////////////////////////////////////////////////////////////
+// /////////////////////////////////////////////////////////////////
 func associateIamInstanceProfile(anyCallHandler *AwsAnyCallHandler, callInfo irs.AnyCallInfo) (irs.AnyCallInfo, error) {
 	cblogger.Info("AWS Driver: called AnyCall()/associateIamInstanceProfile()!")
 
@@ -231,4 +240,171 @@ func encrypt(contents []byte) ([]byte, error) {
 	cipherTextFB.XORKeyStream(encryptData[aes.BlockSize:], []byte(contents))
 
 	return encryptData, nil
+}
+
+type CostWithResourceReq struct {
+	StartDate   string           `json:"startDate"`
+	EndDate     string           `json:"endDate"`
+	Granularity string           `json:"granularity"`
+	Metrics     []string         `json:"metrics"`
+	Filter      FilterExpression `json:"filter"`
+	Groups      []GroupBy        `json:"groups"`
+}
+
+type FilterExpression struct {
+	And            []*FilterExpression `json:"and,omitempty"`
+	Or             []*FilterExpression `json:"or,omitempty"`
+	Not            *FilterExpression   `json:"not,omitempty"`
+	CostCategories *KeyValues          `json:"costCategories,omitempty"`
+	Dimensions     *KeyValues          `json:"dimensions,omitempty"`
+	Tags           *KeyValues          `json:"tags,omitempty"`
+}
+
+type KeyValues struct {
+	Key    string   `json:"key"`
+	Values []string `json:"values"`
+}
+
+type GroupBy struct {
+	Key  string `json:"key"`
+	Type string `json:"type"` // DIMENSION | TAG | COST_CATEGORY
+}
+
+func getCostWithResource(anyCallHandler *AwsAnyCallHandler, callInfo irs.AnyCallInfo) (irs.AnyCallInfo, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	reqMap := mapToKeyValue(callInfo.IKeyValueList)
+	body, ok := reqMap["requestBody"]
+	if !ok {
+		return callInfo, errors.New("requestBody is required")
+	}
+
+	var costWithResourceReq CostWithResourceReq
+	err := json.Unmarshal([]byte(body), &costWithResourceReq)
+	if err != nil {
+		return callInfo, err
+	}
+
+	startDate := costWithResourceReq.StartDate
+	endDate := costWithResourceReq.EndDate
+	granularity := costWithResourceReq.Granularity
+	metric := costWithResourceReq.Metrics
+	filter := convertToExpression(&costWithResourceReq.Filter)
+	group := groupGenerate(costWithResourceReq.Groups)
+
+	input := &costexplorer.GetCostAndUsageWithResourcesInput{
+		TimePeriod: &costexplorer.DateInterval{
+			Start: aws.String(startDate),
+			End:   aws.String(endDate),
+		},
+		Granularity: aws.String(granularity),
+		Metrics:     aws.StringSlice(metric),
+		Filter:      filter,
+		GroupBy:     group,
+	}
+
+	res, err := anyCallHandler.CeClient.GetCostAndUsageWithResourcesWithContext(ctx, input)
+	if err != nil {
+		cblogger.Error("error occur", err)
+		return callInfo, err
+	}
+
+	m, err := json.Marshal(res)
+	if err != nil {
+
+		return callInfo, err
+	}
+
+	callInfo.OKeyValueList = []irs.KeyValue{
+		{
+			Key:   "result",
+			Value: string(m),
+		},
+	}
+	return callInfo, nil
+}
+
+func convertToExpression(filter *FilterExpression) *costexplorer.Expression {
+	if filter == nil {
+		return nil
+	}
+
+	expression := &costexplorer.Expression{
+		CostCategories: convertKeyValuesToCostCategoryValues(filter.CostCategories),
+		Dimensions:     convertKeyValuesToDimensionValues(filter.Dimensions),
+		Tags:           convertKeyValuesToTagValues(filter.Tags),
+	}
+
+	if len(filter.And) > 0 {
+		expression.And = make([]*costexplorer.Expression, len(filter.And))
+		for i, f := range filter.And {
+			expression.And[i] = convertToExpression(f)
+		}
+	}
+
+	if len(filter.Or) > 0 {
+		expression.Or = make([]*costexplorer.Expression, len(filter.Or))
+		for i, f := range filter.Or {
+			expression.Or[i] = convertToExpression(f)
+		}
+	}
+
+	if filter.Not != nil {
+		expression.Not = convertToExpression(filter.Not)
+	}
+
+	return expression
+}
+
+func convertKeyValuesToCostCategoryValues(kv *KeyValues) *costexplorer.CostCategoryValues {
+	if kv == nil {
+		return nil
+	}
+	return &costexplorer.CostCategoryValues{
+		Key:    aws.String(kv.Key),
+		Values: aws.StringSlice(kv.Values),
+	}
+}
+
+func convertKeyValuesToDimensionValues(kv *KeyValues) *costexplorer.DimensionValues {
+	if kv == nil {
+		return nil
+	}
+	return &costexplorer.DimensionValues{
+		Key:    aws.String(kv.Key),
+		Values: aws.StringSlice(kv.Values),
+	}
+}
+
+func convertKeyValuesToTagValues(kv *KeyValues) *costexplorer.TagValues {
+	if kv == nil {
+		return nil
+	}
+	return &costexplorer.TagValues{
+		Key:    aws.String(kv.Key),
+		Values: aws.StringSlice(kv.Values),
+	}
+}
+
+func groupGenerate(g []GroupBy) []*costexplorer.GroupDefinition {
+	var groupBy []*costexplorer.GroupDefinition
+	for _, v := range g {
+		groupBy = append(groupBy, &costexplorer.GroupDefinition{
+			Key:  aws.String(v.Key),
+			Type: aws.String(v.Type),
+		})
+	}
+
+	return groupBy
+}
+
+func mapToKeyValue(kvs []irs.KeyValue) map[string]string {
+	filterMap := make(map[string]string, 0)
+
+	for _, kv := range kvs {
+		filterMap[kv.Key] = kv.Value
+	}
+	return filterMap
+
 }

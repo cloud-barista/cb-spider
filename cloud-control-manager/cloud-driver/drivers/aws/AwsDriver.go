@@ -25,6 +25,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
+	"github.com/aws/aws-sdk-go/service/costexplorer"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/eks"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -228,6 +229,7 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 	if err != nil {
 		return nil, err
 	}
+	costExplorerClient, err := getCostExplorerClient(connectionInfo)
 
 	//iConn = acon.AwsCloudConnection{}
 	iConn := acon.AwsCloudConnection{
@@ -256,7 +258,8 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		// Connection for AnyCall
 		AnyCallClient: vmClient,
 
-		TagClient: vmClient,
+		TagClient:          vmClient,
+		CostExplorerClient: costExplorerClient,
 	}
 
 	return &iConn, nil // return type: (icon.CloudConnection, error)
@@ -289,6 +292,41 @@ func getPricingClient(connectionInfo idrv.ConnectionInfo) (*pricing.Pricing, err
 	sess := session.Must(session.NewSession())
 	// Create a Pricing client with additional configuration
 	svc := pricing.New(sess, &aws.Config{
+		// Region: aws.String(connectionInfo.RegionInfo.Region),
+		Region: aws.String(targetRegion),
+		//Region:      aws.String("ap-northeast-2"),
+		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
+	)
+
+	return svc, nil
+}
+
+func getCostExplorerClient(connectionInfo idrv.ConnectionInfo) (*costexplorer.CostExplorer, error) {
+
+	// "us-east-1", "eu-central-1", "ap-south-1" 3개 리전의 엔드포인트만 지원
+	// AWS 리전은 Price List Query API의 API 엔드포인트입니다.
+	// 엔드포인트는 제품 또는 서비스 속성과 관련이 없습니다.
+	// https://docs.aws.amazon.com/ko_kr/awsaccountbilling/latest/aboutv2/using-price-list-query-api.html#price-list-query-api-endpoints
+
+	costExplorerRegion := []string{"us-east-1"}
+	match := false
+	for _, str := range costExplorerRegion {
+		if str == connectionInfo.RegionInfo.Region {
+			match = true
+			break
+		}
+	}
+
+	var targetRegion string
+	if match {
+		targetRegion = connectionInfo.RegionInfo.Region
+	} else {
+		targetRegion = "us-east-1"
+	}
+
+	sess := session.Must(session.NewSession())
+	// Create a Pricing client with additional configuration
+	svc := costexplorer.New(sess, &aws.Config{
 		// Region: aws.String(connectionInfo.RegionInfo.Region),
 		Region: aws.String(targetRegion),
 		//Region:      aws.String("ap-northeast-2"),
