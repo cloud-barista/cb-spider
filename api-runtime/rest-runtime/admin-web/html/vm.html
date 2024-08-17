@@ -580,6 +580,36 @@ THE SOFTWARE.
         font-size: 12px;
     }
 
+    .progress-message {
+        background-color: #e6f7ff;
+        color: #000;
+        padding: 5px;
+        border-radius: 4px;
+        display: inline-block;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .progress-message::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: 100%;
+        background-color: #e6f7ff; /* Progress bar color */
+        transform: translateX(-100%);
+        animation: progress-animation 3s linear infinite;
+    }
+
+    @keyframes progress-animation {
+        0% {
+            transform: translateX(-100%);
+        }
+        100% {
+            transform: translateX(100%);
+        }
+    }
 </style>
 </head>
 <body>
@@ -612,7 +642,7 @@ THE SOFTWARE.
                 <th class="column-num">#</th>
                 <th class="center-align">Name</th>
                 <th class="center-align">SSH Access</th>
-                <th class="center-align">Status/Actions</th>
+                <th class="center-align">Status | Actions</th>
                 <th class="center-align">Snapshot</th>
                 <th class="center-align">Provisioning Info</th>
                 <th class="center-align">Tags</th>
@@ -653,11 +683,11 @@ THE SOFTWARE.
                         </div>
                     {{else}}
                         <div style="display: inline-flex; align-items: center;">
-                            <span style="margin-right: 8px;">Unknown |</span>
-                            <button class="vm-action-btn" onclick="refreshVMStatus('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}')">Refresh</button>
+                            <span style="margin-right: 8px;">{{index $.VMStatusMap $vm.IId.NameId}}</span>
+                            
                         </div>
                     {{end}}
-                </td>                
+                </td>                                
                 <td class="snapshot-cell">
                     <input type="text" id="snapshot-name-{{$vm.IId.NameId}}" value="myimage-1">
                     <button type="button" onclick="postSnapshotVM('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}', document.getElementById('snapshot-name-{{$vm.IId.NameId}}').value)">Snap</button>
@@ -837,22 +867,181 @@ THE SOFTWARE.
 <script>
     function vmControl(connConfig, vmName, action) {
         const controlCell = document.getElementById(`vmcontrol-${vmName}`);
-        
-        switch(action) {
-            case 'suspend':
-                controlCell.innerHTML = '<span style="color:black">Suspending...</span>';
-                break;
-            case 'resume':
-                controlCell.innerHTML = '<span style="color:black">Resuming...</span>';
-                break;
-            case 'reboot':
-                controlCell.innerHTML = '<span style="color:black">Rebooting...</span>';
-                break;
-            default:
-                controlCell.innerHTML = '<span style="color:black">Processing...</span>';
-                break;
+        const rowElement = controlCell.parentElement;
+        const targetState = action === 'suspend' ? 'Suspended' : 'Running';
+        let attempts = 0;
+        const maxAttempts = 30;
+
+        // Utility function to update UI based on the action
+        function updateUI(message) {
+            controlCell.innerHTML = `<span class="progress-message">${message}...</span>`;
         }
 
+        // Utility function to handle server response and start checking status
+        function handleResponse(response) {
+            const status = response.Status;
+
+            // Update UI based on VM status
+            switch (status) {
+                case "Suspending":
+                    updateUI("VM is suspending");
+                    break;
+                case "Suspended":
+                    updateControlCell("Suspended");
+                    break;
+                case "Resuming":
+                    updateUI("VM is resuming");
+                    break;
+                case "Running":
+                    updateControlCell("Running");
+                    break;
+                case "Rebooting":
+                    updateUI("VM is rebooting");
+                    break;
+                case "Terminating":
+                    controlCell.innerHTML = `<span style="color:gray;">VM is terminating...</span>`;
+                    break;
+                case "Terminated":
+                    controlCell.innerHTML = `<span style="color:red;">VM has been terminated</span>`;
+                    break;
+                case "Failed":
+                    controlCell.innerHTML = `<span style="color:red;">VM action failed</span>`;
+                    break;
+                case "NotExist":
+                    controlCell.innerHTML = `<span style="color:red;">VM does not exist</span>`;
+                    break;
+                default:
+                    controlCell.innerHTML = `<span style="color:orange;">Unexpected status: ${status}</span>`;
+                    break;
+            }
+
+            // Start checking the status after initiating the action
+            checkVMStatus();
+        }
+
+        // Function to update the entire row with the latest VM information
+        function updateVMRow(status) {
+            fetch(`/spider/vm/${vmName}?ConnectionName=${connConfig}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(vmData => {
+                const sshAccessCell = rowElement.querySelector('.ssh-access-cell');
+                const provisioningInfoCell = rowElement.querySelector('.provisioning-info-cell');
+                const miscCell = rowElement.querySelector('.misc-cell .misc-content');
+
+                // Update SSH Access
+                sshAccessCell.innerHTML = `
+                    • Public IP: ${vmData.PublicIP}
+                    <button class="copy-icon-btn" onclick="copyToClipboard('${vmData.PublicIP}')">📋</button>
+                    <br> • 
+                    <div class="ssh-connect-btn" 
+                        onclick="if ('${vmData.PublicIP}') { openSSHAccess({ vmUserId: '${vmData.VMUserId}', publicIP: '${vmData.PublicIP}', keyName: '${vmData.KeyPairIId.NameId}' }); }">
+                        <span class="ssh-terminal-style">SSH: ${vmData.PublicIP}</span>
+                    </div>
+                `;
+
+                // Update Provisioning Info
+                provisioningInfoCell.innerHTML = `
+                    <a class="provisioning-info-link" onclick="showProvisioningInfoOverlay({
+                        vpcName: '${vmData.VpcIID.NameId}',
+                        subnetName: '${vmData.SubnetIID.NameId}',
+                        zone: '${vmData.Region.Zone}',
+                        securityGroupName: ['${vmData.SecurityGroupIIds.map(sg => sg.NameId).join("','")}'],
+                        keypairName: '${vmData.KeyPairIId.NameId}',
+                        vmUserId: '${vmData.VMUserId}',
+                        imageType: '${vmData.ImageType}',
+                        imageName: '${vmData.ImageIId.NameId}',
+                        platform: '${vmData.Platform}',
+                        vmSpecName: '${vmData.VMSpecName}',
+                        rootDiskType: '${vmData.RootDiskType}',
+                        rootDiskSize: '${vmData.RootDiskSize}',
+                        rootDeviceName: '${vmData.RootDeviceName}',
+                        dataDisks: ['${vmData.DataDiskIIDs.map(disk => disk.NameId).join("','")}'],
+                        networkInterface: '${vmData.NetworkInterface}',
+                        publicIP: '${vmData.PublicIP}',
+                        publicDNS: '${vmData.PublicDNS}',
+                        privateIP: '${vmData.PrivateIP}',
+                        privateDNS: '${vmData.PrivateDNS}'
+                    })">View Details</a>
+                `;
+
+                // Update Misc Information
+                miscCell.innerHTML = vmData.KeyValueList.map(kv => `${kv.Key} : ${kv.Value}`).join('<br>');
+
+                // Update Status | Actions Field with the latest status
+                updateControlCell(status);
+            })
+            .catch(() => {
+                controlCell.innerHTML = `<span style="color:red;">Failed to update row</span>`;
+            });
+        }
+
+        // Function to update the Status | Actions cell based on the status
+        function updateControlCell(status) {
+            if (status === 'Running') {
+                controlCell.innerHTML = `
+                    <div style="display: inline-flex; align-items: center;">
+                        <span style="margin-right: 8px;">Running &nbsp; |</span>
+                        <button class="vm-action-btn" onclick="vmControl('${connConfig}', '${vmName}', 'suspend')">⏸️</button>
+                        <button class="vm-action-btn" onclick="vmControl('${connConfig}', '${vmName}', 'reboot')">&nbsp;🔄</button>
+                    </div>
+                `;
+            } else if (status === 'Suspended') {
+                controlCell.innerHTML = `
+                    <div style="display: inline-flex; align-items: center;">
+                        <span style="margin-right: 8px;">Suspended &nbsp; |</span>
+                        <button class="vm-action-btn" onclick="vmControl('${connConfig}', '${vmName}', 'resume')">⏯️</button>
+                    </div>
+                `;
+            } else {
+                controlCell.innerHTML = `
+                    <div style="display: inline-flex; align-items: center;">
+                        <span style="margin-right: 8px;">${status} |</span>
+                    </div>
+                `;
+            }
+        }
+
+        // Function to periodically check the VM status
+        function checkVMStatus() {
+            attempts++;
+
+            fetch(`/spider/vmstatus/${vmName}?ConnectionName=${connConfig}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                const status = data.Status;
+                if (status === targetState) {
+                    // Update the entire row with the latest data
+                    updateVMRow(status);
+                } else if (attempts < maxAttempts) {
+                    setTimeout(checkVMStatus, 1000); // Retry after 1 second
+                } else {
+                    controlCell.innerHTML = `<span style="color:orange;">Still processing, please try refreshing manually.</span>`;
+                }
+            })
+            .catch(() => {
+                controlCell.innerHTML = `<span style="color:red;">Failed to update status</span>`;
+            });
+        }
+
+        // Set message based on the action
+        const actionMessages = {
+            suspend: "Suspending",
+            resume: "Resuming",
+            reboot: "Rebooting"
+        };
+        updateUI(actionMessages[action] || "Processing");
+
+        // Send request to the server
         fetchWithProgress(`/spider/controlvm/${vmName}?action=${action}`, {
             method: 'PUT',
             headers: {
@@ -861,50 +1050,13 @@ THE SOFTWARE.
             body: JSON.stringify({ ConnectionName: connConfig })
         })
         .then(response => response.json())
-        .then(data => {
-            if (data.Status === "Success") {
-                controlCell.innerHTML = `<a href="javascript:void(0);" onclick="refreshVMStatus('${connConfig}', '${vmName}', this)">Refresh</a>`;
-            } else {
-                controlCell.innerHTML = `<a href="javascript:void(0);" onclick="refreshVMStatus('${connConfig}', '${vmName}', this)">Refresh</a>`;
-            }
-        })
+        .then(handleResponse)
         .catch(() => {
-            controlCell.innerHTML = `<a href="javascript:void(0);" onclick="refreshVMStatus('${connConfig}', '${vmName}', this)">Refresh</a>`;
+            controlCell.innerHTML = `<span style="color:red;">Failed to execute action</span>`;
         });
     }
 
-    function refreshVMStatus(connConfig, vmName, refreshLink) {
-        const controlCell = refreshLink.parentElement;
 
-        fetch(`/spider/vmstatus/${vmName}?ConnectionName=${connConfig}`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            const status = data.Status;
-
-            if (status === "Running") {
-                controlCell.innerHTML = `
-                    <div style="display: inline-flex; gap: 0;">
-                        <button onclick="vmControl('${connConfig}', '${vmName}', 'suspend')" style="font-size: 18px; background: none; border: none; cursor: pointer; margin: 0;">⏸️</button>
-                        <button onclick="vmControl('${connConfig}', '${vmName}', 'reboot')" style="font-size: 18px; background: none; border: none; cursor: pointer; margin: 0;">🔄</button>
-                    </div>
-                `;
-            } else if (status === "Suspended") {
-                controlCell.innerHTML = `
-                    <button onclick="vmControl('${connConfig}', '${vmName}', 'resume') style="font-size: 18px; background: none; border: none; cursor: pointer;">⏯️</button>
-                `;
-            } else {
-                controlCell.innerHTML = `<a href="javascript:void(0);" onclick="refreshVMStatus('${connConfig}', '${vmName}', this)">Refresh</a>`;
-            }
-        })
-        .catch(() => {
-            controlCell.innerHTML = `<a href="javascript:void(0);" onclick="refreshVMStatus('${connConfig}', '${vmName}', this)">Refresh</a>`;
-        });
-    }
 
     function postSnapshotVM(connConfig, vmName, snapshotName) {
         const snapshotData = {
