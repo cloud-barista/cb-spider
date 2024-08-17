@@ -69,6 +69,7 @@ require (
 	github.com/cloud-barista/ktcloudvpc-sdk-go v0.0.0-20240812121947-01daa5e57030
 	github.com/cloud-barista/nhncloud-sdk-go v0.0.0-20240709053216-536bc37fa6c9
 	github.com/go-openapi/strfmt v0.21.3
+	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/go-version v1.6.0
 	github.com/jeremywohl/flatten v1.0.1
 	github.com/labstack/echo/v4 v4.9.0

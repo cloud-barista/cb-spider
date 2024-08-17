@@ -513,6 +513,9 @@ func RunServer() {
 		{"GET", "/adminweb/priceinfotablelist/:ProductFamily/:RegionName/:ConnectConfig", aw.PriceInfoTableList},
 		// download price info with JSON file
 		{"GET", "/adminweb/priceinfo/download/:FileName", aw.DownloadPriceInfo},
+
+		//----------SSH WebTerminal Handler
+		{"GET", "/adminweb/sshwebterminal/ws", aw.HandleWebSocket},
 	}
 	//======================================= setup routes
 
@@ -591,6 +594,9 @@ func ApiServer(routes []route) {
 
 	// for admin-web
 	e.File("/spider/adminweb/html/priceinfo-filter-gen.html", cbspiderRoot+"/api-runtime/rest-runtime/admin-web/html/priceinfo-filter-gen.html")
+
+	// for WebTerminal
+	e.Static("/spider/adminweb/static", filepath.Join(cbspiderRoot, "api-runtime/rest-runtime/admin-web/static"))
 
 	e.HideBanner = true
 	e.HidePort = true
