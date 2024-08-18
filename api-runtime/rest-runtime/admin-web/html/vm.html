@@ -1450,43 +1450,102 @@ THE SOFTWARE.
     });
 
     function createMultipleVMs(count) {
-        const connConfigElement = document.getElementById('connConfig');
-        if (connConfigElement) {
-            const connConfig = connConfigElement.value;
-        }
+        const connConfigElement = document.getElementById('connConfig').value;
 
-        const vmPromises = Array.from({ length: count }).map(() => {
-            const vmName = `mock-vm-${Math.random().toString(36).substring(2, 7)}`;
+        const fetchVPCAndSubnet = () => {
+            return fetch(`/spider/vpc?ConnectionName=${encodeURIComponent(connConfigElement)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.vpc && data.vpc.length > 0) {
+                        const firstVPC = data.vpc[0];
+                        const vpcName = firstVPC.IId.NameId;
+                        const subnetName = firstVPC.SubnetInfoList[0].IId.NameId;
+                        return { vpcName, subnetName };
+                    } else {
+                        throw new Error('No VPCs available.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching VPCs and Subnets:', error);
+                    return { vpcName: '', subnetName: '' };
+                });
+        };
 
-            const requestData = {
-                ConnectionName: connConfig,
-                ReqInfo: {
-                    Name: vmName,
-                    TagList: []
-                }
-            };
+        const fetchFirstResource = (resourceType, urlPath) => {
+            return fetch(`/spider/${urlPath}?ConnectionName=${encodeURIComponent(connConfigElement)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data[resourceType] && data[resourceType].length > 0) {
+                        return data[resourceType][0].IId.NameId;
+                    } else {
+                        throw new Error(`No ${resourceType} available.`);
+                    }
+                })
+                .catch(error => {
+                    console.error(`Error fetching ${resourceType}:`, error);
+                    return '';
+                });
+        };
 
-            return fetchWithProgress('/spider/vm', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestData)
-            }).then(response => {
-                if (!response.ok) {
-                    return response.json().then(error => {
-                        throw new Error(error.message);
-                    });
-                }
-                return response.json();
+        Promise.all([
+            fetchVPCAndSubnet(),
+            fetchFirstResource('securitygroup', 'securitygroup'),
+            fetchFirstResource('keypair', 'keypair')
+        ])
+        .then(([{ vpcName, subnetName }, securityGroupName, keypairName]) => {
+            if (!vpcName || !subnetName || !securityGroupName || !keypairName) {
+                showError("Missing required resources for VM creation.", "Resource Error");
+                throw new Error("Missing required resources for VM creation.");
+            }
+
+            const vmPromises = Array.from({ length: count }).map(() => {
+                const vmName = `vm-${Math.random().toString(36).substring(2, 7)}`;
+                const imageType = 'PublicImage';
+                const imageName = 'mock-vmimage-01';
+                const vmSpecName = 'mock-vmspec-01';
+                const rootDiskType = 'default';
+                const rootDiskSize = '50';
+
+                const requestData = {
+                    ConnectionName: connConfigElement,
+                    ReqInfo: {
+                        Name: vmName,
+                        ImageType: imageType,
+                        ImageName: imageName,
+                        VMSpecName: vmSpecName,
+                        VPCName: vpcName,
+                        SubnetName: subnetName,
+                        SecurityGroupNames: [securityGroupName],
+                        RootDiskType: rootDiskType,
+                        RootDiskSize: rootDiskSize,
+                        DataDiskNames: [],
+                        KeyPairName: keypairName,
+                        TagList: []
+                    }
+                };
+
+                return fetchWithProgress('/spider/vm', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                }).then(response => {
+                    if (!response.ok) {
+                        return response.json().then(error => {
+                            throw new Error(error.message);
+                        });
+                    }
+                    return response.json();
+                });
             });
+
+            return Promise.all(vmPromises);
+        })
+        .then(() => location.reload())
+        .catch(error => {
+            showError("Error creating VMs: " + error.message, "VM Creation Error");
         });
-
-        Promise.all(vmPromises)
-            .then(() => location.reload())
-            .catch(error => {
-                showError("Error creating VMs: " + error.message, "VM Creation Error");
-            });
     }
 
     function fetchWithProgress(url, options) {
