@@ -1080,7 +1080,7 @@ THE SOFTWARE.
                 const errorMessage = data.message || "Unknown error";
                 showError(`VM Name: ${vmName}: Failed to create snapshot: ${errorMessage}`);
             } else if (data.IId && data.IId.NameId) {
-                alert(`Snapshot "${data.IId.NameId}" created successfully.`);
+                alert(`Snapshot "${data.IId.NameId}" created successfully. You can check the result in MyImage.`);
             }
         })
         .catch(error => {
