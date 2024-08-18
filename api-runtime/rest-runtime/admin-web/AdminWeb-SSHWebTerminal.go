@@ -36,7 +36,7 @@ func HandleWebSocket(c echo.Context) error {
 	defer ws.Close()
 
 	ws.SetCloseHandler(func(code int, text string) error {
-		cblog.Error("WebSocket closed with code: %d, text: %s\n", code, text)
+		cblog.Errorf("WebSocket closed with code: %d, text: %s\n", code, text)
 		return nil
 	})
 
@@ -48,6 +48,7 @@ func HandleWebSocket(c echo.Context) error {
 	if err != nil {
 		cblog.Error("Failed to connect to SSH:", err)
 		ws.WriteMessage(websocket.TextMessage, []byte("Failed to connect to SSH: "+err.Error()))
+		ws.Close()
 		return nil
 	}
 	defer sshClient.Close()
@@ -135,10 +136,15 @@ func HandleWebSocket(c echo.Context) error {
 
 	select {
 	case <-done: // WebSocket closed
-	case <-sshDone: // SSH session finished
+		session.Close()
+		return nil
+	case err := <-sshDone: // SSH session finished
+		if err != nil {
+			cblog.Error("SSH session ended with error:", err)
+		}
+		ws.Close()
+		return nil
 	}
-
-	return nil
 }
 
 func connectToSSH(user, ip, privateKey string) (*ssh.Client, error) {

@@ -1790,6 +1790,9 @@ THE SOFTWARE.
             sshOverlay.querySelector('p').textContent = `Connect to ${vmInfo.vmUserId}@${vmInfo.publicIP}`;
             sshOverlay.querySelector('#terminal').style.display = 'none';
             sshOverlay.querySelector('#ssh-form').style.display = 'block';
+            sshOverlay.querySelector('button[onclick^="connectSSH"]').onclick = function() {
+                connectSSH(vmInfo.vmUserId, vmInfo.publicIP);
+            };
         }
 
         sshOverlay.style.display = 'flex';
@@ -1830,7 +1833,6 @@ THE SOFTWARE.
 
         term.open(terminalDiv);
         terminalDiv._initialized = true;
-
         const socket = new WebSocket("ws://" + location.host + "/spider/adminweb/sshwebterminal/ws?user=" + encodeURIComponent(user) + "&ip=" + encodeURIComponent(ip) + "&privatekey=" + encodeURIComponent(privateKey));
 
         socket.onopen = function() {
