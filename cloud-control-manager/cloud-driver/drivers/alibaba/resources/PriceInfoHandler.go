@@ -585,7 +585,9 @@ func BindpricingPolicy(priceResp AliPriceInfo, subscriptionType string, pricingM
 		resultModuleDetailPrice := priceResp.Data.ModuleDetails.ModuleDetail[0]
 		pricingPolicy.Price = strconv.FormatFloat(resultModuleDetailPrice.Price, 'f', -1, 64)
 	} else {
-		return irs.PricingPolicies{}, errors.New("No Price Data")
+		// return irs.PricingPolicies{}, errors.New("No Price Data") // https://github.com/cloud-barista/cb-spider/issues/1274
+		cblogger.Infof("No Price Data at PricingId[%s]", pricingPolicy.PricingId)
+		return pricingPolicy, nil
 	}
 
 	if len(priceResp.Data.PromotionDetails.PromotionDetail) > 0 {
