@@ -88,6 +88,8 @@ type DiskReq struct {
 
 		DiskType string
 		DiskSize string
+
+		TagList []cres.KeyValue
 	}
 }
 
@@ -106,6 +108,8 @@ func CreateDisk(c echo.Context) error {
 		Zone:     req.ReqInfo.Zone,
 		DiskType: req.ReqInfo.DiskType,
 		DiskSize: req.ReqInfo.DiskSize,
+
+		TagList: req.ReqInfo.TagList,
 	}
 
 	// Call common-runtime API
@@ -225,7 +229,11 @@ func ChangeDiskSize(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, result)
+	resultInfo := BooleanInfo{
+		Result: strconv.FormatBool(result),
+	}
+
+	return c.JSON(http.StatusOK, &resultInfo)
 }
 
 // (1) get args from REST Call
@@ -324,8 +332,11 @@ func DetachDisk(c echo.Context) error {
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+	resultInfo := BooleanInfo{
+		Result: strconv.FormatBool(result),
+	}
 
-	return c.JSON(http.StatusOK, result)
+	return c.JSON(http.StatusOK, &resultInfo)
 }
 
 func CountAllDisks(c echo.Context) error {

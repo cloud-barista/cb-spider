@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Disk Management</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+    }
+    .header-container {
+        display: flex;
+        align-items: flex-end;
+    }
+    .header-container img {
+        margin-right: 10px;
+        height: 28px;
+    }
+    .header-container h1 {
+        font-size: 16px;
+        margin: 0;
+    }
+    h2 {
+        font-size: 16px;
+        margin: 10px 0;
+    }
+    h3 {
+        font-size: 14px;
+        margin: 10px 0;
+        margin-left: 1cm;
+    }
+    .content {
+        margin-top: 70px;
+    }
+    #searchInput {
+        width: 190px;
+        font-family: Arial, sans-serif;
+        padding-right: 2.5cm;
+    }
+    #clearSearch {
+        position: absolute;
+        right: 0.1cm;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+    }
+    .searchContainer {
+        position: relative;
+        display: flex;
+        align-items: center;
+        padding-left: 0.5cm;
+    }
+    .searchContainer button {
+        position: absolute;
+        right: 0.5cm;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+    }
+    .fixed-header {
+        position: fixed;
+        top: 0;
+        width: 97%;
+        background-color: white;
+        z-index: 1000;
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 20px;
+        align-items: center;
+        box-shadow: 0 4px 6px -6px #222;
+    }
+    .fixed-action-buttons {
+        display: flex;
+        align-items: center;
+    }
+    .fixed-action-buttons button {
+        margin-left: 10px;
+    }
+    .header-with-progress {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0px;
+    }
+    .progress-bar-container {
+        width: 600px;
+        margin-left: 10px;
+        margin-bottom: 10px;
+        height: 22px;
+        background-color: #f0f5ff;
+        border-radius: 4px;
+        overflow: hidden;
+        display: none;
+        position: relative;
+        z-index: 2000;
+    }
+    .progress-bar {
+        width: 0;
+        height: 100%;
+        background-color: #cce6ff;
+        border-radius: 4px;
+        transition: width 3s ease;
+    }
+    #timeDisplay {
+        position: absolute;
+        top: 50%;
+        right: 10px;
+        transform: translateY(-50%);
+        font-size: 14px;
+        color: #333;
+        z-index: 30;
+    }
+    .add-button {
+        font-size: 14px;
+        font-weight: bold;
+        margin-left: 1px;
+        margin-right: 5px;
+        margin-bottom: 10px;
+    }
+    .mock-add-button {
+        margin-right: 1px;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-bottom: 0;
+    }
+    th, td {
+        border: 1px solid black;
+        padding: 6px;
+        position: relative;
+    }
+    th {
+        background-color: #f2f2f2;
+        font-size: 14px;
+        text-align: center;
+    }
+    td {
+        text-align: left;
+    }
+    .column-num {
+        width: 5%;
+        text-align: center;
+    }
+    .center-align {
+        text-align: center;
+    }
+    .fingerprint {
+        width: 30%;
+    }
+    .check-column {
+        width: 5%;
+        text-align: center;
+    }
+    .highlight {
+        background-color: #fffab6;
+    }
+    .misc {
+        width: 15%;
+    }
+    .overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+    .overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+    }
+    .tag-container {
+        display: inline-block;
+        background-color: #e1e1e1;
+        border-radius: 3px;
+        padding: 2px 5px;
+        margin: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: pointer;
+        max-width: calc(100% - 2ch);
+    }
+    .tag-container:hover {
+        background-color: #c1e1c1;
+    }    
+    .add-btn-container {
+        margin-top: 5px;
+    }
+    .add-btn {
+        background-color: transparent;
+        border: none;
+        color: blue;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+
+    .add-tag-overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        max-width: 300px;
+        word-wrap: break-word;
+        position: relative;
+    }
+
+    .add-tag-overlay-content .tag-overlay-input-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .add-tag-overlay-content .tag-overlay-input-group label {
+        flex: 1;
+        text-align: right;
+        margin-right: 10px;
+    }
+
+    .add-tag-overlay-content .tag-overlay-input-group input {
+        flex: 2;
+    }
+
+    .add-tag-overlay-content .tag-overlay-button-group {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+    }
+
+    .form-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .form-group label {
+        flex: 1;
+        text-align: right;
+        margin-right: 10px;
+    }
+    .form-group input, .form-group textarea, .form-group select {
+        flex: 2;
+    }
+    .form-group button {
+        margin-left: 10px;
+    }
+    .tag-input-group {
+        display: flex;
+        align-items: center;
+        flex: 2;
+    }
+    .tag-input-group input {
+        flex: 0.5;
+        margin-right: 5px;
+    }
+    .tag-input-group button {
+        margin-left: 5px;
+    }
+
+    #disk-tag-container {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .tag-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .tag-overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        max-width: 300px;
+        word-wrap: break-word;
+        position: relative;
+    }
+
+    .tag-overlay-content .close-btn {
+        position: absolute;
+        top: 5px;
+        right: 10px;
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+    }
+
+    .tag-overlay-content .button-group {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+    }
+
+    .misc-content {
+        max-height: 2.5em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .more-btn {
+        display: none;
+        background-color: transparent;
+        border: none;
+        color: blue;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+    .misc-cell {
+        position: relative;
+    }
+    .misc-cell .more-btn {
+        position: absolute;
+        right: 5px;
+        bottom: 5px;
+    }
+
+    .disk-name-cell {
+        text-align: left;
+        font-size: 13px;
+        font-weight: bold;
+    }
+
+    .disk-name-cell .disk-system-id {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
+    }
+
+    .disk-name-cell .disk-created-time {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
+    }
+
+    .size-input {
+        width: 30%;
+        padding: 3px;
+        font-size: 12px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+    }
+
+    .upsize-button {
+        font-size: 12px;
+        padding: 3px 8px;
+        border-radius: 4px;
+        border: 1px solid #007bff;
+        background-color: #007bff;
+        color: #fff;
+        cursor: pointer;
+    }
+
+    .upsize-button:hover {
+        background-color: #0056b3;
+        border-color: #0056b3;
+    }
+
+    .disk-control-buttons {
+        text-align: center;
+        padding: 6px;
+    }
+
+    .disk-action-btn {
+        font-size: 12px;
+        padding: 4px 8px;
+        color: #fff;
+        background-color: #007bff;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s ease, transform 0.2s ease;
+        margin-left: 4px;
+    }
+
+    .disk-action-btn:hover {
+        background-color: #0056b3;
+        transform: scale(1.05);
+    }
+
+    .disk-action-btn:focus {
+        outline: none;
+        box-shadow: 0 0 0 2px rgba(38, 143, 255, 0.5);
+    }
+
+    .zone-column {
+        width: 10%;
+    }
+
+    .type-column {
+        width: 10%;
+    }
+
+    .status-actions-column {
+        width: 25%;
+    }
+
+    .disk-name-cell {
+        width: 15%;
+    }
+
+    .size-upsize-column {
+        width: 15%;
+    }
+
+    .tags-column {
+        width: 20%;
+    }
+
+    .misc-column {
+        width: 20%;
+    }
+
+    .tags-column, .misc-column {
+        text-align: left;
+        padding-left: 8px;
+    }
+
+</style>
+</head>
+<body>
+    <div class="fixed-header">
+        <div class="header-container">
+            <img src="/spider/adminweb/images/left-menu/disk.png" alt="Disk Icon">
+            <h1>Disk Management</h1>
+            <div class="searchContainer">
+                <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
+                <button id="clearSearch" onclick="clearSearchInput()">X</button>
+            </div>
+        </div>        
+        <div class="fixed-action-buttons">
+            <input type="checkbox" onclick="toggleSelectAll(this)">
+            <button onclick="deleteSelectedDisks()">Delete</button>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="header-with-progress">
+            <button class="add-button" onclick="showOverlay()">+</button>
+            <div id="mockButtonsContainer" style="display: flex; align-items: center;"></div>
+            <div class="progress-bar-container" id="progressBarContainer">
+                <div class="progress-bar" id="progressBar"></div>
+                <span id="timeDisplay"></span>
+            </div>                       
+        </div>
+        <table id="disk-table">
+            <tr>
+                <th class="column-num">#</th>
+                <th class="center-align disk-name-cell">Name</th>
+                <th class="center-align zone-column">Zone</th>
+                <th class="center-align type-column">Type</th>
+                <th class="center-align size-upsize-column">Size (GB) | Upsize</th>
+                <th class="center-align status-actions-column">Status | Actions</th>
+                <th class="center-align tags-column">Tags</th>
+                <th class="center-align misc-column">Misc</th>
+                <th class="check-column">
+                    <input type="checkbox" onclick="toggleSelectAll(this)">
+                </th>
+            </tr>
+            {{range $index, $disk := .Disks}}
+            <tr>
+                <td class="column-num">{{$index | inc}}</td>
+                <td class="disk-name-cell">{{$disk.IId.NameId}}<span class="disk-system-id">&nbsp;• {{$disk.IId.SystemId}}</span><span class="disk-created-time" data-time="{{$disk.CreatedTime}}"></span></td>
+                <td class="center-align zone-column">{{$disk.Zone}}</td>
+                <td class="center-align type-column">{{$disk.DiskType}}</td>
+                <td class="center-align size-upsize-column">
+                    <input type="text" id="sizeInput-{{$disk.IId.NameId}}" value="{{$disk.DiskSize}}" placeholder="Size in GB" class="size-input">
+                    <span style="margin: 0 5px;">|</span>
+                    <button type="button" class="upsize-button" onclick="upsizeDisk('{{$disk.IId.NameId}}', document.getElementById('sizeInput-{{$disk.IId.NameId}}').value, '{{$disk.DiskSize}}')">Upsize</button>
+                </td>
+                <td id="diskcontrol-{{$disk.IId.NameId}}" class="center-align status-actions-column disk-control-buttons">
+                    <div style="display: inline-flex; align-items: center; justify-content: center;">
+                        <span style="margin-right: 4px;">{{$disk.Status}}</span> |
+                
+                        {{if $disk.OwnerVM.NameId}}
+                        <select id="vm-select-{{$disk.IId.NameId}}" style="margin-left: 5px; width: 150px;">
+                            <option value="{{$disk.OwnerVM.NameId}}">{{$disk.OwnerVM.NameId}}</option>
+                        </select>
+                        {{else}}
+                        <select id="vm-select-{{$disk.IId.NameId}}" style="margin-left: 5px; width: 150px;">
+                            <option value="" disabled selected>Select VM</option>
+                            {{range $vm := $.VMs}}
+                                {{if eq $vm.Region.Zone $disk.Zone}}
+                                    <option value="{{$vm.IId.NameId}}">{{$vm.IId.NameId}}</option>
+                                {{end}}
+                            {{end}}
+                        </select>
+                        {{end}}
+                
+                        <button id="attach-btn-{{$disk.IId.NameId}}" class="disk-action-btn" onclick="toggleAttachDisk('{{$disk.IId.NameId}}', '{{$disk.Zone}}', document.getElementById('vm-select-{{$disk.IId.NameId}}').value)">
+                            {{if $disk.OwnerVM.NameId}}Detach{{else}}Attach{{end}}
+                        </button>
+                    </div>
+                </td>
+                <td class="center-align tags-column">
+                    {{range $tag := $disk.TagList}}
+                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'DISK', '{{$disk.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                    {{end}}
+                    <div class="add-btn-container">
+                        <button class="add-btn" onclick="showAddTagOverlay('{{$disk.IId.NameId}}')">+</button>
+                    </div>
+                </td>
+                <td class="center-align misc-column misc-cell">
+                    <div class="misc-content">
+                        {{range $kv := $disk.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
+                    </div>
+                    <button class="more-btn" onclick="showMiscOverlay(this)">more...</button>
+                </td>
+                <td class="check-column">
+                    <input type="checkbox" name="deleteCheckbox" value="{{$disk.IId.NameId}}">
+                </td>
+            </tr>
+            {{end}}
+            {{if not .Disks}}
+            <tr>
+                <td colspan="9" class="center-align">No Disks found for this connection.</td>
+            </tr>
+            {{end}}
+        </table>            
+    </div>
+
+    <div id="overlay" class="overlay">
+        <div class="overlay-content">
+            <h2>Add New Disk</h2>
+            <form id="addDiskForm" onsubmit="event.preventDefault(); postDisk();">
+                <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
+                <div class="form-group">
+                    <label for="diskName">Name:</label>
+                    <input type="text" id="diskName" name="diskName" required>
+                </div>
+                <div class="form-group">
+                    <label for="diskZone">Zone:</label>
+                    <select id="diskZone" name="diskZone" required>
+                    </select>
+                </div>                                
+                <div class="form-group">
+                    <label for="diskType">Type:</label>
+                    <select id="diskType" name="diskType" required>
+                        <option value="default" selected>default</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="diskSize">Size (GB):</label>
+                    <select id="diskSize" name="diskSize" required>
+                        <option value="default" selected>default</option>
+                    </select>
+                </div>
+                <div class="form-group" style="padding-left: 100px;">
+                    <label for="diskTags">Tags:</label>
+                    <div id="disk-tag-container"></div>
+                    <button type="button" onclick="addDiskTagField()">+</button>
+                </div>
+                
+                <div class="form-group" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+                    <button type="submit">Add Disk</button>
+                    <button type="button" onclick="hideOverlay()" style="margin-left: 10px;">Cancel</button>
+                </div>                
+            </form>
+        </div>
+    </div>
+
+    <div id="tag-overlay" class="tag-overlay">
+        <div class="tag-overlay-content"></div>
+    </div>
+    
+    <div id="add-tag-overlay" class="overlay">
+        <div class="add-tag-overlay-content"></div>
+    </div>
+
+</body>
+
+<script>
+    function postDisk() {
+        const connConfig = document.getElementById('connConfig').value;
+        const diskName = document.getElementById('diskName').value;
+        const diskZone = document.getElementById('diskZone').value;
+        const diskType = document.getElementById('diskType').value;
+        const diskSize = document.getElementById('diskSize').value;
+
+        if (!diskName || !diskZone || !diskType || !diskSize) {
+            alert("All fields are required.");
+            return;
+        }
+
+        const tagInputs = document.querySelectorAll('#disk-tag-container .disk-tag-input');
+        const tags = Array.from(tagInputs).map(tagInput => {
+            const key = tagInput.querySelector('.disk-tag-key').value.trim();
+            const value = tagInput.querySelector('.disk-tag-value').value.trim();
+            return { Key: key, Value: value };
+        });
+        
+        const data = {
+            ConnectionName: connConfig,
+            ReqInfo: {
+                Name: diskName,
+                Zone: diskZone,
+                DiskType: diskType,
+                DiskSize: diskSize,
+                TagList: tags
+            }
+        };
+
+        fetchWithProgress('/spider/disk', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result && result.IId) {
+                location.reload();
+            } else {
+                alert("Failed to create Disk: " + (result.Message || "Unknown error"));
+            }
+        })
+        .catch(error => {
+            alert("Error creating Disk: " + error.message);
+        });
+    }
+
+    function deleteSelectedDisks() {
+        const connConfig = document.getElementById('connConfig').value;
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
+        if (checkboxes.length === 0) {
+            alert("Please select Disks to delete.");
+            return;
+        }
+
+        if (!confirm("Are you sure you want to delete the selected Disks?")) {
+            return;
+        }
+
+        const deletePromises = Array.from(checkboxes).map(checkbox => {
+            const diskName = checkbox.value;
+            const data = {
+                ConnectionName: connConfig
+            };
+
+            return fetchWithProgress(`/spider/disk/${diskName}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            }).then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => {
+                        throw new Error(error.message);
+                    });
+                }
+                return response.json();
+            });
+        });
+
+        Promise.all(deletePromises)
+            .then(() => location.reload())
+            .catch(error => {
+                alert("Error deleting Disks: " + error.message);
+            });
+    }
+
+    function toggleSelectAll(source) {
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]');
+        for (const checkbox of checkboxes) {
+            checkbox.checked = source.checked;
+        }
+    }
+
+    function upsizeDisk(diskName, newSize, originalSize) {
+        const connConfig = document.getElementById('connConfig').value;
+
+        const data = {
+            ConnectionName: connConfig,
+            ReqInfo: {
+                Size: newSize
+            }
+        };
+
+        fetchWithProgress(`/spider/disk/${diskName}/size`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.Result === "true") {
+                alert(`Disk ${diskName} has been successfully upsized to ${newSize} GB.`);
+                document.getElementById(`sizeInput-${diskName}`).value = newSize;
+            } else {
+                showError(`Failed to upsize Disk: ${data.Message || JSON.stringify(data)}`, `Disk Name: ${diskName}`);
+                document.getElementById(`sizeInput-${diskName}`).value = originalSize;
+            }
+        })
+        .catch(error => {
+            showError(`Error upsizing Disk: ${error.message}`, `Disk Name: ${diskName}`);
+            document.getElementById(`sizeInput-${diskName}`).value = originalSize;
+        });
+    }
+
+    function toggleAttachDisk(diskName, diskZone, vmName) {
+        const connConfig = document.getElementById('connConfig').value;
+
+        if (!vmName) {
+            alert("Please select a VM before attaching the disk.");
+            return;
+        }
+
+        const data = {
+            ConnectionName: connConfig,
+            ReqInfo: {
+                VMName: vmName
+            }
+        };
+
+        const action = document.getElementById(`attach-btn-${diskName}`).innerText === 'Attach' ? 'attach' : 'detach';
+
+        fetch(`/spider/disk/${diskName}/${action}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            const button = document.getElementById(`attach-btn-${diskName}`);
+            const selectBox = document.getElementById(`vm-select-${diskName}`);
+
+            if (action === 'attach' && data.Status) {
+                selectBox.innerHTML = `<option value="${vmName}">${vmName}</option>`;
+                button.innerText = 'Detach';
+                alert(`Disk ${diskName} successfully attached to VM ${vmName}.`);
+            } else if (action === 'detach' && data.Result === "true") {
+                fetchVMs(connConfig, diskName, diskZone, selectBox);
+                button.innerText = 'Attach';
+                alert(`Disk ${diskName} successfully detached from VM ${vmName}.`);
+            } else {
+                showError(`Failed to ${action} Disk: ${data.Message || "Unknown error"}`, `Disk Name: ${diskName}`);
+            }
+        })
+        .catch(error => {
+            showError(`Error ${action}ing Disk: ${error.message}`, `Disk Name: ${diskName}`);
+        });
+    }
+
+    function fetchVMs(connConfig, diskName, diskZone, selectBox) {
+        fetch(`/spider/vm?ConnectionName=${connConfig}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (!data.vm || data.vm.length === 0) {
+                showError('Error fetching VMs:', 'No VMs found for this connection.');
+                return;
+            }
+
+            selectBox.innerHTML = `<option value="" disabled selected>Select VM</option>`;
+            data.vm.forEach(vm => {
+                if (vm.Region.Zone === diskZone) {
+                    selectBox.innerHTML += `<option value="${vm.IId.NameId}">${vm.IId.NameId}</option>`;
+                }
+            });
+
+            if (selectBox.options.length === 1) {
+                showError('Error fetching VMs:', 'No VMs found in the same zone.');
+            }
+        })
+        .catch(error => {
+            showError('Error fetching VMs:', error.message);
+        });
+    }
+
+    function searchKeyword() {
+        let input, filter, table, tr, td, i;
+        input = document.getElementById('searchInput');
+        filter = input.value.toUpperCase().trim(); 
+        if (!filter) {
+            clearSearchInput();
+            return;
+        }
+
+        table = document.getElementById('disk-table');
+        tr = table.getElementsByTagName('tr');
+        
+        for (i = 1; i < tr.length; i++) {
+            for (let j = 0; j < tr[i].cells.length; j++) {
+                td = tr[i].cells[j];
+                if (td) {
+                    let txtValue = td.textContent || td.innerText;
+                    if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                        td.classList.add('highlight');
+                    } else {
+                        td.classList.remove('highlight');
+                    }
+                }
+            }
+        }
+    }
+
+    function clearSearchInput() {
+        document.getElementById("searchInput").value = "";
+        let table = document.getElementById('disk-table');
+        let tr = table.getElementsByTagName('tr');
+        for (let i = 1; i < tr.length; i++) {
+            for (let j = 0; j < tr[i].cells.length; j++) {
+                tr[i].cells[j].classList.remove('highlight');
+            }
+        }
+    }
+
+    function showOverlay() {
+        const region = '{{.RegionName}}';
+        const regionId = '{{.Region}}';
+        const defaultZone = '{{.Zone}}';
+        const diskNameInput = document.getElementById('diskName');
+        const zoneSelect = document.getElementById('diskZone');
+        const diskTypeSelect = document.getElementById('diskType');
+        const diskSizeSelect = document.getElementById('diskSize');
+        const connConfig = document.getElementById('connConfig').value;
+
+        diskNameInput.value = `${region}-disk-${Math.random().toString(36).substring(2, 5)}`;
+
+        fetch(`/spider/regionzone/${regionId}?ConnectionName=${connConfig}`)
+            .then(response => response.json())
+            .then(data => {
+                zoneSelect.innerHTML = '';
+                data.ZoneList.forEach(zone => {
+                    const option = document.createElement('option');
+                    option.value = zone.Name;
+                    option.textContent = `${zone.DisplayName} (${zone.Status})`;
+
+                    if (zone.Name === defaultZone) {
+                        option.selected = true;
+                    }
+
+                    zoneSelect.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching Zone List:', error);
+                alert('Failed to load Zone list.');
+            });
+
+        fetchWithProgress(`/spider/connectionconfig/${connConfig}`)
+            .then(response => response.json())
+            .then(configData => {
+                const currentProvider = configData.ProviderName.toLowerCase();
+                const metaInfoUrl = `/spider/cloudos/metainfo/${currentProvider}`;
+
+                fetch(metaInfoUrl)
+                    .then(response => response.json())
+                    .then(metaInfo => {
+                        diskTypeSelect.innerHTML = '<option value="default" selected>default</option>';
+                        metaInfo.DiskType.forEach(type => {
+                            const option = document.createElement('option');
+                            option.value = type;
+                            option.textContent = type;
+                            diskTypeSelect.appendChild(option);
+                        });
+
+                        diskSizeSelect.innerHTML = '<option value="default" selected>default</option>';
+                        window.diskSizes = metaInfo.DiskSize;
+
+                        diskTypeSelect.addEventListener('change', updateSizeOptions);
+                    })
+                    .catch(error => {
+                        console.error('Error fetching Disk Types:', error);
+                        alert('Failed to load Disk types.');
+                    });
+            })
+            .catch(error => {
+                console.error('Error fetching provider info:', error);
+                alert('Failed to load provider information.');
+            });
+
+        document.getElementById('overlay').style.display = 'flex';
+        document.addEventListener('keydown', handleEsc);
+        clearFormFields();
+    }
+
+
+    function updateSizeOptions() {
+        const diskType = document.getElementById('diskType').value;
+        const diskSizeSelect = document.getElementById('diskSize');
+
+        diskSizeSelect.innerHTML = '<option value="default" selected>default</option>';
+
+        if (diskType === 'default') {
+            return;
+        }
+
+        const sizeOption = window.diskSizes.find(size => size.startsWith(diskType));
+        if (sizeOption) {
+            const [type, minSize, maxSize, unit] = sizeOption.split('|');
+            const increment = 50;
+
+            for (let i = parseInt(minSize); i <= parseInt(maxSize); i = (i === 1 ? 50 : i + increment)) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = `${i} ${unit}`;
+                diskSizeSelect.appendChild(option);
+            }
+
+            if (parseInt(maxSize) !== diskSizeSelect.options[diskSizeSelect.options.length - 1].value) {
+                const option = document.createElement('option');
+                option.value = maxSize;
+                option.textContent = `${maxSize} ${unit}`;
+                diskSizeSelect.appendChild(option);
+            }
+
+            const customSizeOption = document.createElement('option');
+            customSizeOption.value = 'custom';
+            customSizeOption.textContent = 'Custom...';
+            diskSizeSelect.appendChild(customSizeOption);
+
+            const customSizeInput = document.createElement('input');
+            customSizeInput.type = 'number';
+            customSizeInput.id = 'customDiskSize';
+            customSizeInput.name = 'customDiskSize';
+            customSizeInput.placeholder = `${minSize} - ${maxSize} ${unit}`;
+            customSizeInput.style.display = 'none';
+            diskSizeSelect.parentNode.appendChild(customSizeInput);
+
+            diskSizeSelect.addEventListener('change', function () {
+                if (diskSizeSelect.value === 'custom') {
+                    customSizeInput.style.display = 'inline-block';
+                } else {
+                    customSizeInput.style.display = 'none';
+                }
+            });
+        }
+    }
+
+
+    function clearFormFields() {
+        const region = '{{.RegionName}}';
+        const diskNameInput = document.getElementById('diskName');
+        const zoneSelect = document.getElementById('diskZone');
+
+        diskNameInput.value = `${region}-disk-${Math.random().toString(36).substring(2, 5)}`;
+        document.getElementById('diskType').value = 'default';
+        document.getElementById('diskSize').value = '';
+
+        zoneSelect.innerHTML = '';
+    }
+
+
+    function clearFormFields() {
+        const region = '{{.RegionName}}';
+        const zone = '{{.Zone}}';
+        const diskNameInput = document.getElementById('diskName');
+        const zoneInput = document.getElementById('diskZone');
+
+        diskNameInput.value = `${region}-disk-${Math.random().toString(36).substring(2, 5)}`;
+        zoneInput.value = zone;
+        document.getElementById('diskType').value = 'default';
+        document.getElementById('diskSize').value = '';
+
+        const tagContainer = document.getElementById('disk-tag-container');
+        while (tagContainer.firstChild) {
+            tagContainer.removeChild(tagContainer.firstChild);
+        }
+    }
+
+
+
+    function hideOverlay() {
+        document.getElementById('overlay').style.display = 'none';
+        document.removeEventListener('keydown', handleEsc);
+        clearFormFields();
+    }
+
+    function handleEsc(event) {
+        if (event.key === "Escape") {
+            hideOverlay();
+        }
+    }
+
+    function addDiskTagField() {
+        const tagContainer = document.getElementById('disk-tag-container');
+        const tagInput = document.createElement('div');
+        tagInput.className = 'disk-tag-input tag-input-group';
+        tagInput.innerHTML = `
+            <input type="text" class="disk-tag-key" placeholder="Key" required>
+            <input type="text" class="disk-tag-value" placeholder="Value" required>
+            <button type="button" onclick="removeTagField(this)">-</button>
+        `;
+        tagContainer.appendChild(tagInput);
+    }
+    function removeTagField(button) {
+        button.parentElement.remove();
+    }
+
+    function showTagOverlay(event, tag, resourceType, resourceName) {
+        event.stopPropagation();
+
+        const tagOverlay = document.getElementById('tag-overlay');
+        const tagOverlayContent = document.querySelector('.tag-overlay-content');
+
+        tagOverlayContent.innerHTML = `
+            <button class="close-btn" onclick="closeTagOverlay()">x</button>
+            <p>${tag}</p>
+            <div class="button-group">
+                <button onclick="deleteTag('${tag}', '${resourceType}', '${resourceName}')">Delete</button>
+                <button onclick="closeTagOverlay()">Cancel</button>
+            </div>
+        `;
+
+        tagOverlay.style.display = 'flex';
+
+        document.addEventListener('keydown', handleEscTagOverlay);
+        document.addEventListener('click', handleClickOutsideOverlay);
+    }
+
+    function closeTagOverlay() {
+        const tagOverlay = document.getElementById('tag-overlay');
+        tagOverlay.style.display = 'none';
+        document.removeEventListener('keydown', handleEscTagOverlay);
+        document.removeEventListener('click', handleClickOutsideOverlay);
+    }
+
+    function showAddTagOverlay(diskName) {
+        const addTagOverlay = document.getElementById('add-tag-overlay');
+        const addTagOverlayContent = document.querySelector('.add-tag-overlay-content');
+        addTagOverlayContent.innerHTML = `
+            <div class="tag-overlay-input-group">
+                <label for="tagOverlayTagKey">Tag Key:</label>
+                <input type="text" id="tagOverlayTagKey" name="tagKey" required>
+            </div>
+            <div class="tag-overlay-input-group">
+                <label for="tagOverlayTagValue">Tag Value:</label>
+                <input type="text" id="tagOverlayTagValue" name="tagValue" required>
+            </div>
+            <div class="tag-overlay-button-group">
+                <button onclick="addTag('${diskName}')">Add</button>
+                <button onclick="closeAddTagOverlay()">Cancel</button>
+            </div>
+        `;
+        addTagOverlay.style.display = 'flex';
+        document.addEventListener('keydown', handleEscAddTagOverlay);
+    }
+
+    function closeAddTagOverlay() {
+        const addTagOverlay = document.getElementById('add-tag-overlay');
+        addTagOverlay.style.display = 'none';
+        document.removeEventListener('keydown', handleEscAddTagOverlay);
+    }
+
+    function handleEscAddTagOverlay(event) {
+        if (event.key === "Escape") {
+            closeAddTagOverlay();
+        }
+    }
+
+    function addTag(diskName) {
+        const tagKey = document.getElementById('tagOverlayTagKey').value;
+        const tagValue = document.getElementById('tagOverlayTagValue').value;
+        const connConfig = document.getElementById('connConfig').value;
+
+        const data = {
+            ConnectionName: connConfig,
+            ReqInfo: {
+                ResourceType: 'DISK',
+                ResourceName: diskName,
+                Tag: { Key: tagKey, Value: tagValue }
+            }
+        };
+
+        fetchWithProgress('/spider/tag', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        }).then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.message);
+                });
+            }
+            return response.json();
+        }).then(() => {
+            closeAddTagOverlay();
+            location.reload();
+        }).catch(error => {
+            showError("Error adding tag: " + error.message, "Disk Name: " + diskName);
+        });
+    }
+
+    function handleEscTagOverlay(event) {
+        if (event.key === "Escape") {
+            closeTagOverlay();
+        }
+    }
+
+    function handleClickOutsideOverlay(event) {
+        const tagOverlay = document.getElementById('tag-overlay');
+        if (tagOverlay.style.display === 'flex' && !tagOverlay.contains(event.target)) {
+            closeTagOverlay();
+        }
+    }
+    
+    function showError(message, title) {
+        alert(`${title}: ${message}`);
+    }
+
+    function deleteTag(tag, resourceType, resourceName) {
+        const connConfig = document.getElementById('connConfig').value;
+        const [tagKey, tagValue] = tag.split(': ');
+
+        const data = {
+            ConnectionName: connConfig,
+            ReqInfo: {
+                ResourceType: resourceType.trim(),
+                ResourceName: resourceName.trim()
+            }
+        };
+
+        fetchWithProgress(`/spider/tag/${tagKey.trim()}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        }).then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.message);
+                });
+            }
+            return response.json();
+        }).then(() => {
+            closeTagOverlay();
+            location.reload();
+        }).catch(error => {
+            showError("Error deleting tag: " + error.message, "Resource Name: " + resourceName);
+        });
+    }
+
+    document.addEventListener('click', (event) => {
+        const tagOverlay = document.getElementById('tag-overlay');
+        if (tagOverlay.style.display === 'flex' && !tagOverlay.contains(event.target)) {
+            closeTagOverlay();
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        fetch('/spider/connectionconfig/{{.ConnectionConfig}}')
+            .then(response => response.json())
+            .then(data => {
+                const currentProvider = data.ProviderName;
+                if (currentProvider === 'MOCK') {
+                    const mockButtonsContainer = document.getElementById('mockButtonsContainer');
+
+                    const button10 = document.createElement('button');
+                    button10.className = 'mock-add-button add-button';
+                    button10.textContent = '+10';
+                    button10.onclick = () => createMultipleDisks(10);
+
+                    const button50 = document.createElement('button');
+                    button50.className = 'mock-add-button add-button';
+                    button50.textContent = '+50';
+                    button50.onclick = () => createMultipleDisks(50);
+
+                    mockButtonsContainer.appendChild(button10);
+                    mockButtonsContainer.appendChild(button50);
+                }
+            })
+            .catch(error => {
+                showError("Error loading connection configuration: " + error.message, "Connection Config Error");
+            });
+    });
+
+    function createMultipleDisks(count) {
+        const connConfig = document.getElementById('connConfig').value;
+
+        const diskPromises = Array.from({ length: count }).map(() => {
+            const diskName = `mock-disk-${Math.random().toString(36).substring(2, 5)}`;
+            const zone = '{{.Zone}}';
+            const diskType = "SSD";
+            const diskSize = "50";
+
+            const requestData = {
+                ConnectionName: connConfig,
+                ReqInfo: {
+                    Name: diskName,
+                    Zone: zone,
+                    DiskType: diskType,
+                    DiskSize: diskSize
+                }
+            };
+
+            return fetchWithProgress('/spider/disk', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            }).then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => {
+                        throw new Error(error.message);
+                    });
+                }
+                return response.json();
+            });
+        });
+
+        Promise.all(diskPromises)
+            .then(() => location.reload())
+            .catch(error => {
+                showError("Error creating Disks: " + error.message, "Disk Creation Error");
+            });
+    }
+
+    function fetchWithProgress(url, options) {
+        showProgressBar();
+        
+        const startTime = Date.now();
+        const timerInterval = 500; 
+        let timerId = setInterval(() => {
+            const elapsedTime = (Date.now() - startTime) / 1000;
+            const timeDisplay = document.getElementById('timeDisplay');
+            timeDisplay.textContent = `${(Math.floor(elapsedTime * 2) / 2).toFixed(1)}s`;
+        }, timerInterval);
+
+        return fetch(url, options)
+            .then(response => {
+                clearInterval(timerId); 
+                hideProgressBar();
+                return response;
+            })
+            .catch(error => {
+                clearInterval(timerId);
+                hideProgressBar();
+                throw error;
+            });
+    }
+
+    function showProgressBar() {
+        const progressBarContainer = document.getElementById('progressBarContainer');
+        const progressBar = document.getElementById('progressBar');
+        progressBar.style.width = '0%';
+        progressBarContainer.style.display = 'block';
+
+        setTimeout(() => {
+            progressBar.style.width = '100%';
+        }, 100);
+    }
+
+    function hideProgressBar() {
+        const progressBarContainer = document.getElementById('progressBarContainer');
+        setTimeout(() => {
+            progressBarContainer.style.display = 'none';
+            document.getElementById('timeDisplay').textContent = ''; 
+        }, 500);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const timeElements = document.querySelectorAll('.disk-created-time');
+
+        timeElements.forEach(function(element) {
+            const originalTime = element.getAttribute('data-time');
+            const formattedTime = formatTime(originalTime);
+            element.innerHTML = '&nbsp;• ' + formattedTime;
+        });
+
+        function formatTime(originalTime) {
+            const parts = originalTime.split(" ");
+            const date = parts[0];
+            const time = parts[1].slice(0, 5);
+            const timezone = parts[3];
+            return `${date} ${time} ${timezone}`;
+        }
+    });
+
+</script>
+
+</html>
