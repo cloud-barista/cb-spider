@@ -15,9 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 
-	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/labstack/echo/v4"
 )
@@ -105,61 +103,4 @@ func KeyPairManagement(c echo.Context) error {
 	}
 
 	return tmpl.Execute(c.Response().Writer, data)
-}
-
-// Function to create a KeyPair
-func CreateKeyPair(c echo.Context) error {
-	connConfig := c.QueryParam("ConnectionName")
-	keyPairName := c.Param("Name")
-
-	url := fmt.Sprintf("http://%s:%s/spider/keypair", cr.ServiceIPorName, cr.ServicePort)
-	reqBody := fmt.Sprintf(`{"ConnectionName": "%s", "ReqInfo": {"Name": "%s"}}`, connConfig, keyPairName)
-	req, err := http.NewRequest("POST", url, strings.NewReader(reqBody))
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to create KeyPair"})
-	}
-
-	var keyPair cres.KeyPairInfo
-	if err := json.NewDecoder(resp.Body).Decode(&keyPair); err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-	}
-
-	return c.JSON(http.StatusOK, map[string]string{"Result": "true", "PrivateKey": keyPair.KeyValueList[0].Value})
-}
-
-// Function to delete a KeyPair
-func DeleteKeyPair(c echo.Context) error {
-	connConfig := c.QueryParam("ConnectionName")
-	keyPairName := c.Param("Name")
-
-	url := fmt.Sprintf("http://%s:%s/spider/keypair/%s?connectionName=%s", cr.ServiceIPorName, cr.ServicePort, keyPairName, connConfig)
-	req, err := http.NewRequest("DELETE", url, nil)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-	}
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to delete KeyPair"})
-	}
-
-	return c.JSON(http.StatusOK, map[string]string{"Result": "true"})
 }

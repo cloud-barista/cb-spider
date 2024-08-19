@@ -43,36 +43,6 @@ func fetchVMs(connConfig string) ([]*cres.VMInfo, error) {
 	return info.ResultList, nil
 }
 
-func fetchVMStatus(connConfig, vmName string) (string, error) {
-	url := fmt.Sprintf("http://%s%s/spider/vmstatus/%s", cr.ServiceIPorName, cr.ServicePort, vmName)
-	reqBody := fmt.Sprintf(`{"ConnectionName": "%s"}`, connConfig)
-	req, err := http.NewRequest("GET", url, strings.NewReader(reqBody))
-	if err != nil {
-		return "", fmt.Errorf("error creating request: %v", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("error fetching VM status: %v", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("failed to get VM status")
-	}
-
-	var statusInfo struct {
-		Status string `json:"Status"`
-	}
-	if err := json.NewDecoder(resp.Body).Decode(&statusInfo); err != nil {
-		return "", fmt.Errorf("error decoding VM status: %v", err)
-	}
-
-	return statusInfo.Status, nil
-}
-
 func fetchAllVMStatuses(connConfig string) (map[string]string, error) {
 	url := fmt.Sprintf("http://%s%s/spider/vmstatus", cr.ServiceIPorName, cr.ServicePort)
 	reqBody := fmt.Sprintf(`{"ConnectionName": "%s"}`, connConfig)
@@ -182,32 +152,4 @@ func VMManagement(c echo.Context) error {
 	}
 
 	return tmpl.Execute(c.Response().Writer, data)
-}
-
-// func CreateVM(c echo.Context) error {
-// 	// Add your logic here
-// }
-
-func DeleteVM(c echo.Context) error {
-	connConfig := c.QueryParam("ConnectionName")
-	vmName := c.Param("Name")
-
-	url := fmt.Sprintf("http://%s%s/spider/vm/%s?connectionName=%s", cr.ServiceIPorName, cr.ServicePort, vmName, connConfig)
-	req, err := http.NewRequest("DELETE", url, nil)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-	}
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to delete VM"})
-	}
-
-	return c.JSON(http.StatusOK, map[string]string{"Result": "true"})
 }
