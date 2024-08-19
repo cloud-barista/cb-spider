@@ -561,9 +561,8 @@
                 </div>
                 <div class="form-group">
                     <label for="diskZone">Zone:</label>
-                    <select id="diskZone" name="diskZone" required>
-                    </select>
-                </div>                                
+                    <select id="diskZone" name="diskZone" required></select>
+                </div>
                 <div class="form-group">
                     <label for="diskType">Type:</label>
                     <select id="diskType" name="diskType" required>
@@ -581,11 +580,13 @@
                     <div id="disk-tag-container"></div>
                     <button type="button" onclick="addDiskTagField()">+</button>
                 </div>
-                
+                <!-- Here is the key change -->
                 <div class="form-group" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+                    <label for="diskCount" style="margin-right: 5px;">#:</label>
+                    <input type="number" id="diskCount" name="diskCount" value="1" min="1" max="10" style="width: 50px; margin-right: 10px;">
                     <button type="submit">Add Disk</button>
                     <button type="button" onclick="hideOverlay()" style="margin-left: 10px;">Cancel</button>
-                </div>                
+                </div>
             </form>
         </div>
     </div>
@@ -607,8 +608,9 @@
         const diskZone = document.getElementById('diskZone').value;
         const diskType = document.getElementById('diskType').value;
         const diskSize = document.getElementById('diskSize').value;
+        const diskCount = parseInt(document.getElementById('diskCount').value);
 
-        if (!diskName || !diskZone || !diskType || !diskSize) {
+        if (!diskName || !diskZone || !diskType || !diskSize || diskCount < 1) {
             alert("All fields are required.");
             return;
         }
@@ -619,37 +621,44 @@
             const value = tagInput.querySelector('.disk-tag-value').value.trim();
             return { Key: key, Value: value };
         });
-        
-        const data = {
-            ConnectionName: connConfig,
-            ReqInfo: {
-                Name: diskName,
-                Zone: diskZone,
-                DiskType: diskType,
-                DiskSize: diskSize,
-                TagList: tags
-            }
-        };
 
-        fetchWithProgress('/spider/disk', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        })
-        .then(response => response.json())
-        .then(result => {
-            if (result && result.IId) {
-                location.reload();
-            } else {
-                alert("Failed to create Disk: " + (result.Message || "Unknown error"));
-            }
-        })
-        .catch(error => {
-            alert("Error creating Disk: " + error.message);
+        const diskPromises = Array.from({ length: diskCount }).map((_, index) => {
+            const diskNameWithIndex = diskCount > 1 ? `${diskName}-${index + 1}` : diskName;
+
+            const data = {
+                ConnectionName: connConfig,
+                ReqInfo: {
+                    Name: diskNameWithIndex,
+                    Zone: diskZone,
+                    DiskType: diskType,
+                    DiskSize: diskSize,
+                    TagList: tags
+                }
+            };
+
+            return fetchWithProgress('/spider/disk', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            }).then(response => response.json());
         });
+
+        Promise.all(diskPromises)
+            .then(results => {
+                const failedDisks = results.filter(result => !result.IId);
+                if (failedDisks.length > 0) {
+                    alert(`Failed to create ${failedDisks.length} disk(s).`);
+                } else {
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                alert("Error creating disks: " + error.message);
+            });
     }
+
 
     function deleteSelectedDisks() {
         const connConfig = document.getElementById('connConfig').value;
