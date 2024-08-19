@@ -493,8 +493,10 @@ THE SOFTWARE.
     .add-btn-container {
         margin-top: 5px;
     }
-    .add-btn {
+    .add-btn-container .add-btn {
         background-color: transparent;
+        font-size: 14px;
+        font-weight: bold;
         border: none;
         color: blue;
         text-decoration: underline;
@@ -1172,44 +1174,30 @@ THE SOFTWARE.
         }
 
         const connConfig = document.getElementById('connConfig').value;
-        const vmName = document.getElementById('vmName').value;
-        const imageName = document.getElementById('imageName').value;
-        const vmSpecName = document.getElementById('vmSpecName').value;
-        const vpcName = document.getElementById('vpcSelect').options[document.getElementById('vpcSelect').selectedIndex].text.split(' ')[0];
-        const subnetName = document.getElementById('subnetSelect').value;
-        const securityGroupName = document.getElementById('securityGroupSelect').value;
-        const rootDiskType = document.getElementById('rootDiskType').value;
-        const rootDiskSize = document.getElementById('rootDiskSize').value;
-        const keypairName = document.getElementById('keypairSelect').value;
-        const vmUserId = document.getElementById('vmUserId').value;
-        const vmUserPasswd = document.getElementById('vmUserPasswd').value;
-
-        const dataDiskNames = Array.from(document.getElementById('dataDiskSelect').selectedOptions)
-                                    .map(option => option.value);
-
-        const tags = Array.from(document.querySelectorAll('.vm-tag-input')).map(tagInput => ({
-            Key: tagInput.querySelector('.vm-tag-key').value.trim(),
-            Value: tagInput.querySelector('.vm-tag-value').value.trim()
-        }));
 
         const vmPromises = Array.from({ length: vmCount }).map((_, index) => {
+            const vmName = vmCount > 1 ? `${document.getElementById('vmName').value}-${index + 1}` : document.getElementById('vmName').value;
+
             const requestData = {
                 ConnectionName: connConfig,
                 ReqInfo: {
-                    Name: `${vmName}-${index + 1}`,
+                    Name: vmName,
                     ImageType: document.getElementById('imageType').value,
-                    ImageName: imageName,
-                    VMSpecName: vmSpecName,
-                    VPCName: vpcName,
-                    SubnetName: subnetName,
-                    SecurityGroupNames: [securityGroupName],
-                    RootDiskType: rootDiskType,
-                    RootDiskSize: rootDiskSize || undefined,
-                    DataDiskNames: dataDiskNames,
-                    KeyPairName: keypairName,
-                    VMUserId: vmUserId,
-                    VMUserPasswd: vmUserPasswd,
-                    TagList: tags
+                    ImageName: document.getElementById('imageName').value,
+                    VMSpecName: document.getElementById('vmSpecName').value,
+                    VPCName: document.getElementById('vpcSelect').options[document.getElementById('vpcSelect').selectedIndex].text.split(' ')[0],
+                    SubnetName: document.getElementById('subnetSelect').value,
+                    SecurityGroupNames: [document.getElementById('securityGroupSelect').value],
+                    RootDiskType: document.getElementById('rootDiskType').value,
+                    RootDiskSize: document.getElementById('rootDiskSize').value || undefined,
+                    DataDiskNames: Array.from(document.getElementById('dataDiskSelect').selectedOptions).map(option => option.value),
+                    KeyPairName: document.getElementById('keypairSelect').value,
+                    VMUserId: document.getElementById('vmUserId').value,
+                    VMUserPasswd: document.getElementById('vmUserPasswd').value,
+                    TagList: Array.from(document.querySelectorAll('.vm-tag-input')).map(tagInput => ({
+                        Key: tagInput.querySelector('.vm-tag-key').value.trim(),
+                        Value: tagInput.querySelector('.vm-tag-value').value.trim()
+                    }))
                 }
             };
 
@@ -1224,13 +1212,13 @@ THE SOFTWARE.
             .then(({ data, ok }) => {
                 if (!ok || data.message) {
                     const errorMessage = data.message || "Unknown error";
-                    showError(`VM Name: ${requestData.ReqInfo.Name}: Failed to create VM: ${errorMessage}`);
+                    showError(`VM Name: ${vmName}: Failed to create VM: ${errorMessage}`);
                 } else if (data.IId && data.IId.NameId) {
                     console.log(`VM "${data.IId.NameId}" created successfully.`);
                 }
             })
             .catch(error => {
-                showError(`VM Name: ${requestData.ReqInfo.Name}: Error creating VM: ${error.message}`);
+                showError(`VM Name: ${vmName}: Error creating VM: ${error.message}`);
             });
         });
 
@@ -1240,6 +1228,7 @@ THE SOFTWARE.
                 showError("Error creating VMs: " + error.message, "Multiple VMs");
             });
     }
+
 
     function searchKeyword() {
         let input, filter, table, tr, td, i;

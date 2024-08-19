@@ -237,8 +237,9 @@
     .add-btn-container {
         margin-top: 5px;
     }
-    .add-btn {
+    .add-btn-container .add-btn {
         background-color: transparent;
+        font-size: 14px;
         border: none;
         color: blue;
         text-decoration: underline;
@@ -867,8 +868,8 @@
         const subnetZone = document.getElementById('subnetZone').value;
 
         const vpcPromises = Array.from({ length: vpcCount }).map((_, index) => {
-            const vpcName = `${document.getElementById('vpcName').value}-${index + 1}`;
-            const subnetName = `${document.getElementById('subnetName').value}-${index + 1}`;
+            const vpcName = vpcCount > 1 ? `${document.getElementById('vpcName').value}-${index + 1}` : document.getElementById('vpcName').value;
+            const subnetName = vpcCount > 1 ? `${document.getElementById('subnetName').value}-${index + 1}` : document.getElementById('subnetName').value;
             const subnetInfo = [{
                 Name: subnetName,
                 IPv4_CIDR: subnetCIDR,
@@ -909,6 +910,7 @@
                 return response.json();
             });
         });
+
 
         Promise.all(vpcPromises)
             .then(() => {

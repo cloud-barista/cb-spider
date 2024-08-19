@@ -200,18 +200,7 @@
     }
     .tag-container:hover {
         background-color: #c1e1c1;
-    }    
-    .add-btn-container {
-        margin-top: 5px;
-    }
-    .add-btn {
-        background-color: transparent;
-        border: none;
-        color: blue;
-        text-decoration: underline;
-        cursor: pointer;
-    }
-
+    }        
     .add-tag-overlay-content {
         background-color: white;
         padding: 20px;
@@ -244,6 +233,18 @@
         display: flex;
         justify-content: space-between;
         margin-top: 20px;
+    }
+    .add-btn-container {
+        margin-top: 5px;
+    }
+    .add-btn-container .add-btn {
+        background-color: transparent;
+        font-size: 14px;
+        font-weight: bold;
+        border: none;
+        color: blue;
+        text-decoration: underline;
+        cursor: pointer;
     }
 
     .form-group {
@@ -532,7 +533,7 @@
         const connConfig = document.getElementById('connConfig').value;
 
         const keyPairPromises = Array.from({ length: keyPairCount }).map((_, index) => {
-            const keyPairName = `${document.getElementById('keyPairName').value}-${index + 1}`;
+            const keyPairName = keyPairCount > 1 ? `${document.getElementById('keyPairName').value}-${index + 1}` : document.getElementById('keyPairName').value;
 
             const tags = Array.from(document.querySelectorAll('.keypair-tag-input')).map(tagInput => ({
                 Key: tagInput.querySelector('.keypair-tag-key').value.trim(),
@@ -572,6 +573,7 @@
                 showError("Error creating KeyPairs: " + error.message, "Multiple KeyPairs");
             });
     }
+
 
     function downloadPrivateKey(keyPairName, privateKey) {
         const element = document.createElement('a');

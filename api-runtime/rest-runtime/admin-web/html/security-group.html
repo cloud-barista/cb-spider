@@ -238,8 +238,9 @@
     .add-btn-container {
         margin-top: 5px;
     }
-    .add-btn {
+    .add-btn-container .add-btn {
         background-color: transparent;
+        font-size: 14px;
         border: none;
         color: blue;
         text-decoration: underline;
@@ -932,7 +933,7 @@
         }];
 
         const sgPromises = Array.from({ length: sgCount }).map((_, index) => {
-            const sgName = `${document.getElementById('sgName').value}-${index + 1}`;
+            const sgName = sgCount > 1 ? `${document.getElementById('sgName').value}-${index + 1}` : document.getElementById('sgName').value;
 
             const data = {
                 ConnectionName: connConfig,
@@ -959,6 +960,7 @@
                 return response.json();
             });
         });
+
 
         Promise.all(sgPromises)
             .then(() => {
