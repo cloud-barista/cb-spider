@@ -344,6 +344,110 @@
         bottom: 5px;
     }
 </style>
+</head>
+<body>
+    <div class="fixed-header">
+        <div class="header-container">
+            <img src="/spider/adminweb/images/left-menu/keypair.png" alt="KeyPair Icon">
+            <h1>KeyPair Management</h1>
+            <div class="searchContainer">
+                <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
+                <button id="clearSearch" onclick="clearSearchInput()">X</button>
+            </div>
+        </div>        
+        <div class="fixed-action-buttons">
+            <input type="checkbox" onclick="toggleSelectAll(this)">
+            <button onclick="deleteSelectedKeyPairs()">Delete</button>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="header-with-progress">
+            <button class="add-button" onclick="showOverlay()">+</button>
+            <div id="mockButtonsContainer" style="display: flex; align-items: center;"></div>
+            <div class="progress-bar-container" id="progressBarContainer">
+                <div class="progress-bar" id="progressBar"></div>
+                <span id="timeDisplay"></span>
+            </div>                       
+        </div>
+        <table id="keypair-table">
+            <tr>
+                <th class="column-num">#</th>
+                <th class="center-align">Name</th>
+                <th class="center-align fingerprint">Fingerprint</th>
+                <th class="center-align">Tags</th>
+                <th class="center-align">Misc</th>
+                <th class="check-column">
+                    <input type="checkbox" onclick="toggleSelectAll(this)">
+                </th>
+            </tr>
+            {{range $index, $keyPair := .KeyPairs}}
+            <tr>
+                <td class="column-num">{{$index | inc}}</td>
+                <td class="center-align">{{$keyPair.IId.NameId}}</td>
+                <td class="center-align fingerprint">{{$keyPair.Fingerprint}}</td>
+                <td>
+                    {{range $tag := $keyPair.TagList}}
+                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'KEYPAIR', '{{$keyPair.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                    {{end}}
+                    <div class="add-btn-container">
+                        <button class="add-btn" onclick="showAddTagOverlay('{{$keyPair.IId.NameId}}')">+</button>
+                    </div>
+                </td>
+                <td class="center-align misc-cell">
+                    <div class="misc-content">
+                        {{range $kv := $keyPair.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
+                    </div>
+                    <button class="more-btn" onclick="showMiscOverlay(this)">more...</button>
+                </td>
+                <td class="check-column">
+                    <input type="checkbox" name="deleteCheckbox" value="{{$keyPair.IId.NameId}}">
+                </td>
+            </tr>
+            {{end}}
+            {{if not .KeyPairs}}
+            <tr>
+                <td colspan="6" class="center-align">No KeyPairs found for this connection.</td>
+            </tr>
+            {{end}}
+        </table>       
+    </div>
+
+    <div id="overlay" class="overlay">
+        <div class="overlay-content">
+            <h2>Add New KeyPair</h2>
+            <form id="addKeyPairForm" onsubmit="event.preventDefault(); postKeyPair();">
+                <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
+                <div class="form-group">
+                    <label for="keyPairName">Name:</label>
+                    <input type="text" id="keyPairName" name="keyPairName" required>
+                </div>
+                
+                <div class="form-group" style="padding-left: 100px;">
+                    <label for="keyPairTags">Tags:</label>
+                    <div id="keypair-tag-container"></div>
+                    <button type="button" onclick="addKeyPairTagField()">+</button>
+                </div>
+                
+                <div class="form-group" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+                    <label for="keyPairCount" style="margin-right: 5px;margin-left: 40px;">#:</label>
+                    <input type="number" id="keyPairCount" name="keyPairCount" class="keypair-count" value="1" min="1" max="10" style="width: 50px; margin-right: 10px;">                
+                    <button type="submit">Add KeyPair</button>
+                    <button type="button" onclick="hideOverlay()" style="margin-left: 10px;">Cancel</button>
+                </div>                
+            </form>
+        </div>
+    </div>
+
+    <div id="tag-overlay" class="tag-overlay">
+        <div class="tag-overlay-content"></div>
+    </div>
+    
+    <div id="add-tag-overlay" class="overlay">
+        <div class="add-tag-overlay-content"></div>
+    </div>
+
+</body>
 <script>
     function deleteSelectedKeyPairs() {
         const connConfig = document.getElementById('connConfig').value;
@@ -825,108 +929,4 @@
         }, 500);
     }
 </script>
-</head>
-<body>
-    <div class="fixed-header">
-        <div class="header-container">
-            <img src="/spider/adminweb/images/left-menu/keypair.png" alt="KeyPair Icon">
-            <h1>KeyPair Management</h1>
-            <div class="searchContainer">
-                <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
-                <button id="clearSearch" onclick="clearSearchInput()">X</button>
-            </div>
-        </div>        
-        <div class="fixed-action-buttons">
-            <input type="checkbox" onclick="toggleSelectAll(this)">
-            <button onclick="deleteSelectedKeyPairs()">Delete</button>
-        </div>
-    </div>
-
-    <div class="content">
-        <div class="header-with-progress">
-            <button class="add-button" onclick="showOverlay()">+</button>
-            <div id="mockButtonsContainer" style="display: flex; align-items: center;"></div>
-            <div class="progress-bar-container" id="progressBarContainer">
-                <div class="progress-bar" id="progressBar"></div>
-                <span id="timeDisplay"></span>
-            </div>                       
-        </div>
-        <table id="keypair-table">
-            <tr>
-                <th class="column-num">#</th>
-                <th class="center-align">Name</th>
-                <th class="center-align fingerprint">Fingerprint</th>
-                <th class="center-align">Tags</th>
-                <th class="center-align">Misc</th>
-                <th class="check-column">
-                    <input type="checkbox" onclick="toggleSelectAll(this)">
-                </th>
-            </tr>
-            {{range $index, $keyPair := .KeyPairs}}
-            <tr>
-                <td class="column-num">{{$index | inc}}</td>
-                <td class="center-align">{{$keyPair.IId.NameId}}</td>
-                <td class="center-align fingerprint">{{$keyPair.Fingerprint}}</td>
-                <td>
-                    {{range $tag := $keyPair.TagList}}
-                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'KEYPAIR', '{{$keyPair.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
-                    {{end}}
-                    <div class="add-btn-container">
-                        <button class="add-btn" onclick="showAddTagOverlay('{{$keyPair.IId.NameId}}')">+</button>
-                    </div>
-                </td>
-                <td class="center-align misc-cell">
-                    <div class="misc-content">
-                        {{range $kv := $keyPair.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
-                    </div>
-                    <button class="more-btn" onclick="showMiscOverlay(this)">more...</button>
-                </td>
-                <td class="check-column">
-                    <input type="checkbox" name="deleteCheckbox" value="{{$keyPair.IId.NameId}}">
-                </td>
-            </tr>
-            {{end}}
-            {{if not .KeyPairs}}
-            <tr>
-                <td colspan="6" class="center-align">No KeyPairs found for this connection.</td>
-            </tr>
-            {{end}}
-        </table>       
-    </div>
-
-    <div id="overlay" class="overlay">
-        <div class="overlay-content">
-            <h2>Add New KeyPair</h2>
-            <form id="addKeyPairForm" onsubmit="event.preventDefault(); postKeyPair();">
-                <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
-                <div class="form-group">
-                    <label for="keyPairName">Name:</label>
-                    <input type="text" id="keyPairName" name="keyPairName" required>
-                </div>
-                
-                <div class="form-group" style="padding-left: 100px;">
-                    <label for="keyPairTags">Tags:</label>
-                    <div id="keypair-tag-container"></div>
-                    <button type="button" onclick="addKeyPairTagField()">+</button>
-                </div>
-                
-                <div class="form-group" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
-                    <label for="keyPairCount" style="margin-right: 5px;margin-left: 40px;">#:</label>
-                    <input type="number" id="keyPairCount" name="keyPairCount" class="keypair-count" value="1" min="1" max="10" style="width: 50px; margin-right: 10px;">                
-                    <button type="submit">Add KeyPair</button>
-                    <button type="button" onclick="hideOverlay()" style="margin-left: 10px;">Cancel</button>
-                </div>                
-            </form>
-        </div>
-    </div>
-
-    <div id="tag-overlay" class="tag-overlay">
-        <div class="tag-overlay-content"></div>
-    </div>
-    
-    <div id="add-tag-overlay" class="overlay">
-        <div class="add-tag-overlay-content"></div>
-    </div>
-
-</body>
 </html>

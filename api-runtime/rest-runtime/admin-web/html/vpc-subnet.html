@@ -511,6 +511,207 @@
 
 
 </style>
+</head>
+<body>
+    <div class="fixed-header">
+        <div class="header-container">
+            <img src="/spider/adminweb/images/left-menu/vpc.png" alt="VPC Icon">
+            <h1>VPC/Subnet Management</h1>
+            <div class="searchContainer">
+                <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
+                <button id="clearSearch" onclick="clearSearchInput()">X</button>
+            </div>
+        </div>        
+        <div class="fixed-action-buttons">
+            <input type="checkbox" onclick="toggleSelectAll(this)">
+            <button onclick="deleteSelectedVPCs()">Delete</button>
+        </div>
+    </div>
+    
+    <div class="content">
+        <div class="header-with-progress">
+            <button class="add-button" onclick="showOverlay()">+</button>
+            <div id="mockButtonsContainer" style="display: flex; align-items: center;"></div>
+            <div class="progress-bar-container" id="progressBarContainer">
+                <div class="progress-bar" id="progressBar"></div>
+                <span id="timeDisplay"></span>
+            </div>                       
+        </div>
+        <table id="vpc-table">
+            <tr>
+                <th class="column-num">#</th>
+                <th class="vpc-name center-align">Name</th>
+                <th class="vpc-cidr center-align">CIDR</th>
+                <th class="subnet-info">Subnet Info</th>
+                <th class="tags center-align">Tags</th>
+                <th class="misc center-align">Misc</th>
+                <th class="checkbox-cell center-align"><input type="checkbox" onclick="toggleSelectAll(this)"></th>
+            </tr>
+            {{range $index, $vpc := .VPCs}}
+            {{ $vpcNameId := $vpc.IId.NameId }}
+            <tr>
+                <td class="column-num">{{$index | inc}}</td>
+                <td class="vpc-name center-align">{{$vpc.IId.NameId}}</td>
+                <td class="vpc-cidr center-align">{{$vpc.IPv4_CIDR}}</td>
+                <td class="subnet-info">
+                    <table class="inner-table">
+                        <tr>
+                            <th class="name-column">Name</th>
+                            <th class="cidr-column">CIDR</th>
+                            <th class="zone-column">Zone</th>
+                            <th class="tags-column">Tags</th>
+                            <th class="actions-cell"><button class="add-btn" onclick="showSubnetOverlay('{{$vpcNameId}}')">add</button></th>
+                        </tr>
+                        {{range $subnetIndex, $subnet := $vpc.SubnetInfoList}}
+                        {{ $subnetNameId := $subnet.IId.NameId }}
+                        <tr>
+                            <td>{{$subnet.IId.NameId}}</td>
+                            <td>{{$subnet.IPv4_CIDR}}</td>
+                            <td>{{$subnet.Zone}}</td>
+                            <td class="tags-cell">
+                                {{range $tag := $subnet.TagList}}
+                                <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'SUBNET', '{{$subnetNameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                                {{end}}
+                                <div class="add-btn-container">
+                                    <button class="plus-btn" onclick="showAddSubnetTagOverlay('{{$vpcNameId}}', '{{$subnetNameId}}')">+</button>
+                                </div>
+                            </td>
+                            <td class="actions-cell">
+                                <button class="delete-btn" onclick="deleteSubnet('{{$vpcNameId}}', '{{$subnet.IId.NameId}}')">del</button>
+                            </td>
+                        </tr>
+                        {{end}}
+                    </table>
+                </td>
+                <td class="tags">
+                    {{range $tag := $vpc.TagList}}
+                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'VPC', '{{$vpcNameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                    {{end}}
+                    <div class="add-btn-container">
+                        <button class="add-btn" onclick="showAddTagOverlay('{{$vpcNameId}}')">+</button>
+                    </div>
+                </td>                
+                <td class="misc center-align misc-cell">
+                    <div class="misc-content">
+                    {{range $kv := $vpc.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
+                    </div>
+                    <button class="more-btn" onclick="showMiscOverlay(this)">more...</button>
+                </td>
+                <td class="checkbox-cell center-align">
+                    <input type="checkbox" name="deleteCheckbox" value="{{$vpc.IId.NameId}}">
+                </td>
+            </tr>
+            {{end}}
+            {{if not .VPCs}}
+            <tr>
+                <td colspan="7" class="center-align">No VPCs found for this connection.</td>
+            </tr>
+            {{end}}
+        </table>
+    </div>
+
+    <div id="overlay" class="overlay">
+        <div class="overlay-content">
+            <h2>Add New VPC/Subnet</h2>
+            <form id="addVPCForm" onsubmit="event.preventDefault(); postVPC();">
+                <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
+                <div id="vpc-info-group">
+                    <h3>VPC Info:</h3>
+                    <div class="form-group">
+                        <label for="vpcName">Name:</label>
+                        <input type="text" id="vpcName" name="vpcName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="vpcCIDR">CIDR:</label>
+                        <input type="text" id="vpcCIDR" name="vpcCIDR" required>
+                    </div>
+                    <div class="form-group" style="padding-left: 145px;">
+                        <label for="vpcTags">Tags:</label>
+                        <div id="vpc-tag-container"></div>
+                        <button type="button" onclick="addVPCTagField()">+</button>
+                    </div>
+                </div>
+                <div id="subnet-info-group" style="margin-top: 20px;">
+                    <h3>Subnet Info:</h3>
+                    <div class="form-group">
+                        <label for="subnetName">Name:</label>
+                        <input type="text" id="subnetName" name="subnetName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="subnetCIDR">CIDR:</label>
+                        <input type="text" id="subnetCIDR" name="subnetCIDR" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="subnetZone">Zone:</label>
+                        <input type="text" id="subnetZone" name="subnetZone" required>
+                    </div>
+                    <div class="form-group" style="padding-left: 145px;">
+                        <label for="subnetTags">Tags:</label>
+                        <div id="subnet-tag-container"></div>
+                        <button type="button" onclick="addSubnetTagField()">+</button>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+                    <label for="vpcCount" style="margin-right: 5px;margin-left: 40px;">#:</label>
+                    <input type="number" id="vpcCount" name="vpcCount" class="vpc-count" value="1" min="1" max="10" style="width: 50px; margin-right: 10px;">
+                    <button type="submit">Add VPC/Subnet</button>
+                    <button type="button" onclick="hideOverlay()" style="margin-left: 10px;">Cancel</button>
+                </div>
+                
+            </form>
+        </div>
+    </div>
+
+    <div id="subnet-overlay" class="overlay">
+        <div class="overlay-content">
+            <h2>Add New Subnet</h2>
+            <form id="addSubnetForm" onsubmit="event.preventDefault(); addSubnet();">
+                <input type="hidden" id="subnetVPCName">
+                <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
+                <div class="form-group">
+                    <label for="subnetVPCNameDisplay">VPC Name:</label>
+                    <input type="text" id="subnetVPCNameDisplay" name="subnetVPCNameDisplay" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="addSubnetName">Name:</label>
+                    <input type="text" id="addSubnetName" name="addSubnetName" required>
+                </div>
+                <div class="form-group">
+                    <label for="addSubnetCIDR">CIDR:</label>
+                    <input type="text" id="addSubnetCIDR" name="addSubnetCIDR" required>
+                </div>
+                <div class="form-group">
+                    <label for="addSubnetZone">Zone:</label>
+                    <input type="text" id="addSubnetZone" name="addSubnetZone" required>
+                </div>
+                <div class="form-group" style="padding-left: 20px;">
+                    <label for="addSubnetTags">Tags:</label>
+                    <div id="add-subnet-tag-container">
+                    </div>
+                    <button type="button" onclick="addAddSubnetTagField()">+</button>
+                </div>
+                <div class="form-group" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+                    <button type="submit">Add Subnet</button>
+                    <button type="button" onclick="hideSubnetOverlay()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="tag-overlay" class="tag-overlay">
+        <div class="tag-overlay-content"></div>
+    </div>
+
+    <div id="add-tag-overlay" class="overlay">
+        <div class="add-tag-overlay-content overlay-content"></div>
+    </div>
+
+    <div id="add-subnet-tag-overlay" class="overlay">
+        <div class="add-subnet-tag-overlay-content overlay-content"></div>
+    </div>
+
+    <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
+</body>
 <script>
     let currentProvider = '';
 
@@ -1400,205 +1601,4 @@
     });
 
 </script>
-</head>
-<body>
-    <div class="fixed-header">
-        <div class="header-container">
-            <img src="/spider/adminweb/images/left-menu/vpc.png" alt="VPC Icon">
-            <h1>VPC/Subnet Management</h1>
-            <div class="searchContainer">
-                <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
-                <button id="clearSearch" onclick="clearSearchInput()">X</button>
-            </div>
-        </div>        
-        <div class="fixed-action-buttons">
-            <input type="checkbox" onclick="toggleSelectAll(this)">
-            <button onclick="deleteSelectedVPCs()">Delete</button>
-        </div>
-    </div>
-    
-    <div class="content">
-        <div class="header-with-progress">
-            <button class="add-button" onclick="showOverlay()">+</button>
-            <div id="mockButtonsContainer" style="display: flex; align-items: center;"></div>
-            <div class="progress-bar-container" id="progressBarContainer">
-                <div class="progress-bar" id="progressBar"></div>
-                <span id="timeDisplay"></span>
-            </div>                       
-        </div>
-        <table id="vpc-table">
-            <tr>
-                <th class="column-num">#</th>
-                <th class="vpc-name center-align">Name</th>
-                <th class="vpc-cidr center-align">CIDR</th>
-                <th class="subnet-info">Subnet Info</th>
-                <th class="tags center-align">Tags</th>
-                <th class="misc center-align">Misc</th>
-                <th class="checkbox-cell center-align"><input type="checkbox" onclick="toggleSelectAll(this)"></th>
-            </tr>
-            {{range $index, $vpc := .VPCs}}
-            {{ $vpcNameId := $vpc.IId.NameId }}
-            <tr>
-                <td class="column-num">{{$index | inc}}</td>
-                <td class="vpc-name center-align">{{$vpc.IId.NameId}}</td>
-                <td class="vpc-cidr center-align">{{$vpc.IPv4_CIDR}}</td>
-                <td class="subnet-info">
-                    <table class="inner-table">
-                        <tr>
-                            <th class="name-column">Name</th>
-                            <th class="cidr-column">CIDR</th>
-                            <th class="zone-column">Zone</th>
-                            <th class="tags-column">Tags</th>
-                            <th class="actions-cell"><button class="add-btn" onclick="showSubnetOverlay('{{$vpcNameId}}')">add</button></th>
-                        </tr>
-                        {{range $subnetIndex, $subnet := $vpc.SubnetInfoList}}
-                        {{ $subnetNameId := $subnet.IId.NameId }}
-                        <tr>
-                            <td>{{$subnet.IId.NameId}}</td>
-                            <td>{{$subnet.IPv4_CIDR}}</td>
-                            <td>{{$subnet.Zone}}</td>
-                            <td class="tags-cell">
-                                {{range $tag := $subnet.TagList}}
-                                <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'SUBNET', '{{$subnetNameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
-                                {{end}}
-                                <div class="add-btn-container">
-                                    <button class="plus-btn" onclick="showAddSubnetTagOverlay('{{$vpcNameId}}', '{{$subnetNameId}}')">+</button>
-                                </div>
-                            </td>
-                            <td class="actions-cell">
-                                <button class="delete-btn" onclick="deleteSubnet('{{$vpcNameId}}', '{{$subnet.IId.NameId}}')">del</button>
-                            </td>
-                        </tr>
-                        {{end}}
-                    </table>
-                </td>
-                <td class="tags">
-                    {{range $tag := $vpc.TagList}}
-                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'VPC', '{{$vpcNameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
-                    {{end}}
-                    <div class="add-btn-container">
-                        <button class="add-btn" onclick="showAddTagOverlay('{{$vpcNameId}}')">+</button>
-                    </div>
-                </td>                
-                <td class="misc center-align misc-cell">
-                    <div class="misc-content">
-                    {{range $kv := $vpc.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
-                    </div>
-                    <button class="more-btn" onclick="showMiscOverlay(this)">more...</button>
-                </td>
-                <td class="checkbox-cell center-align">
-                    <input type="checkbox" name="deleteCheckbox" value="{{$vpc.IId.NameId}}">
-                </td>
-            </tr>
-            {{end}}
-            {{if not .VPCs}}
-            <tr>
-                <td colspan="7" class="center-align">No VPCs found for this connection.</td>
-            </tr>
-            {{end}}
-        </table>
-    </div>
-
-    <div id="overlay" class="overlay">
-        <div class="overlay-content">
-            <h2>Add New VPC/Subnet</h2>
-            <form id="addVPCForm" onsubmit="event.preventDefault(); postVPC();">
-                <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
-                <div id="vpc-info-group">
-                    <h3>VPC Info:</h3>
-                    <div class="form-group">
-                        <label for="vpcName">Name:</label>
-                        <input type="text" id="vpcName" name="vpcName" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="vpcCIDR">CIDR:</label>
-                        <input type="text" id="vpcCIDR" name="vpcCIDR" required>
-                    </div>
-                    <div class="form-group" style="padding-left: 145px;">
-                        <label for="vpcTags">Tags:</label>
-                        <div id="vpc-tag-container"></div>
-                        <button type="button" onclick="addVPCTagField()">+</button>
-                    </div>
-                </div>
-                <div id="subnet-info-group" style="margin-top: 20px;">
-                    <h3>Subnet Info:</h3>
-                    <div class="form-group">
-                        <label for="subnetName">Name:</label>
-                        <input type="text" id="subnetName" name="subnetName" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="subnetCIDR">CIDR:</label>
-                        <input type="text" id="subnetCIDR" name="subnetCIDR" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="subnetZone">Zone:</label>
-                        <input type="text" id="subnetZone" name="subnetZone" required>
-                    </div>
-                    <div class="form-group" style="padding-left: 145px;">
-                        <label for="subnetTags">Tags:</label>
-                        <div id="subnet-tag-container"></div>
-                        <button type="button" onclick="addSubnetTagField()">+</button>
-                    </div>
-                </div>
-                <div style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
-                    <label for="vpcCount" style="margin-right: 5px;margin-left: 40px;">#:</label>
-                    <input type="number" id="vpcCount" name="vpcCount" class="vpc-count" value="1" min="1" max="10" style="width: 50px; margin-right: 10px;">
-                    <button type="submit">Add VPC/Subnet</button>
-                    <button type="button" onclick="hideOverlay()" style="margin-left: 10px;">Cancel</button>
-                </div>
-                
-            </form>
-        </div>
-    </div>
-
-    <div id="subnet-overlay" class="overlay">
-        <div class="overlay-content">
-            <h2>Add New Subnet</h2>
-            <form id="addSubnetForm" onsubmit="event.preventDefault(); addSubnet();">
-                <input type="hidden" id="subnetVPCName">
-                <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
-                <div class="form-group">
-                    <label for="subnetVPCNameDisplay">VPC Name:</label>
-                    <input type="text" id="subnetVPCNameDisplay" name="subnetVPCNameDisplay" readonly>
-                </div>
-                <div class="form-group">
-                    <label for="addSubnetName">Name:</label>
-                    <input type="text" id="addSubnetName" name="addSubnetName" required>
-                </div>
-                <div class="form-group">
-                    <label for="addSubnetCIDR">CIDR:</label>
-                    <input type="text" id="addSubnetCIDR" name="addSubnetCIDR" required>
-                </div>
-                <div class="form-group">
-                    <label for="addSubnetZone">Zone:</label>
-                    <input type="text" id="addSubnetZone" name="addSubnetZone" required>
-                </div>
-                <div class="form-group" style="padding-left: 20px;">
-                    <label for="addSubnetTags">Tags:</label>
-                    <div id="add-subnet-tag-container">
-                    </div>
-                    <button type="button" onclick="addAddSubnetTagField()">+</button>
-                </div>
-                <div class="form-group" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
-                    <button type="submit">Add Subnet</button>
-                    <button type="button" onclick="hideSubnetOverlay()">Cancel</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div id="tag-overlay" class="tag-overlay">
-        <div class="tag-overlay-content"></div>
-    </div>
-
-    <div id="add-tag-overlay" class="overlay">
-        <div class="add-tag-overlay-content overlay-content"></div>
-    </div>
-
-    <div id="add-subnet-tag-overlay" class="overlay">
-        <div class="add-subnet-tag-overlay-content overlay-content"></div>
-    </div>
-
-    <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
-</body>
 </html>
