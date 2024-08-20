@@ -229,7 +229,7 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			}
 		}
 	}
-	cblogger.Infof("init UserData : [%s]", *initUserData)
+	// cblogger.Infof("init UserData : [%s]", *initUserData)
 
 	// # To Check if the Requested S/G exits	
 	var sgSystemIDs []string
@@ -423,7 +423,7 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 			},
 		}
 
-		createTagsReq := ktsdk.CreateTags {
+		createTagsReq := ktsdk.CreateTagsReqInfo {
 			ResourceIds: []string{newVM.Deployvirtualmachineresponse.ID, },
 			ResourceType: "userVm",
 			Tags: vmTags,
@@ -685,6 +685,30 @@ func (vmHandler *KtCloudVMHandler) mappingVMInfo(KtCloudInstance *ktsdk.Virtualm
 		vmInfo.Region.Zone = KtCloudInstance.ZoneName 
 		}
 	}
+
+	// Get the Tag List of the VM
+	var kvList []irs.KeyValue
+	tagHandler := KtCloudTagHandler {
+		RegionInfo: vmHandler.RegionInfo,
+		Client:    	vmHandler.Client,
+	}
+	tagList, err := tagHandler.getTagListWithResId(irs.RSType(irs.VM), &KtCloudInstance.ID)
+	if err != nil {		
+		newErr := fmt.Errorf("Failed to Get the Tag List with the VM SystemID : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return irs.VMInfo{}, newErr
+	}	
+	if len(tagList) > 0 {
+		for _, curTag := range tagList {
+			kv := irs.KeyValue {
+				Key : 	curTag.Key,
+				Value:  curTag.Value,
+			}
+			kvList = append(kvList, kv)
+		}
+		vmInfo.TagList = kvList
+	}
+
 	return vmInfo, nil
 }
 
@@ -1526,7 +1550,7 @@ func (vmHandler *KtCloudVMHandler) disassociatePublicIp(publicIpId string) (irs.
 }
 
 func (vmHandler *KtCloudVMHandler) getVPCFromTags(instanceId string) (string, error) {
-	listTagsReq := ktsdk.ListTags {
+	listTagsReq := ktsdk.ListTagsReqInfo {
 		Key: "vpcId",
 		ResourceType: "userVm",
 		ResourceIds: instanceId,
@@ -1547,7 +1571,7 @@ func (vmHandler *KtCloudVMHandler) getVPCFromTags(instanceId string) (string, er
 }
 
 func (vmHandler *KtCloudVMHandler) getSubnetFromTags(instanceId string) (string, error) {
-	listTagsReq := ktsdk.ListTags {
+	listTagsReq := ktsdk.ListTagsReqInfo {
 		Key: "subnetId",
 		ResourceType: "userVm",
 		ResourceIds: instanceId,
@@ -1568,7 +1592,7 @@ func (vmHandler *KtCloudVMHandler) getSubnetFromTags(instanceId string) (string,
 }
 
 func (vmHandler *KtCloudVMHandler) getVMSpecFromTags(instanceId string) (string, error) {
-	listTagsReq := ktsdk.ListTags {
+	listTagsReq := ktsdk.ListTagsReqInfo {
 		Key: "vmSpecId",
 		ResourceType: "userVm",
 		ResourceIds: instanceId,
@@ -1588,7 +1612,7 @@ func (vmHandler *KtCloudVMHandler) getVMSpecFromTags(instanceId string) (string,
 }
 
 func (vmHandler *KtCloudVMHandler) getSGListFromTags(instanceId string) ([]irs.IID, error) {
-	listTagsReq := ktsdk.ListTags {
+	listTagsReq := ktsdk.ListTagsReqInfo {
 		Key: "SecurityGroups",
 		ResourceType: "userVm",
 		ResourceIds: instanceId,

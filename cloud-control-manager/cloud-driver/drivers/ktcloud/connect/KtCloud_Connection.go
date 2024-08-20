@@ -12,9 +12,7 @@
 package connect
 
 import (
-	"errors"
 	"fmt"
-
 	"github.com/sirupsen/logrus"
 
 	cblog "github.com/cloud-barista/cb-log"
@@ -121,6 +119,16 @@ func (cloudConn *KtCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHan
 	return &regionZoneHandler, nil
 }
 
+func (*KtCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
+	return nil, fmt.Errorf("KT Cloud Driver does not support CreatePriceInfoHandler yet.")
+}
+
+func (cloudConn *KtCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
+	cblogger.Info("KT Cloud Driver: called CreateTagHandler()!")
+	tagHandler := ktrs.KtCloudTagHandler{cloudConn.RegionInfo, cloudConn.Client}
+	return &tagHandler, nil
+}
+
 func (cloudConn *KtCloudConnection) IsConnected() (bool, error) {
 	cblogger.Info("KT Cloud Driver: called IsConnected()!")
 	if cloudConn == nil {
@@ -132,12 +140,4 @@ func (cloudConn *KtCloudConnection) IsConnected() (bool, error) {
 func (cloudConn *KtCloudConnection) Close() error {
 	cblogger.Info("KT Cloud Driver: called Close()!")
 	return nil
-}
-
-func (*KtCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
-	return nil, errors.New("KT Cloud Driver: not implemented")
-}
-
-func (cloudConn *KtCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
-	return nil, errors.New("KT Cloud Driver: not implemented")
 }

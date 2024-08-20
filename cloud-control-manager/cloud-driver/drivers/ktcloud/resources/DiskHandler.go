@@ -571,8 +571,9 @@ func (diskHandler *KtCloudDiskHandler) mappingDiskInfo(volume *ktsdk.Volume) (ir
 	// cblogger.Info("\n\n### volume : ")
 	// spew.Dump(volume)
 	// cblogger.Info("\n")
-	cblogger.Infof("# Given Volume State on KT Cloud : %s", volume.State) // Not Correct!!
-
+	cblogger.Infof("# Given Volume State on KT Cloud : %s", volume.State) // Not Correct!!	
+	// cblogger.Infof("# volume.ID : %s", volume.ID)
+	
 	volumeIID := irs.IID{SystemId: volume.ID}
 	curStatus, err := diskHandler.getDiskStatus(volumeIID)
 	if err != nil {
@@ -628,11 +629,34 @@ func (diskHandler *KtCloudDiskHandler) mappingDiskInfo(volume *ktsdk.Volume) (ir
 		}
 	}
 
+	// Get the Tag List of the Disk
+	var kvList []irs.KeyValue
+	tagHandler := KtCloudTagHandler {
+		RegionInfo: diskHandler.RegionInfo,
+		Client:    	diskHandler.Client,
+	}
+	tagList, err := tagHandler.getTagListWithResId(irs.RSType(irs.DISK), &volume.ID)
+	if err != nil {		
+		newErr := fmt.Errorf("Failed to Get the Tag List with the Disk ID : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return irs.DiskInfo{}, newErr
+	}	
+	if len(tagList) > 0 {
+		for _, curTag := range tagList {
+			kv := irs.KeyValue {
+				Key : 	curTag.Key,
+				Value:  curTag.Value,
+			}
+			kvList = append(kvList, kv)
+		}
+		diskInfo.TagList = kvList
+	}
+
 	var iops string
 	if !strings.EqualFold(strconv.FormatInt(volume.MaxIOPS, 10), "0")  {
 		iops = strconv.FormatInt(volume.MaxIOPS, 10)
 	}
-	
+
 	keyValueList := []irs.KeyValue{
 		{Key: "Type", 			Value: volume.Type},
 		{Key: "MaxIOPS", 		Value: iops},
