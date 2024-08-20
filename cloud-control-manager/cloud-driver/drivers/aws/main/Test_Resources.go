@@ -505,8 +505,8 @@ func handleKeyPair() {
 				keyPairReqInfo := irs.KeyPairReqInfo{
 					IId: irs.IID{NameId: keyPairName},
 					//Name: keyPairName,
-					//TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}, {Key: "Name", Value: keyPairName + "123"}},
-					TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}},
+					TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}, {Key: "Name", Value: keyPairName + "123"}},
+					//TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}},
 				}
 				result, err := KeyPairHandler.CreateKey(keyPairReqInfo)
 				if err != nil {
@@ -522,6 +522,7 @@ func handleKeyPair() {
 					cblogger.Infof(keyPairName, " KeyPair Lookup Failed : ", err)
 				} else {
 					cblogger.Infof("[%s] KeyPair Lookup Result : [%s]", keyPairName, result)
+					spew.Dump(result)
 				}
 			case 4:
 				cblogger.Infof("[%s] KeyPair Delete Test", keyPairName)
@@ -2257,13 +2258,13 @@ func readConfigFile() Config {
 }
 
 func main() {
-	handleMyImage()
+	//handleMyImage()
 	// myimage
 	//handleTag()
 	// handlePublicIP() // PublicIP 생성 후 conf
 	// handleDisk()
 
-	//handleKeyPair()
+	handleKeyPair()
 	//handleVPC()
 	//handleSecurity()
 	//handleVM()
@@ -2274,5 +2275,5 @@ func main() {
 	//handleCluster()
 	//handleRegionZone()
 	//handlePriceInfo()
-	handleTag()
+	//handleTag()
 }

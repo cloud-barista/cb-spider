@@ -78,6 +78,15 @@ func (keyPairHandler *AwsKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 			keyPairInfo.Fingerprint = *pair.KeyFingerprint
 		*/
 		keyPairInfo, errKeyPair := ExtractKeyPairDescribeInfo(pair)
+		//keyPairInfo.TagList, _ = keyPairHandler.TagHandler.ListTag(irs.KEY, keyPairInfo.IId)
+		// Implemented direct logic instead of keyPairHandler.TagHandler.ListTag for speed.
+		for _, tag := range pair.Tags {
+			keyPairInfo.TagList = append(keyPairInfo.TagList, irs.KeyValue{
+				Key:   aws.StringValue(tag.Key),
+				Value: aws.StringValue(tag.Value),
+			})
+		}
+
 		if errKeyPair != nil {
 			//cblogger.Infof("[%s] KeyPair는 Local에서 관리하는 대상이 아니기 때문에 Skip합니다.", *pair.KeyName)
 			cblogger.Error(errKeyPair.Error())
@@ -133,7 +142,7 @@ func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	}
 	// Creates a new  key pair with the given name
 	result, err := keyPairHandler.Client.CreateKeyPair(input)
-	// spew.Dump(result)
+	//spew.Dump(result)
 
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
@@ -252,7 +261,7 @@ func (keyPairHandler *AwsKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 	callLogStart := call.Start()
 
 	result, err := keyPairHandler.Client.DescribeKeyPairs(input)
-	// spew.Dump(result)
+	//spew.Dump(result)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	cblogger.Debug("result : ", result)
 	cblogger.Debug("err : ", err)
@@ -287,7 +296,7 @@ func (keyPairHandler *AwsKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 		}
 
 		keyPairInfo.TagList, _ = keyPairHandler.TagHandler.ListTag(irs.KEY, keyPairInfo.IId)
-		// spew.Dump(keyPairInfo.TagList)
+		//spew.Dump(keyPairInfo.TagList)
 
 		cblogger.Debug(keyPairInfo)
 		return keyPairInfo, nil
