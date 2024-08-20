@@ -30,6 +30,9 @@ func AddTag(connectionName string, resType cres.RSType, resName string, tag cres
 		return cres.KeyValue{}, err
 	}
 
+	// convert to lowercase
+	resType = cres.RSType(strings.ToLower(string(resType)))
+
 	// locking by resource type
 	if err := rLockResource(connectionName, resType, resName); err != nil {
 		cblog.Error(err)
@@ -69,6 +72,9 @@ func ListTag(connectionName string, resType cres.RSType, resName string) ([]cres
 		cblog.Error(err)
 		return nil, err
 	}
+
+	// convert to lowercase
+	resType = cres.RSType(strings.ToLower(string(resType)))
 
 	// locking by resource type
 	if err := rLockResource(connectionName, resType, resName); err != nil {
@@ -110,6 +116,9 @@ func GetTag(connectionName string, resType cres.RSType, resName string, key stri
 		return cres.KeyValue{}, err
 	}
 
+	// convert to lowercase
+	resType = cres.RSType(strings.ToLower(string(resType)))
+
 	// // locking by resource type
 	// if err := rLockResource(connectionName, resType, resName); err != nil {
 	// 	cblog.Error(err)
@@ -149,6 +158,9 @@ func RemoveTag(connectionName string, resType cres.RSType, resName string, key s
 		cblog.Error(err)
 		return false, err
 	}
+
+	// convert to lowercase
+	resType = cres.RSType(strings.ToLower(string(resType)))
 
 	// locking by resource type
 	if err := rLockResource(connectionName, resType, resName); err != nil {
@@ -190,6 +202,9 @@ func FindTag(connectionName string, resType cres.RSType, keyword string) ([]*cre
 		return nil, err
 	}
 
+	// convert to lowercase
+	resType = cres.RSType(strings.ToLower(string(resType)))
+
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
@@ -207,7 +222,6 @@ func FindTag(connectionName string, resType cres.RSType, keyword string) ([]*cre
 
 // rLockResource locks the resource based on its type.
 func rLockResource(connectionName string, resType cres.RSType, resName string) error {
-	resType = cres.RSType(strings.ToLower(string(resType)))
 
 	switch resType {
 	case cres.VPC, cres.SUBNET:
@@ -234,7 +248,6 @@ func rLockResource(connectionName string, resType cres.RSType, resName string) e
 
 // unlockResource unlocks the resource based on its type.
 func rUnlockResource(connectionName string, resType cres.RSType, resName string) {
-	resType = cres.RSType(strings.ToLower(string(resType)))
 
 	switch resType {
 	case cres.VPC, cres.SUBNET:
@@ -258,7 +271,7 @@ func rUnlockResource(connectionName string, resType cres.RSType, resName string)
 
 // getIIDInfoByResourceType gets the IID info for a given resource type and resource name.
 func getIIDInfoByResourceType(connectionName string, resType cres.RSType, resName string) (string, string, error) {
-	resType = cres.RSType(strings.ToLower(string(resType)))
+
 	switch resType {
 	case cres.VPC:
 		var info VPCIIDInfo
