@@ -82,9 +82,10 @@ type MyImageReq struct {
 	ConnectionName  string
 	IDTransformMode string // ON | OFF, default is ON
 	ReqInfo         struct {
-		Name string
-
+		Name     string
 		SourceVM string
+
+		TagList []cres.KeyValue
 	}
 }
 
@@ -99,9 +100,10 @@ func SnapshotVM(c echo.Context) error {
 
 	// Rest RegInfo => Driver ReqInfo
 	reqInfo := cres.MyImageInfo{
-		IId: cres.IID{req.ReqInfo.Name, req.ReqInfo.Name},
-
+		IId:      cres.IID{req.ReqInfo.Name, req.ReqInfo.Name},
 		SourceVM: cres.IID{req.ReqInfo.SourceVM, req.ReqInfo.SourceVM},
+
+		TagList: req.ReqInfo.TagList,
 	}
 
 	// Call common-runtime API
