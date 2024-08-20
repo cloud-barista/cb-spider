@@ -451,6 +451,19 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		cblogger.Info("\n\n### Waiting for Setting New PublicIP and Firewall Rules on KT Cloud!!")
 		time.Sleep(time.Second * 10)
 
+		// Add the Tag List according to the ReqInfo
+		tagHandler := KtCloudTagHandler {
+			RegionInfo:  vmHandler.RegionInfo,
+			Client:    	 vmHandler.Client,
+		}
+		_, createErr := tagHandler.createTagList(irs.RSType(irs.VM), &newVM.Deployvirtualmachineresponse.ID, vmReqInfo.TagList)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Add the Tag List on the VM : [%v]", createErr)
+			cblogger.Error(newErr.Error())
+			return irs.VMInfo{}, newErr
+		}
+		time.Sleep(time.Second * 1)
+
 		newVMInfo, error := vmHandler.GetVM(newVMIID)
 		if error != nil {
 			cblogger.Errorf("Failed to Get Created VM Info : [%v]", err)

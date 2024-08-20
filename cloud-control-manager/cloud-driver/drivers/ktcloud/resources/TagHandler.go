@@ -42,12 +42,6 @@ func (tagHandler *KtCloudTagHandler) AddTag(resType irs.RSType, resIID irs.IID, 
 		return irs.KeyValue{}, newErr
 	}
 
-	if (resType != irs.VM) && (resType != irs.MYIMAGE) && (resType != irs.DISK) {
-		newErr := fmt.Errorf("Only 'VM', 'MyImage' and 'Disk' type are supported as a resource type to Add a Tag Info on KT Classic!!")
-		cblogger.Error(newErr.Error())
-		return irs.KeyValue{}, newErr
-	}
-
 	if strings.EqualFold(resIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid Resource SystemId!!")
 		cblogger.Error(newErr.Error())
@@ -273,11 +267,11 @@ func (tagHandler *KtCloudTagHandler) createTagList(resType irs.RSType, resID *st
 
 	var rsType string
     switch resType {
-    case irs.VM:
+    case irs.VM, "VM":
         rsType = VM
-	case irs.MYIMAGE:
+	case irs.MYIMAGE, "MYIMAGE":
         rsType = MyImage
-	case irs.DISK:
+	case irs.DISK, "DISK":
         rsType = DISK
     default:
         newErr := fmt.Errorf("Invalid Resource Type. [%v] type is Not Supported on KT Cloud for Tagging!!", resType)
@@ -327,11 +321,11 @@ func (tagHandler *KtCloudTagHandler) getTagList(resType irs.RSType) ([]ktsdk.Tag
 
 	var rsType string
     switch resType {
-    case irs.VM:
+    case irs.VM, "VM":
         rsType = VM
-	case irs.MYIMAGE:
+	case irs.MYIMAGE, "MYIMAGE":
         rsType = MyImage
-	case irs.DISK:
+	case irs.DISK, "DISK":
         rsType = DISK
     default:
         newErr := fmt.Errorf("Invalid Resource Type. [%v] type is Not Supported on KT Cloud for Tagging!!", resType)
@@ -361,11 +355,11 @@ func (tagHandler *KtCloudTagHandler) getTagListWithResId(resType irs.RSType, res
 
 	var rsType string
     switch resType {
-    case irs.VM:
+    case irs.VM, "VM":
         rsType = VM
-	case irs.MYIMAGE:
+	case irs.MYIMAGE, "MYIMAGE":
         rsType = MyImage
-	case irs.DISK:
+	case irs.DISK, "DISK":
         rsType = DISK
     default:
         newErr := fmt.Errorf("Invalid Resource Type. [%v] type is Not Supported on KT Cloud for Tagging!!", resType)
@@ -396,11 +390,11 @@ func (tagHandler *KtCloudTagHandler) getTagValue(resType irs.RSType, resourceID 
 
 	var rsType string
     switch resType {
-    case irs.VM:
+    case irs.VM, "VM":
         rsType = VM
-	case irs.MYIMAGE:
+	case irs.MYIMAGE, "MYIMAGE":
         rsType = MyImage
-	case irs.DISK:
+	case irs.DISK, "DISK":
         rsType = DISK
     default:
         newErr := fmt.Errorf("Invalid Resource Type. [%v] type is Not Supported on KT Cloud for Tagging!!", resType)
@@ -432,11 +426,11 @@ func (tagHandler *KtCloudTagHandler) deleteTag(resType irs.RSType, resID *string
 
 	var rsType string
     switch resType {
-    case irs.VM:
+    case irs.VM, "VM":
         rsType = VM
-	case irs.MYIMAGE:
+	case irs.MYIMAGE, "MYIMAGE":
         rsType = MyImage
-	case irs.DISK:
+	case irs.DISK, "DISK":
         rsType = DISK
     default:
         newErr := fmt.Errorf("Invalid Resource Type. [%v] type is Not Supported on KT Cloud for Tagging!!", resType)

@@ -145,6 +145,19 @@ func (diskHandler *KtCloudDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 		return irs.DiskInfo{}, waitErr
 	}
 
+	// Add the Tag List according to the ReqInfo
+	tagHandler := KtCloudTagHandler {
+		RegionInfo:  diskHandler.RegionInfo,
+		Client:    	 diskHandler.Client,
+	}
+	_, createErr := tagHandler.createTagList(irs.RSType(irs.DISK), &createVolumeResponse.Createvolumeresponse.ID, diskReqInfo.TagList)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Add the Tag List on the Disk : [%v]", createErr)
+		cblogger.Error(newErr.Error())
+		return irs.DiskInfo{}, newErr
+	}
+	time.Sleep(time.Second * 1)
+
 	newVolumeIID := irs.IID{SystemId: createVolumeResponse.Createvolumeresponse.ID}
 	newDiskInfo, err := diskHandler.GetDisk(newVolumeIID)
 	if err != nil {
