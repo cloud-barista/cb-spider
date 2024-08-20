@@ -62,7 +62,8 @@ func handleTag() {
 
 		// rsType := irs.RSType(irs.VM)
 		// rsType := irs.RSType(irs.MYIMAGE)
-		rsType := irs.RSType(irs.DISK)
+		// rsType := irs.RSType(irs.DISK)
+		rsType := irs.RSType(irs.ALL)
 
 		rsIId := irs.IID{
 			NameId: "MyVM-1",			

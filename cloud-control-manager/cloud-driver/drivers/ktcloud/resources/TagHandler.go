@@ -198,35 +198,73 @@ func (tagHandler *KtCloudTagHandler) FindTag(resType irs.RSType, keyword string)
 		return nil, newErr
 	}
 
-	tagList, err := tagHandler.getTagList(resType)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get Tag List : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return nil, newErr
-	}
-
+	var tagList []ktsdk.Tag
 	var tagInfoList []*irs.TagInfo
-	for _, curTag := range tagList {
-		if strings.Contains(curTag.Key, keyword) || strings.Contains(curTag.Value, keyword) {
-			var tagKVList []irs.KeyValue 
-			tagKV := irs.KeyValue {
-				Key: 	curTag.Key,
-				Value: 	curTag.Value,
-			}
-			tagKVList = append(tagKVList, tagKV)
 
-			tagInfo := &irs.TagInfo {
-				ResType : resType,
-				ResIId  : irs.IID {
-							NameId : "",
-							SystemId: curTag.ResourceId,
-						},
-				TagList : tagKVList,
-				// KeyValueList: 		,	// reserved for optinal usage
+	if resType == irs.RSType(irs.ALL) {
+		resTypes := []irs.RSType{irs.RSType(irs.VM), irs.RSType(irs.MYIMAGE), irs.RSType(irs.DISK)}
+		for _, curType := range resTypes {
+			var err error
+			tagList, err = tagHandler.getTagList(curType)
+			if err != nil {
+				newErr := fmt.Errorf("Failed to Get Tag List : [%v]", err)
+				cblogger.Error(newErr.Error())
+				return nil, newErr
 			}
-			tagInfoList = append(tagInfoList, tagInfo)
+			for _, curTag := range tagList {
+				if strings.Contains(curTag.Key, keyword) || strings.Contains(curTag.Value, keyword) {
+					var tagKVList []irs.KeyValue 
+					tagKV := irs.KeyValue {
+						Key: 	curTag.Key,
+						Value: 	curTag.Value,
+					}
+					tagKVList = append(tagKVList, tagKV)
+		
+					tagInfo := &irs.TagInfo {
+						ResType : curType,
+						ResIId  : irs.IID {
+									NameId : "",
+									SystemId: curTag.ResourceId,
+								},
+						TagList : tagKVList,
+						// KeyValueList: 		,	// reserved for optinal usage
+					}
+					tagInfoList = append(tagInfoList, tagInfo)
+				}
+			}
+		}
+	} else {
+		var err error
+		tagList, err = tagHandler.getTagList(resType)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Get Tag List : [%v]", err)
+			cblogger.Error(newErr.Error())
+			return nil, newErr
+		}
+
+		for _, curTag := range tagList {
+			if strings.Contains(curTag.Key, keyword) || strings.Contains(curTag.Value, keyword) {
+				var tagKVList []irs.KeyValue 
+				tagKV := irs.KeyValue {
+					Key: 	curTag.Key,
+					Value: 	curTag.Value,
+				}
+				tagKVList = append(tagKVList, tagKV)
+	
+				tagInfo := &irs.TagInfo {
+					ResType : resType,
+					ResIId  : irs.IID {
+								NameId : "",
+								SystemId: curTag.ResourceId,
+							},
+					TagList : tagKVList,
+					// KeyValueList: 		,	// reserved for optinal usage
+				}
+				tagInfoList = append(tagInfoList, tagInfo)
+			}
 		}
 	}
+
 	return tagInfoList, nil
 }
 
