@@ -958,6 +958,16 @@ func mappingNodeGroupInfo(nodePool *container.NodePool) (NodeGroupInfo irs.NodeG
 		}
 
 	}
+
+	// add keypair label
+	if nodePool.Config != nil && nodePool.Config.Labels != nil {
+		for k, v := range nodePool.Config.Labels {
+			if strings.HasPrefix(k, GCP_PMKS_KEYPAIR_KEY) {
+				keyValueList = append(keyValueList, irs.KeyValue{Key: GCP_PMKS_KEYPAIR_KEY, Value: v})
+			}
+		}
+	}
+
 	nodeGroupInfo.KeyValueList = keyValueList
 
 	return nodeGroupInfo, nil
@@ -1136,21 +1146,14 @@ func convertNodeGroup(client *compute.Service, credential idrv.CredentialInfo, r
 					// nodeGroup의 Instance ID
 					nodeIID := irs.IID{NameId: instanceInfo.Name, SystemId: instanceInfo.Name}
 					nodeList = append(nodeList, nodeIID)
-
-					cblogger.Info("instanceInfo.Labels ", instanceInfo.Labels)
-					nodeGroupInfo.KeyPairIID = irs.IID{NameId: "NameId", SystemId: "SystemId"} // empty면 오류나므로 기본값으로 설정후 update하도록
-					if instanceInfo.Labels != nil {
-						keyPairVal, exists := instanceInfo.Labels[GCP_PMKS_KEYPAIR_KEY]
-						if exists {
-							cblogger.Info("nodeGroup set keypair ", keyPairVal)
-							nodeGroupInfo.KeyPairIID = irs.IID{NameId: keyPairVal, SystemId: keyPairVal}
-						}
-					}
 				}
+				nodeGroupInfo.KeyPairIID = irs.IID{NameId: "NameId", SystemId: "SystemId"} // empty면 오류나므로 기본값으로 설정후 update하도록
 				cblogger.Info("nodeList ", nodeList)
 				nodeGroupInfo.Nodes = nodeList
 				//cblogger.Info("nodeGroupInfo ", nodeGroupInfo)
 				cblogger.Debug(nodeGroupInfo)
+			} else if strings.HasPrefix(keyValue.Key, GCP_PMKS_KEYPAIR_KEY) {
+				nodeGroupInfo.KeyPairIID = irs.IID{NameId: keyValue.Value, SystemId: keyValue.Value}
 			}
 		}
 		nodeGroupList = append(nodeGroupList, nodeGroupInfo)
