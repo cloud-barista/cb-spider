@@ -409,13 +409,13 @@
         cursor: pointer;
     }
     .inner-table .name-column {
-        width: 20%;
+        width: 28%;
     }
     .inner-table .cidr-column {
-        width: 20%;
+        width: 16%;
     }
     .inner-table .zone-column {
-        width: 20%;
+        width: 16%;
     }
     .inner-table .tags-column {
         width: 25%;
@@ -519,6 +519,25 @@
         z-index: 30;
     }
 
+    .vpc-name-cell {
+        text-align: left;
+        font-size: 13px;
+        font-weight: bold;
+    }
+    .vpc-name-cell .vpc-system-id {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
+    }
+
+    .vpc-name {
+        width: 13%;
+    }
+    .vpc-cidr {
+        width: 7%;
+    }
+
 
 </style>
 </head>
@@ -561,7 +580,8 @@
             {{ $vpcNameId := $vpc.IId.NameId }}
             <tr>
                 <td class="column-num">{{$index | inc}}</td>
-                <td class="vpc-name center-align">{{$vpc.IId.NameId}}</td>
+                <td class="vpc-name-cell">{{$vpc.IId.NameId}}
+                    <span class="vpc-system-id">&nbsp;• {{$vpc.IId.SystemId}}</span></td>
                 <td class="vpc-cidr center-align">{{$vpc.IPv4_CIDR}}</td>
                 <td class="subnet-info">
                     <table class="inner-table">
@@ -575,7 +595,9 @@
                         {{range $subnetIndex, $subnet := $vpc.SubnetInfoList}}
                         {{ $subnetNameId := $subnet.IId.NameId }}
                         <tr>
-                            <td>{{$subnet.IId.NameId}}</td>
+                            <td class="vpc-name-cell" style="text-align: left;">{{$subnet.IId.NameId}}
+                                <span class="vpc-system-id">&nbsp;• {{$subnet.IId.SystemId}}</span>
+                            </td>
                             <td>{{$subnet.IPv4_CIDR}}</td>
                             <td>{{$subnet.Zone}}</td>
                             <td class="tags-cell">
@@ -653,7 +675,7 @@
                     </div>
                     <div class="form-group">
                         <label for="subnetZone">Zone:</label>
-                        <input type="text" id="subnetZone" name="subnetZone" required>
+                        <select id="subnetZone" name="subnetZone" required></select>
                     </div>
                     <div class="form-group" style="padding-left: 145px;">
                         <label for="subnetTags">Tags:</label>
@@ -932,16 +954,38 @@
 
     function showOverlay() {
         const region = '{{.RegionName}}';
+        const regionId = '{{.Region}}';
+        const defaultZone = '{{.Zone}}';
         const vpcNameInput = document.getElementById('vpcName');
         const subnetNameInput = document.getElementById('subnetName');
-        const zoneInput = document.getElementById('subnetZone');
-        const zone = '{{.Zone}}';
+        const zoneSelect = document.getElementById('subnetZone');
+        const connConfig = document.getElementById('connConfig').value;
 
         vpcNameInput.value = `${region}-vpc-${Math.random().toString(36).substring(2, 5)}`;
         document.getElementById('vpcCIDR').value = '10.0.0.0/16';
-        zoneInput.value = zone;
-        subnetNameInput.value = `${region}-${zone}-subnet-${Math.random().toString(36).substring(2, 5)}`;
+        subnetNameInput.value = `${region}-${defaultZone}-subnet-${Math.random().toString(36).substring(2, 5)}`;
         document.getElementById('subnetCIDR').value = '10.0.1.0/24';
+
+        fetch(`/spider/regionzone/${regionId}?ConnectionName=${connConfig}`)
+            .then(response => response.json())
+            .then(data => {
+                zoneSelect.innerHTML = '';
+                data.ZoneList.forEach(zone => {
+                    const option = document.createElement('option');
+                    option.value = zone.Name;
+                    option.textContent = `${zone.DisplayName} (${zone.Status})`;
+
+                    if (zone.Name === defaultZone) {
+                        option.selected = true;
+                    }
+
+                    zoneSelect.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching Zone List:', error);
+                alert('Failed to load Zone list.');
+            });
 
         document.getElementById('overlay').style.display = 'flex';
         document.addEventListener('keydown', handleEsc);
@@ -974,21 +1018,6 @@
         document.getElementById('subnetCIDR').value = '10.0.1.0/24';
 
         document.querySelectorAll('.vpc-tag-input, .subnet-tag-input').forEach(tagInput => tagInput.remove());
-    }
-
-    function showSubnetOverlay(vpcName) {
-        const region = '{{.RegionName}}';
-        const zone = '{{.Zone}}';
-
-        document.getElementById('subnetVPCName').value = vpcName;
-        document.getElementById('subnetVPCNameDisplay').value = vpcName;
-        document.getElementById('addSubnetZone').value = zone;
-        document.getElementById('addSubnetName').value = `${region}-${zone}-subnet-${Math.random().toString(36).substring(2, 5)}`;
-        document.getElementById('addSubnetCIDR').value = '10.0.2.0/24';
-
-        document.getElementById('subnet-overlay').style.display = 'flex';
-        document.addEventListener('keydown', handleEscSubnet);
-        clearSubnetFormFields();
     }
 
     function hideSubnetOverlay() {

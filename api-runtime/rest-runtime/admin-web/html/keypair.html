@@ -154,7 +154,10 @@
         text-align: center;
     }
     .fingerprint {
-        width: 30%;
+        width: 25%;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: nowrap;
     }
     .check-column {
         width: 5%;
@@ -345,6 +348,20 @@
         right: 5px;
         bottom: 5px;
     }
+
+    .desc-name-cell {
+        text-align: left;
+        font-size: 13px;
+        font-weight: bold;
+    }
+
+    .desc-system-id {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
+    }
+
 </style>
 </head>
 <body>
@@ -386,7 +403,9 @@
             {{range $index, $keyPair := .KeyPairs}}
             <tr>
                 <td class="column-num">{{$index | inc}}</td>
-                <td class="center-align">{{$keyPair.IId.NameId}}</td>
+                <td class="name desc-name-cell center-align">{{$keyPair.IId.NameId}}
+                    <span class="desc-system-id">&nbsp;• {{$keyPair.IId.SystemId}}</span>
+                </td>
                 <td class="center-align fingerprint">{{$keyPair.Fingerprint}}</td>
                 <td>
                     {{range $tag := $keyPair.TagList}}
