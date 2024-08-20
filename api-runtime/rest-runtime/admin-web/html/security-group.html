@@ -267,7 +267,7 @@
         width: 10%;
     }
     .rules-info {
-        width: 40%;
+        width: 30%;
     }
     .tags {
         width: 15%;
@@ -499,6 +499,18 @@
         z-index: 30;
     }
 
+    .desc-name-cell {
+        text-align: left;
+        font-size: 13px;
+        font-weight: bold;
+    }
+    .desc-name-cell .desc-system-id {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
+    }
+
 </style>
 </head>
 <body>
@@ -540,8 +552,12 @@
             {{ $sgNameId := $sg.IId.NameId }}
             <tr>
                 <td class="column-num">{{$index | inc}}</td>
-                <td class="sg-name center-align">{{$sg.IId.NameId}}</td>
-                <td class="vpc-name center-align">{{$sg.VpcIID.NameId}}</td>
+                <td class="sg-name desc-name-cell center-align">{{$sg.IId.NameId}}
+                    <span class="desc-system-id">&nbsp;• {{$sg.IId.SystemId}}</span>
+                </td>
+                <td class="vpc-name desc-name-cell center-align">{{$sg.VpcIID.NameId}}
+                    <span class="desc-system-id">&nbsp;• {{$sg.VpcIID.SystemId}}</span>
+                </td>
                 <td class="rules-info">
                     <table class="inner-table">
                         <tr>

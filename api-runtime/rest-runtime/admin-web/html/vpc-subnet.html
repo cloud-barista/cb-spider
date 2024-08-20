@@ -409,13 +409,13 @@
         cursor: pointer;
     }
     .inner-table .name-column {
-        width: 20%;
+        width: 28%;
     }
     .inner-table .cidr-column {
-        width: 20%;
+        width: 16%;
     }
     .inner-table .zone-column {
-        width: 20%;
+        width: 16%;
     }
     .inner-table .tags-column {
         width: 25%;
@@ -519,6 +519,25 @@
         z-index: 30;
     }
 
+    .vpc-name-cell {
+        text-align: left;
+        font-size: 13px;
+        font-weight: bold;
+    }
+    .vpc-name-cell .vpc-system-id {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
+    }
+
+    .vpc-name {
+        width: 13%;
+    }
+    .vpc-cidr {
+        width: 7%;
+    }
+
 
 </style>
 </head>
@@ -561,7 +580,8 @@
             {{ $vpcNameId := $vpc.IId.NameId }}
             <tr>
                 <td class="column-num">{{$index | inc}}</td>
-                <td class="vpc-name center-align">{{$vpc.IId.NameId}}</td>
+                <td class="vpc-name-cell">{{$vpc.IId.NameId}}
+                    <span class="vpc-system-id">&nbsp;• {{$vpc.IId.SystemId}}</span></td>
                 <td class="vpc-cidr center-align">{{$vpc.IPv4_CIDR}}</td>
                 <td class="subnet-info">
                     <table class="inner-table">
@@ -575,7 +595,9 @@
                         {{range $subnetIndex, $subnet := $vpc.SubnetInfoList}}
                         {{ $subnetNameId := $subnet.IId.NameId }}
                         <tr>
-                            <td>{{$subnet.IId.NameId}}</td>
+                            <td class="vpc-name-cell" style="text-align: left;">{{$subnet.IId.NameId}}
+                                <span class="vpc-system-id">&nbsp;• {{$subnet.IId.SystemId}}</span>
+                            </td>
                             <td>{{$subnet.IPv4_CIDR}}</td>
                             <td>{{$subnet.Zone}}</td>
                             <td class="tags-cell">
