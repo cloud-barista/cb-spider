@@ -257,6 +257,30 @@ func (myImageHandler *KtCloudMyImageHandler) mappingMyImageInfo(myImage *ktsdk.T
 		{Key: "Region", Value: myImageHandler.RegionInfo.Region},
 	}
 	myImageInfo.KeyValueList = keyValueList
+
+	// Get the Tag List of the MyImage
+	var kvList []irs.KeyValue
+	tagHandler := KtCloudTagHandler {
+		RegionInfo: myImageHandler.RegionInfo,
+		Client:    	myImageHandler.Client,
+	}
+	tagList, err := tagHandler.getTagListWithResId(irs.RSType(irs.MYIMAGE), &myImage.ID)
+	if err != nil {		
+		newErr := fmt.Errorf("Failed to Get the Tag List with the MyImage ID : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}	
+	if len(tagList) > 0 {
+		for _, curTag := range tagList {
+			kv := irs.KeyValue {
+				Key : 	curTag.Key,
+				Value:  curTag.Value,
+			}
+			kvList = append(kvList, kv)
+		}
+		myImageInfo.TagList = kvList
+	}
+
 	return myImageInfo, nil
 }
 
