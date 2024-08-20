@@ -114,6 +114,10 @@ $GOPATH/src/github.com/cloud-barista/ktcloud/ktcloud/main/
        - https://cloud.kt.com/docs/open-api-guide/g/computing/disk-volume
 <p><br>
 
+  O VM을 대상으로 MyImage 생성시 주의할 점
+   - KT Cloud Classic 클라우드 서비스에서는 VM이 중지된(Suspended) 상태에서만 MyImage 생성이 가능함.
+<p><br>
+
 #### # KT Cloud Classic (G1/G2) 드라이버 개발시 참고 사항
 ​	O 생성되는 VM의 root disk(volume) type 정보
    - KT Cloud Volume 정보에서 root disk의 type 정보는 제공하지 않음.
