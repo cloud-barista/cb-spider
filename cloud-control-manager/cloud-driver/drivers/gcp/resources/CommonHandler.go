@@ -536,7 +536,10 @@ func WaitContainerOperationFail(client *container.Service, project string, regio
 			return err
 		}
 		cblogger.Debug(opSatus)
-		cblogger.Infof("==> Status: Progress: [%d] / [%s]", opSatus.Progress, opSatus.Status)
+
+		if opSatus.Progress != nil && len(opSatus.Progress.Metrics) > 0 && opSatus.Progress.Metrics[0] != nil {
+			cblogger.Infof("==> Status: Progress: [%d] / [%s]", opSatus.Progress.Metrics[0].IntValue, opSatus.Status)
+		}
 
 		//PENDING, RUNNING, or DONE.
 
