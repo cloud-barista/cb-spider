@@ -59,6 +59,44 @@ sg(firewall rule) 추가 안됨.
 
 fail 기다리는것 처리 확인할 것.
 */
+
+var (
+	ErrNodeGroupEmpty           = errors.New("node group is empty. it must be greater than 0")
+	ErrNodeGroupNameEmpty       = errors.New("node group name is empty")
+	ErrNodeGroupVMSpecEmpty     = errors.New("node group vm spec is empty")
+	ErrInvalidNodeGroupDiskSize = errors.New("invalid NodeGroup RootDiskSize")
+	ErrNodeGroupKeypairEmpty    = errors.New("node group keypair is empty")
+)
+
+func validateNodeGroup(ngl []irs.NodeGroupInfo) error {
+	if len(ngl) <= 0 {
+		return ErrNodeGroupEmpty
+	}
+
+	for _, nodeGroup := range ngl {
+		if nodeGroup.IId.NameId == "" {
+			return ErrNodeGroupNameEmpty
+		}
+
+		if nodeGroup.VMSpecName == "" {
+			return ErrNodeGroupVMSpecEmpty
+		}
+
+		if !(nodeGroup.RootDiskSize == "" || strings.ToLower(nodeGroup.RootDiskSize) == "default") {
+			_, err := strconv.Atoi(nodeGroup.RootDiskSize)
+			if err != nil {
+				return ErrInvalidNodeGroupDiskSize
+			}
+		}
+
+		if nodeGroup.KeyPairIID.SystemId == "" {
+			return ErrNodeGroupKeypairEmpty
+		}
+	}
+
+	return nil
+}
+
 func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.ClusterInfo, error) {
 	projectID := ClusterHandler.Credential.ProjectID
 	region := ClusterHandler.Region.Region
@@ -71,10 +109,16 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 	// parent := "projects/" + projectID + "/locations/" + zone
 	//projects/csta-349809/locations/asia-northeast3-a
 
+	// as per https://github.com/cloud-barista/cb-spider/issues/1252#issuecomment-2303556504
+	// gcp cluster only support create cluster with at least one custom node pool
+	if err := validateNodeGroup(clusterReqInfo.NodeGroupList); err != nil {
+		return irs.ClusterInfo{}, err
+	}
+
 	// Meta정보에 securityGroup 정보를 Key,Val 형태로 넣고 실제 값(val)은 nodeConfig 에 set하여 사용
 	labels := make(map[string]string)
 	var sgTags []string
-	if clusterReqInfo.Network.SecurityGroupIIDs != nil && len(clusterReqInfo.Network.SecurityGroupIIDs) > 0 {
+	if len(clusterReqInfo.Network.SecurityGroupIIDs) > 0 {
 		for idx, securityGroupIID := range clusterReqInfo.Network.SecurityGroupIIDs {
 			labels[GCP_PMKS_SECURITYGROUP_TAG+strconv.Itoa(idx)] = securityGroupIID.NameId
 			sgTags = append(sgTags, securityGroupIID.NameId)
@@ -105,7 +149,7 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 	// nodeGroup List set
 	nodePools := []*container.NodePool{}
 	cblogger.Info("clusterReqInfo.NodeGroupList ", len(clusterReqInfo.NodeGroupList))
-	if clusterReqInfo.NodeGroupList != nil && len(clusterReqInfo.NodeGroupList) > 0 {
+	if len(clusterReqInfo.NodeGroupList) > 0 {
 		// 최초 생성 시 nodeGroup을 1개 지정함. 2개 이상일 때는 생성 후에 add NodeGroup으로 추가
 		for _, reqNodeGroup := range clusterReqInfo.NodeGroupList {
 			nodePool := container.NodePool{}
@@ -121,20 +165,27 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 			}
 
 			nodeConfig := container.NodeConfig{}
-			diskSize, err := strconv.ParseInt(reqNodeGroup.RootDiskSize, 10, 64)
-			if err != nil {
-				return irs.ClusterInfo{}, err
+
+			if reqNodeGroup.RootDiskSize != "" && strings.ToLower(reqNodeGroup.RootDiskType) != "default" {
+				diskSize, err := strconv.ParseInt(reqNodeGroup.RootDiskSize, 10, 64)
+				if err != nil {
+					return irs.ClusterInfo{}, err
+				}
+
+				if diskSize > 0 {
+					nodeConfig.DiskSizeGb = diskSize
+				}
 			}
-			if diskSize > 0 {
-				nodeConfig.DiskSizeGb = diskSize
+
+			if reqNodeGroup.RootDiskType != "" && strings.ToLower(reqNodeGroup.RootDiskType) != "default" {
+				nodeConfig.DiskType = reqNodeGroup.RootDiskType
 			}
-			nodeConfig.DiskType = reqNodeGroup.RootDiskType
+
 			nodeConfig.MachineType = reqNodeGroup.VMSpecName
 			nodeConfig.Tags = sgTags
 
 			keyPair := map[string]string{}
 			if reqNodeGroup.KeyPairIID.SystemId != "" {
-				//keyPair[GCP_PMKS_KEYPAIR_KEY] = reqNodeGroup.KeyPairIID.NameId
 				keyPair[GCP_PMKS_KEYPAIR_KEY] = reqNodeGroup.KeyPairIID.SystemId
 				nodeConfig.Labels = keyPair
 			}
@@ -145,11 +196,12 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 			//break //1개만 add?
 		}
 		rb.Cluster.NodePools = nodePools
-	} else {
-		// NodeGroup 이 1개는 넘어오므로 cluster의 InitialNodeCount는 동시에 Set 못함.
-		// NodeGroup이 없는경우 Set.
-		reqCluster.InitialNodeCount = 3 // Cluster.initial_node_count must be greater than zero
 	}
+	// else {
+	// NodeGroup 이 1개는 넘어오므로 cluster의 InitialNodeCount는 동시에 Set 못함.
+	// NodeGroup이 없는경우 Set.
+	// reqCluster.InitialNodeCount = 3 // Cluster.initial_node_count must be greater than zero
+	// }
 
 	cblogger.Debug(rb)
 	// if 1 == 1 {

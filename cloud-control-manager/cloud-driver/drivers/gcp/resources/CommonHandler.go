@@ -554,7 +554,7 @@ func WaitContainerOperationFail(client *container.Service, project string, regio
 		after_time := time.Now()
 		diff := after_time.Sub(before_time)
 		if int(diff.Seconds()) > max_time {
-			cblogger.Errorf("Forcing termination of Wait because the status of resource [%s] has not completed within [%d] seconds.", max_time, resourceId)
+			cblogger.Infof("Forcing termination of Wait because the status of resource [%s] has not failed within [%d] seconds.", resourceId, max_time)
 			return nil
 		}
 	}
