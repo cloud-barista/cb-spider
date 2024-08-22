@@ -1,6 +1,6 @@
 module github.com/cloud-barista/cb-spider
 
-go 1.21.6
+go 1.23.0
 
 replace (
 	github.com/IBM/vpc-go-sdk/0.23.0 => github.com/IBM/vpc-go-sdk v0.23.0
