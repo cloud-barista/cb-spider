@@ -38,12 +38,12 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 
 - ##### 공식환경
   - OS: Ubuntu 22.04
-  - Build: Go 1.21
+  - Build: Go 1.23
   - Container: Docker v19.03
 
 - ##### 시험환경
   - OS: , Ubuntu 22.04, Ubuntu 20.04, Ubuntu 18.04, Debian 10.6, macOS Ventura 13.5, macOS Catalina 10.15, Android 8.1 등
-  - Build: Go 1.21, Go 1.19, Go 1.18, Go 1.16
+  - Build: Go 1.23, Go 1.21
   - Container: Docker v19.03, Docker v20.10
 
 #### 2. 실행 방법
