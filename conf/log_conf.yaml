@@ -5,8 +5,8 @@ cblog:
   loopcheck: false # This temp method for development is busy wait. cf) cblogger.go:levelSetupLoop().
 
   ## trace | debug | info | warn/warning | error | fatal | panic
-  ## Default logging level: info
-  loglevel: info # If loopcheck is true, You can set this online.
+  ## Default logging level: error
+  loglevel: error # If loopcheck is true, You can set this online.
 
   ## true | false
   logfile: true
