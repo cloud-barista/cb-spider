@@ -34,7 +34,8 @@ func (regionZoneHandler *AwsRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 			defer wg.Done()
 
 			sess, err := session.NewSession(&aws.Config{
-				Region: region.RegionName,
+				Credentials: regionZoneHandler.Client.Config.Credentials,
+				Region:      region.RegionName,
 			})
 			if err != nil {
 				cblogger.Error(err)
@@ -94,7 +95,8 @@ func (regionZoneHandler *AwsRegionZoneHandler) GetRegionZone(Name string) (irs.R
 	for _, region := range responseRegions.Regions {
 		cblogger.Debug("#################### region.RegionName", region.RegionName)
 		sess, err := session.NewSession(&aws.Config{
-			Region: region.RegionName,
+			Credentials: regionZoneHandler.Client.Config.Credentials,
+			Region:      region.RegionName,
 		})
 		if err != nil {
 			cblogger.Error(err)
@@ -155,7 +157,8 @@ func (regionZoneHandler *AwsRegionZoneHandler) ListOrgZone() (string, error) {
 	for _, region := range responseRegions.Regions {
 
 		sess, err := session.NewSession(&aws.Config{
-			Region: region.RegionName,
+			Credentials: regionZoneHandler.Client.Config.Credentials,
+			Region:      region.RegionName,
 		})
 		if err != nil {
 			cblogger.Errorf("NewSession err %s", *region.RegionName)
