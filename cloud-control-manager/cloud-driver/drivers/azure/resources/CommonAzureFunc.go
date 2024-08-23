@@ -3,6 +3,7 @@ package resources
 import (
 	"errors"
 	"fmt"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"math/rand"
 	"net"
 	"sort"
@@ -11,12 +12,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Azure/go-autorest/autorest/to"
 	cblog "github.com/cloud-barista/cb-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 )
@@ -121,7 +120,6 @@ const (
 )
 
 func generateRandName(prefix string) string {
-	rand.Seed(time.Now().UnixNano())
 	return fmt.Sprintf("%s-%s", prefix, strconv.FormatInt(rand.Int63n(1000000), 10))
 }
 
@@ -230,59 +228,59 @@ func CheckIIDValidation(IId irs.IID) bool {
 }
 
 // VMBootDiskType
-func GetVMDiskTypeInitType(diskType string) compute.StorageAccountTypes {
+func GetVMDiskTypeInitType(diskType string) armcompute.StorageAccountTypes {
 	switch diskType {
 	case PremiumSSD:
-		return compute.StorageAccountTypesPremiumLRS
+		return armcompute.StorageAccountTypesPremiumLRS
 	case StandardSSD:
-		return compute.StorageAccountTypesStandardSSDLRS
+		return armcompute.StorageAccountTypesStandardSSDLRS
 	case StandardHDD:
-		return compute.StorageAccountTypesStandardLRS
+		return armcompute.StorageAccountTypesStandardLRS
 	default:
-		return compute.StorageAccountTypesPremiumLRS
+		return armcompute.StorageAccountTypesPremiumLRS
 	}
 }
 
 // VMBootDiskType
-func GetVMDiskInfoType(diskType compute.StorageAccountTypes) string {
-	switch diskType {
-	case compute.StorageAccountTypesPremiumLRS:
+func GetVMDiskInfoType(diskType *armcompute.StorageAccountTypes) string {
+	switch *diskType {
+	case armcompute.StorageAccountTypesPremiumLRS:
 		return PremiumSSD
-	case compute.StorageAccountTypesStandardSSDLRS:
+	case armcompute.StorageAccountTypesStandardSSDLRS:
 		return StandardSSD
-	case compute.StorageAccountTypesStandardLRS:
+	case armcompute.StorageAccountTypesStandardLRS:
 		return StandardHDD
 	default:
-		return string(diskType)
+		return string(*diskType)
 	}
 }
 
 // DiskType
-func GetDiskTypeInitType(diskType string) (compute.DiskStorageAccountTypes, error) {
+func GetDiskTypeInitType(diskType string) (armcompute.DiskStorageAccountTypes, error) {
 	switch diskType {
 	case "":
-		return compute.DiskStorageAccountTypesPremiumLRS, nil
+		return armcompute.DiskStorageAccountTypesPremiumLRS, nil
 	case "default":
-		return compute.DiskStorageAccountTypesPremiumLRS, nil
+		return armcompute.DiskStorageAccountTypesPremiumLRS, nil
 	case PremiumSSD:
-		return compute.DiskStorageAccountTypesPremiumLRS, nil
+		return armcompute.DiskStorageAccountTypesPremiumLRS, nil
 	case StandardSSD:
-		return compute.DiskStorageAccountTypesStandardSSDLRS, nil
+		return armcompute.DiskStorageAccountTypesStandardSSDLRS, nil
 	case StandardHDD:
-		return compute.DiskStorageAccountTypesStandardLRS, nil
+		return armcompute.DiskStorageAccountTypesStandardLRS, nil
 	default:
 		return "", errors.New(fmt.Sprintf("invalid DiskType %s, Please select one of %s, %s, %s", diskType, PremiumSSD, StandardSSD, StandardHDD))
 	}
 }
 
 // DiskType
-func GetDiskInfoType(diskType compute.DiskStorageAccountTypes) string {
+func GetDiskInfoType(diskType armcompute.DiskStorageAccountTypes) string {
 	switch diskType {
-	case compute.DiskStorageAccountTypesPremiumLRS:
+	case armcompute.DiskStorageAccountTypesPremiumLRS:
 		return PremiumSSD
-	case compute.DiskStorageAccountTypesStandardSSDLRS:
+	case armcompute.DiskStorageAccountTypesStandardSSDLRS:
 		return StandardSSD
-	case compute.DiskStorageAccountTypesStandardLRS:
+	case armcompute.DiskStorageAccountTypesStandardLRS:
 		return StandardHDD
 	default:
 		return string(diskType)
@@ -320,26 +318,40 @@ func removeDuplicateStr(array []string) []string {
 	return array[:prev]
 }
 
-func setTags(tagList []irs.KeyValue) map[string]*string{
+func setTags(tagList []irs.KeyValue) map[string]*string {
 	tags := make(map[string]*string)
 	for _, tag := range tagList {
-			tags[tag.Key] = to.StringPtr(tag.Value)
+		tags[tag.Key] = &tag.Value
 	}
 	return tags
 }
 
-func setTagList(tags map[string]*string) []irs.KeyValue{
+func setTagList(tags map[string]*string) []irs.KeyValue {
 	tagList := make([]irs.KeyValue, 0, len(tags))
 	if len(tags) != 0 {
 		for key, value := range tags {
 			if value != nil {
-					tagList = append(tagList, irs.KeyValue{
-							Key:   key,
-							Value: *value,
-					})
+				tagList = append(tagList, irs.KeyValue{
+					Key:   key,
+					Value: *value,
+				})
 			}
 		}
 		return tagList
 	}
 	return nil
+}
+
+func toStrPtr(input string) *string {
+	return &input
+}
+
+func toInt32Ptr(input int) *int32 {
+	inputInt32 := int32(input)
+
+	return &inputInt32
+}
+
+func toBoolPtr(input bool) *bool {
+	return &input
 }

@@ -4,14 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
-	"github.com/Azure/go-autorest/autorest/to"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -25,48 +23,31 @@ const (
 type AzureImageHandler struct {
 	Region        idrv.RegionInfo
 	Ctx           context.Context
-	Client        *compute.ImagesClient
-	VMImageClient *compute.VirtualMachineImagesClient
+	Client        *armcompute.ImagesClient
+	VMImageClient *armcompute.VirtualMachineImagesClient
 }
 
-func (imageHandler *AzureImageHandler) setterImage(image compute.Image) *irs.ImageInfo {
+func (imageHandler *AzureImageHandler) setterImage(image armcompute.Image) *irs.ImageInfo {
 	imageInfo := &irs.ImageInfo{
 		IId: irs.IID{
 			NameId:   *image.Name,
 			SystemId: *image.Name,
 		},
-		GuestOS:      fmt.Sprint(image.ImageProperties.StorageProfile.OsDisk.OsType),
-		Status:       *image.ProvisioningState,
+		GuestOS:      fmt.Sprint(image.Properties.StorageProfile.OSDisk.OSType),
+		Status:       *image.Properties.ProvisioningState,
 		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: imageHandler.Region.Region}},
 	}
 
 	return imageInfo
 }
 
-func (imageHandler *AzureImageHandler) setterVMImage(image compute.VirtualMachineImage) *irs.ImageInfo {
-	imageIdArr := strings.Split(*image.ID, "/")
-	imageName := fmt.Sprintf("%s:%s:%s:%s", imageIdArr[8], imageIdArr[12], imageIdArr[14], imageIdArr[16])
+func (imageHandler *AzureImageHandler) setterVMImage(imageName string, os string) *irs.ImageInfo {
 	imageInfo := &irs.ImageInfo{
 		IId: irs.IID{
 			NameId:   imageName,
 			SystemId: imageName,
 		},
-		GuestOS:      fmt.Sprint(image.OsDiskImage.OperatingSystem),
-		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: imageHandler.Region.Region}},
-	}
-
-	return imageInfo
-}
-
-func (imageHandler *AzureImageHandler) setterVMImageforList(image compute.VirtualMachineImageResource) *irs.ImageInfo {
-	imageIdArr := strings.Split(*image.ID, "/")
-	imageName := fmt.Sprintf("%s:%s:%s:%s", imageIdArr[8], imageIdArr[12], imageIdArr[14], imageIdArr[16])
-	imageInfo := &irs.ImageInfo{
-		IId: irs.IID{
-			NameId:   imageName,
-			SystemId: imageName,
-		},
-		//GuestOS:      fmt.Sprint(image.OsDiskImage.OperatingSystem),
+		GuestOS:      os,
 		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: imageHandler.Region.Region}},
 	}
 
@@ -90,33 +71,39 @@ func (imageHandler *AzureImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo
 	}
 
 	// Check Image Exists
-	image, err := imageHandler.Client.Get(imageHandler.Ctx, imageHandler.Region.Region, imageReqInfo.IId.NameId, "")
-	if image.ID != nil {
+	resp, err := imageHandler.Client.Get(imageHandler.Ctx, imageHandler.Region.Region, imageReqInfo.IId.NameId, nil)
+	if err != nil {
+		return irs.ImageInfo{}, err
+	}
+
+	if resp.Image.ID != nil {
 		errMsg := fmt.Sprintf("Image with name %s already exist", imageReqInfo.IId.NameId)
 		createErr := errors.New(errMsg)
 		return irs.ImageInfo{}, createErr
 	}
 
-	createOpts := compute.Image{
-		ImageProperties: &compute.ImageProperties{
-			StorageProfile: &compute.ImageStorageProfile{
-				OsDisk: &compute.ImageOSDisk{
+	osType := armcompute.OperatingSystemTypes(reqInfo.OSType)
+
+	createOpts := armcompute.Image{
+		Properties: &armcompute.ImageProperties{
+			StorageProfile: &armcompute.ImageStorageProfile{
+				OSDisk: &armcompute.ImageOSDisk{
 					//BlobURI: to.StringPtr(reqInfo.BlobUrl),
-					ManagedDisk: &compute.SubResource{
-						ID: to.StringPtr(reqInfo.DiskId),
+					ManagedDisk: &armcompute.SubResource{
+						ID: &reqInfo.DiskId,
 					},
-					OsType: compute.OperatingSystemTypes(reqInfo.OSType),
+					OSType: &osType,
 				},
 			},
 		},
 		Location: &imageHandler.Region.Region,
 	}
 
-	future, err := imageHandler.Client.CreateOrUpdate(imageHandler.Ctx, imageHandler.Region.Region, imageReqInfo.IId.NameId, createOpts)
+	poller, err := imageHandler.Client.BeginCreateOrUpdate(imageHandler.Ctx, imageHandler.Region.Region, imageReqInfo.IId.NameId, createOpts, nil)
 	if err != nil {
 		return irs.ImageInfo{}, err
 	}
-	err = future.WaitForCompletionRef(imageHandler.Ctx, imageHandler.Client.Client)
+	_, err = poller.PollUntilDone(imageHandler.Ctx, nil)
 	if err != nil {
 		return irs.ImageInfo{}, err
 	}
@@ -146,13 +133,126 @@ func checkRequest(errMessage string) (repeat bool) {
 	return false
 }
 
+func determineOSQuickly(pName, sName, oName string) string {
+	merged := pName + ":" + sName + ":" + oName
+	merged = strings.ToLower(merged)
+	merged = strings.ReplaceAll(merged, "_", "-")
+
+	if strings.Contains(merged, "redhat") {
+		return "Linux"
+	}
+
+	if strings.Contains(merged, "rhel") {
+		return "Linux"
+	}
+
+	if strings.Contains(merged, "centos") {
+		return "Linux"
+	}
+
+	if strings.Contains(merged, "rocky") {
+		return "Linux"
+	}
+
+	if strings.Contains(merged, "ubuntu") {
+		return "Linux"
+	}
+
+	if strings.Contains(merged, "debian") {
+		return "Linux"
+	}
+
+	if strings.Contains(merged, "suse") {
+		return "Linux"
+	}
+
+	if strings.Contains(merged, "linux") {
+		return "Linux"
+	}
+
+	if strings.Contains(merged, "windows") {
+		return "Windows"
+	}
+
+	if strings.Contains(merged, "-win-") {
+		return "Windows"
+	}
+
+	if strings.HasPrefix(merged, "win-") {
+		return "Windows"
+	}
+
+	if strings.Contains(merged, "win10") {
+		return "Windows"
+	}
+
+	if strings.Contains(merged, "win11") {
+		return "Windows"
+	}
+
+	if strings.Contains(merged, "win20") {
+		return "Windows"
+	}
+
+	if strings.Contains(merged, "windows") {
+		return "Windows"
+	}
+
+	if strings.Contains(merged, "visualstudio") && !strings.Contains(merged, "code") {
+		return "Windows"
+	}
+
+	return ""
+}
+
+var reqCount int
+var reqCountLock = &sync.Mutex{}
+var isClearingReqCount bool
+var isClearingReqCountLock = &sync.Mutex{}
+
+// Bucket size 250 / Refill rate per sec 25 (https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/request-limits-and-throttling)
+var reqWaitCheck = func() {
+	reqCountLock.Lock()
+	reqCount++
+
+	if reqCount == 25*8 { // Limit to 25 * 8 = 200, remained tokens is 50
+		time.Sleep(time.Second)
+		reqCount -= 25 // Refill 25 available tokens
+	}
+	reqCountLock.Unlock()
+}
+
 func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(imageHandler.Region, call.VMIMAGE, Image, "ListImage()")
 	start := call.Start()
 	var imageList []*irs.ImageInfo
 
-	publishers, err := imageHandler.VMImageClient.ListPublishers(imageHandler.Ctx, imageHandler.Region.Region)
+	go func() {
+		isClearingReqCountLock.Lock()
+		if isClearingReqCount {
+			isClearingReqCountLock.Unlock()
+			return
+		}
+
+		isClearingReqCount = true
+
+		reqCountLock.Lock()
+		for {
+			time.Sleep(time.Second)
+			reqCount -= 25 // Refill 25 available tokens
+			if reqCount <= 0 {
+				reqCount = 0
+				break
+			}
+		}
+		reqCountLock.Unlock()
+
+		isClearingReqCount = false
+		isClearingReqCountLock.Unlock()
+	}()
+
+	resp, err := imageHandler.VMImageClient.ListPublishers(imageHandler.Ctx, imageHandler.Region.Region, nil)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to List Image. err = %s", err.Error()))
 		cblogger.Error(createErr)
@@ -161,226 +261,64 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	}
 
 	var publisherNames []string
-	for _, p := range *publishers.Value {
+	for _, p := range resp.VirtualMachineImageResourceArray {
 		if p.Name == nil {
 			continue
 		}
 		publisherNames = append(publisherNames, *p.Name)
 	}
 
-	var routineMax = 300
 	var wait sync.WaitGroup
 	var mutex = &sync.Mutex{}
-	var lenPublisherNames = len(publisherNames)
 	var errList []string
 	var errMutex = &sync.Mutex{}
 
-	type imageSearchInfo struct {
-		PublisherName string
-		OfferName     string
-		Sku           string
-		Version       string
-	}
-	var imageSearchInfos []imageSearchInfo
-	var imageSearchInfosMutex = &sync.Mutex{}
+	wait.Add(len(publisherNames))
+	for _, pName := range publisherNames {
+		go func(imageHandler *AzureImageHandler, wait *sync.WaitGroup, mutex *sync.Mutex, errList []string, errMutex *sync.Mutex, pName string) {
+			defer wait.Done()
 
-	for i := 0; i < lenPublisherNames; {
-		if lenPublisherNames-i < routineMax {
-			routineMax = lenPublisherNames - i
-		}
+			var oNameRespArray []*armcompute.VirtualMachineImageResource
 
-		wait.Add(routineMax)
-
-		for j := 0; j < routineMax; j++ {
-			pName := publisherNames[i]
-			go func(imageHandler *AzureImageHandler, wait *sync.WaitGroup, mutex *sync.Mutex, errList []string, errMutex *sync.Mutex, pName string) {
-				defer wait.Done()
-
-				var err error
-				var offers compute.ListVirtualMachineImageResource
-
-				for {
-					offers, err = imageHandler.VMImageClient.ListOffers(imageHandler.Ctx, imageHandler.Region.Region, pName)
-					if err != nil {
-						if checkRequest(err.Error()) {
-							continue
-						}
-
-						cblogger.Error(err)
-						errMutex.Lock()
-						errList = append(errList, err.Error())
-						errMutex.Unlock()
-
-						return
-					}
-					break
-				}
-
-				if offers.Value == nil {
-					return
-				}
-
-				var offerNames []string
-				for _, o := range *offers.Value {
-					if o.Name == nil {
+			for {
+				reqWaitCheck()
+				resp, err := imageHandler.VMImageClient.ListOffers(imageHandler.Ctx, imageHandler.Region.Region, pName, nil)
+				if err != nil {
+					if checkRequest(err.Error()) {
 						continue
 					}
-					offerNames = append(offerNames, *o.Name)
+
+					cblogger.Error(err)
+					errMutex.Lock()
+					errList = append(errList, err.Error())
+					errMutex.Unlock()
+
+					return
 				}
-
-				var lenOfferNames = len(offerNames)
-				var wait2 sync.WaitGroup
-
-				for i := 0; i < lenOfferNames; {
-					if lenOfferNames-i < routineMax {
-						routineMax = lenOfferNames - i
-					}
-
-					wait2.Add(routineMax)
-
-					for j := 0; j < routineMax; j++ {
-						go func(wait2 *sync.WaitGroup, oName string) {
-							defer wait2.Done()
-
-							var err error
-							var skus compute.ListVirtualMachineImageResource
-
-							for {
-								skus, err = imageHandler.VMImageClient.ListSkus(imageHandler.Ctx, imageHandler.Region.Region, pName, oName)
-								if err != nil {
-									if checkRequest(err.Error()) {
-										continue
-									}
-
-									cblogger.Error(err)
-									errMutex.Lock()
-									errList = append(errList, err.Error())
-									errMutex.Unlock()
-
-									return
-								}
-								break
-							}
-
-							if skus.Value == nil {
-								return
-							}
-
-							var skuNames []string
-							for _, s := range *skus.Value {
-								if s.Name == nil {
-									continue
-								}
-								skuNames = append(skuNames, *s.Name)
-							}
-
-							var lenSkuNames = len(skuNames)
-							var wait3 sync.WaitGroup
-
-							for i := 0; i < lenSkuNames; {
-								if lenSkuNames-i < routineMax {
-									routineMax = lenSkuNames - i
-								}
-
-								wait3.Add(routineMax)
-
-								for j := 0; j < routineMax; j++ {
-									go func(wait3 *sync.WaitGroup, sName string) {
-										defer wait3.Done()
-
-										var err error
-										var imageVersionList compute.ListVirtualMachineImageResource
-
-										for {
-											imageVersionList, err = imageHandler.VMImageClient.List(imageHandler.Ctx, imageHandler.Region.Region, pName, oName, sName, "", nil, "")
-											if err != nil {
-												if checkRequest(err.Error()) {
-													continue
-												}
-
-												errMutex.Lock()
-												cblogger.Error(err)
-												errList = append(errList, err.Error())
-												errMutex.Unlock()
-
-												return
-											}
-											break
-										}
-
-										if imageVersionList.Value == nil {
-											return
-										}
-
-										for _, iv := range *imageVersionList.Value {
-											if iv.ID == nil {
-												continue
-											}
-
-											imageIdArr := strings.Split(*iv.ID, "/")
-											imageVersion := imageIdArr[len(imageIdArr)-1]
-
-											imageSearchInfosMutex.Lock()
-											imageSearchInfos = append(imageSearchInfos, imageSearchInfo{
-												PublisherName: pName,
-												OfferName:     oName,
-												Sku:           sName,
-												Version:       imageVersion,
-											})
-											imageSearchInfosMutex.Unlock()
-										}
-									}(&wait3, skuNames[i])
-
-									i++
-									if i == lenSkuNames {
-										break
-									}
-								}
-
-								wait3.Wait()
-							}
-
-						}(&wait2, offerNames[i])
-
-						i++
-						if i == lenOfferNames {
-							break
-						}
-					}
-
-					wait2.Wait()
-				}
-			}(imageHandler, &wait, mutex, errList, errMutex, pName)
-
-			i++
-			if i == lenPublisherNames {
+				oNameRespArray = resp.VirtualMachineImageResourceArray
 				break
 			}
-		}
 
-		wait.Wait()
-	}
-
-	if len(errList) == 0 {
-		var lenImageSearchInfos = len(imageSearchInfos)
-		var wait4 sync.WaitGroup
-
-		for i := 0; i < lenImageSearchInfos; {
-			if lenImageSearchInfos-i < routineMax {
-				routineMax = lenImageSearchInfos - i
+			var offerNames []string
+			for _, o := range oNameRespArray {
+				if o.Name == nil {
+					continue
+				}
+				offerNames = append(offerNames, *o.Name)
 			}
 
-			wait4.Add(routineMax)
+			var wait2 sync.WaitGroup
+			wait2.Add(len(offerNames))
 
-			for j := 0; j < routineMax; j++ {
-				go func(imageHandler *AzureImageHandler, wait4 *sync.WaitGroup, isInfo imageSearchInfo) {
-					defer wait4.Done()
+			for i := range offerNames {
+				go func(wait2 *sync.WaitGroup, oName string) {
+					defer wait2.Done()
 
-					var err error
-					var vmImage compute.VirtualMachineImage
+					var sNameRespArray []*armcompute.VirtualMachineImageResource
 
 					for {
-						vmImage, err = imageHandler.VMImageClient.Get(imageHandler.Ctx, imageHandler.Region.Region, isInfo.PublisherName, isInfo.OfferName, isInfo.Sku, isInfo.Version)
+						reqWaitCheck()
+						resp, err := imageHandler.VMImageClient.ListSKUs(imageHandler.Ctx, imageHandler.Region.Region, pName, oName, nil)
 						if err != nil {
 							if checkRequest(err.Error()) {
 								continue
@@ -393,24 +331,106 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 							return
 						}
+						sNameRespArray = resp.VirtualMachineImageResourceArray
 						break
 					}
 
-					vmImageInfo := imageHandler.setterVMImage(vmImage)
-					mutex.Lock()
-					imageList = append(imageList, vmImageInfo)
-					mutex.Unlock()
-				}(imageHandler, &wait4, imageSearchInfos[i])
+					var skuNames []string
+					for _, s := range sNameRespArray {
+						if s.Name == nil {
+							continue
+						}
+						skuNames = append(skuNames, *s.Name)
+					}
 
-				i++
-				if i == lenImageSearchInfos {
-					break
-				}
+					var wait3 sync.WaitGroup
+					wait3.Add(len(skuNames))
+
+					for i := range skuNames {
+						go func(wait3 *sync.WaitGroup, sName string) {
+							defer wait3.Done()
+
+							var versionRespArray []*armcompute.VirtualMachineImageResource
+
+							for {
+								reqWaitCheck()
+								resp, err := imageHandler.VMImageClient.List(imageHandler.Ctx, imageHandler.Region.Region, pName, oName, sName,
+									&armcompute.VirtualMachineImagesClientListOptions{
+										Expand:  nil,
+										Orderby: toStrPtr("name desc"),
+										Top:     toInt32Ptr(1),
+									})
+								if err != nil {
+									if checkRequest(err.Error()) {
+										continue
+									}
+
+									cblogger.Error(err)
+									errMutex.Lock()
+									errList = append(errList, err.Error())
+									errMutex.Unlock()
+
+									return
+								}
+								versionRespArray = resp.VirtualMachineImageResourceArray
+								break
+							}
+
+							if len(versionRespArray) == 0 {
+								return
+							}
+
+							latest := versionRespArray[0]
+							if latest.ID == nil {
+								return
+							}
+
+							imageIdArr := strings.Split(*latest.ID, "/")
+							imageVersion := imageIdArr[len(imageIdArr)-1]
+
+							os := determineOSQuickly(pName, oName, sName)
+							if os == "" {
+								for {
+									reqWaitCheck()
+									resp, err := imageHandler.VMImageClient.Get(imageHandler.Ctx, imageHandler.Region.Region, pName, oName, sName, imageVersion, nil)
+									if err != nil {
+										if checkRequest(err.Error()) {
+											continue
+										}
+
+										cblogger.Error(err)
+										errMutex.Lock()
+										errList = append(errList, err.Error())
+										errMutex.Unlock()
+
+										return
+									}
+
+									if resp.VirtualMachineImage.Properties != nil &&
+										resp.VirtualMachineImage.Properties.OSDiskImage != nil &&
+										resp.VirtualMachineImage.Properties.OSDiskImage.OperatingSystem != nil {
+										os = string(*resp.VirtualMachineImage.Properties.OSDiskImage.OperatingSystem)
+									}
+
+									break
+								}
+							}
+
+							imageName := pName + ":" + oName + ":" + sName + ":" + imageVersion
+
+							vmImageInfo := imageHandler.setterVMImage(imageName, os)
+							mutex.Lock()
+							imageList = append(imageList, vmImageInfo)
+							mutex.Unlock()
+						}(&wait3, skuNames[i])
+					}
+					wait3.Wait()
+				}(&wait2, offerNames[i])
 			}
-
-			wait4.Wait()
-		}
+			wait2.Wait()
+		}(imageHandler, &wait, mutex, errList, errMutex, pName)
 	}
+	wait.Wait()
 
 	if len(errList) > 0 {
 		cblogger.Error(strings.Join(errList, "\n"))
@@ -468,7 +488,7 @@ func (imageHandler *AzureImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo
 
 	// 1개의 버전 정보를 기준으로 이미지 정보 조회
 
-	vmImage, err := imageHandler.VMImageClient.Get(imageHandler.Ctx, imageHandler.Region.Region, imageArr[0], imageArr[1], imageArr[2], imageArr[3])
+	resp, err := imageHandler.VMImageClient.Get(imageHandler.Ctx, imageHandler.Region.Region, imageArr[0], imageArr[1], imageArr[2], imageArr[3], nil)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Get Image. err = %s", err.Error()))
 		cblogger.Error(createErr)
@@ -477,7 +497,16 @@ func (imageHandler *AzureImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	imageInfo := imageHandler.setterVMImage(vmImage)
+	if resp.VirtualMachineImage.Properties != nil &&
+		resp.VirtualMachineImage.Properties.OSDiskImage != nil &&
+		resp.VirtualMachineImage.Properties.OSDiskImage.OperatingSystem != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to Get Image. err = Failed to get image information"))
+		cblogger.Error(createErr)
+		LoggingError(hiscallInfo, createErr)
+		return irs.ImageInfo{}, createErr
+	}
+
+	imageInfo := imageHandler.setterVMImage(strings.Join(imageArr, ":"), string(*resp.VirtualMachineImage.Properties.OSDiskImage.OperatingSystem))
 	return *imageInfo, nil
 }
 
@@ -486,20 +515,19 @@ func (imageHandler *AzureImageHandler) DeleteImage(imageIID irs.IID) (bool, erro
 	hiscallInfo := GetCallLogScheme(imageHandler.Region, call.VMIMAGE, imageIID.NameId, "DeleteImage()")
 
 	start := call.Start()
-	future, err := imageHandler.Client.Delete(imageHandler.Ctx, imageHandler.Region.Region, imageIID.NameId)
+	poller, err := imageHandler.Client.BeginDelete(imageHandler.Ctx, imageHandler.Region.Region, imageIID.NameId, nil)
+	if err != nil {
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+	_, err = poller.PollUntilDone(imageHandler.Ctx, nil)
 	if err != nil {
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return false, err
 	}
 	LoggingInfo(hiscallInfo, start)
-
-	err = future.WaitForCompletionRef(imageHandler.Ctx, imageHandler.Client.Client)
-	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-		return false, err
-	}
 
 	return true, nil
 }
