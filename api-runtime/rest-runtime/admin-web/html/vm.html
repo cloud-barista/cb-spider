@@ -727,8 +727,7 @@ THE SOFTWARE.
                     </div>
                 </td>                
                 <td class="center-align misc-cell">
-                    <div class="misc-content">
-                        {{range $kv := $vm.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
+                    <div class="misc-content">{{range $kv := $vm.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
                     </div>
                     {{if $vm.KeyValueList}}
                     <button class="more-btn" onclick="showMiscOverlay(this)" style="display: inline;">more...</button>

@@ -624,8 +624,7 @@
                     </div>
                 </td>                
                 <td class="misc center-align misc-cell">
-                    <div class="misc-content">
-                    {{range $kv := $vpc.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
+                    <div class="misc-content">{{range $kv := $vpc.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
                     </div>
                     <button class="more-btn" onclick="showMiscOverlay(this)">more...</button>
                 </td>

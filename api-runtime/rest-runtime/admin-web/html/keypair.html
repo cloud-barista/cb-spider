@@ -416,8 +416,7 @@
                     </div>
                 </td>
                 <td class="center-align misc-cell">
-                    <div class="misc-content">
-                        {{range $kv := $keyPair.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
+                    <div class="misc-content">{{range $kv := $keyPair.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
                     </div>
                     <button class="more-btn" onclick="showMiscOverlay(this)">more...</button>
                 </td>

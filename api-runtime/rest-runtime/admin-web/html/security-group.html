@@ -588,9 +588,8 @@
                         <button class="add-btn" onclick="showAddTagOverlay('{{$sgNameId}}')">+</button>
                     </div>
                 </td>                
-                <td class="misc center-align misc-cell">
-                    <div class="misc-content">
-                        {{range $kv := $sg.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
+                <td class="misc misc-cell">
+                    <div class="misc-content">{{range $kv := $sg.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
                     </div>
                     <button class="more-btn" onclick="showMiscOverlay(this)">more...</button>
                 </td>                
