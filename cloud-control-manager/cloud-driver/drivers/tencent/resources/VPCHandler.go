@@ -149,6 +149,17 @@ func ExtractVpcDescribeInfo(vpcInfo *vpc.Vpc) irs.VPCInfo {
 		IPv4_CIDR: *vpcInfo.CidrBlock,
 	}
 
+	if vpcInfo.TagSet != nil {
+		var tagList []irs.KeyValue
+		for _, tag := range vpcInfo.TagSet {
+			tagList = append(tagList, irs.KeyValue{
+				Key:   *tag.Key,
+				Value: *tag.Value,
+			})
+		}
+		resVpcInfo.TagList = tagList
+	}
+
 	return resVpcInfo
 }
 
@@ -360,6 +371,17 @@ func (VPCHandler *TencentVPCHandler) ListSubnet(reqVpcId string) ([]irs.SubnetIn
 			IId:       irs.IID{SystemId: *curSubnet.SubnetId, NameId: *curSubnet.SubnetName},
 			IPv4_CIDR: *curSubnet.CidrBlock,
 			//Status:    *subnetInfo.State,
+		}
+
+		if curSubnet.TagSet != nil {
+			var tagList []irs.KeyValue
+			for _, tag := range curSubnet.TagSet {
+				tagList = append(tagList, irs.KeyValue{
+					Key:   *tag.Key,
+					Value: *tag.Value,
+				})
+			}
+			resSubnetInfo.TagList = tagList
 		}
 
 		keyValueList := []irs.KeyValue{
