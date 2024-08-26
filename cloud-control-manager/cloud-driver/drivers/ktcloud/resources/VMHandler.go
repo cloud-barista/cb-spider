@@ -452,17 +452,19 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		time.Sleep(time.Second * 10)
 
 		// Add the Tag List according to the ReqInfo
-		tagHandler := KtCloudTagHandler {
-			RegionInfo:  vmHandler.RegionInfo,
-			Client:    	 vmHandler.Client,
+		if len(vmReqInfo.TagList) > 0 {
+			tagHandler := KtCloudTagHandler {
+				RegionInfo:  vmHandler.RegionInfo,
+				Client:    	 vmHandler.Client,
+			}
+			_, createErr := tagHandler.createTagList(irs.RSType(irs.VM), &newVM.Deployvirtualmachineresponse.ID, vmReqInfo.TagList)
+			if err != nil {
+				newErr := fmt.Errorf("Failed to Add the Tag List on the VM : [%v]", createErr)
+				cblogger.Error(newErr.Error())
+				return irs.VMInfo{}, newErr
+			}
+			time.Sleep(time.Second * 1)
 		}
-		_, createErr := tagHandler.createTagList(irs.RSType(irs.VM), &newVM.Deployvirtualmachineresponse.ID, vmReqInfo.TagList)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Add the Tag List on the VM : [%v]", createErr)
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
-		time.Sleep(time.Second * 1)
 
 		newVMInfo, error := vmHandler.GetVM(newVMIID)
 		if error != nil {
@@ -472,7 +474,6 @@ func (vmHandler *KtCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		cblogger.Info("### VM Creation Processes have been Finished !!")
 		return newVMInfo, nil
 	}
-	return irs.VMInfo{}, err
 }
 
 func (vmHandler *KtCloudVMHandler) mappingVMInfo(KtCloudInstance *ktsdk.Virtualmachine) (irs.VMInfo, error) {
@@ -562,6 +563,24 @@ func (vmHandler *KtCloudVMHandler) mappingVMInfo(KtCloudInstance *ktsdk.Virtualm
 		rootDiskType = "HDD"
 	}
 
+	// Set Display Name of the Zone
+	var zoneDisplaName string
+	if KtCloudInstance.ZoneName != "" {
+		if strings.EqualFold(KtCloudInstance.ZoneName, "kr-0") {  // ???
+			zoneDisplaName = "KOR-Seoul M"
+		} else if strings.EqualFold(KtCloudInstance.ZoneName, "kr-md2-1") {
+			zoneDisplaName = "KOR-Seoul M2"
+		} else if strings.EqualFold(KtCloudInstance.ZoneName, "kr-1") {
+			zoneDisplaName = "KOR-Central A"
+		} else if strings.EqualFold(KtCloudInstance.ZoneName, "kr-2") {
+			zoneDisplaName = "KOR-Central B"
+		} else if strings.EqualFold(KtCloudInstance.ZoneName, "kr-3") {
+			zoneDisplaName = "KOR-HA"
+		} else {
+		zoneDisplaName = KtCloudInstance.ZoneName 
+		}
+	}
+
 	// To Set the VM resources Info.
 	// PublicIpID : To use it when delete the PublicIP
 	vmInfo := irs.VMInfo{
@@ -574,7 +593,7 @@ func (vmHandler *KtCloudVMHandler) mappingVMInfo(KtCloudInstance *ktsdk.Virtualm
 
 		Region: irs.RegionInfo{
 			Region: vmHandler.RegionInfo.Region,
-			// Zone info is bellow.
+			Zone: 	KtCloudInstance.ZoneId,
 		},
 
 		VMSpecName: vmSpecId, //Server Spec code
@@ -607,10 +626,10 @@ func (vmHandler *KtCloudVMHandler) mappingVMInfo(KtCloudInstance *ktsdk.Virtualm
 			{Key: "CpuSpeed", Value: strconv.FormatFloat(float64(KtCloudInstance.CpuSpeed), 'f', 0, 64)},
 			{Key: "MemorySize(GB)", Value: strconv.FormatFloat(float64(KtCloudInstance.Memory)/(1024), 'f', 0, 64)},
 			{Key: "KTCloudVMSpecInfo", Value: KtCloudInstance.ServiceOfferingName},
-			{Key: "ZoneId", Value: KtCloudInstance.ZoneId},
 			{Key: "VMStatus", Value: vmStatus},			
 			{Key: "VMNetworkID", Value: KtCloudInstance.Nic[0].NetworkId},
-			{Key: "Hypervisor", Value: KtCloudInstance.Hypervisor},			
+			{Key: "Hypervisor", Value: KtCloudInstance.Hypervisor},
+			{Key: "ZoneDisplaName", Value: zoneDisplaName},
 			// {Key: "VM Secondary IP", Value: KtCloudInstance.Nic[0].SecondaryIp},
 			// {Key: "PublicIpID", Value: publicIpId},
 		},
@@ -681,23 +700,6 @@ func (vmHandler *KtCloudVMHandler) mappingVMInfo(KtCloudInstance *ktsdk.Virtualm
 		}
 	}
 	vmInfo.DataDiskIIDs = diskIIDs
-
-	// Set VM Zone Info
-	if KtCloudInstance.ZoneName != "" {
-		if strings.EqualFold(KtCloudInstance.ZoneName, "kr-0") {  // ???
-			vmInfo.Region.Zone = "KOR-Seoul M"
-		} else if strings.EqualFold(KtCloudInstance.ZoneName, "kr-md2-1") {
-			vmInfo.Region.Zone = "KOR-Seoul M2"
-		} else if strings.EqualFold(KtCloudInstance.ZoneName, "kr-1") {
-			vmInfo.Region.Zone = "KOR-Central A"
-		} else if strings.EqualFold(KtCloudInstance.ZoneName, "kr-2") {
-			vmInfo.Region.Zone = "KOR-Central B"
-		} else if strings.EqualFold(KtCloudInstance.ZoneName, "kr-3") {
-			vmInfo.Region.Zone = "KOR-HA"
-		} else {
-		vmInfo.Region.Zone = KtCloudInstance.ZoneName 
-		}
-	}
 
 	// Get the Tag List of the VM
 	var kvList []irs.KeyValue

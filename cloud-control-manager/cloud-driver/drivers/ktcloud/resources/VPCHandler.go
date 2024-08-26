@@ -52,6 +52,7 @@ type VPCFileInfo struct {
 
 type Subnet struct {
 	IID           IId        `json:"IId"`
+	Zone          string     `json:"Zone"`
 	Cidr          string     `json:"IPv4_CIDR"`
 	KeyValue_List []KeyValue `json:"KeyValueList"`
 }
@@ -323,6 +324,7 @@ func (VPCHandler *KtCloudVPCHandler) CreateSubnet(subnetReqInfo irs.SubnetInfo) 
 			// Caution!! : subnetReqInfo.IId.NameId -> SystemId
 			SystemId: subnetReqInfo.IId.NameId,
 		},
+		Zone: subnetReqInfo.Zone,
 		IPv4_CIDR: "N/A",
 		KeyValueList: []irs.KeyValue{
 			{Key: "KTCloud-Subnet-info.", Value: "This Subne info. is temporary."},
@@ -344,6 +346,7 @@ func (VPCHandler *KtCloudVPCHandler) mappingVPCInfo(vpcFileInfo VPCFileInfo) (ir
 	for i := 0; i < len(vpcFileInfo.Subnet_List); i++ {
 		subnetInfo.IId.NameId = vpcFileInfo.Subnet_List[i].IID.NameID
 		subnetInfo.IId.SystemId = vpcFileInfo.Subnet_List[i].IID.SystemID
+		subnetInfo.Zone = vpcFileInfo.Subnet_List[i].Zone
 		subnetInfo.IPv4_CIDR = vpcFileInfo.Subnet_List[i].Cidr
 
 		for j := 0; j < len(vpcFileInfo.Subnet_List[i].KeyValue_List); j++ {
