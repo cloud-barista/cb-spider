@@ -36,6 +36,6 @@ cli:
 
 swag swagger:
 	@echo -e '\t[CB-Spider] generating Swagger documentation'
-	@~/go/bin/swag i -g api-runtime/rest-runtime/CBSpiderRuntime.go -d ./,./cloud-control-manager -o api > /dev/null 2>&1
+	@~/go/bin/swag i -g api-runtime/rest-runtime/CBSpiderRuntime.go -d ./,./cloud-control-manager -o api > /dev/null
 	@sed -i -e 's/github_com_cloud-barista_cb-spider_cloud-control-manager_cloud-driver_interfaces_resources./spider./g' \
 	        -e 's/restruntime./spider./g' ./api/docs.go ./api/swagger.json ./api/swagger.yaml
