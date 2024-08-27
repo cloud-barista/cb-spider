@@ -11,6 +11,6 @@
 package resources
 
 type KeyValue struct {
-        Key string
-        Value string
+	Key   string `json:"Key" validate:"required" example:"key1"`
+	Value string `json:"Value,omitempty" validate:"omitempty"  example:"value1"`
 }

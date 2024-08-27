@@ -1,14 +1,14 @@
-default: cli
+default: swag cli
 		@echo -e '\t[CB-Spider] build ./bin/cb-spider....'
 		@go mod download
 		@go mod tidy
 		@go build -o bin/cb-spider ./api-runtime
-dyna plugin plug dynamic: cli
+dyna plugin plug dynamic: swag cli
 		@echo -e '\t[CB-Spider] build ./bin/cb-spider with plugin mode...'
 		@go mod download
 	        @go build -tags dyna -o bin/cb-spider-dyna ./api-runtime
 		@./build_all_driver_lib.sh;
-cc:
+cc: swag
 		@echo -e '\t[CB-Spider] build ./bin/cb-spider-arm for arm...'
 	        GOOS=linux GOARCH=arm go build -o cb-spider-arm ./api-runtime
 clean clear:
@@ -36,5 +36,11 @@ cli:
 
 swag swagger:
 		@echo -e '\t[CB-Spider] build Swagger docs'
-		@~/go/bin/swag i -g api-runtime/rest-runtime/CBSpiderRuntime.go -o api-runtime/rest-runtime/docs
+		@~/go/bin/swag i -g api-runtime/rest-runtime/CBSpiderRuntime.go -d ./,./cloud-control-manager -o api
+		@sed -i 's/github_com_cloud-barista_cb-spider_cloud-control-manager_cloud-driver_interfaces_resources./spider./g' ./api/docs.go
+		@sed -i 's/github_com_cloud-barista_cb-spider_cloud-control-manager_cloud-driver_interfaces_resources./spider./g' ./api/swagger.json
+		@sed -i 's/github_com_cloud-barista_cb-spider_cloud-control-manager_cloud-driver_interfaces_resources./spider./g' ./api/swagger.yaml
+		@sed -i 's/restruntime./spider./g' ./api/docs.go
+		@sed -i 's/restruntime./spider./g' ./api/swagger.json
+		@sed -i 's/restruntime./spider./g' ./api/swagger.yaml
 

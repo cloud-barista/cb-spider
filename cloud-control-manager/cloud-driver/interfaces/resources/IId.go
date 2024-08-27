@@ -12,6 +12,6 @@ package resources
 
 // Integrated-ID consisting of User's ID and CloudOS's ID
 type IID struct {
-        NameId     string // NameID by user
-        SystemId   string // SystemID by CloudOS
+	NameId   string `json:"NameId" validate:"required" example:"user-defined-name"`
+	SystemId string `json:"SystemId" validate:"required" example:"csp-defined-id"`
 }

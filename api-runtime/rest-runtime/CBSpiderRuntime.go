@@ -32,7 +32,7 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 
 	// echo-swagger middleware
-	_ "github.com/cloud-barista/cb-spider/api-runtime/rest-runtime/docs"
+	_ "github.com/cloud-barista/cb-spider/api"
 	echoSwagger "github.com/swaggo/echo-swagger"
 
 	"github.com/natefinch/lumberjack"
@@ -52,7 +52,10 @@ var cblog *logrus.Logger
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
 
 // @host localhost:1024
+
 // @BasePath /spider
+
+// @schemes http
 
 // @securityDefinitions.basic BasicAuth
 
@@ -89,7 +92,7 @@ type route struct {
 
 // JSON Simple message struct
 type SimpleMsg struct {
-	Message string `json:"message" example:"Any message"`
+	Message string `json:"message" validate:"required" example:"Any message" description:"A simple message to be returned by the API"`
 }
 
 //// CB-Spider Servcie Address Configuration
@@ -185,7 +188,9 @@ func RunServer() {
 		{"GET", "/", aw.SpiderInfo},
 
 		//----------Swagger
-		{"GET", "/swagger/*", echoSwagger.WrapHandler},
+		{"GET", "/api", echoSwagger.WrapHandler},
+		{"GET", "/api/", echoSwagger.WrapHandler},
+		{"GET", "/api/*", echoSwagger.WrapHandler},
 
 		//----------EndpointInfo
 		{"GET", "/endpointinfo", endpointInfo},
@@ -597,6 +602,9 @@ func ApiServer(routes []route) {
 
 	// for WebTerminal
 	e.Static("/spider/adminweb/static", filepath.Join(cbspiderRoot, "api-runtime/rest-runtime/admin-web/static"))
+
+	// for swagger
+	e.Static("/spider/swagger", filepath.Join(cbspiderRoot, "api"))
 
 	e.HideBanner = true
 	e.HidePort = true

@@ -17,15 +17,16 @@ type KeyPairReqInfo struct {
 	TagList []KeyValue
 }
 
+// KeyPairInfo represents information about a KeyPair.
 type KeyPairInfo struct {
-	IId         IID // {NameId, SystemId}
-	Fingerprint string
-	PublicKey   string
-	PrivateKey  string
-	VMUserID    string
+	IId         IID    `json:"IId" validate:"required"`                                                                              // {NameId, SystemId}
+	Fingerprint string `json:"Fingerprint,omitempty" validate:"omitempty" example:"3b:16:bf:1b:13:4b:b3:58:97:dc:72:19:45:bb:2c:8f"` // Unique identifier for the public key
+	PublicKey   string `json:"PublicKey,omitempty" validate:"omitempty" example:"ssh-rsa AAAAB3..."`                                 // Public part of the KeyPair
+	PrivateKey  string `json:"PrivateKey,omitempty" validate:"omitempty" example:"-----BEGIN PRIVATE KEY-----..."`                   // Private part of the KeyPair
+	VMUserID    string `json:"VMUserID,omitempty" validate:"omitempty" example:"cb-user"`                                            // cb-user or Administrator
 
-	TagList      []KeyValue
-	KeyValueList []KeyValue
+	TagList      []KeyValue `json:"TagList,omitempty" validate:"omitempty"`      // List of tags associated with this KeyPair
+	KeyValueList []KeyValue `json:"KeyValueList,omitempty" validate:"omitempty"` // Additional metadata as key-value pairs
 }
 
 type KeyPairHandler interface {
