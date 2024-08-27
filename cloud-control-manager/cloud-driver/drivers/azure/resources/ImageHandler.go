@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -497,9 +498,9 @@ func (imageHandler *AzureImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	if resp.VirtualMachineImage.Properties != nil &&
+	if !(resp.VirtualMachineImage.Properties != nil &&
 		resp.VirtualMachineImage.Properties.OSDiskImage != nil &&
-		resp.VirtualMachineImage.Properties.OSDiskImage.OperatingSystem != nil {
+		resp.VirtualMachineImage.Properties.OSDiskImage.OperatingSystem != nil) {
 		createErr := errors.New(fmt.Sprintf("Failed to Get Image. err = Failed to get image information"))
 		cblogger.Error(createErr)
 		LoggingError(hiscallInfo, createErr)
