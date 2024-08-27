@@ -267,6 +267,17 @@ func convertDiskInfo(diskResp *cbs.Disk) (irs.DiskInfo, error) {
 	diskInfo.Status = convertTenStatusToDiskStatus(diskResp)
 	diskInfo.Zone = *diskResp.Placement.Zone
 
+	if diskResp.Tags != nil {
+		var tagList []irs.KeyValue
+		for _, tag := range diskResp.Tags {
+			tagList = append(tagList, irs.KeyValue{
+				Key:   *tag.Key,
+				Value: *tag.Value,
+			})
+			diskInfo.TagList = tagList
+		}
+	}
+
 	return diskInfo, nil
 }
 

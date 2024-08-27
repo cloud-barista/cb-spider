@@ -767,6 +767,17 @@ func (vmHandler *TencentVMHandler) ExtractDescribeInstances(curVm *cvm.Instance)
 		vmInfo.PrivateIP = *curVm.PrivateIpAddresses[0]
 	}
 
+	if !reflect.ValueOf(curVm.Tags).IsNil() {
+		var tagList []irs.KeyValue
+		for _, tag := range curVm.Tags {
+			tagList = append(tagList, irs.KeyValue{
+				Key:   *tag.Key,
+				Value: *tag.Value,
+			})
+		}
+		vmInfo.TagList = tagList
+	}
+
 	keyValueList := []irs.KeyValue{
 		{Key: "InstanceState", Value: *curVm.InstanceState},
 		{Key: "OsName", Value: *curVm.OsName},
