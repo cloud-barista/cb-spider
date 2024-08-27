@@ -112,10 +112,13 @@ $GOPATH/src/github.com/cloud-barista/ktcloud/ktcloud/main/
      - SSD-Provisioned : 100 ~ 800G(100G 단위 지정)
      - 아래의 link에서 'Volume : 생성' 부분 > 'diskofferingid' 표 참고
        - https://cloud.kt.com/docs/open-api-guide/g/computing/disk-volume
+   - Disk 생성시 다른 해당 connection 외의 다른 zone을 지정하여 disk를 생성할 수 없음.
+       - 다른 zone을 지정하여 생성할 경우 CSP(KT Cloud) API로부터 오류 발생
 <p><br>
 
-  O VM을 대상으로 MyImage 생성시 주의할 점
-   - KT Cloud Classic 클라우드 서비스에서는 VM이 중지된(Suspended) 상태에서만 MyImage 생성이 가능함.
+  O VM을 대상으로 MyImage 생성 및 삭제시 주의할 점
+   - KT Cloud Classic 클라우드 서비스에서는 VM이 중지된(Suspended) 상태에서만 MyImage(KT Cloud Template) 생성이 가능함.
+   - 생성된지 1시간 이내의 MyImage(KT Cloud Template)는 삭제할 수 없음.
 <p><br>
 
 #### # KT Cloud Classic (G1/G2) 드라이버 개발시 참고 사항

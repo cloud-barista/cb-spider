@@ -91,17 +91,19 @@ func (myImageHandler *KtCloudMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIm
 	}
 
 	// Add the Tag List according to the ReqInfo
-	tagHandler := KtCloudTagHandler {
-		RegionInfo:  myImageHandler.RegionInfo,
-		Client:    	 myImageHandler.Client,
+	if len(snapshotReqInfo.TagList) > 0 {
+		tagHandler := KtCloudTagHandler {
+			RegionInfo:  myImageHandler.RegionInfo,
+			Client:    	 myImageHandler.Client,
+		}
+		_, createErr := tagHandler.createTagList(irs.RSType(irs.MYIMAGE), &imgResp.Createtemplateresponse.ID, snapshotReqInfo.TagList)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Add the Tag List on the Image : [%v]", createErr)
+			cblogger.Error(newErr.Error())
+			return irs.MyImageInfo{}, newErr
+		}
+		time.Sleep(time.Second * 1)
 	}
-	_, createErr := tagHandler.createTagList(irs.RSType(irs.MYIMAGE), &imgResp.Createtemplateresponse.ID, snapshotReqInfo.TagList)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Add the Tag List on the Image : [%v]", createErr)
-		cblogger.Error(newErr.Error())
-		return irs.MyImageInfo{}, newErr
-	}
-	time.Sleep(time.Second * 1)
 
 	newImgIID := irs.IID{SystemId: imgResp.Createtemplateresponse.ID}
 	myImageInfo, err := myImageHandler.GetMyImage(newImgIID)

@@ -70,7 +70,7 @@ require (
 	github.com/alibabacloud-go/ecs-20140526/v4 v4.24.17
 	github.com/alibabacloud-go/tea v1.2.2
 	github.com/alibabacloud-go/vpc-20160428/v6 v6.4.0
-	github.com/cloud-barista/ktcloud-sdk-go v0.2.1-0.20240819125322-850a4e70f35b
+	github.com/cloud-barista/ktcloud-sdk-go v0.2.1-0.20240826073400-9dd317d24d0a
 	github.com/cloud-barista/ktcloudvpc-sdk-go v0.0.0-20240812121947-01daa5e57030
 	github.com/cloud-barista/nhncloud-sdk-go v0.0.0-20240709053216-536bc37fa6c9
 	github.com/go-openapi/strfmt v0.21.3
@@ -193,7 +193,7 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/net v0.27.0 // indirect
-	golang.org/x/sys v0.22.0 // indirect
+	golang.org/x/sys v0.24.0 // indirect
 	golang.org/x/term v0.22.0 // indirect
 	golang.org/x/text v0.17.0 // indirect
 	golang.org/x/time v0.5.0 // indirect

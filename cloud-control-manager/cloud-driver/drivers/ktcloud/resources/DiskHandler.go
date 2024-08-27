@@ -123,7 +123,7 @@ func (diskHandler *KtCloudDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 	volumeReq := ktsdk.CreateVolumeReqInfo{
 		Name:           diskReqInfo.IId.NameId,  		// Required
 		DiskOfferingId: "",								// Required
-		ZoneId:         diskHandler.RegionInfo.Zone, 	// Required
+		ZoneId:         diskReqInfo.Zone, 				// Required
 		UsagePlanType:  DefaultDiskUsagePlanType,
 		ProductCode:    volumeProductCode,
 		IOPS: 			reqIOPS, // When entering IOPS value, it is created with 'SSD-Provisioned' type of volume. (Not general SSD type)
@@ -146,17 +146,19 @@ func (diskHandler *KtCloudDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 	}
 
 	// Add the Tag List according to the ReqInfo
-	tagHandler := KtCloudTagHandler {
-		RegionInfo:  diskHandler.RegionInfo,
-		Client:    	 diskHandler.Client,
+	if len(diskReqInfo.TagList) > 0 {
+		tagHandler := KtCloudTagHandler {
+			RegionInfo:  diskHandler.RegionInfo,
+			Client:    	 diskHandler.Client,
+		}
+		_, createErr := tagHandler.createTagList(irs.RSType(irs.DISK), &createVolumeResponse.Createvolumeresponse.ID, diskReqInfo.TagList)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Add the Tag List on the Disk : [%v]", createErr)
+			cblogger.Error(newErr.Error())
+			return irs.DiskInfo{}, newErr
+		}
+		time.Sleep(time.Second * 1)
 	}
-	_, createErr := tagHandler.createTagList(irs.RSType(irs.DISK), &createVolumeResponse.Createvolumeresponse.ID, diskReqInfo.TagList)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Add the Tag List on the Disk : [%v]", createErr)
-		cblogger.Error(newErr.Error())
-		return irs.DiskInfo{}, newErr
-	}
-	time.Sleep(time.Second * 1)
 
 	newVolumeIID := irs.IID{SystemId: createVolumeResponse.Createvolumeresponse.ID}
 	newDiskInfo, err := diskHandler.GetDisk(newVolumeIID)
@@ -642,6 +644,10 @@ func (diskHandler *KtCloudDiskHandler) mappingDiskInfo(volume *ktsdk.Volume) (ir
 		}
 	}
 
+	if !strings.EqualFold(volume.ZoneId, "") {
+		diskInfo.Zone = volume.ZoneId
+	}
+
 	// Get the Tag List of the Disk
 	var kvList []irs.KeyValue
 	tagHandler := KtCloudTagHandler {
@@ -670,11 +676,30 @@ func (diskHandler *KtCloudDiskHandler) mappingDiskInfo(volume *ktsdk.Volume) (ir
 		iops = strconv.FormatInt(volume.MaxIOPS, 10)
 	}
 
+	// Set Display Name of the Zone
+	var zoneDisplaName string
+	if volume.ZoneName != "" {
+		if strings.EqualFold(volume.ZoneName, "kr-0") {  // ???
+			zoneDisplaName= "KOR-Seoul M"
+		} else if strings.EqualFold(volume.ZoneName, "kr-md2-1") {
+			zoneDisplaName= "KOR-Seoul M2"
+		} else if strings.EqualFold(volume.ZoneName, "kr-1") {
+			zoneDisplaName= "KOR-Central A"
+		} else if strings.EqualFold(volume.ZoneName, "kr-2") {
+			zoneDisplaName= "KOR-Central B"
+		} else if strings.EqualFold(volume.ZoneName, "kr-3") {
+			zoneDisplaName= "KOR-HA"
+		} else {
+		zoneDisplaName= volume.ZoneName 
+		}
+	}
+
 	keyValueList := []irs.KeyValue{
 		{Key: "Type", 			Value: volume.Type},
 		{Key: "MaxIOPS", 		Value: iops},
 		{Key: "UsagePlanType", 	Value: volume.UsagePlanType},
 		{Key: "AttachedTime", 	Value: volume.AttachedTime},
+		{Key: "ZoneDisplaName", Value: zoneDisplaName},
 		{Key: "VMState", 		Value: volume.VMState},
 	}
 	diskInfo.KeyValueList = keyValueList
@@ -731,14 +756,14 @@ func (diskHandler *KtCloudDiskHandler) getVolumeIdsWithVMId(vmId string) ([]stri
 	start := call.Start()
 	result, err := diskHandler.Client.ListVolumes(volumeReq)
 	if err != nil {
-		cblogger.Error("Failed to Get KT Cloud Volume list : [%v]", err)
+		cblogger.Error("Failed to Get Volume list from KT Cloud : [%v]", err)
 		return nil, err
 	}
 	LoggingInfo(callLogInfo, start)
 	// spew.Dump(result)
 
 	if len(result.Listvolumesresponse.Volume) < 1 {
-		newErr := fmt.Errorf("Failed to Get Volume List on the Zone!!")
+		newErr := fmt.Errorf("Failed to Find Any Volume Info on the Zone!!")
 		cblogger.Error(newErr.Error())
 		return nil, newErr
 	}
@@ -751,7 +776,7 @@ func (diskHandler *KtCloudDiskHandler) getVolumeIdsWithVMId(vmId string) ([]stri
 	}
 	if len(volumeIds) < 1 {
 		newErr := fmt.Errorf("Failed to Get Volume ID with the VM ID!!")
-		cblogger.Error(newErr.Error())
+		cblogger.Debug(newErr.Error())
 		return nil, newErr
 	}
 	return volumeIds, nil	
