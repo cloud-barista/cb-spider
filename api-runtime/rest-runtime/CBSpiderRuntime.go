@@ -75,15 +75,6 @@ func init() {
 	cr.ServicePort = getServicePort("SERVICE_ADDRESS")
 }
 
-// REST API Return struct for boolean type
-type BooleanInfo struct {
-	Result string // true or false
-}
-
-type StatusInfo struct {
-	Status string // PENDING | RUNNING | SUSPENDING | SUSPENDED | REBOOTING | TERMINATING | TERMINATED
-}
-
 // ex) {"POST", "/driver", registerCloudDriver}
 type route struct {
 	method, path string

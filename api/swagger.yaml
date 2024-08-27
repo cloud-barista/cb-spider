@@ -12,6 +12,14 @@ definitions:
     - NameId
     - SystemId
     type: object
+  spider.ImageType:
+    enum:
+    - PublicImage
+    - MyImage
+    type: string
+    x-enum-varnames:
+    - PublicImage
+    - MyImage
   spider.KeyPairInfo:
     properties:
       Fingerprint:
@@ -57,6 +65,25 @@ definitions:
         type: string
     required:
     - Key
+    type: object
+  spider.Platform:
+    enum:
+    - LINUX/UNIX
+    - WINDOWS
+    type: string
+    x-enum-varnames:
+    - LINUX_UNIX
+    - WINDOWS
+  spider.RegionInfo:
+    properties:
+      Region:
+        example: us-east-1
+        type: string
+      Zone:
+        example: us-east-1a
+        type: string
+    required:
+    - Region
     type: object
   spider.SecurityInfo:
     properties:
@@ -138,6 +165,143 @@ definitions:
     - IPv4_CIDR
     - Zone
     type: object
+  spider.VMInfo:
+    properties:
+      AccessPoint:
+        description: 10.2.3.2:22, 123.456.789.123:432
+        example: 1.2.3.4:22
+        type: string
+      DataDiskIIDs:
+        description: 'example:"[{NameId: ''datadisk-01'', SystemId: ''datadisk-12345678''}]"'
+        items:
+          $ref: '#/definitions/spider.IID'
+        type: array
+      IId:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: 'example:"{NameId: ''vm-01'', SystemId: ''i-12345678''}"'
+      ImageIId:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: 'example:"{NameId: ''ami-12345678'', SystemId: ''ami-12345678''}"'
+      ImageType:
+        allOf:
+        - $ref: '#/definitions/spider.ImageType'
+        description: PublicImage | MyImage
+        example: PublicImage
+      KeyPairIId:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: 'example:"{NameId: ''keypair-01'', SystemId: ''keypair-12345678''}"'
+      KeyValueList:
+        description: 'example:"[{Key: ''Architecture'', Value: ''x86_64''}]"'
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      NetworkInterface:
+        example: eni-12345678
+        type: string
+      Platform:
+        allOf:
+        - $ref: '#/definitions/spider.Platform'
+        description: LINUX | WINDOWS
+        example: LINUX
+      PrivateDNS:
+        example: ip-192-168-1-1.ec2.internal
+        type: string
+      PrivateIP:
+        example: 192.168.1.1
+        type: string
+      PublicDNS:
+        example: ec2-1-2-3-4.compute-1.amazonaws.com
+        type: string
+      PublicIP:
+        example: 1.2.3.4
+        type: string
+      Region:
+        allOf:
+        - $ref: '#/definitions/spider.RegionInfo'
+        description: 'example:"{Region: ''us-east-1'', Zone: ''us-east-1a''}"'
+      RootDeviceName:
+        description: '"/dev/sda1", ...'
+        example: /dev/sda1
+        type: string
+      RootDiskSize:
+        description: '"default", "50", "1000" (GB)'
+        example: "50"
+        type: string
+      RootDiskType:
+        description: '"gp2", "Premium SSD", ...'
+        example: gp2
+        type: string
+      SSHAccessPoint:
+        description: Deprecated
+        example: 10.2.3.2:22
+        type: string
+      SecurityGroupIIds:
+        description: 'example:"[{NameId: ''sg-01'', SystemId: ''sg-12345678''}]"'
+        items:
+          $ref: '#/definitions/spider.IID'
+        type: array
+      StartTime:
+        description: 'Timezone: based on cloud-barista server location.'
+        example: "2024-08-27T10:00:00Z"
+        type: string
+      SubnetIID:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: 'example:"{NameId: ''subnet-01'', SystemId: ''subnet-12345678''}"'
+      TagList:
+        description: 'example:"[{Key: ''Name'', Value: ''MyVM''}]"'
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      VMBlockDisk:
+        description: Deprecated soon
+        example: /dev/sda2
+        type: string
+      VMBootDisk:
+        description: Deprecated soon
+        example: /dev/sda1
+        type: string
+      VMSpecName:
+        description: instance type or flavour, etc... ex) t2.micro or f1.micro
+        example: t2.micro
+        type: string
+      VMUserId:
+        description: cb-user or Administrator
+        example: cb-user
+        type: string
+      VMUserPasswd:
+        description: Only for Windows
+        example: password1234
+        type: string
+      VpcIID:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: 'example:"{NameId: ''vpc-01'', SystemId: ''vpc-12345678''}"'
+    required:
+    - AccessPoint
+    - DataDiskIIDs
+    - IId
+    - ImageIId
+    - ImageType
+    - KeyPairIId
+    - NetworkInterface
+    - Platform
+    - PrivateIP
+    - PublicIP
+    - Region
+    - RootDeviceName
+    - RootDiskSize
+    - RootDiskType
+    - SecurityGroupIIds
+    - StartTime
+    - SubnetIID
+    - VMSpecName
+    - VMUserId
+    - VpcIID
+    type: object
   spider.VPCInfo:
     properties:
       IId:
@@ -186,7 +350,9 @@ definitions:
               $ref: '#/definitions/spider.KeyValue'
             type: array
           Zone:
-            example: us-east-1a
+            description: target zone for the subnet, if not specified, it will be
+              created in the same zone as the Connection.
+            example: us-east-1b
             type: string
         required:
         - IPv4_CIDR
@@ -217,9 +383,12 @@ definitions:
     type: object
   spider.BooleanInfo:
     properties:
-      result:
+      Result:
         description: true or false
+        example: "true"
         type: string
+    required:
+    - Result
     type: object
   spider.ConnectionRequest:
     properties:
@@ -268,6 +437,9 @@ definitions:
                     $ref: '#/definitions/spider.KeyValue'
                   type: array
                 Zone:
+                  description: target zone for the subnet, if not specified, it will
+                    be created in the same zone as the Connection.
+                  example: us-east-1b
                   type: string
               required:
               - IPv4_CIDR
@@ -480,6 +652,15 @@ definitions:
     required:
     - message
     type: object
+  spider.StatusInfo:
+    properties:
+      Status:
+        description: '"RUNNING,SUSPENDING,SUSPENDED,REBOOTING,TERMINATING,TERMINATED,NOTEXIST,FAILED"'
+        example: RUNNING
+        type: string
+    required:
+    - Status
+    type: object
   spider.SubnetRegisterRequest:
     properties:
       ConnectionName:
@@ -524,6 +705,151 @@ definitions:
     required:
     - ConnectionName
     - ReqInfo
+    type: object
+  spider.VMListResponse:
+    properties:
+      vm:
+        items:
+          $ref: '#/definitions/spider.VMInfo'
+        type: array
+    required:
+    - vm
+    type: object
+  spider.VMRegisterRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          CSPId:
+            example: csp-vm-1234
+            type: string
+          Name:
+            example: vm-01
+            type: string
+        required:
+        - CSPId
+        - Name
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.VMStartRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      IDTransformMode:
+        description: 'ON: transform CSP ID, OFF: no-transform CSP ID'
+        example: "ON"
+        type: string
+      ReqInfo:
+        properties:
+          DataDiskNames:
+            description: same zone as this VM
+            example:
+            - data-disk-01
+            - ' data-disk-02'
+            items:
+              type: string
+            type: array
+          ImageName:
+            example: ami-12345678
+            type: string
+          ImageType:
+            description: PublicImage or MyImage
+            example: PublicImage
+            type: string
+          KeyPairName:
+            example: keypair-01
+            type: string
+          Name:
+            example: vm-01
+            type: string
+          RootDiskSize:
+            description: GB, 30 or default, if not specified, default is used
+            example: "30"
+            type: string
+          RootDiskType:
+            description: gp2 or default, if not specified, default is used
+            example: gp2
+            type: string
+          SecurityGroupNames:
+            example:
+            - sg-01
+            - sg-02
+            items:
+              type: string
+            type: array
+          SubnetName:
+            example: subnet-01
+            type: string
+          TagList:
+            items:
+              $ref: '#/definitions/spider.KeyValue'
+            type: array
+          VMSpecName:
+            example: t2.micro
+            type: string
+          VMUserId:
+            description: Administrator, Windows Only
+            example: Administrator
+            type: string
+          VMUserPasswd:
+            description: Windows Only
+            example: password1234
+            type: string
+          VPCName:
+            example: vpc-01
+            type: string
+        required:
+        - ImageName
+        - ImageType
+        - KeyPairName
+        - Name
+        - SecurityGroupNames
+        - SubnetName
+        - VMSpecName
+        - VPCName
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.VMStatusResponse:
+    properties:
+      Status:
+        description: Creating,Running,Suspending,Suspended,Resuming,Rebooting,Terminating,Terminated,NotExist,Failed
+        example: Running
+        type: string
+    required:
+    - Status
+    type: object
+  spider.VMUsingResources:
+    properties:
+      Resources:
+        properties:
+          SGList:
+            description: 'example:"[{NameId: ''sg-01'', SystemId: ''sg-12345678''}]"'
+            items:
+              $ref: '#/definitions/spider.IID'
+            type: array
+          VMKey:
+            allOf:
+            - $ref: '#/definitions/spider.IID'
+            description: 'example:"{NameId: ''keypair-01'', SystemId: ''keypair-12345678''}"'
+          VPC:
+            allOf:
+            - $ref: '#/definitions/spider.IID'
+            description: 'example:"{NameId: ''vpc-01'', SystemId: ''vpc-12345678''}"'
+        required:
+        - SGList
+        - VPC
+        type: object
+    required:
+    - Resources
     type: object
   spider.VPCRegisterRequest:
     properties:
@@ -628,6 +954,41 @@ paths:
       summary: List All SecurityGroups
       tags:
       - '[SecurityGroup management]'
+  /allvm:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of all Virtual Machines (VMs) across all connections.
+      operationId: list-all-vm
+      parameters:
+      - description: The name of the Connection
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all VMs with their respective lists
+          schema:
+            $ref: '#/definitions/spider.AllResourceListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All VMs
+      tags:
+      - '[VM management]'
   /allvpc:
     get:
       consumes:
@@ -664,6 +1025,53 @@ paths:
       summary: List All VPCs
       tags:
       - '[VPC management]'
+  /controlvm/{Name}:
+    put:
+      consumes:
+      - application/json
+      description: Control the state of a Virtual Machine (VM) such as suspend, resume,
+        or reboot.
+      operationId: control-vm
+      parameters:
+      - description: Request body for controlling a VM
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The name of the VM to control
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: The action to perform on the VM (suspend, resume, reboot)
+        in: query
+        name: action
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the control operation
+          schema:
+            $ref: '#/definitions/spider.VMStatusResponse'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Control VM
+      tags:
+      - '[VM management]'
   /countkeypair:
     get:
       description: Get the total number of KeyPairs across all connections.
@@ -790,6 +1198,48 @@ paths:
       summary: Count Subnets by Connection
       tags:
       - '[VPC management]'
+  /countvm:
+    get:
+      description: Get the total number of Virtual Machines (VMs) across all connections.
+      operationId: count-all-vms
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of VMs
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count All VMs
+      tags:
+      - '[VM management]'
+  /countvm/{ConnectionName}:
+    get:
+      description: Get the total number of Virtual Machines (VMs) for a specific connection.
+      operationId: count-vms-by-connection
+      parameters:
+      - description: The name of the Connection
+        in: path
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of VMs for the connection
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count VMs by Connection
+      tags:
+      - '[VM management]'
   /countvpc:
     get:
       description: Get the total number of VPCs across all connections.
@@ -914,6 +1364,86 @@ paths:
       summary: Delete CSP SecurityGroup
       tags:
       - '[SecurityGroup management]'
+  /cspvm/{Id}:
+    delete:
+      consumes:
+      - application/json
+      description: Terminate a specified CSP Virtual Machine (VM).
+      operationId: terminate-csp-vm
+      parameters:
+      - description: Request body for terminating a CSP VM
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The CSP VM ID to terminate
+        in: path
+        name: Id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the terminate operation
+          schema:
+            $ref: '#/definitions/spider.StatusInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Terminate CSP VM
+      tags:
+      - '[VM management]'
+    get:
+      consumes:
+      - application/json
+      description: Retrieve details of a specific CSP Virtual Machine (VM).
+      operationId: get-csp-vm
+      parameters:
+      - description: The name of the Connection to get a CSP VM for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: The CSP VM ID to retrieve
+        in: path
+        name: Id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the CSP VM
+          schema:
+            $ref: '#/definitions/spider.VMInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get CSP VM
+      tags:
+      - '[VM management]'
   /cspvpc/{Id}:
     delete:
       consumes:
@@ -991,6 +1521,45 @@ paths:
       summary: Get Security Group Owner VPC
       tags:
       - '[VPC management]'
+  /getvmusingresources:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve details of a VM using resource ID.
+      operationId: get-vm-using-rs
+      parameters:
+      - description: Connection name for the VM
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: CSP ID of the VM
+        in: query
+        name: CSPId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the VM using resource
+          schema:
+            $ref: '#/definitions/spider.VMUsingResources'
+        "400":
+          description: Bad Request, possibly due to invalid query parameters
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get VM Using Resource
+      tags:
+      - '[VM management]'
   /keypair:
     get:
       consumes:
@@ -1375,6 +1944,84 @@ paths:
       summary: Unregister Subnet
       tags:
       - '[VPC management]'
+  /regvm:
+    post:
+      consumes:
+      - application/json
+      description: Register a new Virtual Machine (VM) with the specified name and
+        CSP ID.
+      operationId: register-vm
+      parameters:
+      - description: Request body for registering a VM
+        in: body
+        name: VMRegisterRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.VMRegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the registered VM
+          schema:
+            $ref: '#/definitions/spider.VMInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Register VM
+      tags:
+      - '[VM management]'
+  /regvm/{Name}:
+    delete:
+      consumes:
+      - application/json
+      description: Unregister a Virtual Machine (VM) with the specified name.
+      operationId: unregister-vm
+      parameters:
+      - description: Request body for unregistering a VM
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The name of the VM to unregister
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the unregister operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Unregister VM
+      tags:
+      - '[VM management]'
   /regvpc:
     post:
       consumes:
@@ -1687,6 +2334,235 @@ paths:
       summary: Add Rules to SecurityGroup
       tags:
       - '[SecurityGroup management]'
+  /vm:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of Virtual Machines (VMs) associated with a specific
+        connection.
+      operationId: list-vm
+      parameters:
+      - description: The name of the Connection to list VMs for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of VMs
+          schema:
+            $ref: '#/definitions/spider.VMListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List VMs
+      tags:
+      - '[VM management]'
+    post:
+      consumes:
+      - application/json
+      description: Start a new Virtual Machine (VM) with specified configurations.
+      operationId: start-vm
+      parameters:
+      - description: Request body for starting a VM
+        in: body
+        name: VMStartRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.VMStartRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the started VM
+          schema:
+            $ref: '#/definitions/spider.VMInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Start VM
+      tags:
+      - '[VM management]'
+  /vm/{Name}:
+    delete:
+      consumes:
+      - application/json
+      description: Terminate a specified Virtual Machine (VM).
+      operationId: terminate-vm
+      parameters:
+      - description: Request body for terminating a VM
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The name of the VM to terminate
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: Force terminate the VM
+        in: query
+        name: force
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the terminate operation
+          schema:
+            $ref: '#/definitions/spider.StatusInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Terminate VM
+      tags:
+      - '[VM management]'
+    get:
+      consumes:
+      - application/json
+      description: Retrieve details of a specific Virtual Machine (VM).
+      operationId: get-vm
+      parameters:
+      - description: The name of the Connection to get a VM for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: The name of the VM to retrieve
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the VM
+          schema:
+            $ref: '#/definitions/spider.VMInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get VM
+      tags:
+      - '[VM management]'
+  /vmstatus:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of statuses for Virtual Machines (VMs) associated
+        with a specific connection.
+      operationId: list-vm-status
+      parameters:
+      - description: The name of the Connection to list VM statuses for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of VM statuses
+          schema:
+            $ref: '#/definitions/spider.VMStatusResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List VM Statuses
+      tags:
+      - '[VM management]'
+  /vmstatus/{Name}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the status of a specific Virtual Machine (VM).
+      operationId: get-vm-status
+      parameters:
+      - description: The name of the Connection to get a VM status for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: The name of the VM to retrieve the status of
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the VM status
+          schema:
+            $ref: '#/definitions/spider.VMStatusResponse'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get VM Status
+      tags:
+      - '[VM management]'
   /vpc:
     get:
       consumes:

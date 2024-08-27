@@ -155,11 +155,6 @@ func UnregisterSubnet(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
-// ConnectionRequest represents the request body for common use.
-type ConnectionRequest struct {
-	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-connection"`
-}
-
 // unregisterVPC godoc
 // @ID unregister-vpc
 // @Summary Unregister VPC
@@ -205,7 +200,7 @@ type CreateVPCRequest struct {
 		IPv4_CIDR      string `json:"IPv4_CIDR" validate:"omitempty"` // Some CSPs unsupported VPC CIDR
 		SubnetInfoList []struct {
 			Name      string          `json:"Name" validate:"required" example:"subnet-01"`
-			Zone      string          `json:"Zone,omitempty" validate:"omitempty"`
+			Zone      string          `json:"Zone,omitempty" validate:"omitempty" example:"us-east-1b"` // target zone for the subnet, if not specified, it will be created in the same zone as the Connection.
 			IPv4_CIDR string          `json:"IPv4_CIDR" validate:"required" example:"10.0.8.0/22"`
 			TagList   []cres.KeyValue `json:"TagList,omitempty" validate:"omitempty"`
 		} `json:"SubnetInfoList" validate:"required"`
@@ -355,7 +350,7 @@ type AddSubnetRequest struct {
 	IDTransformMode string `json:"IDTransformMode,omitempty" validate:"omitempty" example:"ON"` // ON: transform CSP ID, OFF: no-transform CSP ID
 	ReqInfo         struct {
 		Name      string          `json:"Name" validate:"required" example:"subnet-01"`
-		Zone      string          `json:"Zone,omitempty" validate:"omitempty" example:"us-east-1a"`
+		Zone      string          `json:"Zone,omitempty" validate:"omitempty" example:"us-east-1b"` // target zone for the subnet, if not specified, it will be created in the same zone as the Connection.
 		IPv4_CIDR string          `json:"IPv4_CIDR" validate:"required" example:"10.0.12.0/22"`
 		TagList   []cres.KeyValue `json:"TagList,omitempty" validate:"omitempty"`
 	} `json:"ReqInfo" validate:"required"`

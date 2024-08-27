@@ -122,6 +122,57 @@
                 }
             }
         },
+        "/allvm": {
+            "get": {
+                "description": "Retrieve a list of all Virtual Machines (VMs) across all connections.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM management]"
+                ],
+                "summary": "List All VMs",
+                "operationId": "list-all-vm",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of all VMs with their respective lists",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/allvpc": {
             "get": {
                 "description": "Retrieve a list of all Virtual Private Clouds (VPCs) across all connections.",
@@ -150,6 +201,73 @@
                         "description": "List of all VPCs with their respective lists",
                         "schema": {
                             "$ref": "#/definitions/spider.AllResourceListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/controlvm/{Name}": {
+            "put": {
+                "description": "Control the state of a Virtual Machine (VM) such as suspend, resume, or reboot.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM management]"
+                ],
+                "summary": "Control VM",
+                "operationId": "control-vm",
+                "parameters": [
+                    {
+                        "description": "Request body for controlling a VM",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the VM to control",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The action to perform on the VM (suspend, resume, reboot)",
+                        "name": "action",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the control operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.VMStatusResponse"
                         }
                     },
                     "400": {
@@ -362,6 +480,69 @@
                 }
             }
         },
+        "/countvm": {
+            "get": {
+                "description": "Get the total number of Virtual Machines (VMs) across all connections.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM management]"
+                ],
+                "summary": "Count All VMs",
+                "operationId": "count-all-vms",
+                "responses": {
+                    "200": {
+                        "description": "Total count of VMs",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/countvm/{ConnectionName}": {
+            "get": {
+                "description": "Get the total number of Virtual Machines (VMs) for a specific connection.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM management]"
+                ],
+                "summary": "Count VMs by Connection",
+                "operationId": "count-vms-by-connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Total count of VMs for the connection",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/countvpc": {
             "get": {
                 "description": "Get the total number of VPCs across all connections.",
@@ -545,6 +726,122 @@
                 }
             }
         },
+        "/cspvm/{Id}": {
+            "get": {
+                "description": "Retrieve details of a specific CSP Virtual Machine (VM).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM management]"
+                ],
+                "summary": "Get CSP VM",
+                "operationId": "get-csp-vm",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to get a CSP VM for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The CSP VM ID to retrieve",
+                        "name": "Id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the CSP VM",
+                        "schema": {
+                            "$ref": "#/definitions/spider.VMInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Terminate a specified CSP Virtual Machine (VM).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM management]"
+                ],
+                "summary": "Terminate CSP VM",
+                "operationId": "terminate-csp-vm",
+                "parameters": [
+                    {
+                        "description": "Request body for terminating a CSP VM",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The CSP VM ID to terminate",
+                        "name": "Id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the terminate operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.StatusInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/cspvpc/{Id}": {
             "delete": {
                 "description": "Delete a specified CSP Virtual Private Cloud (VPC).",
@@ -639,6 +936,64 @@
                     },
                     "400": {
                         "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/getvmusingresources": {
+            "get": {
+                "description": "Retrieve details of a VM using resource ID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM management]"
+                ],
+                "summary": "Get VM Using Resource",
+                "operationId": "get-vm-using-rs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection name for the VM",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "CSP ID of the VM",
+                        "name": "CSPId",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the VM using resource",
+                        "schema": {
+                            "$ref": "#/definitions/spider.VMUsingResources"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameters",
                         "schema": {
                             "$ref": "#/definitions/spider.SimpleMsg"
                         }
@@ -1221,6 +1576,119 @@
                 }
             }
         },
+        "/regvm": {
+            "post": {
+                "description": "Register a new Virtual Machine (VM) with the specified name and CSP ID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM management]"
+                ],
+                "summary": "Register VM",
+                "operationId": "register-vm",
+                "parameters": [
+                    {
+                        "description": "Request body for registering a VM",
+                        "name": "VMRegisterRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.VMRegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the registered VM",
+                        "schema": {
+                            "$ref": "#/definitions/spider.VMInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/regvm/{Name}": {
+            "delete": {
+                "description": "Unregister a Virtual Machine (VM) with the specified name.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM management]"
+                ],
+                "summary": "Unregister VM",
+                "operationId": "unregister-vm",
+                "parameters": [
+                    {
+                        "description": "Request body for unregistering a VM",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the VM to unregister",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the unregister operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/regvpc": {
             "post": {
                 "description": "Register a new Virtual Private Cloud (VPC) with the specified name and CSP ID.",
@@ -1653,6 +2121,339 @@
                         "description": "Result of the remove operation",
                         "schema": {
                             "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/vm": {
+            "get": {
+                "description": "Retrieve a list of Virtual Machines (VMs) associated with a specific connection.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM management]"
+                ],
+                "summary": "List VMs",
+                "operationId": "list-vm",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list VMs for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of VMs",
+                        "schema": {
+                            "$ref": "#/definitions/spider.VMListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Start a new Virtual Machine (VM) with specified configurations.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM management]"
+                ],
+                "summary": "Start VM",
+                "operationId": "start-vm",
+                "parameters": [
+                    {
+                        "description": "Request body for starting a VM",
+                        "name": "VMStartRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.VMStartRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the started VM",
+                        "schema": {
+                            "$ref": "#/definitions/spider.VMInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/vm/{Name}": {
+            "get": {
+                "description": "Retrieve details of a specific Virtual Machine (VM).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM management]"
+                ],
+                "summary": "Get VM",
+                "operationId": "get-vm",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to get a VM for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the VM to retrieve",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the VM",
+                        "schema": {
+                            "$ref": "#/definitions/spider.VMInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Terminate a specified Virtual Machine (VM).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM management]"
+                ],
+                "summary": "Terminate VM",
+                "operationId": "terminate-vm",
+                "parameters": [
+                    {
+                        "description": "Request body for terminating a VM",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the VM to terminate",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Force terminate the VM",
+                        "name": "force",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the terminate operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.StatusInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/vmstatus": {
+            "get": {
+                "description": "Retrieve a list of statuses for Virtual Machines (VMs) associated with a specific connection.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM management]"
+                ],
+                "summary": "List VM Statuses",
+                "operationId": "list-vm-status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list VM statuses for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of VM statuses",
+                        "schema": {
+                            "$ref": "#/definitions/spider.VMStatusResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/vmstatus/{Name}": {
+            "get": {
+                "description": "Retrieve the status of a specific Virtual Machine (VM).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM management]"
+                ],
+                "summary": "Get VM Status",
+                "operationId": "get-vm-status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to get a VM status for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the VM to retrieve the status of",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the VM status",
+                        "schema": {
+                            "$ref": "#/definitions/spider.VMStatusResponse"
                         }
                     },
                     "400": {
@@ -2113,6 +2914,17 @@
                 }
             }
         },
+        "spider.ImageType": {
+            "type": "string",
+            "enum": [
+                "PublicImage",
+                "MyImage"
+            ],
+            "x-enum-varnames": [
+                "PublicImage",
+                "MyImage"
+            ]
+        },
         "spider.KeyPairInfo": {
             "type": "object",
             "required": [
@@ -2176,6 +2988,33 @@
                 "Value": {
                     "type": "string",
                     "example": "value1"
+                }
+            }
+        },
+        "spider.Platform": {
+            "type": "string",
+            "enum": [
+                "LINUX/UNIX",
+                "WINDOWS"
+            ],
+            "x-enum-varnames": [
+                "LINUX_UNIX",
+                "WINDOWS"
+            ]
+        },
+        "spider.RegionInfo": {
+            "type": "object",
+            "required": [
+                "Region"
+            ],
+            "properties": {
+                "Region": {
+                    "type": "string",
+                    "example": "us-east-1"
+                },
+                "Zone": {
+                    "type": "string",
+                    "example": "us-east-1a"
                 }
             }
         },
@@ -2297,6 +3136,202 @@
                 }
             }
         },
+        "spider.VMInfo": {
+            "type": "object",
+            "required": [
+                "AccessPoint",
+                "DataDiskIIDs",
+                "IId",
+                "ImageIId",
+                "ImageType",
+                "KeyPairIId",
+                "NetworkInterface",
+                "Platform",
+                "PrivateIP",
+                "PublicIP",
+                "Region",
+                "RootDeviceName",
+                "RootDiskSize",
+                "RootDiskType",
+                "SecurityGroupIIds",
+                "StartTime",
+                "SubnetIID",
+                "VMSpecName",
+                "VMUserId",
+                "VpcIID"
+            ],
+            "properties": {
+                "AccessPoint": {
+                    "description": "10.2.3.2:22, 123.456.789.123:432",
+                    "type": "string",
+                    "example": "1.2.3.4:22"
+                },
+                "DataDiskIIDs": {
+                    "description": "example:\"[{NameId: 'datadisk-01', SystemId: 'datadisk-12345678'}]\"",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.IID"
+                    }
+                },
+                "IId": {
+                    "description": "example:\"{NameId: 'vm-01', SystemId: 'i-12345678'}\"",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "ImageIId": {
+                    "description": "example:\"{NameId: 'ami-12345678', SystemId: 'ami-12345678'}\"",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "ImageType": {
+                    "description": "PublicImage | MyImage",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.ImageType"
+                        }
+                    ],
+                    "example": "PublicImage"
+                },
+                "KeyPairIId": {
+                    "description": "example:\"{NameId: 'keypair-01', SystemId: 'keypair-12345678'}\"",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "KeyValueList": {
+                    "description": "example:\"[{Key: 'Architecture', Value: 'x86_64'}]\"",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "NetworkInterface": {
+                    "type": "string",
+                    "example": "eni-12345678"
+                },
+                "Platform": {
+                    "description": "LINUX | WINDOWS",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.Platform"
+                        }
+                    ],
+                    "example": "LINUX"
+                },
+                "PrivateDNS": {
+                    "type": "string",
+                    "example": "ip-192-168-1-1.ec2.internal"
+                },
+                "PrivateIP": {
+                    "type": "string",
+                    "example": "192.168.1.1"
+                },
+                "PublicDNS": {
+                    "type": "string",
+                    "example": "ec2-1-2-3-4.compute-1.amazonaws.com"
+                },
+                "PublicIP": {
+                    "type": "string",
+                    "example": "1.2.3.4"
+                },
+                "Region": {
+                    "description": "example:\"{Region: 'us-east-1', Zone: 'us-east-1a'}\"",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.RegionInfo"
+                        }
+                    ]
+                },
+                "RootDeviceName": {
+                    "description": "\"/dev/sda1\", ...",
+                    "type": "string",
+                    "example": "/dev/sda1"
+                },
+                "RootDiskSize": {
+                    "description": "\"default\", \"50\", \"1000\" (GB)",
+                    "type": "string",
+                    "example": "50"
+                },
+                "RootDiskType": {
+                    "description": "\"gp2\", \"Premium SSD\", ...",
+                    "type": "string",
+                    "example": "gp2"
+                },
+                "SSHAccessPoint": {
+                    "description": "Deprecated",
+                    "type": "string",
+                    "example": "10.2.3.2:22"
+                },
+                "SecurityGroupIIds": {
+                    "description": "example:\"[{NameId: 'sg-01', SystemId: 'sg-12345678'}]\"",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.IID"
+                    }
+                },
+                "StartTime": {
+                    "description": "Timezone: based on cloud-barista server location.",
+                    "type": "string",
+                    "example": "2024-08-27T10:00:00Z"
+                },
+                "SubnetIID": {
+                    "description": "example:\"{NameId: 'subnet-01', SystemId: 'subnet-12345678'}\"",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "TagList": {
+                    "description": "example:\"[{Key: 'Name', Value: 'MyVM'}]\"",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "VMBlockDisk": {
+                    "description": "Deprecated soon",
+                    "type": "string",
+                    "example": "/dev/sda2"
+                },
+                "VMBootDisk": {
+                    "description": "Deprecated soon",
+                    "type": "string",
+                    "example": "/dev/sda1"
+                },
+                "VMSpecName": {
+                    "description": "instance type or flavour, etc... ex) t2.micro or f1.micro",
+                    "type": "string",
+                    "example": "t2.micro"
+                },
+                "VMUserId": {
+                    "description": "cb-user or Administrator",
+                    "type": "string",
+                    "example": "cb-user"
+                },
+                "VMUserPasswd": {
+                    "description": "Only for Windows",
+                    "type": "string",
+                    "example": "password1234"
+                },
+                "VpcIID": {
+                    "description": "example:\"{NameId: 'vpc-01', SystemId: 'vpc-12345678'}\"",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                }
+            }
+        },
         "spider.VPCInfo": {
             "type": "object",
             "required": [
@@ -2375,8 +3410,9 @@
                             }
                         },
                         "Zone": {
+                            "description": "target zone for the subnet, if not specified, it will be created in the same zone as the Connection.",
                             "type": "string",
-                            "example": "us-east-1a"
+                            "example": "us-east-1b"
                         }
                     }
                 }
@@ -2412,10 +3448,14 @@
         },
         "spider.BooleanInfo": {
             "type": "object",
+            "required": [
+                "Result"
+            ],
             "properties": {
-                "result": {
+                "Result": {
                     "description": "true or false",
-                    "type": "string"
+                    "type": "string",
+                    "example": "true"
                 }
             }
         },
@@ -2498,7 +3538,9 @@
                                         }
                                     },
                                     "Zone": {
-                                        "type": "string"
+                                        "description": "target zone for the subnet, if not specified, it will be created in the same zone as the Connection.",
+                                        "type": "string",
+                                        "example": "us-east-1b"
                                     }
                                 }
                             }
@@ -2793,6 +3835,19 @@
                 }
             }
         },
+        "spider.StatusInfo": {
+            "type": "object",
+            "required": [
+                "Status"
+            ],
+            "properties": {
+                "Status": {
+                    "description": "\"RUNNING,SUSPENDING,SUSPENDED,REBOOTING,TERMINATING,TERMINATED,NOTEXIST,FAILED\"",
+                    "type": "string",
+                    "example": "RUNNING"
+                }
+            }
+        },
         "spider.SubnetRegisterRequest": {
             "type": "object",
             "required": [
@@ -2852,6 +3907,212 @@
                         "VPCName": {
                             "type": "string",
                             "example": "vpc-01"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.VMListResponse": {
+            "type": "object",
+            "required": [
+                "vm"
+            ],
+            "properties": {
+                "vm": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.VMInfo"
+                    }
+                }
+            }
+        },
+        "spider.VMRegisterRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "CSPId",
+                        "Name"
+                    ],
+                    "properties": {
+                        "CSPId": {
+                            "type": "string",
+                            "example": "csp-vm-1234"
+                        },
+                        "Name": {
+                            "type": "string",
+                            "example": "vm-01"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.VMStartRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "IDTransformMode": {
+                    "description": "ON: transform CSP ID, OFF: no-transform CSP ID",
+                    "type": "string",
+                    "example": "ON"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "ImageName",
+                        "ImageType",
+                        "KeyPairName",
+                        "Name",
+                        "SecurityGroupNames",
+                        "SubnetName",
+                        "VMSpecName",
+                        "VPCName"
+                    ],
+                    "properties": {
+                        "DataDiskNames": {
+                            "description": "same zone as this VM",
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "example": [
+                                "data-disk-01",
+                                " data-disk-02"
+                            ]
+                        },
+                        "ImageName": {
+                            "type": "string",
+                            "example": "ami-12345678"
+                        },
+                        "ImageType": {
+                            "description": "PublicImage or MyImage",
+                            "type": "string",
+                            "example": "PublicImage"
+                        },
+                        "KeyPairName": {
+                            "type": "string",
+                            "example": "keypair-01"
+                        },
+                        "Name": {
+                            "type": "string",
+                            "example": "vm-01"
+                        },
+                        "RootDiskSize": {
+                            "description": "GB, 30 or default, if not specified, default is used",
+                            "type": "string",
+                            "example": "30"
+                        },
+                        "RootDiskType": {
+                            "description": "gp2 or default, if not specified, default is used",
+                            "type": "string",
+                            "example": "gp2"
+                        },
+                        "SecurityGroupNames": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "example": [
+                                "sg-01",
+                                "sg-02"
+                            ]
+                        },
+                        "SubnetName": {
+                            "type": "string",
+                            "example": "subnet-01"
+                        },
+                        "TagList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.KeyValue"
+                            }
+                        },
+                        "VMSpecName": {
+                            "type": "string",
+                            "example": "t2.micro"
+                        },
+                        "VMUserId": {
+                            "description": "Administrator, Windows Only",
+                            "type": "string",
+                            "example": "Administrator"
+                        },
+                        "VMUserPasswd": {
+                            "description": "Windows Only",
+                            "type": "string",
+                            "example": "password1234"
+                        },
+                        "VPCName": {
+                            "type": "string",
+                            "example": "vpc-01"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.VMStatusResponse": {
+            "type": "object",
+            "required": [
+                "Status"
+            ],
+            "properties": {
+                "Status": {
+                    "description": "Creating,Running,Suspending,Suspended,Resuming,Rebooting,Terminating,Terminated,NotExist,Failed",
+                    "type": "string",
+                    "example": "Running"
+                }
+            }
+        },
+        "spider.VMUsingResources": {
+            "type": "object",
+            "required": [
+                "Resources"
+            ],
+            "properties": {
+                "Resources": {
+                    "type": "object",
+                    "required": [
+                        "SGList",
+                        "VPC"
+                    ],
+                    "properties": {
+                        "SGList": {
+                            "description": "example:\"[{NameId: 'sg-01', SystemId: 'sg-12345678'}]\"",
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.IID"
+                            }
+                        },
+                        "VMKey": {
+                            "description": "example:\"{NameId: 'keypair-01', SystemId: 'keypair-12345678'}\"",
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/spider.IID"
+                                }
+                            ]
+                        },
+                        "VPC": {
+                            "description": "example:\"{NameId: 'vpc-01', SystemId: 'vpc-12345678'}\"",
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/spider.IID"
+                                }
+                            ]
                         }
                     }
                 }

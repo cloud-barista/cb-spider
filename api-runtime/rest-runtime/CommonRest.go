@@ -37,6 +37,22 @@ const (
 	NODEGROUP string = string(cres.NODEGROUP)
 )
 
+//================ Common Request & Response
+
+// ConnectionRequest represents the request body for common use.
+type ConnectionRequest struct {
+	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-connection"`
+}
+
+// REST API Return struct for boolean type
+type BooleanInfo struct {
+	Result string `json:"Result" validate:"required" example:"true"` // true or false
+}
+
+type StatusInfo struct {
+	Status string `json:"Status" validate:"required" example:"RUNNING"` // "RUNNING,SUSPENDING,SUSPENDED,REBOOTING,TERMINATING,TERMINATED,NOTEXIST,FAILED"
+}
+
 //================ Get CSP Resource Name
 
 func GetCSPResourceName(c echo.Context) error {
