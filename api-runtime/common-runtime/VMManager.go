@@ -195,7 +195,7 @@ func GetVMUsingRS(connectionName string, cspID string) (VMUsingResources, error)
 	//// ---(c) Get Using Key IID List
 
 	// get Key IID:list
-	var keyIIDInfoList []*SGIIDInfo
+	var keyIIDInfoList []*KeyIIDInfo
 	err = infostore.ListByCondition(&keyIIDInfoList, CONNECTION_NAME_COLUMN, connectionName)
 	if err != nil {
 		cblog.Error(err)
