@@ -1,0 +1,1983 @@
+basePath: /spider
+definitions:
+  spider.IID:
+    properties:
+      NameId:
+        example: user-defined-name
+        type: string
+      SystemId:
+        example: csp-defined-id
+        type: string
+    required:
+    - NameId
+    - SystemId
+    type: object
+  spider.KeyPairInfo:
+    properties:
+      Fingerprint:
+        description: Unique identifier for the public key
+        example: 3b:16:bf:1b:13:4b:b3:58:97:dc:72:19:45:bb:2c:8f
+        type: string
+      IId:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: '{NameId, SystemId}'
+      KeyValueList:
+        description: Additional metadata as key-value pairs
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      PrivateKey:
+        description: Private part of the KeyPair
+        example: '-----BEGIN PRIVATE KEY-----...'
+        type: string
+      PublicKey:
+        description: Public part of the KeyPair
+        example: ssh-rsa AAAAB3...
+        type: string
+      TagList:
+        description: List of tags associated with this KeyPair
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      VMUserID:
+        description: cb-user or Administrator
+        example: cb-user
+        type: string
+    required:
+    - IId
+    type: object
+  spider.KeyValue:
+    properties:
+      Key:
+        example: key1
+        type: string
+      Value:
+        example: value1
+        type: string
+    required:
+    - Key
+    type: object
+  spider.SecurityInfo:
+    properties:
+      IId:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: '{NameId, SystemId}'
+      KeyValueList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      SecurityRules:
+        items:
+          $ref: '#/definitions/spider.SecurityRuleInfo'
+        type: array
+      TagList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      VpcIID:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: '{NameId, SystemId}'
+    required:
+    - IId
+    - SecurityRules
+    - VpcIID
+    type: object
+  spider.SecurityRuleInfo:
+    properties:
+      CIDR:
+        description: if not specified, defaults to 0.0.0.0/0
+        example: 0.0.0.0/0
+        type: string
+      Direction:
+        description: inbound or outbound
+        example: inbound
+        type: string
+      FromPort:
+        description: 'TCP, UDP: 1~65535, ICMP, ALL: -1'
+        example: "22"
+        type: string
+      IPProtocol:
+        description: TCP, UDP, ICMP, ALL
+        example: TCP
+        type: string
+      ToPort:
+        description: 'TCP, UDP: 1~65535, ICMP, ALL: -1'
+        example: "22"
+        type: string
+    required:
+    - Direction
+    - FromPort
+    - IPProtocol
+    - ToPort
+    type: object
+  spider.SubnetInfo:
+    properties:
+      IId:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: '{NameId, SystemId}'
+      IPv4_CIDR:
+        example: 10.0.8.0/22
+        type: string
+      KeyValueList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      TagList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      Zone:
+        example: us-east-1a
+        type: string
+    required:
+    - IId
+    - IPv4_CIDR
+    - Zone
+    type: object
+  spider.VPCInfo:
+    properties:
+      IId:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: '{NameId, SystemId}'
+      IPv4_CIDR:
+        example: 10.0.0.0/16
+        type: string
+      KeyValueList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      SubnetInfoList:
+        items:
+          $ref: '#/definitions/spider.SubnetInfo'
+        type: array
+      TagList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+    required:
+    - IId
+    - IPv4_CIDR
+    - SubnetInfoList
+    type: object
+  spider.AddSubnetRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      IDTransformMode:
+        description: 'ON: transform CSP ID, OFF: no-transform CSP ID'
+        example: "ON"
+        type: string
+      ReqInfo:
+        properties:
+          IPv4_CIDR:
+            example: 10.0.12.0/22
+            type: string
+          Name:
+            example: subnet-01
+            type: string
+          TagList:
+            items:
+              $ref: '#/definitions/spider.KeyValue'
+            type: array
+          Zone:
+            example: us-east-1a
+            type: string
+        required:
+        - IPv4_CIDR
+        - Name
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.AllResourceListResponse:
+    properties:
+      MappedList:
+        items:
+          $ref: '#/definitions/spider.IID'
+        type: array
+      OnlyCSPList:
+        items:
+          $ref: '#/definitions/spider.IID'
+        type: array
+      OnlySpiderList:
+        items:
+          $ref: '#/definitions/spider.IID'
+        type: array
+    required:
+    - MappedList
+    - OnlyCSPList
+    - OnlySpiderList
+    type: object
+  spider.BooleanInfo:
+    properties:
+      result:
+        description: true or false
+        type: string
+    type: object
+  spider.ConnectionRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+    required:
+    - ConnectionName
+    type: object
+  spider.CountResponse:
+    properties:
+      count:
+        example: 5
+        type: integer
+    required:
+    - count
+    type: object
+  spider.CreateVPCRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      IDTransformMode:
+        description: 'ON: transform CSP ID, OFF: no-transform CSP ID'
+        example: "ON"
+        type: string
+      ReqInfo:
+        properties:
+          IPv4_CIDR:
+            description: Some CSPs unsupported VPC CIDR
+            type: string
+          Name:
+            example: vpc-01
+            type: string
+          SubnetInfoList:
+            items:
+              properties:
+                IPv4_CIDR:
+                  example: 10.0.8.0/22
+                  type: string
+                Name:
+                  example: subnet-01
+                  type: string
+                TagList:
+                  items:
+                    $ref: '#/definitions/spider.KeyValue'
+                  type: array
+                Zone:
+                  type: string
+              required:
+              - IPv4_CIDR
+              - Name
+              type: object
+            type: array
+          TagList:
+            items:
+              $ref: '#/definitions/spider.KeyValue'
+            type: array
+        required:
+        - Name
+        - SubnetInfoList
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.GetSGOwnerVPCRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          CSPId:
+            example: csp-sg-1234
+            type: string
+        required:
+        - CSPId
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.KeyCreateRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      IDTransformMode:
+        description: 'ON: transform CSP ID, OFF: no-transform CSP ID'
+        example: "ON"
+        type: string
+      ReqInfo:
+        properties:
+          Name:
+            example: keypair-01
+            type: string
+          TagList:
+            items:
+              $ref: '#/definitions/spider.KeyValue'
+            type: array
+        required:
+        - Name
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.KeyListResponse:
+    properties:
+      keypair:
+        items:
+          $ref: '#/definitions/spider.KeyPairInfo'
+        type: array
+    type: object
+  spider.KeyRegisterRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          CSPId:
+            example: csp-key-1234
+            type: string
+          Name:
+            example: keypair-01
+            type: string
+        required:
+        - CSPId
+        - Name
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.ListSecurityResponse:
+    properties:
+      securitygroup:
+        items:
+          $ref: '#/definitions/spider.SecurityInfo'
+        type: array
+    required:
+    - securitygroup
+    type: object
+  spider.ListVPCResponse:
+    properties:
+      vpc:
+        items:
+          $ref: '#/definitions/spider.VPCInfo'
+        type: array
+    required:
+    - vpc
+    type: object
+  spider.RuleControlRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          RuleInfoList:
+            items:
+              properties:
+                CIDR:
+                  example: 0.0.0.0/0(default)
+                  type: string
+                Direction:
+                  example: inbound
+                  type: string
+                FromPort:
+                  example: "22"
+                  type: string
+                IPProtocol:
+                  example: TCP
+                  type: string
+                ToPort:
+                  example: "22"
+                  type: string
+              required:
+              - Direction
+              - FromPort
+              - IPProtocol
+              - ToPort
+              type: object
+            type: array
+        required:
+        - RuleInfoList
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.SecurityGroupCreateRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      IDTransformMode:
+        description: 'ON: transform CSP ID, OFF: no-transform CSP ID'
+        example: "ON"
+        type: string
+      ReqInfo:
+        properties:
+          Name:
+            example: sg-01
+            type: string
+          SecurityRules:
+            items:
+              $ref: '#/definitions/spider.SecurityRuleInfo'
+            type: array
+          TagList:
+            items:
+              $ref: '#/definitions/spider.KeyValue'
+            type: array
+          VPCName:
+            example: vpc-01
+            type: string
+        required:
+        - Name
+        - SecurityRules
+        - VPCName
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.SecurityGroupRegisterRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          CSPId:
+            example: csp-sg-1234
+            type: string
+          Name:
+            example: sg-01
+            type: string
+          VPCName:
+            example: vpc-01
+            type: string
+        required:
+        - CSPId
+        - Name
+        - VPCName
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.SimpleMsg:
+    properties:
+      message:
+        example: Any message
+        type: string
+    required:
+    - message
+    type: object
+  spider.SubnetRegisterRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          CSPId:
+            example: csp-subnet-1234
+            type: string
+          Name:
+            example: subnet-01
+            type: string
+          VPCName:
+            example: vpc-01
+            type: string
+          Zone:
+            example: us-east-1a
+            type: string
+        required:
+        - CSPId
+        - Name
+        - VPCName
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.SubnetUnregisterRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          VPCName:
+            example: vpc-01
+            type: string
+        required:
+        - VPCName
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.VPCRegisterRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          CSPId:
+            example: csp-vpc-1234
+            type: string
+          Name:
+            example: vpc-01
+            type: string
+        required:
+        - CSPId
+        - Name
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+host: localhost:1024
+info:
+  contact:
+    email: contact-to-cloud-barista@googlegroups.com
+    name: API Support
+    url: http://cloud-barista.github.io
+  description: CB-Spider REST API
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  title: CB-Spider REST API
+  version: latest
+paths:
+  /allkeypair:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of all KeyPairs across all connections.
+      operationId: list-all-key
+      parameters:
+      - description: The name of the Connection
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all KeyPairs with their respective lists
+          schema:
+            $ref: '#/definitions/spider.AllResourceListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All KeyPairs
+      tags:
+      - '[KeyPair management]'
+  /allsecuritygroup:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of all Security Groups across all connections.
+      operationId: list-all-securitygroups
+      parameters:
+      - description: The name of the Connection
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all SecurityGroups with their respective lists
+          schema:
+            $ref: '#/definitions/spider.AllResourceListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All SecurityGroups
+      tags:
+      - '[SecurityGroup management]'
+  /allvpc:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of all Virtual Private Clouds (VPCs) across all
+        connections.
+      operationId: list-all-vpc
+      parameters:
+      - description: The name of the Connection
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all VPCs with their respective lists
+          schema:
+            $ref: '#/definitions/spider.AllResourceListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All VPCs
+      tags:
+      - '[VPC management]'
+  /countkeypair:
+    get:
+      description: Get the total number of KeyPairs across all connections.
+      operationId: count-all-keys
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of KeyPairs
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count All KeyPairs
+      tags:
+      - '[KeyPair management]'
+  /countkeypair/{ConnectionName}:
+    get:
+      description: Get the total number of KeyPairs for a specific connection.
+      operationId: count-keys-by-connection
+      parameters:
+      - description: The name of the Connection
+        in: path
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of KeyPairs for the connection
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count KeyPairs by Connection
+      tags:
+      - '[KeyPair management]'
+  /countsecuritygroup:
+    get:
+      description: Get the total number of Security Groups across all connections.
+      operationId: count-all-securitygroups
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of SecurityGroups
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count All SecurityGroups
+      tags:
+      - '[SecurityGroup management]'
+  /countsecuritygroup/{ConnectionName}:
+    get:
+      description: Get the total number of Security Groups for a specific connection.
+      operationId: count-securitygroups-by-connection
+      parameters:
+      - description: The name of the Connection
+        in: path
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of SecurityGroups for the connection
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count SecurityGroups by Connection
+      tags:
+      - '[SecurityGroup management]'
+  /countsubnet:
+    get:
+      description: Get the total number of Subnets across all connections.
+      operationId: count-all-subnets
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of Subnets
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count All Subnets
+      tags:
+      - '[VPC management]'
+  /countsubnet/{ConnectionName}:
+    get:
+      description: Get the total number of Subnets for a specific connection.
+      operationId: count-subnets-by-connection
+      parameters:
+      - description: The name of the Connection
+        in: path
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of Subnets for the connection
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count Subnets by Connection
+      tags:
+      - '[VPC management]'
+  /countvpc:
+    get:
+      description: Get the total number of VPCs across all connections.
+      operationId: count-all-vpcs
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of VPCs
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count All VPCs
+      tags:
+      - '[VPC management]'
+  /countvpc/{ConnectionName}:
+    get:
+      description: Get the total number of VPCs for a specific connection.
+      operationId: count-vpcs-by-connection
+      parameters:
+      - description: The name of the Connection
+        in: path
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of VPCs for the connection
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count VPCs by Connection
+      tags:
+      - '[VPC management]'
+  /cspkeypair/{Id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a specified CSP KeyPair.
+      operationId: delete-csp-key
+      parameters:
+      - description: Request body for deleting a CSP KeyPair
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The CSP KeyPair ID to delete
+        in: path
+        name: Id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the delete operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete CSP KeyPair
+      tags:
+      - '[KeyPair management]'
+  /cspsecuritygroup/{Id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a specified CSP Security Group.
+      operationId: delete-csp-securitygroup
+      parameters:
+      - description: Request body for deleting a CSP SecurityGroup
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The CSP SecurityGroup ID to delete
+        in: path
+        name: Id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the delete operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete CSP SecurityGroup
+      tags:
+      - '[SecurityGroup management]'
+  /cspvpc/{Id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a specified CSP Virtual Private Cloud (VPC).
+      operationId: delete-csp-vpc
+      parameters:
+      - description: Request body for deleting a CSP VPC
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The CSP VPC ID to delete
+        in: path
+        name: Id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the delete operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete CSP VPC
+      tags:
+      - '[VPC management]'
+  /getsecuritygroupowner:
+    post:
+      consumes:
+      - application/json
+      description: Retrieve the owner VPC of a specified Security Group.
+      operationId: get-sg-owner-vpc
+      parameters:
+      - description: Request body for getting Security Group Owner VPC
+        in: body
+        name: GetSGOwnerVPCRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.GetSGOwnerVPCRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the owner VPC
+          schema:
+            $ref: '#/definitions/spider.IID'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get Security Group Owner VPC
+      tags:
+      - '[VPC management]'
+  /keypair:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of KeyPairs associated with a specific connection.
+      operationId: list-key
+      parameters:
+      - description: The name of the Connection to list KeyPairs for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of KeyPairs
+          schema:
+            $ref: '#/definitions/spider.KeyListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List KeyPairs
+      tags:
+      - '[KeyPair management]'
+    post:
+      consumes:
+      - application/json
+      description: Create a new KeyPair with the specified configurations.
+      operationId: create-key
+      parameters:
+      - description: Request body for creating a KeyPair
+        in: body
+        name: KeyCreateRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.KeyCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the created KeyPair
+          schema:
+            $ref: '#/definitions/spider.KeyPairInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Create KeyPair
+      tags:
+      - '[KeyPair management]'
+  /keypair/{Name}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a specified KeyPair.
+      operationId: delete-key
+      parameters:
+      - description: Request body for deleting a KeyPair
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The name of the KeyPair to delete
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: Force delete the KeyPair
+        in: query
+        name: force
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the delete operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete KeyPair
+      tags:
+      - '[KeyPair management]'
+    get:
+      consumes:
+      - application/json
+      description: Retrieve details of a specific KeyPair.
+      operationId: get-key
+      parameters:
+      - description: The name of the Connection to get a KeyPair for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: The name of the KeyPair to retrieve
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the KeyPair
+          schema:
+            $ref: '#/definitions/spider.KeyPairInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get KeyPair
+      tags:
+      - '[KeyPair management]'
+  /regkeypair:
+    post:
+      consumes:
+      - application/json
+      description: Register a new KeyPair with the specified name and CSP ID.
+      operationId: register-key
+      parameters:
+      - description: Request body for registering a KeyPair
+        in: body
+        name: KeyRegisterRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.KeyRegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the registered KeyPair
+          schema:
+            $ref: '#/definitions/spider.KeyPairInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Register KeyPair
+      tags:
+      - '[KeyPair management]'
+  /regkeypair/{Name}:
+    delete:
+      consumes:
+      - application/json
+      description: Unregister a KeyPair with the specified name.
+      operationId: unregister-key
+      parameters:
+      - description: Request body for unregistering a KeyPair
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The name of the KeyPair to unregister
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the unregister operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Unregister KeyPair
+      tags:
+      - '[KeyPair management]'
+  /regsecuritygroup:
+    post:
+      consumes:
+      - application/json
+      description: Register a new Security Group with the specified name and CSP ID.
+      operationId: register-securitygroup
+      parameters:
+      - description: Request body for registering a SecurityGroup
+        in: body
+        name: SecurityGroupRegisterRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.SecurityGroupRegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the registered SecurityGroup
+          schema:
+            $ref: '#/definitions/spider.SecurityInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Register SecurityGroup
+      tags:
+      - '[SecurityGroup management]'
+  /regsecuritygroup/{Name}:
+    delete:
+      consumes:
+      - application/json
+      description: Unregister a Security Group with the specified name.
+      operationId: unregister-securitygroup
+      parameters:
+      - description: Request body for unregistering a SecurityGroup
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The name of the SecurityGroup to unregister
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the unregister operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Unregister SecurityGroup
+      tags:
+      - '[SecurityGroup management]'
+  /regsubnet:
+    post:
+      consumes:
+      - application/json
+      description: Register a new Subnet within a specified VPC.
+      operationId: register-subnet
+      parameters:
+      - description: Request body for registering a Subnet
+        in: body
+        name: SubnetRegisterRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.SubnetRegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the registered Subnet
+          schema:
+            $ref: '#/definitions/spider.SubnetInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Register Subnet
+      tags:
+      - '[VPC management]'
+  /regsubnet/{Name}:
+    delete:
+      consumes:
+      - application/json
+      description: Unregister a Subnet from a specified VPC.
+      operationId: unregister-subnet
+      parameters:
+      - description: Request body for unregistering a Subnet
+        in: body
+        name: SubnetUnregisterRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.SubnetUnregisterRequest'
+      - description: The name of the Subnet to unregister
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the unregister operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Unregister Subnet
+      tags:
+      - '[VPC management]'
+  /regvpc:
+    post:
+      consumes:
+      - application/json
+      description: Register a new Virtual Private Cloud (VPC) with the specified name
+        and CSP ID.
+      operationId: register-vpc
+      parameters:
+      - description: Request body for registering a VPC
+        in: body
+        name: VPCRegisterRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.VPCRegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the registered VPC
+          schema:
+            $ref: '#/definitions/spider.VPCInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Register VPC
+      tags:
+      - '[VPC management]'
+  /regvpc/{Name}:
+    delete:
+      consumes:
+      - application/json
+      description: Unregister a VPC with the specified name.
+      operationId: unregister-vpc
+      parameters:
+      - description: Request body for unregistering a VPC
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The name of the VPC to unregister
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the unregister operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Unregister VPC
+      tags:
+      - '[VPC management]'
+  /securitygroup:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of Security Groups associated with a specific connection.
+      operationId: list-securitygroup
+      parameters:
+      - description: The name of the Connection to list SecurityGroups for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of SecurityGroups
+          schema:
+            $ref: '#/definitions/spider.ListSecurityResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List SecurityGroups
+      tags:
+      - '[SecurityGroup management]'
+    post:
+      consumes:
+      - application/json
+      description: Create a new Security Group with specified rules and tags.
+      operationId: create-securitygroup
+      parameters:
+      - description: Request body for creating a SecurityGroup
+        in: body
+        name: SecurityGroupCreateRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.SecurityGroupCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the created SecurityGroup
+          schema:
+            $ref: '#/definitions/spider.SecurityInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Create SecurityGroup
+      tags:
+      - '[SecurityGroup management]'
+  /securitygroup/{Name}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a specified Security Group.
+      operationId: delete-securitygroup
+      parameters:
+      - description: Request body for deleting a SecurityGroup
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The name of the SecurityGroup to delete
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: Force delete the SecurityGroup
+        in: query
+        name: force
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the delete operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete SecurityGroup
+      tags:
+      - '[SecurityGroup management]'
+    get:
+      consumes:
+      - application/json
+      description: Retrieve details of a specific Security Group.
+      operationId: get-securitygroup
+      parameters:
+      - description: The name of the Connection to get a SecurityGroup for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: The name of the SecurityGroup to retrieve
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the SecurityGroup
+          schema:
+            $ref: '#/definitions/spider.SecurityInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get SecurityGroup
+      tags:
+      - '[SecurityGroup management]'
+  /securitygroup/{SGName}/rules:
+    delete:
+      consumes:
+      - application/json
+      description: Remove existing rules from a Security Group.
+      operationId: remove-rules-securitygroup
+      parameters:
+      - description: The name of the SecurityGroup to remove rules from
+        in: path
+        name: SGName
+        required: true
+        type: string
+      - description: Request body for removing rules
+        in: body
+        name: RuleControlRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.RuleControlRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the remove operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Remove Rules from SecurityGroup
+      tags:
+      - '[SecurityGroup management]'
+    post:
+      consumes:
+      - application/json
+      description: Add new rules to a Security Group.
+      operationId: add-rules-securitygroup
+      parameters:
+      - description: The name of the SecurityGroup to add rules to
+        in: path
+        name: SGName
+        required: true
+        type: string
+      - description: Request body for adding rules
+        in: body
+        name: RuleControlRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.RuleControlRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the SecurityGroup after adding rules
+          schema:
+            $ref: '#/definitions/spider.SecurityInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Add Rules to SecurityGroup
+      tags:
+      - '[SecurityGroup management]'
+  /vpc:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of Virtual Private Clouds (VPCs) associated with
+        a specific connection.
+      operationId: list-vpc
+      parameters:
+      - description: The name of the Connection to list VPCs for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of VPCs
+          schema:
+            $ref: '#/definitions/spider.ListVPCResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List VPCs
+      tags:
+      - '[VPC management]'
+    post:
+      consumes:
+      - application/json
+      description: Create a new Virtual Private Cloud (VPC) with specified subnet
+        configurations.
+      operationId: create-vpc
+      parameters:
+      - description: Request body for creating a VPC
+        in: body
+        name: CreateVPCRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.CreateVPCRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the created VPC
+          schema:
+            $ref: '#/definitions/spider.VPCInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Create VPC
+      tags:
+      - '[VPC management]'
+  /vpc/{Name}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a specified Virtual Private Cloud (VPC).
+      operationId: delete-vpc
+      parameters:
+      - description: Request body for deleting a VPC
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The name of the VPC to delete
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: Force delete the VPC
+        in: query
+        name: force
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the delete operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete VPC
+      tags:
+      - '[VPC management]'
+    get:
+      consumes:
+      - application/json
+      description: Retrieve details of a specific Virtual Private Cloud (VPC).
+      operationId: get-vpc
+      parameters:
+      - description: The name of the Connection to get a VPC for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: The name of the VPC to retrieve
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the VPC
+          schema:
+            $ref: '#/definitions/spider.VPCInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get VPC
+      tags:
+      - '[VPC management]'
+  /vpc/{VPCName}/cspsubnet/{Id}:
+    delete:
+      consumes:
+      - application/json
+      description: Remove an existing CSP Subnet from a VPC.
+      operationId: remove-csp-subnet
+      parameters:
+      - description: The name of the VPC
+        in: path
+        name: VPCName
+        required: true
+        type: string
+      - description: The CSP Subnet ID to remove
+        in: path
+        name: Id
+        required: true
+        type: string
+      - description: Request body for removing a CSP Subnet
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the remove operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Remove CSP Subnet
+      tags:
+      - '[VPC management]'
+  /vpc/{VPCName}/subnet:
+    post:
+      consumes:
+      - application/json
+      description: Add a new Subnet to an existing VPC.
+      operationId: add-subnet
+      parameters:
+      - description: The name of the VPC to add the Subnet to
+        in: path
+        name: VPCName
+        required: true
+        type: string
+      - description: Request body for adding a Subnet
+        in: body
+        name: AddSubnetRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.AddSubnetRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the added Subnet
+          schema:
+            $ref: '#/definitions/spider.SubnetInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Add Subnet
+      tags:
+      - '[VPC management]'
+  /vpc/{VPCName}/subnet/{SubnetName}:
+    delete:
+      consumes:
+      - application/json
+      description: Remove an existing Subnet from a VPC.
+      operationId: remove-subnet
+      parameters:
+      - description: The name of the VPC
+        in: path
+        name: VPCName
+        required: true
+        type: string
+      - description: The name of the Subnet to remove
+        in: path
+        name: SubnetName
+        required: true
+        type: string
+      - description: Request body for removing a Subnet
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the remove operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Remove Subnet
+      tags:
+      - '[VPC management]'
+schemes:
+- http
+securityDefinitions:
+  BasicAuth:
+    type: basic
+swagger: "2.0"

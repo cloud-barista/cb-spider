@@ -1,0 +1,2896 @@
+{
+    "schemes": [
+        "http"
+    ],
+    "swagger": "2.0",
+    "info": {
+        "description": "CB-Spider REST API",
+        "title": "CB-Spider REST API",
+        "contact": {
+            "name": "API Support",
+            "url": "http://cloud-barista.github.io",
+            "email": "contact-to-cloud-barista@googlegroups.com"
+        },
+        "license": {
+            "name": "Apache 2.0",
+            "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+        },
+        "version": "latest"
+    },
+    "host": "localhost:1024",
+    "basePath": "/spider",
+    "paths": {
+        "/allkeypair": {
+            "get": {
+                "description": "Retrieve a list of all KeyPairs across all connections.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[KeyPair management]"
+                ],
+                "summary": "List All KeyPairs",
+                "operationId": "list-all-key",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of all KeyPairs with their respective lists",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/allsecuritygroup": {
+            "get": {
+                "description": "Retrieve a list of all Security Groups across all connections.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[SecurityGroup management]"
+                ],
+                "summary": "List All SecurityGroups",
+                "operationId": "list-all-securitygroups",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of all SecurityGroups with their respective lists",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/allvpc": {
+            "get": {
+                "description": "Retrieve a list of all Virtual Private Clouds (VPCs) across all connections.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VPC management]"
+                ],
+                "summary": "List All VPCs",
+                "operationId": "list-all-vpc",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of all VPCs with their respective lists",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/countkeypair": {
+            "get": {
+                "description": "Get the total number of KeyPairs across all connections.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[KeyPair management]"
+                ],
+                "summary": "Count All KeyPairs",
+                "operationId": "count-all-keys",
+                "responses": {
+                    "200": {
+                        "description": "Total count of KeyPairs",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/countkeypair/{ConnectionName}": {
+            "get": {
+                "description": "Get the total number of KeyPairs for a specific connection.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[KeyPair management]"
+                ],
+                "summary": "Count KeyPairs by Connection",
+                "operationId": "count-keys-by-connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Total count of KeyPairs for the connection",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/countsecuritygroup": {
+            "get": {
+                "description": "Get the total number of Security Groups across all connections.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[SecurityGroup management]"
+                ],
+                "summary": "Count All SecurityGroups",
+                "operationId": "count-all-securitygroups",
+                "responses": {
+                    "200": {
+                        "description": "Total count of SecurityGroups",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/countsecuritygroup/{ConnectionName}": {
+            "get": {
+                "description": "Get the total number of Security Groups for a specific connection.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[SecurityGroup management]"
+                ],
+                "summary": "Count SecurityGroups by Connection",
+                "operationId": "count-securitygroups-by-connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Total count of SecurityGroups for the connection",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/countsubnet": {
+            "get": {
+                "description": "Get the total number of Subnets across all connections.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VPC management]"
+                ],
+                "summary": "Count All Subnets",
+                "operationId": "count-all-subnets",
+                "responses": {
+                    "200": {
+                        "description": "Total count of Subnets",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/countsubnet/{ConnectionName}": {
+            "get": {
+                "description": "Get the total number of Subnets for a specific connection.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VPC management]"
+                ],
+                "summary": "Count Subnets by Connection",
+                "operationId": "count-subnets-by-connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Total count of Subnets for the connection",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/countvpc": {
+            "get": {
+                "description": "Get the total number of VPCs across all connections.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VPC management]"
+                ],
+                "summary": "Count All VPCs",
+                "operationId": "count-all-vpcs",
+                "responses": {
+                    "200": {
+                        "description": "Total count of VPCs",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/countvpc/{ConnectionName}": {
+            "get": {
+                "description": "Get the total number of VPCs for a specific connection.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VPC management]"
+                ],
+                "summary": "Count VPCs by Connection",
+                "operationId": "count-vpcs-by-connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Total count of VPCs for the connection",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/cspkeypair/{Id}": {
+            "delete": {
+                "description": "Delete a specified CSP KeyPair.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[KeyPair management]"
+                ],
+                "summary": "Delete CSP KeyPair",
+                "operationId": "delete-csp-key",
+                "parameters": [
+                    {
+                        "description": "Request body for deleting a CSP KeyPair",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The CSP KeyPair ID to delete",
+                        "name": "Id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the delete operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/cspsecuritygroup/{Id}": {
+            "delete": {
+                "description": "Delete a specified CSP Security Group.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[SecurityGroup management]"
+                ],
+                "summary": "Delete CSP SecurityGroup",
+                "operationId": "delete-csp-securitygroup",
+                "parameters": [
+                    {
+                        "description": "Request body for deleting a CSP SecurityGroup",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The CSP SecurityGroup ID to delete",
+                        "name": "Id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the delete operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/cspvpc/{Id}": {
+            "delete": {
+                "description": "Delete a specified CSP Virtual Private Cloud (VPC).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VPC management]"
+                ],
+                "summary": "Delete CSP VPC",
+                "operationId": "delete-csp-vpc",
+                "parameters": [
+                    {
+                        "description": "Request body for deleting a CSP VPC",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The CSP VPC ID to delete",
+                        "name": "Id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the delete operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/getsecuritygroupowner": {
+            "post": {
+                "description": "Retrieve the owner VPC of a specified Security Group.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VPC management]"
+                ],
+                "summary": "Get Security Group Owner VPC",
+                "operationId": "get-sg-owner-vpc",
+                "parameters": [
+                    {
+                        "description": "Request body for getting Security Group Owner VPC",
+                        "name": "GetSGOwnerVPCRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.GetSGOwnerVPCRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the owner VPC",
+                        "schema": {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/keypair": {
+            "get": {
+                "description": "Retrieve a list of KeyPairs associated with a specific connection.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[KeyPair management]"
+                ],
+                "summary": "List KeyPairs",
+                "operationId": "list-key",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list KeyPairs for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of KeyPairs",
+                        "schema": {
+                            "$ref": "#/definitions/spider.KeyListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new KeyPair with the specified configurations.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[KeyPair management]"
+                ],
+                "summary": "Create KeyPair",
+                "operationId": "create-key",
+                "parameters": [
+                    {
+                        "description": "Request body for creating a KeyPair",
+                        "name": "KeyCreateRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.KeyCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the created KeyPair",
+                        "schema": {
+                            "$ref": "#/definitions/spider.KeyPairInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/keypair/{Name}": {
+            "get": {
+                "description": "Retrieve details of a specific KeyPair.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[KeyPair management]"
+                ],
+                "summary": "Get KeyPair",
+                "operationId": "get-key",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to get a KeyPair for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the KeyPair to retrieve",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the KeyPair",
+                        "schema": {
+                            "$ref": "#/definitions/spider.KeyPairInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a specified KeyPair.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[KeyPair management]"
+                ],
+                "summary": "Delete KeyPair",
+                "operationId": "delete-key",
+                "parameters": [
+                    {
+                        "description": "Request body for deleting a KeyPair",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the KeyPair to delete",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Force delete the KeyPair",
+                        "name": "force",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the delete operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/regkeypair": {
+            "post": {
+                "description": "Register a new KeyPair with the specified name and CSP ID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[KeyPair management]"
+                ],
+                "summary": "Register KeyPair",
+                "operationId": "register-key",
+                "parameters": [
+                    {
+                        "description": "Request body for registering a KeyPair",
+                        "name": "KeyRegisterRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.KeyRegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the registered KeyPair",
+                        "schema": {
+                            "$ref": "#/definitions/spider.KeyPairInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/regkeypair/{Name}": {
+            "delete": {
+                "description": "Unregister a KeyPair with the specified name.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[KeyPair management]"
+                ],
+                "summary": "Unregister KeyPair",
+                "operationId": "unregister-key",
+                "parameters": [
+                    {
+                        "description": "Request body for unregistering a KeyPair",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the KeyPair to unregister",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the unregister operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/regsecuritygroup": {
+            "post": {
+                "description": "Register a new Security Group with the specified name and CSP ID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[SecurityGroup management]"
+                ],
+                "summary": "Register SecurityGroup",
+                "operationId": "register-securitygroup",
+                "parameters": [
+                    {
+                        "description": "Request body for registering a SecurityGroup",
+                        "name": "SecurityGroupRegisterRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.SecurityGroupRegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the registered SecurityGroup",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SecurityInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/regsecuritygroup/{Name}": {
+            "delete": {
+                "description": "Unregister a Security Group with the specified name.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[SecurityGroup management]"
+                ],
+                "summary": "Unregister SecurityGroup",
+                "operationId": "unregister-securitygroup",
+                "parameters": [
+                    {
+                        "description": "Request body for unregistering a SecurityGroup",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the SecurityGroup to unregister",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the unregister operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/regsubnet": {
+            "post": {
+                "description": "Register a new Subnet within a specified VPC.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VPC management]"
+                ],
+                "summary": "Register Subnet",
+                "operationId": "register-subnet",
+                "parameters": [
+                    {
+                        "description": "Request body for registering a Subnet",
+                        "name": "SubnetRegisterRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.SubnetRegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the registered Subnet",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SubnetInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/regsubnet/{Name}": {
+            "delete": {
+                "description": "Unregister a Subnet from a specified VPC.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VPC management]"
+                ],
+                "summary": "Unregister Subnet",
+                "operationId": "unregister-subnet",
+                "parameters": [
+                    {
+                        "description": "Request body for unregistering a Subnet",
+                        "name": "SubnetUnregisterRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.SubnetUnregisterRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Subnet to unregister",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the unregister operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/regvpc": {
+            "post": {
+                "description": "Register a new Virtual Private Cloud (VPC) with the specified name and CSP ID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VPC management]"
+                ],
+                "summary": "Register VPC",
+                "operationId": "register-vpc",
+                "parameters": [
+                    {
+                        "description": "Request body for registering a VPC",
+                        "name": "VPCRegisterRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.VPCRegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the registered VPC",
+                        "schema": {
+                            "$ref": "#/definitions/spider.VPCInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/regvpc/{Name}": {
+            "delete": {
+                "description": "Unregister a VPC with the specified name.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VPC management]"
+                ],
+                "summary": "Unregister VPC",
+                "operationId": "unregister-vpc",
+                "parameters": [
+                    {
+                        "description": "Request body for unregistering a VPC",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the VPC to unregister",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the unregister operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/securitygroup": {
+            "get": {
+                "description": "Retrieve a list of Security Groups associated with a specific connection.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[SecurityGroup management]"
+                ],
+                "summary": "List SecurityGroups",
+                "operationId": "list-securitygroup",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list SecurityGroups for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of SecurityGroups",
+                        "schema": {
+                            "$ref": "#/definitions/spider.ListSecurityResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new Security Group with specified rules and tags.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[SecurityGroup management]"
+                ],
+                "summary": "Create SecurityGroup",
+                "operationId": "create-securitygroup",
+                "parameters": [
+                    {
+                        "description": "Request body for creating a SecurityGroup",
+                        "name": "SecurityGroupCreateRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.SecurityGroupCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the created SecurityGroup",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SecurityInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/securitygroup/{Name}": {
+            "get": {
+                "description": "Retrieve details of a specific Security Group.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[SecurityGroup management]"
+                ],
+                "summary": "Get SecurityGroup",
+                "operationId": "get-securitygroup",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to get a SecurityGroup for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the SecurityGroup to retrieve",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the SecurityGroup",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SecurityInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a specified Security Group.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[SecurityGroup management]"
+                ],
+                "summary": "Delete SecurityGroup",
+                "operationId": "delete-securitygroup",
+                "parameters": [
+                    {
+                        "description": "Request body for deleting a SecurityGroup",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the SecurityGroup to delete",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Force delete the SecurityGroup",
+                        "name": "force",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the delete operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/securitygroup/{SGName}/rules": {
+            "post": {
+                "description": "Add new rules to a Security Group.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[SecurityGroup management]"
+                ],
+                "summary": "Add Rules to SecurityGroup",
+                "operationId": "add-rules-securitygroup",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the SecurityGroup to add rules to",
+                        "name": "SGName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body for adding rules",
+                        "name": "RuleControlRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.RuleControlRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the SecurityGroup after adding rules",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SecurityInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Remove existing rules from a Security Group.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[SecurityGroup management]"
+                ],
+                "summary": "Remove Rules from SecurityGroup",
+                "operationId": "remove-rules-securitygroup",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the SecurityGroup to remove rules from",
+                        "name": "SGName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body for removing rules",
+                        "name": "RuleControlRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.RuleControlRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the remove operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/vpc": {
+            "get": {
+                "description": "Retrieve a list of Virtual Private Clouds (VPCs) associated with a specific connection.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VPC management]"
+                ],
+                "summary": "List VPCs",
+                "operationId": "list-vpc",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list VPCs for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of VPCs",
+                        "schema": {
+                            "$ref": "#/definitions/spider.ListVPCResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new Virtual Private Cloud (VPC) with specified subnet configurations.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VPC management]"
+                ],
+                "summary": "Create VPC",
+                "operationId": "create-vpc",
+                "parameters": [
+                    {
+                        "description": "Request body for creating a VPC",
+                        "name": "CreateVPCRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.CreateVPCRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the created VPC",
+                        "schema": {
+                            "$ref": "#/definitions/spider.VPCInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/vpc/{Name}": {
+            "get": {
+                "description": "Retrieve details of a specific Virtual Private Cloud (VPC).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VPC management]"
+                ],
+                "summary": "Get VPC",
+                "operationId": "get-vpc",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to get a VPC for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the VPC to retrieve",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the VPC",
+                        "schema": {
+                            "$ref": "#/definitions/spider.VPCInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a specified Virtual Private Cloud (VPC).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VPC management]"
+                ],
+                "summary": "Delete VPC",
+                "operationId": "delete-vpc",
+                "parameters": [
+                    {
+                        "description": "Request body for deleting a VPC",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the VPC to delete",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Force delete the VPC",
+                        "name": "force",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the delete operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/vpc/{VPCName}/cspsubnet/{Id}": {
+            "delete": {
+                "description": "Remove an existing CSP Subnet from a VPC.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VPC management]"
+                ],
+                "summary": "Remove CSP Subnet",
+                "operationId": "remove-csp-subnet",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the VPC",
+                        "name": "VPCName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The CSP Subnet ID to remove",
+                        "name": "Id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body for removing a CSP Subnet",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the remove operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/vpc/{VPCName}/subnet": {
+            "post": {
+                "description": "Add a new Subnet to an existing VPC.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VPC management]"
+                ],
+                "summary": "Add Subnet",
+                "operationId": "add-subnet",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the VPC to add the Subnet to",
+                        "name": "VPCName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body for adding a Subnet",
+                        "name": "AddSubnetRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.AddSubnetRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the added Subnet",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SubnetInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/vpc/{VPCName}/subnet/{SubnetName}": {
+            "delete": {
+                "description": "Remove an existing Subnet from a VPC.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VPC management]"
+                ],
+                "summary": "Remove Subnet",
+                "operationId": "remove-subnet",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the VPC",
+                        "name": "VPCName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Subnet to remove",
+                        "name": "SubnetName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body for removing a Subnet",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the remove operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "spider.IID": {
+            "type": "object",
+            "required": [
+                "NameId",
+                "SystemId"
+            ],
+            "properties": {
+                "NameId": {
+                    "type": "string",
+                    "example": "user-defined-name"
+                },
+                "SystemId": {
+                    "type": "string",
+                    "example": "csp-defined-id"
+                }
+            }
+        },
+        "spider.KeyPairInfo": {
+            "type": "object",
+            "required": [
+                "IId"
+            ],
+            "properties": {
+                "Fingerprint": {
+                    "description": "Unique identifier for the public key",
+                    "type": "string",
+                    "example": "3b:16:bf:1b:13:4b:b3:58:97:dc:72:19:45:bb:2c:8f"
+                },
+                "IId": {
+                    "description": "{NameId, SystemId}",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "KeyValueList": {
+                    "description": "Additional metadata as key-value pairs",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "PrivateKey": {
+                    "description": "Private part of the KeyPair",
+                    "type": "string",
+                    "example": "-----BEGIN PRIVATE KEY-----..."
+                },
+                "PublicKey": {
+                    "description": "Public part of the KeyPair",
+                    "type": "string",
+                    "example": "ssh-rsa AAAAB3..."
+                },
+                "TagList": {
+                    "description": "List of tags associated with this KeyPair",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "VMUserID": {
+                    "description": "cb-user or Administrator",
+                    "type": "string",
+                    "example": "cb-user"
+                }
+            }
+        },
+        "spider.KeyValue": {
+            "type": "object",
+            "required": [
+                "Key"
+            ],
+            "properties": {
+                "Key": {
+                    "type": "string",
+                    "example": "key1"
+                },
+                "Value": {
+                    "type": "string",
+                    "example": "value1"
+                }
+            }
+        },
+        "spider.SecurityInfo": {
+            "type": "object",
+            "required": [
+                "IId",
+                "SecurityRules",
+                "VpcIID"
+            ],
+            "properties": {
+                "IId": {
+                    "description": "{NameId, SystemId}",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "KeyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "SecurityRules": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.SecurityRuleInfo"
+                    }
+                },
+                "TagList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "VpcIID": {
+                    "description": "{NameId, SystemId}",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                }
+            }
+        },
+        "spider.SecurityRuleInfo": {
+            "type": "object",
+            "required": [
+                "Direction",
+                "FromPort",
+                "IPProtocol",
+                "ToPort"
+            ],
+            "properties": {
+                "CIDR": {
+                    "description": "if not specified, defaults to 0.0.0.0/0",
+                    "type": "string",
+                    "example": "0.0.0.0/0"
+                },
+                "Direction": {
+                    "description": "inbound or outbound",
+                    "type": "string",
+                    "example": "inbound"
+                },
+                "FromPort": {
+                    "description": "TCP, UDP: 1~65535, ICMP, ALL: -1",
+                    "type": "string",
+                    "example": "22"
+                },
+                "IPProtocol": {
+                    "description": "TCP, UDP, ICMP, ALL",
+                    "type": "string",
+                    "example": "TCP"
+                },
+                "ToPort": {
+                    "description": "TCP, UDP: 1~65535, ICMP, ALL: -1",
+                    "type": "string",
+                    "example": "22"
+                }
+            }
+        },
+        "spider.SubnetInfo": {
+            "type": "object",
+            "required": [
+                "IId",
+                "IPv4_CIDR",
+                "Zone"
+            ],
+            "properties": {
+                "IId": {
+                    "description": "{NameId, SystemId}",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "IPv4_CIDR": {
+                    "type": "string",
+                    "example": "10.0.8.0/22"
+                },
+                "KeyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "TagList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "Zone": {
+                    "type": "string",
+                    "example": "us-east-1a"
+                }
+            }
+        },
+        "spider.VPCInfo": {
+            "type": "object",
+            "required": [
+                "IId",
+                "IPv4_CIDR",
+                "SubnetInfoList"
+            ],
+            "properties": {
+                "IId": {
+                    "description": "{NameId, SystemId}",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "IPv4_CIDR": {
+                    "type": "string",
+                    "example": "10.0.0.0/16"
+                },
+                "KeyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "SubnetInfoList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.SubnetInfo"
+                    }
+                },
+                "TagList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                }
+            }
+        },
+        "spider.AddSubnetRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "IDTransformMode": {
+                    "description": "ON: transform CSP ID, OFF: no-transform CSP ID",
+                    "type": "string",
+                    "example": "ON"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "IPv4_CIDR",
+                        "Name"
+                    ],
+                    "properties": {
+                        "IPv4_CIDR": {
+                            "type": "string",
+                            "example": "10.0.12.0/22"
+                        },
+                        "Name": {
+                            "type": "string",
+                            "example": "subnet-01"
+                        },
+                        "TagList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.KeyValue"
+                            }
+                        },
+                        "Zone": {
+                            "type": "string",
+                            "example": "us-east-1a"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.AllResourceListResponse": {
+            "type": "object",
+            "required": [
+                "MappedList",
+                "OnlyCSPList",
+                "OnlySpiderList"
+            ],
+            "properties": {
+                "MappedList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.IID"
+                    }
+                },
+                "OnlyCSPList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.IID"
+                    }
+                },
+                "OnlySpiderList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.IID"
+                    }
+                }
+            }
+        },
+        "spider.BooleanInfo": {
+            "type": "object",
+            "properties": {
+                "result": {
+                    "description": "true or false",
+                    "type": "string"
+                }
+            }
+        },
+        "spider.ConnectionRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                }
+            }
+        },
+        "spider.CountResponse": {
+            "type": "object",
+            "required": [
+                "count"
+            ],
+            "properties": {
+                "count": {
+                    "type": "integer",
+                    "example": 5
+                }
+            }
+        },
+        "spider.CreateVPCRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "IDTransformMode": {
+                    "description": "ON: transform CSP ID, OFF: no-transform CSP ID",
+                    "type": "string",
+                    "example": "ON"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "Name",
+                        "SubnetInfoList"
+                    ],
+                    "properties": {
+                        "IPv4_CIDR": {
+                            "description": "Some CSPs unsupported VPC CIDR",
+                            "type": "string"
+                        },
+                        "Name": {
+                            "type": "string",
+                            "example": "vpc-01"
+                        },
+                        "SubnetInfoList": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "required": [
+                                    "IPv4_CIDR",
+                                    "Name"
+                                ],
+                                "properties": {
+                                    "IPv4_CIDR": {
+                                        "type": "string",
+                                        "example": "10.0.8.0/22"
+                                    },
+                                    "Name": {
+                                        "type": "string",
+                                        "example": "subnet-01"
+                                    },
+                                    "TagList": {
+                                        "type": "array",
+                                        "items": {
+                                            "$ref": "#/definitions/spider.KeyValue"
+                                        }
+                                    },
+                                    "Zone": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        },
+                        "TagList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.KeyValue"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "spider.GetSGOwnerVPCRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "CSPId"
+                    ],
+                    "properties": {
+                        "CSPId": {
+                            "type": "string",
+                            "example": "csp-sg-1234"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.KeyCreateRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "IDTransformMode": {
+                    "description": "ON: transform CSP ID, OFF: no-transform CSP ID",
+                    "type": "string",
+                    "example": "ON"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "Name"
+                    ],
+                    "properties": {
+                        "Name": {
+                            "type": "string",
+                            "example": "keypair-01"
+                        },
+                        "TagList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.KeyValue"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "spider.KeyListResponse": {
+            "type": "object",
+            "properties": {
+                "keypair": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyPairInfo"
+                    }
+                }
+            }
+        },
+        "spider.KeyRegisterRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "CSPId",
+                        "Name"
+                    ],
+                    "properties": {
+                        "CSPId": {
+                            "type": "string",
+                            "example": "csp-key-1234"
+                        },
+                        "Name": {
+                            "type": "string",
+                            "example": "keypair-01"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.ListSecurityResponse": {
+            "type": "object",
+            "required": [
+                "securitygroup"
+            ],
+            "properties": {
+                "securitygroup": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.SecurityInfo"
+                    }
+                }
+            }
+        },
+        "spider.ListVPCResponse": {
+            "type": "object",
+            "required": [
+                "vpc"
+            ],
+            "properties": {
+                "vpc": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.VPCInfo"
+                    }
+                }
+            }
+        },
+        "spider.RuleControlRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "RuleInfoList"
+                    ],
+                    "properties": {
+                        "RuleInfoList": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "required": [
+                                    "Direction",
+                                    "FromPort",
+                                    "IPProtocol",
+                                    "ToPort"
+                                ],
+                                "properties": {
+                                    "CIDR": {
+                                        "type": "string",
+                                        "example": "0.0.0.0/0(default)"
+                                    },
+                                    "Direction": {
+                                        "type": "string",
+                                        "example": "inbound"
+                                    },
+                                    "FromPort": {
+                                        "type": "string",
+                                        "example": "22"
+                                    },
+                                    "IPProtocol": {
+                                        "type": "string",
+                                        "example": "TCP"
+                                    },
+                                    "ToPort": {
+                                        "type": "string",
+                                        "example": "22"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "spider.SecurityGroupCreateRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "IDTransformMode": {
+                    "description": "ON: transform CSP ID, OFF: no-transform CSP ID",
+                    "type": "string",
+                    "example": "ON"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "Name",
+                        "SecurityRules",
+                        "VPCName"
+                    ],
+                    "properties": {
+                        "Name": {
+                            "type": "string",
+                            "example": "sg-01"
+                        },
+                        "SecurityRules": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.SecurityRuleInfo"
+                            }
+                        },
+                        "TagList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.KeyValue"
+                            }
+                        },
+                        "VPCName": {
+                            "type": "string",
+                            "example": "vpc-01"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.SecurityGroupRegisterRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "CSPId",
+                        "Name",
+                        "VPCName"
+                    ],
+                    "properties": {
+                        "CSPId": {
+                            "type": "string",
+                            "example": "csp-sg-1234"
+                        },
+                        "Name": {
+                            "type": "string",
+                            "example": "sg-01"
+                        },
+                        "VPCName": {
+                            "type": "string",
+                            "example": "vpc-01"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.SimpleMsg": {
+            "type": "object",
+            "required": [
+                "message"
+            ],
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Any message"
+                }
+            }
+        },
+        "spider.SubnetRegisterRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "CSPId",
+                        "Name",
+                        "VPCName"
+                    ],
+                    "properties": {
+                        "CSPId": {
+                            "type": "string",
+                            "example": "csp-subnet-1234"
+                        },
+                        "Name": {
+                            "type": "string",
+                            "example": "subnet-01"
+                        },
+                        "VPCName": {
+                            "type": "string",
+                            "example": "vpc-01"
+                        },
+                        "Zone": {
+                            "type": "string",
+                            "example": "us-east-1a"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.SubnetUnregisterRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "VPCName"
+                    ],
+                    "properties": {
+                        "VPCName": {
+                            "type": "string",
+                            "example": "vpc-01"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.VPCRegisterRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "CSPId",
+                        "Name"
+                    ],
+                    "properties": {
+                        "CSPId": {
+                            "type": "string",
+                            "example": "csp-vpc-1234"
+                        },
+                        "Name": {
+                            "type": "string",
+                            "example": "vpc-01"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "BasicAuth": {
+            "type": "basic"
+        }
+    }
+}
