@@ -274,14 +274,19 @@ func getCostWithResource(anyCallHandler *AwsAnyCallHandler, callInfo irs.AnyCall
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	reqMap := mapToKeyValue(callInfo.IKeyValueList)
+	reqMap, err := ConvertTagListToTagsMap(callInfo.IKeyValueList)
+	if err != nil {
+		return callInfo, errors.New("invalid key value list")
+	}
+
 	body, ok := reqMap["requestBody"]
-	if !ok {
+
+	if !ok || body == nil {
 		return callInfo, errors.New("requestBody is required")
 	}
 
 	var costWithResourceReq CostWithResourceReq
-	err := json.Unmarshal([]byte(body), &costWithResourceReq)
+	err = json.Unmarshal([]byte(*body), &costWithResourceReq)
 	if err != nil {
 		return callInfo, err
 	}
@@ -290,8 +295,8 @@ func getCostWithResource(anyCallHandler *AwsAnyCallHandler, callInfo irs.AnyCall
 	endDate := costWithResourceReq.EndDate
 	granularity := costWithResourceReq.Granularity
 	metric := costWithResourceReq.Metrics
-	filter := convertToExpression(&costWithResourceReq.Filter)
-	group := groupGenerate(costWithResourceReq.Groups)
+	filter := convertToCostExplorerExpression(&costWithResourceReq.Filter)
+	group := costExplorerGroupGenerate(costWithResourceReq.Groups)
 
 	input := &costexplorer.GetCostAndUsageWithResourcesInput{
 		TimePeriod: &costexplorer.DateInterval{
@@ -325,7 +330,9 @@ func getCostWithResource(anyCallHandler *AwsAnyCallHandler, callInfo irs.AnyCall
 	return callInfo, nil
 }
 
-func convertToExpression(filter *FilterExpression) *costexplorer.Expression {
+// convertToCostExplorerExpression converts a FilterExpression into a Cost Explorer Expression object.
+// It recursively converts nested filter expressions and handles `And`, `Or`, and `Not` conditions.
+func convertToCostExplorerExpression(filter *FilterExpression) *costexplorer.Expression {
 	if filter == nil {
 		return nil
 	}
@@ -339,24 +346,26 @@ func convertToExpression(filter *FilterExpression) *costexplorer.Expression {
 	if len(filter.And) > 0 {
 		expression.And = make([]*costexplorer.Expression, len(filter.And))
 		for i, f := range filter.And {
-			expression.And[i] = convertToExpression(f)
+			expression.And[i] = convertToCostExplorerExpression(f)
 		}
 	}
 
 	if len(filter.Or) > 0 {
 		expression.Or = make([]*costexplorer.Expression, len(filter.Or))
 		for i, f := range filter.Or {
-			expression.Or[i] = convertToExpression(f)
+			expression.Or[i] = convertToCostExplorerExpression(f)
 		}
 	}
 
 	if filter.Not != nil {
-		expression.Not = convertToExpression(filter.Not)
+		expression.Not = convertToCostExplorerExpression(filter.Not)
 	}
 
 	return expression
 }
 
+// convertKeyValuesToCostCategoryValues converts a KeyValues object into a Cost Explorer CostCategoryValues object.
+// It maps the Key and Values fields from the input to the corresponding fields in the CostCategoryValues.
 func convertKeyValuesToCostCategoryValues(kv *KeyValues) *costexplorer.CostCategoryValues {
 	if kv == nil {
 		return nil
@@ -367,6 +376,8 @@ func convertKeyValuesToCostCategoryValues(kv *KeyValues) *costexplorer.CostCateg
 	}
 }
 
+// convertKeyValuesToDimensionValues converts a KeyValues object into a Cost Explorer DimensionValues object.
+// It maps the Key and Values fields from the input to the corresponding fields in the DimensionValues.
 func convertKeyValuesToDimensionValues(kv *KeyValues) *costexplorer.DimensionValues {
 	if kv == nil {
 		return nil
@@ -377,6 +388,9 @@ func convertKeyValuesToDimensionValues(kv *KeyValues) *costexplorer.DimensionVal
 	}
 }
 
+// convertKeyValuesToTagValues converts a KeyValues object into a Cost Explorer TagValues object.
+// It maps the Key and Values fields from the input to the corresponding fields in the TagValues.
+// TagValues ​​refers to AWS's cost allocation tag, not the tags commonly used for resources.
 func convertKeyValuesToTagValues(kv *KeyValues) *costexplorer.TagValues {
 	if kv == nil {
 		return nil
@@ -387,7 +401,9 @@ func convertKeyValuesToTagValues(kv *KeyValues) *costexplorer.TagValues {
 	}
 }
 
-func groupGenerate(g []GroupBy) []*costexplorer.GroupDefinition {
+// costExplorerGroupGenerate generates a slice of GroupDefinition objects from a slice of Cost Explorer GroupBy objects.
+// Each GroupBy object is converted into a GroupDefinition with the corresponding Key and Type fields.
+func costExplorerGroupGenerate(g []GroupBy) []*costexplorer.GroupDefinition {
 	var groupBy []*costexplorer.GroupDefinition
 	for _, v := range g {
 		groupBy = append(groupBy, &costexplorer.GroupDefinition{
@@ -397,14 +413,4 @@ func groupGenerate(g []GroupBy) []*costexplorer.GroupDefinition {
 	}
 
 	return groupBy
-}
-
-func mapToKeyValue(kvs []irs.KeyValue) map[string]string {
-	filterMap := make(map[string]string, 0)
-
-	for _, kv := range kvs {
-		filterMap[kv.Key] = kv.Value
-	}
-	return filterMap
-
 }
