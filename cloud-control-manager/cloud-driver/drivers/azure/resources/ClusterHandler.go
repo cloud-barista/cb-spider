@@ -5,9 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	"io"
 	"math"
 	"net"
@@ -19,6 +16,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
+	"github.com/Azure/go-autorest/autorest/to"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -453,14 +455,51 @@ func upgradeCluter(cluster *armcontainerservice.ManagedCluster, newVersion strin
 	}
 	updateCluster := cluster
 	updateCluster.Properties.KubernetesVersion = &newVersion
-	_, err = managedClustersClient.BeginCreateOrUpdate(ctx, region.Region, *cluster.Name, *updateCluster, nil)
+	updateClusterPoller, err := managedClustersClient.BeginCreateOrUpdate(ctx, region.Region, to.String(cluster.Name), *updateCluster, nil)
 	if err != nil {
 		return err
 	}
-	//err = upgradeResult.WaitForCompletionRef(ctx, managedClustersClient.Client)
-	//if err != nil {
-	//	return err
-	//}
+	_, err = updateClusterPoller.PollUntilDone(ctx, nil)
+	if err != nil {
+		return err
+	}
+
+	clusterResourceGroup, err := getResourceGroupById(to.String(cluster.ID))
+	if err != nil {
+		return err
+	}
+
+	var agentPoolList []*armcontainerservice.AgentPool
+
+	pager := agentPoolsClient.NewListPager(clusterResourceGroup, to.String(cluster.Name), nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return err
+		}
+
+		for _, agentPool := range page.Value {
+			agentPoolList = append(agentPoolList, agentPool)
+		}
+	}
+
+	var errs []error
+	for _, agentPool := range agentPoolList {
+		updateAgentPool := agentPool
+		updateAgentPool.Properties = &armcontainerservice.ManagedClusterAgentPoolProfileProperties{
+			OrchestratorVersion: to.StringPtr(newVersion),
+		}
+		_, err := agentPoolsClient.BeginCreateOrUpdate(ctx, region.Region, to.String(cluster.Name), to.String(agentPool.Name), *updateAgentPool, nil)
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+
 	return nil
 }
 
