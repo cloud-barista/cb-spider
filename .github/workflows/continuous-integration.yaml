@@ -35,6 +35,9 @@ jobs:
         with:
           go-version: ${{matrix.go-version}}
 
+      - name: Install swag CLI
+        run: go install github.com/swaggo/swag/cmd/swag@latest
+        
       - name: Build
         run: make
 
