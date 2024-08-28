@@ -769,7 +769,7 @@ func WaitForEcsTagExist(client *ecs.Client, regionInfo idrv.RegionInfo, resType 
 
 	//waitStatus := false
 	curRetryCnt := 0
-	maxRetryCnt := 3 // 최대 10초 기다림
+	maxRetryCnt := 10 // 최대 10초 기다림
 	for {
 
 		// 해당 resource의 tag를 가져온다.
@@ -805,7 +805,7 @@ func WaitForEcsTagExist(client *ecs.Client, regionInfo idrv.RegionInfo, resType 
 
 		//if curStatus != irs.VMStatus(waitStatus) {
 		curRetryCnt++
-		cblogger.Errorf("Waiting for 1 second and then querying")
+		cblogger.Debug("Waiting for 1 second and then querying")
 		time.Sleep(time.Second * 1)
 		if curRetryCnt > maxRetryCnt {
 			return false, errors.New("After waiting for a long time")
@@ -849,7 +849,7 @@ func DescribeDescribeEcsTags(client *ecs.Client, regionInfo idrv.RegionInfo, res
 	request.Domain = GetAlibabaApiEndPoint(regionID, apiProductCode)
 	request.Version = "2014-05-26"
 	request.ApiName = apiName
-	request.QueryParams["RegionId"] = regionID
+	//request.QueryParams["RegionId"] = regionID
 
 	queryParams := map[string]string{}
 	queryParams["RegionId"] = regionID
@@ -858,7 +858,7 @@ func DescribeDescribeEcsTags(client *ecs.Client, regionInfo idrv.RegionInfo, res
 	if key != "" {
 		queryParams["Tag.1.Key"] = key // 한번에 1개씩만 가져온다.
 	}
-
+	request.QueryParams = queryParams
 	callLogStart := call.Start()
 	response, err := client.ProcessCommonRequest(request)
 

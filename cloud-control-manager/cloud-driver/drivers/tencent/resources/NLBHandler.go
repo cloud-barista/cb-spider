@@ -913,6 +913,17 @@ func (NLBHandler *TencentNLBHandler) ExtractNLBDescribeInfo(nlbInfo *clb.LoadBal
 		Scope:       "REGION",
 	}
 
+	if nlbInfo.Tags != nil {
+		var tagList []irs.KeyValue
+		for _, tag := range nlbInfo.Tags {
+			tagList = append(tagList, irs.KeyValue{
+				Key:   *tag.TagKey,
+				Value: *tag.TagValue,
+			})
+		}
+		resNLBInfo.TagList = tagList
+	}
+
 	return resNLBInfo, nil
 }
 
