@@ -1417,7 +1417,33 @@ func generateAgentPoolProfileProperties(nodeGroupInfo irs.NodeGroupInfo, subnet 
 		VnetSubnetID: subnet.ID,
 	}
 
-	if !strings.EqualFold(ac.Region.Zone, "") {
+	var foundZone string
+	var networkList []*armnetwork.VirtualNetwork
+
+	pager := ac.VirtualNetworksClient.NewListPager(ac.Region.Region, nil)
+	for pager.More() {
+		page, err := pager.NextPage(ac.Ctx)
+		if err != nil {
+			return armcontainerservice.ManagedClusterAgentPoolProfileProperties{}, errors.New(fmt.Sprintf("Failed to List VPC err = %s", err.Error()))
+		}
+
+		for _, vpc := range page.Value {
+			networkList = append(networkList, vpc)
+		}
+	}
+
+	for _, vpc := range networkList {
+		for key, value := range vpc.Tags {
+			if key == "subnet-"+*subnet.Name && *value != "" {
+				foundZone = *value
+				break
+			}
+		}
+	}
+
+	if foundZone != "" {
+		agentPoolProfileProperties.AvailabilityZones = []*string{&foundZone}
+	} else if !strings.EqualFold(ac.Region.Zone, "") {
 		agentPoolProfileProperties.AvailabilityZones = []*string{&ac.Region.Zone}
 	}
 
@@ -1459,7 +1485,33 @@ func generateAgentPoolProfile(nodeGroupInfo irs.NodeGroupInfo, subnet armnetwork
 		agentPoolProfile.MaxCount = nil
 	}
 
-	if !strings.EqualFold(ac.Region.Zone, "") {
+	var foundZone string
+	var networkList []*armnetwork.VirtualNetwork
+
+	pager := ac.VirtualNetworksClient.NewListPager(ac.Region.Region, nil)
+	for pager.More() {
+		page, err := pager.NextPage(ac.Ctx)
+		if err != nil {
+			return armcontainerservice.ManagedClusterAgentPoolProfile{}, errors.New(fmt.Sprintf("Failed to List VPC err = %s", err.Error()))
+		}
+
+		for _, vpc := range page.Value {
+			networkList = append(networkList, vpc)
+		}
+	}
+
+	for _, vpc := range networkList {
+		for key, value := range vpc.Tags {
+			if key == "subnet-"+*subnet.Name && *value != "" {
+				foundZone = *value
+				break
+			}
+		}
+	}
+
+	if foundZone != "" {
+		agentPoolProfile.AvailabilityZones = []*string{&foundZone}
+	} else if !strings.EqualFold(ac.Region.Zone, "") {
 		agentPoolProfile.AvailabilityZones = []*string{&ac.Region.Zone}
 	}
 

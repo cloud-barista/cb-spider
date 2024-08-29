@@ -115,6 +115,7 @@ func (cloudConn *AzureCloudConnection) CreateVMHandler() (irs.VMHandler, error) 
 		Region:                          cloudConn.Region,
 		Ctx:                             cloudConn.Ctx,
 		Client:                          cloudConn.VMClient,
+		VPCClient:                       cloudConn.VNetClient,
 		SubnetClient:                    cloudConn.SubnetClient,
 		NicClient:                       cloudConn.VNicClient,
 		PublicIPClient:                  cloudConn.PublicIPClient,
@@ -239,6 +240,8 @@ func (cloudConn *AzureCloudConnection) CreateTagHandler() (irs.TagHandler, error
 		Region:         cloudConn.Region,
 		Ctx:            cloudConn.Ctx,
 		Client:         cloudConn.TagsClient,
+		VPCClient:      cloudConn.VNetClient,
+		SubnetClient:   cloudConn.SubnetClient,
 	}
 	return &tagHandler, nil
 	// return nil, errors.New("Azure Driver: not implemented")

@@ -38,7 +38,29 @@ func (vpcHandler *AzureVPCHandler) setterVPC(network *armnetwork.VirtualNetwork)
 	vpcInfo.SubnetInfoList = subnetArr
 
 	if network.Tags != nil {
-		vpcInfo.TagList = setTagList(network.Tags)
+		var tagList []irs.KeyValue
+
+		for key, value := range network.Tags {
+			var found bool
+
+			for _, subnet := range vpcInfo.SubnetInfoList {
+				if "subnet-"+subnet.IId.NameId == key {
+					found = true
+					break
+				}
+			}
+
+			if found {
+				continue
+			}
+
+			tagList = append(tagList, irs.KeyValue{
+				Key:   key,
+				Value: *value,
+			})
+		}
+
+		vpcInfo.TagList = tagList
 	}
 	return vpcInfo
 }
@@ -67,6 +89,19 @@ func (vpcHandler *AzureVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPC
 		LoggingError(hiscallInfo, createErr)
 		return irs.VPCInfo{}, createErr
 	}
+
+	// Add subnet name and zone to tag list
+	for _, subnet := range vpcReqInfo.SubnetInfoList {
+		for _, tag := range vpcReqInfo.TagList {
+			if "subnet-"+subnet.IId.NameId == tag.Key {
+				createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = Provided tag key (%s) is not allowed!", tag.Key))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+				return irs.VPCInfo{}, createErr
+			}
+		}
+	}
+
 	// Create Tag
 	tags := setTags(vpcReqInfo.TagList)
 
@@ -115,6 +150,28 @@ func (vpcHandler *AzureVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPC
 		_, err = poller.PollUntilDone(vpcHandler.Ctx, nil)
 		if err != nil {
 			cblogger.Error(fmt.Sprintf("failed to get subnet with name %s", subnet.IId.NameId))
+			continue
+		}
+
+		vpc, err := vpcHandler.getRawVPC(vpcReqInfo.IId)
+		if err != nil {
+			cblogger.Error(fmt.Sprintf("failed to get VPC info %s", vpcReqInfo.IId.NameId))
+			continue
+		}
+		tagKey := "subnet-" + subnet.IId.NameId
+		vpcReqInfo.TagList = append(vpcReqInfo.TagList, irs.KeyValue{
+			Key:   tagKey,
+			Value: subnet.Zone,
+		})
+		vpc.Tags = setTags(vpcReqInfo.TagList)
+		poller2, err := vpcHandler.Client.BeginCreateOrUpdate(vpcHandler.Ctx, vpcHandler.Region.Region, vpcReqInfo.IId.NameId, *vpc, nil)
+		if err != nil {
+			cblogger.Error(fmt.Sprintf("failed to add subnet tag with key %s", tagKey))
+			continue
+		}
+		_, err = poller2.PollUntilDone(vpcHandler.Ctx, nil)
+		if err != nil {
+			cblogger.Error(fmt.Sprintf("failed to get subnet tag with key %s", tagKey))
 			continue
 		}
 	}
@@ -207,6 +264,7 @@ func (vpcHandler *AzureVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 func (vpcHandler *AzureVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, subnetInfo.IId.NameId, "AddSubnet()")
+	start := call.Start()
 
 	vpc, err := vpcHandler.getRawVPC(vpcIID)
 	if err != nil {
@@ -215,21 +273,47 @@ func (vpcHandler *AzureVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Subn
 		LoggingError(hiscallInfo, addSubnetErr)
 		return irs.VPCInfo{}, addSubnetErr
 	}
+
+	tagList := setTagList(vpc.Tags)
+
+	// Add subnet name and zone to tag list
+	tagList = append(tagList, irs.KeyValue{
+		Key:   "subnet-" + subnetInfo.IId.NameId,
+		Value: subnetInfo.Zone,
+	})
+
+	// Update VPC
+	vpc.Tags = setTags(tagList)
+
+	poller, err := vpcHandler.Client.BeginCreateOrUpdate(vpcHandler.Ctx, vpcHandler.Region.Region, vpcIID.NameId, *vpc, nil)
+	if err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to AddSubnet err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VPCInfo{}, createErr
+	}
+	_, err = poller.PollUntilDone(vpcHandler.Ctx, nil)
+	if err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to AddSubnet err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+
+	}
+
 	subnetCreateOpts := armnetwork.Subnet{
 		Name: &subnetInfo.IId.NameId,
 		Properties: &armnetwork.SubnetPropertiesFormat{
 			AddressPrefix: toStrPtr(subnetInfo.IPv4_CIDR),
 		},
 	}
-	start := call.Start()
-	poller, err := vpcHandler.SubnetClient.BeginCreateOrUpdate(vpcHandler.Ctx, vpcHandler.Region.Region, *vpc.Name, subnetInfo.IId.NameId, subnetCreateOpts, nil)
+
+	poller2, err := vpcHandler.SubnetClient.BeginCreateOrUpdate(vpcHandler.Ctx, vpcHandler.Region.Region, *vpc.Name, subnetInfo.IId.NameId, subnetCreateOpts, nil)
 	if err != nil {
 		addSubnetErr := errors.New(fmt.Sprintf("Failed to AddSubnet err = %s", err.Error()))
 		cblogger.Error(addSubnetErr.Error())
 		LoggingError(hiscallInfo, addSubnetErr)
 		return irs.VPCInfo{}, addSubnetErr
 	}
-	_, err = poller.PollUntilDone(vpcHandler.Ctx, nil)
+	_, err = poller2.PollUntilDone(vpcHandler.Ctx, nil)
 	if err != nil {
 		addSubnetErr := errors.New(fmt.Sprintf("Failed to AddSubnet err = %s", err.Error()))
 		cblogger.Error(addSubnetErr.Error())
@@ -248,6 +332,44 @@ func (vpcHandler *AzureVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Subn
 func (vpcHandler *AzureVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, subnetIID.NameId, "RemoveSubnet()")
 	start := call.Start()
+
+	vpc, err := vpcHandler.getRawVPC(vpcIID)
+	if err != nil {
+		delErr := errors.New(fmt.Sprintf("Failed to RemoveSubnet err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+		LoggingError(hiscallInfo, delErr)
+		return false, delErr
+	}
+
+	_, exists := vpc.Tags[subnetIID.NameId]
+	if exists {
+		delete(vpc.Tags, "subnet-"+subnetIID.NameId)
+
+		// Update VPC
+		updateOpts := armnetwork.VirtualNetwork{
+			Name: &vpcIID.NameId,
+			Tags: vpc.Tags,
+		}
+
+		poller, err := vpcHandler.Client.BeginCreateOrUpdate(vpcHandler.Ctx, vpcHandler.Region.Region, vpcIID.NameId, updateOpts, nil)
+		if err != nil {
+			delErr := errors.New(fmt.Sprintf("Failed to RemoveSubnet err = %s", err.Error()))
+			cblogger.Error(delErr.Error())
+			LoggingError(hiscallInfo, delErr)
+			return false, delErr
+		}
+		_, err = poller.PollUntilDone(vpcHandler.Ctx, nil)
+		if err != nil {
+			delErr := errors.New(fmt.Sprintf("Failed to RemoveSubnet err = %s", err.Error()))
+			cblogger.Error(delErr.Error())
+			LoggingError(hiscallInfo, delErr)
+			return false, delErr
+		}
+	} else {
+		delErr := errors.New(fmt.Sprintf("Tag (%s) not found while removing the subnet", subnetIID.NameId))
+		cblogger.Warn(delErr.Error())
+	}
+
 	poller, err := vpcHandler.SubnetClient.BeginDelete(vpcHandler.Ctx, vpcHandler.Region.Region, vpcIID.NameId, subnetIID.NameId, nil)
 	if err != nil {
 		delErr := errors.New(fmt.Sprintf("Failed to RemoveSubnet err = %s", err.Error()))
