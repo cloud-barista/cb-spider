@@ -105,7 +105,7 @@ func (diskHandler *AlibabaDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 		// TagHandler.AddTag
 		for _, diskTag := range diskReqInfo.TagList {
 			cblogger.Debug("aliTag ", diskTag)
-			response, err := AddEcsTags(diskHandler.Client, diskHandler.Region, irs.RSType("DISK"), diskInfo.IId, diskTag)
+			response, err := AddEcsTags(diskHandler.Client, diskHandler.Region, irs.RSType(irs.DISK), diskInfo.IId, diskTag)
 			if err != nil {
 				cblogger.Error(err)
 				//return tag, err
@@ -649,15 +649,16 @@ func ExtractDiskDescribeInfo(aliDisk *ecs.Disk) (irs.DiskInfo, error) {
 	diskInfo.OwnerVM = irs.IID{SystemId: aliDisk.InstanceId}
 	diskStatus, errStatus := convertAlibabaDiskStatusToDiskStatus(aliDisk.Status)
 
-	tagList := []irs.KeyValue{}
-	for _, aliTag := range aliDisk.Tags.Tag {
-		sTag := irs.KeyValue{}
-		sTag.Key = aliTag.Key
-		sTag.Value = aliTag.Value
-
-		tagList = append(tagList, sTag)
+	if aliDisk.Tags.Tag != nil {
+		var tagList []irs.KeyValue
+		for _, tag := range aliDisk.Tags.Tag {
+			tagList = append(tagList, irs.KeyValue{
+				Key:   tag.TagKey,
+				Value: tag.TagValue,
+			})
+		}
+		diskInfo.TagList = tagList
 	}
-	diskInfo.TagList = tagList
 
 	if errStatus != nil {
 		return irs.DiskInfo{}, errStatus
@@ -716,7 +717,6 @@ func ExtractDiskDescribeInfo(aliDisk *ecs.Disk) (irs.DiskInfo, error) {
 
 	//keyValueList = append(keyValueList, irs.KeyValue{Key: "Description", Value: disk.Description})
 	diskInfo.KeyValueList = keyValueList
-
 	return diskInfo, nil
 }
 
