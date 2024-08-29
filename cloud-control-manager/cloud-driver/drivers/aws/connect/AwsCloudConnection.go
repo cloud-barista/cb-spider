@@ -21,6 +21,7 @@ import (
 	ars "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/resources"
 
 	//ec2drv "github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/costexplorer"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/pricing"
@@ -62,6 +63,8 @@ type AwsCloudConnection struct {
 
 	AnyCallClient *ec2.EC2
 	TagClient     *ec2.EC2
+
+	CostExplorerClient *costexplorer.CostExplorer
 }
 
 var cblogger *logrus.Logger
@@ -186,7 +189,7 @@ func (cloudConn *AwsCloudConnection) CreateClusterHandler() (irs.ClusterHandler,
 }
 
 func (cloudConn *AwsCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
-	handler := ars.AwsAnyCallHandler{Region: cloudConn.Region, CredentialInfo: cloudConn.CredentialInfo, Client: cloudConn.AnyCallClient}
+	handler := ars.AwsAnyCallHandler{Region: cloudConn.Region, CredentialInfo: cloudConn.CredentialInfo, Client: cloudConn.AnyCallClient, CeClient: cloudConn.CostExplorerClient}
 	return &handler, nil
 }
 

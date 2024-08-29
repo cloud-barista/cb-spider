@@ -25,6 +25,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
+	"github.com/aws/aws-sdk-go/service/costexplorer"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/eks"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -228,6 +229,7 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 	if err != nil {
 		return nil, err
 	}
+	costExplorerClient, err := getCostExplorerClient(connectionInfo)
 
 	//iConn = acon.AwsCloudConnection{}
 	iConn := acon.AwsCloudConnection{
@@ -256,7 +258,8 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		// Connection for AnyCall
 		AnyCallClient: vmClient,
 
-		TagClient: vmClient,
+		TagClient:          vmClient,
+		CostExplorerClient: costExplorerClient,
 	}
 
 	return &iConn, nil // return type: (icon.CloudConnection, error)
@@ -292,6 +295,16 @@ func getPricingClient(connectionInfo idrv.ConnectionInfo) (*pricing.Pricing, err
 		// Region: aws.String(connectionInfo.RegionInfo.Region),
 		Region: aws.String(targetRegion),
 		//Region:      aws.String("ap-northeast-2"),
+		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
+	)
+
+	return svc, nil
+}
+
+func getCostExplorerClient(connectionInfo idrv.ConnectionInfo) (*costexplorer.CostExplorer, error) {
+	sess := session.Must(session.NewSession())
+	svc := costexplorer.New(sess, &aws.Config{
+		Region:      aws.String(connectionInfo.RegionInfo.Region),
 		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
 	)
 
