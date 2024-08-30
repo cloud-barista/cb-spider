@@ -97,7 +97,7 @@
         overflow: hidden;
         display: none;
         position: relative;
-        z-index: 20;
+        z-index: 2000; 
     }
 
     .progress-bar {
@@ -589,7 +589,9 @@
             }
         };
 
-        fetch('/spider/myimage', {
+        showProgressBar();
+
+        fetchWithProgress('/spider/myimage', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -614,6 +616,9 @@
         })
         .catch(error => {
             showError(`Error creating MyImage: ${error.message}`, `MyImage Name: ${myImageName}`);
+        })
+        .finally(() => {
+            hideProgressBar();
         });
     }
 
@@ -700,9 +705,9 @@
 
     function fetchWithProgress(url, options) {
         showProgressBar();
-        
+
         const startTime = Date.now();
-        const timerInterval = 500; 
+        const timerInterval = 500;
         let timerId = setInterval(() => {
             const elapsedTime = (Date.now() - startTime) / 1000;
             const timeDisplay = document.getElementById('timeDisplay');
@@ -711,7 +716,7 @@
 
         return fetch(url, options)
             .then(response => {
-                clearInterval(timerId); 
+                clearInterval(timerId);
                 hideProgressBar();
                 return response;
             })
@@ -737,7 +742,7 @@
         const progressBarContainer = document.getElementById('progressBarContainer');
         setTimeout(() => {
             progressBarContainer.style.display = 'none';
-            document.getElementById('timeDisplay').textContent = ''; 
+            document.getElementById('timeDisplay').textContent = '';
         }, 500);
     }
 
@@ -943,7 +948,7 @@
                 data.vm.forEach(vm => {
                     const option = document.createElement('option');
                     option.value = vm.IId.NameId;
-                    option.textContent = `${vm.IId.NameId} (${vm.KeyValueList.find(kv => kv.Key === 'State').Value})`;
+                    option.textContent = `${vm.IId.NameId}`;
                     sourceVMSelect.appendChild(option);
                 });
             } else {
