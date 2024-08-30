@@ -1480,3 +1480,47 @@ func aliClusterTagList(CsClient *cs.Client, regionInfo idrv.RegionInfo, resType 
 	}
 	return tagInfoList, err
 }
+
+func GetSubnet(VpcClient *vpc.Client, reqSubnetId string, zone string) (irs.SubnetInfo, error) {
+	cblogger.Infof("SubnetId : [%s]", reqSubnetId)
+
+	request := vpc.CreateDescribeVSwitchesRequest()
+	request.Scheme = "https"
+	request.VSwitchId = reqSubnetId
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   zone,
+		ResourceType: call.VPCSUBNET,
+		ResourceName: reqSubnetId,
+		CloudOSAPI:   "DescribeVSwitches()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
+	result, err := VpcClient.DescribeVSwitches(request)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	//cblogger.Debug(result)
+	//cblogger.Info(result)
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
+		cblogger.Error(err)
+		return irs.SubnetInfo{}, err
+	}
+	callogger.Info(call.String(callLogInfo))
+
+	if result.TotalCount < 1 {
+		return irs.SubnetInfo{}, errors.New("Notfound: '" + reqSubnetId + "' Subnet Not found")
+	}
+
+	if !reflect.ValueOf(result.VSwitches.VSwitch).IsNil() {
+		retSubnetInfo := ExtractSubnetDescribeInfo(result.VSwitches.VSwitch[0])
+		return retSubnetInfo, nil
+	} else {
+		return irs.SubnetInfo{}, errors.New("InvalidVSwitch.NotFound: The '" + reqSubnetId + "' does not exist")
+	}
+}

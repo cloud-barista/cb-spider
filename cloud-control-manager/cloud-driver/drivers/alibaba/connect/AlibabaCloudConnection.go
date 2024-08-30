@@ -115,7 +115,7 @@ func (cloudConn *AlibabaCloudConnection) CreatePublicIPHandler() (irs.PublicIPHa
 
 func (cloudConn *AlibabaCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("Alibaba Cloud Driver: called CreateVMHandler()!")
-	vmHandler := alirs.AlibabaVMHandler{cloudConn.Region, cloudConn.VMClient}
+	vmHandler := alirs.AlibabaVMHandler{cloudConn.Region, cloudConn.VMClient, cloudConn.VpcClient}
 	return &vmHandler, nil
 }
 
