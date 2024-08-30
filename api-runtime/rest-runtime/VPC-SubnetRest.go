@@ -85,7 +85,7 @@ type SubnetRegisterRequest struct {
 // @Accept  json
 // @Produce  json
 // @Param SubnetRegisterRequest body restruntime.SubnetRegisterRequest true "Request body for registering a Subnet"
-// @Success 200 {object} cres.SubnetInfo "Details of the registered Subnet"
+// @Success 200 {object} cres.VPCInfo "Details of the VPC including the registered Subnet"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -365,7 +365,7 @@ type AddSubnetRequest struct {
 // @Produce  json
 // @Param VPCName path string true "The name of the VPC to add the Subnet to"
 // @Param AddSubnetRequest body restruntime.AddSubnetRequest true "Request body for adding a Subnet"
-// @Success 200 {object} cres.SubnetInfo "Details of the added Subnet"
+// @Success 200 {object} cres.VPCInfo "Details of the VPC including the added Subnet"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
