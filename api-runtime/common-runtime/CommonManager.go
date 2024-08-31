@@ -383,7 +383,7 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 			return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
 		}
 
-		_, err = infostore.DeleteByConditions(&KeyIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+		_, err = infostore.DeleteByConditions(&MyImageIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
 		if err != nil {
 			cblog.Error(err)
 			return false, err
