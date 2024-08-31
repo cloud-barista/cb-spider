@@ -125,6 +125,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/allmyimage": {
+            "get": {
+                "description": "Retrieve a list of all MyImages across all connections.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[MyImage management]"
+                ],
+                "summary": "List All MyImages",
+                "operationId": "list-all-myimage",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of all MyImages with their respective lists",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/allsecuritygroup": {
             "get": {
                 "description": "Retrieve a list of all Security Groups across all connections.",
@@ -458,6 +509,69 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "Total count of KeyPairs for the connection",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/countmyimage": {
+            "get": {
+                "description": "Get the total number of MyImages across all connections.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[MyImage management]"
+                ],
+                "summary": "Count All MyImages",
+                "operationId": "count-all-myimages",
+                "responses": {
+                    "200": {
+                        "description": "Total count of MyImages",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/countmyimage/{ConnectionName}": {
+            "get": {
+                "description": "Get the total number of MyImages for a specific connection.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[MyImage management]"
+                ],
+                "summary": "Count MyImages by Connection",
+                "operationId": "count-myimages-by-connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Total count of MyImages for the connection",
                         "schema": {
                             "$ref": "#/definitions/spider.CountResponse"
                         }
@@ -810,6 +924,66 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "The CSP KeyPair ID to delete",
+                        "name": "Id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the delete operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/cspmyimage/{Id}": {
+            "delete": {
+                "description": "Delete a specified CSP MyImage.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[MyImage management]"
+                ],
+                "summary": "Delete CSP MyImage",
+                "operationId": "delete-csp-myimage",
+                "parameters": [
+                    {
+                        "description": "Request body for deleting a CSP MyImage",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The CSP MyImage ID to delete",
                         "name": "Id",
                         "in": "path",
                         "required": true
@@ -1818,6 +1992,230 @@ const docTemplate = `{
                 }
             }
         },
+        "/myimage": {
+            "get": {
+                "description": "Retrieve a list of MyImages associated with a specific connection.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[MyImage management]"
+                ],
+                "summary": "List MyImages",
+                "operationId": "list-myimage",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list MyImages for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of MyImages",
+                        "schema": {
+                            "$ref": "#/definitions/spider.MyImageListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new MyImage snapshot from a specified VM.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[MyImage management]"
+                ],
+                "summary": "Snapshot VM",
+                "operationId": "snapshot-vm",
+                "parameters": [
+                    {
+                        "description": "Request body for creating a MyImage snapshot",
+                        "name": "MyImageSnapshotRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.MyImageSnapshotRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the created MyImage snapshot",
+                        "schema": {
+                            "$ref": "#/definitions/spider.MyImageInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/myimage/{Name}": {
+            "get": {
+                "description": "Retrieve details of a specific MyImage.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[MyImage management]"
+                ],
+                "summary": "Get MyImage",
+                "operationId": "get-myimage",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to get a MyImage for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the MyImage to retrieve",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the MyImage",
+                        "schema": {
+                            "$ref": "#/definitions/spider.MyImageInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a specified MyImage.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[MyImage management]"
+                ],
+                "summary": "Delete MyImage",
+                "operationId": "delete-myimage",
+                "parameters": [
+                    {
+                        "description": "Request body for deleting a MyImage",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the MyImage to delete",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Force delete the MyImage",
+                        "name": "force",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the delete operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/regdisk": {
             "post": {
                 "description": "Register a new Disk with the specified name, zone, and CSP ID.",
@@ -2011,6 +2409,119 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "The name of the KeyPair to unregister",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the unregister operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/regmyimage": {
+            "post": {
+                "description": "Register a new MyImage with the specified name and CSP ID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[MyImage management]"
+                ],
+                "summary": "Register MyImage",
+                "operationId": "register-myimage",
+                "parameters": [
+                    {
+                        "description": "Request body for registering a MyImage",
+                        "name": "MyImageRegisterRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.MyImageRegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the registered MyImage",
+                        "schema": {
+                            "$ref": "#/definitions/spider.MyImageInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/regmyimage/{Name}": {
+            "delete": {
+                "description": "Unregister a MyImage with the specified name.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[MyImage management]"
+                ],
+                "summary": "Unregister MyImage",
+                "operationId": "unregister-myimage",
+                "parameters": [
+                    {
+                        "description": "Request body for unregistering a MyImage",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the MyImage to unregister",
                         "name": "Name",
                         "in": "path",
                         "required": true
@@ -3772,6 +4283,62 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.MyImageInfo": {
+            "type": "object",
+            "required": [
+                "CreatedTime",
+                "IId",
+                "Status"
+            ],
+            "properties": {
+                "CreatedTime": {
+                    "type": "string"
+                },
+                "IId": {
+                    "description": "{NameId, SystemId}",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "KeyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "SourceVM": {
+                    "$ref": "#/definitions/spider.IID"
+                },
+                "Status": {
+                    "description": "Available | Unavailable",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.MyImageStatus"
+                        }
+                    ],
+                    "example": "Available"
+                },
+                "TagList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                }
+            }
+        },
+        "spider.MyImageStatus": {
+            "type": "string",
+            "enum": [
+                "Available",
+                "Unavailable"
+            ],
+            "x-enum-varnames": [
+                "MyImageAvailable",
+                "MyImageUnavailable"
+            ]
+        },
         "spider.Platform": {
             "type": "string",
             "enum": [
@@ -4707,6 +5274,91 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/spider.VPCInfo"
+                    }
+                }
+            }
+        },
+        "spider.MyImageListResponse": {
+            "type": "object",
+            "required": [
+                "myImage"
+            ],
+            "properties": {
+                "myImage": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.MyImageInfo"
+                    }
+                }
+            }
+        },
+        "spider.MyImageRegisterRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "CSPId",
+                        "Name"
+                    ],
+                    "properties": {
+                        "CSPId": {
+                            "type": "string",
+                            "example": "csp-myimage-1234"
+                        },
+                        "Name": {
+                            "type": "string",
+                            "example": "myimage-01"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.MyImageSnapshotRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "IDTransformMode": {
+                    "description": "ON: transform CSP ID, OFF: no-transform CSP ID",
+                    "type": "string",
+                    "example": "ON"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "Name",
+                        "SourceVM"
+                    ],
+                    "properties": {
+                        "Name": {
+                            "type": "string",
+                            "example": "myimage-01"
+                        },
+                        "SourceVM": {
+                            "type": "string",
+                            "example": "vm-01"
+                        },
+                        "TagList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.KeyValue"
+                            }
+                        }
                     }
                 }
             }

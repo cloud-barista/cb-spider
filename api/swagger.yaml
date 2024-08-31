@@ -127,6 +127,42 @@ definitions:
     required:
     - Key
     type: object
+  spider.MyImageInfo:
+    properties:
+      CreatedTime:
+        type: string
+      IId:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: '{NameId, SystemId}'
+      KeyValueList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      SourceVM:
+        $ref: '#/definitions/spider.IID'
+      Status:
+        allOf:
+        - $ref: '#/definitions/spider.MyImageStatus'
+        description: Available | Unavailable
+        example: Available
+      TagList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+    required:
+    - CreatedTime
+    - IId
+    - Status
+    type: object
+  spider.MyImageStatus:
+    enum:
+    - Available
+    - Unavailable
+    type: string
+    x-enum-varnames:
+    - MyImageAvailable
+    - MyImageUnavailable
   spider.Platform:
     enum:
     - LINUX/UNIX
@@ -783,6 +819,65 @@ definitions:
     required:
     - vpc
     type: object
+  spider.MyImageListResponse:
+    properties:
+      myImage:
+        items:
+          $ref: '#/definitions/spider.MyImageInfo'
+        type: array
+    required:
+    - myImage
+    type: object
+  spider.MyImageRegisterRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          CSPId:
+            example: csp-myimage-1234
+            type: string
+          Name:
+            example: myimage-01
+            type: string
+        required:
+        - CSPId
+        - Name
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.MyImageSnapshotRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      IDTransformMode:
+        description: 'ON: transform CSP ID, OFF: no-transform CSP ID'
+        example: "ON"
+        type: string
+      ReqInfo:
+        properties:
+          Name:
+            example: myimage-01
+            type: string
+          SourceVM:
+            example: vm-01
+            type: string
+          TagList:
+            items:
+              $ref: '#/definitions/spider.KeyValue'
+            type: array
+        required:
+        - Name
+        - SourceVM
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
   spider.RuleControlRequest:
     properties:
       ConnectionName:
@@ -1192,6 +1287,41 @@ paths:
       summary: List All KeyPairs
       tags:
       - '[KeyPair management]'
+  /allmyimage:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of all MyImages across all connections.
+      operationId: list-all-myimage
+      parameters:
+      - description: The name of the Connection
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all MyImages with their respective lists
+          schema:
+            $ref: '#/definitions/spider.AllResourceListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All MyImages
+      tags:
+      - '[MyImage management]'
   /allsecuritygroup:
     get:
       consumes:
@@ -1429,6 +1559,48 @@ paths:
       summary: Count KeyPairs by Connection
       tags:
       - '[KeyPair management]'
+  /countmyimage:
+    get:
+      description: Get the total number of MyImages across all connections.
+      operationId: count-all-myimages
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of MyImages
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count All MyImages
+      tags:
+      - '[MyImage management]'
+  /countmyimage/{ConnectionName}:
+    get:
+      description: Get the total number of MyImages for a specific connection.
+      operationId: count-myimages-by-connection
+      parameters:
+      - description: The name of the Connection
+        in: path
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of MyImages for the connection
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count MyImages by Connection
+      tags:
+      - '[MyImage management]'
   /countsecuritygroup:
     get:
       description: Get the total number of Security Groups across all connections.
@@ -1679,6 +1851,47 @@ paths:
       summary: Delete CSP KeyPair
       tags:
       - '[KeyPair management]'
+  /cspmyimage/{Id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a specified CSP MyImage.
+      operationId: delete-csp-myimage
+      parameters:
+      - description: Request body for deleting a CSP MyImage
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The CSP MyImage ID to delete
+        in: path
+        name: Id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the delete operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete CSP MyImage
+      tags:
+      - '[MyImage management]'
   /cspsecuritygroup/{Id}:
     delete:
       consumes:
@@ -2345,6 +2558,159 @@ paths:
       summary: Get KeyPair
       tags:
       - '[KeyPair management]'
+  /myimage:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of MyImages associated with a specific connection.
+      operationId: list-myimage
+      parameters:
+      - description: The name of the Connection to list MyImages for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of MyImages
+          schema:
+            $ref: '#/definitions/spider.MyImageListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List MyImages
+      tags:
+      - '[MyImage management]'
+    post:
+      consumes:
+      - application/json
+      description: Create a new MyImage snapshot from a specified VM.
+      operationId: snapshot-vm
+      parameters:
+      - description: Request body for creating a MyImage snapshot
+        in: body
+        name: MyImageSnapshotRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.MyImageSnapshotRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the created MyImage snapshot
+          schema:
+            $ref: '#/definitions/spider.MyImageInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Snapshot VM
+      tags:
+      - '[MyImage management]'
+  /myimage/{Name}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a specified MyImage.
+      operationId: delete-myimage
+      parameters:
+      - description: Request body for deleting a MyImage
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The name of the MyImage to delete
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: Force delete the MyImage
+        in: query
+        name: force
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the delete operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete MyImage
+      tags:
+      - '[MyImage management]'
+    get:
+      consumes:
+      - application/json
+      description: Retrieve details of a specific MyImage.
+      operationId: get-myimage
+      parameters:
+      - description: The name of the Connection to get a MyImage for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: The name of the MyImage to retrieve
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the MyImage
+          schema:
+            $ref: '#/definitions/spider.MyImageInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get MyImage
+      tags:
+      - '[MyImage management]'
   /regdisk:
     post:
       consumes:
@@ -2499,6 +2865,83 @@ paths:
       summary: Unregister KeyPair
       tags:
       - '[KeyPair management]'
+  /regmyimage:
+    post:
+      consumes:
+      - application/json
+      description: Register a new MyImage with the specified name and CSP ID.
+      operationId: register-myimage
+      parameters:
+      - description: Request body for registering a MyImage
+        in: body
+        name: MyImageRegisterRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.MyImageRegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the registered MyImage
+          schema:
+            $ref: '#/definitions/spider.MyImageInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Register MyImage
+      tags:
+      - '[MyImage management]'
+  /regmyimage/{Name}:
+    delete:
+      consumes:
+      - application/json
+      description: Unregister a MyImage with the specified name.
+      operationId: unregister-myimage
+      parameters:
+      - description: Request body for unregistering a MyImage
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The name of the MyImage to unregister
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the unregister operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Unregister MyImage
+      tags:
+      - '[MyImage management]'
   /regsecuritygroup:
     post:
       consumes:

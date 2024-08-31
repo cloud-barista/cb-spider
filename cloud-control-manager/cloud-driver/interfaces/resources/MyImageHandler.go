@@ -21,16 +21,16 @@ const (
 )
 
 // -------- Info Structure
+// MyImageInfo represents the information of a MyImage resource.
 type MyImageInfo struct {
-	IId IID // {NameId, SystemId}
+	IId      IID `json:"IId" validate:"required"` // {NameId, SystemId}
+	SourceVM IID `json:"SourceVM" validate:"omitempty"`
 
-	SourceVM IID
+	Status MyImageStatus `json:"Status" validate:"required" example:"Available"` // Available | Unavailable
 
-	Status MyImageStatus // Available | Unavailable
-
-	CreatedTime  time.Time
-	TagList      []KeyValue
-	KeyValueList []KeyValue
+	CreatedTime  time.Time  `json:"CreatedTime" validate:"required"`
+	TagList      []KeyValue `json:"TagList,omitempty" validate:"omitempty"`
+	KeyValueList []KeyValue `json:"KeyValueList,omitempty" validate:"omitempty"`
 }
 
 // -------- MyImage API
