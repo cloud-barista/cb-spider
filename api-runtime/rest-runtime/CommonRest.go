@@ -49,8 +49,13 @@ type BooleanInfo struct {
 	Result string `json:"Result" validate:"required" example:"true"` // true or false
 }
 
-type StatusInfo struct {
-	Status string `json:"Status" validate:"required" example:"RUNNING"` // "RUNNING,SUSPENDING,SUSPENDED,REBOOTING,TERMINATING,TERMINATED,NOTEXIST,FAILED"
+// AllResourceListResponse represents the response body structure for the ListAllVPC API.
+type AllResourceListResponse struct {
+	AllList struct {
+		MappedList     []*cres.IID `json:"MappedList" validate:"required" description:"A list of resources that are mapped between CB-Spider and CSP"`
+		OnlySpiderList []*cres.IID `json:"OnlySpiderList" validate:"required" description:"A list of resources that exist only in CB-Spider"`
+		OnlyCSPList    []*cres.IID `json:"OnlyCSPList" validate:"required" description:"A list of resources that exist only in the CSP"`
+	} `json:"AllList" validate:"required" description:"A list of all VPCs with their respective lists"`
 }
 
 //================ Get CSP Resource Name

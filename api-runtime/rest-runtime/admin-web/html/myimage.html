@@ -476,7 +476,7 @@
             {{end}}
             {{if not .MyImages}}
             <tr>
-                <td colspan="6" class="center-align">No MyImages found for this connection.</td>
+                <td colspan="7" class="center-align">No MyImages found for this connection.</td>
             </tr>
             {{end}}
         </table>       
@@ -547,7 +547,7 @@
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify(data)
-            }).then(response => {
+            }).then(response => {                
                 if (!response.ok) {
                     return response.json().then(error => {
                         throw new Error(error.message);

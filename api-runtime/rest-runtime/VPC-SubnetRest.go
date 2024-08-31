@@ -301,13 +301,6 @@ func ListVPC(c echo.Context) error {
 	return c.JSON(http.StatusOK, &jsonResult)
 }
 
-// AllResourceListResponse represents the response body structure for the ListAllVPC API.
-type AllResourceListResponse struct {
-	MappedList     []*cres.IID `json:"MappedList" validate:"required" description:"A list of resources that are mapped between CB-Spider and CSP"`
-	OnlySpiderList []*cres.IID `json:"OnlySpiderList" validate:"required" description:"A list of resources that exist only in CB-Spider"`
-	OnlyCSPList    []*cres.IID `json:"OnlyCSPList" validate:"required" description:"A list of resources that exist only in the CSP"`
-}
-
 // listAllVPC godoc
 // @ID list-all-vpc
 // @Summary List All VPCs

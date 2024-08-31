@@ -22,19 +22,33 @@ import (
 
 //================ Disk Handler
 
-type DiskRegisterReq struct {
-	ConnectionName string
+// DiskRegisterRequest represents the request body for registering a Disk.
+type DiskRegisterRequest struct {
+	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-connection"`
 	ReqInfo        struct {
-		Name  string
-		Zone  string
-		CSPId string
-	}
+		Name  string `json:"Name" validate:"required" example:"disk-01"`
+		Zone  string `json:"Zone" validate:"required" example:"us-east-1b"`
+		CSPId string `json:"CSPId" validate:"required" example:"csp-disk-1234"`
+	} `json:"ReqInfo" validate:"required"`
 }
 
+// registerDisk godoc
+// @ID register-disk
+// @Summary Register Disk
+// @Description Register a new Disk with the specified name, zone, and CSP ID.
+// @Tags [Disk management]
+// @Accept  json
+// @Produce  json
+// @Param DiskRegisterRequest body restruntime.DiskRegisterRequest true "Request body for registering a Disk"
+// @Success 200 {object} cres.DiskInfo "Details of the registered Disk"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /regdisk [post]
 func RegisterDisk(c echo.Context) error {
 	cblog.Info("call RegisterDisk()")
 
-	req := DiskRegisterReq{}
+	req := DiskRegisterRequest{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -52,15 +66,24 @@ func RegisterDisk(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
-// (1) get args from REST Call
-// (2) call common-runtime API
-// (3) return REST Json Format
+// unregisterDisk godoc
+// @ID unregister-disk
+// @Summary Unregister Disk
+// @Description Unregister a Disk with the specified name.
+// @Tags [Disk management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for unregistering a Disk"
+// @Param Name path string true "The name of the Disk to unregister"
+// @Success 200 {object} BooleanInfo "Result of the unregister operation"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /regdisk/{Name} [delete]
 func UnregisterDisk(c echo.Context) error {
 	cblog.Info("call UnregisterDisk()")
 
-	var req struct {
-		ConnectionName string
-	}
+	var req ConnectionRequest
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -79,24 +102,36 @@ func UnregisterDisk(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
-type DiskReq struct {
-	ConnectionName  string
-	IDTransformMode string // ON | OFF, default is ON
+// DiskCreateRequest represents the request body for creating a Disk.
+type DiskCreateRequest struct {
+	ConnectionName  string `json:"ConnectionName" validate:"required" example:"aws-connection"`
+	IDTransformMode string `json:"IDTransformMode,omitempty" validate:"omitempty" example:"ON"` // ON: transform CSP ID, OFF: no-transform CSP ID
 	ReqInfo         struct {
-		Name string
-		Zone string
-
-		DiskType string
-		DiskSize string
-
-		TagList []cres.KeyValue
-	}
+		Name     string          `json:"Name" validate:"required" example:"disk-01"`
+		Zone     string          `json:"Zone,omitempty" validate:"omitempty" example:"us-east-1b"` // target zone for the disk, if not specified, it will be created in the same zone as the Connection.
+		DiskType string          `json:"DiskType" validate:"required" example:"gp2"`               // gp2 or default, if not specified, default is used
+		DiskSize string          `json:"DiskSize" validate:"required" example:"100"`               // 100 or default, if not specified, default is used (unit is GB)
+		TagList  []cres.KeyValue `json:"TagList,omitempty" validate:"omitempty"`
+	} `json:"ReqInfo" validate:"required"`
 }
 
+// createDisk godoc
+// @ID create-disk
+// @Summary Create Disk
+// @Description Create a new Disk with the specified configuration.
+// @Tags [Disk management]
+// @Accept  json
+// @Produce  json
+// @Param DiskCreateRequest body restruntime.DiskCreateRequest true "Request body for creating a Disk"
+// @Success 200 {object} cres.DiskInfo "Details of the created Disk"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /disk [post]
 func CreateDisk(c echo.Context) error {
 	cblog.Info("call CreateDisk()")
 
-	req := DiskReq{}
+	req := DiskCreateRequest{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -108,8 +143,7 @@ func CreateDisk(c echo.Context) error {
 		Zone:     req.ReqInfo.Zone,
 		DiskType: req.ReqInfo.DiskType,
 		DiskSize: req.ReqInfo.DiskSize,
-
-		TagList: req.ReqInfo.TagList,
+		TagList:  req.ReqInfo.TagList,
 	}
 
 	// Call common-runtime API
@@ -121,12 +155,28 @@ func CreateDisk(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
+// DiskListResponse represents the response body for listing Disks.
+type DiskListResponse struct {
+	Result []*cres.DiskInfo `json:"disk" validate:"required" description:"A list of Disk information"`
+}
+
+// listDisk godoc
+// @ID list-disk
+// @Summary List Disks
+// @Description Retrieve a list of Disks associated with a specific connection.
+// @Tags [Disk management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionName query string true "The name of the Connection to list Disks for"
+// @Success 200 {object} DiskListResponse "List of Disks"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameter"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /disk [get]
 func ListDisk(c echo.Context) error {
 	cblog.Info("call ListDisk()")
 
-	var req struct {
-		ConnectionName string
-	}
+	var req ConnectionRequest
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -143,23 +193,30 @@ func ListDisk(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	var jsonResult struct {
-		Result []*cres.DiskInfo `json:"disk"`
+	jsonResult := DiskListResponse{
+		Result: result,
 	}
-	jsonResult.Result = result
+
 	return c.JSON(http.StatusOK, &jsonResult)
 }
 
-// list all Disks for management
-// (1) get args from REST Call
-// (2) get all Disk List by common-runtime API
-// (3) return REST Json Format
+// listAllDisk godoc
+// @ID list-all-disk
+// @Summary List All Disks
+// @Description Retrieve a list of all Disks across all connections.
+// @Tags [Disk management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionName query string true "The name of the Connection"
+// @Success 200 {object} AllResourceListResponse "List of all Disks with their respective lists"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /alldisk [get]
 func ListAllDisk(c echo.Context) error {
 	cblog.Info("call ListAllDisk()")
 
-	var req struct {
-		ConnectionName string
-	}
+	var req ConnectionRequest
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -179,12 +236,24 @@ func ListAllDisk(c echo.Context) error {
 	return c.JSON(http.StatusOK, &allResourceList)
 }
 
+// getDisk godoc
+// @ID get-disk
+// @Summary Get Disk
+// @Description Retrieve details of a specific Disk.
+// @Tags [Disk management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionName query string true "The name of the Connection to get a Disk for"
+// @Param Name path string true "The name of the Disk to retrieve"
+// @Success 200 {object} cres.DiskInfo "Details of the Disk"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /disk/{Name} [get]
 func GetDisk(c echo.Context) error {
 	cblog.Info("call GetDisk()")
 
-	var req struct {
-		ConnectionName string
-	}
+	var req ConnectionRequest
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -204,15 +273,32 @@ func GetDisk(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
-func ChangeDiskSize(c echo.Context) error {
-	cblog.Info("call ChangeDiskSize()")
+// IncreaseDiskSizeRequest represents the request body for changing the size of a Disk.
+type IncreaseDiskSizeRequest struct {
+	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-connection"`
+	ReqInfo        struct {
+		Size string `json:"Size" validate:"required" example:"150"`
+	} `json:"ReqInfo" validate:"required"`
+}
 
-	var req struct {
-		ConnectionName string
-		ReqInfo        struct {
-			Size string
-		}
-	}
+// increaseDiskSize godoc
+// @ID increase-disk-size
+// @Summary Increase Disk Size
+// @Description Increase the size of an existing disk.
+// @Tags [Disk management]
+// @Accept  json
+// @Produce  json
+// @Param IncreaseDiskSizeRequest body restruntime.IncreaseDiskSizeRequest true "Request body for increasing the Disk size"
+// @Param Name path string true "The name of the Disk to increase the size for"
+// @Success 200 {object} BooleanInfo "Result of the size increase operation"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /disk/{Name}/size [put]
+func IncreaseDiskSize(c echo.Context) error {
+	cblog.Info("call IncreaseDiskSize()")
+
+	var req IncreaseDiskSizeRequest
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -236,15 +322,25 @@ func ChangeDiskSize(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
-// (1) get args from REST Call
-// (2) call common-runtime API
-// (3) return REST Json Format
+// deleteDisk godoc
+// @ID delete-disk
+// @Summary Delete Disk
+// @Description Delete a specified Disk.
+// @Tags [Disk management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for deleting a Disk"
+// @Param Name path string true "The name of the Disk to delete"
+// @Param force query string false "Force delete the Disk"
+// @Success 200 {object} BooleanInfo "Result of the delete operation"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /disk/{Name} [delete]
 func DeleteDisk(c echo.Context) error {
 	cblog.Info("call DeleteDisk()")
 
-	var req struct {
-		ConnectionName string
-	}
+	var req ConnectionRequest
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -263,15 +359,24 @@ func DeleteDisk(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
-// (1) get args from REST Call
-// (2) call common-runtime API
-// (3) return REST Json Format
+// deleteCSPDisk godoc
+// @ID delete-csp-disk
+// @Summary Delete CSP Disk
+// @Description Delete a specified CSP Disk.
+// @Tags [Disk management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for deleting a CSP Disk"
+// @Param Id path string true "The CSP Disk ID to delete"
+// @Success 200 {object} BooleanInfo "Result of the delete operation"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /cspdisk/{Id} [delete]
 func DeleteCSPDisk(c echo.Context) error {
 	cblog.Info("call DeleteCSPDisk()")
 
-	var req struct {
-		ConnectionName string
-	}
+	var req ConnectionRequest
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -290,15 +395,32 @@ func DeleteCSPDisk(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
+// DiskAttachRequest represents the request body for attaching a Disk to a VM.
+type DiskAttachRequest struct {
+	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-connection"`
+	ReqInfo        struct {
+		VMName string `json:"VMName" validate:"required" example:"vm-01"`
+	} `json:"ReqInfo" validate:"required"`
+}
+
+// attachDisk godoc
+// @ID attach-disk
+// @Summary Attach Disk
+// @Description Attach an existing Disk to a VM.
+// @Tags [Disk management]
+// @Accept  json
+// @Produce  json
+// @Param DiskAttachRequest body restruntime.DiskAttachRequest true "Request body for attaching a Disk to a VM"
+// @Param Name path string true "The name of the Disk to attach"
+// @Success 200 {object} cres.DiskInfo "Details of the attached Disk"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /disk/{Name}/attach [put]
 func AttachDisk(c echo.Context) error {
 	cblog.Info("call AttachDisk()")
 
-	var req struct {
-		ConnectionName string
-		ReqInfo        struct {
-			VMName string
-		}
-	}
+	var req DiskAttachRequest
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -313,15 +435,32 @@ func AttachDisk(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
+// DiskDetachRequest represents the request body for detaching a Disk from a VM.
+type DiskDetachRequest struct {
+	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-connection"`
+	ReqInfo        struct {
+		VMName string `json:"VMName" validate:"required" example:"vm-01"`
+	} `json:"ReqInfo" validate:"required"`
+}
+
+// detachDisk godoc
+// @ID detach-disk
+// @Summary Detach Disk
+// @Description Detach an existing Disk from a VM.
+// @Tags [Disk management]
+// @Accept  json
+// @Produce  json
+// @Param DiskDetachRequest body restruntime.DiskDetachRequest true "Request body for detaching a Disk from a VM"
+// @Param Name path string true "The name of the Disk to detach"
+// @Success 200 {object} BooleanInfo "Result of the detach operation"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /disk/{Name}/detach [put]
 func DetachDisk(c echo.Context) error {
 	cblog.Info("call DetachDisk()")
 
-	var req struct {
-		ConnectionName string
-		ReqInfo        struct {
-			VMName string
-		}
-	}
+	var req DiskDetachRequest
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -339,6 +478,15 @@ func DetachDisk(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
+// countAllDisks godoc
+// @ID count-all-disks
+// @Summary Count All Disks
+// @Description Get the total number of Disks across all connections.
+// @Tags [Disk management]
+// @Produce  json
+// @Success 200 {object} CountResponse "Total count of Disks"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /countdisk [get]
 func CountAllDisks(c echo.Context) error {
 	// Call common-runtime API to get count of Disks
 	count, err := cmrt.CountAllDisks()
@@ -347,15 +495,24 @@ func CountAllDisks(c echo.Context) error {
 	}
 
 	// Prepare JSON result
-	var jsonResult struct {
-		Count int `json:"count"`
+	jsonResult := CountResponse{
+		Count: int(count),
 	}
-	jsonResult.Count = int(count)
 
 	// Return JSON response
 	return c.JSON(http.StatusOK, jsonResult)
 }
 
+// countDisksByConnection godoc
+// @ID count-disks-by-connection
+// @Summary Count Disks by Connection
+// @Description Get the total number of Disks for a specific connection.
+// @Tags [Disk management]
+// @Produce  json
+// @Param ConnectionName path string true "The name of the Connection"
+// @Success 200 {object} CountResponse "Total count of Disks for the connection"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /countdisk/{ConnectionName} [get]
 func CountDisksByConnection(c echo.Context) error {
 	// Call common-runtime API to get count of Disks
 	count, err := cmrt.CountDisksByConnection(c.Param("ConnectionName"))
@@ -364,10 +521,9 @@ func CountDisksByConnection(c echo.Context) error {
 	}
 
 	// Prepare JSON result
-	var jsonResult struct {
-		Count int `json:"count"`
+	jsonResult := CountResponse{
+		Count: int(count),
 	}
-	jsonResult.Count = int(count)
 
 	// Return JSON response
 	return c.JSON(http.StatusOK, jsonResult)

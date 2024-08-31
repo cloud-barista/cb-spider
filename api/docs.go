@@ -23,6 +23,57 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/alldisk": {
+            "get": {
+                "description": "Retrieve a list of all Disks across all connections.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Disk management]"
+                ],
+                "summary": "List All Disks",
+                "operationId": "list-all-disk",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of all Disks with their respective lists",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/allkeypair": {
             "get": {
                 "description": "Retrieve a list of all KeyPairs across all connections.",
@@ -283,6 +334,69 @@ const docTemplate = `{
                         "description": "Resource Not Found",
                         "schema": {
                             "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/countdisk": {
+            "get": {
+                "description": "Get the total number of Disks across all connections.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Disk management]"
+                ],
+                "summary": "Count All Disks",
+                "operationId": "count-all-disks",
+                "responses": {
+                    "200": {
+                        "description": "Total count of Disks",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/countdisk/{ConnectionName}": {
+            "get": {
+                "description": "Get the total number of Disks for a specific connection.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Disk management]"
+                ],
+                "summary": "Count Disks by Connection",
+                "operationId": "count-disks-by-connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Total count of Disks for the connection",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
                         }
                     },
                     "500": {
@@ -609,6 +723,66 @@ const docTemplate = `{
                 }
             }
         },
+        "/cspdisk/{Id}": {
+            "delete": {
+                "description": "Delete a specified CSP Disk.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Disk management]"
+                ],
+                "summary": "Delete CSP Disk",
+                "operationId": "delete-csp-disk",
+                "parameters": [
+                    {
+                        "description": "Request body for deleting a CSP Disk",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The CSP Disk ID to delete",
+                        "name": "Id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the delete operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/cspkeypair/{Id}": {
             "delete": {
                 "description": "Delete a specified CSP KeyPair.",
@@ -821,7 +995,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Result of the terminate operation",
                         "schema": {
-                            "$ref": "#/definitions/spider.StatusInfo"
+                            "$ref": "#/definitions/spider.VMStatusResponse"
                         }
                     },
                     "400": {
@@ -880,6 +1054,410 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "Result of the delete operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/disk": {
+            "get": {
+                "description": "Retrieve a list of Disks associated with a specific connection.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Disk management]"
+                ],
+                "summary": "List Disks",
+                "operationId": "list-disk",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list Disks for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of Disks",
+                        "schema": {
+                            "$ref": "#/definitions/spider.DiskListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new Disk with the specified configuration.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Disk management]"
+                ],
+                "summary": "Create Disk",
+                "operationId": "create-disk",
+                "parameters": [
+                    {
+                        "description": "Request body for creating a Disk",
+                        "name": "DiskCreateRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.DiskCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the created Disk",
+                        "schema": {
+                            "$ref": "#/definitions/spider.DiskInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/disk/{Name}": {
+            "get": {
+                "description": "Retrieve details of a specific Disk.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Disk management]"
+                ],
+                "summary": "Get Disk",
+                "operationId": "get-disk",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to get a Disk for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Disk to retrieve",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the Disk",
+                        "schema": {
+                            "$ref": "#/definitions/spider.DiskInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a specified Disk.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Disk management]"
+                ],
+                "summary": "Delete Disk",
+                "operationId": "delete-disk",
+                "parameters": [
+                    {
+                        "description": "Request body for deleting a Disk",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Disk to delete",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Force delete the Disk",
+                        "name": "force",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the delete operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/disk/{Name}/attach": {
+            "put": {
+                "description": "Attach an existing Disk to a VM.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Disk management]"
+                ],
+                "summary": "Attach Disk",
+                "operationId": "attach-disk",
+                "parameters": [
+                    {
+                        "description": "Request body for attaching a Disk to a VM",
+                        "name": "DiskAttachRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.DiskAttachRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Disk to attach",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the attached Disk",
+                        "schema": {
+                            "$ref": "#/definitions/spider.DiskInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/disk/{Name}/detach": {
+            "put": {
+                "description": "Detach an existing Disk from a VM.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Disk management]"
+                ],
+                "summary": "Detach Disk",
+                "operationId": "detach-disk",
+                "parameters": [
+                    {
+                        "description": "Request body for detaching a Disk from a VM",
+                        "name": "DiskDetachRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.DiskDetachRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Disk to detach",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the detach operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/disk/{Name}/size": {
+            "put": {
+                "description": "Increase the size of an existing disk.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Disk management]"
+                ],
+                "summary": "Increase Disk Size",
+                "operationId": "increase-disk-size",
+                "parameters": [
+                    {
+                        "description": "Request body for increasing the Disk size",
+                        "name": "IncreaseDiskSizeRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.IncreaseDiskSizeRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Disk to increase the size for",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the size increase operation",
                         "schema": {
                             "$ref": "#/definitions/spider.BooleanInfo"
                         }
@@ -1240,6 +1818,119 @@ const docTemplate = `{
                 }
             }
         },
+        "/regdisk": {
+            "post": {
+                "description": "Register a new Disk with the specified name, zone, and CSP ID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Disk management]"
+                ],
+                "summary": "Register Disk",
+                "operationId": "register-disk",
+                "parameters": [
+                    {
+                        "description": "Request body for registering a Disk",
+                        "name": "DiskRegisterRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.DiskRegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the registered Disk",
+                        "schema": {
+                            "$ref": "#/definitions/spider.DiskInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/regdisk/{Name}": {
+            "delete": {
+                "description": "Unregister a Disk with the specified name.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Disk management]"
+                ],
+                "summary": "Unregister Disk",
+                "operationId": "unregister-disk",
+                "parameters": [
+                    {
+                        "description": "Request body for unregistering a Disk",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Disk to unregister",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the unregister operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/regkeypair": {
             "post": {
                 "description": "Register a new KeyPair with the specified name and CSP ID.",
@@ -1493,9 +2184,9 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Details of the registered Subnet",
+                        "description": "Details of the VPC including the registered Subnet",
                         "schema": {
-                            "$ref": "#/definitions/spider.SubnetInfo"
+                            "$ref": "#/definitions/spider.VPCInfo"
                         }
                     },
                     "400": {
@@ -2347,7 +3038,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Result of the terminate operation",
                         "schema": {
-                            "$ref": "#/definitions/spider.StatusInfo"
+                            "$ref": "#/definitions/spider.VMStatusResponse"
                         }
                     },
                     "400": {
@@ -2398,7 +3089,7 @@ const docTemplate = `{
                     "200": {
                         "description": "List of VM statuses",
                         "schema": {
-                            "$ref": "#/definitions/spider.VMStatusResponse"
+                            "$ref": "#/definitions/spider.VMListStatusResponse"
                         }
                     },
                     "400": {
@@ -2805,9 +3496,9 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Details of the added Subnet",
+                        "description": "Details of the VPC including the added Subnet",
                         "schema": {
-                            "$ref": "#/definitions/spider.SubnetInfo"
+                            "$ref": "#/definitions/spider.VPCInfo"
                         }
                     },
                     "400": {
@@ -2900,6 +3591,93 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "spider.DiskInfo": {
+            "type": "object",
+            "required": [
+                "CreatedTime",
+                "DiskSize",
+                "DiskType",
+                "IId",
+                "Status",
+                "Zone"
+            ],
+            "properties": {
+                "CreatedTime": {
+                    "description": "The time when the disk was created",
+                    "type": "string"
+                },
+                "DiskSize": {
+                    "description": "\"default\", \"50\", \"1000\" (unit is GB)",
+                    "type": "string",
+                    "example": "100"
+                },
+                "DiskType": {
+                    "description": "\"gp2\", \"Premium SSD\", ...",
+                    "type": "string",
+                    "example": "gp2"
+                },
+                "IId": {
+                    "description": "{NameId, SystemId}",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "KeyValueList": {
+                    "description": "Additional key-value pairs associated with this disk",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "OwnerVM": {
+                    "description": "When the Status is DiskAttached",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "Status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.DiskStatus"
+                        }
+                    ],
+                    "example": "Available"
+                },
+                "TagList": {
+                    "description": "A list of tags associated with this disk",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "Zone": {
+                    "description": "Target Zone Name",
+                    "type": "string",
+                    "example": "us-east-1a"
+                }
+            }
+        },
+        "spider.DiskStatus": {
+            "type": "string",
+            "enum": [
+                "Creating",
+                "Available",
+                "Attached",
+                "Deleting",
+                "Error"
+            ],
+            "x-enum-varnames": [
+                "DiskCreating",
+                "DiskAvailable",
+                "DiskAttached",
+                "DiskDeleting",
+                "DiskError"
+            ]
+        },
         "spider.IID": {
             "type": "object",
             "required": [
@@ -3143,7 +3921,6 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "AccessPoint",
-                "DataDiskIIDs",
                 "IId",
                 "ImageIId",
                 "ImageType",
@@ -3259,7 +4036,7 @@ const docTemplate = `{
                     "example": "/dev/sda1"
                 },
                 "RootDiskSize": {
-                    "description": "\"default\", \"50\", \"1000\" (GB)",
+                    "description": "\"default\", \"50\", \"1000\" (unit is GB)",
                     "type": "string",
                     "example": "50"
                 },
@@ -3332,6 +4109,67 @@ const docTemplate = `{
                             "$ref": "#/definitions/spider.IID"
                         }
                     ]
+                }
+            }
+        },
+        "spider.VMStatus": {
+            "description": "The status of a Virtual Machine (VM).",
+            "type": "string",
+            "enum": [
+                "Creating",
+                "Running",
+                "Suspending",
+                "Suspended",
+                "Resuming",
+                "Rebooting",
+                "Terminating",
+                "Terminated",
+                "NotExist",
+                "Failed"
+            ],
+            "x-enum-comments": {
+                "Creating": "from launch to running",
+                "NotExist": "VM does not exist",
+                "Rebooting": "from running to running",
+                "Resuming": "from suspended to running",
+                "Suspending": "from running to suspended",
+                "Terminating": "from running, suspended to terminated"
+            },
+            "x-enum-varnames": [
+                "Creating",
+                "Running",
+                "Suspending",
+                "Suspended",
+                "Resuming",
+                "Rebooting",
+                "Terminating",
+                "Terminated",
+                "NotExist",
+                "Failed"
+            ]
+        },
+        "spider.VMStatusInfo": {
+            "type": "object",
+            "required": [
+                "IId",
+                "VmStatus"
+            ],
+            "properties": {
+                "IId": {
+                    "description": "{NameId: 'vm-01', SystemId: 'i-12345678'}\"",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "VmStatus": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.VMStatus"
+                        }
+                    ],
+                    "example": "Running"
                 }
             }
         },
@@ -3424,27 +4262,35 @@ const docTemplate = `{
         "spider.AllResourceListResponse": {
             "type": "object",
             "required": [
-                "MappedList",
-                "OnlyCSPList",
-                "OnlySpiderList"
+                "AllList"
             ],
             "properties": {
-                "MappedList": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/spider.IID"
-                    }
-                },
-                "OnlyCSPList": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/spider.IID"
-                    }
-                },
-                "OnlySpiderList": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/spider.IID"
+                "AllList": {
+                    "type": "object",
+                    "required": [
+                        "MappedList",
+                        "OnlyCSPList",
+                        "OnlySpiderList"
+                    ],
+                    "properties": {
+                        "MappedList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.IID"
+                            }
+                        },
+                        "OnlyCSPList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.IID"
+                            }
+                        },
+                        "OnlySpiderList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.IID"
+                            }
+                        }
                     }
                 }
             }
@@ -3558,6 +4404,158 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.DiskAttachRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "VMName"
+                    ],
+                    "properties": {
+                        "VMName": {
+                            "type": "string",
+                            "example": "vm-01"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.DiskCreateRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "IDTransformMode": {
+                    "description": "ON: transform CSP ID, OFF: no-transform CSP ID",
+                    "type": "string",
+                    "example": "ON"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "DiskSize",
+                        "DiskType",
+                        "Name"
+                    ],
+                    "properties": {
+                        "DiskSize": {
+                            "description": "100 or default, if not specified, default is used (unit is GB)",
+                            "type": "string",
+                            "example": "100"
+                        },
+                        "DiskType": {
+                            "description": "gp2 or default, if not specified, default is used",
+                            "type": "string",
+                            "example": "gp2"
+                        },
+                        "Name": {
+                            "type": "string",
+                            "example": "disk-01"
+                        },
+                        "TagList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.KeyValue"
+                            }
+                        },
+                        "Zone": {
+                            "description": "target zone for the disk, if not specified, it will be created in the same zone as the Connection.",
+                            "type": "string",
+                            "example": "us-east-1b"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.DiskDetachRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "VMName"
+                    ],
+                    "properties": {
+                        "VMName": {
+                            "type": "string",
+                            "example": "vm-01"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.DiskListResponse": {
+            "type": "object",
+            "required": [
+                "disk"
+            ],
+            "properties": {
+                "disk": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.DiskInfo"
+                    }
+                }
+            }
+        },
+        "spider.DiskRegisterRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "CSPId",
+                        "Name",
+                        "Zone"
+                    ],
+                    "properties": {
+                        "CSPId": {
+                            "type": "string",
+                            "example": "csp-disk-1234"
+                        },
+                        "Name": {
+                            "type": "string",
+                            "example": "disk-01"
+                        },
+                        "Zone": {
+                            "type": "string",
+                            "example": "us-east-1b"
+                        }
+                    }
+                }
+            }
+        },
         "spider.GetSGOwnerVPCRequest": {
             "type": "object",
             "required": [
@@ -3578,6 +4576,31 @@ const docTemplate = `{
                         "CSPId": {
                             "type": "string",
                             "example": "csp-sg-1234"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.IncreaseDiskSizeRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "Size"
+                    ],
+                    "properties": {
+                        "Size": {
+                            "type": "string",
+                            "example": "150"
                         }
                     }
                 }
@@ -3838,19 +4861,6 @@ const docTemplate = `{
                 }
             }
         },
-        "spider.StatusInfo": {
-            "type": "object",
-            "required": [
-                "Status"
-            ],
-            "properties": {
-                "Status": {
-                    "description": "\"RUNNING,SUSPENDING,SUSPENDED,REBOOTING,TERMINATING,TERMINATED,NOTEXIST,FAILED\"",
-                    "type": "string",
-                    "example": "RUNNING"
-                }
-            }
-        },
         "spider.SubnetRegisterRequest": {
             "type": "object",
             "required": [
@@ -3929,6 +4939,20 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.VMListStatusResponse": {
+            "type": "object",
+            "required": [
+                "vmstatus"
+            ],
+            "properties": {
+                "vmstatus": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.VMStatusInfo"
+                    }
+                }
+            }
+        },
         "spider.VMRegisterRequest": {
             "type": "object",
             "required": [
@@ -3989,7 +5013,7 @@ const docTemplate = `{
                     ],
                     "properties": {
                         "DataDiskNames": {
-                            "description": "same zone as this VM",
+                            "description": "Data disks in the same zone as this VM",
                             "type": "array",
                             "items": {
                                 "type": "string"
@@ -4017,7 +5041,7 @@ const docTemplate = `{
                             "example": "vm-01"
                         },
                         "RootDiskSize": {
-                            "description": "GB, 30 or default, if not specified, default is used",
+                            "description": "100 or default, if not specified, default is used (unit is GB)",
                             "type": "string",
                             "example": "30"
                         },
@@ -4075,8 +5099,11 @@ const docTemplate = `{
             ],
             "properties": {
                 "Status": {
-                    "description": "Creating,Running,Suspending,Suspended,Resuming,Rebooting,Terminating,Terminated,NotExist,Failed",
-                    "type": "string",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.VMStatus"
+                        }
+                    ],
                     "example": "Running"
                 }
             }

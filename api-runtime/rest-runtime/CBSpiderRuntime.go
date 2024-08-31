@@ -378,7 +378,7 @@ func RunServer() {
 		{"POST", "/disk", CreateDisk},
 		{"GET", "/disk", ListDisk},
 		{"GET", "/disk/:Name", GetDisk},
-		{"PUT", "/disk/:Name/size", ChangeDiskSize},
+		{"PUT", "/disk/:Name/size", IncreaseDiskSize},
 		{"DELETE", "/disk/:Name", DeleteDisk},
 		//-- for vm
 		{"PUT", "/disk/:Name/attach", AttachDisk},

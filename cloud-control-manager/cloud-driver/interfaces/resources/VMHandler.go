@@ -42,7 +42,7 @@ type VMReqInfo struct {
 	KeyPairIID IID
 
 	RootDiskType string // "", "SSD(gp2)", "Premium SSD", ...
-	RootDiskSize string // "", "default", "50", "1000" (GB)
+	RootDiskSize string // "", "default", "50", "1000" (unit is GB)
 
 	DataDiskIIDs []IID
 
@@ -54,11 +54,14 @@ type VMReqInfo struct {
 }
 
 type VMStatusInfo struct {
-	IId      IID      `json:"IId" validate:"required" example:"`              // {NameId: 'vm-01', SystemId: 'i-12345678'}"
-	VmStatus VMStatus `json:"VmStatus" validate:"required" example:"RUNNING"` // "RUNNING,SUSPENDING,SUSPENDED,REBOOTING,TERMINATING,TERMINATED,NOTEXIST,FAILED"
+	IId      IID      `json:"IId" validate:"required" example:"` // {NameId: 'vm-01', SystemId: 'i-12345678'}"
+	VmStatus VMStatus `json:"VmStatus" validate:"required" example:"Running"`
 }
 
-// GO do not support Enum. So, define like this.
+// VMStatus represents the possible statuses of a VM.
+// @description The status of a Virtual Machine (VM).
+// @enum string
+// @enum values [Creating, Running, Suspending, Suspended, Resuming, Rebooting, Terminating, Terminated, NotExist, Failed]
 type VMStatus string
 
 const (
@@ -98,10 +101,10 @@ type VMInfo struct {
 	KeyPairIId IID `json:"KeyPairIId" validate:"required"` // example:"{NameId: 'keypair-01', SystemId: 'keypair-12345678'}"
 
 	RootDiskType   string `json:"RootDiskType" validate:"required" example:"gp2"`         // "gp2", "Premium SSD", ...
-	RootDiskSize   string `json:"RootDiskSize" validate:"required" example:"50"`          // "default", "50", "1000" (GB)
+	RootDiskSize   string `json:"RootDiskSize" validate:"required" example:"50"`          // "default", "50", "1000" (unit is GB)
 	RootDeviceName string `json:"RootDeviceName" validate:"required" example:"/dev/sda1"` // "/dev/sda1", ...
 
-	DataDiskIIDs []IID `json:"DataDiskIIDs" validate:"required"` // example:"[{NameId: 'datadisk-01', SystemId: 'datadisk-12345678'}]"
+	DataDiskIIDs []IID `json:"DataDiskIIDs,omitempty" validate:"omitempty"` // example:"[{NameId: 'datadisk-01', SystemId: 'datadisk-12345678'}]"
 
 	VMBootDisk  string `json:"VMBootDisk,omitempty" validate:"omitempty" example:"/dev/sda1"`  // Deprecated soon
 	VMBlockDisk string `json:"VMBlockDisk,omitempty" validate:"omitempty" example:"/dev/sda2"` // Deprecated soon

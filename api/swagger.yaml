@@ -1,5 +1,66 @@
 basePath: /spider
 definitions:
+  spider.DiskInfo:
+    properties:
+      CreatedTime:
+        description: The time when the disk was created
+        type: string
+      DiskSize:
+        description: '"default", "50", "1000" (unit is GB)'
+        example: "100"
+        type: string
+      DiskType:
+        description: '"gp2", "Premium SSD", ...'
+        example: gp2
+        type: string
+      IId:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: '{NameId, SystemId}'
+      KeyValueList:
+        description: Additional key-value pairs associated with this disk
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      OwnerVM:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: When the Status is DiskAttached
+      Status:
+        allOf:
+        - $ref: '#/definitions/spider.DiskStatus'
+        example: Available
+      TagList:
+        description: A list of tags associated with this disk
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      Zone:
+        description: Target Zone Name
+        example: us-east-1a
+        type: string
+    required:
+    - CreatedTime
+    - DiskSize
+    - DiskType
+    - IId
+    - Status
+    - Zone
+    type: object
+  spider.DiskStatus:
+    enum:
+    - Creating
+    - Available
+    - Attached
+    - Deleting
+    - Error
+    type: string
+    x-enum-varnames:
+    - DiskCreating
+    - DiskAvailable
+    - DiskAttached
+    - DiskDeleting
+    - DiskError
   spider.IID:
     properties:
       NameId:
@@ -227,7 +288,7 @@ definitions:
         example: /dev/sda1
         type: string
       RootDiskSize:
-        description: '"default", "50", "1000" (GB)'
+        description: '"default", "50", "1000" (unit is GB)'
         example: "50"
         type: string
       RootDiskType:
@@ -282,7 +343,6 @@ definitions:
         description: 'example:"{NameId: ''vpc-01'', SystemId: ''vpc-12345678''}"'
     required:
     - AccessPoint
-    - DataDiskIIDs
     - IId
     - ImageIId
     - ImageType
@@ -301,6 +361,52 @@ definitions:
     - VMSpecName
     - VMUserId
     - VpcIID
+    type: object
+  spider.VMStatus:
+    description: The status of a Virtual Machine (VM).
+    enum:
+    - Creating
+    - Running
+    - Suspending
+    - Suspended
+    - Resuming
+    - Rebooting
+    - Terminating
+    - Terminated
+    - NotExist
+    - Failed
+    type: string
+    x-enum-comments:
+      Creating: from launch to running
+      NotExist: VM does not exist
+      Rebooting: from running to running
+      Resuming: from suspended to running
+      Suspending: from running to suspended
+      Terminating: from running, suspended to terminated
+    x-enum-varnames:
+    - Creating
+    - Running
+    - Suspending
+    - Suspended
+    - Resuming
+    - Rebooting
+    - Terminating
+    - Terminated
+    - NotExist
+    - Failed
+  spider.VMStatusInfo:
+    properties:
+      IId:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: '{NameId: ''vm-01'', SystemId: ''i-12345678''}"'
+      VmStatus:
+        allOf:
+        - $ref: '#/definitions/spider.VMStatus'
+        example: Running
+    required:
+    - IId
+    - VmStatus
     type: object
   spider.VPCInfo:
     properties:
@@ -364,22 +470,27 @@ definitions:
     type: object
   spider.AllResourceListResponse:
     properties:
-      MappedList:
-        items:
-          $ref: '#/definitions/spider.IID'
-        type: array
-      OnlyCSPList:
-        items:
-          $ref: '#/definitions/spider.IID'
-        type: array
-      OnlySpiderList:
-        items:
-          $ref: '#/definitions/spider.IID'
-        type: array
+      AllList:
+        properties:
+          MappedList:
+            items:
+              $ref: '#/definitions/spider.IID'
+            type: array
+          OnlyCSPList:
+            items:
+              $ref: '#/definitions/spider.IID'
+            type: array
+          OnlySpiderList:
+            items:
+              $ref: '#/definitions/spider.IID'
+            type: array
+        required:
+        - MappedList
+        - OnlyCSPList
+        - OnlySpiderList
+        type: object
     required:
-    - MappedList
-    - OnlyCSPList
-    - OnlySpiderList
+    - AllList
     type: object
   spider.BooleanInfo:
     properties:
@@ -458,6 +569,115 @@ definitions:
     - ConnectionName
     - ReqInfo
     type: object
+  spider.DiskAttachRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          VMName:
+            example: vm-01
+            type: string
+        required:
+        - VMName
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.DiskCreateRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      IDTransformMode:
+        description: 'ON: transform CSP ID, OFF: no-transform CSP ID'
+        example: "ON"
+        type: string
+      ReqInfo:
+        properties:
+          DiskSize:
+            description: 100 or default, if not specified, default is used (unit is
+              GB)
+            example: "100"
+            type: string
+          DiskType:
+            description: gp2 or default, if not specified, default is used
+            example: gp2
+            type: string
+          Name:
+            example: disk-01
+            type: string
+          TagList:
+            items:
+              $ref: '#/definitions/spider.KeyValue'
+            type: array
+          Zone:
+            description: target zone for the disk, if not specified, it will be created
+              in the same zone as the Connection.
+            example: us-east-1b
+            type: string
+        required:
+        - DiskSize
+        - DiskType
+        - Name
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.DiskDetachRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          VMName:
+            example: vm-01
+            type: string
+        required:
+        - VMName
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.DiskListResponse:
+    properties:
+      disk:
+        items:
+          $ref: '#/definitions/spider.DiskInfo'
+        type: array
+    required:
+    - disk
+    type: object
+  spider.DiskRegisterRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          CSPId:
+            example: csp-disk-1234
+            type: string
+          Name:
+            example: disk-01
+            type: string
+          Zone:
+            example: us-east-1b
+            type: string
+        required:
+        - CSPId
+        - Name
+        - Zone
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
   spider.GetSGOwnerVPCRequest:
     properties:
       ConnectionName:
@@ -470,6 +690,23 @@ definitions:
             type: string
         required:
         - CSPId
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.IncreaseDiskSizeRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          Size:
+            example: "150"
+            type: string
+        required:
+        - Size
         type: object
     required:
     - ConnectionName
@@ -652,15 +889,6 @@ definitions:
     required:
     - message
     type: object
-  spider.StatusInfo:
-    properties:
-      Status:
-        description: '"RUNNING,SUSPENDING,SUSPENDED,REBOOTING,TERMINATING,TERMINATED,NOTEXIST,FAILED"'
-        example: RUNNING
-        type: string
-    required:
-    - Status
-    type: object
   spider.SubnetRegisterRequest:
     properties:
       ConnectionName:
@@ -715,6 +943,15 @@ definitions:
     required:
     - vm
     type: object
+  spider.VMListStatusResponse:
+    properties:
+      vmstatus:
+        items:
+          $ref: '#/definitions/spider.VMStatusInfo'
+        type: array
+    required:
+    - vmstatus
+    type: object
   spider.VMRegisterRequest:
     properties:
       ConnectionName:
@@ -748,7 +985,7 @@ definitions:
       ReqInfo:
         properties:
           DataDiskNames:
-            description: same zone as this VM
+            description: Data disks in the same zone as this VM
             example:
             - data-disk-01
             - ' data-disk-02'
@@ -769,7 +1006,8 @@ definitions:
             example: vm-01
             type: string
           RootDiskSize:
-            description: GB, 30 or default, if not specified, default is used
+            description: 100 or default, if not specified, default is used (unit is
+              GB)
             example: "30"
             type: string
           RootDiskType:
@@ -821,9 +1059,9 @@ definitions:
   spider.VMStatusResponse:
     properties:
       Status:
-        description: Creating,Running,Suspending,Suspended,Resuming,Rebooting,Terminating,Terminated,NotExist,Failed
+        allOf:
+        - $ref: '#/definitions/spider.VMStatus'
         example: Running
-        type: string
     required:
     - Status
     type: object
@@ -885,6 +1123,41 @@ info:
   title: CB-Spider REST API
   version: latest
 paths:
+  /alldisk:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of all Disks across all connections.
+      operationId: list-all-disk
+      parameters:
+      - description: The name of the Connection
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all Disks with their respective lists
+          schema:
+            $ref: '#/definitions/spider.AllResourceListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All Disks
+      tags:
+      - '[Disk management]'
   /allkeypair:
     get:
       consumes:
@@ -1072,6 +1345,48 @@ paths:
       summary: Control VM
       tags:
       - '[VM management]'
+  /countdisk:
+    get:
+      description: Get the total number of Disks across all connections.
+      operationId: count-all-disks
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of Disks
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count All Disks
+      tags:
+      - '[Disk management]'
+  /countdisk/{ConnectionName}:
+    get:
+      description: Get the total number of Disks for a specific connection.
+      operationId: count-disks-by-connection
+      parameters:
+      - description: The name of the Connection
+        in: path
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of Disks for the connection
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count Disks by Connection
+      tags:
+      - '[Disk management]'
   /countkeypair:
     get:
       description: Get the total number of KeyPairs across all connections.
@@ -1282,6 +1597,47 @@ paths:
       summary: Count VPCs by Connection
       tags:
       - '[VPC management]'
+  /cspdisk/{Id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a specified CSP Disk.
+      operationId: delete-csp-disk
+      parameters:
+      - description: Request body for deleting a CSP Disk
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The CSP Disk ID to delete
+        in: path
+        name: Id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the delete operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete CSP Disk
+      tags:
+      - '[Disk management]'
   /cspkeypair/{Id}:
     delete:
       consumes:
@@ -1388,7 +1744,7 @@ paths:
         "200":
           description: Result of the terminate operation
           schema:
-            $ref: '#/definitions/spider.StatusInfo'
+            $ref: '#/definitions/spider.VMStatusResponse'
         "400":
           description: Bad Request, possibly due to invalid JSON structure or missing
             fields
@@ -1485,6 +1841,282 @@ paths:
       summary: Delete CSP VPC
       tags:
       - '[VPC management]'
+  /disk:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of Disks associated with a specific connection.
+      operationId: list-disk
+      parameters:
+      - description: The name of the Connection to list Disks for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of Disks
+          schema:
+            $ref: '#/definitions/spider.DiskListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List Disks
+      tags:
+      - '[Disk management]'
+    post:
+      consumes:
+      - application/json
+      description: Create a new Disk with the specified configuration.
+      operationId: create-disk
+      parameters:
+      - description: Request body for creating a Disk
+        in: body
+        name: DiskCreateRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.DiskCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the created Disk
+          schema:
+            $ref: '#/definitions/spider.DiskInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Create Disk
+      tags:
+      - '[Disk management]'
+  /disk/{Name}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a specified Disk.
+      operationId: delete-disk
+      parameters:
+      - description: Request body for deleting a Disk
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The name of the Disk to delete
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: Force delete the Disk
+        in: query
+        name: force
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the delete operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete Disk
+      tags:
+      - '[Disk management]'
+    get:
+      consumes:
+      - application/json
+      description: Retrieve details of a specific Disk.
+      operationId: get-disk
+      parameters:
+      - description: The name of the Connection to get a Disk for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: The name of the Disk to retrieve
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the Disk
+          schema:
+            $ref: '#/definitions/spider.DiskInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get Disk
+      tags:
+      - '[Disk management]'
+  /disk/{Name}/attach:
+    put:
+      consumes:
+      - application/json
+      description: Attach an existing Disk to a VM.
+      operationId: attach-disk
+      parameters:
+      - description: Request body for attaching a Disk to a VM
+        in: body
+        name: DiskAttachRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.DiskAttachRequest'
+      - description: The name of the Disk to attach
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the attached Disk
+          schema:
+            $ref: '#/definitions/spider.DiskInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Attach Disk
+      tags:
+      - '[Disk management]'
+  /disk/{Name}/detach:
+    put:
+      consumes:
+      - application/json
+      description: Detach an existing Disk from a VM.
+      operationId: detach-disk
+      parameters:
+      - description: Request body for detaching a Disk from a VM
+        in: body
+        name: DiskDetachRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.DiskDetachRequest'
+      - description: The name of the Disk to detach
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the detach operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Detach Disk
+      tags:
+      - '[Disk management]'
+  /disk/{Name}/size:
+    put:
+      consumes:
+      - application/json
+      description: Increase the size of an existing disk.
+      operationId: increase-disk-size
+      parameters:
+      - description: Request body for increasing the Disk size
+        in: body
+        name: IncreaseDiskSizeRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.IncreaseDiskSizeRequest'
+      - description: The name of the Disk to increase the size for
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the size increase operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Increase Disk Size
+      tags:
+      - '[Disk management]'
   /getsecuritygroupowner:
     post:
       consumes:
@@ -1713,6 +2345,83 @@ paths:
       summary: Get KeyPair
       tags:
       - '[KeyPair management]'
+  /regdisk:
+    post:
+      consumes:
+      - application/json
+      description: Register a new Disk with the specified name, zone, and CSP ID.
+      operationId: register-disk
+      parameters:
+      - description: Request body for registering a Disk
+        in: body
+        name: DiskRegisterRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.DiskRegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the registered Disk
+          schema:
+            $ref: '#/definitions/spider.DiskInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Register Disk
+      tags:
+      - '[Disk management]'
+  /regdisk/{Name}:
+    delete:
+      consumes:
+      - application/json
+      description: Unregister a Disk with the specified name.
+      operationId: unregister-disk
+      parameters:
+      - description: Request body for unregistering a Disk
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The name of the Disk to unregister
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the unregister operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Unregister Disk
+      tags:
+      - '[Disk management]'
   /regkeypair:
     post:
       consumes:
@@ -1884,9 +2593,9 @@ paths:
       - application/json
       responses:
         "200":
-          description: Details of the registered Subnet
+          description: Details of the VPC including the registered Subnet
           schema:
-            $ref: '#/definitions/spider.SubnetInfo'
+            $ref: '#/definitions/spider.VPCInfo'
         "400":
           description: Bad Request, possibly due to invalid JSON structure or missing
             fields
@@ -2432,7 +3141,7 @@ paths:
         "200":
           description: Result of the terminate operation
           schema:
-            $ref: '#/definitions/spider.StatusInfo'
+            $ref: '#/definitions/spider.VMStatusResponse'
         "400":
           description: Bad Request, possibly due to invalid JSON structure or missing
             fields
@@ -2507,7 +3216,7 @@ paths:
         "200":
           description: List of VM statuses
           schema:
-            $ref: '#/definitions/spider.VMStatusResponse'
+            $ref: '#/definitions/spider.VMListStatusResponse'
         "400":
           description: Bad Request, possibly due to invalid query parameter
           schema:
@@ -2786,9 +3495,9 @@ paths:
       - application/json
       responses:
         "200":
-          description: Details of the added Subnet
+          description: Details of the VPC including the added Subnet
           schema:
-            $ref: '#/definitions/spider.SubnetInfo'
+            $ref: '#/definitions/spider.VPCInfo'
         "400":
           description: Bad Request, possibly due to invalid JSON structure or missing
             fields
