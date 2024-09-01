@@ -35,7 +35,7 @@ type KeyRegisterRequest struct {
 // @ID register-key
 // @Summary Register KeyPair
 // @Description Register a new KeyPair with the specified name and CSP ID.
-// @Tags [KeyPair management]
+// @Tags [KeyPair Management]
 // @Accept  json
 // @Produce  json
 // @Param KeyRegisterRequest body restruntime.KeyRegisterRequest true "Request body for registering a KeyPair"
@@ -69,7 +69,7 @@ func RegisterKey(c echo.Context) error {
 // @ID unregister-key
 // @Summary Unregister KeyPair
 // @Description Unregister a KeyPair with the specified name.
-// @Tags [KeyPair management]
+// @Tags [KeyPair Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for unregistering a KeyPair"
@@ -115,7 +115,7 @@ type KeyCreateRequest struct {
 // @ID create-key
 // @Summary Create KeyPair
 // @Description Create a new KeyPair with the specified configurations.
-// @Tags [KeyPair management]
+// @Tags [KeyPair Management]
 // @Accept  json
 // @Produce  json
 // @Param KeyCreateRequest body restruntime.KeyCreateRequest true "Request body for creating a KeyPair"
@@ -157,7 +157,7 @@ type KeyListResponse struct {
 // @ID list-key
 // @Summary List KeyPairs
 // @Description Retrieve a list of KeyPairs associated with a specific connection.
-// @Tags [KeyPair management]
+// @Tags [KeyPair Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to list KeyPairs for"
@@ -195,7 +195,7 @@ func ListKey(c echo.Context) error {
 // @ID list-all-key
 // @Summary List All KeyPairs
 // @Description Retrieve a list of all KeyPairs across all connections.
-// @Tags [KeyPair management]
+// @Tags [KeyPair Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection"
@@ -231,7 +231,7 @@ func ListAllKey(c echo.Context) error {
 // @ID get-key
 // @Summary Get KeyPair
 // @Description Retrieve details of a specific KeyPair.
-// @Tags [KeyPair management]
+// @Tags [KeyPair Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to get a KeyPair for"
@@ -268,7 +268,7 @@ func GetKey(c echo.Context) error {
 // @ID delete-key
 // @Summary Delete KeyPair
 // @Description Delete a specified KeyPair.
-// @Tags [KeyPair management]
+// @Tags [KeyPair Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for deleting a KeyPair"
@@ -305,7 +305,7 @@ func DeleteKey(c echo.Context) error {
 // @ID delete-csp-key
 // @Summary Delete CSP KeyPair
 // @Description Delete a specified CSP KeyPair.
-// @Tags [KeyPair management]
+// @Tags [KeyPair Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for deleting a CSP KeyPair"
@@ -341,7 +341,7 @@ func DeleteCSPKey(c echo.Context) error {
 // @ID count-all-keys
 // @Summary Count All KeyPairs
 // @Description Get the total number of KeyPairs across all connections.
-// @Tags [KeyPair management]
+// @Tags [KeyPair Management]
 // @Produce  json
 // @Success 200 {object} CountResponse "Total count of KeyPairs"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -366,7 +366,7 @@ func CountAllKeys(c echo.Context) error {
 // @ID count-keys-by-connection
 // @Summary Count KeyPairs by Connection
 // @Description Get the total number of KeyPairs for a specific connection.
-// @Tags [KeyPair management]
+// @Tags [KeyPair Management]
 // @Produce  json
 // @Param ConnectionName path string true "The name of the Connection"
 // @Success 200 {object} CountResponse "Total count of KeyPairs for the connection"

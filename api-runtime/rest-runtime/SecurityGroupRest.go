@@ -37,7 +37,7 @@ type SecurityGroupRegisterRequest struct {
 // @ID register-securitygroup
 // @Summary Register SecurityGroup
 // @Description Register a new Security Group with the specified name and CSP ID.
-// @Tags [SecurityGroup management]
+// @Tags [SecurityGroup Management]
 // @Accept  json
 // @Produce  json
 // @Param SecurityGroupRegisterRequest body restruntime.SecurityGroupRegisterRequest true "Request body for registering a SecurityGroup"
@@ -71,7 +71,7 @@ func RegisterSecurity(c echo.Context) error {
 // @ID unregister-securitygroup
 // @Summary Unregister SecurityGroup
 // @Description Unregister a Security Group with the specified name.
-// @Tags [SecurityGroup management]
+// @Tags [SecurityGroup Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for unregistering a SecurityGroup"
@@ -119,7 +119,7 @@ type SecurityGroupCreateRequest struct {
 // @ID create-securitygroup
 // @Summary Create SecurityGroup
 // @Description Create a new Security Group with specified rules and tags.
-// @Tags [SecurityGroup management]
+// @Tags [SecurityGroup Management]
 // @Accept  json
 // @Produce  json
 // @Param SecurityGroupCreateRequest body restruntime.SecurityGroupCreateRequest true "Request body for creating a SecurityGroup"
@@ -163,7 +163,7 @@ type ListSecurityResponse struct {
 // @ID list-securitygroup
 // @Summary List SecurityGroups
 // @Description Retrieve a list of Security Groups associated with a specific connection.
-// @Tags [SecurityGroup management]
+// @Tags [SecurityGroup Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to list SecurityGroups for"
@@ -201,7 +201,7 @@ func ListSecurity(c echo.Context) error {
 // @ID list-all-securitygroups
 // @Summary List All SecurityGroups
 // @Description Retrieve a list of all Security Groups across all connections.
-// @Tags [SecurityGroup management]
+// @Tags [SecurityGroup Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection"
@@ -235,7 +235,7 @@ func ListAllSecurity(c echo.Context) error {
 // @ID get-securitygroup
 // @Summary Get SecurityGroup
 // @Description Retrieve details of a specific Security Group.
-// @Tags [SecurityGroup management]
+// @Tags [SecurityGroup Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to get a SecurityGroup for"
@@ -270,7 +270,7 @@ func GetSecurity(c echo.Context) error {
 // @ID delete-securitygroup
 // @Summary Delete SecurityGroup
 // @Description Delete a specified Security Group.
-// @Tags [SecurityGroup management]
+// @Tags [SecurityGroup Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for deleting a SecurityGroup"
@@ -306,7 +306,7 @@ func DeleteSecurity(c echo.Context) error {
 // @ID delete-csp-securitygroup
 // @Summary Delete CSP SecurityGroup
 // @Description Delete a specified CSP Security Group.
-// @Tags [SecurityGroup management]
+// @Tags [SecurityGroup Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for deleting a CSP SecurityGroup"
@@ -355,7 +355,7 @@ type RuleControlRequest struct {
 // @ID add-rules-securitygroup
 // @Summary Add Rules to SecurityGroup
 // @Description Add new rules to a Security Group.
-// @Tags [SecurityGroup management]
+// @Tags [SecurityGroup Management]
 // @Accept  json
 // @Produce  json
 // @Param SGName path string true "The name of the SecurityGroup to add rules to"
@@ -398,7 +398,7 @@ func AddRules(c echo.Context) error {
 // @ID remove-rules-securitygroup
 // @Summary Remove Rules from SecurityGroup
 // @Description Remove existing rules from a Security Group.
-// @Tags [SecurityGroup management]
+// @Tags [SecurityGroup Management]
 // @Accept  json
 // @Produce  json
 // @Param SGName path string true "The name of the SecurityGroup to remove rules from"
@@ -445,7 +445,7 @@ func RemoveRules(c echo.Context) error {
 // @ID count-all-securitygroups
 // @Summary Count All SecurityGroups
 // @Description Get the total number of Security Groups across all connections.
-// @Tags [SecurityGroup management]
+// @Tags [SecurityGroup Management]
 // @Produce  json
 // @Success 200 {object} CountResponse "Total count of SecurityGroups"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -469,7 +469,7 @@ func CountAllSecurityGroups(c echo.Context) error {
 // @ID count-securitygroups-by-connection
 // @Summary Count SecurityGroups by Connection
 // @Description Get the total number of Security Groups for a specific connection.
-// @Tags [SecurityGroup management]
+// @Tags [SecurityGroup Management]
 // @Produce  json
 // @Param ConnectionName path string true "The name of the Connection"
 // @Success 200 {object} CountResponse "Total count of SecurityGroups for the connection"

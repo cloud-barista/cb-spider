@@ -35,7 +35,7 @@ type MyImageRegisterRequest struct {
 // @ID register-myimage
 // @Summary Register MyImage
 // @Description Register a new MyImage with the specified name and CSP ID.
-// @Tags [MyImage management]
+// @Tags [MyImage Management]
 // @Accept  json
 // @Produce  json
 // @Param MyImageRegisterRequest body restruntime.MyImageRegisterRequest true "Request body for registering a MyImage"
@@ -69,7 +69,7 @@ func RegisterMyImage(c echo.Context) error {
 // @ID unregister-myimage
 // @Summary Unregister MyImage
 // @Description Unregister a MyImage with the specified name.
-// @Tags [MyImage management]
+// @Tags [MyImage Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for unregistering a MyImage"
@@ -116,7 +116,7 @@ type MyImageSnapshotRequest struct {
 // @ID snapshot-vm
 // @Summary Snapshot VM
 // @Description Create a new MyImage snapshot from a specified VM.
-// @Tags [MyImage management]
+// @Tags [MyImage Management]
 // @Accept  json
 // @Produce  json
 // @Param MyImageSnapshotRequest body restruntime.MyImageSnapshotRequest true "Request body for creating a MyImage snapshot"
@@ -159,7 +159,7 @@ type MyImageListResponse struct {
 // @ID list-myimage
 // @Summary List MyImages
 // @Description Retrieve a list of MyImages associated with a specific connection.
-// @Tags [MyImage management]
+// @Tags [MyImage Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to list MyImages for"
@@ -199,7 +199,7 @@ func ListMyImage(c echo.Context) error {
 // @ID list-all-myimage
 // @Summary List All MyImages
 // @Description Retrieve a list of all MyImages across all connections.
-// @Tags [MyImage management]
+// @Tags [MyImage Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection"
@@ -235,7 +235,7 @@ func ListAllMyImage(c echo.Context) error {
 // @ID get-myimage
 // @Summary Get MyImage
 // @Description Retrieve details of a specific MyImage.
-// @Tags [MyImage management]
+// @Tags [MyImage Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to get a MyImage for"
@@ -272,7 +272,7 @@ func GetMyImage(c echo.Context) error {
 // @ID delete-myimage
 // @Summary Delete MyImage
 // @Description Delete a specified MyImage.
-// @Tags [MyImage management]
+// @Tags [MyImage Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for deleting a MyImage"
@@ -309,7 +309,7 @@ func DeleteMyImage(c echo.Context) error {
 // @ID delete-csp-myimage
 // @Summary Delete CSP MyImage
 // @Description Delete a specified CSP MyImage.
-// @Tags [MyImage management]
+// @Tags [MyImage Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for deleting a CSP MyImage"
@@ -345,7 +345,7 @@ func DeleteCSPMyImage(c echo.Context) error {
 // @ID count-all-myimages
 // @Summary Count All MyImages
 // @Description Get the total number of MyImages across all connections.
-// @Tags [MyImage management]
+// @Tags [MyImage Management]
 // @Produce  json
 // @Success 200 {object} CountResponse "Total count of MyImages"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -369,7 +369,7 @@ func CountAllMyImages(c echo.Context) error {
 // @ID count-myimages-by-connection
 // @Summary Count MyImages by Connection
 // @Description Get the total number of MyImages for a specific connection.
-// @Tags [MyImage management]
+// @Tags [MyImage Management]
 // @Produce  json
 // @Param ConnectionName path string true "The name of the Connection"
 // @Success 200 {object} CountResponse "Total count of MyImages for the connection"

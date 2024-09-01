@@ -36,7 +36,7 @@ type DiskRegisterRequest struct {
 // @ID register-disk
 // @Summary Register Disk
 // @Description Register a new Disk with the specified name, zone, and CSP ID.
-// @Tags [Disk management]
+// @Tags [Disk Management]
 // @Accept  json
 // @Produce  json
 // @Param DiskRegisterRequest body restruntime.DiskRegisterRequest true "Request body for registering a Disk"
@@ -70,7 +70,7 @@ func RegisterDisk(c echo.Context) error {
 // @ID unregister-disk
 // @Summary Unregister Disk
 // @Description Unregister a Disk with the specified name.
-// @Tags [Disk management]
+// @Tags [Disk Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for unregistering a Disk"
@@ -119,7 +119,7 @@ type DiskCreateRequest struct {
 // @ID create-disk
 // @Summary Create Disk
 // @Description Create a new Disk with the specified configuration.
-// @Tags [Disk management]
+// @Tags [Disk Management]
 // @Accept  json
 // @Produce  json
 // @Param DiskCreateRequest body restruntime.DiskCreateRequest true "Request body for creating a Disk"
@@ -164,7 +164,7 @@ type DiskListResponse struct {
 // @ID list-disk
 // @Summary List Disks
 // @Description Retrieve a list of Disks associated with a specific connection.
-// @Tags [Disk management]
+// @Tags [Disk Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to list Disks for"
@@ -204,7 +204,7 @@ func ListDisk(c echo.Context) error {
 // @ID list-all-disk
 // @Summary List All Disks
 // @Description Retrieve a list of all Disks across all connections.
-// @Tags [Disk management]
+// @Tags [Disk Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection"
@@ -240,7 +240,7 @@ func ListAllDisk(c echo.Context) error {
 // @ID get-disk
 // @Summary Get Disk
 // @Description Retrieve details of a specific Disk.
-// @Tags [Disk management]
+// @Tags [Disk Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to get a Disk for"
@@ -285,7 +285,7 @@ type IncreaseDiskSizeRequest struct {
 // @ID increase-disk-size
 // @Summary Increase Disk Size
 // @Description Increase the size of an existing disk.
-// @Tags [Disk management]
+// @Tags [Disk Management]
 // @Accept  json
 // @Produce  json
 // @Param IncreaseDiskSizeRequest body restruntime.IncreaseDiskSizeRequest true "Request body for increasing the Disk size"
@@ -326,7 +326,7 @@ func IncreaseDiskSize(c echo.Context) error {
 // @ID delete-disk
 // @Summary Delete Disk
 // @Description Delete a specified Disk.
-// @Tags [Disk management]
+// @Tags [Disk Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for deleting a Disk"
@@ -363,7 +363,7 @@ func DeleteDisk(c echo.Context) error {
 // @ID delete-csp-disk
 // @Summary Delete CSP Disk
 // @Description Delete a specified CSP Disk.
-// @Tags [Disk management]
+// @Tags [Disk Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for deleting a CSP Disk"
@@ -407,7 +407,7 @@ type DiskAttachRequest struct {
 // @ID attach-disk
 // @Summary Attach Disk
 // @Description Attach an existing Disk to a VM.
-// @Tags [Disk management]
+// @Tags [Disk Management]
 // @Accept  json
 // @Produce  json
 // @Param DiskAttachRequest body restruntime.DiskAttachRequest true "Request body for attaching a Disk to a VM"
@@ -447,7 +447,7 @@ type DiskDetachRequest struct {
 // @ID detach-disk
 // @Summary Detach Disk
 // @Description Detach an existing Disk from a VM.
-// @Tags [Disk management]
+// @Tags [Disk Management]
 // @Accept  json
 // @Produce  json
 // @Param DiskDetachRequest body restruntime.DiskDetachRequest true "Request body for detaching a Disk from a VM"
@@ -482,7 +482,7 @@ func DetachDisk(c echo.Context) error {
 // @ID count-all-disks
 // @Summary Count All Disks
 // @Description Get the total number of Disks across all connections.
-// @Tags [Disk management]
+// @Tags [Disk Management]
 // @Produce  json
 // @Success 200 {object} CountResponse "Total count of Disks"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -507,7 +507,7 @@ func CountAllDisks(c echo.Context) error {
 // @ID count-disks-by-connection
 // @Summary Count Disks by Connection
 // @Description Get the total number of Disks for a specific connection.
-// @Tags [Disk management]
+// @Tags [Disk Management]
 // @Produce  json
 // @Param ConnectionName path string true "The name of the Connection"
 // @Success 200 {object} CountResponse "Total count of Disks for the connection"

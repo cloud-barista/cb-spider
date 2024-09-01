@@ -35,7 +35,7 @@ type VMUsingResources struct {
 // @ID get-vm-using-rs
 // @Summary Get VM Using Resource
 // @Description Retrieve details of a VM using resource ID.
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "Connection name for the VM"
@@ -79,7 +79,7 @@ type VMRegisterRequest struct {
 // @ID register-vm
 // @Summary Register VM
 // @Description Register a new Virtual Machine (VM) with the specified name and CSP ID.
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Accept  json
 // @Produce  json
 // @Param VMRegisterRequest body restruntime.VMRegisterRequest true "Request body for registering a VM"
@@ -113,7 +113,7 @@ func RegisterVM(c echo.Context) error {
 // @ID unregister-vm
 // @Summary Unregister VM
 // @Description Unregister a Virtual Machine (VM) with the specified name.
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for unregistering a VM"
@@ -175,7 +175,7 @@ type VMStartRequest struct {
 // @ID start-vm
 // @Summary Start VM
 // @Description Start a new Virtual Machine (VM) with specified configurations.
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Accept  json
 // @Produce  json
 // @Param VMStartRequest body restruntime.VMStartRequest true "Request body for starting a VM"
@@ -249,7 +249,7 @@ type VMListResponse struct {
 // @ID list-vm
 // @Summary List VMs
 // @Description Retrieve a list of Virtual Machines (VMs) associated with a specific connection.
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to list VMs for"
@@ -289,7 +289,7 @@ func ListVM(c echo.Context) error {
 // @ID list-all-vm
 // @Summary List All VMs
 // @Description Retrieve a list of all Virtual Machines (VMs) across all connections.
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection"
@@ -325,7 +325,7 @@ func ListAllVM(c echo.Context) error {
 // @ID get-vm
 // @Summary Get VM
 // @Description Retrieve details of a specific Virtual Machine (VM).
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to get a VM for"
@@ -362,7 +362,7 @@ func GetVM(c echo.Context) error {
 // @ID get-csp-vm
 // @Summary Get CSP VM
 // @Description Retrieve details of a specific CSP Virtual Machine (VM).
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to get a CSP VM for"
@@ -399,7 +399,7 @@ func GetCSPVM(c echo.Context) error {
 // @ID terminate-vm
 // @Summary Terminate VM
 // @Description Terminate a specified Virtual Machine (VM).
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for terminating a VM"
@@ -436,7 +436,7 @@ func TerminateVM(c echo.Context) error {
 // @ID terminate-csp-vm
 // @Summary Terminate CSP VM
 // @Description Terminate a specified CSP Virtual Machine (VM).
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for terminating a CSP VM"
@@ -477,7 +477,7 @@ type VMListStatusResponse struct {
 // @ID list-vm-status
 // @Summary List VM Statuses
 // @Description Retrieve a list of statuses for Virtual Machines (VMs) associated with a specific connection.
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to list VM statuses for"
@@ -521,7 +521,7 @@ type VMStatusResponse struct {
 // @ID get-vm-status
 // @Summary Get VM Status
 // @Description Retrieve the status of a specific Virtual Machine (VM).
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to get a VM status for"
@@ -562,7 +562,7 @@ func GetVMStatus(c echo.Context) error {
 // @ID control-vm
 // @Summary Control VM
 // @Description Control the state of a Virtual Machine (VM) such as suspend, resume, or reboot.
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for controlling a VM"
@@ -604,7 +604,7 @@ func ControlVM(c echo.Context) error {
 // @ID count-all-vms
 // @Summary Count All VMs
 // @Description Get the total number of Virtual Machines (VMs) across all connections.
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Produce  json
 // @Success 200 {object} CountResponse "Total count of VMs"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -629,7 +629,7 @@ func CountAllVMs(c echo.Context) error {
 // @ID count-vms-by-connection
 // @Summary Count VMs by Connection
 // @Description Get the total number of Virtual Machines (VMs) for a specific connection.
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Produce  json
 // @Param ConnectionName path string true "The name of the Connection"
 // @Success 200 {object} CountResponse "Total count of VMs for the connection"

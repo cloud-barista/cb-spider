@@ -36,7 +36,7 @@ type VPCRegisterRequest struct {
 // @ID register-vpc
 // @Summary Register VPC
 // @Description Register a new Virtual Private Cloud (VPC) with the specified name and CSP ID.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
 // @Param VPCRegisterRequest body restruntime.VPCRegisterRequest true "Request body for registering a VPC"
@@ -81,7 +81,7 @@ type SubnetRegisterRequest struct {
 // @ID register-subnet
 // @Summary Register Subnet
 // @Description Register a new Subnet within a specified VPC.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
 // @Param SubnetRegisterRequest body restruntime.SubnetRegisterRequest true "Request body for registering a Subnet"
@@ -123,7 +123,7 @@ type SubnetUnregisterRequest struct {
 // @ID unregister-subnet
 // @Summary Unregister Subnet
 // @Description Unregister a Subnet from a specified VPC.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
 // @Param SubnetUnregisterRequest body restruntime.SubnetUnregisterRequest true "Request body for unregistering a Subnet"
@@ -159,7 +159,7 @@ func UnregisterSubnet(c echo.Context) error {
 // @ID unregister-vpc
 // @Summary Unregister VPC
 // @Description Unregister a VPC with the specified name.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for unregistering a VPC"
@@ -212,7 +212,7 @@ type CreateVPCRequest struct {
 // @ID create-vpc
 // @Summary Create VPC
 // @Description Create a new Virtual Private Cloud (VPC) with specified subnet configurations.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
 // @Param CreateVPCRequest body restruntime.CreateVPCRequest true "Request body for creating a VPC"
@@ -265,7 +265,7 @@ type ListVPCResponse struct {
 // @ID list-vpc
 // @Summary List VPCs
 // @Description Retrieve a list of Virtual Private Clouds (VPCs) associated with a specific connection.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to list VPCs for"
@@ -305,7 +305,7 @@ func ListVPC(c echo.Context) error {
 // @ID list-all-vpc
 // @Summary List All VPCs
 // @Description Retrieve a list of all Virtual Private Clouds (VPCs) across all connections.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection"
@@ -353,7 +353,7 @@ type AddSubnetRequest struct {
 // @ID add-subnet
 // @Summary Add Subnet
 // @Description Add a new Subnet to an existing VPC.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
 // @Param VPCName path string true "The name of the VPC to add the Subnet to"
@@ -388,7 +388,7 @@ func AddSubnet(c echo.Context) error {
 // @ID remove-subnet
 // @Summary Remove Subnet
 // @Description Remove an existing Subnet from a VPC.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
 // @Param VPCName path string true "The name of the VPC"
@@ -425,7 +425,7 @@ func RemoveSubnet(c echo.Context) error {
 // @ID remove-csp-subnet
 // @Summary Remove CSP Subnet
 // @Description Remove an existing CSP Subnet from a VPC.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
 // @Param VPCName path string true "The name of the VPC"
@@ -462,7 +462,7 @@ func RemoveCSPSubnet(c echo.Context) error {
 // @ID get-vpc
 // @Summary Get VPC
 // @Description Retrieve details of a specific Virtual Private Cloud (VPC).
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to get a VPC for"
@@ -499,7 +499,7 @@ func GetVPC(c echo.Context) error {
 // @ID delete-vpc
 // @Summary Delete VPC
 // @Description Delete a specified Virtual Private Cloud (VPC).
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for deleting a VPC"
@@ -536,7 +536,7 @@ func DeleteVPC(c echo.Context) error {
 // @ID delete-csp-vpc
 // @Summary Delete CSP VPC
 // @Description Delete a specified CSP Virtual Private Cloud (VPC).
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for deleting a CSP VPC"
@@ -580,7 +580,7 @@ type GetSGOwnerVPCRequest struct {
 // @ID get-sg-owner-vpc
 // @Summary Get Security Group Owner VPC
 // @Description Retrieve the owner VPC of a specified Security Group.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
 // @Param GetSGOwnerVPCRequest body restruntime.GetSGOwnerVPCRequest true "Request body for getting Security Group Owner VPC"
@@ -616,7 +616,7 @@ type CountResponse struct {
 // @ID count-all-vpcs
 // @Summary Count All VPCs
 // @Description Get the total number of VPCs across all connections.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Produce  json
 // @Success 200 {object} CountResponse "Total count of VPCs"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -643,7 +643,7 @@ func CountAllVPCs(c echo.Context) error {
 // @ID count-vpcs-by-connection
 // @Summary Count VPCs by Connection
 // @Description Get the total number of VPCs for a specific connection.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Produce  json
 // @Param ConnectionName path string true "The name of the Connection"
 // @Success 200 {object} CountResponse "Total count of VPCs for the connection"
@@ -671,7 +671,7 @@ func CountVPCsByConnection(c echo.Context) error {
 // @ID count-all-subnets
 // @Summary Count All Subnets
 // @Description Get the total number of Subnets across all connections.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Produce  json
 // @Success 200 {object} CountResponse "Total count of Subnets"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -696,7 +696,7 @@ func CountAllSubnets(c echo.Context) error {
 // @ID count-subnets-by-connection
 // @Summary Count Subnets by Connection
 // @Description Get the total number of Subnets for a specific connection.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Produce  json
 // @Param ConnectionName path string true "The name of the Connection"
 // @Success 200 {object} CountResponse "Total count of Subnets for the connection"
