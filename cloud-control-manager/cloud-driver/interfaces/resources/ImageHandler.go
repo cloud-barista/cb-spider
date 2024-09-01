@@ -21,7 +21,6 @@ type ImageInfo struct {
 	GuestOS string // Windows7, Ubuntu etc.
 	Status  string // available, unavailable
 
-	TagList      []KeyValue
 	KeyValueList []KeyValue
 }
 
