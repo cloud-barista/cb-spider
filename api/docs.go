@@ -33,7 +33,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[Disk management]"
+                    "[Disk Management]"
                 ],
                 "summary": "List All Disks",
                 "operationId": "list-all-disk",
@@ -84,7 +84,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[KeyPair management]"
+                    "[KeyPair Management]"
                 ],
                 "summary": "List All KeyPairs",
                 "operationId": "list-all-key",
@@ -135,7 +135,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[MyImage management]"
+                    "[MyImage Management]"
                 ],
                 "summary": "List All MyImages",
                 "operationId": "list-all-myimage",
@@ -186,7 +186,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[SecurityGroup management]"
+                    "[SecurityGroup Management]"
                 ],
                 "summary": "List All SecurityGroups",
                 "operationId": "list-all-securitygroups",
@@ -237,7 +237,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VM management]"
+                    "[VM Management]"
                 ],
                 "summary": "List All VMs",
                 "operationId": "list-all-vm",
@@ -288,7 +288,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VPC management]"
+                    "[VPC Management]"
                 ],
                 "summary": "List All VPCs",
                 "operationId": "list-all-vpc",
@@ -339,7 +339,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VM management]"
+                    "[VM Management]"
                 ],
                 "summary": "Control VM",
                 "operationId": "control-vm",
@@ -403,7 +403,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[Disk management]"
+                    "[Disk Management]"
                 ],
                 "summary": "Count All Disks",
                 "operationId": "count-all-disks",
@@ -430,7 +430,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[Disk management]"
+                    "[Disk Management]"
                 ],
                 "summary": "Count Disks by Connection",
                 "operationId": "count-disks-by-connection",
@@ -466,7 +466,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[KeyPair management]"
+                    "[KeyPair Management]"
                 ],
                 "summary": "Count All KeyPairs",
                 "operationId": "count-all-keys",
@@ -493,7 +493,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[KeyPair management]"
+                    "[KeyPair Management]"
                 ],
                 "summary": "Count KeyPairs by Connection",
                 "operationId": "count-keys-by-connection",
@@ -529,7 +529,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[MyImage management]"
+                    "[MyImage Management]"
                 ],
                 "summary": "Count All MyImages",
                 "operationId": "count-all-myimages",
@@ -556,7 +556,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[MyImage management]"
+                    "[MyImage Management]"
                 ],
                 "summary": "Count MyImages by Connection",
                 "operationId": "count-myimages-by-connection",
@@ -592,7 +592,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[SecurityGroup management]"
+                    "[SecurityGroup Management]"
                 ],
                 "summary": "Count All SecurityGroups",
                 "operationId": "count-all-securitygroups",
@@ -619,7 +619,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[SecurityGroup management]"
+                    "[SecurityGroup Management]"
                 ],
                 "summary": "Count SecurityGroups by Connection",
                 "operationId": "count-securitygroups-by-connection",
@@ -655,7 +655,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VPC management]"
+                    "[VPC Management]"
                 ],
                 "summary": "Count All Subnets",
                 "operationId": "count-all-subnets",
@@ -682,7 +682,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VPC management]"
+                    "[VPC Management]"
                 ],
                 "summary": "Count Subnets by Connection",
                 "operationId": "count-subnets-by-connection",
@@ -718,7 +718,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VM management]"
+                    "[VM Management]"
                 ],
                 "summary": "Count All VMs",
                 "operationId": "count-all-vms",
@@ -745,7 +745,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VM management]"
+                    "[VM Management]"
                 ],
                 "summary": "Count VMs by Connection",
                 "operationId": "count-vms-by-connection",
@@ -781,7 +781,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VPC management]"
+                    "[VPC Management]"
                 ],
                 "summary": "Count All VPCs",
                 "operationId": "count-all-vpcs",
@@ -808,7 +808,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VPC management]"
+                    "[VPC Management]"
                 ],
                 "summary": "Count VPCs by Connection",
                 "operationId": "count-vpcs-by-connection",
@@ -847,7 +847,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[Disk management]"
+                    "[Disk Management]"
                 ],
                 "summary": "Delete CSP Disk",
                 "operationId": "delete-csp-disk",
@@ -907,7 +907,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[KeyPair management]"
+                    "[KeyPair Management]"
                 ],
                 "summary": "Delete CSP KeyPair",
                 "operationId": "delete-csp-key",
@@ -967,7 +967,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[MyImage management]"
+                    "[MyImage Management]"
                 ],
                 "summary": "Delete CSP MyImage",
                 "operationId": "delete-csp-myimage",
@@ -1027,7 +1027,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[SecurityGroup management]"
+                    "[SecurityGroup Management]"
                 ],
                 "summary": "Delete CSP SecurityGroup",
                 "operationId": "delete-csp-securitygroup",
@@ -1087,7 +1087,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VM management]"
+                    "[VM Management]"
                 ],
                 "summary": "Get CSP VM",
                 "operationId": "get-csp-vm",
@@ -1143,7 +1143,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VM management]"
+                    "[VM Management]"
                 ],
                 "summary": "Terminate CSP VM",
                 "operationId": "terminate-csp-vm",
@@ -1203,7 +1203,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VPC management]"
+                    "[VPC Management]"
                 ],
                 "summary": "Delete CSP VPC",
                 "operationId": "delete-csp-vpc",
@@ -1263,7 +1263,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[Disk management]"
+                    "[Disk Management]"
                 ],
                 "summary": "List Disks",
                 "operationId": "list-disk",
@@ -1312,7 +1312,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[Disk management]"
+                    "[Disk Management]"
                 ],
                 "summary": "Create Disk",
                 "operationId": "create-disk",
@@ -1365,7 +1365,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[Disk management]"
+                    "[Disk Management]"
                 ],
                 "summary": "Get Disk",
                 "operationId": "get-disk",
@@ -1421,7 +1421,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[Disk management]"
+                    "[Disk Management]"
                 ],
                 "summary": "Delete Disk",
                 "operationId": "delete-disk",
@@ -1487,7 +1487,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[Disk management]"
+                    "[Disk Management]"
                 ],
                 "summary": "Attach Disk",
                 "operationId": "attach-disk",
@@ -1547,7 +1547,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[Disk management]"
+                    "[Disk Management]"
                 ],
                 "summary": "Detach Disk",
                 "operationId": "detach-disk",
@@ -1607,7 +1607,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[Disk management]"
+                    "[Disk Management]"
                 ],
                 "summary": "Increase Disk Size",
                 "operationId": "increase-disk-size",
@@ -1667,7 +1667,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VPC management]"
+                    "[VPC Management]"
                 ],
                 "summary": "Get Security Group Owner VPC",
                 "operationId": "get-sg-owner-vpc",
@@ -1720,7 +1720,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VM management]"
+                    "[VM Management]"
                 ],
                 "summary": "Get VM Using Resource",
                 "operationId": "get-vm-using-rs",
@@ -1778,7 +1778,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[KeyPair management]"
+                    "[KeyPair Management]"
                 ],
                 "summary": "List KeyPairs",
                 "operationId": "list-key",
@@ -1827,7 +1827,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[KeyPair management]"
+                    "[KeyPair Management]"
                 ],
                 "summary": "Create KeyPair",
                 "operationId": "create-key",
@@ -1880,7 +1880,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[KeyPair management]"
+                    "[KeyPair Management]"
                 ],
                 "summary": "Get KeyPair",
                 "operationId": "get-key",
@@ -1936,7 +1936,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[KeyPair management]"
+                    "[KeyPair Management]"
                 ],
                 "summary": "Delete KeyPair",
                 "operationId": "delete-key",
@@ -2002,7 +2002,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[MyImage management]"
+                    "[MyImage Management]"
                 ],
                 "summary": "List MyImages",
                 "operationId": "list-myimage",
@@ -2051,7 +2051,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[MyImage management]"
+                    "[MyImage Management]"
                 ],
                 "summary": "Snapshot VM",
                 "operationId": "snapshot-vm",
@@ -2104,7 +2104,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[MyImage management]"
+                    "[MyImage Management]"
                 ],
                 "summary": "Get MyImage",
                 "operationId": "get-myimage",
@@ -2160,7 +2160,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[MyImage management]"
+                    "[MyImage Management]"
                 ],
                 "summary": "Delete MyImage",
                 "operationId": "delete-myimage",
@@ -2216,6 +2216,283 @@ const docTemplate = `{
                 }
             }
         },
+        "/orgregion": {
+            "get": {
+                "description": "Retrieve a list of Original Regions associated with a specific connection. \u003cbr\u003e The response structure may vary depending on the request ConnectionName.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] Region/Zone"
+                ],
+                "summary": "List Original Regions",
+                "operationId": "list-org-region",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list Original regions for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Dynamic JSON structure representing the list of Original Regions",
+                        "schema": {
+                            "$ref": "#/definitions/spider.OriginalRegionListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/orgzone": {
+            "get": {
+                "description": "Retrieve a list of Original Zones associated with a specific connection. \u003cbr\u003e The response structure may vary depending on the request ConnectionName.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] Region/Zone"
+                ],
+                "summary": "List Original Zones",
+                "operationId": "list-org-zone",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list Original zones for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Dynamic JSON structure representing the list of Original Zones",
+                        "schema": {
+                            "$ref": "#/definitions/spider.OriginalZoneListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/preconfig/orgregion": {
+            "get": {
+                "description": "Retrieve a list of pre-configured Original Regions based on driver and credential names. \u003cbr\u003e The response structure may vary depending on the request DriverName and CredentialName.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] Region/Zone"
+                ],
+                "summary": "List Pre-configured Original Regions",
+                "operationId": "list-preconfigured-original-org-region",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "aws-credential",
+                        "name": "CredentialName",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "aws-driver",
+                        "name": "DriverName",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of Pre-configured Original Regions",
+                        "schema": {
+                            "$ref": "#/definitions/spider.OriginalRegionListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/preconfig/regionzone": {
+            "get": {
+                "description": "Retrieve a list of pre-configured Region Zones based on driver and credential names.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] Region/Zone"
+                ],
+                "summary": "List Pre-configured Region Zones",
+                "operationId": "list-region-zone-preconfig",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "aws-credential",
+                        "name": "CredentialName",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "aws-driver",
+                        "name": "DriverName",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of Pre-configured Region Zones",
+                        "schema": {
+                            "$ref": "#/definitions/spider.RegionZoneListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/preconfig/regionzone/{Name}": {
+            "get": {
+                "description": "Retrieve details of a specific pre-configured Region Zone based on driver and credential names.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] Region/Zone"
+                ],
+                "summary": "Get Pre-configured Region Zone",
+                "operationId": "get-region-zone-preconfig",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "aws-credential",
+                        "name": "CredentialName",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "aws-driver",
+                        "name": "DriverName",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Region to retrieve",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the Pre-configured Region Zone",
+                        "schema": {
+                            "$ref": "#/definitions/spider.RegionZoneInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/regdisk": {
             "post": {
                 "description": "Register a new Disk with the specified name, zone, and CSP ID.",
@@ -2226,7 +2503,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[Disk management]"
+                    "[Disk Management]"
                 ],
                 "summary": "Register Disk",
                 "operationId": "register-disk",
@@ -2279,7 +2556,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[Disk management]"
+                    "[Disk Management]"
                 ],
                 "summary": "Unregister Disk",
                 "operationId": "unregister-disk",
@@ -2329,6 +2606,115 @@ const docTemplate = `{
                 }
             }
         },
+        "/regionzone": {
+            "get": {
+                "description": "Retrieve a list of Region Zones associated with a specific connection.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] Region/Zone"
+                ],
+                "summary": "List Region Zones",
+                "operationId": "list-region-zone",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list Region and Zones for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of Region Zones",
+                        "schema": {
+                            "$ref": "#/definitions/spider.RegionZoneListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/regionzone/{Name}": {
+            "get": {
+                "description": "Retrieve details of a specific Region Zone.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] Region/Zone"
+                ],
+                "summary": "Get Region Zone",
+                "operationId": "get-region-zone",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to get a specific Region and Zones for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Region to retrieve",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the Region Zone",
+                        "schema": {
+                            "$ref": "#/definitions/spider.RegionZoneInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/regkeypair": {
             "post": {
                 "description": "Register a new KeyPair with the specified name and CSP ID.",
@@ -2339,7 +2725,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[KeyPair management]"
+                    "[KeyPair Management]"
                 ],
                 "summary": "Register KeyPair",
                 "operationId": "register-key",
@@ -2392,7 +2778,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[KeyPair management]"
+                    "[KeyPair Management]"
                 ],
                 "summary": "Unregister KeyPair",
                 "operationId": "unregister-key",
@@ -2452,7 +2838,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[MyImage management]"
+                    "[MyImage Management]"
                 ],
                 "summary": "Register MyImage",
                 "operationId": "register-myimage",
@@ -2505,7 +2891,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[MyImage management]"
+                    "[MyImage Management]"
                 ],
                 "summary": "Unregister MyImage",
                 "operationId": "unregister-myimage",
@@ -2565,7 +2951,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[SecurityGroup management]"
+                    "[SecurityGroup Management]"
                 ],
                 "summary": "Register SecurityGroup",
                 "operationId": "register-securitygroup",
@@ -2618,7 +3004,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[SecurityGroup management]"
+                    "[SecurityGroup Management]"
                 ],
                 "summary": "Unregister SecurityGroup",
                 "operationId": "unregister-securitygroup",
@@ -2678,7 +3064,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VPC management]"
+                    "[VPC Management]"
                 ],
                 "summary": "Register Subnet",
                 "operationId": "register-subnet",
@@ -2731,7 +3117,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VPC management]"
+                    "[VPC Management]"
                 ],
                 "summary": "Unregister Subnet",
                 "operationId": "unregister-subnet",
@@ -2791,7 +3177,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VM management]"
+                    "[VM Management]"
                 ],
                 "summary": "Register VM",
                 "operationId": "register-vm",
@@ -2844,7 +3230,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VM management]"
+                    "[VM Management]"
                 ],
                 "summary": "Unregister VM",
                 "operationId": "unregister-vm",
@@ -2904,7 +3290,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VPC management]"
+                    "[VPC Management]"
                 ],
                 "summary": "Register VPC",
                 "operationId": "register-vpc",
@@ -2957,7 +3343,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VPC management]"
+                    "[VPC Management]"
                 ],
                 "summary": "Unregister VPC",
                 "operationId": "unregister-vpc",
@@ -3017,7 +3403,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[SecurityGroup management]"
+                    "[SecurityGroup Management]"
                 ],
                 "summary": "List SecurityGroups",
                 "operationId": "list-securitygroup",
@@ -3066,7 +3452,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[SecurityGroup management]"
+                    "[SecurityGroup Management]"
                 ],
                 "summary": "Create SecurityGroup",
                 "operationId": "create-securitygroup",
@@ -3119,7 +3505,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[SecurityGroup management]"
+                    "[SecurityGroup Management]"
                 ],
                 "summary": "Get SecurityGroup",
                 "operationId": "get-securitygroup",
@@ -3175,7 +3561,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[SecurityGroup management]"
+                    "[SecurityGroup Management]"
                 ],
                 "summary": "Delete SecurityGroup",
                 "operationId": "delete-securitygroup",
@@ -3241,7 +3627,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[SecurityGroup management]"
+                    "[SecurityGroup Management]"
                 ],
                 "summary": "Add Rules to SecurityGroup",
                 "operationId": "add-rules-securitygroup",
@@ -3299,7 +3685,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[SecurityGroup management]"
+                    "[SecurityGroup Management]"
                 ],
                 "summary": "Remove Rules from SecurityGroup",
                 "operationId": "remove-rules-securitygroup",
@@ -3359,7 +3745,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VM management]"
+                    "[VM Management]"
                 ],
                 "summary": "List VMs",
                 "operationId": "list-vm",
@@ -3408,7 +3794,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VM management]"
+                    "[VM Management]"
                 ],
                 "summary": "Start VM",
                 "operationId": "start-vm",
@@ -3461,7 +3847,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VM management]"
+                    "[VM Management]"
                 ],
                 "summary": "Get VM",
                 "operationId": "get-vm",
@@ -3517,7 +3903,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VM management]"
+                    "[VM Management]"
                 ],
                 "summary": "Terminate VM",
                 "operationId": "terminate-vm",
@@ -3583,7 +3969,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VM management]"
+                    "[VM Management]"
                 ],
                 "summary": "List VM Statuses",
                 "operationId": "list-vm-status",
@@ -3634,7 +4020,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VM management]"
+                    "[VM Management]"
                 ],
                 "summary": "Get VM Status",
                 "operationId": "get-vm-status",
@@ -3692,7 +4078,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VPC management]"
+                    "[VPC Management]"
                 ],
                 "summary": "List VPCs",
                 "operationId": "list-vpc",
@@ -3741,7 +4127,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VPC management]"
+                    "[VPC Management]"
                 ],
                 "summary": "Create VPC",
                 "operationId": "create-vpc",
@@ -3794,7 +4180,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VPC management]"
+                    "[VPC Management]"
                 ],
                 "summary": "Get VPC",
                 "operationId": "get-vpc",
@@ -3850,7 +4236,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VPC management]"
+                    "[VPC Management]"
                 ],
                 "summary": "Delete VPC",
                 "operationId": "delete-vpc",
@@ -3916,7 +4302,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VPC management]"
+                    "[VPC Management]"
                 ],
                 "summary": "Remove CSP Subnet",
                 "operationId": "remove-csp-subnet",
@@ -3983,7 +4369,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VPC management]"
+                    "[VPC Management]"
                 ],
                 "summary": "Add Subnet",
                 "operationId": "add-subnet",
@@ -4043,7 +4429,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[VPC management]"
+                    "[VPC Management]"
                 ],
                 "summary": "Remove Subnet",
                 "operationId": "remove-subnet",
@@ -4363,6 +4749,35 @@ const docTemplate = `{
                 "Zone": {
                     "type": "string",
                     "example": "us-east-1a"
+                }
+            }
+        },
+        "spider.RegionZoneInfo": {
+            "type": "object",
+            "required": [
+                "DisplayName",
+                "Name"
+            ],
+            "properties": {
+                "DisplayName": {
+                    "type": "string",
+                    "example": "US East"
+                },
+                "KeyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "Name": {
+                    "type": "string",
+                    "example": "us-east"
+                },
+                "ZoneList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.ZoneInfo"
+                    }
                 }
             }
         },
@@ -4779,6 +5194,51 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "spider.ZoneInfo": {
+            "type": "object",
+            "required": [
+                "DisplayName",
+                "Name",
+                "Status"
+            ],
+            "properties": {
+                "DisplayName": {
+                    "type": "string",
+                    "example": "US East 1A"
+                },
+                "KeyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "Name": {
+                    "type": "string",
+                    "example": "us-east-1a"
+                },
+                "Status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.ZoneStatus"
+                        }
+                    ],
+                    "example": "Available"
+                }
+            }
+        },
+        "spider.ZoneStatus": {
+            "type": "string",
+            "enum": [
+                "Available",
+                "Unavailable",
+                "StatusNotSupported"
+            ],
+            "x-enum-varnames": [
+                "ZoneAvailable",
+                "ZoneUnavailable",
+                "NotSupported"
+            ]
         },
         "spider.AddSubnetRequest": {
             "type": "object",
@@ -5359,6 +5819,46 @@ const docTemplate = `{
                                 "$ref": "#/definitions/spider.KeyValue"
                             }
                         }
+                    }
+                }
+            }
+        },
+        "spider.OriginalRegionListResponse": {
+            "type": "object",
+            "required": [
+                "RegionInfo"
+            ],
+            "properties": {
+                "RegionInfo": {
+                    "description": "CSP-specific JSON format",
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
+        "spider.OriginalZoneListResponse": {
+            "type": "object",
+            "required": [
+                "ZoneInfo"
+            ],
+            "properties": {
+                "ZoneInfo": {
+                    "description": "CSP-specific JSON format",
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
+        "spider.RegionZoneListResponse": {
+            "type": "object",
+            "required": [
+                "regionzone"
+            ],
+            "properties": {
+                "regionzone": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.RegionZoneInfo"
                     }
                 }
             }
