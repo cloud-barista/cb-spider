@@ -254,9 +254,6 @@ func CreateVPC(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
-type ListVPCReq struct {
-	ConnectionName string `json:"ConnectionName" query:"ConnectionName" example:"aws-connection"`
-}
 type ListVPCResponse struct {
 	Result []*cres.VPCInfo `json:"vpc" validate:"required" description:"A list of VPC information"`
 }
@@ -277,7 +274,7 @@ type ListVPCResponse struct {
 func ListVPC(c echo.Context) error {
 	cblog.Info("call ListVPC()")
 
-	var req ListVPCReq
+	var req ConnectionRequest
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
