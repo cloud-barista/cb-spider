@@ -3956,6 +3956,115 @@
                 }
             }
         },
+        "/vmimage": {
+            "get": {
+                "description": "Retrieve a list of Public Images associated with a specific connection.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] PublicImage"
+                ],
+                "summary": "List Public Images",
+                "operationId": "list-image",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list Public Images for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of Public Images",
+                        "schema": {
+                            "$ref": "#/definitions/spider.ImageListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/vmimage/{Name}": {
+            "get": {
+                "description": "Retrieve details of a specific Public Image.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] PublicImage"
+                ],
+                "summary": "Get Public Image",
+                "operationId": "get-image",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to get a specific Public Image for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Public Image to retrieve",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the Public Image",
+                        "schema": {
+                            "$ref": "#/definitions/spider.ImageInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/vmstatus": {
             "get": {
                 "description": "Retrieve a list of statuses for Virtual Machines (VMs) associated with a specific connection.",
@@ -4586,6 +4695,40 @@
                 "SystemId": {
                     "type": "string",
                     "example": "csp-defined-id"
+                }
+            }
+        },
+        "spider.ImageInfo": {
+            "type": "object",
+            "required": [
+                "GuestOS",
+                "IId",
+                "Status"
+            ],
+            "properties": {
+                "GuestOS": {
+                    "description": "Windows7, Ubuntu etc.",
+                    "type": "string",
+                    "example": "Ubuntu 18.04"
+                },
+                "IId": {
+                    "description": "{NameId, SystemId}",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "KeyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "Status": {
+                    "description": "available, unavailable",
+                    "type": "string",
+                    "example": "available"
                 }
             }
         },
@@ -5601,6 +5744,20 @@
                             "type": "string",
                             "example": "csp-sg-1234"
                         }
+                    }
+                }
+            }
+        },
+        "spider.ImageListResponse": {
+            "type": "object",
+            "required": [
+                "image"
+            ],
+            "properties": {
+                "image": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.ImageInfo"
                     }
                 }
             }

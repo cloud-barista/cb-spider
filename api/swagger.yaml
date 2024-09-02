@@ -73,6 +73,29 @@ definitions:
     - NameId
     - SystemId
     type: object
+  spider.ImageInfo:
+    properties:
+      GuestOS:
+        description: Windows7, Ubuntu etc.
+        example: Ubuntu 18.04
+        type: string
+      IId:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: '{NameId, SystemId}'
+      KeyValueList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      Status:
+        description: available, unavailable
+        example: available
+        type: string
+    required:
+    - GuestOS
+    - IId
+    - Status
+    type: object
   spider.ImageType:
     enum:
     - PublicImage
@@ -781,6 +804,15 @@ definitions:
     required:
     - ConnectionName
     - ReqInfo
+    type: object
+  spider.ImageListResponse:
+    properties:
+      image:
+        items:
+          $ref: '#/definitions/spider.ImageInfo'
+        type: array
+    required:
+    - image
     type: object
   spider.IncreaseDiskSizeRequest:
     properties:
@@ -3983,6 +4015,79 @@ paths:
       summary: Get VM
       tags:
       - '[VM Management]'
+  /vmimage:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of Public Images associated with a specific connection.
+      operationId: list-image
+      parameters:
+      - description: The name of the Connection to list Public Images for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of Public Images
+          schema:
+            $ref: '#/definitions/spider.ImageListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List Public Images
+      tags:
+      - '[Cloud Metadata] PublicImage'
+  /vmimage/{Name}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve details of a specific Public Image.
+      operationId: get-image
+      parameters:
+      - description: The name of the Connection to get a specific Public Image for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: The name of the Public Image to retrieve
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the Public Image
+          schema:
+            $ref: '#/definitions/spider.ImageInfo'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get Public Image
+      tags:
+      - '[Cloud Metadata] PublicImage'
   /vmstatus:
     get:
       consumes:
