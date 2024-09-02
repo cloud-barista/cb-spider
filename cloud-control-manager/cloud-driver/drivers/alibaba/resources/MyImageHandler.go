@@ -334,9 +334,6 @@ func ExtractMyImageDescribeInfo(aliMyImage *ecs.Image) (irs.MyImageInfo, error) 
 
 	returnMyImageInfo.KeyValueList = keyValueList
 
-	cblogger.Info("returnMyImageInfo@@@@@@", returnMyImageInfo)
-	cblogger.Info("returnMyImageInfo######", returnMyImageInfo.SourceVM)
-
 	return returnMyImageInfo, nil
 }
 
