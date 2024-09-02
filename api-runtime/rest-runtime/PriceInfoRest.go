@@ -18,12 +18,30 @@ import (
 )
 
 // ================ PriceInfo Handler
+
+// ProductFamilyListResponse represents the response body structure for the ListProductFamily API.
+type ProductFamilyListResponse struct {
+	Result []string `json:"productfamily" validate:"required" description:"A list of product families"`
+}
+
+// listProductFamily godoc
+// @ID list-product-family
+// @Summary List Product Families
+// @Description Retrieve a list of Product Families associated with a specific connection and region.
+// @Tags [Cloud Metadata] Price
+// @Accept  json
+// @Produce  json
+// @Param ConnectionName query string true "The name of the Connection to list Product Families for"
+// @Param RegionName path string true "The name of the Region to list Product Families for"
+// @Success 200 {object} ProductFamilyListResponse "List of Product Families"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameter"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /productfamily/{RegionName} [get]
 func ListProductFamily(c echo.Context) error {
 	cblog.Info("call ListProductFamily()")
 
-	var req struct {
-		ConnectionName string
-	}
+	req := ConnectionRequest{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -40,20 +58,41 @@ func ListProductFamily(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	var jsonResult struct {
-		Result []string `json:"productfamily"`
-	}
+	var jsonResult ProductFamilyListResponse
 	jsonResult.Result = result
 	return c.JSON(http.StatusOK, &jsonResult)
 }
 
+// PriceInfoRequest represents the request body structure for the GetPriceInfo API.
+type PriceInfoRequest struct {
+	ConnectionName string          `json:"connectionName" validate:"required" description:"The name of the Connection to get Price Information for"`
+	FilterList     []cres.KeyValue `json:"filterList" description:"A list of filters to apply to the price information request"`
+}
+
+// PriceInfoResponse represents the response body structure for the GetPriceInfo API.
+type PriceInfoResponse struct {
+	cres.CloudPriceData `json:",inline" description:"Price information details"`
+}
+
+// getPriceInfo godoc
+// @ID get-price-info
+// @Summary Get Price Information
+// @Description Retrieve price details of a specific Product Family in a specific Region. <br> * example body: {"connectionName":"aws-connection","FilterList":[{"Key":"instanceType","Value":"t2.micro"}]}
+// @Tags [Cloud Metadata] Price
+// @Accept  json
+// @Produce  json
+// @Param ProductFamily path string true "The name of the Product Family to retrieve price information for" example("Compute Instance")
+// @Param RegionName path string true "The name of the Region to retrieve price information for" example("us-east-1")
+// @Param PriceInfoRequest body PriceInfoRequest false "The request body containing additional filters for price information"
+// @Success 200 {object} PriceInfoResponse "Price Information Details"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameter"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /priceinfo/{ProductFamily}/{RegionName} [post]
 func GetPriceInfo(c echo.Context) error {
 	cblog.Info("call GetPriceInfo()")
 
-	var req struct {
-		ConnectionName string
-		FilterList     []cres.KeyValue
-	}
+	var req PriceInfoRequest
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -70,8 +109,7 @@ func GetPriceInfo(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	var Result cres.CloudPriceData
-	json.Unmarshal([]byte(result), &Result)
-	return c.JSON(http.StatusOK, Result)
-
+	var response PriceInfoResponse
+	json.Unmarshal([]byte(result), &response)
+	return c.JSON(http.StatusOK, response)
 }

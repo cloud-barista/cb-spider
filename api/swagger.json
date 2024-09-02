@@ -2490,6 +2490,132 @@
                 }
             }
         },
+        "/priceinfo/{ProductFamily}/{RegionName}": {
+            "post": {
+                "description": "Retrieve price details of a specific Product Family in a specific Region. \u003cbr\u003e * example body: {\"connectionName\":\"aws-connection\",\"FilterList\":[{\"Key\":\"instanceType\",\"Value\":\"t2.micro\"}]}",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] Price"
+                ],
+                "summary": "Get Price Information",
+                "operationId": "get-price-info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "\"Compute Instance\"",
+                        "description": "The name of the Product Family to retrieve price information for",
+                        "name": "ProductFamily",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "\"us-east-1\"",
+                        "description": "The name of the Region to retrieve price information for",
+                        "name": "RegionName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "The request body containing additional filters for price information",
+                        "name": "PriceInfoRequest",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/spider.PriceInfoRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Price Information Details",
+                        "schema": {
+                            "$ref": "#/definitions/spider.PriceInfoResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/productfamily/{RegionName}": {
+            "get": {
+                "description": "Retrieve a list of Product Families associated with a specific connection and region.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] Price"
+                ],
+                "summary": "List Product Families",
+                "operationId": "list-product-family",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list Product Families for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Region to list Product Families for",
+                        "name": "RegionName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of Product Families",
+                        "schema": {
+                            "$ref": "#/definitions/spider.ProductFamilyListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/regdisk": {
             "post": {
                 "description": "Register a new Disk with the specified name, zone, and CSP ID.",
@@ -4812,6 +4938,27 @@
         }
     },
     "definitions": {
+        "spider.CloudPrice": {
+            "type": "object",
+            "required": [
+                "cloudName",
+                "priceList"
+            ],
+            "properties": {
+                "cloudName": {
+                    "description": "Name of the cloud provider",
+                    "type": "string",
+                    "example": "AWS"
+                },
+                "priceList": {
+                    "description": "List of prices for different services/products",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.Price"
+                    }
+                }
+            }
+        },
         "spider.DiskInfo": {
             "type": "object",
             "required": [
@@ -5055,6 +5202,24 @@
                 }
             }
         },
+        "spider.Meta": {
+            "type": "object",
+            "required": [
+                "version"
+            ],
+            "properties": {
+                "description": {
+                    "description": "Description of the pricing data",
+                    "type": "string",
+                    "example": "Cloud price data"
+                },
+                "version": {
+                    "description": "Version of the pricing data",
+                    "type": "string",
+                    "example": "1.0"
+                }
+            }
+        },
         "spider.MyImageInfo": {
             "type": "object",
             "required": [
@@ -5121,6 +5286,218 @@
                 "LINUX_UNIX",
                 "WINDOWS"
             ]
+        },
+        "spider.Price": {
+            "type": "object",
+            "required": [
+                "priceInfo",
+                "productInfo"
+            ],
+            "properties": {
+                "priceInfo": {
+                    "description": "Pricing details of the product",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.PriceInfo"
+                        }
+                    ]
+                },
+                "productInfo": {
+                    "description": "Information about the product",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.ProductInfo"
+                        }
+                    ]
+                }
+            }
+        },
+        "spider.PriceInfo": {
+            "type": "object",
+            "required": [
+                "cspPriceInfo",
+                "pricingPolicies"
+            ],
+            "properties": {
+                "cspPriceInfo": {
+                    "description": "Additional price information specific to CSP"
+                },
+                "pricingPolicies": {
+                    "description": "List of pricing policies",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.PricingPolicies"
+                    }
+                }
+            }
+        },
+        "spider.PricingPolicies": {
+            "type": "object",
+            "required": [
+                "currency",
+                "price",
+                "pricingId",
+                "pricingPolicy",
+                "unit"
+            ],
+            "properties": {
+                "currency": {
+                    "description": "Currency of the pricing",
+                    "type": "string",
+                    "example": "USD"
+                },
+                "description": {
+                    "description": "Description of the pricing policy",
+                    "type": "string",
+                    "example": "Pricing for t2.micro"
+                },
+                "price": {
+                    "description": "Price in the specified currency per unit",
+                    "type": "string",
+                    "example": "0.02"
+                },
+                "pricingId": {
+                    "description": "ID of the pricing policy",
+                    "type": "string",
+                    "example": "price-123"
+                },
+                "pricingPolicy": {
+                    "description": "Name of the pricing policy",
+                    "type": "string",
+                    "example": "On-Demand"
+                },
+                "pricingPolicyInfo": {
+                    "description": "Detail information about the pricing policy",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.PricingPolicyInfo"
+                        }
+                    ]
+                },
+                "unit": {
+                    "description": "Unit of the pricing (e.g., per hour)",
+                    "type": "string",
+                    "example": "hour"
+                }
+            }
+        },
+        "spider.PricingPolicyInfo": {
+            "type": "object",
+            "properties": {
+                "LeaseContractLength": {
+                    "description": "Length of the lease contract",
+                    "type": "string",
+                    "example": "1 year"
+                },
+                "OfferingClass": {
+                    "description": "Offering class (e.g., standard, convertible)",
+                    "type": "string",
+                    "example": "standard"
+                },
+                "PurchaseOption": {
+                    "description": "Purchase option (e.g., no upfront, partial upfront)",
+                    "type": "string",
+                    "example": "No Upfront"
+                }
+            }
+        },
+        "spider.ProductInfo": {
+            "type": "object",
+            "required": [
+                "cspProductInfo",
+                "productId",
+                "regionName"
+            ],
+            "properties": {
+                "cspProductInfo": {
+                    "description": "Additional product information specific to CSP"
+                },
+                "description": {
+                    "description": "Description of the product",
+                    "type": "string",
+                    "example": "General purpose instance"
+                },
+                "gpu": {
+                    "description": "Number of GPUs",
+                    "type": "string",
+                    "example": "1"
+                },
+                "gpuMemory": {
+                    "description": "GPU memory size in MB",
+                    "type": "string",
+                    "example": "8192"
+                },
+                "instanceType": {
+                    "description": "--------- Compute Instance Info",
+                    "type": "string",
+                    "example": "t2.micro"
+                },
+                "maxIopsvolume": {
+                    "description": "Maximum IOPS for the volume",
+                    "type": "string",
+                    "example": "3000"
+                },
+                "maxThroughputvolume": {
+                    "description": "Maximum throughput for the volume in MB/s",
+                    "type": "string",
+                    "example": "250"
+                },
+                "maxVolumeSize": {
+                    "description": "Maximum volume size in GB",
+                    "type": "string",
+                    "example": "16384"
+                },
+                "memory": {
+                    "description": "Amount of memory in MB",
+                    "type": "string",
+                    "example": "4096"
+                },
+                "operatingSystem": {
+                    "description": "Operating system type",
+                    "type": "string",
+                    "example": "Linux"
+                },
+                "preInstalledSw": {
+                    "description": "Pre-installed software",
+                    "type": "string",
+                    "example": "None"
+                },
+                "productId": {
+                    "description": "ID of the product",
+                    "type": "string",
+                    "example": "prod-123"
+                },
+                "regionName": {
+                    "description": "Name of the region",
+                    "type": "string",
+                    "example": "us-east-1"
+                },
+                "storage": {
+                    "description": "Root-disk storage size in GB",
+                    "type": "string",
+                    "example": "100"
+                },
+                "storageMedia": {
+                    "description": "Storage media type",
+                    "type": "string",
+                    "example": "SSD"
+                },
+                "vcpu": {
+                    "description": "Number of vCPUs",
+                    "type": "string",
+                    "example": "2"
+                },
+                "volumeType": {
+                    "description": "--------- Storage Info  // Data-Disk(AWS:EBS)",
+                    "type": "string",
+                    "example": "gp2"
+                },
+                "zoneName": {
+                    "description": "Name of the zone",
+                    "type": "string",
+                    "example": "us-east-1a"
+                }
+            }
         },
         "spider.RegionInfo": {
             "type": "object",
@@ -6325,6 +6702,55 @@
                     "description": "CSP-specific JSON format",
                     "type": "object",
                     "additionalProperties": true
+                }
+            }
+        },
+        "spider.PriceInfoRequest": {
+            "type": "object",
+            "required": [
+                "connectionName"
+            ],
+            "properties": {
+                "connectionName": {
+                    "type": "string"
+                },
+                "filterList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                }
+            }
+        },
+        "spider.PriceInfoResponse": {
+            "type": "object",
+            "required": [
+                "cloudPriceList",
+                "meta"
+            ],
+            "properties": {
+                "cloudPriceList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.CloudPrice"
+                    }
+                },
+                "meta": {
+                    "$ref": "#/definitions/spider.Meta"
+                }
+            }
+        },
+        "spider.ProductFamilyListResponse": {
+            "type": "object",
+            "required": [
+                "productfamily"
+            ],
+            "properties": {
+                "productfamily": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },

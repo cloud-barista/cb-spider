@@ -1,5 +1,20 @@
 basePath: /spider
 definitions:
+  spider.CloudPrice:
+    properties:
+      cloudName:
+        description: Name of the cloud provider
+        example: AWS
+        type: string
+      priceList:
+        description: List of prices for different services/products
+        items:
+          $ref: '#/definitions/spider.Price'
+        type: array
+    required:
+    - cloudName
+    - priceList
+    type: object
   spider.DiskInfo:
     properties:
       CreatedTime:
@@ -171,6 +186,19 @@ definitions:
     required:
     - Key
     type: object
+  spider.Meta:
+    properties:
+      description:
+        description: Description of the pricing data
+        example: Cloud price data
+        type: string
+      version:
+        description: Version of the pricing data
+        example: "1.0"
+        type: string
+    required:
+    - version
+    type: object
   spider.MyImageInfo:
     properties:
       CreatedTime:
@@ -215,6 +243,162 @@ definitions:
     x-enum-varnames:
     - LINUX_UNIX
     - WINDOWS
+  spider.Price:
+    properties:
+      priceInfo:
+        allOf:
+        - $ref: '#/definitions/spider.PriceInfo'
+        description: Pricing details of the product
+      productInfo:
+        allOf:
+        - $ref: '#/definitions/spider.ProductInfo'
+        description: Information about the product
+    required:
+    - priceInfo
+    - productInfo
+    type: object
+  spider.PriceInfo:
+    properties:
+      cspPriceInfo:
+        description: Additional price information specific to CSP
+      pricingPolicies:
+        description: List of pricing policies
+        items:
+          $ref: '#/definitions/spider.PricingPolicies'
+        type: array
+    required:
+    - cspPriceInfo
+    - pricingPolicies
+    type: object
+  spider.PricingPolicies:
+    properties:
+      currency:
+        description: Currency of the pricing
+        example: USD
+        type: string
+      description:
+        description: Description of the pricing policy
+        example: Pricing for t2.micro
+        type: string
+      price:
+        description: Price in the specified currency per unit
+        example: "0.02"
+        type: string
+      pricingId:
+        description: ID of the pricing policy
+        example: price-123
+        type: string
+      pricingPolicy:
+        description: Name of the pricing policy
+        example: On-Demand
+        type: string
+      pricingPolicyInfo:
+        allOf:
+        - $ref: '#/definitions/spider.PricingPolicyInfo'
+        description: Detail information about the pricing policy
+      unit:
+        description: Unit of the pricing (e.g., per hour)
+        example: hour
+        type: string
+    required:
+    - currency
+    - price
+    - pricingId
+    - pricingPolicy
+    - unit
+    type: object
+  spider.PricingPolicyInfo:
+    properties:
+      LeaseContractLength:
+        description: Length of the lease contract
+        example: 1 year
+        type: string
+      OfferingClass:
+        description: Offering class (e.g., standard, convertible)
+        example: standard
+        type: string
+      PurchaseOption:
+        description: Purchase option (e.g., no upfront, partial upfront)
+        example: No Upfront
+        type: string
+    type: object
+  spider.ProductInfo:
+    properties:
+      cspProductInfo:
+        description: Additional product information specific to CSP
+      description:
+        description: Description of the product
+        example: General purpose instance
+        type: string
+      gpu:
+        description: Number of GPUs
+        example: "1"
+        type: string
+      gpuMemory:
+        description: GPU memory size in MB
+        example: "8192"
+        type: string
+      instanceType:
+        description: '--------- Compute Instance Info'
+        example: t2.micro
+        type: string
+      maxIopsvolume:
+        description: Maximum IOPS for the volume
+        example: "3000"
+        type: string
+      maxThroughputvolume:
+        description: Maximum throughput for the volume in MB/s
+        example: "250"
+        type: string
+      maxVolumeSize:
+        description: Maximum volume size in GB
+        example: "16384"
+        type: string
+      memory:
+        description: Amount of memory in MB
+        example: "4096"
+        type: string
+      operatingSystem:
+        description: Operating system type
+        example: Linux
+        type: string
+      preInstalledSw:
+        description: Pre-installed software
+        example: None
+        type: string
+      productId:
+        description: ID of the product
+        example: prod-123
+        type: string
+      regionName:
+        description: Name of the region
+        example: us-east-1
+        type: string
+      storage:
+        description: Root-disk storage size in GB
+        example: "100"
+        type: string
+      storageMedia:
+        description: Storage media type
+        example: SSD
+        type: string
+      vcpu:
+        description: Number of vCPUs
+        example: "2"
+        type: string
+      volumeType:
+        description: '--------- Storage Info  // Data-Disk(AWS:EBS)'
+        example: gp2
+        type: string
+      zoneName:
+        description: Name of the zone
+        example: us-east-1a
+        type: string
+    required:
+    - cspProductInfo
+    - productId
+    - regionName
+    type: object
   spider.RegionInfo:
     properties:
       Region:
@@ -1055,6 +1239,38 @@ definitions:
         type: object
     required:
     - ZoneInfo
+    type: object
+  spider.PriceInfoRequest:
+    properties:
+      connectionName:
+        type: string
+      filterList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+    required:
+    - connectionName
+    type: object
+  spider.PriceInfoResponse:
+    properties:
+      cloudPriceList:
+        items:
+          $ref: '#/definitions/spider.CloudPrice'
+        type: array
+      meta:
+        $ref: '#/definitions/spider.Meta'
+    required:
+    - cloudPriceList
+    - meta
+    type: object
+  spider.ProductFamilyListResponse:
+    properties:
+      productfamily:
+        items:
+          type: string
+        type: array
+    required:
+    - productfamily
     type: object
   spider.RegionZoneListResponse:
     properties:
@@ -3098,6 +3314,94 @@ paths:
       summary: Get Pre-configured Region Zone
       tags:
       - '[Cloud Metadata] Region/Zone'
+  /priceinfo/{ProductFamily}/{RegionName}:
+    post:
+      consumes:
+      - application/json
+      description: 'Retrieve price details of a specific Product Family in a specific
+        Region. <br> * example body: {"connectionName":"aws-connection","FilterList":[{"Key":"instanceType","Value":"t2.micro"}]}'
+      operationId: get-price-info
+      parameters:
+      - description: The name of the Product Family to retrieve price information
+          for
+        example: '"Compute Instance"'
+        in: path
+        name: ProductFamily
+        required: true
+        type: string
+      - description: The name of the Region to retrieve price information for
+        example: '"us-east-1"'
+        in: path
+        name: RegionName
+        required: true
+        type: string
+      - description: The request body containing additional filters for price information
+        in: body
+        name: PriceInfoRequest
+        schema:
+          $ref: '#/definitions/spider.PriceInfoRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Price Information Details
+          schema:
+            $ref: '#/definitions/spider.PriceInfoResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get Price Information
+      tags:
+      - '[Cloud Metadata] Price'
+  /productfamily/{RegionName}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of Product Families associated with a specific
+        connection and region.
+      operationId: list-product-family
+      parameters:
+      - description: The name of the Connection to list Product Families for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: The name of the Region to list Product Families for
+        in: path
+        name: RegionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of Product Families
+          schema:
+            $ref: '#/definitions/spider.ProductFamilyListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List Product Families
+      tags:
+      - '[Cloud Metadata] Price'
   /regdisk:
     post:
       consumes:
