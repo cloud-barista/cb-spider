@@ -97,6 +97,63 @@ definitions:
     required:
     - Count
     type: object
+  spider.HealthCheckerInfo:
+    description: Health Checker Information for a Network Load Balancer (NLB)
+    properties:
+      CspID:
+        type: string
+      Interval:
+        description: secs, Interval time between health checks.
+        example: 30
+        type: integer
+      KeyValueList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      Port:
+        description: Listener Port or 1-65535
+        example: "80"
+        type: string
+      Protocol:
+        description: TCP|HTTP
+        example: TCP
+        type: string
+      Threshold:
+        description: num, The number of continuous health checks to change the VM
+          status.
+        example: 3
+        type: integer
+      Timeout:
+        description: secs, Waiting time to decide an unhealthy VM when no response.
+        example: 5
+        type: integer
+    required:
+    - Interval
+    - Port
+    - Protocol
+    - Threshold
+    - Timeout
+    type: object
+  spider.HealthInfo:
+    description: Health Information for a Network Load Balancer (NLB)
+    properties:
+      AllVMs:
+        items:
+          $ref: '#/definitions/spider.IID'
+        type: array
+      HealthyVMs:
+        items:
+          $ref: '#/definitions/spider.IID'
+        type: array
+      UnHealthyVMs:
+        items:
+          $ref: '#/definitions/spider.IID'
+        type: array
+    required:
+    - AllVMs
+    - HealthyVMs
+    - UnHealthyVMs
+    type: object
   spider.IID:
     properties:
       NameId:
@@ -186,6 +243,34 @@ definitions:
     required:
     - Key
     type: object
+  spider.ListenerInfo:
+    description: Listener Information for a Network Load Balancer (NLB)
+    properties:
+      CspID:
+        type: string
+      DNSName:
+        example: nlb.example.com
+        type: string
+      IP:
+        example: 192.168.0.1
+        type: string
+      KeyValueList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      Port:
+        description: 1-65535
+        example: "80"
+        type: string
+      Protocol:
+        description: TCP|UDP
+        example: TCP
+        type: string
+    required:
+    - IP
+    - Port
+    - Protocol
+    type: object
   spider.Meta:
     properties:
       description:
@@ -235,6 +320,54 @@ definitions:
     x-enum-varnames:
     - MyImageAvailable
     - MyImageUnavailable
+  spider.NLBInfo:
+    description: Network Load Balancer (NLB) Information
+    properties:
+      CreatedTime:
+        example: "2024-08-27T10:00:00Z"
+        type: string
+      HealthChecker:
+        $ref: '#/definitions/spider.HealthCheckerInfo'
+      IId:
+        $ref: '#/definitions/spider.IID'
+      KeyValueList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      Listener:
+        allOf:
+        - $ref: '#/definitions/spider.ListenerInfo'
+        description: '------ Frontend'
+      Scope:
+        description: REGION(V) | GLOBAL
+        example: REGION
+        type: string
+      TagList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      Type:
+        description: PUBLIC(V) | INTERNAL
+        example: PUBLIC
+        type: string
+      VMGroup:
+        allOf:
+        - $ref: '#/definitions/spider.VMGroupInfo'
+        description: '------ Backend'
+      VpcIID:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: Owner VPC IID
+    required:
+    - CreatedTime
+    - HealthChecker
+    - IId
+    - Listener
+    - Scope
+    - Type
+    - VMGroup
+    - VpcIID
+    type: object
   spider.Platform:
     enum:
     - LINUX/UNIX
@@ -522,6 +655,32 @@ definitions:
         type: string
     required:
     - Count
+    type: object
+  spider.VMGroupInfo:
+    description: VM Group Information for a Network Load Balancer (NLB)
+    properties:
+      CspID:
+        type: string
+      KeyValueList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      Port:
+        description: 1-65535
+        example: "8080"
+        type: string
+      Protocol:
+        description: TCP|UDP
+        example: TCP
+        type: string
+      VMs:
+        items:
+          $ref: '#/definitions/spider.IID'
+        type: array
+    required:
+    - Port
+    - Protocol
+    - VMs
     type: object
   spider.VMInfo:
     properties:
@@ -1213,6 +1372,209 @@ definitions:
     - ConnectionName
     - ReqInfo
     type: object
+  spider.NLBAddVMsRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          VMs:
+            example:
+            - vm-01
+            items:
+              type: string
+            type: array
+        required:
+        - VMs
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.NLBGetOwnerVPCRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          CSPId:
+            example: csp-nlb-1234
+            type: string
+        required:
+        - CSPId
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.NLBGetVMGroupHealthInfoResponse:
+    properties:
+      healthinfo:
+        $ref: '#/definitions/spider.HealthInfo'
+    required:
+    - healthinfo
+    type: object
+  spider.NLBHealthCheckerRequest:
+    properties:
+      Interval:
+        description: secs, if not specified, treated as "default", determined by CSP
+        example: default
+        type: string
+      Port:
+        description: Listener Port or 1-65535
+        example: "22"
+        type: string
+      Protocol:
+        description: TCP|HTTP
+        example: TCP
+        type: string
+      Threshold:
+        description: num, if not specified, treated as "default", determined by CSP
+        example: default
+        type: string
+      Timeout:
+        description: secs, if not specified, treated as "default", determined by CSP
+        example: default
+        type: string
+    required:
+    - Port
+    - Protocol
+    type: object
+  spider.NLBListResponse:
+    properties:
+      nlb:
+        items:
+          $ref: '#/definitions/spider.NLBInfo'
+        type: array
+    required:
+    - nlb
+    type: object
+  spider.NLBListenerRequest:
+    properties:
+      Port:
+        description: 1-65535
+        example: "22"
+        type: string
+      Protocol:
+        description: TCP|UDP
+        example: TCP
+        type: string
+    required:
+    - Port
+    - Protocol
+    type: object
+  spider.NLBRegisterRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          CSPId:
+            example: csp-nlb-1234
+            type: string
+          Name:
+            example: nlb-01
+            type: string
+          VPCName:
+            example: vpc-01
+            type: string
+        required:
+        - CSPId
+        - Name
+        - VPCName
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.NLBRemoveVMsRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          VMs:
+            example:
+            - vm-01
+            items:
+              type: string
+            type: array
+        required:
+        - VMs
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.NLBRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      IDTransformMode:
+        description: 'ON: transform CSP ID, OFF: no-transform CSP ID'
+        example: "ON"
+        type: string
+      ReqInfo:
+        properties:
+          HealthChecker:
+            $ref: '#/definitions/spider.NLBHealthCheckerRequest'
+          Listener:
+            $ref: '#/definitions/spider.NLBListenerRequest'
+          Name:
+            example: nlb-01
+            type: string
+          Scope:
+            description: REGION(V) | GLOBAL
+            example: REGION
+            type: string
+          Type:
+            description: PUBLIC(V) | INTERNAL
+            example: PUBLIC
+            type: string
+          VMGroup:
+            $ref: '#/definitions/spider.NLBVMGroupRequest'
+          VPCName:
+            example: vpc-01
+            type: string
+        required:
+        - HealthChecker
+        - Listener
+        - Name
+        - Scope
+        - Type
+        - VMGroup
+        - VPCName
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.NLBVMGroupRequest:
+    properties:
+      Port:
+        description: Listener Port or 1-65535
+        example: "22"
+        type: string
+      Protocol:
+        description: TCP|UDP
+        example: TCP
+        type: string
+      VMs:
+        example:
+        - vm-01
+        items:
+          type: string
+        type: array
+    required:
+    - Port
+    - Protocol
+    - VMs
+    type: object
   spider.OriginalRegionListResponse:
     properties:
       RegionInfo:
@@ -1734,6 +2096,42 @@ paths:
       summary: List All MyImages
       tags:
       - '[MyImage Management]'
+  /allnlb:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of all Network Load Balancers (NLBs) across all
+        connections.
+      operationId: list-all-nlb
+      parameters:
+      - description: The name of the Connection
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all NLBs with their respective lists
+          schema:
+            $ref: '#/definitions/spider.AllResourceListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All NLBs
+      tags:
+      - '[NLB Management]'
   /allsecuritygroup:
     get:
       consumes:
@@ -2013,6 +2411,50 @@ paths:
       summary: Count MyImages by Connection
       tags:
       - '[MyImage Management]'
+  /countnlb:
+    get:
+      description: Get the total number of Network Load Balancers (NLBs) across all
+        connections.
+      operationId: count-all-nlbs
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of NLBs
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count All NLBs
+      tags:
+      - '[NLB Management]'
+  /countnlb/{ConnectionName}:
+    get:
+      description: Get the total number of Network Load Balancers (NLBs) for a specific
+        connection.
+      operationId: count-nlbs-by-connection
+      parameters:
+      - description: The name of the Connection
+        in: path
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of NLBs for the connection
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count NLBs by Connection
+      tags:
+      - '[NLB Management]'
   /countsecuritygroup:
     get:
       description: Get the total number of Security Groups across all connections.
@@ -2304,6 +2746,47 @@ paths:
       summary: Delete CSP MyImage
       tags:
       - '[MyImage Management]'
+  /cspnlb/{Id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a specified CSP Network Load Balancer (NLB).
+      operationId: delete-csp-nlb
+      parameters:
+      - description: Request body for deleting a CSP NLB
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The CSP NLB ID to delete
+        in: path
+        name: Id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the delete operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete CSP NLB
+      tags:
+      - '[NLB Management]'
   /cspsecuritygroup/{Id}:
     delete:
       consumes:
@@ -2742,6 +3225,42 @@ paths:
       summary: Increase Disk Size
       tags:
       - '[Disk Management]'
+  /getnlbowner:
+    post:
+      consumes:
+      - application/json
+      description: Retrieve the owner VPC of a specified Network Load Balancer (NLB).
+      operationId: get-nlb-owner-vpc
+      parameters:
+      - description: Request body for getting NLB Owner VPC
+        in: body
+        name: NLBGetOwnerVPCRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.NLBGetOwnerVPCRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the owner VPC
+          schema:
+            $ref: '#/definitions/spider.IID'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get NLB Owner VPC
+      tags:
+      - '[NLB Management]'
   /getsecuritygroupowner:
     post:
       consumes:
@@ -3123,6 +3642,281 @@ paths:
       summary: Get MyImage
       tags:
       - '[MyImage Management]'
+  /nlb:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of Network Load Balancers (NLBs) associated with
+        a specific connection.
+      operationId: list-nlb
+      parameters:
+      - description: The name of the Connection to list NLBs for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of NLBs
+          schema:
+            $ref: '#/definitions/spider.NLBListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List NLBs
+      tags:
+      - '[NLB Management]'
+    post:
+      consumes:
+      - application/json
+      description: Create a new Network Load Balancer (NLB) with specified configurations.
+      operationId: create-nlb
+      parameters:
+      - description: Request body for creating an NLB
+        in: body
+        name: NLBRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.NLBRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the created NLB
+          schema:
+            $ref: '#/definitions/spider.NLBInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Create NLB
+      tags:
+      - '[NLB Management]'
+  /nlb/{Name}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a specified Network Load Balancer (NLB).
+      operationId: delete-nlb
+      parameters:
+      - description: Request body for deleting an NLB
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The name of the NLB to delete
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: Force delete the NLB
+        in: query
+        name: force
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the delete operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete NLB
+      tags:
+      - '[NLB Management]'
+    get:
+      consumes:
+      - application/json
+      description: Retrieve details of a specific Network Load Balancer (NLB).
+      operationId: get-nlb
+      parameters:
+      - description: The name of the Connection to get an NLB for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: The name of the NLB to retrieve
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the NLB
+          schema:
+            $ref: '#/definitions/spider.NLBInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get NLB
+      tags:
+      - '[NLB Management]'
+  /nlb/{Name}/health:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve the health information of the VM group in a specified
+        Network Load Balancer (NLB).
+      operationId: get-vmgroup-healthinfo
+      parameters:
+      - description: The name of the NLB to get the VM Group Health Info for
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: The name of the Connection
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Health information of the VM group
+          schema:
+            $ref: '#/definitions/spider.NLBGetVMGroupHealthInfoResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get NLB VM Group Health Info
+      tags:
+      - '[NLB Management]'
+  /nlb/{Name}/vms:
+    delete:
+      consumes:
+      - application/json
+      description: Remove a set of VMs from an existing Network Load Balancer (NLB).
+      operationId: remove-nlb-vms
+      parameters:
+      - description: The name of the NLB to remove VMs from
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: Request body for removing VMs from an NLB
+        in: body
+        name: NLBRemoveVMsRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.NLBRemoveVMsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the remove operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Remove VMs from NLB
+      tags:
+      - '[NLB Management]'
+    post:
+      consumes:
+      - application/json
+      description: Add a new set of VMs to an existing Network Load Balancer (NLB).
+      operationId: add-nlb-vms
+      parameters:
+      - description: The name of the NLB to add VMs to
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: Request body for adding VMs to an NLB
+        in: body
+        name: NLBAddVMsRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.NLBAddVMsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the NLB including the added VMs
+          schema:
+            $ref: '#/definitions/spider.NLBInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Add VMs to NLB
+      tags:
+      - '[NLB Management]'
   /orgregion:
     get:
       consumes:
@@ -3707,6 +4501,84 @@ paths:
       summary: Unregister MyImage
       tags:
       - '[MyImage Management]'
+  /regnlb:
+    post:
+      consumes:
+      - application/json
+      description: Register a new Network Load Balancer (NLB) with the specified name
+        and CSP ID.
+      operationId: register-nlb
+      parameters:
+      - description: Request body for registering an NLB
+        in: body
+        name: NLBRegisterRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.NLBRegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the registered NLB
+          schema:
+            $ref: '#/definitions/spider.NLBInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Register NLB
+      tags:
+      - '[NLB Management]'
+  /regnlb/{Name}:
+    delete:
+      consumes:
+      - application/json
+      description: Unregister a Network Load Balancer (NLB) with the specified name.
+      operationId: unregister-nlb
+      parameters:
+      - description: Request body for unregistering an NLB
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The name of the NLB to unregister
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the unregister operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Unregister NLB
+      tags:
+      - '[NLB Management]'
   /regsecuritygroup:
     post:
       consumes:

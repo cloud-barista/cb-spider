@@ -176,6 +176,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/allnlb": {
+            "get": {
+                "description": "Retrieve a list of all Network Load Balancers (NLBs) across all connections.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NLB Management]"
+                ],
+                "summary": "List All NLBs",
+                "operationId": "list-all-nlb",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of all NLBs with their respective lists",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/allsecuritygroup": {
             "get": {
                 "description": "Retrieve a list of all Security Groups across all connections.",
@@ -572,6 +623,69 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "Total count of MyImages for the connection",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/countnlb": {
+            "get": {
+                "description": "Get the total number of Network Load Balancers (NLBs) across all connections.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NLB Management]"
+                ],
+                "summary": "Count All NLBs",
+                "operationId": "count-all-nlbs",
+                "responses": {
+                    "200": {
+                        "description": "Total count of NLBs",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/countnlb/{ConnectionName}": {
+            "get": {
+                "description": "Get the total number of Network Load Balancers (NLBs) for a specific connection.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NLB Management]"
+                ],
+                "summary": "Count NLBs by Connection",
+                "operationId": "count-nlbs-by-connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Total count of NLBs for the connection",
                         "schema": {
                             "$ref": "#/definitions/spider.CountResponse"
                         }
@@ -984,6 +1098,66 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "The CSP MyImage ID to delete",
+                        "name": "Id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the delete operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/cspnlb/{Id}": {
+            "delete": {
+                "description": "Delete a specified CSP Network Load Balancer (NLB).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NLB Management]"
+                ],
+                "summary": "Delete CSP NLB",
+                "operationId": "delete-csp-nlb",
+                "parameters": [
+                    {
+                        "description": "Request body for deleting a CSP NLB",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The CSP NLB ID to delete",
                         "name": "Id",
                         "in": "path",
                         "required": true
@@ -1657,6 +1831,59 @@ const docTemplate = `{
                 }
             }
         },
+        "/getnlbowner": {
+            "post": {
+                "description": "Retrieve the owner VPC of a specified Network Load Balancer (NLB).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NLB Management]"
+                ],
+                "summary": "Get NLB Owner VPC",
+                "operationId": "get-nlb-owner-vpc",
+                "parameters": [
+                    {
+                        "description": "Request body for getting NLB Owner VPC",
+                        "name": "NLBGetOwnerVPCRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.NLBGetOwnerVPCRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the owner VPC",
+                        "schema": {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/getsecuritygroupowner": {
             "post": {
                 "description": "Retrieve the owner VPC of a specified Security Group.",
@@ -2191,6 +2418,406 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "Result of the delete operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/nlb": {
+            "get": {
+                "description": "Retrieve a list of Network Load Balancers (NLBs) associated with a specific connection.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NLB Management]"
+                ],
+                "summary": "List NLBs",
+                "operationId": "list-nlb",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list NLBs for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of NLBs",
+                        "schema": {
+                            "$ref": "#/definitions/spider.NLBListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new Network Load Balancer (NLB) with specified configurations.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NLB Management]"
+                ],
+                "summary": "Create NLB",
+                "operationId": "create-nlb",
+                "parameters": [
+                    {
+                        "description": "Request body for creating an NLB",
+                        "name": "NLBRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.NLBRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the created NLB",
+                        "schema": {
+                            "$ref": "#/definitions/spider.NLBInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/nlb/{Name}": {
+            "get": {
+                "description": "Retrieve details of a specific Network Load Balancer (NLB).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NLB Management]"
+                ],
+                "summary": "Get NLB",
+                "operationId": "get-nlb",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to get an NLB for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the NLB to retrieve",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the NLB",
+                        "schema": {
+                            "$ref": "#/definitions/spider.NLBInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a specified Network Load Balancer (NLB).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NLB Management]"
+                ],
+                "summary": "Delete NLB",
+                "operationId": "delete-nlb",
+                "parameters": [
+                    {
+                        "description": "Request body for deleting an NLB",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the NLB to delete",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Force delete the NLB",
+                        "name": "force",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the delete operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/nlb/{Name}/health": {
+            "get": {
+                "description": "Retrieve the health information of the VM group in a specified Network Load Balancer (NLB).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NLB Management]"
+                ],
+                "summary": "Get NLB VM Group Health Info",
+                "operationId": "get-vmgroup-healthinfo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the NLB to get the VM Group Health Info for",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Health information of the VM group",
+                        "schema": {
+                            "$ref": "#/definitions/spider.NLBGetVMGroupHealthInfoResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/nlb/{Name}/vms": {
+            "post": {
+                "description": "Add a new set of VMs to an existing Network Load Balancer (NLB).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NLB Management]"
+                ],
+                "summary": "Add VMs to NLB",
+                "operationId": "add-nlb-vms",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the NLB to add VMs to",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body for adding VMs to an NLB",
+                        "name": "NLBAddVMsRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.NLBAddVMsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the NLB including the added VMs",
+                        "schema": {
+                            "$ref": "#/definitions/spider.NLBInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Remove a set of VMs from an existing Network Load Balancer (NLB).",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NLB Management]"
+                ],
+                "summary": "Remove VMs from NLB",
+                "operationId": "remove-nlb-vms",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the NLB to remove VMs from",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body for removing VMs from an NLB",
+                        "name": "NLBRemoveVMsRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.NLBRemoveVMsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the remove operation",
                         "schema": {
                             "$ref": "#/definitions/spider.BooleanInfo"
                         }
@@ -3034,6 +3661,119 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "The name of the MyImage to unregister",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the unregister operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/regnlb": {
+            "post": {
+                "description": "Register a new Network Load Balancer (NLB) with the specified name and CSP ID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NLB Management]"
+                ],
+                "summary": "Register NLB",
+                "operationId": "register-nlb",
+                "parameters": [
+                    {
+                        "description": "Request body for registering an NLB",
+                        "name": "NLBRegisterRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.NLBRegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the registered NLB",
+                        "schema": {
+                            "$ref": "#/definitions/spider.NLBInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/regnlb/{Name}": {
+            "delete": {
+                "description": "Unregister a Network Load Balancer (NLB) with the specified name.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NLB Management]"
+                ],
+                "summary": "Unregister NLB",
+                "operationId": "unregister-nlb",
+                "parameters": [
+                    {
+                        "description": "Request body for unregistering an NLB",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the NLB to unregister",
                         "name": "Name",
                         "in": "path",
                         "required": true
@@ -5077,6 +5817,82 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.HealthCheckerInfo": {
+            "description": "Health Checker Information for a Network Load Balancer (NLB)",
+            "type": "object",
+            "required": [
+                "Interval",
+                "Port",
+                "Protocol",
+                "Threshold",
+                "Timeout"
+            ],
+            "properties": {
+                "CspID": {
+                    "type": "string"
+                },
+                "Interval": {
+                    "description": "secs, Interval time between health checks.",
+                    "type": "integer",
+                    "example": 30
+                },
+                "KeyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "Port": {
+                    "description": "Listener Port or 1-65535",
+                    "type": "string",
+                    "example": "80"
+                },
+                "Protocol": {
+                    "description": "TCP|HTTP",
+                    "type": "string",
+                    "example": "TCP"
+                },
+                "Threshold": {
+                    "description": "num, The number of continuous health checks to change the VM status.",
+                    "type": "integer",
+                    "example": 3
+                },
+                "Timeout": {
+                    "description": "secs, Waiting time to decide an unhealthy VM when no response.",
+                    "type": "integer",
+                    "example": 5
+                }
+            }
+        },
+        "spider.HealthInfo": {
+            "description": "Health Information for a Network Load Balancer (NLB)",
+            "type": "object",
+            "required": [
+                "AllVMs",
+                "HealthyVMs",
+                "UnHealthyVMs"
+            ],
+            "properties": {
+                "AllVMs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.IID"
+                    }
+                },
+                "HealthyVMs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.IID"
+                    }
+                },
+                "UnHealthyVMs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.IID"
+                    }
+                }
+            }
+        },
         "spider.IID": {
             "type": "object",
             "required": [
@@ -5205,6 +6021,44 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.ListenerInfo": {
+            "description": "Listener Information for a Network Load Balancer (NLB)",
+            "type": "object",
+            "required": [
+                "IP",
+                "Port",
+                "Protocol"
+            ],
+            "properties": {
+                "CspID": {
+                    "type": "string"
+                },
+                "DNSName": {
+                    "type": "string",
+                    "example": "nlb.example.com"
+                },
+                "IP": {
+                    "type": "string",
+                    "example": "192.168.0.1"
+                },
+                "KeyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "Port": {
+                    "description": "1-65535",
+                    "type": "string",
+                    "example": "80"
+                },
+                "Protocol": {
+                    "description": "TCP|UDP",
+                    "type": "string",
+                    "example": "TCP"
+                }
+            }
+        },
         "spider.Meta": {
             "type": "object",
             "required": [
@@ -5278,6 +6132,78 @@ const docTemplate = `{
                 "MyImageAvailable",
                 "MyImageUnavailable"
             ]
+        },
+        "spider.NLBInfo": {
+            "description": "Network Load Balancer (NLB) Information",
+            "type": "object",
+            "required": [
+                "CreatedTime",
+                "HealthChecker",
+                "IId",
+                "Listener",
+                "Scope",
+                "Type",
+                "VMGroup",
+                "VpcIID"
+            ],
+            "properties": {
+                "CreatedTime": {
+                    "type": "string",
+                    "example": "2024-08-27T10:00:00Z"
+                },
+                "HealthChecker": {
+                    "$ref": "#/definitions/spider.HealthCheckerInfo"
+                },
+                "IId": {
+                    "$ref": "#/definitions/spider.IID"
+                },
+                "KeyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "Listener": {
+                    "description": "------ Frontend",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.ListenerInfo"
+                        }
+                    ]
+                },
+                "Scope": {
+                    "description": "REGION(V) | GLOBAL",
+                    "type": "string",
+                    "example": "REGION"
+                },
+                "TagList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "Type": {
+                    "description": "PUBLIC(V) | INTERNAL",
+                    "type": "string",
+                    "example": "PUBLIC"
+                },
+                "VMGroup": {
+                    "description": "------ Backend",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.VMGroupInfo"
+                        }
+                    ]
+                },
+                "VpcIID": {
+                    "description": "Owner VPC IID",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                }
+            }
         },
         "spider.Platform": {
             "type": "string",
@@ -5680,6 +6606,42 @@ const docTemplate = `{
                     "description": "Number of CPU cores",
                     "type": "string",
                     "example": "2"
+                }
+            }
+        },
+        "spider.VMGroupInfo": {
+            "description": "VM Group Information for a Network Load Balancer (NLB)",
+            "type": "object",
+            "required": [
+                "Port",
+                "Protocol",
+                "VMs"
+            ],
+            "properties": {
+                "CspID": {
+                    "type": "string"
+                },
+                "KeyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "Port": {
+                    "description": "1-65535",
+                    "type": "string",
+                    "example": "8080"
+                },
+                "Protocol": {
+                    "description": "TCP|UDP",
+                    "type": "string",
+                    "example": "TCP"
+                },
+                "VMs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.IID"
+                    }
                 }
             }
         },
@@ -6666,6 +7628,292 @@ const docTemplate = `{
                             }
                         }
                     }
+                }
+            }
+        },
+        "spider.NLBAddVMsRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "VMs"
+                    ],
+                    "properties": {
+                        "VMs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "example": [
+                                "vm-01"
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "spider.NLBGetOwnerVPCRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "CSPId"
+                    ],
+                    "properties": {
+                        "CSPId": {
+                            "type": "string",
+                            "example": "csp-nlb-1234"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.NLBGetVMGroupHealthInfoResponse": {
+            "type": "object",
+            "required": [
+                "healthinfo"
+            ],
+            "properties": {
+                "healthinfo": {
+                    "$ref": "#/definitions/spider.HealthInfo"
+                }
+            }
+        },
+        "spider.NLBHealthCheckerRequest": {
+            "type": "object",
+            "required": [
+                "Port",
+                "Protocol"
+            ],
+            "properties": {
+                "Interval": {
+                    "description": "secs, if not specified, treated as \"default\", determined by CSP",
+                    "type": "string",
+                    "example": "default"
+                },
+                "Port": {
+                    "description": "Listener Port or 1-65535",
+                    "type": "string",
+                    "example": "22"
+                },
+                "Protocol": {
+                    "description": "TCP|HTTP",
+                    "type": "string",
+                    "example": "TCP"
+                },
+                "Threshold": {
+                    "description": "num, if not specified, treated as \"default\", determined by CSP",
+                    "type": "string",
+                    "example": "default"
+                },
+                "Timeout": {
+                    "description": "secs, if not specified, treated as \"default\", determined by CSP",
+                    "type": "string",
+                    "example": "default"
+                }
+            }
+        },
+        "spider.NLBListResponse": {
+            "type": "object",
+            "required": [
+                "nlb"
+            ],
+            "properties": {
+                "nlb": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.NLBInfo"
+                    }
+                }
+            }
+        },
+        "spider.NLBListenerRequest": {
+            "type": "object",
+            "required": [
+                "Port",
+                "Protocol"
+            ],
+            "properties": {
+                "Port": {
+                    "description": "1-65535",
+                    "type": "string",
+                    "example": "22"
+                },
+                "Protocol": {
+                    "description": "TCP|UDP",
+                    "type": "string",
+                    "example": "TCP"
+                }
+            }
+        },
+        "spider.NLBRegisterRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "CSPId",
+                        "Name",
+                        "VPCName"
+                    ],
+                    "properties": {
+                        "CSPId": {
+                            "type": "string",
+                            "example": "csp-nlb-1234"
+                        },
+                        "Name": {
+                            "type": "string",
+                            "example": "nlb-01"
+                        },
+                        "VPCName": {
+                            "type": "string",
+                            "example": "vpc-01"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.NLBRemoveVMsRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "VMs"
+                    ],
+                    "properties": {
+                        "VMs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "example": [
+                                "vm-01"
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "spider.NLBRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "IDTransformMode": {
+                    "description": "ON: transform CSP ID, OFF: no-transform CSP ID",
+                    "type": "string",
+                    "example": "ON"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "HealthChecker",
+                        "Listener",
+                        "Name",
+                        "Scope",
+                        "Type",
+                        "VMGroup",
+                        "VPCName"
+                    ],
+                    "properties": {
+                        "HealthChecker": {
+                            "$ref": "#/definitions/spider.NLBHealthCheckerRequest"
+                        },
+                        "Listener": {
+                            "$ref": "#/definitions/spider.NLBListenerRequest"
+                        },
+                        "Name": {
+                            "type": "string",
+                            "example": "nlb-01"
+                        },
+                        "Scope": {
+                            "description": "REGION(V) | GLOBAL",
+                            "type": "string",
+                            "example": "REGION"
+                        },
+                        "Type": {
+                            "description": "PUBLIC(V) | INTERNAL",
+                            "type": "string",
+                            "example": "PUBLIC"
+                        },
+                        "VMGroup": {
+                            "$ref": "#/definitions/spider.NLBVMGroupRequest"
+                        },
+                        "VPCName": {
+                            "type": "string",
+                            "example": "vpc-01"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.NLBVMGroupRequest": {
+            "type": "object",
+            "required": [
+                "Port",
+                "Protocol",
+                "VMs"
+            ],
+            "properties": {
+                "Port": {
+                    "description": "Listener Port or 1-65535",
+                    "type": "string",
+                    "example": "22"
+                },
+                "Protocol": {
+                    "description": "TCP|UDP",
+                    "type": "string",
+                    "example": "TCP"
+                },
+                "VMs": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "vm-01"
+                    ]
                 }
             }
         },

@@ -349,6 +349,7 @@ func RunServer() {
 
 		//----------NLB Handler
 		{"GET", "/getnlbowner", GetNLBOwnerVPC},
+		{"POST", "/getnlbowner", GetNLBOwnerVPC},
 		{"POST", "/regnlb", RegisterNLB},
 		{"DELETE", "/regnlb/:Name", UnregisterNLB},
 
