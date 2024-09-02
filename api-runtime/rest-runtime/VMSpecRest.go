@@ -19,11 +19,6 @@ import (
 
 // ================ VMSpec Handler
 
-// VMSpecListRequest represents the request body for listing VM specs.
-type VMSpecListRequest struct {
-	ConnectionName string `json:"ConnectionName" query:"ConnectionName" validate:"required" example:"aws-connection"`
-}
-
 // VMSpecListResponse represents the response body structure for the ListVMSpec API.
 type VMSpecListResponse struct {
 	Result []*cres.VMSpecInfo `json:"vmspec" validate:"required" description:"A list of VM specs"`
@@ -50,7 +45,7 @@ type OriginalVMSpecListResponse struct {
 func ListVMSpec(c echo.Context) error {
 	cblog.Info("call ListVMSpec()")
 
-	req := VMSpecListRequest{}
+	req := ConnectionRequest{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -90,7 +85,7 @@ func ListVMSpec(c echo.Context) error {
 func GetVMSpec(c echo.Context) error {
 	cblog.Info("call GetVMSpec()")
 
-	req := VMSpecListRequest{}
+	req := ConnectionRequest{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -126,7 +121,7 @@ func GetVMSpec(c echo.Context) error {
 func ListOrgVMSpec(c echo.Context) error {
 	cblog.Info("call ListOrgVMSpec()")
 
-	req := VMSpecListRequest{}
+	req := ConnectionRequest{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -168,7 +163,7 @@ func ListOrgVMSpec(c echo.Context) error {
 func GetOrgVMSpec(c echo.Context) error {
 	cblog.Info("call GetOrgVMSpec()")
 
-	req := VMSpecListRequest{}
+	req := ConnectionRequest{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
