@@ -46,24 +46,40 @@ func (myImageHandler AlibabaMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 	request.InstanceId = snapshotReqInfo.SourceVM.SystemId
 	request.ImageName = snapshotReqInfo.IId.NameId
 	// 0717 tag 추가
-
+	// request Tag 추가
+	myImageTags := []ecs.CreateImageTag{}
 	if snapshotReqInfo.TagList != nil && len(snapshotReqInfo.TagList) > 0 {
 
-		myImageTags := []ecs.CreateImageTag{}
 		for _, myImageTag := range snapshotReqInfo.TagList {
 			tag0 := ecs.CreateImageTag{
 				Key:   myImageTag.Key,
 				Value: myImageTag.Value,
 			}
 			myImageTags = append(myImageTags, tag0)
-
 		}
-		request.Tag = &myImageTags
+
 	}
 
-	///
+	// MyImage를 위한 Tag추가
+	cbMetaTag := ecs.CreateImageTag{
+		Key:   CBMetaDefaultTagName,  //  "cbCat",
+		Value: CBMetaDefaultTagValue, // "cbAlibaba",
+	}
+	myImageTags = append(myImageTags, cbMetaTag)
+	cbImageTag := ecs.CreateImageTag{
+		Key:   IMAGE_TAG_DEFAULT, // "Name",
+		Value: snapshotReqInfo.IId.NameId,
+	}
+	myImageTags = append(myImageTags, cbImageTag)
+	cbSourceVmTag := ecs.CreateImageTag{
+		Key:   IMAGE_TAG_SOURCE_VM,
+		Value: snapshotReqInfo.SourceVM.SystemId,
+	}
+	myImageTags = append(myImageTags, cbSourceVmTag)
 
-	// TAG에 연관 instanceID set 할 것
+	request.Tag = &myImageTags
+
+	// // TAG에 연관 instanceID set 할 것
 	// request.Tag = &[]ecs.CreateImageTag{ // Default Hidden Tags Info
 	// 	{
 	// 		Key:   CBMetaDefaultTagName,  // "cbCat",
@@ -149,6 +165,7 @@ func (myImageHandler AlibabaMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.
 	if err != nil {
 		cblogger.Error(err)
 		LoggingError(hiscallInfo, err)
+
 		return irs.MyImageInfo{}, err
 	}
 	calllogger.Info(call.String(hiscallInfo))
@@ -256,8 +273,8 @@ func ExtractMyImageDescribeInfo(aliMyImage *ecs.Image) (irs.MyImageInfo, error) 
 	tagList := []irs.KeyValue{}
 	for _, aliTag := range aliMyImage.Tags.Tag {
 		sTag := irs.KeyValue{}
-		sTag.Key = aliTag.Key
-		sTag.Value = aliTag.Value
+		sTag.Key = aliTag.TagKey
+		sTag.Value = aliTag.TagValue
 
 		tagList = append(tagList, sTag)
 	}
@@ -316,6 +333,10 @@ func ExtractMyImageDescribeInfo(aliMyImage *ecs.Image) (irs.MyImageInfo, error) 
 	keyValueList = append(keyValueList, irs.KeyValue{Key: "OSType", Value: aliMyImage.OSType})
 
 	returnMyImageInfo.KeyValueList = keyValueList
+
+	cblogger.Info("returnMyImageInfo@@@@@@", returnMyImageInfo)
+	cblogger.Info("returnMyImageInfo######", returnMyImageInfo.SourceVM)
+
 	return returnMyImageInfo, nil
 }
 
