@@ -3969,7 +3969,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[Cloud Metadata] PublicImage"
+                    "[Cloud Metadata] Public VM Image"
                 ],
                 "summary": "List Public Images",
                 "operationId": "list-image",
@@ -4020,7 +4020,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[Cloud Metadata] PublicImage"
+                    "[Cloud Metadata] Public VM Image"
                 ],
                 "summary": "Get Public Image",
                 "operationId": "get-image",
@@ -4045,6 +4045,224 @@ const docTemplate = `{
                         "description": "Details of the Public Image",
                         "schema": {
                             "$ref": "#/definitions/spider.ImageInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/vmorgspec": {
+            "get": {
+                "description": "Retrieve a list of Original VM Specs associated with a specific connection. \u003cbr\u003e The response structure may vary depending on the request ConnectionName.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] VM Spec"
+                ],
+                "summary": "List Original VM Specs",
+                "operationId": "list-org-vm-spec",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list Original VM specs for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Dynamic JSON structure representing the list of Original VM Specs",
+                        "schema": {
+                            "$ref": "#/definitions/spider.OriginalVMSpecListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/vmorgspec/{Name}": {
+            "get": {
+                "description": "Retrieve details of a specific Original VM Spec.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] VM Spec"
+                ],
+                "summary": "Get Original VM Spec",
+                "operationId": "get-org-vm-spec",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to get a specific Original VM spec for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the VM spec to retrieve",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the Original VM Spec",
+                        "schema": {
+                            "$ref": "#/definitions/spider.OriginalVMSpecListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/vmspec": {
+            "get": {
+                "description": "Retrieve a list of VM specs associated with a specific connection.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] VM Spec"
+                ],
+                "summary": "List VM Specs",
+                "operationId": "list-vm-spec",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list VM specs for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of VM specs",
+                        "schema": {
+                            "$ref": "#/definitions/spider.VMSpecListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/vmspec/{Name}": {
+            "get": {
+                "description": "Retrieve details of a specific VM spec.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Metadata] VM Spec"
+                ],
+                "summary": "Get VM Spec",
+                "operationId": "get-vm-spec",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to get a specific VM spec for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the VM spec to retrieve",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the VM spec",
+                        "schema": {
+                            "$ref": "#/definitions/spider.VMSpecInfo"
                         }
                     },
                     "400": {
@@ -4684,6 +4902,34 @@ const docTemplate = `{
                 "DiskError"
             ]
         },
+        "spider.GpuInfo": {
+            "type": "object",
+            "required": [
+                "Count"
+            ],
+            "properties": {
+                "Count": {
+                    "description": "Number of GPUs",
+                    "type": "string",
+                    "example": "1"
+                },
+                "Mem": {
+                    "description": "Memory size of the GPU in MB",
+                    "type": "string",
+                    "example": "8192"
+                },
+                "Mfr": {
+                    "description": "Manufacturer of the GPU",
+                    "type": "string",
+                    "example": "NVIDIA"
+                },
+                "Model": {
+                    "description": "Model of the GPU",
+                    "type": "string",
+                    "example": "Tesla K80"
+                }
+            }
+        },
         "spider.IID": {
             "type": "object",
             "required": [
@@ -5042,6 +5288,24 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.VCpuInfo": {
+            "type": "object",
+            "required": [
+                "Count"
+            ],
+            "properties": {
+                "Clock": {
+                    "description": "Clock speed in GHz",
+                    "type": "string",
+                    "example": "2.5"
+                },
+                "Count": {
+                    "description": "Number of CPU cores",
+                    "type": "string",
+                    "example": "2"
+                }
+            }
+        },
         "spider.VMInfo": {
             "type": "object",
             "required": [
@@ -5232,6 +5496,54 @@ const docTemplate = `{
                     "allOf": [
                         {
                             "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                }
+            }
+        },
+        "spider.VMSpecInfo": {
+            "type": "object",
+            "required": [
+                "Mem",
+                "Name",
+                "Region",
+                "VCpu"
+            ],
+            "properties": {
+                "Gpu": {
+                    "description": "GPU details if available",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.GpuInfo"
+                    }
+                },
+                "KeyValueList": {
+                    "description": "Additional key-value pairs for the VM spec",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "Mem": {
+                    "description": "Memory size in MB",
+                    "type": "string",
+                    "example": "1024"
+                },
+                "Name": {
+                    "description": "Name of the VM spec",
+                    "type": "string",
+                    "example": "t2.micro"
+                },
+                "Region": {
+                    "description": "Region where the VM spec is available",
+                    "type": "string",
+                    "example": "us-east-1"
+                },
+                "VCpu": {
+                    "description": "CPU details of the VM spec",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.VCpuInfo"
                         }
                     ]
                 }
@@ -5993,6 +6305,19 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.OriginalVMSpecListResponse": {
+            "type": "object",
+            "required": [
+                "VMSpecInfo"
+            ],
+            "properties": {
+                "VMSpecInfo": {
+                    "description": "CSP-specific JSON format",
+                    "type": "object",
+                    "additionalProperties": true
+                }
+            }
+        },
         "spider.OriginalZoneListResponse": {
             "type": "object",
             "required": [
@@ -6288,6 +6613,20 @@ const docTemplate = `{
                             "type": "string",
                             "example": "vm-01"
                         }
+                    }
+                }
+            }
+        },
+        "spider.VMSpecListResponse": {
+            "type": "object",
+            "required": [
+                "vmspec"
+            ],
+            "properties": {
+                "vmspec": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.VMSpecInfo"
                     }
                 }
             }

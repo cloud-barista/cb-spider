@@ -61,6 +61,27 @@ definitions:
     - DiskAttached
     - DiskDeleting
     - DiskError
+  spider.GpuInfo:
+    properties:
+      Count:
+        description: Number of GPUs
+        example: "1"
+        type: string
+      Mem:
+        description: Memory size of the GPU in MB
+        example: "8192"
+        type: string
+      Mfr:
+        description: Manufacturer of the GPU
+        example: NVIDIA
+        type: string
+      Model:
+        description: Model of the GPU
+        example: Tesla K80
+        type: string
+    required:
+    - Count
+    type: object
   spider.IID:
     properties:
       NameId:
@@ -305,6 +326,19 @@ definitions:
     - IPv4_CIDR
     - Zone
     type: object
+  spider.VCpuInfo:
+    properties:
+      Clock:
+        description: Clock speed in GHz
+        example: "2.5"
+        type: string
+      Count:
+        description: Number of CPU cores
+        example: "2"
+        type: string
+    required:
+    - Count
+    type: object
   spider.VMInfo:
     properties:
       AccessPoint:
@@ -440,6 +474,40 @@ definitions:
     - VMSpecName
     - VMUserId
     - VpcIID
+    type: object
+  spider.VMSpecInfo:
+    properties:
+      Gpu:
+        description: GPU details if available
+        items:
+          $ref: '#/definitions/spider.GpuInfo'
+        type: array
+      KeyValueList:
+        description: Additional key-value pairs for the VM spec
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      Mem:
+        description: Memory size in MB
+        example: "1024"
+        type: string
+      Name:
+        description: Name of the VM spec
+        example: t2.micro
+        type: string
+      Region:
+        description: Region where the VM spec is available
+        example: us-east-1
+        type: string
+      VCpu:
+        allOf:
+        - $ref: '#/definitions/spider.VCpuInfo'
+        description: CPU details of the VM spec
+    required:
+    - Mem
+    - Name
+    - Region
+    - VCpu
     type: object
   spider.VMStatus:
     description: The status of a Virtual Machine (VM).
@@ -970,6 +1038,15 @@ definitions:
     required:
     - RegionInfo
     type: object
+  spider.OriginalVMSpecListResponse:
+    properties:
+      VMSpecInfo:
+        additionalProperties: true
+        description: CSP-specific JSON format
+        type: object
+    required:
+    - VMSpecInfo
+    type: object
   spider.OriginalZoneListResponse:
     properties:
       ZoneInfo:
@@ -1177,6 +1254,15 @@ definitions:
     required:
     - ConnectionName
     - ReqInfo
+    type: object
+  spider.VMSpecListResponse:
+    properties:
+      vmspec:
+        items:
+          $ref: '#/definitions/spider.VMSpecInfo'
+        type: array
+    required:
+    - vmspec
     type: object
   spider.VMStartRequest:
     properties:
@@ -4048,7 +4134,7 @@ paths:
             $ref: '#/definitions/spider.SimpleMsg'
       summary: List Public Images
       tags:
-      - '[Cloud Metadata] PublicImage'
+      - '[Cloud Metadata] Public VM Image'
   /vmimage/{Name}:
     get:
       consumes:
@@ -4087,7 +4173,157 @@ paths:
             $ref: '#/definitions/spider.SimpleMsg'
       summary: Get Public Image
       tags:
-      - '[Cloud Metadata] PublicImage'
+      - '[Cloud Metadata] Public VM Image'
+  /vmorgspec:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of Original VM Specs associated with a specific
+        connection. <br> The response structure may vary depending on the request
+        ConnectionName.
+      operationId: list-org-vm-spec
+      parameters:
+      - description: The name of the Connection to list Original VM specs for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Dynamic JSON structure representing the list of Original VM
+            Specs
+          schema:
+            $ref: '#/definitions/spider.OriginalVMSpecListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List Original VM Specs
+      tags:
+      - '[Cloud Metadata] VM Spec'
+  /vmorgspec/{Name}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve details of a specific Original VM Spec.
+      operationId: get-org-vm-spec
+      parameters:
+      - description: The name of the Connection to get a specific Original VM spec
+          for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: The name of the VM spec to retrieve
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the Original VM Spec
+          schema:
+            $ref: '#/definitions/spider.OriginalVMSpecListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get Original VM Spec
+      tags:
+      - '[Cloud Metadata] VM Spec'
+  /vmspec:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of VM specs associated with a specific connection.
+      operationId: list-vm-spec
+      parameters:
+      - description: The name of the Connection to list VM specs for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of VM specs
+          schema:
+            $ref: '#/definitions/spider.VMSpecListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List VM Specs
+      tags:
+      - '[Cloud Metadata] VM Spec'
+  /vmspec/{Name}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve details of a specific VM spec.
+      operationId: get-vm-spec
+      parameters:
+      - description: The name of the Connection to get a specific VM spec for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: The name of the VM spec to retrieve
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the VM spec
+          schema:
+            $ref: '#/definitions/spider.VMSpecInfo'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get VM Spec
+      tags:
+      - '[Cloud Metadata] VM Spec'
   /vmstatus:
     get:
       consumes:
