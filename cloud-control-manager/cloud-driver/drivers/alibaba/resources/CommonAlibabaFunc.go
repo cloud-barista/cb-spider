@@ -333,7 +333,7 @@ func GetAlibabaResourceType(resType irs.RSType) (string, error) {
 		return "disk", nil
 	case irs.MYIMAGE:
 		// return "snapshot", nil
-		return "ecs", nil
+		return "image", nil
 	case irs.CLUSTER:
 		return "CLUSTER", nil
 	case irs.ALL:
