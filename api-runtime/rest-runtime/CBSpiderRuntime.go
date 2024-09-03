@@ -42,7 +42,7 @@ var cblog *logrus.Logger
 
 // @title CB-Spider REST API
 // @version latest
-// @description CB-Spider REST API
+// @description **🕷️ [Usage Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages)**
 
 // @contact.name API Support
 // @contact.url http://cloud-barista.github.io

@@ -166,7 +166,7 @@ type NLBListenerCreateRequest struct {
 // createNLB godoc
 // @ID create-nlb
 // @Summary Create NLB
-// @Description Create a new Network Load Balancer (NLB) with specified configurations.
+// @Description Create a new Network Load Balancer (NLB) with specified configurations. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Network-Load-Balancer-and-Driver-API)]
 // @Tags [NLB Management]
 // @Accept  json
 // @Produce  json
@@ -334,13 +334,13 @@ func ListNLB(c echo.Context) error {
 
 // listAllNLB godoc
 // @ID list-all-nlb
-// @Summary List All NLBs
-// @Description Retrieve a list of all Network Load Balancers (NLBs) across all connections.
+// @Summary List All NLBs in a Connection
+// @Description Retrieve a comprehensive list of all Network Load Balancers (NLBs) associated with a specific connection, <br> including those mapped between CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing in the CSP.
 // @Tags [NLB Management]
 // @Accept  json
 // @Produce  json
-// @Param ConnectionName query string true "The name of the Connection"
-// @Success 200 {object} AllResourceListResponse "List of all NLBs with their respective lists"
+// @Param ConnectionName query string true "The name of the Connection to list NLBs for"
+// @Success 200 {object} AllResourceListResponse "List of all NLBs within the specified connection, including NLBs in CB-Spider only, CSP only, and mapped between both."
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"

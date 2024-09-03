@@ -118,7 +118,7 @@ type SecurityGroupCreateRequest struct {
 // createSecurity godoc
 // @ID create-securitygroup
 // @Summary Create SecurityGroup
-// @Description Create a new Security Group with specified rules and tags.
+// @Description Create a new Security Group with specified rules and tags. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Security-Group-Rules-and-Driver-API)]
 // @Tags [SecurityGroup Management]
 // @Accept  json
 // @Produce  json
@@ -197,15 +197,15 @@ func ListSecurity(c echo.Context) error {
 	return c.JSON(http.StatusOK, &jsonResult)
 }
 
-// listAllSecurity godoc
+// listAllSecurityGroups godoc
 // @ID list-all-securitygroups
-// @Summary List All SecurityGroups
-// @Description Retrieve a list of all Security Groups across all connections.
+// @Summary List All Security Groups in a Connection
+// @Description Retrieve a comprehensive list of all Security Groups associated with a specific connection, <br> including those mapped between CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing in the CSP.
 // @Tags [SecurityGroup Management]
 // @Accept  json
 // @Produce  json
-// @Param ConnectionName query string true "The name of the Connection"
-// @Success 200 {object} AllResourceListResponse "List of all SecurityGroups with their respective lists"
+// @Param ConnectionName query string true "The name of the Connection to list Security Groups for"
+// @Success 200 {object} AllResourceListResponse "List of all Security Groups within the specified connection, including Security Groups in CB-Spider only, CSP only, and mapped between both."
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"

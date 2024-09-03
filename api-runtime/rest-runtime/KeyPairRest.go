@@ -191,15 +191,15 @@ func ListKey(c echo.Context) error {
 	return c.JSON(http.StatusOK, &jsonResult)
 }
 
-// listAllKey godoc
+// listAllKeyPairs godoc
 // @ID list-all-key
-// @Summary List All KeyPairs
-// @Description Retrieve a list of all KeyPairs across all connections.
+// @Summary List All KeyPairs in a Connection
+// @Description Retrieve a comprehensive list of all KeyPairs associated with a specific connection, <br> including those mapped between CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing in the CSP.
 // @Tags [KeyPair Management]
 // @Accept  json
 // @Produce  json
-// @Param ConnectionName query string true "The name of the Connection"
-// @Success 200 {object} AllResourceListResponse "List of all KeyPairs with their respective lists"
+// @Param ConnectionName query string true "The name of the Connection to list KeyPairs for"
+// @Success 200 {object} AllResourceListResponse "List of all KeyPairs within the specified connection, including KeyPairs in CB-Spider only, CSP only, and mapped between both."
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameter"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"

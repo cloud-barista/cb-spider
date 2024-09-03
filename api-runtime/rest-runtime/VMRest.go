@@ -174,7 +174,7 @@ type VMStartRequest struct {
 // startVM godoc
 // @ID start-vm
 // @Summary Start VM
-// @Description Start a new Virtual Machine (VM) with specified configurations.
+// @Description Start a new Virtual Machine (VM) with specified configurations. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#2-%EB%A9%80%ED%8B%B0%ED%81%B4%EB%9D%BC%EC%9A%B0%EB%93%9C-vm-%EC%9D%B8%ED%94%84%EB%9D%BC-%EC%9E%90%EC%9B%90-%EC%A0%9C%EC%96%B4multi-cloud-vm-infra-resource-control)], [[Snapshot-MyImage,Disk Guide](https://github.com/cloud-barista/cb-spider/wiki/VM-Snapshot,-MyImage-and-Disk-Overview)]
 // @Tags [VM Management]
 // @Accept  json
 // @Produce  json
@@ -287,13 +287,13 @@ func ListVM(c echo.Context) error {
 
 // listAllVM godoc
 // @ID list-all-vm
-// @Summary List All VMs
-// @Description Retrieve a list of all Virtual Machines (VMs) across all connections.
+// @Summary List All VMs in a Connection
+// @Description Retrieve a comprehensive list of all Virtual Machines (VMs) associated with a specific connection, <br> including those mapped between CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing in the CSP.
 // @Tags [VM Management]
 // @Accept  json
 // @Produce  json
-// @Param ConnectionName query string true "The name of the Connection"
-// @Success 200 {object} AllResourceListResponse "List of all VMs with their respective lists"
+// @Param ConnectionName query string true "The name of the Connection to list VMs for"
+// @Success 200 {object} AllResourceListResponse "List of all VMs within the specified connection, including VMs in CB-Spider only, CSP only, and mapped between both."
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"

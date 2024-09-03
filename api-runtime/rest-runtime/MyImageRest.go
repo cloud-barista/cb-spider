@@ -115,7 +115,7 @@ type MyImageSnapshotRequest struct {
 // snapshotVM godoc
 // @ID snapshot-vm
 // @Summary Snapshot VM
-// @Description Create a new MyImage snapshot from a specified VM.
+// @Description Create a new MyImage snapshot from a specified VM. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/MyImage-and-Driver-API)], [[Snapshot-MyImage,Disk Guide](https://github.com/cloud-barista/cb-spider/wiki/VM-Snapshot,-MyImage-and-Disk-Overview)]
 // @Tags [MyImage Management]
 // @Accept  json
 // @Produce  json
@@ -197,13 +197,13 @@ func ListMyImage(c echo.Context) error {
 
 // listAllMyImage godoc
 // @ID list-all-myimage
-// @Summary List All MyImages
-// @Description Retrieve a list of all MyImages across all connections.
+// @Summary List All MyImages in a Connection
+// @Description Retrieve a comprehensive list of all MyImages associated with a specific connection, <br> including those mapped between CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing in the CSP.
 // @Tags [MyImage Management]
 // @Accept  json
 // @Produce  json
-// @Param ConnectionName query string true "The name of the Connection"
-// @Success 200 {object} AllResourceListResponse "List of all MyImages with their respective lists"
+// @Param ConnectionName query string true "The name of the Connection to list MyImages for"
+// @Success 200 {object} AllResourceListResponse "List of all MyImages within the specified connection, including MyImages in CB-Spider only, CSP only, and mapped between both."
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"

@@ -76,7 +76,7 @@ const docTemplate = `{
         },
         "/alldisk": {
             "get": {
-                "description": "Retrieve a list of all Disks across all connections.",
+                "description": "Retrieve a comprehensive list of all Disks associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
                 "consumes": [
                     "application/json"
                 ],
@@ -86,12 +86,12 @@ const docTemplate = `{
                 "tags": [
                     "[Disk Management]"
                 ],
-                "summary": "List All Disks",
+                "summary": "List All Disks in a Connection",
                 "operationId": "list-all-disk",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "The name of the Connection",
+                        "description": "The name of the Connection to list Disks for",
                         "name": "ConnectionName",
                         "in": "query",
                         "required": true
@@ -99,7 +99,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of all Disks with their respective lists",
+                        "description": "List of all Disks within the specified connection, including Disks in CB-Spider only, CSP only, and mapped between both.",
                         "schema": {
                             "$ref": "#/definitions/spider.AllResourceListResponse"
                         }
@@ -127,7 +127,7 @@ const docTemplate = `{
         },
         "/allkeypair": {
             "get": {
-                "description": "Retrieve a list of all KeyPairs across all connections.",
+                "description": "Retrieve a comprehensive list of all KeyPairs associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
                 "consumes": [
                     "application/json"
                 ],
@@ -137,12 +137,12 @@ const docTemplate = `{
                 "tags": [
                     "[KeyPair Management]"
                 ],
-                "summary": "List All KeyPairs",
+                "summary": "List All KeyPairs in a Connection",
                 "operationId": "list-all-key",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "The name of the Connection",
+                        "description": "The name of the Connection to list KeyPairs for",
                         "name": "ConnectionName",
                         "in": "query",
                         "required": true
@@ -150,7 +150,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of all KeyPairs with their respective lists",
+                        "description": "List of all KeyPairs within the specified connection, including KeyPairs in CB-Spider only, CSP only, and mapped between both.",
                         "schema": {
                             "$ref": "#/definitions/spider.AllResourceListResponse"
                         }
@@ -178,7 +178,7 @@ const docTemplate = `{
         },
         "/allmyimage": {
             "get": {
-                "description": "Retrieve a list of all MyImages across all connections.",
+                "description": "Retrieve a comprehensive list of all MyImages associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
                 "consumes": [
                     "application/json"
                 ],
@@ -188,12 +188,12 @@ const docTemplate = `{
                 "tags": [
                     "[MyImage Management]"
                 ],
-                "summary": "List All MyImages",
+                "summary": "List All MyImages in a Connection",
                 "operationId": "list-all-myimage",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "The name of the Connection",
+                        "description": "The name of the Connection to list MyImages for",
                         "name": "ConnectionName",
                         "in": "query",
                         "required": true
@@ -201,7 +201,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of all MyImages with their respective lists",
+                        "description": "List of all MyImages within the specified connection, including MyImages in CB-Spider only, CSP only, and mapped between both.",
                         "schema": {
                             "$ref": "#/definitions/spider.AllResourceListResponse"
                         }
@@ -229,7 +229,7 @@ const docTemplate = `{
         },
         "/allnlb": {
             "get": {
-                "description": "Retrieve a list of all Network Load Balancers (NLBs) across all connections.",
+                "description": "Retrieve a comprehensive list of all Network Load Balancers (NLBs) associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
                 "consumes": [
                     "application/json"
                 ],
@@ -239,12 +239,12 @@ const docTemplate = `{
                 "tags": [
                     "[NLB Management]"
                 ],
-                "summary": "List All NLBs",
+                "summary": "List All NLBs in a Connection",
                 "operationId": "list-all-nlb",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "The name of the Connection",
+                        "description": "The name of the Connection to list NLBs for",
                         "name": "ConnectionName",
                         "in": "query",
                         "required": true
@@ -252,7 +252,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of all NLBs with their respective lists",
+                        "description": "List of all NLBs within the specified connection, including NLBs in CB-Spider only, CSP only, and mapped between both.",
                         "schema": {
                             "$ref": "#/definitions/spider.AllResourceListResponse"
                         }
@@ -280,7 +280,7 @@ const docTemplate = `{
         },
         "/allsecuritygroup": {
             "get": {
-                "description": "Retrieve a list of all Security Groups across all connections.",
+                "description": "Retrieve a comprehensive list of all Security Groups associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
                 "consumes": [
                     "application/json"
                 ],
@@ -290,12 +290,12 @@ const docTemplate = `{
                 "tags": [
                     "[SecurityGroup Management]"
                 ],
-                "summary": "List All SecurityGroups",
+                "summary": "List All Security Groups in a Connection",
                 "operationId": "list-all-securitygroups",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "The name of the Connection",
+                        "description": "The name of the Connection to list Security Groups for",
                         "name": "ConnectionName",
                         "in": "query",
                         "required": true
@@ -303,7 +303,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of all SecurityGroups with their respective lists",
+                        "description": "List of all Security Groups within the specified connection, including Security Groups in CB-Spider only, CSP only, and mapped between both.",
                         "schema": {
                             "$ref": "#/definitions/spider.AllResourceListResponse"
                         }
@@ -331,7 +331,7 @@ const docTemplate = `{
         },
         "/allvm": {
             "get": {
-                "description": "Retrieve a list of all Virtual Machines (VMs) across all connections.",
+                "description": "Retrieve a comprehensive list of all Virtual Machines (VMs) associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
                 "consumes": [
                     "application/json"
                 ],
@@ -341,12 +341,12 @@ const docTemplate = `{
                 "tags": [
                     "[VM Management]"
                 ],
-                "summary": "List All VMs",
+                "summary": "List All VMs in a Connection",
                 "operationId": "list-all-vm",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "The name of the Connection",
+                        "description": "The name of the Connection to list VMs for",
                         "name": "ConnectionName",
                         "in": "query",
                         "required": true
@@ -354,7 +354,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of all VMs with their respective lists",
+                        "description": "List of all VMs within the specified connection, including VMs in CB-Spider only, CSP only, and mapped between both.",
                         "schema": {
                             "$ref": "#/definitions/spider.AllResourceListResponse"
                         }
@@ -382,7 +382,7 @@ const docTemplate = `{
         },
         "/allvpc": {
             "get": {
-                "description": "Retrieve a list of all Virtual Private Clouds (VPCs) across all connections.",
+                "description": "Retrieve a comprehensive list of all Virtual Private Clouds (VPCs) associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
                 "consumes": [
                     "application/json"
                 ],
@@ -392,12 +392,12 @@ const docTemplate = `{
                 "tags": [
                     "[VPC Management]"
                 ],
-                "summary": "List All VPCs",
+                "summary": "List All VPCs in a Connection",
                 "operationId": "list-all-vpc",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "The name of the Connection",
+                        "description": "The name of the Connection to list VPCs for",
                         "name": "ConnectionName",
                         "in": "query",
                         "required": true
@@ -405,7 +405,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of all VPCs with their respective lists",
+                        "description": "List of all VPCs within the specified connection, including VPCs in CB-Spider only, CSP only, and mapped between both.",
                         "schema": {
                             "$ref": "#/definitions/spider.AllResourceListResponse"
                         }
@@ -2197,7 +2197,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Create a new Disk with the specified configuration.",
+                "description": "Create a new Disk with the specified configuration. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Disk-and-Driver-API)], [[Snapshot-MyImage,Disk Guide](https://github.com/cloud-barista/cb-spider/wiki/VM-Snapshot,-MyImage-and-Disk-Overview)]",
                 "consumes": [
                     "application/json"
                 ],
@@ -3042,7 +3042,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Create a new MyImage snapshot from a specified VM.",
+                "description": "Create a new MyImage snapshot from a specified VM. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/MyImage-and-Driver-API)], [[Snapshot-MyImage,Disk Guide](https://github.com/cloud-barista/cb-spider/wiki/VM-Snapshot,-MyImage-and-Disk-Overview)]",
                 "consumes": [
                     "application/json"
                 ],
@@ -3266,7 +3266,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Create a new Network Load Balancer (NLB) with specified configurations.",
+                "description": "Create a new Network Load Balancer (NLB) with specified configurations. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Network-Load-Balancer-and-Driver-API)]",
                 "consumes": [
                     "application/json"
                 ],
@@ -5195,7 +5195,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Create a new Security Group with specified rules and tags.",
+                "description": "Create a new Security Group with specified rules and tags. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Security-Group-Rules-and-Driver-API)]",
                 "consumes": [
                     "application/json"
                 ],
@@ -5537,7 +5537,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Start a new Virtual Machine (VM) with specified configurations.",
+                "description": "Start a new Virtual Machine (VM) with specified configurations. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#2-%EB%A9%80%ED%8B%B0%ED%81%B4%EB%9D%BC%EC%9A%B0%EB%93%9C-vm-%EC%9D%B8%ED%94%84%EB%9D%BC-%EC%9E%90%EC%9B%90-%EC%A0%9C%EC%96%B4multi-cloud-vm-infra-resource-control)], [[Snapshot-MyImage,Disk Guide](https://github.com/cloud-barista/cb-spider/wiki/VM-Snapshot,-MyImage-and-Disk-Overview)]",
                 "consumes": [
                     "application/json"
                 ],
@@ -9929,7 +9929,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/spider",
 	Schemes:          []string{"http"},
 	Title:            "CB-Spider REST API",
-	Description:      "CB-Spider REST API",
+	Description:      "**🕷️ [Usage Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages)**",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

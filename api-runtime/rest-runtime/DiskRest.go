@@ -118,7 +118,7 @@ type DiskCreateRequest struct {
 // createDisk godoc
 // @ID create-disk
 // @Summary Create Disk
-// @Description Create a new Disk with the specified configuration.
+// @Description Create a new Disk with the specified configuration. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Disk-and-Driver-API)], [[Snapshot-MyImage,Disk Guide](https://github.com/cloud-barista/cb-spider/wiki/VM-Snapshot,-MyImage-and-Disk-Overview)]
 // @Tags [Disk Management]
 // @Accept  json
 // @Produce  json
@@ -202,13 +202,13 @@ func ListDisk(c echo.Context) error {
 
 // listAllDisk godoc
 // @ID list-all-disk
-// @Summary List All Disks
-// @Description Retrieve a list of all Disks across all connections.
+// @Summary List All Disks in a Connection
+// @Description Retrieve a comprehensive list of all Disks associated with a specific connection, <br> including those mapped between CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing in the CSP.
 // @Tags [Disk Management]
 // @Accept  json
 // @Produce  json
-// @Param ConnectionName query string true "The name of the Connection"
-// @Success 200 {object} AllResourceListResponse "List of all Disks with their respective lists"
+// @Param ConnectionName query string true "The name of the Connection to list Disks for"
+// @Success 200 {object} AllResourceListResponse "List of all Disks within the specified connection, including Disks in CB-Spider only, CSP only, and mapped between both."
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
