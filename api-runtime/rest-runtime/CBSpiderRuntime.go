@@ -410,6 +410,7 @@ func RunServer() {
 
 		//----------Cluster Handler
 		{"GET", "/getclusterowner", GetClusterOwnerVPC},
+		{"POST", "/getclusterowner", GetClusterOwnerVPC},
 		{"POST", "/regcluster", RegisterCluster},
 		{"DELETE", "/regcluster/:Name", UnregisterCluster},
 
@@ -440,10 +441,6 @@ func RunServer() {
 
 		//----------Destory All Resources in a Connection
 		{"DELETE", "/destroy", Destroy},
-
-		//-- only for WebTool
-		{"GET", "/nscluster", AllClusterList},  // GET with a body for backward compatibility
-		{"POST", "/nscluster", AllClusterList}, // POST with a body for standard
 
 		//-------------------------------------------------------------------//
 		//----------Additional Info
