@@ -849,7 +849,6 @@ func (ClusterHandler *AwsClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 
 	result, err := ClusterHandler.Client.UpdateClusterVersion(input)
 	if err != nil {
-		cblogger.Error(err)
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case eks.ErrCodeInvalidParameterException:
