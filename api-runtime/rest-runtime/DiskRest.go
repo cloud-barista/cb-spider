@@ -273,8 +273,8 @@ func GetDisk(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
-// IncreaseDiskSizeRequest represents the request body for changing the size of a Disk.
-type IncreaseDiskSizeRequest struct {
+// DiskSizeIncreaseRequest represents the request body for changing the size of a Disk.
+type DiskSizeIncreaseRequest struct {
 	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-connection"`
 	ReqInfo        struct {
 		Size string `json:"Size" validate:"required" example:"150"`
@@ -288,7 +288,7 @@ type IncreaseDiskSizeRequest struct {
 // @Tags [Disk Management]
 // @Accept  json
 // @Produce  json
-// @Param IncreaseDiskSizeRequest body restruntime.IncreaseDiskSizeRequest true "Request body for increasing the Disk size"
+// @Param DiskSizeIncreaseRequest body restruntime.DiskSizeIncreaseRequest true "Request body for increasing the Disk size"
 // @Param Name path string true "The name of the Disk to increase the size for"
 // @Success 200 {object} BooleanInfo "Result of the size increase operation"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
@@ -298,7 +298,7 @@ type IncreaseDiskSizeRequest struct {
 func IncreaseDiskSize(c echo.Context) error {
 	cblog.Info("call IncreaseDiskSize()")
 
-	var req IncreaseDiskSizeRequest
+	var req DiskSizeIncreaseRequest
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())

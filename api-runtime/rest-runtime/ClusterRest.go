@@ -22,8 +22,8 @@ import (
 
 //================ Cluster Handler
 
-// GetClusterOwnerVPCRequest represents the request body for retrieving the owner VPC of a Cluster.
-type GetClusterOwnerVPCRequest struct {
+// ClusterGetOwnerVPCRequest represents the request body for retrieving the owner VPC of a Cluster.
+type ClusterGetOwnerVPCRequest struct {
 	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-connection"`
 	ReqInfo        struct {
 		CSPId string `json:"CSPId" validate:"required" example:"csp-cluster-1234"`
@@ -37,7 +37,7 @@ type GetClusterOwnerVPCRequest struct {
 // @Tags [Cluster Management]
 // @Accept  json
 // @Produce  json
-// @Param GetClusterOwnerVPCRequest body restruntime.GetClusterOwnerVPCRequest true "Request body for getting Cluster Owner VPC"
+// @Param ClusterGetOwnerVPCRequest body restruntime.ClusterGetOwnerVPCRequest true "Request body for getting Cluster Owner VPC"
 // @Success 200 {object} cres.IID "Details of the owner VPC"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
@@ -46,7 +46,7 @@ type GetClusterOwnerVPCRequest struct {
 func GetClusterOwnerVPC(c echo.Context) error {
 	cblog.Info("call GetClusterOwnerVPC()")
 
-	var req GetClusterOwnerVPCRequest
+	var req ClusterGetOwnerVPCRequest
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -141,8 +141,8 @@ func UnregisterCluster(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
-// ClusterRequest represents the request body for creating a Cluster.
-type ClusterRequest struct {
+// ClusterCreateRequest represents the request body for creating a Cluster.
+type ClusterCreateRequest struct {
 	ConnectionName  string `json:"ConnectionName" validate:"required" example:"aws-connection"`
 	IDTransformMode string `json:"IDTransformMode,omitempty" validate:"omitempty" example:"ON"` // ON: transform CSP ID, OFF: no-transform CSP ID
 	ReqInfo         struct {
@@ -176,7 +176,7 @@ type ClusterNodeGroupRequest struct {
 // @Tags [Cluster Management]
 // @Accept  json
 // @Produce  json
-// @Param ClusterRequest body restruntime.ClusterRequest true "Request body for creating a Cluster"
+// @Param ClusterCreateRequest body restruntime.ClusterCreateRequest true "Request body for creating a Cluster"
 // @Success 200 {object} cres.ClusterInfo "Details of the created Cluster"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
@@ -185,7 +185,7 @@ type ClusterNodeGroupRequest struct {
 func CreateCluster(c echo.Context) error {
 	cblog.Info("call CreateCluster()")
 
-	req := ClusterRequest{}
+	req := ClusterCreateRequest{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())

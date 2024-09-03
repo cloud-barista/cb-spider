@@ -191,8 +191,8 @@ func UnregisterVPC(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
-// CreateVPCRequest represents the request body for creating a VPC.
-type CreateVPCRequest struct {
+// VPCCreateRequest represents the request body for creating a VPC.
+type VPCCreateRequest struct {
 	ConnectionName  string `json:"ConnectionName" validate:"required" example:"aws-connection"`
 	IDTransformMode string `json:"IDTransformMode,omitempty" validate:"omitempty" example:"ON"` // ON: transform CSP ID, OFF: no-transform CSP ID
 	ReqInfo         struct {
@@ -215,7 +215,7 @@ type CreateVPCRequest struct {
 // @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
-// @Param CreateVPCRequest body restruntime.CreateVPCRequest true "Request body for creating a VPC"
+// @Param VPCCreateRequest body restruntime.VPCCreateRequest true "Request body for creating a VPC"
 // @Success 200 {object} cres.VPCInfo "Details of the created VPC"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
@@ -224,7 +224,7 @@ type CreateVPCRequest struct {
 func CreateVPC(c echo.Context) error {
 	cblog.Info("call CreateVPC()")
 
-	req := CreateVPCRequest{}
+	req := VPCCreateRequest{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -254,7 +254,7 @@ func CreateVPC(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
-type ListVPCResponse struct {
+type VPCListResponse struct {
 	Result []*cres.VPCInfo `json:"vpc" validate:"required" description:"A list of VPC information"`
 }
 
@@ -266,7 +266,7 @@ type ListVPCResponse struct {
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to list VPCs for"
-// @Success 200 {object} ListVPCResponse "List of VPCs"
+// @Success 200 {object} VPCListResponse "List of VPCs"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameter"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -291,7 +291,7 @@ func ListVPC(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	jsonResult := ListVPCResponse{
+	jsonResult := VPCListResponse{
 		Result: result,
 	}
 
@@ -334,8 +334,8 @@ func ListAllVPC(c echo.Context) error {
 	return c.JSON(http.StatusOK, &allResourceList)
 }
 
-// AddSubnetRequest represents the request body for adding a subnet to a VPC.
-type AddSubnetRequest struct {
+// SubnetAddRequest represents the request body for adding a subnet to a VPC.
+type SubnetAddRequest struct {
 	ConnectionName  string `json:"ConnectionName" validate:"required" example:"aws-connection"`
 	IDTransformMode string `json:"IDTransformMode,omitempty" validate:"omitempty" example:"ON"` // ON: transform CSP ID, OFF: no-transform CSP ID
 	ReqInfo         struct {
@@ -354,7 +354,7 @@ type AddSubnetRequest struct {
 // @Accept  json
 // @Produce  json
 // @Param VPCName path string true "The name of the VPC to add the Subnet to"
-// @Param AddSubnetRequest body restruntime.AddSubnetRequest true "Request body for adding a Subnet"
+// @Param SubnetAddRequest body restruntime.SubnetAddRequest true "Request body for adding a Subnet"
 // @Success 200 {object} cres.VPCInfo "Details of the VPC including the added Subnet"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
@@ -363,7 +363,7 @@ type AddSubnetRequest struct {
 func AddSubnet(c echo.Context) error {
 	cblog.Info("call AddSubnet()")
 
-	var req AddSubnetRequest
+	var req SubnetAddRequest
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -565,8 +565,8 @@ func DeleteCSPVPC(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
-// GetSGOwnerVPCRequest represents the request body for retrieving the owner VPC of a Security Group.
-type GetSGOwnerVPCRequest struct {
+// VPCGetSecurityGroupOwnerRequest represents the request body for retrieving the owner VPC of a Security Group.
+type VPCGetSecurityGroupOwnerRequest struct {
 	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-connection"`
 	ReqInfo        struct {
 		CSPId string `json:"CSPId" validate:"required" example:"csp-sg-1234"`
@@ -580,7 +580,7 @@ type GetSGOwnerVPCRequest struct {
 // @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
-// @Param GetSGOwnerVPCRequest body restruntime.GetSGOwnerVPCRequest true "Request body for getting Security Group Owner VPC"
+// @Param VPCGetSecurityGroupOwnerRequest body restruntime.VPCGetSecurityGroupOwnerRequest true "Request body for getting Security Group Owner VPC"
 // @Success 200 {object} cres.IID "Details of the owner VPC"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
@@ -589,7 +589,7 @@ type GetSGOwnerVPCRequest struct {
 func GetSGOwnerVPC(c echo.Context) error {
 	cblog.Info("call GetSGOwnerVPC()")
 
-	var req GetSGOwnerVPCRequest
+	var req VPCGetSecurityGroupOwnerRequest
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -602,11 +602,6 @@ func GetSGOwnerVPC(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, result)
-}
-
-// CountResponse represents the response body for counting all VPCs.
-type CountResponse struct {
-	Count int `json:"count" validate:"required" example:"5" description:"The total number of resources counted"`
 }
 
 // countAllVPCs godoc

@@ -142,23 +142,23 @@ func UnregisterNLB(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
-// NLBRequest represents the request body for creating an NLB.
-type NLBRequest struct {
+// NLBCreateRequest represents the request body for creating an NLB.
+type NLBCreateRequest struct {
 	ConnectionName  string `json:"ConnectionName" validate:"required" example:"aws-connection"`
 	IDTransformMode string `json:"IDTransformMode,omitempty" validate:"omitempty" example:"ON"` // ON: transform CSP ID, OFF: no-transform CSP ID
 	ReqInfo         struct {
-		Name          string                  `json:"Name" validate:"required" example:"nlb-01"`
-		VPCName       string                  `json:"VPCName" validate:"required" example:"vpc-01"`
-		Type          string                  `json:"Type" validate:"required" example:"PUBLIC"`  // PUBLIC(V) | INTERNAL
-		Scope         string                  `json:"Scope" validate:"required" example:"REGION"` // REGION(V) | GLOBAL
-		Listener      NLBListenerRequest      `json:"Listener" validate:"required"`
-		VMGroup       NLBVMGroupRequest       `json:"VMGroup" validate:"required"`
-		HealthChecker NLBHealthCheckerRequest `json:"HealthChecker" validate:"required"`
+		Name          string                   `json:"Name" validate:"required" example:"nlb-01"`
+		VPCName       string                   `json:"VPCName" validate:"required" example:"vpc-01"`
+		Type          string                   `json:"Type" validate:"required" example:"PUBLIC"`  // PUBLIC(V) | INTERNAL
+		Scope         string                   `json:"Scope" validate:"required" example:"REGION"` // REGION(V) | GLOBAL
+		Listener      NLBListenerCreateRequest `json:"Listener" validate:"required"`
+		VMGroup       NLBVMGroupRequest        `json:"VMGroup" validate:"required"`
+		HealthChecker NLBHealthCheckerRequest  `json:"HealthChecker" validate:"required"`
 	} `json:"ReqInfo" validate:"required"`
 }
 
-// NLBListenerRequest represents the request body for the listener configuration in an NLB.
-type NLBListenerRequest struct {
+// NLBListenerCreateRequest represents the request body for the listener configuration in an NLB.
+type NLBListenerCreateRequest struct {
 	Protocol string `json:"Protocol" validate:"required" example:"TCP"` // TCP|UDP
 	Port     string `json:"Port" validate:"required" example:"22"`      // 1-65535
 }
@@ -170,7 +170,7 @@ type NLBListenerRequest struct {
 // @Tags [NLB Management]
 // @Accept  json
 // @Produce  json
-// @Param NLBRequest body restruntime.NLBRequest true "Request body for creating an NLB"
+// @Param NLBCreateRequest body restruntime.NLBCreateRequest true "Request body for creating an NLB"
 // @Success 200 {object} cres.NLBInfo "Details of the created NLB"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
@@ -179,7 +179,7 @@ type NLBListenerRequest struct {
 func CreateNLB(c echo.Context) error {
 	cblog.Info("call CreateNLB()")
 
-	req := NLBRequest{}
+	req := NLBCreateRequest{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -210,8 +210,8 @@ func CreateNLB(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
-// convertListenerInfo converts an NLBListenerRequest to ListenerInfo.
-func convertListenerInfo(listenerReq NLBListenerRequest) cres.ListenerInfo {
+// convertListenerInfo converts an NLBListenerCreateRequest to ListenerInfo.
+func convertListenerInfo(listenerReq NLBListenerCreateRequest) cres.ListenerInfo {
 	return cres.ListenerInfo{
 		Protocol: listenerReq.Protocol,
 		Port:     listenerReq.Port,

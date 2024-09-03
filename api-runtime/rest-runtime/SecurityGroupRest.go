@@ -154,8 +154,8 @@ func CreateSecurity(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
-// ListSecurityResponse represents the response body for listing SecurityGroups.
-type ListSecurityResponse struct {
+// SecurityGroupListResponse represents the response body for listing SecurityGroups.
+type SecurityGroupListResponse struct {
 	Result []*cres.SecurityInfo `json:"securitygroup" validate:"required" description:"A list of security group information"`
 }
 
@@ -167,7 +167,7 @@ type ListSecurityResponse struct {
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to list SecurityGroups for"
-// @Success 200 {object} restruntime.ListSecurityResponse "List of SecurityGroups"
+// @Success 200 {object} restruntime.SecurityGroupListResponse "List of SecurityGroups"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameter"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -190,7 +190,7 @@ func ListSecurity(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	jsonResult := ListSecurityResponse{
+	jsonResult := SecurityGroupListResponse{
 		Result: result,
 	}
 

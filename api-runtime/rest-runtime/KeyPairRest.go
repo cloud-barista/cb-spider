@@ -22,8 +22,8 @@ import (
 
 //================ KeyPair Handler
 
-// KeyRegisterRequest represents the request body for registering a KeyPair.
-type KeyRegisterRequest struct {
+// KeyPairRegisterRequest represents the request body for registering a KeyPair.
+type KeyPairRegisterRequest struct {
 	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-connection"`
 	ReqInfo        struct {
 		Name  string `json:"Name" validate:"required" example:"keypair-01"`
@@ -38,7 +38,7 @@ type KeyRegisterRequest struct {
 // @Tags [KeyPair Management]
 // @Accept  json
 // @Produce  json
-// @Param KeyRegisterRequest body restruntime.KeyRegisterRequest true "Request body for registering a KeyPair"
+// @Param KeyPairRegisterRequest body restruntime.KeyPairRegisterRequest true "Request body for registering a KeyPair"
 // @Success 200 {object} cres.KeyPairInfo "Details of the registered KeyPair"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
@@ -47,7 +47,7 @@ type KeyRegisterRequest struct {
 func RegisterKey(c echo.Context) error {
 	cblog.Info("call RegisterKey()")
 
-	req := KeyRegisterRequest{}
+	req := KeyPairRegisterRequest{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -101,8 +101,8 @@ func UnregisterKey(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
-// KeyCreateRequest represents the request body for creating a KeyPair.
-type KeyCreateRequest struct {
+// KeyPairCreateRequest represents the request body for creating a KeyPair.
+type KeyPairCreateRequest struct {
 	ConnectionName  string `json:"ConnectionName" validate:"required" example:"aws-connection"`
 	IDTransformMode string `json:"IDTransformMode,omitempty" validate:"omitempty" example:"ON"` // ON: transform CSP ID, OFF: no-transform CSP ID
 	ReqInfo         struct {
@@ -118,7 +118,7 @@ type KeyCreateRequest struct {
 // @Tags [KeyPair Management]
 // @Accept  json
 // @Produce  json
-// @Param KeyCreateRequest body restruntime.KeyCreateRequest true "Request body for creating a KeyPair"
+// @Param KeyPairCreateRequest body restruntime.KeyPairCreateRequest true "Request body for creating a KeyPair"
 // @Success 200 {object} cres.KeyPairInfo "Details of the created KeyPair"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
@@ -127,7 +127,7 @@ type KeyCreateRequest struct {
 func CreateKey(c echo.Context) error {
 	cblog.Info("call CreateKey()")
 
-	var req KeyCreateRequest
+	var req KeyPairCreateRequest
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -148,8 +148,8 @@ func CreateKey(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
-// KeyListResponse represents the response body for listing KeyPairs.
-type KeyListResponse struct {
+// KeyPairListResponse represents the response body for listing KeyPairs.
+type KeyPairListResponse struct {
 	Result []*cres.KeyPairInfo `json:"keypair"`
 }
 
@@ -161,7 +161,7 @@ type KeyListResponse struct {
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to list KeyPairs for"
-// @Success 200 {object} restruntime.KeyListResponse "List of KeyPairs"
+// @Success 200 {object} restruntime.KeyPairListResponse "List of KeyPairs"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameter"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -186,7 +186,7 @@ func ListKey(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	var jsonResult KeyListResponse
+	var jsonResult KeyPairListResponse
 	jsonResult.Result = result
 	return c.JSON(http.StatusOK, &jsonResult)
 }

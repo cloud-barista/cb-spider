@@ -287,8 +287,8 @@ func GetRegionZonePreConfig(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
-// PreConfiguredOriginalRegionListRequest represents the request body for listing Original regions with pre-configuration.
-type PreConfiguredOriginalRegionListRequest struct {
+// PreConfigOriginalRegionListRequest represents the request body for listing Original regions with pre-configuration.
+type PreConfigOriginalRegionListRequest struct {
 	DriverName     string `json:"DriverName" query:"DriverName" example:"aws-driver"`
 	CredentialName string `json:"CredentialName" query:"CredentialName" example:"aws-credential"`
 }
@@ -300,7 +300,7 @@ type PreConfiguredOriginalRegionListRequest struct {
 // @Tags [Cloud Metadata] Region/Zone
 // @Accept  json
 // @Produce  json
-// @Param PreConfiguredOriginalRegionListRequest query restruntime.PreConfiguredOriginalRegionListRequest true "Query parameters for listing pre-configured Original regions"
+// @Param PreConfigOriginalRegionListRequest query restruntime.PreConfigOriginalRegionListRequest true "Query parameters for listing pre-configured Original regions"
 // @Success 200 {object} OriginalRegionListResponse "List of Pre-configured Original Regions"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameter"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
@@ -309,7 +309,7 @@ type PreConfiguredOriginalRegionListRequest struct {
 func ListOrgRegionPreConfig(c echo.Context) error {
 	cblog.Info("call ListPreConfiguredOriginalOrgRegion()")
 
-	req := PreConfiguredOriginalRegionListRequest{}
+	req := PreConfigOriginalRegionListRequest{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())

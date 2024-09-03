@@ -49,6 +49,11 @@ type BooleanInfo struct {
 	Result string `json:"Result" validate:"required" example:"true"` // true or false
 }
 
+// CountResponse represents the response body for counting all VPCs.
+type CountResponse struct {
+	Count int `json:"count" validate:"required" example:"5" description:"The total number of resources counted"`
+}
+
 // AllResourceListResponse represents the response body structure for the ListAllVPC API.
 type AllResourceListResponse struct {
 	AllList struct {
