@@ -60,10 +60,12 @@ func (cloudConn *IbmCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 func (cloudConn *IbmCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
 	cblogger.Info("Ibm Cloud Driver: called CreateVPCHandler()!")
 	vpcHandler := ibmrs.IbmVPCHandler{
-		CredentialInfo: cloudConn.CredentialInfo,
 		Region:         cloudConn.Region,
+		CredentialInfo: cloudConn.CredentialInfo,
 		VpcService:     cloudConn.VpcService,
 		Ctx:            cloudConn.Ctx,
+		TaggingService: cloudConn.TaggingService,
+		SearchService:  cloudConn.SearchService,
 	}
 	return &vpcHandler, nil
 }

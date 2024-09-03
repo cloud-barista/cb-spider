@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"net/url"
 	"time"
 
@@ -16,10 +17,12 @@ import (
 )
 
 type IbmVPCHandler struct {
-	CredentialInfo idrv.CredentialInfo
 	Region         idrv.RegionInfo
+	CredentialInfo idrv.CredentialInfo
 	VpcService     *vpcv1.VpcV1
 	Ctx            context.Context
+	TaggingService *globaltaggingv1.GlobalTaggingV1
+	SearchService  *globalsearchv2.GlobalSearchV2
 }
 
 func checkValidVpcReqInfo(vpcReqInfo irs.VPCReqInfo) error {
@@ -71,6 +74,13 @@ func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 		return irs.VPCInfo{}, createErr
 	}
 
+	if len(vpcReqInfo.SubnetInfoList) == 0 {
+		createErr := errors.New("Failed to Create VPC err = Subnet info list is not provided")
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VPCInfo{}, createErr
+	}
+
 	// Create VPC
 	createVPCOptions := &vpcv1.CreateVPCOptions{}
 	createVPCOptions.SetAddressPrefixManagement("manual")
@@ -85,12 +95,6 @@ func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 	newVpcIId := irs.IID{
 		NameId:   *vpc.Name,
 		SystemId: *vpc.ID,
-	}
-	if len(vpcReqInfo.SubnetInfoList) == 0 {
-		createErr := errors.New("Failed to Create VPC err = Subnet info list is not provided")
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VPCInfo{}, createErr
 	}
 
 	// If the zone is not specified in the subnet, use the zone of the connection.
@@ -134,14 +138,30 @@ func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 				LoggingError(hiscallInfo, createErr)
 				return irs.VPCInfo{}, createErr
 			}
+
 			// Attach Tag
 			if subnetInfo.TagList != nil && len(subnetInfo.TagList) > 0 {
-				var tagHandler irs.TagHandler // TagHandler 초기화
-				for _, tag := range subnetInfo.TagList{
-					_, err := tagHandler.AddTag("SUBNET", subnetInfo.IId, tag)
+				for _, tag := range subnetInfo.TagList {
+					subnet, err := getRawSubnet(subnetInfo.IId, vpcHandler.VpcService, vpcHandler.Ctx)
+					if err != nil {
+						createErr := errors.New(fmt.Sprintf("Failed to get created Subnet info err = %s", err.Error()))
+						cblogger.Error(createErr.Error())
+						LoggingError(hiscallInfo, createErr)
+						return irs.VPCInfo{}, createErr
+					}
+
+					if subnet.CRN == nil {
+						createErr := errors.New(fmt.Sprintf("Failed to get created Subnet's CRN"))
+						cblogger.Error(createErr.Error())
+						LoggingError(hiscallInfo, createErr)
+						return irs.VPCInfo{}, createErr
+					}
+
+					err = addTag(vpcHandler.TaggingService, tag, *subnet.CRN)
 					if err != nil {
 						createErr := errors.New(fmt.Sprintf("Failed to Attach Tag on Subnet err = %s", err.Error()))
 						cblogger.Error(createErr.Error())
+						LoggingError(hiscallInfo, createErr)
 					}
 				}
 			}
@@ -176,7 +196,7 @@ func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 		return irs.VPCInfo{}, createErr
 	}
 
-	vpcInfo, err := setVPCInfo(*vpc, vpcHandler.VpcService, vpcHandler.Ctx)
+	vpcInfo, err := vpcHandler.setVPCInfo(*vpc, vpcHandler.VpcService, vpcHandler.Ctx)
 	if err != nil {
 		_, delErr := vpcHandler.DeleteVPC(newVpcIId)
 		if delErr != nil {
@@ -189,18 +209,26 @@ func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 	}
 
 	// Attach Tag
-	if vpcInfo.TagList != nil && len(vpcInfo.TagList) > 0 {
-		var tagHandler irs.TagHandler // TagHandler 초기화
-		for _, tag := range vpcInfo.TagList{
-			_, err := tagHandler.AddTag("VPC", vpcInfo.IId, tag)
+	if vpcReqInfo.TagList != nil && len(vpcReqInfo.TagList) > 0 {
+		if vpc.CRN == nil {
+			createErr := errors.New(fmt.Sprintf("Failed to get created VPC's CRN"))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VPCInfo{}, createErr
+		}
+
+		for _, tag := range vpcReqInfo.TagList {
+			err = addTag(vpcHandler.TaggingService, tag, *vpc.CRN)
 			if err != nil {
-				createErr := errors.New(fmt.Sprintf("Failed to Attach Tag on VPC err = %s", err.Error()))
+				createErr := errors.New(fmt.Sprintf("Failed to Attach Tag to VPC err = %s", err.Error()))
 				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
 			}
 		}
 	}
 
 	LoggingInfo(hiscallInfo, start)
+
 	return vpcInfo, nil
 }
 func (vpcHandler *IbmVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
@@ -218,7 +246,7 @@ func (vpcHandler *IbmVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	// Next Check
 	for {
 		for _, vpc := range vpcs.Vpcs {
-			vpcInfo, err := setVPCInfo(vpc, vpcHandler.VpcService, vpcHandler.Ctx)
+			vpcInfo, err := vpcHandler.setVPCInfo(vpc, vpcHandler.VpcService, vpcHandler.Ctx)
 			if err != nil {
 				getErr := errors.New(fmt.Sprintf("Failed to List VPC err = %s", err.Error()))
 				cblogger.Error(getErr.Error())
@@ -275,7 +303,7 @@ func (vpcHandler *IbmVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 		LoggingError(hiscallInfo, getErr)
 		return irs.VPCInfo{}, getErr
 	}
-	vpcInfo, err := setVPCInfo(vpc, vpcHandler.VpcService, vpcHandler.Ctx)
+	vpcInfo, err := vpcHandler.setVPCInfo(vpc, vpcHandler.VpcService, vpcHandler.Ctx)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Get VPC err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -353,16 +381,7 @@ func (vpcHandler *IbmVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	// Detach Tag Auto Delete 
-	var tagService *globaltaggingv1.GlobalTaggingV1
-	deleteTagAllOptions := tagService.NewDeleteTagAllOptions()
-	deleteTagAllOptions.SetTagType("user")
-
-	_, _, err = tagService.DeleteTagAll(deleteTagAllOptions)
-	if err != nil {
-		delErr := errors.New(fmt.Sprintf("Failed to Delete Subnet Detached Tag err = %s", err.Error()))
-		cblogger.Error(delErr.Error())
-	}
+	deleteUnusedTags(vpcHandler.TaggingService)
 
 	return true, nil
 }
@@ -391,7 +410,7 @@ func (vpcHandler *IbmVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Subnet
 		LoggingError(hiscallInfo, addSubnetErr)
 		return irs.VPCInfo{}, addSubnetErr
 	}
-	vpcInfo, err := setVPCInfo(vpc, vpcHandler.VpcService, vpcHandler.Ctx)
+	vpcInfo, err := vpcHandler.setVPCInfo(vpc, vpcHandler.VpcService, vpcHandler.Ctx)
 	if err != nil {
 		addSubnetErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err.Error()))
 		cblogger.Error(addSubnetErr.Error())
@@ -446,18 +465,71 @@ func (vpcHandler *IbmVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID)
 	cblogger.Error(delErr.Error())
 	LoggingError(hiscallInfo, delErr)
 
-	// Detach Tag Auto Delete 
-	var tagService *globaltaggingv1.GlobalTaggingV1
-	deleteTagAllOptions := tagService.NewDeleteTagAllOptions()
-	deleteTagAllOptions.SetTagType("user")
-
-	_, _, err = tagService.DeleteTagAll(deleteTagAllOptions)
-	if err != nil {
-		delErr := errors.New(fmt.Sprintf("Failed to Delete SUBNET Detached Tag err = %s", err.Error()))
-		cblogger.Error(delErr.Error())
-	}
+	deleteUnusedTags(vpcHandler.TaggingService)
 
 	return false, delErr
+}
+
+func (vpcHandler *IbmVPCHandler) setVPCInfo(vpc vpcv1.VPC, vpcService *vpcv1.VpcV1, ctx context.Context) (irs.VPCInfo, error) {
+	vpcInfo := irs.VPCInfo{
+		IId: irs.IID{
+			NameId:   *vpc.Name,
+			SystemId: *vpc.ID,
+		},
+	}
+	listVpcAddressPrefixesOptions := &vpcv1.ListVPCAddressPrefixesOptions{}
+	listVpcAddressPrefixesOptions.SetVPCID(*vpc.ID)
+	addressPrefixes, _, err := vpcService.ListVPCAddressPrefixesWithContext(ctx, listVpcAddressPrefixesOptions)
+	if err != nil {
+		return irs.VPCInfo{}, err
+	}
+	if *addressPrefixes.TotalCount > 0 {
+		cidr := *addressPrefixes.AddressPrefixes[0].CIDR
+		vpcInfo.IPv4_CIDR = cidr
+	}
+
+	tagHandler := IbmTagHandler{
+		Region:         vpcHandler.Region,
+		CredentialInfo: vpcHandler.CredentialInfo,
+		VpcService:     vpcHandler.VpcService,
+		Ctx:            vpcHandler.Ctx,
+		SearchService:  vpcHandler.SearchService,
+	}
+
+	tags, err := tagHandler.ListTag(irs.VPC, vpcInfo.IId)
+	if err != nil {
+		cblogger.Warn("Failed to get tags of the VPC (" + vpcInfo.IId.NameId + "). err = " + err.Error())
+	}
+	vpcInfo.TagList = tags
+
+	rawSubnets, err := getVPCRawSubnets(vpc, vpcService, ctx)
+	if err != nil {
+		return irs.VPCInfo{}, err
+	}
+	if len(rawSubnets) > 0 {
+		var newSubnetInfos []irs.SubnetInfo
+		for _, subnet := range rawSubnets {
+			subnetInfo := irs.SubnetInfo{
+				IId: irs.IID{
+					NameId:   *subnet.Name,
+					SystemId: *subnet.ID,
+				},
+				Zone:      *subnet.Zone.Name,
+				IPv4_CIDR: *subnet.Ipv4CIDRBlock,
+			}
+
+			tags, err := tagHandler.ListTag(irs.SUBNET, subnetInfo.IId)
+			if err != nil {
+				cblogger.Warn("failed to get tags of the subnet (" + subnetInfo.IId.NameId + ")")
+			}
+			subnetInfo.TagList = tags
+
+			newSubnetInfos = append(newSubnetInfos, subnetInfo)
+		}
+		vpcInfo.SubnetInfoList = newSubnetInfos
+	}
+
+	return vpcInfo, nil
 }
 
 func attachSubnet(vpc vpcv1.VPC, subnetInfo irs.SubnetInfo, vpcService *vpcv1.VpcV1, ctx context.Context) error {
@@ -738,43 +810,4 @@ func getVPCRawSubnet(vpc vpcv1.VPC, subnetIID irs.IID, vpcService *vpcv1.VpcV1, 
 		}
 	}
 	return vpcv1.Subnet{}, err
-}
-
-func setVPCInfo(vpc vpcv1.VPC, vpcService *vpcv1.VpcV1, ctx context.Context) (irs.VPCInfo, error) {
-	vpcInfo := irs.VPCInfo{
-		IId: irs.IID{
-			NameId:   *vpc.Name,
-			SystemId: *vpc.ID,
-		},
-	}
-	listVpcAddressPrefixesOptions := &vpcv1.ListVPCAddressPrefixesOptions{}
-	listVpcAddressPrefixesOptions.SetVPCID(*vpc.ID)
-	addressPrefixes, _, err := vpcService.ListVPCAddressPrefixesWithContext(ctx, listVpcAddressPrefixesOptions)
-	if err != nil {
-		return irs.VPCInfo{}, err
-	}
-	if *addressPrefixes.TotalCount > 0 {
-		cidr := *addressPrefixes.AddressPrefixes[0].CIDR
-		vpcInfo.IPv4_CIDR = cidr
-	}
-	rawSubnets, err := getVPCRawSubnets(vpc, vpcService, ctx)
-	if err != nil {
-		return irs.VPCInfo{}, err
-	}
-	if len(rawSubnets) > 0 {
-		var newSubnetInfos []irs.SubnetInfo
-		for _, subnet := range rawSubnets {
-			subnetInfo := irs.SubnetInfo{
-				IId: irs.IID{
-					NameId:   *subnet.Name,
-					SystemId: *subnet.ID,
-				},
-				Zone:      *subnet.Zone.Name,
-				IPv4_CIDR: *subnet.Ipv4CIDRBlock,
-			}
-			newSubnetInfos = append(newSubnetInfos, subnetInfo)
-		}
-		vpcInfo.SubnetInfoList = newSubnetInfos
-	}
-	return vpcInfo, nil
 }

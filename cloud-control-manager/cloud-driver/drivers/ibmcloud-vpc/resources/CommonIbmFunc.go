@@ -1,10 +1,13 @@
 package resources
 
 import (
+	"errors"
 	"fmt"
+	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	cblog "github.com/cloud-barista/cb-log"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
 	"math/rand"
 	"strconv"
@@ -51,6 +54,43 @@ func GetCallLogScheme(region idrv.RegionInfo, resourceType call.RES_TYPE, resour
 }
 
 func generateRandName(prefix string) string {
-	rand.Seed(time.Now().UnixNano())
 	return fmt.Sprintf("%s-%s", prefix, strconv.FormatInt(rand.Int63n(1000000), 10))
+}
+
+func addTag(tagService *globaltaggingv1.GlobalTaggingV1, tag irs.KeyValue, CRN string) error {
+	resourceModel := globaltaggingv1.Resource{
+		ResourceID: &CRN,
+	}
+
+	var tagName string
+	if tag.Value == "" {
+		tagName = tag.Key
+	} else {
+		tagName = tag.Key + ":" + tag.Value
+	}
+
+	attachTagOptions := tagService.NewAttachTagOptions(
+		[]globaltaggingv1.Resource{resourceModel},
+	)
+
+	attachTagOptions.SetTagNames([]string{tagName})
+	attachTagOptions.SetTagType("user")
+
+	_, _, err := tagService.AttachTag(attachTagOptions)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func deleteUnusedTags(tagService *globaltaggingv1.GlobalTaggingV1) {
+	deleteTagAllOptions := tagService.NewDeleteTagAllOptions()
+	deleteTagAllOptions.SetTagType("user")
+
+	_, _, err := tagService.DeleteTagAll(deleteTagAllOptions)
+	if err != nil {
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Subnet Detached Tag err = %s", err.Error()))
+		cblogger.Error(delErr.Error())
+	}
 }
