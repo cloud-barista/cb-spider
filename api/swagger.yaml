@@ -1,5 +1,28 @@
 basePath: /spider
 definitions:
+  spider.AccessInfo:
+    description: Access Information for a Kubernetes Cluster. <br> Take some time
+      to provide.
+    properties:
+      Endpoint:
+        example: https://1.2.3.4
+        type: string
+      Kubeconfig:
+        example: |-
+          apiVersion: v1
+          clusters:
+          - cluster:
+           ....
+        type: string
+    type: object
+  spider.AddonsInfo:
+    description: Addons Information for a Kubernetes Cluster
+    properties:
+      KeyValueList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+    type: object
   spider.CloudPrice:
     properties:
       cloudName:
@@ -15,6 +38,61 @@ definitions:
     - cloudName
     - priceList
     type: object
+  spider.ClusterInfo:
+    description: Kubernetes Cluster Information
+    properties:
+      AccessInfo:
+        $ref: '#/definitions/spider.AccessInfo'
+      Addons:
+        $ref: '#/definitions/spider.AddonsInfo'
+      CreatedTime:
+        example: "2024-08-27T10:00:00Z"
+        type: string
+      IId:
+        $ref: '#/definitions/spider.IID'
+      KeyValueList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      Network:
+        $ref: '#/definitions/spider.NetworkInfo'
+      NodeGroupList:
+        description: '---'
+        items:
+          $ref: '#/definitions/spider.NodeGroupInfo'
+        type: array
+      Status:
+        allOf:
+        - $ref: '#/definitions/spider.ClusterStatus'
+        example: Active
+      TagList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      Version:
+        description: Kubernetes Version, ex) 1.30
+        example: "1.30"
+        type: string
+    required:
+    - IId
+    - Network
+    - Status
+    - Version
+    type: object
+  spider.ClusterStatus:
+    enum:
+    - Creating
+    - Active
+    - Inactive
+    - Updating
+    - Deleting
+    type: string
+    x-enum-varnames:
+    - ClusterCreating
+    - ClusterActive
+    - ClusterInactive
+    - ClusterUpdating
+    - ClusterDeleting
   spider.DiskInfo:
     properties:
       CreatedTime:
@@ -267,7 +345,6 @@ definitions:
         example: TCP
         type: string
     required:
-    - IP
     - Port
     - Protocol
     type: object
@@ -368,6 +445,100 @@ definitions:
     - VMGroup
     - VpcIID
     type: object
+  spider.NetworkInfo:
+    description: Network Information for a Kubernetes Cluster
+    properties:
+      KeyValueList:
+        description: '---'
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      SecurityGroupIIDs:
+        items:
+          $ref: '#/definitions/spider.IID'
+        type: array
+      SubnetIIDs:
+        items:
+          $ref: '#/definitions/spider.IID'
+        type: array
+      VpcIID:
+        $ref: '#/definitions/spider.IID'
+    required:
+    - SecurityGroupIIDs
+    - SubnetIIDs
+    - VpcIID
+    type: object
+  spider.NodeGroupInfo:
+    description: Node Group Information for a Kubernetes Cluster
+    properties:
+      DesiredNodeSize:
+        example: 2
+        type: integer
+      IId:
+        $ref: '#/definitions/spider.IID'
+      ImageIID:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: VM config.
+      KeyPairIID:
+        $ref: '#/definitions/spider.IID'
+      KeyValueList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      MaxNodeSize:
+        example: 3
+        type: integer
+      MinNodeSize:
+        example: 1
+        type: integer
+      Nodes:
+        items:
+          $ref: '#/definitions/spider.IID'
+        type: array
+      OnAutoScaling:
+        description: Scaling config.
+        example: true
+        type: boolean
+      RootDiskSize:
+        description: in GB
+        example: "50"
+        type: string
+      RootDiskType:
+        type: string
+      Status:
+        allOf:
+        - $ref: '#/definitions/spider.NodeGroupStatus'
+        description: '---'
+        example: Active
+      VMSpecName:
+        example: t3.medium
+        type: string
+    required:
+    - DesiredNodeSize
+    - IId
+    - ImageIID
+    - KeyPairIID
+    - MaxNodeSize
+    - MinNodeSize
+    - OnAutoScaling
+    - Status
+    - VMSpecName
+    type: object
+  spider.NodeGroupStatus:
+    enum:
+    - Creating
+    - Active
+    - Inactive
+    - Updating
+    - Deleting
+    type: string
+    x-enum-varnames:
+    - NodeGroupCreating
+    - NodeGroupActive
+    - NodeGroupInactive
+    - NodeGroupUpdating
+    - NodeGroupDeleting
   spider.Platform:
     enum:
     - LINUX/UNIX
@@ -1022,6 +1193,199 @@ definitions:
     required:
     - Result
     type: object
+  spider.ClusterAddNodeGroupRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        $ref: '#/definitions/spider.ClusterNodeGroupRequest'
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.ClusterChangeNodeGroupScalingRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          DesiredNodeSize:
+            example: "3"
+            type: string
+          MaxNodeSize:
+            example: "5"
+            type: string
+          MinNodeSize:
+            example: "1"
+            type: string
+        required:
+        - DesiredNodeSize
+        - MaxNodeSize
+        - MinNodeSize
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.ClusterListResponse:
+    properties:
+      cluster:
+        items:
+          $ref: '#/definitions/spider.ClusterInfo'
+        type: array
+    required:
+    - cluster
+    type: object
+  spider.ClusterNodeGroupRequest:
+    properties:
+      DesiredNodeSize:
+        example: "2"
+        type: string
+      ImageName:
+        description: Some CSPs may not support or limit images. [Ref](https://docs.google.com/spreadsheets/d/1mPmfnfmyszYimVzplZMzsqO3WsBmOdes/edit?usp=sharing&ouid=108635813398159139552&rtpof=true&sd=true)
+        type: string
+      KeyPairName:
+        example: keypair-01
+        type: string
+      MaxNodeSize:
+        example: "3"
+        type: string
+      MinNodeSize:
+        example: "1"
+        type: string
+      Name:
+        example: nodegroup-01
+        type: string
+      OnAutoScaling:
+        example: "true"
+        type: string
+      RootDiskSize:
+        description: Some CSPs may not support or limit sizes. [Ref](https://docs.google.com/spreadsheets/d/1mPmfnfmyszYimVzplZMzsqO3WsBmOdes/edit?usp=sharing&ouid=108635813398159139552&rtpof=true&sd=true)
+        type: string
+      RootDiskType:
+        description: Some CSPs may not support or limit types. [Ref](https://docs.google.com/spreadsheets/d/1mPmfnfmyszYimVzplZMzsqO3WsBmOdes/edit?usp=sharing&ouid=108635813398159139552&rtpof=true&sd=true)
+        type: string
+      VMSpecName:
+        description: Some CSPs may not support or limit specs. [Ref](https://docs.google.com/spreadsheets/d/1mPmfnfmyszYimVzplZMzsqO3WsBmOdes/edit?usp=sharing&ouid=108635813398159139552&rtpof=true&sd=true)
+        type: string
+    required:
+    - DesiredNodeSize
+    - KeyPairName
+    - MaxNodeSize
+    - MinNodeSize
+    - Name
+    - OnAutoScaling
+    type: object
+  spider.ClusterRegisterRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          CSPId:
+            example: csp-cluster-1234
+            type: string
+          Name:
+            example: cluster-01
+            type: string
+          VPCName:
+            example: vpc-01
+            type: string
+        required:
+        - CSPId
+        - Name
+        - VPCName
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.ClusterRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      IDTransformMode:
+        description: 'ON: transform CSP ID, OFF: no-transform CSP ID'
+        example: "ON"
+        type: string
+      ReqInfo:
+        properties:
+          Name:
+            example: cluster-01
+            type: string
+          NodeGroupList:
+            items:
+              $ref: '#/definitions/spider.ClusterNodeGroupRequest'
+            type: array
+          SecurityGroupNames:
+            example:
+            - sg-01
+            - sg-02
+            items:
+              type: string
+            type: array
+          SubnetNames:
+            example:
+            - subnet-01
+            - subnet-02
+            items:
+              type: string
+            type: array
+          VPCName:
+            example: vpc-01
+            type: string
+          Version:
+            description: Some CSPs may not support or limit versions.
+            example: "1.30"
+            type: string
+        required:
+        - Name
+        - SecurityGroupNames
+        - SubnetNames
+        - VPCName
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.ClusterSetNodeGroupAutoScalingRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          OnAutoScaling:
+            example: "true"
+            type: string
+        required:
+        - OnAutoScaling
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.ClusterUpgradeRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          Version:
+            example: "1.30"
+            type: string
+        required:
+        - Version
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
   spider.ConnectionRequest:
     properties:
       ConnectionName:
@@ -1194,6 +1558,23 @@ definitions:
         - CSPId
         - Name
         - Zone
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.GetClusterOwnerVPCRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          CSPId:
+            example: csp-cluster-1234
+            type: string
+        required:
+        - CSPId
         type: object
     required:
     - ConnectionName
@@ -1992,6 +2373,45 @@ info:
   title: CB-Spider REST API
   version: latest
 paths:
+  /allcluster:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a comprehensive list of all Clusters associated with a
+        specific connection, <br> including those mapped between CB-Spider and the
+        CSP, <br> only registered in CB-Spider's metadata, <br> and only existing
+        in the CSP.
+      operationId: list-all-cluster
+      parameters:
+      - description: The name of the Connection to list Clusters for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all Clusters within the specified connection, including
+            clusters in CB-Spider only, CSP only, and mapped between both.
+          schema:
+            $ref: '#/definitions/spider.AllResourceListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All Clusters in a Connection
+      tags:
+      - '[Cluster Management]'
   /alldisk:
     get:
       consumes:
@@ -2238,6 +2658,384 @@ paths:
       summary: List All VPCs
       tags:
       - '[VPC Management]'
+  /cluster:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of Clusters associated with a specific connection.
+      operationId: list-cluster
+      parameters:
+      - description: The name of the Connection to list Clusters for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of Clusters
+          schema:
+            $ref: '#/definitions/spider.ClusterListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List Clusters
+      tags:
+      - '[Cluster Management]'
+    post:
+      consumes:
+      - application/json
+      description: "Create a new Cluster with specified configurations. \U0001F577️
+        [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Provider-Managed-Kubernetes-and-Driver-API)]
+        <br> * NodeGroupList is optional, depends on CSP type: <br> &nbsp;- Type-I
+        (e.g., Tencent, Alibaba): requires separate Node Group addition after Cluster
+        creation. <br> &nbsp;- Type-II (e.g., Azure, NHN): mandates at least one Node
+        Group during initial Cluster creation."
+      operationId: create-cluster
+      parameters:
+      - description: Request body for creating a Cluster
+        in: body
+        name: ClusterRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ClusterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the created Cluster
+          schema:
+            $ref: '#/definitions/spider.ClusterInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Create Cluster
+      tags:
+      - '[Cluster Management]'
+  /cluster/{Name}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a specified Cluster.
+      operationId: delete-cluster
+      parameters:
+      - description: Request body for deleting a Cluster
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The name of the Cluster to delete
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: Force delete the Cluster
+        in: query
+        name: force
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the delete operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete Cluster
+      tags:
+      - '[Cluster Management]'
+    get:
+      consumes:
+      - application/json
+      description: Retrieve details of a specific Cluster.
+      operationId: get-cluster
+      parameters:
+      - description: The name of the Connection to get a Cluster for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: The name of the Cluster to retrieve
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the Cluster
+          schema:
+            $ref: '#/definitions/spider.ClusterInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get Cluster
+      tags:
+      - '[Cluster Management]'
+  /cluster/{Name}/nodegroup:
+    post:
+      consumes:
+      - application/json
+      description: Add a new Node Group to an existing Cluster.
+      operationId: add-nodegroup
+      parameters:
+      - description: The name of the Cluster to add the Node Group to
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: Request body for adding a Node Group
+        in: body
+        name: ClusterAddNodeGroupRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ClusterAddNodeGroupRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the Cluster including the added Node Group
+          schema:
+            $ref: '#/definitions/spider.ClusterInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Add Node Group
+      tags:
+      - '[Cluster Management]'
+  /cluster/{Name}/nodegroup/{NodeGroupName}:
+    delete:
+      consumes:
+      - application/json
+      description: Remove an existing Node Group from a Cluster.
+      operationId: remove-nodegroup
+      parameters:
+      - description: The name of the Cluster to remove the Node Group to
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: The name of the Node Group to remove
+        in: path
+        name: NodeGroupName
+        required: true
+        type: string
+      - description: Request body for removing a Node Group
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the remove operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Remove Node Group
+      tags:
+      - '[Cluster Management]'
+  /cluster/{Name}/nodegroup/{NodeGroupName}/autoscalesize:
+    put:
+      consumes:
+      - application/json
+      description: Change the scaling settings for a Node Group in a Cluster.
+      operationId: change-nodegroup-scaling
+      parameters:
+      - description: The name of the Cluster to change Node Group Scaling
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: The name of the Node Group
+        in: path
+        name: NodeGroupName
+        required: true
+        type: string
+      - description: Request body for changing Node Group scaling
+        in: body
+        name: ClusterChangeNodeGroupScalingRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ClusterChangeNodeGroupScalingRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the updated Node Group
+          schema:
+            $ref: '#/definitions/spider.NodeGroupInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Change Node Group Scaling
+      tags:
+      - '[Cluster Management]'
+  /cluster/{Name}/nodegroup/{NodeGroupName}/onautoscaling:
+    put:
+      consumes:
+      - application/json
+      description: Enable or disable auto scaling for a Node Group in a Cluster.
+      operationId: set-nodegroup-autoscaling
+      parameters:
+      - description: The name of the Cluster to set Node Group Auto Scaling
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: The name of the Node Group
+        in: path
+        name: NodeGroupName
+        required: true
+        type: string
+      - description: Request body for setting auto scaling for a Node Group
+        in: body
+        name: ClusterSetNodeGroupAutoScalingRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ClusterSetNodeGroupAutoScalingRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the auto scaling operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Set Node Group Auto Scaling
+      tags:
+      - '[Cluster Management]'
+  /cluster/{Name}/upgrade:
+    put:
+      consumes:
+      - application/json
+      description: Upgrade a Cluster to a specified version.
+      operationId: upgrade-cluster
+      parameters:
+      - description: The name of the Cluster to upgrade
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: Request body for upgrading a Cluster
+        in: body
+        name: ClusterUpgradeRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ClusterUpgradeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the upgraded Cluster
+          schema:
+            $ref: '#/definitions/spider.ClusterInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Upgrade Cluster
+      tags:
+      - '[Cluster Management]'
   /controlvm/{Name}:
     put:
       consumes:
@@ -2285,6 +3083,48 @@ paths:
       summary: Control VM
       tags:
       - '[VM Management]'
+  /countcluster:
+    get:
+      description: Get the total number of Clusters across all connections.
+      operationId: count-all-clusters
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of Clusters
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count All Clusters
+      tags:
+      - '[Cluster Management]'
+  /countcluster/{ConnectionName}:
+    get:
+      description: Get the total number of Clusters for a specific connection.
+      operationId: count-clusters-by-connection
+      parameters:
+      - description: The name of the Connection
+        in: path
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of Clusters for the connection
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count Clusters by Connection
+      tags:
+      - '[Cluster Management]'
   /countdisk:
     get:
       description: Get the total number of Disks across all connections.
@@ -2623,6 +3463,47 @@ paths:
       summary: Count VPCs by Connection
       tags:
       - '[VPC Management]'
+  /cspcluster/{Id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a specified CSP Cluster.
+      operationId: delete-csp-cluster
+      parameters:
+      - description: Request body for deleting a CSP Cluster
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The CSP Cluster ID to delete
+        in: path
+        name: Id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the delete operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete CSP Cluster
+      tags:
+      - '[Cluster Management]'
   /cspdisk/{Id}:
     delete:
       consumes:
@@ -3225,6 +4106,42 @@ paths:
       summary: Increase Disk Size
       tags:
       - '[Disk Management]'
+  /getclusterowner:
+    post:
+      consumes:
+      - application/json
+      description: Retrieve the owner VPC of a specified Cluster.
+      operationId: get-cluster-owner-vpc
+      parameters:
+      - description: Request body for getting Cluster Owner VPC
+        in: body
+        name: GetClusterOwnerVPCRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.GetClusterOwnerVPCRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the owner VPC
+          schema:
+            $ref: '#/definitions/spider.IID'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get Cluster Owner VPC
+      tags:
+      - '[Cluster Management]'
   /getnlbowner:
     post:
       consumes:
@@ -4196,6 +5113,83 @@ paths:
       summary: List Product Families
       tags:
       - '[Cloud Metadata] Price'
+  /regcluster:
+    post:
+      consumes:
+      - application/json
+      description: Register a new Cluster with the specified VPC and CSP ID.
+      operationId: register-cluster
+      parameters:
+      - description: Request body for registering a Cluster
+        in: body
+        name: ClusterRegisterRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ClusterRegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the registered Cluster
+          schema:
+            $ref: '#/definitions/spider.ClusterInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Register Cluster
+      tags:
+      - '[Cluster Management]'
+  /regcluster/{Name}:
+    delete:
+      consumes:
+      - application/json
+      description: Unregister a Cluster with the specified name.
+      operationId: unregister-cluster
+      parameters:
+      - description: Request body for unregistering a Cluster
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: The name of the Cluster to unregister
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the unregister operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Unregister Cluster
+      tags:
+      - '[Cluster Management]'
   /regdisk:
     post:
       consumes:

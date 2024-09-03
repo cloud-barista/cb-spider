@@ -624,16 +624,16 @@ func Cluster(c echo.Context) error {
 
 	// client logging
 	htmlStr += genLoggingResult(string(resBody[:len(resBody)-1]))
+
 	var info struct {
-		Connection      string
-		ClusterInfoList []*cres.ClusterInfo
+		Result []*cres.ClusterInfo `json:"cluster"`
 	}
 	json.Unmarshal(resBody, &info)
 
 	providerName, _ := getProviderName(connConfig)
 
 	// (4-2) make TR list with info list
-	htmlStr += makeClusterTRList_html("", "", "", providerName, connConfig, info.ClusterInfoList)
+	htmlStr += makeClusterTRList_html("", "", "", providerName, connConfig, info.Result)
 
 	// (5) make input field and add
 	vpcList := vpcList(connConfig)

@@ -23,6 +23,57 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/allcluster": {
+            "get": {
+                "description": "Retrieve a comprehensive list of all Clusters associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cluster Management]"
+                ],
+                "summary": "List All Clusters in a Connection",
+                "operationId": "list-all-cluster",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list Clusters for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of all Clusters within the specified connection, including clusters in CB-Spider only, CSP only, and mapped between both.",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/alldisk": {
             "get": {
                 "description": "Retrieve a list of all Disks across all connections.",
@@ -380,6 +431,551 @@ const docTemplate = `{
                 }
             }
         },
+        "/cluster": {
+            "get": {
+                "description": "Retrieve a list of Clusters associated with a specific connection.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cluster Management]"
+                ],
+                "summary": "List Clusters",
+                "operationId": "list-cluster",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list Clusters for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of Clusters",
+                        "schema": {
+                            "$ref": "#/definitions/spider.ClusterListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new Cluster with specified configurations. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Provider-Managed-Kubernetes-and-Driver-API)] \u003cbr\u003e * NodeGroupList is optional, depends on CSP type: \u003cbr\u003e \u0026nbsp;- Type-I (e.g., Tencent, Alibaba): requires separate Node Group addition after Cluster creation. \u003cbr\u003e \u0026nbsp;- Type-II (e.g., Azure, NHN): mandates at least one Node Group during initial Cluster creation.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cluster Management]"
+                ],
+                "summary": "Create Cluster",
+                "operationId": "create-cluster",
+                "parameters": [
+                    {
+                        "description": "Request body for creating a Cluster",
+                        "name": "ClusterRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ClusterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the created Cluster",
+                        "schema": {
+                            "$ref": "#/definitions/spider.ClusterInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/cluster/{Name}": {
+            "get": {
+                "description": "Retrieve details of a specific Cluster.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cluster Management]"
+                ],
+                "summary": "Get Cluster",
+                "operationId": "get-cluster",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to get a Cluster for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Cluster to retrieve",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the Cluster",
+                        "schema": {
+                            "$ref": "#/definitions/spider.ClusterInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a specified Cluster.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cluster Management]"
+                ],
+                "summary": "Delete Cluster",
+                "operationId": "delete-cluster",
+                "parameters": [
+                    {
+                        "description": "Request body for deleting a Cluster",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Cluster to delete",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Force delete the Cluster",
+                        "name": "force",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the delete operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/cluster/{Name}/nodegroup": {
+            "post": {
+                "description": "Add a new Node Group to an existing Cluster.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cluster Management]"
+                ],
+                "summary": "Add Node Group",
+                "operationId": "add-nodegroup",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Cluster to add the Node Group to",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body for adding a Node Group",
+                        "name": "ClusterAddNodeGroupRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ClusterAddNodeGroupRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the Cluster including the added Node Group",
+                        "schema": {
+                            "$ref": "#/definitions/spider.ClusterInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/cluster/{Name}/nodegroup/{NodeGroupName}": {
+            "delete": {
+                "description": "Remove an existing Node Group from a Cluster.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cluster Management]"
+                ],
+                "summary": "Remove Node Group",
+                "operationId": "remove-nodegroup",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Cluster to remove the Node Group to",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Node Group to remove",
+                        "name": "NodeGroupName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body for removing a Node Group",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the remove operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/cluster/{Name}/nodegroup/{NodeGroupName}/autoscalesize": {
+            "put": {
+                "description": "Change the scaling settings for a Node Group in a Cluster.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cluster Management]"
+                ],
+                "summary": "Change Node Group Scaling",
+                "operationId": "change-nodegroup-scaling",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Cluster to change Node Group Scaling",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Node Group",
+                        "name": "NodeGroupName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body for changing Node Group scaling",
+                        "name": "ClusterChangeNodeGroupScalingRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ClusterChangeNodeGroupScalingRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the updated Node Group",
+                        "schema": {
+                            "$ref": "#/definitions/spider.NodeGroupInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/cluster/{Name}/nodegroup/{NodeGroupName}/onautoscaling": {
+            "put": {
+                "description": "Enable or disable auto scaling for a Node Group in a Cluster.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cluster Management]"
+                ],
+                "summary": "Set Node Group Auto Scaling",
+                "operationId": "set-nodegroup-autoscaling",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Cluster to set Node Group Auto Scaling",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Node Group",
+                        "name": "NodeGroupName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body for setting auto scaling for a Node Group",
+                        "name": "ClusterSetNodeGroupAutoScalingRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ClusterSetNodeGroupAutoScalingRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the auto scaling operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/cluster/{Name}/upgrade": {
+            "put": {
+                "description": "Upgrade a Cluster to a specified version.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cluster Management]"
+                ],
+                "summary": "Upgrade Cluster",
+                "operationId": "upgrade-cluster",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Cluster to upgrade",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Request body for upgrading a Cluster",
+                        "name": "ClusterUpgradeRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ClusterUpgradeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the upgraded Cluster",
+                        "schema": {
+                            "$ref": "#/definitions/spider.ClusterInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/controlvm/{Name}": {
             "put": {
                 "description": "Control the state of a Virtual Machine (VM) such as suspend, resume, or reboot.",
@@ -436,6 +1032,69 @@ const docTemplate = `{
                         "description": "Resource Not Found",
                         "schema": {
                             "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/countcluster": {
+            "get": {
+                "description": "Get the total number of Clusters across all connections.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cluster Management]"
+                ],
+                "summary": "Count All Clusters",
+                "operationId": "count-all-clusters",
+                "responses": {
+                    "200": {
+                        "description": "Total count of Clusters",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/countcluster/{ConnectionName}": {
+            "get": {
+                "description": "Get the total number of Clusters for a specific connection.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cluster Management]"
+                ],
+                "summary": "Count Clusters by Connection",
+                "operationId": "count-clusters-by-connection",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection",
+                        "name": "ConnectionName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Total count of Clusters for the connection",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
                         }
                     },
                     "500": {
@@ -940,6 +1599,66 @@ const docTemplate = `{
                         "description": "Total count of VPCs for the connection",
                         "schema": {
                             "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/cspcluster/{Id}": {
+            "delete": {
+                "description": "Delete a specified CSP Cluster.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cluster Management]"
+                ],
+                "summary": "Delete CSP Cluster",
+                "operationId": "delete-csp-cluster",
+                "parameters": [
+                    {
+                        "description": "Request body for deleting a CSP Cluster",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The CSP Cluster ID to delete",
+                        "name": "Id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the delete operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
                         }
                     },
                     "500": {
@@ -1808,6 +2527,59 @@ const docTemplate = `{
                         "description": "Result of the size increase operation",
                         "schema": {
                             "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/getclusterowner": {
+            "post": {
+                "description": "Retrieve the owner VPC of a specified Cluster.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cluster Management]"
+                ],
+                "summary": "Get Cluster Owner VPC",
+                "operationId": "get-cluster-owner-vpc",
+                "parameters": [
+                    {
+                        "description": "Request body for getting Cluster Owner VPC",
+                        "name": "GetClusterOwnerVPCRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.GetClusterOwnerVPCRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the owner VPC",
+                        "schema": {
+                            "$ref": "#/definitions/spider.IID"
                         }
                     },
                     "400": {
@@ -3227,6 +3999,119 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/regcluster": {
+            "post": {
+                "description": "Register a new Cluster with the specified VPC and CSP ID.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cluster Management]"
+                ],
+                "summary": "Register Cluster",
+                "operationId": "register-cluster",
+                "parameters": [
+                    {
+                        "description": "Request body for registering a Cluster",
+                        "name": "ClusterRegisterRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ClusterRegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the registered Cluster",
+                        "schema": {
+                            "$ref": "#/definitions/spider.ClusterInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/regcluster/{Name}": {
+            "delete": {
+                "description": "Unregister a Cluster with the specified name.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cluster Management]"
+                ],
+                "summary": "Unregister Cluster",
+                "operationId": "unregister-cluster",
+                "parameters": [
+                    {
+                        "description": "Request body for unregistering a Cluster",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Cluster to unregister",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the unregister operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
                         "schema": {
                             "$ref": "#/definitions/spider.SimpleMsg"
                         }
@@ -5681,6 +6566,32 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "spider.AccessInfo": {
+            "description": "Access Information for a Kubernetes Cluster. \u003cbr\u003e Take some time to provide.",
+            "type": "object",
+            "properties": {
+                "Endpoint": {
+                    "type": "string",
+                    "example": "https://1.2.3.4"
+                },
+                "Kubeconfig": {
+                    "type": "string",
+                    "example": "apiVersion: v1\nclusters:\n- cluster:\n ...."
+                }
+            }
+        },
+        "spider.AddonsInfo": {
+            "description": "Addons Information for a Kubernetes Cluster",
+            "type": "object",
+            "properties": {
+                "KeyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                }
+            }
+        },
         "spider.CloudPrice": {
             "type": "object",
             "required": [
@@ -5701,6 +6612,83 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "spider.ClusterInfo": {
+            "description": "Kubernetes Cluster Information",
+            "type": "object",
+            "required": [
+                "IId",
+                "Network",
+                "Status",
+                "Version"
+            ],
+            "properties": {
+                "AccessInfo": {
+                    "$ref": "#/definitions/spider.AccessInfo"
+                },
+                "Addons": {
+                    "$ref": "#/definitions/spider.AddonsInfo"
+                },
+                "CreatedTime": {
+                    "type": "string",
+                    "example": "2024-08-27T10:00:00Z"
+                },
+                "IId": {
+                    "$ref": "#/definitions/spider.IID"
+                },
+                "KeyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "Network": {
+                    "$ref": "#/definitions/spider.NetworkInfo"
+                },
+                "NodeGroupList": {
+                    "description": "---",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.NodeGroupInfo"
+                    }
+                },
+                "Status": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.ClusterStatus"
+                        }
+                    ],
+                    "example": "Active"
+                },
+                "TagList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "Version": {
+                    "description": "Kubernetes Version, ex) 1.30",
+                    "type": "string",
+                    "example": "1.30"
+                }
+            }
+        },
+        "spider.ClusterStatus": {
+            "type": "string",
+            "enum": [
+                "Creating",
+                "Active",
+                "Inactive",
+                "Updating",
+                "Deleting"
+            ],
+            "x-enum-varnames": [
+                "ClusterCreating",
+                "ClusterActive",
+                "ClusterInactive",
+                "ClusterUpdating",
+                "ClusterDeleting"
+            ]
         },
         "spider.DiskInfo": {
             "type": "object",
@@ -6025,7 +7013,6 @@ const docTemplate = `{
             "description": "Listener Information for a Network Load Balancer (NLB)",
             "type": "object",
             "required": [
-                "IP",
                 "Port",
                 "Protocol"
             ],
@@ -6204,6 +7191,137 @@ const docTemplate = `{
                     ]
                 }
             }
+        },
+        "spider.NetworkInfo": {
+            "description": "Network Information for a Kubernetes Cluster",
+            "type": "object",
+            "required": [
+                "SecurityGroupIIDs",
+                "SubnetIIDs",
+                "VpcIID"
+            ],
+            "properties": {
+                "KeyValueList": {
+                    "description": "---",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "SecurityGroupIIDs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.IID"
+                    }
+                },
+                "SubnetIIDs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.IID"
+                    }
+                },
+                "VpcIID": {
+                    "$ref": "#/definitions/spider.IID"
+                }
+            }
+        },
+        "spider.NodeGroupInfo": {
+            "description": "Node Group Information for a Kubernetes Cluster",
+            "type": "object",
+            "required": [
+                "DesiredNodeSize",
+                "IId",
+                "ImageIID",
+                "KeyPairIID",
+                "MaxNodeSize",
+                "MinNodeSize",
+                "OnAutoScaling",
+                "Status",
+                "VMSpecName"
+            ],
+            "properties": {
+                "DesiredNodeSize": {
+                    "type": "integer",
+                    "example": 2
+                },
+                "IId": {
+                    "$ref": "#/definitions/spider.IID"
+                },
+                "ImageIID": {
+                    "description": "VM config.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "KeyPairIID": {
+                    "$ref": "#/definitions/spider.IID"
+                },
+                "KeyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "MaxNodeSize": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "MinNodeSize": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "Nodes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.IID"
+                    }
+                },
+                "OnAutoScaling": {
+                    "description": "Scaling config.",
+                    "type": "boolean",
+                    "example": true
+                },
+                "RootDiskSize": {
+                    "description": "in GB",
+                    "type": "string",
+                    "example": "50"
+                },
+                "RootDiskType": {
+                    "type": "string"
+                },
+                "Status": {
+                    "description": "---",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.NodeGroupStatus"
+                        }
+                    ],
+                    "example": "Active"
+                },
+                "VMSpecName": {
+                    "type": "string",
+                    "example": "t3.medium"
+                }
+            }
+        },
+        "spider.NodeGroupStatus": {
+            "type": "string",
+            "enum": [
+                "Creating",
+                "Active",
+                "Inactive",
+                "Updating",
+                "Deleting"
+            ],
+            "x-enum-varnames": [
+                "NodeGroupCreating",
+                "NodeGroupActive",
+                "NodeGroupInactive",
+                "NodeGroupUpdating",
+                "NodeGroupDeleting"
+            ]
         },
         "spider.Platform": {
             "type": "string",
@@ -7129,6 +8247,277 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.ClusterAddNodeGroupRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "$ref": "#/definitions/spider.ClusterNodeGroupRequest"
+                }
+            }
+        },
+        "spider.ClusterChangeNodeGroupScalingRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "DesiredNodeSize",
+                        "MaxNodeSize",
+                        "MinNodeSize"
+                    ],
+                    "properties": {
+                        "DesiredNodeSize": {
+                            "type": "string",
+                            "example": "3"
+                        },
+                        "MaxNodeSize": {
+                            "type": "string",
+                            "example": "5"
+                        },
+                        "MinNodeSize": {
+                            "type": "string",
+                            "example": "1"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.ClusterListResponse": {
+            "type": "object",
+            "required": [
+                "cluster"
+            ],
+            "properties": {
+                "cluster": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.ClusterInfo"
+                    }
+                }
+            }
+        },
+        "spider.ClusterNodeGroupRequest": {
+            "type": "object",
+            "required": [
+                "DesiredNodeSize",
+                "KeyPairName",
+                "MaxNodeSize",
+                "MinNodeSize",
+                "Name",
+                "OnAutoScaling"
+            ],
+            "properties": {
+                "DesiredNodeSize": {
+                    "type": "string",
+                    "example": "2"
+                },
+                "ImageName": {
+                    "description": "Some CSPs may not support or limit images. [Ref](https://docs.google.com/spreadsheets/d/1mPmfnfmyszYimVzplZMzsqO3WsBmOdes/edit?usp=sharing\u0026ouid=108635813398159139552\u0026rtpof=true\u0026sd=true)",
+                    "type": "string"
+                },
+                "KeyPairName": {
+                    "type": "string",
+                    "example": "keypair-01"
+                },
+                "MaxNodeSize": {
+                    "type": "string",
+                    "example": "3"
+                },
+                "MinNodeSize": {
+                    "type": "string",
+                    "example": "1"
+                },
+                "Name": {
+                    "type": "string",
+                    "example": "nodegroup-01"
+                },
+                "OnAutoScaling": {
+                    "type": "string",
+                    "example": "true"
+                },
+                "RootDiskSize": {
+                    "description": "Some CSPs may not support or limit sizes. [Ref](https://docs.google.com/spreadsheets/d/1mPmfnfmyszYimVzplZMzsqO3WsBmOdes/edit?usp=sharing\u0026ouid=108635813398159139552\u0026rtpof=true\u0026sd=true)",
+                    "type": "string"
+                },
+                "RootDiskType": {
+                    "description": "Some CSPs may not support or limit types. [Ref](https://docs.google.com/spreadsheets/d/1mPmfnfmyszYimVzplZMzsqO3WsBmOdes/edit?usp=sharing\u0026ouid=108635813398159139552\u0026rtpof=true\u0026sd=true)",
+                    "type": "string"
+                },
+                "VMSpecName": {
+                    "description": "Some CSPs may not support or limit specs. [Ref](https://docs.google.com/spreadsheets/d/1mPmfnfmyszYimVzplZMzsqO3WsBmOdes/edit?usp=sharing\u0026ouid=108635813398159139552\u0026rtpof=true\u0026sd=true)",
+                    "type": "string"
+                }
+            }
+        },
+        "spider.ClusterRegisterRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "CSPId",
+                        "Name",
+                        "VPCName"
+                    ],
+                    "properties": {
+                        "CSPId": {
+                            "type": "string",
+                            "example": "csp-cluster-1234"
+                        },
+                        "Name": {
+                            "type": "string",
+                            "example": "cluster-01"
+                        },
+                        "VPCName": {
+                            "type": "string",
+                            "example": "vpc-01"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.ClusterRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "IDTransformMode": {
+                    "description": "ON: transform CSP ID, OFF: no-transform CSP ID",
+                    "type": "string",
+                    "example": "ON"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "Name",
+                        "SecurityGroupNames",
+                        "SubnetNames",
+                        "VPCName"
+                    ],
+                    "properties": {
+                        "Name": {
+                            "type": "string",
+                            "example": "cluster-01"
+                        },
+                        "NodeGroupList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.ClusterNodeGroupRequest"
+                            }
+                        },
+                        "SecurityGroupNames": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "example": [
+                                "sg-01",
+                                "sg-02"
+                            ]
+                        },
+                        "SubnetNames": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            },
+                            "example": [
+                                "subnet-01",
+                                "subnet-02"
+                            ]
+                        },
+                        "VPCName": {
+                            "type": "string",
+                            "example": "vpc-01"
+                        },
+                        "Version": {
+                            "description": "Some CSPs may not support or limit versions.",
+                            "type": "string",
+                            "example": "1.30"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.ClusterSetNodeGroupAutoScalingRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "OnAutoScaling"
+                    ],
+                    "properties": {
+                        "OnAutoScaling": {
+                            "type": "string",
+                            "example": "true"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.ClusterUpgradeRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "Version"
+                    ],
+                    "properties": {
+                        "Version": {
+                            "type": "string",
+                            "example": "1.30"
+                        }
+                    }
+                }
+            }
+        },
         "spider.ConnectionRequest": {
             "type": "object",
             "required": [
@@ -7372,6 +8761,31 @@ const docTemplate = `{
                         "Zone": {
                             "type": "string",
                             "example": "us-east-1b"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.GetClusterOwnerVPCRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "CSPId"
+                    ],
+                    "properties": {
+                        "CSPId": {
+                            "type": "string",
+                            "example": "csp-cluster-1234"
                         }
                     }
                 }
