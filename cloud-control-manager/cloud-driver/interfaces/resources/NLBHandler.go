@@ -38,9 +38,9 @@ type NLBInfo struct {
 // @description Listener Information for a Network Load Balancer (NLB)
 type ListenerInfo struct {
 	Protocol string `json:"Protocol" validate:"required" example:"TCP"` // TCP|UDP
-	IP       string `json:"IP" validate:"required" example:"192.168.0.1"`
+	IP       string `json:"IP" validate:"omitempty" example:"192.168.0.1"`
 	Port     string `json:"Port" validate:"required" example:"80"` // 1-65535
-	DNSName  string `json:"DNSName,omitempty" validate:"omitempty" example:"nlb.example.com"`
+	DNSName  string `json:"DNSName" validate:"omitempty" example:"nlb.example.com"`
 
 	CspID        string     `json:"CspID,omitempty" validate:"omitempty"`
 	KeyValueList []KeyValue `json:"KeyValueList,omitempty" validate:"omitempty"`
