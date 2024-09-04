@@ -211,7 +211,7 @@ type VPCCreateRequest struct {
 // createVPC godoc
 // @ID create-vpc
 // @Summary Create VPC
-// @Description Create a new Virtual Private Cloud (VPC) with specified subnet configurations. 🕷️ [[Usage Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#3-vpcsubnet-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]
+// @Description Create a new Virtual Private Cloud (VPC) with specified subnet configurations. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#3-vpcsubnet-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]
 // @Tags [VPC Management]
 // @Accept  json
 // @Produce  json

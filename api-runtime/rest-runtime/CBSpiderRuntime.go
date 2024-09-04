@@ -42,7 +42,7 @@ var cblog *logrus.Logger
 
 // @title CB-Spider REST API
 // @version latest
-// @description **🕷️ [Usage Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages)**
+// @description **🕷️ [User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages)**
 
 // @contact.name API Support
 // @contact.url http://cloud-barista.github.io
@@ -179,9 +179,12 @@ func RunServer() {
 		{"GET", "/", aw.SpiderInfo},
 
 		//----------Swagger
-		{"GET", "/api", echoSwagger.WrapHandler},
-		{"GET", "/api/", echoSwagger.WrapHandler},
-		{"GET", "/api/*", echoSwagger.WrapHandler},
+		// {"GET", "/api", echoSwagger.WrapHandler},
+		// {"GET", "/api/", echoSwagger.WrapHandler},
+		// {"GET", "/api/*", echoSwagger.WrapHandler},
+		{"GET", "/api", echoSwagger.EchoWrapHandler(echoSwagger.DocExpansion("none"))},
+		{"GET", "/api/", echoSwagger.EchoWrapHandler(echoSwagger.DocExpansion("none"))},
+		{"GET", "/api/*", echoSwagger.EchoWrapHandler(echoSwagger.DocExpansion("none"))},
 
 		//----------EndpointInfo
 		{"GET", "/endpointinfo", endpointInfo},

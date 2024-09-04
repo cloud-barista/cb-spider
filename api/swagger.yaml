@@ -1149,6 +1149,169 @@ definitions:
     - ZoneAvailable
     - ZoneUnavailable
     - NotSupported
+  spider.cim.CloudOSMetaInfo:
+    description: Metadata information related to a Cloud OS, including supported regions,
+      credentials, and disk configurations.
+    properties:
+      Credential:
+        description: A list of required credential keys.
+        items:
+          type: string
+        type: array
+      CredentialCSP:
+        description: A list of credentials required by the cloud service provider
+          (CSP).
+        items:
+          type: string
+        type: array
+      DefaultRegionToQuery:
+        description: Default region to use if none is specified for a query.
+        items:
+          type: string
+        type: array
+      DiskSize:
+        description: Supported additional disk sizes (in GB).
+        items:
+          type: string
+        type: array
+      DiskType:
+        description: Supported additional disk types.
+        items:
+          type: string
+        type: array
+      IdMaxLength:
+        description: Maximum allowed length for IDs in the cloud provider.
+        items:
+          type: string
+        type: array
+      Region:
+        description: A list of supported regions by the Cloud OS.
+        items:
+          type: string
+        type: array
+      RootDiskSize:
+        description: Supported root disk sizes (in GB).
+        items:
+          type: string
+        type: array
+      RootDiskType:
+        description: Supported root disk types (e.g., gp2, standard).
+        items:
+          type: string
+        type: array
+    required:
+    - Credential
+    - CredentialCSP
+    - DefaultRegionToQuery
+    - DiskSize
+    - DiskType
+    - IdMaxLength
+    - Region
+    - RootDiskSize
+    - RootDiskType
+    type: object
+  spider.cim.ConnectionConfigInfo:
+    description: Information about the connection configuration used to connect to
+      a specific cloud provider.
+    properties:
+      ConfigName:
+        description: The name of the connection configuration, used as a unique identifier.
+        example: config01
+        type: string
+      CredentialName:
+        description: The name of the credential used for cloud authentication.
+        example: credential01
+        type: string
+      DriverName:
+        description: The name of the cloud driver associated with this configuration.
+        example: AWS-Test-Driver-V0.5
+        type: string
+      ProviderName:
+        description: The name of the cloud provider (e.g., AWS, Azure, GCP).
+        example: AWS
+        type: string
+      RegionName:
+        description: The name of the region for the cloud connection.
+        example: region01
+        type: string
+    required:
+    - ConfigName
+    - CredentialName
+    - DriverName
+    - ProviderName
+    - RegionName
+    type: object
+  spider.cim.CredentialInfo:
+    description: Information about a specific cloud credential used for authentication.
+    properties:
+      CredentialName:
+        description: The name of the credential, used as a unique identifier.
+        example: credential01
+        type: string
+      KeyValueInfoList:
+        description: A list of key-value pairs, where each entry is a key and its
+          associated value.
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      ProviderName:
+        description: The name of the cloud provider (e.g., AWS, Azure, GCP).
+        example: AWS
+        type: string
+    required:
+    - CredentialName
+    - KeyValueInfoList
+    - ProviderName
+    type: object
+  spider.cim.CloudDriverInfo:
+    description: Information about a specific cloud driver used in the system.
+    properties:
+      DriverLibFileName:
+        description: The filename of the driver library, already present in the cloud-driver/libs
+          directory.
+        example: aws-test-driver-v0.5.so
+        type: string
+      DriverName:
+        description: The name of the cloud driver, used as a unique identifier.
+        example: AWS-Test-Driver-V0.5
+        type: string
+      ProviderName:
+        description: The name of the cloud provider (e.g., AWS, Azure, GCP).
+        example: AWS
+        type: string
+    required:
+    - DriverLibFileName
+    - DriverName
+    - ProviderName
+    type: object
+  spider.cim.RegionInfo:
+    description: Information about a specific cloud region and its associated zones.
+    properties:
+      AvailableZoneList:
+        description: A list of availability zones within a region.
+        items:
+          type: string
+        type: array
+      KeyValueInfoList:
+        description: A list of key-value pairs, where each entry is a key and its
+          associated value.
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      ProviderName:
+        description: The name of the cloud provider (e.g., AWS, Azure, GCP).
+        example: GCP
+        type: string
+      RegionName:
+        description: The name of the region, used as a unique identifier.
+        example: region01
+        type: string
+    required:
+    - AvailableZoneList
+    - KeyValueInfoList
+    - ProviderName
+    - RegionName
+    type: object
   spider.AllResourceListResponse:
     properties:
       AllList:
@@ -1618,6 +1781,54 @@ definitions:
     required:
     - ConnectionName
     - ReqInfo
+    type: object
+  spider.ListCloudDriverResponse:
+    properties:
+      driver:
+        items:
+          $ref: '#/definitions/spider.cim.CloudDriverInfo'
+        type: array
+    required:
+    - driver
+    type: object
+  spider.ListCloudOSResponse:
+    properties:
+      cloudos:
+        example:
+        - '["AWS"'
+        - ' "GCP"]'
+        items:
+          type: string
+        type: array
+    required:
+    - cloudos
+    type: object
+  spider.ListConnectionConfigResponse:
+    properties:
+      connectionconfig:
+        items:
+          $ref: '#/definitions/spider.cim.ConnectionConfigInfo'
+        type: array
+    required:
+    - connectionconfig
+    type: object
+  spider.ListCredentialResponse:
+    properties:
+      credential:
+        items:
+          $ref: '#/definitions/spider.cim.CredentialInfo'
+        type: array
+    required:
+    - credential
+    type: object
+  spider.ListRegionResponse:
+    properties:
+      region:
+        items:
+          $ref: '#/definitions/spider.cim.RegionInfo'
+        type: array
+    required:
+    - region
     type: object
   spider.MyImageListResponse:
     properties:
@@ -2412,7 +2623,7 @@ info:
     email: contact-to-cloud-barista@googlegroups.com
     name: API Support
     url: http://cloud-barista.github.io
-  description: "**\U0001F577️ [Usage Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages)**"
+  description: "**\U0001F577️ [User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages)**"
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
@@ -2763,6 +2974,52 @@ paths:
       summary: Execute AnyCall
       tags:
       - '[AnyCall Management]'
+  /cloudos:
+    get:
+      description: Retrieve a list of supported Cloud OS.
+      operationId: list-cloudos
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of supported Cloud OS
+          schema:
+            $ref: '#/definitions/spider.ListCloudOSResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List Cloud OS
+      tags:
+      - '[Cloud Info Management] CloudOS Info'
+  /cloudos/metainfo/{CloudOSName}:
+    get:
+      description: Retrieve metadata information for a specific Cloud OS.
+      operationId: get-cloudos-metainfo
+      parameters:
+      - description: The name of the Cloud OS
+        in: path
+        name: CloudOSName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Cloud OS Meta Info
+          schema:
+            $ref: '#/definitions/spider.cim.CloudOSMetaInfo'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get Cloud OS Meta Info
+      tags:
+      - '[Cloud Info Management] CloudOS Info'
   /cluster:
     get:
       consumes:
@@ -3141,6 +3398,110 @@ paths:
       summary: Upgrade Cluster
       tags:
       - '[Cluster Management]'
+  /connectionconfig:
+    get:
+      description: Retrieve a list of registered Connection Configs.
+      operationId: list-connection-configs
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of Connection Configs
+          schema:
+            $ref: '#/definitions/spider.ListConnectionConfigResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List Connection Configs
+      tags:
+      - '[Cloud Info Management] Connection Info'
+    post:
+      consumes:
+      - application/json
+      description: Create a new Connection Config.
+      operationId: create-connection-config
+      parameters:
+      - description: Request body for creating a Connection Config
+        in: body
+        name: ConnectionConfigInfo
+        required: true
+        schema:
+          $ref: '#/definitions/spider.cim.ConnectionConfigInfo'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the created Connection Config
+          schema:
+            $ref: '#/definitions/spider.cim.ConnectionConfigInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Create Connection Config
+      tags:
+      - '[Cloud Info Management] Connection Info'
+  /connectionconfig/{ConfigName}:
+    delete:
+      description: Delete a specific Connection Config.
+      operationId: delete-connection-config
+      parameters:
+      - description: The name of the Connection Config
+        in: path
+        name: ConfigName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the delete operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete Connection Config
+      tags:
+      - '[Cloud Info Management] Connection Info'
+    get:
+      description: Retrieve details of a specific Connection Config.
+      operationId: get-connection-config
+      parameters:
+      - description: The name of the Connection Config
+        in: path
+        name: ConfigName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the Connection Config
+          schema:
+            $ref: '#/definitions/spider.cim.ConnectionConfigInfo'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get Connection Config
+      tags:
+      - '[Cloud Info Management] Connection Info'
   /controlvm/{Name}:
     put:
       consumes:
@@ -3230,6 +3591,48 @@ paths:
       summary: Count Clusters by Connection
       tags:
       - '[Cluster Management]'
+  /countconnectionconfig:
+    get:
+      description: Get the total number of connections.
+      operationId: count-all-connections
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of connections
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count All Connections
+      tags:
+      - '[Cloud Info Management] Connection Info'
+  /countconnectionconfig/{ProviderName}:
+    get:
+      description: Get the total number of connections for a specific provider.
+      operationId: count-connections-by-provider
+      parameters:
+      - description: The name of the provider
+        in: path
+        name: ProviderName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Total count of connections for the provider
+          schema:
+            $ref: '#/definitions/spider.CountResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Count Connections by Provider
+      tags:
+      - '[Cloud Info Management] Connection Info'
   /countdisk:
     get:
       description: Get the total number of Disks across all connections.
@@ -3568,6 +3971,115 @@ paths:
       summary: Count VPCs by Connection
       tags:
       - '[VPC Management]'
+  /credential:
+    get:
+      description: Retrieve a list of registered Credentials.
+      operationId: list-credentials
+      parameters:
+      - description: The name of the provider to filter the Credentials by
+        in: query
+        name: provider
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of Credentials
+          schema:
+            $ref: '#/definitions/spider.ListCredentialResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List Credentials
+      tags:
+      - '[Cloud Info Management] Credential Info'
+    post:
+      consumes:
+      - application/json
+      description: Register a new Credential.
+      operationId: register-credential
+      parameters:
+      - description: Request body for registering a Credential
+        in: body
+        name: CredentialInfo
+        required: true
+        schema:
+          $ref: '#/definitions/spider.cim.CredentialInfo'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the registered Credential
+          schema:
+            $ref: '#/definitions/spider.cim.CredentialInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Register Credential
+      tags:
+      - '[Cloud Info Management] Credential Info'
+  /credential/{CredentialName}:
+    delete:
+      description: Unregister a specific Credential.
+      operationId: unregister-credential
+      parameters:
+      - description: The name of the Credential
+        in: path
+        name: CredentialName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the unregister operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Unregister Credential
+      tags:
+      - '[Cloud Info Management] Credential Info'
+    get:
+      description: Retrieve details of a specific Credential.
+      operationId: get-credential
+      parameters:
+      - description: The name of the Credential
+        in: path
+        name: CredentialName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the Credential
+          schema:
+            $ref: '#/definitions/spider.cim.CredentialInfo'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get Credential
+      tags:
+      - '[Cloud Info Management] Credential Info'
   /cspcluster/{Id}:
     delete:
       consumes:
@@ -4213,6 +4725,141 @@ paths:
       summary: Increase Disk Size
       tags:
       - '[Disk Management]'
+  /driver:
+    get:
+      description: Retrieve a list of registered Cloud Drivers.
+      operationId: list-cloud-drivers
+      parameters:
+      - description: The name of the provider to filter the Cloud Drivers by
+        in: query
+        name: provider
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of Cloud Drivers
+          schema:
+            $ref: '#/definitions/spider.ListCloudDriverResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List Cloud Drivers
+      tags:
+      - '[Cloud Info Management] Driver Info'
+    post:
+      consumes:
+      - application/json
+      description: Register a new Cloud Driver.
+      operationId: register-cloud-driver
+      parameters:
+      - description: Request body for registering a Cloud Driver
+        in: body
+        name: CloudDriverInfo
+        required: true
+        schema:
+          $ref: '#/definitions/spider.cim.CloudDriverInfo'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the registered Cloud Driver
+          schema:
+            $ref: '#/definitions/spider.cim.CloudDriverInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Register Cloud Driver
+      tags:
+      - '[Cloud Info Management] Driver Info'
+  /driver/{DriverName}:
+    delete:
+      description: Unregister a specific Cloud Driver.
+      operationId: unregister-cloud-driver
+      parameters:
+      - description: The name of the Cloud Driver
+        in: path
+        name: DriverName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the unregister operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Unregister Cloud Driver
+      tags:
+      - '[Cloud Info Management] Driver Info'
+    get:
+      description: Retrieve details of a specific Cloud Driver.
+      operationId: get-cloud-driver
+      parameters:
+      - description: The name of the Cloud Driver
+        in: path
+        name: DriverName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the Cloud Driver
+          schema:
+            $ref: '#/definitions/spider.cim.CloudDriverInfo'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get Cloud Driver
+      tags:
+      - '[Cloud Info Management] Driver Info'
+  /driver/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload a Cloud Driver library file.
+      operationId: upload-cloud-driver
+      parameters:
+      - description: Cloud Driver Library File
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - text/html
+      responses:
+        "200":
+          description: File uploaded successfully
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Upload Cloud Driver
+      tags:
+      - '[Cloud Info Management] Driver Info'
   /getclusterowner:
     post:
       consumes:
@@ -4398,7 +5045,7 @@ paths:
       consumes:
       - application/json
       description: "Create a new KeyPair with the specified configurations. \U0001F577️
-        [[Usage Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#5-vm-keypair-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]"
+        [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#5-vm-keypair-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]"
       operationId: create-key
       parameters:
       - description: Request body for creating a KeyPair
@@ -5378,6 +6025,115 @@ paths:
       summary: Unregister Disk
       tags:
       - '[Disk Management]'
+  /region:
+    get:
+      description: Retrieve a list of registered Regions.
+      operationId: list-regions
+      parameters:
+      - description: The name of the provider to filter the Regions by
+        in: query
+        name: provider
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of Regions
+          schema:
+            $ref: '#/definitions/spider.ListRegionResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List Regions
+      tags:
+      - '[Cloud Info Management] Region Info'
+    post:
+      consumes:
+      - application/json
+      description: Register a new Region.
+      operationId: register-region
+      parameters:
+      - description: Request body for registering a Region
+        in: body
+        name: RegionInfo
+        required: true
+        schema:
+          $ref: '#/definitions/spider.cim.RegionInfo'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the registered Region
+          schema:
+            $ref: '#/definitions/spider.cim.RegionInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Register Region
+      tags:
+      - '[Cloud Info Management] Region Info'
+  /region/{RegionName}:
+    delete:
+      description: Unregister a specific Region.
+      operationId: unregister-region
+      parameters:
+      - description: The name of the Region
+        in: path
+        name: RegionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the unregister operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Unregister Region
+      tags:
+      - '[Cloud Info Management] Region Info'
+    get:
+      description: Retrieve details of a specific Region.
+      operationId: get-region
+      parameters:
+      - description: The name of the Region
+        in: path
+        name: RegionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the Region
+          schema:
+            $ref: '#/definitions/spider.cim.RegionInfo'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get Region
+      tags:
+      - '[Cloud Info Management] Region Info'
   /regionzone:
     get:
       consumes:
@@ -6033,7 +6789,7 @@ paths:
       - application/json
       description: "Create a new Security Group with specified rules and tags. \U0001F577️
         [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Security-Group-Rules-and-Driver-API)],
-        \U0001F577️ [[Usage Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#4-securitygroup-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]"
+        \U0001F577️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#4-securitygroup-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]"
       operationId: create-securitygroup
       parameters:
       - description: Request body for creating a SecurityGroup
@@ -6723,7 +7479,7 @@ paths:
       consumes:
       - application/json
       description: "Create a new Virtual Private Cloud (VPC) with specified subnet
-        configurations. \U0001F577️ [[Usage Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#3-vpcsubnet-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]"
+        configurations. \U0001F577️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#3-vpcsubnet-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]"
       operationId: create-vpc
       parameters:
       - description: Request body for creating a VPC

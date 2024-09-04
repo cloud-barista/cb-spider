@@ -21,12 +21,14 @@ import (
 // ====================================================================
 const KEY_COLUMN_NAME = "config_name"
 
+// ConnectionConfigInfo represents the configuration information for cloud connection.
+// @Description Information about the connection configuration used to connect to a specific cloud provider.
 type ConnectionConfigInfo struct {
-	ConfigName     string `gorm:"primaryKey"` // ex) "config01"
-	ProviderName   string // ex) "AWS"
-	DriverName     string // ex) "AWS-Test-Driver-V0.5"
-	CredentialName string // ex) "credential01"
-	RegionName     string // ex) "region01"
+	ConfigName     string `json:"ConfigName" gorm:"primaryKey" validate:"required" example:"config01"` // The name of the connection configuration, used as a unique identifier.
+	ProviderName   string `json:"ProviderName" validate:"required" example:"AWS"`                      // The name of the cloud provider (e.g., AWS, Azure, GCP).
+	DriverName     string `json:"DriverName" validate:"required" example:"AWS-Test-Driver-V0.5"`       // The name of the cloud driver associated with this configuration.
+	CredentialName string `json:"CredentialName" validate:"required" example:"credential01"`           // The name of the credential used for cloud authentication.
+	RegionName     string `json:"RegionName" validate:"required" example:"region01"`                   // The name of the region for the cloud connection.
 }
 
 //====================================================================

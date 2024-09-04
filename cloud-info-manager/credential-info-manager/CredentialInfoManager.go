@@ -31,10 +31,12 @@ import (
 const KEY_COLUMN_NAME = "credential_name"
 const PROVIDER_NAME_COLUMN = "provider_name"
 
+// CredentialInfo represents the information of a cloud credential.
+// @Description Information about a specific cloud credential used for authentication.
 type CredentialInfo struct {
-	CredentialName   string           `gorm:"primaryKey"` // ex) "credential01"
-	ProviderName     string           // ex) "AWS"
-	KeyValueInfoList infostore.KVList `gorm:"type:blob"` // stored with json format, ex) { {ClientId, XXX}, {ClientSecret, XXX}, ...}
+	CredentialName   string           `json:"CredentialName" gorm:"primaryKey" validate:"required" example:"credential01"` // The name of the credential, used as a unique identifier.
+	ProviderName     string           `json:"ProviderName" validate:"required" example:"AWS"`                              // The name of the cloud provider (e.g., AWS, Azure, GCP).
+	KeyValueInfoList infostore.KVList `json:"KeyValueInfoList" gorm:"type:blob" validate:"required"`                       // Key-value pairs for credential authentication.
 }
 
 //====================================================================
@@ -57,7 +59,7 @@ func RegisterCredentialInfo(crdInfo CredentialInfo) (*CredentialInfo, error) {
 	cblog.Info("call RegisterCredentialInfo()")
 
 	// If Input credential Key are csp format, we convert Key Names to spider Key Names
-	kvInfoList, err := MapCredentialsCSPKeyToSpiderKeys(crdInfo.ProviderName, crdInfo.KeyValueInfoList)
+	kvInfoList, err := mapCredentialsCSPKeyToSpiderKeys(crdInfo.ProviderName, crdInfo.KeyValueInfoList)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +97,9 @@ func RegisterCredentialInfo(crdInfo CredentialInfo) (*CredentialInfo, error) {
 	return &crdInfo, nil
 }
 
-func MapCredentialsCSPKeyToSpiderKeys(providerName string, kvList infostore.KVList) (infostore.KVList, error) {
+func mapCredentialsCSPKeyToSpiderKeys(providerName string, kvList infostore.KVList) (infostore.KVList, error) {
+	providerName = strings.ToUpper(strings.TrimSpace(providerName))
+
 	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo(providerName)
 	if err != nil {
 		cblog.Error(err)
@@ -158,6 +162,7 @@ func ListCredential() ([]*CredentialInfo, error) {
 
 func ListCredentialByProvider(providerName string) ([]*CredentialInfo, error) {
 	cblog.Info("call ListCredentialByProvider()")
+	providerName = strings.ToUpper(strings.TrimSpace(providerName))
 
 	var credentialInfoList []*CredentialInfo
 	err := infostore.ListByCondition(&credentialInfoList, PROVIDER_NAME_COLUMN, providerName)

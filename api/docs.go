@@ -478,6 +478,75 @@ const docTemplate = `{
                 }
             }
         },
+        "/cloudos": {
+            "get": {
+                "description": "Retrieve a list of supported Cloud OS.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Info Management] CloudOS Info"
+                ],
+                "summary": "List Cloud OS",
+                "operationId": "list-cloudos",
+                "responses": {
+                    "200": {
+                        "description": "List of supported Cloud OS",
+                        "schema": {
+                            "$ref": "#/definitions/spider.ListCloudOSResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/cloudos/metainfo/{CloudOSName}": {
+            "get": {
+                "description": "Retrieve metadata information for a specific Cloud OS.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Info Management] CloudOS Info"
+                ],
+                "summary": "Get Cloud OS Meta Info",
+                "operationId": "get-cloudos-metainfo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Cloud OS",
+                        "name": "CloudOSName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Cloud OS Meta Info",
+                        "schema": {
+                            "$ref": "#/definitions/spider.cim.CloudOSMetaInfo"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/cluster": {
             "get": {
                 "description": "Retrieve a list of Clusters associated with a specific connection.",
@@ -1023,6 +1092,160 @@ const docTemplate = `{
                 }
             }
         },
+        "/connectionconfig": {
+            "get": {
+                "description": "Retrieve a list of registered Connection Configs.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Info Management] Connection Info"
+                ],
+                "summary": "List Connection Configs",
+                "operationId": "list-connection-configs",
+                "responses": {
+                    "200": {
+                        "description": "List of Connection Configs",
+                        "schema": {
+                            "$ref": "#/definitions/spider.ListConnectionConfigResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new Connection Config.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Info Management] Connection Info"
+                ],
+                "summary": "Create Connection Config",
+                "operationId": "create-connection-config",
+                "parameters": [
+                    {
+                        "description": "Request body for creating a Connection Config",
+                        "name": "ConnectionConfigInfo",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.cim.ConnectionConfigInfo"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the created Connection Config",
+                        "schema": {
+                            "$ref": "#/definitions/spider.cim.ConnectionConfigInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/connectionconfig/{ConfigName}": {
+            "get": {
+                "description": "Retrieve details of a specific Connection Config.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Info Management] Connection Info"
+                ],
+                "summary": "Get Connection Config",
+                "operationId": "get-connection-config",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection Config",
+                        "name": "ConfigName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the Connection Config",
+                        "schema": {
+                            "$ref": "#/definitions/spider.cim.ConnectionConfigInfo"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete a specific Connection Config.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Info Management] Connection Info"
+                ],
+                "summary": "Delete Connection Config",
+                "operationId": "delete-connection-config",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection Config",
+                        "name": "ConfigName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the delete operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/controlvm/{Name}": {
             "put": {
                 "description": "Control the state of a Virtual Machine (VM) such as suspend, resume, or reboot.",
@@ -1140,6 +1363,69 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "Total count of Clusters for the connection",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/countconnectionconfig": {
+            "get": {
+                "description": "Get the total number of connections.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Info Management] Connection Info"
+                ],
+                "summary": "Count All Connections",
+                "operationId": "count-all-connections",
+                "responses": {
+                    "200": {
+                        "description": "Total count of connections",
+                        "schema": {
+                            "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/countconnectionconfig/{ProviderName}": {
+            "get": {
+                "description": "Get the total number of connections for a specific provider.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Info Management] Connection Info"
+                ],
+                "summary": "Count Connections by Provider",
+                "operationId": "count-connections-by-provider",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the provider",
+                        "name": "ProviderName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Total count of connections for the provider",
                         "schema": {
                             "$ref": "#/definitions/spider.CountResponse"
                         }
@@ -1646,6 +1932,168 @@ const docTemplate = `{
                         "description": "Total count of VPCs for the connection",
                         "schema": {
                             "$ref": "#/definitions/spider.CountResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/credential": {
+            "get": {
+                "description": "Retrieve a list of registered Credentials.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Info Management] Credential Info"
+                ],
+                "summary": "List Credentials",
+                "operationId": "list-credentials",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the provider to filter the Credentials by",
+                        "name": "provider",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of Credentials",
+                        "schema": {
+                            "$ref": "#/definitions/spider.ListCredentialResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Register a new Credential.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Info Management] Credential Info"
+                ],
+                "summary": "Register Credential",
+                "operationId": "register-credential",
+                "parameters": [
+                    {
+                        "description": "Request body for registering a Credential",
+                        "name": "CredentialInfo",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.cim.CredentialInfo"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the registered Credential",
+                        "schema": {
+                            "$ref": "#/definitions/spider.cim.CredentialInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/credential/{CredentialName}": {
+            "get": {
+                "description": "Retrieve details of a specific Credential.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Info Management] Credential Info"
+                ],
+                "summary": "Get Credential",
+                "operationId": "get-credential",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Credential",
+                        "name": "CredentialName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the Credential",
+                        "schema": {
+                            "$ref": "#/definitions/spider.cim.CredentialInfo"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Unregister a specific Credential.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Info Management] Credential Info"
+                ],
+                "summary": "Unregister Credential",
+                "operationId": "unregister-credential",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Credential",
+                        "name": "CredentialName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the unregister operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
                         }
                     },
                     "500": {
@@ -2597,6 +3045,207 @@ const docTemplate = `{
                 }
             }
         },
+        "/driver": {
+            "get": {
+                "description": "Retrieve a list of registered Cloud Drivers.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Info Management] Driver Info"
+                ],
+                "summary": "List Cloud Drivers",
+                "operationId": "list-cloud-drivers",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the provider to filter the Cloud Drivers by",
+                        "name": "provider",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of Cloud Drivers",
+                        "schema": {
+                            "$ref": "#/definitions/spider.ListCloudDriverResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Register a new Cloud Driver.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Info Management] Driver Info"
+                ],
+                "summary": "Register Cloud Driver",
+                "operationId": "register-cloud-driver",
+                "parameters": [
+                    {
+                        "description": "Request body for registering a Cloud Driver",
+                        "name": "CloudDriverInfo",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.cim.CloudDriverInfo"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the registered Cloud Driver",
+                        "schema": {
+                            "$ref": "#/definitions/spider.cim.CloudDriverInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/driver/upload": {
+            "post": {
+                "description": "Upload a Cloud Driver library file.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "text/html"
+                ],
+                "tags": [
+                    "[Cloud Info Management] Driver Info"
+                ],
+                "summary": "Upload Cloud Driver",
+                "operationId": "upload-cloud-driver",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Cloud Driver Library File",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "File uploaded successfully",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/driver/{DriverName}": {
+            "get": {
+                "description": "Retrieve details of a specific Cloud Driver.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Info Management] Driver Info"
+                ],
+                "summary": "Get Cloud Driver",
+                "operationId": "get-cloud-driver",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Cloud Driver",
+                        "name": "DriverName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the Cloud Driver",
+                        "schema": {
+                            "$ref": "#/definitions/spider.cim.CloudDriverInfo"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Unregister a specific Cloud Driver.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Info Management] Driver Info"
+                ],
+                "summary": "Unregister Cloud Driver",
+                "operationId": "unregister-cloud-driver",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Cloud Driver",
+                        "name": "DriverName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the unregister operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/getclusterowner": {
             "post": {
                 "description": "Retrieve the owner VPC of a specified Cluster.",
@@ -2865,7 +3514,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Create a new KeyPair with the specified configurations. 🕷️ [[Usage Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#5-vm-keypair-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]",
+                "description": "Create a new KeyPair with the specified configurations. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#5-vm-keypair-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]",
                 "consumes": [
                     "application/json"
                 ],
@@ -4291,6 +4940,168 @@ const docTemplate = `{
                 }
             }
         },
+        "/region": {
+            "get": {
+                "description": "Retrieve a list of registered Regions.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Info Management] Region Info"
+                ],
+                "summary": "List Regions",
+                "operationId": "list-regions",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the provider to filter the Regions by",
+                        "name": "provider",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of Regions",
+                        "schema": {
+                            "$ref": "#/definitions/spider.ListRegionResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Register a new Region.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Info Management] Region Info"
+                ],
+                "summary": "Register Region",
+                "operationId": "register-region",
+                "parameters": [
+                    {
+                        "description": "Request body for registering a Region",
+                        "name": "RegionInfo",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.cim.RegionInfo"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the registered Region",
+                        "schema": {
+                            "$ref": "#/definitions/spider.cim.RegionInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/region/{RegionName}": {
+            "get": {
+                "description": "Retrieve details of a specific Region.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Info Management] Region Info"
+                ],
+                "summary": "Get Region",
+                "operationId": "get-region",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Region",
+                        "name": "RegionName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the Region",
+                        "schema": {
+                            "$ref": "#/definitions/spider.cim.RegionInfo"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Unregister a specific Region.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Info Management] Region Info"
+                ],
+                "summary": "Unregister Region",
+                "operationId": "unregister-region",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Region",
+                        "name": "RegionName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the unregister operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/regionzone": {
             "get": {
                 "description": "Retrieve a list of Region Zones associated with a specific connection.",
@@ -5242,7 +6053,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Create a new Security Group with specified rules and tags. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Security-Group-Rules-and-Driver-API)], 🕷️ [[Usage Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#4-securitygroup-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]",
+                "description": "Create a new Security Group with specified rules and tags. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Security-Group-Rules-and-Driver-API)], 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#4-securitygroup-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]",
                 "consumes": [
                     "application/json"
                 ],
@@ -6244,7 +7055,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Create a new Virtual Private Cloud (VPC) with specified subnet configurations. 🕷️ [[Usage Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#3-vpcsubnet-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]",
+                "description": "Create a new Virtual Private Cloud (VPC) with specified subnet configurations. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#3-vpcsubnet-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]",
                 "consumes": [
                     "application/json"
                 ],
@@ -8229,6 +9040,214 @@ const docTemplate = `{
                 "NotSupported"
             ]
         },
+        "spider.cim.CloudOSMetaInfo": {
+            "description": "Metadata information related to a Cloud OS, including supported regions, credentials, and disk configurations.",
+            "type": "object",
+            "required": [
+                "Credential",
+                "CredentialCSP",
+                "DefaultRegionToQuery",
+                "DiskSize",
+                "DiskType",
+                "IdMaxLength",
+                "Region",
+                "RootDiskSize",
+                "RootDiskType"
+            ],
+            "properties": {
+                "Credential": {
+                    "description": "A list of required credential keys.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "CredentialCSP": {
+                    "description": "A list of credentials required by the cloud service provider (CSP).",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "DefaultRegionToQuery": {
+                    "description": "Default region to use if none is specified for a query.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "DiskSize": {
+                    "description": "Supported additional disk sizes (in GB).",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "DiskType": {
+                    "description": "Supported additional disk types.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "IdMaxLength": {
+                    "description": "Maximum allowed length for IDs in the cloud provider.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "Region": {
+                    "description": "A list of supported regions by the Cloud OS.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "RootDiskSize": {
+                    "description": "Supported root disk sizes (in GB).",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "RootDiskType": {
+                    "description": "Supported root disk types (e.g., gp2, standard).",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "spider.cim.ConnectionConfigInfo": {
+            "description": "Information about the connection configuration used to connect to a specific cloud provider.",
+            "type": "object",
+            "required": [
+                "ConfigName",
+                "CredentialName",
+                "DriverName",
+                "ProviderName",
+                "RegionName"
+            ],
+            "properties": {
+                "ConfigName": {
+                    "description": "The name of the connection configuration, used as a unique identifier.",
+                    "type": "string",
+                    "example": "config01"
+                },
+                "CredentialName": {
+                    "description": "The name of the credential used for cloud authentication.",
+                    "type": "string",
+                    "example": "credential01"
+                },
+                "DriverName": {
+                    "description": "The name of the cloud driver associated with this configuration.",
+                    "type": "string",
+                    "example": "AWS-Test-Driver-V0.5"
+                },
+                "ProviderName": {
+                    "description": "The name of the cloud provider (e.g., AWS, Azure, GCP).",
+                    "type": "string",
+                    "example": "AWS"
+                },
+                "RegionName": {
+                    "description": "The name of the region for the cloud connection.",
+                    "type": "string",
+                    "example": "region01"
+                }
+            }
+        },
+        "spider.cim.CredentialInfo": {
+            "description": "Information about a specific cloud credential used for authentication.",
+            "type": "object",
+            "required": [
+                "CredentialName",
+                "KeyValueInfoList",
+                "ProviderName"
+            ],
+            "properties": {
+                "CredentialName": {
+                    "description": "The name of the credential, used as a unique identifier.",
+                    "type": "string",
+                    "example": "credential01"
+                },
+                "KeyValueInfoList": {
+                    "description": "A list of key-value pairs, where each entry is a key and its associated value.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "ProviderName": {
+                    "description": "The name of the cloud provider (e.g., AWS, Azure, GCP).",
+                    "type": "string",
+                    "example": "AWS"
+                }
+            }
+        },
+        "spider.cim.CloudDriverInfo": {
+            "description": "Information about a specific cloud driver used in the system.",
+            "type": "object",
+            "required": [
+                "DriverLibFileName",
+                "DriverName",
+                "ProviderName"
+            ],
+            "properties": {
+                "DriverLibFileName": {
+                    "description": "The filename of the driver library, already present in the cloud-driver/libs directory.",
+                    "type": "string",
+                    "example": "aws-test-driver-v0.5.so"
+                },
+                "DriverName": {
+                    "description": "The name of the cloud driver, used as a unique identifier.",
+                    "type": "string",
+                    "example": "AWS-Test-Driver-V0.5"
+                },
+                "ProviderName": {
+                    "description": "The name of the cloud provider (e.g., AWS, Azure, GCP).",
+                    "type": "string",
+                    "example": "AWS"
+                }
+            }
+        },
+        "spider.cim.RegionInfo": {
+            "description": "Information about a specific cloud region and its associated zones.",
+            "type": "object",
+            "required": [
+                "AvailableZoneList",
+                "KeyValueInfoList",
+                "ProviderName",
+                "RegionName"
+            ],
+            "properties": {
+                "AvailableZoneList": {
+                    "description": "A list of availability zones within a region.",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "KeyValueInfoList": {
+                    "description": "A list of key-value pairs, where each entry is a key and its associated value.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "ProviderName": {
+                    "description": "The name of the cloud provider (e.g., AWS, Azure, GCP).",
+                    "type": "string",
+                    "example": "GCP"
+                },
+                "RegionName": {
+                    "description": "The name of the region, used as a unique identifier.",
+                    "type": "string",
+                    "example": "region01"
+                }
+            }
+        },
         "spider.AllResourceListResponse": {
             "type": "object",
             "required": [
@@ -8895,6 +9914,80 @@ const docTemplate = `{
                             "type": "string",
                             "example": "keypair-01"
                         }
+                    }
+                }
+            }
+        },
+        "spider.ListCloudDriverResponse": {
+            "type": "object",
+            "required": [
+                "driver"
+            ],
+            "properties": {
+                "driver": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.cim.CloudDriverInfo"
+                    }
+                }
+            }
+        },
+        "spider.ListCloudOSResponse": {
+            "type": "object",
+            "required": [
+                "cloudos"
+            ],
+            "properties": {
+                "cloudos": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "example": [
+                        "[\"AWS\"",
+                        " \"GCP\"]"
+                    ]
+                }
+            }
+        },
+        "spider.ListConnectionConfigResponse": {
+            "type": "object",
+            "required": [
+                "connectionconfig"
+            ],
+            "properties": {
+                "connectionconfig": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.cim.ConnectionConfigInfo"
+                    }
+                }
+            }
+        },
+        "spider.ListCredentialResponse": {
+            "type": "object",
+            "required": [
+                "credential"
+            ],
+            "properties": {
+                "credential": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.cim.CredentialInfo"
+                    }
+                }
+            }
+        },
+        "spider.ListRegionResponse": {
+            "type": "object",
+            "required": [
+                "region"
+            ],
+            "properties": {
+                "region": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.cim.RegionInfo"
                     }
                 }
             }
@@ -10039,7 +11132,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/spider",
 	Schemes:          []string{"http"},
 	Title:            "CB-Spider REST API",
-	Description:      "**🕷️ [Usage Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages)**",
+	Description:      "**🕷️ [User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages)**",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

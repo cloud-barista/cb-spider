@@ -114,7 +114,7 @@ type KeyPairCreateRequest struct {
 // createKey godoc
 // @ID create-key
 // @Summary Create KeyPair
-// @Description Create a new KeyPair with the specified configurations. 🕷️ [[Usage Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#5-vm-keypair-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]
+// @Description Create a new KeyPair with the specified configurations. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#5-vm-keypair-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]
 // @Tags [KeyPair Management]
 // @Accept  json
 // @Produce  json
