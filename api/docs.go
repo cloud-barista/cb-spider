@@ -4430,13 +4430,13 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "example": "aws-credential",
+                        "description": "example:\"aws-credential\"",
                         "name": "CredentialName",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "example": "aws-driver",
+                        "description": "example:\"aws-driver\"",
                         "name": "DriverName",
                         "in": "query"
                     }

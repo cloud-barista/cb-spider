@@ -289,8 +289,8 @@ func GetRegionZonePreConfig(c echo.Context) error {
 
 // PreConfigOriginalRegionListRequest represents the request body for listing Original regions with pre-configuration.
 type PreConfigOriginalRegionListRequest struct {
-	DriverName     string `json:"DriverName" query:"DriverName" example:"aws-driver"`
-	CredentialName string `json:"CredentialName" query:"CredentialName" example:"aws-credential"`
+	DriverName     string `json:"DriverName" query:"DriverName"`         // example:"aws-driver"
+	CredentialName string `json:"CredentialName" query:"CredentialName"` // example:"aws-credential"
 }
 
 // ListOrgRegionPreConfig godoc

@@ -5672,11 +5672,11 @@ paths:
         request DriverName and CredentialName.
       operationId: list-preconfigured-original-org-region
       parameters:
-      - example: aws-credential
+      - description: example:"aws-credential"
         in: query
         name: CredentialName
         type: string
-      - example: aws-driver
+      - description: example:"aws-driver"
         in: query
         name: DriverName
         type: string
