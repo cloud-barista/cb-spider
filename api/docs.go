@@ -4605,7 +4605,6 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "example": "\"Compute Instance\"",
                         "description": "The name of the Product Family to retrieve price information for",
                         "name": "ProductFamily",
                         "in": "path",

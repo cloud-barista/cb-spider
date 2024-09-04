@@ -81,7 +81,7 @@ type PriceInfoResponse struct {
 // @Tags [Cloud Metadata] Price
 // @Accept  json
 // @Produce  json
-// @Param ProductFamily path string true "The name of the Product Family to retrieve price information for" example("Compute Instance")
+// @Param ProductFamily path string true "The name of the Product Family to retrieve price information for"
 // @Param RegionName path string true "The name of the Region to retrieve price information for"
 // @Param PriceInfoRequest body PriceInfoRequest false "The request body containing additional filters for price information"
 // @Success 200 {object} PriceInfoResponse "Price Information Details"

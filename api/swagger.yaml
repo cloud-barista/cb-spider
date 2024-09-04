@@ -5793,7 +5793,6 @@ paths:
       parameters:
       - description: The name of the Product Family to retrieve price information
           for
-        example: '"Compute Instance"'
         in: path
         name: ProductFamily
         required: true
