@@ -1,7 +1,6 @@
 package resources
 
 import (
-	"errors"
 	"fmt"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	cblog "github.com/cloud-barista/cb-log"
@@ -85,12 +84,12 @@ func addTag(tagService *globaltaggingv1.GlobalTaggingV1, tag irs.KeyValue, CRN s
 }
 
 func deleteUnusedTags(tagService *globaltaggingv1.GlobalTaggingV1) {
-	deleteTagAllOptions := tagService.NewDeleteTagAllOptions()
-	deleteTagAllOptions.SetTagType("user")
-
-	_, _, err := tagService.DeleteTagAll(deleteTagAllOptions)
-	if err != nil {
-		delErr := errors.New(fmt.Sprintf("Failed to Delete Subnet Detached Tag err = %s", err.Error()))
-		cblogger.Error(delErr.Error())
-	}
+	// It only cleans unused tags in IBM cloud user account.
+	// Not needed for checking errors and just wait for a long time for the resource deletion to complete.
+	go func(tagService *globaltaggingv1.GlobalTaggingV1) {
+		time.Sleep(time.Second * 60)
+		deleteTagAllOptions := tagService.NewDeleteTagAllOptions()
+		deleteTagAllOptions.SetTagType("user")
+		_, _, _ = tagService.DeleteTagAll(deleteTagAllOptions)
+	}(tagService)
 }
