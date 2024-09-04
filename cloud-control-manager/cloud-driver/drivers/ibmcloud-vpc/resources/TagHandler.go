@@ -7,6 +7,7 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/utils/kubernetesserviceapiv1"
 	"strings"
+	"time"
 
 	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
@@ -373,6 +374,23 @@ func (tagHandler *IbmTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag 
 		return irs.KeyValue{}, err
 	}
 
+	var ok bool
+	for i := 0; i < 30; i++ {
+		_, err = getTagFromResource(tagHandler.SearchService, crn, tag.Key)
+		if err == nil {
+			ok = true
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	if !ok {
+		err = errors.New(fmt.Sprintf("Failed to add a tag. err = Complete wait timeout exceeded"))
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return irs.KeyValue{}, err
+	}
+
 	LoggingInfo(hiscallInfo, start)
 
 	return irs.KeyValue{Key: tag.Key, Value: tag.Value}, nil
@@ -472,10 +490,35 @@ func (tagHandler *IbmTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, k
 
 	err := handleTagAddOrRemove(tagHandler, resType, resIID, irs.KeyValue{Key: key}, "remove")
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to remove a tag. err = %s", err))
-		cblogger.Error(getErr.Error())
-		LoggingError(hiscallInfo, getErr)
-		return false, getErr
+		err = errors.New(fmt.Sprintf("Failed to remove a tag. err = %s", err))
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+
+	crn, err := getCRN(tagHandler, resType, resIID)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Failed to remove a tag. err = %s", err))
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return false, err
+	}
+
+	var ok bool
+	for i := 0; i < 30; i++ {
+		_, err = getTagFromResource(tagHandler.SearchService, crn, key)
+		if err != nil {
+			ok = true
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
+
+	if !ok {
+		err = errors.New(fmt.Sprintf("Failed to remove a tag. err = Complete wait timeout exceeded"))
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return false, err
 	}
 
 	LoggingInfo(hiscallInfo, start)
