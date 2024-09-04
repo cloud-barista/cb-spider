@@ -2258,13 +2258,13 @@ func readConfigFile() Config {
 }
 
 func main() {
-	//handleMyImage()
+	handleMyImage()
 	// myimage
 	//handleTag()
 	// handlePublicIP() // PublicIP 생성 후 conf
 	// handleDisk()
 
-	handleKeyPair()
+	//handleKeyPair()
 	//handleVPC()
 	//handleSecurity()
 	//handleVM()

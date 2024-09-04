@@ -564,8 +564,14 @@ func GetSnapshotIdFromEc2Image(ec2Image *ec2.Image) ([]string, error) {
 		// }
 		for _, blockDevice := range ec2Image.BlockDeviceMappings {
 			if !reflect.ValueOf(blockDevice.Ebs).IsNil() {
-				snapshotId := *blockDevice.Ebs.SnapshotId
-				snapshotIds = append(snapshotIds, snapshotId)
+				if !reflect.ValueOf(blockDevice.Ebs.SnapshotId).IsNil() {
+					snapshotId := *blockDevice.Ebs.SnapshotId
+					snapshotIds = append(snapshotIds, snapshotId)
+				} else {
+					cblogger.Error("SnapshotId information not found.")
+					// return snapshotIds, errors.New("SnapshotId information not found. Try again in a few minutes")
+					return snapshotIds, errors.New("The SnapshotId information could not be found in the block device mapping(Ebs) information, please try again in a moment")
+				}
 			}
 		}
 	} else {
