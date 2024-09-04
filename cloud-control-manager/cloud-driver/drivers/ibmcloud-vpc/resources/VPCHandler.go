@@ -196,18 +196,6 @@ func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 		return irs.VPCInfo{}, createErr
 	}
 
-	vpcInfo, err := vpcHandler.setVPCInfo(*vpc, vpcHandler.VpcService, vpcHandler.Ctx)
-	if err != nil {
-		_, delErr := vpcHandler.DeleteVPC(newVpcIId)
-		if delErr != nil {
-			err = errors.New(err.Error() + delErr.Error())
-		}
-		createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = %s", err.Error()))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VPCInfo{}, createErr
-	}
-
 	// Attach Tag
 	if vpcReqInfo.TagList != nil && len(vpcReqInfo.TagList) > 0 {
 		if vpc.CRN == nil {
@@ -225,6 +213,18 @@ func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 				LoggingError(hiscallInfo, createErr)
 			}
 		}
+	}
+
+	vpcInfo, err := vpcHandler.setVPCInfo(*vpc, vpcHandler.VpcService, vpcHandler.Ctx)
+	if err != nil {
+		_, delErr := vpcHandler.DeleteVPC(newVpcIId)
+		if delErr != nil {
+			err = errors.New(err.Error() + delErr.Error())
+		}
+		createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.VPCInfo{}, createErr
 	}
 
 	LoggingInfo(hiscallInfo, start)
