@@ -113,27 +113,15 @@ func ibmTypeToRSType(ibmType string) (irs.RSType, error) {
 	}
 }
 
-func getTagFromResource(searchService *globalsearchv2.GlobalSearchV2,
-	resType irs.RSType, resIID irs.IID, key string) (irs.KeyValue, error) {
+func getTagFromResource(searchService *globalsearchv2.GlobalSearchV2, crn string, key string) (irs.KeyValue, error) {
+	query := strings.ReplaceAll(crn, ":", "\\:")
+	query = strings.ReplaceAll(query, "/", "\\/")
+
 	searchOptions := searchService.NewSearchOptions()
-
-	var query string
-
-	ibmType := rsTypeToIBMType(resType)
-	if ibmType == "" {
-		return irs.KeyValue{}, errors.New("invalid resource type")
-	}
-
-	if resIID.NameId != "" {
-		query = fmt.Sprintf("type:%s AND name:%s", ibmType, resIID.NameId)
-	} else {
-		query = fmt.Sprintf("type:%s AND id:%s", ibmType, resIID.SystemId)
-	}
-
 	searchOptions.SetQuery(query)
 	searchOptions.SearchCursor = nil
 	searchOptions.SetFields([]string{"name", "type", "crn", "tags"})
-	searchOptions.SetLimit(100)
+	searchOptions.SetLimit(1)
 
 	scanResult, _, err := searchService.Search(searchOptions)
 	if err != nil {
@@ -167,6 +155,120 @@ func getTagFromResource(searchService *globalsearchv2.GlobalSearchV2,
 	}
 
 	return irs.KeyValue{}, errors.New("tag not found")
+}
+
+func getCRN(tagHandler *IbmTagHandler, resType irs.RSType, resIID irs.IID) (string, error) {
+	switch resType {
+	case irs.VPC:
+		vpc, err := GetRawVPC(resIID, tagHandler.VpcService, tagHandler.Ctx)
+		if err != nil {
+			return "", err
+		}
+		if vpc.CRN == nil {
+			return "", errors.New("failed to get VPC CRN")
+		}
+
+		return *vpc.CRN, nil
+	case irs.SUBNET:
+		subnet, err := getRawSubnet(resIID, tagHandler.VpcService, tagHandler.Ctx)
+		if err != nil {
+			return "", err
+		}
+		if subnet.CRN == nil {
+			return "", errors.New("failed to get subnet CRN")
+		}
+
+		return *subnet.CRN, nil
+	case irs.SG:
+		securityGroup, err := getRawSecurityGroup(resIID, tagHandler.VpcService, tagHandler.Ctx)
+		if err != nil {
+			return "", err
+		}
+		if securityGroup.CRN == nil {
+			return "", errors.New("failed to get security group CRN")
+		}
+
+		return *securityGroup.CRN, nil
+	case irs.KEY:
+		vmKeyPair, err := getRawKey(resIID, tagHandler.VpcService, tagHandler.Ctx)
+		if err != nil {
+			return "", err
+		}
+		if vmKeyPair.CRN == nil {
+			return "", errors.New("failed to get keypair CRN")
+		}
+
+		return *vmKeyPair.CRN, nil
+	case irs.VM:
+		vm, err := getRawInstance(resIID, tagHandler.VpcService, tagHandler.Ctx)
+		if err != nil {
+			return "", err
+		}
+		if vm.CRN == nil {
+			return "", errors.New("failed to get VM CRN")
+		}
+
+		return *vm.CRN, nil
+	case irs.DISK:
+		disk, err := getRawVolume(resIID, tagHandler.VpcService, tagHandler.Ctx)
+		if err != nil {
+			return "", err
+		}
+		if disk.CRN == nil {
+			return "", errors.New("failed to get disk CRN")
+		}
+
+		return *disk.CRN, nil
+	case irs.MYIMAGE:
+		imageHandler := &IbmMyImageHandler{
+			CredentialInfo: tagHandler.CredentialInfo,
+			Region:         tagHandler.Region,
+			VpcService:     tagHandler.VpcService,
+			Ctx:            tagHandler.Ctx,
+		}
+		rawMyimage, err := imageHandler.GetRawMyImage(resIID)
+		if err != nil {
+			return "", err
+		}
+		if rawMyimage.CRN == nil {
+			return "", errors.New("failed to get myimage CRN")
+		}
+
+		return *rawMyimage.CRN, nil
+	case irs.NLB:
+		nlbHandler := &IbmNLBHandler{
+			CredentialInfo: tagHandler.CredentialInfo,
+			Region:         tagHandler.Region,
+			VpcService:     tagHandler.VpcService,
+			Ctx:            tagHandler.Ctx,
+		}
+		rawNLB, err := nlbHandler.getRawNLBByName(resIID.NameId)
+		if err != nil {
+			return "", err
+		}
+		if rawNLB.CRN == nil {
+			return "", errors.New("failed to get NLB CRN")
+		}
+
+		return *rawNLB.CRN, nil
+	case irs.CLUSTER:
+		clusterHandler := &IbmClusterHandler{
+			CredentialInfo: tagHandler.CredentialInfo,
+			Region:         tagHandler.Region,
+			Ctx:            tagHandler.Ctx,
+			VpcService:     tagHandler.VpcService,
+			ClusterService: tagHandler.ClusterService,
+			TaggingService: tagHandler.TaggingService,
+		}
+		rawCluster, err := clusterHandler.getRawCluster(resIID)
+		if err != nil {
+			return "", err
+		}
+
+		return rawCluster.Crn, nil
+	default:
+		return "", errors.New("invalid resource type")
+	}
 }
 
 func attachOrDetachTag(tagService *globaltaggingv1.GlobalTaggingV1, tag irs.KeyValue, CRN string, action string) error {
@@ -221,14 +323,7 @@ func attachOrDetachTag(tagService *globaltaggingv1.GlobalTaggingV1, tag irs.KeyV
 
 func handleTagAddOrRemove(tagHandler *IbmTagHandler, resType irs.RSType, resIID irs.IID,
 	tag irs.KeyValue, action string) error {
-	var err2 error
-
-	if action == "remove" {
-		tag, err2 = getTagFromResource(tagHandler.SearchService, resType, resIID, tag.Key)
-		if err2 != nil {
-			return err2
-		}
-	}
+	var err error
 
 	ibmType := rsTypeToIBMType(resType)
 	if ibmType == "" {
@@ -237,119 +332,45 @@ func handleTagAddOrRemove(tagHandler *IbmTagHandler, resType irs.RSType, resIID 
 		return errors.New("all is not supported for getting tag from the resource")
 	}
 
-	switch resType {
-	case irs.VPC:
-		vpc, err := GetRawVPC(resIID, tagHandler.VpcService, tagHandler.Ctx)
-		if err != nil {
-			err2 = errors.New(fmt.Sprintf("Failed to add tag. err = %s", err))
-			break
-		}
-		err2 = attachOrDetachTag(tagHandler.TaggingService, tag, *vpc.CRN, action)
-	case irs.SUBNET:
-		subnet, err := getRawSubnet(resIID, tagHandler.VpcService, tagHandler.Ctx)
-		if err != nil {
-			err2 = errors.New(fmt.Sprintf("Failed to add tag. err = %s", err))
-			break
-		}
-
-		err2 = attachOrDetachTag(tagHandler.TaggingService, tag, *subnet.CRN, action)
-	case irs.SG:
-		securityGroup, err := getRawSecurityGroup(resIID, tagHandler.VpcService, tagHandler.Ctx)
-		if err != nil {
-			err2 = errors.New(fmt.Sprintf("Failed to add tag. err = %s", err))
-			break
-		}
-
-		err2 = attachOrDetachTag(tagHandler.TaggingService, tag, *securityGroup.CRN, action)
-	case irs.KEY:
-		vmKeyPair, err := getRawKey(resIID, tagHandler.VpcService, tagHandler.Ctx)
-		if err != nil {
-			err2 = errors.New(fmt.Sprintf("Failed to add tag. err = %s", err))
-			break
-		}
-
-		err2 = attachOrDetachTag(tagHandler.TaggingService, tag, *vmKeyPair.CRN, action)
-	case irs.VM:
-		vm, err := getRawInstance(resIID, tagHandler.VpcService, tagHandler.Ctx)
-		if err != nil {
-			err2 = errors.New(fmt.Sprintf("Failed to add tag. err = %s", err))
-			break
-		}
-
-		err2 = attachOrDetachTag(tagHandler.TaggingService, tag, *vm.CRN, action)
-	case irs.DISK:
-		disk, err := getRawVolume(resIID, tagHandler.VpcService, tagHandler.Ctx)
-		if err != nil {
-			err2 = errors.New(fmt.Sprintf("Failed to add tag. err = %s", err))
-			break
-		}
-
-		err2 = attachOrDetachTag(tagHandler.TaggingService, tag, *disk.CRN, action)
-	case irs.MYIMAGE:
-		imageHandler := &IbmMyImageHandler{
-			CredentialInfo: tagHandler.CredentialInfo,
-			Region:         tagHandler.Region,
-			VpcService:     tagHandler.VpcService,
-			Ctx:            tagHandler.Ctx,
-		}
-		rawMyimage, err := imageHandler.GetRawMyImage(resIID)
-		if err != nil {
-			err2 = errors.New(fmt.Sprintf("Failed to add tag. err = %s", err))
-			break
-		}
-		err2 = attachOrDetachTag(tagHandler.TaggingService, tag, *rawMyimage.CRN, action)
-	case irs.NLB:
-		nlbHandler := &IbmNLBHandler{
-			CredentialInfo: tagHandler.CredentialInfo,
-			Region:         tagHandler.Region,
-			VpcService:     tagHandler.VpcService,
-			Ctx:            tagHandler.Ctx,
-		}
-		rawNLB, err := nlbHandler.getRawNLBByName(resIID.NameId)
-		if err != nil {
-			err2 = errors.New(fmt.Sprintf("Failed to add tag. err = %s", err))
-			break
-		}
-
-		err2 = attachOrDetachTag(tagHandler.TaggingService, tag, *rawNLB.CRN, action)
-	case irs.CLUSTER:
-		clusterHandler := &IbmClusterHandler{
-			CredentialInfo: tagHandler.CredentialInfo,
-			Region:         tagHandler.Region,
-			Ctx:            tagHandler.Ctx,
-			VpcService:     tagHandler.VpcService,
-			ClusterService: tagHandler.ClusterService,
-			TaggingService: tagHandler.TaggingService,
-		}
-		rawCluster, err := clusterHandler.getRawCluster(resIID)
-		if err != nil {
-			err2 = errors.New(fmt.Sprintf("Failed to add tag. err = %s", err))
-			break
-		}
-
-		err2 = attachOrDetachTag(tagHandler.TaggingService, tag, rawCluster.Crn, action)
-	default:
-		return errors.New("invalid resource type")
+	crn, err := getCRN(tagHandler, resType, resIID)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Failed to "+action+" a tag. err = %s", err))
+		return err
 	}
 
-	return err2
+	if action == "remove" {
+		tag, err = getTagFromResource(tagHandler.SearchService, crn, tag.Key)
+		if err != nil {
+			return err
+		}
+	}
+
+	return attachOrDetachTag(tagHandler.TaggingService, tag, crn, action)
 }
 
 func (tagHandler *IbmTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag irs.KeyValue) (irs.KeyValue, error) {
 	hiscallInfo := GetCallLogScheme(tagHandler.Region, call.TAG, resIID.NameId, "AddTag()")
 	start := call.Start()
 
-	tagFound, _ := getTagFromResource(tagHandler.SearchService, resType, resIID, tag.Key)
+	crn, err := getCRN(tagHandler, resType, resIID)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Failed to add a tag. err = %s", err))
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return irs.KeyValue{}, err
+	}
+
+	tagFound, _ := getTagFromResource(tagHandler.SearchService, crn, tag.Key)
 	if tagFound.Key == tag.Key {
 		return tagFound, errors.New("tag with provided key is already exists")
 	}
 
-	err := handleTagAddOrRemove(tagHandler, resType, resIID, tag, "add")
+	err = handleTagAddOrRemove(tagHandler, resType, resIID, tag, "add")
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to add a tag. err = %s", err))
-		cblogger.Error(getErr.Error())
-		LoggingError(hiscallInfo, getErr)
-		return irs.KeyValue{}, getErr
+		err = errors.New(fmt.Sprintf("Failed to add a tag. err = %s", err))
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return irs.KeyValue{}, err
 	}
 
 	LoggingInfo(hiscallInfo, start)
@@ -361,25 +382,22 @@ func (tagHandler *IbmTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]
 	hiscallInfo := GetCallLogScheme(tagHandler.Region, call.TAG, resIID.NameId, "ListTag()")
 	start := call.Start()
 
-	ibmType := rsTypeToIBMType(resType)
-	if ibmType == "" {
-		return []irs.KeyValue{}, errors.New("invalid resource type")
+	crn, err := getCRN(tagHandler, resType, resIID)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Failed to add a tag. err = %s", err))
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return []irs.KeyValue{}, err
 	}
+
+	query := strings.ReplaceAll(crn, ":", "\\:")
+	query = strings.ReplaceAll(query, "/", "\\/")
 
 	searchOptions := tagHandler.SearchService.NewSearchOptions()
-
-	var query string
-
-	if resIID.NameId != "" {
-		query = fmt.Sprintf("type:%s AND name:%s", ibmType, resIID.NameId)
-	} else {
-		query = fmt.Sprintf("type:%s AND id:%s", ibmType, resIID.SystemId)
-	}
-
-	searchOptions.SetQuery(query)
+	searchOptions.SetQuery(fmt.Sprintf("crn:%s", query))
 	searchOptions.SearchCursor = nil
 	searchOptions.SetFields([]string{"name", "type", "crn", "tags"})
-	searchOptions.SetLimit(100)
+	searchOptions.SetLimit(1)
 
 	var tagList []irs.KeyValue
 
@@ -427,11 +445,19 @@ func (tagHandler *IbmTagHandler) GetTag(resType irs.RSType, resIID irs.IID, key 
 	hiscallInfo := GetCallLogScheme(tagHandler.Region, call.TAG, resIID.NameId, "GetTag()")
 	start := call.Start()
 
-	tag, err := getTagFromResource(tagHandler.SearchService, resType, resIID, key)
+	crn, err := getCRN(tagHandler, resType, resIID)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to get tag. err = %s", err))
-		cblogger.Error(getErr.Error())
-		LoggingError(hiscallInfo, getErr)
+		err = errors.New(fmt.Sprintf("Failed to get tag. err = %s", err))
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return irs.KeyValue{}, err
+	}
+
+	tag, err := getTagFromResource(tagHandler.SearchService, crn, key)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Failed to get tag. err = %s", err))
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
 		return irs.KeyValue{}, err
 	}
 
