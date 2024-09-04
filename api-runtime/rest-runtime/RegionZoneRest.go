@@ -195,8 +195,8 @@ func ListOrgZone(c echo.Context) error {
 // ================ RegionZone Handler (Pre-Config Version)
 // PreConfigRegionZoneListRequest represents the request body for listing region zones with pre-config.
 type PreConfigRegionZoneListRequest struct {
-	DriverName     string `json:"DriverName" query:"DriverName" example:"aws-driver"`
-	CredentialName string `json:"CredentialName" query:"CredentialName" example:"aws-credential"`
+	DriverName     string `json:"DriverName" query:"DriverName"`         //  example:"aws-driver"
+	CredentialName string `json:"CredentialName" query:"CredentialName"` // example:"aws-credential"
 }
 
 // listRegionZonePreConfig godoc
@@ -243,8 +243,8 @@ func ListRegionZonePreConfig(c echo.Context) error {
 
 // PreConfigRegionZoneGetRequest represents the request body for getting a specific region zone with pre-config.
 type PreConfigRegionZoneGetRequest struct {
-	DriverName     string `json:"DriverName" query:"DriverName" example:"aws-driver"`
-	CredentialName string `json:"CredentialName" query:"CredentialName" example:"aws-credential"`
+	DriverName     string `json:"DriverName" query:"DriverName"`         // example:"aws-driver"
+	CredentialName string `json:"CredentialName" query:"CredentialName"` // example:"aws-credential"
 }
 
 // getRegionZonePreConfig godoc

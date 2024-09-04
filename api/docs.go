@@ -4486,13 +4486,13 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "example": "aws-credential",
+                        "description": "example:\"aws-credential\"",
                         "name": "CredentialName",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "example": "aws-driver",
+                        "description": "example:\"aws-driver\"",
                         "name": "DriverName",
                         "in": "query"
                     }
@@ -4542,13 +4542,13 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "example": "aws-credential",
+                        "description": "example:\"aws-credential\"",
                         "name": "CredentialName",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "example": "aws-driver",
+                        "description": "example:\"aws-driver\"",
                         "name": "DriverName",
                         "in": "query"
                     },
@@ -4613,7 +4613,6 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "example": "\"us-east-1\"",
                         "description": "The name of the Region to retrieve price information for",
                         "name": "RegionName",
                         "in": "path",

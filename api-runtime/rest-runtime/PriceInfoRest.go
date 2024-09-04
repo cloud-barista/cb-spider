@@ -21,7 +21,7 @@ import (
 
 // ProductFamilyListResponse represents the response body structure for the ListProductFamily API.
 type ProductFamilyListResponse struct {
-	Result []string `json:"productfamily" validate:"required" description:"A list of product families"`
+	Result []string `json:"productfamily" validate:"required"`
 }
 
 // listProductFamily godoc
@@ -82,7 +82,7 @@ type PriceInfoResponse struct {
 // @Accept  json
 // @Produce  json
 // @Param ProductFamily path string true "The name of the Product Family to retrieve price information for" example("Compute Instance")
-// @Param RegionName path string true "The name of the Region to retrieve price information for" example("us-east-1")
+// @Param RegionName path string true "The name of the Region to retrieve price information for"
 // @Param PriceInfoRequest body PriceInfoRequest false "The request body containing additional filters for price information"
 // @Success 200 {object} PriceInfoResponse "Price Information Details"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameter"

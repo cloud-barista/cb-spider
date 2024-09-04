@@ -5710,11 +5710,11 @@ paths:
         and credential names.
       operationId: list-region-zone-preconfig
       parameters:
-      - example: aws-credential
+      - description: example:"aws-credential"
         in: query
         name: CredentialName
         type: string
-      - example: aws-driver
+      - description: example:"aws-driver"
         in: query
         name: DriverName
         type: string
@@ -5748,11 +5748,11 @@ paths:
         on driver and credential names.
       operationId: get-region-zone-preconfig
       parameters:
-      - example: aws-credential
+      - description: example:"aws-credential"
         in: query
         name: CredentialName
         type: string
-      - example: aws-driver
+      - description: example:"aws-driver"
         in: query
         name: DriverName
         type: string
@@ -5799,7 +5799,6 @@ paths:
         required: true
         type: string
       - description: The name of the Region to retrieve price information for
-        example: '"us-east-1"'
         in: path
         name: RegionName
         required: true
