@@ -76,6 +76,8 @@ func (cloudConn *IbmCloudConnection) CreateSecurityHandler() (irs.SecurityHandle
 		Region:         cloudConn.Region,
 		VpcService:     cloudConn.VpcService,
 		Ctx:            cloudConn.Ctx,
+		TaggingService: cloudConn.TaggingService,
+		SearchService:  cloudConn.SearchService,
 	}
 	return &securityHandler, nil
 }
