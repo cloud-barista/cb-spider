@@ -86,6 +86,8 @@ func (cloudConn *IbmCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler,
 		Region:         cloudConn.Region,
 		VpcService:     cloudConn.VpcService,
 		Ctx:            cloudConn.Ctx,
+		TaggingService: cloudConn.TaggingService,
+		SearchService:  cloudConn.SearchService,
 	}
 	return &keyPairHandler, nil
 }
