@@ -23,6 +23,29 @@ definitions:
           $ref: '#/definitions/spider.KeyValue'
         type: array
     type: object
+  spider.AnyCallInfo:
+    description: This structure holds both the input and output parameters for the
+      AnyCall API.
+    properties:
+      FID:
+        description: 'Function ID, ex: countAll'
+        example: countAll
+        type: string
+      IKeyValueList:
+        description: 'Input Arguments List, ex:[{"Key": "rsType", "Value": "vpc"}]'
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      OKeyValueList:
+        description: 'Output Results List, ex:[{"Key": "Count", "Value": "10"}]"'
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+    required:
+    - FID
+    - IKeyValueList
+    - OKeyValueList
+    type: object
   spider.CloudPrice:
     properties:
       cloudName:
@@ -1149,6 +1172,29 @@ definitions:
         type: object
     required:
     - AllList
+    type: object
+  spider.AnyCallRequest:
+    properties:
+      ConnectionName:
+        example: mock-config01
+        type: string
+      ReqInfo:
+        properties:
+          FID:
+            description: 'Function ID (FID) to call, ex: countAll'
+            example: countAll
+            type: string
+          IKeyValueList:
+            description: 'Input key-value pairs, ex:[{"Key": "rsType", "Value": "vpc"}]'
+            items:
+              $ref: '#/definitions/spider.KeyValue'
+            type: array
+        required:
+        - FID
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
     type: object
   spider.BooleanInfo:
     properties:
@@ -2684,6 +2730,39 @@ paths:
       summary: List All VPCs in a Connection
       tags:
       - '[VPC Management]'
+  /anycall:
+    post:
+      consumes:
+      - application/json
+      description: "Execute a custom function (FID) with key-value parameters through
+        AnyCall. \U0001F577️ [[Development Guide](https://github.com/cloud-barista/cb-spider/wiki/AnyCall-API-Extension-Guide)]"
+      operationId: any-call
+      parameters:
+      - description: Request body for executing AnyCall
+        in: body
+        name: AnyCallRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.AnyCallRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the AnyCall operation
+          schema:
+            $ref: '#/definitions/spider.AnyCallInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Execute AnyCall
+      tags:
+      - '[AnyCall Management]'
   /cluster:
     get:
       consumes:
@@ -4318,7 +4397,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Create a new KeyPair with the specified configurations.
+      description: "Create a new KeyPair with the specified configurations. \U0001F577️
+        [[Usage Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#5-vm-keypair-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]"
       operationId: create-key
       parameters:
       - description: Request body for creating a KeyPair
@@ -5952,7 +6032,8 @@ paths:
       consumes:
       - application/json
       description: "Create a new Security Group with specified rules and tags. \U0001F577️
-        [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Security-Group-Rules-and-Driver-API)]"
+        [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Security-Group-Rules-and-Driver-API)],
+        \U0001F577️ [[Usage Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#4-securitygroup-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]"
       operationId: create-securitygroup
       parameters:
       - description: Request body for creating a SecurityGroup
@@ -6641,8 +6722,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Create a new Virtual Private Cloud (VPC) with specified subnet
-        configurations.
+      description: "Create a new Virtual Private Cloud (VPC) with specified subnet
+        configurations. \U0001F577️ [[Usage Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#3-vpcsubnet-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]"
       operationId: create-vpc
       parameters:
       - description: Request body for creating a VPC

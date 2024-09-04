@@ -10,12 +10,12 @@
 
 package resources
 
-
+// AnyCallInfo represents the structure for performing AnyCall API requests and responses.
+// @description This structure holds both the input and output parameters for the AnyCall API.
 type AnyCallInfo struct {
-	FID   string		// Function ID
-
-	IKeyValueList []KeyValue // Input Arguments List
-	OKeyValueList []KeyValue // Output Results List
+	FID           string     `json:"FID" validate:"required" example:"countAll"` // Function ID, ex: countAll
+	IKeyValueList []KeyValue `json:"IKeyValueList" validate:"required"`          // Input Arguments List, ex:[{"Key": "rsType", "Value": "vpc"}]
+	OKeyValueList []KeyValue `json:"OKeyValueList" validate:"required"`          // Output Results List, ex:[{"Key": "Count", "Value": "10"}]"
 }
 
 type AnyCallHandler interface {

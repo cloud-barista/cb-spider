@@ -431,6 +431,53 @@ const docTemplate = `{
                 }
             }
         },
+        "/anycall": {
+            "post": {
+                "description": "Execute a custom function (FID) with key-value parameters through AnyCall. 🕷️ [[Development Guide](https://github.com/cloud-barista/cb-spider/wiki/AnyCall-API-Extension-Guide)]",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[AnyCall Management]"
+                ],
+                "summary": "Execute AnyCall",
+                "operationId": "any-call",
+                "parameters": [
+                    {
+                        "description": "Request body for executing AnyCall",
+                        "name": "AnyCallRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.AnyCallRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the AnyCall operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AnyCallInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/cluster": {
             "get": {
                 "description": "Retrieve a list of Clusters associated with a specific connection.",
@@ -2818,7 +2865,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Create a new KeyPair with the specified configurations.",
+                "description": "Create a new KeyPair with the specified configurations. 🕷️ [[Usage Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#5-vm-keypair-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]",
                 "consumes": [
                     "application/json"
                 ],
@@ -5195,7 +5242,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Create a new Security Group with specified rules and tags. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Security-Group-Rules-and-Driver-API)]",
+                "description": "Create a new Security Group with specified rules and tags. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Security-Group-Rules-and-Driver-API)], 🕷️ [[Usage Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#4-securitygroup-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]",
                 "consumes": [
                     "application/json"
                 ],
@@ -6197,7 +6244,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Create a new Virtual Private Cloud (VPC) with specified subnet configurations.",
+                "description": "Create a new Virtual Private Cloud (VPC) with specified subnet configurations. 🕷️ [[Usage Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#3-vpcsubnet-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]",
                 "consumes": [
                     "application/json"
                 ],
@@ -6585,6 +6632,36 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "KeyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                }
+            }
+        },
+        "spider.AnyCallInfo": {
+            "description": "This structure holds both the input and output parameters for the AnyCall API.",
+            "type": "object",
+            "required": [
+                "FID",
+                "IKeyValueList",
+                "OKeyValueList"
+            ],
+            "properties": {
+                "FID": {
+                    "description": "Function ID, ex: countAll",
+                    "type": "string",
+                    "example": "countAll"
+                },
+                "IKeyValueList": {
+                    "description": "Input Arguments List, ex:[{\"Key\": \"rsType\", \"Value\": \"vpc\"}]",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "OKeyValueList": {
+                    "description": "Output Results List, ex:[{\"Key\": \"Count\", \"Value\": \"10\"}]\"",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/spider.KeyValue"
@@ -8182,6 +8259,39 @@ const docTemplate = `{
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/spider.IID"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "spider.AnyCallRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "mock-config01"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "FID"
+                    ],
+                    "properties": {
+                        "FID": {
+                            "description": "Function ID (FID) to call, ex: countAll",
+                            "type": "string",
+                            "example": "countAll"
+                        },
+                        "IKeyValueList": {
+                            "description": "Input key-value pairs, ex:[{\"Key\": \"rsType\", \"Value\": \"vpc\"}]",
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.KeyValue"
                             }
                         }
                     }
