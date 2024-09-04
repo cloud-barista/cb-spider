@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/IBM/go-sdk-core/v5/core"
+	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -20,6 +21,8 @@ type IbmDiskHandler struct {
 	Region         idrv.RegionInfo
 	VpcService     *vpcv1.VpcV1
 	Ctx            context.Context
+	TaggingService *globaltaggingv1.GlobalTaggingV1
+	SearchService  *globalsearchv2.GlobalSearchV2
 }
 
 func (diskHandler *IbmDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.DiskInfo, error) {
@@ -38,6 +41,14 @@ func (diskHandler *IbmDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 		// set default type as least performance
 		diskReqInfo.DiskType = "general-purpose"
 	}
+
+	if diskReqInfo.Zone == "" {
+		diskReqInfo.Zone = diskHandler.Region.Zone
+	}
+	if diskHandler.Region.TargetZone != "" {
+		diskReqInfo.Zone = diskHandler.Region.TargetZone
+	}
+
 	createVolumeOptions := &vpcv1.CreateVolumeOptions{}
 	createVolumeOptions.SetVolumePrototype(&vpcv1.VolumePrototype{
 		Profile: &vpcv1.VolumeProfileIdentity{
@@ -50,26 +61,34 @@ func (diskHandler *IbmDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 		Capacity: ptrCapacity,
 	})
 
-	createdDisk, _, createVolumeErr := diskHandler.VpcService.CreateVolume(createVolumeOptions)
-	if createVolumeErr != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", createVolumeErr.Error()))
+	createdDisk, _, err := diskHandler.VpcService.CreateVolume(createVolumeOptions)
+	if err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.DiskInfo{}, createErr
 	}
-	LoggingInfo(hiscallInfo, start)
 
 	// Attach Tag
 	if diskReqInfo.TagList != nil && len(diskReqInfo.TagList) > 0 {
-		var tagHandler irs.TagHandler // TagHandler 초기화
-		for _, tag := range diskReqInfo.TagList{
-			_, err := tagHandler.AddTag("DISK", diskReqInfo.IId, tag)
+		if createdDisk.CRN == nil {
+			createErr := errors.New(fmt.Sprintf("Failed to get created Disk's CRN"))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.DiskInfo{}, createErr
+		}
+
+		for _, tag := range diskReqInfo.TagList {
+			err = addTag(diskHandler.TaggingService, tag, *createdDisk.CRN)
 			if err != nil {
-				createErr := errors.New(fmt.Sprintf("Failed to Attach Tag on Disk err = %s", err.Error()))
+				createErr := errors.New(fmt.Sprintf("Failed to Attach Tag to Disk err = %s", err.Error()))
 				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
 			}
 		}
 	}
+
+	LoggingInfo(hiscallInfo, start)
 
 	return *diskHandler.ToIRSDisk(createdDisk), nil
 }
@@ -150,9 +169,9 @@ func (diskHandler *IbmDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) 
 func (diskHandler *IbmDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(diskHandler.Region, call.DISK, diskIID.SystemId, "DeleteDisk()")
 	start := call.Start()
-	targetSystemId, getDiskSystemIdErr := getDiskSystemId(diskHandler.VpcService, diskHandler.Ctx, diskIID)
-	if getDiskSystemIdErr != nil {
-		delErr := errors.New(fmt.Sprintf("Failed to Delete Disk. err = %s", getDiskSystemIdErr.Error()))
+	targetSystemId, err := getDiskSystemId(diskHandler.VpcService, diskHandler.Ctx, diskIID)
+	if err != nil {
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Disk. err = %s", err.Error()))
 		cblogger.Error(delErr.Error())
 		LoggingError(hiscallInfo, delErr)
 		return false, delErr
@@ -162,25 +181,16 @@ func (diskHandler *IbmDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 		ID: core.StringPtr(targetSystemId),
 	}
 
-	_, deleteDiskErr := diskHandler.VpcService.DeleteVolumeWithContext(diskHandler.Ctx, deleteVolumeOptions)
-	if deleteDiskErr != nil {
-		delErr := errors.New(fmt.Sprintf("Failed to Delete Disk. err = %s", deleteDiskErr.Error()))
+	_, err = diskHandler.VpcService.DeleteVolumeWithContext(diskHandler.Ctx, deleteVolumeOptions)
+	if err != nil {
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Disk. err = %s", err.Error()))
 		cblogger.Error(delErr.Error())
 		LoggingError(hiscallInfo, delErr)
 		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
-	
-	// Detach Tag Auto Delete 
-	var tagService *globaltaggingv1.GlobalTaggingV1
-	deleteTagAllOptions := tagService.NewDeleteTagAllOptions()
-	deleteTagAllOptions.SetTagType("user")
 
-	_, _, err := tagService.DeleteTagAll(deleteTagAllOptions)
-	if err != nil {
-		delErr := errors.New(fmt.Sprintf("Failed to Delete Disk Detached Tag err = %s", err.Error()))
-		cblogger.Error(delErr.Error())
-	}
+	deleteUnusedTags(diskHandler.TaggingService)
 
 	return true, nil
 }
@@ -311,6 +321,19 @@ func (diskHandler *IbmDiskHandler) ToIRSDisk(disk *vpcv1.Volume) *irs.DiskInfo {
 			ownerVmIID = irs.IID{}
 		}
 
+		tagHandler := IbmTagHandler{
+			Region:         diskHandler.Region,
+			CredentialInfo: diskHandler.CredentialInfo,
+			VpcService:     diskHandler.VpcService,
+			Ctx:            diskHandler.Ctx,
+			SearchService:  diskHandler.SearchService,
+		}
+
+		tags, err := tagHandler.ListTag(irs.DISK, irs.IID{SystemId: *disk.ID})
+		if err != nil {
+			cblogger.Warn("Failed to get tags of the Disk (" + *disk.Name + "). err = " + err.Error())
+		}
+
 		strCapacity := strconv.Itoa(int(*disk.Capacity))
 		return &irs.DiskInfo{
 			IId: irs.IID{
@@ -323,6 +346,7 @@ func (diskHandler *IbmDiskHandler) ToIRSDisk(disk *vpcv1.Volume) *irs.DiskInfo {
 			Status:       diskStatus,
 			OwnerVM:      ownerVmIID,
 			CreatedTime:  time.Time(*disk.CreatedAt).Local(),
+			TagList:      tags,
 			KeyValueList: diskKeyValueList,
 		}
 	}
