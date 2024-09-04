@@ -53,6 +53,8 @@ func (cloudConn *IbmCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 		VpcService:     cloudConn.VpcService,
 		VpcService0230: cloudConn.VpcService0230,
 		Ctx:            cloudConn.Ctx,
+		TaggingService: cloudConn.TaggingService,
+		SearchService:  cloudConn.SearchService,
 	}
 	return &vmHandler, nil
 }
