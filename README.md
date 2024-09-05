@@ -50,7 +50,6 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 
 - ##### 소스 기반 실행: https://github.com/cloud-barista/cb-spider/wiki/Quick-Start-Guide
 - ##### 컨테이너 기반 실행: https://github.com/cloud-barista/cb-spider/wiki/Docker-based-Start-Guide
-- ##### cb-operator 기반 실행: https://github.com/cloud-barista/cb-operator
 
 
 #### 3. 제공 자원
