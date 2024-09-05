@@ -38,7 +38,7 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 
 - ##### 공식환경
   - OS: Ubuntu 22.04
-  - Build: Go 1.23
+  - Build: Go 1.23, Swag v1.16.3
   - Container: Docker v19.03
 
 - ##### 시험환경
