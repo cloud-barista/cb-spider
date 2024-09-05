@@ -2631,7 +2631,8 @@ info:
     email: contact-to-cloud-barista@googlegroups.com
     name: API Support
     url: http://cloud-barista.github.io
-  description: "**\U0001F577️ [User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages)**"
+  description: "**\U0001F577️ [User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages)**
+    \ **\U0001F577️ [Simple Guide](https://github.com/cloud-barista/cb-spider/wiki/Simple-Sample-API-Guide)**"
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html

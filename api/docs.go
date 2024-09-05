@@ -11268,7 +11268,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/spider",
 	Schemes:          []string{"http"},
 	Title:            "CB-Spider REST API",
-	Description:      "**🕷️ [User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages)**",
+	Description:      "**🕷️ [User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages)**  **🕷️ [Simple Guide](https://github.com/cloud-barista/cb-spider/wiki/Simple-Sample-API-Guide)**",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

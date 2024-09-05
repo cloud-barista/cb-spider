@@ -4,7 +4,7 @@
     ],
     "swagger": "2.0",
     "info": {
-        "description": "**🕷️ [User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages)**",
+        "description": "**🕷️ [User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages)**  **🕷️ [Simple Guide](https://github.com/cloud-barista/cb-spider/wiki/Simple-Sample-API-Guide)**",
         "title": "CB-Spider REST API",
         "contact": {
             "name": "API Support",
