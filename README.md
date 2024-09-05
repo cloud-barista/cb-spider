@@ -123,7 +123,7 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 
 
 #### 6. API 규격
- - [Swagger Documentaions](https://github.com/cloud-barista/cb-spider/tree/master/api)
+ - [Swagger Documentations](https://github.com/cloud-barista/cb-spider/tree/master/api)
  - [Swagger Guide](https://github.com/cloud-barista/cb-spider/wiki/Swagger-Guide)
  
 
