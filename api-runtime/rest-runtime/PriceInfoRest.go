@@ -27,7 +27,7 @@ type ProductFamilyListResponse struct {
 // listProductFamily godoc
 // @ID list-product-family
 // @Summary List Product Families
-// @Description Retrieve a list of Product Families associated with a specific connection and region.
+// @Description Retrieve a list of Product Families associated with a specific connection and region. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Price-Info-and-Cloud-Driver-API)], 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/RestAPI-Multi%E2%80%90Cloud-Price-Information-Guide)]
 // @Tags [Cloud Metadata] Price
 // @Accept  json
 // @Produce  json
@@ -77,7 +77,7 @@ type PriceInfoResponse struct {
 // getPriceInfo godoc
 // @ID get-price-info
 // @Summary Get Price Information
-// @Description Retrieve price details of a specific Product Family in a specific Region. <br> * example body: {"connectionName":"aws-connection","FilterList":[{"Key":"instanceType","Value":"t2.micro"}]}
+// @Description Retrieve price details of a specific Product Family in a specific Region. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Price-Info-and-Cloud-Driver-API)], 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/RestAPI-Multi%E2%80%90Cloud-Price-Information-Guide)] <br> * example body: {"connectionName":"aws-connection","FilterList":[{"Key":"instanceType","Value":"t2.micro"}]}
 // @Tags [Cloud Metadata] Price
 // @Accept  json
 // @Produce  json

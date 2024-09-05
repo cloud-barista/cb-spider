@@ -1720,6 +1720,14 @@ definitions:
     - ConnectionName
     - ReqInfo
     type: object
+  spider.HealthCheckResponse:
+    properties:
+      message:
+        example: CB-Spider is ready
+        type: string
+    required:
+    - message
+    type: object
   spider.ImageListResponse:
     properties:
       image:
@@ -5007,6 +5015,48 @@ paths:
       summary: Get VM Using Resource
       tags:
       - '[VM Management]'
+  /health:
+    get:
+      consumes:
+      - application/json
+      description: "Checks the health of CB-Spider service and its dependencies via
+        /health endpoint. \U0001F577️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/Readiness-Check-Guide)]"
+      operationId: health-check-health
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service is ready
+          schema:
+            $ref: '#/definitions/spider.HealthCheckResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Perform Health Check
+      tags:
+      - '[Health Check]'
+  /healthcheck:
+    get:
+      consumes:
+      - application/json
+      description: "Checks the health of CB-Spider service and its dependencies via
+        /healthcheck endpoint. \U0001F577️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/Readiness-Check-Guide)]"
+      operationId: health-check-healthcheck
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service is ready
+          schema:
+            $ref: '#/definitions/spider.HealthCheckResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Perform Health Check
+      tags:
+      - '[Health Check]'
   /keypair:
     get:
       consumes:
@@ -5663,6 +5713,27 @@ paths:
       summary: List Original Zones
       tags:
       - '[Cloud Metadata] Region/Zone'
+  /ping:
+    get:
+      consumes:
+      - application/json
+      description: "Checks the health of CB-Spider service and its dependencies via
+        /ping endpoint. \U0001F577️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/Readiness-Check-Guide)]"
+      operationId: health-check-ping
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service is ready
+          schema:
+            $ref: '#/definitions/spider.HealthCheckResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Perform Health Check
+      tags:
+      - '[Health Check]'
   /preconfig/orgregion:
     get:
       consumes:
@@ -5675,10 +5746,12 @@ paths:
       - description: example:"aws-credential"
         in: query
         name: CredentialName
+        required: true
         type: string
       - description: example:"aws-driver"
         in: query
         name: DriverName
+        required: true
         type: string
       produces:
       - application/json
@@ -5706,17 +5779,19 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieve a list of pre-configured Region Zones based on driver
-        and credential names.
+      description: "Retrieve a list of pre-configured Region Zones based on driver
+        and credential names. \U0001F577️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/REST-API-Region-Zone-Information-Guide)]"
       operationId: list-region-zone-preconfig
       parameters:
       - description: example:"aws-credential"
         in: query
         name: CredentialName
+        required: true
         type: string
       - description: example:"aws-driver"
         in: query
         name: DriverName
+        required: true
         type: string
       produces:
       - application/json
@@ -5744,17 +5819,19 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieve details of a specific pre-configured Region Zone based
-        on driver and credential names.
+      description: "Retrieve details of a specific pre-configured Region Zone based
+        on driver and credential names. \U0001F577️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/REST-API-Region-Zone-Information-Guide)]"
       operationId: get-region-zone-preconfig
       parameters:
       - description: example:"aws-credential"
         in: query
         name: CredentialName
+        required: true
         type: string
       - description: example:"aws-driver"
         in: query
         name: DriverName
+        required: true
         type: string
       - description: The name of the Region to retrieve
         in: path
@@ -5787,8 +5864,10 @@ paths:
     post:
       consumes:
       - application/json
-      description: 'Retrieve price details of a specific Product Family in a specific
-        Region. <br> * example body: {"connectionName":"aws-connection","FilterList":[{"Key":"instanceType","Value":"t2.micro"}]}'
+      description: "Retrieve price details of a specific Product Family in a specific
+        Region. \U0001F577️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Price-Info-and-Cloud-Driver-API)],
+        \U0001F577️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/RestAPI-Multi%E2%80%90Cloud-Price-Information-Guide)]
+        <br> * example body: {\"connectionName\":\"aws-connection\",\"FilterList\":[{\"Key\":\"instanceType\",\"Value\":\"t2.micro\"}]}"
       operationId: get-price-info
       parameters:
       - description: The name of the Product Family to retrieve price information
@@ -5833,8 +5912,9 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieve a list of Product Families associated with a specific
-        connection and region.
+      description: "Retrieve a list of Product Families associated with a specific
+        connection and region. \U0001F577️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Price-Info-and-Cloud-Driver-API)],
+        \U0001F577️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/RestAPI-Multi%E2%80%90Cloud-Price-Information-Guide)]"
       operationId: list-product-family
       parameters:
       - description: The name of the Connection to list Product Families for
@@ -5869,6 +5949,27 @@ paths:
       summary: List Product Families
       tags:
       - '[Cloud Metadata] Price'
+  /readyz:
+    get:
+      consumes:
+      - application/json
+      description: "Checks the health of CB-Spider service and its dependencies via
+        /readyz endpoint. \U0001F577️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/Readiness-Check-Guide)]"
+      operationId: health-check-readyz
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service is ready
+          schema:
+            $ref: '#/definitions/spider.HealthCheckResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Perform Health Check
+      tags:
+      - '[Health Check]'
   /regcluster:
     post:
       consumes:
@@ -6136,7 +6237,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieve a list of Region Zones associated with a specific connection.
+      description: "Retrieve a list of Region Zones associated with a specific connection.
+        \U0001F577️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/REST-API-Region-Zone-Information-Guide)]"
       operationId: list-region-zone
       parameters:
       - description: The name of the Connection to list Region and Zones for
@@ -6170,7 +6272,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieve details of a specific Region Zone.
+      description: "Retrieve details of a specific Region Zone. \U0001F577️ [[User
+        Guide](https://github.com/cloud-barista/cb-spider/wiki/REST-API-Region-Zone-Information-Guide)]"
       operationId: get-region-zone
       parameters:
       - description: The name of the Connection to get a specific Region and Zones
@@ -7144,7 +7247,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieve a list of Public Images associated with a specific connection.
+      description: "Retrieve a list of Public Images associated with a specific connection.
+        \U0001F577️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/How-to-get-Image-List-with-REST-API)]"
       operationId: list-image
       parameters:
       - description: The name of the Connection to list Public Images for
@@ -7178,7 +7282,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieve details of a specific Public Image.
+      description: "Retrieve details of a specific Public Image. \U0001F577️ [[User
+        Guide](https://github.com/cloud-barista/cb-spider/wiki/How-to-get-Image-List-with-REST-API)]"
       operationId: get-image
       parameters:
       - description: The name of the Connection to get a specific Public Image for
@@ -7294,7 +7399,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieve a list of VM specs associated with a specific connection.
+      description: "Retrieve a list of VM specs associated with a specific connection.
+        \U0001F577️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#2-vm-spec-%EC%A0%95%EB%B3%B4-%EC%A0%9C%EA%B3%B5)]"
       operationId: list-vm-spec
       parameters:
       - description: The name of the Connection to list VM specs for
@@ -7328,7 +7434,7 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieve details of a specific VM spec.
+      description: "Retrieve details of a specific VM spec. \U0001F577️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#2-vm-spec-%EC%A0%95%EB%B3%B4-%EC%A0%9C%EA%B3%B5)]"
       operationId: get-vm-spec
       parameters:
       - description: The name of the Connection to get a specific VM spec for

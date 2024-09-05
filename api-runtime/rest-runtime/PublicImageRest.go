@@ -29,7 +29,7 @@ type ImageListResponse struct {
 // listImage godoc
 // @ID list-image
 // @Summary List Public Images
-// @Description Retrieve a list of Public Images associated with a specific connection.
+// @Description Retrieve a list of Public Images associated with a specific connection. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/How-to-get-Image-List-with-REST-API)]
 // @Tags [Cloud Metadata] Public VM Image
 // @Accept  json
 // @Produce  json
@@ -69,7 +69,7 @@ func ListImage(c echo.Context) error {
 // getImage godoc
 // @ID get-image
 // @Summary Get Public Image
-// @Description Retrieve details of a specific Public Image.
+// @Description Retrieve details of a specific Public Image. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/How-to-get-Image-List-with-REST-API)]
 // @Tags [Cloud Metadata] Public VM Image
 // @Accept  json
 // @Produce  json

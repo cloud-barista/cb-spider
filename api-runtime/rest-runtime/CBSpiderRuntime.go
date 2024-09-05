@@ -630,7 +630,68 @@ func endpointInfo(c echo.Context) error {
 	return c.String(http.StatusOK, endpointInfo)
 }
 
-// ================ Health Check
+// HealthCheckResponse represents the response body for the healthCheck API.
+type HealthCheckResponse struct {
+	Message string `json:"message" validate:"required" example:"CB-Spider is ready"`
+}
+
+// healthCheck godoc
+// @ID health-check-healthcheck
+// @Summary Perform Health Check
+// @Description Checks the health of CB-Spider service and its dependencies via /healthcheck endpoint. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/Readiness-Check-Guide)]
+// @Tags [Health Check]
+// @Accept  json
+// @Produce  json
+// @Success 200 {object} HealthCheckResponse "Service is ready"
+// @Failure 503 {object} SimpleMsg "Service Unavailable"
+// @Router /healthcheck [get]
+func healthCheckHealthCheck(c echo.Context) error {
+	return healthCheck(c)
+}
+
+// healthCheck godoc
+// @ID health-check-health
+// @Summary Perform Health Check
+// @Description Checks the health of CB-Spider service and its dependencies via /health endpoint. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/Readiness-Check-Guide)]
+// @Tags [Health Check]
+// @Accept  json
+// @Produce  json
+// @Success 200 {object} HealthCheckResponse "Service is ready"
+// @Failure 503 {object} SimpleMsg "Service Unavailable"
+// @Router /health [get]
+func healthCheckHealth(c echo.Context) error {
+	return healthCheck(c)
+}
+
+// healthCheck godoc
+// @ID health-check-ping
+// @Summary Perform Health Check
+// @Description Checks the health of CB-Spider service and its dependencies via /ping endpoint. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/Readiness-Check-Guide)]
+// @Tags [Health Check]
+// @Accept  json
+// @Produce  json
+// @Success 200 {object} HealthCheckResponse "Service is ready"
+// @Failure 503 {object} SimpleMsg "Service Unavailable"
+// @Router /ping [get]
+func healthCheckPing(c echo.Context) error {
+	return healthCheck(c)
+}
+
+// healthCheck godoc
+// @ID health-check-readyz
+// @Summary Perform Health Check
+// @Description Checks the health of CB-Spider service and its dependencies via /readyz endpoint. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/Readiness-Check-Guide)]
+// @Tags [Health Check]
+// @Accept  json
+// @Produce  json
+// @Success 200 {object} HealthCheckResponse "Service is ready"
+// @Failure 503 {object} SimpleMsg "Service Unavailable"
+// @Router /readyz [get]
+func healthCheckReadyz(c echo.Context) error {
+	return healthCheck(c)
+}
+
+// Common health check logic
 func healthCheck(c echo.Context) error {
 	// check database connection
 	err := infostore.Ping()

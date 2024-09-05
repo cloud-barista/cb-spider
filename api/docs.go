@@ -3463,6 +3463,66 @@ const docTemplate = `{
                 }
             }
         },
+        "/health": {
+            "get": {
+                "description": "Checks the health of CB-Spider service and its dependencies via /health endpoint. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/Readiness-Check-Guide)]",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Health Check]"
+                ],
+                "summary": "Perform Health Check",
+                "operationId": "health-check-health",
+                "responses": {
+                    "200": {
+                        "description": "Service is ready",
+                        "schema": {
+                            "$ref": "#/definitions/spider.HealthCheckResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/healthcheck": {
+            "get": {
+                "description": "Checks the health of CB-Spider service and its dependencies via /healthcheck endpoint. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/Readiness-Check-Guide)]",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Health Check]"
+                ],
+                "summary": "Perform Health Check",
+                "operationId": "health-check-healthcheck",
+                "responses": {
+                    "200": {
+                        "description": "Service is ready",
+                        "schema": {
+                            "$ref": "#/definitions/spider.HealthCheckResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/keypair": {
             "get": {
                 "description": "Retrieve a list of KeyPairs associated with a specific connection.",
@@ -4413,6 +4473,36 @@ const docTemplate = `{
                 }
             }
         },
+        "/ping": {
+            "get": {
+                "description": "Checks the health of CB-Spider service and its dependencies via /ping endpoint. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/Readiness-Check-Guide)]",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Health Check]"
+                ],
+                "summary": "Perform Health Check",
+                "operationId": "health-check-ping",
+                "responses": {
+                    "200": {
+                        "description": "Service is ready",
+                        "schema": {
+                            "$ref": "#/definitions/spider.HealthCheckResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/preconfig/orgregion": {
             "get": {
                 "description": "Retrieve a list of pre-configured Original Regions based on driver and credential names. \u003cbr\u003e The response structure may vary depending on the request DriverName and CredentialName.",
@@ -4432,13 +4522,15 @@ const docTemplate = `{
                         "type": "string",
                         "description": "example:\"aws-credential\"",
                         "name": "CredentialName",
-                        "in": "query"
+                        "in": "query",
+                        "required": true
                     },
                     {
                         "type": "string",
                         "description": "example:\"aws-driver\"",
                         "name": "DriverName",
-                        "in": "query"
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -4471,7 +4563,7 @@ const docTemplate = `{
         },
         "/preconfig/regionzone": {
             "get": {
-                "description": "Retrieve a list of pre-configured Region Zones based on driver and credential names.",
+                "description": "Retrieve a list of pre-configured Region Zones based on driver and credential names. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/REST-API-Region-Zone-Information-Guide)]",
                 "consumes": [
                     "application/json"
                 ],
@@ -4488,13 +4580,15 @@ const docTemplate = `{
                         "type": "string",
                         "description": "example:\"aws-credential\"",
                         "name": "CredentialName",
-                        "in": "query"
+                        "in": "query",
+                        "required": true
                     },
                     {
                         "type": "string",
                         "description": "example:\"aws-driver\"",
                         "name": "DriverName",
-                        "in": "query"
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -4527,7 +4621,7 @@ const docTemplate = `{
         },
         "/preconfig/regionzone/{Name}": {
             "get": {
-                "description": "Retrieve details of a specific pre-configured Region Zone based on driver and credential names.",
+                "description": "Retrieve details of a specific pre-configured Region Zone based on driver and credential names. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/REST-API-Region-Zone-Information-Guide)]",
                 "consumes": [
                     "application/json"
                 ],
@@ -4544,13 +4638,15 @@ const docTemplate = `{
                         "type": "string",
                         "description": "example:\"aws-credential\"",
                         "name": "CredentialName",
-                        "in": "query"
+                        "in": "query",
+                        "required": true
                     },
                     {
                         "type": "string",
                         "description": "example:\"aws-driver\"",
                         "name": "DriverName",
-                        "in": "query"
+                        "in": "query",
+                        "required": true
                     },
                     {
                         "type": "string",
@@ -4590,7 +4686,7 @@ const docTemplate = `{
         },
         "/priceinfo/{ProductFamily}/{RegionName}": {
             "post": {
-                "description": "Retrieve price details of a specific Product Family in a specific Region. \u003cbr\u003e * example body: {\"connectionName\":\"aws-connection\",\"FilterList\":[{\"Key\":\"instanceType\",\"Value\":\"t2.micro\"}]}",
+                "description": "Retrieve price details of a specific Product Family in a specific Region. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Price-Info-and-Cloud-Driver-API)], 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/RestAPI-Multi%E2%80%90Cloud-Price-Information-Guide)] \u003cbr\u003e * example body: {\"connectionName\":\"aws-connection\",\"FilterList\":[{\"Key\":\"instanceType\",\"Value\":\"t2.micro\"}]}",
                 "consumes": [
                     "application/json"
                 ],
@@ -4656,7 +4752,7 @@ const docTemplate = `{
         },
         "/productfamily/{RegionName}": {
             "get": {
-                "description": "Retrieve a list of Product Families associated with a specific connection and region.",
+                "description": "Retrieve a list of Product Families associated with a specific connection and region. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Price-Info-and-Cloud-Driver-API)], 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/RestAPI-Multi%E2%80%90Cloud-Price-Information-Guide)]",
                 "consumes": [
                     "application/json"
                 ],
@@ -4705,6 +4801,36 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/readyz": {
+            "get": {
+                "description": "Checks the health of CB-Spider service and its dependencies via /readyz endpoint. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/Readiness-Check-Guide)]",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Health Check]"
+                ],
+                "summary": "Perform Health Check",
+                "operationId": "health-check-readyz",
+                "responses": {
+                    "200": {
+                        "description": "Service is ready",
+                        "schema": {
+                            "$ref": "#/definitions/spider.HealthCheckResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
                         "schema": {
                             "$ref": "#/definitions/spider.SimpleMsg"
                         }
@@ -5102,7 +5228,7 @@ const docTemplate = `{
         },
         "/regionzone": {
             "get": {
-                "description": "Retrieve a list of Region Zones associated with a specific connection.",
+                "description": "Retrieve a list of Region Zones associated with a specific connection. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/REST-API-Region-Zone-Information-Guide)]",
                 "consumes": [
                     "application/json"
                 ],
@@ -5153,7 +5279,7 @@ const docTemplate = `{
         },
         "/regionzone/{Name}": {
             "get": {
-                "description": "Retrieve details of a specific Region Zone.",
+                "description": "Retrieve details of a specific Region Zone. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/REST-API-Region-Zone-Information-Guide)]",
                 "consumes": [
                     "application/json"
                 ],
@@ -6568,7 +6694,7 @@ const docTemplate = `{
         },
         "/vmimage": {
             "get": {
-                "description": "Retrieve a list of Public Images associated with a specific connection.",
+                "description": "Retrieve a list of Public Images associated with a specific connection. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/How-to-get-Image-List-with-REST-API)]",
                 "consumes": [
                     "application/json"
                 ],
@@ -6619,7 +6745,7 @@ const docTemplate = `{
         },
         "/vmimage/{Name}": {
             "get": {
-                "description": "Retrieve details of a specific Public Image.",
+                "description": "Retrieve details of a specific Public Image. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/How-to-get-Image-List-with-REST-API)]",
                 "consumes": [
                     "application/json"
                 ],
@@ -6786,7 +6912,7 @@ const docTemplate = `{
         },
         "/vmspec": {
             "get": {
-                "description": "Retrieve a list of VM specs associated with a specific connection.",
+                "description": "Retrieve a list of VM specs associated with a specific connection. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#2-vm-spec-%EC%A0%95%EB%B3%B4-%EC%A0%9C%EA%B3%B5)]",
                 "consumes": [
                     "application/json"
                 ],
@@ -6837,7 +6963,7 @@ const docTemplate = `{
         },
         "/vmspec/{Name}": {
             "get": {
-                "description": "Retrieve details of a specific VM spec.",
+                "description": "Retrieve details of a specific VM spec. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#2-vm-spec-%EC%A0%95%EB%B3%B4-%EC%A0%9C%EA%B3%B5)]",
                 "consumes": [
                     "application/json"
                 ],
@@ -9822,6 +9948,18 @@ const docTemplate = `{
                             "example": "150"
                         }
                     }
+                }
+            }
+        },
+        "spider.HealthCheckResponse": {
+            "type": "object",
+            "required": [
+                "message"
+            ],
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "CB-Spider is ready"
                 }
             }
         },

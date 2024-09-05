@@ -27,7 +27,7 @@ type RegionZoneListResponse struct {
 // listRegionZone godoc
 // @ID list-region-zone
 // @Summary List Region Zones
-// @Description Retrieve a list of Region Zones associated with a specific connection.
+// @Description Retrieve a list of Region Zones associated with a specific connection. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/REST-API-Region-Zone-Information-Guide)]
 // @Tags [Cloud Metadata] Region/Zone
 // @Accept  json
 // @Produce  json
@@ -66,7 +66,7 @@ func ListRegionZone(c echo.Context) error {
 // getRegionZone godoc
 // @ID get-region-zone
 // @Summary Get Region Zone
-// @Description Retrieve details of a specific Region Zone.
+// @Description Retrieve details of a specific Region Zone. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/REST-API-Region-Zone-Information-Guide)]
 // @Tags [Cloud Metadata] Region/Zone
 // @Accept  json
 // @Produce  json
@@ -195,14 +195,14 @@ func ListOrgZone(c echo.Context) error {
 // ================ RegionZone Handler (Pre-Config Version)
 // PreConfigRegionZoneListRequest represents the request body for listing region zones with pre-config.
 type PreConfigRegionZoneListRequest struct {
-	DriverName     string `json:"DriverName" query:"DriverName"`         //  example:"aws-driver"
-	CredentialName string `json:"CredentialName" query:"CredentialName"` // example:"aws-credential"
+	DriverName     string `json:"DriverName" validate:"required" query:"DriverName"`         //  example:"aws-driver"
+	CredentialName string `json:"CredentialName" validate:"required" query:"CredentialName"` // example:"aws-credential"
 }
 
 // listRegionZonePreConfig godoc
 // @ID list-region-zone-preconfig
 // @Summary List Pre-configured Region Zones
-// @Description Retrieve a list of pre-configured Region Zones based on driver and credential names.
+// @Description Retrieve a list of pre-configured Region Zones based on driver and credential names. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/REST-API-Region-Zone-Information-Guide)]
 // @Tags [Cloud Metadata] Region/Zone
 // @Accept  json
 // @Produce  json
@@ -243,14 +243,14 @@ func ListRegionZonePreConfig(c echo.Context) error {
 
 // PreConfigRegionZoneGetRequest represents the request body for getting a specific region zone with pre-config.
 type PreConfigRegionZoneGetRequest struct {
-	DriverName     string `json:"DriverName" query:"DriverName"`         // example:"aws-driver"
-	CredentialName string `json:"CredentialName" query:"CredentialName"` // example:"aws-credential"
+	DriverName     string `json:"DriverName" validate:"required" query:"DriverName"`         // example:"aws-driver"
+	CredentialName string `json:"CredentialName" validate:"required" query:"CredentialName"` // example:"aws-credential"
 }
 
 // getRegionZonePreConfig godoc
 // @ID get-region-zone-preconfig
 // @Summary Get Pre-configured Region Zone
-// @Description Retrieve details of a specific pre-configured Region Zone based on driver and credential names.
+// @Description Retrieve details of a specific pre-configured Region Zone based on driver and credential names. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/REST-API-Region-Zone-Information-Guide)]
 // @Tags [Cloud Metadata] Region/Zone
 // @Accept  json
 // @Produce  json
@@ -289,8 +289,8 @@ func GetRegionZonePreConfig(c echo.Context) error {
 
 // PreConfigOriginalRegionListRequest represents the request body for listing Original regions with pre-configuration.
 type PreConfigOriginalRegionListRequest struct {
-	DriverName     string `json:"DriverName" query:"DriverName"`         // example:"aws-driver"
-	CredentialName string `json:"CredentialName" query:"CredentialName"` // example:"aws-credential"
+	DriverName     string `json:"DriverName" validate:"required" query:"DriverName"`         // example:"aws-driver"
+	CredentialName string `json:"CredentialName" validate:"required" query:"CredentialName"` // example:"aws-credential"
 }
 
 // ListOrgRegionPreConfig godoc

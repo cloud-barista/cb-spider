@@ -32,7 +32,7 @@ type OriginalVMSpecListResponse struct {
 // listVMSpec godoc
 // @ID list-vm-spec
 // @Summary List VM Specs
-// @Description Retrieve a list of VM specs associated with a specific connection.
+// @Description Retrieve a list of VM specs associated with a specific connection. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#2-vm-spec-%EC%A0%95%EB%B3%B4-%EC%A0%9C%EA%B3%B5)]
 // @Tags [Cloud Metadata] VM Spec
 // @Accept  json
 // @Produce  json
@@ -71,7 +71,7 @@ func ListVMSpec(c echo.Context) error {
 // getVMSpec godoc
 // @ID get-vm-spec
 // @Summary Get VM Spec
-// @Description Retrieve details of a specific VM spec.
+// @Description Retrieve details of a specific VM spec. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#2-vm-spec-%EC%A0%95%EB%B3%B4-%EC%A0%9C%EA%B3%B5)]
 // @Tags [Cloud Metadata] VM Spec
 // @Accept  json
 // @Produce  json
