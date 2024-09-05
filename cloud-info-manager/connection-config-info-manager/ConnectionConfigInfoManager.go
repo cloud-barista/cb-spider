@@ -167,6 +167,8 @@ func CountAllConnections() (int64, error) {
 }
 
 func CountConnectionsByProvider(providerName string) (int64, error) {
+	providerName = strings.ToUpper(strings.TrimSpace(providerName))
+
 	var connectionConfigInfo ConnectionConfigInfo
 	count, err := infostore.CountConnectionsByProvider(&connectionConfigInfo, providerName)
 	if err != nil {

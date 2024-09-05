@@ -85,7 +85,7 @@ func GetCloudOSMetaInfo(c echo.Context) error {
 // registerCloudDriver godoc
 // @ID register-cloud-driver
 // @Summary Register Cloud Driver
-// @Description Register a new Cloud Driver.
+// @Description Register a new Cloud Driver. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#1-cloud-driver-%EC%A0%95%EB%B3%B4-%EB%93%B1%EB%A1%9D-%EB%B0%8F-%EA%B4%80%EB%A6%AC)]
 // @Tags [Cloud Info Management] Driver Info
 // @Accept  json
 // @Produce  json
@@ -249,7 +249,7 @@ func UploadCloudDriver(c echo.Context) error {
 // registerCredential godoc
 // @ID register-credential
 // @Summary Register Credential
-// @Description Register a new Credential.
+// @Description Register a new Credential. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#2-cloud-credential-%EC%A0%95%EB%B3%B4-%EB%93%B1%EB%A1%9D-%EB%B0%8F-%EA%B4%80%EB%A6%AC)]
 // @Tags [Cloud Info Management] Credential Info
 // @Accept  json
 // @Produce  json
@@ -373,7 +373,7 @@ func UnRegisterCredential(c echo.Context) error {
 // registerRegion godoc
 // @ID register-region
 // @Summary Register Region
-// @Description Register a new Region.
+// @Description Register a new Region. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#3-cloud-regionzone-%EC%A0%95%EB%B3%B4-%EB%93%B1%EB%A1%9D-%EB%B0%8F-%EA%B4%80%EB%A6%AC)]
 // @Tags [Cloud Info Management] Region Info
 // @Accept  json
 // @Produce  json
@@ -497,7 +497,7 @@ func UnRegisterRegion(c echo.Context) error {
 // createConnectionConfig godoc
 // @ID create-connection-config
 // @Summary Create Connection Config
-// @Description Create a new Connection Config.
+// @Description Create a new Connection Config. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#4-cloud-connection-configuration-%EC%A0%95%EB%B3%B4-%EB%93%B1%EB%A1%9D-%EB%B0%8F-%EA%B4%80%EB%A6%AC)]
 // @Tags [Cloud Info Management] Connection Info
 // @Accept  json
 // @Produce  json
