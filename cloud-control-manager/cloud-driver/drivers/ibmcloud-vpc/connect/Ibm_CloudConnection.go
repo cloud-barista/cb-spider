@@ -113,6 +113,8 @@ func (cloudConn *IbmCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) 
 		Region:         cloudConn.Region,
 		VpcService:     cloudConn.VpcService,
 		Ctx:            cloudConn.Ctx,
+		TaggingService: cloudConn.TaggingService,
+		SearchService:  cloudConn.SearchService,
 	}
 	return &nlbHandler, nil
 }

@@ -243,10 +243,19 @@ func getCRN(tagHandler *IbmTagHandler, resType irs.RSType, resIID irs.IID) (stri
 			VpcService:     tagHandler.VpcService,
 			Ctx:            tagHandler.Ctx,
 		}
-		rawNLB, err := nlbHandler.getRawNLBByName(resIID.NameId)
+
+		var rawNLB vpcv1.LoadBalancer
+		var err error
+		if resIID.NameId != "" {
+			rawNLB, err = nlbHandler.getRawNLBByName(resIID.NameId)
+
+		} else if resIID.SystemId != "" {
+			rawNLB, err = nlbHandler.getRawNLBById(resIID.SystemId)
+		}
 		if err != nil {
 			return "", err
 		}
+
 		if rawNLB.CRN == nil {
 			return "", errors.New("failed to get NLB CRN")
 		}
@@ -402,7 +411,7 @@ func (tagHandler *IbmTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]
 
 	crn, err := getCRN(tagHandler, resType, resIID)
 	if err != nil {
-		err = errors.New(fmt.Sprintf("Failed to add a tag. err = %s", err))
+		err = errors.New(fmt.Sprintf("Failed to list tag. err = %s", err))
 		cblogger.Error(err.Error())
 		LoggingError(hiscallInfo, err)
 		return []irs.KeyValue{}, err
