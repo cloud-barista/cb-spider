@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/IBM/vpc-go-sdk/vpcv1"
+	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
+	"github.com/IBM/vpc-go-sdk/vpcv1"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -18,6 +19,8 @@ type IbmMyImageHandler struct {
 	Region         idrv.RegionInfo
 	VpcService     *vpcv1.VpcV1
 	Ctx            context.Context
+	TaggingService *globaltaggingv1.GlobalTaggingV1
+	SearchService  *globalsearchv2.GlobalSearchV2
 }
 
 const DEV = "-dev-"
@@ -79,7 +82,7 @@ func (myImageHandler *IbmMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageI
 	// Attach Tag
 	if snapshotReqInfo.TagList != nil && len(snapshotReqInfo.TagList) > 0 {
 		var tagHandler irs.TagHandler // TagHandler 초기화
-		for _, tag := range snapshotReqInfo.TagList{
+		for _, tag := range snapshotReqInfo.TagList {
 			_, err := tagHandler.AddTag("MYIMAGE", snapshotReqInfo.IId, tag)
 			if err != nil {
 				createErr := errors.New(fmt.Sprintf("Failed to Attach Tag on MyImage err = %s", err.Error()))
@@ -134,12 +137,20 @@ func (myImageHandler *IbmMyImageHandler) GetRawMyImage(myImageIID irs.IID) (*vpc
 	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, "MYIMAGE", "GetRawMyImage()")
 	start := call.Start()
 
-	snapshot, _, getSnapshotErr := myImageHandler.VpcService.GetSnapshotWithContext(myImageHandler.Ctx, &vpcv1.GetSnapshotOptions{ID: &myImageIID.NameId})
-	if getSnapshotErr != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to List MyImage. err = %s", getSnapshotErr.Error()))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return nil, createErr
+	myImage, err := myImageHandler.GetMyImage(myImageIID)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Failed to Get MyImage. err = %s", err.Error()))
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return nil, err
+	}
+
+	snapshot, _, err := myImageHandler.VpcService.GetSnapshotWithContext(myImageHandler.Ctx, &vpcv1.GetSnapshotOptions{ID: &myImage.IId.SystemId})
+	if err != nil {
+		err := errors.New(fmt.Sprintf("Failed to Get MyImage. err = %s", err.Error()))
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return nil, err
 	}
 
 	LoggingInfo(hiscallInfo, start)
@@ -151,7 +162,7 @@ func (myImageHandler *IbmMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyI
 	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, myImageIID.NameId, "GetMyImage()")
 	start := call.Start()
 	if myImageIID.NameId == "" && myImageIID.SystemId == "" {
-		createErr := errors.New(fmt.Sprintf("Failed to Get MyImage. err = MyImage Name ID or System ID is required"))
+		createErr := errors.New(fmt.Sprintf("Failed to get raw info of the MyImage. err = MyImage Name ID or System ID is required"))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.MyImageInfo{}, createErr
@@ -159,7 +170,7 @@ func (myImageHandler *IbmMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyI
 
 	myImageList, err := myImageHandler.ListMyImage()
 	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Get MyImage. err = %s", err.Error()))
+		createErr := errors.New(fmt.Sprintf("Failed to get raw info of the MyImage. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.MyImageInfo{}, createErr
@@ -194,8 +205,7 @@ func (myImageHandler *IbmMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	
-	// Detach Tag Auto Delete 
+	// Detach Tag Auto Delete
 	var tagService *globaltaggingv1.GlobalTaggingV1
 	deleteTagAllOptions := tagService.NewDeleteTagAllOptions()
 	deleteTagAllOptions.SetTagType("user")
@@ -205,7 +215,6 @@ func (myImageHandler *IbmMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool
 		delErr := errors.New(fmt.Sprintf("Failed to Delete MyImage Detached Tag err = %s", err.Error()))
 		cblogger.Error(delErr.Error())
 	}
-
 
 	return true, nil
 }
