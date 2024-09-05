@@ -123,9 +123,9 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 
 
 #### 6. API 규격
- - Swagger Docs: [API Documentations](https://github.com/cloud-barista/cb-spider/tree/master/api)
- - Swagger UI: [On Your Local Spider](http://localhost:1024/spider/api)
- - Swagger UI: [Without Your Spider](https://cloud-barista.github.io/api/?url=https://raw.githubusercontent.com/cloud-barista/cb-spider/master/api/swagger.yaml)
+ - [Swagger Documentaions](https://github.com/cloud-barista/cb-spider/tree/master/api)
+ - [Swagger Guide](https://github.com/cloud-barista/cb-spider/wiki/Swagger-Guide)
+ 
 
 
 #### 7. 특이 사항
