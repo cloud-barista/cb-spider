@@ -258,7 +258,7 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				Name: spec.Name,
 			},
 			Zone: &vpcv0230.ZoneIdentity{
-				Name: &vmHandler.Region.Zone,
+				Name: vpcSubnet.Zone.Name,
 			},
 			PrimaryNetworkInterface: &vpcv0230.NetworkInterfacePrototype{
 				Subnet: &vpcv0230.SubnetIdentity{
@@ -285,7 +285,7 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				Name: spec.Name,
 			},
 			Zone: &vpcv0230.ZoneIdentity{
-				Name: &vmHandler.Region.Zone,
+				Name: vpcSubnet.Zone.Name,
 			},
 			PrimaryNetworkInterface: &vpcv0230.NetworkInterfacePrototype{
 				Subnet: &vpcv0230.SubnetIdentity{
