@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/IBM/go-sdk-core/v5/core"
+	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -21,6 +22,8 @@ type IbmSecurityHandler struct {
 	Region         idrv.RegionInfo
 	VpcService     *vpcv1.VpcV1
 	Ctx            context.Context
+	TaggingService *globaltaggingv1.GlobalTaggingV1
+	SearchService  *globalsearchv2.GlobalSearchV2
 }
 
 func (securityHandler *IbmSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
@@ -106,7 +109,27 @@ func (securityHandler *IbmSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		LoggingError(hiscallInfo, createErr)
 		return irs.SecurityInfo{}, createErr
 	}
-	securityGroupInfo, err := setSecurityGroupInfo(rawSecurityGroup)
+
+	// Attach Tag
+	if securityReqInfo.TagList != nil && len(securityReqInfo.TagList) > 0 {
+		if rawSecurityGroup.CRN == nil {
+			createErr := errors.New(fmt.Sprintf("Failed to get created Security's CRN"))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.SecurityInfo{}, createErr
+		}
+
+		for _, tag := range securityReqInfo.TagList {
+			err = addTag(securityHandler.TaggingService, tag, *rawSecurityGroup.CRN)
+			if err != nil {
+				createErr := errors.New(fmt.Sprintf("Failed to Attach Tag to Security err = %s", err.Error()))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+			}
+		}
+	}
+
+	securityGroupInfo, err := securityHandler.setSecurityGroupInfo(rawSecurityGroup)
 	if err != nil {
 		options := &vpcv1.DeleteSecurityGroupOptions{}
 		options.SetID(*securityGroup.ID)
@@ -120,18 +143,6 @@ func (securityHandler *IbmSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		return irs.SecurityInfo{}, createErr
 	}
 	LoggingInfo(hiscallInfo, start)
-
-	// Attach Tag
-	if securityReqInfo.TagList != nil && len(securityReqInfo.TagList) > 0{
-		var tagHandler irs.TagHandler // TagHandler 초기화
-		for _, tag := range securityReqInfo.TagList{
-			_, err := tagHandler.AddTag("SG", securityReqInfo.IId, tag)
-			if err != nil {
-				createErr := errors.New(fmt.Sprintf("Failed to Attach Tag on SG err = %s", err.Error()))
-				cblogger.Error(createErr.Error())
-			}
-		}
-	}
 
 	return securityGroupInfo, nil
 }
@@ -150,7 +161,7 @@ func (securityHandler *IbmSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 	var securityGroupList []*irs.SecurityInfo
 	for {
 		for _, securityGroup := range securityGroups.SecurityGroups {
-			securityInfo, err := setSecurityGroupInfo(securityGroup)
+			securityInfo, err := securityHandler.setSecurityGroupInfo(securityGroup)
 			if err != nil {
 				getErr := errors.New(fmt.Sprintf("Failed to List Security. err = %s", err.Error()))
 				cblogger.Error(getErr.Error())
@@ -197,7 +208,7 @@ func (securityHandler *IbmSecurityHandler) GetSecurity(securityIID irs.IID) (irs
 		LoggingError(hiscallInfo, getErr)
 		return irs.SecurityInfo{}, getErr
 	}
-	securityGroupInfo, err := setSecurityGroupInfo(securityGroup)
+	securityGroupInfo, err := securityHandler.setSecurityGroupInfo(securityGroup)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Get Security. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -238,25 +249,51 @@ func (securityHandler *IbmSecurityHandler) DeleteSecurity(securityIID irs.IID) (
 	}
 	if res.StatusCode == 204 {
 		LoggingInfo(hiscallInfo, start)
-		
-		// Detach Tag Auto Delete 
-		var tagService *globaltaggingv1.GlobalTaggingV1
-		deleteTagAllOptions := tagService.NewDeleteTagAllOptions()
-		deleteTagAllOptions.SetTagType("user")
 
-		_, _, err = tagService.DeleteTagAll(deleteTagAllOptions)
-		if err != nil {
-			delErr := errors.New(fmt.Sprintf("Failed to Delete SG Detached Tag err = %s", err.Error()))
-			cblogger.Error(delErr.Error())
-		}
+		deleteUnusedTags(securityHandler.TaggingService)
 
 		return true, nil
 	} else {
-		delErr := errors.New(fmt.Sprintf("Failed to Delete Security. err = %s", err.Error()))
+		delErr := errors.New(fmt.Sprintf("Failed to Delete Security. err = %d", res.StatusCode))
 		cblogger.Error(delErr.Error())
 		LoggingError(hiscallInfo, delErr)
 		return false, delErr
 	}
+}
+
+func (securityHandler *IbmSecurityHandler) setSecurityGroupInfo(securityGroup vpcv1.SecurityGroup) (irs.SecurityInfo, error) {
+	securityInfo := irs.SecurityInfo{
+		IId: irs.IID{
+			NameId:   *securityGroup.Name,
+			SystemId: *securityGroup.ID,
+		},
+		VpcIID: irs.IID{
+			NameId:   *securityGroup.VPC.Name,
+			SystemId: *securityGroup.VPC.ID,
+		},
+	}
+	ruleList, err := setRule(securityGroup)
+	if err != nil {
+		return irs.SecurityInfo{}, err
+	}
+	securityInfo.SecurityRules = &ruleList
+
+	tagHandler := IbmTagHandler{
+		Region:         securityHandler.Region,
+		CredentialInfo: securityHandler.CredentialInfo,
+		VpcService:     securityHandler.VpcService,
+		Ctx:            securityHandler.Ctx,
+		SearchService:  securityHandler.SearchService,
+	}
+
+	tags, err := tagHandler.ListTag(irs.SG, irs.IID{SystemId: *securityGroup.ID})
+	if err != nil {
+		cblogger.Warn("Failed to get tags of the Key (" + *securityGroup.Name + "). err = " + err.Error())
+	}
+
+	securityInfo.TagList = tags
+
+	return securityInfo, nil
 }
 
 func existSecurityGroup(securityIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context) (bool, error) {
@@ -330,25 +367,6 @@ func getRawSecurityGroup(securityIID irs.IID, vpcService *vpcv1.VpcV1, ctx conte
 	}
 }
 
-func setSecurityGroupInfo(securityGroup vpcv1.SecurityGroup) (irs.SecurityInfo, error) {
-	securityInfo := irs.SecurityInfo{
-		IId: irs.IID{
-			NameId:   *securityGroup.Name,
-			SystemId: *securityGroup.ID,
-		},
-		VpcIID: irs.IID{
-			NameId:   *securityGroup.VPC.Name,
-			SystemId: *securityGroup.VPC.ID,
-		},
-	}
-	ruleList, err := setRule(securityGroup)
-	if err != nil {
-		return irs.SecurityInfo{}, err
-	}
-	securityInfo.SecurityRules = &ruleList
-	return securityInfo, nil
-}
-
 func setRule(securityGroup vpcv1.SecurityGroup) ([]irs.SecurityRuleInfo, error) {
 	var ruleList []irs.SecurityRuleInfo
 	for _, rule := range securityGroup.Rules {
@@ -415,7 +433,7 @@ func (securityHandler *IbmSecurityHandler) AddRules(sgIID irs.IID, securityRules
 		LoggingError(hiscallInfo, getErr)
 		return irs.SecurityInfo{}, getErr
 	}
-	securityGroupInfo, err := setSecurityGroupInfo(securityGroup)
+	securityGroupInfo, err := securityHandler.setSecurityGroupInfo(securityGroup)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Add SecurityGroup Rules. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -468,7 +486,7 @@ func (securityHandler *IbmSecurityHandler) AddRules(sgIID irs.IID, securityRules
 		LoggingError(hiscallInfo, getErr)
 		return irs.SecurityInfo{}, getErr
 	}
-	newSecurityGroupInfo, err := setSecurityGroupInfo(newSecurityGroup)
+	newSecurityGroupInfo, err := securityHandler.setSecurityGroupInfo(newSecurityGroup)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Add SecurityGroup Rules. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())

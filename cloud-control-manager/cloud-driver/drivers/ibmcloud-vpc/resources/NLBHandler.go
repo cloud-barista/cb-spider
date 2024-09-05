@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/IBM/go-sdk-core/v5/core"
+	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -38,6 +39,8 @@ type IbmNLBHandler struct {
 	Region         idrv.RegionInfo
 	VpcService     *vpcv1.VpcV1
 	Ctx            context.Context
+	TaggingService *globaltaggingv1.GlobalTaggingV1
+	SearchService  *globalsearchv2.GlobalSearchV2
 }
 
 // ------ NLB Management
@@ -46,7 +49,7 @@ func (nlbHandler *IbmNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 	start := call.Start()
 	rawNLB, err := nlbHandler.createNLB(nlbReqInfo)
 	if err != nil {
-		nlbHandler.cleanerNLB(nlbReqInfo.IId)
+		_, _ = nlbHandler.cleanerNLB(nlbReqInfo.IId)
 		createErr := errors.New(fmt.Sprintf("Failed to Create NLB. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
@@ -54,24 +57,33 @@ func (nlbHandler *IbmNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo,
 	}
 	info, err := nlbHandler.setterNLB(rawNLB)
 	if err != nil {
-		nlbHandler.cleanerNLB(nlbReqInfo.IId)
+		_, _ = nlbHandler.cleanerNLB(nlbReqInfo.IId)
 		createErr := errors.New(fmt.Sprintf("Failed to Create NLB. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.NLBInfo{}, createErr
 	}
-	LoggingInfo(hiscallInfo, start)
 
+	// Attach Tag
 	if nlbReqInfo.TagList != nil && len(nlbReqInfo.TagList) > 0 {
-		var tagHandler irs.TagHandler // TagHandler 초기화
-		for _, tag := range nlbReqInfo.TagList{
-			_, err := tagHandler.AddTag("NLB", nlbReqInfo.IId, tag)
+		if rawNLB.CRN == nil {
+			createErr := errors.New(fmt.Sprintf("Failed to get created NLB's CRN"))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.NLBInfo{}, createErr
+		}
+
+		for _, tag := range nlbReqInfo.TagList {
+			err = addTag(nlbHandler.TaggingService, tag, *rawNLB.CRN)
 			if err != nil {
-				createErr := errors.New(fmt.Sprintf("Failed to Attach Tag on NLB err = %s", err.Error()))
+				createErr := errors.New(fmt.Sprintf("Failed to Attach Tag to NLB err = %s", err.Error()))
 				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
 			}
 		}
 	}
+
+	LoggingInfo(hiscallInfo, start)
 
 	return *info, nil
 }
@@ -150,17 +162,8 @@ func (nlbHandler *IbmNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
-	
-	// Detach Tag Auto Delete 
-	var tagService *globaltaggingv1.GlobalTaggingV1
-	deleteTagAllOptions := tagService.NewDeleteTagAllOptions()
-	deleteTagAllOptions.SetTagType("user")
 
-	_, _, err = tagService.DeleteTagAll(deleteTagAllOptions)
-	if err != nil {
-		delErr := errors.New(fmt.Sprintf("Failed to Delete NLB Detached Tag err = %s", err.Error()))
-		cblogger.Error(delErr.Error())
-	}
+	deleteUnusedTags(nlbHandler.TaggingService)
 
 	return true, nil
 }
@@ -831,6 +834,21 @@ func (nlbHandler *IbmNLBHandler) setterNLB(nlb vpcv1.LoadBalancer) (*irs.NLBInfo
 	}
 
 	nlbInfo.CreatedTime = time.Time(*nlb.CreatedAt)
+
+	tagHandler := IbmTagHandler{
+		Region:         nlbHandler.Region,
+		CredentialInfo: nlbHandler.CredentialInfo,
+		VpcService:     nlbHandler.VpcService,
+		Ctx:            nlbHandler.Ctx,
+		SearchService:  nlbHandler.SearchService,
+	}
+
+	tags, err := tagHandler.ListTag(irs.NLB, irs.IID{SystemId: *nlb.ID})
+	if err != nil {
+		cblogger.Warn("Failed to get tags of the NLB (" + *nlb.Name + "). err = " + err.Error())
+	}
+
+	nlbInfo.TagList = tags
 
 	return &nlbInfo, nil
 }

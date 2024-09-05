@@ -53,6 +53,8 @@ func (cloudConn *IbmCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 		VpcService:     cloudConn.VpcService,
 		VpcService0230: cloudConn.VpcService0230,
 		Ctx:            cloudConn.Ctx,
+		TaggingService: cloudConn.TaggingService,
+		SearchService:  cloudConn.SearchService,
 	}
 	return &vmHandler, nil
 }
@@ -60,10 +62,12 @@ func (cloudConn *IbmCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 func (cloudConn *IbmCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
 	cblogger.Info("Ibm Cloud Driver: called CreateVPCHandler()!")
 	vpcHandler := ibmrs.IbmVPCHandler{
-		CredentialInfo: cloudConn.CredentialInfo,
 		Region:         cloudConn.Region,
+		CredentialInfo: cloudConn.CredentialInfo,
 		VpcService:     cloudConn.VpcService,
 		Ctx:            cloudConn.Ctx,
+		TaggingService: cloudConn.TaggingService,
+		SearchService:  cloudConn.SearchService,
 	}
 	return &vpcHandler, nil
 }
@@ -74,6 +78,8 @@ func (cloudConn *IbmCloudConnection) CreateSecurityHandler() (irs.SecurityHandle
 		Region:         cloudConn.Region,
 		VpcService:     cloudConn.VpcService,
 		Ctx:            cloudConn.Ctx,
+		TaggingService: cloudConn.TaggingService,
+		SearchService:  cloudConn.SearchService,
 	}
 	return &securityHandler, nil
 }
@@ -84,6 +90,8 @@ func (cloudConn *IbmCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler,
 		Region:         cloudConn.Region,
 		VpcService:     cloudConn.VpcService,
 		Ctx:            cloudConn.Ctx,
+		TaggingService: cloudConn.TaggingService,
+		SearchService:  cloudConn.SearchService,
 	}
 	return &keyPairHandler, nil
 }
@@ -105,6 +113,8 @@ func (cloudConn *IbmCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) 
 		Region:         cloudConn.Region,
 		VpcService:     cloudConn.VpcService,
 		Ctx:            cloudConn.Ctx,
+		TaggingService: cloudConn.TaggingService,
+		SearchService:  cloudConn.SearchService,
 	}
 	return &nlbHandler, nil
 }
@@ -125,6 +135,8 @@ func (cloudConn *IbmCloudConnection) CreateDiskHandler() (irs.DiskHandler, error
 		Region:         cloudConn.Region,
 		VpcService:     cloudConn.VpcService,
 		Ctx:            cloudConn.Ctx,
+		TaggingService: cloudConn.TaggingService,
+		SearchService:  cloudConn.SearchService,
 	}
 	return &diskHandler, nil
 }
@@ -136,8 +148,9 @@ func (cloudConn *IbmCloudConnection) CreateClusterHandler() (irs.ClusterHandler,
 		Region:         cloudConn.Region,
 		VpcService:     cloudConn.VpcService,
 		ClusterService: cloudConn.ClusterService,
-		TaggingService: cloudConn.TaggingService,
 		Ctx:            cloudConn.Ctx,
+		TaggingService: cloudConn.TaggingService,
+		SearchService:  cloudConn.SearchService,
 	}
 	return &clusterHandler, nil
 }
@@ -149,6 +162,8 @@ func (cloudConn *IbmCloudConnection) CreateMyImageHandler() (irs.MyImageHandler,
 		Region:         cloudConn.Region,
 		VpcService:     cloudConn.VpcService,
 		Ctx:            cloudConn.Ctx,
+		TaggingService: cloudConn.TaggingService,
+		SearchService:  cloudConn.SearchService,
 	}
 	return &myIamgeHandler, nil
 }
@@ -179,8 +194,8 @@ func (cloudConn *IbmCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHand
 func (cloudConn *IbmCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
 	cblogger.Info("Ibm Cloud Driver: called CreateTagHandler()!")
 	TagHandler := ibmrs.IbmTagHandler{
-		CredentialInfo: cloudConn.CredentialInfo,
 		Region:         cloudConn.Region,
+		CredentialInfo: cloudConn.CredentialInfo,
 		VpcService:     cloudConn.VpcService,
 		ClusterService: cloudConn.ClusterService,
 		Ctx:            cloudConn.Ctx,
