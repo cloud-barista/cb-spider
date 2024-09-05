@@ -159,6 +159,8 @@ func (cloudConn *IbmCloudConnection) CreateMyImageHandler() (irs.MyImageHandler,
 		Region:         cloudConn.Region,
 		VpcService:     cloudConn.VpcService,
 		Ctx:            cloudConn.Ctx,
+		TaggingService: cloudConn.TaggingService,
+		SearchService:  cloudConn.SearchService,
 	}
 	return &myIamgeHandler, nil
 }
