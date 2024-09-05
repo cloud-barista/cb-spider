@@ -1116,7 +1116,7 @@
                 }
             },
             "post": {
-                "description": "Create a new Connection Config.",
+                "description": "Create a new Connection Config. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#4-cloud-connection-configuration-%EC%A0%95%EB%B3%B4-%EB%93%B1%EB%A1%9D-%EB%B0%8F-%EA%B4%80%EB%A6%AC)]",
                 "consumes": [
                     "application/json"
                 ],
@@ -1975,7 +1975,7 @@
                 }
             },
             "post": {
-                "description": "Register a new Credential.",
+                "description": "Register a new Credential. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#2-cloud-credential-%EC%A0%95%EB%B3%B4-%EB%93%B1%EB%A1%9D-%EB%B0%8F-%EA%B4%80%EB%A6%AC)]",
                 "consumes": [
                     "application/json"
                 ],
@@ -3077,7 +3077,7 @@
                 }
             },
             "post": {
-                "description": "Register a new Cloud Driver.",
+                "description": "Register a new Cloud Driver. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#1-cloud-driver-%EC%A0%95%EB%B3%B4-%EB%93%B1%EB%A1%9D-%EB%B0%8F-%EA%B4%80%EB%A6%AC)]",
                 "consumes": [
                     "application/json"
                 ],
@@ -5096,7 +5096,7 @@
                 }
             },
             "post": {
-                "description": "Register a new Region.",
+                "description": "Register a new Region. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#3-cloud-regionzone-%EC%A0%95%EB%B3%B4-%EB%93%B1%EB%A1%9D-%EB%B0%8F-%EA%B4%80%EB%A6%AC)]",
                 "consumes": [
                     "application/json"
                 ],

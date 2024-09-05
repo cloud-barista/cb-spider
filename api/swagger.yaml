@@ -3427,7 +3427,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Create a new Connection Config.
+      description: "Create a new Connection Config. \U0001F577️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#4-cloud-connection-configuration-%EC%A0%95%EB%B3%B4-%EB%93%B1%EB%A1%9D-%EB%B0%8F-%EA%B4%80%EB%A6%AC)]"
       operationId: create-connection-config
       parameters:
       - description: Request body for creating a Connection Config
@@ -4005,7 +4005,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Register a new Credential.
+      description: "Register a new Credential. \U0001F577️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#2-cloud-credential-%EC%A0%95%EB%B3%B4-%EB%93%B1%EB%A1%9D-%EB%B0%8F-%EA%B4%80%EB%A6%AC)]"
       operationId: register-credential
       parameters:
       - description: Request body for registering a Credential
@@ -4759,7 +4759,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Register a new Cloud Driver.
+      description: "Register a new Cloud Driver. \U0001F577️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#1-cloud-driver-%EC%A0%95%EB%B3%B4-%EB%93%B1%EB%A1%9D-%EB%B0%8F-%EA%B4%80%EB%A6%AC)]"
       operationId: register-cloud-driver
       parameters:
       - description: Request body for registering a Cloud Driver
@@ -6150,7 +6150,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Register a new Region.
+      description: "Register a new Region. \U0001F577️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#3-cloud-regionzone-%EC%A0%95%EB%B3%B4-%EB%93%B1%EB%A1%9D-%EB%B0%8F-%EA%B4%80%EB%A6%AC)]"
       operationId: register-region
       parameters:
       - description: Request body for registering a Region
