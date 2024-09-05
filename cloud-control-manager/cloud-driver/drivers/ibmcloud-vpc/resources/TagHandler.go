@@ -119,7 +119,7 @@ func getTagFromResource(searchService *globalsearchv2.GlobalSearchV2, crn string
 	query = strings.ReplaceAll(query, "/", "\\/")
 
 	searchOptions := searchService.NewSearchOptions()
-	searchOptions.SetQuery(query)
+	searchOptions.SetQuery(fmt.Sprintf("crn:%s", query))
 	searchOptions.SearchCursor = nil
 	searchOptions.SetFields([]string{"name", "type", "crn", "tags"})
 	searchOptions.SetLimit(1)
@@ -226,6 +226,8 @@ func getCRN(tagHandler *IbmTagHandler, resType irs.RSType, resIID irs.IID) (stri
 			Region:         tagHandler.Region,
 			VpcService:     tagHandler.VpcService,
 			Ctx:            tagHandler.Ctx,
+			TaggingService: tagHandler.TaggingService,
+			SearchService:  tagHandler.SearchService,
 		}
 		rawMyimage, err := imageHandler.GetRawMyImage(resIID)
 		if err != nil {
@@ -242,6 +244,8 @@ func getCRN(tagHandler *IbmTagHandler, resType irs.RSType, resIID irs.IID) (stri
 			Region:         tagHandler.Region,
 			VpcService:     tagHandler.VpcService,
 			Ctx:            tagHandler.Ctx,
+			TaggingService: tagHandler.TaggingService,
+			SearchService:  tagHandler.SearchService,
 		}
 
 		var rawNLB vpcv1.LoadBalancer
@@ -269,6 +273,7 @@ func getCRN(tagHandler *IbmTagHandler, resType irs.RSType, resIID irs.IID) (stri
 			VpcService:     tagHandler.VpcService,
 			ClusterService: tagHandler.ClusterService,
 			TaggingService: tagHandler.TaggingService,
+			SearchService:  tagHandler.SearchService,
 		}
 		rawCluster, err := clusterHandler.getRawCluster(resIID)
 		if err != nil {
@@ -331,7 +336,7 @@ func attachOrDetachTag(tagService *globaltaggingv1.GlobalTaggingV1, tag irs.KeyV
 	return nil
 }
 
-func handleTagAddOrRemove(tagHandler *IbmTagHandler, resType irs.RSType, resIID irs.IID,
+func handleTagAddOrRemove(tagHandler *IbmTagHandler, resType irs.RSType, crn string,
 	tag irs.KeyValue, action string) error {
 	var err error
 
@@ -340,12 +345,6 @@ func handleTagAddOrRemove(tagHandler *IbmTagHandler, resType irs.RSType, resIID 
 		return errors.New("invalid resource type")
 	} else if ibmType == "all" {
 		return errors.New("all is not supported for getting tag from the resource")
-	}
-
-	crn, err := getCRN(tagHandler, resType, resIID)
-	if err != nil {
-		err = errors.New(fmt.Sprintf("Failed to "+action+" a tag. err = %s", err))
-		return err
 	}
 
 	if action == "remove" {
@@ -375,7 +374,7 @@ func (tagHandler *IbmTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag 
 		return tagFound, errors.New("tag with provided key is already exists")
 	}
 
-	err = handleTagAddOrRemove(tagHandler, resType, resIID, tag, "add")
+	err = handleTagAddOrRemove(tagHandler, resType, crn, tag, "add")
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Failed to add a tag. err = %s", err))
 		cblogger.Error(err.Error())
@@ -497,7 +496,7 @@ func (tagHandler *IbmTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, k
 	hiscallInfo := GetCallLogScheme(tagHandler.Region, call.TAG, resIID.NameId, "RemoveTag()")
 	start := call.Start()
 
-	err := handleTagAddOrRemove(tagHandler, resType, resIID, irs.KeyValue{Key: key}, "remove")
+	crn, err := getCRN(tagHandler, resType, resIID)
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Failed to remove a tag. err = %s", err))
 		cblogger.Error(err.Error())
@@ -505,7 +504,7 @@ func (tagHandler *IbmTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, k
 		return false, err
 	}
 
-	crn, err := getCRN(tagHandler, resType, resIID)
+	err = handleTagAddOrRemove(tagHandler, resType, crn, irs.KeyValue{Key: key}, "remove")
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Failed to remove a tag. err = %s", err))
 		cblogger.Error(err.Error())
@@ -633,6 +632,7 @@ func (tagHandler *IbmTagHandler) FindTag(resType irs.RSType, keyword string) ([]
 					VpcService:     tagHandler.VpcService,
 					ClusterService: tagHandler.ClusterService,
 					TaggingService: tagHandler.TaggingService,
+					SearchService:  tagHandler.SearchService,
 				}
 				rawCluster, err := clusterHandler.getRawCluster(irs.IID{NameId: name})
 				if err != nil {
