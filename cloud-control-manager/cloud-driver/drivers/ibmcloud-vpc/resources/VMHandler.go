@@ -1291,6 +1291,10 @@ func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, e
 			NameId:   *instance.PrimaryNetworkInterface.Subnet.Name,
 			SystemId: *instance.PrimaryNetworkInterface.Subnet.ID,
 		},
+		ImageIId: irs.IID{
+			NameId:   *instance.Image.Name,
+			SystemId: *instance.Image.ID,
+		},
 		PrivateIP:      *instance.PrimaryNetworkInterface.PrimaryIpv4Address,
 		VMUserId:       CBDefaultVmUserName,
 		RootDeviceName: "Not visible in IBMCloud-VPC",
