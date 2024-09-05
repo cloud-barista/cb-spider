@@ -71,6 +71,7 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			Region:         vmHandler.Region,
 			VpcService:     vmHandler.VpcService,
 			Ctx:            vmHandler.Ctx,
+			SearchService:  vmHandler.SearchService,
 		}
 		var getMyImageErr error
 		myImage, getMyImageErr = myImageHandler.GetMyImage(vmReqInfo.ImageIID)
