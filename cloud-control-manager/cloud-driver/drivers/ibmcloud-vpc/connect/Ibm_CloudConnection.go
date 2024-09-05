@@ -148,8 +148,9 @@ func (cloudConn *IbmCloudConnection) CreateClusterHandler() (irs.ClusterHandler,
 		Region:         cloudConn.Region,
 		VpcService:     cloudConn.VpcService,
 		ClusterService: cloudConn.ClusterService,
-		TaggingService: cloudConn.TaggingService,
 		Ctx:            cloudConn.Ctx,
+		TaggingService: cloudConn.TaggingService,
+		SearchService:  cloudConn.SearchService,
 	}
 	return &clusterHandler, nil
 }
@@ -193,8 +194,8 @@ func (cloudConn *IbmCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHand
 func (cloudConn *IbmCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
 	cblogger.Info("Ibm Cloud Driver: called CreateTagHandler()!")
 	TagHandler := ibmrs.IbmTagHandler{
-		CredentialInfo: cloudConn.CredentialInfo,
 		Region:         cloudConn.Region,
+		CredentialInfo: cloudConn.CredentialInfo,
 		VpcService:     cloudConn.VpcService,
 		ClusterService: cloudConn.ClusterService,
 		Ctx:            cloudConn.Ctx,

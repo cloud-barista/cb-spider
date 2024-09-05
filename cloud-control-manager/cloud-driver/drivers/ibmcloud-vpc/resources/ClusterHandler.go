@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/IBM/go-sdk-core/v5/core"
+	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	"github.com/IBM/platform-services-go-sdk/resourcemanagerv2"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
@@ -85,6 +86,7 @@ type IbmClusterHandler struct {
 	VpcService     *vpcv1.VpcV1
 	ClusterService *kubernetesserviceapiv1.KubernetesServiceApiV1
 	TaggingService *globaltaggingv1.GlobalTaggingV1
+	SearchService  *globalsearchv2.GlobalSearchV2
 }
 
 var defaultResourceGroupId string
@@ -115,6 +117,7 @@ func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.
 		Region:         ic.Region,
 		VpcService:     ic.VpcService,
 		Ctx:            ic.Ctx,
+		SearchService:  ic.SearchService,
 	}
 	vpcInfo, getVpcInfoErr := vpcHandler.GetVPC(clusterReqInfo.Network.VpcIID)
 	if getVpcInfoErr != nil {
@@ -171,6 +174,7 @@ func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.
 			Region:         ic.Region,
 			Ctx:            ic.Ctx,
 			VpcService:     ic.VpcService,
+			SearchService:  ic.SearchService,
 		}
 
 		// restore VPC default security group
@@ -223,7 +227,7 @@ func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.
 					if addRuleErr != nil {
 						cblogger.Error(addRuleErr)
 						LoggingError(hiscallInfo, addRuleErr)
-						ic.DeleteCluster(clusterReqInfo.IId)
+						_, _ = ic.DeleteCluster(clusterReqInfo.IId)
 					}
 					break
 				}
@@ -245,7 +249,7 @@ func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.
 	if getClustersErr != nil {
 		cblogger.Error(getClustersErr)
 		LoggingError(hiscallInfo, getClustersErr)
-		ic.DeleteCluster(clusterReqInfo.IId)
+		_, _ = ic.DeleteCluster(clusterReqInfo.IId)
 		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Get Cluster. err = %s", getClustersErr))
 	}
 	rawCluster := (*rawClusters)[0]
@@ -255,7 +259,7 @@ func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.
 	if autoScalerErr != nil {
 		cblogger.Error(autoScalerErr)
 		LoggingError(hiscallInfo, autoScalerErr)
-		ic.DeleteCluster(clusterReqInfo.IId)
+		_, _ = ic.DeleteCluster(clusterReqInfo.IId)
 		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Get Cluster. err = %s", autoScalerErr))
 	}
 
@@ -265,6 +269,18 @@ func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.
 	// Set Security Group
 	ic.initSecurityGroup(clusterReqInfo, rawCluster.Id, rawCluster.Crn)
 
+	// Attach Tag
+	if clusterReqInfo.TagList != nil && len(clusterReqInfo.TagList) > 0 {
+		for _, tag := range clusterReqInfo.TagList {
+			err := addTag(ic.TaggingService, tag, rawCluster.Crn)
+			if err != nil {
+				createErr := errors.New(fmt.Sprintf("Failed to Attach Tag to Cluster err = %s", err.Error()))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+			}
+		}
+	}
+
 	clusterInfo, getClusterErr := ic.GetCluster(irs.IID{SystemId: rawCluster.Id})
 	if getClusterErr != nil {
 		cblogger.Error(getClusterErr)
@@ -273,18 +289,6 @@ func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.
 	}
 
 	LoggingInfo(hiscallInfo, start)
-
-	// Attach Tag
-	if clusterReqInfo.TagList != nil && len(clusterReqInfo.TagList) > 0 {
-		var tagHandler irs.TagHandler // TagHandler 초기화
-		for _, tag := range clusterReqInfo.TagList{
-			_, err := tagHandler.AddTag("CLUSTER", clusterReqInfo.IId, tag)
-			if err != nil {
-				createErr := errors.New(fmt.Sprintf("Failed to Attach Tag on Cluster err = %s", err.Error()))
-				cblogger.Error(createErr.Error())
-			}
-		}
-	}
 
 	return clusterInfo, nil
 }
@@ -462,18 +466,8 @@ func (ic *IbmClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
 	}
 
 	LoggingInfo(hiscallInfo, start)
-	
-	// Detach Tag Auto Delete 
-	var tagService *globaltaggingv1.GlobalTaggingV1
-	deleteTagAllOptions := tagService.NewDeleteTagAllOptions()
-	deleteTagAllOptions.SetTagType("user")
 
-	_, _, err := tagService.DeleteTagAll(deleteTagAllOptions)
-	if err != nil {
-		delErr := errors.New(fmt.Sprintf("Failed to Delete Cluster Detached Tag err = %s", err.Error()))
-		cblogger.Error(delErr.Error())
-	}
-
+	deleteUnusedTags(ic.TaggingService)
 
 	return true, nil
 }
@@ -1454,6 +1448,7 @@ func (ic *IbmClusterHandler) initSecurityGroup(clusterReqInfo irs.ClusterInfo, c
 		Region:         ic.Region,
 		VpcService:     ic.VpcService,
 		Ctx:            ic.Ctx,
+		SearchService:  ic.SearchService,
 	}
 
 	ic.manageStatusTag(clusterCrn, SecurityGroupStatus, INITIALIZING)
@@ -1719,6 +1714,7 @@ func (ic *IbmClusterHandler) setClusterInfo(rawCluster kubernetesserviceapiv1.Ge
 		Region:         ic.Region,
 		VpcService:     ic.VpcService,
 		Ctx:            ic.Ctx,
+		SearchService:  ic.SearchService,
 	}
 	sgInfo, sgInfoErr := sgHandler.GetSecurity(irs.IID{NameId: fmt.Sprintf("kube-%s", rawCluster.Id)})
 	if sgInfoErr != nil {
@@ -1793,20 +1789,39 @@ func (ic *IbmClusterHandler) setClusterInfo(rawCluster kubernetesserviceapiv1.Ge
 	}
 
 	autoScalerStatus := fmt.Sprintf("%s%s", AutoScalerStatus, FAILED)
-	for _, tag := range rawTags.Items {
-		if isTagStatusOf(*tag.Name, AutoScalerStatus) {
-			autoScalerStatus = *tag.Name
-			break
+	if rawTags != nil {
+		for _, tag := range rawTags.Items {
+			if isTagStatusOf(*tag.Name, AutoScalerStatus) {
+				autoScalerStatus = *tag.Name
+				break
+			}
 		}
 	}
+
 	securityGroupStatus := fmt.Sprintf("%s%s", SecurityGroupStatus, FAILED)
-	for _, tag := range rawTags.Items {
-		if isTagStatusOf(*tag.Name, SecurityGroupStatus) {
-			securityGroupStatus = *tag.Name
-			break
+	if rawTags != nil {
+		for _, tag := range rawTags.Items {
+			if isTagStatusOf(*tag.Name, SecurityGroupStatus) {
+				securityGroupStatus = *tag.Name
+				break
+			}
 		}
 	}
 	clusterStatus = ic.getClusterFinalStatus(clusterStatus, autoScalerStatus, securityGroupStatus)
+
+	tagHandler := IbmTagHandler{
+		Region:         ic.Region,
+		CredentialInfo: ic.CredentialInfo,
+		VpcService:     ic.VpcService,
+		ClusterService: ic.ClusterService,
+		Ctx:            ic.Ctx,
+		SearchService:  ic.SearchService,
+	}
+
+	tags, err := tagHandler.ListTag(irs.CLUSTER, irs.IID{NameId: rawCluster.Name, SystemId: rawCluster.Id})
+	if err != nil {
+		cblogger.Warn("Failed to get tags of the CLUSTER (" + rawCluster.Name + "). err = " + err.Error())
+	}
 
 	// Build result
 	return irs.ClusterInfo{
@@ -1829,6 +1844,7 @@ func (ic *IbmClusterHandler) setClusterInfo(rawCluster kubernetesserviceapiv1.Ge
 		Addons:       clusterAddons,
 		Status:       clusterStatus,
 		CreatedTime:  time.Time(createdTime).Local(),
+		TagList:      tags,
 		KeyValueList: nil,
 	}, nil
 }
@@ -1916,6 +1932,7 @@ func (ic *IbmClusterHandler) validateAndGetSubnetInfo(networkInfo irs.NetworkInf
 		Region:         ic.Region,
 		VpcService:     ic.VpcService,
 		Ctx:            ic.Ctx,
+		SearchService:  ic.SearchService,
 	}
 	vpcInfo, getVpcErr := vpcHandler.GetVPC(networkInfo.VpcIID)
 	if getVpcErr != nil {
