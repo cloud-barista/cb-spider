@@ -57,30 +57,12 @@ func generateRandName(prefix string) string {
 }
 
 func addTag(tagService *globaltaggingv1.GlobalTaggingV1, tag irs.KeyValue, CRN string) error {
-	resourceModel := globaltaggingv1.Resource{
-		ResourceID: &CRN,
-	}
-
-	var tagName string
-	if tag.Value == "" {
-		tagName = tag.Key
-	} else {
-		tagName = tag.Key + ":" + tag.Value
-	}
-
-	attachTagOptions := tagService.NewAttachTagOptions(
-		[]globaltaggingv1.Resource{resourceModel},
-	)
-
-	attachTagOptions.SetTagNames([]string{tagName})
-	attachTagOptions.SetTagType("user")
-
-	_, _, err := tagService.AttachTag(attachTagOptions)
+	err := tagValidation(tag)
 	if err != nil {
 		return err
 	}
 
-	return nil
+	return attachOrDetachTag(tagService, tag, CRN, "add")
 }
 
 func deleteUnusedTags(tagService *globaltaggingv1.GlobalTaggingV1) {
