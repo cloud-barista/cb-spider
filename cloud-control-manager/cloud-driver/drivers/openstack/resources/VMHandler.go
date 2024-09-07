@@ -305,11 +305,11 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 
 	// Tagging
 	tagHandler := OpenStackTagHandler{
-		CredentialInfo: vpcHandler.CredentialInfo,
-		IdentityClient: vpcHandler.IdentityClient,
-		ComputeClient:  vpcHandler.ComputeClient,
-		NetworkClient:  vpcHandler.NetworkClient,
-		NLBClient:      vpcHandler.NLBClient,
+		CredentialInfo: vmHandler.CredentialInfo,
+		IdentityClient: vmHandler.IdentityClient,
+		ComputeClient:  vmHandler.ComputeClient,
+		NetworkClient:  vmHandler.NetworkClient,
+		NLBClient:      vmHandler.NLBClient,
 	}
 
 	var errTags []irs.KeyValue
@@ -597,20 +597,14 @@ func getVmStatus(vmStatus string) irs.VMStatus {
 }
 
 func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) irs.VMInfo {
-	var tags []irs.KeyValue
-
-	if server.Tags != nil {
-		for _, tag := range *server.Tags {
-			tags = append(tags, tagsToKeyValue(tag))
-		}
+	iid := irs.IID{
+		NameId:   server.Name,
+		SystemId: server.ID,
 	}
 
 	// Get Default VM Info
 	vmInfo := irs.VMInfo{
-		IId: irs.IID{
-			NameId:   server.Name,
-			SystemId: server.ID,
-		},
+		IId: iid,
 		Region: irs.RegionInfo{
 			Zone:   vmHandler.Region.Zone,
 			Region: vmHandler.Region.Region,
@@ -621,8 +615,8 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 		NetworkInterface:  server.HostID,
 		KeyValueList:      nil,
 		SecurityGroupIIds: nil,
-		TagList:           tags,
 	}
+
 	OSType, err := getOSTypeByServer(server)
 	if err == nil {
 		if OSType == irs.WINDOWS {
@@ -651,6 +645,7 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 			vmInfo.ImageIId = imageInfo
 		}
 	}
+
 	// VM DiskSize Custom
 	if len(server.AttachedVolumes) > 0 && vmHandler.VolumeClient != nil {
 		var dataDisks []irs.IID
@@ -671,6 +666,7 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 			vmInfo.DataDiskIIDs = dataDisks
 		}
 	}
+
 	// VM Flavor 정보 설정
 	flavorId := server.Flavor["id"].(string)
 	flavor, _ := flavors.Get(vmHandler.ComputeClient, flavorId).Extract()
@@ -743,6 +739,22 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 			vmInfo.AccessPoint = fmt.Sprintf("%s:%s", vmInfo.PublicIP, "22")
 		}
 	}
+
+	tagHandler := OpenStackTagHandler{
+		CredentialInfo: vmHandler.CredentialInfo,
+		IdentityClient: vmHandler.IdentityClient,
+		ComputeClient:  vmHandler.ComputeClient,
+		NetworkClient:  vmHandler.NetworkClient,
+		NLBClient:      vmHandler.NLBClient,
+	}
+
+	tags, err := tagHandler.ListTag(irs.VM, iid)
+	if err == nil {
+		vmInfo.TagList = tags
+	} else {
+		cblogger.Warn("Failed to get VM tags. err = " + err.Error())
+	}
+
 	return vmInfo
 }
 
