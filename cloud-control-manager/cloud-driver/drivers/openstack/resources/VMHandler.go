@@ -668,12 +668,14 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 	}
 
 	// VM Flavor 정보 설정
-	flavorId := server.Flavor["id"].(string)
-	flavor, _ := flavors.Get(vmHandler.ComputeClient, flavorId).Extract()
-	if flavor != nil {
-		vmInfo.VMSpecName = flavor.Name
-		if vmInfo.RootDiskSize == "" {
-			vmInfo.RootDiskSize = strconv.Itoa(flavor.Disk)
+	flavorId, ok := server.Flavor["id"].(string)
+	if ok {
+		flavor, _ := flavors.Get(vmHandler.ComputeClient, flavorId).Extract()
+		if flavor != nil {
+			vmInfo.VMSpecName = flavor.Name
+			if vmInfo.RootDiskSize == "" {
+				vmInfo.RootDiskSize = strconv.Itoa(flavor.Disk)
+			}
 		}
 	}
 
