@@ -6,8 +6,8 @@ ibmvpc:
   zone: us-south-1
   resources:
     image:
-      nameId: r006-9de77234-3189-42f8-982d-f2266477cfe0
-      systemId: r006-9de77234-3189-42f8-982d-f2266477cfe0
+      nameId: r006-3a44e4ee-9c9f-4693-98ae-fced7a46ffce
+      systemId: r006-3a44e4ee-9c9f-4693-98ae-fced7a46ffce
     security:
       nameId: mcb-test-sg
       systemId:
@@ -51,11 +51,11 @@ ibmvpc:
         ipv4CIDR: 10.240.2.0/24
     vm:
       IID:
-        nameId: mcb-test-vm
+        nameId: nlb-tester-vm-01
         systemId:
       ImageIID:
-        nameId: r006-9de77234-3189-42f8-982d-f2266477cfe0
-        systemId: r006-9de77234-3189-42f8-982d-f2266477cfe0
+        nameId: r006-b628ea7a-b73a-488b-802f-d0e155c15f0f
+        systemId: r006-b628ea7a-b73a-488b-802f-d0e155c15f0f
       VmSpecName: bx2-2x8
       KeyPairIID:
         nameId: mcb-test-key
@@ -71,16 +71,15 @@ ibmvpc:
           systemId:
     cluster:
       IID:
-        nameId: mycluster
-      version: "1.30.2"
+        nameId: ish2-cluster
+      version: "1.30.4"
       network:
         vpcIID:
-          nameId: "cb-sp-container"
+          nameId: "mcb-test-vpc"
         subnetIIDs:
-          - nameId: "sn-20221212-03"
+          - nameId: "mcb-test-vpc-subnet1"
         securityGroupIIDs:
-          - nameId: "container-test-1"
-          - nameId: "container-test-2"
+          - nameId: "mcb-test-sg"
       nodeGroupList:
         - IID:
             nameId: "default"
@@ -88,30 +87,30 @@ ibmvpc:
           rootDiskType: "Default"
           rootDiskSize: "Default"
           keyPairIID:
-            nameId: "some-random-keypair"
+            nameId: "mcb-test-key"
           onAutoScaling: false
           desireNodeSize: 1
           minNodeSize: 1
           maxNodeSize: 2
       additionalNodeGroup:
-          IID:
-            nameId: "second"
-          vmSpecName: "bx2.4x16"
-          rootDiskType: "Default"
-          rootDiskSize: "Default"
-          keyPairIID:
-            nameId: "some-random-keypair"
-          onAutoScaling: false
-          desireNodeSize: 1
-          minNodeSize: 1
-          maxNodeSize: 2
+        IID:
+          nameId: "second"
+        vmSpecName: "bx2.4x16"
+        rootDiskType: "Default"
+        rootDiskSize: "Default"
+        keyPairIID:
+          nameId: "mcb-test-key"
+        onAutoScaling: false
+        desireNodeSize: 1
+        minNodeSize: 1
+        maxNodeSize: 2
       clusterUpdateInfos:
-          targetNodeGroupIID:
-            nameId: "second"
-          onNodeGroupAutoScaling: true
-          changeNodeGroupScaling:
-            desiredNodeSize: 2
-            minNodeSize: 2
-            maxNodeSize: 3
-          upgradeVersion: "1.30.2"
+        targetNodeGroupIID:
+          nameId: "second"
+        onNodeGroupAutoScaling: true
+        changeNodeGroupScaling:
+          desiredNodeSize: 2
+          minNodeSize: 2
+          maxNodeSize: 3
+        upgradeVersion: "1.30.4"
 

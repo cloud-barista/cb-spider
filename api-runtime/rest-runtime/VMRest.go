@@ -35,7 +35,7 @@ type VMUsingResources struct {
 // @ID get-vm-using-rs
 // @Summary Get VM Using Resource
 // @Description Retrieve details of a VM using resource ID.
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "Connection name for the VM"
@@ -79,7 +79,7 @@ type VMRegisterRequest struct {
 // @ID register-vm
 // @Summary Register VM
 // @Description Register a new Virtual Machine (VM) with the specified name and CSP ID.
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Accept  json
 // @Produce  json
 // @Param VMRegisterRequest body restruntime.VMRegisterRequest true "Request body for registering a VM"
@@ -113,7 +113,7 @@ func RegisterVM(c echo.Context) error {
 // @ID unregister-vm
 // @Summary Unregister VM
 // @Description Unregister a Virtual Machine (VM) with the specified name.
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for unregistering a VM"
@@ -161,8 +161,8 @@ type VMStartRequest struct {
 		KeyPairName        string   `json:"KeyPairName" validate:"required" example:"keypair-01"`
 
 		RootDiskType  string   `json:"RootDiskType,omitempty" validate:"omitempty" example:"gp2"`                         // gp2 or default, if not specified, default is used
-		RootDiskSize  string   `json:"RootDiskSize,omitempty" validate:"omitempty" example:"30"`                          // GB, 30 or default, if not specified, default is used
-		DataDiskNames []string `json:"DataDiskNames,omitempty" validate:"omitempty" example:"data-disk-01, data-disk-02"` // same zone as this VM
+		RootDiskSize  string   `json:"RootDiskSize,omitempty" validate:"omitempty" example:"30"`                          // 100 or default, if not specified, default is used (unit is GB)
+		DataDiskNames []string `json:"DataDiskNames,omitempty" validate:"omitempty" example:"data-disk-01, data-disk-02"` // Data disks in the same zone as this VM
 
 		VMUserId     string `json:"VMUserId,omitempty" validate:"omitempty" example:"Administrator"`    // Administrator, Windows Only
 		VMUserPasswd string `json:"VMUserPasswd,omitempty" validate:"omitempty" example:"password1234"` // Windows Only
@@ -174,8 +174,8 @@ type VMStartRequest struct {
 // startVM godoc
 // @ID start-vm
 // @Summary Start VM
-// @Description Start a new Virtual Machine (VM) with specified configurations.
-// @Tags [VM management]
+// @Description Start a new Virtual Machine (VM) with specified configurations. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#2-%EB%A9%80%ED%8B%B0%ED%81%B4%EB%9D%BC%EC%9A%B0%EB%93%9C-vm-%EC%9D%B8%ED%94%84%EB%9D%BC-%EC%9E%90%EC%9B%90-%EC%A0%9C%EC%96%B4multi-cloud-vm-infra-resource-control)], [[Snapshot-MyImage,Disk Guide](https://github.com/cloud-barista/cb-spider/wiki/VM-Snapshot,-MyImage-and-Disk-Overview)]
+// @Tags [VM Management]
 // @Accept  json
 // @Produce  json
 // @Param VMStartRequest body restruntime.VMStartRequest true "Request body for starting a VM"
@@ -249,7 +249,7 @@ type VMListResponse struct {
 // @ID list-vm
 // @Summary List VMs
 // @Description Retrieve a list of Virtual Machines (VMs) associated with a specific connection.
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to list VMs for"
@@ -287,13 +287,13 @@ func ListVM(c echo.Context) error {
 
 // listAllVM godoc
 // @ID list-all-vm
-// @Summary List All VMs
-// @Description Retrieve a list of all Virtual Machines (VMs) across all connections.
-// @Tags [VM management]
+// @Summary List All VMs in a Connection
+// @Description Retrieve a comprehensive list of all Virtual Machines (VMs) associated with a specific connection, <br> including those mapped between CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing in the CSP.
+// @Tags [VM Management]
 // @Accept  json
 // @Produce  json
-// @Param ConnectionName query string true "The name of the Connection"
-// @Success 200 {object} AllResourceListResponse "List of all VMs with their respective lists"
+// @Param ConnectionName query string true "The name of the Connection to list VMs for"
+// @Success 200 {object} AllResourceListResponse "List of all VMs within the specified connection, including VMs in CB-Spider only, CSP only, and mapped between both."
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -325,7 +325,7 @@ func ListAllVM(c echo.Context) error {
 // @ID get-vm
 // @Summary Get VM
 // @Description Retrieve details of a specific Virtual Machine (VM).
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to get a VM for"
@@ -362,7 +362,7 @@ func GetVM(c echo.Context) error {
 // @ID get-csp-vm
 // @Summary Get CSP VM
 // @Description Retrieve details of a specific CSP Virtual Machine (VM).
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to get a CSP VM for"
@@ -399,13 +399,13 @@ func GetCSPVM(c echo.Context) error {
 // @ID terminate-vm
 // @Summary Terminate VM
 // @Description Terminate a specified Virtual Machine (VM).
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for terminating a VM"
 // @Param Name path string true "The name of the VM to terminate"
-// @Param force query string false "Force terminate the VM"
-// @Success 200 {object} StatusInfo "Result of the terminate operation"
+// @Param force query string false "Force terminate the VM. ex) true or false(default: false)"
+// @Success 200 {object} VMStatusResponse "Result of the terminate operation"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -425,8 +425,8 @@ func TerminateVM(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	resultInfo := StatusInfo{
-		Status: string(result),
+	resultInfo := VMStatusResponse{
+		Status: result,
 	}
 
 	return c.JSON(http.StatusOK, &resultInfo)
@@ -436,12 +436,12 @@ func TerminateVM(c echo.Context) error {
 // @ID terminate-csp-vm
 // @Summary Terminate CSP VM
 // @Description Terminate a specified CSP Virtual Machine (VM).
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for terminating a CSP VM"
 // @Param Id path string true "The CSP VM ID to terminate"
-// @Success 200 {object} StatusInfo "Result of the terminate operation"
+// @Success 200 {object} VMStatusResponse "Result of the terminate operation"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -461,27 +461,27 @@ func TerminateCSPVM(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	resultInfo := StatusInfo{
-		Status: string(result),
+	resultInfo := VMStatusResponse{
+		Status: result,
 	}
 
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
-// VMStatusResponse represents the response body structure for VM status APIs.
-type VMStatusResponse struct {
-	Status string `json:"Status" validate:"required" example:"Running"` // Creating,Running,Suspending,Suspended,Resuming,Rebooting,Terminating,Terminated,NotExist,Failed
+// VMListStatusResponse represents the response structure for listing VM statuses.
+type VMListStatusResponse struct {
+	Result []*cres.VMStatusInfo `json:"vmstatus" validate:"required"`
 }
 
 // listVMStatus godoc
 // @ID list-vm-status
 // @Summary List VM Statuses
 // @Description Retrieve a list of statuses for Virtual Machines (VMs) associated with a specific connection.
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to list VM statuses for"
-// @Success 200 {object} VMStatusResponse "List of VM statuses"
+// @Success 200 {object} VMListStatusResponse "List of VM statuses"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameter"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -506,19 +506,22 @@ func ListVMStatus(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	var jsonResult struct {
-		Result []*cres.VMStatusInfo `json:"vmstatus"`
-	}
+	var jsonResult VMListStatusResponse
 	jsonResult.Result = result
 
 	return c.JSON(http.StatusOK, &jsonResult)
+}
+
+// VMStatusResponse represents the response body structure for VM status APIs.
+type VMStatusResponse struct {
+	Status cres.VMStatus `json:"Status" validate:"required" example:"Running"`
 }
 
 // getVMStatus godoc
 // @ID get-vm-status
 // @Summary Get VM Status
 // @Description Retrieve the status of a specific Virtual Machine (VM).
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to get a VM status for"
@@ -549,7 +552,7 @@ func GetVMStatus(c echo.Context) error {
 	}
 
 	resultInfo := VMStatusResponse{
-		Status: string(result),
+		Status: result,
 	}
 
 	return c.JSON(http.StatusOK, &resultInfo)
@@ -559,7 +562,7 @@ func GetVMStatus(c echo.Context) error {
 // @ID control-vm
 // @Summary Control VM
 // @Description Control the state of a Virtual Machine (VM) such as suspend, resume, or reboot.
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for controlling a VM"
@@ -591,7 +594,7 @@ func ControlVM(c echo.Context) error {
 	}
 
 	resultInfo := VMStatusResponse{
-		Status: string(result),
+		Status: result,
 	}
 
 	return c.JSON(http.StatusOK, &resultInfo)
@@ -601,7 +604,7 @@ func ControlVM(c echo.Context) error {
 // @ID count-all-vms
 // @Summary Count All VMs
 // @Description Get the total number of Virtual Machines (VMs) across all connections.
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Produce  json
 // @Success 200 {object} CountResponse "Total count of VMs"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -626,7 +629,7 @@ func CountAllVMs(c echo.Context) error {
 // @ID count-vms-by-connection
 // @Summary Count VMs by Connection
 // @Description Get the total number of Virtual Machines (VMs) for a specific connection.
-// @Tags [VM management]
+// @Tags [VM Management]
 // @Produce  json
 // @Param ConnectionName path string true "The name of the Connection"
 // @Success 200 {object} CountResponse "Total count of VMs for the connection"

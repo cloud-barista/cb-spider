@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/IBM/go-sdk-core/v5/core"
+	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	vpcv0230 "github.com/IBM/vpc-go-sdk/0.23.0/vpcv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
@@ -30,6 +31,8 @@ type IbmVMHandler struct {
 	VpcService     *vpcv1.VpcV1
 	VpcService0230 *vpcv0230.VpcV1
 	Ctx            context.Context
+	TaggingService *globaltaggingv1.GlobalTaggingV1
+	SearchService  *globalsearchv2.GlobalSearchV2
 }
 
 func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
@@ -68,6 +71,7 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			Region:         vmHandler.Region,
 			VpcService:     vmHandler.VpcService,
 			Ctx:            vmHandler.Ctx,
+			SearchService:  vmHandler.SearchService,
 		}
 		var getMyImageErr error
 		myImage, getMyImageErr = myImageHandler.GetMyImage(vmReqInfo.ImageIID)
@@ -254,7 +258,7 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				Name: spec.Name,
 			},
 			Zone: &vpcv0230.ZoneIdentity{
-				Name: &vmHandler.Region.Zone,
+				Name: vpcSubnet.Zone.Name,
 			},
 			PrimaryNetworkInterface: &vpcv0230.NetworkInterfacePrototype{
 				Subnet: &vpcv0230.SubnetIdentity{
@@ -281,7 +285,7 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 				Name: spec.Name,
 			},
 			Zone: &vpcv0230.ZoneIdentity{
-				Name: &vmHandler.Region.Zone,
+				Name: vpcSubnet.Zone.Name,
 			},
 			PrimaryNetworkInterface: &vpcv0230.NetworkInterfacePrototype{
 				Subnet: &vpcv0230.SubnetIdentity{
@@ -311,12 +315,19 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	// 2-1. Attach Tag
 	if vmReqInfo.TagList != nil && len(vmReqInfo.TagList) > 0 {
-		var tagHandler irs.TagHandler // TagHandler 초기화
-		for _, tag := range vmReqInfo.TagList{
-			_, err := tagHandler.AddTag("VM", vmReqInfo.IId, tag)
+		if createInstance.CRN == nil {
+			createErr := errors.New(fmt.Sprintf("Failed to get created VM's CRN"))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VMInfo{}, createErr
+		}
+
+		for _, tag := range vmReqInfo.TagList {
+			err = addTag(vmHandler.TaggingService, tag, *createInstance.CRN)
 			if err != nil {
-				createErr := errors.New(fmt.Sprintf("Failed to Attach Tag on VM err = %s", err.Error()))
+				createErr := errors.New(fmt.Sprintf("Failed to Attach Tag to VM err = %s", err.Error()))
 				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
 			}
 		}
 	}
@@ -666,16 +677,7 @@ func (vmHandler *IbmVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) 
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	// Detach Tag Auto Delete 
-	var tagService *globaltaggingv1.GlobalTaggingV1
-	deleteTagAllOptions := tagService.NewDeleteTagAllOptions()
-	deleteTagAllOptions.SetTagType("user")
-
-	_, _, err = tagService.DeleteTagAll(deleteTagAllOptions)
-	if err != nil {
-		delErr := errors.New(fmt.Sprintf("Failed to Delete VM Detached Tag err = %s", err.Error()))
-		cblogger.Error(delErr.Error())
-	}
+	deleteUnusedTags(vmHandler.TaggingService)
 
 	return irs.Terminating, nil
 }
@@ -1290,6 +1292,10 @@ func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, e
 			NameId:   *instance.PrimaryNetworkInterface.Subnet.Name,
 			SystemId: *instance.PrimaryNetworkInterface.Subnet.ID,
 		},
+		ImageIId: irs.IID{
+			NameId:   *instance.Image.Name,
+			SystemId: *instance.Image.ID,
+		},
 		PrivateIP:      *instance.PrimaryNetworkInterface.PrimaryIpv4Address,
 		VMUserId:       CBDefaultVmUserName,
 		RootDeviceName: "Not visible in IBMCloud-VPC",
@@ -1346,6 +1352,21 @@ func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, e
 			vmInfo.AccessPoint = vmInfo.AccessPoint + ":22"
 		}
 	}
+
+	tagHandler := IbmTagHandler{
+		Region:         vmHandler.Region,
+		CredentialInfo: vmHandler.CredentialInfo,
+		VpcService:     vmHandler.VpcService,
+		Ctx:            vmHandler.Ctx,
+		SearchService:  vmHandler.SearchService,
+	}
+
+	tags, err := tagHandler.ListTag(irs.VM, irs.IID{SystemId: *instance.ID})
+	if err != nil {
+		cblogger.Warn("Failed to get tags of the Key (" + *instance.Name + "). err = " + err.Error())
+	}
+
+	vmInfo.TagList = tags
 
 	return vmInfo, nil
 }

@@ -16,6 +16,7 @@ import (
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -26,8 +27,9 @@ import (
 	*/)
 
 type AlibabaVMHandler struct {
-	Region idrv.RegionInfo
-	Client *ecs.Client
+	Region    idrv.RegionInfo
+	Client    *ecs.Client
+	VpcClient *vpc.Client
 }
 
 // 주어진 이미지 id에 대한 이미지 사이즈 조회
@@ -67,6 +69,26 @@ func (vmHandler *AlibabaVMHandler) GetImageSize(ImageSystemId string) (int64, er
 // @TODO : PublicIp 요금제 방식과 대역폭 설정 방법 논의 필요
 func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	cblogger.Debug(vmReqInfo)
+	zoneId := vmHandler.Region.Zone
+
+	vpcHandler := AlibabaVPCHandler{
+		Region: vmHandler.Region,
+		Client: vmHandler.VpcClient,
+	}
+
+	subnetInfo, err := GetSubnet(vpcHandler.Client, vmReqInfo.SubnetIID.SystemId, zoneId)
+	if err != nil {
+		return irs.VMInfo{}, errors.New("there is no available subnet")
+	}
+	cblogger.Info("subnetInfo response : ", subnetInfo)
+	if subnetInfo.Zone != "" {
+		zoneId = subnetInfo.Zone
+	}
+	cblogger.Debugf("Zone : %s", zoneId)
+	if zoneId == "" {
+		cblogger.Error("Connection information does not contain Zone information.")
+		return irs.VMInfo{}, errors.New("Connection Connection information does not contain Zone information.")
+	}
 	//cblogger.Debug(vmReqInfo)
 
 	/* 2021-10-26 이슈 #480에 의해 제거
@@ -74,7 +96,7 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	//=============================
 	// KeyPair의 PublicKey 정보 처리
 	//=============================
-	cblogger.Infof("[%s] KeyPair 조회 시작", vmReqInfo.KeyPairIID.SystemId)
+	cblogger.Infof("[%s] KeyPair 조회 시작", vmReqInfo.KeyPair
 	keypairHandler := AlibabaKeyPairHandler{
 		//CredentialInfo:
 		Region: vmHandler.Region,
@@ -183,7 +205,8 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	//request.HostName = vmReqInfo.IId.NameId	// OS 호스트 명
 	request.InstanceType = vmReqInfo.VMSpecName
 
-	request.ZoneId = vmHandler.Region.Zone // Disk의 경우 zone dependency가 있어 Zone 명시해야 함.(disk가 없으면 무시해도 됨.)
+	// request.ZoneId = vmHandler.Region.Zone // Disk의 경우 zone dependency가 있어 Zone 명시해야 함.(disk가 없으면 무시해도 됨.)
+	request.ZoneId = zoneId
 
 	// windows 일 떄는 password 만 set, keypairName은 비움.
 	// 다른 os일 때 password는 cb-user의 password 로 사용
@@ -228,7 +251,8 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	// instance 사용 가능 검사
 	//=============================
 
-	availableResourceResp, err := DescribeAvailableResource(vmHandler.Client, vmHandler.Region.Region, vmHandler.Region.Zone, "instance", "InstanceType", vmReqInfo.VMSpecName)
+	// availableResourceResp, err := DescribeAvailableResource(vmHandler.Client, vmHandler.Region.Region, vmHandler.Region.Zone, "instance", "InstanceType", vmReqInfo.VMSpecName)
+	availableResourceResp, err := DescribeAvailableResource(vmHandler.Client, vmHandler.Region.Region, zoneId, "instance", "InstanceType", vmReqInfo.VMSpecName)
 	if err != nil {
 		cblogger.Error(err)
 	}
@@ -241,7 +265,8 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	//=============================
 
 	// 인스턴스 타입 별로 가능한 목록 불러오기
-	availableSystemDisksResp, err := DescribeAvailableSystemDisksByInstanceType(vmHandler.Client, vmHandler.Region.Region, vmHandler.Region.Zone, "PostPaid", "SystemDisk", vmReqInfo.VMSpecName)
+	// availableSystemDisksResp, err := DescribeAvailableSystemDisksByInstanceType(vmHandler.Client, vmHandler.Region.Region, vmHandler.Region.Zone, "PostPaid", "SystemDisk", vmReqInfo.VMSpecName)
+	availableSystemDisksResp, err := DescribeAvailableSystemDisksByInstanceType(vmHandler.Client, vmHandler.Region.Region, zoneId, "PostPaid", "SystemDisk", vmReqInfo.VMSpecName)
 	if err != nil {
 		cblogger.Error(err)
 	}
@@ -431,7 +456,7 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
 		CloudOS:      call.ALIBABA,
-		RegionZone:   vmHandler.Region.Zone,
+		RegionZone:   zoneId,
 		ResourceType: call.VM,
 		ResourceName: vmReqInfo.IId.NameId,
 		CloudOSAPI:   "RunInstances()",

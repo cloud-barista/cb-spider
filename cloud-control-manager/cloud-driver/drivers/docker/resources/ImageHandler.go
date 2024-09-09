@@ -82,7 +82,7 @@ func (imageHandler *DockerImageHandler) CreateImage(imageReqInfo irs.ImageReqInf
 				cblogger.Error(err)
 				return irs.ImageInfo{}, err
 			}
-			return irs.ImageInfo{imageReqInfo.IId, osName, "", nil, nil}, nil
+			return irs.ImageInfo{imageReqInfo.IId, osName, "", nil}, nil
 		}
 	}
 
@@ -141,7 +141,7 @@ func (imageHandler *DockerImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 		//listImages[i] = &irs.ImageInfo{irs.IID{"", image.ID}, osName, "", nil }
 		// To avoid empty validator, Using CSPID for NameID by powerkim, 2022.01.25.
-		listImages[i] = &irs.ImageInfo{irs.IID{image.ID, image.ID}, osName, "", nil, nil}
+		listImages[i] = &irs.ImageInfo{irs.IID{image.ID, image.ID}, osName, "", nil}
 	}
 
 	return listImages, nil
@@ -156,7 +156,7 @@ func (imageHandler *DockerImageHandler) GetImage(imageIID irs.IID) (irs.ImageInf
 		cblogger.Error(err)
 		return irs.ImageInfo{}, err
 	}
-	return irs.ImageInfo{imageIID, osName, "", nil, nil}, nil
+	return irs.ImageInfo{imageIID, osName, "", nil}, nil
 }
 
 func (imageHandler *DockerImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {

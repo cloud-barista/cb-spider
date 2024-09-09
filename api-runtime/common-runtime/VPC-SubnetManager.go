@@ -124,6 +124,13 @@ func RegisterVPC(connectionName string, userIID cres.IID) (*cres.VPCInfo, error)
 		return nil, err
 	}
 
+	// get defaultZoneId
+	_, defaultZoneId, err := ccm.GetRegionNameByConnectionName(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
 	// insert subnet's spiderIIDs to metadb and setup subnet IID for return info
 	for count, subnetInfo := range getInfo.SubnetInfoList {
 		//---------- original code ----------------
@@ -147,8 +154,12 @@ func RegisterVPC(connectionName string, userIID cres.IID) (*cres.VPCInfo, error)
 		subnetUserId := systemId
 		---------- new version code ---------------- */
 
+		// check and set ZoneId
+		if subnetInfo.Zone == "" {
+			subnetInfo.Zone = defaultZoneId
+		}
 		subnetSpiderIId := cres.IID{NameId: subnetUserId, SystemId: systemId + ":" + subnetInfo.IId.SystemId}
-		err = infostore.Insert(&SubnetIIDInfo{ConnectionName: connectionName, NameId: subnetSpiderIId.NameId, SystemId: subnetSpiderIId.SystemId,
+		err = infostore.Insert(&SubnetIIDInfo{ConnectionName: connectionName, ZoneId: subnetInfo.Zone, NameId: subnetSpiderIId.NameId, SystemId: subnetSpiderIId.SystemId,
 			OwnerVPCName: userIID.NameId})
 		if err != nil {
 			cblog.Error(err)
@@ -193,6 +204,15 @@ func RegisterSubnet(connectionName string, zoneId string, vpcName string, userII
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
+	}
+
+	if zoneId == "" {
+		// get defaultZoneId
+		_, zoneId, err = ccm.GetRegionNameByConnectionName(connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, zoneId)
@@ -256,13 +276,7 @@ func RegisterSubnet(connectionName string, zoneId string, vpcName string, userII
 				return nil, err
 			}
 			if subnetInfo.Zone == "" { // GCP has no Zone info
-				var iidInfo SubnetIIDInfo
-				err = infostore.GetBy3Conditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, subnetInfo.IId.NameId, OWNER_VPC_NAME_COLUMN, vpcName)
-				if err != nil {
-					cblog.Info(err)
-				} else {
-					subnetInfo.Zone = iidInfo.ZoneId
-				}
+				subnetInfo.Zone = zoneId
 			}
 
 			// setup subnet IID for return info
@@ -948,6 +962,97 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 	info.SubnetInfoList = subnetInfoList
 
 	return &info, nil
+}
+
+// (1) get spiderIID(NameId)
+// (2) get resource(driverIID)
+// (3) set ResourceInfo(userIID)
+func GetSubnet(connectionName string, vpcName string, nameID string) (*cres.SubnetInfo, error) {
+	cblog.Info("call GetSubnet()")
+
+	// (1) check empty and trim user inputs
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	vpcName, err = EmptyCheckAndTrim("vpcName", vpcName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	nameID, err = EmptyCheckAndTrim("nameID", nameID)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// (2) Get Cloud Connection
+	cldConn, err := ccm.GetCloudConnection(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// (3) Get VPC Handler
+	handler, err := cldConn.CreateVPCHandler()
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// (4) Use vpcSPLock for locking based on VPC and Subnet nameID
+	vpcSPLock.RLock(connectionName, vpcName)
+	defer vpcSPLock.RUnlock(connectionName, vpcName)
+
+	// (5) Get VPC IID Info from infostore
+	var iidInfo VPCIIDInfo
+	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// (6) Get VPC Info using handler.GetVPC() and driverIID
+	vpcInfo, err := handler.GetVPC(getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}))
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// (7) Set user IID (NameId) for the VPC resource
+	vpcInfo.IId = getUserIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
+
+	// (8) Search for the subnet by nameID within the VPC's SubnetInfoList
+	for _, subnetInfo := range vpcInfo.SubnetInfoList {
+
+		// (9) Get Subnet IID Info from infostore
+		var subnetIIDInfo SubnetIIDInfo
+		err := infostore.GetByConditionsAndContain(&subnetIIDInfo, CONNECTION_NAME_COLUMN, connectionName,
+			OWNER_VPC_NAME_COLUMN, vpcInfo.IId.NameId, SYSTEM_ID_COLUMN, getMSShortID(subnetInfo.IId.SystemId))
+		if err != nil {
+			if checkNotFoundError(err) {
+				cblog.Info("Subnet not found in infostore:", err)
+				continue
+			}
+			cblog.Error(err)
+			return nil, err
+		}
+
+		if subnetIIDInfo.NameId == nameID {
+			subnetInfo.IId = getUserIID(cres.IID{NameId: subnetIIDInfo.NameId, SystemId: subnetIIDInfo.SystemId})
+			if subnetInfo.Zone == "" {
+				subnetInfo.Zone = subnetIIDInfo.ZoneId
+			}
+
+			return &subnetInfo, nil
+		}
+	}
+
+	// If no matching subnet was found
+	return nil, fmt.Errorf("Subnet with nameID %s not found in VPC %s", nameID, vpcName)
 }
 
 // (1) get spiderIID

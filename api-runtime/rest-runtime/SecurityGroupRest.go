@@ -37,7 +37,7 @@ type SecurityGroupRegisterRequest struct {
 // @ID register-securitygroup
 // @Summary Register SecurityGroup
 // @Description Register a new Security Group with the specified name and CSP ID.
-// @Tags [SecurityGroup management]
+// @Tags [SecurityGroup Management]
 // @Accept  json
 // @Produce  json
 // @Param SecurityGroupRegisterRequest body restruntime.SecurityGroupRegisterRequest true "Request body for registering a SecurityGroup"
@@ -71,7 +71,7 @@ func RegisterSecurity(c echo.Context) error {
 // @ID unregister-securitygroup
 // @Summary Unregister SecurityGroup
 // @Description Unregister a Security Group with the specified name.
-// @Tags [SecurityGroup management]
+// @Tags [SecurityGroup Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for unregistering a SecurityGroup"
@@ -118,8 +118,8 @@ type SecurityGroupCreateRequest struct {
 // createSecurity godoc
 // @ID create-securitygroup
 // @Summary Create SecurityGroup
-// @Description Create a new Security Group with specified rules and tags.
-// @Tags [SecurityGroup management]
+// @Description Create a new Security Group with specified rules and tags. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Security-Group-Rules-and-Driver-API)], 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#4-securitygroup-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]
+// @Tags [SecurityGroup Management]
 // @Accept  json
 // @Produce  json
 // @Param SecurityGroupCreateRequest body restruntime.SecurityGroupCreateRequest true "Request body for creating a SecurityGroup"
@@ -154,8 +154,8 @@ func CreateSecurity(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
-// ListSecurityResponse represents the response body for listing SecurityGroups.
-type ListSecurityResponse struct {
+// SecurityGroupListResponse represents the response body for listing SecurityGroups.
+type SecurityGroupListResponse struct {
 	Result []*cres.SecurityInfo `json:"securitygroup" validate:"required" description:"A list of security group information"`
 }
 
@@ -163,11 +163,11 @@ type ListSecurityResponse struct {
 // @ID list-securitygroup
 // @Summary List SecurityGroups
 // @Description Retrieve a list of Security Groups associated with a specific connection.
-// @Tags [SecurityGroup management]
+// @Tags [SecurityGroup Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to list SecurityGroups for"
-// @Success 200 {object} restruntime.ListSecurityResponse "List of SecurityGroups"
+// @Success 200 {object} restruntime.SecurityGroupListResponse "List of SecurityGroups"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameter"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -190,22 +190,22 @@ func ListSecurity(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	jsonResult := ListSecurityResponse{
+	jsonResult := SecurityGroupListResponse{
 		Result: result,
 	}
 
 	return c.JSON(http.StatusOK, &jsonResult)
 }
 
-// listAllSecurity godoc
+// listAllSecurityGroups godoc
 // @ID list-all-securitygroups
-// @Summary List All SecurityGroups
-// @Description Retrieve a list of all Security Groups across all connections.
-// @Tags [SecurityGroup management]
+// @Summary List All Security Groups in a Connection
+// @Description Retrieve a comprehensive list of all Security Groups associated with a specific connection, <br> including those mapped between CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing in the CSP.
+// @Tags [SecurityGroup Management]
 // @Accept  json
 // @Produce  json
-// @Param ConnectionName query string true "The name of the Connection"
-// @Success 200 {object} AllResourceListResponse "List of all SecurityGroups with their respective lists"
+// @Param ConnectionName query string true "The name of the Connection to list Security Groups for"
+// @Success 200 {object} AllResourceListResponse "List of all Security Groups within the specified connection, including Security Groups in CB-Spider only, CSP only, and mapped between both."
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -235,7 +235,7 @@ func ListAllSecurity(c echo.Context) error {
 // @ID get-securitygroup
 // @Summary Get SecurityGroup
 // @Description Retrieve details of a specific Security Group.
-// @Tags [SecurityGroup management]
+// @Tags [SecurityGroup Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to get a SecurityGroup for"
@@ -270,12 +270,12 @@ func GetSecurity(c echo.Context) error {
 // @ID delete-securitygroup
 // @Summary Delete SecurityGroup
 // @Description Delete a specified Security Group.
-// @Tags [SecurityGroup management]
+// @Tags [SecurityGroup Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for deleting a SecurityGroup"
 // @Param Name path string true "The name of the SecurityGroup to delete"
-// @Param force query string false "Force delete the SecurityGroup"
+// @Param force query string false "Force delete the SecurityGroup. ex) true or false(default: false)"
 // @Success 200 {object} BooleanInfo "Result of the delete operation"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
@@ -306,7 +306,7 @@ func DeleteSecurity(c echo.Context) error {
 // @ID delete-csp-securitygroup
 // @Summary Delete CSP SecurityGroup
 // @Description Delete a specified CSP Security Group.
-// @Tags [SecurityGroup management]
+// @Tags [SecurityGroup Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for deleting a CSP SecurityGroup"
@@ -355,7 +355,7 @@ type RuleControlRequest struct {
 // @ID add-rules-securitygroup
 // @Summary Add Rules to SecurityGroup
 // @Description Add new rules to a Security Group.
-// @Tags [SecurityGroup management]
+// @Tags [SecurityGroup Management]
 // @Accept  json
 // @Produce  json
 // @Param SGName path string true "The name of the SecurityGroup to add rules to"
@@ -398,7 +398,7 @@ func AddRules(c echo.Context) error {
 // @ID remove-rules-securitygroup
 // @Summary Remove Rules from SecurityGroup
 // @Description Remove existing rules from a Security Group.
-// @Tags [SecurityGroup management]
+// @Tags [SecurityGroup Management]
 // @Accept  json
 // @Produce  json
 // @Param SGName path string true "The name of the SecurityGroup to remove rules from"
@@ -445,7 +445,7 @@ func RemoveRules(c echo.Context) error {
 // @ID count-all-securitygroups
 // @Summary Count All SecurityGroups
 // @Description Get the total number of Security Groups across all connections.
-// @Tags [SecurityGroup management]
+// @Tags [SecurityGroup Management]
 // @Produce  json
 // @Success 200 {object} CountResponse "Total count of SecurityGroups"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -469,7 +469,7 @@ func CountAllSecurityGroups(c echo.Context) error {
 // @ID count-securitygroups-by-connection
 // @Summary Count SecurityGroups by Connection
 // @Description Get the total number of Security Groups for a specific connection.
-// @Tags [SecurityGroup management]
+// @Tags [SecurityGroup Management]
 // @Produce  json
 // @Param ConnectionName path string true "The name of the Connection"
 // @Success 200 {object} CountResponse "Total count of SecurityGroups for the connection"

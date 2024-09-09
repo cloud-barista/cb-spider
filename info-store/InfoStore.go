@@ -68,8 +68,8 @@ func Ping() error {
 	return nil
 }
 
-// KeyValue is a struct for Key-Value pair
-// KVList type is used for storing a list of KeyValue with a json format
+// KVList represents a list of key-value pairs.
+// @Description A list of key-value pairs, where each entry is a key and its associated value.
 type KVList []icdrs.KeyValue
 
 func (o *KVList) Scan(src any) error {
@@ -92,6 +92,8 @@ func (o KVList) Value() (driver.Value, error) {
 	return string(jsonData), nil
 }
 
+// AZList represents a list of availability zones.
+// @Description A list of availability zones within a region.
 type AZList []string
 
 func (o *AZList) Scan(src any) error {

@@ -38,7 +38,7 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 
 - ##### 공식환경
   - OS: Ubuntu 22.04
-  - Build: Go 1.23
+  - Build: Go 1.23, Swag v1.16.3
   - Container: Docker v19.03
 
 - ##### 시험환경
@@ -50,7 +50,6 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 
 - ##### 소스 기반 실행: https://github.com/cloud-barista/cb-spider/wiki/Quick-Start-Guide
 - ##### 컨테이너 기반 실행: https://github.com/cloud-barista/cb-spider/wiki/Docker-based-Start-Guide
-- ##### cb-operator 기반 실행: https://github.com/cloud-barista/cb-operator
 
 
 #### 3. 제공 자원
@@ -124,8 +123,9 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 
 
 #### 6. API 규격
-
-- [인터페이스 규격 및 예시](https://github.com/cloud-barista/cb-spider/wiki/CB-Spider-User-Interface)
+ - [Swagger Documentations](https://github.com/cloud-barista/cb-spider/tree/master/api)
+ - [Swagger Guide](https://github.com/cloud-barista/cb-spider/wiki/Swagger-Guide)
+ 
 
 
 #### 7. 특이 사항

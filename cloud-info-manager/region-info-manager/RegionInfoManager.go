@@ -26,11 +26,13 @@ import (
 const KEY_COLUMN_NAME = "region_name"
 const PROVIDER_NAME_COLUMN = "provider_name"
 
+// RegionInfo represents the information of a cloud region.
+// @Description Information about a specific cloud region and its associated zones.
 type RegionInfo struct {
-	RegionName        string           `gorm:"primaryKey"` // ex) "region01"
-	ProviderName      string           // ex) "GCP"
-	KeyValueInfoList  infostore.KVList `gorm:"type:text"` // stored with json format, ex) { {region, us-east1}, {zone, us-east1-c}, ...}
-	AvailableZoneList infostore.AZList `gorm:"type:text"` // stored with json format, ex) { us-east1-c, us-east1-d, ...}
+	RegionName        string           `json:"RegionName" gorm:"primaryKey" validate:"required" example:"region01"` // The name of the region, used as a unique identifier.
+	ProviderName      string           `json:"ProviderName" validate:"required" example:"GCP"`                      // The name of the cloud provider (e.g., AWS, Azure, GCP).
+	KeyValueInfoList  infostore.KVList `json:"KeyValueInfoList" gorm:"type:text" validate:"required"`               // Key-value pairs representing region details.
+	AvailableZoneList infostore.AZList `json:"AvailableZoneList" gorm:"type:text" validate:"required"`              // A list of available zones within the region.
 }
 
 //====================================================================
@@ -95,6 +97,7 @@ func ListRegion() ([]*RegionInfo, error) {
 
 func ListRegionByProvider(providerName string) ([]*RegionInfo, error) {
 	cblog.Info("call ListRegionByProvider()")
+	providerName = strings.ToUpper(strings.TrimSpace(providerName))
 
 	var regionInfoList []*RegionInfo
 	err := infostore.ListByCondition(&regionInfoList, PROVIDER_NAME_COLUMN, providerName)

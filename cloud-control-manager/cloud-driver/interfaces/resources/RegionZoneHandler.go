@@ -19,20 +19,22 @@ const (
 	NotSupported    ZoneStatus = "StatusNotSupported"
 )
 
+// RegionZoneInfo represents the information of a Region Zone.
+// @example {"Name": "us-east", "DisplayName": "US East", "ZoneList": [{"Name": "us-east-1a", "DisplayName": "US East 1A", "Status": "Available"}], "KeyValueList": [{"Key": "regionKey1", "Value": "regionValue1"}]}
 type RegionZoneInfo struct {
-	Name        string
-	DisplayName string
-	ZoneList    []ZoneInfo
-
-	KeyValueList []KeyValue
+	Name         string     `json:"Name" validate:"required" example:"us-east"`
+	DisplayName  string     `json:"DisplayName" validate:"required" example:"US East"`
+	ZoneList     []ZoneInfo `json:"ZoneList,omitempty" validate:"omitempty"`
+	KeyValueList []KeyValue `json:"KeyValueList,omitempty" validate:"omitempty"`
 }
 
+// ZoneInfo represents the information of a Zone.
+// @example {"Name": "us-east-1a", "DisplayName": "US East 1A", "Status": "Available", "KeyValueList": [{"Key": "zoneKey1", "Value": "zoneValue1"}]}
 type ZoneInfo struct {
-	Name        string
-	DisplayName string
-	Status      ZoneStatus // Available | Unavailable | NotSupported
-
-	KeyValueList []KeyValue
+	Name         string     `json:"Name" validate:"required" example:"us-east-1a"`
+	DisplayName  string     `json:"DisplayName" validate:"required" example:"US East 1A"`
+	Status       ZoneStatus `json:"Status" validate:"required" example:"Available"`
+	KeyValueList []KeyValue `json:"KeyValueList,omitempty" validate:"omitempty"`
 }
 
 type RegionZoneHandler interface {

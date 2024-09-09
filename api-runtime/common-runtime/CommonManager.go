@@ -181,7 +181,7 @@ func checkNotFoundError(err error) bool {
 	msg = strings.ToLower(msg)
 
 	return strings.Contains(msg, "does not exist") || strings.Contains(msg, "notfound") ||
-		strings.Contains(msg, "notexist") || strings.Contains(msg, "failedtofind") || strings.Contains(msg, "failedtogetthevm")
+		strings.Contains(msg, "notexist") || strings.Contains(msg, "failedtofind") || strings.Contains(msg, "failedtogetthevm") || strings.Contains(msg, "noresult")
 }
 
 func getUserIIDList(iidInfoList []*iidm.IIDInfo) []*cres.IID {
@@ -383,7 +383,7 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 			return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
 		}
 
-		_, err = infostore.DeleteByConditions(&KeyIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+		_, err = infostore.DeleteByConditions(&MyImageIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
 		if err != nil {
 			cblog.Error(err)
 			return false, err

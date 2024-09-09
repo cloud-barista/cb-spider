@@ -81,6 +81,15 @@ func RegisterDisk(connectionName string, zoneId string, userIID cres.IID) (*cres
 		return nil, err
 	}
 
+	if zoneId == "" {
+		// get defaultZoneId
+		_, zoneId, err = ccm.GetRegionNameByConnectionName(connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	}
+
 	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, zoneId)
 	if err != nil {
 		cblog.Error(err)
@@ -116,6 +125,9 @@ func RegisterDisk(connectionName string, zoneId string, userIID cres.IID) (*cres
 		return nil, err
 	}
 
+	if getInfo.Zone == "" {
+		getInfo.Zone = zoneId
+	}
 	// set up Disk User IID for return info
 	getInfo.IId = userIID
 

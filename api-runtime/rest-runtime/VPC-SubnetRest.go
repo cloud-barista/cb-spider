@@ -9,6 +9,8 @@
 package restruntime
 
 import (
+	"strings"
+
 	cmrt "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -36,7 +38,7 @@ type VPCRegisterRequest struct {
 // @ID register-vpc
 // @Summary Register VPC
 // @Description Register a new Virtual Private Cloud (VPC) with the specified name and CSP ID.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
 // @Param VPCRegisterRequest body restruntime.VPCRegisterRequest true "Request body for registering a VPC"
@@ -71,7 +73,7 @@ type SubnetRegisterRequest struct {
 	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-connection"`
 	ReqInfo        struct {
 		Name    string `json:"Name" validate:"required" example:"subnet-01"`
-		Zone    string `json:"Zone,omitempty" validate:"omitempty" example:"us-east-1a"`
+		Zone    string `json:"Zone,omitempty" validate:"omitempty" example:"us-east-1a"` // (default: defaultZone)
 		VPCName string `json:"VPCName" validate:"required" example:"vpc-01"`
 		CSPId   string `json:"CSPId" validate:"required" example:"csp-subnet-1234"`
 	} `json:"ReqInfo" validate:"required"`
@@ -81,11 +83,11 @@ type SubnetRegisterRequest struct {
 // @ID register-subnet
 // @Summary Register Subnet
 // @Description Register a new Subnet within a specified VPC.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
 // @Param SubnetRegisterRequest body restruntime.SubnetRegisterRequest true "Request body for registering a Subnet"
-// @Success 200 {object} cres.SubnetInfo "Details of the registered Subnet"
+// @Success 200 {object} cres.VPCInfo "Details of the VPC including the registered Subnet"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -123,7 +125,7 @@ type SubnetUnregisterRequest struct {
 // @ID unregister-subnet
 // @Summary Unregister Subnet
 // @Description Unregister a Subnet from a specified VPC.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
 // @Param SubnetUnregisterRequest body restruntime.SubnetUnregisterRequest true "Request body for unregistering a Subnet"
@@ -159,7 +161,7 @@ func UnregisterSubnet(c echo.Context) error {
 // @ID unregister-vpc
 // @Summary Unregister VPC
 // @Description Unregister a VPC with the specified name.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for unregistering a VPC"
@@ -191,8 +193,8 @@ func UnregisterVPC(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
-// CreateVPCRequest represents the request body for creating a VPC.
-type CreateVPCRequest struct {
+// VPCCreateRequest represents the request body for creating a VPC.
+type VPCCreateRequest struct {
 	ConnectionName  string `json:"ConnectionName" validate:"required" example:"aws-connection"`
 	IDTransformMode string `json:"IDTransformMode,omitempty" validate:"omitempty" example:"ON"` // ON: transform CSP ID, OFF: no-transform CSP ID
 	ReqInfo         struct {
@@ -211,11 +213,11 @@ type CreateVPCRequest struct {
 // createVPC godoc
 // @ID create-vpc
 // @Summary Create VPC
-// @Description Create a new Virtual Private Cloud (VPC) with specified subnet configurations.
-// @Tags [VPC management]
+// @Description Create a new Virtual Private Cloud (VPC) with specified subnet configurations. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#3-vpcsubnet-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
-// @Param CreateVPCRequest body restruntime.CreateVPCRequest true "Request body for creating a VPC"
+// @Param VPCCreateRequest body restruntime.VPCCreateRequest true "Request body for creating a VPC"
 // @Success 200 {object} cres.VPCInfo "Details of the created VPC"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
@@ -224,7 +226,7 @@ type CreateVPCRequest struct {
 func CreateVPC(c echo.Context) error {
 	cblog.Info("call CreateVPC()")
 
-	req := CreateVPCRequest{}
+	req := VPCCreateRequest{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -254,10 +256,7 @@ func CreateVPC(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
-type ListVPCReq struct {
-	ConnectionName string `json:"ConnectionName" query:"ConnectionName" example:"aws-connection"`
-}
-type ListVPCResponse struct {
+type VPCListResponse struct {
 	Result []*cres.VPCInfo `json:"vpc" validate:"required" description:"A list of VPC information"`
 }
 
@@ -265,11 +264,11 @@ type ListVPCResponse struct {
 // @ID list-vpc
 // @Summary List VPCs
 // @Description Retrieve a list of Virtual Private Clouds (VPCs) associated with a specific connection.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to list VPCs for"
-// @Success 200 {object} ListVPCResponse "List of VPCs"
+// @Success 200 {object} VPCListResponse "List of VPCs"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameter"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -277,7 +276,7 @@ type ListVPCResponse struct {
 func ListVPC(c echo.Context) error {
 	cblog.Info("call ListVPC()")
 
-	var req ListVPCReq
+	var req ConnectionRequest
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -294,29 +293,22 @@ func ListVPC(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	jsonResult := ListVPCResponse{
+	jsonResult := VPCListResponse{
 		Result: result,
 	}
 
 	return c.JSON(http.StatusOK, &jsonResult)
 }
 
-// AllResourceListResponse represents the response body structure for the ListAllVPC API.
-type AllResourceListResponse struct {
-	MappedList     []*cres.IID `json:"MappedList" validate:"required" description:"A list of resources that are mapped between CB-Spider and CSP"`
-	OnlySpiderList []*cres.IID `json:"OnlySpiderList" validate:"required" description:"A list of resources that exist only in CB-Spider"`
-	OnlyCSPList    []*cres.IID `json:"OnlyCSPList" validate:"required" description:"A list of resources that exist only in the CSP"`
-}
-
 // listAllVPC godoc
 // @ID list-all-vpc
-// @Summary List All VPCs
-// @Description Retrieve a list of all Virtual Private Clouds (VPCs) across all connections.
-// @Tags [VPC management]
+// @Summary List All VPCs in a Connection
+// @Description Retrieve a comprehensive list of all Virtual Private Clouds (VPCs) associated with a specific connection, <br> including those mapped between CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing in the CSP.
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
-// @Param ConnectionName query string true "The name of the Connection"
-// @Success 200 {object} AllResourceListResponse "List of all VPCs with their respective lists"
+// @Param ConnectionName query string true "The name of the Connection to list VPCs for"
+// @Success 200 {object} AllResourceListResponse "List of all VPCs within the specified connection, including VPCs in CB-Spider only, CSP only, and mapped between both."
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -344,8 +336,8 @@ func ListAllVPC(c echo.Context) error {
 	return c.JSON(http.StatusOK, &allResourceList)
 }
 
-// AddSubnetRequest represents the request body for adding a subnet to a VPC.
-type AddSubnetRequest struct {
+// SubnetAddRequest represents the request body for adding a subnet to a VPC.
+type SubnetAddRequest struct {
 	ConnectionName  string `json:"ConnectionName" validate:"required" example:"aws-connection"`
 	IDTransformMode string `json:"IDTransformMode,omitempty" validate:"omitempty" example:"ON"` // ON: transform CSP ID, OFF: no-transform CSP ID
 	ReqInfo         struct {
@@ -360,12 +352,12 @@ type AddSubnetRequest struct {
 // @ID add-subnet
 // @Summary Add Subnet
 // @Description Add a new Subnet to an existing VPC.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
 // @Param VPCName path string true "The name of the VPC to add the Subnet to"
-// @Param AddSubnetRequest body restruntime.AddSubnetRequest true "Request body for adding a Subnet"
-// @Success 200 {object} cres.SubnetInfo "Details of the added Subnet"
+// @Param SubnetAddRequest body restruntime.SubnetAddRequest true "Request body for adding a Subnet"
+// @Success 200 {object} cres.VPCInfo "Details of the VPC including the added Subnet"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -373,7 +365,7 @@ type AddSubnetRequest struct {
 func AddSubnet(c echo.Context) error {
 	cblog.Info("call AddSubnet()")
 
-	var req AddSubnetRequest
+	var req SubnetAddRequest
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -391,15 +383,66 @@ func AddSubnet(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
+// getSubnet godoc
+// @ID get-subnet
+// @Summary Get Subnet
+// @Description Retrieve a specific Subnet from a VPC.
+// @Tags [VPC Management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionName query string true "The name of the Connection to get a Subnet for"
+// @Param VPCName path string true "The name of the VPC"
+// @Param SubnetName path string true "The name of the Subnet to retrieve"
+// @Success 200 {object} cres.SubnetInfo "Details of the requested Subnet"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid parameters"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /vpc/{VPCName}/subnet/{SubnetName} [get]
+func GetSubnet(c echo.Context) error {
+	cblog.Info("call GetSubnet()")
+
+	var req ConnectionRequest
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// To support for Get-Query Param Type API
+	if req.ConnectionName == "" {
+		req.ConnectionName = c.QueryParam("ConnectionName")
+	}
+
+	vpcName := c.Param("VPCName")
+	subnetName := c.Param("Name")
+
+	// Validate that connectionName, vpcName, and subnetName are not empty
+	if req.ConnectionName == "" || vpcName == "" || subnetName == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "Missing required parameters")
+	}
+
+	// Call common-runtime GetSubnet function
+	result, err := cmrt.GetSubnet(req.ConnectionName, vpcName, subnetName)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return echo.NewHTTPError(http.StatusNotFound, "Subnet not found")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Return the subnet info as JSON
+	return c.JSON(http.StatusOK, result)
+}
+
 // removeSubnet godoc
 // @ID remove-subnet
 // @Summary Remove Subnet
 // @Description Remove an existing Subnet from a VPC.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
 // @Param VPCName path string true "The name of the VPC"
 // @Param SubnetName path string true "The name of the Subnet to remove"
+// @Param force query string false "Force delete the VPC. ex) true or false(default: false)"
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for removing a Subnet"
 // @Success 200 {object} BooleanInfo "Result of the remove operation"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
@@ -432,7 +475,7 @@ func RemoveSubnet(c echo.Context) error {
 // @ID remove-csp-subnet
 // @Summary Remove CSP Subnet
 // @Description Remove an existing CSP Subnet from a VPC.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
 // @Param VPCName path string true "The name of the VPC"
@@ -469,7 +512,7 @@ func RemoveCSPSubnet(c echo.Context) error {
 // @ID get-vpc
 // @Summary Get VPC
 // @Description Retrieve details of a specific Virtual Private Cloud (VPC).
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to get a VPC for"
@@ -506,12 +549,12 @@ func GetVPC(c echo.Context) error {
 // @ID delete-vpc
 // @Summary Delete VPC
 // @Description Delete a specified Virtual Private Cloud (VPC).
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for deleting a VPC"
 // @Param Name path string true "The name of the VPC to delete"
-// @Param force query string false "Force delete the VPC"
+// @Param force query string false "Force delete the VPC. ex) true or false(default: false)"
 // @Success 200 {object} BooleanInfo "Result of the delete operation"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
@@ -543,7 +586,7 @@ func DeleteVPC(c echo.Context) error {
 // @ID delete-csp-vpc
 // @Summary Delete CSP VPC
 // @Description Delete a specified CSP Virtual Private Cloud (VPC).
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for deleting a CSP VPC"
@@ -575,8 +618,8 @@ func DeleteCSPVPC(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
-// GetSGOwnerVPCRequest represents the request body for retrieving the owner VPC of a Security Group.
-type GetSGOwnerVPCRequest struct {
+// VPCGetSecurityGroupOwnerRequest represents the request body for retrieving the owner VPC of a Security Group.
+type VPCGetSecurityGroupOwnerRequest struct {
 	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-connection"`
 	ReqInfo        struct {
 		CSPId string `json:"CSPId" validate:"required" example:"csp-sg-1234"`
@@ -587,10 +630,10 @@ type GetSGOwnerVPCRequest struct {
 // @ID get-sg-owner-vpc
 // @Summary Get Security Group Owner VPC
 // @Description Retrieve the owner VPC of a specified Security Group.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Accept  json
 // @Produce  json
-// @Param GetSGOwnerVPCRequest body restruntime.GetSGOwnerVPCRequest true "Request body for getting Security Group Owner VPC"
+// @Param VPCGetSecurityGroupOwnerRequest body restruntime.VPCGetSecurityGroupOwnerRequest true "Request body for getting Security Group Owner VPC"
 // @Success 200 {object} cres.IID "Details of the owner VPC"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
@@ -599,7 +642,7 @@ type GetSGOwnerVPCRequest struct {
 func GetSGOwnerVPC(c echo.Context) error {
 	cblog.Info("call GetSGOwnerVPC()")
 
-	var req GetSGOwnerVPCRequest
+	var req VPCGetSecurityGroupOwnerRequest
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -614,16 +657,11 @@ func GetSGOwnerVPC(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
-// CountResponse represents the response body for counting all VPCs.
-type CountResponse struct {
-	Count int `json:"count" validate:"required" example:"5" description:"The total number of resources counted"`
-}
-
 // countAllVPCs godoc
 // @ID count-all-vpcs
 // @Summary Count All VPCs
 // @Description Get the total number of VPCs across all connections.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Produce  json
 // @Success 200 {object} CountResponse "Total count of VPCs"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -650,7 +688,7 @@ func CountAllVPCs(c echo.Context) error {
 // @ID count-vpcs-by-connection
 // @Summary Count VPCs by Connection
 // @Description Get the total number of VPCs for a specific connection.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Produce  json
 // @Param ConnectionName path string true "The name of the Connection"
 // @Success 200 {object} CountResponse "Total count of VPCs for the connection"
@@ -678,7 +716,7 @@ func CountVPCsByConnection(c echo.Context) error {
 // @ID count-all-subnets
 // @Summary Count All Subnets
 // @Description Get the total number of Subnets across all connections.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Produce  json
 // @Success 200 {object} CountResponse "Total count of Subnets"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
@@ -703,7 +741,7 @@ func CountAllSubnets(c echo.Context) error {
 // @ID count-subnets-by-connection
 // @Summary Count Subnets by Connection
 // @Description Get the total number of Subnets for a specific connection.
-// @Tags [VPC management]
+// @Tags [VPC Management]
 // @Produce  json
 // @Param ConnectionName path string true "The name of the Connection"
 // @Success 200 {object} CountResponse "Total count of Subnets for the connection"

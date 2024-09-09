@@ -42,7 +42,7 @@ var cblog *logrus.Logger
 
 // @title CB-Spider REST API
 // @version latest
-// @description CB-Spider REST API
+// @description **🕷️ [User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages)**  **🕷️ [API Guide](https://github.com/cloud-barista/cb-spider/wiki/REST-API-Examples)**
 
 // @contact.name API Support
 // @contact.url http://cloud-barista.github.io
@@ -179,9 +179,11 @@ func RunServer() {
 		{"GET", "/", aw.SpiderInfo},
 
 		//----------Swagger
-		{"GET", "/api", echoSwagger.WrapHandler},
-		{"GET", "/api/", echoSwagger.WrapHandler},
-		{"GET", "/api/*", echoSwagger.WrapHandler},
+		{"GET", "/api", func(c echo.Context) error {
+			return c.Redirect(http.StatusMovedPermanently, "/spider/api/")
+		}},
+		{"GET", "/api/", echoSwagger.EchoWrapHandler(echoSwagger.DocExpansion("none"))},
+		{"GET", "/api/*", echoSwagger.EchoWrapHandler(echoSwagger.DocExpansion("none"))},
 
 		//----------EndpointInfo
 		{"GET", "/endpointinfo", endpointInfo},
@@ -265,6 +267,7 @@ func RunServer() {
 		{"DELETE", "/vpc/:Name", DeleteVPC},
 		//-- for subnet
 		{"POST", "/vpc/:VPCName/subnet", AddSubnet},
+		{"GET", "/vpc/:VPCName/subnet/:Name", GetSubnet},
 		{"DELETE", "/vpc/:VPCName/subnet/:SubnetName", RemoveSubnet},
 		{"DELETE", "/vpc/:VPCName/cspsubnet/:Id", RemoveCSPSubnet},
 		//-- for management
@@ -349,6 +352,7 @@ func RunServer() {
 
 		//----------NLB Handler
 		{"GET", "/getnlbowner", GetNLBOwnerVPC},
+		{"POST", "/getnlbowner", GetNLBOwnerVPC},
 		{"POST", "/regnlb", RegisterNLB},
 		{"DELETE", "/regnlb/:Name", UnregisterNLB},
 
@@ -378,7 +382,7 @@ func RunServer() {
 		{"POST", "/disk", CreateDisk},
 		{"GET", "/disk", ListDisk},
 		{"GET", "/disk/:Name", GetDisk},
-		{"PUT", "/disk/:Name/size", ChangeDiskSize},
+		{"PUT", "/disk/:Name/size", IncreaseDiskSize},
 		{"DELETE", "/disk/:Name", DeleteDisk},
 		//-- for vm
 		{"PUT", "/disk/:Name/attach", AttachDisk},
@@ -409,6 +413,7 @@ func RunServer() {
 
 		//----------Cluster Handler
 		{"GET", "/getclusterowner", GetClusterOwnerVPC},
+		{"POST", "/getclusterowner", GetClusterOwnerVPC},
 		{"POST", "/regcluster", RegisterCluster},
 		{"DELETE", "/regcluster/:Name", UnregisterCluster},
 
@@ -439,10 +444,6 @@ func RunServer() {
 
 		//----------Destory All Resources in a Connection
 		{"DELETE", "/destroy", Destroy},
-
-		//-- only for WebTool
-		{"GET", "/nscluster", AllClusterList},  // GET with a body for backward compatibility
-		{"POST", "/nscluster", AllClusterList}, // POST with a body for standard
 
 		//-------------------------------------------------------------------//
 		//----------Additional Info
@@ -594,9 +595,6 @@ func ApiServer(routes []route) {
 	// for WebTerminal
 	e.Static("/spider/adminweb/static", filepath.Join(cbspiderRoot, "api-runtime/rest-runtime/admin-web/static"))
 
-	// for swagger
-	e.Static("/spider/swagger", filepath.Join(cbspiderRoot, "api"))
-
 	e.HideBanner = true
 	e.HidePort = true
 
@@ -633,7 +631,68 @@ func endpointInfo(c echo.Context) error {
 	return c.String(http.StatusOK, endpointInfo)
 }
 
-// ================ Health Check
+// HealthCheckResponse represents the response body for the healthCheck API.
+type HealthCheckResponse struct {
+	Message string `json:"message" validate:"required" example:"CB-Spider is ready"`
+}
+
+// healthCheck godoc
+// @ID health-check-healthcheck
+// @Summary Perform Health Check
+// @Description Checks the health of CB-Spider service and its dependencies via /healthcheck endpoint. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/Readiness-Check-Guide)]
+// @Tags [Health Check]
+// @Accept  json
+// @Produce  json
+// @Success 200 {object} HealthCheckResponse "Service is ready"
+// @Failure 503 {object} SimpleMsg "Service Unavailable"
+// @Router /healthcheck [get]
+func healthCheckHealthCheck(c echo.Context) error {
+	return healthCheck(c)
+}
+
+// healthCheck godoc
+// @ID health-check-health
+// @Summary Perform Health Check
+// @Description Checks the health of CB-Spider service and its dependencies via /health endpoint. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/Readiness-Check-Guide)]
+// @Tags [Health Check]
+// @Accept  json
+// @Produce  json
+// @Success 200 {object} HealthCheckResponse "Service is ready"
+// @Failure 503 {object} SimpleMsg "Service Unavailable"
+// @Router /health [get]
+func healthCheckHealth(c echo.Context) error {
+	return healthCheck(c)
+}
+
+// healthCheck godoc
+// @ID health-check-ping
+// @Summary Perform Health Check
+// @Description Checks the health of CB-Spider service and its dependencies via /ping endpoint. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/Readiness-Check-Guide)]
+// @Tags [Health Check]
+// @Accept  json
+// @Produce  json
+// @Success 200 {object} HealthCheckResponse "Service is ready"
+// @Failure 503 {object} SimpleMsg "Service Unavailable"
+// @Router /ping [get]
+func healthCheckPing(c echo.Context) error {
+	return healthCheck(c)
+}
+
+// healthCheck godoc
+// @ID health-check-readyz
+// @Summary Perform Health Check
+// @Description Checks the health of CB-Spider service and its dependencies via /readyz endpoint. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/Readiness-Check-Guide)]
+// @Tags [Health Check]
+// @Accept  json
+// @Produce  json
+// @Success 200 {object} HealthCheckResponse "Service is ready"
+// @Failure 503 {object} SimpleMsg "Service Unavailable"
+// @Router /readyz [get]
+func healthCheckReadyz(c echo.Context) error {
+	return healthCheck(c)
+}
+
+// Common health check logic
 func healthCheck(c echo.Context) error {
 	// check database connection
 	err := infostore.Ping()

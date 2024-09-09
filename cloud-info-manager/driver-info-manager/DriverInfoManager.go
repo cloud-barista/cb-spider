@@ -23,10 +23,12 @@ import (
 const KEY_COLUMN_NAME = "driver_name"
 const PROVIDER_NAME_COLUMN = "provider_name"
 
+// CloudDriverInfo represents the information of a cloud driver.
+// @Description Information about a specific cloud driver used in the system.
 type CloudDriverInfo struct {
-	DriverName        string `gorm:"primaryKey"` // ex) "AWS-Test-Driver-V0.5"
-	ProviderName      string // ex) "AWS"
-	DriverLibFileName string // ex) "aws-test-driver-v0.5.so"  //Already, you need to insert "*.so" in $CB_SPIDER_ROOT/cloud-driver/libs.
+	DriverName        string `json:"DriverName" gorm:"primaryKey" validate:"required" example:"AWS-Test-Driver-V0.5"` // The name of the cloud driver, used as a unique identifier.
+	ProviderName      string `json:"ProviderName" validate:"required" example:"AWS"`                                  // The name of the cloud provider (e.g., AWS, Azure, GCP).
+	DriverLibFileName string `json:"DriverLibFileName" validate:"required" example:"aws-test-driver-v0.5.so"`         // The filename of the driver library, already present in the cloud-driver/libs directory.
 }
 
 // ====================================================================
@@ -98,6 +100,7 @@ func ListCloudDriver() ([]*CloudDriverInfo, error) {
 
 func ListCloudDriverByProvider(providerName string) ([]*CloudDriverInfo, error) {
 	cblog.Info("call ListCloudDriverByProvider()")
+	providerName = strings.ToUpper(strings.TrimSpace(providerName))
 
 	var cloudDriverInfoList []*CloudDriverInfo
 	err := infostore.ListByCondition(&cloudDriverInfoList, PROVIDER_NAME_COLUMN, providerName)

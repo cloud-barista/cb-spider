@@ -128,6 +128,9 @@ func getResourceSystemID(tagHandler *OpenStackTagHandler, resType irs.RSType, re
 			return "", err
 		}
 		vms, err := servers.ExtractServers(pager)
+		if err != nil {
+			return "", err
+		}
 		for _, vm := range vms {
 			if vm.Name == resIID.NameId {
 				return vm.ID, nil
@@ -152,13 +155,16 @@ func handleAddTag(tagHandler *OpenStackTagHandler, resType irs.RSType, resIID ir
 
 	switch resType {
 	case irs.VM:
-		err = computeTags.Add(tagHandler.ComputeClient, systemId, tagString).ExtractErr()
+		cc := tagHandler.ComputeClient
+		cc.Microversion = "2.52"
+		err = computeTags.Add(cc, systemId, tagString).ExtractErr()
 	case irs.VPC:
 		err = networkTags.Add(tagHandler.NetworkClient, "networks", systemId, tagString).ExtractErr()
 	case irs.SUBNET:
 		err = networkTags.Add(tagHandler.NetworkClient, "subnets", systemId, tagString).ExtractErr()
 	case irs.NLB:
-		keyValues, err := handleListTag(tagHandler, resType, resIID)
+		var keyValues []irs.KeyValue
+		keyValues, err = handleListTag(tagHandler, resType, resIID)
 		if err != nil {
 			return err
 		}
@@ -196,7 +202,9 @@ func handleListTag(tagHandler *OpenStackTagHandler, resType irs.RSType, resIID i
 
 	switch resType {
 	case irs.VM:
-		tagStrings, err = computeTags.List(tagHandler.ComputeClient, systemId).Extract()
+		cc := tagHandler.ComputeClient
+		cc.Microversion = "2.52"
+		tagStrings, err = computeTags.List(cc, systemId).Extract()
 	case irs.VPC:
 		tagStrings, err = networkTags.List(tagHandler.NetworkClient, "networks", systemId).Extract()
 	case irs.SUBNET:
@@ -241,7 +249,9 @@ func handleRemoveTag(tagHandler *OpenStackTagHandler, resType irs.RSType, resIID
 
 	switch resType {
 	case irs.VM:
-		err = computeTags.Delete(tagHandler.ComputeClient, systemId, tagString).ExtractErr()
+		cc := tagHandler.ComputeClient
+		cc.Microversion = "2.52"
+		err = computeTags.Delete(cc, systemId, tagString).ExtractErr()
 	case irs.VPC:
 		err = networkTags.Delete(tagHandler.NetworkClient, "networks", systemId, tagString).ExtractErr()
 	case irs.SUBNET:
@@ -309,7 +319,7 @@ func (tagHandler *OpenStackTagHandler) ListTag(resType irs.RSType, resIID irs.II
 		getErr := errors.New(fmt.Sprintf("Failed to list tags. err = %s", err))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
-		return nil, getErr
+		return []irs.KeyValue{}, getErr
 	}
 
 	LoggingInfo(hiscallInfo, start)

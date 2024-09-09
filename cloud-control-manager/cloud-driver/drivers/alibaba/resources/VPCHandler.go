@@ -14,7 +14,6 @@ package resources
 
 import (
 	"errors"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -198,7 +197,8 @@ func (VPCHandler *AlibabaVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo ir
 	callogger.Info(call.String(callLogInfo))
 	//cblogger.Debug(response)
 
-	subnetInfo, errSunetInfo := VPCHandler.GetSubnet(response.VSwitchId)
+	//subnetInfo, errSunetInfo := VPCHandler.GetSubnet(response.VSwitchId)
+	subnetInfo, errSunetInfo := GetSubnet(VPCHandler.Client, response.VSwitchId, zoneId)
 	if errSunetInfo != nil {
 		cblogger.Error(subnetInfo)
 		return irs.SubnetInfo{}, errSunetInfo
@@ -370,7 +370,9 @@ func (VPCHandler *AlibabaVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 		//cblogger.Infof("\n\n\n\n")
 		//cblogger.Infof("---------------------------------------------------------------------")
 		cblogger.Infof("[%s] VSwitch Information retrieval", curSubnet)
-		subnetInfo, errSubnet := VPCHandler.GetSubnet(curSubnet)
+		// subnetInfo, errSubnet := VPCHandler.GetSubnet(curSubnet)
+		subnetInfo, errSubnet := GetSubnet(VPCHandler.Client, curSubnet, VPCHandler.Region.Zone)
+
 		if errSubnet != nil {
 			cblogger.Errorf("[%s] VSwitch Information retrieval failed", curSubnet)
 			cblogger.Error(errSubnet)
@@ -488,50 +490,6 @@ func (VPCHandler *AlibabaVPCHandler) DeleteSubnet(subnetIID irs.IID) (bool, erro
 	}
 	callogger.Info(call.String(callLogInfo))
 	return true, nil
-}
-
-func (VPCHandler *AlibabaVPCHandler) GetSubnet(reqSubnetId string) (irs.SubnetInfo, error) {
-	cblogger.Infof("SubnetId : [%s]", reqSubnetId)
-
-	request := vpc.CreateDescribeVSwitchesRequest()
-	request.Scheme = "https"
-	request.VSwitchId = reqSubnetId
-
-	// logger for HisCall
-	callogger := call.GetLogger("HISCALL")
-	callLogInfo := call.CLOUDLOGSCHEMA{
-		CloudOS:      call.ALIBABA,
-		RegionZone:   VPCHandler.Region.Zone,
-		ResourceType: call.VPCSUBNET,
-		ResourceName: reqSubnetId,
-		CloudOSAPI:   "DescribeVSwitches()",
-		ElapsedTime:  "",
-		ErrorMSG:     "",
-	}
-	callLogStart := call.Start()
-
-	result, err := VPCHandler.Client.DescribeVSwitches(request)
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-	//cblogger.Debug(result)
-	//cblogger.Info(result)
-	if err != nil {
-		callLogInfo.ErrorMSG = err.Error()
-		callogger.Info(call.String(callLogInfo))
-		cblogger.Error(err)
-		return irs.SubnetInfo{}, err
-	}
-	callogger.Info(call.String(callLogInfo))
-
-	if result.TotalCount < 1 {
-		return irs.SubnetInfo{}, errors.New("Notfound: '" + reqSubnetId + "' Subnet Not found")
-	}
-
-	if !reflect.ValueOf(result.VSwitches.VSwitch).IsNil() {
-		retSubnetInfo := ExtractSubnetDescribeInfo(result.VSwitches.VSwitch[0])
-		return retSubnetInfo, nil
-	} else {
-		return irs.SubnetInfo{}, errors.New("InvalidVSwitch.NotFound: The '" + reqSubnetId + "' does not exist")
-	}
 }
 
 // Subnet(VSwitch) 정보를 추출함

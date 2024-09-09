@@ -1161,15 +1161,12 @@ func ClusterMgmt(c echo.Context) error {
 	// client logging
 	htmlStr += genLoggingResult(string(resBody[:len(resBody)-1]))
 
-	var info struct {
-		Connection      string
-		AllResourceList cr.AllResourceList
-	}
+	var info cr.AllResourceList
 
 	json.Unmarshal(resBody, &info)
 
 	// (4-2) make TR list with info list
-	htmlStr += makeMgmtTRList_html("", "", "", info.AllResourceList)
+	htmlStr += makeMgmtTRList_html("", "", "", info)
 
 	// make page tail
 	htmlStr += `
