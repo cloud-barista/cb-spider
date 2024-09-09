@@ -738,7 +738,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Force delete the Cluster",
+                        "description": "Force delete the Cluster. ex) true or false(default: false)",
                         "name": "force",
                         "in": "query"
                     }
@@ -2832,7 +2832,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Force delete the Disk",
+                        "description": "Force delete the Disk. ex) true or false(default: false)",
                         "name": "force",
                         "in": "query"
                     }
@@ -3714,7 +3714,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Force delete the KeyPair",
+                        "description": "Force delete the KeyPair. ex) true or false(default: false)",
                         "name": "force",
                         "in": "query"
                     }
@@ -3938,7 +3938,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Force delete the MyImage",
+                        "description": "Force delete the MyImage. ex) true or false(default: false)",
                         "name": "force",
                         "in": "query"
                     }
@@ -4162,7 +4162,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Force delete the NLB",
+                        "description": "Force delete the NLB. ex) true or false(default: false)",
                         "name": "force",
                         "in": "query"
                     }
@@ -6317,7 +6317,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Force delete the SecurityGroup",
+                        "description": "Force delete the SecurityGroup. ex) true or false(default: false)",
                         "name": "force",
                         "in": "query"
                     }
@@ -6659,7 +6659,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Force terminate the VM",
+                        "description": "Force terminate the VM. ex) true or false(default: false)",
                         "name": "force",
                         "in": "query"
                     }
@@ -7319,7 +7319,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Force delete the VPC",
+                        "description": "Force delete the VPC. ex) true or false(default: false)",
                         "name": "force",
                         "in": "query"
                     }
@@ -7480,6 +7480,69 @@ const docTemplate = `{
             }
         },
         "/vpc/{VPCName}/subnet/{SubnetName}": {
+            "get": {
+                "description": "Retrieve a specific Subnet from a VPC.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VPC Management]"
+                ],
+                "summary": "Get Subnet",
+                "operationId": "get-subnet",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to get a Subnet for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the VPC",
+                        "name": "VPCName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Subnet to retrieve",
+                        "name": "SubnetName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the requested Subnet",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SubnetInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid parameters",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
             "delete": {
                 "description": "Remove an existing Subnet from a VPC.",
                 "consumes": [
@@ -7507,6 +7570,12 @@ const docTemplate = `{
                         "name": "SubnetName",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Force delete the VPC. ex) true or false(default: false)",
+                        "name": "force",
+                        "in": "query"
                     },
                     {
                         "description": "Request body for removing a Subnet",
@@ -11268,7 +11337,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "/spider",
 	Schemes:          []string{"http"},
 	Title:            "CB-Spider REST API",
-	Description:      "**🕷️ [User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages)**  **🕷️ [Simple Guide](https://github.com/cloud-barista/cb-spider/wiki/Simple-Sample-API-Guide)**",
+	Description:      "**🕷️ [User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages)**  **🕷️ [API Guide](https://github.com/cloud-barista/cb-spider/wiki/REST-API-Examples)**",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

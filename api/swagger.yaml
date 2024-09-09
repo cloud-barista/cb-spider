@@ -2632,7 +2632,7 @@ info:
     name: API Support
     url: http://cloud-barista.github.io
   description: "**\U0001F577️ [User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages)**
-    \ **\U0001F577️ [Simple Guide](https://github.com/cloud-barista/cb-spider/wiki/Simple-Sample-API-Guide)**"
+    \ **\U0001F577️ [API Guide](https://github.com/cloud-barista/cb-spider/wiki/REST-API-Examples)**"
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
@@ -3121,7 +3121,7 @@ paths:
         name: Name
         required: true
         type: string
-      - description: Force delete the Cluster
+      - description: 'Force delete the Cluster. ex) true or false(default: false)'
         in: query
         name: force
         type: string
@@ -4545,7 +4545,7 @@ paths:
         name: Name
         required: true
         type: string
-      - description: Force delete the Disk
+      - description: 'Force delete the Disk. ex) true or false(default: false)'
         in: query
         name: force
         type: string
@@ -5146,7 +5146,7 @@ paths:
         name: Name
         required: true
         type: string
-      - description: Force delete the KeyPair
+      - description: 'Force delete the KeyPair. ex) true or false(default: false)'
         in: query
         name: force
         type: string
@@ -5301,7 +5301,7 @@ paths:
         name: Name
         required: true
         type: string
-      - description: Force delete the MyImage
+      - description: 'Force delete the MyImage. ex) true or false(default: false)'
         in: query
         name: force
         type: string
@@ -5456,7 +5456,7 @@ paths:
         name: Name
         required: true
         type: string
-      - description: Force delete the NLB
+      - description: 'Force delete the NLB. ex) true or false(default: false)'
         in: query
         name: force
         type: string
@@ -6941,7 +6941,7 @@ paths:
         name: Name
         required: true
         type: string
-      - description: Force delete the SecurityGroup
+      - description: 'Force delete the SecurityGroup. ex) true or false(default: false)'
         in: query
         name: force
         type: string
@@ -7178,7 +7178,7 @@ paths:
         name: Name
         required: true
         type: string
-      - description: Force terminate the VM
+      - description: 'Force terminate the VM. ex) true or false(default: false)'
         in: query
         name: force
         type: string
@@ -7634,7 +7634,7 @@ paths:
         name: Name
         required: true
         type: string
-      - description: Force delete the VPC
+      - description: 'Force delete the VPC. ex) true or false(default: false)'
         in: query
         name: force
         type: string
@@ -7804,6 +7804,10 @@ paths:
         name: SubnetName
         required: true
         type: string
+      - description: 'Force delete the VPC. ex) true or false(default: false)'
+        in: query
+        name: force
+        type: string
       - description: Request body for removing a Subnet
         in: body
         name: ConnectionRequest
@@ -7831,6 +7835,49 @@ paths:
           schema:
             $ref: '#/definitions/spider.SimpleMsg'
       summary: Remove Subnet
+      tags:
+      - '[VPC Management]'
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a specific Subnet from a VPC.
+      operationId: get-subnet
+      parameters:
+      - description: The name of the Connection to get a Subnet for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: The name of the VPC
+        in: path
+        name: VPCName
+        required: true
+        type: string
+      - description: The name of the Subnet to retrieve
+        in: path
+        name: SubnetName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the requested Subnet
+          schema:
+            $ref: '#/definitions/spider.SubnetInfo'
+        "400":
+          description: Bad Request, possibly due to invalid parameters
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get Subnet
       tags:
       - '[VPC Management]'
 schemes:

@@ -42,7 +42,7 @@ var cblog *logrus.Logger
 
 // @title CB-Spider REST API
 // @version latest
-// @description **🕷️ [User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages)**  **🕷️ [Simple Guide](https://github.com/cloud-barista/cb-spider/wiki/Simple-Sample-API-Guide)**
+// @description **🕷️ [User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages)**  **🕷️ [API Guide](https://github.com/cloud-barista/cb-spider/wiki/REST-API-Examples)**
 
 // @contact.name API Support
 // @contact.url http://cloud-barista.github.io
@@ -267,6 +267,7 @@ func RunServer() {
 		{"DELETE", "/vpc/:Name", DeleteVPC},
 		//-- for subnet
 		{"POST", "/vpc/:VPCName/subnet", AddSubnet},
+		{"GET", "/vpc/:VPCName/subnet/:Name", GetSubnet},
 		{"DELETE", "/vpc/:VPCName/subnet/:SubnetName", RemoveSubnet},
 		{"DELETE", "/vpc/:VPCName/cspsubnet/:Id", RemoveCSPSubnet},
 		//-- for management

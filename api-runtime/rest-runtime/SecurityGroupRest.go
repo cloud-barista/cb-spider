@@ -275,7 +275,7 @@ func GetSecurity(c echo.Context) error {
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for deleting a SecurityGroup"
 // @Param Name path string true "The name of the SecurityGroup to delete"
-// @Param force query string false "Force delete the SecurityGroup"
+// @Param force query string false "Force delete the SecurityGroup. ex) true or false(default: false)"
 // @Success 200 {object} BooleanInfo "Result of the delete operation"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"

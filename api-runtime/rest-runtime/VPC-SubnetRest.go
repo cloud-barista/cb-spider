@@ -9,6 +9,8 @@
 package restruntime
 
 import (
+	"strings"
+
 	cmrt "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -381,6 +383,56 @@ func AddSubnet(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
+// getSubnet godoc
+// @ID get-subnet
+// @Summary Get Subnet
+// @Description Retrieve a specific Subnet from a VPC.
+// @Tags [VPC Management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionName query string true "The name of the Connection to get a Subnet for"
+// @Param VPCName path string true "The name of the VPC"
+// @Param SubnetName path string true "The name of the Subnet to retrieve"
+// @Success 200 {object} cres.SubnetInfo "Details of the requested Subnet"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid parameters"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /vpc/{VPCName}/subnet/{SubnetName} [get]
+func GetSubnet(c echo.Context) error {
+	cblog.Info("call GetSubnet()")
+
+	var req ConnectionRequest
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// To support for Get-Query Param Type API
+	if req.ConnectionName == "" {
+		req.ConnectionName = c.QueryParam("ConnectionName")
+	}
+
+	vpcName := c.Param("VPCName")
+	subnetName := c.Param("Name")
+
+	// Validate that connectionName, vpcName, and subnetName are not empty
+	if req.ConnectionName == "" || vpcName == "" || subnetName == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "Missing required parameters")
+	}
+
+	// Call common-runtime GetSubnet function
+	result, err := cmrt.GetSubnet(req.ConnectionName, vpcName, subnetName)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			return echo.NewHTTPError(http.StatusNotFound, "Subnet not found")
+		}
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Return the subnet info as JSON
+	return c.JSON(http.StatusOK, result)
+}
+
 // removeSubnet godoc
 // @ID remove-subnet
 // @Summary Remove Subnet
@@ -390,6 +442,7 @@ func AddSubnet(c echo.Context) error {
 // @Produce  json
 // @Param VPCName path string true "The name of the VPC"
 // @Param SubnetName path string true "The name of the Subnet to remove"
+// @Param force query string false "Force delete the VPC. ex) true or false(default: false)"
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for removing a Subnet"
 // @Success 200 {object} BooleanInfo "Result of the remove operation"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
@@ -501,7 +554,7 @@ func GetVPC(c echo.Context) error {
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for deleting a VPC"
 // @Param Name path string true "The name of the VPC to delete"
-// @Param force query string false "Force delete the VPC"
+// @Param force query string false "Force delete the VPC. ex) true or false(default: false)"
 // @Success 200 {object} BooleanInfo "Result of the delete operation"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"

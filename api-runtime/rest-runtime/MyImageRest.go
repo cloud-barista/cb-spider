@@ -277,7 +277,7 @@ func GetMyImage(c echo.Context) error {
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for deleting a MyImage"
 // @Param Name path string true "The name of the MyImage to delete"
-// @Param force query string false "Force delete the MyImage"
+// @Param force query string false "Force delete the MyImage. ex) true or false(default: false)"
 // @Success 200 {object} BooleanInfo "Result of the delete operation"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"

@@ -404,7 +404,7 @@ func GetCSPVM(c echo.Context) error {
 // @Produce  json
 // @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for terminating a VM"
 // @Param Name path string true "The name of the VM to terminate"
-// @Param force query string false "Force terminate the VM"
+// @Param force query string false "Force terminate the VM. ex) true or false(default: false)"
 // @Success 200 {object} VMStatusResponse "Result of the terminate operation"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
