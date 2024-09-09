@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"net/http"
 	"strings"
@@ -20,8 +19,6 @@ type AzureTagHandler struct {
 	Region         idrv.RegionInfo
 	Ctx            context.Context
 	Client         *armresources.TagsClient
-	VPCClient      *armnetwork.VirtualNetworksClient
-	SubnetClient   *armnetwork.SubnetsClient
 }
 type Resource struct {
 	Id   string            `json:"id"`
@@ -114,100 +111,6 @@ func findRSType(azureType string) (irs.RSType, error) {
 	}
 }
 
-func (tagHandler *AzureTagHandler) checkSubnetZoneTag(resIID irs.IID, tagKey string) (bool, error) {
-	vpcHandler := AzureVPCHandler{
-		Region:       tagHandler.Region,
-		Ctx:          tagHandler.Ctx,
-		Client:       tagHandler.VPCClient,
-		SubnetClient: tagHandler.SubnetClient,
-	}
-	vpcList, err := vpcHandler.ListVPC()
-	if err != nil {
-		return false, errors.New("failed to get VPC information")
-	}
-
-	var vpcFound bool
-	var foundVPC irs.VPCInfo
-
-	for _, vpc := range vpcList {
-		if vpc.IId.NameId == resIID.NameId ||
-			vpc.IId.SystemId == resIID.SystemId {
-			foundVPC = *vpc
-			vpcFound = true
-			break
-		}
-	}
-	if !vpcFound {
-		return false, errors.New("failed to get VPC information")
-	}
-
-	var found bool
-	for _, subnet := range foundVPC.SubnetInfoList {
-		if "subnet-"+subnet.IId.NameId == tagKey {
-			found = true
-			break
-		}
-	}
-
-	if found {
-		return true, nil
-	}
-
-	return false, nil
-}
-
-func (tagHandler *AzureTagHandler) getTagsExceptSubnetZoneTags(resIID irs.IID) ([]irs.KeyValue, error) {
-	vpcHandler := AzureVPCHandler{
-		Region:       tagHandler.Region,
-		Ctx:          tagHandler.Ctx,
-		Client:       tagHandler.VPCClient,
-		SubnetClient: tagHandler.SubnetClient,
-	}
-	vpcList, err := vpcHandler.ListVPC()
-	if err != nil {
-		return []irs.KeyValue{}, errors.New("failed to get VPC information")
-	}
-
-	var vpcFound bool
-	var foundVPC irs.VPCInfo
-
-	for _, vpc := range vpcList {
-		if vpc.IId.NameId == resIID.NameId ||
-			vpc.IId.SystemId == resIID.SystemId {
-			foundVPC = *vpc
-			vpcFound = true
-			break
-		}
-	}
-	if !vpcFound {
-		return []irs.KeyValue{}, errors.New("failed to get VPC information")
-	}
-
-	var tagList []irs.KeyValue
-
-	for _, tag := range foundVPC.TagList {
-		var found bool
-
-		for _, subnet := range foundVPC.SubnetInfoList {
-			if "subnet-"+subnet.IId.NameId == tag.Key {
-				found = true
-				break
-			}
-		}
-
-		if found {
-			continue
-		}
-
-		tagList = append(tagList, irs.KeyValue{
-			Key:   tag.Key,
-			Value: tag.Value,
-		})
-	}
-
-	return tagList, nil
-}
-
 // AddTag adds a tag to the specified resource
 func (tagHandler *AzureTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag irs.KeyValue) (irs.KeyValue, error) {
 	resourceID, err := FindIdByName(tagHandler.CredentialInfo, resIID)
@@ -216,24 +119,6 @@ func (tagHandler *AzureTagHandler) AddTag(resType irs.RSType, resIID irs.IID, ta
 	}
 	resIID.SystemId = resourceID
 	hiscallInfo := GetCallLogScheme(tagHandler.Region, call.TAG, string(resType), "AddTag()")
-
-	if resType == irs.VPC {
-		yes, err := tagHandler.checkSubnetZoneTag(resIID, tag.Key)
-		if err != nil {
-			getErr := errors.New(fmt.Sprintf("Failed to add tag for resource ID %s: %s", resIID.SystemId, err.Error()))
-			cblogger.Error(getErr.Error())
-			LoggingError(hiscallInfo, getErr)
-			return irs.KeyValue{}, getErr
-		}
-
-		if yes {
-			getErr := errors.New(fmt.Sprintf("Failed to add tag for resource ID %s: Provided tag key is not allowed!", resIID.SystemId))
-			cblogger.Error(getErr.Error())
-			LoggingError(hiscallInfo, getErr)
-			return irs.KeyValue{}, getErr
-		}
-	}
-
 	// Fetch existing tags
 	resp, err := tagHandler.Client.GetAtScope(tagHandler.Ctx, resIID.SystemId, nil)
 	if err != nil {
@@ -281,18 +166,6 @@ func (tagHandler *AzureTagHandler) ListTag(resType irs.RSType, resIID irs.IID) (
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	if resType == irs.VPC {
-		tagList, err := tagHandler.getTagsExceptSubnetZoneTags(resIID)
-		if err != nil {
-			getErr := errors.New(fmt.Sprintf("Failed to list tags for resource ID %s: %s", resIID.SystemId, err.Error()))
-			cblogger.Error(getErr.Error())
-			LoggingError(hiscallInfo, getErr)
-			return nil, getErr
-		}
-
-		return tagList, nil
-	}
-
 	var tagList []irs.KeyValue
 	for key, value := range tagsResource.Properties.Tags {
 		tagList = append(tagList, irs.KeyValue{Key: key, Value: *value})
@@ -319,22 +192,7 @@ func (tagHandler *AzureTagHandler) GetTag(resType irs.RSType, resIID irs.IID, ke
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	value, exists := tagsResource.Properties.Tags[key]
-	if exists {
-		if resType == irs.VPC {
-			yes, err := tagHandler.checkSubnetZoneTag(resIID, key)
-			if err != nil {
-				getErr := errors.New(fmt.Sprintf("Failed to get tag for resource ID %s: %s", resIID.SystemId, err.Error()))
-				cblogger.Error(getErr.Error())
-				LoggingError(hiscallInfo, getErr)
-				return irs.KeyValue{}, getErr
-			}
-
-			if yes {
-				return irs.KeyValue{}, errors.New("tag not found")
-			}
-		}
-
+	if value, exists := tagsResource.Properties.Tags[key]; exists {
 		return irs.KeyValue{Key: key, Value: *value}, nil
 	}
 
@@ -349,24 +207,6 @@ func (tagHandler *AzureTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID,
 	}
 	resIID.SystemId = resourceID
 	hiscallInfo := GetCallLogScheme(tagHandler.Region, call.TAG, string(resType), "RemoveTag()")
-
-	if resType == irs.VPC {
-		yes, err := tagHandler.checkSubnetZoneTag(resIID, key)
-		if err != nil {
-			getErr := errors.New(fmt.Sprintf("Failed to remove tag for resource ID %s: %s", resIID.SystemId, err.Error()))
-			cblogger.Error(getErr.Error())
-			LoggingError(hiscallInfo, getErr)
-			return false, getErr
-		}
-
-		if yes {
-			getErr := errors.New(fmt.Sprintf("Failed to remove tag for resource ID %s: Removing provided tag key is not allowed!", resIID.SystemId))
-			cblogger.Error(getErr.Error())
-			LoggingError(hiscallInfo, getErr)
-			return false, getErr
-		}
-	}
-
 	// Fetch existing tags
 	resp, err := tagHandler.Client.GetAtScope(tagHandler.Ctx, resIID.SystemId, nil)
 	if err != nil {
@@ -375,27 +215,10 @@ func (tagHandler *AzureTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID,
 		LoggingError(hiscallInfo, delErr)
 		return false, delErr
 	}
-
 	// Remove the tag
-	_, exists := resp.Properties.Tags[key]
-	if exists {
-		if resType == irs.VPC {
-			yes, err := tagHandler.checkSubnetZoneTag(resIID, key)
-			if err != nil {
-				getErr := errors.New(fmt.Sprintf("Failed to get existing tags for resource ID %s: %s", resIID.SystemId, err.Error()))
-				cblogger.Error(getErr.Error())
-				LoggingError(hiscallInfo, getErr)
-				return false, getErr
-			}
-
-			if yes {
-				return false, errors.New("tag not found")
-			}
-		}
-	} else {
+	if _, exists := resp.Properties.Tags[key]; !exists {
 		return false, errors.New("tag not found")
 	}
-
 	delete(resp.Properties.Tags, key)
 
 	// Update tags
@@ -446,15 +269,7 @@ func (tagHandler *AzureTagHandler) FindTag(resType irs.RSType, keyword string) (
 	var foundTags []*irs.TagInfo
 	for _, resource := range response.Value {
 		var tagList []irs.KeyValue
-		resType, _ := findRSType(resource.Type)
 		for key, value := range resource.Tags {
-			if resType == irs.VPC {
-				yes, err := tagHandler.checkSubnetZoneTag(irs.IID{NameId: resource.Name, SystemId: resource.Id}, key)
-				if yes || err != nil {
-					continue
-				}
-			}
-
 			if strings.Contains(key, keyword) || strings.Contains(value, keyword) {
 				tagList = append(tagList, irs.KeyValue{Key: key, Value: value})
 			}
@@ -465,7 +280,6 @@ func (tagHandler *AzureTagHandler) FindTag(resType irs.RSType, keyword string) (
 			if err != nil || resType == "" {
 				continue // resType이 유효하지 않거나 지원되지 않는 경우 pass
 			}
-
 			tagInfo := &irs.TagInfo{
 				ResType: resType,
 				ResIId:  irs.IID{NameId: resource.Name, SystemId: resource.Id},

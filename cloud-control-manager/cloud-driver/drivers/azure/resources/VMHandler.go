@@ -46,7 +46,6 @@ type AzureVMHandler struct {
 	Region                          idrv.RegionInfo
 	Ctx                             context.Context
 	Client                          *armcompute.VirtualMachinesClient
-	VPCClient                       *armnetwork.VirtualNetworksClient
 	SubnetClient                    *armnetwork.SubnetsClient
 	NicClient                       *armnetwork.InterfacesClient
 	PublicIPClient                  *armnetwork.PublicIPAddressesClient
@@ -168,33 +167,9 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	}
 	cleanResources := CleanVMClientRequestResource{}
 
-	// Find zone from the subnet
-	vpcHandler := AzureVPCHandler{
-		Region:       vmHandler.Region,
-		Ctx:          vmHandler.Ctx,
-		Client:       vmHandler.VPCClient,
-		SubnetClient: vmHandler.SubnetClient,
-	}
-	vpc, err := vpcHandler.getRawVPC(vmReqInfo.VpcIID)
-	if err != nil {
-		createErr := errors.New("Failed to Start VM. err = Failed to get VPC information.")
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VMInfo{}, createErr
-	}
-
-	var foundZone string
-
-	for key, value := range vpc.Tags {
-		if key == "subnet-"+vmReqInfo.SubnetIID.NameId && *value != "" {
-			foundZone = *value
-			break
-		}
-	}
-
 	// 2. related Resource Create // publicip, vnic
 	// 2-1. related Resource Create - PublicIP
-	publicIPIId, err := CreatePublicIP(vmHandler, vmReqInfo, foundZone)
+	publicIPIId, err := CreatePublicIP(vmHandler, vmReqInfo)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
@@ -253,12 +228,8 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		},
 	}
 
-	// Use default zone if zone is not found from the subnet
-	if foundZone != "" {
-		vmOpts.Zones = []*string{
-			&foundZone,
-		}
-	} else if vmHandler.Region.Zone != "" {
+	// Setting zone if available
+	if vmHandler.Region.Zone != "" {
 		vmOpts.Zones = []*string{
 			&vmHandler.Region.Zone,
 		}
@@ -1192,19 +1163,18 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server armcompute.VirtualMach
 }
 
 // VM 생성 시 Public IP 자동 생성 (nested flow 적용)
-func CreatePublicIP(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo, foundZone string) (irs.IID, error) {
+func CreatePublicIP(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo) (irs.IID, error) {
 
 	// PublicIP 이름 생성
 	publicIPName := generatePublicIPName(vmReqInfo.IId.NameId)
 
 	publicIPAddressSKUNameBasic := armnetwork.PublicIPAddressSKUNameBasic
-	publicIPAddressSKUNameStandard := armnetwork.PublicIPAddressSKUNameStandard
 	publicIPAddressVersion := armnetwork.IPVersionIPv4
 	publicIPAllocationMethod := armnetwork.IPAllocationMethodStatic
 	createOpts := armnetwork.PublicIPAddress{
 		Name: &publicIPName,
 		SKU: &armnetwork.PublicIPAddressSKU{
-			Name: &publicIPAddressSKUNameStandard,
+			Name: &publicIPAddressSKUNameBasic,
 		},
 		Properties: &armnetwork.PublicIPAddressPropertiesFormat{
 			PublicIPAddressVersion:   &publicIPAddressVersion,
@@ -1217,18 +1187,15 @@ func CreatePublicIP(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo, foundZon
 		},
 	}
 
+	publicIPAddressSKUNameStandard := armnetwork.PublicIPAddressSKUNameStandard
 	// Setting zone if available
-	if foundZone != "" {
-		createOpts.Zones = []*string{
-			toStrPtr(foundZone),
+	if vmHandler.Region.Zone != "" {
+		createOpts.SKU = &armnetwork.PublicIPAddressSKU{
+			Name: &publicIPAddressSKUNameStandard,
 		}
-	} else if vmHandler.Region.Zone != "" {
+		createOpts.Properties.PublicIPAllocationMethod = &publicIPAllocationMethod
 		createOpts.Zones = []*string{
 			toStrPtr(vmHandler.Region.Zone),
-		}
-	} else {
-		createOpts.SKU = &armnetwork.PublicIPAddressSKU{
-			Name: &publicIPAddressSKUNameBasic,
 		}
 	}
 
