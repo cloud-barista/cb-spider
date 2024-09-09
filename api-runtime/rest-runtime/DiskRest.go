@@ -27,7 +27,7 @@ type DiskRegisterRequest struct {
 	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-connection"`
 	ReqInfo        struct {
 		Name  string `json:"Name" validate:"required" example:"disk-01"`
-		Zone  string `json:"Zone" validate:"required" example:"us-east-1b"`
+		Zone  string `json:"Zone" validate:"required" example:"us-east-1b"` // (default: defaultZone)
 		CSPId string `json:"CSPId" validate:"required" example:"csp-disk-1234"`
 	} `json:"ReqInfo" validate:"required"`
 }

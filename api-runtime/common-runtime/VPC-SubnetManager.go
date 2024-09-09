@@ -124,6 +124,13 @@ func RegisterVPC(connectionName string, userIID cres.IID) (*cres.VPCInfo, error)
 		return nil, err
 	}
 
+	// get defaultZoneId
+	_, defaultZoneId, err := ccm.GetRegionNameByConnectionName(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
 	// insert subnet's spiderIIDs to metadb and setup subnet IID for return info
 	for count, subnetInfo := range getInfo.SubnetInfoList {
 		//---------- original code ----------------
@@ -147,8 +154,12 @@ func RegisterVPC(connectionName string, userIID cres.IID) (*cres.VPCInfo, error)
 		subnetUserId := systemId
 		---------- new version code ---------------- */
 
+		// check and set ZoneId
+		if subnetInfo.Zone == "" {
+			subnetInfo.Zone = defaultZoneId
+		}
 		subnetSpiderIId := cres.IID{NameId: subnetUserId, SystemId: systemId + ":" + subnetInfo.IId.SystemId}
-		err = infostore.Insert(&SubnetIIDInfo{ConnectionName: connectionName, NameId: subnetSpiderIId.NameId, SystemId: subnetSpiderIId.SystemId,
+		err = infostore.Insert(&SubnetIIDInfo{ConnectionName: connectionName, ZoneId: subnetInfo.Zone, NameId: subnetSpiderIId.NameId, SystemId: subnetSpiderIId.SystemId,
 			OwnerVPCName: userIID.NameId})
 		if err != nil {
 			cblog.Error(err)
@@ -193,6 +204,15 @@ func RegisterSubnet(connectionName string, zoneId string, vpcName string, userII
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
+	}
+
+	if zoneId == "" {
+		// get defaultZoneId
+		_, zoneId, err = ccm.GetRegionNameByConnectionName(connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, zoneId)
@@ -256,13 +276,7 @@ func RegisterSubnet(connectionName string, zoneId string, vpcName string, userII
 				return nil, err
 			}
 			if subnetInfo.Zone == "" { // GCP has no Zone info
-				var iidInfo SubnetIIDInfo
-				err = infostore.GetBy3Conditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, subnetInfo.IId.NameId, OWNER_VPC_NAME_COLUMN, vpcName)
-				if err != nil {
-					cblog.Info(err)
-				} else {
-					subnetInfo.Zone = iidInfo.ZoneId
-				}
+				subnetInfo.Zone = zoneId
 			}
 
 			// setup subnet IID for return info

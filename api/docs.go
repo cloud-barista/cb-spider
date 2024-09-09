@@ -9988,6 +9988,7 @@ const docTemplate = `{
                             "example": "disk-01"
                         },
                         "Zone": {
+                            "description": "(default: defaultZone)",
                             "type": "string",
                             "example": "us-east-1b"
                         }
@@ -10912,6 +10913,7 @@ const docTemplate = `{
                             "example": "vpc-01"
                         },
                         "Zone": {
+                            "description": "(default: defaultZone)",
                             "type": "string",
                             "example": "us-east-1a"
                         }

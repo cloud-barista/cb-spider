@@ -1692,6 +1692,7 @@ definitions:
             example: disk-01
             type: string
           Zone:
+            description: '(default: defaultZone)'
             example: us-east-1b
             type: string
         required:
@@ -2334,6 +2335,7 @@ definitions:
             example: vpc-01
             type: string
           Zone:
+            description: '(default: defaultZone)'
             example: us-east-1a
             type: string
         required:

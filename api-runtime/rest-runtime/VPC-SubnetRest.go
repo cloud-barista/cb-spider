@@ -73,7 +73,7 @@ type SubnetRegisterRequest struct {
 	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-connection"`
 	ReqInfo        struct {
 		Name    string `json:"Name" validate:"required" example:"subnet-01"`
-		Zone    string `json:"Zone,omitempty" validate:"omitempty" example:"us-east-1a"`
+		Zone    string `json:"Zone,omitempty" validate:"omitempty" example:"us-east-1a"` // (default: defaultZone)
 		VPCName string `json:"VPCName" validate:"required" example:"vpc-01"`
 		CSPId   string `json:"CSPId" validate:"required" example:"csp-subnet-1234"`
 	} `json:"ReqInfo" validate:"required"`
