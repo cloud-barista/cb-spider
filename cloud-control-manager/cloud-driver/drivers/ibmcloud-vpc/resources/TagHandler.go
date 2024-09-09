@@ -158,6 +158,22 @@ func getTagFromResource(searchService *globalsearchv2.GlobalSearchV2, crn string
 	return irs.KeyValue{}, errors.New("tag not found")
 }
 
+func tagValidation(tag irs.KeyValue) error {
+	if tag.Key == "" {
+		return errors.New("tag key is empty")
+	}
+
+	if strings.Contains(tag.Key, ":") {
+		return errors.New("key should not contain ':'")
+	}
+
+	if strings.Contains(tag.Value, ":") {
+		return errors.New("value should not contain ':'")
+	}
+
+	return nil
+}
+
 func getCRN(tagHandler *IbmTagHandler, resType irs.RSType, resIID irs.IID) (string, error) {
 	switch resType {
 	case irs.VPC:
@@ -287,15 +303,15 @@ func getCRN(tagHandler *IbmTagHandler, resType irs.RSType, resIID irs.IID) (stri
 }
 
 func attachOrDetachTag(tagService *globaltaggingv1.GlobalTaggingV1, tag irs.KeyValue, CRN string, action string) error {
-	resourceModel := globaltaggingv1.Resource{
-		ResourceID: &CRN,
-	}
-
 	var tagName string
 	if tag.Value == "" {
 		tagName = tag.Key
 	} else {
 		tagName = tag.Key + ":" + tag.Value
+	}
+
+	resourceModel := globaltaggingv1.Resource{
+		ResourceID: &CRN,
 	}
 
 	switch action {
@@ -343,7 +359,7 @@ func handleTagAddOrRemove(tagHandler *IbmTagHandler, resType irs.RSType, crn str
 	ibmType := rsTypeToIBMType(resType)
 	if ibmType == "" {
 		return errors.New("invalid resource type")
-	} else if ibmType == "all" {
+	} else if ibmType == "*" {
 		return errors.New("all is not supported for getting tag from the resource")
 	}
 
@@ -360,6 +376,14 @@ func handleTagAddOrRemove(tagHandler *IbmTagHandler, resType irs.RSType, crn str
 func (tagHandler *IbmTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag irs.KeyValue) (irs.KeyValue, error) {
 	hiscallInfo := GetCallLogScheme(tagHandler.Region, call.TAG, resIID.NameId, "AddTag()")
 	start := call.Start()
+
+	err := tagValidation(tag)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Failed to add a tag. err = %s", err))
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return irs.KeyValue{}, err
+	}
 
 	crn, err := getCRN(tagHandler, resType, resIID)
 	if err != nil {
