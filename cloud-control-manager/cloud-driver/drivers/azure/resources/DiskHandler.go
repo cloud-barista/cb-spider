@@ -69,12 +69,22 @@ func (diskHandler *AzureDiskHandler) CreateDisk(DiskReqInfo irs.DiskInfo) (diskI
 		Location:   &diskHandler.Region.Region,
 		Tags:       tags,
 	}
+
 	// Setting zone if available
-	if diskHandler.Region.Zone != "" {
+	if DiskReqInfo.Zone != "" {
 		diskCreateOpt.Zones = []*string{
 			&DiskReqInfo.Zone,
 		}
+	} else if diskHandler.Region.TargetZone != "" {
+		diskCreateOpt.Zones = []*string{
+			&diskHandler.Region.TargetZone,
+		}
+	} else if diskHandler.Region.Zone != "" {
+		diskCreateOpt.Zones = []*string{
+			&diskHandler.Region.Zone,
+		}
 	}
+
 	poller, err := diskHandler.DiskClient.BeginCreateOrUpdate(diskHandler.Ctx, diskHandler.Region.Region, DiskReqInfo.IId.NameId, diskCreateOpt, nil)
 	if err != nil {
 		createErr = errors.New(fmt.Sprintf("Failed to Create Disk. err = %s", err.Error()))
