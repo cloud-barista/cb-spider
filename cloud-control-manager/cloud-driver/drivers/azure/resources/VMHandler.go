@@ -229,7 +229,11 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	}
 
 	// Setting zone if available
-	if vmHandler.Region.Zone != "" {
+	if vmHandler.Region.TargetZone != "" {
+		vmOpts.Zones = []*string{
+			&vmHandler.Region.TargetZone,
+		}
+	} else if vmHandler.Region.Zone != "" {
 		vmOpts.Zones = []*string{
 			&vmHandler.Region.Zone,
 		}
@@ -999,7 +1003,6 @@ func (vmHandler *AzureVMHandler) cleanDeleteVm(vmIId irs.IID) error {
 }
 
 func (vmHandler *AzureVMHandler) mappingServerInfo(server armcompute.VirtualMachine) irs.VMInfo {
-
 	// Get Default VM Info
 	vmInfo := irs.VMInfo{
 		IId: irs.IID{
@@ -1164,7 +1167,6 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server armcompute.VirtualMach
 
 // VM 생성 시 Public IP 자동 생성 (nested flow 적용)
 func CreatePublicIP(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo) (irs.IID, error) {
-
 	// PublicIP 이름 생성
 	publicIPName := generatePublicIPName(vmReqInfo.IId.NameId)
 
@@ -1189,13 +1191,19 @@ func CreatePublicIP(vmHandler *AzureVMHandler, vmReqInfo irs.VMReqInfo) (irs.IID
 
 	publicIPAddressSKUNameStandard := armnetwork.PublicIPAddressSKUNameStandard
 	// Setting zone if available
-	if vmHandler.Region.Zone != "" {
+	if vmHandler.Region.TargetZone != "" || vmHandler.Region.Zone != "" {
 		createOpts.SKU = &armnetwork.PublicIPAddressSKU{
 			Name: &publicIPAddressSKUNameStandard,
 		}
 		createOpts.Properties.PublicIPAllocationMethod = &publicIPAllocationMethod
-		createOpts.Zones = []*string{
-			toStrPtr(vmHandler.Region.Zone),
+		if vmHandler.Region.TargetZone != "" {
+			createOpts.Zones = []*string{
+				toStrPtr(vmHandler.Region.TargetZone),
+			}
+		} else {
+			createOpts.Zones = []*string{
+				toStrPtr(vmHandler.Region.Zone),
+			}
 		}
 	}
 
