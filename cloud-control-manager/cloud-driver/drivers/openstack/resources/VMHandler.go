@@ -173,6 +173,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 		}
 		sgIdArr[i] = SecurityGroup.ID
 	}
+
 	serverCreateOpts := servers.CreateOpts{
 		Name:      vmReqInfo.IId.NameId,
 		FlavorRef: vmSpec.ID,
@@ -180,6 +181,11 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 			{UUID: rawVpc.ID, FixedIP: fixedIp},
 		},
 		SecurityGroups: sgIdArr,
+	}
+	if vmHandler.Region.TargetZone != "" {
+		serverCreateOpts.AvailabilityZone = vmHandler.Region.TargetZone
+	} else if vmHandler.Region.Zone != "" {
+		serverCreateOpts.AvailabilityZone = vmHandler.Region.Zone
 	}
 
 	var server servers.Server
@@ -606,7 +612,6 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 	vmInfo := irs.VMInfo{
 		IId: iid,
 		Region: irs.RegionInfo{
-			Zone:   vmHandler.Region.Zone,
 			Region: vmHandler.Region.Region,
 		},
 
@@ -615,6 +620,12 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 		NetworkInterface:  server.HostID,
 		KeyValueList:      nil,
 		SecurityGroupIIds: nil,
+	}
+
+	if vmHandler.Region.TargetZone != "" {
+		vmInfo.Region.Zone = vmHandler.Region.TargetZone
+	} else {
+		vmInfo.Region.Zone = vmHandler.Region.Zone
 	}
 
 	OSType, err := getOSTypeByServer(server)
