@@ -1266,21 +1266,24 @@ func ListResourceName(connectionName, rsType string) ([]string, error) {
 	return nameIds, nil
 }
 
+// DestroyedInfo represents the status of resource destruction in a connection
 type DestroyedInfo struct {
-	IsAllDestroyed bool                       `json:"IsAllDestroyed"` // true: all destroyed, false: some remained
-	DestroyedList  []*DeletedResourceInfoList `json:"DeletedAllListByResourceType"`
+	IsAllDestroyed bool                       `json:"IsAllDestroyed" validate:"required" example:"true"` // true: all destroyed, false: some remained
+	DestroyedList  []*DeletedResourceInfoList `json:"DeletedAllListByResourceType" validate:"required"`  // List of resources deleted by type
 }
 
+// DeletedResourceInfoList represents information about deleted resources by type
 type DeletedResourceInfoList struct {
-	ResourceType          string               `json:"ResourceType"`
-	IsAllDeleted          bool                 `json:"IsAllDeleted"`
-	DeletedIIDList        []*cres.IID          `json:"DeletedIIDList"`
-	RemainedErrorInfoList []*RemainedErrorInfo `json:"RemainedErrorInfoList"`
+	ResourceType          string               `json:"ResourceType" validate:"required" example:"VPC"`  // Resource type
+	IsAllDeleted          bool                 `json:"IsAllDeleted" validate:"required" example:"true"` // true: all deleted, false: some remained
+	DeletedIIDList        []*cres.IID          `json:"DeletedIIDList" validate:"required"`              // List of deleted resource IDs
+	RemainedErrorInfoList []*RemainedErrorInfo `json:"RemainedErrorInfoList" validate:"required"`       // List of resources that failed to delete
 }
 
+// RemainedErrorInfo provides details of resources that failed to delete
 type RemainedErrorInfo struct {
-	Name     string `json:"Name"`
-	ErrorMsg string `json:"ErrorMsg"`
+	Name     string `json:"Name" validate:"required" example:"vpc-01"`           // Resource name that failed to delete
+	ErrorMsg string `json:"ErrorMsg" validate:"required" example:"delete error"` // Error message for the failed resource
 }
 
 // Destroy all Resources in a Connection

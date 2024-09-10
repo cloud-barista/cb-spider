@@ -445,10 +445,15 @@ func RunServer() {
 		//----------Destory All Resources in a Connection
 		{"DELETE", "/destroy", Destroy},
 
+		//----------checking TCP and UDP ports for NLB
+		{"GET", "/check/tcp", CheckTCPPort},
+		{"GET", "/check/udp", CheckUDPPort},
+
 		//-------------------------------------------------------------------//
 		//----------Additional Info
 		{"GET", "/cspresourcename/:Name", GetCSPResourceName},
 		{"GET", "/cspresourceinfo/:Name", GetCSPResourceInfo},
+
 		//----------AnyCall Handler
 		{"POST", "/anycall", AnyCall},
 

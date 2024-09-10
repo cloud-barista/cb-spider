@@ -478,6 +478,110 @@ const docTemplate = `{
                 }
             }
         },
+        "/check/tcp": {
+            "get": {
+                "description": "Verifies whether a given TCP port is open on the specified host.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Utility]"
+                ],
+                "summary": "Check if a specific TCP port is open",
+                "operationId": "check-tcp-port",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The hostname or IP address to check",
+                        "name": "HostName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "The TCP port to check",
+                        "name": "Port",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success message with port status",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid parameters",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/check/udp": {
+            "get": {
+                "description": "Verifies whether a given UDP port is open on the specified host.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Utility]"
+                ],
+                "summary": "Check if a specific UDP port is open",
+                "operationId": "check-udp-port",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The hostname or IP address to check",
+                        "name": "HostName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "The UDP port to check",
+                        "name": "Port",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Success message with port status",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid parameters",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/cloudos": {
             "get": {
                 "description": "Retrieve a list of supported Cloud OS.",
@@ -2628,6 +2732,53 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/destroy": {
+            "delete": {
+                "description": "Deletes all resources associated with a specific cloud connection. This action is irreversible.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Utility]"
+                ],
+                "summary": "Destroy all resources in a connection",
+                "operationId": "destroy-all-resources",
+                "parameters": [
+                    {
+                        "description": "Request body for deleting all resources",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the destroyed resources",
+                        "schema": {
+                            "$ref": "#/definitions/spider.DestroyedInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to missing parameters",
                         "schema": {
                             "$ref": "#/definitions/spider.SimpleMsg"
                         }
@@ -7617,6 +7768,81 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "spider.DeletedResourceInfoList": {
+            "type": "object",
+            "required": [
+                "DeletedIIDList",
+                "IsAllDeleted",
+                "RemainedErrorInfoList",
+                "ResourceType"
+            ],
+            "properties": {
+                "DeletedIIDList": {
+                    "description": "List of deleted resource IDs",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.IID"
+                    }
+                },
+                "IsAllDeleted": {
+                    "description": "true: all deleted, false: some remained",
+                    "type": "boolean",
+                    "example": true
+                },
+                "RemainedErrorInfoList": {
+                    "description": "List of resources that failed to delete",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.RemainedErrorInfo"
+                    }
+                },
+                "ResourceType": {
+                    "description": "Resource type",
+                    "type": "string",
+                    "example": "VPC"
+                }
+            }
+        },
+        "spider.DestroyedInfo": {
+            "type": "object",
+            "required": [
+                "DeletedAllListByResourceType",
+                "IsAllDestroyed"
+            ],
+            "properties": {
+                "DeletedAllListByResourceType": {
+                    "description": "List of resources deleted by type",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.DeletedResourceInfoList"
+                    }
+                },
+                "IsAllDestroyed": {
+                    "description": "true: all destroyed, false: some remained",
+                    "type": "boolean",
+                    "example": true
+                }
+            }
+        },
+        "spider.RemainedErrorInfo": {
+            "type": "object",
+            "required": [
+                "ErrorMsg",
+                "Name"
+            ],
+            "properties": {
+                "ErrorMsg": {
+                    "description": "Error message for the failed resource",
+                    "type": "string",
+                    "example": "delete error"
+                },
+                "Name": {
+                    "description": "Resource name that failed to delete",
+                    "type": "string",
+                    "example": "vpc-01"
+                }
+            }
+        },
         "spider.AccessInfo": {
             "description": "Access Information for a Kubernetes Cluster. \u003cbr\u003e Take some time to provide.",
             "type": "object",

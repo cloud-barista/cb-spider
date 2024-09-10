@@ -1,5 +1,60 @@
 basePath: /spider
 definitions:
+  spider.DeletedResourceInfoList:
+    properties:
+      DeletedIIDList:
+        description: List of deleted resource IDs
+        items:
+          $ref: '#/definitions/spider.IID'
+        type: array
+      IsAllDeleted:
+        description: 'true: all deleted, false: some remained'
+        example: true
+        type: boolean
+      RemainedErrorInfoList:
+        description: List of resources that failed to delete
+        items:
+          $ref: '#/definitions/spider.RemainedErrorInfo'
+        type: array
+      ResourceType:
+        description: Resource type
+        example: VPC
+        type: string
+    required:
+    - DeletedIIDList
+    - IsAllDeleted
+    - RemainedErrorInfoList
+    - ResourceType
+    type: object
+  spider.DestroyedInfo:
+    properties:
+      DeletedAllListByResourceType:
+        description: List of resources deleted by type
+        items:
+          $ref: '#/definitions/spider.DeletedResourceInfoList'
+        type: array
+      IsAllDestroyed:
+        description: 'true: all destroyed, false: some remained'
+        example: true
+        type: boolean
+    required:
+    - DeletedAllListByResourceType
+    - IsAllDestroyed
+    type: object
+  spider.RemainedErrorInfo:
+    properties:
+      ErrorMsg:
+        description: Error message for the failed resource
+        example: delete error
+        type: string
+      Name:
+        description: Resource name that failed to delete
+        example: vpc-01
+        type: string
+    required:
+    - ErrorMsg
+    - Name
+    type: object
   spider.AccessInfo:
     description: Access Information for a Kubernetes Cluster. <br> Take some time
       to provide.
@@ -2985,6 +3040,76 @@ paths:
       summary: Execute AnyCall
       tags:
       - '[AnyCall Management]'
+  /check/tcp:
+    get:
+      consumes:
+      - application/json
+      description: Verifies whether a given TCP port is open on the specified host.
+      operationId: check-tcp-port
+      parameters:
+      - description: The hostname or IP address to check
+        in: query
+        name: HostName
+        required: true
+        type: string
+      - description: The TCP port to check
+        in: query
+        name: Port
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success message with port status
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "400":
+          description: Bad Request, possibly due to invalid parameters
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Check if a specific TCP port is open
+      tags:
+      - '[Utility]'
+  /check/udp:
+    get:
+      consumes:
+      - application/json
+      description: Verifies whether a given UDP port is open on the specified host.
+      operationId: check-udp-port
+      parameters:
+      - description: The hostname or IP address to check
+        in: query
+        name: HostName
+        required: true
+        type: string
+      - description: The UDP port to check
+        in: query
+        name: Port
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Success message with port status
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "400":
+          description: Bad Request, possibly due to invalid parameters
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Check if a specific UDP port is open
+      tags:
+      - '[Utility]'
   /cloudos:
     get:
       description: Retrieve a list of supported Cloud OS.
@@ -4458,6 +4583,38 @@ paths:
       summary: Delete CSP VPC
       tags:
       - '[VPC Management]'
+  /destroy:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes all resources associated with a specific cloud connection.
+        This action is irreversible.
+      operationId: destroy-all-resources
+      parameters:
+      - description: Request body for deleting all resources
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the destroyed resources
+          schema:
+            $ref: '#/definitions/spider.DestroyedInfo'
+        "400":
+          description: Bad Request, possibly due to missing parameters
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Destroy all resources in a connection
+      tags:
+      - '[Utility]'
   /disk:
     get:
       consumes:
