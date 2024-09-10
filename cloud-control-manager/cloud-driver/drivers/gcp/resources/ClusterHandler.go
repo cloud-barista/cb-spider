@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -926,6 +927,10 @@ func mappingClusterInfo(cluster *container.Cluster) (ClusterInfo irs.ClusterInfo
 
 	// 5. AccessInfo    AccessInfo
 	kubeConfig := "Kubeconfig is not ready yet!"
+	if !reflect.ValueOf(cluster.MasterAuth).IsNil() {
+		kubeConfig = getKubeConfig(cluster)
+	}
+
 	accessInfo := irs.AccessInfo{
 		Endpoint:   cluster.Endpoint,
 		Kubeconfig: kubeConfig,
@@ -1211,4 +1216,37 @@ func convertNodeGroup(client *compute.Service, credential idrv.CredentialInfo, r
 		nodeGroupList = append(nodeGroupList, nodeGroupInfo)
 	}
 	return nodeGroupList, nil
+}
+
+func getKubeConfig(cluster *container.Cluster) string {
+	configName := fmt.Sprintf("gke_%s_%s", cluster.Location, cluster.Name)
+
+	// Refernece format is from `gcloud container clusters get-credentials <cluster name> --location=<location>`
+	kubeconfigContent := fmt.Sprintf(`apiVersion: v1
+clusters:
+- cluster:
+    server: https://%s
+    certificate-authority-data: %s
+  name: %s
+contexts:
+- context:
+    cluster: %s
+    user: %s
+  name: %s
+current-context: %s
+kind: Config
+preferences: {}
+users:
+- name: %s
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1beta1
+      command: gke-gcloud-auth-plugin
+      installHint: Install gke-gcloud-auth-plugin for use with kubectl by following
+        https://cloud.google.com/kubernetes-engine/docs/how-to/cluster-access-for-kubectl#install_plugin
+      provideClusterInfo: true
+`, cluster.Endpoint, cluster.MasterAuth.ClusterCaCertificate,
+		configName, configName, configName, configName, configName, configName)
+
+	return kubeconfigContent
 }
