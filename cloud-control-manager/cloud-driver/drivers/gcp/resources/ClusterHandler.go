@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -432,14 +433,30 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 	}
 
 	nodeConfig := container.NodeConfig{}
-	diskSize, err := strconv.ParseInt(nodeGroupReqInfo.RootDiskSize, 10, 64)
-	if err != nil {
-		return nodeGroupInfo, err
+
+	if nodeGroupReqInfo.RootDiskSize != "" && strings.ToLower(nodeGroupReqInfo.RootDiskType) != "default" {
+		diskSize, err := strconv.ParseInt(nodeGroupReqInfo.RootDiskSize, 10, 64)
+		if err != nil {
+			return irs.NodeGroupInfo{}, err
+		}
+
+		if diskSize > 0 {
+			nodeConfig.DiskSizeGb = diskSize
+		}
 	}
-	nodeConfig.DiskSizeGb = diskSize
-	nodeConfig.DiskType = nodeGroupReqInfo.RootDiskType
+
+	if nodeGroupReqInfo.RootDiskType != "" && strings.ToLower(nodeGroupReqInfo.RootDiskType) != "default" {
+		nodeConfig.DiskType = nodeGroupReqInfo.RootDiskType
+	}
+
 	nodeConfig.MachineType = nodeGroupReqInfo.VMSpecName
 	nodeConfig.Tags = sgTags
+
+	keyPair := map[string]string{}
+	if nodeGroupReqInfo.KeyPairIID.SystemId != "" {
+		keyPair[GCP_PMKS_KEYPAIR_KEY] = nodeGroupReqInfo.KeyPairIID.SystemId
+		nodeConfig.Labels = keyPair
+	}
 
 	// if clusterInfo.Network.SecurityGroupIIDs != nil && len(clusterInfo.Network.SecurityGroupIIDs) > 0 {
 	// 	var sgTags []string
@@ -926,6 +943,10 @@ func mappingClusterInfo(cluster *container.Cluster) (ClusterInfo irs.ClusterInfo
 
 	// 5. AccessInfo    AccessInfo
 	kubeConfig := "Kubeconfig is not ready yet!"
+	if !reflect.ValueOf(cluster.MasterAuth).IsNil() {
+		kubeConfig = getKubeConfig(cluster)
+	}
+
 	accessInfo := irs.AccessInfo{
 		Endpoint:   cluster.Endpoint,
 		Kubeconfig: kubeConfig,
@@ -1211,4 +1232,37 @@ func convertNodeGroup(client *compute.Service, credential idrv.CredentialInfo, r
 		nodeGroupList = append(nodeGroupList, nodeGroupInfo)
 	}
 	return nodeGroupList, nil
+}
+
+func getKubeConfig(cluster *container.Cluster) string {
+	configName := fmt.Sprintf("gke_%s_%s", cluster.Location, cluster.Name)
+
+	// Refernece format is from `gcloud container clusters get-credentials <cluster name> --location=<location>`
+	kubeconfigContent := fmt.Sprintf(`apiVersion: v1
+clusters:
+- cluster:
+    server: https://%s
+    certificate-authority-data: %s
+  name: %s
+contexts:
+- context:
+    cluster: %s
+    user: %s
+  name: %s
+current-context: %s
+kind: Config
+preferences: {}
+users:
+- name: %s
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1beta1
+      command: gke-gcloud-auth-plugin
+      installHint: Install gke-gcloud-auth-plugin for use with kubectl by following
+        https://cloud.google.com/kubernetes-engine/docs/how-to/cluster-access-for-kubectl#install_plugin
+      provideClusterInfo: true
+`, cluster.Endpoint, cluster.MasterAuth.ClusterCaCertificate,
+		configName, configName, configName, configName, configName, configName)
+
+	return kubeconfigContent
 }
