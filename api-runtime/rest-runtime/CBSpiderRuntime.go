@@ -499,7 +499,7 @@ func RunServer() {
 		{"GET", "/adminweb/keypairmgmt/:ConnectConfig", aw.KeyPairMgmt},
 		{"GET", "/adminweb/vm/:ConnectConfig", aw.VMManagement},
 		{"GET", "/adminweb/vmmgmt/:ConnectConfig", aw.VMMgmt},
-		{"GET", "/adminweb/nlb/:ConnectConfig", aw.NLB},
+		{"GET", "/adminweb/nlb/:ConnectConfig", aw.NLBManagement},
 		{"GET", "/adminweb/nlbmgmt/:ConnectConfig", aw.NLBMgmt},
 		{"GET", "/adminweb/disk/:ConnectConfig", aw.DiskManagement},
 		{"GET", "/adminweb/diskmgmt/:ConnectConfig", aw.DiskMgmt},
