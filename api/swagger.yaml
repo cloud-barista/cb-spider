@@ -1995,6 +1995,10 @@ definitions:
             description: REGION(V) | GLOBAL
             example: REGION
             type: string
+          TagList:
+            items:
+              $ref: '#/definitions/spider.KeyValue'
+            type: array
           Type:
             description: PUBLIC(V) | INTERNAL
             example: PUBLIC

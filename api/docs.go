@@ -10582,6 +10582,12 @@ const docTemplate = `{
                             "type": "string",
                             "example": "REGION"
                         },
+                        "TagList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.KeyValue"
+                            }
+                        },
                         "Type": {
                             "description": "PUBLIC(V) | INTERNAL",
                             "type": "string",

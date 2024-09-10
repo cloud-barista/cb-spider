@@ -154,6 +154,7 @@ type NLBCreateRequest struct {
 		Listener      NLBListenerCreateRequest `json:"Listener" validate:"required"`
 		VMGroup       NLBVMGroupRequest        `json:"VMGroup" validate:"required"`
 		HealthChecker NLBHealthCheckerRequest  `json:"HealthChecker" validate:"required"`
+		TagList       []cres.KeyValue          `json:"TagList,omitempty" validate:"omitempty"`
 	} `json:"ReqInfo" validate:"required"`
 }
 
@@ -193,6 +194,7 @@ func CreateNLB(c echo.Context) error {
 		Scope:    req.ReqInfo.Scope,
 		Listener: convertListenerInfo(req.ReqInfo.Listener),
 		VMGroup:  convertVMGroupInfo(req.ReqInfo.VMGroup),
+		TagList:  req.ReqInfo.TagList,
 		//HealthChecker: below
 	}
 	healthChecker, err := convertHealthCheckerInfo(req.ReqInfo.HealthChecker)

@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NLB Management</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+    }
+    .header-container {
+        display: flex;
+        align-items: flex-end;
+    }
+    .header-container img {
+        margin-right: 10px;
+        height: 28px;
+    }
+    .header-container h1 {
+        font-size: 16px;
+        margin: 0;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-bottom: 0;
+    }
+    th, td {
+        border: 1px solid black;
+        padding: 6px;
+        position: relative;
+    }
+    th {
+        background-color: #f2f2f2;
+        font-size: 14px;
+        text-align: center;
+    }
+    td {
+        text-align: left;
+    }
+    .column-num {
+        width: 5%;
+        text-align: center;
+    }
+    .center-align {
+        text-align: center;
+    }
+    .overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+    .overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+    }
+    .fixed-header {
+        position: fixed;
+        top: 0;
+        width: 97%;
+        background-color: white;
+        z-index: 1000;
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 20px;
+        align-items: center;
+        box-shadow: 0 4px 6px -6px #222;
+    }
+    .fixed-action-buttons {
+        display: flex;
+        align-items: center;
+    }
+    .fixed-action-buttons button {
+        margin-left: 10px;
+    }
+    button.add-btn {
+        width: 20px;
+        font-size: 12px;
+        font-weight: bold;
+        white-space: nowrap;
+    }
+    #searchInput {
+        width: 190px;
+        font-family: Arial, sans-serif;
+        padding-right: 2.5cm;
+    }
+    #clearSearch {
+        position: absolute;
+        right: 0.1cm;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+    }
+    .searchContainer {
+        position: relative;
+        display: flex;
+        align-items: center;
+        padding-left: 0.5cm;
+    }
+    .searchContainer button {
+        position: absolute;
+        right: 0.5cm;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+    }
+    
+    .add-button {
+        font-size: 14px;
+        font-weight: bold;
+        margin-left: 1px;
+        margin-right: 5px;
+        margin-bottom: 10px;
+    }
+    .mock-add-button {
+        margin-right: 1px;
+    }
+    .content {
+        margin-top: 70px;
+    }
+    .highlight {
+        background-color: #fffab6;
+    }
+    .checkbox-cell {
+        width: 5%;
+        text-align: center;
+    }
+
+    .nlb-name, .vpc-name, .scope-type, .listener, .vm-groups, .health-checker, .tags, .misc {
+        text-align: center;
+    }
+    .nlb-name {
+        width: 15%;
+    }
+    .vpc-name {
+        width: 15%;
+    }
+    .scope-type {
+        width: 8%;
+    }
+    .listener {
+        width: 18%;
+    }
+    .vm-groups, .health-checker {
+        width: 20%;
+    }
+    .tags, .misc {
+        width: 10%;
+    }
+    
+    .tag-container {
+        display: inline-block;
+        background-color: #e1e1e1;
+        border-radius: 3px;
+        padding: 2px 5px;
+        margin: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: pointer;
+        max-width: calc(100% - 2ch);
+    }
+    .tag-container:hover {
+        background-color: #c1e1c1;
+    }
+
+    .add-btn-container {
+        margin-top: 5px;
+        text-align: left;
+    }
+    .add-btn-container .add-btn {
+        background-color: transparent;
+        font-size: 14px;
+        border: none;
+        color: blue;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+
+    .misc-content {
+        max-height: 2.5em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .more-btn {
+        display: none;
+        background-color: transparent;
+        border: none;
+        color: blue;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+
+    .misc-cell {
+        position: relative;
+    }
+
+    .misc-cell .more-btn {
+        position: absolute;
+        right: 5px;
+        bottom: 5px;
+    }
+
+    .overlay-dark-background {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.7);
+        z-index: 1999;
+        display: none;
+    }
+
+    .misc-overlay {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        width: 50%;
+        height: 50%;
+        transform: translate(-50%, -50%);
+        background-color: white;
+        border: 1px solid black;
+        padding: 20px;
+        z-index: 2000;
+        overflow-y: auto;
+        user-select: text;
+    }
+
+    .misc-overlay .close-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+    }
+
+    .misc-overlay-content {
+        width: 100%;
+        height: 100%;
+        overflow-y: auto;
+        white-space: pre-wrap;
+    }
+
+    .tag-overlay {
+        display: none;
+        position: absolute;
+        background-color: white;
+        border: 1px solid black;
+        padding: 20px;
+        z-index: 1001;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        max-width: 300px;
+        word-wrap: break-word;
+    }
+
+    .tag-overlay .close-btn {
+        position: absolute;
+        top: 5px;
+        right: 10px;
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+    }
+
+    .tag-overlay-content {
+        position: relative;
+        padding: 20px;
+        border-radius: 5px;
+        background-color: white;
+        text-align: left;
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+    }
+
+    .tag-overlay-input-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .tag-overlay-input-group label {
+        flex: 1;
+        text-align: right;
+        margin-right: 10px;
+    }
+
+    .tag-overlay-input-group input {
+        flex: 2;
+    }
+
+    .tag-overlay-button-group {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+    }
+
+    .nlb-name {
+        text-align: left;
+        font-size: 13px;
+        font-weight: bold;
+    }
+
+    .nlb-name .desc-system-id {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
+    }
+
+    .nlb-name .nlb-created-time {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
+    }
+
+    .desc-vpc-system-id {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
+    }
+
+    .form-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .form-group label {
+        flex: 1;
+        text-align: right;
+        margin-right: 10px;
+    }
+    .form-group input, .form-group textarea, .form-group select {
+        flex: 2;
+    }
+    .form-group button {
+        margin-left: 10px;
+    }
+    .tag-input-group {
+        display: flex;
+        align-items: center;
+        flex: 2;
+    }
+    .tag-input-group input {
+        width: 60px;
+        flex: 0.5;
+        margin-right: 5px;
+    }
+    .tag-input-group button {
+        margin-left: 5px;
+    }
+
+    .vm-input {
+        display: flex;
+        align-items: center;
+        margin-bottom: 5px;
+    }
+
+    .vm-input input {
+        width: 80%;
+        padding: 5px;
+        margin-right: 10px;
+    }
+
+    .vm-input button {
+        padding: 5px 10px;
+        cursor: pointer;
+    }
+
+
+</style>
+</head>
+<body>
+    <div class="fixed-header">
+        <div class="header-container">
+            <img src="/spider/adminweb/images/left-menu/nlb.png" alt="NLB Icon">
+            <h1>NLB Management</h1>
+            <div class="searchContainer">
+                <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
+                <button id="clearSearch" onclick="clearSearchInput()">X</button>
+            </div>
+        </div>        
+        <div class="fixed-action-buttons">
+            <input type="checkbox" onclick="toggleSelectAll(this)">
+            <button onclick="deleteSelectedNLBs()">Delete</button>
+        </div>
+    </div>
+    
+    <div class="content">
+        <div class="header-with-progress">
+            <button class="add-button" onclick="showOverlay()">+</button>
+            <div id="mockButtonsContainer" style="display: flex; align-items: center;"></div>
+            <div class="progress-bar-container" id="progressBarContainer">
+                <div class="progress-bar" id="progressBar"></div>
+                <span id="timeDisplay"></span>
+            </div>  
+        </div>
+        <table id="nlb-table">
+            <tr>
+                <th class="column-num">#</th>
+                <th class="nlb-name" style="text-align: center;">Name</th>
+                <th class="vpc-name">VPC Name</th>
+                <th class="scope-type">Scope | Type</th>
+                <th class="listener">Listener</th>
+                <th class="vm-groups">VM Groups</th>
+                <th class="health-checker">Health Checker</th>
+                <th class="tags">Tags</th>
+                <th class="misc">Misc</th>
+                <th class="checkbox-cell"><input type="checkbox" onclick="toggleSelectAll(this)"></th>
+            </tr>
+            {{range $index, $nlb := .NLBs}}
+            <tr>
+                <td class="column-num">{{$index | inc}}</td>
+                <td class="nlb-name">
+                    {{$nlb.IId.NameId}}
+                    <span class="desc-system-id">&nbsp;• {{$nlb.IId.SystemId}}</span>
+                    <span class="nlb-created-time" data-time="{{ $nlb.CreatedTime }}"></span>
+                </td>
+                <td class="nlb-name vpc-name">
+                    {{$nlb.VpcIID.NameId}}
+                    <span class="desc-vpc-system-id">&nbsp;• {{$nlb.VpcIID.SystemId}}</span>
+                </td>
+                <td class="scope-type">{{$nlb.Scope}} | {{$nlb.Type}}</td>
+                <td class="listener">
+                    <strong>Protocol:</strong> {{$nlb.Listener.Protocol}}<br>
+                    <strong>Port:</strong> {{$nlb.Listener.Port}}<br>
+                    <strong>Public IP:</strong> {{$nlb.Listener.IP}}<br>
+                    <strong>DNS:</strong> {{$nlb.Listener.DNSName}}
+                </td>
+                <td class="vm-groups">
+                    <strong>Protocol:</strong> {{$nlb.VMGroup.Protocol}}<br>
+                    <strong>Port:</strong> {{$nlb.VMGroup.Port}}<br>
+                    <strong>VMs:</strong><br>
+                    {{range $vm := $nlb.VMGroup.VMs}}
+                    {{$vm.NameId}}<br>
+                    {{end}}
+                </td>
+                <td class="health-checker">
+                    <strong>Protocol:</strong> {{$nlb.HealthChecker.Protocol}}<br>
+                    <strong>Port:</strong> {{$nlb.HealthChecker.Port}}<br>
+                    <strong>Interval:</strong> {{$nlb.HealthChecker.Interval}}<br>
+                    <strong>Timeout:</strong> {{$nlb.HealthChecker.Timeout}}<br>
+                    <strong>Threshold:</strong> {{$nlb.HealthChecker.Threshold}}<br>
+                    <button onclick="checkNLBHealth('{{$nlb.IId.NameId}}')">Check Health</button>
+                </td>
+                <td class="tags" style="text-align: left;">
+                    {{range $tag := $nlb.TagList}}
+                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'NLB', '{{$nlb.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                    {{end}}
+                    <div class="add-btn-container">
+                        <button class="add-btn" onclick="showAddTagOverlay('{{$nlb.IId.NameId}}')">+</button>
+                    </div>
+                </td>
+                <td class="misc misc-cell">
+                    <div class="misc-content">{{range $kv := $nlb.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
+                    </div>
+                    <button class="more-btn" onclick="showMiscOverlay(this)">more...</button>
+                </td>
+                <td class="checkbox-cell center-align">
+                    <input type="checkbox" name="deleteCheckbox" value="{{$nlb.IId.NameId}}">
+                </td>
+            </tr>
+            {{end}}
+            {{if not .NLBs}}
+            <tr>
+                <td colspan="11" class="center-align">No NLBs found for this connection.</td>
+            </tr>
+            {{end}}
+        </table>
+    </div>
+
+    <!-- Overlay: Add New NLB -->
+    <div id="overlay" class="overlay">
+        <div class="overlay-content">
+            <h2>Add New NLB</h2>
+            <form id="addNLBForm" onsubmit="event.preventDefault(); postNLB();">
+                <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">                
+                <h3>NLB Info:</h3>
+                <div class="form-group">
+                    <label for="nlbName">Name:</label>
+                    <input type="text" id="nlbName" name="nlbName" required style="width: 65%;">
+                </div>
+                <div class="form-group">
+                    <label for="vpcName">VPC Name:</label>
+                    <select id="vpcName" name="vpcName" required style="width: 65%;"></select>
+                </div>
+                <div class="form-group">
+                    <label for="type">Type:</label>
+                    <select id="type" name="type" required style="background-color: #E6E6FA; width: 65%;">
+                        <option value="PUBLIC">PUBLIC</option>
+                        <option value="INTERNAL">INTERNAL</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="scope">Scope:</label>
+                    <select id="scope" name="scope" required style="background-color: #F5F5DC; width: 65%;">
+                        <option value="REGION">REGION</option>
+                        <option value="GLOBAL">GLOBAL</option>
+                    </select>
+                </div>
+    
+                <div style="margin-top: 20px;"></div>
+                <h3>Listener:</h3>
+                <div class="form-group">
+                    <label for="protocol">Protocol:</label>
+                    <select id="protocol" name="protocol" required style="background-color: #E6E6FA; width: 65%;">
+                        <option value="TCP">TCP</option>
+                        <option value="UDP">UDP</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="port">Port:</label>
+                    <input type="number" id="port" name="port" required min="1" max="65535" value="22" style="background-color: #F5F5DC; width: 70%;" onchange="if(this.value<1)this.value=1;if(this.value>65535)this.value=65535;">
+                </div>
+    
+                <div style="margin-top: 20px;"></div>
+                <h3>VM Groups:</h3>
+                <div class="form-group">
+                    <label for="vmProtocol">Protocol:</label>
+                    <select id="vmProtocol" name="vmProtocol" required style="background-color: #E6E6FA; width: 65%;">
+                        <option value="TCP">TCP</option>
+                        <option value="UDP">UDP</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="vmPort">Port:</label>
+                    <input type="number" id="vmPort" name="vmPort" required min="1" max="65535" value="22" style="background-color: #F5F5DC; width: 70%;" onchange="if(this.value<1)this.value=1;if(this.value>65535)this.value=65535;">
+                </div>
+                <div class="form-group">
+                    <label for="vms">VMs:</label>
+                    <select id="vms" name="vms" multiple style="width: 65%; height: 100px;">                        
+                    </select>
+                </div>
+    
+                <div style="margin-top: 20px;"></div>
+                <h3>Health Checker:</h3>
+                <div class="form-group">
+                    <label for="hcProtocol">Protocol:</label>
+                    <select id="hcProtocol" name="hcProtocol" required style="background-color: #E6E6FA; width: 65%;">
+                        <option value="TCP">TCP</option>
+                        <option value="HTTP">HTTP</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="hcPort">Port:</label>
+                    <input type="number" id="hcPort" name="hcPort" required min="1" max="65535" value="22" style="background-color: #F5F5DC; width: 70%;" onchange="if(this.value<1)this.value=1;if(this.value>65535)this.value=65535;">
+                </div>
+                <div class="form-group">
+                    <label for="interval">Interval:</label>
+                    <input type="text" id="interval" name="interval" value="default" style="width: 65%;">
+                </div>
+                <div class="form-group">
+                    <label for="timeout">Timeout:</label>
+                    <input type="text" id="timeout" name="timeout" value="default" style="width: 65%;">
+                </div>
+                <div class="form-group">
+                    <label for="threshold">Threshold:</label>
+                    <input type="text" id="threshold" name="threshold" value="default" style="width: 65%;">
+                </div>                
+                <div class="form-group">
+                    <h3>Tags:</h3>
+                    <div id="nlb-tag-container"></div>
+                    <button type="button" onclick="addNLBTagField()">+</button>
+                </div>    
+                <div class="form-group" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+                    <button type="submit">Add NLB</button>
+                    <button type="button" onclick="hideOverlay()" style="margin-left: 10px;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="tag-overlay" class="tag-overlay">
+        <div class="tag-overlay-content"></div>
+    </div>
+    
+    <!-- Add Tag Overlay -->
+    <div id="add-tag-overlay" class="overlay">
+        <div class="add-tag-overlay-content overlay-content"></div>
+    </div>
+
+<script>
+    function searchKeyword() {
+        let input = document.getElementById('searchInput');
+        let filter = input.value.toUpperCase().trim();
+
+        if (!filter) {
+            clearSearchInput();
+            return;
+        }
+
+        let table = document.getElementById('nlb-table');
+        let tr = table.getElementsByTagName('tr');
+
+        for (let i = 1; i < tr.length; i++) {
+            let tds = tr[i].getElementsByTagName('td');
+            let rowVisible = false;
+
+            for (let j = 0; j < tds.length; j++) {
+                let td = tds[j];
+                if (td) {
+                    let txtValue = td.textContent || td.innerText;
+                    if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                        td.classList.add('highlight');
+                        rowVisible = true;
+                    } else {
+                        td.classList.remove('highlight');
+                    }
+                }
+            }
+        }
+    }
+
+
+    function clearSearchInput() {
+        let input = document.getElementById('searchInput');
+        input.value = '';
+
+        let table = document.getElementById('nlb-table');
+        let tr = table.getElementsByTagName('tr');
+
+        for (let i = 1; i < tr.length; i++) {
+            tr[i].style.display = '';
+            let tds = tr[i].getElementsByTagName('td');
+            for (let j = 0; j < tds.length; j++) {
+                tds[j].classList.remove('highlight');
+            }
+        }
+    }
+
+
+    let currentProvider = '';
+
+    function showError(message, title) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        const formattedMessage = message.split('.').join('.<br>');
+        errorDiv.innerHTML = `<p>${title}</p><p>${formattedMessage}</p><button onclick="closeError()">OK</button>`;
+        document.body.appendChild(errorDiv);
+        document.addEventListener('keydown', handleEscError);
+    }
+
+    function closeError() {
+        const errorDiv = document.querySelector('.error-message');
+        if (errorDiv) {
+            errorDiv.remove();
+            document.removeEventListener('keydown', handleEscError);
+        }
+    }
+
+    function handleEscError(event) {
+        if (event.key === "Escape") {
+            closeError();
+        }
+    }
+
+    function fetchWithProgress(url, options) {
+        showProgressBar();
+
+        const startTime = Date.now();
+        const timerInterval = 500; 
+        let timerId = setInterval(() => {
+            const elapsedTime = (Date.now() - startTime) / 1000;
+            const timeDisplay = document.getElementById('timeDisplay');
+            timeDisplay.textContent = `${(Math.floor(elapsedTime * 2) / 2).toFixed(1)}s`;
+        }, timerInterval);
+
+        return fetch(url, options)
+            .then(response => {
+                clearInterval(timerId); 
+                hideProgressBar();
+                return response;
+            })
+            .catch(error => {
+                clearInterval(timerId);
+                hideProgressBar();
+                throw error;
+            });
+    }
+
+    function showProgressBar() {
+        const progressBarContainer = document.getElementById('progressBarContainer');
+        const progressBar = document.getElementById('progressBar');
+        progressBar.style.width = '0%';
+        progressBarContainer.style.display = 'block';
+
+        setTimeout(() => {
+            progressBar.style.width = '100%';
+        }, 100);
+    }
+
+    function hideProgressBar() {
+        const progressBarContainer = document.getElementById('progressBarContainer');
+        setTimeout(() => {
+            progressBarContainer.style.display = 'none';
+            document.getElementById('timeDisplay').textContent = ''; 
+        }, 500);
+    }
+
+    function deleteSelectedNLBs() {
+        const connConfig = document.getElementById('connConfig').value;
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
+        if (checkboxes.length === 0) {
+            alert("Please select NLBs to delete.");
+            return;
+        }
+
+        if (!confirm("Are you sure you want to delete the selected NLBs?")) {
+            return;
+        }
+
+        const deletePromises = Array.from(checkboxes).map(checkbox => {
+            const nlbName = checkbox.value;
+            const data = {
+                ConnectionName: connConfig
+            };
+
+            return fetchWithProgress(`/spider/nlb/${nlbName}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            }).then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => {
+                        throw new Error(error.message);
+                    });
+                }
+                return response.json();
+            });
+        });
+
+        Promise.all(deletePromises)
+            .then(dataList => {
+                let allSuccess = true;
+                dataList.forEach((data, index) => {
+                    if (data.Result !== "true") {
+                        allSuccess = false;
+                        showError("Failed to delete some NLBs: " + (data.Message || "Unknown error"), "NLB Name: " + checkboxes[index].value);
+                    }
+                });
+                if (allSuccess) {
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                showError("Error deleting NLBs: " + error.message, "Multiple NLBs");
+            });
+    }
+
+    function toggleSelectAll(source) {
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]');
+        for (const checkbox of checkboxes) {
+            checkbox.checked = source.checked;
+        }
+    }
+
+    function validateForm() {
+        const nlbName = document.getElementById('nlbName').value.trim();
+        const vpcName = document.getElementById('vpcName').value.trim();
+        const protocol = document.getElementById('protocol').value.trim();
+        const port = document.getElementById('port').value.trim();
+
+        if (!nlbName || !vpcName || !protocol || !port) {
+            alert("Please fill in all the fields.");
+            return false;
+        }
+        return true;
+    }
+
+    function postNLB() {
+        if (!validateForm()) {
+            return;
+        }
+
+        const connConfig = document.getElementById('connConfig').value;
+        const nlbName = String(document.getElementById('nlbName').value);
+        const vpcName = document.getElementById('vpcName').value;
+        const type = document.getElementById('type').value;
+        const scope = document.getElementById('scope').value;
+        const protocol = document.getElementById('protocol').value;
+        const port = document.getElementById('port').value;
+        const vmProtocol = document.getElementById('vmProtocol').value;
+        const vmPort = document.getElementById('vmPort').value;
+        const vms = document.getElementById('vms').value.split('\n').map(vm => vm.trim());
+        const hcProtocol = document.getElementById('hcProtocol').value;
+        const hcPort = document.getElementById('hcPort').value;
+        const interval = document.getElementById('interval').value;
+        const timeout = document.getElementById('timeout').value;
+        const threshold = document.getElementById('threshold').value;
+
+        const tags = Array.from(document.querySelectorAll('.nlb-tag-input')).map(tagInput => ({
+            Key: tagInput.querySelector('.nlb-tag-key').value,
+            Value: tagInput.querySelector('.nlb-tag-value').value
+        }));
+
+        const data = {
+            ConnectionName: connConfig,
+            ReqInfo: {
+                Name: nlbName,
+                VPCName: vpcName,
+                Type: type,
+                Scope: scope,
+                Listener: {
+                    Protocol: protocol,
+                    Port: port
+                },
+                VMGroup: {
+                    Protocol: vmProtocol,
+                    Port: vmPort,
+                    VMs: vms
+                },
+                HealthChecker: {
+                    Protocol: hcProtocol,
+                    Port: hcPort,
+                    Interval: interval,
+                    Timeout: timeout,
+                    Threshold: threshold
+                },
+                TagList: tags
+            }
+        };
+
+        fetchWithProgress('/spider/nlb', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        }).then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.message);
+                });
+            }
+            return response.json();
+        }).then(() => {
+            location.reload();
+        }).catch(error => {
+            showError("Error creating NLB: " + error.message, "NLB Creation Error");
+        });
+    }
+
+    function showOverlay() {
+        loadVPCs(); 
+        const region = '{{.RegionName}}';
+        const nlbNameInput = document.getElementById('nlbName');
+
+        nlbNameInput.value = `${region}-nlb-${Math.random().toString(36).substring(2, 5)}`;
+        document.getElementById('protocol').value = 'TCP';
+        document.getElementById('port').value = '22';
+
+        // 오버레이 보이게 설정
+        document.getElementById('overlay').style.display = 'flex'; 
+        document.addEventListener('keydown', handleEsc);
+        clearFormFields();
+    }
+
+
+    function clearFormFields() {
+        const region = '{{.RegionName}}';
+        const nlbNameInput = document.getElementById('nlbName');
+
+        nlbNameInput.value = `${region}-nlb-${Math.random().toString(36).substring(2, 5)}`;
+        document.getElementById('protocol').value = 'TCP';
+        document.getElementById('port').value = '22';
+
+        document.querySelectorAll('.nlb-tag-input').forEach(tagInput => tagInput.remove());
+    }
+
+    function hideOverlay() {
+        document.getElementById('overlay').style.display = 'none';
+        document.removeEventListener('keydown', handleEsc);
+        clearFormFields();
+    }
+
+    function handleEsc(event) {
+        if (event.key === "Escape") {
+            hideOverlay();
+        }
+    }
+
+    function checkNLBHealth(nlbName) {
+        const connConfig = document.getElementById('connConfig').value;
+
+        fetchWithProgress(`/spider/nlb/${nlbName}/health?ConnectionName=${connConfig}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        }).then(response => response.json())
+        .then(data => {
+            const healthInfo = data.healthinfo;
+            let message = `Healthy VMs: ${healthInfo.HealthyVMs.length}\nUnhealthy VMs: ${healthInfo.UnHealthyVMs.length}`;
+            alert(message);
+        }).catch(error => {
+            showError("Error fetching NLB health info: " + error.message, "NLB Health Info Error");
+        });
+    }
+
+    function loadVPCs() {
+        const connConfig = document.getElementById('connConfig').value;
+        const url = `/spider/vpc?ConnectionName=${encodeURIComponent(connConfig)}`;
+
+        fetchWithProgress(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            const vpcSelect = document.getElementById('vpcName');
+            vpcSelect.innerHTML = '';
+            if (data.vpc.length > 0) {
+                data.vpc.forEach((vpc, index) => {
+                    const option = document.createElement('option');
+                    option.value = vpc.IId.NameId;
+                    option.text = `${vpc.IId.NameId} (${vpc.IPv4_CIDR})`;
+                    vpcSelect.appendChild(option);
+                    if (index === 0) {
+                        vpcSelect.value = vpc.IId.NameId;
+                    }
+                });
+            } else {
+                const option = document.createElement('option');
+                option.value = "";
+                option.text = "No VPCs. Create one.";
+                vpcSelect.appendChild(option);
+                vpcSelect.disabled = true;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading VPCs:', error);
+            showError("Error loading VPCs: " + error.message, "VPC Load Error");
+        });
+    }
+
+    function addNLBTagField() {
+        const tagContainer = document.getElementById('nlb-tag-container');
+        const tagInput = document.createElement('div');
+        tagInput.className = 'nlb-tag-input tag-input-group';
+        tagInput.innerHTML = `
+            <input type="text" class="nlb-tag-key" placeholder="Key" required>
+            <input type="text" class="nlb-tag-value" placeholder="Value" required>
+            <button type="button" onclick="removeTagField(this)">-</button>
+        `;
+        tagContainer.appendChild(tagInput);
+    }
+
+
+    function removeTagField(button) {
+        button.parentElement.remove();
+    }
+
+
+    function showMiscOverlay(button) {
+        const miscContent = button.previousElementSibling.innerHTML;
+        const overlayDarkBackground = document.createElement('div');
+        overlayDarkBackground.className = 'overlay-dark-background';
+        document.body.appendChild(overlayDarkBackground);
+
+        const overlay = document.createElement('div');
+        overlay.className = 'misc-overlay';
+        overlay.innerHTML = `
+            <button class="close-btn">x</button>
+            <div class="misc-overlay-content" tabindex="0">${miscContent}</div>
+        `;
+
+        document.body.appendChild(overlay);
+        overlayDarkBackground.style.display = 'block';
+        overlay.style.display = 'block';
+
+        const overlayContent = overlay.querySelector('.misc-overlay-content');
+        overlayContent.focus();
+
+        document.addEventListener('keydown', handleEscKey);
+        overlayDarkBackground.addEventListener('click', handleClickOutside);
+        overlay.querySelector('.close-btn').addEventListener('click', closeMiscOverlay);
+
+        function closeMiscOverlay() {
+            if (overlay) overlay.remove();
+            if (overlayDarkBackground) overlayDarkBackground.remove();
+            document.removeEventListener('keydown', handleEscKey);
+            overlayDarkBackground.removeEventListener('click', handleClickOutside);
+        }
+
+        function handleEscKey(event) {
+            if (event.key === 'Escape') {
+                closeMiscOverlay();
+            }
+        }
+
+        function handleClickOutside(event) {
+            if (event.target === overlayDarkBackground) {
+                closeMiscOverlay();
+            }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const miscCells = document.querySelectorAll('.misc-cell');
+
+        miscCells.forEach(cell => {
+            const content = cell.querySelector('.misc-content');
+            const button = cell.querySelector('.more-btn');
+
+            if (content.scrollHeight > content.clientHeight) {
+                button.style.display = 'inline-block';
+            } else {
+                button.style.display = 'none';
+            }
+        });
+    });
+
+
+    function showTagOverlay(event, tag, resourceType, resourceName) {
+        event.stopPropagation();
+        const tagOverlay = document.getElementById('tag-overlay');
+        const tagOverlayContent = document.querySelector('.tag-overlay-content');
+        tagOverlayContent.innerHTML = `
+            <button class="close-btn" onclick="closeTagOverlay()">x</button>
+            <p>${tag}</p>
+            <div class="button-group">
+                <button onclick="deleteTag('${tag}', '${resourceType}', '${resourceName}')">Delete</button>
+                <button onclick="closeTagOverlay()">Cancel</button>
+            </div>
+        `;
+        tagOverlay.style.display = 'block';
+        tagOverlay.style.top = `${event.clientY}px`;
+        tagOverlay.style.left = `${event.clientX}px`;
+        document.addEventListener('click', handleClickOutsideOverlay);
+        document.addEventListener('keydown', handleEscTagOverlay);
+    }
+
+    function deleteTag(tag, resourceType, resourceName) {
+        const connConfig = document.getElementById('connConfig').value;
+        const [tagKey, tagValue] = tag.split(': ');
+
+        const data = {
+            ConnectionName: connConfig,
+            ReqInfo: {
+                ResourceType: resourceType.trim(),
+                ResourceName: resourceName.trim()
+            }
+        };
+
+        fetchWithProgress(`/spider/tag/${tagKey.trim()}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        }).then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.message);
+                });
+            }
+            return response.json();
+        }).then(() => {
+            closeTagOverlay();
+            location.reload();
+        }).catch(error => {
+            showError("Error deleting tag: " + error.message, "Resource Name: " + resourceName);
+        });
+    }
+
+    function closeTagOverlay() {
+        const tagOverlay = document.getElementById('tag-overlay');
+        tagOverlay.style.display = 'none';
+        document.removeEventListener('click', handleClickOutsideOverlay);
+        document.removeEventListener('keydown', handleEscTagOverlay);
+    }
+
+    function handleEscTagOverlay(event) {
+        if (event.key === "Escape") {
+            closeTagOverlay();
+        }
+    }
+
+    function handleClickOutsideOverlay(event) {
+        const tagOverlay = document.getElementById('tag-overlay');
+        if (!tagOverlay.contains(event.target)) {
+            closeTagOverlay();
+        }
+    }
+
+    function showAddTagOverlay(nlbName) {
+        const addTagOverlay = document.getElementById('add-tag-overlay');
+        const addTagOverlayContent = document.querySelector('.add-tag-overlay-content');
+        addTagOverlayContent.innerHTML = `
+            <div class="tag-overlay-input-group">
+                <label for="tagOverlayTagKey">Tag Key:</label>
+                <input type="text" id="tagOverlayTagKey" name="tagKey" required>
+            </div>
+            <div class="tag-overlay-input-group">
+                <label for="tagOverlayTagValue">Tag Value:</label>
+                <input type="text" id="tagOverlayTagValue" name="tagValue" required>
+            </div>
+            <div class="tag-overlay-button-group">
+                <button onclick="addTag('${nlbName}')">Add</button>
+                <button onclick="closeAddTagOverlay()">Cancel</button>
+            </div>
+        `;
+        addTagOverlay.style.display = 'flex';
+        document.addEventListener('keydown', handleEscAddTagOverlay);
+    }
+
+    function closeAddTagOverlay() {
+        const addTagOverlay = document.getElementById('add-tag-overlay');
+        addTagOverlay.style.display = 'none';
+        document.removeEventListener('keydown', handleEscAddTagOverlay);
+    }
+
+
+    function handleEscAddTagOverlay(event) {
+        if (event.key === "Escape") {
+            closeAddTagOverlay();
+        }
+    }
+
+    function addTag(nlbName) {
+        const tagKey = document.getElementById('tagOverlayTagKey').value;
+        const tagValue = document.getElementById('tagOverlayTagValue').value;
+        const connConfig = document.getElementById('connConfig').value;
+        if (!tagKey) {
+            alert("Please enter Tag Key.");
+            return;
+        }
+
+        const data = {
+            ConnectionName: connConfig,
+            ReqInfo: {
+                ResourceType: 'NLB',
+                ResourceName: nlbName,
+                Tag: { Key: tagKey, Value: tagValue }
+            }
+        };
+        fetchWithProgress('/spider/tag', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        }).then(response => {              
+            if (!response.ok) {                    
+                return response.json().then(error => {
+                    throw new Error(error.message);
+                });
+            }
+            return response.json();
+        }).then(() => {                
+            closeAddTagOverlay();
+            location.reload();
+        }).catch(error => {
+            showError("Error adding tag: " + error.message, "NLB Name: " + nlbName);
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        fetchWithProgress('/spider/connectionconfig/{{.ConnectionConfig}}')
+            .then(response => response.json())
+            .then(data => {
+                const currentProvider = data.ProviderName;
+
+                const nameFields = document.querySelectorAll('.nlb-name .desc-system-id');
+
+                nameFields.forEach(function(field) {
+                    let systemId = field.textContent.trim();
+
+                    if (currentProvider === 'AWS') {
+                        if (systemId.includes('loadbalancer/net/')) {
+                            systemId = systemId.split('loadbalancer/net/')[1];
+                        }
+                        if (systemId.includes('/')) {
+                            systemId = systemId.split('/')[0];
+                        }
+                    }
+
+                    field.innerHTML = `&nbsp;• ${systemId}`;
+                });
+
+                const timeElements = document.querySelectorAll('.nlb-created-time');
+
+                timeElements.forEach(function(element) {
+                    const originalTime = element.getAttribute('data-time');
+                    const formattedTime = formatTime(originalTime);
+                    element.innerHTML = `&nbsp;• ${formattedTime}`;
+                });
+
+                function formatTime(originalTime) {
+                    const parts = originalTime.split(" ");
+                    const date = parts[0];
+                    const time = parts[1].slice(0, 5);
+                    const timezone = parts[3];
+                    return `${date} ${time} ${timezone}`;
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching provider info:', error);
+            });
+    });
+
+    function loadVMs() {
+        const connConfig = document.getElementById('connConfig').value;
+        const url = `/spider/vm?ConnectionName=${encodeURIComponent(connConfig)}`;
+
+        fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            const vmSelect = document.getElementById('vms');
+            vmSelect.innerHTML = '';
+
+            if (data.vm.length === 0) {
+                const noVMOption = document.createElement('option');
+                noVMOption.text = 'No VMs available.';
+                noVMOption.disabled = true;
+                vmSelect.appendChild(noVMOption);
+            } else {
+                data.vm.forEach((vm) => {
+                    const option = document.createElement('option');
+                    option.value = vm.IId.NameId;
+                    option.text = `${vm.IId.NameId} (${vm.PrivateIP})`;
+                    vmSelect.appendChild(option);
+                });
+            }
+        })
+        .catch(error => {
+            console.error('Error loading VMs:', error);
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', loadVMs);
+
+</script>
+</body>
+</html>
