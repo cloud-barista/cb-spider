@@ -432,14 +432,30 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 	}
 
 	nodeConfig := container.NodeConfig{}
-	diskSize, err := strconv.ParseInt(nodeGroupReqInfo.RootDiskSize, 10, 64)
-	if err != nil {
-		return nodeGroupInfo, err
+
+	if nodeGroupReqInfo.RootDiskSize != "" && strings.ToLower(nodeGroupReqInfo.RootDiskType) != "default" {
+		diskSize, err := strconv.ParseInt(nodeGroupReqInfo.RootDiskSize, 10, 64)
+		if err != nil {
+			return irs.NodeGroupInfo{}, err
+		}
+
+		if diskSize > 0 {
+			nodeConfig.DiskSizeGb = diskSize
+		}
 	}
-	nodeConfig.DiskSizeGb = diskSize
-	nodeConfig.DiskType = nodeGroupReqInfo.RootDiskType
+
+	if nodeGroupReqInfo.RootDiskType != "" && strings.ToLower(nodeGroupReqInfo.RootDiskType) != "default" {
+		nodeConfig.DiskType = nodeGroupReqInfo.RootDiskType
+	}
+
 	nodeConfig.MachineType = nodeGroupReqInfo.VMSpecName
 	nodeConfig.Tags = sgTags
+
+	keyPair := map[string]string{}
+	if nodeGroupReqInfo.KeyPairIID.SystemId != "" {
+		keyPair[GCP_PMKS_KEYPAIR_KEY] = nodeGroupReqInfo.KeyPairIID.SystemId
+		nodeConfig.Labels = keyPair
+	}
 
 	// if clusterInfo.Network.SecurityGroupIIDs != nil && len(clusterInfo.Network.SecurityGroupIIDs) > 0 {
 	// 	var sgTags []string
