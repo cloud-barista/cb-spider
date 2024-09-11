@@ -67,6 +67,9 @@ var (
 	ErrNodeGroupVMSpecEmpty     = errors.New("node group vm spec is empty")
 	ErrInvalidNodeGroupDiskSize = errors.New("invalid NodeGroup RootDiskSize")
 	ErrNodeGroupKeypairEmpty    = errors.New("node group keypair is empty")
+	ErrInvalidMinNodeSize       = errors.New("MinNodeSize must be greater than zero")
+	ErrInvalidMaxNodeSize       = errors.New("MaxNodeSize must be greater than or equal to MinNodeSize")
+	ErrInvalidDesiredNodeSize   = errors.New("DesiredNodeSize must be greater than or equal to MinNodeSize, and less than or equal to MaxNodeSize")
 )
 
 func validateNodeGroup(ngl []irs.NodeGroupInfo) error {
@@ -93,28 +96,46 @@ func validateNodeGroup(ngl []irs.NodeGroupInfo) error {
 		if nodeGroup.KeyPairIID.SystemId == "" {
 			return ErrNodeGroupKeypairEmpty
 		}
+
+		if nodeGroup.OnAutoScaling == true {
+			intMaxNodeSize := int64(nodeGroup.MaxNodeSize)
+			intMinNodeSize := int64(nodeGroup.MinNodeSize)
+			intDesiredNodeSize := int64(nodeGroup.DesiredNodeSize)
+
+			if !(intMinNodeSize >= 1) {
+				return ErrInvalidMinNodeSize
+			}
+			if !(intMinNodeSize <= intMaxNodeSize) {
+				return ErrInvalidMaxNodeSize
+			}
+			if !(intDesiredNodeSize >= intMinNodeSize && intDesiredNodeSize <= intMaxNodeSize) {
+				return ErrInvalidDesiredNodeSize
+			}
+		}
+
 	}
 
 	return nil
 }
 
 func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.ClusterInfo, error) {
+	cblogger.Info("GCP Cloud Driver: called CreateCluster()")
+
+	// as per https://github.com/cloud-barista/cb-spider/issues/1252#issuecomment-2303556504
+	// gcp cluster only support create cluster with at least one custom node pool
+	if err := validateAtCreateCluster(clusterReqInfo); err != nil {
+		return irs.ClusterInfo{}, err
+	}
+
 	projectID := ClusterHandler.Credential.ProjectID
 	region := ClusterHandler.Region.Region
 	zone := ClusterHandler.Region.Zone
 
-	cblogger.Info("GCP Cloud Driver: called CreateCluster()")
 	hiscallInfo := GetCallLogScheme(ClusterHandler.Region, call.CLUSTER, clusterReqInfo.IId.NameId, "CreateCluster()")
 
 	parent := getParentAtContainer(projectID, zone)
 	// parent := "projects/" + projectID + "/locations/" + zone
 	//projects/csta-349809/locations/asia-northeast3-a
-
-	// as per https://github.com/cloud-barista/cb-spider/issues/1252#issuecomment-2303556504
-	// gcp cluster only support create cluster with at least one custom node pool
-	if err := validateNodeGroup(clusterReqInfo.NodeGroupList); err != nil {
-		return irs.ClusterInfo{}, err
-	}
 
 	// Meta정보에 securityGroup 정보를 Key,Val 형태로 넣고 실제 값(val)은 nodeConfig 에 set하여 사용
 	labels := make(map[string]string)
@@ -400,6 +421,11 @@ func (ClusterHandler *GCPClusterHandler) DeleteCluster(clusterIID irs.IID) (bool
 // 객체 조회를 하는 것은 status 가 ing로 나타날 것이므로 operation 수행후 얼마간 실패로 떨어지는지 대기
 // 실패하지 않으면 대기를 종료하고 조회시킴
 func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo irs.NodeGroupInfo) (irs.NodeGroupInfo, error) {
+	cblogger.Info("GCP Cloud Driver: called AddNodeGroup()")
+	if err := validateAtAddNodeGroup(clusterIID, nodeGroupReqInfo); err != nil {
+		return irs.NodeGroupInfo{}, err
+	}
+
 	nodeGroupInfo := irs.NodeGroupInfo{}
 
 	projectID := ClusterHandler.Credential.ProjectID
@@ -468,7 +494,6 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 
 	reqNodePool.Config = &nodeConfig
 
-	cblogger.Info("GCP Cloud Driver: called AddNodeGroup()")
 	hiscallInfo := GetCallLogScheme(ClusterHandler.Region, call.CLUSTER, clusterIID.NameId, "AddNodeGroup()")
 
 	parent := getParentClusterAtContainer(projectID, zone, clusterIID.NameId)
@@ -543,6 +568,12 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 
 // autoScaling 에 대한 true/false 만 바꾼다.
 func (ClusterHandler *GCPClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, nodeGroupIID irs.IID, on bool) (bool, error) {
+	if on == true {
+		// https://github.com/cloud-barista/cb-spider/issues/1329
+		return false, fmt.Errorf("Enabling autoscaling through the SetNodeGroupAutoScaling API is not supported in GCP. " +
+			"Please use the ChangeNodeGroupScaling API instead")
+	}
+
 	projectID := ClusterHandler.Credential.ProjectID
 	region := ClusterHandler.Region.Region
 	zone := ClusterHandler.Region.Zone
@@ -577,6 +608,11 @@ func (ClusterHandler *GCPClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.
 // autoScaling에 대한 설정 값을 바꾼다.
 // TODO : 현재 autoScaling 설정값을 조회해서 다르면 Set 해야하나
 func (ClusterHandler *GCPClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID, desiredNodeSize int, minNodeSize int, maxNodeSize int) (irs.NodeGroupInfo, error) {
+	cblogger.Info("GCP Cloud Driver: called ChangeNodeGroupScaling()")
+	if err := validateAtChangeNodeGroupScaling(clusterIID, nodeGroupIID, desiredNodeSize, minNodeSize, maxNodeSize); err != nil {
+		return irs.NodeGroupInfo{}, err
+	}
+
 	projectID := ClusterHandler.Credential.ProjectID
 	region := ClusterHandler.Region.Region
 	zone := ClusterHandler.Region.Zone
@@ -601,12 +637,6 @@ func (ClusterHandler *GCPClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 	if intMaxNodeSize > 0 || intMinNodeSize > 0 {
 		//기존 autoscaling이 false였으면 둘 다 값이 있어야 함.
 		if orgAutoScaling == nil || orgAutoScaling.Enabled == false {
-			if intMaxNodeSize == 0 {
-				return irs.NodeGroupInfo{}, errors.New("Maximum Node size must be greater than zero")
-			}
-			if intMinNodeSize == 0 {
-				return irs.NodeGroupInfo{}, errors.New("Minimum Node size must be greater than zero")
-			}
 			cblogger.Info("autoScaling : ", orgAutoScaling)
 			orgAutoScaling = &container.NodePoolAutoscaling{}
 			orgAutoScaling.Enabled = true
@@ -1265,4 +1295,59 @@ users:
 		configName, configName, configName, configName, configName, configName)
 
 	return kubeconfigContent
+}
+
+func validateAtCreateCluster(clusterInfo irs.ClusterInfo) error {
+	if clusterInfo.IId.NameId == "" {
+		return fmt.Errorf("Cluster name is required")
+	}
+	if clusterInfo.Network.VpcIID.SystemId == "" && clusterInfo.Network.VpcIID.NameId == "" {
+		return fmt.Errorf("Cannot identify VPC(IID=%s)", clusterInfo.Network.VpcIID)
+	}
+	if len(clusterInfo.Network.SubnetIIDs) < 1 {
+		return fmt.Errorf("At least one Subnet must be specified")
+	}
+	if len(clusterInfo.Network.SecurityGroupIIDs) < 1 {
+		return fmt.Errorf("At least one Subnet must be specified")
+	}
+	if err := validateNodeGroup(clusterInfo.NodeGroupList); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validateAtAddNodeGroup(clusterIID irs.IID, nodeGroupInfo irs.NodeGroupInfo) error {
+	if clusterIID.SystemId == "" && clusterIID.NameId == "" {
+		return fmt.Errorf("Invalid Cluster IID")
+	}
+	if nodeGroupInfo.IId.NameId == "" {
+		return fmt.Errorf("Node Group's name is required")
+	}
+	if nodeGroupInfo.VMSpecName == "" {
+		return fmt.Errorf("VM Spec Name is required")
+	}
+	if err := validateNodeGroup([]irs.NodeGroupInfo{nodeGroupInfo}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateAtChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID, desiredNodeSize, minNodeSize, maxNodeSize int) error {
+	if clusterIID.SystemId == "" && clusterIID.NameId == "" {
+		return fmt.Errorf("Invalid Cluster IID")
+	}
+	if nodeGroupIID.SystemId == "" && nodeGroupIID.NameId == "" {
+		return fmt.Errorf("Invalid Node Group IID")
+	}
+	if !(minNodeSize >= 1) {
+		return ErrInvalidMinNodeSize
+	}
+	if !(minNodeSize <= maxNodeSize) {
+		return ErrInvalidMaxNodeSize
+	}
+	if !(desiredNodeSize >= minNodeSize && desiredNodeSize <= maxNodeSize) {
+		return ErrInvalidDesiredNodeSize
+	}
+	return nil
 }
