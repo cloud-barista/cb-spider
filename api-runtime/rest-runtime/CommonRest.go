@@ -252,6 +252,7 @@ func CheckTCPPort(c echo.Context) error {
 // @ID check-udp-port
 // @Summary Check if a specific UDP port is open
 // @Description Verifies whether a given UDP port is open on the specified host.
+// @Description ※ Note: As UDP is connectionless, this check mainly performs a lookup and may not confirm if the server is working.
 // @Tags [Utility]
 // @Accept  json
 // @Produce  json

@@ -43,6 +43,59 @@
         width: 5%;
         text-align: center;
     }
+
+    .inner-table {
+        width: 100%;
+        table-layout: fixed;
+    }
+    .inner-table th {
+        width: 30%;
+        font-weight: normal;
+        font-size: 12px;
+        padding: 4px 8px; 
+        text-align: right;
+    }
+    .inner-table td {
+        width: 70%;
+        font-size: 12px;
+        padding: 4px 8px; 
+        text-align: center;
+    }
+    
+    .inner-table tr:nth-child(-n+2) td:nth-child(2) {
+        background-color: #e0f7fa;
+        color: #00796b;
+        font-weight: bold;
+        border: 1px solid #004d40;
+    }
+    .vm-list td {
+        color: blue;
+    }
+
+    .inner-table-health {
+        width: 100%;
+        table-layout: fixed;
+    }
+    .inner-table-health th {
+        width: 40%;
+        font-weight: normal;
+        font-size: 12px;
+        padding: 4px 8px; 
+        text-align: right;
+    }
+    .inner-table-health td {
+        width: 60%;
+        font-size: 12px;
+        padding: 4px 8px; 
+        text-align: center;
+    }
+    .inner-table-health tr:nth-child(-n+2) td:nth-child(2) {
+        background-color: #e0f7fa;
+        color: #00796b;
+        font-weight: bold;
+        border: 1px solid #004d40;
+    }
+
     .center-align {
         text-align: center;
     }
@@ -151,16 +204,22 @@
         width: 15%;
     }
     .vpc-name {
-        width: 15%;
+        width: 13%;
     }
     .scope-type {
-        width: 8%;
+        width: 10%;
     }
     .listener {
         width: 18%;
+        vertical-align: top;
     }
-    .vm-groups, .health-checker {
+    .vm-groups {
         width: 20%;
+        vertical-align: top;
+    }
+    .health-checker {
+        width: 13%;
+        vertical-align: top;
     }
     .tags, .misc {
         width: 10%;
@@ -360,9 +419,34 @@
     .form-group input, .form-group textarea, .form-group select {
         flex: 2;
     }
+    .form-group .tag-inputs {
+        display: flex;
+        flex: 2;
+        margin-left: 10px;
+    }
+    .form-group .tag-inputs input {
+        flex: 1;
+        margin-right: 5px;
+    }
     .form-group button {
         margin-left: 10px;
     }
+    
+    .form-group-tags {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .form-group-tags label {
+        flex: 1;
+        text-align: right;
+        margin-left: 6px;
+        margin-right: 2px;
+    }
+    .form-group-tags input {
+        flex: 2;
+    }
+
     .tag-input-group {
         display: flex;
         align-items: center;
@@ -375,6 +459,14 @@
     }
     .tag-input-group button {
         margin-left: 5px;
+    }
+    .nlb-tag-key {
+        margin-left: 10px;
+    }
+
+    #nlb-tag-container {
+        display: flex;
+        flex-direction: column;
     }
 
     .vm-input {
@@ -392,6 +484,123 @@
     .vm-input button {
         padding: 5px 10px;
         cursor: pointer;
+    }
+    .header-with-progress {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0px;
+    }
+    .progress-bar-container {
+        width: 600px;
+        margin-left: 10px;
+        margin-bottom: 10px;
+        height: 22px;
+        background-color: #f0f5ff;
+        border-radius: 4px;
+        overflow: hidden;
+        display: none;
+        position: relative;
+        z-index: 2000;
+    }
+    .progress-bar {
+        width: 0;
+        height: 100%;
+        background-color: #cce6ff;
+        border-radius: 4px;
+        transition: width 3s ease;
+    }
+    #timeDisplay {
+        position: absolute;
+        top: 50%;
+        right: 10px;
+        transform: translateY(-50%);
+        font-size: 14px;
+        color: #333;
+        z-index: 30;
+    }
+
+    /* Error Modal Styling */
+    #errorModal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.7);
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    #errorModal .overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        max-width: 500px;
+        width: 80%;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+    }
+
+    #errorModal button {
+        margin-top: 15px;
+        padding: 5px 10px;
+        cursor: pointer;
+    }
+
+    .nlb-health-info-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .nlb-health-info-overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+        width: 80%;
+        max-width: 600px;
+        overflow-y: auto;
+        position: relative;
+    }
+
+    .nlb-health-info-overlay-content .close-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+    }
+
+    button.check-btn {
+        background-color: #a3d2f9;
+        border: none;
+        color: rgb(0, 0, 255);
+        padding: 10px 20px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 14px;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+    }
+
+    button.check-btn:hover {
+        background-color: #82b8e6;
     }
 
 
@@ -448,28 +657,100 @@
                     <span class="desc-vpc-system-id">&nbsp;• {{$nlb.VpcIID.SystemId}}</span>
                 </td>
                 <td class="scope-type">{{$nlb.Scope}} | {{$nlb.Type}}</td>
+                
+                <!-- Listener -->
                 <td class="listener">
-                    <strong>Protocol:</strong> {{$nlb.Listener.Protocol}}<br>
-                    <strong>Port:</strong> {{$nlb.Listener.Port}}<br>
-                    <strong>Public IP:</strong> {{$nlb.Listener.IP}}<br>
-                    <strong>DNS:</strong> {{$nlb.Listener.DNSName}}
+                    <table class="inner-table">
+                        <tr>
+                            <th>Protocol</th>
+                            <td>{{$nlb.Listener.Protocol}}</td>
+                        </tr>
+                        <tr>
+                            <th>Port</th>
+                            <td>{{$nlb.Listener.Port}}</td>
+                        </tr>
+                        <tr>
+                            <th>Public IP</th>
+                            <td>{{$nlb.Listener.IP}}</td>
+                        </tr>
+                        <tr>
+                            <th>DNS</th>
+                            <td>{{$nlb.Listener.DNSName}}</td>
+                        </tr>
+                        <tr>
+                            <th>Status</th>
+                            <td>
+                                <button class="check-btn" 
+                                        onclick="checkNLBListener('{{$nlb.Listener.Protocol}}', '{{$nlb.Listener.Port}}', '{{$nlb.Listener.IP}}', '{{$nlb.Listener.DNSName}}')" 
+                                        style="font-size: 11px; padding: 4px 8px;">
+                                    Check
+                                </button>
+                            </td>
+                        </tr>
+                    </table>
                 </td>
+                                
+                <!-- VM Groups -->
                 <td class="vm-groups">
-                    <strong>Protocol:</strong> {{$nlb.VMGroup.Protocol}}<br>
-                    <strong>Port:</strong> {{$nlb.VMGroup.Port}}<br>
-                    <strong>VMs:</strong><br>
-                    {{range $vm := $nlb.VMGroup.VMs}}
-                    {{$vm.NameId}}<br>
-                    {{end}}
+                    <table class="inner-table">
+                        <tr>
+                            <th>Protocol</th>
+                            <td>{{$nlb.VMGroup.Protocol}}</td>
+                        </tr>
+                        <tr>
+                            <th>Port</th>
+                            <td>{{$nlb.VMGroup.Port}}</td>
+                        </tr>
+                        <tr>
+                            <th colspan="2" style="text-align: center;">VMs</th>
+                        </tr>
+                        <tr>
+                            <td colspan="2">
+                                <table class="inner-table vm-list">
+                                    {{range $vm := $nlb.VMGroup.VMs}}
+                                    <tr>
+                                        <td style="text-align: center;">{{$vm.NameId}}</td>
+                                    </tr>
+                                    {{end}}
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
                 </td>
+
+                
+                <!-- Health Checker -->
                 <td class="health-checker">
-                    <strong>Protocol:</strong> {{$nlb.HealthChecker.Protocol}}<br>
-                    <strong>Port:</strong> {{$nlb.HealthChecker.Port}}<br>
-                    <strong>Interval:</strong> {{$nlb.HealthChecker.Interval}}<br>
-                    <strong>Timeout:</strong> {{$nlb.HealthChecker.Timeout}}<br>
-                    <strong>Threshold:</strong> {{$nlb.HealthChecker.Threshold}}<br>
-                    <button onclick="checkNLBHealth('{{$nlb.IId.NameId}}')">Check Health</button>
-                </td>
+                    <table class="inner-table-health">
+                        <tr>
+                            <th>Protocol</th>
+                            <td>{{$nlb.HealthChecker.Protocol}}</td>
+                        </tr>
+                        <tr>
+                            <th>Port</th>
+                            <td>{{$nlb.HealthChecker.Port}}</td>
+                        </tr>
+                        <tr>
+                            <th>Interval</th>
+                            <td>{{$nlb.HealthChecker.Interval}}</td>
+                        </tr>
+                        <tr>
+                            <th>Timeout</th>
+                            <td>{{$nlb.HealthChecker.Timeout}}</td>
+                        </tr>
+                        <tr>
+                            <th>Threshold</th>
+                            <td>{{$nlb.HealthChecker.Threshold}}</td>
+                        </tr>
+                        <tr>
+                            <th>Status</th>
+                            <td>
+                                <button class="check-btn" onclick="checkNLBHealth('{{$nlb.IId.NameId}}')" style="font-size: 11px; padding: 4px 8px;">Check</button>
+                            </td>
+                        </tr>
+                    </table>
+                </td>                
+                
                 <td class="tags" style="text-align: left;">
                     {{range $tag := $nlb.TagList}}
                     <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'NLB', '{{$nlb.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
@@ -478,9 +759,9 @@
                         <button class="add-btn" onclick="showAddTagOverlay('{{$nlb.IId.NameId}}')">+</button>
                     </div>
                 </td>
+                
                 <td class="misc misc-cell">
-                    <div class="misc-content">{{range $kv := $nlb.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
-                    </div>
+                    <div class="misc-content">{{range $kv := $nlb.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}</div>
                     <button class="more-btn" onclick="showMiscOverlay(this)">more...</button>
                 </td>
                 <td class="checkbox-cell center-align">
@@ -494,6 +775,8 @@
             </tr>
             {{end}}
         </table>
+        
+        
     </div>
 
     <!-- Overlay: Add New NLB -->
@@ -572,18 +855,16 @@
                     <label for="hcPort">Port:</label>
                     <input type="number" id="hcPort" name="hcPort" required min="1" max="65535" value="22" style="background-color: #F5F5DC; width: 70%;" onchange="if(this.value<1)this.value=1;if(this.value>65535)this.value=65535;">
                 </div>
-                <div class="form-group">
+                <div class="form-group-tags">
                     <label for="interval">Interval:</label>
-                    <input type="text" id="interval" name="interval" value="default" style="width: 65%;">
-                </div>
-                <div class="form-group">
+                    <input type="text" id="interval" name="interval" value="default" style="width: 43px;">
+
                     <label for="timeout">Timeout:</label>
-                    <input type="text" id="timeout" name="timeout" value="default" style="width: 65%;">
-                </div>
-                <div class="form-group">
+                    <input type="text" id="timeout" name="timeout" value="default" style="width: 43px;">
+
                     <label for="threshold">Threshold:</label>
-                    <input type="text" id="threshold" name="threshold" value="default" style="width: 65%;">
-                </div>                
+                    <input type="text" id="threshold" name="threshold" value="default" style="width: 43px;">
+                </div>
                 <div class="form-group">
                     <h3>Tags:</h3>
                     <div id="nlb-tag-container"></div>
@@ -606,6 +887,38 @@
         <div class="add-tag-overlay-content overlay-content"></div>
     </div>
 
+    <!-- Error Modal -->
+    <div id="errorModal" class="overlay">
+        <div class="overlay-content">
+            <h2 id="errorTitle">Error</h2>
+            <p id="errorMessage"></p>
+            <button onclick="closeErrorModal()">Close</button>
+        </div>
+    </div>
+
+    <!-- NLB Health Info Overlay -->
+    <div id="nlbHealthOverlay" class="nlb-health-info-overlay">
+        <div class="nlb-health-info-overlay-content">
+            <button class="close-btn" onclick="closeNLBHealthOverlay()">x</button>
+            <h2>NLB Health Information</h2>
+            <div id="nlbHealthDetails">
+                <!-- Dynamic health details will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Listener Check Info Overlay -->
+    <div id="listenerCheckOverlay" class="nlb-health-info-overlay">
+        <div class="nlb-health-info-overlay-content">
+            <button class="close-btn" onclick="closeListenerCheckOverlay()">x</button>
+            <h2>NLB Listener Check Status</h2>
+            <div id="listenerCheckDetails">
+                <!-- Dynamic listener check details will be inserted here -->
+            </div>
+        </div>
+    </div>
+
+    
 <script>
     function searchKeyword() {
         let input = document.getElementById('searchInput');
@@ -685,7 +998,7 @@
         showProgressBar();
 
         const startTime = Date.now();
-        const timerInterval = 500; 
+        const timerInterval = 500;
         let timerId = setInterval(() => {
             const elapsedTime = (Date.now() - startTime) / 1000;
             const timeDisplay = document.getElementById('timeDisplay');
@@ -694,7 +1007,7 @@
 
         return fetch(url, options)
             .then(response => {
-                clearInterval(timerId); 
+                clearInterval(timerId);
                 hideProgressBar();
                 return response;
             })
@@ -720,9 +1033,10 @@
         const progressBarContainer = document.getElementById('progressBarContainer');
         setTimeout(() => {
             progressBarContainer.style.display = 'none';
-            document.getElementById('timeDisplay').textContent = ''; 
+            document.getElementById('timeDisplay').textContent = '';
         }, 500);
     }
+
 
     function deleteSelectedNLBs() {
         const connConfig = document.getElementById('connConfig').value;
@@ -793,6 +1107,16 @@
             alert("Please fill in all the fields.");
             return false;
         }
+
+        const vms = Array.from(document.getElementById('vms').options)
+                        .filter(option => option.selected)
+                        .map(option => option.value);
+
+        if (vms.length === 0) {
+            alert("Please select at least one VM.");
+            return false;
+        }
+
         return true;
     }
 
@@ -810,7 +1134,7 @@
         const port = document.getElementById('port').value;
         const vmProtocol = document.getElementById('vmProtocol').value;
         const vmPort = document.getElementById('vmPort').value;
-        const vms = document.getElementById('vms').value.split('\n').map(vm => vm.trim());
+        const vms = Array.from(document.getElementById('vms').selectedOptions).map(option => option.value);
         const hcProtocol = document.getElementById('hcProtocol').value;
         const hcPort = document.getElementById('hcPort').value;
         const interval = document.getElementById('interval').value;
@@ -865,36 +1189,67 @@
         }).then(() => {
             location.reload();
         }).catch(error => {
-            showError("Error creating NLB: " + error.message, "NLB Creation Error");
+            showErrorModal("NLB Creation Error", `Error creating NLB: ${error.message}`);
         });
     }
 
-    function showOverlay() {
-        loadVPCs(); 
-        const region = '{{.RegionName}}';
-        const nlbNameInput = document.getElementById('nlbName');
-
-        nlbNameInput.value = `${region}-nlb-${Math.random().toString(36).substring(2, 5)}`;
-        document.getElementById('protocol').value = 'TCP';
-        document.getElementById('port').value = '22';
-
-        // 오버레이 보이게 설정
-        document.getElementById('overlay').style.display = 'flex'; 
-        document.addEventListener('keydown', handleEsc);
-        clearFormFields();
+    function showErrorModal(title, message) {
+        document.getElementById('errorTitle').textContent = title;
+        document.getElementById('errorMessage').textContent = message;
+        document.getElementById('errorModal').style.display = 'flex'; // Show the modal
     }
 
+    function closeErrorModal() {
+        document.getElementById('errorModal').style.display = 'none'; // Hide the modal
+    }
+
+    function showOverlay() {
+        Promise.all([loadVPCs(), loadVMs()])
+            .then(() => {
+                const region = '{{.RegionName}}';
+                const nlbNameInput = document.getElementById('nlbName');
+
+                nlbNameInput.value = `${region}-nlb-${Math.random().toString(36).substring(2, 5)}`;
+                document.getElementById('protocol').value = 'TCP';
+                document.getElementById('port').value = '22';
+
+                document.getElementById('overlay').style.display = 'flex'; 
+                document.addEventListener('keydown', handleEsc);
+                clearFormFields();
+            })
+            .catch(error => {
+                console.error('Error loading VPCs or VMs:', error);
+            });
+    }
 
     function clearFormFields() {
         const region = '{{.RegionName}}';
         const nlbNameInput = document.getElementById('nlbName');
-
+        
+        // Reset NLB information
         nlbNameInput.value = `${region}-nlb-${Math.random().toString(36).substring(2, 5)}`;
         document.getElementById('protocol').value = 'TCP';
         document.getElementById('port').value = '22';
+        
+        // Reset VPC and VM group
+        document.getElementById('vpcName').selectedIndex = 0;
+        document.getElementById('vmProtocol').value = 'TCP';
+        document.getElementById('vmPort').value = '22';
 
+        // Reset Health Checker information
+        document.getElementById('hcProtocol').value = 'TCP';
+        document.getElementById('hcPort').value = '22';
+        document.getElementById('interval').value = 'default';
+        document.getElementById('timeout').value = 'default';
+        document.getElementById('threshold').value = 'default';
+
+        // Reset VM list
+        document.getElementById('vms').innerHTML = ''; 
+
+        // Reset tag fields
         document.querySelectorAll('.nlb-tag-input').forEach(tagInput => tagInput.remove());
     }
+
 
     function hideOverlay() {
         document.getElementById('overlay').style.display = 'none';
@@ -911,6 +1266,7 @@
     function checkNLBHealth(nlbName) {
         const connConfig = document.getElementById('connConfig').value;
 
+        // Fetch NLB health info from server
         fetchWithProgress(`/spider/nlb/${nlbName}/health?ConnectionName=${connConfig}`, {
             method: 'GET',
             headers: {
@@ -919,12 +1275,155 @@
         }).then(response => response.json())
         .then(data => {
             const healthInfo = data.healthinfo;
-            let message = `Healthy VMs: ${healthInfo.HealthyVMs.length}\nUnhealthy VMs: ${healthInfo.UnHealthyVMs.length}`;
-            alert(message);
+            const allVMs = healthInfo.AllVMs || [];
+            const healthyVMs = healthInfo.HealthyVMs || [];
+            const unhealthyVMs = healthInfo.UnHealthyVMs || [];
+
+            // Generate table rows for all VMs
+            let allVMsTableRows = allVMs.map(vm => `
+                <tr>
+                    <td>${vm.NameId}</td>
+                    <td>${vm.SystemId}</td>
+                </tr>
+            `).join('');
+
+            // Generate table rows for healthy VMs
+            let healthyVMsTableRows = healthyVMs.length > 0 ? 
+            healthyVMs.map(vm => `
+                <tr>
+                    <td>${vm.NameId}</td>
+                    <td>${vm.SystemId}</td>
+                </tr>
+            `).join('') : '<tr><td colspan="2">No healthy VMs</td></tr>';
+
+            // Generate table rows for unhealthy VMs
+            let unhealthyVMsTableRows = unhealthyVMs.length > 0 ? 
+                unhealthyVMs.map(vm => `
+                    <tr>
+                        <td>${vm.NameId}</td>
+                        <td>${vm.SystemId}</td>
+                    </tr>
+                `).join('') : '<tr><td colspan="2">No unhealthy VMs</td></tr>';
+
+            // HTML for the overlay content with tables
+            const nlbHealthDetails = `
+                <br>
+
+                <h3>All VMs (${allVMs.length})</h3>
+                <table border="1" cellpadding="5" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>NameId</th>
+                            <th>SystemId</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${allVMsTableRows}
+                    </tbody>
+                </table>
+
+                <h3 style="color: rgb(0,0,255);">Healthy VMs (${healthyVMs.length})</h3>
+                <table border="1" cellpadding="5" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>NameId</th>
+                            <th>SystemId</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${healthyVMsTableRows}
+                    </tbody>
+                </table>
+
+                <h3 style="color: #f08080;">Unhealthy VMs (${unhealthyVMs.length})</h3>
+                <table border="1" cellpadding="5" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>NameId</th>
+                            <th>SystemId</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${unhealthyVMsTableRows}
+                    </tbody>
+                </table>
+            `;
+
+            // Update the overlay content
+            document.getElementById('nlbHealthDetails').innerHTML = nlbHealthDetails;
+
+            // Show the overlay
+            document.getElementById('nlbHealthOverlay').style.display = 'flex';
         }).catch(error => {
             showError("Error fetching NLB health info: " + error.message, "NLB Health Info Error");
         });
     }
+
+    function closeNLBHealthOverlay() {
+        document.getElementById('nlbHealthOverlay').style.display = 'none';
+    }
+
+    function checkNLBListener(protocol, port, ip, dnsName) {
+        const connConfig = document.getElementById('connConfig').value;
+        const hostName = ip ? ip : dnsName;
+        const url = `/spider/check/${protocol.toLowerCase()}?HostName=${hostName}&Port=${port}`;
+
+        // Fetch Listener status from server
+        fetchWithProgress(url, {
+            method: 'GET',
+            headers: {
+                'accept': 'application/json'
+            }
+        }).then(response => response.json())
+        .then(data => {
+            const message = data.message;
+
+            // HTML for the overlay content with tables
+            const listenerCheckDetails = `                
+                <table border="1" cellpadding="5" cellspacing="0" style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th style="width: 30%; text-align: right;">Attribute</th>
+                            <th style="width: 70%;">Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="text-align: right;"><strong>Protocol</strong></td>
+                            <td>${protocol}</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: right;"><strong>Port</strong></td>
+                            <td>${port}</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: right;"><strong>HostName</strong></td>
+                            <td>${hostName}</td>
+                        </tr>
+                        <tr>
+                            <td style="text-align: right;"><strong>Status</strong></td>
+                            <td>
+                                ${getStatusHTML(message, protocol)}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            `;
+
+            // Update the overlay content
+            document.getElementById('listenerCheckDetails').innerHTML = listenerCheckDetails;
+
+            // Show the overlay
+            document.getElementById('listenerCheckOverlay').style.display = 'flex';
+        }).catch(error => {
+            showError("Error checking listener status: " + error.message, "Listener Check Error");
+        });
+    }
+
+    function closeListenerCheckOverlay() {
+        document.getElementById('listenerCheckOverlay').style.display = 'none';
+    }
+
 
     function loadVPCs() {
         const connConfig = document.getElementById('connConfig').value;
@@ -1265,6 +1764,79 @@
     }
 
     document.addEventListener('DOMContentLoaded', loadVMs);
+
+    function showNLBHealthOverlay(nlbName) {
+        // Fetch the NLB health check info
+        const connConfig = document.getElementById('connConfig').value;
+        fetch(`/spider/nlb/${nlbName}/health?ConnectionName=${connConfig}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Populate overlay with NLB health check info
+            const healthInfo = data.healthinfo;
+
+            document.getElementById('vmHealthStatus').innerHTML = `
+                Healthy VMs: ${healthInfo.HealthyVMs.length}<br>
+                Unhealthy VMs: ${healthInfo.UnHealthyVMs.length}
+            `;
+            document.getElementById('nlbProtocol').textContent = healthInfo.Protocol;
+            document.getElementById('nlbPort').textContent = healthInfo.Port;
+            document.getElementById('nlbInterval').textContent = healthInfo.Interval;
+            document.getElementById('nlbTimeout').textContent = healthInfo.Timeout;
+            document.getElementById('nlbThreshold').textContent = healthInfo.Threshold;
+
+            document.getElementById('healthStatusMessage').textContent = 'Health Check Completed';
+
+            // Show the overlay
+            document.getElementById('nlbHealthOverlay').style.display = 'flex';
+        })
+        .catch(error => {
+            alert('Error fetching NLB health info: ' + error.message);
+        });
+    }
+
+    function getStatusHTML(message, protocol) {
+        let statusColor = '';
+        let statusType = '';
+        let statusMessage = '';
+
+        if (message.startsWith('Success')) {
+            statusColor = 'blue';
+            statusType = 'Success';
+            statusMessage = message.replace('Success: ', '');
+        } else if (message.startsWith('Error')) {
+            statusColor = 'red';
+            statusType = 'Error';
+            statusMessage = message.replace('Error: ', '');
+        }
+
+        // Add the UDP note conditionally with red Note label and spacing
+        let udpNote = '';
+        if (protocol.toUpperCase() === 'UDP') {
+            udpNote = `
+                <br><br>
+                <strong style="color: red;">※ Note:</strong> 
+                As UDP is connectionless, this check mainly performs a lookup and may not confirm if the server is working.
+            `;
+        }
+
+        return `            
+            <ul style="list-style-position: inside; padding-left: 0;">
+                <li style="margin-bottom: 0; padding: 0;">
+                    <strong style="color: ${statusColor};">${statusType}</strong>
+                </li>
+                <li style="margin-bottom: 0; padding: 0;">
+                    <span>${statusMessage}</span>
+                    ${udpNote}
+                </li>
+            </ul>
+        `;
+    }
+
 
 </script>
 </body>

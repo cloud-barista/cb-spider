@@ -3083,7 +3083,9 @@ paths:
     get:
       consumes:
       - application/json
-      description: Verifies whether a given UDP port is open on the specified host.
+      description: |-
+        Verifies whether a given UDP port is open on the specified host.
+        ※ Note: Due to UDP being connectionless, this check mainly performs a lookup and may not confirm server response, even if the port is open.
       operationId: check-udp-port
       parameters:
       - description: The hostname or IP address to check
@@ -7747,7 +7749,8 @@ paths:
       consumes:
       - application/json
       description: "Create a new Virtual Private Cloud (VPC) with specified subnet
-        configurations. \U0001F577️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#3-vpcsubnet-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]"
+        configurations. \U0001F577️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#3-vpcsubnet-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]\nadd
+        test"
       operationId: create-vpc
       parameters:
       - description: Request body for creating a VPC
