@@ -532,7 +532,7 @@ const docTemplate = `{
         },
         "/check/udp": {
             "get": {
-                "description": "Verifies whether a given UDP port is open on the specified host.\n※ Note: Due to UDP being connectionless, this check mainly performs a lookup and may not confirm server response, even if the port is open.",
+                "description": "Verifies whether a given UDP port is open on the specified host.\n※ Note: As UDP is connectionless, this check mainly performs a lookup and may not confirm if the server is working.",
                 "consumes": [
                     "application/json"
                 ],
@@ -7330,7 +7330,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Create a new Virtual Private Cloud (VPC) with specified subnet configurations. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#3-vpcsubnet-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]\nadd test",
+                "description": "Create a new Virtual Private Cloud (VPC) with specified subnet configurations. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#3-vpcsubnet-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]",
                 "consumes": [
                     "application/json"
                 ],
