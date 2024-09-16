@@ -601,7 +601,7 @@ func ControlVM(c echo.Context) error {
 }
 
 // countAllVMs godoc
-// @ID count-all-vms
+// @ID count-all-vm
 // @Summary Count All VMs
 // @Description Get the total number of Virtual Machines (VMs) across all connections.
 // @Tags [VM Management]
@@ -626,7 +626,7 @@ func CountAllVMs(c echo.Context) error {
 }
 
 // countVMsByConnection godoc
-// @ID count-vms-by-connection
+// @ID count-vm-by-connection
 // @Summary Count VMs by Connection
 // @Description Get the total number of Virtual Machines (VMs) for a specific connection.
 // @Tags [VM Management]

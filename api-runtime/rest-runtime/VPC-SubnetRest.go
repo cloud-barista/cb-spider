@@ -658,7 +658,7 @@ func GetSGOwnerVPC(c echo.Context) error {
 }
 
 // countAllVPCs godoc
-// @ID count-all-vpcs
+// @ID count-all-vpc
 // @Summary Count All VPCs
 // @Description Get the total number of VPCs across all connections.
 // @Tags [VPC Management]
@@ -685,7 +685,7 @@ func CountAllVPCs(c echo.Context) error {
 }
 
 // countVPCsByConnection godoc
-// @ID count-vpcs-by-connection
+// @ID count-vpc-by-connection
 // @Summary Count VPCs by Connection
 // @Description Get the total number of VPCs for a specific connection.
 // @Tags [VPC Management]
@@ -713,7 +713,7 @@ func CountVPCsByConnection(c echo.Context) error {
 }
 
 // countAllSubnets godoc
-// @ID count-all-subnets
+// @ID count-all-subnet
 // @Summary Count All Subnets
 // @Description Get the total number of Subnets across all connections.
 // @Tags [VPC Management]
@@ -738,7 +738,7 @@ func CountAllSubnets(c echo.Context) error {
 }
 
 // countSubnetsByConnection godoc
-// @ID count-subnets-by-connection
+// @ID count-subnet-by-connection
 // @Summary Count Subnets by Connection
 // @Description Get the total number of Subnets for a specific connection.
 // @Tags [VPC Management]

@@ -172,7 +172,7 @@ func GetCSPResourceInfo(c echo.Context) error {
 }
 
 // Destroy godoc
-// @ID destroy-all-resources
+// @ID destroy-all-resource
 // @Summary Destroy all resources in a connection
 // @Description Deletes all resources associated with a specific cloud connection. This action is irreversible.
 // @Tags [Utility]

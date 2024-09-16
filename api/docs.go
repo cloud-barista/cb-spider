@@ -291,7 +291,7 @@ const docTemplate = `{
                     "[SecurityGroup Management]"
                 ],
                 "summary": "List All Security Groups in a Connection",
-                "operationId": "list-all-securitygroups",
+                "operationId": "list-all-securitygroup",
                 "parameters": [
                     {
                         "type": "string",
@@ -1206,7 +1206,7 @@ const docTemplate = `{
                     "[Cloud Info Management] Connection Info"
                 ],
                 "summary": "List Connection Configs",
-                "operationId": "list-connection-configs",
+                "operationId": "list-connection-config",
                 "responses": {
                     "200": {
                         "description": "List of Connection Configs",
@@ -1427,7 +1427,7 @@ const docTemplate = `{
                     "[Cluster Management]"
                 ],
                 "summary": "Count All Clusters",
-                "operationId": "count-all-clusters",
+                "operationId": "count-all-cluster",
                 "responses": {
                     "200": {
                         "description": "Total count of Clusters",
@@ -1454,7 +1454,7 @@ const docTemplate = `{
                     "[Cluster Management]"
                 ],
                 "summary": "Count Clusters by Connection",
-                "operationId": "count-clusters-by-connection",
+                "operationId": "count-cluster-by-connection",
                 "parameters": [
                     {
                         "type": "string",
@@ -1490,7 +1490,7 @@ const docTemplate = `{
                     "[Cloud Info Management] Connection Info"
                 ],
                 "summary": "Count All Connections",
-                "operationId": "count-all-connections",
+                "operationId": "count-all-connection",
                 "responses": {
                     "200": {
                         "description": "Total count of connections",
@@ -1517,7 +1517,7 @@ const docTemplate = `{
                     "[Cloud Info Management] Connection Info"
                 ],
                 "summary": "Count Connections by Provider",
-                "operationId": "count-connections-by-provider",
+                "operationId": "count-connection-by-provider",
                 "parameters": [
                     {
                         "type": "string",
@@ -1553,7 +1553,7 @@ const docTemplate = `{
                     "[Disk Management]"
                 ],
                 "summary": "Count All Disks",
-                "operationId": "count-all-disks",
+                "operationId": "count-all-disk",
                 "responses": {
                     "200": {
                         "description": "Total count of Disks",
@@ -1580,7 +1580,7 @@ const docTemplate = `{
                     "[Disk Management]"
                 ],
                 "summary": "Count Disks by Connection",
-                "operationId": "count-disks-by-connection",
+                "operationId": "count-disk-by-connection",
                 "parameters": [
                     {
                         "type": "string",
@@ -1616,7 +1616,7 @@ const docTemplate = `{
                     "[KeyPair Management]"
                 ],
                 "summary": "Count All KeyPairs",
-                "operationId": "count-all-keys",
+                "operationId": "count-all-key",
                 "responses": {
                     "200": {
                         "description": "Total count of KeyPairs",
@@ -1643,7 +1643,7 @@ const docTemplate = `{
                     "[KeyPair Management]"
                 ],
                 "summary": "Count KeyPairs by Connection",
-                "operationId": "count-keys-by-connection",
+                "operationId": "count-key-by-connection",
                 "parameters": [
                     {
                         "type": "string",
@@ -1679,7 +1679,7 @@ const docTemplate = `{
                     "[MyImage Management]"
                 ],
                 "summary": "Count All MyImages",
-                "operationId": "count-all-myimages",
+                "operationId": "count-all-myimage",
                 "responses": {
                     "200": {
                         "description": "Total count of MyImages",
@@ -1706,7 +1706,7 @@ const docTemplate = `{
                     "[MyImage Management]"
                 ],
                 "summary": "Count MyImages by Connection",
-                "operationId": "count-myimages-by-connection",
+                "operationId": "count-myimage-by-connection",
                 "parameters": [
                     {
                         "type": "string",
@@ -1742,7 +1742,7 @@ const docTemplate = `{
                     "[NLB Management]"
                 ],
                 "summary": "Count All NLBs",
-                "operationId": "count-all-nlbs",
+                "operationId": "count-all-nlb",
                 "responses": {
                     "200": {
                         "description": "Total count of NLBs",
@@ -1769,7 +1769,7 @@ const docTemplate = `{
                     "[NLB Management]"
                 ],
                 "summary": "Count NLBs by Connection",
-                "operationId": "count-nlbs-by-connection",
+                "operationId": "count-nlb-by-connection",
                 "parameters": [
                     {
                         "type": "string",
@@ -1805,7 +1805,7 @@ const docTemplate = `{
                     "[SecurityGroup Management]"
                 ],
                 "summary": "Count All SecurityGroups",
-                "operationId": "count-all-securitygroups",
+                "operationId": "count-all-securitygroup",
                 "responses": {
                     "200": {
                         "description": "Total count of SecurityGroups",
@@ -1832,7 +1832,7 @@ const docTemplate = `{
                     "[SecurityGroup Management]"
                 ],
                 "summary": "Count SecurityGroups by Connection",
-                "operationId": "count-securitygroups-by-connection",
+                "operationId": "count-securitygroup-by-connection",
                 "parameters": [
                     {
                         "type": "string",
@@ -1868,7 +1868,7 @@ const docTemplate = `{
                     "[VPC Management]"
                 ],
                 "summary": "Count All Subnets",
-                "operationId": "count-all-subnets",
+                "operationId": "count-all-subnet",
                 "responses": {
                     "200": {
                         "description": "Total count of Subnets",
@@ -1895,7 +1895,7 @@ const docTemplate = `{
                     "[VPC Management]"
                 ],
                 "summary": "Count Subnets by Connection",
-                "operationId": "count-subnets-by-connection",
+                "operationId": "count-subnet-by-connection",
                 "parameters": [
                     {
                         "type": "string",
@@ -1931,7 +1931,7 @@ const docTemplate = `{
                     "[VM Management]"
                 ],
                 "summary": "Count All VMs",
-                "operationId": "count-all-vms",
+                "operationId": "count-all-vm",
                 "responses": {
                     "200": {
                         "description": "Total count of VMs",
@@ -1958,7 +1958,7 @@ const docTemplate = `{
                     "[VM Management]"
                 ],
                 "summary": "Count VMs by Connection",
-                "operationId": "count-vms-by-connection",
+                "operationId": "count-vm-by-connection",
                 "parameters": [
                     {
                         "type": "string",
@@ -1994,7 +1994,7 @@ const docTemplate = `{
                     "[VPC Management]"
                 ],
                 "summary": "Count All VPCs",
-                "operationId": "count-all-vpcs",
+                "operationId": "count-all-vpc",
                 "responses": {
                     "200": {
                         "description": "Total count of VPCs",
@@ -2021,7 +2021,7 @@ const docTemplate = `{
                     "[VPC Management]"
                 ],
                 "summary": "Count VPCs by Connection",
-                "operationId": "count-vpcs-by-connection",
+                "operationId": "count-vpc-by-connection",
                 "parameters": [
                     {
                         "type": "string",
@@ -2057,7 +2057,7 @@ const docTemplate = `{
                     "[Cloud Info Management] Credential Info"
                 ],
                 "summary": "List Credentials",
-                "operationId": "list-credentials",
+                "operationId": "list-credential",
                 "parameters": [
                     {
                         "type": "string",
@@ -2758,7 +2758,7 @@ const docTemplate = `{
                     "[Utility]"
                 ],
                 "summary": "Destroy all resources in a connection",
-                "operationId": "destroy-all-resources",
+                "operationId": "destroy-all-resource",
                 "parameters": [
                     {
                         "description": "Request body for deleting all resources",
@@ -3206,7 +3206,7 @@ const docTemplate = `{
                     "[Cloud Info Management] Driver Info"
                 ],
                 "summary": "List Cloud Drivers",
-                "operationId": "list-cloud-drivers",
+                "operationId": "list-driver",
                 "parameters": [
                     {
                         "type": "string",
@@ -3242,7 +3242,7 @@ const docTemplate = `{
                     "[Cloud Info Management] Driver Info"
                 ],
                 "summary": "Register Cloud Driver",
-                "operationId": "register-cloud-driver",
+                "operationId": "register-driver",
                 "parameters": [
                     {
                         "description": "Request body for registering a Cloud Driver",
@@ -3289,7 +3289,7 @@ const docTemplate = `{
                     "[Cloud Info Management] Driver Info"
                 ],
                 "summary": "Upload Cloud Driver",
-                "operationId": "upload-cloud-driver",
+                "operationId": "upload-driver",
                 "parameters": [
                     {
                         "type": "file",
@@ -3325,7 +3325,7 @@ const docTemplate = `{
                     "[Cloud Info Management] Driver Info"
                 ],
                 "summary": "Get Cloud Driver",
-                "operationId": "get-cloud-driver",
+                "operationId": "get-driver",
                 "parameters": [
                     {
                         "type": "string",
@@ -3365,7 +3365,7 @@ const docTemplate = `{
                     "[Cloud Info Management] Driver Info"
                 ],
                 "summary": "Unregister Cloud Driver",
-                "operationId": "unregister-cloud-driver",
+                "operationId": "unregister-driver",
                 "parameters": [
                     {
                         "type": "string",
@@ -4417,7 +4417,7 @@ const docTemplate = `{
                     "[NLB Management]"
                 ],
                 "summary": "Add VMs to NLB",
-                "operationId": "add-nlb-vms",
+                "operationId": "add-nlb-vm",
                 "parameters": [
                     {
                         "type": "string",
@@ -4475,7 +4475,7 @@ const docTemplate = `{
                     "[NLB Management]"
                 ],
                 "summary": "Remove VMs from NLB",
-                "operationId": "remove-nlb-vms",
+                "operationId": "remove-nlb-vm",
                 "parameters": [
                     {
                         "type": "string",
@@ -5225,7 +5225,7 @@ const docTemplate = `{
                     "[Cloud Info Management] Region Info"
                 ],
                 "summary": "List Regions",
-                "operationId": "list-regions",
+                "operationId": "list-region",
                 "parameters": [
                     {
                         "type": "string",
@@ -6514,7 +6514,7 @@ const docTemplate = `{
                     "[SecurityGroup Management]"
                 ],
                 "summary": "Add Rules to SecurityGroup",
-                "operationId": "add-rules-securitygroup",
+                "operationId": "add-rule",
                 "parameters": [
                     {
                         "type": "string",
@@ -6572,7 +6572,7 @@ const docTemplate = `{
                     "[SecurityGroup Management]"
                 ],
                 "summary": "Remove Rules from SecurityGroup",
-                "operationId": "remove-rules-securitygroup",
+                "operationId": "remove-rule",
                 "parameters": [
                     {
                         "type": "string",

@@ -198,7 +198,7 @@ func ListSecurity(c echo.Context) error {
 }
 
 // listAllSecurityGroups godoc
-// @ID list-all-securitygroups
+// @ID list-all-securitygroup
 // @Summary List All Security Groups in a Connection
 // @Description Retrieve a comprehensive list of all Security Groups associated with a specific connection, <br> including those mapped between CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing in the CSP.
 // @Tags [SecurityGroup Management]
@@ -352,7 +352,7 @@ type RuleControlRequest struct {
 }
 
 // addRules godoc
-// @ID add-rules-securitygroup
+// @ID add-rule
 // @Summary Add Rules to SecurityGroup
 // @Description Add new rules to a Security Group.
 // @Tags [SecurityGroup Management]
@@ -395,7 +395,7 @@ func AddRules(c echo.Context) error {
 }
 
 // removeRules godoc
-// @ID remove-rules-securitygroup
+// @ID remove-rule
 // @Summary Remove Rules from SecurityGroup
 // @Description Remove existing rules from a Security Group.
 // @Tags [SecurityGroup Management]
@@ -442,7 +442,7 @@ func RemoveRules(c echo.Context) error {
 }
 
 // countAllSecurityGroups godoc
-// @ID count-all-securitygroups
+// @ID count-all-securitygroup
 // @Summary Count All SecurityGroups
 // @Description Get the total number of Security Groups across all connections.
 // @Tags [SecurityGroup Management]
@@ -466,7 +466,7 @@ func CountAllSecurityGroups(c echo.Context) error {
 }
 
 // countSecurityGroupsByConnection godoc
-// @ID count-securitygroups-by-connection
+// @ID count-securitygroup-by-connection
 // @Summary Count SecurityGroups by Connection
 // @Description Get the total number of Security Groups for a specific connection.
 // @Tags [SecurityGroup Management]

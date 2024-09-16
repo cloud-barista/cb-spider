@@ -416,7 +416,7 @@ type NLBAddVMsRequest struct {
 }
 
 // addNLBVMs godoc
-// @ID add-nlb-vms
+// @ID add-nlb-vm
 // @Summary Add VMs to NLB
 // @Description Add a new set of VMs to an existing Network Load Balancer (NLB).
 // @Tags [NLB Management]
@@ -456,7 +456,7 @@ type NLBRemoveVMsRequest struct {
 }
 
 // removeNLBVMs godoc
-// @ID remove-nlb-vms
+// @ID remove-nlb-vm
 // @Summary Remove VMs from NLB
 // @Description Remove a set of VMs from an existing Network Load Balancer (NLB).
 // @Tags [NLB Management]
@@ -771,7 +771,7 @@ func DeleteCSPNLB(c echo.Context) error {
 }
 
 // countAllNLBs godoc
-// @ID count-all-nlbs
+// @ID count-all-nlb
 // @Summary Count All NLBs
 // @Description Get the total number of Network Load Balancers (NLBs) across all connections.
 // @Tags [NLB Management]
@@ -797,7 +797,7 @@ func CountAllNLBs(c echo.Context) error {
 }
 
 // countNLBsByConnection godoc
-// @ID count-nlbs-by-connection
+// @ID count-nlb-by-connection
 // @Summary Count NLBs by Connection
 // @Description Get the total number of Network Load Balancers (NLBs) for a specific connection.
 // @Tags [NLB Management]

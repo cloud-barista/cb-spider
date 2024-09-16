@@ -342,7 +342,7 @@ func DeleteCSPMyImage(c echo.Context) error {
 }
 
 // countAllMyImages godoc
-// @ID count-all-myimages
+// @ID count-all-myimage
 // @Summary Count All MyImages
 // @Description Get the total number of MyImages across all connections.
 // @Tags [MyImage Management]
@@ -366,7 +366,7 @@ func CountAllMyImages(c echo.Context) error {
 }
 
 // countMyImagesByConnection godoc
-// @ID count-myimages-by-connection
+// @ID count-myimage-by-connection
 // @Summary Count MyImages by Connection
 // @Description Get the total number of MyImages for a specific connection.
 // @Tags [MyImage Management]

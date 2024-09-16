@@ -83,7 +83,7 @@ func GetCloudOSMetaInfo(c echo.Context) error {
 // ================ CloudDriver Handler
 
 // registerCloudDriver godoc
-// @ID register-cloud-driver
+// @ID register-driver
 // @Summary Register Cloud Driver
 // @Description Register a new Cloud Driver. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#1-cloud-driver-%EC%A0%95%EB%B3%B4-%EB%93%B1%EB%A1%9D-%EB%B0%8F-%EA%B4%80%EB%A6%AC)]
 // @Tags [Cloud Info Management] Driver Info
@@ -117,7 +117,7 @@ type ListCloudDriverResponse struct {
 }
 
 // listCloudDriver godoc
-// @ID list-cloud-drivers
+// @ID list-driver
 // @Summary List Cloud Drivers
 // @Description Retrieve a list of registered Cloud Drivers.
 // @Tags [Cloud Info Management] Driver Info
@@ -158,7 +158,7 @@ func ListCloudDriver(c echo.Context) error {
 }
 
 // getCloudDriver godoc
-// @ID get-cloud-driver
+// @ID get-driver
 // @Summary Get Cloud Driver
 // @Description Retrieve details of a specific Cloud Driver.
 // @Tags [Cloud Info Management] Driver Info
@@ -180,7 +180,7 @@ func GetCloudDriver(c echo.Context) error {
 }
 
 // unregisterCloudDriver godoc
-// @ID unregister-cloud-driver
+// @ID unregister-driver
 // @Summary Unregister Cloud Driver
 // @Description Unregister a specific Cloud Driver.
 // @Tags [Cloud Info Management] Driver Info
@@ -206,7 +206,7 @@ func UnRegisterCloudDriver(c echo.Context) error {
 }
 
 // uploadCloudDriver godoc
-// @ID upload-cloud-driver
+// @ID upload-driver
 // @Summary Upload Cloud Driver
 // @Description Upload a Cloud Driver library file.
 // @Tags [Cloud Info Management] Driver Info
@@ -280,7 +280,7 @@ type ListCredentialResponse struct {
 }
 
 // listCredential godoc
-// @ID list-credentials
+// @ID list-credential
 // @Summary List Credentials
 // @Description Retrieve a list of registered Credentials.
 // @Tags [Cloud Info Management] Credential Info
@@ -404,7 +404,7 @@ type ListRegionResponse struct {
 }
 
 // listRegion godoc
-// @ID list-regions
+// @ID list-region
 // @Summary List Regions
 // @Description Retrieve a list of registered Regions.
 // @Tags [Cloud Info Management] Region Info
@@ -528,7 +528,7 @@ type ListConnectionConfigResponse struct {
 }
 
 // listConnectionConfig godoc
-// @ID list-connection-configs
+// @ID list-connection-config
 // @Summary List Connection Configs
 // @Description Retrieve a list of registered Connection Configs.
 // @Tags [Cloud Info Management] Connection Info
@@ -601,7 +601,7 @@ func DeleteConnectionConfig(c echo.Context) error {
 }
 
 // countAllConnections godoc
-// @ID count-all-connections
+// @ID count-all-connection
 // @Summary Count All Connections
 // @Description Get the total number of connections.
 // @Tags [Cloud Info Management] Connection Info
@@ -624,7 +624,7 @@ func CountAllConnections(c echo.Context) error {
 }
 
 // countConnectionsByProvider godoc
-// @ID count-connections-by-provider
+// @ID count-connection-by-provider
 // @Summary Count Connections by Provider
 // @Description Get the total number of connections for a specific provider.
 // @Tags [Cloud Info Management] Connection Info

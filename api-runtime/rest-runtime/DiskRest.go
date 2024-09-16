@@ -479,7 +479,7 @@ func DetachDisk(c echo.Context) error {
 }
 
 // countAllDisks godoc
-// @ID count-all-disks
+// @ID count-all-disk
 // @Summary Count All Disks
 // @Description Get the total number of Disks across all connections.
 // @Tags [Disk Management]
@@ -504,7 +504,7 @@ func CountAllDisks(c echo.Context) error {
 }
 
 // countDisksByConnection godoc
-// @ID count-disks-by-connection
+// @ID count-disk-by-connection
 // @Summary Count Disks by Connection
 // @Description Get the total number of Disks for a specific connection.
 // @Tags [Disk Management]

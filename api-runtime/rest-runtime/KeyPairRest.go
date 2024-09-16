@@ -338,7 +338,7 @@ func DeleteCSPKey(c echo.Context) error {
 }
 
 // countAllKeys godoc
-// @ID count-all-keys
+// @ID count-all-key
 // @Summary Count All KeyPairs
 // @Description Get the total number of KeyPairs across all connections.
 // @Tags [KeyPair Management]
@@ -363,7 +363,7 @@ func CountAllKeys(c echo.Context) error {
 }
 
 // countKeysByConnection godoc
-// @ID count-keys-by-connection
+// @ID count-key-by-connection
 // @Summary Count KeyPairs by Connection
 // @Description Get the total number of KeyPairs for a specific connection.
 // @Tags [KeyPair Management]

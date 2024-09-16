@@ -641,7 +641,7 @@ func UpgradeCluster(c echo.Context) error {
 }
 
 // countAllClusters godoc
-// @ID count-all-clusters
+// @ID count-all-cluster
 // @Summary Count All Clusters
 // @Description Get the total number of Clusters across all connections.
 // @Tags [Cluster Management]
@@ -665,7 +665,7 @@ func CountAllClusters(c echo.Context) error {
 }
 
 // countClustersByConnection godoc
-// @ID count-clusters-by-connection
+// @ID count-cluster-by-connection
 // @Summary Count Clusters by Connection
 // @Description Get the total number of Clusters for a specific connection.
 // @Tags [Cluster Management]

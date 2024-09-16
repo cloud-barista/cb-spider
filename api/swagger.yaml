@@ -2901,7 +2901,7 @@ paths:
         with a specific connection, <br> including those mapped between CB-Spider
         and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing
         in the CSP.
-      operationId: list-all-securitygroups
+      operationId: list-all-securitygroup
       parameters:
       - description: The name of the Connection to list Security Groups for
         in: query
@@ -3543,7 +3543,7 @@ paths:
   /connectionconfig:
     get:
       description: Retrieve a list of registered Connection Configs.
-      operationId: list-connection-configs
+      operationId: list-connection-config
       produces:
       - application/json
       responses:
@@ -3694,7 +3694,7 @@ paths:
   /countcluster:
     get:
       description: Get the total number of Clusters across all connections.
-      operationId: count-all-clusters
+      operationId: count-all-cluster
       produces:
       - application/json
       responses:
@@ -3712,7 +3712,7 @@ paths:
   /countcluster/{ConnectionName}:
     get:
       description: Get the total number of Clusters for a specific connection.
-      operationId: count-clusters-by-connection
+      operationId: count-cluster-by-connection
       parameters:
       - description: The name of the Connection
         in: path
@@ -3736,7 +3736,7 @@ paths:
   /countconnectionconfig:
     get:
       description: Get the total number of connections.
-      operationId: count-all-connections
+      operationId: count-all-connection
       produces:
       - application/json
       responses:
@@ -3754,7 +3754,7 @@ paths:
   /countconnectionconfig/{ProviderName}:
     get:
       description: Get the total number of connections for a specific provider.
-      operationId: count-connections-by-provider
+      operationId: count-connection-by-provider
       parameters:
       - description: The name of the provider
         in: path
@@ -3778,7 +3778,7 @@ paths:
   /countdisk:
     get:
       description: Get the total number of Disks across all connections.
-      operationId: count-all-disks
+      operationId: count-all-disk
       produces:
       - application/json
       responses:
@@ -3796,7 +3796,7 @@ paths:
   /countdisk/{ConnectionName}:
     get:
       description: Get the total number of Disks for a specific connection.
-      operationId: count-disks-by-connection
+      operationId: count-disk-by-connection
       parameters:
       - description: The name of the Connection
         in: path
@@ -3820,7 +3820,7 @@ paths:
   /countkeypair:
     get:
       description: Get the total number of KeyPairs across all connections.
-      operationId: count-all-keys
+      operationId: count-all-key
       produces:
       - application/json
       responses:
@@ -3838,7 +3838,7 @@ paths:
   /countkeypair/{ConnectionName}:
     get:
       description: Get the total number of KeyPairs for a specific connection.
-      operationId: count-keys-by-connection
+      operationId: count-key-by-connection
       parameters:
       - description: The name of the Connection
         in: path
@@ -3862,7 +3862,7 @@ paths:
   /countmyimage:
     get:
       description: Get the total number of MyImages across all connections.
-      operationId: count-all-myimages
+      operationId: count-all-myimage
       produces:
       - application/json
       responses:
@@ -3880,7 +3880,7 @@ paths:
   /countmyimage/{ConnectionName}:
     get:
       description: Get the total number of MyImages for a specific connection.
-      operationId: count-myimages-by-connection
+      operationId: count-myimage-by-connection
       parameters:
       - description: The name of the Connection
         in: path
@@ -3905,7 +3905,7 @@ paths:
     get:
       description: Get the total number of Network Load Balancers (NLBs) across all
         connections.
-      operationId: count-all-nlbs
+      operationId: count-all-nlb
       produces:
       - application/json
       responses:
@@ -3924,7 +3924,7 @@ paths:
     get:
       description: Get the total number of Network Load Balancers (NLBs) for a specific
         connection.
-      operationId: count-nlbs-by-connection
+      operationId: count-nlb-by-connection
       parameters:
       - description: The name of the Connection
         in: path
@@ -3948,7 +3948,7 @@ paths:
   /countsecuritygroup:
     get:
       description: Get the total number of Security Groups across all connections.
-      operationId: count-all-securitygroups
+      operationId: count-all-securitygroup
       produces:
       - application/json
       responses:
@@ -3966,7 +3966,7 @@ paths:
   /countsecuritygroup/{ConnectionName}:
     get:
       description: Get the total number of Security Groups for a specific connection.
-      operationId: count-securitygroups-by-connection
+      operationId: count-securitygroup-by-connection
       parameters:
       - description: The name of the Connection
         in: path
@@ -3990,7 +3990,7 @@ paths:
   /countsubnet:
     get:
       description: Get the total number of Subnets across all connections.
-      operationId: count-all-subnets
+      operationId: count-all-subnet
       produces:
       - application/json
       responses:
@@ -4008,7 +4008,7 @@ paths:
   /countsubnet/{ConnectionName}:
     get:
       description: Get the total number of Subnets for a specific connection.
-      operationId: count-subnets-by-connection
+      operationId: count-subnet-by-connection
       parameters:
       - description: The name of the Connection
         in: path
@@ -4032,7 +4032,7 @@ paths:
   /countvm:
     get:
       description: Get the total number of Virtual Machines (VMs) across all connections.
-      operationId: count-all-vms
+      operationId: count-all-vm
       produces:
       - application/json
       responses:
@@ -4050,7 +4050,7 @@ paths:
   /countvm/{ConnectionName}:
     get:
       description: Get the total number of Virtual Machines (VMs) for a specific connection.
-      operationId: count-vms-by-connection
+      operationId: count-vm-by-connection
       parameters:
       - description: The name of the Connection
         in: path
@@ -4074,7 +4074,7 @@ paths:
   /countvpc:
     get:
       description: Get the total number of VPCs across all connections.
-      operationId: count-all-vpcs
+      operationId: count-all-vpc
       produces:
       - application/json
       responses:
@@ -4092,7 +4092,7 @@ paths:
   /countvpc/{ConnectionName}:
     get:
       description: Get the total number of VPCs for a specific connection.
-      operationId: count-vpcs-by-connection
+      operationId: count-vpc-by-connection
       parameters:
       - description: The name of the Connection
         in: path
@@ -4116,7 +4116,7 @@ paths:
   /credential:
     get:
       description: Retrieve a list of registered Credentials.
-      operationId: list-credentials
+      operationId: list-credential
       parameters:
       - description: The name of the provider to filter the Credentials by
         in: query
@@ -4595,7 +4595,7 @@ paths:
       - application/json
       description: Deletes all resources associated with a specific cloud connection.
         This action is irreversible.
-      operationId: destroy-all-resources
+      operationId: destroy-all-resource
       parameters:
       - description: Request body for deleting all resources
         in: body
@@ -4902,7 +4902,7 @@ paths:
   /driver:
     get:
       description: Retrieve a list of registered Cloud Drivers.
-      operationId: list-cloud-drivers
+      operationId: list-driver
       parameters:
       - description: The name of the provider to filter the Cloud Drivers by
         in: query
@@ -4926,7 +4926,7 @@ paths:
       consumes:
       - application/json
       description: "Register a new Cloud Driver. \U0001F577️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#1-cloud-driver-%EC%A0%95%EB%B3%B4-%EB%93%B1%EB%A1%9D-%EB%B0%8F-%EA%B4%80%EB%A6%AC)]"
-      operationId: register-cloud-driver
+      operationId: register-driver
       parameters:
       - description: Request body for registering a Cloud Driver
         in: body
@@ -4956,7 +4956,7 @@ paths:
   /driver/{DriverName}:
     delete:
       description: Unregister a specific Cloud Driver.
-      operationId: unregister-cloud-driver
+      operationId: unregister-driver
       parameters:
       - description: The name of the Cloud Driver
         in: path
@@ -4983,7 +4983,7 @@ paths:
       - '[Cloud Info Management] Driver Info'
     get:
       description: Retrieve details of a specific Cloud Driver.
-      operationId: get-cloud-driver
+      operationId: get-driver
       parameters:
       - description: The name of the Cloud Driver
         in: path
@@ -5013,7 +5013,7 @@ paths:
       consumes:
       - multipart/form-data
       description: Upload a Cloud Driver library file.
-      operationId: upload-cloud-driver
+      operationId: upload-driver
       parameters:
       - description: Cloud Driver Library File
         in: formData
@@ -5732,7 +5732,7 @@ paths:
       consumes:
       - application/json
       description: Remove a set of VMs from an existing Network Load Balancer (NLB).
-      operationId: remove-nlb-vms
+      operationId: remove-nlb-vm
       parameters:
       - description: The name of the NLB to remove VMs from
         in: path
@@ -5772,7 +5772,7 @@ paths:
       consumes:
       - application/json
       description: Add a new set of VMs to an existing Network Load Balancer (NLB).
-      operationId: add-nlb-vms
+      operationId: add-nlb-vm
       parameters:
       - description: The name of the NLB to add VMs to
         in: path
@@ -6293,7 +6293,7 @@ paths:
   /region:
     get:
       description: Retrieve a list of registered Regions.
-      operationId: list-regions
+      operationId: list-region
       parameters:
       - description: The name of the provider to filter the Regions by
         in: query
@@ -7177,7 +7177,7 @@ paths:
       consumes:
       - application/json
       description: Remove existing rules from a Security Group.
-      operationId: remove-rules-securitygroup
+      operationId: remove-rule
       parameters:
       - description: The name of the SecurityGroup to remove rules from
         in: path
@@ -7217,7 +7217,7 @@ paths:
       consumes:
       - application/json
       description: Add new rules to a Security Group.
-      operationId: add-rules-securitygroup
+      operationId: add-rule
       parameters:
       - description: The name of the SecurityGroup to add rules to
         in: path
