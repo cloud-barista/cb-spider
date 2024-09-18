@@ -11434,13 +11434,15 @@ const docTemplate = `{
                 "ReqInfo": {
                     "type": "object",
                     "required": [
+                        "IPv4_CIDR",
                         "Name",
                         "SubnetInfoList"
                     ],
                     "properties": {
                         "IPv4_CIDR": {
                             "description": "Some CSPs unsupported VPC CIDR",
-                            "type": "string"
+                            "type": "string",
+                            "example": "10.0.0.0/16"
                         },
                         "Name": {
                             "type": "string",

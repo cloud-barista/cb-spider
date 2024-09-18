@@ -2600,6 +2600,7 @@ definitions:
         properties:
           IPv4_CIDR:
             description: Some CSPs unsupported VPC CIDR
+            example: 10.0.0.0/16
             type: string
           Name:
             example: vpc-01
@@ -2632,6 +2633,7 @@ definitions:
               $ref: '#/definitions/spider.KeyValue'
             type: array
         required:
+        - IPv4_CIDR
         - Name
         - SubnetInfoList
         type: object

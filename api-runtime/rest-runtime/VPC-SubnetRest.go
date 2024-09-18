@@ -199,7 +199,7 @@ type VPCCreateRequest struct {
 	IDTransformMode string `json:"IDTransformMode,omitempty" validate:"omitempty" example:"ON"` // ON: transform CSP ID, OFF: no-transform CSP ID
 	ReqInfo         struct {
 		Name           string `json:"Name" validate:"required" example:"vpc-01"`
-		IPv4_CIDR      string `json:"IPv4_CIDR" validate:"omitempty"` // Some CSPs unsupported VPC CIDR
+		IPv4_CIDR      string `json:"IPv4_CIDR" validate:"required" example:"10.0.0.0/16"` // Some CSPs unsupported VPC CIDR
 		SubnetInfoList []struct {
 			Name      string          `json:"Name" validate:"required" example:"subnet-01"`
 			Zone      string          `json:"Zone,omitempty" validate:"omitempty" example:"us-east-1b"` // target zone for the subnet, if not specified, it will be created in the same zone as the Connection.
