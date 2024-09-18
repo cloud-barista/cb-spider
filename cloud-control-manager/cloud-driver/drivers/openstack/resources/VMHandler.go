@@ -11,6 +11,8 @@
 package resources
 
 import (
+	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
@@ -23,9 +25,11 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/flavors"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/subnets"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"net"
+	"net/http"
 	"os"
 	"regexp"
 	"strconv"
@@ -602,6 +606,53 @@ func getVmStatus(vmStatus string) irs.VMStatus {
 	return irs.VMStatus(resultStatus)
 }
 
+func getAvailabilityZoneFromAPI(computeClient *gophercloud.ServiceClient, serverID string) (string, error) {
+	url := computeClient.ServiceURL("servers", serverID)
+
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+
+	client := &http.Client{Transport: tr}
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Add("X-Auth-Token", computeClient.TokenID)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to get server details: %s", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	var serverResponse map[string]interface{}
+	if err := json.Unmarshal(body, &serverResponse); err != nil {
+		return "", err
+	}
+
+	if server, ok := serverResponse["server"].(map[string]interface{}); ok {
+		if zone, ok := server["OS-EXT-AZ:availability_zone"].(string); ok {
+			return zone, nil
+		}
+	}
+
+	return "", fmt.Errorf("availability zone not found")
+}
+
 func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) irs.VMInfo {
 	iid := irs.IID{
 		NameId:   server.Name,
@@ -622,7 +673,13 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 		SecurityGroupIIds: nil,
 	}
 
-	if vmHandler.Region.TargetZone != "" {
+	zone, err := getAvailabilityZoneFromAPI(vmHandler.ComputeClient, server.ID)
+	if err != nil {
+		cblogger.Warn(err)
+	}
+	if zone != "" {
+		vmInfo.Region.Zone = zone
+	} else if vmHandler.Region.TargetZone != "" {
 		vmInfo.Region.Zone = vmHandler.Region.TargetZone
 	} else {
 		vmInfo.Region.Zone = vmHandler.Region.Zone
