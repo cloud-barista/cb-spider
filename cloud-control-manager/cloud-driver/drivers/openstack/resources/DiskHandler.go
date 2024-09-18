@@ -415,6 +415,13 @@ func (diskHandler *OpenstackDiskHandler) setterDisk(rawVolume volumes3.Volume) (
 	default:
 		info.Status = irs.DiskAttached
 	}
+
+	if diskHandler.Region.TargetZone != "" {
+		info.Zone = diskHandler.Region.TargetZone
+	} else if diskHandler.Region.Zone != "" {
+		info.Zone = diskHandler.Region.Zone
+	}
+
 	return info, nil
 }
 
