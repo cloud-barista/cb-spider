@@ -243,6 +243,10 @@ func GetVMDiskTypeInitType(diskType string) armcompute.StorageAccountTypes {
 
 // VMBootDiskType
 func GetVMDiskInfoType(diskType *armcompute.StorageAccountTypes) string {
+	if diskType == nil {
+		return "Unknown"
+	}
+
 	switch *diskType {
 	case armcompute.StorageAccountTypesPremiumLRS:
 		return PremiumSSD

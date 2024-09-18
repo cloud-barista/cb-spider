@@ -1104,15 +1104,17 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server armcompute.VirtualMach
 	}
 
 	// Set BootDisk
-	if server.Properties.StorageProfile.OSDisk.Name != nil {
-		vmInfo.VMBootDisk = *server.Properties.StorageProfile.OSDisk.Name
+	diskHandler := AzureDiskHandler{
+		CredentialInfo: vmHandler.CredentialInfo,
+		Region:         vmHandler.Region,
+		Ctx:            vmHandler.Ctx,
+		VMClient:       vmHandler.Client,
+		DiskClient:     vmHandler.DiskClient,
 	}
-	if server.Properties.StorageProfile.OSDisk.DiskSizeGB != nil {
-		vmInfo.RootDiskSize = strconv.Itoa(int(*server.Properties.StorageProfile.OSDisk.DiskSizeGB))
-	}
-	if server.Properties.StorageProfile.OSDisk.ManagedDisk != nil {
-		vmInfo.RootDiskType = GetVMDiskInfoType(server.Properties.StorageProfile.OSDisk.ManagedDisk.StorageAccountType)
-	}
+	diskInfo, _ := diskHandler.GetDisk(irs.IID{NameId: *server.Properties.StorageProfile.OSDisk.Name})
+	vmInfo.VMBootDisk = diskInfo.IId.NameId
+	vmInfo.RootDiskSize = diskInfo.DiskSize
+	vmInfo.RootDiskType = diskInfo.DiskType
 
 	// Get StartTime
 	if server.Properties.InstanceView != nil {
