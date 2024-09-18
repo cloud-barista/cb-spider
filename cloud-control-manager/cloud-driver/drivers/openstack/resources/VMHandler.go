@@ -24,6 +24,7 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/startstop"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/flavors"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
+	layer3floatingips "github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/layer3/floatingips"
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/subnets"
 	"io"
 	"io/ioutil"
@@ -554,11 +555,11 @@ func (vmHandler *OpenStackVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 
 func (vmHandler *OpenStackVMHandler) AssociatePublicIP(serverID string) (bool, error) {
 	// PublicIP 생성
-	externVPCName, _ := GetPublicVPCInfo(vmHandler.NetworkClient, "NAME")
-	createOpts := floatingips.CreateOpts{
-		Pool: externVPCName,
+	externVPCID, _ := GetPublicVPCInfo(vmHandler.NetworkClient, "ID")
+	createOpts := layer3floatingips.CreateOpts{
+		FloatingNetworkID: externVPCID,
 	}
-	publicIP, err := floatingips.Create(vmHandler.ComputeClient, createOpts).Extract()
+	publicIP, err := layer3floatingips.Create(vmHandler.NetworkClient, createOpts).Extract()
 	if err != nil {
 		return false, err
 	}
@@ -569,7 +570,7 @@ func (vmHandler *OpenStackVMHandler) AssociatePublicIP(serverID string) (bool, e
 	maxRetryCnt := 120
 	for {
 		associateOpts := floatingips.AssociateOpts{
-			FloatingIP: publicIP.IP,
+			FloatingIP: publicIP.FloatingIP,
 		}
 		err = floatingips.AssociateInstance(vmHandler.ComputeClient, serverID, associateOpts).ExtractErr()
 		if err == nil {
@@ -926,11 +927,11 @@ func (vmHandler *OpenStackVMHandler) vmCleaner(vmIId irs.IID) error {
 	}
 	if server.PublicIP != "" {
 		// VM에 연결된 PublicIP 삭제
-		pager, err := floatingips.List(vmHandler.ComputeClient).AllPages()
+		pager, err := layer3floatingips.List(vmHandler.NetworkClient, layer3floatingips.ListOpts{}).AllPages()
 		if err != nil {
 			return err
 		}
-		publicIPList, err := floatingips.ExtractFloatingIPs(pager)
+		publicIPList, err := layer3floatingips.ExtractFloatingIPs(pager)
 		if err != nil {
 			return err
 		}
@@ -938,14 +939,14 @@ func (vmHandler *OpenStackVMHandler) vmCleaner(vmIId irs.IID) error {
 		// IP 기준 PublicIP 검색
 		var publicIPId string
 		for _, p := range publicIPList {
-			if strings.EqualFold(server.PublicIP, p.IP) {
+			if strings.EqualFold(server.PublicIP, p.FloatingIP) {
 				publicIPId = p.ID
 				break
 			}
 		}
 		// Public IP 삭제
 		if publicIPId != "" {
-			err := floatingips.Delete(vmHandler.ComputeClient, publicIPId).ExtractErr()
+			err := layer3floatingips.Delete(vmHandler.NetworkClient, publicIPId).ExtractErr()
 			if err != nil {
 				return err
 			}
