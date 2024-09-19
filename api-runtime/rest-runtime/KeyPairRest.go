@@ -32,7 +32,7 @@ type KeyPairRegisterRequest struct {
 }
 
 // registerKey godoc
-// @ID register-key
+// @ID register-keypair
 // @Summary Register KeyPair
 // @Description Register a new KeyPair with the specified name and CSP ID.
 // @Tags [KeyPair Management]
@@ -66,7 +66,7 @@ func RegisterKey(c echo.Context) error {
 }
 
 // unregisterKey godoc
-// @ID unregister-key
+// @ID unregister-keypair
 // @Summary Unregister KeyPair
 // @Description Unregister a KeyPair with the specified name.
 // @Tags [KeyPair Management]

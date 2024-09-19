@@ -5499,7 +5499,7 @@ const docTemplate = `{
                     "[KeyPair Management]"
                 ],
                 "summary": "Register KeyPair",
-                "operationId": "register-key",
+                "operationId": "register-keypair",
                 "parameters": [
                     {
                         "description": "Request body for registering a KeyPair",
@@ -5552,7 +5552,7 @@ const docTemplate = `{
                     "[KeyPair Management]"
                 ],
                 "summary": "Unregister KeyPair",
-                "operationId": "unregister-key",
+                "operationId": "unregister-keypair",
                 "parameters": [
                     {
                         "description": "Request body for unregistering a KeyPair",

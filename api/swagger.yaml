@@ -6482,7 +6482,7 @@ paths:
       consumes:
       - application/json
       description: Register a new KeyPair with the specified name and CSP ID.
-      operationId: register-key
+      operationId: register-keypair
       parameters:
       - description: Request body for registering a KeyPair
         in: body
@@ -6518,7 +6518,7 @@ paths:
       consumes:
       - application/json
       description: Unregister a KeyPair with the specified name.
-      operationId: unregister-key
+      operationId: unregister-keypair
       parameters:
       - description: Request body for unregistering a KeyPair
         in: body
