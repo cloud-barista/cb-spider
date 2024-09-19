@@ -2787,7 +2787,7 @@ paths:
         specific connection, <br> including those mapped between CB-Spider and the
         CSP, <br> only registered in CB-Spider's metadata, <br> and only existing
         in the CSP.
-      operationId: list-all-key
+      operationId: list-all-keypair
       parameters:
       - description: The name of the Connection to list KeyPairs for
         in: query
@@ -3822,7 +3822,7 @@ paths:
   /countkeypair:
     get:
       description: Get the total number of KeyPairs across all connections.
-      operationId: count-all-key
+      operationId: count-all-keypair
       produces:
       - application/json
       responses:
@@ -3840,7 +3840,7 @@ paths:
   /countkeypair/{ConnectionName}:
     get:
       description: Get the total number of KeyPairs for a specific connection.
-      operationId: count-key-by-connection
+      operationId: count-keypair-by-connection
       parameters:
       - description: The name of the Connection
         in: path
@@ -4311,7 +4311,7 @@ paths:
       consumes:
       - application/json
       description: Delete a specified CSP KeyPair.
-      operationId: delete-csp-key
+      operationId: delete-csp-keypair
       parameters:
       - description: Request body for deleting a CSP KeyPair
         in: body
@@ -5230,7 +5230,7 @@ paths:
       consumes:
       - application/json
       description: Retrieve a list of KeyPairs associated with a specific connection.
-      operationId: list-key
+      operationId: list-keypair
       parameters:
       - description: The name of the Connection to list KeyPairs for
         in: query
@@ -5300,7 +5300,7 @@ paths:
       consumes:
       - application/json
       description: Delete a specified KeyPair.
-      operationId: delete-key
+      operationId: delete-keypair
       parameters:
       - description: Request body for deleting a KeyPair
         in: body
@@ -5344,7 +5344,7 @@ paths:
       consumes:
       - application/json
       description: Retrieve details of a specific KeyPair.
-      operationId: get-key
+      operationId: get-keypair
       parameters:
       - description: The name of the Connection to get a KeyPair for
         in: query

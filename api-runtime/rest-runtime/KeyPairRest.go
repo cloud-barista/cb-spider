@@ -154,7 +154,7 @@ type KeyPairListResponse struct {
 }
 
 // listKey godoc
-// @ID list-key
+// @ID list-keypair
 // @Summary List KeyPairs
 // @Description Retrieve a list of KeyPairs associated with a specific connection.
 // @Tags [KeyPair Management]
@@ -192,7 +192,7 @@ func ListKey(c echo.Context) error {
 }
 
 // listAllKeyPairs godoc
-// @ID list-all-key
+// @ID list-all-keypair
 // @Summary List All KeyPairs in a Connection
 // @Description Retrieve a comprehensive list of all KeyPairs associated with a specific connection, <br> including those mapped between CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing in the CSP.
 // @Tags [KeyPair Management]
@@ -228,7 +228,7 @@ func ListAllKey(c echo.Context) error {
 }
 
 // getKey godoc
-// @ID get-key
+// @ID get-keypair
 // @Summary Get KeyPair
 // @Description Retrieve details of a specific KeyPair.
 // @Tags [KeyPair Management]
@@ -265,7 +265,7 @@ func GetKey(c echo.Context) error {
 }
 
 // deleteKey godoc
-// @ID delete-key
+// @ID delete-keypair
 // @Summary Delete KeyPair
 // @Description Delete a specified KeyPair.
 // @Tags [KeyPair Management]
@@ -302,7 +302,7 @@ func DeleteKey(c echo.Context) error {
 }
 
 // deleteCSPKey godoc
-// @ID delete-csp-key
+// @ID delete-csp-keypair
 // @Summary Delete CSP KeyPair
 // @Description Delete a specified CSP KeyPair.
 // @Tags [KeyPair Management]
@@ -338,7 +338,7 @@ func DeleteCSPKey(c echo.Context) error {
 }
 
 // countAllKeys godoc
-// @ID count-all-key
+// @ID count-all-keypair
 // @Summary Count All KeyPairs
 // @Description Get the total number of KeyPairs across all connections.
 // @Tags [KeyPair Management]
@@ -363,7 +363,7 @@ func CountAllKeys(c echo.Context) error {
 }
 
 // countKeysByConnection godoc
-// @ID count-key-by-connection
+// @ID count-keypair-by-connection
 // @Summary Count KeyPairs by Connection
 // @Description Get the total number of KeyPairs for a specific connection.
 // @Tags [KeyPair Management]

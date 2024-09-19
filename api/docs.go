@@ -138,7 +138,7 @@ const docTemplate = `{
                     "[KeyPair Management]"
                 ],
                 "summary": "List All KeyPairs in a Connection",
-                "operationId": "list-all-key",
+                "operationId": "list-all-keypair",
                 "parameters": [
                     {
                         "type": "string",
@@ -1616,7 +1616,7 @@ const docTemplate = `{
                     "[KeyPair Management]"
                 ],
                 "summary": "Count All KeyPairs",
-                "operationId": "count-all-key",
+                "operationId": "count-all-keypair",
                 "responses": {
                     "200": {
                         "description": "Total count of KeyPairs",
@@ -1643,7 +1643,7 @@ const docTemplate = `{
                     "[KeyPair Management]"
                 ],
                 "summary": "Count KeyPairs by Connection",
-                "operationId": "count-key-by-connection",
+                "operationId": "count-keypair-by-connection",
                 "parameters": [
                     {
                         "type": "string",
@@ -2342,7 +2342,7 @@ const docTemplate = `{
                     "[KeyPair Management]"
                 ],
                 "summary": "Delete CSP KeyPair",
-                "operationId": "delete-csp-key",
+                "operationId": "delete-csp-keypair",
                 "parameters": [
                     {
                         "description": "Request body for deleting a CSP KeyPair",
@@ -3687,7 +3687,7 @@ const docTemplate = `{
                     "[KeyPair Management]"
                 ],
                 "summary": "List KeyPairs",
-                "operationId": "list-key",
+                "operationId": "list-keypair",
                 "parameters": [
                     {
                         "type": "string",
@@ -3789,7 +3789,7 @@ const docTemplate = `{
                     "[KeyPair Management]"
                 ],
                 "summary": "Get KeyPair",
-                "operationId": "get-key",
+                "operationId": "get-keypair",
                 "parameters": [
                     {
                         "type": "string",
@@ -3845,7 +3845,7 @@ const docTemplate = `{
                     "[KeyPair Management]"
                 ],
                 "summary": "Delete KeyPair",
-                "operationId": "delete-key",
+                "operationId": "delete-keypair",
                 "parameters": [
                     {
                         "description": "Request body for deleting a KeyPair",
