@@ -3736,7 +3736,7 @@ const docTemplate = `{
                     "[KeyPair Management]"
                 ],
                 "summary": "Create KeyPair",
-                "operationId": "create-key",
+                "operationId": "create-keypair",
                 "parameters": [
                     {
                         "description": "Request body for creating a KeyPair",
