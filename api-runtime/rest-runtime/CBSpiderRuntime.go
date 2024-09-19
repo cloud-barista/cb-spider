@@ -503,7 +503,7 @@ func RunServer() {
 		{"GET", "/adminweb/nlbmgmt/:ConnectConfig", aw.NLBMgmt},
 		{"GET", "/adminweb/disk/:ConnectConfig", aw.DiskManagement},
 		{"GET", "/adminweb/diskmgmt/:ConnectConfig", aw.DiskMgmt},
-		{"GET", "/adminweb/cluster/:ConnectConfig", aw.Cluster},
+		{"GET", "/adminweb/cluster/:ConnectConfig", aw.ClusterManagement},
 		{"GET", "/adminweb/clustermgmt/:ConnectConfig", aw.ClusterMgmt},
 		{"GET", "/adminweb/myimage/:ConnectConfig", aw.MyImageManagement},
 		{"GET", "/adminweb/myimagemgmt/:ConnectConfig", aw.MyImageMgmt},

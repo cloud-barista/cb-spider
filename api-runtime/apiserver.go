@@ -9,13 +9,12 @@
 package main
 
 import (
-	"runtime"
 	"fmt"
+	"runtime"
 	"sync"
 	"time"
 
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
-	grpcruntime "github.com/cloud-barista/cb-spider/api-runtime/grpc-runtime"
 	restruntime "github.com/cloud-barista/cb-spider/api-runtime/rest-runtime"
 
 	"github.com/go-resty/resty/v2"
@@ -24,7 +23,7 @@ import (
 
 func main() {
 	// use multi-Core
-        runtime.GOMAXPROCS(runtime.NumCPU())
+	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	rootCmd := NewRootCmd()
 	if err := rootCmd.Execute(); err != nil {
@@ -39,7 +38,7 @@ func NewRootCmd() *cobra.Command {
 
 			wg := new(sync.WaitGroup)
 
-			wg.Add(2)
+			wg.Add(1)
 
 			go func() {
 				restruntime.RunServer()
@@ -47,11 +46,6 @@ func NewRootCmd() *cobra.Command {
 			}()
 
 			time.Sleep(time.Millisecond * 5)
-
-			go func() {
-				grpcruntime.RunServer()
-				wg.Done()
-			}()
 
 			wg.Wait()
 

@@ -1,9 +1,0 @@
-{
-    "Regions": [
-        {
-            "RegionName": "cloudit-region01",
-            "Endpoint": "http://182.252.135.60:5000/v3"
-        }
-    ]
-}
-
