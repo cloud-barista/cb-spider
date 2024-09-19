@@ -11,6 +11,8 @@
 package resources
 
 import (
+	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
@@ -22,10 +24,13 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/startstop"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/flavors"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
+	layer3floatingips "github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/layer3/floatingips"
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/subnets"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"net"
+	"net/http"
 	"os"
 	"regexp"
 	"strconv"
@@ -550,11 +555,11 @@ func (vmHandler *OpenStackVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 
 func (vmHandler *OpenStackVMHandler) AssociatePublicIP(serverID string) (bool, error) {
 	// PublicIP 생성
-	externVPCName, _ := GetPublicVPCInfo(vmHandler.NetworkClient, "NAME")
-	createOpts := floatingips.CreateOpts{
-		Pool: externVPCName,
+	externVPCID, _ := GetPublicVPCInfo(vmHandler.NetworkClient, "ID")
+	createOpts := layer3floatingips.CreateOpts{
+		FloatingNetworkID: externVPCID,
 	}
-	publicIP, err := floatingips.Create(vmHandler.ComputeClient, createOpts).Extract()
+	publicIP, err := layer3floatingips.Create(vmHandler.NetworkClient, createOpts).Extract()
 	if err != nil {
 		return false, err
 	}
@@ -565,7 +570,7 @@ func (vmHandler *OpenStackVMHandler) AssociatePublicIP(serverID string) (bool, e
 	maxRetryCnt := 120
 	for {
 		associateOpts := floatingips.AssociateOpts{
-			FloatingIP: publicIP.IP,
+			FloatingIP: publicIP.FloatingIP,
 		}
 		err = floatingips.AssociateInstance(vmHandler.ComputeClient, serverID, associateOpts).ExtractErr()
 		if err == nil {
@@ -602,6 +607,53 @@ func getVmStatus(vmStatus string) irs.VMStatus {
 	return irs.VMStatus(resultStatus)
 }
 
+func getAvailabilityZoneFromAPI(computeClient *gophercloud.ServiceClient, serverID string) (string, error) {
+	url := computeClient.ServiceURL("servers", serverID)
+
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+
+	client := &http.Client{Transport: tr}
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Add("X-Auth-Token", computeClient.TokenID)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to get server details: %s", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	var serverResponse map[string]interface{}
+	if err := json.Unmarshal(body, &serverResponse); err != nil {
+		return "", err
+	}
+
+	if server, ok := serverResponse["server"].(map[string]interface{}); ok {
+		if zone, ok := server["OS-EXT-AZ:availability_zone"].(string); ok {
+			return zone, nil
+		}
+	}
+
+	return "", fmt.Errorf("availability zone not found")
+}
+
 func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) irs.VMInfo {
 	iid := irs.IID{
 		NameId:   server.Name,
@@ -622,7 +674,13 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 		SecurityGroupIIds: nil,
 	}
 
-	if vmHandler.Region.TargetZone != "" {
+	zone, err := getAvailabilityZoneFromAPI(vmHandler.ComputeClient, server.ID)
+	if err != nil {
+		cblogger.Warn(err)
+	}
+	if zone != "" {
+		vmInfo.Region.Zone = zone
+	} else if vmHandler.Region.TargetZone != "" {
 		vmInfo.Region.Zone = vmHandler.Region.TargetZone
 	} else {
 		vmInfo.Region.Zone = vmHandler.Region.Zone
@@ -869,11 +927,11 @@ func (vmHandler *OpenStackVMHandler) vmCleaner(vmIId irs.IID) error {
 	}
 	if server.PublicIP != "" {
 		// VM에 연결된 PublicIP 삭제
-		pager, err := floatingips.List(vmHandler.ComputeClient).AllPages()
+		pager, err := layer3floatingips.List(vmHandler.NetworkClient, layer3floatingips.ListOpts{}).AllPages()
 		if err != nil {
 			return err
 		}
-		publicIPList, err := floatingips.ExtractFloatingIPs(pager)
+		publicIPList, err := layer3floatingips.ExtractFloatingIPs(pager)
 		if err != nil {
 			return err
 		}
@@ -881,14 +939,14 @@ func (vmHandler *OpenStackVMHandler) vmCleaner(vmIId irs.IID) error {
 		// IP 기준 PublicIP 검색
 		var publicIPId string
 		for _, p := range publicIPList {
-			if strings.EqualFold(server.PublicIP, p.IP) {
+			if strings.EqualFold(server.PublicIP, p.FloatingIP) {
 				publicIPId = p.ID
 				break
 			}
 		}
 		// Public IP 삭제
 		if publicIPId != "" {
-			err := floatingips.Delete(vmHandler.ComputeClient, publicIPId).ExtractErr()
+			err := layer3floatingips.Delete(vmHandler.NetworkClient, publicIPId).ExtractErr()
 			if err != nil {
 				return err
 			}
