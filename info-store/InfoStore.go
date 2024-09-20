@@ -120,7 +120,7 @@ func (o AZList) Value() (driver.Value, error) {
 func Open() (*gorm.DB, error) {
 
 	// Turn-on error logs of gorm: db, err := gorm.Open(sqlite.Open(DB_FILE_PATH), &gorm.Config{})
-	db, err := gorm.Open(sqlite.Open(DB_FILE_PATH), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open(DB_FILE_PATH+"?_busy_timeout=5000"), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent)})
 	if err != nil {
 		db = nil
