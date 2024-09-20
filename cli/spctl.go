@@ -1,6 +1,6 @@
 package main
 
-import "spctl/cmd"
+import "github.com/cloud-barista/cb-spider/cli/cmd"
 
 func main() {
     cmd.Execute()

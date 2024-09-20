@@ -13,15 +13,31 @@ import (
 //go:embed swagger.json
 var swaggerJSON []byte
 
+var (
+	Version   string // Populated by ldflags
+	CommitSHA string // Populated by ldflags
+	BuildTime string // Populated by ldflags
+)
+
 var rootCmd = &cobra.Command{
 	Use:   "spctl",
 	Short: "Spider CLI for managing multi-cloud infrastructure",
+	Run: func(cmd *cobra.Command, args []string) {
+		if versionFlag, _ := cmd.Flags().GetBool("version"); versionFlag {
+			fmt.Printf("Version:    %s\n", Version)
+			fmt.Printf("Commit SHA: %s\n", CommitSHA)
+			fmt.Printf("Build Time: %s\n", BuildTime)
+			return
+		}
+		cmd.Help()
+	},
 }
 
 var serverURL string
 
 func Execute() {
 	rootCmd.PersistentFlags().StringVarP(&serverURL, "server", "s", "localhost:1024", "Spider server URL")
+	rootCmd.Flags().BoolP("version", "v", false, "Print the version information and exit")
 
 	loadSwagger()
 	cobra.CheckErr(rootCmd.Execute())

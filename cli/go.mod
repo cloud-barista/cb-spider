@@ -1,4 +1,4 @@
-module spctl
+module github.com/cloud-barista/cb-spider/cli
 
 go 1.23.1
 
