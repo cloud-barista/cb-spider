@@ -1,5 +1,5 @@
 default: swag
-		@echo -e '\t[CB-Spider] build ./bin/cb-spider....'
+		@echo -e '\t[CB-Spider] building ./bin/cb-spider....'
 		@go mod download
 		@go mod tidy
 		@go build -o bin/cb-spider ./api-runtime
@@ -16,7 +16,7 @@ clean clear:
 	        @rm -rf bin/cb-spider bin/cb-spider-dyna bin/cb-spider-arm
 
 swag swagger:
-	@echo -e '\t[CB-Spider] generating Swagger documentation'
+	@echo -e '\t[CB-Spider] generating Swagger documentations...'
 	@~/go/bin/swag i -g api-runtime/rest-runtime/CBSpiderRuntime.go -d ./,./api-runtime/common-runtime,./cloud-control-manager,./cloud-info-manager,./info-store -o api > /dev/null
 	@sed -i -e 's/github_com_cloud-barista_cb-spider_cloud-control-manager_cloud-driver_interfaces_resources/spider/g' \
 			-e 's/restruntime/spider/g' \

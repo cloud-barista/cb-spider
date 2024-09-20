@@ -37,7 +37,7 @@ var serverURL string
 
 func Execute() {
 	rootCmd.PersistentFlags().StringVarP(&serverURL, "server", "s", "localhost:1024", "Spider server URL")
-	rootCmd.Flags().BoolP("version", "v", false, "Print the version information and exit")
+	rootCmd.Flags().BoolP("version", "v", false, "Print the version information")
 
 	loadSwagger()
 	cobra.CheckErr(rootCmd.Execute())

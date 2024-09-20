@@ -6,7 +6,7 @@ default:
 	@echo "VERSION: $(VERSION)"
 	@echo "COMMIT_SHA: $(COMMIT_SHA)"
 	@echo "BUILD_TIME: $(BUILD_TIME)"
-	@echo -e '\t[CB-Spider] build spctl...'
+	@echo -e '\t[CB-Spider] building spctl...'
 	@go mod download
 	@go mod tidy
 	@cp ../api/swagger.json ./cmd
