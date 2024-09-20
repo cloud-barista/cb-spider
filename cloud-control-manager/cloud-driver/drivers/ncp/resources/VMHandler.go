@@ -265,17 +265,19 @@ func (vmHandler *NcpVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	time.Sleep(time.Second * 2)
 
 	// Create the Tag List on the VM
-	tagHandler := NcpTagHandler {
-		RegionInfo:  vmHandler.RegionInfo,
-		VMClient:    vmHandler.VMClient,
+	if len(vmReqInfo.TagList) > 0 {
+		tagHandler := NcpTagHandler {
+			RegionInfo:  vmHandler.RegionInfo,
+			VMClient:    vmHandler.VMClient,
+		}
+		_, createErr := tagHandler.createVMTagList(runResult.ServerInstanceList[0].ServerInstanceNo, vmReqInfo.TagList)
+		if err != nil {		
+			newErr := fmt.Errorf("Failed to Create the Tag List on the VM : [%v]", createErr)
+			cblogger.Error(newErr.Error())
+			return irs.VMInfo{}, newErr
+		}
 	}
-	_, createErr := tagHandler.createVMTagList(runResult.ServerInstanceList[0].ServerInstanceNo, vmReqInfo.TagList)
-	if err != nil {		
-		newErr := fmt.Errorf("Failed to Create the Tag List on the VM : [%v]", createErr)
-		cblogger.Error(newErr.Error())
-		return irs.VMInfo{}, newErr
-	}
-
+	
 	// Get Created New VM Info
 	vmInfo, error := vmHandler.GetVM(newVMIID)
 	if error != nil {
