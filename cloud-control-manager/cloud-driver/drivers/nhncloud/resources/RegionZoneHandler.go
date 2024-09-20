@@ -9,6 +9,7 @@
 package resources
 
 import (
+	"sort"
 	"strings"
 	"sync"
 	// "errors"
@@ -95,6 +96,10 @@ func (regionZoneHandler *NhnCloudRegionZoneHandler) ListRegionZone() ([]*irs.Reg
 		rtnErr := logAndReturnError(callLogInfo, "Failed to Get ZoneInfoList!!", zoneInfoListError)
 		return nil, rtnErr
 	}
+
+	sort.Slice(regionZoneInfoList, func(i, j int) bool {
+		return strings.Compare(regionZoneInfoList[i].Name, regionZoneInfoList[j].Name) < 0
+	})
 
 	return regionZoneInfoList, nil
 }
@@ -211,15 +216,20 @@ func (regionZoneHandler NhnCloudRegionZoneHandler) getZoneInfoList(regionCode st
 		}
 
 		zoneInfo := irs.ZoneInfo{
-			Name: zone.ZoneName,
-			// DisplayName: 	"N/A",
-			Status: zoneStatus,
+			Name:        zone.ZoneName,
+			DisplayName: zone.ZoneName,
+			Status:      zoneStatus,
 			// KeyValueList: []irs.KeyValue{
 			// 	{Key: "ZoneCode", 	Value: zone.ZoneName},
 			// },
 		}
 		zoneInfoList = append(zoneInfoList, zoneInfo)
 	}
+
+	sort.Slice(zoneInfoList, func(i, j int) bool {
+		return strings.Compare(zoneInfoList[i].Name, zoneInfoList[j].Name) < 0
+	})
+
 	return zoneInfoList, nil
 }
 
