@@ -983,25 +983,27 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 	// Flavor Info
 	var vRam string
 	var vCPU string
-	flavorId := server.Flavor["id"].(string)
-	nhnFlavor, err := flavors.Get(vmHandler.VMClient, flavorId).Extract()
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the Flavor info from NHN Cloud!! : [%v] ", err)
-		cblogger.Error(newErr.Error())
-		return irs.VMInfo{}, newErr
-	} else if nhnFlavor != nil {
-		// spew.Dump(flavor)
-		vmInfo.VMSpecName = nhnFlavor.Name
-		if vmInfo.RootDiskSize == "" { // In case of u2 VMSpec type
-			vmInfo.RootDiskType = "General_HDD" // u2 type VMSpec only supports 'General_HHD'.
-			vmInfo.RootDiskSize = strconv.Itoa(nhnFlavor.Disk)
-			vmInfo.RootDeviceName = "/dev/vda"
-		}
-		if strconv.Itoa(nhnFlavor.VCPUs) != "" {
-			vCPU = strconv.Itoa(nhnFlavor.VCPUs)
-		}
-		if strconv.Itoa(nhnFlavor.RAM) != "" {
-			vRam = strconv.Itoa(nhnFlavor.RAM)
+	flavorId, ok := server.Flavor["id"].(string)
+	if ok {
+		nhnFlavor, err := flavors.Get(vmHandler.VMClient, flavorId).Extract()
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Get the Flavor info from NHN Cloud!! : [%v] ", err)
+			cblogger.Error(newErr.Error())
+			return irs.VMInfo{}, newErr
+		} else if nhnFlavor != nil {
+			// spew.Dump(flavor)
+			vmInfo.VMSpecName = nhnFlavor.Name
+			if vmInfo.RootDiskSize == "" { // In case of u2 VMSpec type
+				vmInfo.RootDiskType = "General_HDD" // u2 type VMSpec only supports 'General_HHD'.
+				vmInfo.RootDiskSize = strconv.Itoa(nhnFlavor.Disk)
+				vmInfo.RootDeviceName = "/dev/vda"
+			}
+			if strconv.Itoa(nhnFlavor.VCPUs) != "" {
+				vCPU = strconv.Itoa(nhnFlavor.VCPUs)
+			}
+			if strconv.Itoa(nhnFlavor.RAM) != "" {
+				vRam = strconv.Itoa(nhnFlavor.RAM)
+			}
 		}
 	}
 
