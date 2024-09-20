@@ -42,16 +42,17 @@ func init() {
 }
 
 type VPC struct {
-    IID			IId     	`json:"IId"`
-    Cidr		string  	`json:"IPv4_CIDR"`
-    Subnet_List []Subnet 	`json:"SubnetInfoList"`
-    KeyValue_List []KeyValue  `json:"KeyValueList"`
+    IID				IId     	`json:"IId"`
+    Cidr			string  	`json:"IPv4_CIDR"`
+    Subnet_List 	[]Subnet 	`json:"SubnetInfoList"`
+    KeyValue_List 	[]KeyValue  `json:"KeyValueList"`
 }
 
 type Subnet struct {
-    IID			IId     `json:"IId"`
-    Cidr		string	`json:"IPv4_CIDR"`
-    KeyValue_List []KeyValue `json:"KeyValueList"`
+    IID				IId     `json:"IId"`
+	Zone        	string     `json:"Zone"`
+    Cidr			string	`json:"IPv4_CIDR"`
+    KeyValue_List 	[]KeyValue `json:"KeyValueList"`
 }
 
 type KeyValue struct {
@@ -326,12 +327,13 @@ func (VPCHandler *NcpVPCHandler) CreateSubnet(subnetReqInfo irs.SubnetInfo) (irs
 
 	newSubnetInfo := irs.SubnetInfo{
 		IId: irs.IID{
-			NameId: subnetReqInfo.IId.NameId,
+			NameId: 	subnetReqInfo.IId.NameId,
 			// Note!! : subnetReqInfo.IId.NameId -> SystemId
-			SystemId: subnetReqInfo.IId.NameId,
+			SystemId: 	subnetReqInfo.IId.NameId,
 		},
-		IPv4_CIDR: subnetReqInfo.IPv4_CIDR,
-		KeyValueList: []irs.KeyValue{
+		Zone: 			subnetReqInfo.Zone,
+		IPv4_CIDR: 		subnetReqInfo.IPv4_CIDR,
+		KeyValueList: 	[]irs.KeyValue{
 			{Key: "NCP-Subnet-info.", Value: "This Subnet info. is temporary."},
 		},
 	}
@@ -351,6 +353,7 @@ func (VPCHandler *NcpVPCHandler) MappingVPCInfo(vpcJSON VPC) (irs.VPCInfo, error
 	for i := 0; i < len(vpcJSON.Subnet_List); i++ {
 		subnetInfo.IId.NameId = 	vpcJSON.Subnet_List[i].IID.NameID
 		subnetInfo.IId.SystemId = 	vpcJSON.Subnet_List[i].IID.SystemID
+		subnetInfo.Zone = 			vpcJSON.Subnet_List[i].Zone
 		subnetInfo.IPv4_CIDR = 		vpcJSON.Subnet_List[i].Cidr
 
 		for j := 0; j < len(vpcJSON.Subnet_List[i].KeyValue_List); j++ {
@@ -369,7 +372,7 @@ func (VPCHandler *NcpVPCHandler) MappingVPCInfo(vpcJSON VPC) (irs.VPCInfo, error
     }
 
 	vpcInfo := irs.VPCInfo{
-		//VPC 정보는 CB에서 파일로 관리되므로 SystemId는 NameId와 동일하게
+		// Since the VPC information is managed as a file, the systemID is the same as the nameID.
 		IId:        	irs.IID{NameId: vpcJSON.IID.NameID, SystemId: vpcJSON.IID.NameID},
 		IPv4_CIDR: 		vpcJSON.Cidr,
 		SubnetInfoList: subnetInfoList,
