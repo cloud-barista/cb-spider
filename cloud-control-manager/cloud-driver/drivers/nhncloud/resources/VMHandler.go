@@ -13,8 +13,13 @@
 package resources
 
 import (
+	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/bootfromvolume"
+	"io"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -24,7 +29,6 @@ import (
 
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/blockstorage/v2/volumes"
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/bootfromvolume"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/floatingips"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/keypairs"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/startstop"
@@ -286,8 +290,12 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 		Networks: []servers.Network{
 			{UUID: vpc.ID},
 		},
-		AvailabilityZone: vmHandler.RegionInfo.Zone,
-		UserData:         []byte(*initUserData), // Apply cloud-init script
+		UserData: []byte(*initUserData), // Apply cloud-init script
+	}
+	if vmHandler.RegionInfo.TargetZone != "" {
+		serverCreateOpts.AvailabilityZone = vmHandler.RegionInfo.TargetZone
+	} else if vmHandler.RegionInfo.Zone != "" {
+		serverCreateOpts.AvailabilityZone = vmHandler.RegionInfo.Zone
 	}
 
 	// Add KeyPair Name
@@ -938,6 +946,43 @@ func getVmStatus(vmStatus string) irs.VMStatus {
 	return irs.VMStatus(resultStatus)
 }
 
+func getAvailabilityZoneFromAPI(computeClient *nhnsdk.ServiceClient, serverID string) (string, error) {
+	url := computeClient.ServiceURL("servers", serverID)
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Add("X-Auth-Token", computeClient.TokenID)
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to get server details: %s", resp.Status)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	var serverResponse map[string]interface{}
+	if err := json.Unmarshal(body, &serverResponse); err != nil {
+		return "", err
+	}
+	if server, ok := serverResponse["server"].(map[string]interface{}); ok {
+		if zone, ok := server["OS-EXT-AZ:availability_zone"].(string); ok {
+			return zone, nil
+		}
+	}
+	return "", fmt.Errorf("availability zone not found")
+}
+
 func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VMInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called mappingVMInfo()")
 	// cblogger.Infof("\n\n### Server from NHN :")
@@ -957,7 +1002,6 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 		},
 		Region: irs.RegionInfo{
 			Region: vmHandler.RegionInfo.Region,
-			Zone:   vmHandler.RegionInfo.Zone,
 		},
 		KeyPairIId: irs.IID{
 			NameId:   server.KeyName,
@@ -967,6 +1011,18 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 		NetworkInterface: server.HostID,
 	}
 	vmInfo.StartTime = convertedTime
+
+	zone, err := getAvailabilityZoneFromAPI(vmHandler.VMClient, server.ID)
+	if err != nil {
+		cblogger.Warn(err)
+	}
+	if zone != "" {
+		vmInfo.Region.Zone = zone
+	} else if vmHandler.RegionInfo.TargetZone != "" {
+		vmInfo.Region.Zone = vmHandler.RegionInfo.TargetZone
+	} else {
+		vmInfo.Region.Zone = vmHandler.RegionInfo.Zone
+	}
 
 	// Image Info
 	imageId := server.Image["id"].(string)
