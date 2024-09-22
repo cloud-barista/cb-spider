@@ -19,11 +19,18 @@ source ${BIN_DIR}/../setup.env
 # OFF is a static package type.
 export PLUGIN_SW=ON
 
-./stop.sh &> /dev/null
+# If arguments are provided, pass them to cb-spider
+if [ "$#" -gt 0 ]; then
+    $BIN_DIR/cb-spider "$@"
+else
+  # If no arguments are provided, start the CB-Spider server
+  # Stop any running instance of cb-spider
+  ${BIN_DIR}/stop.sh &> /dev/null
 
-echo -e '\n'
-echo -e '\t[CB-Spider] Driver Plugin Mode: Dynamic Plugin Mode'
-echo -e '\n'
+  echo -e '\n'
+  echo -e '\t[CB-Spider] Driver Plugin Mode: Dynamic Plugin Mode'
+  echo -e '\n'
 
-$BIN_DIR/cb-spider-dyna &
-echo $! > $BIN_DIR/spider.pid
+  $BIN_DIR/cb-spider-dyna &
+  echo $! > $BIN_DIR/spider.pid
+fi
