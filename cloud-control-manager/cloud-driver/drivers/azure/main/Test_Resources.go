@@ -1211,7 +1211,8 @@ func testMyImageHandlerListPrint() {
 	cblogger.Info("2. GetMyImage()")
 	cblogger.Info("3. SnapshotVM()")
 	cblogger.Info("4. DeleteMyImage()")
-	cblogger.Info("5. Exit")
+	cblogger.Info("5. ListIID()")
+	cblogger.Info("6. Exit")
 }
 
 func testMyImageHandler(config Config) {
@@ -1275,6 +1276,14 @@ Loop:
 				}
 				cblogger.Info("Finish DeleteMyImage()")
 			case 5:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := myimageHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 6:
 				cblogger.Info("Exit")
 				break Loop
 			}
