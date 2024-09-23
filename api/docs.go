@@ -9760,6 +9760,11 @@ const docTemplate = `{
                     "type": "string",
                     "example": "aws-connection"
                 },
+                "IDTransformMode": {
+                    "description": "ON: transform CSP ID, OFF: no-transform CSP ID",
+                    "type": "string",
+                    "example": "ON"
+                },
                 "ReqInfo": {
                     "$ref": "#/definitions/spider.ClusterNodeGroupRequest"
                 }
