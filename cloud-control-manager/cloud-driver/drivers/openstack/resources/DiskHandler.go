@@ -5,6 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -14,10 +19,6 @@ import (
 	volumes3 "github.com/gophercloud/gophercloud/openstack/blockstorage/v3/volumes"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/volumeattach"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
-	"strconv"
-	"strings"
-	"sync"
-	"time"
 )
 
 type OpenstackDiskHandler struct {
@@ -851,4 +852,9 @@ func changeDiskSize(diskIID irs.IID, diskSize string, volumeClient *gophercloud.
 		NewSize: newSizeNum,
 	}
 	return volumeactions.ExtendSize(volumeClient, disk.ID, changeSizeOpts).ExtractErr()
+}
+
+func (DiskHandler *OpenstackDiskHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

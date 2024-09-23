@@ -1339,3 +1339,8 @@ func severCreateMyImageLinuxOS(baseServerCreateOpt servers.CreateOpts, vmReqInfo
 	}
 	return *server, err
 }
+
+func (vmHandler *OpenStackVMHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

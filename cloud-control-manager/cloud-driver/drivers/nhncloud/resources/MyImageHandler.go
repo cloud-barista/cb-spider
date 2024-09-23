@@ -486,3 +486,8 @@ func (myImageHandler *NhnCloudMyImageHandler) isPublicImage(myImageIID irs.IID) 
 	}
 	return isPublicImage, nil
 }
+
+func (ImageHandler *NhnCloudMyImageHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

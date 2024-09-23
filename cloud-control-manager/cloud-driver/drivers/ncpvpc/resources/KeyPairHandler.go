@@ -8,18 +8,19 @@
 package resources
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
+
 	// "github.com/davecgh/go-spew/spew"
 
-	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	keycommon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
 type NcpVpcKeyPairHandler struct {
@@ -65,11 +66,11 @@ func (keyPairHandler *NcpVpcKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPair
 
 	InitLog() // Caution!!
 	callLogInfo := GetCallLogScheme(keyPairHandler.RegionInfo.Zone, call.VMKEYPAIR, keyPairReqInfo.IId.NameId, "CreateKey()")
-	
+
 	cblogger.Infof("KeyPairName to Create : [%s]", keyPairReqInfo.IId.NameId)
 
 	// To Generate Hash
-	strList:= []string{
+	strList := []string{
 		keyPairHandler.CredentialInfo.ClientId,
 		keyPairHandler.CredentialInfo.ClientSecret,
 	}
@@ -94,7 +95,7 @@ func (keyPairHandler *NcpVpcKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPair
 		return irs.KeyPairInfo{}, err
 	}
 	LoggingInfo(callLogInfo, callLogStart)
-	cblogger.Infof("(# result.ReturnMessage : %s ", ncloud.StringValue(result.ReturnMessage))		
+	cblogger.Infof("(# result.ReturnMessage : %s ", ncloud.StringValue(result.ReturnMessage))
 
 	// Create PublicKey from PrivateKey
 	publicKey, makePublicKeyErr := keycommon.MakePublicKeyFromPrivateKey(*result.PrivateKey)
@@ -120,14 +121,14 @@ func (keyPairHandler *NcpVpcKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPair
 		LoggingError(callLogInfo, keyError)
 		return irs.KeyPairInfo{}, keyError
 	}
-	
+
 	// NCP Key does not have SystemId, so the unique NameId value is also applied to the SystemId
 	keyPairInfo := irs.KeyPairInfo{
 		IId:         irs.IID{NameId: keyPairReqInfo.IId.NameId, SystemId: keyPairReqInfo.IId.NameId},
 		Fingerprint: resultKey.Fingerprint,
 		PublicKey:   publicKey, // Made above
 		PrivateKey:  *result.PrivateKey,
-		VMUserID: 	 lnxUserName,
+		VMUserID:    lnxUserName,
 	}
 
 	return keyPairInfo, nil
@@ -168,7 +169,7 @@ func (keyPairHandler *NcpVpcKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairI
 		keyPairInfo := MappingKeyPairInfo(result.LoginKeyList[0])
 		return keyPairInfo, nil
 	}
-	
+
 	return irs.KeyPairInfo{}, errors.New("Failed to Find KeyPair Info with the Name!!")
 }
 
@@ -182,7 +183,7 @@ func (keyPairHandler *NcpVpcKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, err
 	// Delete the key pair by key 'Name'
 
 	// To Generate Hash
-	strList:= []string{
+	strList := []string{
 		keyPairHandler.CredentialInfo.ClientId,
 		keyPairHandler.CredentialInfo.ClientSecret,
 	}
@@ -241,15 +242,15 @@ func MappingKeyPairInfo(NcpKeyPairList *vserver.LoginKey) irs.KeyPairInfo {
 
 	// NCP Key does not have SystemId, so the unique NameId value is also applied to the SystemId
 	keyPairInfo := irs.KeyPairInfo{
-		IId:         irs.IID{
-			NameId: 	*NcpKeyPairList.KeyName, 
-			SystemId:   *NcpKeyPairList.KeyName,
+		IId: irs.IID{
+			NameId:   *NcpKeyPairList.KeyName,
+			SystemId: *NcpKeyPairList.KeyName,
 		},
-		Fingerprint: 	*NcpKeyPairList.Fingerprint,
-		PublicKey:  	"N/A",
+		Fingerprint: *NcpKeyPairList.Fingerprint,
+		PublicKey:   "N/A",
 		// PublicKey:  	*NcpKeyPairList.PublicKey, // Creates Error
-		PrivateKey: 	"N/A",
-		VMUserID: 		lnxUserName,
+		PrivateKey: "N/A",
+		VMUserID:   lnxUserName,
 	}
 
 	keyValueList := []irs.KeyValue{
@@ -259,4 +260,9 @@ func MappingKeyPairInfo(NcpKeyPairList *vserver.LoginKey) irs.KeyPairInfo {
 	keyPairInfo.KeyValueList = keyValueList
 
 	return keyPairInfo
+}
+
+func (keyPairHandler *NcpVpcKeyPairHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

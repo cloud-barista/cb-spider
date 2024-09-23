@@ -3,15 +3,16 @@ package resources
 import (
 	"errors"
 	"fmt"
+	"net"
+	"strconv"
+	"strings"
+
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/dna/subnet"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"net"
-	"strconv"
-	"strings"
 )
 
 const (
@@ -717,4 +718,9 @@ func makeSliceUnique(s []string) []string {
 		}
 	}
 	return res
+}
+
+func (VPCHandler *ClouditVPCHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

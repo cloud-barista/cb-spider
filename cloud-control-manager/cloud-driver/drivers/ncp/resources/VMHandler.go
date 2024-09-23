@@ -1816,3 +1816,8 @@ func (vmHandler *NcpVMHandler) setZoneNoList() error {
 
 	return nil
 }
+
+func (vmHandler *NcpVMHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

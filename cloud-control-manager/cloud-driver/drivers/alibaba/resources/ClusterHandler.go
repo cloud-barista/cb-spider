@@ -12,6 +12,7 @@ package resources
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"runtime/debug"
 	"strconv"
@@ -2276,3 +2277,8 @@ func waitUntilClusterSecurityGroupIdIsExist(csClient *cs2015.Client, clusterId s
 		cblogger.Debug(fmt.Sprintf("No Created NAT Gateway."))
 	}
 */
+
+func (ClusterHandler *AlibabaClusterHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

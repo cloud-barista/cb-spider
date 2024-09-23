@@ -727,3 +727,8 @@ func (vpcHandler *NhnCloudVPCHandler) isConnectedToGateway(vpcId string) (bool, 
 	}
 	return hasInternetGateway, nil
 }
+
+func (vpcHandler *NhnCloudVPCHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

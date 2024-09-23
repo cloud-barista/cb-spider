@@ -468,3 +468,8 @@ func getDiskSystemId(vpcService *vpcv1.VpcV1, ctx context.Context, iid irs.IID) 
 
 	return targetSystemId, nil
 }
+
+func (DiskHandler *IbmDiskHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

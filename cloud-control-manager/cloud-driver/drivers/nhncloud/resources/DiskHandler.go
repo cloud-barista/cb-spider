@@ -659,3 +659,8 @@ func (diskHandler *NhnCloudDiskHandler) getNhnVolumeList() ([]volumes.Volume, er
 	}
 	return nhnVolumeList, nil
 }
+
+func (DiskHandler *NhnCloudDiskHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

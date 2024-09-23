@@ -3,6 +3,7 @@ package resources
 import (
 	"errors"
 	"fmt"
+
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/keypairs"
 
@@ -223,4 +224,9 @@ func GetRawKey(client *gophercloud.ServiceClient, keyIID irs.IID) (keypairs.KeyP
 		return keypairs.KeyPair{}, err
 	}
 	return *keyPair, nil
+}
+
+func (keyPairHandler *OpenStackKeyPairHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

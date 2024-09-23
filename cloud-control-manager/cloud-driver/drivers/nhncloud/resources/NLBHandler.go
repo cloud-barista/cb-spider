@@ -1872,3 +1872,8 @@ func (nlbHandler *NhnCloudNLBHandler) getVPCIdWithVpcsubnetId(vpcsubnetId string
 
 	return VPCId, nil
 }
+
+func (NLBHandler *NhnCloudNLBHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

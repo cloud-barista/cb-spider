@@ -1645,3 +1645,8 @@ func checkValidationNLBHealthCheck(healthCheckerInfo irs.HealthCheckerInfo) erro
 	}
 	return nil
 }
+
+func (NLBHandler *AzureNLBHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

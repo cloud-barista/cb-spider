@@ -747,3 +747,8 @@ func AttachList(diskIIDList []irs.IID, ownerVM irs.IID, credentialInfo idrv.Cred
 	}
 	return vm, nil
 }
+
+func (DiskHandler *AzureDiskHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

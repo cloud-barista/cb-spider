@@ -461,3 +461,8 @@ func CreateHashString(credentialInfo idrv.CredentialInfo, Region idrv.RegionInfo
 	}
 	return fmt.Sprintf("%x", hasher.Sum(nil)), nil
 }
+
+func (keyPairHandler *AwsKeyPairHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

@@ -1218,3 +1218,8 @@ func (vmHandler *AlibabaVMHandler) getDiskInfo(instanceId string) ecs.Disk {
 
 	return response.Disks.Disk[0]
 }
+
+func (vmHandler *AlibabaVMHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

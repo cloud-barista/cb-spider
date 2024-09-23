@@ -12,6 +12,7 @@ package resources
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"runtime/debug"
@@ -976,4 +977,9 @@ func validateAtChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID, 
 	}
 
 	return nil
+}
+
+func (ClusterHandler *TencentClusterHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

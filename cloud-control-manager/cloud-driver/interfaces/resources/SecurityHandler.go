@@ -41,6 +41,8 @@ type SecurityInfo struct {
 }
 
 type SecurityHandler interface {
+	ListIID() ([]*IID, error)
+
 	CreateSecurity(securityReqInfo SecurityReqInfo) (SecurityInfo, error)
 	ListSecurity() ([]*SecurityInfo, error)
 	GetSecurity(securityIID IID) (SecurityInfo, error)

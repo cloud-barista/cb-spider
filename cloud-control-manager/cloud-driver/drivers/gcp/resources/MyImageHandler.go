@@ -2,6 +2,7 @@ package resources
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -200,4 +201,9 @@ func (MyImageHandler *GCPMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (
 	}
 
 	return isWindows, nil
+}
+
+func (ImageHandler *GCPMyImageHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

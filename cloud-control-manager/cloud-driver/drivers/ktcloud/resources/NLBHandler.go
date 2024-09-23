@@ -11,10 +11,12 @@
 package resources
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
+
 	// "github.com/davecgh/go-spew/spew"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -25,14 +27,14 @@ import (
 )
 
 type KtCloudNLBHandler struct {
-	RegionInfo     	idrv.RegionInfo
-	Client       	*ktsdk.KtCloudClient
-	NLBClient  		*ktsdk.KtCloudClient
+	RegionInfo idrv.RegionInfo
+	Client     *ktsdk.KtCloudClient
+	NLBClient  *ktsdk.KtCloudClient
 }
 
 const (
-	DefaultNLBOption 		string  = "roundrobin" // NLBOption : roundrobin / leastconnection / leastresponse / sourceiphash / 
-	DefaultHealthCheckURL	string  = "abc.kt.com"
+	DefaultNLBOption      string = "roundrobin" // NLBOption : roundrobin / leastconnection / leastresponse / sourceiphash /
+	DefaultHealthCheckURL string = "abc.kt.com"
 )
 
 func (nlbHandler *KtCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo, error) {
@@ -69,18 +71,18 @@ func (nlbHandler *KtCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 	}
 
 	lbReq := ktsdk.CreateNLBReqInfo{
-		Name:           	nlbReqInfo.IId.NameId,  			// Required
-		ZoneId:         	nlbHandler.RegionInfo.Zone, 		// Required
-		NLBOption: 			DefaultNLBOption,					// Required
-		ServiceIP: 			"",									// Required. KT Cloud Virtual IP. $$$ In case of an empty value(""), it is newly created.
-		ServicePort: 		nlbReqInfo.Listener.Port,			// Required
-		ServiceType: 		nlbReqInfo.Listener.Protocol,		// Required
-		HealthCheckType: 	nlbReqInfo.HealthChecker.Protocol,  // Required
-		HealthCheckURL: 	DefaultHealthCheckURL,				// URL when the HealthCheckType (above) is 'http' or 'https'.
+		Name:            nlbReqInfo.IId.NameId,             // Required
+		ZoneId:          nlbHandler.RegionInfo.Zone,        // Required
+		NLBOption:       DefaultNLBOption,                  // Required
+		ServiceIP:       "",                                // Required. KT Cloud Virtual IP. $$$ In case of an empty value(""), it is newly created.
+		ServicePort:     nlbReqInfo.Listener.Port,          // Required
+		ServiceType:     nlbReqInfo.Listener.Protocol,      // Required
+		HealthCheckType: nlbReqInfo.HealthChecker.Protocol, // Required
+		HealthCheckURL:  DefaultHealthCheckURL,             // URL when the HealthCheckType (above) is 'http' or 'https'.
 	}
 	start := call.Start()
-	nlbResp, err := nlbHandler.NLBClient.CreateNLB(lbReq) // Not 'Client'
-	if (err != nil) ||(nlbResp.Createnlbresponse.ErrorText != "") { // Note!! : Apply 'ErrorText'
+	nlbResp, err := nlbHandler.NLBClient.CreateNLB(lbReq)            // Not 'Client'
+	if (err != nil) || (nlbResp.Createnlbresponse.ErrorText != "") { // Note!! : Apply 'ErrorText'
 		newErr := fmt.Errorf("Failed to Create New NLB. [%v]. [%v]", err, nlbResp.Createnlbresponse.ErrorText)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
@@ -99,7 +101,7 @@ func (nlbHandler *KtCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Add the VMs to the New NLB. [%v]", err)
 			cblogger.Error(newErr.Error())
-			LoggingError(callLogInfo, newErr)	
+			LoggingError(callLogInfo, newErr)
 			return irs.NLBInfo{}, newErr
 		}
 	}
@@ -108,7 +110,7 @@ func (nlbHandler *KtCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the New NLB Info. [%v]", err)
 		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)	
+		LoggingError(callLogInfo, newErr)
 		return irs.NLBInfo{}, newErr
 	}
 	return nlbInfo, nil
@@ -142,7 +144,7 @@ func (nlbHandler *KtCloudNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	// spew.Dump(nlbResp.Listnlbsresponse)
 
 	var nlbInfoList []*irs.NLBInfo
-    for _, nlb := range nlbResp.Listnlbsresponse.NLB {
+	for _, nlb := range nlbResp.Listnlbsresponse.NLB {
 		nlbInfo, err := nlbHandler.mappingNlbInfo(&nlb)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get NLB Info. : [%v]", err)
@@ -151,7 +153,7 @@ func (nlbHandler *KtCloudNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 			return nil, newErr
 		}
 		nlbInfoList = append(nlbInfoList, &nlbInfo)
-    }
+	}
 	return nlbInfoList, nil
 }
 
@@ -165,7 +167,7 @@ func (nlbHandler *KtCloudNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 		cblogger.Error(newErr.Error())
 		return irs.NLBInfo{}, newErr
 	}
-	
+
 	ktNLB, err := nlbHandler.getKTCloudNLB(nlbIID.SystemId)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get KT Cloud NLB info!! [%v]", err)
@@ -210,7 +212,7 @@ func (nlbHandler *KtCloudNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	cblogger.Info("# Start to Remove the NLB VMs!!")
 	vmHandler := KtCloudVMHandler{
 		RegionInfo: nlbHandler.RegionInfo,
-		Client:   	nlbHandler.Client,
+		Client:     nlbHandler.Client,
 	}
 	var nlbVMs []irs.IID
 	if len(listResp.Listnlbvmsresponse.NLBVM) > 0 {
@@ -228,10 +230,10 @@ func (nlbHandler *KtCloudNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 		if removeErr != nil {
 			newErr := fmt.Errorf("Failed to Remove the VMs from the New NLB. [%v]", removeErr)
 			cblogger.Error(newErr.Error())
-			LoggingError(callLogInfo, newErr)	
+			LoggingError(callLogInfo, newErr)
 			return false, newErr
 		}
-		time.Sleep(time.Second * 3) 
+		time.Sleep(time.Second * 3)
 	}
 
 	cblogger.Info("# Start to Delete the NLB!!")
@@ -253,7 +255,7 @@ func (nlbHandler *KtCloudNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
 	} else {
-		cblogger.Infof("# Result : %s", delResp.Deletenlbresponse.Displaytext)		
+		cblogger.Infof("# Result : %s", delResp.Deletenlbresponse.Displaytext)
 	}
 
 	return true, nil
@@ -300,7 +302,7 @@ func (nlbHandler *KtCloudNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (
 
 	vmHandler := KtCloudVMHandler{
 		RegionInfo: nlbHandler.RegionInfo,
-		Client:   	nlbHandler.Client,
+		Client:     nlbHandler.Client,
 	}
 	var vmIdList []string
 	if len(*vmIIDs) > 0 {
@@ -336,10 +338,10 @@ func (nlbHandler *KtCloudNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (
 		// To Prevent the Error : "Unable to execute API command listTags due to ratelimit timeout"
 
 		addVmReq := ktsdk.AddNLBVMReqInfo{
-			NLBId:         	nlbIID.SystemId,		// Required
-			VMId:			vmId,					// Required
-			IpAddress: 		publicIP,				// Required. 'Public IP' of the VM
-			PublicPort: 	nlbInfo.Listener.Port,	// Required. The same as the Listener Port (Service Port)
+			NLBId:      nlbIID.SystemId,       // Required
+			VMId:       vmId,                  // Required
+			IpAddress:  publicIP,              // Required. 'Public IP' of the VM
+			PublicPort: nlbInfo.Listener.Port, // Required. The same as the Listener Port (Service Port)
 		}
 		start := call.Start()
 		addVMResp, err := nlbHandler.NLBClient.AddNLBVM(addVmReq)
@@ -358,7 +360,7 @@ func (nlbHandler *KtCloudNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (
 		time.Sleep(time.Second * 1)
 		// To Prevent the Error : "Unable to execute API command listTags due to ratelimit timeout"
 	}
-	
+
 	newVMGroupNlbInfo, err := nlbHandler.GetNLB(nlbIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NLB info!! [%v]", err)
@@ -389,7 +391,7 @@ func (nlbHandler *KtCloudNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID
 
 	vmHandler := KtCloudVMHandler{
 		RegionInfo: nlbHandler.RegionInfo,
-		Client:   	nlbHandler.Client,
+		Client:     nlbHandler.Client,
 	}
 	var vmIdList []string
 	if len(*vmIIDs) > 0 {
@@ -433,7 +435,7 @@ func (nlbHandler *KtCloudNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID
 		LoggingInfo(callLogInfo, start)
 		// cblogger.Info("\n\n### RemoveResp : ")
 		// spew.Dump(removeResp)
-		// cblogger.Info("\n")		
+		// cblogger.Info("\n")
 
 		time.Sleep(time.Second * 1) // Before 'return'
 		// To Prevent the Error : "Unable to execute API command listTags due to ratelimit timeout"
@@ -444,7 +446,7 @@ func (nlbHandler *KtCloudNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID
 			LoggingError(callLogInfo, newErr)
 			return false, newErr
 		} else {
-			cblogger.Infof("# Result : %s", removeResp.Removenlbvmresponse.Displaytext)		
+			cblogger.Infof("# Result : %s", removeResp.Removenlbvmresponse.Displaytext)
 		}
 	}
 
@@ -470,7 +472,7 @@ func (nlbHandler *KtCloudNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.H
 		cblogger.Error(newErr.Error())
 		return irs.HealthInfo{}, newErr
 	}
-	
+
 	time.Sleep(time.Second * 1) // Before 'return'
 	// To Prevent the Error : "Unable to execute API command listTags due to ratelimit timeout"
 
@@ -484,7 +486,7 @@ func (nlbHandler *KtCloudNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.H
 
 	vmHandler := KtCloudVMHandler{
 		RegionInfo: nlbHandler.RegionInfo,
-		Client:   	nlbHandler.Client,
+		Client:     nlbHandler.Client,
 	}
 
 	var allVMs []irs.IID
@@ -498,7 +500,7 @@ func (nlbHandler *KtCloudNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.H
 			cblogger.Error(newErr.Error())
 			return irs.HealthInfo{}, newErr
 		}
-		
+
 		allVMs = append(allVMs, irs.IID{NameId: vmName, SystemId: vm.VMId})
 
 		if strings.EqualFold(vm.State, "UP") {
@@ -506,7 +508,7 @@ func (nlbHandler *KtCloudNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.H
 			healthVMs = append(healthVMs, irs.IID{NameId: vmName, SystemId: vm.VMId})
 		} else {
 			cblogger.Infof("\n### [%s] is Unhealthy VM.", vmName)
-			unHealthVMs = append(unHealthVMs, irs.IID{NameId: vmName, SystemId: vm.VMId})  // In case of "DOWN"
+			unHealthVMs = append(unHealthVMs, irs.IID{NameId: vmName, SystemId: vm.VMId}) // In case of "DOWN"
 		}
 
 		time.Sleep(time.Second * 1)
@@ -539,13 +541,13 @@ func (nlbHandler *KtCloudNLBHandler) getListenerInfo(nlb *ktsdk.NLB) (irs.Listen
 		LoggingError(callLogInfo, newErr)
 		return irs.ListenerInfo{}, newErr
 	}
-	
+
 	listenerInfo := irs.ListenerInfo{
-		Protocol: 	nlb.ServiceType,
-		IP: 		nlb.ServiceIP,
-		Port: 		nlb.ServicePort,
-		DNSName:	"N/A",
-		CspID: 		"N/A",
+		Protocol: nlb.ServiceType,
+		IP:       nlb.ServiceIP,
+		Port:     nlb.ServicePort,
+		DNSName:  "N/A",
+		CspID:    "N/A",
 	}
 	listenerKVList := []irs.KeyValue{
 		// {Key: "NLB_DomainName", Value: *nlb.DomainName},
@@ -568,9 +570,9 @@ func (nlbHandler *KtCloudNLBHandler) getHealthCheckerInfo(nlb *ktsdk.NLB) (irs.H
 	}
 
 	healthCheckerInfo := irs.HealthCheckerInfo{
-		Protocol: 	nlb.HealthCheckType,
-		Port:     	nlb.ServicePort,
-		CspID: 		"N/A",
+		Protocol: nlb.HealthCheckType,
+		Port:     nlb.ServicePort,
+		CspID:    "N/A",
 	}
 	return healthCheckerInfo, nil
 }
@@ -585,7 +587,7 @@ func (nlbHandler *KtCloudNLBHandler) getVMGroupInfo(nlbId string) (irs.VMGroupIn
 		cblogger.Error(newErr.Error())
 		return irs.VMGroupInfo{}, newErr
 	}
-	
+
 	ktNLB, err := nlbHandler.getKTCloudNLB(nlbId)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get KT Cloud NLB info!! [%v]", err)
@@ -615,16 +617,16 @@ func (nlbHandler *KtCloudNLBHandler) getVMGroupInfo(nlbId string) (irs.VMGroupIn
 	}
 	// cblogger.Info("\n\n### nlbResp.Listnlbsresponse : ")
 	// spew.Dump(nlbResp.Listnlbvmsresponse)
-	
+
 	vmGroupInfo := irs.VMGroupInfo{
-		Protocol: 	serviceProtocol, // Caution!!
-		Port: 		nlbResp.Listnlbvmsresponse.NLBVM[0].PublicPort,
-		CspID:    	"N/A",
+		Protocol: serviceProtocol, // Caution!!
+		Port:     nlbResp.Listnlbvmsresponse.NLBVM[0].PublicPort,
+		CspID:    "N/A",
 	}
 
 	vmHandler := KtCloudVMHandler{
 		RegionInfo: nlbHandler.RegionInfo,
-		Client:   	nlbHandler.Client,
+		Client:     nlbHandler.Client,
 	}
 
 	vmIIds := []irs.IID{}
@@ -643,8 +645,8 @@ func (nlbHandler *KtCloudNLBHandler) getVMGroupInfo(nlbId string) (irs.VMGroupIn
 		})
 
 		keyValueList = append(keyValueList, irs.KeyValue{
-			Key: 	vmName + "_ServiceId",
-			Value: 	strconv.Itoa(vm.ServiceId),				
+			Key:   vmName + "_ServiceId",
+			Value: strconv.Itoa(vm.ServiceId),
 		})
 
 		time.Sleep(time.Second * 1)
@@ -702,14 +704,14 @@ func (nlbHandler *KtCloudNLBHandler) getServiceIdWithVMId(nlbId string, vmId str
 		cblogger.Error(newErr.Error())
 		return 0, newErr
 	} else {
-	return serviceId, nil
+		return serviceId, nil
 	}
 }
 
 func (nlbHandler *KtCloudNLBHandler) mappingNlbInfo(nlb *ktsdk.NLB) (irs.NLBInfo, error) {
 	cblogger.Info("KT Cloud Driver: called mappingNlbInfo()")
 	// cblogger.Info("\n\n### nlb : ")
-	// spew.Dump(nlb)	
+	// spew.Dump(nlb)
 
 	nlbInfo := irs.NLBInfo{
 		IId: irs.IID{
@@ -720,8 +722,8 @@ func (nlbHandler *KtCloudNLBHandler) mappingNlbInfo(nlb *ktsdk.NLB) (irs.NLBInfo
 		// 	NameId:   "N/A", // Cauton!!) 'NameId: "N/A"' makes an Error on CB-Spider
 		// 	SystemId: "N/A",
 		// },
-		Type:         "PUBLIC",
-		Scope:        "REGION",
+		Type:  "PUBLIC",
+		Scope: "REGION",
 	}
 
 	keyValueList := []irs.KeyValue{
@@ -776,7 +778,7 @@ func (nlbHandler *KtCloudNLBHandler) getKTCloudNLB(nlbId string) (*ktsdk.NLB, er
 
 	lbReq := ktsdk.ListNLBsReqInfo{
 		ZoneId: nlbHandler.RegionInfo.Zone,
-		NLBId: 	nlbId,
+		NLBId:  nlbId,
 	}
 	start := call.Start()
 	nlbResp, err := nlbHandler.NLBClient.ListNLBs(lbReq) // Not 'Client'
@@ -788,7 +790,7 @@ func (nlbHandler *KtCloudNLBHandler) getKTCloudNLB(nlbId string) (*ktsdk.NLB, er
 	// cblogger.Info("\n# nlbResp : ")
 	// spew.Dump(nlbResp)
 
-	time.Sleep(time.Second * 1) // Before 'return' 
+	time.Sleep(time.Second * 1) // Before 'return'
 	// To Prevent the Error : "Unable to execute API command listTags due to ratelimit timeout"
 
 	if len(nlbResp.Listnlbsresponse.NLB) < 1 {
@@ -800,4 +802,9 @@ func (nlbHandler *KtCloudNLBHandler) getKTCloudNLB(nlbId string) (*ktsdk.NLB, er
 	// spew.Dump(result.Listnlbsresponse)
 
 	return &nlbResp.Listnlbsresponse.NLB[0], nil
+}
+
+func (NLBHandler *KtCloudNLBHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

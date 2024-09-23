@@ -1415,3 +1415,8 @@ func (NLBHandler *AlibabaNLBHandler) validateCreateNLB(nlbReqInfo irs.NLBInfo) e
 
 	return nil
 }
+
+func (NLBHandler *AlibabaNLBHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

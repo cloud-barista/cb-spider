@@ -324,7 +324,7 @@ func (VPCHandler *KtCloudVPCHandler) CreateSubnet(subnetReqInfo irs.SubnetInfo) 
 			// Caution!! : subnetReqInfo.IId.NameId -> SystemId
 			SystemId: subnetReqInfo.IId.NameId,
 		},
-		Zone: subnetReqInfo.Zone,
+		Zone:      subnetReqInfo.Zone,
 		IPv4_CIDR: "N/A",
 		KeyValueList: []irs.KeyValue{
 			{Key: "KTCloud-Subnet-info.", Value: "This Subne info. is temporary."},
@@ -373,4 +373,9 @@ func (VPCHandler *KtCloudVPCHandler) mappingVPCInfo(vpcFileInfo VPCFileInfo) (ir
 		KeyValueList:   vpcKeyValueList,
 	}
 	return vpcInfo, nil
+}
+
+func (vpcHandler *KtCloudVPCHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

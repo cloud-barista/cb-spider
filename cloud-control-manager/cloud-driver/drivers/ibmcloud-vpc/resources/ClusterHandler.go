@@ -2032,3 +2032,8 @@ func compareTag(tag string, statusCode string, status string) bool {
 func isTagStatusOf(tag string, statusCode string) bool {
 	return strings.Contains(tag, strings.ToLower(statusCode))
 }
+
+func (ClusterHandler *IbmClusterHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

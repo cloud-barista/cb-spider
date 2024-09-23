@@ -750,3 +750,9 @@ func sameRulesCheck(presentSecurityRules *[]irs.SecurityRuleInfo, reqSecurityRul
 
 	return nil
 }
+
+func (securityHandler *TencentSecurityHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}
+

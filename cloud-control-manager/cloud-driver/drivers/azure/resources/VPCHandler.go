@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -335,4 +336,9 @@ func getRawVirtualNetwork(vpcIID irs.IID, virtualNetworksClient *armnetwork.Virt
 
 		return &resp.VirtualNetwork, err
 	}
+}
+
+func (vpcHandler *AzureVPCHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

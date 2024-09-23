@@ -39,6 +39,7 @@ type SubnetInfo struct {
 }
 
 type VPCHandler interface {
+	ListIID() ([]*IID, error)
 	CreateVPC(vpcReqInfo VPCReqInfo) (VPCInfo, error)
 	ListVPC() ([]*VPCInfo, error)
 	GetVPC(vpcIID IID) (VPCInfo, error)

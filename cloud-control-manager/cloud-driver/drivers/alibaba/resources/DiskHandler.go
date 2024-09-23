@@ -746,3 +746,8 @@ func convertAlibabaDiskStatusToDiskStatus(aliDiskStaus string) (irs.DiskStatus, 
 	}
 	return returnStatus, nil
 }
+
+func (DiskHandler *AlibabaDiskHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

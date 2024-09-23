@@ -11,10 +11,12 @@
 package resources
 
 import (
-	"os"
-	"io"
-	"strings"
+	"errors"
 	"fmt"
+	"io"
+	"os"
+	"strings"
+
 	// "crypto/aes"
 	// "crypto/cipher"
 	"encoding/base64"
@@ -46,28 +48,28 @@ func init() {
 }
 
 type SecurityGroup struct {
-    IID   		IId 		`json:"IId"`
-    VpcIID   	VpcIId 		`json:"VpcIID"`
-    Direc   	string 		`json:"Direction"`
-    Secu_Rules  []Security_Rule `json:"SecurityRules"`
+	IID        IId             `json:"IId"`
+	VpcIID     VpcIId          `json:"VpcIID"`
+	Direc      string          `json:"Direction"`
+	Secu_Rules []Security_Rule `json:"SecurityRules"`
 }
 
 type IId struct {
-    NameID   	string 		`json:"NameId"`
-    SystemID   	string 		`json:"SystemId"`
+	NameID   string `json:"NameId"`
+	SystemID string `json:"SystemId"`
 }
 
 type VpcIId struct {
-    NameID   	string 		`json:"NameId"`
-    SystemID   	string 		`json:"SystemId"`
+	NameID   string `json:"NameId"`
+	SystemID string `json:"SystemId"`
 }
 
 type Security_Rule struct {
-    FromPort 	string 		`json:"FromPort"`
-    ToPort  	string 		`json:"ToPort"`
-    Protocol  	string 		`json:"IPProtocol"`
-    Direc  		string 		`json:"Direction"`
-    Cidr  		string 		`json:"CIDR"`
+	FromPort string `json:"FromPort"`
+	ToPort   string `json:"ToPort"`
+	Protocol string `json:"IPProtocol"`
+	Direc    string `json:"Direction"`
+	Cidr     string `json:"CIDR"`
 }
 
 func (securityHandler *KTVpcSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
@@ -81,14 +83,14 @@ func (securityHandler *KTVpcSecurityHandler) CreateSecurity(securityReqInfo irs.
 		return irs.SecurityInfo{}, newErr
 	}
 
-	sgPath := os.Getenv("CBSPIDER_ROOT") + sgDir	
+	sgPath := os.Getenv("CBSPIDER_ROOT") + sgDir
 	sgFilePath := sgPath + securityHandler.RegionInfo.Zone + "/"
-	
+
 	// Check if the KeyPair Folder Exists, and Create it
 	if err := checkFolderAndCreate(sgPath); err != nil {
 		cblogger.Errorf("Failed to Create the SecurityGroup Path : [%v]", err)
 		return irs.SecurityInfo{}, err
-	}	
+	}
 
 	// Check if the KeyPair Folder Exists, and Create it
 	if err := checkFolderAndCreate(sgFilePath); err != nil {
@@ -113,19 +115,19 @@ func (securityHandler *KTVpcSecurityHandler) CreateSecurity(securityReqInfo irs.
 		}
 	}
 
-	hashFileName := base64.StdEncoding.EncodeToString([]byte(securityReqInfo.IId.NameId))	
-	cblogger.Infof("# S/G NameId : "+ securityReqInfo.IId.NameId)
-	cblogger.Infof("# Hashed FileName : "+ hashFileName + ".json")
+	hashFileName := base64.StdEncoding.EncodeToString([]byte(securityReqInfo.IId.NameId))
+	cblogger.Infof("# S/G NameId : " + securityReqInfo.IId.NameId)
+	cblogger.Infof("# Hashed FileName : " + hashFileName + ".json")
 
 	file, _ := json.MarshalIndent(securityReqInfo, "", " ")
-	
-	writeErr := os.WriteFile(sgFilePath + hashFileName + ".json", file, 0644)
+
+	writeErr := os.WriteFile(sgFilePath+hashFileName+".json", file, 0644)
 	if writeErr != nil {
-		cblogger.Error("Failed to write the file: "+ sgFilePath + hashFileName + ".json", writeErr)
+		cblogger.Error("Failed to write the file: "+sgFilePath+hashFileName+".json", writeErr)
 		return irs.SecurityInfo{}, writeErr
 	}
 
-	cblogger.Infof("Succeeded in writing the S/G file: "+ sgFilePath + hashFileName + ".json")
+	cblogger.Infof("Succeeded in writing the S/G file: " + sgFilePath + hashFileName + ".json")
 
 	// Because it's managed as a file, there's no SystemId created.
 	securityReqInfo.IId.SystemId = securityReqInfo.IId.NameId
@@ -135,7 +137,7 @@ func (securityHandler *KTVpcSecurityHandler) CreateSecurity(securityReqInfo irs.
 	if err != nil {
 		return irs.SecurityInfo{}, err
 	}
-	
+
 	return securityInfo, nil
 }
 
@@ -145,10 +147,10 @@ func (securityHandler *KTVpcSecurityHandler) GetSecurity(securityIID irs.IID) (i
 
 	var sg SecurityGroup
 	securityIID.NameId = securityIID.SystemId
-	hashFileName := base64.StdEncoding.EncodeToString([]byte(securityIID.NameId))	
+	hashFileName := base64.StdEncoding.EncodeToString([]byte(securityIID.NameId))
 
-	cblogger.Infof("# securityIID.NameId : "+ securityIID.NameId)
-	cblogger.Infof("# hashFileName : "+ hashFileName + ".json")
+	cblogger.Infof("# securityIID.NameId : " + securityIID.NameId)
+	cblogger.Infof("# hashFileName : " + hashFileName + ".json")
 
 	if strings.EqualFold(securityHandler.RegionInfo.Zone, "") {
 		newErr := fmt.Errorf("Invalid Region Info!!")
@@ -156,15 +158,15 @@ func (securityHandler *KTVpcSecurityHandler) GetSecurity(securityIID irs.IID) (i
 		loggingError(callLogInfo, newErr)
 		return irs.SecurityInfo{}, newErr
 	}
-	
-	sgPath := os.Getenv("CBSPIDER_ROOT") + sgDir	
+
+	sgPath := os.Getenv("CBSPIDER_ROOT") + sgDir
 	sgFilePath := sgPath + securityHandler.RegionInfo.Zone + "/"
-	
+
 	// Check if the KeyPair Folder Exists, and Create it
 	if err := checkFolderAndCreate(sgPath); err != nil {
 		cblogger.Errorf("Failed to Create the SecurityGroup Path : [%v]", err)
 		return irs.SecurityInfo{}, err
-	}	
+	}
 
 	// Check if the KeyPair Folder Exists, and Create it
 	if err := checkFolderAndCreate(sgFilePath); err != nil {
@@ -173,20 +175,20 @@ func (securityHandler *KTVpcSecurityHandler) GetSecurity(securityIID irs.IID) (i
 	}
 
 	sgFileName := sgFilePath + hashFileName + ".json"
-    jsonFile, err := os.Open(sgFileName)
-    if err != nil {
-		cblogger.Error("Failed to Find the S/G file : "+ sgFileName +" ", err)
+	jsonFile, err := os.Open(sgFileName)
+	if err != nil {
+		cblogger.Error("Failed to Find the S/G file : "+sgFileName+" ", err)
 		return irs.SecurityInfo{}, err
-    }
-	cblogger.Infof("Succeeded in Finding and Opening the S/G file: "+ sgFileName)
+	}
+	cblogger.Infof("Succeeded in Finding and Opening the S/G file: " + sgFileName)
 
-    defer jsonFile.Close()
+	defer jsonFile.Close()
 	byteValue, readErr := io.ReadAll(jsonFile)
 	if readErr != nil {
-		cblogger.Error("Failed to Read the S/G file : "+ sgFileName, readErr)
-    }
-    json.Unmarshal(byteValue, &sg)
-	
+		cblogger.Error("Failed to Read the S/G file : "+sgFileName, readErr)
+	}
+	json.Unmarshal(byteValue, &sg)
+
 	// spew.Dump(sg)
 
 	// Caution : ~~~ := mappingSecurityInfo( ) =>  ~~~ := securityHandler.mappingSecurityInfo( )
@@ -215,12 +217,12 @@ func (securityHandler *KTVpcSecurityHandler) ListSecurity() ([]*irs.SecurityInfo
 
 	sgPath := os.Getenv("CBSPIDER_ROOT") + sgDir
 	sgFilePath := sgPath + securityHandler.RegionInfo.Zone + "/"
-	
+
 	// Check if the KeyPair Folder Exists, and Create it
 	if err := checkFolderAndCreate(sgPath); err != nil {
 		cblogger.Errorf("Failed to Create the SecurityGroup Path : [%v]", err)
 		return nil, err
-	}	
+	}
 
 	// Check if the KeyPair Folder Exists, and Create it
 	if err := checkFolderAndCreate(sgFilePath); err != nil {
@@ -228,19 +230,19 @@ func (securityHandler *KTVpcSecurityHandler) ListSecurity() ([]*irs.SecurityInfo
 		return nil, err
 	}
 
-	// File list on the local directory 
+	// File list on the local directory
 	dirFiles, readRrr := os.ReadDir(sgFilePath)
 	if readRrr != nil {
 		return nil, readRrr
 	}
 
 	for _, file := range dirFiles {
-		fileName := strings.TrimSuffix(file.Name(), ".json")  // 접미사 제거
+		fileName := strings.TrimSuffix(file.Name(), ".json") // 접미사 제거
 		decString, baseErr := base64.StdEncoding.DecodeString(fileName)
 		if baseErr != nil {
 			cblogger.Errorf("Failed to Decode the Filename : %s", fileName)
 			return nil, baseErr
-		}	
+		}
 		sgFileName := string(decString)
 
 		// sgFileName := filePath + file.Name()
@@ -252,10 +254,10 @@ func (securityHandler *KTVpcSecurityHandler) ListSecurity() ([]*irs.SecurityInfo
 		if err != nil {
 			cblogger.Errorf("Failed to Find the SecurityGroup : %s", securityIID.SystemId)
 			return nil, err
-		}		
+		}
 		securityGroupList = append(securityGroupList, &sgInfo)
 	}
-	
+
 	return securityGroupList, nil
 }
 
@@ -272,14 +274,14 @@ func (securityHandler *KTVpcSecurityHandler) DeleteSecurity(securityIID irs.IID)
 		return false, newErr
 	}
 
-	sgPath := os.Getenv("CBSPIDER_ROOT") + sgDir	
+	sgPath := os.Getenv("CBSPIDER_ROOT") + sgDir
 	sgFilePath := sgPath + securityHandler.RegionInfo.Zone + "/"
-	
+
 	// Check if the KeyPair Folder Exists, and Create it
 	if err := checkFolderAndCreate(sgPath); err != nil {
 		cblogger.Errorf("Failed to Create the SecurityGroup Path : [%v]", err)
 		return false, err
-	}	
+	}
 
 	// Check if the KeyPair Folder Exists, and Create it
 	if err := checkFolderAndCreate(sgFilePath); err != nil {
@@ -299,7 +301,7 @@ func (securityHandler *KTVpcSecurityHandler) DeleteSecurity(securityIID irs.IID)
 	}
 
 	// To Remove the S/G file on the Local machine.
-	delErr := os.Remove(sgFileName) 
+	delErr := os.Remove(sgFileName)
 	if delErr != nil {
 		newErr := fmt.Errorf("Failed to Delete the file : %s, [%v]", sgFileName, delErr)
 		cblogger.Error(newErr.Error())
@@ -330,14 +332,14 @@ func (securityHandler *KTVpcSecurityHandler) mappingSecurityInfo(secuGroup Secur
 		securityRuleInfo.FromPort = secuGroup.Secu_Rules[i].FromPort
 		securityRuleInfo.ToPort = secuGroup.Secu_Rules[i].ToPort
 		securityRuleInfo.IPProtocol = secuGroup.Secu_Rules[i].Protocol // For KT Cloud VPC S/G, TCP/UDP/ICMP is available
-		securityRuleInfo.Direction = secuGroup.Secu_Rules[i].Direc // For KT Cloud VPC S/G, supports inbound/outbound rule.
+		securityRuleInfo.Direction = secuGroup.Secu_Rules[i].Direc     // For KT Cloud VPC S/G, supports inbound/outbound rule.
 		securityRuleInfo.CIDR = secuGroup.Secu_Rules[i].Cidr
-	
+
 		securityRuleList = append(securityRuleList, securityRuleInfo)
-    }
+	}
 
 	securityInfo := irs.SecurityInfo{
-		IId:           irs.IID{NameId: secuGroup.IID.NameID, SystemId: secuGroup.IID.NameID},
+		IId: irs.IID{NameId: secuGroup.IID.NameID, SystemId: secuGroup.IID.NameID},
 		// Since it is managed as a file, the systemID is the same as the name ID.
 		VpcIID:        irs.IID{NameId: secuGroup.VpcIID.NameID, SystemId: secuGroup.VpcIID.SystemID},
 		SecurityRules: &securityRuleList,
@@ -349,4 +351,9 @@ func (securityHandler *KTVpcSecurityHandler) mappingSecurityInfo(secuGroup Secur
 		// },
 	}
 	return securityInfo, nil
+}
+
+func (securityHandler *KTVpcSecurityHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

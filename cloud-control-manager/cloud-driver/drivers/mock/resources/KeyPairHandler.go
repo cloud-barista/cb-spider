@@ -158,3 +158,22 @@ func (keyPairHandler *MockKeyPairHandler) DeleteKey(iid irs.IID) (bool, error) {
 	}
 	return false, nil
 }
+
+func (keyPairHandler *MockKeyPairHandler) ListIID() ([]*irs.IID, error) {
+	cblogger := cblog.GetLogger("CB-SPIDER")
+	cblogger.Info("Mock Driver: called ListIID()!")
+
+	mockName := keyPairHandler.MockName
+	keyMapLock.RLock()
+	defer keyMapLock.RUnlock()
+	infoList, ok := keyPairInfoMap[mockName]
+	if !ok {
+		return []*irs.IID{}, nil
+	}
+
+	iidList := []*irs.IID{}
+	for _, info := range infoList {
+		iidList = append(iidList, &info.IId)
+	}
+	return iidList, nil
+}

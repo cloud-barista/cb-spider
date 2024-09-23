@@ -12,7 +12,9 @@
 package resources
 
 import (
+	"errors"
 	"fmt"
+
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/keypairs"
 
@@ -228,4 +230,9 @@ func mappingKeypairInfo(keypair keypairs.KeyPair) *irs.KeyPairInfo {
 	}
 
 	return keypairInfo
+}
+
+func (keyPairHandler *NhnCloudKeyPairHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

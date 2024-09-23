@@ -1471,3 +1471,8 @@ func (vmHandler *IbmVMHandler) setVMList(instanceList []vpcv1.Instance) ([]*irs.
 
 	return vmList, nil
 }
+
+func (vmHandler *IbmVMHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

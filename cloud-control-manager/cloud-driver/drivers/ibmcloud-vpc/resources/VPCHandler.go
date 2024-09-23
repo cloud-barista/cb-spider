@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"net/url"
 	"time"
+
+	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
@@ -810,4 +811,9 @@ func getVPCRawSubnet(vpc vpcv1.VPC, subnetIID irs.IID, vpcService *vpcv1.VpcV1, 
 		}
 	}
 	return vpcv1.Subnet{}, err
+}
+
+func (vpcHandler *IbmVPCHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

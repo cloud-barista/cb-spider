@@ -540,3 +540,8 @@ func convertDiskInfo(diskResp *compute.Disk) (irs.DiskInfo, error) {
 
 	return diskInfo, nil
 }
+
+func (DiskHandler *GCPDiskHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

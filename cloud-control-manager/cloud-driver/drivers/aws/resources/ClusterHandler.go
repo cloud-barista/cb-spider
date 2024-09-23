@@ -1114,3 +1114,8 @@ func convertClusterStatusToClusterInfoStatus(clusterStatus string) irs.ClusterSt
 
 	return status
 }
+
+func (ClusterHandler *AwsClusterHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

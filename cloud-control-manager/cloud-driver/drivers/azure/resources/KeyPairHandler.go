@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -265,4 +266,9 @@ func checkKeyPairReqInfo(keyPairReqInfo irs.KeyPairReqInfo) error {
 		return errors.New("invalid Key IID")
 	}
 	return nil
+}
+
+func (keyPairHandler *AzureKeyPairHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

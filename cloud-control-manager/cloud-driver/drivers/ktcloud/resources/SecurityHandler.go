@@ -338,3 +338,9 @@ func (securityHandler *KtCloudSecurityHandler) RemoveRules(sgIID irs.IID, securi
 	cblogger.Info("KT Cloud cloud Driver: called RemoveRules()!")
     return false, fmt.Errorf("Does not support RemoveRules() yet!!")
 }
+
+func (securityHandler *KtCloudSecurityHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}
+

@@ -2087,3 +2087,8 @@ func (vmHandler *KtCloudVMHandler) createWinInitUserData(passWord string) (*stri
 	// cblogger.Info("cmdString : ", cmdString)
 	return &cmdString, nil
 }
+
+func (vmHandler *KtCloudVMHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

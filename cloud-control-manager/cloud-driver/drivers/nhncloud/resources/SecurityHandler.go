@@ -663,3 +663,9 @@ func (securityHandler *NhnCloudSecurityHandler) getRuleIdFromRuleInfo(systemId s
 	}
 	return ruleId, nil
 }
+
+func (securityHandler *NhnCloudSecurityHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}
+

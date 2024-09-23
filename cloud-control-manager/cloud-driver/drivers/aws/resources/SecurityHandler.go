@@ -944,3 +944,8 @@ func (securityHandler *AwsSecurityHandler) ProcessRemoveRules(newGroupId *string
 
 	return securityHandler.GetSecurity(irs.IID{SystemId: *newGroupId})
 }
+
+func (securityHandler *AwsSecurityHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

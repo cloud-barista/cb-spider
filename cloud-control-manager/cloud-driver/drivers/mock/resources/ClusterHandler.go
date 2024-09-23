@@ -362,3 +362,23 @@ func (clusterHandler *MockClusterHandler) UpgradeCluster(clusterIID irs.IID, new
 
 	return irs.ClusterInfo{}, fmt.Errorf("%s Cluster does not exist!!", clusterIID.NameId)
 }
+
+func (ClusterHandler *MockClusterHandler) ListIID() ([]*irs.IID, error) {
+	cblogger := cblog.GetLogger("CB-SPIDER")
+	cblogger.Info("Mock Driver: called ListIID()!")
+
+	clusterMapLock.RLock()
+	defer clusterMapLock.RUnlock()
+
+	mockName := ClusterHandler.MockName
+	infoList, ok := clusterInfoMap[mockName]
+	if !ok {
+		return []*irs.IID{}, nil
+	}
+
+	iidList := make([]*irs.IID, len(infoList))
+	for i, info := range infoList {
+		iidList[i] = &info.IId
+	}
+	return iidList, nil
+}

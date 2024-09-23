@@ -604,3 +604,9 @@ func checkIPAddressType(cidr string) (rules.RuleEtherType, error) {
 	}
 	return "", errors.New(fmt.Sprintf("Invalid CIDR Address: %s\n", cidr))
 }
+
+func (securityHandler *OpenStackSecurityHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}
+

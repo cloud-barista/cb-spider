@@ -506,3 +506,8 @@ func (myImageHandler *AzureMyImageHandler) CheckWindowsImage(myImageIID irs.IID)
 	LoggingError(hiscallInfo, checkWindowsImageErr)
 	return false, checkWindowsImageErr
 }
+
+func (ImageHandler *AzureMyImageHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

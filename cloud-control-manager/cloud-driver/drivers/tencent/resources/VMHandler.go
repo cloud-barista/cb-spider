@@ -1243,3 +1243,9 @@ Lighthouse API가 있으나 ClientInterface 부분 처리 방법 필요
 //
 //	return diskInfoList, nil
 //}
+
+
+func (vmHandler *TencentVMHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

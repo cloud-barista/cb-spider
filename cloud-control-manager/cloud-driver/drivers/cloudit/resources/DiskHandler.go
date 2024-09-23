@@ -505,3 +505,8 @@ func (diskHandler *ClouditDiskHandler) detachDisk(diskIID irs.IID, ownerVmIID ir
 
 	return nil
 }
+
+func (DiskHandler *ClouditDiskHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

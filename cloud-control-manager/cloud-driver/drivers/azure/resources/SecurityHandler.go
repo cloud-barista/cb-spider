@@ -764,3 +764,9 @@ func getAddAzureRules(baseRawRules []*armnetwork.SecurityRule, addRuleInfo *[]ir
 	}
 	return &azureSGRuleList, nil
 }
+
+func (securityHandler *AzureSecurityHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}
+

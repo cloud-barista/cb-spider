@@ -1561,3 +1561,8 @@ func getNextHref(str string) (string, error) {
 	}
 	return "", errors.New("NOT NEXT")
 }
+
+func (NLBHandler *IbmNLBHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

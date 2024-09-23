@@ -1824,3 +1824,8 @@ func checkvmGroupProtocol(protocol string) (pools.Protocol, error) {
 	}
 	return "", errors.New("invalid vmGroup Protocols, openstack vmGroup provides only TCP protocols")
 }
+
+func (NLBHandler *OpenStackNLBHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

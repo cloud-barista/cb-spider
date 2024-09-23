@@ -1629,3 +1629,8 @@ func getNicOrderInt32(initInt int) *int32 {
 	cblogger.Infof("NicOrderInt32 : [%d]", *i32.nicOrder)
 	return i32.nicOrder
 }
+
+func (vmHandler *NcpVpcVMHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

@@ -1848,3 +1848,8 @@ func windowUserIdCheck(userId string) (bool, error) {
 	}
 	return false, errors.New("for Windows, the userId only provides Administrator")
 }
+
+func (vmHandler *AzureVMHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

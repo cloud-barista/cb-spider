@@ -587,3 +587,8 @@ func (VPCHandler *AlibabaVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.
 
 	return VPCHandler.DeleteSubnet(subnetIID)
 }
+
+func (vpcHandler *AlibabaVPCHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

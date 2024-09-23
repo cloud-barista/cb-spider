@@ -1312,3 +1312,8 @@ func (vmHandler *NhnCloudVMHandler) createWinInitUserData(passWord string) (*str
 	// spew.Dump(fileStr)
 	return &fileStr, nil
 }
+
+func (vmHandler *NhnCloudVMHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

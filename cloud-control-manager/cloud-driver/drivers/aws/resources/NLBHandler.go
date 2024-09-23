@@ -1772,3 +1772,9 @@ func (NLBHandler *AwsNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthC
 
 	return retTargetGroupInfo.HealthChecker, nil
 }
+
+
+func (NLBHandler *AwsNLBHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}
