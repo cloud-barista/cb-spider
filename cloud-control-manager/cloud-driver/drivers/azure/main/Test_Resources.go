@@ -901,7 +901,8 @@ func testNLBHandlerListPrint() {
 	cblogger.Info("8. RemoveVMs()")
 	cblogger.Info("9. GetVMGroupHealthInfo()")
 	cblogger.Info("10. ChangeHealthCheckerInfo()")
-	cblogger.Info("11. Exit")
+	cblogger.Info("11. ListIID()")
+	cblogger.Info("12. Exit")
 }
 
 func testNLBHandler(config Config) {
@@ -1069,6 +1070,14 @@ Loop:
 				}
 				cblogger.Info("Finish ChangeHealthCheckerInfo()")
 			case 11:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := nlbHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 12:
 				cblogger.Info("Exit")
 				break Loop
 			}
