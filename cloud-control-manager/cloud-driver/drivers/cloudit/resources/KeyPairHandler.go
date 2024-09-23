@@ -3,12 +3,13 @@ package resources
 import (
 	"errors"
 	"fmt"
+	"os"
+
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"os"
 )
 
 const (
@@ -197,4 +198,9 @@ func (keyPairHandler *ClouditKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, er
 	}
 	LoggingInfo(hiscallInfo, start)
 	return true, nil
+}
+
+func (keyPairHandler *ClouditKeyPairHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }
