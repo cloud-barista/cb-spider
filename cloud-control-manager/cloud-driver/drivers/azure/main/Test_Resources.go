@@ -218,7 +218,7 @@ func getResourceHandler(resourceType string, config Config) (interface{}, error)
 		resourceHandler, err = cloudConnection.CreatePriceInfoHandler()
 	case "cluster":
 		resourceHandler, err = cloudConnection.CreateClusterHandler()
-	case "tag": 
+	case "tag":
 		resourceHandler, err = cloudConnection.CreateTagHandler()
 	}
 
@@ -388,7 +388,7 @@ Loop:
 				reqInfo := irs.SecurityReqInfo{
 					IId:           securityIId,
 					SecurityRules: &securityRulesInfos,
-					TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
+					TagList:       []irs.KeyValue{{Key: "Environment", Value: "Production"}, {Key: "Environment2", Value: "Production2"}},
 					VpcIID:        targetVPCIId,
 				}
 				security, err := securityHandler.CreateSecurity(reqInfo)
@@ -437,7 +437,8 @@ func testVPCHandlerListPrint() {
 	cblogger.Info("4. DeleteVPC()")
 	cblogger.Info("5. AddSubnet()")
 	cblogger.Info("6. RemoveSubnet()")
-	cblogger.Info("7. Exit")
+	cblogger.Info("7. ListIID()")
+	cblogger.Info("8. Exit")
 }
 
 func testVPCHandler(config Config) {
@@ -468,7 +469,7 @@ func testVPCHandler(config Config) {
 	VPCReqInfo := irs.VPCReqInfo{
 		IId:            vpcIID,
 		IPv4_CIDR:      config.Azure.Resources.VPC.IPv4CIDR,
-		TagList:[]irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
+		TagList:        []irs.KeyValue{{Key: "Environment", Value: "Production"}, {Key: "Environment2", Value: "Production2"}},
 		SubnetInfoList: subnetInfoList,
 	}
 	addSubnet := config.Azure.Resources.VPC.AddSubnet
@@ -555,6 +556,14 @@ Loop:
 				}
 				cblogger.Info("Finish RemoveSubnet()")
 			case 7:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := vpcHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 8:
 				cblogger.Info("Exit")
 				break Loop
 			}
@@ -617,8 +626,8 @@ Loop:
 			case 3:
 				cblogger.Info("Start CreateKey() ...")
 				reqInfo := irs.KeyPairReqInfo{
-					IId: keypairIId,
-					TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
+					IId:     keypairIId,
+					TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"}, {Key: "Environment2", Value: "Production2"}},
 				}
 				if keyInfo, err := keyPairHandler.CreateKey(reqInfo); err != nil {
 					cblogger.Error(err)
@@ -775,7 +784,7 @@ func testVMHandler(config Config) {
 		SecurityGroupIIDs: SecurityGroupIIDs,
 		VMUserId:          config.Azure.Resources.Vm.VMUserId,
 		VMUserPasswd:      config.Azure.Resources.Vm.VMUserPasswd,
-		TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
+		TagList:           []irs.KeyValue{{Key: "Environment", Value: "Production"}, {Key: "Environment2", Value: "Production2"}},
 	}
 
 Loop:
@@ -915,7 +924,7 @@ func testNLBHandler(config Config) {
 		},
 		VMGroup: irs.VMGroupInfo{
 			Port:     "22",
-			Protocol: "TCP", 
+			Protocol: "TCP",
 			VMs: &[]irs.IID{
 				{NameId: "vm-01"},
 				{NameId: "vm-02"},
@@ -925,11 +934,11 @@ func testNLBHandler(config Config) {
 			Protocol:  "TCP",
 			Port:      "22",
 			Interval:  10,
-			Timeout: -1,
+			Timeout:   -1,
 			Threshold: 5,
 			// Threshold: 429496728,
 		},
-		TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
+		TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"}, {Key: "Environment2", Value: "Production2"}},
 	}
 	updateListener := irs.ListenerInfo{
 		Protocol: "TCP",
@@ -1086,8 +1095,8 @@ func testDiskHandler(config Config) {
 		IId: irs.IID{
 			NameId: config.Azure.Resources.Disk.IID.NameId,
 		},
-		Zone: config.Azure.Zone,
-		TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
+		Zone:     config.Azure.Zone,
+		TagList:  []irs.KeyValue{{Key: "Environment", Value: "Production"}, {Key: "Environment2", Value: "Production2"}},
 		DiskSize: config.Azure.Resources.Disk.DiskSize,
 		DiskType: config.Azure.Resources.Disk.DiskType,
 	}
@@ -1200,7 +1209,7 @@ func testMyImageHandler(config Config) {
 	targetvm := irs.MyImageInfo{
 		IId:      irs.IID{NameId: config.Azure.Resources.MyImage.IID.NameId},
 		SourceVM: irs.IID{NameId: config.Azure.Resources.MyImage.SourceVM.NameId},
-		TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
+		TagList:  []irs.KeyValue{{Key: "Environment", Value: "Production"}, {Key: "Environment2", Value: "Production2"}},
 	}
 	delimageIId := irs.IID{NameId: config.Azure.Resources.MyImage.IID.NameId}
 Loop:
@@ -1492,7 +1501,7 @@ func testClusterHandler(config Config) {
 			//	OnAutoScaling:   true,
 			//},
 		},
-		TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
+		TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"}, {Key: "Environment2", Value: "Production2"}},
 	}
 	addNodeGroup := irs.NodeGroupInfo{
 		IId:             irs.IID{NameId: "nodegroup3"},
@@ -1981,7 +1990,6 @@ func testTagHandler(config Config) {
 	// resIID := irs.IID{NameId: "sg01", SystemId: ""}
 	// resIID := irs.IID{NameId: "keypair-01", SystemId: ""}
 	// resIID := irs.IID{NameId: "vm-01", SystemId: ""}
-
 
 Loop:
 	for {
