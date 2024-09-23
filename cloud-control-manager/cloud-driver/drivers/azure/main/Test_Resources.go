@@ -578,7 +578,8 @@ func testKeyPairHandlerListPrint() {
 	cblogger.Info("2. GetKey()")
 	cblogger.Info("3. CreateKey()")
 	cblogger.Info("4. DeleteKey()")
-	cblogger.Info("5. Exit")
+	cblogger.Info("5. ListIID()")
+	cblogger.Info("6. Exit")
 }
 func testKeyPairHandler(config Config) {
 	resourceHandler, err := getResourceHandler("keypair", config)
@@ -643,6 +644,14 @@ Loop:
 				}
 				cblogger.Info("Finish DeleteKey()")
 			case 5:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := keyPairHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 6:
 				cblogger.Info("Exit")
 				break Loop
 			}
