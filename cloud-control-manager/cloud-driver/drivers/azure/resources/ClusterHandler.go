@@ -2365,7 +2365,38 @@ func getClusterAccessInfo(cluster *armcontainerservice.ManagedCluster, managedCl
 	return accessInfo, nil
 }
 
-func (ClusterHandler *AzureClusterHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+func (ac *AzureClusterHandler) ListIID() ([]*irs.IID, error) {
+	hiscallInfo := GetCallLogScheme(ac.Region, call.CLUSTER, "CLUSTER", "ListIID()")
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	pager := ac.ManagedClustersClient.NewListPager(nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(ac.Ctx)
+		if err != nil {
+			err = errors.New(fmt.Sprintf("Failed to List Cluster. err = %s", err))
+			cblogger.Error(err.Error())
+			LoggingError(hiscallInfo, err)
+			return make([]*irs.IID, 0), err
+		}
+
+		for _, cluster := range page.Value {
+			var iid irs.IID
+
+			if cluster.ID != nil {
+				iid.SystemId = *cluster.ID
+			}
+			if cluster.Name != nil {
+				iid.NameId = *cluster.Name
+			}
+
+			iidList = append(iidList, &iid)
+		}
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
 }

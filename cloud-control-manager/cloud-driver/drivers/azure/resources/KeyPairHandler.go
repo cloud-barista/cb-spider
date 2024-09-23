@@ -269,6 +269,37 @@ func checkKeyPairReqInfo(keyPairReqInfo irs.KeyPairReqInfo) error {
 }
 
 func (keyPairHandler *AzureKeyPairHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	hiscallInfo := GetCallLogScheme(keyPairHandler.Region, call.VMKEYPAIR, KeyPair, "ListIID()")
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	pager := keyPairHandler.Client.NewListByResourceGroupPager(keyPairHandler.Region.Region, nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(keyPairHandler.Ctx)
+		if err != nil {
+			err = errors.New(fmt.Sprintf("Failed to List Key. err = %s", err))
+			cblogger.Error(err.Error())
+			LoggingError(hiscallInfo, err)
+			return make([]*irs.IID, 0), err
+		}
+
+		for _, key := range page.Value {
+			var iid irs.IID
+
+			if key.ID != nil {
+				iid.SystemId = *key.ID
+			}
+			if key.Name != nil {
+				iid.NameId = *key.Name
+			}
+
+			iidList = append(iidList, &iid)
+		}
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
 }

@@ -766,7 +766,37 @@ func getAddAzureRules(baseRawRules []*armnetwork.SecurityRule, addRuleInfo *[]ir
 }
 
 func (securityHandler *AzureSecurityHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
-}
+	hiscallInfo := GetCallLogScheme(securityHandler.Region, call.SECURITYGROUP, SecurityGroup, "ListIID()")
+	start := call.Start()
 
+	var iidList []*irs.IID
+
+	pager := securityHandler.Client.NewListPager(securityHandler.Region.Region, nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(securityHandler.Ctx)
+		if err != nil {
+			err = errors.New(fmt.Sprintf("Failed to List Security. err = %s", err))
+			cblogger.Error(err.Error())
+			LoggingError(hiscallInfo, err)
+			return make([]*irs.IID, 0), err
+		}
+
+		for _, securityGroup := range page.Value {
+			var iid irs.IID
+
+			if securityGroup.ID != nil {
+				iid.SystemId = *securityGroup.ID
+			}
+			if securityGroup.Name != nil {
+				iid.NameId = *securityGroup.Name
+			}
+
+			iidList = append(iidList, &iid)
+		}
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
+}

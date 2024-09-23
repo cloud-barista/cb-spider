@@ -748,7 +748,38 @@ func AttachList(diskIIDList []irs.IID, ownerVM irs.IID, credentialInfo idrv.Cred
 	return vm, nil
 }
 
-func (DiskHandler *AzureDiskHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+func (diskHandler *AzureDiskHandler) ListIID() ([]*irs.IID, error) {
+	hiscallInfo := GetCallLogScheme(diskHandler.Region, call.DISK, "DISK", "ListIID()")
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	pager := diskHandler.DiskClient.NewListPager(nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(diskHandler.Ctx)
+		if err != nil {
+			getErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err.Error()))
+			cblogger.Error(getErr.Error())
+			LoggingError(hiscallInfo, getErr)
+			return make([]*irs.IID, 0), err
+		}
+
+		for _, disk := range page.Value {
+			var iid irs.IID
+
+			if disk.ID != nil {
+				iid.SystemId = *disk.ID
+			}
+			if disk.Name != nil {
+				iid.NameId = *disk.Name
+			}
+
+			iidList = append(iidList, &iid)
+		}
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
 }

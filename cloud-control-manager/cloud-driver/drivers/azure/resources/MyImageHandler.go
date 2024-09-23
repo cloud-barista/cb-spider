@@ -507,7 +507,38 @@ func (myImageHandler *AzureMyImageHandler) CheckWindowsImage(myImageIID irs.IID)
 	return false, checkWindowsImageErr
 }
 
-func (ImageHandler *AzureMyImageHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+func (myImageHandler *AzureMyImageHandler) ListIID() ([]*irs.IID, error) {
+	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, "MyImage", "ListIID()")
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	pager := myImageHandler.ImageClient.NewListByResourceGroupPager(myImageHandler.Region.Region, nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(myImageHandler.Ctx)
+		if err != nil {
+			err = errors.New(fmt.Sprintf("Failed to List MyImage. err = %s", err))
+			cblogger.Error(err.Error())
+			LoggingError(hiscallInfo, err)
+			return make([]*irs.IID, 0), err
+		}
+
+		for _, myImage := range page.Value {
+			var iid irs.IID
+
+			if myImage.ID != nil {
+				iid.SystemId = *myImage.ID
+			}
+			if myImage.Name != nil {
+				iid.NameId = *myImage.Name
+			}
+
+			iidList = append(iidList, &iid)
+		}
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
 }
