@@ -1455,8 +1455,9 @@ func testClusterHandlerListPrint() {
 	cblogger.Info("7. SetNodeGroupAutoScaling()")
 	cblogger.Info("8. ChangeNodeGroupScaling()")
 	cblogger.Info("9. UpgradeCluster()")
-	cblogger.Info("10. Create->GET->List->AddNodeGroup->RemoveNodeGroup->SetNodeGroupAutoScaling(Change)->SetNodeGroupAutoScaling(restore)->ChangeNodeGroupScaling->Upgrade->Delete")
-	cblogger.Info("11. Exit")
+	cblogger.Info("10. ListIID()")
+	cblogger.Info("11. Create->GET->List->AddNodeGroup->RemoveNodeGroup->SetNodeGroupAutoScaling(Change)->SetNodeGroupAutoScaling(restore)->ChangeNodeGroupScaling->Upgrade->Delete")
+	cblogger.Info("12. Exit")
 }
 
 func testClusterHandler(config Config) {
@@ -1599,6 +1600,14 @@ Loop:
 				}
 				cblogger.Info("Finish UpgradeCluster()")
 			case 10:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := clusterHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 11:
 				falowStr := "Create->GET->AddNodeGroup->RemoveNodeGroup->SetNodeGroupAutoScaling(Change)->SetNodeGroupAutoScaling(restore)->ChangeNodeGroupScaling->Delete"
 				cblogger.Info(fmt.Sprintf("Start %s =====", falowStr))
 				cblogger.Info("Start Create =====")
@@ -1955,7 +1964,7 @@ Loop:
 					cblogger.Info("Finish Delete =====")
 				}
 				cblogger.Info(fmt.Sprintf("Finish %s =====", falowStr))
-			case 11:
+			case 12:
 				cblogger.Info("Exit")
 				break Loop
 			}
