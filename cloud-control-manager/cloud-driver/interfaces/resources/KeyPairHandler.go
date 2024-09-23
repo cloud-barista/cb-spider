@@ -34,4 +34,5 @@ type KeyPairHandler interface {
 	ListKey() ([]*KeyPairInfo, error)
 	GetKey(keyIID IID) (KeyPairInfo, error)
 	DeleteKey(keyIID IID) (bool, error)
+	ListIID() ([]*IID, error)
 }
