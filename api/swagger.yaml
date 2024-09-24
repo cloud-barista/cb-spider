@@ -1428,6 +1428,10 @@ definitions:
       ConnectionName:
         example: aws-connection
         type: string
+      IDTransformMode:
+        description: 'ON: transform CSP ID, OFF: no-transform CSP ID'
+        example: "ON"
+        type: string
       ReqInfo:
         $ref: '#/definitions/spider.ClusterNodeGroupRequest'
     required:

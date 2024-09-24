@@ -334,8 +334,9 @@ func GetCluster(c echo.Context) error {
 
 // ClusterAddNodeGroupRequest represents the request body for adding a Node Group to a Cluster.
 type ClusterAddNodeGroupRequest struct {
-	ConnectionName string                  `json:"ConnectionName" validate:"required" example:"aws-connection"`
-	ReqInfo        ClusterNodeGroupRequest `json:"ReqInfo" validate:"required"`
+	ConnectionName  string                  `json:"ConnectionName" validate:"required" example:"aws-connection"`
+	IDTransformMode string                  `json:"IDTransformMode,omitempty" validate:"omitempty" example:"ON"` // ON: transform CSP ID, OFF: no-transform CSP ID
+	ReqInfo         ClusterNodeGroupRequest `json:"ReqInfo" validate:"required"`
 }
 
 // addNodeGroup godoc
@@ -378,7 +379,7 @@ func AddNodeGroup(c echo.Context) error {
 	clusterName := c.Param("Name")
 
 	// Call common-runtime API
-	result, err := cmrt.AddNodeGroup(req.ConnectionName, NODEGROUP, clusterName, reqInfo)
+	result, err := cmrt.AddNodeGroup(req.ConnectionName, NODEGROUP, clusterName, reqInfo, req.IDTransformMode)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

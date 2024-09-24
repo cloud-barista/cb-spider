@@ -3,9 +3,11 @@ package resources
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	cs "github.com/alibabacloud-go/cs-20151215/v4/client" // cs  : container service
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs" // ecs : elastic compute service
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/slb"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -18,6 +20,7 @@ type AlibabaTagHandler struct {
 	Client    *ecs.Client
 	CsClient  *cs.Client
 	VpcClient *vpc.Client
+	SlbClient *slb.Client
 }
 
 type AliTagResponse struct {
@@ -199,7 +202,6 @@ func (tagHandler *AlibabaTagHandler) AddTag(resType irs.RSType, resIID irs.IID, 
 		return tag, err
 	}
 	cblogger.Debug(alibabaResourceType)
-
 	alibabaApiType, err := GetAliTargetApi(resType)
 	if err != nil {
 		return tag, err
@@ -247,6 +249,15 @@ func (tagHandler *AlibabaTagHandler) AddTag(resType irs.RSType, resIID irs.IID, 
 			return tag, err
 		}
 		cblogger.Debug("AddCsTags response", response)
+
+	case "slb":
+
+		response, err := aliAddSlbTag(tagHandler.SlbClient, tagHandler.Region, resType, resIID, tag)
+		if err != nil {
+			return tag, err
+		}
+		cblogger.Debug("AddNlbTags response", response)
+
 	}
 
 	// request Tag를 retrun하므로 해당 Tag 정보조회 필요없음
@@ -473,7 +484,6 @@ func (tagHandler *AlibabaTagHandler) GetTag(resType irs.RSType, resIID irs.IID, 
 // 해당 Resource의 Tag 삭제. 요청이 비동기로 되므로 조회를 통해 삭제 될 때까지 대기. 확인되면  return true.
 func (tagHandler *AlibabaTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, key string) (bool, error) {
 	hiscallInfo := GetCallLogScheme(tagHandler.Region, call.TAG, resIID.NameId, "RemoveTag()")
-
 	regionID := tagHandler.Region.Region
 
 	alibabaResourceType, err := GetAlibabaResourceType(resType)
@@ -523,6 +533,68 @@ func (tagHandler *AlibabaTagHandler) RemoveTag(resType irs.RSType, resIID irs.II
 		}
 		cblogger.Debug("AddCsTags response", response)
 
+	case "slb":
+
+		// 삭제할 수 있는 tag의 형태가
+		//[{"TagKey":"Key1","TagValue":"Value1"},{"TagKey":"Key2","TagValue":"Value2"}]
+		// 따라서 해당 nlb 조회 후 tag 포멧을 맞춰서 삭제함
+		tagListResponse, err := DescribeDescribeNlbTags(tagHandler.SlbClient, tagHandler.Region, resType, resIID, key)
+		if err != nil {
+			// DescribeTags API 호출 실패 시 에러 처리
+			cblogger.Error("Error in DescribeDescribeNlbTags:", err)
+			return false, err
+		}
+		cblogger.Debug("tagListResponse", tagListResponse)
+
+		// var tagResponse DescribeTagsResponse
+		var tagResponse slb.DescribeTagsResponse
+		err = json.Unmarshal([]byte(tagListResponse.GetHttpContentString()), &tagResponse)
+		if err != nil {
+			cblogger.Error("Failed to parse DescribeTags response:", err)
+			return false, err
+		}
+
+		var targetTagValue string
+		for _, tag := range tagResponse.TagSets.TagSet {
+			if tag.TagKey == key {
+				targetTagValue = tag.TagValue
+				break
+			}
+		}
+
+		// 만약 TagKey에 해당하는 TagValue를 찾지 못했다면
+		if targetTagValue == "" {
+			cblogger.Error("TagKey not found in DescribeTags response")
+			return false, fmt.Errorf("TagKey %s not found", key)
+		}
+
+		queryParams := map[string]string{}
+		queryParams["RegionId"] = regionID
+		queryParams["ResourceType"] = alibabaResourceType
+		queryParams["LoadBalancerId"] = resIID.SystemId
+		queryParams["Tags"] = fmt.Sprintf(`[{"TagKey":"%s","TagValue":"%s"}]`, key, targetTagValue)
+
+		start := call.Start()
+		response, err := CallNlbRequest(resType, tagHandler.SlbClient, tagHandler.Region, "RemoveTags", queryParams)
+		LoggingInfo(hiscallInfo, start)
+
+		if err != nil {
+			cblogger.Error(err.Error())
+			LoggingError(hiscallInfo, err)
+		}
+		cblogger.Debug(response.GetHttpContentString())
+
+		cblogger.Infof("Successfully deleted %q Task\n", resIID.SystemId)
+
+		expectStatus := false // 예상되는 상태 : 없어야 하므로 fasle
+		result, err := WaitForNlbTagExist(tagHandler.SlbClient, tagHandler.Region, resType, resIID, key, expectStatus)
+		if err != nil {
+			return false, err
+		}
+		cblogger.Debug("Expect Status ", expectStatus, ", result Status ", result)
+		if !result {
+			return false, errors.New("waitForTagExist Error ")
+		}
 	}
 	return true, nil
 }

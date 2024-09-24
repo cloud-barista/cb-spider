@@ -463,10 +463,14 @@ func CreateCluster(connectionName string, rsType string, reqInfo cres.ClusterInf
 		if providerName == "NHNCLOUD" && idx == 0 {
 			nodeGroupUUID = "default-worker" // fixed name in NHN
 		} else {
-			nodeGroupUUID, err = iidm.New(connectionName, NODEGROUP, info.IId.NameId)
-			if err != nil {
-				cblog.Error(err)
-				return nil, err
+			if GetID_MGMT(IDTransformMode) == "ON" { // Use IID Management
+				nodeGroupUUID, err = iidm.New(connectionName, NODEGROUP, info.IId.NameId)
+				if err != nil {
+					cblog.Error(err)
+					return nil, err
+				}
+			} else { // No Use IID Management
+				nodeGroupUUID = info.IId.NameId
 			}
 		}
 
@@ -827,7 +831,7 @@ func GetCluster(connectionName string, rsType string, clusterName string) (*cres
 // (2) add NodeGroup
 // (3) Get ClusterInfo
 // (4) Set ResoureInfo
-func AddNodeGroup(connectionName string, rsType string, clusterName string, reqInfo cres.NodeGroupInfo) (*cres.ClusterInfo, error) {
+func AddNodeGroup(connectionName string, rsType string, clusterName string, reqInfo cres.NodeGroupInfo, IDTransformMode string) (*cres.ClusterInfo, error) {
 	cblog.Info("call AddNodeGroup()")
 
 	// check empty and trim user inputs
@@ -926,10 +930,15 @@ func AddNodeGroup(connectionName string, rsType string, clusterName string, reqI
 	// refine RootDisk and RootDiskSize in reqInfo(NodeGroupInfo)
 	translateRootDiskInfo(providerName, &reqInfo)
 
-	nodeGroupUUID, err := iidm.New(connectionName, NODEGROUP, reqInfo.IId.NameId)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	nodeGroupUUID := ""
+	if GetID_MGMT(IDTransformMode) == "ON" { // Use IID Management
+		nodeGroupUUID, err = iidm.New(connectionName, NODEGROUP, reqInfo.IId.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else { // No Use IID Management
+		nodeGroupUUID = reqInfo.IId.NameId
 	}
 
 	// driverIID
