@@ -3,6 +3,7 @@ package resources
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"time"
@@ -14,6 +15,7 @@ import (
 	cs "github.com/alibabacloud-go/cs-20151215/v4/client" // cs  : container service
 	bssopenapi "github.com/aliyun/alibaba-cloud-sdk-go/services/bssopenapi"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs" // ecs : elastic compute service
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/slb"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc" // vpc
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -873,6 +875,64 @@ func DescribeDescribeEcsTags(client *ecs.Client, regionInfo idrv.RegionInfo, res
 	return response, nil
 }
 
+func DescribeDescribeNlbTags(client *slb.Client, regionInfo idrv.RegionInfo, resType irs.RSType, resIID irs.IID, key string) (*responses.CommonResponse, error) {
+	apiName := "DescribeTags"
+	regionID := regionInfo.Region
+
+	// call logger set
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   "",
+		ResourceType: call.TAG,
+		ResourceName: "",
+		CloudOSAPI:   apiName,
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	apiProductCode, err := GetAlibabaProductCode(irs.RSType(resType))
+	if err != nil {
+		return nil, err
+	}
+
+	alibabaResourceType, err2 := GetAlibabaResourceType(resType)
+	if err2 != nil {
+		return nil, err2
+	}
+
+	request := requests.NewCommonRequest()
+
+	request.Method = "POST"
+	request.Scheme = "https" // https | http
+	//request.Domain = "ecs.cn-hongkong.aliyuncs.com"
+	request.Domain = GetAlibabaApiEndPoint(regionID, apiProductCode)
+	request.Version = "2014-05-15"
+	request.ApiName = apiName
+	//request.QueryParams["RegionId"] = regionID
+
+	queryParams := map[string]string{}
+	queryParams["RegionId"] = regionID
+	queryParams["ResourceType"] = alibabaResourceType //string(resType)
+	queryParams["ResourceId"] = resIID.SystemId
+	if key != "" {
+		queryParams["Tag.1.Key"] = key // 한번에 1개씩만 가져온다.
+	}
+	request.QueryParams = queryParams
+	callLogStart := call.Start()
+	response, err := client.ProcessCommonRequest(request)
+
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	callogger.Info(call.String(callLogInfo))
+	if err != nil {
+		cblogger.Error(err.Error())
+		return nil, err
+	}
+	cblogger.Debug(response.GetHttpContentString())
+
+	return response, nil
+}
+
 // //////// VPC begin /////////////
 func AddVpcTags(client *vpc.Client, regionInfo idrv.RegionInfo, resType irs.RSType, resIID irs.IID, tag irs.KeyValue) (*responses.CommonResponse, error) {
 	apiName := "AddTags"
@@ -920,7 +980,7 @@ func AddVpcTags(client *vpc.Client, regionInfo idrv.RegionInfo, resType irs.RSTy
 	return response, nil
 }
 
-// 해당 ECS Resource에 특정 tag가 있는지 조회 :
+// 해당 VPC Resource에 특정 tag가 있는지 조회 :
 func WaitForVpcTagExist(client *vpc.Client, regionInfo idrv.RegionInfo, resType irs.RSType, resIID irs.IID, tag string, expectStatus bool) (bool, error) {
 
 	//waitStatus := false
@@ -1101,6 +1161,50 @@ func CallVpcRequest(resType irs.RSType, client *vpc.Client, regionInfo idrv.Regi
 	request.Scheme = "https" // https | http
 	request.Domain = GetAlibabaApiEndPoint(regionID, apiProductCode)
 	request.Version = "2016-04-28"
+	request.ApiName = apiName
+	request.QueryParams["RegionId"] = regionID
+
+	// Tag가 있으면
+	if queryParams != nil {
+		request.QueryParams = queryParams
+	}
+
+	callLogStart := call.Start()
+	response, err := client.ProcessCommonRequest(request)
+
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	callogger.Info(call.String(callLogInfo))
+	if err != nil {
+		cblogger.Error(err.Error())
+		return nil, err
+	}
+	cblogger.Debug(response.GetHttpContentString())
+	return response, nil
+}
+
+func CallNlbRequest(resType irs.RSType, client *slb.Client, regionInfo idrv.RegionInfo, apiName string, queryParams map[string]string) (*responses.CommonResponse, error) {
+	regionID := regionInfo.Region
+
+	apiProductCode, err := GetAlibabaProductCode(irs.RSType(resType))
+
+	// call logger set
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   "",
+		ResourceType: call.TAG,
+		ResourceName: "",
+		CloudOSAPI:   apiName,
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	request := requests.NewCommonRequest()
+
+	request.Method = "POST"
+	request.Scheme = "https" // https | http
+	request.Domain = GetAlibabaApiEndPoint(regionID, apiProductCode)
+	request.Version = "2014-05-15"
 	request.ApiName = apiName
 	request.QueryParams["RegionId"] = regionID
 
@@ -1523,4 +1627,101 @@ func GetSubnet(VpcClient *vpc.Client, reqSubnetId string, zone string) (irs.Subn
 	} else {
 		return irs.SubnetInfo{}, errors.New("InvalidVSwitch.NotFound: The '" + reqSubnetId + "' does not exist")
 	}
+}
+
+func aliAddSlbTag(Client *slb.Client, regionInfo idrv.RegionInfo, resType irs.RSType, resIID irs.IID, tag irs.KeyValue) (*responses.CommonResponse, error) {
+	apiName := "AddTags"
+	regionID := regionInfo.Region
+
+	cblogger.Info("Start Add NlbTag : ", tag)
+	hiscallInfo := GetCallLogScheme(regionInfo, call.TAG, resIID.NameId, apiName)
+
+	// 생성된 Tag 정보 획득 후, Tag 정보 리턴
+	//tagInfo := irs.TagInfo{}
+	tagJson := fmt.Sprintf(`[{"TagKey":"%s","TagValue":"%s"}]`, tag.Key, tag.Value)
+
+	// 지원하는 resource Type인지 확인
+	alibabaResourceType, err := GetAlibabaResourceType(resType)
+	if err != nil {
+		return nil, err
+	}
+
+	queryParams := map[string]string{}
+	queryParams["RegionId"] = regionID
+	queryParams["ResourceType"] = alibabaResourceType
+	queryParams["LoadBalancerId"] = resIID.SystemId
+	queryParams["Tags"] = tagJson
+
+	start := call.Start()
+	response, err := CallNlbRequest(resType, Client, regionInfo, apiName, queryParams)
+	LoggingInfo(hiscallInfo, start)
+
+	if err != nil {
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+	}
+	cblogger.Debug(response.GetHttpContentString())
+
+	expectStatus := true // 예상되는 상태 : 있어야 하므로 true
+	result, err := WaitForNlbTagExist(Client, regionInfo, resType, resIID, tag.Key, expectStatus)
+	if err != nil {
+		return nil, err
+	}
+	cblogger.Debug("Expect Status ", expectStatus, ", result Status ", result)
+	if !result {
+		return nil, errors.New("waitForTagExist Error ")
+	}
+
+	return response, nil
+}
+
+// 해당 NLB Resource에 특정 tag가 있는지 조회 :
+func WaitForNlbTagExist(client *slb.Client, regionInfo idrv.RegionInfo, resType irs.RSType, resIID irs.IID, tag string, expectStatus bool) (bool, error) {
+
+	//waitStatus := false
+	curRetryCnt := 0
+	maxRetryCnt := 15 // 최대 10초 기다림
+	for {
+
+		// 해당 resource의 tag를 가져온다.
+		response, err := DescribeDescribeNlbTags(client, regionInfo, resType, resIID, "") //tag.Key
+		if err != nil {
+			return false, err
+		}
+
+		// tag들 추출
+		resTags := slb.DescribeTagsResponse{}
+		tagResponseStr := response.GetHttpContentString()
+		err = json.Unmarshal([]byte(tagResponseStr), &resTags)
+		if err != nil {
+			cblogger.Error(err.Error())
+			return false, err
+		}
+
+		// extract Tag
+		existTag := false
+		for _, aliTag := range resTags.TagSets.TagSet {
+			//cblogger.Info(aliTag)
+			cblogger.Info(aliTag.TagKey + ":" + tag)
+			if aliTag.TagKey == tag {
+				existTag = true
+				break
+			}
+		}
+
+		// expectStatus : 예상되는 상태.
+		if expectStatus == existTag { // tag가 존재할 때까지 반복
+			return true, nil
+		}
+
+		//if curStatus != irs.VMStatus(waitStatus) {
+		curRetryCnt++
+		cblogger.Errorf("Waiting for 1 second and then querying")
+		time.Sleep(time.Second * 1)
+		if curRetryCnt > maxRetryCnt {
+			return false, errors.New("After waiting for a long time")
+		}
+	}
+
+	//return false, nil
 }

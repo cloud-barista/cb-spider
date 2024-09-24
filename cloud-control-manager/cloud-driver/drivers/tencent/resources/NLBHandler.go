@@ -362,6 +362,22 @@ func (NLBHandler *TencentNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 	nlbInfo.HealthChecker = healthChecker
 	nlbInfo.VMGroup = vmGroup
 
+	// tag있으면 추가
+	tagList := []irs.KeyValue{}
+
+	for _, lb := range response.Response.LoadBalancerSet {
+		if lb.Tags != nil {
+			for _, tenTag := range lb.Tags {
+				sTag := irs.KeyValue{}
+				sTag.Key = *tenTag.TagKey     // TagInfo 구조체의 TagKey
+				sTag.Value = *tenTag.TagValue // TagInfo 구조체의 TagValue
+
+				tagList = append(tagList, sTag)
+			}
+		}
+	}
+	nlbInfo.TagList = tagList
+
 	cblogger.Debug(nlbInfo)
 
 	return nlbInfo, nil
