@@ -1269,7 +1269,8 @@ func testDiskHandlerListPrint() {
 	cblogger.Info("5. ChangeDiskSize()")
 	cblogger.Info("6. AttachDisk()")
 	cblogger.Info("7. DetachDisk()")
-	cblogger.Info("8. Exit")
+	cblogger.Info("8. ListIID()")
+	cblogger.Info("9. Exit")
 }
 
 func testDiskHandler(config Config) {
@@ -1381,6 +1382,14 @@ Loop:
 				}
 				cblogger.Info("Finish DetachDisk()")
 			case 8:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := diskHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 9:
 				cblogger.Info("Exit")
 				break Loop
 			}
