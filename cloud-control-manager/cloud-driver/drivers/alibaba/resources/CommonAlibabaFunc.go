@@ -327,8 +327,8 @@ func GetAlibabaResourceType(resType irs.RSType) (string, error) {
 		return "securitygroup", nil
 	case irs.KEY:
 		return "keypair", nil
-	// case irs.NLB:
-	// 	return "slb", nil
+	case irs.NLB:
+		return "slb", nil
 	case irs.DISK:
 		return "disk", nil
 	case irs.MYIMAGE:
