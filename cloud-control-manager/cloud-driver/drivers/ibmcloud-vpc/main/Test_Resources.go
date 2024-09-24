@@ -694,7 +694,8 @@ func testVPCHandlerListPrint() {
 	cblogger.Info("4. DeleteVPC()")
 	cblogger.Info("5. AddSubnet()")
 	cblogger.Info("6. RemoveSubnet()")
-	cblogger.Info("7. Exit")
+	cblogger.Info("7. ListIID()")
+	cblogger.Info("8. Exit")
 }
 
 func testVPCHandler(config Config) {
@@ -776,7 +777,7 @@ Loop:
 				}
 
 				VPCReqInfo.TagList = tagList
-				
+
 				if vpcInfo, err := vpcHandler.CreateVPC(VPCReqInfo); err != nil {
 					cblogger.Error(err)
 				} else {
@@ -829,6 +830,14 @@ Loop:
 				}
 				cblogger.Info("Finish RemoveSubnet()")
 			case 7:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := vpcHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 8:
 				cblogger.Info("Exit")
 				break Loop
 			}
@@ -970,7 +979,7 @@ Loop:
 			case 5:
 				cblogger.Info("Start StartVM() ...")
 				vmReqInfo.ImageType = irs.PublicImage
-				
+
 				// Add TagList
 				var tagList []irs.KeyValue
 				tagList, err = SetResourceTagList()
@@ -1143,7 +1152,7 @@ Loop:
 				cblogger.Info("Finish GetNLB()")
 			case 3:
 				cblogger.Info("Start CreateNLB() ...")
-				
+
 				// Add TagList
 				var tagList []irs.KeyValue
 				tagList, err = SetResourceTagList()
@@ -1291,7 +1300,6 @@ Loop:
 			case 3:
 				cblogger.Info("Start CreateDisk() ...")
 
-				
 				// Add TagList
 				var tagList []irs.KeyValue
 				tagList, err = SetResourceTagList()
@@ -1416,7 +1424,7 @@ Loop:
 				cblogger.Info("Finish GetMyImage()")
 			case 3:
 				cblogger.Info("Start CreateMyImage() ...")
-				
+
 				// Add TagList
 				var tagList []irs.KeyValue
 				tagList, err = SetResourceTagList()
@@ -1735,7 +1743,7 @@ Loop:
 				}
 
 				clusterCreateReqInfo.TagList = tagList
-				
+
 				if createInfo, err := clusterHandler.CreateCluster(clusterCreateReqInfo); err != nil {
 					cblogger.Error(err)
 				} else {
@@ -2060,7 +2068,7 @@ Loop:
 	}
 }
 
-func SetResourceTagList()([]irs.KeyValue, error){
+func SetResourceTagList() ([]irs.KeyValue, error) {
 	cblogger.Info("0. TagList Setting")
 	cblogger.Info("1. Continue without TagList")
 	var tagSetNum int
@@ -2068,36 +2076,36 @@ func SetResourceTagList()([]irs.KeyValue, error){
 	if err != nil {
 		return []irs.KeyValue{}, err
 	}
-	
+
 	var KeyValue []irs.KeyValue
-	switch tagSetNum{
+	switch tagSetNum {
 	case 0:
 		var tagCount int
-	
+
 		fmt.Print("How many tag? ")
 		_, err := fmt.Scanln(&tagCount)
 		if err != nil {
 			return []irs.KeyValue{}, err
 		}
-		
+
 		i := 0
 		for i < tagCount {
 			fmt.Println("=== Enter KeyValue ===")
 			var key string
 			var value string
-	
+
 			fmt.Print("Key: ")
 			_, err := fmt.Scanln(&key)
 			if err != nil {
 				return []irs.KeyValue{}, err
 			}
-			
+
 			fmt.Print("Value: ")
 			_, err = fmt.Scanln(&value)
 			if err != nil {
 				return []irs.KeyValue{}, err
 			}
-			
+
 			KeyValue = append(KeyValue, irs.KeyValue{Key: key, Value: value})
 			i++
 		}
@@ -2107,7 +2115,6 @@ func SetResourceTagList()([]irs.KeyValue, error){
 
 	return KeyValue, nil
 }
-
 
 func main() {
 	showTestHandlerInfo()
