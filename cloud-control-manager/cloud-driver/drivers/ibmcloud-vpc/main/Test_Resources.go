@@ -389,7 +389,8 @@ func testSecurityHandlerListPrint() {
 	cblogger.Info("4. DeleteSecurity()")
 	cblogger.Info("5. AddRules()")
 	cblogger.Info("6. RemoveRules()")
-	cblogger.Info("7. Exit")
+	cblogger.Info("7. ListIID()")
+	cblogger.Info("8. Exit")
 }
 
 // SecurityGroup
@@ -519,6 +520,14 @@ Loop:
 				}
 				fmt.Println("Finish RemoveRules()")
 			case 7:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := securityHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 8:
 				fmt.Println("Exit")
 				break Loop
 			}
