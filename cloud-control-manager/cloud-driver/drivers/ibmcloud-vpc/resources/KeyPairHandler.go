@@ -348,6 +348,51 @@ func getKeyNextHref(next *vpcv1.KeyCollectionNext) (string, error) {
 }
 
 func (keyPairHandler *IbmKeyPairHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	hiscallInfo := GetCallLogScheme(keyPairHandler.Region, call.VMKEYPAIR, "VMKEYPAIR", "ListIID()")
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	listKeysOptions := &vpcv1.ListKeysOptions{}
+	keys, _, err := keyPairHandler.VpcService.ListKeysWithContext(keyPairHandler.Ctx, listKeysOptions)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Failed to List Key err = %s", err.Error()))
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return make([]*irs.IID, 0), err
+
+	}
+	for {
+		for _, key := range keys.Keys {
+			var iid irs.IID
+
+			if key.ID != nil {
+				iid.SystemId = *key.ID
+			}
+			if key.Name != nil {
+				iid.NameId = *key.Name
+			}
+
+			iidList = append(iidList, &iid)
+		}
+		nextstr, _ := getKeyNextHref(keys.Next)
+		if nextstr != "" {
+			listKeysOptions := &vpcv1.ListKeysOptions{
+				Start: core.StringPtr(nextstr),
+			}
+			keys, _, err = keyPairHandler.VpcService.ListKeysWithContext(keyPairHandler.Ctx, listKeysOptions)
+			if err != nil {
+				err = errors.New(fmt.Sprintf("Failed to List Key err = %s", err.Error()))
+				cblogger.Error(err.Error())
+				LoggingError(hiscallInfo, err)
+				return make([]*irs.IID, 0), err
+			}
+		} else {
+			break
+		}
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
 }
