@@ -1495,6 +1495,10 @@ definitions:
             items:
               type: string
             type: array
+          TagList:
+            items:
+              $ref: '#/definitions/spider.KeyValue'
+            type: array
           VPCName:
             example: vpc-01
             type: string

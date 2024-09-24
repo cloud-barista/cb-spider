@@ -9860,6 +9860,12 @@ const docTemplate = `{
                                 "subnet-02"
                             ]
                         },
+                        "TagList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.KeyValue"
+                            }
+                        },
                         "VPCName": {
                             "type": "string",
                             "example": "vpc-01"
