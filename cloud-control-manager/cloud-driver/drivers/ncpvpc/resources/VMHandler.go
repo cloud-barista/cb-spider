@@ -222,7 +222,7 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 		ServerDescription:  			ncloud.String(vmReqInfo.ImageIID.SystemId), // Caution!!
 		LoginKeyName:           		ncloud.String(keyPairId),
 		VpcNo:    						ncloud.String(vpcId),
-		SubnetNo: 						ncloud.String(subnetId),
+		SubnetNo: 						ncloud.String(subnetId), // Apply Zone-based control!!
 
 		// ### Caution!! : AccessControlGroup은 NCPVPC console의 VPC > 'Network ACL'이 아닌 Server > 'ACG'에 해당됨.
 		NetworkInterfaceList: 		[]*vserver.NetworkInterfaceParameter{
@@ -279,7 +279,6 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 		return irs.VMInfo{}, newErr
 	} 
 	cblogger.Infof("DeleteInitScript Result : [%s]", *scriptDelResult)
-
 
 	// Register SecurityGroupInfo to DB
 	var keyValueList []irs.KeyValue
@@ -1327,10 +1326,9 @@ func (vmHandler *NcpVpcVMHandler) WaitToDelPublicIp(vmIID irs.IID) (irs.VMStatus
 			newErr := fmt.Errorf("Failed to Get the VM Status with the VM ID : [%s], [%v]", vmIID.SystemId, statusErr)
 			cblogger.Debug(newErr.Error())
 			return irs.VMStatus("Not Exist!!"), newErr
-		} else {
-			cblogger.Infof("Succeeded in Getting the VM Status of [%s]", vmIID.SystemId)
+		} else {			
+			cblogger.Infof("===> VM Status : [%s]", curStatus)
 		}
-		cblogger.Infof("===> VM Status : [%s]", curStatus)
 
 		switch string(curStatus) {
 		case "Suspended", "Terminating":

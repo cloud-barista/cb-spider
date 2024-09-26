@@ -105,15 +105,20 @@ func (imageHandler *NcpVpcImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	// 	spew.Dump(regionListResult.RegionList)
 	// }
 
+
 	imageReq := vserver.GetServerImageProductListRequest{
 		ProductCode:  	nil,
 		RegionCode: 	&ncpVpcRegion, // CAUTION!! : Searching VM Image Info by RegionCode (Not RegionNo)
 	}
 
+	// imageReq := vserver.GetServerImageListRequest{
+	// 	RegionCode: 	&ncpVpcRegion, // CAUTION!! : Searching VM Image Info by RegionCode (Not RegionNo)
+	// }
+
 	callLogStart := call.Start()
 	result, err := imageHandler.VMClient.V2Api.GetServerImageProductList(&imageReq)
+	// err := imageHandler.VMClient.V2Api.GetServerImageList(&imageReq)
 	if err != nil {
-		cblogger.Error(*result.ReturnMessage)
 		newErr := fmt.Errorf("Failed to Find Image list from NCP VPC : [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
