@@ -9,12 +9,10 @@
 package resources
 
 import (
-	"errors"
 	"fmt"
-
-	// "errors"
-	"strings"
+	"errors"
 	"time"
+	"strings"
 
 	// "github.com/davecgh/go-spew/spew"
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vpc"
@@ -70,10 +68,10 @@ func (vpcHandler *NcpVpcVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VP
 	var vpcInfo irs.VPCInfo
 	vpcReqName := strings.ToLower(vpcReqInfo.IId.NameId)
 
-	createVpcReq := vpc.CreateVpcRequest{
-		RegionCode:    &vpcHandler.RegionInfo.Region,
-		Ipv4CidrBlock: &vpcReqInfo.IPv4_CIDR,
-		VpcName:       &vpcReqName, // Allows only lowercase letters, numbers or special character "-". Start with an alphabet character.
+	createVpcReq := vpc.CreateVpcRequest {
+		RegionCode: 	&vpcHandler.RegionInfo.Region,
+		Ipv4CidrBlock:  &vpcReqInfo.IPv4_CIDR,
+		VpcName: 		&vpcReqName, // Allows only lowercase letters, numbers or special character "-". Start with an alphabet character.
 	}
 
 	callLogStart := call.Start()
@@ -82,7 +80,7 @@ func (vpcHandler *NcpVpcVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VP
 		newErr := fmt.Errorf("Failed to Create requested VPC : [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
-		return irs.VPCInfo{}, newErr
+		return irs.VPCInfo{}, newErr		
 	}
 	LoggingInfo(callLogInfo, callLogStart)
 
@@ -90,51 +88,51 @@ func (vpcHandler *NcpVpcVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VP
 		newErr := fmt.Errorf("Failed to Create any VPC. Neww VPC does Not Exist!!")
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
-		return irs.VPCInfo{}, newErr
+		return irs.VPCInfo{}, newErr		
 	} else {
 		cblogger.Infof("Succeeded in Creating the VPC!! : [%s]", vpcReqInfo.IId.NameId)
 	}
 
 	// $$$ Uses Default NetworkACL of the Created VPC $$$
 	/*
-		// Create NetworkACL
-		netAclReqName := vpcReqName  // vpcReqName : length of 30 from CB-Spider Server
-		// Caution!!
-		// # Only lower case letter(No upper case).
-		// # Length constraints: Minimum length of 3. Maximum length of 30.
+	// Create NetworkACL
+	netAclReqName := vpcReqName  // vpcReqName : length of 30 from CB-Spider Server
+	// Caution!! 
+	// # Only lower case letter(No upper case).
+	// # Length constraints: Minimum length of 3. Maximum length of 30.
 
-		createNetAclReq := vpc.CreateNetworkAclRequest {
-			RegionCode: 		&vpcHandler.RegionInfo.Region,
-			NetworkAclName:     &netAclReqName, // Allows only lowercase letters, numbers or special character "-". Start with an alphabet character.
-			VpcNo: 				vpcResult.VpcList[0].VpcNo,
-		}
+	createNetAclReq := vpc.CreateNetworkAclRequest {
+		RegionCode: 		&vpcHandler.RegionInfo.Region,
+		NetworkAclName:     &netAclReqName, // Allows only lowercase letters, numbers or special character "-". Start with an alphabet character.
+		VpcNo: 				vpcResult.VpcList[0].VpcNo,
+	}
 
-		netAclResult, err := vpcHandler.VPCClient.V2Api.CreateNetworkAcl(&createNetAclReq)
+	netAclResult, err := vpcHandler.VPCClient.V2Api.CreateNetworkAcl(&createNetAclReq)
+	if err != nil {
+		cblogger.Errorf("Failed to Create the NetworkACL : [%v]", err)
+		LoggingError(callLogInfo, err)
+		return irs.VPCInfo{}, err
+	}
+
+	if *netAclResult.TotalRows < 1 {
+		cblogger.Error("Failed to Create any NetworkACL!!")
+		return irs.VPCInfo{}, errors.New("Failed to Create any NetworkACL!!")
+	} else {
+		cblogger.Infof("Succeeded in Creating the NetworkACL!! : [%s]", netAclReqName)
+	}
+
+	// Create Subnet
+	for _, subnetInfo := range vpcReqInfo.SubnetInfoList {
+		_, err := vpcHandler.CreateSubnet(vpcResult.VpcList[0].VpcNo, netAclResult.NetworkAclList[0].NetworkAclNo, subnetInfo)
 		if err != nil {
-			cblogger.Errorf("Failed to Create the NetworkACL : [%v]", err)
-			LoggingError(callLogInfo, err)
-			return irs.VPCInfo{}, err
+			newErr := fmt.Errorf("Failed to Create New Subnet : [%v]", err)
+			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)
+			return irs.VPCInfo{}, newErr
 		}
-
-		if *netAclResult.TotalRows < 1 {
-			cblogger.Error("Failed to Create any NetworkACL!!")
-			return irs.VPCInfo{}, errors.New("Failed to Create any NetworkACL!!")
-		} else {
-			cblogger.Infof("Succeeded in Creating the NetworkACL!! : [%s]", netAclReqName)
-		}
-
-		// Create Subnet
-		for _, subnetInfo := range vpcReqInfo.SubnetInfoList {
-			_, err := vpcHandler.CreateSubnet(vpcResult.VpcList[0].VpcNo, netAclResult.NetworkAclList[0].NetworkAclNo, subnetInfo)
-			if err != nil {
-				newErr := fmt.Errorf("Failed to Create New Subnet : [%v]", err)
-				cblogger.Error(newErr.Error())
-				LoggingError(callLogInfo, newErr)
-				return irs.VPCInfo{}, newErr
-			}
-		}
+	}
 	*/
-
+	
 	newVpcIID := irs.IID{SystemId: *vpcResult.VpcList[0].VpcNo}
 
 	cblogger.Infof("# Waitting while Creating New VPC and Default NetworkACL!!")
@@ -174,8 +172,8 @@ func (vpcHandler *NcpVpcVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	InitLog() // Caution!!
 	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, "ListVPC()", "ListVPC()")
 
-	vpcListReq := vpc.GetVpcListRequest{
-		RegionCode: &vpcHandler.RegionInfo.Region,
+	vpcListReq := vpc.GetVpcListRequest {
+		RegionCode: 	&vpcHandler.RegionInfo.Region,
 	}
 
 	// cblogger.Infof("vpcListReq Ready!!")
@@ -253,9 +251,9 @@ func (vpcHandler *NcpVpcVPCHandler) GetNcpVpcInfo(vpcId *string) (*vpc.Vpc, erro
 		return nil, newErr
 	}
 
-	vpcInfoReq := vpc.GetVpcDetailRequest{
+	vpcInfoReq := vpc.GetVpcDetailRequest {
 		RegionCode: &vpcHandler.RegionInfo.Region,
-		VpcNo:      vpcId,
+		VpcNo: 		vpcId,
 	}
 
 	callLogStart := call.Start()
@@ -298,7 +296,7 @@ func (vpcHandler *NcpVpcVPCHandler) GetSubnet(sunbnetIID irs.IID) (irs.SubnetInf
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.SubnetInfo{}, newErr
-	}
+	}	
 
 	subnetInfo := vpcHandler.MappingSubnetInfo(ncpSubnetInfo)
 	return *subnetInfo, nil
@@ -327,7 +325,7 @@ func (vpcHandler *NcpVpcVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	}
 
 	cblogger.Infof("VPC NameId to Delete [%s]", vpcInfo.IId.NameId)
-
+	
 	// Get SubnetList to Delete
 	subnetInfoList, err := vpcHandler.ListSubnet(&vpcIID.SystemId)
 	if err != nil {
@@ -342,9 +340,9 @@ func (vpcHandler *NcpVpcVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	// Remove All Subnets belonging to the VPC
 	for _, subnet := range subnetInfoList {
 		// Remove the Subnet
-		delReq := vpc.DeleteSubnetRequest{
-			RegionCode: &vpcHandler.RegionInfo.Region,
-			SubnetNo:   &subnet.IId.SystemId,
+		delReq := vpc.DeleteSubnetRequest {
+			RegionCode: 	&vpcHandler.RegionInfo.Region,
+			SubnetNo: 		&subnet.IId.SystemId,
 		}
 
 		callLogStart := call.Start()
@@ -376,9 +374,9 @@ func (vpcHandler *NcpVpcVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	cblogger.Infof("===> # Status of Subnet [%s] : [%s]", lastSubentIID.SystemId, subnetStatus)
 
 	// Delete the VPC
-	delReq := vpc.DeleteVpcRequest{
-		RegionCode: &vpcHandler.RegionInfo.Region,
-		VpcNo:      &vpcIID.SystemId,
+	delReq := vpc.DeleteVpcRequest {
+		RegionCode: 	&vpcHandler.RegionInfo.Region,
+		VpcNo: 			&vpcIID.SystemId,
 	}
 
 	callLogStart := call.Start()
@@ -502,7 +500,7 @@ func (vpcHandler *NcpVpcVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.I
 		if strings.EqualFold(subnetInfo.IId.SystemId, subnetIID.SystemId) {
 			subnetName = subnetInfo.IId.NameId
 			break
-		}
+		}		
 	}
 
 	if strings.EqualFold(subnetName, "") {
@@ -510,9 +508,9 @@ func (vpcHandler *NcpVpcVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.I
 	}
 
 	// Remove the Subnet
-	delReq := vpc.DeleteSubnetRequest{
-		RegionCode: &vpcHandler.RegionInfo.Region,
-		SubnetNo:   &subnetIID.SystemId,
+	delReq := vpc.DeleteSubnetRequest {
+		RegionCode: 	&vpcHandler.RegionInfo.Region,
+		SubnetNo: 		&subnetIID.SystemId,
 	}
 
 	callLogStart := call.Start()
@@ -530,7 +528,7 @@ func (vpcHandler *NcpVpcVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.I
 
 func (vpcHandler *NcpVpcVPCHandler) CreateSubnet(vpcIID irs.IID, netAclNo *string, subnetUsageType *string, subnetReqInfo irs.SubnetInfo) (*vpc.Subnet, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called CreateSubnet()!")
-
+	
 	InitLog() // Caution!!
 	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, subnetReqInfo.IId.NameId, "CreateSubnet()")
 
@@ -553,15 +551,15 @@ func (vpcHandler *NcpVpcVPCHandler) CreateSubnet(vpcIID irs.IID, netAclNo *strin
 	subnetReqName := strings.ToLower(subnetReqInfo.IId.NameId)
 	subnetTypeCode := "PUBLIC" // 'PUBLIC' (for Internet Gateway) | 'PRIVATE'
 	// subnetUsageType : 'GEN' (general) | 'LOADB' (Load balancer only) | 'BM' (Bare metal only)
-	createSubnetReq := vpc.CreateSubnetRequest{
-		RegionCode:     &vpcHandler.RegionInfo.Region,
+	createSubnetReq := vpc.CreateSubnetRequest {
+		RegionCode: 	&vpcHandler.RegionInfo.Region,
 		SubnetTypeCode: &subnetTypeCode,
-		UsageTypeCode:  subnetUsageType,
-		NetworkAclNo:   netAclNo,
-		Subnet:         &subnetReqInfo.IPv4_CIDR,
+		UsageTypeCode: 	subnetUsageType,	
+		NetworkAclNo: 	netAclNo,
+		Subnet:			&subnetReqInfo.IPv4_CIDR,
 		SubnetName:     &subnetReqName, // Allows only lowercase letters, numbers or special character "-". Start with an alphabet character.
-		VpcNo:          &vpcIID.SystemId,
-		ZoneCode:       &vpcHandler.RegionInfo.Zone,
+		VpcNo: 			&vpcIID.SystemId,
+		ZoneCode: 		&subnetReqInfo.Zone,
 	}
 
 	callLogStart := call.Start()
@@ -597,9 +595,9 @@ func (vpcHandler *NcpVpcVPCHandler) GetNcpSubnetInfo(sunbnetId *string) (*vpc.Su
 		return nil, newErr
 	}
 
-	subnetInfoReq := vpc.GetSubnetDetailRequest{
+	subnetInfoReq := vpc.GetSubnetDetailRequest {
 		RegionCode: &vpcHandler.RegionInfo.Region,
-		SubnetNo:   sunbnetId,
+		SubnetNo: 	sunbnetId,
 	}
 
 	callLogStart := call.Start()
@@ -628,9 +626,9 @@ func (vpcHandler *NcpVpcVPCHandler) ListSubnet(vpcNo *string) ([]*irs.SubnetInfo
 	InitLog() // Caution!!
 	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, "ListSubnet()", "ListSubnet()")
 
-	subnetListReq := vpc.GetSubnetListRequest{
+	subnetListReq := vpc.GetSubnetListRequest {
 		RegionCode: &vpcHandler.RegionInfo.Region,
-		VpcNo:      vpcNo,
+		VpcNo: 		vpcNo,
 	}
 
 	cblogger.Infof("subnetListReq Ready!!")
@@ -648,7 +646,7 @@ func (vpcHandler *NcpVpcVPCHandler) ListSubnet(vpcNo *string) ([]*irs.SubnetInfo
 	if len(result.SubnetList) < 1 {
 		cblogger.Infof("### The VPC has No Subnet!!")
 	} else {
-		cblogger.Infof("Succeeded in Getting SubnetList!! : ")
+		cblogger.Infof("Succeeded in Getting SubnetList!! : ")		
 		for _, subnet := range result.SubnetList { // To Get Subnet info list
 			subnetInfo := vpcHandler.MappingSubnetInfo(subnet)
 			subnetInfoList = append(subnetInfoList, subnetInfo)
@@ -674,9 +672,9 @@ func (vpcHandler *NcpVpcVPCHandler) GetDefaultNetworkAclNo(vpcIID irs.IID) (*str
 	// vpcInfo, err := vpcHandler.GetVPC(vpcIID)  	// Check if the VPC exists
 
 	// Get the Default NetworkACL of the VPC
-	getReq := vpc.GetNetworkAclListRequest{
-		RegionCode: &vpcHandler.RegionInfo.Region,
-		VpcNo:      &vpcIID.SystemId,
+	getReq := vpc.GetNetworkAclListRequest {
+		RegionCode: 	&vpcHandler.RegionInfo.Region,
+		VpcNo: 			&vpcIID.SystemId,
 	}
 
 	callLogStart := call.Start()
@@ -694,7 +692,7 @@ func (vpcHandler *NcpVpcVPCHandler) GetDefaultNetworkAclNo(vpcIID irs.IID) (*str
 		cblogger.Info("# NetworkACL does Not Exist!!")
 	} else {
 		for _, netACL := range netAclResult.NetworkAclList {
-			if strings.Contains(*netACL.NetworkAclName, "default-network-acl") { // When Contains "default-network-acl" in NetworkAclName
+			if strings.Contains(*netACL.NetworkAclName, "default-network-acl") {  // When Contains "default-network-acl" in NetworkAclName
 				netACLNo = netACL.NetworkAclNo
 				break
 			}
@@ -719,7 +717,7 @@ func (vpcHandler *NcpVpcVPCHandler) MappingVpcInfo(vpc *vpc.Vpc) (*irs.VPCInfo, 
 			NameId:   *vpc.VpcName,
 			SystemId: *vpc.VpcNo,
 		},
-		IPv4_CIDR: *vpc.Ipv4CidrBlock,
+		IPv4_CIDR:  *vpc.Ipv4CidrBlock,
 	}
 
 	keyValueList := []irs.KeyValue{
@@ -738,10 +736,10 @@ func (vpcHandler *NcpVpcVPCHandler) MappingVpcInfo(vpc *vpc.Vpc) (*irs.VPCInfo, 
 	var subnetInfoList []irs.SubnetInfo
 
 	if len(subnetList) > 0 {
-		for _, subnetInfo := range subnetList { // Ref) var subnetList []*irs.SubnetInfo
+		for _, subnetInfo := range subnetList {    // Ref) var subnetList []*irs.SubnetInfo
 			cblogger.Infof("# Subnet NameId : [%s]", subnetInfo.IId.NameId)
 			subnetInfoList = append(subnetInfoList, *subnetInfo)
-		}
+		}	
 		vpcInfo.SubnetInfoList = subnetInfoList
 	}
 
@@ -749,16 +747,16 @@ func (vpcHandler *NcpVpcVPCHandler) MappingVpcInfo(vpc *vpc.Vpc) (*irs.VPCInfo, 
 	// spew.Dump(vpcInfo.SubnetInfoList)
 
 	/*
-		// Get the Default NetworkACL of the VPC
-		netAclNo, getNoErr := vpcHandler.GetDefaultNetworkAclNo(irs.IID{SystemId: *vpc.VpcNo})
-		if getNoErr != nil {
-			newErr := fmt.Errorf("Failed to Get Network ACL No of the VPC : [%v]", getNoErr)
-			cblogger.Error(newErr.Error())
-			return nil, newErr
-		}
+	// Get the Default NetworkACL of the VPC
+	netAclNo, getNoErr := vpcHandler.GetDefaultNetworkAclNo(irs.IID{SystemId: *vpc.VpcNo})
+	if getNoErr != nil {
+		newErr := fmt.Errorf("Failed to Get Network ACL No of the VPC : [%v]", getNoErr)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
 
-		keyValue := irs.KeyValue{Key: "DefaultNetworkACLNo", Value: *netAclNo}
-		vpcInfo.KeyValueList = append(vpcInfo.KeyValueList, keyValue)
+	keyValue := irs.KeyValue{Key: "DefaultNetworkACLNo", Value: *netAclNo}
+	vpcInfo.KeyValueList = append(vpcInfo.KeyValueList, keyValue)
 	*/
 
 	return &vpcInfo, nil
@@ -769,18 +767,19 @@ func (vpcHandler *NcpVpcVPCHandler) MappingSubnetInfo(subnet *vpc.Subnet) *irs.S
 	// spew.Dump(*subnet)
 
 	// Subnet info mapping
-	subnetInfo := irs.SubnetInfo{
+	subnetInfo := irs.SubnetInfo {
 		IId: irs.IID{
 			NameId:   *subnet.SubnetName,
 			SystemId: *subnet.SubnetNo,
 		},
-		IPv4_CIDR: *subnet.Subnet,
+		Zone: 		  *subnet.ZoneCode,
+		IPv4_CIDR:    *subnet.Subnet,
 	}
 
 	keyValueList := []irs.KeyValue{
-		{Key: "ZoneCode", Value: *subnet.ZoneCode},
+		// {Key: "ZoneCode", Value: *subnet.ZoneCode},
 		{Key: "SubnetStatus", Value: *subnet.SubnetStatus.Code},
-		{Key: "SubnetType", Value: *subnet.SubnetType.Code},
+		{Key: "SubnetType", Value: *subnet.SubnetType.Code},	
 		{Key: "UsageType", Value: *subnet.UsageType.Code},
 		{Key: "NetworkACLNo", Value: *subnet.NetworkAclNo},
 		{Key: "CreateDate", Value: *subnet.CreateDate},
@@ -850,11 +849,11 @@ func (vpcHandler *NcpVpcVPCHandler) WaitForDeleteSubnet(vpcNo string, subnetIID 
 			} else {
 				cblogger.Infof("Succeeded in Getting the Subnet Info of [%s]", subnetIID.SystemId)
 			}
-
+	
 			subnetStatus := *ncpSubnetInfo.SubnetStatus.Code
 			cblogger.Infof("\n### Subnet Status [%s] : ", subnetStatus)
 
-			if strings.EqualFold(subnetStatus, "TERMTING") || strings.EqualFold(subnetStatus, "CREATING") {
+			if strings.EqualFold(subnetStatus, "TERMTING") || strings.EqualFold(subnetStatus, "CREATING"){
 				curRetryCnt++
 				cblogger.Infof("The Suntnet is still [%s], so wait for a second more before Deleting VPC.", subnetStatus)
 				time.Sleep(time.Second * 3)
@@ -913,6 +912,49 @@ func (vpcHandler *NcpVpcVPCHandler) WaitForCreateSubnet(subnetId *string) (strin
 		}
 	}
 }
+
+func (vpcHandler *NcpVpcVPCHandler) getSubnetZone(vpcIID irs.IID, subnetIID irs.IID) (string, error) {
+	cblogger.Info("NCP VPC cloud driver: called getSubnetZone()!!")
+
+	if strings.EqualFold(vpcIID.SystemId, "") && strings.EqualFold(vpcIID.NameId, ""){
+		newErr := fmt.Errorf("Invalid VPC Id!!")
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
+
+	if strings.EqualFold(subnetIID.SystemId, "") && strings.EqualFold(subnetIID.NameId, ""){
+		newErr := fmt.Errorf("Invalid Subnet Id!!")
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
+
+	 // Get the VPC information
+	 vpcInfo, err := vpcHandler.GetVPC(vpcIID)
+	 if err != nil {
+		newErr := fmt.Errorf("Failed to Get the VPC Info : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	 }
+	//  cblogger.Info("\n\n### vpcInfo : ")
+	//  spew.Dump(vpcInfo)
+	//  cblogger.Info("\n")
+ 	 
+	// Get the Zone info of the specified Subnet
+	var subnetZone string
+	for _, subnet := range vpcInfo.SubnetInfoList {
+		if strings.EqualFold(subnet.IId.SystemId, subnetIID.SystemId) {
+			subnetZone = subnet.Zone
+			break
+		}
+	}
+	if strings.EqualFold(subnetZone, "") {
+		newErr := fmt.Errorf("Failed to Get the Zone info of the specified Subnet!!")
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
+	return subnetZone, nil
+}
+
 
 func (vpcHandler *NcpVpcVPCHandler) ListIID() ([]*irs.IID, error) {
 	cblogger.Info("Cloud driver: called ListIID()!!")

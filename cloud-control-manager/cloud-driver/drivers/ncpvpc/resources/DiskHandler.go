@@ -11,7 +11,6 @@
 package resources
 
 import (
-	// "errors"
 	"errors"
 	"fmt"
 	// "io/ioutil"
@@ -19,7 +18,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
 	// "github.com/davecgh/go-spew/spew"
 
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
@@ -31,18 +29,18 @@ import (
 )
 
 const (
-	DefaultDiskSize string = "10"
+	DefaultDiskSize	string = "10"
 )
 
 type NcpVpcDiskHandler struct {
-	RegionInfo idrv.RegionInfo
-	VMClient   *vserver.APIClient
+	RegionInfo    idrv.RegionInfo
+	VMClient      *vserver.APIClient
 }
 
 // Caution : Incase of NCP VPC, there must be a created VM to create a new disk volume.
 func (diskHandler *NcpVpcDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.DiskInfo, error) {
-	cblogger.Info("NCP VPC Driver: called CreateDisk()")
-	InitLog()                                                                                                         // Caution!!
+	cblogger.Info("NCP VPC Driver: called CreateDisk()")	
+	InitLog() // Caution!!
 	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, diskReqInfo.IId.NameId, "CreateDisk()") // HisCall logging
 
 	if strings.EqualFold(diskReqInfo.IId.NameId, "") {
@@ -51,7 +49,7 @@ func (diskHandler *NcpVpcDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.
 		LoggingError(callLogInfo, newErr)
 		return irs.DiskInfo{}, newErr
 	}
-
+	
 	// To get created VM info.
 	instanceList, err := diskHandler.GetNcpVMList()
 	if err != nil {
@@ -61,19 +59,19 @@ func (diskHandler *NcpVpcDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.
 		return irs.DiskInfo{}, newErr
 	}
 
-	instanceNo := *instanceList[0].ServerInstanceNo // InstanceNo of any VM on the Zone
+	instanceNo := *instanceList[0].ServerInstanceNo  // InstanceNo of any VM on the Zone 
 	cblogger.Infof("# instanceNo : [%v]", instanceNo)
 
-	reqDiskType := diskReqInfo.DiskType // Option : 'default', 'SSD' or 'HDD'
-	reqDiskSize := diskReqInfo.DiskSize // Range : 10~2000(GB)
+	reqDiskType := diskReqInfo.DiskType  // Option : 'default', 'SSD' or 'HDD'
+	reqDiskSize := diskReqInfo.DiskSize  // Range : 10~2000(GB)
 
 	if strings.EqualFold(reqDiskType, "") || strings.EqualFold(reqDiskType, "default") {
-		reqDiskType = "SSD" // In case, Volume Type is not specified.
-	}
+		reqDiskType = "SSD"  // In case, Volume Type is not specified.
+	}		
 	if strings.EqualFold(reqDiskSize, "") || strings.EqualFold(reqDiskSize, "default") {
-		reqDiskSize = DefaultDiskSize // In case, Volume Size is not specified.
-	}
-
+		reqDiskSize = DefaultDiskSize  // In case, Volume Size is not specified.
+	} 
+	
 	// Covert String to Int32
 	i, err := strconv.ParseInt(reqDiskSize, 10, 32)
 	if err != nil {
@@ -81,19 +79,27 @@ func (diskHandler *NcpVpcDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.
 	}
 	reqDiskSizeInt := int32(i)
 
-	if reqDiskSizeInt < 10 || reqDiskSizeInt > 2000 { // Range : 10~2000(GB)
+	if reqDiskSizeInt < 10 || reqDiskSizeInt > 2000 {   // Range : 10~2000(GB)
 		newErr := fmt.Errorf("Invalid Disk Size. Disk Size Must be between 10 and 2000(GB).")
 		cblogger.Error(newErr.Error())
-		return irs.DiskInfo{}, newErr
+		return irs.DiskInfo{}, newErr		
+	}
+
+	// For Zone-based control!!
+	var reqZoneId string
+	if strings.EqualFold(diskReqInfo.Zone, "") {
+		reqZoneId = diskHandler.RegionInfo.Zone
+	} else {
+		reqZoneId = diskReqInfo.Zone
 	}
 
 	storageReq := vserver.CreateBlockStorageInstanceRequest{
-		RegionCode:                     ncloud.String(diskHandler.RegionInfo.Region),
-		BlockStorageName:               ncloud.String(diskReqInfo.IId.NameId),
-		BlockStorageSize:               &reqDiskSizeInt, // *** Required (Not Optional)
+		RegionCode: 					ncloud.String(diskHandler.RegionInfo.Region),
+		BlockStorageName: 				ncloud.String(diskReqInfo.IId.NameId),
+		BlockStorageSize: 				&reqDiskSizeInt,						// *** Required (Not Optional)
 		BlockStorageDiskDetailTypeCode: ncloud.String(reqDiskType),
-		ServerInstanceNo:               ncloud.String(instanceNo), // *** Required (Not Optional)
-		ZoneCode:                       ncloud.String(diskHandler.RegionInfo.Zone),
+		ServerInstanceNo: 				ncloud.String(instanceNo),				// *** Required (Not Optional)
+		ZoneCode: 						ncloud.String(reqZoneId), // Apply Zone-based control!!
 	}
 
 	callLogStart := call.Start()
@@ -140,7 +146,7 @@ func (diskHandler *NcpVpcDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.
 	// Caution!!
 	// Incase of NCP VPC, there must be a created VM to create a new disk volume.
 	// Therefore, the status of the new disk volume is 'Attached' after creation.
-	// ### Need to be 'Available' status after disk creation process like other CSP (with detachment).
+    // ### Need to be 'Available' status after disk creation process like other CSP (with detachment). 
 	isDetached, err := diskHandler.DetachDisk(newDiskIID, irs.IID{SystemId: instanceNo})
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Detach the Disk Volume : [%v] ", err)
@@ -164,11 +170,11 @@ func (diskHandler *NcpVpcDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.
 
 func (diskHandler *NcpVpcDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	cblogger.Info("NCP VPC Driver: called ListDisk()")
-	InitLog()                                                                                             // Caution!!
+	InitLog() // Caution!!
 	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, "ListDisk()", "ListDisk()") // HisCall logging
 
 	storageReq := vserver.GetBlockStorageInstanceListRequest{
-		RegionCode: ncloud.String(diskHandler.RegionInfo.Region), // $$$ Caution!!
+		RegionCode: ncloud.String(diskHandler.RegionInfo.Region),   // $$$ Caution!!
 	}
 
 	callLogStart := call.Start()
@@ -203,7 +209,7 @@ func (diskHandler *NcpVpcDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 
 func (diskHandler *NcpVpcDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, error) {
 	cblogger.Info("NCP VPC Driver: called GetDisk()")
-	InitLog()                                                                                                // Caution!!
+	InitLog() // Caution!!
 	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, diskIID.SystemId, "GetDisk()") // HisCall logging
 
 	if strings.EqualFold(diskIID.SystemId, "") {
@@ -233,9 +239,9 @@ func (diskHandler *NcpVpcDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, er
 
 func (diskHandler *NcpVpcDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) (bool, error) {
 	cblogger.Info("NCP VPC Driver: called ChangeDiskSize()")
-	InitLog()                                                                                                       // Caution!!
+	InitLog() // Caution!!
 	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, diskIID.SystemId, "ChangeDiskSize()") // HisCall logging
-
+	
 	if strings.EqualFold(diskIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid Disk SystemId!!")
 		cblogger.Error(newErr.Error())
@@ -245,10 +251,10 @@ func (diskHandler *NcpVpcDiskHandler) ChangeDiskSize(diskIID irs.IID, size strin
 
 	intSize, _ := strconv.Atoi(size)
 	int32Size := int32(intSize)
-	changeReq := vserver.ChangeBlockStorageVolumeSizeRequest{
-		RegionCode:             ncloud.String(diskHandler.RegionInfo.Region),
+	changeReq := vserver.ChangeBlockStorageVolumeSizeRequest	{
+		RegionCode: 			ncloud.String(diskHandler.RegionInfo.Region),
 		BlockStorageInstanceNo: ncloud.String(diskIID.SystemId),
-		BlockStorageSize:       &int32Size,
+		BlockStorageSize: 		&int32Size,
 	}
 
 	callLogStart := call.Start()
@@ -269,14 +275,14 @@ func (diskHandler *NcpVpcDiskHandler) ChangeDiskSize(diskIID irs.IID, size strin
 	} else {
 		cblogger.Info("Succeeded in Changing the Block Storage Volume Size.")
 	}
-	cblogger.Infof("\n# Chaneged Size : [%s](GB)", strconv.FormatInt(*result.BlockStorageInstanceList[0].BlockStorageSize/(1024*1024*1024), 10))
+	cblogger.Infof("\n# Chaneged Size : [%s](GB)", strconv.FormatInt(*result.BlockStorageInstanceList[0].BlockStorageSize/(1024*1024*1024), 10))	
 
 	return true, nil
 }
 
 func (diskHandler *NcpVpcDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 	cblogger.Info("NCP VPC Driver: called DeleteDisk()")
-	InitLog()                                                                                                   // Caution!!
+	InitLog() // Caution!!
 	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, diskIID.SystemId, "DeleteDisk()") // HisCall logging
 
 	if strings.EqualFold(diskIID.SystemId, "") {
@@ -301,9 +307,9 @@ func (diskHandler *NcpVpcDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) 
 		return false, newErr
 	}
 
-	storageNoList := []*string{ncloud.String(diskIID.SystemId)}
-	delReq := vserver.DeleteBlockStorageInstancesRequest{
-		RegionCode:                 ncloud.String(diskHandler.RegionInfo.Region),
+	storageNoList := []*string{ncloud.String(diskIID.SystemId),}
+	delReq := vserver.DeleteBlockStorageInstancesRequest	{
+		RegionCode: 				ncloud.String(diskHandler.RegionInfo.Region),
 		BlockStorageInstanceNoList: storageNoList,
 	}
 
@@ -331,7 +337,7 @@ func (diskHandler *NcpVpcDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) 
 
 func (diskHandler *NcpVpcDiskHandler) AttachDisk(diskIID irs.IID, vmIID irs.IID) (irs.DiskInfo, error) {
 	cblogger.Info("NCP VPC Driver: called AttachDisk()")
-	InitLog()                                                                                                   // Caution!!
+	InitLog() // Caution!!
 	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, diskIID.SystemId, "AttachDisk()") // HisCall logging
 
 	if strings.EqualFold(diskIID.SystemId, "") {
@@ -343,9 +349,8 @@ func (diskHandler *NcpVpcDiskHandler) AttachDisk(diskIID irs.IID, vmIID irs.IID)
 		newErr := fmt.Errorf("Invalid Disk SystemId!!")
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
-		return irs.DiskInfo{}, newErr
-	}
-
+		return irs.DiskInfo{}, newErr	}
+	
 	curStatus, err := diskHandler.GetDiskStatus(diskIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Disk Status : [%v] ", err)
@@ -359,9 +364,9 @@ func (diskHandler *NcpVpcDiskHandler) AttachDisk(diskIID irs.IID, vmIID irs.IID)
 	}
 
 	attachReq := vserver.AttachBlockStorageInstanceRequest{
-		RegionCode:             ncloud.String(diskHandler.RegionInfo.Region),
-		ServerInstanceNo:       ncloud.String(vmIID.SystemId),
-		BlockStorageInstanceNo: ncloud.String(diskIID.SystemId),
+		RegionCode: 				ncloud.String(diskHandler.RegionInfo.Region),
+		ServerInstanceNo: 			ncloud.String(vmIID.SystemId),
+		BlockStorageInstanceNo: 	ncloud.String(diskIID.SystemId),
 	}
 
 	callLogStart := call.Start()
@@ -405,7 +410,7 @@ func (diskHandler *NcpVpcDiskHandler) AttachDisk(diskIID irs.IID, vmIID irs.IID)
 
 func (diskHandler *NcpVpcDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) (bool, error) {
 	cblogger.Info("NCP VPC Driver: called DetachDisk()")
-	InitLog()                                                                                                   // Caution!!
+	InitLog() // Caution!!
 	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, diskIID.SystemId, "DetachDisk()") // HisCall logging
 
 	if strings.EqualFold(diskIID.SystemId, "") {
@@ -439,9 +444,9 @@ func (diskHandler *NcpVpcDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.II
 		return false, newErr
 	}
 
-	storageNoList := []*string{ncloud.String(diskIID.SystemId)}
+	storageNoList := []*string{ncloud.String(diskIID.SystemId),}
 	detachReq := vserver.DetachBlockStorageInstancesRequest{
-		RegionCode:                 ncloud.String(diskHandler.RegionInfo.Region),
+		RegionCode: 				ncloud.String(diskHandler.RegionInfo.Region),
 		BlockStorageInstanceNoList: storageNoList,
 	}
 
@@ -487,7 +492,7 @@ func (diskHandler *NcpVpcDiskHandler) GetNcpDiskInfo(diskIID irs.IID) (*vserver.
 	}
 
 	storageReq := vserver.GetBlockStorageInstanceDetailRequest{
-		RegionCode:             ncloud.String(diskHandler.RegionInfo.Region),
+		RegionCode: 			ncloud.String(diskHandler.RegionInfo.Region),
 		BlockStorageInstanceNo: ncloud.String(diskIID.SystemId),
 	}
 
@@ -503,7 +508,7 @@ func (diskHandler *NcpVpcDiskHandler) GetNcpDiskInfo(diskIID irs.IID) (*vserver.
 		return nil, newErr
 	} else {
 		cblogger.Info("Succeeded in Getting NCP VPC Block Storage Info.")
-	}
+	}	
 	return result.BlockStorageInstanceList[0], nil
 }
 
@@ -560,7 +565,7 @@ func (diskHandler *NcpVpcDiskHandler) WaitForDiskAttachment(diskIID irs.IID) (ir
 		cblogger.Infof("===> Disk Status : [%s]", string(curStatus))
 
 		switch string(curStatus) {
-		case string(irs.DiskCreating), string(irs.DiskAvailable), string(irs.DiskDeleting), string(irs.DiskError), "Unknown":
+		case string(irs.DiskCreating), string(irs.DiskAvailable), string(irs.DiskDeleting), string(irs.DiskError), "Unknown" :
 			curRetryCnt++
 			cblogger.Infof("The Disk is still [%s], so wait for a second more during the Disk 'Attachment'.", string(curStatus))
 			time.Sleep(time.Second * 2)
@@ -594,7 +599,7 @@ func (diskHandler *NcpVpcDiskHandler) WaitForDiskDetachment(diskIID irs.IID) (ir
 		cblogger.Infof("===> Disk Status : [%s]", string(curStatus))
 
 		switch string(curStatus) {
-		case string(irs.DiskCreating), string(irs.DiskAttached), string(irs.DiskDeleting), string(irs.DiskError), "Detaching", "Unknown":
+		case string(irs.DiskCreating), string(irs.DiskAttached), string(irs.DiskDeleting), string(irs.DiskError), "Detaching", "Unknown" :
 			curRetryCnt++
 			cblogger.Infof("The Disk is still [%s], so wait for a second more during the Disk 'Detachment'.", string(curStatus))
 			time.Sleep(time.Second * 2)
@@ -652,19 +657,20 @@ func (diskHandler *NcpVpcDiskHandler) MappingDiskInfo(storage vserver.BlockStora
 
 	diskInfo := irs.DiskInfo{
 		IId: irs.IID{
-			NameId:   ncloud.StringValue(storage.BlockStorageName),
-			SystemId: ncloud.StringValue(storage.BlockStorageInstanceNo),
+			NameId: 	ncloud.StringValue(storage.BlockStorageName),
+			SystemId: 	ncloud.StringValue(storage.BlockStorageInstanceNo),
 		},
+		Zone:		 ncloud.StringValue(storage.ZoneCode),
 		DiskSize:    strconv.FormatInt((*storage.BlockStorageSize)/(1024*1024*1024), 10),
-		Status:      ConvertDiskStatus(ncloud.StringValue(storage.BlockStorageInstanceStatusName)), // Not BlockStorageInstanceStatus.Code
+		Status:		 ConvertDiskStatus(ncloud.StringValue(storage.BlockStorageInstanceStatusName)), // Not BlockStorageInstanceStatus.Code
 		CreatedTime: convertedTime,
-		DiskType:    ncloud.StringValue(storage.BlockStorageDiskDetailType.Code),
+		DiskType: 	 ncloud.StringValue(storage.BlockStorageDiskDetailType.Code),
 	}
 
 	if strings.EqualFold(ncloud.StringValue(storage.BlockStorageInstanceStatusName), "attached") {
 		vmHandler := NcpVpcVMHandler{
-			RegionInfo: diskHandler.RegionInfo,
-			VMClient:   diskHandler.VMClient,
+			RegionInfo:  	diskHandler.RegionInfo,
+			VMClient:    	diskHandler.VMClient,
 		}
 
 		vmInfo, err := vmHandler.GetNcpVMInfo(ncloud.StringValue(storage.ServerInstanceNo))
@@ -675,19 +681,19 @@ func (diskHandler *NcpVpcDiskHandler) MappingDiskInfo(storage vserver.BlockStora
 		}
 
 		diskInfo.OwnerVM = irs.IID{
-			NameId:   ncloud.StringValue(vmInfo.ServerName),
-			SystemId: ncloud.StringValue(storage.ServerInstanceNo),
+			NameId: 	ncloud.StringValue(vmInfo.ServerName),
+			SystemId: 	ncloud.StringValue(storage.ServerInstanceNo),
 		}
 	}
 
 	keyValueList := []irs.KeyValue{
-		{Key: "DeviceName", Value: ncloud.StringValue(storage.DeviceName)},
-		{Key: "ZoneCode", Value: ncloud.StringValue(storage.ZoneCode)},
-		{Key: "BlockStorageType", Value: ncloud.StringValue(storage.BlockStorageType.CodeName)},
-		{Key: "BlockStorageDiskType", Value: ncloud.StringValue(storage.BlockStorageDiskType.CodeName)},
-		{Key: "MaxIOPS", Value: strconv.FormatInt(int64(*storage.MaxIopsThroughput), 10)},
-		{Key: "IsReturnProtection", Value: strconv.FormatBool(*storage.IsReturnProtection)},
-		{Key: "IsEncryptedVolume", Value: strconv.FormatBool(*storage.IsEncryptedVolume)},
+		{Key: "DeviceName",   			Value: ncloud.StringValue(storage.DeviceName)},				
+		// {Key: "ZoneCode",   			Value: ncloud.StringValue(storage.ZoneCode)},		 
+		{Key: "BlockStorageType",   	Value: ncloud.StringValue(storage.BlockStorageType.CodeName)},
+		{Key: "BlockStorageDiskType",  	Value: ncloud.StringValue(storage.BlockStorageDiskType.CodeName)},		
+		{Key: "MaxIOPS",  				Value: strconv.FormatInt(int64(*storage.MaxIopsThroughput), 10)},
+		{Key: "IsReturnProtection", 	Value: strconv.FormatBool(*storage.IsReturnProtection)},
+		{Key: "IsEncryptedVolume", 		Value: strconv.FormatBool(*storage.IsEncryptedVolume)},		
 	}
 	diskInfo.KeyValueList = keyValueList
 
@@ -696,7 +702,7 @@ func (diskHandler *NcpVpcDiskHandler) MappingDiskInfo(storage vserver.BlockStora
 
 func ConvertDiskStatus(diskStatus string) irs.DiskStatus {
 	cblogger.Info("NCP VPC Cloud Driver: called ConvertDiskStatus()")
-
+	
 	var resultStatus irs.DiskStatus
 	switch strings.ToLower(diskStatus) {
 	case "creating":
@@ -710,7 +716,7 @@ func ConvertDiskStatus(diskStatus string) irs.DiskStatus {
 	case "error":
 		resultStatus = irs.DiskError
 	case "detaching":
-		resultStatus = "Detaching"
+		resultStatus = "Detaching"		
 	default:
 		resultStatus = "Unknown"
 	}
@@ -724,7 +730,7 @@ func (diskHandler *NcpVpcDiskHandler) GetNcpVMList() ([]*vserver.ServerInstance,
 	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, "GetNcpVMList()", "GetNcpVMList()")
 
 	instanceReq := vserver.GetServerInstanceListRequest{
-		RegionCode: &diskHandler.RegionInfo.Region,
+		RegionCode: 		&diskHandler.RegionInfo.Region,
 	}
 
 	callLogStart := call.Start()
@@ -762,7 +768,7 @@ func (diskHandler *NcpVpcDiskHandler) IsBasicBlockStorage(diskIID irs.IID) (bool
 		return false, newErr
 	}
 
-	if strings.EqualFold(*ncpDiskInfo.BlockStorageType.Code, "BASIC") { // Ex) Basic, SVRBS, ...
+	if strings.EqualFold(*ncpDiskInfo.BlockStorageType.Code, "BASIC") {  // Ex) Basic, SVRBS, ...
 		return true, nil
 	} else {
 		cblogger.Infof("# BlockStorageType : [%s]", *ncpDiskInfo.BlockStorageType.CodeName) // Ex) Basic BS, Server BS, ...
