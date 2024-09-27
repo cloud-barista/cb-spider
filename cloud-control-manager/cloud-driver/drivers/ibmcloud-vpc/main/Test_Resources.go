@@ -1701,7 +1701,8 @@ func testClusterHandlerListPrint() {
 	cblogger.Info("7. SetNodeGroupAutoScaling()")
 	cblogger.Info("8. ChangeNodeGroupScaling()")
 	cblogger.Info("9. UpgradeCluster()")
-	cblogger.Info("10. Exit")
+	cblogger.Info("10. ListIID()")
+	cblogger.Info("11. Exit")
 }
 
 func testClusterHandler(config Config) {
@@ -1862,6 +1863,14 @@ Loop:
 				}
 				cblogger.Info("Finish UpgradeCluster()")
 			case 10:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := clusterHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 11:
 				cblogger.Info("Exit")
 				break Loop
 			}
