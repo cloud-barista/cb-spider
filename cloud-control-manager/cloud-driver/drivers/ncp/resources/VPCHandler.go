@@ -18,6 +18,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	// "github.com/davecgh/go-spew/spew"
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/server"
@@ -86,12 +87,16 @@ func (VPCHandler *NcpVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 		cblogger.Infof("ZoneId : %s", zoneId)
 	}
 
+	currentTime := getSeoulCurrentTime()
+
 	var subnetList []irs.SubnetInfo
 	for _, curSubnet := range vpcReqInfo.SubnetInfoList {
 		cblogger.Infof("Subnet NameId : %s", curSubnet.IId.NameId)
 		newSubnet, subnetErr := VPCHandler.CreateSubnet(curSubnet)
 		if subnetErr != nil {
-			return irs.VPCInfo{}, subnetErr
+			newErr := fmt.Errorf("Failed to Create the Subnet.[%v]", subnetErr)
+			cblogger.Error(newErr.Error())
+			return irs.VPCInfo{}, newErr
 		}
 		subnetList = append(subnetList, newSubnet)
 	}
@@ -106,6 +111,7 @@ func (VPCHandler *NcpVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 		SubnetInfoList: subnetList,
 		KeyValueList: []irs.KeyValue{
 			{Key: "NCP-VPC-info.", Value: "This VPC info. is temporary."},
+			{Key: "CreateTime", Value: currentTime},
 		},
 	}
 	// spew.Dump(newVpcInfo)
@@ -137,6 +143,7 @@ func (VPCHandler *NcpVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 		cblogger.Error(newErr.Error())
 		return irs.VPCInfo{}, newErr
 	}
+	time.Sleep(time.Second * 1)
 	// cblogger.Infof("Succeeded in writing the VPC info on file : [%s]", jsonFileName)
 	// cblogger.Infof("Succeeded in Creating the VPC : [%s]", newVpcInfo.IId.NameId)
 
@@ -177,22 +184,22 @@ func (VPCHandler *NcpVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 
 	// Check if the VPC Folder Exists, and Create it
 	if err := CheckFolderAndCreate(vpcPath); err != nil {
-		newErr := fmt.Errorf("Failed to Create the VPC File Dir : %s, [%v]"+vpcPath, err)
+		newErr := fmt.Errorf("Failed to Create the VPC File Dir : %s, [%v]", vpcPath, err)
 		cblogger.Error(newErr.Error())
 		return irs.VPCInfo{}, newErr
 	}
 
 	// Check if the VPC Folder Exists, and Create it
 	if err := CheckFolderAndCreate(vpcFilePath); err != nil {
-		newErr := fmt.Errorf("Failed to Create the VPC File Path : %s, [%v]"+vpcFilePath, err)
+		newErr := fmt.Errorf("Failed to Create the VPC File Path : %s, [%v]", vpcFilePath, err)
 		cblogger.Error(newErr.Error())
 		return irs.VPCInfo{}, newErr
 	}
 
 	jsonFile, err := os.Open(jsonFileName)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Find the VPC file : %s, [%v]"+jsonFileName+" ", err)
-		cblogger.Error(newErr.Error())
+		newErr := fmt.Errorf("Failed to Find the VPC file : %s, [%v]", jsonFileName, err)
+		cblogger.Debug(newErr.Error()) // This is for checking if there is the specified VPC.
 		return irs.VPCInfo{}, newErr
 	}
 	defer jsonFile.Close()
@@ -201,7 +208,7 @@ func (VPCHandler *NcpVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 	var vpcJSON VPC
 	byteValue, readErr := io.ReadAll(jsonFile)
 	if readErr != nil {
-		newErr := fmt.Errorf("Failed to Read the VPC file : %s, [%v]"+jsonFileName, readErr)
+		newErr := fmt.Errorf("Failed to Read the VPC file : %s, [%v]", jsonFileName, readErr)
 		cblogger.Error(newErr.Error())
 		return irs.VPCInfo{}, newErr
 	}
@@ -325,6 +332,8 @@ func (VPCHandler *NcpVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID)
 func (VPCHandler *NcpVPCHandler) CreateSubnet(subnetReqInfo irs.SubnetInfo) (irs.SubnetInfo, error) {
 	cblogger.Info("NCP cloud driver: called CreateSubnet()!!")
 
+	currentTime := getSeoulCurrentTime()
+
 	newSubnetInfo := irs.SubnetInfo{
 		IId: irs.IID{
 			NameId: subnetReqInfo.IId.NameId,
@@ -335,6 +344,7 @@ func (VPCHandler *NcpVPCHandler) CreateSubnet(subnetReqInfo irs.SubnetInfo) (irs
 		IPv4_CIDR: subnetReqInfo.IPv4_CIDR,
 		KeyValueList: []irs.KeyValue{
 			{Key: "NCP-Subnet-info.", Value: "This Subnet info. is temporary."},
+			{Key: "CreateTime", Value: currentTime},			
 		},
 	}
 	return newSubnetInfo, nil
@@ -379,6 +389,48 @@ func (VPCHandler *NcpVPCHandler) MappingVPCInfo(vpcJSON VPC) (irs.VPCInfo, error
 		KeyValueList:   vpcKeyValueList,
 	}
 	return vpcInfo, nil
+}
+
+func (vpcHandler *NcpVPCHandler) getSubnetZone(vpcIID irs.IID, subnetIID irs.IID) (string, error) {
+	cblogger.Info("NCP cloud driver: called getSubnetZone()!!")
+
+	if strings.EqualFold(vpcIID.SystemId, "") && strings.EqualFold(vpcIID.NameId, ""){
+		newErr := fmt.Errorf("Invalid VPC Id!!")
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
+
+	if strings.EqualFold(subnetIID.SystemId, "") && strings.EqualFold(subnetIID.NameId, ""){
+		newErr := fmt.Errorf("Invalid Subnet Id!!")
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
+
+	 // Get the VPC information
+	 vpcInfo, err := vpcHandler.GetVPC(vpcIID)
+	 if err != nil {
+		newErr := fmt.Errorf("Failed to Get the VPC Info : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	 }
+	//  cblogger.Info("\n\n### vpcInfo : ")
+	//  spew.Dump(vpcInfo)
+	//  cblogger.Info("\n")
+ 	 
+	// Get the Zone info of the specified Subnet
+	var subnetZone string
+	for _, subnet := range vpcInfo.SubnetInfoList {
+		if strings.EqualFold(subnet.IId.SystemId, subnetIID.SystemId) {
+			subnetZone = subnet.Zone
+			break
+		}
+	}
+	if strings.EqualFold(subnetZone, "") {
+		newErr := fmt.Errorf("Failed to Get the Zone info of the specified Subnet!!")
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
+	return subnetZone, nil
 }
 
 func (VPCHandler *NcpVPCHandler) ListIID() ([]*irs.IID, error) {

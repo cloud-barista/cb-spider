@@ -14,13 +14,11 @@ import (
 	// "errors"
 	"errors"
 	"fmt"
-
 	// "io/ioutil"
 	// "os"
 	"strconv"
 	"strings"
 	"time"
-
 	// "github.com/davecgh/go-spew/spew"
 
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
@@ -51,8 +49,14 @@ func (diskHandler *NcpDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 		return irs.DiskInfo{}, rtnErr
 	}
 
+	var reqZoneId string
+	if strings.EqualFold(diskReqInfo.Zone, "") {
+		reqZoneId = diskHandler.RegionInfo.Zone
+	} else {
+		reqZoneId = diskReqInfo.Zone
+	}
 	// $$$ At least one VM is required to create new disk volume in case of NCP.
-	instanceList, err := diskHandler.GetNcpVMList()
+	instanceList, err := diskHandler.GetNcpVMListWithZone(reqZoneId)
 	if err != nil {
 		rtnErr := logAndReturnError(callLogInfo, "Failed to Get NCP Instacne List :", err)
 		return irs.DiskInfo{}, rtnErr
@@ -634,6 +638,7 @@ func (diskHandler *NcpDiskHandler) MappingDiskInfo(storage server.BlockStorageIn
 			NameId:   ncloud.StringValue(storage.BlockStorageName),
 			SystemId: ncloud.StringValue(storage.BlockStorageInstanceNo),
 		},
+		Zone: 		 ncloud.StringValue(storage.Zone.ZoneCode),
 		DiskSize:    strconv.FormatInt((*storage.BlockStorageSize)/(1024*1024*1024), 10),
 		Status:      ConvertDiskStatus(ncloud.StringValue(storage.BlockStorageInstanceStatusName)), // Not BlockStorageInstanceStatus.Code
 		CreatedTime: convertedTime,
@@ -645,14 +650,33 @@ func (diskHandler *NcpDiskHandler) MappingDiskInfo(storage server.BlockStorageIn
 			RegionInfo: diskHandler.RegionInfo,
 			VMClient:   diskHandler.VMClient,
 		}
-		vmInfo, err := vmHandler.GetNcpVMInfo(ncloud.StringValue(storage.ServerInstanceNo))
+		subnetZone, err := vmHandler.getVMSubnetZone(ncloud.StringValue(storage.ServerInstanceNo))
 		if err != nil {
-			newErr := fmt.Errorf("Failed to Get the VM Info. : [%v] ", err)
-			cblogger.Error(newErr.Error())
-			return irs.DiskInfo{}, newErr
+			newErr := fmt.Errorf("Failed to Get the Subnet Zone info of the VM!! : [%v]", err)
+			cblogger.Debug(newErr.Error())
+			// return irs.VMInfo{}, newErr  // Caution!!
 		}
+	
+		var ncpVMInfo *server.ServerInstance
+		vmErr := errors.New("")	
+		if strings.EqualFold(vmHandler.RegionInfo.Zone, subnetZone){ // Not diskHandler.RegionInfo.Zone
+			ncpVMInfo, vmErr = vmHandler.GetNcpVMInfo(ncloud.StringValue(storage.ServerInstanceNo))
+			if vmErr != nil {
+				newErr := fmt.Errorf("Failed to Get the VM Info of the Zone : [%s], [%v]", subnetZone, vmErr)
+				cblogger.Error(newErr.Error())
+				return irs.DiskInfo{}, newErr
+			}
+		} else {
+			ncpVMInfo, vmErr = vmHandler.GetNcpTargetZoneVMInfo(ncloud.StringValue(storage.ServerInstanceNo))
+			if vmErr != nil {
+				newErr := fmt.Errorf("Failed to Get the VM Info of the Zone : [%s], [%v]", subnetZone, vmErr)
+				cblogger.Error(newErr.Error())
+				return irs.DiskInfo{}, newErr
+			}
+		}
+
 		diskInfo.OwnerVM = irs.IID{
-			NameId:   ncloud.StringValue(vmInfo.ServerName),
+			NameId:   ncloud.StringValue(ncpVMInfo.ServerName),
 			SystemId: ncloud.StringValue(storage.ServerInstanceNo),
 		}
 	}
@@ -716,6 +740,45 @@ func (diskHandler *NcpDiskHandler) GetNcpVMList() ([]*server.ServerInstance, err
 		ServerInstanceNoList: []*string{},
 		RegionNo:             regionNo, // Caution : Not RegionCode
 		ZoneNo:               zoneNo,   // Caution : Not ZoneCode
+	}
+	callLogStart := call.Start()
+	result, err := diskHandler.VMClient.V2Api.GetServerInstanceList(&instanceReq)
+	if err != nil {
+		rtnErr := logAndReturnError(callLogInfo, "Failed to Find the VM Instance list from NCP : ", err)
+		return nil, rtnErr
+	}
+	LoggingInfo(callLogInfo, callLogStart)
+
+	if len(result.ServerInstanceList) < 1 {
+		cblogger.Info("### VM Instance does Not Exist!!")
+	} else {
+		cblogger.Info("Succeeded in Getting VM Instance list from NCP")
+	}
+	return result.ServerInstanceList, nil
+}
+
+func (diskHandler *NcpDiskHandler) GetNcpVMListWithZone(reqZoneId string) ([]*server.ServerInstance, error) {
+	cblogger.Info("NCP Cloud Driver: called GetNcpVMListWithZone()")
+	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, "GetNcpVMList()", "GetNcpVMListWithSubnetZone()")
+
+	vmHandler := NcpVMHandler{
+		RegionInfo: diskHandler.RegionInfo,
+		VMClient:   diskHandler.VMClient,
+	}
+	regionNo, err := vmHandler.GetRegionNo(diskHandler.RegionInfo.Region)
+	if err != nil {
+		rtnErr := logAndReturnError(callLogInfo, "Failed to Get NCP Region No of the Region Code : ", err)
+		return nil, rtnErr
+	}
+	reqZoneNo, err := vmHandler.GetZoneNo(diskHandler.RegionInfo.Region, reqZoneId) // Not diskHandler.RegionInfo.Zone
+	if err != nil {
+		rtnErr := logAndReturnError(callLogInfo, "Failed to Get NCP Zone No of the Zone Code : ", err)
+		return nil, rtnErr
+	}
+	instanceReq := server.GetServerInstanceListRequest{
+		ServerInstanceNoList: []*string{},
+		RegionNo:             regionNo, // Caution : Not RegionCode
+		ZoneNo:               reqZoneNo,   // Caution : Not ZoneCode
 	}
 	callLogStart := call.Start()
 	result, err := diskHandler.VMClient.V2Api.GetServerInstanceList(&instanceReq)
