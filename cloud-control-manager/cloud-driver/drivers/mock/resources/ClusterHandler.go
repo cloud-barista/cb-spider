@@ -57,6 +57,7 @@ func (clusterHandler *MockClusterHandler) CreateCluster(clusterReqInfo irs.Clust
 		nodeGroup.IId.SystemId = nodeGroup.IId.NameId
 		nodeGroup.ImageIID.SystemId = nodeGroup.ImageIID.NameId
 		nodeGroup.KeyPairIID.SystemId = nodeGroup.KeyPairIID.NameId
+		nodeGroup.Status = irs.NodeGroupActive
 		for j, node := range nodeGroup.Nodes {
 			node.SystemId = node.NameId
 			nodeGroup.Nodes[j] = node
@@ -243,6 +244,7 @@ func (clusterHandler *MockClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeG
 	}
 
 	nodeGroupReqInfo.IId.SystemId = nodeGroupReqInfo.IId.NameId
+	nodeGroupReqInfo.Status = irs.NodeGroupActive
 
 	for _, info := range infoList {
 		if info.IId.NameId == clusterIID.NameId {
