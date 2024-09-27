@@ -670,6 +670,13 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 			return err
 		}
 		info.NodeGroupList[idx].KeyPairIID.NameId = keyIIDInfo.NameId
+
+		// (4) Set Nodes' NameId to SystemId if NameId is empty
+		for nodeIdx, nodeInfo := range ngInfo.Nodes {
+			if nodeInfo.NameId == "" {
+				info.NodeGroupList[idx].Nodes[nodeIdx].NameId = nodeInfo.SystemId
+			}
+		}
 	}
 
 	return nil
