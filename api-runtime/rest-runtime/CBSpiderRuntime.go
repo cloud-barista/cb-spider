@@ -464,12 +464,13 @@ func RunServer() {
 		{"POST", "/sshrun", SSHRun},
 
 		//----------AdminWeb Handler
-		{"GET", "/adminweb", aw.Frame},
+		{"GET", "/adminweb1", aw.Frame},
+		{"GET", "/adminweb1/", aw.Frame},
 		{"GET", "/adminweb/top", aw.Top},
 		{"GET", "/adminweb/log", aw.Log},
 
-		{"GET", "/adminweb2", aw.MainPage},
-		{"GET", "/adminweb2/", aw.MainPage},
+		{"GET", "/adminweb", aw.MainPage},
+		{"GET", "/adminweb/", aw.MainPage},
 		{"GET", "/adminweb/left_menu", aw.LeftMenu},
 		{"GET", "/adminweb/body_frame", aw.BodyFrame},
 
