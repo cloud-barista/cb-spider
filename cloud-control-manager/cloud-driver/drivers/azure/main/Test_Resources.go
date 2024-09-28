@@ -753,7 +753,8 @@ func testVMHandlerListPrint() {
 	cblogger.Info("7. SuspendVM()")
 	cblogger.Info("8. ResumeVM()")
 	cblogger.Info("9. TerminateVM()")
-	cblogger.Info("10. Exit")
+	cblogger.Info("10. ListIID()")
+	cblogger.Info("11. Exit")
 }
 
 func testVMHandler(config Config) {
@@ -890,6 +891,14 @@ Loop:
 				}
 				cblogger.Info("Finish TerminateVM()")
 			case 10:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := vmHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 11:
 				cblogger.Info("Exit")
 				break Loop
 			}

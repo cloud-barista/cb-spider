@@ -1850,6 +1850,38 @@ func windowUserIdCheck(userId string) (bool, error) {
 }
 
 func (vmHandler *AzureVMHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, VM, "ListIID()")
+
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	pager := vmHandler.Client.NewListPager(vmHandler.Region.Region, nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(vmHandler.Ctx)
+		if err != nil {
+			getErr := errors.New(fmt.Sprintf("Failed to List VM. err = %s", err))
+			cblogger.Error(getErr.Error())
+			LoggingError(hiscallInfo, getErr)
+			return make([]*irs.IID, 0), err
+		}
+
+		for _, vm := range page.Value {
+			var iid irs.IID
+
+			if vm.ID != nil {
+				iid.SystemId = *vm.ID
+			}
+			if vm.Name != nil {
+				iid.NameId = *vm.Name
+			}
+
+			iidList = append(iidList, &iid)
+		}
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
 }
