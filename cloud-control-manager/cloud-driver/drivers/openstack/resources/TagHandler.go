@@ -270,9 +270,15 @@ func handleRemoveTag(tagHandler *OpenStackTagHandler, resType irs.RSType, resIID
 			tags = append(tags, tag)
 		}
 
-		_, err = loadbalancers.Update(tagHandler.NLBClient, systemId, loadbalancers.UpdateOpts{
-			Tags: &tags,
-		}).Extract()
+		if len(tags) == 0 {
+			_, err = loadbalancers.Update(tagHandler.NLBClient, systemId, loadbalancers.UpdateOpts{
+				Tags: &[]string{},
+			}).Extract()
+		} else {
+			_, err = loadbalancers.Update(tagHandler.NLBClient, systemId, loadbalancers.UpdateOpts{
+				Tags: &tags,
+			}).Extract()
+		}
 	case irs.SG:
 		err = networkTags.Delete(tagHandler.NetworkClient, "security-groups", systemId, tagString).ExtractErr()
 	default:
