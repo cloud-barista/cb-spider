@@ -3,7 +3,6 @@ package resources
 import (
 	"errors"
 	"fmt"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"math/rand"
 	"net"
 	"sort"
@@ -11,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 
 	cblog "github.com/cloud-barista/cb-log"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -132,7 +133,7 @@ func GetSecGroupIdByName(credentialInfo idrv.CredentialInfo, regionInfo idrv.Reg
 }
 
 func GetSshKeyIdByName(credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo, keyName string) string {
-	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s/%s", credentialInfo.SubscriptionId, regionInfo.Region, AzureNetworkCategory, AzureSSHPublicKeys, keyName)
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/%s/%s/%s", credentialInfo.SubscriptionId, regionInfo.Region, AzureComputeCategory, AzureSSHPublicKeys, keyName)
 }
 
 func GetClusterIdByName(credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo, clusterName string) string {
