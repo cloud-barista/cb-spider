@@ -596,7 +596,7 @@
         <table id="cluster-table">
             <tr>
                 <th class="column-num center-align">#</th>
-                <th class="name-column center-align">Name</th>
+                <th class="name-column center-align" style="text-align: center;">Name</th>
                 <th class="version-column center-align">Version</th>
                 <th class="status-column">Status</th>
                 <th class="access-info-column center-align">Access Info</th>
@@ -1646,7 +1646,7 @@
             if (selectedNodeGroup.Nodes && selectedNodeGroup.Nodes.length > 0) {
                 const nodeListRow = document.createElement('tr');
                 const nodeList = selectedNodeGroup.Nodes.map(node => 
-                    `<a href="javascript:void(0);" onclick="showNodeDetails('${selectedCluster.IId.NameId}', '${selectedNodeGroup.IId.NameId}', '${node.NameId}')">${node.NameId}</a>`
+                    `<a href="javascript:void(0);" onclick="showNodeDetails('${selectedCluster.IId.NameId}', '${selectedNodeGroup.IId.NameId}', '${node.SystemId}')">${node.SystemId}</a>`
                 ).join(', ');
                 nodeListRow.innerHTML = `<th>Nodes</th><td>${nodeList}</td>`;
                 detailsTable.appendChild(nodeListRow);
