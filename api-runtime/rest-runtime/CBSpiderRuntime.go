@@ -476,17 +476,17 @@ func RunServer() {
 
 		{"GET", "/adminweb/dashboard", aw.Dashboard},
 
-		{"GET", "/adminweb/driver", aw.Driver},
-		{"GET", "/adminweb2/driver", aw.DriverManagement},
+		{"GET", "/adminweb/driver1", aw.Driver},
+		{"GET", "/adminweb/driver", aw.DriverManagement},
 
-		{"GET", "/adminweb/credential", aw.Credential},
-		{"GET", "/adminweb2/credential", aw.CredentialManagement},
+		{"GET", "/adminweb/credential1", aw.Credential},
+		{"GET", "/adminweb/credential", aw.CredentialManagement},
 
-		{"GET", "/adminweb/region", aw.Region},
-		{"GET", "/adminweb2/region", aw.RegionManagement},
+		{"GET", "/adminweb/region1", aw.Region},
+		{"GET", "/adminweb/region", aw.RegionManagement},
 
-		{"GET", "/adminweb/connectionconfig", aw.Connectionconfig},
-		{"GET", "/adminweb2/connectionconfig", aw.ConnectionManagement},
+		{"GET", "/adminweb/connectionconfig1", aw.Connectionconfig},
+		{"GET", "/adminweb/connectionconfig", aw.ConnectionManagement},
 
 		{"GET", "/adminweb/dashboard", aw.Dashboard},
 
