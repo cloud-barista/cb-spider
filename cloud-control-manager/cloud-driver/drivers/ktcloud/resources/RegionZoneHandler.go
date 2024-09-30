@@ -9,6 +9,7 @@
 package resources
 
 import (
+	"fmt"
 	"sync"
 	"strings"
 	// "errors"
@@ -203,18 +204,30 @@ func (regionZoneHandler *KtCloudRegionZoneHandler) ListOrgZone() (string, error)
 
 func (regionZoneHandler KtCloudRegionZoneHandler) getZoneInfoList(regionCode string) ([]irs.ZoneInfo, error) {
 	cblogger.Info("KT Cloud VPC Driver: called getZoneInfoList()!!")
-	InitLog()
-	callLogInfo := GetCallLogScheme(regionZoneHandler.RegionInfo.Zone, call.REGIONZONE, regionCode, "getZoneInfoList()")
 
 	if strings.EqualFold(regionCode, "") {
-		rtnErr := logAndReturnError(callLogInfo, "Invalid RegionCode!!", "")
-		return nil, rtnErr
+		newErr := fmt.Errorf("Invalid RegionCode!!")
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+
+	if strings.EqualFold(regionZoneHandler.CredentialInfo.ClientId, "") {
+		newErr := fmt.Errorf("Invalid ClientId!!")
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+
+	if strings.EqualFold(regionZoneHandler.CredentialInfo.ClientSecret, "") {
+		newErr := fmt.Errorf("Invalid ClientSecret!!")
+		cblogger.Error(newErr.Error())
+		return nil, newErr
 	}
 
 	ktZoneList, err := regionZoneHandler.getKtZoneList(regionCode)
 	if err != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Get KT Cloud ZoneList :", err)
-		return nil, rtnErr
+		newErr := fmt.Errorf("Failed to Get KT Cloud ZoneList : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
 	}
 
 	var zoneInfoList []irs.ZoneInfo
@@ -235,12 +248,23 @@ func (regionZoneHandler KtCloudRegionZoneHandler) getZoneInfoList(regionCode str
 
 func (regionZoneHandler KtCloudRegionZoneHandler) getKtZoneList(regionCode string) ([]ktsdk.Zone, error) {
 	cblogger.Info("KT Cloud Driver: called getKtZoneList()!!")
-	InitLog()
-	callLogInfo := GetCallLogScheme(regionZoneHandler.RegionInfo.Zone, call.REGIONZONE, regionCode, "getKtZoneList()")
 
 	if strings.EqualFold(regionCode, "") {
-		rtnErr := logAndReturnError(callLogInfo, "Invalid RegionCode!!", "")
-		return nil, rtnErr
+		newErr := fmt.Errorf("Invalid RegionCode!!")
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+
+	if strings.EqualFold(regionZoneHandler.CredentialInfo.ClientId, "") {
+		newErr := fmt.Errorf("Invalid ClientId!!")
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+
+	if strings.EqualFold(regionZoneHandler.CredentialInfo.ClientSecret, "") {
+		newErr := fmt.Errorf("Invalid ClientSecret!!")
+		cblogger.Error(newErr.Error())
+		return nil, newErr
 	}
 
 	var zoneList []ktsdk.Zone
@@ -258,8 +282,9 @@ func (regionZoneHandler KtCloudRegionZoneHandler) getKtZoneList(regionCode strin
 			// ZONE info. inquiry with at least one 'VM' : false
 		response, err := cs.ListZones(true, "", "", "")
 		if err != nil {
-			rtnErr := logAndReturnError(callLogInfo, "Failed to Get Available Zone List :", err)
-			return nil, rtnErr
+			newErr := fmt.Errorf("Failed to Get Available Zone List : [%v]", err)
+			cblogger.Error(newErr.Error())
+			return nil, newErr
 		}
 
 		for _, zone := range response.Listzonesresponse.Zone {

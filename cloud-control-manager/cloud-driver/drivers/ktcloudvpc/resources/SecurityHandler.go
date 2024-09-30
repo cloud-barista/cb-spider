@@ -7,6 +7,7 @@
 // KT Cloud Security Group Handler
 //
 // by ETRI, 2022.12.
+// Updated by ETRI, 2024.09.
 
 package resources
 
@@ -16,7 +17,6 @@ import (
 	"io"
 	"os"
 	"strings"
-
 	// "crypto/aes"
 	// "crypto/cipher"
 	"encoding/base64"
@@ -48,10 +48,16 @@ func init() {
 }
 
 type SecurityGroup struct {
-	IID        IId             `json:"IId"`
-	VpcIID     VpcIId          `json:"VpcIID"`
-	Direc      string          `json:"Direction"`
-	Secu_Rules []Security_Rule `json:"SecurityRules"`
+    IID   			IId 			`json:"IId"`
+    VpcIID   		VpcIId 			`json:"VpcIID"`
+    Direc   		string 			`json:"Direction"`
+    Secu_Rules  	[]Security_Rule `json:"SecurityRules"`
+	KeyValue_List 	[]KeyValue 		`json:"KeyValueList"`
+}
+
+type KeyValue struct {
+	Key   string `json:"Key"`
+	Value string `json:"Value"`
 }
 
 type IId struct {
@@ -115,12 +121,28 @@ func (securityHandler *KTVpcSecurityHandler) CreateSecurity(securityReqInfo irs.
 		}
 	}
 
+	currentTime := getSeoulCurrentTime()
+
+	newSGInfo := irs.SecurityInfo{
+		IId: irs.IID{
+			NameId: securityReqInfo.IId.NameId,
+			// Caution!! : securityReqInfo.IId.NameId -> SystemId
+			SystemId: securityReqInfo.IId.NameId,
+		},
+		VpcIID: 	securityReqInfo.VpcIID,
+		SecurityRules: securityReqInfo.SecurityRules,
+		KeyValueList: []irs.KeyValue{
+			{Key: "KTCloud-SecuriyGroup-info.", Value: "This SecuriyGroup info. is temporary."},
+			{Key: "CreateTime", Value: currentTime},
+		},
+	}
+	// spew.Dump(newSGInfo)
+
 	hashFileName := base64.StdEncoding.EncodeToString([]byte(securityReqInfo.IId.NameId))
 	cblogger.Infof("# S/G NameId : " + securityReqInfo.IId.NameId)
-	cblogger.Infof("# Hashed FileName : " + hashFileName + ".json")
+	// cblogger.Infof("# Hashed FileName : " + hashFileName + ".json")
 
-	file, _ := json.MarshalIndent(securityReqInfo, "", " ")
-
+	file, _ := json.MarshalIndent(newSGInfo, "", " ")
 	writeErr := os.WriteFile(sgFilePath+hashFileName+".json", file, 0644)
 	if writeErr != nil {
 		cblogger.Error("Failed to write the file: "+sgFilePath+hashFileName+".json", writeErr)
@@ -150,7 +172,7 @@ func (securityHandler *KTVpcSecurityHandler) GetSecurity(securityIID irs.IID) (i
 	hashFileName := base64.StdEncoding.EncodeToString([]byte(securityIID.NameId))
 
 	cblogger.Infof("# securityIID.NameId : " + securityIID.NameId)
-	cblogger.Infof("# hashFileName : " + hashFileName + ".json")
+	// cblogger.Infof("# hashFileName : " + hashFileName + ".json")
 
 	if strings.EqualFold(securityHandler.RegionInfo.Zone, "") {
 		newErr := fmt.Errorf("Invalid Region Info!!")
@@ -186,16 +208,15 @@ func (securityHandler *KTVpcSecurityHandler) GetSecurity(securityIID irs.IID) (i
 	byteValue, readErr := io.ReadAll(jsonFile)
 	if readErr != nil {
 		cblogger.Error("Failed to Read the S/G file : "+sgFileName, readErr)
+		return irs.SecurityInfo{}, readErr
 	}
 	json.Unmarshal(byteValue, &sg)
-
 	// spew.Dump(sg)
 
-	// Caution : ~~~ := mappingSecurityInfo( ) =>  ~~~ := securityHandler.mappingSecurityInfo( )
-	securityGroupInfo, securityInfoError := securityHandler.mappingSecurityInfo(sg)
-	if securityInfoError != nil {
-		cblogger.Error(securityInfoError)
-		return irs.SecurityInfo{}, securityInfoError
+	securityGroupInfo, mapError := securityHandler.mappingSecurityInfo(sg)
+	if mapError != nil {
+		cblogger.Error(mapError)
+		return irs.SecurityInfo{}, mapError
 	}
 	return securityGroupInfo, nil
 }
@@ -322,33 +343,36 @@ func (securityHandler *KTVpcSecurityHandler) RemoveRules(sgIID irs.IID, security
 	return false, fmt.Errorf("Does not support RemoveRules() yet!!")
 }
 
-func (securityHandler *KTVpcSecurityHandler) mappingSecurityInfo(secuGroup SecurityGroup) (irs.SecurityInfo, error) {
+func (securityHandler *KTVpcSecurityHandler) mappingSecurityInfo(sg SecurityGroup) (irs.SecurityInfo, error) {
 	cblogger.Info("KT Cloud VPC driver: called mappingSecurityInfo()!")
 
-	var securityRuleList []irs.SecurityRuleInfo
-	var securityRuleInfo irs.SecurityRuleInfo
+	var sgRuleList []irs.SecurityRuleInfo
+	var sgRuleInfo irs.SecurityRuleInfo
+	var sgKeyValue irs.KeyValue
+	var sgKeyValueList []irs.KeyValue
 
-	for i := 0; i < len(secuGroup.Secu_Rules); i++ {
-		securityRuleInfo.FromPort = secuGroup.Secu_Rules[i].FromPort
-		securityRuleInfo.ToPort = secuGroup.Secu_Rules[i].ToPort
-		securityRuleInfo.IPProtocol = secuGroup.Secu_Rules[i].Protocol // For KT Cloud VPC S/G, TCP/UDP/ICMP is available
-		securityRuleInfo.Direction = secuGroup.Secu_Rules[i].Direc     // For KT Cloud VPC S/G, supports inbound/outbound rule.
-		securityRuleInfo.CIDR = secuGroup.Secu_Rules[i].Cidr
+	for i := 0; i < len(sg.Secu_Rules); i++ {
+		sgRuleInfo.FromPort = sg.Secu_Rules[i].FromPort
+		sgRuleInfo.ToPort = sg.Secu_Rules[i].ToPort
+		sgRuleInfo.IPProtocol = sg.Secu_Rules[i].Protocol // For KT Cloud VPC S/G, TCP/UDP/ICMP is available
+		sgRuleInfo.Direction = sg.Secu_Rules[i].Direc 	 // For KT Cloud VPC S/G, supports inbound/outbound rule.
+		sgRuleInfo.CIDR = sg.Secu_Rules[i].Cidr
+	
+		sgRuleList = append(sgRuleList, sgRuleInfo)
+    }
 
-		securityRuleList = append(securityRuleList, securityRuleInfo)
+	for k := 0; k < len(sg.KeyValue_List); k++ {
+		sgKeyValue.Key = sg.KeyValue_List[k].Key
+		sgKeyValue.Value = sg.KeyValue_List[k].Value
+		sgKeyValueList = append(sgKeyValueList, sgKeyValue)
 	}
 
 	securityInfo := irs.SecurityInfo{
-		IId: irs.IID{NameId: secuGroup.IID.NameID, SystemId: secuGroup.IID.NameID},
+		IId:           irs.IID{NameId: sg.IID.NameID, SystemId: sg.IID.NameID},
 		// Since it is managed as a file, the systemID is the same as the name ID.
-		VpcIID:        irs.IID{NameId: secuGroup.VpcIID.NameID, SystemId: secuGroup.VpcIID.SystemID},
-		SecurityRules: &securityRuleList,
-
-		// KeyValueList: []irs.KeyValue{
-		// 	{Key: "IpAddress", Value: KtCloudFirewallRule.IpAddress},
-		// 	{Key: "IpAddressID", Value: KtCloudFirewallRule.IpAddressId},
-		// 	{Key: "State", Value: KtCloudFirewallRule.State},
-		// },
+		VpcIID:        irs.IID{NameId: sg.VpcIID.NameID, SystemId: sg.VpcIID.SystemID},
+		SecurityRules: &sgRuleList,
+		KeyValueList:  sgKeyValueList,
 	}
 	return securityInfo, nil
 }
