@@ -62,17 +62,17 @@ type KeyValue struct {
 	Value string `json:"Value"`
 }
 
-func (VPCHandler *KtCloudVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
+func (vpcHandler *KtCloudVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
 	cblogger.Info("KT Cloud Cloud Driver: called CreateVPC()!")
 	// Check if the VPC Name already Exists
-	vpcInfo, _ := VPCHandler.GetVPC(irs.IID{SystemId: vpcReqInfo.IId.NameId})
+	vpcInfo, _ := vpcHandler.GetVPC(irs.IID{SystemId: vpcReqInfo.IId.NameId})
 
 	if vpcInfo.IId.SystemId != "" {
 		cblogger.Error("The VPC already exists .")
 		return irs.VPCInfo{}, errors.New("The VPC already exists.")
 	}
 
-	zoneId := VPCHandler.RegionInfo.Zone
+	zoneId := vpcHandler.RegionInfo.Zone
 	if zoneId == "" {
 		cblogger.Error("Failed to Get Zone info. from the connection info.")
 		return irs.VPCInfo{}, errors.New("Failed to Get Zone info. from the connection info.")
@@ -84,12 +84,14 @@ func (VPCHandler *KtCloudVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 	for _, curSubnet := range vpcReqInfo.SubnetInfoList {
 		cblogger.Infof("Subnet NameId : %s", curSubnet.IId.NameId)
 
-		newSubnet, subnetErr := VPCHandler.CreateSubnet(curSubnet)
+		newSubnet, subnetErr := vpcHandler.CreateSubnet(curSubnet)
 		if subnetErr != nil {
 			return irs.VPCInfo{}, subnetErr
 		}
 		subnetList = append(subnetList, newSubnet)
 	}
+
+	currentTime := getSeoulCurrentTime()	
 
 	newVpcInfo := irs.VPCInfo{
 		IId: irs.IID{
@@ -101,6 +103,7 @@ func (VPCHandler *KtCloudVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 		SubnetInfoList: subnetList,
 		KeyValueList: []irs.KeyValue{
 			{Key: "KTCloud-VPC-info.", Value: "This VPC info. is temporary."},
+			{Key: "CreateTime", Value: currentTime},
 		},
 	}
 	// spew.Dump(newVpcInfo)
@@ -131,12 +134,12 @@ func (VPCHandler *KtCloudVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 		cblogger.Error("Failed to write the file: "+jsonFileName, writeErr)
 		return irs.VPCInfo{}, writeErr
 	}
-	cblogger.Infof("Succeeded in writing the VPC info file: " + jsonFileName)
-	cblogger.Info("Succeeded in Creating the VPC : " + newVpcInfo.IId.NameId)
+	// cblogger.Infof("Succeeded in writing the VPC info file: " + jsonFileName)
+	// cblogger.Info("Succeeded in Creating the VPC : " + newVpcInfo.IId.NameId)
 
 	// Because it's managed as a file, there's no SystemId created.
 	// Return the created SecurityGroup info.
-	vpcInfo, vpcErr := VPCHandler.GetVPC(irs.IID{SystemId: vpcReqInfo.IId.NameId})
+	vpcInfo, vpcErr := vpcHandler.GetVPC(irs.IID{SystemId: vpcReqInfo.IId.NameId})
 	if vpcErr != nil {
 		cblogger.Error("Failed to Get the VPC info.")
 		return irs.VPCInfo{}, vpcErr
@@ -144,7 +147,7 @@ func (VPCHandler *KtCloudVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 	return vpcInfo, nil
 }
 
-func (VPCHandler *KtCloudVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
+func (vpcHandler *KtCloudVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 	cblogger.Info("KT Cloud Cloud Driver: called GetVPC()!")
 
 	//Caution!!
@@ -152,7 +155,7 @@ func (VPCHandler *KtCloudVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 		vpcIID.NameId = vpcIID.SystemId
 	}
 
-	zoneId := VPCHandler.RegionInfo.Zone
+	zoneId := vpcHandler.RegionInfo.Zone
 	if zoneId == "" {
 		cblogger.Error("Failed to Get Zone info. from the connection info.")
 
@@ -199,7 +202,7 @@ func (VPCHandler *KtCloudVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 	var vpcFileInfo VPCFileInfo
 	json.Unmarshal(byteValue, &vpcFileInfo)
 
-	vpcInfo, vpcInfoError := VPCHandler.mappingVPCInfo(vpcFileInfo)
+	vpcInfo, vpcInfoError := vpcHandler.mappingVPCInfo(vpcFileInfo)
 	if vpcInfoError != nil {
 		cblogger.Error(vpcInfoError)
 		return irs.VPCInfo{}, vpcInfoError
@@ -207,10 +210,10 @@ func (VPCHandler *KtCloudVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 	return vpcInfo, nil
 }
 
-func (VPCHandler *KtCloudVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
+func (vpcHandler *KtCloudVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	cblogger.Info("KT Cloud Cloud Driver: called ListVPC()!")
 
-	zoneId := VPCHandler.RegionInfo.Zone
+	zoneId := vpcHandler.RegionInfo.Zone
 	if zoneId == "" {
 		cblogger.Error("Failed to Get Zone info. from the connection info.")
 
@@ -234,7 +237,7 @@ func (VPCHandler *KtCloudVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 		vpcIID.NameId = fileName
 		cblogger.Infof("# VPC Name : " + vpcIID.NameId)
 
-		vpcInfo, getVpcErr := VPCHandler.GetVPC(irs.IID{SystemId: vpcIID.NameId})
+		vpcInfo, getVpcErr := vpcHandler.GetVPC(irs.IID{SystemId: vpcIID.NameId})
 		if getVpcErr != nil {
 			cblogger.Errorf("Failed to Find the VPC : %s", vpcIID.SystemId)
 			return []*irs.VPCInfo{}, getVpcErr
@@ -244,7 +247,7 @@ func (VPCHandler *KtCloudVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	return vpcInfoList, nil
 }
 
-func (VPCHandler *KtCloudVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
+func (vpcHandler *KtCloudVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	cblogger.Info("KT Cloud Cloud Driver: called DeleteVPC()!")
 
 	if vpcIID.SystemId != "" {
@@ -252,13 +255,13 @@ func (VPCHandler *KtCloudVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	}
 
 	//To check whether the VPC exists.
-	_, getVpcErr := VPCHandler.GetVPC(irs.IID{SystemId: vpcIID.NameId})
+	_, getVpcErr := vpcHandler.GetVPC(irs.IID{SystemId: vpcIID.NameId})
 	if getVpcErr != nil {
 		cblogger.Errorf("Failed to Find the VPC : %s", vpcIID.NameId)
 		return false, getVpcErr
 	}
 
-	zoneId := VPCHandler.RegionInfo.Zone
+	zoneId := vpcHandler.RegionInfo.Zone
 	if zoneId == "" {
 		cblogger.Error("Failed to Get Zone info. from the connection info.")
 		return false, errors.New("Failed to Get Zone info. from the connection info.")
@@ -298,25 +301,27 @@ func (VPCHandler *KtCloudVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	return true, nil
 }
 
-func (VPCHandler *KtCloudVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
+func (vpcHandler *KtCloudVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
 	cblogger.Info("KT Cloud cloud driver: called AddSubnet()!!")
 	return irs.VPCInfo{}, errors.New("Does not support AddSubnet() yet!!")
 }
 
-func (VPCHandler *KtCloudVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
+func (vpcHandler *KtCloudVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
 	cblogger.Info("KT Cloud cloud driver: called GetImage()!!")
 	return true, errors.New("Does not support RemoveSubnet() yet!!")
 }
 
-func (VPCHandler *KtCloudVPCHandler) CreateSubnet(subnetReqInfo irs.SubnetInfo) (irs.SubnetInfo, error) {
+func (vpcHandler *KtCloudVPCHandler) CreateSubnet(subnetReqInfo irs.SubnetInfo) (irs.SubnetInfo, error) {
 	cblogger.Info("KT Cloud cloud driver: called CreateSubnet()!!")
 
-	// zoneId := VPCHandler.RegionInfo.Zone
+	// zoneId := vpcHandler.RegionInfo.Zone
 	// cblogger.Infof("ZoneId : %s", zoneId)
 	// if zoneId == "" {
 	// 	cblogger.Error("Failed to Get Zone info. from the connection info.")
 	// 	return irs.SubnetInfo{}, errors.New("Failed to Get Zone info. from the connection info.")
 	// }
+
+	currentTime := getSeoulCurrentTime()
 
 	newSubnetInfo := irs.SubnetInfo{
 		IId: irs.IID{
@@ -324,20 +329,21 @@ func (VPCHandler *KtCloudVPCHandler) CreateSubnet(subnetReqInfo irs.SubnetInfo) 
 			// Caution!! : subnetReqInfo.IId.NameId -> SystemId
 			SystemId: subnetReqInfo.IId.NameId,
 		},
-		Zone:      subnetReqInfo.Zone,
+		Zone: subnetReqInfo.Zone,
 		IPv4_CIDR: "N/A",
 		KeyValueList: []irs.KeyValue{
 			{Key: "KTCloud-Subnet-info.", Value: "This Subne info. is temporary."},
+			{Key: "CreateTime", Value: currentTime},
 		},
 	}
 	return newSubnetInfo, nil
 }
 
-func (VPCHandler *KtCloudVPCHandler) mappingVPCInfo(vpcFileInfo VPCFileInfo) (irs.VPCInfo, error) {
+func (vpcHandler *KtCloudVPCHandler) mappingVPCInfo(vpcFileInfo VPCFileInfo) (irs.VPCInfo, error) {
 	cblogger.Info("KT Cloud cloud driver: called mappingVPCInfo()!!")
 
-	var subnetInfoList []irs.SubnetInfo
 	var subnetInfo irs.SubnetInfo
+	var subnetInfoList []irs.SubnetInfo
 	var subnetKeyValue irs.KeyValue
 	var subnetKeyValueList []irs.KeyValue
 	var vpcKeyValue irs.KeyValue
@@ -373,6 +379,48 @@ func (VPCHandler *KtCloudVPCHandler) mappingVPCInfo(vpcFileInfo VPCFileInfo) (ir
 		KeyValueList:   vpcKeyValueList,
 	}
 	return vpcInfo, nil
+}
+
+func (vpcHandler *KtCloudVPCHandler) getSubnetZone(vpcIID irs.IID, subnetIID irs.IID) (string, error) {
+	cblogger.Info("KT Cloud cloud driver: called getSubnetZone()!!")
+
+	if strings.EqualFold(vpcIID.SystemId, "") && strings.EqualFold(vpcIID.NameId, ""){
+		newErr := fmt.Errorf("Invalid VPC Id!!")
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
+
+	if strings.EqualFold(subnetIID.SystemId, "") && strings.EqualFold(subnetIID.NameId, ""){
+		newErr := fmt.Errorf("Invalid Subnet Id!!")
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
+
+	 // Get the VPC information
+	 vpcInfo, err := vpcHandler.GetVPC(vpcIID)
+	 if err != nil {
+		newErr := fmt.Errorf("Failed to Get the VPC Info : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	 }
+	//  cblogger.Info("\n\n### vpcInfo : ")
+	//  spew.Dump(vpcInfo)
+	//  cblogger.Info("\n")
+ 	 
+	// Get the Zone info of the specified Subnet
+	var subnetZone string
+	for _, subnet := range vpcInfo.SubnetInfoList {
+		if strings.EqualFold(subnet.IId.SystemId, subnetIID.SystemId) {
+			subnetZone = subnet.Zone
+			break
+		}
+	}
+	if strings.EqualFold(subnetZone, "") {
+		newErr := fmt.Errorf("Failed to Get the Zone info of the specified Subnet!!")
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
+	return subnetZone, nil
 }
 
 func (vpcHandler *KtCloudVPCHandler) ListIID() ([]*irs.IID, error) {
