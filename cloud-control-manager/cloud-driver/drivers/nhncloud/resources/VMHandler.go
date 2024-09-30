@@ -1315,5 +1315,41 @@ func (vmHandler *NhnCloudVMHandler) createWinInitUserData(passWord string) (*str
 
 func (vmHandler *NhnCloudVMHandler) ListIID() ([]*irs.IID, error) {
 	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+
+	callLogInfo := getCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, "vmId", "ListIID()")
+
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	listOpts := volumes.ListOpts{}
+
+	allPages, err := volumes.List(vmHandler.VolumeClient, listOpts).AllPages()
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get vm information from NhnCloud!! : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+
+	allVms, err := volumes.ExtractVolumes(allPages)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get vm List from NhnCloud!! : [%v] ", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+
+	for _, vm := range allVms {
+		var iid irs.IID
+		iid.SystemId = vm.ID
+		iid.NameId = vm.Name
+
+		iidList = append(iidList, &iid)
+	}
+
+	LoggingInfo(callLogInfo, start)
+
+	return iidList, nil
+
 }

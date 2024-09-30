@@ -1875,5 +1875,40 @@ func (nlbHandler *NhnCloudNLBHandler) getVPCIdWithVpcsubnetId(vpcsubnetId string
 
 func (NLBHandler *NhnCloudNLBHandler) ListIID() ([]*irs.IID, error) {
 	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	callLogInfo := getCallLogScheme(NLBHandler.RegionInfo.Zone, call.NLB, "nlbId", "ListIID()")
+
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	listOpts := loadbalancers.ListOpts{}
+
+	allPages, err := loadbalancers.List(NLBHandler.NetworkClient, listOpts).AllPages()
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get disk information from NhnCloud!! : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+
+	allNlbs, err := loadbalancers.ExtractLoadBalancers(allPages)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get disk List from NhnCloud!! : [%v] ", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+
+	for _, nlb := range allNlbs {
+		var iid irs.IID
+		iid.SystemId = nlb.ID
+		iid.NameId = nlb.Name
+
+		iidList = append(iidList, &iid)
+	}
+
+	LoggingInfo(callLogInfo, start)
+
+	return iidList, nil
+
 }
