@@ -708,7 +708,7 @@ func getVPCInfo(connectionName string, handler cres.VPCHandler, iid cres.IID, re
 	for _, subnetInfo := range info.SubnetInfoList {
 		var subnetIIDInfo SubnetIIDInfo
 		err := infostore.GetByConditionsAndContain(&subnetIIDInfo, CONNECTION_NAME_COLUMN, connectionName,
-			OWNER_VPC_NAME_COLUMN, iid.NameId, SYSTEM_ID_COLUMN, getMSShortID(subnetInfo.IId.SystemId))
+			OWNER_VPC_NAME_COLUMN, iid.NameId, SYSTEM_ID_COLUMN, subnetInfo.IId.SystemId)
 		if err != nil {
 			// if not found, continue
 			if checkNotFoundError(err) {
@@ -791,7 +791,7 @@ func GetVPC(connectionName string, rsType string, nameID string) (*cres.VPCInfo,
 	for _, subnetInfo := range info.SubnetInfoList {
 		var subnetIIDInfo SubnetIIDInfo
 		err := infostore.GetByConditionsAndContain(&subnetIIDInfo, CONNECTION_NAME_COLUMN, connectionName,
-			OWNER_VPC_NAME_COLUMN, info.IId.NameId, SYSTEM_ID_COLUMN, getMSShortID(subnetInfo.IId.SystemId))
+			OWNER_VPC_NAME_COLUMN, info.IId.NameId, SYSTEM_ID_COLUMN, subnetInfo.IId.SystemId)
 		if err != nil {
 			// if not found, continue
 			if checkNotFoundError(err) {
@@ -941,7 +941,7 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 	for _, subnetInfo := range info.SubnetInfoList {
 		var subnetIIDInfo SubnetIIDInfo
 		err := infostore.GetByConditionsAndContain(&subnetIIDInfo, CONNECTION_NAME_COLUMN, connectionName,
-			OWNER_VPC_NAME_COLUMN, vpcName, SYSTEM_ID_COLUMN, getMSShortID(subnetInfo.IId.SystemId))
+			OWNER_VPC_NAME_COLUMN, vpcName, SYSTEM_ID_COLUMN, subnetInfo.IId.SystemId)
 		if err != nil {
 			// if not found, continue
 			if checkNotFoundError(err) {
@@ -1031,7 +1031,7 @@ func GetSubnet(connectionName string, vpcName string, nameID string) (*cres.Subn
 		// (9) Get Subnet IID Info from infostore
 		var subnetIIDInfo SubnetIIDInfo
 		err := infostore.GetByConditionsAndContain(&subnetIIDInfo, CONNECTION_NAME_COLUMN, connectionName,
-			OWNER_VPC_NAME_COLUMN, vpcInfo.IId.NameId, SYSTEM_ID_COLUMN, getMSShortID(subnetInfo.IId.SystemId))
+			OWNER_VPC_NAME_COLUMN, vpcInfo.IId.NameId, SYSTEM_ID_COLUMN, subnetInfo.IId.SystemId)
 		if err != nil {
 			if checkNotFoundError(err) {
 				cblog.Info("Subnet not found in infostore:", err)

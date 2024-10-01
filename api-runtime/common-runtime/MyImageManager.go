@@ -243,7 +243,7 @@ func SnapshotVM(connectionName string, rsType string, reqInfo cres.MyImageInfo, 
 
 	// get Source VM's IID with VM's SystemId
 	var vmIIdInfo2 VMIIDInfo
-	err = infostore.GetByContain(&vmIIdInfo2, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, getMSShortID(info.SourceVM.SystemId))
+	err = infostore.GetByContain(&vmIIdInfo2, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, info.SourceVM.SystemId)
 	if err != nil {
 		cblog.Error(err)
 		info.SourceVM.NameId = ""
@@ -316,7 +316,7 @@ func ListMyImage(connectionName string, rsType string) ([]*cres.MyImageInfo, err
 
 		// get Source VM's IID with VM's SystemId
 		var vmIIdInfo VMIIDInfo
-		err = infostore.GetByContain(&vmIIdInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, getMSShortID(info.SourceVM.SystemId))
+		err = infostore.GetByContain(&vmIIdInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, info.SourceVM.SystemId)
 		if err != nil {
 			cblog.Error(err)
 			info.SourceVM.NameId = ""
@@ -385,7 +385,7 @@ func GetMyImage(connectionName string, rsType string, nameID string) (*cres.MyIm
 
 	// get Source VM's IID with VM's SystemId
 	var vmIIdInfo VMIIDInfo
-	err = infostore.GetByContain(&vmIIdInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, getMSShortID(info.SourceVM.SystemId))
+	err = infostore.GetByContain(&vmIIdInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, info.SourceVM.SystemId)
 	if err != nil {
 		cblog.Error(err)
 		info.SourceVM.NameId = ""

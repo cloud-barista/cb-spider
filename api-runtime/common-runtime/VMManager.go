@@ -915,7 +915,7 @@ func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqIn
 		if vmInfo.ImageIId.SystemId != "" {
 			// get MyImage's NameId
 			var imageIIdInfo MyImageIIDInfo
-			err := infostore.GetByContain(&imageIIdInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, getMSShortID(vmInfo.ImageIId.SystemId))
+			err := infostore.GetByContain(&imageIIdInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, vmInfo.ImageIId.SystemId)
 			if err != nil {
 				cblog.Error(err)
 				return err
@@ -938,7 +938,7 @@ func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqIn
 	for i, sgIID := range vmInfo.SecurityGroupIIds {
 		var iidInfo SGIIDInfo
 		err := infostore.GetByConditionsAndContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName,
-			OWNER_VPC_NAME_COLUMN, reqInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, getMSShortID(sgIID.SystemId))
+			OWNER_VPC_NAME_COLUMN, reqInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, sgIID.SystemId)
 		if err != nil {
 			cblog.Error(err)
 			return err
@@ -951,7 +951,7 @@ func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqIn
 		// set Data Disk NameId
 		for i, diskIID := range vmInfo.DataDiskIIDs {
 			var iidInfo DiskIIDInfo
-			err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, getMSShortID(diskIID.SystemId))
+			err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, diskIID.SystemId)
 			if err != nil {
 				cblog.Error(err)
 				return err
@@ -1134,7 +1134,7 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 	if vmInfo.ImageIId.SystemId != "" {
 		// get MyImage's NameId
 		var imageIIdInfo MyImageIIDInfo
-		err := infostore.GetByContain(&imageIIdInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, getMSShortID(vmInfo.ImageIId.SystemId))
+		err := infostore.GetByContain(&imageIIdInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, vmInfo.ImageIId.SystemId)
 		if err != nil {
 			if !strings.Contains(err.Error(), "does not exist") {
 				cblog.Error(err)
@@ -1153,7 +1153,7 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 	if vmInfo.VpcIID.SystemId != "" {
 		// set VPC NameId
 		var iidInfo VPCIIDInfo
-		err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, getMSShortID(vmInfo.VpcIID.SystemId))
+		err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, vmInfo.VpcIID.SystemId)
 		if err != nil {
 			cblog.Error(err)
 			return err
@@ -1165,7 +1165,7 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 		// set Subnet NameId
 		var iidInfo SubnetIIDInfo
 		err := infostore.GetByConditionsAndContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName,
-			OWNER_VPC_NAME_COLUMN, vmInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, getMSShortID(vmInfo.SubnetIID.SystemId))
+			OWNER_VPC_NAME_COLUMN, vmInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, vmInfo.SubnetIID.SystemId)
 		if err != nil {
 			cblog.Error(err)
 			return err
@@ -1177,7 +1177,7 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 	for i, sgIID := range vmInfo.SecurityGroupIIds {
 		var iidInfo SGIIDInfo
 		err := infostore.GetByConditionsAndContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName,
-			OWNER_VPC_NAME_COLUMN, vmInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, getMSShortID(sgIID.SystemId))
+			OWNER_VPC_NAME_COLUMN, vmInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, sgIID.SystemId)
 		if err != nil {
 			// Additional SecurityGroups may be attached from other sources.
 			cblog.Info(err)
@@ -1193,7 +1193,7 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 	if vmInfo.KeyPairIId.SystemId != "" {
 		// set KeyPair NameId
 		var iidInfo KeyIIDInfo
-		err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, getMSShortID(vmInfo.KeyPairIId.SystemId))
+		err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, vmInfo.KeyPairIId.SystemId)
 		if err != nil {
 			cblog.Error(err)
 			return err
@@ -1204,7 +1204,7 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 	// set Data Disk NameId
 	for i, diskIID := range vmInfo.DataDiskIIDs {
 		var iidInfo DiskIIDInfo
-		err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, getMSShortID(diskIID.SystemId))
+		err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, diskIID.SystemId)
 		if err != nil {
 			cblog.Error(err)
 			return err
