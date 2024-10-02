@@ -1631,7 +1631,7 @@ func DeleteVM(connectionName string, rsType string, nameID string, force string)
 	}
 
 	// Check Sync Called
-	waiter := NewWaiter(5, 240) // (sleep, timeout)
+	waiter := NewWaiter(5, 600) // (sleep, timeout)
 
 	for {
 		status, err := handler.(cres.VMHandler).GetVMStatus(driverIId)
