@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"reflect"
 	"strconv"
@@ -32,6 +33,7 @@ import (
 	"github.com/sirupsen/logrus"
 	compute "google.golang.org/api/compute/v1"
 	container "google.golang.org/api/container/v1"
+	"google.golang.org/api/googleapi"
 )
 
 const (
@@ -232,6 +234,22 @@ func GetPublicKey(credentialInfo idrv.CredentialInfo, keyPairName string) (strin
 		return "", err
 	}
 	return string(publicKeyBytes), nil
+}
+
+func hasInstanceGroup(client *compute.Service, credential idrv.CredentialInfo, region idrv.RegionInfo, instanceGroup string) (bool, error) {
+	projectID := credential.ProjectID
+	zone := region.Zone
+	// Attempt to get the instance group to verify if it exists
+	instanceGroupGet, err := client.InstanceGroups.Get(projectID, zone, instanceGroup).Do()
+	if err != nil {
+		// Check if the error is a "not found" error
+		if gerr, ok := err.(*googleapi.Error); ok && gerr.Code == http.StatusNotFound {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return instanceGroupGet != nil, nil
 }
 
 // InstanceGroup의 인스턴스 목록 return
