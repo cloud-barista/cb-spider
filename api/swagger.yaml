@@ -781,6 +781,34 @@ definitions:
     - productId
     - regionName
     type: object
+  spider.RSType:
+    enum:
+    - all
+    - image
+    - vpc
+    - subnet
+    - sg
+    - keypair
+    - vm
+    - nlb
+    - disk
+    - myimage
+    - cluster
+    - nodegroup
+    type: string
+    x-enum-varnames:
+    - ALL
+    - IMAGE
+    - VPC
+    - SUBNET
+    - SG
+    - KEY
+    - VM
+    - NLB
+    - DISK
+    - MYIMAGE
+    - CLUSTER
+    - NODEGROUP
   spider.RegionInfo:
     properties:
       Region:
@@ -2426,6 +2454,53 @@ definitions:
             type: string
         required:
         - VPCName
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.TagAddRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          ResourceName:
+            example: vpc-01
+            type: string
+          ResourceType:
+            allOf:
+            - $ref: '#/definitions/spider.RSType'
+            example: VPC
+          Tag:
+            $ref: '#/definitions/spider.KeyValue'
+        required:
+        - ResourceName
+        - ResourceType
+        - Tag
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
+  spider.TagRemoveRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          ResourceName:
+            example: vpc-01
+            type: string
+          ResourceType:
+            allOf:
+            - $ref: '#/definitions/spider.RSType'
+            example: VPC
+        required:
+        - ResourceName
+        - ResourceType
         type: object
     required:
     - ConnectionName
@@ -5153,7 +5228,7 @@ paths:
       tags:
       - '[VPC Management]'
   /getvmusingresources:
-    get:
+    post:
       consumes:
       - application/json
       description: Retrieve details of a VM using resource ID.
@@ -7263,6 +7338,177 @@ paths:
       summary: Add Rules to SecurityGroup
       tags:
       - '[SecurityGroup Management]'
+  /tag:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of tags for a specified resource.
+      operationId: list-tag
+      parameters:
+      - description: Connection Name. ex) aws-connection
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Resource Type. ex) VPC
+        in: query
+        name: ResourceType
+        required: true
+        type: string
+      - description: Resource Name. ex) vpc-01
+        in: query
+        name: ResourceName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of tags
+          schema:
+            items:
+              $ref: '#/definitions/spider.KeyValue'
+            type: array
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List Tags
+      tags:
+      - '[Tag Management]'
+    post:
+      consumes:
+      - application/json
+      description: Add a tag to a specified resource.
+      operationId: add-tag
+      parameters:
+      - description: Request body for adding a tag
+        in: body
+        name: TagAddRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.TagAddRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the added tag
+          schema:
+            $ref: '#/definitions/spider.KeyValue'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Add Tag
+      tags:
+      - '[Tag Management]'
+  /tag/{Key}:
+    delete:
+      consumes:
+      - application/json
+      description: Remove a specific tag from a specified resource.
+      operationId: remove-tag
+      parameters:
+      - description: Request body for removing a specific tag
+        in: body
+        name: TagRemoveRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.TagRemoveRequest'
+      - description: The key of the tag to remove
+        in: path
+        name: Key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Result of the remove operation
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Remove Tag
+      tags:
+      - '[Tag Management]'
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a specific tag for a specified resource.
+      operationId: get-tag
+      parameters:
+      - description: Connection Name. ex) aws-connection
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Resource Type. ex) VPC
+        in: query
+        name: ResourceType
+        required: true
+        type: string
+      - description: Resource Name. ex) vpc-01
+        in: query
+        name: ResourceName
+        required: true
+        type: string
+      - description: The key of the tag to retrieve
+        in: path
+        name: Key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the tag
+          schema:
+            $ref: '#/definitions/spider.KeyValue'
+        "400":
+          description: Bad Request, possibly due to invalid query parameters
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get Tag
+      tags:
+      - '[Tag Management]'
   /vm:
     get:
       consumes:

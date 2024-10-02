@@ -3,8 +3,6 @@
 // The CB-Spider Mission is to connect all the clouds with a single interface.
 //
 //      * Cloud-Barista: https://github.com/cloud-barista
-//
-// by CB-Spider Team, 2024.
 
 package restruntime
 
@@ -22,19 +20,32 @@ import (
 
 //================ Tag Handler
 
-type tagAddReq struct {
-	ConnectionName string
+type TagAddRequest struct {
+	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-connection"`
 	ReqInfo        struct {
-		ResourceType cres.RSType
-		ResourceName string
-		Tag          cres.KeyValue
-	}
+		ResourceType cres.RSType   `json:"ResourceType" validate:"required" example:"VPC"`
+		ResourceName string        `json:"ResourceName" validate:"required" example:"vpc-01"`
+		Tag          cres.KeyValue `json:"Tag" validate:"required"`
+	} `json:"ReqInfo" validate:"required"`
 }
 
+// addTag godoc
+// @ID add-tag
+// @Summary Add Tag
+// @Description Add a tag to a specified resource.
+// @Tags [Tag Management]
+// @Accept  json
+// @Produce  json
+// @Param TagAddRequest body restruntime.TagAddRequest true "Request body for adding a tag"
+// @Success 200 {object} cres.KeyValue "Details of the added tag"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /tag [post]
 func AddTag(c echo.Context) error {
 	cblog.Info("call AddTag()")
 
-	req := tagAddReq{}
+	req := TagAddRequest{}
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -48,63 +59,95 @@ func AddTag(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
-type tagListReq struct {
-	ConnectionName string
-	ReqInfo        struct {
-		ResourceType cres.RSType
-		ResourceName string
-	}
-}
-
+// listTag godoc
+// @ID list-tag
+// @Summary List Tags
+// @Description Retrieve a list of tags for a specified resource.
+// @Tags [Tag Management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionName query string true "Connection Name. ex) aws-connection"
+// @Param ResourceType query string true "Resource Type. ex) VPC"
+// @Param ResourceName query string true "Resource Name. ex) vpc-01"
+// @Success 200 {object} []cres.KeyValue "List of tags"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /tag [get]
 func ListTag(c echo.Context) error {
 	cblog.Info("call ListTag()")
 
-	req := tagListReq{}
-	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	// Retrieve query parameters
+	connectionName := c.QueryParam("ConnectionName")
+	resourceType := c.QueryParam("ResourceType")
+	resourceName := c.QueryParam("ResourceName")
+
+	if connectionName == "" || resourceType == "" || resourceName == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "Missing required query parameters")
 	}
 
-	// To support for Get-Query Param Type API
-	if req.ConnectionName == "" {
-		req.ConnectionName = c.QueryParam("ConnectionName")
+	// Convert resourceType to cres.RSType
+	rType, err := cres.StringToRSType(resourceType)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
+
+	// Log the resource type using RSTypeString()
+	cblog.Infof("Listing tags for resource type: %s", cres.RSTypeString(rType))
 
 	// Call common-runtime API
-	result, err := cmrt.ListTag(req.ConnectionName, req.ReqInfo.ResourceType, req.ReqInfo.ResourceName)
+	result, err := cmrt.ListTag(connectionName, rType, resourceName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	var jsonResult struct {
-		Result []cres.KeyValue `json:"tag"`
+		Result       []cres.KeyValue `json:"tag"`
+		ResourceType string          `json:"resourceType"`
 	}
 	jsonResult.Result = result
+	jsonResult.ResourceType = cres.RSTypeString(rType) // Include the resource type in a human-readable format
+
 	return c.JSON(http.StatusOK, &jsonResult)
 }
 
-type tagGetReq struct {
-	ConnectionName string
-	ReqInfo        struct {
-		ResourceType cres.RSType
-		ResourceName string
-	}
-}
-
+// getTag godoc
+// @ID get-tag
+// @Summary Get Tag
+// @Description Retrieve a specific tag for a specified resource.
+// @Tags [Tag Management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionName query string true "Connection Name. ex) aws-connection"
+// @Param ResourceType query string true "Resource Type. ex) VPC"
+// @Param ResourceName query string true "Resource Name. ex) vpc-01"
+// @Param Key path string true "The key of the tag to retrieve"
+// @Success 200 {object} cres.KeyValue "Details of the tag"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameters"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /tag/{Key} [get]
 func GetTag(c echo.Context) error {
 	cblog.Info("call GetTag()")
 
-	req := tagGetReq{}
-	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	// Retrieve query parameters
+	connectionName := c.QueryParam("ConnectionName")
+	resourceType := c.QueryParam("ResourceType")
+	resourceName := c.QueryParam("ResourceName")
+	tagKey := c.Param("Key")
+
+	if connectionName == "" || resourceType == "" || resourceName == "" || tagKey == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "Missing required query parameters")
 	}
 
-	// To support for Get-Query Param Type API
-	if req.ConnectionName == "" {
-		req.ConnectionName = c.QueryParam("ConnectionName")
+	// Convert resourceType to cres.RSType
+	rType, err := cres.StringToRSType(resourceType)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid resource type")
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.GetTag(req.ConnectionName, req.ReqInfo.ResourceType, req.ReqInfo.ResourceName, c.Param("Key"))
+	result, err := cmrt.GetTag(connectionName, rType, resourceName, tagKey)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
@@ -112,18 +155,33 @@ func GetTag(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
-type tagRemoveReq struct {
-	ConnectionName string
+// tagRemoveReq represents the request body for removing a Tag from a Resource.
+type TagRemoveRequest struct {
+	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-connection"`
 	ReqInfo        struct {
-		ResourceType cres.RSType
-		ResourceName string
-	}
+		ResourceType cres.RSType `json:"ResourceType" validate:"required" example:"VPC"`
+		ResourceName string      `json:"ResourceName" validate:"required" example:"vpc-01"`
+	} `json:"ReqInfo" validate:"required"`
 }
 
+// removeTag godoc
+// @ID remove-tag
+// @Summary Remove Tag
+// @Description Remove a specific tag from a specified resource.
+// @Tags [Tag Management]
+// @Accept  json
+// @Produce  json
+// @Param TagRemoveRequest body restruntime.TagRemoveRequest true "Request body for removing a specific tag"
+// @Param Key path string true "The key of the tag to remove"
+// @Success 200 {object} BooleanInfo "Result of the remove operation"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /tag/{Key} [delete]
 func RemoveTag(c echo.Context) error {
 	cblog.Info("call RemoveTag()")
 
-	req := tagRemoveReq{}
+	req := TagRemoveRequest{}
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

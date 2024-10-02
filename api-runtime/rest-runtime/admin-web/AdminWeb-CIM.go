@@ -1032,77 +1032,130 @@ func makeRegionNameHiddenTRList_html(infoList []*rim.RegionInfo) string {
 	return strData
 }
 
-// ================ This Spider Info
+// ================ Spider Info
 func SpiderInfo(c echo.Context) error {
 	cblog.Info("call SpiderInfo()")
 
 	htmlStr := `
-                <html>
-                <head>
-                    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-                </head>
+        <html>
+            <head>
+                <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+                <title>CB-Spider Information</title>
+                <style>
+                    body {
+                        font-family: Arial, sans-serif;
+                        font-size: 14px;
+                        margin: 20px;
+                        background-color: #f5f5f5;
+                    }
+                    .container {
+                        background-color: #ffffff;
+                        padding: 20px;
+                        border-radius: 8px;
+                        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                    }
+                    .header {
+                        font-size: 20px;
+                        font-weight: bold;
+                        margin-bottom: 20px;
+                        color: #333333;
+                    }
+                    table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        margin-bottom: 20px;
+                    }
+                    th, td {
+                        border: 1px solid #dddddd;
+                        text-align: center;
+                        padding: 8px;
+                    }
+                    th {
+                        background-color: #f2f2f2;
+                        font-weight: bold;
+                    }
+                    .info-section {
+                        margin-top: 40px;
+                    }
+                    .info-title {
+                        font-size: 18px;
+                        font-weight: bold;
+                        margin-bottom: 10px;
+                    }
+                    .api-docs a {
+                        color: #007bff;
+                        text-decoration: none;
+                    }
+                    .api-docs a:hover {
+                        text-decoration: underline;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">CB-Spider Information</div>
 
-                <body>
+                    <div class="info-section">
+                        <div class="info-title">Server Information</div>
+                        <table>
+                            <tr>
+                                <th>Server Start Time</th>
+                                <th>Server Version</th>
+                                <th>API Version</th>
+                            </tr>
+                            <tr>
+                                <td>$$STARTTIME$$</td>
+                                <td>CB-Spider v0.9.0 (Cinnamon)</td>
+                                <td>REST API v0.9.0 (Cinnamon)</td>
+                            </tr>
+                        </table>
+                    </div>
 
-                    <table border="0" bordercolordark="#F8F8FF" cellpadding="0" cellspacing="1" bgcolor="#FFFFFF"  style="font-size:small;">
-                                <tr bgcolor="#DDDDDD" align="center">
-                                    <td width="200">
-                                            <font size=2>Server Start Time</font>
-                                    </td>
-                                    <td width="220">
-                                            <font size=2>Server Version</font>
-                                    </td>
-                                    <td width="220">
-                                            <font size=2>API Version</font>
-                                    </td>
-                                </tr>
-                                <tr bgcolor="#FFFFFF" align="center" height="30">
-                                    <td width="220">
-                                            <font size=2>$$STARTTIME$$</font>
-                                    </td>
-                                    <td width="220">
-                                            <font size=2>CB-Spider v0.8.0 (Chamomile)</font>
-                                    </td>
-                                    <td width="220">
-                                            <font size=2>REST API v0.8.0 (Chamomile)</font>
-                                    </td>
-                                </tr>
+                    <div class="info-section">
+                        <div class="info-title">API Endpoint Information</div>
+                        <table>
+                            <tr>
+                                <th>API Endpoint</th>
+                                <th>API Documentation</th>
+                            </tr>
+                            <tr>
+                                <td>$$APIENDPOINT$$</td>
+                                <td class="api-docs">
+                                    <a href="https://github.com/cloud-barista/cb-spider/wiki/CB-Spider-User-Interface" target="_blank">
+                                        CB-Spider User Interface Documentation
+                                    </a>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
 
-                    </table>
-		    <hr>
-		<br>
-		<br>
-		<br>
-                    <table border="0" bordercolordark="#F8F8FF" cellpadding="0" cellspacing="1" bgcolor="#FFFFFF"  style="font-size:small;">
-                                <tr bgcolor="#DDDDDD" align="center">
-                                    <td width="240">
-                                            <font size=2>API EndPoint</font>
-                                    </td>
-                                    <td width="420">
-                                            <font size=2>API Docs</font>
-                                    </td>
-                                </tr>
-                                <tr bgcolor="#FFFFFF" align="left" height="30">
-                                    <td width="240">
-                                            <font size=2>$$APIENDPOINT$$</font>
-                                    </td>
-                                    <td width="420">
-                                            <font size=2>
-					    &nbsp;&nbsp;<a href='https://github.com/cloud-barista/cb-spider/wiki/CB-Spider-User-Interface' target='_blank'>
-					    		CB-Spider User Interface
-                                                </a>
-                                            </font>
-                                    </td>
-                                </tr>
-
-                    </table>
-		    <hr>
-                </body>
-                </html>
-                `
+                    <div class="info-section">
+                        <div class="info-title">Additional Information</div>
+                        <table>
+                            <tr>
+                                <th>Project Repository</th>
+                                <th>Support</th>
+                            </tr>
+                            <tr>
+                                <td class="api-docs">
+                                    <a href="https://github.com/cloud-barista/cb-spider" target="_blank">
+                                        GitHub: cloud-barista/cb-spider
+                                    </a>
+                                </td>
+                                <td>
+                                    For support, please visit the 
+                                    <a href="https://github.com/cloud-barista/cb-spider/issues" target="_blank">issue tracker</a>.
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </body>
+        </html>
+    `
 
 	htmlStr = strings.ReplaceAll(htmlStr, "$$STARTTIME$$", cr.StartTime)
-	htmlStr = strings.ReplaceAll(htmlStr, "$$APIENDPOINT$$", "http://"+cr.ServiceIPorName+cr.ServicePort+"/spider") // cr.ServicePort = ":1024"
+	htmlStr = strings.ReplaceAll(htmlStr, "$$APIENDPOINT$$", "http://"+cr.ServiceIPorName+cr.ServicePort+"/spider")
 
 	return c.HTML(http.StatusOK, htmlStr)
 }

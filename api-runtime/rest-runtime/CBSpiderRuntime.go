@@ -281,6 +281,7 @@ func RunServer() {
 
 		//----------SecurityGroup Handler
 		{"GET", "/getsecuritygroupowner", GetSGOwnerVPC},
+		{"POST", "/getsecuritygroupowner", GetSGOwnerVPC},
 		{"POST", "/regsecuritygroup", RegisterSecurity},
 		{"DELETE", "/regsecuritygroup/:Name", UnregisterSecurity},
 
@@ -328,6 +329,7 @@ func RunServer() {
 		*/
 		//----------VM Handler
 		{"GET", "/getvmusingresources", GetVMUsingRS},
+		{"POST", "/getvmusingresources", GetVMUsingRS},
 		{"POST", "/regvm", RegisterVM},
 		{"DELETE", "/regvm/:Name", UnregisterVM},
 
@@ -627,10 +629,9 @@ func endpointInfo(c echo.Context) error {
 	endpointInfo := fmt.Sprintf("\n  <CB-Spider> Multi-Cloud Infrastructure Federation Framework\n")
 	adminWebURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/adminweb"
 	endpointInfo += fmt.Sprintf("     - AdminWeb: %s\n", adminWebURL)
-	restEndPoint := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider"
-	endpointInfo += fmt.Sprintf("     - REST API: %s\n", restEndPoint)
-	// swaggerURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/swagger/index.html"
-	// endpointInfo += fmt.Sprintf("     - Swagger : %s\n", swaggerURL)
+	swaggerURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/api"
+	endpointInfo += fmt.Sprintf("     - Swagger UI: %s\n", swaggerURL)
+
 	// gRPCServer := "grpc://" + cr.ServiceIPorName + cr.GoServicePort
 	// endpointInfo += fmt.Sprintf("     - Go   API: %s\n", gRPCServer)
 
@@ -716,11 +717,8 @@ func spiderBanner() {
 	adminWebURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/adminweb"
 	fmt.Printf("     - AdminWeb: %s\n", adminWebURL)
 
-	// REST API EndPoint
-	restEndPoint := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider"
-	fmt.Printf("     - REST API: %s\n", restEndPoint)
-
 	// Swagger
-	// swaggerURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/swagger/index.html"
-	// fmt.Printf("     - Swagger : %s\n", swaggerURL)
+	swaggerURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/api"
+	fmt.Printf("     - Swagger UI: %s\n", swaggerURL)
+
 }
