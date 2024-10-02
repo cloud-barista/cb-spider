@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Azure/azure-sdk-for-go/sdk/monitor/azquery"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/monitor/azquery"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -150,7 +151,7 @@ func (nlbHandler *AzureNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 			LoadBalancingRules:       loadBalancingRules,
 		},
 		Tags: map[string]*string{
-			"createdAt": toStrPtr(strconv.FormatInt(time.Now().Unix(), 10)),
+			"createdAt": toStrPtr(strconv.FormatInt(time.Now().UTC().Unix(), 10)),
 		},
 	}
 
@@ -1087,7 +1088,7 @@ func (nlbHandler *AzureNLBHandler) setterNLB(nlb *armnetwork.LoadBalancer) (*irs
 		createAt := *nlb.Tags["createdAt"]
 		timeInt64, err := strconv.ParseInt(createAt, 10, 64)
 		if err == nil {
-			nlbInfo.CreatedTime = time.Unix(timeInt64, 0)
+			nlbInfo.CreatedTime = time.Unix(timeInt64, 0).UTC()
 		}
 	}
 

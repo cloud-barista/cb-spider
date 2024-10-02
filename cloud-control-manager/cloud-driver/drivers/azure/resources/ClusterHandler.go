@@ -637,7 +637,7 @@ func setterClusterInfo(cluster *armcontainerservice.ManagedCluster,
 			if createdTimeExist && createdTime != nil {
 				timeInt64, err := strconv.ParseInt(*createdTime, 10, 64)
 				if err == nil {
-					clusterInfo.CreatedTime = time.Unix(timeInt64, 0)
+					clusterInfo.CreatedTime = time.Unix(timeInt64, 0).UTC()
 				}
 			}
 			sshkey, sshKeyExist := tags[ClusterNodeSSHKeyKey]
@@ -1324,7 +1324,7 @@ func generatorNetworkProfile(ClusterInfo irs.ClusterInfo, targetSubnet armnetwor
 
 func generatorClusterTags(sshKeyName string, clusterName string) (map[string]*string, error) {
 	tags := make(map[string]*string)
-	nowTime := strconv.FormatInt(time.Now().Unix(), 10)
+	nowTime := strconv.FormatInt(time.Now().UTC().Unix(), 10)
 	tags[ClusterNodeSSHKeyKey] = &sshKeyName
 	tags["createdAt"] = &nowTime
 	tags[OwnerClusterKey] = &clusterName

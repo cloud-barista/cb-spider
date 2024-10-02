@@ -14,14 +14,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	"math/rand"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 
@@ -1120,7 +1121,7 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server armcompute.VirtualMach
 	if server.Properties.InstanceView != nil {
 		for _, status := range server.Properties.InstanceView.Statuses {
 			if strings.EqualFold(*status.Code, ProvisioningStateCode) {
-				vmInfo.StartTime = status.Time.Local()
+				vmInfo.StartTime = status.Time.UTC()
 				break
 			}
 		}

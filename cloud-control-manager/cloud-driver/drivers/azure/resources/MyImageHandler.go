@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -94,7 +95,7 @@ func (myImageHandler *AzureMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImag
 			},
 		},
 		Tags: map[string]*string{
-			"createdAt": toStrPtr(strconv.FormatInt(time.Now().Unix(), 10)),
+			"createdAt": toStrPtr(strconv.FormatInt(time.Now().UTC().Unix(), 10)),
 		},
 	}
 	if snapshotReqInfo.TagList != nil {
@@ -291,7 +292,7 @@ func setterMyImageInfo(myImage *armcompute.Image, credentialInfo idrv.Credential
 		createAt := *myImage.Tags["createdAt"]
 		timeInt64, err := strconv.ParseInt(createAt, 10, 64)
 		if err == nil {
-			myImageInfo.CreatedTime = time.Unix(timeInt64, 0)
+			myImageInfo.CreatedTime = time.Unix(timeInt64, 0).UTC()
 		}
 	}
 	if myImage.Tags != nil {
