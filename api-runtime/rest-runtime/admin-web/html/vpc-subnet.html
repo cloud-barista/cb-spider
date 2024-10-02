@@ -88,8 +88,8 @@
     }
     .tag-overlay .close-btn {
         position: absolute;
-        top: 5px;
-        right: 10px;
+        top: -10px;
+        right: -5px;
         background: none;
         border: none;
         font-size: 16px;
@@ -528,7 +528,7 @@
         font-size: 13px;
         font-weight: bold;
     }
-    .vpc-name-cell .vpc-system-id {
+    .vpc-name-cell .desc-system-id {
         display: block;
         font-size: 12px;
         font-weight: normal;
@@ -542,6 +542,57 @@
         width: 7%;
     }
 
+    .desc-system-id {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+
+    .system-id-overlay {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 50%;
+        max-width: 600px;
+        background-color: white;
+        border: 1px solid black;
+        padding: 20px;
+        z-index: 2000;
+        border-radius: 5px;
+    }
+
+    .system-id-overlay-content {
+        position: relative;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        word-wrap: break-word;
+    }
+
+    .system-id-overlay .close-btn {
+        position: absolute;
+        top: -15px;
+        right: -5px;
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+    }
+
+    .copy-btn {
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        margin-left: 10px;
+    }
 
 </style>
 </head>
@@ -585,9 +636,9 @@
             <tr>
                 <td class="column-num">{{$index | inc}}</td>
                 <td class="vpc-name-cell">{{$vpc.IId.NameId}}
-                    <span class="vpc-system-id">&nbsp;• {{$vpc.IId.SystemId}}</span></td>
-                <td class="vpc-cidr center-align">{{$vpc.IPv4_CIDR}}</td>
-                <td class="subnet-info">
+                    <span class="desc-system-id" onclick="showSystemIdOverlay('{{$vpc.IId.SystemId}}')">&nbsp;• {{$vpc.IId.SystemId}}</span></td>
+                    <td class="vpc-cidr center-align">{{$vpc.IPv4_CIDR}}</td>
+                    <td class="subnet-info">
                     <table class="inner-table">
                         <tr>
                             <th class="name-column">Name</th>
@@ -600,7 +651,7 @@
                         {{ $subnetNameId := $subnet.IId.NameId }}
                         <tr>
                             <td class="vpc-name-cell" style="text-align: left;">{{$subnet.IId.NameId}}
-                                <span class="vpc-system-id">&nbsp;• {{$subnet.IId.SystemId}}</span>
+                                <span class="desc-system-id" onclick="showSystemIdOverlay('{{$subnet.IId.SystemId}}')">&nbsp;• {{$subnet.IId.SystemId}}</span>
                             </td>
                             <td>{{$subnet.IPv4_CIDR}}</td>
                             <td>{{$subnet.Zone}}</td>
@@ -746,7 +797,18 @@
     </div>
 
     <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
+
+    <div id="system-id-overlay" class="system-id-overlay">
+        <div class="system-id-overlay-content">
+            <button class="close-btn" onclick="closeSystemIdOverlay()">x</button>
+            <h2>System ID (Managed by CSP)</h2>
+            <p id="fullSystemId"></p>
+            <button class="copy-btn" onclick="copySystemId()">📋</button>
+        </div>
+    </div>
+    
 </body>
+
 <script>
     let currentProvider = '';
 
@@ -1657,6 +1719,47 @@
             }
         });
     });
+
+
+    function showSystemIdOverlay(systemId) {
+        const overlay = document.getElementById('system-id-overlay');
+        const fullSystemIdElement = document.getElementById('fullSystemId');
+        fullSystemIdElement.textContent = systemId;
+
+        overlay.style.display = 'block';
+        document.addEventListener('keydown', handleEscSystemIdOverlay);
+    }
+
+    function closeSystemIdOverlay() {
+        const overlay = document.getElementById('system-id-overlay');
+        overlay.style.display = 'none';
+        document.removeEventListener('keydown', handleEscSystemIdOverlay);
+    }
+
+    function handleEscSystemIdOverlay(event) {
+        if (event.key === "Escape") {
+            closeSystemIdOverlay();
+        }
+    }
+
+    function copySystemId() {
+        const fullSystemIdElement = document.getElementById('fullSystemId');
+        const range = document.createRange();
+        range.selectNode(fullSystemIdElement);
+        const selection = window.getSelection();
+
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        try {
+            document.execCommand('copy');
+            closeSystemIdOverlay();
+        } catch (err) {
+            console.error('Error copying SystemId: ', err);
+        }
+
+        selection.removeAllRanges();
+    }
 
 </script>
 </html>
