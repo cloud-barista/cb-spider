@@ -1303,6 +1303,40 @@
     
         function clearFormFields() {
             document.getElementById('clusterVersion').value = '';
+            const connConfig = document.getElementById('connConfig').value;
+
+            // Setting the Version and other fields default based on CSP
+            getCSPInfo(connConfig).then(providerName => {
+                const versionInput = document.getElementById('clusterVersion');
+                const vmSpecInput = document.getElementById('vmSpecName');
+                const rootDiskTypeInput = document.getElementById('rootDiskType');
+
+                switch (providerName.toUpperCase()) {
+                    case 'AZURE':
+                        versionInput.value = '1.30.3';
+                        vmSpecInput.value = 'Standard_B2s';
+                        break;
+                    case 'NHNCLOUD':
+                        versionInput.value = 'v1.28.3';
+                        vmSpecInput.value = 'r2.c4m16';
+                        break;
+                    case 'ALIBABA':
+                        vmSpecInput.value = 'ecs.g6.large';
+                        rootDiskTypeInput.value = 'cloud_ssd';
+                        break;
+                    case 'TENCENT':
+                        vmSpecInput.value = 'S5.MEDIUM4';
+                        break;
+                    case 'GCP':
+                        vmSpecInput.value = 'e2-standard-4';
+                        break;
+                    default:
+                        // Do nothing if the CSP is not recognized
+                        break;
+                }
+            });
+
+            // Rest of the function remains the same
             document.getElementById('vpcSelect').value = '';
             document.getElementById('subnetSelect').innerHTML = '';
             document.getElementById('securityGroupSelect').value = '';
@@ -1313,14 +1347,12 @@
 
             const nodeGroupNameInput = document.getElementById('nodeGroupName');
             nodeGroupNameInput.value = `nodegroup-${Math.random().toString(36).substring(2, 5)}`;
-            
+
             document.getElementById('imageName').value = '';
             document.getElementById('vmSpecName').value = '';
 
-            const rootDiskType = document.getElementById('rootDiskType');
-            rootDiskType.value = 'default';
             const rootDiskSize = document.getElementById('rootDiskSize');
-            rootDiskSize.value = 60; 
+            rootDiskSize.value = 60;
 
             document.getElementById('onAutoScaling').value = 'true';
             document.getElementById('desiredNodeSize').value = '2';
@@ -1332,6 +1364,7 @@
 
             nodeGroups = [];
         }
+
 
     
         function handleEsc(event) {
@@ -1359,12 +1392,13 @@
             // Type-I: AWS, Alibaba, Tencent (No NodeGroup)
             const typeICSPs = ['AWS', 'ALIBABA', 'TENCENT'];
 
-            if (typeICSPs.includes(providerName)) {
+            if (typeICSPs.includes(providerName.toUpperCase())) {
                 nodeGroupFieldset.style.display = 'none';
             } else {
                 nodeGroupFieldset.style.display = 'block';
             }
         }
+
     
         function addClusterTagField() {
             const tagContainer = document.getElementById('cluster-tag-container');
@@ -1867,26 +1901,39 @@
             nodeGroupNameInput.value = `nodegroup-${Math.random().toString(36).substring(2, 5)}`;
 
             const imageNameInput = document.getElementById('newImageName');
-            imageNameInput.value = ''; 
+            imageNameInput.value = '';
 
             const vmSpecNameInput = document.getElementById('newVmSpecName');
-            vmSpecNameInput.value = ''; 
-
             const rootDiskTypeInput = document.getElementById('newRootDiskType');
-            rootDiskTypeInput.value = ''; 
-
-            const newRootDiskType = document.getElementById('newRootDiskType');
-            newRootDiskType.value = 'default';  
-
             const rootDiskSizeInput = document.getElementById('newRootDiskSize');
-            rootDiskSizeInput.value = 60;  
+            const connConfig = document.getElementById('connConfig').value;
+
+            // Setting the VM Spec and Root Disk Type based on CSP
+            getCSPInfo(connConfig).then(providerName => {
+                if (providerName.toUpperCase() === 'ALIBABA') {
+                    vmSpecNameInput.value = 'ecs.g6.large';
+                    rootDiskTypeInput.value = 'cloud_ssd';
+                } else if (providerName.toUpperCase() === 'TENCENT') {
+                    vmSpecNameInput.value = 'S5.MEDIUM4';
+                } else if (providerName.toUpperCase() === 'AZURE') {
+                    vmSpecNameInput.value = 'Standard_B2s';
+                } else if (providerName.toUpperCase() === 'GCP') {
+                    vmSpecNameInput.value = 'e2-standard-4';
+                } else if (providerName.toUpperCase() === 'NHNCLOUD') {
+                    vmSpecNameInput.value = 'r2.c4m16';
+                }
+
+                // Default values for root disk
+                rootDiskTypeInput.value = rootDiskTypeInput.value || 'default';
+                rootDiskSizeInput.value = 60;
+            });
 
             const autoScalingSelect = document.getElementById('newOnAutoScaling');
-            autoScalingSelect.value = 'true';  
+            autoScalingSelect.value = 'true';
 
-            document.getElementById('newMinNodeSize').value = 1;  
-            document.getElementById('newDesiredNodeSize').value = 2;  
-            document.getElementById('newMaxNodeSize').value = 3;  
+            document.getElementById('newMinNodeSize').value = 1;
+            document.getElementById('newDesiredNodeSize').value = 2;
+            document.getElementById('newMaxNodeSize').value = 3;
 
             loadNewNodeGroupKeyPairs();
 
@@ -1895,6 +1942,7 @@
 
             document.addEventListener('keydown', handleEscNewNodeGroup);
         }
+
 
         function loadNewNodeGroupKeyPairs() {
             const connConfig = document.getElementById('connConfig').value;
