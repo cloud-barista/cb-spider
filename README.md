@@ -53,6 +53,8 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 
 
 #### 3. 제공 자원
+- #### ※ 참고: [Tagging Guide](https://github.com/cloud-barista/cb-spider/wiki/Tag-and-Cloud-Driver-API)
+
 
 | Provider      | Price<br>Info | Region/Zone<br>Info | Image<br>Info | VMSpec<br>Info | VPC<br>Subnet       | Security<br>Group | VM KeyPair      | VM             | Disk | MyImage | NLB | managed-K8S |
 |:-------------:|:-------------:|:-------------------:|:-------------:|:--------------:|:-------------------:|:-----------------:|:---------------:|:--------------:|:----:|:---:|:-------:|:-----------:|
