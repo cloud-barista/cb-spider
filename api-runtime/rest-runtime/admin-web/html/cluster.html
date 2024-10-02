@@ -1638,7 +1638,7 @@
                     <th>Kubeconfig (YAML)</th>
                     <td>
                         <div style="max-height: 200px; overflow: auto; padding: 5px; border: 1px solid #ccc;">
-                            <pre class="kubeconfig-yaml" style="white-space: pre-wrap; word-wrap: break-word;">${formatKubeconfig(data.kubeconfig)}</pre>
+                            <pre class="kubeconfig-yaml" style="white-space: pre-wrap; word-wrap: break-word;">${data.kubeconfig}</pre>
                         </div>
                         <button class="copy-icon-btn" onclick="copyKubeconfigToClipboard(this)">📋</button>
                     </td>`;
@@ -1877,8 +1877,7 @@
             tempInput.value = kubeconfigText; // Set its value to the kubeconfig YAML text
             tempInput.select(); // Select the text
             document.execCommand('copy'); // Execute the copy command
-            document.body.removeChild(tempInput); // Remove the temporary input element
-            alert('Kubeconfig (YAML) copied to clipboard'); // Notify the user
+            document.body.removeChild(tempInput); // Remove the temporary input element            
         }
 
         let selectedClusterName = '';
