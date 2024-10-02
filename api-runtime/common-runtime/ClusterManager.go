@@ -915,7 +915,7 @@ func AddNodeGroup(connectionName string, rsType string, clusterName string, reqI
 
 	// (1) check exist(NameID)
 	var ngIIdInfoList []*NodeGroupIIDInfo
-	err = infostore.ListByCondition(&ngIIdInfoList, CONNECTION_NAME_COLUMN, connectionName)
+	err = infostore.ListByConditions(&ngIIdInfoList, CONNECTION_NAME_COLUMN, connectionName, OWNER_CLUSTER_NAME_COLUMN, clusterName)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
