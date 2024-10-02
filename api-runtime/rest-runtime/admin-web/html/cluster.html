@@ -1848,28 +1848,6 @@
             overlay.style.display = 'none';
         }
 
-
-        function formatKubeconfig(kubeconfig, providerName) {
-            if (!kubeconfig) {
-                return "No kubeconfig available";
-            }
-
-            if (providerName === "Alibaba") {
-                return kubeconfig
-                    .replace(/\\n/g, "\n")
-                    .replace(/\\r/g, "")
-                    .replace(/\\/g, "")
-                    .replace(/\"/g, "");
-            }
-
-            // AWS, Azure, ...
-            return kubeconfig
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/\"/g, "");
-        }
-
-
         function copyKubeconfigToClipboard(button) {
             const kubeconfigText = button.previousElementSibling.textContent; // Grab the kubeconfig value
             const tempInput = document.createElement('textarea'); // Use textarea to handle multi-line text
