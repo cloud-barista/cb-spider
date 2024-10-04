@@ -22,6 +22,7 @@ import (
 	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
+	ires "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
 	ktsdk "github.com/cloud-barista/ktcloud-sdk-go"
 	//ktcloudcon "github.com/cloud-barista/ktcloud/ktcloud/connect"
@@ -54,6 +55,9 @@ func (KtCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.VMHandler = true
 	drvCapabilityInfo.VMSpecHandler = true
+	drvCapabilityInfo.TagHandler = true
+	// ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.NLB, ires.CLUSTER
+	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.ALL, ires.VM, ires.DISK, ires.MYIMAGE}
 
 	return drvCapabilityInfo
 }
@@ -64,13 +68,13 @@ const (
 
 func getVMClient(connectionInfo idrv.ConnectionInfo) (*ktsdk.KtCloudClient, error) {
 	// cblogger.Info("### connectionInfo.RegionInfo.Zone : " + connectionInfo.RegionInfo.Zone)
-	
+
 	// $$$ Caution!!
 	var apiurl string
 	if strings.EqualFold(connectionInfo.RegionInfo.Zone, KOR_Seoul_M2_ZoneID) { // When Zone is "KOR-Seoul M2"
-	apiurl = "https://api.ucloudbiz.olleh.com/server/v2/client/api"
+		apiurl = "https://api.ucloudbiz.olleh.com/server/v2/client/api"
 	} else {
-	apiurl = "https://api.ucloudbiz.olleh.com/server/v1/client/api"
+		apiurl = "https://api.ucloudbiz.olleh.com/server/v1/client/api"
 	}
 
 	if len(apiurl) == 0 {
@@ -104,13 +108,13 @@ func getVMClient(connectionInfo idrv.ConnectionInfo) (*ktsdk.KtCloudClient, erro
 
 func getNLBClient(connectionInfo idrv.ConnectionInfo) (*ktsdk.KtCloudClient, error) {
 	// cblogger.Info("### connectionInfo.RegionInfo.Zone : " + connectionInfo.RegionInfo.Zone)
-	
+
 	// $$$ Caution!!
 	var apiurl string
 	if strings.EqualFold(connectionInfo.RegionInfo.Zone, KOR_Seoul_M2_ZoneID) { // When Zone is "KOR-Seoul M2"
-	apiurl = "https://api.ucloudbiz.olleh.com/loadbalancer/v2/client/api"
+		apiurl = "https://api.ucloudbiz.olleh.com/loadbalancer/v2/client/api"
 	} else {
-	apiurl = "https://api.ucloudbiz.olleh.com/loadbalancer/v1/client/api"
+		apiurl = "https://api.ucloudbiz.olleh.com/loadbalancer/v1/client/api"
 	}
 
 	if len(apiurl) == 0 {
@@ -156,7 +160,7 @@ func (driver *KtCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 	if err != nil {
 		return nil, err
 	}
-	// spew.Dump(vmClient)       
+	// spew.Dump(vmClient)
 
 	nlbClient, err := getNLBClient(connectionInfo)
 	if err != nil {
@@ -165,7 +169,7 @@ func (driver *KtCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 
 	iConn := ktcloudcon.KtCloudConnection{
 		CredentialInfo: connectionInfo.CredentialInfo,
-		RegionInfo:     connectionInfo.RegionInfo,		
+		RegionInfo:     connectionInfo.RegionInfo,
 		Client:         vmClient,
 		NLBClient:      nlbClient,
 	}
