@@ -12,7 +12,6 @@
 package resources
 
 import (
-	"errors"
 	"fmt"
 
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
@@ -31,6 +30,8 @@ type NhnCloudKeyPairHandler struct {
 func (keyPairHandler *NhnCloudKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called CreateKey()")
 	callLogInfo := getCallLogScheme(keyPairHandler.RegionInfo.Region, call.VMKEYPAIR, keyPairReqInfo.IId.NameId, "CreateKey()")
+
+	fmt.Println(keyPairReqInfo)
 
 	if keyPairReqInfo.IId.NameId == "" {
 		newErr := fmt.Errorf("Invalid KeyPair NameId.")
@@ -234,5 +235,39 @@ func mappingKeypairInfo(keypair keypairs.KeyPair) *irs.KeyPairInfo {
 
 func (keyPairHandler *NhnCloudKeyPairHandler) ListIID() ([]*irs.IID, error) {
 	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	callLogInfo := getCallLogScheme(keyPairHandler.RegionInfo.Zone, call.VMKEYPAIR, "keyId", "ListIID()")
+
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	listOpts := keypairs.ListOpts{}
+
+	allPages, err := keypairs.List(keyPairHandler.VMClient, listOpts).AllPages()
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get kypairs information from NhnCloud!! : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return make([]*irs.IID, 0), newErr
+	}
+
+	allKeypairs, err := keypairs.ExtractKeyPairs(allPages)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get kypairs List from NhnCloud!! : [%v] ", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return make([]*irs.IID, 0), newErr
+	}
+
+	for _, keypair := range allKeypairs {
+		var iid irs.IID
+		iid.NameId = keypair.Name
+		iid.SystemId = keypair.Name
+
+		iidList = append(iidList, &iid)
+	}
+
+	LoggingInfo(callLogInfo, start)
+
+	return iidList, nil
 }

@@ -660,7 +660,41 @@ func (diskHandler *NhnCloudDiskHandler) getNhnVolumeList() ([]volumes.Volume, er
 	return nhnVolumeList, nil
 }
 
-func (DiskHandler *NhnCloudDiskHandler) ListIID() ([]*irs.IID, error) {
+func (diskHandler *NhnCloudDiskHandler) ListIID() ([]*irs.IID, error) {
 	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	callLogInfo := getCallLogScheme(diskHandler.RegionInfo.Zone, call.DISK, "diskId", "ListIID()")
+
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	listOpts := volumes.ListOpts{}
+
+	allPages, err := volumes.List(diskHandler.VolumeClient, listOpts).AllPages()
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get disk information from NhnCloud!! : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return make([]*irs.IID, 0), newErr
+	}
+
+	allDisks, err := volumes.ExtractVolumes(allPages)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get disk List from NhnCloud!! : [%v] ", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return make([]*irs.IID, 0), newErr
+	}
+
+	for _, disk := range allDisks {
+		var iid irs.IID
+		iid.SystemId = disk.ID
+		iid.NameId = disk.Name
+
+		iidList = append(iidList, &iid)
+	}
+
+	LoggingInfo(callLogInfo, start)
+
+	return iidList, nil
 }
