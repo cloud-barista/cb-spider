@@ -228,5 +228,38 @@ func GetRawKey(client *gophercloud.ServiceClient, keyIID irs.IID) (keypairs.KeyP
 
 func (keyPairHandler *OpenStackKeyPairHandler) ListIID() ([]*irs.IID, error) {
 	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	hiscallInfo := GetCallLogScheme(keyPairHandler.Client.IdentityEndpoint, call.VMKEYPAIR, KeyPair, "ListIID()")
+
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	allPages, err := keypairs.List(keyPairHandler.Client, keypairs.ListOpts{}).AllPages()
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get keypairs information from Openstack!! : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(hiscallInfo, newErr)
+		return make([]*irs.IID, 0), newErr
+
+	}
+
+	allKeypairs, err := keypairs.ExtractKeyPairs(allPages)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get keypairs List from Openstack!! : [%v] ", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(hiscallInfo, newErr)
+		return make([]*irs.IID, 0), newErr
+	}
+
+	for _, keypair := range allKeypairs {
+		var iid irs.IID
+		iid.NameId = keypair.Name
+		iid.SystemId = keypair.Name
+
+		iidList = append(iidList, &iid)
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
 }

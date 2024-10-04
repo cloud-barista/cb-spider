@@ -1825,7 +1825,38 @@ func checkvmGroupProtocol(protocol string) (pools.Protocol, error) {
 	return "", errors.New("invalid vmGroup Protocols, openstack vmGroup provides only TCP protocols")
 }
 
-func (NLBHandler *OpenStackNLBHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+func (nlbHandler *OpenStackNLBHandler) ListIID() ([]*irs.IID, error) {
+	hiscallInfo := GetCallLogScheme(nlbHandler.Region.Region, "NETWORKLOADBALANCE", "NLB", "ListIID()")
+
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	err := nlbHandler.checkNLBClient()
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to List NLB. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return make([]*irs.IID, 0), getErr
+	}
+
+	nlbList, err := nlbHandler.getRawNLBList()
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to List NLB. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return make([]*irs.IID, 0), getErr
+	}
+
+	for _, rawnlb := range nlbList {
+		var iid irs.IID
+		iid.SystemId = rawnlb.ID
+		iid.NameId = rawnlb.Name
+
+		iidList = append(iidList, &iid)
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
 }

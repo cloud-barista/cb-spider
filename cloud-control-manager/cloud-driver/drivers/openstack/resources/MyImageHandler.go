@@ -380,7 +380,30 @@ func (myImageHandler *OpenStackMyImageHandler) CheckWindowsImage(myImageIID irs.
 	return false, nil
 }
 
-func (ImageHandler *OpenStackMyImageHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+func (myImageHandler *OpenStackMyImageHandler) ListIID() ([]*irs.IID, error) {
+	hiscallInfo := GetCallLogScheme(myImageHandler.CredentialInfo.IdentityEndpoint, "MyImage", "MyImage", "ListIID()")
+
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	list, err := getRawSnapshotList(myImageHandler.ComputeClient)
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to List MyImage. err = %s", err))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return make([]*irs.IID, 0), getErr
+	}
+
+	for _, image := range list {
+		var iid irs.IID
+		iid.SystemId = image.ID
+		iid.NameId = image.Name
+
+		iidList = append(iidList, &iid)
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
 }
