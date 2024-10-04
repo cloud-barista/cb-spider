@@ -381,33 +381,25 @@ func (myImageHandler *OpenStackMyImageHandler) CheckWindowsImage(myImageIID irs.
 }
 
 func (myImageHandler *OpenStackMyImageHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	hiscallInfo := GetCallLogScheme(myImageHandler.ComputeClient.IdentityEndpoint, call.VMIMAGE, Image, "ListIID()")
+	hiscallInfo := GetCallLogScheme(myImageHandler.CredentialInfo.IdentityEndpoint, "MyImage", "MyImage", "ListIID()")
 
 	start := call.Start()
 
 	var iidList []*irs.IID
 
-	listOpts := images.ListOpts{}
-
-	allPages, err := images.ListDetail(myImageHandler.ComputeClient, listOpts).AllPages()
+	list, err := getRawSnapshotList(myImageHandler.ComputeClient)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get image information from Openstack!! : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return make([]*irs.IID, 0), newErr
+		getErr := errors.New(fmt.Sprintf("Failed to List MyImage. err = %s", err))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return make([]*irs.IID, 0), getErr
 	}
 
-	allImages, err := images.ExtractImages(allPages)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get image list from Openstack!! : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return make([]*irs.IID, 0), newErr
-	}
-
-	for _, image := range allImages {
+	for _, image := range list {
 		var iid irs.IID
 		iid.SystemId = image.ID
 		iid.NameId = image.Name
+
 		iidList = append(iidList, &iid)
 	}
 
