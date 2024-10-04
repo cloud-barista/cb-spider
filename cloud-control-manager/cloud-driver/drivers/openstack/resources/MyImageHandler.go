@@ -394,14 +394,14 @@ func (myImageHandler *OpenStackMyImageHandler) ListIID() ([]*irs.IID, error) {
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get image information from Openstack!! : [%v]", err)
 		cblogger.Error(newErr.Error())
-		return nil, newErr
+		return make([]*irs.IID, 0), newErr
 	}
 
 	allImages, err := images.ExtractImages(allPages)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get image list from Openstack!! : [%v]", err)
 		cblogger.Error(newErr.Error())
-		return nil, newErr
+		return make([]*irs.IID, 0), newErr
 	}
 
 	for _, image := range allImages {

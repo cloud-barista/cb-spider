@@ -617,7 +617,7 @@ func (vpcHandler *OpenStackVPCHandler) ListIID() ([]*irs.IID, error) {
 		newErr := fmt.Errorf("Failed to Get VPC information from Openstack!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(hiscallInfo, newErr)
-		return nil, newErr
+		return make([]*irs.IID, 0), newErr
 	}
 
 	allNetworks, err := networks.ExtractNetworks(allPages)
@@ -625,7 +625,7 @@ func (vpcHandler *OpenStackVPCHandler) ListIID() ([]*irs.IID, error) {
 		newErr := fmt.Errorf("Failed to Get VPC List from Openstack! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(hiscallInfo, newErr)
-		return nil, newErr
+		return make([]*irs.IID, 0), newErr
 	}
 
 	for _, vpc := range allNetworks {

@@ -618,7 +618,7 @@ func (securityHandler *OpenStackSecurityHandler) ListIID() ([]*irs.IID, error) {
 		newErr := fmt.Errorf("Failed to Get secgroup information from Openstack!! : [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(hiscallInfo, newErr)
-		return nil, newErr
+		return make([]*irs.IID, 0), newErr
 
 	}
 
@@ -627,7 +627,7 @@ func (securityHandler *OpenStackSecurityHandler) ListIID() ([]*irs.IID, error) {
 		newErr := fmt.Errorf("Failed to Get secgroups List from Openstack!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(hiscallInfo, newErr)
-		return nil, newErr
+		return make([]*irs.IID, 0), newErr
 	}
 
 	for _, secgroups := range allSecugroups {

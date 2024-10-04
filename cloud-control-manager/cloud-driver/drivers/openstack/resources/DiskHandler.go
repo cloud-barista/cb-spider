@@ -866,7 +866,7 @@ func (diskHandler *OpenstackDiskHandler) ListIID() ([]*irs.IID, error) {
 		getErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
-		return nil, getErr
+		return make([]*irs.IID, 0), getErr
 	}
 
 	list, err := getRawDiskList(diskHandler.VolumeClient)
@@ -874,7 +874,7 @@ func (diskHandler *OpenstackDiskHandler) ListIID() ([]*irs.IID, error) {
 		getErr := errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
-		return nil, getErr
+		return make([]*irs.IID, 0), getErr
 	}
 
 	for _, vol := range list {

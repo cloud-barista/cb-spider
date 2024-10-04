@@ -239,7 +239,7 @@ func (keyPairHandler *OpenStackKeyPairHandler) ListIID() ([]*irs.IID, error) {
 		newErr := fmt.Errorf("Failed to Get keypairs information from Openstack!! : [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(hiscallInfo, newErr)
-		return nil, newErr
+		return make([]*irs.IID, 0), newErr
 
 	}
 
@@ -248,7 +248,7 @@ func (keyPairHandler *OpenStackKeyPairHandler) ListIID() ([]*irs.IID, error) {
 		newErr := fmt.Errorf("Failed to Get keypairs List from Openstack!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(hiscallInfo, newErr)
-		return nil, newErr
+		return make([]*irs.IID, 0), newErr
 	}
 
 	for _, keypair := range allKeypairs {

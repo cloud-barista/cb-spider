@@ -1838,7 +1838,7 @@ func (NLBHandler *OpenStackNLBHandler) ListIID() ([]*irs.IID, error) {
 		newErr := fmt.Errorf("Failed to Get nlb information from Openstack!! : [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(hiscallInfo, newErr)
-		return nil, newErr
+		return make([]*irs.IID, 0), newErr
 
 	}
 
@@ -1847,7 +1847,7 @@ func (NLBHandler *OpenStackNLBHandler) ListIID() ([]*irs.IID, error) {
 		newErr := fmt.Errorf("Failed to Get nlb List from Openstack!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(hiscallInfo, newErr)
-		return nil, newErr
+		return make([]*irs.IID, 0), newErr
 	}
 
 	for _, listener := range allListeners {

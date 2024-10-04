@@ -1353,7 +1353,7 @@ func (vmHandler *OpenStackVMHandler) ListIID() ([]*irs.IID, error) {
 		newErr := fmt.Errorf("Failed to Get vm information from Openstack!! : [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(hiscallInfo, newErr)
-		return nil, newErr
+		return make([]*irs.IID, 0), newErr
 
 	}
 
@@ -1362,7 +1362,7 @@ func (vmHandler *OpenStackVMHandler) ListIID() ([]*irs.IID, error) {
 		newErr := fmt.Errorf("Failed to Get vm List from Openstack!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(hiscallInfo, newErr)
-		return nil, newErr
+		return make([]*irs.IID, 0), newErr
 	}
 
 	for _, server := range allServers {
