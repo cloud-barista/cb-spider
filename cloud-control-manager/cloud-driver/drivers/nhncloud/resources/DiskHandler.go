@@ -675,7 +675,7 @@ func (diskHandler *NhnCloudDiskHandler) ListIID() ([]*irs.IID, error) {
 		newErr := fmt.Errorf("Failed to Get disk information from NhnCloud!! : [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
-		return nil, newErr
+		return make([]*irs.IID, 0), newErr
 	}
 
 	allDisks, err := volumes.ExtractVolumes(allPages)
@@ -683,7 +683,7 @@ func (diskHandler *NhnCloudDiskHandler) ListIID() ([]*irs.IID, error) {
 		newErr := fmt.Errorf("Failed to Get disk List from NhnCloud!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
-		return nil, newErr
+		return make([]*irs.IID, 0), newErr
 	}
 
 	for _, disk := range allDisks {

@@ -503,7 +503,7 @@ func (myImageHandler *NhnCloudMyImageHandler) ListIID() ([]*irs.IID, error) {
 		newErr := fmt.Errorf("Failed to Get images information from NhnCloud!! : [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
-		return nil, newErr
+		return make([]*irs.IID, 0), newErr
 	}
 
 	allimages, err := images.ExtractImages(allPages)
@@ -513,7 +513,7 @@ func (myImageHandler *NhnCloudMyImageHandler) ListIID() ([]*irs.IID, error) {
 		newErr := fmt.Errorf("Failed to Get images List from NhnCloud!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
-		return nil, newErr
+		return make([]*irs.IID, 0), newErr
 	}
 
 	for _, image := range allimages {

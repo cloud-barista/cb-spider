@@ -248,7 +248,7 @@ func (keyPairHandler *NhnCloudKeyPairHandler) ListIID() ([]*irs.IID, error) {
 		newErr := fmt.Errorf("Failed to Get kypairs information from NhnCloud!! : [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
-		return nil, newErr
+		return make([]*irs.IID, 0), newErr
 	}
 
 	allKeypairs, err := keypairs.ExtractKeyPairs(allPages)
@@ -256,7 +256,7 @@ func (keyPairHandler *NhnCloudKeyPairHandler) ListIID() ([]*irs.IID, error) {
 		newErr := fmt.Errorf("Failed to Get kypairs List from NhnCloud!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
-		return nil, newErr
+		return make([]*irs.IID, 0), newErr
 	}
 
 	for _, keypair := range allKeypairs {

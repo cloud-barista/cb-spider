@@ -1329,7 +1329,7 @@ func (vmHandler *NhnCloudVMHandler) ListIID() ([]*irs.IID, error) {
 		newErr := fmt.Errorf("Failed to Get vm information from NhnCloud!! : [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
-		return nil, newErr
+		return make([]*irs.IID, 0), newErr
 	}
 
 	allVms, err := volumes.ExtractVolumes(allPages)
@@ -1337,7 +1337,7 @@ func (vmHandler *NhnCloudVMHandler) ListIID() ([]*irs.IID, error) {
 		newErr := fmt.Errorf("Failed to Get vm List from NhnCloud!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
-		return nil, newErr
+		return make([]*irs.IID, 0), newErr
 	}
 
 	for _, vm := range allVms {

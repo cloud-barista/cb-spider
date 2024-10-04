@@ -677,7 +677,7 @@ func (securityHandler *NhnCloudSecurityHandler) ListIID() ([]*irs.IID, error) {
 		newErr := fmt.Errorf("Failed to Get securitygroups information from NhnCloud!! : [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
-		return nil, newErr
+		return make([]*irs.IID, 0), newErr
 
 	}
 
@@ -686,7 +686,7 @@ func (securityHandler *NhnCloudSecurityHandler) ListIID() ([]*irs.IID, error) {
 		newErr := fmt.Errorf("Failed to Get securitygroups  List from NhnCloud!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
-		return nil, newErr
+		return make([]*irs.IID, 0), newErr
 	}
 
 	for _, secgroups := range allSecugroups {
