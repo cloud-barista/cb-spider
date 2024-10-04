@@ -1314,36 +1314,33 @@ func (vmHandler *NhnCloudVMHandler) createWinInitUserData(passWord string) (*str
 }
 
 func (vmHandler *NhnCloudVMHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-
-	callLogInfo := getCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, "vmId", "ListIID()")
+	cblogger.Info("NHN Cloud Driver: called ListIID()")
+	callLogInfo := getCallLogScheme(vmHandler.RegionInfo.Region, call.VM, "ListIID()", "ListIID()")
 
 	start := call.Start()
 
 	var iidList []*irs.IID
 
-	listOpts := volumes.ListOpts{}
-
-	allPages, err := volumes.List(vmHandler.VolumeClient, listOpts).AllPages()
+	listOpts := servers.ListOpts{
+		Limit: 100,
+	}
+	allPages, err := servers.List(vmHandler.VMClient, listOpts).AllPages()
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get vm information from NhnCloud!! : [%v]", err)
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return make([]*irs.IID, 0), newErr
+		cblogger.Error(err.Error())
+		LoggingError(callLogInfo, err)
+		return nil, err
+	}
+	serverList, err := servers.ExtractServers(allPages)
+	if err != nil {
+		cblogger.Error(err.Error())
+		LoggingError(callLogInfo, err)
+		return nil, err
 	}
 
-	allVms, err := volumes.ExtractVolumes(allPages)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get vm List from NhnCloud!! : [%v] ", err)
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return make([]*irs.IID, 0), newErr
-	}
-
-	for _, vm := range allVms {
+	for _, server := range serverList {
 		var iid irs.IID
-		iid.SystemId = vm.ID
-		iid.NameId = vm.Name
+		iid.SystemId = server.ID
+		iid.NameId = server.Name
 
 		iidList = append(iidList, &iid)
 	}
@@ -1351,5 +1348,4 @@ func (vmHandler *NhnCloudVMHandler) ListIID() ([]*irs.IID, error) {
 	LoggingInfo(callLogInfo, start)
 
 	return iidList, nil
-
 }
