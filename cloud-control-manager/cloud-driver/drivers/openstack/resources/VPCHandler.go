@@ -604,6 +604,39 @@ func (vpcHandler *OpenStackVPCHandler) getRawVPC(vpcIID irs.IID) (*NetworkWithEx
 }
 
 func (vpcHandler *OpenStackVPCHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	hiscallInfo := GetCallLogScheme(vpcHandler.NetworkClient.IdentityEndpoint, call.VPCSUBNET, "VPC", "ListIID()")
+
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	listOpts := networks.ListOpts{}
+
+	allPages, err := networks.List(vpcHandler.NetworkClient, listOpts).AllPages()
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get VPC information from Openstack!! : [%v] ", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(hiscallInfo, newErr)
+		return nil, newErr
+	}
+
+	allNetworks, err := networks.ExtractNetworks(allPages)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get VPC List from Openstack! : [%v] ", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(hiscallInfo, newErr)
+		return nil, newErr
+	}
+
+	for _, vpc := range allNetworks {
+		var iid irs.IID
+		iid.SystemId = vpc.ID
+		iid.NameId = vpc.Name
+
+		iidList = append(iidList, &iid)
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
 }

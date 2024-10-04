@@ -1827,5 +1827,38 @@ func checkvmGroupProtocol(protocol string) (pools.Protocol, error) {
 
 func (NLBHandler *OpenStackNLBHandler) ListIID() ([]*irs.IID, error) {
 	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	hiscallInfo := GetCallLogScheme(NLBHandler.NLBClient.IdentityEndpoint, call.NLB, "nlbID", "ListIID")
+
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	allPages, err := listeners.List(NLBHandler.NLBClient, listeners.ListOpts{}).AllPages()
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get nlb information from Openstack!! : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(hiscallInfo, newErr)
+		return nil, newErr
+
+	}
+
+	allListeners, err := listeners.ExtractListeners(allPages)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get nlb List from Openstack!! : [%v] ", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(hiscallInfo, newErr)
+		return nil, newErr
+	}
+
+	for _, listener := range allListeners {
+		var iid irs.IID
+		iid.NameId = listener.Name
+		iid.SystemId = listener.ID
+
+		iidList = append(iidList, &iid)
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
 }

@@ -1342,5 +1342,38 @@ func severCreateMyImageLinuxOS(baseServerCreateOpt servers.CreateOpts, vmReqInfo
 
 func (vmHandler *OpenStackVMHandler) ListIID() ([]*irs.IID, error) {
 	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	hiscallInfo := GetCallLogScheme(vmHandler.ComputeClient.IdentityEndpoint, call.VM, VM, "ListIID()")
+
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	allPages, err := servers.List(vmHandler.ComputeClient, servers.ListOpts{}).AllPages()
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get vm information from Openstack!! : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(hiscallInfo, newErr)
+		return nil, newErr
+
+	}
+
+	allServers, err := servers.ExtractServers(allPages)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get vm List from Openstack!! : [%v] ", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(hiscallInfo, newErr)
+		return nil, newErr
+	}
+
+	for _, server := range allServers {
+		var iid irs.IID
+		iid.NameId = server.Name
+		iid.SystemId = server.ID
+
+		iidList = append(iidList, &iid)
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
 }

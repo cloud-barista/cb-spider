@@ -607,6 +607,37 @@ func checkIPAddressType(cidr string) (rules.RuleEtherType, error) {
 
 func (securityHandler *OpenStackSecurityHandler) ListIID() ([]*irs.IID, error) {
 	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
-}
+	hiscallInfo := GetCallLogScheme(securityHandler.ComputeClient.IdentityEndpoint, call.SECURITYGROUP, SecurityGroup, "ListIID()")
 
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	allPages, err := secgroups.List(securityHandler.ComputeClient).AllPages()
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get secgroup information from Openstack!! : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(hiscallInfo, newErr)
+		return nil, newErr
+
+	}
+
+	allSecugroups, err := secgroups.ExtractSecurityGroups(allPages)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get secgroups List from Openstack!! : [%v] ", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(hiscallInfo, newErr)
+		return nil, newErr
+	}
+
+	for _, secgroups := range allSecugroups {
+		var iid irs.IID
+		iid.SystemId = secgroups.ID
+		iid.NameId = secgroups.Name
+
+		iidList = append(iidList, &iid)
+	}
+
+	LoggingInfo(hiscallInfo, start)
+	return iidList, nil
+}
