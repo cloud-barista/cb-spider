@@ -2329,6 +2329,43 @@ func validateAtChangeNodeGroupScaling(minNodeSize int, maxNodeSize int) error {
 }
 
 func (nch *NhnCloudClusterHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	defer func() {
+		if r := recover(); r != nil {
+			err := fmt.Errorf("PANIC!!\n%v\n%v", r, string(debug.Stack()))
+			cblogger.Error(err)
+		}
+	}()
+
+	cblogger.Debug("NHN Cloud Driver: called ListCluster()")
+	hiscallInfo := getCallLogScheme(nch.RegionInfo.Region, call.CLUSTER, "ListCluster()", "ListIID()") // HisCall logging
+
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	var listErr error
+	defer func() {
+		if listErr != nil {
+			cblogger.Error(listErr)
+			LoggingError(hiscallInfo, listErr)
+		}
+	}()
+
+	clusterList, err := nhnGetClusterList(nch.ClusterClient)
+	if err != nil {
+		listErr = fmt.Errorf("Failed to List Cluster: %v", err)
+		return nil, listErr
+	}
+
+	for _, cluster := range clusterList {
+		var iid irs.IID
+		iid.SystemId = cluster.UUID
+		iid.NameId = cluster.Name
+
+		iidList = append(iidList, &iid)
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
 }
