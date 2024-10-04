@@ -666,6 +666,38 @@ func (securityHandler *NhnCloudSecurityHandler) getRuleIdFromRuleInfo(systemId s
 
 func (securityHandler *NhnCloudSecurityHandler) ListIID() ([]*irs.IID, error) {
 	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
-}
+	callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Zone, call.SECURITYGROUP, "secId", "ListIID()")
 
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	allPages, err := secgroups.List(securityHandler.VMClient).AllPages()
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get securitygroups information from NhnCloud!! : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return make([]*irs.IID, 0), newErr
+
+	}
+
+	allSecugroups, err := secgroups.ExtractSecurityGroups(allPages)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get securitygroups  List from NhnCloud!! : [%v] ", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return make([]*irs.IID, 0), newErr
+	}
+
+	for _, secgroups := range allSecugroups {
+		var iid irs.IID
+		iid.SystemId = secgroups.ID
+		iid.NameId = secgroups.Name
+
+		iidList = append(iidList, &iid)
+	}
+
+	LoggingInfo(callLogInfo, start)
+
+	return iidList, nil
+}
