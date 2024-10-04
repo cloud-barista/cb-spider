@@ -6621,7 +6621,7 @@ const docTemplate = `{
         },
         "/tag": {
             "get": {
-                "description": "Retrieve a list of tags for a specified resource.",
+                "description": "Retrieve a list of tags for a specified resource.\n※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER",
                 "consumes": [
                     "application/json"
                 ],
@@ -6687,7 +6687,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "Add a tag to a specified resource.",
+                "description": "Add a tag to a specified resource.\n※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER",
                 "consumes": [
                     "application/json"
                 ],
@@ -6740,7 +6740,7 @@ const docTemplate = `{
         },
         "/tag/{Key}": {
             "get": {
-                "description": "Retrieve a specific tag for a specified resource.",
+                "description": "Retrieve a specific tag for a specified resource.\n※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER",
                 "consumes": [
                     "application/json"
                 ],
@@ -6810,7 +6810,7 @@ const docTemplate = `{
                 }
             },
             "delete": {
-                "description": "Remove a specific tag from a specified resource.",
+                "description": "Remove a specific tag from a specified resource.\n※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER",
                 "consumes": [
                     "application/json"
                 ],

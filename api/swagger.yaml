@@ -7342,7 +7342,9 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieve a list of tags for a specified resource.
+      description: |-
+        Retrieve a list of tags for a specified resource.
+        ※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER
       operationId: list-tag
       parameters:
       - description: Connection Name. ex) aws-connection
@@ -7388,7 +7390,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Add a tag to a specified resource.
+      description: |-
+        Add a tag to a specified resource.
+        ※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER
       operationId: add-tag
       parameters:
       - description: Request body for adding a tag
@@ -7424,7 +7428,9 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Remove a specific tag from a specified resource.
+      description: |-
+        Remove a specific tag from a specified resource.
+        ※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER
       operationId: remove-tag
       parameters:
       - description: Request body for removing a specific tag
@@ -7464,7 +7470,9 @@ paths:
     get:
       consumes:
       - application/json
-      description: Retrieve a specific tag for a specified resource.
+      description: |-
+        Retrieve a specific tag for a specified resource.
+        ※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER
       operationId: get-tag
       parameters:
       - description: Connection Name. ex) aws-connection
