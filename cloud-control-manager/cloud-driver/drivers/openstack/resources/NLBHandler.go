@@ -1825,35 +1825,33 @@ func checkvmGroupProtocol(protocol string) (pools.Protocol, error) {
 	return "", errors.New("invalid vmGroup Protocols, openstack vmGroup provides only TCP protocols")
 }
 
-func (NLBHandler *OpenStackNLBHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	hiscallInfo := GetCallLogScheme(NLBHandler.NLBClient.IdentityEndpoint, call.NLB, "nlbID", "ListIID")
+func (nlbHandler *OpenStackNLBHandler) ListIID() ([]*irs.IID, error) {
+	hiscallInfo := GetCallLogScheme(nlbHandler.Region.Region, "NETWORKLOADBALANCE", "NLB", "ListIID()")
 
 	start := call.Start()
 
 	var iidList []*irs.IID
 
-	allPages, err := listeners.List(NLBHandler.NLBClient, listeners.ListOpts{}).AllPages()
+	err := nlbHandler.checkNLBClient()
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get nlb information from Openstack!! : [%v]", err)
-		cblogger.Error(newErr.Error())
-		LoggingError(hiscallInfo, newErr)
-		return make([]*irs.IID, 0), newErr
-
+		getErr := errors.New(fmt.Sprintf("Failed to List NLB. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return make([]*irs.IID, 0), getErr
 	}
 
-	allListeners, err := listeners.ExtractListeners(allPages)
+	nlbList, err := nlbHandler.getRawNLBList()
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get nlb List from Openstack!! : [%v] ", err)
-		cblogger.Error(newErr.Error())
-		LoggingError(hiscallInfo, newErr)
-		return make([]*irs.IID, 0), newErr
+		getErr := errors.New(fmt.Sprintf("Failed to List NLB. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return make([]*irs.IID, 0), getErr
 	}
 
-	for _, listener := range allListeners {
+	for _, rawnlb := range nlbList {
 		var iid irs.IID
-		iid.NameId = listener.Name
-		iid.SystemId = listener.ID
+		iid.SystemId = rawnlb.ID
+		iid.NameId = rawnlb.Name
 
 		iidList = append(iidList, &iid)
 	}
