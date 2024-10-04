@@ -518,7 +518,7 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo, ID
 	for _, subnetInfo := range info.SubnetInfoList {
 		subnetReqNameId := getSubnetReqNameId(subnetReqIIdZoneList, subnetInfo.IId.NameId)
 		if subnetReqNameId == "" {
-			cblog.Error(subnetInfo.IId.NameId + "is not requested Subnet.")
+			cblog.Info(subnetInfo.IId.NameId + "is not requested Subnet.")
 			continue
 		}
 		if subnetInfo.Zone == "" { // GCP has no Zone info
