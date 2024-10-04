@@ -262,6 +262,7 @@ func (keyPairHandler *NhnCloudKeyPairHandler) ListIID() ([]*irs.IID, error) {
 	for _, keypair := range allKeypairs {
 		var iid irs.IID
 		iid.NameId = keypair.Name
+		iid.SystemId = keypair.Name
 
 		iidList = append(iidList, &iid)
 	}
