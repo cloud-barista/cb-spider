@@ -242,6 +242,8 @@ func RegisterNLB(connectionName string, vpcUserID string, userIID cres.IID) (*cr
 	//     ex) spiderIID {"vpc-01", "vpc-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
 	// Do not user NameId, because Azure driver use it like SystemId
 	systemId := getMSShortID(getInfo.IId.SystemId)
+	// for AWS NLB Long SystemId
+	systemId = getAWSNLBShortID(systemId)
 	spiderIId := cres.IID{NameId: userIID.NameId, SystemId: systemId + ":" + getInfo.IId.SystemId}
 
 	// (4) insert spiderIID
