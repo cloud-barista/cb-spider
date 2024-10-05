@@ -223,6 +223,7 @@ var cblogger *logrus.Logger
 func init() {
 	// cblog is a global variable.
 	cblogger = cblog.GetLogger("CB-SPIDER")
+	cblog.SetLevel("info")
 }
 
 func readConfigFile() Config {
