@@ -47,6 +47,7 @@ type AzureVMHandler struct {
 	Region                          idrv.RegionInfo
 	Ctx                             context.Context
 	Client                          *armcompute.VirtualMachinesClient
+	ScaleSetVMsClient               *armcompute.VirtualMachineScaleSetVMsClient
 	SubnetClient                    *armnetwork.SubnetsClient
 	NicClient                       *armnetwork.InterfacesClient
 	PublicIPClient                  *armnetwork.PublicIPAddressesClient
@@ -876,7 +877,9 @@ func (vmHandler *AzureVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	return vmInfoList, nil
 }
 
-func (vmHandler *AzureVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
+func (vmHandler *AzureVMHandler) GetVM(vmIID irs.IID) (vmInfo irs.VMInfo, err error) {
+	vmInfo = irs.VMInfo{}
+
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, vmIID.NameId, "GetVM()")
 	start := call.Start()
@@ -885,21 +888,34 @@ func (vmHandler *AzureVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 		getErr := errors.New(fmt.Sprintf("Failed to Get VM. err = %s", err))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
-		return irs.VMInfo{}, getErr
+		return vmInfo, getErr
 	}
 
-	vm, err := GetRawVM(convertedIID, vmHandler.Region.Region, vmHandler.Client, vmHandler.Ctx)
-	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get VM. err = %s", err))
-		cblogger.Error(getErr.Error())
-		LoggingError(hiscallInfo, getErr)
-		return irs.VMInfo{}, getErr
+	if strings.Contains(convertedIID.SystemId, "/virtualMachineScaleSets/") {
+		scaleSetVM, scaleSetVMResourceGroup, err := GetRawScaleSetVM(convertedIID.SystemId, vmHandler.CredentialInfo.SubscriptionId, vmHandler.ScaleSetVMsClient, vmHandler.Ctx)
+		if err != nil {
+			getErr := errors.New(fmt.Sprintf("Failed to Get VM. err = %s", err))
+			cblogger.Error(getErr.Error())
+			LoggingError(hiscallInfo, getErr)
+			return vmInfo, getErr
+		}
+
+		vmInfo = vmHandler.mappingScaleSetServerInfo(scaleSetVM, scaleSetVMResourceGroup)
+	} else {
+		vm, err := GetRawVM(convertedIID, vmHandler.Region.Region, vmHandler.Client, vmHandler.Ctx)
+		if err != nil {
+			getErr := errors.New(fmt.Sprintf("Failed to Get VM. err = %s", err))
+			cblogger.Error(getErr.Error())
+			LoggingError(hiscallInfo, getErr)
+			return irs.VMInfo{}, getErr
+		}
+
+		vmInfo = vmHandler.mappingServerInfo(vm)
 	}
 	// addAdministratorUser(convertedIID, vmHandler.Client, vmHandler.VirtualMachineRunCommandsClient, vmHandler.Ctx, vmHandler.Region)
 
 	LoggingInfo(hiscallInfo, start)
 
-	vmInfo := vmHandler.mappingServerInfo(vm)
 	return vmInfo, nil
 }
 
@@ -1153,6 +1169,146 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server armcompute.VirtualMach
 		vmInfo.DataDiskIIDs = dataDiskIIDList
 	}
 	osPlatform := getOSTypeByVM(server)
+	vmInfo.Platform = osPlatform
+	if vmInfo.PublicIP != "" {
+		if osPlatform == irs.WINDOWS {
+			vmInfo.AccessPoint = fmt.Sprintf("%s:%s", vmInfo.PublicIP, "3389")
+		} else {
+			vmInfo.AccessPoint = fmt.Sprintf("%s:%s", vmInfo.PublicIP, "22")
+		}
+	}
+	if server.Tags != nil {
+		vmInfo.TagList = setTagList(server.Tags)
+	}
+
+	return vmInfo
+}
+
+func (vmHandler *AzureVMHandler) mappingScaleSetServerInfo(server armcompute.VirtualMachineScaleSetVM, resourceGroup string) irs.VMInfo {
+	// Get Default VM Info
+	vmInfo := irs.VMInfo{
+		IId: irs.IID{
+			NameId:   *server.Name,
+			SystemId: *server.ID,
+		},
+		Region: irs.RegionInfo{
+			Region: *server.Location,
+		},
+		VMSpecName:     string(*server.Properties.HardwareProfile.VMSize),
+		RootDeviceName: "Not visible in Azure",
+		VMBlockDisk:    "Not visible in Azure",
+	}
+
+	// Set VM Zone
+	if server.Zones != nil && len(server.Zones) > 0 {
+		vmInfo.Region.Zone = *server.Zones[0]
+	}
+
+	// Set VM Image Info
+	if reflect.ValueOf(server.Properties.StorageProfile.ImageReference.ID).IsNil() {
+		imageRef := server.Properties.StorageProfile.ImageReference
+		vmInfo.ImageIId.SystemId = *imageRef.Publisher + ":" + *imageRef.Offer + ":" + *imageRef.SKU + ":" + *imageRef.Version
+		vmInfo.ImageIId.NameId = *imageRef.Publisher + ":" + *imageRef.Offer + ":" + *imageRef.SKU + ":" + *imageRef.Version
+		//vmInfo.ImageIId.SystemId = vmInfo.ImageIId.NameId
+	} else {
+		vmInfo.ImageIId.SystemId = *server.Properties.StorageProfile.ImageReference.ID
+		vmInfo.ImageIId.NameId = *server.Properties.StorageProfile.ImageReference.ID
+		//vmInfo.ImageIId.SystemId = vmInfo.ImageIId.NameId
+	}
+
+	// Get VNic ID
+	niList := server.Properties.NetworkProfile.NetworkInterfaces
+	var VNicId string
+	for _, ni := range niList {
+		if ni.ID != nil {
+			VNicId = *ni.ID
+		}
+	}
+
+	// Get VNic
+	nicIdArr := strings.Split(VNicId, "/")
+	nicName := nicIdArr[len(nicIdArr)-1]
+	vmInfo.NetworkInterface = nicName
+
+	for _, config := range server.Properties.NetworkProfileConfiguration.NetworkInterfaceConfigurations {
+		if *config.Name == nicName {
+			// Get SecurityGroup
+			sgGroupIdArr := strings.Split(*config.Properties.NetworkSecurityGroup.ID, "/")
+			sgGroupName := sgGroupIdArr[len(sgGroupIdArr)-1]
+			vmInfo.SecurityGroupIIds = []irs.IID{
+				{
+					NameId:   sgGroupName,
+					SystemId: *config.Properties.NetworkSecurityGroup.ID,
+				},
+			}
+
+			for _, ip := range config.Properties.IPConfigurations {
+				if ip.Properties.Primary != nil && *ip.Properties.Primary {
+					// Get Subnet
+					subnetIdArr := strings.Split(*ip.Properties.Subnet.ID, "/")
+					subnetName := subnetIdArr[len(subnetIdArr)-1]
+					vmInfo.SubnetIID = irs.IID{NameId: subnetName, SystemId: *ip.Properties.Subnet.ID}
+
+					// Get VPC
+					vpcIdArr := subnetIdArr[:len(subnetIdArr)-2]
+					vpcName := vpcIdArr[len(vpcIdArr)-1]
+					vmInfo.VpcIID = irs.IID{NameId: vpcName, SystemId: strings.Join(vpcIdArr, "/")}
+				}
+			}
+		}
+	}
+
+	osType := getOSTypeByScaleSetVM(server)
+	if osType == irs.WINDOWS {
+		vmInfo.VMUserId = WindowBaseUser
+	}
+	if osType == irs.LINUX_UNIX {
+		vmInfo.VMUserId = CBVMUser
+	}
+	// Set GuestUser Id/Pwd
+	//if server.VirtualMachineProperties.OsProfile.AdminUsername != nil {
+	//	vmInfo.VMUserId = *server.VirtualMachineProperties.OsProfile.AdminUsername
+	//}
+	if server.Properties.OSProfile.AdminPassword != nil {
+		vmInfo.VMUserPasswd = *server.Properties.OSProfile.AdminPassword
+	}
+
+	// Set BootDisk
+	vmInfo.VMBootDisk = *server.Properties.StorageProfile.OSDisk.Name
+	vmInfo.RootDiskSize = strconv.Itoa(int(*server.Properties.StorageProfile.OSDisk.DiskSizeGB))
+	vmInfo.RootDiskType = GetScaleSetVMDiskInfoType(*server.Properties.StorageProfile.OSDisk.ManagedDisk.StorageAccountType)
+
+	// Get Keypair
+	keypairHandler := AzureKeyPairHandler{
+		CredentialInfo: vmHandler.CredentialInfo,
+		Region:         vmHandler.Region,
+		Ctx:            vmHandler.Ctx,
+		Client:         vmHandler.SshKeyClient,
+	}
+	keys, _ := keypairHandler.ListKey()
+	for _, key := range keys {
+		if server.Properties.OSProfile.LinuxConfiguration != nil {
+			for _, pubKey := range server.Properties.OSProfile.LinuxConfiguration.SSH.PublicKeys {
+				if key.PublicKey == *pubKey.KeyData {
+					vmInfo.KeyPairIId = key.IId
+				}
+			}
+		}
+	}
+
+	if server.Properties.StorageProfile != nil && server.Properties.StorageProfile.DataDisks != nil && len(server.Properties.StorageProfile.DataDisks) > 0 {
+		dataDisks := server.Properties.StorageProfile.DataDisks
+		dataDiskIIDList := make([]irs.IID, len(dataDisks))
+		for i, dataDisk := range dataDisks {
+			diskId := *dataDisk.ManagedDisk.ID
+			dataDiskIIDList[i] = irs.IID{
+				NameId:   GetResourceNameById(diskId),
+				SystemId: diskId,
+			}
+		}
+		vmInfo.DataDiskIIDs = dataDiskIIDList
+	}
+	osPlatform := getOSTypeByScaleSetVM(server)
 	vmInfo.Platform = osPlatform
 	if vmInfo.PublicIP != "" {
 		if osPlatform == irs.WINDOWS {
@@ -1560,6 +1716,49 @@ func GetRawVM(vmIID irs.IID, resourceGroup string, client *armcompute.VirtualMac
 	}
 }
 
+func GetRawScaleSetVM(systemID string, subscriptionID string, client *armcompute.VirtualMachineScaleSetVMsClient, ctx context.Context) (vm armcompute.VirtualMachineScaleSetVM, resourceGroup string, err error) {
+	// systemID example
+	// /subscriptions/XXXXXXXX/resourceGroups/CB_XXXXXXXX/providers/Microsoft.Compute/virtualMachineScaleSets/aks-nodegroup0-XXXX-vmss/virtualMachines/0
+
+	vm = armcompute.VirtualMachineScaleSetVM{}
+
+	var vmList []*armcompute.VirtualMachineScaleSetVM
+
+	slist := strings.Split(systemID, "/")
+	if len(slist) < 3 {
+		return vm, resourceGroup, errors.New(fmt.Sprintf("Invalid systemID"))
+	}
+	vmScaleSetName := slist[len(slist)-3]
+
+	cut := strings.ReplaceAll(systemID, "/subscriptions/"+subscriptionID+"/resourceGroups/", "")
+	slist = strings.Split(cut, "/")
+	if len(slist) < 1 {
+		return vm, resourceGroup, errors.New(fmt.Sprintf("Invalid systemID"))
+	}
+	resourceGroup = slist[0]
+	pager := client.NewListPager(resourceGroup, vmScaleSetName, nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return vm, resourceGroup, nil
+		}
+
+		for _, vm := range page.Value {
+			vmList = append(vmList, vm)
+		}
+	}
+
+	for _, v := range vmList {
+		if *v.ID == systemID {
+			vm = *v
+			return vm, resourceGroup, nil
+		}
+	}
+	notExistVpcErr := errors.New(fmt.Sprintf("The ScaleSetVM id %s not found", systemID))
+	return vm, resourceGroup, notExistVpcErr
+}
+
 func generatePublicIPName(vmName string) string {
 	rand.Seed(time.Now().UnixNano())
 	return fmt.Sprintf("%s-%s-PublicIP", vmName, strconv.FormatInt(rand.Int63n(100000), 10))
@@ -1656,11 +1855,18 @@ func resizeVMOsDisk(RootDiskSize string, vmReqIId irs.IID, resourceGroup string,
 
 func ConvertVMIID(vmIID irs.IID, credentialInfo idrv.CredentialInfo, regionInfo idrv.RegionInfo) (irs.IID, error) {
 	if vmIID.NameId == "" && vmIID.SystemId == "" {
-		return vmIID, errors.New(fmt.Sprintf("nvalid IID"))
+		return vmIID, errors.New(fmt.Sprintf("Invalid IID"))
 	}
 	if vmIID.SystemId == "" {
 		sysID := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/virtualMachines/%s", credentialInfo.SubscriptionId, regionInfo.Region, vmIID.NameId)
 		return irs.IID{NameId: vmIID.NameId, SystemId: sysID}, nil
+	} else if strings.Contains(vmIID.SystemId, "/virtualMachineScaleSets/") {
+		slist := strings.Split(vmIID.SystemId, "/")
+		if len(slist) < 3 {
+			return vmIID, errors.New(fmt.Sprintf("Invalid IID"))
+		}
+		s := slist[len(slist)-3] + "_" + slist[len(slist)-1]
+		return irs.IID{NameId: s, SystemId: vmIID.SystemId}, nil
 	} else {
 		slist := strings.Split(vmIID.SystemId, "/")
 		if len(slist) == 0 {
@@ -1798,6 +2004,13 @@ func CheckVMReqInfoOSType(vmReqInfo irs.VMReqInfo, imageClient *armcompute.Image
 }
 
 func getOSTypeByVM(server armcompute.VirtualMachine) irs.Platform {
+	if server.Properties.OSProfile.LinuxConfiguration != nil {
+		return irs.LINUX_UNIX
+	}
+	return irs.WINDOWS
+}
+
+func getOSTypeByScaleSetVM(server armcompute.VirtualMachineScaleSetVM) irs.Platform {
 	if server.Properties.OSProfile.LinuxConfiguration != nil {
 		return irs.LINUX_UNIX
 	}

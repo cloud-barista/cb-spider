@@ -115,6 +115,7 @@ func (cloudConn *AzureCloudConnection) CreateVMHandler() (irs.VMHandler, error) 
 		Region:                          cloudConn.Region,
 		Ctx:                             cloudConn.Ctx,
 		Client:                          cloudConn.VMClient,
+		ScaleSetVMsClient:               cloudConn.VirtualMachineScaleSetVMsClient,
 		SubnetClient:                    cloudConn.SubnetClient,
 		NicClient:                       cloudConn.VNicClient,
 		PublicIPClient:                  cloudConn.PublicIPClient,

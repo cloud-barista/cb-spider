@@ -292,6 +292,19 @@ func GetDiskInfoType(diskType armcompute.DiskStorageAccountTypes) string {
 	}
 }
 
+func GetScaleSetVMDiskInfoType(diskType armcompute.StorageAccountTypes) string {
+	switch diskType {
+	case armcompute.StorageAccountTypesPremiumLRS:
+		return PremiumSSD
+	case armcompute.StorageAccountTypesStandardSSDLRS:
+		return StandardSSD
+	case armcompute.StorageAccountTypesStandardLRS:
+		return StandardHDD
+	default:
+		return string(diskType)
+	}
+}
+
 func overlapCheckCidr(cidr1 string, cidr2 string) (bool, error) {
 	cidr1IP, cidr1IPnet, err := net.ParseCIDR(cidr1)
 	if err != nil {
