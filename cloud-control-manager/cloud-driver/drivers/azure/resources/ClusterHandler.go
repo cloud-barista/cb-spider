@@ -1192,7 +1192,7 @@ func checkSubnetRequireIPRange(subnet armnetwork.Subnet, NodeGroupInfos []irs.No
 		requireIPCount += float64((maxPodCount + 1) * (NodeGroupInfo.MaxNodeSize))
 	}
 	if subnetAvailableCount < requireIPCount {
-		return errors.New(fmt.Sprintf("The subnet id not large enough to support all node pools. Current available IP address space: %d addressed. Required %d addresses.", subnetAvailableCount, requireIPCount))
+		return errors.New(fmt.Sprintf("The subnet id not large enough to support all node pools. Current available IP address space: %.0f addressed. Required %.0f addresses.", subnetAvailableCount, requireIPCount))
 	}
 	return nil
 }
