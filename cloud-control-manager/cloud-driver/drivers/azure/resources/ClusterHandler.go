@@ -959,8 +959,9 @@ func getNodeInfoStatus(agentPool armcontainerservice.AgentPool, virtualMachineSc
 	return irs.NodeGroupInactive
 }
 
-func getclusterDNSPrefix(clusterName string) string {
-	return fmt.Sprintf("%s-dns", clusterName)
+func getclusterDNSPrefix() string {
+	prefix := "dns-"
+	return fmt.Sprintf("%s%d", prefix, time.Now().UnixNano())
 }
 
 func getclusterNodeResourceGroup(clusterName string, resourceGroup string, regionString string) string {
@@ -1135,7 +1136,7 @@ func createCluster(clusterReqInfo irs.ClusterInfo, ac *AzureClusterHandler) erro
 		Properties: &armcontainerservice.ManagedClusterProperties{
 			KubernetesVersion: toStrPtr(clusterReqInfo.Version),
 			EnableRBAC:        toBoolPtr(true),
-			DNSPrefix:         toStrPtr(getclusterDNSPrefix(clusterReqInfo.IId.NameId)),
+			DNSPrefix:         toStrPtr(getclusterDNSPrefix()),
 			NodeResourceGroup: toStrPtr(getclusterNodeResourceGroup(clusterReqInfo.IId.NameId, ac.Region.Region, ac.Region.Region)),
 			AgentPoolProfiles: agentPoolProfiles,
 			NetworkProfile:    &networkProfile,
