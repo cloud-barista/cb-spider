@@ -1334,7 +1334,7 @@ func generatorClusterTags(sshKeyName string, clusterName string) (map[string]*st
 func getSSHKeyIIDByNodeGroups(NodeGroupInfos []irs.NodeGroupInfo) (irs.IID, error) {
 	var key *irs.IID
 	for _, nodeGroup := range NodeGroupInfos {
-		if nodeGroup.KeyPairIID.NameId != "" && nodeGroup.KeyPairIID.SystemId != "" {
+		if nodeGroup.KeyPairIID.NameId != "" || nodeGroup.KeyPairIID.SystemId != "" {
 			key = &nodeGroup.KeyPairIID
 			break
 		}
