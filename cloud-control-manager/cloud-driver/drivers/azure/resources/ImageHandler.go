@@ -325,10 +325,7 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 								continue
 							}
 
-							cblogger.Error(err)
-							errMutex.Lock()
-							errList = append(errList, err.Error())
-							errMutex.Unlock()
+							cblogger.Info(err)
 
 							return
 						}
@@ -366,10 +363,7 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 										continue
 									}
 
-									cblogger.Error(err)
-									errMutex.Lock()
-									errList = append(errList, err.Error())
-									errMutex.Unlock()
+									cblogger.Info(err)
 
 									return
 								}
