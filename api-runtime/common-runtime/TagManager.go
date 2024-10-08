@@ -34,7 +34,7 @@ func AddTag(connectionName string, resType cres.RSType, resName string, tag cres
 	resType = cres.RSType(strings.ToLower(string(resType)))
 
 	// Check if tagging is supported for the resource type
-	if err := IsTagSupported(connectionName, resType); err != nil {
+	if err := checkTagSupported(connectionName, resType); err != nil {
 		cblog.Error(err)
 		return cres.KeyValue{}, err
 	}
@@ -83,7 +83,7 @@ func ListTag(connectionName string, resType cres.RSType, resName string) ([]cres
 	resType = cres.RSType(strings.ToLower(string(resType)))
 
 	// Check if tagging is supported for the resource type
-	if err := IsTagSupported(connectionName, resType); err != nil {
+	if err := checkTagSupported(connectionName, resType); err != nil {
 		cblog.Error(err)
 		return nil, err
 	}
@@ -132,7 +132,7 @@ func GetTag(connectionName string, resType cres.RSType, resName string, key stri
 	resType = cres.RSType(strings.ToLower(string(resType)))
 
 	// Check if tagging is supported for the resource type
-	if err := IsTagSupported(connectionName, resType); err != nil {
+	if err := checkTagSupported(connectionName, resType); err != nil {
 		cblog.Error(err)
 		return cres.KeyValue{}, err
 	}
@@ -181,7 +181,7 @@ func RemoveTag(connectionName string, resType cres.RSType, resName string, key s
 	resType = cres.RSType(strings.ToLower(string(resType)))
 
 	// Check if tagging is supported for the resource type
-	if err := IsTagSupported(connectionName, resType); err != nil {
+	if err := checkTagSupported(connectionName, resType); err != nil {
 		cblog.Error(err)
 		return false, err
 	}
@@ -230,7 +230,7 @@ func FindTag(connectionName string, resType cres.RSType, keyword string) ([]*cre
 	resType = cres.RSType(strings.ToLower(string(resType)))
 
 	// Check if tagging is supported for the resource type
-	if err := IsTagSupported(connectionName, resType); err != nil {
+	if err := checkTagSupported(connectionName, resType); err != nil {
 		cblog.Error(err)
 		return nil, err
 	}
@@ -371,7 +371,7 @@ func getIIDInfoByResourceType(connectionName string, resType cres.RSType, resNam
 	}
 }
 
-func IsTagSupported(connectionName string, resType cres.RSType) error {
+func checkTagSupported(connectionName string, resType cres.RSType) error {
 	// Get the CSP (Cloud Service Provider) name using the connection name
 	providerName, err := ccm.GetProviderNameByConnectionName(connectionName)
 	if err != nil {
