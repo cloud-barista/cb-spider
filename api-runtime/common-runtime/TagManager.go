@@ -388,7 +388,7 @@ func checkTagSupported(connectionName string, resType cres.RSType) error {
 	driverCapability := cloudDriver.GetDriverCapability()
 
 	// Define a common error message format for unsupported tagging
-	errMsg := fmt.Sprintf("[%s] tagging is not supported for resource type: %s", providerName, resType)
+	errMsg := fmt.Sprintf("[TAG_NOT_SUPPORTED] Tagging is not supported for the resource: %s-%s", providerName, resType)
 
 	// Check if tagging is supported at all
 	if !driverCapability.TagHandler {
