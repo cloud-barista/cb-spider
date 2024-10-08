@@ -436,7 +436,7 @@ func (vVPCHandler *GCPVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 		callLogInfo.ErrorMSG = err.Error()
 
 		callogger.Info(call.String(callLogInfo))
-		cblogger.Error(err)
+		// cblogger.Error(err) // Call GetVPC during creation to check if the VPC already exists. This situation is not an error.
 		return irs.VPCInfo{}, err
 	}
 	callogger.Info(call.String(callLogInfo))
