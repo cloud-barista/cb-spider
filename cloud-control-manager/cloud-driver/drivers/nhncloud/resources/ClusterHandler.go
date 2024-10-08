@@ -134,7 +134,13 @@ func (nch *NhnCloudClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo)
 	//
 	// Validation
 	//
-	err := validateAtCreateCluster(clusterReqInfo)
+	supportedK8sVersions, err := nch.getSupportedK8sVersions()
+	if err != nil {
+		createErr = fmt.Errorf("Failed to Create Cluster: %v", err)
+		return emptyClusterInfo, createErr
+	}
+
+	err = validateAtCreateCluster(clusterReqInfo, supportedK8sVersions)
 	if err != nil {
 		createErr = fmt.Errorf("Failed to Create Cluster: %v", err)
 		return emptyClusterInfo, createErr
@@ -1796,6 +1802,24 @@ func (nch *NhnCloudClusterHandler) isVpcConnectedToGateway(vpcId string) (bool, 
 	return hasInternetGateway, nil
 }
 
+func (nch *NhnCloudClusterHandler) getSupportedK8sVersions() ([]string, error) {
+	supports, err := nhnGetSupports(nch.ClusterClient)
+	if err != nil {
+		return make([]string, 0), err
+	}
+
+	supportedK8sVersions := make([]string, 0)
+	for version, supported := range supports.SupportedK8s {
+		if supported {
+			if strings.EqualFold(version, "") == false {
+				supportedK8sVersions = append(supportedK8sVersions, version)
+			}
+		}
+	}
+
+	return supportedK8sVersions, nil
+}
+
 func nhnCreateNodeGroup(scCluster *nhnsdk.ServiceClient, clusterId, nodeGroupName string, labels map[string]string, nodeCount, minNodeCount, maxNodeCount int, imageId, flavorId string) (*nodegroups.NodeGroup, error) {
 	createOpts := nodegroups.CreateOpts{
 		Name:         nodeGroupName,
@@ -2005,6 +2029,16 @@ func nhnGetConfig(scCluster *nhnsdk.ServiceClient, clusterId string) (string, er
 	}
 
 	return config, nil
+}
+
+func nhnGetSupports(scCluster *nhnsdk.ServiceClient) (*clusters.Supports, error) {
+	supports, err := clusters.GetSupports(scCluster).Extract()
+	if err != nil {
+		err = fmt.Errorf("failed to get supported kubernetes version and event type")
+		return nil, err
+	}
+
+	return supports, nil
 }
 
 func nhnGetVpcList(scNetwork *nhnsdk.ServiceClient, external bool) ([]vpcs.VPC, error) {
@@ -2236,17 +2270,13 @@ func validateNodeGroupInfoList(nodeGroupInfoList []irs.NodeGroupInfo) error {
 	return nil
 }
 
-func validateAtCreateCluster(clusterInfo irs.ClusterInfo) error {
-	//
+func validateAtCreateCluster(clusterInfo irs.ClusterInfo, supportedK8sVersions []string) error {
 	// Check clusterInfo.IId.NameId
-	//
 	if clusterInfo.IId.NameId == "" {
 		return fmt.Errorf("Cluster name is required")
 	}
 
-	//
 	// Check clusterInfo.Network
-	//
 	if len(clusterInfo.Network.SubnetIIDs) < 1 {
 		return fmt.Errorf("At least one Subnet must be specified")
 	}
@@ -2254,9 +2284,19 @@ func validateAtCreateCluster(clusterInfo irs.ClusterInfo) error {
 		return fmt.Errorf("At least one Subnet must be specified")
 	}
 
-	//
+	// Check clusterInfo.Version
+	var supported = false
+	for _, version := range supportedK8sVersions {
+		if strings.EqualFold(clusterInfo.Version, version) {
+			supported = true
+			break
+		}
+	}
+	if supported == false {
+		return fmt.Errorf("Unsupported K8s version. (Available version: " + strings.Join(supportedK8sVersions[:], ", ") + ")")
+	}
+
 	// Check clusterInfo.NodeGroupList
-	//
 	err := validateNodeGroupInfoList(clusterInfo.NodeGroupList)
 	if err != nil {
 		return err
@@ -2286,4 +2326,46 @@ func validateAtChangeNodeGroupScaling(minNodeSize int, maxNodeSize int) error {
 	}
 
 	return nil
+}
+
+func (nch *NhnCloudClusterHandler) ListIID() ([]*irs.IID, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err := fmt.Errorf("PANIC!!\n%v\n%v", r, string(debug.Stack()))
+			cblogger.Error(err)
+		}
+	}()
+
+	cblogger.Debug("NHN Cloud Driver: called ListCluster()")
+	hiscallInfo := getCallLogScheme(nch.RegionInfo.Region, call.CLUSTER, "ListCluster()", "ListIID()") // HisCall logging
+
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	var listErr error
+	defer func() {
+		if listErr != nil {
+			cblogger.Error(listErr)
+			LoggingError(hiscallInfo, listErr)
+		}
+	}()
+
+	clusterList, err := nhnGetClusterList(nch.ClusterClient)
+	if err != nil {
+		listErr = fmt.Errorf("Failed to List Cluster: %v", err)
+		return nil, listErr
+	}
+
+	for _, cluster := range clusterList {
+		var iid irs.IID
+		iid.SystemId = cluster.UUID
+		iid.NameId = cluster.Name
+
+		iidList = append(iidList, &iid)
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
 }

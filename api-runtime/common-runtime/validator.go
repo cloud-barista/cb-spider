@@ -16,10 +16,14 @@ import (
 func EmptyCheckAndTrim(inputName string, inputValue string) (string, error) {
 
 	if inputValue == "" {
-                return "", fmt.Errorf(inputName + " is empty!")
-        }
-        // trim user inputs
-        return strings.TrimSpace(inputValue), nil
+		// If inputName is "connectionName", change it to "ConnectionName" for REST API Error Message
+		if inputName == "connectionName" {
+			inputName = "ConnectionName"
+		}
+		return "", fmt.Errorf(inputName + " is empty!")
+	}
+	// trim user inputs
+	return strings.TrimSpace(inputValue), nil
 }
 
 func ValidateStruct(is interface{}, emptyPermissionList []string) error {
@@ -27,20 +31,19 @@ func ValidateStruct(is interface{}, emptyPermissionList []string) error {
 
 	inValue := reflect.ValueOf(is)
 	if inValue.Kind() == reflect.Ptr {
-		inValue = inValue.Elem() // When Input is ptr of Struct, Get the element.
+		inValue = inValue.Elem()             // When Input is ptr of Struct, Get the element.
 		if inValue.Kind() == reflect.Slice { //  When ptr of Array, ex) SecurityRules *[]SecurityRuleInfo
 			for j := 0; j < inValue.Len(); j++ {
-                                err := ValidateStruct(inValue.Index(j).Interface(), emptyPermissionList)
-                                if retErr != nil {
-                                        retErr = fmt.Errorf("%v\n%v", retErr, err)
-                                }else {
-                                        retErr = err
-                                }
-                        }
+				err := ValidateStruct(inValue.Index(j).Interface(), emptyPermissionList)
+				if retErr != nil {
+					retErr = fmt.Errorf("%v\n%v", retErr, err)
+				} else {
+					retErr = err
+				}
+			}
 
 		}
 	}
-
 
 	for i := 0; i < inValue.NumField(); i++ {
 		fv := inValue.Field(i)
@@ -50,7 +53,7 @@ func ValidateStruct(is interface{}, emptyPermissionList []string) error {
 			if err != nil {
 				if retErr != nil {
 					retErr = fmt.Errorf("%v\n%v", retErr, err)
-				}else {
+				} else {
 					retErr = err
 				}
 			}
@@ -59,7 +62,7 @@ func ValidateStruct(is interface{}, emptyPermissionList []string) error {
 				err := ValidateStruct(fv.Index(j).Interface(), emptyPermissionList)
 				if retErr != nil {
 					retErr = fmt.Errorf("%v\n%v", retErr, err)
-				}else {
+				} else {
 					retErr = err
 				}
 			}
@@ -73,7 +76,7 @@ func ValidateStruct(is interface{}, emptyPermissionList []string) error {
 				if err != nil {
 					if retErr != nil {
 						retErr = fmt.Errorf("%v\n%v", retErr, err)
-					}else {
+					} else {
 						retErr = err
 					}
 				}
@@ -90,7 +93,7 @@ func ValidateStruct(is interface{}, emptyPermissionList []string) error {
 // Check the arguments that can be used as empty.
 func checkNilPermission(argTypeName string, emptyPermissionList []string) error {
 
-	for _, permittedArgTypeName := range(emptyPermissionList) {
+	for _, permittedArgTypeName := range emptyPermissionList {
 		if permittedArgTypeName == argTypeName {
 			return nil
 		}
@@ -101,24 +104,24 @@ func checkNilPermission(argTypeName string, emptyPermissionList []string) error 
 //----------- utility
 
 func printType(inType reflect.Type) {
-        fmt.Println("\n[print Type]")
-        fmt.Println("   Type.Name(): ", inType.Name())
-        fmt.Println("   Type.Size(): ", inType.Size())
-        fmt.Println("   Type.Kind(): ", inType.Kind())
-        fmt.Println("   Type: ", inType)
-        fmt.Println("---------------------------")
+	fmt.Println("\n[print Type]")
+	fmt.Println("   Type.Name(): ", inType.Name())
+	fmt.Println("   Type.Size(): ", inType.Size())
+	fmt.Println("   Type.Kind(): ", inType.Kind())
+	fmt.Println("   Type: ", inType)
+	fmt.Println("---------------------------")
 }
 
 func printValue(inValue reflect.Value) {
-        fmt.Println("\n[print Value]")
-        fmt.Println("   Value.Type(): ", inValue.Type())
-        fmt.Println("   Value.Kind(): ", inValue.Kind())
-        if inValue.Kind() == reflect.Struct {
-                fmt.Println("   Value.NumField(): ", inValue.NumField())
-        }
-        if inValue.Kind() == reflect.Ptr {
-                fmt.Println("   Value.Elem(): ", inValue.Elem())
-        }
-        fmt.Println("   Value: ", inValue)
-        fmt.Println("---------------------------")
+	fmt.Println("\n[print Value]")
+	fmt.Println("   Value.Type(): ", inValue.Type())
+	fmt.Println("   Value.Kind(): ", inValue.Kind())
+	if inValue.Kind() == reflect.Struct {
+		fmt.Println("   Value.NumField(): ", inValue.NumField())
+	}
+	if inValue.Kind() == reflect.Ptr {
+		fmt.Println("   Value.Elem(): ", inValue.Elem())
+	}
+	fmt.Println("   Value: ", inValue)
+	fmt.Println("---------------------------")
 }

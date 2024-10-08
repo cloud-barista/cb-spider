@@ -1235,6 +1235,16 @@ func convertNodeGroup(client *compute.Service, credential idrv.CredentialInfo, r
 				cblogger.Info("HasPrefix ")
 				nodeList := []irs.IID{}
 				instanceGroupValue := keyValue.Value
+				// check instanceGroup exists, if not exists, set empty list
+				// The InstanceGroup may not exist while the Cluster is being created.
+				exists, err := hasInstanceGroup(client, credential, region, instanceGroupValue)
+				if err != nil {
+					return nil, err
+				}
+				if !exists {
+					nodeGroupInfo.Nodes = []irs.IID{}
+					continue
+				}
 				instanceList, err := GetInstancesOfInstanceGroup(client, credential, region, instanceGroupValue)
 				if err != nil {
 					return nodeGroupList, err
@@ -1350,4 +1360,9 @@ func validateAtChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID, 
 		return ErrInvalidDesiredNodeSize
 	}
 	return nil
+}
+
+func (ClusterHandler *GCPClusterHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

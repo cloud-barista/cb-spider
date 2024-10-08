@@ -11,14 +11,16 @@
 package resources
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
+
 	// "github.com/davecgh/go-spew/spew"
 
-	ktvpcsdk 	"github.com/cloud-barista/ktcloudvpc-sdk-go"
-	volumes2 	"github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/blockstorage/v2/volumes"
+	ktvpcsdk "github.com/cloud-barista/ktcloudvpc-sdk-go"
+	volumes2 "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/blockstorage/v2/volumes"
 	vattach "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/compute/v2/extensions/volumeattach"
 	"github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/compute/v2/servers"
 
@@ -28,18 +30,18 @@ import (
 )
 
 const (
-	DefaultDataDiskSize     	string = "100"
-	DefaultDiskUsagePlanType	string = "hourly"
+	DefaultDataDiskSize      string = "100"
+	DefaultDiskUsagePlanType string = "hourly"
 )
 
 type KTVpcDiskHandler struct {
-	RegionInfo    idrv.RegionInfo
-	VMClient      *ktvpcsdk.ServiceClient
-	VolumeClient  *ktvpcsdk.ServiceClient
+	RegionInfo   idrv.RegionInfo
+	VMClient     *ktvpcsdk.ServiceClient
+	VolumeClient *ktvpcsdk.ServiceClient
 }
 
 func (diskHandler *KTVpcDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.DiskInfo, error) {
-	cblogger.Info("KT Cloud VPC Driver: called CreateDisk()")	
+	cblogger.Info("KT Cloud VPC Driver: called CreateDisk()")
 	callLogInfo := getCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, diskReqInfo.IId.NameId, "CreateDisk()")
 
 	if strings.EqualFold(diskReqInfo.IId.NameId, "") {
@@ -56,11 +58,11 @@ func (diskHandler *KTVpcDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.D
 		return irs.DiskInfo{}, newErr
 	}
 
-	reqDiskType := diskReqInfo.DiskType  // 'default', 'HDD' or 'SSD'
-	reqDiskSize := diskReqInfo.DiskSize  // 10~2000(GB)
-	
+	reqDiskType := diskReqInfo.DiskType // 'default', 'HDD' or 'SSD'
+	reqDiskSize := diskReqInfo.DiskSize // 10~2000(GB)
+
 	if strings.EqualFold(reqDiskType, "") || strings.EqualFold(reqDiskType, "default") {
-		reqDiskType = "HDD"  // In case, Volume Type is not specified.
+		reqDiskType = "HDD" // In case, Volume Type is not specified.
 	} else if strings.EqualFold(reqDiskType, "HDD") {
 		reqDiskType = "HDD"
 	} else if strings.EqualFold(reqDiskType, "SSD") {
@@ -71,9 +73,9 @@ func (diskHandler *KTVpcDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.D
 	}
 
 	if strings.EqualFold(reqDiskSize, "") || strings.EqualFold(reqDiskSize, "default") {
-		reqDiskSize = DefaultDataDiskSize  // In case, Volume Size is not specified.
-	} 
-	
+		reqDiskSize = DefaultDataDiskSize // In case, Volume Size is not specified.
+	}
+
 	reqDiskSizeInt, err := strconv.Atoi(reqDiskSize)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Convert Disk Size to Int. type. [%v]", err)
@@ -81,7 +83,7 @@ func (diskHandler *KTVpcDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.D
 		loggingError(callLogInfo, newErr)
 		return irs.DiskInfo{}, newErr
 	}
-	if reqDiskSizeInt < 10 || reqDiskSizeInt > 2000 {  // 10~2000(GB)
+	if reqDiskSizeInt < 10 || reqDiskSizeInt > 2000 { // 10~2000(GB)
 		newErr := fmt.Errorf("Invalid Disk Size. Disk Size Must be between 10 and 2000.")
 		cblogger.Error(newErr.Error())
 		return irs.DiskInfo{}, newErr
@@ -89,10 +91,10 @@ func (diskHandler *KTVpcDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.D
 
 	start := call.Start()
 	create0pts := volumes2.CreateOpts{
-		AvailabilityZone: 	diskHandler.RegionInfo.Zone,
-		Size: 				reqDiskSizeInt,
-		Name:				diskReqInfo.IId.NameId,
-		UsagePlanType:		DefaultDiskUsagePlanType,
+		AvailabilityZone: diskHandler.RegionInfo.Zone,
+		Size:             reqDiskSizeInt,
+		Name:             diskReqInfo.IId.NameId,
+		UsagePlanType:    DefaultDiskUsagePlanType,
 	}
 	// cblogger.Info("\n### Disk create 0pts : ")
 	// spew.Dump(create0pts)
@@ -144,7 +146,7 @@ func (diskHandler *KTVpcDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	callLogInfo := getCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, "ListDisk()", "ListDisk()")
 
 	start := call.Start()
-	listOpts :=	volumes2.ListOpts{}
+	listOpts := volumes2.ListOpts{}
 	allPages, err := volumes2.List(diskHandler.VolumeClient, listOpts).AllPages()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get KT Cloud Volume list!! : [%v] ", err)
@@ -237,8 +239,8 @@ func (diskHandler *KTVpcDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 	// }
 
 	start := call.Start()
-	delOpts := volumes2.DeleteOpts {		
-		Cascade : true, // Delete all snapshots of this volume as well.
+	delOpts := volumes2.DeleteOpts{
+		Cascade: true, // Delete all snapshots of this volume as well.
 	}
 	delErr := volumes2.Delete(diskHandler.VolumeClient, diskIID.SystemId, delOpts).ExtractErr()
 	if delErr != nil {
@@ -283,7 +285,7 @@ func (diskHandler *KTVpcDiskHandler) AttachDisk(diskIID irs.IID, vmIID irs.IID) 
 	start := call.Start()
 	createOpts := vattach.CreateOpts{
 		VolumeID: diskIID.SystemId,
-	}	
+	}
 	_, createErr := vattach.Create(diskHandler.VMClient, vmIID.SystemId, createOpts).Extract()
 	if createErr != nil {
 		newErr := fmt.Errorf("Failed to Attach the Disk Volume!! : [%v] ", createErr)
@@ -328,7 +330,7 @@ func (diskHandler *KTVpcDiskHandler) DetachDisk(diskIID irs.IID, vmIID irs.IID) 
 		loggingError(callLogInfo, newErr)
 		return false, newErr
 	}
-	
+
 	curStatus, err := diskHandler.getDiskStatus(diskIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Disk Status : [%v] ", err)
@@ -419,7 +421,7 @@ func (diskHandler *KTVpcDiskHandler) waitForDiskAttachment(diskIID irs.IID) (irs
 		cblogger.Infof("===> Disk Status : [%s]", string(curStatus))
 
 		switch string(curStatus) {
-		case string(irs.DiskCreating), string(irs.DiskAvailable), string(irs.DiskDeleting), string(irs.DiskError), "Unknown" :
+		case string(irs.DiskCreating), string(irs.DiskAvailable), string(irs.DiskDeleting), string(irs.DiskError), "Unknown":
 			curRetryCnt++
 			cblogger.Infof("The Disk is still [%s], so wait for a second more during the Disk 'Attachment'.", string(curStatus))
 			time.Sleep(time.Second * 2)
@@ -460,7 +462,7 @@ func (diskHandler *KTVpcDiskHandler) getDiskStatus(diskIID irs.IID) (irs.DiskSta
 
 func convertDiskStatus(diskStatus string) irs.DiskStatus {
 	cblogger.Info("KT Cloud VPC Driver: called convertDiskStatus()")
-	
+
 	var resultStatus irs.DiskStatus
 	switch strings.ToLower(diskStatus) {
 	case "creating":
@@ -480,7 +482,7 @@ func convertDiskStatus(diskStatus string) irs.DiskStatus {
 	case "error_restoring":
 		resultStatus = irs.DiskError
 	case "error_extending":
-		resultStatus = irs.DiskError			
+		resultStatus = irs.DiskError
 	default:
 		resultStatus = "Unknown"
 	}
@@ -515,13 +517,13 @@ func (diskHandler *KTVpcDiskHandler) isBootableDisk(diskIID irs.IID) (bool, erro
 }
 
 func (diskHandler *KTVpcDiskHandler) mappingDiskInfo(volume volumes2.Volume) (irs.DiskInfo, error) {
-	cblogger.Info("KT Cloud VPC Driver: called mappingDiskInfo()")		
+	cblogger.Info("KT Cloud VPC Driver: called mappingDiskInfo()")
 	// cblogger.Info("\n\n### volume : ")
 	// spew.Dump(volume)
 	// cblogger.Info("\n")
 
 	// Convert to KTC
-    convertedTime, err := convertTimeToKTC(volume.CreatedAt)
+	convertedTime, err := convertTimeToKTC(volume.CreatedAt)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get Converted Time. [%v]", err)
 		return irs.DiskInfo{}, newErr
@@ -531,33 +533,33 @@ func (diskHandler *KTVpcDiskHandler) mappingDiskInfo(volume volumes2.Volume) (ir
 		IId: irs.IID{
 			SystemId: volume.ID,
 		},
-		Zone: 		 volume.AvailabilityZone,
+		Zone:        volume.AvailabilityZone,
 		DiskSize:    strconv.Itoa(volume.Size),
-		Status:		 convertDiskStatus(volume.Status),
+		Status:      convertDiskStatus(volume.Status),
 		CreatedTime: convertedTime,
 	}
 
-	if strings.EqualFold(volume.Name, "") {  // Bootable disk of Not 'u2' VMSpec
+	if strings.EqualFold(volume.Name, "") { // Bootable disk of Not 'u2' VMSpec
 		diskInfo.IId.NameId = "Auto_Created_Booting_Disk"
 	} else {
 		diskInfo.IId.NameId = volume.Name
 	}
 
-	if strings.Contains(volume.VolumeType, "HDD") {  // Ex) volume.VolumeType : "HDD-2000iops"
+	if strings.Contains(volume.VolumeType, "HDD") { // Ex) volume.VolumeType : "HDD-2000iops"
 		diskInfo.DiskType = "HDD"
 	} else if strings.Contains(volume.VolumeType, "SSD") {
 		diskInfo.DiskType = "SSD"
 	}
 
 	if volume.Attachments != nil && len(volume.Attachments) > 0 {
-		for _, attachment := range volume.Attachments {			
+		for _, attachment := range volume.Attachments {
 			// ### Because of the abnormal cases of KT Cloud Volume aftger VM Terminateon(Except Not exist VM)
 			ktVm, err := servers.Get(diskHandler.VMClient, attachment.ServerID).Extract()
 			if err != nil {
 				newErr := fmt.Errorf("Failed to Get Volume Info list!! : [%v] ", err)
 				cblogger.Error(newErr.Error())
 				// return irs.DiskInfo{}, newErr
-			} else if !strings.EqualFold(ktVm.Name, "")  {
+			} else if !strings.EqualFold(ktVm.Name, "") {
 				diskInfo.OwnerVM = irs.IID{
 					NameId:   ktVm.Name,
 					SystemId: attachment.ServerID,
@@ -567,20 +569,20 @@ func (diskHandler *KTVpcDiskHandler) mappingDiskInfo(volume volumes2.Volume) (ir
 	}
 
 	keyValueList := []irs.KeyValue{
-		// {Key: "AvailabilityZone",   Value: volume.AvailabilityZone},		 
-		{Key: "IsBootable",   		Value: volume.Bootable},
-		{Key: "IsMultiattached", 	Value: strconv.FormatBool(volume.Multiattach)},
-		{Key: "IsEncrypted", 		Value: strconv.FormatBool(volume.Encrypted)},
+		// {Key: "AvailabilityZone",   Value: volume.AvailabilityZone},
+		{Key: "IsBootable", Value: volume.Bootable},
+		{Key: "IsMultiattached", Value: strconv.FormatBool(volume.Multiattach)},
+		{Key: "IsEncrypted", Value: strconv.FormatBool(volume.Encrypted)},
 	}
 
 	// Check if 'Image Name' value exists and add it to the key/value list
-	keyValue := irs.KeyValue{}		
+	keyValue := irs.KeyValue{}
 	if imageName, exists := volume.VolumeImageMetadata["image_name"]; exists {
-        // fmt.Printf("Image Name: %s\n", imageName)
-		keyValue = irs.KeyValue{Key: "ImageName", Value: imageName}		
-    } else {
+		// fmt.Printf("Image Name: %s\n", imageName)
+		keyValue = irs.KeyValue{Key: "ImageName", Value: imageName}
+	} else {
 		cblogger.Info("Image Name not found in volume info.")
-    }
+	}
 	keyValueList = append(keyValueList, keyValue)
 	diskInfo.KeyValueList = keyValueList
 
@@ -621,9 +623,9 @@ func (diskHandler *KTVpcDiskHandler) getImageNameandIDWithDiskID(diskId string) 
 		if !ok {
 			cblogger.Info("Image ID not found")
 		}
-		
+
 		if !strings.EqualFold(imageName, "") && !strings.EqualFold(imageId, "") {
-			imageIID.NameId   = imageName
+			imageIID.NameId = imageName
 			imageIID.SystemId = imageId
 		} else {
 			newErr := fmt.Errorf("Failed to Get the KT Disk Info!! : [%v]", err)
@@ -643,7 +645,7 @@ func (diskHandler *KTVpcDiskHandler) getKtVolumeList() ([]volumes2.Volume, error
 	callLogInfo := getCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, "getKtVolumeList()", "getKtVolumeList()")
 
 	start := call.Start()
-	listOpts :=	volumes2.ListOpts{}
+	listOpts := volumes2.ListOpts{}
 	allPages, err := volumes2.List(diskHandler.VolumeClient, listOpts).AllPages()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get KT Cloud Volume Pages!! : [%v] ", err)
@@ -668,4 +670,9 @@ func (diskHandler *KTVpcDiskHandler) getKtVolumeList() ([]volumes2.Volume, error
 		return nil, newErr
 	}
 	return ktVolumeList, nil
+}
+
+func (DiskHandler *KTVpcDiskHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

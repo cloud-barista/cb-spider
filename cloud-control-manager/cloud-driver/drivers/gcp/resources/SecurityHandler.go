@@ -2007,3 +2007,9 @@ func (securityHandler *GCPSecurityHandler) WaitUntilComplete(resourceId string) 
 
 	return nil
 }
+
+func (securityHandler *GCPSecurityHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}
+

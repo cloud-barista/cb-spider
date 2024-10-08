@@ -40,6 +40,7 @@ type MyImageHandler interface {
 	SnapshotVM(snapshotReqInfo MyImageInfo) (MyImageInfo, error)
 
 	//------ MyImage Management
+	ListIID() ([]*IID, error)
 	ListMyImage() ([]*MyImageInfo, error)
 	GetMyImage(myImageIID IID) (MyImageInfo, error)
 	CheckWindowsImage(myImageIID IID) (bool, error)

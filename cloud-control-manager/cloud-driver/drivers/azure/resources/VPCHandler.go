@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -335,4 +336,41 @@ func getRawVirtualNetwork(vpcIID irs.IID, virtualNetworksClient *armnetwork.Virt
 
 		return &resp.VirtualNetwork, err
 	}
+}
+
+func (vpcHandler *AzureVPCHandler) ListIID() ([]*irs.IID, error) {
+	hiscallInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, VPC, "ListIID()")
+
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	pager := vpcHandler.Client.NewListPager(vpcHandler.Region.Region, nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(vpcHandler.Ctx)
+		if err != nil {
+			err = errors.New(fmt.Sprintf("Failed to List VPC err = %s", err.Error()))
+			cblogger.Error(err.Error())
+			LoggingError(hiscallInfo, err)
+			return make([]*irs.IID, 0), err
+		}
+
+		for _, vpc := range page.Value {
+			var iid irs.IID
+
+			if vpc.ID != nil {
+				iid.SystemId = *vpc.ID
+			}
+			if vpc.Name != nil {
+				iid.NameId = *vpc.Name
+			}
+
+			iidList = append(iidList, &iid)
+		}
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
 }

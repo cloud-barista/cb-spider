@@ -10,12 +10,14 @@
 
 package resources
 
+// TagInfo represents the tagging information for a cloud resource.
+// @description Tag Information for a Cloud Resource.
 type TagInfo struct {
-	ResType RSType // VPC, SUBNET, VM, etc.,.)
-	ResIId  IID    // {NameId, SystemId}
+	ResType RSType `json:"ResType" validate:"required" example:"VPC"`
+	ResIId  IID    `json:"ResIId" validate:"required"`
 
-	TagList      []KeyValue
-	KeyValueList []KeyValue // reserved for optinal usage
+	TagList      []KeyValue `json:"TagList,omitempty" validate:"omitempty"`
+	KeyValueList []KeyValue `json:"KeyValueList,omitempty" validate:"omitempty"`
 }
 
 type TagHandler interface {

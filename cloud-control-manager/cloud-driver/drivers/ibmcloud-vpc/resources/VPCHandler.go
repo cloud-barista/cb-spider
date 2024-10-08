@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"net/url"
 	"time"
+
+	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
@@ -810,4 +811,55 @@ func getVPCRawSubnet(vpc vpcv1.VPC, subnetIID irs.IID, vpcService *vpcv1.VpcV1, 
 		}
 	}
 	return vpcv1.Subnet{}, err
+}
+
+func (vpcHandler *IbmVPCHandler) ListIID() ([]*irs.IID, error) {
+	hiscallInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, "VPC", "ListIID()")
+	listVpcsOptions := &vpcv1.ListVpcsOptions{}
+
+	var iidList []*irs.IID
+
+	start := call.Start()
+	vpcs, _, err := vpcHandler.VpcService.ListVpcsWithContext(vpcHandler.Ctx, listVpcsOptions)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Failed to List VPC err = %s", err.Error()))
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return make([]*irs.IID, 0), err
+
+	}
+	// Next Check
+	for {
+		for _, vpc := range vpcs.Vpcs {
+			var iid irs.IID
+
+			if vpc.ID != nil {
+				iid.SystemId = *vpc.ID
+			}
+			if vpc.Name != nil {
+				iid.NameId = *vpc.Name
+			}
+
+			iidList = append(iidList, &iid)
+		}
+		nextstr, _ := getVPCNextHref(vpcs.Next)
+		if nextstr != "" {
+			listVpcsOptions2 := &vpcv1.ListVpcsOptions{
+				Start: core.StringPtr(nextstr),
+			}
+			vpcs, _, err = vpcHandler.VpcService.ListVpcsWithContext(vpcHandler.Ctx, listVpcsOptions2)
+			if err != nil {
+				err = errors.New(fmt.Sprintf("Failed to List VPC err = %s", err.Error()))
+				cblogger.Error(err.Error())
+				LoggingError(hiscallInfo, err)
+				return make([]*irs.IID, 0), err
+			}
+		} else {
+			break
+		}
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
 }

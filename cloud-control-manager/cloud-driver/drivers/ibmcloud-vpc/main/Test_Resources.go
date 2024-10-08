@@ -223,6 +223,7 @@ var cblogger *logrus.Logger
 func init() {
 	// cblog is a global variable.
 	cblogger = cblog.GetLogger("CB-SPIDER")
+	cblog.SetLevel("info")
 }
 
 func readConfigFile() Config {
@@ -389,7 +390,8 @@ func testSecurityHandlerListPrint() {
 	cblogger.Info("4. DeleteSecurity()")
 	cblogger.Info("5. AddRules()")
 	cblogger.Info("6. RemoveRules()")
-	cblogger.Info("7. Exit")
+	cblogger.Info("7. ListIID()")
+	cblogger.Info("8. Exit")
 }
 
 // SecurityGroup
@@ -519,6 +521,14 @@ Loop:
 				}
 				fmt.Println("Finish RemoveRules()")
 			case 7:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := securityHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 8:
 				fmt.Println("Exit")
 				break Loop
 			}
@@ -532,7 +542,8 @@ func testKeyPairHandlerListPrint() {
 	cblogger.Info("2. GetKey()")
 	cblogger.Info("3. CreateKey()")
 	cblogger.Info("4. DeleteKey()")
-	cblogger.Info("5. Exit")
+	cblogger.Info("5. ListIID()")
+	cblogger.Info("6. Exit")
 }
 func testKeyPairHandler(config Config) {
 	resourceHandler, err := getResourceHandler("keypair", config)
@@ -605,6 +616,14 @@ Loop:
 				}
 				cblogger.Info("Finish DeleteKey()")
 			case 5:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := keyPairHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 6:
 				cblogger.Info("Exit")
 				break Loop
 			}
@@ -694,7 +713,8 @@ func testVPCHandlerListPrint() {
 	cblogger.Info("4. DeleteVPC()")
 	cblogger.Info("5. AddSubnet()")
 	cblogger.Info("6. RemoveSubnet()")
-	cblogger.Info("7. Exit")
+	cblogger.Info("7. ListIID()")
+	cblogger.Info("8. Exit")
 }
 
 func testVPCHandler(config Config) {
@@ -776,7 +796,7 @@ Loop:
 				}
 
 				VPCReqInfo.TagList = tagList
-				
+
 				if vpcInfo, err := vpcHandler.CreateVPC(VPCReqInfo); err != nil {
 					cblogger.Error(err)
 				} else {
@@ -829,6 +849,14 @@ Loop:
 				}
 				cblogger.Info("Finish RemoveSubnet()")
 			case 7:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := vpcHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 8:
 				cblogger.Info("Exit")
 				break Loop
 			}
@@ -849,7 +877,8 @@ func testVMHandlerListPrint() {
 	cblogger.Info("8. ResumeVM()")
 	cblogger.Info("9. TerminateVM()")
 	cblogger.Info("10. StartVM() - from MyImage")
-	cblogger.Info("11. Exit")
+	cblogger.Info("11. ListIID")
+	cblogger.Info("12. Exit")
 }
 
 func testVMHandler(config Config) {
@@ -970,7 +999,7 @@ Loop:
 			case 5:
 				cblogger.Info("Start StartVM() ...")
 				vmReqInfo.ImageType = irs.PublicImage
-				
+
 				// Add TagList
 				var tagList []irs.KeyValue
 				tagList, err = SetResourceTagList()
@@ -1028,6 +1057,14 @@ Loop:
 				}
 				cblogger.Info("Finish StartVM() - from MyImage")
 			case 11:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := vmHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 12:
 				cblogger.Info("Exit")
 				break Loop
 			}
@@ -1048,7 +1085,8 @@ func testNLBHandlerListPrint() {
 	cblogger.Info("8. RemoveVMs()")
 	cblogger.Info("9. GetVMGroupHealthInfo()")
 	cblogger.Info("10. ChangeHealthCheckerInfo()")
-	cblogger.Info("11. Exit")
+	cblogger.Info("11. ListIID()")
+	cblogger.Info("12. Exit")
 }
 
 func testNLBHandler(config Config) {
@@ -1143,7 +1181,7 @@ Loop:
 				cblogger.Info("Finish GetNLB()")
 			case 3:
 				cblogger.Info("Start CreateNLB() ...")
-				
+
 				// Add TagList
 				var tagList []irs.KeyValue
 				tagList, err = SetResourceTagList()
@@ -1216,6 +1254,14 @@ Loop:
 				}
 				cblogger.Info("Finish ChangeHealthCheckerInfo()")
 			case 11:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := nlbHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 12:
 				cblogger.Info("Exit")
 				break Loop
 			}
@@ -1233,7 +1279,8 @@ func testDiskHandlerListPrint() {
 	cblogger.Info("5. ChangeDiskSize()")
 	cblogger.Info("6. AttachDisk()")
 	cblogger.Info("7. DetachDisk()")
-	cblogger.Info("8. Exit")
+	cblogger.Info("8. ListIID()")
+	cblogger.Info("9. Exit")
 }
 
 func testDiskHandler(config Config) {
@@ -1291,7 +1338,6 @@ Loop:
 			case 3:
 				cblogger.Info("Start CreateDisk() ...")
 
-				
 				// Add TagList
 				var tagList []irs.KeyValue
 				tagList, err = SetResourceTagList()
@@ -1346,6 +1392,14 @@ Loop:
 				}
 				cblogger.Info("Finish DetachDisk()")
 			case 8:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := diskHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 9:
 				cblogger.Info("Exit")
 				break Loop
 			}
@@ -1360,7 +1414,8 @@ func testMyImageHandlerListPrint() {
 	cblogger.Info("2. GetMyImage()")
 	cblogger.Info("3. CreateMyImage()")
 	cblogger.Info("4. DeleteMyImage()")
-	cblogger.Info("5. Exit")
+	cblogger.Info("5. ListIID()")
+	cblogger.Info("6. Exit")
 }
 
 func testMyImageHandler(config Config) {
@@ -1416,7 +1471,7 @@ Loop:
 				cblogger.Info("Finish GetMyImage()")
 			case 3:
 				cblogger.Info("Start CreateMyImage() ...")
-				
+
 				// Add TagList
 				var tagList []irs.KeyValue
 				tagList, err = SetResourceTagList()
@@ -1441,6 +1496,14 @@ Loop:
 				}
 				cblogger.Info("Finish DeleteMyImage()")
 			case 5:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := myImageHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 6:
 				cblogger.Info("Exit")
 				break Loop
 			}
@@ -1639,7 +1702,8 @@ func testClusterHandlerListPrint() {
 	cblogger.Info("7. SetNodeGroupAutoScaling()")
 	cblogger.Info("8. ChangeNodeGroupScaling()")
 	cblogger.Info("9. UpgradeCluster()")
-	cblogger.Info("10. Exit")
+	cblogger.Info("10. ListIID()")
+	cblogger.Info("11. Exit")
 }
 
 func testClusterHandler(config Config) {
@@ -1735,7 +1799,7 @@ Loop:
 				}
 
 				clusterCreateReqInfo.TagList = tagList
-				
+
 				if createInfo, err := clusterHandler.CreateCluster(clusterCreateReqInfo); err != nil {
 					cblogger.Error(err)
 				} else {
@@ -1800,6 +1864,14 @@ Loop:
 				}
 				cblogger.Info("Finish UpgradeCluster()")
 			case 10:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := clusterHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 11:
 				cblogger.Info("Exit")
 				break Loop
 			}
@@ -2060,7 +2132,7 @@ Loop:
 	}
 }
 
-func SetResourceTagList()([]irs.KeyValue, error){
+func SetResourceTagList() ([]irs.KeyValue, error) {
 	cblogger.Info("0. TagList Setting")
 	cblogger.Info("1. Continue without TagList")
 	var tagSetNum int
@@ -2068,36 +2140,36 @@ func SetResourceTagList()([]irs.KeyValue, error){
 	if err != nil {
 		return []irs.KeyValue{}, err
 	}
-	
+
 	var KeyValue []irs.KeyValue
-	switch tagSetNum{
+	switch tagSetNum {
 	case 0:
 		var tagCount int
-	
+
 		fmt.Print("How many tag? ")
 		_, err := fmt.Scanln(&tagCount)
 		if err != nil {
 			return []irs.KeyValue{}, err
 		}
-		
+
 		i := 0
 		for i < tagCount {
 			fmt.Println("=== Enter KeyValue ===")
 			var key string
 			var value string
-	
+
 			fmt.Print("Key: ")
 			_, err := fmt.Scanln(&key)
 			if err != nil {
 				return []irs.KeyValue{}, err
 			}
-			
+
 			fmt.Print("Value: ")
 			_, err = fmt.Scanln(&value)
 			if err != nil {
 				return []irs.KeyValue{}, err
 			}
-			
+
 			KeyValue = append(KeyValue, irs.KeyValue{Key: key, Value: value})
 			i++
 		}
@@ -2107,7 +2179,6 @@ func SetResourceTagList()([]irs.KeyValue, error){
 
 	return KeyValue, nil
 }
-
 
 func main() {
 	showTestHandlerInfo()

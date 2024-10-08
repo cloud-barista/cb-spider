@@ -64,7 +64,7 @@ require (
 	github.com/alibabacloud-go/vpc-20160428/v6 v6.4.0
 	github.com/cloud-barista/ktcloud-sdk-go v0.2.1-0.20240826073400-9dd317d24d0a
 	github.com/cloud-barista/ktcloudvpc-sdk-go v0.0.0-20240812121947-01daa5e57030
-	github.com/cloud-barista/nhncloud-sdk-go v0.0.0-20240709053216-536bc37fa6c9
+	github.com/cloud-barista/nhncloud-sdk-go v0.0.0-20241002083344-08576c749329
 	github.com/go-openapi/strfmt v0.21.3
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/go-version v1.6.0
@@ -74,7 +74,7 @@ require (
 	github.com/tencentcloud/tencentcloud-sdk-go-intl-en v3.0.531+incompatible
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs v1.0.492
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tag v1.0.964
-	golang.org/x/mod v0.18.0
+	golang.org/x/mod v0.21.0
 	k8s.io/api v0.22.5
 	k8s.io/apimachinery v0.22.5
 	k8s.io/client-go v0.22.5
@@ -174,7 +174,7 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/net v0.27.0 // indirect
-	golang.org/x/sys v0.24.0 // indirect
+	golang.org/x/sys v0.25.0 // indirect
 	golang.org/x/term v0.22.0 // indirect
 	golang.org/x/text v0.17.0 // indirect
 	golang.org/x/time v0.6.0 // indirect

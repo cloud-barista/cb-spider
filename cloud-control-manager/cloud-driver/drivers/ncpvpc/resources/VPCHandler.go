@@ -10,7 +10,7 @@ package resources
 
 import (
 	"fmt"
-	// "errors"
+	"errors"
 	"time"
 	"strings"
 
@@ -18,9 +18,9 @@ import (
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vpc"
 
 	cblog "github.com/cloud-barista/cb-log"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 )
 
 type NcpVpcVPCHandler struct {
@@ -559,7 +559,7 @@ func (vpcHandler *NcpVpcVPCHandler) CreateSubnet(vpcIID irs.IID, netAclNo *strin
 		Subnet:			&subnetReqInfo.IPv4_CIDR,
 		SubnetName:     &subnetReqName, // Allows only lowercase letters, numbers or special character "-". Start with an alphabet character.
 		VpcNo: 			&vpcIID.SystemId,
-		ZoneCode: 		&vpcHandler.RegionInfo.Zone,
+		ZoneCode: 		&subnetReqInfo.Zone,
 	}
 
 	callLogStart := call.Start()
@@ -772,11 +772,12 @@ func (vpcHandler *NcpVpcVPCHandler) MappingSubnetInfo(subnet *vpc.Subnet) *irs.S
 			NameId:   *subnet.SubnetName,
 			SystemId: *subnet.SubnetNo,
 		},
-		IPv4_CIDR:  *subnet.Subnet,
+		Zone: 		  *subnet.ZoneCode,
+		IPv4_CIDR:    *subnet.Subnet,
 	}
 
 	keyValueList := []irs.KeyValue{
-		{Key: "ZoneCode", Value: *subnet.ZoneCode},
+		// {Key: "ZoneCode", Value: *subnet.ZoneCode},
 		{Key: "SubnetStatus", Value: *subnet.SubnetStatus.Code},
 		{Key: "SubnetType", Value: *subnet.SubnetType.Code},	
 		{Key: "UsageType", Value: *subnet.UsageType.Code},
@@ -910,4 +911,52 @@ func (vpcHandler *NcpVpcVPCHandler) WaitForCreateSubnet(subnetId *string) (strin
 			return subnetStatus, nil
 		}
 	}
+}
+
+func (vpcHandler *NcpVpcVPCHandler) getSubnetZone(vpcIID irs.IID, subnetIID irs.IID) (string, error) {
+	cblogger.Info("NCP VPC cloud driver: called getSubnetZone()!!")
+
+	if strings.EqualFold(vpcIID.SystemId, "") && strings.EqualFold(vpcIID.NameId, ""){
+		newErr := fmt.Errorf("Invalid VPC Id!!")
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
+
+	if strings.EqualFold(subnetIID.SystemId, "") && strings.EqualFold(subnetIID.NameId, ""){
+		newErr := fmt.Errorf("Invalid Subnet Id!!")
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
+
+	 // Get the VPC information
+	 vpcInfo, err := vpcHandler.GetVPC(vpcIID)
+	 if err != nil {
+		newErr := fmt.Errorf("Failed to Get the VPC Info : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	 }
+	//  cblogger.Info("\n\n### vpcInfo : ")
+	//  spew.Dump(vpcInfo)
+	//  cblogger.Info("\n")
+ 	 
+	// Get the Zone info of the specified Subnet
+	var subnetZone string
+	for _, subnet := range vpcInfo.SubnetInfoList {
+		if strings.EqualFold(subnet.IId.SystemId, subnetIID.SystemId) {
+			subnetZone = subnet.Zone
+			break
+		}
+	}
+	if strings.EqualFold(subnetZone, "") {
+		newErr := fmt.Errorf("Failed to Get the Zone info of the specified Subnet!!")
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
+	return subnetZone, nil
+}
+
+
+func (vpcHandler *NcpVpcVPCHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

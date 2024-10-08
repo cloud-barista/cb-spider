@@ -1471,3 +1471,53 @@ func (vmHandler *IbmVMHandler) setVMList(instanceList []vpcv1.Instance) ([]*irs.
 
 	return vmList, nil
 }
+
+func (vmHandler *IbmVMHandler) ListIID() ([]*irs.IID, error) {
+	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, "VM", "ListIID()")
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	options := &vpcv1.ListInstancesOptions{}
+	instances, _, err := vmHandler.VpcService.ListInstancesWithContext(vmHandler.Ctx, options)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Failed to List VM. err = %s", err.Error()))
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return make([]*irs.IID, 0), err
+	}
+
+	for {
+		for _, instance := range instances.Instances {
+			var iid irs.IID
+
+			if instance.ID != nil {
+				iid.SystemId = *instance.ID
+			}
+			if instance.Name != nil {
+				iid.NameId = *instance.Name
+			}
+
+			iidList = append(iidList, &iid)
+		}
+		nextstr, _ := getVMNextHref(instances.Next)
+		if nextstr != "" {
+			listVpcsOptions2 := &vpcv1.ListInstancesOptions{
+				Start: core.StringPtr(nextstr),
+			}
+			instances, _, err = vmHandler.VpcService.ListInstancesWithContext(vmHandler.Ctx, listVpcsOptions2)
+			if err != nil {
+				err = errors.New(fmt.Sprintf("Failed to List VM. err = %s", err.Error()))
+				cblogger.Error(err.Error())
+				LoggingError(hiscallInfo, err)
+				return make([]*irs.IID, 0), err
+			}
+		} else {
+			break
+		}
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
+}

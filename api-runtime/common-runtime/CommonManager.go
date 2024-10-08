@@ -175,6 +175,21 @@ func getMSShortID(inID string) string {
 	return shortID
 }
 
+func getAWSNLBShortID(inID string) string {
+	// arn:aws:elasticloadbalancing:us-east-2:6354xxxxxx:loadbalancer/net/aws-ohio-nl-cs0m9i3p70iv8ge0c8v0/ef56833f5b959319
+	// ==> aws-ohio-nl-cs0m9i3p70iv8ge0c8v0
+	if strings.Contains(inID, "loadbalancer/net/") {
+		// Split by "loadbalancer/net/" to find the relevant part of the string
+		parts := strings.Split(inID, "loadbalancer/net/")
+		if len(parts) > 1 {
+			// Split again by "/" to isolate the NLB name
+			nameParts := strings.Split(parts[1], "/")
+			return nameParts[0] // Return the NLB name
+		}
+	}
+	return inID
+}
+
 func checkNotFoundError(err error) bool {
 	msg := err.Error()
 	msg = strings.ReplaceAll(msg, " ", "")

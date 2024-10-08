@@ -225,3 +225,9 @@ func ipToCidr24(ipStr string) (string, error) {
     network := ip.Mask(mask)
 	return fmt.Sprintf("%s/24", network), nil
 }
+
+func getSeoulCurrentTime() string {
+	loc, _ := time.LoadLocation("Asia/Seoul")
+	currentTime := time.Now().In(loc)	
+	return currentTime.Format("2006-01-02 15:04:05")
+}

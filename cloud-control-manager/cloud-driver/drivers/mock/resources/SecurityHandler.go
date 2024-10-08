@@ -272,3 +272,23 @@ func isEqualRule(a *irs.SecurityRuleInfo, b *irs.SecurityRuleInfo) bool {
 func removeRule(list *[]irs.SecurityRuleInfo, idx int) []irs.SecurityRuleInfo {
 	return append((*list)[:idx], (*list)[idx+1:]...)
 }
+
+func (securityHandler *MockSecurityHandler) ListIID() ([]*irs.IID, error) {
+	cblogger := cblog.GetLogger("CB-SPIDER")
+	cblogger.Info("Mock Driver: called ListIID()!")
+
+	mockName := securityHandler.MockName
+	sgMapLock.RLock()
+	defer sgMapLock.RUnlock()
+	infoList, ok := securityInfoMap[mockName]
+	if !ok {
+		return []*irs.IID{}, nil
+	}
+
+	iidList := make([]*irs.IID, len(infoList))
+	for i, info := range infoList {
+		iidList[i] = &info.IId
+	}
+
+	return iidList, nil
+}

@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Azure/azure-sdk-for-go/sdk/monitor/azquery"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/monitor/azquery"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -150,7 +151,7 @@ func (nlbHandler *AzureNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 			LoadBalancingRules:       loadBalancingRules,
 		},
 		Tags: map[string]*string{
-			"createdAt": toStrPtr(strconv.FormatInt(time.Now().Unix(), 10)),
+			"createdAt": toStrPtr(strconv.FormatInt(time.Now().UTC().Unix(), 10)),
 		},
 	}
 
@@ -267,7 +268,7 @@ func (nlbHandler *AzureNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	for pager.More() {
 		page, err := pager.NextPage(nlbHandler.Ctx)
 		if err != nil {
-			getErr := errors.New(fmt.Sprintf("Failed to List Cluster. err = %s", err))
+			getErr := errors.New(fmt.Sprintf("Failed to List NLB. err = %s", err))
 			cblogger.Error(getErr.Error())
 			LoggingError(hiscallInfo, getErr)
 			return nil, getErr
@@ -1087,7 +1088,7 @@ func (nlbHandler *AzureNLBHandler) setterNLB(nlb *armnetwork.LoadBalancer) (*irs
 		createAt := *nlb.Tags["createdAt"]
 		timeInt64, err := strconv.ParseInt(createAt, 10, 64)
 		if err == nil {
-			nlbInfo.CreatedTime = time.Unix(timeInt64, 0)
+			nlbInfo.CreatedTime = time.Unix(timeInt64, 0).UTC()
 		}
 	}
 
@@ -1644,4 +1645,40 @@ func checkValidationNLBHealthCheck(healthCheckerInfo irs.HealthCheckerInfo) erro
 		return errors.New("invalid HealthCheckerInfo Interval * Threshold must be between 5 and 2147483647 ")
 	}
 	return nil
+}
+
+func (nlbHandler *AzureNLBHandler) ListIID() ([]*irs.IID, error) {
+	hiscallInfo := GetCallLogScheme(nlbHandler.Region, "NETWORKLOADBALANCE", "NLB", "ListIID()")
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	pager := nlbHandler.NLBClient.NewListPager(nlbHandler.Region.Region, nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(nlbHandler.Ctx)
+		if err != nil {
+			err = errors.New(fmt.Sprintf("Failed to List NLB. err = %s", err))
+			cblogger.Error(err.Error())
+			LoggingError(hiscallInfo, err)
+			return make([]*irs.IID, 0), err
+		}
+
+		for _, nlb := range page.Value {
+			var iid irs.IID
+
+			if nlb.ID != nil {
+				iid.SystemId = *nlb.ID
+			}
+			if nlb.Name != nil {
+				iid.NameId = *nlb.Name
+			}
+
+			iidList = append(iidList, &iid)
+		}
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
 }

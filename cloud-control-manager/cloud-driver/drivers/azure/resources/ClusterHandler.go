@@ -637,7 +637,7 @@ func setterClusterInfo(cluster *armcontainerservice.ManagedCluster,
 			if createdTimeExist && createdTime != nil {
 				timeInt64, err := strconv.ParseInt(*createdTime, 10, 64)
 				if err == nil {
-					clusterInfo.CreatedTime = time.Unix(timeInt64, 0)
+					clusterInfo.CreatedTime = time.Unix(timeInt64, 0).UTC()
 				}
 			}
 			sshkey, sshKeyExist := tags[ClusterNodeSSHKeyKey]
@@ -959,8 +959,9 @@ func getNodeInfoStatus(agentPool armcontainerservice.AgentPool, virtualMachineSc
 	return irs.NodeGroupInactive
 }
 
-func getclusterDNSPrefix(clusterName string) string {
-	return fmt.Sprintf("%s-dns", clusterName)
+func getclusterDNSPrefix() string {
+	prefix := "dns-"
+	return fmt.Sprintf("%s%d", prefix, time.Now().UnixNano())
 }
 
 func getclusterNodeResourceGroup(clusterName string, resourceGroup string, regionString string) string {
@@ -1135,7 +1136,7 @@ func createCluster(clusterReqInfo irs.ClusterInfo, ac *AzureClusterHandler) erro
 		Properties: &armcontainerservice.ManagedClusterProperties{
 			KubernetesVersion: toStrPtr(clusterReqInfo.Version),
 			EnableRBAC:        toBoolPtr(true),
-			DNSPrefix:         toStrPtr(getclusterDNSPrefix(clusterReqInfo.IId.NameId)),
+			DNSPrefix:         toStrPtr(getclusterDNSPrefix()),
 			NodeResourceGroup: toStrPtr(getclusterNodeResourceGroup(clusterReqInfo.IId.NameId, ac.Region.Region, ac.Region.Region)),
 			AgentPoolProfiles: agentPoolProfiles,
 			NetworkProfile:    &networkProfile,
@@ -1191,7 +1192,7 @@ func checkSubnetRequireIPRange(subnet armnetwork.Subnet, NodeGroupInfos []irs.No
 		requireIPCount += float64((maxPodCount + 1) * (NodeGroupInfo.MaxNodeSize))
 	}
 	if subnetAvailableCount < requireIPCount {
-		return errors.New(fmt.Sprintf("The subnet id not large enough to support all node pools. Current available IP address space: %d addressed. Required %d addresses.", subnetAvailableCount, requireIPCount))
+		return errors.New(fmt.Sprintf("The subnet id not large enough to support all node pools. Current available IP address space: %.0f addressed. Required %.0f addresses.", subnetAvailableCount, requireIPCount))
 	}
 	return nil
 }
@@ -1324,7 +1325,7 @@ func generatorNetworkProfile(ClusterInfo irs.ClusterInfo, targetSubnet armnetwor
 
 func generatorClusterTags(sshKeyName string, clusterName string) (map[string]*string, error) {
 	tags := make(map[string]*string)
-	nowTime := strconv.FormatInt(time.Now().Unix(), 10)
+	nowTime := strconv.FormatInt(time.Now().UTC().Unix(), 10)
 	tags[ClusterNodeSSHKeyKey] = &sshKeyName
 	tags["createdAt"] = &nowTime
 	tags[OwnerClusterKey] = &clusterName
@@ -1334,7 +1335,7 @@ func generatorClusterTags(sshKeyName string, clusterName string) (map[string]*st
 func getSSHKeyIIDByNodeGroups(NodeGroupInfos []irs.NodeGroupInfo) (irs.IID, error) {
 	var key *irs.IID
 	for _, nodeGroup := range NodeGroupInfos {
-		if nodeGroup.KeyPairIID.NameId != "" && nodeGroup.KeyPairIID.SystemId != "" {
+		if nodeGroup.KeyPairIID.NameId != "" || nodeGroup.KeyPairIID.SystemId != "" {
 			key = &nodeGroup.KeyPairIID
 			break
 		}
@@ -2363,4 +2364,40 @@ func getClusterAccessInfo(cluster *armcontainerservice.ManagedCluster, managedCl
 		}
 	}
 	return accessInfo, nil
+}
+
+func (ac *AzureClusterHandler) ListIID() ([]*irs.IID, error) {
+	hiscallInfo := GetCallLogScheme(ac.Region, call.CLUSTER, "CLUSTER", "ListIID()")
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	pager := ac.ManagedClustersClient.NewListPager(nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(ac.Ctx)
+		if err != nil {
+			err = errors.New(fmt.Sprintf("Failed to List Cluster. err = %s", err))
+			cblogger.Error(err.Error())
+			LoggingError(hiscallInfo, err)
+			return make([]*irs.IID, 0), err
+		}
+
+		for _, cluster := range page.Value {
+			var iid irs.IID
+
+			if cluster.ID != nil {
+				iid.SystemId = *cluster.ID
+			}
+			if cluster.Name != nil {
+				iid.NameId = *cluster.Name
+			}
+
+			iidList = append(iidList, &iid)
+		}
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
 }

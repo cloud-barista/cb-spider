@@ -11,10 +11,12 @@
 package resources
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
+
 	// "github.com/davecgh/go-spew/spew"
 
 	ncloud "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
@@ -28,23 +30,23 @@ import (
 )
 
 type NcpNLBHandler struct {
-	CredentialInfo 	idrv.CredentialInfo
-	RegionInfo     	idrv.RegionInfo
-	VMClient       	*server.APIClient
-	LBClient      	*lb.APIClient
+	CredentialInfo idrv.CredentialInfo
+	RegionInfo     idrv.RegionInfo
+	VMClient       *server.APIClient
+	LBClient       *lb.APIClient
 }
 
 const (
 	// NCP Classic LB Algorithm type codes : RR (ROUND ROBIN), LC (LEAST_CONNECTION), SIPHS (Source IP Hash)
-	DefaultLBAlgorithmType 			string = "RR"  // ROUND ROBIN
+	DefaultLBAlgorithmType string = "RR" // ROUND ROBIN
 
 	// You can select whether to create a load balancer with public/private IP
 	// NCP Classic Cloud NLB network type code : PBLIP(Public IP LB), PRVT(Private IP LB). default : PBLIP
-	NcpPublicNlBType   				string = "PBLIP"
-	NcpInternalNlBType 				string = "PRVT"
+	NcpPublicNlBType   string = "PBLIP"
+	NcpInternalNlBType string = "PRVT"
 
 	// 'L7HealthCheckPath' required if ProtocolTypeCode value is 'HTTP' or 'HTTPS' for NCP Classic NLB.
-	DefaulthealthCheckPath 			string = "/index.html"
+	DefaulthealthCheckPath string = "/index.html"
 )
 
 func init() {
@@ -70,12 +72,12 @@ func (nlbHandler *NcpNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB ir
 
 	// ### ProtocolTypeCode : Enter the protocol identification code in the load balancer RULE.
 	// The following codes can be entered for the protocol identification code: HTTP, HTTPS, TCP, SSL
-	if strings.EqualFold(nlbReqInfo.Listener.Protocol, "HTTP") || strings.EqualFold(nlbReqInfo.Listener.Protocol, "HTTPS") || strings.EqualFold(nlbReqInfo.Listener.Protocol, "TCP") || strings.EqualFold(nlbReqInfo.Listener.Protocol, "SSL"){
+	if strings.EqualFold(nlbReqInfo.Listener.Protocol, "HTTP") || strings.EqualFold(nlbReqInfo.Listener.Protocol, "HTTPS") || strings.EqualFold(nlbReqInfo.Listener.Protocol, "TCP") || strings.EqualFold(nlbReqInfo.Listener.Protocol, "SSL") {
 		cblogger.Info("# It's Supporting Listener Protocol in NCP Classic!!")
 	} else {
 		return irs.NLBInfo{}, fmt.Errorf("Invalid Listener Protocol. Must be 'HTTP', 'HTTPS', 'TCP' or 'SSL' for NCP Classic NLB.") // According to the NCP Classic API document.
 	}
-		
+
 	if !strings.EqualFold(nlbReqInfo.Listener.Protocol, nlbReqInfo.VMGroup.Protocol) {
 		return irs.NLBInfo{}, fmt.Errorf("NLB can be created only when Listener.Protocol and VMGroup.Protocol are of the Same Protocol type in case of NCP Classic.")
 	}
@@ -97,8 +99,8 @@ func (nlbHandler *NcpNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB ir
 	}
 
 	vmHandler := NcpVMHandler{
-		RegionInfo:     	nlbHandler.RegionInfo,
-		VMClient:         	nlbHandler.VMClient,
+		RegionInfo: nlbHandler.RegionInfo,
+		VMClient:   nlbHandler.VMClient,
 	}
 	regionNo, err := vmHandler.GetRegionNo(nlbHandler.RegionInfo.Region)
 	if err != nil {
@@ -116,7 +118,7 @@ func (nlbHandler *NcpNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB ir
 	}
 	zoneNoList := []*string{zoneNo}
 
-	// LB Port num. : Min : 1, Max : 65534	
+	// LB Port num. : Min : 1, Max : 65534
 	lbPort, err := strconv.ParseInt(nlbReqInfo.Listener.Port, 10, 32) // Caution : Covert String to Int32
 	if err != nil {
 		panic(err)
@@ -145,17 +147,17 @@ func (nlbHandler *NcpNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB ir
 	// 'L7HealthCheckPath' required if ProtocolTypeCode value is 'HTTP' or 'HTTPS' for NCP Classic NLB.
 	var healthCheckPath string
 	if strings.EqualFold(nlbReqInfo.Listener.Protocol, "HTTP") || strings.EqualFold(nlbReqInfo.Listener.Protocol, "HTTPS") {
-		healthCheckPath = DefaulthealthCheckPath 
+		healthCheckPath = DefaulthealthCheckPath
 	}
 
 	// ### ProtocolTypeCode : Enter the protocol identification code in the load balancer RULE.
 	// The following codes can be entered for the protocol identification code: HTTP, HTTPS, TCP, SSL
 	ruleParameter := []*lb.LoadBalancerRuleParameter{
 		{
-			ProtocolTypeCode: 		ncloud.String(nlbReqInfo.Listener.Protocol), // *** Required (Not Optional)
-			LoadBalancerPort: 		&int32lbPort,			 					 // *** Required (Not Optional)
-			ServerPort: 			&int32vmPort,			 					 // *** Required (Not Optional)
-			L7HealthCheckPath:		ncloud.String(healthCheckPath),		 // *** Required In case the ProtocolTypeCode is HTTP or HTTPS.
+			ProtocolTypeCode:  ncloud.String(nlbReqInfo.Listener.Protocol), // *** Required (Not Optional)
+			LoadBalancerPort:  &int32lbPort,                                // *** Required (Not Optional)
+			ServerPort:        &int32vmPort,                                // *** Required (Not Optional)
+			L7HealthCheckPath: ncloud.String(healthCheckPath),              // *** Required In case the ProtocolTypeCode is HTTP or HTTPS.
 
 			// ProxyProtocolUseYn: 	ncloud.String(doesUseProxyProtocol),
 			// StickySessionUseYn: 	ncloud.String(doesUseStickySession),
@@ -165,8 +167,8 @@ func (nlbHandler *NcpNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB ir
 			// ServerProtocolTypeCode: nlbReqInfo.VMGroup.Protocol, // Does Not support yet through NCP API SDK.
 		},
 	}
-	
-	var vmNoList []*string     // Caution : var. type
+
+	var vmNoList []*string // Caution : var. type
 	if len(*nlbReqInfo.VMGroup.VMs) > 0 {
 		var vmIds []*string
 		for _, IId := range *nlbReqInfo.VMGroup.VMs {
@@ -186,13 +188,13 @@ func (nlbHandler *NcpNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB ir
 
 	// NCP Classic LB Algorithm type codes : RR (ROUND ROBIN), LC (LEAST_CONNECTION), SIPHS (Source IP Hash)
 	lbReq := lb.CreateLoadBalancerInstanceRequest{
-		LoadBalancerName:              	ncloud.String(nlbReqInfo.IId.NameId),
-		LoadBalancerAlgorithmTypeCode: 	ncloud.String(DefaultLBAlgorithmType),
-		LoadBalancerRuleList: 			ruleParameter,	// *** Required (Not Optional)
-		ServerInstanceNoList:			vmNoList,
-		NetworkUsageTypeCode:			ncloud.String(lbNetType),
-		RegionNo: 						regionNo,		// Caution!! : RegionNo (Not RegionCode)
-		ZoneNoList:   					zoneNoList,     // Caution!! : ZoneNoList (Not ZoneCodeList)	
+		LoadBalancerName:              ncloud.String(nlbReqInfo.IId.NameId),
+		LoadBalancerAlgorithmTypeCode: ncloud.String(DefaultLBAlgorithmType),
+		LoadBalancerRuleList:          ruleParameter, // *** Required (Not Optional)
+		ServerInstanceNoList:          vmNoList,
+		NetworkUsageTypeCode:          ncloud.String(lbNetType),
+		RegionNo:                      regionNo,   // Caution!! : RegionNo (Not RegionCode)
+		ZoneNoList:                    zoneNoList, // Caution!! : ZoneNoList (Not ZoneCodeList)
 	}
 
 	callLogStart := call.Start()
@@ -240,8 +242,8 @@ func (nlbHandler *NcpNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", "ListNLB()", "ListNLB()")
 
 	vmHandler := NcpVMHandler{
-		RegionInfo:     	nlbHandler.RegionInfo,
-		VMClient:         	nlbHandler.VMClient,
+		RegionInfo: nlbHandler.RegionInfo,
+		VMClient:   nlbHandler.VMClient,
 	}
 	regionNo, err := vmHandler.GetRegionNo(nlbHandler.RegionInfo.Region)
 	if err != nil {
@@ -259,8 +261,8 @@ func (nlbHandler *NcpNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	}
 
 	lbReq := lb.GetLoadBalancerInstanceListRequest{
-		RegionNo: 	regionNo, 	// Caution!! : RegionNo (Not RegionCode)
-		ZoneNo: 	zoneNo, 	// Caution!! : ZoneNo (Not ZoneCode)
+		RegionNo: regionNo, // Caution!! : RegionNo (Not RegionCode)
+		ZoneNo:   zoneNo,   // Caution!! : ZoneNo (Not ZoneCode)
 	}
 	callLogStart := call.Start()
 	result, err := nlbHandler.LBClient.V2Api.GetLoadBalancerInstanceList(&lbReq)
@@ -403,8 +405,8 @@ func (nlbHandler *NcpNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.
 
 	addVMReq := lb.AddServerInstancesToLoadBalancerRequest{
 		LoadBalancerInstanceNo: ncloud.String(nlbIID.SystemId),
-		ServerInstanceNoList:  	newVmIdList,
-	}	
+		ServerInstanceNoList:   newVmIdList,
+	}
 	callLogStart := call.Start()
 	result, err := nlbHandler.LBClient.V2Api.AddServerInstancesToLoadBalancer(&addVMReq)
 	if err != nil {
@@ -480,7 +482,7 @@ func (nlbHandler *NcpNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (b
 
 	removeVMReq := lb.DeleteServerInstancesFromLoadBalancerRequest{
 		LoadBalancerInstanceNo: ncloud.String(nlbIID.SystemId),
-		ServerInstanceNoList:  	vmIdList,
+		ServerInstanceNoList:   vmIdList,
 	}
 	callLogStart := call.Start()
 	result, err := nlbHandler.LBClient.V2Api.DeleteServerInstancesFromLoadBalancer(&removeVMReq)
@@ -539,9 +541,9 @@ func (nlbHandler *NcpNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.Healt
 		var healthVMs []irs.IID
 		var unHealthVMs []irs.IID
 
-		for _, member := range ncpNlbInfo.LoadBalancedServerInstanceList {	
-			allVMs = append(allVMs, irs.IID{NameId: *member.ServerInstance.ServerName, SystemId: *member.ServerInstance.ServerInstanceNo})  // Caution : Not 'VM Member ID' but 'VM System ID'
-	
+		for _, member := range ncpNlbInfo.LoadBalancedServerInstanceList {
+			allVMs = append(allVMs, irs.IID{NameId: *member.ServerInstance.ServerName, SystemId: *member.ServerInstance.ServerInstanceNo}) // Caution : Not 'VM Member ID' but 'VM System ID'
+
 			// Note : Server Status (Is Not NLB Status) : True (Healthy), False (Unhealthy)
 			if *member.ServerHealthCheckStatusList[0].ServerStatus {
 				cblogger.Infof("\n### [%s] is a Healthy VM.", *member.ServerInstance.ServerName)
@@ -551,7 +553,7 @@ func (nlbHandler *NcpNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.Healt
 				unHealthVMs = append(unHealthVMs, irs.IID{NameId: *member.ServerInstance.ServerName, SystemId: *member.ServerInstance.ServerInstanceNo})
 			}
 		}
-	
+
 		vmGroupHealthInfo = irs.HealthInfo{
 			AllVMs:       &allVMs,
 			HealthyVMs:   &healthVMs,
@@ -575,11 +577,11 @@ func (nlbHandler *NcpNLBHandler) GetListenerInfo(nlb lb.LoadBalancerInstance) (i
 		LoggingError(callLogInfo, newErr)
 		return irs.ListenerInfo{}, newErr
 	}
-	
+
 	listenerInfo := irs.ListenerInfo{
-		Protocol: 	*nlb.LoadBalancerRuleList[0].ProtocolType.Code,
-		Port: 		strconv.FormatInt(int64(*nlb.LoadBalancerRuleList[0].LoadBalancerPort), 10),
-		DNSName:	*nlb.DomainName,
+		Protocol: *nlb.LoadBalancerRuleList[0].ProtocolType.Code,
+		Port:     strconv.FormatInt(int64(*nlb.LoadBalancerRuleList[0].LoadBalancerPort), 10),
+		DNSName:  *nlb.DomainName,
 	}
 
 	virtualIPs := strings.Split(*nlb.VirtualIp, ",")
@@ -596,7 +598,7 @@ func (nlbHandler *NcpNLBHandler) GetListenerInfo(nlb lb.LoadBalancerInstance) (i
 		// {Key: "NLB_DomainName", Value: *nlb.DomainName},
 	}
 	listenerInfo.KeyValueList = listenerKVList
-	
+
 	return listenerInfo, nil
 }
 
@@ -614,8 +616,8 @@ func (nlbHandler *NcpNLBHandler) GetVMGroupInfo(nlb lb.LoadBalancerInstance) (ir
 
 	// Note : Cloud-Barista supports only this case => [ LB : Listener : VM Group : Health Checker = 1 : 1 : 1 : 1 ]
 	vmGroupInfo := irs.VMGroupInfo{
-		Protocol: 	*nlb.LoadBalancerRuleList[0].ProtocolType.Code,
-		Port: 		strconv.FormatInt(int64(*nlb.LoadBalancerRuleList[0].ServerPort), 10),
+		Protocol: *nlb.LoadBalancerRuleList[0].ProtocolType.Code,
+		Port:     strconv.FormatInt(int64(*nlb.LoadBalancerRuleList[0].ServerPort), 10),
 	}
 
 	if len(nlb.LoadBalancedServerInstanceList) > 0 {
@@ -661,10 +663,10 @@ func (nlbHandler *NcpNLBHandler) GetHealthCheckerInfo(nlb lb.LoadBalancerInstanc
 	// When a load balancer is created, a health check is performed with the designated server port, and servers that fail the health check are excluded from the load balancing target.
 	// In the case of the HTTP service, if you enter the content path in the L7 Health Check field, the normal operation of the content is checked, and servers that fail the health check are excluded from load balancing. Input (example) /somedir/index.html
 	healthCheckerInfo := irs.HealthCheckerInfo{
-		Protocol: 	*nlb.LoadBalancedServerInstanceList[0].ServerHealthCheckStatusList[0].ProtocolType.Code,
-		Port:     	strconv.FormatInt(int64(*nlb.LoadBalancedServerInstanceList[0].ServerHealthCheckStatusList[0].ServerPort), 10), // Note!! : ServerPort
+		Protocol: *nlb.LoadBalancedServerInstanceList[0].ServerHealthCheckStatusList[0].ProtocolType.Code,
+		Port:     strconv.FormatInt(int64(*nlb.LoadBalancedServerInstanceList[0].ServerHealthCheckStatusList[0].ServerPort), 10), // Note!! : ServerPort
 		// Interval: int(*ncpTargetGroupList[0].HealthCheckCycle),
-		Timeout: 	int(*nlb.ConnectionTimeout),
+		Timeout: int(*nlb.ConnectionTimeout),
 		// Threshold: int(*ncpTargetGroupList[0].HealthCheckUpThreshold),
 		// CspID:    *ncpTargetGroupList[0].TargetGroupNo,
 	}
@@ -753,14 +755,14 @@ func (nlbHandler *NcpNLBHandler) GetNcpNlbStatus(nlbIID irs.IID) (string, error)
 		LoggingError(callLogInfo, newErr)
 		return "", newErr
 	}
-	
+
 	if strings.EqualFold(*ncpNlbInfo.LoadBalancerInstanceStatus.Code, "USED") {
 		return "Running", nil
 	} else if strings.EqualFold(*ncpNlbInfo.LoadBalancerInstanceStatus.Code, "INIT") {
 		return "Creating", nil
 	} else {
 		return *ncpNlbInfo.LoadBalancerInstanceStatus.Code, nil
-	}	
+	}
 }
 
 func (nlbHandler *NcpNLBHandler) GetNcpNlbInfo(nlbIID irs.IID) (*lb.LoadBalancerInstance, error) {
@@ -776,8 +778,8 @@ func (nlbHandler *NcpNLBHandler) GetNcpNlbInfo(nlbIID irs.IID) (*lb.LoadBalancer
 	}
 
 	vmHandler := NcpVMHandler{
-		RegionInfo:     	nlbHandler.RegionInfo,
-		VMClient:         	nlbHandler.VMClient,
+		RegionInfo: nlbHandler.RegionInfo,
+		VMClient:   nlbHandler.VMClient,
 	}
 	regionNo, err := vmHandler.GetRegionNo(nlbHandler.RegionInfo.Region)
 	if err != nil {
@@ -796,8 +798,8 @@ func (nlbHandler *NcpNLBHandler) GetNcpNlbInfo(nlbIID irs.IID) (*lb.LoadBalancer
 
 	lbInstanceNoList := []*string{ncloud.String(nlbIID.SystemId)}
 	lbReq := lb.GetLoadBalancerInstanceListRequest{
-		RegionNo:					regionNo,   // Caution!! : Not RegionCode
-		ZoneNo:						zoneNo,		// Caution!! : Not ZoneCode
+		RegionNo:                   regionNo, // Caution!! : Not RegionCode
+		ZoneNo:                     zoneNo,   // Caution!! : Not ZoneCode
 		LoadBalancerInstanceNoList: lbInstanceNoList,
 	}
 	callLogStart := call.Start()
@@ -858,8 +860,8 @@ func (nlbHandler *NcpNLBHandler) MappingNlbInfo(nlb *lb.LoadBalancerInstance) (i
 		// VpcIID: irs.IID{
 		// 	SystemId: *nlb.VpcNo,
 		// },
-		Type:  nlbType,
-		Scope: "REGION",
+		Type:        nlbType,
+		Scope:       "REGION",
 		CreatedTime: convertedTime,
 	}
 
@@ -868,12 +870,12 @@ func (nlbHandler *NcpNLBHandler) MappingNlbInfo(nlb *lb.LoadBalancerInstance) (i
 		nlbStatus = "Running"
 	} else {
 		nlbStatus = *nlb.LoadBalancerInstanceStatus.Code
-	}	
+	}
 
 	keyValueList := []irs.KeyValue{
 		{Key: "Region", Value: *nlb.Region.RegionCode},
 		{Key: "NLB_Status", Value: nlbStatus},
-		{Key: "LoadBalancerAlgorithmType", Value: *nlb.LoadBalancerAlgorithmType.CodeName},		
+		{Key: "LoadBalancerAlgorithmType", Value: *nlb.LoadBalancerAlgorithmType.CodeName},
 	}
 	nlbInfo.KeyValueList = keyValueList
 
@@ -931,4 +933,9 @@ func (nlbHandler *NcpNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.V
 func (nlbHandler *NcpNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthChecker irs.HealthCheckerInfo) (irs.HealthCheckerInfo, error) {
 
 	return irs.HealthCheckerInfo{}, fmt.Errorf("Does not support yet!!")
+}
+
+func (NLBHandler *NcpNLBHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

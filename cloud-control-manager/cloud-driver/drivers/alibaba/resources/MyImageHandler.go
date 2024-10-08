@@ -410,3 +410,8 @@ func (myImageHandler *AlibabaMyImageHandler) DeleteSnapshotBySnapshotID(snapshot
 
 	return true, err
 }
+
+func (ImageHandler *AlibabaMyImageHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

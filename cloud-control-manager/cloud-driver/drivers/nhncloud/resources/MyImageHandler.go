@@ -486,3 +486,42 @@ func (myImageHandler *NhnCloudMyImageHandler) isPublicImage(myImageIID irs.IID) 
 	}
 	return isPublicImage, nil
 }
+
+func (myImageHandler *NhnCloudMyImageHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("NHN Cloud Driver: called ListIID()")
+	callLogInfo := getCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, "ListMyImage()", "ListMyImage()")
+
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	listOpts := images.ListOpts{
+		Visibility: images.ImageVisibilityPrivate, // Note : Private image only
+	}
+	allPages, err := images.List(myImageHandler.ImageClient, listOpts).AllPages()
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get NHN Cloud Image pages. [%v]", err.Error())
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return make([]*irs.IID, 0), newErr
+	}
+	nhnImageList, err := images.ExtractImages(allPages)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get NHN Cloud Image List. [%v]", err.Error())
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return make([]*irs.IID, 0), newErr
+	}
+
+	for _, nhnImage := range nhnImageList {
+		var iid irs.IID
+		iid.SystemId = nhnImage.ID
+		iid.NameId = nhnImage.Name
+
+		iidList = append(iidList, &iid)
+	}
+
+	LoggingInfo(callLogInfo, start)
+
+	return iidList, nil
+}

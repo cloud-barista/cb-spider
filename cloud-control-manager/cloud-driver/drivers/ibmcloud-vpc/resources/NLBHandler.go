@@ -1561,3 +1561,35 @@ func getNextHref(str string) (string, error) {
 	}
 	return "", errors.New("NOT NEXT")
 }
+
+func (nlbHandler *IbmNLBHandler) ListIID() ([]*irs.IID, error) {
+	hiscallInfo := GetCallLogScheme(nlbHandler.Region, "NETWORKLOADBALANCE", "NLB", "ListIID()")
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	nlbList, err := nlbHandler.getRawNLBList()
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Failed to List NLB. err = %s", err.Error()))
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return make([]*irs.IID, 0), err
+	}
+
+	for _, nlb := range *nlbList {
+		var iid irs.IID
+
+		if nlb.ID != nil {
+			iid.SystemId = *nlb.ID
+		}
+		if nlb.Name != nil {
+			iid.NameId = *nlb.Name
+		}
+
+		iidList = append(iidList, &iid)
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
+}

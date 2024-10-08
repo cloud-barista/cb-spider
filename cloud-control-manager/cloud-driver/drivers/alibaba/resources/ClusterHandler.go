@@ -12,6 +12,7 @@ package resources
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"runtime/debug"
 	"strconv"
@@ -22,6 +23,7 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/jeremywohl/flatten"
+	"gopkg.in/yaml.v2"
 
 	cs2015 "github.com/alibabacloud-go/cs-20151215/v4/client"
 	ecs2014 "github.com/alibabacloud-go/ecs-20140526/v4/client"
@@ -733,7 +735,7 @@ func (ach *AlibabaClusterHandler) getClusterInfoWithoutNodeGroupList(regionId, c
 	if err != nil {
 		cblogger.Info("Kubeconfig is not ready yet!")
 	} else {
-		kubeconfig = strings.TrimSpace(tea.StringValue(userKubeconfig.Config))
+		kubeconfig = userKubeconfig
 	}
 
 	vpcAttr, err := aliDescribeVpcAttribute(ach.VpcClient, regionId, tea.StringValue(cluster.VpcId))
@@ -1399,14 +1401,56 @@ func aliDeleteClusterNodepool(csClient *cs2015.Client, clusterId, nodepoolId str
 	return deleteClusterNodepoolResponse.Body, nil
 }
 
-func aliDescribeClusterUserKubeconfig(csClient *cs2015.Client, clusterId string) (*cs2015.DescribeClusterUserKubeconfigResponseBody, error) {
-	describeClusterUserKubeconfigRequest := &cs2015.DescribeClusterUserKubeconfigRequest{}
-	describeClusterUserKubeconfigResponse, err := csClient.DescribeClusterUserKubeconfig(tea.String(clusterId), describeClusterUserKubeconfigRequest)
+func aliDescribeClusterUserKubeconfig(csClient *cs2015.Client, clusterId string) (string, error) {
+	request := &cs2015.DescribeClusterUserKubeconfigRequest{}
+	response, err := csClient.DescribeClusterUserKubeconfig(tea.String(clusterId), request)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	return describeClusterUserKubeconfigResponse.Body, nil
+	kubeconfig := tea.StringValue(response.Body.Config)
+
+	var parsedConfig map[string]interface{}
+	err = yaml.Unmarshal([]byte(kubeconfig), &parsedConfig)
+	if err != nil {
+		return "", fmt.Errorf("failed to unmarshal kubeconfig: %v", err)
+	}
+
+	modifyUserFields(parsedConfig)
+
+	modifiedKubeconfig, err := yaml.Marshal(parsedConfig)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal modified kubeconfig: %v", err)
+	}
+
+	return string(modifiedKubeconfig), nil
+}
+
+func modifyUserFields(config map[string]interface{}) {
+	if contexts, ok := config["contexts"].([]interface{}); ok {
+		for _, context := range contexts {
+			if ctxMap, ok := context.(map[interface{}]interface{}); ok {
+				if ctx, ok := ctxMap["context"].(map[interface{}]interface{}); ok {
+					if user, ok := ctx["user"]; ok {
+						ctx["user"] = fmt.Sprintf("%q", user)
+					}
+				}
+				if name, ok := ctxMap["name"]; ok {
+					ctxMap["name"] = fmt.Sprintf("%q", name)
+				}
+			}
+		}
+	}
+
+	if users, ok := config["users"].([]interface{}); ok {
+		for _, user := range users {
+			if userMap, ok := user.(map[interface{}]interface{}); ok {
+				if name, ok := userMap["name"]; ok {
+					userMap["name"] = fmt.Sprintf("%q", name)
+				}
+			}
+		}
+	}
 }
 
 func aliDescribeClusterNodePools(csClient *cs2015.Client, clusterId string) ([]*cs2015.DescribeClusterNodePoolsResponseBodyNodepools, error) {
@@ -2276,3 +2320,8 @@ func waitUntilClusterSecurityGroupIdIsExist(csClient *cs2015.Client, clusterId s
 		cblogger.Debug(fmt.Sprintf("No Created NAT Gateway."))
 	}
 */
+
+func (ClusterHandler *AlibabaClusterHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

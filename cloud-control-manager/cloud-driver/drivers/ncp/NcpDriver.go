@@ -12,20 +12,21 @@
 package ncp
 
 import (
-	cblog 	"github.com/cloud-barista/cb-log"
+	cblog "github.com/cloud-barista/cb-log"
 
-	idrv 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	icon 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
-	
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
+	ires "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+
 	// "github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 
-	ncloud 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
-	server 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/server"
-	lb 		"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/loadbalancer"
+	ncloud "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
+	lb "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/loadbalancer"
+	server "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/server"
 
 	// ncpcon "github.com/cloud-barista/ncp/ncp/connect"
-	ncpcon 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp/connect" //To be built in the container
+	ncpcon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp/connect" //To be built in the container
 )
 
 var cblogger *logrus.Logger
@@ -51,15 +52,17 @@ func (NcpDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.ImageHandler = true
 	drvCapabilityInfo.VMSpecHandler = true
 	drvCapabilityInfo.SecurityHandler = true
-	drvCapabilityInfo.KeyPairHandler = true	
+	drvCapabilityInfo.KeyPairHandler = true
 	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.VMHandler = true
 	drvCapabilityInfo.DiskHandler = true
 	drvCapabilityInfo.MyImageHandler = true
 	drvCapabilityInfo.NLBHandler = true
 	drvCapabilityInfo.PriceInfoHandler = true
-	drvCapabilityInfo.RegionZoneHandler = true	
+	drvCapabilityInfo.RegionZoneHandler = true
 	drvCapabilityInfo.TagHandler = true
+	// ires.ALL, ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER: not supported
+	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.ALL, ires.VM}
 
 	return drvCapabilityInfo
 }

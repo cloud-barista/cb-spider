@@ -3557,7 +3557,7 @@ const docTemplate = `{
             }
         },
         "/getvmusingresources": {
-            "get": {
+            "post": {
                 "description": "Retrieve details of a VM using resource ID.",
                 "consumes": [
                     "application/json"
@@ -6619,6 +6619,255 @@ const docTemplate = `{
                 }
             }
         },
+        "/tag": {
+            "get": {
+                "description": "Retrieve a list of tags for a specified resource.\n※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Tag Management]"
+                ],
+                "summary": "List Tags",
+                "operationId": "list-tag",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection Name. ex) aws-connection",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Resource Type. ex) VPC",
+                        "name": "ResourceType",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Resource Name. ex) vpc-01",
+                        "name": "ResourceName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of tags",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.KeyValue"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Add a tag to a specified resource.\n※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Tag Management]"
+                ],
+                "summary": "Add Tag",
+                "operationId": "add-tag",
+                "parameters": [
+                    {
+                        "description": "Request body for adding a tag",
+                        "name": "TagAddRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.TagAddRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the added tag",
+                        "schema": {
+                            "$ref": "#/definitions/spider.KeyValue"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/tag/{Key}": {
+            "get": {
+                "description": "Retrieve a specific tag for a specified resource.\n※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Tag Management]"
+                ],
+                "summary": "Get Tag",
+                "operationId": "get-tag",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection Name. ex) aws-connection",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Resource Type. ex) VPC",
+                        "name": "ResourceType",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Resource Name. ex) vpc-01",
+                        "name": "ResourceName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The key of the tag to retrieve",
+                        "name": "Key",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the tag",
+                        "schema": {
+                            "$ref": "#/definitions/spider.KeyValue"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameters",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Remove a specific tag from a specified resource.\n※ Resource types: VPC, SUBNET, SG, KEY, VM, NLB, DISK, MYIMAGE, CLUSTER",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Tag Management]"
+                ],
+                "summary": "Remove Tag",
+                "operationId": "remove-tag",
+                "parameters": [
+                    {
+                        "description": "Request body for removing a specific tag",
+                        "name": "TagRemoveRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.TagRemoveRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "The key of the tag to remove",
+                        "name": "Key",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Result of the remove operation",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/vm": {
             "get": {
                 "description": "Retrieve a list of Virtual Machines (VMs) associated with a specific connection.",
@@ -8853,6 +9102,37 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.RSType": {
+            "type": "string",
+            "enum": [
+                "all",
+                "image",
+                "vpc",
+                "subnet",
+                "sg",
+                "keypair",
+                "vm",
+                "nlb",
+                "disk",
+                "myimage",
+                "cluster",
+                "nodegroup"
+            ],
+            "x-enum-varnames": [
+                "ALL",
+                "IMAGE",
+                "VPC",
+                "SUBNET",
+                "SG",
+                "KEY",
+                "VM",
+                "NLB",
+                "DISK",
+                "MYIMAGE",
+                "CLUSTER",
+                "NODEGROUP"
+            ]
+        },
         "spider.RegionInfo": {
             "type": "object",
             "required": [
@@ -9859,6 +10139,12 @@ const docTemplate = `{
                                 "subnet-01",
                                 "subnet-02"
                             ]
+                        },
+                        "TagList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.KeyValue"
+                            }
                         },
                         "VPCName": {
                             "type": "string",
@@ -11178,6 +11464,78 @@ const docTemplate = `{
                         "VPCName": {
                             "type": "string",
                             "example": "vpc-01"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.TagAddRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "ResourceName",
+                        "ResourceType",
+                        "Tag"
+                    ],
+                    "properties": {
+                        "ResourceName": {
+                            "type": "string",
+                            "example": "vpc-01"
+                        },
+                        "ResourceType": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/spider.RSType"
+                                }
+                            ],
+                            "example": "VPC"
+                        },
+                        "Tag": {
+                            "$ref": "#/definitions/spider.KeyValue"
+                        }
+                    }
+                }
+            }
+        },
+        "spider.TagRemoveRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "ResourceName",
+                        "ResourceType"
+                    ],
+                    "properties": {
+                        "ResourceName": {
+                            "type": "string",
+                            "example": "vpc-01"
+                        },
+                        "ResourceType": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/spider.RSType"
+                                }
+                            ],
+                            "example": "VPC"
                         }
                     }
                 }

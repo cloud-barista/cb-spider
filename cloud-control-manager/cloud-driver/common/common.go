@@ -153,7 +153,7 @@ func GetKey(providerName string, hashString string, keyPairNameId string) (*irs.
 	var localKeyInfo LocalKeyInfo
 	err := infostore.GetBy3Conditions(&localKeyInfo, "provider_name", providerName, "hash_string", hashString, "name_id", keyPairNameId)
 	if err != nil {
-		cblog.Error(err)
+		// cblog.Error(err) // Call GetKey during creation to check if the Key already exists. This situation is not an error.
 		return nil, err
 	}
 

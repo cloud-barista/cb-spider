@@ -281,6 +281,7 @@ func RunServer() {
 
 		//----------SecurityGroup Handler
 		{"GET", "/getsecuritygroupowner", GetSGOwnerVPC},
+		{"POST", "/getsecuritygroupowner", GetSGOwnerVPC},
 		{"POST", "/regsecuritygroup", RegisterSecurity},
 		{"DELETE", "/regsecuritygroup/:Name", UnregisterSecurity},
 
@@ -328,6 +329,7 @@ func RunServer() {
 		*/
 		//----------VM Handler
 		{"GET", "/getvmusingresources", GetVMUsingRS},
+		{"POST", "/getvmusingresources", GetVMUsingRS},
 		{"POST", "/regvm", RegisterVM},
 		{"DELETE", "/regvm/:Name", UnregisterVM},
 
@@ -464,28 +466,29 @@ func RunServer() {
 		{"POST", "/sshrun", SSHRun},
 
 		//----------AdminWeb Handler
-		{"GET", "/adminweb", aw.Frame},
+		{"GET", "/adminweb1", aw.Frame},
+		{"GET", "/adminweb1/", aw.Frame},
 		{"GET", "/adminweb/top", aw.Top},
 		{"GET", "/adminweb/log", aw.Log},
 
-		{"GET", "/adminweb2", aw.MainPage},
-		{"GET", "/adminweb2/", aw.MainPage},
+		{"GET", "/adminweb", aw.MainPage},
+		{"GET", "/adminweb/", aw.MainPage},
 		{"GET", "/adminweb/left_menu", aw.LeftMenu},
 		{"GET", "/adminweb/body_frame", aw.BodyFrame},
 
 		{"GET", "/adminweb/dashboard", aw.Dashboard},
 
-		{"GET", "/adminweb/driver", aw.Driver},
-		{"GET", "/adminweb2/driver", aw.DriverManagement},
+		{"GET", "/adminweb/driver1", aw.Driver},
+		{"GET", "/adminweb/driver", aw.DriverManagement},
 
-		{"GET", "/adminweb/credential", aw.Credential},
-		{"GET", "/adminweb2/credential", aw.CredentialManagement},
+		{"GET", "/adminweb/credential1", aw.Credential},
+		{"GET", "/adminweb/credential", aw.CredentialManagement},
 
-		{"GET", "/adminweb/region", aw.Region},
-		{"GET", "/adminweb2/region", aw.RegionManagement},
+		{"GET", "/adminweb/region1", aw.Region},
+		{"GET", "/adminweb/region", aw.RegionManagement},
 
-		{"GET", "/adminweb/connectionconfig", aw.Connectionconfig},
-		{"GET", "/adminweb2/connectionconfig", aw.ConnectionManagement},
+		{"GET", "/adminweb/connectionconfig1", aw.Connectionconfig},
+		{"GET", "/adminweb/connectionconfig", aw.ConnectionManagement},
 
 		{"GET", "/adminweb/dashboard", aw.Dashboard},
 
@@ -503,7 +506,7 @@ func RunServer() {
 		{"GET", "/adminweb/nlbmgmt/:ConnectConfig", aw.NLBMgmt},
 		{"GET", "/adminweb/disk/:ConnectConfig", aw.DiskManagement},
 		{"GET", "/adminweb/diskmgmt/:ConnectConfig", aw.DiskMgmt},
-		{"GET", "/adminweb/cluster/:ConnectConfig", aw.Cluster},
+		{"GET", "/adminweb/cluster/:ConnectConfig", aw.ClusterManagement},
 		{"GET", "/adminweb/clustermgmt/:ConnectConfig", aw.ClusterMgmt},
 		{"GET", "/adminweb/myimage/:ConnectConfig", aw.MyImageManagement},
 		{"GET", "/adminweb/myimagemgmt/:ConnectConfig", aw.MyImageMgmt},
@@ -626,10 +629,9 @@ func endpointInfo(c echo.Context) error {
 	endpointInfo := fmt.Sprintf("\n  <CB-Spider> Multi-Cloud Infrastructure Federation Framework\n")
 	adminWebURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/adminweb"
 	endpointInfo += fmt.Sprintf("     - AdminWeb: %s\n", adminWebURL)
-	restEndPoint := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider"
-	endpointInfo += fmt.Sprintf("     - REST API: %s\n", restEndPoint)
-	// swaggerURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/swagger/index.html"
-	// endpointInfo += fmt.Sprintf("     - Swagger : %s\n", swaggerURL)
+	swaggerURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/api"
+	endpointInfo += fmt.Sprintf("     - Swagger UI: %s\n", swaggerURL)
+
 	// gRPCServer := "grpc://" + cr.ServiceIPorName + cr.GoServicePort
 	// endpointInfo += fmt.Sprintf("     - Go   API: %s\n", gRPCServer)
 
@@ -715,11 +717,8 @@ func spiderBanner() {
 	adminWebURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/adminweb"
 	fmt.Printf("     - AdminWeb: %s\n", adminWebURL)
 
-	// REST API EndPoint
-	restEndPoint := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider"
-	fmt.Printf("     - REST API: %s\n", restEndPoint)
-
 	// Swagger
-	// swaggerURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/swagger/index.html"
-	// fmt.Printf("     - Swagger : %s\n", swaggerURL)
+	swaggerURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/api"
+	fmt.Printf("     - Swagger UI: %s\n", swaggerURL)
+
 }

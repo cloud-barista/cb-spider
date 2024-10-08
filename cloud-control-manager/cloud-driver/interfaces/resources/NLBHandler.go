@@ -82,6 +82,7 @@ type HealthInfo struct {
 type NLBHandler interface {
 
 	//------ NLB Management
+	ListIID() ([]*IID, error)
 	CreateNLB(nlbReqInfo NLBInfo) (NLBInfo, error)
 	ListNLB() ([]*NLBInfo, error)
 	GetNLB(nlbIID IID) (NLBInfo, error)

@@ -107,6 +107,7 @@ type AddonsInfo struct {
 type ClusterHandler interface {
 
 	//------ Cluster Management
+	ListIID() ([]*IID, error)
 	CreateCluster(clusterReqInfo ClusterInfo) (ClusterInfo, error)
 	ListCluster() ([]*ClusterInfo, error)
 	GetCluster(clusterIID IID) (ClusterInfo, error)

@@ -384,3 +384,9 @@ func (myImageHandler *TencentMyImageHandler) CheckWindowsImage(myImageIID irs.II
 	return false, nil
 
 }
+
+
+func (ImageHandler *TencentMyImageHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

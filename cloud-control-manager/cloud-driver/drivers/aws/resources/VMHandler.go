@@ -1705,3 +1705,8 @@ func (vmHandler *AwsVMHandler) AttachNetworkInterface(vNicId string, instanceId 
 
 	return true, nil
 }
+
+func (vmHandler *AwsVMHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

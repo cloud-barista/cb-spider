@@ -52,6 +52,7 @@ func (NhnCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.DiskHandler = true
 	drvCapabilityInfo.RegionZoneHandler = true
 	drvCapabilityInfo.PriceInfoHandler = false
+	drvCapabilityInfo.TagHandler = false
 
 	drvCapabilityInfo.SINGLE_VPC = false
 

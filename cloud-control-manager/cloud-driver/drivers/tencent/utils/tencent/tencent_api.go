@@ -11,11 +11,14 @@
 package tencent
 
 import (
+	"fmt"
+
 	as "github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/as/v20180419"
 	"github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/common"
 	"github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/common/profile"
 	tke "github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/tke/v20180525"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/vpc/v20170312"
+	"gopkg.in/yaml.v2"
 )
 
 func CreateCluster(secret_id string, secret_key string, region_id string, request *tke.CreateClusterRequest) (*tke.CreateClusterResponse, error) {
@@ -303,53 +306,95 @@ func DescribeClusterInstances(secret_id string, secret_key string, region_id str
 	return response, nil
 }
 
-func CreateClusterEndpoint(secret_id string, secret_key string, region_id string, 
-		cluster_id string, security_group_id string) (*tke.CreateClusterEndpointResponse, error) {
-        credential := common.NewCredential(secret_id, secret_key)
-        cpf := profile.NewClientProfile()
-        cpf.HttpProfile.Endpoint = "tke.tencentcloudapi.com"
-        client, _ := tke.NewClient(credential, region_id, cpf)
+func CreateClusterEndpoint(secret_id string, secret_key string, region_id string,
+	cluster_id string, security_group_id string) (*tke.CreateClusterEndpointResponse, error) {
+	credential := common.NewCredential(secret_id, secret_key)
+	cpf := profile.NewClientProfile()
+	cpf.HttpProfile.Endpoint = "tke.tencentcloudapi.com"
+	client, _ := tke.NewClient(credential, region_id, cpf)
 
-        request := tke.NewCreateClusterEndpointRequest()
-        request.ClusterId = common.StringPtr(cluster_id)
-        request.SecurityGroup = common.StringPtr(security_group_id)
-        request.IsExtranet = common.BoolPtr(true)
-        response, err := client.CreateClusterEndpoint(request)
-        if err != nil {
-                return nil, err
-        }
+	request := tke.NewCreateClusterEndpointRequest()
+	request.ClusterId = common.StringPtr(cluster_id)
+	request.SecurityGroup = common.StringPtr(security_group_id)
+	request.IsExtranet = common.BoolPtr(true)
+	response, err := client.CreateClusterEndpoint(request)
+	if err != nil {
+		return nil, err
+	}
 
-        return response, nil
+	return response, nil
 }
 
 func GetClusterEndpoint(secret_id string, secret_key string, region_id string, cluster_id string) (*tke.DescribeClusterEndpointsResponse, error) {
-        credential := common.NewCredential(secret_id, secret_key)
-        cpf := profile.NewClientProfile()
-        cpf.HttpProfile.Endpoint = "tke.tencentcloudapi.com"
-        client, _ := tke.NewClient(credential, region_id, cpf)
+	credential := common.NewCredential(secret_id, secret_key)
+	cpf := profile.NewClientProfile()
+	cpf.HttpProfile.Endpoint = "tke.tencentcloudapi.com"
+	client, _ := tke.NewClient(credential, region_id, cpf)
 
-        request := tke.NewDescribeClusterEndpointsRequest()
+	request := tke.NewDescribeClusterEndpointsRequest()
 	request.ClusterId = common.StringPtr(cluster_id)
 	response, err := client.DescribeClusterEndpoints(request)
-        if err != nil {
-                return nil, err
-        }
+	if err != nil {
+		return nil, err
+	}
 
-        return response, nil
+	return response, nil
 }
 
-func GetClusterKubeconfig(secret_id string, secret_key string, region_id string, cluster_id string) (*tke.DescribeClusterKubeconfigResponse, error) {
-        credential := common.NewCredential(secret_id, secret_key)
-        cpf := profile.NewClientProfile()
-        cpf.HttpProfile.Endpoint = "tke.tencentcloudapi.com"
-        client, _ := tke.NewClient(credential, region_id, cpf)
+func GetClusterKubeconfig(secret_id string, secret_key string, region_id string, cluster_id string) (string, error) {
+	credential := common.NewCredential(secret_id, secret_key)
+	cpf := profile.NewClientProfile()
+	cpf.HttpProfile.Endpoint = "tke.tencentcloudapi.com"
+	client, _ := tke.NewClient(credential, region_id, cpf)
 
-        request := tke.NewDescribeClusterKubeconfigRequest()
-        request.ClusterId = common.StringPtr(cluster_id)
-        response, err := client.DescribeClusterKubeconfig(request)
-        if err != nil {
-                return nil, err
-        }
+	request := tke.NewDescribeClusterKubeconfigRequest()
+	request.ClusterId = common.StringPtr(cluster_id)
+	response, err := client.DescribeClusterKubeconfig(request)
+	if err != nil {
+		return "nil", err
+	}
 
-        return response, nil
+	kubeconfig := *response.Response.Kubeconfig
+
+	var parsedConfig map[string]interface{}
+	err = yaml.Unmarshal([]byte(kubeconfig), &parsedConfig)
+	if err != nil {
+		return "", fmt.Errorf("failed to unmarshal kubeconfig: %v", err)
+	}
+
+	modifyUserFields(parsedConfig)
+
+	modifiedKubeconfig, err := yaml.Marshal(parsedConfig)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal modified kubeconfig: %v", err)
+	}
+
+	return string(modifiedKubeconfig), nil
+}
+
+func modifyUserFields(config map[string]interface{}) {
+	if contexts, ok := config["contexts"].([]interface{}); ok {
+		for _, context := range contexts {
+			if ctxMap, ok := context.(map[interface{}]interface{}); ok {
+				if ctx, ok := ctxMap["context"].(map[interface{}]interface{}); ok {
+					if user, ok := ctx["user"]; ok {
+						ctx["user"] = fmt.Sprintf("%q", user)
+					}
+				}
+				if name, ok := ctxMap["name"]; ok {
+					ctxMap["name"] = fmt.Sprintf("%q", name)
+				}
+			}
+		}
+	}
+
+	if users, ok := config["users"].([]interface{}); ok {
+		for _, user := range users {
+			if userMap, ok := user.(map[interface{}]interface{}); ok {
+				if name, ok := userMap["name"]; ok {
+					userMap["name"] = fmt.Sprintf("%q", name)
+				}
+			}
+		}
+	}
 }

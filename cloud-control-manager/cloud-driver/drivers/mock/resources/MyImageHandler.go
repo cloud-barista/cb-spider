@@ -151,3 +151,22 @@ func (myImageHandler *MockMyImageHandler) DeleteMyImage(iid irs.IID) (bool, erro
 func (myImageHandler *MockMyImageHandler) CheckWindowsImage(iid irs.IID) (bool, error) {
 	return false, fmt.Errorf("Does not support CheckWindowsImage() yet!!")
 }
+
+func (ImageHandler *MockMyImageHandler) ListIID() ([]*irs.IID, error) {
+	cblogger := cblog.GetLogger("CB-SPIDER")
+	cblogger.Info("Mock Driver: called ListIID()!")
+
+	mockName := ImageHandler.MockName
+	myImageMapLock.RLock()
+	defer myImageMapLock.RUnlock()
+	infoList, ok := myImageInfoMap[mockName]
+	if !ok {
+		return []*irs.IID{}, nil
+	}
+
+	iidList := make([]*irs.IID, len(infoList))
+	for i, info := range infoList {
+		iidList[i] = &info.IId
+	}
+	return iidList, nil
+}

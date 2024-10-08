@@ -796,3 +796,52 @@ func addDefaultOutBoundRule(baseRuleInfos []irs.SecurityRuleInfo, addRules *[]vp
 	}
 	return nil
 }
+
+func (securityHandler *IbmSecurityHandler) ListIID() ([]*irs.IID, error) {
+	hiscallInfo := GetCallLogScheme(securityHandler.Region, call.SECURITYGROUP, "SECURITYGROUP", "ListIID()")
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	options := &vpcv1.ListSecurityGroupsOptions{}
+	securityGroups, _, err := securityHandler.VpcService.ListSecurityGroupsWithContext(securityHandler.Ctx, options)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Failed to List Security. err = %s", err.Error()))
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return make([]*irs.IID, 0), err
+	}
+	for {
+		for _, securityGroup := range securityGroups.SecurityGroups {
+			var iid irs.IID
+
+			if securityGroup.ID != nil {
+				iid.SystemId = *securityGroup.ID
+			}
+			if securityGroup.Name != nil {
+				iid.NameId = *securityGroup.Name
+			}
+
+			iidList = append(iidList, &iid)
+		}
+		nextstr, _ := getSecurityGroupNextHref(securityGroups.Next)
+		if nextstr != "" {
+			options2 := &vpcv1.ListSecurityGroupsOptions{
+				Start: core.StringPtr(nextstr),
+			}
+			securityGroups, _, err = securityHandler.VpcService.ListSecurityGroupsWithContext(securityHandler.Ctx, options2)
+			if err != nil {
+				err = errors.New(fmt.Sprintf("Failed to List Security. err = %s", err.Error()))
+				cblogger.Error(err.Error())
+				LoggingError(hiscallInfo, err)
+				return make([]*irs.IID, 0), err
+			}
+		} else {
+			break
+		}
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
+}

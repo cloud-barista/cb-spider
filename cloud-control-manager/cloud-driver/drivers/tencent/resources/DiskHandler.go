@@ -456,3 +456,8 @@ func (DiskHandler *TencentDiskHandler) diskExist(chkName string) (bool, error) {
 	cblogger.Infof("Found disk information - DiskId:[%s] / DiskName:[%s]", *response.Response.DiskSet[0].DiskId, *response.Response.DiskSet[0].DiskName)
 	return true, nil
 }
+
+func (DiskHandler *TencentDiskHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

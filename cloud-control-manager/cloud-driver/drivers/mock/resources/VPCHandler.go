@@ -200,3 +200,22 @@ func (vpcHandler *MockVPCHandler) RemoveSubnet(iid irs.IID, subnetIID irs.IID) (
 
 	return false, nil
 }
+
+func (vpcHandler *MockVPCHandler) ListIID() ([]*irs.IID, error) {
+	cblogger := cblog.GetLogger("CB-SPIDER")
+	cblogger.Info("Mock Driver: called ListIID()!")
+
+	mockName := vpcHandler.MockName
+	vpcMapLock.RLock()
+	defer vpcMapLock.RUnlock()
+	infoList, ok := vpcInfoMap[mockName]
+	if !ok {
+		return []*irs.IID{}, nil
+	}
+
+	iidList := make([]*irs.IID, len(infoList))
+	for i, info := range infoList {
+		iidList[i] = &info.IId
+	}
+	return iidList, nil
+}

@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -94,7 +95,7 @@ func (myImageHandler *AzureMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImag
 			},
 		},
 		Tags: map[string]*string{
-			"createdAt": toStrPtr(strconv.FormatInt(time.Now().Unix(), 10)),
+			"createdAt": toStrPtr(strconv.FormatInt(time.Now().UTC().Unix(), 10)),
 		},
 	}
 	if snapshotReqInfo.TagList != nil {
@@ -291,7 +292,7 @@ func setterMyImageInfo(myImage *armcompute.Image, credentialInfo idrv.Credential
 		createAt := *myImage.Tags["createdAt"]
 		timeInt64, err := strconv.ParseInt(createAt, 10, 64)
 		if err == nil {
-			myImageInfo.CreatedTime = time.Unix(timeInt64, 0)
+			myImageInfo.CreatedTime = time.Unix(timeInt64, 0).UTC()
 		}
 	}
 	if myImage.Tags != nil {
@@ -505,4 +506,40 @@ func (myImageHandler *AzureMyImageHandler) CheckWindowsImage(myImageIID irs.IID)
 	cblogger.Error(checkWindowsImageErr.Error())
 	LoggingError(hiscallInfo, checkWindowsImageErr)
 	return false, checkWindowsImageErr
+}
+
+func (myImageHandler *AzureMyImageHandler) ListIID() ([]*irs.IID, error) {
+	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, "MyImage", "ListIID()")
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	pager := myImageHandler.ImageClient.NewListByResourceGroupPager(myImageHandler.Region.Region, nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(myImageHandler.Ctx)
+		if err != nil {
+			err = errors.New(fmt.Sprintf("Failed to List MyImage. err = %s", err))
+			cblogger.Error(err.Error())
+			LoggingError(hiscallInfo, err)
+			return make([]*irs.IID, 0), err
+		}
+
+		for _, myImage := range page.Value {
+			var iid irs.IID
+
+			if myImage.ID != nil {
+				iid.SystemId = *myImage.ID
+			}
+			if myImage.Name != nil {
+				iid.NameId = *myImage.Name
+			}
+
+			iidList = append(iidList, &iid)
+		}
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
 }

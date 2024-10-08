@@ -320,6 +320,24 @@ func (myImageHandler *IbmMyImageHandler) ToISRMyImage(snapshotList []vpcv1.Snaps
 	}, nil
 }
 
+func (myImageHandler *IbmMyImageHandler) getMyImageIID(snapshotList []vpcv1.Snapshot) (irs.IID, error) {
+	if len(snapshotList) == 0 {
+		return irs.IID{}, errors.New("Cannot find MyImage")
+	}
+
+	var myImageNameId string
+	var myImageSystemId string
+	for _, snapshot := range snapshotList {
+		if *snapshot.Bootable == true {
+			myImageNameId = strings.Split(*snapshot.Name, DEV)[0]
+			myImageSystemId = *snapshot.ID
+		}
+
+	}
+
+	return irs.IID{NameId: myImageNameId, SystemId: myImageSystemId}, nil
+}
+
 func (myImageHandler *IbmMyImageHandler) cleanSnapshotByMyImage(myImageIID irs.IID) error {
 	snapshotList, _, listSnapshotErr := myImageHandler.VpcService.ListSnapshotsWithContext(myImageHandler.Ctx, &vpcv1.ListSnapshotsOptions{})
 	if listSnapshotErr != nil {
@@ -391,4 +409,43 @@ func (myImageHandler *IbmMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (
 	isWindows := strings.Contains(strings.ToLower(*rawSnapshot.OperatingSystem.Name), "windows")
 	LoggingInfo(hiscallInfo, start)
 	return isWindows, nil
+}
+
+func (myImageHandler *IbmMyImageHandler) ListIID() ([]*irs.IID, error) {
+	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, "MYIMAGE", "ListIID()")
+
+	start := call.Start()
+	snapshotList, _, err := myImageHandler.VpcService.ListSnapshotsWithContext(myImageHandler.Ctx, &vpcv1.ListSnapshotsOptions{})
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Failed to List MyImage. err = %s", err.Error()))
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return make([]*irs.IID, 0), err
+	}
+
+	groupByImageResult := make(map[string][]vpcv1.Snapshot)
+	for _, snapshot := range snapshotList.Snapshots {
+		if strings.Contains(*snapshot.Name, DEV) {
+			groupByKey := strings.Split(*snapshot.Name, DEV)[0]
+			groupByImageResult[groupByKey] = append(groupByImageResult[groupByKey], snapshot)
+		}
+	}
+
+	var iidList []*irs.IID
+
+	for _, associatedSnapshots := range groupByImageResult {
+		myImageIID, err := myImageHandler.getMyImageIID(associatedSnapshots)
+		if err != nil {
+			err := errors.New(fmt.Sprintf("Failed to List MyImage. err = %s", err.Error()))
+			cblogger.Error(err.Error())
+			LoggingError(hiscallInfo, err)
+			return make([]*irs.IID, 0), err
+		}
+
+		iidList = append(iidList, &myImageIID)
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
 }

@@ -3167,3 +3167,8 @@ func (nlbHandler *GCPNLBHandler) rollbackCreatedNlbResources(regionID string, re
 
 	return rollbackResult
 }
+
+func (NLBHandler *GCPNLBHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

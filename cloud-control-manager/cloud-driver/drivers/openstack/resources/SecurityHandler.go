@@ -604,3 +604,40 @@ func checkIPAddressType(cidr string) (rules.RuleEtherType, error) {
 	}
 	return "", errors.New(fmt.Sprintf("Invalid CIDR Address: %s\n", cidr))
 }
+
+func (securityHandler *OpenStackSecurityHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	hiscallInfo := GetCallLogScheme(securityHandler.ComputeClient.IdentityEndpoint, call.SECURITYGROUP, SecurityGroup, "ListIID()")
+
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	allPages, err := secgroups.List(securityHandler.ComputeClient).AllPages()
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get secgroup information from Openstack!! : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(hiscallInfo, newErr)
+		return make([]*irs.IID, 0), newErr
+
+	}
+
+	allSecugroups, err := secgroups.ExtractSecurityGroups(allPages)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get secgroups List from Openstack!! : [%v] ", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(hiscallInfo, newErr)
+		return make([]*irs.IID, 0), newErr
+	}
+
+	for _, secgroups := range allSecugroups {
+		var iid irs.IID
+		iid.SystemId = secgroups.ID
+		iid.NameId = secgroups.Name
+
+		iidList = append(iidList, &iid)
+	}
+
+	LoggingInfo(hiscallInfo, start)
+	return iidList, nil
+}

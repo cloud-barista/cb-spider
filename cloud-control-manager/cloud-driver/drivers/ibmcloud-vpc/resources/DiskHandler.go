@@ -468,3 +468,35 @@ func getDiskSystemId(vpcService *vpcv1.VpcV1, ctx context.Context, iid irs.IID) 
 
 	return targetSystemId, nil
 }
+
+func (diskHandler *IbmDiskHandler) ListIID() ([]*irs.IID, error) {
+	hiscallInfo := GetCallLogScheme(diskHandler.Region, call.DISK, "DISK", "ListIID()")
+
+	start := call.Start()
+	rawDiskList, err := getRawDiskList(diskHandler.VpcService, diskHandler.Ctx)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Failed to List Disk. err = %s", err.Error()))
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return make([]*irs.IID, 0), err
+	}
+
+	var iidList []*irs.IID
+
+	for _, rawDisk := range *rawDiskList {
+		var iid irs.IID
+
+		if rawDisk.ID != nil {
+			iid.SystemId = *rawDisk.ID
+		}
+		if rawDisk.Name != nil {
+			iid.NameId = *rawDisk.Name
+		}
+
+		iidList = append(iidList, &iid)
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
+}

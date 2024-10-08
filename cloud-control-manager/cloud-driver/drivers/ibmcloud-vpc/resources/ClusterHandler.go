@@ -2032,3 +2032,44 @@ func compareTag(tag string, statusCode string, status string) bool {
 func isTagStatusOf(tag string, statusCode string) bool {
 	return strings.Contains(tag, strings.ToLower(statusCode))
 }
+
+func (ic *IbmClusterHandler) ListIID() ([]*irs.IID, error) {
+	hiscallInfo := GetCallLogScheme(ic.Region, call.CLUSTER, "", "ListIID()")
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	resourceGroupId, getResourceGroupIdErr := ic.getDefaultResourceGroupId()
+	if getResourceGroupIdErr != nil {
+		cblogger.Error(getResourceGroupIdErr)
+		LoggingError(hiscallInfo, getResourceGroupIdErr)
+		return make([]*irs.IID, 0), errors.New(fmt.Sprintf("Failed to List Cluster. err = %s", getResourceGroupIdErr))
+	}
+
+	clusterList, _, err := ic.ClusterService.VpcGetClustersWithContext(ic.Ctx, &kubernetesserviceapiv1.VpcGetClustersOptions{
+		XAuthResourceGroup: core.StringPtr(resourceGroupId),
+		Provider:           core.StringPtr("vpc-gen2"),
+	})
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return make([]*irs.IID, 0), errors.New(fmt.Sprintf("Failed to List Cluster. err = %s", err))
+	}
+
+	for _, cluster := range clusterList {
+		var iid irs.IID
+
+		if cluster.ID != nil {
+			iid.SystemId = *cluster.ID
+		}
+		if cluster.Name != nil {
+			iid.NameId = *cluster.Name
+		}
+
+		iidList = append(iidList, &iid)
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
+}

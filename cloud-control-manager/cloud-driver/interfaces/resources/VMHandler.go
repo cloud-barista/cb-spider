@@ -128,6 +128,8 @@ type VMInfo struct {
 }
 
 type VMHandler interface {
+	ListIID() ([]*IID, error)
+
 	StartVM(vmReqInfo VMReqInfo) (VMInfo, error)
 
 	SuspendVM(vmIID IID) (VMStatus, error)

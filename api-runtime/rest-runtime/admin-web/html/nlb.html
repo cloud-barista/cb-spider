@@ -318,9 +318,11 @@
     }
 
     .misc-overlay-content {
-        width: 100%;
-        height: 100%;
-        overflow-y: auto;
+        font-size: 14px;
+        width: 700px;
+        position: relative;
+        padding-top: 30px;
+        line-height: 1.5;
         white-space: pre-wrap;
     }
 
@@ -385,21 +387,59 @@
         font-weight: bold;
     }
 
-    .nlb-name .desc-system-id {
+    .nlb-system-id {
         display: block;
         font-size: 12px;
         font-weight: normal;
         color: #666;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+
+    .system-id-overlay {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 50%;
+        max-width: 600px;
+        background-color: white;
+        border: 1px solid black;
+        padding: 20px;
+        z-index: 2000;
+        border-radius: 5px;
+    }
+
+    .system-id-overlay-content {
+        position: relative;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        word-wrap: break-word;
+    }
+
+    .system-id-overlay .close-btn {
+        position: absolute;
+        top: -15px;
+        right: -5px;
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+    }
+
+    .copy-btn {
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        margin-left: 10px;
     }
 
     .nlb-name .nlb-created-time {
-        display: block;
-        font-size: 12px;
-        font-weight: normal;
-        color: #666;
-    }
-
-    .desc-vpc-system-id {
         display: block;
         font-size: 12px;
         font-weight: normal;
@@ -649,12 +689,12 @@
                 <td class="column-num">{{$index | inc}}</td>
                 <td class="nlb-name">
                     {{$nlb.IId.NameId}}
-                    <span class="desc-system-id">&nbsp;• {{$nlb.IId.SystemId}}</span>
+                    <span class="nlb-system-id" onclick="showSystemIdOverlay('{{$nlb.IId.SystemId}}')">&nbsp;• {{$nlb.IId.SystemId}}</span>
                     <span class="nlb-created-time" data-time="{{ $nlb.CreatedTime }}"></span>
                 </td>
                 <td class="nlb-name vpc-name">
                     {{$nlb.VpcIID.NameId}}
-                    <span class="desc-vpc-system-id">&nbsp;• {{$nlb.VpcIID.SystemId}}</span>
+                    <span class="nlb-system-id" onclick="showSystemIdOverlay('{{$nlb.VpcIID.SystemId}}')">&nbsp;• {{$nlb.VpcIID.SystemId}}</span>
                 </td>
                 <td class="scope-type">{{$nlb.Scope}} | {{$nlb.Type}}</td>
                 
@@ -918,6 +958,16 @@
         </div>
     </div>
 
+    <div id="system-id-overlay" class="system-id-overlay">
+        <div class="system-id-overlay-content">
+            <button class="close-btn" onclick="closeSystemIdOverlay()">x</button>
+            <h2>System ID (Managed by CSP)</h2>
+            <p id="fullSystemId"></p>
+            <button class="copy-btn" onclick="copySystemId()">📋</button>
+        </div>
+    </div>
+
+</body>
     
 <script>
     function searchKeyword() {
@@ -1685,48 +1735,22 @@
         });
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-        fetchWithProgress('/spider/connectionconfig/{{.ConnectionConfig}}')
-            .then(response => response.json())
-            .then(data => {
-                const currentProvider = data.ProviderName;
+    document.addEventListener('DOMContentLoaded', function() {
+        const timeElements = document.querySelectorAll('.nlb-created-time');
 
-                const nameFields = document.querySelectorAll('.nlb-name .desc-system-id');
+        timeElements.forEach(function(element) {
+            const originalTime = element.getAttribute('data-time');
+            const formattedTime = formatTime(originalTime);
+            element.innerHTML = '&nbsp;• ' + formattedTime;
+        });
 
-                nameFields.forEach(function(field) {
-                    let systemId = field.textContent.trim();
-
-                    if (currentProvider === 'AWS') {
-                        if (systemId.includes('loadbalancer/net/')) {
-                            systemId = systemId.split('loadbalancer/net/')[1];
-                        }
-                        if (systemId.includes('/')) {
-                            systemId = systemId.split('/')[0];
-                        }
-                    }
-
-                    field.innerHTML = `&nbsp;• ${systemId}`;
-                });
-
-                const timeElements = document.querySelectorAll('.nlb-created-time');
-
-                timeElements.forEach(function(element) {
-                    const originalTime = element.getAttribute('data-time');
-                    const formattedTime = formatTime(originalTime);
-                    element.innerHTML = `&nbsp;• ${formattedTime}`;
-                });
-
-                function formatTime(originalTime) {
-                    const parts = originalTime.split(" ");
-                    const date = parts[0];
-                    const time = parts[1].slice(0, 5);
-                    const timezone = parts[3];
-                    return `${date} ${time} ${timezone}`;
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching provider info:', error);
-            });
+        function formatTime(originalTime) {
+            const parts = originalTime.split(" ");
+            const date = parts[0];
+            const time = parts[1].slice(0, 5);
+            const timezone = parts[3];
+            return `${date} ${time} ${timezone}`;
+        }
     });
 
     function loadVMs() {
@@ -1837,7 +1861,45 @@
         `;
     }
 
+    function showSystemIdOverlay(systemId) {
+        const overlay = document.getElementById('system-id-overlay');
+        const fullSystemIdElement = document.getElementById('fullSystemId');
+        fullSystemIdElement.textContent = systemId;
 
+        overlay.style.display = 'block';
+        document.addEventListener('keydown', handleEscSystemIdOverlay);
+    }
+
+    function closeSystemIdOverlay() {
+        const overlay = document.getElementById('system-id-overlay');
+        overlay.style.display = 'none';
+        document.removeEventListener('keydown', handleEscSystemIdOverlay);
+    }
+
+    function handleEscSystemIdOverlay(event) {
+        if (event.key === "Escape") {
+            closeSystemIdOverlay();
+        }
+    }
+
+    function copySystemId() {
+        const fullSystemIdElement = document.getElementById('fullSystemId');
+        const range = document.createRange();
+        range.selectNode(fullSystemIdElement);
+        const selection = window.getSelection();
+
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        try {
+            document.execCommand('copy');
+            closeSystemIdOverlay();
+        } catch (err) {
+            console.error('Error copying SystemId: ', err);
+        }
+
+        selection.removeAllRanges();
+    }
 </script>
-</body>
+
 </html>

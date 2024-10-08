@@ -727,3 +727,42 @@ func (vpcHandler *NhnCloudVPCHandler) isConnectedToGateway(vpcId string) (bool, 
 	}
 	return hasInternetGateway, nil
 }
+
+func (vpcHandler *NhnCloudVPCHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, "vpdId", "ListIID()")
+
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	listOpts := vpcs.ListOpts{}
+
+	allPages, err := vpcs.List(vpcHandler.NetworkClient, listOpts).AllPages()
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get VPC information from NhnCloud!! : [%v] ", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return make([]*irs.IID, 0), newErr
+	}
+
+	allVpcs, err := vpcs.ExtractVPCs(allPages)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get VPC List from NhnCloud!! : [%v] ", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return make([]*irs.IID, 0), newErr
+	}
+
+	for _, vpc := range allVpcs {
+		var iid irs.IID
+		iid.SystemId = vpc.ID
+		iid.NameId = vpc.Name
+
+		iidList = append(iidList, &iid)
+	}
+
+	LoggingInfo(callLogInfo, start)
+
+	return iidList, nil
+}

@@ -1149,3 +1149,8 @@ func (VPCHandler *AwsVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID)
 	return VPCHandler.DeleteSubnet(subnetIID)
 	//return false, nil
 }
+
+func (vpcHandler *AwsVPCHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

@@ -11,23 +11,25 @@
 package resources
 
 import (
+	"errors"
 	"fmt"
 	"strings"
+
 	// "github.com/davecgh/go-spew/spew"
 
-	ktvpcsdk 	"github.com/cloud-barista/ktcloudvpc-sdk-go"
-	keys		"github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/compute/v2/extensions/keypairs"
+	ktvpcsdk "github.com/cloud-barista/ktcloudvpc-sdk-go"
+	keys "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/compute/v2/extensions/keypairs"
 
-	call 		"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
-	idrv 		"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs 		"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	keycommon 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	keycommon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
 type KTVpcKeyPairHandler struct {
-	CredentialInfo  idrv.CredentialInfo
-	RegionInfo    	idrv.RegionInfo
-	VMClient 	  	*ktvpcsdk.ServiceClient
+	CredentialInfo idrv.CredentialInfo
+	RegionInfo     idrv.RegionInfo
+	VMClient       *ktvpcsdk.ServiceClient
 }
 
 func (keyPairHandler *KTVpcKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
@@ -60,7 +62,7 @@ func (keyPairHandler *KTVpcKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairR
 	}
 
 	create0pts := keys.CreateOpts{
-		Name:      keyPairReqInfo.IId.NameId,
+		Name: keyPairReqInfo.IId.NameId,
 	}
 
 	start := call.Start()
@@ -76,7 +78,7 @@ func (keyPairHandler *KTVpcKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairR
 	// # Save the publicKey to DB in other to use on VMHandler(Cloud-init)
 	publicKey := strings.TrimSpace(keyPair.PublicKey) + " " + LnxUserName // Append VM User Name
 
-	strList:= []string{
+	strList := []string{
 		keyPairHandler.CredentialInfo.Username,
 		keyPairHandler.CredentialInfo.Password,
 	}
@@ -118,7 +120,7 @@ func (keyPairHandler *KTVpcKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error)
 		return nil, newErr
 	}
 	loggingInfo(callLogInfo, start)
-	
+
 	keys, err := keys.ExtractKeyPairs(allPages)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get KeyPair list. : [%v]", err)
@@ -164,7 +166,7 @@ func (keyPairHandler *KTVpcKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairIn
 func (keyPairHandler *KTVpcKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error) {
 	cblogger.Info("KT Cloud VPC Driver: called DeleteKey()")
 	callLogInfo := getCallLogScheme(keyPairHandler.RegionInfo.Zone, call.VMKEYPAIR, keyIID.NameId, "DeleteKey()")
-	
+
 	exist, err := keyPairHandler.keyPairExists(keyIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Delete the KeyPair. : [%v]", err)
@@ -186,7 +188,7 @@ func (keyPairHandler *KTVpcKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, erro
 		return false, newErr
 	}
 
-	var delOptsBuilder keys.DeleteOptsBuilder	
+	var delOptsBuilder keys.DeleteOptsBuilder
 	start := call.Start()
 	delErr := keys.Delete(keyPairHandler.VMClient, keyIID.NameId, delOptsBuilder).ExtractErr()
 	if delErr != nil {
@@ -198,7 +200,7 @@ func (keyPairHandler *KTVpcKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, erro
 	loggingInfo(callLogInfo, start)
 
 	// # Delete the Key on DB
-	strList:= []string{
+	strList := []string{
 		keyPairHandler.CredentialInfo.Username,
 		keyPairHandler.CredentialInfo.Password,
 	}
@@ -234,14 +236,14 @@ func mappingKeypairInfo(keypair keys.KeyPair) *irs.KeyPairInfo {
 		Fingerprint: keypair.Fingerprint,
 		PublicKey:   "N/A",
 		PrivateKey:  "N/A",
-		VMUserID: 	 LnxUserName,
+		VMUserID:    LnxUserName,
 	}
 	return keypairInfo
 }
 
 func (keyPairHandler *KTVpcKeyPairHandler) keyPairExists(keyIID irs.IID) (bool, error) {
 	cblogger.Info("KT Cloud VPC Driver: called keyPairExists()")
-	
+
 	var keyNameId string
 	if strings.EqualFold(keyIID.SystemId, "") {
 		keyNameId = keyIID.NameId
@@ -269,4 +271,9 @@ func (keyPairHandler *KTVpcKeyPairHandler) keyPairExists(keyIID irs.IID) (bool, 
 	}
 
 	return false, nil
+}
+
+func (keyPairHandler *KTVpcKeyPairHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

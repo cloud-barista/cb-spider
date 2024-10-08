@@ -452,3 +452,23 @@ func (nlbHandler *MockNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.Heal
 
 	return irs.HealthInfo{}, fmt.Errorf("%s NLB VMGroup does not have VMs!!", nlbIID.NameId)
 }
+
+func (NLBHandler *MockNLBHandler) ListIID() ([]*irs.IID, error) {
+	cblogger := cblog.GetLogger("CB-SPIDER")
+	cblogger.Info("Mock Driver: called ListIID()!")
+
+	mockName := NLBHandler.MockName
+	nlbMapLock.RLock()
+	defer nlbMapLock.RUnlock()
+	infoList, ok := nlbInfoMap[mockName]
+	if !ok {
+		return []*irs.IID{}, nil
+	}
+
+	iidList := []*irs.IID{}
+	for _, info := range infoList {
+		iidList = append(iidList, &irs.IID{info.IId.NameId, info.IId.SystemId})
+	}
+
+	return iidList, nil
+}

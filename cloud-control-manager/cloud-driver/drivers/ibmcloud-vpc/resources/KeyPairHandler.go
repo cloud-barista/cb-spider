@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
@@ -12,7 +14,6 @@ import (
 	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"net/url"
 )
 
 type IbmKeyPairHandler struct {
@@ -344,4 +345,54 @@ func getKeyNextHref(next *vpcv1.KeyCollectionNext) (string, error) {
 		}
 	}
 	return "", errors.New("NOT NEXT")
+}
+
+func (keyPairHandler *IbmKeyPairHandler) ListIID() ([]*irs.IID, error) {
+	hiscallInfo := GetCallLogScheme(keyPairHandler.Region, call.VMKEYPAIR, "VMKEYPAIR", "ListIID()")
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	listKeysOptions := &vpcv1.ListKeysOptions{}
+	keys, _, err := keyPairHandler.VpcService.ListKeysWithContext(keyPairHandler.Ctx, listKeysOptions)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Failed to List Key err = %s", err.Error()))
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return make([]*irs.IID, 0), err
+
+	}
+	for {
+		for _, key := range keys.Keys {
+			var iid irs.IID
+
+			if key.ID != nil {
+				iid.SystemId = *key.ID
+			}
+			if key.Name != nil {
+				iid.NameId = *key.Name
+			}
+
+			iidList = append(iidList, &iid)
+		}
+		nextstr, _ := getKeyNextHref(keys.Next)
+		if nextstr != "" {
+			listKeysOptions := &vpcv1.ListKeysOptions{
+				Start: core.StringPtr(nextstr),
+			}
+			keys, _, err = keyPairHandler.VpcService.ListKeysWithContext(keyPairHandler.Ctx, listKeysOptions)
+			if err != nil {
+				err = errors.New(fmt.Sprintf("Failed to List Key err = %s", err.Error()))
+				cblogger.Error(err.Error())
+				LoggingError(hiscallInfo, err)
+				return make([]*irs.IID, 0), err
+			}
+		} else {
+			break
+		}
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
 }

@@ -621,3 +621,8 @@ func (ImageHandler *AwsMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bo
 	return isWindowsImage, nil
 
 }
+
+func (ImageHandler *AwsMyImageHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

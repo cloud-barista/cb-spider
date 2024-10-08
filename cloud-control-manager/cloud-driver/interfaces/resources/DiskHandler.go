@@ -44,6 +44,7 @@ type DiskInfo struct {
 type DiskHandler interface {
 
 	//------ Disk Management
+        ListIID() ([]*IID, error)
 	CreateDisk(DiskReqInfo DiskInfo) (DiskInfo, error)
 	ListDisk() ([]*DiskInfo, error)
 	GetDisk(diskIID IID) (DiskInfo, error)

@@ -44,7 +44,7 @@ type VMUsingResources struct {
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameters"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
-// @Router /getvmusingresources [get]
+// @Router /getvmusingresources [post]
 func GetVMUsingRS(c echo.Context) error {
 	cblog.Info("call GetVMUsingRS()")
 

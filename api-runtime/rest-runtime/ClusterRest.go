@@ -152,6 +152,7 @@ type ClusterCreateRequest struct {
 		SubnetNames        []string                  `json:"SubnetNames" validate:"required" example:"subnet-01,subnet-02"`
 		SecurityGroupNames []string                  `json:"SecurityGroupNames" validate:"required" example:"sg-01,sg-02"`
 		NodeGroupList      []ClusterNodeGroupRequest `json:"NodeGroupList" validate:"omitempty"`
+		TagList            []cres.KeyValue           `json:"TagList,omitempty" validate:"omitempty"`
 	} `json:"ReqInfo" validate:"required"`
 }
 
@@ -201,6 +202,7 @@ func CreateCluster(c echo.Context) error {
 			SecurityGroupIIDs: convertIIDs(req.ReqInfo.SecurityGroupNames),
 		},
 		NodeGroupList: convertNodeGroupList(req.ReqInfo.NodeGroupList),
+		TagList:       req.ReqInfo.TagList,
 	}
 
 	// Call common-runtime API
