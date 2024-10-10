@@ -47,8 +47,6 @@ type GCPVMHandler struct {
 func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
 	// Set VM Create Information
 	// GCP 는 reqinfo에 ProjectID를 받아야 함.
-	cblogger.Debug(vmReqInfo)
-
 	//ctx := vmHandler.Ctx
 	vmName := vmReqInfo.IId.NameId
 	projectID := vmHandler.Credential.ProjectID
@@ -56,6 +54,11 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	region := vmHandler.Region.Region
 	zone := vmHandler.Region.Zone
+
+	if vmHandler.Region.TargetZone != "" {
+		zone = vmHandler.Region.TargetZone
+	}
+
 	// email을 어디다가 넣지? 이것또한 문제넹
 	clientEmail := vmHandler.Credential.ClientEmail
 
