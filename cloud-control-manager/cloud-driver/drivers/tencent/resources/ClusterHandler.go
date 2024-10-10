@@ -435,7 +435,12 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 		cblogger.Error(err)
 		panic(err)
 	}
-
+	jsonRes, err := json.MarshalIndent(res, "", "  ")
+	if err != nil {
+		cblogger.Error(fmt.Sprintf("Failed to marshal res: %v", err))
+	} else {
+		cblogger.Info(fmt.Sprintf("res in JSON format: %s", string(jsonRes)))
+	}
 	// description에서 security group 이름 추출
 	security_group_id := ""
 	re := regexp.MustCompile(`\S*#CB-SPIDER:PMKS:SECURITYGROUP:ID:\S*`)
@@ -479,6 +484,20 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 		// KeyValueList: []irs.KeyValue{}, // flatten data 입력하기
 	}
 
+	// Tags가 있는지 확인하고 추가
+	if res.Response.Clusters[0].TagSpecification != nil {
+		var tagList []irs.KeyValue
+		for _, tag := range res.Response.Clusters[0].TagSpecification {
+
+			for _, tag := range tag.Tags {
+				tagList = append(clusterInfo.KeyValueList, irs.KeyValue{
+					Key:   *tag.Key,
+					Value: *tag.Value,
+				})
+			}
+			clusterInfo.TagList = tagList
+		}
+	}
 	// k,v 추출 & 추가
 	// KeyValueList: []irs.KeyValue{}, // flatten data 입력하기
 	temp, err := json.Marshal(*res.Response.Clusters[0])
