@@ -12,6 +12,8 @@
 package aws
 
 import (
+	"fmt"
+
 	acon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/connect"
 	ars "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -26,6 +28,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
+	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/costexplorer"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/eks"
@@ -233,6 +236,8 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 	}
 	costExplorerClient, err := getCostExplorerClient(connectionInfo)
 
+	cloudwatchClient, err := getCloudWatchClient(connectionInfo)
+
 	//iConn = acon.AwsCloudConnection{}
 	iConn := acon.AwsCloudConnection{
 		CredentialInfo: connectionInfo.CredentialInfo,
@@ -262,6 +267,7 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 
 		TagClient:          vmClient,
 		CostExplorerClient: costExplorerClient,
+		CloudWatchClient:   cloudwatchClient,
 	}
 
 	return &iConn, nil // return type: (icon.CloudConnection, error)
@@ -309,6 +315,26 @@ func getCostExplorerClient(connectionInfo idrv.ConnectionInfo) (*costexplorer.Co
 		Region:      aws.String(connectionInfo.RegionInfo.Region),
 		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
 	)
+
+	return svc, nil
+}
+
+func getCloudWatchClient(connectionInfo idrv.ConnectionInfo) (*cloudwatch.CloudWatch, error) {
+
+	sess, err := session.NewSession(&aws.Config{
+		Region: aws.String(connectionInfo.RegionInfo.Region),
+		Credentials: credentials.NewStaticCredentials(
+			connectionInfo.CredentialInfo.ClientId,
+			connectionInfo.CredentialInfo.ClientSecret,
+			"",
+		),
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create session: %v", err)
+	}
+
+	svc := cloudwatch.New(sess)
 
 	return svc, nil
 }

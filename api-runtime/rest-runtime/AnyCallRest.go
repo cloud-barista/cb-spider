@@ -63,3 +63,27 @@ func AnyCall(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, result)
 }
+
+// // for Spiderlet
+func SpiderletAnyCall(c echo.Context) error {
+	cblog.Info("call AnyCall()")
+
+	req := AnyCallRequest{}
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	reqInfo := cres.AnyCallInfo{
+		FID:           req.ReqInfo.FID,
+		IKeyValueList: req.ReqInfo.IKeyValueList,
+	}
+
+	// Call common-runtime API
+	result, err := cmrt.SpiderletAnyCall(req.ConnectionName, reqInfo)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, result)
+}

@@ -21,7 +21,21 @@ export PLUGIN_SW=ON
 
 # If arguments are provided, pass them to cb-spider
 if [ "$#" -gt 0 ]; then
-    $BIN_DIR/cb-spider "$@"
+  if [ "$1" == "--with" ] || [ "$1" == "-w" ]; then
+        # run with TLS Server
+        if [ "$2" == "spiderlet" ]; then
+            ${BIN_DIR}/stop.sh &> /dev/null
+            
+            echo -e '\n'
+            echo -e '\t[CB-Spider] Driver Plugin Mode: Static Builtin Mode'
+            echo -e '\n'
+
+            ${BIN_DIR}/cb-spider-dyna --tls --cert $CERT_PATH --key $KEY_PATH --cacert=$CA_CERT_PATH --port 10241
+            echo $! > "$BIN_DIR/spider.pid"
+            exit 0
+        fi
+    fi
+    $BIN_DIR/cb-spider-dyna "$@"
 else
   # If no arguments are provided, start the CB-Spider server
   # Stop any running instance of cb-spider

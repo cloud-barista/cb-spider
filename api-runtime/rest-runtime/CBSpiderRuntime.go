@@ -10,7 +10,10 @@ package restruntime
 
 import (
 	"crypto/subtle"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"path/filepath"
 	"strings"
 	"time"
@@ -30,6 +33,7 @@ import (
 	// REST API (echo)
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/gommon/log"
 
 	// echo-swagger middleware
 	_ "github.com/cloud-barista/cb-spider/api"
@@ -459,6 +463,20 @@ func RunServer() {
 		//----------AnyCall Handler
 		{"POST", "/anycall", AnyCall},
 
+		//----------WebMon Handler
+		{"GET", "/adminweb/vmmon", aw.VMMointoring},
+
+		//////////////////////////////////////////////////////////////
+		//------------------ Spiderlet Zone ------------------------
+
+		{"POST", "/spiderlet/anycall", SpiderletAnyCall},
+
+		//----------WebMon Handler
+		{"GET", "/adminweb/spiderlet/vmmon", aw.SpiderletVMMointoring},
+
+		//------------------ Spiderlet Zone ------------------------
+		//////////////////////////////////////////////////////////////
+
 		//-------------------------------------------------------------------//
 		//----------SPLock Info
 		{"GET", "/splockinfo", GetAllSPLockInfo},
@@ -527,6 +545,51 @@ func RunServer() {
 	// Run API Server
 	ApiServer(routes)
 
+}
+
+func RunTLSServer(certFile, keyFile, caCertFile string, port int) {
+	e := echo.New()
+	e.Logger.SetLevel(log.ERROR) // Set logging level to ERROR only
+
+	// Recovery middleware for handling panics
+	e.Use(middleware.Recover())
+
+	e.GET("/getcredentials/:ConnectionName", GetCloudDriverAndConnectionInfoTLS)
+
+	// Load CA certificate
+	caCert, err := ioutil.ReadFile(caCertFile)
+	if err != nil {
+		fmt.Println("Failed to read CA certificate:", err)
+		// return
+	}
+
+	// Set up CA certificate pool
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
+
+	// Configure TLS settings
+	tlsConfig := &tls.Config{
+		ClientCAs:          caCertPool,
+		ClientAuth:         tls.RequireAndVerifyClientCert,
+		MinVersion:         tls.VersionTLS12,
+		InsecureSkipVerify: false,
+	}
+
+	// Bind to localhost only (127.0.0.1), external clients cannot connect
+	address := fmt.Sprintf("127.0.0.1:%d", port)
+	server := &http.Server{
+		Addr:      address,
+		Handler:   e,
+		TLSConfig: tlsConfig,
+	}
+
+	fmt.Printf("[CB-Spider] TLS server running... https://%s\n", address)
+
+	// Start TLS server
+	err = server.ListenAndServeTLS(certFile, keyFile)
+	if err != nil {
+		fmt.Printf("[CB-Spider] Failed to start TLS server: %v\n", err)
+	}
 }
 
 // ================ REST API Server: setup & start

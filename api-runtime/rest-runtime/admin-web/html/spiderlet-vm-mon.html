@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🕷️ CPU Monitoring Dashboard</title>
+  <style>        
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f4f4f9;
+    }
+
+    #form-container {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    input, button {
+      padding: 10px;
+      font-size: 16px;
+    }
+
+    canvas {
+      max-width: 100%;
+      height: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🕷️ CPU Monitoring Dashboard</h1>
+  
+  <!-- Form for Server Address, ConnectionName and VM ID -->
+  <div id="form-container">
+    <input type="text" id="serverAddress" value="localhost" placeholder="Server Address" required>
+    <input type="text" id="connectionName" value="aws-config01" placeholder="Connection Name" required>
+    <input type="text" id="vmId" value="i-0cdf129c3c544f614" placeholder="VM ID" required>
+    <button id="fetchDataBtn">Fetch Data</button>
+  </div>
+
+  <!-- Graph container -->
+  <canvas id="cpuChart"></canvas>
+
+  <!-- Chart.js library -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- chartjs-adapter-date-fns for time scale support -->
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3"></script>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const fetchDataBtn = document.getElementById('fetchDataBtn');
+      const connectionNameInput = document.getElementById('connectionName');
+      const vmIdInput = document.getElementById('vmId');
+      const serverAddressInput = document.getElementById('serverAddress');
+      
+      let cpuChart;
+
+      // Initialize Chart.js with empty data and 3 datasets (Average, Minimum, Maximum)
+      function initChart() {
+        const ctx = document.getElementById('cpuChart').getContext('2d');
+        cpuChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: [], // Timestamps
+            datasets: [
+              {
+                label: 'Average CPU Utilization (%)',
+                data: [],
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 2,
+                fill: false,
+              },
+              {
+                label: 'Minimum CPU Utilization (%)',
+                data: [],
+                borderColor: 'rgba(192, 75, 192, 1)',
+                borderWidth: 2,
+                fill: false,
+              },
+              {
+                label: 'Maximum CPU Utilization (%)',
+                data: [],
+                borderColor: 'rgba(192, 192, 75, 1)',
+                borderWidth: 2,
+                fill: false,
+              }
+            ]
+          },
+          options: {
+            scales: {
+              x: {
+                type: 'time', // Time-based x-axis
+                time: {
+                  unit: 'minute',
+                  tooltipFormat: 'HH:mm:ss'
+                },
+                ticks: {
+                  source: 'auto',
+                  autoSkip: true,
+                }
+              },
+              y: {
+                beginAtZero: true,
+                min: 0,
+                max: 100,
+              }
+            }
+          }
+        });
+      }
+
+      // Fetch CPU Monitoring data from API
+      async function fetchCpuData(serverAddress, connectionName, vmId) {
+        try {
+          const response = await fetch(`http://${serverAddress}:1024/spider/spiderlet/anycall`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              ConnectionName: connectionName,
+              ReqInfo: {
+                FID: 'fetchMonitoringData',
+                IKeyValueList: [
+                  { Key: 'vmId', Value: vmId }
+                ]
+              }
+            })
+          });
+          
+          if (!response.ok) {
+            throw new Error(`Server error: ${response.status}`);
+          }
+
+          const result = await response.json();
+          
+          return result.OKeyValueList.map(item => {
+            const [_, timestamp] = item.Key.match(/\[(.*?)\]/);
+            const { Average, Minimum, Maximum } = parseValues(item.Value);
+            return { timestamp, Average: parseFloat(Average), Minimum: parseFloat(Minimum), Maximum: parseFloat(Maximum) };
+          });
+        } catch (error) {
+          console.error('Failed to fetch data:', error);
+          alert(`Error fetching data: ${error.message}`);
+        }
+      }
+
+      // Parse the Average, Minimum, Maximum values from the returned CPU data string
+      function parseValues(valueString) {
+        const values = {
+          Average: valueString.match(/Average: ([\d.]+)/)[1],
+          Minimum: valueString.match(/Minimum: ([\d.]+)/)[1],
+          Maximum: valueString.match(/Maximum: ([\d.]+)/)[1]
+        };
+        return values;
+      }
+
+      // Update chart with new data and clear previous data
+      function updateChart(data) {
+        // Clear existing data
+        cpuChart.data.labels = [];
+        cpuChart.data.datasets.forEach(dataset => {
+          dataset.data = [];
+        });
+
+        // Add new data
+        data.forEach(({ timestamp, Average, Minimum, Maximum }) => {
+          cpuChart.data.labels.push(new Date(timestamp));
+          cpuChart.data.datasets[0].data.push(Average);  // Average dataset
+          cpuChart.data.datasets[1].data.push(Minimum);  // Minimum dataset
+          cpuChart.data.datasets[2].data.push(Maximum);  // Maximum dataset
+        });
+
+        cpuChart.update();
+      }
+
+      // Event handler for fetching data
+      fetchDataBtn.addEventListener('click', async () => {
+        const serverAddress = serverAddressInput.value;
+        const connectionName = connectionNameInput.value;
+        const vmId = vmIdInput.value;
+        
+        if (!serverAddress || !connectionName || !vmId) {
+          alert('Please provide Server Address, Connection Name, and VM ID');
+          return;
+        }
+
+        // Fetch and update chart
+        const data = await fetchCpuData(serverAddress, connectionName, vmId);
+        if (data) {
+          updateChart(data);
+        }
+      });
+
+      // Initialize the chart when the page loads
+      initChart();
+
+      // Set interval to fetch new data every 1 minute
+      setInterval(async () => {
+        const serverAddress = serverAddressInput.value;
+        const connectionName = connectionNameInput.value;
+        const vmId = vmIdInput.value;
+        
+        if (serverAddress && connectionName && vmId) {
+          const data = await fetchCpuData(serverAddress, connectionName, vmId);
+          if (data) {
+            updateChart(data);
+          }
+        }
+      }, 60000);  // 1 minute interval
+    });
+  </script>
+  
+</body>
+</html>

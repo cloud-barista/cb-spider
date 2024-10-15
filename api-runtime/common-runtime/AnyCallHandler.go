@@ -49,6 +49,41 @@ func AnyCall(connectionName string, reqInfo cres.AnyCallInfo) (*cres.AnyCallInfo
 	return &info, nil
 }
 
+// // for Spiderlet
+func SpiderletAnyCall(connectionName string, reqInfo cres.AnyCallInfo) (*cres.AnyCallInfo, error) {
+	cblog.Info("call AnyCall()")
+
+	// check empty and trim user inputs
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// Create a cloud connection using the driver and credential info obtained from the Spider server.
+	// spiderlet ==> Spider server
+	cldConn, err := ccm.CreateClouddConnection(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	handler, err := cldConn.CreateAnyCallHandler()
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	//  Call AnyCall
+	info, err := handler.AnyCall(reqInfo)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	return &info, nil
+}
+
 // loading config file with yaml format
 func LoadConfigFileYAML(configFilePath string) (string, error) {
 	cblog.Info("call LoadConfigFileYAML()")
