@@ -1,0 +1,2085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cluster Management</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; }
+        .header-container { display: flex; align-items: flex-end; }
+        .header-container img { margin-right: 10px; height: 28px; }
+        .header-container h1 { font-size: 16px; margin: 0; }
+        #searchInput {
+            width: 190px;
+            font-family: Arial, sans-serif;
+            padding-right: 2.5cm;
+        }
+        #clearSearch {
+            position: absolute;
+            right: 0.1cm;
+            top: 50%;
+            transform: translateY(-50%);
+            border: none;
+            background-color: transparent;
+            cursor: pointer;
+            font-family: Arial, sans-serif;
+        }
+        .searchContainer {
+            position: relative;
+            display: flex;
+            align-items: center;
+            padding-left: 0.5cm;
+        }
+        .searchContainer button {
+            position: absolute;
+            right: 0.5cm;
+            top: 50%;
+            transform: translateY(-50%);
+            border: none;
+            background-color: transparent;
+            cursor: pointer;
+            font-family: Arial, sans-serif;
+        }
+
+        .header-with-progress {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0px;
+        }
+        .progress-bar-container {
+            width: 600px;
+            margin-left: 10px;
+            margin-bottom: 10px;
+            height: 22px;
+            background-color: #f0f5ff;
+            border-radius: 4px;
+            overflow: hidden;
+            display: none;
+            position: relative;
+            z-index: 3000;
+        }
+        .progress-bar {
+            width: 0;
+            height: 100%;
+            background-color: #cce6ff;
+            border-radius: 4px;
+            transition: width 3s ease;
+        }
+        #timeDisplay {
+            position: absolute;
+            top: 50%;
+            right: 10px;
+            transform: translateY(-50%);
+            font-size: 14px;
+            color: #333;
+            z-index: 30;
+        }
+
+        .error-message {
+            background-color: #F8D7DA;
+            color: #721C24;
+            padding: 20px;
+            border-radius: 5px;
+            font-size: 16px;
+            margin-bottom: 20px;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 2000;
+            text-align: center;
+        }
+        .error-message button {
+            display: block;
+            margin: 20px auto 0;
+        }
+
+        table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 0; }
+        th, td { border: 1px solid black; padding: 6px; position: relative; }
+        th { background-color: #f2f2f2; font-size: 14px; text-align: center; }
+        td { text-align: left; }
+        .column-num { width: 4%; text-align: center; }
+        .center-align { text-align: center; }
+        .highlight { background-color: #fffab6; }
+        .tag-container { display: inline-block; background-color: #e1e1e1; border-radius: 3px; padding: 2px 5px; margin: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+        .tag-container:hover { background-color: #c1e1c1; }
+        .fixed-header { position: fixed; top: 0; width: 97%; background-color: white; z-index: 1000; display: flex; justify-content: space-between; padding: 10px 20px; box-shadow: 0 4px 6px -6px #222; }
+        .fixed-action-buttons { display: flex; align-items: center; }
+        .fixed-action-buttons button { margin-left: 10px; }
+        .add-button { font-size: 14px; font-weight: bold; margin-left: 1px; margin-right: 5px; margin-bottom: 10px; }
+        .content { margin-top: 70px; }
+        .checkbox-cell { width: 5%; text-align: center; }
+        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); justify-content: center; align-items: center; z-index: 2000; }
+        .overlay-content { background-color: white; padding: 20px; border-radius: 5px; text-align: left; width: 500px; max-width: 90%; font-family: Arial, sans-serif; font-size: 12px; }
+        .form-group { margin-bottom: 10px; display: flex; align-items: center; }
+        .form-group label { flex: 1; margin-right: 10px; text-align: right; }
+        .form-group input, .form-group select { flex: 2; }
+        .overlay-content button { margin-top: 10px; }
+
+        .info-group {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+
+        .info-group legend {
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+        }
+        .node-group-fieldset {
+            display: none;
+        }
+        .node-scaling-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .node-scaling-wrapper div {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .node-scaling-wrapper input[type="number"] {
+            font-size: 12px;
+            width: 61px;
+            padding: 2px;
+            text-align: center;
+        }
+
+        .node-scaling-wrapper label {
+            font-size: 12px;
+            text-align: left;
+        }
+
+        /* For the comparison labels (<=) */
+        .node-scaling-wrapper .comparison-label {
+            align-self: center;
+            font-size: 16px;
+            margin: 0 5px;
+        }
+
+        .nodegroup-inner-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .nodegroup-inner-table th, .nodegroup-inner-table td {
+            font-size: 12px;            
+            padding: 2px;
+            text-align: center;
+        }
+        .nodegroup-inner-table th {
+            background-color: #f9f9f9;
+        }
+        .nodegroup-inner-table .actions-cell {
+            width: 60px;
+            white-space: nowrap;
+        }
+        .nodegroup-inner-table button.delete-nodegroup-btn {
+            font-size: 12px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+        .nodegroup-inner-table button.add-nodegroup-btn {
+            font-size: 12px;
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        .nodegroup-name-column { width: 20%; }
+        .nodegroup-status-column { width: 20%; }
+        .nodegroup-actions-column { width: 10%; }
+
+        .cluster-tag-input {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-bottom: 5px;
+            width: 100%;
+            align-items: center;
+        }
+
+        .cluster-tag-input input {
+            width: 40%;
+            text-align: right;
+            padding: 2px 5px;
+            font-size: 12px;
+            height: 15px;
+        }
+
+        .cluster-tag-input button {
+            height: 20px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            align-self: center;
+            justify-content: center;
+        }
+
+
+        .tag-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 10px;
+        }
+
+        .name-column {
+        text-align: left;
+        font-size: 13px;
+        font-weight: bold;
+        }
+
+        .cluster-system-id {
+            display: block;
+            font-size: 12px;
+            font-weight: normal;
+            color: #666;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+
+        .system-id-overlay {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 50%;
+            max-width: 600px;
+            background-color: white;
+            border: 1px solid black;
+            padding: 20px;
+            z-index: 2000;
+            border-radius: 5px;
+        }
+
+        .system-id-overlay-content {
+            position: relative;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            word-wrap: break-word;
+        }
+
+        .system-id-overlay .close-btn {
+            position: absolute;
+            top: -20px;
+            right: -5px;
+            background: none;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .copy-btn {
+            background: none;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+        
+        .name-column .cluster-created-time {
+            display: block;
+            font-size: 12px;
+            font-weight: normal;
+            color: #666;
+        }
+
+        .name-column {
+            width: 12%;
+        }
+        .version-column {
+            width: 4%;
+        }
+        .status-column {
+            width: 4%;
+        }
+        .access-info-column {
+            width: 6%;
+        }
+        .addons-column {
+            width: 6%;
+        }
+        .network-info-column {
+            width: 6%;
+        }
+        .nodegroups-info-column {
+            width: 14%;
+        }
+        .tags-column {
+            width: 8%;
+        }
+        .misc-column {
+            width: 8%;
+        }
+
+        .tag-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .tag-overlay-content {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            text-align: left;
+            font-size: 14px;
+            max-width: 300px;
+            word-wrap: break-word;
+            position: relative;
+        }
+        .tag-overlay-content .close-btn {
+            position: absolute;
+            top: 5px;
+            right: 10px;
+            background: none;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .tag-overlay-content .button-group {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+        .add-tag-overlay-content {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            text-align: left;
+            font-size: 14px;
+            max-width: 300px;
+            word-wrap: break-word;
+            position: relative;
+        }
+        .add-tag-overlay-content .tag-overlay-input-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .add-tag-overlay-content .tag-overlay-input-group label {
+            flex: 1;
+            text-align: right;
+            margin-right: 10px;
+        }
+        .add-tag-overlay-content .tag-overlay-input-group input {
+            flex: 2;
+        }
+        .add-tag-overlay-content .tag-overlay-button-group {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+
+        .misc-content {
+            max-height: 2.5em;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .more-btn {
+            background-color: transparent;
+            border: none;
+            color: blue;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        .misc-cell {
+            position: relative;
+        }
+
+        .misc-cell .more-btn {
+            position: absolute;
+            right: 5px;
+            bottom: 5px;
+        }
+
+        #miscOverlay .overlay-content {
+            font-size: 14px;
+            width: 700px;
+            position: relative;
+            padding-top: 30px;
+            line-height: 1.3;
+        }
+        #miscOverlay .close-btn {
+            position: absolute;
+            top: 0px;
+            right: 10px;
+            background: none;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            z-index: 1001;
+        }
+
+        .cluster-tag-container {
+            display: inline-block;
+            background-color: #e1e1e1;
+            border-radius: 3px;
+            padding: 2px 5px;
+            margin: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: pointer;
+            max-width: calc(100% - 2ch);
+        }
+
+        .cluster-tag-container:hover {
+            background-color: #c1e1c1;
+        }
+
+        .cluster-add-btn-container {
+            margin-top: 5px;
+        }
+
+        .cluster-add-btn {
+            background-color: transparent;
+            font-size: 14px;
+            font-weight: bold;
+            border: none;
+            color: blue;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        .view-details-link {
+            cursor: pointer;
+            color: #007bff;
+            text-decoration: underline;
+            font-size: 12px;
+        }
+        .cluster-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .cluster-overlay-content {
+            font-size: 14px; 
+            position: relative;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            width: 600px;
+            max-width: 90%;
+            text-align: left;
+            font-family: Arial, sans-serif;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .cluster-overlay-content h3 {
+            font-size: 18px;
+            padding-left: 40px;
+            margin-bottom: 15px;
+        }
+
+        /* Close button style for the details overlay */
+        .details-overlay-close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            font-size: 16px;
+            cursor: pointer;
+            z-index: 10; /* Ensures it's above content */
+        }
+
+        .details-table {
+            border-collapse: collapse;
+            width: 100%;
+            word-wrap: break-word;
+        }
+
+        .details-table th, .details-table td {
+            border: 1px solid #ccc;
+            padding: 12px; 
+            font-size: 14px;
+            text-align: left;
+        }
+
+        .details-table th {
+            background-color: #f2f2f2;
+            text-align: center; 
+            width: 20%;
+        }
+
+        .details-table td {
+            width: 80%;
+            word-wrap: break-word;
+        }
+
+        #cluster-details-overlay-content {
+            max-height: 700px;
+            overflow-y: auto;
+            padding-right: 20px;            
+        }
+        
+        /* List bullet style */
+        .bullet-list {
+            list-style-type: none;
+            padding-left: 0;
+            margin: 0;
+        }
+
+        .bullet-list li {
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+        }
+
+        .bullet-list li::before {
+            content: '•';
+            color: black;
+            display: inline-block;
+            width: 1em;
+            margin-right: 10px;
+            font-size: 18px; /* Larger bullet point */
+        }
+        .details-table td ul {
+            list-style-type: none; /* Removes default bullet */
+            padding-left: 0;
+        }
+
+        .details-table td ul li::before {
+            content: '•'; /* Adds custom bullet */
+            color: black;
+            display: inline-block;
+            width: 1em;
+            margin-right: 5px;
+        }
+
+        .details-table th {
+            background-color: #f2f2f2;
+        }
+
+        .cluster-textarea {
+            width: 100%;
+            height: 100px;
+            resize: none;
+            background-color: #f7f7f7;
+            border: 1px solid #ddd;
+            padding: 10px;
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+        }
+
+        .overlay-new-nodegroup { 
+            display: none; 
+            position: fixed; 
+            top: 0; 
+            left: 0; 
+            width: 100%; 
+            height: 100%; 
+            background-color: rgba(0, 0, 0, 0.5); 
+            justify-content: center; 
+            align-items: center; 
+            z-index: 2000; 
+        }
+        
+        .overlay-content-new-nodegroup { 
+            background-color: white; 
+            padding: 20px; 
+            border-radius: 5px; 
+            text-align: left; 
+            width: 500px; 
+            max-width: 90%; 
+            font-family: Arial, sans-serif; 
+            font-size: 12px; 
+        }
+
+        .overlay-content-new-nodegroup h2 {
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="fixed-header">
+        <div class="header-container">
+            <img src="/spider/adminweb/images/left-menu/cluster.png" alt="Cluster Icon">
+            <h1>Cluster Management</h1>
+            <div class="searchContainer">
+                <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
+                <button id="clearSearch" onclick="clearSearchInput()">X</button>
+            </div>
+        </div>        
+        <div class="fixed-action-buttons">
+            <input type="checkbox" onclick="toggleSelectAll(this)">
+            <button onclick="deleteSelectedClusters()">Delete</button>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="header-with-progress">
+            <button class="add-button" onclick="showOverlay()">+</button>            
+            <div class="progress-bar-container" id="progressBarContainer">
+                <div class="progress-bar" id="progressBar"></div>
+                <span id="timeDisplay"></span>
+            </div>  
+        </div>
+        <table id="cluster-table">
+            <tr>
+                <th class="column-num center-align">#</th>
+                <th class="name-column center-align" style="text-align: center;">Name</th>
+                <th class="version-column center-align">Version</th>
+                <th class="status-column">Status</th>
+                <th class="access-info-column center-align">Access Info</th>
+                <th class="addons-column center-align">Addons</th>
+                <th class="network-info-column center-align">Network Info</th>
+                <th class="nodegroups-info-column center-align">NodeGroups Info</th>
+                <th class="tags-column center-align">Tags</th>
+                <th class="misc-column center-align">Misc</th>
+                <th class="checkbox-cell center-align"><input type="checkbox" onclick="toggleSelectAll(this)"></th>
+            </tr>
+        
+            {{range $index, $cluster := .Clusters}}
+            {{ $clusterNameId := $cluster.IId.NameId }}
+            <tr>
+                <td class="column-num">{{$index | inc}}</td>                
+                <td class="name-column">
+                    {{$cluster.IId.NameId}}<span class="cluster-system-id" onclick="showSystemIdOverlay('{{$cluster.IId.SystemId}}')">&nbsp;• {{$cluster.IId.SystemId}}</span>
+                    <span class="cluster-created-time" data-time="{{$cluster.CreatedTime}}"></span>
+                </td>    
+                <td class="version-column center-align">{{$cluster.Version}}</td>
+                <td class="status-column center-align">{{$cluster.Status}}</td>
+                
+                <td class="access-info-column center-align">
+                    <a class="view-details-link" href="javascript:void(0);" onclick="showClusterDetailsOverlay('Access Info', {
+                        endpoint: '{{$cluster.AccessInfo.Endpoint}}',
+                        kubeconfig: `{{$cluster.AccessInfo.Kubeconfig}}`
+                    })">View Details</a>
+                </td>
+                
+                <td class="addons-column center-align">
+                    {{range $addon := $cluster.Addons.KeyValueList}}
+                        {{$addon.Key}}: {{$addon.Value}}<br>
+                    {{else}}
+                        Spider: Not available currently.
+                    {{end}}
+                </td>
+                
+                <td class="network-info-column center-align"> 
+                    <a class="view-details-link" href="javascript:void(0);" onclick="showClusterDetailsOverlay('Network Info', {
+                        vpc: '{{$cluster.Network.VpcIID.NameId}}',
+                        subnets: [{{range $i, $subnet := $cluster.Network.SubnetIIDs}}'{{$subnet.NameId}}'{{if lt (add $i 1) (len $cluster.Network.SubnetIIDs)}},{{end}}{{end}}],
+                        securityGroups: [{{range $i, $secGroup := $cluster.Network.SecurityGroupIIDs}}'{{$secGroup.NameId}}'{{if lt (add $i 1) (len $cluster.Network.SecurityGroupIIDs)}},{{end}}{{end}}]
+                    })">View Details</a>
+                </td>
+                
+                <td class="nodegroups-info-column">
+                    <table class="nodegroup-inner-table">
+                        <tr>
+                            <th class="nodegroup-name-column">Name</th>
+                            <th class="nodegroup-status-column">Status</th>
+                            <th class="nodegroup-actions-column">
+                                <button class="add-nodegroup-btn" data-cluster-name="{{$clusterNameId}}">add</button>
+                            </th>                            
+                        </tr>
+                        {{range $nodegroup := $cluster.NodeGroupList}}
+                        <tr>
+                            <td>
+                                <a href="javascript:void(0);" onclick="showNodeGroupDetails('{{$cluster.IId.NameId}}', '{{$nodegroup.IId.NameId}}')">
+                                    {{$nodegroup.IId.NameId}}
+                                </a>
+                            </td>
+                            <td>{{$nodegroup.Status}}</td>
+                            <td class="actions-cell">
+                                <button class="delete-nodegroup-btn" onclick="deleteNodeGroup('{{$cluster.IId.NameId}}', '{{$nodegroup.IId.NameId}}')">del</button>
+                            </td>
+                        </tr>
+                        {{end}}
+                    </table>
+                </td>
+                
+                <td class="tags-column">
+                    {{range $tag := $cluster.TagList}}
+                    <div class="cluster-tag-container" onclick="showClusterTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'Cluster', '{{$cluster.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                    {{end}}
+                    <div class="cluster-add-btn-container">
+                        <button class="cluster-add-btn" onclick="showAddClusterTagOverlay('{{$cluster.IId.NameId}}')">+</button>
+                    </div>
+                </td>
+                
+                <td class="misc-column">
+                    <div class="misc-content">
+                        {{range $kv := $cluster.KeyValueList}}
+                            {{$kv.Key}}: {{$kv.Value}}<br>
+                        {{end}}
+                    </div>
+                    {{if $cluster.KeyValueList}}
+                    <button class="more-btn" onclick="showMiscOverlay(this)" style="display: inline;">more...</button>
+                    {{end}}
+                </td>
+                
+                <td class="checkbox-cell"><input type="checkbox" name="deleteCheckbox" value="{{$cluster.IId.NameId}}"></td>
+            </tr>
+            {{end}}
+            {{if not .Clusters}}
+            <tr>
+                <td colspan="11" class="center-align">No Clusters found for this connection.</td>
+            </tr>
+            {{end}}
+        </table>
+        
+    </div>
+
+    <div id="overlay" class="overlay">
+        <div class="overlay-content">
+            <h2>Add New Cluster</h2>
+            <form id="addClusterForm" onsubmit="event.preventDefault(); postCluster();">
+                <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
+    
+                <!-- Cluster Info Group -->
+                <fieldset class="info-group">
+                    <legend>Cluster Info:</legend>
+    
+                    <!-- Cluster Name -->
+                    <div class="form-group">
+                        <label for="clusterName">Cluster Name:</label>
+                        <input type="text" id="clusterName" name="clusterName" required>
+                    </div>
+    
+                    <!-- Cluster Version -->
+                    <div class="form-group">
+                        <label for="clusterVersion">Version:</label>
+                        <input type="text" id="clusterVersion" name="clusterVersion">
+                    </div>
+    
+                    <!-- VPC Selection -->
+                    <div class="form-group">
+                        <label for="vpcSelect">VPC:</label>
+                        <select id="vpcSelect" name="vpcSelect" required onchange="updateSubnets()" style="background-color: #f3f3fd;">
+                        </select>
+                    </div>
+    
+                    <!-- Subnet Selection -->
+                    <div class="form-group">
+                        <label for="subnetSelect">Subnets:</label>
+                        <select id="subnetSelect" name="subnetSelect" multiple required style="background-color: #f3f3fd;">
+                        </select>
+                    </div>
+    
+                    <!-- Security Group Selection -->
+                    <div class="form-group">
+                        <label for="securityGroupSelect">Security Group:</label>
+                        <select id="securityGroupSelect" name="securityGroupSelect" required style="background-color: #faeded;"></select>
+                    </div>
+                </fieldset>
+    
+                <!-- NodeGroup Info Group -->
+                <fieldset class="info-group node-group-fieldset">
+                    <legend>NodeGroup Info:</legend>
+
+                    <div class="form-group">
+                        <label for="nodeGroupName">NodeGroup Name:</label>
+                        <input type="text" id="nodeGroupName" name="nodeGroupName" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="imageName">Image Name:</label>
+                        <input type="text" id="imageName" name="imageName" style="background-color: #f7f7e6;">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vmSpecName">VM Spec Name:</label>
+                        <input type="text" id="vmSpecName" name="vmSpecName" style="background-color: #f7f7e6;">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="rootDiskType">Root Disk Type:</label>
+                        <input type="text" id="rootDiskType" name="rootDiskType">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="rootDiskSize">Root Disk Size (GB):</label>
+                        <input type="number" id="rootDiskSize" name="rootDiskSize">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="keyPairSelect">Key Pair Name:</label>
+                        <select id="keyPairSelect" name="keyPairSelect" required style="background-color: #faeded;"></select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="onAutoScaling">Enable Auto-scaling:</label>
+                        <select id="onAutoScaling" name="onAutoScaling">
+                            <option value="true">Yes</option>
+                            <option value="false">No</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="minNodeSize">Min Nodes:</label>
+                        <input type="number" id="minNodeSize" name="minNodeSize">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="desiredNodeSize">Desired Nodes:</label>
+                        <input type="number" id="desiredNodeSize" name="desiredNodeSize">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="maxNodeSize">Max Nodes:</label>
+                        <input type="number" id="maxNodeSize" name="maxNodeSize">
+                    </div>
+                </fieldset>
+
+
+                <fieldset class="info-group">
+                    <legend>Tags:</legend>
+                    <div id="cluster-tag-container"></div>
+                    <div class="tag-actions">
+                        <button type="button" onclick="addClusterTagField()">+</button>
+                    </div>
+                </fieldset>
+    
+                <!-- Form Submit and Cancel buttons -->
+                <div style="display: flex; justify-content: space-between;">
+                    <button type="submit">Add Cluster</button>
+                    <button type="button" onclick="hideOverlay()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    
+    <!-- Cluster Details Overlay -->
+    <div id="cluster-details-overlay" class="cluster-overlay">
+        <div id="cluster-details-overlay-content" class="cluster-overlay-content">
+            <button class="details-overlay-close-btn" onclick="closeClusterDetailsOverlay()">✖</button>
+            <!-- Content dynamically injected here -->
+        </div>
+    </div>
+
+    <div id="tag-overlay" class="tag-overlay">
+        <div class="tag-overlay-content"></div>
+    </div>
+    
+    <div id="add-tag-overlay" class="overlay">
+        <div class="add-tag-overlay-content"></div>
+    </div>    
+
+    <div id="miscOverlay" class="overlay">
+        <div class="overlay-content">
+            <button class="close-btn" onclick="closeMiscOverlay()">x</button>
+            <div id="miscContent"></div>
+        </div>
+    </div>
+    
+    <div id="overlayNewNodeGroup" class="overlay-new-nodegroup">
+        <div class="overlay-content-new-nodegroup">
+            <h2>Add New NodeGroup</h2>
+            <form id="formNewNodeGroup" onsubmit="event.preventDefault(); postNewNodeGroup();">
+                <fieldset class="info-group">
+                    <legend>NodeGroup Info:</legend>
+
+                    <div class="form-group">
+                        <label for="newNodeGroupName">NodeGroup Name:</label>
+                        <input type="text" id="newNodeGroupName" name="newNodeGroupName" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="newImageName">Image Name:</label>
+                        <input type="text" id="newImageName" name="newImageName" style="background-color: #f7f7e6;">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="newVmSpecName">VM Spec Name:</label>
+                        <input type="text" id="newVmSpecName" name="newVmSpecName" style="background-color: #f7f7e6;">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="newRootDiskType">Root Disk Type:</label>
+                        <input type="text" id="newRootDiskType" name="newRootDiskType">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="newRootDiskSize">Root Disk Size (GB):</label>
+                        <input type="number" id="newRootDiskSize" name="newRootDiskSize">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="newKeyPairSelect">Key Pair Name:</label>
+                        <select id="newKeyPairSelect" name="newKeyPairSelect" required style="background-color: #faeded;"></select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="newOnAutoScaling">Enable Auto-scaling:</label>
+                        <select id="newOnAutoScaling" name="newOnAutoScaling">
+                            <option value="true">Yes</option>
+                            <option value="false">No</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="newMinNodeSize">Min Nodes:</label>
+                        <input type="number" id="newMinNodeSize" name="newMinNodeSize">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="newDesiredNodeSize">Desired Nodes:</label>
+                        <input type="number" id="newDesiredNodeSize" name="newDesiredNodeSize">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="newMaxNodeSize">Max Nodes:</label>
+                        <input type="number" id="newMaxNodeSize" name="newMaxNodeSize">
+                    </div>
+                </fieldset>
+
+                <div style="display: flex; justify-content: space-between;">
+                    <button type="submit">Add NodeGroup</button>
+                    <button type="button" onclick="hideNewNodeGroupOverlay()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="nodeGroupOverlay" class="overlay" style="display: none;">
+        <div class="overlay-content">
+            <button class="close-btn" onclick="closeNodeGroupOverlay()">x</button>
+            <div id="nodeGroupDetails"></div>
+        </div>
+    </div>
+
+    <div id="system-id-overlay" class="system-id-overlay">
+        <div class="system-id-overlay-content">
+            <button class="close-btn" onclick="closeSystemIdOverlay()">x</button>
+            <h2>System ID (Managed by CSP)</h2>
+            <p id="fullSystemId"></p>
+            <button class="copy-btn" onclick="copySystemId()">📋</button>
+        </div>
+    </div>
+
+    <script>
+
+        function searchKeyword() {
+            let input, filter, table, tr, td, i;
+            input = document.getElementById('searchInput');
+            filter = input.value.toUpperCase().trim(); 
+            if (!filter) {
+                clearSearchInput();
+                return;
+            }
+
+            table = document.getElementById('cluster-table');
+            tr = table.getElementsByTagName('tr'); 
+
+            for (i = 1; i < tr.length; i++) {
+                for (let j = 0; j < tr[i].cells.length; j++) {
+                    td = tr[i].cells[j];
+                    if (td) {
+                        let txtValue = td.textContent || td.innerText;
+                        if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                            td.classList.add('highlight');
+                        } else {
+                            td.classList.remove('highlight');
+                        }
+                    }
+                }
+            }
+        }
+
+        function clearSearchInput() {
+            document.getElementById("searchInput").value = "";
+            let table = document.getElementById('cluster-table');
+            let tr = table.getElementsByTagName('tr');
+            for (let i = 1; i < tr.length; i++) {
+                for (let j = 0; j < tr[i].cells.length; j++) {
+                    tr[i].cells[j].classList.remove('highlight');
+                }
+            }
+        }
+
+        function fetchWithProgress(url, options) {
+            showProgressBar();
+
+            const startTime = Date.now();
+            const timerInterval = 500;
+            let timerId = setInterval(() => {
+                const elapsedTime = (Date.now() - startTime) / 1000;
+                const timeDisplay = document.getElementById('timeDisplay');
+                timeDisplay.textContent = `${(Math.floor(elapsedTime * 2) / 2).toFixed(1)}s`;
+            }, timerInterval);
+
+            return fetch(url, options)
+                .then(response => {
+                    clearInterval(timerId);
+                    hideProgressBar();
+                    return response;
+                })
+                .catch(error => {
+                    clearInterval(timerId);
+                    hideProgressBar();
+                    throw error;
+                });
+        }
+
+        function showProgressBar() {
+            const progressBarContainer = document.getElementById('progressBarContainer');
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = '0%';
+            progressBarContainer.style.display = 'block';
+
+            setTimeout(() => {
+                progressBar.style.width = '100%';
+            }, 100);
+        }
+
+        function hideProgressBar() {
+            const progressBarContainer = document.getElementById('progressBarContainer');
+            setTimeout(() => {
+                progressBarContainer.style.display = 'none';
+                document.getElementById('timeDisplay').textContent = '';
+            }, 500);
+        }
+
+
+        function toggleSelectAll(selectAllCheckbox) {
+            const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]');
+            
+            checkboxes.forEach((checkbox) => {
+                checkbox.checked = selectAllCheckbox.checked;
+            });
+        }
+
+
+        function deleteSelectedClusters() {
+            const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
+            if (checkboxes.length === 0) {
+                alert("Please select clusters to delete.");
+                return;
+            }
+
+            if (!confirm("Are you sure you want to delete the selected clusters?")) {
+                return;
+            }
+
+            const deletePromises = Array.from(checkboxes).map(checkbox => {
+                const clusterName = checkbox.value;
+
+                return fetchWithProgress(`/spider/cluster/${clusterName}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ConnectionName: "{{.ConnectionConfig}}" })
+                }).then(response => {
+                    if (!response.ok) {
+                        return response.json().then(error => { throw new Error(error.message); });
+                    }
+                    return response.json();
+                });
+            });
+
+            Promise.all(deletePromises)
+                .then(() => {
+                    location.reload();
+                })
+                .catch(error => {
+                    alert("Error deleting clusters: " + error.message);
+                });
+        }
+
+        function showClusterTagOverlay(event, tag, resourceType, resourceName) {
+            event.stopPropagation();
+
+            const tagOverlay = document.getElementById('tag-overlay');
+            const tagOverlayContent = document.querySelector('.tag-overlay-content');
+
+            tagOverlayContent.innerHTML = `
+                <button class="close-btn" onclick="closeTagOverlay()">x</button>
+                <p>${tag}</p>
+                <div class="button-group">
+                    <button onclick="deleteClusterTag('${tag}', '${resourceType}', '${resourceName}')">Delete</button>
+                    <button onclick="closeTagOverlay()">Cancel</button>
+                </div>
+            `;
+
+            tagOverlay.style.display = 'flex';
+            document.addEventListener('keydown', handleEscTagOverlay);
+            document.addEventListener('click', handleClickOutsideOverlay);
+        }
+
+        function closeTagOverlay() {
+            const tagOverlay = document.getElementById('tag-overlay');
+            tagOverlay.style.display = 'none';
+            document.removeEventListener('keydown', handleEscTagOverlay);
+            document.removeEventListener('click', handleClickOutsideOverlay);
+        }
+
+        function handleEscTagOverlay(event) {
+            if (event.key === "Escape") {
+                closeTagOverlay();
+            }
+        }
+
+        function handleClickOutsideOverlay(event) {
+            const tagOverlay = document.getElementById('tag-overlay');
+            if (tagOverlay.style.display === 'flex' && !tagOverlay.contains(event.target)) {
+                closeTagOverlay();
+            }
+        }
+
+        function deleteClusterTag(tag, resourceType, resourceName) {
+            const connConfig = document.getElementById('connConfig').value;
+            const [tagKey, tagValue] = tag.split(': ');
+
+            const data = {
+                ConnectionName: connConfig,
+                ReqInfo: {
+                    ResourceType: resourceType.trim(),
+                    ResourceName: resourceName.trim()
+                }
+            };
+
+            fetchWithProgress(`/spider/tag/${tagKey.trim()}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            }).then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => {
+                        throw new Error(error.message);
+                    });
+                }
+                return response.json();
+            }).then(() => {
+                closeTagOverlay();
+                location.reload();
+            }).catch(error => {
+                alert("Error deleting tag: " + error.message);
+            });
+        }
+
+        function showAddClusterTagOverlay(clusterName) {
+            const addTagOverlay = document.getElementById('add-tag-overlay');
+            const addTagOverlayContent = document.querySelector('.add-tag-overlay-content');
+            addTagOverlayContent.innerHTML = `
+                <div class="tag-overlay-input-group">
+                    <label for="tagOverlayTagKey">Tag Key:</label>
+                    <input type="text" id="tagOverlayTagKey" name="tagKey" required>
+                </div>
+                <div class="tag-overlay-input-group">
+                    <label for="tagOverlayTagValue">Tag Value:</label>
+                    <input type="text" id="tagOverlayTagValue" name="tagValue" required>
+                </div>
+                <div class="tag-overlay-button-group">
+                    <button onclick="addClusterTag('${clusterName}')">Add</button>
+                    <button onclick="closeAddTagOverlay()">Cancel</button>
+                </div>
+            `;
+            addTagOverlay.style.display = 'flex';
+            document.addEventListener('keydown', handleEscAddTagOverlay);
+        }
+
+        function closeAddTagOverlay() {
+            const addTagOverlay = document.getElementById('add-tag-overlay');
+            addTagOverlay.style.display = 'none';
+            document.removeEventListener('keydown', handleEscAddTagOverlay);
+        }
+
+        function handleEscAddTagOverlay(event) {
+            if (event.key === "Escape") {
+                closeAddTagOverlay();
+            }
+        }
+
+        function addClusterTag(clusterName) {
+            const tagKey = document.getElementById('tagOverlayTagKey').value;
+            const tagValue = document.getElementById('tagOverlayTagValue').value;
+            const connConfig = document.getElementById('connConfig').value;
+
+            const data = {
+                ConnectionName: connConfig,
+                ReqInfo: {
+                    ResourceType: 'Cluster',
+                    ResourceName: clusterName,
+                    Tag: { Key: tagKey, Value: tagValue }
+                }
+            };
+
+            fetch('/spider/tag', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            }).then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => {
+                        throw new Error(error.message);
+                    });
+                }
+                return response.json();
+            }).then(() => {
+                closeAddTagOverlay();
+                location.reload();
+            }).catch(error => {
+                alert("Error adding tag: " + error.message);
+            });
+        }
+
+        function showMiscOverlay(button) {
+            const miscContent = button.previousElementSibling.innerHTML;
+            document.getElementById('miscContent').innerHTML = `<div>${miscContent}</div>`;
+            document.getElementById('miscOverlay').style.display = 'flex';
+        }
+
+        function closeMiscOverlay() {
+            document.getElementById('miscOverlay').style.display = 'none';
+        }
+
+
+        document.addEventListener('DOMContentLoaded', function() {
+                const timeElements = document.querySelectorAll('.cluster-created-time');
+
+                timeElements.forEach(function(element) {
+                    const originalTime = element.getAttribute('data-time');
+                    const formattedTime = formatTime(originalTime);
+                    element.innerHTML = '&nbsp;• ' + formattedTime;
+                });
+
+                function formatTime(originalTime) {
+                    const parts = originalTime.split(" ");
+                    const date = parts[0];
+                    const time = parts[1].slice(0, 5);
+                    const timezone = parts[3];
+                    return `${date} ${time} ${timezone}`;
+                }
+            });
+            
+        function showOverlay() {
+            clearFormFields();
+            const overlay = document.getElementById('overlay');
+            const connConfig = document.getElementById('connConfig').value;
+
+            getCSPInfo(connConfig).then(providerName => {
+                handleNodeGroupVisibility(providerName);
+            });
+
+            Promise.all([
+                loadVPCs(connConfig),
+                loadSecurityGroups(),
+                loadKeyPairs()
+            ]).then(() => {
+                console.log('All resources loaded successfully');
+            }).catch(error => {
+                alert('Error loading resources: ' + error.message);
+            });
+
+            overlay.style.display = 'flex';
+            document.addEventListener('keydown', handleEsc);
+        }
+    
+        function hideOverlay() {
+            document.getElementById('overlay').style.display = 'none';
+            document.removeEventListener('keydown', handleEsc);
+            clearFormFields();
+        }
+    
+        function clearFormFields() {
+            document.getElementById('clusterVersion').value = '';
+            const connConfig = document.getElementById('connConfig').value;
+
+            // Setting the Version and other fields default based on CSP
+            getCSPInfo(connConfig).then(providerName => {
+                const versionInput = document.getElementById('clusterVersion');
+                const vmSpecInput = document.getElementById('vmSpecName');
+                const rootDiskTypeInput = document.getElementById('rootDiskType');
+
+                switch (providerName.toUpperCase()) {
+                    case 'AZURE':
+                        versionInput.value = '1.30.3';
+                        vmSpecInput.value = 'Standard_B2s';
+                        break;
+                    case 'NHNCLOUD':
+                        versionInput.value = 'v1.28.3';
+                        vmSpecInput.value = 'r2.c4m16';
+                        break;
+                    case 'ALIBABA':
+                        vmSpecInput.value = 'ecs.g6.large';
+                        rootDiskTypeInput.value = 'cloud_ssd';
+                        break;
+                    case 'TENCENT':
+                        vmSpecInput.value = 'S5.MEDIUM4';
+                        break;
+                    case 'GCP':
+                        vmSpecInput.value = 'e2-standard-4';
+                        break;
+                    default:
+                        // Do nothing if the CSP is not recognized
+                        break;
+                }
+            });
+
+            // Rest of the function remains the same
+            document.getElementById('vpcSelect').value = '';
+            document.getElementById('subnetSelect').innerHTML = '';
+            document.getElementById('securityGroupSelect').value = '';
+
+            const region = '{{.RegionName}}';
+            const clusterNameInput = document.getElementById('clusterName');
+            clusterNameInput.value = `${region}-cluster-${Math.random().toString(36).substring(2, 5)}`;
+
+            const nodeGroupNameInput = document.getElementById('nodeGroupName');
+            nodeGroupNameInput.value = `nodegroup-${Math.random().toString(36).substring(2, 5)}`;
+
+            document.getElementById('imageName').value = '';
+            document.getElementById('vmSpecName').value = '';
+
+            const rootDiskSize = document.getElementById('rootDiskSize');
+            rootDiskSize.value = 60;
+
+            document.getElementById('onAutoScaling').value = 'true';
+            document.getElementById('desiredNodeSize').value = '2';
+            document.getElementById('minNodeSize').value = '1';
+            document.getElementById('maxNodeSize').value = '3';
+
+            const tagContainer = document.getElementById('cluster-tag-container');
+            tagContainer.innerHTML = '';
+
+            nodeGroups = [];
+        }
+
+
+    
+        function handleEsc(event) {
+            if (event.key === "Escape") {
+                hideOverlay();
+            }
+        }
+
+        function getCSPInfo(connConfig) {
+            return fetchWithProgress(`/spider/connectionconfig/${connConfig}`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(response => response.json())
+            .then(data => data.ProviderName)
+            .catch(error => {
+                console.error('Error loading CSP info:', error);
+                throw error;
+            });
+        }
+
+        function handleNodeGroupVisibility(providerName) {
+            const nodeGroupFieldset = document.querySelector('.node-group-fieldset');
+
+            // Type-I: AWS, Alibaba, Tencent (No NodeGroup)
+            const typeICSPs = ['AWS', 'ALIBABA', 'TENCENT'];
+
+            if (typeICSPs.includes(providerName.toUpperCase())) {
+                nodeGroupFieldset.style.display = 'none';
+            } else {
+                nodeGroupFieldset.style.display = 'block';
+            }
+        }
+
+    
+        function addClusterTagField() {
+            const tagContainer = document.getElementById('cluster-tag-container');
+            const tagInput = document.createElement('div');
+            tagInput.className = 'cluster-tag-input tag-input-group';
+            tagInput.innerHTML = `
+                <input type="text" class="cluster-tag-key" placeholder="Key" required>
+                <input type="text" class="cluster-tag-value" placeholder="Value" required>
+                <button type="button" onclick="removeClusterTagField(this)">-</button>
+            `;
+            tagContainer.appendChild(tagInput);
+        }
+    
+        function removeClusterTagField(button) {
+            button.parentElement.remove();
+        }
+    
+        function postCluster() {
+            const connConfig = document.getElementById('connConfig').value;
+            const selectedSubnets = Array.from(document.getElementById('subnetSelect').selectedOptions).map(option => option.value);
+            const selectedKeyPair = document.getElementById('keyPairSelect').value;
+
+            const securityGroupName = document.getElementById('securityGroupSelect').value;
+            const securityGroupArray = securityGroupName ? [securityGroupName] : [];
+
+            let nodeGroupList = [];
+            const nodeGroupFieldset = document.querySelector('.node-group-fieldset');
+
+            if (nodeGroupFieldset.style.display !== 'none') {
+                const nodeGroupInfo = {
+                    Name: document.getElementById('nodeGroupName').value,
+                    ImageName: document.getElementById('imageName').value,
+                    VMSpecName: document.getElementById('vmSpecName').value,
+                    RootDiskType: document.getElementById('rootDiskType').value,
+                    RootDiskSize: document.getElementById('rootDiskSize').value,
+                    KeyPairName: selectedKeyPair,
+                    OnAutoScaling: document.getElementById('onAutoScaling').value,
+                    DesiredNodeSize: document.getElementById('desiredNodeSize').value,
+                    MinNodeSize: document.getElementById('minNodeSize').value,
+                    MaxNodeSize: document.getElementById('maxNodeSize').value
+                };
+                nodeGroupList = [nodeGroupInfo];
+            }
+
+            const tagList = Array.from(document.querySelectorAll('.cluster-tag-input')).map(tagInput => ({
+                Key: tagInput.querySelector('.cluster-tag-key').value.trim(),
+                Value: tagInput.querySelector('.cluster-tag-value').value.trim()
+            }));
+
+            const selectedVPCText = document.getElementById('vpcSelect').options[document.getElementById('vpcSelect').selectedIndex].text.split(' ')[0];
+
+            const clusterData = {
+                ConnectionName: connConfig,
+                ReqInfo: {
+                    Name: document.getElementById('clusterName').value,
+                    Version: document.getElementById('clusterVersion').value,
+                    VPCName: selectedVPCText,
+                    SubnetNames: selectedSubnets,
+                    SecurityGroupNames: securityGroupArray,
+                    NodeGroupList: nodeGroupList,
+                    Addons: [],
+                    TagList: tagList
+                }
+            };
+
+            fetchWithProgress('/spider/cluster', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(clusterData)
+            }).then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => { throw new Error(error.message); });
+                }
+                return response.json();
+            }).then(() => {
+                hideOverlay();
+                location.reload();
+            }).catch(error => {
+                showError(`Error adding cluster: ${error.message}`, "Cluster Creation Error");
+            });
+        }
+
+        function showError(message, title) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            const formattedMessage = message.split('.').join('.<br>');
+            errorDiv.innerHTML = `<p>${title}</p><p>${formattedMessage}</p><button onclick="closeError()">OK</button>`;
+            document.body.appendChild(errorDiv);
+            document.addEventListener('keydown', handleEscError);
+        }
+
+        function closeError() {
+            const errorDiv = document.querySelector('.error-message');
+            if (errorDiv) {
+                errorDiv.remove();
+                document.removeEventListener('keydown', handleEscError);
+            }
+        }
+
+        function handleEscError(event) {
+            if (event.key === "Escape") {
+                closeError();
+            }
+        }
+    
+        document.addEventListener("DOMContentLoaded", function() {
+            const minInput = document.getElementById('minNodeSize');
+            const desiredInput = document.getElementById('desiredNodeSize');
+            const maxInput = document.getElementById('maxNodeSize');
+    
+            // Function to handle input changes and enforce constraints
+            function handleNodeSizeChange() {
+                const minVal = parseInt(minInput.value);
+                const desiredVal = parseInt(desiredInput.value);
+                const maxVal = parseInt(maxInput.value);
+    
+                // Ensure min <= desired <= max
+                if (desiredVal < minVal) {
+                    desiredInput.value = minVal;
+                }
+                if (desiredVal > maxVal) {
+                    desiredInput.value = maxVal;
+                }
+                if (minVal > desiredVal) {
+                    minInput.value = desiredVal;
+                }
+                if (maxVal < desiredVal) {
+                    maxInput.value = desiredVal;
+                }
+            }
+    
+            // Add event listeners to update on user input
+            minInput.addEventListener('change', handleNodeSizeChange);
+            desiredInput.addEventListener('change', handleNodeSizeChange);
+            maxInput.addEventListener('change', handleNodeSizeChange);
+        });
+    
+        function loadVPCs(connConfig) {
+            fetchWithProgress(`/spider/vpc?ConnectionName=${connConfig}`)
+                .then(response => response.json())
+                .then(data => {
+                    const vpcSelect = document.getElementById('vpcSelect');
+                    vpcSelect.innerHTML = ''; 
+
+                    if (data.vpc && data.vpc.length > 0) {
+                        data.vpc.forEach(vpc => {
+                            const option = document.createElement('option');
+                            option.value = JSON.stringify(vpc.SubnetInfoList);
+                            option.textContent = `${vpc.IId.NameId} (${vpc.IPv4_CIDR})`;
+                            vpcSelect.appendChild(option);
+                        });
+                        
+                        updateSubnets();
+                    } else {
+                        vpcSelect.innerHTML = '<option>No VPCs found.</option>';
+                    }
+                })
+                .catch(error => console.error('Error loading VPCs:', error));
+        }
+    
+        function updateSubnets() {
+            const vpcSelect = document.getElementById('vpcSelect');
+            const selectedVpcSubnets = JSON.parse(vpcSelect.value);
+            const subnetSelect = document.getElementById('subnetSelect');
+            subnetSelect.innerHTML = '';
+
+            if (selectedVpcSubnets && selectedVpcSubnets.length > 0) {
+                selectedVpcSubnets.forEach(subnet => {
+                    const option = document.createElement('option');
+                    option.value = subnet.IId.NameId;
+                    option.textContent = `${subnet.IId.NameId} (${subnet.IPv4_CIDR}, Zone: ${subnet.Zone})`;
+                    subnetSelect.appendChild(option);
+                });
+            } else {
+                subnetSelect.innerHTML = '<option>No subnets available for this VPC.</option>';
+            }
+        }
+    
+        function loadSecurityGroups() {
+            const connConfig = document.getElementById('connConfig').value;
+            const securityGroupSelect = document.getElementById('securityGroupSelect');
+
+            if (!securityGroupSelect) {
+                console.error("Security Group select element not found.");
+                return;
+            }
+
+            fetchWithProgress(`/spider/securitygroup?ConnectionName=${connConfig}`)
+                .then(response => response.json())
+                .then(data => {
+                    securityGroupSelect.innerHTML = ''; // Clear the existing options
+
+                    if (data.securitygroup && data.securitygroup.length > 0) {
+                        data.securitygroup.forEach(sg => {
+                            const option = document.createElement('option');
+                            option.value = sg.IId.NameId;
+                            option.textContent = sg.IId.NameId;
+                            securityGroupSelect.appendChild(option);
+                        });
+                    } else {
+                        securityGroupSelect.innerHTML = '<option>No Security Groups found.</option>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading Security Groups:', error);
+                    securityGroupSelect.innerHTML = '<option>Error loading Security Groups</option>';
+                });
+        }
+    
+        function loadKeyPairs() {
+            const connConfig = document.getElementById('connConfig').value;
+            const keyPairSelect = document.getElementById('keyPairSelect');
+            
+            fetchWithProgress(`/spider/keypair?ConnectionName=${connConfig}`)
+                .then(response => response.json())
+                .then(data => {
+                    keyPairSelect.innerHTML = '';
+
+                    if (data.keypair && data.keypair.length > 0) {
+                        data.keypair.forEach(keypair => {
+                            const option = document.createElement('option');
+                            option.value = keypair.IId.NameId;
+                            option.textContent = keypair.IId.NameId;
+                            keyPairSelect.appendChild(option);
+                        });
+                        keyPairSelect.value = data.keypair[0].IId.NameId;
+                    } else {
+                        keyPairSelect.innerHTML = '<option>No KeyPairs available</option>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading KeyPairs:', error);
+                    keyPairSelect.innerHTML = '<option>Error loading KeyPairs</option>';
+                });
+        }
+
+
+        function showClusterDetailsOverlay(title, data) {
+            const overlay = document.getElementById('cluster-details-overlay');
+            const overlayContent = document.getElementById('cluster-details-overlay-content');
+
+            overlayContent.innerHTML = '';
+
+            const header = document.createElement('h3');
+            header.textContent = title;
+            overlayContent.appendChild(header);
+
+            // Create a table to display details
+            const detailsTable = document.createElement('table');
+            detailsTable.classList.add('details-table');
+
+            if (title === 'Network Info') {
+                const vpcRow = document.createElement('tr');
+                vpcRow.innerHTML = `<th>VPC</th><td>${data.vpc}</td>`;
+                detailsTable.appendChild(vpcRow);
+
+                const subnetsRow = document.createElement('tr');
+                subnetsRow.innerHTML = `<th>Subnets</th><td>${data.subnets.join(', ')}</td>`;
+                detailsTable.appendChild(subnetsRow);
+
+                const securityGroupsRow = document.createElement('tr');
+                securityGroupsRow.innerHTML = `<th>Security Groups</th><td>${data.securityGroups.join(', ')}</td>`;
+                detailsTable.appendChild(securityGroupsRow);
+            } else if (title === 'Access Info') {
+                const endpointRow = document.createElement('tr');
+                endpointRow.innerHTML = `<th>Endpoint</th><td>${data.endpoint}</td>`;
+                detailsTable.appendChild(endpointRow);
+
+                const kubeconfigRow = document.createElement('tr');
+                kubeconfigRow.innerHTML = `
+                    <th>Kubeconfig (YAML)</th>
+                    <td>
+                        <div style="max-height: 200px; overflow: auto; padding: 5px; border: 1px solid #ccc;">
+                            <pre class="kubeconfig-yaml" style="white-space: pre-wrap; word-wrap: break-word;">${data.kubeconfig}</pre>
+                        </div>
+                        <button class="copy-icon-btn" onclick="copyKubeconfigToClipboard(this)">📋</button>
+                    </td>`;
+                detailsTable.appendChild(kubeconfigRow);
+            }
+
+            overlayContent.appendChild(detailsTable);
+
+            // Show overlay
+            overlay.style.display = 'flex';
+
+            const closeButton = document.createElement('button');
+            closeButton.textContent = '✖';
+            closeButton.classList.add('details-overlay-close-btn');
+            closeButton.onclick = closeClusterDetailsOverlay;
+            overlayContent.appendChild(closeButton);
+        }
+
+        function showNodeGroupDetails(clusterName, nodeGroupName) {
+            const clusters = {{.Clusters}};
+
+            const selectedCluster = clusters.find(cluster => cluster.IId.NameId === clusterName);
+            if (!selectedCluster) {
+                alert("Cluster not found.");
+                return;
+            }
+
+            const selectedNodeGroup = selectedCluster.NodeGroupList.find(nodeGroup => nodeGroup.IId.NameId === nodeGroupName);
+            if (!selectedNodeGroup) {
+                alert("NodeGroup not found.");
+                return;
+            }
+
+            const overlay = document.getElementById('cluster-details-overlay');
+            const overlayContent = document.getElementById('cluster-details-overlay-content');
+
+            overlayContent.innerHTML = '';
+
+            const header = document.createElement('h3');
+            header.textContent = `NodeGroup: ${selectedNodeGroup.IId.NameId}`;
+            overlayContent.appendChild(header);
+
+            const detailsTable = document.createElement('table');
+            detailsTable.classList.add('details-table');
+
+            const rows = [
+                { label: "Image", value: selectedNodeGroup.ImageIID.NameId },
+                { label: "VM Spec", value: selectedNodeGroup.VMSpecName },
+                { label: "Key Pair", value: selectedNodeGroup.KeyPairIID.NameId },
+                { label: "Root Disk Type", value: selectedNodeGroup.RootDiskType },
+                { label: "Root Disk Size", value: `${selectedNodeGroup.RootDiskSize} GB` },
+                { label: "Auto-scaling", value: selectedNodeGroup.OnAutoScaling ? "Enabled" : "Disabled" },
+                { label: "Status", value: selectedNodeGroup.Status },
+                { label: "Min Node Size", value: selectedNodeGroup.MinNodeSize },
+                { label: "Desired Node Size", value: selectedNodeGroup.DesiredNodeSize },
+                { label: "Max Node Size", value: selectedNodeGroup.MaxNodeSize }
+            ];
+
+            rows.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<th>${row.label}</th><td>${row.value}</td>`;
+                detailsTable.appendChild(tr);
+            });
+
+            // Add Node List with links
+            if (selectedNodeGroup.Nodes && selectedNodeGroup.Nodes.length > 0) {
+                const nodeListRow = document.createElement('tr');
+                const nodeList = selectedNodeGroup.Nodes.map(node => 
+                    `<a href="javascript:void(0);" onclick="showNodeDetails('${selectedCluster.IId.NameId}', '${selectedNodeGroup.IId.NameId}', '${node.SystemId}')">${node.SystemId}</a>`
+                ).join(', ');
+                nodeListRow.innerHTML = `<th>Nodes</th><td>${nodeList}</td>`;
+                detailsTable.appendChild(nodeListRow);
+            } else {
+                const noNodesRow = document.createElement('tr');
+                noNodesRow.innerHTML = `<th>Nodes</th><td>No nodes available</td>`;
+                detailsTable.appendChild(noNodesRow);
+            }
+
+            overlayContent.appendChild(detailsTable);
+            overlay.style.display = 'flex';
+
+            const closeButton = document.createElement('button');
+            closeButton.textContent = '✖';
+            closeButton.classList.add('details-overlay-close-btn');
+            closeButton.onclick = closeClusterDetailsOverlay;
+            overlayContent.appendChild(closeButton);
+        }
+
+        function showNodeDetails(clusterName, nodeGroupName, nodeSystemId) {
+            const connConfig = document.getElementById('connConfig').value;
+
+            // Fetch node details using the provided SystemId
+            fetchWithProgress(`/spider/cspvm/${nodeSystemId}?ConnectionName=${connConfig}`)
+                .then(response => response.json())
+                .then(node => {
+                    const overlay = document.getElementById('cluster-details-overlay');
+                    const overlayContent = document.getElementById('cluster-details-overlay-content');
+                    overlayContent.innerHTML = '';
+
+                    const header = document.createElement('h3');
+                    header.textContent = `Node: ${node.IId.SystemId}`;
+                    overlayContent.appendChild(header);
+
+                    const detailsTable = document.createElement('table');
+                    detailsTable.classList.add('details-table');
+
+                    // Add each row of information from the provided node data
+                    const rows = [
+                        { label: "Node Name", value: node.IId.NameId || 'N/A' },
+                        { label: "System ID", value: node.IId.SystemId },
+                        { label: "Start Time", value: node.StartTime },
+                        { label: "Region", value: node.Region.Region },
+                        { label: "Zone", value: node.Region.Zone },
+                        { label: "Image ID", value: node.ImageIId.NameId || node.ImageIId.SystemId },
+                        { label: "VM Spec Name", value: node.VMSpecName },
+                        { label: "VPC ID", value: node.VpcIID.SystemId },
+                        { label: "Subnet ID", value: node.SubnetIID.SystemId },
+                        { label: "Security Groups", value: node.SecurityGroupIIds.map(sg => sg.NameId).join(', ') },
+                        { label: "Key Pair", value: node.KeyPairIId.NameId },
+                        { label: "Root Disk Type", value: node.RootDiskType },
+                        { label: "Root Disk Size (GB)", value: node.RootDiskSize },
+                        { label: "Root Device Name", value: node.RootDeviceName },
+                        { label: "Block Disk", value: node.VMBlockDisk },
+                        { label: "Network Interface", value: node.NetworkInterface },
+                        { label: "Public IP", value: node.PublicIP || 'N/A' },
+                        { label: "Private IP", value: node.PrivateIP },
+                        { label: "Private DNS", value: node.PrivateDNS || 'N/A' },
+                        { label: "Platform", value: node.Platform },
+                        { label: "Access Point", value: node.AccessPoint || 'N/A' },
+                    ];
+
+                    rows.forEach(row => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `<th>${row.label}</th><td>${row.value}</td>`;
+                        detailsTable.appendChild(tr);
+                    });
+
+                    // Display TagList information if available
+                    if (node.TagList && node.TagList.length > 0) {
+                        const tagListRow = document.createElement('tr');
+                        const tags = node.TagList.map(tag => `${tag.Key}: ${tag.Value}`).join('<br>');
+                        tagListRow.innerHTML = `<th>Tags</th><td>${tags}</td>`;
+                        detailsTable.appendChild(tagListRow);
+                    }
+
+                    // Display KeyValueList information if available
+                    if (node.KeyValueList && node.KeyValueList.length > 0) {
+                        const keyValueListRow = document.createElement('tr');
+                        const keyValues = node.KeyValueList.map(kv => `${kv.Key}: ${kv.Value}`).join('<br>');
+                        keyValueListRow.innerHTML = `<th>Key-Value Pairs</th><td>${keyValues}</td>`;
+                        detailsTable.appendChild(keyValueListRow);
+                    }
+
+                    overlayContent.appendChild(detailsTable);
+                    overlay.style.display = 'flex';
+
+                    const closeButton = document.createElement('button');
+                    closeButton.textContent = '✖';
+                    closeButton.classList.add('details-overlay-close-btn');
+                    closeButton.onclick = closeClusterDetailsOverlay;
+                    overlayContent.appendChild(closeButton);
+                })
+                .catch(error => {
+                    alert(`Error loading node details: ${error.message}`);
+                });
+        }
+
+        function closeClusterDetailsOverlay() {
+            const overlay = document.getElementById('cluster-details-overlay');
+            overlay.style.display = 'none';
+        }
+
+
+        function closeNodeGroupOverlay() {
+            document.getElementById('nodeGroupOverlay').style.display = 'none';
+        }
+
+        // Function to delete a NodeGroup
+        function deleteNodeGroup(clusterName, nodeGroupName) {
+            if (!confirm(`Are you sure you want to delete the NodeGroup: ${nodeGroupName}?`)) return;
+
+            const data = { ConnectionName: "{{.ConnectionConfig}}" };
+
+            fetchWithProgress(`/spider/cluster/${clusterName}/nodegroup/${nodeGroupName}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => { throw new Error(error.message); });
+                }
+                return response.json();
+            })
+            .then(() => {
+                alert('NodeGroup deleted successfully.');
+                location.reload();
+            })
+            .catch(error => {
+                alert('Error: ' + error.message);
+            });
+        }
+
+
+        function closeClusterDetailsOverlay() {
+            const overlay = document.getElementById('cluster-details-overlay');
+            overlay.style.display = 'none';
+        }
+
+        function copyKubeconfigToClipboard(button) {
+            const kubeconfigText = button.previousElementSibling.textContent; // Grab the kubeconfig value
+            const tempInput = document.createElement('textarea'); // Use textarea to handle multi-line text
+            document.body.appendChild(tempInput);
+            tempInput.value = kubeconfigText; // Set its value to the kubeconfig YAML text
+            tempInput.select(); // Select the text
+            document.execCommand('copy'); // Execute the copy command
+            document.body.removeChild(tempInput); // Remove the temporary input element            
+        }
+
+        let selectedClusterName = '';
+
+        function showNewNodeGroupOverlay(clusterName) {
+            selectedClusterName = clusterName;
+
+            const nodeGroupNameInput = document.getElementById('newNodeGroupName');
+            nodeGroupNameInput.value = `nodegroup-${Math.random().toString(36).substring(2, 5)}`;
+
+            const imageNameInput = document.getElementById('newImageName');
+            imageNameInput.value = '';
+
+            const vmSpecNameInput = document.getElementById('newVmSpecName');
+            const rootDiskTypeInput = document.getElementById('newRootDiskType');
+            const rootDiskSizeInput = document.getElementById('newRootDiskSize');
+            const connConfig = document.getElementById('connConfig').value;
+
+            // Setting the VM Spec and Root Disk Type based on CSP
+            getCSPInfo(connConfig).then(providerName => {
+                if (providerName.toUpperCase() === 'ALIBABA') {
+                    vmSpecNameInput.value = 'ecs.g6.large';
+                    rootDiskTypeInput.value = 'cloud_ssd';
+                } else if (providerName.toUpperCase() === 'TENCENT') {
+                    vmSpecNameInput.value = 'S5.MEDIUM4';
+                } else if (providerName.toUpperCase() === 'AZURE') {
+                    vmSpecNameInput.value = 'Standard_B2s';
+                } else if (providerName.toUpperCase() === 'GCP') {
+                    vmSpecNameInput.value = 'e2-standard-4';
+                } else if (providerName.toUpperCase() === 'NHNCLOUD') {
+                    vmSpecNameInput.value = 'r2.c4m16';
+                }
+
+                // Default values for root disk
+                rootDiskTypeInput.value = rootDiskTypeInput.value || 'default';
+                rootDiskSizeInput.value = 60;
+            });
+
+            const autoScalingSelect = document.getElementById('newOnAutoScaling');
+            autoScalingSelect.value = 'true';
+
+            document.getElementById('newMinNodeSize').value = 1;
+            document.getElementById('newDesiredNodeSize').value = 2;
+            document.getElementById('newMaxNodeSize').value = 3;
+
+            loadNewNodeGroupKeyPairs();
+
+            const overlay = document.getElementById('overlayNewNodeGroup');
+            overlay.style.display = 'flex';
+
+            document.addEventListener('keydown', handleEscNewNodeGroup);
+        }
+
+
+        function loadNewNodeGroupKeyPairs() {
+            const connConfig = document.getElementById('connConfig').value;
+            const keyPairSelect = document.getElementById('newKeyPairSelect');
+
+            fetchWithProgress(`/spider/keypair?ConnectionName=${connConfig}`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                keyPairSelect.innerHTML = '';
+
+                if (data.keypair && data.keypair.length > 0) {
+                    data.keypair.forEach(keypair => {
+                        const option = document.createElement('option');
+                        option.value = keypair.IId.NameId;
+                        option.textContent = keypair.IId.NameId;
+                        keyPairSelect.appendChild(option);
+                    });
+                    keyPairSelect.value = data.keypair[0].IId.NameId;
+                } else {
+                    keyPairSelect.innerHTML = '<option>No KeyPairs found.</option>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading KeyPairs:', error);
+                keyPairSelect.innerHTML = '<option>Error loading KeyPairs</option>';
+            });
+        }
+
+        function hideNewNodeGroupOverlay() {
+            const overlay = document.getElementById('overlayNewNodeGroup');
+            overlay.style.display = 'none';
+            document.removeEventListener('keydown', handleEscNewNodeGroup);
+        }
+
+        function handleEscNewNodeGroup(event) {
+            if (event.key === "Escape") {
+                hideNewNodeGroupOverlay();
+            }
+        }
+
+        function postNewNodeGroup() {
+            const nodeGroupData = {
+                Name: document.getElementById('newNodeGroupName').value,
+                ImageName: document.getElementById('newImageName').value,
+                VMSpecName: document.getElementById('newVmSpecName').value,
+                RootDiskType: document.getElementById('newRootDiskType').value,
+                RootDiskSize: document.getElementById('newRootDiskSize').value,
+                KeyPairName: document.getElementById('newKeyPairSelect').value,
+                OnAutoScaling: document.getElementById('newOnAutoScaling').value,
+                DesiredNodeSize: document.getElementById('newDesiredNodeSize').value,
+                MinNodeSize: document.getElementById('newMinNodeSize').value,
+                MaxNodeSize: document.getElementById('newMaxNodeSize').value,
+            };
+
+            const requestBody = {
+                ConnectionName: "{{.ConnectionConfig}}",
+                ReqInfo: nodeGroupData
+            };
+
+            // Progress bar 시작
+            fetchWithProgress(`/spider/cluster/${selectedClusterName}/nodegroup`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(requestBody)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => { throw new Error(error.message); });
+                }
+                return response.json();
+            })
+            .then(() => {
+                hideNewNodeGroupOverlay();
+                location.reload();
+            })
+            .catch(error => {
+                alert('Error: ' + error.message);
+            });
+        }
+
+
+
+        document.addEventListener("DOMContentLoaded", function() {
+            const addButtons = document.querySelectorAll('.add-nodegroup-btn');
+            addButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const clusterName = button.getAttribute('data-cluster-name');
+                    showNewNodeGroupOverlay(clusterName);
+                });
+            });
+        });
+
+
+        function showSystemIdOverlay(systemId) {
+            const overlay = document.getElementById('system-id-overlay');
+            const fullSystemIdElement = document.getElementById('fullSystemId');
+            fullSystemIdElement.textContent = systemId;
+
+            overlay.style.display = 'block';
+            document.addEventListener('keydown', handleEscSystemIdOverlay);
+        }
+
+        function closeSystemIdOverlay() {
+            const overlay = document.getElementById('system-id-overlay');
+            overlay.style.display = 'none';
+            document.removeEventListener('keydown', handleEscSystemIdOverlay);
+        }
+
+        function handleEscSystemIdOverlay(event) {
+            if (event.key === "Escape") {
+                closeSystemIdOverlay();
+            }
+        }
+
+        function copySystemId() {
+            const fullSystemIdElement = document.getElementById('fullSystemId');
+            const range = document.createRange();
+            range.selectNode(fullSystemIdElement);
+            const selection = window.getSelection();
+
+            selection.removeAllRanges();
+            selection.addRange(range);
+
+            try {
+                document.execCommand('copy');
+                closeSystemIdOverlay();
+            } catch (err) {
+                console.error('Error copying SystemId: ', err);
+            }
+
+            selection.removeAllRanges();
+        }
+        
+    </script>
+    
+</body>
+</html>

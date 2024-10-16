@@ -10,24 +10,25 @@
 package resources
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/server"
+
 	// "github.com/davecgh/go-spew/spew"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	keycommon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	keycommon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 )
 
 type NcpKeyPairHandler struct {
-	CredentialInfo 		idrv.CredentialInfo
-	RegionInfo     		idrv.RegionInfo
-	VMClient         	*server.APIClient
+	CredentialInfo idrv.CredentialInfo
+	RegionInfo     idrv.RegionInfo
+	VMClient       *server.APIClient
 }
 
 func (keyPairHandler *NcpKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
@@ -54,7 +55,7 @@ func (keyPairHandler *NcpKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 		for _, keyPair := range result.LoginKeyList {
 			keyPairInfo := MappingKeyPairInfo(keyPair)
 			keyPairList = append(keyPairList, &keyPairInfo)
-		}	
+		}
 		return keyPairList, nil
 	} else {
 		return nil, errors.New("Failed to Find KeyPairList!!")
@@ -67,7 +68,7 @@ func (keyPairHandler *NcpKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	InitLog()
 	callLogInfo := GetCallLogScheme(keyPairHandler.RegionInfo.Zone, call.VMKEYPAIR, keyPairReqInfo.IId.NameId, "CreateKey()")
 
-	strList:= []string{
+	strList := []string{
 		keyPairHandler.CredentialInfo.ClientId,
 		keyPairHandler.CredentialInfo.ClientSecret,
 	}
@@ -92,7 +93,7 @@ func (keyPairHandler *NcpKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 		return irs.KeyPairInfo{}, newErr
 	}
 	LoggingInfo(callLogInfo, callLogStart)
-	cblogger.Infof("(# result.ReturnMessage : %s ", ncloud.StringValue(result.ReturnMessage))		
+	cblogger.Infof("(# result.ReturnMessage : %s ", ncloud.StringValue(result.ReturnMessage))
 
 	// Create PublicKey from PrivateKey
 	publicKey, makePublicKeyErr := keycommon.MakePublicKeyFromPrivateKey(*result.PrivateKey)
@@ -125,9 +126,9 @@ func (keyPairHandler *NcpKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 	keyPairInfo := irs.KeyPairInfo{
 		IId:         irs.IID{NameId: keyPairReqInfo.IId.NameId, SystemId: keyPairReqInfo.IId.NameId},
 		Fingerprint: resultKey.Fingerprint,
-		PublicKey:   publicKey, 		 // Generated above. Show only when KeyPair Creation.
+		PublicKey:   publicKey,          // Generated above. Show only when KeyPair Creation.
 		PrivateKey:  *result.PrivateKey, // Show only when KeyPair Creation.
-		VMUserID: 	 lnxUserName,
+		VMUserID:    lnxUserName,
 	}
 	return keyPairInfo, nil
 }
@@ -146,7 +147,7 @@ func (keyPairHandler *NcpKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 	}
 
 	keypairReq := server.GetLoginKeyListRequest{ // server.GetLoginKey~~~
-		KeyName: ncloud.String(keyNameId), 	// Caution!!
+		KeyName: ncloud.String(keyNameId), // Caution!!
 	}
 	callLogStart := call.Start()
 	result, err := keyPairHandler.VMClient.V2Api.GetLoginKeyList(&keypairReq)
@@ -181,7 +182,7 @@ func (keyPairHandler *NcpKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error)
 	cblogger.Infof("KeyPairName to Delete : [%s]", keyNameId)
 	// Delete the key pair by key 'Name'
 
-	strList:= []string{
+	strList := []string{
 		keyPairHandler.CredentialInfo.ClientId,
 		keyPairHandler.CredentialInfo.ClientSecret,
 	}
@@ -234,14 +235,14 @@ func MappingKeyPairInfo(NcpKeyPairList *server.LoginKey) irs.KeyPairInfo {
 
 	// Note) NCP Key does not have SystemId, so the unique NameId value is also applied to the SystemId
 	keyPairInfo := irs.KeyPairInfo{
-		IId:         irs.IID{
-			NameId:   *NcpKeyPairList.KeyName, 
+		IId: irs.IID{
+			NameId:   *NcpKeyPairList.KeyName,
 			SystemId: *NcpKeyPairList.KeyName,
 		},
-		Fingerprint:  *NcpKeyPairList.Fingerprint,
-		PublicKey:    "N/A",
-		PrivateKey:   "N/A",
-		VMUserID: 	  lnxUserName,
+		Fingerprint: *NcpKeyPairList.Fingerprint,
+		PublicKey:   "N/A",
+		PrivateKey:  "N/A",
+		VMUserID:    lnxUserName,
 	}
 
 	keyValueList := []irs.KeyValue{
@@ -249,4 +250,9 @@ func MappingKeyPairInfo(NcpKeyPairList *server.LoginKey) irs.KeyPairInfo {
 	}
 	keyPairInfo.KeyValueList = keyValueList
 	return keyPairInfo
+}
+
+func (keyPairHandler *NcpKeyPairHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

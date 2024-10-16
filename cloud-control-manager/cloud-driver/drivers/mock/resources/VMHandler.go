@@ -626,3 +626,22 @@ func diskDetach(mockName string, iid irs.IID, diskIID irs.IID) (bool, error) {
 	cblogger.Error(errMSG)
 	return false, fmt.Errorf(errMSG)
 }
+
+func (vmHandler *MockVMHandler) ListIID() ([]*irs.IID, error) {
+	cblogger := cblog.GetLogger("CB-SPIDER")
+	cblogger.Info("AWS Driver: called ListIID()!")
+
+	// get VM list
+	vmList, err := vmHandler.ListVM()
+	if err != nil {
+		cblogger.Error(err)
+		return []*irs.IID{}, err
+	}
+
+	iidList := []*irs.IID{}
+	for _, vm := range vmList {
+		iidList = append(iidList, &vm.IId)
+	}
+
+	return iidList, nil
+}

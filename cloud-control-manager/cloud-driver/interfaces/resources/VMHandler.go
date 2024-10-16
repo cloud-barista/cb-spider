@@ -42,7 +42,7 @@ type VMReqInfo struct {
 	KeyPairIID IID
 
 	RootDiskType string // "", "SSD(gp2)", "Premium SSD", ...
-	RootDiskSize string // "", "default", "50", "1000" (GB)
+	RootDiskSize string // "", "default", "50", "1000" (unit is GB)
 
 	DataDiskIIDs []IID
 
@@ -54,11 +54,14 @@ type VMReqInfo struct {
 }
 
 type VMStatusInfo struct {
-	IId      IID // {NameId, SystemId}
-	VmStatus VMStatus
+	IId      IID      `json:"IId" validate:"required" example:"` // {NameId: 'vm-01', SystemId: 'i-12345678'}"
+	VmStatus VMStatus `json:"VmStatus" validate:"required" example:"Running"`
 }
 
-// GO do not support Enum. So, define like this.
+// VMStatus represents the possible statuses of a VM.
+// @description The status of a Virtual Machine (VM).
+// @enum string
+// @enum values [Creating, Running, Suspending, Suspended, Resuming, Rebooting, Terminating, Terminated, NotExist, Failed]
 type VMStatus string
 
 const (
@@ -79,52 +82,54 @@ const (
 )
 
 type RegionInfo struct {
-	Region string
-	Zone   string
+	Region string `json:"Region" validate:"required" example:"us-east-1"`
+	Zone   string `json:"Zone,omitempty" validate:"omitempty" example:"us-east-1a"`
 }
 
 type VMInfo struct {
-	IId       IID       // {NameId, SystemId}
-	StartTime time.Time // Timezone: based on cloud-barista server location.
+	IId       IID       `json:"IId" validate:"required"`                                      // example:"{NameId: 'vm-01', SystemId: 'i-12345678'}"
+	StartTime time.Time `json:"StartTime" validate:"required" example:"2024-08-27T10:00:00Z"` // Timezone: based on cloud-barista server location.
 
-	Region            RegionInfo //  ex) {us-east1, us-east1-c} or {ap-northeast-2}
-	ImageType         ImageType  // PublicImage | MyImage
-	ImageIId          IID
-	VMSpecName        string //  instance type or flavour, etc... ex) t2.micro or f1.micro
-	VpcIID            IID
-	SubnetIID         IID   // AWS, ex) subnet-8c4a53e4
-	SecurityGroupIIds []IID // AWS, ex) sg-0b7452563e1121bb6
+	Region            RegionInfo `json:"Region" validate:"required"`                          // example:"{Region: 'us-east-1', Zone: 'us-east-1a'}"
+	ImageType         ImageType  `json:"ImageType" validate:"required" example:"PublicImage"` // PublicImage | MyImage
+	ImageIId          IID        `json:"ImageIId" validate:"required"`                        // example:"{NameId: 'ami-12345678', SystemId: 'ami-12345678'}"
+	VMSpecName        string     `json:"VMSpecName" validate:"required" example:"t2.micro"`   // instance type or flavour, etc... ex) t2.micro or f1.micro
+	VpcIID            IID        `json:"VpcIID" validate:"required"`                          // example:"{NameId: 'vpc-01', SystemId: 'vpc-12345678'}"
+	SubnetIID         IID        `json:"SubnetIID" validate:"required"`                       // example:"{NameId: 'subnet-01', SystemId: 'subnet-12345678'}"
+	SecurityGroupIIds []IID      `json:"SecurityGroupIIds" validate:"required"`               // example:"[{NameId: 'sg-01', SystemId: 'sg-12345678'}]"
 
-	KeyPairIId IID
+	KeyPairIId IID `json:"KeyPairIId" validate:"required"` // example:"{NameId: 'keypair-01', SystemId: 'keypair-12345678'}"
 
-	RootDiskType   string // "SSD(gp2)", "Premium SSD", ...
-	RootDiskSize   string // "default", "50", "1000" (GB)
-	RootDeviceName string // "/dev/sda1", ...
+	RootDiskType   string `json:"RootDiskType" validate:"required" example:"gp2"`         // "gp2", "Premium SSD", ...
+	RootDiskSize   string `json:"RootDiskSize" validate:"required" example:"50"`          // "default", "50", "1000" (unit is GB)
+	RootDeviceName string `json:"RootDeviceName" validate:"required" example:"/dev/sda1"` // "/dev/sda1", ...
 
-	DataDiskIIDs []IID
+	DataDiskIIDs []IID `json:"DataDiskIIDs,omitempty" validate:"omitempty"` // example:"[{NameId: 'datadisk-01', SystemId: 'datadisk-12345678'}]"
 
-	VMBootDisk  string // Deprecated soon
-	VMBlockDisk string // Deprecated soon
+	VMBootDisk  string `json:"VMBootDisk,omitempty" validate:"omitempty" example:"/dev/sda1"`  // Deprecated soon
+	VMBlockDisk string `json:"VMBlockDisk,omitempty" validate:"omitempty" example:"/dev/sda2"` // Deprecated soon
 
-	VMUserId     string // ex) user1
-	VMUserPasswd string
+	VMUserId     string `json:"VMUserId" validate:"required" example:"cb-user"`                     // cb-user or Administrator
+	VMUserPasswd string `json:"VMUserPasswd,omitempty" validate:"omitempty" example:"password1234"` // Only for Windows
 
-	NetworkInterface string // ex) eth0
-	PublicIP         string
-	PublicDNS        string
-	PrivateIP        string
-	PrivateDNS       string
+	NetworkInterface string `json:"NetworkInterface" validate:"required" example:"eni-12345678"`
+	PublicIP         string `json:"PublicIP" validate:"required" example:"1.2.3.4"`
+	PublicDNS        string `json:"PublicDNS,omitempty" validate:"omitempty" example:"ec2-1-2-3-4.compute-1.amazonaws.com"`
+	PrivateIP        string `json:"PrivateIP" validate:"required" example:"192.168.1.1"`
+	PrivateDNS       string `json:"PrivateDNS,omitempty" validate:"omitempty" example:"ip-192-168-1-1.ec2.internal"`
 
-	Platform Platform // LINUX | WINDOWS
+	Platform Platform `json:"Platform" validate:"required" example:"LINUX"` // LINUX | WINDOWS
 
-	SSHAccessPoint string // ex) 10.2.3.2:22, 123.456.789.123:4321 ==> Deprecated
-	AccessPoint    string // ex) 10.2.3.2:22, 123.456.789.123:4321
+	SSHAccessPoint string `json:"SSHAccessPoint,omitempty" validate:"omitempty" example:"10.2.3.2:22"` // Deprecated
+	AccessPoint    string `json:"AccessPoint" validate:"required" example:"1.2.3.4:22"`                // 10.2.3.2:22, 123.456.789.123:432
 
-	TagList      []KeyValue
-	KeyValueList []KeyValue
+	TagList      []KeyValue `json:"TagList,omitempty" validate:"omitempty"`      // example:"[{Key: 'Name', Value: 'MyVM'}]"
+	KeyValueList []KeyValue `json:"KeyValueList,omitempty" validate:"omitempty"` // example:"[{Key: 'Architecture', Value: 'x86_64'}]"
 }
 
 type VMHandler interface {
+	ListIID() ([]*IID, error)
+
 	StartVM(vmReqInfo VMReqInfo) (VMInfo, error)
 
 	SuspendVM(vmIID IID) (VMStatus, error)

@@ -137,11 +137,13 @@ func (myImageHandler *TencentMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIm
 *
 TODO : CommonHandlerm에 DescribeImages, DescribeImageById, DescribeImageStatus 추가할 것.
 */
+
+// deprecated : web 위에서 호출할 때 spider에 저장된 MyImage IID 가지고 getMyImage()를 순환하여 호출하고 있음
 func (myImageHandler *TencentMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error) {
 	hiscallInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, "MyImage", "ListMyImage()")
 	start := call.Start()
 
-	imageTypes := []string{}
+	imageTypes := []string{"PRIVATE_IMAGE"}
 	myImageSet, err := DescribeImages(myImageHandler.Client, nil, imageTypes)
 	hiscallInfo.ElapsedTime = call.Elapsed(start)
 	if err != nil {
@@ -180,9 +182,9 @@ func (myImageHandler *TencentMyImageHandler) GetMyImage(myImageIID irs.IID) (irs
 	myImageInfo, myImageInfoErr := convertImageSetToMyImageInfo(&targetImage)
 	if myImageInfoErr != nil {
 		cblogger.Error(myImageInfoErr)
-		return irs.MyImageInfo{}, myImageInfoErr
-	}
 
+		return myImageInfo, nil
+	}
 	return myImageInfo, nil
 }
 
@@ -262,9 +264,29 @@ func convertImageSetToMyImageInfo(tencentImage *cvm.Image) (irs.MyImageInfo, err
 	returnMyImageInfo := irs.MyImageInfo{}
 
 	returnMyImageInfo.IId = irs.IID{NameId: *tencentImage.ImageName, SystemId: *tencentImage.ImageId}
-	returnMyImageInfo.SourceVM = irs.IID{SystemId: *tencentImage.Tags[0].Value}
 	returnMyImageInfo.CreatedTime, _ = time.Parse(time.RFC3339, *tencentImage.CreatedTime)
 	returnMyImageInfo.Status = convertTenStatusToImageStatus(*tencentImage.ImageState)
+
+	if len(tencentImage.Tags) == 0 {
+		return returnMyImageInfo, errors.New("No tag in " + *tencentImage.ImageName)
+	}
+
+	if tencentImage.Tags != nil {
+		var tagList []irs.KeyValue
+		for _, tag := range tencentImage.Tags {
+			//
+			if IMAGE_TAG_SOURCE_VM == *tag.Key {
+				returnMyImageInfo.SourceVM = irs.IID{SystemId: *tencentImage.Tags[0].Value} // MyImage의 경우 Vm의 정보가 myimage의 태그로 들어간다
+			} else {
+				tagList = append(tagList, irs.KeyValue{
+					Key:   *tag.Key,
+					Value: *tag.Value,
+				})
+			}
+		}
+		returnMyImageInfo.TagList = tagList
+	}
+
 	return returnMyImageInfo, nil
 }
 
@@ -361,4 +383,10 @@ func (myImageHandler *TencentMyImageHandler) CheckWindowsImage(myImageIID irs.II
 
 	return false, nil
 
+}
+
+
+func (ImageHandler *TencentMyImageHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

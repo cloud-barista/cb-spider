@@ -88,8 +88,8 @@
     }
     .tag-overlay .close-btn {
         position: absolute;
-        top: 5px;
-        right: 10px;
+        top: -10px;
+        right: -5px;
         background: none;
         border: none;
         font-size: 16px;
@@ -195,6 +195,7 @@
         flex: 2;
     }
     .tag-input-group input {
+        width: 100px;
         flex: 0.5;
         margin-right: 5px;
     }
@@ -234,6 +235,31 @@
     .tag-container:hover {
         background-color: #c1e1c1;
     }
+
+    .add-btn-container {
+        margin-top: 5px;
+    }
+    .add-btn-container .add-btn {
+        background-color: transparent;
+        font-size: 14px;
+        border: none;
+        color: blue;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+
+    .add-tag-overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        max-width: 300px;
+        word-wrap: break-word;
+        position: relative;
+    }
+
     .sg-name {
         width: 10%;
     }
@@ -241,7 +267,7 @@
         width: 10%;
     }
     .rules-info {
-        width: 40%;
+        width: 30%;
     }
     .tags {
         width: 15%;
@@ -289,9 +315,11 @@
     }
 
     .misc-overlay-content {
-        width: 100%;
-        height: 100%;
-        overflow-y: auto;
+        font-size: 14px;
+        width: 700px;
+        position: relative;
+        padding-top: 30px;
+        line-height: 1.5;
         white-space: pre-wrap;
     }
 
@@ -326,10 +354,12 @@
     .inner-table th {
         background-color: #f9f9f9;
         font-size: 12px;
+        padding: 2px;
         text-align: center;
     }
     .inner-table td {
         font-size: 12px;
+        padding: 2px;
         text-align: center;
     }
     .inner-table .actions-cell {
@@ -473,7 +503,311 @@
         z-index: 30;
     }
 
+    .desc-name-cell {
+        text-align: left;
+        font-size: 13px;
+        font-weight: bold;
+    }
+    .desc-name-cell .desc-system-id {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
+    }
+
+    .desc-system-id {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+
+    .system-id-overlay {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 50%;
+        max-width: 600px;
+        background-color: white;
+        border: 1px solid black;
+        padding: 20px;
+        z-index: 2000;
+        border-radius: 5px;
+    }
+
+    .system-id-overlay-content {
+        position: relative;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        word-wrap: break-word;
+    }
+
+    .system-id-overlay .close-btn {
+        position: absolute;
+        top: -15px;
+        right: -5px;
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+    }
+
+    .copy-btn {
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        margin-left: 10px;
+    }
+
 </style>
+</head>
+<body>
+    <div class="fixed-header">
+        <div class="header-container">
+            <img src="/spider/adminweb/images/left-menu/securitygroup.png" alt="SecurityGroup Icon">
+            <h1>SecurityGroup Management</h1>
+            <div class="searchContainer">
+                <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
+                <button id="clearSearch" onclick="clearSearchInput()">X</button>
+            </div>
+        </div>        
+        <div class="fixed-action-buttons">
+            <input type="checkbox" onclick="toggleSelectAll(this)">
+            <button onclick="deleteSelectedSecurityGroups()">Delete</button>
+        </div>
+    </div>
+    
+    <div class="content">
+        <div class="header-with-progress">
+            <button class="add-button" onclick="showOverlay()">+</button>
+            <div id="mockButtonsContainer" style="display: flex; align-items: center;"></div>
+            <div class="progress-bar-container" id="progressBarContainer">
+                <div class="progress-bar" id="progressBar"></div>
+                <span id="timeDisplay"></span>
+            </div>  
+        </div>
+        <table id="sg-table">
+            <tr>
+                <th class="column-num">#</th>
+                <th class="sg-name center-align">Name</th>
+                <th class="vpc-name center-align">VPC Name</th>
+                <th class="rules-info">Security Rules Info</th>
+                <th class="tags center-align">Tags</th>
+                <th class="misc center-align">Misc</th>
+                <th class="checkbox-cell center-align"><input type="checkbox" onclick="toggleSelectAll(this)"></th>
+            </tr>
+            {{range $index, $sg := .SecurityGroups}}
+            {{ $sgNameId := $sg.IId.NameId }}
+            <tr>
+                <td class="column-num">{{$index | inc}}</td>
+                <td class="sg-name desc-name-cell center-align">{{$sg.IId.NameId}}
+                    <span class="desc-system-id" onclick="showSystemIdOverlay('{{$sg.IId.SystemId}}')">
+                        &nbsp;• {{$sg.IId.SystemId}}
+                    </span>
+                </td>
+                <td class="vpc-name desc-name-cell center-align">
+                    {{$sg.VpcIID.NameId}}
+                    <span class="desc-system-id" onclick="showSystemIdOverlay('{{$sg.VpcIID.SystemId}}')">&nbsp;• {{$sg.VpcIID.SystemId}}
+                    </span>
+                </td>
+                <td class="rules-info">
+                    <table class="inner-table">
+                        <tr>
+                            <th class="protocol-column">Protocol</th>
+                            <th class="port-column">Port Range</th>
+                            <th class="direction-column">Direction</th>
+                            <th class="cidr-column">CIDR</th>
+                            <th class="actions-cell"><button class="add-btn" onclick="showRuleOverlay('{{$sgNameId}}')">add</button></th>
+                        </tr>
+                        {{range $ruleIndex, $rule := $sg.SecurityRules}}
+                        <tr>
+                            <td>{{$rule.IPProtocol}}</td>
+                            <td>{{$rule.FromPort}} ~ {{$rule.ToPort}}</td>
+                            <td>{{$rule.Direction}}</td>
+                            <td>{{$rule.CIDR}}</td>
+                            <td class="actions-cell">
+                                <button class="delete-btn" onclick="deleteRule('{{$sgNameId}}', {{$ruleIndex}})">del</button>
+                            </td>                            
+                        </tr>
+                        {{end}}
+                    </table>
+                </td>
+                <td class="tags">
+                    {{range $tag := $sg.TagList}}
+                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'SG', '{{$sgNameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                    {{end}}
+                    <div class="add-btn-container">
+                        <button class="add-btn" onclick="showAddTagOverlay('{{$sgNameId}}')">+</button>
+                    </div>
+                </td>                
+                <td class="misc misc-cell">
+                    <div class="misc-content">{{range $kv := $sg.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
+                    </div>
+                    <button class="more-btn" onclick="showMiscOverlay(this)">more...</button>
+                </td>                
+                
+                <td class="checkbox-cell center-align">
+                    <input type="checkbox" name="deleteCheckbox" value="{{$sg.IId.NameId}}">
+                </td>
+            </tr>
+            {{end}}
+            {{if not .SecurityGroups}}
+            <tr>
+                <td colspan="7" class="center-align">No SecurityGroups found for this connection.</td>
+            </tr>
+            {{end}}
+        </table>
+    </div>
+
+    <div id="overlay" class="overlay">
+        <div class="overlay-content">
+            <h2>Add New SecurityGroup</h2>
+            <form id="addSGForm" onsubmit="event.preventDefault(); postSecurityGroup();">
+                <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
+                <div id="sg-info-group">
+                    <h3>SecurityGroup Info:</h3>
+                    <div class="form-group">
+                        <label for="sgName">Name:</label>
+                        <input type="text" id="sgName" name="sgName" required style="width: 65%;">
+                    </div>
+                    <div class="form-group">
+                        <label for="vpcName">VPC Name:</label>
+                        <select id="vpcName" name="vpcName" required style="width: 65%;"></select>
+                    </div>
+                    <div style="margin-top: 20px;"></div>
+                    <h3>Security Rules Info:</h3>
+                    <div class="form-group">
+                        <label for="protocol">Protocol:</label>
+                        <select id="protocol" name="protocol" required style="background-color: #E6E6FA; width: 65%;">
+                            <option value="TCP">TCP</option>
+                            <option value="UDP">UDP</option>
+                            <option value="ICMP">ICMP</option>
+                            <option value="ALL">ALL</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="fromPort">From Port:</label>
+                        <input type="number" id="fromPort" name="fromPort" required min="1" max="65535" style="background-color: #F5F5DC; width: 70%;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="toPort">To Port:</label>
+                        <input type="number" id="toPort" name="toPort" required min="1" max="65535" style="background-color: #F5F5DC; width: 70%;">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="direction">Direction:</label>
+                        <div id="direction" style="display: flex; justify-content: center; align-items: center; width: 65%; background-color: #fee2e2; border-radius: 5px;">
+                            <label style="margin-right: 10px; flex: 1; text-align: center;">
+                                <input type="radio" name="direction" value="inbound" required checked> Inbound
+                            </label>
+                            <label style="flex: 1; text-align: center;">
+                                <input type="radio" name="direction" value="outbound" required> Outbound
+                            </label>
+                        </div>
+                    </div>                    
+
+                    <div class="form-group">
+                        <label for="cidr">CIDR:</label>
+                        <input type="text" id="cidr" name="cidr" value="0.0.0.0/0" required style="width: 65%;">
+                    </div>
+
+                    <div class="form-group" style="padding-left: 10px;">
+                        <label for="sgTags">Tags:</label>
+                        <div id="sg-tag-container"></div>
+                        <button type="button" onclick="addSGTagField()">+</button>
+                    </div>
+                </div>
+                <div style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+                    <label for="sgCount" style="margin-right: 5px;margin-left: 40px;">#:</label>
+                    <input type="number" id="sgCount" name="sgCount" class="sg-count" value="1" min="1" max="10" style="width: 50px; margin-right: 10px;">                
+                    <button type="submit">Add SecurityGroup</button>
+                    <button type="button" onclick="hideOverlay()" style="margin-left: 10px;">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="rule-overlay" class="overlay">
+        <div class="overlay-content">
+            <h2>Add New Security Rule</h2>
+            <form id="addRuleForm" onsubmit="event.preventDefault(); addRule();">
+                <input type="hidden" id="ruleSGName">
+                <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
+                <div class="form-group">
+                    <label for="ruleSGNameDisplay">SecurityGroup Name:</label>
+                    <input type="text" id="ruleSGNameDisplay" name="ruleSGNameDisplay" readonly>
+                </div>
+                <div class="form-group">
+                    <label for="addProtocol">Protocol:</label>
+                    <select id="addProtocol" name="addProtocol" required style="background-color: #E6E6FA; width: 65%;">
+                        <option value="TCP">TCP</option>
+                        <option value="UDP">UDP</option>
+                        <option value="ICMP">ICMP</option>
+                        <option value="ALL">ALL</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="addFromPort">From Port:</label>
+                    <input type="number" id="addFromPort" name="addFromPort" required min="1" max="65535" style="background-color: #F5F5DC; width: 70%;">
+                </div>
+                <div class="form-group">
+                    <label for="addToPort">To Port:</label>
+                    <input type="number" id="addToPort" name="addToPort" required min="1" max="65535" style="background-color: #F5F5DC; width: 70%;">
+                </div>
+                <div class="form-group">
+                    <label for="addDirection">Direction:</label>
+                    <div id="direction" style="display: flex; justify-content: center; align-items: center; width: 65%; background-color: #fee2e2; border-radius: 5px;">
+                        <label style="margin-right: 10px; flex: 1; text-align: center;">
+                            <input type="radio" name="addDirection" value="inbound" required checked> Inbound
+                        </label>
+                        <label style="flex: 1; text-align: center;">
+                            <input type="radio" name="addDirection" value="outbound" required> Outbound
+                        </label>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="addCidr">CIDR:</label>
+                    <input type="text" id="addCidr" name="addCidr" value="0.0.0.0/0" required style="width: 65%;">
+                </div>
+                <div class="form-group" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+                    <button type="submit">Add Rule</button>
+                    <button type="button" onclick="hideRuleOverlay()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="tag-overlay" class="tag-overlay">
+        <div class="tag-overlay-content"></div>
+    </div>
+
+    <div id="add-tag-overlay" class="overlay">
+        <div class="add-tag-overlay-content overlay-content"></div>
+    </div>
+
+    <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
+
+
+    <div id="system-id-overlay" class="system-id-overlay">
+        <div class="system-id-overlay-content">
+            <button class="close-btn" onclick="closeSystemIdOverlay()">x</button>
+            <h2>System ID (Managed by CSP)</h2>
+            <p id="fullSystemId"></p>
+            <button class="copy-btn" onclick="copySystemId()">📋</button>
+        </div>
+    </div>
+
+</body>
 <script>
     let currentProvider = '';
 
@@ -657,8 +991,14 @@
             return;
         }
 
+        const sgCount = parseInt(document.getElementById('sgCount').value);
+        if (sgCount > 1) {
+            if (!confirm(`Are you sure you want to create ${sgCount} Security Groups?`)) {
+                return;
+            }
+        }
+
         const connConfig = document.getElementById('connConfig').value;
-        const sgName = document.getElementById('sgName').value;
         const vpcName = document.getElementById('vpcName').value;
         const fromPort = document.getElementById('fromPort').value;
         const toPort = document.getElementById('toPort').value;
@@ -679,34 +1019,43 @@
             CIDR: cidr
         }];
 
-        const data = {
-            ConnectionName: connConfig,
-            ReqInfo: {
-                Name: sgName,
-                VPCName: vpcName,
-                SecurityRules: ruleInfo,
-                TagList: tags
-            }
-        };
+        const sgPromises = Array.from({ length: sgCount }).map((_, index) => {
+            const sgName = sgCount > 1 ? `${document.getElementById('sgName').value}-${index + 1}` : document.getElementById('sgName').value;
 
-        fetchWithProgress('/spider/securitygroup', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(data)
-        }).then(response => {
-            if (!response.ok) {
-                return response.json().then(error => {
-                    throw new Error(error.message);
-                });
-            }
-            return response.json();
-        }).then(() => {
-            location.reload();
-        }).catch(error => {
-            showError("Error creating SecurityGroup: " + error.message, "SecurityGroup Creation Error");
+            const data = {
+                ConnectionName: connConfig,
+                ReqInfo: {
+                    Name: sgName,
+                    VPCName: vpcName,
+                    SecurityRules: ruleInfo,
+                    TagList: tags
+                }
+            };
+
+            return fetchWithProgress('/spider/securitygroup', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            }).then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => {
+                        throw new Error(error.message);
+                    });
+                }
+                return response.json();
+            });
         });
+
+
+        Promise.all(sgPromises)
+            .then(() => {
+                location.reload();
+            })
+            .catch(error => {
+                showError("Error creating SecurityGroups: " + error.message, "SecurityGroup Creation Error");
+            });
     }
 
     function showOverlay() {
@@ -1374,225 +1723,45 @@
     });
 
 
+    function showSystemIdOverlay(systemId) {
+        const overlay = document.getElementById('system-id-overlay');
+        const fullSystemIdElement = document.getElementById('fullSystemId');
+        fullSystemIdElement.textContent = systemId;
+
+        overlay.style.display = 'block';
+        document.addEventListener('keydown', handleEscSystemIdOverlay);
+    }
+
+    function closeSystemIdOverlay() {
+        const overlay = document.getElementById('system-id-overlay');
+        overlay.style.display = 'none';
+        document.removeEventListener('keydown', handleEscSystemIdOverlay);
+    }
+
+    function handleEscSystemIdOverlay(event) {
+        if (event.key === "Escape") {
+            closeSystemIdOverlay();
+        }
+    }
+
+    function copySystemId() {
+        const fullSystemIdElement = document.getElementById('fullSystemId');
+        const range = document.createRange();
+        range.selectNode(fullSystemIdElement);
+        const selection = window.getSelection();
+
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        try {
+            document.execCommand('copy');
+            closeSystemIdOverlay();
+        } catch (err) {
+            console.error('Error copying SystemId: ', err);
+        }
+
+        selection.removeAllRanges();
+    }
+
 </script>
-</head>
-<body>
-    <div class="fixed-header">
-        <div class="header-container">
-            <img src="/spider/adminweb/images/left-menu/securitygroup.png" alt="SecurityGroup Icon">
-            <h1>SecurityGroup Management</h1>
-            <div class="searchContainer">
-                <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
-                <button id="clearSearch" onclick="clearSearchInput()">X</button>
-            </div>
-        </div>        
-        <div class="fixed-action-buttons">
-            <input type="checkbox" onclick="toggleSelectAll(this)">
-            <button onclick="deleteSelectedSecurityGroups()">Delete</button>
-        </div>
-    </div>
-    
-    <div class="content">
-        <div class="header-with-progress">
-            <button class="add-button" onclick="showOverlay()">+</button>
-            <div id="mockButtonsContainer" style="display: flex; align-items: center;"></div>
-            <div class="progress-bar-container" id="progressBarContainer">
-                <div class="progress-bar" id="progressBar"></div>
-                <span id="timeDisplay"></span>
-            </div>  
-        </div>
-        <table id="sg-table">
-            <tr>
-                <th class="column-num">#</th>
-                <th class="sg-name center-align">Name</th>
-                <th class="vpc-name center-align">VPC Name</th>
-                <th class="rules-info">Security Rules Info</th>
-                <th class="tags center-align">Tags</th>
-                <th class="misc center-align">Misc</th>
-                <th class="checkbox-cell center-align"><input type="checkbox" onclick="toggleSelectAll(this)"></th>
-            </tr>
-            {{range $index, $sg := .SecurityGroups}}
-            {{ $sgNameId := $sg.IId.NameId }}
-            <tr>
-                <td class="column-num">{{$index | inc}}</td>
-                <td class="sg-name center-align">{{$sg.IId.NameId}}</td>
-                <td class="vpc-name center-align">{{$sg.VpcIID.NameId}}</td>
-                <td class="rules-info">
-                    <table class="inner-table">
-                        <tr>
-                            <th class="protocol-column">Protocol</th>
-                            <th class="port-column">Port Range</th>
-                            <th class="direction-column">Direction</th>
-                            <th class="cidr-column">CIDR</th>
-                            <th class="actions-cell"><button class="add-btn" onclick="showRuleOverlay('{{$sgNameId}}')">add</button></th>
-                        </tr>
-                        {{range $ruleIndex, $rule := $sg.SecurityRules}}
-                        <tr>
-                            <td>{{$rule.IPProtocol}}</td>
-                            <td>{{$rule.FromPort}} ~ {{$rule.ToPort}}</td>
-                            <td>{{$rule.Direction}}</td>
-                            <td>{{$rule.CIDR}}</td>
-                            <td class="actions-cell">
-                                <button class="delete-btn" onclick="deleteRule('{{$sgNameId}}', {{$ruleIndex}})">del</button>
-                            </td>                            
-                        </tr>
-                        {{end}}
-                    </table>
-                </td>
-                <td class="tags">
-                    {{range $tag := $sg.TagList}}
-                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'SG', '{{$sgNameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
-                    {{end}}
-                    <div class="add-btn-container">
-                        <button class="add-btn" onclick="showAddTagOverlay('{{$sgNameId}}')">+</button>
-                    </div>
-                </td>                
-                <td class="misc center-align misc-cell">
-                    <div class="misc-content">
-                        {{range $kv := $sg.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
-                    </div>
-                    <button class="more-btn" onclick="showMiscOverlay(this)">more...</button>
-                </td>                
-                
-                <td class="checkbox-cell center-align">
-                    <input type="checkbox" name="deleteCheckbox" value="{{$sg.IId.NameId}}">
-                </td>
-            </tr>
-            {{end}}
-            {{if not .SecurityGroups}}
-            <tr>
-                <td colspan="7" class="center-align">No SecurityGroups found for this connection.</td>
-            </tr>
-            {{end}}
-        </table>
-    </div>
-
-    <div id="overlay" class="overlay">
-        <div class="overlay-content">
-            <h2>Add New SecurityGroup</h2>
-            <form id="addSGForm" onsubmit="event.preventDefault(); postSecurityGroup();">
-                <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
-                <div id="sg-info-group">
-                    <h3>SecurityGroup Info:</h3>
-                    <div class="form-group">
-                        <label for="sgName">Name:</label>
-                        <input type="text" id="sgName" name="sgName" required style="width: 65%;">
-                    </div>
-                    <div class="form-group">
-                        <label for="vpcName">VPC Name:</label>
-                        <select id="vpcName" name="vpcName" required style="width: 65%;"></select>
-                    </div>
-                    <div style="margin-top: 20px;"></div>
-                    <h3>Security Rules Info:</h3>
-                    <div class="form-group">
-                        <label for="protocol">Protocol:</label>
-                        <select id="protocol" name="protocol" required style="background-color: #E6E6FA; width: 65%;">
-                            <option value="TCP">TCP</option>
-                            <option value="UDP">UDP</option>
-                            <option value="ICMP">ICMP</option>
-                            <option value="ALL">ALL</option>
-                        </select>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="fromPort">From Port:</label>
-                        <input type="number" id="fromPort" name="fromPort" required min="1" max="65535" style="background-color: #F5F5DC; width: 70%;">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="toPort">To Port:</label>
-                        <input type="number" id="toPort" name="toPort" required min="1" max="65535" style="background-color: #F5F5DC; width: 70%;">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="direction">Direction:</label>
-                        <div id="direction" style="display: flex; justify-content: center; align-items: center; width: 65%; background-color: #fee2e2; border-radius: 5px;">
-                            <label style="margin-right: 10px; flex: 1; text-align: center;">
-                                <input type="radio" name="direction" value="inbound" required checked> Inbound
-                            </label>
-                            <label style="flex: 1; text-align: center;">
-                                <input type="radio" name="direction" value="outbound" required> Outbound
-                            </label>
-                        </div>
-                    </div>                    
-
-                    <div class="form-group">
-                        <label for="cidr">CIDR:</label>
-                        <input type="text" id="cidr" name="cidr" value="0.0.0.0/0" required style="width: 65%;">
-                    </div>
-
-                    <div class="form-group" style="padding-left: 10px;">
-                        <label for="sgTags">Tags:</label>
-                        <div id="sg-tag-container"></div>
-                        <button type="button" onclick="addSGTagField()">+</button>
-                    </div>
-                </div>
-                <div style="display: flex; align-items: center; margin-top: 20px;">
-                    <button type="submit">Add SecurityGroup</button>
-                    <button type="button" onclick="hideOverlay()" style="margin-left: 10px;">Cancel</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div id="rule-overlay" class="overlay">
-        <div class="overlay-content">
-            <h2>Add New Security Rule</h2>
-            <form id="addRuleForm" onsubmit="event.preventDefault(); addRule();">
-                <input type="hidden" id="ruleSGName">
-                <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
-                <div class="form-group">
-                    <label for="ruleSGNameDisplay">SecurityGroup Name:</label>
-                    <input type="text" id="ruleSGNameDisplay" name="ruleSGNameDisplay" readonly>
-                </div>
-                <div class="form-group">
-                    <label for="addProtocol">Protocol:</label>
-                    <select id="addProtocol" name="addProtocol" required style="background-color: #E6E6FA; width: 65%;">
-                        <option value="TCP">TCP</option>
-                        <option value="UDP">UDP</option>
-                        <option value="ICMP">ICMP</option>
-                        <option value="ALL">ALL</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="addFromPort">From Port:</label>
-                    <input type="number" id="addFromPort" name="addFromPort" required min="1" max="65535" style="background-color: #F5F5DC; width: 70%;">
-                </div>
-                <div class="form-group">
-                    <label for="addToPort">To Port:</label>
-                    <input type="number" id="addToPort" name="addToPort" required min="1" max="65535" style="background-color: #F5F5DC; width: 70%;">
-                </div>
-                <div class="form-group">
-                    <label for="addDirection">Direction:</label>
-                    <div id="direction" style="display: flex; justify-content: center; align-items: center; width: 65%; background-color: #fee2e2; border-radius: 5px;">
-                        <label style="margin-right: 10px; flex: 1; text-align: center;">
-                            <input type="radio" name="addDirection" value="inbound" required checked> Inbound
-                        </label>
-                        <label style="flex: 1; text-align: center;">
-                            <input type="radio" name="addDirection" value="outbound" required> Outbound
-                        </label>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="addCidr">CIDR:</label>
-                    <input type="text" id="addCidr" name="addCidr" value="0.0.0.0/0" required style="width: 65%;">
-                </div>
-                <div class="form-group" style="margin-top: 20px;">
-                    <button type="submit">Add Rule</button>
-                    <button type="button" onclick="hideRuleOverlay()">Cancel</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div id="tag-overlay" class="tag-overlay">
-        <div class="tag-overlay-content"></div>
-    </div>
-
-    <div id="add-tag-overlay" class="overlay">
-        <div class="add-tag-overlay-content overlay-content"></div>
-    </div>
-
-    <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
-</body>
 </html>

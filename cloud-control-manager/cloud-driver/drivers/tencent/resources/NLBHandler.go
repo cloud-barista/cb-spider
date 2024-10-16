@@ -362,6 +362,22 @@ func (NLBHandler *TencentNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 	nlbInfo.HealthChecker = healthChecker
 	nlbInfo.VMGroup = vmGroup
 
+	// tag있으면 추가
+	tagList := []irs.KeyValue{}
+
+	for _, lb := range response.Response.LoadBalancerSet {
+		if lb.Tags != nil {
+			for _, tenTag := range lb.Tags {
+				sTag := irs.KeyValue{}
+				sTag.Key = *tenTag.TagKey     // TagInfo 구조체의 TagKey
+				sTag.Value = *tenTag.TagValue // TagInfo 구조체의 TagValue
+
+				tagList = append(tagList, sTag)
+			}
+		}
+	}
+	nlbInfo.TagList = tagList
+
 	cblogger.Debug(nlbInfo)
 
 	return nlbInfo, nil
@@ -913,6 +929,17 @@ func (NLBHandler *TencentNLBHandler) ExtractNLBDescribeInfo(nlbInfo *clb.LoadBal
 		Scope:       "REGION",
 	}
 
+	if nlbInfo.Tags != nil {
+		var tagList []irs.KeyValue
+		for _, tag := range nlbInfo.Tags {
+			tagList = append(tagList, irs.KeyValue{
+				Key:   *tag.TagKey,
+				Value: *tag.TagValue,
+			})
+		}
+		resNLBInfo.TagList = tagList
+	}
+
 	return resNLBInfo, nil
 }
 
@@ -1026,4 +1053,9 @@ func (NLBHandler *TencentNLBHandler) ExtractHealthCheckerInfo(nlbIID irs.IID) (i
 
 	return resHealthCheckerInfo, nil
 
+}
+
+func (NLBHandler *TencentNLBHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

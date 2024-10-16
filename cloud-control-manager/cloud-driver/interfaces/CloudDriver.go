@@ -32,6 +32,7 @@ type DriverCapabilityInfo struct {
 	ClusterHandler    bool // support: true, do not support: false
 	TagHandler        bool // support: true, do not support: false
 
+	// ex) {ires.ALL, ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER}
 	TagSupportResourceType []ires.RSType // support: VPC, SUBNET, etc.,.
 
 	VPC_CIDR          bool // support: true, do not support: false

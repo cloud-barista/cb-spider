@@ -5,9 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"strconv"
-
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -21,10 +20,10 @@ const (
 type AzureVmSpecHandler struct {
 	Region idrv.RegionInfo
 	Ctx    context.Context
-	Client *compute.VirtualMachineSizesClient
+	Client *armcompute.VirtualMachineSizesClient
 }
 
-func setterVmSpec(region string, vmSpec compute.VirtualMachineSize) *irs.VMSpecInfo {
+func setterVmSpec(region string, vmSpec *armcompute.VirtualMachineSize) *irs.VMSpecInfo {
 	vmSpecInfo := &irs.VMSpecInfo{
 		Region:       region,
 		Name:         *vmSpec.Name,
@@ -41,20 +40,32 @@ func (vmSpecHandler *AzureVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error)
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Region, call.VMSPEC, VMSpec, "ListVMSpec()")
 
 	start := call.Start()
-	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, vmSpecHandler.Region.Region)
-	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to List VMSpec. err = %s", err.Error()))
-		cblogger.Error(getErr.Error())
-		LoggingError(hiscallInfo, getErr)
-		return nil, getErr
+
+	var vmSpecList []*armcompute.VirtualMachineSize
+
+	pager := vmSpecHandler.Client.NewListPager(vmSpecHandler.Region.Region, nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(vmSpecHandler.Ctx)
+		if err != nil {
+			getErr := errors.New(fmt.Sprintf("Failed to Get VMSpec. err = %s", err))
+			cblogger.Error(getErr.Error())
+			LoggingError(hiscallInfo, getErr)
+			return nil, getErr
+		}
+
+		for _, vmSpec := range page.Value {
+			vmSpecList = append(vmSpecList, vmSpec)
+		}
 	}
+
 	LoggingInfo(hiscallInfo, start)
 
-	vmSpecList := make([]*irs.VMSpecInfo, len(*result.Value))
-	for i, spec := range *result.Value {
-		vmSpecList[i] = setterVmSpec(vmSpecHandler.Region.Region, spec)
+	vmSpecInfoList := make([]*irs.VMSpecInfo, len(vmSpecList))
+	for i, spec := range vmSpecList {
+		vmSpecInfoList[i] = setterVmSpec(vmSpecHandler.Region.Region, spec)
 	}
-	return vmSpecList, nil
+	return vmSpecInfoList, nil
 }
 
 func (vmSpecHandler *AzureVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo, error) {
@@ -62,15 +73,26 @@ func (vmSpecHandler *AzureVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo,
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Region, call.VMSPEC, Name, "GetVMSpec()")
 
 	start := call.Start()
-	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, vmSpecHandler.Region.Region)
-	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get VMSpec. err = %s", err.Error()))
-		cblogger.Error(getErr.Error())
-		LoggingError(hiscallInfo, getErr)
-		return irs.VMSpecInfo{}, getErr
+
+	var vmSpecList []*armcompute.VirtualMachineSize
+
+	pager := vmSpecHandler.Client.NewListPager(vmSpecHandler.Region.Region, nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(vmSpecHandler.Ctx)
+		if err != nil {
+			getErr := errors.New(fmt.Sprintf("Failed to Get VMSpec. err = %s", err))
+			cblogger.Error(getErr.Error())
+			LoggingError(hiscallInfo, getErr)
+			return irs.VMSpecInfo{}, getErr
+		}
+
+		for _, vmSpec := range page.Value {
+			vmSpecList = append(vmSpecList, vmSpec)
+		}
 	}
 
-	for _, spec := range *result.Value {
+	for _, spec := range vmSpecList {
 		if Name == *spec.Name {
 			LoggingInfo(hiscallInfo, start)
 			vmSpecInfo := setterVmSpec(vmSpecHandler.Region.Region, spec)
@@ -88,22 +110,34 @@ func (vmSpecHandler *AzureVmSpecHandler) ListOrgVMSpec() (string, error) {
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Region, call.VMSPEC, VMSpec, "ListOrgVMSpec()")
 
 	start := call.Start()
-	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, vmSpecHandler.Region.Region)
-	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to List OrgVMSpec. err = %s", err.Error()))
-		cblogger.Error(getErr.Error())
-		LoggingError(hiscallInfo, getErr)
-		return "", getErr
+
+	var vmSpecList []*armcompute.VirtualMachineSize
+
+	pager := vmSpecHandler.Client.NewListPager(vmSpecHandler.Region.Region, nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(vmSpecHandler.Ctx)
+		if err != nil {
+			getErr := errors.New(fmt.Sprintf("Failed to List OrgVMSpec. err = %s", err))
+			cblogger.Error(getErr.Error())
+			LoggingError(hiscallInfo, getErr)
+			return "", getErr
+		}
+
+		for _, vmSpec := range page.Value {
+			vmSpecList = append(vmSpecList, vmSpec)
+		}
 	}
+
 	LoggingInfo(hiscallInfo, start)
 
 	var jsonResult struct {
-		Result []compute.VirtualMachineSize `json:"list"`
+		Result []*armcompute.VirtualMachineSize `json:"list"`
 	}
-	jsonResult.Result = *result.Value
+	jsonResult.Result = vmSpecList
 	jsonBytes, err := json.Marshal(jsonResult)
 	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to List OrgVMSpec. err = %s", err.Error()))
+		getErr := errors.New(fmt.Sprintf("Failed to List OrgVMSpec. err = %s", err))
 		cblogger.Error(getErr.Error())
 		LoggingError(hiscallInfo, getErr)
 		return "", getErr
@@ -118,16 +152,28 @@ func (vmSpecHandler *AzureVmSpecHandler) GetOrgVMSpec(Name string) (string, erro
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Region, call.VMSPEC, Name, "GetOrgVMSpec()")
 
 	start := call.Start()
-	result, err := vmSpecHandler.Client.List(vmSpecHandler.Ctx, vmSpecHandler.Region.Region)
-	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to Get OrgVMSpec. err = %s", err.Error()))
-		cblogger.Error(getErr.Error())
-		LoggingError(hiscallInfo, getErr)
-		return "", getErr
+
+	var vmSpecList []*armcompute.VirtualMachineSize
+
+	pager := vmSpecHandler.Client.NewListPager(vmSpecHandler.Region.Region, nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(vmSpecHandler.Ctx)
+		if err != nil {
+			getErr := errors.New(fmt.Sprintf("Failed to List OrgVMSpec. err = %s", err))
+			cblogger.Error(getErr.Error())
+			LoggingError(hiscallInfo, getErr)
+			return "", getErr
+		}
+
+		for _, vmSpec := range page.Value {
+			vmSpecList = append(vmSpecList, vmSpec)
+		}
 	}
+
 	LoggingInfo(hiscallInfo, start)
 
-	for _, spec := range *result.Value {
+	for _, spec := range vmSpecList {
 		if Name == *spec.Name {
 			jsonBytes, err := json.Marshal(spec)
 			if err != nil {

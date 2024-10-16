@@ -112,7 +112,7 @@ func Top(c echo.Context) error {
             <tr bgcolor="#FFFFFF" align="left">
                 <td rowspan="2" width="70" bgcolor="#FFFFFF" align="center">
                     <!-- CB-Spider Logo -->
-                    <a href="../adminweb" target="_top">
+                    <a href="../adminweb1" target="_top">
                         <img height="45" width="45" src="./images/logo.png" border='0' hspace='0' vspace='1' align="middle">
                     </a>
                     <font size=1>$$TIME$$</font>
@@ -125,25 +125,25 @@ func Top(c echo.Context) error {
             
             <td width="150"> 
                 <!-- Drivers Management --> 
-                <a href="driver" target="main_frame" id="menuDriver" onclick="selectMenu('menuDriver')">
+                <a href="driver1" target="main_frame" id="menuDriver" onclick="selectMenu('menuDriver')">
                     <font size=2>1.Driver</font>
                 </a>
             </td>
             <td width="190">       
                 <!-- Credential Management -->
-                <a href="credential" target="main_frame" id="menuCredential" onclick="selectMenu('menuCredential')">
+                <a href="credential1" target="main_frame" id="menuCredential" onclick="selectMenu('menuCredential')">
                     <font size=2>1.Credential</font>
                 </a>
             </td>
             <td width="130">
                 <!-- Regions Management -->
-                <a href="region" target="main_frame" id="menuRegion" onclick="selectMenu('menuRegion')"> 
+                <a href="region1" target="main_frame" id="menuRegion" onclick="selectMenu('menuRegion')"> 
                     <font size=2>1.Region</font>
                 </a>
             </td>
             <td width="300">
                 <!-- Connection Management -->
-                <a href="connectionconfig" target="main_frame" id="menuConnection" onclick="selectMenu('menuConnection')">
+                <a href="connectionconfig1" target="main_frame" id="menuConnection" onclick="selectMenu('menuConnection')">
                     <font size=2>2.CONNECTION</font>
                 </a>
             </td>

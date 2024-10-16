@@ -29,6 +29,21 @@ type AwsClusterHandler struct {
 
 const (
 	NODEGROUP_TAG string = "nodegroup"
+
+	clusterStatusCreating = "CREATING"
+	clusterStatusActive   = "ACTIVE"
+	clusterStatusDeleting = "DELETING"
+	clusterStatusFailed   = "FAILED"
+	clusterStatusUpdating = "UPDATING"
+	clusterStatusPending  = "PENDING"
+
+	nodeGroupStatusCreating     = "CREATING"
+	nodeGroupStatusActive       = "ACTIVE"
+	nodeGroupStatusUpdating     = "UPDATING"
+	nodeGroupStatusDeleting     = "DELETING"
+	nodeGroupStatusCreateFailed = "CREATE_FAILED"
+	nodeGroupStatusDeleteFailed = "DELETE_FAILED"
+	nodeGroupStatusDegraded     = "DEGRADED"
 )
 
 //------ Cluster Management
@@ -341,7 +356,7 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 		IId:         irs.IID{NameId: "", SystemId: *result.Cluster.Name},
 		Version:     *result.Cluster.Version,
 		CreatedTime: *result.Cluster.CreatedAt,
-		Status:      irs.ClusterStatus(*result.Cluster.Status),
+		Status:      convertClusterStatusToClusterInfoStatus(aws.StringValue(result.Cluster.Status)),
 		//AccessInfo:  irs.AccessInfo{Endpoint: *result.Cluster.Endpoint},
 		AccessInfo: irs.AccessInfo{},
 	}
@@ -849,7 +864,6 @@ func (ClusterHandler *AwsClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 
 	result, err := ClusterHandler.Client.UpdateClusterVersion(input)
 	if err != nil {
-		cblogger.Error(err)
 		if aerr, ok := err.(awserr.Error); ok {
 			switch aerr.Code() {
 			case eks.ErrCodeInvalidParameterException:
@@ -918,7 +932,7 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 
 	//subnetList := nodeGroup.Subnets
 	//nodeGroupStatus := nodeGroup.Status
-	nodeGroupInfo.Status = irs.NodeGroupStatus(*nodeGroup.Status)
+	nodeGroupInfo.Status = convertNodeGroupStatusToNodeGroupInfoStatus(aws.StringValue(nodeGroup.Status))
 	instanceTypeList := nodeGroup.InstanceTypes // spec
 
 	//nodes := nodeGroup.Health.Issues[0].ResourceIds // 문제 있는 node들만 있는것이 아닌지..
@@ -1059,4 +1073,49 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 	PrintToJson(nodeGroupInfo)
 	//return irs.NodeGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "추출 오류", nil)
 	return nodeGroupInfo, nil
+}
+
+func convertNodeGroupStatusToNodeGroupInfoStatus(nodeGroupStatus string) irs.NodeGroupStatus {
+	status := irs.NodeGroupInactive
+	if strings.EqualFold(nodeGroupStatus, nodeGroupStatusCreating) {
+		status = irs.NodeGroupCreating
+	} else if strings.EqualFold(nodeGroupStatus, nodeGroupStatusUpdating) {
+		status = irs.NodeGroupUpdating
+	} else if strings.EqualFold(nodeGroupStatus, nodeGroupStatusCreateFailed) {
+		status = irs.NodeGroupInactive
+	} else if strings.EqualFold(nodeGroupStatus, nodeGroupStatusDeleteFailed) {
+		status = irs.NodeGroupInactive
+	} else if strings.EqualFold(nodeGroupStatus, nodeGroupStatusDegraded) {
+		status = irs.NodeGroupInactive
+	} else if strings.EqualFold(nodeGroupStatus, nodeGroupStatusDeleting) {
+		status = irs.NodeGroupDeleting
+	} else if strings.EqualFold(nodeGroupStatus, nodeGroupStatusActive) {
+		status = irs.NodeGroupActive
+	}
+
+	return status
+}
+
+func convertClusterStatusToClusterInfoStatus(clusterStatus string) irs.ClusterStatus {
+	status := irs.ClusterInactive
+	if strings.EqualFold(clusterStatus, clusterStatusCreating) {
+		status = irs.ClusterCreating
+	} else if strings.EqualFold(clusterStatus, clusterStatusUpdating) {
+		status = irs.ClusterUpdating
+	} else if strings.EqualFold(clusterStatus, clusterStatusFailed) {
+		status = irs.ClusterInactive
+	} else if strings.EqualFold(clusterStatus, clusterStatusPending) {
+		status = irs.ClusterInactive
+	} else if strings.EqualFold(clusterStatus, clusterStatusDeleting) {
+		status = irs.ClusterDeleting
+	} else if strings.EqualFold(clusterStatus, clusterStatusActive) {
+		status = irs.ClusterActive
+	}
+
+	return status
+}
+
+func (ClusterHandler *AwsClusterHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

@@ -11,10 +11,12 @@
 package resources
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
+
 	// "github.com/davecgh/go-spew/spew"
 
 	ktsdk "github.com/cloud-barista/ktcloud-sdk-go"
@@ -25,14 +27,14 @@ import (
 )
 
 const (
-	STG_Type 					string = "STG" // General HDD Type
-	SSD_Type               		string = "SSD"
-	DefaultDiskSize        		string = "100"
-	DefaultDiskUsagePlanType	string = "hourly"
-	DefaultDiskIOPS        		string = "10000"
-	DefaultWindowsDiskSize 		string = "50"
-	KOR_Seoul_M_ZoneID  		string = "95e2f517-d64a-4866-8585-5177c256f7c7"
-	KOR_Seoul_M2_ZoneID  		string = "d7d0177e-6cda-404a-a46f-a5b356d2874e"
+	STG_Type                 string = "STG" // General HDD Type
+	SSD_Type                 string = "SSD"
+	DefaultDiskSize          string = "100"
+	DefaultDiskUsagePlanType string = "hourly"
+	DefaultDiskIOPS          string = "10000"
+	DefaultWindowsDiskSize   string = "50"
+	KOR_Seoul_M_ZoneID       string = "95e2f517-d64a-4866-8585-5177c256f7c7"
+	KOR_Seoul_M2_ZoneID      string = "d7d0177e-6cda-404a-a46f-a5b356d2874e"
 )
 
 type KtCloudDiskHandler struct {
@@ -68,7 +70,7 @@ func (diskHandler *KtCloudDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 	// # New Volume Creation Parameters : https://cloud.kt.com/docs/open-api-guide/g/computing/disk-volume
 	reqDiskType := diskReqInfo.DiskType // 'default', 'HDD' or 'SSD'
 	reqDiskSize := diskReqInfo.DiskSize
-	
+
 	if strings.EqualFold(diskHandler.RegionInfo.Zone, "dfd6f03d-dae5-458e-a2ea-cb6a55d0d994") && strings.EqualFold(reqDiskType, "SSD") {
 		newErr := fmt.Errorf("Invalid Disk Type!! 'KOR-HA' zone does Not support 'SSD' disk type!!")
 		cblogger.Error(newErr.Error())
@@ -84,7 +86,7 @@ func (diskHandler *KtCloudDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 		convertedDiskType = STG_Type
 	} else if strings.EqualFold(reqDiskType, "SSD-Provisioned") {
 		convertedDiskType = SSD_Type
-		reqIOPS 	= DefaultDiskIOPS
+		reqIOPS = DefaultDiskIOPS
 	} else {
 		newErr := fmt.Errorf("Invalid Disk Type!! You can specify 'HDD' and 'SSD-Provisioned' type.")
 		cblogger.Error(newErr.Error())
@@ -121,12 +123,12 @@ func (diskHandler *KtCloudDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 	cblogger.Infof("# ProductCode : %s", volumeProductCode)
 	// ### If the 'ProductCode' field is used, the 'DiskOfferingId' field value is ignored.
 	volumeReq := ktsdk.CreateVolumeReqInfo{
-		Name:           diskReqInfo.IId.NameId,  		// Required
-		DiskOfferingId: "",								// Required
-		ZoneId:         diskHandler.RegionInfo.Zone, 	// Required
+		Name:           diskReqInfo.IId.NameId, // Required
+		DiskOfferingId: "",                     // Required
+		ZoneId:         diskReqInfo.Zone,       // Required
 		UsagePlanType:  DefaultDiskUsagePlanType,
 		ProductCode:    volumeProductCode,
-		IOPS: 			reqIOPS, // When entering IOPS value, it is created with 'SSD-Provisioned' type of volume. (Not general SSD type)
+		IOPS:           reqIOPS, // When entering IOPS value, it is created with 'SSD-Provisioned' type of volume. (Not general SSD type)
 	}
 	start := call.Start()
 	createVolumeResponse, err := diskHandler.Client.CreateVolume(volumeReq)
@@ -143,6 +145,21 @@ func (diskHandler *KtCloudDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 	if waitErr != nil {
 		cblogger.Errorf("Failed to Wait the Job : [%v]", waitErr)
 		return irs.DiskInfo{}, waitErr
+	}
+
+	// Add the Tag List according to the ReqInfo
+	if len(diskReqInfo.TagList) > 0 {
+		tagHandler := KtCloudTagHandler{
+			RegionInfo: diskHandler.RegionInfo,
+			Client:     diskHandler.Client,
+		}
+		_, createErr := tagHandler.createTagList(irs.RSType(irs.DISK), &createVolumeResponse.Createvolumeresponse.ID, diskReqInfo.TagList)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Add the Tag List on the Disk : [%v]", createErr)
+			cblogger.Error(newErr.Error())
+			return irs.DiskInfo{}, newErr
+		}
+		time.Sleep(time.Second * 1)
 	}
 
 	newVolumeIID := irs.IID{SystemId: createVolumeResponse.Createvolumeresponse.ID}
@@ -182,14 +199,14 @@ func (diskHandler *KtCloudDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	var volumeInfoList []*irs.DiskInfo
 	for _, volume := range result.Listvolumesresponse.Volume {
 		// if !strings.Contains(volume.Name, "ROOT-") && !strings.Contains(volume.Name, "DATA-"){ // When need filtering
-			volumeInfo, err := diskHandler.mappingDiskInfo(&volume)
-			if err != nil {
-				newErr := fmt.Errorf("Failed to Get Disk Info list!! : [%v] ", err)
-				cblogger.Error(newErr.Error())
-				LoggingError(callLogInfo, newErr)
-				return nil, newErr
-			}
-			volumeInfoList = append(volumeInfoList, &volumeInfo)
+		volumeInfo, err := diskHandler.mappingDiskInfo(&volume)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Get Disk Info list!! : [%v] ", err)
+			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)
+			return nil, newErr
+		}
+		volumeInfoList = append(volumeInfoList, &volumeInfo)
 		// }
 	}
 	return volumeInfoList, nil
@@ -277,16 +294,16 @@ func (diskHandler *KtCloudDiskHandler) ChangeDiskSize(diskIID irs.IID, newDiskSi
 		return false, newErr
 	}
 
-	addDiskSizeInt 	:= newDiskSizeInt - curDiskSizeInt // Disk Size 'to Add'
-	addDiskSize 	:= strconv.Itoa(addDiskSizeInt)
+	addDiskSizeInt := newDiskSizeInt - curDiskSizeInt // Disk Size 'to Add'
+	addDiskSize := strconv.Itoa(addDiskSizeInt)
 
 	// $$$ Caution!!) At least one VM is required to resize the disk volume in case of KT Cloud G1/G2 plaform.
 	// $$$ It can only be used with the VM which is 'Susppended' status.
 	volumeReq := ktsdk.ResizeVolumeReqInfo{
-		ID:         diskIID.SystemId,  			// Required. Volume ID
-		VMId:		diskInfo.OwnerVM.SystemId,	// Required
-		Size:     	addDiskSize, 				// Required. Disk Size 'to Add'. Only 50(Linux series only), 80, and 100 are available.
-		IsLinux:  	"Y", 						// Required. 'Y' for Linux series, 'N' for Windows series
+		ID:      diskIID.SystemId,          // Required. Volume ID
+		VMId:    diskInfo.OwnerVM.SystemId, // Required
+		Size:    addDiskSize,               // Required. Disk Size 'to Add'. Only 50(Linux series only), 80, and 100 are available.
+		IsLinux: "Y",                       // Required. 'Y' for Linux series, 'N' for Windows series
 	}
 	start := call.Start()
 	ResizeVolumeResponse, err := diskHandler.Client.ResizeVolume(volumeReq)
@@ -384,8 +401,8 @@ func (diskHandler *KtCloudDiskHandler) AttachDisk(diskIID irs.IID, vmIID irs.IID
 	}
 
 	volumeReq := ktsdk.AttachVolumeReqInfo{
-		ID:         diskIID.SystemId,  		// Required. Volume ID
-		VMId:		vmIID.SystemId,			// Required
+		ID:   diskIID.SystemId, // Required. Volume ID
+		VMId: vmIID.SystemId,   // Required
 		// DeviceId:     	"",
 	}
 	start := call.Start()
@@ -457,7 +474,7 @@ func (diskHandler *KtCloudDiskHandler) DetachDisk(diskIID irs.IID, vmIID irs.IID
 	}
 
 	volumeReq := ktsdk.DetachVolumeReqInfo{
-		ID:         diskIID.SystemId,  	 // Required. Volume ID
+		ID: diskIID.SystemId, // Required. Volume ID
 		// VMId:		vmIID.SystemId,  // When input VMId -> Error : 'Please provide either a volume id, or a tuple(device id, instance id)'
 		// DeviceId:     	"",
 	}
@@ -504,10 +521,10 @@ func (diskHandler *KtCloudDiskHandler) getDiskStatus(diskIID irs.IID) (irs.DiskS
 	}
 
 	// Note) Because the 'state' value of volume info (from KT Cloud) does not indicate whether it is Attachment.
-	if !strings.EqualFold(volume.VMId, "") { 
+	if !strings.EqualFold(volume.VMId, "") {
 		return convertDiskStatus("attached"), nil
 	}
-	return convertDiskStatus("allocated"), nil	
+	return convertDiskStatus("allocated"), nil
 }
 
 // $$$ Caution!!) KT Volume State : chanaged to 'Ready' after Attachment. Stil 'Ready' after Detachment.
@@ -517,13 +534,13 @@ func convertDiskStatus(diskStatus string) irs.DiskStatus {
 
 	var resultStatus irs.DiskStatus
 	switch strings.ToLower(diskStatus) { // Caution!! : ToLower()
-	case "creating":	// Caution!! : // KT Volume State : "Creating" => Attachment is in Progress
+	case "creating": // Caution!! : // KT Volume State : "Creating" => Attachment is in Progress
 		resultStatus = irs.DiskCreating
-	case "allocated":	// KT Volume State : "Allocated" (Confirmed)
+	case "allocated": // KT Volume State : "Allocated" (Confirmed)
 		resultStatus = irs.DiskAvailable
-	case "ready": 		
+	case "ready":
 		resultStatus = irs.DiskAttached
-	case "attached": 	// Note) Added this status!!
+	case "attached": // Note) Added this status!!
 		resultStatus = irs.DiskAttached
 	case "deleting":
 		resultStatus = irs.DiskDeleting
@@ -560,7 +577,7 @@ func (diskHandler *KtCloudDiskHandler) isBootableDisk(diskIID irs.IID) (bool, er
 	}
 
 	isBootable := false
-	if strings.EqualFold(volume.Type, "ROOT") || strings.Contains(volume.DiskOfferingName, "linux") || strings.Contains(volume.DiskOfferingName, "win"){
+	if strings.EqualFold(volume.Type, "ROOT") || strings.Contains(volume.DiskOfferingName, "linux") || strings.Contains(volume.DiskOfferingName, "win") {
 		isBootable = true
 	}
 	return isBootable, nil
@@ -572,6 +589,7 @@ func (diskHandler *KtCloudDiskHandler) mappingDiskInfo(volume *ktsdk.Volume) (ir
 	// spew.Dump(volume)
 	// cblogger.Info("\n")
 	cblogger.Infof("# Given Volume State on KT Cloud : %s", volume.State) // Not Correct!!
+	// cblogger.Infof("# volume.ID : %s", volume.ID)
 
 	volumeIID := irs.IID{SystemId: volume.ID}
 	curStatus, err := diskHandler.getDiskStatus(volumeIID)
@@ -596,8 +614,8 @@ func (diskHandler *KtCloudDiskHandler) mappingDiskInfo(volume *ktsdk.Volume) (ir
 		IId: irs.IID{
 			SystemId: volume.ID,
 		},
-		DiskSize:    strconv.FormatInt(volume.Size/(1024*1024*1024), 10),
-		Status:      curStatus,
+		DiskSize: strconv.FormatInt(volume.Size/(1024*1024*1024), 10),
+		Status:   curStatus,
 		// Status:      convertDiskStatus(volume.State),
 		CreatedTime: convertedTime,
 	}
@@ -607,7 +625,7 @@ func (diskHandler *KtCloudDiskHandler) mappingDiskInfo(volume *ktsdk.Volume) (ir
 	}
 
 	// Caution!!) In 'KOR Seoul M' zone, in case the created disk is 'SSD', it appears as "volumetype": "general". (Shoud be "volumetype": "ssd")
-	if strings.EqualFold(diskHandler.RegionInfo.Zone, KOR_Seoul_M_ZoneID){
+	if strings.EqualFold(diskHandler.RegionInfo.Zone, KOR_Seoul_M_ZoneID) {
 		if strings.Contains(volume.DiskOfferingName, "SSD") {
 			diskInfo.DiskType = "SSD-Provisioned"
 		} else {
@@ -628,17 +646,63 @@ func (diskHandler *KtCloudDiskHandler) mappingDiskInfo(volume *ktsdk.Volume) (ir
 		}
 	}
 
+	if !strings.EqualFold(volume.ZoneId, "") {
+		diskInfo.Zone = volume.ZoneId
+	}
+
+	// Get the Tag List of the Disk
+	var kvList []irs.KeyValue
+	tagHandler := KtCloudTagHandler{
+		RegionInfo: diskHandler.RegionInfo,
+		Client:     diskHandler.Client,
+	}
+	tagList, err := tagHandler.getTagListWithResId(irs.RSType(irs.DISK), &volume.ID)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get the Tag List with the Disk ID : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return irs.DiskInfo{}, newErr
+	}
+	if len(tagList) > 0 {
+		for _, curTag := range tagList {
+			kv := irs.KeyValue{
+				Key:   curTag.Key,
+				Value: curTag.Value,
+			}
+			kvList = append(kvList, kv)
+		}
+		diskInfo.TagList = kvList
+	}
+
 	var iops string
-	if !strings.EqualFold(strconv.FormatInt(volume.MaxIOPS, 10), "0")  {
+	if !strings.EqualFold(strconv.FormatInt(volume.MaxIOPS, 10), "0") {
 		iops = strconv.FormatInt(volume.MaxIOPS, 10)
 	}
-	
+
+	// Set Display Name of the Zone
+	var zoneDisplaName string
+	if volume.ZoneName != "" {
+		if strings.EqualFold(volume.ZoneName, "kr-0") { // ???
+			zoneDisplaName = "KOR-Seoul M"
+		} else if strings.EqualFold(volume.ZoneName, "kr-md2-1") {
+			zoneDisplaName = "KOR-Seoul M2"
+		} else if strings.EqualFold(volume.ZoneName, "kr-1") {
+			zoneDisplaName = "KOR-Central A"
+		} else if strings.EqualFold(volume.ZoneName, "kr-2") {
+			zoneDisplaName = "KOR-Central B"
+		} else if strings.EqualFold(volume.ZoneName, "kr-3") {
+			zoneDisplaName = "KOR-HA"
+		} else {
+			zoneDisplaName = volume.ZoneName
+		}
+	}
+
 	keyValueList := []irs.KeyValue{
-		{Key: "Type", 			Value: volume.Type},
-		{Key: "MaxIOPS", 		Value: iops},
-		{Key: "UsagePlanType", 	Value: volume.UsagePlanType},
-		{Key: "AttachedTime", 	Value: volume.AttachedTime},
-		{Key: "VMState", 		Value: volume.VMState},
+		{Key: "Type", Value: volume.Type},
+		{Key: "MaxIOPS", Value: iops},
+		{Key: "UsagePlanType", Value: volume.UsagePlanType},
+		{Key: "AttachedTime", Value: volume.AttachedTime},
+		{Key: "ZoneDisplaName", Value: zoneDisplaName},
+		{Key: "VMState", Value: volume.VMState},
 	}
 	diskInfo.KeyValueList = keyValueList
 
@@ -658,7 +722,7 @@ func (diskHandler *KtCloudDiskHandler) getKtVolumeInfo(diskIID irs.IID) (ktsdk.V
 
 	volumeReq := ktsdk.ListVolumeReqInfo{
 		ZoneId: diskHandler.RegionInfo.Zone,
-		ID: 	diskIID.SystemId,
+		ID:     diskIID.SystemId,
 	}
 	start := call.Start()
 	result, err := diskHandler.Client.ListVolumes(volumeReq)
@@ -694,30 +758,30 @@ func (diskHandler *KtCloudDiskHandler) getVolumeIdsWithVMId(vmId string) ([]stri
 	start := call.Start()
 	result, err := diskHandler.Client.ListVolumes(volumeReq)
 	if err != nil {
-		cblogger.Error("Failed to Get KT Cloud Volume list : [%v]", err)
+		cblogger.Error("Failed to Get Volume list from KT Cloud : [%v]", err)
 		return nil, err
 	}
 	LoggingInfo(callLogInfo, start)
 	// spew.Dump(result)
 
 	if len(result.Listvolumesresponse.Volume) < 1 {
-		newErr := fmt.Errorf("Failed to Get Volume List on the Zone!!")
+		newErr := fmt.Errorf("Failed to Find Any Volume Info on the Zone!!")
 		cblogger.Error(newErr.Error())
 		return nil, newErr
 	}
 
 	var volumeIds []string
 	for _, volume := range result.Listvolumesresponse.Volume {
-		if strings.EqualFold(volume.VMId, vmId){
+		if strings.EqualFold(volume.VMId, vmId) {
 			volumeIds = append(volumeIds, volume.ID)
 		}
 	}
 	if len(volumeIds) < 1 {
 		newErr := fmt.Errorf("Failed to Get Volume ID with the VM ID!!")
-		cblogger.Error(newErr.Error())
+		cblogger.Debug(newErr.Error())
 		return nil, newErr
 	}
-	return volumeIds, nil	
+	return volumeIds, nil
 }
 
 func (diskHandler *KtCloudDiskHandler) getRootVolumeIdWithVMId(vmId string) (string, error) {
@@ -751,7 +815,7 @@ func (diskHandler *KtCloudDiskHandler) getRootVolumeIdWithVMId(vmId string) (str
 
 	var volumeId string
 	for _, volume := range result.Listvolumesresponse.Volume {
-		if strings.EqualFold(volume.VMId, vmId){
+		if strings.EqualFold(volume.VMId, vmId) {
 			volumeIID := irs.IID{SystemId: volume.ID}
 			isBootable, err := diskHandler.isBootableDisk(volumeIID)
 			if err != nil {
@@ -770,7 +834,7 @@ func (diskHandler *KtCloudDiskHandler) getRootVolumeIdWithVMId(vmId string) (str
 		cblogger.Error(newErr.Error())
 		return "", newErr
 	}
-	return volumeId, nil	
+	return volumeId, nil
 }
 
 /*
@@ -816,7 +880,7 @@ func (diskHandler *KtCloudDiskHandler) GetRootVolumeTypeWithVMId(vmId string) (s
 		cblogger.Error(newErr.Error())
 		return "", newErr
 	}
-	return volumeType, nil	
+	return volumeType, nil
 }
 */
 
@@ -854,47 +918,47 @@ func findAllDiskOfferingIds() []DiskOffering {
 		{"HDD", "290G", "1c7521b1-8753-427b-874b-a740e6e0184d"},
 		{"HDD", "300G", "03ee7edf-a91f-4910-9e1c-551222bc6e94"},
 
-        {"HDD(Seoul-M2 Zone)", "10G", "55780e45-c235-498d-bf83-ab9a6943164a"},
-        {"HDD(Seoul-M2 Zone)", "20G", "11c559b5-f8cf-4c02-abc8-8de92af14fe8"},
-        {"HDD(Seoul-M2 Zone)", "30G", "b4aebcc5-ba2e-4ad1-97d7-79d85ca5da69"},
-        {"HDD(Seoul-M2 Zone)", "40G", "913eba8b-ede3-4a8c-b83e-974ab445a68b"},
-        {"HDD(Seoul-M2 Zone)", "50G", "2706dad8-6161-4e86-a30f-7cd35778096e"},
-        {"HDD(Seoul-M2 Zone)", "60G", "f7371b79-4a88-4a01-9ae9-6f3a552dcded"},
-        {"HDD(Seoul-M2 Zone)", "70G", "2a1c3e31-186a-47b3-9a01-0c00d61cc44e"},
-        {"HDD(Seoul-M2 Zone)", "80G", "94a9f2db-f020-423f-b71e-1baf4eda8666"},
-        {"HDD(Seoul-M2 Zone)", "90G", "9e4d4ffb-f8d3-4f6d-bed7-9330bc762cfe"},
-        {"HDD(Seoul-M2 Zone)", "100G", "ac9cec92-5e8d-4d31-8250-23b62dd70cc5"},
-        {"HDD(Seoul-M2 Zone)", "110G", "657f9465-b704-4466-9874-c3d78818974e"},
-        {"HDD(Seoul-M2 Zone)", "120G", "4964f14d-848c-4752-b3da-8f40d53cdf99"},
-        {"HDD(Seoul-M2 Zone)", "130G", "e054e0df-f165-4c4d-8ce4-75f1eccc5f48"},
-        {"HDD(Seoul-M2 Zone)", "140G", "1bded494-5a78-4ce1-9e9d-7b9519544400"},
-        {"HDD(Seoul-M2 Zone)", "150G", "55fa59d9-dc4d-4b32-9f9e-e5c66a0668dc"},
-        {"HDD(Seoul-M2 Zone)", "160G", "8bca4eb7-b3d3-4b3c-9336-99257b0ef92e"},
-        {"HDD(Seoul-M2 Zone)", "170G", "74d7060c-5200-47f4-985e-7d4fc6e1575b"},
-        {"HDD(Seoul-M2 Zone)", "180G", "3a1e1743-b2d6-4ddb-80cf-a96081ea171f"},
-        {"HDD(Seoul-M2 Zone)", "190G", "fcac36e8-d7be-4285-9dc8-b27a55c38c50"},
-        {"HDD(Seoul-M2 Zone)", "200G", "363d943c-98d3-41be-a85c-c39e2e006c61"},
-        {"HDD(Seoul-M2 Zone)", "210G", "c6f3a82d-0db7-48fe-8fe4-c8e44996cd3a"},
-        {"HDD(Seoul-M2 Zone)", "220G", "44405ea8-27a7-4dec-bf1a-f3823b71f5d1"},
-        {"HDD(Seoul-M2 Zone)", "230G", "5a0c80f8-978a-48f6-9add-2ee3627a0b39"},
-        {"HDD(Seoul-M2 Zone)", "240G", "1d11f9e5-ec7a-455b-a7a2-5eb1ddea6aa3"},
-        {"HDD(Seoul-M2 Zone)", "250G", "b20157e8-06f6-4bc1-9bc2-d6973a16a7bd"},
-        {"HDD(Seoul-M2 Zone)", "260G", "8212fed4-82b7-4d1f-a9cc-519f540662fd"},
-        {"HDD(Seoul-M2 Zone)", "270G", "45cb3e99-557f-4869-b62c-ffbdefb221c5"},
-        {"HDD(Seoul-M2 Zone)", "280G", "74a48fa0-1cfe-41b5-9244-f6d95a2e367d"},
-        {"HDD(Seoul-M2 Zone)", "290G", "ca123268-0c71-44d0-b6f2-9a205f1c3221"},
-        {"HDD(Seoul-M2 Zone)", "300G", "c866a351-1946-44c8-92d5-188aacfed821"},
-        {"HDD(Seoul-M2 Zone)", "400G", "6e92f540-72ab-4580-a696-9bd1e8a31289"},
-        {"HDD(Seoul-M2 Zone)", "500G", "4ff4ff48-851d-4131-816d-8dabd2f0a82a"},
+		{"HDD(Seoul-M2 Zone)", "10G", "55780e45-c235-498d-bf83-ab9a6943164a"},
+		{"HDD(Seoul-M2 Zone)", "20G", "11c559b5-f8cf-4c02-abc8-8de92af14fe8"},
+		{"HDD(Seoul-M2 Zone)", "30G", "b4aebcc5-ba2e-4ad1-97d7-79d85ca5da69"},
+		{"HDD(Seoul-M2 Zone)", "40G", "913eba8b-ede3-4a8c-b83e-974ab445a68b"},
+		{"HDD(Seoul-M2 Zone)", "50G", "2706dad8-6161-4e86-a30f-7cd35778096e"},
+		{"HDD(Seoul-M2 Zone)", "60G", "f7371b79-4a88-4a01-9ae9-6f3a552dcded"},
+		{"HDD(Seoul-M2 Zone)", "70G", "2a1c3e31-186a-47b3-9a01-0c00d61cc44e"},
+		{"HDD(Seoul-M2 Zone)", "80G", "94a9f2db-f020-423f-b71e-1baf4eda8666"},
+		{"HDD(Seoul-M2 Zone)", "90G", "9e4d4ffb-f8d3-4f6d-bed7-9330bc762cfe"},
+		{"HDD(Seoul-M2 Zone)", "100G", "ac9cec92-5e8d-4d31-8250-23b62dd70cc5"},
+		{"HDD(Seoul-M2 Zone)", "110G", "657f9465-b704-4466-9874-c3d78818974e"},
+		{"HDD(Seoul-M2 Zone)", "120G", "4964f14d-848c-4752-b3da-8f40d53cdf99"},
+		{"HDD(Seoul-M2 Zone)", "130G", "e054e0df-f165-4c4d-8ce4-75f1eccc5f48"},
+		{"HDD(Seoul-M2 Zone)", "140G", "1bded494-5a78-4ce1-9e9d-7b9519544400"},
+		{"HDD(Seoul-M2 Zone)", "150G", "55fa59d9-dc4d-4b32-9f9e-e5c66a0668dc"},
+		{"HDD(Seoul-M2 Zone)", "160G", "8bca4eb7-b3d3-4b3c-9336-99257b0ef92e"},
+		{"HDD(Seoul-M2 Zone)", "170G", "74d7060c-5200-47f4-985e-7d4fc6e1575b"},
+		{"HDD(Seoul-M2 Zone)", "180G", "3a1e1743-b2d6-4ddb-80cf-a96081ea171f"},
+		{"HDD(Seoul-M2 Zone)", "190G", "fcac36e8-d7be-4285-9dc8-b27a55c38c50"},
+		{"HDD(Seoul-M2 Zone)", "200G", "363d943c-98d3-41be-a85c-c39e2e006c61"},
+		{"HDD(Seoul-M2 Zone)", "210G", "c6f3a82d-0db7-48fe-8fe4-c8e44996cd3a"},
+		{"HDD(Seoul-M2 Zone)", "220G", "44405ea8-27a7-4dec-bf1a-f3823b71f5d1"},
+		{"HDD(Seoul-M2 Zone)", "230G", "5a0c80f8-978a-48f6-9add-2ee3627a0b39"},
+		{"HDD(Seoul-M2 Zone)", "240G", "1d11f9e5-ec7a-455b-a7a2-5eb1ddea6aa3"},
+		{"HDD(Seoul-M2 Zone)", "250G", "b20157e8-06f6-4bc1-9bc2-d6973a16a7bd"},
+		{"HDD(Seoul-M2 Zone)", "260G", "8212fed4-82b7-4d1f-a9cc-519f540662fd"},
+		{"HDD(Seoul-M2 Zone)", "270G", "45cb3e99-557f-4869-b62c-ffbdefb221c5"},
+		{"HDD(Seoul-M2 Zone)", "280G", "74a48fa0-1cfe-41b5-9244-f6d95a2e367d"},
+		{"HDD(Seoul-M2 Zone)", "290G", "ca123268-0c71-44d0-b6f2-9a205f1c3221"},
+		{"HDD(Seoul-M2 Zone)", "300G", "c866a351-1946-44c8-92d5-188aacfed821"},
+		{"HDD(Seoul-M2 Zone)", "400G", "6e92f540-72ab-4580-a696-9bd1e8a31289"},
+		{"HDD(Seoul-M2 Zone)", "500G", "4ff4ff48-851d-4131-816d-8dabd2f0a82a"},
 
 		{"SSD", "100G", "0f587eed-cb8f-4b06-8658-6c7e317056fe"},
-        {"SSD", "200G", "9413a1c8-3d1f-4ed7-9b9f-8ad889fee0a4"},
-        {"SSD", "300G", "ddd14a91-9fcd-4df1-91f7-c8ab72735e16"},
-        {"SSD", "400G", "f5466c9f-2d61-4c1b-a611-c8f064bad325"},
-        {"SSD", "500G", "27c98e80-c75e-4db3-abf2-ff3097d5b9d9"},
-        {"SSD", "600G", "d2850362-36f8-43cd-ab54-6b5bb70082b7"},
-        {"SSD", "700G", "b8776967-f962-4c94-a534-2d67133be2b2"},
-        {"SSD", "800G", "1f8ee43e-c1bf-49a7-b2fc-91e94155b0e8"},
+		{"SSD", "200G", "9413a1c8-3d1f-4ed7-9b9f-8ad889fee0a4"},
+		{"SSD", "300G", "ddd14a91-9fcd-4df1-91f7-c8ab72735e16"},
+		{"SSD", "400G", "f5466c9f-2d61-4c1b-a611-c8f064bad325"},
+		{"SSD", "500G", "27c98e80-c75e-4db3-abf2-ff3097d5b9d9"},
+		{"SSD", "600G", "d2850362-36f8-43cd-ab54-6b5bb70082b7"},
+		{"SSD", "700G", "b8776967-f962-4c94-a534-2d67133be2b2"},
+		{"SSD", "800G", "1f8ee43e-c1bf-49a7-b2fc-91e94155b0e8"},
 
 		{"SSD(Seoul-M2 Zone)", "10G", "a71ba83c-9631-471c-bcfe-07686d99d10a"},
 		{"SSD(Seoul-M2 Zone)", "20G", "6edfa457-fdd3-448a-be2b-a16aed9da892"},
@@ -949,4 +1013,9 @@ func findDiskOfferingId(diskType, size string, offerings []DiskOffering) (string
 	}
 	newErr := fmt.Errorf("Failed to Find the 'diskofferingid' for %s of size %s.", diskType, size)
 	return "", newErr
+}
+
+func (DiskHandler *KtCloudDiskHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

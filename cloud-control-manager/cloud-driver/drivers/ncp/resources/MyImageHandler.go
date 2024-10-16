@@ -11,9 +11,11 @@
 package resources
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
+
 	// "github.com/davecgh/go-spew/spew"
 
 	server "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/server"
@@ -24,8 +26,8 @@ import (
 )
 
 type NcpMyImageHandler struct {
-	RegionInfo    idrv.RegionInfo
-	VMClient      *server.APIClient
+	RegionInfo idrv.RegionInfo
+	VMClient   *server.APIClient
 }
 
 func (myImageHandler *NcpMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInfo) (irs.MyImageInfo, error) {
@@ -42,8 +44,8 @@ func (myImageHandler *NcpMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageI
 	}
 
 	snapshotReq := server.CreateMemberServerImageRequest{ // Not CreateBlockStorageSnapshotInstanceRequest{}
-		MemberServerImageName:		&snapshotReqInfo.IId.NameId,
-		ServerInstanceNo: 			&snapshotReqInfo.SourceVM.SystemId,
+		MemberServerImageName: &snapshotReqInfo.IId.NameId,
+		ServerInstanceNo:      &snapshotReqInfo.SourceVM.SystemId,
 	}
 	callLogStart := call.Start()
 	result, err := myImageHandler.VMClient.V2Api.CreateMemberServerImage(&snapshotReq) // Not CreateBlockStorageSnapshotInstance
@@ -91,10 +93,10 @@ func (myImageHandler *NcpMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, erro
 
 	InitLog()
 	callLogInfo := GetCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, "ListMyImage()", "ListMyImage()")
-	
+
 	vmHandler := NcpVMHandler{
-		RegionInfo:     	myImageHandler.RegionInfo,
-		VMClient:         	myImageHandler.VMClient,
+		RegionInfo: myImageHandler.RegionInfo,
+		VMClient:   myImageHandler.VMClient,
 	}
 	regionNo, err := vmHandler.GetRegionNo(myImageHandler.RegionInfo.Region)
 	if err != nil {
@@ -104,7 +106,7 @@ func (myImageHandler *NcpMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, erro
 		return nil, newErr
 	}
 	imageReq := server.GetMemberServerImageListRequest{ // Not GetBlockStorageSnapshotInstanceDetailRequest{}
-		RegionNo:                 	regionNo, 			// Caution!! : RegionNo (Not RegionCode)
+		RegionNo: regionNo, // Caution!! : RegionNo (Not RegionCode)
 	}
 	callLogStart := call.Start()
 	result, err := myImageHandler.VMClient.V2Api.GetMemberServerImageList(&imageReq) // Caution : Not GetBlockStorageSnapshotInstanceDetail()
@@ -145,7 +147,7 @@ func (myImageHandler *NcpMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.MyI
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.MyImageInfo{}, newErr
-	}	
+	}
 
 	memberServerImageInfo, err := myImageHandler.GetNcpMemberServerImageInfo(myImageIID)
 	if err != nil {
@@ -174,7 +176,7 @@ func (myImageHandler *NcpMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
-	}	
+	}
 
 	myImagePlatform, err := myImageHandler.GetOriginImageOSPlatform(myImageIID)
 	if err != nil {
@@ -183,7 +185,7 @@ func (myImageHandler *NcpMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
 	}
-	
+
 	isWindowsImage := false
 	if strings.Contains(myImagePlatform, "WINDOWS") {
 		isWindowsImage = true
@@ -202,11 +204,11 @@ func (myImageHandler *NcpMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bool
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
-	}	
+	}
 
-	snapshotImageNoList := []*string {&myImageIID.SystemId}
-	delReq := server.DeleteMemberServerImagesRequest{ 	// Not DeleteBlockStorageSnapshotInstancesRequest{}
-		MemberServerImageNoList: 	snapshotImageNoList,
+	snapshotImageNoList := []*string{&myImageIID.SystemId}
+	delReq := server.DeleteMemberServerImagesRequest{ // Not DeleteBlockStorageSnapshotInstancesRequest{}
+		MemberServerImageNoList: snapshotImageNoList,
 	}
 	callLogStart := call.Start()
 	result, err := myImageHandler.VMClient.V2Api.DeleteMemberServerImages(&delReq) // Not DeleteBlockStorageSnapshotInstances()
@@ -290,20 +292,20 @@ func (myImageHandler *NcpMyImageHandler) GetMyImageStatus(myImageIID irs.IID) (i
 		LoggingError(callLogInfo, newErr)
 		return "", newErr
 	}
-	cblogger.Infof("### NCP Member Server Image Status : [%s]" , *memberServerImageInfo.MemberServerImageStatus.Code)
+	cblogger.Infof("### NCP Member Server Image Status : [%s]", *memberServerImageInfo.MemberServerImageStatus.Code)
 	myImageStatus := ConvertImageStatus(*memberServerImageInfo.MemberServerImageStatus.Code)
 	return myImageStatus, nil
 }
 
 func ConvertImageStatus(myImageStatus string) irs.MyImageStatus {
-	cblogger.Info("NCP Classic Cloud Driver: called ConvertImageStatus()")	
+	cblogger.Info("NCP Classic Cloud Driver: called ConvertImageStatus()")
 	// Ref) https://api.ncloud-docs.com/docs/common-vapidatatype-blockstoragesnapshotinstance
 	var resultStatus irs.MyImageStatus
 	switch myImageStatus {
-	case "INIT" :
-		resultStatus = irs.MyImageUnavailable	// "Unavailable"
-	case "CREAT" : // CREATED
-		resultStatus = irs.MyImageAvailable		// "Available"
+	case "INIT":
+		resultStatus = irs.MyImageUnavailable // "Unavailable"
+	case "CREAT": // CREATED
+		resultStatus = irs.MyImageAvailable // "Available"
 	default:
 		resultStatus = "Unknown"
 	}
@@ -324,22 +326,22 @@ func (myImageHandler *NcpMyImageHandler) MappingMyImageInfo(myImage *server.Memb
 		return nil, newErr
 	}
 
-	myImageInfo := &irs.MyImageInfo {
+	myImageInfo := &irs.MyImageInfo{
 		IId: irs.IID{
 			NameId:   *myImage.MemberServerImageName,
 			SystemId: *myImage.MemberServerImageNo,
 		},
-		SourceVM: 	  irs.IID{NameId: *myImage.OriginalServerName, SystemId: *myImage.OriginalServerInstanceNo},
-		Status: 	  ConvertImageStatus(*myImage.MemberServerImageStatus.Code),
-		CreatedTime:  convertedTime,
+		SourceVM:    irs.IID{NameId: *myImage.OriginalServerName, SystemId: *myImage.OriginalServerInstanceNo},
+		Status:      ConvertImageStatus(*myImage.MemberServerImageStatus.Code),
+		CreatedTime: convertedTime,
 	}
 
 	keyValueList := []irs.KeyValue{
-		{Key: "Region", 						Value: myImageHandler.RegionInfo.Region},
-		{Key: "OriginalImageProductCode",		Value: *myImage.OriginalServerImageProductCode},
-		{Key: "MyImagePlatformType",			Value: *myImage.MemberServerImagePlatformType.CodeName},
-		{Key: "OriginalOsInformation",			Value: *myImage.OriginalOsInformation},
-		{Key: "CreateDate",						Value: *myImage.CreateDate},
+		{Key: "Region", Value: myImageHandler.RegionInfo.Region},
+		{Key: "OriginalImageProductCode", Value: *myImage.OriginalServerImageProductCode},
+		{Key: "MyImagePlatformType", Value: *myImage.MemberServerImagePlatformType.CodeName},
+		{Key: "OriginalOsInformation", Value: *myImage.OriginalOsInformation},
+		{Key: "CreateDate", Value: *myImage.CreateDate},
 	}
 	myImageInfo.KeyValueList = keyValueList
 	return myImageInfo, nil
@@ -356,11 +358,11 @@ func (myImageHandler *NcpMyImageHandler) GetNcpMemberServerImageInfo(myImageIID 
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return server.MemberServerImage{}, newErr
-	}	
+	}
 
 	vmHandler := NcpVMHandler{
-		RegionInfo:     	myImageHandler.RegionInfo,
-		VMClient:         	myImageHandler.VMClient,
+		RegionInfo: myImageHandler.RegionInfo,
+		VMClient:   myImageHandler.VMClient,
 	}
 	regionNo, err := vmHandler.GetRegionNo(myImageHandler.RegionInfo.Region)
 	if err != nil {
@@ -370,8 +372,8 @@ func (myImageHandler *NcpMyImageHandler) GetNcpMemberServerImageInfo(myImageIID 
 		return server.MemberServerImage{}, newErr
 	}
 	imageReq := server.GetMemberServerImageListRequest{ // Not GetBlockStorageSnapshotInstanceDetailRequest{}
-		RegionNo:                 	regionNo, 			// Caution!! : RegionNo (Not RegionCode)
-		MemberServerImageNoList: 	[]*string{&myImageIID.SystemId},
+		RegionNo:                regionNo, // Caution!! : RegionNo (Not RegionCode)
+		MemberServerImageNoList: []*string{&myImageIID.SystemId},
 	}
 	callLogStart := call.Start()
 	result, err := myImageHandler.VMClient.V2Api.GetMemberServerImageList(&imageReq) // Caution : Not GetBlockStorageSnapshotInstanceDetail()
@@ -405,26 +407,26 @@ func (myImageHandler *NcpMyImageHandler) GetOriginImageOSPlatform(imageIID irs.I
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return "", newErr
-	}	
+	}
 
 	isPublicImage, err := myImageHandler.isPublicImage(imageIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
 		cblogger.Error(newErr.Error())
 		return "", newErr
-	}	
+	}
 	if isPublicImage {
 		imageHandler := NcpImageHandler{
-			RegionInfo:  myImageHandler.RegionInfo,
-			VMClient:    myImageHandler.VMClient,
-		}	
+			RegionInfo: myImageHandler.RegionInfo,
+			VMClient:   myImageHandler.VMClient,
+		}
 		ncpImageInfo, err := imageHandler.GetNcpImageInfo(imageIID)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get the Image Info from NCP : [%v]", err)
 			cblogger.Error(newErr.Error())
 			LoggingError(callLogInfo, newErr)
 			return "", newErr
-		} else {				
+		} else {
 			// cblogger.Infof("### ImageOsInformation : [%s]", *ncpImageInfo.OsInformation)
 			imagePlatformType := strings.ToUpper(*ncpImageInfo.OsInformation)
 
@@ -451,7 +453,7 @@ func (myImageHandler *NcpMyImageHandler) GetOriginImageOSPlatform(imageIID irs.I
 			LoggingError(callLogInfo, newErr)
 			return "", newErr
 		}
-		// cblogger.Infof("### MyImageOriginalOsInformation : [%s]", *memberServerImageInfo.OriginalOsInformation)		
+		// cblogger.Infof("### MyImageOriginalOsInformation : [%s]", *memberServerImageInfo.OriginalOsInformation)
 		imagePlatformType := strings.ToUpper(*memberServerImageInfo.OriginalOsInformation)
 
 		var originImagePlatform string
@@ -468,7 +470,7 @@ func (myImageHandler *NcpMyImageHandler) GetOriginImageOSPlatform(imageIID irs.I
 		}
 		cblogger.Infof("### OriginImagePlatform : [%s]", originImagePlatform)
 		return originImagePlatform, nil
-	}	
+	}
 }
 
 func (myImageHandler *NcpMyImageHandler) isPublicImage(imageIID irs.IID) (bool, error) {
@@ -482,12 +484,12 @@ func (myImageHandler *NcpMyImageHandler) isPublicImage(imageIID irs.IID) (bool, 
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
-	}	
+	}
 
 	imageHandler := NcpImageHandler{
-		RegionInfo:  myImageHandler.RegionInfo,
-		VMClient:    myImageHandler.VMClient,
-	}	
+		RegionInfo: myImageHandler.RegionInfo,
+		VMClient:   myImageHandler.VMClient,
+	}
 	ncpImageInfo, err := imageHandler.GetNcpImageInfo(imageIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Image Info from NCP : [%v]", err)
@@ -501,4 +503,9 @@ func (myImageHandler *NcpMyImageHandler) isPublicImage(imageIID irs.IID) (bool, 
 		}
 		return isPublicImage, nil
 	}
+}
+
+func (ImageHandler *NcpMyImageHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

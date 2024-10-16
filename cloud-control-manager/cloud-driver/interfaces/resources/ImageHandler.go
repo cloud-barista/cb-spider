@@ -16,13 +16,13 @@ type ImageReqInfo struct {
 	// @todo
 }
 
+// ImageInfo represents the information of an Image.
 type ImageInfo struct {
-	IId     IID    // {NameId, SystemId}
-	GuestOS string // Windows7, Ubuntu etc.
-	Status  string // available, unavailable
+	IId     IID    `json:"IId" validate:"required" description:"The ID of the image."`                                                            // {NameId, SystemId}
+	GuestOS string `json:"GuestOS" validate:"required" example:"Ubuntu 18.04" description:"The operating system of the image."`                   // Windows7, Ubuntu etc.
+	Status  string `json:"Status" validate:"required" example:"available" description:"The status of the image, e.g., available or unavailable."` // available, unavailable
 
-	TagList      []KeyValue
-	KeyValueList []KeyValue
+	KeyValueList []KeyValue `json:"KeyValueList,omitempty" validate:"omitempty" description:"A list of key-value pairs associated with the image."`
 }
 
 type ImageHandler interface {

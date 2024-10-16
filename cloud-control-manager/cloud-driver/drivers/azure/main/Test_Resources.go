@@ -130,6 +130,7 @@ var cblogger *logrus.Logger
 func init() {
 	// cblog is a global variable.
 	cblogger = cblog.GetLogger("CB-SPIDER")
+	cblog.SetLevel("info")
 }
 
 func readConfigFile() Config {
@@ -218,7 +219,7 @@ func getResourceHandler(resourceType string, config Config) (interface{}, error)
 		resourceHandler, err = cloudConnection.CreatePriceInfoHandler()
 	case "cluster":
 		resourceHandler, err = cloudConnection.CreateClusterHandler()
-	case "tag": 
+	case "tag":
 		resourceHandler, err = cloudConnection.CreateTagHandler()
 	}
 
@@ -300,7 +301,8 @@ func testSecurityHandlerListPrint() {
 	cblogger.Info("4. DeleteSecurity()")
 	cblogger.Info("5. AddRules()")
 	cblogger.Info("6. RemoveRules()")
-	cblogger.Info("7. Exit")
+	cblogger.Info("7. ListIID()")
+	cblogger.Info("8. Exit")
 }
 
 // SecurityGroup
@@ -388,7 +390,7 @@ Loop:
 				reqInfo := irs.SecurityReqInfo{
 					IId:           securityIId,
 					SecurityRules: &securityRulesInfos,
-					TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
+					TagList:       []irs.KeyValue{{Key: "Environment", Value: "Production"}, {Key: "Environment2", Value: "Production2"}},
 					VpcIID:        targetVPCIId,
 				}
 				security, err := securityHandler.CreateSecurity(reqInfo)
@@ -421,6 +423,14 @@ Loop:
 				}
 				fmt.Println("Finish RemoveRules()")
 			case 7:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := securityHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 8:
 				fmt.Println("Exit")
 				break Loop
 			}
@@ -437,7 +447,8 @@ func testVPCHandlerListPrint() {
 	cblogger.Info("4. DeleteVPC()")
 	cblogger.Info("5. AddSubnet()")
 	cblogger.Info("6. RemoveSubnet()")
-	cblogger.Info("7. Exit")
+	cblogger.Info("7. ListIID()")
+	cblogger.Info("8. Exit")
 }
 
 func testVPCHandler(config Config) {
@@ -468,7 +479,7 @@ func testVPCHandler(config Config) {
 	VPCReqInfo := irs.VPCReqInfo{
 		IId:            vpcIID,
 		IPv4_CIDR:      config.Azure.Resources.VPC.IPv4CIDR,
-		TagList:[]irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
+		TagList:        []irs.KeyValue{{Key: "Environment", Value: "Production"}, {Key: "Environment2", Value: "Production2"}},
 		SubnetInfoList: subnetInfoList,
 	}
 	addSubnet := config.Azure.Resources.VPC.AddSubnet
@@ -555,6 +566,14 @@ Loop:
 				}
 				cblogger.Info("Finish RemoveSubnet()")
 			case 7:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := vpcHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 8:
 				cblogger.Info("Exit")
 				break Loop
 			}
@@ -569,7 +588,8 @@ func testKeyPairHandlerListPrint() {
 	cblogger.Info("2. GetKey()")
 	cblogger.Info("3. CreateKey()")
 	cblogger.Info("4. DeleteKey()")
-	cblogger.Info("5. Exit")
+	cblogger.Info("5. ListIID()")
+	cblogger.Info("6. Exit")
 }
 func testKeyPairHandler(config Config) {
 	resourceHandler, err := getResourceHandler("keypair", config)
@@ -617,8 +637,8 @@ Loop:
 			case 3:
 				cblogger.Info("Start CreateKey() ...")
 				reqInfo := irs.KeyPairReqInfo{
-					IId: keypairIId,
-					TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
+					IId:     keypairIId,
+					TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"}, {Key: "Environment2", Value: "Production2"}},
 				}
 				if keyInfo, err := keyPairHandler.CreateKey(reqInfo); err != nil {
 					cblogger.Error(err)
@@ -634,6 +654,14 @@ Loop:
 				}
 				cblogger.Info("Finish DeleteKey()")
 			case 5:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := keyPairHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 6:
 				cblogger.Info("Exit")
 				break Loop
 			}
@@ -726,7 +754,8 @@ func testVMHandlerListPrint() {
 	cblogger.Info("7. SuspendVM()")
 	cblogger.Info("8. ResumeVM()")
 	cblogger.Info("9. TerminateVM()")
-	cblogger.Info("10. Exit")
+	cblogger.Info("10. ListIID()")
+	cblogger.Info("11. Exit")
 }
 
 func testVMHandler(config Config) {
@@ -775,7 +804,7 @@ func testVMHandler(config Config) {
 		SecurityGroupIIDs: SecurityGroupIIDs,
 		VMUserId:          config.Azure.Resources.Vm.VMUserId,
 		VMUserPasswd:      config.Azure.Resources.Vm.VMUserPasswd,
-		TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
+		TagList:           []irs.KeyValue{{Key: "Environment", Value: "Production"}, {Key: "Environment2", Value: "Production2"}},
 	}
 
 Loop:
@@ -863,6 +892,14 @@ Loop:
 				}
 				cblogger.Info("Finish TerminateVM()")
 			case 10:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := vmHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 11:
 				cblogger.Info("Exit")
 				break Loop
 			}
@@ -883,7 +920,8 @@ func testNLBHandlerListPrint() {
 	cblogger.Info("8. RemoveVMs()")
 	cblogger.Info("9. GetVMGroupHealthInfo()")
 	cblogger.Info("10. ChangeHealthCheckerInfo()")
-	cblogger.Info("11. Exit")
+	cblogger.Info("11. ListIID()")
+	cblogger.Info("12. Exit")
 }
 
 func testNLBHandler(config Config) {
@@ -915,7 +953,7 @@ func testNLBHandler(config Config) {
 		},
 		VMGroup: irs.VMGroupInfo{
 			Port:     "22",
-			Protocol: "TCP", 
+			Protocol: "TCP",
 			VMs: &[]irs.IID{
 				{NameId: "vm-01"},
 				{NameId: "vm-02"},
@@ -925,11 +963,11 @@ func testNLBHandler(config Config) {
 			Protocol:  "TCP",
 			Port:      "22",
 			Interval:  10,
-			Timeout: -1,
+			Timeout:   -1,
 			Threshold: 5,
 			// Threshold: 429496728,
 		},
-		TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
+		TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"}, {Key: "Environment2", Value: "Production2"}},
 	}
 	updateListener := irs.ListenerInfo{
 		Protocol: "TCP",
@@ -1051,6 +1089,14 @@ Loop:
 				}
 				cblogger.Info("Finish ChangeHealthCheckerInfo()")
 			case 11:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := nlbHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 12:
 				cblogger.Info("Exit")
 				break Loop
 			}
@@ -1067,7 +1113,8 @@ func testDiskHandlerListPrint() {
 	cblogger.Info("5. ChangeDiskSize()")
 	cblogger.Info("6. AttachDisk()")
 	cblogger.Info("7. DetachDisk()")
-	cblogger.Info("8. Exit")
+	cblogger.Info("8. ListIID()")
+	cblogger.Info("9. Exit")
 }
 
 func testDiskHandler(config Config) {
@@ -1086,8 +1133,8 @@ func testDiskHandler(config Config) {
 		IId: irs.IID{
 			NameId: config.Azure.Resources.Disk.IID.NameId,
 		},
-		Zone: config.Azure.Zone,
-		TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
+		Zone:     config.Azure.Zone,
+		TagList:  []irs.KeyValue{{Key: "Environment", Value: "Production"}, {Key: "Environment2", Value: "Production2"}},
 		DiskSize: config.Azure.Resources.Disk.DiskSize,
 		DiskType: config.Azure.Resources.Disk.DiskType,
 	}
@@ -1170,6 +1217,14 @@ Loop:
 				}
 				cblogger.Info("Finish DetachDisk()")
 			case 8:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := diskHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 9:
 				cblogger.Info("Exit")
 				break Loop
 			}
@@ -1184,7 +1239,8 @@ func testMyImageHandlerListPrint() {
 	cblogger.Info("2. GetMyImage()")
 	cblogger.Info("3. SnapshotVM()")
 	cblogger.Info("4. DeleteMyImage()")
-	cblogger.Info("5. Exit")
+	cblogger.Info("5. ListIID()")
+	cblogger.Info("6. Exit")
 }
 
 func testMyImageHandler(config Config) {
@@ -1200,7 +1256,7 @@ func testMyImageHandler(config Config) {
 	targetvm := irs.MyImageInfo{
 		IId:      irs.IID{NameId: config.Azure.Resources.MyImage.IID.NameId},
 		SourceVM: irs.IID{NameId: config.Azure.Resources.MyImage.SourceVM.NameId},
-		TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
+		TagList:  []irs.KeyValue{{Key: "Environment", Value: "Production"}, {Key: "Environment2", Value: "Production2"}},
 	}
 	delimageIId := irs.IID{NameId: config.Azure.Resources.MyImage.IID.NameId}
 Loop:
@@ -1248,6 +1304,14 @@ Loop:
 				}
 				cblogger.Info("Finish DeleteMyImage()")
 			case 5:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := myimageHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 6:
 				cblogger.Info("Exit")
 				break Loop
 			}
@@ -1446,8 +1510,9 @@ func testClusterHandlerListPrint() {
 	cblogger.Info("7. SetNodeGroupAutoScaling()")
 	cblogger.Info("8. ChangeNodeGroupScaling()")
 	cblogger.Info("9. UpgradeCluster()")
-	cblogger.Info("10. Create->GET->List->AddNodeGroup->RemoveNodeGroup->SetNodeGroupAutoScaling(Change)->SetNodeGroupAutoScaling(restore)->ChangeNodeGroupScaling->Upgrade->Delete")
-	cblogger.Info("11. Exit")
+	cblogger.Info("10. ListIID()")
+	cblogger.Info("11. Create->GET->List->AddNodeGroup->RemoveNodeGroup->SetNodeGroupAutoScaling(Change)->SetNodeGroupAutoScaling(restore)->ChangeNodeGroupScaling->Upgrade->Delete")
+	cblogger.Info("12. Exit")
 }
 
 func testClusterHandler(config Config) {
@@ -1492,7 +1557,7 @@ func testClusterHandler(config Config) {
 			//	OnAutoScaling:   true,
 			//},
 		},
-		TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"},{Key: "Environment2", Value: "Production2"}},
+		TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"}, {Key: "Environment2", Value: "Production2"}},
 	}
 	addNodeGroup := irs.NodeGroupInfo{
 		IId:             irs.IID{NameId: "nodegroup3"},
@@ -1590,6 +1655,14 @@ Loop:
 				}
 				cblogger.Info("Finish UpgradeCluster()")
 			case 10:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := clusterHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 11:
 				falowStr := "Create->GET->AddNodeGroup->RemoveNodeGroup->SetNodeGroupAutoScaling(Change)->SetNodeGroupAutoScaling(restore)->ChangeNodeGroupScaling->Delete"
 				cblogger.Info(fmt.Sprintf("Start %s =====", falowStr))
 				cblogger.Info("Start Create =====")
@@ -1946,7 +2019,7 @@ Loop:
 					cblogger.Info("Finish Delete =====")
 				}
 				cblogger.Info(fmt.Sprintf("Finish %s =====", falowStr))
-			case 11:
+			case 12:
 				cblogger.Info("Exit")
 				break Loop
 			}
@@ -1981,7 +2054,6 @@ func testTagHandler(config Config) {
 	// resIID := irs.IID{NameId: "sg01", SystemId: ""}
 	// resIID := irs.IID{NameId: "keypair-01", SystemId: ""}
 	// resIID := irs.IID{NameId: "vm-01", SystemId: ""}
-
 
 Loop:
 	for {

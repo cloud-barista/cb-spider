@@ -90,6 +90,11 @@ ssh -i /private_key_경로/private_key_파일명(~~.pem) cb-user@VM의_public_ip
 
 #### # KTCloud VPC (KT Cloud D1 플랫폼) driver 사용시 참고 및 주의 사항
 
+  O VM 생성시 아래의 사항을 참고
+
+   - KT Cloud VPC VM 생성시, 조회된 VMSpec 목록 중 ~.itl 이라는 이름의 VMSpec으로 VM을 생성해야 정상적으로 생성됨.
+      - Ex) 16x16.itl
+
 ​  O VPC, Subnet 관리시 아래의 사항을 참고 
 
    - KTCloud VPC에서는 단일(default) VPC를 제공하며, 단일 VPC를 제공하지만 driver를 기준으로는 어떤 이름으로든 생성 가능하고, 삭제도 제공함.

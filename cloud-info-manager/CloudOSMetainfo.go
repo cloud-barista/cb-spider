@@ -11,16 +11,18 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// CloudOSMetaInfo represents metadata information for a specific Cloud OS.
+// @Description Metadata information related to a Cloud OS, including supported regions, credentials, and disk configurations.
 type CloudOSMetaInfo struct {
-	Region               []string
-	Credential           []string
-	CredentialCSP        []string
-	RootDiskType         []string
-	RootDiskSize         []string
-	DiskType             []string
-	DiskSize             []string
-	IdMaxLength          []string
-	DefaultRegionToQuery []string
+	Region               []string `json:"Region" validate:"required"`               // A list of supported regions by the Cloud OS.
+	Credential           []string `json:"Credential" validate:"required"`           // A list of required credential keys.
+	CredentialCSP        []string `json:"CredentialCSP" validate:"required"`        // A list of credentials required by the cloud service provider (CSP).
+	RootDiskType         []string `json:"RootDiskType" validate:"required"`         // Supported root disk types (e.g., gp2, standard).
+	RootDiskSize         []string `json:"RootDiskSize" validate:"required"`         // Supported root disk sizes (in GB).
+	DiskType             []string `json:"DiskType" validate:"required"`             // Supported additional disk types.
+	DiskSize             []string `json:"DiskSize" validate:"required"`             // Supported additional disk sizes (in GB).
+	IdMaxLength          []string `json:"IdMaxLength" validate:"required"`          // Maximum allowed length for IDs in the cloud provider.
+	DefaultRegionToQuery []string `json:"DefaultRegionToQuery" validate:"required"` // Default region to use if none is specified for a query.
 }
 
 // struct for unmarshal

@@ -11,7 +11,7 @@
 package resources
 
 import (
-	// "errors"
+	"errors"
 	"fmt"
 	// "io/ioutil"
 	// "os"
@@ -85,13 +85,21 @@ func (diskHandler *NcpVpcDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.
 		return irs.DiskInfo{}, newErr		
 	}
 
+	// For Zone-based control!!
+	var reqZoneId string
+	if strings.EqualFold(diskReqInfo.Zone, "") {
+		reqZoneId = diskHandler.RegionInfo.Zone
+	} else {
+		reqZoneId = diskReqInfo.Zone
+	}
+
 	storageReq := vserver.CreateBlockStorageInstanceRequest{
 		RegionCode: 					ncloud.String(diskHandler.RegionInfo.Region),
 		BlockStorageName: 				ncloud.String(diskReqInfo.IId.NameId),
 		BlockStorageSize: 				&reqDiskSizeInt,						// *** Required (Not Optional)
 		BlockStorageDiskDetailTypeCode: ncloud.String(reqDiskType),
 		ServerInstanceNo: 				ncloud.String(instanceNo),				// *** Required (Not Optional)
-		ZoneCode: 						ncloud.String(diskHandler.RegionInfo.Zone),
+		ZoneCode: 						ncloud.String(reqZoneId), // Apply Zone-based control!!
 	}
 
 	callLogStart := call.Start()
@@ -652,10 +660,11 @@ func (diskHandler *NcpVpcDiskHandler) MappingDiskInfo(storage vserver.BlockStora
 			NameId: 	ncloud.StringValue(storage.BlockStorageName),
 			SystemId: 	ncloud.StringValue(storage.BlockStorageInstanceNo),
 		},
+		Zone:		 ncloud.StringValue(storage.ZoneCode),
 		DiskSize:    strconv.FormatInt((*storage.BlockStorageSize)/(1024*1024*1024), 10),
 		Status:		 ConvertDiskStatus(ncloud.StringValue(storage.BlockStorageInstanceStatusName)), // Not BlockStorageInstanceStatus.Code
 		CreatedTime: convertedTime,
-		DiskType: ncloud.StringValue(storage.BlockStorageDiskDetailType.Code),
+		DiskType: 	 ncloud.StringValue(storage.BlockStorageDiskDetailType.Code),
 	}
 
 	if strings.EqualFold(ncloud.StringValue(storage.BlockStorageInstanceStatusName), "attached") {
@@ -679,7 +688,7 @@ func (diskHandler *NcpVpcDiskHandler) MappingDiskInfo(storage vserver.BlockStora
 
 	keyValueList := []irs.KeyValue{
 		{Key: "DeviceName",   			Value: ncloud.StringValue(storage.DeviceName)},				
-		{Key: "ZoneCode",   			Value: ncloud.StringValue(storage.ZoneCode)},		 
+		// {Key: "ZoneCode",   			Value: ncloud.StringValue(storage.ZoneCode)},		 
 		{Key: "BlockStorageType",   	Value: ncloud.StringValue(storage.BlockStorageType.CodeName)},
 		{Key: "BlockStorageDiskType",  	Value: ncloud.StringValue(storage.BlockStorageDiskType.CodeName)},		
 		{Key: "MaxIOPS",  				Value: strconv.FormatInt(int64(*storage.MaxIopsThroughput), 10)},
@@ -765,4 +774,9 @@ func (diskHandler *NcpVpcDiskHandler) IsBasicBlockStorage(diskIID irs.IID) (bool
 		cblogger.Infof("# BlockStorageType : [%s]", *ncpDiskInfo.BlockStorageType.CodeName) // Ex) Basic BS, Server BS, ...
 		return false, nil
 	}
+}
+
+func (DiskHandler *NcpVpcDiskHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

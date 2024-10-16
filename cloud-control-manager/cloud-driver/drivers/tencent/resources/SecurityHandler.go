@@ -306,6 +306,17 @@ func (securityHandler *TencentSecurityHandler) GetSecurity(securityIID irs.IID) 
 		securityInfo.VpcIID = irs.IID{NameId: "", SystemId: ""}
 		securityInfo.IId = irs.IID{NameId: *response.Response.SecurityGroupSet[0].SecurityGroupName, SystemId: *response.Response.SecurityGroupSet[0].SecurityGroupId}
 
+		if response.Response.SecurityGroupSet[0].TagSet != nil {
+			var tagList []irs.KeyValue
+			for _, tag := range response.Response.SecurityGroupSet[0].TagSet {
+				tagList = append(tagList, irs.KeyValue{
+					Key:   *tag.Key,
+					Value: *tag.Value,
+				})
+			}
+			securityInfo.TagList = tagList
+		}
+
 		securityInfo.SecurityRules, err = securityHandler.GetSecurityRuleInfo(securityIID)
 		if err != nil {
 			cblogger.Error(err)
@@ -739,3 +750,9 @@ func sameRulesCheck(presentSecurityRules *[]irs.SecurityRuleInfo, reqSecurityRul
 
 	return nil
 }
+
+func (securityHandler *TencentSecurityHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}
+

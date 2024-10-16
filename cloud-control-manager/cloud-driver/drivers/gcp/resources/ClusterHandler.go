@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -59,12 +60,77 @@ sg(firewall rule) 추가 안됨.
 
 fail 기다리는것 처리 확인할 것.
 */
+
+var (
+	ErrNodeGroupEmpty           = errors.New("node group is empty. it must be greater than 0")
+	ErrNodeGroupNameEmpty       = errors.New("node group name is empty")
+	ErrNodeGroupVMSpecEmpty     = errors.New("node group vm spec is empty")
+	ErrInvalidNodeGroupDiskSize = errors.New("invalid NodeGroup RootDiskSize")
+	ErrNodeGroupKeypairEmpty    = errors.New("node group keypair is empty")
+	ErrInvalidMinNodeSize       = errors.New("MinNodeSize must be greater than zero")
+	ErrInvalidMaxNodeSize       = errors.New("MaxNodeSize must be greater than or equal to MinNodeSize")
+	ErrInvalidDesiredNodeSize   = errors.New("DesiredNodeSize must be greater than or equal to MinNodeSize, and less than or equal to MaxNodeSize")
+)
+
+func validateNodeGroup(ngl []irs.NodeGroupInfo) error {
+	if len(ngl) <= 0 {
+		return ErrNodeGroupEmpty
+	}
+
+	for _, nodeGroup := range ngl {
+		if nodeGroup.IId.NameId == "" {
+			return ErrNodeGroupNameEmpty
+		}
+
+		if nodeGroup.VMSpecName == "" {
+			return ErrNodeGroupVMSpecEmpty
+		}
+
+		if !(nodeGroup.RootDiskSize == "" || strings.ToLower(nodeGroup.RootDiskSize) == "default") {
+			_, err := strconv.Atoi(nodeGroup.RootDiskSize)
+			if err != nil {
+				return ErrInvalidNodeGroupDiskSize
+			}
+		}
+
+		if nodeGroup.KeyPairIID.SystemId == "" {
+			return ErrNodeGroupKeypairEmpty
+		}
+
+		if nodeGroup.OnAutoScaling == true {
+			intMaxNodeSize := int64(nodeGroup.MaxNodeSize)
+			intMinNodeSize := int64(nodeGroup.MinNodeSize)
+			intDesiredNodeSize := int64(nodeGroup.DesiredNodeSize)
+
+			if !(intMinNodeSize >= 1) {
+				return ErrInvalidMinNodeSize
+			}
+			if !(intMinNodeSize <= intMaxNodeSize) {
+				return ErrInvalidMaxNodeSize
+			}
+			if !(intDesiredNodeSize >= intMinNodeSize && intDesiredNodeSize <= intMaxNodeSize) {
+				return ErrInvalidDesiredNodeSize
+			}
+		}
+
+	}
+
+	return nil
+}
+
 func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.ClusterInfo, error) {
+	cblogger.Info("GCP Cloud Driver: called CreateCluster()")
+
+	// as per https://github.com/cloud-barista/cb-spider/issues/1252#issuecomment-2303556504
+	// gcp cluster only support create cluster with at least one custom node pool
+	if err := validateAtCreateCluster(clusterReqInfo); err != nil {
+		return irs.ClusterInfo{}, err
+	}
+
 	projectID := ClusterHandler.Credential.ProjectID
 	region := ClusterHandler.Region.Region
 	zone := ClusterHandler.Region.Zone
 
-	cblogger.Info("GCP Cloud Driver: called CreateCluster()")
 	hiscallInfo := GetCallLogScheme(ClusterHandler.Region, call.CLUSTER, clusterReqInfo.IId.NameId, "CreateCluster()")
 
 	parent := getParentAtContainer(projectID, zone)
@@ -74,7 +140,7 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 	// Meta정보에 securityGroup 정보를 Key,Val 형태로 넣고 실제 값(val)은 nodeConfig 에 set하여 사용
 	labels := make(map[string]string)
 	var sgTags []string
-	if clusterReqInfo.Network.SecurityGroupIIDs != nil && len(clusterReqInfo.Network.SecurityGroupIIDs) > 0 {
+	if len(clusterReqInfo.Network.SecurityGroupIIDs) > 0 {
 		for idx, securityGroupIID := range clusterReqInfo.Network.SecurityGroupIIDs {
 			labels[GCP_PMKS_SECURITYGROUP_TAG+strconv.Itoa(idx)] = securityGroupIID.NameId
 			sgTags = append(sgTags, securityGroupIID.NameId)
@@ -105,7 +171,7 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 	// nodeGroup List set
 	nodePools := []*container.NodePool{}
 	cblogger.Info("clusterReqInfo.NodeGroupList ", len(clusterReqInfo.NodeGroupList))
-	if clusterReqInfo.NodeGroupList != nil && len(clusterReqInfo.NodeGroupList) > 0 {
+	if len(clusterReqInfo.NodeGroupList) > 0 {
 		// 최초 생성 시 nodeGroup을 1개 지정함. 2개 이상일 때는 생성 후에 add NodeGroup으로 추가
 		for _, reqNodeGroup := range clusterReqInfo.NodeGroupList {
 			nodePool := container.NodePool{}
@@ -121,20 +187,27 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 			}
 
 			nodeConfig := container.NodeConfig{}
-			diskSize, err := strconv.ParseInt(reqNodeGroup.RootDiskSize, 10, 64)
-			if err != nil {
-				return irs.ClusterInfo{}, err
+
+			if reqNodeGroup.RootDiskSize != "" && strings.ToLower(reqNodeGroup.RootDiskType) != "default" {
+				diskSize, err := strconv.ParseInt(reqNodeGroup.RootDiskSize, 10, 64)
+				if err != nil {
+					return irs.ClusterInfo{}, err
+				}
+
+				if diskSize > 0 {
+					nodeConfig.DiskSizeGb = diskSize
+				}
 			}
-			if diskSize > 0 {
-				nodeConfig.DiskSizeGb = diskSize
+
+			if reqNodeGroup.RootDiskType != "" && strings.ToLower(reqNodeGroup.RootDiskType) != "default" {
+				nodeConfig.DiskType = reqNodeGroup.RootDiskType
 			}
-			nodeConfig.DiskType = reqNodeGroup.RootDiskType
+
 			nodeConfig.MachineType = reqNodeGroup.VMSpecName
 			nodeConfig.Tags = sgTags
 
 			keyPair := map[string]string{}
 			if reqNodeGroup.KeyPairIID.SystemId != "" {
-				//keyPair[GCP_PMKS_KEYPAIR_KEY] = reqNodeGroup.KeyPairIID.NameId
 				keyPair[GCP_PMKS_KEYPAIR_KEY] = reqNodeGroup.KeyPairIID.SystemId
 				nodeConfig.Labels = keyPair
 			}
@@ -145,11 +218,12 @@ func (ClusterHandler *GCPClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 			//break //1개만 add?
 		}
 		rb.Cluster.NodePools = nodePools
-	} else {
-		// NodeGroup 이 1개는 넘어오므로 cluster의 InitialNodeCount는 동시에 Set 못함.
-		// NodeGroup이 없는경우 Set.
-		reqCluster.InitialNodeCount = 3 // Cluster.initial_node_count must be greater than zero
 	}
+	// else {
+	// NodeGroup 이 1개는 넘어오므로 cluster의 InitialNodeCount는 동시에 Set 못함.
+	// NodeGroup이 없는경우 Set.
+	// reqCluster.InitialNodeCount = 3 // Cluster.initial_node_count must be greater than zero
+	// }
 
 	cblogger.Debug(rb)
 	// if 1 == 1 {
@@ -347,6 +421,11 @@ func (ClusterHandler *GCPClusterHandler) DeleteCluster(clusterIID irs.IID) (bool
 // 객체 조회를 하는 것은 status 가 ing로 나타날 것이므로 operation 수행후 얼마간 실패로 떨어지는지 대기
 // 실패하지 않으면 대기를 종료하고 조회시킴
 func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo irs.NodeGroupInfo) (irs.NodeGroupInfo, error) {
+	cblogger.Info("GCP Cloud Driver: called AddNodeGroup()")
+	if err := validateAtAddNodeGroup(clusterIID, nodeGroupReqInfo); err != nil {
+		return irs.NodeGroupInfo{}, err
+	}
+
 	nodeGroupInfo := irs.NodeGroupInfo{}
 
 	projectID := ClusterHandler.Credential.ProjectID
@@ -380,14 +459,30 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 	}
 
 	nodeConfig := container.NodeConfig{}
-	diskSize, err := strconv.ParseInt(nodeGroupReqInfo.RootDiskSize, 10, 64)
-	if err != nil {
-		return nodeGroupInfo, err
+
+	if nodeGroupReqInfo.RootDiskSize != "" && strings.ToLower(nodeGroupReqInfo.RootDiskType) != "default" {
+		diskSize, err := strconv.ParseInt(nodeGroupReqInfo.RootDiskSize, 10, 64)
+		if err != nil {
+			return irs.NodeGroupInfo{}, err
+		}
+
+		if diskSize > 0 {
+			nodeConfig.DiskSizeGb = diskSize
+		}
 	}
-	nodeConfig.DiskSizeGb = diskSize
-	nodeConfig.DiskType = nodeGroupReqInfo.RootDiskType
+
+	if nodeGroupReqInfo.RootDiskType != "" && strings.ToLower(nodeGroupReqInfo.RootDiskType) != "default" {
+		nodeConfig.DiskType = nodeGroupReqInfo.RootDiskType
+	}
+
 	nodeConfig.MachineType = nodeGroupReqInfo.VMSpecName
 	nodeConfig.Tags = sgTags
+
+	keyPair := map[string]string{}
+	if nodeGroupReqInfo.KeyPairIID.SystemId != "" {
+		keyPair[GCP_PMKS_KEYPAIR_KEY] = nodeGroupReqInfo.KeyPairIID.SystemId
+		nodeConfig.Labels = keyPair
+	}
 
 	// if clusterInfo.Network.SecurityGroupIIDs != nil && len(clusterInfo.Network.SecurityGroupIIDs) > 0 {
 	// 	var sgTags []string
@@ -399,7 +494,6 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 
 	reqNodePool.Config = &nodeConfig
 
-	cblogger.Info("GCP Cloud Driver: called AddNodeGroup()")
 	hiscallInfo := GetCallLogScheme(ClusterHandler.Region, call.CLUSTER, clusterIID.NameId, "AddNodeGroup()")
 
 	parent := getParentClusterAtContainer(projectID, zone, clusterIID.NameId)
@@ -474,6 +568,12 @@ func (ClusterHandler *GCPClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 
 // autoScaling 에 대한 true/false 만 바꾼다.
 func (ClusterHandler *GCPClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.IID, nodeGroupIID irs.IID, on bool) (bool, error) {
+	if on == true {
+		// https://github.com/cloud-barista/cb-spider/issues/1329
+		return false, fmt.Errorf("Enabling autoscaling through the SetNodeGroupAutoScaling API is not supported in GCP. " +
+			"Please use the ChangeNodeGroupScaling API instead")
+	}
+
 	projectID := ClusterHandler.Credential.ProjectID
 	region := ClusterHandler.Region.Region
 	zone := ClusterHandler.Region.Zone
@@ -508,6 +608,11 @@ func (ClusterHandler *GCPClusterHandler) SetNodeGroupAutoScaling(clusterIID irs.
 // autoScaling에 대한 설정 값을 바꾼다.
 // TODO : 현재 autoScaling 설정값을 조회해서 다르면 Set 해야하나
 func (ClusterHandler *GCPClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID, desiredNodeSize int, minNodeSize int, maxNodeSize int) (irs.NodeGroupInfo, error) {
+	cblogger.Info("GCP Cloud Driver: called ChangeNodeGroupScaling()")
+	if err := validateAtChangeNodeGroupScaling(clusterIID, nodeGroupIID, desiredNodeSize, minNodeSize, maxNodeSize); err != nil {
+		return irs.NodeGroupInfo{}, err
+	}
+
 	projectID := ClusterHandler.Credential.ProjectID
 	region := ClusterHandler.Region.Region
 	zone := ClusterHandler.Region.Zone
@@ -532,12 +637,6 @@ func (ClusterHandler *GCPClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 	if intMaxNodeSize > 0 || intMinNodeSize > 0 {
 		//기존 autoscaling이 false였으면 둘 다 값이 있어야 함.
 		if orgAutoScaling == nil || orgAutoScaling.Enabled == false {
-			if intMaxNodeSize == 0 {
-				return irs.NodeGroupInfo{}, errors.New("Maximum Node size must be greater than zero")
-			}
-			if intMinNodeSize == 0 {
-				return irs.NodeGroupInfo{}, errors.New("Minimum Node size must be greater than zero")
-			}
 			cblogger.Info("autoScaling : ", orgAutoScaling)
 			orgAutoScaling = &container.NodePoolAutoscaling{}
 			orgAutoScaling.Enabled = true
@@ -874,6 +973,10 @@ func mappingClusterInfo(cluster *container.Cluster) (ClusterInfo irs.ClusterInfo
 
 	// 5. AccessInfo    AccessInfo
 	kubeConfig := "Kubeconfig is not ready yet!"
+	if !reflect.ValueOf(cluster.MasterAuth).IsNil() {
+		kubeConfig = getKubeConfig(cluster)
+	}
+
 	accessInfo := irs.AccessInfo{
 		Endpoint:   cluster.Endpoint,
 		Kubeconfig: kubeConfig,
@@ -958,6 +1061,16 @@ func mappingNodeGroupInfo(nodePool *container.NodePool) (NodeGroupInfo irs.NodeG
 		}
 
 	}
+
+	// add keypair label
+	if nodePool.Config != nil && nodePool.Config.Labels != nil {
+		for k, v := range nodePool.Config.Labels {
+			if strings.HasPrefix(k, GCP_PMKS_KEYPAIR_KEY) {
+				keyValueList = append(keyValueList, irs.KeyValue{Key: GCP_PMKS_KEYPAIR_KEY, Value: v})
+			}
+		}
+	}
+
 	nodeGroupInfo.KeyValueList = keyValueList
 
 	return nodeGroupInfo, nil
@@ -1122,6 +1235,16 @@ func convertNodeGroup(client *compute.Service, credential idrv.CredentialInfo, r
 				cblogger.Info("HasPrefix ")
 				nodeList := []irs.IID{}
 				instanceGroupValue := keyValue.Value
+				// check instanceGroup exists, if not exists, set empty list
+				// The InstanceGroup may not exist while the Cluster is being created.
+				exists, err := hasInstanceGroup(client, credential, region, instanceGroupValue)
+				if err != nil {
+					return nil, err
+				}
+				if !exists {
+					nodeGroupInfo.Nodes = []irs.IID{}
+					continue
+				}
 				instanceList, err := GetInstancesOfInstanceGroup(client, credential, region, instanceGroupValue)
 				if err != nil {
 					return nodeGroupList, err
@@ -1136,24 +1259,110 @@ func convertNodeGroup(client *compute.Service, credential idrv.CredentialInfo, r
 					// nodeGroup의 Instance ID
 					nodeIID := irs.IID{NameId: instanceInfo.Name, SystemId: instanceInfo.Name}
 					nodeList = append(nodeList, nodeIID)
-
-					cblogger.Info("instanceInfo.Labels ", instanceInfo.Labels)
-					nodeGroupInfo.KeyPairIID = irs.IID{NameId: "NameId", SystemId: "SystemId"} // empty면 오류나므로 기본값으로 설정후 update하도록
-					if instanceInfo.Labels != nil {
-						keyPairVal, exists := instanceInfo.Labels[GCP_PMKS_KEYPAIR_KEY]
-						if exists {
-							cblogger.Info("nodeGroup set keypair ", keyPairVal)
-							nodeGroupInfo.KeyPairIID = irs.IID{NameId: keyPairVal, SystemId: keyPairVal}
-						}
-					}
 				}
+				nodeGroupInfo.KeyPairIID = irs.IID{NameId: "NameId", SystemId: "SystemId"} // empty면 오류나므로 기본값으로 설정후 update하도록
 				cblogger.Info("nodeList ", nodeList)
 				nodeGroupInfo.Nodes = nodeList
 				//cblogger.Info("nodeGroupInfo ", nodeGroupInfo)
 				cblogger.Debug(nodeGroupInfo)
+			} else if strings.HasPrefix(keyValue.Key, GCP_PMKS_KEYPAIR_KEY) {
+				nodeGroupInfo.KeyPairIID = irs.IID{NameId: keyValue.Value, SystemId: keyValue.Value}
 			}
 		}
 		nodeGroupList = append(nodeGroupList, nodeGroupInfo)
 	}
 	return nodeGroupList, nil
+}
+
+func getKubeConfig(cluster *container.Cluster) string {
+	configName := fmt.Sprintf("gke_%s_%s", cluster.Location, cluster.Name)
+
+	// Refernece format is from `gcloud container clusters get-credentials <cluster name> --location=<location>`
+	kubeconfigContent := fmt.Sprintf(`apiVersion: v1
+clusters:
+- cluster:
+    server: https://%s
+    certificate-authority-data: %s
+  name: %s
+contexts:
+- context:
+    cluster: %s
+    user: %s
+  name: %s
+current-context: %s
+kind: Config
+preferences: {}
+users:
+- name: %s
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1beta1
+      command: gke-gcloud-auth-plugin
+      installHint: Install gke-gcloud-auth-plugin for use with kubectl by following
+        https://cloud.google.com/kubernetes-engine/docs/how-to/cluster-access-for-kubectl#install_plugin
+      provideClusterInfo: true
+`, cluster.Endpoint, cluster.MasterAuth.ClusterCaCertificate,
+		configName, configName, configName, configName, configName, configName)
+
+	return kubeconfigContent
+}
+
+func validateAtCreateCluster(clusterInfo irs.ClusterInfo) error {
+	if clusterInfo.IId.NameId == "" {
+		return fmt.Errorf("Cluster name is required")
+	}
+	if clusterInfo.Network.VpcIID.SystemId == "" && clusterInfo.Network.VpcIID.NameId == "" {
+		return fmt.Errorf("Cannot identify VPC(IID=%s)", clusterInfo.Network.VpcIID)
+	}
+	if len(clusterInfo.Network.SubnetIIDs) < 1 {
+		return fmt.Errorf("At least one Subnet must be specified")
+	}
+	if len(clusterInfo.Network.SecurityGroupIIDs) < 1 {
+		return fmt.Errorf("At least one Subnet must be specified")
+	}
+	if err := validateNodeGroup(clusterInfo.NodeGroupList); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func validateAtAddNodeGroup(clusterIID irs.IID, nodeGroupInfo irs.NodeGroupInfo) error {
+	if clusterIID.SystemId == "" && clusterIID.NameId == "" {
+		return fmt.Errorf("Invalid Cluster IID")
+	}
+	if nodeGroupInfo.IId.NameId == "" {
+		return fmt.Errorf("Node Group's name is required")
+	}
+	if nodeGroupInfo.VMSpecName == "" {
+		return fmt.Errorf("VM Spec Name is required")
+	}
+	if err := validateNodeGroup([]irs.NodeGroupInfo{nodeGroupInfo}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateAtChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID, desiredNodeSize, minNodeSize, maxNodeSize int) error {
+	if clusterIID.SystemId == "" && clusterIID.NameId == "" {
+		return fmt.Errorf("Invalid Cluster IID")
+	}
+	if nodeGroupIID.SystemId == "" && nodeGroupIID.NameId == "" {
+		return fmt.Errorf("Invalid Node Group IID")
+	}
+	if !(minNodeSize >= 1) {
+		return ErrInvalidMinNodeSize
+	}
+	if !(minNodeSize <= maxNodeSize) {
+		return ErrInvalidMaxNodeSize
+	}
+	if !(desiredNodeSize >= minNodeSize && desiredNodeSize <= maxNodeSize) {
+		return ErrInvalidDesiredNodeSize
+	}
+	return nil
+}
+
+func (ClusterHandler *GCPClusterHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

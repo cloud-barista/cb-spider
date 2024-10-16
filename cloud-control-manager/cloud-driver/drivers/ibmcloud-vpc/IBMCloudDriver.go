@@ -3,8 +3,9 @@ package ibmcloudvpc
 import (
 	"context"
 	"errors"
-	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"time"
+
+	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
@@ -15,6 +16,7 @@ import (
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/utils/kubernetesserviceapiv1"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
+	ires "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
 type IbmCloudDriver struct{}
@@ -41,6 +43,7 @@ func (IbmCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.RegionZoneHandler = true
 	drvCapabilityInfo.PriceInfoHandler = true
 	drvCapabilityInfo.TagHandler = true
+	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.ALL, ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER}
 
 	return drvCapabilityInfo
 }

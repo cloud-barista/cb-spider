@@ -10,6 +10,11 @@
 
 package resources
 
+import (
+	"fmt"
+	"strings"
+)
+
 type RSType string
 
 const (
@@ -56,5 +61,39 @@ func RSTypeString(rsType RSType) string {
 	default:
 		return string(rsType) + " is not supported Resource!!"
 
+	}
+}
+
+func StringToRSType(str string) (RSType, error) {
+
+	str = strings.ToLower(str)
+
+	switch str {
+	case "all":
+		return ALL, nil
+	case "image":
+		return IMAGE, nil
+	case "vpc":
+		return VPC, nil
+	case "subnet":
+		return SUBNET, nil
+	case "sg":
+		return SG, nil
+	case "keypair":
+		return KEY, nil
+	case "vm":
+		return VM, nil
+	case "nlb":
+		return NLB, nil
+	case "disk":
+		return DISK, nil
+	case "myimage":
+		return MYIMAGE, nil
+	case "cluster":
+		return CLUSTER, nil
+	case "nodegroup":
+		return NODEGROUP, nil
+	default:
+		return "", fmt.Errorf("%s is not a valid resource type", str)
 	}
 }

@@ -447,6 +447,16 @@ func (securityHandler *AlibabaSecurityHandler) ExtractSecurityInfo(securityGroup
 			{Key: "CreationTime", Value: securityGroupResult.CreationTime},
 		},
 	}
+	if securityGroupResult.Tags.Tag != nil {
+		var tagList []irs.KeyValue
+		for _, tag := range securityGroupResult.Tags.Tag {
+			tagList = append(tagList, irs.KeyValue{
+				Key:   tag.TagKey,
+				Value: tag.TagValue,
+			})
+		}
+		securityInfo.TagList = tagList
+	}
 
 	return securityInfo, nil
 }
@@ -595,3 +605,9 @@ func sameRulesCheck(presentSecurityRules *[]irs.SecurityRuleInfo, reqSecurityRul
 
 	return nil
 }
+
+func (securityHandler *AlibabaSecurityHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}
+

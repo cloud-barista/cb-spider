@@ -295,3 +295,22 @@ func justDetachDisk(mockName string, diskIID irs.IID, ownerVM irs.IID) (bool, er
 
 	return false, fmt.Errorf("%s Disk does not exist!!", diskIID.NameId)
 }
+
+func (DiskHandler *MockDiskHandler) ListIID() ([]*irs.IID, error) {
+	cblogger := cblog.GetLogger("CB-SPIDER")
+	cblogger.Info("Mock Driver: called ListIID()!")
+
+	mockName := DiskHandler.MockName
+	diskMapLock.RLock()
+	defer diskMapLock.RUnlock()
+	infoList, ok := diskInfoMap[mockName]
+	if !ok {
+		return []*irs.IID{}, nil
+	}
+
+	iidList := []*irs.IID{}
+	for _, info := range infoList {
+		iidList = append(iidList, &info.IId)
+	}
+	return iidList, nil
+}

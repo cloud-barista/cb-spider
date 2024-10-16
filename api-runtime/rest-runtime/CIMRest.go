@@ -27,15 +27,28 @@ import (
 	"os"
 )
 
+// ListCloudOSResponse represents the response body for listing Cloud OS.
+type ListCloudOSResponse struct {
+	Result []string `json:"cloudos" validate:"required" example:"[\"AWS\", \"GCP\"]"`
+}
+
 // ================ List of support CloudOS
+
+// listCloudOS godoc
+// @ID list-cloudos
+// @Summary List Cloud OS
+// @Description Retrieve a list of supported Cloud OS.
+// @Tags [Cloud Info Management] CloudOS Info
+// @Produce  json
+// @Success 200 {object} ListCloudOSResponse "List of supported Cloud OS"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /cloudos [get]
 func ListCloudOS(c echo.Context) error {
 	cblog.Info("call ListCloudOS()")
 
 	infoList := im.ListCloudOS()
 
-	var jsonResult struct {
-		Result []string `json:"cloudos"`
-	}
+	var jsonResult ListCloudOSResponse
 	if infoList == nil {
 		infoList = []string{}
 	}
@@ -44,6 +57,18 @@ func ListCloudOS(c echo.Context) error {
 }
 
 // ================ CloudOS Metainfo
+
+// getCloudOSMetaInfo godoc
+// @ID get-cloudos-metainfo
+// @Summary Get Cloud OS Meta Info
+// @Description Retrieve metadata information for a specific Cloud OS.
+// @Tags [Cloud Info Management] CloudOS Info
+// @Produce  json
+// @Param CloudOSName path string true "The name of the Cloud OS"
+// @Success 200 {object} im.CloudOSMetaInfo "Cloud OS Meta Info"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /cloudos/metainfo/{CloudOSName} [get]
 func GetCloudOSMetaInfo(c echo.Context) error {
 	cblog.Info("call GetCloudOSMetaInfo()")
 
@@ -56,6 +81,19 @@ func GetCloudOSMetaInfo(c echo.Context) error {
 }
 
 // ================ CloudDriver Handler
+
+// registerCloudDriver godoc
+// @ID register-driver
+// @Summary Register Cloud Driver
+// @Description Register a new Cloud Driver. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#1-cloud-driver-%EC%A0%95%EB%B3%B4-%EB%93%B1%EB%A1%9D-%EB%B0%8F-%EA%B4%80%EB%A6%AC)]
+// @Tags [Cloud Info Management] Driver Info
+// @Accept  json
+// @Produce  json
+// @Param CloudDriverInfo body dim.CloudDriverInfo true "Request body for registering a Cloud Driver"
+// @Success 200 {object} dim.CloudDriverInfo "Details of the registered Cloud Driver"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /driver [post]
 func RegisterCloudDriver(c echo.Context) error {
 	cblog.Info("call RegisterCloudDriver()")
 	req := &dim.CloudDriverInfo{}
@@ -73,6 +111,21 @@ func RegisterCloudDriver(c echo.Context) error {
 	return c.JSON(http.StatusOK, &cldinfoList)
 }
 
+// ListCloudDriverResponse represents the response body for listing Cloud Drivers.
+type ListCloudDriverResponse struct {
+	Result []*dim.CloudDriverInfo `json:"driver" validate:"required"`
+}
+
+// listCloudDriver godoc
+// @ID list-driver
+// @Summary List Cloud Drivers
+// @Description Retrieve a list of registered Cloud Drivers.
+// @Tags [Cloud Info Management] Driver Info
+// @Produce  json
+// @Param provider query string false "The name of the provider to filter the Cloud Drivers by"
+// @Success 200 {object} ListCloudDriverResponse "List of Cloud Drivers"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /driver [get]
 func ListCloudDriver(c echo.Context) error {
 	cblog.Info("call ListCloudDriver()")
 
@@ -96,17 +149,25 @@ func ListCloudDriver(c echo.Context) error {
 		}
 	}
 
-	var jsonResult struct {
-		Result []*dim.CloudDriverInfo `json:"driver"`
-	}
+	var jsonResult ListCloudDriverResponse
 	if infoList == nil {
 		infoList = []*dim.CloudDriverInfo{}
 	}
 	jsonResult.Result = infoList
 	return c.JSON(http.StatusOK, &jsonResult)
-
 }
 
+// getCloudDriver godoc
+// @ID get-driver
+// @Summary Get Cloud Driver
+// @Description Retrieve details of a specific Cloud Driver.
+// @Tags [Cloud Info Management] Driver Info
+// @Produce  json
+// @Param DriverName path string true "The name of the Cloud Driver"
+// @Success 200 {object} dim.CloudDriverInfo "Details of the Cloud Driver"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /driver/{DriverName} [get]
 func GetCloudDriver(c echo.Context) error {
 	cblog.Info("call GetCloudDriver()")
 
@@ -118,6 +179,17 @@ func GetCloudDriver(c echo.Context) error {
 	return c.JSON(http.StatusOK, &cldinfo)
 }
 
+// unregisterCloudDriver godoc
+// @ID unregister-driver
+// @Summary Unregister Cloud Driver
+// @Description Unregister a specific Cloud Driver.
+// @Tags [Cloud Info Management] Driver Info
+// @Produce  json
+// @Param DriverName path string true "The name of the Cloud Driver"
+// @Success 200 {object} BooleanInfo "Result of the unregister operation"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /driver/{DriverName} [delete]
 func UnRegisterCloudDriver(c echo.Context) error {
 	cblog.Info("call UnRegisterCloudDriver()")
 
@@ -133,6 +205,17 @@ func UnRegisterCloudDriver(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
+// uploadCloudDriver godoc
+// @ID upload-driver
+// @Summary Upload Cloud Driver
+// @Description Upload a Cloud Driver library file.
+// @Tags [Cloud Info Management] Driver Info
+// @Accept mpfd
+// @Produce html
+// @Param file formData file true "Cloud Driver Library File"
+// @Success 200 {string} string "File uploaded successfully"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /driver/upload [post]
 func UploadCloudDriver(c echo.Context) error {
 	// Source
 	file, err := c.FormFile("file")
@@ -162,6 +245,19 @@ func UploadCloudDriver(c echo.Context) error {
 }
 
 // ================ Credential Handler
+
+// registerCredential godoc
+// @ID register-credential
+// @Summary Register Credential
+// @Description Register a new Credential. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#2-cloud-credential-%EC%A0%95%EB%B3%B4-%EB%93%B1%EB%A1%9D-%EB%B0%8F-%EA%B4%80%EB%A6%AC)]
+// @Tags [Cloud Info Management] Credential Info
+// @Accept  json
+// @Produce  json
+// @Param CredentialInfo body cim.CredentialInfo true "Request body for registering a Credential"
+// @Success 200 {object} cim.CredentialInfo "Details of the registered Credential"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /credential [post]
 func RegisterCredential(c echo.Context) error {
 	cblog.Info("call RegisterCredential()")
 
@@ -178,6 +274,21 @@ func RegisterCredential(c echo.Context) error {
 	return c.JSON(http.StatusOK, &crdinfoList)
 }
 
+// ListCredentialResponse represents the response body for listing Credentials.
+type ListCredentialResponse struct {
+	Result []*cim.CredentialInfo `json:"credential" validate:"required"`
+}
+
+// listCredential godoc
+// @ID list-credential
+// @Summary List Credentials
+// @Description Retrieve a list of registered Credentials.
+// @Tags [Cloud Info Management] Credential Info
+// @Produce  json
+// @Param provider query string false "The name of the provider to filter the Credentials by"
+// @Success 200 {object} ListCredentialResponse "List of Credentials"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /credential [get]
 func ListCredential(c echo.Context) error {
 	cblog.Info("call ListCredential()")
 
@@ -201,9 +312,7 @@ func ListCredential(c echo.Context) error {
 		}
 	}
 
-	var jsonResult struct {
-		Result []*cim.CredentialInfo `json:"credential"`
-	}
+	var jsonResult ListCredentialResponse
 	if infoList == nil {
 		infoList = []*cim.CredentialInfo{}
 	}
@@ -211,6 +320,17 @@ func ListCredential(c echo.Context) error {
 	return c.JSON(http.StatusOK, &jsonResult)
 }
 
+// getCredential godoc
+// @ID get-credential
+// @Summary Get Credential
+// @Description Retrieve details of a specific Credential.
+// @Tags [Cloud Info Management] Credential Info
+// @Produce  json
+// @Param CredentialName path string true "The name of the Credential"
+// @Success 200 {object} cim.CredentialInfo "Details of the Credential"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /credential/{CredentialName} [get]
 func GetCredential(c echo.Context) error {
 	cblog.Info("call GetCredential()")
 
@@ -222,6 +342,17 @@ func GetCredential(c echo.Context) error {
 	return c.JSON(http.StatusOK, &crdinfo)
 }
 
+// unregisterCredential godoc
+// @ID unregister-credential
+// @Summary Unregister Credential
+// @Description Unregister a specific Credential.
+// @Tags [Cloud Info Management] Credential Info
+// @Produce  json
+// @Param CredentialName path string true "The name of the Credential"
+// @Success 200 {object} BooleanInfo "Result of the unregister operation"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /credential/{CredentialName} [delete]
 func UnRegisterCredential(c echo.Context) error {
 	cblog.Info("call UnRegisterCredential()")
 
@@ -238,6 +369,19 @@ func UnRegisterCredential(c echo.Context) error {
 }
 
 // ================ Region Handler
+
+// registerRegion godoc
+// @ID register-region
+// @Summary Register Region
+// @Description Register a new Region. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#3-cloud-regionzone-%EC%A0%95%EB%B3%B4-%EB%93%B1%EB%A1%9D-%EB%B0%8F-%EA%B4%80%EB%A6%AC)]
+// @Tags [Cloud Info Management] Region Info
+// @Accept  json
+// @Produce  json
+// @Param RegionInfo body rim.RegionInfo true "Request body for registering a Region"
+// @Success 200 {object} rim.RegionInfo "Details of the registered Region"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /region [post]
 func RegisterRegion(c echo.Context) error {
 	cblog.Info("call RegisterRegion()")
 
@@ -254,6 +398,21 @@ func RegisterRegion(c echo.Context) error {
 	return c.JSON(http.StatusOK, &crdinfoList)
 }
 
+// ListRegionResponse represents the response body for listing Regions.
+type ListRegionResponse struct {
+	Result []*rim.RegionInfo `json:"region" validate:"required"`
+}
+
+// listRegion godoc
+// @ID list-region
+// @Summary List Regions
+// @Description Retrieve a list of registered Regions.
+// @Tags [Cloud Info Management] Region Info
+// @Produce  json
+// @Param provider query string false "The name of the provider to filter the Regions by"
+// @Success 200 {object} ListRegionResponse "List of Regions"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /region [get]
 func ListRegion(c echo.Context) error {
 	cblog.Info("call ListRegion()")
 
@@ -277,9 +436,7 @@ func ListRegion(c echo.Context) error {
 		}
 	}
 
-	var jsonResult struct {
-		Result []*rim.RegionInfo `json:"region"`
-	}
+	var jsonResult ListRegionResponse
 	if infoList == nil {
 		infoList = []*rim.RegionInfo{}
 	}
@@ -287,6 +444,17 @@ func ListRegion(c echo.Context) error {
 	return c.JSON(http.StatusOK, &jsonResult)
 }
 
+// getRegion godoc
+// @ID get-region
+// @Summary Get Region
+// @Description Retrieve details of a specific Region.
+// @Tags [Cloud Info Management] Region Info
+// @Produce  json
+// @Param RegionName path string true "The name of the Region"
+// @Success 200 {object} rim.RegionInfo "Details of the Region"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /region/{RegionName} [get]
 func GetRegion(c echo.Context) error {
 	cblog.Info("call GetRegion()")
 
@@ -298,6 +466,17 @@ func GetRegion(c echo.Context) error {
 	return c.JSON(http.StatusOK, &crdinfo)
 }
 
+// unregisterRegion godoc
+// @ID unregister-region
+// @Summary Unregister Region
+// @Description Unregister a specific Region.
+// @Tags [Cloud Info Management] Region Info
+// @Produce  json
+// @Param RegionName path string true "The name of the Region"
+// @Success 200 {object} BooleanInfo "Result of the unregister operation"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /region/{RegionName} [delete]
 func UnRegisterRegion(c echo.Context) error {
 	cblog.Info("call UnRegisterRegion()")
 
@@ -314,6 +493,19 @@ func UnRegisterRegion(c echo.Context) error {
 }
 
 // ================ ConnectionConfig Handler
+
+// createConnectionConfig godoc
+// @ID create-connection-config
+// @Summary Create Connection Config
+// @Description Create a new Connection Config. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#4-cloud-connection-configuration-%EC%A0%95%EB%B3%B4-%EB%93%B1%EB%A1%9D-%EB%B0%8F-%EA%B4%80%EB%A6%AC)]
+// @Tags [Cloud Info Management] Connection Info
+// @Accept  json
+// @Produce  json
+// @Param ConnectionConfigInfo body ccim.ConnectionConfigInfo true "Request body for creating a Connection Config"
+// @Success 200 {object} ccim.ConnectionConfigInfo "Details of the created Connection Config"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /connectionconfig [post]
 func CreateConnectionConfig(c echo.Context) error {
 	cblog.Info("call CreateConnectionConfig()")
 
@@ -330,6 +522,20 @@ func CreateConnectionConfig(c echo.Context) error {
 	return c.JSON(http.StatusOK, &crdinfoList)
 }
 
+// ListConnectionConfigResponse represents the response body for listing Connection Configurations.
+type ListConnectionConfigResponse struct {
+	Result []*ccim.ConnectionConfigInfo `json:"connectionconfig" validate:"required"`
+}
+
+// listConnectionConfig godoc
+// @ID list-connection-config
+// @Summary List Connection Configs
+// @Description Retrieve a list of registered Connection Configs.
+// @Tags [Cloud Info Management] Connection Info
+// @Produce  json
+// @Success 200 {object} ListConnectionConfigResponse "List of Connection Configs"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /connectionconfig [get]
 func ListConnectionConfig(c echo.Context) error {
 	cblog.Info("call ListConnectionConfig()")
 
@@ -338,9 +544,7 @@ func ListConnectionConfig(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	var jsonResult struct {
-		Result []*ccim.ConnectionConfigInfo `json:"connectionconfig"`
-	}
+	var jsonResult ListConnectionConfigResponse
 	if infoList == nil {
 		infoList = []*ccim.ConnectionConfigInfo{}
 	}
@@ -348,6 +552,17 @@ func ListConnectionConfig(c echo.Context) error {
 	return c.JSON(http.StatusOK, &jsonResult)
 }
 
+// getConnectionConfig godoc
+// @ID get-connection-config
+// @Summary Get Connection Config
+// @Description Retrieve details of a specific Connection Config.
+// @Tags [Cloud Info Management] Connection Info
+// @Produce  json
+// @Param ConfigName path string true "The name of the Connection Config"
+// @Success 200 {object} ccim.ConnectionConfigInfo "Details of the Connection Config"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /connectionconfig/{ConfigName} [get]
 func GetConnectionConfig(c echo.Context) error {
 	cblog.Info("call GetConnectionConfig()")
 
@@ -359,6 +574,17 @@ func GetConnectionConfig(c echo.Context) error {
 	return c.JSON(http.StatusOK, &crdinfo)
 }
 
+// deleteConnectionConfig godoc
+// @ID delete-connection-config
+// @Summary Delete Connection Config
+// @Description Delete a specific Connection Config.
+// @Tags [Cloud Info Management] Connection Info
+// @Produce  json
+// @Param ConfigName path string true "The name of the Connection Config"
+// @Success 200 {object} BooleanInfo "Result of the delete operation"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /connectionconfig/{ConfigName} [delete]
 func DeleteConnectionConfig(c echo.Context) error {
 	cblog.Info("call DeleteConnectionConfig()")
 
@@ -374,6 +600,15 @@ func DeleteConnectionConfig(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
+// countAllConnections godoc
+// @ID count-all-connection
+// @Summary Count All Connections
+// @Description Get the total number of connections.
+// @Tags [Cloud Info Management] Connection Info
+// @Produce  json
+// @Success 200 {object} CountResponse "Total count of connections"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /countconnectionconfig [get]
 func CountAllConnections(c echo.Context) error {
 	count, err := ccim.CountAllConnections()
 	if err != nil {
@@ -381,15 +616,23 @@ func CountAllConnections(c echo.Context) error {
 	}
 
 	// Prepare JSON result
-	var jsonResult struct {
-		Count int `json:"count"`
-	}
+	var jsonResult CountResponse
 	jsonResult.Count = int(count)
 
 	// Return JSON response
 	return c.JSON(http.StatusOK, jsonResult)
 }
 
+// countConnectionsByProvider godoc
+// @ID count-connection-by-provider
+// @Summary Count Connections by Provider
+// @Description Get the total number of connections for a specific provider.
+// @Tags [Cloud Info Management] Connection Info
+// @Produce  json
+// @Param ProviderName path string true "The name of the provider"
+// @Success 200 {object} CountResponse "Total count of connections for the provider"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /countconnectionconfig/{ProviderName} [get]
 func CountConnectionsByProvider(c echo.Context) error {
 	count, err := ccim.CountConnectionsByProvider(c.Param("ProviderName"))
 	if err != nil {
@@ -397,9 +640,7 @@ func CountConnectionsByProvider(c echo.Context) error {
 	}
 
 	// Prepare JSON result
-	var jsonResult struct {
-		Count int `json:"count"`
-	}
+	var jsonResult CountResponse
 	jsonResult.Count = int(count)
 
 	// Return JSON response

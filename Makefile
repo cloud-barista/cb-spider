@@ -1,40 +1,43 @@
-default: cli
-		@echo -e '\t[CB-Spider] build ./bin/cb-spider....'
-		@go mod download
-		@go mod tidy
-		@go build -o bin/cb-spider ./api-runtime
-dyna plugin plug dynamic: cli
-		@echo -e '\t[CB-Spider] build ./bin/cb-spider with plugin mode...'
-		@go mod download
-	        @go build -tags dyna -o bin/cb-spider-dyna ./api-runtime
-		@./build_all_driver_lib.sh;
-cc:
+VERSION := $(shell git describe --tags --abbrev=8 | sed 's/-g.*//')
+COMMIT_SHA := $(shell git rev-parse --short HEAD)
+BUILD_TIME := $(shell date)
+
+default: swag
+	@echo -e '\t[CB-Spider] building ./bin/cb-spider...'
+	@go mod download
+	@go mod tidy
+	@go build -ldflags="-X 'main.Version=$(VERSION)' \
+	                    -X 'main.CommitSHA=$(COMMIT_SHA)' \
+	                    -X 'main.BuildTime=$(BUILD_TIME)'" \
+			-o bin/cb-spider ./api-runtime
+
+dyna plugin plug dynamic: swag
+	@echo -e '\t[CB-Spider] building ./bin/cb-spider-dyna with plugin mode...'
+	@go mod download
+	@go mod tidy
+	@go build -tags dyna -ldflags="-X 'main.Version=$(VERSION)' \
+                            -X 'main.CommitSHA=$(COMMIT_SHA)' \
+                            -X 'main.BuildTime=$(BUILD_TIME)'" \
+			-o bin/cb-spider-dyna ./api-runtime
+	@./build_all_driver_lib.sh;
+
+cc: swag
 		@echo -e '\t[CB-Spider] build ./bin/cb-spider-arm for arm...'
 	        GOOS=linux GOARCH=arm go build -o cb-spider-arm ./api-runtime
+
 clean clear:
 		@echo -e '\t[CB-Spider] cleaning...'
 	        @rm -rf bin/cb-spider bin/cb-spider-dyna bin/cb-spider-arm
-	        @rm -rf dist-tmp
-
-cli-dist dist-cli: cli
-		@echo -e '\t[CB-Spider] tar spctl... to dist'
-		@mkdir -p /tmp/spider/dist/conf 
-		@cp ./interface/spctl ./interface/spctl.conf /tmp/spider/dist 1> /dev/null
-		@cp ./conf/log_conf.yaml /tmp/spider/dist/conf 1> /dev/null
-		@mkdir -p ./dist
-		@tar -zcvf ./dist/spctl-`(date +%Y.%m.%d.%H)`.tar.gz -C /tmp/spider/dist ./ 1> /dev/null
-		@rm -rf /tmp/spider
-cli:
-		@echo -e '\t[CB-Spider] build ./interface/spctl...'
-		@go mod download
-		@go mod tidy
-		@go build -ldflags="-X 'github.com/cloud-barista/cb-spider/interface/cli/spider/cmd.Version=v0.7.7' \
-			-X 'github.com/cloud-barista/cb-spider/interface/cli/spider/cmd.CommitSHA=`(git rev-parse --short HEAD)`' \
-			-X 'github.com/cloud-barista/cb-spider/interface/cli/spider/cmd.User=`(id -u -n)`' \
-			-X 'github.com/cloud-barista/cb-spider/interface/cli/spider/cmd.Time=`(date)`'" \
-			-o ./interface/spctl ./interface/cli/spider/spider.go
 
 swag swagger:
-		@echo -e '\t[CB-Spider] build Swagger docs'
-		@~/go/bin/swag i -g api-runtime/rest-runtime/CBSpiderRuntime.go -o api-runtime/rest-runtime/docs
-
+	@echo -e '\t[CB-Spider] generating Swagger documentations...'
+	@~/go/bin/swag i -g api-runtime/rest-runtime/CBSpiderRuntime.go -d ./,./api-runtime/common-runtime,./cloud-control-manager,./cloud-info-manager,./info-store -o api > /dev/null
+	@sed -i -e 's/github_com_cloud-barista_cb-spider_cloud-control-manager_cloud-driver_interfaces_resources/spider/g' \
+			-e 's/restruntime/spider/g' \
+			-e 's/github_com_cloud-barista_cb-spider_api-runtime_common-runtime/spider/g' \
+			-e 's/github_com_cloud-barista_cb-spider_cloud-info-manager_driver-info-manager/spider.cim/g' \
+			-e 's/github_com_cloud-barista_cb-spider_cloud-info-manager_credential-info-manager/spider.cim/g' \
+			-e 's/github_com_cloud-barista_cb-spider_cloud-info-manager_region-info-manager/spider.cim/g' \
+			-e 's/github_com_cloud-barista_cb-spider_cloud-info-manager_connection-config-info-manager/spider.cim/g' \
+			-e 's/github_com_cloud-barista_cb-spider_cloud-info-manager/spider.cim/g' \
+			./api/docs.go ./api/swagger.json ./api/swagger.yaml

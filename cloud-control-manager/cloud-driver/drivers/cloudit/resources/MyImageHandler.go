@@ -579,3 +579,8 @@ func (myImageHandler *ClouditMyImageHandler) CheckWindowsImage(myImageIID irs.II
 	LoggingInfo(hiscallInfo, start)
 	return isWindows, nil
 }
+
+func (ImageHandler *ClouditMyImageHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

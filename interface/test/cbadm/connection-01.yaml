@@ -1,5 +1,0 @@
-ConfigName: openstack-config01
-ProviderName: OPENSTACK
-DriverName: openstack-driver01
-CredentialName: openstack-credential01
-RegionName: openstack-region01

@@ -1,0 +1,2298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VM Management</title>
+<link rel="stylesheet" href="/spider/adminweb/static/css/xterm.css" />
+<script src="/spider/adminweb/static/js/xterm.js"></script>
+<!--
+Copyright (c) 2017-2019, The xterm.js authors (https://github.com/xtermjs/xterm.js)
+Copyright (c) 2014-2016, SourceLair Private Company (https://www.sourcelair.com)
+Copyright (c) 2012-2013, Christopher Jeffrey (https://github.com/chjj/)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+-->
+<style>
+    /* General Styles */
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+    }
+    .header-container {
+        display: flex;
+        align-items: flex-end;
+    }
+    .header-container img {
+        margin-right: 10px;
+        height: 28px;
+    }
+    .header-container h1 {
+        font-size: 16px;
+        margin: 0;
+    }
+    h2, h3 {
+        margin: 10px 0;
+    }
+    h2 {
+        font-size: 16px;
+    }
+    h3 {
+        font-size: 14px;
+        margin-left: 1cm;
+    }
+    .content {
+        margin-top: 70px;
+    }
+    #searchInput {
+        width: 190px;
+        padding-right: 2.5cm;
+    }
+    #clearSearch {
+        position: absolute;
+        right: 0.1cm;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+    }
+    .searchContainer {
+        position: relative;
+        display: flex;
+        align-items: center;
+        padding-left: 0.5cm;
+    }
+    .searchContainer button {
+        position: absolute;
+        right: 0.5cm;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+    }
+    .fixed-header {
+        position: fixed;
+        top: 0;
+        width: 97%;
+        background-color: white;
+        z-index: 1000;
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 20px;
+        align-items: center;
+        box-shadow: 0 4px 6px -6px #222;
+    }
+    .fixed-action-buttons {
+        display: flex;
+        align-items: center;
+    }
+    .fixed-action-buttons button {
+        margin-left: 10px;
+    }
+    .header-with-progress {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0px;
+    }
+    .progress-bar-container {
+        width: 600px;
+        margin-left: 10px;
+        margin-bottom: 10px;
+        height: 22px;
+        background-color: #f0f5ff;
+        border-radius: 4px;
+        overflow: hidden;
+        display: none;
+        position: relative;
+        z-index: 20;
+    }
+    .progress-bar {
+        width: 0;
+        height: 100%;
+        background-color: #cce6ff;
+        border-radius: 4px;
+        transition: width 3s ease;
+    }
+    #timeDisplay {
+        position: absolute;
+        top: 50%;
+        right: 10px;
+        transform: translateY(-50%);
+        font-size: 14px;
+        color: #333;
+        z-index: 30;
+    }
+    .add-button {
+        font-size: 14px;
+        font-weight: bold;
+        margin-left: 1px;
+        margin-right: 5px;
+        margin-bottom: 10px;
+    }
+    .mock-add-button {
+        margin-right: 1px;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-bottom: 0;
+    }
+    th, td {
+        border: 1px solid black;
+        padding: 6px;
+        position: relative;
+    }
+    th {
+        background-color: #f2f2f2;
+        font-size: 14px;
+        text-align: center;
+    }
+    td {
+        text-align: left;
+    }
+    .column-num {
+        width: 5%;
+        text-align: center;
+    }
+    .center-align {
+        text-align: center;
+    }
+    .fingerprint {
+        width: 30%;
+    }
+    .check-column {
+        width: 5%;
+        text-align: center;
+    }
+    .highlight {
+        background-color: #fffab6;
+    }
+    .misc {
+        width: 15%;
+    }
+    .overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        justify-content: center;
+        align-items: center;
+    }
+    .overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+    }
+    .tag-container {
+        display: inline-block;
+        background-color: #e1e1e1;
+        border-radius: 3px;
+        padding: 2px 5px;
+        margin: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: pointer;
+        max-width: calc(100% - 2ch);
+    }
+    .tag-container:hover {
+        background-color: #c1e1c1;
+    }
+    .form-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .form-group label {
+        flex: 1;
+        text-align: right;
+        margin-right: 10px;
+    }
+    .form-group input, .form-group textarea {
+        flex: 2;
+    }
+    .form-group button {
+        margin-left: 10px;
+    }
+    .tag-input-group {
+        display: flex;
+        align-items: center;
+        flex: 2;
+    }
+    .tag-input-group input {
+        width: 100px;
+        flex: 0.5;
+        margin-right: 5px;
+    }
+    .tag-input-group button {
+        margin-left: 5px;
+    }
+    #vm-tag-container {
+        display: flex;
+        flex-direction: column;
+    }
+    .tag-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+    .tag-overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+        font-size: 14px;
+        max-width: 300px;
+        word-wrap: break-word;
+        position: relative;
+    }
+    .tag-overlay-content .close-btn {
+        position: absolute;
+        top: 5px;
+        right: 10px;
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+    }
+    .tag-overlay-content .button-group {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+    }
+    .misc-content {
+        max-height: 2.5em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .more-btn {
+        display: none;
+        background-color: transparent;
+        border: none;
+        color: blue;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+    .misc-cell {
+        position: relative;
+    }
+    .misc-cell .more-btn {
+        position: absolute;
+        right: 5px;
+        bottom: 5px;
+    }
+    .vm-control-buttons a {
+        font-size: 12px;
+        color: #007bff;
+        text-decoration: none;
+        margin: 0 5px;
+    }
+    .vm-control-buttons a:hover {
+        text-decoration: underline;
+        color: #0056b3;
+    }
+    .vm-control-buttons input[type="text"] {
+        width: 120px;
+        padding: 3px;
+        font-size: 12px;
+        margin-right: 5px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+    }
+    .vm-control-buttons button {
+        font-size: 12px;
+        padding: 3px 8px;
+        border-radius: 4px;
+        border: 1px solid #007bff;
+        background-color: #007bff;
+        color: #fff;
+        cursor: pointer;
+    }
+    .vm-control-buttons button:hover {
+        background-color: #0056b3;
+        border-color: #0056b3;
+    }
+    /* New Styles for Table Layout */
+    .vm-name-cell {
+        text-align: left;
+        font-size: 13px;
+        font-weight: bold;
+    }
+
+    .vm-system-id {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+
+    .system-id-overlay {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 50%;
+        max-width: 600px;
+        background-color: white;
+        border: 1px solid black;
+        padding: 20px;
+        z-index: 2000;
+        border-radius: 5px;
+    }
+
+    .system-id-overlay-content {
+        position: relative;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        word-wrap: break-word;
+    }
+
+    .system-id-overlay .close-btn {
+        position: absolute;
+        top: -15px;
+        right: -5px;
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+    }
+
+    .copy-btn {
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        margin-left: 10px;
+    }
+
+    .vm-name-cell .vm-start-time {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
+    }
+    .ssh-access-cell {
+        text-align: left;
+    }
+    .copy-icon-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0;
+        transition: transform 0.2s ease, color 0.2s ease;
+    }
+    .copy-icon-btn:hover {
+        transform: scale(1.2);
+        color: #007bff;
+    }
+    .ssh-connect-btn {
+        display: inline-block;
+        margin-top: 5px;
+        color: #007bff;
+        cursor: pointer;
+        text-decoration: underline;
+        font-size: 12px;
+    }
+    .ssh-terminal-style {
+        font-family: 'Courier New', Courier, monospace;
+        background-color: #333;
+        color: #ffffff;
+        padding: 2px 4px;
+        border-radius: 4px;
+        display: inline-block;
+    }
+    .snapshot-cell {
+        text-align: center;
+    }
+    .provisioning-info-link {
+        cursor: pointer;
+        color: #007bff;
+        text-decoration: underline;
+        font-size: 12px;
+    }
+    .provisioning-info-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+    .provisioning-info-overlay-content {
+        position: relative;
+        padding-top: 40px;
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        width: 80%;
+        max-width: 600px;
+        overflow-y: auto;
+    }
+    .provisioning-info-overlay-content table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 20px;
+    }
+    .provisioning-info-overlay-content h3 {
+        font-size: 18px;
+        margin-bottom: 15px;
+    }
+    .provisioning-info-overlay-content table th {
+        width: 25%;
+        font-size: 14px;
+    }
+    .provisioning-info-overlay-content table td {
+        width: 75%;
+        font-size: 14px;
+    }
+    .bullet-list {
+        list-style-type: none;
+        padding-left: 0;
+    }
+    .bullet-list li {
+        margin-bottom: 8px;
+    }
+    .bullet-list li::before {
+        content: '•';
+        color: black;
+        display: inline-block;
+        width: 1em;
+        margin-right: 5px;
+    }
+    .provisioning-info-overlay-content .close-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+    }
+    #miscOverlay .overlay-content {
+        font-size: 14px;
+        width: 700px;
+        position: relative;
+        padding-top: 30px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+    }
+    #miscOverlay .close-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        z-index: 1001;
+    }
+    .snapshot-cell input[type="text"] {
+        width: 50%;
+    }
+    .snapshot-cell button {
+        font-size: 12px;
+        padding: 3px 8px;
+        border-radius: 4px;
+        border: 1px solid #007bff;
+        background-color: #007bff;
+        color: #fff;
+        cursor: pointer;
+    }
+    .snapshot-cell button:hover {
+        background-color: #0056b3;
+        border-color: #0056b3;
+    }
+    .add-btn-container {
+        margin-top: 5px;
+    }
+    .add-btn-container .add-btn {
+        background-color: transparent;
+        font-size: 14px;
+        font-weight: bold;
+        border: none;
+        color: blue;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+    .add-tag-overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+        font-size: 14px;
+        max-width: 300px;
+        word-wrap: break-word;
+        position: relative;
+    }
+    .add-tag-overlay-content .tag-overlay-input-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .add-tag-overlay-content .tag-overlay-input-group label {
+        flex: 1;
+        text-align: right;
+        margin-right: 10px;
+    }
+    .add-tag-overlay-content .tag-overlay-input-group input {
+        flex: 2;
+    }
+    .add-tag-overlay-content .tag-overlay-button-group {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+    }
+    .vm-action-btn {
+        font-size: 18px !important;
+        background: none !important;
+        background-color: transparent !important;
+        border: none !important;
+        cursor: pointer;
+        padding: 0 !important;
+        margin: 0 !important;
+        transition: transform 0.2s ease;
+        box-shadow: none !important;
+    }
+    .vm-action-btn:hover {
+        transform: scale(1.2);
+    }
+    .close-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+    }
+    .drop-zone, #privatekey {
+        width: 100%;
+        border-radius: 4px;
+        box-sizing: border-box;
+    }
+    .drop-zone {
+        border: 2px dashed #ddd;
+        padding: 20px;
+        text-align: center;
+        color: #aaa;
+        margin-top: 5px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        background-color: #f9f9f9;
+    }
+    .drop-zone.dragover {
+        border-color: #aaa;
+        color: #000;
+        background-color: #e3e3e3;
+    }
+    #privatekey {
+        background-color: #fff5f5;
+        padding: 10px;
+        margin-bottom: 20px;
+        resize: none; /* Optional: Prevent resizing */
+        font-family: inherit;
+        font-size: 12px;
+    }
+
+    .progress-message {
+        background-color: #e6f7ff;
+        color: #000;
+        padding: 5px;
+        border-radius: 4px;
+        display: inline-block;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .progress-message::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: 100%;
+        background-color: #e6f7ff; /* Progress bar color */
+        transform: translateX(-100%);
+        animation: progress-animation 3s linear infinite;
+    }
+
+    @keyframes progress-animation {
+        0% {
+            transform: translateX(-100%);
+        }
+        100% {
+            transform: translateX(100%);
+        }
+    }
+</style>
+</head>
+<body>
+    <div class="fixed-header">
+        <div class="header-container">
+            <img src="/spider/adminweb/images/left-menu/vm.png" alt="VM Icon">
+            <h1>VM Management</h1>
+            <div class="searchContainer">
+                <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
+                <button id="clearSearch" onclick="clearSearchInput()">X</button>
+            </div>
+        </div>        
+        <div class="fixed-action-buttons">
+            <input type="checkbox" onclick="toggleSelectAll(this)">
+            <button onclick="deleteSelectedVMs()">Delete</button>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="header-with-progress">
+            <button class="add-button" onclick="showOverlay()">+</button>
+            <div id="mockButtonsContainer" style="display: flex; align-items: center;"></div>
+            <div class="progress-bar-container" id="progressBarContainer">
+                <div class="progress-bar" id="progressBar"></div>
+                <span id="timeDisplay"></span>
+            </div>                       
+        </div>
+        <table id="vm-table">
+            <tr>
+                <th class="column-num">#</th>
+                <th class="center-align">Name</th>
+                <th class="center-align">SSH Access</th>
+                <th class="center-align">Status | Actions</th>
+                <th class="center-align">Snapshot</th>
+                <th class="center-align">Provisioning Info</th>
+                <th class="center-align">Tags</th>
+                <th class="center-align">Misc</th>
+                <th class="check-column">
+                    <input type="checkbox" onclick="toggleSelectAll(this)">
+                </th>
+            </tr>
+            {{range $index, $vm := .VMs}}
+            <tr>
+                <td class="column-num">{{$index | inc}}</td>
+                <td class="vm-name-cell">
+                    {{$vm.IId.NameId}}<span class="vm-system-id" onclick="showSystemIdOverlay('{{$vm.IId.SystemId}}')">&nbsp;• {{$vm.IId.SystemId}}</span>
+                    <span class="vm-start-time" data-time="{{$vm.StartTime}}"></span>
+                </td>    
+                <td class="ssh-access-cell">
+                    • Public IP: {{$vm.PublicIP}}
+                    <button class="copy-icon-btn" onclick="copyToClipboard('{{$vm.PublicIP}}')">
+                        📋
+                    </button>
+                    <br> • 
+                    <div class="ssh-connect-btn" 
+                        onclick="if ('{{$vm.PublicIP}}') { openSSHAccess({ vmUserId: '{{$vm.VMUserId}}', publicIP: '{{$vm.PublicIP}}', keyName: '{{$vm.KeyPairIId.NameId}}' }); }">
+                        <span class="ssh-terminal-style">SSH: {{$vm.PublicIP}}</span>
+                    </div>
+                </td>                                      
+                <td id="vmcontrol-{{$vm.IId.NameId}}" class="center-align vm-control-buttons">
+                    {{if eq (index $.VMStatusMap $vm.IId.NameId) "Running"}}
+                        <div style="display: inline-flex; align-items: center;">
+                            <span style="margin-right: 8px;">Running &nbsp; |</span>
+                            <button class="vm-action-btn" onclick="vmControl('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}', 'suspend')">⏸️</button>
+                            <button class="vm-action-btn" onclick="vmControl('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}', 'reboot')">&nbsp;🔄</button>
+                        </div>
+                    {{else if eq (index $.VMStatusMap $vm.IId.NameId) "Suspended"}}
+                        <div style="display: inline-flex; align-items: center;">
+                            <span style="margin-right: 8px;">Suspended &nbsp; |</span>
+                            <button class="vm-action-btn" onclick="vmControl('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}', 'resume')">⏯️</button>
+                        </div>
+                    {{else}}
+                        <div style="display: inline-flex; align-items: center;">
+                            <span style="margin-right: 8px;">{{index $.VMStatusMap $vm.IId.NameId}}</span>
+                            
+                        </div>
+                    {{end}}
+                </td>                                
+                <td class="snapshot-cell">
+                    <input type="text" id="snapshot-name-{{$vm.IId.NameId}}" value="myimage-1">
+                    <button type="button" onclick="postSnapshotVM('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}', document.getElementById('snapshot-name-{{$vm.IId.NameId}}').value)">Snap</button>
+                </td>
+                <td class="center-align provisioning-info-cell">
+                    <a class="provisioning-info-link" onclick="showProvisioningInfoOverlay({
+                        vpcName: '{{$vm.VpcIID.NameId}}',
+                        subnetName: '{{$vm.SubnetIID.NameId}}',
+                        zone: '{{$vm.Region.Zone}}',
+                        securityGroupName: ['{{range $index, $sg := $vm.SecurityGroupIIds}}{{if $index}},{{end}}{{$sg.NameId}}{{end}}'],
+                        keypairName: '{{$vm.KeyPairIId.NameId}}',
+                        vmUserId: '{{$vm.VMUserId}}',
+                        imageType: '{{$vm.ImageType}}',
+                        imageName: '{{$vm.ImageIId.NameId}}',
+                        platform: '{{$vm.Platform}}',
+                        vmSpecName: '{{$vm.VMSpecName}}',
+                        rootDiskType: '{{$vm.RootDiskType}}',
+                        rootDiskSize: '{{$vm.RootDiskSize}}',
+                        rootDeviceName: '{{$vm.RootDeviceName}}',
+                        dataDisks: ['{{range $index, $disk := $vm.DataDiskIIDs}}{{if $index}},{{end}}{{$disk.NameId}}{{end}}'],
+                        networkInterface: '{{$vm.NetworkInterface}}',
+                        publicIP: '{{$vm.PublicIP}}',
+                        publicDNS: '{{$vm.PublicDNS}}',
+                        privateIP: '{{$vm.PrivateIP}}',
+                        privateDNS: '{{$vm.PrivateDNS}}'
+                    })">View Details</a>                    
+                </td>
+                <td>
+                    {{range $tag := $vm.TagList}}
+                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'VM', '{{$vm.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                    {{end}}
+                    <div class="add-btn-container">
+                        <button class="add-btn" onclick="showAddTagOverlay('{{$vm.IId.NameId}}')">+</button>
+                    </div>
+                </td>                
+                <td class="center-align misc-cell">
+                    <div class="misc-content">{{range $kv := $vm.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
+                    </div>
+                    {{if $vm.KeyValueList}}
+                    <button class="more-btn" onclick="showMiscOverlay(this)" style="display: inline;">more...</button>
+                    {{else}}
+                    <button class="more-btn" style="display: none;">more...</button>
+                    {{end}}
+                </td>                              
+                <td class="check-column">
+                    <input type="checkbox" name="deleteCheckbox" value="{{$vm.IId.NameId}}">
+                </td>
+            </tr>
+            {{end}}
+            {{if not .VMs}}
+            <tr>
+                <td colspan="9" class="center-align">No VMs found for this connection.</td>
+            </tr>
+            {{end}}
+        </table>       
+    </div>
+
+    <div id="overlay" class="overlay">
+        <div class="overlay-content">
+            <h2>Add New VM</h2>
+            <form id="addVMForm" onsubmit="event.preventDefault(); postVM();">
+                <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
+                <div class="form-group">
+                    <label for="vmName">Name:</label>
+                    <input type="text" id="vmName" name="vmName" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="vpcSelect">VPC:</label>
+                    <select id="vpcSelect" name="vpcSelect" required onchange="updateSubnets()" style="background-color: #f3f3fd;">
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="subnetSelect">Subnet:</label>
+                    <select id="subnetSelect" name="subnetSelect" required style="background-color: #f3f3fd;">
+                        <option value="">Please select a VPC first.</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="securityGroupSelect">Security Group:</label>
+                    <select id="securityGroupSelect" name="securityGroupSelect" required style="background-color: #faeded;">
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="keypairSelect">KeyPair:</label>
+                    <select id="keypairSelect" name="keypairSelect" required style="background-color: #faeded;">
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="imageType">Image Type:</label>
+                    <select id="imageType" name="imageType" required onchange="updateImageNameField()" style="background-color: #f7f7e6;">
+                        <option value="PublicImage">PublicImage</option>
+                        <option value="MyImage">MyImage</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="imageName">Image Name:</label>
+                    <div id="imageNameField">
+                        <input type="text" id="imageName" name="imageName" required style="background-color: #f7f7e6;">
+                    </div>
+                </div>                
+                
+                <div class="form-group">
+                    <label for="vmSpecName">VM Spec Name:</label>
+                    <input type="text" id="vmSpecName" name="vmSpecName" required style="background-color: #f7f7e6;">
+                </div>                              
+
+                <div class="form-group">
+                    <label for="rootDiskType">Root Disk Type:</label>
+                    <input type="text" id="rootDiskType" name="rootDiskType" value="default" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="rootDiskSize">Root Disk Size:</label>
+                    <input type="text" id="rootDiskSize" name="rootDiskSize" placeholder="Size in GB">
+                </div>              
+                
+                <div class="form-group">
+                    <label for="dataDiskSelect">Data Disk Names:</label>
+                    <select id="dataDiskSelect" name="dataDiskSelect" multiple>
+                        <option value="">Select a Subnet first...</option>
+                    </select>
+                </div>
+                                
+                <div class="form-group">
+                    <label for="vmUserId">VM User ID:</label>
+                    <input type="text" id="vmUserId" name="vmUserId" placeholder="Administrator" disabled style="background-color: #e9ecef; cursor: not-allowed;">
+                </div>
+                
+                <div class="form-group">
+                    <label for="vmUserPasswd">VM User Password:</label>
+                    <input type="password" id="vmUserPasswd" name="vmUserPasswd" placeholder="Windows Only">
+                </div>
+
+                <div class="form-group" style="padding-left: 100px;">
+                    <label for="vmTags">Tags:</label>
+                    <div id="vm-tag-container"></div>
+                    <button type="button" onclick="addVMTagField()">+</button>
+                </div>
+                
+                <div class="form-group" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+                    <label for="vmCount" style="margin-right: 5px;margin-left: 40px;">#:</label>
+                    <input type="number" id="vmCount" name="vmCount" class="vm-count" value="1" min="1" max="10" style="width: 50px; margin-right: 10px;">                
+                    <button type="submit">Add VM</button>
+                    <button type="button" onclick="hideOverlay()" style="margin-left: 10px;">Cancel</button>
+                </div>                
+            </form>
+        </div>
+    </div>
+
+    <div id="tag-overlay" class="tag-overlay">
+        <div class="tag-overlay-content"></div>
+    </div>
+
+    <div id="add-tag-overlay" class="overlay">
+        <div class="add-tag-overlay-content"></div>
+    </div>
+
+    <div id="miscOverlay" class="overlay">
+        <div class="overlay-content">
+            <button class="close-btn" onclick="closeMiscOverlay()">x</button>
+            <div id="miscContent"></div>
+        </div>
+    </div>
+
+    <div id="provisioningInfoOverlay" class="provisioning-info-overlay">
+        <div class="provisioning-info-overlay-content"></div>
+    </div>  
+
+    <div id="system-id-overlay" class="system-id-overlay">
+        <div class="system-id-overlay-content">
+            <button class="close-btn" onclick="closeSystemIdOverlay()">x</button>
+            <h2>System ID (Managed by CSP)</h2>
+            <p id="fullSystemId"></p>
+            <button class="copy-btn" onclick="copySystemId()">📋</button>
+        </div>
+    </div>
+
+</body>
+<script>
+    function vmControl(connConfig, vmName, action) {
+        const controlCell = document.getElementById(`vmcontrol-${vmName}`);
+        const rowElement = controlCell.parentElement;
+        const targetState = action === 'suspend' ? 'Suspended' : 'Running';
+        let attempts = 0;
+        const maxAttempts = 30;
+
+        // Utility function to update UI based on the action
+        function updateUI(message) {
+            controlCell.innerHTML = `<span class="progress-message">${message}...</span>`;
+        }
+
+        // Utility function to handle server response and start checking status
+        function handleResponse(response) {
+            const status = response.Status;
+
+            // Update UI based on VM status
+            switch (status) {
+                case "Suspending":
+                    updateUI("VM is suspending");
+                    break;
+                case "Suspended":
+                    updateControlCell("Suspended");
+                    break;
+                case "Resuming":
+                    updateUI("VM is resuming");
+                    break;
+                case "Running":
+                    updateControlCell("Running");
+                    break;
+                case "Rebooting":
+                    updateUI("VM is rebooting");
+                    break;
+                case "Terminating":
+                    controlCell.innerHTML = `<span style="color:gray;">VM is terminating...</span>`;
+                    break;
+                case "Terminated":
+                    controlCell.innerHTML = `<span style="color:red;">VM has been terminated</span>`;
+                    break;
+                case "Failed":
+                    controlCell.innerHTML = `<span style="color:red;">VM action failed</span>`;
+                    break;
+                case "NotExist":
+                    controlCell.innerHTML = `<span style="color:red;">VM does not exist</span>`;
+                    break;
+                default:
+                    controlCell.innerHTML = `<span style="color:orange;">Unexpected status: ${status}</span>`;
+                    break;
+            }
+
+            // Start checking the status after initiating the action
+            checkVMStatus();
+        }
+
+        // Function to update the entire row with the latest VM information
+        function updateVMRow(status) {
+            fetch(`/spider/vm/${vmName}?ConnectionName=${connConfig}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(vmData => {
+                const sshAccessCell = rowElement.querySelector('.ssh-access-cell');
+                const provisioningInfoCell = rowElement.querySelector('.provisioning-info-cell');
+                const miscCell = rowElement.querySelector('.misc-cell .misc-content');
+
+                // Update SSH Access
+                sshAccessCell.innerHTML = `
+                    • Public IP: ${vmData.PublicIP}
+                    <button class="copy-icon-btn" onclick="copyToClipboard('${vmData.PublicIP}')">📋</button>
+                    <br> • 
+                    <div class="ssh-connect-btn" 
+                        onclick="if ('${vmData.PublicIP}') { openSSHAccess({ vmUserId: '${vmData.VMUserId}', publicIP: '${vmData.PublicIP}', keyName: '${vmData.KeyPairIId.NameId}' }); }">
+                        <span class="ssh-terminal-style">SSH: ${vmData.PublicIP}</span>
+                    </div>
+                `;
+
+                // Update Provisioning Info
+                provisioningInfoCell.innerHTML = `
+                    <a class="provisioning-info-link" onclick="showProvisioningInfoOverlay({
+                        vpcName: '${vmData.VpcIID.NameId}',
+                        subnetName: '${vmData.SubnetIID.NameId}',
+                        zone: '${vmData.Region.Zone}',
+                        securityGroupName: ['${vmData.SecurityGroupIIds.map(sg => sg.NameId).join("','")}'],
+                        keypairName: '${vmData.KeyPairIId.NameId}',
+                        vmUserId: '${vmData.VMUserId}',
+                        imageType: '${vmData.ImageType}',
+                        imageName: '${vmData.ImageIId.NameId}',
+                        platform: '${vmData.Platform}',
+                        vmSpecName: '${vmData.VMSpecName}',
+                        rootDiskType: '${vmData.RootDiskType}',
+                        rootDiskSize: '${vmData.RootDiskSize}',
+                        rootDeviceName: '${vmData.RootDeviceName}',
+                        dataDisks: ['${vmData.DataDiskIIDs.map(disk => disk.NameId).join("','")}'],
+                        networkInterface: '${vmData.NetworkInterface}',
+                        publicIP: '${vmData.PublicIP}',
+                        publicDNS: '${vmData.PublicDNS}',
+                        privateIP: '${vmData.PrivateIP}',
+                        privateDNS: '${vmData.PrivateDNS}'
+                    })">View Details</a>
+                `;
+
+                // Update Misc Information
+                miscCell.innerHTML = vmData.KeyValueList.map(kv => `${kv.Key} : ${kv.Value}`).join('<br>');
+
+                // Update Status | Actions Field with the latest status
+                updateControlCell(status);
+            })
+            .catch(() => {
+                controlCell.innerHTML = `<span style="color:red;">Failed to update row</span>`;
+            });
+        }
+
+        // Function to update the Status | Actions cell based on the status
+        function updateControlCell(status) {
+            if (status === 'Running') {
+                controlCell.innerHTML = `
+                    <div style="display: inline-flex; align-items: center;">
+                        <span style="margin-right: 8px;">Running &nbsp; |</span>
+                        <button class="vm-action-btn" onclick="vmControl('${connConfig}', '${vmName}', 'suspend')">⏸️</button>
+                        <button class="vm-action-btn" onclick="vmControl('${connConfig}', '${vmName}', 'reboot')">&nbsp;🔄</button>
+                    </div>
+                `;
+            } else if (status === 'Suspended') {
+                controlCell.innerHTML = `
+                    <div style="display: inline-flex; align-items: center;">
+                        <span style="margin-right: 8px;">Suspended &nbsp; |</span>
+                        <button class="vm-action-btn" onclick="vmControl('${connConfig}', '${vmName}', 'resume')">⏯️</button>
+                    </div>
+                `;
+            } else {
+                controlCell.innerHTML = `
+                    <div style="display: inline-flex; align-items: center;">
+                        <span style="margin-right: 8px;">${status} |</span>
+                    </div>
+                `;
+            }
+        }
+
+        // Function to periodically check the VM status
+        function checkVMStatus() {
+            attempts++;
+
+            fetch(`/spider/vmstatus/${vmName}?ConnectionName=${connConfig}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                const status = data.Status;
+                if (status === targetState) {
+                    // Update the entire row with the latest data
+                    updateVMRow(status);
+                } else if (attempts < maxAttempts) {
+                    setTimeout(checkVMStatus, 1000); // Retry after 1 second
+                } else {
+                    controlCell.innerHTML = `<span style="color:orange;">Still processing, please try refreshing manually.</span>`;
+                }
+            })
+            .catch(() => {
+                controlCell.innerHTML = `<span style="color:red;">Failed to update status</span>`;
+            });
+        }
+
+        // Set message based on the action
+        const actionMessages = {
+            suspend: "Suspending",
+            resume: "Resuming",
+            reboot: "Rebooting"
+        };
+        updateUI(actionMessages[action] || "Processing");
+
+        // Send request to the server
+        fetchWithProgress(`/spider/controlvm/${vmName}?action=${action}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ ConnectionName: connConfig })
+        })
+        .then(response => response.json())
+        .then(handleResponse)
+        .catch(() => {
+            controlCell.innerHTML = `<span style="color:red;">Failed to execute action</span>`;
+        });
+    }
+
+
+
+    function postSnapshotVM(connConfig, vmName, snapshotName) {
+        const snapshotData = {
+            ConnectionName: connConfig,
+            ReqInfo: {
+                Name: snapshotName,
+                SourceVM: vmName
+            }
+        };
+
+        fetchWithProgress(`/spider/myimage`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(snapshotData)
+        })
+        .then(response => response.json().then(data => ({ data, ok: response.ok })))
+        .then(({ data, ok }) => {
+            if (!ok || data.message) {
+                const errorMessage = data.message || "Unknown error";
+                showError(`VM Name: ${vmName}: Failed to create snapshot: ${errorMessage}`);
+            } else if (data.IId && data.IId.NameId) {
+                alert(`Snapshot "${data.IId.NameId}" created successfully. You can check the result in MyImage.`);
+            }
+        })
+        .catch(error => {
+            showError(`VM Name: ${vmName}: Error creating snapshot: ${error.message}`);
+        });
+
+    }
+
+    function deleteSelectedVMs() {
+        const connConfig = document.getElementById('connConfig').value;
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
+        if (checkboxes.length === 0) {
+            alert("Please select VMs to delete.");
+            return;
+        }
+
+        if (!confirm("Are you sure you want to delete the selected VMs?")) {
+            return;
+        }
+
+        const deletePromises = Array.from(checkboxes).map(checkbox => {
+            const vmName = checkbox.value;
+            const data = {
+                ConnectionName: connConfig
+            };
+
+            return fetchWithProgress(`/spider/vm/${vmName}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            }).then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => {
+                        throw new Error(error.message);
+                    });
+                }
+                return response.json();
+            });
+        });
+
+        Promise.all(deletePromises)
+            .then(() => location.reload())
+            .catch(error => {
+                alert("Error deleting VMs: " + error.message);
+            });
+    }
+
+    function toggleSelectAll(source) {
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]');
+        for (const checkbox of checkboxes) {
+            checkbox.checked = source.checked;
+        }
+    }
+
+    function deleteVM(vmName) {
+        const connConfig = document.getElementById('connConfig').value;
+        const data = {
+            ConnectionName: connConfig
+        };
+
+        fetchWithProgress(`/spider/vm/${vmName}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.Result === "true") {
+                location.reload();
+            } else {
+                showError("Failed to delete VM: " + (data.Message || "Unknown error"), "VM Name: " + vmName);
+            }
+        })
+        .catch(error => {
+            showError("Error deleting VM: " + error.message, "VM Name: " + vmName);
+        });
+    }
+
+    function postVM() {
+        const vmCount = parseInt(document.getElementById('vmCount').value);
+        if (vmCount > 1) {
+            if (!confirm(`Are you sure you want to create ${vmCount} VMs?`)) {
+                return;
+            }
+        }
+
+        const connConfig = document.getElementById('connConfig').value;
+
+        const vmPromises = Array.from({ length: vmCount }).map((_, index) => {
+            const vmName = vmCount > 1 ? `${document.getElementById('vmName').value}-${index + 1}` : document.getElementById('vmName').value;
+
+            const requestData = {
+                ConnectionName: connConfig,
+                ReqInfo: {
+                    Name: vmName,
+                    ImageType: document.getElementById('imageType').value,
+                    ImageName: document.getElementById('imageName').value,
+                    VMSpecName: document.getElementById('vmSpecName').value,
+                    VPCName: document.getElementById('vpcSelect').options[document.getElementById('vpcSelect').selectedIndex].text.split(' ')[0],
+                    SubnetName: document.getElementById('subnetSelect').value,
+                    SecurityGroupNames: [document.getElementById('securityGroupSelect').value],
+                    RootDiskType: document.getElementById('rootDiskType').value,
+                    RootDiskSize: document.getElementById('rootDiskSize').value || undefined,
+                    DataDiskNames: Array.from(document.getElementById('dataDiskSelect').selectedOptions).map(option => option.value),
+                    KeyPairName: document.getElementById('keypairSelect').value,
+                    VMUserId: document.getElementById('vmUserId').value,
+                    VMUserPasswd: document.getElementById('vmUserPasswd').value,
+                    TagList: Array.from(document.querySelectorAll('.vm-tag-input')).map(tagInput => ({
+                        Key: tagInput.querySelector('.vm-tag-key').value.trim(),
+                        Value: tagInput.querySelector('.vm-tag-value').value.trim()
+                    }))
+                }
+            };
+
+            return fetchWithProgress('/spider/vm', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => response.json().then(data => ({ data, ok: response.ok })))
+            .then(({ data, ok }) => {
+                if (!ok || data.message) {
+                    const errorMessage = data.message || "Unknown error";
+                    showError(`VM Name: ${vmName}: Failed to create VM: ${errorMessage}`);
+                } else if (data.IId && data.IId.NameId) {
+                    console.log(`VM "${data.IId.NameId}" created successfully.`);
+                }
+            })
+            .catch(error => {
+                showError(`VM Name: ${vmName}: Error creating VM: ${error.message}`);
+            });
+        });
+
+        Promise.all(vmPromises)
+            .then(() => location.reload())
+            .catch(error => {
+                showError("Error creating VMs: " + error.message, "Multiple VMs");
+            });
+    }
+
+
+    function searchKeyword() {
+        let input, filter, table, tr, td, i;
+        input = document.getElementById('searchInput');
+        filter = input.value.toUpperCase().trim(); 
+        if (!filter) {
+            clearSearchInput();
+            return;
+        }
+
+        table = document.getElementById('vm-table');
+        tr = table.getElementsByTagName('tr');
+        
+        for (i = 1; i < tr.length; i++) {
+            for (let j = 0; j < tr[i].cells.length; j++) {
+                td = tr[i].cells[j];
+                if (td) {
+                    let txtValue = td.textContent || td.innerText;
+                    if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                        td.classList.add('highlight');
+                    } else {
+                        td.classList.remove('highlight');
+                    }
+                }
+            }
+        }
+    }
+
+    function clearSearchInput() {
+        document.getElementById("searchInput").value = "";
+        let table = document.getElementById('vm-table');
+        let tr = table.getElementsByTagName('tr');
+        for (let i = 1; i < tr.length; i++) {
+            for (let j = 0; j < tr[i].cells.length; j++) {
+                tr[i].cells[j].classList.remove('highlight');
+            }
+        }
+    }
+
+    function showOverlay() {
+        const region = '{{.RegionName}}';
+        const vmNameInput = document.getElementById('vmName');
+
+        if (vmNameInput) {
+            vmNameInput.value = `${region}-vm-${Math.random().toString(36).substring(2, 8)}`;
+        } else {
+            console.error("Element with ID 'vmName' not found.");
+        }
+
+        document.getElementById('overlay').style.display = 'flex';
+        document.addEventListener('keydown', handleEsc);
+        clearFormFields();
+        
+        const dataDiskSelect = document.getElementById('dataDiskSelect');
+        dataDiskSelect.selectedIndex = -1;
+    }
+
+    function clearFormFields() {
+        const region = '{{.RegionName}}';
+        const vmNameInput = document.getElementById('vmName');
+        vmNameInput.value = `${region}-vm-${Math.random().toString(36).substring(2, 5)}`;
+
+        const tagContainer = document.getElementById('vm-tag-container');
+        while (tagContainer.firstChild) {
+            tagContainer.removeChild(tagContainer.firstChild);
+        }
+    }
+
+    function hideOverlay() {
+        document.getElementById('overlay').style.display = 'none';
+        document.removeEventListener('keydown', handleEsc);
+        clearFormFields();
+    }
+
+    function handleEsc(event) {
+        if (event.key === "Escape") {
+            hideOverlay();
+        }
+    }
+
+    function addVMTagField() {
+        const tagContainer = document.getElementById('vm-tag-container');
+        
+        const tagInput = document.createElement('div');
+        tagInput.className = 'vm-tag-input tag-input-group';
+        tagInput.innerHTML = `
+            <input type="text" class="vm-tag-key" placeholder="Key" required>
+            <input type="text" class="vm-tag-value" placeholder="Value" required>
+            <button type="button" onclick="removeTagField(this)">-</button>
+        `;
+        tagContainer.appendChild(tagInput);
+    }
+
+    function removeTagField(button) {
+        button.parentElement.remove();
+    }
+
+    function showTagOverlay(event, tag, resourceType, resourceName) {
+        event.stopPropagation();
+
+        const tagOverlay = document.getElementById('tag-overlay');
+        const tagOverlayContent = document.querySelector('.tag-overlay-content');
+
+        tagOverlayContent.innerHTML = `
+            <button class="close-btn" onclick="closeTagOverlay()">x</button>
+            <p>${tag}</p>
+            <div class="button-group">
+                <button onclick="deleteTag('${tag}', '${resourceType}', '${resourceName}')">Delete</button>
+                <button onclick="closeTagOverlay()">Cancel</button>
+            </div>
+        `;
+
+        tagOverlay.style.display = 'flex';
+
+        document.addEventListener('keydown', handleEscTagOverlay);
+        document.addEventListener('click', handleClickOutsideOverlay);
+    }
+
+    function closeTagOverlay() {
+        const tagOverlay = document.getElementById('tag-overlay');
+        tagOverlay.style.display = 'none';
+        document.removeEventListener('keydown', handleEscTagOverlay);
+        document.removeEventListener('click', handleClickOutsideOverlay);
+    }
+
+    function handleEscTagOverlay(event) {
+        if (event.key === "Escape") {
+            closeTagOverlay();
+        }
+    }
+
+    function handleClickOutsideOverlay(event) {
+        const tagOverlay = document.getElementById('tag-overlay');
+        if (tagOverlay.style.display === 'flex' && !tagOverlay.contains(event.target)) {
+            closeTagOverlay();
+        }
+    }
+
+    function showError(message, title) {
+        alert(`${title}: ${message}`);
+    }
+
+    function deleteTag(tag, resourceType, resourceName) {
+        const connConfig = document.getElementById('connConfig').value;
+        const [tagKey, tagValue] = tag.split(': ');
+
+        const data = {
+            ConnectionName: connConfig,
+            ReqInfo: {
+                ResourceType: resourceType.trim(),
+                ResourceName: resourceName.trim()
+            }
+        };
+
+        fetchWithProgress(`/spider/tag/${tagKey.trim()}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        }).then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.message);
+                });
+            }
+            return response.json();
+        }).then(() => {
+            closeTagOverlay();
+            location.reload();
+        }).catch(error => {
+            showError("Error deleting tag: " + error.message, "Resource Name: " + resourceName);
+        });
+    }
+
+    document.addEventListener('click', (event) => {
+        const tagOverlay = document.getElementById('tag-overlay');
+        if (tagOverlay && tagOverlay.style.display === 'flex' && !tagOverlay.contains(event.target)) {
+            closeTagOverlay();
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        fetch('/spider/connectionconfig/{{.ConnectionConfig}}')
+            .then(response => response.json())
+            .then(data => {
+                const currentProvider = data.ProviderName;
+                if (currentProvider === 'MOCK') {
+                    const mockButtonsContainer = document.getElementById('mockButtonsContainer');
+
+                    const button10 = document.createElement('button');
+                    button10.className = 'mock-add-button add-button';
+                    button10.textContent = '+10';
+                    button10.onclick = () => createMultipleVMs(10);
+
+                    const button50 = document.createElement('button');
+                    button50.className = 'mock-add-button add-button';
+                    button50.textContent = '+50';
+                    button50.onclick = () => createMultipleVMs(50);
+
+                    mockButtonsContainer.appendChild(button10);
+                    mockButtonsContainer.appendChild(button50);
+                }
+            })
+            .catch(error => {
+                showError("Error loading connection configuration: " + error.message, "Connection Config Error");
+            });
+    });
+
+    function createMultipleVMs(count) {
+        const connConfigElement = document.getElementById('connConfig').value;
+
+        const fetchVPCAndSubnet = () => {
+            return fetch(`/spider/vpc?ConnectionName=${encodeURIComponent(connConfigElement)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.vpc && data.vpc.length > 0) {
+                        const firstVPC = data.vpc[0];
+                        const vpcName = firstVPC.IId.NameId;
+                        const subnetName = firstVPC.SubnetInfoList[0].IId.NameId;
+                        return { vpcName, subnetName };
+                    } else {
+                        throw new Error('No VPCs available.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching VPCs and Subnets:', error);
+                    return { vpcName: '', subnetName: '' };
+                });
+        };
+
+        const fetchFirstResource = (resourceType, urlPath) => {
+            return fetch(`/spider/${urlPath}?ConnectionName=${encodeURIComponent(connConfigElement)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data[resourceType] && data[resourceType].length > 0) {
+                        return data[resourceType][0].IId.NameId;
+                    } else {
+                        throw new Error(`No ${resourceType} available.`);
+                    }
+                })
+                .catch(error => {
+                    console.error(`Error fetching ${resourceType}:`, error);
+                    return '';
+                });
+        };
+
+        Promise.all([
+            fetchVPCAndSubnet(),
+            fetchFirstResource('securitygroup', 'securitygroup'),
+            fetchFirstResource('keypair', 'keypair')
+        ])
+        .then(([{ vpcName, subnetName }, securityGroupName, keypairName]) => {
+            if (!vpcName || !subnetName || !securityGroupName || !keypairName) {
+                showError("Missing required resources for VM creation.", "Resource Error");
+                throw new Error("Missing required resources for VM creation.");
+            }
+
+            const vmPromises = Array.from({ length: count }).map(() => {
+                const vmName = `vm-${Math.random().toString(36).substring(2, 7)}`;
+                const imageType = 'PublicImage';
+                const imageName = 'mock-vmimage-01';
+                const vmSpecName = 'mock-vmspec-01';
+                const rootDiskType = 'default';
+                const rootDiskSize = '50';
+
+                const requestData = {
+                    ConnectionName: connConfigElement,
+                    ReqInfo: {
+                        Name: vmName,
+                        ImageType: imageType,
+                        ImageName: imageName,
+                        VMSpecName: vmSpecName,
+                        VPCName: vpcName,
+                        SubnetName: subnetName,
+                        SecurityGroupNames: [securityGroupName],
+                        RootDiskType: rootDiskType,
+                        RootDiskSize: rootDiskSize,
+                        DataDiskNames: [],
+                        KeyPairName: keypairName,
+                        TagList: []
+                    }
+                };
+
+                return fetchWithProgress('/spider/vm', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                }).then(response => {
+                    if (!response.ok) {
+                        return response.json().then(error => {
+                            throw new Error(error.message);
+                        });
+                    }
+                    return response.json();
+                });
+            });
+
+            return Promise.all(vmPromises);
+        })
+        .then(() => location.reload())
+        .catch(error => {
+            showError("Error creating VMs: " + error.message, "VM Creation Error");
+        });
+    }
+
+    function fetchWithProgress(url, options) {
+        showProgressBar();
+        
+        const startTime = Date.now();
+        const timerInterval = 500; 
+        let timerId = setInterval(() => {
+            const elapsedTime = (Date.now() - startTime) / 1000;
+            const timeDisplay = document.getElementById('timeDisplay');
+            timeDisplay.textContent = `${(Math.floor(elapsedTime * 2) / 2).toFixed(1)}s`;
+        }, timerInterval);
+
+        return fetch(url, options)
+            .then(response => {
+                clearInterval(timerId); 
+                hideProgressBar();
+                return response;
+            })
+            .catch(error => {
+                clearInterval(timerId);
+                hideProgressBar();
+                throw error;
+            });
+    }
+
+    function showProgressBar() {
+        const progressBarContainer = document.getElementById('progressBarContainer');
+        const progressBar = document.getElementById('progressBar');
+        progressBar.style.width = '0%';
+        progressBarContainer.style.display = 'block';
+
+        setTimeout(() => {
+            progressBar.style.width = '100%';
+        }, 100);
+    }
+
+    function hideProgressBar() {
+        const progressBarContainer = document.getElementById('progressBarContainer');
+        setTimeout(() => {
+            progressBarContainer.style.display = 'none';
+            document.getElementById('timeDisplay').textContent = ''; 
+        }, 500);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const connConfigElement = document.getElementById('connConfig');
+
+        if (connConfigElement) {
+            loadVPCs();
+            loadKeyPairs();
+            loadSecurityGroups();
+        } else {
+            console.error("Error: 'connConfig' element not found.");
+        }
+    });
+
+    function loadVPCs() {
+        const connConfigElement = document.getElementById('connConfig');
+        
+        if (!connConfigElement) {
+            console.error("Error: 'connConfig' element is null. Ensure that the element is present in the DOM.");
+            return;
+        }
+
+        const connConfig = connConfigElement.value;
+        const vpcSelect = document.getElementById('vpcSelect');
+
+        if (!vpcSelect) {
+            console.error("Error: 'vpcSelect' element is null. Ensure that the element is present in the DOM.");
+            return;
+        }
+
+        fetch(`/spider/vpc?ConnectionName=${connConfig}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            vpcSelect.innerHTML = ''; // Clear existing options
+
+            if (data.vpc && data.vpc.length > 0) {
+                data.vpc.forEach(vpc => {
+                    const option = document.createElement('option');
+                    option.value = JSON.stringify(vpc.SubnetInfoList);
+                    option.textContent = `${vpc.IId.NameId} (${vpc.IPv4_CIDR})`;
+                    vpcSelect.appendChild(option);
+                });
+                updateSubnets(); // Update subnets based on selected VPC
+            } else {
+                vpcSelect.innerHTML = '<option>No VPCs. Create one.</option>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading VPCs: ' + error.message);
+        });
+    }
+
+    function updateSubnets() {
+        const vpcSelect = document.getElementById('vpcSelect');
+        const selectedSubnets = JSON.parse(vpcSelect.value);
+        const subnetSelect = document.getElementById('subnetSelect');
+        const dataDiskSelect = document.getElementById('dataDiskSelect');
+
+        subnetSelect.innerHTML = '';
+
+        if (selectedSubnets && selectedSubnets.length > 0) {
+            selectedSubnets.forEach(subnet => {
+                const option = document.createElement('option');
+                option.value = subnet.IId.NameId;
+                option.textContent = `${subnet.IId.NameId} (${subnet.IPv4_CIDR})`;
+                option.dataset.zone = subnet.Zone;
+                subnetSelect.appendChild(option);
+            });
+
+            const firstSubnetZone = selectedSubnets[0].Zone;
+            loadDataDisks(firstSubnetZone);
+        } else {
+            subnetSelect.innerHTML = '<option>No subnets available for this VPC.</option>';
+            dataDiskSelect.innerHTML = '<option>Select a Subnet first...</option>';
+        }
+    }
+
+    function loadKeyPairs() {
+        const connConfig = document.getElementById('connConfig').value;
+        const keypairSelect = document.getElementById('keypairSelect');
+
+        if (!keypairSelect) {
+            console.error('KeyPair select element not found');
+            return;
+        }
+
+        fetch(`/spider/keypair?ConnectionName=${connConfig}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            keypairSelect.innerHTML = ''; // Clear existing options
+
+            if (data.keypair && data.keypair.length > 0) {
+                data.keypair.forEach(keypair => {
+                    const option = document.createElement('option');
+                    option.value = keypair.IId.NameId;
+                    option.textContent = keypair.IId.NameId;
+                    keypairSelect.appendChild(option);
+                });
+            } else {
+                keypairSelect.innerHTML = '<option>No keypairs available.</option>';
+            }
+        })
+        .catch(error => {
+            alert('Error loading keypairs: ' + error.message);
+        });
+    }
+
+    function loadSecurityGroups() {
+        const connConfig = document.getElementById('connConfig').value;
+        const securityGroupSelect = document.getElementById('securityGroupSelect');
+        
+        if (!securityGroupSelect) {
+            console.error('Security Group select element not found');
+            return;
+        }
+
+        fetch(`/spider/securitygroup?ConnectionName=${connConfig}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            securityGroupSelect.innerHTML = ''; // Clear existing options
+
+            if (data.securitygroup && data.securitygroup.length > 0) {
+                data.securitygroup.forEach(sg => {
+                    const option = document.createElement('option');
+                    option.value = sg.IId.NameId;
+                    option.textContent = `${sg.IId.NameId}`;
+                    securityGroupSelect.appendChild(option);
+                });
+            } else {
+                securityGroupSelect.innerHTML = '<option>No security groups available.</option>';
+            }
+        })
+        .catch(error => {
+            alert('Error loading security groups: ' + error.message);
+        });
+    }
+
+    function showProvisioningInfoOverlay(vmInfo) {
+        const overlay = document.getElementById('provisioningInfoOverlay');
+        const overlayContent = document.querySelector('.provisioning-info-overlay-content');
+        overlayContent.innerHTML = `
+            <button class="close-btn" onclick="closeProvisioningInfoOverlay()">x</button>
+            <h3>VM Provisioning Info</h3>
+            <table>
+                <tr>
+                    <th>VPC/Subnet</th>
+                    <td>
+                        <ul class="bullet-list">
+                            <li>VPC: ${vmInfo.vpcName || 'N/A'}</li>
+                            <li>Subnet: ${vmInfo.subnetName || 'N/A'} (${vmInfo.zone || 'N/A'})</li>
+                        </ul>
+                    </td>
+                </tr>
+                <tr>
+                    <th>Security Group</th>
+                    <td>
+                        <ul class="bullet-list">
+                            <li>${(vmInfo.securityGroupName && vmInfo.securityGroupName.length > 0) ? vmInfo.securityGroupName.join('</li><li>') : 'N/A'}</li>
+                        </ul>
+                    </td>
+                </tr>
+                <tr>
+                    <th>KeyPair</th>
+                    <td>
+                        <ul class="bullet-list">
+                            <li>${vmInfo.keypairName || 'N/A'}</li>
+                            <li>VM User: ${vmInfo.vmUserId || 'N/A'}</li>
+                        </ul>
+                    </td>
+                </tr>
+                <tr>
+                    <th>Image/Spec</th>
+                    <td>
+                        <ul class="bullet-list">
+                            <li>Image Type: ${vmInfo.imageType || 'N/A'}</li>
+                            <li>Image ID: ${vmInfo.imageName || 'N/A'}</li>
+                            <li>Platform: ${vmInfo.platform || 'N/A'}</li>
+                            <li>Spec: ${vmInfo.vmSpecName || 'N/A'}</li>
+                        </ul>
+                    </td>
+                </tr>
+                <tr>
+                    <th>Disk</th>
+                    <td>
+                        <ul class="bullet-list">
+                            <li>Root Disk Type: ${vmInfo.rootDiskType || 'N/A'} (${vmInfo.rootDiskSize || 'N/A'})</li>
+                            <li>Root Device: ${vmInfo.rootDeviceName || 'N/A'}</li>
+                            <li>Data Disks: ${(vmInfo.dataDisks && vmInfo.dataDisks.length > 0) 
+                                    ? vmInfo.dataDisks.join('</li><li>') 
+                                    : 'N/A'}
+                            </li>
+                        </ul>
+                    </td>
+                </tr>
+                <tr>
+                    <th>Network</th>
+                    <td>
+                        <ul class="bullet-list">
+                            <li>NIC: ${vmInfo.networkInterface || 'N/A'}</li>
+                            <li>Public IP: ${vmInfo.publicIP || 'N/A'}</li>
+                            <li>Public DNS: ${vmInfo.publicDNS || 'N/A'}</li>
+                            <li>Private IP: ${vmInfo.privateIP || 'N/A'}</li>
+                            <li>Private DNS: ${vmInfo.privateDNS || 'N/A'}</li>
+                        </ul>
+                    </td>
+                </tr>
+            </table>
+        `;
+        overlay.style.display = 'flex';
+    }
+
+    function closeProvisioningInfoOverlay() {
+        const overlay = document.getElementById('provisioningInfoOverlay');
+        overlay.style.display = 'none';
+    }
+
+    function openSSHAccess(vmInfo) {
+        let sshOverlay = document.getElementById('ssh-overlay');
+
+        if (!sshOverlay) {
+            sshOverlay = document.createElement('div');
+            sshOverlay.id = 'ssh-overlay';
+            sshOverlay.className = 'overlay';
+            sshOverlay.innerHTML = `
+                <div class="overlay-content" style="position: relative;">
+                    <button class="close-btn" onclick="closeSSHOverlay()">x</button>
+                    <h2>SSH Access</h2>
+                    <p>Connect to ${vmInfo.vmUserId}@${vmInfo.publicIP}</p>
+                    <form id="ssh-form">
+                        <label for="privatekey">Private Key:</label><br>
+                        <div id="dropZone" class="drop-zone">Drag & Drop a key file here or paste it manually</div>
+                        <textarea id="privatekey" name="privatekey" rows="10" cols="30" required style="background-color: #fff5f5;">Private key for ${vmInfo.keyName}.</textarea><br>
+                        <button type="button" onclick="connectSSH('${vmInfo.vmUserId}', '${vmInfo.publicIP}')">Connect</button>
+                        <button type="button" onclick="closeSSHOverlay()">Cancel</button>
+                    </form>
+                    <div id="terminal" style="display:none;"></div>
+                </div>
+            `;
+            document.body.appendChild(sshOverlay);
+            setupDropZone();
+        } else {
+            sshOverlay.querySelector('#privatekey').value = `Private key for ${vmInfo.keyName}.`;
+            sshOverlay.querySelector('p').textContent = `Connect to ${vmInfo.vmUserId}@${vmInfo.publicIP}`;
+            sshOverlay.querySelector('#terminal').style.display = 'none';
+            sshOverlay.querySelector('#ssh-form').style.display = 'block';
+            sshOverlay.querySelector('button[onclick^="connectSSH"]').onclick = function() {
+                connectSSH(vmInfo.vmUserId, vmInfo.publicIP);
+            };
+        }
+
+        sshOverlay.style.display = 'flex';
+
+        document.addEventListener('keydown', handleEscSSHOverlay);
+    }
+
+    function closeSSHOverlay() {
+        const sshOverlay = document.getElementById('ssh-overlay');
+        sshOverlay.style.display = 'none';
+        document.removeEventListener('keydown', handleEscSSHOverlay);
+    }
+
+    function handleEscSSHOverlay(event) {
+        if (event.key === "Escape") {
+            closeSSHOverlay();
+        }
+    }
+
+    function connectSSH(user, ip) {
+        const privateKey = document.getElementById('privatekey').value;
+        const terminalDiv = document.getElementById('terminal');
+
+        const sshForm = document.getElementById('ssh-form');
+        sshForm.style.display = 'none';
+        terminalDiv.style.display = 'block';
+
+        if (terminalDiv._initialized) {
+            terminalDiv.innerHTML = '';
+        }
+
+        const term = new Terminal({
+            cursorBlink: true,
+            cols: 100,
+            rows: 30,
+            scrollback: 5000
+        });
+
+        term.open(terminalDiv);
+        terminalDiv._initialized = true;
+        const socket = new WebSocket("ws://" + location.host + "/spider/adminweb/sshwebterminal/ws?user=" + encodeURIComponent(user) + "&ip=" + encodeURIComponent(ip) + "&privatekey=" + encodeURIComponent(privateKey));
+
+        socket.onopen = function() {
+            term.write('Connected to SSH...\r\n');
+        };
+
+        socket.onmessage = function(event) {
+            const message = event.data;
+
+            if (message.startsWith("Failed")) {
+                alert(message); 
+            } else {
+                processLargeData(message, term);
+            }
+        };
+
+        term.onData(function(data) {
+            socket.send(data);
+        });
+
+        socket.onclose = function () {
+            term.write('Connection closed.\r\n');
+            closeSSHConnection(socket, term);
+        };
+
+        socket.onerror = function (error) {
+            alert("Failed to connect to the SSH server. Please check your private key and try again. Error: " + (error.message || error));
+            closeSSHConnection(socket, term);
+        };
+
+        function closeSSHConnection(socket, term) {
+            if (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING) {
+                socket.close();
+            }
+            term.dispose();
+            closeSSHOverlay();
+        }
+    }
+
+    function processLargeData(data, term) {
+        const chunkSize = 1024;
+        for (let i = 0; i < data.length; i += chunkSize) {
+            term.write(data.substring(i, i + chunkSize));
+        }
+    }
+
+
+    function setupDropZone() {
+        const dropZone = document.getElementById('dropZone');
+        const textArea = document.getElementById('privatekey');
+
+        dropZone.addEventListener('dragover', function(event) {
+            event.stopPropagation();
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'copy';
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', function() {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', function(event) {
+            event.stopPropagation();
+            event.preventDefault();
+            dropZone.classList.remove('dragover');
+
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    textArea.value = event.target.result;
+                };
+                reader.readAsText(files[0]);
+            }
+        });
+    }
+
+
+    function copyToClipboard(text) {
+        const tempInput = document.createElement('input');
+        tempInput.style.position = 'absolute';
+        tempInput.style.left = '-9999px';
+        tempInput.value = text;
+        document.body.appendChild(tempInput);
+        tempInput.select();
+        try {
+            document.execCommand('copy');
+        } catch (err) {
+            alert('Failed to copy text: ', err);
+        }
+        document.body.removeChild(tempInput);
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        const timeElements = document.querySelectorAll('.vm-start-time');
+
+        timeElements.forEach(function(element) {
+            const originalTime = element.getAttribute('data-time');
+            const formattedTime = formatTime(originalTime);
+            element.innerHTML = '&nbsp;• ' + formattedTime;
+        });
+
+        function formatTime(originalTime) {
+            const parts = originalTime.split(" ");
+            const date = parts[0];
+            const time = parts[1].slice(0, 5);
+            const timezone = parts[3];
+            return `${date} ${time} ${timezone}`;
+        }
+    });
+
+    function loadDataDisks() {
+        const vmZone = document.getElementById('vmZone').value;
+        const connConfig = document.getElementById('connConfig').value;
+
+        fetch('/spider/disk', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ ConnectionName: connConfig })
+        })
+        .then(response => response.json())
+        .then(data => {
+            const diskSelect = document.getElementById('dataDiskSelect');
+            diskSelect.innerHTML = '';
+
+            if (data.disk && data.disk.length > 0) {
+                data.disk.forEach(disk => {
+                    if (disk.Zone === vmZone && disk.Status === "Available") {
+                        const option = document.createElement('option');
+                        option.value = disk.IId.NameId;
+                        option.textContent = `${disk.IId.NameId} (${disk.DiskSize} GB)`;
+                        diskSelect.appendChild(option);
+                    }
+                });
+            } else {
+                diskSelect.innerHTML = '<option>No disks available in the same zone.</option>';
+            }
+        })
+        .catch(error => {
+            alert('Error loading data disks: ' + error.message);
+        });
+    }
+
+    document.getElementById('subnetSelect').addEventListener('change', function() {
+        const selectedZone = this.options[this.selectedIndex].dataset.zone;
+        loadDataDisks(selectedZone);
+    });
+
+    function loadDataDisks(zone) {
+        const connConfig = document.getElementById('connConfig').value;
+
+        fetch(`/spider/disk?ConnectionName=${connConfig}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            const diskSelect = document.getElementById('dataDiskSelect');
+            diskSelect.innerHTML = '';
+
+            if (data.disk && data.disk.length > 0) {
+                data.disk.forEach(disk => {
+                    if (disk.Zone === zone && disk.Status === "Available") {
+                        const option = document.createElement('option');
+                        option.value = disk.IId.NameId;
+                        option.textContent = `${disk.IId.NameId} (${disk.DiskSize} GB)`;
+                        diskSelect.appendChild(option);
+                    }
+                });
+            } else {
+                diskSelect.innerHTML = '<option>No disks available in the same zone.</option>';
+            }
+        })
+        .catch(error => {
+            alert('Error loading data disks: ' + error.message);
+        });
+    }
+
+    function showMiscOverlay(button) {
+        const miscContent = button.previousElementSibling.innerHTML;
+        document.getElementById('miscContent').innerHTML = `<div>${miscContent}</div>`;
+        document.getElementById('miscOverlay').style.display = 'flex';
+    }
+
+    function closeMiscOverlay() {
+        document.getElementById('miscOverlay').style.display = 'none';
+    }
+
+    function updateImageNameField() {
+        const imageType = document.getElementById('imageType').value;
+        const imageNameField = document.getElementById('imageNameField');
+        const rootDiskTypeField = document.getElementById('rootDiskType');
+        const rootDiskSizeField = document.getElementById('rootDiskSize');
+        
+        if (imageType === 'MyImage') {
+            rootDiskTypeField.value = '';
+            rootDiskSizeField.value = '';
+            rootDiskTypeField.disabled = true;
+            rootDiskSizeField.disabled = true;
+            fetchMyImages();
+        } else if (imageType === 'PublicImage') {
+            rootDiskTypeField.value = 'default';
+            rootDiskTypeField.disabled = false;
+            rootDiskSizeField.disabled = false;
+            imageNameField.innerHTML = `
+                <input type="text" id="imageName" name="imageName" required style="background-color: #f7f7e6;">
+            `;
+        }
+    }
+
+    function fetchMyImages() {
+        const connConfig = document.getElementById('connConfig').value;
+        
+        fetch(`/spider/myimage?ConnectionName=${connConfig}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            const imageNameField = document.getElementById('imageNameField');
+            const images = data.myImage || [];
+            
+            if (images.length > 0) {
+                imageNameField.innerHTML = `
+                    <select id="imageName" name="imageName" required style="background-color: #f7f7e6;">
+                        ${images.map(image => `<option value="${image.IId.NameId}">${image.IId.NameId} (${image.Status})</option>`).join('')}
+                    </select>
+                `;
+            } else {
+                imageNameField.innerHTML = '<p>No available MyImages</p>';
+            }
+        })
+        .catch(error => {
+            alert('Error fetching MyImages: ' + error.message);
+        });
+    }
+
+    function showAddTagOverlay(vmName) {
+        const addTagOverlay = document.getElementById('add-tag-overlay');
+        const addTagOverlayContent = document.querySelector('.add-tag-overlay-content');
+        addTagOverlayContent.innerHTML = `
+            <div class="tag-overlay-input-group">
+                <label for="tagOverlayTagKey">Tag Key:</label>
+                <input type="text" id="tagOverlayTagKey" name="tagKey" required>
+            </div>
+            <div class="tag-overlay-input-group">
+                <label for="tagOverlayTagValue">Tag Value:</label>
+                <input type="text" id="tagOverlayTagValue" name="tagValue" required>
+            </div>
+            <div class="tag-overlay-button-group">
+                <button onclick="addTag('${vmName}')">Add</button>
+                <button onclick="closeAddTagOverlay()">Cancel</button>
+            </div>
+        `;
+        addTagOverlay.style.display = 'flex';
+        document.addEventListener('keydown', handleEscAddTagOverlay);
+    }
+
+    function closeAddTagOverlay() {
+        const addTagOverlay = document.getElementById('add-tag-overlay');
+        addTagOverlay.style.display = 'none';
+        document.removeEventListener('keydown', handleEscAddTagOverlay);
+    }
+
+    function handleEscAddTagOverlay(event) {
+        if (event.key === "Escape") {
+            closeAddTagOverlay();
+        }
+    }
+    
+    function addTag(vmName) {
+        const tagKey = document.getElementById('tagOverlayTagKey').value;
+        const tagValue = document.getElementById('tagOverlayTagValue').value;
+        const connConfig = document.getElementById('connConfig').value;
+
+        const data = {
+            ConnectionName: connConfig,
+            ReqInfo: {
+                ResourceType: 'VM',
+                ResourceName: vmName,
+                Tag: { Key: tagKey, Value: tagValue }
+            }
+        };
+
+        fetchWithProgress('/spider/tag', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        }).then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.message);
+                });
+            }
+            return response.json();
+        }).then(() => {
+            closeAddTagOverlay();
+            location.reload();
+        }).catch(error => {
+            showError("Error adding tag: " + error.message, "VM Name: " + keyPairName);
+        });
+    }
+
+    function showSystemIdOverlay(systemId) {
+        const overlay = document.getElementById('system-id-overlay');
+        const fullSystemIdElement = document.getElementById('fullSystemId');
+        fullSystemIdElement.textContent = systemId;
+
+        overlay.style.display = 'block';
+        document.addEventListener('keydown', handleEscSystemIdOverlay);
+    }
+
+    function closeSystemIdOverlay() {
+        const overlay = document.getElementById('system-id-overlay');
+        overlay.style.display = 'none';
+        document.removeEventListener('keydown', handleEscSystemIdOverlay);
+    }
+
+    function handleEscSystemIdOverlay(event) {
+        if (event.key === "Escape") {
+            closeSystemIdOverlay();
+        }
+    }
+
+    function copySystemId() {
+        const fullSystemIdElement = document.getElementById('fullSystemId');
+        const range = document.createRange();
+        range.selectNode(fullSystemIdElement);
+        const selection = window.getSelection();
+
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        try {
+            document.execCommand('copy');
+            closeSystemIdOverlay();
+        } catch (err) {
+            console.error('Error copying SystemId: ', err);
+        }
+
+        selection.removeAllRanges();
+    }
+
+</script>
+
+</html>

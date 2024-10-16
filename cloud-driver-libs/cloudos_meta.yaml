@@ -73,6 +73,7 @@ IBM:
   credentialcsp: ApiKey
   #idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
   idmaxlength: 63 / 63 / 63 / 63 / 63 / 63 / 63 / 63 / 63
+  defaultregiontoquery: us-south / us-south-1
 
 OPENSTACK:
   region: Region

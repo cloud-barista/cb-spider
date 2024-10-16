@@ -604,3 +604,8 @@ func addDefaultOutBoundRule(baseRuleInfos []irs.SecurityRuleInfo, addRules *[]se
 	}
 	return nil
 }
+
+func (securityHandler *ClouditSecurityHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

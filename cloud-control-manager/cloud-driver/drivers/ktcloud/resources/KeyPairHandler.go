@@ -11,18 +11,19 @@
 package resources
 
 import (
-	"fmt"
 	"errors"
+	"fmt"
 	"strings"
+
 	// "github.com/davecgh/go-spew/spew"
 
 	ktsdk "github.com/cloud-barista/ktcloud-sdk-go"
 
 	cblog "github.com/cloud-barista/cb-log"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	keycommon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	keycommon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 )
 
 type KtCloudKeyPairHandler struct {
@@ -52,7 +53,7 @@ func (keyPairHandler *KtCloudKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, erro
 		// if len(result.Listsshkeypairsresponse.Keypair) < 1 {
 		cblogger.Info("KeyPair does not exit on the zone!!")
 		return nil, nil // Caution!!
-	} 
+	}
 
 	//cblogger.Debugf("Key Pairs:")
 	var keyPairList []*irs.KeyPairInfo
@@ -71,7 +72,7 @@ func (keyPairHandler *KtCloudKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 	InitLog()
 	callLogInfo := GetCallLogScheme(keyPairHandler.RegionInfo.Zone, call.VMKEYPAIR, keyPairReqInfo.IId.NameId, "CreateKey()")
 	cblogger.Info(keyPairReqInfo)
-	
+
 	//***** Make sure that Keypair Name already exists *****
 	resultKey, keyGetError := keyPairHandler.GetKey(keyPairReqInfo.IId)
 	if keyGetError != nil {
@@ -106,7 +107,7 @@ func (keyPairHandler *KtCloudKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 	}
 	publicKey = strings.TrimSpace(publicKey) + " " + LinuxUserName // Append VM User Name
 
-	strList:= []string{
+	strList := []string{
 		keyPairHandler.CredentialInfo.ClientId,
 		keyPairHandler.CredentialInfo.ClientSecret,
 	}
@@ -129,13 +130,13 @@ func (keyPairHandler *KtCloudKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 
 	//Since KT Cloud does not have a SystemID, the unique nameID value is also input to the SystemID
 	keyPairInfo := irs.KeyPairInfo{
-		IId:        	irs.IID{NameId: keyPairReqInfo.IId.NameId, SystemId: keyPairReqInfo.IId.NameId},
-		Fingerprint: 	createResult.Createsshkeypairresponse.KeyPair.Fingerprint,
-		PublicKey:   	publicKey, 		 // Generated above. Show only when KeyPair Creation.
-		PrivateKey: 	createResult.Createsshkeypairresponse.KeyPair.PrivateKey, // Show only when KeyPair Creation.
-		VMUserID: 		LinuxUserName,
+		IId:         irs.IID{NameId: keyPairReqInfo.IId.NameId, SystemId: keyPairReqInfo.IId.NameId},
+		Fingerprint: createResult.Createsshkeypairresponse.KeyPair.Fingerprint,
+		PublicKey:   publicKey,                                                // Generated above. Show only when KeyPair Creation.
+		PrivateKey:  createResult.Createsshkeypairresponse.KeyPair.PrivateKey, // Show only when KeyPair Creation.
+		VMUserID:    LinuxUserName,
 	}
-	return keyPairInfo, nil	
+	return keyPairInfo, nil
 }
 
 func (keyPairHandler *KtCloudKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo, error) {
@@ -155,8 +156,7 @@ func (keyPairHandler *KtCloudKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPair
 		errors.New("Failed to Find KeyPair with the Name!!")
 		return irs.KeyPairInfo{}, errors.New("Failed to Find KeyPair with the Name!!")
 
-	} else 
-	{
+	} else {
 		resultKeyPairInfo = mappingKeyPairInfo(result.Listsshkeypairsresponse.KeyPair[0])
 		// spew.Dump(result.Listsshkeypairsresponse.Keypair[0])
 	}
@@ -194,7 +194,7 @@ func (keyPairHandler *KtCloudKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, er
 	}
 	cblogger.Infof("Deletion result on KT Cloud : %s", result.Deletesshkeypairresponse.Success)
 
-	strList:= []string{
+	strList := []string{
 		keyPairHandler.CredentialInfo.ClientId,
 		keyPairHandler.CredentialInfo.ClientSecret,
 	}
@@ -223,18 +223,23 @@ func mappingKeyPairInfo(KtCloudKeyPair ktsdk.KeyPair) irs.KeyPairInfo {
 	cblogger.Info("KT Cloud Driver: called mappingKeyPairInfo()")
 	// Since KT Cloud does not have a SystemID, the unique nameID value is also input to the SystemID
 	keyPairInfo := irs.KeyPairInfo{
-		IId:         irs.IID{
-			NameId: KtCloudKeyPair.Name, 
+		IId: irs.IID{
+			NameId:   KtCloudKeyPair.Name,
 			SystemId: KtCloudKeyPair.Name,
 		},
-		Fingerprint: 	KtCloudKeyPair.Fingerprint,
-		PublicKey:  	"N/A",
-		PrivateKey: 	"N/A",
-		VMUserID: 		LinuxUserName,
+		Fingerprint: KtCloudKeyPair.Fingerprint,
+		PublicKey:   "N/A",
+		PrivateKey:  "N/A",
+		VMUserID:    LinuxUserName,
 
 		// PrivateKey: KtCloudKeyPairList.Privatekey,
-		// Note) KT Cloud에서 KtCloud KeyPairList 조회시에는 response에 Private key값은 없음. 
-				// CreateSSHKeyPair() 할때만 response로 받음.
+		// Note) KT Cloud에서 KtCloud KeyPairList 조회시에는 response에 Private key값은 없음.
+		// CreateSSHKeyPair() 할때만 response로 받음.
 	}
 	return keyPairInfo
+}
+
+func (keyPairHandler *KtCloudKeyPairHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

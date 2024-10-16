@@ -13,13 +13,14 @@ package gcp
 import (
 	"context"
 	"encoding/json"
+
 	cblogger "github.com/cloud-barista/cb-log"
 	"github.com/sirupsen/logrus"
 
 	gcpcon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp/connect"
 	gcps "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp/resources"
-	ires "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	ires "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
 
@@ -64,6 +65,7 @@ func (GCPDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.ClusterHandler = true
 	drvCapabilityInfo.PriceInfoHandler = true
 	drvCapabilityInfo.TagHandler = true
+	// ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.NLB, ires.MYIMAGE
 	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.ALL, ires.VM, ires.DISK, ires.CLUSTER}
 
 	return drvCapabilityInfo

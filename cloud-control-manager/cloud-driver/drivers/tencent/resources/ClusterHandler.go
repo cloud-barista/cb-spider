@@ -12,6 +12,7 @@ package resources
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"runtime/debug"
@@ -434,7 +435,12 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 		cblogger.Error(err)
 		panic(err)
 	}
-
+	jsonRes, err := json.MarshalIndent(res, "", "  ")
+	if err != nil {
+		cblogger.Error(fmt.Sprintf("Failed to marshal res: %v", err))
+	} else {
+		cblogger.Info(fmt.Sprintf("res in JSON format: %s", string(jsonRes)))
+	}
 	// description에서 security group 이름 추출
 	security_group_id := ""
 	re := regexp.MustCompile(`\S*#CB-SPIDER:PMKS:SECURITYGROUP:ID:\S*`)
@@ -478,6 +484,20 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 		// KeyValueList: []irs.KeyValue{}, // flatten data 입력하기
 	}
 
+	// Tags가 있는지 확인하고 추가
+	if res.Response.Clusters[0].TagSpecification != nil {
+		var tagList []irs.KeyValue
+		for _, tag := range res.Response.Clusters[0].TagSpecification {
+
+			for _, tag := range tag.Tags {
+				tagList = append(clusterInfo.KeyValueList, irs.KeyValue{
+					Key:   *tag.Key,
+					Value: *tag.Value,
+				})
+			}
+			clusterInfo.TagList = tagList
+		}
+	}
 	// k,v 추출 & 추가
 	// KeyValueList: []irs.KeyValue{}, // flatten data 입력하기
 	temp, err := json.Marshal(*res.Response.Clusters[0])
@@ -539,7 +559,7 @@ func getClusterAccessInfo(access_key string, access_secret string, region_id str
 	res, err := tencent.GetClusterEndpoint(access_key, access_secret, region_id, cluster_id)
 	if err != nil {
 		if strings.Contains(err.Error(), "CLUSTER_IN_ABNORMAL_STAT") || strings.Contains(err.Error(), "CLUSTER_STATE_ERROR") {
-			cblogger.Error(cluster_id + err.Error())
+			cblogger.Info(cluster_id + err.Error())
 			accessInfo.Endpoint = "Cluster is not ready yet!"
 		} else {
 			err := fmt.Errorf("Failed to Get Cluster Endpoint:  %v", err)
@@ -556,7 +576,7 @@ func getClusterAccessInfo(access_key string, access_secret string, region_id str
 		_, err := tencent.CreateClusterEndpoint(access_key, access_secret, region_id, cluster_id, security_group_id)
 		if err != nil {
 			if strings.Contains(err.Error(), "CLUSTER_IN_ABNORMAL_STAT") || strings.Contains(err.Error(), "CLUSTER_STATE_ERROR") {
-				cblogger.Error(cluster_id + err.Error())
+				cblogger.Info(cluster_id + err.Error())
 				accessInfo.Endpoint = "First, add a nodegroup."
 			} else if strings.Contains(err.Error(), "same type task in execution") {
 				cblogger.Error(cluster_id + err.Error())
@@ -575,7 +595,7 @@ func getClusterAccessInfo(access_key string, access_secret string, region_id str
 	resKubeconfig, err := tencent.GetClusterKubeconfig(access_key, access_secret, region_id, cluster_id)
 	if err != nil {
 		if strings.Contains(err.Error(), "CLUSTER_IN_ABNORMAL_STAT") || strings.Contains(err.Error(), "CLUSTER_STATE_ERROR") {
-			cblogger.Error(cluster_id + err.Error())
+			cblogger.Info(cluster_id + err.Error())
 			accessInfo.Kubeconfig = "Cluster is not ready yet!"
 		} else {
 			err := fmt.Errorf("Failed to Get Cluster Kubeconfig:  %v", err)
@@ -584,14 +604,14 @@ func getClusterAccessInfo(access_key string, access_secret string, region_id str
 		}
 	}
 
-	if resKubeconfig == nil || resKubeconfig.Response == nil {
+	if resKubeconfig == "" {
 		return accessInfo, nil
 	}
 
-	if *resKubeconfig.Response.Kubeconfig == "" {
+	if resKubeconfig == "" {
 		accessInfo.Kubeconfig = "Preparing...."
 	} else {
-		accessInfo.Kubeconfig = changeDomainNameToIP(*resKubeconfig.Response.Kubeconfig, accessInfo.Endpoint)
+		accessInfo.Kubeconfig = changeDomainNameToIP(resKubeconfig, accessInfo.Endpoint)
 	}
 
 	return accessInfo, nil
@@ -901,7 +921,7 @@ func getNodeGroupRequest(clusterHandler *TencentClusterHandler, cluster_id strin
 	}
 	// request.ContainerRuntime = common.StringPtr("docker")
 	// request.RuntimeVersion = common.StringPtr("19.3")
-	print(request.ToJsonString())
+	// print(request.ToJsonString())
 
 	return request, err
 }
@@ -976,4 +996,9 @@ func validateAtChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID, 
 	}
 
 	return nil
+}
+
+func (ClusterHandler *TencentClusterHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

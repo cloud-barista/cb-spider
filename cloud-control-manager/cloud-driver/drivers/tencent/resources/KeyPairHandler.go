@@ -72,6 +72,17 @@ func ExtractKeyPairDescribeInfo(keyPair *cvm.KeyPair) (irs.KeyPairInfo, error) {
 		IId: irs.IID{NameId: *keyPair.KeyName, SystemId: *keyPair.KeyId},
 		//PublicKey: *keyPair.PublicKey,
 	}
+	cblogger.Info(" keyPair.Tags", keyPair.Tags)
+	if keyPair.Tags != nil {
+		var tagList []irs.KeyValue
+		for _, tag := range keyPair.Tags {
+			tagList = append(tagList, irs.KeyValue{
+				Key:   *tag.Key,
+				Value: *tag.Value,
+			})
+		}
+		keyPairInfo.TagList = tagList
+	}
 
 	//PrivateKey는 최초 생성시에만 존재하며 조회 시에는 PrivateKey는 Nil임.
 	// if !reflect.ValueOf(keyPair.PrivateKey).IsNil() {
@@ -171,11 +182,13 @@ func (keyPairHandler *TencentKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 		})
 	}
 
-	request.TagSpecification = []*cvm.TagSpecification{
-		{
-			ResourceType: common.StringPtr("instance"),
-			Tags:         tags,
-		},
+	if len(tags) > 0 {
+		request.TagSpecification = []*cvm.TagSpecification{
+			{
+				ResourceType: common.StringPtr(string(irs.KEY)),
+				Tags:         tags,
+			},
+		}
 	}
 
 	callLogStart := call.Start()
@@ -193,17 +206,25 @@ func (keyPairHandler *TencentKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 	cblogger.Debug(response.ToJsonString())
 	callogger.Info(call.String(callLogInfo))
 
-	cblogger.Infof("Created [%s]key pair", *response.Response.KeyPair.KeyName)
+	cblogger.Infof("Created key pair", *response.Response.KeyPair)
 	//cblogger.Debug(result)
-	keyPairInfo := irs.KeyPairInfo{
-		//Name:        *result.KeyName,
-		IId:        irs.IID{NameId: keyPairReqInfo.IId.NameId, SystemId: *response.Response.KeyPair.KeyId},
-		PublicKey:  *response.Response.KeyPair.PublicKey,
-		PrivateKey: *response.Response.KeyPair.PrivateKey,
-		KeyValueList: []irs.KeyValue{
-			{Key: "KeyId", Value: *response.Response.KeyPair.KeyId},
-		},
+	keyPairInfo, errKeyPair := ExtractKeyPairDescribeInfo(response.Response.KeyPair)
+	if errKeyPair != nil {
+		cblogger.Error(errKeyPair.Error())
+		return irs.KeyPairInfo{}, errKeyPair
 	}
+
+	// keyPairInfo := irs.KeyPairInfo{
+	// 	//Name:        *result.KeyName,
+	// 	IId:        irs.IID{NameId: keyPairReqInfo.IId.NameId, SystemId: *response.Response.KeyPair.KeyId},
+	// 	PublicKey:  *response.Response.KeyPair.PublicKey,
+	// 	PrivateKey: *response.Response.KeyPair.PrivateKey,
+	// 	KeyValueList: []irs.KeyValue{
+	// 		{Key: "KeyId", Value: *response.Response.KeyPair.KeyId},
+	// 	},
+	// }
+
+	// //
 
 	//cblogger.Debug(keyPairInfo)
 
@@ -406,4 +427,9 @@ func (keyPairHandler *TencentKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, er
 	*/
 
 	return true, nil
+}
+
+func (keyPairHandler *TencentKeyPairHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

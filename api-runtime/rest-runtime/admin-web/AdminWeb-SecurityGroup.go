@@ -17,7 +17,6 @@ import (
 	"sort"
 	"strings"
 
-	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/labstack/echo/v4"
 )
@@ -123,29 +122,4 @@ func SecurityGroupManagement(c echo.Context) error {
 	}
 
 	return tmpl.Execute(c.Response().Writer, data)
-}
-
-func DeleteSecurityGroup(c echo.Context) error {
-	connConfig := c.QueryParam("ConnectionName")
-	sgName := c.Param("Name")
-
-	// Make a DELETE request to the spider server
-	url := fmt.Sprintf("http://%s:%s/spider/securitygroup/%s?connectionName=%s", cr.ServiceIPorName, cr.ServicePort, sgName, connConfig)
-	req, err := http.NewRequest("DELETE", url, nil)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-	}
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to delete SecurityGroup"})
-	}
-
-	return c.JSON(http.StatusOK, map[string]string{"Result": "true"})
 }

@@ -252,10 +252,8 @@ func (NLBHandler *AlibabaNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 
 	lbAttributeResponse, err := NLBHandler.Client.DescribeLoadBalancerAttribute(request)
 	if err != nil {
-		cblogger.Error(err.Error())
 		return irs.NLBInfo{}, err
 	}
-	cblogger.Debug(lbAttributeResponse)
 
 	nlbIID.NameId = lbAttributeResponse.LoadBalancerName
 	nlbInfo.IId = nlbIID
@@ -284,6 +282,18 @@ func (NLBHandler *AlibabaNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 		break
 	}
 	nlbInfo.Listener = listener
+
+	// tag있으면 추가
+	tagList := []irs.KeyValue{}
+
+	for _, aliTag := range lbAttributeResponse.Tags.Tag {
+		sTag := irs.KeyValue{}
+		sTag.Key = aliTag.TagKey
+		sTag.Value = aliTag.TagValue
+
+		tagList = append(tagList, sTag)
+	}
+	nlbInfo.TagList = tagList
 
 	// 상세 listener 추가 정보 : listener가 여려개면 for문 안으로 넣어야 함. protocol에 따라 가져오는 상세정보가 다름
 	if strings.EqualFold(listener.Protocol, ListenerProtocol_TCP) {
@@ -1414,4 +1424,9 @@ func (NLBHandler *AlibabaNLBHandler) validateCreateNLB(nlbReqInfo irs.NLBInfo) e
 	}
 
 	return nil
+}
+
+func (NLBHandler *AlibabaNLBHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

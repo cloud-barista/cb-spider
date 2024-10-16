@@ -10,7 +10,10 @@ package restruntime
 
 import (
 	"crypto/subtle"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"path/filepath"
 	"strings"
 	"time"
@@ -30,9 +33,10 @@ import (
 	// REST API (echo)
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/gommon/log"
 
 	// echo-swagger middleware
-	_ "github.com/cloud-barista/cb-spider/api-runtime/rest-runtime/docs"
+	_ "github.com/cloud-barista/cb-spider/api"
 	echoSwagger "github.com/swaggo/echo-swagger"
 
 	"github.com/natefinch/lumberjack"
@@ -42,7 +46,7 @@ var cblog *logrus.Logger
 
 // @title CB-Spider REST API
 // @version latest
-// @description CB-Spider REST API
+// @description **🕷️ [User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages)**  **🕷️ [API Guide](https://github.com/cloud-barista/cb-spider/wiki/REST-API-Examples)**
 
 // @contact.name API Support
 // @contact.url http://cloud-barista.github.io
@@ -52,7 +56,10 @@ var cblog *logrus.Logger
 // @license.url http://www.apache.org/licenses/LICENSE-2.0.html
 
 // @host localhost:1024
+
 // @BasePath /spider
+
+// @schemes http
 
 // @securityDefinitions.basic BasicAuth
 
@@ -72,15 +79,6 @@ func init() {
 	cr.ServicePort = getServicePort("SERVICE_ADDRESS")
 }
 
-// REST API Return struct for boolean type
-type BooleanInfo struct {
-	Result string // true or false
-}
-
-type StatusInfo struct {
-	Status string // PENDING | RUNNING | SUSPENDING | SUSPENDED | REBOOTING | TERMINATING | TERMINATED
-}
-
 // ex) {"POST", "/driver", registerCloudDriver}
 type route struct {
 	method, path string
@@ -89,7 +87,7 @@ type route struct {
 
 // JSON Simple message struct
 type SimpleMsg struct {
-	Message string `json:"message" example:"Any message"`
+	Message string `json:"message" validate:"required" example:"Any message" description:"A simple message to be returned by the API"`
 }
 
 //// CB-Spider Servcie Address Configuration
@@ -185,7 +183,11 @@ func RunServer() {
 		{"GET", "/", aw.SpiderInfo},
 
 		//----------Swagger
-		{"GET", "/swagger/*", echoSwagger.WrapHandler},
+		{"GET", "/api", func(c echo.Context) error {
+			return c.Redirect(http.StatusMovedPermanently, "/spider/api/")
+		}},
+		{"GET", "/api/", echoSwagger.EchoWrapHandler(echoSwagger.DocExpansion("none"))},
+		{"GET", "/api/*", echoSwagger.EchoWrapHandler(echoSwagger.DocExpansion("none"))},
 
 		//----------EndpointInfo
 		{"GET", "/endpointinfo", endpointInfo},
@@ -269,6 +271,7 @@ func RunServer() {
 		{"DELETE", "/vpc/:Name", DeleteVPC},
 		//-- for subnet
 		{"POST", "/vpc/:VPCName/subnet", AddSubnet},
+		{"GET", "/vpc/:VPCName/subnet/:Name", GetSubnet},
 		{"DELETE", "/vpc/:VPCName/subnet/:SubnetName", RemoveSubnet},
 		{"DELETE", "/vpc/:VPCName/cspsubnet/:Id", RemoveCSPSubnet},
 		//-- for management
@@ -282,6 +285,7 @@ func RunServer() {
 
 		//----------SecurityGroup Handler
 		{"GET", "/getsecuritygroupowner", GetSGOwnerVPC},
+		{"POST", "/getsecuritygroupowner", GetSGOwnerVPC},
 		{"POST", "/regsecuritygroup", RegisterSecurity},
 		{"DELETE", "/regsecuritygroup/:Name", UnregisterSecurity},
 
@@ -329,6 +333,7 @@ func RunServer() {
 		*/
 		//----------VM Handler
 		{"GET", "/getvmusingresources", GetVMUsingRS},
+		{"POST", "/getvmusingresources", GetVMUsingRS},
 		{"POST", "/regvm", RegisterVM},
 		{"DELETE", "/regvm/:Name", UnregisterVM},
 
@@ -353,6 +358,7 @@ func RunServer() {
 
 		//----------NLB Handler
 		{"GET", "/getnlbowner", GetNLBOwnerVPC},
+		{"POST", "/getnlbowner", GetNLBOwnerVPC},
 		{"POST", "/regnlb", RegisterNLB},
 		{"DELETE", "/regnlb/:Name", UnregisterNLB},
 
@@ -382,7 +388,7 @@ func RunServer() {
 		{"POST", "/disk", CreateDisk},
 		{"GET", "/disk", ListDisk},
 		{"GET", "/disk/:Name", GetDisk},
-		{"PUT", "/disk/:Name/size", ChangeDiskSize},
+		{"PUT", "/disk/:Name/size", IncreaseDiskSize},
 		{"DELETE", "/disk/:Name", DeleteDisk},
 		//-- for vm
 		{"PUT", "/disk/:Name/attach", AttachDisk},
@@ -413,6 +419,7 @@ func RunServer() {
 
 		//----------Cluster Handler
 		{"GET", "/getclusterowner", GetClusterOwnerVPC},
+		{"POST", "/getclusterowner", GetClusterOwnerVPC},
 		{"POST", "/regcluster", RegisterCluster},
 		{"DELETE", "/regcluster/:Name", UnregisterCluster},
 
@@ -444,16 +451,31 @@ func RunServer() {
 		//----------Destory All Resources in a Connection
 		{"DELETE", "/destroy", Destroy},
 
-		//-- only for WebTool
-		{"GET", "/nscluster", AllClusterList},  // GET with a body for backward compatibility
-		{"POST", "/nscluster", AllClusterList}, // POST with a body for standard
+		//----------checking TCP and UDP ports for NLB
+		{"GET", "/check/tcp", CheckTCPPort},
+		{"GET", "/check/udp", CheckUDPPort},
 
 		//-------------------------------------------------------------------//
 		//----------Additional Info
 		{"GET", "/cspresourcename/:Name", GetCSPResourceName},
 		{"GET", "/cspresourceinfo/:Name", GetCSPResourceInfo},
+
 		//----------AnyCall Handler
 		{"POST", "/anycall", AnyCall},
+
+		//----------WebMon Handler
+		{"GET", "/adminweb/vmmon", aw.VMMointoring},
+
+		//////////////////////////////////////////////////////////////
+		//------------------ Spiderlet Zone ------------------------
+
+		{"POST", "/spiderlet/anycall", SpiderletAnyCall},
+
+		//----------WebMon Handler
+		{"GET", "/adminweb/spiderlet/vmmon", aw.SpiderletVMMointoring},
+
+		//------------------ Spiderlet Zone ------------------------
+		//////////////////////////////////////////////////////////////
 
 		//-------------------------------------------------------------------//
 		//----------SPLock Info
@@ -462,28 +484,29 @@ func RunServer() {
 		{"POST", "/sshrun", SSHRun},
 
 		//----------AdminWeb Handler
-		{"GET", "/adminweb", aw.Frame},
+		{"GET", "/adminweb1", aw.Frame},
+		{"GET", "/adminweb1/", aw.Frame},
 		{"GET", "/adminweb/top", aw.Top},
 		{"GET", "/adminweb/log", aw.Log},
 
-		{"GET", "/adminweb2", aw.MainPage},
-		{"GET", "/adminweb2/", aw.MainPage},
+		{"GET", "/adminweb", aw.MainPage},
+		{"GET", "/adminweb/", aw.MainPage},
 		{"GET", "/adminweb/left_menu", aw.LeftMenu},
 		{"GET", "/adminweb/body_frame", aw.BodyFrame},
 
 		{"GET", "/adminweb/dashboard", aw.Dashboard},
 
-		{"GET", "/adminweb/driver", aw.Driver},
-		{"GET", "/adminweb2/driver", aw.DriverManagement},
+		{"GET", "/adminweb/driver1", aw.Driver},
+		{"GET", "/adminweb/driver", aw.DriverManagement},
 
-		{"GET", "/adminweb/credential", aw.Credential},
-		{"GET", "/adminweb2/credential", aw.CredentialManagement},
+		{"GET", "/adminweb/credential1", aw.Credential},
+		{"GET", "/adminweb/credential", aw.CredentialManagement},
 
-		{"GET", "/adminweb/region", aw.Region},
-		{"GET", "/adminweb2/region", aw.RegionManagement},
+		{"GET", "/adminweb/region1", aw.Region},
+		{"GET", "/adminweb/region", aw.RegionManagement},
 
-		{"GET", "/adminweb/connectionconfig", aw.Connectionconfig},
-		{"GET", "/adminweb2/connectionconfig", aw.ConnectionManagement},
+		{"GET", "/adminweb/connectionconfig1", aw.Connectionconfig},
+		{"GET", "/adminweb/connectionconfig", aw.ConnectionManagement},
 
 		{"GET", "/adminweb/dashboard", aw.Dashboard},
 
@@ -493,17 +516,17 @@ func RunServer() {
 		{"GET", "/adminweb/vpcmgmt/:ConnectConfig", aw.VPCMgmt},
 		{"GET", "/adminweb/securitygroup/:ConnectConfig", aw.SecurityGroupManagement},
 		{"GET", "/adminweb/securitygroupmgmt/:ConnectConfig", aw.SecurityGroupMgmt},
-		{"GET", "/adminweb/keypair/:ConnectConfig", aw.KeyPair},
+		{"GET", "/adminweb/keypair/:ConnectConfig", aw.KeyPairManagement},
 		{"GET", "/adminweb/keypairmgmt/:ConnectConfig", aw.KeyPairMgmt},
-		{"GET", "/adminweb/vm/:ConnectConfig", aw.VM},
+		{"GET", "/adminweb/vm/:ConnectConfig", aw.VMManagement},
 		{"GET", "/adminweb/vmmgmt/:ConnectConfig", aw.VMMgmt},
-		{"GET", "/adminweb/nlb/:ConnectConfig", aw.NLB},
+		{"GET", "/adminweb/nlb/:ConnectConfig", aw.NLBManagement},
 		{"GET", "/adminweb/nlbmgmt/:ConnectConfig", aw.NLBMgmt},
-		{"GET", "/adminweb/disk/:ConnectConfig", aw.Disk},
+		{"GET", "/adminweb/disk/:ConnectConfig", aw.DiskManagement},
 		{"GET", "/adminweb/diskmgmt/:ConnectConfig", aw.DiskMgmt},
-		{"GET", "/adminweb/cluster/:ConnectConfig", aw.Cluster},
+		{"GET", "/adminweb/cluster/:ConnectConfig", aw.ClusterManagement},
 		{"GET", "/adminweb/clustermgmt/:ConnectConfig", aw.ClusterMgmt},
-		{"GET", "/adminweb/myimage/:ConnectConfig", aw.MyImage},
+		{"GET", "/adminweb/myimage/:ConnectConfig", aw.MyImageManagement},
 		{"GET", "/adminweb/myimagemgmt/:ConnectConfig", aw.MyImageMgmt},
 		{"GET", "/adminweb/vmimage/:ConnectConfig", aw.VMImage},
 		{"GET", "/adminweb/vmspec/:ConnectConfig", aw.VMSpec},
@@ -513,12 +536,60 @@ func RunServer() {
 		{"GET", "/adminweb/priceinfotablelist/:ProductFamily/:RegionName/:ConnectConfig", aw.PriceInfoTableList},
 		// download price info with JSON file
 		{"GET", "/adminweb/priceinfo/download/:FileName", aw.DownloadPriceInfo},
+
+		//----------SSH WebTerminal Handler
+		{"GET", "/adminweb/sshwebterminal/ws", aw.HandleWebSocket},
 	}
 	//======================================= setup routes
 
 	// Run API Server
 	ApiServer(routes)
 
+}
+
+func RunTLSServer(certFile, keyFile, caCertFile string, port int) {
+	e := echo.New()
+	e.Logger.SetLevel(log.ERROR) // Set logging level to ERROR only
+
+	// Recovery middleware for handling panics
+	e.Use(middleware.Recover())
+
+	e.GET("/getcredentials/:ConnectionName", GetCloudDriverAndConnectionInfoTLS)
+
+	// Load CA certificate
+	caCert, err := ioutil.ReadFile(caCertFile)
+	if err != nil {
+		fmt.Println("Failed to read CA certificate:", err)
+		// return
+	}
+
+	// Set up CA certificate pool
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
+
+	// Configure TLS settings
+	tlsConfig := &tls.Config{
+		ClientCAs:          caCertPool,
+		ClientAuth:         tls.RequireAndVerifyClientCert,
+		MinVersion:         tls.VersionTLS12,
+		InsecureSkipVerify: false,
+	}
+
+	// Bind to localhost only (127.0.0.1), external clients cannot connect
+	address := fmt.Sprintf("127.0.0.1:%d", port)
+	server := &http.Server{
+		Addr:      address,
+		Handler:   e,
+		TLSConfig: tlsConfig,
+	}
+
+	fmt.Printf("[CB-Spider] TLS server running... https://%s\n", address)
+
+	// Start TLS server
+	err = server.ListenAndServeTLS(certFile, keyFile)
+	if err != nil {
+		fmt.Printf("[CB-Spider] Failed to start TLS server: %v\n", err)
+	}
 }
 
 // ================ REST API Server: setup & start
@@ -592,6 +663,9 @@ func ApiServer(routes []route) {
 	// for admin-web
 	e.File("/spider/adminweb/html/priceinfo-filter-gen.html", cbspiderRoot+"/api-runtime/rest-runtime/admin-web/html/priceinfo-filter-gen.html")
 
+	// for WebTerminal
+	e.Static("/spider/adminweb/static", filepath.Join(cbspiderRoot, "api-runtime/rest-runtime/admin-web/static"))
+
 	e.HideBanner = true
 	e.HidePort = true
 
@@ -618,17 +692,77 @@ func endpointInfo(c echo.Context) error {
 	endpointInfo := fmt.Sprintf("\n  <CB-Spider> Multi-Cloud Infrastructure Federation Framework\n")
 	adminWebURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/adminweb"
 	endpointInfo += fmt.Sprintf("     - AdminWeb: %s\n", adminWebURL)
-	restEndPoint := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider"
-	endpointInfo += fmt.Sprintf("     - REST API: %s\n", restEndPoint)
-	// swaggerURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/swagger/index.html"
-	// endpointInfo += fmt.Sprintf("     - Swagger : %s\n", swaggerURL)
+	swaggerURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/api"
+	endpointInfo += fmt.Sprintf("     - Swagger UI: %s\n", swaggerURL)
+
 	// gRPCServer := "grpc://" + cr.ServiceIPorName + cr.GoServicePort
 	// endpointInfo += fmt.Sprintf("     - Go   API: %s\n", gRPCServer)
 
 	return c.String(http.StatusOK, endpointInfo)
 }
 
-// ================ Health Check
+// HealthCheckResponse represents the response body for the healthCheck API.
+type HealthCheckResponse struct {
+	Message string `json:"message" validate:"required" example:"CB-Spider is ready"`
+}
+
+// healthCheck godoc
+// @ID health-check-healthcheck
+// @Summary Perform Health Check
+// @Description Checks the health of CB-Spider service and its dependencies via /healthcheck endpoint. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/Readiness-Check-Guide)]
+// @Tags [Health Check]
+// @Accept  json
+// @Produce  json
+// @Success 200 {object} HealthCheckResponse "Service is ready"
+// @Failure 503 {object} SimpleMsg "Service Unavailable"
+// @Router /healthcheck [get]
+func healthCheckHealthCheck(c echo.Context) error {
+	return healthCheck(c)
+}
+
+// healthCheck godoc
+// @ID health-check-health
+// @Summary Perform Health Check
+// @Description Checks the health of CB-Spider service and its dependencies via /health endpoint. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/Readiness-Check-Guide)]
+// @Tags [Health Check]
+// @Accept  json
+// @Produce  json
+// @Success 200 {object} HealthCheckResponse "Service is ready"
+// @Failure 503 {object} SimpleMsg "Service Unavailable"
+// @Router /health [get]
+func healthCheckHealth(c echo.Context) error {
+	return healthCheck(c)
+}
+
+// healthCheck godoc
+// @ID health-check-ping
+// @Summary Perform Health Check
+// @Description Checks the health of CB-Spider service and its dependencies via /ping endpoint. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/Readiness-Check-Guide)]
+// @Tags [Health Check]
+// @Accept  json
+// @Produce  json
+// @Success 200 {object} HealthCheckResponse "Service is ready"
+// @Failure 503 {object} SimpleMsg "Service Unavailable"
+// @Router /ping [get]
+func healthCheckPing(c echo.Context) error {
+	return healthCheck(c)
+}
+
+// healthCheck godoc
+// @ID health-check-readyz
+// @Summary Perform Health Check
+// @Description Checks the health of CB-Spider service and its dependencies via /readyz endpoint. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/Readiness-Check-Guide)]
+// @Tags [Health Check]
+// @Accept  json
+// @Produce  json
+// @Success 200 {object} HealthCheckResponse "Service is ready"
+// @Failure 503 {object} SimpleMsg "Service Unavailable"
+// @Router /readyz [get]
+func healthCheckReadyz(c echo.Context) error {
+	return healthCheck(c)
+}
+
+// Common health check logic
 func healthCheck(c echo.Context) error {
 	// check database connection
 	err := infostore.Ping()
@@ -646,11 +780,8 @@ func spiderBanner() {
 	adminWebURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/adminweb"
 	fmt.Printf("     - AdminWeb: %s\n", adminWebURL)
 
-	// REST API EndPoint
-	restEndPoint := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider"
-	fmt.Printf("     - REST API: %s\n", restEndPoint)
-
 	// Swagger
-	// swaggerURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/swagger/index.html"
-	// fmt.Printf("     - Swagger : %s\n", swaggerURL)
+	swaggerURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/api"
+	fmt.Printf("     - Swagger UI: %s\n", swaggerURL)
+
 }

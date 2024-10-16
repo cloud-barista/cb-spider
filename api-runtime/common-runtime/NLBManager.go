@@ -242,6 +242,8 @@ func RegisterNLB(connectionName string, vpcUserID string, userIID cres.IID) (*cr
 	//     ex) spiderIID {"vpc-01", "vpc-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
 	// Do not user NameId, because Azure driver use it like SystemId
 	systemId := getMSShortID(getInfo.IId.SystemId)
+	// for AWS NLB Long SystemId
+	systemId = getAWSNLBShortID(systemId)
 	spiderIId := cres.IID{NameId: userIID.NameId, SystemId: systemId + ":" + getInfo.IId.SystemId}
 
 	// (4) insert spiderIID
@@ -570,7 +572,7 @@ func ListNLB(connectionName string, rsType string) ([]*cres.NLBInfo, error) {
 		// set VM's UserIID
 		for idx, vmIID := range *info.VMGroup.VMs {
 			var vmIIDInfo VMIIDInfo
-			err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, getMSShortID(vmIID.SystemId))
+			err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vmIID.SystemId)
 			if err != nil {
 				cblog.Error(err)
 				return nil, err
@@ -665,7 +667,7 @@ func GetNLB(connectionName string, rsType string, nameID string) (*cres.NLBInfo,
 	// set VM's UserIID
 	for idx, vmIID := range *info.VMGroup.VMs {
 		var vmIIDInfo VMIIDInfo
-		err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, getMSShortID(vmIID.SystemId))
+		err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vmIID.SystemId)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
@@ -790,7 +792,7 @@ func AddNLBVMs(connectionName string, nlbName string, vmNames []string) (*cres.N
 	// set VM's UserIID
 	for idx, vmIID := range *info.VMGroup.VMs {
 		var vmIIDInfo VMIIDInfo
-		err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, getMSShortID(vmIID.SystemId))
+		err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vmIID.SystemId)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
@@ -984,7 +986,7 @@ func ChangeListener(connectionName string, nlbName string, listener cres.Listene
 	// set VM's UserIID
 	for idx, vmIID := range *info.VMGroup.VMs {
 		var vmIIDInfo VMIIDInfo
-		err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, getMSShortID(vmIID.SystemId))
+		err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vmIID.SystemId)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
@@ -1091,7 +1093,7 @@ func ChangeVMGroup(connectionName string, nlbName string, vmGroup cres.VMGroupIn
 	// set VM's UserIID
 	for idx, vmIID := range *info.VMGroup.VMs {
 		var vmIIDInfo VMIIDInfo
-		err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, getMSShortID(vmIID.SystemId))
+		err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vmIID.SystemId)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
@@ -1213,7 +1215,7 @@ func ChangeHealthChecker(connectionName string, nlbName string, healthChecker cr
 	// set VM's UserIID
 	for idx, vmIID := range *info.VMGroup.VMs {
 		var vmIIDInfo VMIIDInfo
-		err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, getMSShortID(vmIID.SystemId))
+		err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vmIID.SystemId)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
@@ -1318,7 +1320,7 @@ func setVMUserIIDwithSystemId(connectionName string, nlbName string, healthInfo 
 	for idx, vm := range *vmIIDList {
 		foundFlag := false
 		var vmIIDInfo VMIIDInfo
-		err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, getMSShortID(vm.SystemId))
+		err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vm.SystemId)
 		if err != nil {
 			cblog.Error(err)
 			return err
@@ -1336,7 +1338,7 @@ func setVMUserIIDwithSystemId(connectionName string, nlbName string, healthInfo 
 	for idx, vm := range *vmIIDList {
 		foundFlag := false
 		var vmIIDInfo VMIIDInfo
-		err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, getMSShortID(vm.SystemId))
+		err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vm.SystemId)
 		if err != nil {
 			cblog.Error(err)
 			return err
@@ -1354,7 +1356,7 @@ func setVMUserIIDwithSystemId(connectionName string, nlbName string, healthInfo 
 	for idx, vm := range *vmIIDList {
 		foundFlag := false
 		var vmIIDInfo VMIIDInfo
-		err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, getMSShortID(vm.SystemId))
+		err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vm.SystemId)
 		if err != nil {
 			cblog.Error(err)
 			return err

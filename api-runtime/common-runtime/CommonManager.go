@@ -175,13 +175,28 @@ func getMSShortID(inID string) string {
 	return shortID
 }
 
+func getAWSNLBShortID(inID string) string {
+	// arn:aws:elasticloadbalancing:us-east-2:6354xxxxxx:loadbalancer/net/aws-ohio-nl-cs0m9i3p70iv8ge0c8v0/ef56833f5b959319
+	// ==> aws-ohio-nl-cs0m9i3p70iv8ge0c8v0
+	if strings.Contains(inID, "loadbalancer/net/") {
+		// Split by "loadbalancer/net/" to find the relevant part of the string
+		parts := strings.Split(inID, "loadbalancer/net/")
+		if len(parts) > 1 {
+			// Split again by "/" to isolate the NLB name
+			nameParts := strings.Split(parts[1], "/")
+			return nameParts[0] // Return the NLB name
+		}
+	}
+	return inID
+}
+
 func checkNotFoundError(err error) bool {
 	msg := err.Error()
 	msg = strings.ReplaceAll(msg, " ", "")
 	msg = strings.ToLower(msg)
 
 	return strings.Contains(msg, "does not exist") || strings.Contains(msg, "notfound") ||
-		strings.Contains(msg, "notexist") || strings.Contains(msg, "failedtofind") || strings.Contains(msg, "failedtogetthevm")
+		strings.Contains(msg, "notexist") || strings.Contains(msg, "failedtofind") || strings.Contains(msg, "failedtogetthevm") || strings.Contains(msg, "noresult")
 }
 
 func getUserIIDList(iidInfoList []*iidm.IIDInfo) []*cres.IID {
@@ -383,7 +398,7 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 			return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
 		}
 
-		_, err = infostore.DeleteByConditions(&KeyIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+		_, err = infostore.DeleteByConditions(&MyImageIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
 		if err != nil {
 			cblog.Error(err)
 			return false, err
@@ -1266,21 +1281,24 @@ func ListResourceName(connectionName, rsType string) ([]string, error) {
 	return nameIds, nil
 }
 
+// DestroyedInfo represents the status of resource destruction in a connection
 type DestroyedInfo struct {
-	IsAllDestroyed bool                       `json:"IsAllDestroyed"` // true: all destroyed, false: some remained
-	DestroyedList  []*DeletedResourceInfoList `json:"DeletedAllListByResourceType"`
+	IsAllDestroyed bool                       `json:"IsAllDestroyed" validate:"required" example:"true"` // true: all destroyed, false: some remained
+	DestroyedList  []*DeletedResourceInfoList `json:"DeletedAllListByResourceType" validate:"required"`  // List of resources deleted by type
 }
 
+// DeletedResourceInfoList represents information about deleted resources by type
 type DeletedResourceInfoList struct {
-	ResourceType          string               `json:"ResourceType"`
-	IsAllDeleted          bool                 `json:"IsAllDeleted"`
-	DeletedIIDList        []*cres.IID          `json:"DeletedIIDList"`
-	RemainedErrorInfoList []*RemainedErrorInfo `json:"RemainedErrorInfoList"`
+	ResourceType          string               `json:"ResourceType" validate:"required" example:"VPC"`  // Resource type
+	IsAllDeleted          bool                 `json:"IsAllDeleted" validate:"required" example:"true"` // true: all deleted, false: some remained
+	DeletedIIDList        []*cres.IID          `json:"DeletedIIDList" validate:"required"`              // List of deleted resource IDs
+	RemainedErrorInfoList []*RemainedErrorInfo `json:"RemainedErrorInfoList" validate:"required"`       // List of resources that failed to delete
 }
 
+// RemainedErrorInfo provides details of resources that failed to delete
 type RemainedErrorInfo struct {
-	Name     string `json:"Name"`
-	ErrorMsg string `json:"ErrorMsg"`
+	Name     string `json:"Name" validate:"required" example:"vpc-01"`           // Resource name that failed to delete
+	ErrorMsg string `json:"ErrorMsg" validate:"required" example:"delete error"` // Error message for the failed resource
 }
 
 // Destroy all Resources in a Connection

@@ -16,10 +16,14 @@ import (
 	"sync"
 	"time"
 	"os"
+	"strings"
 	// "github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 
-	cblog "github.com/cloud-barista/cb-log"
+	ktsdk "github.com/cloud-barista/ktcloud-sdk-go"
+
+	cblog "github.com/cloud-barista/cb-log"	
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 )
 
@@ -128,4 +132,49 @@ func convertTimeFormat(inputTime string) (time.Time, error) {
 		return time.Time{}, newErr
 	}
 	return parsedTime, nil
+}
+
+func createClient(connectionInfo idrv.ConnectionInfo) (*ktsdk.KtCloudClient, error) {
+	cblogger.Info("KT Cloud Driver: called createClient()")
+	// cblogger.Infof("### connectionInfo.RegionInfo.Zone : [%d]", connectionInfo.RegionInfo.Zone)
+	
+	// $$$ Caution!!
+	var apiurl string
+	if strings.EqualFold(connectionInfo.RegionInfo.Zone, KOR_Seoul_M2_ZoneID) { // When Zone is "KOR-Seoul M2"
+	apiurl = "https://api.ucloudbiz.olleh.com/server/v2/client/api"
+	} else {
+	apiurl = "https://api.ucloudbiz.olleh.com/server/v1/client/api"
+	}
+
+	if len(apiurl) == 0 {
+		newErr := fmt.Errorf("KT Cloud API URL Not Found!!")
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+
+	apikey := connectionInfo.CredentialInfo.ClientId
+	if len(apikey) == 0 {
+		newErr := fmt.Errorf("KT Cloud API Key Not Found!!")
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+
+	secretkey := connectionInfo.CredentialInfo.ClientSecret
+	if len(secretkey) == 0 {
+		newErr := fmt.Errorf("KT Cloud Secret Key Not Found!!")
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+
+	// Always validate any SSL certificates in the chain
+	insecureskipverify := false
+	client := ktsdk.KtCloudClient{}.New(apiurl, apikey, secretkey, insecureskipverify)
+
+	return client, nil
+}
+
+func getSeoulCurrentTime() string {
+	loc, _ := time.LoadLocation("Asia/Seoul")
+	currentTime := time.Now().In(loc)	
+	return currentTime.Format("2006-01-02 15:04:05")
 }

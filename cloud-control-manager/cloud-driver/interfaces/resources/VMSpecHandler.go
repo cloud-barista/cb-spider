@@ -10,33 +10,35 @@
 
 package resources
 
+// VMSpecInfo represents the detailed information of a VM specification.
 type VMSpecInfo struct {
-	Region string
-	Name   string
-	VCpu   VCpuInfo
-	Mem    string // MB
-	Gpu    []GpuInfo
+	Region string    `json:"Region" validate:"required" example:"us-east-1"` // Region where the VM spec is available
+	Name   string    `json:"Name" validate:"required" example:"t2.micro"`    // Name of the VM spec
+	VCpu   VCpuInfo  `json:"VCpu" validate:"required"`                       // CPU details of the VM spec
+	Mem    string    `json:"Mem" validate:"required" example:"1024"`         // Memory size in MB
+	Gpu    []GpuInfo `json:"Gpu,omitempty" validate:"omitempty"`             // GPU details if available
 
-	KeyValueList []KeyValue
+	KeyValueList []KeyValue `json:"KeyValueList,omitempty" validate:"omitempty"` // Additional key-value pairs for the VM spec
 }
 
+// VCpuInfo represents the CPU details of a VM specification.
 type VCpuInfo struct {
-	Count string
-	Clock string // GHz
+	Count string `json:"Count" validate:"required" example:"2"`              // Number of CPU cores
+	Clock string `json:"Clock,omitempty" validate:"omitempty" example:"2.5"` // Clock speed in GHz
 }
 
+// GpuInfo represents the GPU details of a VM specification.
 type GpuInfo struct {
-	Count string
-	Mfr   string
-	Model string
-	Mem   string // MB
+	Count string `json:"Count" validate:"required" example:"1"`                    // Number of GPUs
+	Mfr   string `json:"Mfr,omitempty" validate:"omitempty" example:"NVIDIA"`      // Manufacturer of the GPU
+	Model string `json:"Model,omitempty" validate:"omitempty" example:"Tesla K80"` // Model of the GPU
+	Mem   string `json:"Mem,omitempty" validate:"omitempty" example:"8192"`        // Memory size of the GPU in MB
 }
 
 type VMSpecHandler interface {
-
 	ListVMSpec() ([]*VMSpecInfo, error)
 	GetVMSpec(Name string) (VMSpecInfo, error)
 
-	ListOrgVMSpec() (string, error)             // return string: json format
+	ListOrgVMSpec() (string, error)           // return string: json format
 	GetOrgVMSpec(Name string) (string, error) // return string: json format
 }

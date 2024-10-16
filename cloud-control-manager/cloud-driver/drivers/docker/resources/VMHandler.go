@@ -2,6 +2,7 @@ package resources
 
 import (
 	"context"
+	"errors"
 	"strconv"
 	"time"
 
@@ -264,4 +265,9 @@ func (vmHandler *DockerVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 		return irs.VMInfo{}, err
 	}
 	return getVMInfoByContainerJSON(vmHandler.Region, vmIID, container), nil
+}
+
+func (vmHandler *DockerVMHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

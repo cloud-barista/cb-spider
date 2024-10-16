@@ -13,8 +13,13 @@
 package resources
 
 import (
+	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/bootfromvolume"
+	"io"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -24,7 +29,6 @@ import (
 
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/blockstorage/v2/volumes"
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/bootfromvolume"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/floatingips"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/keypairs"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/startstop"
@@ -286,8 +290,12 @@ func (vmHandler *NhnCloudVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo
 		Networks: []servers.Network{
 			{UUID: vpc.ID},
 		},
-		AvailabilityZone: vmHandler.RegionInfo.Zone,
-		UserData:         []byte(*initUserData), // Apply cloud-init script
+		UserData: []byte(*initUserData), // Apply cloud-init script
+	}
+	if vmHandler.RegionInfo.TargetZone != "" {
+		serverCreateOpts.AvailabilityZone = vmHandler.RegionInfo.TargetZone
+	} else if vmHandler.RegionInfo.Zone != "" {
+		serverCreateOpts.AvailabilityZone = vmHandler.RegionInfo.Zone
 	}
 
 	// Add KeyPair Name
@@ -938,6 +946,43 @@ func getVmStatus(vmStatus string) irs.VMStatus {
 	return irs.VMStatus(resultStatus)
 }
 
+func getAvailabilityZoneFromAPI(computeClient *nhnsdk.ServiceClient, serverID string) (string, error) {
+	url := computeClient.ServiceURL("servers", serverID)
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: tr}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Add("X-Auth-Token", computeClient.TokenID)
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to get server details: %s", resp.Status)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	var serverResponse map[string]interface{}
+	if err := json.Unmarshal(body, &serverResponse); err != nil {
+		return "", err
+	}
+	if server, ok := serverResponse["server"].(map[string]interface{}); ok {
+		if zone, ok := server["OS-EXT-AZ:availability_zone"].(string); ok {
+			return zone, nil
+		}
+	}
+	return "", fmt.Errorf("availability zone not found")
+}
+
 func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VMInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called mappingVMInfo()")
 	// cblogger.Infof("\n\n### Server from NHN :")
@@ -957,7 +1002,6 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 		},
 		Region: irs.RegionInfo{
 			Region: vmHandler.RegionInfo.Region,
-			Zone:   vmHandler.RegionInfo.Zone,
 		},
 		KeyPairIId: irs.IID{
 			NameId:   server.KeyName,
@@ -967,6 +1011,18 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 		NetworkInterface: server.HostID,
 	}
 	vmInfo.StartTime = convertedTime
+
+	zone, err := getAvailabilityZoneFromAPI(vmHandler.VMClient, server.ID)
+	if err != nil {
+		cblogger.Warn(err)
+	}
+	if zone != "" {
+		vmInfo.Region.Zone = zone
+	} else if vmHandler.RegionInfo.TargetZone != "" {
+		vmInfo.Region.Zone = vmHandler.RegionInfo.TargetZone
+	} else {
+		vmInfo.Region.Zone = vmHandler.RegionInfo.Zone
+	}
 
 	// Image Info
 	imageId := server.Image["id"].(string)
@@ -983,25 +1039,27 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 	// Flavor Info
 	var vRam string
 	var vCPU string
-	flavorId := server.Flavor["id"].(string)
-	nhnFlavor, err := flavors.Get(vmHandler.VMClient, flavorId).Extract()
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the Flavor info from NHN Cloud!! : [%v] ", err)
-		cblogger.Error(newErr.Error())
-		return irs.VMInfo{}, newErr
-	} else if nhnFlavor != nil {
-		// spew.Dump(flavor)
-		vmInfo.VMSpecName = nhnFlavor.Name
-		if vmInfo.RootDiskSize == "" { // In case of u2 VMSpec type
-			vmInfo.RootDiskType = "General_HDD" // u2 type VMSpec only supports 'General_HHD'.
-			vmInfo.RootDiskSize = strconv.Itoa(nhnFlavor.Disk)
-			vmInfo.RootDeviceName = "/dev/vda"
-		}
-		if strconv.Itoa(nhnFlavor.VCPUs) != "" {
-			vCPU = strconv.Itoa(nhnFlavor.VCPUs)
-		}
-		if strconv.Itoa(nhnFlavor.RAM) != "" {
-			vRam = strconv.Itoa(nhnFlavor.RAM)
+	flavorId, ok := server.Flavor["id"].(string)
+	if ok {
+		nhnFlavor, err := flavors.Get(vmHandler.VMClient, flavorId).Extract()
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Get the Flavor info from NHN Cloud!! : [%v] ", err)
+			cblogger.Error(newErr.Error())
+			return irs.VMInfo{}, newErr
+		} else if nhnFlavor != nil {
+			// spew.Dump(flavor)
+			vmInfo.VMSpecName = nhnFlavor.Name
+			if vmInfo.RootDiskSize == "" { // In case of u2 VMSpec type
+				vmInfo.RootDiskType = "General_HDD" // u2 type VMSpec only supports 'General_HHD'.
+				vmInfo.RootDiskSize = strconv.Itoa(nhnFlavor.Disk)
+				vmInfo.RootDeviceName = "/dev/vda"
+			}
+			if strconv.Itoa(nhnFlavor.VCPUs) != "" {
+				vCPU = strconv.Itoa(nhnFlavor.VCPUs)
+			}
+			if strconv.Itoa(nhnFlavor.RAM) != "" {
+				vRam = strconv.Itoa(nhnFlavor.RAM)
+			}
 		}
 	}
 
@@ -1253,4 +1311,41 @@ func (vmHandler *NhnCloudVMHandler) createWinInitUserData(passWord string) (*str
 	// cblogger.Info("\n# fileStr : ")
 	// spew.Dump(fileStr)
 	return &fileStr, nil
+}
+
+func (vmHandler *NhnCloudVMHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("NHN Cloud Driver: called ListIID()")
+	callLogInfo := getCallLogScheme(vmHandler.RegionInfo.Region, call.VM, "ListIID()", "ListIID()")
+
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	listOpts := servers.ListOpts{
+		Limit: 100,
+	}
+	allPages, err := servers.List(vmHandler.VMClient, listOpts).AllPages()
+	if err != nil {
+		cblogger.Error(err.Error())
+		LoggingError(callLogInfo, err)
+		return nil, err
+	}
+	serverList, err := servers.ExtractServers(allPages)
+	if err != nil {
+		cblogger.Error(err.Error())
+		LoggingError(callLogInfo, err)
+		return nil, err
+	}
+
+	for _, server := range serverList {
+		var iid irs.IID
+		iid.SystemId = server.ID
+		iid.NameId = server.Name
+
+		iidList = append(iidList, &iid)
+	}
+
+	LoggingInfo(callLogInfo, start)
+
+	return iidList, nil
 }

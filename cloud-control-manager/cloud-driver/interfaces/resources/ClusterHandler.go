@@ -34,73 +34,80 @@ const (
 )
 
 // -------- Info Structure
+// ClusterInfo represents the details of a Kubernetes Cluster.
+// @description Kubernetes Cluster Information
 type ClusterInfo struct {
-	IId IID // {NameId, SystemId}
+	IId IID `json:"IId" validate:"required"`
 
-	Version string // Kubernetes Version, ex) 1.23.3
-	Network NetworkInfo
+	Version string      `json:"Version" validate:"required" example:"1.30"` // Kubernetes Version, ex) 1.30
+	Network NetworkInfo `json:"Network" validate:"required"`
 
 	// ---
+	NodeGroupList []NodeGroupInfo `json:"NodeGroupList" validate:"omitempty"`
+	AccessInfo    AccessInfo      `json:"AccessInfo,omitempty"`
+	Addons        AddonsInfo      `json:"Addons,omitempty"`
 
-	NodeGroupList []NodeGroupInfo
-	AccessInfo    AccessInfo
-	Addons        AddonsInfo
+	Status ClusterStatus `json:"Status" validate:"required" example:"Active"`
 
-	Status ClusterStatus
-
-	CreatedTime  time.Time
-	TagList      []KeyValue
-	KeyValueList []KeyValue
+	CreatedTime  time.Time  `json:"CreatedTime,omitempty" example:"2024-08-27T10:00:00Z"`
+	TagList      []KeyValue `json:"TagList,omitempty" validate:"omitempty"`
+	KeyValueList []KeyValue `json:"KeyValueList,omitempty" validate:"omitempty"`
 }
 
+// NetworkInfo represents the network configuration of a Cluster.
+// @description Network Information for a Kubernetes Cluster
 type NetworkInfo struct {
-	VpcIID            IID // {NameId, SystemId}
-	SubnetIIDs        []IID
-	SecurityGroupIIDs []IID
+	VpcIID            IID   `json:"VpcIID" validate:"required"`
+	SubnetIIDs        []IID `json:"SubnetIIDs" validate:"required"`
+	SecurityGroupIIDs []IID `json:"SecurityGroupIIDs" validate:"required"`
 
 	// ---
-
-	KeyValueList []KeyValue
+	KeyValueList []KeyValue `json:"KeyValueList,omitempty" validate:"omitempty"`
 }
 
+// NodeGroupInfo represents the configuration of a Node Group in a Cluster.
+// @description Node Group Information for a Kubernetes Cluster
 type NodeGroupInfo struct {
-	IId IID // {NameId, SystemId}
+	IId IID `json:"IId" validate:"required"`
 
 	// VM config.
-	ImageIID     IID
-	VMSpecName   string
-	RootDiskType string // "SSD(gp2)", "Premium SSD", ...
-	RootDiskSize string // "", "default", "50", "1000" (GB)
-	KeyPairIID   IID
+	ImageIID     IID    `json:"ImageIID" validate:"required"`
+	VMSpecName   string `json:"VMSpecName" validate:"required" example:"t3.medium"`
+	RootDiskType string `json:"RootDiskType,omitempty" validate:"omitempty"`
+	RootDiskSize string `json:"RootDiskSize,omitempty" validate:"omitempty" example:"50"` // in GB
+	KeyPairIID   IID    `json:"KeyPairIID" validate:"required"`
 
 	// Scaling config.
-	OnAutoScaling   bool // default: true
-	DesiredNodeSize int
-	MinNodeSize     int
-	MaxNodeSize     int
+	OnAutoScaling   bool `json:"OnAutoScaling" validate:"required" example:"true"`
+	DesiredNodeSize int  `json:"DesiredNodeSize" validate:"required" example:"2"`
+	MinNodeSize     int  `json:"MinNodeSize" validate:"required" example:"1"`
+	MaxNodeSize     int  `json:"MaxNodeSize" validate:"required" example:"3"`
 
 	// ---
+	Status NodeGroupStatus `json:"Status" validate:"required" example:"Active"`
+	Nodes  []IID           `json:"Nodes,omitempty" validate:"omitempty"`
 
-	Status NodeGroupStatus
-	Nodes  []IID
-
-	KeyValueList []KeyValue
+	KeyValueList []KeyValue `json:"KeyValueList,omitempty" validate:"omitempty"`
 }
 
+// AccessInfo represents the access information of a Cluster.
+// @description Access Information for a Kubernetes Cluster. <br> Take some time to provide.
 type AccessInfo struct {
-	Endpoint   string // ex) https://1.2.3.4:6443
-	Kubeconfig string
+	Endpoint   string `json:"Endpoint,omitempty" example:"https://1.2.3.4"`
+	Kubeconfig string `json:"Kubeconfig,omitempty" example:"apiVersion: v1\nclusters:\n- cluster:\n ...."`
 }
 
-// CNI, DNS, .... @todo
+// AddonsInfo represents the additional configuration information of a Cluster.
+// @description Addons Information for a Kubernetes Cluster
 type AddonsInfo struct {
-	KeyValueList []KeyValue
+	KeyValueList []KeyValue `json:"KeyValueList,omitempty" validate:"omitempty"`
 }
 
 // -------- Cluster API
 type ClusterHandler interface {
 
 	//------ Cluster Management
+	ListIID() ([]*IID, error)
 	CreateCluster(clusterReqInfo ClusterInfo) (ClusterInfo, error)
 	ListCluster() ([]*ClusterInfo, error)
 	GetCluster(clusterIID IID) (ClusterInfo, error)

@@ -24,25 +24,27 @@ const (
 )
 
 // -------- Info Structure
+// DiskInfo represents the information of a Disk resource.
 type DiskInfo struct {
-	IId  IID    // {NameId, SystemId}
-	Zone string // Target Zone Name
+	IId  IID    `json:"IId" validate:"required"`                       // {NameId, SystemId}
+	Zone string `json:"Zone" validate:"required" example:"us-east-1a"` // Target Zone Name
 
-	DiskType string // "", "SSD(gp2)", "Premium SSD", ...
-	DiskSize string // "", "default", "50", "1000"  # (GB)
+	DiskType string `json:"DiskType" validate:"required" example:"gp2"` // "gp2", "Premium SSD", ...
+	DiskSize string `json:"DiskSize" validate:"required" example:"100"` // "default", "50", "1000" (unit is GB)
 
-	Status  DiskStatus // DiskCreating | DiskAvailable | DiskAttached | DiskDeleting | DiskError
-	OwnerVM IID        // When the Status is DiskAttached
+	Status  DiskStatus `json:"Status" validate:"required" example:"Available"`
+	OwnerVM IID        `json:"OwnerVM" validate:"omitempty"` // When the Status is DiskAttached
 
-	CreatedTime  time.Time
-	TagList      []KeyValue
-	KeyValueList []KeyValue
+	CreatedTime  time.Time  `json:"CreatedTime" validate:"required"`             // The time when the disk was created
+	TagList      []KeyValue `json:"TagList,omitempty" validate:"omitempty"`      // A list of tags associated with this disk
+	KeyValueList []KeyValue `json:"KeyValueList,omitempty" validate:"omitempty"` // Additional key-value pairs associated with this disk
 }
 
 // -------- Disk API
 type DiskHandler interface {
 
 	//------ Disk Management
+        ListIID() ([]*IID, error)
 	CreateDisk(DiskReqInfo DiskInfo) (DiskInfo, error)
 	ListDisk() ([]*DiskInfo, error)
 	GetDisk(diskIID IID) (DiskInfo, error)

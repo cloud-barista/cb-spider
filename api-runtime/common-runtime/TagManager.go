@@ -30,6 +30,15 @@ func AddTag(connectionName string, resType cres.RSType, resName string, tag cres
 		return cres.KeyValue{}, err
 	}
 
+	// convert to lowercase
+	resType = cres.RSType(strings.ToLower(string(resType)))
+
+	// Check if tagging is supported for the resource type
+	if err := checkTagSupported(connectionName, resType); err != nil {
+		cblog.Error(err)
+		return cres.KeyValue{}, err
+	}
+
 	// locking by resource type
 	if err := rLockResource(connectionName, resType, resName); err != nil {
 		cblog.Error(err)
@@ -66,6 +75,15 @@ func ListTag(connectionName string, resType cres.RSType, resName string) ([]cres
 	// check empty and trim user inputs
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
 	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// convert to lowercase
+	resType = cres.RSType(strings.ToLower(string(resType)))
+
+	// Check if tagging is supported for the resource type
+	if err := checkTagSupported(connectionName, resType); err != nil {
 		cblog.Error(err)
 		return nil, err
 	}
@@ -110,12 +128,21 @@ func GetTag(connectionName string, resType cres.RSType, resName string, key stri
 		return cres.KeyValue{}, err
 	}
 
-	// // locking by resource type
-	// if err := rLockResource(connectionName, resType, resName); err != nil {
-	// 	cblog.Error(err)
-	// 	return cres.KeyValue{}, err
-	// }
-	// defer rUnlockResource(connectionName, resType, resName)
+	// convert to lowercase
+	resType = cres.RSType(strings.ToLower(string(resType)))
+
+	// Check if tagging is supported for the resource type
+	if err := checkTagSupported(connectionName, resType); err != nil {
+		cblog.Error(err)
+		return cres.KeyValue{}, err
+	}
+
+	// locking by resource type
+	if err := rLockResource(connectionName, resType, resName); err != nil {
+		cblog.Error(err)
+		return cres.KeyValue{}, err
+	}
+	defer rUnlockResource(connectionName, resType, resName)
 
 	// get NameId and SystemId of the target resource
 	nameId, systemId, err := getIIDInfoByResourceType(connectionName, resType, resName)
@@ -146,6 +173,15 @@ func RemoveTag(connectionName string, resType cres.RSType, resName string, key s
 	// check empty and trim user inputs
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
 	if err != nil {
+		cblog.Error(err)
+		return false, err
+	}
+
+	// convert to lowercase
+	resType = cres.RSType(strings.ToLower(string(resType)))
+
+	// Check if tagging is supported for the resource type
+	if err := checkTagSupported(connectionName, resType); err != nil {
 		cblog.Error(err)
 		return false, err
 	}
@@ -190,6 +226,15 @@ func FindTag(connectionName string, resType cres.RSType, keyword string) ([]*cre
 		return nil, err
 	}
 
+	// convert to lowercase
+	resType = cres.RSType(strings.ToLower(string(resType)))
+
+	// Check if tagging is supported for the resource type
+	if err := checkTagSupported(connectionName, resType); err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
@@ -207,7 +252,6 @@ func FindTag(connectionName string, resType cres.RSType, keyword string) ([]*cre
 
 // rLockResource locks the resource based on its type.
 func rLockResource(connectionName string, resType cres.RSType, resName string) error {
-	resType = cres.RSType(strings.ToLower(string(resType)))
 
 	switch resType {
 	case cres.VPC, cres.SUBNET:
@@ -234,7 +278,6 @@ func rLockResource(connectionName string, resType cres.RSType, resName string) e
 
 // unlockResource unlocks the resource based on its type.
 func rUnlockResource(connectionName string, resType cres.RSType, resName string) {
-	resType = cres.RSType(strings.ToLower(string(resType)))
 
 	switch resType {
 	case cres.VPC, cres.SUBNET:
@@ -258,7 +301,7 @@ func rUnlockResource(connectionName string, resType cres.RSType, resName string)
 
 // getIIDInfoByResourceType gets the IID info for a given resource type and resource name.
 func getIIDInfoByResourceType(connectionName string, resType cres.RSType, resName string) (string, string, error) {
-	resType = cres.RSType(strings.ToLower(string(resType)))
+
 	switch resType {
 	case cres.VPC:
 		var info VPCIIDInfo
@@ -326,4 +369,39 @@ func getIIDInfoByResourceType(connectionName string, resType cres.RSType, resNam
 	default:
 		return "", "", fmt.Errorf("unsupported resource type: %s", resType)
 	}
+}
+
+func checkTagSupported(connectionName string, resType cres.RSType) error {
+	// Get the CSP (Cloud Service Provider) name using the connection name
+	providerName, err := ccm.GetProviderNameByConnectionName(connectionName)
+	if err != nil {
+		return fmt.Errorf("failed to get provider name for connection %s: %v", connectionName, err)
+	}
+
+	// Get the Cloud Driver instance
+	cloudDriver, err := ccm.GetCloudDriver(connectionName)
+	if err != nil {
+		return fmt.Errorf("failed to get cloud driver for provider %s: %v", providerName, err)
+	}
+
+	// Get the capabilities of the cloud driver
+	driverCapability := cloudDriver.GetDriverCapability()
+
+	// Define a common error message format for unsupported tagging
+	errMsg := fmt.Sprintf("[TAG_NOT_SUPPORTED] Tagging is not supported for the resource: %s-%s", providerName, resType)
+
+	// Check if tagging is supported at all
+	if !driverCapability.TagHandler {
+		return fmt.Errorf(errMsg)
+	}
+
+	// Iterate through the supported resource types for tagging
+	for _, supportedType := range driverCapability.TagSupportResourceType {
+		if supportedType == resType {
+			return nil
+		}
+	}
+
+	// If the resource type is not found in the supported types
+	return fmt.Errorf(errMsg)
 }

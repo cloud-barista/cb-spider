@@ -48,8 +48,7 @@ conf/config.yaml
 bin/cb-spider
 bin/cb-spider-dyna
 
-interface/cbadm
-interface/spctl
+cli/spctl
 
 .history/
 .vscode/

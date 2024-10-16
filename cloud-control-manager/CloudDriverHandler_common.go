@@ -9,6 +9,11 @@
 package clouddriverhandler
 
 import (
+	"encoding/json"
+	"os"
+	"os/exec"
+	"path/filepath"
+
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
 	icdrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -85,36 +90,56 @@ func GetZoneLevelCloudConnection(cloudConnectName string, targetZoneName string)
 	return conn, nil
 }
 
-// 1. get credential info
-// 2. get region info
-// 3. get CloudConneciton
 func commonGetCloudConnection(cloudConnectName string, targetZoneName string) (icon.CloudConnection, error) {
-	cccInfo, err := ccim.GetConnectionConfig(cloudConnectName)
-	if err != nil {
-		return nil, err
-	}
-
+	// Get cloud driver
 	cldDriver, err := GetCloudDriver(cloudConnectName)
 	if err != nil {
 		return nil, err
 	}
 
+	// Get connection info using the new function
+	connectionInfo, err := createConnectionInfo(cloudConnectName, targetZoneName)
+	if err != nil {
+		return nil, err
+	}
+
+	// Connect to the cloud using the connection info
+	cldConnection, err := cldDriver.ConnectCloud(connectionInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	return cldConnection, nil
+}
+
+// Create ConnectionInfo object
+func createConnectionInfo(cloudConnectName string, targetZoneName string) (idrv.ConnectionInfo, error) {
+	// Get connection configuration
+	cccInfo, err := ccim.GetConnectionConfig(cloudConnectName)
+	if err != nil {
+		return idrv.ConnectionInfo{}, err
+	}
+
+	// Get decrypted credential information
 	crdInfo, err := cim.GetCredentialDecrypt(cccInfo.CredentialName)
 	if err != nil {
-		return nil, err
+		return idrv.ConnectionInfo{}, err
 	}
 
+	// Get region information
 	rgnInfo, err := rim.GetRegion(cccInfo.RegionName)
 	if err != nil {
-		return nil, err
+		return idrv.ConnectionInfo{}, err
 	}
 
+	// Extract region and zone names
 	regionName, zoneName, err := getRegionNameByRegionInfo(rgnInfo)
 	if err != nil {
-		return nil, err
+		return idrv.ConnectionInfo{}, err
 	}
 
-	connectionInfo := idrv.ConnectionInfo{ // @todo powerkim
+	// Create connection info object
+	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
 			ClientId:         getValue(crdInfo.KeyValueInfoList, "ClientId"),
 			ClientSecret:     getValue(crdInfo.KeyValueInfoList, "ClientSecret"),
@@ -135,16 +160,159 @@ func commonGetCloudConnection(cloudConnectName string, targetZoneName string) (i
 			ClusterId:        getValue(crdInfo.KeyValueInfoList, "ClusterId"),
 			ConnectionName:   cloudConnectName,
 		},
-		RegionInfo: idrv.RegionInfo{ // @todo powerkim
+		RegionInfo: idrv.RegionInfo{
 			Region:     regionName,
-			Zone:       zoneName,       // default Zone
-			TargetZone: targetZoneName, // Target Zone for Zone-Level Control(Ex. DiskHandler)
+			Zone:       zoneName,
+			TargetZone: targetZoneName,
 		},
 	}
 
-	cldConnection, err := cldDriver.ConnectCloud(connectionInfo)
+	return connectionInfo, nil
+}
+
+type CloudDriverAndConnectionInfo struct {
+	CloudDriverInfo dim.CloudDriverInfo `json:"CloudDriverInfo"`
+	ConnectionInfo  idrv.ConnectionInfo `json:"ConnectionInfo"`
+}
+
+// Critical data for Spiderlet.
+// Requires a TLS environment.
+func GetCloudDriverAndConnectionInfo(connectName string) (CloudDriverAndConnectionInfo, error) {
+	// Get ConnectionConfig
+	cccInfo, err := ccim.GetConnectionConfig(connectName)
 	if err != nil {
-		return nil, err
+		return CloudDriverAndConnectionInfo{}, err
+	}
+
+	// Get CloudDriverInfo
+	cloudDriverInfo, err := dim.GetCloudDriver(cccInfo.DriverName)
+	if err != nil {
+		return CloudDriverAndConnectionInfo{}, err
+	}
+
+	// Create ConnectionInfo using the helper function
+	connectionInfo, err := createConnectionInfo(connectName, "")
+	if err != nil {
+		return CloudDriverAndConnectionInfo{}, err
+	}
+
+	// Create and return ExportCloudInfo
+	drvConnInfo := CloudDriverAndConnectionInfo{
+		CloudDriverInfo: *cloudDriverInfo,
+		ConnectionInfo:  connectionInfo,
+	}
+
+	return drvConnInfo, nil
+}
+
+// // for spiderlet
+// CreateClouddConnection retrieves CloudDriverInfo and ConnectionInfo via HTTPS and constructs CloudConnection
+func CreateClouddConnection(connectName string) (icon.CloudConnection, error) {
+	// Set up curl command
+	basePath := os.Getenv("CBSPIDER_ROOT")
+	lionKeyPath := filepath.Join(basePath, "spiderlet", "lionkey")
+	certFile := filepath.Join(lionKeyPath, "lionkey.crt")
+	keyFile := filepath.Join(lionKeyPath, "lionkey.key")
+	caCertFile := filepath.Join(lionKeyPath, "cert.pem")
+
+	// Use curl to make the HTTPS request
+	apiURL := fmt.Sprintf("https://localhost:10241/getcredentials/%s", connectName)
+	cmd := exec.Command("curl", "--silent", "--cacert", caCertFile, "--cert", certFile, "--key", keyFile, apiURL)
+
+	// Execute curl command and capture output
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to call API using curl: %v", err)
+	}
+
+	// Parse the output JSON
+	var apiResponse struct {
+		CloudDriverInfo struct {
+			DriverLibFileName string `json:"DriverLibFileName"`
+			DriverName        string `json:"DriverName"`
+			ProviderName      string `json:"ProviderName"`
+		} `json:"CloudDriverInfo"`
+		ConnectionInfo struct {
+			CredentialInfo struct {
+				APIVersion       string `json:"APIVersion"`
+				ApiKey           string `json:"ApiKey"`
+				AuthToken        string `json:"AuthToken"`
+				ClientEmail      string `json:"ClientEmail"`
+				ClientId         string `json:"ClientId"`
+				ClientSecret     string `json:"ClientSecret"`
+				ClusterId        string `json:"ClusterId"`
+				ConnectionName   string `json:"ConnectionName"`
+				DomainName       string `json:"DomainName"`
+				Host             string `json:"Host"`
+				IdentityEndpoint string `json:"IdentityEndpoint"`
+				MockName         string `json:"MockName"`
+				Password         string `json:"Password"`
+				PrivateKey       string `json:"PrivateKey"`
+				ProjectID        string `json:"ProjectID"`
+				SubscriptionId   string `json:"SubscriptionId"`
+				TenantId         string `json:"TenantId"`
+				Username         string `json:"Username"`
+			} `json:"CredentialInfo"`
+			RegionInfo struct {
+				Region     string `json:"Region"`
+				Zone       string `json:"Zone"`
+				TargetZone string `json:"TargetZone"`
+			} `json:"RegionInfo"`
+		} `json:"ConnectionInfo"`
+	}
+
+	// Unmarshal JSON response
+	err = json.Unmarshal(output, &apiResponse)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse API response: %v", err)
+	}
+
+	// Construct CloudDriverInfo
+	cloudDriverInfo := dim.CloudDriverInfo{
+		DriverName:        apiResponse.CloudDriverInfo.DriverName,
+		ProviderName:      apiResponse.CloudDriverInfo.ProviderName,
+		DriverLibFileName: apiResponse.CloudDriverInfo.DriverLibFileName,
+	}
+
+	// Construct ConnectionInfo
+	connectionInfo := idrv.ConnectionInfo{
+		CredentialInfo: idrv.CredentialInfo{
+			ClientId:         apiResponse.ConnectionInfo.CredentialInfo.ClientId,
+			ClientSecret:     apiResponse.ConnectionInfo.CredentialInfo.ClientSecret,
+			ConnectionName:   apiResponse.ConnectionInfo.CredentialInfo.ConnectionName,
+			APIVersion:       apiResponse.ConnectionInfo.CredentialInfo.APIVersion,
+			ApiKey:           apiResponse.ConnectionInfo.CredentialInfo.ApiKey,
+			AuthToken:        apiResponse.ConnectionInfo.CredentialInfo.AuthToken,
+			ClientEmail:      apiResponse.ConnectionInfo.CredentialInfo.ClientEmail,
+			ClusterId:        apiResponse.ConnectionInfo.CredentialInfo.ClusterId,
+			DomainName:       apiResponse.ConnectionInfo.CredentialInfo.DomainName,
+			Host:             apiResponse.ConnectionInfo.CredentialInfo.Host,
+			IdentityEndpoint: apiResponse.ConnectionInfo.CredentialInfo.IdentityEndpoint,
+			MockName:         apiResponse.ConnectionInfo.CredentialInfo.MockName,
+			Password:         apiResponse.ConnectionInfo.CredentialInfo.Password,
+			PrivateKey:       apiResponse.ConnectionInfo.CredentialInfo.PrivateKey,
+			ProjectID:        apiResponse.ConnectionInfo.CredentialInfo.ProjectID,
+			SubscriptionId:   apiResponse.ConnectionInfo.CredentialInfo.SubscriptionId,
+			TenantId:         apiResponse.ConnectionInfo.CredentialInfo.TenantId,
+			Username:         apiResponse.ConnectionInfo.CredentialInfo.Username,
+		},
+		RegionInfo: idrv.RegionInfo{
+			Region:     apiResponse.ConnectionInfo.RegionInfo.Region,
+			Zone:       apiResponse.ConnectionInfo.RegionInfo.Zone,
+			TargetZone: apiResponse.ConnectionInfo.RegionInfo.TargetZone,
+		},
+	}
+
+	// Get the CloudDriver based on DriverName
+	cloudDriver, err := getCloudDriver(cloudDriverInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get CloudDriver: %v", err)
+	}
+
+	// Use CloudDriver to create a CloudConnection
+	cldConnection, err := cloudDriver.ConnectCloud(connectionInfo)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create CloudConnection: %v", err)
 	}
 
 	return cldConnection, nil

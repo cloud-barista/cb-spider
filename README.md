@@ -38,35 +38,36 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 
 - ##### 공식환경
   - OS: Ubuntu 22.04
-  - Build: Go 1.21
+  - Build: Go 1.23, Swag v1.16.3
   - Container: Docker v19.03
 
 - ##### 시험환경
   - OS: , Ubuntu 22.04, Ubuntu 20.04, Ubuntu 18.04, Debian 10.6, macOS Ventura 13.5, macOS Catalina 10.15, Android 8.1 등
-  - Build: Go 1.21, Go 1.19, Go 1.18, Go 1.16
+  - Build: Go 1.23, Go 1.21
   - Container: Docker v19.03, Docker v20.10
 
 #### 2. 실행 방법
 
 - ##### 소스 기반 실행: https://github.com/cloud-barista/cb-spider/wiki/Quick-Start-Guide
 - ##### 컨테이너 기반 실행: https://github.com/cloud-barista/cb-spider/wiki/Docker-based-Start-Guide
-- ##### cb-operator 기반 실행: https://github.com/cloud-barista/cb-operator
 
 
 #### 3. 제공 자원
+- #### ※ 참고: [Tagging Guide](https://github.com/cloud-barista/cb-spider/wiki/Tag-and-Cloud-Driver-API)
+
 
 | Provider      | Price<br>Info | Region/Zone<br>Info | Image<br>Info | VMSpec<br>Info | VPC<br>Subnet       | Security<br>Group | VM KeyPair      | VM             | Disk | MyImage | NLB | managed-K8S |
 |:-------------:|:-------------:|:-------------------:|:-------------:|:--------------:|:-------------------:|:-----------------:|:---------------:|:--------------:|:----:|:---:|:-------:|:-----------:|
 | AWS           | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O        |
-| Azure         | O<br>(Spec제외)| O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | WIP        |
-| GCP           | WIP           | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | WIP        |
+| Azure         | O<br>(Spec제외)| O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O        |
+| GCP           | WIP           | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O        |
 | Alibaba       | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O           |
 | Tencent       | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O           |
 | IBM VPC       | O<br>(Spec제외)| O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | WIP        |
 | OpenStack     | NA             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | ?           |
 | NCP Classic   | WIP            | O                   | O             | O              | O<br>(Type1)       | O<br>(Note1)     | O               | O              | O    | O   | O       | NA           |
 | NCP VPC       | WIP            | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | ?           |
-| NHN           | NA             | O                   | O             | O              | O<br>(Type2)       | O                 | O               | O<br>(Note2)  | O    | WIP| WIP    | O           |
+| NHN           | NA             | O                   | O             | O              | O<br>(Type2)       | O                 | O               | O<br>(Note2)   | O    | WIP  | O     | O           |
 | KT Classic    | NA             | O                   | O             | O              | O<br>(Type1)       | O                 | O               | O              | O    | O   | O       | NA          |
 | KT VPC        | NA             | O                   | O             | O              | O<br>(Type3)       | O                 | O               | O              | O    | WIP   | O<br>(Note3)| Wait API    |
 
@@ -124,8 +125,9 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 
 
 #### 6. API 규격
-
-- [인터페이스 규격 및 예시](https://github.com/cloud-barista/cb-spider/wiki/CB-Spider-User-Interface)
+ - [Swagger Documentations](https://github.com/cloud-barista/cb-spider/tree/master/api)
+ - [Swagger Guide](https://github.com/cloud-barista/cb-spider/wiki/Swagger-Guide)
+ 
 
 
 #### 7. 특이 사항

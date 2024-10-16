@@ -30,7 +30,7 @@ import (
 // ====================================================================
 // type for GORM
 
-type VMIIDInfo FirstIIDInfo
+type VMIIDInfo ZoneLevelIIDInfo
 
 func (VMIIDInfo) TableName() string {
 	return "vm_iid_infos"
@@ -195,7 +195,7 @@ func GetVMUsingRS(connectionName string, cspID string) (VMUsingResources, error)
 	//// ---(c) Get Using Key IID List
 
 	// get Key IID:list
-	var keyIIDInfoList []*SGIIDInfo
+	var keyIIDInfoList []*KeyIIDInfo
 	err = infostore.ListByCondition(&keyIIDInfoList, CONNECTION_NAME_COLUMN, connectionName)
 	if err != nil {
 		cblog.Error(err)
@@ -322,8 +322,18 @@ func RegisterVM(connectionName string, userIID cres.IID) (*cres.VMInfo, error) {
 	spiderIId := cres.IID{NameId: userIID.NameId, SystemId: systemId + ":" + getInfo.IId.SystemId}
 
 	// (4) insert spiderIID
+	if getInfo.Region.Zone == "" {
+		// get defaultZoneId
+		_, getInfo.Region.Zone, err = ccm.GetRegionNameByConnectionName(connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	}
+
 	// insert VM SpiderIID to metadb
-	err = infostore.Insert(&VMIIDInfo{ConnectionName: connectionName, NameId: spiderIId.NameId, SystemId: spiderIId.SystemId})
+	iidInfo := VMIIDInfo{ConnectionName: connectionName, ZoneId: getInfo.Region.Zone, NameId: spiderIId.NameId, SystemId: spiderIId.SystemId}
+	err = infostore.Insert(&iidInfo)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
@@ -374,7 +384,18 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTra
 		return nil, err
 	}
 
-	cldConn, err := ccm.GetCloudConnection(connectionName)
+	vmSPLock.Lock(connectionName, reqInfo.IId.NameId)
+	defer vmSPLock.Unlock(connectionName, reqInfo.IId.NameId)
+
+	// Get ZoneId from input SubnetIID
+	var subnetIIDInfo SubnetIIDInfo
+	err = infostore.GetBy3Conditions(&subnetIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, reqInfo.SubnetIID.NameId, OWNER_VPC_NAME_COLUMN, reqInfo.VpcIID.NameId)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, subnetIIDInfo.ZoneId)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
@@ -385,9 +406,6 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTra
 		cblog.Error(err)
 		return nil, err
 	}
-
-	vmSPLock.Lock(connectionName, reqInfo.IId.NameId)
-	defer vmSPLock.Unlock(connectionName, reqInfo.IId.NameId)
 
 	// (1) check exist(NameID)
 	dockerTest := os.Getenv("DOCKER_POC_TEST") // For docker poc tests, this is currently the best method.
@@ -576,7 +594,7 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTra
 	spiderIId := cres.IID{NameId: reqIId.NameId, SystemId: spUUID + ":" + info.IId.SystemId}
 
 	// (6) insert spiderIID
-	iidInfo := VMIIDInfo{ConnectionName: connectionName, NameId: spiderIId.NameId, SystemId: spiderIId.SystemId}
+	iidInfo := VMIIDInfo{ConnectionName: connectionName, ZoneId: subnetIIDInfo.ZoneId, NameId: spiderIId.NameId, SystemId: spiderIId.SystemId}
 	err = infostore.Insert(&iidInfo)
 	if err != nil {
 		cblog.Error(err)
@@ -687,6 +705,8 @@ func cloneReqInfoWithDriverIID(ConnectionName string, reqInfo cres.VMReqInfo) (c
 
 		VMUserId:     reqInfo.VMUserId,
 		VMUserPasswd: reqInfo.VMUserPasswd,
+
+		TagList: reqInfo.TagList,
 	}
 
 	// set Image SystemId
@@ -895,7 +915,7 @@ func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqIn
 		if vmInfo.ImageIId.SystemId != "" {
 			// get MyImage's NameId
 			var imageIIdInfo MyImageIIDInfo
-			err := infostore.GetByContain(&imageIIdInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, getMSShortID(vmInfo.ImageIId.SystemId))
+			err := infostore.GetByContain(&imageIIdInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, vmInfo.ImageIId.SystemId)
 			if err != nil {
 				cblog.Error(err)
 				return err
@@ -918,7 +938,7 @@ func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqIn
 	for i, sgIID := range vmInfo.SecurityGroupIIds {
 		var iidInfo SGIIDInfo
 		err := infostore.GetByConditionsAndContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName,
-			OWNER_VPC_NAME_COLUMN, reqInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, getMSShortID(sgIID.SystemId))
+			OWNER_VPC_NAME_COLUMN, reqInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, sgIID.SystemId)
 		if err != nil {
 			cblog.Error(err)
 			return err
@@ -931,7 +951,7 @@ func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqIn
 		// set Data Disk NameId
 		for i, diskIID := range vmInfo.DataDiskIIDs {
 			var iidInfo DiskIIDInfo
-			err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, getMSShortID(diskIID.SystemId))
+			err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, diskIID.SystemId)
 			if err != nil {
 				cblog.Error(err)
 				return err
@@ -1114,7 +1134,7 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 	if vmInfo.ImageIId.SystemId != "" {
 		// get MyImage's NameId
 		var imageIIdInfo MyImageIIDInfo
-		err := infostore.GetByContain(&imageIIdInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, getMSShortID(vmInfo.ImageIId.SystemId))
+		err := infostore.GetByContain(&imageIIdInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, vmInfo.ImageIId.SystemId)
 		if err != nil {
 			if !strings.Contains(err.Error(), "does not exist") {
 				cblog.Error(err)
@@ -1133,7 +1153,7 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 	if vmInfo.VpcIID.SystemId != "" {
 		// set VPC NameId
 		var iidInfo VPCIIDInfo
-		err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, getMSShortID(vmInfo.VpcIID.SystemId))
+		err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, vmInfo.VpcIID.SystemId)
 		if err != nil {
 			cblog.Error(err)
 			return err
@@ -1145,7 +1165,7 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 		// set Subnet NameId
 		var iidInfo SubnetIIDInfo
 		err := infostore.GetByConditionsAndContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName,
-			OWNER_VPC_NAME_COLUMN, vmInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, getMSShortID(vmInfo.SubnetIID.SystemId))
+			OWNER_VPC_NAME_COLUMN, vmInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, vmInfo.SubnetIID.SystemId)
 		if err != nil {
 			cblog.Error(err)
 			return err
@@ -1157,7 +1177,7 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 	for i, sgIID := range vmInfo.SecurityGroupIIds {
 		var iidInfo SGIIDInfo
 		err := infostore.GetByConditionsAndContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName,
-			OWNER_VPC_NAME_COLUMN, vmInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, getMSShortID(sgIID.SystemId))
+			OWNER_VPC_NAME_COLUMN, vmInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, sgIID.SystemId)
 		if err != nil {
 			// Additional SecurityGroups may be attached from other sources.
 			cblog.Info(err)
@@ -1173,7 +1193,7 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 	if vmInfo.KeyPairIId.SystemId != "" {
 		// set KeyPair NameId
 		var iidInfo KeyIIDInfo
-		err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, getMSShortID(vmInfo.KeyPairIId.SystemId))
+		err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, vmInfo.KeyPairIId.SystemId)
 		if err != nil {
 			cblog.Error(err)
 			return err
@@ -1184,7 +1204,7 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 	// set Data Disk NameId
 	for i, diskIID := range vmInfo.DataDiskIIDs {
 		var iidInfo DiskIIDInfo
-		err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, getMSShortID(diskIID.SystemId))
+		err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, diskIID.SystemId)
 		if err != nil {
 			cblog.Error(err)
 			return err
@@ -1214,24 +1234,24 @@ func GetVM(connectionName string, rsType string, nameID string) (*cres.VMInfo, e
 		return nil, err
 	}
 
-	cldConn, err := ccm.GetCloudConnection(connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-
-	handler, err := cldConn.CreateVMHandler()
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-
 	vmSPLock.RLock(connectionName, nameID)
 	defer vmSPLock.RUnlock(connectionName, nameID)
 
 	// (1) get IID(NameId)
 	var iidInfo VMIIDInfo
 	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, iidInfo.ZoneId)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	handler, err := cldConn.CreateVMHandler()
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
@@ -1428,17 +1448,6 @@ func GetVMStatus(connectionName string, rsType string, nameID string) (cres.VMSt
 		return "", err
 	}
 
-	cldConn, err := ccm.GetCloudConnection(connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return "", err
-	}
-
-	handler, err := cldConn.CreateVMHandler()
-	if err != nil {
-		cblog.Error(err)
-		return "", err
-	}
 	/* temporarily unlocked
 	vmSPLock.RLock(connectionName, nameID)
 	defer vmSPLock.RUnlock(connectionName, nameID)
@@ -1447,6 +1456,18 @@ func GetVMStatus(connectionName string, rsType string, nameID string) (cres.VMSt
 	// (1) get IID(NameId)
 	var iidInfo VMIIDInfo
 	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+	if err != nil {
+		cblog.Error(err)
+		return "", err
+	}
+
+	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, iidInfo.ZoneId)
+	if err != nil {
+		cblog.Error(err)
+		return "", err
+	}
+
+	handler, err := cldConn.CreateVMHandler()
 	if err != nil {
 		cblog.Error(err)
 		return "", err
@@ -1487,24 +1508,24 @@ func GetVMStatus(connectionName string, rsType string, nameID string) (cres.VMSt
 func ControlVM(connectionName string, rsType string, nameID string, action string) (cres.VMStatus, error) {
 	cblog.Info("call ControlVM()")
 
-	cldConn, err := ccm.GetCloudConnection(connectionName)
+	vmSPLock.RLock(connectionName, nameID)
+	defer vmSPLock.RUnlock(connectionName, nameID)
+
+	// (1) get IID(NameId)
+	var iidInfo VMIIDInfo
+	err := infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+	if err != nil {
+		cblog.Error(err)
+		return "", err
+	}
+
+	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, iidInfo.ZoneId)
 	if err != nil {
 		cblog.Error(err)
 		return "", err
 	}
 
 	handler, err := cldConn.CreateVMHandler()
-	if err != nil {
-		cblog.Error(err)
-		return "", err
-	}
-
-	vmSPLock.RLock(connectionName, nameID)
-	defer vmSPLock.RUnlock(connectionName, nameID)
-
-	// (1) get IID(NameId)
-	var iidInfo VMIIDInfo
-	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
 	if err != nil {
 		cblog.Error(err)
 		return "", err
@@ -1550,24 +1571,24 @@ func DeleteVM(connectionName string, rsType string, nameID string, force string)
 		return false, "", err
 	}
 
-	cldConn, err := ccm.GetCloudConnection(connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return false, "", err
-	}
-
-	handler, err := cldConn.CreateVMHandler()
-	if err != nil {
-		cblog.Error(err)
-		return false, "", err
-	}
-
 	vmSPLock.Lock(connectionName, nameID)
 	defer vmSPLock.Unlock(connectionName, nameID)
 
 	// (1) get spiderIID for creating driverIID
 	var iidInfo VMIIDInfo
 	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+	if err != nil {
+		cblog.Error(err)
+		return false, "", err
+	}
+
+	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, iidInfo.ZoneId)
+	if err != nil {
+		cblog.Error(err)
+		return false, "", err
+	}
+
+	handler, err := cldConn.CreateVMHandler()
 	if err != nil {
 		cblog.Error(err)
 		return false, "", err
@@ -1610,7 +1631,7 @@ func DeleteVM(connectionName string, rsType string, nameID string, force string)
 	}
 
 	// Check Sync Called
-	waiter := NewWaiter(5, 240) // (sleep, timeout)
+	waiter := NewWaiter(5, 600) // (sleep, timeout)
 
 	for {
 		status, err := handler.(cres.VMHandler).GetVMStatus(driverIId)

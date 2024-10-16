@@ -71,7 +71,10 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMS
 
 	//KeyValue 목록 처리
 	keyValueList, errKeyValue := ConvertKeyValueList(instanceTypeInfo)
-	cblogger.Error(errKeyValue)
+	if errKeyValue != nil {
+		cblogger.Error(errKeyValue)
+		return irs.VMSpecInfo{}
+	}
 	vmSpecInfo.KeyValueList = keyValueList
 
 	return vmSpecInfo

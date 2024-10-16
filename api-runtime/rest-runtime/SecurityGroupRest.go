@@ -23,19 +23,33 @@ import (
 
 //================ SecurityGroup Handler
 
-type securityGroupRegisterReq struct {
-	ConnectionName string
+// SecurityGroupRegisterRequest represents the request body for registering a SecurityGroup.
+type SecurityGroupRegisterRequest struct {
+	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-connection"`
 	ReqInfo        struct {
-		VPCName string
-		Name    string
-		CSPId   string
-	}
+		VPCName string `json:"VPCName" validate:"required" example:"vpc-01"`
+		Name    string `json:"Name" validate:"required" example:"sg-01"`
+		CSPId   string `json:"CSPId" validate:"required" example:"csp-sg-1234"`
+	} `json:"ReqInfo" validate:"required"`
 }
 
+// registerSecurity godoc
+// @ID register-securitygroup
+// @Summary Register SecurityGroup
+// @Description Register a new Security Group with the specified name and CSP ID.
+// @Tags [SecurityGroup Management]
+// @Accept  json
+// @Produce  json
+// @Param SecurityGroupRegisterRequest body restruntime.SecurityGroupRegisterRequest true "Request body for registering a SecurityGroup"
+// @Success 200 {object} cres.SecurityInfo "Details of the registered SecurityGroup"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /regsecuritygroup [post]
 func RegisterSecurity(c echo.Context) error {
 	cblog.Info("call RegisterSecurity()")
 
-	req := securityGroupRegisterReq{}
+	req := SecurityGroupRegisterRequest{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -53,15 +67,24 @@ func RegisterSecurity(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
-// (1) get args from REST Call
-// (2) call common-runtime API
-// (3) return REST Json Format
+// unregisterSecurity godoc
+// @ID unregister-securitygroup
+// @Summary Unregister SecurityGroup
+// @Description Unregister a Security Group with the specified name.
+// @Tags [SecurityGroup Management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for unregistering a SecurityGroup"
+// @Param Name path string true "The name of the SecurityGroup to unregister"
+// @Success 200 {object} BooleanInfo "Result of the unregister operation"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /regsecuritygroup/{Name} [delete]
 func UnregisterSecurity(c echo.Context) error {
 	cblog.Info("call UnregisterSecurity()")
 
-	var req struct {
-		ConnectionName string
-	}
+	req := ConnectionRequest{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -80,36 +103,35 @@ func UnregisterSecurity(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
-type securityGroupCreateReq struct {
-	ConnectionName  string
-	IDTransformMode string // ON | OFF, default is ON
+// SecurityGroupCreateRequest represents the request body for creating a SecurityGroup.
+type SecurityGroupCreateRequest struct {
+	ConnectionName  string `json:"ConnectionName" validate:"required" example:"aws-connection"`
+	IDTransformMode string `json:"IDTransformMode,omitempty" validate:"omitempty" example:"ON"` // ON: transform CSP ID, OFF: no-transform CSP ID
 	ReqInfo         struct {
-		Name          string
-		VPCName       string
-		Direction     string
-		SecurityRules *[]cres.SecurityRuleInfo
-		TagList       []dri.KeyValue
-	}
+		Name          string                   `json:"Name" validate:"required" example:"sg-01"`
+		VPCName       string                   `json:"VPCName" validate:"required" example:"vpc-01"`
+		SecurityRules *[]cres.SecurityRuleInfo `json:"SecurityRules" validate:"required"`
+		TagList       []dri.KeyValue           `json:"TagList,omitempty" validate:"omitempty"`
+	} `json:"ReqInfo" validate:"required"`
 }
 
-/*
-	// createSecurity godoc
-
-// @Summary Create Security Group
-// @Description Create Security Group
-// @Tags [CCM] Security Group management
+// createSecurity godoc
+// @ID create-securitygroup
+// @Summary Create SecurityGroup
+// @Description Create a new Security Group with specified rules and tags. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Security-Group-Rules-and-Driver-API)], 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages#4-securitygroup-%EC%83%9D%EC%84%B1-%EB%B0%8F-%EC%A0%9C%EC%96%B4)]
+// @Tags [SecurityGroup Management]
 // @Accept  json
 // @Produce  json
-// @Param securityGroupCreateReq body securityGroupCreateReq true "Request body to create Security Group"
-// @Success 200 {object} resources.SecurityInfo
-// @Failure 404 {object} SimpleMsg
-// @Failure 500 {object} SimpleMsg
+// @Param SecurityGroupCreateRequest body restruntime.SecurityGroupCreateRequest true "Request body for creating a SecurityGroup"
+// @Success 200 {object} cres.SecurityInfo "Details of the created SecurityGroup"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
 // @Router /securitygroup [post]
-*/
 func CreateSecurity(c echo.Context) error {
 	cblog.Info("call CreateSecurity()")
 
-	req := securityGroupCreateReq{}
+	req := SecurityGroupCreateRequest{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -117,10 +139,8 @@ func CreateSecurity(c echo.Context) error {
 
 	// Rest RegInfo => Driver ReqInfo
 	reqInfo := cres.SecurityReqInfo{
-		//IId:           cres.IID{req.ReqInfo.VPCName + cm.SG_DELIMITER + req.ReqInfo.Name, ""},
-		IId:    cres.IID{req.ReqInfo.Name, req.ReqInfo.Name}, // for NCP: fixed NameID => SystemID, Driver: (1)search systemID with fixed NameID (2)replace fixed NameID into SysemID
-		VpcIID: cres.IID{req.ReqInfo.VPCName, ""},
-		// deprecated; Direction:     req.ReqInfo.Direction,
+		IId:           cres.IID{req.ReqInfo.Name, req.ReqInfo.Name},
+		VpcIID:        cres.IID{req.ReqInfo.VPCName, ""},
 		SecurityRules: req.ReqInfo.SecurityRules,
 		TagList:       req.ReqInfo.TagList,
 	}
@@ -134,56 +154,75 @@ func CreateSecurity(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
+// SecurityGroupListResponse represents the response body for listing SecurityGroups.
+type SecurityGroupListResponse struct {
+	Result []*cres.SecurityInfo `json:"securitygroup" validate:"required" description:"A list of security group information"`
+}
+
+// listSecurity godoc
+// @ID list-securitygroup
+// @Summary List SecurityGroups
+// @Description Retrieve a list of Security Groups associated with a specific connection.
+// @Tags [SecurityGroup Management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionName query string true "The name of the Connection to list SecurityGroups for"
+// @Success 200 {object} restruntime.SecurityGroupListResponse "List of SecurityGroups"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameter"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /securitygroup [get]
 func ListSecurity(c echo.Context) error {
 	cblog.Info("call ListSecurity()")
 
-	var req struct {
-		ConnectionName string
-	}
+	req := ConnectionRequest{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	// To support for Get-Query Param Type API
 	if req.ConnectionName == "" {
 		req.ConnectionName = c.QueryParam("ConnectionName")
 	}
 
-	// Call common-runtime API
 	result, err := cmrt.ListSecurity(req.ConnectionName, SG)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	var jsonResult struct {
-		Result []*cres.SecurityInfo `json:"securitygroup"`
+	jsonResult := SecurityGroupListResponse{
+		Result: result,
 	}
-	jsonResult.Result = result
+
 	return c.JSON(http.StatusOK, &jsonResult)
 }
 
-// list all SGs for management
-// (1) get args from REST Call
-// (2) get all SG List by common-runtime API
-// (3) return REST Json Format
+// listAllSecurityGroups godoc
+// @ID list-all-securitygroup
+// @Summary List All Security Groups in a Connection
+// @Description Retrieve a comprehensive list of all Security Groups associated with a specific connection, <br> including those mapped between CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing in the CSP.
+// @Tags [SecurityGroup Management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionName query string true "The name of the Connection to list Security Groups for"
+// @Success 200 {object} AllResourceListResponse "List of all Security Groups within the specified connection, including Security Groups in CB-Spider only, CSP only, and mapped between both."
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /allsecuritygroup [get]
 func ListAllSecurity(c echo.Context) error {
 	cblog.Info("call ListAllSecurity()")
 
-	var req struct {
-		ConnectionName string
-	}
+	req := ConnectionRequest{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	// To support for Get-Query Param Type API
 	if req.ConnectionName == "" {
 		req.ConnectionName = c.QueryParam("ConnectionName")
 	}
 
-	// Call common-runtime API
 	allResourceList, err := cmrt.ListAllResource(req.ConnectionName, SG)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -192,23 +231,33 @@ func ListAllSecurity(c echo.Context) error {
 	return c.JSON(http.StatusOK, &allResourceList)
 }
 
+// getSecurity godoc
+// @ID get-securitygroup
+// @Summary Get SecurityGroup
+// @Description Retrieve details of a specific Security Group.
+// @Tags [SecurityGroup Management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionName query string true "The name of the Connection to get a SecurityGroup for"
+// @Param Name path string true "The name of the SecurityGroup to retrieve"
+// @Success 200 {object} cres.SecurityInfo "Details of the SecurityGroup"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /securitygroup/{Name} [get]
 func GetSecurity(c echo.Context) error {
 	cblog.Info("call GetSecurity()")
 
-	var req struct {
-		ConnectionName string
-	}
+	req := ConnectionRequest{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	// To support for Get-Query Param Type API
 	if req.ConnectionName == "" {
 		req.ConnectionName = c.QueryParam("ConnectionName")
 	}
 
-	// Call common-runtime API
 	result, err := cmrt.GetSecurity(req.ConnectionName, SG, c.Param("Name"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -217,21 +266,30 @@ func GetSecurity(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
-// (1) get args from REST Call
-// (2) call common-runtime API
-// (3) return REST Json Format
+// deleteSecurity godoc
+// @ID delete-securitygroup
+// @Summary Delete SecurityGroup
+// @Description Delete a specified Security Group.
+// @Tags [SecurityGroup Management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for deleting a SecurityGroup"
+// @Param Name path string true "The name of the SecurityGroup to delete"
+// @Param force query string false "Force delete the SecurityGroup. ex) true or false(default: false)"
+// @Success 200 {object} BooleanInfo "Result of the delete operation"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /securitygroup/{Name} [delete]
 func DeleteSecurity(c echo.Context) error {
 	cblog.Info("call DeleteSecurity()")
 
-	var req struct {
-		ConnectionName string
-	}
+	req := ConnectionRequest{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	// Call common-runtime API
 	result, err := cmrt.DeleteSecurity(req.ConnectionName, SG, c.Param("Name"), c.QueryParam("force"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -244,21 +302,29 @@ func DeleteSecurity(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
-// (1) get args from REST Call
-// (2) call common-runtime API
-// (3) return REST Json Format
+// deleteCSPSecurity godoc
+// @ID delete-csp-securitygroup
+// @Summary Delete CSP SecurityGroup
+// @Description Delete a specified CSP Security Group.
+// @Tags [SecurityGroup Management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionRequest body restruntime.ConnectionRequest true "Request body for deleting a CSP SecurityGroup"
+// @Param Id path string true "The CSP SecurityGroup ID to delete"
+// @Success 200 {object} BooleanInfo "Result of the delete operation"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /cspsecuritygroup/{Id} [delete]
 func DeleteCSPSecurity(c echo.Context) error {
 	cblog.Info("call DeleteCSPSecurity()")
 
-	var req struct {
-		ConnectionName string
-	}
+	req := ConnectionRequest{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	// Call common-runtime API
 	result, _, err := cmrt.DeleteCSPResource(req.ConnectionName, SG, c.Param("Id"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -271,41 +337,55 @@ func DeleteCSPSecurity(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
-type ruleControlReq struct {
-	ConnectionName string
+// RuleControlRequest represents the request body for controlling rules in a SecurityGroup.
+type RuleControlRequest struct {
+	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-connection"`
 	ReqInfo        struct {
 		RuleInfoList []struct {
-			Direction  string
-			IPProtocol string
-			FromPort   string
-			ToPort     string
-			CIDR       string
-		}
-	}
+			Direction  string `json:"Direction" validate:"required" example:"inbound"`
+			IPProtocol string `json:"IPProtocol" validate:"required" example:"TCP"`
+			FromPort   string `json:"FromPort" validate:"required" example:"22"`
+			ToPort     string `json:"ToPort" validate:"required" example:"22"`
+			CIDR       string `json:"CIDR,omitempty" validate:"omitempty" example:"0.0.0.0/0(default)"`
+		} `json:"RuleInfoList" validate:"required"`
+	} `json:"ReqInfo" validate:"required"`
 }
 
-// (1) get rules info from REST Call
-// (2) call common-runtime API
-// (3) return REST Json Format
+// addRules godoc
+// @ID add-rule
+// @Summary Add Rules to SecurityGroup
+// @Description Add new rules to a Security Group.
+// @Tags [SecurityGroup Management]
+// @Accept  json
+// @Produce  json
+// @Param SGName path string true "The name of the SecurityGroup to add rules to"
+// @Param RuleControlRequest body restruntime.RuleControlRequest true "Request body for adding rules"
+// @Success 200 {object} cres.SecurityInfo "Details of the SecurityGroup after adding rules"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /securitygroup/{SGName}/rules [post]
 func AddRules(c echo.Context) error {
 	cblog.Info("call AddRules()")
 
-	req := ruleControlReq{}
+	req := RuleControlRequest{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	// Rest RegInfo => Driver ReqInfo
-	// create RuleInfo List
 	reqRuleInfoList := []cres.SecurityRuleInfo{}
 	for _, info := range req.ReqInfo.RuleInfoList {
-		ruleInfo := cres.SecurityRuleInfo{Direction: info.Direction,
-			IPProtocol: info.IPProtocol, FromPort: info.FromPort, ToPort: info.ToPort, CIDR: info.CIDR}
+		ruleInfo := cres.SecurityRuleInfo{
+			Direction:  info.Direction,
+			IPProtocol: info.IPProtocol,
+			FromPort:   info.FromPort,
+			ToPort:     info.ToPort,
+			CIDR:       info.CIDR,
+		}
 		reqRuleInfoList = append(reqRuleInfoList, ruleInfo)
 	}
 
-	// Call common-runtime API
 	result, err := cmrt.AddRules(req.ConnectionName, c.Param("SGName"), reqRuleInfoList)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -314,29 +394,41 @@ func AddRules(c echo.Context) error {
 	return c.JSON(http.StatusOK, result)
 }
 
-// (1) get rules info from REST Call
-// (2) call common-runtime API
-// (3) return REST Json Format
+// removeRules godoc
+// @ID remove-rule
+// @Summary Remove Rules from SecurityGroup
+// @Description Remove existing rules from a Security Group.
+// @Tags [SecurityGroup Management]
+// @Accept  json
+// @Produce  json
+// @Param SGName path string true "The name of the SecurityGroup to remove rules from"
+// @Param RuleControlRequest body restruntime.RuleControlRequest true "Request body for removing rules"
+// @Success 200 {object} BooleanInfo "Result of the remove operation"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /securitygroup/{SGName}/rules [delete]
 func RemoveRules(c echo.Context) error {
 	cblog.Info("call RemoveRules()")
 
-	req := ruleControlReq{}
+	req := RuleControlRequest{}
 
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	// Rest RegInfo => Driver ReqInfo
-	// create RuleInfo List
 	reqRuleInfoList := []cres.SecurityRuleInfo{}
 	for _, info := range req.ReqInfo.RuleInfoList {
-		ruleInfo := cres.SecurityRuleInfo{Direction: info.Direction,
-			IPProtocol: info.IPProtocol, FromPort: info.FromPort, ToPort: info.ToPort, CIDR: info.CIDR}
+		ruleInfo := cres.SecurityRuleInfo{
+			Direction:  info.Direction,
+			IPProtocol: info.IPProtocol,
+			FromPort:   info.FromPort,
+			ToPort:     info.ToPort,
+			CIDR:       info.CIDR,
+		}
 		reqRuleInfoList = append(reqRuleInfoList, ruleInfo)
 	}
 
-	// Call common-runtime API
-	// no force option
 	result, err := cmrt.RemoveRules(req.ConnectionName, c.Param("SGName"), reqRuleInfoList)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -349,36 +441,51 @@ func RemoveRules(c echo.Context) error {
 	return c.JSON(http.StatusOK, &resultInfo)
 }
 
+// countAllSecurityGroups godoc
+// @ID count-all-securitygroup
+// @Summary Count All SecurityGroups
+// @Description Get the total number of Security Groups across all connections.
+// @Tags [SecurityGroup Management]
+// @Produce  json
+// @Success 200 {object} CountResponse "Total count of SecurityGroups"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /countsecuritygroup [get]
 func CountAllSecurityGroups(c echo.Context) error {
-	// Call common-runtime API to get count of SecurityGroups
+	cblog.Info("call CountAllSecurityGroups()")
+
 	count, err := cmrt.CountAllSecurityGroups()
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	// Prepare JSON result
-	var jsonResult struct {
-		Count int `json:"count"`
+	jsonResult := CountResponse{
+		Count: int(count),
 	}
-	jsonResult.Count = int(count)
 
-	// Return JSON response
 	return c.JSON(http.StatusOK, jsonResult)
 }
 
+// countSecurityGroupsByConnection godoc
+// @ID count-securitygroup-by-connection
+// @Summary Count SecurityGroups by Connection
+// @Description Get the total number of Security Groups for a specific connection.
+// @Tags [SecurityGroup Management]
+// @Produce  json
+// @Param ConnectionName path string true "The name of the Connection"
+// @Success 200 {object} CountResponse "Total count of SecurityGroups for the connection"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /countsecuritygroup/{ConnectionName} [get]
 func CountSecurityGroupsByConnection(c echo.Context) error {
-	// Call common-runtime API to get count of SecurityGroups
+	cblog.Info("call CountSecurityGroupsByConnection()")
+
 	count, err := cmrt.CountSecurityGroupsByConnection(c.Param("ConnectionName"))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
-	// Prepare JSON result
-	var jsonResult struct {
-		Count int `json:"count"`
+	jsonResult := CountResponse{
+		Count: int(count),
 	}
-	jsonResult.Count = int(count)
 
-	// Return JSON response
 	return c.JSON(http.StatusOK, jsonResult)
 }

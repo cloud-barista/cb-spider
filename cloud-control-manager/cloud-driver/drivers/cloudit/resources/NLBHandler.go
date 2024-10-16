@@ -1127,3 +1127,8 @@ func healthCheckPolicyValidation(info irs.HealthCheckerInfo) (bool, error) {
 	}
 	return true, nil
 }
+
+func (NLBHandler *ClouditNLBHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

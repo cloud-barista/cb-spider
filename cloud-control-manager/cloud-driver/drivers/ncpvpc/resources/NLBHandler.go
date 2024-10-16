@@ -11,10 +11,12 @@
 package resources
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
+
 	// "github.com/davecgh/go-spew/spew"
 
 	ncloud "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
@@ -40,23 +42,23 @@ type NcpVpcNLBHandler struct {
 
 const (
 	// NCP VPC Cloud LB type code : 'APPLICATION' | 'NETWORK' | 'NETWORK_PROXY'
-	NcpLbType						string = "NETWORK"
+	NcpLbType string = "NETWORK"
 
 	// NCP VPC Cloud NLB network type code : 'PUBLIC' | 'PRIVATE' (Default: 'PUBLIC')
-	NcpPublicNlBType   				string = "PUBLIC"
-	NcpInternalNlBType 				string = "PRIVATE"
+	NcpPublicNlBType   string = "PUBLIC"
+	NcpInternalNlBType string = "PRIVATE"
 
 	// NCP LB performance(throughput) type code : 'SMALL' | 'MEDIUM' | 'LARGE' (Default: 'SMALL')
 	// You can only select 'SMALL' if the LB type is 'NETWORK' and the LB network type is 'PRIVATE'.
-	DefaultThroughputType 			string = "SMALL"
+	DefaultThroughputType string = "SMALL"
 
 	// NCP VPC Cloud default value for Listener and Health Monitor
-	DefaultConnectionLimit        	int32 = 60 // Min : 1, Max : 3600 sec(Dedicated LB : 1 ~ 480000). Default : 60 sec
-	DefaultHealthCheckerInterval  	int32 = 30 // Min: 5, Max: 300 (seconds). Default: 30 seconds
-	DefaultHealthCheckerThreshold 	int32 = 2  // Min: 2, Max: 10. Default: 2
+	DefaultConnectionLimit        int32 = 60 // Min : 1, Max : 3600 sec(Dedicated LB : 1 ~ 480000). Default : 60 sec
+	DefaultHealthCheckerInterval  int32 = 30 // Min: 5, Max: 300 (seconds). Default: 30 seconds
+	DefaultHealthCheckerThreshold int32 = 2  // Min: 2, Max: 10. Default: 2
 
-	LbTypeSubnetDefaultCidr 		string = ".240/28"
-	LbTypeSubnetDefaultName 		string = "ncpvpc-subnet-for-nlb"
+	LbTypeSubnetDefaultCidr string = ".240/28"
+	LbTypeSubnetDefaultName string = "ncpvpc-subnet-for-nlb"
 )
 
 func init() {
@@ -126,7 +128,7 @@ func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB
 	// VPC IP address ranges : /16~/28 in private IP range (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
 	cidrBlock := strings.Split(*ncpVPCInfo.Ipv4CidrBlock, ".")
 	cidrForNlbSubnet := cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + LbTypeSubnetDefaultCidr
-	// Ex) In case, VpcCIDR : "10.0.0.0/16",  
+	// Ex) In case, VpcCIDR : "10.0.0.0/16",
 	// Subnet for VM : "10.0.0.0/28"
 	// LB Type Subnet : "10.0.0.240/28"
 
@@ -173,11 +175,11 @@ func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB
 		RegionCode:                  &nlbHandler.RegionInfo.Region,
 		IdleTimeout:                 &timeOut,
 		LoadBalancerNetworkTypeCode: &lbNetType,
-		LoadBalancerTypeCode:        &lbType, 			// *** Required (Not Optional)
+		LoadBalancerTypeCode:        &lbType, // *** Required (Not Optional)
 		LoadBalancerName:            &nlbReqInfo.IId.NameId,
 		ThroughputTypeCode:          &throughputType,
-		VpcNo:                       ncpVPCInfo.VpcNo, 	// *** Required (Not Optional)
-		SubnetNoList:                subnetNoList,     	// *** Required (Not Optional)
+		VpcNo:                       ncpVPCInfo.VpcNo, // *** Required (Not Optional)
+		SubnetNoList:                subnetNoList,     // *** Required (Not Optional)
 	}
 
 	// ### LoadBalancerSubnetList > PublicIpInstanceNo
@@ -437,7 +439,7 @@ func (nlbHandler *NcpVpcNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (i
 		TargetGroupNo: &nlbInfo.VMGroup.CspID,
 		TargetNoList:  newVmIdList,
 	}
-	
+
 	callLogStart := call.Start()
 	result, err := nlbHandler.VLBClient.V2Api.AddTarget(&addReq)
 	if err != nil {
@@ -575,12 +577,12 @@ func (nlbHandler *NcpVpcNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.He
 		newErr := fmt.Errorf("Invalid NLB ID!!")
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
-		return irs.HealthInfo{}, newErr 
+		return irs.HealthInfo{}, newErr
 	}
 
 	nlbInfo, err := nlbHandler.GetNLB(nlbIID)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get NLB info!! [%v]", err)		
+		newErr := fmt.Errorf("Failed to Get NLB info!! [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.HealthInfo{}, newErr
@@ -598,7 +600,7 @@ func (nlbHandler *NcpVpcNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.He
 		var allVMs []irs.IID
 		var healthVMs []irs.IID
 		var unHealthVMs []irs.IID
-	
+
 		vmHandler := NcpVpcVMHandler{
 			RegionInfo: nlbHandler.RegionInfo,
 			VMClient:   nlbHandler.VMClient,
@@ -612,19 +614,19 @@ func (nlbHandler *NcpVpcNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.He
 				LoggingError(callLogInfo, newErr)
 				return irs.HealthInfo{}, newErr
 			}
-	
-			allVMs = append(allVMs, irs.IID{NameId: *vm.ServerName, SystemId: *vm.ServerInstanceNo})  // Caution : Not 'VM Member ID' but 'VM System ID'
-	
+
+			allVMs = append(allVMs, irs.IID{NameId: *vm.ServerName, SystemId: *vm.ServerInstanceNo}) // Caution : Not 'VM Member ID' but 'VM System ID'
+
 			// HealthCheckStatus : UP(Health UP), DOWN(Health DOWN), UNUSED(Health UNUSED)
 			if strings.EqualFold(*member.HealthCheckStatus.Code, "UP") {
 				cblogger.Infof("\n### [%s] is Healthy VM.", "")
 				healthVMs = append(healthVMs, irs.IID{NameId: *vm.ServerName, SystemId: *vm.ServerInstanceNo})
 			} else {
 				cblogger.Infof("\n### [%s] is Unhealthy VM.", "")
-				unHealthVMs = append(unHealthVMs, irs.IID{NameId: *vm.ServerName, SystemId: *vm.ServerInstanceNo})  // In case of "INACTIVE", ...
+				unHealthVMs = append(unHealthVMs, irs.IID{NameId: *vm.ServerName, SystemId: *vm.ServerInstanceNo}) // In case of "INACTIVE", ...
 			}
 		}
-	
+
 		vmGroupHealthInfo = irs.HealthInfo{
 			AllVMs:       &allVMs,
 			HealthyVMs:   &healthVMs,
@@ -676,10 +678,10 @@ func (nlbHandler *NcpVpcNLBHandler) CreateVMGroup(vpcId string, nlbReqInfo irs.N
 	case "TCP", "UDP":
 		cblogger.Infof("\n# VMGroup Protocol : [%s]", vmGroupProtocol)
 	default:
-		newErr := fmt.Errorf("Invalid VMGroup Protocol Type. NCP VPC 'Network' Type LB VMGroup supports only TCP or UDP protocol!!")  // According to the NCP VPC API document
+		newErr := fmt.Errorf("Invalid VMGroup Protocol Type. NCP VPC 'Network' Type LB VMGroup supports only TCP or UDP protocol!!") // According to the NCP VPC API document
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
-		return nil, newErr 
+		return nil, newErr
 	}
 
 	healthCheckPort, err := strconv.Atoi(nlbReqInfo.HealthChecker.Port)
@@ -766,14 +768,14 @@ func (nlbHandler *NcpVpcNLBHandler) CreateVMGroup(vpcId string, nlbReqInfo irs.N
 	// ### The 'UDP' protocol can only be used in the SGN(Singapore) and JPN(Japan) region.
 	targetGroupReq := vlb.CreateTargetGroupRequest{
 		RegionCode:                  &nlbHandler.RegionInfo.Region,
-		TargetGroupPort:             &int32vmGroupPort,             // Caution!! : Range constraints: Min: 1, Max: 65534
-		TargetGroupProtocolTypeCode: &vmGroupProtocol,              // *** Required (Not Optional)
-		HealthCheckCycle:            &healthCheckCycle,             // Caution!! : Range constraints: Min: 5, Max: 300 (seconds), Default: 30 seconds
+		TargetGroupPort:             &int32vmGroupPort, // Caution!! : Range constraints: Min: 1, Max: 65534
+		TargetGroupProtocolTypeCode: &vmGroupProtocol,  // *** Required (Not Optional)
+		HealthCheckCycle:            &healthCheckCycle, // Caution!! : Range constraints: Min: 5, Max: 300 (seconds), Default: 30 seconds
 		HealthCheckPort:             &int32healthCheckPort,
-		HealthCheckProtocolTypeCode: &healthCheckProtocol,  		// *** Required (Not Optional)
-		HealthCheckUpThreshold:      &healthCheckThreshold, 		// Caution!! : Range constraints: Min: 2, Max: 10, Default: 2
+		HealthCheckProtocolTypeCode: &healthCheckProtocol,  // *** Required (Not Optional)
+		HealthCheckUpThreshold:      &healthCheckThreshold, // Caution!! : Range constraints: Min: 2, Max: 10, Default: 2
 		TargetNoList:                targetNoList,
-		VpcNo:                       &vpcId, 						// *** Required (Not Optional)
+		VpcNo:                       &vpcId, // *** Required (Not Optional)
 	}
 
 	callLogStart := call.Start()
@@ -868,19 +870,19 @@ func (nlbHandler *NcpVpcNLBHandler) CreateListener(nlbId string, nlbReqInfo irs.
 	case "TCP", "UDP":
 		cblogger.Infof("\n# Listener Protocol : [%s]", listenerProtocol)
 	default:
-		newErr := fmt.Errorf("Invalid Listener Protocol Type. NCP VPC 'Network' Type LB Listener supports only TCP or UDP protocol!!")  // According to the NCP VPC API document
+		newErr := fmt.Errorf("Invalid Listener Protocol Type. NCP VPC 'Network' Type LB Listener supports only TCP or UDP protocol!!") // According to the NCP VPC API document
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
-		return nil, newErr 
+		return nil, newErr
 	}
 
 	int32PortNum := int32(portNum)
 	listenerReq := vlb.CreateLoadBalancerListenerRequest{
 		RegionCode:             &nlbHandler.RegionInfo.Region,
-		LoadBalancerInstanceNo: &nlbId,                        // *** Required (Not Optional)
-		Port:                   &int32PortNum,                 // *** Required (Not Optional)
-		ProtocolTypeCode:       &listenerProtocol,             // *** Required (Not Optional)
-		TargetGroupNo:          &vmGroupNo,                    // *** Required (Not Optional)
+		LoadBalancerInstanceNo: &nlbId,            // *** Required (Not Optional)
+		Port:                   &int32PortNum,     // *** Required (Not Optional)
+		ProtocolTypeCode:       &listenerProtocol, // *** Required (Not Optional)
+		TargetGroupNo:          &vmGroupNo,        // *** Required (Not Optional)
 	}
 
 	callLogStart := call.Start()
@@ -1076,7 +1078,7 @@ func (nlbHandler *NcpVpcNLBHandler) GetHealthCheckerInfo(nlb vlb.LoadBalancerIns
 		Interval: int(*ncpTargetGroupList[0].HealthCheckCycle),
 		// Timeout: int,
 		Threshold: int(*ncpTargetGroupList[0].HealthCheckUpThreshold),
-		CspID:    *ncpTargetGroupList[0].TargetGroupNo,
+		CspID:     *ncpTargetGroupList[0].TargetGroupNo,
 	}
 	return healthCheckerInfo, nil
 }
@@ -1360,7 +1362,7 @@ func (nlbHandler *NcpVpcNLBHandler) GetNcpNlbListWithVpcId(vpcId *string) ([]*vl
 
 	lbReq := vlb.GetLoadBalancerInstanceListRequest{
 		RegionCode: &nlbHandler.RegionInfo.Region,
-		VpcNo:		vpcId,
+		VpcNo:      vpcId,
 	}
 
 	callLogStart := call.Start()
@@ -1445,7 +1447,6 @@ func (nlbHandler *NcpVpcNLBHandler) CreatNcpSubnetForNlbOnly(vpcIID irs.IID, sub
 	return ncpSubnetInfo, nil
 }
 
-
 // Clean up the VMGroup and LB Type subnet
 func (nlbHandler *NcpVpcNLBHandler) CleanUpNLB(vpcId *string) (bool, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called CleanUpNLB()")
@@ -1505,12 +1506,12 @@ func (nlbHandler *NcpVpcNLBHandler) CleanUpNLB(vpcId *string) (bool, error) {
 			LoggingError(callLogInfo, newErr)
 			return false, newErr
 		}
-	
+
 		vpcHandler := NcpVpcVPCHandler{
 			RegionInfo: nlbHandler.RegionInfo,
 			VPCClient:  nlbHandler.VPCClient,
 		}
-	
+
 		result, removeErr := vpcHandler.RemoveSubnet(irs.IID{SystemId: *vpcId}, irs.IID{SystemId: lbTypeSubnetId})
 		if removeErr != nil {
 			newErr := fmt.Errorf("Failed to Remove the LB Type Subnet : [%v]", removeErr)
@@ -1522,7 +1523,7 @@ func (nlbHandler *NcpVpcNLBHandler) CleanUpNLB(vpcId *string) (bool, error) {
 			return true, nil
 		}
 	}
-	
+
 	return true, nil
 }
 
@@ -1561,8 +1562,8 @@ func (nlbHandler *NcpVpcNLBHandler) MappingNlbInfo(nlb vlb.LoadBalancerInstance)
 		VpcIID: irs.IID{
 			SystemId: *nlb.VpcNo,
 		},
-		Type:  nlbType,
-		Scope: "REGION",
+		Type:        nlbType,
+		Scope:       "REGION",
 		CreatedTime: convertedTime,
 	}
 
@@ -1660,4 +1661,9 @@ func (nlbHandler *NcpVpcNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup ir
 func (nlbHandler *NcpVpcNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthChecker irs.HealthCheckerInfo) (irs.HealthCheckerInfo, error) {
 
 	return irs.HealthCheckerInfo{}, fmt.Errorf("Does not support yet!!")
+}
+
+func (NLBHandler *NcpVpcNLBHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

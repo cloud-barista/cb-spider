@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"reflect"
 	"strconv"
@@ -32,6 +33,7 @@ import (
 	"github.com/sirupsen/logrus"
 	compute "google.golang.org/api/compute/v1"
 	container "google.golang.org/api/container/v1"
+	"google.golang.org/api/googleapi"
 )
 
 const (
@@ -232,6 +234,22 @@ func GetPublicKey(credentialInfo idrv.CredentialInfo, keyPairName string) (strin
 		return "", err
 	}
 	return string(publicKeyBytes), nil
+}
+
+func hasInstanceGroup(client *compute.Service, credential idrv.CredentialInfo, region idrv.RegionInfo, instanceGroup string) (bool, error) {
+	projectID := credential.ProjectID
+	zone := region.Zone
+	// Attempt to get the instance group to verify if it exists
+	instanceGroupGet, err := client.InstanceGroups.Get(projectID, zone, instanceGroup).Do()
+	if err != nil {
+		// Check if the error is a "not found" error
+		if gerr, ok := err.(*googleapi.Error); ok && gerr.Code == http.StatusNotFound {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return instanceGroupGet != nil, nil
 }
 
 // InstanceGroup의 인스턴스 목록 return
@@ -536,7 +554,10 @@ func WaitContainerOperationFail(client *container.Service, project string, regio
 			return err
 		}
 		cblogger.Debug(opSatus)
-		cblogger.Infof("==> Status: Progress: [%d] / [%s]", opSatus.Progress, opSatus.Status)
+
+		if opSatus.Progress != nil && len(opSatus.Progress.Metrics) > 0 && opSatus.Progress.Metrics[0] != nil {
+			cblogger.Infof("==> Status: Progress: [%d] / [%s]", opSatus.Progress.Metrics[0].IntValue, opSatus.Status)
+		}
 
 		//PENDING, RUNNING, or DONE.
 
@@ -554,7 +575,7 @@ func WaitContainerOperationFail(client *container.Service, project string, regio
 		after_time := time.Now()
 		diff := after_time.Sub(before_time)
 		if int(diff.Seconds()) > max_time {
-			cblogger.Errorf("Forcing termination of Wait because the status of resource [%s] has not completed within [%d] seconds.", max_time, resourceId)
+			cblogger.Infof("Forcing termination of Wait because the status of resource [%s] has not failed within [%d] seconds.", resourceId, max_time)
 			return nil
 		}
 	}

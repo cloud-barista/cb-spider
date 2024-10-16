@@ -11,6 +11,7 @@
 package resources
 
 import (
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -19,8 +20,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
+	"sort"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/cloudwatch"
+	"github.com/aws/aws-sdk-go/service/costexplorer"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -30,19 +36,25 @@ type AwsAnyCallHandler struct {
 	Region         idrv.RegionInfo
 	CredentialInfo idrv.CredentialInfo
 	Client         *ec2.EC2
+	CeClient       *costexplorer.CostExplorer
+	CwClient       *cloudwatch.CloudWatch
 }
 
-/********************************************************
-        // call example
-        curl -sX POST http://localhost:1024/spider/anycall -H 'Content-Type: application/json' -d \
-        '{
-                "ConnectionName" : "aws-ohio-config",
-                "ReqInfo" : {
-                        "FID" : "createTags",
-                        "IKeyValueList" : [{"Key":"key1", "Value":"value1"}, {"Key":"key2", "Value":"value2"}]
-                }
-        }' | json_pp
-********************************************************/
+/*
+*******************************************************
+
+	// call example
+	curl -sX POST http://localhost:1024/spider/anycall -H 'Content-Type: application/json' -d \
+	'{
+	        "ConnectionName" : "aws-ohio-config",
+	        "ReqInfo" : {
+	                "FID" : "createTags",
+	                "IKeyValueList" : [{"Key":"key1", "Value":"value1"}, {"Key":"key2", "Value":"value2"}]
+	        }
+	}' | json_pp
+
+*******************************************************
+*/
 func (anyCallHandler *AwsAnyCallHandler) AnyCall(callInfo irs.AnyCallInfo) (irs.AnyCallInfo, error) {
 	cblogger.Info("AWS Driver: called AnyCall()!")
 
@@ -53,16 +65,19 @@ func (anyCallHandler *AwsAnyCallHandler) AnyCall(callInfo irs.AnyCallInfo) (irs.
 		return associateIamInstanceProfile(anyCallHandler, callInfo)
 	case "getRegionInfo":
 		return getRegionInfo(anyCallHandler, callInfo)
-	// add more ...
+	case "getCostWithResource":
+		return getCostWithResource(anyCallHandler, callInfo)
+	case "fetchMonitoringData":
+		return fetchMonitoringData(anyCallHandler, callInfo)
 
 	default:
 		return irs.AnyCallInfo{}, errors.New("AWS Driver: " + callInfo.FID + " Function is not implemented!")
 	}
 }
 
-///////////////////////////////////////////////////////////////////////
+// /////////////////////////////////////////////////////////////////////
 // implemented by developer user, like 'createTags(kv []KeyVale) bool'
-///////////////////////////////////////////////////////////////////////
+// /////////////////////////////////////////////////////////////////////
 const (
 	CreateTagsResourceId = "ResourceId"
 	CreateTagsTag        = "Tag"
@@ -131,9 +146,9 @@ const (
 	AssociateIamInstanceProfileRole       = "Role"
 )
 
-///////////////////////////////////////////////////////////////////
+// /////////////////////////////////////////////////////////////////
 // implemented by developer user, like 'associateIamInstanceProfile(kv []KeyValue) bool'
-///////////////////////////////////////////////////////////////////
+// /////////////////////////////////////////////////////////////////
 func associateIamInstanceProfile(anyCallHandler *AwsAnyCallHandler, callInfo irs.AnyCallInfo) (irs.AnyCallInfo, error) {
 	cblogger.Info("AWS Driver: called AnyCall()/associateIamInstanceProfile()!")
 
@@ -231,4 +246,301 @@ func encrypt(contents []byte) ([]byte, error) {
 	cipherTextFB.XORKeyStream(encryptData[aes.BlockSize:], []byte(contents))
 
 	return encryptData, nil
+}
+
+type CostWithResourceReq struct {
+	StartDate   string           `json:"startDate"`
+	EndDate     string           `json:"endDate"`
+	Granularity string           `json:"granularity"`
+	Metrics     []string         `json:"metrics"`
+	Filter      FilterExpression `json:"filter"`
+	Groups      []GroupBy        `json:"groups"`
+}
+
+type FilterExpression struct {
+	And            []*FilterExpression `json:"and,omitempty"`
+	Or             []*FilterExpression `json:"or,omitempty"`
+	Not            *FilterExpression   `json:"not,omitempty"`
+	CostCategories *KeyValues          `json:"costCategories,omitempty"`
+	Dimensions     *KeyValues          `json:"dimensions,omitempty"`
+	Tags           *KeyValues          `json:"tags,omitempty"`
+}
+
+type KeyValues struct {
+	Key    string   `json:"key"`
+	Values []string `json:"values"`
+}
+
+type GroupBy struct {
+	Key  string `json:"key"`
+	Type string `json:"type"` // DIMENSION | TAG | COST_CATEGORY
+}
+
+func getCostWithResource(anyCallHandler *AwsAnyCallHandler, callInfo irs.AnyCallInfo) (irs.AnyCallInfo, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	reqMap, err := ConvertTagListToTagsMap(callInfo.IKeyValueList)
+	if err != nil {
+		return callInfo, errors.New("invalid key value list")
+	}
+
+	body, ok := reqMap["requestBody"]
+
+	if !ok || body == nil {
+		return callInfo, errors.New("requestBody is required")
+	}
+
+	var costWithResourceReq CostWithResourceReq
+	err = json.Unmarshal([]byte(*body), &costWithResourceReq)
+	if err != nil {
+		return callInfo, err
+	}
+
+	startDate := costWithResourceReq.StartDate
+	endDate := costWithResourceReq.EndDate
+	granularity := costWithResourceReq.Granularity
+	metric := costWithResourceReq.Metrics
+	filter := convertToCostExplorerExpression(&costWithResourceReq.Filter)
+	group := costExplorerGroupGenerate(costWithResourceReq.Groups)
+
+	input := &costexplorer.GetCostAndUsageWithResourcesInput{
+		TimePeriod: &costexplorer.DateInterval{
+			Start: aws.String(startDate),
+			End:   aws.String(endDate),
+		},
+		Granularity: aws.String(granularity),
+		Metrics:     aws.StringSlice(metric),
+		Filter:      filter,
+		GroupBy:     group,
+	}
+
+	res, err := anyCallHandler.CeClient.GetCostAndUsageWithResourcesWithContext(ctx, input)
+	if err != nil {
+		cblogger.Error("error occur", err)
+		return callInfo, err
+	}
+
+	m, err := json.Marshal(res)
+	if err != nil {
+
+		return callInfo, err
+	}
+
+	callInfo.OKeyValueList = []irs.KeyValue{
+		{
+			Key:   "result",
+			Value: string(m),
+		},
+	}
+	return callInfo, nil
+}
+
+// convertToCostExplorerExpression converts a FilterExpression into a Cost Explorer Expression object.
+// It recursively converts nested filter expressions and handles `And`, `Or`, and `Not` conditions.
+func convertToCostExplorerExpression(filter *FilterExpression) *costexplorer.Expression {
+	if filter == nil {
+		return nil
+	}
+
+	expression := &costexplorer.Expression{
+		CostCategories: convertKeyValuesToCostCategoryValues(filter.CostCategories),
+		Dimensions:     convertKeyValuesToDimensionValues(filter.Dimensions),
+		Tags:           convertKeyValuesToTagValues(filter.Tags),
+	}
+
+	if len(filter.And) > 0 {
+		expression.And = make([]*costexplorer.Expression, len(filter.And))
+		for i, f := range filter.And {
+			expression.And[i] = convertToCostExplorerExpression(f)
+		}
+	}
+
+	if len(filter.Or) > 0 {
+		expression.Or = make([]*costexplorer.Expression, len(filter.Or))
+		for i, f := range filter.Or {
+			expression.Or[i] = convertToCostExplorerExpression(f)
+		}
+	}
+
+	if filter.Not != nil {
+		expression.Not = convertToCostExplorerExpression(filter.Not)
+	}
+
+	return expression
+}
+
+// convertKeyValuesToCostCategoryValues converts a KeyValues object into a Cost Explorer CostCategoryValues object.
+// It maps the Key and Values fields from the input to the corresponding fields in the CostCategoryValues.
+func convertKeyValuesToCostCategoryValues(kv *KeyValues) *costexplorer.CostCategoryValues {
+	if kv == nil {
+		return nil
+	}
+	return &costexplorer.CostCategoryValues{
+		Key:    aws.String(kv.Key),
+		Values: aws.StringSlice(kv.Values),
+	}
+}
+
+// convertKeyValuesToDimensionValues converts a KeyValues object into a Cost Explorer DimensionValues object.
+// It maps the Key and Values fields from the input to the corresponding fields in the DimensionValues.
+func convertKeyValuesToDimensionValues(kv *KeyValues) *costexplorer.DimensionValues {
+	if kv == nil {
+		return nil
+	}
+	return &costexplorer.DimensionValues{
+		Key:    aws.String(kv.Key),
+		Values: aws.StringSlice(kv.Values),
+	}
+}
+
+// convertKeyValuesToTagValues converts a KeyValues object into a Cost Explorer TagValues object.
+// It maps the Key and Values fields from the input to the corresponding fields in the TagValues.
+// TagValues ​​refers to AWS's cost allocation tag, not the tags commonly used for resources.
+func convertKeyValuesToTagValues(kv *KeyValues) *costexplorer.TagValues {
+	if kv == nil {
+		return nil
+	}
+	return &costexplorer.TagValues{
+		Key:    aws.String(kv.Key),
+		Values: aws.StringSlice(kv.Values),
+	}
+}
+
+// costExplorerGroupGenerate generates a slice of GroupDefinition objects from a slice of Cost Explorer GroupBy objects.
+// Each GroupBy object is converted into a GroupDefinition with the corresponding Key and Type fields.
+func costExplorerGroupGenerate(g []GroupBy) []*costexplorer.GroupDefinition {
+	var groupBy []*costexplorer.GroupDefinition
+	for _, v := range g {
+		groupBy = append(groupBy, &costexplorer.GroupDefinition{
+			Key:  aws.String(v.Key),
+			Type: aws.String(v.Type),
+		})
+	}
+
+	return groupBy
+}
+
+// for spiderlet prototype
+func fetchMonitoringData(anyCallHandler *AwsAnyCallHandler, callInfo irs.AnyCallInfo) (irs.AnyCallInfo, error) {
+	cblogger.Info("AWS Driver: called AnyCall()/fetchMonitoringData()!")
+
+	cwClient := anyCallHandler.CwClient
+
+	var vmId string
+	for _, kv := range callInfo.IKeyValueList {
+		if kv.Key == "vmId" {
+			vmId = kv.Value
+			break
+		}
+	}
+
+	if vmId == "" {
+		return callInfo, fmt.Errorf("vmId is not provided in IKeyValueList")
+	}
+
+	metrics := []string{
+		"CPUUtilization",
+		/*"NetworkIn",
+		  "NetworkOut",
+		  "NetworkPacketsIn",
+		  "NetworkPacketsOut",
+		  "DiskReadOps",
+		  "DiskWriteOps",
+		  "DiskReadBytes",
+		  "DiskWriteBytes",
+		  "StatusCheckFailed",
+		  "StatusCheckFailed_Instance",
+		  "StatusCheckFailed_System",*/
+	}
+
+	// Initialize OKeyValueList if it's nil
+	if callInfo.OKeyValueList == nil {
+		callInfo.OKeyValueList = []irs.KeyValue{}
+	}
+
+	for _, metric := range metrics {
+		// Fetch metrics from CloudWatch for the provided instance ID
+		result, err := getEC2Metric(cwClient, vmId, metric)
+		if err != nil {
+			log.Printf("Failed to get metric %s: %v", metric, err)
+			continue
+		}
+
+		if len(result) == 0 {
+			// No data points found, append a message in OKeyValueList
+			callInfo.OKeyValueList = append(callInfo.OKeyValueList, irs.KeyValue{
+				Key:   metric,
+				Value: "No data points found",
+			})
+		} else {
+			// Sort datapoints by timestamp
+			sort.Slice(result, func(i, j int) bool {
+				return result[i].Timestamp.Before(*result[j].Timestamp)
+			})
+
+			// Append each data point information to OKeyValueList
+			for _, datapoint := range result {
+				key := fmt.Sprintf("%s [%v]", metric, datapoint.Timestamp)
+
+				var valueStr string
+				if datapoint.Average != nil {
+					valueStr += fmt.Sprintf("Average: %.2f ", *datapoint.Average)
+				}
+				if datapoint.Minimum != nil {
+					valueStr += fmt.Sprintf("Minimum: %.2f ", *datapoint.Minimum)
+				}
+				if datapoint.Maximum != nil {
+					valueStr += fmt.Sprintf("Maximum: %.2f ", *datapoint.Maximum)
+				}
+				if datapoint.Sum != nil {
+					valueStr += fmt.Sprintf("Sum: %.2f ", *datapoint.Sum)
+				}
+				if datapoint.SampleCount != nil {
+					valueStr += fmt.Sprintf("SampleCount: %.0f ", *datapoint.SampleCount)
+				}
+
+				// Add to OKeyValueList
+				callInfo.OKeyValueList = append(callInfo.OKeyValueList, irs.KeyValue{
+					Key:   key,
+					Value: valueStr,
+				})
+			}
+		}
+	}
+
+	return callInfo, nil
+}
+
+func getEC2Metric(cwClient *cloudwatch.CloudWatch, instanceID string, metricName string) ([]*cloudwatch.Datapoint, error) {
+	endTime := time.Now()
+	startTime := endTime.Add(-4 * time.Hour) // 6 hour ago
+
+	input := &cloudwatch.GetMetricStatisticsInput{
+		Namespace:  aws.String("AWS/EC2"),
+		MetricName: aws.String(metricName),
+		Dimensions: []*cloudwatch.Dimension{
+			{
+				Name:  aws.String("InstanceId"),
+				Value: aws.String(instanceID),
+			},
+		},
+		StartTime: aws.Time(startTime),
+		EndTime:   aws.Time(endTime),
+		Period:    aws.Int64(300), // 5 minutes
+		Statistics: []*string{
+			aws.String("Average"),
+			aws.String("Minimum"),
+			aws.String("Maximum"),
+			aws.String("Sum"),
+			aws.String("SampleCount"),
+		},
+	}
+
+	resp, err := cwClient.GetMetricStatistics(input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get metric statistics: %v", err)
+	}
+
+	return resp.Datapoints, nil
 }

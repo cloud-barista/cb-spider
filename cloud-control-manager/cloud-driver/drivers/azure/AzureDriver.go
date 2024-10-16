@@ -12,24 +12,24 @@ package azure
 
 import (
 	"context"
-	"github.com/Azure/azure-sdk-for-go/services/containerservice/mgmt/2022-03-01/containerservice"
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2019-11-01/subscriptions"
-	"github.com/Azure/go-autorest/autorest"
-	"github.com/Azure/go-autorest/autorest/azure"
-	"github.com/Azure/go-autorest/autorest/to"
-	cblogger "github.com/cloud-barista/cb-log"
-	"github.com/sirupsen/logrus"
 	"time"
 
-	"github.com/Azure/azure-sdk-for-go/profiles/2020-09-01/monitor/mgmt/insights"
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
-	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2021-02-01/network"
-	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2020-10-01/resources"
-	"github.com/Azure/go-autorest/autorest/azure/auth"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/Azure/azure-sdk-for-go/sdk/monitor/azquery"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/subscription/armsubscription"
+	cblogger "github.com/cloud-barista/cb-log"
+	"github.com/sirupsen/logrus"
+
 	azcon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure/connect"
 	azrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
+	ires "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
 var cblog *logrus.Logger
@@ -66,36 +66,37 @@ func (AzureDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.PriceInfoHandler = true
 	drvCapabilityInfo.ClusterHandler = true
 	drvCapabilityInfo.TagHandler = true
+	// ires.SUBNET: not supported (Azure: tagging to VPC)
+	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.ALL, ires.VPC, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER}
 
 	return drvCapabilityInfo
 }
 
-func getResourceClient(connectionInfo idrv.ConnectionInfo) (*resources.GroupsClient, *context.Context, error) {
-	config := auth.NewClientCredentialsConfig(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, connectionInfo.CredentialInfo.TenantId)
-	authorizer, err := config.Authorizer()
+func getResourceGroupsClient(credential idrv.CredentialInfo) (context.Context, *armresources.ResourceGroupsClient, error) {
+	cred, err := getCred(credential)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	resourceClient := resources.NewGroupsClient(connectionInfo.CredentialInfo.SubscriptionId)
-	resourceClient.Authorizer = authorizer
+	resourceGroupsClient, err := armresources.NewResourceGroupsClient(credential.SubscriptionId, cred, nil)
+	if err != nil {
+		return nil, nil, err
+	}
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
-	return &resourceClient, &ctx, nil
+	return ctx, resourceGroupsClient, nil
 }
 
 func hasResourceGroup(connectionInfo idrv.ConnectionInfo) (bool, error) {
-	resourceClient, ctx, err := getResourceClient(connectionInfo)
+	ctx, resourceGroupsClient, err := getResourceGroupsClient(connectionInfo.CredentialInfo)
 	if err != nil {
 		return false, err
 	}
 
-	_, err = (*resourceClient).Get(*ctx, connectionInfo.RegionInfo.Region)
+	_, err = (*resourceGroupsClient).Get(ctx, connectionInfo.RegionInfo.Region, nil)
 	if err != nil {
-		de, ok := err.(autorest.DetailedError)
-		if ok && de.Original != nil {
-			re, ok := de.Original.(*azure.RequestError)
-			if ok && re.ServiceError != nil && re.ServiceError.Code == "ResourceGroupNotFound" {
+		reErr, ok := err.(*azcore.ResponseError)
+		if ok {
+			if reErr.ErrorCode == "ResourceGroupNotFound" {
 				return false, nil
 			}
 		}
@@ -105,16 +106,16 @@ func hasResourceGroup(connectionInfo idrv.ConnectionInfo) (bool, error) {
 }
 
 func createResourceGroup(connectionInfo idrv.ConnectionInfo) error {
-	resourceClient, ctx, err := getResourceClient(connectionInfo)
+	ctx, resourceGroupsClient, err := getResourceGroupsClient(connectionInfo.CredentialInfo)
 	if err != nil {
 		return err
 	}
 
-	_, err = resourceClient.CreateOrUpdate(*ctx, connectionInfo.RegionInfo.Region,
-		resources.Group{
-			Name:     to.StringPtr(connectionInfo.RegionInfo.Region),
-			Location: to.StringPtr(connectionInfo.RegionInfo.Region),
-		})
+	_, err = resourceGroupsClient.CreateOrUpdate(ctx, connectionInfo.RegionInfo.Region,
+		armresources.ResourceGroup{
+			Name:     &connectionInfo.RegionInfo.Region,
+			Location: &connectionInfo.RegionInfo.Region,
+		}, nil)
 	if err != nil {
 		return err
 	}
@@ -143,7 +144,7 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 		}
 	}
 
-	Ctx, client, err := getClient(connectionInfo.CredentialInfo)
+	Ctx, subscriptionsClient, err := getSubscriptionClient(connectionInfo.CredentialInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -235,23 +236,23 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	if err != nil {
 		return nil, err
 	}
-	Ctx, groupsClient, err := getGroupsClient(connectionInfo.CredentialInfo)
+	Ctx, resourceGroupsClient, err := getResourceGroupsClient(connectionInfo.CredentialInfo)
 	if err != nil {
 		return nil, err
 	}
-	Ctx, resourceSkusClient, err := getResourceSkusClient(connectionInfo.CredentialInfo)
+	Ctx, resourceSKUsClient, err := getResourceSKUsClient(connectionInfo.CredentialInfo)
 	if err != nil {
 		return nil, err
 	}
 	Ctx, tagsClient, err := getTagsClient(connectionInfo.CredentialInfo)
-    if err != nil {
-        return nil, err
-  }
+	if err != nil {
+		return nil, err
+	}
 	iConn := azcon.AzureCloudConnection{
 		CredentialInfo:                  connectionInfo.CredentialInfo,
 		Region:                          connectionInfo.RegionInfo,
 		Ctx:                             Ctx,
-		Client:                          client,
+		SubscriptionsClient:             subscriptionsClient,
 		VMClient:                        VMClient,
 		ImageClient:                     imageClient,
 		PublicIPClient:                  publicIPClient,
@@ -274,9 +275,9 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 		VirtualMachineScaleSetsClient:   virtualMachineScaleSetsClient,
 		VirtualMachineScaleSetVMsClient: virtualMachineScaleSetVMsClient,
 		VirtualMachineRunCommandsClient: virtualMachineRunCommandClient,
-		GroupsClient:                    groupsClient,
-		TagsClient: 										 tagsClient,
-		ResourceSkusClient:              resourceSkusClient,
+		ResourceGroupsClient:            resourceGroupsClient,
+		TagsClient:                      tagsClient,
+		ResourceSKUsClient:              resourceSKUsClient,
 	}
 
 	regionZoneHandler, err := iConn.CreateRegionZoneHandler()
@@ -311,358 +312,379 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	return &iConn, nil
 }
 
-func getClient(credential idrv.CredentialInfo) (context.Context, *subscriptions.Client, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+func getCred(credential idrv.CredentialInfo) (*azidentity.ClientSecretCredential, error) {
+	cred, err := azidentity.NewClientSecretCredential(credential.TenantId, credential.ClientId, credential.ClientSecret, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return cred, nil
+}
+
+func getSubscriptionClient(credential idrv.CredentialInfo) (context.Context, *armsubscription.SubscriptionsClient, error) {
+	cred, err := getCred(credential)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	client := subscriptions.NewClient()
-	client.Authorizer = authorizer
+	subscriptionsClient, err := armsubscription.NewSubscriptionsClient(cred, nil)
+	if err != nil {
+		return nil, nil, err
+	}
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
-	return ctx, &client, nil
+	return ctx, subscriptionsClient, nil
 }
 
-func getVMClient(credential idrv.CredentialInfo) (context.Context, *compute.VirtualMachinesClient, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+func getVMClient(credential idrv.CredentialInfo) (context.Context, *armcompute.VirtualMachinesClient, error) {
+	cred, err := getCred(credential)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	vmClient := compute.NewVirtualMachinesClient(credential.SubscriptionId)
-	vmClient.Authorizer = authorizer
+	vmClient, err := armcompute.NewVirtualMachinesClient(credential.SubscriptionId, cred, nil)
+	if err != nil {
+		return nil, nil, err
+	}
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
-	return ctx, &vmClient, nil
+	return ctx, vmClient, nil
 }
 
-func getImageClient(credential idrv.CredentialInfo) (context.Context, *compute.ImagesClient, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+func getImageClient(credential idrv.CredentialInfo) (context.Context, *armcompute.ImagesClient, error) {
+	cred, err := getCred(credential)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	imageClient := compute.NewImagesClient(credential.SubscriptionId)
-	imageClient.Authorizer = authorizer
+	imageClient, err := armcompute.NewImagesClient(credential.SubscriptionId, cred, nil)
+	if err != nil {
+		return nil, nil, err
+	}
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
-	return ctx, &imageClient, nil
+	return ctx, imageClient, nil
 }
 
-func getPublicIPClient(credential idrv.CredentialInfo) (context.Context, *network.PublicIPAddressesClient, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+func getPublicIPClient(credential idrv.CredentialInfo) (context.Context, *armnetwork.PublicIPAddressesClient, error) {
+	cred, err := getCred(credential)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	publicIPClient := network.NewPublicIPAddressesClient(credential.SubscriptionId)
-	publicIPClient.Authorizer = authorizer
+	publicIPClient, err := armnetwork.NewPublicIPAddressesClient(credential.SubscriptionId, cred, nil)
+	if err != nil {
+		return nil, nil, err
+	}
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
-	return ctx, &publicIPClient, nil
+	return ctx, publicIPClient, nil
 }
 
-func getSecurityGroupClient(credential idrv.CredentialInfo) (context.Context, *network.SecurityGroupsClient, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+func getSecurityGroupClient(credential idrv.CredentialInfo) (context.Context, *armnetwork.SecurityGroupsClient, error) {
+	cred, err := getCred(credential)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	sgClient := network.NewSecurityGroupsClient(credential.SubscriptionId)
-	sgClient.Authorizer = authorizer
+	sgClient, err := armnetwork.NewSecurityGroupsClient(credential.SubscriptionId, cred, nil)
+	if err != nil {
+		return nil, nil, err
+	}
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
-	return ctx, &sgClient, nil
+	return ctx, sgClient, nil
 }
 
-func getSecurityGroupRuleClient(credential idrv.CredentialInfo) (context.Context, *network.SecurityRulesClient, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+func getSecurityGroupRuleClient(credential idrv.CredentialInfo) (context.Context, *armnetwork.SecurityRulesClient, error) {
+	cred, err := getCred(credential)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	sgClient := network.NewSecurityRulesClient(credential.SubscriptionId)
-	sgClient.Authorizer = authorizer
+	sgClient, err := armnetwork.NewSecurityRulesClient(credential.SubscriptionId, cred, nil)
+	if err != nil {
+		return nil, nil, err
+	}
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
-	return ctx, &sgClient, nil
+	return ctx, sgClient, nil
 }
 
-func getVNetworkClient(credential idrv.CredentialInfo) (context.Context, *network.VirtualNetworksClient, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+func getVNetworkClient(credential idrv.CredentialInfo) (context.Context, *armnetwork.VirtualNetworksClient, error) {
+	cred, err := getCred(credential)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	vNetClient := network.NewVirtualNetworksClient(credential.SubscriptionId)
-	vNetClient.Authorizer = authorizer
+	vNetClient, err := armnetwork.NewVirtualNetworksClient(credential.SubscriptionId, cred, nil)
+	if err != nil {
+		return nil, nil, err
+	}
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
-	return ctx, &vNetClient, nil
+	return ctx, vNetClient, nil
 }
 
-func getVNicClient(credential idrv.CredentialInfo) (context.Context, *network.InterfacesClient, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+func getVNicClient(credential idrv.CredentialInfo) (context.Context, *armnetwork.InterfacesClient, error) {
+	cred, err := getCred(credential)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	vNicClient := network.NewInterfacesClient(credential.SubscriptionId)
-	vNicClient.Authorizer = authorizer
+	vNicClient, err := armnetwork.NewInterfacesClient(credential.SubscriptionId, cred, nil)
+	if err != nil {
+		return nil, nil, err
+	}
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
-	return ctx, &vNicClient, nil
+	return ctx, vNicClient, nil
 }
 
-func getIPConfigClient(credential idrv.CredentialInfo) (context.Context, *network.InterfaceIPConfigurationsClient, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+func getIPConfigClient(credential idrv.CredentialInfo) (context.Context, *armnetwork.InterfaceIPConfigurationsClient, error) {
+	cred, err := getCred(credential)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	ipConfigClient := network.NewInterfaceIPConfigurationsClient(credential.SubscriptionId)
-	ipConfigClient.Authorizer = authorizer
+	ipConfigClient, err := armnetwork.NewInterfaceIPConfigurationsClient(credential.SubscriptionId, cred, nil)
+	if err != nil {
+		return nil, nil, err
+	}
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
-	return ctx, &ipConfigClient, nil
+	return ctx, ipConfigClient, nil
 }
 
-func getSubnetClient(credential idrv.CredentialInfo) (context.Context, *network.SubnetsClient, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+func getSubnetClient(credential idrv.CredentialInfo) (context.Context, *armnetwork.SubnetsClient, error) {
+	cred, err := getCred(credential)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	subnetClient := network.NewSubnetsClient(credential.SubscriptionId)
-	subnetClient.Authorizer = authorizer
+	subnetClient, err := armnetwork.NewSubnetsClient(credential.SubscriptionId, cred, nil)
+	if err != nil {
+		return nil, nil, err
+	}
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
-	return ctx, &subnetClient, nil
+	return ctx, subnetClient, nil
 }
 
-func getSshKeyClient(credential idrv.CredentialInfo) (context.Context, *compute.SSHPublicKeysClient, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+func getSshKeyClient(credential idrv.CredentialInfo) (context.Context, *armcompute.SSHPublicKeysClient, error) {
+	cred, err := getCred(credential)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	sshClientClient := compute.NewSSHPublicKeysClient(credential.SubscriptionId)
-	sshClientClient.Authorizer = authorizer
+	sshClientClient, err := armcompute.NewSSHPublicKeysClient(credential.SubscriptionId, cred, nil)
+	if err != nil {
+		return nil, nil, err
+	}
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
-	return ctx, &sshClientClient, nil
+	return ctx, sshClientClient, nil
 }
 
-func getVMImageClient(credential idrv.CredentialInfo) (context.Context, *compute.VirtualMachineImagesClient, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+func getVMImageClient(credential idrv.CredentialInfo) (context.Context, *armcompute.VirtualMachineImagesClient, error) {
+	cred, err := getCred(credential)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	vmImageClient := compute.NewVirtualMachineImagesClient(credential.SubscriptionId)
-	vmImageClient.Authorizer = authorizer
+	vmImageClient, err := armcompute.NewVirtualMachineImagesClient(credential.SubscriptionId, cred, nil)
+	if err != nil {
+		return nil, nil, err
+	}
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
-	return ctx, &vmImageClient, nil
+	return ctx, vmImageClient, nil
 }
 
-func getDiskClient(credential idrv.CredentialInfo) (context.Context, *compute.DisksClient, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+func getDiskClient(credential idrv.CredentialInfo) (context.Context, *armcompute.DisksClient, error) {
+	cred, err := getCred(credential)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	diskClient := compute.NewDisksClient(credential.SubscriptionId)
-	diskClient.Authorizer = authorizer
+	diskClient, err := armcompute.NewDisksClient(credential.SubscriptionId, cred, nil)
+	if err != nil {
+		return nil, nil, err
+	}
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
-	return ctx, &diskClient, nil
+	return ctx, diskClient, nil
 }
 
-func getVmSpecClient(credential idrv.CredentialInfo) (context.Context, *compute.VirtualMachineSizesClient, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+func getVmSpecClient(credential idrv.CredentialInfo) (context.Context, *armcompute.VirtualMachineSizesClient, error) {
+	cred, err := getCred(credential)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	vmSpecClient := compute.NewVirtualMachineSizesClient(credential.SubscriptionId)
-	vmSpecClient.Authorizer = authorizer
+	vmSpecClient, err := armcompute.NewVirtualMachineSizesClient(credential.SubscriptionId, cred, nil)
+	if err != nil {
+		return nil, nil, err
+	}
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
-	return ctx, &vmSpecClient, nil
+	return ctx, vmSpecClient, nil
 }
 
-func getNLBClient(credential idrv.CredentialInfo) (context.Context, *network.LoadBalancersClient, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+func getNLBClient(credential idrv.CredentialInfo) (context.Context, *armnetwork.LoadBalancersClient, error) {
+	cred, err := getCred(credential)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	nlbClient := network.NewLoadBalancersClient(credential.SubscriptionId)
-	nlbClient.Authorizer = authorizer
+	nlbClient, err := armnetwork.NewLoadBalancersClient(credential.SubscriptionId, cred, nil)
+	if err != nil {
+		return nil, nil, err
+	}
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
-	return ctx, &nlbClient, nil
+	return ctx, nlbClient, nil
 }
 
-func getNLBBackendAddressPoolsClient(credential idrv.CredentialInfo) (context.Context, *network.LoadBalancerBackendAddressPoolsClient, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+func getNLBBackendAddressPoolsClient(credential idrv.CredentialInfo) (context.Context, *armnetwork.LoadBalancerBackendAddressPoolsClient, error) {
+	cred, err := getCred(credential)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	nlbBackendAddressPoolsClient := network.NewLoadBalancerBackendAddressPoolsClient(credential.SubscriptionId)
-	nlbBackendAddressPoolsClient.Authorizer = authorizer
+	nlbBackendAddressPoolsClient, err := armnetwork.NewLoadBalancerBackendAddressPoolsClient(credential.SubscriptionId, cred, nil)
+	if err != nil {
+		return nil, nil, err
+	}
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
-	return ctx, &nlbBackendAddressPoolsClient, nil
+	return ctx, nlbBackendAddressPoolsClient, nil
 }
 
-func getLoadBalancingRulesClient(credential idrv.CredentialInfo) (context.Context, *network.LoadBalancerLoadBalancingRulesClient, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+func getLoadBalancingRulesClient(credential idrv.CredentialInfo) (context.Context, *armnetwork.LoadBalancerLoadBalancingRulesClient, error) {
+	cred, err := getCred(credential)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	nlbBackendAddressPoolsClient := network.NewLoadBalancerLoadBalancingRulesClient(credential.SubscriptionId)
-	nlbBackendAddressPoolsClient.Authorizer = authorizer
+	nlbBackendAddressPoolsClient, err := armnetwork.NewLoadBalancerLoadBalancingRulesClient(credential.SubscriptionId, cred, nil)
+	if err != nil {
+		return nil, nil, err
+	}
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
-	return ctx, &nlbBackendAddressPoolsClient, nil
+	return ctx, nlbBackendAddressPoolsClient, nil
 }
 
-func getMetricClient(credential idrv.CredentialInfo) (context.Context, *insights.MetricsClient, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+func getMetricClient(credential idrv.CredentialInfo) (context.Context, *azquery.MetricsClient, error) {
+	cred, err := getCred(credential)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	metricClient := insights.NewMetricsClient(credential.SubscriptionId)
-	metricClient.Authorizer = authorizer
-	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
-
-	return ctx, &metricClient, nil
-}
-
-func getManagedClustersClient(credential idrv.CredentialInfo) (context.Context, *containerservice.ManagedClustersClient, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+	metricClient, err := azquery.NewMetricsClient(cred, nil)
 	if err != nil {
 		return nil, nil, err
 	}
-	managedClustersClient := containerservice.NewManagedClustersClient(credential.SubscriptionId)
-	managedClustersClient.Authorizer = authorizer
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
-	return ctx, &managedClustersClient, nil
+	return ctx, metricClient, nil
 }
 
-func getAgentPoolsClient(credential idrv.CredentialInfo) (context.Context, *containerservice.AgentPoolsClient, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+func getManagedClustersClient(credential idrv.CredentialInfo) (context.Context, *armcontainerservice.ManagedClustersClient, error) {
+	cred, err := getCred(credential)
 	if err != nil {
 		return nil, nil, err
 	}
-	agentPoolsClient := containerservice.NewAgentPoolsClient(credential.SubscriptionId)
-	agentPoolsClient.Authorizer = authorizer
-	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
-
-	return ctx, &agentPoolsClient, nil
-}
-
-func getVirtualMachineScaleSetsClient(credential idrv.CredentialInfo) (context.Context, *compute.VirtualMachineScaleSetsClient, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+	managedClustersClient, err := armcontainerservice.NewManagedClustersClient(credential.SubscriptionId, cred, nil)
 	if err != nil {
 		return nil, nil, err
 	}
-	virtualMachineScaleSetsClient := compute.NewVirtualMachineScaleSetsClient(credential.SubscriptionId)
-	virtualMachineScaleSetsClient.Authorizer = authorizer
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
-	return ctx, &virtualMachineScaleSetsClient, nil
+	return ctx, managedClustersClient, nil
 }
 
-func getVirtualMachineScaleSetVMsClient(credential idrv.CredentialInfo) (context.Context, *compute.VirtualMachineScaleSetVMsClient, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+func getAgentPoolsClient(credential idrv.CredentialInfo) (context.Context, *armcontainerservice.AgentPoolsClient, error) {
+	cred, err := getCred(credential)
 	if err != nil {
 		return nil, nil, err
 	}
-	virtualMachineScaleSetVMsClient := compute.NewVirtualMachineScaleSetVMsClient(credential.SubscriptionId)
-	virtualMachineScaleSetVMsClient.Authorizer = authorizer
-	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
-
-	return ctx, &virtualMachineScaleSetVMsClient, nil
-}
-
-func getVirtualMachineRunCommandClient(credential idrv.CredentialInfo) (context.Context, *compute.VirtualMachineRunCommandsClient, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+	agentPoolsClient, err := armcontainerservice.NewAgentPoolsClient(credential.SubscriptionId, cred, nil)
 	if err != nil {
 		return nil, nil, err
 	}
-	virtualMachineRunCommandsClient := compute.NewVirtualMachineRunCommandsClient(credential.SubscriptionId)
-	virtualMachineRunCommandsClient.Authorizer = authorizer
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
-	return ctx, &virtualMachineRunCommandsClient, nil
+	return ctx, agentPoolsClient, nil
 }
 
-func getGroupsClient(credential idrv.CredentialInfo) (context.Context, *resources.GroupsClient, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+func getVirtualMachineScaleSetsClient(credential idrv.CredentialInfo) (context.Context, *armcompute.VirtualMachineScaleSetsClient, error) {
+	cred, err := getCred(credential)
 	if err != nil {
 		return nil, nil, err
 	}
-	groupsClient := resources.NewGroupsClient(credential.SubscriptionId)
-	groupsClient.Authorizer = authorizer
-	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
-
-	return ctx, &groupsClient, nil
-}
-
-func getResourceSkusClient(credential idrv.CredentialInfo) (context.Context, *compute.ResourceSkusClient, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+	virtualMachineScaleSetsClient, err := armcompute.NewVirtualMachineScaleSetsClient(credential.SubscriptionId, cred, nil)
 	if err != nil {
 		return nil, nil, err
 	}
-	resourceSkusClient := compute.NewResourceSkusClient(credential.SubscriptionId)
-	resourceSkusClient.Authorizer = authorizer
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
-	return ctx, &resourceSkusClient, nil
+	return ctx, virtualMachineScaleSetsClient, nil
 }
-func getTagsClient(credential idrv.CredentialInfo) (context.Context, *resources.TagsClient, error) {
-	config := auth.NewClientCredentialsConfig(credential.ClientId, credential.ClientSecret, credential.TenantId)
-	authorizer, err := config.Authorizer()
+
+func getVirtualMachineScaleSetVMsClient(credential idrv.CredentialInfo) (context.Context, *armcompute.VirtualMachineScaleSetVMsClient, error) {
+	cred, err := getCred(credential)
 	if err != nil {
-			return nil, nil, err
+		return nil, nil, err
+	}
+	virtualMachineScaleSetVMsClient, err := armcompute.NewVirtualMachineScaleSetVMsClient(credential.SubscriptionId, cred, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+
+	return ctx, virtualMachineScaleSetVMsClient, nil
+}
+
+func getVirtualMachineRunCommandClient(credential idrv.CredentialInfo) (context.Context, *armcompute.VirtualMachineRunCommandsClient, error) {
+	cred, err := getCred(credential)
+	if err != nil {
+		return nil, nil, err
+	}
+	virtualMachineRunCommandsClient, err := armcompute.NewVirtualMachineRunCommandsClient(credential.SubscriptionId, cred, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+
+	return ctx, virtualMachineRunCommandsClient, nil
+}
+
+func getResourceSKUsClient(credential idrv.CredentialInfo) (context.Context, *armcompute.ResourceSKUsClient, error) {
+	cred, err := getCred(credential)
+	if err != nil {
+		return nil, nil, err
+	}
+	resourceSKUsClient, err := armcompute.NewResourceSKUsClient(credential.SubscriptionId, cred, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+
+	return ctx, resourceSKUsClient, nil
+}
+func getTagsClient(credential idrv.CredentialInfo) (context.Context, *armresources.TagsClient, error) {
+	cred, err := getCred(credential)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	tagsClient := resources.NewTagsClient(credential.SubscriptionId)
-	tagsClient.Authorizer = authorizer
+	tagsClient, err := armresources.NewTagsClient(credential.SubscriptionId, cred, nil)
+	if err != nil {
+		return nil, nil, err
+	}
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
-	return ctx, &tagsClient, nil
+	return ctx, tagsClient, nil
 }

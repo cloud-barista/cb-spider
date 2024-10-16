@@ -463,10 +463,14 @@ func CreateCluster(connectionName string, rsType string, reqInfo cres.ClusterInf
 		if providerName == "NHNCLOUD" && idx == 0 {
 			nodeGroupUUID = "default-worker" // fixed name in NHN
 		} else {
-			nodeGroupUUID, err = iidm.New(connectionName, NODEGROUP, info.IId.NameId)
-			if err != nil {
-				cblog.Error(err)
-				return nil, err
+			if GetID_MGMT(IDTransformMode) == "ON" { // Use IID Management
+				nodeGroupUUID, err = iidm.New(connectionName, NODEGROUP, info.IId.NameId)
+				if err != nil {
+					cblog.Error(err)
+					return nil, err
+				}
+			} else { // No Use IID Management
+				nodeGroupUUID = info.IId.NameId
 			}
 		}
 
@@ -580,7 +584,7 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 	// (1) VpcIID
 	// get spiderIID
 	var vpcIIDInfo VPCIIDInfo
-	err := infostore.GetByContain(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, getMSShortID(netInfo.VpcIID.SystemId))
+	err := infostore.GetByContain(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, netInfo.VpcIID.SystemId)
 	if err != nil {
 		cblog.Error(err)
 		return err
@@ -592,7 +596,7 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 	for idx, subnetIID := range netInfo.SubnetIIDs {
 		var subnetIIdInfo SubnetIIDInfo
 		err := infostore.GetByConditionsAndContain(&subnetIIdInfo, CONNECTION_NAME_COLUMN, connectionName,
-			OWNER_VPC_NAME_COLUMN, vpcIIDInfo.NameId, SYSTEM_ID_COLUMN, getMSShortID(subnetIID.SystemId))
+			OWNER_VPC_NAME_COLUMN, vpcIIDInfo.NameId, SYSTEM_ID_COLUMN, subnetIID.SystemId)
 		if err != nil {
 			cblog.Error(err)
 			return err
@@ -605,7 +609,7 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 	for idx, sgIID := range netInfo.SecurityGroupIIDs {
 		var sgIIdInfo SGIIDInfo
 		err := infostore.GetByConditionsAndContain(&sgIIdInfo, CONNECTION_NAME_COLUMN, connectionName,
-			OWNER_VPC_NAME_COLUMN, netInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, getMSShortID(sgIID.SystemId))
+			OWNER_VPC_NAME_COLUMN, netInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, sgIID.SystemId)
 		if err != nil {
 			providerName, getErr := ccm.GetProviderNameByConnectionName(connectionName)
 			if getErr != nil {
@@ -638,7 +642,7 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 		var ngIIDInfo NodeGroupIIDInfo
 		hasNodeGroup := true
 		err := infostore.GetByConditionsAndContain(&ngIIDInfo, CONNECTION_NAME_COLUMN, connectionName,
-			OWNER_CLUSTER_NAME_COLUMN, info.IId.NameId, SYSTEM_ID_COLUMN, getMSShortID(ngInfo.IId.SystemId))
+			OWNER_CLUSTER_NAME_COLUMN, info.IId.NameId, SYSTEM_ID_COLUMN, ngInfo.IId.SystemId)
 		if err != nil {
 			if checkNotFoundError(err) {
 				hasNodeGroup = false
@@ -659,13 +663,19 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 		// Have to use getMSShortID()
 		// because Azure has different uri of keypair SystemID.
 		// ex) /.../Microsoft.Network/.../ID vs /.../Microsoft.Compute/.../ID
-		err = infostore.GetByContain(&keyIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN,
-			getMSShortID(ngInfo.KeyPairIID.SystemId))
+		err = infostore.GetByContain(&keyIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, ngInfo.KeyPairIID.SystemId)
 		if err != nil {
 			cblog.Error(err)
 			return err
 		}
 		info.NodeGroupList[idx].KeyPairIID.NameId = keyIIDInfo.NameId
+
+		// (4) Set Nodes' NameId to SystemId if NameId is empty
+		for nodeIdx, nodeInfo := range ngInfo.Nodes {
+			if nodeInfo.NameId == "" {
+				info.NodeGroupList[idx].Nodes[nodeIdx].NameId = nodeInfo.SystemId
+			}
+		}
 	}
 
 	return nil
@@ -674,7 +684,7 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 // (1) get IID:list
 // (2) get ClusterInfo:list
 // (3) set userIID, and ...
-func ListCluster(connectionName string, nameSpace string, rsType string) ([]*cres.ClusterInfo, error) {
+func ListCluster(connectionName string, rsType string) ([]*cres.ClusterInfo, error) {
 	cblog.Info("call ListCluster()")
 
 	// check empty and trim user inputs
@@ -710,19 +720,10 @@ func ListCluster(connectionName string, nameSpace string, rsType string) ([]*cre
 		return nil, err
 	}
 
-	if nameSpace != "" {
-		nameSpace += "-"
-	}
-
 	// (2) Get ClusterInfo-list with IID-list
 	infoList2 := []*cres.ClusterInfo{}
 	for _, iidInfo := range iidInfoList {
 
-		if nameSpace != "" {
-			if !strings.HasPrefix(iidInfo.NameId, nameSpace) {
-				continue
-			}
-		}
 		clusterSPLock.RLock(connectionName, iidInfo.NameId)
 
 		// get resource(SystemId)
@@ -836,7 +837,7 @@ func GetCluster(connectionName string, rsType string, clusterName string) (*cres
 // (2) add NodeGroup
 // (3) Get ClusterInfo
 // (4) Set ResoureInfo
-func AddNodeGroup(connectionName string, rsType string, clusterName string, reqInfo cres.NodeGroupInfo) (*cres.ClusterInfo, error) {
+func AddNodeGroup(connectionName string, rsType string, clusterName string, reqInfo cres.NodeGroupInfo, IDTransformMode string) (*cres.ClusterInfo, error) {
 	cblog.Info("call AddNodeGroup()")
 
 	// check empty and trim user inputs
@@ -914,7 +915,7 @@ func AddNodeGroup(connectionName string, rsType string, clusterName string, reqI
 
 	// (1) check exist(NameID)
 	var ngIIdInfoList []*NodeGroupIIDInfo
-	err = infostore.ListByCondition(&ngIIdInfoList, CONNECTION_NAME_COLUMN, connectionName)
+	err = infostore.ListByConditions(&ngIIdInfoList, CONNECTION_NAME_COLUMN, connectionName, OWNER_CLUSTER_NAME_COLUMN, clusterName)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
@@ -935,10 +936,15 @@ func AddNodeGroup(connectionName string, rsType string, clusterName string, reqI
 	// refine RootDisk and RootDiskSize in reqInfo(NodeGroupInfo)
 	translateRootDiskInfo(providerName, &reqInfo)
 
-	nodeGroupUUID, err := iidm.New(connectionName, NODEGROUP, reqInfo.IId.NameId)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	nodeGroupUUID := ""
+	if GetID_MGMT(IDTransformMode) == "ON" { // Use IID Management
+		nodeGroupUUID, err = iidm.New(connectionName, NODEGROUP, reqInfo.IId.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else { // No Use IID Management
+		nodeGroupUUID = reqInfo.IId.NameId
 	}
 
 	// driverIID
@@ -1206,7 +1212,7 @@ func ChangeNodeGroupScaling(connectionName string, clusterName string, nodeGroup
 	// ++++++++++++++++++
 	// (1) NodeGroup IID
 	var ngIIDInfo NodeGroupIIDInfo
-	err = infostore.GetByContain(&ngIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, getMSShortID(ngInfo.IId.SystemId))
+	err = infostore.GetByContain(&ngIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, ngInfo.IId.SystemId)
 	if err != nil {
 		cblog.Error(err)
 		return cres.NodeGroupInfo{}, err
@@ -1218,7 +1224,7 @@ func ChangeNodeGroupScaling(connectionName string, clusterName string, nodeGroup
 
 	// (3) Get KeyPair IIDInfo with SystemId
 	var keyIIDInfo KeyIIDInfo
-	err = infostore.GetByContain(&keyIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, getMSShortID(ngInfo.KeyPairIID.SystemId))
+	err = infostore.GetByContain(&keyIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, ngInfo.KeyPairIID.SystemId)
 	if err != nil {
 		cblog.Error(err)
 		return cres.NodeGroupInfo{}, err

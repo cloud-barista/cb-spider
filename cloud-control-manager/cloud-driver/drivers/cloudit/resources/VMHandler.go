@@ -14,12 +14,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
-	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/disk"
-	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/snapshot"
 	"strconv"
 	"strings"
 	"time"
+
+	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
+	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/disk"
+	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client/ace/snapshot"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit/client"
@@ -1267,4 +1268,9 @@ func notSupportRootDiskCustom(vmReqInfo irs.VMReqInfo) error {
 		return errors.New("CLOUDIT_CANNOT_CHANGE_ROOTDISKSIZE")
 	}
 	return nil
+}
+
+func (vmHandler *ClouditVMHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

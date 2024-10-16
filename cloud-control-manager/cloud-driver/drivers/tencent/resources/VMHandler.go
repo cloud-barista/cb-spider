@@ -186,11 +186,13 @@ func (vmHandler *TencentVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 		})
 	}
 
-	request.TagSpecification = []*cvm.TagSpecification{
-		{
-			ResourceType: common.StringPtr("instance"),
-			Tags:         tags,
-		},
+	if len(tags) > 0 {
+		request.TagSpecification = []*cvm.TagSpecification{
+			{
+				ResourceType: common.StringPtr("instance"),
+				Tags:         tags,
+			},
+		}
 	}
 
 	// windows의 경우 keyPair set 하면 오류. password setting 되어있는지 확인
@@ -765,6 +767,17 @@ func (vmHandler *TencentVMHandler) ExtractDescribeInstances(curVm *cvm.Instance)
 		vmInfo.PrivateIP = *curVm.PrivateIpAddresses[0]
 	}
 
+	if !reflect.ValueOf(curVm.Tags).IsNil() {
+		var tagList []irs.KeyValue
+		for _, tag := range curVm.Tags {
+			tagList = append(tagList, irs.KeyValue{
+				Key:   *tag.Key,
+				Value: *tag.Value,
+			})
+		}
+		vmInfo.TagList = tagList
+	}
+
 	keyValueList := []irs.KeyValue{
 		{Key: "InstanceState", Value: *curVm.InstanceState},
 		{Key: "OsName", Value: *curVm.OsName},
@@ -1230,3 +1243,9 @@ Lighthouse API가 있으나 ClientInterface 부분 처리 방법 필요
 //
 //	return diskInfoList, nil
 //}
+
+
+func (vmHandler *TencentVMHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}

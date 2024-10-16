@@ -92,7 +92,7 @@ jobs:
           if [ -s "$temp_output" ]; then
             
             # Trim before checking if the file has content
-            trimmed_temp_outputs=$(cat "$temp_output" | tr '\n' ' ' | tr -s ' ')
+            trimmed_temp_outputs=$(<"$temp_output" tr -d '\n\r\t ')
             echo "(DEBUG) Trimmed temp_output:"
             echo "$trimmed_temp_outputs"
               

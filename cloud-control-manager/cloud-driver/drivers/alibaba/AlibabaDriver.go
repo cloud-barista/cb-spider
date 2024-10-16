@@ -32,6 +32,7 @@ import (
 	alirs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
+	ires "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
 var cblog *logrus.Logger
@@ -61,6 +62,10 @@ func (AlibabaDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.ClusterHandler = true
 	drvCapabilityInfo.RegionZoneHandler = true
 	drvCapabilityInfo.PriceInfoHandler = true
+	drvCapabilityInfo.TagHandler = true
+	// ires.VPC, ires.SUBNET: only supported when creatiing
+	// ires.CLUSTER: not supported
+	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.ALL, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE}
 
 	return drvCapabilityInfo
 }

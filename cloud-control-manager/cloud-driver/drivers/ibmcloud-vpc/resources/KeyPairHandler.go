@@ -4,14 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+
 	"github.com/IBM/go-sdk-core/v5/core"
+	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"net/url"
 )
 
 type IbmKeyPairHandler struct {
@@ -19,6 +21,8 @@ type IbmKeyPairHandler struct {
 	Region         idrv.RegionInfo
 	VpcService     *vpcv1.VpcV1
 	Ctx            context.Context
+	TaggingService *globaltaggingv1.GlobalTaggingV1
+	SearchService  *globalsearchv2.GlobalSearchV2
 }
 
 func (keyPairHandler *IbmKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
@@ -69,26 +73,35 @@ func (keyPairHandler *IbmKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 		LoggingError(hiscallInfo, createErr)
 		return irs.KeyPairInfo{}, createErr
 	}
-	createKeypairInfo, err := setKeyInfo(*key, string(privateKey))
+
+	// Attach Tag
+	if keyPairReqInfo.TagList != nil && len(keyPairReqInfo.TagList) > 0 {
+		if key.CRN == nil {
+			createErr := errors.New(fmt.Sprintf("Failed to get created Key's CRN"))
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.KeyPairInfo{}, createErr
+		}
+
+		for _, tag := range keyPairReqInfo.TagList {
+			err = addTag(keyPairHandler.TaggingService, tag, *key.CRN)
+			if err != nil {
+				createErr := errors.New(fmt.Sprintf("Failed to Attach Tag to Key err = %s", err.Error()))
+				cblogger.Error(createErr.Error())
+				LoggingError(hiscallInfo, createErr)
+			}
+		}
+	}
+
+	createKeypairInfo, err := keyPairHandler.setKeyInfo(*key, string(privateKey))
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create Key. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.KeyPairInfo{}, createErr
 	}
-	LoggingInfo(hiscallInfo, start)
 
-	// Attach Tag
-	if keyPairReqInfo.TagList != nil && len(keyPairReqInfo.TagList) > 0{
-		var tagHandler irs.TagHandler // TagHandler 초기화
-		for _, tag := range keyPairReqInfo.TagList{
-			_, err := tagHandler.AddTag("KEY", keyPairReqInfo.IId, tag)
-			if err != nil {
-				createErr := errors.New(fmt.Sprintf("Failed to Attach Tag on KEY err = %s", err.Error()))
-				cblogger.Error(createErr.Error())
-			}
-		}
-	}
+	LoggingInfo(hiscallInfo, start)
 
 	return createKeypairInfo, nil
 }
@@ -107,7 +120,7 @@ func (keyPairHandler *IbmKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 	var ListKeys []*irs.KeyPairInfo
 	for {
 		for _, key := range keys.Keys {
-			keyInfo, err := setKeyInfo(key, "")
+			keyInfo, err := keyPairHandler.setKeyInfo(key, "")
 			if err != nil {
 				cblogger.Error(err.Error())
 				LoggingError(hiscallInfo, err)
@@ -146,7 +159,7 @@ func (keyPairHandler *IbmKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 		LoggingError(hiscallInfo, getErr)
 		return irs.KeyPairInfo{}, getErr
 	}
-	keyInfo, err := setKeyInfo(key, "")
+	keyInfo, err := keyPairHandler.setKeyInfo(key, "")
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Get Key err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -196,17 +209,8 @@ func (keyPairHandler *IbmKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error)
 		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
-	
-	// Detach Tag Auto Delete 
-	var tagService *globaltaggingv1.GlobalTaggingV1
-	deleteTagAllOptions := tagService.NewDeleteTagAllOptions()
-	deleteTagAllOptions.SetTagType("user")
 
-	_, _, err = tagService.DeleteTagAll(deleteTagAllOptions)
-	if err != nil {
-		delErr := errors.New(fmt.Sprintf("Failed to Delete KEY Detached Tag err = %s", err.Error()))
-		cblogger.Error(delErr.Error())
-	}
+	deleteUnusedTags(keyPairHandler.TaggingService)
 
 	return true, nil
 }
@@ -243,7 +247,7 @@ func (keyPairHandler *IbmKeyPairHandler) existKey(keyIID irs.IID) (bool, error) 
 	}
 }
 
-func setKeyInfo(key vpcv1.Key, privateKey string) (irs.KeyPairInfo, error) {
+func (keyPairHandler *IbmKeyPairHandler) setKeyInfo(key vpcv1.Key, privateKey string) (irs.KeyPairInfo, error) {
 	keypairInfo := irs.KeyPairInfo{
 		IId: irs.IID{
 			NameId:   *key.Name,
@@ -253,6 +257,22 @@ func setKeyInfo(key vpcv1.Key, privateKey string) (irs.KeyPairInfo, error) {
 		PublicKey:   *key.PublicKey,
 		PrivateKey:  privateKey,
 	}
+
+	tagHandler := IbmTagHandler{
+		Region:         keyPairHandler.Region,
+		CredentialInfo: keyPairHandler.CredentialInfo,
+		VpcService:     keyPairHandler.VpcService,
+		Ctx:            keyPairHandler.Ctx,
+		SearchService:  keyPairHandler.SearchService,
+	}
+
+	tags, err := tagHandler.ListTag(irs.KEY, irs.IID{SystemId: *key.ID})
+	if err != nil {
+		cblogger.Warn("Failed to get tags of the Key (" + *key.Name + "). err = " + err.Error())
+	}
+
+	keypairInfo.TagList = tags
+
 	return keypairInfo, nil
 }
 
@@ -325,4 +345,54 @@ func getKeyNextHref(next *vpcv1.KeyCollectionNext) (string, error) {
 		}
 	}
 	return "", errors.New("NOT NEXT")
+}
+
+func (keyPairHandler *IbmKeyPairHandler) ListIID() ([]*irs.IID, error) {
+	hiscallInfo := GetCallLogScheme(keyPairHandler.Region, call.VMKEYPAIR, "VMKEYPAIR", "ListIID()")
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	listKeysOptions := &vpcv1.ListKeysOptions{}
+	keys, _, err := keyPairHandler.VpcService.ListKeysWithContext(keyPairHandler.Ctx, listKeysOptions)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Failed to List Key err = %s", err.Error()))
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+		return make([]*irs.IID, 0), err
+
+	}
+	for {
+		for _, key := range keys.Keys {
+			var iid irs.IID
+
+			if key.ID != nil {
+				iid.SystemId = *key.ID
+			}
+			if key.Name != nil {
+				iid.NameId = *key.Name
+			}
+
+			iidList = append(iidList, &iid)
+		}
+		nextstr, _ := getKeyNextHref(keys.Next)
+		if nextstr != "" {
+			listKeysOptions := &vpcv1.ListKeysOptions{
+				Start: core.StringPtr(nextstr),
+			}
+			keys, _, err = keyPairHandler.VpcService.ListKeysWithContext(keyPairHandler.Ctx, listKeysOptions)
+			if err != nil {
+				err = errors.New(fmt.Sprintf("Failed to List Key err = %s", err.Error()))
+				cblogger.Error(err.Error())
+				LoggingError(hiscallInfo, err)
+				return make([]*irs.IID, 0), err
+			}
+		} else {
+			break
+		}
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
 }

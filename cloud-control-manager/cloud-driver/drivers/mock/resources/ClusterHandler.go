@@ -57,6 +57,7 @@ func (clusterHandler *MockClusterHandler) CreateCluster(clusterReqInfo irs.Clust
 		nodeGroup.IId.SystemId = nodeGroup.IId.NameId
 		nodeGroup.ImageIID.SystemId = nodeGroup.ImageIID.NameId
 		nodeGroup.KeyPairIID.SystemId = nodeGroup.KeyPairIID.NameId
+		nodeGroup.Status = irs.NodeGroupActive
 		for j, node := range nodeGroup.Nodes {
 			node.SystemId = node.NameId
 			nodeGroup.Nodes[j] = node
@@ -243,6 +244,7 @@ func (clusterHandler *MockClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeG
 	}
 
 	nodeGroupReqInfo.IId.SystemId = nodeGroupReqInfo.IId.NameId
+	nodeGroupReqInfo.Status = irs.NodeGroupActive
 
 	for _, info := range infoList {
 		if info.IId.NameId == clusterIID.NameId {
@@ -361,4 +363,24 @@ func (clusterHandler *MockClusterHandler) UpgradeCluster(clusterIID irs.IID, new
 	}
 
 	return irs.ClusterInfo{}, fmt.Errorf("%s Cluster does not exist!!", clusterIID.NameId)
+}
+
+func (ClusterHandler *MockClusterHandler) ListIID() ([]*irs.IID, error) {
+	cblogger := cblog.GetLogger("CB-SPIDER")
+	cblogger.Info("Mock Driver: called ListIID()!")
+
+	clusterMapLock.RLock()
+	defer clusterMapLock.RUnlock()
+
+	mockName := ClusterHandler.MockName
+	infoList, ok := clusterInfoMap[mockName]
+	if !ok {
+		return []*irs.IID{}, nil
+	}
+
+	iidList := make([]*irs.IID, len(infoList))
+	for i, info := range infoList {
+		iidList[i] = &info.IId
+	}
+	return iidList, nil
 }

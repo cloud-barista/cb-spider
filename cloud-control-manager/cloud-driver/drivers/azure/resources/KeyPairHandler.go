@@ -5,9 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Azure/go-autorest/autorest/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 
-	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2021-03-01/compute"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -22,11 +21,11 @@ type AzureKeyPairHandler struct {
 	CredentialInfo idrv.CredentialInfo
 	Region         idrv.RegionInfo
 	Ctx            context.Context
-	Client         *compute.SSHPublicKeysClient
+	Client         *armcompute.SSHPublicKeysClient
 }
 
-func (keyPairHandler *AzureKeyPairHandler) setterKey(key compute.SSHPublicKeyResource, privateKey string) (*irs.KeyPairInfo, error) {
-	if key.Name == nil || key.ID == nil || key.PublicKey == nil {
+func (keyPairHandler *AzureKeyPairHandler) setterKey(key *armcompute.SSHPublicKeyResource, privateKey string) (*irs.KeyPairInfo, error) {
+	if key.Name == nil || key.ID == nil || key.Properties.PublicKey == nil {
 		return nil, errors.New(fmt.Sprintf("Invalid Key Resource"))
 	}
 	keypairInfo := irs.KeyPairInfo{
@@ -34,10 +33,10 @@ func (keyPairHandler *AzureKeyPairHandler) setterKey(key compute.SSHPublicKeyRes
 			NameId:   *key.Name,
 			SystemId: *key.ID,
 		},
-		PublicKey:  *key.PublicKey,
+		PublicKey:  *key.Properties.PublicKey,
 		PrivateKey: privateKey,
 	}
-	
+
 	if key.Tags != nil {
 		keypairInfo.TagList = setTagList(key.Tags)
 	}
@@ -78,17 +77,17 @@ func (keyPairHandler *AzureKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairR
 	privateKey, publicKey, err := keypair.GenKeyPair()
 
 	// 3. Set KeyPairData & keyPairReqInfo
-	createOpt := compute.SSHPublicKeyResource{
-		Location: to.StringPtr(keyPairHandler.Region.Region),
-		SSHPublicKeyResourceProperties: &compute.SSHPublicKeyResourceProperties{
-			PublicKey: to.StringPtr(string(publicKey)),
+	createOpt := armcompute.SSHPublicKeyResource{
+		Location: &keyPairHandler.Region.Region,
+		Properties: &armcompute.SSHPublicKeyResourceProperties{
+			PublicKey: toStrPtr(string(publicKey)),
 		},
 		Tags: tags,
 	}
 
 	start := call.Start()
 	// 4. Create KeyPair(Azure SSH Resource)
-	keyResult, err := keyPairHandler.Client.Create(keyPairHandler.Ctx, keyPairHandler.Region.Region, keyPairReqInfo.IId.NameId, createOpt)
+	keyResult, err := keyPairHandler.Client.Create(keyPairHandler.Ctx, keyPairHandler.Region.Region, keyPairReqInfo.IId.NameId, createOpt, nil)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create Key. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
@@ -96,7 +95,7 @@ func (keyPairHandler *AzureKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairR
 		return irs.KeyPairInfo{}, createErr
 	}
 	// 5. Set keyPairInfo
-	keyPairInfo, err := keyPairHandler.setterKey(keyResult, string(privateKey))
+	keyPairInfo, err := keyPairHandler.setterKey(&keyResult.SSHPublicKeyResource, string(privateKey))
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create Key. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
@@ -112,16 +111,27 @@ func (keyPairHandler *AzureKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error)
 	start := call.Start()
 
 	// 0. Get List Resource
-	listResult, err := keyPairHandler.Client.ListByResourceGroup(keyPairHandler.Ctx, keyPairHandler.Region.Region)
-	if err != nil {
-		getErr := errors.New(fmt.Sprintf("Failed to List Key. err = %s", err.Error()))
-		cblogger.Error(getErr.Error())
-		LoggingError(hiscallInfo, getErr)
-		return nil, getErr
+	var keyList []*armcompute.SSHPublicKeyResource
+
+	pager := keyPairHandler.Client.NewListByResourceGroupPager(keyPairHandler.Region.Region, nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(keyPairHandler.Ctx)
+		if err != nil {
+			getErr := errors.New(fmt.Sprintf("Failed to List Key. err = %s", err))
+			cblogger.Error(getErr.Error())
+			LoggingError(hiscallInfo, getErr)
+			return nil, getErr
+		}
+
+		for _, key := range page.Value {
+			keyList = append(keyList, key)
+		}
 	}
+
 	// 0. Set List Resource
 	var keyInfoList []*irs.KeyPairInfo
-	for _, key := range listResult.Values() {
+	for _, key := range keyList {
 		keyInfo, err := keyPairHandler.setterKey(key, "")
 		if err != nil {
 			getErr := errors.New(fmt.Sprintf("Failed to List Key. err = %s", err.Error()))
@@ -156,7 +166,7 @@ func (keyPairHandler *AzureKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairIn
 		return irs.KeyPairInfo{}, getErr
 	}
 	// 2. Set Resource
-	keyPairInfo, err := keyPairHandler.setterKey(key, "")
+	keyPairInfo, err := keyPairHandler.setterKey(&key, "")
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to Get Key. err = %s", err.Error()))
 		cblogger.Error(getErr.Error())
@@ -194,7 +204,7 @@ func (keyPairHandler *AzureKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, erro
 
 	start := call.Start()
 	// 2. Delete Resource
-	_, err = keyPairHandler.Client.Delete(keyPairHandler.Ctx, keyPairHandler.Region.Region, keyIID.NameId)
+	_, err = keyPairHandler.Client.Delete(keyPairHandler.Ctx, keyPairHandler.Region.Region, keyIID.NameId, nil)
 
 	if err != nil {
 		delErr := errors.New(fmt.Sprintf("Failed to Delete Key. err = %s", err.Error()))
@@ -205,32 +215,50 @@ func (keyPairHandler *AzureKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, erro
 	LoggingInfo(hiscallInfo, start)
 	return true, nil
 }
-func CheckExistKey(keypairIId irs.IID, resourceGroup string, client *compute.SSHPublicKeysClient, ctx context.Context) (bool, error) {
-	keyList, err := client.ListByResourceGroup(ctx, resourceGroup)
-	if err != nil {
-		return false, err
+func CheckExistKey(keypairIId irs.IID, resourceGroup string, client *armcompute.SSHPublicKeysClient, ctx context.Context) (bool, error) {
+	var keyList []*armcompute.SSHPublicKeyResource
+
+	pager := client.NewListByResourceGroupPager(resourceGroup, nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return false, err
+		}
+
+		for _, key := range page.Value {
+			keyList = append(keyList, key)
+		}
 	}
-	for _, keyValue := range keyList.Values() {
-		if keypairIId.SystemId != "" && keypairIId.SystemId == *keyValue.ID {
+
+	for _, key := range keyList {
+		if keypairIId.SystemId != "" && keypairIId.SystemId == *key.ID {
 			return true, nil
 		}
-		if keypairIId.NameId != "" && keypairIId.NameId == *keyValue.Name {
+		if keypairIId.NameId != "" && keypairIId.NameId == *key.Name {
 			return true, nil
 		}
 	}
 	return false, nil
 }
 
-func GetRawKey(keypairIId irs.IID, resourceGroup string, client *compute.SSHPublicKeysClient, ctx context.Context) (compute.SSHPublicKeyResource, error) {
-	if keypairIId.NameId == "" {
+func GetRawKey(keypairIId irs.IID, resourceGroup string, client *armcompute.SSHPublicKeysClient, ctx context.Context) (armcompute.SSHPublicKeyResource, error) {
+	var publicKeyName = keypairIId.NameId
+
+	if publicKeyName == "" {
 		convertedNameId, err := GetSshKeyNameById(keypairIId.SystemId)
 		if err != nil {
-			return compute.SSHPublicKeyResource{}, err
+			return armcompute.SSHPublicKeyResource{}, err
 		}
-		return client.Get(ctx, resourceGroup, convertedNameId)
-	} else {
-		return client.Get(ctx, resourceGroup, keypairIId.NameId)
+		publicKeyName = convertedNameId
 	}
+
+	resp, err := client.Get(ctx, resourceGroup, publicKeyName, nil)
+	if err != nil {
+		return armcompute.SSHPublicKeyResource{}, err
+	}
+
+	return resp.SSHPublicKeyResource, nil
 }
 
 func checkKeyPairReqInfo(keyPairReqInfo irs.KeyPairReqInfo) error {
@@ -238,4 +266,40 @@ func checkKeyPairReqInfo(keyPairReqInfo irs.KeyPairReqInfo) error {
 		return errors.New("invalid Key IID")
 	}
 	return nil
+}
+
+func (keyPairHandler *AzureKeyPairHandler) ListIID() ([]*irs.IID, error) {
+	hiscallInfo := GetCallLogScheme(keyPairHandler.Region, call.VMKEYPAIR, KeyPair, "ListIID()")
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	pager := keyPairHandler.Client.NewListByResourceGroupPager(keyPairHandler.Region.Region, nil)
+
+	for pager.More() {
+		page, err := pager.NextPage(keyPairHandler.Ctx)
+		if err != nil {
+			err = errors.New(fmt.Sprintf("Failed to List Key. err = %s", err))
+			cblogger.Error(err.Error())
+			LoggingError(hiscallInfo, err)
+			return make([]*irs.IID, 0), err
+		}
+
+		for _, key := range page.Value {
+			var iid irs.IID
+
+			if key.ID != nil {
+				iid.SystemId = *key.ID
+			}
+			if key.Name != nil {
+				iid.NameId = *key.Name
+			}
+
+			iidList = append(iidList, &iid)
+		}
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
 }

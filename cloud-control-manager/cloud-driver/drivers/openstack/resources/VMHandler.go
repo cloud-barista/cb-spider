@@ -11,6 +11,8 @@
 package resources
 
 import (
+	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
 	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
@@ -22,10 +24,13 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/extensions/startstop"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/flavors"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
+	layer3floatingips "github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/layer3/floatingips"
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/subnets"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"net"
+	"net/http"
 	"os"
 	"regexp"
 	"strconv"
@@ -173,6 +178,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 		}
 		sgIdArr[i] = SecurityGroup.ID
 	}
+
 	serverCreateOpts := servers.CreateOpts{
 		Name:      vmReqInfo.IId.NameId,
 		FlavorRef: vmSpec.ID,
@@ -180,6 +186,11 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 			{UUID: rawVpc.ID, FixedIP: fixedIp},
 		},
 		SecurityGroups: sgIdArr,
+	}
+	if vmHandler.Region.TargetZone != "" {
+		serverCreateOpts.AvailabilityZone = vmHandler.Region.TargetZone
+	} else if vmHandler.Region.Zone != "" {
+		serverCreateOpts.AvailabilityZone = vmHandler.Region.Zone
 	}
 
 	var server servers.Server
@@ -305,11 +316,11 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 
 	// Tagging
 	tagHandler := OpenStackTagHandler{
-		CredentialInfo: vpcHandler.CredentialInfo,
-		IdentityClient: vpcHandler.IdentityClient,
-		ComputeClient:  vpcHandler.ComputeClient,
-		NetworkClient:  vpcHandler.NetworkClient,
-		NLBClient:      vpcHandler.NLBClient,
+		CredentialInfo: vmHandler.CredentialInfo,
+		IdentityClient: vmHandler.IdentityClient,
+		ComputeClient:  vmHandler.ComputeClient,
+		NetworkClient:  vmHandler.NetworkClient,
+		NLBClient:      vmHandler.NLBClient,
 	}
 
 	var errTags []irs.KeyValue
@@ -544,11 +555,11 @@ func (vmHandler *OpenStackVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 
 func (vmHandler *OpenStackVMHandler) AssociatePublicIP(serverID string) (bool, error) {
 	// PublicIP 생성
-	externVPCName, _ := GetPublicVPCInfo(vmHandler.NetworkClient, "NAME")
-	createOpts := floatingips.CreateOpts{
-		Pool: externVPCName,
+	externVPCID, _ := GetPublicVPCInfo(vmHandler.NetworkClient, "ID")
+	createOpts := layer3floatingips.CreateOpts{
+		FloatingNetworkID: externVPCID,
 	}
-	publicIP, err := floatingips.Create(vmHandler.ComputeClient, createOpts).Extract()
+	publicIP, err := layer3floatingips.Create(vmHandler.NetworkClient, createOpts).Extract()
 	if err != nil {
 		return false, err
 	}
@@ -559,7 +570,7 @@ func (vmHandler *OpenStackVMHandler) AssociatePublicIP(serverID string) (bool, e
 	maxRetryCnt := 120
 	for {
 		associateOpts := floatingips.AssociateOpts{
-			FloatingIP: publicIP.IP,
+			FloatingIP: publicIP.FloatingIP,
 		}
 		err = floatingips.AssociateInstance(vmHandler.ComputeClient, serverID, associateOpts).ExtractErr()
 		if err == nil {
@@ -596,23 +607,63 @@ func getVmStatus(vmStatus string) irs.VMStatus {
 	return irs.VMStatus(resultStatus)
 }
 
-func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) irs.VMInfo {
-	var tags []irs.KeyValue
+func getAvailabilityZoneFromAPI(computeClient *gophercloud.ServiceClient, serverID string) (string, error) {
+	url := computeClient.ServiceURL("servers", serverID)
 
-	if server.Tags != nil {
-		for _, tag := range *server.Tags {
-			tags = append(tags, tagsToKeyValue(tag))
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+
+	client := &http.Client{Transport: tr}
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Add("X-Auth-Token", computeClient.TokenID)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("failed to get server details: %s", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	var serverResponse map[string]interface{}
+	if err := json.Unmarshal(body, &serverResponse); err != nil {
+		return "", err
+	}
+
+	if server, ok := serverResponse["server"].(map[string]interface{}); ok {
+		if zone, ok := server["OS-EXT-AZ:availability_zone"].(string); ok {
+			return zone, nil
 		}
+	}
+
+	return "", fmt.Errorf("availability zone not found")
+}
+
+func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) irs.VMInfo {
+	iid := irs.IID{
+		NameId:   server.Name,
+		SystemId: server.ID,
 	}
 
 	// Get Default VM Info
 	vmInfo := irs.VMInfo{
-		IId: irs.IID{
-			NameId:   server.Name,
-			SystemId: server.ID,
-		},
+		IId: iid,
 		Region: irs.RegionInfo{
-			Zone:   vmHandler.Region.Zone,
 			Region: vmHandler.Region.Region,
 		},
 
@@ -621,8 +672,20 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 		NetworkInterface:  server.HostID,
 		KeyValueList:      nil,
 		SecurityGroupIIds: nil,
-		TagList:           tags,
 	}
+
+	zone, err := getAvailabilityZoneFromAPI(vmHandler.ComputeClient, server.ID)
+	if err != nil {
+		cblogger.Warn(err)
+	}
+	if zone != "" {
+		vmInfo.Region.Zone = zone
+	} else if vmHandler.Region.TargetZone != "" {
+		vmInfo.Region.Zone = vmHandler.Region.TargetZone
+	} else {
+		vmInfo.Region.Zone = vmHandler.Region.Zone
+	}
+
 	OSType, err := getOSTypeByServer(server)
 	if err == nil {
 		if OSType == irs.WINDOWS {
@@ -651,6 +714,7 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 			vmInfo.ImageIId = imageInfo
 		}
 	}
+
 	// VM DiskSize Custom
 	if len(server.AttachedVolumes) > 0 && vmHandler.VolumeClient != nil {
 		var dataDisks []irs.IID
@@ -671,13 +735,16 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 			vmInfo.DataDiskIIDs = dataDisks
 		}
 	}
+
 	// VM Flavor 정보 설정
-	flavorId := server.Flavor["id"].(string)
-	flavor, _ := flavors.Get(vmHandler.ComputeClient, flavorId).Extract()
-	if flavor != nil {
-		vmInfo.VMSpecName = flavor.Name
-		if vmInfo.RootDiskSize == "" {
-			vmInfo.RootDiskSize = strconv.Itoa(flavor.Disk)
+	flavorId, ok := server.Flavor["id"].(string)
+	if ok {
+		flavor, _ := flavors.Get(vmHandler.ComputeClient, flavorId).Extract()
+		if flavor != nil {
+			vmInfo.VMSpecName = flavor.Name
+			if vmInfo.RootDiskSize == "" {
+				vmInfo.RootDiskSize = strconv.Itoa(flavor.Disk)
+			}
 		}
 	}
 
@@ -743,6 +810,22 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 			vmInfo.AccessPoint = fmt.Sprintf("%s:%s", vmInfo.PublicIP, "22")
 		}
 	}
+
+	tagHandler := OpenStackTagHandler{
+		CredentialInfo: vmHandler.CredentialInfo,
+		IdentityClient: vmHandler.IdentityClient,
+		ComputeClient:  vmHandler.ComputeClient,
+		NetworkClient:  vmHandler.NetworkClient,
+		NLBClient:      vmHandler.NLBClient,
+	}
+
+	tags, err := tagHandler.ListTag(irs.VM, iid)
+	if err == nil {
+		vmInfo.TagList = tags
+	} else {
+		cblogger.Warn("Failed to get VM tags. err = " + err.Error())
+	}
+
 	return vmInfo
 }
 
@@ -844,11 +927,11 @@ func (vmHandler *OpenStackVMHandler) vmCleaner(vmIId irs.IID) error {
 	}
 	if server.PublicIP != "" {
 		// VM에 연결된 PublicIP 삭제
-		pager, err := floatingips.List(vmHandler.ComputeClient).AllPages()
+		pager, err := layer3floatingips.List(vmHandler.NetworkClient, layer3floatingips.ListOpts{}).AllPages()
 		if err != nil {
 			return err
 		}
-		publicIPList, err := floatingips.ExtractFloatingIPs(pager)
+		publicIPList, err := layer3floatingips.ExtractFloatingIPs(pager)
 		if err != nil {
 			return err
 		}
@@ -856,14 +939,14 @@ func (vmHandler *OpenStackVMHandler) vmCleaner(vmIId irs.IID) error {
 		// IP 기준 PublicIP 검색
 		var publicIPId string
 		for _, p := range publicIPList {
-			if strings.EqualFold(server.PublicIP, p.IP) {
+			if strings.EqualFold(server.PublicIP, p.FloatingIP) {
 				publicIPId = p.ID
 				break
 			}
 		}
 		// Public IP 삭제
 		if publicIPId != "" {
-			err := floatingips.Delete(vmHandler.ComputeClient, publicIPId).ExtractErr()
+			err := layer3floatingips.Delete(vmHandler.NetworkClient, publicIPId).ExtractErr()
 			if err != nil {
 				return err
 			}
@@ -1255,4 +1338,42 @@ func severCreateMyImageLinuxOS(baseServerCreateOpt servers.CreateOpts, vmReqInfo
 		return servers.Server{}, err
 	}
 	return *server, err
+}
+
+func (vmHandler *OpenStackVMHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	hiscallInfo := GetCallLogScheme(vmHandler.ComputeClient.IdentityEndpoint, call.VM, VM, "ListIID()")
+
+	start := call.Start()
+
+	var iidList []*irs.IID
+
+	allPages, err := servers.List(vmHandler.ComputeClient, servers.ListOpts{}).AllPages()
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get vm information from Openstack!! : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(hiscallInfo, newErr)
+		return make([]*irs.IID, 0), newErr
+
+	}
+
+	allServers, err := servers.ExtractServers(allPages)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get vm List from Openstack!! : [%v] ", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(hiscallInfo, newErr)
+		return make([]*irs.IID, 0), newErr
+	}
+
+	for _, server := range allServers {
+		var iid irs.IID
+		iid.NameId = server.Name
+		iid.SystemId = server.ID
+
+		iidList = append(iidList, &iid)
+	}
+
+	LoggingInfo(hiscallInfo, start)
+
+	return iidList, nil
 }

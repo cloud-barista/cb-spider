@@ -149,6 +149,17 @@ func ExtractVpcDescribeInfo(vpcInfo *vpc.Vpc) irs.VPCInfo {
 		IPv4_CIDR: *vpcInfo.CidrBlock,
 	}
 
+	if vpcInfo.TagSet != nil {
+		var tagList []irs.KeyValue
+		for _, tag := range vpcInfo.TagSet {
+			tagList = append(tagList, irs.KeyValue{
+				Key:   *tag.Key,
+				Value: *tag.Value,
+			})
+		}
+		resVpcInfo.TagList = tagList
+	}
+
 	return resVpcInfo
 }
 
@@ -362,6 +373,17 @@ func (VPCHandler *TencentVPCHandler) ListSubnet(reqVpcId string) ([]irs.SubnetIn
 			//Status:    *subnetInfo.State,
 		}
 
+		if curSubnet.TagSet != nil {
+			var tagList []irs.KeyValue
+			for _, tag := range curSubnet.TagSet {
+				tagList = append(tagList, irs.KeyValue{
+					Key:   *tag.Key,
+					Value: *tag.Value,
+				})
+			}
+			resSubnetInfo.TagList = tagList
+		}
+
 		keyValueList := []irs.KeyValue{
 			{Key: "VpcId", Value: *curSubnet.VpcId},
 			{Key: "IsDefault", Value: strconv.FormatBool(*curSubnet.IsDefault)},
@@ -521,4 +543,9 @@ func (VPCHandler *TencentVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.
 	callogger.Info(call.String(callLogInfo))
 
 	return true, nil
+}
+
+func (vpcHandler *TencentVPCHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

@@ -21,24 +21,25 @@ type VPCReqInfo struct {
 }
 
 type VPCInfo struct {
-	IId            IID // {NameId, SystemId}
-	IPv4_CIDR      string
-	SubnetInfoList []SubnetInfo
+	IId            IID          `json:"IId" validate:"required"` // {NameId, SystemId}
+	IPv4_CIDR      string       `json:"IPv4_CIDR" validate:"required" example:"10.0.0.0/16" description:"The IPv4 CIDR block for the VPC"`
+	SubnetInfoList []SubnetInfo `json:"SubnetInfoList" validate:"required" description:"A list of subnet information associated with this VPC"`
 
-	TagList []KeyValue
-	KeyValueList []KeyValue
+	TagList      []KeyValue `json:"TagList,omitempty" validate:"omitempty" description:"A list of tags associated with this VPC"`
+	KeyValueList []KeyValue `json:"KeyValueList,omitempty" validate:"omitempty" description:"Additional key-value pairs associated with this VPC"`
 }
 
 type SubnetInfo struct {
-	IId       IID    // {NameId, SystemId}
-	Zone      string // Target Zone Name
-	IPv4_CIDR string
+	IId       IID    `json:"IId" validate:"required"` // {NameId, SystemId}
+	Zone      string `json:"Zone" validate:"required" example:"us-east-1a"`
+	IPv4_CIDR string `json:"IPv4_CIDR" validate:"required" example:"10.0.8.0/22" description:"The IPv4 CIDR block for the subnet"`
 
-	TagList []KeyValue
-	KeyValueList []KeyValue
+	TagList      []KeyValue `json:"TagList,omitempty" validate:"omitempty" description:"A list of tags associated with this subnet"`
+	KeyValueList []KeyValue `json:"KeyValueList,omitempty" validate:"omitempty" description:"Additional key-value pairs associated with this subnet"`
 }
 
 type VPCHandler interface {
+	ListIID() ([]*IID, error)
 	CreateVPC(vpcReqInfo VPCReqInfo) (VPCInfo, error)
 	ListVPC() ([]*VPCInfo, error)
 	GetVPC(vpcIID IID) (VPCInfo, error)

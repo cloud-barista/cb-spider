@@ -1,19 +1,21 @@
 package resources
 
 import (
+	"errors"
 	"fmt"
-	"strings"
 	"strconv"
+	"strings"
 	"time"
 	_ "time/tzdata" // To prevent 'unknown time zone Asia/Seoul' error
+
 	// "github.com/davecgh/go-spew/spew"
 
-	ktvpcsdk 	"github.com/cloud-barista/ktcloudvpc-sdk-go"
+	ktvpcsdk "github.com/cloud-barista/ktcloudvpc-sdk-go"
 	// volumes2 	"github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/blockstorage/v2/volumes"
 	"github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/blockstorage/extensions/volumeactions"
 
 	images "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/imageservice/v2/images" // imageservice/v2/images : For Visibility parameter
-		// Not '~/openstack/compute/v2/images'
+	// Not '~/openstack/compute/v2/images'
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -28,7 +30,7 @@ type KTVpcMyImageHandler struct {
 	VolumeClient  *ktvpcsdk.ServiceClient
 }
 
-// To Take a Snapshot Root Volume with VM ID (To Create My Image) 
+// To Take a Snapshot Root Volume with VM ID (To Create My Image)
 func (myImageHandler *KTVpcMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageInfo) (irs.MyImageInfo, error) {
 	cblogger.Info("KT Cloud VPC Driver: called SnapshotVM()")
 	callLogInfo := getCallLogScheme(myImageHandler.RegionInfo.Zone, call.MYIMAGE, snapshotReqInfo.SourceVM.SystemId, "SnapshotVM()")
@@ -54,9 +56,9 @@ func (myImageHandler *KTVpcMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImag
 	}
 
 	start := call.Start()
-	uploadImageOpts := volumeactions.UploadImageOpts {
+	uploadImageOpts := volumeactions.UploadImageOpts{
 		ImageName: snapshotName,
-		Force:     true, 		// Even if the volume is connected to the server, whether to create an image.
+		Force:     true, // Even if the volume is connected to the server, whether to create an image.
 	}
 	volumeImage, err := volumeactions.UploadImage(myImageHandler.VolumeClient, bootableVolumeId, uploadImageOpts).Extract()
 	if err != nil {
@@ -101,16 +103,16 @@ func (myImageHandler *KTVpcMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, er
 	/*
 		// ImageVisibilityPublic all users
 		ImageVisibilityPublic ImageVisibility = "public"
-	
+
 		// ImageVisibilityPrivate users with tenantId == tenantId(owner)
 		ImageVisibilityPrivate ImageVisibility = "private"
-	
+
 		// ImageVisibilityShared images are visible to:
 		// - users with tenantId == tenantId(owner)
 		// - users with tenantId in the member-list of the image
 		// - users with tenantId in the member-list with member_status == 'accepted'
 		ImageVisibilityShared ImageVisibility = "shared"
-	
+
 		// ImageVisibilityCommunity images:
 		// - all users can see and boot it
 		// - users with tenantId in the member-list of the image with
@@ -119,7 +121,7 @@ func (myImageHandler *KTVpcMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, er
 	*/
 
 	start := call.Start()
-	listOpts :=	images.ListOpts{
+	listOpts := images.ListOpts{
 		Visibility: images.ImageVisibilityShared, // Not 'ImageVisibilityPrivate'
 	}
 	allPages, err := images.List(myImageHandler.ImageClient, listOpts).AllPages()
@@ -137,21 +139,21 @@ func (myImageHandler *KTVpcMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, er
 		return nil, newErr
 	}
 	loggingInfo(callLogInfo, start)
-	
+
 	// cblogger.Info("\n\n### ktImageList : ")
 	// spew.Dump(ktImageList)
 	// cblogger.Info("# ktImage count : ", len(ktImageList))
 
 	// Note) Public image : ktImage.Visibility == "public", MyImage : ktImage.Visibility == "shared"
 	var imageInfoList []*irs.MyImageInfo
-    for _, ktImage := range ktImageList {
+	for _, ktImage := range ktImageList {
 		imageInfo, err := myImageHandler.mappingMyImageInfo(ktImage)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Map the MyImage Info. [%v]", err)
 			return nil, newErr
 		}
-		imageInfoList = append(imageInfoList, imageInfo)		
-    }
+		imageInfoList = append(imageInfoList, imageInfo)
+	}
 	return imageInfoList, nil
 }
 
@@ -293,14 +295,14 @@ func (myImageHandler *KTVpcMyImageHandler) mappingMyImageInfo(myImage images.Ima
 		newErr := fmt.Errorf("Failed to Get Converted Time. [%v]", err)
 		return nil, newErr
 	}
-	
-	myImageInfo := &irs.MyImageInfo {
+
+	myImageInfo := &irs.MyImageInfo{
 		IId: irs.IID{
 			NameId:   myImage.Name,
 			SystemId: myImage.ID,
 		},
-		Status: 	  convertImageStatus(myImage.Status),
-		CreatedTime:  convertedTime,
+		Status:      convertImageStatus(myImage.Status),
+		CreatedTime: convertedTime,
 	}
 
 	keyValueList := []irs.KeyValue{
@@ -314,7 +316,7 @@ func (myImageHandler *KTVpcMyImageHandler) mappingMyImageInfo(myImage images.Ima
 
 func convertImageStatus(myImageStatus images.ImageStatus) irs.MyImageStatus {
 	cblogger.Info("KT Cloud VPC Driver: called convertImageStatus()")
-	
+
 	// Ref) https://github.com/cloud-barista/ktcloudvpc-sdk-go/blob/main/openstack/imageservice/v2/images/types.go
 	var resultStatus irs.MyImageStatus
 	switch myImageStatus {
@@ -341,9 +343,9 @@ func (myImageHandler *KTVpcMyImageHandler) getBootableVolumeID(vmIID irs.IID) (s
 	cblogger.Info("KT Cloud VPC Driver: called getBootableVolumeID()")
 
 	diskHandler := KTVpcDiskHandler{
-		RegionInfo:     myImageHandler.RegionInfo,
-		VMClient:       myImageHandler.VMClient,
-		VolumeClient:   myImageHandler.VolumeClient,
+		RegionInfo:   myImageHandler.RegionInfo,
+		VMClient:     myImageHandler.VMClient,
+		VolumeClient: myImageHandler.VolumeClient,
 	}
 
 	nhnVolumeList, err := diskHandler.getKtVolumeList()
@@ -353,8 +355,8 @@ func (myImageHandler *KTVpcMyImageHandler) getBootableVolumeID(vmIID irs.IID) (s
 		return "", newErr
 	}
 
-	var bootableVolumeId string	
-	for _, nhnVolume := range nhnVolumeList {		
+	var bootableVolumeId string
+	for _, nhnVolume := range nhnVolumeList {
 		isBootable, err := strconv.ParseBool(nhnVolume.Bootable)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Parse the String value!! : [%v]", err)
@@ -363,7 +365,7 @@ func (myImageHandler *KTVpcMyImageHandler) getBootableVolumeID(vmIID irs.IID) (s
 		}
 
 		if isBootable && nhnVolume.Attachments != nil && len(nhnVolume.Attachments) > 0 {
-			for _, attachment := range nhnVolume.Attachments {			
+			for _, attachment := range nhnVolume.Attachments {
 				if strings.EqualFold(attachment.ServerID, vmIID.SystemId) {
 					bootableVolumeId = attachment.VolumeID
 					break
@@ -379,4 +381,9 @@ func (myImageHandler *KTVpcMyImageHandler) getBootableVolumeID(vmIID irs.IID) (s
 	}
 
 	return bootableVolumeId, nil
+}
+
+func (ImageHandler *KTVpcMyImageHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
 }

@@ -12,9 +12,12 @@
 package aws
 
 import (
+	"fmt"
+
 	acon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/connect"
 	ars "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	ires "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
 
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
@@ -25,6 +28,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/autoscaling"
+	"github.com/aws/aws-sdk-go/service/cloudwatch"
+	"github.com/aws/aws-sdk-go/service/costexplorer"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/eks"
 	"github.com/aws/aws-sdk-go/service/elbv2"
@@ -61,6 +66,7 @@ func (AwsDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.RegionZoneHandler = true
 	drvCapabilityInfo.PriceInfoHandler = true
 	drvCapabilityInfo.TagHandler = true
+	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.ALL, ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER}
 
 	return drvCapabilityInfo
 }
@@ -228,6 +234,9 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 	if err != nil {
 		return nil, err
 	}
+	costExplorerClient, err := getCostExplorerClient(connectionInfo)
+
+	cloudwatchClient, err := getCloudWatchClient(connectionInfo)
 
 	//iConn = acon.AwsCloudConnection{}
 	iConn := acon.AwsCloudConnection{
@@ -256,7 +265,9 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		// Connection for AnyCall
 		AnyCallClient: vmClient,
 
-		TagClient: vmClient,
+		TagClient:          vmClient,
+		CostExplorerClient: costExplorerClient,
+		CloudWatchClient:   cloudwatchClient,
 	}
 
 	return &iConn, nil // return type: (icon.CloudConnection, error)
@@ -294,6 +305,36 @@ func getPricingClient(connectionInfo idrv.ConnectionInfo) (*pricing.Pricing, err
 		//Region:      aws.String("ap-northeast-2"),
 		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
 	)
+
+	return svc, nil
+}
+
+func getCostExplorerClient(connectionInfo idrv.ConnectionInfo) (*costexplorer.CostExplorer, error) {
+	sess := session.Must(session.NewSession())
+	svc := costexplorer.New(sess, &aws.Config{
+		Region:      aws.String(connectionInfo.RegionInfo.Region),
+		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
+	)
+
+	return svc, nil
+}
+
+func getCloudWatchClient(connectionInfo idrv.ConnectionInfo) (*cloudwatch.CloudWatch, error) {
+
+	sess, err := session.NewSession(&aws.Config{
+		Region: aws.String(connectionInfo.RegionInfo.Region),
+		Credentials: credentials.NewStaticCredentials(
+			connectionInfo.CredentialInfo.ClientId,
+			connectionInfo.CredentialInfo.ClientSecret,
+			"",
+		),
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create session: %v", err)
+	}
+
+	svc := cloudwatch.New(sess)
 
 	return svc, nil
 }

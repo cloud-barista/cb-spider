@@ -299,3 +299,9 @@ func (securityHandler *NcpSecurityHandler) RemoveRules(sgIID irs.IID, securityRu
 
     return false, fmt.Errorf("Does not support RemoveRules() yet!!")
 }
+
+func (securityHandler *NcpSecurityHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("Cloud driver: called ListIID()!!")
+	return nil, errors.New("Does not support ListIID() yet!!")
+}
+
