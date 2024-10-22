@@ -1345,6 +1345,32 @@ func (vmHandler *GCPVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, error) {
 }
 
 func (vmHandler *GCPVMHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, string(call.VM), "ListIID()")
+	start := call.Start()
+
+	projectID := vmHandler.Credential.ProjectID
+	zone := vmHandler.Region.Zone
+
+	serverList, err := vmHandler.Client.Instances.List(projectID, zone).Do()
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
+	if err != nil {
+		LoggingError(hiscallInfo, err)
+		cblogger.Error(err)
+		return nil, err
+	}
+	calllogger.Info(call.String(hiscallInfo))
+
+	var iidList []*irs.IID
+	for _, server := range serverList.Items {
+
+		iid := irs.IID{
+			NameId: server.Name,
+			//SystemId: strconv.FormatUint(server.Id, 10),
+			SystemId: server.Name,
+		}
+
+		iidList = append(iidList, &iid)
+	}
+
+	return iidList, nil
 }

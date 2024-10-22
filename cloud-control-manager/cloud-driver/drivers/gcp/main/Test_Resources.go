@@ -52,108 +52,17 @@ var (
 	}
 )
 
-// Test SecurityHandler
-func handleSecurityOld() {
-	cblogger.Debug("Start handler")
-
-	ResourceHandler, err := testconf.GetResourceHandler("Security")
-	if err != nil {
-		panic(err)
-	}
-
-	handler := ResourceHandler.(irs.SecurityHandler)
-
-	securityId := "sg1234"
-	cblogger.Infof(securityId)
-
-	//result, err := handler.GetSecurity(securityId)
-	//result, err := handler.GetSecurity("sg-0d4d11c090c4814e8")
-	//result, err := handler.GetSecurity("sg-0fd2d90b269ebc082") // sgtest-mcloub-barista
-	//result, err := handler.DeleteSecurity(securityId)
-	//result, err := handler.ListSecurity()
-
-	securityReqInfo := irs.SecurityReqInfo{
-		IId: irs.IID{
-			NameId:   securityId,
-			SystemId: securityId,
-		},
-		VpcIID: irs.IID{
-			NameId:   "vpc-11",
-			SystemId: "vpc-11",
-		},
-
-		SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
-			{
-				FromPort:   "20",
-				ToPort:     "22",
-				IPProtocol: "tcp",
-				Direction:  "inbound",
-			},
-			/*
-				{
-					FromPort:   "80",
-					ToPort:     "80",
-					IPProtocol: "tcp",
-					Direction:  "inbound",
-				},
-				{
-					FromPort:   "8080",
-					ToPort:     "8080",
-					IPProtocol: "tcp",
-					Direction:  "inbound",
-				},
-				{
-					FromPort:   "443",
-					ToPort:     "443",
-					IPProtocol: "tcp",
-					Direction:  "outbound",
-				},
-				{
-					FromPort:   "8443",
-					ToPort:     "9999",
-					IPProtocol: "tcp",
-					Direction:  "outbound",
-				},
-				{
-					//FromPort:   "8443",
-					//ToPort:     "9999",
-					IPProtocol: "-1", // 모두 허용 (포트 정보 없음)
-					Direction:  "inbound",
-				},
-			*/
-		},
-	}
-
-	cblogger.Info(securityReqInfo)
-	result, err := handler.CreateSecurity(securityReqInfo)
-
-	if err != nil {
-		cblogger.Infof("보안 그룹 조회 실패 : ", err)
-	} else {
-		cblogger.Info("보안 그룹 조회 결과")
-		//cblogger.Info(result)
-		spew.Dump(result)
-	}
-}
-
-func handleSecurity() {
+func testSecurityHandler() {
 	cblogger.Debug("Start Security Resource Test")
 
-	ResourceHandler, err := testconf.GetResourceHandler("Security")
+	ResourceHandler, err := testconf.GetResourceHandler(testconf.SecurityGroup)
 	if err != nil {
 		panic(err)
 	}
 	handler := ResourceHandler.(irs.SecurityHandler)
 
-	//config := readConfigFile()
-	//VmID := config.Aws.VmID
-
-	// securityName := "cb-securitytest1"
-	// securityId := "cb-securitytest1"
 	securityName := sgId
 	securityId := sgId
-	//securityId := "cb-secu-all"
-	//vpcId := "cb-vpc"
 	vpcId := vpcId
 
 	for {
@@ -165,6 +74,7 @@ func handleSecurity() {
 		fmt.Println("4. Security Delete")
 		fmt.Println("5. Rule Add")
 		fmt.Println("6. Rule Remove")
+		fmt.Println("7. Security Group List IID")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -553,16 +463,29 @@ func handleSecurity() {
 				} else {
 					cblogger.Infof("[%s] Rule 삭제 결과 : [%v]", securityId, result)
 				}
+			case 7:
+				res, err := handler.ListIID()
+				if err != nil {
+					cblogger.Info("List IID 조회 실패 : ", err)
+				} else if len(res) > 0 {
+					for _, iid := range res {
+						if iid != nil {
+							cblogger.Infof("List IID 조회 결과 : [%+v]", *iid)
+						}
+					}
+				} else {
+					cblogger.Info("List IID 조회 결과 없음")
+				}
+
 			}
 		}
 	}
 }
 
-// Test AMI
-func handleImage() {
+func testImageHandler() {
 	cblogger.Debug("Start ImageHandler Resource Test")
 
-	ResourceHandler, err := testconf.GetResourceHandler("Image")
+	ResourceHandler, err := testconf.GetResourceHandler(testconf.Image)
 	if err != nil {
 		panic(err)
 	}
@@ -650,11 +573,10 @@ func handleImage() {
 	}
 }
 
-// Test handleVPC (VPC)
-func handleVPC() {
+func testVPCHandler() {
 	cblogger.Debug("Start VPC Resource Test")
 
-	ResourceHandler, err := testconf.GetResourceHandler("VPCHandler")
+	ResourceHandler, err := testconf.GetResourceHandler(testconf.VPC)
 	if err != nil {
 		panic(err)
 	}
@@ -734,6 +656,7 @@ func handleVPC() {
 		fmt.Println("4. VPC Delete")
 		fmt.Println("5. Add Subnet")
 		fmt.Println("6. Delete Subnet")
+		fmt.Println("7. VPC List IID")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -814,107 +737,33 @@ func handleVPC() {
 				} else {
 					cblogger.Infof("[%s] Subnet 삭제 결과 : [%s]", reqSubnetId.SystemId, result)
 				}
-			}
-		}
-	}
-}
-
-// Test KeyPair
-func handleKeyPairOld() {
-	cblogger.Debug("Start KeyPair Resource Test")
-
-	ResourceHandler, err := testconf.GetResourceHandler("KeyPair")
-	if err != nil {
-		panic(err)
-	}
-	handler := ResourceHandler.(irs.KeyPairHandler)
-
-	keyPairName := "cb-keyPairTest"
-	keyReq := irs.IID{
-		NameId:   keyPairName,
-		SystemId: keyPairName,
-	}
-
-	for {
-		fmt.Println("KeyPair Management")
-		fmt.Println("0. Quit")
-		fmt.Println("1. KeyPair List")
-		fmt.Println("2. KeyPair Create")
-		fmt.Println("3. KeyPair Get")
-		fmt.Println("4. KeyPair Delete")
-
-		var commandNum int
-		inputCnt, err := fmt.Scan(&commandNum)
-		if err != nil {
-			panic(err)
-		}
-
-		if inputCnt == 1 {
-			switch commandNum {
-			case 0:
-				return
-
-			case 1:
-				result, err := handler.ListKey()
+			case 7:
+				res, err := handler.ListIID()
 				if err != nil {
-					cblogger.Infof(" 키 페어 목록 조회 실패 : ", err)
+					cblogger.Info("List IID 조회 실패 : ", err)
+				} else if len(res) > 0 {
+					for _, iid := range res {
+						if iid != nil {
+							cblogger.Infof("List IID 조회 결과 : [%+v]", *iid)
+						}
+					}
 				} else {
-					cblogger.Info("키 페어 목록 조회 결과")
-					//cblogger.Info(result)
-					spew.Dump(result)
-				}
-
-			case 2:
-				cblogger.Infof("[%s] 키 페어 생성 테스트", keyPairName)
-				keyPairReqInfo := irs.KeyPairReqInfo{
-					IId: irs.IID{
-						NameId:   keyPairName,
-						SystemId: keyPairName,
-					},
-				}
-				result, err := handler.CreateKey(keyPairReqInfo)
-				if err != nil {
-					cblogger.Infof(keyPairName, " 키 페어 생성 실패 : ", err)
-				} else {
-					cblogger.Infof("[%s] 키 페어 생성 결과 : [%s]", keyPairName, result)
-					spew.Dump(result)
-				}
-			case 3:
-				cblogger.Infof("[%s] 키 페어 조회 테스트", keyPairName)
-				result, err := handler.GetKey(keyReq)
-				if err != nil {
-					cblogger.Infof(keyPairName, " 키 페어 조회 실패 : ", err)
-				} else {
-					cblogger.Infof("[%s] 키 페어 조회 결과 : [%s]", keyPairName, result)
-					spew.Dump(result)
-				}
-			case 4:
-				cblogger.Infof("[%s] 키 페어 삭제 테스트", keyPairName)
-				result, err := handler.DeleteKey(keyReq)
-				if err != nil {
-					cblogger.Infof(keyPairName, " 키 페어 삭제 실패 : ", err)
-				} else {
-					cblogger.Infof("[%s] 키 페어 삭제 결과 : [%s]", keyPairName, result)
+					cblogger.Info("List IID 조회 결과 없음")
 				}
 			}
 		}
 	}
 }
 
-func handleKeyPair() {
+func testKeyPairHandler() {
 	cblogger.Debug("Start KeyPair Resource Test")
 
-	ResourceHandler, err := testconf.GetResourceHandler("KeyPair")
+	ResourceHandler, err := testconf.GetResourceHandler(testconf.KeyPair)
 	if err != nil {
 		panic(err)
 	}
 	handler := ResourceHandler.(irs.KeyPairHandler)
-
-	//config := readConfigFile()
-	//VmID := config.Aws.VmID
-
 	keyPairName := keypairId
-	//keyPairName := config.Aws.KeyName
 
 	for {
 		fmt.Println("KeyPair Management")
@@ -923,6 +772,7 @@ func handleKeyPair() {
 		fmt.Println("2. KeyPair Create")
 		fmt.Println("3. KeyPair Get")
 		fmt.Println("4. KeyPair Delete")
+		fmt.Println("5. KeyPair List IID")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -978,16 +828,28 @@ func handleKeyPair() {
 				} else {
 					cblogger.Infof("[%s] 키 페어 삭제 결과 : [%s]", keyPairName, result)
 				}
+			case 5:
+				res, err := handler.ListIID()
+				if err != nil {
+					cblogger.Info("List IID 조회 실패 : ", err)
+				} else if len(res) > 0 {
+					for _, iid := range res {
+						if iid != nil {
+							cblogger.Infof("List IID 조회 결과 : [%+v]", *iid)
+						}
+					}
+				} else {
+					cblogger.Info("List IID 조회 결과 없음")
+				}
 			}
 		}
 	}
 }
 
-// Test VMSpec
-func handleVMSpec() {
+func testVMSpecHandler() {
 	cblogger.Info("Start VMSpec Resource Test")
 
-	ResourceHandler, err := testconf.GetResourceHandler("VMSpec")
+	ResourceHandler, err := testconf.GetResourceHandler(testconf.VMSpec)
 	if err != nil {
 		panic(err)
 	}
@@ -1077,11 +939,10 @@ func handleVMSpec() {
 	}
 }
 
-// Test VM Lifecycle Management (Create/Suspend/Resume/Reboot/Terminate)
-func handleVM() {
+func testVMHandler() {
 	cblogger.Debug("Start VMHandler Resource Test")
 
-	ResourceHandler, err := testconf.GetResourceHandler("VM")
+	ResourceHandler, err := testconf.GetResourceHandler(testconf.VM)
 	if err != nil {
 		panic(err)
 	}
@@ -1104,6 +965,7 @@ func handleVM() {
 		fmt.Println("7. GetVMStatus VM")
 		fmt.Println("8. ListVMStatus VM")
 		fmt.Println("9. ListVM")
+		fmt.Println("10. VM List IID")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -1255,23 +1117,32 @@ func handleVM() {
 					}
 				}
 
+			case 10:
+				res, err := vmHandler.ListIID()
+				if err != nil {
+					cblogger.Info("List IID 조회 실패 : ", err)
+				} else if len(res) > 0 {
+					for _, iid := range res {
+						if iid != nil {
+							cblogger.Infof("List IID 조회 결과 : [%+v]", *iid)
+						}
+					}
+				} else {
+					cblogger.Info("List IID 조회 결과 없음")
+				}
 			}
 		}
 	}
 }
 
-func handleLoadBalancer() {
+func testNLBHandler() {
 	cblogger.Debug("Start LoadBalancer Test")
 
-	ResourceHandler, err := testconf.GetResourceHandler("LB")
+	ResourceHandler, err := testconf.GetResourceHandler(testconf.NLB)
 	if err != nil {
 		panic(err)
 	}
 	nlbHandler := ResourceHandler.(irs.NLBHandler)
-
-	//config := readConfigFile()
-	//VmID := irs.IID{NameId: config.Aws.BaseName, SystemId: config.Aws.VmID}
-	//VmID := irs.IID{SystemId: "mcloud-barista-vm-test"}
 
 	for {
 		fmt.Println("LoadBalancer Management")
@@ -1299,28 +1170,13 @@ func handleLoadBalancer() {
 		fmt.Println("18. RemoveVMs")
 		fmt.Println("19. GetVMGroupHealthInfo")
 		fmt.Println("20. ChangeHealthCheckerInfo")
+		fmt.Println("21. NLB List IID")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
 		if err != nil {
 			panic(err)
 		}
-		////------ NLB Management
-		//CreateNLB(nlbReqInfo NLBReqInfo) (NLBInfo, error)
-		//ListNLB() ([]*NLBInfo, error)
-		//GetNLB(nlbIID IID) (NLBInfo, error)
-		//DeleteNLB(nlbIID IID) (bool, error)
-		//
-		////------ Frontend Control
-		//AddListeners(nlbIID IID, listeners *[]ListenerInfo) (NLBInfo, error)
-		//RemoveListeners(nlbIID IID, listeners *[]ListenerInfo) (bool, error)
-		//
-		////------ Backend Control
-		//ChangeServiceGroupInfo(nlbIID IID, serviceGroup ServiceGroupInfo) (error)
-		//AddServiceVMs(nlbIID IID, vmIIDs *[]IID) (NLBInfo, error)
-		//RemoveServiceVMs(nlbIID IID, vmIIDs *[]IID) (bool, error)
-		//GetServiceVMStatus(nlbIID IID) (HealthyInfo, error)
-		//ChangeHealthCheckerInfo(nlbIID IID, healthChecker HealthCheckerInfo) (error)
 
 		nlbName := "lb-tcptest-be-03"
 
@@ -1345,10 +1201,10 @@ func handleLoadBalancer() {
 				healthCheckerInfo.Threshold = 5
 				nlbReqInfo.HealthChecker = healthCheckerInfo
 
-				instanceIIDs := []irs.IID{}
-				instanceIIDs = append(instanceIIDs, irs.IID{NameId: "lb-tcptest-instance-01", SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/zones/[regionID]-b/instances/lb-tcptest-instance-01"})
-				instanceIIDs = append(instanceIIDs, irs.IID{NameId: "lb-tcptest-instance-02", SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/zones/[regionID]-c/instances/lb-tcptest-instance-02"})
-				nlbReqInfo.VMGroup.VMs = &instanceIIDs
+				// instanceIIDs := []irs.IID{}
+				// instanceIIDs = append(instanceIIDs, irs.IID{NameId: "lb-tcptest-instance-01", SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/zones/[regionID]-b/instances/lb-tcptest-instance-01"})
+				// instanceIIDs = append(instanceIIDs, irs.IID{NameId: "lb-tcptest-instance-02", SystemId: "https://www.googleapis.com/compute/v1/projects/[projectID]/zones/[regionID]-c/instances/lb-tcptest-instance-02"})
+				// nlbReqInfo.VMGroup.VMs = &instanceIIDs
 
 				result, err := nlbHandler.CreateNLB(nlbReqInfo)
 				if err != nil {
@@ -1611,15 +1467,28 @@ func handleLoadBalancer() {
 					cblogger.Infof("result ", result)
 				}
 
+			case 21:
+				res, err := nlbHandler.ListIID()
+				if err != nil {
+					cblogger.Info("List IID 조회 실패 : ", err)
+				} else if len(res) > 0 {
+					for _, iid := range res {
+						if iid != nil {
+							cblogger.Infof("List IID 조회 결과 : [%+v]", *iid)
+						}
+					}
+				} else {
+					cblogger.Info("List IID 조회 결과 없음")
+				}
 			}
 		}
 	}
 }
 
-func handleDisk() {
+func testDiskHandler() {
 	cblogger.Debug("Start DiskHandler Resource Test")
 
-	ResourceHandler, err := testconf.GetResourceHandler("Disk")
+	ResourceHandler, err := testconf.GetResourceHandler(testconf.Disk)
 	if err != nil {
 		panic(err)
 	}
@@ -1643,6 +1512,7 @@ func handleDisk() {
 		fmt.Println("5. Disk Delete")
 		fmt.Println("6. Disk Attach")
 		fmt.Println("7. Disk Detach")
+		fmt.Println("8. Disk List IID")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -1727,15 +1597,29 @@ func handleDisk() {
 				} else {
 					cblogger.Infof("[%s] Disk Detach 결과 : [%s]", diskReqInfo.IId.NameId, result)
 				}
+
+			case 8:
+				res, err := handler.ListIID()
+				if err != nil {
+					cblogger.Info("List IID 조회 실패 : ", err)
+				} else if len(res) > 0 {
+					for _, iid := range res {
+						if iid != nil {
+							cblogger.Infof("List IID 조회 결과 : [%+v]", *iid)
+						}
+					}
+				} else {
+					cblogger.Info("List IID 조회 결과 없음")
+				}
 			}
 		}
 	}
 }
 
-func handleMyImage() {
+func testMyImageHandler() {
 	cblogger.Debug("Start MyImageHandler Resource Test")
 
-	ResourceHandler, err := testconf.GetResourceHandler("MyImage")
+	ResourceHandler, err := testconf.GetResourceHandler(testconf.MyImage)
 	if err != nil {
 		panic(err)
 	}
@@ -1754,6 +1638,7 @@ func handleMyImage() {
 		fmt.Println("2. MyImage Create")
 		fmt.Println("3. MyImage Get")
 		fmt.Println("4. MyImage Delete")
+		fmt.Println("5. MyImage List IID")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -1804,7 +1689,7 @@ func handleMyImage() {
 					cblogger.Infof("[%s] MyImage 조회 결과 : [%s]", myImageReqInfo.IId.NameId, result)
 					spew.Dump(result)
 				}
-			case 5:
+			case 4:
 				cblogger.Infof("[%s] MyImage 삭제 테스트", myImageReqInfo.IId.NameId)
 				result, err := handler.DeleteMyImage(myImageReqInfo.IId)
 				if err != nil {
@@ -1812,15 +1697,28 @@ func handleMyImage() {
 				} else {
 					cblogger.Infof("[%s] MyImage 삭제 결과 : [%s]", myImageReqInfo.IId.NameId, result)
 				}
+			case 5:
+				res, err := handler.ListIID()
+				if err != nil {
+					cblogger.Info("List IID 조회 실패 : ", err)
+				} else if len(res) > 0 {
+					for _, iid := range res {
+						if iid != nil {
+							cblogger.Infof("List IID 조회 결과 : [%+v]", *iid)
+						}
+					}
+				} else {
+					cblogger.Info("List IID 조회 결과 없음")
+				}
 			}
 		}
 	}
 }
 
-func handleRegionZone() {
+func testRegionZoneHandler() {
 	cblogger.Debug("Start RegionZoneHandler Resource Test")
 
-	ResourceHandler, err := testconf.GetResourceHandler("RegionZone")
+	ResourceHandler, err := testconf.GetResourceHandler(testconf.RegionZone)
 	if err != nil {
 		panic(err)
 	}
@@ -1894,10 +1792,10 @@ func handleRegionZone() {
 	}
 }
 
-func handlePriceInfo() {
+func testPriceInfoHandler() {
 	cblogger.Debug("Start handlePriceInfo Test")
 
-	ResourceHandler, err := testconf.GetResourceHandler("PriceInfo")
+	ResourceHandler, err := testconf.GetResourceHandler(testconf.Price)
 	if err != nil {
 		panic(err)
 	}
@@ -2004,8 +1902,8 @@ func handlePriceInfo() {
 	}
 }
 
-func handleTags() {
-	ResourceHandler, err := testconf.GetResourceHandler("Tag")
+func testTagHandler() {
+	ResourceHandler, err := testconf.GetResourceHandler(testconf.Tag)
 	if err != nil {
 		panic(err)
 	}
@@ -2160,20 +2058,138 @@ func handleTags() {
 		}
 	}
 }
+
+func testClusterHandler() {
+
+	cblogger.Debug("Start Cluster Resource Test")
+
+	ResourceHandler, err := testconf.GetResourceHandler(testconf.Cluster)
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.ClusterHandler)
+
+	for {
+		fmt.Println("Cluster Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. Cluster List")
+		fmt.Println("2. Cluster List IID")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				clusters, err := handler.ListCluster()
+				if err != nil {
+					cblogger.Error("ListCluster 실패")
+					cblogger.Error(err)
+				} else {
+					cblogger.Info("ListCluster 성공")
+					cblogger.Info("=========== Cluster 목록 ================")
+					cblogger.Info(clusters)
+					spew.Dump(clusters)
+					if len(clusters) > 0 {
+						for _, c := range clusters {
+							if c != nil {
+								cblogger.Infof("Cluster 조회 결과 : [%+v]", *c)
+							}
+						}
+					}
+				}
+			case 2:
+				res, err := handler.ListIID()
+
+				if err != nil {
+					cblogger.Info("List IID 조회 실패 : ", err)
+				} else if len(res) > 0 {
+					for _, iid := range res {
+						if iid != nil {
+							cblogger.Infof("List IID 조회 결과 : [%+v]", *iid)
+						}
+					}
+				} else {
+					cblogger.Info("List IID 조회 결과 없음")
+				}
+			}
+		}
+	}
+
+}
+
+func showTestHandlerInfo() {
+	cblogger.Info("\n\n==========================")
+	cblogger.Info("[Test ResourceHandler]")
+	cblogger.Info("0. Exit")
+	cblogger.Info("1. ImageHandler")
+	cblogger.Info("2. SecurityHandler")
+	cblogger.Info("3. VPCHandler")
+	cblogger.Info("4. KeyPairHandler")
+	cblogger.Info("5. VmSpecHandler")
+	cblogger.Info("6. VmHandler")
+	cblogger.Info("7. NLBHandler")
+	cblogger.Info("8. DiskHandler")
+	cblogger.Info("9. MyImageHandler")
+	cblogger.Info("10. RegionZoneHandler")
+	cblogger.Info("11. PriceInfoHandler")
+	cblogger.Info("12. ClusterHandler")
+	cblogger.Info("13. TagHandler")
+	cblogger.Info("==========================\n\n")
+}
+
 func main() {
-	cblogger.Info("GCP Resource Test")
-	// handleVPC()
-	//handleVMSpec()
-	//handleImage() //AMI
-	//handleKeyPair()
-	//handleSecurity()
-	// handleVM()
-	//handleLoadBalancer()
-	// handleDisk()
-	//handleMyImage()
-	//handleRegionZone()
-	// handlePriceInfo()
-	//cblogger.Info(filepath.Join("a/b", "\\cloud-driver-libs\\.ssh-gcp\\"))
-	//cblogger.Info(filepath.Join("\\cloud-driver-libs\\.ssh-gcp\\", "/b/c/d"))
-	handleTags()
+	exit := false
+	for !exit {
+		showTestHandlerInfo()
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			cblogger.Error(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				cblogger.Info("Exit Test ResourceHandler Program")
+				exit = true
+			case 1:
+				testImageHandler()
+			case 2:
+				testSecurityHandler()
+			case 3:
+				testVPCHandler()
+			case 4:
+				testKeyPairHandler()
+			case 5:
+				testVMSpecHandler()
+			case 6:
+				testVMHandler()
+			case 7:
+				testNLBHandler()
+			case 8:
+				testDiskHandler()
+			case 9:
+				testMyImageHandler()
+			case 10:
+				testRegionZoneHandler()
+			case 11:
+				testPriceInfoHandler()
+			case 12:
+				testClusterHandler()
+			case 13:
+				testTagHandler()
+			default:
+				cblogger.Info("Unexpected action. bye")
+				exit = true
+			}
+		}
+	}
 }

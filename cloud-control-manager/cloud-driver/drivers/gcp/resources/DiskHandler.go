@@ -542,6 +542,45 @@ func convertDiskInfo(diskResp *compute.Disk) (irs.DiskInfo, error) {
 }
 
 func (DiskHandler *GCPDiskHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	hiscallInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, string(call.DISK), "ListIID()")
+	start := call.Start()
+
+	projectID := DiskHandler.Credential.ProjectID
+	regionID := DiskHandler.Region.Region
+
+	regionZoneHandler := GCPRegionZoneHandler{
+		Client:     DiskHandler.Client,
+		Credential: DiskHandler.Credential,
+		Region:     DiskHandler.Region,
+		Ctx:        DiskHandler.Ctx,
+	}
+
+	regionZoneInfo, err := regionZoneHandler.GetRegionZone(regionID)
+
+	if err != nil {
+		cblogger.Error("failed to get ZoneInfo by region ", err)
+		cblogger.Error(err)
+		return nil, err
+	}
+	var iidList []*irs.IID
+
+	for _, zoneItem := range regionZoneInfo.ZoneList {
+		diskList, err := DiskHandler.Client.Disks.List(projectID, zoneItem.Name).Do()
+
+		if err != nil {
+			cblogger.Error(err)
+			LoggingError(hiscallInfo, err)
+			return nil, err
+		}
+
+		for _, disk := range diskList.Items {
+			iid := irs.IID{NameId: disk.Name, SystemId: disk.Name}
+			iidList = append(iidList, &iid)
+		}
+	}
+
+	calllogger.Info(call.String(hiscallInfo))
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
+
+	return iidList, nil
 }
