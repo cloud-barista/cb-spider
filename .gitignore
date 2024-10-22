@@ -18,6 +18,9 @@
 *_bak
 *_old
 *-old
+*.cnf
+*.crt
+*.key
 
 .DS_Store
 

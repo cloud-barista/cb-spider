@@ -19,18 +19,35 @@ source ${BIN_DIR}/../setup.env
 # OFF is a static package type.
 export PLUGIN_SW=OFF
 
+# set the path of the certificate and key files
+CERT_PATH="$CBSPIDER_ROOT/spiderlet/lionkey/lionkey.crt"
+KEY_PATH="$CBSPIDER_ROOT/spiderlet/lionkey/lionkey.key"
+CA_CERT_PATH="$CBSPIDER_ROOT/spiderlet/lionkey/cert.pem"
+
 # If arguments are provided, pass them to cb-spider
 if [ "$#" -gt 0 ]; then
+    if [ "$1" == "--with" ] || [ "$1" == "-w" ]; then
+        # run with TLS Server
+        if [ "$2" == "spiderlet" ]; then
+            ${BIN_DIR}/stop.sh &> /dev/null
+
+            echo -e '\n'
+            echo -e '\t[CB-Spider] Driver Plugin Mode: Static Builtin Mode'
+            echo -e '\n'
+
+            ${BIN_DIR}/cb-spider --tls --cert $CERT_PATH --key $KEY_PATH --cacert=$CA_CERT_PATH --port 10241 &
+            echo $! > "$BIN_DIR/spider.pid"
+            exit 0
+        fi
+    fi
     $BIN_DIR/cb-spider "$@"
-else
-  # If no arguments are provided, start the CB-Spider server
-  # Stop any running instance of cb-spider
-  ${BIN_DIR}/stop.sh &> /dev/null
+else    
+    ${BIN_DIR}/stop.sh &> /dev/null
 
-  echo -e '\n'
-  echo -e '\t[CB-Spider] Driver Plugin Mode: Static Builtin Mode'
-  echo -e '\n'
+    echo -e '\n'
+    echo -e '\t[CB-Spider] Driver Plugin Mode: Static Builtin Mode'
+    echo -e '\n'
 
-  $BIN_DIR/cb-spider &
-  echo $! > "$BIN_DIR/spider.pid"
+    $BIN_DIR/cb-spider &
+    echo $! > "$BIN_DIR/spider.pid"
 fi
