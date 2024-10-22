@@ -752,7 +752,29 @@ func sameRulesCheck(presentSecurityRules *[]irs.SecurityRuleInfo, reqSecurityRul
 }
 
 func (securityHandler *TencentSecurityHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
-}
+	var iidList []*irs.IID
 
+	callLogInfo := GetCallLogScheme(securityHandler.Region, call.VPCSUBNET, "ListIID", "DescribeSecurityGroups()")
+
+	request := vpc.NewDescribeSecurityGroupsRequest()
+	request.Limit = common.StringPtr("100") //default : 20 / max : 100
+
+	start := call.Start()
+	response, err := securityHandler.Client.DescribeSecurityGroups(request)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		calllogger.Error(call.String(callLogInfo))
+		cblogger.Error(err)
+		return nil, err
+	}
+	calllogger.Debug(call.String(callLogInfo))
+	cblogger.Debug("SecurityGroup Count : ", *response.Response.TotalCount)
+	for _, securityGroup := range response.Response.SecurityGroupSet {
+		iid := irs.IID{SystemId: *securityGroup.SecurityGroupId}
+		iidList = append(iidList, &iid)
+	}
+
+	return iidList, nil
+}

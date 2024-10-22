@@ -546,6 +546,33 @@ func (VPCHandler *TencentVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.
 }
 
 func (vpcHandler *TencentVPCHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	var iidList []*irs.IID
+
+	callLogInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, "ListIID", "DescribeVpcs()")
+
+	request := vpc.NewDescribeVpcsRequest()
+
+	start := call.Start()
+	response, err := vpcHandler.Client.DescribeVpcs(request)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+
+	cblogger.Debug(response.ToJsonString())
+	//cblogger.Debug(result)
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		calllogger.Error(call.String(callLogInfo))
+		cblogger.Error(err)
+		return nil, err
+	}
+	calllogger.Debug(call.String(callLogInfo))
+	cblogger.Debug("VPC Count : ", *response.Response.TotalCount)
+	if *response.Response.TotalCount > 0 {
+		for _, curVpc := range response.Response.VpcSet {
+			cblogger.Debugf("[%s] VPC information retrieval", *curVpc.VpcId)
+			iid := irs.IID{SystemId: *curVpc.VpcId}
+			iidList = append(iidList, &iid)
+		}
+	}
+
+	return iidList, nil
 }
