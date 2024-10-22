@@ -1427,6 +1427,55 @@ func (NLBHandler *AlibabaNLBHandler) validateCreateNLB(nlbReqInfo irs.NLBInfo) e
 }
 
 func (NLBHandler *AlibabaNLBHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	var iidList []*irs.IID
+
+	request := slb.CreateDescribeLoadBalancersRequest()
+	request.PageNumber = requests.NewInteger(1)
+	request.PageSize = requests.NewInteger(50)
+	request.RegionId = NLBHandler.Region.Region
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   NLBHandler.Region.Zone,
+		ResourceType: call.NLB,
+		ResourceName: "ListIID()",
+		CloudOSAPI:   "DescribeLoadBalancers()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
+	var totalCount = 0
+	curPage := 1
+	for {
+		result, err := NLBHandler.Client.DescribeLoadBalancers(request)
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+		//cblogger.Debug(result)
+		if err != nil {
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Info(call.String(callLogInfo))
+			return iidList, err
+		}
+
+		callogger.Info("result count ", result.TotalCount)
+		callogger.Info(result)
+
+		for _, curLB := range result.LoadBalancers.LoadBalancer {
+			cblogger.Debugf("[%s] NLB information retrieval", curLB.LoadBalancerId)
+			iid := irs.IID{SystemId: curLB.LoadBalancerId}
+			iidList = append(iidList, &iid)
+		}
+
+		totalCount = len(iidList)
+		cblogger.Debugf("Total number of nlb across CSP: [%d] - Current page: [%d] - Accumulated result count: [%d]", result.TotalCount, curPage, totalCount)
+		if totalCount >= result.TotalCount {
+			break
+		}
+		curPage++
+		request.PageNumber = requests.NewInteger(curPage)
+	}
+	cblogger.Debug(iidList)
+	return iidList, nil
 }

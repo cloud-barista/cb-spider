@@ -416,6 +416,60 @@ func (keyPairHandler *AlibabaKeyPairHandler) CheckKeyPairFolder(keyPairPath stri
 }
 
 func (keyPairHandler *AlibabaKeyPairHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	var iidList []*irs.IID
+	//cblogger.Debug(keyPairHandler)
+	cblogger.Debug(keyPairHandler)
+
+	request := ecs.CreateDescribeKeyPairsRequest()
+	request.Scheme = "https"
+	request.PageNumber = requests.NewInteger(1)
+	request.PageSize = requests.NewInteger(50) // 키 페어는 최대 50개까지 지정 가능
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   keyPairHandler.Region.Zone,
+		ResourceType: call.VMKEYPAIR,
+		ResourceName: "ListKey()",
+		CloudOSAPI:   "DescribeKeyPairs()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
+
+	var totalCount = 0
+	curPage := 1
+	for {
+		//  Returns a list of key pairs
+		result, err := keyPairHandler.Client.DescribeKeyPairs(request)
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+		if err != nil {
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Error(call.String(callLogInfo))
+
+			cblogger.Errorf("Unable to get key pairs, %v", err)
+			return iidList, err
+		}
+		callogger.Info(call.String(callLogInfo))
+		cblogger.Debug(result)
+
+		//cblogger.Debugf("Key Pairs:")
+		for _, pair := range result.KeyPairs.KeyPair {
+			iid := irs.IID{SystemId: pair.KeyPairName}
+			iidList = append(iidList, &iid)
+		}
+
+		totalCount = len(iidList)
+		cblogger.Infof("Total number of key pairs across CSP: [%d] - Current page: [%d] - Accumulated result count: [%d]", result.TotalCount, curPage, totalCount)
+		if totalCount >= result.TotalCount {
+			break
+		}
+		curPage++
+		request.PageNumber = requests.NewInteger(curPage)
+	}
+
+	return iidList, nil
 }

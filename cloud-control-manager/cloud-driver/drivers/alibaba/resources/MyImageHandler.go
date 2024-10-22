@@ -411,7 +411,26 @@ func (myImageHandler *AlibabaMyImageHandler) DeleteSnapshotBySnapshotID(snapshot
 	return true, err
 }
 
-func (ImageHandler *AlibabaMyImageHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+func (myImageHandler *AlibabaMyImageHandler) ListIID() ([]*irs.IID, error) {
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   myImageHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: "ListIID()",
+		CloudOSAPI:   "DescribeImages()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
+	iidList, err := DescribeImagesIdOnly(myImageHandler.Client, myImageHandler.Region, true)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	if err != nil {
+		callogger.Error(call.String(callLogInfo))
+		return iidList, err
+	}
+
+	return iidList, nil
 }

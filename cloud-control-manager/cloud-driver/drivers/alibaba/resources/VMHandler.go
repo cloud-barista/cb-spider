@@ -1220,6 +1220,27 @@ func (vmHandler *AlibabaVMHandler) getDiskInfo(instanceId string) ecs.Disk {
 }
 
 func (vmHandler *AlibabaVMHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   vmHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: "ListIID()",
+		CloudOSAPI:   "DescribeInstances()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
+
+	iidList, err := DescribeInstancesIdOnly(vmHandler.Client, vmHandler.Region)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+	if err != nil {
+		callogger.Error(call.String(callLogInfo))
+		return iidList, err
+	}
+
+	return iidList, nil
 }

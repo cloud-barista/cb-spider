@@ -12,7 +12,6 @@ package resources
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"runtime/debug"
 	"strconv"
@@ -1040,6 +1039,7 @@ func aliDescribeClustersV1(csClient *cs2015.Client, regionId string) ([]*cs2015.
 	describeClustersV1Request := &cs2015.DescribeClustersV1Request{
 		ClusterType: tea.String("ManagedKubernetes"),
 		RegionId:    tea.String(regionId),
+		//RegionId: tea.String("ap-northeast-1"),
 	}
 	cblogger.Debug(describeClustersV1Request)
 	describeClustersV1Response, err := csClient.DescribeClustersV1(describeClustersV1Request)
@@ -2321,7 +2321,29 @@ func waitUntilClusterSecurityGroupIdIsExist(csClient *cs2015.Client, clusterId s
 	}
 */
 
-func (ClusterHandler *AlibabaClusterHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+func (alibabaClusterHandler *AlibabaClusterHandler) ListIID() ([]*irs.IID, error) {
+	var iidList []*irs.IID
+
+	cblogger.Debug("Alibaba Cloud Driver: called ListCluster()")
+	hiscallInfo := GetCallLogScheme(alibabaClusterHandler.RegionInfo, call.CLUSTER, "ListCluster()", "ListCluster()")
+	start := call.Start()
+
+	cblogger.Infof("Get Cluster List")
+	regionId := alibabaClusterHandler.RegionInfo.Region
+	clusters, err := aliDescribeClustersV1(alibabaClusterHandler.CsClient, regionId)
+	if err != nil {
+		err := fmt.Errorf("Failed to List Cluster: %v", err)
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return iidList, err
+	}
+
+	for _, cluster := range clusters {
+		iid := irs.IID{SystemId: tea.StringValue(cluster.ClusterId)}
+		iidList = append(iidList, &iid)
+
+	}
+	LoggingInfo(hiscallInfo, start)
+	return iidList, nil
+
 }
