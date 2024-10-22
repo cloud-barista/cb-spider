@@ -1367,9 +1367,9 @@ func (ClusterHandler *GCPClusterHandler) ListIID() ([]*irs.IID, error) {
 	start := call.Start()
 
 	projectID := ClusterHandler.Credential.ProjectID
-	zone := ClusterHandler.Region.Zone
-	parent := getParentAtContainer(projectID, zone)
-	cblogger.Info("parent : ", parent)
+	region := ClusterHandler.Region.Region
+	parent := getParentAtContainer(projectID, region)
+	cblogger.Info("parent for cluster list call : ", parent)
 
 	resp, err := ClusterHandler.ContainerClient.Projects.Locations.Clusters.List(parent).Do()
 	hiscallInfo.ElapsedTime = call.Elapsed(start)

@@ -12,7 +12,6 @@ package TestConfig
 
 import (
 	"encoding/json"
-	"io/ioutil"
 	"os"
 
 	gcpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp"
@@ -43,21 +42,40 @@ type Config struct {
 	AuthProvider string `json:"auth_provider_x509_cert_url"`
 }
 
+type HandlerType string
+
+const (
+	Image         = "Image"
+	MyImage       = "MyImage"
+	SecurityGroup = "SecurityGroup"
+	Disk          = "Disk"
+	VM            = "VM"
+	KeyPair       = "KeyPair"
+	VMSpec        = "VMSpec"
+	VPC           = "VPC"
+	NLB           = "NLB"
+	RegionZone    = "RegionZone"
+	Price         = "Price"
+	Tag           = "Tag"
+	Cluster       = "Cluster"
+)
+
+const (
+	region = "asia-northeast3"
+	zone   = "asia-northeast3-c"
+	// region = "us-central1"
+	// zone   = "us-central1-b"
+)
+
 // 환경변수 : GOOGLE_APPLICATION_CREDENTIALS - 인증용 .json 파일의 위치
-// handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
-// (예) ImageHandler.go -> "Image"
-func GetResourceHandler(handlerType string) (interface{}, error) {
-	var cloudDriver idrv.CloudDriver
-	cloudDriver = new(gcpdrv.GCPDriver)
+func GetResourceHandler(handlerType HandlerType) (interface{}, error) {
+	cloudDriver := new(gcpdrv.GCPDriver)
 
 	credentialFilePath := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
 	cblogger.Infof("export $GOOGLE_APPLICATION_CREDENTIALS : [%s]", credentialFilePath)
 	cblogger.Infof("credentialFilePath : [%s]", credentialFilePath)
 
 	config, _ := readFileConfig(credentialFilePath)
-	//region := "europe-west1"
-	region := "asia-northeast3"
-	zone := "asia-northeast3-c"
 
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
@@ -82,32 +100,32 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 	var err error
 
 	switch handlerType {
-	case "Image":
+	case Image:
 		resourceHandler, err = cloudConnection.CreateImageHandler()
-	// case "Publicip":
-	// 	resourceHandler, err = cloudConnection.CreatePublicIPHandler()
-	case "Security":
+	case MyImage:
+		resourceHandler, err = cloudConnection.CreateMyImageHandler()
+	case SecurityGroup:
 		resourceHandler, err = cloudConnection.CreateSecurityHandler()
-	// case "VNetwork":
-	// 	resourceHandler, err = cloudConnection.CreateVNetworkHandler()
-	// case "VNic":
-	// 	resourceHandler, err = cloudConnection.CreateVNicHandler()
-	case "Disk":
+	case Disk:
 		resourceHandler, err = cloudConnection.CreateDiskHandler()
-	case "VM":
+	case VM:
 		resourceHandler, err = cloudConnection.CreateVMHandler()
-	case "KeyPair":
+	case KeyPair:
 		resourceHandler, err = cloudConnection.CreateKeyPairHandler()
-	case "VMSpec":
+	case VMSpec:
 		resourceHandler, err = cloudConnection.CreateVMSpecHandler()
-	case "VPCHandler":
+	case VPC:
 		resourceHandler, err = cloudConnection.CreateVPCHandler()
-	case "RegionZone":
+	case NLB:
+		resourceHandler, err = cloudConnection.CreateNLBHandler()
+	case RegionZone:
 		resourceHandler, err = cloudConnection.CreateRegionZoneHandler()
-	case "PriceInfo":
+	case Price:
 		resourceHandler, err = cloudConnection.CreatePriceInfoHandler()
-	case "Tag":
+	case Tag:
 		resourceHandler, err = cloudConnection.CreateTagHandler()
+	case Cluster:
+		resourceHandler, err = cloudConnection.CreateClusterHandler()
 	}
 
 	if err != nil {
@@ -118,7 +136,7 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 
 func readFileConfig(filepath string) (Config, error) {
 
-	data, err := ioutil.ReadFile(filepath)
+	data, err := os.ReadFile(filepath)
 	if err != nil {
 		cblogger.Error(err)
 		panic(err)
@@ -127,8 +145,6 @@ func readFileConfig(filepath string) (Config, error) {
 	var config Config
 	json.Unmarshal(data, &config)
 	cblogger.Info("Loaded ConfigFile...")
-	//cblogger.Info("readFileConfig Json : ", config.ClientEmail)
-	//spew.Dump(config)
 
 	return config, err
 
