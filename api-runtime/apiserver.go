@@ -40,25 +40,58 @@ func NewRootCmd() *cobra.Command {
 		Use:   "cb-spider",
 		Short: "CB-Spider API Server for managing multi-cloud infrastructure",
 		Run: func(cmd *cobra.Command, args []string) {
+			// Get the flags
+			useTLS, _ := cmd.Flags().GetBool("tls")
+			certPath, _ := cmd.Flags().GetString("cert")
+			keyPath, _ := cmd.Flags().GetString("key")
+			caCertPath, _ := cmd.Flags().GetString("cacert")
+			port, _ := cmd.Flags().GetInt("port")
+
 			if versionFlag, _ := cmd.Flags().GetBool("version"); versionFlag {
 				printVersion()
 				return
 			}
 
-			// Start the server
+			// WaitGroup to manage both servers
 			wg := new(sync.WaitGroup)
-			wg.Add(1)
-			go func() {
-				restruntime.RunServer()
-				wg.Done()
-			}()
 
-			wg.Wait()
+			if useTLS {
+				// Run the TLS server for spiderlet
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					restruntime.RunTLSServer(certPath, keyPath, caCertPath, port)
+				}()
+
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					restruntime.RunServer() // Run the REST server
+				}()
+
+			} else {
+				// Run the REST server
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					restruntime.RunServer()
+				}()
+			}
+
+			wg.Wait() // Wait for both servers to finish
 		},
 	}
 
 	// Add global flags for version info
 	rootCmd.Flags().BoolP("version", "v", false, "Print version information")
+
+	// Add flags for TLS
+	rootCmd.Flags().Bool("tls", false, "Enable TLS")
+	rootCmd.Flags().String("cert", "", "TLS certificate file")
+	rootCmd.Flags().String("key", "", "TLS key file")
+	rootCmd.Flags().String("cacert", "", "CA certificate file")
+
+	rootCmd.Flags().Int("port", 10241, "TLS server port")
 
 	// Add subcommands
 	rootCmd.AddCommand(NewInfoCmd())

@@ -91,6 +91,40 @@ type IbmClusterHandler struct {
 
 var defaultResourceGroupId string
 
+func (ic *IbmClusterHandler) SupportedVersions(requestedVersion string) ([]string, error) {
+
+	getVersionsOptions := &kubernetesserviceapiv1.GetVersionsOptions{}
+
+	versions, _, err := ic.ClusterService.GetVersions(getVersionsOptions)
+	if err != nil {
+		return nil, fmt.Errorf("not found version: %v", err)
+	}
+
+	var availableVersions []string
+	isSupported := false
+
+	for versionGroup, kubeVersions := range versions {
+		if versionGroup == "kubernetes" {
+			for _, version := range kubeVersions {
+				currentVersion := fmt.Sprintf("%d.%d.%d", *version.Major, *version.Minor, *version.Patch)
+				if currentVersion == requestedVersion {
+					isSupported = true
+				}
+				availableVersions = append(availableVersions, currentVersion)
+			}
+		}
+	}
+
+	if !isSupported {
+		cblogger.Infof("not found version: %s", requestedVersion)
+		return availableVersions, fmt.Errorf("not found version: %s", requestedVersion)
+	}
+
+	cblogger.Infof("available version %s has been verified", requestedVersion)
+	return availableVersions, nil
+
+}
+
 func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.ClusterInfo, error) {
 	hiscallInfo := GetCallLogScheme(ic.Region, call.CLUSTER, clusterReqInfo.IId.NameId, "CreateCluster()")
 	start := call.Start()
@@ -101,6 +135,13 @@ func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.
 		cblogger.Error(validationErr)
 		LoggingError(hiscallInfo, validationErr)
 		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", validationErr))
+	}
+
+	//checkedVersion
+	availableVersions, versionErr := ic.SupportedVersions(clusterReqInfo.Version)
+	if versionErr != nil {
+		LoggingError(hiscallInfo, versionErr)
+		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Create Cluster. Available versions: %v. err = %s", availableVersions, versionErr))
 	}
 
 	// get resource group id

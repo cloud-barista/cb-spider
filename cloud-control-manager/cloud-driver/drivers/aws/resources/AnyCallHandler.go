@@ -20,9 +20,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
+	"sort"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/costexplorer"
 	"github.com/aws/aws-sdk-go/service/ec2"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -34,6 +37,7 @@ type AwsAnyCallHandler struct {
 	CredentialInfo idrv.CredentialInfo
 	Client         *ec2.EC2
 	CeClient       *costexplorer.CostExplorer
+	CwClient       *cloudwatch.CloudWatch
 }
 
 /*
@@ -63,6 +67,8 @@ func (anyCallHandler *AwsAnyCallHandler) AnyCall(callInfo irs.AnyCallInfo) (irs.
 		return getRegionInfo(anyCallHandler, callInfo)
 	case "getCostWithResource":
 		return getCostWithResource(anyCallHandler, callInfo)
+	case "fetchMonitoringData":
+		return fetchMonitoringData(anyCallHandler, callInfo)
 
 	default:
 		return irs.AnyCallInfo{}, errors.New("AWS Driver: " + callInfo.FID + " Function is not implemented!")
@@ -413,4 +419,128 @@ func costExplorerGroupGenerate(g []GroupBy) []*costexplorer.GroupDefinition {
 	}
 
 	return groupBy
+}
+
+// for spiderlet prototype
+func fetchMonitoringData(anyCallHandler *AwsAnyCallHandler, callInfo irs.AnyCallInfo) (irs.AnyCallInfo, error) {
+	cblogger.Info("AWS Driver: called AnyCall()/fetchMonitoringData()!")
+
+	cwClient := anyCallHandler.CwClient
+
+	var vmId string
+	for _, kv := range callInfo.IKeyValueList {
+		if kv.Key == "vmId" {
+			vmId = kv.Value
+			break
+		}
+	}
+
+	if vmId == "" {
+		return callInfo, fmt.Errorf("vmId is not provided in IKeyValueList")
+	}
+
+	metrics := []string{
+		"CPUUtilization",
+		/*"NetworkIn",
+		  "NetworkOut",
+		  "NetworkPacketsIn",
+		  "NetworkPacketsOut",
+		  "DiskReadOps",
+		  "DiskWriteOps",
+		  "DiskReadBytes",
+		  "DiskWriteBytes",
+		  "StatusCheckFailed",
+		  "StatusCheckFailed_Instance",
+		  "StatusCheckFailed_System",*/
+	}
+
+	// Initialize OKeyValueList if it's nil
+	if callInfo.OKeyValueList == nil {
+		callInfo.OKeyValueList = []irs.KeyValue{}
+	}
+
+	for _, metric := range metrics {
+		// Fetch metrics from CloudWatch for the provided instance ID
+		result, err := getEC2Metric(cwClient, vmId, metric)
+		if err != nil {
+			log.Printf("Failed to get metric %s: %v", metric, err)
+			continue
+		}
+
+		if len(result) == 0 {
+			// No data points found, append a message in OKeyValueList
+			callInfo.OKeyValueList = append(callInfo.OKeyValueList, irs.KeyValue{
+				Key:   metric,
+				Value: "No data points found",
+			})
+		} else {
+			// Sort datapoints by timestamp
+			sort.Slice(result, func(i, j int) bool {
+				return result[i].Timestamp.Before(*result[j].Timestamp)
+			})
+
+			// Append each data point information to OKeyValueList
+			for _, datapoint := range result {
+				key := fmt.Sprintf("%s [%v]", metric, datapoint.Timestamp)
+
+				var valueStr string
+				if datapoint.Average != nil {
+					valueStr += fmt.Sprintf("Average: %.2f ", *datapoint.Average)
+				}
+				if datapoint.Minimum != nil {
+					valueStr += fmt.Sprintf("Minimum: %.2f ", *datapoint.Minimum)
+				}
+				if datapoint.Maximum != nil {
+					valueStr += fmt.Sprintf("Maximum: %.2f ", *datapoint.Maximum)
+				}
+				if datapoint.Sum != nil {
+					valueStr += fmt.Sprintf("Sum: %.2f ", *datapoint.Sum)
+				}
+				if datapoint.SampleCount != nil {
+					valueStr += fmt.Sprintf("SampleCount: %.0f ", *datapoint.SampleCount)
+				}
+
+				// Add to OKeyValueList
+				callInfo.OKeyValueList = append(callInfo.OKeyValueList, irs.KeyValue{
+					Key:   key,
+					Value: valueStr,
+				})
+			}
+		}
+	}
+
+	return callInfo, nil
+}
+
+func getEC2Metric(cwClient *cloudwatch.CloudWatch, instanceID string, metricName string) ([]*cloudwatch.Datapoint, error) {
+	endTime := time.Now()
+	startTime := endTime.Add(-4 * time.Hour) // 6 hour ago
+
+	input := &cloudwatch.GetMetricStatisticsInput{
+		Namespace:  aws.String("AWS/EC2"),
+		MetricName: aws.String(metricName),
+		Dimensions: []*cloudwatch.Dimension{
+			{
+				Name:  aws.String("InstanceId"),
+				Value: aws.String(instanceID),
+			},
+		},
+		StartTime: aws.Time(startTime),
+		EndTime:   aws.Time(endTime),
+		Period:    aws.Int64(300), // 5 minutes
+		Statistics: []*string{
+			aws.String("Average"),
+			aws.String("Minimum"),
+			aws.String("Maximum"),
+			aws.String("Sum"),
+			aws.String("SampleCount"),
+		},
+	}
+
+	resp, err := cwClient.GetMetricStatistics(input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get metric statistics: %v", err)
+	}
+
+	return resp.Datapoints, nil
 }
