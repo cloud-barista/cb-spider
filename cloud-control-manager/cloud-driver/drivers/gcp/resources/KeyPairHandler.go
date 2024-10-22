@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"strings"
 
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	keypair "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -192,6 +193,32 @@ func (keyPairHandler *GCPKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error)
 }
 
 func (keyPairHandler *GCPKeyPairHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	hiscallInfo := GetCallLogScheme(keyPairHandler.Region, call.VMKEYPAIR, string(call.VMKEYPAIR), "ListIID()")
+	start := call.Start()
+
+	hashString, err := CreateHashString(keyPairHandler.CredentialInfo)
+	if err != nil {
+		cblogger.Error("Fail CreateHashString")
+		cblogger.Error(err)
+		return nil, err
+	}
+
+	keyValueList, err := keypair.ListKey(CBKeyPairProvider, hashString)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return nil, err
+	}
+	calllogger.Info(call.String(hiscallInfo))
+
+	var iidList []*irs.IID
+
+	for _, keyValue := range keyValueList {
+		iid := irs.IID{SystemId: keyValue.Key}
+
+		iidList = append(iidList, &iid)
+	}
+
+	return iidList, nil
 }

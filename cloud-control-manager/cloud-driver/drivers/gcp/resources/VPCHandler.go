@@ -719,6 +719,31 @@ func (vVPCHandler *GCPVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID
 }
 
 func (vpcHandler *GCPVPCHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	hiscallInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, string(call.VPCSUBNET), "ListIID()")
+	start := call.Start()
+
+	projectID := vpcHandler.Credential.ProjectID
+
+	vpcList, err := vpcHandler.Client.Networks.List(projectID).Do()
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
+
+	if err != nil {
+		LoggingError(hiscallInfo, err)
+		cblogger.Error(err)
+		return nil, err
+	}
+	calllogger.Info(call.String(hiscallInfo))
+
+	var iidList []*irs.IID
+
+	for _, item := range vpcList.Items {
+		iid := irs.IID{
+			NameId:   item.Name,
+			SystemId: item.Name,
+		}
+
+		iidList = append(iidList, &iid)
+	}
+
+	return iidList, nil
 }
