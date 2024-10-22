@@ -177,7 +177,7 @@ func (VPCHandler *AwsVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 	}
 	retVpcInfo.SubnetInfoList = resSubnetList
 
-	retVpcInfo.TagList, _ = VPCHandler.TagHandler.ListTag(irs.VM, retVpcInfo.IId)
+	retVpcInfo.TagList, _ = VPCHandler.TagHandler.ListTag(irs.VPC, retVpcInfo.IId)
 	return retVpcInfo, nil
 }
 
@@ -536,7 +536,7 @@ func (VPCHandler *AwsVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 		return awsVpcInfo, errSubnet
 	}
 
-	awsVpcInfo.TagList, _ = VPCHandler.TagHandler.ListTag(irs.VM, awsVpcInfo.IId)
+	awsVpcInfo.TagList, _ = VPCHandler.TagHandler.ListTag(irs.VPC, awsVpcInfo.IId)
 	return awsVpcInfo, nil
 }
 
@@ -1151,6 +1151,25 @@ func (VPCHandler *AwsVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID)
 }
 
 func (vpcHandler *AwsVPCHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	var iidList []*irs.IID
+	callLogInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, "ListIID", "DescribeVpcs()")
+	start := call.Start()
+
+	result, err := vpcHandler.Client.DescribeVpcs(&ec2.DescribeVpcsInput{})
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		calllogger.Error(call.String(callLogInfo))
+		cblogger.Error(err)
+		return nil, err
+	}
+	calllogger.Info(call.String(callLogInfo))
+
+	for _, curVpc := range result.Vpcs {
+		cblogger.Debugf("Retrieve VPC Info [%s] ", *curVpc.VpcId)
+		iid := irs.IID{SystemId: *curVpc.VpcId}
+		iidList = append(iidList, &iid)
+	}
+
+	return iidList, nil
 }
