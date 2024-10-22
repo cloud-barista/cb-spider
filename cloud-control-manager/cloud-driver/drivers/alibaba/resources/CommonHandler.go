@@ -128,6 +128,49 @@ func DescribeDiskByDiskId(client *ecs.Client, regionInfo idrv.RegionInfo, diskII
 
 /*
 *
+디스크 목록 조회
+*/
+func DescribeDisksIdOnly(client *ecs.Client, regionInfo idrv.RegionInfo) ([]*irs.IID, error) {
+	regionID := regionInfo.Region
+
+	request := ecs.CreateDescribeDisksRequest()
+	request.Scheme = "https"
+	request.RegionId = regionID
+	request.PageNumber = requests.NewInteger(CBPageNumber)
+	request.PageSize = requests.NewInteger(CBPageSize)
+
+	var totalCount = 0
+	curPage := CBPageNumber
+	var iidList []*irs.IID
+	for {
+		result, err := client.DescribeDisks(request)
+		//cblogger.Debug(result) //출력 정보가 너무 많아서 생략
+		if err != nil {
+			cblogger.Errorf("Unable to get Disks, %v", err)
+			return iidList, err
+		}
+
+		for _, curDisk := range result.Disks.Disk {
+			iid := irs.IID{SystemId: curDisk.DiskId}
+			iidList = append(iidList, &iid)
+		}
+
+		totalCount = len(iidList)
+		cblogger.Debugf("Total number of disks across CSP: [%d] - Current page: [%d] - Accumulated result count: [%d]", result.TotalCount, curPage, totalCount)
+		if totalCount >= result.TotalCount {
+			break
+		}
+		curPage++
+		request.PageNumber = requests.NewInteger(curPage)
+	}
+
+	cblogger.Debug(iidList)
+
+	return iidList, nil
+}
+
+/*
+*
 InstanceID로 1개 Disk의 정보 조회
 */
 func DescribeDisksByInstanceId(client *ecs.Client, regionInfo idrv.RegionInfo, instanceIID irs.IID) ([]ecs.Disk, error) {
@@ -347,6 +390,44 @@ func DescribeInstanceById(client *ecs.Client, regionInfo idrv.RegionInfo, vmIID 
 
 /*
 *
+Instance ID 목록 조회
+*/
+func DescribeInstancesIdOnly(client *ecs.Client, regionInfo idrv.RegionInfo) ([]*irs.IID, error) {
+	var iidList []*irs.IID
+
+	request := ecs.CreateDescribeInstancesRequest()
+	request.Scheme = "https"
+	request.PageNumber = requests.NewInteger(1)
+	request.PageSize = requests.NewInteger(100)
+
+	var totalCount = 0
+	curPage := 1
+	for {
+		response, err := client.DescribeInstances(request)
+		if err != nil {
+			cblogger.Errorf("Unable to get key pairs, %v", err)
+			return iidList, err
+		}
+
+		for _, curInstance := range response.Instances.Instance {
+			iid := irs.IID{SystemId: curInstance.InstanceId}
+			iidList = append(iidList, &iid)
+		}
+
+		totalCount = len(iidList)
+		cblogger.Infof("Total number of instance across CSP: [%d] - Current page: [%d] - Accumulated result count: [%d]", response.TotalCount, curPage, totalCount)
+		if totalCount >= response.TotalCount {
+			break
+		}
+		curPage++
+		request.PageNumber = requests.NewInteger(curPage)
+	}
+
+	return iidList, nil
+}
+
+/*
+*
 Image 목록 조회
 
 imageOwnerAlias 종류 : self, system, others, marketplace
@@ -382,6 +463,48 @@ func DescribeImages(client *ecs.Client, regionInfo idrv.RegionInfo, imageIIDs []
 
 	//cblogger.Debug(result)
 	return result.Images.Image, nil
+}
+
+func DescribeImagesIdOnly(client *ecs.Client, regionInfo idrv.RegionInfo, isMyImage bool) ([]*irs.IID, error) {
+	var iidList []*irs.IID
+
+	request := ecs.CreateDescribeImagesRequest()
+	request.Scheme = "https"
+	request.PageNumber = requests.NewInteger(1)
+	request.PageSize = requests.NewInteger(100)
+	request.RegionId = regionInfo.Region // 필수 Req Name
+
+	// MyImage 여부
+	if isMyImage {
+		request.ImageOwnerAlias = "self"
+	}
+
+	var totalCount = 0
+	curPage := 1
+	for {
+
+		result, err := client.DescribeImages(request)
+		if err != nil {
+			cblogger.Error(err)
+			return iidList, err
+		}
+		cblogger.Debug(result)
+
+		for _, curImage := range result.Images.Image {
+			iid := irs.IID{SystemId: curImage.ImageId}
+			iidList = append(iidList, &iid)
+		}
+
+		totalCount = len(iidList)
+		cblogger.Debugf("Total number of image across CSP: [%d] - Current page: [%d] - Accumulated result count: [%d]", result.TotalCount, curPage, totalCount)
+		if totalCount >= result.TotalCount {
+			break
+		}
+		curPage++
+		request.PageNumber = requests.NewInteger(curPage)
+	}
+	//cblogger.Debug(result)
+	return iidList, nil
 }
 
 /*

@@ -747,7 +747,31 @@ func convertAlibabaDiskStatusToDiskStatus(aliDiskStaus string) (irs.DiskStatus, 
 	return returnStatus, nil
 }
 
-func (DiskHandler *AlibabaDiskHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+/*
+DISK IID 목록 조회
+*/
+func (diskHandler *AlibabaDiskHandler) ListIID() ([]*irs.IID, error) {
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   diskHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: "ListIID()",
+		CloudOSAPI:   "DescribeDisksIdOnly()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
+
+	iidList, err := DescribeDisksIdOnly(diskHandler.Client, diskHandler.Region)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+	if err != nil {
+		callogger.Error(call.String(callLogInfo))
+		return iidList, err
+	}
+	return iidList, err
+
 }
