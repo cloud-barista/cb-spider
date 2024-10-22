@@ -1244,8 +1244,31 @@ Lighthouse API가 있으나 ClientInterface 부분 처리 방법 필요
 //	return diskInfoList, nil
 //}
 
-
 func (vmHandler *TencentVMHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	var iidList []*irs.IID
+
+	callLogInfo := GetCallLogScheme(vmHandler.Region, call.VMKEYPAIR, "ListIID", "DescribeInstances()")
+
+	request := cvm.NewDescribeInstancesRequest()
+	request.Limit = common.Int64Ptr(100)
+
+	start := call.Start()
+	response, err := vmHandler.Client.DescribeInstances(request)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		calllogger.Error(call.String(callLogInfo))
+
+		cblogger.Error(err)
+		return nil, err
+	}
+	calllogger.Debug(call.String(callLogInfo))
+	cblogger.Debug("VM Count : ", *response.Response.TotalCount)
+	for _, curVm := range response.Response.InstanceSet {
+		iid := irs.IID{SystemId: *curVm.InstanceId}
+		iidList = append(iidList, &iid)
+	}
+
+	return iidList, nil
 }

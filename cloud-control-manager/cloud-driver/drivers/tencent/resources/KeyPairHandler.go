@@ -430,6 +430,27 @@ func (keyPairHandler *TencentKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, er
 }
 
 func (keyPairHandler *TencentKeyPairHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	var iidList []*irs.IID
+
+	callLogInfo := GetCallLogScheme(keyPairHandler.Region, call.VMKEYPAIR, "ListIID", "DescribeKeyPairs()")
+
+	request := cvm.NewDescribeKeyPairsRequest()
+
+	start := call.Start()
+	response, err := keyPairHandler.Client.DescribeKeyPairs(request)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		calllogger.Error(call.String(callLogInfo))
+		cblogger.Error(err)
+		return nil, err
+	}
+	calllogger.Debug(call.String(callLogInfo))
+	cblogger.Debug("keyPair Count : ", *response.Response.TotalCount)
+	for _, pair := range response.Response.KeyPairSet {
+		iid := irs.IID{SystemId: *pair.KeyId}
+		iidList = append(iidList, &iid)
+	}
+
+	return iidList, nil
 }
