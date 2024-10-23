@@ -458,6 +458,22 @@ func (DiskHandler *TencentDiskHandler) diskExist(chkName string) (bool, error) {
 }
 
 func (DiskHandler *TencentDiskHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	var iidList []*irs.IID
+	callLogInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, "Disk", "ListIID()")
+
+	start := call.Start()
+	diskSet, err := DescribeDisks(DiskHandler.Client, nil)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(callLogInfo, err)
+		return nil, err
+	}
+	calllogger.Debug(call.String(callLogInfo))
+
+	for _, disk := range diskSet {
+		iid := irs.IID{SystemId: *disk.DiskId}
+		iidList = append(iidList, &iid)
+	}
+	return iidList, nil
 }

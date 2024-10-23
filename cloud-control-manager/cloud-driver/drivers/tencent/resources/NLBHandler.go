@@ -282,9 +282,9 @@ func (NLBHandler *TencentNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 		cblogger.Error(err)
 		return nil, err
 	}
-	callogger.Info(call.String(callLogInfo))
+	callogger.Debug(call.String(callLogInfo))
 
-	cblogger.Info("NLB 개수 : ", *response.Response.TotalCount)
+	cblogger.Debug("NLB count : ", *response.Response.TotalCount)
 
 	var nlbInfoList []*irs.NLBInfo
 	if *response.Response.TotalCount > 0 {
@@ -309,7 +309,7 @@ func (NLBHandler *TencentNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 NLB 조회
 */
 func (NLBHandler *TencentNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {
-	cblogger.Info("NLB IID : ", nlbIID.SystemId)
+	cblogger.Debug("NLB IID : ", nlbIID.SystemId)
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -335,7 +335,7 @@ func (NLBHandler *TencentNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 		callogger.Error(call.String(callLogInfo))
 		return irs.NLBInfo{}, err
 	}
-	callogger.Info(call.String(callLogInfo))
+	callogger.Debug(call.String(callLogInfo))
 
 	cblogger.Debug("NLB Count : ", *response.Response.TotalCount)
 	if *response.Response.TotalCount < 1 {
@@ -384,7 +384,7 @@ func (NLBHandler *TencentNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 }
 
 func (NLBHandler *TencentNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
-	cblogger.Info("NLB IID : ", nlbIID.SystemId)
+	cblogger.Debug("NLB IID : ", nlbIID.SystemId)
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -411,7 +411,7 @@ func (NLBHandler *TencentNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 		return false, err
 	}
 
-	callogger.Info(call.String(callLogInfo))
+	callogger.Debug(call.String(callLogInfo))
 
 	return true, nil
 }
@@ -479,7 +479,7 @@ func (NLBHandler *TencentNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup i
 		return irs.VMGroupInfo{}, modifyTargetErr
 	}
 
-	callogger.Info(call.String(callLogInfo))
+	callogger.Debug(call.String(callLogInfo))
 
 	targetStatus, targetStatErr := NLBHandler.WaitForDone(*modifyTargetResponse.Response.RequestId)
 	if targetStatErr != nil {
@@ -556,9 +556,9 @@ func (NLBHandler *TencentNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (
 	if targetErr != nil {
 		return irs.VMGroupInfo{}, targetErr
 	}
-	cblogger.Info("%s", targetResponse.ToJsonString())
+	cblogger.Debug("%s", targetResponse.ToJsonString())
 
-	callogger.Info(call.String(callLogInfo))
+	callogger.Debug(call.String(callLogInfo))
 
 	// VM 연결되길 기다림
 	targetStatus, targetStatErr := NLBHandler.WaitForDone(*targetResponse.Response.RequestId)
@@ -632,9 +632,9 @@ func (NLBHandler *TencentNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID
 	if targetErr != nil {
 		return false, targetErr
 	}
-	cblogger.Info("%s", targetResponse.ToJsonString())
+	cblogger.Debug("%s", targetResponse.ToJsonString())
 
-	callogger.Info(call.String(callLogInfo))
+	callogger.Debug(call.String(callLogInfo))
 
 	return true, nil
 
@@ -1056,6 +1056,28 @@ func (NLBHandler *TencentNLBHandler) ExtractHealthCheckerInfo(nlbIID irs.IID) (i
 }
 
 func (NLBHandler *TencentNLBHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	var iidList []*irs.IID
+
+	callLogInfo := GetCallLogScheme(NLBHandler.Region, call.CLUSTER, "ListIID", "DescribeLoadBalancers()")
+
+	request := clb.NewDescribeLoadBalancersRequest()
+	start := call.Start()
+	response, err := NLBHandler.Client.DescribeLoadBalancers(request)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		calllogger.Error(call.String(callLogInfo))
+		return nil, err
+	}
+	calllogger.Debug(call.String(callLogInfo))
+	cblogger.Debug("NLB count : ", *response.Response.TotalCount)
+	if *response.Response.TotalCount > 0 {
+		for _, curNLB := range response.Response.LoadBalancerSet {
+			iid := irs.IID{SystemId: *curNLB.LoadBalancerId}
+			iidList = append(iidList, &iid)
+		}
+	}
+
+	return iidList, nil
 }

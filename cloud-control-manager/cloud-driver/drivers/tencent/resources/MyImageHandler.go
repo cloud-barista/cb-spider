@@ -385,8 +385,25 @@ func (myImageHandler *TencentMyImageHandler) CheckWindowsImage(myImageIID irs.II
 
 }
 
+func (myImageHandler *TencentMyImageHandler) ListIID() ([]*irs.IID, error) {
+	var iidList []*irs.IID
 
-func (ImageHandler *TencentMyImageHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	callLogInfo := GetCallLogScheme(myImageHandler.Region, call.MYIMAGE, "ListIID", "DescribeImages")
+	start := call.Start()
+
+	imageTypes := []string{"PRIVATE_IMAGE"}
+	myImageSet, err := DescribeImages(myImageHandler.Client, nil, imageTypes)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(callLogInfo, err)
+		return nil, err
+	}
+	calllogger.Debug(call.String(callLogInfo))
+
+	for _, image := range myImageSet {
+		iid := irs.IID{SystemId: *image.ImageId}
+		iidList = append(iidList, &iid)
+	}
+	return iidList, nil
 }

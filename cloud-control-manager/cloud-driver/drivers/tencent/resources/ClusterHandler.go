@@ -12,7 +12,6 @@ package resources
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"regexp"
 	"runtime/debug"
@@ -998,7 +997,26 @@ func validateAtChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID, 
 	return nil
 }
 
-func (ClusterHandler *TencentClusterHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+func (clusterHandler *TencentClusterHandler) ListIID() ([]*irs.IID, error) {
+	var iidList []*irs.IID
+
+	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, "ListIID", "GetClusters()")
+
+	start := call.Start()
+	res, err := tencent.GetClusters(clusterHandler.CredentialInfo.ClientId, clusterHandler.CredentialInfo.ClientSecret, clusterHandler.RegionInfo.Region)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	if err != nil {
+		err := fmt.Errorf("Failed to Get Clusters :  %v", err)
+		cblogger.Error(err)
+		callLogInfo.ErrorMSG = err.Error()
+		calllogger.Error(call.String(callLogInfo))
+		return iidList, err
+	}
+	calllogger.Debug(call.String(callLogInfo))
+
+	for _, cluster := range res.Response.Clusters {
+		iid := irs.IID{SystemId: *cluster.ClusterId}
+		iidList = append(iidList, &iid)
+	}
+	return iidList, nil
 }
