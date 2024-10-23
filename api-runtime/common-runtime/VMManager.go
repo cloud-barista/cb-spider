@@ -25,6 +25,9 @@ import (
 	infostore "github.com/cloud-barista/cb-spider/info-store"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	awsprofile "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/profile"
+	azureprofile "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure/profile"
+	gcpprofile "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp/profile"
 )
 
 // ====================================================================
@@ -355,6 +358,12 @@ func RegisterVM(connectionName string, userIID cres.IID) (*cres.VMInfo, error) {
 func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTransformMode string) (*cres.VMInfo, error) {
 	cblog.Info("call StartVM()")
 
+	if os.Getenv("CALL_COUNT") != "" {
+		awsprofile.ResetCallCount()
+		azureprofile.ResetCallCount()
+		gcpprofile.ResetCallCount()
+	}
+
 	// check empty and trim user inputs
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
 	if err != nil {
@@ -635,6 +644,17 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTra
 		if info.SSHAccessPoint == "" {
 			info.SSHAccessPoint = info.PublicIP + ":22"
 		}
+	}
+
+	if os.Getenv("CALL_COUNT") != "" {
+		totalCalls := awsprofile.GetCallCount()
+		fmt.Printf("\nTotal AWS API calls during StartVM(): %d\n", totalCalls)
+
+		totalCalls = azureprofile.GetCallCount()
+		fmt.Printf("Total Azure API calls during StartVM(): %d\n", totalCalls)
+
+		totalCalls = gcpprofile.GetCallCount()
+		fmt.Printf("Total GCP API calls during StartVM(): %d\n", totalCalls)
 	}
 
 	//if checkError.Flag {
@@ -1558,6 +1578,12 @@ func ControlVM(connectionName string, rsType string, nameID string, action strin
 func DeleteVM(connectionName string, rsType string, nameID string, force string) (bool, cres.VMStatus, error) {
 	cblog.Info("call DeleteVM()")
 
+	if os.Getenv("CALL_COUNT") != "" {
+		awsprofile.ResetCallCount()
+		azureprofile.ResetCallCount()
+		gcpprofile.ResetCallCount()
+	}
+
 	// check empty and trim user inputs
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
 	if err != nil {
@@ -1679,6 +1705,17 @@ func DeleteVM(connectionName string, rsType string, nameID string, force string)
 		if force != "true" {
 			return false, "", err
 		}
+	}
+
+	if os.Getenv("CALL_COUNT") != "" {
+		totalCalls := awsprofile.GetCallCount()
+		fmt.Printf("\nTotal AWS API calls during TerminateVM(): %d\n", totalCalls)
+
+		totalCalls = azureprofile.GetCallCount()
+		fmt.Printf("Total Azure API calls during TerminateVM(): %d\n", totalCalls)
+
+		totalCalls = gcpprofile.GetCallCount()
+		fmt.Printf("Total GCP API calls during TerminateVM(): %d\n", totalCalls)
 	}
 
 	return true, vmStatus, nil

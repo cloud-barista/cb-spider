@@ -13,8 +13,10 @@ package aws
 
 import (
 	"fmt"
+	"os"
 
 	acon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/connect"
+	profile "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/profile"
 	ars "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	ires "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -74,28 +76,37 @@ func (AwsDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 // func getVMClient(regionInfo idrv.RegionInfo) (*ec2.EC2, error) {
 func getVMClient(connectionInfo idrv.ConnectionInfo) (*ec2.EC2, error) {
 
-	// setup Region
-	//cblog.Info("AwsDriver : getVMClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
-	//cblog.Info("AwsDriver : getVMClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
-	//cblog.Info("전달 받은 커넥션 정보")
-
-	sess, err := session.NewSession(&aws.Config{
+	awsConfig := &aws.Config{
 		CredentialsChainVerboseErrors: aws.Bool(true),
 		Region:                        aws.String(connectionInfo.RegionInfo.Region),
-		//Region:      aws.String("ap-northeast-2"),
-		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
-	)
-	if err != nil {
-		cblog.Error("Could not create aws New Session", err)
-		return nil, err
+		Credentials: credentials.NewStaticCredentials(
+			connectionInfo.CredentialInfo.ClientId,
+			connectionInfo.CredentialInfo.ClientSecret,
+			"",
+		),
 	}
 
-	// Create EC2 service client
-	svc := ec2.New(sess)
-	if err != nil {
-		cblog.Error("Could not create EC2 service client", err)
-		return nil, err
+	var sess *session.Session
+
+	// If the CALL_COUNT environment variable is set, use a counting session
+	if os.Getenv("CALL_COUNT") != "" {
+		sess = profile.NewCountingSession(awsConfig)
+		if sess == nil {
+			return nil, fmt.Errorf("failed to create counting session")
+		}
+		cblog.Infof("Using counting session for AWS API calls")
+	} else {
+		var err error
+		sess, err = session.NewSession(awsConfig)
+		if err != nil {
+			cblog.Error("Could not create AWS session", err)
+			return nil, err
+		}
+		cblog.Infof("Using regular session for AWS API calls")
 	}
+
+	// EC2 서비스 클라이언트 생성
+	svc := ec2.New(sess)
 
 	return svc, nil
 }
