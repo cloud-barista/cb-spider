@@ -14,15 +14,13 @@ import (
 	"crypto/tls"
 	"net/http"
 
-	"github.com/gophercloud/gophercloud"
-	"github.com/gophercloud/gophercloud/openstack"
-	"github.com/gophercloud/gophercloud/openstack/identity/v3/services"
-
 	oscon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/connect"
 	osrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
 	ires "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/gophercloud/gophercloud"
+	"github.com/gophercloud/gophercloud/openstack"
 )
 
 type OpenStackDriver struct{}
@@ -113,75 +111,59 @@ func clientCreator(connInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	if err != nil {
 		return nil, err
 	}
-	pager, err := services.List(identityClient, services.ListOpts{}).AllPages()
-	if err != nil {
-		return nil, err
-	}
-	list, err := services.ExtractServices(pager)
-	if err != nil {
-		return nil, err
-	}
 
 	iConn := oscon.OpenStackCloudConnection{
 		CredentialInfo: connInfo.CredentialInfo,
 		Region:         connInfo.RegionInfo,
 		IdentityClient: identityClient,
 	}
-	for _, service := range list {
-		err = insertClient(&iConn, provider, connInfo, service.Type)
-		if err != nil {
+
+	iConn.ImageClient, err = openstack.NewImageServiceV2(provider, gophercloud.EndpointOpts{
+		Region: connInfo.RegionInfo.Region,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	iConn.NLBClient, err = openstack.NewLoadBalancerV2(provider, gophercloud.EndpointOpts{
+		Name:   "octavia",
+		Region: connInfo.RegionInfo.Region,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	iConn.Volume2Client, err = openstack.NewBlockStorageV2(provider, gophercloud.EndpointOpts{
+		Region: connInfo.RegionInfo.Region,
+	})
+	if iConn.Volume2Client == nil {
+		var err2 error
+		iConn.Volume3Client, err2 = openstack.NewBlockStorageV3(provider, gophercloud.EndpointOpts{
+			Region: connInfo.RegionInfo.Region,
+		})
+
+		if err != nil && iConn.Volume3Client == nil {
+			return nil, err
+		}
+		if err2 != nil {
 			return nil, err
 		}
 	}
-	return &iConn, nil
-}
 
-func insertClient(openstackCon *oscon.OpenStackCloudConnection, provider *gophercloud.ProviderClient, connInfo idrv.ConnectionInfo, serviceType string) error {
-	switch serviceType {
-	case "image":
-		client, err := openstack.NewImageServiceV2(provider, gophercloud.EndpointOpts{
-			Region: connInfo.RegionInfo.Region,
-		})
-		if err == nil {
-			openstackCon.ImageClient = client
-		}
-	case "load-balancer":
-		client, err := openstack.NewLoadBalancerV2(provider, gophercloud.EndpointOpts{
-			Name:   "octavia",
-			Region: connInfo.RegionInfo.Region,
-		})
-		if err == nil {
-			openstackCon.NLBClient = client
-		}
-	case "volumev2":
-		client, err := openstack.NewBlockStorageV2(provider, gophercloud.EndpointOpts{
-			Region: connInfo.RegionInfo.Region,
-		})
-		if err == nil {
-			openstackCon.Volume2Client = client
-		}
-	case "volumev3":
-		client, err := openstack.NewBlockStorageV3(provider, gophercloud.EndpointOpts{
-			Region: connInfo.RegionInfo.Region,
-		})
-		if err == nil {
-			openstackCon.Volume3Client = client
-		}
-	case "network":
-		client, err := openstack.NewNetworkV2(provider, gophercloud.EndpointOpts{
-			Name:   "neutron",
-			Region: connInfo.RegionInfo.Region,
-		})
-		if err == nil {
-			openstackCon.NetworkClient = client
-		}
-	case "compute":
-		client, err := openstack.NewComputeV2(provider, gophercloud.EndpointOpts{
-			Region: connInfo.RegionInfo.Region,
-		})
-		if err == nil {
-			openstackCon.ComputeClient = client
-		}
+	iConn.NetworkClient, err = openstack.NewNetworkV2(provider, gophercloud.EndpointOpts{
+		Name:   "neutron",
+		Region: connInfo.RegionInfo.Region,
+	})
+	if err != nil {
+		return nil, err
 	}
-	return nil
+
+	iConn.ComputeClient, err = openstack.NewComputeV2(provider, gophercloud.EndpointOpts{
+		Region: connInfo.RegionInfo.Region,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &iConn, nil
 }
