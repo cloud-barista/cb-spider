@@ -63,6 +63,7 @@ func handleSecurity() {
 		fmt.Println("4. Security Delete")
 		fmt.Println("5. Security Add Rules")
 		fmt.Println("6. Security Delete Rules")
+		fmt.Println("9. ListIID")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -74,6 +75,16 @@ func handleSecurity() {
 			switch commandNum {
 			case 0:
 				return
+
+			case 9:
+				result, err := handler.ListIID()
+				if err != nil {
+					cblogger.Info(" ListIID Lookup Failed : ", err)
+				} else {
+					cblogger.Info(" ListIID Lookup Result")
+					//cblogger.Info(result)
+					spew.Dump(result)
+				}
 
 			case 1:
 				result, err := handler.ListSecurity()
@@ -478,6 +489,7 @@ func handleKeyPair() {
 		fmt.Println("2. KeyPair Create")
 		fmt.Println("3. KeyPair Get")
 		fmt.Println("4. KeyPair Delete")
+		fmt.Println("9. ListIID")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -489,6 +501,16 @@ func handleKeyPair() {
 			switch commandNum {
 			case 0:
 				return
+
+			case 9:
+				result, err := KeyPairHandler.ListIID()
+				if err != nil {
+					cblogger.Info(" ListIID Lookup Failed : ", err)
+				} else {
+					cblogger.Info(" ListIID Lookup Result")
+					//cblogger.Info(result)
+					spew.Dump(result)
+				}
 
 			case 1:
 				result, err := KeyPairHandler.ListKey()
@@ -686,6 +708,7 @@ func handleVPC() {
 		fmt.Println("4. VNetwork Delete")
 		fmt.Println("5. Add Subnet")
 		fmt.Println("6. Delete Subnet")
+		fmt.Println("9. ListIID")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -697,6 +720,16 @@ func handleVPC() {
 			switch commandNum {
 			case 0:
 				return
+
+			case 9:
+				result, err := VPCHandler.ListIID()
+				if err != nil {
+					cblogger.Infof(" VNetwork ListIID Lookup Failed : ", err)
+				} else {
+					cblogger.Info("VNetwork ListIID Lookup Result")
+					//cblogger.Info(result)
+					spew.Dump(result)
+				}
 
 			case 1:
 				result, err := VPCHandler.ListVPC()
@@ -977,6 +1010,7 @@ func handleVM() {
 		fmt.Println("7. GetVMStatus VM")
 		fmt.Println("8. ListVMStatus VM")
 		fmt.Println("9. ListVM")
+		fmt.Println("10. ListIID")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -988,6 +1022,16 @@ func handleVM() {
 			switch commandNum {
 			case 0:
 				return
+
+			case 10:
+				result, err := vmHandler.ListIID()
+				if err != nil {
+					cblogger.Info(" ListIID Lookup Failed : ", err)
+				} else {
+					cblogger.Info(" ListIID Lookup Result")
+					//cblogger.Info(result)
+					spew.Dump(result)
+				}
 
 			case 1:
 				vmReqInfo := irs.VMReqInfo{
@@ -1284,6 +1328,7 @@ func handleNLB() {
 		fmt.Println("8. RemoveVMs")
 		fmt.Println("9. GetVMGroupHealthInfo")
 		fmt.Println("10. ChangeHealthCheckerInfo")
+		fmt.Println("11. ListIID")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -1295,6 +1340,16 @@ func handleNLB() {
 			switch commandNum {
 			case 0:
 				return
+
+			case 11:
+				result, err := handler.ListIID()
+				if err != nil {
+					cblogger.Info(" ListIID Lookup Failed : ", err)
+				} else {
+					cblogger.Info(" ListIID Lookup Result")
+					//cblogger.Info(result)
+					spew.Dump(result)
+				}
 
 			case 1:
 				result, err := handler.ListNLB()
@@ -1499,6 +1554,7 @@ func handleCluster() {
 
 		fmt.Println("8. UpgradeCluster")
 		fmt.Println("9. ChangeNodeGroupScaling")
+		fmt.Println("10. ListIID")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -1510,6 +1566,16 @@ func handleCluster() {
 			switch commandNum {
 			case 0:
 				return
+
+			case 10:
+				result, err := handler.ListIID()
+				if err != nil {
+					cblogger.Info(" ListIID Lookup Failed : ", err)
+				} else {
+					cblogger.Info(" ListIID Lookup Result")
+					//cblogger.Info(result)
+					spew.Dump(result)
+				}
 
 			case 1:
 				result, err := handler.ListCluster()
@@ -1933,6 +1999,7 @@ func handleDisk() {
 		fmt.Println("2. Disk Create")
 		fmt.Println("3. Disk Get")
 		fmt.Println("4. Disk Delete")
+		fmt.Println("9. ListIID")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -1944,6 +2011,15 @@ func handleDisk() {
 			switch commandNum {
 			case 0:
 				return
+			case 9:
+				result, err := handler.ListIID()
+				if err != nil {
+					cblogger.Info(" ListIID Lookup Failed : ", err)
+				} else {
+					cblogger.Info(" ListIID Lookup Result")
+					//cblogger.Info(result)
+					spew.Dump(result)
+				}
 
 			case 1:
 				cblogger.Infof("Lookup disk list")
@@ -2018,6 +2094,7 @@ func handleMyImage() {
 		fmt.Println("2. MyImage Create")
 		fmt.Println("3. MyImage Get")
 		fmt.Println("4. MyImage Delete")
+		fmt.Println("9. ListIID")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -2029,6 +2106,16 @@ func handleMyImage() {
 			switch commandNum {
 			case 0:
 				return
+
+			case 9:
+				result, err := handler.ListIID()
+				if err != nil {
+					cblogger.Info(" ListIID Lookup Failed : ", err)
+				} else {
+					cblogger.Info(" ListIID Lookup Result")
+					//cblogger.Info(result)
+					spew.Dump(result)
+				}
 
 			case 1:
 				cblogger.Infof("Lookup MyImage list")
@@ -2258,21 +2345,21 @@ func readConfigFile() Config {
 }
 
 func main() {
-	handleMyImage()
 	// myimage
 	//handleTag()
 	// handlePublicIP() // PublicIP 생성 후 conf
-	// handleDisk()
 
-	//handleKeyPair()
-	//handleVPC()
-	//handleSecurity()
-	//handleVM()
+	handleVPC()
+	handleSecurity()
+	handleKeyPair()
+	handleVM()
+	handleDisk()
+	handleMyImage()
+	handleNLB()
+	handleCluster()
 	// handleImage() //AMI
 	// handleVNic() //Lancard
 	// handleVMSpec()
-	//handleNLB()
-	//handleCluster()
 	//handleRegionZone()
 	//handlePriceInfo()
 	//handleTag()
