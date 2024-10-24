@@ -10,25 +10,25 @@ import (
 
 var cblog = cblogger.GetLogger("CLOUD-BARISTA")
 
-var apiCallCount int
-var mutex sync.Mutex
+var azureAPICallCount int
+var azureMutex sync.Mutex
 
 func incrementCallCount() {
-	mutex.Lock()
-	defer mutex.Unlock()
-	apiCallCount++
+	azureMutex.Lock()
+	defer azureMutex.Unlock()
+	azureAPICallCount++
 }
 
 func ResetCallCount() {
-	mutex.Lock()
-	defer mutex.Unlock()
-	apiCallCount = 0
+	azureMutex.Lock()
+	defer azureMutex.Unlock()
+	azureAPICallCount = 0
 }
 
 func GetCallCount() int {
-	mutex.Lock()
-	defer mutex.Unlock()
-	return apiCallCount
+	azureMutex.Lock()
+	defer azureMutex.Unlock()
+	return azureAPICallCount
 }
 
 // NewCountingPolicy creates a new custom policy to count Azure SDK API calls.

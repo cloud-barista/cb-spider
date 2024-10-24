@@ -546,7 +546,7 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTra
 		MSG  string
 	}
 
-	waiter := NewWaiter(5, 240) // (sleep, timeout)
+	waiter := NewWaiter(15, 600) // (sleep, timeout)
 	var publicIP string
 	for {
 		vmInfo, err := handler.GetVM(info.IId)
@@ -1657,7 +1657,7 @@ func DeleteVM(connectionName string, rsType string, nameID string, force string)
 	}
 
 	// Check Sync Called
-	waiter := NewWaiter(5, 600) // (sleep, timeout)
+	waiter := NewWaiter(15, 600) // (sleep, timeout)
 
 	for {
 		status, err := handler.(cres.VMHandler).GetVMStatus(driverIId)

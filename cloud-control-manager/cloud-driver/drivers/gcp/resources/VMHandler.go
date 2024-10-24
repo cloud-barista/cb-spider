@@ -501,7 +501,7 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			}
 			break
 		}
-		time.Sleep(5 * time.Second)
+		time.Sleep(15 * time.Second)
 	}
 
 	/*
@@ -1318,7 +1318,7 @@ func (vmHandler *GCPVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, error) {
 	// Suspending 되도록 3초 정도 대기 함.
 	//===================================
 	curRetryCnt := 0
-	maxRetryCnt := 120
+	maxRetryCnt := 40 // 15sec * 40 = 600sec = 10min
 	for {
 		curStatus, errStatus := vmHandler.GetVMStatus(vmIID)
 		if errStatus != nil {
@@ -1334,7 +1334,7 @@ func (vmHandler *GCPVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, error) {
 		//if curStatus != irs.VMStatus(waitStatus) {
 		curRetryCnt++
 		cblogger.Debugf("The VM status is not [%s], so waiting for 1 second before querying.", waitStatus)
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Second * 15)
 		if curRetryCnt > maxRetryCnt {
 			cblogger.Errorf("Forcibly stopping after waiting for a long time (%d seconds) as the VM's Status value hasn't changed to [%s].", maxRetryCnt, waitStatus)
 			return irs.VMStatus("Failed"), errors.New("Stopped waiting after waiting for a long time, but the status of the created VM did not change to [" + waitStatus + "].")

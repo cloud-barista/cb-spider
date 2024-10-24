@@ -7,28 +7,28 @@ import (
 	"golang.org/x/oauth2"
 )
 
-var apiCallCount int
-var mutex sync.Mutex
+var GCPAPICallCount int
+var GCPMutex sync.Mutex
 
 // incrementCallCount increments the count of API calls.
 func incrementCallCount() {
-	mutex.Lock()
-	defer mutex.Unlock()
-	apiCallCount++
+	GCPMutex.Lock()
+	defer GCPMutex.Unlock()
+	GCPAPICallCount++
 }
 
 // ResetCallCount resets the API call count.
 func ResetCallCount() {
-	mutex.Lock()
-	defer mutex.Unlock()
-	apiCallCount = 0
+	GCPMutex.Lock()
+	defer GCPMutex.Unlock()
+	GCPAPICallCount = 0
 }
 
 // GetCallCount returns the current count of API calls.
 func GetCallCount() int {
-	mutex.Lock()
-	defer mutex.Unlock()
-	return apiCallCount
+	GCPMutex.Lock()
+	defer GCPMutex.Unlock()
+	return GCPAPICallCount
 }
 
 // NewCountingClient returns an *http.Client that counts each request.

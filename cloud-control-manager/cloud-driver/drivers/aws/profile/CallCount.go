@@ -11,25 +11,25 @@ import (
 
 var cblog = cblogger.GetLogger("CLOUD-BARISTA")
 
-var apiCallCount int
-var mutex sync.Mutex
+var AWSAPICallCount int
+var AWSMutex sync.Mutex
 
 func incrementCallCount() {
-	mutex.Lock()
-	defer mutex.Unlock()
-	apiCallCount++
+	AWSMutex.Lock()
+	defer AWSMutex.Unlock()
+	AWSAPICallCount++
 }
 
 func ResetCallCount() {
-	mutex.Lock()
-	defer mutex.Unlock()
-	apiCallCount = 0
+	AWSMutex.Lock()
+	defer AWSMutex.Unlock()
+	AWSAPICallCount = 0
 }
 
 func GetCallCount() int {
-	mutex.Lock()
-	defer mutex.Unlock()
-	return apiCallCount
+	AWSMutex.Lock()
+	defer AWSMutex.Unlock()
+	return AWSAPICallCount
 }
 
 // creates a new AWS session that counts the number of API calls made
