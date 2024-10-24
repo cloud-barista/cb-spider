@@ -485,45 +485,44 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	// check operation status, wait until operation is completed
 	// This process is required because some operations have not error message but failed.
 	timeoutDuration := 1 * time.Hour
-	timeout := time.After(timeoutDuration)
+	timeout := time.Now().Add(timeoutDuration)
 
 	retryCount := 0
 	maxRetries := 3
 
 	for {
-		select {
-		case <-timeout:
+		if time.Now().After(timeout) {
 			return irs.VMInfo{}, fmt.Errorf("Operation %s in project %s, zone %s timed out after %v", op.Name, projectID, zone, timeoutDuration)
-		default:
-			result, err := vmHandler.Client.ZoneOperations.Get(projectID, zone, op.Name).Context(context.Background()).Do()
-			if err != nil {
-				retryCount++
-				if retryCount < maxRetries {
-					cblogger.Infof("Failed to get operation (retry %d/%d): %v. Retrying...", retryCount, maxRetries, err)
-					continue
-				} else {
-					return irs.VMInfo{}, fmt.Errorf("Failed to get operation %s in project %s, zone %s after %d retries: %v", op.Name, projectID, zone, maxRetries, err)
-				}
-			} else {
-				retryCount = 0
-			}
-
-			// result.Status Possible values: "DONE", "PENDING", "RUNNING"
-			if result.Status == "DONE" {
-				if result.Error != nil {
-					var errorMessages []string
-					for _, err := range result.Error.Errors {
-						cblogger.Errorf("Operation error: %v", err.Message)
-						errorMessages = append(errorMessages, err.Message)
-					}
-					combinedError := fmt.Errorf("Operation errors: %s", strings.Join(errorMessages, ", "))
-					return irs.VMInfo{}, combinedError
-				}
-				break
-			}
-
-			time.Sleep(15 * time.Second)
 		}
+
+		result, err := vmHandler.Client.ZoneOperations.Get(projectID, zone, op.Name).Context(context.Background()).Do()
+		if err != nil {
+			retryCount++
+			if retryCount < maxRetries {
+				cblogger.Infof("Failed to get operation (retry %d/%d): %v. Retrying...", retryCount, maxRetries, err)
+				continue
+			} else {
+				return irs.VMInfo{}, fmt.Errorf("Failed to get operation %s in project %s, zone %s after %d retries: %v", op.Name, projectID, zone, maxRetries, err)
+			}
+		} else {
+			retryCount = 0
+		}
+
+		// result.Status Possible values: "DONE", "PENDING", "RUNNING"
+		if result.Status == "DONE" {
+			if result.Error != nil {
+				var errorMessages []string
+				for _, err := range result.Error.Errors {
+					cblogger.Errorf("Operation error: %v", err.Message)
+					errorMessages = append(errorMessages, err.Message)
+				}
+				combinedError := fmt.Errorf("Operation errors: %s", strings.Join(errorMessages, ", "))
+				return irs.VMInfo{}, combinedError
+			}
+			break
+		}
+
+		time.Sleep(15 * time.Second)
 	}
 
 	/*
