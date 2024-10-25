@@ -1032,10 +1032,24 @@ func ListVM(connectionName string, rsType string) ([]*cres.VMInfo, error) {
 
 	// (1) get IID:list
 	var iidInfoList []*VMIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		// fetch granted idlist from CSP
+		iidList, err := handler.ListIID()
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		err2 := getAuthorizedIIdInfoList(iidList, connectionName, &iidInfoList)
+		if err2 != nil {
+			cblog.Error(err2)
+			return nil, err2
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	var infoList []*cres.VMInfo
@@ -1056,7 +1070,7 @@ func ListVM(connectionName string, rsType string) ([]*cres.VMInfo, error) {
 
 		wg.Add(1)
 
-		go getVMInfo(connectionName, handler, cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}, retChanInfos[idx])
+		go getVMInfo(iidInfo.ConnectionName, handler, cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}, retChanInfos[idx])
 
 		wg.Done()
 
@@ -1259,10 +1273,18 @@ func GetVM(connectionName string, rsType string, nameID string) (*cres.VMInfo, e
 
 	// (1) get IID(NameId)
 	var iidInfo VMIIDInfo
-	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthorizedIIdInfo(connectionName, nameID, &iidInfo)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, iidInfo.ZoneId)
@@ -1288,7 +1310,7 @@ func GetVM(connectionName string, rsType string, nameID string) (*cres.VMInfo, e
 	// set ResourceInfo
 	info.IId = getUserIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
 
-	err = getSetNameId(connectionName, &info)
+	err = getSetNameId(iidInfo.ConnectionName, &info)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
@@ -1392,10 +1414,24 @@ func ListVMStatus(connectionName string, rsType string) ([]*cres.VMStatusInfo, e
 
 	// (1) get IID:list
 	var iidInfoList []*VMIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		// fetch granted idlist from CSP
+		iidList, err := handler.ListIID()
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		err2 := getAuthorizedIIdInfoList(iidList, connectionName, &iidInfoList)
+		if err2 != nil {
+			cblog.Error(err2)
+			return nil, err2
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	var infoList []*cres.VMStatusInfo
@@ -1475,10 +1511,18 @@ func GetVMStatus(connectionName string, rsType string, nameID string) (cres.VMSt
 
 	// (1) get IID(NameId)
 	var iidInfo VMIIDInfo
-	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
-	if err != nil {
-		cblog.Error(err)
-		return "", err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthorizedIIdInfo(connectionName, nameID, &iidInfo)
+		if err != nil {
+			cblog.Error(err)
+			return "", err
+		}
+	} else {
+		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return "", err
+		}
 	}
 
 	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, iidInfo.ZoneId)
@@ -1602,10 +1646,18 @@ func DeleteVM(connectionName string, rsType string, nameID string, force string)
 
 	// (1) get spiderIID for creating driverIID
 	var iidInfo VMIIDInfo
-	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
-	if err != nil {
-		cblog.Error(err)
-		return false, "", err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthorizedIIdInfo(connectionName, nameID, &iidInfo)
+		if err != nil {
+			cblog.Error(err)
+			return false, "", err
+		}
+	} else {
+		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return false, "", err
+		}
 	}
 
 	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, iidInfo.ZoneId)
@@ -1699,7 +1751,7 @@ func DeleteVM(connectionName string, rsType string, nameID string, force string)
 	callogger.Info(call.String(callInfo))
 
 	// (3) delete IID
-	_, err = infostore.DeleteByConditions(&VMIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.NameId)
+	_, err = infostore.DeleteByConditions(&VMIIDInfo{}, CONNECTION_NAME_COLUMN, iidInfo.ConnectionName, NAME_ID_COLUMN, iidInfo.NameId)
 	if err != nil {
 		cblog.Error(err)
 		if force != "true" {

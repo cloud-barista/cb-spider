@@ -1448,3 +1448,172 @@ func deleteAllResourcesInResType(connectionName string, rsType string) (*Deleted
 
 	return deletedResourceInfoList, nil
 }
+
+func getAuthorizedIIdInfoList(iidList []*cres.IID, connectionName string, iidInfoList interface{}) error {
+	provider, err := ccm.GetProviderNameByConnectionName(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return err
+	}
+	region, _, err := ccm.GetRegionNameByConnectionName(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return err
+	}
+	// fetch connectionName list same as provider and region from MetaDB
+	connectionNameList, err := ccm.ListConnectionNameByProviderAndRegion(provider, region)
+	if err != nil {
+		cblog.Error(err)
+		return err
+	}
+
+	for _, iid := range iidList {
+		for _, oneName := range connectionNameList {
+			switch v := iidInfoList.(type) {
+			case *[]*VMIIDInfo:
+				var tmpIIDInfoList []*VMIIDInfo
+				err = infostore.ListByCondition(&tmpIIDInfoList, CONNECTION_NAME_COLUMN, oneName)
+				if err != nil {
+					cblog.Error(err)
+					return err
+				}
+				for _, tmpIIDInfo := range tmpIIDInfoList {
+					if iid.SystemId == getDriverSystemId(cres.IID{NameId: tmpIIDInfo.NameId, SystemId: tmpIIDInfo.SystemId}) {
+						*v = append(*v, tmpIIDInfo)
+					}
+				}
+			case *[]*VPCIIDInfo:
+				var tmpIIDInfoList []*VPCIIDInfo
+				err = infostore.ListByCondition(&tmpIIDInfoList, CONNECTION_NAME_COLUMN, oneName)
+				if err != nil {
+					cblog.Error(err)
+					return err
+				}
+				for _, tmpIIDInfo := range tmpIIDInfoList {
+					if iid.SystemId == getDriverSystemId(cres.IID{NameId: tmpIIDInfo.NameId, SystemId: tmpIIDInfo.SystemId}) {
+						*v = append(*v, tmpIIDInfo)
+					}
+				}
+			default:
+				return fmt.Errorf("unsupported type for iidInfoList")
+			}
+		}
+	}
+
+	return nil
+}
+
+func getAuthorizedIIdInfo(connectionName string, nameID string, result interface{}) error {
+	provider, err := ccm.GetProviderNameByConnectionName(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return err
+	}
+	region, _, err := ccm.GetRegionNameByConnectionName(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return err
+	}
+
+	// Fetch connectionName list that matches provider and region from MetaDB
+	connectionNameList, err := ccm.ListConnectionNameByProviderAndRegion(provider, region)
+	if err != nil {
+		cblog.Error(err)
+		return err
+	}
+
+	var iidInfo interface{}
+	switch result.(type) {
+	case *VMIIDInfo:
+		iidInfo = &VMIIDInfo{}
+	case *VPCIIDInfo:
+		iidInfo = &VPCIIDInfo{}
+	default:
+		return fmt.Errorf("unsupported result type")
+	}
+
+	err = fmt.Errorf("iid info not found for nameID: %s", nameID)
+	for _, oneName := range connectionNameList {
+		// Fetch iidInfo by connectionName from MetaDB
+		fetchErr := infostore.GetByConditions(iidInfo, CONNECTION_NAME_COLUMN, oneName, NAME_ID_COLUMN, nameID)
+		if fetchErr != nil {
+			if !strings.Contains(fetchErr.Error(), "not exist") {
+				cblog.Error(fetchErr)
+				return fetchErr
+			}
+		} else {
+			err = nil
+			break
+		}
+	}
+
+	if err != nil {
+		return err
+	}
+
+	// Assign the fetched value to the result
+	switch v := result.(type) {
+	case *VMIIDInfo:
+		*v = *iidInfo.(*VMIIDInfo)
+	case *VPCIIDInfo:
+		*v = *iidInfo.(*VPCIIDInfo)
+	}
+
+	return nil
+}
+
+func getAuthorizedIIdInfoInVPC(connectionName string, nameID string, ownerVPCName string, result interface{}) error {
+	provider, err := ccm.GetProviderNameByConnectionName(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return err
+	}
+	region, _, err := ccm.GetRegionNameByConnectionName(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return err
+	}
+
+	// Fetch connectionName list that matches provider and region from MetaDB
+	connectionNameList, err := ccm.ListConnectionNameByProviderAndRegion(provider, region)
+	if err != nil {
+		cblog.Error(err)
+		return err
+	}
+
+	// Set a default 'not found' error
+	err = fmt.Errorf("iid info not found for nameID: %s in VPC: %s", nameID, ownerVPCName)
+	var iidInfo interface{}
+	switch result.(type) {
+	case *SubnetIIDInfo:
+		iidInfo = &SubnetIIDInfo{}
+	default:
+		return fmt.Errorf("unsupported result type")
+	}
+
+	for _, oneName := range connectionNameList {
+		// Fetch iidInfo by connectionName from MetaDB with VPC condition
+		fetchErr := infostore.GetBy3Conditions(iidInfo, CONNECTION_NAME_COLUMN, oneName, NAME_ID_COLUMN, nameID, OWNER_VPC_NAME_COLUMN, ownerVPCName)
+		if fetchErr != nil {
+			if !strings.Contains(fetchErr.Error(), "not exist") {
+				cblog.Error(fetchErr)
+				return fetchErr
+			}
+		} else {
+			err = nil
+			break
+		}
+	}
+
+	if err != nil {
+		return err
+	}
+
+	// Assign the fetched value to the result
+	switch v := result.(type) {
+	case *SubnetIIDInfo:
+		*v = *iidInfo.(*SubnetIIDInfo)
+	}
+
+	return nil
+}
