@@ -1407,7 +1407,7 @@ func ExtractVmName(Tags []*ec2.Tag) string {
 }
 
 func (vmHandler *AwsVMHandler) ListVM() ([]*irs.VMInfo, error) {
-	cblogger.Infof("Start")
+	cblogger.Debug("Start")
 	var vmInfoList []*irs.VMInfo
 
 	input := &ec2.DescribeInstancesInput{
@@ -1707,6 +1707,41 @@ func (vmHandler *AwsVMHandler) AttachNetworkInterface(vNicId string, instanceId 
 }
 
 func (vmHandler *AwsVMHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	var iidList []*irs.IID
+	input := &ec2.DescribeInstancesInput{
+		InstanceIds: []*string{
+			nil,
+		},
+	}
+
+	callLogInfo := GetCallLogScheme(vmHandler.Region, call.VM, "ListIID", "DescribeInstances()")
+	start := call.Start()
+
+	result, err := vmHandler.Client.DescribeInstances(input)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		calllogger.Error(call.String(callLogInfo))
+		cblogger.Error(err)
+		return nil, err
+	}
+	calllogger.Info(call.String(callLogInfo))
+
+	//tmpVmName := ""
+	for _, i := range result.Reservations {
+		for _, vm := range i.Instances {
+			cblogger.Debugf("[%s] EC2 information retrieve", *vm.InstanceId)
+			/*
+				tmpVmName = ExtractVmName(vm.Tags)
+				if tmpVmName == "" {
+					cblogger.Errorf("VM Id[%s]에 해당하는 VM 이름을 찾을 수 없습니다!!!", *vm.InstanceId)
+					continue
+				}
+			*/
+			iid := irs.IID{SystemId: *vm.InstanceId}
+			iidList = append(iidList, &iid)
+		}
+	}
+
+	return iidList, nil
 }

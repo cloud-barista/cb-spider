@@ -1116,6 +1116,26 @@ func convertClusterStatusToClusterInfoStatus(clusterStatus string) irs.ClusterSt
 }
 
 func (ClusterHandler *AwsClusterHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	var iidList []*irs.IID
+	input := &eks.ListClustersInput{}
+
+	callLogInfo := GetCallLogScheme(ClusterHandler.Region, call.CLUSTER, "ListIID", "ListClusters()")
+	start := call.Start()
+
+	result, err := ClusterHandler.Client.ListClusters(input)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		calllogger.Error(call.String(callLogInfo))
+		cblogger.Error(err)
+		return nil, err
+	}
+	calllogger.Info(call.String(callLogInfo))
+
+	for _, clusterName := range result.Clusters {
+		iid := irs.IID{SystemId: *clusterName}
+		iidList = append(iidList, &iid)
+	}
+
+	return iidList, nil
 }

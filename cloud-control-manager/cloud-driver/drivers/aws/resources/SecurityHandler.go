@@ -946,6 +946,29 @@ func (securityHandler *AwsSecurityHandler) ProcessRemoveRules(newGroupId *string
 }
 
 func (securityHandler *AwsSecurityHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	var iidList []*irs.IID
+	input := &ec2.DescribeSecurityGroupsInput{
+		GroupIds: []*string{
+			nil,
+		},
+	}
+	callLogInfo := GetCallLogScheme(securityHandler.Region, call.SECURITYGROUP, "ListIID", "DescribeSecurityGroups()")
+	start := call.Start()
+
+	result, err := securityHandler.Client.DescribeSecurityGroups(input)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		calllogger.Error(call.String(callLogInfo))
+		cblogger.Error(err)
+		return nil, err
+	}
+	calllogger.Info(call.String(callLogInfo))
+
+	for _, securityGroup := range result.SecurityGroups {
+		iid := irs.IID{SystemId: *securityGroup.GroupId}
+		iidList = append(iidList, &iid)
+	}
+
+	return iidList, nil
 }

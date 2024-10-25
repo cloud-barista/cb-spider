@@ -915,8 +915,27 @@ func (DiskHandler *AwsDiskHandler) convertVolumeInfoToDiskInfo(volumeInfo *ec2.V
 	return diskInfo, nil
 }
 
-
 func (DiskHandler *AwsDiskHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	var iidList []*irs.IID
+	input := &ec2.DescribeVolumesInput{}
+
+	callLogInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, "ListIID", "DescribeVolumes()")
+	start := call.Start()
+
+	result, err := DiskHandler.Client.DescribeVolumes(input)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		calllogger.Error(call.String(callLogInfo))
+		cblogger.Error(err)
+		return nil, err
+	}
+	calllogger.Info(call.String(callLogInfo))
+
+	for _, volumeInfo := range result.Volumes {
+		iid := irs.IID{SystemId: *volumeInfo.VolumeId}
+		iidList = append(iidList, &iid)
+	}
+
+	return iidList, nil
 }
