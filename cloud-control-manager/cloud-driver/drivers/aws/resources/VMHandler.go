@@ -1456,7 +1456,7 @@ func (vmHandler *AwsVMHandler) ListVM() ([]*irs.VMInfo, error) {
 			/*
 				tmpVmName = ExtractVmName(vm.Tags)
 				if tmpVmName == "" {
-					cblogger.Errorf("VM Id[%s]에 해당하는 VM 이름을 찾을 수 없습니다!!!", *vm.InstanceId)
+					cblogger.Errorf("Can not find the VM name corresponding to VM ID [%s]!!!", *vm.InstanceId)
 					continue
 				}
 			*/
@@ -1622,7 +1622,7 @@ func (vmHandler *AwsVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 			tmpVmName = ExtractVmName(vm.Tags)
 			/*
 				if tmpVmName == "" {
-					cblogger.Errorf("VM Id[%s]에 해당하는 VM 이름을 찾을 수 없습니다!!!", *vm.InstanceId)
+					cblogger.Errorf("Can not find the VM name corresponding to VM ID [%s]!!!", *vm.InstanceId)
 					//continue //2020-04-10 Name이 필수는 아니기 때문에 예외에서 제외 함.
 				}
 			*/
@@ -1734,7 +1734,7 @@ func (vmHandler *AwsVMHandler) ListIID() ([]*irs.IID, error) {
 			/*
 				tmpVmName = ExtractVmName(vm.Tags)
 				if tmpVmName == "" {
-					cblogger.Errorf("VM Id[%s]에 해당하는 VM 이름을 찾을 수 없습니다!!!", *vm.InstanceId)
+					cblogger.Errorf("Can not find the VM name corresponding to VM ID [%s]!!!", *vm.InstanceId)
 					continue
 				}
 			*/
