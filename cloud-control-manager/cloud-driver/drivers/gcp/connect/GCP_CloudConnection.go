@@ -12,7 +12,6 @@ package connect
 
 import (
 	"context"
-	"errors"
 
 	cblog "github.com/cloud-barista/cb-log"
 	gcprs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp/resources"
@@ -143,7 +142,9 @@ func (cloudConn *GCPCloudConnection) CreateClusterHandler() (irs.ClusterHandler,
 }
 
 func (cloudConn *GCPCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
-	return nil, errors.New("GCP Cloud Driver: not implemented")
+	cblogger.Info("GCP Cloud Driver: called CreateAnyCallHandler()!")
+	anyCallHandler := gcprs.GCPAnyCallHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VMClient, cloudConn.Credential}
+	return &anyCallHandler, nil
 }
 
 func (cloudConn *GCPCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
