@@ -70,7 +70,7 @@ func (imageHandler *NcpImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		RegionInfo:     	imageHandler.RegionInfo,
 		VMClient:         	imageHandler.VMClient,
 	}
-	regionNo, err := vmHandler.GetRegionNo(imageHandler.RegionInfo.Region)
+	regionNo, err := vmHandler.getRegionNo(imageHandler.RegionInfo.Region)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NCP Region No of the Region Code: [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -201,7 +201,7 @@ func (imageHandler *NcpImageHandler) GetNcpImageInfo(imageIID irs.IID) (*server.
 		RegionInfo:     	imageHandler.RegionInfo,
 		VMClient:         	imageHandler.VMClient,
 	}
-	regionNo, err := vmHandler.GetRegionNo(imageHandler.RegionInfo.Region)
+	regionNo, err := vmHandler.getRegionNo(imageHandler.RegionInfo.Region)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NCP Region No of the Region Code : [%v]", err)
 		cblogger.Error(newErr.Error())

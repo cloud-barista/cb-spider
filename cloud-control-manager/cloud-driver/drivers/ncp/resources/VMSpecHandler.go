@@ -44,14 +44,14 @@ func (vmSpecHandler *NcpVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 		RegionInfo:     	vmSpecHandler.RegionInfo,
 		VMClient:         	vmSpecHandler.VMClient,
 	}
-	regionNo, err := vmHandler.GetRegionNo(vmSpecHandler.RegionInfo.Region)
+	regionNo, err := vmHandler.getRegionNo(vmSpecHandler.RegionInfo.Region)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the NCP Region No of the Region Code: [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return nil, newErr
 	}
-	zoneNo, err := vmHandler.GetZoneNo(vmSpecHandler.RegionInfo.Region, vmSpecHandler.RegionInfo.Zone)
+	zoneNo, err := vmHandler.getZoneNo(vmSpecHandler.RegionInfo.Region, vmSpecHandler.RegionInfo.Zone)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NCP Zone No of the Zone Code : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -120,14 +120,14 @@ func (vmSpecHandler *NcpVMSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo, e
 		RegionInfo:     	vmSpecHandler.RegionInfo,
 		VMClient:         	vmSpecHandler.VMClient,
 	}
-	regionNo, err := vmHandler.GetRegionNo(vmSpecHandler.RegionInfo.Region)
+	regionNo, err := vmHandler.getRegionNo(vmSpecHandler.RegionInfo.Region)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the NCP Region No of the Region Code: [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.VMSpecInfo{}, newErr
 	}
-	zoneNo, err := vmHandler.GetZoneNo(vmSpecHandler.RegionInfo.Region, vmSpecHandler.RegionInfo.Zone)
+	zoneNo, err := vmHandler.getZoneNo(vmSpecHandler.RegionInfo.Region, vmSpecHandler.RegionInfo.Zone)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NCP Zone No of the Zone Code : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -195,14 +195,14 @@ func (vmSpecHandler *NcpVMSpecHandler) ListOrgVMSpec() (string, error) {
 		RegionInfo:     	vmSpecHandler.RegionInfo,
 		VMClient:         	vmSpecHandler.VMClient,
 	}
-	regionNo, err := vmHandler.GetRegionNo(vmSpecHandler.RegionInfo.Region)
+	regionNo, err := vmHandler.getRegionNo(vmSpecHandler.RegionInfo.Region)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the NCP Region No of the Region Code: [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return "", newErr
 	}
-	zoneNo, err := vmHandler.GetZoneNo(vmSpecHandler.RegionInfo.Region, vmSpecHandler.RegionInfo.Zone)
+	zoneNo, err := vmHandler.getZoneNo(vmSpecHandler.RegionInfo.Region, vmSpecHandler.RegionInfo.Zone)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NCP Zone No of the Zone Code : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -274,14 +274,14 @@ func (vmSpecHandler *NcpVMSpecHandler) GetOrgVMSpec(Name string) (string, error)
 		RegionInfo:     	vmSpecHandler.RegionInfo,
 		VMClient:         	vmSpecHandler.VMClient,
 	}
-	regionNo, err := vmHandler.GetRegionNo(vmSpecHandler.RegionInfo.Region)
+	regionNo, err := vmHandler.getRegionNo(vmSpecHandler.RegionInfo.Region)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the NCP Region No of the Region Code: [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return "", newErr
 	}
-	zoneNo, err := vmHandler.GetZoneNo(vmSpecHandler.RegionInfo.Region, vmSpecHandler.RegionInfo.Zone)
+	zoneNo, err := vmHandler.getZoneNo(vmSpecHandler.RegionInfo.Region, vmSpecHandler.RegionInfo.Zone)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NCP Zone No of the Zone Code : [%v]", err)
 		cblogger.Error(newErr.Error())
