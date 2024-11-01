@@ -250,7 +250,7 @@ func (regionZoneHandler *NcpRegionZoneHandler) ListOrgZone() (string, error) {
 		RegionInfo:     	regionZoneHandler.RegionInfo,
 		VMClient:         	regionZoneHandler.VMClient,
 	}
-	regionNo, err := vmHandler.GetRegionNo(regionZoneHandler.RegionInfo.Region)
+	regionNo, err := vmHandler.getRegionNo(regionZoneHandler.RegionInfo.Region)
 	if err != nil {
 		rtnErr := logAndReturnError(callLogInfo, "Failed to Get NCP Region No of the Region Code : ", err)
 		return "", rtnErr
