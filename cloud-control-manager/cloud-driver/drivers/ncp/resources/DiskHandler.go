@@ -62,9 +62,9 @@ func (diskHandler *NcpDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 		return irs.DiskInfo{}, rtnErr
 	}
 	var instanceNo string
-	if len(instanceList) < 1 {
-		cblogger.Info("### VM Instance does Not Exist!!")
-		rtnErr := logAndReturnError(callLogInfo, "At least one VM is required to create new disk volume in case of NCP.", "")
+	if len(instanceList) < 1 {		
+		rtnErr := logAndReturnError(callLogInfo, "At least one VM is required on a zone to create new disk volume in case of NCP.", "")
+		cblogger.Error("### There is no VM in the zone.!!")
 		return irs.DiskInfo{}, rtnErr
 	} else {
 		instanceNo = *instanceList[0].ServerInstanceNo // InstanceNo of any VM on the Zone
@@ -650,7 +650,7 @@ func (diskHandler *NcpDiskHandler) MappingDiskInfo(storage server.BlockStorageIn
 			RegionInfo: diskHandler.RegionInfo,
 			VMClient:   diskHandler.VMClient,
 		}
-		subnetZone, err := vmHandler.getVMSubnetZone(ncloud.StringValue(storage.ServerInstanceNo))
+		subnetZone, err := vmHandler.getVMSubnetZone(storage.ServerInstanceNo)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get the Subnet Zone info of the VM!! : [%v]", err)
 			cblogger.Debug(newErr.Error())
@@ -667,7 +667,7 @@ func (diskHandler *NcpDiskHandler) MappingDiskInfo(storage server.BlockStorageIn
 				return irs.DiskInfo{}, newErr
 			}
 		} else {
-			ncpVMInfo, vmErr = vmHandler.GetNcpTargetZoneVMInfo(ncloud.StringValue(storage.ServerInstanceNo))
+			ncpVMInfo, vmErr = vmHandler.GetNcpTargetZoneVMInfo(storage.ServerInstanceNo)
 			if vmErr != nil {
 				newErr := fmt.Errorf("Failed to Get the VM Info of the Zone : [%s], [%v]", subnetZone, vmErr)
 				cblogger.Error(newErr.Error())
