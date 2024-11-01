@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	// "github.com/davecgh/go-spew/spew"
 
 	ncloud "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
 	server "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/server"
@@ -83,19 +84,23 @@ func (tagHandler *NcpTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]
 	tagList, err := tagHandler.getVMTagListWithVMId(&resIID.SystemId)
 	if err != nil {		
 		newErr := fmt.Errorf("Failed to Get the Tag List with the VM SystemID : [%v]", err)
-		cblogger.Error(newErr.Error())
+		cblogger.Debug(newErr.Error())
 		return nil, newErr
 	}
 
 	var kvList []irs.KeyValue
-	for _, curTag := range tagList {
-		kv := irs.KeyValue {
-			Key : 	ncloud.StringValue(curTag.TagKey),
-			Value:  ncloud.StringValue(curTag.TagValue),
+	if len(tagList) > 0 {
+		for _, curTag := range tagList {
+			kv := irs.KeyValue {
+				Key : 	ncloud.StringValue(curTag.TagKey),
+				Value:  ncloud.StringValue(curTag.TagValue),
+			}
+			kvList = append(kvList, kv)
 		}
-		kvList = append(kvList, kv)
-	}
-	return kvList, nil
+		return kvList, nil
+	} else {
+		return nil, nil
+	}	
 }
 
 func (tagHandler *NcpTagHandler) GetTag(resType irs.RSType, resIID irs.IID, key string) (irs.KeyValue, error) {
@@ -274,12 +279,12 @@ func (tagHandler *NcpTagHandler) getVMTagListWithVMId(vmID *string) ([]*server.I
 	}
 	if len(tagListResult.InstanceTagList) < 1 {
 		newErr := fmt.Errorf("Failed to Find Any Tag with the VM SystemID!!")
-		cblogger.Debug(newErr.Error())
+		cblogger.Error(newErr.Error())
 		return nil, newErr
 	} else {
 		cblogger.Infof("Tag Listing Result : [%s]", *tagListResult.ReturnMessage)
-	}
-	return tagListResult.InstanceTagList, nil
+		return tagListResult.InstanceTagList, nil
+	}	
 }
 
 func (tagHandler *NcpTagHandler) getVMTagValue(vmID *string, key *string) (string, error) {

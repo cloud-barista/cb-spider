@@ -581,7 +581,7 @@ func (vmHandler *NcpVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 		return irs.VMInfo{}, newErr
 	}
 
-	subnetZone, err := vmHandler.getVMSubnetZone(vmIID.SystemId)
+	subnetZone, err := vmHandler.getVMSubnetZone(&vmIID.SystemId)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Subnet Zone info of the VM!! : [%v]", err)
 		cblogger.Debug(newErr.Error())
@@ -599,7 +599,7 @@ func (vmHandler *NcpVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 			return irs.VMInfo{}, newErr
 		}
 	} else {
-		ncpVMInfo, vmErr = vmHandler.GetNcpTargetZoneVMInfo(vmIID.SystemId)
+		ncpVMInfo, vmErr = vmHandler.GetNcpTargetZoneVMInfo(&vmIID.SystemId)
 		if vmErr != nil {
 			newErr := fmt.Errorf("Failed to Get the VM Info of the Zone : [%s], [%v]", subnetZone, vmErr)
 			cblogger.Error(newErr.Error())
@@ -846,15 +846,6 @@ func (vmHandler *NcpVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) 
 		cblogger.Infof("VM Status : 'Suspended'. so it Can be Terminated!!")		
 		cblogger.Infof("vmID : [%s]", *serverInstanceNo[0])
 
-		// To Delete Tags of the VM instance
-		Result, error := vmHandler.DeleteVMTags(serverInstanceNo[0])
-		if error != nil {
-			rtnErr := logAndReturnError(callLogInfo, "Failed to Delete Tags of the VM instance! : ", error)
-			return irs.VMStatus("Failed. "), rtnErr
-		} else {
-			cblogger.Infof("# DeleteVMTags Result : [%t]", Result)
-		}
-
 		// To Terminate the VM instance
 		req := server.TerminateServerInstancesRequest{
 			ServerInstanceNoList: serverInstanceNo,
@@ -868,6 +859,15 @@ func (vmHandler *NcpVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) 
 		LoggingInfo(callLogInfo, callLogStart)
 		cblogger.Info(runResult)
 
+		// To Delete Tags of the VM instance
+		Result, error := vmHandler.DeleteVMTags(serverInstanceNo[0])
+		if error != nil {
+			rtnErr := logAndReturnError(callLogInfo, "Failed to Delete Tags of the VM instance! : ", error)
+			return irs.VMStatus("Failed. "), rtnErr
+		} else {
+			cblogger.Infof("# DeleteVMTags Result : [%t]", Result)
+		}
+		
 		// If the NCP instance has a 'Public IP', delete it after termination of the instance.
 		if ncloud.String(vmInfo.PublicIP) != nil {
 			// Delete the PublicIP of the VM
@@ -922,15 +922,6 @@ func (vmHandler *NcpVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) 
 		}
 		cblogger.Info("# SuspendVM() Finished")
 
-		// To Delete Tags of the VM instance
-		Result, error := vmHandler.DeleteVMTags(serverInstanceNo[0])
-		if error != nil {
-			rtnErr := logAndReturnError(callLogInfo, "Failed to Delete Tags of the VM instance!! : ", error)
-			return irs.VMStatus("Failed. "), rtnErr
-		} else {
-			cblogger.Infof("# DeleteVMTags Result : [%t]", Result)
-		}		
-
 		// To Terminate the VM instance
 		req := server.TerminateServerInstancesRequest{
 			ServerInstanceNoList: serverInstanceNo,
@@ -942,7 +933,16 @@ func (vmHandler *NcpVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) 
 			return irs.VMStatus("Failed. "), rtnErr
 		}
 		LoggingInfo(callLogInfo, callLogStart)
-		cblogger.Info(runResult)
+		cblogger.Info(*runResult.ReturnMessage)
+
+		// To Delete Tags of the VM instance
+		Result, error := vmHandler.DeleteVMTags(serverInstanceNo[0])
+		if error != nil {
+			rtnErr := logAndReturnError(callLogInfo, "Failed to Delete Tags of the VM instance!! : ", error)
+			return irs.VMStatus("Failed. "), rtnErr
+		} else {
+			cblogger.Infof("# DeleteVMTags Result : [%t]", Result)
+		}				
 
 		// If the NCP instance has a 'Public IP', delete it after termination of the instance.
 		if ncloud.String(vmInfo.PublicIP) != nil {
@@ -1030,7 +1030,9 @@ func (vmHandler *NcpVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) 
 	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmIID.NameId, "GetVMStatus()")
 
-	subnetZone, err := vmHandler.getVMSubnetZone(vmIID.SystemId)
+	cblogger.Infof("### Target Zone : [%s]", vmHandler.RegionInfo.TargetZone)
+
+	subnetZone, err := vmHandler.getVMSubnetZone(&vmIID.SystemId)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Subnet Zone info of the VM!! : [%v]", err)
 		cblogger.Debug(newErr.Error())
@@ -1108,32 +1110,32 @@ func (vmHandler *NcpVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 	LoggingInfo(callLogInfo, callLogStart)
 	if len(result.ServerInstanceList) < 1 {
 		newErr := fmt.Errorf("Failed to Find Any VM info in the Zone : [%s]", vmHandler.RegionInfo.Zone)
-		cblogger.Error(newErr.Error())
+		cblogger.Debug(newErr.Error())
 		return nil, newErr
 	} else {
 		cblogger.Info("Succeeded in Getting ServerInstanceList in the Zone!!")
-	}
 
-	var vmStatusList []*irs.VMStatusInfo
-	for _, vm := range result.ServerInstanceList {
-		//*vm.ServerInstanceStatusName
-		//*vm.ServerName
-		vmStatus, err := ConvertVMStatusString(*vm.ServerInstanceStatusName)
-		if err != nil {
-			cblogger.Error(err)
-			LoggingError(callLogInfo, err)
-			return []*irs.VMStatusInfo{}, err
-		}
-		// cblogger.Info(" VM Status : ", vmStatus)
+		var vmStatusList []*irs.VMStatusInfo
+		for _, vm := range result.ServerInstanceList {
+			//*vm.ServerInstanceStatusName
+			//*vm.ServerName
+			vmStatus, err := ConvertVMStatusString(*vm.ServerInstanceStatusName)
+			if err != nil {
+				cblogger.Error(err)
+				LoggingError(callLogInfo, err)
+				return []*irs.VMStatusInfo{}, err
+			}
+			// cblogger.Info(" VM Status : ", vmStatus)
 
-		vmStatusInfo := irs.VMStatusInfo{
-			IId:      irs.IID{NameId: *vm.ServerName, SystemId: *vm.ServerInstanceNo},
-			VmStatus: vmStatus,
+			vmStatusInfo := irs.VMStatusInfo{
+				IId:      irs.IID{NameId: *vm.ServerName, SystemId: *vm.ServerInstanceNo},
+				VmStatus: vmStatus,
+			}
+			cblogger.Infof(" VM Status of [%s] : [%s]", vmStatusInfo.IId.SystemId, vmStatusInfo.VmStatus)
+			vmStatusList = append(vmStatusList, &vmStatusInfo)
 		}
-		cblogger.Infof(" VM Status of [%s] : [%s]", vmStatusInfo.IId.SystemId, vmStatusInfo.VmStatus)
-		vmStatusList = append(vmStatusList, &vmStatusInfo)
+		return vmStatusList, err
 	}
-	return vmStatusList, err
 }
 
 // VM List on 'All Zone' in the Region
@@ -1143,7 +1145,7 @@ func (vmHandler *NcpVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	ncpVMList, err := vmHandler.getNcpVMListWithRegion(vmHandler.RegionInfo.Region)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NCP VM List : [%v]", err.Error())
-		cblogger.Error(newErr.Error())
+		cblogger.Debug(newErr.Error())
 		return nil, newErr
 	}
 
@@ -1318,7 +1320,6 @@ func (vmHandler *NcpVMHandler) DeletePublicIP(vmInfo irs.VMInfo) (irs.VMStatus, 
 			break
 		}
 	}
-
 	// spew.Dump(vmInfo.PublicIP)
 	// spew.Dump(publicIPId)
 
@@ -1421,10 +1422,9 @@ func (vmHandler *NcpVMHandler) GetVPCnSubnetNameFromTag(vmID *string) (string, s
 	tagList, err := tagHandler.getVMTagListWithVMId(vmID)
 	if err != nil {		
 		newErr := fmt.Errorf("Failed to Get the Tag List with the VM SystemID : [%v]", err)
-		cblogger.Error(newErr.Error())
+		cblogger.Debug(newErr.Error())
 		return "", "", newErr
 	}
-
 	if len(tagList) < 1 {
 		newErr := fmt.Errorf("Failed to Get Any Tag info with the VM SystemID!!")
 		return "", "", newErr
@@ -1520,12 +1520,10 @@ func (vmHandler *NcpVMHandler) GetNcpVMInfo(vmId string) (*server.ServerInstance
 	return result.ServerInstanceList[0], nil
 }
 
-func (vmHandler *NcpVMHandler) GetNcpTargetZoneVMInfo(vmId string) (*server.ServerInstance, error) {
+func (vmHandler *NcpVMHandler) GetNcpTargetZoneVMInfo(vmId *string) (*server.ServerInstance, error) {
 	cblogger.Info("NCP Classic Cloud driver: called GetNcpTargetZoneVMInfo()")
 
-	cblogger.Infof("\n ### vmHandler.RegionInfo.TargetZone : [%s]", vmHandler.RegionInfo.TargetZone)	
-	
-	if strings.EqualFold(vmId, "") {
+	if strings.EqualFold(*vmId, "") {
 		newErr := fmt.Errorf("Invalid VM ID!!")
 		cblogger.Error(newErr.Error())
 		return nil, newErr
@@ -1550,18 +1548,18 @@ func (vmHandler *NcpVMHandler) GetNcpTargetZoneVMInfo(vmId string) (*server.Serv
 		return nil, err
 	}
 	instanceReq := server.GetServerInstanceListRequest{
-		ServerInstanceNoList: 	[]*string{ncloud.String(vmId)},
+		ServerInstanceNoList: 	[]*string{vmId},
 		RegionNo: 				regionNo,	
 		ZoneNo: 				reqZoneNo, // For Zone-based control!!
 	}
 	result, err := vmHandler.VMClient.V2Api.GetServerInstanceList(&instanceReq)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Find VM list with the SystemId from NCP : [%s], [%v]", vmId, err)
+		newErr := fmt.Errorf("Failed to Find VM list with the SystemId from NCP : [%s], [%v]", *vmId, err)
 		cblogger.Error(newErr.Error())
 		return nil, newErr
 	}
 	if len(result.ServerInstanceList) < 1 {
-		newErr := fmt.Errorf("Failed to Find Any VM info with the SystemId : [%s]", vmId)
+		newErr := fmt.Errorf("Failed to Find Any VM info with the SystemId : [%s]", *vmId)
 		cblogger.Error(newErr.Error())
 		return nil, newErr
 	}
@@ -1977,7 +1975,7 @@ func (vmHandler *NcpVMHandler) getNcpVMListWithRegion(regionCode string) ([]*ser
 		return nil, newErr
 	}
 
-	// Get NCP VM info list (in the Region)
+	// Get NCP VM info list on 'Every Zone' in the Region
 	var ncpVMList []*server.ServerInstance
 	for _, zone := range regionInfo.ZoneList {
 		// For Zone-based control!!
@@ -2016,7 +2014,6 @@ func (vmHandler *NcpVMHandler) getNcpVMListWithRegion(regionCode string) ([]*ser
 			cblogger.Error(newErr.Error())
 			return nil, newErr
 		}
-
 		ncpVMList = append(ncpVMList, result.ServerInstanceList...)
 	}
 	// cblogger.Info("\n\n### ncpVMList : \n")
@@ -2030,15 +2027,15 @@ func (vmHandler *NcpVMHandler) getNcpVMListWithRegion(regionCode string) ([]*ser
 	return ncpVMList, nil
 }
 
-func (vmHandler *NcpVMHandler) getVMSubnetZone(vmId string) (string, error) {
+func (vmHandler *NcpVMHandler) getVMSubnetZone(vmId *string) (string, error) {
 	cblogger.Info("KT Cloud Driver: called getVMSubnetZone()")
 
 	// Get the VPC Name from Tag of the VM
-	vpcName, subnetName, error := vmHandler.GetVPCnSubnetNameFromTag(&vmId)
+	vpcName, subnetName, error := vmHandler.GetVPCnSubnetNameFromTag(vmId)
 	if error != nil {
 		newErr := fmt.Errorf("Failed to Get VPC Name from Tag of the VM instance!! : [%v]", error)
 		cblogger.Debug(newErr.Error())
-		// return irs.VMInfo{}, error  // Caution!!
+		// return irs.VMInfo{}, newErr  // Caution!!
 	}
 	// cblogger.Infof("# vpcName : [%s]", vpcName)
 	// cblogger.Infof("# subnetName : [%s]", subnetName)
@@ -2046,8 +2043,8 @@ func (vmHandler *NcpVMHandler) getVMSubnetZone(vmId string) (string, error) {
 	var reqZoneId string
 	getErr := errors.New("")
 
-	if len(vpcName) < 1 {
-		cblogger.Debug("Failed to Get VPC Name from Tag!!")
+	if strings.EqualFold(vpcName, "") || strings.EqualFold(subnetName, ""){
+		cblogger.Debug("Failed to Get the VPC and Subnet Name from Tag!!")
 	} else {
 		// Get Zone ID of the Requested Subnet
 		vpcHandler := NcpVPCHandler {
