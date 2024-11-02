@@ -14,7 +14,7 @@ source $SETUP_PATH/setup.env $1
 
 VM_NAME=${VM_NAME}-$2
 echo "============== before get status VM: '${VM_NAME}'"
-$CLIPATH/spctl --config $CLIPATH/spctl.conf --cname "${CONN_CONFIG}" vm getstatus -n "${VM_NAME}" 2> /dev/null
+$CLIPATH/spctl  --cname "${CONN_CONFIG}" vm getstatus -n "${VM_NAME}" 2> /dev/null
 echo "============== after get status VM: '${VM_NAME}'"
 
 echo -e "\n\n"
