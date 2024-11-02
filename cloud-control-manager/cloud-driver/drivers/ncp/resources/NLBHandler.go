@@ -102,14 +102,14 @@ func (nlbHandler *NcpNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB ir
 		RegionInfo: nlbHandler.RegionInfo,
 		VMClient:   nlbHandler.VMClient,
 	}
-	regionNo, err := vmHandler.GetRegionNo(nlbHandler.RegionInfo.Region)
+	regionNo, err := vmHandler.getRegionNo(nlbHandler.RegionInfo.Region)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NCP Region No of the Region Code: [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.NLBInfo{}, newErr
 	}
-	zoneNo, err := vmHandler.GetZoneNo(nlbHandler.RegionInfo.Region, nlbHandler.RegionInfo.Zone)
+	zoneNo, err := vmHandler.getZoneNo(nlbHandler.RegionInfo.Region, nlbHandler.RegionInfo.Zone)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NCP Zone No of the Zone Code : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -172,7 +172,7 @@ func (nlbHandler *NcpNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB ir
 	if len(*nlbReqInfo.VMGroup.VMs) > 0 {
 		var vmIds []*string
 		for _, IId := range *nlbReqInfo.VMGroup.VMs {
-			vmId, err := vmHandler.GetVmIdByName(IId.NameId)
+			vmId, err := vmHandler.getVmIdByName(IId.NameId)
 			if err != nil {
 				newErr := fmt.Errorf("Failed to Get the NCP VM ID with VM Name. [%v]", err.Error())
 				cblogger.Error(newErr.Error())
@@ -245,14 +245,14 @@ func (nlbHandler *NcpNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 		RegionInfo: nlbHandler.RegionInfo,
 		VMClient:   nlbHandler.VMClient,
 	}
-	regionNo, err := vmHandler.GetRegionNo(nlbHandler.RegionInfo.Region)
+	regionNo, err := vmHandler.getRegionNo(nlbHandler.RegionInfo.Region)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NCP Region No of the Region Code: [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return nil, newErr
 	}
-	zoneNo, err := vmHandler.GetZoneNo(nlbHandler.RegionInfo.Region, nlbHandler.RegionInfo.Zone)
+	zoneNo, err := vmHandler.getZoneNo(nlbHandler.RegionInfo.Region, nlbHandler.RegionInfo.Zone)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NCP Zone No of the Zone Code : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -388,7 +388,7 @@ func (nlbHandler *NcpNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.
 	var newVmIdList []*string
 	if len(*vmIIDs) > 0 {
 		for _, vmIID := range *vmIIDs {
-			vmId, err := vmHandler.GetVmIdByName(vmIID.NameId)
+			vmId, err := vmHandler.getVmIdByName(vmIID.NameId)
 			if err != nil {
 				newErr := fmt.Errorf("Failed to Get the VM ID with the VM Name : [%v]", err)
 				cblogger.Error(newErr.Error())
@@ -465,7 +465,7 @@ func (nlbHandler *NcpNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (b
 	var vmIdList []*string
 	if len(*vmIIDs) > 0 {
 		for _, vmIID := range *vmIIDs {
-			vmId, err := vmHandler.GetVmIdByName(vmIID.NameId)
+			vmId, err := vmHandler.getVmIdByName(vmIID.NameId)
 			if err != nil {
 				newErr := fmt.Errorf("Failed to Get the VM ID with the VM Name : [%v]", err)
 				cblogger.Error(newErr.Error())
@@ -627,7 +627,7 @@ func (nlbHandler *NcpNLBHandler) GetVMGroupInfo(nlb lb.LoadBalancerInstance) (ir
 		}
 		var vmIIds []irs.IID
 		for _, member := range nlb.LoadBalancedServerInstanceList {
-			vm, err := vmHandler.GetNcpVMInfo(*member.ServerInstance.ServerInstanceNo)
+			vm, err := vmHandler.getNcpVMInfo(*member.ServerInstance.ServerInstanceNo)
 			if err != nil {
 				newErr := fmt.Errorf("Failed to Get the NCP VM Info with ServerInstance No. [%v]", err.Error())
 				cblogger.Error(newErr.Error())
@@ -781,14 +781,14 @@ func (nlbHandler *NcpNLBHandler) GetNcpNlbInfo(nlbIID irs.IID) (*lb.LoadBalancer
 		RegionInfo: nlbHandler.RegionInfo,
 		VMClient:   nlbHandler.VMClient,
 	}
-	regionNo, err := vmHandler.GetRegionNo(nlbHandler.RegionInfo.Region)
+	regionNo, err := vmHandler.getRegionNo(nlbHandler.RegionInfo.Region)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NCP Region No of the Region Code: [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return nil, newErr
 	}
-	zoneNo, err := vmHandler.GetZoneNo(nlbHandler.RegionInfo.Region, nlbHandler.RegionInfo.Zone)
+	zoneNo, err := vmHandler.getZoneNo(nlbHandler.RegionInfo.Region, nlbHandler.RegionInfo.Zone)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NCP Zone No of the Zone Code : [%v]", err)
 		cblogger.Error(newErr.Error())

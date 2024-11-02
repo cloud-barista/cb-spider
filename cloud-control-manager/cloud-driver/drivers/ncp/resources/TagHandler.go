@@ -279,7 +279,7 @@ func (tagHandler *NcpTagHandler) getVMTagListWithVMId(vmID *string) ([]*server.I
 	}
 	if len(tagListResult.InstanceTagList) < 1 {
 		newErr := fmt.Errorf("Failed to Find Any Tag with the VM SystemID!!")
-		cblogger.Error(newErr.Error())
+		cblogger.Debug(newErr.Error())
 		return nil, newErr
 	} else {
 		cblogger.Infof("Tag Listing Result : [%s]", *tagListResult.ReturnMessage)
