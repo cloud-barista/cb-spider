@@ -13,7 +13,10 @@ SETUP_PATH=$CBSPIDER_ROOT/test/vm-cb-user-validation-cli/common
 source $SETUP_PATH/setup.env $1
 
 echo "============== before delete VPC/Subnet: '${VPC_NAME}'"
-$CLIPATH/spctl  vpc delete --cname "${CONN_CONFIG}" -n "${VPC_NAME}" 2> /dev/null
+$CLIPATH/spctl  vpc delete -n "${VPC_NAME}" -d \
+    "{
+      \"ConnectionName\":\"${CONN_CONFIG}\"
+    }"
 echo "============== after delete VPC/Subnet: '${VPC_NAME}'"
 
 echo -e "\n\n"

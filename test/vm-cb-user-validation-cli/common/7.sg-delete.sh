@@ -14,7 +14,10 @@ source $SETUP_PATH/setup.env $1
 
 
 echo "============== before delete SecurityGroup: '${SG_NAME}'"
-$CLIPATH/spctl  security delete --cname "${CONN_CONFIG}" -n "${SG_NAME}" 2> /dev/null
+$CLIPATH/spctl  securitygroup delete -n "${SG_NAME}" -d \
+    "{
+      \"ConnectionName\":\"${CONN_CONFIG}\"
+    }"
 echo "============== after delete SecurityGroup: '${SG_NAME}'"
 
 echo -e "\n\n"

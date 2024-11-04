@@ -14,7 +14,10 @@ source $SETUP_PATH/setup.env $1
 
 VM_NAME=${VM_NAME}-$2
 echo "============== before terminate VM: '${VM_NAME}'"
-$CLIPATH/spctl  --cname "${CONN_CONFIG}" vm terminate -n "${VM_NAME}" 2> /dev/null
+$CLIPATH/spctl vm terminate -n "${VM_NAME}" -d \
+    "{
+      \"ConnectionName\":\"${CONN_CONFIG}\"
+    }"
 echo "============== after terminate VM: '${VM_NAME}'"
 
 echo -e "\n\n"
