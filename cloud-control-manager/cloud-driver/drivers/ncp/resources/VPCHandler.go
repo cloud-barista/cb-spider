@@ -332,6 +332,10 @@ func (VPCHandler *NcpVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID)
 func (VPCHandler *NcpVPCHandler) CreateSubnet(subnetReqInfo irs.SubnetInfo) (irs.SubnetInfo, error) {
 	cblogger.Info("NCP cloud driver: called CreateSubnet()!!")
 
+	if subnetReqInfo.Zone == "" {
+		subnetReqInfo.Zone = VPCHandler.RegionInfo.Zone
+	}
+
 	currentTime := getSeoulCurrentTime()
 
 	newSubnetInfo := irs.SubnetInfo{
@@ -344,7 +348,7 @@ func (VPCHandler *NcpVPCHandler) CreateSubnet(subnetReqInfo irs.SubnetInfo) (irs
 		IPv4_CIDR: subnetReqInfo.IPv4_CIDR,
 		KeyValueList: []irs.KeyValue{
 			{Key: "NCP-Subnet-info.", Value: "This Subnet info. is temporary."},
-			{Key: "CreateTime", Value: currentTime},			
+			{Key: "CreateTime", Value: currentTime},
 		},
 	}
 	return newSubnetInfo, nil
@@ -394,29 +398,29 @@ func (VPCHandler *NcpVPCHandler) MappingVPCInfo(vpcJSON VPC) (irs.VPCInfo, error
 func (vpcHandler *NcpVPCHandler) getSubnetZone(vpcIID irs.IID, subnetIID irs.IID) (string, error) {
 	cblogger.Info("NCP cloud driver: called getSubnetZone()!!")
 
-	if strings.EqualFold(vpcIID.SystemId, "") && strings.EqualFold(vpcIID.NameId, ""){
+	if strings.EqualFold(vpcIID.SystemId, "") && strings.EqualFold(vpcIID.NameId, "") {
 		newErr := fmt.Errorf("Invalid VPC Id!!")
 		cblogger.Error(newErr.Error())
 		return "", newErr
 	}
 
-	if strings.EqualFold(subnetIID.SystemId, "") && strings.EqualFold(subnetIID.NameId, ""){
+	if strings.EqualFold(subnetIID.SystemId, "") && strings.EqualFold(subnetIID.NameId, "") {
 		newErr := fmt.Errorf("Invalid Subnet Id!!")
 		cblogger.Error(newErr.Error())
 		return "", newErr
 	}
 
-	 // Get the VPC information
-	 vpcInfo, err := vpcHandler.GetVPC(vpcIID)
-	 if err != nil {
+	// Get the VPC information
+	vpcInfo, err := vpcHandler.GetVPC(vpcIID)
+	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the VPC Info : [%v]", err)
 		cblogger.Error(newErr.Error())
 		return "", newErr
-	 }
+	}
 	//  cblogger.Info("\n\n### vpcInfo : ")
 	//  spew.Dump(vpcInfo)
 	//  cblogger.Info("\n")
- 	 
+
 	// Get the Zone info of the specified Subnet
 	var subnetZone string
 	for _, subnet := range vpcInfo.SubnetInfoList {
