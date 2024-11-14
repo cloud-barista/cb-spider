@@ -3960,7 +3960,7 @@ const docTemplate = `{
                     "[MyImage Management]"
                 ],
                 "summary": "Snapshot VM",
-                "operationId": "snapshot-vm",
+                "operationId": "create-myimage",
                 "parameters": [
                     {
                         "description": "Request body for creating a MyImage snapshot",
