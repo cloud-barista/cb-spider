@@ -88,6 +88,8 @@ func (DiskHandler *TencentDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 	newDiskId := *response.Response.DiskIdSet[0]
 	cblogger.Debug(newDiskId)
 
+	time.Sleep(1 * time.Second)
+
 	diskInfo, diskInfoErr := DiskHandler.GetDisk(irs.IID{SystemId: newDiskId})
 	if diskInfoErr != nil {
 		cblogger.Error(diskInfoErr)
