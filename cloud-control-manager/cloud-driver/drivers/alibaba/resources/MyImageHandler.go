@@ -240,7 +240,9 @@ func (myImageHandler AlibabaMyImageHandler) DeleteMyImage(myImageIID irs.IID) (b
 		}
 
 		aliImageState := ""
-		if !reflect.ValueOf(aliImage[0]).IsNil() {
+		//if !reflect.ValueOf(aliImage[0]).IsNil() {
+		v := reflect.ValueOf(aliImage[0])
+		if v.Kind() == reflect.Ptr && !v.IsNil() {
 			aliImageState = aliImage[0].Status
 		}
 
