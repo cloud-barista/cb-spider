@@ -13,12 +13,12 @@ package resources
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 	"time"
+	"errors"
 
 	// "github.com/davecgh/go-spew/spew"
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/server"
@@ -250,7 +250,7 @@ func (VPCHandler *NcpVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	for _, file := range dirFiles {
 		fileName := strings.TrimSuffix(file.Name(), ".json") // 접미사 제거
 		vpcIID.NameId = fileName
-		cblogger.Infof("# VPC Name : " + vpcIID.NameId)
+		cblogger.Infof("# VPC Name : [%s]", vpcIID.NameId)
 
 		vpcInfo, vpcErr := VPCHandler.GetVPC(irs.IID{SystemId: vpcIID.NameId})
 		if vpcErr != nil {
@@ -437,7 +437,51 @@ func (vpcHandler *NcpVPCHandler) getSubnetZone(vpcIID irs.IID, subnetIID irs.IID
 	return subnetZone, nil
 }
 
-func (VPCHandler *NcpVPCHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+func (vpcHandler *NcpVPCHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("NCP Cloud Driver: called vpcHandler ListIID()!")
+
+	zoneId := vpcHandler.RegionInfo.Zone
+	if zoneId == "" {
+		newErr := fmt.Errorf("Failed to Get Zone info. from the connection info.")
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	} else {
+		cblogger.Infof("ZoneId : %s", zoneId)
+	}
+
+	vpcFilePath := os.Getenv("CBSPIDER_ROOT") + vpcDir + zoneId + "/"
+	// File list on the local directory
+	dirFiles, readErr := os.ReadDir(vpcFilePath)
+	if readErr != nil {
+		newErr := fmt.Errorf("Failed to Read the VPC file : [%v]", readErr)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+
+	var vpcIID irs.IID
+	var iidList []*irs.IID
+	if len(dirFiles) < 1 {
+		cblogger.Debug("### VPC does Not Exist!!")
+		return nil, nil
+	} else {
+		for _, file := range dirFiles {
+			fileName := strings.TrimSuffix(file.Name(), ".json") // Remove suffix
+			vpcIID.NameId = fileName
+			cblogger.Infof("# VPC Name : [%s]", vpcIID.NameId)
+
+			vpcInfo, vpcErr := vpcHandler.GetVPC(irs.IID{SystemId: vpcIID.NameId})
+			if vpcErr != nil {
+				newErr := fmt.Errorf("Failed to Get the VPC Info : [%v]", vpcErr)
+				cblogger.Error(newErr.Error())
+				return nil, newErr
+			}
+
+			var iid irs.IID
+			iid.NameId = vpcInfo.IId.NameId
+			iid.SystemId = vpcInfo.IId.NameId
+
+			iidList = append(iidList, &iid)
+		}
+	}
+	return iidList, nil
 }
