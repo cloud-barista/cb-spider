@@ -842,9 +842,6 @@ func (vmHandler *NcpVpcVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	instanceReq := vserver.GetServerInstanceListRequest{
 		RegionCode: 			ncloud.String(vmHandler.RegionInfo.Region),   // $$$ Caution!!
 		ServerInstanceNoList: []*string{},
-		//		ServerInstanceNoList: []*string{
-		//			nil,
-		//		},
 	}
 	callLogStart := call.Start()
 	result, err := vmHandler.VMClient.V2Api.GetServerInstanceList(&instanceReq)
@@ -856,7 +853,6 @@ func (vmHandler *NcpVpcVMHandler) ListVM() ([]*irs.VMInfo, error) {
 		return nil, newErr
 	}
 	LoggingInfo(callLogInfo, callLogStart)
-	cblogger.Info("Succeeded in Getting ServerInstanceList from NCP!!")
 
 	var vmInfoList []*irs.VMInfo
 	for _, vm := range result.ServerInstanceList {
@@ -1629,6 +1625,36 @@ func getNicOrderInt32(initInt int) *int32 {
 }
 
 func (vmHandler *NcpVpcVMHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	cblogger.Info("NCPVPC Cloud driver: called vmHandler ListIID()!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, "ListIID()", "ListIID()")
+
+	instanceReq := vserver.GetServerInstanceListRequest{
+		RegionCode: 			ncloud.String(vmHandler.RegionInfo.Region),   // $$$ Caution!!
+		ServerInstanceNoList: []*string{},
+	}
+	callLogStart := call.Start()
+	result, err := vmHandler.VMClient.V2Api.GetServerInstanceList(&instanceReq)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get VM Instance List from NCP VPC!! : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+	LoggingInfo(callLogInfo, callLogStart)
+
+	var iidList []*irs.IID
+	if len(result.ServerInstanceList) < 1 {
+		cblogger.Debug("### VM does Not Exist!!")
+		return nil, nil
+	} else {
+		for _, vm := range result.ServerInstanceList {
+			var iid irs.IID
+			iid.NameId = *vm.ServerName
+			iid.SystemId = *vm.ServerInstanceNo
+	
+			iidList = append(iidList, &iid)
+		}
+	}
+	return iidList, nil
 }

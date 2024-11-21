@@ -11,7 +11,6 @@
 package resources
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -1663,7 +1662,37 @@ func (nlbHandler *NcpVpcNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, heal
 	return irs.HealthCheckerInfo{}, fmt.Errorf("Does not support yet!!")
 }
 
-func (NLBHandler *NcpVpcNLBHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+func (nlbHandler *NcpVpcNLBHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("NPC VPC Cloud Driver: called nlbHandler ListIID()")
+	InitLog()
+	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", "ListIID()", "ListIID()")
+
+	lbReq := vlb.GetLoadBalancerInstanceListRequest{
+		RegionCode: &nlbHandler.RegionInfo.Region, // CAUTION!! : Searching NLB Info by RegionCode (Not RegionNo)
+	}
+
+	callLogStart := call.Start()
+	result, err := nlbHandler.VLBClient.V2Api.GetLoadBalancerInstanceList(&lbReq)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Find NLB list from NCP VPC : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+	LoggingInfo(callLogInfo, callLogStart)
+
+	var iidList []*irs.IID
+	if len(result.LoadBalancerInstanceList) < 1 {
+		cblogger.Debug("### NLB does Not Exist!!")
+		return nil, nil
+	} else {
+		for _, nlb := range result.LoadBalancerInstanceList {
+			var iid irs.IID
+			iid.NameId = *nlb.LoadBalancerName
+			iid.SystemId = *nlb.LoadBalancerInstanceNo
+	
+			iidList = append(iidList, &iid)
+		}
+	}
+	return iidList, nil
 }

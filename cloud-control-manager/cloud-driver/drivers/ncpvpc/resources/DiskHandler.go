@@ -11,7 +11,6 @@
 package resources
 
 import (
-	"errors"
 	"fmt"
 	// "io/ioutil"
 	// "os"
@@ -776,7 +775,37 @@ func (diskHandler *NcpVpcDiskHandler) IsBasicBlockStorage(diskIID irs.IID) (bool
 	}
 }
 
-func (DiskHandler *NcpVpcDiskHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+func (diskHandler *NcpVpcDiskHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("NCP VPC Driver: called diskHandler ListIID()")
+	InitLog()
+	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, "ListIID()", "ListIID()")
+
+	storageReq := vserver.GetBlockStorageInstanceListRequest{
+		RegionCode: ncloud.String(diskHandler.RegionInfo.Region),   // $$$ Caution!!
+	}
+
+	callLogStart := call.Start()
+	result, err := diskHandler.VMClient.V2Api.GetBlockStorageInstanceList(&storageReq)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get Block Storage List : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+	LoggingInfo(callLogInfo, callLogStart)
+
+	var iidList []*irs.IID
+	if len(result.BlockStorageInstanceList) < 1 {
+		cblogger.Debug("### VPC does Not Exist!!")
+		return nil, nil
+	} else {
+		for _, storage := range result.BlockStorageInstanceList {
+			var iid irs.IID
+			iid.NameId = ncloud.StringValue(storage.BlockStorageName)
+			iid.SystemId = ncloud.StringValue(storage.BlockStorageInstanceNo)
+	
+			iidList = append(iidList, &iid)
+		}
+	}
+	return iidList, nil
 }

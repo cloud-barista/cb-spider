@@ -8,7 +8,6 @@
 package resources
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -169,8 +168,6 @@ func (keyPairHandler *NcpVpcKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairI
 		keyPairInfo := MappingKeyPairInfo(result.LoginKeyList[0])
 		return keyPairInfo, nil
 	}
-
-	return irs.KeyPairInfo{}, errors.New("Failed to Find KeyPair Info with the Name!!")
 }
 
 func (keyPairHandler *NcpVpcKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error) {
@@ -237,16 +234,16 @@ func (keyPairHandler *NcpVpcKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, err
 }
 
 // KeyPair 정보를 추출함
-func MappingKeyPairInfo(NcpKeyPairList *vserver.LoginKey) irs.KeyPairInfo {
-	cblogger.Infof("*** Mapping KeyPair Info of : %s", *NcpKeyPairList.KeyName)
+func MappingKeyPairInfo(ncpKeyPair *vserver.LoginKey) irs.KeyPairInfo {
+	cblogger.Infof("*** Mapping KeyPair Info of : %s", *ncpKeyPair.KeyName)
 
 	// NCP Key does not have SystemId, so the unique NameId value is also applied to the SystemId
 	keyPairInfo := irs.KeyPairInfo{
 		IId: irs.IID{
-			NameId:   *NcpKeyPairList.KeyName,
-			SystemId: *NcpKeyPairList.KeyName,
+			NameId:   *ncpKeyPair.KeyName,
+			SystemId: *ncpKeyPair.KeyName,
 		},
-		Fingerprint: *NcpKeyPairList.Fingerprint,
+		Fingerprint: *ncpKeyPair.Fingerprint,
 		PublicKey:   "N/A",
 		// PublicKey:  	*NcpKeyPairList.PublicKey, // Creates Error
 		PrivateKey: "N/A",
@@ -254,7 +251,7 @@ func MappingKeyPairInfo(NcpKeyPairList *vserver.LoginKey) irs.KeyPairInfo {
 	}
 
 	keyValueList := []irs.KeyValue{
-		{Key: "CreateDate", Value: *NcpKeyPairList.CreateDate},
+		{Key: "CreateDate", Value: *ncpKeyPair.CreateDate},
 	}
 
 	keyPairInfo.KeyValueList = keyValueList
@@ -263,6 +260,35 @@ func MappingKeyPairInfo(NcpKeyPairList *vserver.LoginKey) irs.KeyPairInfo {
 }
 
 func (keyPairHandler *NcpVpcKeyPairHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	cblogger.Info("NCP VPC cloud driver: called keyPairHandler ListIID()!!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(keyPairHandler.RegionInfo.Zone, call.VMKEYPAIR, "ListIID()", "ListIID()")
+
+	keypairReq := vserver.GetLoginKeyListRequest{
+		KeyName: nil,
+	}
+
+	callLogStart := call.Start()
+	result, err := keyPairHandler.VMClient.V2Api.GetLoginKeyList(&keypairReq)
+	if err != nil {
+		cblogger.Errorf("Failed to Get KeyPairList : %v", err)
+		LoggingError(callLogInfo, err)
+		return nil, err
+	}
+	LoggingInfo(callLogInfo, callLogStart)
+
+	var iidList []*irs.IID
+	if len(result.LoginKeyList) < 1 {
+		cblogger.Debug("### KeyPair does Not Exist!!")
+		return nil, nil
+	} else {
+		for _, keyPair := range result.LoginKeyList {
+			var iid irs.IID
+			iid.NameId = *keyPair.KeyName
+			iid.SystemId = *keyPair.KeyName
+	
+			iidList = append(iidList, &iid)
+		}
+	}
+	return iidList, nil
 }
