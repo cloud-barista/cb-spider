@@ -33,7 +33,6 @@ type NcpKeyPairHandler struct {
 
 func (keyPairHandler *NcpKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 	cblogger.Info("NCP Classic Cloud driver: called ListKey()!!")
-
 	InitLog()
 	callLogInfo := GetCallLogScheme(keyPairHandler.RegionInfo.Zone, call.VMKEYPAIR, "ListKey()", "ListKey()")
 
@@ -58,13 +57,13 @@ func (keyPairHandler *NcpKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 		}
 		return keyPairList, nil
 	} else {
-		return nil, errors.New("Failed to Find KeyPairList!!")
+		cblogger.Debug("### KeyPiar does Not Exist!!")
+		return nil, nil
 	}
 }
 
 func (keyPairHandler *NcpKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReqInfo) (irs.KeyPairInfo, error) {
 	cblogger.Info("NCP Classic Cloud driver: called CreateKey()!!")
-
 	InitLog()
 	callLogInfo := GetCallLogScheme(keyPairHandler.RegionInfo.Zone, call.VMKEYPAIR, keyPairReqInfo.IId.NameId, "CreateKey()")
 
@@ -135,7 +134,6 @@ func (keyPairHandler *NcpKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 
 func (keyPairHandler *NcpKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo, error) {
 	cblogger.Info("NCP Classic Cloud driver: called GetKey()!!")
-
 	InitLog()
 	callLogInfo := GetCallLogScheme(keyPairHandler.RegionInfo.Zone, call.VMKEYPAIR, keyIID.SystemId, "GetKey()")
 
@@ -169,7 +167,6 @@ func (keyPairHandler *NcpKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairInfo
 
 func (keyPairHandler *NcpKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, error) {
 	cblogger.Info("NCP Classic Cloud driver: called DeleteKey()!!")
-
 	InitLog()
 	callLogInfo := GetCallLogScheme(keyPairHandler.RegionInfo.Zone, call.VMKEYPAIR, keyIID.NameId, "DeleteKey()")
 
@@ -253,6 +250,35 @@ func MappingKeyPairInfo(NcpKeyPairList *server.LoginKey) irs.KeyPairInfo {
 }
 
 func (keyPairHandler *NcpKeyPairHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	cblogger.Info("NCP Classic Cloud driver: called keyPairHandler ListIID()!!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(keyPairHandler.RegionInfo.Zone, call.VMKEYPAIR, "ListIID()", "ListIID()")
+
+	keypairReq := server.GetLoginKeyListRequest{
+		KeyName: nil,
+	}
+	callLogStart := call.Start()
+	result, err := keyPairHandler.VMClient.V2Api.GetLoginKeyList(&keypairReq)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Find KeyPairList from NCP Cloud : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+	LoggingInfo(callLogInfo, callLogStart)
+
+	var keyIIDList []*irs.IID
+	if len(result.LoginKeyList) > 0 {
+		for _, keyPair := range result.LoginKeyList {
+			keyIID := irs.IID{
+				NameId:   *keyPair.KeyName,
+				SystemId: *keyPair.KeyName,
+			}
+			keyIIDList = append(keyIIDList, &keyIID)
+		}
+		return keyIIDList, nil
+	} else {
+		cblogger.Debug("### KeyPair does Not Exist!!")
+		return nil, nil
+	}
 }

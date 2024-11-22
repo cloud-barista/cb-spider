@@ -1176,7 +1176,7 @@ func (vmHandler *NcpVMHandler) ListVM() ([]*irs.VMInfo, error) {
 		}
 	}
 	return vmInfoList, nil
-
+	
 /*
 	regionNo, err := vmHandler.getRegionNo(vmHandler.RegionInfo.Region)
 	if err != nil {
@@ -1237,6 +1237,27 @@ func (vmHandler *NcpVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	return vmInfoList, nil
 */
 
+}
+
+func (vmHandler *NcpVMHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("NCP Classic Cloud driver: called ListIID()!")
+
+	ncpVMList, err := vmHandler.getNcpVMListWithRegion(vmHandler.RegionInfo.Region)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get NCP VM List : [%v]", err.Error())
+		cblogger.Debug(newErr.Error())
+		return nil, newErr
+	}
+
+	var vmIIDList []*irs.IID
+	for _, vm := range ncpVMList {
+		vmIID := irs.IID{
+			NameId:    *vm.ServerName,
+			SystemId:  *vm.ServerInstanceNo,
+		}
+		vmIIDList = append(vmIIDList, &vmIID)
+	}
+	return vmIIDList, nil
 }
 
 // Waiting for up to 300 seconds until VM info. can be get
@@ -1947,11 +1968,6 @@ func (vmHandler *NcpVMHandler) setZoneNoList() error {
 	}
 
 	return nil
-}
-
-func (vmHandler *NcpVMHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
 }
 
 // Get NCP VM info list (in the All zone of the specified Region)

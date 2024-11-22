@@ -13,7 +13,6 @@ package resources
 
 import (
 	"fmt"
-	"errors"
 	"strings"
 
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
@@ -147,14 +146,12 @@ func (securityHandler *NcpSecurityHandler) GetSecurity(securityIID irs.IID) (irs
 
 func (securityHandler *NcpSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
 	cblogger.Info("NCP Cloud Driver: called ListSecurity()!!")
-
 	InitLog()
     callLogInfo := GetCallLogScheme(securityHandler.RegionInfo.Zone, call.SECURITYGROUP, "ListSecurity()", "ListSecurity()")
 
-	var securityGroupList []*irs.SecurityInfo
-
-	sgReq := server.GetAccessControlGroupListRequest{AccessControlGroupConfigurationNoList: nil}
-
+	sgReq := server.GetAccessControlGroupListRequest{
+		AccessControlGroupConfigurationNoList: nil,
+	}
 	// Search NCP AccessControlGroup with securityIID.SystemId
 	callLogStart := call.Start()
 	ncpSG, err := securityHandler.VMClient.V2Api.GetAccessControlGroupList(&sgReq)
@@ -166,27 +163,23 @@ func (securityHandler *NcpSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 	}
 	LoggingInfo(callLogInfo, callLogStart)
 
+	var securityGroupList []*irs.SecurityInfo
 	if len(ncpSG.AccessControlGroupList) < 1 {
-		return nil, errors.New("Failed to Find Any SecurityGroup info!!")
+		cblogger.Debug("### S/G does Not Exist!!")
+		return nil, nil
+	} else {
+		for _, sg := range ncpSG.AccessControlGroupList {
+			cblogger.Info("NCP SecurityGroup No : ", *sg.AccessControlGroupConfigurationNo)
+	
+			sgInfo, _ := securityHandler.GetSecurity(irs.IID{SystemId: *sg.AccessControlGroupConfigurationNo})
+			securityGroupList = append(securityGroupList, &sgInfo)
+		}
 	}
-
-	cblogger.Info("Succeeded in Getting NCP SecurityGroup info.")
-
-	for _, sg := range ncpSG.AccessControlGroupList {
-		cblogger.Info("NCP SecurityGroup No : ", *sg.AccessControlGroupConfigurationNo)
-
-		sgInfo, _ := securityHandler.GetSecurity(irs.IID{SystemId: *sg.AccessControlGroupConfigurationNo})
-		securityGroupList = append(securityGroupList, &sgInfo)
-	}
-
 	return securityGroupList, nil
 }
 
 func (securityHandler *NcpSecurityHandler) DeleteSecurity(securityIID irs.IID) (bool, error) {
 	cblogger.Info("NCP Cloud Driver: called DeleteSecurity()!")
-
-	cblogger.Infof("securityIID.SystemId to Delete : [%s]", securityIID.SystemId)
-
 	InitLog()
 	callLogInfo := GetCallLogScheme(securityHandler.RegionInfo.Zone, call.SECURITYGROUP, securityIID.NameId, "DeleteSecurity()")
 
@@ -301,7 +294,36 @@ func (securityHandler *NcpSecurityHandler) RemoveRules(sgIID irs.IID, securityRu
 }
 
 func (securityHandler *NcpSecurityHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
-}
+	cblogger.Info("NCP VPC cloud driver: called securityHandler ListIID()!!")
+	InitLog()
+    callLogInfo := GetCallLogScheme(securityHandler.RegionInfo.Zone, call.SECURITYGROUP, "ListIID()", "ListIID()")
 
+	sgReq := server.GetAccessControlGroupListRequest{
+		AccessControlGroupConfigurationNoList: nil,
+	}
+	// Search NCP AccessControlGroup with securityIID.SystemId
+	callLogStart := call.Start()
+	ncpSG, err := securityHandler.VMClient.V2Api.GetAccessControlGroupList(&sgReq)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Find SecurityGroup list from NCP : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+	LoggingInfo(callLogInfo, callLogStart)
+
+	var iidList []*irs.IID
+	if len(ncpSG.AccessControlGroupList) < 1 {
+		cblogger.Debug("### S/G does Not Exist!!")
+		return nil, nil
+	} else {
+		for _, sg := range ncpSG.AccessControlGroupList{
+			var iid irs.IID
+			iid.NameId = ncloud.StringValue(sg.AccessControlGroupName)
+			iid.SystemId = ncloud.StringValue(sg.AccessControlGroupConfigurationNo)
+
+			iidList = append(iidList, &iid)
+		}
+	}
+	return iidList, nil
+}

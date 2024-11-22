@@ -11,7 +11,6 @@
 package resources
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -935,7 +934,56 @@ func (nlbHandler *NcpNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthC
 	return irs.HealthCheckerInfo{}, fmt.Errorf("Does not support yet!!")
 }
 
-func (NLBHandler *NcpNLBHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+func (nlbHandler *NcpNLBHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("NPC Classic Cloud Driver: called nlbHandler ListIID()")
+	InitLog()
+	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", "ListIID()", "ListIID()")
+
+	vmHandler := NcpVMHandler{
+		RegionInfo: nlbHandler.RegionInfo,
+		VMClient:   nlbHandler.VMClient,
+	}
+	regionNo, err := vmHandler.getRegionNo(nlbHandler.RegionInfo.Region)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get NCP Region No of the Region Code: [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+	zoneNo, err := vmHandler.getZoneNo(nlbHandler.RegionInfo.Region, nlbHandler.RegionInfo.Zone)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get NCP Zone No of the Zone Code : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+
+	lbReq := lb.GetLoadBalancerInstanceListRequest{
+		RegionNo: regionNo, // Caution!! : RegionNo (Not RegionCode)
+		ZoneNo:   zoneNo,   // Caution!! : ZoneNo (Not ZoneCode)
+	}
+	callLogStart := call.Start()
+	result, err := nlbHandler.LBClient.V2Api.GetLoadBalancerInstanceList(&lbReq)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Find NLB list from NCP Classic : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+	LoggingInfo(callLogInfo, callLogStart)
+
+	var iidList []*irs.IID
+	if len(result.LoadBalancerInstanceList) < 1 {
+		cblogger.Debug("### NLB does Not Exist!!")
+		return nil, nil
+	} else {
+		for _, nlb := range result.LoadBalancerInstanceList {
+			var iid irs.IID
+			iid.NameId = *nlb.LoadBalancerName
+			iid.SystemId = *nlb.LoadBalancerInstanceNo
+	
+			iidList = append(iidList, &iid)
+		}
+	}
+	return iidList, nil
 }

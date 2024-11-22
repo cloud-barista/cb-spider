@@ -11,7 +11,6 @@
 package resources
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -438,7 +437,37 @@ func (myImageHandler *NcpVpcMyImageHandler) GetOriginImageOSPlatform(myImageIID 
 	return originImagePlatform, nil
 }
 
-func (ImageHandler *NcpVpcMyImageHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+func (myImageHandler *NcpVpcMyImageHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called myImageHandler ListIID()")
+	InitLog()
+	callLogInfo := GetCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, "ListIID()", "ListIID()")
+
+	imageListReq := vserver.GetMemberServerImageInstanceListRequest{ // Not GetBlockStorageSnapshotInstanceListRequest
+		RegionCode: &myImageHandler.RegionInfo.Region,
+	}
+
+	callLogStart := call.Start()
+	result, err := myImageHandler.VMClient.V2Api.GetMemberServerImageInstanceList(&imageListReq) // Caution : Not GetBlockStorageSnapshotInstanceList()
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get the Snapshot Image List from NCP VPC : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+	LoggingInfo(callLogInfo, callLogStart)
+
+	var iidList []*irs.IID
+	if len(result.MemberServerImageInstanceList) < 1 {
+		cblogger.Debug("### MyImage does Not Exist!!")
+		return nil, nil
+	} else {
+		for _, myImage := range result.MemberServerImageInstanceList {
+			var iid irs.IID
+			iid.NameId = *myImage.MemberServerImageName
+			iid.SystemId = *myImage.MemberServerImageInstanceNo
+	
+			iidList = append(iidList, &iid)
+		}
+	}
+	return iidList, nil
 }
