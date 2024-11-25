@@ -247,11 +247,11 @@ func (myImageHandler AlibabaMyImageHandler) DeleteMyImage(myImageIID irs.IID) (b
 		}
 
 		curRetryCnt++
-		cblogger.Errorf(" will check the status of MyImage after waiting for 1 second. What is the current status?[%s]", aliImageState)
+		cblogger.Infof(" will check the status of MyImage after waiting for 1 second. What is the current status?[%s]", aliImageState)
 		time.Sleep(time.Second * 1)
 		if curRetryCnt > maxRetryCnt {
-			cblogger.Debugf("I waited for a long time (%d seconds), but the Status value of MyImage still... [%s]으로 변경되지 않아서 강제로 중단합니다.", maxRetryCnt)
-			return false, errors.New("I waited for a long time, but the status of the created MyImage is still...[" + string(aliImageState) + "]으로 바뀌지 않아서 중단 합니다.")
+			cblogger.Debugf("I waited for a long time (%d seconds), but the Status value of MyImage still hasn't changed to [%s], so I'm forcibly stopping.", maxRetryCnt)
+			return false, errors.New("I waited for a long time, but the status of the created MyImage still hasn't changed to [" + string(aliImageState) + "], so I'm stopping forcibly.")
 		}
 	}
 	cblogger.Info("MyImage deleted. requestId =" + response.RequestId)
