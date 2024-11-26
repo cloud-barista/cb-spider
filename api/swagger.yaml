@@ -5502,7 +5502,7 @@ paths:
       description: "Create a new MyImage snapshot from a specified VM. \U0001F577️
         [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/MyImage-and-Driver-API)],
         [[Snapshot-MyImage,Disk Guide](https://github.com/cloud-barista/cb-spider/wiki/VM-Snapshot,-MyImage-and-Disk-Overview)]"
-      operationId: snapshot-vm
+      operationId: create-myimage
       parameters:
       - description: Request body for creating a MyImage snapshot
         in: body

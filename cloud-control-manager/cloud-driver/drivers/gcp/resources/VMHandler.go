@@ -484,11 +484,31 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	// check operation status, wait until operation is completed
 	// This process is required because some operations have not error message but failed.
+	timeoutDuration := 1 * time.Hour
+	timeout := time.Now().Add(timeoutDuration)
+
+	retryCount := 0
+	maxRetries := 3
+
 	for {
+		if time.Now().After(timeout) {
+			return irs.VMInfo{}, fmt.Errorf("Operation %s in project %s, zone %s timed out after %v", op.Name, projectID, zone, timeoutDuration)
+		}
+
 		result, err := vmHandler.Client.ZoneOperations.Get(projectID, zone, op.Name).Context(context.Background()).Do()
 		if err != nil {
-			cblogger.Errorf("Failed to get operation: %v", err)
+			retryCount++
+			if retryCount < maxRetries {
+				cblogger.Infof("Failed to get operation (retry %d/%d): %v. Retrying...", retryCount, maxRetries, err)
+				continue
+			} else {
+				return irs.VMInfo{}, fmt.Errorf("Failed to get operation %s in project %s, zone %s after %d retries: %v", op.Name, projectID, zone, maxRetries, err)
+			}
+		} else {
+			retryCount = 0
 		}
+
+		// result.Status Possible values: "DONE", "PENDING", "RUNNING"
 		if result.Status == "DONE" {
 			if result.Error != nil {
 				var errorMessages []string
@@ -501,7 +521,8 @@ func (vmHandler *GCPVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			}
 			break
 		}
-		time.Sleep(5 * time.Second)
+
+		time.Sleep(15 * time.Second)
 	}
 
 	/*
@@ -1318,7 +1339,7 @@ func (vmHandler *GCPVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, error) {
 	// Suspending 되도록 3초 정도 대기 함.
 	//===================================
 	curRetryCnt := 0
-	maxRetryCnt := 120
+	maxRetryCnt := 40 // 15sec * 40 = 600sec = 10min
 	for {
 		curStatus, errStatus := vmHandler.GetVMStatus(vmIID)
 		if errStatus != nil {
@@ -1334,7 +1355,7 @@ func (vmHandler *GCPVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, error) {
 		//if curStatus != irs.VMStatus(waitStatus) {
 		curRetryCnt++
 		cblogger.Debugf("The VM status is not [%s], so waiting for 1 second before querying.", waitStatus)
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Second * 15)
 		if curRetryCnt > maxRetryCnt {
 			cblogger.Errorf("Forcibly stopping after waiting for a long time (%d seconds) as the VM's Status value hasn't changed to [%s].", maxRetryCnt, waitStatus)
 			return irs.VMStatus("Failed"), errors.New("Stopped waiting after waiting for a long time, but the status of the created VM did not change to [" + waitStatus + "].")
@@ -1345,6 +1366,32 @@ func (vmHandler *GCPVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, error) {
 }
 
 func (vmHandler *GCPVMHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	hiscallInfo := GetCallLogScheme(vmHandler.Region, call.VM, string(call.VM), "ListIID()")
+	start := call.Start()
+
+	projectID := vmHandler.Credential.ProjectID
+	zone := vmHandler.Region.Zone
+
+	serverList, err := vmHandler.Client.Instances.List(projectID, zone).Do()
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
+	if err != nil {
+		LoggingError(hiscallInfo, err)
+		cblogger.Error(err)
+		return nil, err
+	}
+	calllogger.Info(call.String(hiscallInfo))
+
+	var iidList []*irs.IID
+	for _, server := range serverList.Items {
+
+		iid := irs.IID{
+			NameId: server.Name,
+			//SystemId: strconv.FormatUint(server.Id, 10),
+			SystemId: server.Name,
+		}
+
+		iidList = append(iidList, &iid)
+	}
+
+	return iidList, nil
 }

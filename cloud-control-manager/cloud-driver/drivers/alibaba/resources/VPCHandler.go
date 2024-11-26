@@ -20,6 +20,7 @@ import (
 
 	//vpc "github.com/alibabacloud-go/vpc-20160428/v6/client"
 
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -588,7 +589,57 @@ func (VPCHandler *AlibabaVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.
 	return VPCHandler.DeleteSubnet(subnetIID)
 }
 
-func (vpcHandler *AlibabaVPCHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+func (VPCHandler *AlibabaVPCHandler) ListIID() ([]*irs.IID, error) {
+	var iidList []*irs.IID
+
+	request := vpc.CreateDescribeVpcsRequest()
+	request.Scheme = "https"
+	request.PageNumber = requests.NewInteger(1)
+	request.PageSize = requests.NewInteger(50)
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   VPCHandler.Region.Zone,
+		ResourceType: call.VPCSUBNET,
+		ResourceName: "ListIID()",
+		CloudOSAPI:   "DescribeVpcs()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
+	cblogger.Debug(VPCHandler.Region)
+	//request.RegionId = "cn-beijing"
+
+	var totalCount = 0
+	curPage := 1
+	for {
+		result, err := VPCHandler.Client.DescribeVpcs(request)
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+		cblogger.Debug(result)
+		//cblogger.Debug(result)
+		if err != nil {
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Info(call.String(callLogInfo))
+			return iidList, err
+		}
+		callogger.Debug(call.String(callLogInfo))
+
+		for _, curVpc := range result.Vpcs.Vpc {
+			cblogger.Debugf("[%s] VPC information retrieval", curVpc.VpcId)
+			iid := irs.IID{SystemId: curVpc.VpcId}
+			iidList = append(iidList, &iid)
+		}
+
+		totalCount = len(iidList)
+		cblogger.Debugf("Total number of vpcs across CSP: [%d] - Current page: [%d] - Accumulated result count: [%d]", result.TotalCount, curPage, totalCount)
+		if totalCount >= result.TotalCount {
+			break
+		}
+		curPage++
+		request.PageNumber = requests.NewInteger(curPage)
+	}
+	return iidList, nil
 }

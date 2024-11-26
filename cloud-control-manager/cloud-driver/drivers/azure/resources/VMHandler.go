@@ -449,7 +449,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		return irs.VMInfo{}, createErr
 	}
 	curRetryCnt := 0
-	maxRetryCnt := 120
+	maxRetryCnt := 40 // 15sec * 40 = 10min
 	// 5. Wait Running
 	for {
 		resp, _ := vmHandler.Client.InstanceView(vmHandler.Ctx, vmHandler.Region.Region, vmReqInfo.IId.NameId, nil)
@@ -459,7 +459,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			break
 		}
 		curRetryCnt++
-		time.Sleep(1 * time.Second)
+		time.Sleep(15 * time.Second)
 		if curRetryCnt > maxRetryCnt {
 			createErr := errors.New(fmt.Sprintf("Failed to Start VM. exceeded maximum retry count %d and Finished to rollback deleting", maxRetryCnt))
 			cleanErr := vmHandler.cleanDeleteVm(vmReqInfo.IId)
@@ -1405,7 +1405,7 @@ type CleanVMClientSet struct {
 // VMCleanRelatedResource
 func (vmHandler *AzureVMHandler) cleanVMRelatedResource(cleanRelatedResource VMCleanRelatedResource) (bool, error) {
 	curRetryCnt := 0
-	maxRetryCnt := 120
+	maxRetryCnt := 40 // 15sec * 40 = 10min (Total waiting time for deletion of related resources)
 
 	networkInterfaceName := cleanRelatedResource.CleanTargetResource.NetworkInterfaceName
 	publicIPId := cleanRelatedResource.CleanTargetResource.PublicIPName
@@ -1445,7 +1445,7 @@ func (vmHandler *AzureVMHandler) cleanVMRelatedResource(cleanRelatedResource VMC
 				}
 
 				curRetryCnt++
-				time.Sleep(1 * time.Second)
+				time.Sleep(15 * time.Second)
 				if curRetryCnt > maxRetryCnt {
 					createErr := errors.New(fmt.Sprintf("Failed to clean remained vnic ("+networkInterfaceName+"). exceeded maximum retry count %d", maxRetryCnt))
 					cblogger.Warn(createErr.Error())
@@ -1477,7 +1477,7 @@ func (vmHandler *AzureVMHandler) cleanVMRelatedResource(cleanRelatedResource VMC
 				}
 
 				curRetryCnt++
-				time.Sleep(1 * time.Second)
+				time.Sleep(15 * time.Second)
 				if curRetryCnt > maxRetryCnt {
 					createErr := errors.New(fmt.Sprintf("Failed to clean remained public IP ("+publicIPId+"). exceeded maximum retry count %d", maxRetryCnt))
 					cblogger.Warn(createErr.Error())
@@ -1505,7 +1505,7 @@ func (vmHandler *AzureVMHandler) cleanVMRelatedResource(cleanRelatedResource VMC
 				}
 
 				curRetryCnt++
-				time.Sleep(1 * time.Second)
+				time.Sleep(15 * time.Second)
 				if curRetryCnt > maxRetryCnt {
 					createErr := errors.New(fmt.Sprintf("Failed to clean remained disk ("+vmDiskId+"). exceeded maximum retry count %d", maxRetryCnt))
 					cblogger.Warn(createErr.Error())

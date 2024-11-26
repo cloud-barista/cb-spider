@@ -1,8 +1,10 @@
 # CB-Spider : "One Code, Multi-Cloud"
 [![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/cloud-barista/cb-spider?label=go.mod)](https://github.com/cloud-barista/cb-spider/blob/master/go.mod)
-[![GoDoc](https://godoc.org/github.com/cloud-barista/cb-spider?status.svg)](https://pkg.go.dev/github.com/cloud-barista/cb-spider@master)&nbsp;&nbsp;&nbsp;
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/cloud-barista/cb-spider/blob/master/LICENSE)&nbsp;&nbsp;&nbsp;
 [![Release Version](https://img.shields.io/github/v/release/cloud-barista/cb-spider)](https://github.com/cloud-barista/cb-spider/releases)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/cloud-barista/cb-spider/blob/master/LICENSE)
+[![Latest Docs](https://img.shields.io/badge/docs-latest-green)](https://github.com/cloud-barista/cb-spider/wiki)
+[![Swagger API Docs](https://img.shields.io/badge/docs-Swagger_API-blue)](https://cloud-barista.github.io/api/?url=https://raw.githubusercontent.com/cloud-barista/cb-spider/refs/heads/master/api/swagger.yaml)
+
 
 CB-Spider is a sub-framework of the Cloud-Barista Multi-Cloud Platform.<br>
 CB-Spider offers a unified view and interface for multi-cloud management.
@@ -23,7 +25,7 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 
 #### [목    차]
 
-1. [실행 환경](#1-실행-환경)
+1. [권장 환경](#1-권장-환경)
 2. [실행 방법](#2-실행-방법)
 3. [제공 자원](#3-제공-자원)
 4. [VM 계정](#4-VM-계정)
@@ -34,17 +36,12 @@ If you have any difficulties in using Cloud-Barista, please let us know.
  
 ***
 
-#### 1. 실행 환경
+#### 1. 권장 환경
 
-- ##### 공식환경
-  - OS: Ubuntu 22.04
-  - Build: Go 1.23, Swag v1.16.3
-  - Container: Docker v19.03
+- OS: Ubuntu 22.04
+- Build: Go 1.23, Swag v1.16.3
+- Container: Docker v19.03
 
-- ##### 시험환경
-  - OS: , Ubuntu 22.04, Ubuntu 20.04, Ubuntu 18.04, Debian 10.6, macOS Ventura 13.5, macOS Catalina 10.15, Android 8.1 등
-  - Build: Go 1.23, Go 1.21
-  - Container: Docker v19.03, Docker v20.10
 
 #### 2. 실행 방법
 

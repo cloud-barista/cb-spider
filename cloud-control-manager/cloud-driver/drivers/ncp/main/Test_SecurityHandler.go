@@ -6,7 +6,7 @@
 //
 // This is a Cloud Driver Tester Example.
 //
-// by ETRI, 2020.12.
+// Updated by ETRI, 2024.11.
 
 package main
 
@@ -47,22 +47,23 @@ func handleSecurity() {
 	//VmID := config.Ncp.VmID
 
 	for {
-		fmt.Println("\n============================================================================================")
-		fmt.Println("[ Security Management Test ]")
+		cblogger.Info("\n============================================================================================")
+		cblogger.Info("[ Security Management Test ]")
 
 		// Related APIs on NCP classic services are not supported.
-		fmt.Println("1. Create Security")
-		fmt.Println("2. List Security")
-		fmt.Println("3. Get Security")
-		fmt.Println("4. Delete Security")
-		fmt.Println("0. Quit")
-		fmt.Println("\n   Select a number above!! : ")
-		fmt.Println("============================================================================================")
+		cblogger.Info("1. Create Security")
+		cblogger.Info("2. List Security")
+		cblogger.Info("3. Get Security")
+		cblogger.Info("4. Delete Security")
+		cblogger.Info("5. List IID")
+		cblogger.Info("0. Quit")
+		cblogger.Info("\n   Select a number above!! : ")
+		cblogger.Info("============================================================================================")
 
 		var commandNum int
 
-		securityName := "ncp-sg01"
-		securityId := "661762" //NCP default S/G
+		securityName := "default1"
+		securityId := "1333707" //NCP default S/G
 		// securityId := "214436"
 		// vpcId := "vpc-c0479cab"
 
@@ -84,118 +85,61 @@ func handleSecurity() {
 				}
 				result, err := handler.CreateSecurity(reqInfo)
 				if err != nil {
-					cblogger.Infof(" Security 생성 실패 : ", err)
+					cblogger.Infof("%s SecurityGroup creation failed: %v", securityName, err)
 				} else {
-					cblogger.Info("Security 생성 결과")
-					//cblogger.Info(result)
+					cblogger.Infof("[%s] SecurityGroup creation result: [%v]", securityName, result)
 					spew.Dump(result)
-					//					if result != nil {
-					//						securityId = result.IId.SystemId // 조회 및 삭제를 위해 생성된 ID로 변경
-					//						spew.Dump(securityId)
-					//					}
 				}
-
 				cblogger.Info("\nCreateSecurity() Test Finished")
 
 			case 2:
 				result, err := handler.ListSecurity()
 				if err != nil {
-					cblogger.Infof(" Security list 조회 실패 : ", err)
+					cblogger.Infof("Failed to retrieve SecurityGroup list: ", err)
 				} else {
-					cblogger.Info("Security list 조회 결과")
+					cblogger.Info("SecurityGroup list retrieval result")
 					//cblogger.Info(result)
 					spew.Dump(result)
-					cblogger.Infof("=========== S/G 목록 수 : [%d] ================", len(result))
+					cblogger.Infof("=========== S/G count : [%d] ================", len(result))
 					if result != nil {
-						securityId = result[0].IId.SystemId // 조회 및 삭제를 위해 생성된 ID로 변경
+						securityId = result[0].IId.SystemId // Change to the created ID for retrieval and deletion
 					}
 				}
-
-				cblogger.Info("\nListSecurity Test Finished")
+				cblogger.Info("\nListSecurity() Test Finished")
 
 			case 3:
-				cblogger.Infof("[%s] Security 조회 테스트", securityId)
+				cblogger.Infof("[%s] SecurityGroup information retrieval test", securityId)
 				result, err := handler.GetSecurity(irs.IID{SystemId: securityId})
 				if err != nil {
-					cblogger.Infof(securityId, " Security 조회 실패 : ", err)
+					cblogger.Infof("Failed to retrieve SecurityGroup [%s]: %v", securityId, err)
 				} else {
-					cblogger.Infof("[%s] Security 조회 결과 : [%v]", securityId, result)
+					cblogger.Infof("[%s] SecurityGroup retrieval result: [%v]", securityId, result)
 					spew.Dump(result)
 				}
+				cblogger.Info("\nGetSecurity() Test Finished")
 
-				cblogger.Info("\nGetSecurity Test Finished")
+			case 4:
+				cblogger.Infof("[%s] SecurityGroup deletion test", securityId)
+				result, err := handler.DeleteSecurity(irs.IID{SystemId: securityId})
+				if err != nil {
+					cblogger.Infof("Failed to delete SecurityGroup [%s]: %v", securityId, err)
+				} else {
+					cblogger.Infof("[%s] SecurityGroup deletion result: [%s]", securityId, result)
+				}
+				cblogger.Info("\nDeleteSecurity() Test Finished")
 
-				// case 3:
-				// 	cblogger.Infof("[%s] Security 생성 테스트", securityName)
-
-				// 	securityReqInfo := irs.SecurityReqInfo{
-				// 		IId:    irs.IID{NameId: securityName},
-				// 		VpcIID: irs.IID{SystemId: vpcId},
-				// 		SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
-				// 			{
-				// 				FromPort:   "20",
-				// 				ToPort:     "22",
-				// 				IPProtocol: "tcp",
-				// 				Direction:  "inbound",
-				// 			},
-
-				// 			{
-				// 				FromPort:   "80",
-				// 				ToPort:     "80",
-				// 				IPProtocol: "tcp",
-				// 				Direction:  "inbound",
-				// 			},
-				// 			{
-				// 				FromPort:   "8080",
-				// 				ToPort:     "8080",
-				// 				IPProtocol: "tcp",
-				// 				Direction:  "inbound",
-				// 			},
-				// 			{
-				// 				FromPort:   "-1",
-				// 				ToPort:     "-1",
-				// 				IPProtocol: "icmp",
-				// 				Direction:  "inbound",
-				// 			},
-				// 			{
-				// 				FromPort:   "443",
-				// 				ToPort:     "443",
-				// 				IPProtocol: "tcp",
-				// 				Direction:  "outbound",
-				// 			},
-				// 			{
-				// 				FromPort:   "8443",
-				// 				ToPort:     "9999",
-				// 				IPProtocol: "tcp",
-				// 				Direction:  "outbound",
-				// 			},
-				// 			/*
-				// 				{
-				// 					//FromPort:   "8443",
-				// 					//ToPort:     "9999",
-				// 					IPProtocol: "-1", // 모두 허용 (포트 정보 없음)
-				// 					Direction:  "inbound",
-				// 				},
-				// 			*/
-				// 		},
-				// 	}
-
-				// 	result, err := handler.CreateSecurity(securityReqInfo)
-				// 	if err != nil {
-				// 		cblogger.Infof(securityName, " Security 생성 실패 : ", err)
-				// 	} else {
-				// 		cblogger.Infof("[%s] Security 생성 결과 : [%v]", securityName, result)
-				// 		spew.Dump(result)
-				// 	}
-
-				case 4:
-					cblogger.Infof("[%s] Security 삭제 테스트", securityId)
-					result, err := handler.DeleteSecurity(irs.IID{SystemId: securityId})
-					if err != nil {
-						cblogger.Infof(securityId, " Security 삭제 실패 : ", err)
-					} else {
-						cblogger.Infof("[%s] Security 삭제 결과 : [%s]", securityId, result)
-					}
+			case 5:
+				cblogger.Info("Start ListIID() ...")
+				result, err := handler.ListIID()
+				if err != nil {
+					cblogger.Error("Failed to retrieve S/G IID list: ", err)
+				} else {
+					cblogger.Info("Successfully retrieved S/G IID list!!")
+					spew.Dump(result)
+					cblogger.Debug(result)
+					cblogger.Infof("Total number of IID list: [%d]", len(result))
+				}
+				cblogger.Info("\nListIID() Test Finished")		
 			}
 		}
 	}
@@ -204,7 +148,7 @@ func handleSecurity() {
 func testErr() error {
 	//return awserr.Error("")
 	return errors.New("")
-	// return ncloud.New("504", "찾을 수 없음", nil)
+	// return ncloud.New("504", "Not found", nil)
 }
 
 func main() {
@@ -213,7 +157,7 @@ func main() {
 		err := testErr()
 		spew.Dump(err)
 		if err != nil {
-			cblogger.Info("에러 발생")
+			cblogger.Info("Error occurred")
 			awsErr, ok := err.(awserr.Error)
 			spew.Dump(awsErr)
 			spew.Dump(ok)
@@ -221,7 +165,7 @@ func main() {
 				if "404" == awsErr.Code() {
 					cblogger.Info("404!!!")
 				} else {
-					cblogger.Info("404 아님")
+					cblogger.Info("Not 404")
 				}
 			}
 		}
@@ -230,8 +174,8 @@ func main() {
 	handleSecurity()
 }
 
-//handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
-//(예) ImageHandler.go -> "Image"
+// handlerType: The string before "Handler" in the xxxHandler.go file in the resources folder
+// (e.g., ImageHandler.go -> "Image")
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(ncpdrv.NcpDriver)
@@ -283,16 +227,16 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 	return resourceHandler, nil
 }
 
-// Region : 사용할 리전명 (ex) ap-northeast-2
-// ImageID : VM 생성에 사용할 AMI ID (ex) ami-047f7b46bd6dd5d84
-// BaseName : 다중 VM 생성 시 사용할 Prefix이름 ("BaseName" + "_" + "숫자" 형식으로 VM을 생성 함.) (ex) mcloud-barista
-// VmID : 라이프 사이트클을 테스트할 EC2 인스턴스ID
-// InstanceType : VM 생성시 사용할 인스턴스 타입 (ex) t2.micro
-// KeyName : VM 생성시 사용할 키페어 이름 (ex) mcloud-barista-keypair
-// MinCount :
-// MaxCount :
-// SubnetId : VM이 생성될 VPC의 SubnetId (ex) subnet-cf9ccf83
-// SecurityGroupID : 생성할 VM에 적용할 보안그룹 ID (ex) sg-0df1c209ea1915e4b
+// Region: The region to use (e.g., ap-northeast-2)
+// ImageID: The AMI ID to use for VM creation (e.g., ami-047f7b46bd6dd5d84)
+// BaseName: The prefix name to use when creating multiple VMs (VMs will be created in the format "BaseName" + "_" + "number") (e.g., mcloud-barista)
+// VmID: The EC2 instance ID to test the lifecycle
+// InstanceType: The instance type to use when creating a VM (e.g., t2.micro)
+// KeyName: The key pair name to use when creating a VM (e.g., mcloud-barista-keypair)
+// MinCount: The minimum number of instances to create
+// MaxCount: The maximum number of instances to create
+// SubnetId: The SubnetId of the VPC where the VM will be created (e.g., subnet-cf9ccf83)
+// SecurityGroupID: The security group ID to apply to the created VM (e.g., sg-0df1c209ea1915e4b)
 type Config struct {
 	Ncp struct {
 		NcpAccessKeyID string `yaml:"ncp_access_key_id"`

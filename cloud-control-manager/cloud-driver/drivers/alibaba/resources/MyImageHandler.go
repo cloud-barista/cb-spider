@@ -240,16 +240,18 @@ func (myImageHandler AlibabaMyImageHandler) DeleteMyImage(myImageIID irs.IID) (b
 		}
 
 		aliImageState := ""
-		if !reflect.ValueOf(aliImage[0]).IsNil() {
+		//if !reflect.ValueOf(aliImage[0]).IsNil() {
+		v := reflect.ValueOf(aliImage[0])
+		if v.Kind() == reflect.Ptr && !v.IsNil() {
 			aliImageState = aliImage[0].Status
 		}
 
 		curRetryCnt++
-		cblogger.Errorf(" will check the status of MyImage after waiting for 1 second. What is the current status?[%s]", aliImageState)
+		cblogger.Infof(" will check the status of MyImage after waiting for 1 second. What is the current status?[%s]", aliImageState)
 		time.Sleep(time.Second * 1)
 		if curRetryCnt > maxRetryCnt {
-			cblogger.Debugf("I waited for a long time (%d seconds), but the Status value of MyImage still... [%s]으로 변경되지 않아서 강제로 중단합니다.", maxRetryCnt)
-			return false, errors.New("I waited for a long time, but the status of the created MyImage is still...[" + string(aliImageState) + "]으로 바뀌지 않아서 중단 합니다.")
+			cblogger.Debugf("I waited for a long time (%d seconds), but the Status value of MyImage still hasn't changed to [%s], so I'm forcibly stopping.", maxRetryCnt)
+			return false, errors.New("I waited for a long time, but the status of the created MyImage still hasn't changed to [" + string(aliImageState) + "], so I'm stopping forcibly.")
 		}
 	}
 	cblogger.Info("MyImage deleted. requestId =" + response.RequestId)
@@ -411,7 +413,26 @@ func (myImageHandler *AlibabaMyImageHandler) DeleteSnapshotBySnapshotID(snapshot
 	return true, err
 }
 
-func (ImageHandler *AlibabaMyImageHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+func (myImageHandler *AlibabaMyImageHandler) ListIID() ([]*irs.IID, error) {
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   myImageHandler.Region.Zone,
+		ResourceType: call.VM,
+		ResourceName: "ListIID()",
+		CloudOSAPI:   "DescribeImages()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
+	iidList, err := DescribeImagesIdOnly(myImageHandler.Client, myImageHandler.Region, true)
+	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	if err != nil {
+		callogger.Error(call.String(callLogInfo))
+		return iidList, err
+	}
+
+	return iidList, nil
 }

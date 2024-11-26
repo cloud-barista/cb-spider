@@ -12,9 +12,12 @@ package azure
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/monitor/azquery"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
@@ -26,6 +29,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	azcon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure/connect"
+	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure/profile"
 	azrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
@@ -342,10 +346,23 @@ func getVMClient(credential idrv.CredentialInfo) (context.Context, *armcompute.V
 		return nil, nil, err
 	}
 
-	vmClient, err := armcompute.NewVirtualMachinesClient(credential.SubscriptionId, cred, nil)
+	var clientOptions *arm.ClientOptions
+
+	if os.Getenv("CALL_COUNT") != "" {
+		clientOptions = &arm.ClientOptions{
+			ClientOptions: azcore.ClientOptions{
+				PerCallPolicies: []policy.Policy{profile.NewCountingPolicy()},
+			},
+		}
+	} else {
+		clientOptions = &arm.ClientOptions{}
+	}
+
+	vmClient, err := armcompute.NewVirtualMachinesClient(credential.SubscriptionId, cred, clientOptions)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
 	return ctx, vmClient, nil

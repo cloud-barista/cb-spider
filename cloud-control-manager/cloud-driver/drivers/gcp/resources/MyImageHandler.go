@@ -2,7 +2,6 @@ package resources
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"time"
 
@@ -204,6 +203,27 @@ func (MyImageHandler *GCPMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (
 }
 
 func (ImageHandler *GCPMyImageHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	hiscallInfo := GetCallLogScheme(ImageHandler.Region, call.MYIMAGE, string(call.MYIMAGE), "ListIID()")
+	start := call.Start()
+
+	projectID := ImageHandler.Credential.ProjectID
+
+	myImageList, err := ImageHandler.Client.MachineImages.List(projectID).Do()
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return nil, err
+	}
+	calllogger.Info(call.String(hiscallInfo))
+
+	var iidList []*irs.IID
+
+	for _, myImage := range myImageList.Items {
+		iid := irs.IID{NameId: myImage.Name, SystemId: myImage.Name}
+
+		iidList = append(iidList, &iid)
+	}
+
+	return iidList, nil
 }

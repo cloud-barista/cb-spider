@@ -42,7 +42,7 @@ type NcpDiskHandler struct {
 func (diskHandler *NcpDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.DiskInfo, error) {
 	cblogger.Info("NCP Driver: called CreateDisk()")
 	InitLog()
-	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Zone, call.DISK, diskReqInfo.IId.NameId, "CreateDisk()") // HisCall logging
+	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Zone, call.DISK, diskReqInfo.IId.NameId, "CreateDisk()")
 
 	if strings.EqualFold(diskReqInfo.IId.NameId, "") {
 		rtnErr := logAndReturnError(callLogInfo, "Invalid Disk NameId!!", "")
@@ -62,9 +62,9 @@ func (diskHandler *NcpDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 		return irs.DiskInfo{}, rtnErr
 	}
 	var instanceNo string
-	if len(instanceList) < 1 {
-		cblogger.Info("### VM Instance does Not Exist!!")
-		rtnErr := logAndReturnError(callLogInfo, "At least one VM is required to create new disk volume in case of NCP.", "")
+	if len(instanceList) < 1 {		
+		rtnErr := logAndReturnError(callLogInfo, "At least one VM is required on a zone to create new disk volume in case of NCP.", "")
+		cblogger.Error("### There is no VM in the zone.!!")
 		return irs.DiskInfo{}, rtnErr
 	} else {
 		instanceNo = *instanceList[0].ServerInstanceNo // InstanceNo of any VM on the Zone
@@ -154,13 +154,13 @@ func (diskHandler *NcpDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.Dis
 func (diskHandler *NcpDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	cblogger.Info("NCP Driver: called ListDisk()")
 	InitLog()
-	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Zone, call.DISK, "ListDisk()", "ListDisk()") // HisCall logging
+	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Zone, call.DISK, "ListDisk()", "ListDisk()")
 
 	vmHandler := NcpVMHandler{
 		RegionInfo: diskHandler.RegionInfo,
 		VMClient:   diskHandler.VMClient,
 	}
-	zoneNo, err := vmHandler.GetZoneNo(diskHandler.RegionInfo.Region, diskHandler.RegionInfo.Zone) // Region/Zone info of diskHandler
+	zoneNo, err := vmHandler.getZoneNo(diskHandler.RegionInfo.Region, diskHandler.RegionInfo.Zone) // Region/Zone info of diskHandler
 	if err != nil {
 		rtnErr := logAndReturnError(callLogInfo, "Failed to Get NCP Zone No of the Zone Code : ", err)
 		return nil, rtnErr
@@ -197,7 +197,7 @@ func (diskHandler *NcpDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 func (diskHandler *NcpDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, error) {
 	cblogger.Info("NCP Driver: called GetDisk()")
 	InitLog()
-	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, diskIID.SystemId, "GetDisk()") // HisCall logging
+	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, diskIID.SystemId, "GetDisk()")
 
 	if strings.EqualFold(diskIID.SystemId, "") {
 		rtnErr := logAndReturnError(callLogInfo, "Invalid Disk SystemId!!", "")
@@ -221,7 +221,7 @@ func (diskHandler *NcpDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, error
 func (diskHandler *NcpDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) (bool, error) {
 	cblogger.Info("NCP Driver: called ChangeDiskSize()")
 	InitLog()
-	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, diskIID.SystemId, "ChangeDiskSize()") // HisCall logging
+	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, diskIID.SystemId, "ChangeDiskSize()")
 
 	if strings.EqualFold(diskIID.SystemId, "") {
 		rtnErr := logAndReturnError(callLogInfo, "Invalid Disk SystemId!!", "")
@@ -272,7 +272,7 @@ func (diskHandler *NcpDiskHandler) ChangeDiskSize(diskIID irs.IID, size string) 
 func (diskHandler *NcpDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 	cblogger.Info("NCP Driver: called DeleteDisk()")
 	InitLog()
-	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, diskIID.SystemId, "DeleteDisk()") // HisCall logging
+	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, diskIID.SystemId, "DeleteDisk()")
 
 	if strings.EqualFold(diskIID.SystemId, "") {
 		rtnErr := logAndReturnError(callLogInfo, "Invalid Disk SystemId!!", "")
@@ -322,7 +322,7 @@ func (diskHandler *NcpDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 func (diskHandler *NcpDiskHandler) AttachDisk(diskIID irs.IID, vmIID irs.IID) (irs.DiskInfo, error) {
 	cblogger.Info("NCP Driver: called AttachDisk()")
 	InitLog()
-	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, diskIID.SystemId, "AttachDisk()") // HisCall logging
+	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, diskIID.SystemId, "AttachDisk()")
 
 	if strings.EqualFold(diskIID.SystemId, "") {
 		rtnErr := logAndReturnError(callLogInfo, "Invalid Disk SystemId!!", "")
@@ -379,7 +379,7 @@ func (diskHandler *NcpDiskHandler) AttachDisk(diskIID irs.IID, vmIID irs.IID) (i
 func (diskHandler *NcpDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) (bool, error) {
 	cblogger.Info("NCP Driver: called DetachDisk()")
 	InitLog()
-	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, diskIID.SystemId, "DetachDisk()") // HisCall logging
+	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, diskIID.SystemId, "DetachDisk()")
 
 	if strings.EqualFold(diskIID.SystemId, "") {
 		rtnErr := logAndReturnError(callLogInfo, "Invalid Disk SystemId!!", "")
@@ -454,7 +454,7 @@ func (diskHandler *NcpDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) 
 func (diskHandler *NcpDiskHandler) GetNcpDiskInfo(diskIID irs.IID) (*server.BlockStorageInstance, error) {
 	cblogger.Info("NCP Cloud Driver: called GetNCPDiskInfo()")
 	InitLog()
-	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, diskIID.SystemId, "DetachDisk()") // HisCall logging
+	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, diskIID.SystemId, "DetachDisk()")
 
 	if strings.EqualFold(diskIID.SystemId, "") {
 		rtnErr := logAndReturnError(callLogInfo, "Invalid Disk SystemId!!", "")
@@ -465,7 +465,7 @@ func (diskHandler *NcpDiskHandler) GetNcpDiskInfo(diskIID irs.IID) (*server.Bloc
 		RegionInfo: diskHandler.RegionInfo,
 		VMClient:   diskHandler.VMClient,
 	}
-	zoneNo, err := vmHandler.GetZoneNo(diskHandler.RegionInfo.Region, diskHandler.RegionInfo.Zone) // Region/Zone info of diskHandler
+	zoneNo, err := vmHandler.getZoneNo(diskHandler.RegionInfo.Region, diskHandler.RegionInfo.Zone) // Region/Zone info of diskHandler
 	if err != nil {
 		rtnErr := logAndReturnError(callLogInfo, "Failed to Get NCP Zone No of the Zone Code : ", err)
 		return nil, rtnErr
@@ -650,7 +650,7 @@ func (diskHandler *NcpDiskHandler) MappingDiskInfo(storage server.BlockStorageIn
 			RegionInfo: diskHandler.RegionInfo,
 			VMClient:   diskHandler.VMClient,
 		}
-		subnetZone, err := vmHandler.getVMSubnetZone(ncloud.StringValue(storage.ServerInstanceNo))
+		subnetZone, err := vmHandler.getVMSubnetZone(storage.ServerInstanceNo)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get the Subnet Zone info of the VM!! : [%v]", err)
 			cblogger.Debug(newErr.Error())
@@ -660,14 +660,14 @@ func (diskHandler *NcpDiskHandler) MappingDiskInfo(storage server.BlockStorageIn
 		var ncpVMInfo *server.ServerInstance
 		vmErr := errors.New("")	
 		if strings.EqualFold(vmHandler.RegionInfo.Zone, subnetZone){ // Not diskHandler.RegionInfo.Zone
-			ncpVMInfo, vmErr = vmHandler.GetNcpVMInfo(ncloud.StringValue(storage.ServerInstanceNo))
+			ncpVMInfo, vmErr = vmHandler.getNcpVMInfo(ncloud.StringValue(storage.ServerInstanceNo))
 			if vmErr != nil {
 				newErr := fmt.Errorf("Failed to Get the VM Info of the Zone : [%s], [%v]", subnetZone, vmErr)
 				cblogger.Error(newErr.Error())
 				return irs.DiskInfo{}, newErr
 			}
 		} else {
-			ncpVMInfo, vmErr = vmHandler.GetNcpTargetZoneVMInfo(ncloud.StringValue(storage.ServerInstanceNo))
+			ncpVMInfo, vmErr = vmHandler.getNcpTargetZoneVMInfo(storage.ServerInstanceNo)
 			if vmErr != nil {
 				newErr := fmt.Errorf("Failed to Get the VM Info of the Zone : [%s], [%v]", subnetZone, vmErr)
 				cblogger.Error(newErr.Error())
@@ -726,12 +726,12 @@ func (diskHandler *NcpDiskHandler) GetNcpVMList() ([]*server.ServerInstance, err
 		RegionInfo: diskHandler.RegionInfo,
 		VMClient:   diskHandler.VMClient,
 	}
-	regionNo, err := vmHandler.GetRegionNo(diskHandler.RegionInfo.Region)
+	regionNo, err := vmHandler.getRegionNo(diskHandler.RegionInfo.Region)
 	if err != nil {
 		rtnErr := logAndReturnError(callLogInfo, "Failed to Get NCP Region No of the Region Code : ", err)
 		return nil, rtnErr
 	}
-	zoneNo, err := vmHandler.GetZoneNo(diskHandler.RegionInfo.Region, diskHandler.RegionInfo.Zone) // Region/Zone info of diskHandler
+	zoneNo, err := vmHandler.getZoneNo(diskHandler.RegionInfo.Region, diskHandler.RegionInfo.Zone) // Region/Zone info of diskHandler
 	if err != nil {
 		rtnErr := logAndReturnError(callLogInfo, "Failed to Get NCP Zone No of the Zone Code : ", err)
 		return nil, rtnErr
@@ -765,12 +765,12 @@ func (diskHandler *NcpDiskHandler) GetNcpVMListWithZone(reqZoneId string) ([]*se
 		RegionInfo: diskHandler.RegionInfo,
 		VMClient:   diskHandler.VMClient,
 	}
-	regionNo, err := vmHandler.GetRegionNo(diskHandler.RegionInfo.Region)
+	regionNo, err := vmHandler.getRegionNo(diskHandler.RegionInfo.Region)
 	if err != nil {
 		rtnErr := logAndReturnError(callLogInfo, "Failed to Get NCP Region No of the Region Code : ", err)
 		return nil, rtnErr
 	}
-	reqZoneNo, err := vmHandler.GetZoneNo(diskHandler.RegionInfo.Region, reqZoneId) // Not diskHandler.RegionInfo.Zone
+	reqZoneNo, err := vmHandler.getZoneNo(diskHandler.RegionInfo.Region, reqZoneId) // Not diskHandler.RegionInfo.Zone
 	if err != nil {
 		rtnErr := logAndReturnError(callLogInfo, "Failed to Get NCP Zone No of the Zone Code : ", err)
 		return nil, rtnErr
@@ -819,7 +819,44 @@ func (diskHandler *NcpDiskHandler) IsBasicBlockStorage(diskIID irs.IID) (bool, e
 	}
 }
 
-func (DiskHandler *NcpDiskHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+func (diskHandler *NcpDiskHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("NCP Driver: called ListIID()")
+	InitLog()
+	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Zone, call.DISK, "ListIID()", "ListIID()")
+
+	vmHandler := NcpVMHandler{
+		RegionInfo: diskHandler.RegionInfo,
+		VMClient:   diskHandler.VMClient,
+	}
+	zoneNo, err := vmHandler.getZoneNo(diskHandler.RegionInfo.Region, diskHandler.RegionInfo.Zone) // Region/Zone info of diskHandler
+	if err != nil {
+		rtnErr := logAndReturnError(callLogInfo, "Failed to Get NCP Zone No of the Zone Code : ", err)
+		return nil, rtnErr
+	}
+	storageReq := server.GetBlockStorageInstanceListRequest{
+		ZoneNo: zoneNo, // $$$ Caution!! : Not ZoneCode
+	}
+	callLogStart := call.Start()
+	result, err := diskHandler.VMClient.V2Api.GetBlockStorageInstanceList(&storageReq)
+	if err != nil {
+		rtnErr := logAndReturnError(callLogInfo, "Failed to Get Block Storage List from NCP : ", err)
+		return nil, rtnErr
+	}
+	LoggingInfo(callLogInfo, callLogStart)
+
+	var iidList []*irs.IID
+	if len(result.BlockStorageInstanceList) < 1 {
+		cblogger.Info("### Block Storage does Not Exist!!")
+		return nil, nil
+	} else {
+		cblogger.Info("Succeeded in Getting Block Storage list from NCP.")
+		for _, storage := range result.BlockStorageInstanceList {
+			iid := &irs.IID{
+				NameId:   ncloud.StringValue(storage.BlockStorageName),
+				SystemId: ncloud.StringValue(storage.BlockStorageInstanceNo),
+			}
+			iidList = append(iidList, iid)
+		}
+	}
+	return iidList, nil
 }

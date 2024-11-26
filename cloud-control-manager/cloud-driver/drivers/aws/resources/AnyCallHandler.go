@@ -514,7 +514,7 @@ func fetchMonitoringData(anyCallHandler *AwsAnyCallHandler, callInfo irs.AnyCall
 
 func getEC2Metric(cwClient *cloudwatch.CloudWatch, instanceID string, metricName string) ([]*cloudwatch.Datapoint, error) {
 	endTime := time.Now()
-	startTime := endTime.Add(-4 * time.Hour) // 6 hour ago
+	startTime := endTime.Add(-4 * time.Hour) // 4 hour ago
 
 	input := &cloudwatch.GetMetricStatisticsInput{
 		Namespace:  aws.String("AWS/EC2"),

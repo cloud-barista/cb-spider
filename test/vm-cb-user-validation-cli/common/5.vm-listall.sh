@@ -13,7 +13,7 @@ SETUP_PATH=$CBSPIDER_ROOT/test/vm-cb-user-validation-cli/common
 source $SETUP_PATH/setup.env $1
 
 echo "============== before vm listall"
-$CLIPATH/spctl --config $CLIPATH/spctl.conf --cname "${CONN_CONFIG}" vm listall 2> /dev/null
+$CLIPATH/spctl  --cname "${CONN_CONFIG}" vm listall 2> /dev/null
 echo "============== after vm listall"
 
 echo -e "\n\n"

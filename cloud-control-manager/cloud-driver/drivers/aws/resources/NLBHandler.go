@@ -1773,8 +1773,32 @@ func (NLBHandler *AwsNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, healthC
 	return retTargetGroupInfo.HealthChecker, nil
 }
 
-
 func (NLBHandler *AwsNLBHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	var iidList []*irs.IID
+	input := &elbv2.DescribeLoadBalancersInput{}
+
+	callLogInfo := GetCallLogScheme(NLBHandler.Region, call.NLB, "ListIID", "DescribeLoadBalancers()")
+	start := call.Start()
+
+	result, err := NLBHandler.Client.DescribeLoadBalancers(input)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		calllogger.Error(call.String(callLogInfo))
+		cblogger.Error(err)
+		return nil, err
+	}
+	calllogger.Info(call.String(callLogInfo))
+
+	for _, curNLB := range result.LoadBalancers {
+		// if !strings.EqualFold(*curNLB.Type, "network") {
+		// 	cblogger.Infof("%s Load balancer is not under management, so it is skipped - [%s]", *curNLB.Type, *curNLB.LoadBalancerName)
+		// 	continue
+		// }
+
+		iid := irs.IID{SystemId: *curNLB.LoadBalancerArn}
+		iidList = append(iidList, &iid)
+	}
+
+	return iidList, nil
 }

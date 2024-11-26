@@ -113,7 +113,7 @@ type MyImageSnapshotRequest struct {
 }
 
 // snapshotVM godoc
-// @ID snapshot-vm
+// @ID create-myimage
 // @Summary Snapshot VM
 // @Description Create a new MyImage snapshot from a specified VM. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/MyImage-and-Driver-API)], [[Snapshot-MyImage,Disk Guide](https://github.com/cloud-barista/cb-spider/wiki/VM-Snapshot,-MyImage-and-Disk-Overview)]
 // @Tags [MyImage Management]

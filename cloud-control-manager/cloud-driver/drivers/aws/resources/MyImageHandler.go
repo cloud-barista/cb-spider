@@ -623,6 +623,28 @@ func (ImageHandler *AwsMyImageHandler) CheckWindowsImage(myImageIID irs.IID) (bo
 }
 
 func (ImageHandler *AwsMyImageHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	var iidList []*irs.IID
+
+	input := &ec2.DescribeImagesInput{}
+	input.Owners = []*string{aws.String("self")}
+
+	callLogInfo := GetCallLogScheme(ImageHandler.Region, call.MYIMAGE, "ListIID", "ListMyImage()")
+	start := call.Start()
+
+	result, err := ImageHandler.Client.DescribeImages(input)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		calllogger.Error(call.String(callLogInfo))
+		cblogger.Error(err)
+		return nil, err
+	}
+	calllogger.Info(call.String(callLogInfo))
+
+	for _, awsImage := range result.Images {
+		iid := irs.IID{SystemId: *awsImage.ImageId}
+		iidList = append(iidList, &iid)
+	}
+
+	return iidList, nil
 }

@@ -25,6 +25,9 @@ import (
 	infostore "github.com/cloud-barista/cb-spider/info-store"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	awsprofile "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/profile"
+	azureprofile "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure/profile"
+	gcpprofile "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp/profile"
 )
 
 // ====================================================================
@@ -355,6 +358,12 @@ func RegisterVM(connectionName string, userIID cres.IID) (*cres.VMInfo, error) {
 func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTransformMode string) (*cres.VMInfo, error) {
 	cblog.Info("call StartVM()")
 
+	if os.Getenv("CALL_COUNT") != "" {
+		awsprofile.ResetCallCount()
+		azureprofile.ResetCallCount()
+		gcpprofile.ResetCallCount()
+	}
+
 	// check empty and trim user inputs
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
 	if err != nil {
@@ -537,7 +546,7 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTra
 		MSG  string
 	}
 
-	waiter := NewWaiter(5, 240) // (sleep, timeout)
+	waiter := NewWaiter(15, 600) // (sleep, timeout)
 	var publicIP string
 	for {
 		vmInfo, err := handler.GetVM(info.IId)
@@ -635,6 +644,17 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTra
 		if info.SSHAccessPoint == "" {
 			info.SSHAccessPoint = info.PublicIP + ":22"
 		}
+	}
+
+	if os.Getenv("CALL_COUNT") != "" {
+		totalCalls := awsprofile.GetCallCount()
+		fmt.Printf("\nTotal AWS API calls during StartVM(): %d\n", totalCalls)
+
+		totalCalls = azureprofile.GetCallCount()
+		fmt.Printf("Total Azure API calls during StartVM(): %d\n", totalCalls)
+
+		totalCalls = gcpprofile.GetCallCount()
+		fmt.Printf("Total GCP API calls during StartVM(): %d\n", totalCalls)
 	}
 
 	//if checkError.Flag {
@@ -1012,10 +1032,24 @@ func ListVM(connectionName string, rsType string) ([]*cres.VMInfo, error) {
 
 	// (1) get IID:list
 	var iidInfoList []*VMIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		// fetch granted idlist from CSP
+		iidList, err := handler.ListIID()
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		err2 := getAuthorizedIIdInfoList(iidList, connectionName, &iidInfoList)
+		if err2 != nil {
+			cblog.Error(err2)
+			return nil, err2
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	var infoList []*cres.VMInfo
@@ -1036,7 +1070,7 @@ func ListVM(connectionName string, rsType string) ([]*cres.VMInfo, error) {
 
 		wg.Add(1)
 
-		go getVMInfo(connectionName, handler, cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}, retChanInfos[idx])
+		go getVMInfo(iidInfo.ConnectionName, handler, cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}, retChanInfos[idx])
 
 		wg.Done()
 
@@ -1239,10 +1273,18 @@ func GetVM(connectionName string, rsType string, nameID string) (*cres.VMInfo, e
 
 	// (1) get IID(NameId)
 	var iidInfo VMIIDInfo
-	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthorizedIIdInfo(connectionName, nameID, &iidInfo)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, iidInfo.ZoneId)
@@ -1268,7 +1310,7 @@ func GetVM(connectionName string, rsType string, nameID string) (*cres.VMInfo, e
 	// set ResourceInfo
 	info.IId = getUserIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
 
-	err = getSetNameId(connectionName, &info)
+	err = getSetNameId(iidInfo.ConnectionName, &info)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
@@ -1372,10 +1414,24 @@ func ListVMStatus(connectionName string, rsType string) ([]*cres.VMStatusInfo, e
 
 	// (1) get IID:list
 	var iidInfoList []*VMIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		// fetch granted idlist from CSP
+		iidList, err := handler.ListIID()
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		err2 := getAuthorizedIIdInfoList(iidList, connectionName, &iidInfoList)
+		if err2 != nil {
+			cblog.Error(err2)
+			return nil, err2
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	var infoList []*cres.VMStatusInfo
@@ -1455,10 +1511,18 @@ func GetVMStatus(connectionName string, rsType string, nameID string) (cres.VMSt
 
 	// (1) get IID(NameId)
 	var iidInfo VMIIDInfo
-	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
-	if err != nil {
-		cblog.Error(err)
-		return "", err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthorizedIIdInfo(connectionName, nameID, &iidInfo)
+		if err != nil {
+			cblog.Error(err)
+			return "", err
+		}
+	} else {
+		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return "", err
+		}
 	}
 
 	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, iidInfo.ZoneId)
@@ -1558,6 +1622,12 @@ func ControlVM(connectionName string, rsType string, nameID string, action strin
 func DeleteVM(connectionName string, rsType string, nameID string, force string) (bool, cres.VMStatus, error) {
 	cblog.Info("call DeleteVM()")
 
+	if os.Getenv("CALL_COUNT") != "" {
+		awsprofile.ResetCallCount()
+		azureprofile.ResetCallCount()
+		gcpprofile.ResetCallCount()
+	}
+
 	// check empty and trim user inputs
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
 	if err != nil {
@@ -1576,10 +1646,18 @@ func DeleteVM(connectionName string, rsType string, nameID string, force string)
 
 	// (1) get spiderIID for creating driverIID
 	var iidInfo VMIIDInfo
-	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
-	if err != nil {
-		cblog.Error(err)
-		return false, "", err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthorizedIIdInfo(connectionName, nameID, &iidInfo)
+		if err != nil {
+			cblog.Error(err)
+			return false, "", err
+		}
+	} else {
+		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return false, "", err
+		}
 	}
 
 	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, iidInfo.ZoneId)
@@ -1631,7 +1709,7 @@ func DeleteVM(connectionName string, rsType string, nameID string, force string)
 	}
 
 	// Check Sync Called
-	waiter := NewWaiter(5, 600) // (sleep, timeout)
+	waiter := NewWaiter(15, 600) // (sleep, timeout)
 
 	for {
 		status, err := handler.(cres.VMHandler).GetVMStatus(driverIId)
@@ -1673,12 +1751,23 @@ func DeleteVM(connectionName string, rsType string, nameID string, force string)
 	callogger.Info(call.String(callInfo))
 
 	// (3) delete IID
-	_, err = infostore.DeleteByConditions(&VMIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.NameId)
+	_, err = infostore.DeleteByConditions(&VMIIDInfo{}, CONNECTION_NAME_COLUMN, iidInfo.ConnectionName, NAME_ID_COLUMN, iidInfo.NameId)
 	if err != nil {
 		cblog.Error(err)
 		if force != "true" {
 			return false, "", err
 		}
+	}
+
+	if os.Getenv("CALL_COUNT") != "" {
+		totalCalls := awsprofile.GetCallCount()
+		fmt.Printf("\nTotal AWS API calls during TerminateVM(): %d\n", totalCalls)
+
+		totalCalls = azureprofile.GetCallCount()
+		fmt.Printf("Total Azure API calls during TerminateVM(): %d\n", totalCalls)
+
+		totalCalls = gcpprofile.GetCallCount()
+		fmt.Printf("Total GCP API calls during TerminateVM(): %d\n", totalCalls)
 	}
 
 	return true, vmStatus, nil

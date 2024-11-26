@@ -3169,6 +3169,33 @@ func (nlbHandler *GCPNLBHandler) rollbackCreatedNlbResources(regionID string, re
 }
 
 func (NLBHandler *GCPNLBHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	hiscallInfo := GetCallLogScheme(NLBHandler.Region, call.NLB, string(call.NLB), "ListIID()")
+	start := call.Start()
+
+	regionID := NLBHandler.Region.Region
+
+	regionForwardingRuleList, err := NLBHandler.listRegionForwardingRules(regionID, String_Empty, String_Empty)
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
+	if err != nil {
+		LoggingError(hiscallInfo, err)
+		cblogger.Error(err)
+		return nil, err
+	}
+
+	calllogger.Info(call.String(hiscallInfo))
+
+	var iidList []*irs.IID
+
+	if regionForwardingRuleList != nil {
+		for _, forwardingRule := range regionForwardingRuleList.Items {
+			targetPoolUrl := forwardingRule.Target
+			targetLbIndex := strings.LastIndex(targetPoolUrl, StringSeperator_Slash)
+			targetLbValue := forwardingRule.Target[(targetLbIndex + 1):]
+			iid := irs.IID{NameId: "", SystemId: targetLbValue}
+
+			iidList = append(iidList, &iid)
+		}
+	}
+
+	return iidList, nil
 }

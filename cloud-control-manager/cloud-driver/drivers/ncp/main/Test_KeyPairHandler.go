@@ -37,7 +37,7 @@ func init() {
 func testErr() error {
 	//return awserr.Error("")
 	return errors.New("")
-	// return ncloud.New("504", "찾을 수 없음", nil)
+	// return ncloud.New("504", "Not found", nil)
 }
 
 // Test KeyPair
@@ -54,15 +54,16 @@ func handleKeyPair() {
 	keyPairHandler := ResourceHandler.(irs.KeyPairHandler)
 
 	for {
-		fmt.Println("\n============================================================================================")
-		fmt.Println("[ KeyPair Management Test ]")
-		fmt.Println("1. List KeyPair")
-		fmt.Println("2. Create KeyPair")
-		fmt.Println("3. Get KeyPair")
-		fmt.Println("4. Delete KeyPair")
-		fmt.Println("0. Quit")
-		fmt.Println("\n   Select a number above!! : ")
-		fmt.Println("============================================================================================")
+		cblogger.Info("\n============================================================================================")
+		cblogger.Info("[ KeyPair Management Test ]")
+		cblogger.Info("1. List KeyPair")
+		cblogger.Info("2. Create KeyPair")
+		cblogger.Info("3. Get KeyPair")
+		cblogger.Info("4. Delete KeyPair")
+		cblogger.Info("5. List IID")
+		cblogger.Info("0. Quit")
+		cblogger.Info("\n   Select a number above!! : ")
+		cblogger.Info("============================================================================================")
 
 		//keyPairName := config.Ncp.KeyName
 		keyPairName := "NCP-keypair-06"
@@ -76,61 +77,69 @@ func handleKeyPair() {
 		if inputCnt == 1 {
 			switch commandNum {
 			case 0:
+				cblogger.Infof("Exit")
 				return
 
 			case 1:
 				result, err := keyPairHandler.ListKey()
 				if err != nil {
-					cblogger.Infof("KeyPair list 조회 실패 : ", err)
+					cblogger.Infof("Failed to retrieve KeyPair list: ", err)
 				} else {
-					cblogger.Info("KeyPair list 조회 결과")
-					//cblogger.Info(result)
+					cblogger.Info("KeyPair list retrieval result: ")
 					spew.Dump(result)
 
-					cblogger.Infof("=========== KeyPair list 수 : [%d] ================", len(result))
+					cblogger.Infof("=========== KeyPair list count : [%d] ================", len(result))
 				}
-
 				cblogger.Info("\nListKey Test Finished")
 
 			case 2:
-				cblogger.Infof("[%s] KeyPair 생성 테스트", keyPairName)
+				cblogger.Infof("[%s] KeyPair Creation Test", keyPairName)
 				keyPairReqInfo := irs.KeyPairReqInfo{
 					IId: irs.IID{NameId: keyPairName},
-					//Name: keyPairName,
 				}
 				result, err := keyPairHandler.CreateKey(keyPairReqInfo)
 				if err != nil {
-					cblogger.Infof(keyPairName, " KeyPair 생성 실패 : ", err)
+					cblogger.Infof(keyPairName, "Failed to Create KeyPair : ", err)
 				} else {
-					cblogger.Infof("[%s] KeyPair 생성 결과 : \n[%s]", keyPairName, result)
-					//spew.Dump(result)
+					cblogger.Infof("[%s] KeyPair creation result : \n", keyPairName)
+					spew.Dump(result)
 				}
-
 				cblogger.Info("\nCreateKey Test Finished")
 
 			case 3:
-				cblogger.Infof("[%s] KeyPair 조회 테스트", keyPairName)
+				cblogger.Infof("[%s] KeyPair retrieval test", keyPairName)
 				result, err := keyPairHandler.GetKey(irs.IID{NameId: keyPairName})
 				if err != nil {
-					cblogger.Infof(keyPairName, " KeyPair 조회 실패 : ", err)
+					cblogger.Infof("Failed to retrieve KeyPair [%s]: %v", keyPairName, err)
 				} else {
-					cblogger.Infof("[%s] KeyPair 조회 결과 : \n[%s]", keyPairName, result)
-					//spew.Dump(result)
+					cblogger.Infof("[%s] KeyPair retrieval result : \n", keyPairName)
+					spew.Dump(result)
 				}
-
 				cblogger.Info("\nGetKey Test Finished")
 
 			case 4:
-				cblogger.Infof("[%s] KeyPair 삭제 테스트", keyPairName)
+				cblogger.Infof("[%s] KeyPair deletion test", keyPairName)
 				result, err := keyPairHandler.DeleteKey(irs.IID{NameId: keyPairName})
 				if err != nil {
-					cblogger.Infof(keyPairName, " KeyPair 삭제 실패 : ", err)
+					cblogger.Infof(keyPairName, "Failed to Delete the KeyPair : ", err)
 				} else {
-					cblogger.Infof("[%s] KeyPair 삭제 결과 : [%s]", keyPairName, result)
+					cblogger.Infof("[%s] KeyPair deletion result : ", keyPairName)
 					spew.Dump(result)
 				}
-
 				cblogger.Info("\nDeleteKey Test Finished")
+
+			case 5:
+				cblogger.Info("Start ListIID() ...")
+				result, err := keyPairHandler.ListIID()
+				if err != nil {
+					cblogger.Error("Failed to Get KeyPair IID list : ", err)
+				} else {
+					cblogger.Info("Succeeded in Getting KeyPair IID list!!")
+					spew.Dump(result)
+					cblogger.Debug(result)
+					cblogger.Infof("Total IID list count : [%d]", len(result))
+				}
+				cblogger.Info("\nListIID() Test Finished")
 			}
 		}
 	}
@@ -142,8 +151,8 @@ func main() {
 	handleKeyPair()
 }
 
-//handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
-//(예) ImageHandler.go -> "Image"
+// handlerType: The string before "Handler" in the xxxHandler.go file in the resources folder
+// (e.g.) ImageHandler.go -> "Image"
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(ncpdrv.NcpDriver)
@@ -193,16 +202,16 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 	return resourceHandler, nil
 }
 
-// Region : 사용할 리전명 (ex) ap-northeast-2
-// ImageID : VM 생성에 사용할 AMI ID (ex) ami-047f7b46bd6dd5d84
-// BaseName : 다중 VM 생성 시 사용할 Prefix이름 ("BaseName" + "_" + "숫자" 형식으로 VM을 생성 함.) (ex) mcloud-barista
-// VmID : 라이프 사이트클을 테스트할 EC2 인스턴스ID
-// InstanceType : VM 생성시 사용할 인스턴스 타입 (ex) t2.micro
-// KeyName : VM 생성시 사용할 키페어 이름 (ex) mcloud-barista-keypair
-// MinCount :
-// MaxCount :
-// SubnetId : VM이 생성될 VPC의 SubnetId (ex) subnet-cf9ccf83
-// SecurityGroupID : 생성할 VM에 적용할 보안그룹 ID (ex) sg-0df1c209ea1915e4b
+// Region: The name of the region to use (e.g., ap-northeast-2)
+// ImageID: The AMI ID to use for creating the VM (e.g., ami-047f7b46bd6dd5d84)
+// BaseName: The prefix name to use when creating multiple VMs (VMs will be created in the format "BaseName" + "_" + "number") (e.g., mcloud-barista)
+// VmID: The EC2 instance ID to test the lifecycle
+// InstanceType: The instance type to use when creating the VM (e.g., t2.micro)
+// KeyName: The key pair name to use when creating the VM (e.g., mcloud-barista-keypair)
+// MinCount: The minimum number of instances to create
+// MaxCount: The maximum number of instances to create
+// SubnetId: The SubnetId of the VPC where the VM will be created (e.g., subnet-cf9ccf83)
+// SecurityGroupID: The security group ID to apply to the created VM (e.g., sg-0df1c209ea1915e4b)
 type Config struct {
 	Ncp struct {
 		NcpAccessKeyID string `yaml:"ncp_access_key_id"`

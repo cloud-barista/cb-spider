@@ -382,6 +382,28 @@ func GetCloudConnectionByDriverNameAndCredentialName(driverName string, credenti
 	return cldConnection, nil
 }
 
+func ListConnectionNameByProviderAndRegion(provider string, region string) ([]string, error) {
+	connectionConfigInfoList, err := ccim.ListConnectionConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	connectionNameList := []string{}
+	for _, connectionConfigInfo := range connectionConfigInfoList {
+		if connectionConfigInfo.ProviderName == provider {
+			targetRegion, _, err := GetRegionNameByConnectionName(connectionConfigInfo.ConfigName)
+			if err != nil {
+				return nil, err
+			}
+			if targetRegion == region {
+				connectionNameList = append(connectionNameList, connectionConfigInfo.ConfigName)
+			}
+		}
+	}
+
+	return connectionNameList, nil
+}
+
 func GetProviderNameByConnectionName(cloudConnectName string) (string, error) {
 	cccInfo, err := ccim.GetConnectionConfig(cloudConnectName)
 	if err != nil {

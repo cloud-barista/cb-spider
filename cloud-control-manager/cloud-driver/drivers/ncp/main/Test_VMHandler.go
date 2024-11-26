@@ -6,7 +6,7 @@
 //
 // This is a Cloud Driver Tester Example.
 //
-// by ETRI, 2020.09.
+// Updated by ETRI, 2024.11.
 
 package main
 
@@ -36,12 +36,14 @@ func init() {
 
 func testErr() error {
 	return errors.New("")
-	// return ncloud.New("504", "찾을 수 없음", nil)
+	// return ncloud.New("504", "Not found", nil)
 }
 
 // Test VM Lifecycle Management (Create/Suspend/Resume/Reboot/Terminate)
 func handleVM() {
 	cblogger.Debug("Start VMHandler Resource Test")
+
+	config := readConfigFile()
 
 	ResourceHandler, err := getResourceHandler("VM")
 	if err != nil {
@@ -51,24 +53,24 @@ func handleVM() {
 	vmHandler := ResourceHandler.(irs.VMHandler)
 
 	for {
-		fmt.Println("\n============================================================================================")
-		fmt.Println("[ VM Management Test ]")
-		fmt.Println("1. Start(Create) VM")
-		fmt.Println("2. Get VM Info")
-		fmt.Println("3. Suspend VM")
-		fmt.Println("4. Resume VM")
-		fmt.Println("5. Reboot VM")
-
-		fmt.Println("6. Terminate VM")
-		fmt.Println("7. Get VMStatus")
-		fmt.Println("8. List VMStatus")
-		fmt.Println("9. List VM")
-		fmt.Println("0. Exit")
-		fmt.Println("\n   Select a number above!! : ")
-		fmt.Println("============================================================================================")
+		cblogger.Info("\n============================================================================================")
+		cblogger.Info("[ VM Management Test ]")
+		cblogger.Info("1. Start(Create) VM")
+		cblogger.Info("2. Get VM Info")
+		cblogger.Info("3. Suspend VM")
+		cblogger.Info("4. Resume VM")
+		cblogger.Info("5. Reboot VM")
+		cblogger.Info("6. Terminate VM")
+		cblogger.Info("7. Get VMStatus")
+		cblogger.Info("8. List VMStatus")
+		cblogger.Info("9. List VM")
+		cblogger.Info("10. List IID")
+		cblogger.Info("0. Exit")
+		cblogger.Info("\n   Select a number above!! : ")
+		cblogger.Info("============================================================================================")
 
 		//config := readConfigFile()
-		VmID := irs.IID{SystemId: "25504672"}
+		VmID := irs.IID{SystemId: config.Ncp.VmID}
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -81,13 +83,13 @@ func handleVM() {
 			// ImageType:	irs.MyImage,
 			ImageType:	irs.PublicImage,
 
-			// # NCP에서는 VM instance 이름에 대문자 허용 안되므로 VMHandler 내부에서 소문자로 변환되어 반영됨.	
-			// Caution!! : Under bar 문자 허용 안됨.
+			// # NCP does not allow uppercase letters in VM instance names, so they are converted to lowercase in the VMHandler.
+			// Caution!! : Underscore characters are not allowed.
 			IId: irs.IID{NameId: "ncp-test-vm-10"},
 
-			// Caution!!) /home/sean/go/src/github.com/cloud-barista/ncp/ncp/main/config/config.yaml 에서 해당 region을 설정해야 그 region에 VM이 생성됨.
+			// Caution!!) You must set the region in /home/sean/go/src/github.com/cloud-barista/ncp/ncp/main/config/config.yaml to create a VM in that region.
 
-			//(참고) When Region is 'DEN'. 
+			//(Reference) When Region is 'DEN'. 
 			//VMSpec := "SPSVRSTAND000063"   vCPU 8EA, Memory 64GB, [SSD]Disk 50GB", 
 			//Image ID : SPSW0LINUX000031
 
@@ -102,7 +104,7 @@ func handleVM() {
 			// KR
 			// ImageIID:   irs.IID{NameId: "Windows Server 2016 (64-bit) English Edition", SystemId: "SPSW0WINNTEN0016A"}, // $$$ PublicImage $$$
 			// SPSW0WINNTEN0016A - 'Windows' Server 2016 (64-bit) English Edition
-			// # VMSpecName: "SPSVRSSD00000005A" // 상기 win server와 호환
+			// # VMSpecName: "SPSVRSSD00000005A" // Compatible with the above win server
 
 			// KR
 			// ImageIID:   irs.IID{NameId: "Windows Server 2012 (64bit) R2 English Edition", SystemId: "SPSW0WINNTEN0015A"},
@@ -143,11 +145,11 @@ func handleVM() {
 			KeyPairIID: irs.IID{SystemId: "oh-keypai-cqccsj4vtts7hk9ghtmg"},
 			// KeyPairIID: irs.IID{SystemId: "ncp-key-0-cjheqe9jcupqtmoaa6bg"},
 
-			// # NCP Classic 2세대 service에서 subnet, VPC 지정은 미지원
+			// # NCP Classic 2nd generation service does not support specifying subnet, VPC
 			VpcIID:    irs.IID{SystemId: "oh-vpc-01-cqab15kvtts35l1k5c6g"},
 			SubnetIID: irs.IID{SystemId: "oh-subnet-cqab15kvtts35l1k5c70"},
 
-			// SecurityGroupIIDs 미지정시, NCP default 값으로서 "ncloud-default-acg"인 "293807이 적용됨.
+			// If SecurityGroupIIDs is not specified, the NCP default value "ncloud-default-acg" with "293807" is applied.
 			// SecurityGroupIIDs: []irs.IID{{SystemId: "293807"},{SystemId: "332703"}},
 			SecurityGroupIIDs: []irs.IID{{SystemId: "1333707"}},
 
@@ -267,9 +269,23 @@ func handleVM() {
 						VmID = vmList[0].IId
 					}
 				}
+				cblogger.Info("\nListVM Test Finished")
+
+			case 10:
+				cblogger.Info("Start ListIID() ...")
+				result, err := vmHandler.ListIID()
+				if err != nil {
+					cblogger.Error("Failed to Get VM IID list : ", err)
+				} else {
+					cblogger.Info("Succeeded in Getting VM IID list!!")
+					spew.Dump(result)
+					cblogger.Debug(result)
+					cblogger.Infof("Total IID list count : [%d]", len(result))
+				}
+				cblogger.Info("\nListIID() Test Finished")
+			}	
 		}
 	}
-}
 }
 
 func main() {
@@ -278,21 +294,25 @@ func main() {
 	handleVM()
 }
 
-//handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
-//(예) ImageHandler.go -> "Image"
+// handlerType: The string before "Handler" in the xxxHandler.go file in the resources folder
+// (e.g., ImageHandler.go -> "Image")
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(ncpdrv.NcpDriver)
 
 	config := readConfigFile()
+	// cblogger.Info("### config :")
+	// spew.Dump(config)
+
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
 			ClientId:     config.Ncp.NcpAccessKeyID,
 			ClientSecret: config.Ncp.NcpSecretKey,
 		},
 		RegionInfo: idrv.RegionInfo{
-			Region: config.Ncp.Region,
-			Zone:   config.Ncp.Zone,
+			Region: 	config.Ncp.Region,
+			Zone:   	config.Ncp.Zone,
+			TargetZone: config.Ncp.TargetZone,
 		},
 	}
 	cloudConnection, errCon := cloudDriver.ConnectCloud(connectionInfo)
@@ -322,22 +342,23 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 	return resourceHandler, nil
 }
 
-// Region : 사용할 리전명 (ex) ap-northeast-2
-// ImageID : VM 생성에 사용할 AMI ID (ex) ami-047f7b46bd6dd5d84
-// BaseName : 다중 VM 생성 시 사용할 Prefix이름 ("BaseName" + "_" + "숫자" 형식으로 VM을 생성 함.) (ex) mcloud-barista
-// VmID : 라이프 사이트클을 테스트할 EC2 인스턴스ID
-// InstanceType : VM 생성시 사용할 인스턴스 타입 (ex) t2.micro
-// KeyName : VM 생성시 사용할 키페어 이름 (ex) mcloud-barista-keypair
-// MinCount :
-// MaxCount :
-// SubnetId : VM이 생성될 VPC의 SubnetId (ex) subnet-cf9ccf83
-// SecurityGroupID : 생성할 VM에 적용할 보안그룹 ID (ex) sg-0df1c209ea1915e4b
+// Region: The region to use (e.g., ap-northeast-2)
+// ImageID: The AMI ID to use for VM creation (e.g., ami-047f7b46bd6dd5d84)
+// BaseName: The prefix name to use when creating multiple VMs (VMs will be created in the format "BaseName" + "_" + "number") (e.g., mcloud-barista)
+// VmID: The EC2 instance ID to test the lifecycle
+// InstanceType: The instance type to use when creating a VM (e.g., t2.micro)
+// KeyName: The key pair name to use when creating a VM (e.g., mcloud-barista-keypair)
+// MinCount: The minimum number of instances to create
+// MaxCount: The maximum number of instances to create
+// SubnetId: The SubnetId of the VPC where the VM will be created (e.g., subnet-cf9ccf83)
+// SecurityGroupID: The security group ID to apply to the created VM (e.g., sg-0df1c209ea1915e4b)
 type Config struct {
 	Ncp struct {
 		NcpAccessKeyID string `yaml:"ncp_access_key_id"`
 		NcpSecretKey   string `yaml:"ncp_secret_key"`
 		Region         string `yaml:"region"`
 		Zone           string `yaml:"zone"`
+		TargetZone     string `yaml:"target_zone"` // For Zone-based control!!
 
 		ImageID string `yaml:"image_id"`
 

@@ -463,6 +463,30 @@ func CreateHashString(credentialInfo idrv.CredentialInfo, Region idrv.RegionInfo
 }
 
 func (keyPairHandler *AwsKeyPairHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	var iidList []*irs.IID
+	input := &ec2.DescribeKeyPairsInput{
+		KeyNames: []*string{
+			nil,
+		},
+	}
+
+	callLogInfo := GetCallLogScheme(keyPairHandler.Region, call.VMKEYPAIR, "ListIID", "DescribeKeyPairs()")
+	start := call.Start()
+
+	result, err := keyPairHandler.Client.DescribeKeyPairs(input)
+	callLogInfo.ElapsedTime = call.Elapsed(start)
+	if err != nil {
+		callLogInfo.ErrorMSG = err.Error()
+		calllogger.Error(call.String(callLogInfo))
+		cblogger.Error(err)
+		return nil, err
+	}
+	calllogger.Info(call.String(callLogInfo))
+
+	for _, keypair := range result.KeyPairs {
+		iid := irs.IID{SystemId: *keypair.KeyName, NameId: *keypair.KeyName}
+		iidList = append(iidList, &iid)
+	}
+
+	return iidList, nil
 }

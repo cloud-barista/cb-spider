@@ -6,7 +6,7 @@
 //
 // This is a Cloud Driver Tester Example.
 //
-// by ETRI, 2020.12.
+// Updated by ETRI, 2024.11.
 
 package main
 
@@ -52,24 +52,25 @@ func handleVM() {
 	vmHandler := ResourceHandler.(irs.VMHandler)
 
 	for {
-		fmt.Println("\n============================================================================================")
-		fmt.Println("[ VM Management Test ]")
-		fmt.Println("1. Start(Create) VM")
-		fmt.Println("2. Get VM Info")
-		fmt.Println("3. Suspend VM")
-		fmt.Println("4. Resume VM")
-		fmt.Println("5. Reboot VM")
+		cblogger.Info("\n============================================================================================")
+		cblogger.Info("[ VM Management Test ]")
+		cblogger.Info("1. Start(Create) VM")
+		cblogger.Info("2. Get VM Info")
+		cblogger.Info("3. Suspend VM")
+		cblogger.Info("4. Resume VM")
+		cblogger.Info("5. Reboot VM")
 
-		fmt.Println("6. Terminate VM")
-		fmt.Println("7. Get VMStatus")
-		fmt.Println("8. List VMStatus")
-		fmt.Println("9. List VM")
-		fmt.Println("0. Exit")
-		fmt.Println("\n   Select a number above!! : ")
-		fmt.Println("============================================================================================")
+		cblogger.Info("6. Terminate VM")
+		cblogger.Info("7. Get VMStatus")
+		cblogger.Info("8. List VMStatus")
+		cblogger.Info("9. List VM")
+		cblogger.Info("10. List IID")
+		cblogger.Info("0. Exit")
+		cblogger.Info("\n   Select a number above!! : ")
+		cblogger.Info("============================================================================================")
 
 		//config := readConfigFile()
-		VmID := irs.IID{SystemId: "22356052"}
+		VmID := irs.IID{SystemId: "25521401"}
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -81,18 +82,20 @@ func handleVM() {
 		if inputCnt == 1 {
 			switch commandNum {
 			case 0:
+				cblogger.Infof("Exit")
 				return
 
 			case 1:
 				vmReqInfo := irs.VMReqInfo{
 					// # NCP에서는 VM instance 이름에 대문자 허용 안되므로, VMHandler 내부에서 소문자로 변환되어 반영됨.
-					IId: irs.IID{NameId: "My-VM-01"},
+					IId: irs.IID{NameId: "oh-VM-01"},
 					
 					ImageType: "PublicImage", // "", "default", "PublicImage" or "MyImage"
 					// ImageType: "MyImage", // "", "default", "PublicImage" or "MyImage"
 
 					// # For Public Image Test
 					// # (Note) NCP VPC infra service와 Classic 2세대 service는 ImageID, VMSpecName 체계가 다름.
+					// ImageIID:   irs.IID{NameId: "Ubuntu Server 20.04 (64-bit)", SystemId: "SW.VSVR.OS.LNX64.UBNTU.SVR2004.B050"}, // Makes an error!!
 					ImageIID:   irs.IID{NameId: "ubuntu-18.04", SystemId: "SW.VSVR.OS.LNX64.UBNTU.SVR1804.B050"},
 					// ImageIID:   irs.IID{NameId: "Windows-Server-2016(64bit)", SystemId: "SW.VSVR.OS.WND64.WND.SVR2016EN.B100"},
 					// ImageIID:   irs.IID{NameId: "CentOS 7.8 (64-bit)", SystemId: "SW.VSVR.OS.LNX64.CNTOS.0708.B050"}, 
@@ -104,22 +107,23 @@ func handleVM() {
 					// ImageIID:   irs.IID{NameId: "ncpvpc-winimage-02", SystemId: "14917995"}, // In case of "MyImage"
 
 					// ### Caution!! ### : NCP Classic 2세대 infra가 아닌 NCP VPC infra service에서는 VPC, subnet 지정 필수!!
-					VpcIID:    irs.IID{SystemId: "41565"}, // ncp-vpc-01
-					SubnetIID: irs.IID{SystemId: "92493"}, // ncp-subnet-01
+					VpcIID:    irs.IID{SystemId: "56562"},
+					SubnetIID: irs.IID{SystemId: "131896"},
 					// VpcIID:    irs.IID{SystemId: "1363"},
 					// SubnetIID: irs.IID{SystemId: "3325"},
-
-					// VMSpecName: "SVR.VSVR.HICPU.C004.M008.NET.SSD.B050.G002", // For Image : "SW.VSVR.OS.LNX64.UBNTU.SVR1804.B050"
+					
+					// VMSpecName: "SVR.VSVR.CPU.C004.M008.NET.SSD.B050.G002", // For Image : "SW.VSVR.OS.LNX64.UBNTU.SVR2004.B050"
+					VMSpecName: "SVR.VSVR.HICPU.C004.M008.NET.SSD.B050.G002", // For Image : "SW.VSVR.OS.LNX64.UBNTU.SVR1804.B050"
 					// VMSpecName: "SVR.VSVR.HICPU.C002.M004.NET.SSD.B100.G002", // For Image : "SW.VSVR.OS.WND64.WND.SVR2016EN.B100"
 					// VMSpecName: "SVR.VSVR.HICPU.C004.M008.NET.SSD.B050.G002", // For Image : "SW.VSVR.OS.LNX64.CNTOS.0708.B050"
-					VMSpecName: "SVR.VSVR.HICPU.C004.M008.NET.SSD.B050.G002", // For Image : "SW.VSVR.OS.LNX64.ROCKY.0806.B050"					
+					// VMSpecName: "SVR.VSVR.HICPU.C004.M008.NET.SSD.B050.G002", // For Image : "SW.VSVR.OS.LNX64.ROCKY.0806.B050"					
 
-					KeyPairIID: irs.IID{SystemId: "NCP-keypair-05"}, // Caution : Not NameId!!
+					KeyPairIID: irs.IID{SystemId: "oh-ncpvpc-cn0ep7ci1q9osq457isg"}, // Caution : Not NameId!!
 					// KeyPairIID: irs.IID{SystemId: "ns01-ncpv-cij7lb1jcupork04fnr0"}, // Caution : Not NameId!!
 
 					// ### Caution!! ### : AccessControlGroup은 NCP console상의 VPC 메뉴의 'Network ACL'이 아닌 Server 메뉴의 'ACG'에 해당됨.
 					// SecurityGroupIIDs: []irs.IID{{SystemId: "44518"}}, // ncp-sg-02
-					SecurityGroupIIDs: []irs.IID{{SystemId: "114954"}}, // ncp-vpc-01-default-acg
+					SecurityGroupIIDs: []irs.IID{{SystemId: "159590"}},
 					// SecurityGroupIIDs: []irs.IID{{SystemId: "3486"}},
 
 					VMUserPasswd: "cdcdcd353535**", 
@@ -130,120 +134,118 @@ func handleVM() {
 					//panic(err)
 					cblogger.Error(err)
 				} else {
-					cblogger.Info("VM 생성 완료!!", vmInfo)
+					cblogger.Info("Succeeded in VM Creation!!", vmInfo)
 					spew.Dump(vmInfo)
 				}
-				//cblogger.Info(vm)
-
 				cblogger.Info("\nCreateVM Test Finished")
 
 			case 2:
 				vmInfo, err := vmHandler.GetVM(VmID)
 				if err != nil {
-					cblogger.Errorf("Failed Get the VM info.: [%s]", VmID)
+					cblogger.Errorf("[%s] Failed to Get VM info!!", VmID)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("VM info. of [%s]", VmID)
-					cblogger.Info(vmInfo)
+					cblogger.Infof("[%s] Result : ", VmID)
 					spew.Dump(vmInfo)
 				}
-
 				cblogger.Info("\nGetVM Test Finished")
 
 			case 3:
 				cblogger.Info("Start Suspend VM ...")
 				result, err := vmHandler.SuspendVM(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM Suspend 실패 - [%s]", VmID, result)
+					cblogger.Errorf("[%s] Failed to Suspend VM : [%s]", VmID, result)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM Suspend 실행 성공 - [%s]", VmID, result)
+					cblogger.Infof("[%s] Succeeded in VM Suspend : [%s]", VmID, result)
 				}
-
 				cblogger.Info("\nSuspendVM Test Finished")
 
 			case 4:
 				cblogger.Info("Start Resume  VM ...")
 				result, err := vmHandler.ResumeVM(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM Resume 실패 - [%s]", VmID, result)
+					cblogger.Errorf("[%s] Failed to Resume VM : [%s]", VmID, result)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM Resume 실행 성공 - [%s]", VmID, result)
+					cblogger.Infof("[%s] Succeeded in VM Resumme : [%s]", VmID, result)
 				}
-
 				cblogger.Info("\nResumeVM Test Finished")
 
 			case 5:
 				cblogger.Info("Start Reboot  VM ...")
 				result, err := vmHandler.RebootVM(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM Reboot 실패 - [%s]", VmID, result)
+					cblogger.Errorf("[%s] Failed to Reboot VM : [%s]", VmID, result)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM Reboot 실행 성공 - [%s]", VmID, result)
+					cblogger.Infof("[%s] Succeeded in VM Reboot : [%s]", VmID, result)
 				}
-
 				cblogger.Info("\nRebootVM Test Finished")
 
 			case 6:
 				cblogger.Info("Start Terminate  VM ...")
 				result, err := vmHandler.TerminateVM(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] VM Terminate 실패 - [%s]", VmID, result)
+					cblogger.Errorf("[%s] Failed to Terminate VM : [%s]", VmID, result)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] VM Terminate 실행 성공 - [%s]", VmID, result)
+					cblogger.Infof("[%s] Succeeded in VM Terminate : [%s]", VmID, result)
 				}
-
 				cblogger.Info("\nTerminateVM Test Finished")
 
 			case 7:
 				cblogger.Info("Start Get VM Status...")
 				vmStatus, err := vmHandler.GetVMStatus(VmID)
 				if err != nil {
-					cblogger.Errorf("[%s] Get VM Status 실패", VmID)
+					cblogger.Errorf("[%s] Failed to Get VM Status : ", VmID)
 					cblogger.Error(err)
 				} else {
-					cblogger.Infof("[%s] Get VM Status 실행 성공 : [%s]", VmID, vmStatus)
+					cblogger.Infof("[%s] Succeeded in Getting VM Status : [%s]", VmID, vmStatus)
 				}
-
 				cblogger.Info("\nGet VMStatus Test Finished")
 
 			case 8:
 				cblogger.Info("Start ListVMStatus ...")
 				vmStatusInfos, err := vmHandler.ListVMStatus()
 				if err != nil {
-					cblogger.Error("ListVMStatus 실패")
+					cblogger.Error("Failed to List VMStatus")
 					cblogger.Error(err)
 				} else {
-					cblogger.Info("ListVMStatus 실행 성공")
-					//cblogger.Info(vmStatusInfos)
+					cblogger.Info("Succeeded in Listing VMStatus")
 					spew.Dump(vmStatusInfos)
 				}
-
 				cblogger.Info("\nListVM Status Test Finished")
 
 			case 9:
 				cblogger.Info("Start ListVM ...")
 				vmList, err := vmHandler.ListVM()
 				if err != nil {
-					cblogger.Error("ListVM 실패")
+					cblogger.Error("Failed to List VM")
 					cblogger.Error(err)
 				} else {
-					cblogger.Info("ListVM 실행 성공")
-					cblogger.Info("=========== VM 목록 ================")
-					// cblogger.Info(vmList)
+					cblogger.Info("Succeeded in Listing VM")
 					spew.Dump(vmList)
-					cblogger.Infof("=========== VM 목록 수 : [%d] ================", len(vmList))
+					cblogger.Infof("=========== Count VM : [%d] ================", len(vmList))
 					if len(vmList) > 0 {
 						VmID = vmList[0].IId
 					}
 				}
-
 				cblogger.Info("\nListVM Test Finished")
 
-			}
+			case 10:
+				cblogger.Info("Start ListIID() ...")
+				result, err := vmHandler.ListIID()
+				if err != nil {
+					cblogger.Error("Failed to Get VM IID list : ", err)
+				} else {
+					cblogger.Info("Succeeded in Getting VM IID list!!")
+					spew.Dump(result)
+					cblogger.Debug(result)
+					cblogger.Infof("Total IID list count : [%d]", len(result))
+				}
+				cblogger.Info("\nListIID() Test Finished")
+			}	
 		}
 	}
 }

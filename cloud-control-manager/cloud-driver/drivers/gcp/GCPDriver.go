@@ -13,11 +13,14 @@ package gcp
 import (
 	"context"
 	"encoding/json"
+	"net/http"
+	"os"
 
 	cblogger "github.com/cloud-barista/cb-log"
 	"github.com/sirupsen/logrus"
 
 	gcpcon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp/connect"
+	profile "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp/profile"
 	gcps "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	ires "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -144,8 +147,6 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 // auth scope : compute
 // 아래에서 cloud-platform을 사용하는데 vmClient 대체가 되는지 확인 필요.
 func getVMClient(credential idrv.CredentialInfo) (context.Context, *compute.Service, error) {
-
-	// GCP 는  ClientSecret에
 	gcpType := "service_account"
 	data := make(map[string]string)
 
@@ -153,27 +154,33 @@ func getVMClient(credential idrv.CredentialInfo) (context.Context, *compute.Serv
 	data["private_key"] = credential.PrivateKey
 	data["client_email"] = credential.ClientEmail
 
-	//cblog.Debug("################## data ##################")
-	//cblog.Debug("data to json : ", data)
-	//cblog.Debug("################## data ##################")
-
 	res, _ := json.Marshal(data)
-	// data, err := ioutil.ReadFile(credential.ClientSecret)
 	authURL := "https://www.googleapis.com/auth/compute"
 
 	conf, err := goo.JWTConfigFromJSON(res, authURL)
-
 	if err != nil {
-
 		return nil, nil, err
 	}
 
-	client := conf.Client(o2.NoContext)
+	var client *http.Client
+	if os.Getenv("CALL_COUNT") != "" {
+		// If CALL_COUNT environment variable is set, use the custom counting client.
+		countingClient := profile.NewCountingClient()
+		// Use the OAuth2 transport with the custom client to ensure authentication.
+		client = &http.Client{
+			Transport: profile.NewOauth2Transport(countingClient.Transport, conf.TokenSource(o2.NoContext)),
+		}
+	} else {
+		// Use the default client if CALL_COUNT is not set.
+		client = conf.Client(o2.NoContext)
+	}
 
 	vmClient, err := compute.New(client)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	ctx := context.Background()
-
 	return ctx, vmClient, nil
 }
 

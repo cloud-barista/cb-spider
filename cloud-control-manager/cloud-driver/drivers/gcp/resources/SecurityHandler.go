@@ -69,7 +69,7 @@ const (
 //.. SG에 Rule이 존재하지 않는 경우 사용되지 않는 0port를 포함하는 firewall을 유지 : GCP는 빈 firewall ruleset을 허용하지 않음으로
 //.. direction 및 cidr는 하나의 firewall에서 하나의 direction, cidr 만 사용가능 : direction, cidr이 다르게 오면 여러개의 firewall을 추가하는 것으로? -> 관리가 가능한가? 문의
 //.. valid sg name 은 maxlen=63-6 으로 57자까지. 6자는 ‘-basic’, ‘-I-xxx’, ‘-o-xxx’ 를 붙임.
-//Ex) sg name = sg-test 일 때 firewallname은 조합하여 만들고, tag로 sg를 묶는다                    inbound TCP/22/22/0.0.0.0/0 이면  firewall name=sg-test-basic, tag=sg-test   : 0번 포트는 무조건 추가
+//Ex) sg name = sg-test 일 때 firewallname은 조합하여 만들고, tag로 sg를 묶는다                   inbound TCP/22/22/0.0.0.0/0 이면  firewall name=sg-test-basic, tag=sg-test   : 0번 포트는 무조건 추가
 //Inbound TCP/80/80/0.0.0.0/0 이면 firewall name=sg-test-i-001, tag=sg-test   : inbound rule 첫번째
 //Outbound UDP/1000/1000/1.2.3.4/32 이면 firewall name=sg-test-o-001, tag=sg-test : outbound rule 첫번째
 //-> GCP CreateSecurityRule 에 default 추가
@@ -2009,7 +2009,48 @@ func (securityHandler *GCPSecurityHandler) WaitUntilComplete(resourceId string) 
 }
 
 func (securityHandler *GCPSecurityHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
-}
+	hiscallInfo := GetCallLogScheme(securityHandler.Region, call.SECURITYGROUP, string(call.SECURITYGROUP), "ListIID()")
+	start := call.Start()
 
+	firewallList, err := securityHandler.firewallList("")
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
+
+	if err != nil {
+		LoggingError(hiscallInfo, err)
+		cblogger.Error(err)
+		return nil, err
+	}
+	calllogger.Info(call.String(hiscallInfo))
+
+	var iidList []*irs.IID
+
+	for _, firewallInfo := range firewallList {
+		for _, item := range firewallInfo.Items {
+			securityGroupName := item.Name
+			hasSecurityGroupNameFound := false
+
+			sourceTag := getTagFromTags(item.Name, item.SourceTags)
+			if sourceTag != "" {
+				securityGroupName = sourceTag
+				hasSecurityGroupNameFound = true
+			}
+
+			if !hasSecurityGroupNameFound {
+				targetTag := getTagFromTags(item.Name, item.TargetTags)
+				if targetTag != "" {
+					securityGroupName = targetTag
+					hasSecurityGroupNameFound = true
+				}
+			}
+
+			iid := irs.IID{
+				NameId:   securityGroupName,
+				SystemId: securityGroupName,
+			}
+
+			iidList = append(iidList, &iid)
+		}
+	}
+
+	return iidList, nil
+}

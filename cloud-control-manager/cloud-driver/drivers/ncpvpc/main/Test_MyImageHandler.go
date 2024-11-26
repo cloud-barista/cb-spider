@@ -6,7 +6,7 @@
 //
 // This is a Cloud Driver Tester Example.
 //
-// by ETRI, 2022.08.
+// Updated by ETRI, 2024.11.
 
 package main
 
@@ -42,7 +42,7 @@ func handleMyImage() {
 		cblogger.Error(err)
 		return
 	}
-	diskHandler := resourceHandler.(irs.MyImageHandler)
+	myImageHandler := resourceHandler.(irs.MyImageHandler)
 	//config := readConfigFile()
 
 	for {
@@ -53,6 +53,7 @@ func handleMyImage() {
 		cblogger.Info("3. SnapshotVM()")
 		cblogger.Info("4. CheckWindowsImage()")
 		cblogger.Info("5. DeleteMyImage()")
+		cblogger.Info("6. ListIID()")
 		cblogger.Info("0. Exit")
 		fmt.Println("\n   Select a number above!! : ")
 		fmt.Println("============================================================================================")
@@ -82,19 +83,20 @@ func handleMyImage() {
 		if inputCnt == 1 {
 			switch commandNum {
 			case 0:
+				cblogger.Infof("Exit")
 				return
 			case 1:
 				cblogger.Info("Start ListMyImage() ...")
-				if listResult, err := diskHandler.ListMyImage(); err != nil {
+				if listResult, err := myImageHandler.ListMyImage(); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(listResult)
-					cblogger.Info("# 출력 결과 수 : ", len(listResult))
+					cblogger.Info("# Total list count : ", len(listResult))
 				}
 				cblogger.Info("Finish ListMyImage()")
 			case 2:
 				cblogger.Info("Start GetMyImage() ...")
-				if diskInfo, err := diskHandler.GetMyImage(myImageIId); err != nil {
+				if diskInfo, err := myImageHandler.GetMyImage(myImageIId); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(diskInfo)
@@ -102,7 +104,7 @@ func handleMyImage() {
 				cblogger.Info("Finish GetMyImage()")
 			case 3:
 				cblogger.Info("Start SnapshotVM() ...")
-				if diskInfo, err := diskHandler.SnapshotVM(snapshotReqInfo); err != nil {
+				if diskInfo, err := myImageHandler.SnapshotVM(snapshotReqInfo); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(diskInfo)
@@ -110,7 +112,7 @@ func handleMyImage() {
 				cblogger.Info("Finish SnapshotVM()")
 			case 4:
 				cblogger.Info("Start CheckWindowsImage() ...")
-				if checkresult, err := diskHandler.CheckWindowsImage(myImageIId); err != nil {
+				if checkresult, err := myImageHandler.CheckWindowsImage(myImageIId); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(checkresult)
@@ -118,13 +120,25 @@ func handleMyImage() {
 				cblogger.Info("Finish CheckWindowsImage()")
 			case 5:
 				cblogger.Info("Start DeleteMyImage() ...")
-				if delResult, err := diskHandler.DeleteMyImage(myImageIId); err != nil {
+				if delResult, err := myImageHandler.DeleteMyImage(myImageIId); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(delResult)
 				}
-				cblogger.Info("Finish DeleteMyImage()")			
-			}
+				cblogger.Info("Finish DeleteMyImage()")
+			case 6:
+				cblogger.Info("Start ListIID() ...")
+				result, err := myImageHandler.ListIID()
+				if err != nil {
+					cblogger.Error("Failed to Get MyImage IID list : ", err)
+				} else {
+					cblogger.Info("Succeeded in Getting MyImage IID list!!")
+					spew.Dump(result)
+					cblogger.Debug(result)
+					cblogger.Infof("Total IID list count : [%d]", len(result))
+				}
+				cblogger.Info("\nListIID() Test Finished")
+			}	
 		}
 	}
 }

@@ -18,6 +18,9 @@
 *_bak
 *_old
 *-old
+*.cnf
+*.crt
+*.key
 
 .DS_Store
 
@@ -67,3 +70,11 @@ cloud-control-manager/cloud-driver/drivers/ncp/main/config/config.yaml
 cloud-control-manager/cloud-driver/drivers/ncpvpc/main/config/config.yaml
 cloud-control-manager/cloud-driver/drivers/nhncloud/main/conf/config.yaml
 cloud-control-manager/cloud-driver/drivers/ktcloud/main/config/config.yaml
+
+test/vm-cb-user-validation-cli/2.6-csp-test/connection/.aws-credential
+test/vm-cb-user-validation-cli/2.6-csp-test/connection/.azure-credential
+test/vm-cb-user-validation-cli/2.6-csp-test/connection/.gcp-credential
+test/vm-cb-user-validation-cli/2.6-csp-test/connection/.azure-credential
+test/vm-cb-user-validation-cli/2.6-csp-test/connection/.alibaba-credential
+test/vm-cb-user-validation-cli/2.6-csp-test/connection/.tencent-credential
+test/vm-cb-user-validation-cli/2.6-csp-test/connection/.openstack-credential

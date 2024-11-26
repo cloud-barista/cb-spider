@@ -15,6 +15,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -607,7 +608,58 @@ func sameRulesCheck(presentSecurityRules *[]irs.SecurityRuleInfo, reqSecurityRul
 }
 
 func (securityHandler *AlibabaSecurityHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
-}
+	var iidList []*irs.IID
 
+	request := ecs.CreateDescribeSecurityGroupsRequest()
+	request.Scheme = "https"
+	request.PageNumber = requests.NewInteger(1)
+	request.PageSize = requests.NewInteger(50)
+	cblogger.Debug(request)
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.ALIBABA,
+		RegionZone:   securityHandler.Region.Zone,
+		ResourceType: call.SECURITYGROUP,
+		ResourceName: "ListIID()",
+		CloudOSAPI:   "DescribeSecurityGroups()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+
+	callLogStart := call.Start()
+
+	var totalCount = 0
+	curPage := 1
+	for {
+
+		result, err := securityHandler.Client.DescribeSecurityGroups(request)
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+		if err != nil {
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Error(call.String(callLogInfo))
+
+			cblogger.Error(err)
+			return iidList, err
+		}
+		callogger.Debug(call.String(callLogInfo))
+		cblogger.Debug(result)
+
+		for _, curSecurityGroup := range result.SecurityGroups.SecurityGroup {
+			iid := irs.IID{SystemId: curSecurityGroup.SecurityGroupId}
+			iidList = append(iidList, &iid)
+		}
+
+		totalCount = len(iidList)
+		cblogger.Infof("Total number of security groups across CSP: [%d] - Current page: [%d] - Accumulated result count: [%d]", result.TotalCount, curPage, totalCount)
+		if totalCount >= result.TotalCount {
+			break
+		}
+		curPage++
+		request.PageNumber = requests.NewInteger(curPage)
+	}
+
+	return iidList, nil
+}

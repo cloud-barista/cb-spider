@@ -17,7 +17,7 @@ VM_NAME=${VM_NAME}-$2
 echo "============== before start VM: '${VM_NAME}'"
 
 #### This script doesn't work because CloudIt has an Image Namme with Space.
-#$CLIPATH/spctl --config $CLIPATH/spctl.conf vm start -i json -d \
+#$CLIPATH/spctl  vm start -d \
 #    '{
 #      "ConnectionName":"'${CONN_CONFIG}'",
 #      "ReqInfo": {
@@ -31,7 +31,7 @@ echo "============== before start VM: '${VM_NAME}'"
 #      }
 #    }' 2> /dev/null
 
-$CLIPATH/spctl --config $CLIPATH/spctl.conf vm start -i json -d \
+$CLIPATH/spctl  vm start -d \
     "{
       \"ConnectionName\":\"${CONN_CONFIG}\",
       \"ReqInfo\": {

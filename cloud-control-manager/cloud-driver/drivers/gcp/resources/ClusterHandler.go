@@ -1363,6 +1363,33 @@ func validateAtChangeNodeGroupScaling(clusterIID irs.IID, nodeGroupIID irs.IID, 
 }
 
 func (ClusterHandler *GCPClusterHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	hiscallInfo := GetCallLogScheme(ClusterHandler.Region, call.CLUSTER, string(call.CLUSTER), "ListIID()")
+	start := call.Start()
+
+	projectID := ClusterHandler.Credential.ProjectID
+	region := ClusterHandler.Region.Region
+	parent := getParentAtContainer(projectID, region)
+	cblogger.Info("parent for cluster list call : ", parent)
+
+	resp, err := ClusterHandler.ContainerClient.Projects.Locations.Clusters.List(parent).Do()
+	hiscallInfo.ElapsedTime = call.Elapsed(start)
+
+	if err != nil {
+		LoggingError(hiscallInfo, err)
+		cblogger.Error(err)
+		return nil, err
+	}
+	calllogger.Info(call.String(hiscallInfo))
+
+	var iidList []*irs.IID
+
+	for _, cluster := range resp.Clusters {
+
+		if cluster == nil {
+			continue
+		}
+		iid := irs.IID{NameId: cluster.Name, SystemId: cluster.Name}
+		iidList = append(iidList, &iid)
+	}
+	return iidList, nil
 }

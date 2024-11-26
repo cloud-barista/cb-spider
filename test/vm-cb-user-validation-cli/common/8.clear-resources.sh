@@ -13,19 +13,28 @@ SETUP_PATH=$CBSPIDER_ROOT/test/vm-cb-user-validation-cli/common
 source $SETUP_PATH/setup.env $1
 
 echo "============== before delete KeyPair: '${KEYPAIR_NAME}'"
-$CLIPATH/spctl --config $CLIPATH/spctl.conf keypair delete --cname "${CONN_CONFIG}" -n "${KEYPAIR_NAME}" 2> /dev/null
+$CLIPATH/spctl  keypair delete -n "${KEYPAIR_NAME}" -d \
+    "{
+      \"ConnectionName\":\"${CONN_CONFIG}\"
+    }"
 echo "============== after delete KeyPair: '${KEYPAIR_NAME}'"
 
 echo -e "\n\n"
 
 echo "============== before delete SecurityGroup: '${SG_NAME}'"
-$CLIPATH/spctl --config $CLIPATH/spctl.conf security delete --cname "${CONN_CONFIG}" -n "${SG_NAME}" 2> /dev/null
+$CLIPATH/spctl  securitygroup delete -n "${SG_NAME}" -d \
+    "{
+      \"ConnectionName\":\"${CONN_CONFIG}\"
+    }"
 echo "============== after delete SecurityGroup: '${SG_NAME}'"
 
 echo -e "\n\n"
 
 echo "============== before delete VPC/Subnet: '${VPC_NAME}'"
-$CLIPATH/spctl --config $CLIPATH/spctl.conf vpc delete --cname "${CONN_CONFIG}" -n "${VPC_NAME}" 2> /dev/null
+$CLIPATH/spctl  vpc delete -n "${VPC_NAME}" -d \
+    "{
+      \"ConnectionName\":\"${CONN_CONFIG}\"
+    }"
 echo "============== after delete VPC/Subnet: '${VPC_NAME}'"
 
 echo -e "\n\n"
