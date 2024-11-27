@@ -20,21 +20,23 @@ const (
 )
 
 // RegionZoneInfo represents the information of a Region Zone.
-// @example {"Name": "us-east", "DisplayName": "US East", "ZoneList": [{"Name": "us-east-1a", "DisplayName": "US East 1A", "Status": "Available"}], "KeyValueList": [{"Key": "regionKey1", "Value": "regionValue1"}]}
+// @example {"Name": "us-east", "DisplayName": "United States, Ohio", "CSPDisplayName":"US East (N. Virginia)", "ZoneList": [{"Name": "us-east-1a", "DisplayName": "United States, Ohio", "CSPDisplayName":"US East (N. Virginia)", "Status": "Available"}], "KeyValueList": [{"Key": "regionKey1", "Value": "regionValue1"}]}
 type RegionZoneInfo struct {
-	Name         string     `json:"Name" validate:"required" example:"us-east"`
-	DisplayName  string     `json:"DisplayName" validate:"required" example:"US East"`
-	ZoneList     []ZoneInfo `json:"ZoneList,omitempty" validate:"omitempty"`
-	KeyValueList []KeyValue `json:"KeyValueList,omitempty" validate:"omitempty"`
+	Name           string     `json:"Name" validate:"required" example:"us-east"`
+	DisplayName    string     `json:"DisplayName" validate:"required" example:"United States, Ohio"`
+	CSPDisplayName string     `json:"CSPDisplayName" validate:"required" example:"US East (N. Virginia)"`
+	ZoneList       []ZoneInfo `json:"ZoneList,omitempty" validate:"omitempty"`
+	KeyValueList   []KeyValue `json:"KeyValueList,omitempty" validate:"omitempty"`
 }
 
 // ZoneInfo represents the information of a Zone.
-// @example {"Name": "us-east-1a", "DisplayName": "US East 1A", "Status": "Available", "KeyValueList": [{"Key": "zoneKey1", "Value": "zoneValue1"}]}
+// @example {"Name": "us-east-1a", "DisplayName": "United States, Ohio", "CSPDisplayName":"US East (N. Virginia)", "Status": "Available", "KeyValueList": [{"Key": "zoneKey1", "Value": "zoneValue1"}]}
 type ZoneInfo struct {
-	Name         string     `json:"Name" validate:"required" example:"us-east-1a"`
-	DisplayName  string     `json:"DisplayName" validate:"required" example:"US East 1A"`
-	Status       ZoneStatus `json:"Status" validate:"required" example:"Available"`
-	KeyValueList []KeyValue `json:"KeyValueList,omitempty" validate:"omitempty"`
+	Name           string     `json:"Name" validate:"required" example:"us-east-1a"`
+	DisplayName    string     `json:"DisplayName" validate:"required" example:"United States, Ohio"`
+	CSPDisplayName string     `json:"CSPDisplayName" validate:"required" example:"US East (N. Virginia)"`
+	Status         ZoneStatus `json:"Status" validate:"required" example:"Available"`
+	KeyValueList   []KeyValue `json:"KeyValueList,omitempty" validate:"omitempty"`
 }
 
 type RegionZoneHandler interface {
