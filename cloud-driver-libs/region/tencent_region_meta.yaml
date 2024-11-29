@@ -1,0 +1,153 @@
+DisplayName:
+  ap-beijing: China, Beijing
+    ap-beijing-1: China, Beijing
+    ap-beijing-2: China, Beijing
+  ap-chengdu: China, Chengdu
+    ap-chengdu-1: China, Chengdu
+    ap-chengdu-2: China, Chengdu
+  ap-chongqing: China, Chongqing
+    ap-chongqing-1: China, Chongqing
+    ap-chongqing-2: China, Chongqing
+  ap-guangzhou: China, Guangzhou
+    ap-guangzhou-1: China, Guangzhou
+    ap-guangzhou-2: China, Guangzhou
+    ap-guangzhou-3: China, Guangzhou
+    ap-guangzhou-4: China, Guangzhou
+  ap-nanjing: China, Nanjing
+    ap-nanjing-1: China, Nanjing
+    ap-nanjing-2: China, Nanjing
+  ap-shanghai: China, Shanghai
+    ap-shanghai-1: China, Shanghai
+    ap-shanghai-2: China, Shanghai
+  ap-shenzhen-fsi: China, Shenzhen
+    ap-shenzhen-fsi-1: China, Shenzhen
+    ap-shenzhen-fsi-2: China, Shenzhen
+  ap-tianjin: China, Tianjin
+    ap-tianjin-1: China, Tianjin
+    ap-tianjin-2: China, Tianjin
+  ap-hongkong: China, Hong Kong
+    ap-hongkong-1: China, Hong Kong
+    ap-hongkong-2: China, Hong Kong
+  ap-tokyo: Japan, Tokyo
+    ap-tokyo-1: Japan, Tokyo
+    ap-tokyo-2: Japan, Tokyo
+  ap-seoul: South Korea, Seoul
+    ap-seoul-1: South Korea, Seoul
+    ap-seoul-2: South Korea, Seoul
+  ap-singapore: Singapore
+    ap-singapore-1: Singapore
+    ap-singapore-2: Singapore
+  ap-bangkok: Thailand, Bangkok
+    ap-bangkok-1: Thailand, Bangkok
+    ap-bangkok-2: Thailand, Bangkok
+  ap-mumbai: India, Mumbai
+    ap-mumbai-1: India, Mumbai
+    ap-mumbai-2: India, Mumbai
+  ap-jakarta: Indonesia, Jakarta
+    ap-jakarta-1: Indonesia, Jakarta
+    ap-jakarta-2: Indonesia, Jakarta
+  eu-frankfurt: Germany, Frankfurt
+    eu-frankfurt-1: Germany, Frankfurt
+    eu-frankfurt-2: Germany, Frankfurt
+  eu-moscow: Russia, Moscow
+    eu-moscow-1: Russia, Moscow
+    eu-moscow-2: Russia, Moscow
+  na-siliconvalley: United States, Silicon Valley
+    na-siliconvalley-1: United States, Silicon Valley
+    na-siliconvalley-2: United States, Silicon Valley
+  na-ashburn: United States, Ashburn
+    na-ashburn-1: United States, Ashburn
+    na-ashburn-2: United States, Ashburn
+  na-toronto: Canada, Toronto
+    na-toronto-1: Canada, Toronto
+    na-toronto-2: Canada, Toronto
+  sa-sao-paulo: Brazil, São Paulo
+    sa-sao-paulo-1: Brazil, São Paulo
+    sa-sao-paulo-2: Brazil, São Paulo
+
+CSPDisplayName:
+  ap-beijing: Mainland China (Beijing)
+    ap-beijing-1: Mainland China (Beijing)
+    ap-beijing-2: Mainland China (Beijing)
+
+  ap-chengdu: Mainland China (Chengdu)
+    ap-chengdu-1: Mainland China (Chengdu)
+    ap-chengdu-2: Mainland China (Chengdu)
+
+  ap-chongqing: Mainland China (Chongqing)
+    ap-chongqing-1: Mainland China (Chongqing)
+    ap-chongqing-2: Mainland China (Chongqing)
+
+  ap-guangzhou: Mainland China (Guangzhou)
+    ap-guangzhou-1: Mainland China (Guangzhou)
+    ap-guangzhou-2: Mainland China (Guangzhou)
+    ap-guangzhou-3: Mainland China (Guangzhou)
+    ap-guangzhou-4: Mainland China (Guangzhou)
+
+  ap-nanjing: Mainland China (Nanjing)
+    ap-nanjing-1: Mainland China (Nanjing)
+    ap-nanjing-2: Mainland China (Nanjing)
+
+  ap-shanghai: Mainland China (Shanghai)
+    ap-shanghai-1: Mainland China (Shanghai)
+    ap-shanghai-2: Mainland China (Shanghai)
+
+  ap-shenzhen-fsi: Mainland China (Shenzhen Finance)
+    ap-shenzhen-fsi-1: Mainland China (Shenzhen Finance)
+    ap-shenzhen-fsi-2: Mainland China (Shenzhen Finance)
+
+  ap-tianjin: Mainland China (Tianjin)
+    ap-tianjin-1: Mainland China (Tianjin)
+    ap-tianjin-2: Mainland China (Tianjin)
+
+  ap-hongkong: Hong Kong
+    ap-hongkong-1: Hong Kong
+    ap-hongkong-2: Hong Kong
+
+  ap-tokyo: Japan (Tokyo)
+    ap-tokyo-1: Japan (Tokyo)
+    ap-tokyo-2: Japan (Tokyo)
+
+  ap-seoul: South Korea (Seoul)
+    ap-seoul-1: South Korea (Seoul)
+    ap-seoul-2: South Korea (Seoul)
+
+  ap-singapore: Southeast Asia (Singapore)
+    ap-singapore-1: Southeast Asia (Singapore)
+    ap-singapore-2: Southeast Asia (Singapore)
+
+  ap-bangkok: Thailand (Bangkok)
+    ap-bangkok-1: Thailand (Bangkok)
+    ap-bangkok-2: Thailand (Bangkok)
+
+  ap-mumbai: India (Mumbai)
+    ap-mumbai-1: India (Mumbai)
+    ap-mumbai-2: India (Mumbai)
+
+  ap-jakarta: Indonesia (Jakarta)
+    ap-jakarta-1: Indonesia (Jakarta)
+    ap-jakarta-2: Indonesia (Jakarta)
+
+  eu-frankfurt: EU (Frankfurt)
+    eu-frankfurt-1: EU (Frankfurt)
+    eu-frankfurt-2: EU (Frankfurt)
+
+  eu-moscow: Russia (Moscow)
+    eu-moscow-1: Russia (Moscow)
+    eu-moscow-2: Russia (Moscow)
+
+  na-siliconvalley: US West (Silicon Valley)
+    na-siliconvalley-1: US West (Silicon Valley)
+    na-siliconvalley-2: US West (Silicon Valley)
+
+  na-ashburn: US East (Ashburn)
+    na-ashburn-1: US East (Ashburn)
+    na-ashburn-2: US East (Ashburn)
+
+  na-toronto: Canada (Toronto)
+    na-toronto-1: Canada (Toronto)
+    na-toronto-2: Canada (Toronto)
+
+  sa-sao-paulo: South America (São Paulo)
+    sa-sao-paulo-1: South America (São Paulo)
+    sa-sao-paulo-2: South America (São Paulo)
