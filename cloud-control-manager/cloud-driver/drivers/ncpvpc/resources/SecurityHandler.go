@@ -1117,7 +1117,37 @@ func (securityHandler *NcpVpcSecurityHandler) ExtractSecurityRuleInfo(ncpVpcSGId
 }
 
 func (securityHandler *NcpVpcSecurityHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
-}
+	cblogger.Info("NCP VPC cloud driver: called securityHandler ListIID()!!")
+	InitLog()
+    callLogInfo := GetCallLogScheme(securityHandler.RegionInfo.Zone, call.SECURITYGROUP, "ListIID()", "ListIID()")
 
+	sgReq := vserver.GetAccessControlGroupListRequest{
+		RegionCode: 				&securityHandler.RegionInfo.Region,
+		AccessControlGroupNoList: 	nil,
+	}
+
+	// Search NCP VPC AccessControlGroup list
+	callLogStart := call.Start()
+	sgList, err := securityHandler.VMClient.V2Api.GetAccessControlGroupList(&sgReq)
+	if err != nil {
+		cblogger.Error(err)
+		cblogger.Error(*sgList.ReturnMessage)
+		LoggingError(callLogInfo, err)
+		return nil, err
+	}
+	LoggingInfo(callLogInfo, callLogStart)
+
+	var iidList []*irs.IID
+	if len(sgList.AccessControlGroupList) < 1 {
+		cblogger.Debug("### S/G does Not Exist!!")
+	} else {
+		for _, sg := range sgList.AccessControlGroupList{
+			var iid irs.IID
+			iid.NameId = ncloud.StringValue(sg.AccessControlGroupName)
+			iid.SystemId = ncloud.StringValue(sg.AccessControlGroupNo)
+	
+			iidList = append(iidList, &iid)
+		}
+	}
+	return iidList, nil
+}

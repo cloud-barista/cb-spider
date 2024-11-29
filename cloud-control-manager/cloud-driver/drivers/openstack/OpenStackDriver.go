@@ -12,6 +12,7 @@ package openstack
 
 import (
 	"crypto/tls"
+	"fmt"
 	"net/http"
 
 	oscon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack/connect"
@@ -133,20 +134,15 @@ func clientCreator(connInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 		return nil, err
 	}
 
-	iConn.Volume2Client, err = openstack.NewBlockStorageV2(provider, gophercloud.EndpointOpts{
+	iConn.Volume3Client, err = openstack.NewBlockStorageV3(provider, gophercloud.EndpointOpts{
 		Region: connInfo.RegionInfo.Region,
 	})
-	if iConn.Volume2Client == nil {
-		var err2 error
-		iConn.Volume3Client, err2 = openstack.NewBlockStorageV3(provider, gophercloud.EndpointOpts{
+	if err != nil {
+		iConn.Volume2Client, err = openstack.NewBlockStorageV2(provider, gophercloud.EndpointOpts{
 			Region: connInfo.RegionInfo.Region,
 		})
-
-		if err != nil && iConn.Volume3Client == nil {
-			return nil, err
-		}
-		if err2 != nil {
-			return nil, err
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize both volume v3 and v2 clients: %v", err)
 		}
 	}
 

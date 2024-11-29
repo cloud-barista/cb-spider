@@ -9,7 +9,6 @@
 package resources
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -176,8 +175,6 @@ func (vpcHandler *NcpVpcVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 		RegionCode: &vpcHandler.RegionInfo.Region,
 	}
 
-	// cblogger.Infof("vpcListReq Ready!!")
-	// spew.Dump(vpcListReq)
 	callLogStart := call.Start()
 	result, err := vpcHandler.VPCClient.V2Api.GetVpcList(&vpcListReq)
 	if err != nil {
@@ -959,6 +956,36 @@ func (vpcHandler *NcpVpcVPCHandler) getSubnetZone(vpcIID irs.IID, subnetIID irs.
 }
 
 func (vpcHandler *NcpVpcVPCHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	cblogger.Info("NCP VPC cloud driver: called vpcHandler ListIID()!!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, "ListIID()", "ListIID()")
+
+	vpcListReq := vpc.GetVpcListRequest{
+		RegionCode: &vpcHandler.RegionInfo.Region,
+	}
+
+	callLogStart := call.Start()
+	result, err := vpcHandler.VPCClient.V2Api.GetVpcList(&vpcListReq)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get VPC List from NCP VPC : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+	LoggingInfo(callLogInfo, callLogStart)
+
+	var iidList []*irs.IID
+	if len(result.VpcList) < 1 {
+		cblogger.Debug("### VPC does Not Exist!!")
+		return nil, nil
+	} else {
+		for _, vpc := range result.VpcList {
+			var iid irs.IID
+			iid.NameId = *vpc.VpcName
+			iid.SystemId = *vpc.VpcNo
+	
+			iidList = append(iidList, &iid)
+		}
+	}
+	return iidList, nil
 }

@@ -57,7 +57,8 @@ func handleNLB() {
 		cblogger.Info("8. RemoveVMs()")
 		cblogger.Info("9. GetVMGroupHealthInfo()")
 		cblogger.Info("10. ChangeHealthCheckerInfo()")
-		cblogger.Info("11. Exit")
+		cblogger.Info("11. ListIID()")
+		cblogger.Info("12. Exit")
 		fmt.Println("============================================================================================")
 
 		config := readConfigFile()
@@ -143,7 +144,7 @@ func handleNLB() {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(list)
-					cblogger.Info("출력 결과 수 : ", len(list))
+					cblogger.Info("Total count : ", len(list))
 				}
 				cblogger.Info("Finish ListNLB()")
 			case 2:
@@ -219,7 +220,20 @@ func handleNLB() {
 				}
 				cblogger.Info("Finish ChangeHealthCheckerInfo()")
 			case 11:
-				cblogger.Info("Exit")
+				cblogger.Info("Start ListIID() ...")
+				result, err := nlbHandler.ListIID()
+				if err != nil {
+					cblogger.Error("Failed to retrieve NLB IID list: [%v]", err)
+				} else {
+					cblogger.Info("Successfully retrieved NLB IID list!!")
+					spew.Dump(result)
+					cblogger.Debug(result)
+					cblogger.Infof("Total IID list count : [%d]", len(result))
+				}
+				cblogger.Info("\nListIID() Test Finished")
+			case 12:
+				cblogger.Infof("Exit")
+				return
 			}
 		}
 	}
@@ -231,8 +245,8 @@ func main() {
 	handleNLB()
 }
 
-//handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
-//(예) ImageHandler.go -> "Image"
+// handlerType: The string before "Handler" in the xxxHandler.go file in the resources folder
+// (e.g.) ImageHandler.go -> "Image"
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(ncpdrv.NcpDriver)
@@ -280,16 +294,16 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 	return resourceHandler, nil
 }
 
-// Region : 사용할 리전명 (ex) ap-northeast-2
-// ImageID : VM 생성에 사용할 AMI ID (ex) ami-047f7b46bd6dd5d84
-// BaseName : 다중 VM 생성 시 사용할 Prefix이름 ("BaseName" + "_" + "숫자" 형식으로 VM을 생성 함.) (ex) mcloud-barista
-// VmID : 라이프 사이트클을 테스트할 EC2 인스턴스ID
-// InstanceType : VM 생성시 사용할 인스턴스 타입 (ex) t2.micro
-// KeyName : VM 생성시 사용할 키페어 이름 (ex) mcloud-barista-keypair
-// MinCount :
-// MaxCount :
-// SubnetId : VM이 생성될 VPC의 SubnetId (ex) subnet-cf9ccf83
-// SecurityGroupID : 생성할 VM에 적용할 보안그룹 ID (ex) sg-0df1c209ea1915e4b
+// Region: The name of the region to use (e.g., ap-northeast-2)
+// ImageID: The AMI ID to use for creating the VM (e.g., ami-047f7b46bd6dd5d84)
+// BaseName: The prefix name to use when creating multiple VMs (VMs will be created in the format "BaseName" + "_" + "number") (e.g., mcloud-barista)
+// VmID: The EC2 instance ID to test the lifecycle
+// InstanceType: The instance type to use when creating the VM (e.g., t2.micro)
+// KeyName: The key pair name to use when creating the VM (e.g., mcloud-barista-keypair)
+// MinCount: The minimum number of instances to create
+// MaxCount: The maximum number of instances to create
+// SubnetId: The SubnetId of the VPC where the VM will be created (e.g., subnet-cf9ccf83)
+// SecurityGroupID: The security group ID to apply to the created VM (e.g., sg-0df1c209ea1915e4b)
 type Config struct {
 	Ncp struct {
 		NcpAccessKeyID string `yaml:"ncp_access_key_id"`

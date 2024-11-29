@@ -6,7 +6,7 @@
 //
 // This is a Cloud Driver Tester Example.
 //
-// by ETRI, 2022.09.
+// Updated by ETRI, 2024.11.
 
 package main
 
@@ -55,6 +55,7 @@ func handleDisk() {
 		cblogger.Info("5. ChangeDiskSize()")
 		cblogger.Info("6. AttachDisk()")
 		cblogger.Info("7. DetachDisk()")
+		cblogger.Info("8. ListIID()")
 		cblogger.Info("0. Exit")
 		fmt.Println("\n   Select a number above!! : ")
 		fmt.Println("============================================================================================")
@@ -90,6 +91,7 @@ func handleDisk() {
 		if inputCnt == 1 {
 			switch commandNum {
 			case 0:
+				cblogger.Infof("Exit")
 				return
 			case 1:
 				cblogger.Info("Start ListDisk() ...")
@@ -97,7 +99,7 @@ func handleDisk() {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(listResult)
-					cblogger.Info("# 출력 결과 수 : ", len(listResult))
+					cblogger.Info("# Total count : ", len(listResult))
 				}
 				cblogger.Info("Finish ListDisk()")
 			case 2:
@@ -147,7 +149,19 @@ func handleDisk() {
 				} else {
 					spew.Dump(result)
 				}
-				cblogger.Info("Finish DetachDisk()")		
+				cblogger.Info("Finish DetachDisk()")
+			case 8:
+				cblogger.Info("Start ListIID() ...")
+				result, err := diskHandler.ListIID()
+				if err != nil {
+					cblogger.Error("Failed to Get Disk IID list : ", err)
+				} else {
+					cblogger.Info("Succeeded in Getting Disk IID list!!")
+					spew.Dump(result)
+					cblogger.Debug(result)
+					cblogger.Infof("Total IID list count : [%d]", len(result))
+				}
+				cblogger.Info("\nListIID() Test Finished")
 			}
 		}
 	}
@@ -163,8 +177,8 @@ func main() {
 	handleDisk()
 }
 
-//handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
-//(예) ImageHandler.go -> "Image"
+// handlerType: The string before "Handler" in the xxxHandler.go file in the resources folder
+// (e.g., ImageHandler.go -> "Image")
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(ncpvpcdrv.NcpVpcDriver)

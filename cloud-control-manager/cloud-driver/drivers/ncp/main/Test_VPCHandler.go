@@ -7,6 +7,7 @@
 // This is a Cloud Driver Tester Example.
 //
 // by ETRI, 2020.09.
+// Updated by ETRI, 2024.11.
 
 package main
 
@@ -45,15 +46,16 @@ func handleVPC() {
 	handler := ResourceHandler.(irs.VPCHandler)
 
 	for {
-		fmt.Println("\n============================================================================================")
-		fmt.Println("[ VPC Resource Test ]")
-		fmt.Println("1. CreateVPC()")
-		fmt.Println("2. ListVPC()")
-		fmt.Println("3. GetVPC()")
-		fmt.Println("4. DeleteVPC()")
-		fmt.Println("0. Exit")
-		fmt.Println("\n   Select a number above!! : ")
-		fmt.Println("============================================================================================")
+		cblogger.Info("\n============================================================================================")
+		cblogger.Info("[ VPC Resource Test ]")
+		cblogger.Info("1. CreateVPC()")
+		cblogger.Info("2. ListVPC()")
+		cblogger.Info("3. GetVPC()")
+		cblogger.Info("4. DeleteVPC()")
+		cblogger.Info("5. ListIID()")
+		cblogger.Info("0. Exit")
+		cblogger.Info("\n   Select a number above!! : ")
+		cblogger.Info("============================================================================================")
 
 		subnetReqName := "myTest-subnet-03"
 		vpcIId := irs.IID{NameId: "ncp-vpc-0-cjo2smhjcupp70i7acu0"}
@@ -86,57 +88,69 @@ func handleVPC() {
 		if inputCnt == 1 {
 			switch commandNum {
 			case 1:
-				fmt.Println("Start CreateVPC() ...")
-
+				cblogger.Info("Start CreateVPC() ...")
 				vpcInfo, err := handler.CreateVPC(vpcReqInfo)
 				if err != nil {
 					//panic(err)
 					cblogger.Error(err)
-					cblogger.Error("VPC 생성 실패 : ", err)
+					cblogger.Error("Failed to create VPC : ", err)
 				} else {
-					cblogger.Info("VPC 생성 완료!!", vpcInfo)
+					cblogger.Info("VPC creation completed!!", vpcInfo)
 					spew.Dump(vpcInfo)
 					cblogger.Debug(vpcInfo)
 				}
-				fmt.Println("\nCreateVPC() Test Finished")
+				cblogger.Info("\nCreateVPC() Test Finished")
 
 			case 2:
-				fmt.Println("Start ListVPC() ...")
+				cblogger.Info("Start ListVPC() ...")
 				result, err := handler.ListVPC()
 				if err != nil {
-					cblogger.Error("VPC list 조회 실패 : ", err)
+					cblogger.Error("Failed to retrieve VPC list: ", err)
 				} else {
-					cblogger.Info("VPC list 조회 성공!!")
+					cblogger.Info("Successfully retrieved VPC list!!")
 					spew.Dump(result)
 					cblogger.Debug(result)
-					cblogger.Infof("전체 list 개수 : [%d]", len(result))
+					cblogger.Infof("Total list count : [%d]", len(result))
 				}
-				fmt.Println("\nListVMSpec() Test Finished")
+				cblogger.Info("\nListVPC() Test Finished")
 				
 			case 3:
-				fmt.Println("Start GetVPC() ...")
+				cblogger.Info("Start GetVPC() ...")
 				if vpcInfo, err := handler.GetVPC(vpcIId); err != nil {
 					cblogger.Error(err)
-					cblogger.Error("VPC 정보 조회 실패 : ", err)
+					cblogger.Error("Failed to retrieve VPC information: ", err)
 				} else {
-					cblogger.Info("VPC 정보 조회 성공!!")
+					cblogger.Info("Successfully retrieved VPC information!!")
 					spew.Dump(vpcInfo)
 				}
-				fmt.Println("\nGetVPC() Test Finished")
+				cblogger.Info("\nGetVPC() Test Finished")
 
 			case 4:
-				fmt.Println("Start DeleteVPC() ...")
+				cblogger.Info("Start DeleteVPC() ...")
 				if result, err := handler.DeleteVPC(vpcIId); err != nil {
 					cblogger.Error(err)
-					cblogger.Error("VPC 삭제 실패 : ", err)
+					cblogger.Error("Failed to delete VPC: ", err)
 				} else {
-					cblogger.Info("VPC 삭제 성공!!")
+					cblogger.Info("Successfully deleted VPC!!")
 					spew.Dump(result)
 				}
-				fmt.Println("\nGetVPC() Test Finished")
+				cblogger.Info("\nDeleteVPC() Test Finished")
+
+			case 5:
+				cblogger.Info("Start ListIID() ...")
+				result, err := handler.ListIID()
+				if err != nil {
+					cblogger.Error("Failed to retrieve VPC IID list: ", err)
+				} else {
+					cblogger.Info("Successfully retrieved VPC IID list!!")
+					spew.Dump(result)
+					cblogger.Debug(result)
+					cblogger.Infof("Total IID list count : [%d]", len(result))
+				}
+				cblogger.Info("\nListIID() Test Finished")	
 
 			case 0:
-				fmt.Println("Exit")
+				cblogger.Infof("Exit")
 				return
 			}
 		}
@@ -149,8 +163,8 @@ func main() {
 	handleVPC()
 }
 
-//handlerType : resources폴더의 xxxHandler.go에서 Handler이전까지의 문자열
-//(예) ImageHandler.go -> "Image"
+// handlerType: The string before "Handler" in the xxxHandler.go file in the resources folder
+// (e.g.) ImageHandler.go -> "Image"
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
 	cloudDriver = new(ncpdrv.NcpDriver)
@@ -200,16 +214,16 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 	return resourceHandler, nil
 }
 
-// Region : 사용할 리전명 (ex) ap-northeast-2
-// ImageID : VM 생성에 사용할 AMI ID (ex) ami-047f7b46bd6dd5d84
-// BaseName : 다중 VM 생성 시 사용할 Prefix이름 ("BaseName" + "_" + "숫자" 형식으로 VM을 생성 함.) (ex) mcloud-barista
-// VmID : 라이프 사이트클을 테스트할 EC2 인스턴스ID
-// InstanceType : VM 생성시 사용할 인스턴스 타입 (ex) t2.micro
-// KeyName : VM 생성시 사용할 키페어 이름 (ex) mcloud-barista-keypair
-// MinCount :
-// MaxCount :
-// SubnetId : VM이 생성될 VPC의 SubnetId (ex) subnet-cf9ccf83
-// SecurityGroupID : 생성할 VM에 적용할 보안그룹 ID (ex) sg-0df1c209ea1915e4b
+// Region: The name of the region to use (e.g., ap-northeast-2)
+// ImageID: The AMI ID to use for creating the VM (e.g., ami-047f7b46bd6dd5d84)
+// BaseName: The prefix name to use when creating multiple VMs (VMs will be created in the format "BaseName" + "_" + "number") (e.g., mcloud-barista)
+// VmID: The EC2 instance ID to test the lifecycle
+// InstanceType: The instance type to use when creating the VM (e.g., t2.micro)
+// KeyName: The key pair name to use when creating the VM (e.g., mcloud-barista-keypair)
+// MinCount: The minimum number of instances to create
+// MaxCount: The maximum number of instances to create
+// SubnetId: The SubnetId of the VPC where the VM will be created (e.g., subnet-cf9ccf83)
+// SecurityGroupID: The security group ID to apply to the created VM (e.g., sg-0df1c209ea1915e4b)
 type Config struct {
 	Ncp struct {
 		NcpAccessKeyID string `yaml:"ncp_access_key_id"`
