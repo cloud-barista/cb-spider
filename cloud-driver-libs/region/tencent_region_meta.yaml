@@ -19,10 +19,10 @@ DisplayName:
   ap-shanghai: China, Shanghai
     ap-shanghai-1: China, Shanghai
     ap-shanghai-2: China, Shanghai
-  ap-shenzhen-fsi: China, Shenzhen
+  ap-shenzhen-fsi: China, Shenzhen      #finance zone
     ap-shenzhen-fsi-1: China, Shenzhen
     ap-shenzhen-fsi-2: China, Shenzhen
-  ap-tianjin: China, Tianjin
+  ap-tianjin: China, Tianjin            # not available
     ap-tianjin-1: China, Tianjin
     ap-tianjin-2: China, Tianjin
   ap-hongkong: China, Hong Kong
@@ -40,7 +40,7 @@ DisplayName:
   ap-bangkok: Thailand, Bangkok
     ap-bangkok-1: Thailand, Bangkok
     ap-bangkok-2: Thailand, Bangkok
-  ap-mumbai: India, Mumbai
+  ap-mumbai: India, Mumbai              # not available
     ap-mumbai-1: India, Mumbai
     ap-mumbai-2: India, Mumbai
   ap-jakarta: Indonesia, Jakarta
@@ -49,7 +49,7 @@ DisplayName:
   eu-frankfurt: Germany, Frankfurt
     eu-frankfurt-1: Germany, Frankfurt
     eu-frankfurt-2: Germany, Frankfurt
-  eu-moscow: Russia, Moscow
+  eu-moscow: Russia, Moscow              # not available
     eu-moscow-1: Russia, Moscow
     eu-moscow-2: Russia, Moscow
   na-siliconvalley: United States, Silicon Valley
@@ -58,7 +58,7 @@ DisplayName:
   na-ashburn: United States, Ashburn
     na-ashburn-1: United States, Ashburn
     na-ashburn-2: United States, Ashburn
-  na-toronto: Canada, Toronto
+  na-toronto: Canada, Toronto            # not available
     na-toronto-1: Canada, Toronto
     na-toronto-2: Canada, Toronto
   sa-sao-paulo: Brazil, São Paulo
