@@ -822,8 +822,11 @@ definitions:
     type: object
   spider.RegionZoneInfo:
     properties:
+      CSPDisplayName:
+        example: US East (N. Virginia)
+        type: string
       DisplayName:
-        example: US East
+        example: United States, Ohio
         type: string
       KeyValueList:
         items:
@@ -837,6 +840,7 @@ definitions:
           $ref: '#/definitions/spider.ZoneInfo'
         type: array
     required:
+    - CSPDisplayName
     - DisplayName
     - Name
     type: object
@@ -1203,8 +1207,11 @@ definitions:
     type: object
   spider.ZoneInfo:
     properties:
+      CSPDisplayName:
+        example: US East (N. Virginia)
+        type: string
       DisplayName:
-        example: US East 1A
+        example: United States, Ohio
         type: string
       KeyValueList:
         items:
@@ -1218,6 +1225,7 @@ definitions:
         - $ref: '#/definitions/spider.ZoneStatus'
         example: Available
     required:
+    - CSPDisplayName
     - DisplayName
     - Name
     - Status

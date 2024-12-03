@@ -9152,13 +9152,18 @@ const docTemplate = `{
         "spider.RegionZoneInfo": {
             "type": "object",
             "required": [
+                "CSPDisplayName",
                 "DisplayName",
                 "Name"
             ],
             "properties": {
+                "CSPDisplayName": {
+                    "type": "string",
+                    "example": "US East (N. Virginia)"
+                },
                 "DisplayName": {
                     "type": "string",
-                    "example": "US East"
+                    "example": "United States, Ohio"
                 },
                 "KeyValueList": {
                     "type": "array",
@@ -9697,14 +9702,19 @@ const docTemplate = `{
         "spider.ZoneInfo": {
             "type": "object",
             "required": [
+                "CSPDisplayName",
                 "DisplayName",
                 "Name",
                 "Status"
             ],
             "properties": {
+                "CSPDisplayName": {
+                    "type": "string",
+                    "example": "US East (N. Virginia)"
+                },
                 "DisplayName": {
                     "type": "string",
-                    "example": "US East 1A"
+                    "example": "United States, Ohio"
                 },
                 "KeyValueList": {
                     "type": "array",
