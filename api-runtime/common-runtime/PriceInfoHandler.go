@@ -126,7 +126,7 @@ func getProviderSpecificPFName(providerName, pfName string) string {
 	case "NCP":
 		return "SVR"
 	case "NCPVPC":
-		return "SVR"
+		return "Server"
 	default:
 		return pfName
 	}

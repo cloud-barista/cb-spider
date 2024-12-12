@@ -33,6 +33,20 @@ func (regionZoneHandler *IbmRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 		return nil, getErr
 	}
 
+	regionDisplayNames := map[string]string{
+		"au-syd":   "Sydney",
+		"br-sao":   "Sao Paulo",
+		"ca-tor":   "Toronto",
+		"eu-de":    "Frankfurt",
+		"eu-gb":    "London",
+		"eu-es":    "Madrid",
+		"in-che":   "Chennai",
+		"jp-osa":   "Osaka",
+		"jp-tok":   "Tokyo",
+		"us-east":  "Washington DC",
+		"us-south": "Dallas",
+	}
+
 	var regionZoneInfo []*irs.RegionZoneInfo
 
 	var routineMax = 20
@@ -62,6 +76,9 @@ func (regionZoneHandler *IbmRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 					return
 				}
 
+				regionName := *reg.Name
+				regionDisplayName := regionDisplayNames[regionName]
+
 				for _, zone := range zones.Zones {
 					var status = irs.ZoneAvailable
 
@@ -70,7 +87,7 @@ func (regionZoneHandler *IbmRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 					}
 					zoneList = append(zoneList, irs.ZoneInfo{
 						Name:         *zone.Name,
-						DisplayName:  *zone.Name,
+						DisplayName:  regionDisplayName,
 						Status:       status,
 						KeyValueList: []irs.KeyValue{},
 					})
@@ -79,7 +96,7 @@ func (regionZoneHandler *IbmRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 				mutex.Lock()
 				regionZoneInfo = append(regionZoneInfo, &irs.RegionZoneInfo{
 					Name:         *reg.Name,
-					DisplayName:  *reg.Name,
+					DisplayName:  regionDisplayName,
 					ZoneList:     zoneList,
 					KeyValueList: []irs.KeyValue{},
 				})
