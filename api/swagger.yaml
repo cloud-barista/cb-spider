@@ -235,11 +235,11 @@ definitions:
   spider.GpuInfo:
     properties:
       Count:
-        description: Number of GPUs, NA when not applicable
+        description: Number of GPUs, "-1" when not applicable
         example: "1"
         type: string
       Mem:
-        description: Memory size of the GPU in MB, NA when not applicable
+        description: Memory size of the GPU in MB, "-1" when not applicable
         example: "8192"
         type: string
       Mfr:
@@ -927,11 +927,11 @@ definitions:
   spider.VCpuInfo:
     properties:
       Clock:
-        description: Clock speed in GHz, NA when not applicable
+        description: Clock speed in GHz, "-1" when not applicable
         example: "2.5"
         type: string
       Count:
-        description: Number of CPU cores, NA when not applicable
+        description: Number of CPU cores, "-1" when not applicable
         example: "2"
         type: string
     required:
@@ -1102,7 +1102,7 @@ definitions:
   spider.VMSpecInfo:
     properties:
       Disk:
-        description: Disk size in GB, NA when not applicable
+        description: Disk size in GB, "-1" when not applicable
         example: "8"
         type: string
       Gpu:

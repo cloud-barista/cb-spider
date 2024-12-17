@@ -8340,12 +8340,12 @@ const docTemplate = `{
             ],
             "properties": {
                 "Count": {
-                    "description": "Number of GPUs, NA when not applicable",
+                    "description": "Number of GPUs, \"-1\" when not applicable",
                     "type": "string",
                     "example": "1"
                 },
                 "Mem": {
-                    "description": "Memory size of the GPU in MB, NA when not applicable",
+                    "description": "Memory size of the GPU in MB, \"-1\" when not applicable",
                     "type": "string",
                     "example": "8192"
                 },
@@ -9308,12 +9308,12 @@ const docTemplate = `{
             ],
             "properties": {
                 "Clock": {
-                    "description": "Clock speed in GHz, NA when not applicable",
+                    "description": "Clock speed in GHz, \"-1\" when not applicable",
                     "type": "string",
                     "example": "2.5"
                 },
                 "Count": {
-                    "description": "Number of CPU cores, NA when not applicable",
+                    "description": "Number of CPU cores, \"-1\" when not applicable",
                     "type": "string",
                     "example": "2"
                 }
@@ -9561,7 +9561,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "Disk": {
-                    "description": "Disk size in GB, NA when not applicable",
+                    "description": "Disk size in GB, \"-1\" when not applicable",
                     "type": "string",
                     "example": "8"
                 },
