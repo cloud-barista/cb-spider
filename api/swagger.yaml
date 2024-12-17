@@ -235,19 +235,19 @@ definitions:
   spider.GpuInfo:
     properties:
       Count:
-        description: Number of GPUs
+        description: Number of GPUs, NA when not applicable
         example: "1"
         type: string
       Mem:
-        description: Memory size of the GPU in MB
+        description: Memory size of the GPU in MB, NA when not applicable
         example: "8192"
         type: string
       Mfr:
-        description: Manufacturer of the GPU
+        description: Manufacturer of the GPU, NA when not applicable
         example: NVIDIA
         type: string
       Model:
-        description: Model of the GPU
+        description: Model of the GPU, NA when not applicable
         example: Tesla K80
         type: string
     required:
@@ -927,11 +927,11 @@ definitions:
   spider.VCpuInfo:
     properties:
       Clock:
-        description: Clock speed in GHz
+        description: Clock speed in GHz, NA when not applicable
         example: "2.5"
         type: string
       Count:
-        description: Number of CPU cores
+        description: Number of CPU cores, NA when not applicable
         example: "2"
         type: string
     required:
@@ -1101,6 +1101,10 @@ definitions:
     type: object
   spider.VMSpecInfo:
     properties:
+      Disk:
+        description: Disk size in GB, NA when not applicable
+        example: "8"
+        type: string
       Gpu:
         description: GPU details if available
         items:
@@ -1128,6 +1132,7 @@ definitions:
         - $ref: '#/definitions/spider.VCpuInfo'
         description: CPU details of the VM spec
     required:
+    - Disk
     - Mem
     - Name
     - Region

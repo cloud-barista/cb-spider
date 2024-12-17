@@ -8340,22 +8340,22 @@ const docTemplate = `{
             ],
             "properties": {
                 "Count": {
-                    "description": "Number of GPUs",
+                    "description": "Number of GPUs, NA when not applicable",
                     "type": "string",
                     "example": "1"
                 },
                 "Mem": {
-                    "description": "Memory size of the GPU in MB",
+                    "description": "Memory size of the GPU in MB, NA when not applicable",
                     "type": "string",
                     "example": "8192"
                 },
                 "Mfr": {
-                    "description": "Manufacturer of the GPU",
+                    "description": "Manufacturer of the GPU, NA when not applicable",
                     "type": "string",
                     "example": "NVIDIA"
                 },
                 "Model": {
-                    "description": "Model of the GPU",
+                    "description": "Model of the GPU, NA when not applicable",
                     "type": "string",
                     "example": "Tesla K80"
                 }
@@ -9308,12 +9308,12 @@ const docTemplate = `{
             ],
             "properties": {
                 "Clock": {
-                    "description": "Clock speed in GHz",
+                    "description": "Clock speed in GHz, NA when not applicable",
                     "type": "string",
                     "example": "2.5"
                 },
                 "Count": {
-                    "description": "Number of CPU cores",
+                    "description": "Number of CPU cores, NA when not applicable",
                     "type": "string",
                     "example": "2"
                 }
@@ -9553,12 +9553,18 @@ const docTemplate = `{
         "spider.VMSpecInfo": {
             "type": "object",
             "required": [
+                "Disk",
                 "Mem",
                 "Name",
                 "Region",
                 "VCpu"
             ],
             "properties": {
+                "Disk": {
+                    "description": "Disk size in GB, NA when not applicable",
+                    "type": "string",
+                    "example": "8"
+                },
                 "Gpu": {
                     "description": "GPU details if available",
                     "type": "array",
