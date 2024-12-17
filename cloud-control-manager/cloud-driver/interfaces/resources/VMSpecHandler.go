@@ -16,6 +16,7 @@ type VMSpecInfo struct {
 	Name   string    `json:"Name" validate:"required" example:"t2.micro"`    // Name of the VM spec
 	VCpu   VCpuInfo  `json:"VCpu" validate:"required"`                       // CPU details of the VM spec
 	Mem    string    `json:"Mem" validate:"required" example:"1024"`         // Memory size in MB
+	Disk   string    `json:"Disk" validate:"required" example:"8"`           // Disk size in GB, NA when not applicable
 	Gpu    []GpuInfo `json:"Gpu,omitempty" validate:"omitempty"`             // GPU details if available
 
 	KeyValueList []KeyValue `json:"KeyValueList,omitempty" validate:"omitempty"` // Additional key-value pairs for the VM spec
@@ -23,16 +24,16 @@ type VMSpecInfo struct {
 
 // VCpuInfo represents the CPU details of a VM specification.
 type VCpuInfo struct {
-	Count string `json:"Count" validate:"required" example:"2"`              // Number of CPU cores
-	Clock string `json:"Clock,omitempty" validate:"omitempty" example:"2.5"` // Clock speed in GHz
+	Count string `json:"Count" validate:"required" example:"2"`              // Number of CPU cores, NA when not applicable
+	Clock string `json:"Clock,omitempty" validate:"omitempty" example:"2.5"` // Clock speed in GHz, NA when not applicable
 }
 
 // GpuInfo represents the GPU details of a VM specification.
 type GpuInfo struct {
-	Count string `json:"Count" validate:"required" example:"1"`                    // Number of GPUs
-	Mfr   string `json:"Mfr,omitempty" validate:"omitempty" example:"NVIDIA"`      // Manufacturer of the GPU
-	Model string `json:"Model,omitempty" validate:"omitempty" example:"Tesla K80"` // Model of the GPU
-	Mem   string `json:"Mem,omitempty" validate:"omitempty" example:"8192"`        // Memory size of the GPU in MB
+	Count string `json:"Count" validate:"required" example:"1"`                    // Number of GPUs, NA when not applicable
+	Mfr   string `json:"Mfr,omitempty" validate:"omitempty" example:"NVIDIA"`      // Manufacturer of the GPU, NA when not applicable
+	Model string `json:"Model,omitempty" validate:"omitempty" example:"Tesla K80"` // Model of the GPU, NA when not applicable
+	Mem   string `json:"Mem,omitempty" validate:"omitempty" example:"8192"`        // Memory size of the GPU in MB, NA when not applicable
 }
 
 type VMSpecHandler interface {
