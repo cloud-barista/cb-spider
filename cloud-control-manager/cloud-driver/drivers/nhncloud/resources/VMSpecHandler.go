@@ -152,19 +152,95 @@ func (vmSpecHandler *NhnCloudVMSpecHandler) GetOrgVMSpec(specName string) (strin
 	return jsonString, nil
 }
 
+func getGpuCount(vmSize string) (ea int, memory int) {
+	vmSize = strings.ToLower(vmSize)
+
+	// https://www.nhncloud.com/kr/pricing/m-content?c=Machine%20Learning&s=AI%20EasyMaker
+	if strings.Contains(vmSize, "g2") {
+		if strings.Contains(vmSize, "v100") {
+			if strings.Contains(vmSize, "c8m90") {
+				return 1, 32
+			} else if strings.Contains(vmSize, "c16m180") {
+				return 2, 64
+			} else if strings.Contains(vmSize, "c32m360") {
+				return 4, 128
+			} else if strings.Contains(vmSize, "c64m720") {
+				return 8, 256
+			}
+		} else if strings.Contains(vmSize, "t4") {
+			if strings.Contains(vmSize, "c4m32") {
+				return 1, 16
+			} else if strings.Contains(vmSize, "c8m64") {
+				return 2, 32
+			} else if strings.Contains(vmSize, "c16m128") {
+				return 4, 64
+			} else if strings.Contains(vmSize, "c32m256") {
+				return 8, 128
+			}
+		}
+	} else if strings.Contains(vmSize, "g4") {
+		if strings.Contains(vmSize, "c92m1800") {
+			return 8, 320
+		}
+	}
+
+	return -1, -1
+}
+
+func getGpuModel(vmSize string) string {
+	vmSize = strings.ToLower(vmSize)
+
+	if strings.Contains(vmSize, ".v100.") {
+		return "Tesla V100"
+	} else if strings.Contains(vmSize, ".t4.") {
+		return "Tesla T4"
+	} else if strings.Contains(vmSize, "c92m1800") {
+		return "A100"
+	}
+
+	return ""
+}
+
+func parseGpuInfo(vmSizeName string) *irs.GpuInfo {
+	vmSizeLower := strings.ToLower(vmSizeName)
+
+	// Check if it's a GPU series
+	if !strings.HasPrefix(vmSizeLower, "g2") &&
+		!strings.HasPrefix(vmSizeLower, "g4") {
+		return nil
+	}
+
+	count, mem := getGpuCount(vmSizeLower)
+	model := getGpuModel(vmSizeLower)
+
+	return &irs.GpuInfo{
+		Count: fmt.Sprintf("%d", count),
+		Mem:   fmt.Sprintf("%d", mem*1024),
+		Mfr:   "NVIDIA",
+		Model: model,
+	}
+}
+
 func (vmSpecHandler *NhnCloudVMSpecHandler) mappingVMSpecInfo(vmSpec flavors.Flavor) *irs.VMSpecInfo {
 	cblogger.Info("NHN Cloud Cloud Driver: called mappingVMSpecInfo()!")
+
+	gpuInfoList := make([]irs.GpuInfo, 0)
+	gpuInfo := parseGpuInfo(vmSpec.Name)
+	if gpuInfo != nil {
+		gpuInfoList = append(gpuInfoList, *gpuInfo)
+	}
 
 	vmSpecInfo := &irs.VMSpecInfo{
 		Region: vmSpecHandler.RegionInfo.Region,
 		Name:   vmSpec.Name,
 		VCpu:   irs.VCpuInfo{Count: strconv.Itoa(vmSpec.VCPUs)},
 		Mem:    strconv.Itoa(vmSpec.RAM),
-		// Gpu:          []irs.GpuInfo{{Count: "N/A", Mfr: "N/A", Model: "N/A", Mem: "N/A"}},
+		Disk:   strconv.Itoa(vmSpec.Disk),
+		Gpu:    gpuInfoList,
 
 		KeyValueList: []irs.KeyValue{
-			{Key: "Region", 		   Value: vmSpecHandler.RegionInfo.Region},
-			{Key: "VMSpecType", 	   Value: vmSpec.ExtraSpecs.FlavorType},			
+			{Key: "Region", Value: vmSpecHandler.RegionInfo.Region},
+			{Key: "VMSpecType", Value: vmSpec.ExtraSpecs.FlavorType},
 			{Key: "LocalDiskSize(GB)", Value: strconv.Itoa(vmSpec.Disk)},
 		},
 	}
