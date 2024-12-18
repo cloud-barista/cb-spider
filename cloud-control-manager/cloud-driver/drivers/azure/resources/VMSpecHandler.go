@@ -24,7 +24,7 @@ type AzureVmSpecHandler struct {
 	Client *armcompute.VirtualMachineSizesClient
 }
 
-func getGpuCount(vmSize string) (ea string, memory string) {
+func getGpuCount(vmSize string) (ea float32, memory int) {
 	vmSize = strings.ToLower(vmSize)
 
 	// NC series
@@ -32,44 +32,44 @@ func getGpuCount(vmSize string) (ea string, memory string) {
 	if strings.Contains(vmSize, "nc") {
 		if strings.Contains(vmSize, "h100") {
 			if strings.Contains(vmSize, "nc40") || strings.Contains(vmSize, "ncc40") {
-				return "1", "94"
+				return 1, 94
 			} else if strings.Contains(vmSize, "nc80") {
-				return "2", "188"
+				return 2, 188
 			}
 		} else if strings.Contains(vmSize, "t4") {
 			if strings.Contains(vmSize, "nc4") {
-				return "1", "16"
+				return 1, 16
 			} else if strings.Contains(vmSize, "nc8") {
-				return "1", "16"
+				return 1, 16
 			} else if strings.Contains(vmSize, "nc16") {
-				return "1", "16"
+				return 1, 16
 			} else if strings.Contains(vmSize, "nc64") {
-				return "4", "64"
+				return 4, 64
 			}
 		} else if strings.Contains(vmSize, "a100") {
 			if strings.Contains(vmSize, "nc24") {
-				return "1", "80"
+				return 1, 80
 			} else if strings.Contains(vmSize, "nc48") {
-				return "2", "160"
+				return 2, 160
 			} else if strings.Contains(vmSize, "nc96") {
-				return "4", "320"
+				return 4, 320
 			}
 		} else {
 			if strings.Contains(vmSize, "v2") {
 				if strings.Contains(vmSize, "nc24") {
-					return "4", "64"
+					return 4, 64
 				} else if strings.Contains(vmSize, "nc12") {
-					return "2", "32"
+					return 2, 32
 				} else if strings.Contains(vmSize, "nc6") {
-					return "1", "16"
+					return 1, 16
 				}
 			} else {
 				if strings.Contains(vmSize, "nc24") {
-					return "4", "48"
+					return 4, 48
 				} else if strings.Contains(vmSize, "nc12") {
-					return "2", "24"
+					return 2, 24
 				} else if strings.Contains(vmSize, "nc6") {
-					return "1", "12"
+					return 1, 12
 				}
 			}
 		}
@@ -80,24 +80,24 @@ func getGpuCount(vmSize string) (ea string, memory string) {
 	if strings.Contains(vmSize, "nd") {
 		if strings.Contains(vmSize, "h100") {
 			if strings.Contains(vmSize, "nd96") {
-				return "8", "640"
+				return 8, 640
 			}
 		} else if strings.Contains(vmSize, "h200") {
 			if strings.Contains(vmSize, "nd96") {
-				return "8", "1128"
+				return 8, 1128
 			}
 		} else if strings.Contains(vmSize, "mi300x") {
 			if strings.Contains(vmSize, "nd96") {
-				return "8", "1535"
+				return 8, 1535
 			}
 		} else if strings.Contains(vmSize, "a100") {
 			if strings.Contains(vmSize, "asr") {
 				if strings.Contains(vmSize, "nd96") {
-					return "8", "320"
+					return 8, 320
 				}
 			} else if strings.Contains(vmSize, "amsr") {
 				if strings.Contains(vmSize, "nd96") {
-					return "8", "80"
+					return 8, 80
 				}
 			}
 		} else {
@@ -105,15 +105,15 @@ func getGpuCount(vmSize string) (ea string, memory string) {
 				if strings.Contains(vmSize, "nd40") {
 					// https://learn.microsoft.com/ko-kr/azure/virtual-machines/sizes/gpu-accelerated/ndv2-series?tabs=sizeaccelerators#sizes-in-series
 					// Dose not provide quantity
-					return "", "256"
+					return 0, 256
 				}
 			} else {
 				if strings.Contains(vmSize, "nd24") {
-					return "4", "96"
+					return 4, 96
 				} else if strings.Contains(vmSize, "nd12") {
-					return "2", "48"
+					return 2, 48
 				} else if strings.Contains(vmSize, "nd6") {
-					return "1", "24"
+					return 1, 24
 				}
 			}
 		}
@@ -124,11 +124,11 @@ func getGpuCount(vmSize string) (ea string, memory string) {
 	if strings.Contains(vmSize, "ng") {
 		if strings.Contains(vmSize, "v620") {
 			if strings.Contains(vmSize, "ng8") {
-				return "0.25", "8"
+				return 0.25, 8
 			} else if strings.Contains(vmSize, "ng16") {
-				return "0.5", "16"
+				return 0.5, 16
 			} else if strings.Contains(vmSize, "ng32") {
-				return "1", "32"
+				return 1, 32
 			}
 		}
 	}
@@ -139,63 +139,63 @@ func getGpuCount(vmSize string) (ea string, memory string) {
 		if strings.Contains(vmSize, "a10") {
 			if strings.Contains(vmSize, "nv6") {
 				// original quantity: 1/6 = 0.167
-				return "0.167", "8"
+				return 0.167, 8
 			} else if strings.Contains(vmSize, "nv12") {
 				// original quantity: 1/3 = 0.333
-				return "0.333", "8"
+				return 0.333, 8
 			} else if strings.Contains(vmSize, "nv18") {
-				return "0.5", "12"
+				return 0.5, 12
 			} else if strings.Contains(vmSize, "nv36") {
-				return "1", "24"
+				return 1, 24
 			} else if strings.Contains(vmSize, "nv72") {
-				return "2", "48"
+				return 2, 48
 			}
 		} else if strings.Contains(vmSize, "v710") {
 			if strings.Contains(vmSize, "nv4") {
 				// original quantity: 1/6 = 0.167
-				return "0.167", "4"
+				return 0.167, 4
 			} else if strings.Contains(vmSize, "nv8") {
 				// original quantity: 1/3 = 0.333
-				return "0.333", "8"
+				return 0.333, 8
 			} else if strings.Contains(vmSize, "nv12") {
-				return "0.5", "12"
+				return 0.5, 12
 			} else if strings.Contains(vmSize, "nv24") {
-				return "1", "24"
+				return 1, 24
 			} else if strings.Contains(vmSize, "nv28") {
-				return "1", "24"
+				return 1, 24
 			}
 		} else {
 			if strings.Contains(vmSize, "v3") {
 				if strings.Contains(vmSize, "nv12") {
-					return "1", "8"
+					return 1, 8
 				} else if strings.Contains(vmSize, "nv24") {
-					return "2", "16"
+					return 2, 16
 				} else if strings.Contains(vmSize, "nv48") {
-					return "4", "32"
+					return 4, 32
 				}
 			} else if strings.Contains(vmSize, "v4") {
 				if strings.Contains(vmSize, "nv4") {
-					return "0.125", "2"
+					return 0.125, 2
 				} else if strings.Contains(vmSize, "nv8") {
-					return "0.25", "4"
+					return 0.25, 4
 				} else if strings.Contains(vmSize, "nv16") {
-					return "0.5", "8"
+					return 0.5, 8
 				} else if strings.Contains(vmSize, "nv32") {
-					return "1", "16"
+					return 1, 16
 				}
 			} else {
 				if strings.Contains(vmSize, "nd24") {
-					return "4", "96"
+					return 4, 96
 				} else if strings.Contains(vmSize, "nd12") {
-					return "2", "48"
+					return 2, 48
 				} else if strings.Contains(vmSize, "nd6") {
-					return "1", "24"
+					return 1, 24
 				}
 			}
 		}
 	}
 
-	return "-1", "-1"
+	return -1, -1
 }
 
 func getGpuModel(vmSize string) string {
@@ -251,6 +251,14 @@ func getGpuModel(vmSize string) string {
 	return ""
 }
 
+func formatGpuCountValue(value float32) string {
+	// 값이 정수인지 확인
+	if value == float32(int32(value)) {
+		return fmt.Sprintf("%d", int32(value))
+	}
+	return fmt.Sprintf("%.3f", value)
+}
+
 func parseGpuInfo(vmSizeName string) *irs.GpuInfo {
 	vmSizeLower := strings.ToLower(vmSizeName)
 
@@ -265,6 +273,7 @@ func parseGpuInfo(vmSizeName string) *irs.GpuInfo {
 	}
 
 	count, mem := getGpuCount(vmSizeLower)
+	countStr := formatGpuCountValue(count)
 	modelFullName := getGpuModel(vmSizeLower)
 	var mfr string
 	var model string
@@ -277,8 +286,8 @@ func parseGpuInfo(vmSizeName string) *irs.GpuInfo {
 	}
 
 	return &irs.GpuInfo{
-		Count: count,
-		Mem:   mem,
+		Count: countStr,
+		Mem:   fmt.Sprintf("%d", mem*1024),
 		Mfr:   mfr,
 		Model: model,
 	}
