@@ -36,7 +36,6 @@ func setterVMSpec(region string, vmSpec flavors.Flavor) *irs.VMSpecInfo {
 			{Key: "Swap (MB)", Value: strconv.Itoa(vmSpec.Swap)},
 			{Key: "Ephemeral Disk (GB)", Value: strconv.Itoa(vmSpec.Ephemeral)},
 			{Key: "IsPublic", Value: strconv.FormatBool(vmSpec.IsPublic)},
-			{Key: "Description", Value: strconv.FormatBool(vmSpec.IsPublic)},
 		},
 	}
 
