@@ -23,7 +23,6 @@ type IbmVmSpecHandler struct {
 func (vmSpecHandler *IbmVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Region, call.VMSPEC, "VMSpec", "ListVMSpec()")
 	start := call.Start()
-
 	var specList []*irs.VMSpecInfo
 	options := &vpcv1.ListInstanceProfilesOptions{}
 	profiles, _, err := vmSpecHandler.VpcService.ListInstanceProfilesWithContext(vmSpecHandler.Ctx, options)
@@ -70,6 +69,7 @@ func (vmSpecHandler *IbmVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo, e
 		LoggingError(hiscallInfo, getErr)
 		return irs.VMSpecInfo{}, getErr
 	}
+
 	LoggingInfo(hiscallInfo, start)
 
 	return vmSpecInfo, nil
@@ -144,6 +144,83 @@ func (vmSpecHandler *IbmVmSpecHandler) GetOrgVMSpec(Name string) (string, error)
 	return jsonString, nil
 }
 
+func getGpuInfo(name string) (Mfr string, count string, model string, mem string) {
+	name = strings.ToLower(name)
+	//https://cloud.ibm.com/docs/vpc?topic=vpc-profiles&interface=ui#gpu
+	//https://www.ibm.com/kr-ko/cloud/gpu/nvidia
+
+	// H100 GPU
+	if strings.Contains(name, "gx3d-160x1792x8h100") {
+		return "NVIDIA", "8", "H100", "1835008" // 1,792 GiB -> 1,792 * 1024 MB = 1835008 MB
+	}
+
+	// L40S GPU
+	if strings.Contains(name, "gx2-24x120x1l40s") {
+		return "NVIDIA", "1", "L40S", "122880" // 120 GiB -> 120 * 1024 MB = 122880 MB
+	}
+	if strings.Contains(name, "gx3-48x240x2l40s") {
+		return "NVIDIA", "2", "L40S", "245760" // 240 GiB -> 240 * 1024 MB = 245760 MB
+	}
+	if strings.Contains(name, "gx3-24x120x1l40s") {
+		return "NVIDIA", "1", "L40S", "49152"
+	}
+	if strings.Contains(name, "gx3-24x120x1l40s") {
+		return "NVIDIA", "2", "L40S", "98304"
+	}
+
+	// L4 GPU
+	if strings.Contains(name, "gx2-16x80x1l4") {
+		return "NVIDIA", "1", "L4", "81920" // 80 GiB -> 80 * 1024 MB = 81920 MB
+	}
+	if strings.Contains(name, "gx2-32x160x2l4") {
+		return "NVIDIA", "2", "L4", "163840" // 160 GiB -> 160 * 1024 MB = 163840 MB
+	}
+	if strings.Contains(name, "gx2-64x320x4l4") {
+		return "NVIDIA", "4", "L4", "327680" // 320 GiB -> 320 * 1024 MB = 327680 MB
+	}
+	if strings.Contains(name, "gx3-16x80x1l4") {
+		return "NVIDIA", "1", "L4", "24576"
+	}
+	if strings.Contains(name, "gx3-32x160x2l4") {
+		return "NVIDIA", "2", "L4", "49152"
+	}
+	if strings.Contains(name, "gx3-64x320x4l4") {
+		return "NVIDIA", "4", "L4", "98304"
+	}
+
+	// P100 GPU
+	if strings.Contains(name, "gx2-8x60x1p100") {
+		return "NVIDIA", "1", "P100", "61440" // 60 GiB -> 60 * 1024 MB = 61440 MB
+	}
+	if strings.Contains(name, "gx2-16x120x2p100") {
+		return "NVIDIA", "2", "P100", "122880" // 120 GiB -> 120 * 1024 MB = 122880 MB
+	}
+
+	// T4 GPU
+	if strings.Contains(name, "gx2-8x32x1t4") {
+		return "NVIDIA", "1", "T4", "32768" // 32 GiB -> 32 * 1024 MB = 32768 MB
+	}
+	if strings.Contains(name, "gx2-16x64x2t4") {
+		return "NVIDIA", "2", "T4", "65536" // 64 GiB -> 64 * 1024 MB = 65536 MB
+	}
+
+	//V100
+	if strings.Contains(name, "gx2-8x64x1v100") {
+		return "NVIDIA", "1", "V100", "16384" // 32 GiB -> 32 * 1024 MB = 32768 MB
+	}
+	if strings.Contains(name, "gx2-16x128x1v100") {
+		return "NVIDIA", "1", "V100", "16384" // 64 GiB -> 64 * 1024 MB = 65536 MB
+	}
+	if strings.Contains(name, "gx2-16x128x2v100") {
+		return "NVIDIA", "2", "V100", "32768"
+	}
+	if strings.Contains(name, "gx2-32x256x2v100") {
+		return "NVIDIA", "2", "V100", "32768"
+	}
+
+	return "", "", "", ""
+}
+
 func setVmSpecInfo(profile vpcv1.InstanceProfile, region string) (irs.VMSpecInfo, error) {
 	if profile.Name == nil {
 		return irs.VMSpecInfo{}, errors.New(fmt.Sprintf("Invalid vmspec"))
@@ -151,7 +228,9 @@ func setVmSpecInfo(profile vpcv1.InstanceProfile, region string) (irs.VMSpecInfo
 	vmSpecInfo := irs.VMSpecInfo{
 		Region: region,
 		Name:   *profile.Name,
+		Disk:   "-1",
 	}
+
 	specslice := strings.Split(*profile.Name, "-")
 	if len(specslice) > 1 {
 		specslice2 := strings.Split(specslice[1], "x")
@@ -165,6 +244,16 @@ func setVmSpecInfo(profile vpcv1.InstanceProfile, region string) (irs.VMSpecInfo
 			memValueString := strconv.Itoa(memValue)
 			vmSpecInfo.Mem = memValueString
 		}
+	}
+
+	gpuMfr, gpuCount, gpuModel, gpuMem := getGpuInfo(*profile.Name)
+	vmSpecInfo.Gpu = []irs.GpuInfo{
+		{
+			Mfr:   gpuMfr,
+			Count: gpuCount,
+			Model: gpuModel,
+			Mem:   gpuMem,
+		},
 	}
 	return vmSpecInfo, nil
 }
