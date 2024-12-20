@@ -144,81 +144,83 @@ func (vmSpecHandler *IbmVmSpecHandler) GetOrgVMSpec(Name string) (string, error)
 	return jsonString, nil
 }
 
-func getGpuInfo(name string) (Mfr string, count string, model string, mem string) {
-	name = strings.ToLower(name)
-	//https://cloud.ibm.com/docs/vpc?topic=vpc-profiles&interface=ui#gpu
-	//https://www.ibm.com/kr-ko/cloud/gpu/nvidia
+func getGpuMfr(name string) string {
+	if strings.HasPrefix(name, "gx2") || strings.HasPrefix(name, "gx3") {
+		return "NVIDIA"
+	}
+	return "NA"
+}
 
-	// H100 GPU
-	if strings.Contains(name, "gx3d-160x1792x8h100") {
-		return "NVIDIA", "8", "H100", "1835008" // 1,792 GiB -> 1,792 * 1024 MB = 1835008 MB
-	}
-
-	// L40S GPU
-	if strings.Contains(name, "gx2-24x120x1l40s") {
-		return "NVIDIA", "1", "L40S", "122880" // 120 GiB -> 120 * 1024 MB = 122880 MB
-	}
-	if strings.Contains(name, "gx3-48x240x2l40s") {
-		return "NVIDIA", "2", "L40S", "245760" // 240 GiB -> 240 * 1024 MB = 245760 MB
-	}
-	if strings.Contains(name, "gx3-24x120x1l40s") {
-		return "NVIDIA", "1", "L40S", "49152"
-	}
-	if strings.Contains(name, "gx3-24x120x1l40s") {
-		return "NVIDIA", "2", "L40S", "98304"
+func getGpuCount(name string) string {
+	splits := strings.Split(name, "-")
+	if len(splits) < 2 {
+		return "-1"
 	}
 
-	// L4 GPU
-	if strings.Contains(name, "gx2-16x80x1l4") {
-		return "NVIDIA", "1", "L4", "81920" // 80 GiB -> 80 * 1024 MB = 81920 MB
-	}
-	if strings.Contains(name, "gx2-32x160x2l4") {
-		return "NVIDIA", "2", "L4", "163840" // 160 GiB -> 160 * 1024 MB = 163840 MB
-	}
-	if strings.Contains(name, "gx2-64x320x4l4") {
-		return "NVIDIA", "4", "L4", "327680" // 320 GiB -> 320 * 1024 MB = 327680 MB
-	}
-	if strings.Contains(name, "gx3-16x80x1l4") {
-		return "NVIDIA", "1", "L4", "24576"
-	}
-	if strings.Contains(name, "gx3-32x160x2l4") {
-		return "NVIDIA", "2", "L4", "49152"
-	}
-	if strings.Contains(name, "gx3-64x320x4l4") {
-		return "NVIDIA", "4", "L4", "98304"
+	specDetails := strings.Split(splits[len(splits)-1], "x")
+	if len(specDetails) < 3 {
+		return "-1"
 	}
 
-	// P100 GPU
-	if strings.Contains(name, "gx2-8x60x1p100") {
-		return "NVIDIA", "1", "P100", "61440" // 60 GiB -> 60 * 1024 MB = 61440 MB
+	gpuDetails := specDetails[len(specDetails)-1]
+	for i, char := range gpuDetails {
+		if char >= 'a' && char <= 'z' || char >= 'A' && char <= 'Z' {
+			return gpuDetails[:i] // 숫자 부분 반환
+		}
 	}
-	if strings.Contains(name, "gx2-16x120x2p100") {
-		return "NVIDIA", "2", "P100", "122880" // 120 GiB -> 120 * 1024 MB = 122880 MB
+	return "-1"
+}
+
+func getGpuModel(name string) string {
+	splits := strings.Split(name, "-")
+	if len(splits) < 2 {
+		return "NA"
 	}
 
-	// T4 GPU
-	if strings.Contains(name, "gx2-8x32x1t4") {
-		return "NVIDIA", "1", "T4", "32768" // 32 GiB -> 32 * 1024 MB = 32768 MB
-	}
-	if strings.Contains(name, "gx2-16x64x2t4") {
-		return "NVIDIA", "2", "T4", "65536" // 64 GiB -> 64 * 1024 MB = 65536 MB
+	specDetails := strings.Split(splits[len(splits)-1], "x")
+	if len(specDetails) < 3 {
+		return "NA"
 	}
 
-	//V100
-	if strings.Contains(name, "gx2-8x64x1v100") {
-		return "NVIDIA", "1", "V100", "16384" // 32 GiB -> 32 * 1024 MB = 32768 MB
+	gpuDetails := specDetails[len(specDetails)-1]
+	for i, char := range gpuDetails {
+		if char >= 'a' && char <= 'z' || char >= 'A' && char <= 'Z' {
+			return strings.ToUpper(gpuDetails[i:])
+		}
 	}
-	if strings.Contains(name, "gx2-16x128x1v100") {
-		return "NVIDIA", "1", "V100", "16384" // 64 GiB -> 64 * 1024 MB = 65536 MB
-	}
-	if strings.Contains(name, "gx2-16x128x2v100") {
-		return "NVIDIA", "2", "V100", "32768"
-	}
-	if strings.Contains(name, "gx2-32x256x2v100") {
-		return "NVIDIA", "2", "V100", "32768"
+	return "NA"
+}
+
+func getGpuMem(name string) string {
+	splits := strings.Split(name, "-")
+	if len(splits) < 2 {
+		return "-1"
 	}
 
-	return "", "", "", ""
+	specDetails := strings.Split(splits[len(splits)-1], "x")
+	if len(specDetails) < 2 {
+		return "-1"
+	}
+
+	memGiB, err := strconv.Atoi(specDetails[1])
+	if err != nil {
+		return "-1"
+	}
+	return strconv.Itoa(memGiB * 1024) // GiB -> MiB
+}
+
+func getGpuInfo(name string) (string, string, string, string) {
+	//check NVIDIA gpu
+	mfr := getGpuMfr(name)
+	if mfr == "NA" {
+		return mfr, "-1", "NA", "-1"
+	}
+
+	count := getGpuCount(name)
+	model := getGpuModel(name)
+	mem := getGpuMem(name)
+
+	return mfr, count, model, mem
 }
 
 func setVmSpecInfo(profile vpcv1.InstanceProfile, region string) (irs.VMSpecInfo, error) {
