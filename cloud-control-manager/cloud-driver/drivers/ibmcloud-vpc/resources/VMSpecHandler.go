@@ -165,7 +165,7 @@ func getGpuCount(name string) string {
 	gpuDetails := specDetails[len(specDetails)-1]
 	for i, char := range gpuDetails {
 		if char >= 'a' && char <= 'z' || char >= 'A' && char <= 'Z' {
-			return gpuDetails[:i] // 숫자 부분 반환
+			return gpuDetails[:i]
 		}
 	}
 	return "-1"
