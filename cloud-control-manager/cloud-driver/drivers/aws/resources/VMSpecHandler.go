@@ -72,10 +72,6 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo *ec2.InstanceTypeInfo) ir
 	cblogger.Debugf("ExtractVMSpecInfo : Region:[%s] / SpecName:[%s]", Region, *instanceTypeInfo.InstanceType)
 	//cblogger.Debug(instanceTypeInfo)
 
-	//fmt.Println("=======[EC2 응답] ==========")
-	//spew.Dump(instanceTypeInfo)
-	//fmt.Println("===================")
-
 	vCpuInfo := irs.VCpuInfo{}
 	gpuInfoList := []irs.GpuInfo{}
 
