@@ -23,7 +23,6 @@ type IbmVmSpecHandler struct {
 func (vmSpecHandler *IbmVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 	hiscallInfo := GetCallLogScheme(vmSpecHandler.Region, call.VMSPEC, "VMSpec", "ListVMSpec()")
 	start := call.Start()
-
 	var specList []*irs.VMSpecInfo
 	options := &vpcv1.ListInstanceProfilesOptions{}
 	profiles, _, err := vmSpecHandler.VpcService.ListInstanceProfilesWithContext(vmSpecHandler.Ctx, options)
@@ -70,6 +69,7 @@ func (vmSpecHandler *IbmVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo, e
 		LoggingError(hiscallInfo, getErr)
 		return irs.VMSpecInfo{}, getErr
 	}
+
 	LoggingInfo(hiscallInfo, start)
 
 	return vmSpecInfo, nil
@@ -144,6 +144,85 @@ func (vmSpecHandler *IbmVmSpecHandler) GetOrgVMSpec(Name string) (string, error)
 	return jsonString, nil
 }
 
+func getGpuMfr(name string) string {
+	if strings.HasPrefix(name, "gx2") || strings.HasPrefix(name, "gx3") {
+		return "NVIDIA"
+	}
+	return "NA"
+}
+
+func getGpuCount(name string) string {
+	splits := strings.Split(name, "-")
+	if len(splits) < 2 {
+		return "-1"
+	}
+
+	specDetails := strings.Split(splits[len(splits)-1], "x")
+	if len(specDetails) < 3 {
+		return "-1"
+	}
+
+	gpuDetails := specDetails[len(specDetails)-1]
+	for i, char := range gpuDetails {
+		if char >= 'a' && char <= 'z' || char >= 'A' && char <= 'Z' {
+			return gpuDetails[:i]
+		}
+	}
+	return "-1"
+}
+
+func getGpuModel(name string) string {
+	splits := strings.Split(name, "-")
+	if len(splits) < 2 {
+		return "NA"
+	}
+
+	specDetails := strings.Split(splits[len(splits)-1], "x")
+	if len(specDetails) < 3 {
+		return "NA"
+	}
+
+	gpuDetails := specDetails[len(specDetails)-1]
+	for i, char := range gpuDetails {
+		if char >= 'a' && char <= 'z' || char >= 'A' && char <= 'Z' {
+			return strings.ToUpper(gpuDetails[i:])
+		}
+	}
+	return "NA"
+}
+
+func getGpuMem(name string) string {
+	splits := strings.Split(name, "-")
+	if len(splits) < 2 {
+		return "-1"
+	}
+
+	specDetails := strings.Split(splits[len(splits)-1], "x")
+	if len(specDetails) < 2 {
+		return "-1"
+	}
+
+	memGiB, err := strconv.Atoi(specDetails[1])
+	if err != nil {
+		return "-1"
+	}
+	return strconv.Itoa(memGiB * 1024) // GiB -> MiB
+}
+
+func getGpuInfo(name string) (string, string, string, string) {
+	//check NVIDIA gpu
+	mfr := getGpuMfr(name)
+	if mfr == "NA" {
+		return mfr, "-1", "NA", "-1"
+	}
+
+	count := getGpuCount(name)
+	model := getGpuModel(name)
+	mem := getGpuMem(name)
+
+	return mfr, count, model, mem
+}
+
 func setVmSpecInfo(profile vpcv1.InstanceProfile, region string) (irs.VMSpecInfo, error) {
 	if profile.Name == nil {
 		return irs.VMSpecInfo{}, errors.New(fmt.Sprintf("Invalid vmspec"))
@@ -151,7 +230,9 @@ func setVmSpecInfo(profile vpcv1.InstanceProfile, region string) (irs.VMSpecInfo
 	vmSpecInfo := irs.VMSpecInfo{
 		Region: region,
 		Name:   *profile.Name,
+		Disk:   "-1",
 	}
+
 	specslice := strings.Split(*profile.Name, "-")
 	if len(specslice) > 1 {
 		specslice2 := strings.Split(specslice[1], "x")
@@ -165,6 +246,16 @@ func setVmSpecInfo(profile vpcv1.InstanceProfile, region string) (irs.VMSpecInfo
 			memValueString := strconv.Itoa(memValue)
 			vmSpecInfo.Mem = memValueString
 		}
+	}
+
+	gpuMfr, gpuCount, gpuModel, gpuMem := getGpuInfo(*profile.Name)
+	vmSpecInfo.Gpu = []irs.GpuInfo{
+		{
+			Mfr:   gpuMfr,
+			Count: gpuCount,
+			Model: gpuModel,
+			Mem:   gpuMem,
+		},
 	}
 	return vmSpecInfo, nil
 }
