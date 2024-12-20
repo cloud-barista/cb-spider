@@ -50,7 +50,19 @@ func (imageHandler *AwsImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) 
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	callogger.Info(call.String(callLogInfo))
 
-	return irs.ImageInfo{imageReqInfo.IId, "", "", nil}, nil
+	return irs.ImageInfo{
+		IId:            imageReqInfo.IId,
+		GuestOS:        "default-guest-os",
+		Name:           "default-image-name",
+		OSArchitecture: "x86_64",
+		OSPlatform:     "Linux/UNIX",
+		OSDistribution: "Ubuntu 18.04",
+		DiskType:       "gp3",
+		DiskSize:       "35",
+		Status:         "Available",
+		KeyValueList:   nil,
+	}, nil
+
 }
 
 // @TODO : 목록이 너무 많기 때문에 amazon 계정으로 공유된 퍼블릭 이미지중 AMI만 조회 함.

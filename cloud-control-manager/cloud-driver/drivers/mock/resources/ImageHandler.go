@@ -40,13 +40,69 @@ func PrepareVMImage(mockName string) {
 		return
 	}
 
-	PrepareImageInfoList = []*irs.ImageInfo{
-		{irs.IID{"mock-vmimage-01", "mock-vmimage-01"}, "TestGuestOS", "AVAILABLE", nil},
-		{irs.IID{"mock-vmimage-02", "mock-vmimage-02"}, "TestGuestOS", "AVAILABLE", nil},
-		{irs.IID{"mock-vmimage-03", "mock-vmimage-03"}, "TestGuestOS", "AVAILABLE", nil},
-		{irs.IID{"mock-vmimage-04", "mock-vmimage-04"}, "TestGuestOS", "AVAILABLE", nil},
-		{irs.IID{"mock-vmimage-05", "mock-vmimage-05"}, "TestGuestOS", "AVAILABLE", nil},
+	PrepareImageInfoList := []*irs.ImageInfo{
+		{
+			IId:            irs.IID{"mock-vmimage-01", "mock-vmimage-01"},
+			GuestOS:        "TestGuestOS",
+			Name:           "mock-vmimage-name-01",
+			OSArchitecture: "x86_64",
+			OSPlatform:     "Linux/UNIX",
+			OSDistribution: "Ubuntu 18.04",
+			DiskType:       "gp3",
+			DiskSize:       "35",
+			Status:         "Available",
+			KeyValueList:   nil,
+		},
+		{
+			IId:            irs.IID{"mock-vmimage-02", "mock-vmimage-02"},
+			GuestOS:        "TestGuestOS",
+			Name:           "mock-vmimage-name-02",
+			OSArchitecture: "arm64",
+			OSPlatform:     "Linux/UNIX",
+			OSDistribution: "CentOS 8",
+			DiskType:       "gp3",
+			DiskSize:       "40",
+			Status:         "Available",
+			KeyValueList:   nil,
+		},
+		{
+			IId:            irs.IID{"mock-vmimage-03", "mock-vmimage-03"},
+			GuestOS:        "TestGuestOS",
+			Name:           "mock-vmimage-name-03",
+			OSArchitecture: "x86_64",
+			OSPlatform:     "Windows",
+			OSDistribution: "Windows Server 2019",
+			DiskType:       "gp3",
+			DiskSize:       "50",
+			Status:         "Available",
+			KeyValueList:   nil,
+		},
+		{
+			IId:            irs.IID{"mock-vmimage-04", "mock-vmimage-04"},
+			GuestOS:        "TestGuestOS",
+			Name:           "mock-vmimage-name-04",
+			OSArchitecture: "arm64",
+			OSPlatform:     "Linux/UNIX",
+			OSDistribution: "Ubuntu 22.04",
+			DiskType:       "gp3",
+			DiskSize:       "35",
+			Status:         "Available",
+			KeyValueList:   nil,
+		},
+		{
+			IId:            irs.IID{"mock-vmimage-05", "mock-vmimage-05"},
+			GuestOS:        "TestGuestOS",
+			Name:           "mock-vmimage-name-05",
+			OSArchitecture: "x86_64",
+			OSPlatform:     "Linux/UNIX",
+			OSDistribution: "Amazon Linux 2",
+			DiskType:       "gp3",
+			DiskSize:       "30",
+			Status:         "Available",
+			KeyValueList:   nil,
+		},
 	}
+
 	imgInfoMap[mockName] = PrepareImageInfoList
 }
 
@@ -60,7 +116,18 @@ func (imageHandler *MockImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo)
 	imageReqInfo.IId.SystemId = imageReqInfo.IId.NameId
 
 	// (1) create imageInfo object
-	imageInfo := irs.ImageInfo{irs.IID{imageReqInfo.IId.NameId, imageReqInfo.IId.SystemId}, "TestGuestOS", "TestStatus", nil}
+	imageInfo := irs.ImageInfo{
+		IId:            irs.IID{imageReqInfo.IId.NameId, imageReqInfo.IId.SystemId},
+		GuestOS:        "TestGuestOS",
+		Name:           "test-image-name",
+		OSArchitecture: "x86_64",
+		OSPlatform:     "Linux/UNIX",
+		OSDistribution: "Ubuntu 18.04",
+		DiskType:       "gp3",
+		DiskSize:       "35",
+		Status:         "Available",
+		KeyValueList:   nil,
+	}
 
 	// (2) insert ImageInfo into global Map
 	imgInfoList, _ := imgInfoMap[mockName]
