@@ -89,8 +89,8 @@ func (imageHandler *DockerImageHandler) CreateImage(imageReqInfo irs.ImageReqInf
 				OSArchitecture: "x86_64",
 				OSPlatform:     "Linux/UNIX",
 				OSDistribution: "Ubuntu 18.04",
-				DiskType:       "gp3",
-				DiskSize:       "35",
+				OSDiskType:     "gp3",
+				OSDiskSize:     "35",
 				Status:         "Available",
 				KeyValueList:   nil,
 			}, nil
@@ -160,8 +160,8 @@ func (imageHandler *DockerImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 			OSArchitecture: "x86_64",
 			OSPlatform:     "Linux/UNIX",
 			OSDistribution: "Ubuntu 18.04",
-			DiskType:       "gp3",
-			DiskSize:       "35",
+			OSDiskType:     "gp3",
+			OSDiskSize:     "35",
 			Status:         "Available",
 			KeyValueList:   nil,
 		}
@@ -187,8 +187,8 @@ func (imageHandler *DockerImageHandler) GetImage(imageIID irs.IID) (irs.ImageInf
 		OSArchitecture: "x86_64",
 		OSPlatform:     "Linux/UNIX",
 		OSDistribution: "Ubuntu 18.04",
-		DiskType:       "gp3",
-		DiskSize:       "35",
+		OSDiskType:     "gp3",
+		OSDiskSize:     "35",
 		Status:         "Available",
 		KeyValueList:   nil,
 	}, nil

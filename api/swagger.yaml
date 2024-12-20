@@ -324,14 +324,6 @@ definitions:
     type: object
   spider.ImageInfo:
     properties:
-      DiskSize:
-        description: 35, etc., GB
-        example: "35"
-        type: string
-      DiskType:
-        description: gp3, etc.
-        example: gp3
-        type: string
       GuestOS:
         description: Windows7, Ubuntu etc. // Deprecated
         example: Ubuntu 18.04
@@ -352,6 +344,14 @@ definitions:
         description: arm64, x86_64 etc.
         example: x86_64
         type: string
+      OSDiskSize:
+        description: 35, etc., GB
+        example: "35"
+        type: string
+      OSDiskType:
+        description: gp3, etc.
+        example: gp3
+        type: string
       OSDistribution:
         description: Ubuntu 22.04~, CentOS 8 etc.
         example: Ubuntu 22.04~
@@ -365,12 +365,12 @@ definitions:
         example: Available
         type: string
     required:
-    - DiskSize
-    - DiskType
     - GuestOS
     - IId
     - Name
     - OSArchitecture
+    - OSDiskSize
+    - OSDiskType
     - OSDistribution
     - OSPlatform
     - Status

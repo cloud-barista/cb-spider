@@ -57,8 +57,8 @@ func (imageHandler *AwsImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) 
 		OSArchitecture: "x86_64",
 		OSPlatform:     "Linux/UNIX",
 		OSDistribution: "Ubuntu 18.04",
-		DiskType:       "gp3",
-		DiskSize:       "35",
+		OSDiskType:     "gp3",
+		OSDiskSize:     "35",
 		Status:         "Available",
 		KeyValueList:   nil,
 	}, nil

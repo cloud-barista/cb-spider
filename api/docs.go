@@ -8457,27 +8457,17 @@ const docTemplate = `{
         "spider.ImageInfo": {
             "type": "object",
             "required": [
-                "DiskSize",
-                "DiskType",
                 "GuestOS",
                 "IId",
                 "Name",
                 "OSArchitecture",
+                "OSDiskSize",
+                "OSDiskType",
                 "OSDistribution",
                 "OSPlatform",
                 "Status"
             ],
             "properties": {
-                "DiskSize": {
-                    "description": "35, etc., GB",
-                    "type": "string",
-                    "example": "35"
-                },
-                "DiskType": {
-                    "description": "gp3, etc.",
-                    "type": "string",
-                    "example": "gp3"
-                },
                 "GuestOS": {
                     "description": "Windows7, Ubuntu etc. // Deprecated",
                     "type": "string",
@@ -8506,6 +8496,16 @@ const docTemplate = `{
                     "description": "arm64, x86_64 etc.",
                     "type": "string",
                     "example": "x86_64"
+                },
+                "OSDiskSize": {
+                    "description": "35, etc., GB",
+                    "type": "string",
+                    "example": "35"
+                },
+                "OSDiskType": {
+                    "description": "gp3, etc.",
+                    "type": "string",
+                    "example": "gp3"
                 },
                 "OSDistribution": {
                     "description": "Ubuntu 22.04~, CentOS 8 etc.",
