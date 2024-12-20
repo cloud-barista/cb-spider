@@ -33,35 +33,35 @@ func ExtractGpuInfo(gpuDeviceInfo *ec2.GpuDeviceInfo) irs.GpuInfo {
 	// 	Mem:   strconv.FormatInt(*gpuDeviceInfo.MemoryInfo.SizeInMiB, 10),
 	// }
 
-	// GPU 정보 구조체 초기화
+	// GPU Struct
 	gpuInfo := irs.GpuInfo{}
 
-	// Count 설정
+	// Check Count
 	if gpuDeviceInfo.Count != nil {
 		gpuInfo.Count = strconv.FormatInt(*gpuDeviceInfo.Count, 10)
 	} else {
-		gpuInfo.Count = "-1" // 숫자 값 없을 경우 -1
+		gpuInfo.Count = "-1" // Set number values to "-1" if nil
 	}
 
-	// Manufacturer 설정
+	// Check Manufacturer
 	if gpuDeviceInfo.Manufacturer != nil {
 		gpuInfo.Mfr = strings.ToUpper(*gpuDeviceInfo.Manufacturer)
 	} else {
-		gpuInfo.Mfr = "NA" // 문자열 값 없을 경우 "NA"
+		gpuInfo.Mfr = "NA" // Set string values to "NA" if nil
 	}
 
-	// Model 설정
+	// Check Model
 	if gpuDeviceInfo.Name != nil {
 		gpuInfo.Model = strings.ToUpper(*gpuDeviceInfo.Name)
 	} else {
-		gpuInfo.Model = "NA" // 문자열 값 없을 경우 "NA"
+		gpuInfo.Model = "NA" // Set string values to "NA" if nil
 	}
 
-	// MemoryInfo 설정
+	// Check MemoryInfo
 	if gpuDeviceInfo.MemoryInfo != nil && gpuDeviceInfo.MemoryInfo.SizeInMiB != nil {
 		gpuInfo.Mem = strconv.FormatInt(*gpuDeviceInfo.MemoryInfo.SizeInMiB, 10)
 	} else {
-		gpuInfo.Mem = "-1" // 숫자 값 없을 경우 -1
+		gpuInfo.Mem = "-1" // Set number values to "-1" if nil
 	}
 
 	return gpuInfo
@@ -84,17 +84,17 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo *ec2.InstanceTypeInfo) ir
 		Region: Region,
 	}
 
-	//Disk 정보 처리 (AMI에서만 정보 조회 가능)
+	//Check Disk Info (Root volume information is only provided in AMI information)
 	vmSpecInfo.Disk = "-1"
 
-	//VCPU 정보 처리 - Count
+	// Check VCPU - Count
 	if !reflect.ValueOf(instanceTypeInfo.VCpuInfo.DefaultVCpus).IsNil() {
 		vCpuInfo.Count = strconv.FormatInt(*instanceTypeInfo.VCpuInfo.DefaultVCpus, 10)
 	} else {
 		vCpuInfo.Count = "-1"
 	}
 
-	//VCPU 정보 처리 - Clock
+	// Check VCPU - Clock
 	if !reflect.ValueOf(instanceTypeInfo.ProcessorInfo.SustainedClockSpeedInGhz).IsNil() {
 		vCpuInfo.Clock = strconv.FormatFloat(*instanceTypeInfo.ProcessorInfo.SustainedClockSpeedInGhz, 'f', 1, 64)
 	} else {
