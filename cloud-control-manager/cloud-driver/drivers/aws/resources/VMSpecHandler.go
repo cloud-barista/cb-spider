@@ -5,6 +5,7 @@ import (
 	"errors"
 	"reflect"
 	"strconv"
+	"strings"
 
 	//sdk2 "github.com/aws/aws-sdk-go-v2"
 	"github.com/aws/aws-sdk-go/aws"
@@ -25,11 +26,42 @@ func ExtractGpuInfo(gpuDeviceInfo *ec2.GpuDeviceInfo) irs.GpuInfo {
 	//cblogger.Info("================")
 	//cblogger.Debug(gpuDeviceInfo)
 
-	gpuInfo := irs.GpuInfo{
-		Count: strconv.FormatInt(*gpuDeviceInfo.Count, 10),
-		Mfr:   *gpuDeviceInfo.Manufacturer,
-		Model: *gpuDeviceInfo.Name,
-		Mem:   strconv.FormatInt(*gpuDeviceInfo.MemoryInfo.SizeInMiB, 10),
+	// gpuInfo := irs.GpuInfo{
+	// 	Count: strconv.FormatInt(*gpuDeviceInfo.Count, 10),
+	// 	Mfr:   strings.ToUpper(*gpuDeviceInfo.Manufacturer),
+	// 	Model: strings.ToUpper(*gpuDeviceInfo.Name),
+	// 	Mem:   strconv.FormatInt(*gpuDeviceInfo.MemoryInfo.SizeInMiB, 10),
+	// }
+
+	// GPU Struct
+	gpuInfo := irs.GpuInfo{}
+
+	// Check Count
+	if gpuDeviceInfo.Count != nil {
+		gpuInfo.Count = strconv.FormatInt(*gpuDeviceInfo.Count, 10)
+	} else {
+		gpuInfo.Count = "-1" // Set number values to "-1" if nil
+	}
+
+	// Check Manufacturer
+	if gpuDeviceInfo.Manufacturer != nil {
+		gpuInfo.Mfr = strings.ToUpper(*gpuDeviceInfo.Manufacturer)
+	} else {
+		gpuInfo.Mfr = "NA" // Set string values to "NA" if nil
+	}
+
+	// Check Model
+	if gpuDeviceInfo.Name != nil {
+		gpuInfo.Model = strings.ToUpper(*gpuDeviceInfo.Name)
+	} else {
+		gpuInfo.Model = "NA" // Set string values to "NA" if nil
+	}
+
+	// Check MemoryInfo
+	if gpuDeviceInfo.MemoryInfo != nil && gpuDeviceInfo.MemoryInfo.SizeInMiB != nil {
+		gpuInfo.Mem = strconv.FormatInt(*gpuDeviceInfo.MemoryInfo.SizeInMiB, 10)
+	} else {
+		gpuInfo.Mem = "-1" // Set number values to "-1" if nil
 	}
 
 	return gpuInfo
@@ -48,14 +80,21 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo *ec2.InstanceTypeInfo) ir
 		Region: Region,
 	}
 
-	//VCPU 정보 처리 - Count
+	//Check Disk Info (Root volume information is only provided in AMI information)
+	vmSpecInfo.Disk = "-1"
+
+	// Check VCPU - Count
 	if !reflect.ValueOf(instanceTypeInfo.VCpuInfo.DefaultVCpus).IsNil() {
 		vCpuInfo.Count = strconv.FormatInt(*instanceTypeInfo.VCpuInfo.DefaultVCpus, 10)
+	} else {
+		vCpuInfo.Count = "-1"
 	}
 
-	//VCPU 정보 처리 - Clock
+	// Check VCPU - Clock
 	if !reflect.ValueOf(instanceTypeInfo.ProcessorInfo.SustainedClockSpeedInGhz).IsNil() {
 		vCpuInfo.Clock = strconv.FormatFloat(*instanceTypeInfo.ProcessorInfo.SustainedClockSpeedInGhz, 'f', 1, 64)
+	} else {
+		vCpuInfo.Clock = "-1"
 	}
 	vmSpecInfo.VCpu = vCpuInfo
 
@@ -72,10 +111,14 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo *ec2.InstanceTypeInfo) ir
 
 	if !reflect.ValueOf(instanceTypeInfo.InstanceType).IsNil() {
 		vmSpecInfo.Name = *instanceTypeInfo.InstanceType
+	} else {
+		vmSpecInfo.Name = "NA"
 	}
 
 	if !reflect.ValueOf(instanceTypeInfo.MemoryInfo.SizeInMiB).IsNil() {
 		vmSpecInfo.Mem = strconv.FormatInt(*instanceTypeInfo.MemoryInfo.SizeInMiB, 10)
+	} else {
+		vmSpecInfo.Mem = "-1"
 	}
 
 	//KeyValue 목록 처리
