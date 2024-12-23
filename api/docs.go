@@ -8461,7 +8461,7 @@ const docTemplate = `{
                 "IId",
                 "Name",
                 "OSArchitecture",
-                "OSDiskSize",
+                "OSDiskSizeInGB",
                 "OSDiskType",
                 "OSDistribution",
                 "OSPlatform",
@@ -8502,7 +8502,7 @@ const docTemplate = `{
                     ],
                     "example": "x86_64"
                 },
-                "OSDiskSize": {
+                "OSDiskSizeInGB": {
                     "description": "35, etc., GB",
                     "type": "string",
                     "example": "35"

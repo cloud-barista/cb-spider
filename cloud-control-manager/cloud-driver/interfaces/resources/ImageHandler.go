@@ -53,7 +53,7 @@ type ImageInfo struct {
 	OSPlatform     OSPlatform     `json:"OSPlatform" validate:"required" example:"Linux/UNIX" description:"The platform of the operating system of the image."`            // Linux/UNIX, Windows, NA
 	OSDistribution string         `json:"OSDistribution" validate:"required" example:"Ubuntu 22.04~" description:"The distribution of the operating system of the image."` // Ubuntu 22.04~, CentOS 8 etc.
 	OSDiskType     string         `json:"OSDiskType" validate:"required" example:"gp3" description:"The type of the disk of the image."`                                   // gp3, etc.
-	OSDiskSize     string         `json:"OSDiskSize" validate:"required" example:"35" description:"The size of the disk of the image."`                                    // 35, etc., GB
+	OSDiskSizeInGB string         `json:"OSDiskSizeInGB" validate:"required" example:"35" description:"The size of the disk of the image."`                                // 35, etc., GB
 	ImageStatus    ImageStatus    `json:"Status" validate:"required" example:"Available" description:"The status of the image, e.g., Available or Unavailable."`           // Available, Unavailable
 
 	KeyValueList []KeyValue `json:"KeyValueList,omitempty" validate:"omitempty" description:"A list of key-value pairs associated with the image."`
