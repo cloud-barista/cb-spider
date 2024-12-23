@@ -345,7 +345,7 @@ definitions:
         - $ref: '#/definitions/spider.OSArchitecture'
         description: arm64, x86_64 etc.
         example: x86_64
-      OSDiskSize:
+      OSDiskSizeInGB:
         description: 35, etc., GB
         example: "35"
         type: string
@@ -372,7 +372,7 @@ definitions:
     - IId
     - Name
     - OSArchitecture
-    - OSDiskSize
+    - OSDiskSizeInGB
     - OSDiskType
     - OSDistribution
     - OSPlatform
