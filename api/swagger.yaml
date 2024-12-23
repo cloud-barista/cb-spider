@@ -341,9 +341,10 @@ definitions:
         example: ami-00aa5a103ddf4509f
         type: string
       OSArchitecture:
+        allOf:
+        - $ref: '#/definitions/spider.OSArchitecture'
         description: arm64, x86_64 etc.
         example: x86_64
-        type: string
       OSDiskSize:
         description: 35, etc., GB
         example: "35"
@@ -357,13 +358,15 @@ definitions:
         example: Ubuntu 22.04~
         type: string
       OSPlatform:
+        allOf:
+        - $ref: '#/definitions/spider.OSPlatform'
         description: Linux/UNIX, Windows, NA
         example: Linux/UNIX
-        type: string
       Status:
+        allOf:
+        - $ref: '#/definitions/spider.ImageStatus'
         description: Available, Unavailable
         example: Available
-        type: string
     required:
     - GuestOS
     - IId
@@ -374,7 +377,18 @@ definitions:
     - OSDistribution
     - OSPlatform
     - Status
+    - Status
     type: object
+  spider.ImageStatus:
+    enum:
+    - Available
+    - Unavailable
+    - NA
+    type: string
+    x-enum-varnames:
+    - ImageAvailable
+    - ImageUnavailable
+    - ImageNA
   spider.ImageType:
     enum:
     - PublicImage
@@ -647,6 +661,30 @@ definitions:
     - NodeGroupInactive
     - NodeGroupUpdating
     - NodeGroupDeleting
+  spider.OSArchitecture:
+    enum:
+    - arm64
+    - arm64_mac
+    - x86_64
+    - x86_64_mac
+    - NA
+    type: string
+    x-enum-varnames:
+    - ARM64
+    - ARM64_MAC
+    - X86_64
+    - X86_64_MAC
+    - ArchitectureNA
+  spider.OSPlatform:
+    enum:
+    - Linux/UNIX
+    - Windows
+    - NA
+    type: string
+    x-enum-varnames:
+    - Linux_UNIX
+    - Windows
+    - PlatformNA
   spider.Platform:
     enum:
     - LINUX/UNIX

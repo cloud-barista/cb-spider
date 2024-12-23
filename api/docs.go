@@ -8465,6 +8465,7 @@ const docTemplate = `{
                 "OSDiskType",
                 "OSDistribution",
                 "OSPlatform",
+                "Status",
                 "Status"
             ],
             "properties": {
@@ -8494,7 +8495,11 @@ const docTemplate = `{
                 },
                 "OSArchitecture": {
                     "description": "arm64, x86_64 etc.",
-                    "type": "string",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.OSArchitecture"
+                        }
+                    ],
                     "example": "x86_64"
                 },
                 "OSDiskSize": {
@@ -8514,15 +8519,36 @@ const docTemplate = `{
                 },
                 "OSPlatform": {
                     "description": "Linux/UNIX, Windows, NA",
-                    "type": "string",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.OSPlatform"
+                        }
+                    ],
                     "example": "Linux/UNIX"
                 },
                 "Status": {
                     "description": "Available, Unavailable",
-                    "type": "string",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.ImageStatus"
+                        }
+                    ],
                     "example": "Available"
                 }
             }
+        },
+        "spider.ImageStatus": {
+            "type": "string",
+            "enum": [
+                "Available",
+                "Unavailable",
+                "NA"
+            ],
+            "x-enum-varnames": [
+                "ImageAvailable",
+                "ImageUnavailable",
+                "ImageNA"
+            ]
         },
         "spider.ImageType": {
             "type": "string",
@@ -8913,6 +8939,36 @@ const docTemplate = `{
                 "NodeGroupInactive",
                 "NodeGroupUpdating",
                 "NodeGroupDeleting"
+            ]
+        },
+        "spider.OSArchitecture": {
+            "type": "string",
+            "enum": [
+                "arm64",
+                "arm64_mac",
+                "x86_64",
+                "x86_64_mac",
+                "NA"
+            ],
+            "x-enum-varnames": [
+                "ARM64",
+                "ARM64_MAC",
+                "X86_64",
+                "X86_64_MAC",
+                "ArchitectureNA"
+            ]
+        },
+        "spider.OSPlatform": {
+            "type": "string",
+            "enum": [
+                "Linux/UNIX",
+                "Windows",
+                "NA"
+            ],
+            "x-enum-varnames": [
+                "Linux_UNIX",
+                "Windows",
+                "PlatformNA"
             ]
         },
         "spider.Platform": {
