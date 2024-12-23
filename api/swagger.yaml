@@ -325,24 +325,54 @@ definitions:
   spider.ImageInfo:
     properties:
       GuestOS:
-        description: Windows7, Ubuntu etc.
+        description: Windows7, Ubuntu etc. // Deprecated
         example: Ubuntu 18.04
         type: string
       IId:
         allOf:
         - $ref: '#/definitions/spider.IID'
-        description: '{NameId, SystemId}'
+        description: '{NameId, SystemId} // Deprecated'
       KeyValueList:
         items:
           $ref: '#/definitions/spider.KeyValue'
         type: array
+      Name:
+        description: ami-00aa5a103ddf4509f
+        example: ami-00aa5a103ddf4509f
+        type: string
+      OSArchitecture:
+        description: arm64, x86_64 etc.
+        example: x86_64
+        type: string
+      OSDiskSize:
+        description: 35, etc., GB
+        example: "35"
+        type: string
+      OSDiskType:
+        description: gp3, etc.
+        example: gp3
+        type: string
+      OSDistribution:
+        description: Ubuntu 22.04~, CentOS 8 etc.
+        example: Ubuntu 22.04~
+        type: string
+      OSPlatform:
+        description: Linux/UNIX, Windows, NA
+        example: Linux/UNIX
+        type: string
       Status:
-        description: available, unavailable
-        example: available
+        description: Available, Unavailable
+        example: Available
         type: string
     required:
     - GuestOS
     - IId
+    - Name
+    - OSArchitecture
+    - OSDiskSize
+    - OSDiskType
+    - OSDistribution
+    - OSPlatform
     - Status
     type: object
   spider.ImageType:

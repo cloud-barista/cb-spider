@@ -82,7 +82,19 @@ func (imageHandler *DockerImageHandler) CreateImage(imageReqInfo irs.ImageReqInf
 				cblogger.Error(err)
 				return irs.ImageInfo{}, err
 			}
-			return irs.ImageInfo{imageReqInfo.IId, osName, "", nil}, nil
+			return irs.ImageInfo{
+				IId:            imageReqInfo.IId,
+				GuestOS:        osName,
+				Name:           "default-image-name",
+				OSArchitecture: "x86_64",
+				OSPlatform:     "Linux/UNIX",
+				OSDistribution: "Ubuntu 18.04",
+				OSDiskType:     "gp3",
+				OSDiskSize:     "35",
+				Status:         "Available",
+				KeyValueList:   nil,
+			}, nil
+
 		}
 	}
 
@@ -141,7 +153,19 @@ func (imageHandler *DockerImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 		//listImages[i] = &irs.ImageInfo{irs.IID{"", image.ID}, osName, "", nil }
 		// To avoid empty validator, Using CSPID for NameID by powerkim, 2022.01.25.
-		listImages[i] = &irs.ImageInfo{irs.IID{image.ID, image.ID}, osName, "", nil}
+		listImages[i] = &irs.ImageInfo{
+			IId:            irs.IID{image.ID, image.ID},
+			GuestOS:        osName,
+			Name:           "default-image-name",
+			OSArchitecture: "x86_64",
+			OSPlatform:     "Linux/UNIX",
+			OSDistribution: "Ubuntu 18.04",
+			OSDiskType:     "gp3",
+			OSDiskSize:     "35",
+			Status:         "Available",
+			KeyValueList:   nil,
+		}
+
 	}
 
 	return listImages, nil
@@ -156,7 +180,19 @@ func (imageHandler *DockerImageHandler) GetImage(imageIID irs.IID) (irs.ImageInf
 		cblogger.Error(err)
 		return irs.ImageInfo{}, err
 	}
-	return irs.ImageInfo{imageIID, osName, "", nil}, nil
+	return irs.ImageInfo{
+		IId:            imageIID,
+		GuestOS:        osName,
+		Name:           "default-image-name",
+		OSArchitecture: "x86_64",
+		OSPlatform:     "Linux/UNIX",
+		OSDistribution: "Ubuntu 18.04",
+		OSDiskType:     "gp3",
+		OSDiskSize:     "35",
+		Status:         "Available",
+		KeyValueList:   nil,
+	}, nil
+
 }
 
 func (imageHandler *DockerImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {

@@ -8459,16 +8459,22 @@ const docTemplate = `{
             "required": [
                 "GuestOS",
                 "IId",
+                "Name",
+                "OSArchitecture",
+                "OSDiskSize",
+                "OSDiskType",
+                "OSDistribution",
+                "OSPlatform",
                 "Status"
             ],
             "properties": {
                 "GuestOS": {
-                    "description": "Windows7, Ubuntu etc.",
+                    "description": "Windows7, Ubuntu etc. // Deprecated",
                     "type": "string",
                     "example": "Ubuntu 18.04"
                 },
                 "IId": {
-                    "description": "{NameId, SystemId}",
+                    "description": "{NameId, SystemId} // Deprecated",
                     "allOf": [
                         {
                             "$ref": "#/definitions/spider.IID"
@@ -8481,10 +8487,40 @@ const docTemplate = `{
                         "$ref": "#/definitions/spider.KeyValue"
                     }
                 },
-                "Status": {
-                    "description": "available, unavailable",
+                "Name": {
+                    "description": "ami-00aa5a103ddf4509f",
                     "type": "string",
-                    "example": "available"
+                    "example": "ami-00aa5a103ddf4509f"
+                },
+                "OSArchitecture": {
+                    "description": "arm64, x86_64 etc.",
+                    "type": "string",
+                    "example": "x86_64"
+                },
+                "OSDiskSize": {
+                    "description": "35, etc., GB",
+                    "type": "string",
+                    "example": "35"
+                },
+                "OSDiskType": {
+                    "description": "gp3, etc.",
+                    "type": "string",
+                    "example": "gp3"
+                },
+                "OSDistribution": {
+                    "description": "Ubuntu 22.04~, CentOS 8 etc.",
+                    "type": "string",
+                    "example": "Ubuntu 22.04~"
+                },
+                "OSPlatform": {
+                    "description": "Linux/UNIX, Windows, NA",
+                    "type": "string",
+                    "example": "Linux/UNIX"
+                },
+                "Status": {
+                    "description": "Available, Unavailable",
+                    "type": "string",
+                    "example": "Available"
                 }
             }
         },
