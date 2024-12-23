@@ -231,7 +231,7 @@ func acceleratorsToGPUInfoList(accerators []*compute.MachineTypeAccelerators) []
 		accrType := strings.Split(accelerator.GuestAcceleratorType, "-")
 		if len(accrType) >= 3 {
 			// 첫 번째 요소를 Mfr에 할당
-			gpuInfo.Mfr = accrType[0]
+			gpuInfo.Mfr = strings.ToUpper(accrType[0])
 
 			// 마지막 요소를 확인
 			lastElement := accrType[len(accrType)-1]
@@ -243,14 +243,14 @@ func acceleratorsToGPUInfoList(accerators []*compute.MachineTypeAccelerators) []
 				}
 				// 첫 번째와 마지막 요소를 제외한 나머지를 Model에 할당
 				if len(accrType) > 2 {
-					gpuInfo.Model = strings.Join(accrType[1:len(accrType)-1], " ")
+					gpuInfo.Model = strings.ToUpper(strings.Join(accrType[1:len(accrType)-1], " "))
 				}
 			} else {
 				// 마지막 요소가 "gb"로 끝나지 않는 경우
 				gpuInfo.Mem = "" // Mem은 빈 문자열로 설정
 				if len(accrType) > 1 {
 					// 첫 번째 요소를 제외한 나머지를 Model에 할당
-					gpuInfo.Model = strings.Join(accrType[1:], " ")
+					gpuInfo.Model = strings.ToUpper(strings.Join(accrType[1:], " "))
 				}
 			}
 		}
