@@ -37,13 +37,16 @@ type NhnRegionInfo struct {
 func getSupportedRegions() []NhnRegionInfo {
 	regionInfoList := []NhnRegionInfo{
 		{RegionCode: "KR1",
-			RegionName: "한국(판교)",
+			RegionName: "South Korea (Pangyo)",
 		},
 		{RegionCode: "KR2",
-			RegionName: "한국(평촌)",
+			RegionName: "South Korea (Pyeongchon)",
 		},
 		{RegionCode: "JP1",
-			RegionName: "일본",
+			RegionName: "Japan (Tokyo)",
+		},
+		{RegionCode: "US1",
+			RegionName: "United States (California)",
 		},
 	}
 	return regionInfoList

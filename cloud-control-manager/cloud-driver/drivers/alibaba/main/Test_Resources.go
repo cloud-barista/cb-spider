@@ -154,6 +154,7 @@ func handleSecurity() {
 		fmt.Println("4. Security Delete")
 		fmt.Println("5. Rule Add")
 		fmt.Println("6. Rule Remove")
+		fmt.Println("7. List IID")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -617,6 +618,18 @@ func handleSecurity() {
 				} else {
 					cblogger.Infof("[%s] Result of delete Rule : [%v]", securityId, result)
 				}
+			case 7:
+				cblogger.Infof("[%s] List IID test", securityId)
+
+				result, err := handler.ListIID()
+				if err != nil {
+					cblogger.Infof(securityId, "Fail to delete Rule : ", err)
+				} else {
+					cblogger.Infof("[%s] Result of IID List ", securityId)
+					for _, v := range result {
+						cblogger.Infof("IID List: %+v", v)
+					}
+				}
 			}
 		}
 	}
@@ -645,6 +658,7 @@ func handleKeyPair() {
 		fmt.Println("2. KeyPair Create")
 		fmt.Println("3. KeyPair Get")
 		fmt.Println("4. KeyPair Delete")
+		fmt.Println("5. List IID")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -701,6 +715,19 @@ func handleKeyPair() {
 				} else {
 					cblogger.Infof("[%s] Result of delete Keypair : [%s]", keyPairName, result)
 				}
+			case 5:
+				cblogger.Infof("List IID test")
+
+				result, err := handler.ListIID()
+				if err != nil {
+					cblogger.Infof("Fail to List IID : ", err)
+				} else {
+					cblogger.Infof("[%s] Result of IID List")
+					for _, v := range result {
+						cblogger.Infof("IID List: %+v", v)
+					}
+				}
+
 			}
 		}
 	}
@@ -761,6 +788,7 @@ func handleVPC() {
 		fmt.Println("4. VPC Delete")
 		fmt.Println("5. Add Subnet")
 		fmt.Println("6. Delete Subnet")
+		fmt.Println("7. List IID")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -839,6 +867,19 @@ func handleVPC() {
 				} else {
 					cblogger.Infof("[%s] Result of delete Subnet : [%s]", reqSubnetId.SystemId, result)
 				}
+			case 7:
+				cblogger.Infof("List IID test")
+
+				result, err := handler.ListIID()
+				if err != nil {
+					cblogger.Infof("Fail to List IID : ", err)
+				} else {
+					cblogger.Infof("[%s] Result of IID List")
+					for _, v := range result {
+						cblogger.Infof("IID List: %+v", v)
+					}
+				}
+
 			}
 		}
 	}
@@ -959,6 +1000,7 @@ func handleVM() {
 		fmt.Println("7. GetVMStatus VM")
 		fmt.Println("8. ListVMStatus VM")
 		fmt.Println("9. ListVM")
+		fmt.Println("10. List IID")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -1100,6 +1142,18 @@ func handleVM() {
 					spew.Dump(vmList)
 					if len(vmList) > 0 {
 						VmID = vmList[0].IId
+					}
+				}
+			case 10:
+				cblogger.Infof("List IID test")
+
+				result, err := vmHandler.ListIID()
+				if err != nil {
+					cblogger.Infof("Fail to List IID : ", err)
+				} else {
+					cblogger.Infof("[%s] Result of IID List")
+					for _, v := range result {
+						cblogger.Infof("IID List: %+v", v)
 					}
 				}
 
@@ -1542,6 +1596,7 @@ func handleDisk() {
 		fmt.Println("3. CreateDisk ")
 		fmt.Println("4. AddDisk ")
 		fmt.Println("5. RemoveDisk ")
+		fmt.Println("6. List IID ")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -1589,6 +1644,18 @@ func handleDisk() {
 					//spew.Dump(result)
 					cblogger.Info(result)
 				}
+			case 6:
+				cblogger.Infof("List IID test")
+
+				result, err := handler.ListIID()
+				if err != nil {
+					cblogger.Infof("Fail to List IID : ", err)
+				} else {
+					cblogger.Infof("[%s] Result of IID List")
+					for _, v := range result {
+						cblogger.Infof("IID List: %+v", v)
+					}
+				}
 			}
 		}
 	}
@@ -1617,6 +1684,7 @@ func handleMyImage() {
 		fmt.Println("1. MyImage List")
 		fmt.Println("2. GetMyImage ")
 		fmt.Println("3. CreateMyImage ")
+		fmt.Println("4. List IID ")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -1686,6 +1754,18 @@ func handleMyImage() {
 				// 		//spew.Dump(result)
 				// 		cblogger.Info(result)
 				// 	}
+			case 4:
+				cblogger.Infof("List IID test")
+
+				result, err := handler.ListIID()
+				if err != nil {
+					cblogger.Infof("Fail to List IID : ", err)
+				} else {
+					cblogger.Infof("[%s] Result of IID List")
+					for _, v := range result {
+						cblogger.Infof("IID List: %+v", v)
+					}
+				}
 			}
 		}
 	}
@@ -1805,22 +1885,22 @@ func main() {
 	cblogger.Info("Alibaba Cloud Resource Test")
 	cblogger.Debug("Debug mode")
 
-	// handleVPC() //VPC
+	handleVPC() //VPC
 	//handleVMSpec()
-	//handleImage() //AMI
-	// handleSecurity()
-	// handleKeyPair()
-	// handleVM()
-	// handleNLB()
-	// handleDisk()
-	// handleMyImage()
-	// handleCluster()
+	handleImage() //AMI
+	handleSecurity()
+	handleKeyPair()
+	handleVM()
+	handleNLB()
+	handleDisk()
+	handleMyImage()
+	handleCluster()
 	//handlePublicIP()
 
 	//handleVNic() //Lancard
 	//handleRegionZone()
 	//handlePriceInfo()
-	handleTagInfo()
+	// handleTagInfo()
 	/*
 	   //StartTime := "2020-05-07T01:35:00Z"
 	   StartTime := "2020-05-07T01:35Z"

@@ -235,19 +235,19 @@ definitions:
   spider.GpuInfo:
     properties:
       Count:
-        description: Number of GPUs
+        description: Number of GPUs, "-1" when not applicable
         example: "1"
         type: string
       Mem:
-        description: Memory size of the GPU in MB
+        description: Memory size of the GPU in MB, "-1" when not applicable
         example: "8192"
         type: string
       Mfr:
-        description: Manufacturer of the GPU
+        description: Manufacturer of the GPU, NA when not applicable
         example: NVIDIA
         type: string
       Model:
-        description: Model of the GPU
+        description: Model of the GPU, NA when not applicable
         example: Tesla K80
         type: string
     required:
@@ -325,26 +325,70 @@ definitions:
   spider.ImageInfo:
     properties:
       GuestOS:
-        description: Windows7, Ubuntu etc.
+        description: Windows7, Ubuntu etc. // Deprecated
         example: Ubuntu 18.04
         type: string
       IId:
         allOf:
         - $ref: '#/definitions/spider.IID'
-        description: '{NameId, SystemId}'
+        description: '{NameId, SystemId} // Deprecated'
       KeyValueList:
         items:
           $ref: '#/definitions/spider.KeyValue'
         type: array
-      Status:
-        description: available, unavailable
-        example: available
+      Name:
+        description: ami-00aa5a103ddf4509f
+        example: ami-00aa5a103ddf4509f
         type: string
+      OSArchitecture:
+        allOf:
+        - $ref: '#/definitions/spider.OSArchitecture'
+        description: arm64, x86_64 etc.
+        example: x86_64
+      OSDiskSizeInGB:
+        description: 35, etc., GB
+        example: "35"
+        type: string
+      OSDiskType:
+        description: gp3, etc.
+        example: gp3
+        type: string
+      OSDistribution:
+        description: Ubuntu 22.04~, CentOS 8 etc.
+        example: Ubuntu 22.04~
+        type: string
+      OSPlatform:
+        allOf:
+        - $ref: '#/definitions/spider.OSPlatform'
+        description: Linux/UNIX, Windows, NA
+        example: Linux/UNIX
+      Status:
+        allOf:
+        - $ref: '#/definitions/spider.ImageStatus'
+        description: Available, Unavailable
+        example: Available
     required:
     - GuestOS
     - IId
+    - Name
+    - OSArchitecture
+    - OSDiskSizeInGB
+    - OSDiskType
+    - OSDistribution
+    - OSPlatform
+    - Status
     - Status
     type: object
+  spider.ImageStatus:
+    enum:
+    - Available
+    - Unavailable
+    - NA
+    type: string
+    x-enum-varnames:
+    - ImageAvailable
+    - ImageUnavailable
+    - ImageNA
   spider.ImageType:
     enum:
     - PublicImage
@@ -617,6 +661,30 @@ definitions:
     - NodeGroupInactive
     - NodeGroupUpdating
     - NodeGroupDeleting
+  spider.OSArchitecture:
+    enum:
+    - arm64
+    - arm64_mac
+    - x86_64
+    - x86_64_mac
+    - NA
+    type: string
+    x-enum-varnames:
+    - ARM64
+    - ARM64_MAC
+    - X86_64
+    - X86_64_MAC
+    - ArchitectureNA
+  spider.OSPlatform:
+    enum:
+    - Linux/UNIX
+    - Windows
+    - NA
+    type: string
+    x-enum-varnames:
+    - Linux_UNIX
+    - Windows
+    - PlatformNA
   spider.Platform:
     enum:
     - LINUX/UNIX
@@ -822,8 +890,11 @@ definitions:
     type: object
   spider.RegionZoneInfo:
     properties:
+      CSPDisplayName:
+        example: US East (N. Virginia)
+        type: string
       DisplayName:
-        example: US East
+        example: United States, Ohio
         type: string
       KeyValueList:
         items:
@@ -837,6 +908,7 @@ definitions:
           $ref: '#/definitions/spider.ZoneInfo'
         type: array
     required:
+    - CSPDisplayName
     - DisplayName
     - Name
     type: object
@@ -923,11 +995,11 @@ definitions:
   spider.VCpuInfo:
     properties:
       Clock:
-        description: Clock speed in GHz
+        description: Clock speed in GHz, "-1" when not applicable
         example: "2.5"
         type: string
       Count:
-        description: Number of CPU cores
+        description: Number of CPU cores, "-1" when not applicable
         example: "2"
         type: string
     required:
@@ -1097,6 +1169,10 @@ definitions:
     type: object
   spider.VMSpecInfo:
     properties:
+      Disk:
+        description: Disk size in GB, "-1" when not applicable
+        example: "8"
+        type: string
       Gpu:
         description: GPU details if available
         items:
@@ -1124,6 +1200,7 @@ definitions:
         - $ref: '#/definitions/spider.VCpuInfo'
         description: CPU details of the VM spec
     required:
+    - Disk
     - Mem
     - Name
     - Region
@@ -1203,8 +1280,11 @@ definitions:
     type: object
   spider.ZoneInfo:
     properties:
+      CSPDisplayName:
+        example: US East (N. Virginia)
+        type: string
       DisplayName:
-        example: US East 1A
+        example: United States, Ohio
         type: string
       KeyValueList:
         items:
@@ -1218,6 +1298,7 @@ definitions:
         - $ref: '#/definitions/spider.ZoneStatus'
         example: Available
     required:
+    - CSPDisplayName
     - DisplayName
     - Name
     - Status

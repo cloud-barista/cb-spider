@@ -8340,22 +8340,22 @@ const docTemplate = `{
             ],
             "properties": {
                 "Count": {
-                    "description": "Number of GPUs",
+                    "description": "Number of GPUs, \"-1\" when not applicable",
                     "type": "string",
                     "example": "1"
                 },
                 "Mem": {
-                    "description": "Memory size of the GPU in MB",
+                    "description": "Memory size of the GPU in MB, \"-1\" when not applicable",
                     "type": "string",
                     "example": "8192"
                 },
                 "Mfr": {
-                    "description": "Manufacturer of the GPU",
+                    "description": "Manufacturer of the GPU, NA when not applicable",
                     "type": "string",
                     "example": "NVIDIA"
                 },
                 "Model": {
-                    "description": "Model of the GPU",
+                    "description": "Model of the GPU, NA when not applicable",
                     "type": "string",
                     "example": "Tesla K80"
                 }
@@ -8459,16 +8459,23 @@ const docTemplate = `{
             "required": [
                 "GuestOS",
                 "IId",
+                "Name",
+                "OSArchitecture",
+                "OSDiskSizeInGB",
+                "OSDiskType",
+                "OSDistribution",
+                "OSPlatform",
+                "Status",
                 "Status"
             ],
             "properties": {
                 "GuestOS": {
-                    "description": "Windows7, Ubuntu etc.",
+                    "description": "Windows7, Ubuntu etc. // Deprecated",
                     "type": "string",
                     "example": "Ubuntu 18.04"
                 },
                 "IId": {
-                    "description": "{NameId, SystemId}",
+                    "description": "{NameId, SystemId} // Deprecated",
                     "allOf": [
                         {
                             "$ref": "#/definitions/spider.IID"
@@ -8481,12 +8488,67 @@ const docTemplate = `{
                         "$ref": "#/definitions/spider.KeyValue"
                     }
                 },
-                "Status": {
-                    "description": "available, unavailable",
+                "Name": {
+                    "description": "ami-00aa5a103ddf4509f",
                     "type": "string",
-                    "example": "available"
+                    "example": "ami-00aa5a103ddf4509f"
+                },
+                "OSArchitecture": {
+                    "description": "arm64, x86_64 etc.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.OSArchitecture"
+                        }
+                    ],
+                    "example": "x86_64"
+                },
+                "OSDiskSizeInGB": {
+                    "description": "35, etc., GB",
+                    "type": "string",
+                    "example": "35"
+                },
+                "OSDiskType": {
+                    "description": "gp3, etc.",
+                    "type": "string",
+                    "example": "gp3"
+                },
+                "OSDistribution": {
+                    "description": "Ubuntu 22.04~, CentOS 8 etc.",
+                    "type": "string",
+                    "example": "Ubuntu 22.04~"
+                },
+                "OSPlatform": {
+                    "description": "Linux/UNIX, Windows, NA",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.OSPlatform"
+                        }
+                    ],
+                    "example": "Linux/UNIX"
+                },
+                "Status": {
+                    "description": "Available, Unavailable",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.ImageStatus"
+                        }
+                    ],
+                    "example": "Available"
                 }
             }
+        },
+        "spider.ImageStatus": {
+            "type": "string",
+            "enum": [
+                "Available",
+                "Unavailable",
+                "NA"
+            ],
+            "x-enum-varnames": [
+                "ImageAvailable",
+                "ImageUnavailable",
+                "ImageNA"
+            ]
         },
         "spider.ImageType": {
             "type": "string",
@@ -8879,6 +8941,36 @@ const docTemplate = `{
                 "NodeGroupDeleting"
             ]
         },
+        "spider.OSArchitecture": {
+            "type": "string",
+            "enum": [
+                "arm64",
+                "arm64_mac",
+                "x86_64",
+                "x86_64_mac",
+                "NA"
+            ],
+            "x-enum-varnames": [
+                "ARM64",
+                "ARM64_MAC",
+                "X86_64",
+                "X86_64_MAC",
+                "ArchitectureNA"
+            ]
+        },
+        "spider.OSPlatform": {
+            "type": "string",
+            "enum": [
+                "Linux/UNIX",
+                "Windows",
+                "NA"
+            ],
+            "x-enum-varnames": [
+                "Linux_UNIX",
+                "Windows",
+                "PlatformNA"
+            ]
+        },
         "spider.Platform": {
             "type": "string",
             "enum": [
@@ -9152,13 +9244,18 @@ const docTemplate = `{
         "spider.RegionZoneInfo": {
             "type": "object",
             "required": [
+                "CSPDisplayName",
                 "DisplayName",
                 "Name"
             ],
             "properties": {
+                "CSPDisplayName": {
+                    "type": "string",
+                    "example": "US East (N. Virginia)"
+                },
                 "DisplayName": {
                     "type": "string",
-                    "example": "US East"
+                    "example": "United States, Ohio"
                 },
                 "KeyValueList": {
                     "type": "array",
@@ -9303,12 +9400,12 @@ const docTemplate = `{
             ],
             "properties": {
                 "Clock": {
-                    "description": "Clock speed in GHz",
+                    "description": "Clock speed in GHz, \"-1\" when not applicable",
                     "type": "string",
                     "example": "2.5"
                 },
                 "Count": {
-                    "description": "Number of CPU cores",
+                    "description": "Number of CPU cores, \"-1\" when not applicable",
                     "type": "string",
                     "example": "2"
                 }
@@ -9548,12 +9645,18 @@ const docTemplate = `{
         "spider.VMSpecInfo": {
             "type": "object",
             "required": [
+                "Disk",
                 "Mem",
                 "Name",
                 "Region",
                 "VCpu"
             ],
             "properties": {
+                "Disk": {
+                    "description": "Disk size in GB, \"-1\" when not applicable",
+                    "type": "string",
+                    "example": "8"
+                },
                 "Gpu": {
                     "description": "GPU details if available",
                     "type": "array",
@@ -9697,14 +9800,19 @@ const docTemplate = `{
         "spider.ZoneInfo": {
             "type": "object",
             "required": [
+                "CSPDisplayName",
                 "DisplayName",
                 "Name",
                 "Status"
             ],
             "properties": {
+                "CSPDisplayName": {
+                    "type": "string",
+                    "example": "US East (N. Virginia)"
+                },
                 "DisplayName": {
                     "type": "string",
-                    "example": "US East 1A"
+                    "example": "United States, Ohio"
                 },
                 "KeyValueList": {
                     "type": "array",

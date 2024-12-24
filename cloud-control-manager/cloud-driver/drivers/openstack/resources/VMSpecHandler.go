@@ -25,12 +25,18 @@ type OpenStackVMSpecHandler struct {
 
 func setterVMSpec(region string, vmSpec flavors.Flavor) *irs.VMSpecInfo {
 	vmSpecInfo := &irs.VMSpecInfo{
-		Region:       region,
-		Name:         vmSpec.Name,
-		VCpu:         irs.VCpuInfo{Count: strconv.Itoa(vmSpec.VCPUs)},
-		Mem:          strconv.Itoa(vmSpec.RAM),
-		Gpu:          nil,
-		KeyValueList: nil,
+		Region: region,
+		Name:   vmSpec.Name,
+		VCpu:   irs.VCpuInfo{Count: strconv.Itoa(vmSpec.VCPUs)},
+		Mem:    strconv.Itoa(vmSpec.RAM),
+		Disk:   strconv.Itoa(vmSpec.Disk),
+		Gpu:    nil,
+
+		KeyValueList: []irs.KeyValue{
+			{Key: "Swap (MB)", Value: strconv.Itoa(vmSpec.Swap)},
+			{Key: "Ephemeral Disk (GB)", Value: strconv.Itoa(vmSpec.Ephemeral)},
+			{Key: "IsPublic", Value: strconv.FormatBool(vmSpec.IsPublic)},
+		},
 	}
 
 	return vmSpecInfo
