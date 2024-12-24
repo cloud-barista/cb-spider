@@ -68,17 +68,19 @@ func RegionZone(c echo.Context) error {
 
 	// struct for HTML template
 	type ZoneInfo struct {
-		ZoneName    string
-		DisplayName string
-		ZoneStatus  string
-		IsDefault   bool
+		ZoneName       string
+		DisplayName    string
+		CSPDisplayName string
+		ZoneStatus     string
+		IsDefault      bool
 	}
 
 	type RegionInfo struct {
-		RegionName   string
-		DisplayName  string
-		InnerTableID string
-		ZoneInfo     []ZoneInfo
+		RegionName     string
+		DisplayName    string
+		CSPDisplayName string
+		InnerTableID   string
+		ZoneInfo       []ZoneInfo
 	}
 
 	type PageData struct {
@@ -91,18 +93,20 @@ func RegionZone(c echo.Context) error {
 	regionZoneInfos := info.ResultList
 	for idx, rzInfo := range regionZoneInfos {
 		rInfo := &RegionInfo{
-			RegionName:   rzInfo.Name,
-			DisplayName:  rzInfo.DisplayName,
-			InnerTableID: fmt.Sprintf("%s-%d", rzInfo.Name, idx),
+			RegionName:     rzInfo.Name,
+			DisplayName:    rzInfo.DisplayName,
+			CSPDisplayName: rzInfo.CSPDisplayName,
+			InnerTableID:   fmt.Sprintf("%s-%d", rzInfo.Name, idx),
 		}
 
 		for i, zone := range rzInfo.ZoneList {
 			isDefault := i == 0 // Only the first row is true, for the default zone
 			rInfo.ZoneInfo = append(rInfo.ZoneInfo, ZoneInfo{
-				ZoneName:    zone.Name,
-				DisplayName: zone.DisplayName,
-				ZoneStatus:  string(zone.Status),
-				IsDefault:   isDefault,
+				ZoneName:       zone.Name,
+				DisplayName:    zone.DisplayName,
+				CSPDisplayName: zone.CSPDisplayName,
+				ZoneStatus:     string(zone.Status),
+				IsDefault:      isDefault,
 			})
 		}
 		regionInfos = append(regionInfos, rInfo)
