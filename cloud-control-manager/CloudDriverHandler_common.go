@@ -63,7 +63,7 @@ func getCloudDriverByDriverName(driverName string) (idrv.CloudDriver, error) {
 	return getCloudDriver(*cldDrvInfo)
 }
 
-func getProviderNameByDriverName(driverName string) (string, error) {
+func GetProviderNameByDriverName(driverName string) (string, error) {
 	cldDrvInfo, err := dim.GetCloudDriver(driverName)
 	if err != nil {
 		return "", err
@@ -332,7 +332,7 @@ func GetCloudConnectionByDriverNameAndCredentialName(driverName string, credenti
 		return nil, err
 	}
 
-	providerName, err := getProviderNameByDriverName(driverName)
+	providerName, err := GetProviderNameByDriverName(driverName)
 	if err != nil {
 		return nil, err
 	}

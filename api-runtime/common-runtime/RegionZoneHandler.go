@@ -9,8 +9,15 @@
 package commonruntime
 
 import (
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"strings"
+
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"gopkg.in/yaml.v2"
 )
 
 // ================ RegionZone Handler
@@ -44,12 +51,73 @@ func ListRegionZone(connectionName string) ([]*cres.RegionZoneInfo, error) {
 
 	if infoList == nil || len(infoList) <= 0 {
 		infoList = []*cres.RegionZoneInfo{}
+		return infoList, nil
 	}
 
 	// Set KeyValueList to an empty array if it is nil
 	for _, region := range infoList {
 		if region.KeyValueList == nil {
 			region.KeyValueList = []cres.KeyValue{}
+		}
+	}
+
+	// Update DisplayName and CSPDisplayName from metadata files
+	cspName, err := ccm.GetProviderNameByConnectionName(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	csp := strings.ToLower(cspName)
+	infoList, err = UpdateRegionZoneDisplayNames(csp, infoList)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	return infoList, nil
+}
+
+func UpdateRegionZoneDisplayNames(csp string, infoList []*cres.RegionZoneInfo) ([]*cres.RegionZoneInfo, error) {
+	metaFile := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "cloud-driver-libs", "region", fmt.Sprintf("%s_region_meta.yaml", csp))
+	data, err := ioutil.ReadFile(metaFile)
+	if err != nil {
+		// If the file does not exist, return without modification
+		if strings.Contains(err.Error(), "no such file or directory") {
+			cblog.Warnf("Metadata file for CSP '%s' not found. Skipping updates.", csp)
+			return infoList, nil
+		}
+		return nil, err
+	}
+
+	var metadata struct {
+		DisplayName    map[string]map[string]string `yaml:"DisplayName"`
+		CSPDisplayName map[string]map[string]string `yaml:"CSPDisplayName"`
+	}
+	if err := yaml.Unmarshal(data, &metadata); err != nil {
+		return nil, fmt.Errorf("failed to parse metadata file: %v", err)
+	}
+
+	for _, region := range infoList {
+		// Update Region-level DisplayName and CSPDisplayName
+		if regionDisplayName, exists := metadata.DisplayName[region.Name]; exists {
+			if regionDisplay, ok := regionDisplayName[""]; ok {
+				region.DisplayName = regionDisplay
+			}
+		}
+		if regionCSPDisplayName, exists := metadata.CSPDisplayName[region.Name]; exists {
+			if regionCSPDisplay, ok := regionCSPDisplayName[""]; ok {
+				region.CSPDisplayName = regionCSPDisplay
+			}
+		}
+
+		// Update Zone-level DisplayName and CSPDisplayName
+		for i, zone := range region.ZoneList {
+			if zoneDisplayName, exists := metadata.DisplayName[region.Name][zone.Name]; exists {
+				region.ZoneList[i].DisplayName = zoneDisplayName
+			}
+			if zoneCSPDisplayName, exists := metadata.CSPDisplayName[region.Name][zone.Name]; exists {
+				region.ZoneList[i].CSPDisplayName = zoneCSPDisplayName
+			}
 		}
 	}
 
@@ -83,6 +151,7 @@ func GetRegionZone(connectionName string, nameID string) (*cres.RegionZoneInfo, 
 		cblog.Error(err)
 		return nil, err
 	}
+
 	info, err := handler.GetRegionZone(nameID)
 	if err != nil {
 		cblog.Error(err)
@@ -94,7 +163,20 @@ func GetRegionZone(connectionName string, nameID string) (*cres.RegionZoneInfo, 
 		info.KeyValueList = []cres.KeyValue{}
 	}
 
-	return &info, nil
+	// Update DisplayName and CSPDisplayName from metadata files
+	cspName, err := ccm.GetProviderNameByConnectionName(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	csp := strings.ToLower(cspName)
+	updatedInfoList, err := UpdateRegionZoneDisplayNames(csp, []*cres.RegionZoneInfo{&info})
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	return updatedInfoList[0], nil
 }
 
 func ListOrgRegion(connectionName string) (string, error) {
@@ -204,6 +286,19 @@ func ListRegionZonePreConfig(driverName string, credentialName string) ([]*cres.
 		}
 	}
 
+	// Update DisplayName and CSPDisplayName from metadata files
+	cspName, err := ccm.GetProviderNameByDriverName(driverName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	csp := strings.ToLower(cspName)
+	infoList, err = UpdateRegionZoneDisplayNames(csp, infoList)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
 	return infoList, nil
 }
 
@@ -237,6 +332,7 @@ func GetRegionZonePreConfig(driverName string, credentialName string, nameID str
 		cblog.Error(err)
 		return nil, err
 	}
+
 	info, err := handler.GetRegionZone(nameID)
 	if err != nil {
 		cblog.Error(err)
@@ -248,7 +344,20 @@ func GetRegionZonePreConfig(driverName string, credentialName string, nameID str
 		info.KeyValueList = []cres.KeyValue{}
 	}
 
-	return &info, nil
+	// Update DisplayName and CSPDisplayName from metadata files
+	cspName, err := ccm.GetProviderNameByDriverName(driverName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+	csp := strings.ToLower(cspName)
+	updatedInfoList, err := UpdateRegionZoneDisplayNames(csp, []*cres.RegionZoneInfo{&info})
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	return updatedInfoList[0], nil
 }
 
 func ListOrgRegionPreConfig(driverName string, credentialName string) (string, error) {
