@@ -31,7 +31,7 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMS
 	//cblogger.Debug(instanceTypeInfo)
 
 	vCpuInfo := irs.VCpuInfo{
-		Clock: "N/A",
+		Clock: "0",
 	}
 	gpuInfoList := []irs.GpuInfo{
 		{
@@ -68,6 +68,8 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMS
 	//vmSpecInfo.Mem = strconv.FormatFloat(instanceTypeInfo.MemorySize, 'f', 0, 64)
 	vmSpecInfo.Mem = strconv.FormatFloat(instanceTypeInfo.MemorySize*1024, 'f', 0, 64) // GB->MB로 변환
 	//}
+
+	vmSpecInfo.Disk = "-1"
 
 	//KeyValue 목록 처리
 	keyValueList, errKeyValue := ConvertKeyValueList(instanceTypeInfo)
