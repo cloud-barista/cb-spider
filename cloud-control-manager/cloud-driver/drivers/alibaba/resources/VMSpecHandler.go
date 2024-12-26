@@ -3,7 +3,6 @@ package resources
 //20211104 개선안 I에 의해 Region 파라메터 대신 세션의 Region 정보로 대체함.
 import (
 	"errors"
-	"reflect"
 	"strconv"
 	"strings"
 
@@ -31,20 +30,48 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMS
 	//cblogger.Debug(instanceTypeInfo)
 
 	vCpuInfo := irs.VCpuInfo{
-		Clock: "N/A",
+		Clock: "0",
 	}
-	gpuInfoList := []irs.GpuInfo{
-		{
-			Count: strconv.Itoa(instanceTypeInfo.GPUAmount),
-			Model: instanceTypeInfo.GPUSpec,
-		},
+	// gpuInfoList := []irs.GpuInfo{
+	// 	{
+	// 		Count: strconv.Itoa(instanceTypeInfo.GPUAmount),
+	// 		Model: instanceTypeInfo.GPUSpec,
+	// 	},
+	// }
+	gpuInfoList := []irs.GpuInfo{}
+
+	// 기본 값 설정
+	gpuInfo := irs.GpuInfo{
+		Count: "-1",
+		Model: "NA",
+		Mfr:   "NA",
+		Mem:   "0",
 	}
 
-	if !reflect.ValueOf(&instanceTypeInfo.GPUSpec).IsNil() {
-		gpu := strings.Split(instanceTypeInfo.GPUSpec, " ") //"Nvidia Tesla P4"
-		cblogger.Infof("Manufacturer Information Extraction: Original[%s] / Extracted[%s]", instanceTypeInfo.GPUSpec, gpu[0])
-		gpuInfoList[0].Mfr = gpu[0]
+	if instanceTypeInfo.GPUAmount != 0 {
+		gpuInfo.Count = strconv.Itoa(instanceTypeInfo.GPUAmount)
 	}
+
+	if instanceTypeInfo.GPUSpec != "" {
+		gpuInfo.Model = strings.ToUpper(instanceTypeInfo.GPUSpec)
+		gpu := strings.Split(instanceTypeInfo.GPUSpec, " ") // "Nvidia Tesla P4"
+		if len(gpu) > 0 {
+			gpuInfo.Mfr = strings.ToUpper(gpu[0])
+			cblogger.Infof("Manufacturer Information Extraction: Original[%s] / Extracted[%s]", instanceTypeInfo.GPUSpec, gpuInfo.Mfr)
+		}
+	}
+
+	if instanceTypeInfo.GPUMemorySize != 0 {
+		gpuInfo.Mem = strconv.FormatFloat(instanceTypeInfo.GPUMemorySize, 'f', -1, 64)
+	}
+
+	gpuInfoList = append(gpuInfoList, gpuInfo)
+
+	// if !reflect.ValueOf(&instanceTypeInfo.GPUSpec).IsNil() {
+	// 	gpu := strings.Split(instanceTypeInfo.GPUSpec, " ") //"Nvidia Tesla P4"
+	// 	cblogger.Infof("Manufacturer Information Extraction: Original[%s] / Extracted[%s]", instanceTypeInfo.GPUSpec, gpu[0])
+	// 	gpuInfoList[0].Mfr = gpu[0]
+	// }
 
 	//결과에 리전 정보는 없기 때문에 조회한 리전 정보를 전달 받아서 처리함.
 	vmSpecInfo := irs.VMSpecInfo{
@@ -68,6 +95,14 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMS
 	//vmSpecInfo.Mem = strconv.FormatFloat(instanceTypeInfo.MemorySize, 'f', 0, 64)
 	vmSpecInfo.Mem = strconv.FormatFloat(instanceTypeInfo.MemorySize*1024, 'f', 0, 64) // GB->MB로 변환
 	//}
+
+	// LocalStorageCapacity -> GIB
+	if instanceTypeInfo.LocalStorageCapacity > 0 {
+		gb := float64(instanceTypeInfo.LocalStorageCapacity) * 1.073741824
+		vmSpecInfo.Disk = strconv.FormatFloat(gb, 'f', 2, 64)
+	} else {
+		vmSpecInfo.Disk = "-1"
+	}
 
 	//KeyValue 목록 처리
 	keyValueList, errKeyValue := ConvertKeyValueList(instanceTypeInfo)
