@@ -248,11 +248,11 @@ func getGpuModel(vmSize string) string {
 		}
 	}
 
-	return ""
+	return "NA"
 }
 
 func formatGpuCountValue(value float32) string {
-	// 값이 정수인지 확인
+	// Check if integer
 	if value == float32(int32(value)) {
 		return fmt.Sprintf("%d", int32(value))
 	}
@@ -275,8 +275,8 @@ func parseGpuInfo(vmSizeName string) *irs.GpuInfo {
 	count, mem := getGpuCount(vmSizeLower)
 	countStr := formatGpuCountValue(count)
 	modelFullName := getGpuModel(vmSizeLower)
-	var mfr string
-	var model string
+	var mfr = "NA"
+	var model = "NA"
 	if strings.HasPrefix(modelFullName, "NVIDIA") {
 		mfr = "NVIDIA"
 		model, _ = strings.CutPrefix(modelFullName, "NVIDIA ")
