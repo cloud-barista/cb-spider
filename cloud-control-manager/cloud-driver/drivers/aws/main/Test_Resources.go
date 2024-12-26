@@ -1227,7 +1227,6 @@ func handleVMSpec() {
 					cblogger.Error(reqVMSpec, " VMSpec Info Lookup Failed : ", err)
 				} else {
 					cblogger.Debugf("VMSpec[%s] Info Lookup Result", reqVMSpec)
-					//spew.Dump(result)
 					cblogger.Debug(result)
 				}
 				fmt.Println("Finish GetVMSpec()")
@@ -2349,17 +2348,17 @@ func main() {
 	//handleTag()
 	// handlePublicIP() // PublicIP 생성 후 conf
 
-	handleVPC()
-	handleSecurity()
-	handleKeyPair()
-	handleVM()
-	handleDisk()
-	handleMyImage()
-	handleNLB()
-	handleCluster()
+	//handleVPC()
+	//handleSecurity()
+	//handleKeyPair()
+	//handleVM()
+	//handleDisk()
+	//handleMyImage()
+	//handleNLB()
+	//handleCluster()
 	// handleImage() //AMI
 	// handleVNic() //Lancard
-	// handleVMSpec()
+	handleVMSpec()
 	//handleRegionZone()
 	//handlePriceInfo()
 	//handleTag()
