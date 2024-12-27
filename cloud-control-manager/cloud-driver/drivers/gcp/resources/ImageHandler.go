@@ -95,6 +95,13 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 */
 
 // 리스트의 경우 Name 기반으로 조회해서 처리하기에는 너무 느리기 때문에 직접 컨버팅함.
+// filter := "NOT deprecated:*" 적용
+// 아래와 같이 deprecated가 있는 image는 다른 image로 대체된 것임
+//
+//	      "deprecated": {
+//				"state": "DEPRECATED",
+//				"replacement": "https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-2204-jammy-v20241218"
+//			 },
 func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	cblogger.Debug("Retrieve All VM Images")
 
@@ -123,6 +130,8 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	for _, projectId := range arrImageProjectList {
 		cblogger.Infof("Processing image list owned by [%s] project", projectId)
 
+		// filter := "NOT deprecated:*" // deprecated가 있는 항목은 다른 image로 대체된 것임
+		// req = imageHandler.Client.Images.List(projectId).Filter(filter)
 		//첫번째 호출
 		req = imageHandler.Client.Images.List(projectId)
 		res, err = req.Do()
@@ -218,11 +227,6 @@ func (imageHandler *GCPImageHandler) ConvertGcpImageInfoToCbImageInfo(imageInfo 
 func (imageHandler *GCPImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
 	cblogger.Debug(imageIID)
 
-	// if 1 == 1 {
-	// 	//return imageHandler.GetImageN("ubuntu-1204-precise-v20141031")
-	// 	return imageHandler.GetImageN("ubuntu-1804-bionic-v20220505")
-	// }
-
 	//"https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-minimal-1804-bionic-v20200415"
 	//projectId := imageHandler.Credential.ProjectID
 	projectId := ""
@@ -269,6 +273,10 @@ func (imageHandler *GCPImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, 
 }
 
 // getImage by name
+//
+// ubuntu-1204-precise-v20141031 // OBSOLETE  -> rejected, error
+// ubuntu-1804-bionic-v20220505 //DEPRECATED -> create but worning
+// ubuntu-2204-jammy-v20241218 // ACTIVE
 func (imageHandler *GCPImageHandler) GetImageN(imageName string) (irs.ImageInfo, error) {
 	projectId := ""
 	imageInfo := irs.ImageInfo{}
@@ -704,6 +712,18 @@ func mappingImageInfo(imageInfo *compute.Image) irs.ImageInfo {
 	//"description": "Microsoft, Windows Server, version 1709 Core for Containers (Beta), Server Core, x64 built on 2017-12-12",
 	//"description": "Canonical, Ubuntu, 18.04 LTS, amd64 bionic image built on 2022-05-05, supports Shielded VM features",
 
+	distribution := extractOsDistribution(imageInfo)
+	imageStatus := extractImageAvailability(imageInfo)
+
+	if imageInfo.Deprecated != nil {
+		gcpImageState := imageInfo.Deprecated.State
+		distribution = distribution + ". ImageState : " + gcpImageState
+		if imageInfo.Deprecated.Replacement != "" {
+			gcpImageReplacement := imageInfo.Deprecated.Replacement
+			distribution = distribution + ", Replacement : " + gcpImageReplacement
+		}
+	}
+
 	// 2024-12-23 ImageInfo changed for meta. IID, GuestOS, Status deprecated.
 	returnImageInfo := irs.ImageInfo{
 		// IId: irs.IID{
@@ -716,10 +736,10 @@ func mappingImageInfo(imageInfo *compute.Image) irs.ImageInfo {
 		Name:           imageInfo.Name,
 		OSArchitecture: extractOsArchitecture(imageInfo),
 		OSPlatform:     extractOsPlatform(imageInfo), // imageInfo.Description
-		OSDistribution: extractOsDistribution(imageInfo),
+		OSDistribution: distribution,
 		OSDiskType:     "NA",
 		OSDiskSizeInGB: strconv.FormatInt(imageInfo.DiskSizeGb, 10),
-		ImageStatus:    extractImageAvailability(imageInfo.Status),
+		ImageStatus:    imageStatus,
 	}
 
 	imageInfo.ShieldedInstanceInitialState = nil // 너무 길어 임시로 주석처리함.
@@ -817,16 +837,28 @@ func extractOsDistribution(orgImage *compute.Image) string {
 }
 
 // Image Status 추출
-func extractImageAvailability(status string) irs.ImageStatus {
-	//FAILED, PENDING, or READY
-	imageStatus := irs.ImageNA
-	if strings.Contains(strings.ToLower(status), "READY") {
-		imageStatus = irs.ImageAvailable
-	} else if strings.Contains(strings.ToLower(status), "FAILED") ||
-		strings.Contains(strings.ToLower(status), "PENDING") {
-		imageStatus = irs.ImageUnavailable
-	}
+func extractImageAvailability(orgImage *compute.Image) irs.ImageStatus {
+	//imageStatus := irs.ImageNA
+	imageStatus := irs.ImageAvailable
 
+	// Image를 만들 때 체크하는 상태로 보임.
+	//status := orgImage.Status
+	// if strings.Contains(strings.ToUpper(status), "READY") {
+	// 	imageStatus = irs.ImageAvailable
+	// } else if strings.Contains(strings.ToUpper(status), "FAILED") ||
+	// 	strings.Contains(strings.ToUpper(status), "PENDING") {
+	// 	imageStatus = irs.ImageUnavailable
+	// }
+
+	// deprecated 가 있는 경우 deprecated.state 가 ACTIVE, DEPRECATED, OBSOLETE, DELETED
+	// ACTIVE 는 deprecated가 없음.
+	// DEPRECATED인 경우 생성은 되나, warning이 발생함.
+	// OBSOLETE, DELETED는 생성도 안되고 error 발생함.
+	if orgImage.Deprecated != nil { // deprecated 필드가 nil인 경우
+		if orgImage.Deprecated.State == "OBSOLETE" || orgImage.Deprecated.State == "DELETED" {
+			imageStatus = irs.ImageUnavailable
+		}
+	}
 	return imageStatus
 }
 
