@@ -248,15 +248,19 @@ func setVmSpecInfo(profile vpcv1.InstanceProfile, region string) (irs.VMSpecInfo
 		}
 	}
 
-	gpuMfr, gpuCount, gpuModel, gpuMem := getGpuInfo(*profile.Name)
-	vmSpecInfo.Gpu = []irs.GpuInfo{
-		{
-			Mfr:   gpuMfr,
-			Count: gpuCount,
-			Model: gpuModel,
-			Mem:   gpuMem,
-		},
+	vmSpecInfo.Gpu = []irs.GpuInfo{}
+	if strings.HasPrefix(*profile.Name, "gx") {
+		gpuMfr, gpuCount, gpuModel, gpuMem := getGpuInfo(*profile.Name)
+		vmSpecInfo.Gpu = []irs.GpuInfo{
+			{
+				Mfr:   gpuMfr,
+				Count: gpuCount,
+				Model: gpuModel,
+				Mem:   gpuMem,
+			},
+		}
 	}
+
 	return vmSpecInfo, nil
 }
 

@@ -2,10 +2,15 @@ package resources
 
 import (
 	"bytes"
+	"crypto/tls"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/images"
@@ -25,26 +30,94 @@ type OpenStackImageHandler struct {
 	ImageClient *gophercloud.ServiceClient
 }
 
-func setterImage(image images.Image) *irs.ImageInfo {
-	imageInfo := &irs.ImageInfo{
-		IId: irs.IID{
-			NameId:   image.ID,
-			SystemId: image.ID,
-		},
-		GuestOS: image.Name,
-		Status:  image.Status,
+func getMoreImageInfoFromAPI(imageClient *gophercloud.ServiceClient, imageID string) (map[string]interface{}, error) {
+	url := imageClient.ServiceURL("images", imageID)
+
+	tr := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 
-	// 메타 정보 등록
-	var metadataList []irs.KeyValue
-	for key, val := range image.Metadata {
-		metadata := irs.KeyValue{
-			Key:   key,
-			Value: fmt.Sprintf("%v", val),
-		}
-		metadataList = append(metadataList, metadata)
+	client := &http.Client{Transport: tr}
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
 	}
-	imageInfo.KeyValueList = metadataList
+
+	req.Header.Add("X-Auth-Token", imageClient.TokenID)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to get image details: %s", resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var serverResponse map[string]interface{}
+	if err := json.Unmarshal(body, &serverResponse); err != nil {
+		return nil, err
+	}
+
+	return serverResponse, nil
+}
+
+func formatDiskSizeValue(value float64) string {
+	value = value / 1024 / 1024 / 1024
+
+	if value == float64(int64(value)) {
+		return fmt.Sprintf("%d", int64(value))
+	}
+
+	str := fmt.Sprintf("%.3f", value)
+	return strings.TrimRight(strings.TrimRight(str, "0"), ".")
+}
+
+func setterImage(imageClient *gophercloud.ServiceClient, image images.Image) *irs.ImageInfo {
+	resp, err := getMoreImageInfoFromAPI(imageClient, image.ID)
+	if err != nil {
+		cblogger.Error(err)
+	}
+
+	diskType := resp["disk_format"].(string)
+	diskSize := resp["size"].(float64)
+
+	imageStatus := irs.ImageUnavailable
+	status := strings.ToLower(image.Status)
+	if status == "active" {
+		imageStatus = irs.ImageAvailable
+	}
+
+	imageInfo := &irs.ImageInfo{
+		Name:           image.ID,
+		OSArchitecture: irs.ArchitectureNA,
+		OSPlatform:     irs.PlatformNA,
+		OSDistribution: image.Name,
+		OSDiskType:     diskType,
+		OSDiskSizeInGB: formatDiskSizeValue(diskSize),
+		ImageStatus:    imageStatus,
+	}
+
+	var keyValueList []irs.KeyValue
+	for key, val := range resp {
+		if key == "os_hidden" || key == "os_hash_algo" || key == "os_hash_value" {
+			property := irs.KeyValue{
+				Key:   key,
+				Value: fmt.Sprintf("%v", val),
+			}
+			keyValueList = append(keyValueList, property)
+		}
+	}
+	imageInfo.KeyValueList = keyValueList
 
 	return imageInfo
 }
@@ -116,7 +189,7 @@ func (imageHandler *OpenStackImageHandler) CreateImage(imageReqInfo irs.ImageReq
 		Updated:  image.UpdatedAt.String(),
 		Metadata: image.Properties,
 	}
-	imageInfo := setterImage(mappedImageInfo)
+	imageInfo := setterImage(imageHandler.ImageClient, mappedImageInfo)
 	return *imageInfo, nil
 }
 
@@ -135,7 +208,7 @@ func (imageHandler *OpenStackImageHandler) ListImage() ([]*irs.ImageInfo, error)
 
 	imageInfoList := make([]*irs.ImageInfo, len(imageList))
 	for i, img := range imageList {
-		imageInfo := setterImage(img)
+		imageInfo := setterImage(imageHandler.ImageClient, img)
 		imageInfoList[i] = imageInfo
 	}
 	LoggingInfo(hiscallInfo, start)
@@ -156,7 +229,7 @@ func (imageHandler *OpenStackImageHandler) GetImage(imageIID irs.IID) (irs.Image
 	}
 	LoggingInfo(hiscallInfo, start)
 
-	imageInfo := setterImage(image)
+	imageInfo := setterImage(imageHandler.ImageClient, image)
 	return *imageInfo, nil
 }
 

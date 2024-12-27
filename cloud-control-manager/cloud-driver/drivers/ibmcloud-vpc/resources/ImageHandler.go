@@ -10,6 +10,7 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -74,8 +75,10 @@ func (imageHandler *IbmImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		}
 	}
 	LoggingInfo(hiscallInfo, start)
+
 	return imageList, nil
 }
+
 func (imageHandler *IbmImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
 	hiscallInfo := GetCallLogScheme(imageHandler.Region, call.VMIMAGE, imageIID.NameId, "GetImage()")
 	start := call.Start()
@@ -109,6 +112,40 @@ func (imageHandler *IbmImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, 
 	LoggingInfo(hiscallInfo, start)
 	return imageInfo, nil
 }
+
+func (imageHandler *IbmImageHandler) GetImageN(name string) (irs.ImageInfo, error) {
+	hiscallInfo := GetCallLogScheme(imageHandler.Region, call.VMIMAGE, name, "GetImage()")
+	start := call.Start()
+
+	if name == "" {
+		getErr := errors.New(fmt.Sprintf("Failed to Get Image. err = image name is empty"))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.ImageInfo{}, getErr
+	}
+
+	image, err := getRawImageN(name, imageHandler.VpcService, imageHandler.Ctx)
+
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to Get Image. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.ImageInfo{}, getErr
+	}
+
+	imageInfo, err := setImageInfo(&image)
+
+	if err != nil {
+		getErr := errors.New(fmt.Sprintf("Failed to Get Image. err = %s", err.Error()))
+		cblogger.Error(getErr.Error())
+		LoggingError(hiscallInfo, getErr)
+		return irs.ImageInfo{}, getErr
+	}
+
+	LoggingInfo(hiscallInfo, start)
+	return imageInfo, nil
+}
+
 func (imageHandler *IbmImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(imageHandler.Region, call.VMIMAGE, imageIID.NameId, "DeleteImage()")
 
@@ -140,19 +177,80 @@ func getRawImage(imageIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context)
 	return *image, nil
 }
 
+func getRawImageN(name string, vpcService *vpcv1.VpcV1, ctx context.Context) (vpcv1.Image, error) {
+	options := &vpcv1.GetImageOptions{}
+	options.SetID(name)
+	image, _, err := vpcService.GetImageWithContext(ctx, options)
+	if err != nil {
+		return vpcv1.Image{}, err
+	}
+	return *image, nil
+}
+
 func setImageInfo(image *vpcv1.Image) (irs.ImageInfo, error) {
 	if image != nil {
+
+		var osPlatform irs.OSPlatform
+		if image.OperatingSystem.DisplayName != nil {
+			displayName := strings.ToLower(*image.OperatingSystem.DisplayName)
+			if strings.Contains(displayName, "windows") {
+				osPlatform = irs.Windows
+			} else if strings.Contains(displayName, "linux") || strings.Contains(displayName, "z/os") || strings.Contains(displayName, "centos") || strings.Contains(displayName, "fedora") {
+				osPlatform = irs.Linux_UNIX
+			} else {
+				osPlatform = irs.PlatformNA
+			}
+		}
+
+		var imageStatus irs.ImageStatus
+		if image.Status != nil && *image.Status == "available" {
+			imageStatus = irs.ImageAvailable
+		} else if image.Status != nil {
+			imageStatus = irs.ImageUnavailable
+		} else {
+			imageStatus = irs.ImageNA
+		}
+
+		var osArchitecture irs.OSArchitecture
+		if image.OperatingSystem.Architecture != nil {
+			arch := strings.ToLower(*image.OperatingSystem.Architecture)
+			if arch == "arm64" {
+				osArchitecture = irs.ARM64
+			} else if arch == "arm64_mac" {
+				osArchitecture = irs.ARM64_MAC
+			} else if arch == "x86_64" || arch == "amd64" {
+				osArchitecture = irs.X86_64
+			} else if arch == "x86_64_mac" {
+				osArchitecture = irs.X86_64_MAC
+			} else {
+				osArchitecture = irs.ArchitectureNA
+			}
+		}
+
 		imageInfo := irs.ImageInfo{
-			IId: irs.IID{
-				NameId:   *image.ID,
-				SystemId: *image.ID,
+			Name:           *image.ID,
+			OSArchitecture: osArchitecture,
+			OSPlatform:     osPlatform,
+			OSDistribution: *image.OperatingSystem.DisplayName,
+			OSDiskType:     "NA",
+			OSDiskSizeInGB: "-1",
+			ImageStatus:    imageStatus,
+			KeyValueList: []irs.KeyValue{
+				{Key: "Version", Value: *image.OperatingSystem.Version},
+				{Key: "DedicatedHostOnly", Value: strconv.FormatBool(func() bool {
+					if image.OperatingSystem.DedicatedHostOnly != nil {
+						return *image.OperatingSystem.DedicatedHostOnly
+					}
+					return false
+				}())},
+				{Key: "Vendor", Value: *image.OperatingSystem.Vendor},
 			},
-			GuestOS: *image.OperatingSystem.DisplayName,
-			Status:  "available",
 		}
 		return imageInfo, nil
 	}
+
 	err := errors.New(fmt.Sprintf("operatingSystem invalid"))
+
 	return irs.ImageInfo{}, err
 }
 
