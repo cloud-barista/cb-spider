@@ -199,10 +199,17 @@ func ExtractImageDescribeInfo(image *ecs.Image) irs.ImageInfo {
 	cblogger.Debug(image)
 
 	imageInfo := irs.ImageInfo{
-		IId: irs.IID{NameId: image.ImageId, SystemId: image.ImageId},
-		//Name:    image.ImageName,
-		Status:  image.Status,
-		GuestOS: image.OSNameEn,
+		// IId: irs.IID{NameId: image.ImageId, SystemId: image.ImageId},
+		// //Name:    image.ImageName,
+		// Status:  image.Status,
+		// GuestOS: image.OSNameEn,
+		Name:           image.ImageFamily,
+		OSArchitecture: irs.OSArchitecture(image.Architecture),
+		OSPlatform:     irs.OSPlatform(image.Platform),
+		OSDistribution: image.Description,
+		OSDiskType:     "NA",
+		OSDiskSizeInGB: "-1",
+		ImageStatus:    irs.ImageStatus(image.Status),
 	}
 
 	keyValueList := []irs.KeyValue{
@@ -224,8 +231,12 @@ func ExtractImageDescribeInfo(image *ecs.Image) irs.ImageInfo {
 		{Key: "Platform", Value: image.Platform},
 		{Key: "Size", Value: strconv.Itoa(image.Size)},
 	}
-
-	keyValueList = append(keyValueList, irs.KeyValue{Key: "Description", Value: image.Description})
+	// keyValueList = append(keyValueList, irs.KeyValue{Key: "Description", Value: image.Description})
+	// imageInfo.KeyValueList = keyValueList
+	keyValueList, err := ConvertKeyValueList(image)
+	if err != nil {
+		cblogger.Error("Failed to convert image to KeyValueList:", err)
+	}
 	imageInfo.KeyValueList = keyValueList
 
 	return imageInfo
@@ -275,6 +286,20 @@ func (imageHandler *AlibabaImageHandler) GetImage(imageIID irs.IID) (irs.ImageIn
 	// }
 
 	result, err := DescribeImageByImageId(imageHandler.Client, imageHandler.Region, imageIID, false)
+
+	if err != nil {
+		return irs.ImageInfo{}, err
+	}
+
+	imageInfo := ExtractImageDescribeInfo(&result)
+
+	return imageInfo, nil
+}
+
+func (imageHandler *AlibabaImageHandler) GetImageN(Name string) (irs.ImageInfo, error) {
+	cblogger.Infof("imageId : ", Name)
+
+	result, err := DescribeImageByImageName(imageHandler.Client, imageHandler.Region, Name, false)
 
 	if err != nil {
 		return irs.ImageInfo{}, err
