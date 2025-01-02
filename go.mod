@@ -33,8 +33,8 @@ require (
 	github.com/spf13/cobra v1.2.1
 	github.com/swaggo/swag v1.16.3
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb v1.0.415
-	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.964
-	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm v1.0.493
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.1064
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm v1.0.1064
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc v1.0.206
 	golang.org/x/crypto v0.31.0
 	golang.org/x/oauth2 v0.18.0
