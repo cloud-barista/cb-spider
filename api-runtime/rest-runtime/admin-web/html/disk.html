@@ -928,7 +928,7 @@
                 data.ZoneList.forEach(zone => {
                     const option = document.createElement('option');
                     option.value = zone.Name;
-                    option.textContent = `${zone.DisplayName} (${zone.Status})`;
+                    option.textContent = `${zone.Name} (${zone.DisplayName})`;
 
                     if (zone.Name === defaultZone) {
                         option.selected = true;
