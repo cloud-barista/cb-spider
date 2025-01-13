@@ -1232,7 +1232,8 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 
 		Region: irs.RegionInfo{
 			Region: vmHandler.Region.Region,
-			Zone:   vmHandler.Region.Zone,
+			//Zone:   vmHandler.Region.Zone,
+			Zone: extractZoneName(server.Zone),
 		},
 		VMUserId:          "cb-user",
 		NetworkInterface:  server.NetworkInterfaces[0].Name,
@@ -1309,6 +1310,12 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 	vmInfo.TagList = tags
 
 	return vmInfo
+}
+
+func extractZoneName(zoneURL string) string {
+	// zoneURL : https://www.googleapis.com/compute/v1/projects/sonic-arcadia-286903/zones/us-central1-a
+	parts := strings.Split(zoneURL, "/")
+	return parts[len(parts)-1]
 }
 
 func (vmHandler *GCPVMHandler) getImageType(sourceMachineImage string) irs.ImageType {
