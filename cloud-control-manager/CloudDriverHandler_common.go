@@ -206,8 +206,8 @@ func GetCloudDriverAndConnectionInfo(connectName string) (CloudDriverAndConnecti
 }
 
 // // for spiderlet
-// CreateClouddConnection retrieves CloudDriverInfo and ConnectionInfo via HTTPS and constructs CloudConnection
-func CreateClouddConnection(connectName string) (icon.CloudConnection, error) {
+// CreateCloudConnection retrieves CloudDriverInfo and ConnectionInfo via HTTPS and constructs CloudConnection
+func CreateCloudConnection(connectName string) (icon.CloudConnection, error) {
 	// Set up curl command
 	basePath := os.Getenv("CBSPIDER_ROOT")
 	lionKeyPath := filepath.Join(basePath, "spiderlet", "lionkey")

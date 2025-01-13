@@ -62,7 +62,7 @@ func SpiderletAnyCall(connectionName string, reqInfo cres.AnyCallInfo) (*cres.An
 
 	// Create a cloud connection using the driver and credential info obtained from the Spider server.
 	// spiderlet ==> Spider server
-	cldConn, err := ccm.CreateClouddConnection(connectionName)
+	cldConn, err := ccm.CreateCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
