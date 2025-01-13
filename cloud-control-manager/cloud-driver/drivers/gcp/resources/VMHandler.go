@@ -615,6 +615,11 @@ func (vmHandler *GCPVMHandler) SuspendVM(vmID irs.IID) (irs.VMStatus, error) {
 	zone := vmHandler.Region.Zone
 	//ctx := vmHandler.Ctx
 
+	// set zone if TargetZone is not empty
+	if vmHandler.Region.TargetZone != "" {
+		zone = vmHandler.Region.TargetZone
+	}
+
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
@@ -658,6 +663,12 @@ func (vmHandler *GCPVMHandler) ResumeVM(vmID irs.IID) (irs.VMStatus, error) {
 
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
+
+	// set zone if TargetZone is not empty
+	if vmHandler.Region.TargetZone != "" {
+		zone = vmHandler.Region.TargetZone
+	}
+
 	ctx := vmHandler.Ctx
 
 	// logger for HisCall
@@ -694,6 +705,12 @@ func (vmHandler *GCPVMHandler) RebootVM(vmID irs.IID) (irs.VMStatus, error) {
 	projectID := vmHandler.Credential.ProjectID
 	//region := vmHandler.Region.Region
 	zone := vmHandler.Region.Zone
+
+	// set zone if TargetZone is not empty
+	if vmHandler.Region.TargetZone != "" {
+		zone = vmHandler.Region.TargetZone
+	}
+
 	ctx := vmHandler.Ctx
 
 	// logger for HisCall
@@ -803,6 +820,12 @@ func (vmHandler *GCPVMHandler) RebootVM(vmID irs.IID) (irs.VMStatus, error) {
 func (vmHandler *GCPVMHandler) TerminateVM(vmID irs.IID) (irs.VMStatus, error) {
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
+
+	// set zone if TargetZone is not empty
+	if vmHandler.Region.TargetZone != "" {
+		zone = vmHandler.Region.TargetZone
+	}
+
 	ctx := vmHandler.Ctx
 
 	// logger for HisCall
@@ -835,15 +858,14 @@ func (vmHandler *GCPVMHandler) TerminateVM(vmID irs.IID) (irs.VMStatus, error) {
 }
 
 func (vmHandler *GCPVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
-	//serverList, err := vmHandler.Client.ListAll(vmHandler.Ctx)
 	projectID := vmHandler.Credential.ProjectID
-	zone := vmHandler.Region.Zone
+	regionID := vmHandler.Region.Region
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
 		CloudOS:      call.GCP,
-		RegionZone:   vmHandler.Region.Zone,
+		RegionZone:   vmHandler.Region.Region,
 		ResourceType: call.VM,
 		ResourceName: "",
 		CloudOSAPI:   "List()",
@@ -851,32 +873,53 @@ func (vmHandler *GCPVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 		ErrorMSG:     "",
 	}
 	callLogStart := call.Start()
-	serverList, err := vmHandler.Client.Instances.List(projectID, zone).Do()
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+	// Get all zones in the region
+	regionZoneHandler := GCPRegionZoneHandler{
+		Client:     vmHandler.Client,
+		Credential: vmHandler.Credential,
+		Region:     vmHandler.Region,
+		Ctx:        vmHandler.Ctx,
+	}
+
+	regionZoneInfo, err := regionZoneHandler.GetRegionZone(regionID)
 	if err != nil {
+		cblogger.Error("failed to get ZoneInfo by region ", err)
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
-		cblogger.Error(err)
 		return nil, err
 	}
-	callogger.Info(call.String(callLogInfo))
 
+	// Initialize VM status list
 	var vmStatusList []*irs.VMStatusInfo
-	for _, s := range serverList.Items {
-		if s.Name != "" {
-			vmId := s.Name
-			status, _ := vmHandler.GetVMStatus(irs.IID{NameId: vmId, SystemId: vmId})
-			vmStatusInfo := irs.VMStatusInfo{
-				IId: irs.IID{
-					NameId: vmId,
-					//SystemId: strconv.FormatUint(s.Id, 10),
-					SystemId: vmId,
-				},
 
-				VmStatus: status,
-			}
-			vmStatusList = append(vmStatusList, &vmStatusInfo)
+	for _, zoneItem := range regionZoneInfo.ZoneList {
+		cblogger.Infof("Fetching VM instances in zone: %s", zoneItem.Name)
+
+		serverList, err := vmHandler.Client.Instances.List(projectID, zoneItem.Name).Do()
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+		if err != nil {
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Info(call.String(callLogInfo))
+			cblogger.Error(err)
+			continue // skip to next zone
 		}
+
+		for _, s := range serverList.Items {
+			if s.Name != "" {
+				vmId := s.Name
+				status, _ := vmHandler.GetVMStatus(irs.IID{NameId: vmId, SystemId: vmId})
+				vmStatusInfo := irs.VMStatusInfo{
+					IId: irs.IID{
+						NameId:   vmId,
+						SystemId: vmId,
+					},
+					VmStatus: status,
+				}
+				vmStatusList = append(vmStatusList, &vmStatusInfo)
+			}
+		}
+		callogger.Info(call.String(callLogInfo))
 	}
 
 	return vmStatusList, nil
@@ -909,6 +952,11 @@ func ConvertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 func (vmHandler *GCPVMHandler) GetVMStatus(vmID irs.IID) (irs.VMStatus, error) { // GCP의 ID는 uint64 이므로 GCP에서는 Name을 ID값으로 사용한다.
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
+
+	// set zone if TargetZone is not empty
+	if vmHandler.Region.TargetZone != "" {
+		zone = vmHandler.Region.TargetZone
+	}
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -948,13 +996,14 @@ func (vmHandler *GCPVMHandler) GetVMStatus(vmID irs.IID) (irs.VMStatus, error) {
 
 func (vmHandler *GCPVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	projectID := vmHandler.Credential.ProjectID
-	zone := vmHandler.Region.Zone
-	cblogger.Info("VMLIST zone info :", zone)
+	regionID := vmHandler.Region.Region
+	cblogger.Info("VMLIST region info:", regionID)
+
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
 	callLogInfo := call.CLOUDLOGSCHEMA{
 		CloudOS:      call.GCP,
-		RegionZone:   vmHandler.Region.Zone,
+		RegionZone:   vmHandler.Region.Region,
 		ResourceType: call.VM,
 		ResourceName: "",
 		CloudOSAPI:   "List()",
@@ -963,21 +1012,44 @@ func (vmHandler *GCPVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	}
 	callLogStart := call.Start()
 
-	serverList, err := vmHandler.Client.Instances.List(projectID, zone).Do()
-	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	// Get all zones in the region
+	regionZoneHandler := GCPRegionZoneHandler{
+		Client:     vmHandler.Client,
+		Credential: vmHandler.Credential,
+		Region:     vmHandler.Region,
+		Ctx:        vmHandler.Ctx,
+	}
+
+	regionZoneInfo, err := regionZoneHandler.GetRegionZone(regionID)
 	if err != nil {
+		cblogger.Error("failed to get ZoneInfo by region:", err)
 		callLogInfo.ErrorMSG = err.Error()
 		callogger.Info(call.String(callLogInfo))
-		cblogger.Error(err)
-		cblogger.Infof("There are no VM lists created in that zone.")
 		return nil, err
 	}
-	callogger.Info(call.String(callLogInfo))
 
 	var vmList []*irs.VMInfo
-	for _, server := range serverList.Items {
-		vmInfo := vmHandler.mappingServerInfo(server)
-		vmList = append(vmList, &vmInfo)
+
+	for _, zoneItem := range regionZoneInfo.ZoneList {
+		cblogger.Infof("Fetching VM instances in zone: %s", zoneItem.Name)
+
+		serverList, err := vmHandler.Client.Instances.List(projectID, zoneItem.Name).Do()
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+		if err != nil {
+			cblogger.Errorf("Error fetching VM instances in zone %s: %v", zoneItem.Name, err)
+			continue // try next zone
+		}
+
+		for _, server := range serverList.Items {
+			vmInfo := vmHandler.mappingServerInfo(server)
+			vmList = append(vmList, &vmInfo)
+		}
+
+		callogger.Info(call.String(callLogInfo))
+	}
+
+	if len(vmList) == 0 {
+		cblogger.Infof("No VMs found in any zone of the region %s.", regionID)
 	}
 
 	return vmList, nil
@@ -986,6 +1058,11 @@ func (vmHandler *GCPVMHandler) ListVM() ([]*irs.VMInfo, error) {
 func (vmHandler *GCPVMHandler) GetVM(vmID irs.IID) (irs.VMInfo, error) {
 	projectID := vmHandler.Credential.ProjectID
 	zone := vmHandler.Region.Zone
+
+	// set zone if TargetZone is not empty
+	if vmHandler.Region.TargetZone != "" {
+		zone = vmHandler.Region.TargetZone
+	}
 
 	// logger for HisCall
 	callogger := call.GetLogger("HISCALL")
@@ -1343,7 +1420,7 @@ func (vmHandler *GCPVMHandler) WaitForRun(vmIID irs.IID) (irs.VMStatus, error) {
 	for {
 		curStatus, errStatus := vmHandler.GetVMStatus(vmIID)
 		if errStatus != nil {
-			cblogger.Error(errStatus.Error())
+			cblogger.Info(errStatus.Error())
 		}
 
 		cblogger.Info("===>VM Status : ", curStatus)
@@ -1370,27 +1447,49 @@ func (vmHandler *GCPVMHandler) ListIID() ([]*irs.IID, error) {
 	start := call.Start()
 
 	projectID := vmHandler.Credential.ProjectID
-	zone := vmHandler.Region.Zone
+	regionID := vmHandler.Region.Region
 
-	serverList, err := vmHandler.Client.Instances.List(projectID, zone).Do()
-	hiscallInfo.ElapsedTime = call.Elapsed(start)
+	// Get all zones in the region
+	regionZoneHandler := GCPRegionZoneHandler{
+		Client:     vmHandler.Client,
+		Credential: vmHandler.Credential,
+		Region:     vmHandler.Region,
+		Ctx:        vmHandler.Ctx,
+	}
+
+	regionZoneInfo, err := regionZoneHandler.GetRegionZone(regionID)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
-		cblogger.Error(err)
+		cblogger.Error("failed to get ZoneInfo by region:", err)
 		return nil, err
 	}
-	calllogger.Info(call.String(hiscallInfo))
 
 	var iidList []*irs.IID
-	for _, server := range serverList.Items {
 
-		iid := irs.IID{
-			NameId: server.Name,
-			//SystemId: strconv.FormatUint(server.Id, 10),
-			SystemId: server.Name,
+	for _, zoneItem := range regionZoneInfo.ZoneList {
+		cblogger.Infof("Fetching VM instances in zone: %s", zoneItem.Name)
+
+		serverList, err := vmHandler.Client.Instances.List(projectID, zoneItem.Name).Do()
+		hiscallInfo.ElapsedTime = call.Elapsed(start)
+
+		if err != nil {
+			cblogger.Errorf("Error fetching VM instances in zone %s: %v", zoneItem.Name, err)
+			continue // try next zone
 		}
 
-		iidList = append(iidList, &iid)
+		for _, server := range serverList.Items {
+			iid := irs.IID{
+				NameId:   server.Name,
+				SystemId: server.Name,
+			}
+			iidList = append(iidList, &iid)
+		}
+
+		calllogger.Info(call.String(hiscallInfo))
+	}
+
+	if len(iidList) == 0 {
+		cblogger.Infof("No VM instances found in any zone of the region %s.", regionID)
 	}
 
 	return iidList, nil

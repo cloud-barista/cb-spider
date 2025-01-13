@@ -1070,7 +1070,7 @@ func ListVM(connectionName string, rsType string) ([]*cres.VMInfo, error) {
 
 		wg.Add(1)
 
-		go getVMInfo(iidInfo.ConnectionName, handler, cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}, retChanInfos[idx])
+		go getVMInfo(iidInfo.ConnectionName, iidInfo.ZoneId, cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}, retChanInfos[idx])
 
 		wg.Done()
 
@@ -1102,7 +1102,19 @@ func ListVM(connectionName string, rsType string) ([]*cres.VMInfo, error) {
 	return infoList2, nil
 }
 
-func getVMInfo(connectionName string, handler cres.VMHandler, iid cres.IID, retInfo chan ResultVMInfo) {
+func getVMInfo(connectionName string, zoneId string, iid cres.IID, retInfo chan ResultVMInfo) {
+
+	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, zoneId)
+	if err != nil {
+		cblog.Error(err)
+		return
+	}
+
+	handler, err := cldConn.CreateVMHandler()
+	if err != nil {
+		cblog.Error(err)
+		return
+	}
 
 	vmSPLock.RLock(connectionName, iid.NameId)
 	// get resource(SystemId)
@@ -1125,12 +1137,6 @@ func getVMInfo(connectionName string, handler cres.VMHandler, iid cres.IID, retI
 		return
 	}
 	vmSPLock.RUnlock(connectionName, iid.NameId)
-
-	cldConn, err := ccm.GetCloudConnection(connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return
-	}
 
 	// check Winddows GuestOS
 	isWindowsOS := false
@@ -1456,6 +1462,18 @@ func ListVMStatus(connectionName string, rsType string) ([]*cres.VMStatusInfo, e
 		waiter := NewWaiter(3, 60) // 3 seconds sleep, 60 seconds timeout
 
 		for {
+			cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, iidInfo.ZoneId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+
+			handler, err := cldConn.CreateVMHandler()
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+
 			statusInfo, err = handler.GetVMStatus(driverIID)
 			if statusInfo == cres.NotExist {
 				err = fmt.Errorf("Not Found %s", driverIID.SystemId)
@@ -1577,10 +1595,18 @@ func ControlVM(connectionName string, rsType string, nameID string, action strin
 
 	// (1) get IID(NameId)
 	var iidInfo VMIIDInfo
-	err := infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
-	if err != nil {
-		cblog.Error(err)
-		return "", err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err := getAuthorizedIIdInfo(connectionName, nameID, &iidInfo)
+		if err != nil {
+			cblog.Error(err)
+			return "", err
+		}
+	} else {
+		err := infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return "", err
+		}
 	}
 
 	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, iidInfo.ZoneId)
