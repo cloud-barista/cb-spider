@@ -1757,14 +1757,14 @@
         selection.removeAllRanges();
     }
 
+    // Disable VPC CIDR Input in GCP
     function disableGCPCIDR(connConfig){
-        // GCP일 경우 CIDR 입력란 비활성화
         const vpcCIDRInput = document.getElementById('vpcCIDR');
-        if (connConfig.toLowerCase().includes('gcp')) {
+        if (currentProvider == 'GCP') {
             vpcCIDRInput.disabled = true;
-            vpcCIDRInput.value = 'CIDR input is disabled for GCP.'; // 메시지를 입력란에 추가
-            vpcCIDRInput.style.color = 'gray'; // 메시지 색상 변경
-            vpcCIDRInput.style.backgroundColor = '#f0f0f0'; // 배경 색상 변경
+            vpcCIDRInput.value = 'NA';
+            vpcCIDRInput.style.color = 'gray';
+            vpcCIDRInput.style.backgroundColor = '#f0f0f0';
         }
     }
 
