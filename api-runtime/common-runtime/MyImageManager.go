@@ -10,6 +10,7 @@ package commonruntime
 
 import (
 	"fmt"
+	"os"
 
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -148,17 +149,6 @@ func SnapshotVM(connectionName string, rsType string, reqInfo cres.MyImageInfo, 
 	           return nil, err
 	   }
 	*/
-	cldConn, err := ccm.GetCloudConnection(connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-
-	handler, err := cldConn.CreateMyImageHandler()
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
 
 	myImageSPLock.Lock(connectionName, reqInfo.IId.NameId)
 	defer myImageSPLock.Unlock(connectionName, reqInfo.IId.NameId)
@@ -209,7 +199,20 @@ func SnapshotVM(connectionName string, rsType string, reqInfo cres.MyImageInfo, 
 		cblog.Error(err)
 		return nil, err
 	}
+
 	reqInfo.SourceVM.SystemId = getDriverSystemId(cres.IID{NameId: vmIIdInfo.NameId, SystemId: vmIIdInfo.SystemId})
+
+	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, vmIIdInfo.ZoneId)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	handler, err := cldConn.CreateMyImageHandler()
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
 
 	// (3) create Resource
 	info, err := handler.SnapshotVM(reqInfo)
@@ -281,10 +284,24 @@ func ListMyImage(connectionName string, rsType string) ([]*cres.MyImageInfo, err
 
 	// (1) get IID:list
 	var iidInfoList []*MyImageIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		// fetch granted idlist from CSP
+		iidList, err := handler.ListIID()
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		err2 := getAuthorizedIIdInfoList(iidList, connectionName, &iidInfoList)
+		if err2 != nil {
+			cblog.Error(err2)
+			return nil, err2
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	var infoList []*cres.MyImageInfo
@@ -366,10 +383,18 @@ func GetMyImage(connectionName string, rsType string, nameID string) (*cres.MyIm
 
 	// (1) get IID(NameId)
 	var iidInfo MyImageIIDInfo
-	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthorizedIIdInfo(connectionName, nameID, &iidInfo)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	// (2) get resource(SystemId)
@@ -429,10 +454,18 @@ func DeleteMyImage(connectionName string, rsType string, nameID string, force st
 
 	// (1) get spiderIID for creating driverIID
 	var iidInfo MyImageIIDInfo
-	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
-	if err != nil {
-		cblog.Error(err)
-		return false, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthorizedIIdInfo(connectionName, nameID, &iidInfo)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+	} else {
+		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
 	}
 
 	// (2) delete Resource(SystemId)
