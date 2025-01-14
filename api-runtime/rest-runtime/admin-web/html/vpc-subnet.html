@@ -1018,18 +1018,10 @@
     }
 
     function showOverlay() {
-        const region = '{{.RegionName}}';
         const regionId = '{{.Region}}';
         const defaultZone = '{{.Zone}}';
-        const vpcNameInput = document.getElementById('vpcName');
-        const subnetNameInput = document.getElementById('subnetName');
         const zoneSelect = document.getElementById('subnetZone');
         const connConfig = document.getElementById('connConfig').value;
-
-        vpcNameInput.value = `${region}-vpc-${Math.random().toString(36).substring(2, 5)}`;
-        document.getElementById('vpcCIDR').value = '10.0.0.0/16';
-        subnetNameInput.value = `${region}-${defaultZone}-subnet-${Math.random().toString(36).substring(2, 5)}`;
-        document.getElementById('subnetCIDR').value = '10.0.1.0/24';
 
         fetch(`/spider/regionzone/${regionId}?ConnectionName=${connConfig}`)
             .then(response => response.json())
@@ -1075,12 +1067,16 @@
         const vpcNameInput = document.getElementById('vpcName');
         const subnetNameInput = document.getElementById('subnetName');
         const zoneInput = document.getElementById('subnetZone');
+        const connConfig = document.getElementById('connConfig').value;
+        const vpcCIDRInput = document.getElementById('vpcCIDR');
+        const subnetCIDRInput = document.getElementById('subnetCIDR');
 
         vpcNameInput.value = `${region}-vpc-${Math.random().toString(36).substring(2, 5)}`;
-        document.getElementById('vpcCIDR').value = '10.0.0.0/16';
+        vpcCIDRInput.value = '10.0.0.0/16';
+        disableGCPCIDR(connConfig);
         zoneInput.value = zone;
         subnetNameInput.value = `${region}-${zone}-subnet-${Math.random().toString(36).substring(2, 5)}`;
-        document.getElementById('subnetCIDR').value = '10.0.1.0/24';
+        subnetCIDRInput.value = '10.0.1.0/24';
 
         document.querySelectorAll('.vpc-tag-input, .subnet-tag-input').forEach(tagInput => tagInput.remove());
     }
@@ -1759,6 +1755,17 @@
         }
 
         selection.removeAllRanges();
+    }
+
+    // Disable VPC CIDR Input in GCP
+    function disableGCPCIDR(connConfig){
+        const vpcCIDRInput = document.getElementById('vpcCIDR');
+        if (currentProvider == 'GCP') {
+            vpcCIDRInput.disabled = true;
+            vpcCIDRInput.value = 'NA';
+            vpcCIDRInput.style.color = 'gray';
+            vpcCIDRInput.style.backgroundColor = '#f0f0f0';
+        }
     }
 
 </script>
