@@ -203,7 +203,7 @@ func ExtractImageDescribeInfo(image *ecs.Image) irs.ImageInfo {
 		// //Name:    image.ImageName,
 		// Status:  image.Status,
 		// GuestOS: image.OSNameEn,
-		Name:           image.ImageFamily,
+		Name:           image.ImageName,
 		OSArchitecture: irs.OSArchitecture(image.Architecture),
 		OSPlatform:     irs.OSPlatform(image.Platform),
 		OSDistribution: image.Description,
