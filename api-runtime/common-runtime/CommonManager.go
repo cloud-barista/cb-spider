@@ -1006,6 +1006,18 @@ func GetCSPResourceInfo(connectionName string, rsType string, systemID string) (
 	var cldConn icon.CloudConnection
 	zoneId := ""
 	switch rsType {
+	case VM: // Zone-Level Control Resource(ex. VM)
+		// (1) get IID(SystemId)
+		var iidInfo VMIIDInfo
+		err = infostore.GetByConditionAndContain(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, systemID)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		} else {
+			zoneId = iidInfo.ZoneId
+		}
+		cldConn, err = ccm.GetZoneLevelCloudConnection(connectionName, zoneId)
+
 	case DISK: // Zone-Level Control Resource(ex. Disk)
 		// (1) get IID(SystemId)
 		var iidInfo DiskIIDInfo
@@ -1470,7 +1482,43 @@ func getAuthorizedIIdInfoList(iidList []*cres.IID, connectionName string, iidInf
 	for _, iid := range iidList {
 		for _, oneName := range connectionNameList {
 			switch v := iidInfoList.(type) {
-			case *[]*VMIIDInfo:
+			case *[]*VPCIIDInfo: // VPC
+				var tmpIIDInfoList []*VPCIIDInfo
+				err = infostore.ListByCondition(&tmpIIDInfoList, CONNECTION_NAME_COLUMN, oneName)
+				if err != nil {
+					cblog.Error(err)
+					return err
+				}
+				for _, tmpIIDInfo := range tmpIIDInfoList {
+					if iid.SystemId == getDriverSystemId(cres.IID{NameId: tmpIIDInfo.NameId, SystemId: tmpIIDInfo.SystemId}) {
+						*v = append(*v, tmpIIDInfo)
+					}
+				}
+			case *[]*SGIIDInfo: // SG
+				var tmpIIDInfoList []*SGIIDInfo
+				err = infostore.ListByCondition(&tmpIIDInfoList, CONNECTION_NAME_COLUMN, oneName)
+				if err != nil {
+					cblog.Error(err)
+					return err
+				}
+				for _, tmpIIDInfo := range tmpIIDInfoList {
+					if iid.SystemId == getDriverSystemId(cres.IID{NameId: tmpIIDInfo.NameId, SystemId: tmpIIDInfo.SystemId}) {
+						*v = append(*v, tmpIIDInfo)
+					}
+				}
+			case *[]*KeyIIDInfo: // KEY
+				var tmpIIDInfoList []*KeyIIDInfo
+				err = infostore.ListByCondition(&tmpIIDInfoList, CONNECTION_NAME_COLUMN, oneName)
+				if err != nil {
+					cblog.Error(err)
+					return err
+				}
+				for _, tmpIIDInfo := range tmpIIDInfoList {
+					if iid.SystemId == getDriverSystemId(cres.IID{NameId: tmpIIDInfo.NameId, SystemId: tmpIIDInfo.SystemId}) {
+						*v = append(*v, tmpIIDInfo)
+					}
+				}
+			case *[]*VMIIDInfo: // VM
 				var tmpIIDInfoList []*VMIIDInfo
 				err = infostore.ListByCondition(&tmpIIDInfoList, CONNECTION_NAME_COLUMN, oneName)
 				if err != nil {
@@ -1482,8 +1530,44 @@ func getAuthorizedIIdInfoList(iidList []*cres.IID, connectionName string, iidInf
 						*v = append(*v, tmpIIDInfo)
 					}
 				}
-			case *[]*VPCIIDInfo:
-				var tmpIIDInfoList []*VPCIIDInfo
+			case *[]*NLBIIDInfo: // NLB
+				var tmpIIDInfoList []*NLBIIDInfo
+				err = infostore.ListByCondition(&tmpIIDInfoList, CONNECTION_NAME_COLUMN, oneName)
+				if err != nil {
+					cblog.Error(err)
+					return err
+				}
+				for _, tmpIIDInfo := range tmpIIDInfoList {
+					if iid.SystemId == getDriverSystemId(cres.IID{NameId: tmpIIDInfo.NameId, SystemId: tmpIIDInfo.SystemId}) {
+						*v = append(*v, tmpIIDInfo)
+					}
+				}
+			case *[]*DiskIIDInfo: // DISK
+				var tmpIIDInfoList []*DiskIIDInfo
+				err = infostore.ListByCondition(&tmpIIDInfoList, CONNECTION_NAME_COLUMN, oneName)
+				if err != nil {
+					cblog.Error(err)
+					return err
+				}
+				for _, tmpIIDInfo := range tmpIIDInfoList {
+					if iid.SystemId == getDriverSystemId(cres.IID{NameId: tmpIIDInfo.NameId, SystemId: tmpIIDInfo.SystemId}) {
+						*v = append(*v, tmpIIDInfo)
+					}
+				}
+			case *[]*MyImageIIDInfo: // MYIMAGE
+				var tmpIIDInfoList []*MyImageIIDInfo
+				err = infostore.ListByCondition(&tmpIIDInfoList, CONNECTION_NAME_COLUMN, oneName)
+				if err != nil {
+					cblog.Error(err)
+					return err
+				}
+				for _, tmpIIDInfo := range tmpIIDInfoList {
+					if iid.SystemId == getDriverSystemId(cres.IID{NameId: tmpIIDInfo.NameId, SystemId: tmpIIDInfo.SystemId}) {
+						*v = append(*v, tmpIIDInfo)
+					}
+				}
+			case *[]*ClusterIIDInfo: // CLUSTER
+				var tmpIIDInfoList []*ClusterIIDInfo
 				err = infostore.ListByCondition(&tmpIIDInfoList, CONNECTION_NAME_COLUMN, oneName)
 				if err != nil {
 					cblog.Error(err)
@@ -1524,10 +1608,22 @@ func getAuthorizedIIdInfo(connectionName string, nameID string, result interface
 
 	var iidInfo interface{}
 	switch result.(type) {
-	case *VMIIDInfo:
-		iidInfo = &VMIIDInfo{}
-	case *VPCIIDInfo:
+	case *VPCIIDInfo: // VPC
 		iidInfo = &VPCIIDInfo{}
+	case *SGIIDInfo: // SG
+		iidInfo = &SGIIDInfo{}
+	case *KeyIIDInfo: // KEY
+		iidInfo = &KeyIIDInfo{}
+	case *VMIIDInfo: // VM
+		iidInfo = &VMIIDInfo{}
+	case *NLBIIDInfo: // NLB
+		iidInfo = &NLBIIDInfo{}
+	case *DiskIIDInfo: // DISK
+		iidInfo = &DiskIIDInfo{}
+	case *MyImageIIDInfo: // MYIMAGE
+		iidInfo = &MyImageIIDInfo{}
+	case *ClusterIIDInfo: // CLUSTER
+		iidInfo = &ClusterIIDInfo{}
 	default:
 		return fmt.Errorf("unsupported result type")
 	}
