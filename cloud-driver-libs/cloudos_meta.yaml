@@ -76,7 +76,7 @@ IBM:
   defaultregiontoquery: us-south / us-south-1
 
 OPENSTACK:
-  region: Region
+  region: Region / Zone
   credential: IdentityEndpoint / Username / Password / DomainName / ProjectID
   credentialcsp: IdentityEndpoint / Username / Password / DomainName / ProjectID
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage
