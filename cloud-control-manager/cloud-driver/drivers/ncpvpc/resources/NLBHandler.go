@@ -69,8 +69,7 @@ func init() {
 // ------ NLB Management
 func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB irs.NLBInfo, newErr error) {
 	cblogger.Info("NPC VPC Cloud Driver: called CreateNLB()")
-
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbReqInfo.IId.NameId, "CreateNLB()")
 
 	if strings.EqualFold(nlbReqInfo.IId.NameId, "") {
@@ -105,7 +104,7 @@ func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB
 	// You can only select 'SMALL' if the LB type is 'NETWORK' and the LB network type is 'PRIVATE'.
 	throughputType := DefaultThroughputType
 
-	ncpVPCInfo, err := nlbHandler.GetNcpVpcInfoWithName(nlbReqInfo.VpcIID.NameId)
+	ncpVPCInfo, err := nlbHandler.getNcpVpcInfoWithName(nlbReqInfo.VpcIID.NameId)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the NPC VPC Info : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -115,7 +114,7 @@ func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB
 	cblogger.Infof("\n### ncpVPCInfo.VpcNo : [%s]", *ncpVPCInfo.VpcNo)
 
 	// Caution!! : ### Need a Subnet for 'LB Only'('LB Type' Subnet)
-	lbTypeSubnetId, err := nlbHandler.GetSubnetIdForNlbOnly(*ncpVPCInfo.VpcNo)
+	lbTypeSubnetId, err := nlbHandler.getSubnetIdForNlbOnly(*ncpVPCInfo.VpcNo)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the SubnetId of LB Type subnet : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -146,7 +145,7 @@ func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB
 			IPv4_CIDR: cidrForNlbSubnet,
 		}
 		// Note : Create a 'LOADB' type of subnet ('LB Type' subnet for LB Only)
-		ncpNlbSubnetInfo, err := nlbHandler.CreatNcpSubnetForNlbOnly(irs.IID{SystemId: *ncpVPCInfo.VpcNo}, subnetReqInfo) // Waitting time Included
+		ncpNlbSubnetInfo, err := nlbHandler.creatNcpSubnetForNlbOnly(irs.IID{SystemId: *ncpVPCInfo.VpcNo}, subnetReqInfo) // Waitting time Included
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Create the 'LB Type' Subnet : [%v]", err)
 			cblogger.Error(newErr.Error())
@@ -211,7 +210,7 @@ func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB
 	}
 
 	newNlbIID := irs.IID{SystemId: *result.LoadBalancerInstanceList[0].LoadBalancerInstanceNo}
-	_, err = nlbHandler.WaitToGetNlbInfo(newNlbIID) // Wait until 'provisioningStatus' is "Running"
+	_, err = nlbHandler.waitToGetNlbInfo(newNlbIID) // Wait until 'provisioningStatus' is "Running"
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Wait For Creating the NLB. [%v]", err.Error())
 		cblogger.Error(newErr.Error())
@@ -241,7 +240,7 @@ func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB
 	cblogger.Infof("# LoadBalancerListenerNo : [%s]", *ncpListenerInfo.LoadBalancerListenerNo)
 
 	cblogger.Info("\n\n#### Waiting for Changing the NLB Settings!!")
-	_, err = nlbHandler.WaitToGetNlbInfo(newNlbIID) // Wait until 'provisioningStatus' is "Changing" -> "Running"
+	_, err = nlbHandler.waitToGetNlbInfo(newNlbIID) // Wait until 'provisioningStatus' is "Changing" -> "Running"
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Wait For Changing the NLB. [%v]", err.Error())
 		cblogger.Error(newErr.Error())
@@ -256,14 +255,12 @@ func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB
 		LoggingError(callLogInfo, newErr)
 		return irs.NLBInfo{}, newErr
 	}
-
 	return nlbInfo, nil
 }
 
 func (nlbHandler *NcpVpcNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	cblogger.Info("NPC VPC Cloud Driver: called ListNLB()")
-
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", "ListNLB()", "ListNLB()")
 
 	lbReq := vlb.GetLoadBalancerInstanceListRequest{
@@ -281,11 +278,11 @@ func (nlbHandler *NcpVpcNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	LoggingInfo(callLogInfo, callLogStart)
 
 	var nlbInfoList []*irs.NLBInfo
-	if *result.TotalRows < 1 {
+	if len(result.LoadBalancerInstanceList) < 1 {
 		cblogger.Info("# NLB does Not Exist!!")
 	} else {
 		for _, nlb := range result.LoadBalancerInstanceList {
-			nlbInfo, err := nlbHandler.MappingNlbInfo(*nlb)
+			nlbInfo, err := nlbHandler.mappingNlbInfo(*nlb)
 			if err != nil {
 				newErr := fmt.Errorf("Failed to Map NLB lnfo. : [%v]", err)
 				cblogger.Error(newErr.Error())
@@ -295,14 +292,12 @@ func (nlbHandler *NcpVpcNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 			nlbInfoList = append(nlbInfoList, &nlbInfo)
 		}
 	}
-
 	return nlbInfoList, nil
 }
 
 func (nlbHandler *NcpVpcNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called GetNLB()")
-
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbIID.SystemId, "GetNLB()")
 
 	if strings.EqualFold(nlbIID.SystemId, "") {
@@ -311,7 +306,7 @@ func (nlbHandler *NcpVpcNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) 
 		return irs.NLBInfo{}, newErr
 	}
 
-	ncpNlbInfo, err := nlbHandler.GetNcpNlbInfo(nlbIID)
+	ncpNlbInfo, err := nlbHandler.getNcpNlbInfo(nlbIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the NLB info from NCP VPC : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -319,7 +314,7 @@ func (nlbHandler *NcpVpcNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) 
 		return irs.NLBInfo{}, newErr
 	}
 
-	nlbInfo, err := nlbHandler.MappingNlbInfo(*ncpNlbInfo)
+	nlbInfo, err := nlbHandler.mappingNlbInfo(*ncpNlbInfo)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Map the NLB Info : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -332,8 +327,7 @@ func (nlbHandler *NcpVpcNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) 
 
 func (nlbHandler *NcpVpcNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called DeleteNLB()")
-
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbIID.SystemId, "DeleteNLB()")
 
 	if strings.EqualFold(nlbIID.SystemId, "") {
@@ -342,11 +336,9 @@ func (nlbHandler *NcpVpcNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 		return false, newErr
 	}
 
-	lbNoList := []*string{ncloud.String(nlbIID.SystemId)}
-
 	lbReq := vlb.DeleteLoadBalancerInstancesRequest{
 		RegionCode:                 &nlbHandler.RegionInfo.Region,
-		LoadBalancerInstanceNoList: lbNoList,
+		LoadBalancerInstanceNoList: []*string{ncloud.String(nlbIID.SystemId)},
 		// ReturnPublicIpTogether: // It can only be used in the SGN(Singapore) and JPN(Japan) region. Default: 'true'
 	}
 
@@ -370,7 +362,7 @@ func (nlbHandler *NcpVpcNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	}
 
 	newNlbIID := irs.IID{SystemId: *result.LoadBalancerInstanceList[0].LoadBalancerInstanceNo}
-	_, err = nlbHandler.WaitForDelNlb(newNlbIID) // Wait until 'provisioningStatus' is "Terminated"
+	_, err = nlbHandler.waitForDelNlb(newNlbIID) // Wait until 'provisioningStatus' is "Terminated"
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Wait For Deleting the NLB. [%v]", err.Error())
 		cblogger.Debug(newErr.Error())
@@ -418,7 +410,7 @@ func (nlbHandler *NcpVpcNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (i
 	var newVmIdList []*string
 	if len(*vmIIDs) > 0 {
 		for _, vmIID := range *vmIIDs {
-			vmId, err := vmHandler.GetVmIdByName(vmIID.NameId)
+			vmId, err := vmHandler.getVmIdByName(vmIID.NameId)
 			if err != nil {
 				newErr := fmt.Errorf("Failed to Get the VM ID with the VM Name : [%v]", err)
 				cblogger.Error(newErr.Error())
@@ -459,7 +451,7 @@ func (nlbHandler *NcpVpcNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (i
 	}
 
 	cblogger.Info("\n\n#### Waiting for Changing the NLB Settings!!")
-	_, err = nlbHandler.WaitToGetNlbInfo(nlbIID) // Wait until 'provisioningStatus' is "Changing" -> "Running"
+	_, err = nlbHandler.waitToGetNlbInfo(nlbIID) // Wait until 'provisioningStatus' is "Changing" -> "Running"
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Wait For Changing the NLB. [%v]", err.Error())
 		cblogger.Error(newErr.Error())
@@ -480,8 +472,7 @@ func (nlbHandler *NcpVpcNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (i
 
 func (nlbHandler *NcpVpcNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (bool, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called RemoveVMs()")
-
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbIID.SystemId, "RemoveVMs()")
 
 	if strings.EqualFold(nlbIID.SystemId, "") {
@@ -515,7 +506,7 @@ func (nlbHandler *NcpVpcNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID)
 	var vmIdList []*string
 	if len(*vmIIDs) > 0 {
 		for _, vmIID := range *vmIIDs {
-			vmId, err := vmHandler.GetVmIdByName(vmIID.NameId)
+			vmId, err := vmHandler.getVmIdByName(vmIID.NameId)
 			if err != nil {
 				newErr := fmt.Errorf("Failed to Get the VM ID with the VM Name : [%v]", err)
 				cblogger.Error(newErr.Error())
@@ -556,7 +547,7 @@ func (nlbHandler *NcpVpcNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID)
 	}
 
 	cblogger.Info("\n\n#### Waiting for Changing the NLB Settings!!")
-	_, err = nlbHandler.WaitToGetNlbInfo(nlbIID) // Wait until 'provisioningStatus' is "Changing" -> "Running"
+	_, err = nlbHandler.waitToGetNlbInfo(nlbIID) // Wait until 'provisioningStatus' is "Changing" -> "Running"
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Wait For Changing the NLB. [%v]", err.Error())
 		cblogger.Error(newErr.Error())
@@ -587,7 +578,7 @@ func (nlbHandler *NcpVpcNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.He
 		return irs.HealthInfo{}, newErr
 	}
 
-	vmMemberList, err := nlbHandler.GetNcpTargetVMList(nlbInfo.VMGroup.CspID)
+	vmMemberList, err := nlbHandler.getNcpTargetVMList(nlbInfo.VMGroup.CspID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get VM Member list. [%v]", err.Error())
 		cblogger.Error(newErr.Error())
@@ -606,7 +597,7 @@ func (nlbHandler *NcpVpcNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.He
 		}
 
 		for _, member := range vmMemberList {
-			vm, err := vmHandler.GetNcpVMInfo(*member.TargetNo)
+			vm, err := vmHandler.getNcpVMInfo(*member.TargetNo)
 			if err != nil {
 				newErr := fmt.Errorf("Failed to Get the NCP VM Info with Target No. [%v]", err.Error())
 				cblogger.Error(newErr.Error())
@@ -639,8 +630,7 @@ func (nlbHandler *NcpVpcNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.He
 
 func (nlbHandler *NcpVpcNLBHandler) CreateVMGroup(vpcId string, nlbReqInfo irs.NLBInfo) (*vlb.TargetGroup, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called CreateVMGroup()")
-
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", "CreateVMGroup()", "CreateVMGroup()")
 
 	// REST API and Resource Constraints Ref :
@@ -750,7 +740,7 @@ func (nlbHandler *NcpVpcNLBHandler) CreateVMGroup(vpcId string, nlbReqInfo irs.N
 	var targetNoList []*string
 	if len(*nlbReqInfo.VMGroup.VMs) > 0 {
 		for _, vmIID := range *nlbReqInfo.VMGroup.VMs {
-			vmId, err := vmHandler.GetVmIdByName(vmIID.NameId)
+			vmId, err := vmHandler.getVmIdByName(vmIID.NameId)
 			if err != nil {
 				newErr := fmt.Errorf("Failed to Get the VM ID with the VM Name : [%v]", err)
 				cblogger.Error(newErr.Error())
@@ -787,7 +777,7 @@ func (nlbHandler *NcpVpcNLBHandler) CreateVMGroup(vpcId string, nlbReqInfo irs.N
 	}
 	LoggingInfo(callLogInfo, callLogStart)
 
-	if *result.TotalRows < 1 {
+	if len(result.TargetGroupList) < 1 {
 		newErr := fmt.Errorf("Failed to Create New TargetGroup. TargetGroup does Not Exist!!")
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
@@ -801,8 +791,7 @@ func (nlbHandler *NcpVpcNLBHandler) CreateVMGroup(vpcId string, nlbReqInfo irs.N
 
 func (nlbHandler *NcpVpcNLBHandler) DeleteVMGroup(vmGroupId string) (bool, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called DeleteNLB()")
-
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", vmGroupId, "DeleteNcpVMGroup()")
 
 	if strings.EqualFold(vmGroupId, "") {
@@ -894,7 +883,7 @@ func (nlbHandler *NcpVpcNLBHandler) CreateListener(nlbId string, nlbReqInfo irs.
 	}
 	LoggingInfo(callLogInfo, callLogStart)
 
-	if *result.TotalRows < 1 {
+	if len(result.LoadBalancerListenerList) < 1 {
 		newErr := fmt.Errorf("Failed to Create New Listener. Listener does Not Exist!!")
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
@@ -923,7 +912,6 @@ func (nlbHandler *NcpVpcNLBHandler) GetListenerInfo(listenerId string, loadBalan
 		RegionCode:             &nlbHandler.RegionInfo.Region, // *** Required (Not Optional)
 		LoadBalancerInstanceNo: &loadBalancerId,               // *** Required (Not Optional)
 	}
-
 	callLogStart := call.Start()
 	result, err := nlbHandler.VLBClient.V2Api.GetLoadBalancerListenerList(&listenerReq)
 	if err != nil {
@@ -938,13 +926,13 @@ func (nlbHandler *NcpVpcNLBHandler) GetListenerInfo(listenerId string, loadBalan
 	// spew.Dump(result)
 
 	var listenerInfo *irs.ListenerInfo
-	if *result.TotalRows < 1 {
+	if len(result.LoadBalancerListenerList) < 1 {
 		cblogger.Info("### Listener does Not Exist!!")
 	} else {
-		cblogger.Info("Succeeded in Getting Listener list from NCP VPC.")
+		// cblogger.Info("Succeeded in Getting Listener list from NCP VPC.")
 		for _, listener := range result.LoadBalancerListenerList {
 			if strings.EqualFold(*listener.LoadBalancerListenerNo, listenerId) {
-				ncpListenerInfo, err := nlbHandler.MappingListenerInfo(*listener)
+				ncpListenerInfo, err := nlbHandler.mappingListenerInfo(*listener)
 				if err != nil {
 					newErr := fmt.Errorf("Failed to Map NLB Listener lnfo. : [%v]", err)
 					cblogger.Error(newErr.Error())
@@ -961,8 +949,7 @@ func (nlbHandler *NcpVpcNLBHandler) GetListenerInfo(listenerId string, loadBalan
 
 func (nlbHandler *NcpVpcNLBHandler) GetVMGroupInfo(nlb vlb.LoadBalancerInstance) (irs.VMGroupInfo, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called GetVMGroupInfo()")
-
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", *nlb.LoadBalancerInstanceNo, "GetVMGroupInfo()")
 
 	if strings.EqualFold(*nlb.VpcNo, "") {
@@ -972,7 +959,7 @@ func (nlbHandler *NcpVpcNLBHandler) GetVMGroupInfo(nlb vlb.LoadBalancerInstance)
 	}
 
 	// Note : Cloud-Barista supports only this case => [ LB : Listener : VM Group : Health Checker = 1 : 1 : 1 : 1 ]
-	ncpTargetGroupList, err := nlbHandler.GetNcpTargetGroupListWithVpcId(*nlb.VpcNo)
+	ncpTargetGroupList, err := nlbHandler.getNcpTargetGroupListWithVpcId(*nlb.VpcNo)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NCP TargetGroup List with the VPC ID. [%v]", err.Error())
 		cblogger.Error(newErr.Error())
@@ -995,7 +982,7 @@ func (nlbHandler *NcpVpcNLBHandler) GetVMGroupInfo(nlb vlb.LoadBalancerInstance)
 		CspID:    *ncpTargetGroupList[0].TargetGroupNo,
 	}
 
-	targetVmList, err := nlbHandler.GetNcpTargetVMList(*ncpTargetGroupList[0].TargetGroupNo)
+	targetVmList, err := nlbHandler.getNcpTargetVMList(*ncpTargetGroupList[0].TargetGroupNo)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NCP VPC Target Members. [%v]", err.Error())
 		cblogger.Error(newErr.Error())
@@ -1014,7 +1001,7 @@ func (nlbHandler *NcpVpcNLBHandler) GetVMGroupInfo(nlb vlb.LoadBalancerInstance)
 
 		var vmIIds []irs.IID
 		for _, member := range targetVmList {
-			vm, err := vmHandler.GetNcpVMInfo(*member.TargetNo)
+			vm, err := vmHandler.getNcpVMInfo(*member.TargetNo)
 			if err != nil {
 				newErr := fmt.Errorf("Failed to Get the NCP VM Info with Target No. [%v]", err.Error())
 				cblogger.Error(newErr.Error())
@@ -1054,7 +1041,7 @@ func (nlbHandler *NcpVpcNLBHandler) GetHealthCheckerInfo(nlb vlb.LoadBalancerIns
 	}
 
 	// Note : Cloud-Barista supports only this case => [ LB : Listener : VM Group : Health Checker = 1 : 1 : 1 : 1 ]
-	ncpTargetGroupList, err := nlbHandler.GetNcpTargetGroupListWithVpcId(*nlb.VpcNo)
+	ncpTargetGroupList, err := nlbHandler.getNcpTargetGroupListWithVpcId(*nlb.VpcNo)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NCP TargetGroup List with the VPC ID. [%v]", err.Error())
 		cblogger.Error(newErr.Error())
@@ -1082,11 +1069,10 @@ func (nlbHandler *NcpVpcNLBHandler) GetHealthCheckerInfo(nlb vlb.LoadBalancerIns
 	return healthCheckerInfo, nil
 }
 
-func (nlbHandler *NcpVpcNLBHandler) GetNcpTargetGroupListWithVpcId(vpcId string) ([]*vlb.TargetGroup, error) {
-	cblogger.Info("NCP VPC Cloud Driver: called GetNcpTargetGroupListWithVpcId()")
-
-	InitLog() // Caution!!
-	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", vpcId, "GetNcpTargetGroupListWithVpcId()")
+func (nlbHandler *NcpVpcNLBHandler) getNcpTargetGroupListWithVpcId(vpcId string) ([]*vlb.TargetGroup, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called getNcpTargetGroupListWithVpcId()")
+	InitLog()
+	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", vpcId, "getNcpTargetGroupListWithVpcId()")
 
 	if strings.EqualFold(vpcId, "") {
 		newErr := fmt.Errorf("Invalid VPC ID!!")
@@ -1117,11 +1103,10 @@ func (nlbHandler *NcpVpcNLBHandler) GetNcpTargetGroupListWithVpcId(vpcId string)
 }
 
 // Get VM Members of the NLB with the targetGroupId
-func (nlbHandler *NcpVpcNLBHandler) GetNcpTargetVMList(targetGroupId string) ([]*vlb.Target, error) {
-	cblogger.Info("NCP VPC Cloud Driver: called GetNcpTargetVMList()")
-
-	InitLog() // Caution!!
-	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", targetGroupId, "GetNcpTargetVMList()")
+func (nlbHandler *NcpVpcNLBHandler) getNcpTargetVMList(targetGroupId string) ([]*vlb.Target, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called getNcpTargetVMList()")
+	InitLog()
+	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", targetGroupId, "getNcpTargetVMList()")
 
 	if strings.EqualFold(targetGroupId, "") {
 		newErr := fmt.Errorf("Invalid TargetGroup ID!!")
@@ -1133,7 +1118,6 @@ func (nlbHandler *NcpVpcNLBHandler) GetNcpTargetVMList(targetGroupId string) ([]
 		RegionCode:    &nlbHandler.RegionInfo.Region,
 		TargetGroupNo: &targetGroupId,
 	}
-
 	callLogStart := call.Start()
 	result, err := nlbHandler.VLBClient.V2Api.GetTargetList(&targetReq)
 	if err != nil {
@@ -1144,7 +1128,7 @@ func (nlbHandler *NcpVpcNLBHandler) GetNcpTargetVMList(targetGroupId string) ([]
 	}
 	LoggingInfo(callLogInfo, callLogStart)
 
-	if *result.TotalRows < 1 {
+	if len(result.TargetList) < 1 {
 		cblogger.Info("### The VMGroup does Not have any VM Member!!")
 		return nil, nil // Caution!!
 	}
@@ -1152,11 +1136,10 @@ func (nlbHandler *NcpVpcNLBHandler) GetNcpTargetVMList(targetGroupId string) ([]
 	return result.TargetList, nil
 }
 
-func (nlbHandler *NcpVpcNLBHandler) GetNcpVpcInfoWithName(vpcName string) (*vpc.Vpc, error) {
-	cblogger.Info("NCP VPC Cloud Driver: called GetNPCVpcInfoWithName()")
-
-	InitLog() // Caution!!
-	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", vpcName, "GetNPCVpcInfoWithName()")
+func (nlbHandler *NcpVpcNLBHandler) getNcpVpcInfoWithName(vpcName string) (*vpc.Vpc, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called getNcpVpcInfoWithName()")
+	InitLog()
+	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", vpcName, "getNcpVpcInfoWithName()")
 
 	if strings.EqualFold(vpcName, "") {
 		newErr := fmt.Errorf("Invalid VPC Name!!")
@@ -1168,7 +1151,6 @@ func (nlbHandler *NcpVpcNLBHandler) GetNcpVpcInfoWithName(vpcName string) (*vpc.
 	vpcListReq := vpc.GetVpcListRequest{
 		RegionCode: &nlbHandler.RegionInfo.Region,
 	}
-
 	callLogStart := call.Start()
 	result, err := nlbHandler.VPCClient.V2Api.GetVpcList(&vpcListReq)
 	if err != nil {
@@ -1179,7 +1161,7 @@ func (nlbHandler *NcpVpcNLBHandler) GetNcpVpcInfoWithName(vpcName string) (*vpc.
 	}
 	LoggingInfo(callLogInfo, callLogStart)
 
-	if *result.TotalRows < 1 {
+	if len(result.VpcList) < 1 {
 		cblogger.Info("### VPC does Not Exist!!")
 	} else {
 		for _, vpc := range result.VpcList {
@@ -1193,8 +1175,8 @@ func (nlbHandler *NcpVpcNLBHandler) GetNcpVpcInfoWithName(vpcName string) (*vpc.
 }
 
 // Get SubnetId for 'LB Only' subnet('LB Type' subnet)
-func (nlbHandler *NcpVpcNLBHandler) GetSubnetIdForNlbOnly(vpcId string) (string, error) {
-	cblogger.Info("NCP VPC Cloud Driver: called GetSubnetIdForNLB()")
+func (nlbHandler *NcpVpcNLBHandler) getSubnetIdForNlbOnly(vpcId string) (string, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called getSubnetIdForNlbOnly()")
 
 	vpcHandler := NcpVpcVPCHandler{
 		RegionInfo: nlbHandler.RegionInfo,
@@ -1229,8 +1211,8 @@ func (nlbHandler *NcpVpcNLBHandler) GetSubnetIdForNlbOnly(vpcId string) (string,
 	return subnetId, nil
 }
 
-func (nlbHandler *NcpVpcNLBHandler) WaitToGetNlbInfo(nlbIID irs.IID) (bool, error) {
-	cblogger.Info("NCP VPC Cloud Driver: called WaitToGetNlbInfo()")
+func (nlbHandler *NcpVpcNLBHandler) waitToGetNlbInfo(nlbIID irs.IID) (bool, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called waitToGetNlbInfo()")
 
 	if strings.EqualFold(nlbIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid NLB ID!!")
@@ -1242,7 +1224,7 @@ func (nlbHandler *NcpVpcNLBHandler) WaitToGetNlbInfo(nlbIID irs.IID) (bool, erro
 	maxRetryCnt := 1000
 	for {
 		curRetryCnt++
-		nlbStatus, err := nlbHandler.GetNcpNlbStatus(nlbIID)
+		nlbStatus, err := nlbHandler.getNcpNlbStatus(nlbIID)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get the NLB Provisioning Status : [%v]", err)
 			cblogger.Error(newErr.Error())
@@ -1257,8 +1239,8 @@ func (nlbHandler *NcpVpcNLBHandler) WaitToGetNlbInfo(nlbIID irs.IID) (bool, erro
 	}
 }
 
-func (nlbHandler *NcpVpcNLBHandler) WaitForDelNlb(nlbIID irs.IID) (bool, error) {
-	cblogger.Info("NCP VPC Cloud Driver: called WaitForDelNlb()")
+func (nlbHandler *NcpVpcNLBHandler) waitForDelNlb(nlbIID irs.IID) (bool, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called waitForDelNlb()")
 
 	if strings.EqualFold(nlbIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid NLB ID!!")
@@ -1270,7 +1252,7 @@ func (nlbHandler *NcpVpcNLBHandler) WaitForDelNlb(nlbIID irs.IID) (bool, error) 
 	maxRetryCnt := 500
 	for {
 		curRetryCnt++
-		nlbStatus, err := nlbHandler.GetNcpNlbStatus(nlbIID)
+		nlbStatus, err := nlbHandler.getNcpNlbStatus(nlbIID)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get the NLB Provisioning Status : [%v]", err)
 			cblogger.Debug(newErr.Error())
@@ -1286,9 +1268,9 @@ func (nlbHandler *NcpVpcNLBHandler) WaitForDelNlb(nlbIID irs.IID) (bool, error) 
 }
 
 // NCP VPC LoadBalancerInstanceStatusName : Creating, Running, Changing, Terminating, Terminated, Repairing
-func (nlbHandler *NcpVpcNLBHandler) GetNcpNlbStatus(nlbIID irs.IID) (string, error) {
-	cblogger.Info("NCP VPC Cloud Driver: called GetNcpNlbStatus()")
-	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbIID.SystemId, "GetNcpNlbStatus()")
+func (nlbHandler *NcpVpcNLBHandler) getNcpNlbStatus(nlbIID irs.IID) (string, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called getNcpNlbStatus()")
+	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbIID.SystemId, "getNcpNlbStatus()")
 
 	if strings.EqualFold(nlbIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid NLB ID!!")
@@ -1297,7 +1279,7 @@ func (nlbHandler *NcpVpcNLBHandler) GetNcpNlbStatus(nlbIID irs.IID) (string, err
 		return "", newErr
 	}
 
-	ncpNlbInfo, err := nlbHandler.GetNcpNlbInfo(nlbIID)
+	ncpNlbInfo, err := nlbHandler.getNcpNlbInfo(nlbIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the NCP VPC NLB info!! [%v]", err)
 		cblogger.Debug(newErr.Error())
@@ -1308,11 +1290,10 @@ func (nlbHandler *NcpVpcNLBHandler) GetNcpNlbStatus(nlbIID irs.IID) (string, err
 	return *ncpNlbInfo.LoadBalancerInstanceStatusName, nil
 }
 
-func (nlbHandler *NcpVpcNLBHandler) GetNcpNlbInfo(nlbIID irs.IID) (*vlb.LoadBalancerInstance, error) {
-	cblogger.Info("NCP VPC Cloud Driver: called GetNcpNlbInfo()")
-
-	InitLog() // Caution!!
-	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbIID.SystemId, "GetNcpNlbInfo()")
+func (nlbHandler *NcpVpcNLBHandler) getNcpNlbInfo(nlbIID irs.IID) (*vlb.LoadBalancerInstance, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called getNcpNlbInfo()")
+	InitLog()
+	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbIID.SystemId, "getNcpNlbInfo()")
 
 	if strings.EqualFold(nlbIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid NLB ID!!")
@@ -1324,7 +1305,6 @@ func (nlbHandler *NcpVpcNLBHandler) GetNcpNlbInfo(nlbIID irs.IID) (*vlb.LoadBala
 		RegionCode:             &nlbHandler.RegionInfo.Region, // CAUTION!! : Searching NLB Info by RegionCode (Not RegionNo)
 		LoadBalancerInstanceNo: &nlbIID.SystemId,
 	}
-
 	callLogStart := call.Start()
 	result, err := nlbHandler.VLBClient.V2Api.GetLoadBalancerInstanceDetail(&lbReq)
 	if err != nil {
@@ -1335,7 +1315,7 @@ func (nlbHandler *NcpVpcNLBHandler) GetNcpNlbInfo(nlbIID irs.IID) (*vlb.LoadBala
 	}
 	LoggingInfo(callLogInfo, callLogStart)
 
-	if *result.TotalRows < 1 {
+	if len(result.LoadBalancerInstanceList) < 1 {
 		newErr := fmt.Errorf("The NLB does not exist on NCP VPC!!")
 		cblogger.Debug(newErr.Error())
 		return nil, newErr
@@ -1346,11 +1326,11 @@ func (nlbHandler *NcpVpcNLBHandler) GetNcpNlbInfo(nlbIID irs.IID) (*vlb.LoadBala
 	return result.LoadBalancerInstanceList[0], nil
 }
 
-func (nlbHandler *NcpVpcNLBHandler) GetNcpNlbListWithVpcId(vpcId *string) ([]*vlb.LoadBalancerInstance, error) {
-	cblogger.Info("NPC VPC Cloud Driver: called GetNcpNlbListWithVpcId()")
+func (nlbHandler *NcpVpcNLBHandler) getNcpNlbListWithVpcId(vpcId *string) ([]*vlb.LoadBalancerInstance, error) {
+	cblogger.Info("NPC VPC Cloud Driver: called getNcpNlbListWithVpcId()")
 
 	InitLog() // Caution!!
-	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", "GetNcpNlbListWithVpcId()", "GetNcpNlbListWithVpcId()")
+	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", "getNcpNlbListWithVpcId()", "getNcpNlbListWithVpcId()")
 
 	if strings.EqualFold(*vpcId, "") {
 		newErr := fmt.Errorf("Invalid VPC ID!!")
@@ -1379,11 +1359,10 @@ func (nlbHandler *NcpVpcNLBHandler) GetNcpNlbListWithVpcId(vpcId *string) ([]*vl
 
 // Only When any Subnet exists already(because of NetworkACLNo)
 // Creat a Subnet for 'LB Only'('LB Type' Subnet)
-func (nlbHandler *NcpVpcNLBHandler) CreatNcpSubnetForNlbOnly(vpcIID irs.IID, subnetReqInfo irs.SubnetInfo) (*vpc.Subnet, error) {
-	cblogger.Info("NCP VPC Cloud Driver: called CreatNcpSubnetForNlb()!")
-
-	InitLog() // Caution!!
-	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Zone, call.VPCSUBNET, subnetReqInfo.IId.NameId, "CreatNcpSubnetForNlb()")
+func (nlbHandler *NcpVpcNLBHandler) creatNcpSubnetForNlbOnly(vpcIID irs.IID, subnetReqInfo irs.SubnetInfo) (*vpc.Subnet, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called creatNcpSubnetForNlbOnly()!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Zone, call.VPCSUBNET, subnetReqInfo.IId.NameId, "creatNcpSubnetForNlbOnly()")
 
 	if strings.EqualFold(vpcIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid VPC SystemId!!")
@@ -1396,7 +1375,6 @@ func (nlbHandler *NcpVpcNLBHandler) CreatNcpSubnetForNlbOnly(vpcIID irs.IID, sub
 		RegionInfo: nlbHandler.RegionInfo,
 		VPCClient:  nlbHandler.VPCClient,
 	}
-
 	// Check if the SubnetName Exists
 	subnetInfoList, err := vpcHandler.ListSubnet(&vpcIID.SystemId)
 	if err != nil {
@@ -1415,7 +1393,7 @@ func (nlbHandler *NcpVpcNLBHandler) CreatNcpSubnetForNlbOnly(vpcIID irs.IID, sub
 	}
 
 	// Get the Default NetworkACL No. of the VPC
-	netAclNo, getNoErr := vpcHandler.GetDefaultNetworkAclNo(vpcIID)
+	netAclNo, getNoErr := vpcHandler.getDefaultNetworkAclNo(vpcIID)
 	if getNoErr != nil {
 		newErr := fmt.Errorf("Failed to Get Network ACL No of the VPC : [%v]", getNoErr)
 		cblogger.Error(newErr.Error())
@@ -1434,7 +1412,7 @@ func (nlbHandler *NcpVpcNLBHandler) CreatNcpSubnetForNlbOnly(vpcIID irs.IID, sub
 	}
 	cblogger.Infof("New Subnet Name : [%s]", *ncpSubnetInfo.SubnetName)
 
-	subnetStatus, err := vpcHandler.WaitForCreateSubnet(ncpSubnetInfo.SubnetNo)
+	subnetStatus, err := vpcHandler.waitForCreateSubnet(ncpSubnetInfo.SubnetNo)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Wait for Creating the subnet : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -1458,7 +1436,7 @@ func (nlbHandler *NcpVpcNLBHandler) CleanUpNLB(vpcId *string) (bool, error) {
 		return false, newErr
 	}
 
-	ncpNlbList, err := nlbHandler.GetNcpNlbListWithVpcId(vpcId)
+	ncpNlbList, err := nlbHandler.getNcpNlbListWithVpcId(vpcId)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NCP NLB List with the VPC ID. [%v]", err.Error())
 		cblogger.Error(newErr.Error())
@@ -1469,7 +1447,7 @@ func (nlbHandler *NcpVpcNLBHandler) CleanUpNLB(vpcId *string) (bool, error) {
 	cblogger.Infof("\n# NLB Count : [%d]", nlbCount)
 
 	// Note : Cloud-Barista supports only this case => [ LB : Listener : VM Group : Health Checker = 1 : 1 : 1 : 1 ]
-	ncpTargetGroupList, err := nlbHandler.GetNcpTargetGroupListWithVpcId(*vpcId)
+	ncpTargetGroupList, err := nlbHandler.getNcpTargetGroupListWithVpcId(*vpcId)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NCP VMGroup List with the VPC ID. [%v]", err.Error())
 		cblogger.Error(newErr.Error())
@@ -1498,7 +1476,7 @@ func (nlbHandler *NcpVpcNLBHandler) CleanUpNLB(vpcId *string) (bool, error) {
 	// #### Note!!
 	// If the deleted LB was the last one to delete, Need to delete the 'LB Type' Subnet.
 	if nlbCount == 0 {
-		lbTypeSubnetId, err := nlbHandler.GetSubnetIdForNlbOnly(*vpcId)
+		lbTypeSubnetId, err := nlbHandler.getSubnetIdForNlbOnly(*vpcId)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get the SubnetId of LB Type subnet : [%v]", err)
 			cblogger.Error(newErr.Error())
@@ -1527,8 +1505,8 @@ func (nlbHandler *NcpVpcNLBHandler) CleanUpNLB(vpcId *string) (bool, error) {
 }
 
 // NCP LB resource Def. : https://api.ncloud-docs.com/docs/en/common-vapidatatype-loadbalancerinstance
-func (nlbHandler *NcpVpcNLBHandler) MappingNlbInfo(nlb vlb.LoadBalancerInstance) (irs.NLBInfo, error) {
-	cblogger.Info("NCP VPC Cloud Driver: called MappingNlbInfo()")
+func (nlbHandler *NcpVpcNLBHandler) mappingNlbInfo(nlb vlb.LoadBalancerInstance) (irs.NLBInfo, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called mappingNlbInfo()")
 
 	if strings.EqualFold(*nlb.LoadBalancerInstanceNo, "") {
 		newErr := fmt.Errorf("Invalid LoadBalancer Instance Info!!")
@@ -1615,8 +1593,8 @@ func (nlbHandler *NcpVpcNLBHandler) MappingNlbInfo(nlb vlb.LoadBalancerInstance)
 	return nlbInfo, nil
 }
 
-func (nlbHandler *NcpVpcNLBHandler) MappingListenerInfo(listener vlb.LoadBalancerListener) (irs.ListenerInfo, error) {
-	cblogger.Info("NCP VPC Cloud Driver: called MappingListenerInfo()")
+func (nlbHandler *NcpVpcNLBHandler) mappingListenerInfo(listener vlb.LoadBalancerListener) (irs.ListenerInfo, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called mappingListenerInfo()")
 
 	if strings.EqualFold(*listener.LoadBalancerListenerNo, "") {
 		newErr := fmt.Errorf("Invalid LoadBalancer Listener Info!!")
