@@ -296,27 +296,31 @@ func RegisterVM(connectionName string, userIID cres.IID) (*cres.VMInfo, error) {
 
 	// check Winddows GuestOS
 	isWindowsOS := false
-	isWindowsOS, err = checkImageWindowsOS(cldConn, getInfo.ImageType, getInfo.ImageIId)
-	if err != nil {
-		if strings.Contains(err.Error(), "yet!") {
-			cblog.Info(err)
-		} else {
-			cblog.Error(err)
-			//return nil, err
-			getInfo.SSHAccessPoint = getInfo.PublicIP
-		}
+	if getInfo.Platform == cres.WINDOWS {
+		isWindowsOS = true
+	}
+
+	// isWindowsOS, err = checkImageWindowsOS(cldConn, getInfo.ImageType, getInfo.ImageIId)
+	// if err != nil {
+	// 	if strings.Contains(err.Error(), "yet!") {
+	// 		cblog.Info(err)
+	// 	} else {
+	// 		cblog.Error(err)
+	// 		//return nil, err
+	// 		getInfo.SSHAccessPoint = getInfo.PublicIP
+	// 	}
+	// } else {
+	if isWindowsOS {
+		getInfo.VMUserId = "Administrator"
+		getInfo.SSHAccessPoint = getInfo.PublicIP + ":3389"
 	} else {
-		if isWindowsOS {
-			getInfo.VMUserId = "Administrator"
-			getInfo.SSHAccessPoint = getInfo.PublicIP + ":3389"
-		} else {
-			getInfo.VMUserId = "cb-user"
-			// current: Assume 22 port, except Cloud-Twin
-			if getInfo.SSHAccessPoint == "" {
-				getInfo.SSHAccessPoint = getInfo.PublicIP + ":22"
-			}
+		getInfo.VMUserId = "cb-user"
+		// current: Assume 22 port, except Cloud-Twin
+		if getInfo.SSHAccessPoint == "" {
+			getInfo.SSHAccessPoint = getInfo.PublicIP + ":22"
 		}
 	}
+	// }
 
 	// (3) create spiderIID: {UserID, SP-XID:CSP-ID}
 	//     ex) spiderIID {"vpc-01", "vpc-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
@@ -396,12 +400,62 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTra
 	vmSPLock.Lock(connectionName, reqInfo.IId.NameId)
 	defer vmSPLock.Unlock(connectionName, reqInfo.IId.NameId)
 
-	// Get ZoneId from input SubnetIID
-	var subnetIIDInfo SubnetIIDInfo
-	err = infostore.GetBy3Conditions(&subnetIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, reqInfo.SubnetIID.NameId, OWNER_VPC_NAME_COLUMN, reqInfo.VpcIID.NameId)
-	if err != nil {
+	// (1) check existence with NameId
+	bool_ret := false
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*VMIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		bool_ret, err = isNameIdExists(&iidInfoList, reqInfo.IId.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		bool_ret, err = infostore.HasByConditions(&VMIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, reqInfo.IId.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	}
+	if bool_ret {
+		err := fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
 		cblog.Error(err)
 		return nil, err
+	}
+
+	// Get ZoneId from input SubnetIID
+	var subnetIIDInfo SubnetIIDInfo
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		// 1. get VPC IIDInfo
+		var iidInfoList []*VPCIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, reqInfo.VpcIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		vpcIIDInfo := *castedIIDInfo.(*VPCIIDInfo)
+
+		// 2. get Subnet IIDInfo
+		err = infostore.GetBy3Conditions(&subnetIIDInfo, CONNECTION_NAME_COLUMN, vpcIIDInfo.ConnectionName, NAME_ID_COLUMN, reqInfo.SubnetIID.NameId, OWNER_VPC_NAME_COLUMN, reqInfo.VpcIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		err = infostore.GetBy3Conditions(&subnetIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, reqInfo.SubnetIID.NameId, OWNER_VPC_NAME_COLUMN, reqInfo.VpcIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, subnetIIDInfo.ZoneId)
@@ -737,10 +791,25 @@ func cloneReqInfoWithDriverIID(ConnectionName string, reqInfo cres.VMReqInfo) (c
 		if reqInfo.ImageIID.NameId != "" {
 			// get MyImage's SystemId
 			var imageIIdInfo MyImageIIDInfo
-			err := infostore.GetByConditions(&imageIIdInfo, CONNECTION_NAME_COLUMN, ConnectionName, NAME_ID_COLUMN, reqInfo.ImageIID.NameId)
-			if err != nil {
-				cblog.Error(err)
-				return cres.VMReqInfo{}, err
+			if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+				var iidInfoList []*MyImageIIDInfo
+				err := getAuthIIDInfoList(ConnectionName, &iidInfoList)
+				if err != nil {
+					cblog.Error(err)
+					return cres.VMReqInfo{}, err
+				}
+				castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, reqInfo.ImageIID.NameId)
+				if err != nil {
+					cblog.Error(err)
+					return cres.VMReqInfo{}, err
+				}
+				imageIIdInfo = *castedIIDInfo.(*MyImageIIDInfo)
+			} else {
+				err := infostore.GetByConditions(&imageIIdInfo, CONNECTION_NAME_COLUMN, ConnectionName, NAME_ID_COLUMN, reqInfo.ImageIID.NameId)
+				if err != nil {
+					cblog.Error(err)
+					return cres.VMReqInfo{}, err
+				}
 			}
 			newReqInfo.ImageIID = getDriverIID(cres.IID{NameId: imageIIdInfo.NameId, SystemId: imageIIdInfo.SystemId})
 		}
@@ -750,10 +819,25 @@ func cloneReqInfoWithDriverIID(ConnectionName string, reqInfo cres.VMReqInfo) (c
 	if reqInfo.VpcIID.NameId != "" {
 		// get spiderIID
 		var iidInfo VPCIIDInfo
-		err := infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, NAME_ID_COLUMN, reqInfo.VpcIID.NameId)
-		if err != nil {
-			cblog.Error(err)
-			return cres.VMReqInfo{}, err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*VPCIIDInfo
+			err := getAuthIIDInfoList(ConnectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return cres.VMReqInfo{}, err
+			}
+			castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, reqInfo.VpcIID.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return cres.VMReqInfo{}, err
+			}
+			iidInfo = *castedIIDInfo.(*VPCIIDInfo)
+		} else {
+			err := infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, NAME_ID_COLUMN, reqInfo.VpcIID.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return cres.VMReqInfo{}, err
+			}
 		}
 		// set driverIID
 		newReqInfo.VpcIID = getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
@@ -762,11 +846,35 @@ func cloneReqInfoWithDriverIID(ConnectionName string, reqInfo cres.VMReqInfo) (c
 	// set Subnet SystemId
 	if reqInfo.SubnetIID.NameId != "" {
 		var iidInfo SubnetIIDInfo
-		err := infostore.GetBy3Conditions(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, NAME_ID_COLUMN, reqInfo.SubnetIID.NameId,
-			OWNER_VPC_NAME_COLUMN, reqInfo.VpcIID.NameId)
-		if err != nil {
-			cblog.Error(err)
-			return cres.VMReqInfo{}, err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			// 1. get VPC IIDInfo
+			var iidInfoList []*VPCIIDInfo
+			err := getAuthIIDInfoList(ConnectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return cres.VMReqInfo{}, err
+			}
+			castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, reqInfo.VpcIID.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return cres.VMReqInfo{}, err
+			}
+			vpcIIDInfo := *castedIIDInfo.(*VPCIIDInfo)
+
+			// 2. get Subnet IIDInfo
+			err = infostore.GetBy3Conditions(&iidInfo, CONNECTION_NAME_COLUMN, vpcIIDInfo.ConnectionName, NAME_ID_COLUMN, reqInfo.SubnetIID.NameId,
+				OWNER_VPC_NAME_COLUMN, reqInfo.VpcIID.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return cres.VMReqInfo{}, err
+			}
+		} else {
+			err := infostore.GetBy3Conditions(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, NAME_ID_COLUMN, reqInfo.SubnetIID.NameId,
+				OWNER_VPC_NAME_COLUMN, reqInfo.VpcIID.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return cres.VMReqInfo{}, err
+			}
 		}
 		// set driverIID
 		newReqInfo.SubnetIID = getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
@@ -775,10 +883,25 @@ func cloneReqInfoWithDriverIID(ConnectionName string, reqInfo cres.VMReqInfo) (c
 	// set SecurityGroups SystemId
 	for _, sgIID := range reqInfo.SecurityGroupIIDs {
 		var iidInfo SGIIDInfo
-		err := infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, NAME_ID_COLUMN, sgIID.NameId)
-		if err != nil {
-			cblog.Error(err)
-			return cres.VMReqInfo{}, err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*SGIIDInfo
+			err := getAuthIIDInfoList(ConnectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return cres.VMReqInfo{}, err
+			}
+			castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, sgIID.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return cres.VMReqInfo{}, err
+			}
+			iidInfo = *castedIIDInfo.(*SGIIDInfo)
+		} else {
+			err := infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, NAME_ID_COLUMN, sgIID.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return cres.VMReqInfo{}, err
+			}
 		}
 		// set driverIID
 		newReqInfo.SecurityGroupIIDs = append(newReqInfo.SecurityGroupIIDs,
@@ -788,10 +911,25 @@ func cloneReqInfoWithDriverIID(ConnectionName string, reqInfo cres.VMReqInfo) (c
 	// set Data Disk SystemId
 	for _, diskIID := range reqInfo.DataDiskIIDs {
 		var iidInfo DiskIIDInfo
-		err := infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, NAME_ID_COLUMN, diskIID.NameId)
-		if err != nil {
-			cblog.Error(err)
-			return cres.VMReqInfo{}, err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*DiskIIDInfo
+			err := getAuthIIDInfoList(ConnectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return cres.VMReqInfo{}, err
+			}
+			castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, diskIID.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return cres.VMReqInfo{}, err
+			}
+			iidInfo = *castedIIDInfo.(*DiskIIDInfo)
+		} else {
+			err := infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, NAME_ID_COLUMN, diskIID.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return cres.VMReqInfo{}, err
+			}
 		}
 		// set driverIID
 		newReqInfo.DataDiskIIDs = append(newReqInfo.DataDiskIIDs, getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}))
@@ -800,10 +938,25 @@ func cloneReqInfoWithDriverIID(ConnectionName string, reqInfo cres.VMReqInfo) (c
 	// set KeyPair SystemId
 	if reqInfo.KeyPairIID.NameId != "" {
 		var iidInfo KeyIIDInfo
-		err := infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, NAME_ID_COLUMN, reqInfo.KeyPairIID.NameId)
-		if err != nil {
-			cblog.Error(err)
-			return cres.VMReqInfo{}, err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*KeyIIDInfo
+			err := getAuthIIDInfoList(ConnectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return cres.VMReqInfo{}, err
+			}
+			castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, reqInfo.KeyPairIID.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return cres.VMReqInfo{}, err
+			}
+			iidInfo = *castedIIDInfo.(*KeyIIDInfo)
+		} else {
+			err := infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, NAME_ID_COLUMN, reqInfo.KeyPairIID.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return cres.VMReqInfo{}, err
+			}
 		}
 		newReqInfo.KeyPairIID = getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
 	}
@@ -926,22 +1079,11 @@ func validateRootDiskSize(strSize string) error {
 func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqInfo) error {
 
 	// set Image Type & NameId (CSP dosen't return ImageType)
-	if reqInfo.ImageType == cres.PublicImage {
-		vmInfo.ImageType = cres.PublicImage
-		vmInfo.ImageIId.NameId = reqInfo.ImageIID.NameId
+	if reqInfo.ImageType != "" {
+		vmInfo.ImageType = reqInfo.ImageType
 	}
-	if reqInfo.ImageType == cres.MyImage {
-		vmInfo.ImageType = cres.MyImage
-		if vmInfo.ImageIId.SystemId != "" {
-			// get MyImage's NameId
-			var imageIIdInfo MyImageIIDInfo
-			err := infostore.GetByContain(&imageIIdInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, vmInfo.ImageIId.SystemId)
-			if err != nil {
-				cblog.Error(err)
-				return err
-			}
-			vmInfo.ImageIId.NameId = imageIIdInfo.NameId
-		}
+	if reqInfo.ImageIID.NameId != "" {
+		vmInfo.ImageIId.NameId = reqInfo.ImageIID.NameId
 	}
 
 	// set VPC NameId
@@ -972,9 +1114,12 @@ func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqIn
 		for i, diskIID := range vmInfo.DataDiskIIDs {
 			var iidInfo DiskIIDInfo
 			err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, diskIID.SystemId)
-			if err != nil {
+			if !strings.Contains(err.Error(), "does not exist") { // Skip the solution for local disks created by the ECS i2.xlarge instance type.
 				cblog.Error(err)
 				return err
+			} else {
+				cblog.Info(err)
+				continue
 			}
 			vmInfo.DataDiskIIDs[i].NameId = iidInfo.NameId
 		}
@@ -1140,27 +1285,31 @@ func getVMInfo(connectionName string, zoneId string, iid cres.IID, retInfo chan 
 
 	// check Winddows GuestOS
 	isWindowsOS := false
-	isWindowsOS, err = checkImageWindowsOS(cldConn, info.ImageType, info.ImageIId)
-	if err != nil {
-		if strings.Contains(err.Error(), "yet!") {
-			cblog.Info(err)
-		} else {
-			cblog.Error(err)
-			//return
-			info.SSHAccessPoint = info.PublicIP
-		}
+	if info.Platform == cres.WINDOWS {
+		isWindowsOS = true
+	}
+
+	// isWindowsOS, err = checkImageWindowsOS(cldConn, info.ImageType, info.ImageIId)
+	// if err != nil {
+	// 	if strings.Contains(err.Error(), "yet!") {
+	// 		cblog.Info(err)
+	// 	} else {
+	// 		cblog.Error(err)
+	// 		//return
+	// 		info.SSHAccessPoint = info.PublicIP
+	// 	}
+	// } else {
+	if isWindowsOS {
+		info.VMUserId = "Administrator"
+		info.SSHAccessPoint = info.PublicIP + ":3389"
 	} else {
-		if isWindowsOS {
-			info.VMUserId = "Administrator"
-			info.SSHAccessPoint = info.PublicIP + ":3389"
-		} else {
-			info.VMUserId = "cb-user"
-			// current: Assume 22 port, except Cloud-Twin
-			if info.SSHAccessPoint == "" {
-				info.SSHAccessPoint = info.PublicIP + ":22"
-			}
+		info.VMUserId = "cb-user"
+		// current: Assume 22 port, except Cloud-Twin
+		if info.SSHAccessPoint == "" {
+			info.SSHAccessPoint = info.PublicIP + ":22"
 		}
 	}
+	// }
 
 	retInfo <- ResultVMInfo{info, nil}
 }
@@ -1245,9 +1394,12 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 	for i, diskIID := range vmInfo.DataDiskIIDs {
 		var iidInfo DiskIIDInfo
 		err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, diskIID.SystemId)
-		if err != nil {
+		if !strings.Contains(err.Error(), "does not exist") { // Skip the solution for local disks created by the ECS i2.xlarge instance type.
 			cblog.Error(err)
 			return err
+		} else {
+			cblog.Info(err)
+			continue
 		}
 		vmInfo.DataDiskIIDs[i].NameId = iidInfo.NameId
 	}
@@ -1332,27 +1484,31 @@ func GetVM(connectionName string, rsType string, nameID string) (*cres.VMInfo, e
 
 	// check Winddows GuestOS
 	isWindowsOS := false
-	isWindowsOS, err = checkImageWindowsOS(cldConn, info.ImageType, info.ImageIId)
-	if err != nil {
-		if strings.Contains(err.Error(), "yet!") {
-			cblog.Info(err)
-		} else {
-			cblog.Error(err)
-			//return nil, err
-			info.SSHAccessPoint = info.PublicIP
-		}
+	if info.Platform == cres.WINDOWS {
+		isWindowsOS = true
+	}
+
+	// isWindowsOS, err = checkImageWindowsOS(cldConn, info.ImageType, info.ImageIId)
+	// if err != nil {
+	// 	if strings.Contains(err.Error(), "yet!") {
+	// 		cblog.Info(err)
+	// 	} else {
+	// 		cblog.Error(err)
+	// 		//return nil, err
+	// 		info.SSHAccessPoint = info.PublicIP
+	// 	}
+	// } else {
+	if isWindowsOS {
+		info.VMUserId = "Administrator"
+		info.SSHAccessPoint = info.PublicIP + ":3389"
 	} else {
-		if isWindowsOS {
-			info.VMUserId = "Administrator"
-			info.SSHAccessPoint = info.PublicIP + ":3389"
-		} else {
-			info.VMUserId = "cb-user"
-			// current: Assume 22 port, except Cloud-Twin
-			if info.SSHAccessPoint == "" {
-				info.SSHAccessPoint = info.PublicIP + ":22"
-			}
+		info.VMUserId = "cb-user"
+		// current: Assume 22 port, except Cloud-Twin
+		if info.SSHAccessPoint == "" {
+			info.SSHAccessPoint = info.PublicIP + ":22"
 		}
 	}
+	// }
 
 	return &info, nil
 }
