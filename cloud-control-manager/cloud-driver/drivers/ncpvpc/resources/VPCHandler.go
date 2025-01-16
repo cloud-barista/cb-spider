@@ -35,8 +35,7 @@ func init() {
 
 func (vpcHandler *NcpVpcVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called CreateVPC()!")
-
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, vpcReqInfo.IId.NameId, "CreateVPC()")
 
 	if strings.EqualFold(vpcReqInfo.IId.NameId, "") {
@@ -72,7 +71,6 @@ func (vpcHandler *NcpVpcVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VP
 		Ipv4CidrBlock: &vpcReqInfo.IPv4_CIDR,
 		VpcName:       &vpcReqName, // Allows only lowercase letters, numbers or special character "-". Start with an alphabet character.
 	}
-
 	callLogStart := call.Start()
 	vpcResult, err := vpcHandler.VPCClient.V2Api.CreateVpc(&createVpcReq)
 	if err != nil {
@@ -135,7 +133,7 @@ func (vpcHandler *NcpVpcVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VP
 	newVpcIID := irs.IID{SystemId: *vpcResult.VpcList[0].VpcNo}
 
 	cblogger.Infof("# Waitting while Creating New VPC and Default NetworkACL!!")
-	vpcStatus, err := vpcHandler.WaitForCreateVPC(newVpcIID)
+	vpcStatus, err := vpcHandler.waitForCreateVPC(newVpcIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Wait for VPC Creation : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -167,14 +165,12 @@ func (vpcHandler *NcpVpcVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VP
 
 func (vpcHandler *NcpVpcVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	cblogger.Info("NCP VPC cloud driver: called ListVPC()!!")
-
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, "ListVPC()", "ListVPC()")
 
 	vpcListReq := vpc.GetVpcListRequest{
 		RegionCode: &vpcHandler.RegionInfo.Region,
 	}
-
 	callLogStart := call.Start()
 	result, err := vpcHandler.VPCClient.V2Api.GetVpcList(&vpcListReq)
 	if err != nil {
@@ -190,7 +186,7 @@ func (vpcHandler *NcpVpcVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 		cblogger.Info("### VPC does Not Exist!!")
 	} else {
 		for _, vpc := range result.VpcList {
-			vpcInfo, err := vpcHandler.MappingVpcInfo(vpc)
+			vpcInfo, err := vpcHandler.mappingVpcInfo(vpc)
 			if err != nil {
 				newErr := fmt.Errorf("Failed to Map the VPC Info : [%v]", err)
 				cblogger.Error(newErr.Error())
@@ -205,8 +201,7 @@ func (vpcHandler *NcpVpcVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 
 func (vpcHandler *NcpVpcVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called GetVPC()!")
-
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, vpcIID.SystemId, "GetVPC()")
 
 	if strings.EqualFold(vpcIID.SystemId, "") {
@@ -216,8 +211,7 @@ func (vpcHandler *NcpVpcVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) 
 		return irs.VPCInfo{}, newErr
 	}
 
-	// Get VPC Info from NCP VPC
-	ncpVpcInfo, err := vpcHandler.GetNcpVpcInfo(&vpcIID.SystemId)
+	ncpVpcInfo, err := vpcHandler.getNcpVpcInfo(&vpcIID.SystemId)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NCP VPC Info with the SystemId : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -225,7 +219,7 @@ func (vpcHandler *NcpVpcVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) 
 		return irs.VPCInfo{}, newErr
 	}
 
-	vpcInfo, err := vpcHandler.MappingVpcInfo(ncpVpcInfo)
+	vpcInfo, err := vpcHandler.mappingVpcInfo(ncpVpcInfo)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Map the VPC Info : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -235,48 +229,9 @@ func (vpcHandler *NcpVpcVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) 
 	return *vpcInfo, nil
 }
 
-func (vpcHandler *NcpVpcVPCHandler) GetNcpVpcInfo(vpcId *string) (*vpc.Vpc, error) {
-	cblogger.Info("NCP VPC Cloud Driver: called GetNcpVpcInfo()!")
-
-	InitLog() // Caution!!
-	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, *vpcId, "GetNcpVpcInfo()")
-
-	if strings.EqualFold(*vpcId, "") {
-		newErr := fmt.Errorf("Invalid VPC SystemId!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return nil, newErr
-	}
-
-	vpcInfoReq := vpc.GetVpcDetailRequest{
-		RegionCode: &vpcHandler.RegionInfo.Region,
-		VpcNo:      vpcId,
-	}
-
-	callLogStart := call.Start()
-	result, err := vpcHandler.VPCClient.V2Api.GetVpcDetail(&vpcInfoReq)
-	if err != nil {
-		cblogger.Errorf("Failed to Find the VPC Info from NCP VPC : [%v]", err)
-		LoggingError(callLogInfo, err)
-		return nil, err
-	}
-	LoggingInfo(callLogInfo, callLogStart)
-
-	if len(result.VpcList) < 1 {
-		newErr := fmt.Errorf("Failed to Find Any VPC Info with the ID!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return nil, newErr
-	} else {
-		cblogger.Infof("Succeeded in Getting the VPC Info from NCP VPC!!")
-	}
-	return result.VpcList[0], nil
-}
-
 func (vpcHandler *NcpVpcVPCHandler) GetSubnet(sunbnetIID irs.IID) (irs.SubnetInfo, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called GetSubnet()!")
-
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, sunbnetIID.SystemId, "GetSubnet()")
 
 	if strings.EqualFold(sunbnetIID.SystemId, "") {
@@ -286,8 +241,7 @@ func (vpcHandler *NcpVpcVPCHandler) GetSubnet(sunbnetIID irs.IID) (irs.SubnetInf
 		return irs.SubnetInfo{}, newErr
 	}
 
-	// Get Subnet Info from NCP VPC
-	ncpSubnetInfo, err := vpcHandler.GetNcpSubnetInfo(&sunbnetIID.SystemId)
+	ncpSubnetInfo, err := vpcHandler.getNcpSubnetInfo(&sunbnetIID.SystemId)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NCP Subnet Info with the SystemId : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -295,14 +249,13 @@ func (vpcHandler *NcpVpcVPCHandler) GetSubnet(sunbnetIID irs.IID) (irs.SubnetInf
 		return irs.SubnetInfo{}, newErr
 	}
 
-	subnetInfo := vpcHandler.MappingSubnetInfo(ncpSubnetInfo)
+	subnetInfo := vpcHandler.mappingSubnetInfo(ncpSubnetInfo)
 	return *subnetInfo, nil
 }
 
 func (vpcHandler *NcpVpcVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called DeleteVPC()!")
-
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, vpcIID.SystemId, "DeleteVPC()")
 
 	if strings.EqualFold(vpcIID.SystemId, "") {
@@ -320,7 +273,6 @@ func (vpcHandler *NcpVpcVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
 	}
-
 	cblogger.Infof("VPC NameId to Delete [%s]", vpcInfo.IId.NameId)
 
 	// Get SubnetList to Delete
@@ -333,7 +285,6 @@ func (vpcHandler *NcpVpcVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	}
 
 	var lastSubnetNo string
-
 	// Remove All Subnets belonging to the VPC
 	for _, subnet := range subnetInfoList {
 		// Remove the Subnet
@@ -360,7 +311,7 @@ func (vpcHandler *NcpVpcVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	lastSubentIID := irs.IID{SystemId: lastSubnetNo}
 
 	cblogger.Infof("# Waitting while Deleting All Subnets belonging to the VPC!!")
-	subnetStatus, err := vpcHandler.WaitForDeleteSubnet(vpcIID.SystemId, lastSubentIID)
+	subnetStatus, err := vpcHandler.waitForDeleteSubnet(vpcIID.SystemId, lastSubentIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Wait for Subnet Deletion : [%v]", err)
 		cblogger.Debug(newErr.Error()) // For Termination Completion of a Subnet
@@ -393,8 +344,7 @@ func (vpcHandler *NcpVpcVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 // Only When any Subnet exists already(because of NetworkACLNo)
 func (vpcHandler *NcpVpcVPCHandler) AddSubnet(vpcIID irs.IID, subnetReqInfo irs.SubnetInfo) (irs.VPCInfo, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called AddSubnet()!")
-
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, subnetReqInfo.IId.NameId, "AddSubnet()")
 
 	if strings.EqualFold(vpcIID.SystemId, "") {
@@ -432,8 +382,7 @@ func (vpcHandler *NcpVpcVPCHandler) AddSubnet(vpcIID irs.IID, subnetReqInfo irs.
 		}
 	}
 
-	// Get the Default NetworkACL No. of the VPC
-	netAclNo, getNoErr := vpcHandler.GetDefaultNetworkAclNo(vpcIID)
+	netAclNo, getNoErr := vpcHandler.getDefaultNetworkAclNo(vpcIID)
 	if getNoErr != nil {
 		newErr := fmt.Errorf("Failed to Get Network ACL No of the VPC : [%v]", getNoErr)
 		cblogger.Error(newErr.Error())
@@ -452,7 +401,7 @@ func (vpcHandler *NcpVpcVPCHandler) AddSubnet(vpcIID irs.IID, subnetReqInfo irs.
 	}
 	cblogger.Infof("New Subnet SubnetNo : [%s]", *ncpSubnetInfo.SubnetNo)
 
-	subnetStatus, err := vpcHandler.WaitForCreateSubnet(ncpSubnetInfo.SubnetNo)
+	subnetStatus, err := vpcHandler.waitForCreateSubnet(ncpSubnetInfo.SubnetNo)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Wait for Creating the subnet : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -472,8 +421,7 @@ func (vpcHandler *NcpVpcVPCHandler) AddSubnet(vpcIID irs.IID, subnetReqInfo irs.
 
 func (vpcHandler *NcpVpcVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called RemoveSubnet()!")
-
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, subnetIID.SystemId, "RemoveSubnet()")
 
 	if strings.EqualFold(subnetIID.SystemId, "") {
@@ -504,12 +452,10 @@ func (vpcHandler *NcpVpcVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.I
 		return false, fmt.Errorf("Failed to Find the Subnet!! : [%s]", subnetIID.SystemId)
 	}
 
-	// Remove the Subnet
 	delReq := vpc.DeleteSubnetRequest{
 		RegionCode: &vpcHandler.RegionInfo.Region,
 		SubnetNo:   &subnetIID.SystemId,
 	}
-
 	callLogStart := call.Start()
 	delResult, err := vpcHandler.VPCClient.V2Api.DeleteSubnet(&delReq)
 	if err != nil {
@@ -525,8 +471,7 @@ func (vpcHandler *NcpVpcVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.I
 
 func (vpcHandler *NcpVpcVPCHandler) CreateSubnet(vpcIID irs.IID, netAclNo *string, subnetUsageType *string, subnetReqInfo irs.SubnetInfo) (*vpc.Subnet, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called CreateSubnet()!")
-
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, subnetReqInfo.IId.NameId, "CreateSubnet()")
 
 	if strings.EqualFold(vpcIID.SystemId, "") {
@@ -582,11 +527,46 @@ func (vpcHandler *NcpVpcVPCHandler) CreateSubnet(vpcIID irs.IID, netAclNo *strin
 	return subnet.SubnetList[0], nil
 }
 
-func (vpcHandler *NcpVpcVPCHandler) GetNcpSubnetInfo(sunbnetId *string) (*vpc.Subnet, error) {
-	cblogger.Info("NCP VPC Cloud Driver: called GetNcpSubnetInfo()!")
+func (vpcHandler *NcpVpcVPCHandler) getNcpVpcInfo(vpcId *string) (*vpc.Vpc, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called getNcpVpcInfo()!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, *vpcId, "getNcpVpcInfo()")
 
-	InitLog() // Caution!!
-	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, *sunbnetId, "GetNcpSubnetInfo()")
+	if strings.EqualFold(*vpcId, "") {
+		newErr := fmt.Errorf("Invalid VPC SystemId!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+
+	vpcInfoReq := vpc.GetVpcDetailRequest{
+		RegionCode: &vpcHandler.RegionInfo.Region,
+		VpcNo:      vpcId,
+	}
+	callLogStart := call.Start()
+	result, err := vpcHandler.VPCClient.V2Api.GetVpcDetail(&vpcInfoReq)
+	if err != nil {
+		cblogger.Errorf("Failed to Find the VPC Info from NCP VPC : [%v]", err)
+		LoggingError(callLogInfo, err)
+		return nil, err
+	}
+	LoggingInfo(callLogInfo, callLogStart)
+
+	if len(result.VpcList) < 1 {
+		newErr := fmt.Errorf("Failed to Find Any VPC Info with the ID!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	} else {
+		cblogger.Infof("Succeeded in Getting the VPC Info from NCP VPC!!")
+	}
+	return result.VpcList[0], nil
+}
+
+func (vpcHandler *NcpVpcVPCHandler) getNcpSubnetInfo(sunbnetId *string) (*vpc.Subnet, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called getNcpSubnetInfo()!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, *sunbnetId, "getNcpSubnetInfo()")
 
 	if strings.EqualFold(*sunbnetId, "") {
 		newErr := fmt.Errorf("Invalid Subnet ID!!")
@@ -599,7 +579,6 @@ func (vpcHandler *NcpVpcVPCHandler) GetNcpSubnetInfo(sunbnetId *string) (*vpc.Su
 		RegionCode: &vpcHandler.RegionInfo.Region,
 		SubnetNo:   sunbnetId,
 	}
-
 	callLogStart := call.Start()
 	result, err := vpcHandler.VPCClient.V2Api.GetSubnetDetail(&subnetInfoReq)
 	if err != nil {
@@ -622,18 +601,13 @@ func (vpcHandler *NcpVpcVPCHandler) GetNcpSubnetInfo(sunbnetId *string) (*vpc.Su
 
 func (vpcHandler *NcpVpcVPCHandler) ListSubnet(vpcNo *string) ([]*irs.SubnetInfo, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called ListSubnet()!")
-
-	InitLog() // Caution!!
+	InitLog()
 	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, "ListSubnet()", "ListSubnet()")
 
 	subnetListReq := vpc.GetSubnetListRequest{
 		RegionCode: &vpcHandler.RegionInfo.Region,
 		VpcNo:      vpcNo,
 	}
-
-	cblogger.Infof("subnetListReq Ready!!")
-	// spew.Dump(subnetListReq)
-
 	result, err := vpcHandler.VPCClient.V2Api.GetSubnetList(&subnetListReq)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get subnetList : [%v]", err)
@@ -646,20 +620,19 @@ func (vpcHandler *NcpVpcVPCHandler) ListSubnet(vpcNo *string) ([]*irs.SubnetInfo
 	if len(result.SubnetList) < 1 {
 		cblogger.Infof("### The VPC has No Subnet!!")
 	} else {
-		cblogger.Infof("Succeeded in Getting SubnetList!! : ")
+		// cblogger.Infof("Succeeded in Getting SubnetList!! : ")
 		for _, subnet := range result.SubnetList { // To Get Subnet info list
-			subnetInfo := vpcHandler.MappingSubnetInfo(subnet)
+			subnetInfo := vpcHandler.mappingSubnetInfo(subnet)
 			subnetInfoList = append(subnetInfoList, subnetInfo)
 		}
 	}
 	return subnetInfoList, nil
 }
 
-func (vpcHandler *NcpVpcVPCHandler) GetDefaultNetworkAclNo(vpcIID irs.IID) (*string, error) {
-	cblogger.Info("NCP VPC Cloud Driver: called GetDefaultNetworkAclNo()!")
-
-	InitLog() // Caution!!
-	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, vpcIID.SystemId, "GetDefaultNetworkAclNo()")
+func (vpcHandler *NcpVpcVPCHandler) getDefaultNetworkAclNo(vpcIID irs.IID) (*string, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called getDefaultNetworkAclNo()!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, vpcIID.SystemId, "getDefaultNetworkAclNo()")
 
 	if strings.EqualFold(vpcIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid VPC SystemId!!")
@@ -676,7 +649,6 @@ func (vpcHandler *NcpVpcVPCHandler) GetDefaultNetworkAclNo(vpcIID irs.IID) (*str
 		RegionCode: &vpcHandler.RegionInfo.Region,
 		VpcNo:      &vpcIID.SystemId,
 	}
-
 	callLogStart := call.Start()
 	netAclResult, err := vpcHandler.VPCClient.V2Api.GetNetworkAclList(&getReq)
 	if err != nil {
@@ -708,8 +680,8 @@ func (vpcHandler *NcpVpcVPCHandler) GetDefaultNetworkAclNo(vpcIID irs.IID) (*str
 	return netACLNo, nil
 }
 
-func (vpcHandler *NcpVpcVPCHandler) MappingVpcInfo(vpc *vpc.Vpc) (*irs.VPCInfo, error) {
-	cblogger.Info("NCP VPC Cloud Driver: called MappingVpcInfo()!")
+func (vpcHandler *NcpVpcVPCHandler) mappingVpcInfo(vpc *vpc.Vpc) (*irs.VPCInfo, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called mappingVpcInfo()!")
 
 	// VPC info mapping
 	vpcInfo := irs.VPCInfo{
@@ -748,7 +720,7 @@ func (vpcHandler *NcpVpcVPCHandler) MappingVpcInfo(vpc *vpc.Vpc) (*irs.VPCInfo, 
 
 	/*
 		// Get the Default NetworkACL of the VPC
-		netAclNo, getNoErr := vpcHandler.GetDefaultNetworkAclNo(irs.IID{SystemId: *vpc.VpcNo})
+		netAclNo, getNoErr := vpcHandler.getDefaultNetworkAclNo(irs.IID{SystemId: *vpc.VpcNo})
 		if getNoErr != nil {
 			newErr := fmt.Errorf("Failed to Get Network ACL No of the VPC : [%v]", getNoErr)
 			cblogger.Error(newErr.Error())
@@ -762,8 +734,8 @@ func (vpcHandler *NcpVpcVPCHandler) MappingVpcInfo(vpc *vpc.Vpc) (*irs.VPCInfo, 
 	return &vpcInfo, nil
 }
 
-func (vpcHandler *NcpVpcVPCHandler) MappingSubnetInfo(subnet *vpc.Subnet) *irs.SubnetInfo {
-	cblogger.Info("NCP VPC Cloud Driver: called MappingSubnetInfo()!")
+func (vpcHandler *NcpVpcVPCHandler) mappingSubnetInfo(subnet *vpc.Subnet) *irs.SubnetInfo {
+	cblogger.Info("NCP VPC Cloud Driver: called mappingSubnetInfo()!")
 	// spew.Dump(*subnet)
 
 	// Subnet info mapping
@@ -789,14 +761,14 @@ func (vpcHandler *NcpVpcVPCHandler) MappingSubnetInfo(subnet *vpc.Subnet) *irs.S
 }
 
 // Waiting for up to 600 seconds until VPC and Network ACL Creation processes are Finished.
-func (vpcHandler *NcpVpcVPCHandler) WaitForCreateVPC(vpcIID irs.IID) (string, error) {
+func (vpcHandler *NcpVpcVPCHandler) waitForCreateVPC(vpcIID irs.IID) (string, error) {
 	cblogger.Info("======> As Subnet cannot be Created Immediately after VPC Creation Call, it waits until VPC and Network ACL Creation processes are Finished.")
 
 	curRetryCnt := 0
 	maxRetryCnt := 600
 
 	for {
-		ncpVpcInfo, getErr := vpcHandler.GetNcpVpcInfo(&vpcIID.SystemId)
+		ncpVpcInfo, getErr := vpcHandler.getNcpVpcInfo(&vpcIID.SystemId)
 		if getErr != nil {
 			newErr := fmt.Errorf("Failed to Get VPC Info : [%v]", getErr)
 			cblogger.Error(newErr.Error())
@@ -827,7 +799,7 @@ func (vpcHandler *NcpVpcVPCHandler) WaitForCreateVPC(vpcIID irs.IID) (string, er
 }
 
 // Waiting for up to 600 seconds until VPC and Network ACL Creation processes are Finished.
-func (vpcHandler *NcpVpcVPCHandler) WaitForDeleteSubnet(vpcNo string, subnetIID irs.IID) (string, error) {
+func (vpcHandler *NcpVpcVPCHandler) waitForDeleteSubnet(vpcNo string, subnetIID irs.IID) (string, error) {
 	cblogger.Info("======> As VPC cannot be Deleted Immediately after Subnet Deletion Call, it waits until Subnet Deletion processes are Finished.")
 
 	curRetryCnt := 0
@@ -841,7 +813,7 @@ func (vpcHandler *NcpVpcVPCHandler) WaitForDeleteSubnet(vpcNo string, subnetIID 
 
 	if len(subnetList) > 0 {
 		for {
-			ncpSubnetInfo, getErr := vpcHandler.GetNcpSubnetInfo(&subnetIID.SystemId)
+			ncpSubnetInfo, getErr := vpcHandler.getNcpSubnetInfo(&subnetIID.SystemId)
 			if getErr != nil {
 				newErr := fmt.Errorf("Failed to Get the Subnet Info : [%v]", getErr)
 				cblogger.Debug(newErr.Error()) // For Termination Completion of a Subnet
@@ -876,14 +848,14 @@ func (vpcHandler *NcpVpcVPCHandler) WaitForDeleteSubnet(vpcNo string, subnetIID 
 }
 
 // Waiting for up to 600 seconds until Subnet Creation processes are Finished.
-func (vpcHandler *NcpVpcVPCHandler) WaitForCreateSubnet(subnetId *string) (string, error) {
+func (vpcHandler *NcpVpcVPCHandler) waitForCreateSubnet(subnetId *string) (string, error) {
 	cblogger.Info("======> As Subnet cannot be Created Immediately after VPC Creation Call, it waits until VPC and Network ACL Creation processes are Finished.")
 
 	curRetryCnt := 0
 	maxRetryCnt := 600
 
 	for {
-		ncpSubnetInfo, getErr := vpcHandler.GetNcpSubnetInfo(subnetId)
+		ncpSubnetInfo, getErr := vpcHandler.getNcpSubnetInfo(subnetId)
 		if getErr != nil {
 			newErr := fmt.Errorf("Failed to Get the Subnet Info : [%v]", getErr)
 			cblogger.Error(newErr.Error())
