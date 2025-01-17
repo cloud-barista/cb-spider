@@ -473,11 +473,26 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTra
 	// (1) check exist(NameID)
 	dockerTest := os.Getenv("DOCKER_POC_TEST") // For docker poc tests, this is currently the best method.
 	if dockerTest == "" || dockerTest == "OFF" {
-		bool_ret, err := infostore.HasByConditions(&VMIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN,
-			reqInfo.IId.NameId)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
+		bool_ret := false
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*VMIIDInfo
+			err = getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			bool_ret, err = isNameIdExists(&iidInfoList, reqInfo.IId.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+		} else {
+			bool_ret, err = infostore.HasByConditions(&VMIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN,
+				reqInfo.IId.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
 		}
 
 		if bool_ret {
@@ -783,11 +798,10 @@ func cloneReqInfoWithDriverIID(ConnectionName string, reqInfo cres.VMReqInfo) (c
 		TagList: reqInfo.TagList,
 	}
 
-	// set Image SystemId
+	// set Image SystemId for Public Image
 	if reqInfo.ImageType == cres.PublicImage {
 		newReqInfo.ImageIID = cres.IID{NameId: reqInfo.ImageIID.NameId, SystemId: reqInfo.ImageIID.NameId}
-	}
-	if reqInfo.ImageType == cres.MyImage {
+	} else if reqInfo.ImageType == cres.MyImage { // set Image SystemId for MyImage
 		if reqInfo.ImageIID.NameId != "" {
 			// get MyImage's SystemId
 			var imageIIdInfo MyImageIIDInfo
@@ -1099,11 +1113,26 @@ func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqIn
 	// set SecurityGroups NameId
 	for i, sgIID := range vmInfo.SecurityGroupIIds {
 		var iidInfo SGIIDInfo
-		err := infostore.GetByConditionsAndContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName,
-			OWNER_VPC_NAME_COLUMN, reqInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, sgIID.SystemId)
-		if err != nil {
-			cblog.Error(err)
-			return err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*SGIIDInfo
+			err := getAuthIIDInfoList(ConnectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
+			castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, sgIID.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
+			iidInfo = *castedIIDInfo.(*SGIIDInfo)
+		} else {
+			err := infostore.GetByConditionsAndContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName,
+				OWNER_VPC_NAME_COLUMN, reqInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, sgIID.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
 		}
 		vmInfo.SecurityGroupIIds[i].NameId = iidInfo.NameId
 	}
@@ -1113,13 +1142,35 @@ func setNameId(ConnectionName string, vmInfo *cres.VMInfo, reqInfo *cres.VMReqIn
 		// set Data Disk NameId
 		for i, diskIID := range vmInfo.DataDiskIIDs {
 			var iidInfo DiskIIDInfo
-			err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, diskIID.SystemId)
-			if !strings.Contains(err.Error(), "does not exist") { // Skip the solution for local disks created by the ECS i2.xlarge instance type.
-				cblog.Error(err)
-				return err
+			if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+				var iidInfoList []*DiskIIDInfo
+				err := getAuthIIDInfoList(ConnectionName, &iidInfoList)
+				if err != nil {
+					cblog.Error(err)
+					return err
+				}
+				castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, diskIID.SystemId)
+				if err != nil {
+					if !strings.Contains(err.Error(), "does not exist") { // Skip the solution for local disks created by the ECS i2.xlarge instance type.
+						cblog.Error(err)
+						return err
+					} else {
+						cblog.Info(err)
+						continue
+					}
+				}
+				iidInfo = *castedIIDInfo.(*DiskIIDInfo)
 			} else {
-				cblog.Info(err)
-				continue
+				err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, diskIID.SystemId)
+				if err != nil {
+					if !strings.Contains(err.Error(), "does not exist") { // Skip the solution for local disks created by the ECS i2.xlarge instance type.
+						cblog.Error(err)
+						return err
+					} else {
+						cblog.Info(err)
+						continue
+					}
+				}
 			}
 			vmInfo.DataDiskIIDs[i].NameId = iidInfo.NameId
 		}
@@ -1323,11 +1374,32 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 	if vmInfo.ImageIId.SystemId != "" {
 		// get MyImage's NameId
 		var imageIIdInfo MyImageIIDInfo
-		err := infostore.GetByContain(&imageIIdInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, vmInfo.ImageIId.SystemId)
-		if err != nil {
-			if !strings.Contains(err.Error(), "does not exist") {
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*MyImageIIDInfo
+			err := getAuthIIDInfoList(ConnectionName, &iidInfoList)
+			if err != nil {
 				cblog.Error(err)
 				return err
+			}
+			castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, vmInfo.ImageIId.SystemId)
+			if err != nil {
+				if !strings.Contains(err.Error(), "does not exist") && !strings.Contains(err.Error(), "not found") {
+					cblog.Error(err)
+					return err
+				}
+			}
+			if castedIIDInfo != nil {
+				imageIIdInfo = *castedIIDInfo.(*MyImageIIDInfo)
+			} else {
+				imageIIdInfo = MyImageIIDInfo{}
+			}
+		} else {
+			err := infostore.GetByContain(&imageIIdInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, vmInfo.ImageIId.SystemId)
+			if err != nil {
+				if !strings.Contains(err.Error(), "does not exist") && !strings.Contains(err.Error(), "not found") {
+					cblog.Error(err)
+					return err
+				}
 			}
 		}
 		if imageIIdInfo.NameId != "" {
@@ -1342,10 +1414,25 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 	if vmInfo.VpcIID.SystemId != "" {
 		// set VPC NameId
 		var iidInfo VPCIIDInfo
-		err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, vmInfo.VpcIID.SystemId)
-		if err != nil {
-			cblog.Error(err)
-			return err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*VPCIIDInfo
+			err := getAuthIIDInfoList(ConnectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
+			castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, vmInfo.VpcIID.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
+			iidInfo = *castedIIDInfo.(*VPCIIDInfo)
+		} else {
+			err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, vmInfo.VpcIID.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
 		}
 		vmInfo.VpcIID.NameId = iidInfo.NameId
 	}
@@ -1353,11 +1440,34 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 	if vmInfo.SubnetIID.SystemId != "" {
 		// set Subnet NameId
 		var iidInfo SubnetIIDInfo
-		err := infostore.GetByConditionsAndContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName,
-			OWNER_VPC_NAME_COLUMN, vmInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, vmInfo.SubnetIID.SystemId)
-		if err != nil {
-			cblog.Error(err)
-			return err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			// 1. get VPC IIDInfo
+			var iidInfoList []*VPCIIDInfo
+			err := getAuthIIDInfoList(ConnectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
+			castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, vmInfo.VpcIID.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
+			vpcIIDInfo := *castedIIDInfo.(*VPCIIDInfo)
+
+			err = infostore.GetByConditionsAndContain(&iidInfo, CONNECTION_NAME_COLUMN, vpcIIDInfo.ConnectionName,
+				OWNER_VPC_NAME_COLUMN, vmInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, vmInfo.SubnetIID.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
+		} else {
+			err := infostore.GetByConditionsAndContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName,
+				OWNER_VPC_NAME_COLUMN, vmInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, vmInfo.SubnetIID.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
 		}
 		vmInfo.SubnetIID.NameId = iidInfo.NameId
 	}
@@ -1365,12 +1475,28 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 	// set SecurityGroups NameId
 	for i, sgIID := range vmInfo.SecurityGroupIIds {
 		var iidInfo SGIIDInfo
-		err := infostore.GetByConditionsAndContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName,
-			OWNER_VPC_NAME_COLUMN, vmInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, sgIID.SystemId)
-		if err != nil {
-			// Additional SecurityGroups may be attached from other sources.
-			cblog.Info(err)
-			continue
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*SGIIDInfo
+			err := getAuthIIDInfoList(ConnectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
+			castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, sgIID.SystemId)
+			if err != nil {
+				// Additional SecurityGroups may be attached from other sources.
+				cblog.Info(err)
+				continue
+			}
+			iidInfo = *castedIIDInfo.(*SGIIDInfo)
+		} else {
+			err := infostore.GetByConditionsAndContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName,
+				OWNER_VPC_NAME_COLUMN, vmInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, sgIID.SystemId)
+			if err != nil {
+				// Additional SecurityGroups may be attached from other sources.
+				cblog.Info(err)
+				continue
+			}
 		}
 		vmInfo.SecurityGroupIIds[i].NameId = iidInfo.NameId
 	}
@@ -1382,10 +1508,25 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 	if vmInfo.KeyPairIId.SystemId != "" {
 		// set KeyPair NameId
 		var iidInfo KeyIIDInfo
-		err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, vmInfo.KeyPairIId.SystemId)
-		if err != nil {
-			cblog.Error(err)
-			return err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*KeyIIDInfo
+			err := getAuthIIDInfoList(ConnectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
+			castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, vmInfo.KeyPairIId.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
+			iidInfo = *castedIIDInfo.(*KeyIIDInfo)
+		} else {
+			err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, vmInfo.KeyPairIId.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
 		}
 		vmInfo.KeyPairIId.NameId = iidInfo.NameId
 	}
@@ -1393,13 +1534,35 @@ func getSetNameId(ConnectionName string, vmInfo *cres.VMInfo) error {
 	// set Data Disk NameId
 	for i, diskIID := range vmInfo.DataDiskIIDs {
 		var iidInfo DiskIIDInfo
-		err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, diskIID.SystemId)
-		if !strings.Contains(err.Error(), "does not exist") { // Skip the solution for local disks created by the ECS i2.xlarge instance type.
-			cblog.Error(err)
-			return err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*DiskIIDInfo
+			err := getAuthIIDInfoList(ConnectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
+			castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, diskIID.SystemId)
+			if err != nil {
+				if !strings.Contains(err.Error(), "does not exist") { // Skip the solution for local disks created by the ECS i2.xlarge instance type.
+					cblog.Error(err)
+					return err
+				} else {
+					cblog.Info(err)
+					continue
+				}
+			}
+			iidInfo = *castedIIDInfo.(*DiskIIDInfo)
 		} else {
-			cblog.Info(err)
-			continue
+			err := infostore.GetByContain(&iidInfo, CONNECTION_NAME_COLUMN, ConnectionName, SYSTEM_ID_COLUMN, diskIID.SystemId)
+			if err != nil {
+				if !strings.Contains(err.Error(), "does not exist") { // Skip the solution for local disks created by the ECS i2.xlarge instance type.
+					cblog.Error(err)
+					return err
+				} else {
+					cblog.Info(err)
+					continue
+				}
+			}
 		}
 		vmInfo.DataDiskIIDs[i].NameId = iidInfo.NameId
 	}
@@ -1432,11 +1595,18 @@ func GetVM(connectionName string, rsType string, nameID string) (*cres.VMInfo, e
 	// (1) get IID(NameId)
 	var iidInfo VMIIDInfo
 	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-		err = getAuthorizedIIdInfo(connectionName, nameID, &iidInfo)
+		var iidInfoList []*VMIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
 		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		iidInfo = *castedIIDInfo.(*VMIIDInfo)
 	} else {
 		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
 		if err != nil {
@@ -1562,31 +1732,13 @@ func ListVMStatus(connectionName string, rsType string) ([]*cres.VMStatusInfo, e
 		return nil, err
 	}
 
-	cldConn, err := ccm.GetCloudConnection(connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-
-	handler, err := cldConn.CreateVMHandler()
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-
 	// (1) get IID:list
 	var iidInfoList []*VMIIDInfo
 	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-		// fetch granted idlist from CSP
-		iidList, err := handler.ListIID()
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
-		}
-		err2 := getAuthorizedIIdInfoList(iidList, connectionName, &iidInfoList)
-		if err2 != nil {
-			cblog.Error(err2)
-			return nil, err2
 		}
 	} else {
 		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
@@ -1686,11 +1838,18 @@ func GetVMStatus(connectionName string, rsType string, nameID string) (cres.VMSt
 	// (1) get IID(NameId)
 	var iidInfo VMIIDInfo
 	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-		err = getAuthorizedIIdInfo(connectionName, nameID, &iidInfo)
+		var iidInfoList []*VMIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
 		if err != nil {
 			cblog.Error(err)
 			return "", err
 		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return "", err
+		}
+		iidInfo = *castedIIDInfo.(*VMIIDInfo)
 	} else {
 		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
 		if err != nil {
@@ -1752,11 +1911,18 @@ func ControlVM(connectionName string, rsType string, nameID string, action strin
 	// (1) get IID(NameId)
 	var iidInfo VMIIDInfo
 	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-		err := getAuthorizedIIdInfo(connectionName, nameID, &iidInfo)
+		var iidInfoList []*VMIIDInfo
+		err := getAuthIIDInfoList(connectionName, &iidInfoList)
 		if err != nil {
 			cblog.Error(err)
 			return "", err
 		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return "", err
+		}
+		iidInfo = *castedIIDInfo.(*VMIIDInfo)
 	} else {
 		err := infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
 		if err != nil {
@@ -1829,11 +1995,18 @@ func DeleteVM(connectionName string, rsType string, nameID string, force string)
 	// (1) get spiderIID for creating driverIID
 	var iidInfo VMIIDInfo
 	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-		err = getAuthorizedIIdInfo(connectionName, nameID, &iidInfo)
+		var iidInfoList []*VMIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
 		if err != nil {
 			cblog.Error(err)
 			return false, "", err
 		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return false, "", err
+		}
+		iidInfo = *castedIIDInfo.(*VMIIDInfo)
 	} else {
 		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
 		if err != nil {

@@ -1029,6 +1029,68 @@ func getAuthIIDInfo(iidInfoList interface{}, nameId string) (interface{}, error)
 	return nil, fmt.Errorf("nameId %s not found", nameId) // No matching IIDInfo found
 }
 
+// Get IIDInfo by SystemId (contains match) from IIDInfo list
+func getAuthIIDInfoBySystemIdContain(iidInfoList interface{}, systemId string) (interface{}, error) {
+	if iidInfoList == nil {
+		return nil, fmt.Errorf("the iidInfoList is nil")
+	}
+
+	switch v := iidInfoList.(type) {
+	case *[]*VPCIIDInfo:
+		for _, iidInfo := range *v {
+			if strings.Contains(iidInfo.SystemId, systemId) {
+				return iidInfo, nil // Return matching VPCIIDInfo
+			}
+		}
+	case *[]*SGIIDInfo:
+		for _, iidInfo := range *v {
+			if strings.Contains(iidInfo.SystemId, systemId) {
+				return iidInfo, nil // Return matching SGIIDInfo
+			}
+		}
+	case *[]*KeyIIDInfo:
+		for _, iidInfo := range *v {
+			if strings.Contains(iidInfo.SystemId, systemId) {
+				return iidInfo, nil // Return matching KeyIIDInfo
+			}
+		}
+	case *[]*VMIIDInfo:
+		for _, iidInfo := range *v {
+			if strings.Contains(iidInfo.SystemId, systemId) {
+				return iidInfo, nil // Return matching VMIIDInfo
+			}
+		}
+	case *[]*NLBIIDInfo:
+		for _, iidInfo := range *v {
+			if strings.Contains(iidInfo.SystemId, systemId) {
+				return iidInfo, nil // Return matching NLBIIDInfo
+			}
+		}
+	case *[]*DiskIIDInfo:
+		for _, iidInfo := range *v {
+			if strings.Contains(iidInfo.SystemId, systemId) {
+				return iidInfo, nil // Return matching DiskIIDInfo
+			}
+		}
+	case *[]*MyImageIIDInfo:
+		for _, iidInfo := range *v {
+			if strings.Contains(iidInfo.SystemId, systemId) {
+				return iidInfo, nil // Return matching MyImageIIDInfo
+			}
+		}
+	case *[]*ClusterIIDInfo:
+		for _, iidInfo := range *v {
+			if strings.Contains(iidInfo.SystemId, systemId) {
+				return iidInfo, nil // Return matching ClusterIIDInfo
+			}
+		}
+	default:
+		return nil, fmt.Errorf("unsupported type for iidInfoList")
+	}
+
+	return nil, fmt.Errorf("systemId %s not found", systemId) // No matching IIDInfo found
+}
+
 func getVPCInfo(connectionName string, handler cres.VPCHandler, iid cres.IID, retInfo chan ResultVPCInfo) {
 
 	vpcSPLock.RLock(connectionName, iid.NameId)

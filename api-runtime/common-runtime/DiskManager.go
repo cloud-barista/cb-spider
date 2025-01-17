@@ -10,6 +10,7 @@ package commonruntime
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
@@ -177,11 +178,26 @@ func CreateDisk(connectionName string, rsType string, reqInfo cres.DiskInfo, IDT
 	defer diskSPLock.Unlock(connectionName, reqInfo.IId.NameId)
 
 	// (1) check exist(NameID)
-	bool_ret, err := infostore.HasByConditions(&DiskIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN,
-		reqInfo.IId.NameId)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	bool_ret := false
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*DiskIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		bool_ret, err = isNameIdExists(&iidInfoList, reqInfo.IId.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		bool_ret, err = infostore.HasByConditions(&DiskIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN,
+			reqInfo.IId.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	if bool_ret {
@@ -264,10 +280,18 @@ func ListDisk(connectionName string, rsType string) ([]*cres.DiskInfo, error) {
 
 	// (1) get IID:list
 	var iidInfoList []*DiskIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	var infoList []*cres.DiskInfo
@@ -314,10 +338,25 @@ func ListDisk(connectionName string, rsType string) ([]*cres.DiskInfo, error) {
 		if info.Status == cres.DiskAttached {
 			// get Source VM's IID with VM's SystemId
 			var vmIIdInfo VMIIDInfo
-			err := infostore.GetByContain(&vmIIdInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, info.OwnerVM.SystemId)
-			if err != nil {
-				cblog.Error(err)
-				return nil, err
+			if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+				var iidInfoList []*VMIIDInfo
+				err := getAuthIIDInfoList(connectionName, &iidInfoList)
+				if err != nil {
+					cblog.Error(err)
+					return nil, err
+				}
+				castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, info.OwnerVM.SystemId)
+				if err != nil {
+					cblog.Error(err)
+					return nil, err
+				}
+				vmIIdInfo = *castedIIDInfo.(*VMIIDInfo)
+			} else {
+				err := infostore.GetByContain(&vmIIdInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, info.OwnerVM.SystemId)
+				if err != nil {
+					cblog.Error(err)
+					return nil, err
+				}
 			}
 			info.OwnerVM.NameId = vmIIdInfo.NameId
 		}
@@ -352,10 +391,25 @@ func GetDisk(connectionName string, rsType string, nameID string) (*cres.DiskInf
 
 	// (1) get IID(NameId)
 	var iidInfo DiskIIDInfo
-	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*DiskIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		iidInfo = *castedIIDInfo.(*DiskIIDInfo)
+	} else {
+		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, iidInfo.ZoneId)
@@ -384,10 +438,25 @@ func GetDisk(connectionName string, rsType string, nameID string) (*cres.DiskInf
 	if info.Status == cres.DiskAttached {
 		// get Source VM's IID with VM's SystemId
 		var vmIIdInfo VMIIDInfo
-		err := infostore.GetByContain(&vmIIdInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, info.OwnerVM.SystemId)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*VMIIDInfo
+			err := getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, info.OwnerVM.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			vmIIdInfo = *castedIIDInfo.(*VMIIDInfo)
+		} else {
+			err := infostore.GetByContain(&vmIIdInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, info.OwnerVM.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
 		}
 		info.OwnerVM.NameId = vmIIdInfo.NameId
 	}
@@ -419,29 +488,36 @@ func ChangeDiskSize(connectionName string, diskName string, size string) (bool, 
 	diskSPLock.Lock(connectionName, diskName)
 	defer diskSPLock.Unlock(connectionName, diskName)
 
-	// (1) get IID(NameId)
-	var iidInfo DiskIIDInfo
-	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, diskName)
-	if err != nil {
-		cblog.Error(err)
-		return false, err
+	// (1) check exist(diskName) & get IID(NameId)
+	var diskIIDInfo DiskIIDInfo
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*DiskIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, diskName)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		diskIIDInfo = *castedIIDInfo.(*DiskIIDInfo)
+	} else {
+		err = infostore.GetByConditions(&diskIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, diskName)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
 	}
 
-	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, iidInfo.ZoneId)
+	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, diskIIDInfo.ZoneId)
 	if err != nil {
 		cblog.Error(err)
 		return false, err
 	}
 
 	handler, err := cldConn.CreateDiskHandler()
-	if err != nil {
-		cblog.Error(err)
-		return false, err
-	}
-
-	// (1) check exist(diskName)
-	var diskIIDInfo DiskIIDInfo
-	err = infostore.GetByConditions(&diskIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, diskName)
 	if err != nil {
 		cblog.Error(err)
 		return false, err
@@ -485,15 +561,30 @@ func AttachDisk(connectionName string, diskName string, ownerVMName string) (*cr
 	diskSPLock.Lock(connectionName, diskName)
 	defer diskSPLock.Unlock(connectionName, diskName)
 
-	// (1) get IID(NameId)
-	var iidInfo DiskIIDInfo
-	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, diskName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	// (1) check exist(diskName) and get IID(NameId)
+	var diskIIDInfo DiskIIDInfo
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*DiskIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, diskName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		diskIIDInfo = *castedIIDInfo.(*DiskIIDInfo)
+	} else {
+		err = infostore.GetByConditions(&diskIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, diskName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
-	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, iidInfo.ZoneId)
+	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, diskIIDInfo.ZoneId)
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
@@ -505,20 +596,27 @@ func AttachDisk(connectionName string, diskName string, ownerVMName string) (*cr
 		return nil, err
 	}
 
-	// (1) check exist(diskName)
-	var diskIIDInfo DiskIIDInfo
-	err = infostore.GetByConditions(&diskIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, diskName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-
 	// (1) check exist(ownerVMName)
 	var vmIIDInfo VMIIDInfo
-	err = infostore.GetByConditions(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, ownerVMName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*VMIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, ownerVMName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		vmIIDInfo = *castedIIDInfo.(*VMIIDInfo)
+	} else {
+		err = infostore.GetByConditions(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, ownerVMName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	// (2) attach disk to VM
@@ -560,14 +658,29 @@ func DetachDisk(connectionName string, diskName string, ownerVMName string) (boo
 	defer diskSPLock.Unlock(connectionName, diskName)
 
 	// (1) get IID(NameId)
-	var iidInfo DiskIIDInfo
-	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, diskName)
-	if err != nil {
-		cblog.Error(err)
-		return false, err
+	var diskIIDInfo DiskIIDInfo
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*DiskIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, diskName)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		diskIIDInfo = *castedIIDInfo.(*DiskIIDInfo)
+	} else {
+		err = infostore.GetByConditions(&diskIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, diskName)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
 	}
 
-	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, iidInfo.ZoneId)
+	cldConn, err := ccm.GetZoneLevelCloudConnection(connectionName, diskIIDInfo.ZoneId)
 	if err != nil {
 		cblog.Error(err)
 		return false, err
@@ -579,20 +692,27 @@ func DetachDisk(connectionName string, diskName string, ownerVMName string) (boo
 		return false, err
 	}
 
-	// (1) check exist(diskName)
-	var diskIIDInfo DiskIIDInfo
-	err = infostore.GetByConditions(&diskIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, diskName)
-	if err != nil {
-		cblog.Error(err)
-		return false, err
-	}
-
 	// (1) check exist(ownerVMName)
 	var vmIIDInfo VMIIDInfo
-	err = infostore.GetByConditions(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, ownerVMName)
-	if err != nil {
-		cblog.Error(err)
-		return false, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*VMIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, ownerVMName)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		vmIIDInfo = *castedIIDInfo.(*VMIIDInfo)
+	} else {
+		err = infostore.GetByConditions(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, ownerVMName)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
 	}
 
 	// (2) detach disk from VM
@@ -627,10 +747,25 @@ func DeleteDisk(connectionName string, rsType string, nameID string, force strin
 
 	// (1) get spiderIID for creating driverIID
 	var iidInfo DiskIIDInfo
-	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
-	if err != nil {
-		cblog.Error(err)
-		return false, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*DiskIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		iidInfo = *castedIIDInfo.(*DiskIIDInfo)
+	} else {
+		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
 	}
 
 	// (2) delete Resource(SystemId)
@@ -664,7 +799,7 @@ func DeleteDisk(connectionName string, rsType string, nameID string, force strin
 	}
 
 	// (3) delete IID
-	_, err = infostore.DeleteByConditions(&DiskIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+	_, err = infostore.DeleteByConditions(&DiskIIDInfo{}, CONNECTION_NAME_COLUMN, iidInfo.ConnectionName, NAME_ID_COLUMN, nameID)
 	if err != nil {
 		cblog.Error(err)
 		if force != "true" {

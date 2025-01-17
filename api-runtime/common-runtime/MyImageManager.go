@@ -154,11 +154,26 @@ func SnapshotVM(connectionName string, rsType string, reqInfo cres.MyImageInfo, 
 	defer myImageSPLock.Unlock(connectionName, reqInfo.IId.NameId)
 
 	// (1) check exist(NameID)
-	bool_ret, err := infostore.HasByConditions(&MyImageIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN,
-		reqInfo.IId.NameId)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	bool_ret := false
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*MyImageIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		bool_ret, err = isNameIdExists(&iidInfoList, reqInfo.IId.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		bool_ret, err = infostore.HasByConditions(&MyImageIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN,
+			reqInfo.IId.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	if bool_ret {
@@ -194,10 +209,25 @@ func SnapshotVM(connectionName string, rsType string, reqInfo cres.MyImageInfo, 
 
 	// get Source VM's IID(NameId)
 	var vmIIdInfo VMIIDInfo
-	err = infostore.GetByConditions(&vmIIdInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, reqInfo.SourceVM.NameId)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*VMIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, reqInfo.SourceVM.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		vmIIdInfo = *castedIIDInfo.(*VMIIDInfo)
+	} else {
+		err = infostore.GetByConditions(&vmIIdInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, reqInfo.SourceVM.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	reqInfo.SourceVM.SystemId = getDriverSystemId(cres.IID{NameId: vmIIdInfo.NameId, SystemId: vmIIdInfo.SystemId})
@@ -244,15 +274,8 @@ func SnapshotVM(connectionName string, rsType string, reqInfo cres.MyImageInfo, 
 	//     ex) userIID {"seoul-service", "i-0bc7123b7e5cbf79d"}
 	info.IId = getUserIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
 
-	// get Source VM's IID with VM's SystemId
-	var vmIIdInfo2 VMIIDInfo
-	err = infostore.GetByContain(&vmIIdInfo2, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, info.SourceVM.SystemId)
-	if err != nil {
-		cblog.Error(err)
-		info.SourceVM.NameId = ""
-	} else {
-		info.SourceVM.NameId = vmIIdInfo2.NameId
-	}
+	// Set Source VM's NameId with reqInfo.SourceVM Info
+	info.SourceVM.NameId = reqInfo.SourceVM.NameId
 
 	return &info, nil
 }
@@ -285,16 +308,10 @@ func ListMyImage(connectionName string, rsType string) ([]*cres.MyImageInfo, err
 	// (1) get IID:list
 	var iidInfoList []*MyImageIIDInfo
 	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-		// fetch granted idlist from CSP
-		iidList, err := handler.ListIID()
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
-		}
-		err2 := getAuthorizedIIdInfoList(iidList, connectionName, &iidInfoList)
-		if err2 != nil {
-			cblog.Error(err2)
-			return nil, err2
 		}
 	} else {
 		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
@@ -333,13 +350,26 @@ func ListMyImage(connectionName string, rsType string) ([]*cres.MyImageInfo, err
 
 		// get Source VM's IID with VM's SystemId
 		var vmIIdInfo VMIIDInfo
-		err = infostore.GetByContain(&vmIIdInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, info.SourceVM.SystemId)
-		if err != nil {
-			cblog.Error(err)
-			info.SourceVM.NameId = ""
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*VMIIDInfo
+			err := getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, info.SourceVM.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			vmIIdInfo = *castedIIDInfo.(*VMIIDInfo)
 		} else {
-			info.SourceVM.NameId = vmIIdInfo.NameId
+			err = infostore.GetByContain(&vmIIdInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, info.SourceVM.SystemId)
+			if err != nil {
+				cblog.Error(err)
+			}
 		}
+		info.SourceVM.NameId = vmIIdInfo.NameId
 
 		infoList2 = append(infoList2, &info)
 	}
@@ -384,11 +414,18 @@ func GetMyImage(connectionName string, rsType string, nameID string) (*cres.MyIm
 	// (1) get IID(NameId)
 	var iidInfo MyImageIIDInfo
 	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-		err = getAuthorizedIIdInfo(connectionName, nameID, &iidInfo)
+		var iidInfoList []*MyImageIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
 		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		iidInfo = *castedIIDInfo.(*MyImageIIDInfo)
 	} else {
 		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
 		if err != nil {
@@ -410,13 +447,26 @@ func GetMyImage(connectionName string, rsType string, nameID string) (*cres.MyIm
 
 	// get Source VM's IID with VM's SystemId
 	var vmIIdInfo VMIIDInfo
-	err = infostore.GetByContain(&vmIIdInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, info.SourceVM.SystemId)
-	if err != nil {
-		cblog.Error(err)
-		info.SourceVM.NameId = ""
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*VMIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, info.SourceVM.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		vmIIdInfo = *castedIIDInfo.(*VMIIDInfo)
 	} else {
-		info.SourceVM.NameId = vmIIdInfo.NameId
+		err = infostore.GetByContain(&vmIIdInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, info.SourceVM.SystemId)
+		if err != nil {
+			cblog.Error(err)
+		}
 	}
+	info.SourceVM.NameId = vmIIdInfo.NameId
 
 	return &info, nil
 }
@@ -455,11 +505,18 @@ func DeleteMyImage(connectionName string, rsType string, nameID string, force st
 	// (1) get spiderIID for creating driverIID
 	var iidInfo MyImageIIDInfo
 	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-		err = getAuthorizedIIdInfo(connectionName, nameID, &iidInfo)
+		var iidInfoList []*MyImageIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
 		if err != nil {
 			cblog.Error(err)
 			return false, err
 		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		iidInfo = *castedIIDInfo.(*MyImageIIDInfo)
 	} else {
 		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
 		if err != nil {
@@ -485,7 +542,7 @@ func DeleteMyImage(connectionName string, rsType string, nameID string, force st
 	}
 
 	// (3) delete IID
-	_, err = infostore.DeleteByConditions(&MyImageIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.NameId)
+	_, err = infostore.DeleteByConditions(&MyImageIIDInfo{}, CONNECTION_NAME_COLUMN, iidInfo.ConnectionName, NAME_ID_COLUMN, iidInfo.NameId)
 	if err != nil {
 		cblog.Error(err)
 		if force != "true" {

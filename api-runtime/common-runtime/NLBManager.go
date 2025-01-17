@@ -11,6 +11,7 @@ package commonruntime
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
@@ -522,10 +523,24 @@ func ListNLB(connectionName string, rsType string) ([]*cres.NLBInfo, error) {
 
 	// (1) get IID:list
 	var iidInfoList []*NLBIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		// fetch granted idlist from CSP
+		iidList, err := handler.ListIID()
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		err2 := getAuthorizedIIdInfoList(iidList, connectionName, &iidInfoList)
+		if err2 != nil {
+			cblog.Error(err2)
+			return nil, err2
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	var infoList []*cres.NLBInfo
@@ -622,11 +637,26 @@ func GetNLB(connectionName string, rsType string, nameID string) (*cres.NLBInfo,
 
 	// (1) get IID(NameId)
 	var iidInfoList []*NLBIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		// fetch granted idlist from CSP
+		iidList, err := handler.ListIID()
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		err2 := getAuthorizedIIdInfoList(iidList, connectionName, &iidInfoList)
+		if err2 != nil {
+			cblog.Error(err2)
+			return nil, err2
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
+
 	var iidInfo *NLBIIDInfo
 	var bool_ret = false
 	for _, OneIIdInfo := range iidInfoList {
@@ -715,11 +745,26 @@ func AddNLBVMs(connectionName string, nlbName string, vmNames []string) (*cres.N
 
 	// (1) check exist(nlbName)
 	var iidInfoList []*NLBIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		// fetch granted idlist from CSP
+		iidList, err := handler.ListIID()
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		err2 := getAuthorizedIIdInfoList(iidList, connectionName, &iidInfoList)
+		if err2 != nil {
+			cblog.Error(err2)
+			return nil, err2
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
+
 	var iidInfo *NLBIIDInfo
 	var bool_ret = false
 	for _, OneIIdInfo := range iidInfoList {
@@ -838,11 +883,26 @@ func RemoveNLBVMs(connectionName string, nlbName string, vmNames []string) (bool
 
 	// (1) check exist(nlbName)
 	var iidInfoList []*NLBIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return false, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		// fetch granted idlist from CSP
+		iidList, err := handler.ListIID()
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		err2 := getAuthorizedIIdInfoList(iidList, connectionName, &iidInfoList)
+		if err2 != nil {
+			cblog.Error(err2)
+			return false, err2
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
 	}
+
 	var iidInfo *NLBIIDInfo
 	var bool_ret = false
 	for _, OneIIdInfo := range iidInfoList {
@@ -933,11 +993,26 @@ func ChangeListener(connectionName string, nlbName string, listener cres.Listene
 
 	// (1) check exist(nlbName)
 	var iidInfoList []*NLBIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		// fetch granted idlist from CSP
+		iidList, err := handler.ListIID()
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		err2 := getAuthorizedIIdInfoList(iidList, connectionName, &iidInfoList)
+		if err2 != nil {
+			cblog.Error(err2)
+			return nil, err2
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
+
 	var iidInfo *NLBIIDInfo
 	var bool_ret = false
 	for _, OneIIdInfo := range iidInfoList {
@@ -1049,11 +1124,26 @@ func ChangeVMGroup(connectionName string, nlbName string, vmGroup cres.VMGroupIn
 
 	// (1) check exist(nlbName)
 	var iidInfoList []*NLBIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		// fetch granted idlist from CSP
+		iidList, err := handler.ListIID()
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		err2 := getAuthorizedIIdInfoList(iidList, connectionName, &iidInfoList)
+		if err2 != nil {
+			cblog.Error(err2)
+			return nil, err2
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
+
 	var iidInfo *NLBIIDInfo
 	var bool_ret = false
 	for _, OneIIdInfo := range iidInfoList {
@@ -1162,11 +1252,26 @@ func ChangeHealthChecker(connectionName string, nlbName string, healthChecker cr
 
 	// (1) check exist(nlbName)
 	var iidInfoList []*NLBIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		// fetch granted idlist from CSP
+		iidList, err := handler.ListIID()
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		err2 := getAuthorizedIIdInfoList(iidList, connectionName, &iidInfoList)
+		if err2 != nil {
+			cblog.Error(err2)
+			return nil, err2
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
+
 	var iidInfo *NLBIIDInfo
 	var bool_ret = false
 	for _, OneIIdInfo := range iidInfoList {
@@ -1275,11 +1380,26 @@ func GetVMGroupHealthInfo(connectionName string, nlbName string) (*cres.HealthIn
 
 	// (1) check exist(nlbName)
 	var iidInfoList []*NLBIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		// fetch granted idlist from CSP
+		iidList, err := handler.ListIID()
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		err2 := getAuthorizedIIdInfoList(iidList, connectionName, &iidInfoList)
+		if err2 != nil {
+			cblog.Error(err2)
+			return nil, err2
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
+
 	var iidInfo *NLBIIDInfo
 	var bool_ret = false
 	for _, OneIIdInfo := range iidInfoList {
@@ -1415,11 +1535,26 @@ func DeleteNLB(connectionName string, rsType string, nameID string, force string
 
 	// (1) get spiderIID for creating driverIID
 	var iidInfoList []*NLBIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return false, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		// fetch granted idlist from CSP
+		iidList, err := handler.ListIID()
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		err2 := getAuthorizedIIdInfoList(iidList, connectionName, &iidInfoList)
+		if err2 != nil {
+			cblog.Error(err2)
+			return false, err2
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
 	}
+
 	var iidInfo *NLBIIDInfo
 	var bool_ret = false
 	for _, OneIIdInfo := range iidInfoList {
