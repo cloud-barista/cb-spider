@@ -35,6 +35,11 @@ func (imageHandler *AzureImageHandler) setterVMImage(pulisher string, offer stri
 	distribution := offer + ":" + sku
 
 	imageInfo := &irs.ImageInfo{
+		// 2025-01-18: Postpone the deprecation of IID, so revoke IID changes.
+		IId: irs.IID{
+			NameId:   imageName,
+			SystemId: imageName,
+		},
 		Name:           imageName,
 		OSArchitecture: arch,
 		OSPlatform:     platform,
