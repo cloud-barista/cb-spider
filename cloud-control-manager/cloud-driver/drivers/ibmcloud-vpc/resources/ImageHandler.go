@@ -4,14 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
+	"strconv"
+	"strings"
+
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"net/url"
-	"strconv"
-	"strings"
 )
 
 type IbmImageHandler struct {
@@ -228,6 +229,11 @@ func setImageInfo(image *vpcv1.Image) (irs.ImageInfo, error) {
 		}
 
 		imageInfo := irs.ImageInfo{
+			// 2025-01-18: Postpone the deprecation of IID, so revoke IID changes.
+			IId: irs.IID{
+				NameId:   *image.ID,
+				SystemId: *image.ID,
+			},
 			Name:           *image.ID,
 			OSArchitecture: osArchitecture,
 			OSPlatform:     osPlatform,

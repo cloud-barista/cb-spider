@@ -16,10 +16,12 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
 	// "github.com/davecgh/go-spew/spew"
 
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
 	images "github.com/cloud-barista/nhncloud-sdk-go/openstack/imageservice/v2/images" // imageservice/v2/images : For Visibility parameter
+
 	// comimages "github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/images" // compute/v2/images
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -188,6 +190,11 @@ func (imageHandler *NhnCloudImageHandler) mappingImageInfo(image images.Image) *
 	}
 
 	imageInfo := &irs.ImageInfo{
+		// 2025-01-18: Postpone the deprecation of IID, so revoke IID changes.
+		IId: irs.IID{
+			NameId:   image.ID,
+			SystemId: image.ID,
+		},
 		Name:           image.ID,
 		OSArchitecture: arch,
 		OSPlatform:     platform,

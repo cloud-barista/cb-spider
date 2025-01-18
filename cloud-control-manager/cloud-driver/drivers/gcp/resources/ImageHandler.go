@@ -725,11 +725,12 @@ func mappingImageInfo(imageInfo *compute.Image) irs.ImageInfo {
 	}
 
 	// 2024-12-23 ImageInfo changed for meta. IID, GuestOS, Status deprecated.
+	// 2025-01-18: Postpone the deprecation of IID, so revoke IID changes.
 	returnImageInfo := irs.ImageInfo{
-		// IId: irs.IID{
-		// 	NameId:   imageInfo.SelfLink,
-		// 	SystemId: imageInfo.SelfLink,
-		// },
+		IId: irs.IID{
+			NameId:   imageInfo.SelfLink,
+			SystemId: imageInfo.SelfLink,
+		},
 		// GuestOS: imageInfo.Family,
 		// Status:  imageInfo.Status,
 

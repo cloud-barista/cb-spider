@@ -199,7 +199,8 @@ func ExtractImageDescribeInfo(image *ecs.Image) irs.ImageInfo {
 	cblogger.Debug(image)
 
 	imageInfo := irs.ImageInfo{
-		// IId: irs.IID{NameId: image.ImageId, SystemId: image.ImageId},
+		// 2025-01-18: Postpone the deprecation of IID, so revoke IID changes.
+		IId: irs.IID{NameId: image.ImageId, SystemId: image.ImageId},
 		// //Name:    image.ImageName,
 		// Status:  image.Status,
 		// GuestOS: image.OSNameEn,

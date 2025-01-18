@@ -98,6 +98,11 @@ func setterImage(imageClient *gophercloud.ServiceClient, image images.Image) *ir
 	}
 
 	imageInfo := &irs.ImageInfo{
+		// 2025-01-18: Postpone the deprecation of IID, so revoke IID changes.
+		IId: irs.IID{
+			NameId:   image.ID,
+			SystemId: image.ID,
+		},
 		Name:           image.ID,
 		OSArchitecture: irs.ArchitectureNA,
 		OSPlatform:     irs.PlatformNA,
