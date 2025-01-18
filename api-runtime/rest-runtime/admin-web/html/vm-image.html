@@ -37,11 +37,23 @@
         width: 25%;
         text-align: center;
     }
-    .column-guestos {
-        width: 25%;
+    .column-osarchitecture {
+        width: 10%;
         text-align: center;
     }
-    .column-imagestatus {
+    .column-osdisksize {
+        width: 10%;
+        text-align: center;
+    }
+    .column-osdisktype {
+        width: 10%;
+        text-align: center;
+    }
+    .column-osdistribution {
+        width: 20%;
+        text-align: center;
+    }
+    .column-osplatform {
         width: 20%;
         text-align: center;
     }
@@ -137,16 +149,22 @@
     <tr>
         <th class="column-num">#</th>
         <th class="column-imagename">VM Image Name</th>
-        <th class="column-guestos">GuestOS</th>
-        <th class="column-imagestatus">Image Status</th>
+        <th class="column-osarchitecture">OS Architecture</th>
+        <th class="column-osdisksize">OS Disk Size (GB)</th>
+        <th class="column-osdisktype">OS Disk Type</th>
+        <th class="column-osdistribution">OS Distribution</th>
+        <th class="column-osplatform">OS Platform</th>
         <th class="th-column-Misc">Misc</th>
     </tr>
     {{range $index, $image := .Images}}
     <tr>
         <td class="column-num">{{$index | inc}}</td>
         <td class="column-imagename">{{$image.IId.NameId}}</td>
-        <td class="column-guestos">{{$image.GuestOS}}</td>
-        <td class="column-imagestatus">{{$image.Status}}</td>
+        <td class="column-osarchitecture">{{$image.OSArchitecture}}</td>
+        <td class="column-osdisksize">{{$image.OSDiskSizeInGB}}</td>
+        <td class="column-osdisktype">{{$image.OSDiskType}}</td>
+        <td class="column-osdistribution">{{$image.OSDistribution}}</td>
+        <td class="column-osplatform">{{$image.OSPlatform}}</td>
         <td class="column-Misc">
             {{range $kv := $image.KeyValueList}}
                 {{$kv.Key}}: {{$kv.Value}}<br>
