@@ -332,6 +332,11 @@ definitions:
         allOf:
         - $ref: '#/definitions/spider.IID'
         description: '{NameId, SystemId} // Deprecated'
+      ImageStatus:
+        allOf:
+        - $ref: '#/definitions/spider.ImageStatus'
+        description: Available, Unavailable
+        example: Available
       KeyValueList:
         items:
           $ref: '#/definitions/spider.KeyValue'
@@ -363,20 +368,19 @@ definitions:
         description: Linux/UNIX, Windows, NA
         example: Linux/UNIX
       Status:
-        allOf:
-        - $ref: '#/definitions/spider.ImageStatus'
-        description: Available, Unavailable
-        example: Available
+        description: available, unavailable // Deprecated
+        example: available
+        type: string
     required:
     - GuestOS
     - IId
+    - ImageStatus
     - Name
     - OSArchitecture
     - OSDiskSizeInGB
     - OSDiskType
     - OSDistribution
     - OSPlatform
-    - Status
     - Status
     type: object
   spider.ImageStatus:

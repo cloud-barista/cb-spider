@@ -8459,13 +8459,13 @@ const docTemplate = `{
             "required": [
                 "GuestOS",
                 "IId",
+                "ImageStatus",
                 "Name",
                 "OSArchitecture",
                 "OSDiskSizeInGB",
                 "OSDiskType",
                 "OSDistribution",
                 "OSPlatform",
-                "Status",
                 "Status"
             ],
             "properties": {
@@ -8481,6 +8481,15 @@ const docTemplate = `{
                             "$ref": "#/definitions/spider.IID"
                         }
                     ]
+                },
+                "ImageStatus": {
+                    "description": "Available, Unavailable",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.ImageStatus"
+                        }
+                    ],
+                    "example": "Available"
                 },
                 "KeyValueList": {
                     "type": "array",
@@ -8527,13 +8536,9 @@ const docTemplate = `{
                     "example": "Linux/UNIX"
                 },
                 "Status": {
-                    "description": "Available, Unavailable",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/spider.ImageStatus"
-                        }
-                    ],
-                    "example": "Available"
+                    "description": "available, unavailable // Deprecated",
+                    "type": "string",
+                    "example": "available"
                 }
             }
         },
