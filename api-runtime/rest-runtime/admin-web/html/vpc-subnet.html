@@ -756,7 +756,7 @@
                 <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
                 <div class="form-group">
                     <label for="subnetVPCNameDisplay">VPC Name:</label>
-                    <input type="text" id="subnetVPCNameDisplay" name="subnetVPCNameDisplay" readonly>
+                    <input type="text" id="subnetVPCNameDisplay" name="subnetVPCNameDisplay" style="background-color:#d0d0d0" readonly>
                 </div>
                 <div class="form-group">
                     <label for="addSubnetName">Name:</label>
@@ -768,7 +768,7 @@
                 </div>
                 <div class="form-group">
                     <label for="addSubnetZone">Zone:</label>
-                    <input type="text" id="addSubnetZone" name="addSubnetZone" required>
+                    <select id="addSubnetZone" name="addSubnetZone" required></select>
                 </div>
                 <div class="form-group" style="padding-left: 20px;">
                     <label for="addSubnetTags">Tags:</label>
@@ -1018,32 +1018,8 @@
     }
 
     function showOverlay() {
-        const regionId = '{{.Region}}';
-        const defaultZone = '{{.Zone}}';
         const zoneSelect = document.getElementById('subnetZone');
-        const connConfig = document.getElementById('connConfig').value;
-
-        fetch(`/spider/regionzone/${regionId}?ConnectionName=${connConfig}`)
-            .then(response => response.json())
-            .then(data => {
-                zoneSelect.innerHTML = '';
-                data.ZoneList.forEach(zone => {
-                    const option = document.createElement('option');
-                    option.value = zone.Name;
-                    option.textContent = `${zone.Name} (${zone.DisplayName}) (${zone.Status})`;
-
-                    if (zone.Name === defaultZone) {
-                        option.selected = true;
-                    }
-
-                    zoneSelect.appendChild(option);
-                });
-            })
-            .catch(error => {
-                console.error('Error fetching Zone List:', error);
-                alert('Failed to load Zone list.');
-            });
-
+        fetchZone(zoneSelect);
         document.getElementById('overlay').style.display = 'flex';
         document.addEventListener('keydown', handleEsc);
         clearFormFields();
@@ -1084,10 +1060,12 @@
     function showSubnetOverlay(vpcName) {
         const region = '{{.RegionName}}';
         const zone = '{{.Zone}}';
-
+        const zoneSelect = document.getElementById('addSubnetZone');
+        
+        fetchZone(zoneSelect);
+        
         document.getElementById('subnetVPCName').value = vpcName;
         document.getElementById('subnetVPCNameDisplay').value = vpcName;
-        document.getElementById('addSubnetZone').value = zone;
         document.getElementById('addSubnetName').value = `${region}-${zone}-subnet-${Math.random().toString(36).substring(2, 5)}`;
         document.getElementById('addSubnetCIDR').value = '10.0.2.0/24';
 
@@ -1767,6 +1745,34 @@
             vpcCIDRInput.style.backgroundColor = '#f0f0f0';
         }
     }
+
+    function fetchZone(zoneSelect){
+        const regionId = '{{.Region}}';
+        const defaultZone = '{{.Zone}}';
+        const connConfig = document.getElementById('connConfig').value;
+
+        fetch(`/spider/regionzone/${regionId}?ConnectionName=${connConfig}`)
+            .then(response => response.json())
+            .then(data => {
+                zoneSelect.innerHTML = '';
+                data.ZoneList.forEach(zone => {
+                    const option = document.createElement('option');
+                    option.value = zone.Name;
+                    option.textContent = `${zone.Name} (${zone.DisplayName})`;
+
+                    if (zone.Name === defaultZone) {
+                        option.selected = true;
+                    }
+
+                    zoneSelect.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching Zone List:', error);
+                alert('Failed to load Zone list.');
+            });
+    }
+           
 
 </script>
 </html>
