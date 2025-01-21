@@ -655,6 +655,31 @@ THE SOFTWARE.
         transform: translateX(-100%);
         animation: progress-animation 3s linear infinite;
     }
+    .checkbox-wrapper {
+        display: block;
+        margin-right: 0px; 
+    }
+
+    .checkbox-wrapper input[type="checkbox"] {
+        margin-right: 5px;
+    }
+
+    #dataDiskSelect {
+        border: 1px solid black;
+        padding: 10px;
+        width: 60%;
+        overflow-y: auto;
+        overflow-x: auto;
+        margin: 0 auto;
+        white-space: normal;
+        max-height:300px;
+    }
+
+    #diskSelect p {
+        margin: 5px 0;
+        color: red;
+        font-size: 14px;
+    }
 
     @keyframes progress-animation {
         0% {
@@ -866,9 +891,7 @@ THE SOFTWARE.
                 
                 <div class="form-group">
                     <label for="dataDiskSelect">Data Disk Names:</label>
-                    <select id="dataDiskSelect" name="dataDiskSelect" multiple>
-                        <option value="">Select a Subnet first...</option>
-                    </select>
+                    <div id="dataDiskSelect" name="dataDiskSelect"></div>
                 </div>
                                 
                 <div class="form-group">
@@ -1249,8 +1272,8 @@ THE SOFTWARE.
                     SubnetName: document.getElementById('subnetSelect').value,
                     SecurityGroupNames: [document.getElementById('securityGroupSelect').value],
                     RootDiskType: document.getElementById('rootDiskType').value,
-                    RootDiskSize: document.getElementById('rootDiskSize').value || undefined,
-                    DataDiskNames: Array.from(document.getElementById('dataDiskSelect').selectedOptions).map(option => option.value),
+                    RootDiskSize: document.getElementById('rootDiskSize').value || undefined,  
+                    DataDiskNames: Array.from(document.querySelectorAll('#dataDiskSelect input[type="checkbox"]:checked')).map(checkbox => checkbox.value),    
                     KeyPairName: document.getElementById('keypairSelect').value,
                     VMUserId: document.getElementById('vmUserId').value,
                     VMUserPasswd: document.getElementById('vmUserPasswd').value,
@@ -1341,9 +1364,6 @@ THE SOFTWARE.
         document.getElementById('overlay').style.display = 'flex';
         document.addEventListener('keydown', handleEsc);
         clearFormFields();
-        
-        const dataDiskSelect = document.getElementById('dataDiskSelect');
-        dataDiskSelect.selectedIndex = -1;
     }
 
     function clearFormFields() {
@@ -1699,7 +1719,7 @@ THE SOFTWARE.
         const vpcSelect = document.getElementById('vpcSelect');
         const selectedSubnets = JSON.parse(vpcSelect.value);
         const subnetSelect = document.getElementById('subnetSelect');
-        const dataDiskSelect = document.getElementById('dataDiskSelect');
+        const dataDiskSelect = document.getElementById('dataDiskSelect'); // here
 
         subnetSelect.innerHTML = '';
 
@@ -1716,7 +1736,6 @@ THE SOFTWARE.
             loadDataDisks(firstSubnetZone);
         } else {
             subnetSelect.innerHTML = '<option>No subnets available for this VPC.</option>';
-            dataDiskSelect.innerHTML = '<option>Select a Subnet first...</option>';
         }
     }
 
@@ -2053,45 +2072,6 @@ THE SOFTWARE.
         }
     });
 
-    function loadDataDisks() {
-        const vmZone = document.getElementById('vmZone').value;
-        const connConfig = document.getElementById('connConfig').value;
-
-        fetch('/spider/disk', {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ ConnectionName: connConfig })
-        })
-        .then(response => response.json())
-        .then(data => {
-            const diskSelect = document.getElementById('dataDiskSelect');
-            diskSelect.innerHTML = '';
-
-            if (data.disk && data.disk.length > 0) {
-                data.disk.forEach(disk => {
-                    if (disk.Zone === vmZone && disk.Status === "Available") {
-                        const option = document.createElement('option');
-                        option.value = disk.IId.NameId;
-                        option.textContent = `${disk.IId.NameId} (${disk.DiskSize} GB)`;
-                        diskSelect.appendChild(option);
-                    }
-                });
-            } else {
-                diskSelect.innerHTML = '<option>No disks available in the same zone.</option>';
-            }
-        })
-        .catch(error => {
-            alert('Error loading data disks: ' + error.message);
-        });
-    }
-
-    document.getElementById('subnetSelect').addEventListener('change', function() {
-        const selectedZone = this.options[this.selectedIndex].dataset.zone;
-        loadDataDisks(selectedZone);
-    });
-
     function loadDataDisks(zone) {
         const connConfig = document.getElementById('connConfig').value;
 
@@ -2105,24 +2085,48 @@ THE SOFTWARE.
         .then(data => {
             const diskSelect = document.getElementById('dataDiskSelect');
             diskSelect.innerHTML = '';
+            console.log(data);
+            
+            const filteredDisks = data.disk.filter(disk => disk.Zone === zone && disk.Status === "Available");
+            
+            if (filteredDisks.length > 0){
+                console.log(filteredDisks);
+                filteredDisks.forEach(disk => {
+                    if (disk.Zone === zone && disk.Status === "Available"){
+                        const checkboxWrapper = document.createElement('div');
+                        checkboxWrapper.className = 'checkbox-wrapper';
 
-            if (data.disk && data.disk.length > 0) {
-                data.disk.forEach(disk => {
-                    if (disk.Zone === zone && disk.Status === "Available") {
-                        const option = document.createElement('option');
-                        option.value = disk.IId.NameId;
-                        option.textContent = `${disk.IId.NameId} (${disk.DiskSize} GB)`;
-                        diskSelect.appendChild(option);
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.name = 'disks';
+                        checkbox.value = disk.IId.NameId;
+                        checkbox.id = `disk-${disk.IId.NameId}`;
+
+                        const label = document.createElement('label');
+                        label.htmlFor = `disk-${disk.IId.NameId}`;
+                        label.textContent = `${disk.IId.NameId} (${disk.DiskSize} GB)`;
+
+                        checkboxWrapper.appendChild(checkbox);
+                        checkboxWrapper.appendChild(label);
+
+                        diskSelect.appendChild(checkboxWrapper);
                     }
                 });
             } else {
-                diskSelect.innerHTML = '<option>No disks available in the same zone.</option>';
+                const noDiskMessage = document.createElement('p');
+                noDiskMessage.textContent = 'No disks available in the same zone.';
+                noDiskMessage.style.color = 'red';
+                diskSelect.appendChild(noDiskMessage);
             }
-        })
-        .catch(error => {
-            alert('Error loading data disks: ' + error.message);
+        }).catch(error =>{
+            alert("Error loading data disks: " + error.message);
         });
     }
+
+    document.getElementById('subnetSelect').addEventListener('change', function() {
+        const selectedZone = this.options[this.selectedIndex].dataset.zone;
+        loadDataDisks(selectedZone);
+    });
 
     function showMiscOverlay(button) {
         const miscContent = button.previousElementSibling.innerHTML;
