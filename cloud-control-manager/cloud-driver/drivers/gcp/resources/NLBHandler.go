@@ -2381,52 +2381,6 @@ func (nlbHandler *GCPNLBHandler) removeTargetPoolHealthCheck(regionID string, ta
 
 // Target pools are used for network TCP/UDP load balancing. A target pool references member instances, an associated legacy HttpHealthCheck resource, and, optionally, a backup target poo
 */
-func (nlbHandler *GCPNLBHandler) addTargetPoolInstanceOrg(regionID string, targetPoolName string, instanceIIDs *[]irs.IID) error {
-	// path param
-	projectID := nlbHandler.Credential.ProjectID
-	zoneID := nlbHandler.Region.Zone
-
-	// TODO : 해당 region 아래의 모든 zone을 검색하여 조회해야 할 듯. 특정 zone으로만 조회해서는 vm을 제대로 찾을 수 없음.
-
-	if instanceIIDs != nil {
-		// queryParam
-		instanceRequest := compute.TargetPoolsAddInstanceRequest{}
-		instanceReferenceList := []*compute.InstanceReference{}
-		for _, instance := range *instanceIIDs {
-			//instanceUrl := instance.SystemId
-			instanceUrl, err := nlbHandler.getVmUrl(zoneID, instance)
-			if err != nil {
-				return err
-			}
-			instanceReference := &compute.InstanceReference{Instance: instanceUrl}
-			instanceReferenceList = append(instanceReferenceList, instanceReference)
-		}
-		instanceRequest.Instances = instanceReferenceList
-
-		// requestBody
-		res, err := nlbHandler.Client.TargetPools.AddInstance(projectID, regionID, targetPoolName, &instanceRequest).Do()
-		if err != nil {
-			return err
-		}
-
-		printToJson(res)
-		err = WaitUntilComplete(nlbHandler.Client, projectID, regionID, res.Name, false)
-		if err != nil {
-			return err
-		}
-		cblogger.Info("Done")
-		return nil
-	}
-	return errors.New("instanceIIDs are empty.)")
-}
-
-/*
-// TargetPool 에 Instance bind추가
-
-	parameter instance = The URL for a specific instance
-
-// Target pools are used for network TCP/UDP load balancing. A target pool references member instances, an associated legacy HttpHealthCheck resource, and, optionally, a backup target poo
-*/
 func (nlbHandler *GCPNLBHandler) addTargetPoolInstance(regionID string, targetPoolName string, instanceIIDs *[]irs.IID) error {
 	// Path parameter
 	projectID := nlbHandler.Credential.ProjectID
@@ -2504,46 +2458,6 @@ func (nlbHandler *GCPNLBHandler) addTargetPoolInstance(regionID string, targetPo
 	}
 
 	return nil
-}
-
-/*
-TargetPool에서 instance bind 삭제
-parameter instance = The URL for a specific instance
-*/
-func (nlbHandler *GCPNLBHandler) removeTargetPoolInstancesOrg(regionID string, targetPoolName string, deleteInstanceIIDs *[]irs.IID) error {
-	// path param
-	projectID := nlbHandler.Credential.ProjectID
-	zoneID := nlbHandler.Region.Zone
-
-	if deleteInstanceIIDs != nil {
-		instanceRequest := compute.TargetPoolsRemoveInstanceRequest{}
-		instanceReferenceList := []*compute.InstanceReference{}
-		for _, instance := range *deleteInstanceIIDs {
-			//instanceUrl := instance.SystemId
-			instanceUrl, err := nlbHandler.getVmUrl(zoneID, instance)
-			if err != nil {
-				return err
-			}
-			instanceReference := &compute.InstanceReference{Instance: instanceUrl}
-			instanceReferenceList = append(instanceReferenceList, instanceReference)
-		}
-		instanceRequest.Instances = instanceReferenceList
-
-		// requestBody
-		res, err := nlbHandler.Client.TargetPools.RemoveInstance(projectID, regionID, targetPoolName, &instanceRequest).Do()
-		if err != nil {
-			return err
-		}
-
-		printToJson(res)
-		err = WaitUntilComplete(nlbHandler.Client, projectID, regionID, res.Name, false)
-		if err != nil {
-			return err
-		}
-		cblogger.Info("Done")
-		return nil
-	}
-	return errors.New("instanceIIDs are empty.)")
 }
 
 /*
@@ -2757,59 +2671,6 @@ func convertNlbInfoToForwardingRule(nlbListener irs.ListenerInfo, targetPool *co
 
 	}
 	return newForwardingRule
-}
-
-/*
-//
-
-		NLB 생성을 위해 요청받은 nlbInfo 정보를 gcp의 TargetPool에 맞게 변경
-		FailoverRatio : 설정 시 backupPool도 설정해야 함.
-		vmID 는 url형태가 아니므로 vm을 조회하여 selflink를 set
-		Instances[] : resource URLs
-		HealthChecks[] : resource URLs
-
-	  vmGroup = TargetPool
-	  vmGroup.cspId = targetPoolName, lbName
-
-		ex)
-		//"healthChecks":[
-		//					"https://www.googleapis.com/compute/v1/projects/myproject/global/httpHealthChecks/test-lb-seoul-healthchecker"
-		//					],
-		//"instances":[
-		//					"https://www.googleapis.com/compute/v1/projects/myproject/zones/asia-northeast3-a/instances/test-lb-seoul-01"
-		//					]
-*/
-func (nlbHandler *GCPNLBHandler) convertNlbInfoToTargetPoolOrg(nlbInfo *irs.NLBInfo) (compute.TargetPool, error) {
-	vmList := nlbInfo.VMGroup.VMs
-
-	projectID := nlbHandler.Credential.ProjectID
-	//regionID := nlbHandler.Region.Region
-	zoneID := nlbHandler.Region.Zone
-
-	instancesUrl := []string{}
-	for _, instance := range *vmList {
-		// get instance url from instance id
-		//instanceUrl := "https://www.googleapis.com/compute/v1/projects/" + projectID + "/zones/" + zoneID + "/instances/" + instance.SystemId
-		//instancesUrl = append(instancesUrl, instanceUrl) // URL
-
-		vm, err := nlbHandler.Client.Instances.Get(projectID, zoneID, instance.SystemId).Do()
-		if err != nil {
-			cblogger.Error(err)
-			return compute.TargetPool{}, err
-		}
-		instancesUrl = append(instancesUrl, vm.SelfLink) // URL
-
-		printToJson(instancesUrl)
-	}
-
-	healthChecks := []string{nlbInfo.HealthChecker.CspID} // url
-
-	targetPool := compute.TargetPool{
-		Name:         nlbInfo.IId.NameId,
-		Instances:    instancesUrl,
-		HealthChecks: healthChecks,
-	}
-	return targetPool, nil
 }
 
 /*
