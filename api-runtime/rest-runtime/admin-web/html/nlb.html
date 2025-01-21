@@ -643,6 +643,23 @@
         background-color: #82b8e6;
     }
 
+    .checkbox-wrapper {
+        display: block;
+        margin-right: 0px; 
+    }
+
+    .checkbox-wrapper input[type="checkbox"] {
+        margin-right: 5px;
+    }
+
+    #vmContainer {
+        border: 1px solid black;
+        padding: 10px;
+        width: 60%;
+        overflow-y: auto;
+        margin: 0 auto;
+        white-space: normal;
+    }
 
 </style>
 </head>
@@ -877,9 +894,8 @@
                     <input type="number" id="vmPort" name="vmPort" required min="1" max="65535" value="22" style="background-color: #F5F5DC; width: 70%;" onchange="if(this.value<1)this.value=1;if(this.value>65535)this.value=65535;">
                 </div>
                 <div class="form-group">
-                    <label for="vms">VMs:</label>
-                    <select id="vms" name="vms" multiple style="width: 65%; height: 100px;">                        
-                    </select>
+                    <label for="vmContainer">VMs:</label>
+                    <div id="vmContainer" name="vmContainer"></div>                        
                 </div>
     
                 <div style="margin-top: 20px;"></div>
@@ -1158,10 +1174,13 @@
             return false;
         }
 
-        const vms = Array.from(document.getElementById('vms').options)
-                        .filter(option => option.selected)
-                        .map(option => option.value);
+        // const vms = Array.from(document.getElementById('vms').options)
+        //                 .filter(option => option.selected)
+        //                 .map(option => option.value);
 
+        const vms = Array.from(document.querySelectorAll('#vmContainer input[type="checkbox"]:checked')) // changed
+        .map(checkbox => checkbox.value);
+                        
         if (vms.length === 0) {
             alert("Please select at least one VM.");
             return false;
@@ -1174,7 +1193,7 @@
         if (!validateForm()) {
             return;
         }
-
+        console.log("POSTNLB");
         const connConfig = document.getElementById('connConfig').value;
         const nlbName = String(document.getElementById('nlbName').value);
         const vpcName = document.getElementById('vpcName').value;
@@ -1184,7 +1203,7 @@
         const port = document.getElementById('port').value;
         const vmProtocol = document.getElementById('vmProtocol').value;
         const vmPort = document.getElementById('vmPort').value;
-        const vms = Array.from(document.getElementById('vms').selectedOptions).map(option => option.value);
+        const vms = Array.from(document.querySelectorAll('#vmContainer input[type="checkbox"]:checked')).map(checkbox => checkbox.value);
         const hcProtocol = document.getElementById('hcProtocol').value;
         const hcPort = document.getElementById('hcPort').value;
         const interval = document.getElementById('interval').value;
@@ -1246,11 +1265,11 @@
     function showErrorModal(title, message) {
         document.getElementById('errorTitle').textContent = title;
         document.getElementById('errorMessage').textContent = message;
-        document.getElementById('errorModal').style.display = 'flex'; // Show the modal
+        document.getElementById('errorModal').style.display = 'flex';
     }
 
     function closeErrorModal() {
-        document.getElementById('errorModal').style.display = 'none'; // Hide the modal
+        document.getElementById('errorModal').style.display = 'none';
     }
 
     function showOverlay() {
@@ -1294,7 +1313,7 @@
         document.getElementById('threshold').value = 'default';
 
         // Reset VM list
-        document.getElementById('vms').innerHTML = ''; 
+        document.getElementById('vmContainer').innerHTML = ''; 
 
         // Reset tag fields
         document.querySelectorAll('.nlb-tag-input').forEach(tagInput => tagInput.remove());
@@ -1763,28 +1782,43 @@
                 'Content-Type': 'application/json'
             }
         })
-        .then(response => response.json())
-        .then(data => {
-            const vmSelect = document.getElementById('vms');
-            vmSelect.innerHTML = '';
+            .then(response => response.json())
+            .then(data => {
+                const vmContainer = document.getElementById('vmContainer');
+                vmContainer.innerHTML = '';
 
-            if (data.vm.length === 0) {
-                const noVMOption = document.createElement('option');
-                noVMOption.text = 'No VMs available.';
-                noVMOption.disabled = true;
-                vmSelect.appendChild(noVMOption);
-            } else {
-                data.vm.forEach((vm) => {
-                    const option = document.createElement('option');
-                    option.value = vm.IId.NameId;
-                    option.text = `${vm.IId.NameId} (${vm.PrivateIP})`;
-                    vmSelect.appendChild(option);
-                });
+                if (data.vm.length === 0) {
+                    const noVMMessage = document.createElement('p');
+                    noVMMessage.textContent = 'No VMs available.';
+                    noVMMessage.style.color = 'red';
+                    vmContainer.appendChild(noVMMessage);
+                } else {
+                    data.vm.forEach((vm) => {
+                        const checkboxWrapper = document.createElement('div');
+                        checkboxWrapper.className = 'checkbox-wrapper';
+
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.name = 'vms';
+                        checkbox.value = vm.IId.NameId;
+                        checkbox.id = `vm-${vm.IId.NameId}`;
+
+                        const label = document.createElement('label');
+                        label.htmlFor = `vm-${vm.IId.NameId}`;
+                        label.textContent = `${vm.IId.NameId} (${vm.PrivateIP})`;
+
+                        // add lable and checkbox in checkboxWrapper
+                        checkboxWrapper.appendChild(checkbox);
+                        checkboxWrapper.appendChild(label);
+
+                        // add vmContainer in checkboxWrapper
+                        vmContainer.appendChild(checkboxWrapper);
+                    });
             }
         })
         .catch(error => {
             console.error('Error loading VMs:', error);
-        });
+        }); 
     }
 
     document.addEventListener('DOMContentLoaded', loadVMs);
