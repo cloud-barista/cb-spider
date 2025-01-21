@@ -677,7 +677,7 @@ THE SOFTWARE.
 
     #diskSelect p {
         margin: 5px 0;
-        color: red;
+        color: black;
         font-size: 14px;
     }
 
@@ -2115,7 +2115,6 @@ THE SOFTWARE.
             } else {
                 const noDiskMessage = document.createElement('p');
                 noDiskMessage.textContent = 'No disks available in the same zone.';
-                noDiskMessage.style.color = 'red';
                 diskSelect.appendChild(noDiskMessage);
             }
         }).catch(error =>{
