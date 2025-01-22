@@ -26,6 +26,8 @@ type AzureNLBHandler struct {
 	VNicClient                   *armnetwork.InterfacesClient
 	PublicIPClient               *armnetwork.PublicIPAddressesClient
 	VMClient                     *armcompute.VirtualMachinesClient
+	ScaleSetVMsClient            *armcompute.VirtualMachineScaleSetVMsClient
+	DiskClient                   *armcompute.DisksClient
 	SubnetClient                 *armnetwork.SubnetsClient
 	IPConfigClient               *armnetwork.InterfaceIPConfigurationsClient
 	NLBLoadBalancingRulesClient  *armnetwork.LoadBalancerLoadBalancingRulesClient
@@ -49,6 +51,18 @@ const (
 	NLBGlobalType                      NLBScope                  = "GLOBAL"
 	NLBRegionType                      NLBScope                  = "REGION"
 )
+
+func convertToLoadBalancerBackendAddressStruct(backEndAddressPoolName string, vpcId string, privateIP string) *armnetwork.LoadBalancerBackendAddress {
+	return &armnetwork.LoadBalancerBackendAddress{
+		Properties: &armnetwork.LoadBalancerBackendAddressPropertiesFormat{
+			VirtualNetwork: &armnetwork.SubResource{
+				ID: &vpcId,
+			},
+			IPAddress: &privateIP,
+		},
+		Name: toStrPtr(backEndAddressPoolName + privateIP),
+	}
+}
 
 // ------ NLB Management
 func (nlbHandler *AzureNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB irs.NLBInfo, createError error) {
@@ -178,8 +192,8 @@ func (nlbHandler *AzureNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 
 	if len(*nlbReqInfo.VMGroup.VMs) > 0 {
 		// Update BackEndPool
-		privateIPs := make([]string, len(*nlbReqInfo.VMGroup.VMs))
-		for i, vmIId := range *nlbReqInfo.VMGroup.VMs {
+		var privateIPs []string
+		for _, vmIId := range *nlbReqInfo.VMGroup.VMs {
 			convertedIID, err := ConvertVMIID(vmIId, nlbHandler.CredentialInfo, nlbHandler.Region)
 			if err != nil {
 				getErr := errors.New(fmt.Sprintf("Failed to Get VM. err = %s", err))
@@ -187,16 +201,10 @@ func (nlbHandler *AzureNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 				LoggingError(hiscallInfo, getErr)
 				return irs.NLBInfo{}, getErr
 			}
-			//vm, err := GetRawVM(vmIId, nlbHandler.Region.Region, nlbHandler.VMClient, nlbHandler.Ctx)
-			vm, err := GetRawVM(convertedIID, nlbHandler.Region.Region, nlbHandler.VMClient, nlbHandler.Ctx)
-			if err != nil {
-				createError = errors.New(fmt.Sprintf("Failed to Create NLB. err = %s", err.Error()))
-				cblogger.Error(createError)
-				LoggingError(hiscallInfo, createError)
-				return irs.NLBInfo{}, createError
+			privateIP, err := nlbHandler.getVMPrivateIP(convertedIID)
+			if err == nil {
+				privateIPs = append(privateIPs, privateIP)
 			}
-			ip, _ := nlbHandler.getVPCNameSubnetNameAndPrivateIPByVM(vm)
-			privateIPs[i] = ip
 		}
 
 		vpcId := GetNetworksResourceIdByName(nlbHandler.CredentialInfo, nlbHandler.Region, AzureVirtualNetworks, nlbReqInfo.VpcIID.NameId)
@@ -209,20 +217,12 @@ func (nlbHandler *AzureNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 			LoggingError(hiscallInfo, createError)
 			return irs.NLBInfo{}, createError
 		}
-		LoadBalancerBackendAddresses := resp.BackendAddressPool.Properties.LoadBalancerBackendAddresses
 
 		for _, ip := range privateIPs {
-			LoadBalancerBackendAddress, err := nlbHandler.getLoadBalancerBackendAddress(backEndAddressPoolName, vpcId, ip)
-			if err != nil {
-				createError = errors.New(fmt.Sprintf("Failed to Create NLB. err = %s", err.Error()))
-				cblogger.Error(createError)
-				LoggingError(hiscallInfo, createError)
-				return irs.NLBInfo{}, createError
-			}
-			LoadBalancerBackendAddresses = append(LoadBalancerBackendAddresses, LoadBalancerBackendAddress)
+			resp.BackendAddressPool.Properties.LoadBalancerBackendAddresses =
+				append(resp.BackendAddressPool.Properties.LoadBalancerBackendAddresses,
+					convertToLoadBalancerBackendAddressStruct(backEndAddressPoolName, vpcId, ip))
 		}
-
-		resp.BackendAddressPool.Properties.LoadBalancerBackendAddresses = LoadBalancerBackendAddresses
 
 		poller, err := nlbHandler.NLBBackendAddressPoolsClient.BeginCreateOrUpdate(nlbHandler.Ctx, nlbHandler.Region.Region, nlbReqInfo.IId.NameId, backEndAddressPoolName, resp.BackendAddressPool, nil)
 		if err != nil {
@@ -494,14 +494,8 @@ func (nlbHandler *AzureNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (ir
 
 		backendPoolName := *cbOnlyOneBackendPool.Name
 		privateIPs := make([]string, len(*vmIIDs))
-		for i, vmIId := range *vmIIDs {
-			vm, err := GetRawVM(vmIId, nlbHandler.Region.Region, nlbHandler.VMClient, nlbHandler.Ctx)
-			if err != nil {
-				cblogger.Error(err.Error())
-				LoggingError(hiscallInfo, err)
-				return irs.VMGroupInfo{}, err
-			}
-			ip, err := nlbHandler.getVPCNameSubnetNameAndPrivateIPByVM(vm)
+		for i, vmIID := range *vmIIDs {
+			ip, err := nlbHandler.getVMPrivateIP(vmIID)
 			if err != nil {
 				addErr := errors.New(fmt.Sprintf("Failed to AddVMs NLB. err = %s", err.Error()))
 				cblogger.Error(addErr.Error())
@@ -523,14 +517,7 @@ func (nlbHandler *AzureNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (ir
 			vpcId = vpcIId.SystemId
 		} else {
 			for _, vmIId := range *vmIIDs {
-				vm, err := GetRawVM(vmIId, nlbHandler.Region.Region, nlbHandler.VMClient, nlbHandler.Ctx)
-				if err != nil {
-					addErr := errors.New(fmt.Sprintf("Failed to AddVMs NLB. err = %s", err.Error()))
-					cblogger.Error(addErr.Error())
-					LoggingError(hiscallInfo, addErr)
-					return irs.VMGroupInfo{}, addErr
-				}
-				vpcIID, err := nlbHandler.getVPCIIDByVM(vm)
+				vpcIID, err := nlbHandler.getVPCIIDByVM(vmIId)
 				if err != nil {
 					addErr := errors.New(fmt.Sprintf("Failed to AddVMs NLB. err = %s", err.Error()))
 					cblogger.Error(addErr.Error())
@@ -555,20 +542,12 @@ func (nlbHandler *AzureNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (ir
 			LoggingError(hiscallInfo, addErr)
 			return irs.VMGroupInfo{}, addErr
 		}
-		LoadBalancerBackendAddresses := resp.BackendAddressPool.Properties.LoadBalancerBackendAddresses
 
 		for _, ip := range privateIPs {
-			LoadBalancerBackendAddress, err := nlbHandler.getLoadBalancerBackendAddress(backendPoolName, vpcId, ip)
-			if err != nil {
-				addErr := errors.New(fmt.Sprintf("Failed to AddVMs NLB. err = %s", err.Error()))
-				cblogger.Error(addErr.Error())
-				LoggingError(hiscallInfo, addErr)
-				return irs.VMGroupInfo{}, addErr
-			}
-			LoadBalancerBackendAddresses = append(LoadBalancerBackendAddresses, LoadBalancerBackendAddress)
+			resp.BackendAddressPool.Properties.LoadBalancerBackendAddresses =
+				append(resp.BackendAddressPool.Properties.LoadBalancerBackendAddresses,
+					convertToLoadBalancerBackendAddressStruct(backendPoolName, vpcId, ip))
 		}
-
-		resp.BackendAddressPool.Properties.LoadBalancerBackendAddresses = LoadBalancerBackendAddresses
 
 		poller, err := nlbHandler.NLBBackendAddressPoolsClient.BeginCreateOrUpdate(nlbHandler.Ctx, nlbHandler.Region.Region, nlbIID.NameId, backendPoolName, resp.BackendAddressPool, nil)
 		if err != nil {
@@ -636,22 +615,18 @@ func (nlbHandler *AzureNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) 
 
 		backendPoolName := *cbOnlyOneBackendPool.Name
 
-		removPrivateIPs := make([]string, len(*vmIIDs))
-		for i, vmIId := range *vmIIDs {
-			vm, err := GetRawVM(vmIId, nlbHandler.Region.Region, nlbHandler.VMClient, nlbHandler.Ctx)
-			if err != nil {
-				cblogger.Error(err.Error())
-				LoggingError(hiscallInfo, err)
-				return false, err
-			}
-			ip, err := nlbHandler.getVPCNameSubnetNameAndPrivateIPByVM(vm)
+		var removePrivateIPs []string
+
+		for _, vmIId := range *vmIIDs {
+			privateIP, err := nlbHandler.getVMPrivateIP(vmIId)
 			if err != nil {
 				removeErr := errors.New(fmt.Sprintf("Failed to RemoveVMs NLB. err = %s", err.Error()))
 				cblogger.Error(removeErr.Error())
 				LoggingError(hiscallInfo, removeErr)
 				return false, removeErr
 			}
-			removPrivateIPs[i] = ip
+
+			removePrivateIPs = append(removePrivateIPs, privateIP)
 		}
 
 		resp, err := nlbHandler.NLBBackendAddressPoolsClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, nlbIID.NameId, backendPoolName, nil)
@@ -662,7 +637,6 @@ func (nlbHandler *AzureNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) 
 			return false, removeErr
 		}
 
-		newLoadBalancerBackendAddresses := make([]*armnetwork.LoadBalancerBackendAddress, 0)
 		currentVMIIds, err := nlbHandler.getVMIIDsByLoadBalancerBackendAddresses(resp.BackendAddressPool.Properties.LoadBalancerBackendAddresses)
 		if err != nil {
 			removeErr := errors.New(fmt.Sprintf("Failed to RemoveVMs NLB. err = %s", err.Error()))
@@ -670,24 +644,18 @@ func (nlbHandler *AzureNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) 
 			LoggingError(hiscallInfo, removeErr)
 			return false, removeErr
 		}
-		currentVMPrivateIPs := make([]string, len(currentVMIIds))
 
-		for i, vmIId := range currentVMIIds {
-			vm, err := GetRawVM(vmIId, nlbHandler.Region.Region, nlbHandler.VMClient, nlbHandler.Ctx)
+		var currentVMPrivateIPs []string
+
+		for _, vmIId := range currentVMIIds {
+			privateIP, err := nlbHandler.getVMPrivateIP(vmIId)
 			if err != nil {
 				removeErr := errors.New(fmt.Sprintf("Failed to RemoveVMs NLB. err = %s", err.Error()))
 				cblogger.Error(removeErr.Error())
 				LoggingError(hiscallInfo, removeErr)
 				return false, removeErr
 			}
-			ip, err := nlbHandler.getVPCNameSubnetNameAndPrivateIPByVM(vm)
-			if err != nil {
-				removeErr := errors.New(fmt.Sprintf("Failed to RemoveVMs NLB. err = %s", err.Error()))
-				cblogger.Error(removeErr.Error())
-				LoggingError(hiscallInfo, removeErr)
-				return false, removeErr
-			}
-			currentVMPrivateIPs[i] = ip
+			currentVMPrivateIPs = append(currentVMPrivateIPs, privateIP)
 		}
 
 		vpcIId, err := nlbHandler.getVPCIIDByLoadBalancerBackendAddresses(cbOnlyOneBackendPool.Properties.LoadBalancerBackendAddresses)
@@ -700,7 +668,7 @@ func (nlbHandler *AzureNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) 
 		for _, currentIP := range currentVMPrivateIPs {
 			chk := false
 			addIPSet := ""
-			for _, removeIP := range removPrivateIPs {
+			for _, removeIP := range removePrivateIPs {
 				if strings.EqualFold(removeIP, currentIP) {
 					chk = true
 					break
@@ -708,17 +676,11 @@ func (nlbHandler *AzureNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) 
 				addIPSet = currentIP
 			}
 			if !chk {
-				LoadBalancerBackendAddress, err := nlbHandler.getLoadBalancerBackendAddress(backendPoolName, vpcIId.SystemId, addIPSet)
-				if err != nil {
-					removeErr := errors.New(fmt.Sprintf("Failed to RemoveVMs NLB. err = %s", err.Error()))
-					cblogger.Error(removeErr.Error())
-					LoggingError(hiscallInfo, removeErr)
-					return false, removeErr
-				}
-				newLoadBalancerBackendAddresses = append(newLoadBalancerBackendAddresses, LoadBalancerBackendAddress)
+				resp.BackendAddressPool.Properties.LoadBalancerBackendAddresses =
+					append(resp.BackendAddressPool.Properties.LoadBalancerBackendAddresses,
+						convertToLoadBalancerBackendAddressStruct(backendPoolName, vpcIId.SystemId, addIPSet))
 			}
 		}
-		resp.BackendAddressPool.Properties.LoadBalancerBackendAddresses = newLoadBalancerBackendAddresses
 
 		poller, err := nlbHandler.NLBBackendAddressPoolsClient.BeginCreateOrUpdate(nlbHandler.Ctx, nlbHandler.Region.Region, nlbIID.NameId, backendPoolName, resp.BackendAddressPool, nil)
 		if err != nil {
@@ -1096,17 +1058,19 @@ func (nlbHandler *AzureNLBHandler) setterNLB(nlb *armnetwork.LoadBalancer) (*irs
 		// TODO: Deliver multiple backendPools in the future
 		cbOnlyOneBackendPool := nlb.Properties.BackendAddressPools[0]
 		vpcIId, err := nlbHandler.getVPCIIDByLoadBalancerBackendAddresses(cbOnlyOneBackendPool.Properties.LoadBalancerBackendAddresses)
-		if err == nil {
-			nlbInfo.VpcIID = vpcIId
+		if err != nil {
+			return nil, err
 		}
+		nlbInfo.VpcIID = vpcIId
 	}
 
 	vmGroup, listenerInfo, healthCheckerInfo, err := nlbHandler.getLoadBalancingRuleInfoByNLB(nlb)
-	if err == nil {
-		nlbInfo.VMGroup = vmGroup
-		nlbInfo.HealthChecker = healthCheckerInfo
-		nlbInfo.Listener = listenerInfo
+	if err != nil {
+		return nil, err
 	}
+	nlbInfo.VMGroup = *vmGroup
+	nlbInfo.HealthChecker = *healthCheckerInfo
+	nlbInfo.Listener = *listenerInfo
 
 	nlbType, err := getNLBTypeByNLB(nlb)
 	if err == nil {
@@ -1154,24 +1118,30 @@ func (nlbHandler *AzureNLBHandler) getVMIIDsByLoadBalancerBackendAddresses(addre
 	if len(address) < 1 {
 		return vmIIds, nil
 	}
+
 	refType, err := checkLoadBalancerBackendAddressesIPRefType(address)
 	if err != nil {
 		return nil, err
 	}
+
 	if refType == BackendAddressesIPAddressRef {
-		var vmList []*armcompute.VirtualMachine
+		vmHandler := AzureVMHandler{
+			CredentialInfo:    nlbHandler.CredentialInfo,
+			Region:            nlbHandler.Region,
+			Ctx:               nlbHandler.Ctx,
+			Client:            nlbHandler.VMClient,
+			ScaleSetVMsClient: nlbHandler.ScaleSetVMsClient,
+			SubnetClient:      nlbHandler.SubnetClient,
+			NicClient:         nlbHandler.VNicClient,
+			PublicIPClient:    nlbHandler.PublicIPClient,
+			DiskClient:        nlbHandler.DiskClient,
+		}
 
-		pager := nlbHandler.VMClient.NewListPager(nlbHandler.Region.Region, nil)
-
-		for pager.More() {
-			page, err := pager.NextPage(nlbHandler.Ctx)
-			if err != nil {
-				return nil, err
-			}
-
-			for _, vm := range page.Value {
-				vmList = append(vmList, vm)
-			}
+		vmList, err := vmHandler.ListVM()
+		if err != nil {
+			err = errors.New(fmt.Sprintf("Failed to get VMs. err = %s", err))
+			cblogger.Error(err)
+			return nil, err
 		}
 
 		ips, err := getIpsByLoadBalancerBackendAddresses(address)
@@ -1179,34 +1149,14 @@ func (nlbHandler *AzureNLBHandler) getVMIIDsByLoadBalancerBackendAddresses(addre
 			return nil, err
 		}
 		for _, vm := range vmList {
-			breakCheck := false
-			niList := vm.Properties.NetworkProfile.NetworkInterfaces
-			var VNicId string
-			for _, ni := range niList {
-				if *ni.Properties.Primary && ni.ID != nil {
-					VNicId = *ni.ID
-				}
-			}
-			resp, err := nlbHandler.VNicClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, GetResourceNameById(VNicId), nil)
-			if err != nil {
-				return nil, errors.New("not found VMIIDs")
-			}
-			for _, iPConfiguration := range resp.Interface.Properties.IPConfigurations {
-				if *iPConfiguration.Properties.Primary {
-					// PrivateIP 정보 설정
-					for _, ip := range ips {
-						if strings.EqualFold(ip, *iPConfiguration.Properties.PrivateIPAddress) {
-							vmIIds = append(vmIIds, irs.IID{SystemId: *vm.ID, NameId: *vm.Name})
-							breakCheck = true
-							break
-						}
-					}
-				}
-				if breakCheck {
+			for _, ip := range ips {
+				if vm.PrivateIP == ip {
+					vmIIds = append(vmIIds, vm.IId)
 					break
 				}
 			}
 		}
+
 		return vmIIds, err
 	} else {
 		nicNames, err := getNicNameByLoadBalancerBackendAddresses(address)
@@ -1307,24 +1257,24 @@ func getNicNameByLoadBalancerBackendAddresses(address []*armnetwork.LoadBalancer
 	}
 	return names, nil
 }
-func (nlbHandler *AzureNLBHandler) getLoadBalancingRuleInfoByNLB(nlb *armnetwork.LoadBalancer) (irs.VMGroupInfo, irs.ListenerInfo, irs.HealthCheckerInfo, error) {
+func (nlbHandler *AzureNLBHandler) getLoadBalancingRuleInfoByNLB(nlb *armnetwork.LoadBalancer) (*irs.VMGroupInfo, *irs.ListenerInfo, *irs.HealthCheckerInfo, error) {
 	LoadBalancingRules := nlb.Properties.LoadBalancingRules
 	Probes := nlb.Properties.Probes
 	if len(LoadBalancingRules) <= 0 {
-		return irs.VMGroupInfo{}, irs.ListenerInfo{}, irs.HealthCheckerInfo{}, errors.New("invalid LoadBalancer")
+		return nil, nil, nil, errors.New("invalid LoadBalancer")
 	}
 	frontendIP, err := nlbHandler.getFrontendIPByNLB(nlb)
 	if err != nil {
-		return irs.VMGroupInfo{}, irs.ListenerInfo{}, irs.HealthCheckerInfo{}, errors.New("invalid LoadBalancer")
+		return nil, nil, nil, errors.New("invalid LoadBalancer")
 	}
 	cbOnlyOneLoadBalancingRule := LoadBalancingRules[0]
-	VMGroup := irs.VMGroupInfo{
+	VMGroup := &irs.VMGroupInfo{
 		Protocol: strings.ToUpper(string(*cbOnlyOneLoadBalancingRule.Properties.Protocol)),
 		Port:     strconv.Itoa(int(*cbOnlyOneLoadBalancingRule.Properties.BackendPort)),
 		// TODO: ?
 		CspID: "",
 	}
-	listenerInfo := irs.ListenerInfo{
+	listenerInfo := &irs.ListenerInfo{
 		Protocol: strings.ToUpper(string(*cbOnlyOneLoadBalancingRule.Properties.Protocol)),
 		Port:     strconv.Itoa(int(*cbOnlyOneLoadBalancingRule.Properties.FrontendPort)),
 		IP:       frontendIP,
@@ -1332,17 +1282,18 @@ func (nlbHandler *AzureNLBHandler) getLoadBalancingRuleInfoByNLB(nlb *armnetwork
 		CspID: "",
 	}
 	if len(nlb.Properties.BackendAddressPools) < 1 {
-		return irs.VMGroupInfo{}, irs.ListenerInfo{}, irs.HealthCheckerInfo{}, errors.New("invalid LoadBalancer")
+		return nil, nil, nil, errors.New("invalid LoadBalancer")
 	}
 	backendPools := nlb.Properties.BackendAddressPools
 
 	cbOnlyOneBackendPool := backendPools[0]
 
-	vmIId, err := nlbHandler.getVMIIDsByLoadBalancerBackendAddresses(cbOnlyOneBackendPool.Properties.LoadBalancerBackendAddresses)
-	if err == nil {
-		VMGroup.VMs = &vmIId
+	vmIIds, err := nlbHandler.getVMIIDsByLoadBalancerBackendAddresses(cbOnlyOneBackendPool.Properties.LoadBalancerBackendAddresses)
+	if err != nil {
+		return nil, nil, nil, err
 	}
-	healthCheckerInfo := irs.HealthCheckerInfo{}
+	VMGroup.VMs = &vmIIds
+	healthCheckerInfo := &irs.HealthCheckerInfo{}
 
 	probeId := *cbOnlyOneLoadBalancingRule.Properties.Probe.ID
 	for _, probe := range Probes {
@@ -1527,69 +1478,48 @@ func (nlbHandler *AzureNLBHandler) createPublicIP(nlbName string) (armnetwork.Pu
 	}
 	return resp.PublicIPAddress, nil
 }
-func (nlbHandler *AzureNLBHandler) getVPCNameSubnetNameAndPrivateIPByVM(server armcompute.VirtualMachine) (privateIP string, err error) {
-	niList := server.Properties.NetworkProfile.NetworkInterfaces
-	var VNicId string
-	for _, ni := range niList {
-		if ni.ID != nil {
-			VNicId = *ni.ID
-			break
-		}
+func (nlbHandler *AzureNLBHandler) getVMPrivateIP(vmIID irs.IID) (privateIP string, err error) {
+	vmHandler := AzureVMHandler{
+		CredentialInfo:    nlbHandler.CredentialInfo,
+		Region:            nlbHandler.Region,
+		Ctx:               nlbHandler.Ctx,
+		Client:            nlbHandler.VMClient,
+		ScaleSetVMsClient: nlbHandler.ScaleSetVMsClient,
+		SubnetClient:      nlbHandler.SubnetClient,
+		NicClient:         nlbHandler.VNicClient,
+		PublicIPClient:    nlbHandler.PublicIPClient,
+		DiskClient:        nlbHandler.DiskClient,
 	}
 
-	nicIdArr := strings.Split(VNicId, "/")
-	nicName := nicIdArr[len(nicIdArr)-1]
-	resp, err := nlbHandler.VNicClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, nicName, nil)
+	vm, err := vmHandler.GetVM(vmIID)
 	if err != nil {
+		err = errors.New(fmt.Sprintf("Failed to get VM. err = %s", err))
+		cblogger.Error(err)
 		return "", err
 	}
-	for _, ip := range resp.Interface.Properties.IPConfigurations {
-		if *ip.Properties.Primary {
-			privateIP := *ip.Properties.PrivateIPAddress
-			return privateIP, nil
-		}
-	}
-	return "", errors.New("not found subnet")
+
+	return vm.PrivateIP, nil
 }
-func (nlbHandler *AzureNLBHandler) getVPCIIDByVM(server armcompute.VirtualMachine) (irs.IID, error) {
-	niList := server.Properties.NetworkProfile.NetworkInterfaces
-	var VNicId string
-	for _, ni := range niList {
-		if ni.ID != nil {
-			VNicId = *ni.ID
-			break
-		}
+func (nlbHandler *AzureNLBHandler) getVPCIIDByVM(vmIID irs.IID) (*irs.IID, error) {
+	vmHandler := AzureVMHandler{
+		CredentialInfo:    nlbHandler.CredentialInfo,
+		Region:            nlbHandler.Region,
+		Ctx:               nlbHandler.Ctx,
+		Client:            nlbHandler.VMClient,
+		ScaleSetVMsClient: nlbHandler.ScaleSetVMsClient,
+		SubnetClient:      nlbHandler.SubnetClient,
+		NicClient:         nlbHandler.VNicClient,
+		PublicIPClient:    nlbHandler.PublicIPClient,
 	}
 
-	nicIdArr := strings.Split(VNicId, "/")
-	nicName := nicIdArr[len(nicIdArr)-1]
-	resp, err := nlbHandler.VNicClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, nicName, nil)
+	vm, err := vmHandler.GetVM(vmIID)
 	if err != nil {
-		return irs.IID{}, err
+		return nil, errors.New(fmt.Sprintf("Failed to get VPC, error=%s", err))
 	}
-	for _, ip := range resp.Interface.Properties.IPConfigurations {
-		if *ip.Properties.Primary {
-			subnetIdArr := strings.Split(*ip.Properties.Subnet.ID, "/")
-			vpcId := strings.Join(subnetIdArr[:len(subnetIdArr)-2], "/")
-			return irs.IID{
-				NameId:   GetResourceNameById(vpcId),
-				SystemId: vpcId,
-			}, nil
-		}
-	}
-	return irs.IID{}, errors.New("not found subnet")
+
+	return &vm.VpcIID, nil
 }
-func (nlbHandler *AzureNLBHandler) getLoadBalancerBackendAddress(backEndAddressPoolName string, vpcId string, privateIP string) (*armnetwork.LoadBalancerBackendAddress, error) {
-	return &armnetwork.LoadBalancerBackendAddress{
-		Properties: &armnetwork.LoadBalancerBackendAddressPropertiesFormat{
-			VirtualNetwork: &armnetwork.SubResource{
-				ID: &vpcId,
-			},
-			IPAddress: &privateIP,
-		},
-		Name: toStrPtr(backEndAddressPoolName + privateIP),
-	}, nil
-}
+
 func (nlbHandler *AzureNLBHandler) getNLBType(nlb armnetwork.LoadBalancer) (string, error) {
 	FrontendIPConfigurations := nlb.Properties.FrontendIPConfigurations
 	if len(FrontendIPConfigurations) <= 0 {
