@@ -26,6 +26,7 @@ type AzureNLBHandler struct {
 	VNicClient                   *armnetwork.InterfacesClient
 	PublicIPClient               *armnetwork.PublicIPAddressesClient
 	VMClient                     *armcompute.VirtualMachinesClient
+	ScaleSetVMsClient            *armcompute.VirtualMachineScaleSetVMsClient
 	SubnetClient                 *armnetwork.SubnetsClient
 	IPConfigClient               *armnetwork.InterfaceIPConfigurationsClient
 	NLBLoadBalancingRulesClient  *armnetwork.LoadBalancerLoadBalancingRulesClient
@@ -190,8 +191,8 @@ func (nlbHandler *AzureNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 
 	if len(*nlbReqInfo.VMGroup.VMs) > 0 {
 		// Update BackEndPool
-		privateIPs := make([]string, len(*nlbReqInfo.VMGroup.VMs))
-		for i, vmIId := range *nlbReqInfo.VMGroup.VMs {
+		var privateIPs []string
+		for _, vmIId := range *nlbReqInfo.VMGroup.VMs {
 			convertedIID, err := ConvertVMIID(vmIId, nlbHandler.CredentialInfo, nlbHandler.Region)
 			if err != nil {
 				getErr := errors.New(fmt.Sprintf("Failed to Get VM. err = %s", err))
@@ -199,16 +200,10 @@ func (nlbHandler *AzureNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 				LoggingError(hiscallInfo, getErr)
 				return irs.NLBInfo{}, getErr
 			}
-			//vm, err := GetRawVM(vmIId, nlbHandler.Region.Region, nlbHandler.VMClient, nlbHandler.Ctx)
-			vm, err := GetRawVM(convertedIID, nlbHandler.Region.Region, nlbHandler.VMClient, nlbHandler.Ctx)
-			if err != nil {
-				createError = errors.New(fmt.Sprintf("Failed to Create NLB. err = %s", err.Error()))
-				cblogger.Error(createError)
-				LoggingError(hiscallInfo, createError)
-				return irs.NLBInfo{}, createError
+			privateIP, err := nlbHandler.getVMPrivateIP(convertedIID)
+			if err == nil {
+				privateIPs = append(privateIPs, privateIP)
 			}
-			ip, _ := nlbHandler.getVPCNameSubnetNameAndPrivateIPByVM(vm)
-			privateIPs[i] = ip
 		}
 
 		vpcId := GetNetworksResourceIdByName(nlbHandler.CredentialInfo, nlbHandler.Region, AzureVirtualNetworks, nlbReqInfo.VpcIID.NameId)
@@ -498,14 +493,8 @@ func (nlbHandler *AzureNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (ir
 
 		backendPoolName := *cbOnlyOneBackendPool.Name
 		privateIPs := make([]string, len(*vmIIDs))
-		for i, vmIId := range *vmIIDs {
-			vm, err := GetRawVM(vmIId, nlbHandler.Region.Region, nlbHandler.VMClient, nlbHandler.Ctx)
-			if err != nil {
-				cblogger.Error(err.Error())
-				LoggingError(hiscallInfo, err)
-				return irs.VMGroupInfo{}, err
-			}
-			ip, err := nlbHandler.getVPCNameSubnetNameAndPrivateIPByVM(vm)
+		for i, vmIID := range *vmIIDs {
+			ip, err := nlbHandler.getVMPrivateIP(vmIID)
 			if err != nil {
 				addErr := errors.New(fmt.Sprintf("Failed to AddVMs NLB. err = %s", err.Error()))
 				cblogger.Error(addErr.Error())
@@ -527,14 +516,7 @@ func (nlbHandler *AzureNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (ir
 			vpcId = vpcIId.SystemId
 		} else {
 			for _, vmIId := range *vmIIDs {
-				vm, err := GetRawVM(vmIId, nlbHandler.Region.Region, nlbHandler.VMClient, nlbHandler.Ctx)
-				if err != nil {
-					addErr := errors.New(fmt.Sprintf("Failed to AddVMs NLB. err = %s", err.Error()))
-					cblogger.Error(addErr.Error())
-					LoggingError(hiscallInfo, addErr)
-					return irs.VMGroupInfo{}, addErr
-				}
-				vpcIID, err := nlbHandler.getVPCIIDByVM(vm)
+				vpcIID, err := nlbHandler.getVPCIIDByVM(vmIId)
 				if err != nil {
 					addErr := errors.New(fmt.Sprintf("Failed to AddVMs NLB. err = %s", err.Error()))
 					cblogger.Error(addErr.Error())
@@ -632,22 +614,18 @@ func (nlbHandler *AzureNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) 
 
 		backendPoolName := *cbOnlyOneBackendPool.Name
 
-		removPrivateIPs := make([]string, len(*vmIIDs))
-		for i, vmIId := range *vmIIDs {
-			vm, err := GetRawVM(vmIId, nlbHandler.Region.Region, nlbHandler.VMClient, nlbHandler.Ctx)
-			if err != nil {
-				cblogger.Error(err.Error())
-				LoggingError(hiscallInfo, err)
-				return false, err
-			}
-			ip, err := nlbHandler.getVPCNameSubnetNameAndPrivateIPByVM(vm)
+		var removePrivateIPs []string
+
+		for _, vmIId := range *vmIIDs {
+			privateIP, err := nlbHandler.getVMPrivateIP(vmIId)
 			if err != nil {
 				removeErr := errors.New(fmt.Sprintf("Failed to RemoveVMs NLB. err = %s", err.Error()))
 				cblogger.Error(removeErr.Error())
 				LoggingError(hiscallInfo, removeErr)
 				return false, removeErr
 			}
-			removPrivateIPs[i] = ip
+
+			removePrivateIPs = append(removePrivateIPs, privateIP)
 		}
 
 		resp, err := nlbHandler.NLBBackendAddressPoolsClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, nlbIID.NameId, backendPoolName, nil)
@@ -665,24 +643,18 @@ func (nlbHandler *AzureNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) 
 			LoggingError(hiscallInfo, removeErr)
 			return false, removeErr
 		}
-		currentVMPrivateIPs := make([]string, len(currentVMIIds))
 
-		for i, vmIId := range currentVMIIds {
-			vm, err := GetRawVM(vmIId, nlbHandler.Region.Region, nlbHandler.VMClient, nlbHandler.Ctx)
+		var currentVMPrivateIPs []string
+
+		for _, vmIId := range currentVMIIds {
+			privateIP, err := nlbHandler.getVMPrivateIP(vmIId)
 			if err != nil {
 				removeErr := errors.New(fmt.Sprintf("Failed to RemoveVMs NLB. err = %s", err.Error()))
 				cblogger.Error(removeErr.Error())
 				LoggingError(hiscallInfo, removeErr)
 				return false, removeErr
 			}
-			ip, err := nlbHandler.getVPCNameSubnetNameAndPrivateIPByVM(vm)
-			if err != nil {
-				removeErr := errors.New(fmt.Sprintf("Failed to RemoveVMs NLB. err = %s", err.Error()))
-				cblogger.Error(removeErr.Error())
-				LoggingError(hiscallInfo, removeErr)
-				return false, removeErr
-			}
-			currentVMPrivateIPs[i] = ip
+			currentVMPrivateIPs = append(currentVMPrivateIPs, privateIP)
 		}
 
 		vpcIId, err := nlbHandler.getVPCIIDByLoadBalancerBackendAddresses(cbOnlyOneBackendPool.Properties.LoadBalancerBackendAddresses)
@@ -695,7 +667,7 @@ func (nlbHandler *AzureNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) 
 		for _, currentIP := range currentVMPrivateIPs {
 			chk := false
 			addIPSet := ""
-			for _, removeIP := range removPrivateIPs {
+			for _, removeIP := range removePrivateIPs {
 				if strings.EqualFold(removeIP, currentIP) {
 					chk = true
 					break
@@ -1515,57 +1487,43 @@ func (nlbHandler *AzureNLBHandler) createPublicIP(nlbName string) (armnetwork.Pu
 	}
 	return resp.PublicIPAddress, nil
 }
-func (nlbHandler *AzureNLBHandler) getVPCNameSubnetNameAndPrivateIPByVM(server armcompute.VirtualMachine) (privateIP string, err error) {
-	niList := server.Properties.NetworkProfile.NetworkInterfaces
-	var VNicId string
-	for _, ni := range niList {
-		if ni.ID != nil {
-			VNicId = *ni.ID
-			break
-		}
+func (nlbHandler *AzureNLBHandler) getVMPrivateIP(vmIID irs.IID) (privateIP string, err error) {
+	vmHandler := AzureVMHandler{
+		CredentialInfo:    nlbHandler.CredentialInfo,
+		Region:            nlbHandler.Region,
+		Ctx:               nlbHandler.Ctx,
+		Client:            nlbHandler.VMClient,
+		ScaleSetVMsClient: nlbHandler.ScaleSetVMsClient,
+		SubnetClient:      nlbHandler.SubnetClient,
+		NicClient:         nlbHandler.VNicClient,
+		PublicIPClient:    nlbHandler.PublicIPClient,
 	}
 
-	nicIdArr := strings.Split(VNicId, "/")
-	nicName := nicIdArr[len(nicIdArr)-1]
-	resp, err := nlbHandler.VNicClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, nicName, nil)
+	vm, err := vmHandler.GetVM(vmIID)
 	if err != nil {
-		return "", err
+		return "", errors.New(fmt.Sprintf("Failed to get VM, error=%s", err))
 	}
-	for _, ip := range resp.Interface.Properties.IPConfigurations {
-		if *ip.Properties.Primary {
-			privateIP := *ip.Properties.PrivateIPAddress
-			return privateIP, nil
-		}
-	}
-	return "", errors.New("not found subnet")
+
+	return vm.PrivateIP, nil
 }
-func (nlbHandler *AzureNLBHandler) getVPCIIDByVM(server armcompute.VirtualMachine) (irs.IID, error) {
-	niList := server.Properties.NetworkProfile.NetworkInterfaces
-	var VNicId string
-	for _, ni := range niList {
-		if ni.ID != nil {
-			VNicId = *ni.ID
-			break
-		}
+func (nlbHandler *AzureNLBHandler) getVPCIIDByVM(vmIID irs.IID) (*irs.IID, error) {
+	vmHandler := AzureVMHandler{
+		CredentialInfo:    nlbHandler.CredentialInfo,
+		Region:            nlbHandler.Region,
+		Ctx:               nlbHandler.Ctx,
+		Client:            nlbHandler.VMClient,
+		ScaleSetVMsClient: nlbHandler.ScaleSetVMsClient,
+		SubnetClient:      nlbHandler.SubnetClient,
+		NicClient:         nlbHandler.VNicClient,
+		PublicIPClient:    nlbHandler.PublicIPClient,
 	}
 
-	nicIdArr := strings.Split(VNicId, "/")
-	nicName := nicIdArr[len(nicIdArr)-1]
-	resp, err := nlbHandler.VNicClient.Get(nlbHandler.Ctx, nlbHandler.Region.Region, nicName, nil)
+	vm, err := vmHandler.GetVM(vmIID)
 	if err != nil {
-		return irs.IID{}, err
+		return nil, errors.New(fmt.Sprintf("Failed to get VPC, error=%s", err))
 	}
-	for _, ip := range resp.Interface.Properties.IPConfigurations {
-		if *ip.Properties.Primary {
-			subnetIdArr := strings.Split(*ip.Properties.Subnet.ID, "/")
-			vpcId := strings.Join(subnetIdArr[:len(subnetIdArr)-2], "/")
-			return irs.IID{
-				NameId:   GetResourceNameById(vpcId),
-				SystemId: vpcId,
-			}, nil
-		}
-	}
-	return irs.IID{}, errors.New("not found subnet")
+
+	return &vm.VpcIID, nil
 }
 
 func (nlbHandler *AzureNLBHandler) getNLBType(nlb armnetwork.LoadBalancer) (string, error) {
