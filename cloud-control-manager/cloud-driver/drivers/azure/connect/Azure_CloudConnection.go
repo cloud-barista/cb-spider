@@ -145,6 +145,7 @@ func (cloudConn *AzureCloudConnection) CreateNLBHandler() (irs.NLBHandler, error
 		PublicIPClient:               cloudConn.PublicIPClient,
 		VMClient:                     cloudConn.VMClient,
 		ScaleSetVMsClient:            cloudConn.VirtualMachineScaleSetVMsClient,
+		DiskClient:                   cloudConn.DiskClient,
 		SubnetClient:                 cloudConn.SubnetClient,
 		IPConfigClient:               cloudConn.IPConfigClient,
 		NLBLoadBalancingRulesClient:  cloudConn.NLBLoadBalancingRulesClient,
