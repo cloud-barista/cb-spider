@@ -50,6 +50,18 @@ const (
 	NLBRegionType                      NLBScope                  = "REGION"
 )
 
+func convertToLoadBalancerBackendAddressStruct(backEndAddressPoolName string, vpcId string, privateIP string) *armnetwork.LoadBalancerBackendAddress {
+	return &armnetwork.LoadBalancerBackendAddress{
+		Properties: &armnetwork.LoadBalancerBackendAddressPropertiesFormat{
+			VirtualNetwork: &armnetwork.SubResource{
+				ID: &vpcId,
+			},
+			IPAddress: &privateIP,
+		},
+		Name: toStrPtr(backEndAddressPoolName + privateIP),
+	}
+}
+
 // ------ NLB Management
 func (nlbHandler *AzureNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB irs.NLBInfo, createError error) {
 	hiscallInfo := GetCallLogScheme(nlbHandler.Region, "NETWORKLOADBALANCE", nlbReqInfo.IId.NameId, "CreateNLB()")
@@ -209,20 +221,12 @@ func (nlbHandler *AzureNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 			LoggingError(hiscallInfo, createError)
 			return irs.NLBInfo{}, createError
 		}
-		LoadBalancerBackendAddresses := resp.BackendAddressPool.Properties.LoadBalancerBackendAddresses
 
 		for _, ip := range privateIPs {
-			LoadBalancerBackendAddress, err := nlbHandler.getLoadBalancerBackendAddress(backEndAddressPoolName, vpcId, ip)
-			if err != nil {
-				createError = errors.New(fmt.Sprintf("Failed to Create NLB. err = %s", err.Error()))
-				cblogger.Error(createError)
-				LoggingError(hiscallInfo, createError)
-				return irs.NLBInfo{}, createError
-			}
-			LoadBalancerBackendAddresses = append(LoadBalancerBackendAddresses, LoadBalancerBackendAddress)
+			resp.BackendAddressPool.Properties.LoadBalancerBackendAddresses =
+				append(resp.BackendAddressPool.Properties.LoadBalancerBackendAddresses,
+					convertToLoadBalancerBackendAddressStruct(backEndAddressPoolName, vpcId, ip))
 		}
-
-		resp.BackendAddressPool.Properties.LoadBalancerBackendAddresses = LoadBalancerBackendAddresses
 
 		poller, err := nlbHandler.NLBBackendAddressPoolsClient.BeginCreateOrUpdate(nlbHandler.Ctx, nlbHandler.Region.Region, nlbReqInfo.IId.NameId, backEndAddressPoolName, resp.BackendAddressPool, nil)
 		if err != nil {
@@ -555,20 +559,12 @@ func (nlbHandler *AzureNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (ir
 			LoggingError(hiscallInfo, addErr)
 			return irs.VMGroupInfo{}, addErr
 		}
-		LoadBalancerBackendAddresses := resp.BackendAddressPool.Properties.LoadBalancerBackendAddresses
 
 		for _, ip := range privateIPs {
-			LoadBalancerBackendAddress, err := nlbHandler.getLoadBalancerBackendAddress(backendPoolName, vpcId, ip)
-			if err != nil {
-				addErr := errors.New(fmt.Sprintf("Failed to AddVMs NLB. err = %s", err.Error()))
-				cblogger.Error(addErr.Error())
-				LoggingError(hiscallInfo, addErr)
-				return irs.VMGroupInfo{}, addErr
-			}
-			LoadBalancerBackendAddresses = append(LoadBalancerBackendAddresses, LoadBalancerBackendAddress)
+			resp.BackendAddressPool.Properties.LoadBalancerBackendAddresses =
+				append(resp.BackendAddressPool.Properties.LoadBalancerBackendAddresses,
+					convertToLoadBalancerBackendAddressStruct(backendPoolName, vpcId, ip))
 		}
-
-		resp.BackendAddressPool.Properties.LoadBalancerBackendAddresses = LoadBalancerBackendAddresses
 
 		poller, err := nlbHandler.NLBBackendAddressPoolsClient.BeginCreateOrUpdate(nlbHandler.Ctx, nlbHandler.Region.Region, nlbIID.NameId, backendPoolName, resp.BackendAddressPool, nil)
 		if err != nil {
@@ -662,7 +658,6 @@ func (nlbHandler *AzureNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) 
 			return false, removeErr
 		}
 
-		newLoadBalancerBackendAddresses := make([]*armnetwork.LoadBalancerBackendAddress, 0)
 		currentVMIIds, err := nlbHandler.getVMIIDsByLoadBalancerBackendAddresses(resp.BackendAddressPool.Properties.LoadBalancerBackendAddresses)
 		if err != nil {
 			removeErr := errors.New(fmt.Sprintf("Failed to RemoveVMs NLB. err = %s", err.Error()))
@@ -708,17 +703,11 @@ func (nlbHandler *AzureNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) 
 				addIPSet = currentIP
 			}
 			if !chk {
-				LoadBalancerBackendAddress, err := nlbHandler.getLoadBalancerBackendAddress(backendPoolName, vpcIId.SystemId, addIPSet)
-				if err != nil {
-					removeErr := errors.New(fmt.Sprintf("Failed to RemoveVMs NLB. err = %s", err.Error()))
-					cblogger.Error(removeErr.Error())
-					LoggingError(hiscallInfo, removeErr)
-					return false, removeErr
-				}
-				newLoadBalancerBackendAddresses = append(newLoadBalancerBackendAddresses, LoadBalancerBackendAddress)
+				resp.BackendAddressPool.Properties.LoadBalancerBackendAddresses =
+					append(resp.BackendAddressPool.Properties.LoadBalancerBackendAddresses,
+						convertToLoadBalancerBackendAddressStruct(backendPoolName, vpcIId.SystemId, addIPSet))
 			}
 		}
-		resp.BackendAddressPool.Properties.LoadBalancerBackendAddresses = newLoadBalancerBackendAddresses
 
 		poller, err := nlbHandler.NLBBackendAddressPoolsClient.BeginCreateOrUpdate(nlbHandler.Ctx, nlbHandler.Region.Region, nlbIID.NameId, backendPoolName, resp.BackendAddressPool, nil)
 		if err != nil {
@@ -1162,7 +1151,6 @@ func (nlbHandler *AzureNLBHandler) getVMIIDsByLoadBalancerBackendAddresses(addre
 		var vmList []*armcompute.VirtualMachine
 
 		pager := nlbHandler.VMClient.NewListPager(nlbHandler.Region.Region, nil)
-
 		for pager.More() {
 			page, err := pager.NextPage(nlbHandler.Ctx)
 			if err != nil {
@@ -1579,17 +1567,7 @@ func (nlbHandler *AzureNLBHandler) getVPCIIDByVM(server armcompute.VirtualMachin
 	}
 	return irs.IID{}, errors.New("not found subnet")
 }
-func (nlbHandler *AzureNLBHandler) getLoadBalancerBackendAddress(backEndAddressPoolName string, vpcId string, privateIP string) (*armnetwork.LoadBalancerBackendAddress, error) {
-	return &armnetwork.LoadBalancerBackendAddress{
-		Properties: &armnetwork.LoadBalancerBackendAddressPropertiesFormat{
-			VirtualNetwork: &armnetwork.SubResource{
-				ID: &vpcId,
-			},
-			IPAddress: &privateIP,
-		},
-		Name: toStrPtr(backEndAddressPoolName + privateIP),
-	}, nil
-}
+
 func (nlbHandler *AzureNLBHandler) getNLBType(nlb armnetwork.LoadBalancer) (string, error) {
 	FrontendIPConfigurations := nlb.Properties.FrontendIPConfigurations
 	if len(FrontendIPConfigurations) <= 0 {
