@@ -763,7 +763,7 @@
                                 <div style="display: flex; justify-content: center; align-items: center; position: relative;">
                                     <span style="font-weight: bold; margin-right: auto; text-align: center; width: 100%;">VMs</span>
                                     <div style="position: absolute; right: 0;">
-                                        <button onclick="addVM()">Add</button>
+                                        <button style="padding: 1px 5px; font-size: 12px;" onclick="addVM()">add</button>
                                     </div>
                                 </div>
                             </td>
@@ -1813,15 +1813,13 @@
                 label.htmlFor = `vm-${vm.IId.NameId}`;
                 label.textContent = `${vm.IId.NameId} (${vm.PrivateIP})`;
 
-                // Checkbox와 Label을 Wrapper에 추가
                 checkboxWrapper.appendChild(checkbox);
                 checkboxWrapper.appendChild(label);
 
-                // Wrapper를 Container에 추가
                 vmContainer.appendChild(checkboxWrapper);
             });
         }
-    }
+    } // end of renderVMs()
 
     document.addEventListener('DOMContentLoaded', loadVMs);
 
