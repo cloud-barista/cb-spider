@@ -759,7 +759,14 @@
                             <td>{{$nlb.VMGroup.Port}}</td>
                         </tr>
                         <tr>
-                            <th colspan="2" style="text-align: center;">VMs</th>
+                            <td colspan="2">
+                                <div style="display: flex; justify-content: center; align-items: center; position: relative;">
+                                    <span style="font-weight: bold; margin-right: auto; text-align: center; width: 100%;">VMs</span>
+                                    <div style="position: absolute; right: 0;">
+                                        <button onclick="addVM()">Add</button>
+                                    </div>
+                                </div>
+                            </td>
                         </tr>
                         <tr>
                             <td colspan="2">
