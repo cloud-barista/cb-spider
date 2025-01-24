@@ -652,7 +652,7 @@
         margin-right: 5px;
     }
 
-    #vmContainer {
+    #vmContainer, #addVMContainer {
         border: 1px solid black;
         padding: 10px;
         width: 60%;
@@ -763,7 +763,7 @@
                                 <div style="display: flex; justify-content: center; align-items: center; position: relative;">
                                     <span style="font-weight: bold; margin-right: auto; text-align: center; width: 100%;">VMs</span>
                                     <div style="position: absolute; right: 0;">
-                                        <button style="padding: 1px 5px; font-size: 12px;" onclick="addVM()">add</button>
+                                        <button style="padding: 1px 5px; font-size: 12px;" onclick="showVMOverlay()">add</button>
                                     </div>
                                 </div>
                             </td>
@@ -838,9 +838,7 @@
                 <td colspan="11" class="center-align">No NLBs found for this connection.</td>
             </tr>
             {{end}}
-        </table>
-        
-        
+        </table>  
     </div>
 
     <!-- Overlay: Add New NLB -->
@@ -935,7 +933,7 @@
                 </div>    
                 <div class="form-group" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
                     <button type="submit">Add NLB</button>
-                    <button type="button" onclick="hideOverlay()" style="margin-left: 10px;">Cancel</button>
+                    <button type="button" onclick="hideOverlay('overlay')" style="margin-left: 10px;">Cancel</button>
                 </div>
             </form>
         </div>
@@ -948,6 +946,23 @@
     <!-- Add Tag Overlay -->
     <div id="add-tag-overlay" class="overlay">
         <div class="add-tag-overlay-content overlay-content"></div>
+    </div>
+
+    <!-- Add VM Overlay -->
+    <div id="vmOverlay" class="overlay" style="display: none;">
+        <div class="overlay-content">
+            <h2>Add VM</h2>
+            <form id="addVMForm" onsubmit="event.preventDefault(); submitVM();">
+                <div class="form-group">
+                    <label for="addVmContainer">VMs:</label>
+                    <div id="addVMContainer" name="addVmContainer"></div>                        
+                </div>
+                <div class="form-group" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+                    <button type="submit">Add VM</button>
+                    <button type="button" onclick="hideOverlay('vmOverlay')" style="margin-left: 10px;">Cancel</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <!-- Error Modal -->
@@ -1024,7 +1039,6 @@
         }
     }
 
-
     function clearSearchInput() {
         let input = document.getElementById('searchInput');
         input.value = '';
@@ -1040,7 +1054,6 @@
             }
         }
     }
-
 
     let currentProvider = '';
 
@@ -1181,11 +1194,7 @@
             return false;
         }
 
-        // const vms = Array.from(document.getElementById('vms').options)
-        //                 .filter(option => option.selected)
-        //                 .map(option => option.value);
-
-        const vms = Array.from(document.querySelectorAll('#vmContainer input[type="checkbox"]:checked')) // changed
+        const vms = Array.from(document.querySelectorAll('#vmContainer input[type="checkbox"]:checked'))
         .map(checkbox => checkbox.value);
                         
         if (vms.length === 0) {
@@ -1280,7 +1289,7 @@
     }
 
     function showOverlay() {
-        Promise.all([loadVPCs(), loadVMs()])
+        Promise.all([loadVPCs(), loadVMs('vmContainer')])
             .then(() => {
                 const region = '{{.RegionName}}';
                 const nlbNameInput = document.getElementById('nlbName');
@@ -1326,12 +1335,33 @@
         document.querySelectorAll('.nlb-tag-input').forEach(tagInput => tagInput.remove());
     }
 
+    let selectedNLBName = '';
+    function selectNLB(row){
+        const rows = doucment.querySelector('#nlb-table tr');
+        rows.forEach(r => r.style.backgroundColor = '');
 
-    function hideOverlay() {
-        document.getElementById('overlay').style.display = 'none';
+        // 선택된 행 강조
+        row.style.backgroundColor = '#d3f9d8';
+
+        // 선택된 NLB 이름 가져오기
+        const nlbName = row.querySelector('.nlb-name').textContent;
+        selectedNLBName = nlbName;
+
+        console.log('Selected NLB Name:', selectedNLBName);
+    }
+
+    function showVMOverlay() {
+        console.log("CLICKED!");
+        loadVMs('addVMContainer');
+        document.getElementById('vmOverlay').style.display = 'flex';
+    }
+
+    function hideOverlay(pos) {
+        document.getElementById(pos).style.display = 'none';
         document.removeEventListener('keydown', handleEsc);
         clearFormFields();
     }
+    
 
     function handleEsc(event) {
         if (event.key === "Escape") {
@@ -1779,18 +1809,40 @@
         }
     });
 
-    function loadVMs() {
+    function loadVMs(container) {
         fetchVMs()
             .then(data => {
-                renderVMs(data.vm);
+                renderVMs(data.vm, container);
             })
             .catch(error => {
                 console.error('Error loading VMs:', error);
             });
     } // end of loadVMs()
 
-    function renderVMs(vms) {
-        const vmContainer = document.getElementById('vmContainer');
+    function fetchVMs() {
+        const connConfig = '{{.ConnectionConfig}}';
+        const url = `/spider/vm?ConnectionName=${encodeURIComponent(connConfig)}`;
+
+        return fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .catch(error => {
+            console.error('Error fetching VMs:', error);
+            throw error;
+        });
+    } // end of fetch VMs()
+
+    function renderVMs(vms, container) {
+        const vmContainer = document.getElementById(container);
         vmContainer.innerHTML = '';
 
         if (vms.length === 0) {
@@ -1935,28 +1987,7 @@
         selection.removeAllRanges();
     }
 
-    function fetchVMs() {
-        
-        const connConfig = '{{.ConnectionConfig}}'
-        const url = `/spider/vm?ConnectionName=${encodeURIComponent(connConfig)}`;
 
-        return fetch(url, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            return response.json();
-        })
-        .catch(error => {
-            console.error('Error fetching VMs:', error);
-            throw error;
-        });
-}
 </script>
 
 </html>
