@@ -1780,52 +1780,47 @@
     });
 
     function loadVMs() {
-        const connConfig = document.getElementById('connConfig').value;
-        const url = `/spider/vm?ConnectionName=${encodeURIComponent(connConfig)}`;
-
-        fetch(url, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        })
-            .then(response => response.json())
+        fetchVMs()
             .then(data => {
-                const vmContainer = document.getElementById('vmContainer');
-                vmContainer.innerHTML = '';
+                renderVMs(data.vm);
+            })
+            .catch(error => {
+                console.error('Error loading VMs:', error);
+            });
+    } // end of loadVMs()
 
-                if (data.vm.length === 0) {
-                    const noVMMessage = document.createElement('p');
-                    noVMMessage.textContent = 'No VMs available.';
-                    noVMMessage.style.color = 'red';
-                    vmContainer.appendChild(noVMMessage);
-                } else {
-                    data.vm.forEach((vm) => {
-                        const checkboxWrapper = document.createElement('div');
-                        checkboxWrapper.className = 'checkbox-wrapper';
+    function renderVMs(vms) {
+        const vmContainer = document.getElementById('vmContainer');
+        vmContainer.innerHTML = '';
 
-                        const checkbox = document.createElement('input');
-                        checkbox.type = 'checkbox';
-                        checkbox.name = 'vms';
-                        checkbox.value = vm.IId.NameId;
-                        checkbox.id = `vm-${vm.IId.NameId}`;
+        if (vms.length === 0) {
+            const noVMMessage = document.createElement('p');
+            noVMMessage.textContent = 'No VMs available.';
+            noVMMessage.style.color = 'red';
+            vmContainer.appendChild(noVMMessage);
+        } else {
+            vms.forEach((vm) => {
+                const checkboxWrapper = document.createElement('div');
+                checkboxWrapper.className = 'checkbox-wrapper';
 
-                        const label = document.createElement('label');
-                        label.htmlFor = `vm-${vm.IId.NameId}`;
-                        label.textContent = `${vm.IId.NameId} (${vm.PrivateIP})`;
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.name = 'vms';
+                checkbox.value = vm.IId.NameId;
+                checkbox.id = `vm-${vm.IId.NameId}`;
 
-                        // add lable and checkbox in checkboxWrapper
-                        checkboxWrapper.appendChild(checkbox);
-                        checkboxWrapper.appendChild(label);
+                const label = document.createElement('label');
+                label.htmlFor = `vm-${vm.IId.NameId}`;
+                label.textContent = `${vm.IId.NameId} (${vm.PrivateIP})`;
 
-                        // add vmContainer in checkboxWrapper
-                        vmContainer.appendChild(checkboxWrapper);
-                    });
-            }
-        })
-        .catch(error => {
-            console.error('Error loading VMs:', error);
-        }); 
+                // Checkbox와 Label을 Wrapper에 추가
+                checkboxWrapper.appendChild(checkbox);
+                checkboxWrapper.appendChild(label);
+
+                // Wrapper를 Container에 추가
+                vmContainer.appendChild(checkboxWrapper);
+            });
+        }
     }
 
     document.addEventListener('DOMContentLoaded', loadVMs);
@@ -1941,6 +1936,29 @@
 
         selection.removeAllRanges();
     }
+
+    function fetchVMs() {
+        
+        const connConfig = '{{.ConnectionConfig}}'
+        const url = `/spider/vm?ConnectionName=${encodeURIComponent(connConfig)}`;
+
+        return fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .catch(error => {
+            console.error('Error fetching VMs:', error);
+            throw error;
+        });
+}
 </script>
 
 </html>
