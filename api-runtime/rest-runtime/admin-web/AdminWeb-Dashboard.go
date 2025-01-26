@@ -24,6 +24,7 @@ import (
 // ResourceCounts holds the counts for various resources
 type ResourceCounts struct {
 	ConnectionName       string `json:"connectionName"`
+	RegionName           string `json:"regionName"`
 	VPCs                 int    `json:"vpcs"`
 	Subnets              int    `json:"subnets"`
 	SecurityGroups       int    `json:"securityGroups"`
@@ -42,6 +43,7 @@ type DashboardData struct {
 	ConnectionsByCloud map[string]int
 	Providers          []string
 	ResourceCounts     map[string][]ResourceCounts
+	Regions            map[string]string
 	ShowEmpty          bool
 }
 
@@ -77,6 +79,7 @@ func fetchResourceCounts(config ConnectionConfig, provider string, wg *sync.Wait
 
 	var counts ResourceCounts
 	counts.ConnectionName = config.ConfigName
+	counts.RegionName = config.RegionName
 
 	baseURL := "http://localhost:1024/spider"
 	resources := []string{"vpc", "subnet", "securitygroup", "vm", "keypair", "disk", "nlb", "cluster", "myimage"}
@@ -199,10 +202,16 @@ func Dashboard(c echo.Context) error {
 		})
 	}
 
+	regionMap, err := fetchRegions()
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
 	data := DashboardData{
 		ServerIP:       serverIP,
 		Providers:      providers,
 		ResourceCounts: resourceCounts,
+		Regions:        regionMap,
 		ShowEmpty:      showEmpty,
 	}
 

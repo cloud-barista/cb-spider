@@ -319,3 +319,42 @@ func genLoggingResult2(response string) string {
 
 	return htmlStr
 }
+
+// Fetch regions and map them to RegionName -> "Region / Zone"
+func fetchRegions() (map[string]string, error) {
+	resp, err := http.Get("http://localhost:1024/spider/region")
+	if err != nil {
+		return nil, fmt.Errorf("error fetching regions: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var regions struct {
+		Regions []struct {
+			RegionName       string `json:"RegionName"`
+			KeyValueInfoList []struct {
+				Key   string `json:"Key"`
+				Value string `json:"Value"`
+			} `json:"KeyValueInfoList"`
+		} `json:"region"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&regions); err != nil {
+		return nil, fmt.Errorf("error decoding regions: %v", err)
+	}
+
+	regionMap := make(map[string]string)
+	for _, region := range regions.Regions {
+		var regionValue, zoneValue string
+		for _, kv := range region.KeyValueInfoList {
+			if kv.Key == "Region" {
+				regionValue = kv.Value
+			} else if kv.Key == "Zone" {
+				zoneValue = kv.Value
+			}
+		}
+		if zoneValue == "" {
+			zoneValue = "N/A"
+		}
+		regionMap[region.RegionName] = fmt.Sprintf("%s / %s", regionValue, zoneValue)
+	}
+	return regionMap, nil
+}
