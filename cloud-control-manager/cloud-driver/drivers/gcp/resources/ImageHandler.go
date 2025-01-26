@@ -323,7 +323,7 @@ func (imageHandler *GCPImageHandler) GetImageN(imageName string) (irs.ImageInfo,
 		}
 	}
 
-	callogger.Info("image not found at specific project url. try all project.")
+	cblogger.Info("image not found at specific project url. try all project.")
 	// if not. query all
 	for _, imgageProjectId := range arrImageProjectList {
 		gcpImage, err := imageHandler.Client.Images.Get(imgageProjectId, imageName).Do()
