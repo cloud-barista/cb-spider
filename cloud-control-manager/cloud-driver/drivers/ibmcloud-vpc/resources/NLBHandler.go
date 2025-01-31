@@ -1101,16 +1101,16 @@ func convertCBHealthToIbmHealth(healthChecker irs.HealthCheckerInfo) (vpcv1.Load
 	return opts, nil
 }
 
-func (nlbHandler *IbmNLBHandler) getMatchVMIIdAndFirstSubnetId(vmIIDs *[]irs.IID) ([]irs.IID, string, error) {
-	// nameId => systemID, NameId
+func (nlbHandler *IbmNLBHandler) getMatchedResourceIds(vmIIDs *[]irs.IID) ([]irs.IID, string, string, error) {
 	if vmIIDs == nil || len(*vmIIDs) < 1 {
-		return nil, "", errors.New("vmIIDs is empty")
+		return nil, "", "", errors.New("vmIIDs is empty")
 	}
 	allVMS, err := nlbHandler.getRawVMList()
 	if err != nil {
-		return nil, "", err
+		return nil, "", "", err
 	}
 	subnetId := ""
+	securityGroupId := ""
 	vms := *vmIIDs
 	for i, vmIID := range vms {
 		errCheck := true
@@ -1118,6 +1118,18 @@ func (nlbHandler *IbmNLBHandler) getMatchVMIIdAndFirstSubnetId(vmIIDs *[]irs.IID
 			if strings.EqualFold(vmIID.NameId, *rawVM.Name) {
 				if subnetId == "" {
 					subnetId = *rawVM.PrimaryNetworkInterface.Subnet.ID
+					vmHandler := IbmVMHandler{
+						CredentialInfo: nlbHandler.CredentialInfo,
+						Region:         nlbHandler.Region,
+						VpcService:     nlbHandler.VpcService,
+						Ctx:            nlbHandler.Ctx,
+						TaggingService: nlbHandler.TaggingService,
+						SearchService:  nlbHandler.SearchService,
+					}
+					networkInfo := vmHandler.getNetworkInfo(rawVM)
+					if len(networkInfo.SecurityGroupIIds) > 0 {
+						securityGroupId = networkInfo.SecurityGroupIIds[0].SystemId
+					}
 				}
 				vms[i].SystemId = *rawVM.ID
 				errCheck = false
@@ -1125,10 +1137,10 @@ func (nlbHandler *IbmNLBHandler) getMatchVMIIdAndFirstSubnetId(vmIIDs *[]irs.IID
 			}
 		}
 		if errCheck {
-			return nil, "", errors.New("not found vm")
+			return nil, "", "", errors.New("not found vm")
 		}
 	}
-	return vms, subnetId, nil
+	return vms, subnetId, securityGroupId, nil
 }
 
 func (nlbHandler *IbmNLBHandler) createNLB(nlbReqInfo irs.NLBInfo) (vpcv1.LoadBalancer, error) {
@@ -1140,15 +1152,13 @@ func (nlbHandler *IbmNLBHandler) createNLB(nlbReqInfo irs.NLBInfo) (vpcv1.LoadBa
 		return vpcv1.LoadBalancer{}, errors.New(fmt.Sprintf("already exist NLB : %s", nlbReqInfo.IId.NameId))
 	}
 
-	vms, subnetId, err := nlbHandler.getMatchVMIIdAndFirstSubnetId(nlbReqInfo.VMGroup.VMs)
-
+	vms, subnetId, securityGroupId, err := nlbHandler.getMatchedResourceIds(nlbReqInfo.VMGroup.VMs)
 	if err != nil {
 		return vpcv1.LoadBalancer{}, err
 	}
 
 	nlbReqInfo.VMGroup.VMs = &vms
 
-	// Set - BaseOption
 	createNLBOptions := vpcv1.CreateLoadBalancerOptions{}
 	createNLBOptions.SetIsPublic(true)
 	createNLBOptions.SetName(nlbReqInfo.IId.NameId)
@@ -1157,12 +1167,16 @@ func (nlbHandler *IbmNLBHandler) createNLB(nlbReqInfo irs.NLBInfo) (vpcv1.LoadBa
 		Name: &LoadBalancerProfileName,
 	})
 
-	// Set - subnet
 	var subnetArray = []vpcv1.SubnetIdentityIntf{
 		&vpcv1.SubnetIdentity{
 			ID: &subnetId,
 		},
 	}
+
+	securityGroupIdentityModel := new(vpcv1.SecurityGroupIdentityByID)
+	securityGroupIdentityModel.ID = core.StringPtr(securityGroupId)
+
+	createNLBOptions.SetSecurityGroups([]vpcv1.SecurityGroupIdentityIntf{securityGroupIdentityModel})
 
 	poolArray, err := nlbHandler.getCreatePoolOptions(nlbReqInfo)
 	if err != nil {
