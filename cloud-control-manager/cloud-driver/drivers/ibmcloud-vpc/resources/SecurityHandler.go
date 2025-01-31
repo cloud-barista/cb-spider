@@ -38,18 +38,22 @@ func (securityHandler *IbmSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		LoggingError(hiscallInfo, createErr)
 		return irs.SecurityInfo{}, createErr
 	}
+
 	exist, err := existSecurityGroup(securityReqInfo.IId, securityHandler.VpcService, securityHandler.Ctx)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.SecurityInfo{}, createErr
-	} else if exist {
+	}
+
+	if exist {
 		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = The Security name %s already exists", securityReqInfo.IId.NameId))
 		cblogger.Error(createErr.Error())
 		LoggingError(hiscallInfo, createErr)
 		return irs.SecurityInfo{}, createErr
 	}
+
 	vpc, err := GetRawVPC(securityReqInfo.VpcIID, securityHandler.VpcService, securityHandler.Ctx)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create Security. err = %s", err.Error()))
@@ -57,6 +61,7 @@ func (securityHandler *IbmSecurityHandler) CreateSecurity(securityReqInfo irs.Se
 		LoggingError(hiscallInfo, createErr)
 		return irs.SecurityInfo{}, createErr
 	}
+
 	options := &vpcv1.CreateSecurityGroupOptions{}
 	options.SetVPC(&vpcv1.VPCIdentity{
 		ID: vpc.ID,
@@ -297,7 +302,7 @@ func (securityHandler *IbmSecurityHandler) setSecurityGroupInfo(securityGroup vp
 }
 
 func existSecurityGroup(securityIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context) (bool, error) {
-	if securityIID.NameId != "" {
+	if securityIID.NameId != "" || securityIID.SystemId != "" {
 		options := &vpcv1.ListSecurityGroupsOptions{}
 		securityGroups, _, err := vpcService.ListSecurityGroupsWithContext(ctx, options)
 		if err != nil {
@@ -305,7 +310,7 @@ func existSecurityGroup(securityIID irs.IID, vpcService *vpcv1.VpcV1, ctx contex
 		}
 		for {
 			for _, securityGroup := range securityGroups.SecurityGroups {
-				if *securityGroup.Name == securityIID.NameId {
+				if *securityGroup.Name == securityIID.NameId || *securityGroup.ID == securityIID.SystemId {
 					return true, nil
 				}
 			}
