@@ -763,7 +763,7 @@
                                 <div style="display: flex; justify-content: center; align-items: center; position: relative;">
                                     <span style="font-weight: bold; margin-right: auto; text-align: center; width: 100%;">VMs</span>
                                     <div style="position: absolute; right: 0;">
-                                        <button style="padding: 1px 5px; font-size: 12px;" onclick="showVMOverlay()">add</button>
+                                        <button class="vm-add" style="padding: 1px 5px; font-size: 12px;" onclick="showVMOverlay('{{$nlb.IId.NameId}}', '{{$nlb.VpcIID.NameId}}', extractNames('{{$nlb.VMGroup.VMs}}'))">add</button>
                                     </div>
                                 </div>
                             </td>
@@ -1335,24 +1335,17 @@
         document.querySelectorAll('.nlb-tag-input').forEach(tagInput => tagInput.remove());
     }
 
-    let selectedNLBName = '';
-    function selectNLB(row){
-        const rows = doucment.querySelector('#nlb-table tr');
-        rows.forEach(r => r.style.backgroundColor = '');
-
-        // 선택된 행 강조
-        row.style.backgroundColor = '#d3f9d8';
-
-        // 선택된 NLB 이름 가져오기
-        const nlbName = row.querySelector('.nlb-name').textContent;
-        selectedNLBName = nlbName;
-
-        console.log('Selected NLB Name:', selectedNLBName);
+    function extractNames(vmString) {
+        // 문자열을 배열로 변환 후, 각 요소에서 첫 번째 값(이름)만 추출
+        return vmString.match(/\{([^ ]+)/g).map(match => match.replace("{", ""));
     }
 
-    function showVMOverlay() {
-        console.log("CLICKED!");
-        loadVMs('addVMContainer');
+    function showVMOverlay(nlbName, vpcName, vmGroups) {
+        // 포함된 vm은 제외하고 보여주기
+        loadVMsExceptExist('addVMContainer', vmGroups);
+        console.log(nlbName);
+        console.log(vpcName);
+        console.log(vmGroups);
         document.getElementById('vmOverlay').style.display = 'flex';
     }
 
@@ -1361,7 +1354,6 @@
         document.removeEventListener('keydown', handleEsc);
         clearFormFields();
     }
-    
 
     function handleEsc(event) {
         if (event.key === "Escape") {
@@ -1818,6 +1810,14 @@
                 console.error('Error loading VMs:', error);
             });
     } // end of loadVMs()
+
+    function loadVMsExceptExist(container, existVMList){
+        fetchVMs().then(data => {
+            const filteredVMs = data.vm.filter(vm => !existVMList.includes(vm.IId.NameId));
+            console.log(filteredVMs);
+            renderVMs(filteredVMs, container);
+        });
+    }
 
     function fetchVMs() {
         const connConfig = '{{.ConnectionConfig}}';
