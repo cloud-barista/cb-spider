@@ -763,7 +763,7 @@
                                 <div style="display: flex; justify-content: center; align-items: center; position: relative;">
                                     <span style="font-weight: bold; margin-right: auto; text-align: center; width: 100%;">VMs</span>
                                     <div style="position: absolute; right: 0;">
-                                        <button class="vm-add" style="padding: 1px 5px; font-size: 12px;" onclick="showVMOverlay('{{$nlb.IId.NameId}}', '{{$nlb.VpcIID.NameId}}', extractNames('{{$nlb.VMGroup.VMs}}'))">add</button>
+                                        <button class="vm-add" style="padding: 1px 5px; font-size: 12px;" onclick="showVMOverlay('{{$nlb.IId.NameId}}', extractNames('{{$nlb.VMGroup.VMs}}'))">add</button>
                                     </div>
                                 </div>
                             </td>
@@ -952,7 +952,7 @@
     <div id="vmOverlay" class="overlay" style="display: none;">
         <div class="overlay-content">
             <h2>Add VM</h2>
-            <form id="addVMForm" onsubmit="event.preventDefault(); submitVM();">
+            <form id="addVMForm" onsubmit="event.preventDefault(); addVMToNLB();">
                 <div class="form-group">
                     <label for="addVmContainer">VMs:</label>
                     <div id="addVMContainer" name="addVmContainer"></div>                        
@@ -1122,7 +1122,6 @@
             document.getElementById('timeDisplay').textContent = '';
         }, 500);
     }
-
 
     function deleteSelectedNLBs() {
         const connConfig = document.getElementById('connConfig').value;
@@ -1336,16 +1335,13 @@
     }
 
     function extractNames(vmString) {
-        // 문자열을 배열로 변환 후, 각 요소에서 첫 번째 값(이름)만 추출
         return vmString.match(/\{([^ ]+)/g).map(match => match.replace("{", ""));
     }
 
-    function showVMOverlay(nlbName, vpcName, vmGroups) {
-        // 포함된 vm은 제외하고 보여주기
+    let currnetNLBName = ""
+    function showVMOverlay(nlbName, vmGroups) {
         loadVMsExceptExist('addVMContainer', vmGroups);
-        console.log(nlbName);
-        console.log(vpcName);
-        console.log(vmGroups);
+        currnetNLBName = nlbName;
         document.getElementById('vmOverlay').style.display = 'flex';
     }
 
@@ -1801,6 +1797,50 @@
         }
     });
 
+    function addVMToNLB(){
+        const selectedVMs = getSelectedVMs();
+        const url = `/spider/nlb/${currnetNLBName}/vms`;
+
+        if(selectedVMs.length === 0){
+            alert("Please Select at Least One VM.");
+            return;
+        }
+
+        const requestBody = {
+            ConnectionName: '{{.ConnectionConfig}}',
+            ReqInfo:{
+                VMs: selectedVMs
+            }
+        };
+
+        fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(requestBody)
+        })
+        .then(response => {
+            if(!response.ok){
+                throw new Error(`ADD VM ERROR!: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            alert("VMs added successfuly!");
+            location.reload();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert("Failed to add VMs");
+        });
+    } // end of addVMtoNLB()
+
+    function getSelectedVMs(){
+        const checkboxes = document.querySelectorAll("input[name='vms']:checked");
+        return Array.from(checkboxes).map(checkbox => checkbox.value);
+    } // end of getSelectedVMs()
+
     function loadVMs(container) {
         fetchVMs()
             .then(data => {
@@ -1814,10 +1854,9 @@
     function loadVMsExceptExist(container, existVMList){
         fetchVMs().then(data => {
             const filteredVMs = data.vm.filter(vm => !existVMList.includes(vm.IId.NameId));
-            console.log(filteredVMs);
             renderVMs(filteredVMs, container);
         });
-    }
+    } // end of loadVMsExceptExist()
 
     function fetchVMs() {
         const connConfig = '{{.ConnectionConfig}}';
