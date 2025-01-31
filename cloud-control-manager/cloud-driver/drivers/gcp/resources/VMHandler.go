@@ -728,23 +728,26 @@ func (vmHandler *GCPVMHandler) RebootVM(vmID irs.IID) (irs.VMStatus, error) {
 
 	status, err := vmHandler.GetVMStatus(vmID)
 	if err != nil {
-		callogger.Info(err)
+		cblogger.Error(err)
+		callLogInfo.ErrorMSG = err.Error()
+		callogger.Info(call.String(callLogInfo))
 		return irs.VMStatus("Failed"), err
 	}
 	// running 상태일 때는 reset
 	if status == "Running" {
-		callogger.Info("Since the VM is in a running state, reset is called.")
+		cblogger.Info("Since the VM is in a running state, reset is called.")
 		operation, err := vmHandler.Client.Instances.Reset(projectID, zone, vmID.SystemId).Context(ctx).Do()
 
 		if err != nil {
+			cblogger.Error(err)
+			cblogger.Info(operation)
 			callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 			callLogInfo.ErrorMSG = err.Error()
 			callogger.Info(call.String(callLogInfo))
-			callogger.Info(operation)
 			return irs.VMStatus("Failed"), err
 		}
 	} else if status == "Suspended" {
-		callogger.Info("Since the VM is in a Suspended state, ResumeVM is called.")
+		cblogger.Info("Since the VM is in a Suspended state, ResumeVM is called.")
 		_, err := vmHandler.ResumeVM(vmID)
 		if err != nil {
 			return irs.VMStatus("Failed"), err
@@ -753,8 +756,8 @@ func (vmHandler *GCPVMHandler) RebootVM(vmID irs.IID) (irs.VMStatus, error) {
 		// running/suspended 이외에는 비정상
 		return irs.VMStatus("Failed"), errors.New(string("The status of the VM is [" + status + "]."))
 	}
-	//callogger.Info(vmID)
-	//callogger.Info(status)
+	//cblogger.Info(vmID)
+	//cblogger.Info(status)
 
 	//operationType := 3 // operationZone := 3
 	//err = WaitOperationComplete(vmHandler.Client, projectID, region, zone, operation.Name, operationType)

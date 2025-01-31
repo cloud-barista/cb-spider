@@ -1214,31 +1214,13 @@ func ListVM(connectionName string, rsType string) ([]*cres.VMInfo, error) {
 		return nil, err
 	}
 
-	cldConn, err := ccm.GetCloudConnection(connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-
-	handler, err := cldConn.CreateVMHandler()
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-
 	// (1) get IID:list
 	var iidInfoList []*VMIIDInfo
 	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-		// fetch granted idlist from CSP
-		iidList, err := handler.ListIID()
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
-		}
-		err2 := getAuthorizedIIdInfoList(iidList, connectionName, &iidInfoList)
-		if err2 != nil {
-			cblog.Error(err2)
-			return nil, err2
 		}
 	} else {
 		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)

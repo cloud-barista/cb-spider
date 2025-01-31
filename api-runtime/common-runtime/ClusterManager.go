@@ -11,6 +11,7 @@ package commonruntime
 import (
 	_ "errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -334,10 +335,25 @@ func CreateCluster(connectionName string, rsType string, reqInfo cres.ClusterInf
 	var vpcIIDInfo VPCIIDInfo
 	if netReqInfo.VpcIID.NameId != "" {
 		// get spiderIID
-		err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, netReqInfo.VpcIID.NameId)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*VPCIIDInfo
+			err = getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, netReqInfo.VpcIID.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			vpcIIDInfo = *castedIIDInfo.(*VPCIIDInfo)
+		} else {
+			err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, netReqInfo.VpcIID.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
 		}
 		// set driverIID
 		netReqInfo.VpcIID = getDriverIID(cres.IID{NameId: vpcIIDInfo.NameId, SystemId: vpcIIDInfo.SystemId})
@@ -346,11 +362,33 @@ func CreateCluster(connectionName string, rsType string, reqInfo cres.ClusterInf
 	// (2) SubnetIIDs
 	for idx, subnetIID := range netReqInfo.SubnetIIDs {
 		var subnetIIdInfo SubnetIIDInfo
-		err = infostore.GetBy3Conditions(&subnetIIdInfo, CONNECTION_NAME_COLUMN, connectionName,
-			NAME_ID_COLUMN, subnetIID.NameId, OWNER_VPC_NAME_COLUMN, vpcIIDInfo.NameId)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			// 1. get VPC IIDInfo
+			var iidInfoList []*VPCIIDInfo
+			err = getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, vpcIIDInfo.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			vpcIIDInfo := *castedIIDInfo.(*VPCIIDInfo)
+
+			// 2. get Subnet IIDInfo
+			err = infostore.GetBy3Conditions(&subnetIIdInfo, CONNECTION_NAME_COLUMN, vpcIIDInfo.ConnectionName, NAME_ID_COLUMN, subnetIID.NameId, OWNER_VPC_NAME_COLUMN, vpcIIDInfo.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+		} else {
+			err = infostore.GetBy3Conditions(&subnetIIdInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, subnetIID.NameId, OWNER_VPC_NAME_COLUMN, vpcIIDInfo.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
 		}
 		// set driverIID
 		netReqInfo.SubnetIIDs[idx] = getDriverIID(cres.IID{NameId: subnetIIdInfo.NameId, SystemId: subnetIIdInfo.SystemId})
@@ -361,10 +399,25 @@ func CreateCluster(connectionName string, rsType string, reqInfo cres.ClusterInf
 		sgSPLock.RLock(connectionName, sgIID.NameId)
 		defer sgSPLock.RUnlock(connectionName, sgIID.NameId)
 		var sgIIdInfo SGIIDInfo
-		err = infostore.GetByConditions(&sgIIdInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, sgIID.NameId)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*SGIIDInfo
+			err := getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, sgIID.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			sgIIdInfo = *castedIIDInfo.(*SGIIDInfo)
+		} else {
+			err = infostore.GetByConditions(&sgIIdInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, sgIID.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
 		}
 		// set driverIID
 		netReqInfo.SecurityGroupIIDs[idx] = getDriverIID(cres.IID{NameId: sgIIdInfo.NameId, SystemId: sgIIdInfo.SystemId})
@@ -380,10 +433,25 @@ func CreateCluster(connectionName string, rsType string, reqInfo cres.ClusterInf
 		defer keySPLock.RUnlock(connectionName, ngInfo.KeyPairIID.NameId)
 
 		var keyIIDInfo KeyIIDInfo
-		err := infostore.GetByConditions(&keyIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, ngInfo.KeyPairIID.NameId)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*KeyIIDInfo
+			err := getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, ngInfo.KeyPairIID.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			keyIIDInfo = *castedIIDInfo.(*KeyIIDInfo)
+		} else {
+			err := infostore.GetByConditions(&keyIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, ngInfo.KeyPairIID.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
 		}
 		reqInfo.NodeGroupList[idx].KeyPairIID = getDriverIID(cres.IID{NameId: keyIIDInfo.NameId, SystemId: keyIIDInfo.SystemId})
 	}
@@ -406,10 +474,18 @@ func CreateCluster(connectionName string, rsType string, reqInfo cres.ClusterInf
 
 	// (1) check exist(NameID)
 	var iidInfoList []*ClusterIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	var isExist bool = false
 	for _, OneIIdInfo := range iidInfoList {
@@ -584,10 +660,25 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 	// (1) VpcIID
 	// get spiderIID
 	var vpcIIDInfo VPCIIDInfo
-	err := infostore.GetByContain(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, netInfo.VpcIID.SystemId)
-	if err != nil {
-		cblog.Error(err)
-		return err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*VPCIIDInfo
+		err := getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return err
+		}
+		castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, netInfo.VpcIID.SystemId)
+		if err != nil {
+			cblog.Error(err)
+			return err
+		}
+		vpcIIDInfo = *castedIIDInfo.(*VPCIIDInfo)
+	} else {
+		err := infostore.GetByContain(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, netInfo.VpcIID.SystemId)
+		if err != nil {
+			cblog.Error(err)
+			return err
+		}
 	}
 	// set NameId
 	netInfo.VpcIID.NameId = vpcIIDInfo.NameId
@@ -595,11 +686,20 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 	// (2) SubnetIIDs
 	for idx, subnetIID := range netInfo.SubnetIIDs {
 		var subnetIIdInfo SubnetIIDInfo
-		err := infostore.GetByConditionsAndContain(&subnetIIdInfo, CONNECTION_NAME_COLUMN, connectionName,
-			OWNER_VPC_NAME_COLUMN, vpcIIDInfo.NameId, SYSTEM_ID_COLUMN, subnetIID.SystemId)
-		if err != nil {
-			cblog.Error(err)
-			return err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			err := infostore.GetByConditionsAndContain(&subnetIIdInfo, CONNECTION_NAME_COLUMN, vpcIIDInfo.ConnectionName,
+				OWNER_VPC_NAME_COLUMN, vpcIIDInfo.NameId, SYSTEM_ID_COLUMN, subnetIID.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
+		} else {
+			err := infostore.GetByConditionsAndContain(&subnetIIdInfo, CONNECTION_NAME_COLUMN, connectionName,
+				OWNER_VPC_NAME_COLUMN, vpcIIDInfo.NameId, SYSTEM_ID_COLUMN, subnetIID.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
 		}
 		// set NameId
 		netInfo.SubnetIIDs[idx].NameId = subnetIIdInfo.NameId
@@ -608,23 +708,51 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 	// (3) SecurityGroupIIDs
 	for idx, sgIID := range netInfo.SecurityGroupIIDs {
 		var sgIIdInfo SGIIDInfo
-		err := infostore.GetByConditionsAndContain(&sgIIdInfo, CONNECTION_NAME_COLUMN, connectionName,
-			OWNER_VPC_NAME_COLUMN, netInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, sgIID.SystemId)
-		if err != nil {
-			providerName, getErr := ccm.GetProviderNameByConnectionName(connectionName)
-			if getErr != nil {
-				cblog.Error(getErr)
-				return getErr
-			}
-
-			// exception processing to Azure or NHNCLOUD, we create new SG for K8S.
-			if strings.Contains(sgIID.SystemId, "/Microsoft.") && strings.Contains(err.Error(), "not exist") {
-				sgIIdInfo.NameId = "#" + getMSShortID(sgIID.SystemId)
-			} else if strings.EqualFold(providerName, "NHNCLOUD") && strings.Contains(err.Error(), "not exist") {
-				sgIIdInfo.NameId = "#" + sgIID.SystemId
-			} else {
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*SGIIDInfo
+			err := getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
 				cblog.Error(err)
 				return err
+			}
+			castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, sgIID.SystemId)
+			if err != nil {
+				providerName, getErr := ccm.GetProviderNameByConnectionName(connectionName)
+				if getErr != nil {
+					cblog.Error(getErr)
+					return getErr
+				}
+
+				// exception processing to Azure or NHNCLOUD, we create new SG for K8S.
+				if strings.Contains(sgIID.SystemId, "/Microsoft.") && strings.Contains(err.Error(), "not exist") {
+					sgIIdInfo.NameId = "#" + getMSShortID(sgIID.SystemId)
+				} else if strings.EqualFold(providerName, "NHNCLOUD") && strings.Contains(err.Error(), "not exist") {
+					sgIIdInfo.NameId = "#" + sgIID.SystemId
+				} else {
+					cblog.Error(err)
+					return err
+				}
+			}
+			sgIIdInfo = *castedIIDInfo.(*SGIIDInfo)
+		} else {
+			err := infostore.GetByConditionsAndContain(&sgIIdInfo, CONNECTION_NAME_COLUMN, connectionName,
+				OWNER_VPC_NAME_COLUMN, netInfo.VpcIID.NameId, SYSTEM_ID_COLUMN, sgIID.SystemId)
+			if err != nil {
+				providerName, getErr := ccm.GetProviderNameByConnectionName(connectionName)
+				if getErr != nil {
+					cblog.Error(getErr)
+					return getErr
+				}
+
+				// exception processing to Azure or NHNCLOUD, we create new SG for K8S.
+				if strings.Contains(sgIID.SystemId, "/Microsoft.") && strings.Contains(err.Error(), "not exist") {
+					sgIIdInfo.NameId = "#" + getMSShortID(sgIID.SystemId)
+				} else if strings.EqualFold(providerName, "NHNCLOUD") && strings.Contains(err.Error(), "not exist") {
+					sgIIdInfo.NameId = "#" + sgIID.SystemId
+				} else {
+					cblog.Error(err)
+					return err
+				}
 			}
 		}
 		// set NameId
@@ -641,14 +769,33 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 		// (1) NodeGroup IID
 		var ngIIDInfo NodeGroupIIDInfo
 		hasNodeGroup := true
-		err := infostore.GetByConditionsAndContain(&ngIIDInfo, CONNECTION_NAME_COLUMN, connectionName,
-			OWNER_CLUSTER_NAME_COLUMN, info.IId.NameId, SYSTEM_ID_COLUMN, ngInfo.IId.SystemId)
-		if err != nil {
-			if checkNotFoundError(err) {
-				hasNodeGroup = false
-			} else {
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*NodeGroupIIDInfo
+			err := getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
 				cblog.Error(err)
 				return err
+			}
+			castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, ngInfo.IId.SystemId)
+			if err != nil {
+				if checkNotFoundError(err) {
+					hasNodeGroup = false
+				} else {
+					cblog.Error(err)
+					return err
+				}
+			}
+			ngIIDInfo = *castedIIDInfo.(*NodeGroupIIDInfo)
+		} else {
+			err := infostore.GetByConditionsAndContain(&ngIIDInfo, CONNECTION_NAME_COLUMN, connectionName,
+				OWNER_CLUSTER_NAME_COLUMN, info.IId.NameId, SYSTEM_ID_COLUMN, ngInfo.IId.SystemId)
+			if err != nil {
+				if checkNotFoundError(err) {
+					hasNodeGroup = false
+				} else {
+					cblog.Error(err)
+					return err
+				}
 			}
 		}
 		if hasNodeGroup {
@@ -660,13 +807,31 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 
 		// (3) KeyPair
 		var keyIIDInfo KeyIIDInfo
-		// Have to use getMSShortID()
-		// because Azure has different uri of keypair SystemID.
-		// ex) /.../Microsoft.Network/.../ID vs /.../Microsoft.Compute/.../ID
-		err = infostore.GetByContain(&keyIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, ngInfo.KeyPairIID.SystemId)
-		if err != nil {
-			cblog.Error(err)
-			return err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*KeyIIDInfo
+			err := getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
+			// Have to use getMSShortID()
+			// because Azure has different uri of keypair SystemID.
+			// ex) /.../Microsoft.Network/.../ID vs /.../Microsoft.Compute/.../ID
+			castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, ngInfo.KeyPairIID.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
+			keyIIDInfo = *castedIIDInfo.(*KeyIIDInfo)
+		} else {
+			// Have to use getMSShortID()
+			// because Azure has different uri of keypair SystemID.
+			// ex) /.../Microsoft.Network/.../ID vs /.../Microsoft.Compute/.../ID
+			err := infostore.GetByContain(&keyIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, ngInfo.KeyPairIID.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
 		}
 		info.NodeGroupList[idx].KeyPairIID.NameId = keyIIDInfo.NameId
 
@@ -696,10 +861,18 @@ func ListCluster(connectionName string, rsType string) ([]*cres.ClusterInfo, err
 
 	// (1) get IID:list
 	var iidInfoList []*ClusterIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	var infoList []*cres.ClusterInfo
@@ -792,10 +965,18 @@ func GetCluster(connectionName string, rsType string, clusterName string) (*cres
 
 	// (1) get IID(NameId)
 	var iidInfoList []*ClusterIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	var iidInfo *ClusterIIDInfo
 	var bool_ret = false
@@ -868,10 +1049,25 @@ func AddNodeGroup(connectionName string, rsType string, clusterName string, reqI
 	defer keySPLock.RUnlock(connectionName, reqInfo.KeyPairIID.NameId)
 
 	var keyIIDInfo KeyIIDInfo
-	err = infostore.GetByConditions(&keyIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, reqInfo.KeyPairIID.NameId)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*KeyIIDInfo
+		err := getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, reqInfo.KeyPairIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		keyIIDInfo = *castedIIDInfo.(*KeyIIDInfo)
+	} else {
+		err = infostore.GetByConditions(&keyIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, reqInfo.KeyPairIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	reqInfo.KeyPairIID = getDriverIID(cres.IID{NameId: keyIIDInfo.NameId, SystemId: keyIIDInfo.SystemId})
 	//+++++++++++++++++++++++++++++++++++++++++++
@@ -893,10 +1089,18 @@ func AddNodeGroup(connectionName string, rsType string, clusterName string, reqI
 
 	// (1) check exist(clusterName)
 	var iidInfoList []*ClusterIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	var iidInfo *ClusterIIDInfo
 	var bool_ret = false
@@ -915,10 +1119,34 @@ func AddNodeGroup(connectionName string, rsType string, clusterName string, reqI
 
 	// (1) check exist(NameID)
 	var ngIIdInfoList []*NodeGroupIIDInfo
-	err = infostore.ListByConditions(&ngIIdInfoList, CONNECTION_NAME_COLUMN, connectionName, OWNER_CLUSTER_NAME_COLUMN, clusterName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		// 1. get Cluster IIDInfo
+		var iidInfoList []*ClusterIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, clusterName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		clusterIIDInfo := *castedIIDInfo.(*ClusterIIDInfo)
+
+		// 2. get Nodegroup Info List in ConnectionName of Cluster IIDInfo
+		err = infostore.ListByConditions(&ngIIdInfoList, CONNECTION_NAME_COLUMN, clusterIIDInfo.ConnectionName, OWNER_CLUSTER_NAME_COLUMN, clusterName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+
+	} else {
+		err = infostore.ListByConditions(&ngIIdInfoList, CONNECTION_NAME_COLUMN, connectionName, OWNER_CLUSTER_NAME_COLUMN, clusterName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	var isExist bool = false
 	for _, OneIIdInfo := range ngIIdInfoList {
@@ -1106,10 +1334,18 @@ func getClusterDriverIIDNodeGroupDriverIID(connectionName string, clusterName st
 
 	// (2) Get NodeGroup's DriverIID
 	var ngIIdInfoList []*NodeGroupIIDInfo
-	err = infostore.ListByCondition(&ngIIdInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return cres.IID{}, cres.IID{}, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &ngIIdInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return cres.IID{}, cres.IID{}, err
+		}
+	} else {
+		err = infostore.ListByCondition(&ngIIdInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return cres.IID{}, cres.IID{}, err
+		}
 	}
 	var ngIIdInfo *NodeGroupIIDInfo
 	var bool_ret = false
@@ -1134,10 +1370,18 @@ func getClusterDriverIID(connectionName string, clusterName string) (cres.IID, e
 
 	// (1) Get Cluster's SpiderIID
 	var iidInfoList []*ClusterIIDInfo
-	err := infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return cres.IID{}, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err := getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return cres.IID{}, err
+		}
+	} else {
+		err := infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return cres.IID{}, err
+		}
 	}
 	var iidInfo *ClusterIIDInfo
 	var bool_ret = false
@@ -1212,10 +1456,25 @@ func ChangeNodeGroupScaling(connectionName string, clusterName string, nodeGroup
 	// ++++++++++++++++++
 	// (1) NodeGroup IID
 	var ngIIDInfo NodeGroupIIDInfo
-	err = infostore.GetByContain(&ngIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, ngInfo.IId.SystemId)
-	if err != nil {
-		cblog.Error(err)
-		return cres.NodeGroupInfo{}, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*NodeGroupIIDInfo
+		err := getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return cres.NodeGroupInfo{}, err
+		}
+		castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, ngInfo.IId.SystemId)
+		if err != nil {
+			cblog.Error(err)
+			return cres.NodeGroupInfo{}, err
+		}
+		ngIIDInfo = *castedIIDInfo.(*NodeGroupIIDInfo)
+	} else {
+		err = infostore.GetByContain(&ngIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, ngInfo.IId.SystemId)
+		if err != nil {
+			cblog.Error(err)
+			return cres.NodeGroupInfo{}, err
+		}
 	}
 	ngInfo.IId.NameId = ngIIDInfo.NameId
 
@@ -1224,10 +1483,25 @@ func ChangeNodeGroupScaling(connectionName string, clusterName string, nodeGroup
 
 	// (3) Get KeyPair IIDInfo with SystemId
 	var keyIIDInfo KeyIIDInfo
-	err = infostore.GetByContain(&keyIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, ngInfo.KeyPairIID.SystemId)
-	if err != nil {
-		cblog.Error(err)
-		return cres.NodeGroupInfo{}, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*KeyIIDInfo
+		err := getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return cres.NodeGroupInfo{}, err
+		}
+		castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, ngInfo.KeyPairIID.SystemId)
+		if err != nil {
+			cblog.Error(err)
+			return cres.NodeGroupInfo{}, err
+		}
+		keyIIDInfo = *castedIIDInfo.(*KeyIIDInfo)
+	} else {
+		err = infostore.GetByContain(&keyIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, ngInfo.KeyPairIID.SystemId)
+		if err != nil {
+			cblog.Error(err)
+			return cres.NodeGroupInfo{}, err
+		}
 	}
 	ngInfo.KeyPairIID.NameId = keyIIDInfo.NameId
 

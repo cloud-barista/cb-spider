@@ -454,7 +454,7 @@ func GetMyImage(connectionName string, rsType string, nameID string) (*cres.MyIm
 			cblog.Error(err)
 			return nil, err
 		}
-		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, info.SourceVM.NameId)
+		castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, info.SourceVM.SystemId)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err

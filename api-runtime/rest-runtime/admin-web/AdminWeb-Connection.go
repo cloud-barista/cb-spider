@@ -639,37 +639,6 @@ func fetchProviders() ([]string, error) {
 	return providers.Providers, nil
 }
 
-func fetchRegions() (map[string]string, error) {
-	resp, err := http.Get("http://localhost:1024/spider/region")
-	if err != nil {
-		return nil, fmt.Errorf("error fetching regions: %v", err)
-	}
-	defer resp.Body.Close()
-
-	var regions Regions
-	if err := json.NewDecoder(resp.Body).Decode(&regions); err != nil {
-		return nil, fmt.Errorf("error decoding regions: %v", err)
-	}
-
-	regionMap := make(map[string]string)
-	for _, region := range regions.Regions {
-		var regionValue, zoneValue string
-		for _, keyValue := range region.KeyValueInfoList {
-			if keyValue.Key == "Region" {
-				regionValue = keyValue.Value
-			} else if keyValue.Key == "Zone" {
-				zoneValue = keyValue.Value
-			}
-		}
-		if zoneValue == "" {
-			zoneValue = "NA"
-		}
-		regionMap[region.RegionName] = fmt.Sprintf("%s / %s", regionValue, zoneValue)
-	}
-
-	return regionMap, nil
-}
-
 func fetchDrivers() (map[string]string, error) {
 	resp, err := http.Get("http://localhost:1024/spider/driver")
 	if err != nil {

@@ -204,6 +204,15 @@
         refreshDashboard();
     }
 
+    function setTopMenu(configName, provider, regionZone) {
+        window.parent.postMessage({
+            type: 'updateTopMenu',
+            configName: configName,
+            provider: provider,
+            region: regionZone
+        }, '*');
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         toggleRefresh();
     });
@@ -246,7 +255,9 @@
             {{if index $.ResourceCounts $provider}}
                 {{range $count := index $.ResourceCounts $provider}}
                 <tr>
-                    <td>{{$count.ConnectionName}}</td>
+                    <td><a href="javascript:void(0)" onclick="setTopMenu('{{$count.ConnectionName}}', '{{$provider}}', '{{index $.Regions $count.RegionName}}')">
+                        {{$count.ConnectionName}}
+                    </a></td>                    
                     <td class="{{if gt $count.VPCs 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/vpc/{{$count.ConnectionName}}'); return false;">{{$count.VPCs}}</a></td>
                     <td class="{{if gt $count.Subnets 0}}highlight{{end}}">{{$count.Subnets}}</td>
                     <td class="{{if gt $count.SecurityGroups 0}}highlight{{end}}"><a href="#" onclick="openOverlay('http://{{$.ServerIP}}/spider/adminweb/securitygroup/{{$count.ConnectionName}}'); return false;">{{$count.SecurityGroups}}</a></td>
