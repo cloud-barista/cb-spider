@@ -236,6 +236,18 @@ func ListAllDisk(c echo.Context) error {
 	return c.JSON(http.StatusOK, &allResourceList)
 }
 
+// listAllDiskInfo godoc
+// @ID list-all-disk-info
+// @Summary List All Disk Info
+// @Description Retrieve a list of all Disk information associated with all connections.
+// @Tags [Disk Management]
+// @Accept  json
+// @Produce  json
+// @Success 200 {object} AllResourceListResponse "List of all Disk information across all connections"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /alldiskinfo [get]
+func ListAllDiskInfo(c echo.Context) error { return listAllResourceInfo(c, cres.DISK) }
+
 // getDisk godoc
 // @ID get-disk
 // @Summary Get Disk

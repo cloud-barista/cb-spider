@@ -123,6 +123,15 @@ type AllResourceList struct {
 	}
 }
 
+type AllResourceInfoList struct {
+	ResourceType cres.RSType `json:"ResourceType"`
+	AllListInfo  struct {
+		MappedInfoList  []interface{} `json:"MappedInfoList"`
+		OnlySpiderList  []*cres.IID   `json:"OnlySpiderList"`
+		OnlyCSPInfoList []interface{} `json:"OnlyCSPInfoList"`
+	}
+}
+
 func setLogLevel() {
 	logLevel := strings.ToLower(os.Getenv("SPIDER_LOG_LEVEL"))
 	if logLevel != "" {
@@ -795,6 +804,262 @@ func ListAllResource(connectionName string, rsType string) (AllResourceList, err
 	allResList.AllList.OnlyCSPList = OnlyCSPList
 
 	return allResList, nil
+}
+
+func ListAllResourceInfo(connectionName string, rsType cres.RSType) (AllResourceInfoList, error) {
+	cblog.Info("call ListAllResourceInfo()")
+
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return AllResourceInfoList{}, err
+	}
+
+	cldConn, err := ccm.GetCloudConnection(connectionName)
+	if err != nil {
+		return AllResourceInfoList{}, err
+	}
+
+	var handler interface{}
+	switch rsType {
+	case cres.VPC:
+		handler, err = cldConn.CreateVPCHandler()
+	case cres.SG:
+		handler, err = cldConn.CreateSecurityHandler()
+	case cres.KEY:
+		handler, err = cldConn.CreateKeyPairHandler()
+	case cres.VM:
+		handler, err = cldConn.CreateVMHandler()
+	case cres.NLB:
+		handler, err = cldConn.CreateNLBHandler()
+	case cres.DISK:
+		handler, err = cldConn.CreateDiskHandler()
+	case cres.MYIMAGE:
+		handler, err = cldConn.CreateMyImageHandler()
+	case cres.CLUSTER:
+		handler, err = cldConn.CreateClusterHandler()
+	default:
+		return AllResourceInfoList{}, fmt.Errorf("%s is not a supported resource type", rsType)
+	}
+	if err != nil {
+		return AllResourceInfoList{}, err
+	}
+
+	var allResInfoList AllResourceInfoList
+	allResInfoList.ResourceType = rsType
+
+	iidList := []*cres.IID{}
+	err = fetchIIDList(connectionName, rsType, &iidList)
+	if err != nil {
+		return AllResourceInfoList{}, err
+	}
+
+	infoList, err := fetchResourceInfoList(handler, rsType)
+	if err != nil {
+		return AllResourceInfoList{}, err
+	}
+
+	if len(iidList) == 0 && len(infoList) == 0 {
+		return allResInfoList, nil
+	}
+
+	MappedInfoList, OnlySpiderList, OnlyCSPInfoList := classifyResourceLists(rsType, iidList, infoList)
+	allResInfoList.AllListInfo.MappedInfoList = MappedInfoList
+	allResInfoList.AllListInfo.OnlySpiderList = OnlySpiderList
+	allResInfoList.AllListInfo.OnlyCSPInfoList = OnlyCSPInfoList
+
+	return allResInfoList, nil
+}
+
+func fetchIIDList(connectionName string, rsType cres.RSType, iidList *[]*cres.IID) error {
+	var err error
+
+	switch rsType {
+	case cres.VPC:
+		var iidInfoList []*VPCIIDInfo
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		for _, info := range iidInfoList {
+			*iidList = append(*iidList, &cres.IID{NameId: info.NameId, SystemId: info.SystemId})
+		}
+	case cres.SG:
+		var iidInfoList []*SGIIDInfo
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		for _, info := range iidInfoList {
+			*iidList = append(*iidList, &cres.IID{NameId: info.NameId, SystemId: info.SystemId})
+		}
+	case cres.KEY:
+		var iidInfoList []*KeyIIDInfo
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		for _, info := range iidInfoList {
+			*iidList = append(*iidList, &cres.IID{NameId: info.NameId, SystemId: info.SystemId})
+		}
+	case cres.VM:
+		var iidInfoList []*VMIIDInfo
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		for _, info := range iidInfoList {
+			*iidList = append(*iidList, &cres.IID{NameId: info.NameId, SystemId: info.SystemId})
+		}
+	case cres.NLB:
+		var iidInfoList []*NLBIIDInfo
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		for _, info := range iidInfoList {
+			*iidList = append(*iidList, &cres.IID{NameId: info.NameId, SystemId: info.SystemId})
+		}
+	case cres.DISK:
+		var iidInfoList []*DiskIIDInfo
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		for _, info := range iidInfoList {
+			*iidList = append(*iidList, &cres.IID{NameId: info.NameId, SystemId: info.SystemId})
+		}
+	case cres.MYIMAGE:
+		var iidInfoList []*MyImageIIDInfo
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		for _, info := range iidInfoList {
+			*iidList = append(*iidList, &cres.IID{NameId: info.NameId, SystemId: info.SystemId})
+		}
+	case cres.CLUSTER:
+		var iidInfoList []*ClusterIIDInfo
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		for _, info := range iidInfoList {
+			*iidList = append(*iidList, &cres.IID{NameId: info.NameId, SystemId: info.SystemId})
+		}
+	default:
+		return fmt.Errorf("%s is not a supported resource type", rsType)
+	}
+
+	return err
+}
+
+func fetchResourceInfoList(handler interface{}, rsType cres.RSType) ([]interface{}, error) {
+	switch rsType {
+	case cres.VPC:
+		infoList, err := handler.(cres.VPCHandler).ListVPC()
+		return convertToInterfaceSlice(infoList), err
+	case cres.SG:
+		infoList, err := handler.(cres.SecurityHandler).ListSecurity()
+		return convertToInterfaceSlice(infoList), err
+	case cres.KEY:
+		infoList, err := handler.(cres.KeyPairHandler).ListKey()
+		return convertToInterfaceSlice(infoList), err
+	case cres.VM:
+		infoList, err := handler.(cres.VMHandler).ListVM()
+		return convertToInterfaceSlice(infoList), err
+	case cres.NLB:
+		infoList, err := handler.(cres.NLBHandler).ListNLB()
+		return convertToInterfaceSlice(infoList), err
+	case cres.DISK:
+		infoList, err := handler.(cres.DiskHandler).ListDisk()
+		return convertToInterfaceSlice(infoList), err
+	case cres.MYIMAGE:
+		infoList, err := handler.(cres.MyImageHandler).ListMyImage()
+		return convertToInterfaceSlice(infoList), err
+	case cres.CLUSTER:
+		infoList, err := handler.(cres.ClusterHandler).ListCluster()
+		return convertToInterfaceSlice(infoList), err
+	default:
+		return nil, fmt.Errorf("%s is not a supported resource type", rsType)
+	}
+}
+
+func convertToInterfaceSlice[T any](items []*T) []interface{} {
+	result := make([]interface{}, len(items))
+	for i, item := range items {
+		result[i] = item
+	}
+	return result
+}
+
+func classifyResourceLists(rsType cres.RSType, iidList []*cres.IID, infoList []interface{}) ([]interface{}, []*cres.IID, []interface{}) {
+	MappedInfoList := []interface{}{}
+	OnlySpiderList := []*cres.IID{}
+	OnlyCSPInfoList := []interface{}{}
+
+	for _, iid := range iidList {
+		found := false
+		for _, info := range infoList {
+			if resourceInfoMatchesIID(info, getDriverSystemId(*iid)) {
+				MappedInfoList = append(MappedInfoList, info)
+				found = true
+				break
+			}
+		}
+		if !found {
+			OnlySpiderList = append(OnlySpiderList, iid)
+		}
+	}
+
+	for _, info := range infoList {
+		if !resourceInfoInMappedList(rsType, info, MappedInfoList) {
+			OnlyCSPInfoList = append(OnlyCSPInfoList, info)
+		}
+	}
+
+	return MappedInfoList, OnlySpiderList, OnlyCSPInfoList
+}
+
+func resourceInfoMatchesIID(info interface{}, driverSystemId string) bool {
+	switch v := info.(type) {
+	case *cres.VPCInfo:
+		return v.IId.SystemId == driverSystemId
+	case *cres.SecurityInfo:
+		return v.IId.SystemId == driverSystemId
+	case *cres.KeyPairInfo:
+		return v.IId.SystemId == driverSystemId
+	case *cres.VMInfo:
+		return v.IId.SystemId == driverSystemId
+	case *cres.NLBInfo:
+		return v.IId.SystemId == driverSystemId
+	case *cres.DiskInfo:
+		return v.IId.SystemId == driverSystemId
+	case *cres.MyImageInfo:
+		return v.IId.SystemId == driverSystemId
+	case *cres.ClusterInfo:
+		return v.IId.SystemId == driverSystemId
+	default:
+		return false
+	}
+}
+
+func resourceInfoInMappedList(rsType cres.RSType, info interface{}, mappedList []interface{}) bool {
+	for _, mappedInfo := range mappedList {
+		switch rsType {
+		case cres.VPC:
+			if mapped, ok := mappedInfo.(*cres.VPCInfo); ok && mapped.IId.SystemId == info.(*cres.VPCInfo).IId.SystemId {
+				return true
+			}
+		case cres.SG:
+			if mapped, ok := mappedInfo.(*cres.SecurityInfo); ok && mapped.IId.SystemId == info.(*cres.SecurityInfo).IId.SystemId {
+				return true
+			}
+		case cres.KEY:
+			if mapped, ok := mappedInfo.(*cres.KeyPairInfo); ok && mapped.IId.SystemId == info.(*cres.KeyPairInfo).IId.SystemId {
+				return true
+			}
+		case cres.VM:
+			if mapped, ok := mappedInfo.(*cres.VMInfo); ok && mapped.IId.SystemId == info.(*cres.VMInfo).IId.SystemId {
+				return true
+			}
+		case cres.NLB:
+			if mapped, ok := mappedInfo.(*cres.NLBInfo); ok && mapped.IId.SystemId == info.(*cres.NLBInfo).IId.SystemId {
+				return true
+			}
+		case cres.DISK:
+			if mapped, ok := mappedInfo.(*cres.DiskInfo); ok && mapped.IId.SystemId == info.(*cres.DiskInfo).IId.SystemId {
+				return true
+			}
+		case cres.MYIMAGE:
+			if mapped, ok := mappedInfo.(*cres.MyImageInfo); ok && mapped.IId.SystemId == info.(*cres.MyImageInfo).IId.SystemId {
+				return true
+			}
+		case cres.CLUSTER:
+			if mapped, ok := mappedInfo.(*cres.ClusterInfo); ok && mapped.IId.SystemId == info.(*cres.ClusterInfo).IId.SystemId {
+				return true
+			}
+		default:
+			continue
+		}
+	}
+	return false
 }
 
 // delete CSP's Resource(SystemId)

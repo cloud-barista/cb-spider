@@ -1480,6 +1480,33 @@ definitions:
     - ProviderName
     - RegionName
     type: object
+  spider.AllResourceInfoListResponse:
+    properties:
+      AllListInfo:
+        properties:
+          MappedInfoList:
+            items: {}
+            type: array
+          OnlyCSPInfoList:
+            items: {}
+            type: array
+          OnlySpiderList:
+            items:
+              $ref: '#/definitions/spider.IID'
+            type: array
+        required:
+        - MappedInfoList
+        - OnlyCSPInfoList
+        - OnlySpiderList
+        type: object
+      ResourceType:
+        allOf:
+        - $ref: '#/definitions/spider.RSType'
+        example: vpc
+    required:
+    - AllListInfo
+    - ResourceType
+    type: object
   spider.AllResourceListResponse:
     properties:
       AllList:
@@ -2909,6 +2936,41 @@ paths:
       summary: List All Clusters in a Connection
       tags:
       - '[Cluster Management]'
+  /allclusterinfo:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of all Cluster information associated with a specific
+        connection.
+      operationId: list-all-cluster-info
+      parameters:
+      - description: The name of the Connection to list Cluster information for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all Cluster information within the specified connection
+          schema:
+            $ref: '#/definitions/spider.AllResourceInfoListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All Cluster Info
+      tags:
+      - '[Cluster Management]'
   /alldisk:
     get:
       consumes:
@@ -2947,6 +3009,26 @@ paths:
       summary: List All Disks in a Connection
       tags:
       - '[Disk Management]'
+  /alldiskinfo:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of all Disk information associated with all connections.
+      operationId: list-all-disk-info
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all Disk information across all connections
+          schema:
+            $ref: '#/definitions/spider.AllResourceListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All Disk Info
+      tags:
+      - '[Disk Management]'
   /allkeypair:
     get:
       consumes:
@@ -2983,6 +3065,26 @@ paths:
           schema:
             $ref: '#/definitions/spider.SimpleMsg'
       summary: List All KeyPairs in a Connection
+      tags:
+      - '[KeyPair Management]'
+  /allkeypairinfo:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of KeyPair information associated with all connections.
+      operationId: list-all-keypair-info
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of KeyPair information associated with all connections
+          schema:
+            $ref: '#/definitions/spider.AllResourceInfoListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All KeyPair Info
       tags:
       - '[KeyPair Management]'
   /allmyimage:
@@ -3024,6 +3126,46 @@ paths:
       summary: List All MyImages in a Connection
       tags:
       - '[MyImage Management]'
+  /allmyimageinfo:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a comprehensive list of all MyImage information associated
+        with a specific connection, <br> including those mapped between CB-Spider
+        and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing
+        in the CSP.
+      operationId: list-all-myimage-info
+      parameters:
+      - description: The name of the Connection to list MyImage information for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all MyImage information within the specified connection,
+            including MyImage information in CB-Spider only, CSP only, and mapped
+            between both.
+          schema:
+            $ref: '#/definitions/spider.AllResourceInfoListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All MyImage Info
+      tags:
+      - '[MyImage Management]'
   /allnlb:
     get:
       consumes:
@@ -3061,6 +3203,45 @@ paths:
           schema:
             $ref: '#/definitions/spider.SimpleMsg'
       summary: List All NLBs in a Connection
+      tags:
+      - '[NLB Management]'
+  /allnlbinfo:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a comprehensive list of all Network Load Balancers (NLBs)
+        associated with a specific connection, <br> including those mapped between
+        CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br>
+        and only existing in the CSP.
+      operationId: list-all-nlb-info
+      parameters:
+      - description: The name of the Connection to list NLBs for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all NLBs within the specified connection, including
+            NLBs in CB-Spider only, CSP only, and mapped between both.
+          schema:
+            $ref: '#/definitions/spider.AllResourceInfoListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All NLB Info
       tags:
       - '[NLB Management]'
   /allsecuritygroup:
@@ -3103,6 +3284,27 @@ paths:
       summary: List All Security Groups in a Connection
       tags:
       - '[SecurityGroup Management]'
+  /allsecuritygroupinfo:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of Security Group information associated with all
+        connections.
+      operationId: list-all-securitygroup-info
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all Security Group information
+          schema:
+            $ref: '#/definitions/spider.AllResourceInfoListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All SecurityGroup Info
+      tags:
+      - '[SecurityGroup Management]'
   /allvm:
     get:
       consumes:
@@ -3142,6 +3344,46 @@ paths:
       summary: List All VMs in a Connection
       tags:
       - '[VM Management]'
+  /allvminfo:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of detailed information on all Virtual Machines
+        (VMs) associated with a specific connection, <br> including those mapped between
+        CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br>
+        and only existing in the CSP.
+      operationId: list-all-vm-info
+      parameters:
+      - description: The name of the Connection to list VMs for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of detailed information on all VMs within the specified
+            connection, including VMs in CB-Spider only, CSP only, and mapped between
+            both.
+          schema:
+            $ref: '#/definitions/spider.AllResourceInfoListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All VM Info
+      tags:
+      - '[VM Management]'
   /allvpc:
     get:
       consumes:
@@ -3179,6 +3421,45 @@ paths:
           schema:
             $ref: '#/definitions/spider.SimpleMsg'
       summary: List All VPCs in a Connection
+      tags:
+      - '[VPC Management]'
+  /allvpcinfo:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a comprehensive list of all Virtual Private Clouds (VPCs)
+        associated with a specific connection, <br> including those mapped between
+        CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br>
+        and only existing in the CSP.
+      operationId: list-all-vpc-info
+      parameters:
+      - description: The name of the Connection to list VPCs for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all VPCs within the specified connection, including
+            VPCs in CB-Spider only, CSP only, and mapped between both.
+          schema:
+            $ref: '#/definitions/spider.AllResourceInfoListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All VPCs Info
       tags:
       - '[VPC Management]'
   /anycall:

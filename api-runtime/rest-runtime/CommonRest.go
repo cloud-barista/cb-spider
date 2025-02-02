@@ -63,7 +63,17 @@ type AllResourceListResponse struct {
 		MappedList     []*cres.IID `json:"MappedList" validate:"required" description:"A list of resources that are mapped between CB-Spider and CSP"`
 		OnlySpiderList []*cres.IID `json:"OnlySpiderList" validate:"required" description:"A list of resources that exist only in CB-Spider"`
 		OnlyCSPList    []*cres.IID `json:"OnlyCSPList" validate:"required" description:"A list of resources that exist only in the CSP"`
-	} `json:"AllList" validate:"required" description:"A list of all VPCs with their respective lists"`
+	} `json:"AllList" validate:"required" description:"A list of all resources with their respective lists"`
+}
+
+// AllResourceInfoListResponse represents the response body structure for the ListAllVPCInfo API.
+type AllResourceInfoListResponse struct {
+	ResourceType cres.RSType `json:"ResourceType" validate:"required" example:"vpc" description:"The type of resource"`
+	AllListInfo  struct {
+		MappedInfoList  []interface{} `json:"MappedInfoList" validate:"required" description:"A list of resources that are mapped between CB-Spider and CSP"`
+		OnlySpiderList  []*cres.IID   `json:"OnlySpiderList" validate:"required" description:"A list of resources that exist only in CB-Spider"`
+		OnlyCSPInfoList []interface{} `json:"OnlyCSPInfoList" validate:"required" description:"A list of resources that exist only in the CSP"`
+	} `json:"AllListInfo" validate:"required" description:"A list of all resources info with their respective lists"`
 }
 
 //================ Get CSP Resource Name
@@ -331,4 +341,25 @@ func checkUDPPort(hostname string, port int) error {
 	}
 
 	return nil
+}
+
+func listAllResourceInfo(c echo.Context, rsType cres.RSType) error {
+	cblog.Info("call listAllResourceInfo()")
+
+	var req ConnectionRequest
+
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	if req.ConnectionName == "" {
+		req.ConnectionName = c.QueryParam("ConnectionName")
+	}
+
+	allResourceInfoList, err := cmrt.ListAllResourceInfo(req.ConnectionName, rsType)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, &allResourceInfoList)
 }

@@ -231,6 +231,18 @@ func ListAllSecurity(c echo.Context) error {
 	return c.JSON(http.StatusOK, &allResourceList)
 }
 
+// listAllSecurityGroupInfo godoc
+// @ID list-all-securitygroup-info
+// @Summary List All SecurityGroup Info
+// @Description Retrieve a list of Security Group information associated with all connections.
+// @Tags [SecurityGroup Management]
+// @Accept  json
+// @Produce  json
+// @Success 200 {object} AllResourceInfoListResponse "List of all Security Group information"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /allsecuritygroupinfo [get]
+func ListAllSecurityGroupInfo(c echo.Context) error { return listAllResourceInfo(c, cres.SG) }
+
 // getSecurity godoc
 // @ID get-securitygroup
 // @Summary Get SecurityGroup

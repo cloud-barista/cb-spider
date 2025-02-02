@@ -74,6 +74,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/allclusterinfo": {
+            "get": {
+                "description": "Retrieve a list of all Cluster information associated with a specific connection.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cluster Management]"
+                ],
+                "summary": "List All Cluster Info",
+                "operationId": "list-all-cluster-info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list Cluster information for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of all Cluster information within the specified connection",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceInfoListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/alldisk": {
             "get": {
                 "description": "Retrieve a comprehensive list of all Disks associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
@@ -114,6 +165,36 @@ const docTemplate = `{
                         "description": "Resource Not Found",
                         "schema": {
                             "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/alldiskinfo": {
+            "get": {
+                "description": "Retrieve a list of all Disk information associated with all connections.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Disk Management]"
+                ],
+                "summary": "List All Disk Info",
+                "operationId": "list-all-disk-info",
+                "responses": {
+                    "200": {
+                        "description": "List of all Disk information across all connections",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceListResponse"
                         }
                     },
                     "500": {
@@ -176,6 +257,36 @@ const docTemplate = `{
                 }
             }
         },
+        "/allkeypairinfo": {
+            "get": {
+                "description": "Retrieve a list of KeyPair information associated with all connections.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[KeyPair Management]"
+                ],
+                "summary": "List All KeyPair Info",
+                "operationId": "list-all-keypair-info",
+                "responses": {
+                    "200": {
+                        "description": "List of KeyPair information associated with all connections",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceInfoListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/allmyimage": {
             "get": {
                 "description": "Retrieve a comprehensive list of all MyImages associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
@@ -204,6 +315,57 @@ const docTemplate = `{
                         "description": "List of all MyImages within the specified connection, including MyImages in CB-Spider only, CSP only, and mapped between both.",
                         "schema": {
                             "$ref": "#/definitions/spider.AllResourceListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/allmyimageinfo": {
+            "get": {
+                "description": "Retrieve a comprehensive list of all MyImage information associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[MyImage Management]"
+                ],
+                "summary": "List All MyImage Info",
+                "operationId": "list-all-myimage-info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list MyImage information for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of all MyImage information within the specified connection, including MyImage information in CB-Spider only, CSP only, and mapped between both.",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceInfoListResponse"
                         }
                     },
                     "400": {
@@ -278,6 +440,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/allnlbinfo": {
+            "get": {
+                "description": "Retrieve a comprehensive list of all Network Load Balancers (NLBs) associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NLB Management]"
+                ],
+                "summary": "List All NLB Info",
+                "operationId": "list-all-nlb-info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list NLBs for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of all NLBs within the specified connection, including NLBs in CB-Spider only, CSP only, and mapped between both.",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceInfoListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/allsecuritygroup": {
             "get": {
                 "description": "Retrieve a comprehensive list of all Security Groups associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
@@ -318,6 +531,36 @@ const docTemplate = `{
                         "description": "Resource Not Found",
                         "schema": {
                             "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/allsecuritygroupinfo": {
+            "get": {
+                "description": "Retrieve a list of Security Group information associated with all connections.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[SecurityGroup Management]"
+                ],
+                "summary": "List All SecurityGroup Info",
+                "operationId": "list-all-securitygroup-info",
+                "responses": {
+                    "200": {
+                        "description": "List of all Security Group information",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceInfoListResponse"
                         }
                     },
                     "500": {
@@ -380,6 +623,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/allvminfo": {
+            "get": {
+                "description": "Retrieve a list of detailed information on all Virtual Machines (VMs) associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM Management]"
+                ],
+                "summary": "List All VM Info",
+                "operationId": "list-all-vm-info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list VMs for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of detailed information on all VMs within the specified connection, including VMs in CB-Spider only, CSP only, and mapped between both.",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceInfoListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/allvpc": {
             "get": {
                 "description": "Retrieve a comprehensive list of all Virtual Private Clouds (VPCs) associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
@@ -408,6 +702,57 @@ const docTemplate = `{
                         "description": "List of all VPCs within the specified connection, including VPCs in CB-Spider only, CSP only, and mapped between both.",
                         "schema": {
                             "$ref": "#/definitions/spider.AllResourceListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/allvpcinfo": {
+            "get": {
+                "description": "Retrieve a comprehensive list of all Virtual Private Clouds (VPCs) associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VPC Management]"
+                ],
+                "summary": "List All VPCs Info",
+                "operationId": "list-all-vpc-info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list VPCs for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of all VPCs within the specified connection, including VPCs in CB-Spider only, CSP only, and mapped between both.",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceInfoListResponse"
                         }
                     },
                     "400": {
@@ -10057,6 +10402,47 @@ const docTemplate = `{
                     "description": "The name of the region, used as a unique identifier.",
                     "type": "string",
                     "example": "region01"
+                }
+            }
+        },
+        "spider.AllResourceInfoListResponse": {
+            "type": "object",
+            "required": [
+                "AllListInfo",
+                "ResourceType"
+            ],
+            "properties": {
+                "AllListInfo": {
+                    "type": "object",
+                    "required": [
+                        "MappedInfoList",
+                        "OnlyCSPInfoList",
+                        "OnlySpiderList"
+                    ],
+                    "properties": {
+                        "MappedInfoList": {
+                            "type": "array",
+                            "items": {}
+                        },
+                        "OnlyCSPInfoList": {
+                            "type": "array",
+                            "items": {}
+                        },
+                        "OnlySpiderList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.IID"
+                            }
+                        }
+                    }
+                },
+                "ResourceType": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.RSType"
+                        }
+                    ],
+                    "example": "vpc"
                 }
             }
         },

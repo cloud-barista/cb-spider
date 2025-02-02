@@ -336,6 +336,21 @@ func ListAllVPC(c echo.Context) error {
 	return c.JSON(http.StatusOK, &allResourceList)
 }
 
+// listAllVPCInfo godoc
+// @ID list-all-vpc-info
+// @Summary List All VPCs Info
+// @Description Retrieve a comprehensive list of all Virtual Private Clouds (VPCs) associated with a specific connection, <br> including those mapped between CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing in the CSP.
+// @Tags [VPC Management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionName query string true "The name of the Connection to list VPCs for"
+// @Success 200 {object} AllResourceInfoListResponse "List of all VPCs within the specified connection, including VPCs in CB-Spider only, CSP only, and mapped between both."
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /allvpcinfo [get]
+func ListAllVPCInfo(c echo.Context) error { return listAllResourceInfo(c, cres.VPC) }
+
 // SubnetAddRequest represents the request body for adding a subnet to a VPC.
 type SubnetAddRequest struct {
 	ConnectionName  string `json:"ConnectionName" validate:"required" example:"aws-connection"`
