@@ -293,6 +293,7 @@ func RunServer() {
 		{"POST", "/securitygroup", CreateSecurity},
 		{"GET", "/securitygroup", ListSecurity},
 		{"GET", "/securitygroup/:Name", GetSecurity},
+		{"GET", "/securitygroup/vpc/:VPCName", ListVpcSecurity},
 		{"DELETE", "/securitygroup/:Name", DeleteSecurity},
 		//-- for rule
 		{"POST", "/securitygroup/:SGName/rules", AddRules},
