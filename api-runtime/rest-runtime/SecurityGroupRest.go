@@ -239,7 +239,7 @@ func ListAllSecurity(c echo.Context) error {
 // @Produce  json
 // @Param VPCName path string true "The name of the VPC to list Security Groups for"
 // @Param ConnectionName query string true "The name of the Connection to list Security Groups for"
-// @Success 200 {object} []cres.SecurityInfo "List of Security Groups within the specified VPC"
+// @Success 200 {object} restruntime.SecurityGroupListResponse "Response containing security groups under the key 'securitygroup'"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to missing parameters"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
 // @Router /vpcsecuritygroup/{VPCName} [get]
@@ -274,7 +274,11 @@ func ListVpcSecurity(c echo.Context) error {
 		}
 	}
 
-	return c.JSON(http.StatusOK, filteredSecurityGroups)
+	jsonResult := SecurityGroupListResponse{
+		Result: filteredSecurityGroups,
+	}
+
+	return c.JSON(http.StatusOK, &jsonResult)
 }
 
 // listAllSecurityGroupInfo godoc

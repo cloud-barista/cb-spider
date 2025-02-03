@@ -8675,6 +8675,42 @@ paths:
       summary: Get Subnet
       tags:
       - '[VPC Management]'
+  /vpcsecuritygroup/{VPCName}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of Security Groups associated with a specific VPC
+        in a given cloud connection.
+      operationId: list-vpc-securitygroup
+      parameters:
+      - description: The name of the VPC to list Security Groups for
+        in: path
+        name: VPCName
+        required: true
+        type: string
+      - description: The name of the Connection to list Security Groups for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Response containing security groups under the key 'securitygroup'
+          schema:
+            $ref: '#/definitions/spider.SecurityGroupListResponse'
+        "400":
+          description: Bad Request, possibly due to missing parameters
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List Security Groups in a Specific VPC
+      tags:
+      - '[SecurityGroup Management]'
 schemes:
 - http
 securityDefinitions:
