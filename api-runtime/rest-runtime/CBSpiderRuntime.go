@@ -300,6 +300,7 @@ func RunServer() {
 		// no CSP Option, {"DELETE", "/securitygroup/:SGName/csprules", RemoveCSPRules},
 		//-- for management
 		{"GET", "/allsecuritygroup", ListAllSecurity},
+		{"GET", "/vpcsecuritygroup/:VpcName", ListVpcSecurity},
 		{"GET", "/allsecuritygroupinfo", ListAllSecurityGroupInfo},
 		{"DELETE", "/cspsecuritygroup/:Id", DeleteCSPSecurity},
 		//-- for dashboard

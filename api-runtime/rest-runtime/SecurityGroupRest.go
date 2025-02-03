@@ -11,7 +11,6 @@ package restruntime
 import (
 	cmrt "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	dri "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
 	// REST API (echo)
 	"net/http"
@@ -56,7 +55,7 @@ func RegisterSecurity(c echo.Context) error {
 	}
 
 	// create UserIID
-	userIId := cres.IID{req.ReqInfo.Name, req.ReqInfo.CSPId}
+	userIId := cres.IID{NameId: req.ReqInfo.Name, SystemId: req.ReqInfo.CSPId}
 
 	// Call common-runtime API
 	result, err := cmrt.RegisterSecurity(req.ConnectionName, req.ReqInfo.VPCName, userIId)
@@ -111,7 +110,7 @@ type SecurityGroupCreateRequest struct {
 		Name          string                   `json:"Name" validate:"required" example:"sg-01"`
 		VPCName       string                   `json:"VPCName" validate:"required" example:"vpc-01"`
 		SecurityRules *[]cres.SecurityRuleInfo `json:"SecurityRules" validate:"required"`
-		TagList       []dri.KeyValue           `json:"TagList,omitempty" validate:"omitempty"`
+		TagList       []cres.KeyValue          `json:"TagList,omitempty" validate:"omitempty"`
 	} `json:"ReqInfo" validate:"required"`
 }
 
@@ -139,8 +138,8 @@ func CreateSecurity(c echo.Context) error {
 
 	// Rest RegInfo => Driver ReqInfo
 	reqInfo := cres.SecurityReqInfo{
-		IId:           cres.IID{req.ReqInfo.Name, req.ReqInfo.Name},
-		VpcIID:        cres.IID{req.ReqInfo.VPCName, ""},
+		IId:           cres.IID{NameId: req.ReqInfo.Name, SystemId: req.ReqInfo.Name},
+		VpcIID:        cres.IID{NameId: req.ReqInfo.VPCName, SystemId: ""},
 		SecurityRules: req.ReqInfo.SecurityRules,
 		TagList:       req.ReqInfo.TagList,
 	}
@@ -229,6 +228,53 @@ func ListAllSecurity(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, &allResourceList)
+}
+
+// listVpcSecurity godoc
+// @ID list-vpc-securitygroup
+// @Summary List Security Groups in a Specific VPC
+// @Description Retrieve a list of Security Groups associated with a specific VPC in a given cloud connection.
+// @Tags [SecurityGroup Management]
+// @Accept  json
+// @Produce  json
+// @Param VPCName path string true "The name of the VPC to list Security Groups for"
+// @Param ConnectionName query string true "The name of the Connection to list Security Groups for"
+// @Success 200 {object} []cres.SecurityInfo "List of Security Groups within the specified VPC"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to missing parameters"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /vpcsecuritygroup/{VPCName} [get]
+func ListVpcSecurity(c echo.Context) error {
+	cblog.Info("call ListVpcSecurity()")
+
+	req := ConnectionRequest{}
+
+	err := c.Bind(&req)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	if req.ConnectionName == "" {
+		req.ConnectionName = c.QueryParam("ConnectionName")
+	}
+
+	vpcName := c.Param("VpcName")
+	if vpcName == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "VPCName is required")
+	}
+
+	allSecurityGroups, err := cmrt.ListSecurity(req.ConnectionName, SG)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	filteredSecurityGroups := make([]*cres.SecurityInfo, 0)
+	for _, sg := range allSecurityGroups {
+		if sg.IId.NameId != "" && sg.VpcIID.NameId != "" && sg.VpcIID.NameId == vpcName {
+			filteredSecurityGroups = append(filteredSecurityGroups, sg)
+		}
+	}
+
+	return c.JSON(http.StatusOK, filteredSecurityGroups)
 }
 
 // listAllSecurityGroupInfo godoc
