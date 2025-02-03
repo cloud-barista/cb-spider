@@ -1768,15 +1768,11 @@ THE SOFTWARE.
     }
 
     function loadSecurityGroups() {
-        console.log("loadSecurityGroups()");
         const connConfig = document.getElementById('connConfig').value;
         const securityGroupSelect = document.getElementById('securityGroupSelect');
         const vpcName = document.getElementById('vpcSelect').options[document.getElementById('vpcSelect').selectedIndex].text.split(' ')[0];
-        console.log(vpcName);
-        const url = `/spider/vpcsecuritygroup/${vpcName}?ConnectionName=${connConfig}`
-        //const url =`/spider/securitygroup?ConnectionName=${connConfig}`;
-        console.log("url : ", url);
-
+        const url = `/spider/securitygroup/vpc/${vpcName}?ConnectionName=${connConfig}`
+        
         if (!securityGroupSelect) {
             console.error('Security Group select element not found');
             return;
