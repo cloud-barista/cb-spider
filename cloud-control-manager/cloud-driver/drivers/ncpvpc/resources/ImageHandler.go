@@ -120,41 +120,44 @@ func mappingImageInfo(serverImage *vserver.ServerImage) irs.ImageInfo {
 	if serverImage.CpuArchitectureType != nil {
 		if serverImage.CpuArchitectureType.Code != nil {
 			if strings.EqualFold(*serverImage.CpuArchitectureType.Code, "arm64") {
-				architectureType = "arm64"
+				architectureType = irs.ARM64
 			} else if strings.EqualFold(*serverImage.CpuArchitectureType.Code, "arm64_mac") {
-				architectureType = "arm64_mac"
+				architectureType = irs.ARM64_MAC
 			} else if strings.EqualFold(*serverImage.CpuArchitectureType.Code, "x86_64") {
-				architectureType = "x86_64"
+				architectureType = irs.X86_64
 			} else if strings.EqualFold(*serverImage.CpuArchitectureType.Code, "x86_64_mac") {
-				architectureType = "x86_64_mac"
+				architectureType = irs.X86_64_MAC
 			}
 		} else {
-			architectureType = "NA"
+			architectureType = irs.ArchitectureNA
 		}
 	} else {
-		architectureType = "NA"
+		architectureType = irs.ArchitectureNA
 	}
 
 	var osPlatform irs.OSPlatform 
 	if serverImage.OsCategoryType != nil {
 		if serverImage.OsCategoryType.CodeName != nil {
 			if strings.EqualFold(*serverImage.OsCategoryType.CodeName, "LINUX") {
-				osPlatform = "Linux/UNIX"
+				osPlatform = irs.Linux_UNIX
 			} else {
-				osPlatform = "Windows"
+				osPlatform = irs.Windows
 			}
 			
 		} else {
-			osPlatform = "NA"
+			osPlatform = irs.PlatformNA
 		}
 	} else {
-		osPlatform = "NA"
+		osPlatform = irs.PlatformNA
 	}
 	
 	var guestOS string
 	if serverImage.ServerImageName != nil {
 		guestOS = *serverImage.ServerImageName
+	} else {
+		guestOS = "NA"
 	}
+	
 	// Note) *serverImage.ServerImageDescription => sometimes : "kernel version : 5.14.0-427.37.1.el9_4.x86_64",
 
 	var diskType string
@@ -175,21 +178,21 @@ func mappingImageInfo(serverImage *vserver.ServerImage) irs.ImageInfo {
 		if blockStorageMapping.BlockStorageSize != nil {
 			blockStorageSize = strconv.FormatFloat(float64(*blockStorageMapping.BlockStorageSize)/(1024*1024*1024), 'f', 0, 64)
 		} else {
-			cblogger.Info("BlockStorageSize is nil")
+			blockStorageSize = "-1"
 		}
 	} else {
-		cblogger.Info("BlockStorageMappingList is empty")
+		blockStorageSize = "-1"
 	}
 
 	var imageStatus irs.ImageStatus
 	if serverImage.ServerImageStatusName != nil {
 		if strings.EqualFold(*serverImage.ServerImageStatusName, "created") { 
-			imageStatus = "Available"
+			imageStatus = irs.ImageAvailable
 		} else {
-			imageStatus = "Unavailable"
+			imageStatus = irs.ImageUnavailable
 		}
 	} else {
-		imageStatus = "NA"
+		imageStatus = irs.ImageNA
 	}
 
 	// *serverImage.ServerImageNo : numeric type
