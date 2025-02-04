@@ -97,7 +97,7 @@ func GetSGOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, err e
 	if isExist {
 		//vpcSPLock.RUnlock()
 		//sgSPLock.RUnlock()
-		err := fmt.Errorf(rsType + "-" + cspID + " already exists with " + nameId + "!")
+		err := fmt.Errorf("%s", rsType+"-"+cspID+" already exists with "+nameId+"!")
 		cblog.Error(err)
 		return cres.IID{}, err
 	}
@@ -212,7 +212,7 @@ func RegisterSecurity(connectionName string, vpcUserID string, userIID cres.IID)
 		return nil, err
 	}
 	if isExist {
-		err := fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
+		err := fmt.Errorf("%s", rsType+"-"+userIID.NameId+" already exists!")
 		cblog.Error(err)
 		return nil, err
 	}
@@ -256,10 +256,6 @@ func RegisterSecurity(connectionName string, vpcUserID string, userIID cres.IID)
 		return nil, err
 	}
 	getInfo.VpcIID = getUserIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
 
 	return &getInfo, nil
 }
@@ -366,7 +362,7 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 	}
 
 	if isExist {
-		err := fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
+		err := fmt.Errorf("%s", rsType+"-"+reqInfo.IId.NameId+" already exists!")
 		cblog.Error(err)
 		return nil, err
 	}
@@ -423,7 +419,7 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 		_, err2 := handler.DeleteSecurity(info.IId)
 		if err2 != nil {
 			cblog.Error(err2)
-			return nil, fmt.Errorf(err.Error() + ", " + err2.Error())
+			return nil, fmt.Errorf("%s", err.Error()+", "+err2.Error())
 		}
 		cblog.Error(err)
 		return nil, err
@@ -441,7 +437,7 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 }
 
 func transformArgs(ruleList *[]cres.SecurityRuleInfo) {
-	for n, _ := range *ruleList {
+	for n := range *ruleList {
 		// Direction: to lower => inbound | outbound
 		(*ruleList)[n].Direction = strings.ToLower((*ruleList)[n].Direction)
 		// IPProtocol: to upper => ALL | TCP | UDP | ICMP
@@ -494,9 +490,8 @@ func ListSecurity(connectionName string, rsType string) ([]*cres.SecurityInfo, e
 		}
 	}
 
-	var infoList []*cres.SecurityInfo
+	infoList := []*cres.SecurityInfo{}
 	if iidInfoList == nil || len(iidInfoList) <= 0 {
-		infoList = []*cres.SecurityInfo{}
 		return infoList, nil
 	}
 
@@ -555,6 +550,76 @@ func ListSecurity(connectionName string, rsType string) ([]*cres.SecurityInfo, e
 	}
 
 	return infoList2, nil
+}
+
+// (1) get IID of Security Group for typhical VPC:list
+// (2) get SecurityInfo:list
+// (3) set userIID, and ...
+func ListVpcSecurity(connectionName, rsType, vpcName string) ([]*cres.SecurityInfo, error) {
+	cblog.Info("call ListVpcSecurity()")
+
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	cldConn, err := ccm.GetCloudConnection(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	handler, err := cldConn.CreateSecurityHandler()
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	//(1) get IId of SG for typhical vpc -> iidInfoList
+	var iidInfoList []*SGIIDInfo
+	err = infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, OWNER_VPC_NAME_COLUMN, vpcName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	//(2) Get Security Group list with iidInfoList
+	infoList := []*cres.SecurityInfo{}
+	for _, iidInfo := range iidInfoList {
+		sgSPLock.RLock(connectionName, iidInfo.NameId)
+		defer sgSPLock.RUnlock(connectionName, iidInfo.NameId)
+
+		info, err := handler.GetSecurity(getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}))
+
+		if err != nil {
+			if checkNotFoundError(err) {
+				cblog.Info(err)
+				continue
+			}
+			cblog.Error(err)
+			return nil, err
+		}
+
+		//Transform security rules
+		transformArgs(info.SecurityRules)
+
+		// Set resource info
+		info.IId = getUserIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
+
+		// Set VPC SystemId
+		var vpcIIDInfo VPCIIDInfo
+		err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		info.VpcIID = getUserIID(cres.IID{NameId: vpcIIDInfo.NameId, SystemId: vpcIIDInfo.SystemId})
+
+		infoList = append(infoList, &info)
+	}
+
+	return infoList, nil
 }
 
 // (1) get IID(NameId)
