@@ -552,6 +552,9 @@ func ListSecurity(connectionName string, rsType string) ([]*cres.SecurityInfo, e
 	return infoList2, nil
 }
 
+// (1) get IID of Security Group for typhical VPC:list
+// (2) get SecurityInfo:list
+// (3) set userIID, and ...
 func ListVpcSecurity(connectionName, rsType, vpcName string) ([]*cres.SecurityInfo, error) {
 	cblog.Info("call ListVpcSecurity()")
 
