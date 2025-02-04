@@ -87,13 +87,24 @@ func GetClusterOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, 
 
 	// (1) check existence(cspID)
 	var iidInfoList []*ClusterIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		//vpcSPLock.RUnlock()
-		//clusterSPLock.RUnlock()
-		cblog.Error(err)
-		return cres.IID{}, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			//vpcSPLock.RUnlock()
+			//clusterSPLock.RUnlock()
+			cblog.Error(err)
+			return cres.IID{}, err
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			//vpcSPLock.RUnlock()
+			//clusterSPLock.RUnlock()
+			cblog.Error(err)
+			return cres.IID{}, err
+		}
 	}
+
 	var isExist bool = false
 	var nameId string
 	for _, OneIIdInfo := range iidInfoList {
@@ -124,12 +135,22 @@ func GetClusterOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, 
 
 	// (3) get VPC IID:list
 	var vpcIIDInfoList []*VPCIIDInfo
-	err = infostore.ListByCondition(&vpcIIDInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		//vpcSPLock.RUnlock()
-		//clusterSPLock.RUnlock()
-		cblog.Error(err)
-		return cres.IID{}, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &vpcIIDInfoList)
+		if err != nil {
+			//vpcSPLock.RUnlock()
+			//clusterSPLock.RUnlock()
+			cblog.Error(err)
+			return cres.IID{}, err
+		}
+	} else {
+		err = infostore.ListByCondition(&vpcIIDInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			//vpcSPLock.RUnlock()
+			//clusterSPLock.RUnlock()
+			cblog.Error(err)
+			return cres.IID{}, err
+		}
 	}
 	//vpcSPLock.RUnlock()
 	//clusterSPLock.RUnlock()
@@ -203,10 +224,26 @@ func RegisterCluster(connectionName string, vpcUserID string, userIID cres.IID) 
 	defer clusterSPLock.Unlock(connectionName, userIID.NameId)
 
 	// (0) check VPC existence(VPC UserID)
-	bool_ret, err := infostore.HasByConditions(&VPCIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcUserID)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	var bool_ret bool
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		// check permission to vpcName
+		var iidInfoList []*VPCIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		bool_ret, err = isNameIdExists(&iidInfoList, vpcUserID)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		bool_ret, err = infostore.HasByConditions(&VPCIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcUserID)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	if !bool_ret {
 		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(VPC), vpcUserID)
@@ -215,17 +252,18 @@ func RegisterCluster(connectionName string, vpcUserID string, userIID cres.IID) 
 	}
 
 	// (1) check existence(UserID)
-	var iidInfoList []*ClusterIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-	var isExist bool = false
-	for _, OneIIdInfo := range iidInfoList {
-		if OneIIdInfo.NameId == userIID.NameId {
-			isExist = true
-			break
+	var isExist bool
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		isExist, err = infostore.HasByCondition(&ClusterIIDInfo{}, NAME_ID_COLUMN, userIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		isExist, err = infostore.HasByConditions(&ClusterIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, userIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
 		}
 	}
 
@@ -475,7 +513,7 @@ func CreateCluster(connectionName string, rsType string, reqInfo cres.ClusterInf
 	// (1) check exist(NameID)
 	var iidInfoList []*ClusterIIDInfo
 	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		err = infostore.List(&iidInfoList)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
@@ -1118,43 +1156,11 @@ func AddNodeGroup(connectionName string, rsType string, clusterName string, reqI
 	}
 
 	// (1) check exist(NameID)
-	var ngIIdInfoList []*NodeGroupIIDInfo
-	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-		// 1. get Cluster IIDInfo
-		var iidInfoList []*ClusterIIDInfo
-		err = getAuthIIDInfoList(connectionName, &iidInfoList)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
-		}
-		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, clusterName)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
-		}
-		clusterIIDInfo := *castedIIDInfo.(*ClusterIIDInfo)
-
-		// 2. get Nodegroup Info List in ConnectionName of Cluster IIDInfo
-		err = infostore.ListByConditions(&ngIIdInfoList, CONNECTION_NAME_COLUMN, clusterIIDInfo.ConnectionName, OWNER_CLUSTER_NAME_COLUMN, clusterName)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
-		}
-
-	} else {
-		err = infostore.ListByConditions(&ngIIdInfoList, CONNECTION_NAME_COLUMN, connectionName, OWNER_CLUSTER_NAME_COLUMN, clusterName)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
-		}
+	isExist, err := infostore.HasBy3Conditions(&NodeGroupIIDInfo{}, CONNECTION_NAME_COLUMN, iidInfo.ConnectionName, OWNER_CLUSTER_NAME_COLUMN, clusterName, NAME_ID_COLUMN, reqInfo.IId.NameId)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
 	}
-	var isExist bool = false
-	for _, OneIIdInfo := range ngIIdInfoList {
-		if OneIIdInfo.NameId == reqInfo.IId.NameId {
-			isExist = true
-		}
-	}
-
 	if isExist {
 		err := fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
 		cblog.Error(err)
@@ -1188,7 +1194,7 @@ func AddNodeGroup(connectionName string, rsType string, clusterName string, reqI
 	}
 
 	ngSpiderIId := cres.IID{NameId: nodeGroupNameId, SystemId: nodeGroupUUID + ":" + ngInfo.IId.SystemId}
-	err2 := infostore.Insert(&NodeGroupIIDInfo{ConnectionName: connectionName, NameId: ngSpiderIId.NameId, SystemId: ngSpiderIId.SystemId,
+	err2 := infostore.Insert(&NodeGroupIIDInfo{ConnectionName: iidInfo.ConnectionName, NameId: ngSpiderIId.NameId, SystemId: ngSpiderIId.SystemId,
 		OwnerClusterName: clusterName})
 	if err2 != nil {
 		cblog.Error(err2)
@@ -1335,13 +1341,28 @@ func getClusterDriverIIDNodeGroupDriverIID(connectionName string, clusterName st
 	// (2) Get NodeGroup's DriverIID
 	var ngIIdInfoList []*NodeGroupIIDInfo
 	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-		err = getAuthIIDInfoList(connectionName, &ngIIdInfoList)
+		// 1. get Cluster IIDInfo
+		var iidInfoList []*ClusterIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return cres.IID{}, cres.IID{}, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, clusterName)
+		if err != nil {
+			cblog.Error(err)
+			return cres.IID{}, cres.IID{}, err
+		}
+		clusterIIDInfo := *castedIIDInfo.(*ClusterIIDInfo)
+
+		// 2. get Nodegroup Info List in ConnectionName of Cluster IIDInfo
+		err = infostore.ListByConditions(&ngIIdInfoList, CONNECTION_NAME_COLUMN, clusterIIDInfo.ConnectionName, OWNER_CLUSTER_NAME_COLUMN, clusterName)
 		if err != nil {
 			cblog.Error(err)
 			return cres.IID{}, cres.IID{}, err
 		}
 	} else {
-		err = infostore.ListByCondition(&ngIIdInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		err = infostore.ListByConditions(&ngIIdInfoList, CONNECTION_NAME_COLUMN, connectionName, OWNER_CLUSTER_NAME_COLUMN, clusterName)
 		if err != nil {
 			cblog.Error(err)
 			return cres.IID{}, cres.IID{}, err
@@ -1568,12 +1589,22 @@ func RemoveNodeGroup(connectionName string, clusterName string, nodeGroupName st
 	}
 
 	// (3) delete IID
-	_, err = infostore.DeleteBy3Conditions(&NodeGroupIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nodeGroupName,
-		OWNER_CLUSTER_NAME_COLUMN, clusterName)
-	if err != nil {
-		cblog.Error(err)
-		if force != "true" {
-			return false, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		_, err = infostore.DeleteByConditions(&NodeGroupIIDInfo{}, NAME_ID_COLUMN, nodeGroupName, OWNER_CLUSTER_NAME_COLUMN, clusterName)
+		if err != nil {
+			cblog.Error(err)
+			if force != "true" {
+				return false, err
+			}
+		}
+	} else {
+		_, err = infostore.DeleteBy3Conditions(&NodeGroupIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nodeGroupName,
+			OWNER_CLUSTER_NAME_COLUMN, clusterName)
+		if err != nil {
+			cblog.Error(err)
+			if force != "true" {
+				return false, err
+			}
 		}
 	}
 
@@ -1733,10 +1764,18 @@ func DeleteCluster(connectionName string, rsType string, nameID string, force st
 	// (1) get spiderIID for creating driverIID
 	var iidInfo *ClusterIIDInfo
 	var iidInfoList []*ClusterIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return false, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
 	}
 	var bool_ret = false
 	for _, OneIIdInfo := range iidInfoList {
@@ -1771,7 +1810,7 @@ func DeleteCluster(connectionName string, rsType string, nameID string, force st
 	}
 
 	// (3) delete IID
-	_, err = infostore.DeleteByConditions(&ClusterIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+	_, err = infostore.DeleteByConditions(&ClusterIIDInfo{}, CONNECTION_NAME_COLUMN, iidInfo.ConnectionName, NAME_ID_COLUMN, nameID)
 	if err != nil {
 		cblog.Error(err)
 		if force != "true" {
@@ -1781,7 +1820,7 @@ func DeleteCluster(connectionName string, rsType string, nameID string, force st
 
 	// for NodeGroup list
 	// delete all nodegroups of target Cluster
-	_, err = infostore.DeleteByConditions(&NodeGroupIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName,
+	_, err = infostore.DeleteByConditions(&NodeGroupIIDInfo{}, CONNECTION_NAME_COLUMN, iidInfo.ConnectionName,
 		OWNER_CLUSTER_NAME_COLUMN, iidInfo.NameId)
 	if err != nil {
 		cblog.Error(err)

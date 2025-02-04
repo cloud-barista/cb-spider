@@ -82,6 +82,8 @@ func GetNLBOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, err 
 	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
 		err = getAuthIIDInfoList(connectionName, &iidInfoList)
 		if err != nil {
+			//vpcSPLock.RUnlock()
+			//nlbSPLock.RUnlock()
 			cblog.Error(err)
 			return cres.IID{}, err
 		}
@@ -127,6 +129,8 @@ func GetNLBOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, err 
 	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
 		err = getAuthIIDInfoList(connectionName, &vpcIIDInfoList)
 		if err != nil {
+			//vpcSPLock.RUnlock()
+			//nlbSPLock.RUnlock()
 			cblog.Error(err)
 			return cres.IID{}, err
 		}
@@ -211,10 +215,26 @@ func RegisterNLB(connectionName string, vpcUserID string, userIID cres.IID) (*cr
 	defer nlbSPLock.Unlock(connectionName, userIID.NameId)
 
 	// (0) check VPC existence(VPC UserID)
-	bool_ret, err := infostore.HasByConditions(&VPCIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcUserID)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	var bool_ret bool
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		// check permission to vpcName
+		var iidInfoList []*VPCIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		bool_ret, err = isNameIdExists(&iidInfoList, vpcUserID)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		bool_ret, err = infostore.HasByConditions(&VPCIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcUserID)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	if !bool_ret {
 		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(VPC), vpcUserID)
@@ -223,17 +243,18 @@ func RegisterNLB(connectionName string, vpcUserID string, userIID cres.IID) (*cr
 	}
 
 	// (1) check existence(UserID)
-	var iidInfoList []*NLBIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-	var isExist bool = false
-	for _, OneIIdInfo := range iidInfoList {
-		if OneIIdInfo.NameId == userIID.NameId {
-			isExist = true
-			break
+	var isExist bool
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		isExist, err = infostore.HasByCondition(&NLBIIDInfo{}, NAME_ID_COLUMN, userIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		isExist, err = infostore.HasByConditions(&NLBIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, userIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
 		}
 	}
 
@@ -399,7 +420,7 @@ func CreateNLB(connectionName string, rsType string, reqInfo cres.NLBInfo, IDTra
 	// (1) check exist(NameID)
 	var iidInfoList []*NLBIIDInfo
 	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		err = infostore.ListByCondition(&iidInfoList, OWNER_VPC_NAME_COLUMN, reqInfo.VpcIID.NameId)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
