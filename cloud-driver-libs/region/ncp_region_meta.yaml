@@ -1,0 +1,35 @@
+DisplayName:
+  KR:
+    "": "South Korea, NA"
+    KR-1: "South Korea, Seoul"
+    KR-2: "South Korea, Gyeonggi-do"
+  USWN:
+    "": "United States, NA"
+    USWN-1: "United States, NA"
+  SGN:
+    "": "Singapore, Singapore"
+    SGN-1: "Singapore, Singapore"
+  JPN:
+    "": "Japan, NA"
+    JPN-1: "Japan, NA"
+  DEN:
+    "": "Germany, NA"
+    DEN-1: "Germany, NA"
+
+CSPDisplayName:
+  KR:
+    "": "Korea"
+    KR-1: "가산 zone"
+    KR-2: "평촌 zone"
+  USWN:
+    "": "US-West(New)"
+    USWN-1: "미국 서부(New) ZONE"
+  SGN:
+    "": "Singapore(New)"
+    SGN-1: "싱가포르(New) ZONE-1"
+  JPN:
+    "": "Japan(New)"
+    JPN-1: "일본(New) ZONE"
+  DEN:
+    "": "Germany(New)"
+    DEN-1: "독일(New) ZONE"
