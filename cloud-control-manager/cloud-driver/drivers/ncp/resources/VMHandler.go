@@ -121,11 +121,11 @@ func (vmHandler *NcpVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 	var initUserData *string
 
 	if vmReqInfo.ImageType == irs.PublicImage || vmReqInfo.ImageType == "" || vmReqInfo.ImageType == "default" {
-		myImageHandler := NcpMyImageHandler{
+		imageHandler := NcpImageHandler{
 			RegionInfo:  vmHandler.RegionInfo,
 			VMClient:    vmHandler.VMClient,
 		}
-		isPublicImage, err := myImageHandler.isPublicImage(vmReqInfo.ImageIID)
+		isPublicImage, err := imageHandler.isPublicImage(vmReqInfo.ImageIID)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
 			cblogger.Error(newErr.Error())
@@ -139,7 +139,7 @@ func (vmHandler *NcpVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			publicImageId = vmReqInfo.ImageIID.SystemId
 		}
 
-		isPublicWindowsImage, err := myImageHandler.CheckWindowsImage(vmReqInfo.ImageIID)
+		isPublicWindowsImage, err := imageHandler.CheckWindowsImage(vmReqInfo.ImageIID)
 		if err != nil {
 			rtnErr := logAndReturnError(callLogInfo, "Failed to Check Whether the Image is MS Windows Image : ", err)
 			return irs.VMInfo{}, rtnErr
@@ -160,11 +160,11 @@ func (vmHandler *NcpVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			}
 		}
 	} else {
-		myImageHandler := NcpMyImageHandler{
+		imageHandler := NcpImageHandler{
 			RegionInfo:  vmHandler.RegionInfo,
 			VMClient:    vmHandler.VMClient,
 		}
-		isPublicImage, err := myImageHandler.isPublicImage(vmReqInfo.ImageIID)
+		isPublicImage, err := imageHandler.isPublicImage(vmReqInfo.ImageIID)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
 			cblogger.Error(newErr.Error())
@@ -178,6 +178,10 @@ func (vmHandler *NcpVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			myImageId = vmReqInfo.ImageIID.SystemId
 		}
 
+		myImageHandler := NcpMyImageHandler{
+			RegionInfo:  vmHandler.RegionInfo,
+			VMClient:    vmHandler.VMClient,
+		}
 		isMyWindowsImage, err := myImageHandler.CheckWindowsImage(vmReqInfo.ImageIID)
 		if err != nil {
 			rtnErr := logAndReturnError(callLogInfo, "Failed to Check Whether My Image is MS Windows Image : ", err)
@@ -445,7 +449,7 @@ func (vmHandler *NcpVMHandler) mappingServerInfo(NcpInstance *server.ServerInsta
 		},
 	}
 
-	myImageHandler := NcpMyImageHandler{
+	imageHandler := NcpImageHandler{
 		RegionInfo:  vmHandler.RegionInfo,
 		VMClient:    vmHandler.VMClient,
 	}
@@ -454,7 +458,7 @@ func (vmHandler *NcpVMHandler) mappingServerInfo(NcpInstance *server.ServerInsta
 		vmInfo.ImageIId.SystemId = *NcpInstance.ServerDescription // Note!! : Since MyImage ID is not included in the 'NcpInstance' info 
 		vmInfo.ImageIId.NameId = *NcpInstance.ServerDescription
 		
-		isPublicImage, err := myImageHandler.isPublicImage(irs.IID{SystemId: *NcpInstance.ServerDescription}) // Caution!! : Not '*NcpInstance.ServerImageProductCode'
+		isPublicImage, err := imageHandler.isPublicImage(irs.IID{SystemId: *NcpInstance.ServerDescription}) // Caution!! : Not '*NcpInstance.ServerImageProductCode'
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
 			return irs.VMInfo{}, newErr

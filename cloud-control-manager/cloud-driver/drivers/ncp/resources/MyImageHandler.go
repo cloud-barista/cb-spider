@@ -400,17 +400,17 @@ func (myImageHandler *NcpMyImageHandler) GetOriginImageOSPlatform(imageIID irs.I
 		return "", newErr
 	}
 
-	isPublicImage, err := myImageHandler.isPublicImage(imageIID)
+	imageHandler := NcpImageHandler{
+		RegionInfo: myImageHandler.RegionInfo,
+		VMClient:   myImageHandler.VMClient,
+	}
+	isPublicImage, err := imageHandler.isPublicImage(imageIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
 		cblogger.Error(newErr.Error())
 		return "", newErr
 	}
 	if isPublicImage {
-		imageHandler := NcpImageHandler{
-			RegionInfo: myImageHandler.RegionInfo,
-			VMClient:   myImageHandler.VMClient,
-		}
 		ncpImageInfo, err := imageHandler.GetNcpImageInfo(imageIID)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get the Image Info from NCP : [%v]", err)
@@ -461,37 +461,6 @@ func (myImageHandler *NcpMyImageHandler) GetOriginImageOSPlatform(imageIID irs.I
 		}
 		cblogger.Infof("### OriginImagePlatform : [%s]", originImagePlatform)
 		return originImagePlatform, nil
-	}
-}
-
-func (myImageHandler *NcpMyImageHandler) isPublicImage(imageIID irs.IID) (bool, error) {
-	cblogger.Info("NCP Classic Cloud Driver: called isPublicImage()")
-	InitLog()
-	callLogInfo := GetCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, imageIID.SystemId, "isPublicImage()") // HisCall logging
-
-	if strings.EqualFold(imageIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid Image SystemId!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return false, newErr
-	}
-
-	imageHandler := NcpImageHandler{
-		RegionInfo: myImageHandler.RegionInfo,
-		VMClient:   myImageHandler.VMClient,
-	}
-	ncpImageInfo, err := imageHandler.GetNcpImageInfo(imageIID)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the Image Info from NCP : [%v]", err)
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return false, nil // Caution!!
-	} else {
-		isPublicImage := false
-		if strings.EqualFold(*ncpImageInfo.ProductCode, imageIID.SystemId) {
-			isPublicImage = true
-		}
-		return isPublicImage, nil
 	}
 }
 
