@@ -761,16 +761,19 @@ func extractOsPlatform(orgImage *compute.Image) irs.OSPlatform {
 	platformInfo := orgImage.Name
 
 	osPlatform := irs.PlatformNA
-	if strings.Contains(strings.ToLower(platformInfo), "windows") {
+
+	lowerCasePlatformInfo := strings.ToLower(platformInfo)
+
+	if strings.Contains(lowerCasePlatformInfo, "windows") {
 		osPlatform = irs.Windows
-	} else if strings.Contains(strings.ToLower(platformInfo), "ubuntu") ||
-		strings.Contains(strings.ToLower(platformInfo), "linux") ||
-		strings.Contains(strings.ToLower(platformInfo), "centos") ||
-		strings.Contains(strings.ToLower(platformInfo), "debian") ||
-		strings.Contains(strings.ToLower(platformInfo), "fedora") ||
-		strings.Contains(strings.ToLower(platformInfo), "rhel") ||
-		strings.Contains(strings.ToLower(platformInfo), "rocky") ||
-		strings.Contains(strings.ToLower(platformInfo), "unix") {
+	} else if strings.Contains(lowerCasePlatformInfo, "ubuntu") ||
+		strings.Contains(lowerCasePlatformInfo, "linux") ||
+		strings.Contains(lowerCasePlatformInfo, "centos") ||
+		strings.Contains(lowerCasePlatformInfo, "debian") ||
+		strings.Contains(lowerCasePlatformInfo, "fedora") ||
+		strings.Contains(lowerCasePlatformInfo, "rhel") ||
+		strings.Contains(lowerCasePlatformInfo, "rocky") ||
+		strings.Contains(lowerCasePlatformInfo, "unix") {
 		osPlatform = irs.Linux_UNIX
 	}
 
