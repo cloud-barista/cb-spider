@@ -12,6 +12,7 @@ package resources
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
@@ -187,6 +188,40 @@ func (imageHandler *AlibabaImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	return imageInfoList, nil
 }
 
+func extractOsPlatform(image *ecs.Image) irs.OSPlatform {
+	// Ubuntu
+	// Rocky Linux
+	// Debian
+	// Aliyun
+	// AlmaLinux
+	// CentOS Stream
+	// Windows Server 2025
+	// Freebsd
+	// Anolis
+	// openSUSE
+	// Gentoo
+	platformInfo := image.Platform
+	osPlatform := irs.PlatformNA
+
+	lowerCasePlatformInfo := strings.ToLower(platformInfo)
+
+	if strings.Contains(lowerCasePlatformInfo, "windows") {
+		osPlatform = irs.Windows
+	} else if strings.Contains(lowerCasePlatformInfo, "ubuntu") ||
+		strings.Contains(lowerCasePlatformInfo, "rocky") ||
+		strings.Contains(lowerCasePlatformInfo, "debian") ||
+		strings.Contains(lowerCasePlatformInfo, "aliyun") ||
+		strings.Contains(lowerCasePlatformInfo, "almalinux") ||
+		strings.Contains(lowerCasePlatformInfo, "centos") ||
+		strings.Contains(lowerCasePlatformInfo, "freebsd") ||
+		strings.Contains(lowerCasePlatformInfo, "anolis") ||
+		strings.Contains(lowerCasePlatformInfo, "opensuse") ||
+		strings.Contains(lowerCasePlatformInfo, "gentoo") {
+		osPlatform = irs.Linux_UNIX
+	}
+	return osPlatform
+}
+
 // https://pkg.go.dev/github.com/aliyun/alibaba-cloud-sdk-go/services/ecs?tab=doc#Image
 // package ecs v1.61.170 Latest Published: Apr 30, 2020
 // Image 정보를 추출함
@@ -206,7 +241,7 @@ func ExtractImageDescribeInfo(image *ecs.Image) irs.ImageInfo {
 		// GuestOS: image.OSNameEn,
 		Name:           image.ImageName,
 		OSArchitecture: irs.OSArchitecture(image.Architecture),
-		OSPlatform:     irs.OSPlatform(image.Platform),
+		OSPlatform:     extractOsPlatform(image),
 		OSDistribution: image.Description,
 		OSDiskType:     "NA",
 		OSDiskSizeInGB: "-1",
