@@ -4,6 +4,7 @@
 // NCP Classic RegionZone Handler
 //
 // Created by ETRI, 2023.09.
+// Updated by ETRI, 2025.02.
 //==================================================================================================
 
 package resources
@@ -67,6 +68,7 @@ func (regionZoneHandler *NcpRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 			regionZoneInfo := irs.RegionZoneInfo{
 				Name: 			*region.RegionCode,
 				DisplayName: 	*region.RegionName,
+				CSPDisplayName:	*region.RegionName,
 				// KeyValueList: []irs.KeyValue{
 				// 	{Key: "RegionNo", 		Value: *region.RegionNo},
 				// 	{Key: "RegionCode", 	Value: *region.RegionCode},
@@ -74,7 +76,7 @@ func (regionZoneHandler *NcpRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 			}
 			zoneListReq := server.GetZoneListRequest{
 				RegionNo: 	region.RegionNo,
-				//RegionNo: nil, // Caution!! : If look up like this, only Korean two zones will come out.
+				//RegionNo: nil, // Caution!! : If look up like this, only two Korean zones will be returned as zones.
 			}
 			callLogStart := call.Start()
 			zoneListResult, err := regionZoneHandler.VMClient.V2Api.GetZoneList(&zoneListReq)
@@ -97,6 +99,7 @@ func (regionZoneHandler *NcpRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 				zoneInfo := irs.ZoneInfo{
 					Name: 			*zone.ZoneName,
 					DisplayName: 	*zone.ZoneDescription,
+					CSPDisplayName: *zone.ZoneDescription,
 					Status: 		irs.NotSupported,				
 					// KeyValueList: []irs.KeyValue{
 					// 	{Key: "ZoneNo", 	Value: *zone.ZoneNo},
@@ -159,6 +162,7 @@ func (regionZoneHandler NcpRegionZoneHandler) GetRegionZone(regionCode string) (
 			regionZoneInfo = irs.RegionZoneInfo{
 				Name: 			*region.RegionCode,
 				DisplayName: 	*region.RegionName,	
+				CSPDisplayName:	*region.RegionName,
 				// KeyValueList: []irs.KeyValue{
 				// 	{Key: "RegionNo", 		Value: *region.RegionNo},
 				// 	{Key: "RegionCode", 	Value: *region.RegionCode},
@@ -166,7 +170,7 @@ func (regionZoneHandler NcpRegionZoneHandler) GetRegionZone(regionCode string) (
 			}
 			zoneListReq := server.GetZoneListRequest{
 				RegionNo: 	region.RegionNo,
-				//RegionNo: nil, //CAUTION!! : 이렇게 조회하면 zone이 한국 zone 두개만 나옴.
+				//RegionNo: nil, //CAUTION!! : If look up like this, only two Korean zones will be returned as zones.
 			}
 			callLogStart := call.Start()
 			zoneListResult, err := regionZoneHandler.VMClient.V2Api.GetZoneList(&zoneListReq)
@@ -189,6 +193,7 @@ func (regionZoneHandler NcpRegionZoneHandler) GetRegionZone(regionCode string) (
 				zoneInfo := irs.ZoneInfo{
 					Name: 			*zone.ZoneName,
 					DisplayName: 	*zone.ZoneDescription,
+					CSPDisplayName: *zone.ZoneDescription,
 					Status: 		irs.NotSupported,	
 					// KeyValueList: []irs.KeyValue{
 					// 	{Key: "ZoneNo", 	Value: *zone.ZoneNo},
@@ -257,7 +262,7 @@ func (regionZoneHandler *NcpRegionZoneHandler) ListOrgZone() (string, error) {
 	}
 	zoneListReq := server.GetZoneListRequest{
 		RegionNo: 	regionNo,
-		//RegionNo: nil, //CAUTION!! : 이렇게 조회하면 zone이 한국 zone 두개만 나옴.
+		//RegionNo: nil, //CAUTION!! : If look up like this, only two Korean zones will be returned as zones.
 	}
 	callLogStart := call.Start()
 	zoneListResult, err := regionZoneHandler.VMClient.V2Api.GetZoneList(&zoneListReq)

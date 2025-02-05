@@ -71,10 +71,19 @@ func RegisterDisk(connectionName string, zoneId string, userIID cres.IID) (*cres
 	defer diskSPLock.Unlock(connectionName, userIID.NameId)
 
 	// (1) check existence(UserID)
-	bool_ret, err := infostore.HasByConditions(&DiskIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, userIID.NameId)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	bool_ret := false
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		bool_ret, err = infostore.HasByCondition(&DiskIIDInfo{}, NAME_ID_COLUMN, userIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		bool_ret, err = infostore.HasByConditions(&DiskIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, userIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	if bool_ret {
 		err := fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
@@ -180,13 +189,7 @@ func CreateDisk(connectionName string, rsType string, reqInfo cres.DiskInfo, IDT
 	// (1) check exist(NameID)
 	bool_ret := false
 	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-		var iidInfoList []*DiskIIDInfo
-		err = getAuthIIDInfoList(connectionName, &iidInfoList)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
-		}
-		bool_ret, err = isNameIdExists(&iidInfoList, reqInfo.IId.NameId)
+		bool_ret, err = infostore.HasByCondition(&DiskIIDInfo{}, NAME_ID_COLUMN, reqInfo.IId.NameId)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err

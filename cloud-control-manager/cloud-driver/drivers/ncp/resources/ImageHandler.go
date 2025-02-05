@@ -4,6 +4,7 @@
 // NCP Image Handler
 //
 // by ETRI, 2020.09.
+// Updated by ETRI, 2025.02.
 
 package resources
 
@@ -113,6 +114,43 @@ func (imageHandler *NcpImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 func MappingImageInfo(serverImage server.Product) irs.ImageInfo {
 	cblogger.Info("NCP Classic Cloud Driver: called MappingImageInfo()!")
 
+	var osPlatform irs.OSPlatform 
+	if serverImage.ProductType != nil {
+		if serverImage.ProductType.Code != nil {
+			if strings.EqualFold(*serverImage.ProductType.Code, "WINNT") {
+				osPlatform = irs.Windows
+			} else {
+				osPlatform = irs.PlatformNA
+			}
+			
+		} else {
+			osPlatform = irs.PlatformNA
+		}
+	} else {
+		osPlatform = irs.PlatformNA
+	}
+
+	var guestOS string
+	if serverImage.OsInformation != nil {
+		guestOS = *serverImage.OsInformation
+	} else {
+		guestOS = "NA"
+	}
+
+	var blockStorageSize string
+	if *serverImage.BaseBlockStorageSize != 0 {
+		blockStorageSize = strconv.FormatFloat(float64(*serverImage.BaseBlockStorageSize)/(1024*1024*1024), 'f', 0, 64)
+	} else {
+		blockStorageSize = "-1"
+	}
+
+	var imageStatus irs.ImageStatus
+	if serverImage.ProductCode != nil {
+		imageStatus = irs.ImageAvailable
+	} else {
+		imageStatus = irs.ImageNA
+	}
+
 	imageInfo := irs.ImageInfo{
 		IId: irs.IID{ // NOTE 주의 : serverImage.ProductCode -> ProductName 으로
 			NameId: 	*serverImage.ProductCode, 
@@ -120,18 +158,21 @@ func MappingImageInfo(serverImage server.Product) irs.ImageInfo {
 		},
 		GuestOS: *serverImage.OsInformation,
 		Status: "available",
+
+		Name: *serverImage.ProductCode,
+		OSArchitecture: irs.ArchitectureNA,
+		OSPlatform: osPlatform,		
+		OSDistribution: guestOS,
+		OSDiskType: "NA",
+		OSDiskSizeInGB: blockStorageSize, 
+		ImageStatus: imageStatus,
 	}
 
 	//Image OS Information
 	keyValueList := []irs.KeyValue{
 		{Key: "PlatformType", Value: *serverImage.PlatformType.CodeName},
 		{Key: "InfraResourceType", Value: *serverImage.InfraResourceType.CodeName},
-		{Key: "BaseBlockStorageSize(GB)", Value: strconv.FormatFloat(float64(*serverImage.BaseBlockStorageSize)/(1024*1024*1024), 'f', 0, 64)},
-		// {Key: "OsInformation", Value: *serverImage.OsInformation},	
-		// {Key: "DB Type", Value: *serverImage.DbKindCode},
-		// {Key: "NCP GenerationCode", Value: *serverImage.GenerationCode},
 	}
-	keyValueList = append(keyValueList, irs.KeyValue{Key: "Description", Value: *serverImage.ProductDescription})
 	imageInfo.KeyValueList = keyValueList
 	return imageInfo
 }
@@ -182,7 +223,6 @@ func (imageHandler *NcpImageHandler) DeleteImage(imageIID irs.IID) (bool, error)
 
 func (imageHandler *NcpImageHandler) GetNcpImageInfo(imageIID irs.IID) (*server.Product, error) {
 	cblogger.Info("NCP Classic Cloud Driver: called GetNcpImageInfo()!!")
-
 	InitLog()
 	callLogInfo := GetCallLogScheme(imageHandler.RegionInfo.Zone, call.VMIMAGE, imageIID.SystemId, "GetNcpImageInfo()")
 

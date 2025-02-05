@@ -167,8 +167,42 @@ func ExtractImageDescribeInfo(image *ec2.Image) irs.ImageInfo {
 		IId: irs.IID{*image.ImageId, *image.ImageId},
 		//Id:     *image.ImageId,
 		//Name:   *image.Name,
-		Status: *image.State,
+		//Status: *image.State,
 	}
+
+	osPlatform := extractOsPlatform(image)
+	osArchitecture := extractOsArchitecture(image)
+	distribution := extractOsDistribution(image)
+	imageStatus := extractImageAvailability(image)
+
+	imageSize := "-1"
+	imageDiskType := "NA"
+
+	// 생성 될 vm에 요구되는 root disk의 type
+	if image.RootDeviceType != nil {
+		imageDiskType = *image.RootDeviceType
+	}
+
+	// 생성 될 vm에 요구되는 root disk에 참고할 size 는 필요하다면 ebs volume size를 참고하여 계산할 것.
+	// for _, blockDevice := range image.BlockDeviceMappings {
+	// 	// EBS 또는 인스턴스 스토어 볼륨
+	// 	if blockDevice.Ebs != nil {
+	// 		imageSize = strconv.FormatInt(*blockDevice.Ebs.VolumeSize, 10)
+	// 		imageDiskType = "EBS"
+	// 		break
+	// 	} else {
+	// 		// cblogger.Error("blockDevice: ", blockDevice)
+	// 		cblogger.Error("image: ", image)
+	// 		continue
+	// 	}
+	// }
+
+	imageInfo.OSPlatform = osPlatform
+	imageInfo.OSArchitecture = osArchitecture
+	imageInfo.OSDistribution = distribution
+	imageInfo.ImageStatus = imageStatus
+	imageInfo.OSDiskSizeInGB = imageSize
+	imageInfo.OSDiskType = imageDiskType
 
 	keyValueList := []irs.KeyValue{
 		//{Key: "Name", Value: *image.Name}, //20200723-Name이 없는 이미지 존재 - 예)ami-0008a301
@@ -217,7 +251,6 @@ func ExtractImageDescribeInfo(image *ec2.Image) irs.ImageInfo {
 	}
 
 	imageInfo.KeyValueList = keyValueList
-
 	return imageInfo
 }
 
@@ -353,4 +386,58 @@ func (imageHandler *AwsImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, 
 	}
 
 	return isWindowsImage, nil
+}
+
+func extractOsPlatform(image *ec2.Image) irs.OSPlatform {
+	platform := image.Platform
+
+	if platform == nil {
+		return irs.PlatformNA
+	}
+	switch *platform {
+	case "Linux/UNIX":
+		return irs.Linux_UNIX
+	case "Windows":
+		return irs.Windows
+	default:
+		return irs.PlatformNA
+	}
+}
+
+func extractOsArchitecture(image *ec2.Image) irs.OSArchitecture {
+	arch := image.Architecture
+	if arch == nil {
+		return irs.ArchitectureNA
+	}
+
+	switch *arch {
+	case "arm64":
+		return irs.ARM64
+	case "arm64_mac":
+		return irs.ARM64_MAC
+	case "x86_64":
+		return irs.X86_64
+	case "x86_64_mac":
+		return irs.X86_64_MAC
+	default:
+		return irs.ArchitectureNA
+	}
+}
+
+func extractImageAvailability(image *ec2.Image) irs.ImageStatus {
+	state := image.State
+
+	if state == nil {
+		return irs.ImageNA
+	}
+	switch *state {
+	case "available":
+		return irs.ImageAvailable
+	default:
+		return irs.ImageUnavailable
+	}
+}
+
+func extractOsDistribution(image *ec2.Image) string {
+	return *image.Name
 }

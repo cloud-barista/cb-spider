@@ -6721,6 +6721,58 @@
                 }
             }
         },
+        "/securitygroup/vpc/{VPCName}": {
+            "get": {
+                "description": "Retrieve a list of Security Groups associated with a specific VPC in a given cloud connection.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[SecurityGroup Management]"
+                ],
+                "summary": "List Security Groups in a Specific VPC",
+                "operationId": "list-vpc-securitygroup",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the VPC to list Security Groups for",
+                        "name": "VPCName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list Security Groups for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response containing security groups under the key 'securitygroup'",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SecurityGroupListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to missing parameters",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/securitygroup/{Name}": {
             "get": {
                 "description": "Retrieve details of a specific Security Group.",
@@ -8344,58 +8396,6 @@
                     },
                     "404": {
                         "description": "Resource Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/spider.SimpleMsg"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/spider.SimpleMsg"
-                        }
-                    }
-                }
-            }
-        },
-        "/vpcsecuritygroup/{VPCName}": {
-            "get": {
-                "description": "Retrieve a list of Security Groups associated with a specific VPC in a given cloud connection.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "[SecurityGroup Management]"
-                ],
-                "summary": "List Security Groups in a Specific VPC",
-                "operationId": "list-vpc-securitygroup",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "The name of the VPC to list Security Groups for",
-                        "name": "VPCName",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "The name of the Connection to list Security Groups for",
-                        "name": "ConnectionName",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Response containing security groups under the key 'securitygroup'",
-                        "schema": {
-                            "$ref": "#/definitions/spider.SecurityGroupListResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request, possibly due to missing parameters",
                         "schema": {
                             "$ref": "#/definitions/spider.SimpleMsg"
                         }

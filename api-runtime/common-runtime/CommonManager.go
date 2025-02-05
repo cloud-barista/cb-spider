@@ -319,165 +319,363 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 	switch rsType {
 	case VPC:
 		var iidInfoList []*VPCIIDInfo
-		err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
-		if err != nil {
-			cblog.Error(err)
-			return false, err
-		}
-		if len(iidInfoList) <= 0 {
-			return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
-		}
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			err = getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
+			_, err := getAuthIIDInfo(&iidInfoList, nameId)
+			if err != nil {
+				if strings.Contains(err.Error(), "not found") {
+					return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
+				} else {
+					cblog.Error(err)
+					return false, err
+				}
+			}
+			_, err = infostore.DeleteByCondition(&VPCIIDInfo{}, NAME_ID_COLUMN, nameId)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
 
-		_, err = infostore.DeleteByConditions(&VPCIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
-		if err != nil {
-			cblog.Error(err)
-			return false, err
-		}
+			// unregister Subnets of this VPC
+			_, err = infostore.DeleteByCondition(&SubnetIIDInfo{}, OWNER_VPC_NAME_COLUMN, nameId)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
+		} else {
+			err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
+			if len(iidInfoList) <= 0 {
+				return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
+			}
 
-		// unregister Subnets of this VPC
-		_, err = infostore.DeleteByConditions(&SubnetIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, OWNER_VPC_NAME_COLUMN, nameId)
-		if err != nil {
-			cblog.Error(err)
-			return false, err
+			_, err = infostore.DeleteByConditions(&VPCIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
+
+			// unregister Subnets of this VPC
+			_, err = infostore.DeleteByConditions(&SubnetIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, OWNER_VPC_NAME_COLUMN, nameId)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
 		}
 		return true, nil
 
-	case KEY:
-		var iidInfoList []*KeyIIDInfo
-		err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
-		if err != nil {
-			cblog.Error(err)
-			return false, err
-		}
-		if len(iidInfoList) <= 0 {
-			return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
+		//// following resources are dependent on the VPC.
+	case SG:
+		var iidInfoList []*SGIIDInfo
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			err = getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
+			_, err := getAuthIIDInfo(&iidInfoList, nameId)
+			if err != nil {
+				if strings.Contains(err.Error(), "not found") {
+					return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
+				} else {
+					cblog.Error(err)
+					return false, err
+				}
+			}
+			for _, OneIIdInfo := range iidInfoList {
+				if OneIIdInfo.NameId == nameId {
+					_, err2 := infostore.DeleteByConditions(OneIIdInfo, NAME_ID_COLUMN, nameId, OWNER_VPC_NAME_COLUMN, OneIIdInfo.OwnerVPCName)
+					if err2 != nil {
+						cblog.Error(err2)
+						return false, err2
+					}
+					return true, nil
+				}
+			}
+		} else {
+			err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
+			if len(iidInfoList) <= 0 {
+				return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
+			}
+			for _, OneIIdInfo := range iidInfoList {
+				if OneIIdInfo.NameId == nameId {
+					_, err2 := infostore.DeleteBy3Conditions(OneIIdInfo, CONNECTION_NAME_COLUMN, connectionName,
+						NAME_ID_COLUMN, nameId, OWNER_VPC_NAME_COLUMN, OneIIdInfo.OwnerVPCName)
+					if err2 != nil {
+						cblog.Error(err2)
+						return false, err2
+					}
+					return true, nil
+				}
+			}
 		}
 
-		_, err = infostore.DeleteByConditions(&KeyIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
-		if err != nil {
-			cblog.Error(err)
-			return false, err
+	case KEY:
+		var iidInfoList []*KeyIIDInfo
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			err = getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
+			_, err := getAuthIIDInfo(&iidInfoList, nameId)
+			if err != nil {
+				if strings.Contains(err.Error(), "not found") {
+					return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
+				} else {
+					cblog.Error(err)
+					return false, err
+				}
+			}
+			_, err = infostore.DeleteByCondition(&KeyIIDInfo{}, NAME_ID_COLUMN, nameId)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
+		} else {
+			err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
+			if len(iidInfoList) <= 0 {
+				return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
+			}
+
+			_, err = infostore.DeleteByConditions(&KeyIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
 		}
 		return true, nil
 
 	case VM:
 		var iidInfoList []*VMIIDInfo
-		err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
-		if err != nil {
-			cblog.Error(err)
-			return false, err
-		}
-		if len(iidInfoList) <= 0 {
-			return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
-		}
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			err = getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
+			_, err := getAuthIIDInfo(&iidInfoList, nameId)
+			if err != nil {
+				if strings.Contains(err.Error(), "not found") {
+					return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
+				} else {
+					cblog.Error(err)
+					return false, err
+				}
+			}
+			_, err = infostore.DeleteByCondition(&VMIIDInfo{}, NAME_ID_COLUMN, nameId)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
+		} else {
+			err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
+			if len(iidInfoList) <= 0 {
+				return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
+			}
 
-		_, err = infostore.DeleteByConditions(&VMIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
-		if err != nil {
-			cblog.Error(err)
-			return false, err
+			_, err = infostore.DeleteByConditions(&VMIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
 		}
 		return true, nil
 
 	case DISK:
 		var iidInfoList []*DiskIIDInfo
-		err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
-		if err != nil {
-			cblog.Error(err)
-			return false, err
-		}
-		if len(iidInfoList) <= 0 {
-			return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
-		}
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			err = getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
+			_, err := getAuthIIDInfo(&iidInfoList, nameId)
+			if err != nil {
+				if strings.Contains(err.Error(), "not found") {
+					return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
+				} else {
+					cblog.Error(err)
+					return false, err
+				}
+			}
+			_, err = infostore.DeleteByCondition(&DiskIIDInfo{}, NAME_ID_COLUMN, nameId)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
+		} else {
+			err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
+			if len(iidInfoList) <= 0 {
+				return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
+			}
 
-		_, err = infostore.DeleteByConditions(&DiskIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
-		if err != nil {
-			cblog.Error(err)
-			return false, err
+			_, err = infostore.DeleteByConditions(&DiskIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
 		}
 		return true, nil
 
 	case MYIMAGE:
 		var iidInfoList []*MyImageIIDInfo
-		err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
-		if err != nil {
-			cblog.Error(err)
-			return false, err
-		}
-		if len(iidInfoList) <= 0 {
-			return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
-		}
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			err = getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
+			_, err := getAuthIIDInfo(&iidInfoList, nameId)
+			if err != nil {
+				if strings.Contains(err.Error(), "not found") {
+					return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
+				} else {
+					cblog.Error(err)
+					return false, err
+				}
+			}
+			_, err = infostore.DeleteByCondition(&DiskIIDInfo{}, NAME_ID_COLUMN, nameId)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
+		} else {
+			err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
+			if len(iidInfoList) <= 0 {
+				return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
+			}
 
-		_, err = infostore.DeleteByConditions(&MyImageIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
-		if err != nil {
-			cblog.Error(err)
-			return false, err
+			_, err = infostore.DeleteByConditions(&MyImageIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
 		}
 		return true, nil
 
-	//// following resources are dependent on the VPC.
-	case SG:
-		var iidInfoList []*SGIIDInfo
-		err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
-		if err != nil {
-			cblog.Error(err)
-			return false, err
-		}
-		if len(iidInfoList) <= 0 {
-			return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
-		}
-		for _, OneIIdInfo := range iidInfoList {
-			if OneIIdInfo.NameId == nameId {
-				_, err2 := infostore.DeleteBy3Conditions(OneIIdInfo, CONNECTION_NAME_COLUMN, connectionName,
-					NAME_ID_COLUMN, nameId, OWNER_VPC_NAME_COLUMN, OneIIdInfo.OwnerVPCName)
-				if err2 != nil {
-					cblog.Error(err2)
-					return false, err2
-				}
-				return true, nil
-			}
-		}
-
 	case NLB:
 		var iidInfoList []*NLBIIDInfo
-		err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
-		if err != nil {
-			cblog.Error(err)
-			return false, err
-		}
-		if len(iidInfoList) <= 0 {
-			return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
-		}
-		for _, OneIIdInfo := range iidInfoList {
-			if OneIIdInfo.NameId == nameId {
-				_, err2 := infostore.DeleteBy3Conditions(OneIIdInfo, CONNECTION_NAME_COLUMN, connectionName,
-					NAME_ID_COLUMN, nameId, OWNER_VPC_NAME_COLUMN, OneIIdInfo.OwnerVPCName)
-				if err2 != nil {
-					cblog.Error(err2)
-					return false, err2
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			err = getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
+			_, err := getAuthIIDInfo(&iidInfoList, nameId)
+			if err != nil {
+				if strings.Contains(err.Error(), "not found") {
+					return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
+				} else {
+					cblog.Error(err)
+					return false, err
 				}
-				return true, nil
+			}
+			for _, OneIIdInfo := range iidInfoList {
+				if OneIIdInfo.NameId == nameId {
+					_, err2 := infostore.DeleteByConditions(OneIIdInfo, NAME_ID_COLUMN, nameId, OWNER_VPC_NAME_COLUMN, OneIIdInfo.OwnerVPCName)
+					if err2 != nil {
+						cblog.Error(err2)
+						return false, err2
+					}
+					return true, nil
+				}
+			}
+		} else {
+			err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
+			if len(iidInfoList) <= 0 {
+				return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
+			}
+			for _, OneIIdInfo := range iidInfoList {
+				if OneIIdInfo.NameId == nameId {
+					_, err2 := infostore.DeleteBy3Conditions(OneIIdInfo, CONNECTION_NAME_COLUMN, connectionName,
+						NAME_ID_COLUMN, nameId, OWNER_VPC_NAME_COLUMN, OneIIdInfo.OwnerVPCName)
+					if err2 != nil {
+						cblog.Error(err2)
+						return false, err2
+					}
+					return true, nil
+				}
 			}
 		}
 
 	case CLUSTER:
 		var iidInfoList []*ClusterIIDInfo
-		err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
-		if err != nil {
-			cblog.Error(err)
-			return false, err
-		}
-		if len(iidInfoList) <= 0 {
-			return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
-		}
-		for _, OneIIdInfo := range iidInfoList {
-			if OneIIdInfo.NameId == nameId {
-				_, err2 := infostore.DeleteBy3Conditions(OneIIdInfo, CONNECTION_NAME_COLUMN, connectionName,
-					NAME_ID_COLUMN, nameId, OWNER_VPC_NAME_COLUMN, OneIIdInfo.OwnerVPCName)
-				if err2 != nil {
-					cblog.Error(err2)
-					return false, err2
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			err = getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
+			_, err := getAuthIIDInfo(&iidInfoList, nameId)
+			if err != nil {
+				if strings.Contains(err.Error(), "not found") {
+					return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
+				} else {
+					cblog.Error(err)
+					return false, err
 				}
-				return true, nil
+			}
+			for _, OneIIdInfo := range iidInfoList {
+				if OneIIdInfo.NameId == nameId {
+					_, err2 := infostore.DeleteByConditions(OneIIdInfo, NAME_ID_COLUMN, nameId, OWNER_VPC_NAME_COLUMN, OneIIdInfo.OwnerVPCName)
+					if err2 != nil {
+						cblog.Error(err2)
+						return false, err2
+					}
+					return true, nil
+				}
+			}
+		} else {
+			err := infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameId)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
+			if len(iidInfoList) <= 0 {
+				return false, fmt.Errorf("The %s '%s' does not exist!", RSTypeString(rsType), nameId)
+			}
+			for _, OneIIdInfo := range iidInfoList {
+				if OneIIdInfo.NameId == nameId {
+					_, err2 := infostore.DeleteBy3Conditions(OneIIdInfo, CONNECTION_NAME_COLUMN, connectionName,
+						NAME_ID_COLUMN, nameId, OWNER_VPC_NAME_COLUMN, OneIIdInfo.OwnerVPCName)
+					if err2 != nil {
+						cblog.Error(err2)
+						return false, err2
+					}
+					return true, nil
+				}
 			}
 		}
 
@@ -1085,22 +1283,46 @@ func DeleteCSPResource(connectionName string, rsType string, systemID string) (b
 	case DISK: // Zone-Level Control Resource(ex. Disk)
 		// (1) get IID(SystemId)
 		var iidInfo DiskIIDInfo
-		err = infostore.GetByConditionAndContain(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, systemID)
-		if err != nil {
-			if strings.Contains(err.Error(), "not exist") {
-				// if not exist, find Owner ZoneId
-				zoneId, err = findDiskOwnerZoneId(connectionName, systemID)
-				if err != nil {
-					cblog.Error(err)
-					return false, "", err
-				}
-
-			} else {
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*DiskIIDInfo
+			err = getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
 				cblog.Error(err)
 				return false, "", err
 			}
+			_, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, systemID)
+			if err != nil {
+				if strings.Contains(err.Error(), "not found") {
+					// if not exist, find Owner ZoneId
+					zoneId, err = findDiskOwnerZoneId(connectionName, systemID)
+					if err != nil {
+						cblog.Error(err)
+						return false, "", err
+					}
+
+				} else {
+					cblog.Error(err)
+					return false, "", err
+				}
+			}
 		} else {
-			zoneId = iidInfo.ZoneId
+			err = infostore.GetByConditionAndContain(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, systemID)
+			if err != nil {
+				if strings.Contains(err.Error(), "not exist") {
+					// if not exist, find Owner ZoneId
+					zoneId, err = findDiskOwnerZoneId(connectionName, systemID)
+					if err != nil {
+						cblog.Error(err)
+						return false, "", err
+					}
+
+				} else {
+					cblog.Error(err)
+					return false, "", err
+				}
+			} else {
+				zoneId = iidInfo.ZoneId
+			}
 		}
 
 		cldConn, err = ccm.GetZoneLevelCloudConnection(connectionName, zoneId)
@@ -1514,50 +1736,6 @@ func GetCSPResourceName(connectionName string, rsType string, nameID string) (st
 	}
 }
 
-// ListResourceName lists resource names by connectionName and rsType
-func ListResourceName(connectionName, rsType string) ([]string, error) {
-	var info interface{}
-
-	// Determine the type of info based on rsType
-	switch rsType {
-	case VPC:
-		v := VPCIIDInfo{}
-		info = &v
-	case SG:
-		v := SGIIDInfo{}
-		info = &v
-	case KEY:
-		v := KeyIIDInfo{}
-		info = &v
-	case VM:
-		v := VMIIDInfo{}
-		info = &v
-	case NLB:
-		v := NLBIIDInfo{}
-		info = &v
-	case DISK:
-		v := DiskIIDInfo{}
-		info = &v
-	case MYIMAGE:
-		v := MyImageIIDInfo{}
-		info = &v
-	case CLUSTER:
-		v := ClusterIIDInfo{}
-		info = &v
-	default:
-		return nil, fmt.Errorf("%s is not a supported Resource!!", rsType)
-	}
-
-	// List Name IDs by connectionName
-	nameIds, err := infostore.ListNameIDByConnection(info, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-
-	return nameIds, nil
-}
-
 // DestroyedInfo represents the status of resource destruction in a connection
 type DestroyedInfo struct {
 	IsAllDestroyed bool                       `json:"IsAllDestroyed" validate:"required" example:"true"` // true: all destroyed, false: some remained
@@ -1726,255 +1904,426 @@ func deleteAllResourcesInResType(connectionName string, rsType string) (*Deleted
 	return deletedResourceInfoList, nil
 }
 
-func getAuthorizedIIdInfoList(iidList []*cres.IID, connectionName string, iidInfoList interface{}) error {
-	provider, err := ccm.GetProviderNameByConnectionName(connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return err
-	}
-	region, _, err := ccm.GetRegionNameByConnectionName(connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return err
-	}
-	// fetch connectionName list same as provider and region from MetaDB
-	connectionNameList, err := ccm.ListConnectionNameByProviderAndRegion(provider, region)
-	if err != nil {
-		cblog.Error(err)
-		return err
+// ListResourceName lists resource names by connectionName and rsType
+func ListResourceName(connectionName, rsType string) ([]string, error) {
+	var info interface{}
+
+	// Determine the type of info based on rsType
+	switch rsType {
+	case VPC:
+		v := VPCIIDInfo{}
+		info = &v
+	case SG:
+		v := SGIIDInfo{}
+		info = &v
+	case KEY:
+		v := KeyIIDInfo{}
+		info = &v
+	case VM:
+		v := VMIIDInfo{}
+		info = &v
+	case NLB:
+		v := NLBIIDInfo{}
+		info = &v
+	case DISK:
+		v := DiskIIDInfo{}
+		info = &v
+	case MYIMAGE:
+		v := MyImageIIDInfo{}
+		info = &v
+	case CLUSTER:
+		v := ClusterIIDInfo{}
+		info = &v
+	default:
+		return nil, fmt.Errorf("%s is not a supported Resource!!", rsType)
 	}
 
-	for _, iid := range iidList {
-		for _, oneName := range connectionNameList {
-			switch v := iidInfoList.(type) {
-			case *[]*VPCIIDInfo: // VPC
-				var tmpIIDInfoList []*VPCIIDInfo
-				err = infostore.ListByCondition(&tmpIIDInfoList, CONNECTION_NAME_COLUMN, oneName)
-				if err != nil {
-					cblog.Error(err)
-					return err
+	// List Name IDs by connectionName
+	nameIds, err := infostore.ListNameIDByConnection(info, connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	return nameIds, nil
+}
+
+// Get authorized IIDInfo list based on type
+func getAuthIIDInfoList(connectionName string, iidInfoList interface{}) error {
+	// Get cloud connection
+	cldConn, err := ccm.GetCloudConnection(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return fmt.Errorf("failed to get cloud connection: %v", err)
+	}
+
+	// Fetch all ID list from MetaDB without connectionName condition
+	switch v := iidInfoList.(type) {
+	case *[]*VPCIIDInfo:
+		tmpIIDInfoList := []*VPCIIDInfo{}
+		handler, err := cldConn.CreateVPCHandler()
+		// Fetch granted ID list from CSP
+		iidList, err := handler.ListIID()
+		if err != nil {
+			cblog.Error(err)
+			return fmt.Errorf("failed to list IIDs from CSP: %v", err)
+		}
+		err = infostore.List(&tmpIIDInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return fmt.Errorf("failed to list from MetaDB: %v", err)
+		}
+
+		for _, tmp := range tmpIIDInfoList {
+			for _, iid := range iidList {
+				if iid.SystemId == getDriverSystemId(cres.IID{NameId: tmp.NameId, SystemId: tmp.SystemId}) {
+					*v = append(*v, tmp)
 				}
-				for _, tmpIIDInfo := range tmpIIDInfoList {
-					if iid.SystemId == getDriverSystemId(cres.IID{NameId: tmpIIDInfo.NameId, SystemId: tmpIIDInfo.SystemId}) {
-						*v = append(*v, tmpIIDInfo)
-					}
-				}
-			case *[]*SGIIDInfo: // SG
-				var tmpIIDInfoList []*SGIIDInfo
-				err = infostore.ListByCondition(&tmpIIDInfoList, CONNECTION_NAME_COLUMN, oneName)
-				if err != nil {
-					cblog.Error(err)
-					return err
-				}
-				for _, tmpIIDInfo := range tmpIIDInfoList {
-					if iid.SystemId == getDriverSystemId(cres.IID{NameId: tmpIIDInfo.NameId, SystemId: tmpIIDInfo.SystemId}) {
-						*v = append(*v, tmpIIDInfo)
-					}
-				}
-			case *[]*KeyIIDInfo: // KEY
-				var tmpIIDInfoList []*KeyIIDInfo
-				err = infostore.ListByCondition(&tmpIIDInfoList, CONNECTION_NAME_COLUMN, oneName)
-				if err != nil {
-					cblog.Error(err)
-					return err
-				}
-				for _, tmpIIDInfo := range tmpIIDInfoList {
-					if iid.SystemId == getDriverSystemId(cres.IID{NameId: tmpIIDInfo.NameId, SystemId: tmpIIDInfo.SystemId}) {
-						*v = append(*v, tmpIIDInfo)
-					}
-				}
-			case *[]*VMIIDInfo: // VM
-				var tmpIIDInfoList []*VMIIDInfo
-				err = infostore.ListByCondition(&tmpIIDInfoList, CONNECTION_NAME_COLUMN, oneName)
-				if err != nil {
-					cblog.Error(err)
-					return err
-				}
-				for _, tmpIIDInfo := range tmpIIDInfoList {
-					if iid.SystemId == getDriverSystemId(cres.IID{NameId: tmpIIDInfo.NameId, SystemId: tmpIIDInfo.SystemId}) {
-						*v = append(*v, tmpIIDInfo)
-					}
-				}
-			case *[]*NLBIIDInfo: // NLB
-				var tmpIIDInfoList []*NLBIIDInfo
-				err = infostore.ListByCondition(&tmpIIDInfoList, CONNECTION_NAME_COLUMN, oneName)
-				if err != nil {
-					cblog.Error(err)
-					return err
-				}
-				for _, tmpIIDInfo := range tmpIIDInfoList {
-					if iid.SystemId == getDriverSystemId(cres.IID{NameId: tmpIIDInfo.NameId, SystemId: tmpIIDInfo.SystemId}) {
-						*v = append(*v, tmpIIDInfo)
-					}
-				}
-			case *[]*DiskIIDInfo: // DISK
-				var tmpIIDInfoList []*DiskIIDInfo
-				err = infostore.ListByCondition(&tmpIIDInfoList, CONNECTION_NAME_COLUMN, oneName)
-				if err != nil {
-					cblog.Error(err)
-					return err
-				}
-				for _, tmpIIDInfo := range tmpIIDInfoList {
-					if iid.SystemId == getDriverSystemId(cres.IID{NameId: tmpIIDInfo.NameId, SystemId: tmpIIDInfo.SystemId}) {
-						*v = append(*v, tmpIIDInfo)
-					}
-				}
-			case *[]*MyImageIIDInfo: // MYIMAGE
-				var tmpIIDInfoList []*MyImageIIDInfo
-				err = infostore.ListByCondition(&tmpIIDInfoList, CONNECTION_NAME_COLUMN, oneName)
-				if err != nil {
-					cblog.Error(err)
-					return err
-				}
-				for _, tmpIIDInfo := range tmpIIDInfoList {
-					if iid.SystemId == getDriverSystemId(cres.IID{NameId: tmpIIDInfo.NameId, SystemId: tmpIIDInfo.SystemId}) {
-						*v = append(*v, tmpIIDInfo)
-					}
-				}
-			case *[]*ClusterIIDInfo: // CLUSTER
-				var tmpIIDInfoList []*ClusterIIDInfo
-				err = infostore.ListByCondition(&tmpIIDInfoList, CONNECTION_NAME_COLUMN, oneName)
-				if err != nil {
-					cblog.Error(err)
-					return err
-				}
-				for _, tmpIIDInfo := range tmpIIDInfoList {
-					if iid.SystemId == getDriverSystemId(cres.IID{NameId: tmpIIDInfo.NameId, SystemId: tmpIIDInfo.SystemId}) {
-						*v = append(*v, tmpIIDInfo)
-					}
-				}
-			default:
-				return fmt.Errorf("unsupported type for iidInfoList")
 			}
 		}
+	case *[]*SGIIDInfo:
+		tmpIIDInfoList := []*SGIIDInfo{}
+		handler, err := cldConn.CreateSecurityHandler()
+		// Fetch granted ID list from CSP
+		iidList, err := handler.ListIID()
+		if err != nil {
+			cblog.Error(err)
+			return fmt.Errorf("failed to list IIDs from CSP: %v", err)
+		}
+		err = infostore.List(&tmpIIDInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return fmt.Errorf("failed to list from MetaDB: %v", err)
+		}
+
+		for _, tmp := range tmpIIDInfoList {
+			for _, iid := range iidList {
+				if iid.SystemId == getDriverSystemId(cres.IID{NameId: tmp.NameId, SystemId: tmp.SystemId}) {
+					*v = append(*v, tmp)
+				}
+			}
+		}
+	case *[]*KeyIIDInfo:
+		tmpIIDInfoList := []*KeyIIDInfo{}
+		handler, err := cldConn.CreateKeyPairHandler()
+		// Fetch granted ID list from CSP
+		iidList, err := handler.ListIID()
+		if err != nil {
+			cblog.Error(err)
+			return fmt.Errorf("failed to list IIDs from CSP: %v", err)
+		}
+		err = infostore.List(&tmpIIDInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return fmt.Errorf("failed to list from MetaDB: %v", err)
+		}
+
+		for _, tmp := range tmpIIDInfoList {
+			for _, iid := range iidList {
+				if iid.SystemId == getDriverSystemId(cres.IID{NameId: tmp.NameId, SystemId: tmp.SystemId}) {
+					*v = append(*v, tmp)
+				}
+			}
+		}
+	case *[]*VMIIDInfo:
+		tmpIIDInfoList := []*VMIIDInfo{}
+		handler, err := cldConn.CreateVMHandler()
+		// Fetch granted ID list from CSP
+		iidList, err := handler.ListIID()
+		if err != nil {
+			cblog.Error(err)
+			return fmt.Errorf("failed to list IIDs from CSP: %v", err)
+		}
+		err = infostore.List(&tmpIIDInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return fmt.Errorf("failed to list from MetaDB: %v", err)
+		}
+
+		for _, tmp := range tmpIIDInfoList {
+			for _, iid := range iidList {
+				if iid.SystemId == getDriverSystemId(cres.IID{NameId: tmp.NameId, SystemId: tmp.SystemId}) {
+					*v = append(*v, tmp)
+				}
+			}
+		}
+	case *[]*NLBIIDInfo:
+		tmpIIDInfoList := []*NLBIIDInfo{}
+		handler, err := cldConn.CreateNLBHandler()
+		// Fetch granted ID list from CSP
+		iidList, err := handler.ListIID()
+		if err != nil {
+			cblog.Error(err)
+			return fmt.Errorf("failed to list IIDs from CSP: %v", err)
+		}
+		err = infostore.List(&tmpIIDInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return fmt.Errorf("failed to list from MetaDB: %v", err)
+		}
+
+		for _, tmp := range tmpIIDInfoList {
+			for _, iid := range iidList {
+				if iid.SystemId == getDriverSystemId(cres.IID{NameId: tmp.NameId, SystemId: tmp.SystemId}) {
+					*v = append(*v, tmp)
+				}
+			}
+		}
+	case *[]*DiskIIDInfo:
+		tmpIIDInfoList := []*DiskIIDInfo{}
+		handler, err := cldConn.CreateDiskHandler()
+		// Fetch granted ID list from CSP
+		iidList, err := handler.ListIID()
+		if err != nil {
+			cblog.Error(err)
+			return fmt.Errorf("failed to list IIDs from CSP: %v", err)
+		}
+		err = infostore.List(&tmpIIDInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return fmt.Errorf("failed to list from MetaDB: %v", err)
+		}
+
+		for _, tmp := range tmpIIDInfoList {
+			for _, iid := range iidList {
+				if iid.SystemId == getDriverSystemId(cres.IID{NameId: tmp.NameId, SystemId: tmp.SystemId}) {
+					*v = append(*v, tmp)
+				}
+			}
+		}
+	case *[]*MyImageIIDInfo:
+		tmpIIDInfoList := []*MyImageIIDInfo{}
+		handler, err := cldConn.CreateMyImageHandler()
+		// Fetch granted ID list from CSP
+		iidList, err := handler.ListIID()
+		if err != nil {
+			cblog.Error(err)
+			return fmt.Errorf("failed to list IIDs from CSP: %v", err)
+		}
+		err = infostore.List(&tmpIIDInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return fmt.Errorf("failed to list from MetaDB: %v", err)
+		}
+
+		for _, tmp := range tmpIIDInfoList {
+			for _, iid := range iidList {
+				if iid.SystemId == getDriverSystemId(cres.IID{NameId: tmp.NameId, SystemId: tmp.SystemId}) {
+					*v = append(*v, tmp)
+				}
+			}
+		}
+	case *[]*ClusterIIDInfo:
+		tmpIIDInfoList := []*ClusterIIDInfo{}
+		handler, err := cldConn.CreateClusterHandler()
+		// Fetch granted ID list from CSP
+		iidList, err := handler.ListIID()
+		if err != nil {
+			cblog.Error(err)
+			return fmt.Errorf("failed to list IIDs from CSP: %v", err)
+		}
+		err = infostore.List(&tmpIIDInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return fmt.Errorf("failed to list from MetaDB: %v", err)
+		}
+
+		for _, tmp := range tmpIIDInfoList {
+			for _, iid := range iidList {
+				if iid.SystemId == getDriverSystemId(cres.IID{NameId: tmp.NameId, SystemId: tmp.SystemId}) {
+					*v = append(*v, tmp)
+				}
+			}
+		}
+	default:
+		return fmt.Errorf("unsupported type for iidInfoList")
 	}
 
 	return nil
 }
 
-func getAuthorizedIIdInfo(connectionName string, nameID string, result interface{}) error {
-	provider, err := ccm.GetProviderNameByConnectionName(connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return err
-	}
-	region, _, err := ccm.GetRegionNameByConnectionName(connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return err
+// Check if NameId exists in IIDInfo list
+func isNameIdExists(iidInfoList interface{}, nameId string) (bool, error) {
+	if iidInfoList == nil {
+		return false, fmt.Errorf("the iidInfoList is nil")
 	}
 
-	// Fetch connectionName list that matches provider and region from MetaDB
-	connectionNameList, err := ccm.ListConnectionNameByProviderAndRegion(provider, region)
-	if err != nil {
-		cblog.Error(err)
-		return err
-	}
-
-	var iidInfo interface{}
-	switch result.(type) {
-	case *VPCIIDInfo: // VPC
-		iidInfo = &VPCIIDInfo{}
-	case *SGIIDInfo: // SG
-		iidInfo = &SGIIDInfo{}
-	case *KeyIIDInfo: // KEY
-		iidInfo = &KeyIIDInfo{}
-	case *VMIIDInfo: // VM
-		iidInfo = &VMIIDInfo{}
-	case *NLBIIDInfo: // NLB
-		iidInfo = &NLBIIDInfo{}
-	case *DiskIIDInfo: // DISK
-		iidInfo = &DiskIIDInfo{}
-	case *MyImageIIDInfo: // MYIMAGE
-		iidInfo = &MyImageIIDInfo{}
-	case *ClusterIIDInfo: // CLUSTER
-		iidInfo = &ClusterIIDInfo{}
-	default:
-		return fmt.Errorf("unsupported result type")
-	}
-
-	err = fmt.Errorf("iid info not found for nameID: %s", nameID)
-	for _, oneName := range connectionNameList {
-		// Fetch iidInfo by connectionName from MetaDB
-		fetchErr := infostore.GetByConditions(iidInfo, CONNECTION_NAME_COLUMN, oneName, NAME_ID_COLUMN, nameID)
-		if fetchErr != nil {
-			if !strings.Contains(fetchErr.Error(), "not exist") {
-				cblog.Error(fetchErr)
-				return fetchErr
+	switch v := iidInfoList.(type) {
+	case *[]*VPCIIDInfo:
+		for _, iidInfo := range *v {
+			if iidInfo.NameId == nameId {
+				return true, nil // NameId exists
 			}
-		} else {
-			err = nil
-			break
 		}
+	case *[]*SGIIDInfo:
+		for _, iidInfo := range *v {
+			if iidInfo.NameId == nameId {
+				return true, nil // NameId exists
+			}
+		}
+	case *[]*KeyIIDInfo:
+		for _, iidInfo := range *v {
+			if iidInfo.NameId == nameId {
+				return true, nil // NameId exists
+			}
+		}
+	case *[]*VMIIDInfo:
+		for _, iidInfo := range *v {
+			if iidInfo.NameId == nameId {
+				return true, nil // NameId exists
+			}
+		}
+	case *[]*NLBIIDInfo:
+		for _, iidInfo := range *v {
+			if iidInfo.NameId == nameId {
+				return true, nil // NameId exists
+			}
+		}
+	case *[]*DiskIIDInfo:
+		for _, iidInfo := range *v {
+			if iidInfo.NameId == nameId {
+				return true, nil // NameId exists
+			}
+		}
+	case *[]*MyImageIIDInfo:
+		for _, iidInfo := range *v {
+			if iidInfo.NameId == nameId {
+				return true, nil // NameId exists
+			}
+		}
+	case *[]*ClusterIIDInfo:
+		for _, iidInfo := range *v {
+			if iidInfo.NameId == nameId {
+				return true, nil // NameId exists
+			}
+		}
+	default:
+		return false, fmt.Errorf("unsupported type for iidInfoList")
 	}
 
-	if err != nil {
-		return err
-	}
-
-	// Assign the fetched value to the result
-	switch v := result.(type) {
-	case *VMIIDInfo:
-		*v = *iidInfo.(*VMIIDInfo)
-	case *VPCIIDInfo:
-		*v = *iidInfo.(*VPCIIDInfo)
-	}
-
-	return nil
+	return false, nil // NameId does not exist
 }
 
-func getAuthorizedIIdInfoInVPC(connectionName string, nameID string, ownerVPCName string, result interface{}) error {
-	provider, err := ccm.GetProviderNameByConnectionName(connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return err
-	}
-	region, _, err := ccm.GetRegionNameByConnectionName(connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return err
+// Get IIDInfo by NameId from IIDInfo list
+func getAuthIIDInfo(iidInfoList interface{}, nameId string) (interface{}, error) {
+	if iidInfoList == nil {
+		return nil, fmt.Errorf("the iidInfoList is nil")
 	}
 
-	// Fetch connectionName list that matches provider and region from MetaDB
-	connectionNameList, err := ccm.ListConnectionNameByProviderAndRegion(provider, region)
-	if err != nil {
-		cblog.Error(err)
-		return err
-	}
-
-	// Set a default 'not found' error
-	err = fmt.Errorf("iid info not found for nameID: %s in VPC: %s", nameID, ownerVPCName)
-	var iidInfo interface{}
-	switch result.(type) {
-	case *SubnetIIDInfo:
-		iidInfo = &SubnetIIDInfo{}
-	default:
-		return fmt.Errorf("unsupported result type")
-	}
-
-	for _, oneName := range connectionNameList {
-		// Fetch iidInfo by connectionName from MetaDB with VPC condition
-		fetchErr := infostore.GetBy3Conditions(iidInfo, CONNECTION_NAME_COLUMN, oneName, NAME_ID_COLUMN, nameID, OWNER_VPC_NAME_COLUMN, ownerVPCName)
-		if fetchErr != nil {
-			if !strings.Contains(fetchErr.Error(), "not exist") {
-				cblog.Error(fetchErr)
-				return fetchErr
+	switch v := iidInfoList.(type) {
+	case *[]*VPCIIDInfo:
+		for _, iidInfo := range *v {
+			if iidInfo.NameId == nameId {
+				return iidInfo, nil // Return matching VPCIIDInfo
 			}
-		} else {
-			err = nil
-			break
 		}
+	case *[]*SGIIDInfo:
+		for _, iidInfo := range *v {
+			if iidInfo.NameId == nameId {
+				return iidInfo, nil // Return matching SGIIDInfo
+			}
+		}
+	case *[]*KeyIIDInfo:
+		for _, iidInfo := range *v {
+			if iidInfo.NameId == nameId {
+				return iidInfo, nil // Return matching KeyIIDInfo
+			}
+		}
+	case *[]*VMIIDInfo:
+		for _, iidInfo := range *v {
+			if iidInfo.NameId == nameId {
+				return iidInfo, nil // Return matching VMIIDInfo
+			}
+		}
+	case *[]*NLBIIDInfo:
+		for _, iidInfo := range *v {
+			if iidInfo.NameId == nameId {
+				return iidInfo, nil // Return matching NLBIIDInfo
+			}
+		}
+	case *[]*DiskIIDInfo:
+		for _, iidInfo := range *v {
+			if iidInfo.NameId == nameId {
+				return iidInfo, nil // Return matching DiskIIDInfo
+			}
+		}
+	case *[]*MyImageIIDInfo:
+		for _, iidInfo := range *v {
+			if iidInfo.NameId == nameId {
+				return iidInfo, nil // Return matching MyImageIIDInfo
+			}
+		}
+	case *[]*ClusterIIDInfo:
+		for _, iidInfo := range *v {
+			if iidInfo.NameId == nameId {
+				return iidInfo, nil // Return matching ClusterIIDInfo
+			}
+		}
+	default:
+		return nil, fmt.Errorf("unsupported type for iidInfoList")
 	}
 
-	if err != nil {
-		return err
+	return nil, fmt.Errorf("nameId %s not found", nameId) // No matching IIDInfo found
+}
+
+// Get IIDInfo by SystemId (contains match) from IIDInfo list
+func getAuthIIDInfoBySystemIdContain(iidInfoList interface{}, systemId string) (interface{}, error) {
+	if iidInfoList == nil {
+		return nil, fmt.Errorf("the iidInfoList is nil")
 	}
 
-	// Assign the fetched value to the result
-	switch v := result.(type) {
-	case *SubnetIIDInfo:
-		*v = *iidInfo.(*SubnetIIDInfo)
+	switch v := iidInfoList.(type) {
+	case *[]*VPCIIDInfo:
+		for _, iidInfo := range *v {
+			if strings.Contains(iidInfo.SystemId, systemId) {
+				return iidInfo, nil // Return matching VPCIIDInfo
+			}
+		}
+	case *[]*SGIIDInfo:
+		for _, iidInfo := range *v {
+			if strings.Contains(iidInfo.SystemId, systemId) {
+				return iidInfo, nil // Return matching SGIIDInfo
+			}
+		}
+	case *[]*KeyIIDInfo:
+		for _, iidInfo := range *v {
+			if strings.Contains(iidInfo.SystemId, systemId) {
+				return iidInfo, nil // Return matching KeyIIDInfo
+			}
+		}
+	case *[]*VMIIDInfo:
+		for _, iidInfo := range *v {
+			if strings.Contains(iidInfo.SystemId, systemId) {
+				return iidInfo, nil // Return matching VMIIDInfo
+			}
+		}
+	case *[]*NLBIIDInfo:
+		for _, iidInfo := range *v {
+			if strings.Contains(iidInfo.SystemId, systemId) {
+				return iidInfo, nil // Return matching NLBIIDInfo
+			}
+		}
+	case *[]*DiskIIDInfo:
+		for _, iidInfo := range *v {
+			if strings.Contains(iidInfo.SystemId, systemId) {
+				return iidInfo, nil // Return matching DiskIIDInfo
+			}
+		}
+	case *[]*MyImageIIDInfo:
+		for _, iidInfo := range *v {
+			if strings.Contains(iidInfo.SystemId, systemId) {
+				return iidInfo, nil // Return matching MyImageIIDInfo
+			}
+		}
+	case *[]*ClusterIIDInfo:
+		for _, iidInfo := range *v {
+			if strings.Contains(iidInfo.SystemId, systemId) {
+				return iidInfo, nil // Return matching ClusterIIDInfo
+			}
+		}
+	default:
+		return nil, fmt.Errorf("unsupported type for iidInfoList")
 	}
 
-	return nil
+	return nil, fmt.Errorf("systemId %s not found", systemId) // No matching IIDInfo found
 }

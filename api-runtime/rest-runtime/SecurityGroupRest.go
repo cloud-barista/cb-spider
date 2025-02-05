@@ -242,7 +242,7 @@ func ListAllSecurity(c echo.Context) error {
 // @Success 200 {object} restruntime.SecurityGroupListResponse "Response containing security groups under the key 'securitygroup'"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to missing parameters"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
-// @Router /vpcsecuritygroup/{VPCName} [get]
+// @Router /securitygroup/vpc/{VPCName} [get]
 func ListVpcSecurity(c echo.Context) error {
 	cblog.Info("call ListVpcSecurity()")
 
@@ -257,12 +257,12 @@ func ListVpcSecurity(c echo.Context) error {
 		req.ConnectionName = c.QueryParam("ConnectionName")
 	}
 
-	vpcName := c.Param("VpcName")
+	vpcName := c.Param("VPCName")
 	if vpcName == "" {
 		return echo.NewHTTPError(http.StatusBadRequest, "VPCName is required")
 	}
 
-	allSecurityGroups, err := cmrt.ListSecurity(req.ConnectionName, SG)
+	allSecurityGroups, err := cmrt.ListVpcSecurity(req.ConnectionName, SG, vpcName)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
