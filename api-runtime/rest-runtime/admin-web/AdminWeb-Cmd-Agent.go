@@ -39,12 +39,6 @@ type RequestBody struct {
 	Messages    []Message `json:"messages"`
 }
 
-// (Anthropic API 응답을 parsing할 때 필요하면 아래 구조체를 추가할 수 있음)
-// type AnthropicResponse struct {
-//   Completion string `json:"completion"`
-//   ...
-// }
-
 // -------------------------------------------------------
 
 // getAPIKey first checks environment variable, then falls back to key file
@@ -86,18 +80,15 @@ func GenerateCmd(c echo.Context) error {
 		Query string `json:"query"`
 	}
 
-	// 사용자 요청 바인딩
 	if err := c.Bind(&userInput); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request")
 	}
 
-	// Claude API Key 읽기
 	apiKey, err := getAPIKey()
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to get API key")
 	}
 
-	// 사용자 요청을 Anthropic에 전달할 메시지 구성
 	messages := []Message{
 		{
 			Role: "user",
@@ -107,7 +98,6 @@ func GenerateCmd(c echo.Context) error {
 		},
 	}
 
-	// Claude 요청 바디
 	requestBody := RequestBody{
 		Model:       "claude-3-5-sonnet-20241022",
 		MaxTokens:   8192,
@@ -154,13 +144,11 @@ func GenerateCmd(c echo.Context) error {
 		Messages: messages,
 	}
 
-	// JSON 변환
 	jsonData, err := json.Marshal(requestBody)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to marshal JSON")
 	}
 
-	// Anthropic API 호출
 	req, err := http.NewRequest("POST", "https://api.anthropic.com/v1/messages", bytes.NewBuffer(jsonData))
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to create API request")
@@ -182,7 +170,6 @@ func GenerateCmd(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to read response")
 	}
 
-	// 응답에서 content[].text 필드만 추출해 최종 명령어를 얻음
 	type AnthropicResponse struct {
 		Content []struct {
 			Type string `json:"type"`
@@ -196,12 +183,10 @@ func GenerateCmd(c echo.Context) error {
 			fmt.Sprintf("Error parsing response: %v", err))
 	}
 
-	// content[].text를 모두 이어 붙여 결과 문자열 생성
 	var commandsOnly string
 	for _, cData := range anthropicResp.Content {
 		commandsOnly += cData.Text + "\n"
 	}
 
-	// 명령어 문자열만 반환 (HTML에서 그대로 표시)
 	return c.String(http.StatusOK, commandsOnly)
 }
