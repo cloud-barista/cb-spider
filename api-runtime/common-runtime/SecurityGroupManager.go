@@ -629,7 +629,17 @@ func ListVpcSecurity(connectionName, rsType, vpcName string) ([]*cres.SecurityIn
 		return nil, err
 	}
 
-	//(1) get IId of SG for typical vpc -> iidInfoList
+	// (0) check whether vpcName is exist
+	var vpcIIDInfo VPCIIDInfo
+	isExist, _ := infostore.HasByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName,
+		NAME_ID_COLUMN, vpcName)
+	if !isExist {
+		err := fmt.Errorf("%s", "The VPC-"+vpcName+" does not exist!")
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// (1) get IId of SG for typical vpc -> iidInfoList
 	var iidInfoList []*SGIIDInfo
 	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
 		var iidInfoListAll []*SGIIDInfo
@@ -651,7 +661,7 @@ func ListVpcSecurity(connectionName, rsType, vpcName string) ([]*cres.SecurityIn
 		}
 	}
 
-	//(2) Get Security Group list with iidInfoList
+	// (2) Get Security Group list with iidInfoList
 	infoList := []*cres.SecurityInfo{}
 	for _, iidInfo := range iidInfoList {
 		sgSPLock.RLock(connectionName, iidInfo.NameId)
