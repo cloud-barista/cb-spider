@@ -634,6 +634,13 @@ func (nlbHandler *OpenStackNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs
 			unHealthVMs = append(unHealthVMs, vmIID)
 		} else {
 			// OFFLINE DEGRADED ERROR NO_MONITOR 일 경우, HealthCheck 결과가 멤버에 제대로 갱신되지 않는 octavia 이슈일 수 있음
+			if strings.ToUpper(vm.Status) == "ACTIVE" {
+				member.OperatingStatus = "ONLINE"
+				healthVMs = append(healthVMs, vmIID)
+
+				continue
+			}
+
 			getErr := errors.New(fmt.Sprintf("Failed to GetVMGroupHealthInfo. err = Unable to determine operating status of member. This openstack may not update the OperatingStatus"))
 			cblogger.Error(getErr.Error())
 			LoggingError(hiscallInfo, getErr)
@@ -883,6 +890,7 @@ func (nlbHandler *OpenStackNLBHandler) getRawVMByName(name string) (*servers.Ser
 	if len(list) != 1 {
 		return nil, errors.New("not Exist Server")
 	}
+
 	return &list[0], nil
 }
 

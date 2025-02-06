@@ -248,26 +248,26 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 		}
 	}
 
-	defer func() {
+	var publicIPStr string
+	defer func(publicIP string) {
 		if createErr != nil {
 			cleanVMIId := irs.IID{
 				SystemId: server.ID,
 			}
-			cleanErr := vmHandler.vmCleaner(cleanVMIId)
+			cleanErr := vmHandler.vmCleaner(cleanVMIId, publicIP)
 			if cleanErr != nil {
 				createErr = errors.New(fmt.Sprintf("%s Failed to rollback deleting err = %s", createErr, cleanErr))
 			}
 		}
-	}()
+	}(publicIPStr)
 
 	var serverResult *servers.Server
 	var serverInfo irs.VMInfo
 	start := call.Start()
-	// VM 생성 완료까지 wait
+	//vm 생성 완료까지 wait
 	curRetryCnt := 0
 	maxRetryCnt := 240
 	for {
-		// Check VM Deploy Status
 		serverResult, err = servers.Get(vmHandler.ComputeClient, server.ID).Extract()
 		if err != nil {
 			createErr = errors.New(fmt.Sprintf("Failed to startVM err = failed to get vmInfo, err : %s", err))
@@ -276,14 +276,17 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 			return irs.VMInfo{}, createErr
 		}
 		if strings.ToLower(serverResult.Status) == "active" {
-			// Associate Public IP
-			if ok, err := vmHandler.AssociatePublicIP(serverResult.ID); !ok {
+			// Floating IP 연결 시도
+			ok, ipStr, err := vmHandler.AssociatePublicIP(serverResult.ID)
+			if !ok {
+				publicIPStr = ipStr // 실패 시에도 생성된 public IP 값 반환됨
 				createErr = errors.New(fmt.Sprintf("Failed to startVM err = failed to Associate PublicIP, err : %s", err))
 				cblogger.Error(createErr.Error())
 				LoggingError(hiscallInfo, createErr)
 				return irs.VMInfo{}, createErr
 			}
-			// Get server info
+			publicIPStr = ipStr // 성공 시 생성된 public IP 값 저장
+			cblogger.Info(fmt.Sprintf("Public IP created and associated: %s", publicIPStr))
 			break
 		}
 		curRetryCnt++
@@ -295,11 +298,12 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 			return irs.VMInfo{}, createErr
 		}
 	}
+
 	//  If DataDisk Exist
 	if len(vmReqInfo.DataDiskIIDs) > 0 {
 		serverResult, err = AttachList(vmReqInfo.DataDiskIIDs, vmReqInfo.IId, vmHandler.ComputeClient, vmHandler.VolumeClient)
 		if err != nil {
-			createErr = errors.New(fmt.Sprintf("Failed to startVM err =  %s", err))
+			createErr = errors.New(fmt.Sprintf("Failed to startVM err = %s", err))
 			cblogger.Error(createErr.Error())
 			LoggingError(hiscallInfo, createErr)
 			return irs.VMInfo{}, createErr
@@ -307,7 +311,7 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 	} else {
 		serverResult, err = servers.Get(vmHandler.ComputeClient, server.ID).Extract()
 		if err != nil {
-			createErr = errors.New(fmt.Sprintf("Failed to startVM err =  %s", err))
+			createErr = errors.New(fmt.Sprintf("Failed to startVM err = %s", err))
 			cblogger.Error(createErr.Error())
 			LoggingError(hiscallInfo, createErr)
 			return irs.VMInfo{}, createErr
@@ -423,7 +427,17 @@ func (vmHandler *OpenStackVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, e
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vmHandler.ComputeClient.IdentityEndpoint, call.VM, vmIID.NameId, "TerminateVM()")
 	start := call.Start()
-	cleanErr := vmHandler.vmCleaner(vmIID)
+
+	// 서버 정보 조회 (PublicIP 확인을 위해)
+	server, err := vmHandler.GetVM(vmIID)
+	if err != nil {
+		terminateErr := errors.New(fmt.Sprintf("Failed to get VM info. err = %s", err))
+		cblogger.Error(terminateErr.Error())
+		LoggingError(hiscallInfo, terminateErr)
+		return irs.Failed, terminateErr
+	}
+
+	cleanErr := vmHandler.vmCleaner(vmIID, server.PublicIP)
 	if cleanErr != nil {
 		terminateErr := errors.New(fmt.Sprintf("Failed to Terminate VM. err = %s", cleanErr))
 		cblogger.Error(terminateErr.Error())
@@ -525,7 +539,6 @@ func (vmHandler *OpenStackVMHandler) ListVM() ([]*irs.VMInfo, error) {
 }
 
 func (vmHandler *OpenStackVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
-	// log HisCall
 	hiscallInfo := GetCallLogScheme(vmHandler.ComputeClient.IdentityEndpoint, call.VM, vmIID.NameId, "GetVM()")
 
 	// 기존의 vmID 기준 가상서버 조회 (old)
@@ -553,7 +566,7 @@ func (vmHandler *OpenStackVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	return vmInfo, nil
 }
 
-func (vmHandler *OpenStackVMHandler) AssociatePublicIP(serverID string) (bool, error) {
+func (vmHandler *OpenStackVMHandler) AssociatePublicIP(serverID string) (bool, string, error) {
 	// PublicIP 생성
 	externVPCID, _ := GetPublicVPCInfo(vmHandler.NetworkClient, "ID")
 	createOpts := layer3floatingips.CreateOpts{
@@ -561,13 +574,13 @@ func (vmHandler *OpenStackVMHandler) AssociatePublicIP(serverID string) (bool, e
 	}
 	publicIP, err := layer3floatingips.Create(vmHandler.NetworkClient, createOpts).Extract()
 	if err != nil {
-		return false, err
+
+		return false, "", err
 	}
 
-	// PublicIP VM 연결
 	curRetryCnt := 0
-	//maxRetryCnt := 60
 	maxRetryCnt := 120
+
 	for {
 		associateOpts := floatingips.AssociateOpts{
 			FloatingIP: publicIP.FloatingIP,
@@ -579,14 +592,14 @@ func (vmHandler *OpenStackVMHandler) AssociatePublicIP(serverID string) (bool, e
 
 		time.Sleep(1 * time.Second)
 		curRetryCnt++
-
 		if curRetryCnt > maxRetryCnt {
 			cblogger.Errorf(fmt.Sprintf("failed to associate floating ip to vm, exceeded maximum retry count %d", maxRetryCnt))
-			return false, errors.New(fmt.Sprintf("failed to associate floating ip to vm, exceeded maximum retry count %d", maxRetryCnt))
+
+			return false, publicIP.FloatingIP, errors.New(fmt.Sprintf("failed to associate floating ip to vm, exceeded maximum retry count %d", maxRetryCnt))
 		}
 	}
 
-	return true, nil
+	return true, publicIP.FloatingIP, nil
 }
 
 func getVmStatus(vmStatus string) irs.VMStatus {
@@ -776,7 +789,8 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 			addrMap := addr.(map[string]interface{})
 			if addrMap["OS-EXT-IPS:type"] == "floating" {
 				vmInfo.PublicIP = addrMap["addr"].(string)
-			} else if addrMap["OS-EXT-IPS:type"] == "fixed" {
+			}
+			if addrMap["OS-EXT-IPS:type"] == "fixed" {
 				vmInfo.PrivateIP = addrMap["addr"].(string)
 			}
 		}
@@ -919,12 +933,17 @@ func (vmHandler *OpenStackVMHandler) availableFixedIP(subnetIId irs.IID) (string
 	return "", errors.New(fmt.Sprintf("Failed to Create SubnetIP err = Not Exist Available IPs"))
 }
 
-func (vmHandler *OpenStackVMHandler) vmCleaner(vmIId irs.IID) error {
+func (vmHandler *OpenStackVMHandler) vmCleaner(vmIId irs.IID, publicIP string) error {
 	// VM 정보 조회
 	server, err := vmHandler.GetVM(vmIId)
 	if err != nil {
 		return err
 	}
+
+	if publicIP != "" {
+		server.PublicIP = publicIP
+	}
+
 	if server.PublicIP != "" {
 		// VM에 연결된 PublicIP 삭제
 		pager, err := layer3floatingips.List(vmHandler.NetworkClient, layer3floatingips.ListOpts{}).AllPages()
@@ -952,10 +971,13 @@ func (vmHandler *OpenStackVMHandler) vmCleaner(vmIId irs.IID) error {
 			}
 		}
 	}
+
+	//VM 삭제
 	err = servers.Delete(vmHandler.ComputeClient, server.IId.SystemId).ExtractErr()
 	if err != nil {
 		return err
 	}
+
 	curRetryCnt := 0
 	maxRetryCnt := 120
 	for {
