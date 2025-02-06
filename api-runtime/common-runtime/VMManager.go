@@ -103,15 +103,23 @@ func GetVMUsingRS(connectionName string, cspID string) (VMUsingResources, error)
 
 	// (1) check existence(cspID)
 	var iidInfoList []*VMIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return VMUsingResources{}, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return VMUsingResources{}, err
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return VMUsingResources{}, err
+		}
 	}
 	var isExist bool = false
 	var nameId string
 	for _, OneIIdInfo := range iidInfoList {
-		if getDriverSystemId(cres.IID{NameId: OneIIdInfo.NameId, SystemId: OneIIdInfo.SystemId}) == cspID {
+		if getMSShortID(getDriverSystemId(cres.IID{NameId: OneIIdInfo.NameId, SystemId: OneIIdInfo.SystemId})) == cspID {
 			nameId = OneIIdInfo.NameId
 			isExist = true
 			break
@@ -140,10 +148,18 @@ func GetVMUsingRS(connectionName string, cspID string) (VMUsingResources, error)
 
 	// get VPC IID:list
 	var vpcIIDInfoList []*VPCIIDInfo
-	err = infostore.ListByCondition(&vpcIIDInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return VMUsingResources{}, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &vpcIIDInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return VMUsingResources{}, err
+		}
+	} else {
+		err = infostore.ListByCondition(&vpcIIDInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return VMUsingResources{}, err
+		}
 	}
 
 	// ex) spiderIID {"vpc-01", "vpc-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
@@ -163,10 +179,18 @@ func GetVMUsingRS(connectionName string, cspID string) (VMUsingResources, error)
 
 	// get SG IID:list
 	var sgIIDInfoList []*SGIIDInfo
-	err = infostore.ListByCondition(&sgIIDInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return VMUsingResources{}, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &sgIIDInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return VMUsingResources{}, err
+		}
+	} else {
+		err = infostore.ListByCondition(&sgIIDInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return VMUsingResources{}, err
+		}
 	}
 
 	// ex) spiderIID {"vpc-01", "vpc-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
@@ -199,10 +223,18 @@ func GetVMUsingRS(connectionName string, cspID string) (VMUsingResources, error)
 
 	// get Key IID:list
 	var keyIIDInfoList []*KeyIIDInfo
-	err = infostore.ListByCondition(&keyIIDInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return VMUsingResources{}, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &keyIIDInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return VMUsingResources{}, err
+		}
+	} else {
+		err = infostore.ListByCondition(&keyIIDInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return VMUsingResources{}, err
+		}
 	}
 
 	// ex) spiderIID {"vpc-01", "vpc-01-9m4e2mr0ui3e8a215n4g:i-0bc7123b7e5cbf79d"}
@@ -267,10 +299,19 @@ func RegisterVM(connectionName string, userIID cres.IID) (*cres.VMInfo, error) {
 	defer vmSPLock.Unlock(connectionName, userIID.NameId)
 
 	// (1) check existence(UserID)
-	bool_ret, err := infostore.HasByConditions(&VMIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, userIID.NameId)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	bool_ret := false
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		bool_ret, err = infostore.HasByCondition(&VMIIDInfo{}, NAME_ID_COLUMN, userIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		bool_ret, err = infostore.HasByConditions(&VMIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, userIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	if bool_ret {
 		err := fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
@@ -403,13 +444,7 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTra
 	// (1) check existence with NameId
 	bool_ret := false
 	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-		var iidInfoList []*VMIIDInfo
-		err = getAuthIIDInfoList(connectionName, &iidInfoList)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
-		}
-		bool_ret, err = isNameIdExists(&iidInfoList, reqInfo.IId.NameId)
+		bool_ret, err = infostore.HasByCondition(&VMIIDInfo{}, NAME_ID_COLUMN, reqInfo.IId.NameId)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err

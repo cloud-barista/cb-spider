@@ -231,6 +231,21 @@ func ListAllMyImage(c echo.Context) error {
 	return c.JSON(http.StatusOK, &allResourceList)
 }
 
+// listAllMyImageInfo godoc
+// @ID list-all-myimage-info
+// @Summary List All MyImage Info
+// @Description Retrieve a comprehensive list of all MyImage information associated with a specific connection, <br> including those mapped between CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing in the CSP.
+// @Tags [MyImage Management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionName query string true "The name of the Connection to list MyImage information for"
+// @Success 200 {object} AllResourceInfoListResponse "List of all MyImage information within the specified connection, including MyImage information in CB-Spider only, CSP only, and mapped between both."
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /allmyimageinfo [get]
+func ListAllMyImageInfo(c echo.Context) error { return listAllResourceInfo(c, cres.MYIMAGE) }
+
 // getMyImage godoc
 // @ID get-myimage
 // @Summary Get MyImage

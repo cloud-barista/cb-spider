@@ -762,7 +762,7 @@
                             <td colspan="2">
                                 <div style="display: flex; justify-content: center; align-items: center; position: relative;">
                                     <span style="font-weight: bold; margin-right: auto; text-align: center; width: 100%;">VMs</span>
-                                    <div style="position: absolute; right: 0;">
+                                    <div style="position: absolute; right: 0; padding-right: 3%">
                                         <button class="vm-add" style="padding: 1px 5px; font-size: 12px;" onclick="showVMOverlay('{{$nlb.IId.NameId}}', extractNames('{{$nlb.VMGroup.VMs}}'))">add</button>
                                     </div>
                                 </div>
@@ -774,6 +774,9 @@
                                     {{range $vm := $nlb.VMGroup.VMs}}
                                     <tr>
                                         <td style="text-align: center;">{{$vm.NameId}}</td>
+                                        <td style="background-color: white; width: 10%;">
+                                            <button id="vm-del" style="padding: 1px 5px; font-size: 12px; font-size: 12px;" onclick="delVMFromNLB('{{$nlb.IId.NameId}}', '{{$vm.NameId}}')">del</button>
+                                        </td>
                                     </tr>
                                     {{end}}
                                 </table>
@@ -1913,6 +1916,40 @@
     } // end of renderVMs()
 
     document.addEventListener('DOMContentLoaded', loadVMs);
+
+    function delVMFromNLB(nlbName, vmName){
+        const url = `/spider/nlb/${nlbName}/vms`;
+        console.log(url);
+        const requestBody = {
+            ConnectionName: '{{.ConnectionConfig}}',
+            ReqInfo: {
+                VMs: [vmName]
+            }
+        };
+
+        fetch(url, {
+            method: "DELETE",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(requestBody)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            alert(`VM ${vmName} removed Successfully`);
+            location.reload();
+        })
+        .catch(error => {
+            console.error("Error:", error);
+            alert(`Failed to remove VM ${vmName}`);
+        });
+    } // end of delVMFromNLB()
+
 
     function showNLBHealthOverlay(nlbName) {
         // Fetch the NLB health check info

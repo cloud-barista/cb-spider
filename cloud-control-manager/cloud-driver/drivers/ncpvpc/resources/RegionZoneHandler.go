@@ -4,6 +4,7 @@
 // NCP VPC RegionZone Handler
 //
 // Created by ETRI, 2023.09.
+// Updated by ETRI, 2025.02.
 //==================================================================================================
 
 // RegionZoneInfo Fetch Speed Improvement and KeyValueList Omission Issue :
@@ -55,6 +56,7 @@ func (regionZoneHandler *NcpRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 			regionZoneInfo := irs.RegionZoneInfo{
 				Name: 			*region.RegionCode,
 				DisplayName: 	*region.RegionName,
+				CSPDisplayName:	*region.RegionName,
 				// KeyValueList: []irs.KeyValue{
 				// 	{Key: "RegionCode", 	Value: *region.RegionCode},
 				// },
@@ -71,6 +73,7 @@ func (regionZoneHandler *NcpRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 				zoneInfo := irs.ZoneInfo{
 					Name: 			*zone.ZoneName,
 					DisplayName: 	*zone.ZoneDescription,
+					CSPDisplayName: *zone.ZoneDescription,
 					Status: 		irs.NotSupported,
 					// KeyValueList: []irs.KeyValue{
 					// 	{Key: "ZoneCode", 	Value: *zone.ZoneCode},
@@ -117,6 +120,7 @@ func (regionZoneHandler NcpRegionZoneHandler) GetRegionZone(regionCode string) (
 			regionZoneInfo = irs.RegionZoneInfo{
 				Name: 			*region.RegionCode,
 				DisplayName: 	*region.RegionName,
+				CSPDisplayName:	*region.RegionName,
 				// KeyValueList: []irs.KeyValue{
 				// 	{Key: "RegionCode", 	Value: *region.RegionCode},
 				// },
@@ -133,6 +137,7 @@ func (regionZoneHandler NcpRegionZoneHandler) GetRegionZone(regionCode string) (
 				zoneInfo := irs.ZoneInfo{
 					Name: 			*zone.ZoneName,
 					DisplayName: 	*zone.ZoneDescription,
+					CSPDisplayName: *zone.ZoneDescription,
 					Status: 		irs.NotSupported,
 					// KeyValueList: []irs.KeyValue{
 					// 	{Key: "ZoneCode", 	Value: *zone.ZoneCode},

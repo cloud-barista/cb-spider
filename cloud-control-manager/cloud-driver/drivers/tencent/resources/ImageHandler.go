@@ -11,7 +11,7 @@ package resources
 
 import (
 	"errors"
-	"strings"
+	"strconv"
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -136,10 +136,18 @@ func ExtractImageDescribeInfo(image *cvm.Image) irs.ImageInfo {
 		Status:  *image.ImageState,
 	}
 
-	//NORMAL -> available
-	if strings.EqualFold(imageInfo.Status, "NORMAL") {
-		imageInfo.Status = "available"
-	}
+	osPlatform := extractOsPlatform(image)
+	osArchitecture := extractOsArchitecture(image)
+	distribution := extractOsDistribution(image)
+
+	imageStatus := extractImageAvailability(image)
+
+	imageInfo.OSPlatform = osPlatform
+	imageInfo.OSArchitecture = osArchitecture
+	imageInfo.OSDistribution = distribution
+	imageInfo.ImageStatus = imageStatus
+	imageInfo.OSDiskSizeInGB = strconv.FormatInt(*image.ImageSize, 10)
+	imageInfo.OSDiskType = "NA"
 
 	//KeyValue 목록 처리
 	keyValueList, errKeyValue := ConvertKeyValueList(image)
@@ -246,4 +254,62 @@ func (imageHandler *TencentImageHandler) CheckWindowsImage(imageIID irs.IID) (bo
 	}
 
 	return isWindow, nil
+}
+
+func extractOsPlatform(image *cvm.Image) irs.OSPlatform {
+	platform := image.Platform
+
+	if platform == nil {
+		return irs.PlatformNA
+	}
+	switch *platform {
+	case "CentOS", "Ubuntu", "TencentOS", "OpenCloudOS":
+		return irs.Linux_UNIX
+	case "Windows":
+		return irs.Windows
+	default:
+		return irs.PlatformNA
+	}
+}
+
+func extractOsDistribution(image *cvm.Image) string {
+	return *image.ImageName
+}
+
+func extractImageAvailability(image *cvm.Image) irs.ImageStatus {
+	state := image.ImageState
+
+	if state == nil {
+		return irs.ImageNA
+	}
+	switch *state {
+	case "NORMAL":
+		return irs.ImageAvailable
+	default:
+		return irs.ImageUnavailable
+	}
+}
+
+func extractOsArchitecture(orgImage *cvm.Image) irs.OSArchitecture {
+	arch := orgImage.Architecture
+	if arch == nil {
+		return irs.ArchitectureNA
+	}
+
+	// arm64
+	// arm64_mac
+	// x86_64
+	// x86_64_mac
+	// NA
+	switch *arch {
+	case "arm", "arm64":
+		return irs.ARM64
+
+	case "x86_64":
+		return irs.X86_64
+
+	default:
+		return irs.ArchitectureNA
+	}
+
 }

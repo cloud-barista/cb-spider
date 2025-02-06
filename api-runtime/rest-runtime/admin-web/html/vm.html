@@ -836,7 +836,7 @@ THE SOFTWARE.
 
                 <div class="form-group">
                     <label for="vpcSelect">VPC:</label>
-                    <select id="vpcSelect" name="vpcSelect" required onchange="updateSubnets()" style="background-color: #f3f3fd;">
+                    <select id="vpcSelect" name="vpcSelect" required onchange="updateSubnets(); loadSecurityGroups();" style="background-color: #f3f3fd;">
                     </select>
                 </div>
                 
@@ -1352,15 +1352,7 @@ THE SOFTWARE.
     }
 
     function showOverlay() {
-        const region = '{{.RegionName}}';
-        const vmNameInput = document.getElementById('vmName');
-
-        if (vmNameInput) {
-            vmNameInput.value = `${region}-vm-${Math.random().toString(36).substring(2, 8)}`;
-        } else {
-            console.error("Element with ID 'vmName' not found.");
-        }
-
+        console.log("showOverlay()");
         document.getElementById('overlay').style.display = 'flex';
         document.addEventListener('keydown', handleEsc);
         clearFormFields();
@@ -1370,11 +1362,12 @@ THE SOFTWARE.
         const region = '{{.RegionName}}';
         const vmNameInput = document.getElementById('vmName');
         vmNameInput.value = `${region}-vm-${Math.random().toString(36).substring(2, 5)}`;
-
+        loadSecurityGroups();
         const tagContainer = document.getElementById('vm-tag-container');
         while (tagContainer.firstChild) {
             tagContainer.removeChild(tagContainer.firstChild);
         }
+        
     }
 
     function hideOverlay() {
@@ -1666,7 +1659,7 @@ THE SOFTWARE.
         if (connConfigElement) {
             loadVPCs();
             loadKeyPairs();
-            loadSecurityGroups();
+            //loadSecurityGroups();
         } else {
             console.error("Error: 'connConfig' element not found.");
         }
@@ -1719,7 +1712,7 @@ THE SOFTWARE.
         const vpcSelect = document.getElementById('vpcSelect');
         const selectedSubnets = JSON.parse(vpcSelect.value);
         const subnetSelect = document.getElementById('subnetSelect');
-        const dataDiskSelect = document.getElementById('dataDiskSelect'); // here
+        const dataDiskSelect = document.getElementById('dataDiskSelect');
 
         subnetSelect.innerHTML = '';
 
@@ -1777,13 +1770,15 @@ THE SOFTWARE.
     function loadSecurityGroups() {
         const connConfig = document.getElementById('connConfig').value;
         const securityGroupSelect = document.getElementById('securityGroupSelect');
+        const vpcName = document.getElementById('vpcSelect').options[document.getElementById('vpcSelect').selectedIndex].text.split(' ')[0];
+        const url = `/spider/securitygroup/vpc/${vpcName}?ConnectionName=${connConfig}`
         
         if (!securityGroupSelect) {
             console.error('Security Group select element not found');
             return;
         }
 
-        fetch(`/spider/securitygroup?ConnectionName=${connConfig}`, {
+        fetch(url, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json'
@@ -2085,7 +2080,6 @@ THE SOFTWARE.
         .then(data => {
             const diskSelect = document.getElementById('dataDiskSelect');
             diskSelect.innerHTML = '';
-            console.log(data);
             
             const filteredDisks = data.disk.filter(disk => disk.Zone === zone && disk.Status === "Available");
             

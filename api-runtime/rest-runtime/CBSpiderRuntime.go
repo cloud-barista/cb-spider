@@ -276,6 +276,7 @@ func RunServer() {
 		{"DELETE", "/vpc/:VPCName/cspsubnet/:Id", RemoveCSPSubnet},
 		//-- for management
 		{"GET", "/allvpc", ListAllVPC},
+		{"GET", "/allvpcinfo", ListAllVPCInfo},
 		{"DELETE", "/cspvpc/:Id", DeleteCSPVPC},
 		//-- for dashboard
 		{"GET", "/countvpc", CountAllVPCs},
@@ -292,6 +293,7 @@ func RunServer() {
 		{"POST", "/securitygroup", CreateSecurity},
 		{"GET", "/securitygroup", ListSecurity},
 		{"GET", "/securitygroup/:Name", GetSecurity},
+		{"GET", "/securitygroup/vpc/:VPCName", ListVpcSecurity},
 		{"DELETE", "/securitygroup/:Name", DeleteSecurity},
 		//-- for rule
 		{"POST", "/securitygroup/:SGName/rules", AddRules},
@@ -299,6 +301,7 @@ func RunServer() {
 		// no CSP Option, {"DELETE", "/securitygroup/:SGName/csprules", RemoveCSPRules},
 		//-- for management
 		{"GET", "/allsecuritygroup", ListAllSecurity},
+		{"GET", "/allsecuritygroupinfo", ListAllSecurityGroupInfo},
 		{"DELETE", "/cspsecuritygroup/:Id", DeleteCSPSecurity},
 		//-- for dashboard
 		{"GET", "/countsecuritygroup", CountAllSecurityGroups},
@@ -314,6 +317,7 @@ func RunServer() {
 		{"DELETE", "/keypair/:Name", DeleteKey},
 		//-- for management
 		{"GET", "/allkeypair", ListAllKey},
+		{"GET", "/allkeypairinfo", ListAllKeyPairInfo},
 		{"DELETE", "/cspkeypair/:Id", DeleteCSPKey},
 		//-- for dashboard
 		{"GET", "/countkeypair", CountAllKeys},
@@ -351,6 +355,7 @@ func RunServer() {
 
 		//-- for management
 		{"GET", "/allvm", ListAllVM},
+		{"GET", "/allvminfo", ListAllVMInfo},
 		{"DELETE", "/cspvm/:Id", TerminateCSPVM},
 		//-- for dashboard
 		{"GET", "/countvm", CountAllVMs},
@@ -376,6 +381,7 @@ func RunServer() {
 
 		//-- for management
 		{"GET", "/allnlb", ListAllNLB},
+		{"GET", "/allnlbinfo", ListAllNLBInfo},
 		{"DELETE", "/cspnlb/:Id", DeleteCSPNLB},
 		//-- for dashboard
 		{"GET", "/countnlb", CountAllNLBs},
@@ -396,6 +402,7 @@ func RunServer() {
 
 		//-- for management
 		{"GET", "/alldisk", ListAllDisk},
+		{"GET", "/alldiskinfo", ListAllDiskInfo},
 		{"DELETE", "/cspdisk/:Id", DeleteCSPDisk},
 		//-- for dashboard
 		{"GET", "/countdisk", CountAllDisks},
@@ -412,6 +419,7 @@ func RunServer() {
 
 		//-- for management
 		{"GET", "/allmyimage", ListAllMyImage},
+		{"GET", "/allmyimageinfo", ListAllMyImageInfo},
 		{"DELETE", "/cspmyimage/:Id", DeleteCSPMyImage},
 		//-- for dashboard
 		{"GET", "/countmyimage", CountAllMyImages},
@@ -437,6 +445,7 @@ func RunServer() {
 
 		//-- for management
 		{"GET", "/allcluster", ListAllCluster},
+		{"GET", "/allclusterinfo", ListAllClusterInfo},
 		{"DELETE", "/cspcluster/:Id", DeleteCSPCluster},
 		//-- for dashboard
 		{"GET", "/countcluster", CountAllClusters},

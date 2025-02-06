@@ -4,6 +4,7 @@
 // NCP Image Handler
 //
 // by ETRI, 2020.09.
+// Updated by ETRI, 2025.02.
 
 package resources
 
@@ -38,7 +39,6 @@ func init() {
 
 func (imageHandler *NcpImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
 	cblogger.Info("NCP Classic Cloud Driver: called GetImage()!!")
-
 	InitLog()
 	callLogInfo := GetCallLogScheme(imageHandler.RegionInfo.Zone, call.VMIMAGE, imageIID.SystemId, "GetImage()")
 
@@ -62,7 +62,6 @@ func (imageHandler *NcpImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, 
 
 func (imageHandler *NcpImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	cblogger.Info("NCP Classic Cloud Driver: called ListImage()!")
-
 	InitLog()
 	callLogInfo := GetCallLogScheme(imageHandler.RegionInfo.Zone, call.VMIMAGE, "ListImage()", "ListImage()")
 
@@ -113,6 +112,43 @@ func (imageHandler *NcpImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 func MappingImageInfo(serverImage server.Product) irs.ImageInfo {
 	cblogger.Info("NCP Classic Cloud Driver: called MappingImageInfo()!")
 
+	var osPlatform irs.OSPlatform 
+	if serverImage.ProductType != nil {
+		if serverImage.ProductType.Code != nil {
+			if strings.EqualFold(*serverImage.ProductType.Code, "WINNT") {
+				osPlatform = irs.Windows
+			} else {
+				osPlatform = irs.PlatformNA
+			}
+			
+		} else {
+			osPlatform = irs.PlatformNA
+		}
+	} else {
+		osPlatform = irs.PlatformNA
+	}
+
+	var guestOS string
+	if serverImage.OsInformation != nil {
+		guestOS = *serverImage.OsInformation
+	} else {
+		guestOS = "NA"
+	}
+
+	var blockStorageSize string
+	if *serverImage.BaseBlockStorageSize != 0 {
+		blockStorageSize = strconv.FormatFloat(float64(*serverImage.BaseBlockStorageSize)/(1024*1024*1024), 'f', 0, 64)
+	} else {
+		blockStorageSize = "-1"
+	}
+
+	var imageStatus irs.ImageStatus
+	if serverImage.ProductCode != nil {
+		imageStatus = irs.ImageAvailable
+	} else {
+		imageStatus = irs.ImageNA
+	}
+
 	imageInfo := irs.ImageInfo{
 		IId: irs.IID{ // NOTE 주의 : serverImage.ProductCode -> ProductName 으로
 			NameId: 	*serverImage.ProductCode, 
@@ -120,18 +156,21 @@ func MappingImageInfo(serverImage server.Product) irs.ImageInfo {
 		},
 		GuestOS: *serverImage.OsInformation,
 		Status: "available",
+
+		Name: *serverImage.ProductCode,
+		OSArchitecture: irs.ArchitectureNA,
+		OSPlatform: osPlatform,		
+		OSDistribution: guestOS,
+		OSDiskType: "NA",
+		OSDiskSizeInGB: blockStorageSize, 
+		ImageStatus: imageStatus,
 	}
 
 	//Image OS Information
 	keyValueList := []irs.KeyValue{
 		{Key: "PlatformType", Value: *serverImage.PlatformType.CodeName},
 		{Key: "InfraResourceType", Value: *serverImage.InfraResourceType.CodeName},
-		{Key: "BaseBlockStorageSize(GB)", Value: strconv.FormatFloat(float64(*serverImage.BaseBlockStorageSize)/(1024*1024*1024), 'f', 0, 64)},
-		// {Key: "OsInformation", Value: *serverImage.OsInformation},	
-		// {Key: "DB Type", Value: *serverImage.DbKindCode},
-		// {Key: "NCP GenerationCode", Value: *serverImage.GenerationCode},
 	}
-	keyValueList = append(keyValueList, irs.KeyValue{Key: "Description", Value: *serverImage.ProductDescription})
 	imageInfo.KeyValueList = keyValueList
 	return imageInfo
 }
@@ -144,7 +183,6 @@ func (imageHandler *NcpImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) 
 
 func (imageHandler *NcpImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
 	cblogger.Info("NCP Classic Cloud Driver: called CheckWindowsImage()")
-
 	InitLog()
 	callLogInfo := GetCallLogScheme(imageHandler.RegionInfo.Region, call.MYIMAGE, imageIID.SystemId, "CheckWindowsImage()")
 
@@ -155,21 +193,21 @@ func (imageHandler *NcpImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, 
 		return false, newErr
 	}
 
-	myImageHandler := NcpMyImageHandler{
-		RegionInfo: 	imageHandler.RegionInfo,
-		VMClient:   	imageHandler.VMClient,
-	}
-	myImagePlatform, err := myImageHandler.GetOriginImageOSPlatform(imageIID)
+	ncpImageInfo, err := imageHandler.GetNcpImageInfo(imageIID)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get MyImage Info. [%v]", err.Error())
+		newErr := fmt.Errorf("Failed to Get the Image Info from NCP : [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
-	}
-	
+	}	
+
 	isWindowsImage := false
-	if strings.Contains(myImagePlatform, "WINDOWS") {
-		isWindowsImage = true
+	if ncpImageInfo.ProductType != nil {
+		if ncpImageInfo.ProductType.Code != nil {
+			if strings.EqualFold(*ncpImageInfo.ProductType.Code, "WINNT") {
+				isWindowsImage = true
+			}
+		}
 	}
 	return isWindowsImage, nil
 }
@@ -182,7 +220,6 @@ func (imageHandler *NcpImageHandler) DeleteImage(imageIID irs.IID) (bool, error)
 
 func (imageHandler *NcpImageHandler) GetNcpImageInfo(imageIID irs.IID) (*server.Product, error) {
 	cblogger.Info("NCP Classic Cloud Driver: called GetNcpImageInfo()!!")
-
 	InitLog()
 	callLogInfo := GetCallLogScheme(imageHandler.RegionInfo.Zone, call.VMIMAGE, imageIID.SystemId, "GetNcpImageInfo()")
 
@@ -231,4 +268,31 @@ func (imageHandler *NcpImageHandler) GetNcpImageInfo(imageIID irs.IID) (*server.
 	}
 	cblogger.Info("Succeeded in Getting NCP Image info.")
 	return result.ProductList[0], nil
+}
+
+func (imageHandler *NcpImageHandler) isPublicImage(imageIID irs.IID) (bool, error) {
+	cblogger.Info("NCP Classic Cloud Driver: called isPublicImage()")
+	InitLog()
+	callLogInfo := GetCallLogScheme(imageHandler.RegionInfo.Region, call.MYIMAGE, imageIID.SystemId, "isPublicImage()") // HisCall logging
+
+	if strings.EqualFold(imageIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid Image SystemId!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return false, newErr
+	}
+
+	ncpImageInfo, err := imageHandler.GetNcpImageInfo(imageIID)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get the Image Info from NCP : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return false, nil // Caution!!
+	} else {
+		isPublicImage := false
+		if strings.EqualFold(*ncpImageInfo.ProductCode, imageIID.SystemId) {
+			isPublicImage = true
+		}
+		return isPublicImage, nil
+	}
 }

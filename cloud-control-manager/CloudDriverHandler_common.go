@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
@@ -74,20 +75,40 @@ func GetProviderNameByDriverName(driverName string) (string, error) {
 
 // CloudConnection for Region-Level Control (Except. DiskHandler)
 func GetCloudConnection(cloudConnectName string) (icon.CloudConnection, error) {
-	conn, err := commonGetCloudConnection(cloudConnectName, "")
-	if err != nil {
-		return nil, err
+	var conn icon.CloudConnection
+	var err error
+
+	for i := 0; i < 3; i++ {
+		conn, err = commonGetCloudConnection(cloudConnectName, "")
+		if err == nil {
+			return conn, nil
+		}
+
+		if !strings.Contains(err.Error(), "dial") {
+			return nil, err
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
-	return conn, nil
+	return nil, err
 }
 
 // CloudConnection for Zone-Level Control (Ex. DiskHandler)
 func GetZoneLevelCloudConnection(cloudConnectName string, targetZoneName string) (icon.CloudConnection, error) {
-	conn, err := commonGetCloudConnection(cloudConnectName, targetZoneName)
-	if err != nil {
-		return nil, err
+	var conn icon.CloudConnection
+	var err error
+
+	for i := 0; i < 3; i++ {
+		conn, err = commonGetCloudConnection(cloudConnectName, targetZoneName)
+		if err == nil {
+			return conn, nil
+		}
+
+		if !strings.Contains(err.Error(), "dial") {
+			return nil, err
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
-	return conn, nil
+	return nil, err
 }
 
 func commonGetCloudConnection(cloudConnectName string, targetZoneName string) (icon.CloudConnection, error) {

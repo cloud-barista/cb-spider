@@ -295,6 +295,21 @@ func ListAllCluster(c echo.Context) error {
 	return c.JSON(http.StatusOK, &allResourceList)
 }
 
+// listAllClusterInfo godoc
+// @ID list-all-cluster-info
+// @Summary List All Cluster Info
+// @Description Retrieve a list of all Cluster information associated with a specific connection.
+// @Tags [Cluster Management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionName query string true "The name of the Connection to list Cluster information for"
+// @Success 200 {object} AllResourceInfoListResponse "List of all Cluster information within the specified connection"
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameter"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /allclusterinfo [get]
+func ListAllClusterInfo(c echo.Context) error { return listAllResourceInfo(c, cres.CLUSTER) }
+
 // getCluster godoc
 // @ID get-cluster
 // @Summary Get Cluster
