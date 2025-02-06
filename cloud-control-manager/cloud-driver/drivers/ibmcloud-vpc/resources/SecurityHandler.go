@@ -173,6 +173,23 @@ func (securityHandler *IbmSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 				LoggingError(hiscallInfo, getErr)
 				return nil, getErr
 			}
+
+			if securityInfo.TagList != nil && len(securityInfo.TagList) > 0 {
+				var checkNLBName bool
+				var checkNLBId bool
+				for _, tag := range securityInfo.TagList {
+					if tag.Key == "nlb_name" {
+						checkNLBName = true
+					} else if tag.Key == "nlb_id" {
+						checkNLBId = true
+					}
+				}
+
+				if checkNLBName && checkNLBId {
+					continue
+				}
+			}
+
 			securityGroupList = append(securityGroupList, &securityInfo)
 		}
 		nextstr, _ := getSecurityGroupNextHref(securityGroups.Next)

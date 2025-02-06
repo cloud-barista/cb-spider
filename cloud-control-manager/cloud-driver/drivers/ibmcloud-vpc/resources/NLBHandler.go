@@ -154,6 +154,19 @@ func (nlbHandler *IbmNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(nlbHandler.Region, "NETWORKLOADBALANCE", nlbIID.NameId, "DeleteNLB()")
 	start := call.Start()
 
+	if nlbIID.NameId != "" {
+		allNLBList, err := nlbHandler.getRawNLBList()
+		if err != nil {
+			return false, err
+		}
+		for _, rawNLB := range *allNLBList {
+			if strings.EqualFold(nlbIID.NameId, *rawNLB.Name) {
+				nlbIID.SystemId = *rawNLB.ID
+				break
+			}
+		}
+	}
+
 	_, err := nlbHandler.cleanerNLB(nlbIID)
 	if err != nil {
 		delErr := errors.New(fmt.Sprintf("Failed to Delete NLB. err = %s", err.Error()))
@@ -161,6 +174,23 @@ func (nlbHandler *IbmNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 		LoggingError(hiscallInfo, delErr)
 		return false, delErr
 	}
+
+	securityHandler := IbmSecurityHandler{
+		CredentialInfo: nlbHandler.CredentialInfo,
+		Region:         nlbHandler.Region,
+		VpcService:     nlbHandler.VpcService,
+		Ctx:            nlbHandler.Ctx,
+		TaggingService: nlbHandler.TaggingService,
+		SearchService:  nlbHandler.SearchService,
+	}
+	_, err = securityHandler.DeleteSecurity(irs.IID{
+		NameId: "sg-" + nlbIID.NameId,
+	})
+	if err != nil {
+		cblogger.Error(err.Error())
+		LoggingError(hiscallInfo, err)
+	}
+
 	LoggingInfo(hiscallInfo, start)
 
 	deleteUnusedTags(nlbHandler.TaggingService)
@@ -1101,16 +1131,15 @@ func convertCBHealthToIbmHealth(healthChecker irs.HealthCheckerInfo) (vpcv1.Load
 	return opts, nil
 }
 
-func (nlbHandler *IbmNLBHandler) getMatchedResourceIds(vmIIDs *[]irs.IID) ([]irs.IID, string, string, error) {
+func (nlbHandler *IbmNLBHandler) getMatchedResourceIds(vmIIDs *[]irs.IID) ([]irs.IID, string, error) {
 	if vmIIDs == nil || len(*vmIIDs) < 1 {
-		return nil, "", "", errors.New("vmIIDs is empty")
+		return nil, "", errors.New("vmIIDs is empty")
 	}
 	allVMS, err := nlbHandler.getRawVMList()
 	if err != nil {
-		return nil, "", "", err
+		return nil, "", err
 	}
 	subnetId := ""
-	securityGroupId := ""
 	vms := *vmIIDs
 	for i, vmIID := range vms {
 		errCheck := true
@@ -1118,18 +1147,6 @@ func (nlbHandler *IbmNLBHandler) getMatchedResourceIds(vmIIDs *[]irs.IID) ([]irs
 			if strings.EqualFold(vmIID.NameId, *rawVM.Name) {
 				if subnetId == "" {
 					subnetId = *rawVM.PrimaryNetworkInterface.Subnet.ID
-					vmHandler := IbmVMHandler{
-						CredentialInfo: nlbHandler.CredentialInfo,
-						Region:         nlbHandler.Region,
-						VpcService:     nlbHandler.VpcService,
-						Ctx:            nlbHandler.Ctx,
-						TaggingService: nlbHandler.TaggingService,
-						SearchService:  nlbHandler.SearchService,
-					}
-					networkInfo := vmHandler.getNetworkInfo(rawVM)
-					if len(networkInfo.SecurityGroupIIds) > 0 {
-						securityGroupId = networkInfo.SecurityGroupIIds[0].SystemId
-					}
 				}
 				vms[i].SystemId = *rawVM.ID
 				errCheck = false
@@ -1137,10 +1154,10 @@ func (nlbHandler *IbmNLBHandler) getMatchedResourceIds(vmIIDs *[]irs.IID) ([]irs
 			}
 		}
 		if errCheck {
-			return nil, "", "", errors.New("not found vm")
+			return nil, "", errors.New("not found vm")
 		}
 	}
-	return vms, subnetId, securityGroupId, nil
+	return vms, subnetId, nil
 }
 
 func (nlbHandler *IbmNLBHandler) createNLB(nlbReqInfo irs.NLBInfo) (vpcv1.LoadBalancer, error) {
@@ -1152,7 +1169,7 @@ func (nlbHandler *IbmNLBHandler) createNLB(nlbReqInfo irs.NLBInfo) (vpcv1.LoadBa
 		return vpcv1.LoadBalancer{}, errors.New(fmt.Sprintf("already exist NLB : %s", nlbReqInfo.IId.NameId))
 	}
 
-	vms, subnetId, securityGroupId, err := nlbHandler.getMatchedResourceIds(nlbReqInfo.VMGroup.VMs)
+	vms, subnetId, err := nlbHandler.getMatchedResourceIds(nlbReqInfo.VMGroup.VMs)
 	if err != nil {
 		return vpcv1.LoadBalancer{}, err
 	}
@@ -1173,8 +1190,45 @@ func (nlbHandler *IbmNLBHandler) createNLB(nlbReqInfo irs.NLBInfo) (vpcv1.LoadBa
 		},
 	}
 
+	securityHandler := IbmSecurityHandler{
+		CredentialInfo: nlbHandler.CredentialInfo,
+		Region:         nlbHandler.Region,
+		VpcService:     nlbHandler.VpcService,
+		Ctx:            nlbHandler.Ctx,
+		TaggingService: nlbHandler.TaggingService,
+		SearchService:  nlbHandler.SearchService,
+	}
+	sg, err := securityHandler.CreateSecurity(irs.SecurityReqInfo{
+		IId: irs.IID{
+			NameId: "sg-" + nlbReqInfo.IId.NameId,
+		},
+		VpcIID: nlbReqInfo.VpcIID,
+		SecurityRules: &[]irs.SecurityRuleInfo{
+			{
+				Direction:  "inbound",
+				IPProtocol: nlbReqInfo.Listener.Protocol,
+				FromPort:   nlbReqInfo.Listener.Port,
+				ToPort:     nlbReqInfo.VMGroup.Port,
+				CIDR:       "0.0.0.0/0",
+			},
+		},
+		TagList: []irs.KeyValue{
+			{
+				Key:   "nlb_name",
+				Value: nlbReqInfo.IId.NameId,
+			},
+			{
+				Key:   "nlb_id",
+				Value: nlbReqInfo.IId.SystemId,
+			},
+		},
+	})
+	if err != nil {
+		return vpcv1.LoadBalancer{}, err
+	}
+
 	securityGroupIdentityModel := new(vpcv1.SecurityGroupIdentityByID)
-	securityGroupIdentityModel.ID = core.StringPtr(securityGroupId)
+	securityGroupIdentityModel.ID = core.StringPtr(sg.IId.SystemId)
 
 	createNLBOptions.SetSecurityGroups([]vpcv1.SecurityGroupIdentityIntf{securityGroupIdentityModel})
 
