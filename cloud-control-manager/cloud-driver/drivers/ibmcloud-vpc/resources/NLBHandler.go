@@ -175,22 +175,6 @@ func (nlbHandler *IbmNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 		return false, delErr
 	}
 
-	securityHandler := IbmSecurityHandler{
-		CredentialInfo: nlbHandler.CredentialInfo,
-		Region:         nlbHandler.Region,
-		VpcService:     nlbHandler.VpcService,
-		Ctx:            nlbHandler.Ctx,
-		TaggingService: nlbHandler.TaggingService,
-		SearchService:  nlbHandler.SearchService,
-	}
-	_, err = securityHandler.DeleteSecurity(irs.IID{
-		NameId: "sg-" + nlbIID.NameId,
-	})
-	if err != nil {
-		cblogger.Error(err.Error())
-		LoggingError(hiscallInfo, err)
-	}
-
 	LoggingInfo(hiscallInfo, start)
 
 	deleteUnusedTags(nlbHandler.TaggingService)
@@ -1495,6 +1479,22 @@ func (nlbHandler *IbmNLBHandler) cleanerNLB(nlbIID irs.IID) (bool, error) {
 	if !exist {
 		return false, errors.New("not found nlb")
 	}
+
+	securityHandler := IbmSecurityHandler{
+		CredentialInfo: nlbHandler.CredentialInfo,
+		Region:         nlbHandler.Region,
+		VpcService:     nlbHandler.VpcService,
+		Ctx:            nlbHandler.Ctx,
+		TaggingService: nlbHandler.TaggingService,
+		SearchService:  nlbHandler.SearchService,
+	}
+	_, err = securityHandler.DeleteSecurity(irs.IID{
+		NameId: "sg-" + nlbIID.NameId,
+	})
+	if err != nil {
+		cblogger.Error(err.Error())
+	}
+
 	rawNLB, err := nlbHandler.getRawNLBByName(nlbIID.NameId)
 	if err != nil {
 		return false, err
