@@ -272,9 +272,9 @@ func (nlbHandler *IbmNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.Lis
 	}, &[]irs.SecurityRuleInfo{
 		{
 			Direction:  "inbound",
-			IPProtocol: listener.Protocol,
-			FromPort:   listener.Port,
-			ToPort:     info.VMGroup.Port,
+			IPProtocol: info.Listener.Protocol,
+			FromPort:   info.Listener.Port,
+			ToPort:     info.Listener.Port,
 			CIDR:       "0.0.0.0/0",
 		},
 	})
@@ -290,9 +290,9 @@ func (nlbHandler *IbmNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.Lis
 	}, &[]irs.SecurityRuleInfo{
 		{
 			Direction:  "inbound",
-			IPProtocol: info.Listener.Protocol,
-			FromPort:   info.Listener.Port,
-			ToPort:     info.VMGroup.Port,
+			IPProtocol: listener.Protocol,
+			FromPort:   listener.Port,
+			ToPort:     listener.Port,
 			CIDR:       "0.0.0.0/0",
 		},
 	})
@@ -1278,7 +1278,7 @@ func (nlbHandler *IbmNLBHandler) createNLB(nlbReqInfo irs.NLBInfo) (vpcv1.LoadBa
 				Direction:  "inbound",
 				IPProtocol: nlbReqInfo.Listener.Protocol,
 				FromPort:   nlbReqInfo.Listener.Port,
-				ToPort:     nlbReqInfo.VMGroup.Port,
+				ToPort:     nlbReqInfo.Listener.Port,
 				CIDR:       "0.0.0.0/0",
 			},
 		},
