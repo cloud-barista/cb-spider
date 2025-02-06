@@ -122,6 +122,10 @@ ssh -i /private_key_경로/private_key_파일명(~~.pem) cb-user@VM의_public_ip
    - Security Group 생성/삭제시에는 NCP console에서 생성/삭제하고, Cloud-Barista에서 생성, 조회, 삭제 요청시 console에서 생성한 그 'Security Group 이름을 그대로' 사용함.
       - Console에서 생성시, 이름은 최소 6자/최대 30자의 소문자만 가능하고, 숫자, '-' 기호 사용 가능
 
+  ​O NCP Classic driver를 이용해 VM 생성시 VMSpec ID를 지정할때 다음 사항을 주의
+   - VM 생성을 위해 입력하는 VM Image와 호환되는 VM Spec을 지정해야함.
+     - Driver를 통해 조회된 VMSpec 목록의 부가정보들 중 'CorrespondingImageIds'에 그 Image ID가 포함되어 있는 VMSpec을 지정해야함.
+
 ​	O NCP Classic 서비스는 cloud-init script를 삭제하는 API를 지원하지 않아, 연동 드라이버 내부적으로 VM 생성시 생성하여 적용한 cloud-init script가 삭제되지 않고 남아있으니 console에서 삭제해야함.
    - NCP Classic console : Server > 'Init Script' 메뉴에서 삭제 필요
    - (참고) NCP VPC 플랫폼은 cloud-init script를 삭제하는 API를 지원하여 드라이버에서 VM 생성 후 cloud-init script를 삭제함.
