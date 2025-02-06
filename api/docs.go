@@ -8909,14 +8909,14 @@ const docTemplate = `{
                     "example": "x86_64"
                 },
                 "OSDiskSizeInGB": {
-                    "description": "35, etc., GB",
+                    "description": "10, 50, 100 etc.",
                     "type": "string",
-                    "example": "35"
+                    "example": "50"
                 },
                 "OSDiskType": {
-                    "description": "gp3, etc.",
+                    "description": "ebs, HDD, etc.",
                     "type": "string",
-                    "example": "gp3"
+                    "example": "HDD"
                 },
                 "OSDistribution": {
                     "description": "Ubuntu 22.04~, CentOS 8 etc.",
