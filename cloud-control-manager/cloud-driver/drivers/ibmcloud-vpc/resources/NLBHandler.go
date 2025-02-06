@@ -1252,6 +1252,22 @@ func (nlbHandler *IbmNLBHandler) createNLB(nlbReqInfo irs.NLBInfo) (vpcv1.LoadBa
 		TaggingService: nlbHandler.TaggingService,
 		SearchService:  nlbHandler.SearchService,
 	}
+
+	var sgTagList []irs.KeyValue
+
+	if nlbReqInfo.IId.NameId != "" {
+		sgTagList = append(sgTagList, irs.KeyValue{
+			Key:   "nlb_name",
+			Value: nlbReqInfo.IId.NameId,
+		})
+	}
+	if nlbReqInfo.IId.SystemId != "" {
+		sgTagList = append(sgTagList, irs.KeyValue{
+			Key:   "nlb_id",
+			Value: nlbReqInfo.IId.SystemId,
+		})
+	}
+
 	sg, err := securityHandler.CreateSecurity(irs.SecurityReqInfo{
 		IId: irs.IID{
 			NameId: "sg-" + nlbReqInfo.IId.NameId,
@@ -1266,16 +1282,7 @@ func (nlbHandler *IbmNLBHandler) createNLB(nlbReqInfo irs.NLBInfo) (vpcv1.LoadBa
 				CIDR:       "0.0.0.0/0",
 			},
 		},
-		TagList: []irs.KeyValue{
-			{
-				Key:   "nlb_name",
-				Value: nlbReqInfo.IId.NameId,
-			},
-			{
-				Key:   "nlb_id",
-				Value: nlbReqInfo.IId.SystemId,
-			},
-		},
+		TagList: sgTagList,
 	})
 	if err != nil {
 		return vpcv1.LoadBalancer{}, err
@@ -1471,15 +1478,6 @@ func (nlbHandler *IbmNLBHandler) getRawNLBList() (*[]vpcv1.LoadBalancer, error) 
 }
 
 func (nlbHandler *IbmNLBHandler) cleanerNLB(nlbIID irs.IID) (bool, error) {
-	// Exist?
-	exist, err := nlbHandler.existNLBByName(nlbIID.NameId)
-	if err != nil {
-		return false, err
-	}
-	if !exist {
-		return false, errors.New("not found nlb")
-	}
-
 	securityHandler := IbmSecurityHandler{
 		CredentialInfo: nlbHandler.CredentialInfo,
 		Region:         nlbHandler.Region,
@@ -1488,11 +1486,19 @@ func (nlbHandler *IbmNLBHandler) cleanerNLB(nlbIID irs.IID) (bool, error) {
 		TaggingService: nlbHandler.TaggingService,
 		SearchService:  nlbHandler.SearchService,
 	}
-	_, err = securityHandler.DeleteSecurity(irs.IID{
+	_, err := securityHandler.DeleteSecurity(irs.IID{
 		NameId: "sg-" + nlbIID.NameId,
 	})
 	if err != nil {
 		cblogger.Error(err.Error())
+	}
+
+	exist, err := nlbHandler.existNLBByName(nlbIID.NameId)
+	if err != nil {
+		return false, err
+	}
+	if !exist {
+		return false, errors.New("not found nlb")
 	}
 
 	rawNLB, err := nlbHandler.getRawNLBByName(nlbIID.NameId)

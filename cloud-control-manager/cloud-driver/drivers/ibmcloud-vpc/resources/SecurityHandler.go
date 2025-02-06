@@ -175,18 +175,10 @@ func (securityHandler *IbmSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 			}
 
 			if securityInfo.TagList != nil && len(securityInfo.TagList) > 0 {
-				var checkNLBName bool
-				var checkNLBId bool
 				for _, tag := range securityInfo.TagList {
-					if tag.Key == "nlb_name" {
-						checkNLBName = true
-					} else if tag.Key == "nlb_id" {
-						checkNLBId = true
+					if tag.Key == "nlb_name" || tag.Key == "nlb_id" {
+						continue
 					}
-				}
-
-				if checkNLBName && checkNLBId {
-					continue
 				}
 			}
 
