@@ -244,7 +244,7 @@ func ExtractImageDescribeInfo(image *ecs.Image) irs.ImageInfo {
 		OSPlatform:     extractOsPlatform(image),
 		OSDistribution: image.Description,
 		OSDiskType:     "NA",
-		OSDiskSizeInGB: "-1",
+		OSDiskSizeInGB: strconv.Itoa(image.Size),
 		ImageStatus:    irs.ImageStatus(image.Status),
 	}
 
