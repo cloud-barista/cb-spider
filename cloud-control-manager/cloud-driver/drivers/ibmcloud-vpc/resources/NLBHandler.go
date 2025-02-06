@@ -1229,6 +1229,21 @@ func (nlbHandler *IbmNLBHandler) createNLB(nlbReqInfo irs.NLBInfo) (vpcv1.LoadBa
 		},
 	}
 
+	poolArray, err := nlbHandler.getCreatePoolOptions(nlbReqInfo)
+	if err != nil {
+		return vpcv1.LoadBalancer{}, err
+	}
+	poolName := poolArray[0].Name
+
+	listenerArray, err := getCreateListenerOptions(nlbReqInfo, poolName)
+	if err != nil {
+		return vpcv1.LoadBalancer{}, err
+	}
+
+	createNLBOptions.SetSubnets(subnetArray)
+	createNLBOptions.SetPools(poolArray)
+	createNLBOptions.SetListeners(listenerArray)
+
 	securityHandler := IbmSecurityHandler{
 		CredentialInfo: nlbHandler.CredentialInfo,
 		Region:         nlbHandler.Region,
@@ -1270,21 +1285,6 @@ func (nlbHandler *IbmNLBHandler) createNLB(nlbReqInfo irs.NLBInfo) (vpcv1.LoadBa
 	securityGroupIdentityModel.ID = core.StringPtr(sg.IId.SystemId)
 
 	createNLBOptions.SetSecurityGroups([]vpcv1.SecurityGroupIdentityIntf{securityGroupIdentityModel})
-
-	poolArray, err := nlbHandler.getCreatePoolOptions(nlbReqInfo)
-	if err != nil {
-		return vpcv1.LoadBalancer{}, err
-	}
-	poolName := poolArray[0].Name
-
-	listenerArray, err := getCreateListenerOptions(nlbReqInfo, poolName)
-	if err != nil {
-		return vpcv1.LoadBalancer{}, err
-	}
-
-	createNLBOptions.SetSubnets(subnetArray)
-	createNLBOptions.SetPools(poolArray)
-	createNLBOptions.SetListeners(listenerArray)
 
 	nlb, _, err := nlbHandler.VpcService.CreateLoadBalancerWithContext(nlbHandler.Ctx, &createNLBOptions)
 	if err != nil {
