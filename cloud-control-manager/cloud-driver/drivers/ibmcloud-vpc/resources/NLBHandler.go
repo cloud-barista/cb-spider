@@ -210,6 +210,15 @@ func (nlbHandler *IbmNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.Lis
 		LoggingError(hiscallInfo, changeErr)
 		return irs.ListenerInfo{}, changeErr
 	}
+
+	info, err := nlbHandler.setterNLB(rawNLB)
+	if err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to Change Listener. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.ListenerInfo{}, createErr
+	}
+
 	nlbId := *rawNLB.ID
 	if rawNLB.Listeners == nil || len(rawNLB.Listeners) < 1 {
 		changeErr := errors.New(fmt.Sprintf("Failed to Change Listener. err = listener does not exist within that NLB"))
@@ -263,8 +272,53 @@ func (nlbHandler *IbmNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.Lis
 			LoggingError(hiscallInfo, changeErr)
 			return irs.ListenerInfo{}, changeErr
 		}
-
 	}
+
+	securityHandler := IbmSecurityHandler{
+		CredentialInfo: nlbHandler.CredentialInfo,
+		Region:         nlbHandler.Region,
+		VpcService:     nlbHandler.VpcService,
+		Ctx:            nlbHandler.Ctx,
+		TaggingService: nlbHandler.TaggingService,
+		SearchService:  nlbHandler.SearchService,
+	}
+
+	_, err = securityHandler.RemoveRules(irs.IID{
+		NameId: "sg-" + nlbIID.NameId,
+	}, &[]irs.SecurityRuleInfo{
+		{
+			Direction:  "inbound",
+			IPProtocol: listener.Protocol,
+			FromPort:   listener.Port,
+			ToPort:     info.VMGroup.Port,
+			CIDR:       "0.0.0.0/0",
+		},
+	})
+	if err != nil {
+		changeErr := errors.New(fmt.Sprintf("Failed to Change Listener. err = %s", err.Error()))
+		cblogger.Error(changeErr.Error())
+		LoggingError(hiscallInfo, changeErr)
+		return irs.ListenerInfo{}, changeErr
+	}
+
+	_, err = securityHandler.AddRules(irs.IID{
+		NameId: "sg-" + nlbIID.NameId,
+	}, &[]irs.SecurityRuleInfo{
+		{
+			Direction:  "inbound",
+			IPProtocol: info.Listener.Protocol,
+			FromPort:   info.Listener.Port,
+			ToPort:     info.VMGroup.Port,
+			CIDR:       "0.0.0.0/0",
+		},
+	})
+	if err != nil {
+		changeErr := errors.New(fmt.Sprintf("Failed to Change Listener. err = %s", err.Error()))
+		cblogger.Error(changeErr.Error())
+		LoggingError(hiscallInfo, changeErr)
+		return irs.ListenerInfo{}, changeErr
+	}
+
 	updatedRawNLB, err := nlbHandler.checkUpdatableNLB(nlbId)
 	if err != nil {
 		changeErr := errors.New(fmt.Sprintf("Failed to Change Listener. err = %s", err.Error()))
@@ -273,13 +327,14 @@ func (nlbHandler *IbmNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.Lis
 		return irs.ListenerInfo{}, changeErr
 	}
 
-	info, err := nlbHandler.setterNLB(updatedRawNLB)
+	info, err = nlbHandler.setterNLB(updatedRawNLB)
 	if err != nil {
 		changeErr := errors.New(fmt.Sprintf("Failed to Change Listener. err = %s", err.Error()))
 		cblogger.Error(changeErr.Error())
 		LoggingError(hiscallInfo, changeErr)
 		return irs.ListenerInfo{}, changeErr
 	}
+
 	LoggingInfo(hiscallInfo, start)
 	return info.Listener, err
 }
