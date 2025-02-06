@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	// "github.com/davecgh/go-spew/spew"
 	
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
@@ -34,7 +35,6 @@ func init() {
 
 func (vmSpecHandler *NcpVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 	cblogger.Info("NCP Classic Cloud Driver: called ListVMSpec()!")
-
 	InitLog()
 	callLogInfo := GetCallLogScheme(vmSpecHandler.RegionInfo.Zone, call.VMIMAGE, "ListVMSpec()", "ListVMSpec()")
 
@@ -71,10 +71,9 @@ func (vmSpecHandler *NcpVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return nil, newErr
-	} else {
-		cblogger.Info("Image list Count : ", len(imageListResult))
-		// spew.Dump(imageListResult)
 	}
+	// cblogger.Info("Image list Count : ", len(imageListResult))
+	// spew.Dump(imageListResult)
 
 	// Note : var vmProductList []*server.Product  //NCP Product(Spec) Info.
 	var vmSpecInfoMap = make(map[string]*irs.VMSpecInfo) // Map to track unique VMSpec Info.
@@ -95,7 +94,6 @@ func (vmSpecHandler *NcpVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 			cblogger.Error(fmt.Sprintf("Failed to Get VMSpec list from NCP : [%v]", err))
 			return nil, err
 		} else {
-			cblogger.Info("Succeeded in Getting VMSpec list!!")
 			cblogger.Infof("Lookup by NCP Image ID(ImageProductCode) : [%s]", image.IId.SystemId)
 			cblogger.Infof("Number of VMSpec info looked up : [%d]", len(result.ProductList))
 		}		
@@ -103,17 +101,17 @@ func (vmSpecHandler *NcpVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 		for _, product := range result.ProductList {
 			vmSpecInfo := mappingVMSpecInfo(ncpRegion, *product)
 			if existingSpec, exists := vmSpecInfoMap[vmSpecInfo.Name]; exists {
-				// If the VMSpec already exists, add the image ID to the related images list in KeyValueList
+				// If the VMSpec already exists, add the image ID to the corresponding images list in KeyValueList
 				for i, kv := range existingSpec.KeyValueList {
-					if kv.Key == "RelatedImages" {
+					if kv.Key == "CorrespondingImageIds" {
 						existingSpec.KeyValueList[i].Value += "," + image.IId.SystemId
 						break
 					}
 				}
 			} else {
-				// If the VMSpec is new, add it to the map and initialize the related images list in KeyValueList
+				// If the VMSpec is new, add it to the map and initialize the corresponding images list in KeyValueList
 				vmSpecInfo.KeyValueList = append(vmSpecInfo.KeyValueList, irs.KeyValue{
-					Key:   "RelatedImages",
+					Key:   "CorrespondingImageIds",
 					Value: image.IId.SystemId,
 				})
 				vmSpecInfoMap[vmSpecInfo.Name] = &vmSpecInfo
@@ -124,90 +122,42 @@ func (vmSpecHandler *NcpVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 	// Convert the map to a list
 	for _, specInfo := range vmSpecInfoMap {
 		vmSpecInfoList = append(vmSpecInfoList, specInfo)
-	}
-	
-	cblogger.Infof("# 총 VMSpec 수 : [%d]", len(vmSpecInfoList))
+	}	
+	// cblogger.Infof("# Total count of the VMSpec Info : [%d]", len(vmSpecInfoList))
 	return vmSpecInfoList, err
 }
 
-func (vmSpecHandler *NcpVMSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo, error) {
+func (vmSpecHandler *NcpVMSpecHandler) GetVMSpec(specName string) (irs.VMSpecInfo, error) {
 	cblogger.Info("NCP Classic Cloud Driver: called GetVMSpec()!")
-
 	InitLog()
-	callLogInfo := GetCallLogScheme(vmSpecHandler.RegionInfo.Zone, call.VMSPEC, Name, "GetVMSpec()")
+	callLogInfo := GetCallLogScheme(vmSpecHandler.RegionInfo.Zone, call.VMSPEC, specName, "GetVMSpec()")
 
-	ncpRegion := vmSpecHandler.RegionInfo.Region
-	cblogger.Infof("Region : [%s] / SpecName : [%s]", ncpRegion, Name)
-
-	vmHandler := NcpVMHandler{
-		RegionInfo:     	vmSpecHandler.RegionInfo,
-		VMClient:         	vmSpecHandler.VMClient,
-	}
-	regionNo, err := vmHandler.getRegionNo(vmSpecHandler.RegionInfo.Region)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the NCP Region No of the Region Code: [%v]", err)
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return irs.VMSpecInfo{}, newErr
-	}
-	zoneNo, err := vmHandler.getZoneNo(vmSpecHandler.RegionInfo.Region, vmSpecHandler.RegionInfo.Zone)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get NCP Zone No of the Zone Code : [%v]", err)
+	if strings.EqualFold(specName, "") {
+		newErr := fmt.Errorf("Invalid specName!!")
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.VMSpecInfo{}, newErr
 	}
 
-	imgHandler := NcpImageHandler{
-		CredentialInfo: 	vmSpecHandler.CredentialInfo,
-		RegionInfo:     	vmSpecHandler.RegionInfo,
-		VMClient:         	vmSpecHandler.VMClient,
-	}
-	cblogger.Infof("imgHandler.RegionInfo.Zone : [%s]", imgHandler.RegionInfo.Zone)  //Need to Check the value!!
-
-	imgListResult, err := imgHandler.ListImage()
+	// Note!!) Use ListVMSpec() to include 'CorrespondingImageIds' parameter.
+	specListResult, err := vmSpecHandler.ListVMSpec()
 	if err != nil {
-		cblogger.Infof("Failed to Find Image list!! : [%v]", err)
-		return irs.VMSpecInfo{}, errors.New("Failed to Find Image list!!")
-	} else {
-		cblogger.Info("Succeeded in Getting Image list!!")
-		// cblogger.Info(imgListResult)
-		cblogger.Infof("Image list Count : [%d]", len(imgListResult))
-		// spew.Dump(imgListResult)
+		newErr := fmt.Errorf("Failed to Get the VMSpec info list!! : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMSpecInfo{}, newErr
 	}
 
-	for _, image := range imgListResult {
-		cblogger.Infof("# Lookup by NCP Image ID(ImageProductCode) : [%s]", image.IId.SystemId)
-
-		specReq := server.GetServerProductListRequest{
-			RegionNo:    			regionNo,
-			ZoneNo: 				zoneNo,
-			ProductCode: 			&Name,			
-			ServerImageProductCode: ncloud.String(image.IId.SystemId),  // ***** Caution : ImageProductCode is mandatory. *****
-		}
-		callLogStart := call.Start()
-		result, err := vmSpecHandler.VMClient.V2Api.GetServerProductList(&specReq)
-		if err != nil {
-			cblogger.Error(*result.ReturnMessage)
-			newErr := fmt.Errorf("Failed to Find VMSpec list from NCP : [%v]", err)
-			cblogger.Error(newErr.Error())
-			LoggingError(callLogInfo, newErr)
-			return irs.VMSpecInfo{}, newErr
-		}
-		LoggingInfo(callLogInfo, callLogStart)
-		// spew.Dump(result)
-
-		if len(result.ProductList) > 0 {
-			specInfo := mappingVMSpecInfo(ncpRegion, *result.ProductList[0])
-			return specInfo, nil
+	for _, spec := range specListResult {
+		if strings.EqualFold(spec.Name, specName) {
+			return *spec, nil
 		}
 	}
-	return irs.VMSpecInfo{}, errors.New("Not found : VMSpec Name'" + Name + "' Not found!!")
+	return irs.VMSpecInfo{}, errors.New("Failed to find the VMSpec info : '" + specName)
 }
 
 func (vmSpecHandler *NcpVMSpecHandler) ListOrgVMSpec() (string, error) {
 	cblogger.Info("NCP Classic Cloud Driver: called ListOrgVMSpec()!")
-
 	InitLog()
 	callLogInfo := GetCallLogScheme(vmSpecHandler.RegionInfo.Zone, call.VMIMAGE, "ListOrgVMSpec()", "ListOrgVMSpec()")
 
@@ -250,8 +200,6 @@ func (vmSpecHandler *NcpVMSpecHandler) ListOrgVMSpec() (string, error) {
 	}
 
 	var vmSpecInfoMap = make(map[string]*irs.VMSpecInfo) // Map to track unique VMSpec Info.
-	var vmSpecInfoList []*irs.VMSpecInfo // List to return unique VMSpec Info.
-	
 	for _, image := range imageListResult {
 		cblogger.Infof("# Lookup by NCP Image ID(ImageProductCode) : [%s]", image.IId.SystemId)
 	
@@ -267,7 +215,6 @@ func (vmSpecHandler *NcpVMSpecHandler) ListOrgVMSpec() (string, error) {
 			cblogger.Error(fmt.Sprintf("Failed to Get VMSpec list from NCP : [%v]", err))
 			return "", err
 		} else {
-			cblogger.Info("Succeeded in Getting VMSpec list!!")
 			cblogger.Infof("Lookup by NCP Image ID(ImageProductCode) : [%s]", image.IId.SystemId)
 			cblogger.Infof("Number of VMSpec info looked up : [%d]", len(result.ProductList))
 		}		
@@ -275,17 +222,17 @@ func (vmSpecHandler *NcpVMSpecHandler) ListOrgVMSpec() (string, error) {
 		for _, product := range result.ProductList {
 			vmSpecInfo := mappingVMSpecInfo(ncpRegion, *product)
 			if existingSpec, exists := vmSpecInfoMap[vmSpecInfo.Name]; exists {
-				// If the VMSpec already exists, add the image ID to the related images list in KeyValueList
+				// If the VMSpec already exists, add the image ID to the corresponding images list in KeyValueList
 				for i, kv := range existingSpec.KeyValueList {
-					if kv.Key == "RelatedImages" {
+					if kv.Key == "CorrespondingImageIds" {
 						existingSpec.KeyValueList[i].Value += "," + image.IId.SystemId
 						break
 					}
 				}
 			} else {
-				// If the VMSpec is new, add it to the map and initialize the related images list in KeyValueList
+				// If the VMSpec is new, add it to the map and initialize the corresponding images list in KeyValueList
 				vmSpecInfo.KeyValueList = append(vmSpecInfo.KeyValueList, irs.KeyValue{
-					Key:   "RelatedImages",
+					Key:   "CorrespondingImageIds",
 					Value: image.IId.SystemId,
 				})
 				vmSpecInfoMap[vmSpecInfo.Name] = &vmSpecInfo
@@ -294,6 +241,7 @@ func (vmSpecHandler *NcpVMSpecHandler) ListOrgVMSpec() (string, error) {
 	}
 	
 	// Convert the map to a list
+	var vmSpecInfoList []*irs.VMSpecInfo // List to return unique VMSpec Info.
 	for _, specInfo := range vmSpecInfoMap {
 		vmSpecInfoList = append(vmSpecInfoList, specInfo)
 	}
@@ -307,14 +255,20 @@ func (vmSpecHandler *NcpVMSpecHandler) ListOrgVMSpec() (string, error) {
 	return jsonString, jsonErr
 }
 
-func (vmSpecHandler *NcpVMSpecHandler) GetOrgVMSpec(Name string) (string, error) {
+func (vmSpecHandler *NcpVMSpecHandler) GetOrgVMSpec(specName string) (string, error) {
 	cblogger.Info("NCP Classic Cloud Driver: called GetOrgVMSpec()!")
-
 	InitLog()
-	callLogInfo := GetCallLogScheme(vmSpecHandler.RegionInfo.Zone, call.VMSPEC, Name, "GetOrgVMSpec()")
+	callLogInfo := GetCallLogScheme(vmSpecHandler.RegionInfo.Zone, call.VMSPEC, specName, "GetOrgVMSpec()")
+
+	if strings.EqualFold(specName, "") {
+		newErr := fmt.Errorf("Invalid specName!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return "", newErr
+	}
 
 	ncpRegion := vmSpecHandler.RegionInfo.Region
-	cblogger.Infof("Region : [%s] / SpecName : [%s]", ncpRegion, Name)
+	cblogger.Infof("Region : [%s] / SpecName : [%s]", ncpRegion, specName)
 
 	vmHandler := NcpVMHandler{
 		RegionInfo:     	vmSpecHandler.RegionInfo,
@@ -359,7 +313,7 @@ func (vmSpecHandler *NcpVMSpecHandler) GetOrgVMSpec(Name string) (string, error)
 		specReq := server.GetServerProductListRequest{
 			RegionNo:    			regionNo,
 			ZoneNo: 				zoneNo,
-			ProductCode: 			&Name,			
+			ProductCode: 			&specName,			
 			ServerImageProductCode: ncloud.String(image.IId.SystemId),  // ***** Caution : ImageProductCode is mandatory. *****
 		}
 		callLogStart := call.Start()
@@ -411,7 +365,7 @@ func mappingVMSpecInfo(region string, vmSpec server.Product) irs.VMSpecInfo {
 			{Key: "InfraResourceType", Value: *vmSpec.InfraResourceType.CodeName},
 			{Key: "DiskType", Value: *vmSpec.DiskType.CodeName},
 			{Key: "ProductDescription", Value: *vmSpec.ProductDescription},
-			{Key: "GenerationCode", Value: *vmSpec.GenerationCode},
+			{Key: "Generation", Value: *vmSpec.GenerationCode},
 			// {Key: "ProductName", Value: *vmSpec.ProductName}, //This is same to 'ProductDescription'.
 			// {Key: "PlatformType", Value: *vmSpec.PlatformType.CodeName}, //This makes "invalid memory address or nil pointer dereference" error
 		},

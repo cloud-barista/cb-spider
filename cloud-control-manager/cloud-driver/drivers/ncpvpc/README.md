@@ -123,6 +123,10 @@ ssh -i /private_key_경로/private_key_파일명(~~.pem) cb-user@VM의_public_ip
    - VM 생성시 ImageType을 'MyImage'로 지정하면, MyImage 기능으로 VM에 대해 snapshot을 하여 VM의 RootDisk와 DataDisk들을 image로 생성하여 만든 image를 사용하여 VM을 생성할 수 있음.
      - MyImage를 이용하여 VM을 생성한 경우, snapshot 대상이었던 VM의 모든 disk가 그대로 신규 VM의 disk로 생성됨.
 
+  ​O NCP VPC driver를 이용해 VM 생성시 VMSpec ID를 지정할때 다음 사항을 주의
+   - VM 생성을 위해 입력하는 VM Image와 호환되는 VM Spec을 지정해야함.
+     - Driver를 통해 조회된 VMSpec 목록의 부가정보들 중 'CorrespondingImageIds'에 그 Image ID가 포함되어 있는 VMSpec을 지정해야함.
+
   ​O NCP VPC driver를 이용해 VM 생성시 Root disk에 대해 다음 사항을 참고
    - VM 생성시 option으로 RootDiskSize 및 RootDiskType 지정은 지원하지 않음.
    - NCP VPC는 고정된 disk size로서, Linux 계열은 50GB, Windows 계열은 100GB를 지원함.

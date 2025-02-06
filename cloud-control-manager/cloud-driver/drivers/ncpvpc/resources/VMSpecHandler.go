@@ -4,12 +4,12 @@
 // NCP VPC VMSpec Handler
 //
 // by ETRI, 2020.12.
-// Updated by ETRI, 2025.01.
+// Updated by ETRI, 2025.02.
 
 package resources
 
 import (
-	// "errors"
+	"errors"
 	"fmt"
 	"strings"
 	"strconv"
@@ -46,17 +46,19 @@ func (vmSpecHandler *NcpVpcVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error
 	}
 	imgListResult, err := imageHandler.ListImage()
 	if err != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Get Image Info list :  : ", err)
-		return nil, rtnErr
+		newErr := fmt.Errorf("Failed to Get the NCP Image list!! : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
 	}
 
-	var vmSpecInfoList []*irs.VMSpecInfo
+	vmSpecMap := make(map[string]*irs.VMSpecInfo)
 	for _, image := range imgListResult {
-		cblogger.Infof("\n### 기준 NCP VPC Image ID(ImageProductCode) : [%s]", image.IId.SystemId)
+		cblogger.Infof("\n### Lookup by NCP VPC Image ID(ImageProductCode) : [%s]", image.IId.SystemId)
 		vmSpecReq := vserver.GetServerSpecListRequest{
 			RegionCode:		&vmSpecHandler.RegionInfo.Region,
 			ZoneCode:		&vmSpecHandler.RegionInfo.Zone,
-			ServerImageNo: 	ncloud.String(image.IId.SystemId), // ***** Caution : ServerImageNo is mandatory. *****
+			ServerImageNo: 	ncloud.String(image.IId.SystemId), // ***** Caution : Mandatory. *****
 		}
 		callLogStart := call.Start()
 		result, err := vmSpecHandler.VMClient.V2Api.GetServerSpecList(&vmSpecReq)
@@ -66,17 +68,31 @@ func (vmSpecHandler *NcpVpcVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error
 		}
 		LoggingInfo(callLogInfo, callLogStart)
 
-		// spew.Dump(result)
 		if len(result.ServerSpecList) < 1 {
 			rtnErr := logAndReturnError(callLogInfo, "# VMSpec info corresponding to the Image ID does Not Exist!!", "")
 			return nil, rtnErr
 		} else {
-			// for _, vmSpec := range result.ProductList {
 			for _, vmSpec := range result.ServerSpecList {
 				vmSpecInfo := vmSpecHandler.mappingVMSpecInfo(image.IId.SystemId, vmSpec)
-				vmSpecInfoList = append(vmSpecInfoList, &vmSpecInfo)
+				if existingSpec, exists := vmSpecMap[vmSpecInfo.Name]; exists {
+					// If the VMSpec already exists, add the image ID to the corresponding images list in KeyValueList
+					for i, kv := range existingSpec.KeyValueList {
+						if kv.Key == "CorrespondingImageIds" {
+							existingSpec.KeyValueList[i].Value += "," + image.IId.SystemId
+							break
+						}
+					}
+				} else {
+					vmSpecInfo.KeyValueList = append(vmSpecInfo.KeyValueList, irs.KeyValue{Key: "CorrespondingImageIds", Value: image.IId.SystemId})
+					vmSpecMap[vmSpecInfo.Name] = &vmSpecInfo
+				}
 			}
 		}
+	}
+
+	var vmSpecInfoList []*irs.VMSpecInfo
+	for _, specInfo := range vmSpecMap {
+		vmSpecInfoList = append(vmSpecInfoList, specInfo)
 	}
 	return vmSpecInfoList, nil
 }
@@ -93,16 +109,21 @@ func (vmSpecHandler *NcpVpcVMSpecHandler) GetVMSpec(specName string) (irs.VMSpec
 		return irs.VMSpecInfo{}, newErr
 	}
 
-	vmSpec, err := vmSpecHandler.getNcpVpcVMSpec(specName)
+	// Note!!) Use ListVMSpec() to include 'CorrespondingImageIds' parameter.
+	specListResult, err := vmSpecHandler.ListVMSpec()
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get VMSpec from NCP VPC Cloud : ", err)
+		newErr := fmt.Errorf("Failed to Get the VMSpec info list!! : [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.VMSpecInfo{}, newErr
 	}
 
-	specInfo := vmSpecHandler.mappingVMSpecInfo("", vmSpec)
-	return specInfo, nil
+	for _, spec := range specListResult {
+		if strings.EqualFold(spec.Name, specName) {
+			return *spec, nil
+		}
+	}
+	return irs.VMSpecInfo{}, errors.New("Failed to find the VMSpec info : '" + specName)
 }
 
 func (vmSpecHandler *NcpVpcVMSpecHandler) ListOrgVMSpec() (string, error) {
@@ -112,13 +133,18 @@ func (vmSpecHandler *NcpVpcVMSpecHandler) ListOrgVMSpec() (string, error) {
 
 	vmSpecList, err := vmSpecHandler.getNcpVpcVMSpecList()
 	if err != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Get VMSpec from NCP VPC : ", err)
-		return "", rtnErr
+		newErr := fmt.Errorf("Failed to Get the VMSpec info list!! : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return "", newErr
 	}
+
 	jsonString, cvtErr := ConvertJsonString(vmSpecList)
 	if cvtErr != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Convert JSON to String : ", cvtErr)
-		return "", rtnErr
+		newErr := fmt.Errorf("Failed to Convert JSON to String : [%v]", cvtErr)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return "", newErr
 	}
 	return jsonString, nil
 }
@@ -176,22 +202,27 @@ func (vmSpecHandler *NcpVpcVMSpecHandler) mappingVMSpecInfo(ImageId string, vmSp
 	if len(matches) > 1 {
 		diskSize = matches[1] // Extract only the numeric part
 	}
+	if strings.EqualFold(diskSize, "") {
+		diskSize = "-1"
+	}
 
 	var gpuCount string
 	if vmSpec.GpuCount != nil {
 		gpuCount = strconv.Itoa(int(*vmSpec.GpuCount))
 	}
+	if strings.EqualFold(gpuCount, "") {
+		gpuCount = "-1"
+	}
 
 	vmSpecInfo := irs.VMSpecInfo{
 		Region: vmSpecHandler.RegionInfo.Region,
-		// Name:   *vmSpec.ProductCode,
 		Name:   *vmSpec.ServerSpecCode,
 		
 		// int32 to string 변환 : String(), int64 to string 변환 : strconv.Itoa()
-		VCpu: irs.VCpuInfo{Count: String(*vmSpec.CpuCount), Clock: "N/A"},
+		VCpu: irs.VCpuInfo{Count: String(*vmSpec.CpuCount), Clock: "-1"},
 		Mem: memSize,
 		Disk: diskSize,
-		Gpu: []irs.GpuInfo{{Count: gpuCount, Mfr: "N/A", Model: "N/A", Mem: "N/A"}},
+		Gpu: []irs.GpuInfo{{Count: gpuCount, Mfr: "NA", Model: "NA", Mem: "-1"}},
 
 		KeyValueList: []irs.KeyValue{
 			{Key: "SpecDescription", Value: *vmSpec.ServerSpecDescription},
@@ -199,7 +230,6 @@ func (vmSpecHandler *NcpVpcVMSpecHandler) mappingVMSpecInfo(ImageId string, vmSp
 			{Key: "HypervisorType", Value: *vmSpec.HypervisorType.CodeName},
 			{Key: "CpuArchitectureType", Value: *vmSpec.CpuArchitectureType.CodeName},
 			{Key: "BlockStorageMaxCount", Value: String(*vmSpec.BlockStorageMaxCount)},
-			{Key: "SupportingImageId", Value: ImageId},
 		},
 	}
 	// vmSpecInfo.Mem = strconv.FormatFloat(float64(*vmSpec.MemorySize)*1024, 'f', 0, 64) // GB->MB로 변환
@@ -226,7 +256,7 @@ func (vmSpecHandler *NcpVpcVMSpecHandler) getNcpVpcVMSpecList() ([]*vserver.Serv
 
 	var vmSpecList []*vserver.ServerSpec
 	for _, image := range imgListResult {
-		// cblogger.Infof("\n### 기준 NCP VPC Image ID(ImageProductCode) : [%s]", image.IId.SystemId)
+		// cblogger.Infof("\n### Lookup by NCP VPC Image ID(ImageProductCode) : [%s]", image.IId.SystemId)
 
 		specReq := vserver.GetServerSpecListRequest{
 			RegionCode:		&vmSpecHandler.RegionInfo.Region,  //CAUTION!!
