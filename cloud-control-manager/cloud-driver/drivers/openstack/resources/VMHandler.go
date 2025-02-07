@@ -15,6 +15,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"math/rand"
+	"net"
+	"net/http"
+	"os"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
+
 	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
 	"github.com/gophercloud/gophercloud"
 	volumes3 "github.com/gophercloud/gophercloud/openstack/blockstorage/v3/volumes"
@@ -26,16 +37,6 @@ import (
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/servers"
 	layer3floatingips "github.com/gophercloud/gophercloud/openstack/networking/v2/extensions/layer3/floatingips"
 	"github.com/gophercloud/gophercloud/openstack/networking/v2/subnets"
-	"io"
-	"io/ioutil"
-	"math/rand"
-	"net"
-	"net/http"
-	"os"
-	"regexp"
-	"strconv"
-	"strings"
-	"time"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -249,17 +250,17 @@ func (vmHandler *OpenStackVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (startvm i
 	}
 
 	var publicIPStr string
-	defer func(publicIP string) {
+	defer func() {
 		if createErr != nil {
 			cleanVMIId := irs.IID{
 				SystemId: server.ID,
 			}
-			cleanErr := vmHandler.vmCleaner(cleanVMIId, publicIP)
+			cleanErr := vmHandler.vmCleaner(cleanVMIId, publicIPStr)
 			if cleanErr != nil {
 				createErr = errors.New(fmt.Sprintf("%s Failed to rollback deleting err = %s", createErr, cleanErr))
 			}
 		}
-	}(publicIPStr)
+	}()
 
 	var serverResult *servers.Server
 	var serverInfo irs.VMInfo
