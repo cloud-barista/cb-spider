@@ -47,53 +47,26 @@ func (vmSpecHandler *KtCloudVMSpecHandler) GetVMSpec(specName string) (irs.VMSpe
 	cblogger.Info("KT Cloud cloud driver: called GetVMSpec()!")
 	// Caution!! : KT Cloud doesn't support 'Region' officially, so we use 'Zone info.' which is from the connection info.
 
-	// Caution!! : When searching for Image info/VMSpc info, KT Cloud inquires using Zoneid.
-	result, err := vmSpecHandler.Client.ListAvailableProductTypes(vmSpecHandler.RegionInfo.Zone)
+	if strings.EqualFold(specName, "") {
+		newErr := fmt.Errorf("Invalid specName!!")
+		cblogger.Error(newErr.Error())
+		return irs.VMSpecInfo{}, newErr
+	}
+
+	// Note!!) Use ListVMSpec() to include 'CorrespondingImageIds' parameter.
+	specListResult, err := vmSpecHandler.ListVMSpec()
 	if err != nil {
-		cblogger.Error("Failed to Get List of Available Product Types: %s", err)
-		return irs.VMSpecInfo{}, err
+		newErr := fmt.Errorf("Failed to Get the VMSpec info list!! : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return irs.VMSpecInfo{}, newErr
 	}
 
-	if len(result.Listavailableproducttypesresponse.ProductTypes) < 1 {
-		return irs.VMSpecInfo{}, errors.New("Failed to Find Product types!!")
-	}
-
-	// specName ex) d3530ad2-462b-43ad-97d5-e1087b952b7d!87c0a6f6-c684-4fbe-a393-d8412bcf788d_disk100GB
-	// Caution) If you use # instead of ! among the string split symbols below, the entire string is not delivered when calling through the CB-Spider API, but only before #.
-	instanceSpecString := strings.Split(specName, "!")
-	for i := range instanceSpecString {
-		cblogger.Info("instanceSpecString : ", instanceSpecString[i])
-	}
-
-	ktVMSpecId := instanceSpecString[0]
-	// cblogger.Info("vmSpecID : ", ktVMSpecId)
-
-    // Ex) 87c0a6f6-c684-4fbe-a393-d8412bcf788d_disk100GB
-	tempOfferingString := instanceSpecString[1]
-	// cblogger.Info("tempOfferingString : ", tempOfferingString)
-
-	diskOfferingString := strings.Split(tempOfferingString, "_")
-
-	ktDiskOfferingId := diskOfferingString[0]
-	// cblogger.Info("ktDiskOfferingId : ", ktDiskOfferingId)
-
-	var resultVMSpecInfo irs.VMSpecInfo
-	for _, productType := range result.Listavailableproducttypesresponse.ProductTypes {
-		cblogger.Info("# Search criteria of Serviceofferingid : ", ktVMSpecId)		
-		// if serverProductType.ServiceOfferingId == ktVMSpecId {
-		if productType.ServiceOfferingId == ktVMSpecId {
-			if productType.DiskOfferingId == ktDiskOfferingId {
-				resultVMSpecInfo, err = vmSpecHandler.mappingVMSpecInfo(&productType)
-				if err != nil {
-					newErr := fmt.Errorf("Failed to Map the VMSpec info : [%v]", err)
-					cblogger.Error(newErr.Error())
-					return irs.VMSpecInfo{}, newErr
-				}
-				break
-			}
+	for _, spec := range specListResult {
+		if strings.EqualFold(spec.Name, specName) {
+			return *spec, nil
 		}
 	}
-	return resultVMSpecInfo, nil
+	return irs.VMSpecInfo{}, errors.New("Failed to find the VMSpec info : '" + specName)
 }
 
 func (vmSpecHandler *KtCloudVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
