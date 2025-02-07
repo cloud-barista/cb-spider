@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	// "github.com/davecgh/go-spew/spew"
+	"github.com/davecgh/go-spew/spew"
 
 	ktvpcsdk "github.com/cloud-barista/ktcloudvpc-sdk-go"
 	"github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/compute/v2/flavors"
@@ -174,19 +174,22 @@ func (vmSpecHandler *KTVpcVMSpecHandler) getVMSpecIdWithName(specName string) (s
 
 func (vmSpecHandler *KTVpcVMSpecHandler) mappingVMSpecInfo(flavor *flavors.Flavor) *irs.VMSpecInfo {
 	cblogger.Info("KT Cloud VPC Driver: called mappingVMSpecInfo()!")
-	// spew.Dump(vmSpec)	
+	cblogger.Info("\n\n### flavor : ")
+	spew.Dump(flavor)
+
 	vmSpecInfo := irs.VMSpecInfo {
 		Region:       vmSpecHandler.RegionInfo.Zone,
 		Name:         flavor.Name,
-		VCpu:         irs.VCpuInfo{Count: strconv.Itoa(flavor.VCPUs), },
+		VCpu:         irs.VCpuInfo{Count: strconv.Itoa(flavor.VCPUs), Clock: "-1"},
 		Mem:          strconv.Itoa(flavor.RAM),
-		// Gpu:          []irs.GpuInfo{{Count: "N/A", Mfr: "N/A", Model: "N/A", Mem: "N/A"}},
+		Gpu:          []irs.GpuInfo{{Count: "-1", Mfr: "NA", Model: "NA", Mem: "-1"}},
+		Disk: 		  "NA",
 
 		KeyValueList: []irs.KeyValue{
 			{Key: "Zone", Value: vmSpecHandler.RegionInfo.Zone},
-			{Key: "RootDiskSize(GB)", Value: strconv.Itoa(flavor.Disk)},
-			{Key: "EphemeralDiskSize(GB)", Value: strconv.Itoa(flavor.Ephemeral)},
-			{Key: "SwapDiskSize(MB)", Value: strconv.Itoa(flavor.Swap)},
+			// {Key: "RootDiskSize(GB)", Value: strconv.Itoa(flavor.Disk)},
+			// {Key: "EphemeralDiskSize(GB)", Value: strconv.Itoa(flavor.Ephemeral)},
+			// {Key: "SwapDiskSize(MB)", Value: strconv.Itoa(flavor.Swap)},
 			{Key: "IsPublic", Value: strconv.FormatBool(flavor.IsPublic)},
 			{Key: "VMSpecID", Value: flavor.ID},
 		},
