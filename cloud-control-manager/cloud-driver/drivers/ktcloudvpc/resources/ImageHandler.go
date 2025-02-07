@@ -13,6 +13,7 @@ package resources
 import (
 	"strings"
 	"fmt"
+	// "strconv"	
 	// "github.com/davecgh/go-spew/spew"
 
 	ktvpcsdk 	"github.com/cloud-barista/ktcloudvpc-sdk-go"
@@ -50,8 +51,6 @@ func (imageHandler *KTVpcImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		return nil, newErr
 	}
 	loggingInfo(callLogInfo, start)
-
-	// # To Check!!
 	// cblogger.Info("### allPages : ")
 	// spew.Dump(allPages)
 
@@ -62,14 +61,12 @@ func (imageHandler *KTVpcImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		loggingError(callLogInfo, newErr)
 		return nil, newErr
 	}
-
-	// # To Check!!
 	// cblogger.Info("### imageList : ")
 	// spew.Dump(imageList)
 
 	var imageInfoList []*irs.ImageInfo
-    for _, vmImage := range imageList {
-		imageInfo, err := imageHandler.mappingImageInfo(vmImage)
+    for _, image := range imageList {
+		imageInfo, err := imageHandler.mappingImageInfo(&image)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Map KT Cloud VPC Image Info. [%v]", err)
 			cblogger.Error(newErr.Error())
@@ -105,7 +102,7 @@ func (imageHandler *KTVpcImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo
 
 	//Ref) 'Image API' return struct of image :ktcloudvpc-sdk-go/openstack/imageservice/v2/images/results.go
 	//Ref) 'Compute API' return struct of image : ktcloudvpc-sdk-go/openstack/compute/v2/images/results.go
-	imageInfo, err := imageHandler.mappingImageInfo(*ktImage)
+	imageInfo, err := imageHandler.mappingImageInfo(ktImage)
 	if err != nil {
 		cblogger.Error(err.Error())
 		loggingError(callLogInfo, err)
@@ -153,9 +150,11 @@ func (imageHandler *KTVpcImageHandler) DeleteImage(imageIID irs.IID) (bool, erro
 	return true, fmt.Errorf("Does not support DeleteImage() yet!!")
 }
 
-func (imageHandler *KTVpcImageHandler) mappingImageInfo(image images.Image) (*irs.ImageInfo, error) {
+func (imageHandler *KTVpcImageHandler) mappingImageInfo(image *images.Image) (*irs.ImageInfo, error) {
 	cblogger.Info("KT Cloud VPC Driver: called mappingImageInfo()!")
+	// cblogger.Info("\n\n### image : ")
 	// spew.Dump(image)
+	// cblogger.Info("\n")
 
 	//Ref) 'Image API' return struct of image :ktcloudvpc-sdk-go/openstack/imageservice/v2/images/results.go
 	//Ref) 'Compute API' return struct of image : ktcloudvpc-sdk-go/openstack/compute/v2/images/results.go
@@ -171,6 +170,32 @@ func (imageHandler *KTVpcImageHandler) mappingImageInfo(image images.Image) (*ir
 		imgAvailability = "unavailable"
 	}
 
+	var osPlatform irs.OSPlatform 
+		if image.Name != "" {
+			if strings.Contains(image.Name, "Windows") || strings.Contains(image.Name, "windows") || strings.Contains(image.Name, "win") {
+				osPlatform = irs.Windows				
+			} else {
+				osPlatform = irs.Linux_UNIX
+			}			
+		} else {
+			osPlatform = irs.PlatformNA
+		}
+
+	var imageStatus irs.ImageStatus
+	if image.Status != "" {
+		if strings.EqualFold(string(image.Status), "active") { 
+			imageStatus = irs.ImageAvailable
+		} else {
+			imageStatus = irs.ImageUnavailable
+		}
+	} else {
+		imageStatus = irs.ImageNA
+	}
+
+	// # Note) image.SizeBytes is not Root Disk Size
+	// valueInGB := float64(image.SizeBytes) / (1024 * 1024 * 1024)	
+	// diskSizeInGB := strconv.FormatFloat(valueInGB, 'f', 0, 64)
+
 	imageInfo := &irs.ImageInfo {
 		IId: irs.IID{
 			NameId:   image.ID, // Caution!!
@@ -178,13 +203,21 @@ func (imageHandler *KTVpcImageHandler) mappingImageInfo(image images.Image) (*ir
 		},
 		GuestOS:      image.Name, // Caution!!
 		Status: 	  imgAvailability,
+
+		Name: 			image.ID,
+		OSArchitecture: "NA",
+		OSPlatform: 	osPlatform,		
+		OSDistribution: image.Name,
+		OSDiskType: 	"NA",
+		OSDiskSizeInGB: "NA",
+		ImageStatus: 	imageStatus,
 	}
 
 	keyValueList := []irs.KeyValue{
-		{Key: "Zone", Value: imageHandler.RegionInfo.Zone},
-		{Key: "DiskFormat:", Value: string(image.DiskFormat)},
+		{Key: "Zone", 		 	  Value: imageHandler.RegionInfo.Zone},
+		{Key: "DiskFormat:", 	  Value: string(image.DiskFormat)},
 		{Key: "ContainerFormat:", Value: string(image.ContainerFormat)},
-		{Key: "Visibility:", Value: string(image.Visibility)},
+		{Key: "Visibility:", 	  Value: string(image.Visibility)},
 
 	}
 	imageInfo.KeyValueList = keyValueList
