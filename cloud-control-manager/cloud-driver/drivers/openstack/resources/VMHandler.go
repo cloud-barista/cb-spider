@@ -594,9 +594,9 @@ func (vmHandler *OpenStackVMHandler) AssociatePublicIP(serverID string) (bool, s
 		time.Sleep(1 * time.Second)
 		curRetryCnt++
 		if curRetryCnt > maxRetryCnt {
-			cblogger.Errorf(fmt.Sprintf("failed to associate floating ip to vm, exceeded maximum retry count %d", maxRetryCnt))
+			cblogger.Errorf(fmt.Sprintf("failed to associate floating ip to vm, exceeded maximum retry count %d, err = %s", maxRetryCnt, err))
 
-			return false, publicIP.FloatingIP, errors.New(fmt.Sprintf("failed to associate floating ip to vm, exceeded maximum retry count %d", maxRetryCnt))
+			return false, publicIP.FloatingIP, errors.New(fmt.Sprintf("failed to associate floating ip to vm, exceeded maximum retry count %d, err = %s", maxRetryCnt, err))
 		}
 	}
 
