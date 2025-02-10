@@ -14,7 +14,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"github.com/davecgh/go-spew/spew"
+	// "github.com/davecgh/go-spew/spew"
 
 	ktvpcsdk "github.com/cloud-barista/ktcloudvpc-sdk-go"
 	"github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/compute/v2/flavors"
@@ -174,8 +174,8 @@ func (vmSpecHandler *KTVpcVMSpecHandler) getVMSpecIdWithName(specName string) (s
 
 func (vmSpecHandler *KTVpcVMSpecHandler) mappingVMSpecInfo(flavor *flavors.Flavor) *irs.VMSpecInfo {
 	cblogger.Info("KT Cloud VPC Driver: called mappingVMSpecInfo()!")
-	cblogger.Info("\n\n### flavor : ")
-	spew.Dump(flavor)
+	// cblogger.Info("\n\n### flavor : ")
+	// spew.Dump(flavor)
 
 	vmSpecInfo := irs.VMSpecInfo {
 		Region:       vmSpecHandler.RegionInfo.Zone,
@@ -183,7 +183,7 @@ func (vmSpecHandler *KTVpcVMSpecHandler) mappingVMSpecInfo(flavor *flavors.Flavo
 		VCpu:         irs.VCpuInfo{Count: strconv.Itoa(flavor.VCPUs), Clock: "-1"},
 		Mem:          strconv.Itoa(flavor.RAM),
 		Gpu:          []irs.GpuInfo{{Count: "-1", Mfr: "NA", Model: "NA", Mem: "-1"}},
-		Disk: 		  "NA",
+		Disk: 		  "-1",
 
 		KeyValueList: []irs.KeyValue{
 			{Key: "Zone", Value: vmSpecHandler.RegionInfo.Zone},
