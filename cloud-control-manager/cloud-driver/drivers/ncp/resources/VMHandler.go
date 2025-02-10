@@ -1678,7 +1678,7 @@ func (vmHandler *NcpVMHandler) createLinuxInitUserData(imageIID irs.IID, keyPair
 		VMClient:    vmHandler.VMClient,
 	}
 	var getErr error
-	originImagePlatform, getErr := myImageHandler.GetOriginImageOSPlatform(imageIID)
+	originImagePlatform, getErr := myImageHandler.getOriginImageOSPlatform(imageIID)
 	if getErr != nil {
 		newErr := fmt.Errorf("Failed to Get OriginImageOSPlatform of the Image : [%v]", getErr)
 		cblogger.Error(newErr.Error())

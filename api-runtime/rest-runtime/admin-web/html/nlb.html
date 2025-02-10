@@ -1326,9 +1326,17 @@
         // Reset Health Checker information
         document.getElementById('hcProtocol').value = 'TCP';
         document.getElementById('hcPort').value = '22';
-        document.getElementById('interval').value = 'default';
-        document.getElementById('timeout').value = 'default';
-        document.getElementById('threshold').value = 'default';
+
+        var provider = '{{.ProviderName}}';
+        if (provider === 'IBM') {
+            document.getElementById('interval').value = '10';
+            document.getElementById('timeout').value = '9';
+            document.getElementById('threshold').value = 'default';
+        } else {
+            document.getElementById('interval').value = 'default';
+            document.getElementById('timeout').value = 'default';
+            document.getElementById('threshold').value = 'default';
+        }
 
         // Reset VM list
         document.getElementById('vmContainer').innerHTML = ''; 

@@ -630,11 +630,30 @@ func ListVpcSecurity(connectionName, rsType, vpcName string) ([]*cres.SecurityIn
 	}
 
 	// (0) check whether vpcName is exist
-	var vpcIIDInfo VPCIIDInfo
-	isExist, _ := infostore.HasByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName,
-		NAME_ID_COLUMN, vpcName)
+	var isExist bool
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		// check permission to vpcName
+		var iidInfoList []*VPCIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		isExist, err = isNameIdExists(&iidInfoList, vpcName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		isExist, _ = infostore.HasByConditions(&VPCIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName,
+			NAME_ID_COLUMN, vpcName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	}
 	if !isExist {
-		err := fmt.Errorf("%s", "The VPC-"+vpcName+" does not exist!")
+		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(VPC), vpcName)
 		cblog.Error(err)
 		return nil, err
 	}

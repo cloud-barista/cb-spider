@@ -80,8 +80,8 @@ $GOPATH/src/github.com/cloud-barista/ktcloud/ktcloud/main/
 <p><br>
 
 ​	O VM 생성을 위한 VMImage ID, VMSpec ID 결정 관련
-   - 해당 zone에서 지원하는 VM Image(KT Cloud의 Template) 목록중 사용하고자 하는 운영체제(OS)에 대한 Image ID 값을 찾은 뒤, VM Spec 목록에서 추가 정보로 제공하는 'SupportingImage(Template)ID'에서 그 Image ID와 같은 VM Spec을 찾아 해당 Image ID를 지원하는 VMSpec ID를 사용해야함.
-   - 위와 같이 해당 VMImage를 지원하는 VMSpec ID를 사용해야하는데, 그렇지 않은 경우 KT Cloud에서는 error message로 "general error"를 return함.
+   - 해당 zone에서 지원하는 VM Image(KT Cloud의 Template) 목록중 사용하고자 하는 운영체제(OS)에 대한 Image ID 값을 찾은 뒤, VM Spec 목록에서 추가 정보로 제공하는 'CorrespondingImageIds'에서 그 Image ID와 같은 ID를 찾아 해당 Image ID를 지원하는 VMSpec ID를 지정하여 VM을 생성해야함.
+   - 위와 같이 해당 VM Image를 지원하는 VMSpec ID를 사용해야하는데, 그렇지 않은 경우 KT Cloud에서는 error message로 "general error"를 return함.
 <p><br>
 
 ​	O Security Group 설정시 주의해야할 사항으로, 본 드라이버는 inbound rule만 지원하고, protocol별 rule이 중복되지 않아야함.

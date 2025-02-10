@@ -351,12 +351,12 @@ definitions:
         description: arm64, x86_64 etc.
         example: x86_64
       OSDiskSizeInGB:
-        description: 35, etc., GB
-        example: "35"
+        description: 10, 50, 100 etc.
+        example: "50"
         type: string
       OSDiskType:
-        description: gp3, etc.
-        example: gp3
+        description: ebs, HDD, etc.
+        example: HDD
         type: string
       OSDistribution:
         description: Ubuntu 22.04~, CentOS 8 etc.

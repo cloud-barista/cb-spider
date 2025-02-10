@@ -1359,6 +1359,9 @@ THE SOFTWARE.
     }
 
     function clearFormFields() {
+        // Clear form fields
+        document.getElementById('addVMForm').reset();
+
         const region = '{{.RegionName}}';
         const vmNameInput = document.getElementById('vmName');
         vmNameInput.value = `${region}-vm-${Math.random().toString(36).substring(2, 5)}`;
@@ -1699,6 +1702,7 @@ THE SOFTWARE.
                     vpcSelect.appendChild(option);
                 });
                 updateSubnets(); // Update subnets based on selected VPC
+                loadSecurityGroups(); // Load security groups based on selected VPC
             } else {
                 vpcSelect.innerHTML = '<option>No VPCs. Create one.</option>';
             }

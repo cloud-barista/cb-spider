@@ -154,6 +154,19 @@ func (nlbHandler *IbmNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(nlbHandler.Region, "NETWORKLOADBALANCE", nlbIID.NameId, "DeleteNLB()")
 	start := call.Start()
 
+	if nlbIID.NameId != "" {
+		allNLBList, err := nlbHandler.getRawNLBList()
+		if err != nil {
+			return false, err
+		}
+		for _, rawNLB := range *allNLBList {
+			if strings.EqualFold(nlbIID.NameId, *rawNLB.Name) {
+				nlbIID.SystemId = *rawNLB.ID
+				break
+			}
+		}
+	}
+
 	_, err := nlbHandler.cleanerNLB(nlbIID)
 	if err != nil {
 		delErr := errors.New(fmt.Sprintf("Failed to Delete NLB. err = %s", err.Error()))
@@ -161,6 +174,7 @@ func (nlbHandler *IbmNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 		LoggingError(hiscallInfo, delErr)
 		return false, delErr
 	}
+
 	LoggingInfo(hiscallInfo, start)
 
 	deleteUnusedTags(nlbHandler.TaggingService)
@@ -180,6 +194,15 @@ func (nlbHandler *IbmNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.Lis
 		LoggingError(hiscallInfo, changeErr)
 		return irs.ListenerInfo{}, changeErr
 	}
+
+	info, err := nlbHandler.setterNLB(rawNLB)
+	if err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to Change Listener. err = %s", err.Error()))
+		cblogger.Error(createErr.Error())
+		LoggingError(hiscallInfo, createErr)
+		return irs.ListenerInfo{}, createErr
+	}
+
 	nlbId := *rawNLB.ID
 	if rawNLB.Listeners == nil || len(rawNLB.Listeners) < 1 {
 		changeErr := errors.New(fmt.Sprintf("Failed to Change Listener. err = listener does not exist within that NLB"))
@@ -233,8 +256,53 @@ func (nlbHandler *IbmNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.Lis
 			LoggingError(hiscallInfo, changeErr)
 			return irs.ListenerInfo{}, changeErr
 		}
-
 	}
+
+	securityHandler := IbmSecurityHandler{
+		CredentialInfo: nlbHandler.CredentialInfo,
+		Region:         nlbHandler.Region,
+		VpcService:     nlbHandler.VpcService,
+		Ctx:            nlbHandler.Ctx,
+		TaggingService: nlbHandler.TaggingService,
+		SearchService:  nlbHandler.SearchService,
+	}
+
+	_, err = securityHandler.RemoveRules(irs.IID{
+		NameId: "sg-" + nlbIID.NameId,
+	}, &[]irs.SecurityRuleInfo{
+		{
+			Direction:  "inbound",
+			IPProtocol: info.Listener.Protocol,
+			FromPort:   info.Listener.Port,
+			ToPort:     info.Listener.Port,
+			CIDR:       "0.0.0.0/0",
+		},
+	})
+	if err != nil {
+		changeErr := errors.New(fmt.Sprintf("Failed to Change Listener. err = %s", err.Error()))
+		cblogger.Error(changeErr.Error())
+		LoggingError(hiscallInfo, changeErr)
+		return irs.ListenerInfo{}, changeErr
+	}
+
+	_, err = securityHandler.AddRules(irs.IID{
+		NameId: "sg-" + nlbIID.NameId,
+	}, &[]irs.SecurityRuleInfo{
+		{
+			Direction:  "inbound",
+			IPProtocol: listener.Protocol,
+			FromPort:   listener.Port,
+			ToPort:     listener.Port,
+			CIDR:       "0.0.0.0/0",
+		},
+	})
+	if err != nil {
+		changeErr := errors.New(fmt.Sprintf("Failed to Change Listener. err = %s", err.Error()))
+		cblogger.Error(changeErr.Error())
+		LoggingError(hiscallInfo, changeErr)
+		return irs.ListenerInfo{}, changeErr
+	}
+
 	updatedRawNLB, err := nlbHandler.checkUpdatableNLB(nlbId)
 	if err != nil {
 		changeErr := errors.New(fmt.Sprintf("Failed to Change Listener. err = %s", err.Error()))
@@ -243,13 +311,14 @@ func (nlbHandler *IbmNLBHandler) ChangeListener(nlbIID irs.IID, listener irs.Lis
 		return irs.ListenerInfo{}, changeErr
 	}
 
-	info, err := nlbHandler.setterNLB(updatedRawNLB)
+	info, err = nlbHandler.setterNLB(updatedRawNLB)
 	if err != nil {
 		changeErr := errors.New(fmt.Sprintf("Failed to Change Listener. err = %s", err.Error()))
 		cblogger.Error(changeErr.Error())
 		LoggingError(hiscallInfo, changeErr)
 		return irs.ListenerInfo{}, changeErr
 	}
+
 	LoggingInfo(hiscallInfo, start)
 	return info.Listener, err
 }
@@ -1101,8 +1170,7 @@ func convertCBHealthToIbmHealth(healthChecker irs.HealthCheckerInfo) (vpcv1.Load
 	return opts, nil
 }
 
-func (nlbHandler *IbmNLBHandler) getMatchVMIIdAndFirstSubnetId(vmIIDs *[]irs.IID) ([]irs.IID, string, error) {
-	// nameId => systemID, NameId
+func (nlbHandler *IbmNLBHandler) getMatchedResourceIds(vmIIDs *[]irs.IID) ([]irs.IID, string, error) {
 	if vmIIDs == nil || len(*vmIIDs) < 1 {
 		return nil, "", errors.New("vmIIDs is empty")
 	}
@@ -1140,15 +1208,13 @@ func (nlbHandler *IbmNLBHandler) createNLB(nlbReqInfo irs.NLBInfo) (vpcv1.LoadBa
 		return vpcv1.LoadBalancer{}, errors.New(fmt.Sprintf("already exist NLB : %s", nlbReqInfo.IId.NameId))
 	}
 
-	vms, subnetId, err := nlbHandler.getMatchVMIIdAndFirstSubnetId(nlbReqInfo.VMGroup.VMs)
-
+	vms, subnetId, err := nlbHandler.getMatchedResourceIds(nlbReqInfo.VMGroup.VMs)
 	if err != nil {
 		return vpcv1.LoadBalancer{}, err
 	}
 
 	nlbReqInfo.VMGroup.VMs = &vms
 
-	// Set - BaseOption
 	createNLBOptions := vpcv1.CreateLoadBalancerOptions{}
 	createNLBOptions.SetIsPublic(true)
 	createNLBOptions.SetName(nlbReqInfo.IId.NameId)
@@ -1157,7 +1223,6 @@ func (nlbHandler *IbmNLBHandler) createNLB(nlbReqInfo irs.NLBInfo) (vpcv1.LoadBa
 		Name: &LoadBalancerProfileName,
 	})
 
-	// Set - subnet
 	var subnetArray = []vpcv1.SubnetIdentityIntf{
 		&vpcv1.SubnetIdentity{
 			ID: &subnetId,
@@ -1178,6 +1243,55 @@ func (nlbHandler *IbmNLBHandler) createNLB(nlbReqInfo irs.NLBInfo) (vpcv1.LoadBa
 	createNLBOptions.SetSubnets(subnetArray)
 	createNLBOptions.SetPools(poolArray)
 	createNLBOptions.SetListeners(listenerArray)
+
+	securityHandler := IbmSecurityHandler{
+		CredentialInfo: nlbHandler.CredentialInfo,
+		Region:         nlbHandler.Region,
+		VpcService:     nlbHandler.VpcService,
+		Ctx:            nlbHandler.Ctx,
+		TaggingService: nlbHandler.TaggingService,
+		SearchService:  nlbHandler.SearchService,
+	}
+
+	var sgTagList []irs.KeyValue
+
+	if nlbReqInfo.IId.NameId != "" {
+		sgTagList = append(sgTagList, irs.KeyValue{
+			Key:   "nlb_name",
+			Value: nlbReqInfo.IId.NameId,
+		})
+	}
+	if nlbReqInfo.IId.SystemId != "" {
+		sgTagList = append(sgTagList, irs.KeyValue{
+			Key:   "nlb_id",
+			Value: nlbReqInfo.IId.SystemId,
+		})
+	}
+
+	sg, err := securityHandler.CreateSecurity(irs.SecurityReqInfo{
+		IId: irs.IID{
+			NameId: "sg-" + nlbReqInfo.IId.NameId,
+		},
+		VpcIID: nlbReqInfo.VpcIID,
+		SecurityRules: &[]irs.SecurityRuleInfo{
+			{
+				Direction:  "inbound",
+				IPProtocol: nlbReqInfo.Listener.Protocol,
+				FromPort:   nlbReqInfo.Listener.Port,
+				ToPort:     nlbReqInfo.Listener.Port,
+				CIDR:       "0.0.0.0/0",
+			},
+		},
+		TagList: sgTagList,
+	})
+	if err != nil {
+		return vpcv1.LoadBalancer{}, err
+	}
+
+	securityGroupIdentityModel := new(vpcv1.SecurityGroupIdentityByID)
+	securityGroupIdentityModel.ID = core.StringPtr(sg.IId.SystemId)
+
+	createNLBOptions.SetSecurityGroups([]vpcv1.SecurityGroupIdentityIntf{securityGroupIdentityModel})
 
 	nlb, _, err := nlbHandler.VpcService.CreateLoadBalancerWithContext(nlbHandler.Ctx, &createNLBOptions)
 	if err != nil {
@@ -1364,7 +1478,21 @@ func (nlbHandler *IbmNLBHandler) getRawNLBList() (*[]vpcv1.LoadBalancer, error) 
 }
 
 func (nlbHandler *IbmNLBHandler) cleanerNLB(nlbIID irs.IID) (bool, error) {
-	// Exist?
+	securityHandler := IbmSecurityHandler{
+		CredentialInfo: nlbHandler.CredentialInfo,
+		Region:         nlbHandler.Region,
+		VpcService:     nlbHandler.VpcService,
+		Ctx:            nlbHandler.Ctx,
+		TaggingService: nlbHandler.TaggingService,
+		SearchService:  nlbHandler.SearchService,
+	}
+	_, err := securityHandler.DeleteSecurity(irs.IID{
+		NameId: "sg-" + nlbIID.NameId,
+	})
+	if err != nil {
+		cblogger.Error(err.Error())
+	}
+
 	exist, err := nlbHandler.existNLBByName(nlbIID.NameId)
 	if err != nil {
 		return false, err
@@ -1372,6 +1500,7 @@ func (nlbHandler *IbmNLBHandler) cleanerNLB(nlbIID irs.IID) (bool, error) {
 	if !exist {
 		return false, errors.New("not found nlb")
 	}
+
 	rawNLB, err := nlbHandler.getRawNLBByName(nlbIID.NameId)
 	if err != nil {
 		return false, err

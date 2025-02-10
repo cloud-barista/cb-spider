@@ -540,9 +540,12 @@ func RunServer() {
 		{"GET", "/adminweb/vmimage/:ConnectConfig", aw.VMImage},
 		{"GET", "/adminweb/vmspec/:ConnectConfig", aw.VMSpec},
 		{"GET", "/adminweb/regionzone/:ConnectConfig", aw.RegionZone},
-
 		{"GET", "/adminweb/priceinfo/:ConnectConfig", aw.PriceInfoRequest},
 		{"GET", "/adminweb/priceinfotablelist/:ProductFamily/:RegionName/:ConnectConfig", aw.PriceInfoTableList},
+
+		{"GET", "/adminweb/cmd-agent", aw.CmdAgent},
+		{"POST", "/adminweb/generate-cmd", aw.GenerateCmd},
+
 		// download price info with JSON file
 		{"GET", "/adminweb/priceinfo/download/:FileName", aw.DownloadPriceInfo},
 

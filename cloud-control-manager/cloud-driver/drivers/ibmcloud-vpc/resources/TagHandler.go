@@ -460,7 +460,7 @@ func (tagHandler *IbmTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]
 	}
 
 	if len(scanResult.Items) == 0 {
-		return []irs.KeyValue{}, errors.New("resource not found")
+		return []irs.KeyValue{}, nil
 	}
 
 	searchOptions.SearchCursor = scanResult.SearchCursor

@@ -49,14 +49,14 @@ func (imageHandler *NcpImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, 
 		return irs.ImageInfo{}, newErr
 	}
 
-	ncpImageInfo, err := imageHandler.GetNcpImageInfo(imageIID)
+	ncpImageInfo, err := imageHandler.getNcpImageInfo(imageIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Image Info from NCP : [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.ImageInfo{}, newErr
 	}	
-	imageInfo := MappingImageInfo(*ncpImageInfo)
+	imageInfo := mappingImageInfo(*ncpImageInfo)
 	return imageInfo, nil
 }
 
@@ -102,15 +102,15 @@ func (imageHandler *NcpImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 
 	var vmImageList []*irs.ImageInfo
 	for _, image := range result.ProductList {
-		imageInfo := MappingImageInfo(*image)
+		imageInfo := mappingImageInfo(*image)
 		vmImageList = append(vmImageList, &imageInfo)
 	}
 	cblogger.Info("# Supported Image Product count : ", len(vmImageList))
 	return vmImageList, nil
 }
 
-func MappingImageInfo(serverImage server.Product) irs.ImageInfo {
-	cblogger.Info("NCP Classic Cloud Driver: called MappingImageInfo()!")
+func mappingImageInfo(serverImage server.Product) irs.ImageInfo {
+	cblogger.Info("NCP Classic Cloud Driver: called mappingImageInfo()!")
 
 	var osPlatform irs.OSPlatform 
 	if serverImage.ProductType != nil {
@@ -119,8 +119,7 @@ func MappingImageInfo(serverImage server.Product) irs.ImageInfo {
 				osPlatform = irs.Windows
 			} else {
 				osPlatform = irs.PlatformNA
-			}
-			
+			}			
 		} else {
 			osPlatform = irs.PlatformNA
 		}
@@ -193,7 +192,7 @@ func (imageHandler *NcpImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, 
 		return false, newErr
 	}
 
-	ncpImageInfo, err := imageHandler.GetNcpImageInfo(imageIID)
+	ncpImageInfo, err := imageHandler.getNcpImageInfo(imageIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Image Info from NCP : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -218,10 +217,10 @@ func (imageHandler *NcpImageHandler) DeleteImage(imageIID irs.IID) (bool, error)
 	return false, fmt.Errorf("Does not support DeleteImage() yet!!")
 }
 
-func (imageHandler *NcpImageHandler) GetNcpImageInfo(imageIID irs.IID) (*server.Product, error) {
-	cblogger.Info("NCP Classic Cloud Driver: called GetNcpImageInfo()!!")
+func (imageHandler *NcpImageHandler) getNcpImageInfo(imageIID irs.IID) (*server.Product, error) {
+	cblogger.Info("NCP Classic Cloud Driver: called getNcpImageInfo()!!")
 	InitLog()
-	callLogInfo := GetCallLogScheme(imageHandler.RegionInfo.Zone, call.VMIMAGE, imageIID.SystemId, "GetNcpImageInfo()")
+	callLogInfo := GetCallLogScheme(imageHandler.RegionInfo.Zone, call.VMIMAGE, imageIID.SystemId, "getNcpImageInfo()")
 
 	if strings.EqualFold(imageIID.SystemId, "") {
 		createErr := fmt.Errorf("Invalid Image SystemId")
@@ -282,7 +281,7 @@ func (imageHandler *NcpImageHandler) isPublicImage(imageIID irs.IID) (bool, erro
 		return false, newErr
 	}
 
-	ncpImageInfo, err := imageHandler.GetNcpImageInfo(imageIID)
+	ncpImageInfo, err := imageHandler.getNcpImageInfo(imageIID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Image Info from NCP : [%v]", err)
 		cblogger.Error(newErr.Error())

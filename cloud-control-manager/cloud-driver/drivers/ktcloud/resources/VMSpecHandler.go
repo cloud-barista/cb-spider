@@ -8,21 +8,24 @@
 //
 // by ETRI, 2021.05.
 // Updated by ETRI, 2023.11.
+// Updated by ETRI, 2025.02.
 
 package resources
 
 import (
-	ktsdk "github.com/cloud-barista/ktcloud-sdk-go"
-
 	"errors"
 	"strings"
 	"strconv"
+	"regexp"
+	"fmt"
+	"time"
 	// "github.com/davecgh/go-spew/spew"
 
 	cblog "github.com/cloud-barista/cb-log"
-
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+
+	ktsdk "github.com/cloud-barista/ktcloud-sdk-go"
 )
 
 type KtCloudVMSpecHandler struct {
@@ -40,119 +43,54 @@ func init() {
 // 'TemplateId' in KT Cloud : supporting OS info ID
 // 'ServiceOfferingId' in KT Cloud : CPU/Memory info ID
 
-func (vmSpecHandler *KtCloudVMSpecHandler) GetVMSpec(VMSpecName string) (irs.VMSpecInfo, error) {
+func (vmSpecHandler *KtCloudVMSpecHandler) GetVMSpec(specName string) (irs.VMSpecInfo, error) {
 	cblogger.Info("KT Cloud cloud driver: called GetVMSpec()!")
 	// Caution!! : KT Cloud doesn't support 'Region' officially, so we use 'Zone info.' which is from the connection info.
 
-	var resultVMSpecInfo irs.VMSpecInfo
-	regionInfo := vmSpecHandler.RegionInfo.Region
-	zoneId := vmSpecHandler.RegionInfo.Zone
+	if strings.EqualFold(specName, "") {
+		newErr := fmt.Errorf("Invalid specName!!")
+		cblogger.Error(newErr.Error())
+		return irs.VMSpecInfo{}, newErr
+	}
 
-	cblogger.Infof("Region : [%s] / SpecName : [%s]", regionInfo, VMSpecName)
-	cblogger.Info("RegionInfo.Zone : ", zoneId)
-
-	//var ktZoneInfo ktsdk.Zone
-
-	//To get the Zone Name of the zoneId
-	// var ktZoneName string
-	// response, err := vmSpecHandler.Client.ListZones(true, "", "", "")
-	// if err != nil {
-	// 	cblogger.Error("Error to get list of available Zones: %s", err)
-
-	// 	return irs.VMSpecInfo{}, err
-	// }
-
-	// for _, Zone := range response.Listzonesresponse.Zone {
-	// 	cblogger.Info("# Search criteria of Zoneid : ", zoneId)
-
-	// 	if Zone.Id == zoneId {
-	// 		// KT Cloud는 Zone별로 Spec이 다르므로 Zone 정보도 넘김.
-	// 		ktZoneName = Zone.Name
-
-	// 		break
-	// 	}
-	// }
-	// cblogger.Info("Zone Name : ", ktZoneName)
-
-
-	// Caution!! : KT Cloud는 Image info/VMSpc info 조회시 zoneid로 조회함.
-	result, err := vmSpecHandler.Client.ListAvailableProductTypes(zoneId)
+	// Note!!) Use ListVMSpec() to include 'CorrespondingImageIds' parameter.
+	specListResult, err := vmSpecHandler.ListVMSpec()
 	if err != nil {
-		cblogger.Error("Failed to Get List of Available Product Types: %s", err)
-		return irs.VMSpecInfo{}, err
+		newErr := fmt.Errorf("Failed to Get the VMSpec info list!! : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return irs.VMSpecInfo{}, newErr
 	}
 
-	if len(result.Listavailableproducttypesresponse.ProductTypes) < 1 {
-		return irs.VMSpecInfo{}, errors.New("Failed to Find Product types!!")
-	}
-
-	// Name ex) d3530ad2-462b-43ad-97d5-e1087b952b7d!87c0a6f6-c684-4fbe-a393-d8412bcf788d_disk100GB
-	// Caution : 아래의 string split 기호 중 ! 대신 #을 사용하면 CB-Spider API를 통해 call할 시 전체의 string이 전달되지 않고 # 전까지만 전달됨. 
-	instanceSpecString := strings.Split(VMSpecName, "!")
-	for i := range instanceSpecString {
-		cblogger.Info("instanceSpecString : ", instanceSpecString[i])
-	}
-
-	ktVMSpecId := instanceSpecString[0]
-	cblogger.Info("vmSpecID : ", ktVMSpecId)
-
-    // Ex) 87c0a6f6-c684-4fbe-a393-d8412bcf788d_disk100GB
-	tempOfferingString := instanceSpecString[1]
-	cblogger.Info("tempOfferingString : ", tempOfferingString)
-
-	diskOfferingString := strings.Split(tempOfferingString, "_")
-
-	ktDiskOfferingId := diskOfferingString[0]
-	cblogger.Info("ktDiskOfferingId : ", ktDiskOfferingId)
-
-	for _, productType := range result.Listavailableproducttypesresponse.ProductTypes {
-		cblogger.Info("# Search criteria of Serviceofferingid : ", ktVMSpecId)		
-		// if serverProductType.ServiceOfferingId == ktVMSpecId {
-		if productType.ServiceOfferingId == ktVMSpecId {
-			if productType.DiskOfferingId == ktDiskOfferingId {
-				resultVMSpecInfo = mappingVMSpecInfo(zoneId, "", productType) //Spec 상세 정보 조회시 Image 정보는 불필요
-				break
-			}
+	for _, spec := range specListResult {
+		if strings.EqualFold(spec.Name, specName) {
+			return *spec, nil
 		}
 	}
-	return resultVMSpecInfo, nil
+	return irs.VMSpecInfo{}, errors.New("Failed to find the VMSpec info : '" + specName)
 }
 
 func (vmSpecHandler *KtCloudVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 	cblogger.Info("KT Cloud cloud driver: called ListVMSpec()!")
 
-	regionInfo := vmSpecHandler.RegionInfo.Region
-	zoneId := vmSpecHandler.RegionInfo.Zone
-
-	cblogger.Infof("Region : [%s] ", regionInfo)
-	cblogger.Info("vmSpecHandler.RegionInfo.Zone : ", zoneId)
-	
-	// Image(KT Cloud Template) list 조회 (Name)
 	imageHandler := KtCloudImageHandler{
 		Client:         vmSpecHandler.Client,
 		RegionInfo:     vmSpecHandler.RegionInfo,  //CAUTION!! : Must input this!!
 	}
-	cblogger.Info("imageHandler.RegionInfo.Zone : ", imageHandler.RegionInfo.Zone)  //Need to Check!!
 	
 	imageListResult, err := imageHandler.ListImage()
 	if err != nil {
 		cblogger.Infof("Failed to Get Image list!! : ", err)
-
 		return nil, errors.New("Failed to Get Image list!!")
-	} else {
-		cblogger.Info("Succeeded in Getting Image list!!")
-		cblogger.Info("Image list Count : ", len(imageListResult))
-		// spew.Dump(imageListResult)
 	}
 
-	specListResult, err := vmSpecHandler.Client.ListAvailableProductTypes(zoneId)
+	specListResult, err := vmSpecHandler.Client.ListAvailableProductTypes(vmSpecHandler.RegionInfo.Zone)
 	if err != nil {
 		cblogger.Error("Failed to Get List of Available Product Types: %s", err)
 		return []*irs.VMSpecInfo{}, errors.New("Failed to Get Product Type list!!")
 	} else {
 		cblogger.Info("Succeeded in Getting Product Type list!!")
 	}
-	cblogger.Info("Spec list Count : ", len(specListResult.Listavailableproducttypesresponse.ProductTypes))
+	cblogger.Infof("### Spec list Count : [%d]", len(specListResult.Listavailableproducttypesresponse.ProductTypes))
 	// spew.Dump(specListResult)
 	// spew.Dump(result)
 
@@ -160,87 +98,126 @@ func (vmSpecHandler *KtCloudVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, erro
 		return []*irs.VMSpecInfo{}, errors.New("Failed to Find Product types!!")
 	}
 
-	var vmSpecInfoList []*irs.VMSpecInfo //Cloud-Barista Spec Info.
+	vmSpecMap := make(map[string]*irs.VMSpecInfo)
 	for _, image := range imageListResult {
-		cblogger.Info("# 기준 KT Cloud Image ID(Product type -> Template) : ", image.IId.SystemId)
-
+		cblogger.Infof("# Lookup by KT Cloud Image ID(Product type -> Template) : [%s]", image.IId.SystemId)
+	
 		for _, productType := range specListResult.Listavailableproducttypesresponse.ProductTypes {
-			var serverProductType ktsdk.ProductTypes
-			serverProductType = productType
-
-			if image.IId.SystemId == productType.TemplateId {
-
-			vmSpecInfo := mappingVMSpecInfo(zoneId, image.IId.SystemId, serverProductType)
-			vmSpecInfoList = append(vmSpecInfoList, &vmSpecInfo)
+			if strings.EqualFold(image.IId.SystemId, productType.TemplateId) {
+				vmSpecInfo, err := vmSpecHandler.mappingVMSpecInfo(&productType)
+				if err != nil {
+					newErr := fmt.Errorf("Failed to Map the VMSpec info : [%v]", err)
+					cblogger.Error(newErr.Error())
+					return nil, newErr
+				}
+	
+				if existingSpec, exists := vmSpecMap[vmSpecInfo.Name]; exists {
+					// If the VMSpec already exists, add the image ID to the corresponding images list in KeyValueList
+					found := false
+					for i, kv := range existingSpec.KeyValueList {
+						if kv.Key == "CorrespondingImageIds" {
+							imageIds := strings.Split(kv.Value, ",")
+							for _, id := range imageIds {
+								if id == image.IId.SystemId {
+									found = true
+									break
+								}
+							}
+							if !found {
+								existingSpec.KeyValueList[i].Value += "," + image.IId.SystemId
+							}
+							break
+						}
+					}
+					// if !found {
+					// 	existingSpec.KeyValueList = append(existingSpec.KeyValueList, irs.KeyValue{
+					// 		Key:   "CorrespondingImageIds",
+					// 		Value: image.IId.SystemId,
+					// 	})
+					// }
+				} else {
+					// If the VMSpec is new, add it to the map and initialize the corresponding images list in KeyValueList
+					vmSpecInfo.KeyValueList = append(vmSpecInfo.KeyValueList, irs.KeyValue{
+						Key:   "CorrespondingImageIds",
+						Value: image.IId.SystemId,
+					})
+					vmSpecMap[vmSpecInfo.Name] = &vmSpecInfo
+				}
+				time.Sleep(50 * time.Millisecond)
+				// To prvent error : "Unable to execute API command listAvailableProductTypes  due to ratelimit timeout"
 			}
 		}
+	}
+	
+	var vmSpecInfoList []*irs.VMSpecInfo
+	for _, specInfo := range vmSpecMap {
+		vmSpecInfoList = append(vmSpecInfoList, specInfo)
 	}	
-	cblogger.Info("# Supported VM Spec count : ", len(vmSpecInfoList))
+	// cblogger.Info("# Supported VM Spec count : ", len(vmSpecInfoList))
 	return vmSpecInfoList, nil
 }
 
 //Extract instance Specification information
-func mappingVMSpecInfo(ZoneId string, ImageId string, ktServerProductType ktsdk.ProductTypes) irs.VMSpecInfo {
-	cblogger.Infof("\n*** Mapping VMSpecInfo : SpecName: [%s]", ktServerProductType.ServiceOfferingId)
+func (vmSpecHandler *KtCloudVMSpecHandler) mappingVMSpecInfo(productType *ktsdk.ProductTypes) (irs.VMSpecInfo, error) {
+	// cblogger.Infof("\n*** Mapping VMSpecInfo : SpecName: [%s]", productType.ServiceOfferingId)
 	// spew.Dump(vmSpec)
 
-	// Caution : 아래의 string split 기호 중 ! 대신 #을 사용하면 CB-Spider API를 통해 call할 시 전체의 string이 전달되지 않고 # 전까지만 전달됨. 
-	ktVMSpecId := ktServerProductType.ServiceOfferingId + "!" + ktServerProductType.DiskOfferingId + "_disk" + ktServerProductType.DiskOfferingDesc
-	ktVMSpecString := ktServerProductType.ServiceOfferingDesc
-	// ex) ktServerProductType.Serviceofferingdesc => "XS71 12vCore 16GB" //Caution!!
+	// Caution: If you use # instead of ! as the string split symbol below, the entire string will not be delivered through the CB-Spider API, only up to the #.
+	ktVMSpecId := productType.ServiceOfferingId + "!" + productType.DiskOfferingId + "_disk" + productType.DiskOfferingDesc
+	ktVMSpecString := productType.ServiceOfferingDesc
+	// ex) productType.Serviceofferingdesc => "XS71 12vCore 16GB" //Caution!!
 	// vCpuCount := strtmp[5:7]
 	// productMem := strtmp[13:15]
 
-	// Split 함수로 문자열을 " "(공백) 기준으로 분리
+	// Split the string based on " " (space) using the Split function
 	specSlice := strings.Split(ktVMSpecString, " ")
-	for _, str := range specSlice {
-		cblogger.Infof("Splited string : [%s]", str)
-	}
+	// for _, str := range specSlice {
+	// 	cblogger.Infof("Splitted string : [%s]", str)
+	// }
 
-	// KT Cloud에서 core 수를 '4vcore' or '16vCore'와 같은 형태로 제공함.(String 처리시 자리수, 대수문자 주의 필요)
-    // vCpuCount := productVCpu[0:2] // 24vCore는 괜찮지만, 1vCore 같은 경우도 있어서 전체 자리수가 달라 적당하지 않음
+	// KT Cloud provides the number of cores in the form of '4vcore' or '16vCore'. (Be careful with string processing, number of digits, and case sensitivity)
+	// vCpuCount := productVCpu[0:2] // 24vCore is fine, but 1vCore has a different total number of digits, so it's not appropriate
 
-	productVCpu := strings.Replace(specSlice[1], "C", "c", 1) //대문자 C가 있으면 소문자 c로 변경 ex) 1vCore -> 1vcore
-	productVCpu = strings.TrimSuffix(productVCpu, "vcore") // 문자열 우측에서 'vcore'를 제거
-	productMem := strings.TrimRight(specSlice[2], "GB") // 문자열 우측에서 G와 B를 제거
+	productVCpu := strings.Replace(specSlice[1], "C", "c", 1) // If there is an uppercase C, change it to lowercase c ex) 1vCore -> 1vcore
+	productVCpu = strings.TrimSuffix(productVCpu, "vcore") // Remove 'vcore' from the right side of the string
+	productMem := strings.TrimRight(specSlice[2], "GB") // Remove G and B from the right side of the string
 	//productMem := strings.TrimSuffix(specSlice[2], "GB")
 
-	MemCountGb, err := strconv.Atoi(productMem) // 문자열을 숫자으로 변환
+	MemCountGb, err := strconv.Atoi(productMem) // Convert string to number
 	if err != nil {
 		cblogger.Error(err)
 	}
-	
-	MemCountMb := MemCountGb*1024
-	MemCountMbStr := strconv.Itoa(MemCountMb) // 숫자를 문자열로 변환
+	MemCountMbStr := strconv.Itoa(MemCountGb * 1024) // Convert number to string
 
-	// In case : ktServerProductType.DiskOfferingDesc : 100G (After Disk Add)
-	// if len(ktServerProductType.DiskOfferingId) > 1 {
-	// 	ktVMSpecID = ktServerProductType.ServiceOfferingId + "#" + ktServerProductType.DiskOfferingId + "_disk" + ktServerProductType.DiskOfferingDesc
+	// ### Note!!) If the diskofferingid value exists, additional data disks are created.(=> So to get the 'Correct RootDiskSize')
+	diskSize, err := vmSpecHandler.getRootDiskSize(&productType.DiskOfferingDesc, &productType.TemplateId, &productType.DiskOfferingId)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get the Root Disk Size of the VMSpec: [%v]", err)
+		cblogger.Error(newErr.Error())
+		return irs.VMSpecInfo{}, newErr
+	}
+	// In case: productType.DiskOfferingDesc : 100G (After Disk Add)
+	// if len(productType.DiskOfferingId) > 1 {
+	// 	ktVMSpecID = productType.ServiceOfferingId + "#" + productType.DiskOfferingId + "_disk" + productType.DiskOfferingDesc
 	// }
 
 	vmSpecInfo := irs.VMSpecInfo{
-		Region: ktServerProductType.ZoneDesc,
-		// Region: ktServerProductType.ZoneId,
+		Region: productType.ZoneDesc,
 		Name:   ktVMSpecId,
-		VCpu: irs.VCpuInfo{Count: productVCpu, Clock: "N/A"},
-		// VCpu: irs.VCpuInfo{Count: vCpuCount, Clock: "N/A"},
-		Mem: MemCountMbStr,
-		// Mem: productMem,
+		VCpu: 	irs.VCpuInfo{Count: productVCpu, Clock: "-1"},
+		Mem: 	MemCountMbStr,
+		Disk: 	diskSize,
+		Gpu: 	[]irs.GpuInfo{{Count: "-1", Mfr: "NA", Model: "NA", Mem: "-1"}},
 
-		// GPU 정보는 없음.
-		Gpu: []irs.GpuInfo{{Count: "N/A", Mfr: "N/A", Model: "N/A", Mem: "N/A"}},
-
-		// KT Cloud는 Zone별로 지원 Spec이 다르므로 Zone 정보도 제시
+		// Since KT Cloud supports different specs for each zone, the zone information is also provided.
 		KeyValueList: []irs.KeyValue{
-			{Key: "Zone", Value: ktServerProductType.ZoneDesc},
-			{Key: "KtServiceOffering", Value: ktServerProductType.ServiceOfferingDesc},	
-			{Key: "DiskSize", Value: ktServerProductType.DiskOfferingDesc},
-			//{Key: "AdditionalDiskOfferingID", Value: ktServerProductType.DiskOfferingId},
-			{Key: "SupportingImage(Template)ID", Value: ImageId},
-			{Key: "ProductState", Value: ktServerProductType.ProductState},
+			{Key: "KtServiceOffering", Value: productType.ServiceOfferingDesc},	
+			{Key: "TotalDiskSize(includeDataDisk)", Value: productType.DiskOfferingDesc},
+			{Key: "ProductState", Value: productType.ProductState},
+			{Key: "Zone", Value: productType.ZoneDesc},
 		},
 	}
-	return vmSpecInfo
+	return vmSpecInfo, nil
 }
 
 func (vmSpecHandler *KtCloudVMSpecHandler) ListOrgVMSpec() (string, error) {
@@ -278,4 +255,62 @@ func (vmSpecHandler *KtCloudVMSpecHandler) GetOrgVMSpec(Name string) (string, er
 		cblogger.Error(errJson)
 	}	
 	return jsonString, errJson
+}
+
+// ### Note!!) If the diskofferingid value exists, additional data disks are created.(=> So to get the 'Correct RootDiskSize')
+func (vmSpecHandler *KtCloudVMSpecHandler) getRootDiskSize(diskOfferingDesc *string, templateId *string, diskOfferingId *string) (string, error) {
+	cblogger.Info("KT Cloud cloud driver: called getRootDiskSize()!")
+
+	if strings.EqualFold(*diskOfferingDesc, "") {
+		newErr := fmt.Errorf("Invalid diskOfferingDesc value!!")
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
+
+	if strings.EqualFold(*templateId, "") {
+		newErr := fmt.Errorf("Invalid templateId value!!")
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
+
+	// diskOfferingDesc Ex : "100GB"
+	re := regexp.MustCompile(`(\d+)GB`)
+	matches := re.FindStringSubmatch(*diskOfferingDesc) // Find the match
+	
+	var offeringDiskSizeStr string
+	if len(matches) > 1 {
+		offeringDiskSizeStr = matches[1] // Extract only the numeric part. Ex : "100"
+	}
+	if strings.EqualFold(offeringDiskSizeStr, "") {
+		return "-1", nil
+	}
+
+	if !strings.EqualFold(*diskOfferingId, "") {
+		imageHandler := KtCloudImageHandler{
+			RegionInfo: vmSpecHandler.RegionInfo,
+			Client:     vmSpecHandler.Client,
+		}
+		imageInfo, err := imageHandler.GetImage(irs.IID{SystemId: *templateId})
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Get the VM Image Info : [%v]", err)
+			return "", newErr
+		}
+	
+		offeringDiskSizeInt, err := strconv.Atoi(offeringDiskSizeStr)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Convert the string to number : [%v]", err)
+			return "", newErr
+		}
+		osDiskSizeInGBInt, err := strconv.Atoi(imageInfo.OSDiskSizeInGB)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Convert the string to number : [%v]", err)
+			return "", newErr
+		}
+		// cblogger.Infof("offeringDiskSizeInt : [%d] / osDiskSizeInGBInt : [%d]", offeringDiskSizeInt, osDiskSizeInGBInt)
+
+		rootDiskSizeInt := offeringDiskSizeInt - osDiskSizeInGBInt
+		return strconv.Itoa(rootDiskSizeInt), nil // rootDiskSizeStr Ex : "50"
+	} else {		
+		return offeringDiskSizeStr, nil
+	}
 }

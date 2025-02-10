@@ -68,6 +68,11 @@ func NLBManagement(c echo.Context) error {
 		return c.HTML(http.StatusOK, htmlStr)
 	}
 
+	providerName, err := getProviderName(connConfig)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
 	regionName, err := getRegionName(connConfig)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
@@ -86,12 +91,14 @@ func NLBManagement(c echo.Context) error {
 
 	data := struct {
 		ConnectionConfig string
+		ProviderName     string
 		RegionName       string
 		Region           string
 		Zone             string
 		NLBs             []*cres.NLBInfo
 	}{
 		ConnectionConfig: connConfig,
+		ProviderName:     providerName,
 		RegionName:       regionName,
 		Region:           region,
 		Zone:             zone,
