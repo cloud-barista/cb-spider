@@ -192,13 +192,13 @@ func (imageHandler *KTVpcImageHandler) mappingImageInfo(image *images.Image) (*i
 		imageStatus = irs.ImageNA
 	}
 
-	// # Note) image.SizeBytes is not Root Disk Size
+	// ### Note) 'image.SizeBytes' is not Root Disk Size
 	// valueInGB := float64(image.SizeBytes) / (1024 * 1024 * 1024)	
 	// diskSizeInGB := strconv.FormatFloat(valueInGB, 'f', 0, 64)
 
 	imageInfo := &irs.ImageInfo {
 		IId: irs.IID{
-			NameId:   image.ID, // Caution!!
+			NameId:   image.ID,   // Caution!!
 			SystemId: image.ID,
 		},
 		GuestOS:      image.Name, // Caution!!
@@ -209,7 +209,7 @@ func (imageHandler *KTVpcImageHandler) mappingImageInfo(image *images.Image) (*i
 		OSPlatform: 	osPlatform,		
 		OSDistribution: image.Name,
 		OSDiskType: 	"NA",
-		OSDiskSizeInGB: "NA",
+		OSDiskSizeInGB: "-1",
 		ImageStatus: 	imageStatus,
 	}
 
