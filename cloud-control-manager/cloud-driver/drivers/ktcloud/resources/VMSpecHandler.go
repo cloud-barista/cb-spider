@@ -18,7 +18,8 @@ import (
 	"strconv"
 	"regexp"
 	"fmt"
-	"time"
+	// "time"
+	// "sync"
 	// "github.com/davecgh/go-spew/spew"
 
 	cblog "github.com/cloud-barista/cb-log"
@@ -33,6 +34,8 @@ type KtCloudVMSpecHandler struct {
 	RegionInfo     idrv.RegionInfo
 	Client         *ktsdk.KtCloudClient
 }
+
+var globalImageMap = make(map[string]*irs.ImageInfo)
 
 func init() {
 	// cblog is a global variable.
@@ -52,7 +55,7 @@ func (vmSpecHandler *KtCloudVMSpecHandler) GetVMSpec(specName string) (irs.VMSpe
 		cblogger.Error(newErr.Error())
 		return irs.VMSpecInfo{}, newErr
 	}
-
+	
 	// Note!!) Use ListVMSpec() to include 'CorrespondingImageIds' parameter.
 	specListResult, err := vmSpecHandler.ListVMSpec()
 	if err != nil {
@@ -77,32 +80,39 @@ func (vmSpecHandler *KtCloudVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, erro
 		RegionInfo:     vmSpecHandler.RegionInfo,  //CAUTION!! : Must input this!!
 	}
 	
-	imageListResult, err := imageHandler.ListImage()
+	imageInfoList, err := imageHandler.ListImage()
 	if err != nil {
 		cblogger.Infof("Failed to Get Image list!! : ", err)
 		return nil, errors.New("Failed to Get Image list!!")
 	}
 
-	specListResult, err := vmSpecHandler.Client.ListAvailableProductTypes(vmSpecHandler.RegionInfo.Zone)
-	if err != nil {
-		cblogger.Error("Failed to Get List of Available Product Types: %s", err)
-		return []*irs.VMSpecInfo{}, errors.New("Failed to Get Product Type list!!")
-	} else {
-		cblogger.Info("Succeeded in Getting Product Type list!!")
+	// Populate the Global Map : globalImageMap
+	// cblogger.Infof("\n\n### Image list count in globalImageMap :  [%d]\n", len(globalImageMap))
+	if len(globalImageMap) < 1 {
+		for _, imageInfo := range imageInfoList {
+			globalImageMap[imageInfo.Name] = imageInfo
+		}
 	}
-	cblogger.Infof("### Spec list Count : [%d]", len(specListResult.Listavailableproducttypesresponse.ProductTypes))
-	// spew.Dump(specListResult)
-	// spew.Dump(result)
+	// cblogger.Infof("\n\n### Image list count in globalImageMap :  [%d]\n", len(globalImageMap))
 
-	if len(specListResult.Listavailableproducttypesresponse.ProductTypes) < 1 {
-		return []*irs.VMSpecInfo{}, errors.New("Failed to Find Product types!!")
+	productList, err := vmSpecHandler.Client.ListAvailableProductTypes(vmSpecHandler.RegionInfo.Zone)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get Product Type list from KT Cloud : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+	// cblogger.Infof("### Spec list Count : [%d]", len(productList.Listavailableproducttypesresponse.ProductTypes))
+	// spew.Dump(productList)
+
+	if len(productList.Listavailableproducttypesresponse.ProductTypes) < 1 {
+		return nil, errors.New("Failed to Find Any Product types!!")
 	}
 
 	vmSpecMap := make(map[string]*irs.VMSpecInfo)
-	for _, image := range imageListResult {
+	for _, image := range imageInfoList {
 		cblogger.Infof("# Lookup by KT Cloud Image ID(Product type -> Template) : [%s]", image.IId.SystemId)
 	
-		for _, productType := range specListResult.Listavailableproducttypesresponse.ProductTypes {
+		for _, productType := range productList.Listavailableproducttypesresponse.ProductTypes {
 			if strings.EqualFold(image.IId.SystemId, productType.TemplateId) {
 				vmSpecInfo, err := vmSpecHandler.mappingVMSpecInfo(&productType)
 				if err != nil {
@@ -143,12 +153,16 @@ func (vmSpecHandler *KtCloudVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, erro
 					})
 					vmSpecMap[vmSpecInfo.Name] = &vmSpecInfo
 				}
-				time.Sleep(50 * time.Millisecond)
+				// time.Sleep(30 * time.Millisecond)
 				// To prvent error : "Unable to execute API command listAvailableProductTypes  due to ratelimit timeout"
 			}
 		}
 	}
 	
+	// Reinitialize the Global Map to Clear all data : globalImageMap
+	globalImageMap = make(map[string]*irs.ImageInfo)	
+	// cblogger.Infof("\n\n### Image list count in globalImageMap :  [%d]\n", len(globalImageMap))
+
 	var vmSpecInfoList []*irs.VMSpecInfo
 	for _, specInfo := range vmSpecMap {
 		vmSpecInfoList = append(vmSpecInfoList, specInfo)
@@ -159,7 +173,7 @@ func (vmSpecHandler *KtCloudVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, erro
 
 //Extract instance Specification information
 func (vmSpecHandler *KtCloudVMSpecHandler) mappingVMSpecInfo(productType *ktsdk.ProductTypes) (irs.VMSpecInfo, error) {
-	// cblogger.Infof("\n*** Mapping VMSpecInfo : SpecName: [%s]", productType.ServiceOfferingId)
+	cblogger.Info("KT Cloud cloud driver: called mappingVMSpecInfo()!")
 	// spew.Dump(vmSpec)
 
 	// Caution: If you use # instead of ! as the string split symbol below, the entire string will not be delivered through the CB-Spider API, only up to the #.
@@ -259,7 +273,7 @@ func (vmSpecHandler *KtCloudVMSpecHandler) GetOrgVMSpec(Name string) (string, er
 
 // ### Note!!) If the diskofferingid value exists, additional data disks are created.(=> So to get the 'Correct RootDiskSize')
 func (vmSpecHandler *KtCloudVMSpecHandler) getRootDiskSize(diskOfferingDesc *string, templateId *string, diskOfferingId *string) (string, error) {
-	cblogger.Info("KT Cloud cloud driver: called getRootDiskSize()!")
+	// cblogger.Info("KT Cloud cloud driver: called getRootDiskSize()!")
 
 	if strings.EqualFold(*diskOfferingDesc, "") {
 		newErr := fmt.Errorf("Invalid diskOfferingDesc value!!")
@@ -285,14 +299,36 @@ func (vmSpecHandler *KtCloudVMSpecHandler) getRootDiskSize(diskOfferingDesc *str
 		return "-1", nil
 	}
 
-	if !strings.EqualFold(*diskOfferingId, "") {
+	// Populate the Global Map (if not yet) : globalImageMap
+	// cblogger.Infof("\n\n### Image list count in globalImageMap :  [%d]\n", len(globalImageMap))
+	if len(globalImageMap) < 1 {		
 		imageHandler := KtCloudImageHandler{
 			RegionInfo: vmSpecHandler.RegionInfo,
 			Client:     vmSpecHandler.Client,
 		}
-		imageInfo, err := imageHandler.GetImage(irs.IID{SystemId: *templateId})
+		imageInfoList, err := imageHandler.ListImage()
 		if err != nil {
-			newErr := fmt.Errorf("Failed to Get the VM Image Info : [%v]", err)
+			newErr := fmt.Errorf("Failed to Get VM Image Info List : [%v]", err)
+			return "", newErr
+		}
+
+		for _, imageInfo := range imageInfoList {
+			globalImageMap[imageInfo.Name] = imageInfo
+		}
+	}
+
+	if !strings.EqualFold(*diskOfferingId, "") {
+		// ### Note) If GetImage() runs repeatedly, too many API calls occur.
+		// imageInfo, err := imageHandler.GetImage(irs.IID{SystemId: *templateId})
+		// if err != nil {
+		// 	newErr := fmt.Errorf("Failed to Get the VM Image Info : [%v]", err)
+		// 	return "", newErr
+		// }
+
+		imageInfo, exists := globalImageMap[*templateId]
+		if !exists {
+			newErr := fmt.Errorf("Failed to Find the Image Info that corresponds to the templateId.")
+			cblogger.Error(newErr.Error())
 			return "", newErr
 		}
 	
