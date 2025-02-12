@@ -74,16 +74,6 @@ func makeOnchangeConnectionConfigProviderFunc_js() string {
 	    credentialNameList = document.getElementsByName('credentialName-OPENSTACK');
 	    regionNameList = document.getElementsByName('regionName-OPENSTACK');
             break;
-          case "CLOUDIT":
-	    driverNameList = document.getElementsByName('driverName-CLOUDIT');
-	    credentialNameList = document.getElementsByName('credentialName-CLOUDIT');
-	    regionNameList = document.getElementsByName('regionName-CLOUDIT');
-            break;
-          case "DOCKER":
-	    driverNameList = document.getElementsByName('driverName-DOCKER');
-	    credentialNameList = document.getElementsByName('credentialName-DOCKER');
-	    regionNameList = document.getElementsByName('regionName-DOCKER');
-            break;
 
           case "NCPVPC":
 	    driverNameList = document.getElementsByName('driverName-NCPVPC');

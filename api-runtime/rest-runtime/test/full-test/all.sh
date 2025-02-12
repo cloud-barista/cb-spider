@@ -3,5 +3,3 @@
 ./3.innogrid-openstack-test.sh &
 ./4.gcp-test.sh &
 ./5.alibaba-test.sh &
-#./6.cloudit-test.sh &
-./7.docker-test.sh &

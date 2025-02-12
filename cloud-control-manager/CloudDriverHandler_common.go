@@ -459,10 +459,10 @@ func getRegionNameByRegionInfo(rgnInfo *rim.RegionInfo) (string, string, error) 
 	var regionName string
 	var zoneName string
 	switch strings.ToUpper(rgnInfo.ProviderName) {
-	case "AWS", "AZURE", "ALIBABA", "GCP", "TENCENT", "IBM", "NCP", "NCPVPC", "KTCLOUD", "NHNCLOUD", "KTCLOUDVPC":
+	case "AWS", "AZURE", "ALIBABA", "GCP", "TENCENT", "IBM", "OPENSTACK", "NCP", "NCPVPC", "KTCLOUD", "NHNCLOUD", "KTCLOUDVPC":
 		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
 		zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
-	case "OPENSTACK", "CLOUDIT", "DOCKER", "CLOUDTWIN", "MOCK":
+	case "CLOUDTWIN", "MOCK":
 		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
 	default:
 		errmsg := rgnInfo.ProviderName + " is not a valid ProviderName!!"

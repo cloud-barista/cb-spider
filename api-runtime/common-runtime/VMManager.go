@@ -505,36 +505,32 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTra
 		return nil, err
 	}
 
-	// (1) check exist(NameID)
-	dockerTest := os.Getenv("DOCKER_POC_TEST") // For docker poc tests, this is currently the best method.
-	if dockerTest == "" || dockerTest == "OFF" {
-		bool_ret := false
-		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-			var iidInfoList []*VMIIDInfo
-			err = getAuthIIDInfoList(connectionName, &iidInfoList)
-			if err != nil {
-				cblog.Error(err)
-				return nil, err
-			}
-			bool_ret, err = isNameIdExists(&iidInfoList, reqInfo.IId.NameId)
-			if err != nil {
-				cblog.Error(err)
-				return nil, err
-			}
-		} else {
-			bool_ret, err = infostore.HasByConditions(&VMIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN,
-				reqInfo.IId.NameId)
-			if err != nil {
-				cblog.Error(err)
-				return nil, err
-			}
-		}
-
-		if bool_ret {
-			err := fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
+	bool_ret = false
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*VMIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
 			cblog.Error(err)
 			return nil, err
 		}
+		bool_ret, err = isNameIdExists(&iidInfoList, reqInfo.IId.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		bool_ret, err = infostore.HasByConditions(&VMIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN,
+			reqInfo.IId.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	}
+
+	if bool_ret {
+		err := fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
+		cblog.Error(err)
+		return nil, err
 	}
 
 	providerName, err := ccm.GetProviderNameByConnectionName(connectionName)
@@ -558,14 +554,11 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTra
 
 	// (2) clone and translate the reqInfo with DriverIID
 	var reqInfoForDriver cres.VMReqInfo
-	if dockerTest == "ON" {
-		reqInfoForDriver = reqInfo
-	} else {
-		reqInfoForDriver, err = cloneReqInfoWithDriverIID(connectionName, reqInfo)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
-		}
+
+	reqInfoForDriver, err = cloneReqInfoWithDriverIID(connectionName, reqInfo)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
 	}
 
 	// check Winddows GuestOS

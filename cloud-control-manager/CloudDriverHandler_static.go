@@ -17,8 +17,6 @@ import (
 	alibabadrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/alibaba"
 	awsdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws"
 	azuredrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure"
-	clouditdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/cloudit"
-	dockerdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/docker"
 	gcpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp"
 	ibmvpcdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc"
 	mockdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/mock"
@@ -62,10 +60,6 @@ func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
 		cloudDriver = new(alibabadrv.AlibabaDriver)
 	case "OPENSTACK":
 		cloudDriver = new(openstackdrv.OpenStackDriver)
-	case "CLOUDIT":
-		cloudDriver = new(clouditdrv.ClouditDriver)
-	case "DOCKER":
-		cloudDriver = new(dockerdrv.DockerDriver)
 	case "TENCENT":
 		cloudDriver = new(tencentdrv.TencentDriver)
 	case "IBM":
