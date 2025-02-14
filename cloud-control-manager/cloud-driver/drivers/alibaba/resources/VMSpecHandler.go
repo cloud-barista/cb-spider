@@ -30,7 +30,8 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMS
 	//cblogger.Debug(instanceTypeInfo)
 
 	vCpuInfo := irs.VCpuInfo{
-		Clock: "0",
+		Count: "-1",
+		Clock: "-1",
 	}
 	// gpuInfoList := []irs.GpuInfo{
 	// 	{
@@ -45,27 +46,26 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMS
 		Count: "-1",
 		Model: "NA",
 		Mfr:   "NA",
-		Mem:   "0",
+		Mem:   "-1",
 	}
 
 	if instanceTypeInfo.GPUAmount != 0 {
 		gpuInfo.Count = strconv.Itoa(instanceTypeInfo.GPUAmount)
-	}
-
-	if instanceTypeInfo.GPUSpec != "" {
-		gpuInfo.Model = strings.ToUpper(instanceTypeInfo.GPUSpec)
-		gpu := strings.Split(instanceTypeInfo.GPUSpec, " ") // "Nvidia Tesla P4"
-		if len(gpu) > 0 {
-			gpuInfo.Mfr = strings.ToUpper(gpu[0])
-			cblogger.Infof("Manufacturer Information Extraction: Original[%s] / Extracted[%s]", instanceTypeInfo.GPUSpec, gpuInfo.Mfr)
+		if instanceTypeInfo.GPUSpec != "" {
+			gpuInfo.Model = strings.ToUpper(instanceTypeInfo.GPUSpec)
+			gpu := strings.Split(instanceTypeInfo.GPUSpec, " ") // "Nvidia Tesla P4"
+			if len(gpu) > 0 {
+				gpuInfo.Mfr = strings.ToUpper(gpu[0])
+				cblogger.Infof("Manufacturer Information Extraction: Original[%s] / Extracted[%s]", instanceTypeInfo.GPUSpec, gpuInfo.Mfr)
+			}
 		}
-	}
 
-	if instanceTypeInfo.GPUMemorySize != 0 {
-		gpuInfo.Mem = strconv.FormatFloat(instanceTypeInfo.GPUMemorySize, 'f', -1, 64)
-	}
+		if instanceTypeInfo.GPUMemorySize != 0 {
+			gpuInfo.Mem = strconv.FormatFloat(instanceTypeInfo.GPUMemorySize, 'f', -1, 64)
+		}
 
-	gpuInfoList = append(gpuInfoList, gpuInfo)
+		gpuInfoList = append(gpuInfoList, gpuInfo)
+	}
 
 	// if !reflect.ValueOf(&instanceTypeInfo.GPUSpec).IsNil() {
 	// 	gpu := strings.Split(instanceTypeInfo.GPUSpec, " ") //"Nvidia Tesla P4"

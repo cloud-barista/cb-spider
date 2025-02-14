@@ -222,6 +222,30 @@ func extractOsPlatform(image *ecs.Image) irs.OSPlatform {
 	return osPlatform
 }
 
+func extractOsArchitecture(image *ecs.Image) irs.OSArchitecture {
+
+	architectureInfo := image.Architecture
+	osArchitecture := irs.ArchitectureNA
+
+	lowerCaseArchitectureInfo := strings.ToLower(architectureInfo)
+
+	if strings.Contains(lowerCaseArchitectureInfo, "x86_64") {
+		osArchitecture = irs.X86_64
+	} else if strings.Contains(lowerCaseArchitectureInfo, "arm64") {
+		osArchitecture = irs.ARM64
+	} else if strings.Contains(lowerCaseArchitectureInfo, "arm64_mac") {
+		osArchitecture = irs.ARM64_MAC
+	} else if strings.Contains(lowerCaseArchitectureInfo, "x86_32") || strings.Contains(lowerCaseArchitectureInfo, "i386") {
+		osArchitecture = irs.X86_32
+	} else if strings.Contains(lowerCaseArchitectureInfo, "x86_32_mac") {
+		osArchitecture = irs.X86_32_MAC
+	} else if strings.Contains(lowerCaseArchitectureInfo, "x86_64_mac") {
+		osArchitecture = irs.X86_64_MAC
+	}
+
+	return osArchitecture
+}
+
 // https://pkg.go.dev/github.com/aliyun/alibaba-cloud-sdk-go/services/ecs?tab=doc#Image
 // package ecs v1.61.170 Latest Published: Apr 30, 2020
 // Image 정보를 추출함
@@ -240,7 +264,7 @@ func ExtractImageDescribeInfo(image *ecs.Image) irs.ImageInfo {
 		// Status:  image.Status,
 		// GuestOS: image.OSNameEn,
 		Name:           image.ImageName,
-		OSArchitecture: irs.OSArchitecture(image.Architecture),
+		OSArchitecture: extractOsArchitecture(image),
 		OSPlatform:     extractOsPlatform(image),
 		OSDistribution: image.Description,
 		OSDiskType:     "NA",
