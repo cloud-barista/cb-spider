@@ -1,7 +1,7 @@
 #!/bin/bash
 
 
-CSPLIST=( aws azure gcp alibaba tencent ibm openstack cloudit )
+CSPLIST=( aws azure gcp alibaba tencent ibm openstack ncp )
 CSPLIST=( aws azure gcp alibaba ibm )
 
 function run() {

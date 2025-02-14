@@ -82,13 +82,6 @@ OPENSTACK:
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage
   idmaxlength: 255 / 255 / 255 / 255 / 255 / 255 / 255 / 255
 
-CLOUDIT:
-  region: Region
-  credential: IdentityEndpoint / AuthToken / Username / Password / TenantId / ClusterId
-  credentialcsp: IdentityEndpoint / AuthToken / Username / Password / TenantId / ClusterId
-  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
-  idmaxlength: 0 / 45 / 45 / 0 / 45 / 45 / 45 / 45 / 45
-
 NCP:
   region: Region / Zone
   credential: ClientId / ClientSecret
@@ -143,14 +136,6 @@ KTCLOUDVPC:
   disksize: HDD|10|2000|GB / SSD|10|2000|GB
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage
   idmaxlength: 30 / 22 / 30 / 100 / 63 / 50 / 30 / 50
-
-#--- PoC
-
-DOCKER:
-  region: Region
-  credential: Host / APIVersion
-  credentialcsp: Host / APIVersion
-
 
 #--- Emulation
 

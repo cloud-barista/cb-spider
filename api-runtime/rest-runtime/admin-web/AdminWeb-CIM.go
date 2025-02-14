@@ -339,13 +339,6 @@ func makeOnchangeCredentialProviderFunc_js() string {
 		  case "OPENSTACK":
 			credentialInfo = '[{"Key":"IdentityEndpoint", "Value":"http://123.456.789.123:5000/v3"}, {"Key":"Username", "Value":"etri"}, {"Key":"Password", "Value":"xxxx"}, {"Key":"DomainName", "Value":"default"}, {"Key":"ProjectID", "Value":"xxxx"}]'
 		    break;
-		  case "CLOUDIT":
-			credentialInfo = '[{"Key":"IdentityEndpoint", "Value":"http://xxx.xxx.co.kr:9090"}, {"Key":"AuthToken", "Value":"xxxx"}, {"Key":"Username", "Value":"xxxx"}, {"Key":"Password", "Value":"xxxx"}, {"Key":"TenantId", "Value":"tnt0009"}, {"Key":"ClusterId", "Value":"CL"}]'
-		    break;
-		  case "DOCKER":
-			credentialInfo = '[{"Key":"Host", "Value":"http://123.456.789.123:1004"}, {"Key":"APIVersion", "Value":"v1.38"}]'
-		    break;
-
 
 		  case "NCPVPC":
 			credentialInfo = '[{"Key":"ClientId", "Value":"XXXXXXXXXXXXXXXXXXX"}, {"Key":"ClientSecret", "Value":"XXXXXXXXXXXXXXXXXXXXXXXXXXX"}]'
@@ -647,14 +640,6 @@ func makeOnchangeRegionProviderFunc_js() string {
           case "OPENSTACK":
             regionInfo = '[{"Key":"Region", "Value":"RegionOne"}]'
             region = 'RegionOne'
-            break;
-          case "CLOUDIT":
-            regionInfo = '[{"Key":"Region", "Value":"default"}]'
-            region = 'default'
-            break;
-          case "DOCKER":
-            regionInfo = '[{"Key":"Region", "Value":"default"}]'
-            region = 'default'
             break;
 
           case "NCPVPC":

@@ -17,14 +17,11 @@ cloudos:
   - TENCENT
   - IBM
   - OPENSTACK
-#  - CLOUDIT
   - NCP
   - NCPVPC
   - NHNCLOUD
   - KTCLOUD
   - KTCLOUDVPC
-#--- PoC
-#  - DOCKER
 #--- Emulation
   - MOCK
 #  - CLOUDTWIN

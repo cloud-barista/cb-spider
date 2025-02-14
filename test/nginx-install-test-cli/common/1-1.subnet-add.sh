@@ -2,7 +2,7 @@
 
 if [ "$1" = "" ]; then
 	echo
-	echo -e 'usage: '$0' mock|aws|azure|gcp|alibaba|tencent|ibm|openstack|cloudit|ncp|nhncloud'
+	echo -e 'usage: '$0' mock|aws|azure|gcp|alibaba|tencent|ibm|openstack|ncp|nhncloud'
 	echo -e '\n\tex) '$0' aws'
 	echo
 	exit 0;
@@ -16,7 +16,7 @@ SUBNET_NAME=${SUBNET_NAME}-Added
 # SUBNET_CIDR=192.168.0.0/24
 SUBNET_CIDR=`echo $SUBNET_CIDR | sed 's/0\./1\./g'`
 
-# for Cloudit
+# for OpenStack
 if [ $SUBNET_CIDR_ADD ]; then
 	SUBNET_CIDR=$SUBNET_CIDR_ADD
 fi

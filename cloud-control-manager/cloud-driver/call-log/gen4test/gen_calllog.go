@@ -61,13 +61,11 @@ var cloudOSList = []call.CLOUD_OS{
 	call.TENCENT,
 	call.IBM,
 	call.OPENSTACK,
-	call.CLOUDIT,
 	call.NCP,
 	call.NCPVPC,
 	call.NHNCLOUD,
 	call.KTCLOUD,
 	call.KTCLOUDVPC,
-	call.DOCKER,
 	call.MOCK,
 	call.CLOUDTWIN,
 }

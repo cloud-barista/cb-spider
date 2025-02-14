@@ -1,7 +1,7 @@
 #!/bin/bash
 source setup.env
 
-SHOOTERS=( aws-shooter-name azure-shooter gcp-shooter openstack-shooter-name cloudit-shooter )
+SHOOTERS=( aws-shooter-name azure-shooter gcp-shooter openstack-shooter-name )
 CMD=create-test.sh
 
 num=0
