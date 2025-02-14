@@ -9346,16 +9346,22 @@ const docTemplate = `{
         "spider.OSArchitecture": {
             "type": "string",
             "enum": [
+                "arm32",
                 "arm64",
                 "arm64_mac",
+                "x86_32",
                 "x86_64",
+                "x86_32_mac",
                 "x86_64_mac",
                 "NA"
             ],
             "x-enum-varnames": [
+                "ARM32",
                 "ARM64",
                 "ARM64_MAC",
+                "X86_32",
                 "X86_64",
+                "X86_32_MAC",
                 "X86_64_MAC",
                 "ArchitectureNA"
             ]
