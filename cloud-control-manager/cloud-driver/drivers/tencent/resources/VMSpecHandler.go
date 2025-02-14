@@ -88,11 +88,11 @@ func (vmSpecHandler *TencentVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, erro
 	return vmSpecInfoList, nil
 }
 
+// name = "MA5.LARGE32"
+// name = "S2.SMALL1"
+// name = "GN7.20XLARGE320"
 func (vmSpecHandler *TencentVmSpecHandler) GetVMSpec(name string) (irs.VMSpecInfo, error) {
 	//cblogger.Infof("Start GetVMSpec(ZoneId:[%s], Name:[%s])", Region, Name)
-	//name = "MA5.LARGE32"
-	//name = "S2.SMALL1"
-	name = "GN7.20XLARGE320"
 	cblogger.Infof("Spec Name:[%s]", name)
 
 	zoneId := vmSpecHandler.Region.Zone
