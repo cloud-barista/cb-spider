@@ -88,11 +88,11 @@ func (vmSpecHandler *TencentVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, erro
 	return vmSpecInfoList, nil
 }
 
+// name = "MA5.LARGE32"
+// name = "S2.SMALL1"
+// name = "GN7.20XLARGE320"
 func (vmSpecHandler *TencentVmSpecHandler) GetVMSpec(name string) (irs.VMSpecInfo, error) {
 	//cblogger.Infof("Start GetVMSpec(ZoneId:[%s], Name:[%s])", Region, Name)
-	//name = "MA5.LARGE32"
-	//name = "S2.SMALL1"
-	name = "GN7.20XLARGE320"
 	cblogger.Infof("Spec Name:[%s]", name)
 
 	zoneId := vmSpecHandler.Region.Zone
@@ -316,9 +316,11 @@ func extractVmSpec(instanceTypeInfo *cvm.InstanceTypeQuotaItem) irs.VMSpecInfo {
 		match := re.FindString(targetClock)
 
 		if match != "" {
-			targetClock = match
+			//targetClock = match
+			vCpuInfo.Clock = match
+		} else {
+			vCpuInfo.Clock = "-1"
 		}
-		vCpuInfo.Clock = targetClock
 
 	}
 	vmSpecInfo.VCpu = vCpuInfo
@@ -339,7 +341,7 @@ func extractVmSpec(instanceTypeInfo *cvm.InstanceTypeQuotaItem) irs.VMSpecInfo {
 			Count: "-1",
 			Model: "NA",
 			Mfr:   "NA",
-			Mem:   "0",
+			Mem:   "-1",
 		}
 		gpuInfo.Count = strconv.FormatInt(*instanceTypeInfo.Gpu, 10)
 
