@@ -316,9 +316,11 @@ func extractVmSpec(instanceTypeInfo *cvm.InstanceTypeQuotaItem) irs.VMSpecInfo {
 		match := re.FindString(targetClock)
 
 		if match != "" {
-			targetClock = match
+			//targetClock = match
+			vCpuInfo.Clock = match
+		} else {
+			vCpuInfo.Clock = "-1"
 		}
-		vCpuInfo.Clock = targetClock
 
 	}
 	vmSpecInfo.VCpu = vCpuInfo
@@ -339,7 +341,7 @@ func extractVmSpec(instanceTypeInfo *cvm.InstanceTypeQuotaItem) irs.VMSpecInfo {
 			Count: "-1",
 			Model: "NA",
 			Mfr:   "NA",
-			Mem:   "0",
+			Mem:   "-1",
 		}
 		gpuInfo.Count = strconv.FormatInt(*instanceTypeInfo.Gpu, 10)
 
