@@ -131,9 +131,7 @@ func ExtractImageDescribeInfo(image *cvm.Image) irs.ImageInfo {
 	//cblogger.Debug(image)
 	imageInfo := irs.ImageInfo{
 		//IId: irs.IID{*image.Name, *image.ImageId},
-		IId:     irs.IID{NameId: *image.ImageId, SystemId: *image.ImageId},
-		GuestOS: *image.OsName,
-		Status:  *image.ImageState,
+		IId: irs.IID{NameId: *image.ImageId, SystemId: *image.ImageId},
 	}
 
 	osPlatform := extractOsPlatform(image)
@@ -263,7 +261,7 @@ func extractOsPlatform(image *cvm.Image) irs.OSPlatform {
 		return irs.PlatformNA
 	}
 	switch *platform {
-	case "CentOS", "Ubuntu", "TencentOS", "OpenCloudOS":
+	case "CentOS", "Ubuntu", "TencentOS", "OpenCloudOS", "Debian", "CentOS Stream", "Red Hat":
 		return irs.Linux_UNIX
 	case "Windows":
 		return irs.Windows

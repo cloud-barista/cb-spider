@@ -13,11 +13,12 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
 	// "github.com/davecgh/go-spew/spew"
 
 	ncloud "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
 	server "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/server"
-	
+
 	cblog "github.com/cloud-barista/cb-log"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -26,15 +27,15 @@ import (
 )
 
 type NcpImageHandler struct {
-	CredentialInfo 		idrv.CredentialInfo
-	RegionInfo     		idrv.RegionInfo
-	VMClient         	*server.APIClient
+	CredentialInfo idrv.CredentialInfo
+	RegionInfo     idrv.RegionInfo
+	VMClient       *server.APIClient
 }
 
 var cblogger2 *logrus.Logger
 
 func init() {
-	cblogger2 = cblog.GetLogger("NCP ImageHandler")	// cblog is a global variable.
+	cblogger2 = cblog.GetLogger("NCP ImageHandler") // cblog is a global variable.
 }
 
 func (imageHandler *NcpImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
@@ -55,7 +56,7 @@ func (imageHandler *NcpImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, 
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.ImageInfo{}, newErr
-	}	
+	}
 	imageInfo := mappingImageInfo(*ncpImageInfo)
 	return imageInfo, nil
 }
@@ -66,8 +67,8 @@ func (imageHandler *NcpImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	callLogInfo := GetCallLogScheme(imageHandler.RegionInfo.Zone, call.VMIMAGE, "ListImage()", "ListImage()")
 
 	vmHandler := NcpVMHandler{
-		RegionInfo:     	imageHandler.RegionInfo,
-		VMClient:         	imageHandler.VMClient,
+		RegionInfo: imageHandler.RegionInfo,
+		VMClient:   imageHandler.VMClient,
 	}
 	regionNo, err := vmHandler.getRegionNo(imageHandler.RegionInfo.Region)
 	if err != nil {
@@ -77,8 +78,8 @@ func (imageHandler *NcpImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		return nil, newErr
 	}
 	imageReq := server.GetServerImageProductListRequest{
-		ProductCode: 	nil,
-		RegionNo: 		regionNo,  // CAUTION!! : When searching image Info by RegionNo
+		ProductCode: nil,
+		RegionNo:    regionNo, // CAUTION!! : When searching image Info by RegionNo
 	}
 	callLogStart := call.Start()
 	result, err := imageHandler.VMClient.V2Api.GetServerImageProductList(&imageReq)
@@ -112,14 +113,14 @@ func (imageHandler *NcpImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 func mappingImageInfo(serverImage server.Product) irs.ImageInfo {
 	cblogger.Info("NCP Classic Cloud Driver: called mappingImageInfo()!")
 
-	var osPlatform irs.OSPlatform 
+	var osPlatform irs.OSPlatform
 	if serverImage.ProductType != nil {
 		if serverImage.ProductType.Code != nil {
 			if strings.EqualFold(*serverImage.ProductType.Code, "WINNT") {
 				osPlatform = irs.Windows
 			} else {
 				osPlatform = irs.PlatformNA
-			}			
+			}
 		} else {
 			osPlatform = irs.PlatformNA
 		}
@@ -150,19 +151,17 @@ func mappingImageInfo(serverImage server.Product) irs.ImageInfo {
 
 	imageInfo := irs.ImageInfo{
 		IId: irs.IID{ // NOTE 주의 : serverImage.ProductCode -> ProductName 으로
-			NameId: 	*serverImage.ProductCode, 
-			SystemId: 	*serverImage.ProductCode,
+			NameId:   *serverImage.ProductCode,
+			SystemId: *serverImage.ProductCode,
 		},
-		GuestOS: *serverImage.OsInformation,
-		Status: "available",
 
-		Name: *serverImage.ProductCode,
+		Name:           *serverImage.ProductCode,
 		OSArchitecture: irs.ArchitectureNA,
-		OSPlatform: osPlatform,		
+		OSPlatform:     osPlatform,
 		OSDistribution: guestOS,
-		OSDiskType: "NA",
-		OSDiskSizeInGB: blockStorageSize, 
-		ImageStatus: imageStatus,
+		OSDiskType:     "NA",
+		OSDiskSizeInGB: blockStorageSize,
+		ImageStatus:    imageStatus,
 	}
 
 	//Image OS Information
@@ -198,7 +197,7 @@ func (imageHandler *NcpImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, 
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
-	}	
+	}
 
 	isWindowsImage := false
 	if ncpImageInfo.ProductType != nil {
@@ -234,8 +233,8 @@ func (imageHandler *NcpImageHandler) getNcpImageInfo(imageIID irs.IID) (*server.
 	// cblogger.Info("\n")
 
 	vmHandler := NcpVMHandler{
-		RegionInfo:     	imageHandler.RegionInfo,
-		VMClient:         	imageHandler.VMClient,
+		RegionInfo: imageHandler.RegionInfo,
+		VMClient:   imageHandler.VMClient,
 	}
 	regionNo, err := vmHandler.getRegionNo(imageHandler.RegionInfo.Region)
 	if err != nil {
@@ -247,7 +246,7 @@ func (imageHandler *NcpImageHandler) getNcpImageInfo(imageIID irs.IID) (*server.
 
 	imageReq := server.GetServerImageProductListRequest{
 		ProductCode: ncloud.String(imageIID.SystemId),
-		RegionNo: 	 regionNo,
+		RegionNo:    regionNo,
 	}
 	callLogStart := call.Start()
 	result, err := imageHandler.VMClient.V2Api.GetServerImageProductList(&imageReq)

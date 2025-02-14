@@ -14,8 +14,9 @@ package resources
 import (
 	"errors"
 	"fmt"
-	"strings"
 	"regexp"
+	"strings"
+
 	// "github.com/davecgh/go-spew/spew"
 
 	ktsdk "github.com/cloud-barista/ktcloud-sdk-go"
@@ -77,7 +78,7 @@ func (imageHandler *KtCloudImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	if len(result.Listavailableproducttypesresponse.ProductTypes) < 1 {
 		return []*irs.ImageInfo{}, errors.New("Failed to Find Product Types!!")
 	}
-	
+
 	// ### In order to remove the list of identical duplicates over and over again
 	var vmImageInfoMap = make(map[string]*irs.ImageInfo) // Map to track unique VMSpec Info.
 	for _, productType := range result.Listavailableproducttypesresponse.ProductTypes {
@@ -96,7 +97,7 @@ func (imageHandler *KtCloudImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	var vmImageInfoList []*irs.ImageInfo
 	for _, imageInfo := range vmImageInfoMap {
 		vmImageInfoList = append(vmImageInfoList, imageInfo)
-	}	
+	}
 	// cblogger.Info("# Supported Image Product Count : ", len(vmImageInfoList))
 	return vmImageInfoList, nil
 }
@@ -107,20 +108,20 @@ func mappingImageInfo(productType *ktsdk.ProductTypes) irs.ImageInfo {
 	// spew.Dump(productType)
 	// cblogger.Info("\n")
 
-	var osPlatform irs.OSPlatform 
+	var osPlatform irs.OSPlatform
 	if productType.TemplateDesc != "" {
 		if strings.Contains(productType.TemplateDesc, "WIN ") {
 			osPlatform = irs.Windows
 		} else {
 			osPlatform = irs.Linux_UNIX
-		}			
+		}
 	} else {
 		osPlatform = irs.PlatformNA
 	}
 
 	var imageStatus irs.ImageStatus
 	if productType.ProductState != "" {
-		if strings.EqualFold(productType.ProductState, "available") { 
+		if strings.EqualFold(productType.ProductState, "available") {
 			imageStatus = irs.ImageAvailable
 		} else {
 			imageStatus = irs.ImageUnavailable
@@ -133,23 +134,21 @@ func mappingImageInfo(productType *ktsdk.ProductTypes) irs.ImageInfo {
 
 	imageInfo := irs.ImageInfo{
 		// NOTE!! : TemplateId -> Image Name (TemplateId as Image Name)
-		IId: 		irs.IID{NameId: productType.TemplateId, SystemId: productType.TemplateId},
-		GuestOS: 	productType.TemplateDesc,
-		Status: 	productType.ProductState,
+		IId: irs.IID{NameId: productType.TemplateId, SystemId: productType.TemplateId},
 
-		Name: 			productType.TemplateId,
+		Name:           productType.TemplateId,
 		OSArchitecture: irs.ArchitectureNA,
-		OSPlatform: 	osPlatform,		
+		OSPlatform:     osPlatform,
 		OSDistribution: productType.TemplateDesc,
-		OSDiskType: 	"NA",
-		OSDiskSizeInGB: diskSize, 
-		ImageStatus: 	imageStatus,
+		OSDiskType:     "NA",
+		OSDiskSizeInGB: diskSize,
+		ImageStatus:    imageStatus,
 	}
 
 	// Since KT Cloud has different supported images for each zone, zone information is also presented.
 	keyValueList := []irs.KeyValue{
-		{Key: "ProductType", 		 Value: productType.Product},	
-		{Key: "Zone", 				 Value: productType.ZoneDesc},	
+		{Key: "ProductType", Value: productType.Product},
+		{Key: "Zone", Value: productType.ZoneDesc},
 	}
 	imageInfo.KeyValueList = keyValueList
 	return imageInfo
@@ -186,7 +185,7 @@ func (imageHandler *KtCloudImageHandler) CheckWindowsImage(imageIID irs.IID) (bo
 		if strings.Contains(productType.TemplateDesc, "WIN") {
 			isWindowsImage = true
 		}
-		return isWindowsImage, nil	
+		return isWindowsImage, nil
 	}
 }
 
@@ -227,11 +226,11 @@ func (imageHandler *KtCloudImageHandler) getKTProductType(imageIID irs.IID) (*kt
 	return nil, nil
 }
 
-func getImageDiskSize(sizeGB string) (string) {
+func getImageDiskSize(sizeGB string) string {
 	// sizeGB Ex : "100GB"
 	re := regexp.MustCompile(`(\d+)GB`)
 	matches := re.FindStringSubmatch(sizeGB) // Find the match
-	
+
 	var diskSize string
 	if len(matches) > 1 {
 		diskSize = matches[1] // Extract only the numeric part

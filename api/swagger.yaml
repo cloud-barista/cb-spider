@@ -324,10 +324,6 @@ definitions:
     type: object
   spider.ImageInfo:
     properties:
-      GuestOS:
-        description: Windows7, Ubuntu etc. // Deprecated
-        example: Ubuntu 18.04
-        type: string
       IId:
         allOf:
         - $ref: '#/definitions/spider.IID'
@@ -367,12 +363,7 @@ definitions:
         - $ref: '#/definitions/spider.OSPlatform'
         description: Linux/UNIX, Windows, NA
         example: Linux/UNIX
-      Status:
-        description: available, unavailable // Deprecated
-        example: available
-        type: string
     required:
-    - GuestOS
     - IId
     - ImageStatus
     - Name
@@ -381,7 +372,6 @@ definitions:
     - OSDiskType
     - OSDistribution
     - OSPlatform
-    - Status
     type: object
   spider.ImageStatus:
     enum:

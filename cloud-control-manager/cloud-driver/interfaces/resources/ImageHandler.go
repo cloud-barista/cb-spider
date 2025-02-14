@@ -47,9 +47,7 @@ const (
 
 // ImageInfo represents the information of an Image.
 type ImageInfo struct {
-	IId     IID    `json:"IId" validate:"required" description:"The ID of the image."`                                                            // {NameId, SystemId} // Deprecated
-	GuestOS string `json:"GuestOS" validate:"required" example:"Ubuntu 18.04" description:"The operating system of the image."`                   // Windows7, Ubuntu etc. // Deprecated
-	Status  string `json:"Status" validate:"required" example:"available" description:"The status of the image, e.g., available or unavailable."` // available, unavailable // Deprecated
+	IId IID `json:"IId" validate:"required" description:"The ID of the image."` // {NameId, SystemId} // Deprecated
 
 	Name           string         `json:"Name" validate:"required" example:"ami-00aa5a103ddf4509f" description:"The name of the image."`                                   // ami-00aa5a103ddf4509f
 	OSArchitecture OSArchitecture `json:"OSArchitecture" validate:"required" example:"x86_64" description:"The architecture of the operating system of the image."`        // arm64, x86_64 etc.
