@@ -192,6 +192,9 @@ func RunServer() {
 		//----------EndpointInfo
 		{"GET", "/endpointinfo", endpointInfo},
 
+		//---------- Server VersionInfo
+		{"GET", "/version", versionInfo},
+
 		//----------healthcheck
 		{"GET", "/healthcheck", healthCheck},
 		{"GET", "/health", healthCheck},
@@ -632,6 +635,7 @@ func ApiServer(routes []route) {
 
 	// SkipAuthPaths defines paths to skip authentication
 	SkipAuthPaths := map[string]bool{
+		"/spider/version":     true,
 		"/spider/healthcheck": true,
 		"/spider/health":      true,
 		"/spider/ping":        true,
@@ -715,6 +719,46 @@ func endpointInfo(c echo.Context) error {
 	// endpointInfo += fmt.Sprintf("     - Go   API: %s\n", gRPCServer)
 
 	return c.String(http.StatusOK, endpointInfo)
+}
+
+// ================ Version Info
+// func versionInfo(c echo.Context) error {
+// 	cblog.Info("call versionInfo()")
+
+// 	versionInfo := fmt.Sprintf("\n  <CB-Spider> Multi-Cloud Infrastructure Federation Framework\n")
+// 	versionInfo += fmt.Sprintf("     - Version: %s\n", ar.Version)
+// 	versionInfo += fmt.Sprintf("     - Git Commit SHA: %s\n", ar.CommitSHA)
+// 	versionInfo += fmt.Sprintf("     - Build Timestamp: %s\n", ar.BuildTime)
+// 	versionInfo += fmt.Sprintf("     - Server Started At: %s\n", cr.StartTime)
+
+//		return c.String(http.StatusOK, versionInfo)
+//	}
+//
+// VersionInfoResponse represents the response body for the versionInfo API.
+type VersionInfoResponse struct {
+	Version string `json:"Version" example:"CB-Spider v0.10.2-22"`
+}
+
+var spiderVersionInfo = VersionInfoResponse{}
+
+func SetVersionInfo(version string) {
+	spiderVersionInfo.Version = "CB-Spider " + version
+}
+
+// versionInfo godoc
+// @ID version-info
+// @Summary Get Version Information
+// @Description Retrieves the version information of CB-Spider.
+// @Tags [Version]
+// @Accept  json
+// @Produce  json
+// @Success 200 {object} VersionInfoResponse "Version information retrieved successfully"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /version [get]
+func versionInfo(c echo.Context) error {
+	cblog.Info("call versionInfo()")
+
+	return c.JSON(http.StatusOK, spiderVersionInfo)
 }
 
 // HealthCheckResponse represents the response body for the healthCheck API.

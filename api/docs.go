@@ -7265,6 +7265,36 @@ const docTemplate = `{
                 }
             }
         },
+        "/version": {
+            "get": {
+                "description": "Retrieves the version information of CB-Spider.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Version]"
+                ],
+                "summary": "Get Version Information",
+                "operationId": "version-info",
+                "responses": {
+                    "200": {
+                        "description": "Version information retrieved successfully",
+                        "schema": {
+                            "$ref": "#/definitions/spider.VersionInfoResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/vm": {
             "get": {
                 "description": "Retrieve a list of Virtual Machines (VMs) associated with a specific connection.",
@@ -12463,6 +12493,15 @@ const docTemplate = `{
                             "example": "vpc-01"
                         }
                     }
+                }
+            }
+        },
+        "spider.VersionInfoResponse": {
+            "type": "object",
+            "properties": {
+                "Version": {
+                    "type": "string",
+                    "example": "CB-Spider v0.10.2-22"
                 }
             }
         }

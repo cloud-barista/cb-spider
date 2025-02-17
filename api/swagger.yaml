@@ -2879,6 +2879,12 @@ definitions:
     - ConnectionName
     - ReqInfo
     type: object
+  spider.VersionInfoResponse:
+    properties:
+      Version:
+        example: CB-Spider v0.10.2-22
+        type: string
+    type: object
 host: localhost:1024
 info:
   contact:
@@ -7915,6 +7921,26 @@ paths:
       summary: Get Tag
       tags:
       - '[Tag Management]'
+  /version:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves the version information of CB-Spider.
+      operationId: version-info
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Version information retrieved successfully
+          schema:
+            $ref: '#/definitions/spider.VersionInfoResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get Version Information
+      tags:
+      - '[Version]'
   /vm:
     get:
       consumes:
