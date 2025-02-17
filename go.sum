@@ -166,8 +166,8 @@ github.com/clbanning/mxj/v2 v2.5.5/go.mod h1:hNiWqW14h+kc+MdF9C6/YoRfjEJoR3ou6tn
 github.com/clbanning/mxj/v2 v2.7.0 h1:WA/La7UGCanFe5NpHF0Q3DNtnCsVoxbPKuyBNHWRyME=
 github.com/clbanning/mxj/v2 v2.7.0/go.mod h1:hNiWqW14h+kc+MdF9C6/YoRfjEJoR3ou6tn/Qo+ve2s=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
-github.com/cloud-barista/cb-log v0.8.2 h1:hPCbLj6TW6m9UWlq002sDuGgxKFVp68w4V3k493+MxY=
-github.com/cloud-barista/cb-log v0.8.2/go.mod h1:nGgfTFMPwl1MpCO3FBjexUkNdOYA0BNJoyM9Pd0lMms=
+github.com/cloud-barista/cb-log v0.9.0 h1:pti3gxl85NyqaEiQDF8Dba4zniOy9+6XMy7JzvL+ow0=
+github.com/cloud-barista/cb-log v0.9.0/go.mod h1:nGgfTFMPwl1MpCO3FBjexUkNdOYA0BNJoyM9Pd0lMms=
 github.com/cloud-barista/ktcloud-sdk-go v0.2.1-0.20240826073400-9dd317d24d0a h1:7sm+NSqmjuktaERMdTayiqsKmfgmFLMBzHrpG85Z5do=
 github.com/cloud-barista/ktcloud-sdk-go v0.2.1-0.20240826073400-9dd317d24d0a/go.mod h1:ZIrUxItUvMIGZyX6Re7tUdcS3cwBIzBPcL+Pk/6lt/8=
 github.com/cloud-barista/ktcloudvpc-sdk-go v0.0.0-20240812121947-01daa5e57030 h1:KZSxMftDrIKpk0+qW0rt3UX/e2QsHolvesazvl2av4s=

@@ -546,6 +546,10 @@ func RunServer() {
 		{"GET", "/adminweb/cmd-agent", aw.CmdAgent},
 		{"POST", "/adminweb/generate-cmd", aw.GenerateCmd},
 
+		{"GET", "/adminweb/calllog-analyzer", aw.CallLogAnalyzer},
+		{"POST", "/adminweb/analyze-logs", aw.AnalyzeLogs},
+		// {"GET", "/adminweb/logs", aw.GetLogs},
+
 		// download price info with JSON file
 		{"GET", "/adminweb/priceinfo/download/:FileName", aw.DownloadPriceInfo},
 

@@ -128,6 +128,16 @@ func setup(loggerName string) {
 	if calllogConfig.CALLLOG.LOGFILE {
 		setRotateFileHook(loggerName, &calllogConfig)
 	}
+
+	if !calllogConfig.CALLLOG.CONSOLE {
+		devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+		if err != nil {
+			logrus.Fatalf("Failed to open os.DevNull: %v", err)
+		}
+		callLogger.logrus.SetOutput(devNull)
+	} else {
+		callLogger.logrus.SetOutput(os.Stderr)
+	}
 }
 
 // Now, this method is busy wait.

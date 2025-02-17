@@ -10,6 +10,8 @@ package adminweb
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
@@ -19,6 +21,49 @@ import (
 	"io/ioutil"
 	"net/http"
 )
+
+// ------------------- Data Structures for Claude -------------------
+type ClaudeMessage struct {
+	Role    string          `json:"role"`
+	Content []ClaudeContent `json:"content"`
+}
+
+type ClaudeContent struct {
+	Type string `json:"type"`
+	Text string `json:"text"`
+}
+
+type ClaudeRequestBody struct {
+	Model       string          `json:"model"`
+	MaxTokens   int             `json:"max_tokens"`
+	Temperature float64         `json:"temperature"`
+	System      string          `json:"system"`
+	Messages    []ClaudeMessage `json:"messages"`
+}
+
+// -------------------------------------------------------
+
+// getClaudeAPIKey first checks environment variable, then falls back to key file
+func getClaudeAPIKey() (string, error) {
+	// First check environment variable
+	if envKey := os.Getenv("CLAUDE_API_KEY"); envKey != "" {
+		return envKey, nil
+	}
+
+	// If environment variable is not set, try to read from file
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("error getting home directory: %v", err)
+	}
+
+	keyPath := filepath.Join(homeDir, ".claude", "claude_api.key")
+	keyBytes, err := ioutil.ReadFile(keyPath)
+	if err != nil {
+		return "", fmt.Errorf("error reading API key file: %v", err)
+	}
+
+	return string(bytes.TrimSpace(keyBytes)), nil
+}
 
 func makeSelect_html(onchangeFunctionName string, strList []string, id string) string {
 

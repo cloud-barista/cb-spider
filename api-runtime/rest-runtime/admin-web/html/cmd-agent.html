@@ -333,7 +333,7 @@
         resultArea.value = '';
         
         // Show progress bar
-        document.getElementById('feed-progress').style.display = 'block';
+        document.getElementById('run-progress').style.display = 'block';
         
         try {
             const commands = curlCommands.split(/curl\s+-s/);
@@ -379,13 +379,13 @@
             }
         } finally {
             // Hide progress bar
-            document.getElementById('feed-progress').style.display = 'none';
+            document.getElementById('run-progress').style.display = 'none';
             document.getElementById('result-section').style.display = 'block';
             resultArea.style.display = 'block';
         }
     }
 
-    function feedSpider() {
+    function runCommand() {
         const cmdText = document.getElementById('generated-cmd').value;
         if (!cmdText.trim()) {
             alert('Please generate a command first.');
@@ -403,10 +403,10 @@
       <div id="examples-list"></div>
   </div>
   <div class="main-content">
-        <h2>CB-Spider Command-Agent</h2>
+        <h2>CB-Spider Command-Agent <small style="font-size: 60%; font-weight: normal; font-style: italic;">- powered by LLM</small></h2>
         <p>Enter your command prompt below</p>
         <input type="text" id="cmd-input" placeholder="Describe what you want to do with Spider." />
-        <button id="generate-btn" onclick="generateCommand()">Craft the Feed</button>
+        <button id="generate-btn" onclick="generateCommand()">Generate Command</button>
         <div class="progress-indicator" id="generate-progress"></div>
         <div class="result-container">
             <div class="section-header">
@@ -418,9 +418,9 @@
                 <button class="action-button" onclick="clearAll()" title="Clear">🗑️</button>
             </div>
             <div class="buttons-container">
-                <button class="spider-button" onclick="feedSpider()">Feed the Spider</button>
+                <button class="spider-button" onclick="runCommand()">Run Command</button>
             </div>
-            <div class="progress-indicator" id="feed-progress"></div>
+            <div class="progress-indicator" id="run-progress"></div>
             <div id="result-section" style="display: none;">
                 <div class="section-title">Execution Result:</div>
                 <textarea id="execution-result" readonly></textarea>
