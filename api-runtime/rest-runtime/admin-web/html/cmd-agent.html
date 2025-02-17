@@ -220,6 +220,12 @@
       window.onload = function() {
           clearAll();
           setupExamples();
+
+          document.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape') {
+                    parent.postMessage({ type: 'closeCmdAgent' }, '*');
+                }
+            });
       }
 
       function toggleLanguage() {
@@ -404,13 +410,13 @@
   </div>
   <div class="main-content">
         <h2>CB-Spider Command-Agent <small style="font-size: 60%; font-weight: normal; font-style: italic;">- powered by LLM</small></h2>
-        <p>Enter your command prompt below</p>
+        <p>Select examples or enter your prompt below</p>
         <input type="text" id="cmd-input" placeholder="Describe what you want to do with Spider." />
         <button id="generate-btn" onclick="generateCommand()">Generate Command</button>
         <div class="progress-indicator" id="generate-progress"></div>
         <div class="result-container">
             <div class="section-header">
-                <div class="section-title">Generated Command: <span style="color: #B22222;">need your verification</span></div>
+                <div class="section-title">Generated Command: <span style="color: #B22222;">need your verification!!</span></div>
             </div>
             <textarea id="generated-cmd"></textarea>
             <div class="action-buttons">

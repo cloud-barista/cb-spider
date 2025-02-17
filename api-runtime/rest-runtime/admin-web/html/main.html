@@ -366,6 +366,12 @@
                 imgElement.src = `/spider/adminweb/images/top-menu/${menu}.png`;
             });
         }
+        if (event.data.type === 'closeCmdAgent') {
+            closeCmdAgent();
+        }
+        if (event.data.type === 'closeCallLogAnalyzer') {
+            closeCallLogAnalyzer();
+        }        
     });
 
     window.addEventListener('message', function(event) {

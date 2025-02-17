@@ -551,7 +551,7 @@ func RunServer() {
 
 		{"GET", "/adminweb/calllog-analyzer", aw.CallLogAnalyzer},
 		{"POST", "/adminweb/analyze-logs", aw.AnalyzeLogs},
-		// {"GET", "/adminweb/logs", aw.GetLogs},
+		{"GET", "/adminweb/read-logs", aw.GetReadLogs},
 
 		// download price info with JSON file
 		{"GET", "/adminweb/priceinfo/download/:FileName", aw.DownloadPriceInfo},
