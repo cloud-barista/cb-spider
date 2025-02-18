@@ -156,7 +156,7 @@ func AnalyzeLogs(c echo.Context) error {
 	requestBody := ClaudeRequestBody{
 		Model:       "claude-3-5-sonnet-20241022",
 		MaxTokens:   8192,
-		Temperature: 0.5,
+		Temperature: 0.2, // 0.0-0.3: consistent & factual, 0.4-0.7: balanced, 0.8-1.0: creative & varied
 		System: `You are a specialized analyst and reporter for CB-Spider API Call logs.
 			Your primary role is to analyze API call logs to provide meaningful statistical information and insights.
 			You excel at extracting valuable patterns and trends from API usage data to deliver comprehensive analytical reports.

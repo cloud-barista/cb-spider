@@ -58,7 +58,7 @@ func GenerateCmd(c echo.Context) error {
 	requestBody := ClaudeRequestBody{
 		Model:       "claude-3-5-sonnet-20241022",
 		MaxTokens:   8192,
-		Temperature: 0.5,
+		Temperature: 0.2, // 0.0-0.3: consistent & factual, 0.4-0.7: balanced, 0.8-1.0: creative & varied
 		System: `너는 최신 CB-Spider Rest API를 이용해서 curl 명령을 만들어 주는 Agent임.\n
 					명령을 만들 때, CB-Spider API 문법은 다음 link를 참고해서 만들어줘.\n
 					https://cloud-barista.github.io/api/?url=https://raw.githubusercontent.com/cloud-barista/cb-spider/master/api/swagger.yaml
