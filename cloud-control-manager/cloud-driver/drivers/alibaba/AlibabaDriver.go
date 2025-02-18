@@ -50,22 +50,26 @@ func (AlibabaDriver) GetDriverVersion() string {
 func (AlibabaDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
+	drvCapabilityInfo.RegionZoneHandler = true
+	drvCapabilityInfo.PriceInfoHandler = true
 	drvCapabilityInfo.ImageHandler = true
+	drvCapabilityInfo.VMSpecHandler = true
+
 	drvCapabilityInfo.VPCHandler = true
 	drvCapabilityInfo.SecurityHandler = true
 	drvCapabilityInfo.KeyPairHandler = true
-	drvCapabilityInfo.VNicHandler = false
-	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.VMHandler = true
-	drvCapabilityInfo.VMSpecHandler = true
 	drvCapabilityInfo.DiskHandler = true
+	drvCapabilityInfo.MyImageHandler = true
+	drvCapabilityInfo.NLBHandler = true
 	drvCapabilityInfo.ClusterHandler = true
-	drvCapabilityInfo.RegionZoneHandler = true
-	drvCapabilityInfo.PriceInfoHandler = true
+
 	drvCapabilityInfo.TagHandler = true
 	// ires.VPC, ires.SUBNET: only supported when creatiing
 	// ires.CLUSTER: not supported
-	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.ALL, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE}
+	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE}
+
+	drvCapabilityInfo.VPC_CIDR = true
 
 	return drvCapabilityInfo
 }

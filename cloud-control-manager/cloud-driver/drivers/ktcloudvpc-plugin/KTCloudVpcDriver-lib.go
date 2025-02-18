@@ -15,18 +15,19 @@ import (
 	"github.com/sirupsen/logrus"
 	// "github.com/davecgh/go-spew/spew"
 
-	ktvpcsdk 	"github.com/cloud-barista/ktcloudvpc-sdk-go"
-	ostack 		"github.com/cloud-barista/ktcloudvpc-sdk-go/openstack"
+	ktvpcsdk "github.com/cloud-barista/ktcloudvpc-sdk-go"
+	ostack "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack"
 
-	cblog 		"github.com/cloud-barista/cb-log"
-	idrv 		"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	icon 		"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
+	cblog "github.com/cloud-barista/cb-log"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
+	ires "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
 	// ktvpccon "github.com/cloud-barista/ktcloudvpc/ktcloudvpc/connect"
-	ktvpccon 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ktcloudvpc/connect" //To be built in a container
+	ktvpccon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ktcloudvpc/connect" //To be built in a container
 
 	// ktvpcrs "github.com/cloud-barista/ktcloudvpc/ktcloudvpc/resources"
-	ktvpcrs 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ktcloudvpc/resources" //To be built in a container
+	ktvpcrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ktcloudvpc/resources" //To be built in a container
 )
 
 type KTCloudVpcDriver struct{}
@@ -45,20 +46,22 @@ func (KTCloudVpcDriver) GetDriverVersion() string {
 func (KTCloudVpcDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
+	drvCapabilityInfo.RegionZoneHandler = true
+	drvCapabilityInfo.PriceInfoHandler = false
 	drvCapabilityInfo.ImageHandler = true
+	drvCapabilityInfo.VMSpecHandler = true
+
 	drvCapabilityInfo.VPCHandler = true
 	drvCapabilityInfo.SecurityHandler = true
 	drvCapabilityInfo.KeyPairHandler = true
-	drvCapabilityInfo.VNicHandler = false
-	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.VMHandler = true
-	drvCapabilityInfo.VMSpecHandler = true
+	drvCapabilityInfo.DiskHandler = true
+	drvCapabilityInfo.MyImageHandler = true
 	drvCapabilityInfo.NLBHandler = true
 	drvCapabilityInfo.ClusterHandler = false
-	drvCapabilityInfo.MyImageHandler = true
-	drvCapabilityInfo.DiskHandler = true
-	drvCapabilityInfo.RegionZoneHandler = true
-	drvCapabilityInfo.PriceInfoHandler = false
+
+	drvCapabilityInfo.TagHandler = false
+	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{}
 
 	drvCapabilityInfo.SINGLE_VPC = true
 
@@ -104,15 +107,15 @@ func (driver *KTCloudVpcDriver) ConnectCloud(connInfo idrv.ConnectionInfo) (icon
 	NLBClient, err := getNLBClient(providerClient, connInfo)
 	if err != nil {
 		return nil, err
-	}	
+	}
 
 	iConn := ktvpccon.KTCloudVpcConnection{
-		RegionInfo: 	connInfo.RegionInfo, 
-		VMClient: 		VMClient, 
-		ImageClient: 	ImageClient, 
-		NetworkClient: 	NetworkClient, 
-		VolumeClient: 	VolumeClient, 
-		NLBClient: 		NLBClient,
+		RegionInfo:    connInfo.RegionInfo,
+		VMClient:      VMClient,
+		ImageClient:   ImageClient,
+		NetworkClient: NetworkClient,
+		VolumeClient:  VolumeClient,
+		NLBClient:     NLBClient,
 	}
 	return &iConn, nil
 }
@@ -121,7 +124,7 @@ func (driver *KTCloudVpcDriver) ConnectCloud(connInfo idrv.ConnectionInfo) (icon
 func getVMClient(providerClient *ktvpcsdk.ProviderClient, connInfo idrv.ConnectionInfo) (*ktvpcsdk.ServiceClient, error) {
 	client, err := ostack.NewComputeV2(providerClient, ktvpcsdk.EndpointOpts{
 		Type:   "compute",
-        Region: connInfo.RegionInfo.Zone,
+		Region: connInfo.RegionInfo.Zone,
 	})
 	if err != nil {
 		return nil, err
@@ -184,4 +187,4 @@ func getNLBClient(providerClient *ktvpcsdk.ProviderClient, connInfo idrv.Connect
 	return client, err
 }
 
-var CloudDriver KTCloudVpcDriver  // Caution!!
+var CloudDriver KTCloudVpcDriver // Caution!!

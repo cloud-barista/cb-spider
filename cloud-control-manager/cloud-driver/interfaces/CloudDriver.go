@@ -16,28 +16,34 @@ import (
 )
 
 type DriverCapabilityInfo struct {
+	// Metadata Handler
 	RegionZoneHandler bool // support: true, do not support: false
 	PriceInfoHandler  bool // support: true, do not support: false
 	ImageHandler      bool // support: true, do not support: false
-	VPCHandler        bool // support: true, do not support: false
-	SecurityHandler   bool // support: true, do not support: false
-	KeyPairHandler    bool // support: true, do not support: false
-	VNicHandler       bool // support: true, do not support: false
-	PublicIPHandler   bool // support: true, do not support: false
-	VMHandler         bool // support: true, do not support: false
 	VMSpecHandler     bool // support: true, do not support: false
-	NLBHandler        bool // support: true, do not support: false
-	DiskHandler       bool // support: true, do not support: false
-	MyImageHandler    bool // support: true, do not support: false
-	ClusterHandler    bool // support: true, do not support: false
-	TagHandler        bool // support: true, do not support: false
 
-	// ex) {ires.ALL, ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER}
+	// Resource Handler
+	VPCHandler      bool // support: true, do not support: false
+	SecurityHandler bool // support: true, do not support: false
+	KeyPairHandler  bool // support: true, do not support: false
+	VMHandler       bool // support: true, do not support: false
+	DiskHandler     bool // support: true, do not support: false
+	MyImageHandler  bool // support: true, do not support: false
+	NLBHandler      bool // support: true, do not support: false
+	ClusterHandler  bool // support: true, do not support: false
+
+	TagHandler bool // support: true, do not support: false
+	// ex) {ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER}
 	TagSupportResourceType []ires.RSType // support: VPC, SUBNET, etc.,.
 
-	VPC_CIDR          bool // support: true, do not support: false
-	SINGLE_VPC        bool // support: true, do not support: false
-	FIXED_SUBNET_CIDR bool // support: true, do not support: false
+	// etc.
+	VPC_CIDR     bool // support: true, do not support: false
+	EMULATED_VPC bool // support: true, do not support: false
+	SINGLE_VPC   bool // support: true, do not support: false
+
+	// reserved for future use
+	// VNicHandler     bool // support: true, do not support: false
+	// PublicIPHandler bool // support: true, do not support: false
 }
 
 type CredentialInfo struct {

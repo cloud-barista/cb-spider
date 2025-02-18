@@ -3618,6 +3618,57 @@
                 }
             }
         },
+        "/driver/capability": {
+            "get": {
+                "description": "Retrieve capability information of the cloud driver.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Driver] Capability"
+                ],
+                "summary": "Get Driver Capability Information",
+                "operationId": "get-driver-capability",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Name of connection to retrieve driver capability for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Driver Capability Information Details",
+                        "schema": {
+                            "$ref": "#/definitions/spider.DriverCapabilityResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to empty or invalid connection name",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/driver/upload": {
             "post": {
                 "description": "Upload a Cloud Driver library file.",
@@ -11107,6 +11158,82 @@
                             "example": "150"
                         }
                     }
+                }
+            }
+        },
+        "spider.DriverCapabilityResponse": {
+            "type": "object",
+            "properties": {
+                "clusterHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "diskHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "emulated_VPC": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "imageHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "keyPairHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "myImageHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "nlbhandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "priceInfoHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "regionZoneHandler": {
+                    "description": "Metadata Handler",
+                    "type": "boolean"
+                },
+                "securityHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "single_VPC": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "tagHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "tagSupportResourceType": {
+                    "description": "ex) {ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER}",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.RSType"
+                    }
+                },
+                "vmhandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "vmspecHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "vpc_CIDR": {
+                    "description": "etc.",
+                    "type": "boolean"
+                },
+                "vpchandler": {
+                    "description": "Resource Handler",
+                    "type": "boolean"
                 }
             }
         },

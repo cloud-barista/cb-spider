@@ -21,6 +21,7 @@ import (
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
+	ires "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
 	// nhncon "github.com/cloud-barista/nhncloud/nhncloud/connect"
 	nhncon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/nhncloud/connect"
@@ -38,23 +39,24 @@ func (NhnCloudDriver) GetDriverVersion() string {
 func (NhnCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
+	drvCapabilityInfo.RegionZoneHandler = true
+	drvCapabilityInfo.PriceInfoHandler = false
 	drvCapabilityInfo.ImageHandler = true
+	drvCapabilityInfo.VMSpecHandler = true
+
 	drvCapabilityInfo.VPCHandler = true
 	drvCapabilityInfo.SecurityHandler = true
 	drvCapabilityInfo.KeyPairHandler = true
-	drvCapabilityInfo.VNicHandler = false
-	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.VMHandler = true
-	drvCapabilityInfo.VMSpecHandler = true
+	drvCapabilityInfo.DiskHandler = true
+	drvCapabilityInfo.MyImageHandler = true
 	drvCapabilityInfo.NLBHandler = true
 	drvCapabilityInfo.ClusterHandler = true
-	drvCapabilityInfo.MyImageHandler = true
-	drvCapabilityInfo.DiskHandler = true
-	drvCapabilityInfo.RegionZoneHandler = true
-	drvCapabilityInfo.PriceInfoHandler = false
-	drvCapabilityInfo.TagHandler = false
 
-	drvCapabilityInfo.SINGLE_VPC = false
+	drvCapabilityInfo.TagHandler = false
+	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{}
+
+	drvCapabilityInfo.VPC_CIDR = true
 
 	return drvCapabilityInfo
 }

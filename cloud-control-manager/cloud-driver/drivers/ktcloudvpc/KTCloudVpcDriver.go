@@ -21,6 +21,7 @@ import (
 	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
+	ires "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
 	// ktvpccon "github.com/cloud-barista/ktcloudvpc/ktcloudvpc/connect"
 	ktvpccon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ktcloudvpc/connect" //To be built in the container1
@@ -45,21 +46,22 @@ func (KTCloudVpcDriver) GetDriverVersion() string {
 func (KTCloudVpcDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
+	drvCapabilityInfo.RegionZoneHandler = true
+	drvCapabilityInfo.PriceInfoHandler = false
 	drvCapabilityInfo.ImageHandler = true
+	drvCapabilityInfo.VMSpecHandler = true
+
 	drvCapabilityInfo.VPCHandler = true
 	drvCapabilityInfo.SecurityHandler = true
 	drvCapabilityInfo.KeyPairHandler = true
-	drvCapabilityInfo.VNicHandler = false
-	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.VMHandler = true
-	drvCapabilityInfo.VMSpecHandler = true
+	drvCapabilityInfo.DiskHandler = true
+	drvCapabilityInfo.MyImageHandler = true
 	drvCapabilityInfo.NLBHandler = true
 	drvCapabilityInfo.ClusterHandler = false
-	drvCapabilityInfo.MyImageHandler = true
-	drvCapabilityInfo.DiskHandler = true
-	drvCapabilityInfo.RegionZoneHandler = true
-	drvCapabilityInfo.PriceInfoHandler = false
+
 	drvCapabilityInfo.TagHandler = false
+	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{}
 
 	drvCapabilityInfo.SINGLE_VPC = true
 

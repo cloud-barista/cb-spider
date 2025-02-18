@@ -207,6 +207,9 @@ func RunServer() {
 		//----------CloudOSMetaInfo
 		{"GET", "/cloudos/metainfo/:CloudOSName", GetCloudOSMetaInfo},
 
+		//----------CloudDriver CapabilityInfo
+		{"GET", "/driver/capability", GetDriverCapability},
+
 		//----------CloudDriverInfo
 		{"POST", "/driver", RegisterCloudDriver},
 		{"POST", "/driver/upload", UploadCloudDriver},

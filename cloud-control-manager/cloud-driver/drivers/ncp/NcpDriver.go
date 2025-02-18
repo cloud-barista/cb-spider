@@ -46,23 +46,24 @@ func (NcpDriver) GetDriverVersion() string {
 func (NcpDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
-	// NOTE Temporary Setting
-	drvCapabilityInfo.VPCHandler = true
-	drvCapabilityInfo.VNicHandler = false
+	drvCapabilityInfo.RegionZoneHandler = true
+	drvCapabilityInfo.PriceInfoHandler = true
 	drvCapabilityInfo.ImageHandler = true
 	drvCapabilityInfo.VMSpecHandler = true
+
+	drvCapabilityInfo.VPCHandler = true
 	drvCapabilityInfo.SecurityHandler = true
 	drvCapabilityInfo.KeyPairHandler = true
-	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.VMHandler = true
 	drvCapabilityInfo.DiskHandler = true
 	drvCapabilityInfo.MyImageHandler = true
 	drvCapabilityInfo.NLBHandler = true
-	drvCapabilityInfo.PriceInfoHandler = true
-	drvCapabilityInfo.RegionZoneHandler = true
+	drvCapabilityInfo.ClusterHandler = false
+
 	drvCapabilityInfo.TagHandler = true
-	// ires.ALL, ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER: not supported
-	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.ALL, ires.VM}
+	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.VM}
+
+	drvCapabilityInfo.EMULATED_VPC = true
 
 	return drvCapabilityInfo
 }

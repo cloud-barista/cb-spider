@@ -33,22 +33,25 @@ func (OpenStackDriver) GetDriverVersion() string {
 func (OpenStackDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
+	drvCapabilityInfo.RegionZoneHandler = true
+	drvCapabilityInfo.PriceInfoHandler = false
 	drvCapabilityInfo.ImageHandler = true
+	drvCapabilityInfo.VMSpecHandler = true
+
 	drvCapabilityInfo.VPCHandler = true
 	drvCapabilityInfo.SecurityHandler = true
 	drvCapabilityInfo.KeyPairHandler = true
-	drvCapabilityInfo.VNicHandler = false
-	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.VMHandler = true
-	drvCapabilityInfo.VMSpecHandler = true
-	drvCapabilityInfo.NLBHandler = true
 	drvCapabilityInfo.DiskHandler = true
 	drvCapabilityInfo.MyImageHandler = true
-	drvCapabilityInfo.RegionZoneHandler = true
-	drvCapabilityInfo.PriceInfoHandler = false
+	drvCapabilityInfo.NLBHandler = true
+	drvCapabilityInfo.ClusterHandler = false
+
 	drvCapabilityInfo.TagHandler = true
 	// ires.KEY, ires.DISK, ires.MYIMAGE, ires.CLUSTER: not supported
-	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.ALL, ires.VPC, ires.SUBNET, ires.SG, ires.VM, ires.NLB}
+	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.VPC, ires.SUBNET, ires.SG, ires.VM, ires.NLB}
+
+	drvCapabilityInfo.VPC_CIDR = false
 
 	return drvCapabilityInfo
 }

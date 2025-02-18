@@ -55,23 +55,25 @@ const (
 func (AzureDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
+	drvCapabilityInfo.RegionZoneHandler = true
+	drvCapabilityInfo.PriceInfoHandler = true
 	drvCapabilityInfo.ImageHandler = true
+	drvCapabilityInfo.VMSpecHandler = true
+
 	drvCapabilityInfo.VPCHandler = true
 	drvCapabilityInfo.SecurityHandler = true
 	drvCapabilityInfo.KeyPairHandler = true
-	drvCapabilityInfo.VNicHandler = false
-	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.VMHandler = true
-	drvCapabilityInfo.VMSpecHandler = true
-	drvCapabilityInfo.NLBHandler = true
 	drvCapabilityInfo.DiskHandler = true
 	drvCapabilityInfo.MyImageHandler = true
-	drvCapabilityInfo.RegionZoneHandler = true
-	drvCapabilityInfo.PriceInfoHandler = true
+	drvCapabilityInfo.NLBHandler = true
 	drvCapabilityInfo.ClusterHandler = true
+
 	drvCapabilityInfo.TagHandler = true
 	// ires.SUBNET: not supported (Azure: tagging to VPC)
-	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.ALL, ires.VPC, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER}
+	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.VPC, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER}
+
+	drvCapabilityInfo.VPC_CIDR = true
 
 	return drvCapabilityInfo
 }
