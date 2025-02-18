@@ -12,55 +12,71 @@
 //
 // by CB-Spider Team, 2020.09.
 
-
 package calllog
 
 import (
-    "os"
-    "strings"
-    "io/ioutil"
-    "log"
+	"io/ioutil"
+	"log"
+	"os"
+	"strings"
 
-    "gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v3"
 )
 
 type CALLLOGCONFIG struct {
-        CALLLOG struct {
-                LOOPCHECK bool
-                LOGLEVEL string
-                LOGFILE bool
-        }
+	CALLLOG struct {
+		LOOPCHECK bool
+		LOGLEVEL  string
+		CONSOLE   bool
+		LOGFILE   bool
+	}
 
-        LOGFILEINFO struct {
-                FILENAME string
-                MAXSIZE int
-                MAXBACKUPS int
-                MAXAGE int
-        }
+	LOGFILEINFO struct {
+		FILENAME   string
+		MAXSIZE    int
+		MAXBACKUPS int
+		MAXAGE     int
+	}
+}
+
+func NewCALLLOGCONFIG() CALLLOGCONFIG {
+	config := CALLLOGCONFIG{}
+
+	config.CALLLOG.LOOPCHECK = false
+	config.CALLLOG.LOGLEVEL = "info"
+	config.CALLLOG.CONSOLE = true
+	config.CALLLOG.LOGFILE = true
+
+	config.LOGFILEINFO.FILENAME = "./log/cblogs.log"
+	config.LOGFILEINFO.MAXSIZE = 20 // in MB
+	config.LOGFILEINFO.MAXBACKUPS = 100
+	config.LOGFILEINFO.MAXAGE = 365 // in days
+
+	return config
 }
 
 func load(filePath string) ([]byte, error) {
-        data, err := ioutil.ReadFile(filePath)
-        return data, err
+	data, err := ioutil.ReadFile(filePath)
+	return data, err
 }
 
 func GetConfigInfos() CALLLOGCONFIG {
-        calllogRootPath := os.Getenv("CBSPIDER_ROOT")
-        if calllogRootPath == "" {
-                log.Fatalf("$CBSPIDER_ROOT is not set!!")
-                os.Exit(1)
-        }
-        data, err := load(calllogRootPath + "/conf/calllog_conf.yaml")
+	calllogRootPath := os.Getenv("CBSPIDER_ROOT")
+	if calllogRootPath == "" {
+		log.Fatalf("$CBSPIDER_ROOT is not set!!")
+		os.Exit(1)
+	}
+	data, err := load(calllogRootPath + "/conf/calllog_conf.yaml")
 
-        if err != nil {
-                log.Fatalf("error: %v", err)
-        }
+	if err != nil {
+		log.Fatalf("error: %v", err)
+	}
 
-        configInfos := CALLLOGCONFIG{}
-        err = yaml.Unmarshal([]byte(data), &configInfos)
-        if err != nil {
-                log.Fatalf("error: %v", err)
-        }
+	configInfos := NewCALLLOGCONFIG()
+	err = yaml.Unmarshal([]byte(data), &configInfos)
+	if err != nil {
+		log.Fatalf("error: %v", err)
+	}
 
 	configInfos.LOGFILEINFO.FILENAME = ReplaceEnvPath(configInfos.LOGFILEINFO.FILENAME)
 	return configInfos
@@ -68,37 +84,36 @@ func GetConfigInfos() CALLLOGCONFIG {
 
 // $ABC/def ==> /abc/def
 func ReplaceEnvPath(str string) string {
-        if strings.Index(str, "$") == -1 {
-                return str
-        }
+	if strings.Index(str, "$") == -1 {
+		return str
+	}
 
-        // ex) input "$ENV1/meta_db/dat"
-        strList := strings.Split(str, "/")
-        for n, one := range strList {
-                if strings.Index(one, "$") != -1 {
-                        callstoreRootPath := os.Getenv(strings.Trim(one, "$"))
-                        if callstoreRootPath == "" {
-                                log.Fatal(one  +" is not set!")
-                        }
-                        strList[n] = callstoreRootPath
-                }
-        }
+	// ex) input "$ENV1/meta_db/dat"
+	strList := strings.Split(str, "/")
+	for n, one := range strList {
+		if strings.Index(one, "$") != -1 {
+			callstoreRootPath := os.Getenv(strings.Trim(one, "$"))
+			if callstoreRootPath == "" {
+				log.Fatal(one + " is not set!")
+			}
+			strList[n] = callstoreRootPath
+		}
+	}
 
-        var resultStr string
-        for _, one := range strList {
-                resultStr = resultStr + one + "/"
-        }
-        // ex) "/root/go/src/github.com/cloud-barista/cb-spider/meta_db/dat/"
-        resultStr = strings.TrimRight(resultStr, "/")
-        resultStr = strings.ReplaceAll(resultStr, "//", "/")
-        return resultStr
+	var resultStr string
+	for _, one := range strList {
+		resultStr = resultStr + one + "/"
+	}
+	// ex) "/root/go/src/github.com/cloud-barista/cb-spider/meta_db/dat/"
+	resultStr = strings.TrimRight(resultStr, "/")
+	resultStr = strings.ReplaceAll(resultStr, "//", "/")
+	return resultStr
 }
 
-
 func GetConfigString(configInfos *CALLLOGCONFIG) string {
-        d, err := yaml.Marshal(configInfos)
-        if err != nil {
-                log.Fatalf("error: %v", err)
-        }
+	d, err := yaml.Marshal(configInfos)
+	if err != nil {
+		log.Fatalf("error: %v", err)
+	}
 	return string(d)
 }

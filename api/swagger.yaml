@@ -324,10 +324,6 @@ definitions:
     type: object
   spider.ImageInfo:
     properties:
-      GuestOS:
-        description: Windows7, Ubuntu etc. // Deprecated
-        example: Ubuntu 18.04
-        type: string
       IId:
         allOf:
         - $ref: '#/definitions/spider.IID'
@@ -367,12 +363,7 @@ definitions:
         - $ref: '#/definitions/spider.OSPlatform'
         description: Linux/UNIX, Windows, NA
         example: Linux/UNIX
-      Status:
-        description: available, unavailable // Deprecated
-        example: available
-        type: string
     required:
-    - GuestOS
     - IId
     - ImageStatus
     - Name
@@ -381,7 +372,6 @@ definitions:
     - OSDiskType
     - OSDistribution
     - OSPlatform
-    - Status
     type: object
   spider.ImageStatus:
     enum:
@@ -2888,6 +2878,12 @@ definitions:
     required:
     - ConnectionName
     - ReqInfo
+    type: object
+  spider.VersionInfoResponse:
+    properties:
+      Version:
+        example: CB-Spider v0.10.2-22
+        type: string
     type: object
 host: localhost:1024
 info:
@@ -7925,6 +7921,26 @@ paths:
       summary: Get Tag
       tags:
       - '[Tag Management]'
+  /version:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves the version information of CB-Spider.
+      operationId: version-info
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Version information retrieved successfully
+          schema:
+            $ref: '#/definitions/spider.VersionInfoResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get Version Information
+      tags:
+      - '[Version]'
   /vm:
     get:
       consumes:

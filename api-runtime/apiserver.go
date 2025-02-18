@@ -52,6 +52,8 @@ func NewRootCmd() *cobra.Command {
 				return
 			}
 
+			restruntime.SetVersionInfo(Version)
+
 			// WaitGroup to manage both servers
 			wg := new(sync.WaitGroup)
 

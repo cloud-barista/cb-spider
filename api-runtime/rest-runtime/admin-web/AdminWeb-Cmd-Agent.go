@@ -3,7 +3,7 @@
 //
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
-// by CB-Spider Team, 2025.01.
+// By CB-Spider Team
 
 package adminweb
 
@@ -19,49 +19,6 @@ import (
 
 	"github.com/labstack/echo/v4"
 )
-
-// ------------------- Data Structures -------------------
-type Message struct {
-	Role    string    `json:"role"`
-	Content []Content `json:"content"`
-}
-
-type Content struct {
-	Type string `json:"type"`
-	Text string `json:"text"`
-}
-
-type RequestBody struct {
-	Model       string    `json:"model"`
-	MaxTokens   int       `json:"max_tokens"`
-	Temperature float64   `json:"temperature"`
-	System      string    `json:"system"`
-	Messages    []Message `json:"messages"`
-}
-
-// -------------------------------------------------------
-
-// getAPIKey first checks environment variable, then falls back to key file
-func getAPIKey() (string, error) {
-	// First check environment variable
-	if envKey := os.Getenv("CLAUDE_API_KEY"); envKey != "" {
-		return envKey, nil
-	}
-
-	// If environment variable is not set, try to read from file
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("error getting home directory: %v", err)
-	}
-
-	keyPath := filepath.Join(homeDir, ".claude", "claude_api.key")
-	keyBytes, err := ioutil.ReadFile(keyPath)
-	if err != nil {
-		return "", fmt.Errorf("error reading API key file: %v", err)
-	}
-
-	return string(bytes.TrimSpace(keyBytes)), nil
-}
 
 // CmdAgent: Render the cmd-agent.html template
 func CmdAgent(c echo.Context) error {
@@ -84,21 +41,21 @@ func GenerateCmd(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid request")
 	}
 
-	apiKey, err := getAPIKey()
+	apiKey, err := getClaudeAPIKey()
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to get API key")
 	}
 
-	messages := []Message{
+	messages := []ClaudeMessage{
 		{
 			Role: "user",
-			Content: []Content{
+			Content: []ClaudeContent{
 				{Type: "text", Text: userInput.Query},
 			},
 		},
 	}
 
-	requestBody := RequestBody{
+	requestBody := ClaudeRequestBody{
 		Model:       "claude-3-5-sonnet-20241022",
 		MaxTokens:   8192,
 		Temperature: 0.5,

@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
 	// "github.com/davecgh/go-spew/spew"
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
@@ -83,8 +84,8 @@ func (imageHandler *NcpVpcImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	// }
 
 	imageReq := vserver.GetServerImageListRequest{
-		RegionCode: 			 ncloud.String(imageHandler.RegionInfo.Region), // CAUTION!! : Searching VM Image Info by RegionCode (Not RegionNo)
-		ServerImageTypeCodeList: []*string{ncloud.String("NCP"),}, // Options: SELF | NCP
+		RegionCode:              ncloud.String(imageHandler.RegionInfo.Region), // CAUTION!! : Searching VM Image Info by RegionCode (Not RegionNo)
+		ServerImageTypeCodeList: []*string{ncloud.String("NCP")},               // Options: SELF | NCP
 	}
 
 	callLogStart := call.Start()
@@ -96,7 +97,7 @@ func (imageHandler *NcpVpcImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		return nil, newErr
 	}
 	LoggingInfo(callLogInfo, callLogStart)
-	
+
 	var vmImageList []*irs.ImageInfo
 	if len(result.ServerImageList) < 1 {
 		cblogger.Info("### Image info does Not Exist!!")
@@ -116,7 +117,7 @@ func mappingImageInfo(serverImage *vserver.ServerImage) irs.ImageInfo {
 	cblogger.Infof("Mapping Image Info!! ")
 	// spew.Dump(serverImage)
 
-	var architectureType  irs.OSArchitecture
+	var architectureType irs.OSArchitecture
 	if serverImage.CpuArchitectureType != nil {
 		if serverImage.CpuArchitectureType.Code != nil {
 			if strings.EqualFold(*serverImage.CpuArchitectureType.Code, "arm64") {
@@ -135,7 +136,7 @@ func mappingImageInfo(serverImage *vserver.ServerImage) irs.ImageInfo {
 		architectureType = irs.ArchitectureNA
 	}
 
-	var osPlatform irs.OSPlatform 
+	var osPlatform irs.OSPlatform
 	if serverImage.OsCategoryType != nil {
 		if serverImage.OsCategoryType.CodeName != nil {
 			if strings.EqualFold(*serverImage.OsCategoryType.CodeName, "LINUX") {
@@ -143,21 +144,21 @@ func mappingImageInfo(serverImage *vserver.ServerImage) irs.ImageInfo {
 			} else {
 				osPlatform = irs.Windows
 			}
-			
+
 		} else {
 			osPlatform = irs.PlatformNA
 		}
 	} else {
 		osPlatform = irs.PlatformNA
 	}
-	
+
 	var guestOS string
 	if serverImage.ServerImageName != nil {
 		guestOS = *serverImage.ServerImageName
 	} else {
 		guestOS = "NA"
 	}
-	
+
 	// Note) *serverImage.ServerImageDescription => sometimes : "kernel version : 5.14.0-427.37.1.el9_4.x86_64",
 
 	var diskType string
@@ -186,7 +187,7 @@ func mappingImageInfo(serverImage *vserver.ServerImage) irs.ImageInfo {
 
 	var imageStatus irs.ImageStatus
 	if serverImage.ServerImageStatusName != nil {
-		if strings.EqualFold(*serverImage.ServerImageStatusName, "created") { 
+		if strings.EqualFold(*serverImage.ServerImageStatusName, "created") {
 			imageStatus = irs.ImageAvailable
 		} else {
 			imageStatus = irs.ImageUnavailable
@@ -197,21 +198,19 @@ func mappingImageInfo(serverImage *vserver.ServerImage) irs.ImageInfo {
 
 	// *serverImage.ServerImageNo : numeric type
 	// *serverImage.ServerImageProductCode : ex) "SW.VSVR.OS.LNX64.UBNTU.SVR22.G003"
-	imageInfo := irs.ImageInfo {
+	imageInfo := irs.ImageInfo{
 		IId: irs.IID{
-			NameId: 	*serverImage.ServerImageNo	,
-			SystemId: 	*serverImage.ServerImageNo,
+			NameId:   *serverImage.ServerImageNo,
+			SystemId: *serverImage.ServerImageNo,
 		},
-		Status: string(imageStatus),
-		GuestOS: guestOS,
 
-		Name: *serverImage.ServerImageNo,
+		Name:           *serverImage.ServerImageNo,
 		OSArchitecture: architectureType,
-		OSPlatform: osPlatform,		
+		OSPlatform:     osPlatform,
 		OSDistribution: guestOS,
-		OSDiskType: diskType,
-		OSDiskSizeInGB: blockStorageSize, 
-		ImageStatus: imageStatus,
+		OSDiskType:     diskType,
+		OSDiskSizeInGB: blockStorageSize,
+		ImageStatus:    imageStatus,
 	}
 
 	keyValueList := []irs.KeyValue{
@@ -249,7 +248,7 @@ func (imageHandler *NcpVpcImageHandler) CheckWindowsImage(imageIID irs.IID) (boo
 	}
 
 	isWindowsImage := false
-	if strings.Contains(strings.ToUpper(*ncpImage.ServerImageName), "WIN") {  // Ex) "win-2019-64-en", "mssql(2019std)-win-2016-64-en"
+	if strings.Contains(strings.ToUpper(*ncpImage.ServerImageName), "WIN") { // Ex) "win-2019-64-en", "mssql(2019std)-win-2016-64-en"
 		isWindowsImage = true
 	}
 	return isWindowsImage, nil
@@ -271,8 +270,8 @@ func (imageHandler *NcpVpcImageHandler) isPublicImage(imageName string) (bool, e
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
-	}	
-	
+	}
+
 	imageInfo, err := imageHandler.getNcpVpcImage(imageName) // ServerImageTypeCode : SELF | NCP (All types of image)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Image Info : [%v]", err)
@@ -300,9 +299,9 @@ func (imageHandler *NcpVpcImageHandler) getNcpVpcImage(imageName string) (*vserv
 		return nil, createErr
 	}
 
-	imageReq := vserver.GetServerImageListRequest {
-		RegionCode:  				ncloud.String(imageHandler.RegionInfo.Region),
-		ServerImageNoList:  		[]*string{ncloud.String(imageName),},
+	imageReq := vserver.GetServerImageListRequest{
+		RegionCode:        ncloud.String(imageHandler.RegionInfo.Region),
+		ServerImageNoList: []*string{ncloud.String(imageName)},
 		// ServerImageTypeCodeList: 	[]*string{ncloud.String("NCP"),}, // <= Options: SELF | NCP. Need too include all types of image!!
 	}
 	callLogStart := call.Start()

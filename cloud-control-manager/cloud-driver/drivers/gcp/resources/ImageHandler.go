@@ -203,8 +203,6 @@ func (imageHandler *GCPImageHandler) ConvertGcpImageInfoToCbImageInfo(imageInfo 
 			NameId:   imageInfo.Name,
 			SystemId: imageInfo.Name,
 		},
-		GuestOS: imageInfo.GuestOS,
-		Status:  imageInfo.Status,
 
 		KeyValueList: []irs.KeyValue{
 			{"Name", imageInfo.Name},

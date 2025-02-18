@@ -52,14 +52,13 @@ func (imageHandler *AwsImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) 
 
 	return irs.ImageInfo{
 		IId:            imageReqInfo.IId,
-		GuestOS:        "default-guest-os",
 		Name:           "default-image-name",
 		OSArchitecture: "x86_64",
 		OSPlatform:     "Linux/UNIX",
 		OSDistribution: "Ubuntu 18.04",
 		OSDiskType:     "gp3",
 		OSDiskSizeInGB: "35",
-		Status:         "Available",
+		ImageStatus:    "Available",
 		KeyValueList:   nil,
 	}, nil
 
@@ -218,13 +217,8 @@ func ExtractImageDescribeInfo(image *ec2.Image) irs.ImageInfo {
 	//주로 윈도우즈는 Platform 정보가 존재하며 리눅스 계열은 PlatformDetails만 존재하는 듯. - "Linux/UNIX"
 	//윈도우즈 계열은 PlatformDetails에는 "Windows with SQL Server Standard"처럼 SQL정보도 포함되어있음.
 	if !reflect.ValueOf(image.Platform).IsNil() {
-		imageInfo.GuestOS = *image.Platform //Linux/UNIX
+		// deprecated imageInfo.GuestOS = *image.Platform //Linux/UNIX
 		keyValueList = append(keyValueList, irs.KeyValue{Key: "Platform", Value: *image.Platform})
-	} else {
-		// Platform 정보가 없는 경우 PlatformDetails 정보가 존재하면 PlatformDetails 값을 이용함.
-		if !reflect.ValueOf(image.PlatformDetails).IsNil() {
-			imageInfo.GuestOS = *image.PlatformDetails //Linux/UNIX
-		}
 	}
 
 	// 일부 이미지들은 아래 정보가 없어서 예외 처리 함.
@@ -389,15 +383,24 @@ func (imageHandler *AwsImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, 
 }
 
 func extractOsPlatform(image *ec2.Image) irs.OSPlatform {
-	platform := image.Platform
+	var platform string
 
-	if platform == nil {
+	if !reflect.ValueOf(image.Platform).IsNil() {
+		platform = *image.Platform //Linux/UNIX
+	} else {
+		if !reflect.ValueOf(image.PlatformDetails).IsNil() {
+			platform = *image.PlatformDetails //Linux/UNIX
+		}
+	}
+
+	if platform == "" {
 		return irs.PlatformNA
 	}
-	switch *platform {
-	case "Linux/UNIX":
+
+	switch {
+	case strings.Contains(platform, "Linux"), strings.Contains(platform, "Ubuntu"), strings.Contains(platform, "Red Hat"):
 		return irs.Linux_UNIX
-	case "Windows":
+	case strings.Contains(platform, "Windows"), strings.Contains(platform, "windows"):
 		return irs.Windows
 	default:
 		return irs.PlatformNA
