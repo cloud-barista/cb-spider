@@ -53,6 +53,8 @@ func (GCPDriver) GetDriverVersion() string {
 func (GCPDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
+	drvCapabilityInfo.ZoneBasedControl = true
+
 	drvCapabilityInfo.RegionZoneHandler = true
 	drvCapabilityInfo.PriceInfoHandler = true
 	drvCapabilityInfo.ImageHandler = true

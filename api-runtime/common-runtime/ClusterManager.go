@@ -61,6 +61,10 @@ func GetClusterOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, 
 		return cres.IID{}, err
 	}
 
+	if err := checkCapability(connectionName, CLUSTER_HANDLER); err != nil {
+		return cres.IID{}, err
+	}
+
 	cspID, err = EmptyCheckAndTrim("cspID", cspID)
 	if err != nil {
 		cblog.Error(err)
@@ -187,6 +191,10 @@ func RegisterCluster(connectionName string, vpcUserID string, userIID cres.IID) 
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
 	if err != nil {
 		cblog.Error(err)
+		return nil, err
+	}
+
+	if err := checkCapability(connectionName, CLUSTER_HANDLER); err != nil {
 		return nil, err
 	}
 
@@ -347,6 +355,10 @@ func CreateCluster(connectionName string, rsType string, reqInfo cres.ClusterInf
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
 	if err != nil {
 		cblog.Error(err)
+		return nil, err
+	}
+
+	if err := checkCapability(connectionName, CLUSTER_HANDLER); err != nil {
 		return nil, err
 	}
 
@@ -897,6 +909,10 @@ func ListCluster(connectionName string, rsType string) ([]*cres.ClusterInfo, err
 		return nil, err
 	}
 
+	if err := checkCapability(connectionName, CLUSTER_HANDLER); err != nil {
+		return nil, err
+	}
+
 	// (1) get IID:list
 	var iidInfoList []*ClusterIIDInfo
 	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
@@ -977,6 +993,10 @@ func GetCluster(connectionName string, rsType string, clusterName string) (*cres
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
 	if err != nil {
 		cblog.Error(err)
+		return nil, err
+	}
+
+	if err := checkCapability(connectionName, CLUSTER_HANDLER); err != nil {
 		return nil, err
 	}
 
@@ -1063,6 +1083,10 @@ func AddNodeGroup(connectionName string, rsType string, clusterName string, reqI
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
 	if err != nil {
 		cblog.Error(err)
+		return nil, err
+	}
+
+	if err := checkCapability(connectionName, CLUSTER_HANDLER); err != nil {
 		return nil, err
 	}
 
@@ -1285,6 +1309,10 @@ func SetNodeGroupAutoScaling(connectionName string, clusterName string, nodeGrou
 		return false, err
 	}
 
+	if err := checkCapability(connectionName, CLUSTER_HANDLER); err != nil {
+		return false, err
+	}
+
 	clusterName, err = EmptyCheckAndTrim("clusterName", clusterName)
 	if err != nil {
 		cblog.Error(err)
@@ -1433,6 +1461,10 @@ func ChangeNodeGroupScaling(connectionName string, clusterName string, nodeGroup
 		return cres.NodeGroupInfo{}, err
 	}
 
+	if err := checkCapability(connectionName, CLUSTER_HANDLER); err != nil {
+		return cres.NodeGroupInfo{}, err
+	}
+
 	clusterName, err = EmptyCheckAndTrim("clusterName", clusterName)
 	if err != nil {
 		cblog.Error(err)
@@ -1539,6 +1571,10 @@ func RemoveNodeGroup(connectionName string, clusterName string, nodeGroupName st
 		return false, err
 	}
 
+	if err := checkCapability(connectionName, CLUSTER_HANDLER); err != nil {
+		return false, err
+	}
+
 	clusterName, err = EmptyCheckAndTrim("clusterName", clusterName)
 	if err != nil {
 		cblog.Error(err)
@@ -1621,6 +1657,10 @@ func RemoveCSPNodeGroup(connectionName string, clusterName string, systemID stri
 		return false, err
 	}
 
+	if err := checkCapability(connectionName, CLUSTER_HANDLER); err != nil {
+		return false, err
+	}
+
 	clusterName, err = EmptyCheckAndTrim("clusterName", clusterName)
 	if err != nil {
 		cblog.Error(err)
@@ -1672,6 +1712,10 @@ func UpgradeCluster(connectionName string, clusterName string, newVersion string
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
 	if err != nil {
 		cblog.Error(err)
+		return cres.ClusterInfo{}, err
+	}
+
+	if err := checkCapability(connectionName, CLUSTER_HANDLER); err != nil {
 		return cres.ClusterInfo{}, err
 	}
 
@@ -1737,6 +1781,10 @@ func DeleteCluster(connectionName string, rsType string, nameID string, force st
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
 	if err != nil {
 		cblog.Error(err)
+		return false, err
+	}
+
+	if err := checkCapability(connectionName, CLUSTER_HANDLER); err != nil {
 		return false, err
 	}
 

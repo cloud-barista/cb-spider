@@ -39,6 +39,8 @@ func (NhnCloudDriver) GetDriverVersion() string {
 func (NhnCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
+	drvCapabilityInfo.ZoneBasedControl = true
+
 	drvCapabilityInfo.RegionZoneHandler = true
 	drvCapabilityInfo.PriceInfoHandler = false
 	drvCapabilityInfo.ImageHandler = true

@@ -2327,3 +2327,44 @@ func getAuthIIDInfoBySystemIdContain(iidInfoList interface{}, systemId string) (
 
 	return nil, fmt.Errorf("systemId %s not found", systemId) // No matching IIDInfo found
 }
+
+type CapabilityType string
+
+const (
+	PRICE_INFO      CapabilityType = "PriceInfo"
+	CLUSTER_HANDLER CapabilityType = "ClusterHandler"
+	TAG_HANDLER     CapabilityType = "TagHandler"
+
+	ZONE_BASED_CONTROL CapabilityType = "Zone-based Control"
+)
+
+// checkCapability checks if the given connection supports specified capability
+func checkCapability(connectionName string, capability CapabilityType) error {
+	drvCapabilityInfo, err := GetDriverCapabilityInfo(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return err
+	}
+
+	var supported bool
+	switch capability {
+	case PRICE_INFO:
+		supported = drvCapabilityInfo.PriceInfoHandler
+	case CLUSTER_HANDLER:
+		supported = drvCapabilityInfo.ClusterHandler
+	case TAG_HANDLER:
+		supported = drvCapabilityInfo.TagHandler
+	case ZONE_BASED_CONTROL:
+		supported = drvCapabilityInfo.ZoneBasedControl
+	default:
+		return fmt.Errorf("unknown capability type: %s", capability)
+	}
+
+	if !supported {
+		err := fmt.Errorf("%s does not support %s", connectionName, capability)
+		cblog.Error(err)
+		return err
+	}
+
+	return nil
+}

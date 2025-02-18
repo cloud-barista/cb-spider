@@ -65,6 +65,26 @@ func RegisterDisk(connectionName string, zoneId string, userIID cres.IID) (*cres
 		return nil, err
 	}
 
+	// Subnet and Disk can be created in a specific Zone(Zone-Based Control).
+	// but, Some CSPs do not support Zone-Based Control.
+	// if the Zone info is different from defaultZoneId,
+	// check the capability of ZONE_BASED_CONTROL for the CSP
+	// (1) get defaultZoneId with ConnectionName
+	_, defaultZoneId, err := ccm.GetRegionNameByConnectionName(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// (2) check the Zone info and the capability of ZONE_BASED_CONTROL
+	if zoneId != "" && zoneId != defaultZoneId {
+		err := checkCapability(connectionName, ZONE_BASED_CONTROL)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	}
+
 	rsType := DISK
 
 	diskSPLock.Lock(connectionName, userIID.NameId)
@@ -159,6 +179,27 @@ func CreateDisk(connectionName string, rsType string, reqInfo cres.DiskInfo, IDT
 		cblog.Error(err)
 		return nil, err
 	}
+
+	// Subnet and Disk can be created in a specific Zone(Zone-Based Control).
+	// but, Some CSPs do not support Zone-Based Control.
+	// if the Zone info is different from defaultZoneId,
+	// check the capability of ZONE_BASED_CONTROL for the CSP
+	// (1) get defaultZoneId with ConnectionName
+	_, defaultZoneId, err := ccm.GetRegionNameByConnectionName(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// (2) check the Zone info and the capability of ZONE_BASED_CONTROL
+	if reqInfo.Zone != "" && reqInfo.Zone != defaultZoneId {
+		err := checkCapability(connectionName, ZONE_BASED_CONTROL)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	}
+
 	/*
 	   emptyPermissionList := []string{
 	           "resources.IID:SystemId",

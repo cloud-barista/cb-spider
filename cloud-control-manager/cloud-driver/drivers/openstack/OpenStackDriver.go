@@ -33,6 +33,8 @@ func (OpenStackDriver) GetDriverVersion() string {
 func (OpenStackDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
+	drvCapabilityInfo.ZoneBasedControl = true
+
 	drvCapabilityInfo.RegionZoneHandler = true
 	drvCapabilityInfo.PriceInfoHandler = false
 	drvCapabilityInfo.ImageHandler = true

@@ -216,6 +216,26 @@ func RegisterSubnet(connectionName string, zoneId string, vpcName string, userII
 		return nil, err
 	}
 
+	// Subnet and Disk can be created in a specific Zone(Zone-Based Control).
+	// but, Some CSPs do not support Zone-Based Control.
+	// if the Zone info is different from defaultZoneId,
+	// check the capability of ZONE_BASED_CONTROL for the CSP
+	// (1) get defaultZoneId with ConnectionName
+	_, defaultZoneId, err := ccm.GetRegionNameByConnectionName(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// (2) check the Zone info and the capability of ZONE_BASED_CONTROL
+	if zoneId != "" && zoneId != defaultZoneId {
+		err := checkCapability(connectionName, ZONE_BASED_CONTROL)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	}
+
 	if zoneId == "" {
 		// get defaultZoneId
 		_, zoneId, err = ccm.GetRegionNameByConnectionName(connectionName)
@@ -436,6 +456,28 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo, ID
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
+	}
+
+	// Subnet and Disk can be created in a specific Zone(Zone-Based Control).
+	// but, Some CSPs do not support Zone-Based Control.
+	// if the Zone info is different from defaultZoneId,
+	// check the capability of ZONE_BASED_CONTROL for the CSP
+	// (1) get defaultZoneId with ConnectionName
+	_, defaultZoneId, err := ccm.GetRegionNameByConnectionName(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// (2) check the Zone info and the capability of ZONE_BASED_CONTROL
+	for _, subnetInfo := range reqInfo.SubnetInfoList {
+		if subnetInfo.Zone != "" && subnetInfo.Zone != defaultZoneId {
+			err := checkCapability(connectionName, ZONE_BASED_CONTROL)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+		}
 	}
 
 	cldConn, err := ccm.GetCloudConnection(connectionName)
@@ -921,6 +963,26 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
+	}
+
+	// Subnet and Disk can be created in a specific Zone(Zone-Based Control).
+	// but, Some CSPs do not support Zone-Based Control.
+	// if the Zone info is different from defaultZoneId,
+	// check the capability of ZONE_BASED_CONTROL for the CSP
+	// (1) get defaultZoneId with ConnectionName
+	_, defaultZoneId, err := ccm.GetRegionNameByConnectionName(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// (2) check the Zone info and the capability of ZONE_BASED_CONTROL
+	if reqInfo.Zone != "" && reqInfo.Zone != defaultZoneId {
+		err := checkCapability(connectionName, ZONE_BASED_CONTROL)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	vpcName, err = EmptyCheckAndTrim("vpcName", vpcName)

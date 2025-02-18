@@ -46,6 +46,8 @@ func (KtCloudDriver) GetDriverVersion() string {
 func (KtCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
+	drvCapabilityInfo.ZoneBasedControl = false
+
 	drvCapabilityInfo.RegionZoneHandler = true
 	drvCapabilityInfo.PriceInfoHandler = false
 	drvCapabilityInfo.ImageHandler = true

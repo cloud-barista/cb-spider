@@ -16,6 +16,9 @@ import (
 )
 
 type DriverCapabilityInfo struct {
+	// Resource Control Scope
+	ZoneBasedControl bool // support: true, do not support: false
+
 	// Metadata Handler
 	RegionZoneHandler bool // support: true, do not support: false
 	PriceInfoHandler  bool // support: true, do not support: false

@@ -50,6 +50,8 @@ func (AlibabaDriver) GetDriverVersion() string {
 func (AlibabaDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
+	drvCapabilityInfo.ZoneBasedControl = true
+
 	drvCapabilityInfo.RegionZoneHandler = true
 	drvCapabilityInfo.PriceInfoHandler = true
 	drvCapabilityInfo.ImageHandler = true

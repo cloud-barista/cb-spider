@@ -5241,7 +5241,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[Cloud Metadata] Price"
+                    "[Cloud Metadata] Price Info"
                 ],
                 "summary": "Get Price Information",
                 "operationId": "get-price-info",
@@ -5307,7 +5307,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[Cloud Metadata] Price"
+                    "[Cloud Metadata] Price Info"
                 ],
                 "summary": "List Product Families",
                 "operationId": "list-product-family",
@@ -11236,6 +11236,10 @@ const docTemplate = `{
                 },
                 "vpchandler": {
                     "description": "Resource Handler",
+                    "type": "boolean"
+                },
+                "zoneBasedControl": {
+                    "description": "Resource Control Scope",
                     "type": "boolean"
                 }
             }

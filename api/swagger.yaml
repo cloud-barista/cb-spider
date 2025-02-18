@@ -1976,6 +1976,9 @@ definitions:
       vpchandler:
         description: Resource Handler
         type: boolean
+      zoneBasedControl:
+        description: Resource Control Scope
+        type: boolean
     type: object
   spider.HealthCheckResponse:
     properties:
@@ -6617,7 +6620,7 @@ paths:
             $ref: '#/definitions/spider.SimpleMsg'
       summary: Get Price Information
       tags:
-      - '[Cloud Metadata] Price'
+      - '[Cloud Metadata] Price Info'
   /productfamily/{RegionName}:
     get:
       consumes:
@@ -6658,7 +6661,7 @@ paths:
             $ref: '#/definitions/spider.SimpleMsg'
       summary: List Product Families
       tags:
-      - '[Cloud Metadata] Price'
+      - '[Cloud Metadata] Price Info'
   /readyz:
     get:
       consumes:

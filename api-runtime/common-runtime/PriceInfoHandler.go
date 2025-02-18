@@ -30,6 +30,10 @@ func ListProductFamily(connectionName string, regionName string) ([]string, erro
 		return nil, err
 	}
 
+	if err := checkCapability(connectionName, PRICE_INFO); err != nil {
+		return nil, err
+	}
+
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
@@ -74,6 +78,10 @@ func GetPriceInfo(connectionName string, productFamily string, regionName string
 	regionName, err = EmptyCheckAndTrim("regionName", regionName)
 	if err != nil {
 		cblog.Error(err)
+		return "", err
+	}
+
+	if err := checkCapability(connectionName, PRICE_INFO); err != nil {
 		return "", err
 	}
 

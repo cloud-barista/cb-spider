@@ -31,6 +31,8 @@ func (IbmCloudDriver) GetDriverVersion() string {
 func (IbmCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
+	drvCapabilityInfo.ZoneBasedControl = true
+
 	drvCapabilityInfo.RegionZoneHandler = true
 	drvCapabilityInfo.PriceInfoHandler = true
 	drvCapabilityInfo.ImageHandler = true
@@ -43,7 +45,7 @@ func (IbmCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.DiskHandler = true
 	drvCapabilityInfo.MyImageHandler = true
 	drvCapabilityInfo.NLBHandler = true
-	drvCapabilityInfo.ClusterHandler = true
+	drvCapabilityInfo.ClusterHandler = false
 
 	drvCapabilityInfo.TagHandler = true
 	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER}
