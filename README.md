@@ -66,7 +66,7 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 | NCP VPC       | O            | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | ?           |
 | NHN           | NA             | O                   | O             | O              | O<br>(Type2)       | O                 | O               | O<br>(Note2)   | O    | O    | O     | O           |
 | KT Classic    | NA             | O                   | O             | O              | O<br>(Type1)       | O                 | O               | O              | O    | O   | O       | NA          |
-| KT VPC        | NA             | O                   | O             | O              | O<br>(Type3)       | O                 | O               | O              | O    | WIP   | O<br>(Note3)| Wait API    |
+| KT VPC        | NA             | O                   | O             | O              | O<br>(Type3)       | O                 | O               | O              | O    | O   | O<br>(Note3)| Wait API    |
 
 
     ※ WIP: Work In Progress, NA: Not Applicable, Wait API: CSP API 공개 대기, ?: 미정/분석필요
