@@ -90,7 +90,8 @@ func GenerateCmd(c echo.Context) error {
 					{CSP-Name}-config01을 이용해서 작성해줘.\n
 					생성하는 자원 이름은 '자원 타입-01' 형태로 만들어 줘.\n
 					자원 생성시에 다른 자원 이름을 지정할 때도 '자원 타입-01' 형태로 지정해서 만들어 줘.\n
-					자원 삭제시에는 ConnectionName은 path가 아닌 JSONBody에 포함해서 설정해줘.\n 
+					curl GET 호출에는 ConnectionName을 JSONBody가 아닌 Param에 포함해서 설정해줘.\n 
+					curl POST, PUT, DELETE 호출에는 ConnectionName은 Param이 아닌 JSONBody에 포함해서 설정해줘.\n 
 					다른 설명은 하지 말고, 간단히 자원 생성하는 curl 명령만 출력해줘.\n
 					curl 명령은 -sX 옵션으로 제공해줘.\n
 					curl 명령에 routing path에 security가 포함되어 있으면, securitygruop으로 변경해서 출력해줘.\n					
