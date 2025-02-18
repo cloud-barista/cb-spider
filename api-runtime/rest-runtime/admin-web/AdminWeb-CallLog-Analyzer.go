@@ -133,10 +133,23 @@ func AnalyzeLogs(c echo.Context) error {
 	})
 
 	for _, log := range logs {
+		message := fmt.Sprintf("%s - CloudOS: %s, Region/Zone: %s, ResourceType: %s, ResourceName: %s, API: %s, ElapsedTime: %.4f",
+			log.Timestamp,
+			log.CloudOS,
+			log.RegionZone,
+			log.ResourceType,
+			log.ResourceName,
+			log.CloudOSAPI,
+			log.ElapsedTime)
+
+		// ErrorMSG가 있는 경우에만 추가
+		if log.ErrorMSG != "" {
+			message += fmt.Sprintf(", Error: %s", log.ErrorMSG)
+		}
+
 		logMessages = append(logMessages, ClaudeContent{
 			Type: "text",
-			Text: fmt.Sprintf("%s - CloudOS: %s, API: %s, ElapsedTime: %.4f",
-				log.Timestamp, log.CloudOS, log.CloudOSAPI, log.ElapsedTime),
+			Text: message,
 		})
 	}
 
