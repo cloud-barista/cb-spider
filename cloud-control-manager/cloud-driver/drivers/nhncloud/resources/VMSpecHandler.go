@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
 	// "errors"
 	// "github.com/davecgh/go-spew/spew"
 
@@ -233,16 +234,12 @@ func (vmSpecHandler *NhnCloudVMSpecHandler) mappingVMSpecInfo(vmSpec flavors.Fla
 	vmSpecInfo := &irs.VMSpecInfo{
 		Region: vmSpecHandler.RegionInfo.Region,
 		Name:   vmSpec.Name,
-		VCpu:   irs.VCpuInfo{Count: strconv.Itoa(vmSpec.VCPUs)},
+		VCpu:   irs.VCpuInfo{Count: strconv.Itoa(vmSpec.VCPUs), Clock: "-1"},
 		Mem:    strconv.Itoa(vmSpec.RAM),
 		Disk:   strconv.Itoa(vmSpec.Disk),
 		Gpu:    gpuInfoList,
 
-		KeyValueList: []irs.KeyValue{
-			{Key: "Region", Value: vmSpecHandler.RegionInfo.Region},
-			{Key: "VMSpecType", Value: vmSpec.ExtraSpecs.FlavorType},
-			{Key: "LocalDiskSize(GB)", Value: strconv.Itoa(vmSpec.Disk)},
-		},
+		KeyValueList: getVMSpecKeyValueList(vmSpec),
 	}
 
 	if strings.EqualFold(strconv.Itoa(vmSpec.Disk), "0") {
@@ -253,6 +250,84 @@ func (vmSpecHandler *NhnCloudVMSpecHandler) mappingVMSpecInfo(vmSpec flavors.Fla
 		vmSpecInfo.KeyValueList = append(vmSpecInfo.KeyValueList, keyValue)
 	}
 	return vmSpecInfo
+}
+
+func getVMSpecKeyValueList(flavor flavors.Flavor) []irs.KeyValue {
+	var keyValueList []irs.KeyValue
+
+	keyValueList = append(keyValueList, irs.KeyValue{
+		Key:   "ID",
+		Value: flavor.ID,
+	})
+
+	keyValueList = append(keyValueList, irs.KeyValue{
+		Key:   "Name",
+		Value: flavor.Name,
+	})
+
+	if len(flavor.Links) > 0 {
+		linkInfos := make([]string, 0, len(flavor.Links))
+		for _, link := range flavor.Links {
+			if link.Href != "" && link.Rel != "" {
+				linkInfos = append(linkInfos, fmt.Sprintf("%s:%s", link.Rel, link.Href))
+			}
+		}
+		if len(linkInfos) > 0 {
+			keyValueList = append(keyValueList, irs.KeyValue{
+				Key:   "Links",
+				Value: strings.Join(linkInfos, "; "),
+			})
+		}
+	}
+
+	keyValueList = append(keyValueList, irs.KeyValue{
+		Key:   "RAM",
+		Value: strconv.Itoa(flavor.RAM),
+	})
+
+	keyValueList = append(keyValueList, irs.KeyValue{
+		Key:   "VCPUs",
+		Value: strconv.Itoa(flavor.VCPUs),
+	})
+
+	keyValueList = append(keyValueList, irs.KeyValue{
+		Key:   "Disk",
+		Value: strconv.Itoa(flavor.Disk),
+	})
+
+	if flavor.ExtraSpecs.FlavorType != "" {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "ExtraSpecs.FlavorType",
+			Value: flavor.ExtraSpecs.FlavorType,
+		})
+	}
+
+	keyValueList = append(keyValueList, irs.KeyValue{
+		Key:   "Disabled",
+		Value: strconv.FormatBool(flavor.Disabled),
+	})
+
+	keyValueList = append(keyValueList, irs.KeyValue{
+		Key:   "IsPublic",
+		Value: strconv.FormatBool(flavor.IsPublic),
+	})
+
+	keyValueList = append(keyValueList, irs.KeyValue{
+		Key:   "RxTxFactor",
+		Value: fmt.Sprintf("%.2f", flavor.RxTxFactor),
+	})
+
+	keyValueList = append(keyValueList, irs.KeyValue{
+		Key:   "Ephemeral",
+		Value: strconv.Itoa(flavor.Ephemeral),
+	})
+
+	keyValueList = append(keyValueList, irs.KeyValue{
+		Key:   "Swap",
+		Value: strconv.Itoa(flavor.Swap),
+	})
+
+	return keyValueList
 }
 
 func (vmSpecHandler *NhnCloudVMSpecHandler) getIDFromName(specName string) (string, error) {

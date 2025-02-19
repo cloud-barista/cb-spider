@@ -270,16 +270,11 @@ func setVmSpecInfo(profile vpcv1.InstanceProfile, region string) (irs.VMSpecInfo
 func getVMSpecKeyValueList(profile vpcv1.InstanceProfile) []irs.KeyValue {
 	var keyValueList []irs.KeyValue
 
-	// Convert to RawJson String
-	toRawJSON := func(v interface{}) string {
-		jsonBytes, _ := json.Marshal(v)
-		return string(jsonBytes)
-	}
-
 	if profile.Bandwidth != nil {
+		jsonBytes, _ := json.Marshal(profile.Bandwidth)
 		kv := irs.KeyValue{
 			Key:   "Bandwidth",
-			Value: toRawJSON(profile.Bandwidth),
+			Value: string(jsonBytes),
 		}
 		keyValueList = append(keyValueList, kv)
 	}
@@ -293,25 +288,28 @@ func getVMSpecKeyValueList(profile vpcv1.InstanceProfile) []irs.KeyValue {
 	}
 
 	if profile.PortSpeed != nil {
+		jsonBytes, _ := json.Marshal(profile.PortSpeed)
 		kv := irs.KeyValue{
 			Key:   "PortSpeed",
-			Value: toRawJSON(profile.PortSpeed),
+			Value: string(jsonBytes),
 		}
 		keyValueList = append(keyValueList, kv)
 	}
 
 	if profile.OsArchitecture != nil {
+		jsonBytes, _ := json.Marshal(profile.OsArchitecture)
 		kv := irs.KeyValue{
 			Key:   "OsArchitecture",
-			Value: toRawJSON(profile.OsArchitecture),
+			Value: string(jsonBytes),
 		}
 		keyValueList = append(keyValueList, kv)
 	}
 
 	if profile.VcpuArchitecture != nil {
+		jsonBytes, _ := json.Marshal(profile.VcpuArchitecture)
 		kv := irs.KeyValue{
 			Key:   "VcpuArchitecture",
-			Value: toRawJSON(profile.VcpuArchitecture),
+			Value: string(jsonBytes),
 		}
 		keyValueList = append(keyValueList, kv)
 	}
@@ -319,12 +317,12 @@ func getVMSpecKeyValueList(profile vpcv1.InstanceProfile) []irs.KeyValue {
 	if len(profile.Disks) > 0 {
 		diskInfo := make([]string, 0, len(profile.Disks))
 		for _, disk := range profile.Disks {
-			diskInfo = append(diskInfo, toRawJSON(disk))
+			jsonBytes, _ := json.Marshal(disk)
+			diskInfo = append(diskInfo, string(jsonBytes))
 		}
-		diskJSON := "[" + strings.Join(diskInfo, ", ") + "]"
 		kv := irs.KeyValue{
 			Key:   "Disks",
-			Value: diskJSON,
+			Value: strings.Join(diskInfo, "; "),
 		}
 		keyValueList = append(keyValueList, kv)
 	}

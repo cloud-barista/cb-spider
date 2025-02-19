@@ -8,12 +8,14 @@
 package resources
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
 	"strings"
+
 	// "github.com/davecgh/go-spew/spew"
-	
+
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/server"
 	cblog "github.com/cloud-barista/cb-log"
@@ -23,9 +25,9 @@ import (
 )
 
 type NcpVMSpecHandler struct {
-	CredentialInfo 		idrv.CredentialInfo
-	RegionInfo     		idrv.RegionInfo
-	VMClient         	*server.APIClient
+	CredentialInfo idrv.CredentialInfo
+	RegionInfo     idrv.RegionInfo
+	VMClient       *server.APIClient
 }
 
 func init() {
@@ -42,8 +44,8 @@ func (vmSpecHandler *NcpVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 	cblogger.Infof("Region : [%s]", ncpRegion)
 
 	vmHandler := NcpVMHandler{
-		RegionInfo:     	vmSpecHandler.RegionInfo,
-		VMClient:         	vmSpecHandler.VMClient,
+		RegionInfo: vmSpecHandler.RegionInfo,
+		VMClient:   vmSpecHandler.VMClient,
 	}
 	regionNo, err := vmHandler.getRegionNo(vmSpecHandler.RegionInfo.Region)
 	if err != nil {
@@ -61,9 +63,9 @@ func (vmSpecHandler *NcpVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 	}
 
 	imageHandler := NcpImageHandler{
-		CredentialInfo: 	vmSpecHandler.CredentialInfo,
-		RegionInfo:     	vmSpecHandler.RegionInfo,  //CAUTION!!
-		VMClient:         	vmSpecHandler.VMClient,
+		CredentialInfo: vmSpecHandler.CredentialInfo,
+		RegionInfo:     vmSpecHandler.RegionInfo, //CAUTION!!
+		VMClient:       vmSpecHandler.VMClient,
 	}
 	imageListResult, err := imageHandler.ListImage()
 	if err != nil {
@@ -77,15 +79,15 @@ func (vmSpecHandler *NcpVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 
 	// Note : var vmProductList []*server.Product  //NCP Product(Spec) Info.
 	var vmSpecInfoMap = make(map[string]*irs.VMSpecInfo) // Map to track unique VMSpec Info.
-	var vmSpecInfoList []*irs.VMSpecInfo // List to return unique VMSpec Info.
-	
+	var vmSpecInfoList []*irs.VMSpecInfo                 // List to return unique VMSpec Info.
+
 	for _, image := range imageListResult {
 		cblogger.Infof("# Lookup by NCP Image ID(ImageProductCode) : [%s]", image.IId.SystemId)
-	
-		vmSpecReq := server.GetServerProductListRequest{			
-			RegionNo: 				regionNo,
-			ZoneNo: 				zoneNo,
-			ServerImageProductCode: ncloud.String(image.IId.SystemId),  // ***** Caution : ImageProductCode is mandatory. *****			
+
+		vmSpecReq := server.GetServerProductListRequest{
+			RegionNo:               regionNo,
+			ZoneNo:                 zoneNo,
+			ServerImageProductCode: ncloud.String(image.IId.SystemId), // ***** Caution : ImageProductCode is mandatory. *****
 			// GenerationCode: 		ncloud.String("G2"),  				// # Caution!! : Generations are divided only in the Korean Region.
 		}
 		result, err := vmSpecHandler.VMClient.V2Api.GetServerProductList(&vmSpecReq)
@@ -96,8 +98,8 @@ func (vmSpecHandler *NcpVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 		} else {
 			cblogger.Infof("Lookup by NCP Image ID(ImageProductCode) : [%s]", image.IId.SystemId)
 			cblogger.Infof("Number of VMSpec info looked up : [%d]", len(result.ProductList))
-		}		
-	
+		}
+
 		for _, product := range result.ProductList {
 			vmSpecInfo := mappingVMSpecInfo(ncpRegion, *product)
 			if existingSpec, exists := vmSpecInfoMap[vmSpecInfo.Name]; exists {
@@ -118,11 +120,11 @@ func (vmSpecHandler *NcpVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 			}
 		}
 	}
-	
+
 	// Convert the map to a list
 	for _, specInfo := range vmSpecInfoMap {
 		vmSpecInfoList = append(vmSpecInfoList, specInfo)
-	}	
+	}
 	// cblogger.Infof("# Total count of the VMSpec Info : [%d]", len(vmSpecInfoList))
 	return vmSpecInfoList, err
 }
@@ -165,8 +167,8 @@ func (vmSpecHandler *NcpVMSpecHandler) ListOrgVMSpec() (string, error) {
 	cblogger.Infof("Region : [%s]", ncpRegion)
 
 	vmHandler := NcpVMHandler{
-		RegionInfo:     	vmSpecHandler.RegionInfo,
-		VMClient:         	vmSpecHandler.VMClient,
+		RegionInfo: vmSpecHandler.RegionInfo,
+		VMClient:   vmSpecHandler.VMClient,
 	}
 	regionNo, err := vmHandler.getRegionNo(vmSpecHandler.RegionInfo.Region)
 	if err != nil {
@@ -184,9 +186,9 @@ func (vmSpecHandler *NcpVMSpecHandler) ListOrgVMSpec() (string, error) {
 	}
 
 	imageHandler := NcpImageHandler{
-		CredentialInfo: 	vmSpecHandler.CredentialInfo,
-		RegionInfo:     	vmSpecHandler.RegionInfo,  //CAUTION!!
-		VMClient:         	vmSpecHandler.VMClient,
+		CredentialInfo: vmSpecHandler.CredentialInfo,
+		RegionInfo:     vmSpecHandler.RegionInfo, //CAUTION!!
+		VMClient:       vmSpecHandler.VMClient,
 	}
 	imageListResult, err := imageHandler.ListImage()
 	if err != nil {
@@ -202,11 +204,11 @@ func (vmSpecHandler *NcpVMSpecHandler) ListOrgVMSpec() (string, error) {
 	var vmSpecInfoMap = make(map[string]*irs.VMSpecInfo) // Map to track unique VMSpec Info.
 	for _, image := range imageListResult {
 		cblogger.Infof("# Lookup by NCP Image ID(ImageProductCode) : [%s]", image.IId.SystemId)
-	
-		vmSpecReq := server.GetServerProductListRequest{			
-			RegionNo: 				regionNo,
-			ZoneNo: 				zoneNo,
-			ServerImageProductCode: ncloud.String(image.IId.SystemId),  // ***** Caution : ImageProductCode is mandatory. *****			
+
+		vmSpecReq := server.GetServerProductListRequest{
+			RegionNo:               regionNo,
+			ZoneNo:                 zoneNo,
+			ServerImageProductCode: ncloud.String(image.IId.SystemId), // ***** Caution : ImageProductCode is mandatory. *****
 			// GenerationCode: 		ncloud.String("G2"),  				// # Caution!! : Generations are divided only in the Korean Region.
 		}
 		result, err := vmSpecHandler.VMClient.V2Api.GetServerProductList(&vmSpecReq)
@@ -217,8 +219,8 @@ func (vmSpecHandler *NcpVMSpecHandler) ListOrgVMSpec() (string, error) {
 		} else {
 			cblogger.Infof("Lookup by NCP Image ID(ImageProductCode) : [%s]", image.IId.SystemId)
 			cblogger.Infof("Number of VMSpec info looked up : [%d]", len(result.ProductList))
-		}		
-	
+		}
+
 		for _, product := range result.ProductList {
 			vmSpecInfo := mappingVMSpecInfo(ncpRegion, *product)
 			if existingSpec, exists := vmSpecInfoMap[vmSpecInfo.Name]; exists {
@@ -239,7 +241,7 @@ func (vmSpecHandler *NcpVMSpecHandler) ListOrgVMSpec() (string, error) {
 			}
 		}
 	}
-	
+
 	// Convert the map to a list
 	var vmSpecInfoList []*irs.VMSpecInfo // List to return unique VMSpec Info.
 	for _, specInfo := range vmSpecInfoMap {
@@ -271,8 +273,8 @@ func (vmSpecHandler *NcpVMSpecHandler) GetOrgVMSpec(specName string) (string, er
 	cblogger.Infof("Region : [%s] / SpecName : [%s]", ncpRegion, specName)
 
 	vmHandler := NcpVMHandler{
-		RegionInfo:     	vmSpecHandler.RegionInfo,
-		VMClient:         	vmSpecHandler.VMClient,
+		RegionInfo: vmSpecHandler.RegionInfo,
+		VMClient:   vmSpecHandler.VMClient,
 	}
 	regionNo, err := vmHandler.getRegionNo(vmSpecHandler.RegionInfo.Region)
 	if err != nil {
@@ -290,11 +292,11 @@ func (vmSpecHandler *NcpVMSpecHandler) GetOrgVMSpec(specName string) (string, er
 	}
 
 	imgHandler := NcpImageHandler{
-		CredentialInfo: 	vmSpecHandler.CredentialInfo,
-		RegionInfo:     	vmSpecHandler.RegionInfo,
-		VMClient:         	vmSpecHandler.VMClient,
+		CredentialInfo: vmSpecHandler.CredentialInfo,
+		RegionInfo:     vmSpecHandler.RegionInfo,
+		VMClient:       vmSpecHandler.VMClient,
 	}
-	cblogger.Infof("imgHandler.RegionInfo.Zone : [%s]", imgHandler.RegionInfo.Zone)  //Need to Check the value!!
+	cblogger.Infof("imgHandler.RegionInfo.Zone : [%s]", imgHandler.RegionInfo.Zone) //Need to Check the value!!
 
 	imgListResult, err := imgHandler.ListImage()
 	if err != nil {
@@ -311,10 +313,10 @@ func (vmSpecHandler *NcpVMSpecHandler) GetOrgVMSpec(specName string) (string, er
 		cblogger.Infof("# Lookup by NCP Image ID(ImageProductCode) : [%s]", image.IId.SystemId)
 
 		specReq := server.GetServerProductListRequest{
-			RegionNo:    			regionNo,
-			ZoneNo: 				zoneNo,
-			ProductCode: 			&specName,			
-			ServerImageProductCode: ncloud.String(image.IId.SystemId),  // ***** Caution : ImageProductCode is mandatory. *****
+			RegionNo:               regionNo,
+			ZoneNo:                 zoneNo,
+			ProductCode:            &specName,
+			ServerImageProductCode: ncloud.String(image.IId.SystemId), // ***** Caution : ImageProductCode is mandatory. *****
 		}
 		callLogStart := call.Start()
 		result, err := vmSpecHandler.VMClient.V2Api.GetServerProductList(&specReq)
@@ -337,7 +339,7 @@ func (vmSpecHandler *NcpVMSpecHandler) GetOrgVMSpec(specName string) (string, er
 			return jsonString, jsonErr
 		}
 	}
-	
+
 	return "", nil
 }
 
@@ -351,25 +353,133 @@ func mappingVMSpecInfo(region string, vmSpec server.Product) irs.VMSpecInfo {
 	vmSpecInfo := irs.VMSpecInfo{
 		Region: region,
 		// Name:   *vmSpec.ProductName,
-		Name:   *vmSpec.ProductCode,
+		Name: *vmSpec.ProductCode,
 		// int32 to string : String(), int64 to string  : strconv.Itoa()
 		VCpu: irs.VCpuInfo{Count: String(*vmSpec.CpuCount), Clock: "-1"},
 
 		// 'server.Product' does not contain GPU information.
-		Gpu: []irs.GpuInfo{{Count: "-1", Mfr: "NA", Model: "NA", Mem: "-1"}},
-		Mem: strconv.FormatFloat(float64(*vmSpec.MemorySize)/(1024*1024), 'f', 0, 64),
-		Disk: strconv.FormatFloat(float64(*vmSpec.BaseBlockStorageSize)/(1024*1024*1024), 'f', 0, 64), 
+		// No GPU, No Info Gpu: []irs.GpuInfo{{Count: "-1", Mfr: "NA", Model: "NA", Mem: "-1"}},
+		Mem:  strconv.FormatFloat(float64(*vmSpec.MemorySize)/(1024*1024), 'f', 0, 64),
+		Disk: strconv.FormatFloat(float64(*vmSpec.BaseBlockStorageSize)/(1024*1024*1024), 'f', 0, 64),
 
-		KeyValueList: []irs.KeyValue{
-			{Key: "ProductType", Value: *vmSpec.ProductType.CodeName},
-			{Key: "InfraResourceType", Value: *vmSpec.InfraResourceType.CodeName},
-			{Key: "DiskType", Value: *vmSpec.DiskType.CodeName},
-			{Key: "ProductDescription", Value: *vmSpec.ProductDescription},
-			{Key: "Generation", Value: *vmSpec.GenerationCode},
-			// {Key: "ProductName", Value: *vmSpec.ProductName}, //This is same to 'ProductDescription'.
-			// {Key: "PlatformType", Value: *vmSpec.PlatformType.CodeName}, //This makes "invalid memory address or nil pointer dereference" error
-		},
+		KeyValueList: getVMSpecKeyValueList(vmSpec),
 	}
 	// Mem : strconv.FormatFloat(float64(*vmSpec.MemorySize)*1024, 'f', 0, 64) // GB -> MB
 	return vmSpecInfo
+}
+
+func getVMSpecKeyValueList(product server.Product) []irs.KeyValue {
+	var keyValueList []irs.KeyValue
+
+	if product.ProductCode != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "ProductCode",
+			Value: *product.ProductCode,
+		})
+	}
+
+	if product.ProductName != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "ProductName",
+			Value: *product.ProductName,
+		})
+	}
+
+	if product.ProductType != nil {
+		jsonBytes, _ := json.Marshal(product.ProductType)
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "ProductType",
+			Value: string(jsonBytes),
+		})
+	}
+
+	if product.ProductDescription != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "ProductDescription",
+			Value: *product.ProductDescription,
+		})
+	}
+
+	if product.InfraResourceType != nil {
+		jsonBytes, _ := json.Marshal(product.InfraResourceType)
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "InfraResourceType",
+			Value: string(jsonBytes),
+		})
+	}
+
+	if product.InfraResourceDetailType != nil {
+		jsonBytes, _ := json.Marshal(product.InfraResourceDetailType)
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "InfraResourceDetailType",
+			Value: string(jsonBytes),
+		})
+	}
+
+	if product.CpuCount != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "CpuCount",
+			Value: strconv.FormatInt(int64(*product.CpuCount), 10),
+		})
+	}
+
+	if product.MemorySize != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "MemorySize",
+			Value: strconv.FormatInt(*product.MemorySize, 10),
+		})
+	}
+
+	if product.BaseBlockStorageSize != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "BaseBlockStorageSize",
+			Value: strconv.FormatInt(*product.BaseBlockStorageSize, 10),
+		})
+	}
+
+	if product.PlatformType != nil {
+		jsonBytes, _ := json.Marshal(product.PlatformType)
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "PlatformType",
+			Value: string(jsonBytes),
+		})
+	}
+
+	if product.OsInformation != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "OsInformation",
+			Value: *product.OsInformation,
+		})
+	}
+
+	if product.DiskType != nil {
+		jsonBytes, _ := json.Marshal(product.DiskType)
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "DiskType",
+			Value: string(jsonBytes),
+		})
+	}
+
+	if product.DbKindCode != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "DbKindCode",
+			Value: *product.DbKindCode,
+		})
+	}
+
+	if product.AddBlockStorageSize != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "AddBlockStorageSize",
+			Value: strconv.FormatInt(*product.AddBlockStorageSize, 10),
+		})
+	}
+
+	if product.GenerationCode != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "GenerationCode",
+			Value: *product.GenerationCode,
+		})
+	}
+
+	return keyValueList
 }
