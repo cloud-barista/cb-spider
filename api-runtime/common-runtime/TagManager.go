@@ -30,6 +30,10 @@ func AddTag(connectionName string, resType cres.RSType, resName string, tag cres
 		return cres.KeyValue{}, err
 	}
 
+	if err := checkCapability(connectionName, TAG_HANDLER); err != nil {
+		return cres.KeyValue{}, err
+	}
+
 	// convert to lowercase
 	resType = cres.RSType(strings.ToLower(string(resType)))
 
@@ -76,6 +80,10 @@ func ListTag(connectionName string, resType cres.RSType, resName string) ([]cres
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
 	if err != nil {
 		cblog.Error(err)
+		return nil, err
+	}
+
+	if err := checkCapability(connectionName, TAG_HANDLER); err != nil {
 		return nil, err
 	}
 
@@ -128,6 +136,10 @@ func GetTag(connectionName string, resType cres.RSType, resName string, key stri
 		return cres.KeyValue{}, err
 	}
 
+	if err := checkCapability(connectionName, TAG_HANDLER); err != nil {
+		return cres.KeyValue{}, err
+	}
+
 	// convert to lowercase
 	resType = cres.RSType(strings.ToLower(string(resType)))
 
@@ -177,6 +189,10 @@ func RemoveTag(connectionName string, resType cres.RSType, resName string, key s
 		return false, err
 	}
 
+	if err := checkCapability(connectionName, TAG_HANDLER); err != nil {
+		return false, err
+	}
+
 	// convert to lowercase
 	resType = cres.RSType(strings.ToLower(string(resType)))
 
@@ -223,6 +239,10 @@ func FindTag(connectionName string, resType cres.RSType, keyword string) ([]*cre
 	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
 	if err != nil {
 		cblog.Error(err)
+		return nil, err
+	}
+
+	if err := checkCapability(connectionName, TAG_HANDLER); err != nil {
 		return nil, err
 	}
 
