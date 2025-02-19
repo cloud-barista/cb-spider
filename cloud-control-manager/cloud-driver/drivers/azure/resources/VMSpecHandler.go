@@ -5,14 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
-	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
-	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
 const (
@@ -339,12 +340,20 @@ func setterVmSpec(region string, vmSpec *armcompute.VirtualMachineSize) *irs.VMS
 			Value: strconv.FormatInt(int64(*vmSpec.MaxDataDiskCount), 10),
 		},
 		irs.KeyValue{
-			Key:   "ResourceDiskSizeInMB",
-			Value: strconv.FormatInt(int64(*vmSpec.ResourceDiskSizeInMB), 10),
+			Key:   "MemoryInMB",
+			Value: strconv.FormatInt(int64(*vmSpec.MemoryInMB), 10),
+		},
+		irs.KeyValue{
+			Key:   "NumberOfCores",
+			Value: strconv.FormatInt(int64(*vmSpec.NumberOfCores), 10),
 		},
 		irs.KeyValue{
 			Key:   "OSDiskSizeInMB",
 			Value: strconv.FormatInt(int64(*vmSpec.OSDiskSizeInMB), 10),
+		},
+		irs.KeyValue{
+			Key:   "ResourceDiskSizeInMB",
+			Value: strconv.FormatInt(int64(*vmSpec.ResourceDiskSizeInMB), 10),
 		},
 	)
 
@@ -357,7 +366,7 @@ func setterVmSpec(region string, vmSpec *armcompute.VirtualMachineSize) *irs.VMS
 	vmSpecInfo := &irs.VMSpecInfo{
 		Region:       region,
 		Name:         *vmSpec.Name,
-		VCpu:         irs.VCpuInfo{Count: strconv.FormatInt(int64(*vmSpec.NumberOfCores), 10)},
+		VCpu:         irs.VCpuInfo{Count: strconv.FormatInt(int64(*vmSpec.NumberOfCores), 10), Clock: "-1"},
 		Mem:          strconv.FormatInt(int64(*vmSpec.MemoryInMB), 10),
 		Disk:         strconv.FormatInt(int64(*vmSpec.OSDiskSizeInMB/1024), 10),
 		Gpu:          gpuInfoList,
