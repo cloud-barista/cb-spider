@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"strconv"
-	"strings"
 )
 
 type IbmVmSpecHandler struct {
@@ -237,7 +238,7 @@ func setVmSpecInfo(profile vpcv1.InstanceProfile, region string) (irs.VMSpecInfo
 	if len(specslice) > 1 {
 		specslice2 := strings.Split(specslice[1], "x")
 		if len(specslice2) > 1 {
-			vmSpecInfo.VCpu = irs.VCpuInfo{Count: specslice2[0]}
+			vmSpecInfo.VCpu = irs.VCpuInfo{Count: specslice2[0], Clock: "-1"}
 			memValue, err := strconv.Atoi(specslice2[1])
 			if err != nil {
 				memValue = 0
@@ -261,7 +262,82 @@ func setVmSpecInfo(profile vpcv1.InstanceProfile, region string) (irs.VMSpecInfo
 		}
 	}
 
+	vmSpecInfo.KeyValueList = getVMSpecKeyValueList(profile)
+
 	return vmSpecInfo, nil
+}
+
+func getVMSpecKeyValueList(profile vpcv1.InstanceProfile) []irs.KeyValue {
+	var keyValueList []irs.KeyValue
+
+	// Convert to RawJson String
+	toRawJSON := func(v interface{}) string {
+		jsonBytes, _ := json.Marshal(v)
+		return string(jsonBytes)
+	}
+
+	if profile.Bandwidth != nil {
+		kv := irs.KeyValue{
+			Key:   "Bandwidth",
+			Value: toRawJSON(profile.Bandwidth),
+		}
+		keyValueList = append(keyValueList, kv)
+	}
+
+	if profile.Family != nil {
+		kv := irs.KeyValue{
+			Key:   "Family",
+			Value: *profile.Family,
+		}
+		keyValueList = append(keyValueList, kv)
+	}
+
+	if profile.PortSpeed != nil {
+		kv := irs.KeyValue{
+			Key:   "PortSpeed",
+			Value: toRawJSON(profile.PortSpeed),
+		}
+		keyValueList = append(keyValueList, kv)
+	}
+
+	if profile.OsArchitecture != nil {
+		kv := irs.KeyValue{
+			Key:   "OsArchitecture",
+			Value: toRawJSON(profile.OsArchitecture),
+		}
+		keyValueList = append(keyValueList, kv)
+	}
+
+	if profile.VcpuArchitecture != nil {
+		kv := irs.KeyValue{
+			Key:   "VcpuArchitecture",
+			Value: toRawJSON(profile.VcpuArchitecture),
+		}
+		keyValueList = append(keyValueList, kv)
+	}
+
+	if len(profile.Disks) > 0 {
+		diskInfo := make([]string, 0, len(profile.Disks))
+		for _, disk := range profile.Disks {
+			diskInfo = append(diskInfo, toRawJSON(disk))
+		}
+		diskJSON := "[" + strings.Join(diskInfo, ", ") + "]"
+		kv := irs.KeyValue{
+			Key:   "Disks",
+			Value: diskJSON,
+		}
+		keyValueList = append(keyValueList, kv)
+	}
+
+	if profile.Href != nil {
+		kv := irs.KeyValue{
+			Key:   "Href",
+			Value: *profile.Href,
+		}
+		keyValueList = append(keyValueList, kv)
+	}
+
+	return keyValueList
 }
 
 func getRawSpec(specName string, vpcService *vpcv1.VpcV1, ctx context.Context) (vpcv1.InstanceProfile, error) {
