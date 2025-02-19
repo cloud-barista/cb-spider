@@ -135,7 +135,7 @@ func (vmSpecHandler *GCPVMSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo, e
 		Gpu:  gpuInfoList,
 	}
 
-	vmSpecInfo.KeyValueList, err = ConvertKeyValueList(vmSpecInfo)
+	vmSpecInfo.KeyValueList, err = ConvertKeyValueList(info)
 	if err != nil {
 		vmSpecInfo.KeyValueList = nil
 		cblogger.Error(err)
@@ -254,6 +254,10 @@ func acceleratorsToGPUInfoList(accerators []*compute.MachineTypeAccelerators) []
 					gpuInfo.Model = strings.ToUpper(strings.Join(accrType[1:], " "))
 				}
 			}
+		} else if len(accrType) == 2 { // ex) "nvidia-l4"
+			gpuInfo.Mfr = strings.ToUpper(accrType[0])   // Manufacturer
+			gpuInfo.Model = strings.ToUpper(accrType[1]) //  Model
+			gpuInfo.Mem = "-1"
 		}
 
 		gpuCount := accelerator.GuestAcceleratorCount
