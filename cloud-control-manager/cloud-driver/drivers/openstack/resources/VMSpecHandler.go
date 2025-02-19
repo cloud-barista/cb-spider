@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	"strconv"
+
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/flavors"
@@ -27,19 +28,73 @@ func setterVMSpec(region string, vmSpec flavors.Flavor) *irs.VMSpecInfo {
 	vmSpecInfo := &irs.VMSpecInfo{
 		Region: region,
 		Name:   vmSpec.Name,
-		VCpu:   irs.VCpuInfo{Count: strconv.Itoa(vmSpec.VCPUs)},
+		VCpu:   irs.VCpuInfo{Count: strconv.Itoa(vmSpec.VCPUs), Clock: "-1"},
 		Mem:    strconv.Itoa(vmSpec.RAM),
 		Disk:   strconv.Itoa(vmSpec.Disk),
 		Gpu:    nil,
 
-		KeyValueList: []irs.KeyValue{
-			{Key: "Swap (MB)", Value: strconv.Itoa(vmSpec.Swap)},
-			{Key: "Ephemeral Disk (GB)", Value: strconv.Itoa(vmSpec.Ephemeral)},
-			{Key: "IsPublic", Value: strconv.FormatBool(vmSpec.IsPublic)},
-		},
+		KeyValueList: getVMSpecKeyValueList(vmSpec),
 	}
 
 	return vmSpecInfo
+}
+
+func getVMSpecKeyValueList(flavor flavors.Flavor) []irs.KeyValue {
+	var keyValueList []irs.KeyValue
+
+	keyValueList = append(keyValueList, irs.KeyValue{
+		Key:   "ID",
+		Value: flavor.ID,
+	})
+
+	keyValueList = append(keyValueList, irs.KeyValue{
+		Key:   "Name",
+		Value: flavor.Name,
+	})
+
+	if flavor.Description != "" {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "Description",
+			Value: flavor.Description,
+		})
+	}
+
+	keyValueList = append(keyValueList, irs.KeyValue{
+		Key:   "Disk",
+		Value: strconv.Itoa(flavor.Disk),
+	})
+
+	keyValueList = append(keyValueList, irs.KeyValue{
+		Key:   "RAM",
+		Value: strconv.Itoa(flavor.RAM),
+	})
+
+	keyValueList = append(keyValueList, irs.KeyValue{
+		Key:   "VCPUs",
+		Value: strconv.Itoa(flavor.VCPUs),
+	})
+
+	keyValueList = append(keyValueList, irs.KeyValue{
+		Key:   "RxTxFactor",
+		Value: fmt.Sprintf("%.2f", flavor.RxTxFactor),
+	})
+
+	keyValueList = append(keyValueList, irs.KeyValue{
+		Key:   "IsPublic",
+		Value: strconv.FormatBool(flavor.IsPublic),
+	})
+
+	keyValueList = append(keyValueList, irs.KeyValue{
+		Key:   "Ephemeral",
+		Value: strconv.Itoa(flavor.Ephemeral),
+	})
+
+	keyValueList = append(keyValueList, irs.KeyValue{
+		Key:   "Swap",
+		Value: strconv.Itoa(flavor.Swap),
+	})
+
+	return keyValueList
 }
 
 func (vmSpecHandler *OpenStackVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
