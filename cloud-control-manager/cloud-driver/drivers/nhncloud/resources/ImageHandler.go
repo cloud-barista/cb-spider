@@ -199,7 +199,7 @@ func (imageHandler *NhnCloudImageHandler) mappingImageInfo(image images.Image) *
 		OSArchitecture: arch,
 		OSPlatform:     platform,
 		OSDistribution: image.Properties["os_distro"].(string),
-		OSDiskType:     image.DiskFormat,
+		OSDiskType:     "NA",
 		OSDiskSizeInGB: strconv.Itoa(image.MinDiskGigabytes),
 		ImageStatus:    imgAvailability,
 	}

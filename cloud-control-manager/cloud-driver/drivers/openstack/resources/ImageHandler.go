@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/gophercloud/gophercloud"
@@ -88,9 +89,6 @@ func setterImage(imageClient *gophercloud.ServiceClient, image images.Image) *ir
 		cblogger.Error(err)
 	}
 
-	diskType := resp["disk_format"].(string)
-	diskSize := resp["size"].(float64)
-
 	imageStatus := irs.ImageUnavailable
 	status := strings.ToLower(image.Status)
 	if status == "active" {
@@ -107,8 +105,8 @@ func setterImage(imageClient *gophercloud.ServiceClient, image images.Image) *ir
 		OSArchitecture: irs.ArchitectureNA,
 		OSPlatform:     irs.PlatformNA,
 		OSDistribution: image.Name,
-		OSDiskType:     diskType,
-		OSDiskSizeInGB: formatDiskSizeValue(diskSize),
+		OSDiskType:     "NA",
+		OSDiskSizeInGB: strconv.Itoa(image.MinDisk),
 		ImageStatus:    imageStatus,
 	}
 
