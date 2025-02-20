@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
 	// "github.com/davecgh/go-spew/spew"
 
 	ktvpcsdk "github.com/cloud-barista/ktcloudvpc-sdk-go"
@@ -30,11 +31,11 @@ type KTVpcVMSpecHandler struct {
 }
 
 func (vmSpecHandler *KTVpcVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
-	cblogger.Info("KT Cloud VPC Driver: called ListVMSpec()!")	
+	cblogger.Info("KT Cloud VPC Driver: called ListVMSpec()!")
 	callLogInfo := getCallLogScheme(vmSpecHandler.RegionInfo.Zone, call.VMSPEC, "ListVMSpec()", "ListVMSpec()")
 
-	listOpts :=	flavors.ListOpts{
-		Limit: 300,  //default : 20
+	listOpts := flavors.ListOpts{
+		Limit: 300, //default : 20
 	}
 
 	start := call.Start()
@@ -59,18 +60,18 @@ func (vmSpecHandler *KTVpcVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error)
 	// spew.Dump(specList)
 
 	var vmSpecInfoList []*irs.VMSpecInfo
-    for _, flavor := range flavorList {
+	for _, flavor := range flavorList {
 		vmSpecInfo := vmSpecHandler.mappingVMSpecInfo(&flavor)
 		vmSpecInfoList = append(vmSpecInfoList, vmSpecInfo)
-    }
+	}
 	return vmSpecInfoList, nil
 }
 
 func (vmSpecHandler *KTVpcVMSpecHandler) GetVMSpec(specName string) (irs.VMSpecInfo, error) {
-	cblogger.Info("KT Cloud VPC Driver: called GetVMSpec()!")	
+	cblogger.Info("KT Cloud VPC Driver: called GetVMSpec()!")
 	callLogInfo := getCallLogScheme(vmSpecHandler.RegionInfo.Zone, call.VMSPEC, specName, "GetVMSpec()")
 
-	if strings.EqualFold(specName,"") {
+	if strings.EqualFold(specName, "") {
 		newErr := fmt.Errorf("Invalid vmSpec Name!!")
 		cblogger.Error(newErr.Error())
 		loggingError(callLogInfo, newErr)
@@ -92,12 +93,12 @@ func (vmSpecHandler *KTVpcVMSpecHandler) GetVMSpec(specName string) (irs.VMSpecI
 		return irs.VMSpecInfo{}, err
 	}
 	loggingInfo(callLogInfo, start)
-	vmSpecInfo := vmSpecHandler.mappingVMSpecInfo(vmSpec)	
+	vmSpecInfo := vmSpecHandler.mappingVMSpecInfo(vmSpec)
 	return *vmSpecInfo, nil
 }
 
 func (vmSpecHandler *KTVpcVMSpecHandler) ListOrgVMSpec() (string, error) {
-	cblogger.Info("KT Cloud VPC Driver: called ListOrgVMSpec()!")	
+	cblogger.Info("KT Cloud VPC Driver: called ListOrgVMSpec()!")
 	callLogInfo := getCallLogScheme(vmSpecHandler.RegionInfo.Zone, call.VMSPEC, "ListOrgVMSpec()", "ListOrgVMSpec()")
 
 	var vmSpecInfoList []*irs.VMSpecInfo
@@ -119,10 +120,10 @@ func (vmSpecHandler *KTVpcVMSpecHandler) ListOrgVMSpec() (string, error) {
 }
 
 func (vmSpecHandler *KTVpcVMSpecHandler) GetOrgVMSpec(specName string) (string, error) {
-	cblogger.Info("KT Cloud VPC Driver: called GetOrgVMSpec()!")	
+	cblogger.Info("KT Cloud VPC Driver: called GetOrgVMSpec()!")
 	callLogInfo := getCallLogScheme(vmSpecHandler.RegionInfo.Zone, call.VMSPEC, specName, "GetOrgVMSpec()")
 
-	if strings.EqualFold(specName,"") {
+	if strings.EqualFold(specName, "") {
 		newErr := fmt.Errorf("Invalid vmSpec Name!!")
 		cblogger.Error(newErr.Error())
 		loggingError(callLogInfo, newErr)
@@ -177,31 +178,88 @@ func (vmSpecHandler *KTVpcVMSpecHandler) mappingVMSpecInfo(flavor *flavors.Flavo
 	// cblogger.Info("\n\n### flavor : ")
 	// spew.Dump(flavor)
 
-	vmSpecInfo := irs.VMSpecInfo {
-		Region:       vmSpecHandler.RegionInfo.Zone,
-		Name:         flavor.Name,
-		VCpu:         irs.VCpuInfo{Count: strconv.Itoa(flavor.VCPUs), Clock: "-1"},
-		Mem:          strconv.Itoa(flavor.RAM),
-		Gpu:          []irs.GpuInfo{{Count: "-1", Mfr: "NA", Model: "NA", Mem: "-1"}},
-		Disk: 		  "-1",
+	vmSpecInfo := irs.VMSpecInfo{
+		Region: vmSpecHandler.RegionInfo.Zone,
+		Name:   flavor.Name,
+		VCpu:   irs.VCpuInfo{Count: strconv.Itoa(flavor.VCPUs), Clock: "-1"},
+		Mem:    strconv.Itoa(flavor.RAM),
+		Gpu:    []irs.GpuInfo{{Count: "-1", Mfr: "NA", Model: "NA", Mem: "-1"}},
+		Disk:   strconv.Itoa(flavor.Disk),
 
-		KeyValueList: []irs.KeyValue{
-			{Key: "Zone", Value: vmSpecHandler.RegionInfo.Zone},
-			// {Key: "RootDiskSize(GB)", Value: strconv.Itoa(flavor.Disk)},
-			// {Key: "EphemeralDiskSize(GB)", Value: strconv.Itoa(flavor.Ephemeral)},
-			// {Key: "SwapDiskSize(MB)", Value: strconv.Itoa(flavor.Swap)},
-			{Key: "IsPublic", Value: strconv.FormatBool(flavor.IsPublic)},
-			{Key: "VMSpecID", Value: flavor.ID},
-		},
+		KeyValueList: getVMSpecKeyValueList(*flavor),
+	}
+
+	// If the flavor name contains "gpu", set the GPU information
+	if strings.Contains(strings.ToLower(flavor.Name), "gpu") {
+		vmSpecInfo.Gpu = []irs.GpuInfo{{
+			Count: "-1",
+			Mfr:   "NA",
+			Model: flavor.Name,
+			Mem:   "-1",
+		}}
 	}
 
 	// if strings.EqualFold(strconv.Itoa(vmSpec.Disk), "0") {
 	// 	keyValue := irs.KeyValue {
 	// 		Key:   "Notice",
-	// 		Value: "Specify 'RootDiskType' and 'RootDiskSize' when VM Creation to Boot from the Attached Volume!!",	
+	// 		Value: "Specify 'RootDiskType' and 'RootDiskSize' when VM Creation to Boot from the Attached Volume!!",
 	// 	}
 	// 	vmSpecInfo.KeyValueList = append(vmSpecInfo.KeyValueList, keyValue)
 	// }
 
 	return &vmSpecInfo
+}
+
+func getVMSpecKeyValueList(flavor flavors.Flavor) []irs.KeyValue {
+	var keyValueList []irs.KeyValue
+
+	if flavor.ID != "" {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "ID",
+			Value: flavor.ID,
+		})
+	}
+
+	if flavor.Name != "" {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "Name",
+			Value: flavor.Name,
+		})
+	}
+
+	keyValueList = append(keyValueList, irs.KeyValue{
+		Key:   "Disk",
+		Value: strconv.Itoa(flavor.Disk),
+	})
+
+	keyValueList = append(keyValueList, irs.KeyValue{
+		Key:   "RAM",
+		Value: strconv.Itoa(flavor.RAM),
+	})
+
+	keyValueList = append(keyValueList, irs.KeyValue{
+		Key:   "VCPUs",
+		Value: strconv.Itoa(flavor.VCPUs),
+	})
+
+	keyValueList = append(keyValueList, irs.KeyValue{
+		Key:   "RxTxFactor",
+		Value: fmt.Sprintf("%.2f", flavor.RxTxFactor),
+	})
+
+	keyValueList = append(keyValueList, irs.KeyValue{
+		Key:   "IsPublic",
+		Value: strconv.FormatBool(flavor.IsPublic),
+	})
+
+	keyValueList = append(keyValueList, irs.KeyValue{
+		Key:   "Swap",
+		Value: strconv.Itoa(flavor.Swap),
+	})
+	keyValueList = append(keyValueList, irs.KeyValue{
+		Key:   "Ephemeral",
+		Value: strconv.Itoa(flavor.Ephemeral),
+	})
+
+	return keyValueList
 }
