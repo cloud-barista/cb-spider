@@ -9,7 +9,6 @@
 package resources
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -215,7 +214,7 @@ func (vmSpecHandler *NcpVpcVMSpecHandler) mappingVMSpecInfo(ImageId string, vmSp
 		Mem:    memSize,
 		Disk:   diskSize,
 
-		KeyValueList: getVMSpecKeyValueList(*vmSpec),
+		KeyValueList: irs.StructToKeyValueList(vmSpec),
 	}
 
 	// If the GPU count is not nil, add the GPU information to the VMSpecInfo
@@ -262,112 +261,6 @@ func parseGpuInfo(gpuCount string, description string) (gpuInfo irs.GpuInfo) {
 	}
 
 	return
-}
-
-func getVMSpecKeyValueList(spec vserver.ServerSpec) []irs.KeyValue {
-	var keyValueList []irs.KeyValue
-
-	if spec.ServerSpecCode != nil {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "ServerSpecCode",
-			Value: *spec.ServerSpecCode,
-		})
-	}
-
-	if spec.GenerationCode != nil {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "GenerationCode",
-			Value: *spec.GenerationCode,
-		})
-	}
-
-	if spec.ServerProductCode != nil {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "ServerProductCode",
-			Value: *spec.ServerProductCode,
-		})
-	}
-
-	if spec.ServerSpecDescription != nil {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "ServerSpecDescription",
-			Value: *spec.ServerSpecDescription,
-		})
-	}
-
-	if spec.CpuCount != nil {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "CpuCount",
-			Value: strconv.FormatInt(int64(*spec.CpuCount), 10),
-		})
-	}
-
-	if spec.MemorySize != nil {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "MemorySize",
-			Value: strconv.FormatInt(*spec.MemorySize, 10),
-		})
-	}
-
-	if spec.BlockStorageMaxCount != nil {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "BlockStorageMaxCount",
-			Value: strconv.FormatInt(int64(*spec.BlockStorageMaxCount), 10),
-		})
-	}
-
-	if spec.BlockStorageMaxIops != nil {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "BlockStorageMaxIops",
-			Value: strconv.FormatInt(int64(*spec.BlockStorageMaxIops), 10),
-		})
-	}
-
-	if spec.BlockStorageMaxThroughput != nil {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "BlockStorageMaxThroughput",
-			Value: strconv.FormatInt(int64(*spec.BlockStorageMaxThroughput), 10),
-		})
-	}
-
-	if spec.NetworkPerformance != nil {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "NetworkPerformance",
-			Value: strconv.FormatInt(*spec.NetworkPerformance, 10),
-		})
-	}
-
-	if spec.NetworkInterfaceMaxCount != nil {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "NetworkInterfaceMaxCount",
-			Value: strconv.FormatInt(int64(*spec.NetworkInterfaceMaxCount), 10),
-		})
-	}
-
-	if spec.GpuCount != nil {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "GpuCount",
-			Value: strconv.FormatInt(int64(*spec.GpuCount), 10),
-		})
-	}
-
-	if spec.HypervisorType != nil {
-		jsonBytes, _ := json.Marshal(spec.HypervisorType)
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "HypervisorType",
-			Value: string(jsonBytes),
-		})
-	}
-
-	if spec.CpuArchitectureType != nil {
-		jsonBytes, _ := json.Marshal(spec.CpuArchitectureType)
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "CpuArchitectureType",
-			Value: string(jsonBytes),
-		})
-	}
-
-	return keyValueList
 }
 
 func (vmSpecHandler *NcpVpcVMSpecHandler) getNcpVpcVMSpecList() ([]*vserver.ServerSpec, error) {

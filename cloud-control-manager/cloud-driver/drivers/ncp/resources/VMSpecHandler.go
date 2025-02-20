@@ -8,7 +8,6 @@
 package resources
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -362,124 +361,8 @@ func mappingVMSpecInfo(region string, vmSpec server.Product) irs.VMSpecInfo {
 		Mem:  strconv.FormatFloat(float64(*vmSpec.MemorySize)/(1024*1024), 'f', 0, 64),
 		Disk: strconv.FormatFloat(float64(*vmSpec.BaseBlockStorageSize)/(1024*1024*1024), 'f', 0, 64),
 
-		KeyValueList: getVMSpecKeyValueList(vmSpec),
+		KeyValueList: irs.StructToKeyValueList(vmSpec),
 	}
 	// Mem : strconv.FormatFloat(float64(*vmSpec.MemorySize)*1024, 'f', 0, 64) // GB -> MB
 	return vmSpecInfo
-}
-
-func getVMSpecKeyValueList(product server.Product) []irs.KeyValue {
-	var keyValueList []irs.KeyValue
-
-	if product.ProductCode != nil {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "ProductCode",
-			Value: *product.ProductCode,
-		})
-	}
-
-	if product.ProductName != nil {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "ProductName",
-			Value: *product.ProductName,
-		})
-	}
-
-	if product.ProductType != nil {
-		jsonBytes, _ := json.Marshal(product.ProductType)
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "ProductType",
-			Value: string(jsonBytes),
-		})
-	}
-
-	if product.ProductDescription != nil {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "ProductDescription",
-			Value: *product.ProductDescription,
-		})
-	}
-
-	if product.InfraResourceType != nil {
-		jsonBytes, _ := json.Marshal(product.InfraResourceType)
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "InfraResourceType",
-			Value: string(jsonBytes),
-		})
-	}
-
-	if product.InfraResourceDetailType != nil {
-		jsonBytes, _ := json.Marshal(product.InfraResourceDetailType)
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "InfraResourceDetailType",
-			Value: string(jsonBytes),
-		})
-	}
-
-	if product.CpuCount != nil {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "CpuCount",
-			Value: strconv.FormatInt(int64(*product.CpuCount), 10),
-		})
-	}
-
-	if product.MemorySize != nil {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "MemorySize",
-			Value: strconv.FormatInt(*product.MemorySize, 10),
-		})
-	}
-
-	if product.BaseBlockStorageSize != nil {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "BaseBlockStorageSize",
-			Value: strconv.FormatInt(*product.BaseBlockStorageSize, 10),
-		})
-	}
-
-	if product.PlatformType != nil {
-		jsonBytes, _ := json.Marshal(product.PlatformType)
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "PlatformType",
-			Value: string(jsonBytes),
-		})
-	}
-
-	if product.OsInformation != nil {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "OsInformation",
-			Value: *product.OsInformation,
-		})
-	}
-
-	if product.DiskType != nil {
-		jsonBytes, _ := json.Marshal(product.DiskType)
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "DiskType",
-			Value: string(jsonBytes),
-		})
-	}
-
-	if product.DbKindCode != nil {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "DbKindCode",
-			Value: *product.DbKindCode,
-		})
-	}
-
-	if product.AddBlockStorageSize != nil {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "AddBlockStorageSize",
-			Value: strconv.FormatInt(*product.AddBlockStorageSize, 10),
-		})
-	}
-
-	if product.GenerationCode != nil {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "GenerationCode",
-			Value: *product.GenerationCode,
-		})
-	}
-
-	return keyValueList
 }

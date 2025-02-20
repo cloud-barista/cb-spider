@@ -135,11 +135,8 @@ func (vmSpecHandler *GCPVMSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo, e
 		Gpu:  gpuInfoList,
 	}
 
-	vmSpecInfo.KeyValueList, err = ConvertKeyValueList(info)
-	if err != nil {
-		vmSpecInfo.KeyValueList = nil
-		cblogger.Error(err)
-	}
+	vmSpecInfo.KeyValueList = irs.StructToKeyValueList(info)
+
 	return vmSpecInfo, nil
 }
 

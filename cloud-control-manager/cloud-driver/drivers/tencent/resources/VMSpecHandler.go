@@ -355,14 +355,7 @@ func extractVmSpec(instanceTypeInfo *cvm.InstanceTypeQuotaItem) irs.VMSpecInfo {
 	// Disk   string    `json:"Disk" validate:"required" example:"8"`           // Disk size in GB, "-1" when not applicable
 	vmSpecInfo.Disk = "-1"
 
-	//KeyValue 목록 처리
-	keyValueList, errKeyValue := ConvertKeyValueList(instanceTypeInfo)
-	if errKeyValue != nil {
-
-		cblogger.Error(errKeyValue)
-
-	}
-	vmSpecInfo.KeyValueList = keyValueList
+	vmSpecInfo.KeyValueList = irs.StructToKeyValueList(instanceTypeInfo)
 
 	return vmSpecInfo
 }

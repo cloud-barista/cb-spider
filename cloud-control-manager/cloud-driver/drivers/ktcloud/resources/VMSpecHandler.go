@@ -225,92 +225,9 @@ func (vmSpecHandler *KtCloudVMSpecHandler) mappingVMSpecInfo(productType *ktsdk.
 		// No GPU, No Info Gpu:    []irs.GpuInfo{{Count: "-1", Mfr: "NA", Model: "NA", Mem: "-1"}},
 
 		// Since KT Cloud supports different specs for each zone, the zone information is also provided.
-		KeyValueList: getVMSpecKeyValueList(*productType),
+		KeyValueList: irs.StructToKeyValueList(productType),
 	}
 	return vmSpecInfo, nil
-}
-
-func getVMSpecKeyValueList(productTypes ktsdk.ProductTypes) []irs.KeyValue {
-	var keyValueList []irs.KeyValue
-
-	if productTypes.DiskOfferingDesc != "" {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "DiskOfferingDesc",
-			Value: productTypes.DiskOfferingDesc,
-		})
-	}
-
-	if productTypes.DiskOfferingId != "" {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "DiskOfferingId",
-			Value: productTypes.DiskOfferingId,
-		})
-	}
-
-	if productTypes.Product != "" {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "Product",
-			Value: productTypes.Product,
-		})
-	}
-
-	if productTypes.ProductId != "" {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "ProductId",
-			Value: productTypes.ProductId,
-		})
-	}
-
-	if productTypes.ProductState != "" {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "ProductState",
-			Value: productTypes.ProductState,
-		})
-	}
-
-	if productTypes.ServiceOfferingDesc != "" {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "ServiceOfferingDesc",
-			Value: productTypes.ServiceOfferingDesc,
-		})
-	}
-
-	if productTypes.ServiceOfferingId != "" {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "ServiceOfferingId",
-			Value: productTypes.ServiceOfferingId,
-		})
-	}
-
-	if productTypes.TemplateDesc != "" {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "TemplateDesc",
-			Value: productTypes.TemplateDesc,
-		})
-	}
-
-	if productTypes.TemplateId != "" {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "TemplateId",
-			Value: productTypes.TemplateId,
-		})
-	}
-
-	if productTypes.ZoneDesc != "" {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "ZoneDesc",
-			Value: productTypes.ZoneDesc,
-		})
-	}
-
-	if productTypes.ZoneId != "" {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "ZoneId",
-			Value: productTypes.ZoneId,
-		})
-	}
-
-	return keyValueList
 }
 
 func (vmSpecHandler *KtCloudVMSpecHandler) ListOrgVMSpec() (string, error) {

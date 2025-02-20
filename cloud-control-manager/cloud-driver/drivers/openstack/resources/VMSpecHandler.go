@@ -33,68 +33,10 @@ func setterVMSpec(region string, vmSpec flavors.Flavor) *irs.VMSpecInfo {
 		Disk:   strconv.Itoa(vmSpec.Disk),
 		Gpu:    nil,
 
-		KeyValueList: getVMSpecKeyValueList(vmSpec),
+		KeyValueList: irs.StructToKeyValueList(vmSpec),
 	}
 
 	return vmSpecInfo
-}
-
-func getVMSpecKeyValueList(flavor flavors.Flavor) []irs.KeyValue {
-	var keyValueList []irs.KeyValue
-
-	keyValueList = append(keyValueList, irs.KeyValue{
-		Key:   "ID",
-		Value: flavor.ID,
-	})
-
-	keyValueList = append(keyValueList, irs.KeyValue{
-		Key:   "Name",
-		Value: flavor.Name,
-	})
-
-	if flavor.Description != "" {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "Description",
-			Value: flavor.Description,
-		})
-	}
-
-	keyValueList = append(keyValueList, irs.KeyValue{
-		Key:   "Disk",
-		Value: strconv.Itoa(flavor.Disk),
-	})
-
-	keyValueList = append(keyValueList, irs.KeyValue{
-		Key:   "RAM",
-		Value: strconv.Itoa(flavor.RAM),
-	})
-
-	keyValueList = append(keyValueList, irs.KeyValue{
-		Key:   "VCPUs",
-		Value: strconv.Itoa(flavor.VCPUs),
-	})
-
-	keyValueList = append(keyValueList, irs.KeyValue{
-		Key:   "RxTxFactor",
-		Value: fmt.Sprintf("%.2f", flavor.RxTxFactor),
-	})
-
-	keyValueList = append(keyValueList, irs.KeyValue{
-		Key:   "IsPublic",
-		Value: strconv.FormatBool(flavor.IsPublic),
-	})
-
-	keyValueList = append(keyValueList, irs.KeyValue{
-		Key:   "Ephemeral",
-		Value: strconv.Itoa(flavor.Ephemeral),
-	})
-
-	keyValueList = append(keyValueList, irs.KeyValue{
-		Key:   "Swap",
-		Value: strconv.Itoa(flavor.Swap),
-	})
-
-	return keyValueList
 }
 
 func (vmSpecHandler *OpenStackVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {

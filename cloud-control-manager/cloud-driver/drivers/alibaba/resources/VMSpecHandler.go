@@ -104,13 +104,7 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMS
 		vmSpecInfo.Disk = "-1"
 	}
 
-	//KeyValue 목록 처리
-	keyValueList, errKeyValue := ConvertKeyValueList(instanceTypeInfo)
-	if errKeyValue != nil {
-		cblogger.Error(errKeyValue)
-		return irs.VMSpecInfo{}
-	}
-	vmSpecInfo.KeyValueList = keyValueList
+	vmSpecInfo.KeyValueList = irs.StructToKeyValueList(instanceTypeInfo)
 
 	return vmSpecInfo
 }

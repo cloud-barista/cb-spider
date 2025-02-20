@@ -183,10 +183,9 @@ func (vmSpecHandler *KTVpcVMSpecHandler) mappingVMSpecInfo(flavor *flavors.Flavo
 		Name:   flavor.Name,
 		VCpu:   irs.VCpuInfo{Count: strconv.Itoa(flavor.VCPUs), Clock: "-1"},
 		Mem:    strconv.Itoa(flavor.RAM),
-		Gpu:    []irs.GpuInfo{{Count: "-1", Mfr: "NA", Model: "NA", Mem: "-1"}},
 		Disk:   strconv.Itoa(flavor.Disk),
 
-		KeyValueList: getVMSpecKeyValueList(*flavor),
+		KeyValueList: irs.StructToKeyValueList(flavor),
 	}
 
 	// If the flavor name contains "gpu", set the GPU information
@@ -208,58 +207,4 @@ func (vmSpecHandler *KTVpcVMSpecHandler) mappingVMSpecInfo(flavor *flavors.Flavo
 	// }
 
 	return &vmSpecInfo
-}
-
-func getVMSpecKeyValueList(flavor flavors.Flavor) []irs.KeyValue {
-	var keyValueList []irs.KeyValue
-
-	if flavor.ID != "" {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "ID",
-			Value: flavor.ID,
-		})
-	}
-
-	if flavor.Name != "" {
-		keyValueList = append(keyValueList, irs.KeyValue{
-			Key:   "Name",
-			Value: flavor.Name,
-		})
-	}
-
-	keyValueList = append(keyValueList, irs.KeyValue{
-		Key:   "Disk",
-		Value: strconv.Itoa(flavor.Disk),
-	})
-
-	keyValueList = append(keyValueList, irs.KeyValue{
-		Key:   "RAM",
-		Value: strconv.Itoa(flavor.RAM),
-	})
-
-	keyValueList = append(keyValueList, irs.KeyValue{
-		Key:   "VCPUs",
-		Value: strconv.Itoa(flavor.VCPUs),
-	})
-
-	keyValueList = append(keyValueList, irs.KeyValue{
-		Key:   "RxTxFactor",
-		Value: fmt.Sprintf("%.2f", flavor.RxTxFactor),
-	})
-
-	keyValueList = append(keyValueList, irs.KeyValue{
-		Key:   "IsPublic",
-		Value: strconv.FormatBool(flavor.IsPublic),
-	})
-
-	keyValueList = append(keyValueList, irs.KeyValue{
-		Key:   "Swap",
-		Value: strconv.Itoa(flavor.Swap),
-	})
-	keyValueList = append(keyValueList, irs.KeyValue{
-		Key:   "Ephemeral",
-		Value: strconv.Itoa(flavor.Ephemeral),
-	})
-
-	return keyValueList
 }

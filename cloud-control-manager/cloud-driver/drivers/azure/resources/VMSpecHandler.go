@@ -334,28 +334,7 @@ func setterVmSpec(region string, vmSpec *armcompute.VirtualMachineSize) *irs.VMS
 		return nil
 	}
 
-	keyValueList = append(keyValueList,
-		irs.KeyValue{
-			Key:   "MaxDataDiskCount",
-			Value: strconv.FormatInt(int64(*vmSpec.MaxDataDiskCount), 10),
-		},
-		irs.KeyValue{
-			Key:   "MemoryInMB",
-			Value: strconv.FormatInt(int64(*vmSpec.MemoryInMB), 10),
-		},
-		irs.KeyValue{
-			Key:   "NumberOfCores",
-			Value: strconv.FormatInt(int64(*vmSpec.NumberOfCores), 10),
-		},
-		irs.KeyValue{
-			Key:   "OSDiskSizeInMB",
-			Value: strconv.FormatInt(int64(*vmSpec.OSDiskSizeInMB), 10),
-		},
-		irs.KeyValue{
-			Key:   "ResourceDiskSizeInMB",
-			Value: strconv.FormatInt(int64(*vmSpec.ResourceDiskSizeInMB), 10),
-		},
-	)
+	keyValueList = irs.StructToKeyValueList(vmSpec)
 
 	gpuInfoList := make([]irs.GpuInfo, 0)
 	gpuInfo := parseGpuInfo(*vmSpec.Name)

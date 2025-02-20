@@ -262,80 +262,9 @@ func setVmSpecInfo(profile vpcv1.InstanceProfile, region string) (irs.VMSpecInfo
 		}
 	}
 
-	vmSpecInfo.KeyValueList = getVMSpecKeyValueList(profile)
+	vmSpecInfo.KeyValueList = irs.StructToKeyValueList(profile)
 
 	return vmSpecInfo, nil
-}
-
-func getVMSpecKeyValueList(profile vpcv1.InstanceProfile) []irs.KeyValue {
-	var keyValueList []irs.KeyValue
-
-	if profile.Bandwidth != nil {
-		jsonBytes, _ := json.Marshal(profile.Bandwidth)
-		kv := irs.KeyValue{
-			Key:   "Bandwidth",
-			Value: string(jsonBytes),
-		}
-		keyValueList = append(keyValueList, kv)
-	}
-
-	if profile.Family != nil {
-		kv := irs.KeyValue{
-			Key:   "Family",
-			Value: *profile.Family,
-		}
-		keyValueList = append(keyValueList, kv)
-	}
-
-	if profile.PortSpeed != nil {
-		jsonBytes, _ := json.Marshal(profile.PortSpeed)
-		kv := irs.KeyValue{
-			Key:   "PortSpeed",
-			Value: string(jsonBytes),
-		}
-		keyValueList = append(keyValueList, kv)
-	}
-
-	if profile.OsArchitecture != nil {
-		jsonBytes, _ := json.Marshal(profile.OsArchitecture)
-		kv := irs.KeyValue{
-			Key:   "OsArchitecture",
-			Value: string(jsonBytes),
-		}
-		keyValueList = append(keyValueList, kv)
-	}
-
-	if profile.VcpuArchitecture != nil {
-		jsonBytes, _ := json.Marshal(profile.VcpuArchitecture)
-		kv := irs.KeyValue{
-			Key:   "VcpuArchitecture",
-			Value: string(jsonBytes),
-		}
-		keyValueList = append(keyValueList, kv)
-	}
-
-	if len(profile.Disks) > 0 {
-		diskInfo := make([]string, 0, len(profile.Disks))
-		for _, disk := range profile.Disks {
-			jsonBytes, _ := json.Marshal(disk)
-			diskInfo = append(diskInfo, string(jsonBytes))
-		}
-		kv := irs.KeyValue{
-			Key:   "Disks",
-			Value: strings.Join(diskInfo, "; "),
-		}
-		keyValueList = append(keyValueList, kv)
-	}
-
-	if profile.Href != nil {
-		kv := irs.KeyValue{
-			Key:   "Href",
-			Value: *profile.Href,
-		}
-		keyValueList = append(keyValueList, kv)
-	}
-
-	return keyValueList
 }
 
 func getRawSpec(specName string, vpcService *vpcv1.VpcV1, ctx context.Context) (vpcv1.InstanceProfile, error) {
