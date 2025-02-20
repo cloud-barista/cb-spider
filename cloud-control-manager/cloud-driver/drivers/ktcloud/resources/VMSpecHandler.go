@@ -14,10 +14,11 @@ package resources
 
 import (
 	"errors"
-	"strings"
-	"strconv"
-	"regexp"
 	"fmt"
+	"regexp"
+	"strconv"
+	"strings"
+
 	// "time"
 	// "sync"
 	// "github.com/davecgh/go-spew/spew"
@@ -55,7 +56,7 @@ func (vmSpecHandler *KtCloudVMSpecHandler) GetVMSpec(specName string) (irs.VMSpe
 		cblogger.Error(newErr.Error())
 		return irs.VMSpecInfo{}, newErr
 	}
-	
+
 	// Note!!) Use ListVMSpec() to include 'CorrespondingImageIds' parameter.
 	specListResult, err := vmSpecHandler.ListVMSpec()
 	if err != nil {
@@ -76,10 +77,10 @@ func (vmSpecHandler *KtCloudVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, erro
 	cblogger.Info("KT Cloud cloud driver: called ListVMSpec()!")
 
 	imageHandler := KtCloudImageHandler{
-		Client:         vmSpecHandler.Client,
-		RegionInfo:     vmSpecHandler.RegionInfo,  //CAUTION!! : Must input this!!
+		Client:     vmSpecHandler.Client,
+		RegionInfo: vmSpecHandler.RegionInfo, //CAUTION!! : Must input this!!
 	}
-	
+
 	imageInfoList, err := imageHandler.ListImage()
 	if err != nil {
 		cblogger.Infof("Failed to Get Image list!! : ", err)
@@ -111,7 +112,7 @@ func (vmSpecHandler *KtCloudVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, erro
 	vmSpecMap := make(map[string]*irs.VMSpecInfo)
 	for _, image := range imageInfoList {
 		cblogger.Infof("# Lookup by KT Cloud Image ID(Product type -> Template) : [%s]", image.IId.SystemId)
-	
+
 		for _, productType := range productList.Listavailableproducttypesresponse.ProductTypes {
 			if strings.EqualFold(image.IId.SystemId, productType.TemplateId) {
 				vmSpecInfo, err := vmSpecHandler.mappingVMSpecInfo(&productType)
@@ -120,7 +121,7 @@ func (vmSpecHandler *KtCloudVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, erro
 					cblogger.Error(newErr.Error())
 					return nil, newErr
 				}
-	
+
 				if existingSpec, exists := vmSpecMap[vmSpecInfo.Name]; exists {
 					// If the VMSpec already exists, add the image ID to the corresponding images list in KeyValueList
 					found := false
@@ -158,20 +159,20 @@ func (vmSpecHandler *KtCloudVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, erro
 			}
 		}
 	}
-	
+
 	// Reinitialize the Global Map to Clear all data : globalImageMap
-	globalImageMap = make(map[string]*irs.ImageInfo)	
+	globalImageMap = make(map[string]*irs.ImageInfo)
 	// cblogger.Infof("\n\n### Image list count in globalImageMap :  [%d]\n", len(globalImageMap))
 
 	var vmSpecInfoList []*irs.VMSpecInfo
 	for _, specInfo := range vmSpecMap {
 		vmSpecInfoList = append(vmSpecInfoList, specInfo)
-	}	
+	}
 	// cblogger.Info("# Supported VM Spec count : ", len(vmSpecInfoList))
 	return vmSpecInfoList, nil
 }
 
-//Extract instance Specification information
+// Extract instance Specification information
 func (vmSpecHandler *KtCloudVMSpecHandler) mappingVMSpecInfo(productType *ktsdk.ProductTypes) (irs.VMSpecInfo, error) {
 	cblogger.Info("KT Cloud cloud driver: called mappingVMSpecInfo()!")
 	// spew.Dump(vmSpec)
@@ -193,8 +194,8 @@ func (vmSpecHandler *KtCloudVMSpecHandler) mappingVMSpecInfo(productType *ktsdk.
 	// vCpuCount := productVCpu[0:2] // 24vCore is fine, but 1vCore has a different total number of digits, so it's not appropriate
 
 	productVCpu := strings.Replace(specSlice[1], "C", "c", 1) // If there is an uppercase C, change it to lowercase c ex) 1vCore -> 1vcore
-	productVCpu = strings.TrimSuffix(productVCpu, "vcore") // Remove 'vcore' from the right side of the string
-	productMem := strings.TrimRight(specSlice[2], "GB") // Remove G and B from the right side of the string
+	productVCpu = strings.TrimSuffix(productVCpu, "vcore")    // Remove 'vcore' from the right side of the string
+	productMem := strings.TrimRight(specSlice[2], "GB")       // Remove G and B from the right side of the string
 	//productMem := strings.TrimSuffix(specSlice[2], "GB")
 
 	MemCountGb, err := strconv.Atoi(productMem) // Convert string to number
@@ -218,20 +219,98 @@ func (vmSpecHandler *KtCloudVMSpecHandler) mappingVMSpecInfo(productType *ktsdk.
 	vmSpecInfo := irs.VMSpecInfo{
 		Region: productType.ZoneDesc,
 		Name:   ktVMSpecId,
-		VCpu: 	irs.VCpuInfo{Count: productVCpu, Clock: "-1"},
-		Mem: 	MemCountMbStr,
-		Disk: 	diskSize,
-		Gpu: 	[]irs.GpuInfo{{Count: "-1", Mfr: "NA", Model: "NA", Mem: "-1"}},
+		VCpu:   irs.VCpuInfo{Count: productVCpu, Clock: "-1"},
+		Mem:    MemCountMbStr,
+		Disk:   diskSize,
+		// No GPU, No Info Gpu:    []irs.GpuInfo{{Count: "-1", Mfr: "NA", Model: "NA", Mem: "-1"}},
 
 		// Since KT Cloud supports different specs for each zone, the zone information is also provided.
-		KeyValueList: []irs.KeyValue{
-			{Key: "KtServiceOffering", Value: productType.ServiceOfferingDesc},	
-			{Key: "TotalDiskSize(includeDataDisk)", Value: productType.DiskOfferingDesc},
-			{Key: "ProductState", Value: productType.ProductState},
-			{Key: "Zone", Value: productType.ZoneDesc},
-		},
+		KeyValueList: getVMSpecKeyValueList(*productType),
 	}
 	return vmSpecInfo, nil
+}
+
+func getVMSpecKeyValueList(productTypes ktsdk.ProductTypes) []irs.KeyValue {
+	var keyValueList []irs.KeyValue
+
+	if productTypes.DiskOfferingDesc != "" {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "DiskOfferingDesc",
+			Value: productTypes.DiskOfferingDesc,
+		})
+	}
+
+	if productTypes.DiskOfferingId != "" {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "DiskOfferingId",
+			Value: productTypes.DiskOfferingId,
+		})
+	}
+
+	if productTypes.Product != "" {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "Product",
+			Value: productTypes.Product,
+		})
+	}
+
+	if productTypes.ProductId != "" {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "ProductId",
+			Value: productTypes.ProductId,
+		})
+	}
+
+	if productTypes.ProductState != "" {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "ProductState",
+			Value: productTypes.ProductState,
+		})
+	}
+
+	if productTypes.ServiceOfferingDesc != "" {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "ServiceOfferingDesc",
+			Value: productTypes.ServiceOfferingDesc,
+		})
+	}
+
+	if productTypes.ServiceOfferingId != "" {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "ServiceOfferingId",
+			Value: productTypes.ServiceOfferingId,
+		})
+	}
+
+	if productTypes.TemplateDesc != "" {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "TemplateDesc",
+			Value: productTypes.TemplateDesc,
+		})
+	}
+
+	if productTypes.TemplateId != "" {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "TemplateId",
+			Value: productTypes.TemplateId,
+		})
+	}
+
+	if productTypes.ZoneDesc != "" {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "ZoneDesc",
+			Value: productTypes.ZoneDesc,
+		})
+	}
+
+	if productTypes.ZoneId != "" {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "ZoneId",
+			Value: productTypes.ZoneId,
+		})
+	}
+
+	return keyValueList
 }
 
 func (vmSpecHandler *KtCloudVMSpecHandler) ListOrgVMSpec() (string, error) {
@@ -267,7 +346,7 @@ func (vmSpecHandler *KtCloudVMSpecHandler) GetOrgVMSpec(Name string) (string, er
 	jsonString, errJson := ConvertJsonString(specInfo)
 	if errJson != nil {
 		cblogger.Error(errJson)
-	}	
+	}
 	return jsonString, errJson
 }
 
@@ -290,7 +369,7 @@ func (vmSpecHandler *KtCloudVMSpecHandler) getRootDiskSize(diskOfferingDesc *str
 	// diskOfferingDesc Ex : "100GB"
 	re := regexp.MustCompile(`(\d+)GB`)
 	matches := re.FindStringSubmatch(*diskOfferingDesc) // Find the match
-	
+
 	var offeringDiskSizeStr string
 	if len(matches) > 1 {
 		offeringDiskSizeStr = matches[1] // Extract only the numeric part. Ex : "100"
@@ -301,7 +380,7 @@ func (vmSpecHandler *KtCloudVMSpecHandler) getRootDiskSize(diskOfferingDesc *str
 
 	// Populate the Global Map (if not yet) : globalImageMap
 	// cblogger.Infof("\n\n### Image list count in globalImageMap :  [%d]\n", len(globalImageMap))
-	if len(globalImageMap) < 1 {		
+	if len(globalImageMap) < 1 {
 		imageHandler := KtCloudImageHandler{
 			RegionInfo: vmSpecHandler.RegionInfo,
 			Client:     vmSpecHandler.Client,
@@ -331,7 +410,7 @@ func (vmSpecHandler *KtCloudVMSpecHandler) getRootDiskSize(diskOfferingDesc *str
 			cblogger.Error(newErr.Error())
 			return "", newErr
 		}
-	
+
 		offeringDiskSizeInt, err := strconv.Atoi(offeringDiskSizeStr)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Convert the string to number : [%v]", err)
@@ -346,7 +425,7 @@ func (vmSpecHandler *KtCloudVMSpecHandler) getRootDiskSize(diskOfferingDesc *str
 
 		rootDiskSizeInt := offeringDiskSizeInt - osDiskSizeInGBInt
 		return strconv.Itoa(rootDiskSizeInt), nil // rootDiskSizeStr Ex : "50"
-	} else {		
+	} else {
 		return offeringDiskSizeStr, nil
 	}
 }
