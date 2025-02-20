@@ -9,11 +9,13 @@
 package resources
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
-	"strconv"
 	"regexp"
+	"strconv"
+	"strings"
+
 	// "github.com/davecgh/go-spew/spew"
 
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
@@ -41,8 +43,8 @@ func (vmSpecHandler *NcpVpcVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error
 	callLogInfo := GetCallLogScheme(vmSpecHandler.RegionInfo.Zone, call.VMSPEC, "ListVMSpec()", "ListVMSpec()")
 
 	imageHandler := NcpVpcImageHandler{
-		RegionInfo:     vmSpecHandler.RegionInfo,  //CAUTION!!
-		VMClient:       vmSpecHandler.VMClient,
+		RegionInfo: vmSpecHandler.RegionInfo, //CAUTION!!
+		VMClient:   vmSpecHandler.VMClient,
 	}
 	imgListResult, err := imageHandler.ListImage()
 	if err != nil {
@@ -56,13 +58,13 @@ func (vmSpecHandler *NcpVpcVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error
 	for _, image := range imgListResult {
 		cblogger.Infof("\n### Lookup by NCP VPC Image ID(ImageProductCode) : [%s]", image.IId.SystemId)
 		vmSpecReq := vserver.GetServerSpecListRequest{
-			RegionCode:		&vmSpecHandler.RegionInfo.Region,
-			ZoneCode:		&vmSpecHandler.RegionInfo.Zone,
-			ServerImageNo: 	ncloud.String(image.IId.SystemId), // ***** Caution : Mandatory. *****
+			RegionCode:    &vmSpecHandler.RegionInfo.Region,
+			ZoneCode:      &vmSpecHandler.RegionInfo.Zone,
+			ServerImageNo: ncloud.String(image.IId.SystemId), // ***** Caution : Mandatory. *****
 		}
 		callLogStart := call.Start()
 		result, err := vmSpecHandler.VMClient.V2Api.GetServerSpecList(&vmSpecReq)
-		if err != nil { 
+		if err != nil {
 			rtnErr := logAndReturnError(callLogInfo, "Failed to Get VMSpec list from NCP VPC : ", err)
 			return nil, rtnErr
 		}
@@ -190,14 +192,14 @@ func (vmSpecHandler *NcpVpcVMSpecHandler) mappingVMSpecInfo(ImageId string, vmSp
 
 	var memSize string
 	if vmSpec.MemorySize != nil {
-		memSize = strconv.FormatFloat(float64(*vmSpec.MemorySize), 'f', 2, 64) 
+		memSize = strconv.FormatFloat(float64(*vmSpec.MemorySize), 'f', 2, 64)
 	}
 
 	// Define a regex to match the number before "GB" in "Disk <number>GB"
 	// *vmSpec.ServerSpecDescription : Ex) "Tesla T4 GPU 2EA, GPUMemory 32GB, vCPU 32EA, Memory 160GB, Disk 50GB"
 	re := regexp.MustCompile(`Disk (\d+)GB`)
 	matches := re.FindStringSubmatch(*vmSpec.ServerSpecDescription) // Find the match
-	
+
 	var diskSize string
 	if len(matches) > 1 {
 		diskSize = matches[1] // Extract only the numeric part
@@ -206,35 +208,166 @@ func (vmSpecHandler *NcpVpcVMSpecHandler) mappingVMSpecInfo(ImageId string, vmSp
 		diskSize = "-1"
 	}
 
-	var gpuCount string
-	if vmSpec.GpuCount != nil {
-		gpuCount = strconv.Itoa(int(*vmSpec.GpuCount))
-	}
-	if strings.EqualFold(gpuCount, "") {
-		gpuCount = "-1"
-	}
-
 	vmSpecInfo := irs.VMSpecInfo{
 		Region: vmSpecHandler.RegionInfo.Region,
 		Name:   *vmSpec.ServerSpecCode,
-		
-		// int32 to string 변환 : String(), int64 to string 변환 : strconv.Itoa()
-		VCpu: irs.VCpuInfo{Count: String(*vmSpec.CpuCount), Clock: "-1"},
-		Mem: memSize,
-		Disk: diskSize,
-		Gpu: []irs.GpuInfo{{Count: gpuCount, Mfr: "NA", Model: "NA", Mem: "-1"}},
+		VCpu:   irs.VCpuInfo{Count: String(*vmSpec.CpuCount), Clock: "-1"},
+		Mem:    memSize,
+		Disk:   diskSize,
 
-		KeyValueList: []irs.KeyValue{
-			{Key: "SpecDescription", Value: *vmSpec.ServerSpecDescription},
-			{Key: "Generation", Value: *vmSpec.GenerationCode},
-			{Key: "HypervisorType", Value: *vmSpec.HypervisorType.CodeName},
-			{Key: "CpuArchitectureType", Value: *vmSpec.CpuArchitectureType.CodeName},
-			{Key: "BlockStorageMaxCount", Value: String(*vmSpec.BlockStorageMaxCount)},
-		},
+		KeyValueList: getVMSpecKeyValueList(*vmSpec),
 	}
+
+	// If the GPU count is not nil, add the GPU information to the VMSpecInfo
+	if vmSpec.GpuCount != nil {
+		gpuInfo := parseGpuInfo(strconv.Itoa(int(*vmSpec.GpuCount)), *vmSpec.ServerSpecDescription)
+		vmSpecInfo.Gpu = []irs.GpuInfo{gpuInfo}
+	}
+
 	// vmSpecInfo.Mem = strconv.FormatFloat(float64(*vmSpec.MemorySize)*1024, 'f', 0, 64) // GB->MB로 변환
 	vmSpecInfo.Mem = strconv.FormatFloat(float64(*vmSpec.MemorySize)/(1024*1024), 'f', 0, 64)
 	return vmSpecInfo
+}
+
+func parseGpuInfo(gpuCount string, description string) (gpuInfo irs.GpuInfo) {
+	gpuInfo = irs.GpuInfo{
+		Count: gpuCount,
+		Mfr:   "NA",
+		Model: "NA",
+		Mem:   "-1",
+	}
+
+	if !strings.Contains(description, "GPU") {
+		return
+	}
+
+	// Manufacturer
+	if strings.Contains(description, "NVIDIA") {
+		gpuInfo.Mfr = "NVIDIA"
+	} else if strings.Contains(description, "Tesla") {
+		gpuInfo.Mfr = "NVIDIA"
+	}
+
+	// Model
+	if strings.Contains(description, "A100P") {
+		gpuInfo.Model = "NVIDIA A100P"
+	} else if strings.Contains(description, "T4") {
+		gpuInfo.Model = "TESLA T4"
+	}
+
+	// GPU Memory
+	memMatch := regexp.MustCompile(`GPUMemory\s+(\d+)GB`).FindStringSubmatch(description)
+	if len(memMatch) > 1 {
+		gpuInfo.Mem = memMatch[1]
+	}
+
+	return
+}
+
+func getVMSpecKeyValueList(spec vserver.ServerSpec) []irs.KeyValue {
+	var keyValueList []irs.KeyValue
+
+	if spec.ServerSpecCode != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "ServerSpecCode",
+			Value: *spec.ServerSpecCode,
+		})
+	}
+
+	if spec.GenerationCode != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "GenerationCode",
+			Value: *spec.GenerationCode,
+		})
+	}
+
+	if spec.ServerProductCode != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "ServerProductCode",
+			Value: *spec.ServerProductCode,
+		})
+	}
+
+	if spec.ServerSpecDescription != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "ServerSpecDescription",
+			Value: *spec.ServerSpecDescription,
+		})
+	}
+
+	if spec.CpuCount != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "CpuCount",
+			Value: strconv.FormatInt(int64(*spec.CpuCount), 10),
+		})
+	}
+
+	if spec.MemorySize != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "MemorySize",
+			Value: strconv.FormatInt(*spec.MemorySize, 10),
+		})
+	}
+
+	if spec.BlockStorageMaxCount != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "BlockStorageMaxCount",
+			Value: strconv.FormatInt(int64(*spec.BlockStorageMaxCount), 10),
+		})
+	}
+
+	if spec.BlockStorageMaxIops != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "BlockStorageMaxIops",
+			Value: strconv.FormatInt(int64(*spec.BlockStorageMaxIops), 10),
+		})
+	}
+
+	if spec.BlockStorageMaxThroughput != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "BlockStorageMaxThroughput",
+			Value: strconv.FormatInt(int64(*spec.BlockStorageMaxThroughput), 10),
+		})
+	}
+
+	if spec.NetworkPerformance != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "NetworkPerformance",
+			Value: strconv.FormatInt(*spec.NetworkPerformance, 10),
+		})
+	}
+
+	if spec.NetworkInterfaceMaxCount != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "NetworkInterfaceMaxCount",
+			Value: strconv.FormatInt(int64(*spec.NetworkInterfaceMaxCount), 10),
+		})
+	}
+
+	if spec.GpuCount != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "GpuCount",
+			Value: strconv.FormatInt(int64(*spec.GpuCount), 10),
+		})
+	}
+
+	if spec.HypervisorType != nil {
+		jsonBytes, _ := json.Marshal(spec.HypervisorType)
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "HypervisorType",
+			Value: string(jsonBytes),
+		})
+	}
+
+	if spec.CpuArchitectureType != nil {
+		jsonBytes, _ := json.Marshal(spec.CpuArchitectureType)
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   "CpuArchitectureType",
+			Value: string(jsonBytes),
+		})
+	}
+
+	return keyValueList
 }
 
 func (vmSpecHandler *NcpVpcVMSpecHandler) getNcpVpcVMSpecList() ([]*vserver.ServerSpec, error) {
@@ -243,8 +376,8 @@ func (vmSpecHandler *NcpVpcVMSpecHandler) getNcpVpcVMSpecList() ([]*vserver.Serv
 	callLogInfo := GetCallLogScheme(vmSpecHandler.RegionInfo.Zone, call.VMSPEC, "getNcpVpcVMSpecList()", "getNcpVpcVMSpecList()")
 
 	imgHandler := NcpVpcImageHandler{
-		RegionInfo:     vmSpecHandler.RegionInfo,
-		VMClient: 		vmSpecHandler.VMClient,
+		RegionInfo: vmSpecHandler.RegionInfo,
+		VMClient:   vmSpecHandler.VMClient,
 	}
 	imgListResult, err := imgHandler.ListImage()
 	if err != nil {
@@ -259,13 +392,13 @@ func (vmSpecHandler *NcpVpcVMSpecHandler) getNcpVpcVMSpecList() ([]*vserver.Serv
 		// cblogger.Infof("\n### Lookup by NCP VPC Image ID(ImageProductCode) : [%s]", image.IId.SystemId)
 
 		specReq := vserver.GetServerSpecListRequest{
-			RegionCode:		&vmSpecHandler.RegionInfo.Region,  //CAUTION!!
-			ZoneCode:		&vmSpecHandler.RegionInfo.Zone,
-			ServerImageNo: 	ncloud.String(image.IId.SystemId), // ***** Caution : ServerImageNo is mandatory. *****
+			RegionCode:    &vmSpecHandler.RegionInfo.Region, //CAUTION!!
+			ZoneCode:      &vmSpecHandler.RegionInfo.Zone,
+			ServerImageNo: ncloud.String(image.IId.SystemId), // ***** Caution : ServerImageNo is mandatory. *****
 		}
 		callLogStart := call.Start()
 		result, err := vmSpecHandler.VMClient.V2Api.GetServerSpecList(&specReq)
-		if err != nil { 
+		if err != nil {
 			rtnErr := logAndReturnError(callLogInfo, "Failed to Get VMSpec list from NCP VPC : ", err)
 			return nil, rtnErr
 		}
@@ -295,10 +428,10 @@ func (vmSpecHandler *NcpVpcVMSpecHandler) getNcpVpcVMSpec(specName string) (*vse
 	}
 
 	specReq := vserver.GetServerSpecListRequest{
-		RegionCode:  			&vmSpecHandler.RegionInfo.Region,
-		ZoneCode:  				&vmSpecHandler.RegionInfo.Zone,
-		ServerSpecCodeList: 	[]*string{ncloud.String(specName),},
-	}	
+		RegionCode:         &vmSpecHandler.RegionInfo.Region,
+		ZoneCode:           &vmSpecHandler.RegionInfo.Zone,
+		ServerSpecCodeList: []*string{ncloud.String(specName)},
+	}
 	callLogStart := call.Start()
 	result, err := vmSpecHandler.VMClient.V2Api.GetServerSpecList(&specReq)
 	if err != nil {
