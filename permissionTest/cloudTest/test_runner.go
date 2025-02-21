@@ -11,7 +11,7 @@ import (
 var resourceList = []resources.ResourceTester{
 	resources.VPCResource{},
 	resources.SubnetResource{},
-	// resources.SecurityGroupResource{},
+	resources.SecurityGroupResource{},
 	// resources.KeyPairResource{},
 	// resources.VMResource{},
 }
@@ -26,7 +26,7 @@ func RunAllTests(){
     fmt.Println("\n-----------# Running DELETE Tests -----------")
     deleteError := RunDeleteTests(resourceList)
 
-    if writeError || readError || deleteError{
+    if writeError || readError || deleteError {
         fmt.Println("\n❌ Test failed")
     } else {
         fmt.Println("\n✅ ALL Test passed")
