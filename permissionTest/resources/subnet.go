@@ -74,9 +74,9 @@ func (s SubnetResource) CreateResource(conn string, errChan chan<- error) error 
         }
 
         if statusCode == 200 && canWrite {
-            fmt.Printf("[SUCCESS] %s created Subnet %s in %s\n", connectionName, subnetName, vpcName)
+            fmt.Printf("[SUCCESS] %s created Subnet %s in %s✅\n", connectionName, subnetName, vpcName)
         } else if statusCode == 500 && !canWrite{
-            fmt.Printf("[PERMISSION-SUCCESS] %s was denied Subnet creation in %s as expected\n", connectionName, vpcName)
+            fmt.Printf("[PERMISSION-SUCCESS] %s was denied Subnet creation in %s as expected✅\n", connectionName, vpcName)
         } else {
             return fmt.Errorf("[ERROR] %s received unexpected status code %d while creating Subnet in %s", connectionName, statusCode, vpcName)
         }
@@ -106,7 +106,7 @@ func (s SubnetResource) ReadResource(conn string, errChan chan<- error) error {
             if canRead{
                 return fmt.Errorf("[ERROR] %s received 500 error while reading VPC in Read Subnet", connectionName)
             } else {
-                fmt.Printf("[PERMISSION-SUCCESS] %s was denied VPC read in Read Subnet as expected\n", connectionName)
+                fmt.Printf("[PERMISSION-SUCCESS] %s was denied VPC read in Read Subnet as expected✅n", connectionName)
                 return nil
             }
         }
@@ -121,7 +121,7 @@ func (s SubnetResource) ReadResource(conn string, errChan chan<- error) error {
         if subnetCount != 2{
             return fmt.Errorf("[ERROR] %s received unexpected count of Subnet in VPC(expected = 2): %d", connectionName, subnetCount)
         }
-        fmt.Printf("[SUCCESS] %s read Subnet in %s\n", connectionName, vpcName)
+        fmt.Printf("[SUCCESS] %s read Subnet in %s✅\n", connectionName, vpcName)
     }
 
     return nil
@@ -154,7 +154,7 @@ func (s SubnetResource) DeleteResource(conn string, errChan chan<- error) error 
     }
     if statusCode == 500{
         if !canWrite{
-            fmt.Printf("[PERMISSION-SUCCESS] %s was denied Subnet deletion as expected\n", connectionName)
+            fmt.Printf("[PERMISSION-SUCCESS] %s was denied Subnet deletion as expected✅\n", connectionName)
             return nil
         } else {
             return fmt.Errorf("[ERROR] %s failed to deelte Subnet: %v", connectionName, err)
@@ -162,7 +162,7 @@ func (s SubnetResource) DeleteResource(conn string, errChan chan<- error) error 
     }
 
     if statusCode == 200 {
-        fmt.Printf("[SUCCESS] %s deleted Subnet %s\n", connectionName, subnetName)
+        fmt.Printf("[SUCCESS] %s deleted Subnet %s✅\n", connectionName, subnetName)
     } else {
         return fmt.Errorf("[ERROR] %s received unexpected status code %d while deleting Subnet", connectionName, statusCode)
     }

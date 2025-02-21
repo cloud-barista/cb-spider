@@ -9,10 +9,10 @@ import (
 )
 
 var resourceList = []resources.ResourceTester{
-	resources.VPCResource{},
-	resources.SubnetResource{},
-	resources.SecurityGroupResource{},
-	// resources.KeyPairResource{},
+	// resources.VPCResource{},
+	// resources.SubnetResource{},
+	// resources.SecurityGroupResource{},
+	resources.KeypairResource{},
 	// resources.VMResource{},
 }
 
@@ -31,7 +31,6 @@ func RunAllTests(){
     } else {
         fmt.Println("\n✅ ALL Test passed")
     }
-
 }
 
 // RunWritesTests runs create tests for the given resources

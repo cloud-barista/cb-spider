@@ -67,9 +67,9 @@ func (v VPCResource) CreateResource(conn string, errChan chan<- error) error {
     }
 
     if statusCode == 200 && canWrite {
-        fmt.Printf("[SUCCESS] %s created VPC\n", connectionName)
+        fmt.Printf("[SUCCESS] %s created VPC✅\n", connectionName)
     } else if statusCode == 500 && !canWrite {
-        fmt.Printf("[PERMISSION-SUCCESS] %s was denied VPC creation as expected\n", connectionName)
+        fmt.Printf("[PERMISSION-SUCCESS] %s was denied VPC creation as expected✅\n", connectionName)
     } else {
         return fmt.Errorf("[ERROR] %s received unexpected status code %d while creating VPC", connectionName, statusCode)
     }
@@ -96,7 +96,7 @@ func (v VPCResource) ReadResource(conn string, errChan chan<- error) error {
         if canRead {
             return fmt.Errorf("[ERROR] %s received 500 error while reading VPCs", connectionName)
         } else {
-            fmt.Printf("[PERMISSION-SUCCESS] %s was denied VPC read as expected\n", connectionName)
+            fmt.Printf("[PERMISSION-SUCCESS] %s was denied VPC read as expected✅\n", connectionName)
             return nil
         }
     }
@@ -127,7 +127,7 @@ func (v VPCResource) ReadResource(conn string, errChan chan<- error) error {
     }
 
     if allFound {
-        fmt.Printf("[SUCCESS] %s retrieved all expected VPCs\n", connectionName)
+        fmt.Printf("[SUCCESS] %s retrieved all expected VPCs✅\n", connectionName)
     } else {
         return fmt.Errorf("[ERROR] %s did not retrieve all expected VPCs", connectionName)
     }
@@ -171,7 +171,7 @@ func (v VPCResource) DeleteResource(conn string, errChan chan<- error) error {
         } else if !canWrite && statusCode == 200 {
             errChan <- fmt.Errorf("[PERMISSION ERROR] %s was able to delete VPC %s despite lacking permission", connectionName, vpcName)
         } else {
-            fmt.Printf("[PERMISSION-SUCCESS] %s was denied VPC deletion as expected\n", connectionName)
+            fmt.Printf("[PERMISSION-SUCCESS] %s was denied VPC deletion as expected✅\n", connectionName)
             expectedVPCs[vpcName] = true
         }
     }
@@ -185,7 +185,7 @@ func (v VPCResource) DeleteResource(conn string, errChan chan<- error) error {
     }
 
     if allPassed {
-        fmt.Printf("[SUCCESS] %s successfully deleted all expected VPCs\n", connectionName)
+        fmt.Printf("[SUCCESS] %s successfully deleted all expected VPCs✅\n", connectionName)
     } else {
         return fmt.Errorf("[FINAL ERROR] %s encountered issues during VPC deletions", connectionName)
     }
