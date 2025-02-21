@@ -12,16 +12,17 @@ var resourceList = []resources.ResourceTester{
 	// resources.VPCResource{},
 	// resources.SubnetResource{},
 	// resources.SecurityGroupResource{},
-	resources.KeypairResource{},
-	// resources.VMResource{},
+	// resources.KeypairResource{},
+	resources.VMResource{},
 }
 
 func RunAllTests(){
     fmt.Println("-----------Running WRITE(CREATE) Tests -----------")
-    writeError := RunWriteTests(resourceList) // vpc test
+    writeError := RunWriteTests(resourceList)
 
     fmt.Println("\n-----------# Running READ Tests -----------")
-    readError := RunReadTests(resourceList) // subnet test
+    readError := RunReadTests(resourceList)
+
 
     fmt.Println("\n-----------# Running DELETE Tests -----------")
     deleteError := RunDeleteTests(resourceList)

@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-var client = &http.Client{ Timeout: time.Second * 10 }
+var client = &http.Client{ Timeout: time.Second * 100 }
 
 func SendRequest(method, url string, data map[string]interface{}) (int, []byte, error) {
 	jsonData, _ := json.Marshal(data)
