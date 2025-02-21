@@ -7,66 +7,130 @@ import (
 	"github.com/cloud-barista/cb-spider/permissionTest/connection"
 	"github.com/cloud-barista/cb-spider/permissionTest/resources"
 )
-func RunTests(resource resources.ResourceTester) {
-    var wg sync.WaitGroup
-    errChan := make(chan error, len(connection.Connections)*3) // 3단계 실행
 
-    // 1️⃣ CREATE 단계 (모든 conn에 대해 실행)
-    fmt.Printf("----------------------------%s CREATE Test----------------------------\n", resource.GetName())
-    for connName := range connection.Connections {
-        wg.Add(1)
-        go func(conn string) {
-            defer wg.Done()
-            err := resource.CreateResource(conn, errChan)
-            if err != nil {
-                errChan <- fmt.Errorf("[ERROR] %s: create failed for %s: %v", resource.GetName(), conn, err)
-            }
-        }(connName)
-    }
-    wg.Wait()
+var resourceList = []resources.ResourceTester{
+	resources.VPCResource{},
+	resources.SubnetResource{},
+	// resources.SecurityGroupResource{},
+	// resources.KeyPairResource{},
+	// resources.VMResource{},
+}
 
-    // 2️⃣ READ 단계 (모든 conn에 대해 실행)
-    fmt.Printf("----------------------------%s READ Test----------------------------\n", resource.GetName())
-    for connName := range connection.Connections {
-        wg.Add(1)
-        go func(conn string) {
-            defer wg.Done()
-            err := resource.ReadResource(conn, errChan)
-            if err != nil {
-                errChan <- fmt.Errorf("[ERROR] %s: read failed for %s: %v", resource.GetName(), conn, err)
-            }
-        }(connName)
-    }
-    wg.Wait()
+func RunAllTests(){
+    fmt.Println("-----------Running WRITE(CREATE) Tests -----------")
+    writeError := RunWriteTests(resourceList) // vpc test
 
-    // 3️⃣ DELETE 단계 (모든 conn에 대해 실행)
-    fmt.Printf("----------------------------%s DELETE Test----------------------------\n", resource.GetName())
-    for connName := range connection.Connections {
-        wg.Add(1)
-        go func(conn string) {
-            defer wg.Done()
-            err := resource.DeleteResource(conn, errChan)
-            if err != nil {
-                errChan <- fmt.Errorf("[ERROR] %s: delete failed for %s: %v", resource.GetName(), conn, err)
-            }
-        }(connName)
-    }
-    wg.Wait()
+    fmt.Println("\n-----------# Running READ Tests -----------")
+    readError := RunReadTests(resourceList) // subnet test
 
-    // 에러 채널 닫기
-    close(errChan)
+    fmt.Println("\n-----------# Running DELETE Tests -----------")
+    deleteError := RunDeleteTests(resourceList)
 
-    // 에러 출력 및 성공 여부 판단
-    errOccurred := false
-    for err := range errChan {
-        fmt.Println(err)
-        errOccurred = true
-    }
-
-    // 최종 결과 출력
-    if errOccurred {
-        fmt.Printf("%s Test Failed❌\n", resource.GetName())
+    if writeError || readError || deleteError{
+        fmt.Println("\n❌ Test failed")
     } else {
-        fmt.Printf("%s Test Finished Successfully✅\n", resource.GetName())
+        fmt.Println("\n✅ ALL Test passed")
+    }
+
+}
+
+// RunWritesTests runs create tests for the given resources
+func RunWriteTests(resources []resources.ResourceTester) bool {
+    errChan := make(chan error, len(connection.Connections)*len(resources))
+
+    for _, resource := range resources{
+        fmt.Printf("\n### Creating %s ###\n", resource.GetName())
+
+        var wg sync.WaitGroup
+
+        for connName := range connection.Connections{
+            wg.Add(1)
+            go createResource(connName, resource, &wg, errChan)
+        }
+        wg.Wait()
+    }
+
+    isError := handleErrors(errChan)
+    return isError
+}
+
+// createResource creates a resource for the given connection
+func createResource(conn string, resource resources.ResourceTester, wg *sync.WaitGroup, errChan chan <- error){
+    defer wg.Done()
+    err := resource.CreateResource(conn, errChan)
+    if err != nil{
+        errChan <- fmt.Errorf("[ERROR] %s: creation failed for %s: %v", resource.GetName(), conn, err)
     }
 }
+
+// RunReadTests runs read tests for the given resources
+func RunReadTests(resources []resources.ResourceTester) bool {
+    
+    errChan := make(chan error, len(connection.Connections)*len(resources))
+
+    for _, resource := range resources{
+        var wg sync.WaitGroup
+        fmt.Printf("\n### Reading %s ###\n", resource.GetName())
+
+        for connName := range connection.Connections{
+            wg.Add(1)
+            go readResource(connName, resource, &wg, errChan)
+        }
+        wg.Wait()
+    }
+    
+    isError := handleErrors(errChan)
+    return isError
+}
+
+// readResource reads a resource for the given connection
+func readResource(conn string, res resources.ResourceTester, wg *sync.WaitGroup, errChan chan <- error){
+    defer wg.Done()
+    
+    err := res.ReadResource(conn, errChan)
+    if err != nil{
+        errChan <- fmt.Errorf("[ERROR] %s: read failed for %s: %v", res.GetName(), conn, err)
+    }
+}
+
+// RunDeleteTests runs delete tests for the given resources
+func RunDeleteTests(resources []resources.ResourceTester) bool {
+    errChan := make(chan error, len(connection.Connections)*len(resources))
+
+    for i:= len(resources) - 1; i>=0; i--{
+        resource := resources[i]
+        fmt.Printf("\n### Deleting %s ###\n", resource.GetName())
+
+        var wg sync.WaitGroup
+
+        for connName := range connection.Connections{
+            wg.Add(1)
+            go deleteResource(connName, resource, &wg, errChan)
+        }
+
+        wg.Wait()
+    }
+
+    isError := handleErrors(errChan)
+    return isError
+}
+
+// deleteResource deletes a resource for the given connection
+func deleteResource(conn string, resource resources.ResourceTester, wg *sync.WaitGroup, errChan chan <- error){
+    defer wg.Done()
+    err := resource.DeleteResource(conn, errChan)
+    if err != nil{
+        errChan <- fmt.Errorf("[ERROR] %s: delete failed for %s: %v", resource.GetName(), conn, err)
+    }
+}
+
+func handleErrors(errChan chan error) bool {
+    close(errChan)
+    isError := false
+    for err := range errChan{
+        fmt.Println(err)
+        isError = true
+    }
+    return isError
+}
+

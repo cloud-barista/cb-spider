@@ -43,6 +43,7 @@ var vpcNames = map[string]string{
 	"non-permission-conn": "VPC-04",
 }
 
+// create VPC
 func (v VPCResource) CreateResource(conn string, errChan chan<- error) error {
     connectionName := connection.Connections[conn].Name
     canWrite := connection.Connections[conn].CanWrite
@@ -53,9 +54,9 @@ func (v VPCResource) CreateResource(conn string, errChan chan<- error) error {
         "ConnectionName": connectionName,
         "ReqInfo": map[string]interface{}{
             "Name":      vpcName,
-            "IPv4_CIDR": "192.168.0.0/16",
+            "IPv4_CIDR": "10.0.0.0/16",
             "SubnetInfoList": []map[string]interface{}{
-                {"Name": "Subnet-01", "IPv4_CIDR": "192.168.1.0/24"},
+                {"Name": "Subnet-01", "IPv4_CIDR": "10.0.1.0/24"},
             },
         },
     }
@@ -76,6 +77,7 @@ func (v VPCResource) CreateResource(conn string, errChan chan<- error) error {
     return nil
 }
 
+// read VPC
 func (v VPCResource) ReadResource(conn string, errChan chan<- error) error {
     connectionName := connection.Connections[conn].Name
     canRead := connection.Connections[conn].CanRead
@@ -91,11 +93,11 @@ func (v VPCResource) ReadResource(conn string, errChan chan<- error) error {
     }
 
     if statusCode == 500 {
-        if !canRead {
+        if canRead {
+            return fmt.Errorf("[ERROR] %s received 500 error while reading VPCs", connectionName)
+        } else {
             fmt.Printf("[PERMISSION-SUCCESS] %s was denied VPC read as expected\n", connectionName)
             return nil
-        } else {
-            return fmt.Errorf("[ERROR] %s received 500 error while reading VPCs", connectionName)
         }
     }
 
@@ -133,6 +135,7 @@ func (v VPCResource) ReadResource(conn string, errChan chan<- error) error {
     return nil
 }
 
+// Delete VPC
 func (v VPCResource) DeleteResource(conn string, errChan chan<- error) error {
     connectionName := connection.Connections[conn].Name
     canWrite := connection.Connections[conn].CanWrite
