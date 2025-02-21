@@ -276,7 +276,7 @@ func RegisterSubnet(connectionName string, zoneId string, vpcName string, userII
 			return nil, err
 		}
 		if !isExist {
-			err := fmt.Errorf("The VPC-" + vpcName + " does not exist!")
+			err := fmt.Errorf("%s", "The VPC-"+vpcName+" does not exist!")
 			cblog.Error(err)
 			return nil, err
 		}
@@ -296,7 +296,7 @@ func RegisterSubnet(connectionName string, zoneId string, vpcName string, userII
 	}
 	rsType := SUBNET
 	if bool_ret {
-		err := fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
+		err := fmt.Errorf("%s", rsType+"-"+userIID.NameId+" already exists!")
 		cblog.Error(err)
 		return nil, err
 	}
@@ -400,7 +400,7 @@ func UnregisterSubnet(connectionName string, vpcName string, nameId string) (boo
 	}
 	rsType := SUBNET
 	if !bool_ret {
-		err := fmt.Errorf("The " + rsType + "-" + nameId + " in " + vpcName + " does not exist!")
+		err := fmt.Errorf("%s", "The "+rsType+"-"+nameId+" in "+vpcName+" does not exist!")
 		cblog.Error(err)
 		return false, err
 	}
@@ -511,7 +511,7 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo, ID
 		}
 	}
 	if bool_ret {
-		err := fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
+		err := fmt.Errorf("%s", rsType+"-"+reqInfo.IId.NameId+" already exists!")
 		cblog.Error(err)
 		return nil, err
 	}
@@ -530,7 +530,7 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo, ID
 			return nil, err
 		}
 		if len(vpcIIDInfoList) > 0 {
-			err := fmt.Errorf(rsType + "-" + connectionName + " can have only 1 VPC, but already have a VPC " + vpcIIDInfoList[0].NameId)
+			err := fmt.Errorf("%s", rsType+"-"+connectionName+" can have only 1 VPC, but already have a VPC "+vpcIIDInfoList[0].NameId)
 			cblog.Error(err)
 			return nil, err
 		}
@@ -624,7 +624,7 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo, ID
 		_, err2 := handler.DeleteVPC(info.IId)
 		if err2 != nil {
 			cblog.Error(err2)
-			return nil, fmt.Errorf(err.Error() + ", " + err2.Error())
+			return nil, fmt.Errorf("%s", err.Error()+", "+err2.Error())
 		}
 		cblog.Error(err)
 		return nil, err
@@ -651,14 +651,14 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo, ID
 			_, err2 := handler.DeleteVPC(info.IId)
 			if err2 != nil {
 				cblog.Error(err2)
-				return nil, fmt.Errorf(err.Error() + ", " + err2.Error())
+				return nil, fmt.Errorf("%s", err.Error()+", "+err2.Error())
 			}
 			// (2) for VPC IID
 			cblog.Info("<<ROLLBACK:TRY:VPC-IID>> " + info.IId.NameId)
 			_, err3 := infostore.DeleteByConditions(&VPCIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, spiderIId.NameId)
 			if err3 != nil {
 				cblog.Error(err3)
-				return nil, fmt.Errorf(err.Error() + ", " + err3.Error())
+				return nil, fmt.Errorf("%s", err.Error()+", "+err3.Error())
 			}
 			// (3) for Subnet IID
 			// delete all subnets of target VPC
@@ -1038,7 +1038,7 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 		}
 	}
 	if bool_ret {
-		err := fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
+		err := fmt.Errorf("%s", rsType+"-"+reqInfo.IId.NameId+" already exists!")
 		cblog.Error(err)
 		return nil, err
 	}
@@ -1115,7 +1115,7 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 				_, err2 := handler.RemoveSubnet(getDriverIID(cres.IID{NameId: iidVPCInfo.NameId, SystemId: iidVPCInfo.SystemId}), subnetInfo.IId)
 				if err2 != nil {
 					cblog.Error(err2)
-					return nil, fmt.Errorf(err.Error() + ", " + err2.Error())
+					return nil, fmt.Errorf("%s", err.Error()+", "+err2.Error())
 				}
 				// (2) for Subnet IID
 				cblog.Info("<<ROLLBACK:TRY:VPC-SUBNET-IID>> " + subnetInfo.IId.NameId)
@@ -1123,7 +1123,7 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 					OWNER_VPC_NAME_COLUMN, vpcName)
 				if err3 != nil {
 					cblog.Error(err3)
-					return nil, fmt.Errorf(err.Error() + ", " + err3.Error())
+					return nil, fmt.Errorf("%s", err.Error()+", "+err3.Error())
 				}
 				cblog.Error(err)
 				return nil, err
