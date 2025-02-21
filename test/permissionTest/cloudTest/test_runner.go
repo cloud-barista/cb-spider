@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/cloud-barista/cb-spider/permissionTest/connection"
-	"github.com/cloud-barista/cb-spider/permissionTest/resources"
+	"github.com/cloud-barista/cb-spider/test/permissionTest/connection"
+	"github.com/cloud-barista/cb-spider/test/permissionTest/resources"
 )
 
 var resourceList = []resources.ResourceTester{

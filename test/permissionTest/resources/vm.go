@@ -6,8 +6,8 @@ import (
 	"os"
 	"sync"
 
-	"github.com/cloud-barista/cb-spider/permissionTest/connection"
-	"github.com/cloud-barista/cb-spider/permissionTest/request"
+	"github.com/cloud-barista/cb-spider/test/permissionTest/connection"
+	"github.com/cloud-barista/cb-spider/test/permissionTest/request"
 )
 
 type VMResource struct {}
