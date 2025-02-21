@@ -2263,7 +2263,7 @@ func getAuthIIDInfo(iidInfoList interface{}, nameId string) (interface{}, error)
 		return nil, fmt.Errorf("unsupported type for iidInfoList")
 	}
 
-	return nil, fmt.Errorf("nameId %s not found", nameId) // No matching IIDInfo found
+	return nil, fmt.Errorf("%s : does not exist!", nameId) // No matching IIDInfo found
 }
 
 // Get IIDInfo by SystemId (contains match) from IIDInfo list
