@@ -238,9 +238,9 @@ definitions:
         description: Number of GPUs, "-1" when not applicable
         example: "1"
         type: string
-      Mem:
-        description: Memory size of the GPU in MB, "-1" when not applicable
-        example: "8192"
+      MemSizeGB:
+        description: Memory size of the GPU in GB, "-1" when not applicable
+        example: "12"
         type: string
       Mfr:
         description: Manufacturer of the GPU, NA when not applicable
@@ -994,12 +994,12 @@ definitions:
     type: object
   spider.VCpuInfo:
     properties:
-      Clock:
+      ClockGHz:
         description: Clock speed in GHz, "-1" when not applicable
         example: "2.5"
         type: string
       Count:
-        description: Number of CPU cores, "-1" when not applicable
+        description: Number of VCpu, "-1" when not applicable
         example: "2"
         type: string
     required:
@@ -1169,7 +1169,7 @@ definitions:
     type: object
   spider.VMSpecInfo:
     properties:
-      Disk:
+      DiskSizeGB:
         description: Disk size in GB, "-1" when not applicable
         example: "8"
         type: string
@@ -1183,8 +1183,8 @@ definitions:
         items:
           $ref: '#/definitions/spider.KeyValue'
         type: array
-      Mem:
-        description: Memory size in MB
+      MemSizeMib:
+        description: Memory size in MiB
         example: "1024"
         type: string
       Name:
@@ -1200,8 +1200,8 @@ definitions:
         - $ref: '#/definitions/spider.VCpuInfo'
         description: CPU details of the VM spec
     required:
-    - Disk
-    - Mem
+    - DiskSizeGB
+    - MemSizeMib
     - Name
     - Region
     - VCpu

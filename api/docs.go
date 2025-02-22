@@ -8822,10 +8822,10 @@ const docTemplate = `{
                     "type": "string",
                     "example": "1"
                 },
-                "Mem": {
-                    "description": "Memory size of the GPU in MB, \"-1\" when not applicable",
+                "MemSizeGB": {
+                    "description": "Memory size of the GPU in GB, \"-1\" when not applicable",
                     "type": "string",
-                    "example": "8192"
+                    "example": "12"
                 },
                 "Mfr": {
                     "description": "Manufacturer of the GPU, NA when not applicable",
@@ -9876,13 +9876,13 @@ const docTemplate = `{
                 "Count"
             ],
             "properties": {
-                "Clock": {
+                "ClockGHz": {
                     "description": "Clock speed in GHz, \"-1\" when not applicable",
                     "type": "string",
                     "example": "2.5"
                 },
                 "Count": {
-                    "description": "Number of CPU cores, \"-1\" when not applicable",
+                    "description": "Number of VCpu, \"-1\" when not applicable",
                     "type": "string",
                     "example": "2"
                 }
@@ -10122,14 +10122,14 @@ const docTemplate = `{
         "spider.VMSpecInfo": {
             "type": "object",
             "required": [
-                "Disk",
-                "Mem",
+                "DiskSizeGB",
+                "MemSizeMib",
                 "Name",
                 "Region",
                 "VCpu"
             ],
             "properties": {
-                "Disk": {
+                "DiskSizeGB": {
                     "description": "Disk size in GB, \"-1\" when not applicable",
                     "type": "string",
                     "example": "8"
@@ -10148,8 +10148,8 @@ const docTemplate = `{
                         "$ref": "#/definitions/spider.KeyValue"
                     }
                 },
-                "Mem": {
-                    "description": "Memory size in MB",
+                "MemSizeMib": {
+                    "description": "Memory size in MiB",
                     "type": "string",
                     "example": "1024"
                 },

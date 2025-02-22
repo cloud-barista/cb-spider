@@ -192,24 +192,6 @@ func getGpuModel(name string) string {
 	return "NA"
 }
 
-func getGpuMem(name string) string {
-	splits := strings.Split(name, "-")
-	if len(splits) < 2 {
-		return "-1"
-	}
-
-	specDetails := strings.Split(splits[len(splits)-1], "x")
-	if len(specDetails) < 2 {
-		return "-1"
-	}
-
-	memGiB, err := strconv.Atoi(specDetails[1])
-	if err != nil {
-		return "-1"
-	}
-	return strconv.Itoa(memGiB * 1024) // GiB -> MiB
-}
-
 func getGpuInfo(name string) (string, string, string, string) {
 	//check NVIDIA gpu
 	mfr := getGpuMfr(name)
@@ -219,7 +201,7 @@ func getGpuInfo(name string) (string, string, string, string) {
 
 	count := getGpuCount(name)
 	model := getGpuModel(name)
-	mem := getGpuMem(name)
+	mem := "-1" // getGpuMem(name): Memory size in SpecName is main memory size, not GPU memory size
 
 	return mfr, count, model, mem
 }
@@ -229,23 +211,22 @@ func setVmSpecInfo(profile vpcv1.InstanceProfile, region string) (irs.VMSpecInfo
 		return irs.VMSpecInfo{}, errors.New(fmt.Sprintf("Invalid vmspec"))
 	}
 	vmSpecInfo := irs.VMSpecInfo{
-		Region: region,
-		Name:   *profile.Name,
-		Disk:   "-1",
+		Region:     region,
+		Name:       *profile.Name,
+		DiskSizeGB: "-1",
 	}
 
 	specslice := strings.Split(*profile.Name, "-")
 	if len(specslice) > 1 {
 		specslice2 := strings.Split(specslice[1], "x")
 		if len(specslice2) > 1 {
-			vmSpecInfo.VCpu = irs.VCpuInfo{Count: specslice2[0], Clock: "-1"}
+			vmSpecInfo.VCpu = irs.VCpuInfo{Count: specslice2[0], ClockGHz: "-1"}
 			memValue, err := strconv.Atoi(specslice2[1])
 			if err != nil {
 				memValue = 0
 			}
-			memValue = memValue * 1024
-			memValueString := strconv.Itoa(memValue)
-			vmSpecInfo.Mem = memValueString
+			memValueString := strconv.Itoa(memValue * 1024)
+			vmSpecInfo.MemSizeMiB = memValueString
 		}
 	}
 
@@ -254,10 +235,10 @@ func setVmSpecInfo(profile vpcv1.InstanceProfile, region string) (irs.VMSpecInfo
 		gpuMfr, gpuCount, gpuModel, gpuMem := getGpuInfo(*profile.Name)
 		vmSpecInfo.Gpu = []irs.GpuInfo{
 			{
-				Mfr:   gpuMfr,
-				Count: gpuCount,
-				Model: gpuModel,
-				Mem:   gpuMem,
+				Mfr:       gpuMfr,
+				Count:     gpuCount,
+				Model:     gpuModel,
+				MemSizeGB: gpuMem,
 			},
 		}
 	}

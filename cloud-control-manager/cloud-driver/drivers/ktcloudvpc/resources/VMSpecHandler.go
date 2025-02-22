@@ -179,11 +179,11 @@ func (vmSpecHandler *KTVpcVMSpecHandler) mappingVMSpecInfo(flavor *flavors.Flavo
 	// spew.Dump(flavor)
 
 	vmSpecInfo := irs.VMSpecInfo{
-		Region: vmSpecHandler.RegionInfo.Zone,
-		Name:   flavor.Name,
-		VCpu:   irs.VCpuInfo{Count: strconv.Itoa(flavor.VCPUs), Clock: "-1"},
-		Mem:    strconv.Itoa(flavor.RAM),
-		Disk:   strconv.Itoa(flavor.Disk),
+		Region:     vmSpecHandler.RegionInfo.Zone,
+		Name:       flavor.Name,
+		VCpu:       irs.VCpuInfo{Count: strconv.Itoa(flavor.VCPUs), ClockGHz: "-1"},
+		MemSizeMiB: strconv.Itoa(flavor.RAM),
+		DiskSizeGB: strconv.Itoa(flavor.Disk),
 
 		KeyValueList: irs.StructToKeyValueList(flavor),
 	}
@@ -191,10 +191,10 @@ func (vmSpecHandler *KTVpcVMSpecHandler) mappingVMSpecInfo(flavor *flavors.Flavo
 	// If the flavor name contains "gpu", set the GPU information
 	if strings.Contains(strings.ToLower(flavor.Name), "gpu") {
 		vmSpecInfo.Gpu = []irs.GpuInfo{{
-			Count: "-1",
-			Mfr:   "NA",
-			Model: flavor.Name,
-			Mem:   "-1",
+			Count:     "-1",
+			Mfr:       "NA",
+			Model:     strings.ToUpper(flavor.Name),
+			MemSizeGB: "-1",
 		}}
 	}
 

@@ -145,7 +145,7 @@
         <th class="column-num">#</th>
         <th class="column-vmspecname">VMSpec Name</th>
         <th>VCPU</th>
-        <th class="column-meminfo">Memory (MB)</th>
+        <th class="column-meminfo">Memory (MiB)</th>
         <th class="column-diskinfo">Disk (GB)</th>
         <th>GPU</th>
         <th class="th-column-Misc">Misc</th>
@@ -156,15 +156,15 @@
         <td class="column-vmspecname">{{$spec.Name}}</td>
         <td class="column-vcpuinfo">
             &nbsp;* Count: {{$spec.VCpu.Count}}<br>
-            &nbsp;* Clock: {{$spec.VCpu.Clock}} GHz<br>
+            &nbsp;* Clock: {{$spec.VCpu.ClockGHz}} GHz<br>
         </td>
-        <td class="column-meminfo">{{$spec.Mem}}</td>
-        <td class="column-diskinfo">{{$spec.Disk}}</td>
+        <td class="column-meminfo">{{$spec.MemSizeMiB}}</td>
+        <td class="column-diskinfo">{{$spec.DiskSizeGB}}</td>
         <td class="column-gpuinfo">
             {{range $gpu := $spec.Gpu}}
                 &nbsp;* Mfr: {{$gpu.Mfr}}<br>
                 &nbsp;* Model: {{$gpu.Model}}<br>
-                &nbsp;* Memory: {{$gpu.Mem}} MB<br>
+                &nbsp;* Memory: {{$gpu.MemSizeGB}} GB<br>
                 &nbsp;* Count: {{$gpu.Count}}<br><br>
             {{end}}
         </td>

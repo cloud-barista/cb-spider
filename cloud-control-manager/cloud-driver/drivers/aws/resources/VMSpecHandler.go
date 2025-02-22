@@ -57,11 +57,12 @@ func ExtractGpuInfo(gpuDeviceInfo *ec2.GpuDeviceInfo) irs.GpuInfo {
 		gpuInfo.Model = "NA" // Set string values to "NA" if nil
 	}
 
-	// Check MemoryInfo
+	// Check MemoryInfo and transform MiB to GB
 	if gpuDeviceInfo.MemoryInfo != nil && gpuDeviceInfo.MemoryInfo.SizeInMiB != nil {
-		gpuInfo.Mem = strconv.FormatInt(*gpuDeviceInfo.MemoryInfo.SizeInMiB, 10)
+		gb := float64(*gpuDeviceInfo.MemoryInfo.SizeInMiB) / 1024.0 * 1.073741824
+		gpuInfo.MemSizeGB = strconv.FormatFloat(gb, 'f', 2, 64)
 	} else {
-		gpuInfo.Mem = "-1" // Set number values to "-1" if nil
+		gpuInfo.MemSizeGB = "-1" // Set number values to "-1" if nil
 	}
 
 	return gpuInfo
@@ -81,7 +82,7 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo *ec2.InstanceTypeInfo) ir
 	}
 
 	//Check Disk Info (Root volume information is only provided in AMI information)
-	vmSpecInfo.Disk = "-1"
+	vmSpecInfo.DiskSizeGB = "-1"
 
 	// Check VCPU - Count
 	if !reflect.ValueOf(instanceTypeInfo.VCpuInfo.DefaultVCpus).IsNil() {
@@ -92,9 +93,9 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo *ec2.InstanceTypeInfo) ir
 
 	// Check VCPU - Clock
 	if !reflect.ValueOf(instanceTypeInfo.ProcessorInfo.SustainedClockSpeedInGhz).IsNil() {
-		vCpuInfo.Clock = strconv.FormatFloat(*instanceTypeInfo.ProcessorInfo.SustainedClockSpeedInGhz, 'f', 1, 64)
+		vCpuInfo.ClockGHz = strconv.FormatFloat(*instanceTypeInfo.ProcessorInfo.SustainedClockSpeedInGhz, 'f', 1, 64)
 	} else {
-		vCpuInfo.Clock = "-1"
+		vCpuInfo.ClockGHz = "-1"
 	}
 	vmSpecInfo.VCpu = vCpuInfo
 
@@ -116,9 +117,9 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo *ec2.InstanceTypeInfo) ir
 	}
 
 	if !reflect.ValueOf(instanceTypeInfo.MemoryInfo.SizeInMiB).IsNil() {
-		vmSpecInfo.Mem = strconv.FormatInt(*instanceTypeInfo.MemoryInfo.SizeInMiB, 10)
+		vmSpecInfo.MemSizeMiB = strconv.FormatInt(*instanceTypeInfo.MemoryInfo.SizeInMiB, 10)
 	} else {
-		vmSpecInfo.Mem = "-1"
+		vmSpecInfo.MemSizeMiB = "-1"
 	}
 
 	vmSpecInfo.KeyValueList = irs.StructToKeyValueList(instanceTypeInfo)

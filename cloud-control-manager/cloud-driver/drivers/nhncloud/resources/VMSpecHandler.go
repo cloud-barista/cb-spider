@@ -199,7 +199,7 @@ func getGpuModel(vmSize string) string {
 		return "A100"
 	}
 
-	return ""
+	return "NA"
 }
 
 func parseGpuInfo(vmSizeName string) *irs.GpuInfo {
@@ -215,10 +215,10 @@ func parseGpuInfo(vmSizeName string) *irs.GpuInfo {
 	model := getGpuModel(vmSizeLower)
 
 	return &irs.GpuInfo{
-		Count: fmt.Sprintf("%d", count),
-		Mem:   fmt.Sprintf("%d", mem*1024),
-		Mfr:   "NVIDIA",
-		Model: model,
+		Count:     fmt.Sprintf("%d", count),
+		MemSizeGB: fmt.Sprintf("%d", mem),
+		Mfr:       "NVIDIA",
+		Model:     model,
 	}
 }
 
@@ -232,12 +232,12 @@ func (vmSpecHandler *NhnCloudVMSpecHandler) mappingVMSpecInfo(vmSpec flavors.Fla
 	}
 
 	vmSpecInfo := &irs.VMSpecInfo{
-		Region: vmSpecHandler.RegionInfo.Region,
-		Name:   vmSpec.Name,
-		VCpu:   irs.VCpuInfo{Count: strconv.Itoa(vmSpec.VCPUs), Clock: "-1"},
-		Mem:    strconv.Itoa(vmSpec.RAM),
-		Disk:   strconv.Itoa(vmSpec.Disk),
-		Gpu:    gpuInfoList,
+		Region:     vmSpecHandler.RegionInfo.Region,
+		Name:       vmSpec.Name,
+		VCpu:       irs.VCpuInfo{Count: strconv.Itoa(vmSpec.VCPUs), ClockGHz: "-1"},
+		MemSizeMiB: strconv.Itoa(vmSpec.RAM),
+		DiskSizeGB: strconv.Itoa(vmSpec.Disk),
+		Gpu:        gpuInfoList,
 
 		KeyValueList: irs.StructToKeyValueList(vmSpec),
 	}

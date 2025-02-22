@@ -354,12 +354,12 @@ func mappingVMSpecInfo(region string, vmSpec server.Product) irs.VMSpecInfo {
 		// Name:   *vmSpec.ProductName,
 		Name: *vmSpec.ProductCode,
 		// int32 to string : String(), int64 to string  : strconv.Itoa()
-		VCpu: irs.VCpuInfo{Count: String(*vmSpec.CpuCount), Clock: "-1"},
+		VCpu: irs.VCpuInfo{Count: String(*vmSpec.CpuCount), ClockGHz: "-1"},
 
 		// 'server.Product' does not contain GPU information.
 		// No GPU, No Info Gpu: []irs.GpuInfo{{Count: "-1", Mfr: "NA", Model: "NA", Mem: "-1"}},
-		Mem:  strconv.FormatFloat(float64(*vmSpec.MemorySize)/(1024*1024), 'f', 0, 64),
-		Disk: strconv.FormatFloat(float64(*vmSpec.BaseBlockStorageSize)/(1024*1024*1024), 'f', 0, 64),
+		MemSizeMiB: strconv.FormatFloat(float64(*vmSpec.MemorySize)/(1024*1024), 'f', 0, 64),                // byte -> MiB
+		DiskSizeGB: strconv.FormatFloat(float64(*vmSpec.BaseBlockStorageSize)/(1000*1000*1000), 'f', 0, 64), // byte -> GB
 
 		KeyValueList: irs.StructToKeyValueList(vmSpec),
 	}

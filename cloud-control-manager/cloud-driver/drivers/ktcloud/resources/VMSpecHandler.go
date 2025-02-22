@@ -217,11 +217,11 @@ func (vmSpecHandler *KtCloudVMSpecHandler) mappingVMSpecInfo(productType *ktsdk.
 	// }
 
 	vmSpecInfo := irs.VMSpecInfo{
-		Region: productType.ZoneDesc,
-		Name:   ktVMSpecId,
-		VCpu:   irs.VCpuInfo{Count: productVCpu, Clock: "-1"},
-		Mem:    MemCountMbStr,
-		Disk:   diskSize,
+		Region:     productType.ZoneDesc,
+		Name:       ktVMSpecId,
+		VCpu:       irs.VCpuInfo{Count: productVCpu, ClockGHz: "-1"},
+		MemSizeMiB: MemCountMbStr,
+		DiskSizeGB: diskSize,
 		// No GPU, No Info Gpu:    []irs.GpuInfo{{Count: "-1", Mfr: "NA", Model: "NA", Mem: "-1"}},
 
 		// Since KT Cloud supports different specs for each zone, the zone information is also provided.

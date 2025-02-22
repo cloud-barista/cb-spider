@@ -189,11 +189,6 @@ func (vmSpecHandler *NcpVpcVMSpecHandler) mappingVMSpecInfo(ImageId string, vmSp
 		return irs.VMSpecInfo{}
 	}
 
-	var memSize string
-	if vmSpec.MemorySize != nil {
-		memSize = strconv.FormatFloat(float64(*vmSpec.MemorySize), 'f', 2, 64)
-	}
-
 	// Define a regex to match the number before "GB" in "Disk <number>GB"
 	// *vmSpec.ServerSpecDescription : Ex) "Tesla T4 GPU 2EA, GPUMemory 32GB, vCPU 32EA, Memory 160GB, Disk 50GB"
 	re := regexp.MustCompile(`Disk (\d+)GB`)
@@ -208,11 +203,11 @@ func (vmSpecHandler *NcpVpcVMSpecHandler) mappingVMSpecInfo(ImageId string, vmSp
 	}
 
 	vmSpecInfo := irs.VMSpecInfo{
-		Region: vmSpecHandler.RegionInfo.Region,
-		Name:   *vmSpec.ServerSpecCode,
-		VCpu:   irs.VCpuInfo{Count: String(*vmSpec.CpuCount), Clock: "-1"},
-		Mem:    memSize,
-		Disk:   diskSize,
+		Region:     vmSpecHandler.RegionInfo.Region,
+		Name:       *vmSpec.ServerSpecCode,
+		VCpu:       irs.VCpuInfo{Count: String(*vmSpec.CpuCount), ClockGHz: "-1"},
+		MemSizeMiB: strconv.FormatFloat(float64(*vmSpec.MemorySize)/(1024*1024), 'f', 0, 64), // byte -> MiB
+		DiskSizeGB: diskSize,
 
 		KeyValueList: irs.StructToKeyValueList(vmSpec),
 	}
@@ -223,17 +218,15 @@ func (vmSpecHandler *NcpVpcVMSpecHandler) mappingVMSpecInfo(ImageId string, vmSp
 		vmSpecInfo.Gpu = []irs.GpuInfo{gpuInfo}
 	}
 
-	// vmSpecInfo.Mem = strconv.FormatFloat(float64(*vmSpec.MemorySize)*1024, 'f', 0, 64) // GB->MB로 변환
-	vmSpecInfo.Mem = strconv.FormatFloat(float64(*vmSpec.MemorySize)/(1024*1024), 'f', 0, 64)
 	return vmSpecInfo
 }
 
 func parseGpuInfo(gpuCount string, description string) (gpuInfo irs.GpuInfo) {
 	gpuInfo = irs.GpuInfo{
-		Count: gpuCount,
-		Mfr:   "NA",
-		Model: "NA",
-		Mem:   "-1",
+		Count:     gpuCount,
+		Mfr:       "NA",
+		Model:     "NA",
+		MemSizeGB: "-1",
 	}
 
 	if !strings.Contains(description, "GPU") {
@@ -257,7 +250,7 @@ func parseGpuInfo(gpuCount string, description string) (gpuInfo irs.GpuInfo) {
 	// GPU Memory
 	memMatch := regexp.MustCompile(`GPUMemory\s+(\d+)GB`).FindStringSubmatch(description)
 	if len(memMatch) > 1 {
-		gpuInfo.Mem = memMatch[1]
+		gpuInfo.MemSizeGB = memMatch[1]
 	}
 
 	return

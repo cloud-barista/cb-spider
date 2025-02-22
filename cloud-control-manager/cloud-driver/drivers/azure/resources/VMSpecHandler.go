@@ -8,7 +8,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -195,8 +194,6 @@ func getGpuCount(vmSize string) (ea float32, memory int) {
 					} else if strings.Contains(vmSize, "nv16") {
 						return 0.5, 8
 					} else if strings.Contains(vmSize, "nv32") {
-						fmt.Println(fmt.Println(vmSize))
-						time.Sleep(10 * time.Second)
 						return 1, 16
 					}
 				}
@@ -315,15 +312,11 @@ func parseGpuInfo(vmSizeName string) *irs.GpuInfo {
 		model, _ = strings.CutPrefix(modelFullName, "AMD ")
 	}
 
-	if mem != -1 {
-		mem *= 1024
-	}
-
 	return &irs.GpuInfo{
-		Count: countStr,
-		Mem:   fmt.Sprintf("%d", mem),
-		Mfr:   mfr,
-		Model: model,
+		Count:     countStr,
+		MemSizeGB: fmt.Sprintf("%d", mem), // GB
+		Mfr:       mfr,
+		Model:     model,
 	}
 }
 
@@ -343,11 +336,12 @@ func setterVmSpec(region string, vmSpec *armcompute.VirtualMachineSize) *irs.VMS
 	}
 
 	vmSpecInfo := &irs.VMSpecInfo{
-		Region:       region,
-		Name:         *vmSpec.Name,
-		VCpu:         irs.VCpuInfo{Count: strconv.FormatInt(int64(*vmSpec.NumberOfCores), 10), Clock: "-1"},
-		Mem:          strconv.FormatInt(int64(*vmSpec.MemoryInMB), 10),
-		Disk:         strconv.FormatInt(int64(*vmSpec.OSDiskSizeInMB/1024), 10),
+		Region:     region,
+		Name:       *vmSpec.Name,
+		VCpu:       irs.VCpuInfo{Count: strconv.FormatInt(int64(*vmSpec.NumberOfCores), 10), ClockGHz: "-1"},
+		MemSizeMiB: strconv.FormatInt(int64(float64(*vmSpec.MemoryInMB)*(1000.0/1024.0)), 10), // MB -> MiB
+		// ref) https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/ncast4v3-series
+		DiskSizeGB:   strconv.FormatInt(int64(float64(*vmSpec.ResourceDiskSizeInMB)/1024.0*1.073741824), 10), // MiB(real) -> GB
 		Gpu:          gpuInfoList,
 		KeyValueList: keyValueList,
 	}

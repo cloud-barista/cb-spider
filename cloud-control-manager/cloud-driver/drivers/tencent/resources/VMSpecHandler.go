@@ -291,7 +291,7 @@ func extractVmSpec(instanceTypeInfo *cvm.InstanceTypeQuotaItem) irs.VMSpecInfo {
 
 	//Memory 정보 처리
 	if !reflect.ValueOf(instanceTypeInfo.Memory).IsNil() {
-		vmSpecInfo.Mem = strconv.FormatInt(*instanceTypeInfo.Memory*1024, 10) // GB->MB로 변환
+		vmSpecInfo.MemSizeMiB = strconv.FormatInt(*instanceTypeInfo.Memory*1024, 10) // GiB->MiB
 	}
 
 	//VCPU 정보 처리 - Count
@@ -317,9 +317,9 @@ func extractVmSpec(instanceTypeInfo *cvm.InstanceTypeQuotaItem) irs.VMSpecInfo {
 
 		if match != "" {
 			//targetClock = match
-			vCpuInfo.Clock = match
+			vCpuInfo.ClockGHz = match
 		} else {
-			vCpuInfo.Clock = "-1"
+			vCpuInfo.ClockGHz = "-1"
 		}
 
 	}
@@ -338,10 +338,10 @@ func extractVmSpec(instanceTypeInfo *cvm.InstanceTypeQuotaItem) irs.VMSpecInfo {
 
 		// 기본 값 설정
 		gpuInfo := irs.GpuInfo{
-			Count: "-1",
-			Model: "NA",
-			Mfr:   "NA",
-			Mem:   "-1",
+			Count:     "-1",
+			Model:     "NA",
+			Mfr:       "NA",
+			MemSizeGB: "-1",
 		}
 		gpuInfo.Count = strconv.FormatInt(*instanceTypeInfo.Gpu, 10)
 
@@ -353,7 +353,7 @@ func extractVmSpec(instanceTypeInfo *cvm.InstanceTypeQuotaItem) irs.VMSpecInfo {
 	vmSpecInfo.Gpu = gpuInfoList
 
 	// Disk   string    `json:"Disk" validate:"required" example:"8"`           // Disk size in GB, "-1" when not applicable
-	vmSpecInfo.Disk = "-1"
+	vmSpecInfo.DiskSizeGB = "-1"
 
 	vmSpecInfo.KeyValueList = irs.StructToKeyValueList(instanceTypeInfo)
 
@@ -376,7 +376,7 @@ func ExtractVMSpecInfo(instanceTypeInfo *cvm.InstanceTypeConfig) irs.VMSpecInfo 
 
 	//Memory 정보 처리
 	if !reflect.ValueOf(instanceTypeInfo.Memory).IsNil() {
-		vmSpecInfo.Mem = strconv.FormatInt(*instanceTypeInfo.Memory*1024, 10) // GB->MB로 변환
+		vmSpecInfo.MemSizeMiB = strconv.FormatInt(*instanceTypeInfo.Memory*1024, 10) // GB->MB로 변환
 	}
 
 	//VCPU 정보 처리 - Count
