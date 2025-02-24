@@ -313,10 +313,11 @@ func parseGpuInfo(vmSizeName string) *irs.GpuInfo {
 	}
 
 	return &irs.GpuInfo{
-		Count:     countStr,
-		MemSizeGB: fmt.Sprintf("%d", mem), // GB
-		Mfr:       mfr,
-		Model:     model,
+		Mfr:            mfr,
+		Model:          model,
+		MemSizeGB:      fmt.Sprintf("%d", int64(float64(mem)/float64(count))), // GB, mem is total memory size
+		Count:          countStr,
+		TotalMemSizeGB: fmt.Sprintf("%d", mem), // GB, mem is total memory size
 	}
 }
 
@@ -339,9 +340,9 @@ func setterVmSpec(region string, vmSpec *armcompute.VirtualMachineSize) *irs.VMS
 		Region:     region,
 		Name:       *vmSpec.Name,
 		VCpu:       irs.VCpuInfo{Count: strconv.FormatInt(int64(*vmSpec.NumberOfCores), 10), ClockGHz: "-1"},
-		MemSizeMiB: strconv.FormatInt(int64(float64(*vmSpec.MemoryInMB)*(1000.0/1024.0)), 10), // MB -> MiB
+		MemSizeMiB: irs.ConvertMBToMiBInt64(int64(*vmSpec.MemoryInMB)), // MB -> MiB
 		// ref) https://learn.microsoft.com/en-us/azure/virtual-machines/sizes/gpu-accelerated/ncast4v3-series
-		DiskSizeGB:   strconv.FormatInt(int64(float64(*vmSpec.ResourceDiskSizeInMB)/1024.0*1.073741824), 10), // MiB(real) -> GB
+		DiskSizeGB:   irs.ConvertMiBToGBInt64(int64(*vmSpec.ResourceDiskSizeInMB)), // MiB(real) -> GB
 		Gpu:          gpuInfoList,
 		KeyValueList: keyValueList,
 	}

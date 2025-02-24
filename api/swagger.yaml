@@ -236,7 +236,7 @@ definitions:
     properties:
       Count:
         description: Number of GPUs, "-1" when not applicable
-        example: "1"
+        example: "2"
         type: string
       MemSizeGB:
         description: Memory size of the GPU in GB, "-1" when not applicable
@@ -249,6 +249,10 @@ definitions:
       Model:
         description: Model of the GPU, NA when not applicable
         example: Tesla K80
+        type: string
+      TotalMemSizeGB:
+        description: Total Memory size of the GPU in GB, "-1" when not applicable
+        example: "24"
         type: string
     required:
     - Count

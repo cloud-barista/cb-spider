@@ -15,7 +15,6 @@ package resources
 import (
 	"errors"
 	"fmt"
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -204,13 +203,6 @@ func (vmSpecHandler *KtCloudVMSpecHandler) mappingVMSpecInfo(productType *ktsdk.
 	}
 	MemCountMbStr := strconv.Itoa(MemCountGb * 1024) // Convert number to string
 
-	// ### Note!!) If the diskofferingid value exists, additional data disks are created.(=> So to get the 'Correct RootDiskSize')
-	diskSize, err := vmSpecHandler.getRootDiskSize(&productType.DiskOfferingDesc, &productType.TemplateId, &productType.DiskOfferingId)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the Root Disk Size of the VMSpec: [%v]", err)
-		cblogger.Error(newErr.Error())
-		return irs.VMSpecInfo{}, newErr
-	}
 	// In case: productType.DiskOfferingDesc : 100G (After Disk Add)
 	// if len(productType.DiskOfferingId) > 1 {
 	// 	ktVMSpecID = productType.ServiceOfferingId + "#" + productType.DiskOfferingId + "_disk" + productType.DiskOfferingDesc
@@ -221,7 +213,7 @@ func (vmSpecHandler *KtCloudVMSpecHandler) mappingVMSpecInfo(productType *ktsdk.
 		Name:       ktVMSpecId,
 		VCpu:       irs.VCpuInfo{Count: productVCpu, ClockGHz: "-1"},
 		MemSizeMiB: MemCountMbStr,
-		DiskSizeGB: diskSize,
+		DiskSizeGB: strings.TrimSuffix(productType.DiskOfferingDesc, "GB"),
 		// No GPU, No Info Gpu:    []irs.GpuInfo{{Count: "-1", Mfr: "NA", Model: "NA", Mem: "-1"}},
 
 		// Since KT Cloud supports different specs for each zone, the zone information is also provided.
@@ -265,84 +257,4 @@ func (vmSpecHandler *KtCloudVMSpecHandler) GetOrgVMSpec(Name string) (string, er
 		cblogger.Error(errJson)
 	}
 	return jsonString, errJson
-}
-
-// ### Note!!) If the diskofferingid value exists, additional data disks are created.(=> So to get the 'Correct RootDiskSize')
-func (vmSpecHandler *KtCloudVMSpecHandler) getRootDiskSize(diskOfferingDesc *string, templateId *string, diskOfferingId *string) (string, error) {
-	// cblogger.Info("KT Cloud cloud driver: called getRootDiskSize()!")
-
-	if strings.EqualFold(*diskOfferingDesc, "") {
-		newErr := fmt.Errorf("Invalid diskOfferingDesc value!!")
-		cblogger.Error(newErr.Error())
-		return "", newErr
-	}
-
-	if strings.EqualFold(*templateId, "") {
-		newErr := fmt.Errorf("Invalid templateId value!!")
-		cblogger.Error(newErr.Error())
-		return "", newErr
-	}
-
-	// diskOfferingDesc Ex : "100GB"
-	re := regexp.MustCompile(`(\d+)GB`)
-	matches := re.FindStringSubmatch(*diskOfferingDesc) // Find the match
-
-	var offeringDiskSizeStr string
-	if len(matches) > 1 {
-		offeringDiskSizeStr = matches[1] // Extract only the numeric part. Ex : "100"
-	}
-	if strings.EqualFold(offeringDiskSizeStr, "") {
-		return "-1", nil
-	}
-
-	// Populate the Global Map (if not yet) : globalImageMap
-	// cblogger.Infof("\n\n### Image list count in globalImageMap :  [%d]\n", len(globalImageMap))
-	if len(globalImageMap) < 1 {
-		imageHandler := KtCloudImageHandler{
-			RegionInfo: vmSpecHandler.RegionInfo,
-			Client:     vmSpecHandler.Client,
-		}
-		imageInfoList, err := imageHandler.ListImage()
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Get VM Image Info List : [%v]", err)
-			return "", newErr
-		}
-
-		for _, imageInfo := range imageInfoList {
-			globalImageMap[imageInfo.Name] = imageInfo
-		}
-	}
-
-	if !strings.EqualFold(*diskOfferingId, "") {
-		// ### Note) If GetImage() runs repeatedly, too many API calls occur.
-		// imageInfo, err := imageHandler.GetImage(irs.IID{SystemId: *templateId})
-		// if err != nil {
-		// 	newErr := fmt.Errorf("Failed to Get the VM Image Info : [%v]", err)
-		// 	return "", newErr
-		// }
-
-		imageInfo, exists := globalImageMap[*templateId]
-		if !exists {
-			newErr := fmt.Errorf("Failed to Find the Image Info that corresponds to the templateId.")
-			cblogger.Error(newErr.Error())
-			return "", newErr
-		}
-
-		offeringDiskSizeInt, err := strconv.Atoi(offeringDiskSizeStr)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Convert the string to number : [%v]", err)
-			return "", newErr
-		}
-		osDiskSizeInGBInt, err := strconv.Atoi(imageInfo.OSDiskSizeInGB)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Convert the string to number : [%v]", err)
-			return "", newErr
-		}
-		// cblogger.Infof("offeringDiskSizeInt : [%d] / osDiskSizeInGBInt : [%d]", offeringDiskSizeInt, osDiskSizeInGBInt)
-
-		rootDiskSizeInt := offeringDiskSizeInt - osDiskSizeInGBInt
-		return strconv.Itoa(rootDiskSizeInt), nil // rootDiskSizeStr Ex : "50"
-	} else {
-		return offeringDiskSizeStr, nil
-	}
 }

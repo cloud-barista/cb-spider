@@ -30,10 +30,11 @@ type VCpuInfo struct {
 
 // GpuInfo represents the GPU details of a VM specification.
 type GpuInfo struct {
-	Count     string `json:"Count" validate:"required" example:"1"`                    // Number of GPUs, "-1" when not applicable
-	Mfr       string `json:"Mfr,omitempty" validate:"omitempty" example:"NVIDIA"`      // Manufacturer of the GPU, NA when not applicable
-	Model     string `json:"Model,omitempty" validate:"omitempty" example:"Tesla K80"` // Model of the GPU, NA when not applicable
-	MemSizeGB string `json:"MemSizeGB,omitempty" validate:"omitempty" example:"12"`    // Memory size of the GPU in GB, "-1" when not applicable
+	Count          string `json:"Count" validate:"required" example:"2"`                      // Number of GPUs, "-1" when not applicable
+	Mfr            string `json:"Mfr,omitempty" validate:"omitempty" example:"NVIDIA"`        // Manufacturer of the GPU, NA when not applicable
+	Model          string `json:"Model,omitempty" validate:"omitempty" example:"Tesla K80"`   // Model of the GPU, NA when not applicable
+	MemSizeGB      string `json:"MemSizeGB,omitempty" validate:"omitempty" example:"12"`      // Memory size of the GPU in GB, "-1" when not applicable
+	TotalMemSizeGB string `json:"TotalMemSizeGB,omitempty" validate:"omitempty" example:"24"` // Total Memory size of the GPU in GB, "-1" when not applicable
 }
 
 type VMSpecHandler interface {

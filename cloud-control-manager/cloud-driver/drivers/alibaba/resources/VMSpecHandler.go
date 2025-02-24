@@ -43,10 +43,11 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMS
 
 	// 기본 값 설정
 	gpuInfo := irs.GpuInfo{
-		Count:     "-1",
-		Model:     "NA",
-		Mfr:       "NA",
-		MemSizeGB: "-1",
+		Count:          "-1",
+		Model:          "NA",
+		Mfr:            "NA",
+		MemSizeGB:      "-1",
+		TotalMemSizeGB: "-1",
 	}
 
 	if instanceTypeInfo.GPUAmount != 0 {
@@ -61,7 +62,8 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMS
 		}
 
 		if instanceTypeInfo.GPUMemorySize != 0 {
-			gpuInfo.MemSizeGB = strconv.FormatFloat(instanceTypeInfo.GPUMemorySize, 'f', -1, 64)
+			gpuInfo.MemSizeGB = strconv.Itoa(int(instanceTypeInfo.GPUMemorySize))
+			gpuInfo.TotalMemSizeGB = strconv.Itoa(int(instanceTypeInfo.GPUMemorySize) * instanceTypeInfo.GPUAmount)
 		}
 
 		gpuInfoList = append(gpuInfoList, gpuInfo)
@@ -93,13 +95,12 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMS
 
 	//if !reflect.ValueOf(&instanceTypeInfo.MemorySize).IsNil() {
 	//vmSpecInfo.Mem = strconv.FormatFloat(instanceTypeInfo.MemorySize, 'f', 0, 64)
-	vmSpecInfo.MemSizeMiB = strconv.FormatFloat(instanceTypeInfo.MemorySize*1024, 'f', 0, 64) // GB->MiB로 변환
+	vmSpecInfo.MemSizeMiB = strconv.FormatFloat(instanceTypeInfo.MemorySize*1024, 'f', 0, 64) // GiB(real)->MiB로 변환
 	//}
 
 	// LocalStorageCapacity: GiB -> GB (1GiB = 1.073741824GB)
 	if instanceTypeInfo.LocalStorageCapacity > 0 {
-		gb := float64(instanceTypeInfo.LocalStorageCapacity) * 1.073741824
-		vmSpecInfo.DiskSizeGB = strconv.FormatFloat(gb, 'f', 2, 64)
+		vmSpecInfo.DiskSizeGB = irs.ConvertGiBToGBInt64(instanceTypeInfo.LocalStorageCapacity)
 	} else {
 		vmSpecInfo.DiskSizeGB = "-1"
 	}

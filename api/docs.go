@@ -8820,7 +8820,7 @@ const docTemplate = `{
                 "Count": {
                     "description": "Number of GPUs, \"-1\" when not applicable",
                     "type": "string",
-                    "example": "1"
+                    "example": "2"
                 },
                 "MemSizeGB": {
                     "description": "Memory size of the GPU in GB, \"-1\" when not applicable",
@@ -8836,6 +8836,11 @@ const docTemplate = `{
                     "description": "Model of the GPU, NA when not applicable",
                     "type": "string",
                     "example": "Tesla K80"
+                },
+                "TotalMemSizeGB": {
+                    "description": "Total Memory size of the GPU in GB, \"-1\" when not applicable",
+                    "type": "string",
+                    "example": "24"
                 }
             }
         },

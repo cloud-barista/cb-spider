@@ -158,14 +158,15 @@
             &nbsp;* Count: {{$spec.VCpu.Count}}<br>
             &nbsp;* Clock: {{$spec.VCpu.ClockGHz}} GHz<br>
         </td>
-        <td class="column-meminfo">{{$spec.MemSizeMiB}}</td>
+        <td class="column-meminfo">{{$spec.MemSizeMiB}} MiB</td>
         <td class="column-diskinfo">{{$spec.DiskSizeGB}}</td>
         <td class="column-gpuinfo">
             {{range $gpu := $spec.Gpu}}
                 &nbsp;* Mfr: {{$gpu.Mfr}}<br>
                 &nbsp;* Model: {{$gpu.Model}}<br>
                 &nbsp;* Memory: {{$gpu.MemSizeGB}} GB<br>
-                &nbsp;* Count: {{$gpu.Count}}<br><br>
+                &nbsp;* Count: {{$gpu.Count}}<br>
+                &nbsp;* TotalMemory: {{$gpu.TotalMemSizeGB}} GB<br>
             {{end}}
         </td>
         <td class="column-Misc">

@@ -206,7 +206,7 @@ func (vmSpecHandler *NcpVpcVMSpecHandler) mappingVMSpecInfo(ImageId string, vmSp
 		Region:     vmSpecHandler.RegionInfo.Region,
 		Name:       *vmSpec.ServerSpecCode,
 		VCpu:       irs.VCpuInfo{Count: String(*vmSpec.CpuCount), ClockGHz: "-1"},
-		MemSizeMiB: strconv.FormatFloat(float64(*vmSpec.MemorySize)/(1024*1024), 'f', 0, 64), // byte -> MiB
+		MemSizeMiB: irs.ConvertByteToMiBInt64(*vmSpec.MemorySize), // Byte -> MiB
 		DiskSizeGB: diskSize,
 
 		KeyValueList: irs.StructToKeyValueList(vmSpec),
@@ -214,16 +214,16 @@ func (vmSpecHandler *NcpVpcVMSpecHandler) mappingVMSpecInfo(ImageId string, vmSp
 
 	// If the GPU count is not nil, add the GPU information to the VMSpecInfo
 	if vmSpec.GpuCount != nil {
-		gpuInfo := parseGpuInfo(strconv.Itoa(int(*vmSpec.GpuCount)), *vmSpec.ServerSpecDescription)
+		gpuInfo := parseGpuInfo(*vmSpec.GpuCount, *vmSpec.ServerSpecDescription)
 		vmSpecInfo.Gpu = []irs.GpuInfo{gpuInfo}
 	}
 
 	return vmSpecInfo
 }
 
-func parseGpuInfo(gpuCount string, description string) (gpuInfo irs.GpuInfo) {
+func parseGpuInfo(gpuCount int32, description string) (gpuInfo irs.GpuInfo) {
 	gpuInfo = irs.GpuInfo{
-		Count:     gpuCount,
+		Count:     strconv.Itoa(int(gpuCount)),
 		Mfr:       "NA",
 		Model:     "NA",
 		MemSizeGB: "-1",
@@ -242,7 +242,7 @@ func parseGpuInfo(gpuCount string, description string) (gpuInfo irs.GpuInfo) {
 
 	// Model
 	if strings.Contains(description, "A100P") {
-		gpuInfo.Model = "NVIDIA A100P"
+		gpuInfo.Model = "A100P"
 	} else if strings.Contains(description, "T4") {
 		gpuInfo.Model = "TESLA T4"
 	}
@@ -250,7 +250,13 @@ func parseGpuInfo(gpuCount string, description string) (gpuInfo irs.GpuInfo) {
 	// GPU Memory
 	memMatch := regexp.MustCompile(`GPUMemory\s+(\d+)GB`).FindStringSubmatch(description)
 	if len(memMatch) > 1 {
-		gpuInfo.MemSizeGB = memMatch[1]
+		gpuInfo.TotalMemSizeGB = memMatch[1]
+		memSize, err := strconv.Atoi(memMatch[1])
+		if err != nil {
+			cblogger.Errorf("Failed to convert GPU Memory size to integer : %v", err)
+			return irs.GpuInfo{}
+		}
+		gpuInfo.MemSizeGB = fmt.Sprintf("%d", int64(memSize)/int64(gpuCount))
 	}
 
 	return
