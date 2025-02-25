@@ -62,6 +62,7 @@ func handleVM() {
 		fmt.Println("7. Get VMStatus")
 		fmt.Println("8. List VMStatus")
 		fmt.Println("9. List VM")
+		fmt.Println("10. List IID")
 		fmt.Println("0. Exit")
 		fmt.Println("\n   Select a number above!! : ")
 		fmt.Println("============================================================================================")
@@ -98,15 +99,16 @@ func handleVM() {
 					// WIN 2019 STD 64bit [Korean] image와 호환
 
 					// # Zone: KOR-Central A
-					// ImageIID: irs.IID{NameId: "Ubuntu 20.04 64bit", SystemId: "87838094-af4f-449f-a2f4-f5b4b581eb29"},
-					// VMSpecName: "d3530ad2-462b-43ad-97d5-e1087b952b7d!_disk20GB",
+					ImageIID: irs.IID{NameId: "Ubuntu 20.04 64bit", SystemId: "87838094-af4f-449f-a2f4-f5b4b581eb29"},
+					VMSpecName: "d3530ad2-462b-43ad-97d5-e1087b952b7d!_disk20GB",
 					// 상기 Ubuntu 20.04 64bit image와 호환
 
 					// VMSpecName: "543b1f26-eddf-4521-9cbd-f3744aa2cc52!cc85e4dd-bfd9-4cec-aa22-cf226c1da92f_disk100GB",
 							
 					// # Zone: KOR-Seoul M2
-					ImageIID: irs.IID{NameId: "Ubuntu 20.04 64bit", SystemId: "23bc4025-8a16-4ebf-aa49-3160ee2ac24b"},
-					VMSpecName: "c219de89-e664-49f0-aa64-d533b93dd2cf!_disk20GB",
+					// ImageIID: irs.IID{NameId: "Ubuntu 20.04 64bit", SystemId: "23bc4025-8a16-4ebf-aa49-3160ee2ac24b"},
+					// VMSpecName: "df5e0f9d-b19e-456a-ab1f-7c19c3b737f3!_disk20GB",					
+					// VMSpecName: "c219de89-e664-49f0-aa64-d533b93dd2cf!_disk20GB",
 					// Ubuntu 20.04 이미지와 호환, * Count: 8, 16384 MB					
 
 					// # Zone: KOR-HA
@@ -116,28 +118,30 @@ func handleVM() {
 					// VMSpecName: "91884f5a-8d72-4bdc-a76d-8526d95b6f40!_disk20GB",
 					// Centos 7.6 64bit 이미지와 호환
 
-					// # Zone: M2 (Seoul-2)
-					//ImageIID:   irs.IID{NameId: "Ubuntu-18.04-64bit", SystemId: "63de6d04-7f1b-4924-8e95-1acd6581ca0c"},
-					
-					// # Zone: M2 (Seoul-2)
-					//VMSpecName: "c308f760-068a-4cdd-abc9-edb581d18e58", //4 vCore, 8 GB
+					// # Zone: M
+					// ImageIID:   irs.IID{NameId: "Ubuntu 20.04 64bit", SystemId: "87838094-af4f-449f-a2f4-f5b4b581eb29"},					
+					// VMSpecName: "d3530ad2-462b-43ad-97d5-e1087b952b7d!_disk20GB", //4 vCore, 8 GB
 					//######################################################################
 
-					KeyPairIID: irs.IID{SystemId: "oh-m2-keypair-01-cng5qvsvtts6e4l7p1o0"},
-					// KeyPairIID: irs.IID{SystemId: "kt-key-15"},
+					// # Zone: KOR-Seoul M2
+					// KeyPairIID: irs.IID{SystemId: "oh-m2-keypair-01-cng5qvsvtts6e4l7p1o0"},
+					// KeyPairIID: irs.IID{SystemId: "ktcloud-kor-seoul-d7d0177e-6cda-404a-a46f-a5b356d2874e-keypair-i6e-cr2776svttsfdnegpekg"},
+
+					// # Zone: KOR-Seoul M
+					KeyPairIID: irs.IID{SystemId: "ktcloud-kor-central-eceb5d65-6571-4696-875f-5a17949f3317-keypair-ujs-csi85v4vtts45j333nkg"},					
 
 					VpcIID: irs.IID{
-						NameId: "oh-vpc-01-cng5q1cvtts6e4l7p1mg",
 						// NameId: "myTest-vpc-01",
+						SystemId: "ktcloud-k-crmhrbkvtts4lvbpej3g",
 					},					
-					SubnetIID: irs.IID{
-						NameId: "subnet-01-cng5q1cvtts6e4l7p1n0",
+					SubnetIID: irs.IID{						
 						// NameId: "myTest-subnet-01",
+						SystemId: "ktcloud-k-crmhrbkvtts4lvbpej40",
 					},
 
 					// SecurityGroupIIDs: []irs.IID{{SystemId: "KT-SG-1"},},
-					SecurityGroupIIDs: []irs.IID{{SystemId: "oh-sg01-cng5q4kvtts6e4l7p1ng"}},
-					// SecurityGroupIIDs: []irs.IID{{SystemId: "CB-Security5"},{SystemId: "CB-Security6"}},
+					SecurityGroupIIDs: []irs.IID{{SystemId: "ktcloud-k-crmhrhkvtts4lvbpej4g"}},
+					// SecurityGroupIIDs: []irs.IID{{SystemId: "CB-Security4"},{SystemId: "CB-Security5"}},
 
 					// KT Cloud Disk(diskofferingid 지정하지 않을때) : Default : 20 GB
 					// RootDiskType: "SSD",
@@ -145,6 +149,11 @@ func handleVM() {
 
 					// RootDiskSize: "200", // For Testing
 					RootDiskSize: "", // CB-Spider default
+
+					TagList: []irs.KeyValue{
+						{ Key: "aaa", Value: "aaaAAAAA"},
+						{ Key: "ccc", Value: "cccCCCCC"},
+					},
 				}
 
 				vmInfo, err := vmHandler.StartVM(vmReqInfo)
@@ -157,7 +166,6 @@ func handleVM() {
 					spew.Dump(vmInfo)
 				}
 				//cblogger.Info(vm)
-
 				cblogger.Info("\nCreateVM Test Finished")
 
 			case 2:
@@ -170,7 +178,6 @@ func handleVM() {
 					cblogger.Info(vmInfo)
 					spew.Dump(vmInfo)
 				}
-
 				cblogger.Info("\nGetVM Test Finished")
 
 			case 3:
@@ -182,7 +189,6 @@ func handleVM() {
 				} else {
 					cblogger.Infof("[%s] VM Suspend 실행 성공 : [%s]", VmID, result)
 				}
-
 				cblogger.Info("\nSuspendVM Test Finished")
 
 			case 4:
@@ -194,7 +200,6 @@ func handleVM() {
 				} else {
 					cblogger.Infof("[%s] VM Resume 실행 성공 : [%s]", VmID, result)
 				}
-
 				cblogger.Info("\nResumeVM Test Finished")
 
 			case 5:
@@ -206,7 +211,6 @@ func handleVM() {
 				} else {
 					cblogger.Infof("[%s] VM Reboot 실행 성공 : [%s]", VmID, result)
 				}
-
 				cblogger.Info("\nRebootVM Test Finished")
 
 			case 6:
@@ -218,7 +222,6 @@ func handleVM() {
 				} else {
 					cblogger.Infof("[%s] Terminate VM 실행 성공 : [%s]", VmID, result)
 				}
-
 				cblogger.Info("\nTerminateVM Test Finished")
 
 			case 7:
@@ -230,7 +233,6 @@ func handleVM() {
 				} else {
 					cblogger.Infof("[%s] Get VM Status 실행 성공 : [%s]", VmID, vmStatus)
 				}
-
 				cblogger.Info("\nGet VMStatus Test Finished")
 
 			case 8:
@@ -244,7 +246,6 @@ func handleVM() {
 					//cblogger.Info(vmStatusInfos)
 					spew.Dump(vmStatusInfos)
 				}
-
 				cblogger.Info("\nListVM Status Test Finished")
 
 			case 9:
@@ -263,9 +264,20 @@ func handleVM() {
 						VmID = vmList[0].IId
 					}
 				}
-
 				cblogger.Info("\nListVM Test Finished")
 
+			case 10:
+				cblogger.Info("Start ListIID() ...")
+				result, err := vmHandler.ListIID()
+				if err != nil {
+					cblogger.Error("Failed to Get VM IID list : ", err)
+				} else {
+					cblogger.Info("Succeeded in Getting VM IID list!!")
+					spew.Dump(result)
+					cblogger.Debug(result)
+					cblogger.Infof("Total IID list count : [%d]", len(result))
+				}
+				cblogger.Info("\nListIID() Test Finished")
 			}
 		}
 	}

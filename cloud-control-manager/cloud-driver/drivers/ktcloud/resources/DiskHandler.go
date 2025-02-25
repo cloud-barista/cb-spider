@@ -7,16 +7,16 @@
 // This is a Cloud Driver Example for PoC Test.
 //
 // by ETRI, 2022.08.
+// Updated by ETRI, 2025.02.
 
 package resources
 
 import (
-	"errors"
+	// "errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
-
 	// "github.com/davecgh/go-spew/spew"
 
 	ktsdk "github.com/cloud-barista/ktcloud-sdk-go"
@@ -184,15 +184,16 @@ func (diskHandler *KtCloudDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	start := call.Start()
 	result, err := diskHandler.Client.ListVolumes(volumeReq)
 	if err != nil {
-		cblogger.Error("Failed to Get KT Cloud Volume list : [%v]", err)
-		return []*irs.DiskInfo{}, err
+		newErr := fmt.Errorf("Failed to Get KT Cloud Volume list : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
 	}
 	LoggingInfo(callLogInfo, start)
 	// spew.Dump(result)
 
 	if len(result.Listvolumesresponse.Volume) < 1 {
 		cblogger.Info("# KT Cloud Volume does Not Exist!!")
-		return []*irs.DiskInfo{}, nil // Not Return Error
+		return nil, nil // Not Return Error
 	}
 	// spew.Dump(result.Listvolumesresponse.Volume)
 
@@ -1015,7 +1016,35 @@ func findDiskOfferingId(diskType, size string, offerings []DiskOffering) (string
 	return "", newErr
 }
 
-func (DiskHandler *KtCloudDiskHandler) ListIID() ([]*irs.IID, error) {
+func (diskHandler *KtCloudDiskHandler) ListIID() ([]*irs.IID, error) {
 	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Zone, call.DISK, "ListIID()", "ListIID()")
+
+    volumeReq := ktsdk.ListVolumeReqInfo{
+        ZoneId: diskHandler.RegionInfo.Zone,
+    }
+	start := call.Start()
+	result, err := diskHandler.Client.ListVolumes(volumeReq)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get KT Cloud Volume list : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+	LoggingInfo(callLogInfo, start)
+
+    if len(result.Listvolumesresponse.Volume) < 1 {
+        cblogger.Info("### There is No Disk!!")
+        return nil, nil
+    }
+
+    var iidList []*irs.IID
+    for _, volume := range result.Listvolumesresponse.Volume {
+        iid := &irs.IID{
+            NameId:   volume.Name,
+            SystemId: volume.ID,
+        }
+        iidList = append(iidList, iid)
+    }
+    return iidList, nil
 }

@@ -9,6 +9,7 @@
 // by ETRI, 2021.05.
 // Updated by ETRI, 2023.11.
 // Updated by ETRI, 2024.04.
+// Updated by ETRI, 2025.02.
 
 package resources
 
@@ -1263,13 +1264,14 @@ func (vmHandler *KtCloudVMHandler) ListVM() ([]*irs.VMInfo, error) {
 
 	ktVMList, err := vmHandler.listKTCloudVM()
 	if err != nil {
-		cblogger.Errorf("Failed to Get the List of VMs : [%v]", err)
-		return []*irs.VMInfo{}, err
+		newErr := fmt.Errorf("Failed to Get the List of VMs : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
 	}
 	if len(ktVMList) < 1 {
 		cblogger.Info("### There is No VM!!")
-		return []*irs.VMInfo{}, nil
-		// return []*irs.VMStatusInfo{}, errors.New("Failed to Find VM list!!")
+		return nil, nil
+		// return nil, errors.New("Failed to Find VM list!!")
 	}
 
 	var vmInfoList []*irs.VMInfo	
@@ -1278,7 +1280,7 @@ func (vmHandler *KtCloudVMHandler) ListVM() ([]*irs.VMInfo, error) {
 		vmInfo, err:= vmHandler.mappingVMInfo(&ktVM)
 		if err != nil {
 			cblogger.Errorf("Failed to Map the VM info : [%v]", err)
-			return []*irs.VMInfo{}, err
+			return nil, err
 		}		
 		vmInfoList = append(vmInfoList, &vmInfo)
 	}
@@ -1293,13 +1295,13 @@ func (vmHandler *KtCloudVMHandler) listKTCloudVM() ([]ktsdk.Virtualmachine, erro
 	}
 	result, err := vmHandler.Client.ListVirtualMachines(vmListReqInfo)
 	if err != nil {
-		cblogger.Errorf("Failed to Get the VM List from KT Cloud : [%v]", err)
-		return []ktsdk.Virtualmachine{}, err
+		newErr := fmt.Errorf("Failed to Get the VM List from KT Cloud : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
 	}
 	if len(result.Listvirtualmachinesresponse.Virtualmachine) < 1 {
 		cblogger.Info("### There is No VM!!")
-		return []ktsdk.Virtualmachine{}, nil
-		// return []*irs.VMInfo{}, errors.New("Failed to Find the VM list!!")
+		return nil, nil
 	}
 	// spew.Dump(result)
 	return result.Listvirtualmachinesresponse.Virtualmachine, nil
@@ -2090,5 +2092,25 @@ func (vmHandler *KtCloudVMHandler) createWinInitUserData(passWord string) (*stri
 
 func (vmHandler *KtCloudVMHandler) ListIID() ([]*irs.IID, error) {
 	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	
+    ktVMList, err := vmHandler.listKTCloudVM()
+    if err != nil {
+        newErr := fmt.Errorf("Failed to Get the List of VMs : [%v]", err)
+        cblogger.Error(newErr.Error())
+        return nil, newErr
+    }
+    if len(ktVMList) < 1 {
+        cblogger.Info("### There is No VM!!")
+        return nil, nil
+    }
+
+    var iidList []*irs.IID
+    for _, ktVM := range ktVMList {
+        iid := &irs.IID{
+            NameId:   ktVM.Name,
+            SystemId: ktVM.ID,
+        }
+        iidList = append(iidList, iid)
+    }
+    return iidList, nil
 }

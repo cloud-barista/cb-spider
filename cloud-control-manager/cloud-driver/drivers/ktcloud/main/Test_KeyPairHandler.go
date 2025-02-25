@@ -56,12 +56,13 @@ func handleKeyPair() {
 		fmt.Println("2. Get KeyPair")
 		fmt.Println("3. Create KeyPair")
 		fmt.Println("4. Delete KeyPair")
+		fmt.Println("5. List IID")
 		fmt.Println("0. Quit")
 		fmt.Println("\n   Select a number above!! : ")
 		fmt.Println("============================================================================================")
 
 		//keyPairName := config.Ncp.KeyName
-		keyPairName := "kt-key-01"
+		keyPairName := "kt-key-15"
 		var commandNum int
 
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -86,7 +87,6 @@ func handleKeyPair() {
 
 					cblogger.Infof("=========== KeyPair list 수 : [%d] ================", len(result))
 				}
-
 				cblogger.Info("\nListKey Test Finished")
 
 			case 2:
@@ -99,7 +99,6 @@ func handleKeyPair() {
 					cblogger.Infof("[%s] KeyPair 조회 결과 : \n[%s]", keyPairName, result)
 					spew.Dump(result)
 				}
-
 				cblogger.Info("\nGetKey Test Finished")
 
 			case 3:
@@ -116,7 +115,6 @@ func handleKeyPair() {
 					cblogger.Infof("[%s] KeyPair 생성 결과 : \n[%s]", keyPairName, result)
 					spew.Dump(result)
 				}
-
 				cblogger.Info("\nCreateKey Test Finished")
 
 			case 4:
@@ -129,8 +127,20 @@ func handleKeyPair() {
 					cblogger.Infof("[%s] KeyPair 삭제 결과 : [%s]", keyPairName, result)
 					spew.Dump(result)
 				}
-
 				cblogger.Info("\nDeleteKey Test Finished")
+
+			case 5:
+				cblogger.Info("Start ListIID() ...")
+				result, err := keyPairHandler.ListIID()
+				if err != nil {
+					cblogger.Error("Failed to Get KeyPair IID list : ", err)
+				} else {
+					cblogger.Info("Succeeded in Getting KeyPair IID list!!")
+					spew.Dump(result)
+					cblogger.Debug(result)
+					cblogger.Infof("Total IID list count : [%d]", len(result))
+				}
+				cblogger.Info("\nListIID() Test Finished")
 			}
 		}
 	}
