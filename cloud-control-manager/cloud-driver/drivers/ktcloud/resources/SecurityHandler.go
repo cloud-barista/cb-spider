@@ -8,6 +8,7 @@
 //
 // by ETRI, 2021.05.
 // Updated by ETRI, 2024.09.
+// Updated by ETRI, 2025.02.
 
 package resources
 
@@ -75,17 +76,16 @@ type Security_Rule struct {
 
 func (securityHandler *KtCloudSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
 	cblogger.Info("KT Cloud cloud driver: called CreateSecurity()!")
-	
-	zoneId := securityHandler.RegionInfo.Zone
-	if zoneId == "" {
-		cblogger.Error("Failed to Get Zone info. from the connection info.")
-		return irs.SecurityInfo{}, errors.New("Failed to Get Zone info. from the connection info.")
-	} else {
-		cblogger.Infof("ZoneId : %s", zoneId)
+
+	if strings.EqualFold(securityHandler.RegionInfo.Zone, "") {
+		newErr := fmt.Errorf("Failed to Get Zone info. from the connection info.")
+		cblogger.Error(newErr.Error())
+		return irs.SecurityInfo{}, newErr
 	}
+	// cblogger.Infof("ZoneId : %s", securityHandler.RegionInfo.Zone)
 
 	sgPath := os.Getenv("CBSPIDER_ROOT") + sgDir	
-	sgFilePath := sgPath + zoneId + "/"
+	sgFilePath := sgPath + securityHandler.RegionInfo.Zone + "/"
 	
 	// Check if the KeyPair Folder Exists, and Create it
 	if err := CheckFolderAndCreate(sgPath); err != nil {
@@ -131,7 +131,7 @@ func (securityHandler *KtCloudSecurityHandler) CreateSecurity(securityReqInfo ir
 	// spew.Dump(newSGInfo)
 
 	hashFileName := base64.StdEncoding.EncodeToString([]byte(securityReqInfo.IId.NameId))	
-	cblogger.Infof("# S/G NameId : "+ securityReqInfo.IId.NameId)
+	// cblogger.Infof("# S/G NameId : "+ securityReqInfo.IId.NameId)
 	// cblogger.Infof("# Hashed FileName : "+ hashFileName + ".json")
 
 	file, _ := json.MarshalIndent(newSGInfo, "", " ")
@@ -140,7 +140,7 @@ func (securityHandler *KtCloudSecurityHandler) CreateSecurity(securityReqInfo ir
 		cblogger.Error("Failed to write the file: "+ sgFilePath + hashFileName + ".json", writeErr)
 		return irs.SecurityInfo{}, writeErr
 	}
-	cblogger.Infof("Succeeded in writing the S/G file: "+ sgFilePath + hashFileName + ".json")
+	// cblogger.Infof("Succeeded in writing the S/G file: "+ sgFilePath + hashFileName + ".json")
 
 	// Because it's managed as a file, there's no SystemId created.
 	securityReqInfo.IId.SystemId = securityReqInfo.IId.NameId
@@ -158,19 +158,18 @@ func (securityHandler *KtCloudSecurityHandler) GetSecurity(securityIID irs.IID) 
 	securityIID.NameId = securityIID.SystemId
 	hashFileName := base64.StdEncoding.EncodeToString([]byte(securityIID.NameId))	
 
-	cblogger.Infof("# securityIID.NameId : "+ securityIID.NameId)
+	// cblogger.Infof("# securityIID.NameId : "+ securityIID.NameId)
 	// cblogger.Infof("# hashFileName : "+ hashFileName + ".json")
 
-	zoneId := securityHandler.RegionInfo.Zone
-	if zoneId == "" {
-		cblogger.Error("Failed to Get Zone info. from the connection info.")
-		return irs.SecurityInfo{}, errors.New("Failed to Get Zone info. from the connection info.")
-	} else {
-		cblogger.Infof("ZoneId : %s", zoneId)
+	if strings.EqualFold(securityHandler.RegionInfo.Zone, "") {
+		newErr := fmt.Errorf("Failed to Get Zone info. from the connection info.")
+		cblogger.Error(newErr.Error())
+		return irs.SecurityInfo{}, newErr
 	}
+	// cblogger.Infof("ZoneId : %s", securityHandler.RegionInfo.Zone)
 
 	sgPath := os.Getenv("CBSPIDER_ROOT") + sgDir	
-	sgFilePath := sgPath + zoneId + "/"
+	sgFilePath := sgPath + securityHandler.RegionInfo.Zone + "/"
 	
 	// Check if the KeyPair Folder Exists, and Create it
 	if err := CheckFolderAndCreate(sgPath); err != nil {
@@ -190,7 +189,6 @@ func (securityHandler *KtCloudSecurityHandler) GetSecurity(securityIID irs.IID) 
 		cblogger.Error("Failed to Find the S/G file : "+ sgFileName +" ", err)
 		return irs.SecurityInfo{}, err
     }
-	cblogger.Infof("Succeeded in Finding and Opening the S/G file: "+ sgFileName)
     defer jsonFile.Close()
 
 	var sg SecurityGroup
@@ -217,16 +215,15 @@ func (securityHandler *KtCloudSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 	var securityGroupList []*irs.SecurityInfo
 	// var sg SecurityGroup
 
-	zoneId := securityHandler.RegionInfo.Zone
-	if zoneId == "" {
-		cblogger.Error("Failed to Get Zone info. from the connection info.")
-		return []*irs.SecurityInfo{}, errors.New("Failed to Get Zone info. from the connection info.")
-	} else {
-		cblogger.Infof("ZoneId : %s", zoneId)
+	if strings.EqualFold(securityHandler.RegionInfo.Zone, "") {
+		newErr := fmt.Errorf("Failed to Get Zone info. from the connection info.")
+		cblogger.Error(newErr.Error())
+		return []*irs.SecurityInfo{}, newErr
 	}
+	// cblogger.Infof("ZoneId : %s", securityHandler.RegionInfo.Zone)
 
 	sgPath := os.Getenv("CBSPIDER_ROOT") + sgDir	
-	sgFilePath := sgPath + zoneId + "/"
+	sgFilePath := sgPath + securityHandler.RegionInfo.Zone + "/"
 	
 	// Check if the KeyPair Folder Exists, and Create it
 	if err := CheckFolderAndCreate(sgPath); err != nil {
@@ -256,7 +253,7 @@ func (securityHandler *KtCloudSecurityHandler) ListSecurity() ([]*irs.SecurityIn
 		sgFileName := string(decString)
 		// sgFileName := filePath + file.Name()
 		securityIID.SystemId = sgFileName
-		cblogger.Infof("# S/G Group Name : " + securityIID.SystemId)
+        // cblogger.Infof("# S/G Group Name : [%s]", sgFileName)
 
 		sgInfo, err := securityHandler.GetSecurity(irs.IID{SystemId: securityIID.SystemId})
 		if err != nil {
@@ -272,17 +269,15 @@ func (securityHandler *KtCloudSecurityHandler) DeleteSecurity(securityIID irs.II
 	cblogger.Info("KT Cloud cloud driver: called DeleteSecurity()!")
 
 	securityIID.NameId = securityIID.SystemId
-	zoneId := securityHandler.RegionInfo.Zone
-	if zoneId == "" {
-		cblogger.Error("Failed to Get Zone info. from the connection info.")
 
-		return false, errors.New("Failed to Get Zone info. from the connection info.")
-	} else {
-		cblogger.Infof("ZoneId : %s", zoneId)
+	if strings.EqualFold(securityHandler.RegionInfo.Zone, "") {
+		newErr := fmt.Errorf("Failed to Get Zone info. from the connection info.")
+		cblogger.Error(newErr.Error())
+		return false, newErr
 	}
 
 	sgPath := os.Getenv("CBSPIDER_ROOT") + sgDir	
-	sgFilePath := sgPath + zoneId + "/"
+	sgFilePath := sgPath + securityHandler.RegionInfo.Zone + "/"
 	// Check if the KeyPair Folder Exists, and Create it
 	if err := CheckFolderAndCreate(sgPath); err != nil {
 		cblogger.Errorf("Failed to Create the SecurityGroup Path : ", err)
@@ -297,7 +292,7 @@ func (securityHandler *KtCloudSecurityHandler) DeleteSecurity(securityIID irs.II
 
 	hashFileName := base64.StdEncoding.EncodeToString([]byte(securityIID.NameId))	
 	sgFileName := sgFilePath + hashFileName + ".json"
-	cblogger.Infof("S/G file to Delete : [%s]", sgFileName)
+	// cblogger.Infof("S/G file to Delete : [%s]", sgFileName)
 
 	//To check whether the security group exists.
 	_, getErr := securityHandler.GetSecurity(irs.IID{SystemId: securityIID.SystemId})
@@ -313,7 +308,7 @@ func (securityHandler *KtCloudSecurityHandler) DeleteSecurity(securityIID irs.II
 		cblogger.Error(newErr.Error())
 		return false, newErr
 	}
-	cblogger.Infof("Succeeded in Deleting the SecurityGroup : " + securityIID.NameId)
+	// cblogger.Infof("Succeeded in Deleting the SecurityGroup : " + securityIID.NameId)
 
 	return true, nil
 }
@@ -363,6 +358,51 @@ func (securityHandler *KtCloudSecurityHandler) RemoveRules(sgIID irs.IID, securi
 
 func (securityHandler *KtCloudSecurityHandler) ListIID() ([]*irs.IID, error) {
 	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
-}
 
+	if strings.EqualFold(securityHandler.RegionInfo.Zone, "") {
+		newErr := fmt.Errorf("Failed to Get Zone info. from the connection info.")
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+	// cblogger.Infof("ZoneId : %s", securityHandler.RegionInfo.Zone)
+
+    sgPath := os.Getenv("CBSPIDER_ROOT") + sgDir
+    sgFilePath := sgPath + securityHandler.RegionInfo.Zone + "/"
+
+    // Check if the KeyPair Folder Exists, and Create it
+    if err := CheckFolderAndCreate(sgPath); err != nil {
+        cblogger.Errorf("Failed to Create the SecurityGroup Path : ", err)
+        return nil, err
+    }
+
+    // Check if the KeyPair Folder Exists, and Create it
+    if err := CheckFolderAndCreate(sgFilePath); err != nil {
+        cblogger.Errorf("Failed to Create the SecurityGroup File Path : ", err)
+        return nil, err
+    }
+
+    // File list on the local directory
+    dirFiles, readErr := os.ReadDir(sgFilePath)
+    if readErr != nil {
+        return nil, readErr
+    }
+
+	var iidList []*irs.IID
+    for _, file := range dirFiles {
+        fileName := strings.TrimSuffix(file.Name(), ".json") // Remove suffix
+        decString, baseErr := base64.StdEncoding.DecodeString(fileName)
+        if baseErr != nil {
+            cblogger.Errorf("Failed to Decode the Filename : %s", fileName)
+            return nil, baseErr
+        }
+        sgFileName := string(decString)
+        // cblogger.Infof("# S/G Group Name : [%s]", sgFileName)
+
+        iid := &irs.IID{
+            NameId:   sgFileName,
+            SystemId: sgFileName,
+        }
+        iidList = append(iidList, iid)
+    }
+    return iidList, nil
+}
