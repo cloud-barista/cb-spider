@@ -50,6 +50,7 @@ func handleSecurity() {
 		fmt.Println("2. Get Security")
 		fmt.Println("3. Create Security")
 		fmt.Println("4. Delete Security")
+		fmt.Println("5. List IID")
 		fmt.Println("0. Quit")
 		fmt.Println("\n   Select a number above!! : ")
 		fmt.Println("============================================================================================")
@@ -57,7 +58,7 @@ func handleSecurity() {
 		var commandNum int
 
 		securityName := "KT-SG-1"
-		securityId := "KT-SG-1" // KT Cloud SG은 파일로 저장되어 관리되므로 security id는 Name과 동일하게
+		securityId := "oh-sg-01" // KT Cloud SG은 파일로 저장되어 관리되므로 security id는 Name과 동일하게
 		vpcId := "myTest-vpc-01"
 
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -195,6 +196,19 @@ func handleSecurity() {
 				} else {
 					cblogger.Infof("[%s] Security 삭제 결과 : [%s]", securityId, result)
 				}
+
+			case 5:
+				cblogger.Info("Start ListIID() ...")
+				result, err := handler.ListIID()
+				if err != nil {
+					cblogger.Error("Failed to retrieve S/G IID list: ", err)
+				} else {
+					cblogger.Info("Successfully retrieved S/G IID list!!")
+					spew.Dump(result)
+					cblogger.Debug(result)
+					cblogger.Infof("Total number of IID list: [%d]", len(result))
+				}
+				cblogger.Info("\nListIID() Test Finished")		
 			}
 		}
 	}

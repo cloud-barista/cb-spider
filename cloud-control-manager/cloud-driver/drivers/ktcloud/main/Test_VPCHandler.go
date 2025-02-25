@@ -51,11 +51,12 @@ func handleVPC() {
 		fmt.Println("2. ListVPC()")
 		fmt.Println("3. GetVPC()")
 		fmt.Println("4. DeleteVPC()")
+		fmt.Println("5. ListIID()")
 		fmt.Println("0. Exit")
 		fmt.Println("\n   Select a number above!! : ")
 		fmt.Println("============================================================================================")
 
-		vpcReqName := "ktcloud-v-c8tc2o9jcuppcej1c980"
+		vpcReqName := "ohvpc-02"
 		cblogger.Info("reqVPCName : ", vpcReqName)
 		
 		subnetReqName := "myTest-subnet-01"
@@ -143,6 +144,19 @@ func handleVPC() {
 				}
 				fmt.Println("\nGetVPC() Test Finished")
 
+				
+			case 5:
+				cblogger.Info("Start ListIID() ...")
+				result, err := handler.ListIID()
+				if err != nil {
+					cblogger.Error("Failed to retrieve VPC IID list: ", err)
+				} else {
+					cblogger.Info("Successfully retrieved VPC IID list!!")
+					spew.Dump(result)
+					cblogger.Debug(result)
+					cblogger.Infof("Total IID list count : [%d]", len(result))
+				}
+				cblogger.Info("\nListIID() Test Finished")
 
 			case 0:
 				fmt.Println("Exit")
