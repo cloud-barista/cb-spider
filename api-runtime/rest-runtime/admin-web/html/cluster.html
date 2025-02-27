@@ -667,60 +667,70 @@
                 <td class="status-column center-align">{{$cluster.Status}}</td>
                 
                 <td class="access-info-column center-align">
-                    <a class="view-details-link" href="javascript:void(0);" onclick="showClusterDetailsOverlay('Access Info', {
-                        endpoint: '{{$cluster.AccessInfo.Endpoint}}',
-                        kubeconfig: `{{$cluster.AccessInfo.Kubeconfig}}`
-                    })">View Details</a>
+                    {{if $cluster.Status}}
+                        <a class="view-details-link" href="javascript:void(0);" onclick="showClusterDetailsOverlay('Access Info', {
+                            endpoint: '{{$cluster.AccessInfo.Endpoint}}',
+                            kubeconfig: `{{$cluster.AccessInfo.Kubeconfig}}`
+                        })">View Details</a>
+                    {{end}}
                 </td>
                 
                 <td class="addons-column center-align">
-                    {{range $addon := $cluster.Addons.KeyValueList}}
-                        {{$addon.Key}}: {{$addon.Value}}<br>
-                    {{else}}
-                        Spider: Not available currently.
+                    {{if $cluster.Status}}
+                        {{range $addon := $cluster.Addons.KeyValueList}}
+                            {{$addon.Key}}: {{$addon.Value}}<br>
+                        {{else}}
+                            Spider: Not available currently.
+                        {{end}}
                     {{end}}
                 </td>
                 
                 <td class="network-info-column center-align"> 
-                    <a class="view-details-link" href="javascript:void(0);" onclick="showClusterDetailsOverlay('Network Info', {
-                        vpc: '{{$cluster.Network.VpcIID.NameId}}',
-                        subnets: [{{range $i, $subnet := $cluster.Network.SubnetIIDs}}'{{$subnet.NameId}}'{{if lt (add $i 1) (len $cluster.Network.SubnetIIDs)}},{{end}}{{end}}],
-                        securityGroups: [{{range $i, $secGroup := $cluster.Network.SecurityGroupIIDs}}'{{$secGroup.NameId}}'{{if lt (add $i 1) (len $cluster.Network.SecurityGroupIIDs)}},{{end}}{{end}}]
-                    })">View Details</a>
+                    {{if $cluster.Status}}
+                        <a class="view-details-link" href="javascript:void(0);" onclick="showClusterDetailsOverlay('Network Info', {
+                            vpc: '{{$cluster.Network.VpcIID.NameId}}',
+                            subnets: [{{range $i, $subnet := $cluster.Network.SubnetIIDs}}'{{$subnet.NameId}}'{{if lt (add $i 1) (len $cluster.Network.SubnetIIDs)}},{{end}}{{end}}],
+                            securityGroups: [{{range $i, $secGroup := $cluster.Network.SecurityGroupIIDs}}'{{$secGroup.NameId}}'{{if lt (add $i 1) (len $cluster.Network.SecurityGroupIIDs)}},{{end}}{{end}}]
+                        })">View Details</a>
+                    {{end}}
                 </td>
                 
                 <td class="nodegroups-info-column">
-                    <table class="nodegroup-inner-table">
-                        <tr>
-                            <th class="nodegroup-name-column">Name</th>
-                            <th class="nodegroup-status-column">Status</th>
-                            <th class="nodegroup-actions-column">
-                                <button class="add-nodegroup-btn" data-cluster-name="{{$clusterNameId}}">add</button>
-                            </th>                            
-                        </tr>
-                        {{range $nodegroup := $cluster.NodeGroupList}}
-                        <tr>
-                            <td>
-                                <a href="javascript:void(0);" onclick="showNodeGroupDetails('{{$cluster.IId.NameId}}', '{{$nodegroup.IId.NameId}}')">
-                                    {{$nodegroup.IId.NameId}}
-                                </a>
-                            </td>
-                            <td>{{$nodegroup.Status}}</td>
-                            <td class="actions-cell">
-                                <button class="delete-nodegroup-btn" onclick="deleteNodeGroup('{{$cluster.IId.NameId}}', '{{$nodegroup.IId.NameId}}')">del</button>
-                            </td>
-                        </tr>
-                        {{end}}
-                    </table>
+                    {{if $cluster.Status}}
+                        <table class="nodegroup-inner-table">
+                            <tr>
+                                <th class="nodegroup-name-column">Name</th>
+                                <th class="nodegroup-status-column">Status</th>
+                                <th class="nodegroup-actions-column">
+                                    <button class="add-nodegroup-btn" data-cluster-name="{{$clusterNameId}}">add</button>
+                                </th>                            
+                            </tr>
+                            {{range $nodegroup := $cluster.NodeGroupList}}
+                            <tr>
+                                <td>
+                                    <a href="javascript:void(0);" onclick="showNodeGroupDetails('{{$cluster.IId.NameId}}', '{{$nodegroup.IId.NameId}}')">
+                                        {{$nodegroup.IId.NameId}}
+                                    </a>
+                                </td>
+                                <td>{{$nodegroup.Status}}</td>
+                                <td class="actions-cell">
+                                    <button class="delete-nodegroup-btn" onclick="deleteNodeGroup('{{$cluster.IId.NameId}}', '{{$nodegroup.IId.NameId}}')">del</button>
+                                </td>
+                            </tr>
+                            {{end}}
+                        </table>
+                    {{end}}
                 </td>
                 
                 <td class="tags-column">
-                    {{range $tag := $cluster.TagList}}
-                    <div class="cluster-tag-container" onclick="showClusterTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'Cluster', '{{$cluster.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                    {{if $cluster.Status}}
+                        {{range $tag := $cluster.TagList}}
+                        <div class="cluster-tag-container" onclick="showClusterTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'Cluster', '{{$cluster.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                        {{end}}
+                        <div class="cluster-add-btn-container">
+                            <button class="cluster-add-btn" onclick="showAddClusterTagOverlay('{{$cluster.IId.NameId}}')">+</button>
+                        </div>
                     {{end}}
-                    <div class="cluster-add-btn-container">
-                        <button class="cluster-add-btn" onclick="showAddClusterTagOverlay('{{$cluster.IId.NameId}}')">+</button>
-                    </div>
                 </td>
                 
                 <td class="misc-column">
@@ -1081,7 +1091,7 @@
             const deletePromises = Array.from(checkboxes).map(checkbox => {
                 const clusterName = checkbox.value;
 
-                return fetchWithProgress(`/spider/cluster/${clusterName}`, {
+                return fetchWithProgress(`/spider/cluster/${clusterName}?force=true`, {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ ConnectionName: "{{.ConnectionConfig}}" })
@@ -1857,7 +1867,7 @@
 
             const data = { ConnectionName: "{{.ConnectionConfig}}" };
 
-            fetchWithProgress(`/spider/cluster/${clusterName}/nodegroup/${nodeGroupName}`, {
+            fetchWithProgress(`/spider/cluster/${clusterName}/nodegroup/${nodeGroupName}?force=true`, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)

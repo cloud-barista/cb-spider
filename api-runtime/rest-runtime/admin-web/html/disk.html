@@ -542,41 +542,47 @@
                 <td class="center-align zone-column">{{$disk.Zone}}</td>
                 <td class="center-align type-column">{{$disk.DiskType}}</td>
                 <td class="center-align size-upsize-column">
-                    <input type="text" id="sizeInput-{{$disk.IId.NameId}}" value="{{$disk.DiskSize}}" placeholder="Size in GB" class="size-input">
-                    <span style="margin: 0 5px;">|</span>
-                    <button type="button" class="upsize-button" onclick="upsizeDisk('{{$disk.IId.NameId}}', document.getElementById('sizeInput-{{$disk.IId.NameId}}').value, '{{$disk.DiskSize}}')">Upsize</button>
+                    {{if $disk.DiskSize}}
+                        <input type="text" id="sizeInput-{{$disk.IId.NameId}}" value="{{$disk.DiskSize}}" placeholder="Size in GB" class="size-input">
+                        <span style="margin: 0 5px;">|</span>
+                        <button type="button" class="upsize-button" onclick="upsizeDisk('{{$disk.IId.NameId}}', document.getElementById('sizeInput-{{$disk.IId.NameId}}').value, '{{$disk.DiskSize}}')">Upsize</button>
+                    {{end}}
                 </td>
                 <td id="diskcontrol-{{$disk.IId.NameId}}" class="center-align status-actions-column disk-control-buttons">
-                    <div style="display: inline-flex; align-items: center; justify-content: center;">
-                        <span style="margin-right: 4px;">{{$disk.Status}}</span> |
-                
-                        {{if $disk.OwnerVM.NameId}}
-                        <select id="vm-select-{{$disk.IId.NameId}}" style="margin-left: 5px; width: 150px;">
-                            <option value="{{$disk.OwnerVM.NameId}}">{{$disk.OwnerVM.NameId}}</option>
-                        </select>
-                        {{else}}
-                        <select id="vm-select-{{$disk.IId.NameId}}" style="margin-left: 5px; width: 150px;">
-                            <option value="" disabled selected>Select VM</option>
-                            {{range $vm := $.VMs}}
-                                {{if eq $vm.Region.Zone $disk.Zone}}
-                                    <option value="{{$vm.IId.NameId}}">{{$vm.IId.NameId}}</option>
+                    {{if $disk.DiskSize}}
+                        <div style="display: inline-flex; align-items: center; justify-content: center;">
+                            <span style="margin-right: 4px;">{{$disk.Status}}</span> |
+                    
+                            {{if $disk.OwnerVM.NameId}}
+                            <select id="vm-select-{{$disk.IId.NameId}}" style="margin-left: 5px; width: 150px;">
+                                <option value="{{$disk.OwnerVM.NameId}}">{{$disk.OwnerVM.NameId}}</option>
+                            </select>
+                            {{else}}
+                            <select id="vm-select-{{$disk.IId.NameId}}" style="margin-left: 5px; width: 150px;">
+                                <option value="" disabled selected>Select VM</option>
+                                {{range $vm := $.VMs}}
+                                    {{if eq $vm.Region.Zone $disk.Zone}}
+                                        <option value="{{$vm.IId.NameId}}">{{$vm.IId.NameId}}</option>
+                                    {{end}}
                                 {{end}}
+                            </select>
                             {{end}}
-                        </select>
-                        {{end}}
-                
-                        <button id="attach-btn-{{$disk.IId.NameId}}" class="disk-action-btn" onclick="toggleAttachDisk('{{$disk.IId.NameId}}', '{{$disk.Zone}}', document.getElementById('vm-select-{{$disk.IId.NameId}}').value)">
-                            {{if $disk.OwnerVM.NameId}}Detach{{else}}Attach{{end}}
-                        </button>
-                    </div>
+                    
+                            <button id="attach-btn-{{$disk.IId.NameId}}" class="disk-action-btn" onclick="toggleAttachDisk('{{$disk.IId.NameId}}', '{{$disk.Zone}}', document.getElementById('vm-select-{{$disk.IId.NameId}}').value)">
+                                {{if $disk.OwnerVM.NameId}}Detach{{else}}Attach{{end}}
+                            </button>
+                        </div>
+                    {{end}}
                 </td>
                 <td class="center-align tags-column">
-                    {{range $tag := $disk.TagList}}
-                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'DISK', '{{$disk.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                    {{if $disk.DiskSize}}
+                        {{range $tag := $disk.TagList}}
+                        <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'DISK', '{{$disk.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                        {{end}}
+                        <div class="add-btn-container">
+                            <button class="add-btn" onclick="showAddTagOverlay('{{$disk.IId.NameId}}')">+</button>
+                        </div>
                     {{end}}
-                    <div class="add-btn-container">
-                        <button class="add-btn" onclick="showAddTagOverlay('{{$disk.IId.NameId}}')">+</button>
-                    </div>
                 </td>
                 <td class="center-align misc-column misc-cell">
                     <div class="misc-content">{{range $kv := $disk.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
@@ -732,7 +738,7 @@
                 ConnectionName: connConfig
             };
 
-            return fetchWithProgress(`/spider/disk/${diskName}`, {
+            return fetchWithProgress(`/spider/disk/${diskName}?force=true`, {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json'

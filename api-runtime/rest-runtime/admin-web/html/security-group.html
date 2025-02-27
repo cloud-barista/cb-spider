@@ -602,60 +602,77 @@
                 <th class="rules-info">Security Rules Info</th>
                 <th class="tags center-align">Tags</th>
                 <th class="misc center-align">Misc</th>
-                <th class="checkbox-cell center-align"><input type="checkbox" onclick="toggleSelectAll(this)"></th>
+                <th class="checkbox-cell center-align"><input type="checkbox" id="selectAllTable" name="selectAllTable" onclick="toggleSelectAll(this)"></th>
             </tr>
             {{range $index, $sg := .SecurityGroups}}
             {{ $sgNameId := $sg.IId.NameId }}
             <tr>
                 <td class="column-num">{{$index | inc}}</td>
-                <td class="sg-name desc-name-cell center-align">{{$sg.IId.NameId}}
+                <td id="sg-name-{{$sg.IId.NameId}}" class="sg-name desc-name-cell center-align">{{$sg.IId.NameId}}
                     <span class="desc-system-id" onclick="showSystemIdOverlay('{{$sg.IId.SystemId}}')">
                         &nbsp;• {{$sg.IId.SystemId}}
                     </span>
                 </td>
                 <td class="vpc-name desc-name-cell center-align">
-                    {{$sg.VpcIID.NameId}}
-                    <span class="desc-system-id" onclick="showSystemIdOverlay('{{$sg.VpcIID.SystemId}}')">&nbsp;• {{$sg.VpcIID.SystemId}}
-                    </span>
+                    {{if $sg.VpcIID.NameId}}
+                        {{$sg.VpcIID.NameId}}
+                        {{if $sg.VpcIID.SystemId}}
+                        <span class="desc-system-id" onclick="showSystemIdOverlay('{{$sg.VpcIID.SystemId}}')">&nbsp;• {{$sg.VpcIID.SystemId}}
+                        </span>
+                        {{end}}
+                    {{end}}
                 </td>
                 <td class="rules-info">
-                    <table class="inner-table">
-                        <tr>
-                            <th class="protocol-column">Protocol</th>
-                            <th class="port-column">Port Range</th>
-                            <th class="direction-column">Direction</th>
-                            <th class="cidr-column">CIDR</th>
-                            <th class="actions-cell"><button class="add-btn" onclick="showRuleOverlay('{{$sgNameId}}')">add</button></th>
-                        </tr>
-                        {{range $ruleIndex, $rule := $sg.SecurityRules}}
-                        <tr>
-                            <td>{{$rule.IPProtocol}}</td>
-                            <td>{{$rule.FromPort}} ~ {{$rule.ToPort}}</td>
-                            <td>{{$rule.Direction}}</td>
-                            <td>{{$rule.CIDR}}</td>
-                            <td class="actions-cell">
-                                <button class="delete-btn" onclick="deleteRule('{{$sgNameId}}', {{$ruleIndex}})">del</button>
-                            </td>                            
-                        </tr>
-                        {{end}}
-                    </table>
+                    {{if $sg.VpcIID.NameId}}
+                        <table class="inner-table">
+                            <tr>
+                                <th class="protocol-column">Protocol</th>
+                                <th class="port-column">Port Range</th>
+                                <th class="direction-column">Direction</th>
+                                <th class="cidr-column">CIDR</th>
+                                <th class="actions-cell"><button class="add-btn" id="addRule_{{$sgNameId}}" name="addRule_{{$sgNameId}}" onclick="showRuleOverlay('{{$sgNameId}}')">add</button></th>
+                            </tr>
+                            {{if $sg.SecurityRules}}
+                                {{range $ruleIndex, $rule := $sg.SecurityRules}}
+                                <tr>
+                                    <td>{{if $rule.IPProtocol}}{{$rule.IPProtocol}}{{end}}</td>
+                                    <td>{{if $rule.FromPort}}{{$rule.FromPort}}{{end}} ~ {{if $rule.ToPort}}{{$rule.ToPort}}{{end}}</td>
+                                    <td>{{if $rule.Direction}}{{$rule.Direction}}{{end}}</td>
+                                    <td>{{if $rule.CIDR}}{{$rule.CIDR}}{{end}}</td>
+                                    <td class="actions-cell">
+                                        <button class="delete-btn" id="deleteRule_{{$sgNameId}}_{{$ruleIndex}}" name="deleteRule_{{$sgNameId}}_{{$ruleIndex}}" onclick="deleteRule('{{$sgNameId}}', {{$ruleIndex}})">del</button>
+                                    </td>                            
+                                </tr>
+                                {{end}}
+                            {{end}}
+                        </table>
+                    {{end}}
                 </td>
                 <td class="tags">
-                    {{range $tag := $sg.TagList}}
-                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'SG', '{{$sgNameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                    {{if $sg.VpcIID.NameId}}
+                        {{if $sg.TagList}}
+                            {{range $tagIndex, $tag := $sg.TagList}}
+                            <div class="tag-container" id="tag_{{$sgNameId}}_{{$tagIndex}}" onclick="showTagOverlay(event, '{{if $tag.Key}}{{$tag.Key}}{{end}}: {{if $tag.Value}}{{$tag.Value}}{{end}}', 'SG', '{{$sgNameId}}')">{{if $tag.Key}}{{$tag.Key}}{{end}}: {{if $tag.Value}}{{$tag.Value}}{{end}}</div>
+                            {{end}}
+                        {{end}}
+                        <div class="add-btn-container">
+                            <button class="add-btn" id="addTag_{{$sgNameId}}" name="addTag_{{$sgNameId}}" onclick="showAddTagOverlay('{{$sgNameId}}')">+</button>
+                        </div>
                     {{end}}
-                    <div class="add-btn-container">
-                        <button class="add-btn" onclick="showAddTagOverlay('{{$sgNameId}}')">+</button>
-                    </div>
                 </td>                
                 <td class="misc misc-cell">
-                    <div class="misc-content">{{range $kv := $sg.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
+                    <div class="misc-content">
+                        {{if $sg.KeyValueList}}
+                            {{range $kv := $sg.KeyValueList}}
+                                {{if $kv.Key}}{{$kv.Key}}{{end}} : {{if $kv.Value}}{{$kv.Value}}{{end}}<br>
+                            {{end}}
+                        {{end}}
                     </div>
-                    <button class="more-btn" onclick="showMiscOverlay(this)">more...</button>
+                    <button class="more-btn" id="moreBtn_{{$sgNameId}}" name="moreBtn_{{$sgNameId}}" onclick="showMiscOverlay(this)">more...</button>
                 </td>                
                 
                 <td class="checkbox-cell center-align">
-                    <input type="checkbox" name="deleteCheckbox" value="{{$sg.IId.NameId}}">
+                    <input type="checkbox" id="delete_{{$sgNameId}}" name="deleteCheckbox" value="{{$sgNameId}}">
                 </td>
             </tr>
             {{end}}
@@ -884,7 +901,7 @@
             ConnectionName: connConfig
         };
 
-        fetchWithProgress(`/spider/securitygroup/${sgName}`, {
+        fetchWithProgress(`/spider/securitygroup/${sgName}?force=true`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json'
@@ -929,7 +946,7 @@
                 ConnectionName: connConfig
             };
 
-            return fetchWithProgress(`/spider/securitygroup/${sgName}`, {
+            return fetchWithProgress(`/spider/securitygroup/${sgName}?force=true`, {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json'
@@ -946,20 +963,9 @@
         });
 
         Promise.all(deletePromises)
-            .then(dataList => {
-                let allSuccess = true;
-                dataList.forEach((data, index) => {
-                    if (data.Result !== "true") {
-                        allSuccess = false;
-                        showError("Failed to delete some SecurityGroups: " + (data.Message || "Unknown error"), "SecurityGroup Name: " + checkboxes[index].value);
-                    }
-                });
-                if (allSuccess) {
-                    location.reload();
-                }
-            })
+            .then(() => location.reload())
             .catch(error => {
-                showError("Error deleting SecurityGroups: " + error.message, "Multiple SecurityGroups");
+                alert("Error deleting SecurityGroups: " + error.message);
             });
     }
 
@@ -1225,10 +1231,7 @@
         }
 
         const connConfig = document.getElementById('connConfig').value;
-        const sgRow = Array.from(document.querySelectorAll('#sg-table tr')).find(tr => {
-            const sgNameCell = tr.querySelector('.sg-name');
-            return sgNameCell && sgNameCell.textContent.trim() === sgName;
-        });
+        const sgRow = document.getElementById(`sg-name-${sgName}`)?.closest('tr');
 
         if (!sgRow) {
             console.error(`Unable to find the row for SecurityGroup: ${sgName}`);

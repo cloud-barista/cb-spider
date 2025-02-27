@@ -491,15 +491,19 @@
                     <span class="myimage-system-id" onclick="showSystemIdOverlay('{{$myImage.IId.SystemId}}')">&nbsp;• {{$myImage.IId.SystemId}}</span>
                     <span class="myimage-created-time" data-time="{{$myImage.CreatedTime}}"></span></td>
                 <td class="center-align myimage-name-cell">{{$myImage.SourceVM.NameId}}
-                    <span class="myimage-system-id" onclick="showSystemIdOverlay('{{$myImage.SourceVM.SystemId}}')">&nbsp;• {{$myImage.SourceVM.SystemId}}</span></td>
+                    {{if $myImage.Status}}
+                        <span class="myimage-system-id" onclick="showSystemIdOverlay('{{$myImage.SourceVM.SystemId}}')">&nbsp;• {{$myImage.SourceVM.SystemId}}</span></td>
+                    {{end}}
                 <td class="center-align">{{$myImage.Status}}</td>
                 <td>
-                    {{range $tag := $myImage.TagList}}
-                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'MYIMAGE', '{{$myImage.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                    {{if $myImage.Status}}
+                        {{range $tag := $myImage.TagList}}
+                        <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'MYIMAGE', '{{$myImage.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                        {{end}}
+                        <div class="add-btn-container">
+                            <button class="add-btn" onclick="showAddTagOverlay('{{$myImage.IId.NameId}}')">+</button>
+                        </div>
                     {{end}}
-                    <div class="add-btn-container">
-                        <button class="add-btn" onclick="showAddTagOverlay('{{$myImage.IId.NameId}}')">+</button>
-                    </div>
                 </td>
                 <td class="center-align misc-cell">
                     <div class="misc-content">{{range $kv := $myImage.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
@@ -587,7 +591,7 @@
                 ConnectionName: connConfig
             };
 
-            return fetchWithProgress(`/spider/myimage/${myImageName}`, {
+            return fetchWithProgress(`/spider/myimage/${myImageName}?force=true`, {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json'

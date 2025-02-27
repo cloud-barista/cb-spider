@@ -738,69 +738,79 @@ THE SOFTWARE.
                     <span class="vm-start-time" data-time="{{$vm.StartTime}}"></span>
                 </td>    
                 <td class="ssh-access-cell">
+                    {{if $vm.PublicIP}}
                     • Public IP: {{$vm.PublicIP}}
                     <button class="copy-icon-btn" onclick="copyToClipboard('{{$vm.PublicIP}}')">
                         📋
                     </button>
                     <br> • 
                     <div class="ssh-connect-btn" 
-                        onclick="if ('{{$vm.PublicIP}}') { openSSHAccess({ vmUserId: '{{$vm.VMUserId}}', publicIP: '{{$vm.PublicIP}}', keyName: '{{$vm.KeyPairIId.NameId}}' }); }">
+                        onclick="openSSHAccess({ vmUserId: '{{$vm.VMUserId}}', publicIP: '{{$vm.PublicIP}}', keyName: '{{$vm.KeyPairIId.NameId}}' });">
                         <span class="ssh-terminal-style">SSH: {{$vm.PublicIP}}</span>
                     </div>
+                    {{end}}
                 </td>                                      
                 <td id="vmcontrol-{{$vm.IId.NameId}}" class="center-align vm-control-buttons">
-                    {{if eq (index $.VMStatusMap $vm.IId.NameId) "Running"}}
-                        <div style="display: inline-flex; align-items: center;">
-                            <span style="margin-right: 8px;">Running &nbsp; |</span>
-                            <button class="vm-action-btn" onclick="vmControl('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}', 'suspend')">⏸️</button>
-                            <button class="vm-action-btn" onclick="vmControl('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}', 'reboot')">&nbsp;🔄</button>
-                        </div>
-                    {{else if eq (index $.VMStatusMap $vm.IId.NameId) "Suspended"}}
-                        <div style="display: inline-flex; align-items: center;">
-                            <span style="margin-right: 8px;">Suspended &nbsp; |</span>
-                            <button class="vm-action-btn" onclick="vmControl('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}', 'resume')">⏯️</button>
-                        </div>
-                    {{else}}
-                        <div style="display: inline-flex; align-items: center;">
-                            <span style="margin-right: 8px;">{{index $.VMStatusMap $vm.IId.NameId}}</span>
-                            
-                        </div>
+                    {{if $vm.VMSpecName}}
+                        {{if eq (index $.VMStatusMap $vm.IId.NameId) "Running"}}
+                            <div style="display: inline-flex; align-items: center;">
+                                <span style="margin-right: 8px;">Running &nbsp; |</span>
+                                <button class="vm-action-btn" onclick="vmControl('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}', 'suspend')">⏸️</button>
+                                <button class="vm-action-btn" onclick="vmControl('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}', 'reboot')">&nbsp;🔄</button>
+                            </div>
+                        {{else if eq (index $.VMStatusMap $vm.IId.NameId) "Suspended"}}
+                            <div style="display: inline-flex; align-items: center;">
+                                <span style="margin-right: 8px;">Suspended &nbsp; |</span>
+                                <button class="vm-action-btn" onclick="vmControl('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}', 'resume')">⏯️</button>
+                            </div>
+                        {{else}}
+                            <div style="display: inline-flex; align-items: center;">
+                                <span style="margin-right: 8px;">{{index $.VMStatusMap $vm.IId.NameId}}</span>
+                                
+                            </div>
+                        {{end}}
                     {{end}}
                 </td>                                
                 <td class="snapshot-cell">
+                    {{if $vm.VMSpecName}}
                     <input type="text" id="snapshot-name-{{$vm.IId.NameId}}" value="myimage-1">
                     <button type="button" onclick="postSnapshotVM('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}', document.getElementById('snapshot-name-{{$vm.IId.NameId}}').value)">Snap</button>
+                    {{end}}
                 </td>
                 <td class="center-align provisioning-info-cell">
-                    <a class="provisioning-info-link" onclick="showProvisioningInfoOverlay({
-                        vpcName: '{{$vm.VpcIID.NameId}}',
-                        subnetName: '{{$vm.SubnetIID.NameId}}',
-                        zone: '{{$vm.Region.Zone}}',
-                        securityGroupName: ['{{range $index, $sg := $vm.SecurityGroupIIds}}{{if $index}},{{end}}{{$sg.NameId}}{{end}}'],
-                        keypairName: '{{$vm.KeyPairIId.NameId}}',
-                        vmUserId: '{{$vm.VMUserId}}',
-                        imageType: '{{$vm.ImageType}}',
-                        imageName: '{{$vm.ImageIId.NameId}}',
-                        platform: '{{$vm.Platform}}',
-                        vmSpecName: '{{$vm.VMSpecName}}',
-                        rootDiskType: '{{$vm.RootDiskType}}',
-                        rootDiskSize: '{{$vm.RootDiskSize}}',
-                        rootDeviceName: '{{$vm.RootDeviceName}}',
-                        dataDisks: ['{{range $index, $disk := $vm.DataDiskIIDs}}{{if $index}},{{end}}{{$disk.NameId}}{{end}}'],
-                        networkInterface: '{{$vm.NetworkInterface}}',
-                        publicIP: '{{$vm.PublicIP}}',
-                        publicDNS: '{{$vm.PublicDNS}}',
-                        privateIP: '{{$vm.PrivateIP}}',
-                        privateDNS: '{{$vm.PrivateDNS}}'
-                    })">View Details</a>                    
+                    {{if $vm.VMSpecName}}
+                        <a class="provisioning-info-link" onclick="showProvisioningInfoOverlay({
+                            vpcName: '{{$vm.VpcIID.NameId}}',
+                            subnetName: '{{$vm.SubnetIID.NameId}}',
+                            zone: '{{$vm.Region.Zone}}',
+                            securityGroupName: ['{{range $index, $sg := $vm.SecurityGroupIIds}}{{if $index}},{{end}}{{$sg.NameId}}{{end}}'],
+                            keypairName: '{{$vm.KeyPairIId.NameId}}',
+                            vmUserId: '{{$vm.VMUserId}}',
+                            imageType: '{{$vm.ImageType}}',
+                            imageName: '{{$vm.ImageIId.NameId}}',
+                            platform: '{{$vm.Platform}}',
+                            vmSpecName: '{{$vm.VMSpecName}}',
+                            rootDiskType: '{{$vm.RootDiskType}}',
+                            rootDiskSize: '{{$vm.RootDiskSize}}',
+                            rootDeviceName: '{{$vm.RootDeviceName}}',
+                            dataDisks: ['{{range $index, $disk := $vm.DataDiskIIDs}}{{if $index}},{{end}}{{$disk.NameId}}{{end}}'],
+                            networkInterface: '{{$vm.NetworkInterface}}',
+                            publicIP: '{{$vm.PublicIP}}',
+                            publicDNS: '{{$vm.PublicDNS}}',
+                            privateIP: '{{$vm.PrivateIP}}',
+                            privateDNS: '{{$vm.PrivateDNS}}'
+                        })">View Details</a>                    
+                    {{end}}
                 </td>
                 <td>
-                    {{range $tag := $vm.TagList}}
-                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'VM', '{{$vm.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                    {{if $vm.VMSpecName}}
+                        {{range $tag := $vm.TagList}}
+                        <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'VM', '{{$vm.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                        {{end}}
+                        <div class="add-btn-container">
+                            <button class="add-btn" onclick="showAddTagOverlay('{{$vm.IId.NameId}}')">+</button>
+                        </div>
                     {{end}}
-                    <div class="add-btn-container">
-                        <button class="add-btn" onclick="showAddTagOverlay('{{$vm.IId.NameId}}')">+</button>
-                    </div>
                 </td>                
                 <td class="center-align misc-cell">
                     <div class="misc-content">{{range $kv := $vm.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
@@ -1192,7 +1202,7 @@ THE SOFTWARE.
                 ConnectionName: connConfig
             };
 
-            return fetchWithProgress(`/spider/vm/${vmName}`, {
+            return fetchWithProgress(`/spider/vm/${vmName}?force=true`, {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json'
@@ -1228,7 +1238,7 @@ THE SOFTWARE.
             ConnectionName: connConfig
         };
 
-        fetchWithProgress(`/spider/vm/${vmName}`, {
+        fetchWithProgress(`/spider/vm/${vmName}?force=true`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json'

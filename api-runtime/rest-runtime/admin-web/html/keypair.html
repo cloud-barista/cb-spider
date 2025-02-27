@@ -453,12 +453,14 @@
                 </td>
                 <td class="center-align fingerprint">{{$keyPair.Fingerprint}}</td>
                 <td>
-                    {{range $tag := $keyPair.TagList}}
-                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'KEYPAIR', '{{$keyPair.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                    {{if $keyPair.Fingerprint}}
+                        {{range $tag := $keyPair.TagList}}
+                        <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'KEYPAIR', '{{$keyPair.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                        {{end}}
+                        <div class="add-btn-container">
+                            <button class="add-btn" onclick="showAddTagOverlay('{{$keyPair.IId.NameId}}')">+</button>
+                        </div>
                     {{end}}
-                    <div class="add-btn-container">
-                        <button class="add-btn" onclick="showAddTagOverlay('{{$keyPair.IId.NameId}}')">+</button>
-                    </div>
                 </td>
                 <td class="center-align misc-cell">
                     <div class="misc-content">{{range $kv := $keyPair.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
@@ -541,7 +543,7 @@
                 ConnectionName: connConfig
             };
 
-            return fetchWithProgress(`/spider/keypair/${keyPairName}`, {
+            return fetchWithProgress(`/spider/keypair/${keyPairName}?force=true`, {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json'
@@ -575,7 +577,7 @@
             ConnectionName: connConfig
         };
 
-        fetchWithProgress(`/spider/keypair/${keyPairName}`, {
+        fetchWithProgress(`/spider/keypair/${keyPairName}?force=true`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json'
