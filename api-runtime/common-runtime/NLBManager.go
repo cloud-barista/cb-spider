@@ -629,7 +629,9 @@ func ListNLB(connectionName string, rsType string) ([]*cres.NLBInfo, error) {
 		if err != nil {
 			nlbSPLock.RUnlock(connectionName, iidInfo.NameId)
 			if checkNotFoundError(err) {
-				cblog.Info(err)
+				cblog.Error(err)
+				info = cres.NLBInfo{IId: cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}}
+				infoList2 = append(infoList2, &info)
 				continue
 			}
 			cblog.Error(err)

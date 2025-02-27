@@ -791,7 +791,9 @@ func ListVPC(connectionName string, rsType string) ([]*cres.VPCInfo, error) {
 
 		if chanInfo.err != nil {
 			if checkNotFoundError(chanInfo.err) {
-				cblog.Info(chanInfo.err)
+				cblog.Error(chanInfo.err)
+				info := cres.VPCInfo{IId: cres.IID{NameId: iidInfoList[idx].NameId, SystemId: iidInfoList[idx].SystemId}}
+				resultInfoList = append(resultInfoList, &info)
 			} else {
 				errList = append(errList, connectionName+":VPC:"+iidInfoList[idx].NameId+" # "+chanInfo.err.Error())
 			}

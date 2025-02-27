@@ -1289,7 +1289,9 @@ func ListVM(connectionName string, rsType string) ([]*cres.VMInfo, error) {
 
 		if chanInfo.err != nil {
 			if checkNotFoundError(chanInfo.err) {
-				cblog.Info(chanInfo.err)
+				cblog.Error(chanInfo.err)
+				info := cres.VMInfo{IId: cres.IID{NameId: iidInfoList[idx].NameId, SystemId: iidInfoList[idx].SystemId}}
+				infoList2 = append(infoList2, &info)
 			} else {
 				errList = append(errList, connectionName+":VM:"+iidInfoList[idx].NameId+" # "+chanInfo.err.Error())
 			}

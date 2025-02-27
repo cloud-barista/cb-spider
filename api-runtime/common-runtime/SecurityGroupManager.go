@@ -559,7 +559,9 @@ func ListSecurity(connectionName string, rsType string) ([]*cres.SecurityInfo, e
 		if err != nil {
 			sgSPLock.RUnlock(connectionName, iidInfo.NameId)
 			if checkNotFoundError(err) {
-				cblog.Info(err)
+				cblog.Error(err)
+				info = cres.SecurityInfo{IId: cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}}
+				infoList2 = append(infoList2, &info)
 				continue
 			}
 			cblog.Error(err)

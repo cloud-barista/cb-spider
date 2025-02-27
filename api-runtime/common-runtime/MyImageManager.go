@@ -341,7 +341,9 @@ func ListMyImage(connectionName string, rsType string) ([]*cres.MyImageInfo, err
 		if err != nil {
 			myImageSPLock.RUnlock(connectionName, iidInfo.NameId)
 			if checkNotFoundError(err) {
-				cblog.Info(err)
+				cblog.Error(err)
+				info = cres.MyImageInfo{IId: cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}}
+				infoList2 = append(infoList2, &info)
 				continue
 			}
 			cblog.Error(err)

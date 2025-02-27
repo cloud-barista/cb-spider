@@ -958,7 +958,9 @@ func ListCluster(connectionName string, rsType string) ([]*cres.ClusterInfo, err
 		if err != nil {
 			clusterSPLock.RUnlock(connectionName, iidInfo.NameId)
 			if checkNotFoundError(err) {
-				cblog.Info(err)
+				cblog.Error(err)
+				info = cres.ClusterInfo{IId: cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}}
+				infoList2 = append(infoList2, &info)
 				continue
 			}
 			cblog.Error(err)
