@@ -55,6 +55,7 @@ func handleKeyPair() {
 		fmt.Println("2. Get KeyPair")
 		fmt.Println("3. Create KeyPair")
 		fmt.Println("4. Delete KeyPair")
+		fmt.Println("5. List IID")
 		fmt.Println("0. Quit")
 		fmt.Println("\n   Select a number above!! : ")
 		fmt.Println("============================================================================================")
@@ -79,30 +80,30 @@ func handleKeyPair() {
 				result, err := keyPairHandler.ListKey()
 				if err != nil {
 					cblogger.Error(err)
-					cblogger.Error("KeyPair list 조회 실패 : ", err)
+					cblogger.Error("Failed to Get KeyPair list : ", err)
 				} else {
-					cblogger.Info("KeyPair list 조회 결과")
+					cblogger.Info("Successfully Get KeyPair list")
 					//cblogger.Info(result)
 					spew.Dump(result)
 
-					cblogger.Infof("=========== KeyPair list 수 : [%d] ================", len(result))
+					cblogger.Infof("=========== KeyPair list Count : [%d] ================", len(result))
 				}
 				cblogger.Info("\nListKey Test Finished")
 
 			case 2:
-				cblogger.Infof("[%s] KeyPair 조회 테스트", keyPairName)
+				cblogger.Infof("Start GetKey() : [%s]", keyPairName)
 				result, err := keyPairHandler.GetKey(irs.IID{NameId: keyPairName})
 				if err != nil {
 					cblogger.Error(err)
-					cblogger.Error(keyPairName, " KeyPair 조회 실패 : ", err)
+					cblogger.Error(keyPairName, "Failed to Get KeyPair info : ", err)
 				} else {
-					cblogger.Infof("[%s] KeyPair 조회 결과 : \n[%s]", keyPairName, result)
+					cblogger.Infof("Successfully Get KeyPair info : [%s]\n", keyPairName)
 					spew.Dump(result)
 				}
 				cblogger.Info("\nGetKey Test Finished")
 
 			case 3:
-				cblogger.Infof("[%s] KeyPair 생성 테스트", reqKeypairName)
+				cblogger.Infof("[%s] Start CreateKey()", reqKeypairName)
 				keyPairReqInfo := irs.KeyPairReqInfo{
 					IId: irs.IID{NameId: reqKeypairName},
 					//Name: keyPairName,
@@ -110,24 +111,37 @@ func handleKeyPair() {
 				result, err := keyPairHandler.CreateKey(keyPairReqInfo)
 				if err != nil {
 					cblogger.Error(err)
-					cblogger.Error(reqKeypairName, " KeyPair 생성 실패 : ", err)
+					cblogger.Error(reqKeypairName, "Failed to Create KeyPair : ", err)
 				} else {
-					cblogger.Infof("[%s] KeyPair 생성 결과 : \n[%s]", reqKeypairName, result)
+					cblogger.Infof("Successfully Create KeyPair : [%s]\n", reqKeypairName)
 					spew.Dump(result)
 				}
 				cblogger.Info("\nCreateKey Test Finished")
 
 			case 4:
-				cblogger.Infof("[%s] KeyPair 삭제 테스트", keyPairName)
+				cblogger.Infof("[%s] Start DeleteKey()", keyPairName)
 				result, err := keyPairHandler.DeleteKey(irs.IID{NameId: keyPairName})
 				if err != nil {
 					cblogger.Error(err)
-					cblogger.Error(keyPairName, " KeyPair 삭제 실패 : ", err)
+					cblogger.Error(keyPairName, "Failed to Delete KeyPair : ", err)
 				} else {
-					cblogger.Infof("[%s] KeyPair 삭제 결과 : [%s]", keyPairName, result)
+					cblogger.Infof("Successfully Delete KeyPair : [%s]\n", keyPairName)
 					spew.Dump(result)
 				}
 				cblogger.Info("\nDeleteKey Test Finished")
+
+			case 5:
+				cblogger.Info("Start ListIID() ...")
+				result, err := keyPairHandler.ListIID()
+				if err != nil {
+					cblogger.Error("Failed to Get KeyPair IID list : ", err)
+				} else {
+					cblogger.Info("Succeeded in Getting KeyPair IID list!!")
+					spew.Dump(result)
+					cblogger.Debug(result)
+					cblogger.Infof("Total IID list count : [%d]", len(result))
+				}
+				cblogger.Info("\nListIID() Test Finished")
 			}
 		}
 	}

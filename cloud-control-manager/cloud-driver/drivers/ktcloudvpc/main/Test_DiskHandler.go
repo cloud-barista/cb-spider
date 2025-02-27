@@ -48,14 +48,15 @@ func handleDisk() {
 	for {
 		fmt.Println("\n============================================================================================")
 		fmt.Println("[ DiskHandler Test ]")
-		cblogger.Info("1. ListDisk()")
-		cblogger.Info("2. GetDisk()")
-		cblogger.Info("3. CreateDisk()")
-		cblogger.Info("4. DeleteDisk()")
-		cblogger.Info("5. ChangeDiskSize()")
-		cblogger.Info("6. AttachDisk()")
-		cblogger.Info("7. DetachDisk()")
-		cblogger.Info("0. Exit")
+		fmt.Println("1. ListDisk()")
+		fmt.Println("2. GetDisk()")
+		fmt.Println("3. CreateDisk()")
+		fmt.Println("4. DeleteDisk()")
+		fmt.Println("5. ChangeDiskSize()")
+		fmt.Println("6. AttachDisk()")
+		fmt.Println("7. DetachDisk()")
+		fmt.Println("8. ListIID()")
+		fmt.Println("0. Exit")
 		fmt.Println("\n   Select a number above!! : ")
 		fmt.Println("============================================================================================")
 
@@ -96,6 +97,7 @@ func handleDisk() {
 			switch commandNum {
 			case 0:
 				return
+				
 			case 1:
 				cblogger.Info("Start ListDisk() ...")
 				if listResult, err := diskHandler.ListDisk(); err != nil {
@@ -105,6 +107,7 @@ func handleDisk() {
 					cblogger.Info("# Count : ", len(listResult))
 				}
 				cblogger.Info("Finish ListDisk()")
+
 			case 2:
 				cblogger.Info("Start GetDisk() ...")
 				if diskInfo, err := diskHandler.GetDisk(diskIId); err != nil {
@@ -113,6 +116,7 @@ func handleDisk() {
 					spew.Dump(diskInfo)
 				}
 				cblogger.Info("Finish GetDisk()")
+
 			case 3:
 				cblogger.Info("Start CreateDisk() ...")
 				if diskInfo, err := diskHandler.CreateDisk(createReqInfo); err != nil {
@@ -121,6 +125,7 @@ func handleDisk() {
 					spew.Dump(diskInfo)
 				}
 				cblogger.Info("Finish CreateDisk()")
+
 			case 4:
 				cblogger.Info("Start DeleteDisk() ...")
 				if delResult, err := diskHandler.DeleteDisk(diskIId); err != nil {
@@ -128,7 +133,8 @@ func handleDisk() {
 				} else {
 					spew.Dump(delResult)
 				}
-				cblogger.Info("Finish DeleteDisk()")
+				cblogger.Info("Finish DeleteDisk()")				
+
 			case 5:
 				cblogger.Info("Start ChangeDiskSize() ...")
 				if diskInfo, err := diskHandler.ChangeDiskSize(diskIId, newDiskSize); err != nil {
@@ -137,6 +143,7 @@ func handleDisk() {
 					spew.Dump(diskInfo)
 				}
 				cblogger.Info("Finish ChangeDiskSize()")
+
 			case 6:
 				cblogger.Info("Start AttachDisk() ...")
 				if diskInfo, err := diskHandler.AttachDisk(diskIId, vmIId); err != nil {
@@ -145,6 +152,7 @@ func handleDisk() {
 					spew.Dump(diskInfo)
 				}
 				cblogger.Info("Finish AttachDisk()")
+
 			case 7:
 				cblogger.Info("Start DetachDisk() ...")
 				if result, err := diskHandler.DetachDisk(diskIId, vmIId); err != nil {
@@ -153,6 +161,19 @@ func handleDisk() {
 					spew.Dump(result)
 				}
 				cblogger.Info("Finish DetachDisk()")
+
+			case 8:
+				cblogger.Info("Start ListIID() ...")
+				result, err := diskHandler.ListIID()
+				if err != nil {
+					cblogger.Error("Failed to Get Disk IID list : ", err)
+				} else {
+					cblogger.Info("Succeeded in Getting Disk IID list!!")
+					spew.Dump(result)
+					cblogger.Debug(result)
+					cblogger.Infof("Total IID list count : [%d]", len(result))
+				}
+				cblogger.Info("\nListIID() Test Finished")
 			}
 		}
 	}
