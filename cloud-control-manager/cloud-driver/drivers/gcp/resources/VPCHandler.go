@@ -462,7 +462,7 @@ func (vVPCHandler *GCPVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 			//SystemId: strconv.FormatUint(infoVPC.Id, 10),
 			SystemId: infoVPC.Name,
 		},
-		IPv4_CIDR:      "Not support IPv4_CIDR at GCP VPC",
+		IPv4_CIDR:      "GCP VPC does not support IPv4_CIDR",
 		SubnetInfoList: subnetInfoList,
 		KeyValueList: []irs.KeyValue{
 			{"RoutingMode", infoVPC.RoutingConfig.RoutingMode},
