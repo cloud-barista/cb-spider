@@ -11,7 +11,7 @@
 package resources
 
 import (
-	"errors"
+	// "errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -89,7 +89,6 @@ func (diskHandler *KTVpcDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.D
 		return irs.DiskInfo{}, newErr
 	}
 
-	start := call.Start()
 	create0pts := volumes2.CreateOpts{
 		AvailabilityZone: diskHandler.RegionInfo.Zone,
 		Size:             reqDiskSizeInt,
@@ -100,6 +99,7 @@ func (diskHandler *KTVpcDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.D
 	// spew.Dump(create0pts)
 	// cblogger.Info("\n")
 
+	start := call.Start()
 	diskResult, err := volumes2.Create(diskHandler.VolumeClient, create0pts).Extract()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Create New Disk Volume. [%v]", err.Error())
@@ -145,8 +145,8 @@ func (diskHandler *KTVpcDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	cblogger.Info("KT Cloud VPC Driver: called ListDisk()")
 	callLogInfo := getCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, "ListDisk()", "ListDisk()")
 
-	start := call.Start()
 	listOpts := volumes2.ListOpts{}
+	start := call.Start()	
 	allPages, err := volumes2.List(diskHandler.VolumeClient, listOpts).AllPages()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get KT Cloud Volume list!! : [%v] ", err)
@@ -154,14 +154,15 @@ func (diskHandler *KTVpcDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 		loggingError(callLogInfo, newErr)
 		return nil, newErr
 	}
+	loggingInfo(callLogInfo, start)
+
 	ktVolumeList, err := volumes2.ExtractVolumes(allPages)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Extract KT Cloud Volume list!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		loggingError(callLogInfo, newErr)
 		return nil, newErr
-	}
-	loggingInfo(callLogInfo, start)
+	}	
 	// spew.Dump(ktVolumeList)
 
 	var volumeInfoList []*irs.DiskInfo
@@ -188,7 +189,7 @@ func (diskHandler *KTVpcDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, err
 		loggingError(callLogInfo, newErr)
 		return irs.DiskInfo{}, newErr
 	}
-
+	start := call.Start()
 	ktVolumeInfo, err := volumes2.Get(diskHandler.VolumeClient, diskIID.SystemId).Extract()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the KT Disk Info!! : [%v] ", err)
@@ -196,6 +197,7 @@ func (diskHandler *KTVpcDiskHandler) GetDisk(diskIID irs.IID) (irs.DiskInfo, err
 		loggingError(callLogInfo, newErr)
 		return irs.DiskInfo{}, newErr
 	}
+	loggingInfo(callLogInfo, start)
 	// cblogger.Info(ktVolumeInfo)
 	// spew.Dump(ktVolumeInfo)
 
@@ -237,11 +239,11 @@ func (diskHandler *KTVpcDiskHandler) DeleteDisk(diskIID irs.IID) (bool, error) {
 	// 	loggingError(callLogInfo, newErr)
 	// 	return false, newErr
 	// }
-
-	start := call.Start()
+	
 	delOpts := volumes2.DeleteOpts{
 		Cascade: true, // Delete all snapshots of this volume as well.
 	}
+	start := call.Start()
 	delErr := volumes2.Delete(diskHandler.VolumeClient, diskIID.SystemId, delOpts).ExtractErr()
 	if delErr != nil {
 		newErr := fmt.Errorf("Failed to Delete the Disk Volume!! : [%v] ", delErr)
@@ -539,7 +541,7 @@ func (diskHandler *KTVpcDiskHandler) mappingDiskInfo(volume volumes2.Volume) (ir
 		CreatedTime: convertedTime,
 	}
 
-	if strings.EqualFold(volume.Name, "") { // Bootable disk of Not 'u2' VMSpec
+	if strings.EqualFold(volume.Name, "") { // Bootable disk
 		diskInfo.IId.NameId = "Auto_Created_Booting_Disk"
 	} else {
 		diskInfo.IId.NameId = volume.Name
@@ -644,8 +646,8 @@ func (diskHandler *KTVpcDiskHandler) getKtVolumeList() ([]volumes2.Volume, error
 	cblogger.Info("KT Cloud VPC Driver: called getKtVolumeList()")
 	callLogInfo := getCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, "getKtVolumeList()", "getKtVolumeList()")
 
-	start := call.Start()
 	listOpts := volumes2.ListOpts{}
+	start := call.Start()
 	allPages, err := volumes2.List(diskHandler.VolumeClient, listOpts).AllPages()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get KT Cloud Volume Pages!! : [%v] ", err)
@@ -653,6 +655,8 @@ func (diskHandler *KTVpcDiskHandler) getKtVolumeList() ([]volumes2.Volume, error
 		loggingError(callLogInfo, newErr)
 		return nil, newErr
 	}
+	loggingInfo(callLogInfo, start)
+
 	ktVolumeList, err := volumes2.ExtractVolumes(allPages)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Extract KT Cloud Volume list!! : [%v] ", err)
@@ -660,7 +664,6 @@ func (diskHandler *KTVpcDiskHandler) getKtVolumeList() ([]volumes2.Volume, error
 		loggingError(callLogInfo, newErr)
 		return nil, newErr
 	}
-	loggingInfo(callLogInfo, start)
 	// spew.Dump(ktVolumeList)
 
 	if len(ktVolumeList) < 1 {
@@ -672,7 +675,47 @@ func (diskHandler *KTVpcDiskHandler) getKtVolumeList() ([]volumes2.Volume, error
 	return ktVolumeList, nil
 }
 
-func (DiskHandler *KTVpcDiskHandler) ListIID() ([]*irs.IID, error) {
+func (diskHandler *KTVpcDiskHandler) ListIID() ([]*irs.IID, error) {
 	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	callLogInfo := getCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, "ListIID()", "ListIID()")
+
+	listOpts := volumes2.ListOpts{}
+	start := call.Start()
+    allPages, err := volumes2.List(diskHandler.VolumeClient, listOpts).AllPages()
+    if err != nil {
+        newErr := fmt.Errorf("Failed to Get KT Cloud Volume list!! : [%v] ", err)
+        cblogger.Error(newErr.Error())
+        return nil, newErr
+    }
+	loggingInfo(callLogInfo, start)
+
+    ktVolumeList, err := volumes2.ExtractVolumes(allPages)
+    if err != nil {
+        newErr := fmt.Errorf("Failed to Extract KT Cloud Volume list!! : [%v] ", err)
+        cblogger.Error(newErr.Error())
+        return nil, newErr
+    }
+
+    if len(ktVolumeList) < 1 {
+        cblogger.Info("### There is No Disk!!")
+        return nil, nil
+    }
+
+    var iidList []*irs.IID
+    for _, volume := range ktVolumeList {
+		iid := &irs.IID{}
+		if strings.EqualFold(volume.Name, "") { // Bootable disk
+			iid = &irs.IID{
+				NameId:   "Auto_Created_Booting_Disk",
+				SystemId: volume.ID,
+			}
+		} else {
+			iid = &irs.IID{
+				NameId:   volume.Name,
+				SystemId: volume.ID,
+			}
+		}
+        iidList = append(iidList, iid)
+    }
+    return iidList, nil
 }
