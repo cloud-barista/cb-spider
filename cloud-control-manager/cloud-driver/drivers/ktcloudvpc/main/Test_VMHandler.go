@@ -62,6 +62,7 @@ func handleVM() {
 		fmt.Println("7. Get VMStatus")
 		fmt.Println("8. List VMStatus")
 		fmt.Println("9. List VM")
+		fmt.Println("10. List IID")
 		fmt.Println("0. Exit")
 		fmt.Println("\n   Select a number above!! : ")
 		fmt.Println("============================================================================================")
@@ -109,10 +110,12 @@ func handleVM() {
 					RootDiskSize: "50",
 					// RootDiskSize: "default",
 
-					KeyPairIID: irs.IID{NameId: "kt-keypair-02"},
-					// KeyPairIID: irs.IID{SystemId: "ktvpc-key-01"},
+					// KeyPairIID: irs.IID{NameId: "ohkeypair-cobpk3svtts5q0087n80"},
+					KeyPairIID: irs.IID{NameId: "oh-keypair-01-cp5b7dcvtts3j5nvrbfg"}, // Caution!!) Not SystemId
 
 					SecurityGroupIIDs: []irs.IID{{SystemId: "ktvpc-sg-2"}},
+					// SecurityGroupIIDs: []irs.IID{{SystemId: "ohsg02-cobsm0svtts66jc9kl8g"}},
+		
 
 					// $$$ Needs KT Cloud VPC VPC 'SystemId'
 					VpcIID: irs.IID{
@@ -123,7 +126,7 @@ func handleVM() {
 					// Caution!! Not Tier 'ID' but 'OsNetworkID' (among REST API parameters) to Create VM!!
 					SubnetIID: irs.IID{
 						// NameId: "kt-subnet-ck1f929jcuppgg7kbvig",
-						SystemId: "99f7fee3-ebe0-42df-87fe-f1e48c8a52d3",
+						SystemId: "63d4cbc2-4f46-4463-a7eb-5086304a025f",
 
 						// NameId: "kt-dx-subnet-1", // 172.25.6.1/24
 						// SystemId: "908bb72a-aa50-46d1-ba7d-32d23c0d3eea", // Not 'ID' of Tier but 'OsNetworkID' of Tier to Create VM!!
@@ -134,9 +137,9 @@ func handleVM() {
 				if err != nil {
 					//panic(err)
 					cblogger.Error(err)
-					cblogger.Info("VM 생성 실패 : ", err)
+					cblogger.Info("Failed to Create VM : ", err)
 				} else {
-					cblogger.Info("VM 생성 완료!!", vmInfo)
+					cblogger.Info("Successfully Create VM!!", vmInfo)
 					spew.Dump(vmInfo)
 				}
 				//cblogger.Info(vm)
@@ -146,9 +149,9 @@ func handleVM() {
 				vmInfo, err := vmHandler.GetVM(vmID)
 				if err != nil {
 					cblogger.Error(err)
-					cblogger.Errorf("[%s] VM info. 조회 실패 : ", err)
+					cblogger.Errorf("Failed to Get VM info. : [%v]", err)
 				} else {
-					cblogger.Infof("[%s] VM info. 조회 결과", vmID.SystemId)
+					cblogger.Infof("Successfully Get VM info. [%s]", vmID.SystemId)
 					cblogger.Info(vmInfo)
 					spew.Dump(vmInfo)
 				}
@@ -159,9 +162,9 @@ func handleVM() {
 				result, err := vmHandler.SuspendVM(vmID)
 				if err != nil {
 					cblogger.Error(err)
-					cblogger.Errorf("[%s] VM Suspend 실패 : [%v]", vmID.SystemId, result)
+					cblogger.Errorf("Failed to Suspend VM [%s] : [%v]", vmID.SystemId, result)
 				} else {
-					cblogger.Infof("[%s] VM Suspend 실행 성공 : [%v]", vmID.SystemId, result)
+					cblogger.Infof("Successfully Suspend VM [%s] : [%v]", vmID.SystemId, result)
 				}
 				cblogger.Info("\nSuspendVM Test Finished")
 
@@ -170,9 +173,9 @@ func handleVM() {
 				result, err := vmHandler.ResumeVM(vmID)
 				if err != nil {
 					cblogger.Error(err)
-					cblogger.Errorf("[%s] VM Resume 실패 : [%s]", vmID.SystemId, result)
+					cblogger.Errorf("Failed to Resume VM [%s] : [%v]", vmID.SystemId, result)
 				} else {
-					cblogger.Infof("[%s] VM Resume 실행 성공 : [%s]", vmID.SystemId, result)
+					cblogger.Infof("Successfully Resume VM [%s] : [%v]", vmID.SystemId, result)
 				}
 				cblogger.Info("\nResumeVM Test Finished")
 
@@ -181,9 +184,9 @@ func handleVM() {
 				result, err := vmHandler.RebootVM(vmID)
 				if err != nil {
 					cblogger.Error(err)
-					cblogger.Errorf("[%s] VM Reboot 실패 : [%s]", vmID.SystemId, result)
+					cblogger.Errorf("Failed to Reboot VM [%s] : [%s]", vmID.SystemId, result)
 				} else {
-					cblogger.Infof("[%s] VM Reboot 실행 성공 : [%s]", vmID.SystemId, result)
+					cblogger.Infof("Successfully Reboot VM [%s] : [%s]", vmID.SystemId, result)
 				}
 				cblogger.Info("\nRebootVM Test Finished")
 
@@ -192,9 +195,9 @@ func handleVM() {
 				result, err := vmHandler.TerminateVM(vmID)
 				if err != nil {
 					cblogger.Error(err)
-					cblogger.Errorf("[%s] Terminate VM 실패 : [%s]", vmID.SystemId, result)
+					cblogger.Errorf("Failed to Terminate VM [%s] : [%v]", vmID.SystemId, result)
 				} else {
-					cblogger.Infof("[%s] Terminate VM 실행 성공 : [%s]", vmID.SystemId, result)
+					cblogger.Infof("Successfully Terminate VM [%s] : [%v]", vmID.SystemId, result)
 				}
 				cblogger.Info("\nTerminateVM Test Finished")
 
@@ -203,9 +206,9 @@ func handleVM() {
 				vmStatus, err := vmHandler.GetVMStatus(vmID)
 				if err != nil {
 					cblogger.Error(err)
-					cblogger.Errorf("[%s] Get VM Status 실패 : ", vmID.SystemId)
+					cblogger.Errorf("Failed to Get VM Status [%s] : ", vmID.SystemId)
 				} else {
-					cblogger.Infof("[%s] Get VM Status 실행 성공 : [%s]", vmID.SystemId, vmStatus)
+					cblogger.Infof("Successfully Get VM Status [%s] : [%s]", vmID.SystemId, vmStatus)
 				}
 				cblogger.Info("\nGet VMStatus Test Finished")
 
@@ -214,9 +217,9 @@ func handleVM() {
 				vmStatusInfos, err := vmHandler.ListVMStatus()
 				if err != nil {
 					cblogger.Error(err)
-					cblogger.Error("ListVMStatus 실패 : ")
+					cblogger.Error("Failed to List VMStatus : ")
 				} else {
-					cblogger.Info("ListVMStatus 실행 성공")
+					cblogger.Info("Successfully List VMStatus : ")
 					//cblogger.Info(vmStatusInfos)
 					spew.Dump(vmStatusInfos)
 				}
@@ -227,19 +230,31 @@ func handleVM() {
 				vmList, err := vmHandler.ListVM()
 				if err != nil {
 					cblogger.Error(err)
-					cblogger.Error("ListVM 실패 : ", err)
+					cblogger.Error("Failed to Get VM List: ", err)
 				} else {
-					cblogger.Info("ListVM 실행 성공")
-					cblogger.Info("=========== VM 목록 ================")
+					cblogger.Info("Successfully Get VM List")
+					cblogger.Info("=========== VM List ================")
 					// cblogger.Info(vmList)
 					spew.Dump(vmList)
-					cblogger.Infof("=========== VM 목록 수 : [%d] ================", len(vmList))
+					cblogger.Infof("=========== VM Count : [%d] ================", len(vmList))
 					if len(vmList) > 0 {
 						vmID = vmList[0].IId
 					}
 				}
 				cblogger.Info("\nListVM Test Finished")
 
+			case 10:
+				cblogger.Info("Start ListIID() ...")
+				result, err := vmHandler.ListIID()
+				if err != nil {
+					cblogger.Error("Failed to Get VM IID list : ", err)
+				} else {
+					cblogger.Info("Succeeded in Getting VM IID list!!")
+					spew.Dump(result)
+					cblogger.Debug(result)
+					cblogger.Infof("Total IID list count : [%d]", len(result))
+				}
+				cblogger.Info("\nListIID() Test Finished")
 			}
 		}
 	}

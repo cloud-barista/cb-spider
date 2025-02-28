@@ -19,7 +19,6 @@ import (
 	"strings"
 	"time"
 	_ "time/tzdata" // To prevent 'unknown time zone Asia/Seoul' error
-
 	// "encoding/json"
 	// "github.com/davecgh/go-spew/spew"
 
@@ -298,7 +297,6 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	vm, err := volumeboot.Create(vmHandler.VMClient, bootOpts).Extract()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Create VM!! [%v]", err)
-		cblogger.Error(err.Error())
 		cblogger.Error(newErr.Error())
 		loggingError(callLogInfo, newErr)
 		return irs.VMInfo{}, newErr
@@ -2163,5 +2161,35 @@ func countSgKvList(sg sim.SecurityGroupInfo) int {
 
 func (vmHandler *KTVpcVMHandler) ListIID() ([]*irs.IID, error) {
 	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	callLogInfo := getCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, "ListIID()", "ListIID()")
+
+    // Get VM list
+    listOpts := servers.ListOpts{
+        Limit: 100,
+    }
+	start := call.Start()
+    pager, err := servers.List(vmHandler.VMClient, listOpts).AllPages()
+    if err != nil {
+        newErr := fmt.Errorf("Failed to Get VM Pages from KT Cloud. : [%v]", err)
+        cblogger.Error(newErr.Error())
+        return nil, newErr
+    }
+	loggingInfo(callLogInfo, start)
+
+    vmList, err := servers.ExtractServers(pager)
+    if err != nil {
+        newErr := fmt.Errorf("Failed to Get VM list. : [%v]", err)
+        cblogger.Error(newErr.Error())
+        return nil, newErr
+    }
+
+    var iidList []*irs.IID
+    for _, vm := range vmList {
+        iid := &irs.IID{
+            NameId:   vm.Name,
+            SystemId: vm.ID,
+        }
+        iidList = append(iidList, iid)
+    }
+    return iidList, nil
 }

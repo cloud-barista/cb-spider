@@ -53,6 +53,7 @@ func handleVPC() {
 		fmt.Println("4. AddSubnet()")
 		fmt.Println("5. RemoveSubnet()")
 		fmt.Println("6. DeleteVPC()")
+		fmt.Println("7. ListIID()")
 		fmt.Println("0. Exit")
 		fmt.Println("\n   Select a number above!! : ")
 		fmt.Println("============================================================================================")
@@ -64,12 +65,12 @@ func handleVPC() {
 		vpcIId := irs.IID{NameId: vpcReqName, SystemId: "60e5d9da-55cd-47be-a0d9-6cf67c54f15c"}
 
 		// subnetIId := irs.IID{SystemId: "e1a55d19-9412-4cff-bee0-0c446752ce91"}
-		subnetIId := irs.IID{SystemId: "afaa6ca3-67e8-4a53-95ec-c1a98c79ab55"} // Caution!!) Tier 'OSNetworkID' among REST API parameters
+		subnetIId := irs.IID{SystemId: "1836bf91-4f65-4e04-ba26-c8f6b11408ff"} // Caution!!) Tier 'OSNetworkID' among REST API parameters
 
 		cblogger.Info("reqVPCName : ", vpcReqName)
 
-		// KT Cloud VPC (D1) 서비스의 VPC CIDR은 다음의 사설 주소 범위로 입력되어야 함. : 172.25.0.0/12
-		// 네트워크를 기본설정 선택시, 각각 DMZ : 172.25.0.0/24, Private : 172.25.1.0/24로 제공됨.
+		// The VPC CIDR for KT Cloud VPC (D1) service must be entered within the following private address range: 172.25.0.0/12
+		// When selecting the default network settings, DMZ: 172.25.0.0/24 and Private: 172.25.1.0/24 are provided respectively.
 
 		vpcReqInfo := irs.VPCReqInfo{
 			IId:            vpcIId,
@@ -77,24 +78,31 @@ func handleVPC() {
 			SubnetInfoList: []irs.SubnetInfo {
 				// {
 				// 	IId: irs.IID{
-				// 		NameId: "ktsubnet1-1",
+				// 		NameId: "ktsubnet5-3",
 				// 	},
-				// 	IPv4_CIDR: "172.25.2.0/24",
+				// 	IPv4_CIDR: "172.25.13.0/24",
 				// },
+
 				{
 					IId: irs.IID{
-						NameId: "ktsubnet1-2",
+						NameId: "ktsubnet4-1",
 					},
-					IPv4_CIDR: "172.25.3.0/24",
+					IPv4_CIDR: "10.25.5.0/24",
 				},
 			},
 		}
 			
 		subnetReqInfo := irs.SubnetInfo {
+			// ### "NLB-SUBNET"
+			// IId: irs.IID{
+			// 	NameId: "NLB-SUBNET",
+			// },
+			// IPv4_CIDR: "172.25.100.0/24",
+
 			IId: irs.IID{
-				NameId: "NLB-SUBNET",
+				NameId: "ktsubnet3-2",
 			},
-			IPv4_CIDR: "172.25.100.0/24",
+			IPv4_CIDR: "10.25.9.0/24",
 		}
 		
 		var commandNum int
@@ -113,37 +121,37 @@ func handleVPC() {
 				if err != nil {
 					//panic(err)
 					cblogger.Error(err)
-					cblogger.Error("VPC 생성 실패 : ", err)
+					cblogger.Error("Failed to Create VPC : ", err)
 				} else {
-					cblogger.Info("VPC 생성 완료!!", vpcInfo)
+					cblogger.Info("Successfully Create VPC!!")
 					spew.Dump(vpcInfo)
 					cblogger.Debug(vpcInfo)
 				}
 
-				fmt.Println("\nCreateVPC() Test Finished")
+				fmt.Println("\nCreateVPC() Test Finished")			
 
+				
 			case 2:
 				fmt.Println("Start ListVPC() ...")
 				result, err := handler.ListVPC()
 				if err != nil {
 					cblogger.Error(err)
-					cblogger.Error("VPC list 조회 실패 : ", err)
+					cblogger.Error("Failed to Get VPC list : ", err)
 				} else {
-					cblogger.Info("VPC list 조회 성공!!")
+					cblogger.Info("Successfully Get VPC list!!")
 					spew.Dump(result)
 					cblogger.Debug(result)
-					cblogger.Infof("전체 list 개수 : [%d]", len(result))
+					cblogger.Infof("Total count : [%d]", len(result))
 				}
-
 				fmt.Println("\nListVMSpec() Test Finished")
-				
+
 			case 3:
 				fmt.Println("Start GetVPC() ...")
 				if vpcInfo, err := handler.GetVPC(vpcIId); err != nil {
 					cblogger.Error(err)
-					cblogger.Error("VPC 정보 조회 실패 : ", err)
+					cblogger.Error("Failed to Get VPC inof : ", err)
 				} else {
-					cblogger.Info("VPC 정보 조회 성공!!")
+					cblogger.Info("Successfully Get VPC info!!")
 					spew.Dump(vpcInfo)
 				}
 				fmt.Println("\nGetVPC() Test Finished")
@@ -152,9 +160,9 @@ func handleVPC() {
 				fmt.Println("Start AddSubnet() ...")
 				if result, err := handler.AddSubnet(vpcIId, subnetReqInfo); err != nil {
 					cblogger.Error(err)
-					cblogger.Error("Subnet 추가 실패 : ", err)
+					cblogger.Error("Failed to Add Subnet : ", err)
 				} else {
-					cblogger.Info("Subnet 추가 성공!!")
+					cblogger.Info("Successfully Add Subnet!!")
 					spew.Dump(result)
 				}
 				fmt.Println("\nAddSubnet() Test Finished")
@@ -163,9 +171,9 @@ func handleVPC() {
 				fmt.Println("Start RemoveSubnet() ...")
 				if result, err := handler.RemoveSubnet(vpcIId, subnetIId); err != nil {
 					cblogger.Error(err)
-					cblogger.Error("Subnet 제거 실패 : ", err)
+					cblogger.Error("Failed to Remove Subnet : ", err)
 				} else {
-					cblogger.Info("Subnet 제거 성공!!")
+					cblogger.Info("Successfully Remove Subnet!!")
 					spew.Dump(result)
 				}
 				fmt.Println("\nRemoveSubnet() Test Finished")
@@ -174,12 +182,25 @@ func handleVPC() {
 				fmt.Println("Start DeleteVPC() ...")
 				if result, err := handler.DeleteVPC(vpcIId); err != nil {
 					cblogger.Error(err)
-					cblogger.Error("VPC 삭제 실패 : ", err)
+					cblogger.Error("Failed to Delete VPC : ", err)
 				} else {
-					cblogger.Info("VPC 삭제 성공!!")
+					cblogger.Info("Successfully Delete VPC!!")
 					spew.Dump(result)
 				}
 				fmt.Println("\nGetVPC() Test Finished")
+
+			case 7:
+				cblogger.Info("Start ListIID() ...")
+				result, err := handler.ListIID()
+				if err != nil {
+					cblogger.Error("Failed to Retrieve VPC IID list: ", err)
+				} else {
+					cblogger.Info("Successfully Retrieved VPC IID list!!")
+					spew.Dump(result)
+					cblogger.Debug(result)
+					cblogger.Infof("Total IID list count : [%d]", len(result))
+				}
+				cblogger.Info("\nListIID() Test Finished")
 
 			case 0:
 				fmt.Println("Exit")

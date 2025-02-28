@@ -7,16 +7,15 @@
 // This is a Cloud Driver Example for PoC Test.
 //
 // by ETRI 2022.08.
+// Updated by ETRI, 2025.02.
 
 package resources
 
 import (
 	// "errors"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
-
 	// "github.com/davecgh/go-spew/spew"
 
 	ktvpcsdk "github.com/cloud-barista/ktcloudvpc-sdk-go"
@@ -164,12 +163,14 @@ func (vpcHandler *KTVpcVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	// KT Cloud (D1) Tier API guide : https://cloud.kt.com/docs/open-api-guide/d/computing/tier
 
 	listOpts := networks.ListOpts{}
+	start := call.Start()
 	firstPage, err := networks.List(vpcHandler.NetworkClient, listOpts).FirstPage() // Caution!! : First Page Only
 	if err != nil {
 		cblogger.Errorf("Failed to Get VPC Network info from KT Cloud VPC : [%v]", err)
 		loggingError(callLogInfo, err)
 		return nil, err
 	}
+	loggingInfo(callLogInfo, start)
 
 	vpcList, err := networks.ExtractVPCs(firstPage)
 	if err != nil {
@@ -253,12 +254,15 @@ func (vpcHandler *KTVpcVPCHandler) GetSubnet(subnetIID irs.IID) (irs.SubnetInfo,
 		return irs.SubnetInfo{}, newErr
 	}
 
+	start := call.Start()
 	subnet, err := subnets.Get(vpcHandler.NetworkClient, subnetIID.SystemId).Extract()
 	if err != nil {
 		cblogger.Errorf("Failed to Get Subnet with SystemId [%s] : %v", subnetIID.SystemId, err)
 		loggingError(callLogInfo, err)
 		return irs.SubnetInfo{}, nil
 	}
+	loggingInfo(callLogInfo, start)
+
 	subnetInfo := vpcHandler.mappingSubnetInfo(*subnet)
 	return *subnetInfo, nil
 }
@@ -473,8 +477,8 @@ func (vpcHandler *KTVpcVPCHandler) getKtCloudVpc(vpcId string) (*networks.Networ
 		return nil, newErr
 	}
 
-	start := call.Start()
 	listOpts := networks.ListOpts{}
+	start := call.Start()
 	firstPage, err := networks.List(vpcHandler.NetworkClient, listOpts).FirstPage() // Caution!! : First Page Only
 	if err != nil {
 		cblogger.Errorf("Failed to Get VPC Network info from KT Cloud VPC : [%v]", err)
@@ -791,6 +795,37 @@ func (vpcHandler *KTVpcVPCHandler) getVPCIdWithOsNetworkID(osNetworkId string) (
 // }
 
 func (vpcHandler *KTVpcVPCHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	cblogger.Info("KT Cloud VPC driver: called ListIID()!!")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, "ListIID()", "ListIID()")
+
+	start := call.Start()
+    listOpts := networks.ListOpts{}
+    firstPage, err := networks.List(vpcHandler.NetworkClient, listOpts).FirstPage() // Caution!! : First Page Only
+    if err != nil {
+        newErr := fmt.Errorf("Failed to Get VPC Network info from KT Cloud VPC : [%v]", err)
+        cblogger.Error(newErr.Error())
+        return nil, newErr
+    }
+	loggingInfo(callLogInfo, start)
+
+    vpcList, err := networks.ExtractVPCs(firstPage)
+    if err != nil {
+        newErr := fmt.Errorf("Failed to Get KT Cloud VPC Network list. [%v]", err)
+        cblogger.Error(newErr.Error())
+        return nil, newErr
+    }
+    if len(vpcList) < 1 {
+        cblogger.Info("### There is No VPC!!")
+        return nil, nil
+    }
+
+    var iidList []*irs.IID
+    for _, vpc := range vpcList {
+        iid := &irs.IID{
+            NameId:   vpc.Name,
+            SystemId: vpc.ID,
+        }
+        iidList = append(iidList, iid)
+    }
+    return iidList, nil
 }
