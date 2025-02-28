@@ -45,15 +45,21 @@ func (diskHandler *AlibabaDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs
 
 	cblogger.Info("Start CreateDisk : ", diskReqInfo)
 
-	err := validateCreateDisk(&diskReqInfo)
-	if err != nil {
-		return irs.DiskInfo{}, err
-	}
-
 	// #issue 1067 : 입력받은 zone에 생성
 	zoneId := diskHandler.Region.Zone
 	if diskReqInfo.Zone != "" {
 		zoneId = diskReqInfo.Zone
+	}
+
+	// get available disk types in this zone
+	availableDiskTypes, err := getDiskTypesByZone(diskHandler.Client, zoneId)
+	if err != nil {
+		return irs.DiskInfo{}, err
+	}
+
+	err = validateCreateDisk(&diskReqInfo, availableDiskTypes)
+	if err != nil {
+		return irs.DiskInfo{}, err
 	}
 
 	destinationResource := "DataDisk"
@@ -469,7 +475,7 @@ Disk 생성시 validation check
   - DiskType
   - DiskType 별 min/max capacity check
 */
-func validateCreateDisk(diskReqInfo *irs.DiskInfo) error {
+func validateCreateDisk(diskReqInfo *irs.DiskInfo, availableDiskTypesInThisZone []string) error {
 	// Check Disk Exists
 
 	cloudOSMetaInfo, err := cim.GetCloudOSMetaInfo("ALIBABA")
@@ -488,9 +494,15 @@ func validateCreateDisk(diskReqInfo *irs.DiskInfo) error {
 	diskSize := diskReqInfo.DiskSize
 
 	if reqDiskCategory == "" || reqDiskCategory == "default" {
-		diskSizeArr := strings.Split(arrRootDiskSizeOfType[0], "|")
-		reqDiskCategory = diskSizeArr[0]      // ESSD
-		diskReqInfo.DiskType = diskSizeArr[0] // set default value
+		for _, diskSizeOfType := range arrRootDiskSizeOfType {
+			diskSizeArr := strings.Split(diskSizeOfType, "|")
+			if !ContainString(availableDiskTypesInThisZone, diskSizeArr[0]) { // check available disk type in this zone
+				continue
+			}
+			reqDiskCategory = diskSizeArr[0]       // ESSD
+			diskReqInfo.DiskType = reqDiskCategory // set default value
+			break
+		}
 	}
 	// 정의된 type인지
 	if !ContainString(arrDiskType, reqDiskCategory) {
@@ -498,9 +510,15 @@ func validateCreateDisk(diskReqInfo *irs.DiskInfo) error {
 	}
 
 	if diskSize == "" || diskSize == "default" {
-		diskSizeArr := strings.Split(arrRootDiskSizeOfType[0], "|")
-		diskSize = diskSizeArr[1]
-		diskReqInfo.DiskSize = diskSizeArr[1] // set default value
+		for _, diskSizeOfType := range arrRootDiskSizeOfType {
+			diskSizeArr := strings.Split(diskSizeOfType, "|")
+			if !ContainString(availableDiskTypesInThisZone, diskSizeArr[0]) { // check available disk type in this zone
+				continue
+			}
+			diskSize = diskSizeArr[1]       // 20
+			diskReqInfo.DiskSize = diskSize // set default value
+			break
+		}
 	}
 
 	reqDiskSize, err := strconv.ParseInt(diskSize, 10, 64)
