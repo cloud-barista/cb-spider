@@ -106,6 +106,6 @@ func ConvertByteToGB(byteStr string) (string, error) {
 
 // ConvertByteToGBInt64 converts Byte (int64) to a GB string (int string).
 func ConvertByteToGBInt64(byteValue int64) string {
-	gb := int(byteValue / (1024 * 1024 * 1024))
+	gb := int(byteValue / (1000 * 1000 * 1000))
 	return strconv.Itoa(gb)
 }
