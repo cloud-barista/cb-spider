@@ -331,7 +331,7 @@ definitions:
       IId:
         allOf:
         - $ref: '#/definitions/spider.IID'
-        description: '{NameId, SystemId} // Deprecated'
+        description: '{NameId, SystemId}, {ami-00aa5a103ddf4509f, ami-00aa5a103ddf4509f}'
       ImageStatus:
         allOf:
         - $ref: '#/definitions/spider.ImageStatus'
@@ -350,7 +350,7 @@ definitions:
         - $ref: '#/definitions/spider.OSArchitecture'
         description: arm64, x86_64 etc.
         example: x86_64
-      OSDiskSizeInGB:
+      OSDiskSizeGB:
         description: 10, 50, 100 etc.
         example: "50"
         type: string
@@ -372,7 +372,7 @@ definitions:
     - ImageStatus
     - Name
     - OSArchitecture
-    - OSDiskSizeInGB
+    - OSDiskSizeGB
     - OSDiskType
     - OSDistribution
     - OSPlatform

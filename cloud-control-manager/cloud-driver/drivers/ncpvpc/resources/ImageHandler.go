@@ -11,7 +11,6 @@ package resources
 import (
 	// "errors"
 	"fmt"
-	"strconv"
 	"strings"
 
 	// "github.com/davecgh/go-spew/spew"
@@ -177,7 +176,7 @@ func mappingImageInfo(serverImage *vserver.ServerImage) irs.ImageInfo {
 	if len(serverImage.BlockStorageMappingList) > 0 {
 		blockStorageMapping := serverImage.BlockStorageMappingList[0]
 		if blockStorageMapping.BlockStorageSize != nil {
-			blockStorageSize = strconv.FormatFloat(float64(*blockStorageMapping.BlockStorageSize)/(1024*1024*1024), 'f', 0, 64)
+			blockStorageSize = irs.ConvertByteToGBInt64(*blockStorageMapping.BlockStorageSize)
 		} else {
 			blockStorageSize = "-1"
 		}
@@ -209,15 +208,10 @@ func mappingImageInfo(serverImage *vserver.ServerImage) irs.ImageInfo {
 		OSPlatform:     osPlatform,
 		OSDistribution: guestOS,
 		OSDiskType:     diskType,
-		OSDiskSizeInGB: blockStorageSize,
+		OSDiskSizeGB:   blockStorageSize,
 		ImageStatus:    imageStatus,
+		KeyValueList:   irs.StructToKeyValueList(serverImage),
 	}
-
-	keyValueList := []irs.KeyValue{
-		{Key: "ImageDescription", Value: *serverImage.ServerImageDescription},
-	}
-	// keyValueList = append(keyValueList, irs.KeyValue{Key: "OSType", Value: *serverImage.PlatformType.Code})
-	imageInfo.KeyValueList = keyValueList
 
 	return imageInfo
 }

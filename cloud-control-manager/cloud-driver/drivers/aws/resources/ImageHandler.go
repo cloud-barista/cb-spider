@@ -12,7 +12,6 @@ package resources
 import (
 	"errors"
 	"reflect"
-	"strconv"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -57,7 +56,7 @@ func (imageHandler *AwsImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) 
 		OSPlatform:     "Linux/UNIX",
 		OSDistribution: "Ubuntu 18.04",
 		OSDiskType:     "gp3",
-		OSDiskSizeInGB: "35",
+		OSDiskSizeGB:   "35",
 		ImageStatus:    "Available",
 		KeyValueList:   nil,
 	}, nil
@@ -174,7 +173,6 @@ func ExtractImageDescribeInfo(image *ec2.Image) irs.ImageInfo {
 	distribution := extractOsDistribution(image)
 	imageStatus := extractImageAvailability(image)
 
-	imageSize := "-1"
 	imageDiskType := "NA"
 
 	// 생성 될 vm에 요구되는 root disk의 type
@@ -200,51 +198,9 @@ func ExtractImageDescribeInfo(image *ec2.Image) irs.ImageInfo {
 	imageInfo.OSArchitecture = osArchitecture
 	imageInfo.OSDistribution = distribution
 	imageInfo.ImageStatus = imageStatus
-	imageInfo.OSDiskSizeInGB = imageSize
+	imageInfo.OSDiskSizeGB = "-1"
 	imageInfo.OSDiskType = imageDiskType
-
-	keyValueList := []irs.KeyValue{
-		//{Key: "Name", Value: *image.Name}, //20200723-Name이 없는 이미지 존재 - 예)ami-0008a301
-		{Key: "CreationDate", Value: *image.CreationDate},
-		{Key: "Architecture", Value: *image.Architecture}, //x86_64
-		{Key: "OwnerId", Value: *image.OwnerId},
-		{Key: "ImageType", Value: *image.ImageType},
-		{Key: "ImageLocation", Value: *image.ImageLocation},
-		{Key: "VirtualizationType", Value: *image.VirtualizationType},
-		{Key: "Public", Value: strconv.FormatBool(*image.Public)},
-	}
-
-	//주로 윈도우즈는 Platform 정보가 존재하며 리눅스 계열은 PlatformDetails만 존재하는 듯. - "Linux/UNIX"
-	//윈도우즈 계열은 PlatformDetails에는 "Windows with SQL Server Standard"처럼 SQL정보도 포함되어있음.
-	if !reflect.ValueOf(image.Platform).IsNil() {
-		// deprecated imageInfo.GuestOS = *image.Platform //Linux/UNIX
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "Platform", Value: *image.Platform})
-	}
-
-	// 일부 이미지들은 아래 정보가 없어서 예외 처리 함.
-	if !reflect.ValueOf(image.PlatformDetails).IsNil() {
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "PlatformDetails", Value: *image.PlatformDetails})
-	}
-
-	// 일부 이미지들은 아래 정보가 없어서 예외 처리 함.
-	if !reflect.ValueOf(image.Name).IsNil() {
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "Name", Value: *image.Name})
-	}
-	if !reflect.ValueOf(image.Description).IsNil() {
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "Description", Value: *image.Description})
-	}
-	if !reflect.ValueOf(image.ImageOwnerAlias).IsNil() {
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "ImageOwnerAlias", Value: *image.ImageOwnerAlias})
-	}
-	if !reflect.ValueOf(image.RootDeviceName).IsNil() {
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "RootDeviceName", Value: *image.RootDeviceName})
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "RootDeviceType", Value: *image.RootDeviceType})
-	}
-	if !reflect.ValueOf(image.EnaSupport).IsNil() {
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "EnaSupport", Value: strconv.FormatBool(*image.EnaSupport)})
-	}
-
-	imageInfo.KeyValueList = keyValueList
+	imageInfo.KeyValueList = irs.StructToKeyValueList(image)
 	return imageInfo
 }
 

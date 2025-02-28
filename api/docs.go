@@ -8944,14 +8944,14 @@ const docTemplate = `{
                 "ImageStatus",
                 "Name",
                 "OSArchitecture",
-                "OSDiskSizeInGB",
+                "OSDiskSizeGB",
                 "OSDiskType",
                 "OSDistribution",
                 "OSPlatform"
             ],
             "properties": {
                 "IId": {
-                    "description": "{NameId, SystemId} // Deprecated",
+                    "description": "{NameId, SystemId}, {ami-00aa5a103ddf4509f, ami-00aa5a103ddf4509f}",
                     "allOf": [
                         {
                             "$ref": "#/definitions/spider.IID"
@@ -8987,7 +8987,7 @@ const docTemplate = `{
                     ],
                     "example": "x86_64"
                 },
-                "OSDiskSizeInGB": {
+                "OSDiskSizeGB": {
                     "description": "10, 50, 100 etc.",
                     "type": "string",
                     "example": "50"

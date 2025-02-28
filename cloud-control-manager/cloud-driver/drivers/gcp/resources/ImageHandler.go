@@ -724,6 +724,7 @@ func mappingImageInfo(imageInfo *compute.Image) irs.ImageInfo {
 
 	// 2024-12-23 ImageInfo changed for meta. IID, GuestOS, Status deprecated.
 	// 2025-01-18: Postpone the deprecation of IID, so revoke IID changes.
+	imageInfo.ShieldedInstanceInitialState = nil // 너무 길어 임시로 주석처리함.
 	returnImageInfo := irs.ImageInfo{
 		IId: irs.IID{
 			NameId:   imageInfo.SelfLink,
@@ -737,20 +738,12 @@ func mappingImageInfo(imageInfo *compute.Image) irs.ImageInfo {
 		OSPlatform:     extractOsPlatform(imageInfo), // imageInfo.Description
 		OSDistribution: distribution,
 		OSDiskType:     "NA",
-		OSDiskSizeInGB: strconv.FormatInt(imageInfo.DiskSizeGb, 10),
+		OSDiskSizeGB:   strconv.FormatInt(imageInfo.DiskSizeGb, 10),
 		ImageStatus:    imageStatus,
+		KeyValueList:   irs.StructToKeyValueList(imageInfo),
 	}
-
-	imageInfo.ShieldedInstanceInitialState = nil // 너무 길어 임시로 주석처리함.
-	convertKeyValueList, err := ConvertKeyValueList(imageInfo)
-	if err != nil {
-		returnImageInfo.KeyValueList = nil
-		cblogger.Error(err)
-	}
-	returnImageInfo.KeyValueList = convertKeyValueList
 
 	return returnImageInfo
-
 }
 
 // OS Platform (contains description or family, name)

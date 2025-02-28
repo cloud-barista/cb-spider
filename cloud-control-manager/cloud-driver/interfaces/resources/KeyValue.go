@@ -80,6 +80,7 @@ func StructToKeyValueList(obj interface{}) []KeyValue {
 				for j := 0; j < value.Len(); j++ {
 					jsonBytes, _ := json.Marshal(value.Index(j).Interface())
 					sliceValues[j] = strings.ReplaceAll(string(jsonBytes), `"`, "")
+					// sliceValues[j] = string(jsonBytes) ------------------------- // json format for 'Value' field
 				}
 				fieldValue = strings.Join(sliceValues, "; ")
 			}
@@ -88,6 +89,7 @@ func StructToKeyValueList(obj interface{}) []KeyValue {
 			jsonBytes, err := json.Marshal(value.Interface())
 			if err == nil {
 				fieldValue = strings.ReplaceAll(string(jsonBytes), `"`, "")
+				// fieldValue = string(jsonBytes) ------------------------- // json format for 'Value' field
 			}
 		}
 

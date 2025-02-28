@@ -84,11 +84,6 @@ func formatDiskSizeValue(value float64) string {
 }
 
 func setterImage(imageClient *gophercloud.ServiceClient, image images.Image) *irs.ImageInfo {
-	resp, err := getMoreImageInfoFromAPI(imageClient, image.ID)
-	if err != nil {
-		cblogger.Error(err)
-	}
-
 	imageStatus := irs.ImageUnavailable
 	status := strings.ToLower(image.Status)
 	if status == "active" {
@@ -106,21 +101,10 @@ func setterImage(imageClient *gophercloud.ServiceClient, image images.Image) *ir
 		OSPlatform:     irs.PlatformNA,
 		OSDistribution: image.Name,
 		OSDiskType:     "NA",
-		OSDiskSizeInGB: strconv.Itoa(image.MinDisk),
+		OSDiskSizeGB:   strconv.Itoa(image.MinDisk),
 		ImageStatus:    imageStatus,
+		KeyValueList:   irs.StructToKeyValueList(image),
 	}
-
-	var keyValueList []irs.KeyValue
-	for key, val := range resp {
-		if key == "os_hidden" || key == "os_hash_algo" || key == "os_hash_value" {
-			property := irs.KeyValue{
-				Key:   key,
-				Value: fmt.Sprintf("%v", val),
-			}
-			keyValueList = append(keyValueList, property)
-		}
-	}
-	imageInfo.KeyValueList = keyValueList
 
 	return imageInfo
 }

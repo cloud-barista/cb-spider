@@ -141,16 +141,11 @@ func mappingImageInfo(productType *ktsdk.ProductTypes) irs.ImageInfo {
 		OSPlatform:     osPlatform,
 		OSDistribution: productType.TemplateDesc,
 		OSDiskType:     "NA",
-		OSDiskSizeInGB: diskSize,
+		OSDiskSizeGB:   diskSize,
 		ImageStatus:    imageStatus,
+		KeyValueList:   irs.StructToKeyValueList(productType),
 	}
 
-	// Since KT Cloud has different supported images for each zone, zone information is also presented.
-	keyValueList := []irs.KeyValue{
-		{Key: "ProductType", Value: productType.Product},
-		{Key: "Zone", Value: productType.ZoneDesc},
-	}
-	imageInfo.KeyValueList = keyValueList
 	return imageInfo
 }
 

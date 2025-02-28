@@ -201,17 +201,11 @@ func (imageHandler *KTVpcImageHandler) mappingImageInfo(image *images.Image) (*i
 		OSPlatform:     osPlatform,
 		OSDistribution: image.Name,
 		OSDiskType:     "NA",
-		OSDiskSizeInGB: "-1",
+		OSDiskSizeGB:   "-1",
 		ImageStatus:    imageStatus,
+		KeyValueList:   irs.StructToKeyValueList(image),
 	}
 
-	keyValueList := []irs.KeyValue{
-		{Key: "Zone", Value: imageHandler.RegionInfo.Zone},
-		{Key: "DiskFormat:", Value: string(image.DiskFormat)},
-		{Key: "ContainerFormat:", Value: string(image.ContainerFormat)},
-		{Key: "Visibility:", Value: string(image.Visibility)},
-	}
-	imageInfo.KeyValueList = keyValueList
 	return imageInfo, nil
 }
 

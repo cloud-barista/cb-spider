@@ -47,14 +47,14 @@ const (
 
 // ImageInfo represents the information of an Image.
 type ImageInfo struct {
-	IId IID `json:"IId" validate:"required" description:"The ID of the image."` // {NameId, SystemId} // Deprecated
+	IId IID `json:"IId" validate:"required" description:"The ID of the image."` // {NameId, SystemId}, {ami-00aa5a103ddf4509f, ami-00aa5a103ddf4509f}
 
 	Name           string         `json:"Name" validate:"required" example:"ami-00aa5a103ddf4509f" description:"The name of the image."`                                   // ami-00aa5a103ddf4509f
 	OSArchitecture OSArchitecture `json:"OSArchitecture" validate:"required" example:"x86_64" description:"The architecture of the operating system of the image."`        // arm64, x86_64 etc.
 	OSPlatform     OSPlatform     `json:"OSPlatform" validate:"required" example:"Linux/UNIX" description:"The platform of the operating system of the image."`            // Linux/UNIX, Windows, NA
 	OSDistribution string         `json:"OSDistribution" validate:"required" example:"Ubuntu 22.04~" description:"The distribution of the operating system of the image."` // Ubuntu 22.04~, CentOS 8 etc.
-	OSDiskType     string         `json:"OSDiskType" validate:"required" example:"HDD" description:"The type of the root disk of for the VM being created."`               // ebs, HDD, etc.
-	OSDiskSizeInGB string         `json:"OSDiskSizeInGB" validate:"required" example:"50" description:"The (minimum) root disk size in GB for the VM being created."`      // 10, 50, 100 etc.
+	OSDiskType     string         `json:"OSDiskType" validate:"required" example:"HDD" description:"The type of the OS disk of for the VM being created."`                 // ebs, HDD, etc.
+	OSDiskSizeGB   string         `json:"OSDiskSizeGB" validate:"required" example:"50" description:"The (minimum) OS disk size in GB for the VM being created."`          // 10, 50, 100 etc.
 
 	ImageStatus ImageStatus `json:"ImageStatus" validate:"required" example:"Available" description:"The status of the image, e.g., Available or Unavailable."` // Available, Unavailable
 

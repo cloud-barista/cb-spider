@@ -198,28 +198,13 @@ func (imageHandler *NhnCloudImageHandler) mappingImageInfo(image images.Image) *
 		Name:           image.ID,
 		OSArchitecture: arch,
 		OSPlatform:     platform,
-		OSDistribution: image.Properties["os_distro"].(string),
+		OSDistribution: image.Properties["os_distro"].(string) + " " + image.Properties["os_version"].(string),
 		OSDiskType:     "NA",
-		OSDiskSizeInGB: strconv.Itoa(image.MinDiskGigabytes),
+		OSDiskSizeGB:   strconv.Itoa(image.MinDiskGigabytes),
 		ImageStatus:    imgAvailability,
+		KeyValueList:   irs.StructToKeyValueList(image),
 	}
 
-	keyValueList := []irs.KeyValue{
-		{Key: "Region", Value: imageHandler.RegionInfo.Region},
-		{Key: "Visibility", Value: string(image.Visibility)},
-	}
-
-	for key, val := range image.Properties {
-		if key == "hypervisor_type" || key == "release_date" || key == "description" || key == "os_version" || key == "nhncloud_product" {
-			metadata := irs.KeyValue{
-				Key:   strings.ToUpper(key),
-				Value: fmt.Sprintf("%v", val),
-			}
-			keyValueList = append(keyValueList, metadata)
-		}
-	}
-
-	imageInfo.KeyValueList = keyValueList
 	return imageInfo
 }
 
