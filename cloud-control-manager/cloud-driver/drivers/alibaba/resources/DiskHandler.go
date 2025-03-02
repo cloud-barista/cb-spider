@@ -496,12 +496,11 @@ func validateCreateDisk(diskReqInfo *irs.DiskInfo, availableDiskTypesInThisZone 
 	if reqDiskCategory == "" || reqDiskCategory == "default" {
 		for _, diskSizeOfType := range arrRootDiskSizeOfType {
 			diskSizeArr := strings.Split(diskSizeOfType, "|")
-			if !ContainString(availableDiskTypesInThisZone, diskSizeArr[0]) { // check available disk type in this zone
-				continue
+			if ContainString(availableDiskTypesInThisZone, diskSizeArr[0]) { // check available disk type in this zone
+				reqDiskCategory = diskSizeArr[0]       // ESSD
+				diskReqInfo.DiskType = reqDiskCategory // set default value
+				break
 			}
-			reqDiskCategory = diskSizeArr[0]       // ESSD
-			diskReqInfo.DiskType = reqDiskCategory // set default value
-			break
 		}
 	}
 	// 정의된 type인지
@@ -512,12 +511,11 @@ func validateCreateDisk(diskReqInfo *irs.DiskInfo, availableDiskTypesInThisZone 
 	if diskSize == "" || diskSize == "default" {
 		for _, diskSizeOfType := range arrRootDiskSizeOfType {
 			diskSizeArr := strings.Split(diskSizeOfType, "|")
-			if !ContainString(availableDiskTypesInThisZone, diskSizeArr[0]) { // check available disk type in this zone
-				continue
+			if ContainString(availableDiskTypesInThisZone, diskSizeArr[0]) { // check available disk type in this zone
+				diskSize = diskSizeArr[1]       // 20
+				diskReqInfo.DiskSize = diskSize // set default value
+				break
 			}
-			diskSize = diskSizeArr[1]       // 20
-			diskReqInfo.DiskSize = diskSize // set default value
-			break
 		}
 	}
 
