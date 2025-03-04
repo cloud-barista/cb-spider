@@ -1615,7 +1615,10 @@ func RemoveNodeGroup(connectionName string, clusterName string, nodeGroupName st
 	result, err := handler.RemoveNodeGroup(cluserDriverIID, nodeGroupDriverIID)
 	if err != nil {
 		cblog.Error(err)
-		if force != "true" {
+		if checkNotFoundError(err) {
+			// if not found in CSP, continue
+			force = "true"
+		} else if force != "true" {
 			return false, err
 		}
 	}
@@ -1848,7 +1851,10 @@ func DeleteCluster(connectionName string, rsType string, nameID string, force st
 	result, err = handler.(cres.ClusterHandler).DeleteCluster(driverIId)
 	if err != nil {
 		cblog.Error(err)
-		if force != "true" {
+		if checkNotFoundError(err) {
+			// if not found in CSP, continue
+			force = "true"
+		} else if force != "true" {
 			return false, err
 		}
 	}

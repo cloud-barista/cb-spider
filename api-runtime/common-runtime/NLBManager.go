@@ -1871,7 +1871,10 @@ func DeleteNLB(connectionName string, rsType string, nameID string, force string
 	result, err = handler.(cres.NLBHandler).DeleteNLB(driverIId)
 	if err != nil {
 		cblog.Error(err)
-		if force != "true" {
+		if checkNotFoundError(err) {
+			// if not found in CSP, continue
+			force = "true"
+		} else if force != "true" {
 			return false, err
 		}
 	}

@@ -901,7 +901,7 @@
             ConnectionName: connConfig
         };
 
-        fetchWithProgress(`/spider/securitygroup/${sgName}?force=true`, {
+        fetchWithProgress(`/spider/securitygroup/${sgName}`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json'
@@ -946,7 +946,7 @@
                 ConnectionName: connConfig
             };
 
-            return fetchWithProgress(`/spider/securitygroup/${sgName}?force=true`, {
+            return fetchWithProgress(`/spider/securitygroup/${sgName}`, {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json'

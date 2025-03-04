@@ -1091,7 +1091,7 @@
             const deletePromises = Array.from(checkboxes).map(checkbox => {
                 const clusterName = checkbox.value;
 
-                return fetchWithProgress(`/spider/cluster/${clusterName}?force=true`, {
+                return fetchWithProgress(`/spider/cluster/${clusterName}`, {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ ConnectionName: "{{.ConnectionConfig}}" })
@@ -1867,7 +1867,7 @@
 
             const data = { ConnectionName: "{{.ConnectionConfig}}" };
 
-            fetchWithProgress(`/spider/cluster/${clusterName}/nodegroup/${nodeGroupName}?force=true`, {
+            fetchWithProgress(`/spider/cluster/${clusterName}/nodegroup/${nodeGroupName}`, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)

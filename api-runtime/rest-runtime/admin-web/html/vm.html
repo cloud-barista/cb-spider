@@ -1202,7 +1202,7 @@ THE SOFTWARE.
                 ConnectionName: connConfig
             };
 
-            return fetchWithProgress(`/spider/vm/${vmName}?force=true`, {
+            return fetchWithProgress(`/spider/vm/${vmName}`, {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json'
@@ -1238,7 +1238,7 @@ THE SOFTWARE.
             ConnectionName: connConfig
         };
 
-        fetchWithProgress(`/spider/vm/${vmName}?force=true`, {
+        fetchWithProgress(`/spider/vm/${vmName}`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json'

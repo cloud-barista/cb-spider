@@ -845,7 +845,7 @@
             ConnectionName: connConfig
         };
 
-        fetchWithProgress(`/spider/vpc/${vpcName}?force=true`, {
+        fetchWithProgress(`/spider/vpc/${vpcName}`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json'
@@ -890,7 +890,7 @@
                 ConnectionName: connConfig
             };
 
-            return fetchWithProgress(`/spider/vpc/${vpcName}?force=true`, {
+            return fetchWithProgress(`/spider/vpc/${vpcName}`, {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json'
@@ -1138,7 +1138,7 @@
             ConnectionName: connConfig
         };
 
-        fetchWithProgress(`/spider/vpc/${vpcName}/subnet/${subnetName}?force=true`, {
+        fetchWithProgress(`/spider/vpc/${vpcName}/subnet/${subnetName}`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json'

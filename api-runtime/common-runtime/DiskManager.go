@@ -833,7 +833,10 @@ func DeleteDisk(connectionName string, rsType string, nameID string, force strin
 	result, err = handler.(cres.DiskHandler).DeleteDisk(driverIId)
 	if err != nil {
 		cblog.Error(err)
-		if force != "true" {
+		if checkNotFoundError(err) {
+			// if not found in CSP, continue
+			force = "true"
+		} else if force != "true" {
 			return false, err
 		}
 	}

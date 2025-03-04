@@ -1355,7 +1355,10 @@ func RemoveSubnet(connectionName string, vpcName string, nameID string, force st
 	result, err = handler.(cres.VPCHandler).RemoveSubnet(getDriverIID(cres.IID{NameId: iidVPCInfo.NameId, SystemId: iidVPCInfo.SystemId}), driverIId)
 	if err != nil {
 		cblog.Error(err)
-		if force != "true" {
+		if checkNotFoundError(err) {
+			// if not found in CSP, continue
+			force = "true"
+		} else if force != "true" {
 			return false, err
 		}
 	}
@@ -1512,7 +1515,10 @@ func DeleteVPC(connectionName string, rsType string, nameID string, force string
 	result, err = handler.(cres.VPCHandler).DeleteVPC(driverIId)
 	if err != nil {
 		cblog.Error(err)
-		if force != "true" {
+		if checkNotFoundError(err) {
+			// if not found in CSP, continue
+			force = "true"
+		} else if force != "true" {
 			return false, err
 		}
 	}

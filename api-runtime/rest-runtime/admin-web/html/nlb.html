@@ -1158,7 +1158,7 @@
                 ConnectionName: connConfig
             };
 
-            return fetchWithProgress(`/spider/nlb/${nlbName}?force=true`, {
+            return fetchWithProgress(`/spider/nlb/${nlbName}`, {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json'

@@ -543,7 +543,7 @@
                 ConnectionName: connConfig
             };
 
-            return fetchWithProgress(`/spider/keypair/${keyPairName}?force=true`, {
+            return fetchWithProgress(`/spider/keypair/${keyPairName}`, {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json'
@@ -577,7 +577,7 @@
             ConnectionName: connConfig
         };
 
-        fetchWithProgress(`/spider/keypair/${keyPairName}?force=true`, {
+        fetchWithProgress(`/spider/keypair/${keyPairName}`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json'

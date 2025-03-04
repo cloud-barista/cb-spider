@@ -591,7 +591,7 @@
                 ConnectionName: connConfig
             };
 
-            return fetchWithProgress(`/spider/myimage/${myImageName}?force=true`, {
+            return fetchWithProgress(`/spider/myimage/${myImageName}`, {
                 method: 'DELETE',
                 headers: {
                     'Content-Type': 'application/json'

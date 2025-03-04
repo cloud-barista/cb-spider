@@ -2068,7 +2068,10 @@ func DeleteVM(connectionName string, rsType string, nameID string, force string)
 	vmStatus, err = handler.(cres.VMHandler).TerminateVM(driverIId)
 	if err != nil {
 		cblog.Error(err)
-		if force != "true" {
+		if checkNotFoundError(err) {
+			// if not found in CSP, continue
+			force = "true"
+		} else if force != "true" {
 			callInfo.ErrorMSG = err.Error()
 			callogger.Info(call.String(callInfo))
 			return false, vmStatus, err
