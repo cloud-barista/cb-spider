@@ -6,9 +6,12 @@
 [![Swagger API Docs](https://img.shields.io/badge/docs-Swagger_API-blue)](https://cloud-barista.github.io/api/?url=https://raw.githubusercontent.com/cloud-barista/cb-spider/refs/heads/master/api/swagger.yaml)
 
 
-CB-Spider is a sub-framework of the Cloud-Barista Multi-Cloud Platform.<br>
-CB-Spider offers a unified view and interface for multi-cloud management.
+- CB-Spider is a sub-framework of the Cloud-Barista Multi-Cloud Platform.<br>
+- CB-Spider offers a unified view and interface for multi-cloud management.
 
+<p align="center">
+  <img width="850" alt="image" src="https://github.com/user-attachments/assets/c1e5328b-151d-4b24-ad62-947e8bfcbbcf">
+</p>
 
 ```
 [NOTE]
