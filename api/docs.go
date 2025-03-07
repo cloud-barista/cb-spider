@@ -8820,7 +8820,7 @@ const docTemplate = `{
                 "Count": {
                     "description": "Number of GPUs, \"-1\" when not applicable",
                     "type": "string",
-                    "example": "1"
+                    "example": "2"
                 },
                 "MemSizeGB": {
                     "description": "Memory size of the GPU in GB, \"-1\" when not applicable",
@@ -8836,6 +8836,11 @@ const docTemplate = `{
                     "description": "Model of the GPU, NA when not applicable",
                     "type": "string",
                     "example": "Tesla K80"
+                },
+                "TotalMemSizeGB": {
+                    "description": "Total Memory size of the GPU in GB, \"-1\" when not applicable",
+                    "type": "string",
+                    "example": "24"
                 }
             }
         },
@@ -8939,14 +8944,14 @@ const docTemplate = `{
                 "ImageStatus",
                 "Name",
                 "OSArchitecture",
-                "OSDiskSizeInGB",
+                "OSDiskSizeGB",
                 "OSDiskType",
                 "OSDistribution",
                 "OSPlatform"
             ],
             "properties": {
                 "IId": {
-                    "description": "{NameId, SystemId} // Deprecated",
+                    "description": "{NameId, SystemId}, {ami-00aa5a103ddf4509f, ami-00aa5a103ddf4509f}",
                     "allOf": [
                         {
                             "$ref": "#/definitions/spider.IID"
@@ -8982,7 +8987,7 @@ const docTemplate = `{
                     ],
                     "example": "x86_64"
                 },
-                "OSDiskSizeInGB": {
+                "OSDiskSizeGB": {
                     "description": "10, 50, 100 etc.",
                     "type": "string",
                     "example": "50"

@@ -11,7 +11,7 @@
 package resources
 
 import (
-	"errors"
+	// "errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -212,6 +212,7 @@ func (nlbHandler *KTVpcNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 		loggingError(callLogInfo, newErr)
 		return nil, newErr
 	}
+	loggingInfo(callLogInfo, start)
 	nlbList, err := ktvpclb.ExtractLoadBalancers(firstPage)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Extract NLB List : [%v]", err)
@@ -219,7 +220,6 @@ func (nlbHandler *KTVpcNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 		loggingError(callLogInfo, newErr)
 		return nil, newErr
 	}
-	loggingInfo(callLogInfo, start)
 
 	// cblogger.Info("\n\n# nlbList from KT Cloud VPC : ")
 	// spew.Dump(nlbList)
@@ -1159,7 +1159,41 @@ func countNlbKvList(nlb nim.NlbInfo) int {
 	return len(nlb.KeyValueInfoList)
 }
 
-func (NLBHandler *KTVpcNLBHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+func (nlbHandler *KTVpcNLBHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("KT Cloud VPC driver: called ListIID()!!")
+	callLogInfo := getCallLogScheme(nlbHandler.RegionInfo.Zone, "NETWORKLOADBALANCE", "ListIID()", "ListIID()")
+
+    listOpts := ktvpclb.ListOpts{
+        ZoneID: nlbHandler.RegionInfo.Zone,
+    }
+	start := call.Start()
+    firstPage, err := ktvpclb.List(nlbHandler.NLBClient, listOpts).FirstPage() // Not 'NetworkClient', Not 'AllPages()'
+    if err != nil {
+        newErr := fmt.Errorf("Failed to Get NLB List from KT Cloud : [%v]", err)
+        cblogger.Error(newErr.Error())
+        return nil, newErr
+    }
+	loggingInfo(callLogInfo, start)
+
+    nlbList, err := ktvpclb.ExtractLoadBalancers(firstPage)
+    if err != nil {
+        newErr := fmt.Errorf("Failed to Extract NLB List : [%v]", err)
+        cblogger.Error(newErr.Error())
+        return nil, newErr
+    }
+
+    if len(nlbList) < 1 {
+        cblogger.Info("### There is No NLB!!")
+        return nil, nil
+    }
+
+    var iidList []*irs.IID
+    for _, nlb := range nlbList {
+        iid := &irs.IID{
+            NameId:   nlb.Name,
+            SystemId: strconv.Itoa(nlb.NlbID),
+        }
+        iidList = append(iidList, iid)
+    }
+    return iidList, nil
 }

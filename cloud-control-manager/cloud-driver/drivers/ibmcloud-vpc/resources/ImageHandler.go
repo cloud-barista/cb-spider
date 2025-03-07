@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/IBM/go-sdk-core/v5/core"
@@ -239,19 +238,11 @@ func setImageInfo(image *vpcv1.Image) (irs.ImageInfo, error) {
 			OSPlatform:     osPlatform,
 			OSDistribution: *image.OperatingSystem.DisplayName,
 			OSDiskType:     "NA",
-			OSDiskSizeInGB: "-1",
+			OSDiskSizeGB:   "-1",
 			ImageStatus:    imageStatus,
-			KeyValueList: []irs.KeyValue{
-				{Key: "Version", Value: *image.OperatingSystem.Version},
-				{Key: "DedicatedHostOnly", Value: strconv.FormatBool(func() bool {
-					if image.OperatingSystem.DedicatedHostOnly != nil {
-						return *image.OperatingSystem.DedicatedHostOnly
-					}
-					return false
-				}())},
-				{Key: "Vendor", Value: *image.OperatingSystem.Vendor},
-			},
+			KeyValueList:   irs.StructToKeyValueList(image),
 		}
+
 		return imageInfo, nil
 	}
 
@@ -290,6 +281,6 @@ func (imageHandler *IbmImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, 
 		return false, checkWindowsImageErr
 	}
 	LoggingInfo(hiscallInfo, start)
-	isWindows := strings.Contains(strings.ToLower(*rawImage.OperatingSystem.Name), "windows")
+	isWindows := strings.Contains(strings.ToLower(*rawImage.OperatingSystem.Name), "window")
 	return isWindows, nil
 }

@@ -204,7 +204,7 @@ func checkNotFoundError(err error) bool {
 	msg = strings.ReplaceAll(msg, " ", "")
 	msg = strings.ToLower(msg)
 
-	return strings.Contains(msg, "does not exist") || strings.Contains(msg, "notfound") ||
+	return strings.Contains(msg, "notexist") || strings.Contains(msg, "notfound") ||
 		strings.Contains(msg, "notexist") || strings.Contains(msg, "failedtofind") || strings.Contains(msg, "failedtogetthevm") || strings.Contains(msg, "noresult")
 }
 

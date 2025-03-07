@@ -46,7 +46,8 @@ func (vpcHandler *OpenStackVPCHandler) setterVPC(nvpc NetworkWithExt) *irs.VPCIn
 			NameId:   nvpc.Name,
 			SystemId: nvpc.ID,
 		},
-		TagList: tags,
+		IPv4_CIDR: "OpenStack VPC does not support IPv4_CIDR",
+		TagList:   tags,
 	}
 	var External string
 	if nvpc.External == true {

@@ -28,7 +28,7 @@ type AzureImageHandler struct {
 	VMImageClient *armcompute.VirtualMachineImagesClient
 }
 
-func (imageHandler *AzureImageHandler) setterVMImage(pulisher string, offer string, sku string, version string,
+func (imageHandler *AzureImageHandler) setterVMImage(vmiCleintGetRes *armcompute.VirtualMachineImagesClientGetResponse, pulisher string, offer string, sku string, version string,
 	arch irs.OSArchitecture, platform irs.OSPlatform) *irs.ImageInfo {
 	imageName := pulisher + ":" + offer + ":" + sku + ":" + version
 
@@ -45,16 +45,9 @@ func (imageHandler *AzureImageHandler) setterVMImage(pulisher string, offer stri
 		OSPlatform:     platform,
 		OSDistribution: distribution,
 		OSDiskType:     "NA",
-		OSDiskSizeInGB: "-1",
+		OSDiskSizeGB:   "-1",
 		ImageStatus:    irs.ImageAvailable,
-		KeyValueList: []irs.KeyValue{
-			{Key: "ResourceGroup", Value: imageHandler.Region.Region},
-			{Key: "Publisher", Value: pulisher},
-			{Key: "Offer", Value: offer},
-			{Key: "SKU", Value: sku},
-			{Key: "Version", Value: version},
-			{Key: "URN", Value: imageName},
-		},
+		KeyValueList:   irs.StructToKeyValueList(vmiCleintGetRes.VirtualMachineImage),
 	}
 
 	return imageInfo
@@ -407,12 +400,13 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 							imageIdArr := strings.Split(*latest.ID, "/")
 							imageVersion := imageIdArr[len(imageIdArr)-1]
 
+							respGet := armcompute.VirtualMachineImagesClientGetResponse{}
 							arch := determineArchQuickly(pName, oName, sName)
 							os := determineOSQuickly(pName, oName, sName)
 							if os == irs.PlatformNA {
 								for {
 									reqWaitCheck()
-									resp, err := imageHandler.VMImageClient.Get(imageHandler.Ctx, imageHandler.Region.Region, pName, oName, sName, imageVersion, nil)
+									respGet, err = imageHandler.VMImageClient.Get(imageHandler.Ctx, imageHandler.Region.Region, pName, oName, sName, imageVersion, nil)
 									if err != nil {
 										if checkRequest(err.Error()) {
 											continue
@@ -426,10 +420,10 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 										return
 									}
 
-									if resp.VirtualMachineImage.Properties != nil &&
-										resp.VirtualMachineImage.Properties.OSDiskImage != nil &&
-										resp.VirtualMachineImage.Properties.OSDiskImage.OperatingSystem != nil {
-										osType := *resp.VirtualMachineImage.Properties.OSDiskImage.OperatingSystem
+									if respGet.VirtualMachineImage.Properties != nil &&
+										respGet.VirtualMachineImage.Properties.OSDiskImage != nil &&
+										respGet.VirtualMachineImage.Properties.OSDiskImage.OperatingSystem != nil {
+										osType := *respGet.VirtualMachineImage.Properties.OSDiskImage.OperatingSystem
 										if osType == armcompute.OperatingSystemTypesLinux {
 											os = irs.Linux_UNIX
 										} else if osType == armcompute.OperatingSystemTypesWindows {
@@ -441,7 +435,7 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 								}
 							}
 
-							vmImageInfo := imageHandler.setterVMImage(pName, oName, sName, imageVersion, arch, os)
+							vmImageInfo := imageHandler.setterVMImage(&respGet, pName, oName, sName, imageVersion, arch, os)
 							mutex.Lock()
 							imageList = append(imageList, vmImageInfo)
 							mutex.Unlock()
@@ -547,7 +541,7 @@ func (imageHandler *AzureImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo
 		os = irs.Windows
 	}
 
-	imageInfo := imageHandler.setterVMImage(imageArr[0], imageArr[1], imageArr[2], imageArr[3], arch, os)
+	imageInfo := imageHandler.setterVMImage(&resp, imageArr[0], imageArr[1], imageArr[2], imageArr[3], arch, os)
 	return *imageInfo, nil
 }
 
@@ -599,7 +593,7 @@ func (imageHandler *AzureImageHandler) GetImageN(name string) (irs.ImageInfo, er
 		os = irs.Windows
 	}
 
-	imageInfo := imageHandler.setterVMImage(imageArr[0], imageArr[1], imageArr[2], imageArr[3], arch, os)
+	imageInfo := imageHandler.setterVMImage(&resp, imageArr[0], imageArr[1], imageArr[2], imageArr[3], arch, os)
 	return *imageInfo, nil
 }
 

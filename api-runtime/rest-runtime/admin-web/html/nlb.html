@@ -710,121 +710,135 @@
                     <span class="nlb-created-time" data-time="{{ $nlb.CreatedTime }}"></span>
                 </td>
                 <td class="nlb-name vpc-name">
-                    {{$nlb.VpcIID.NameId}}
-                    <span class="nlb-system-id" onclick="showSystemIdOverlay('{{$nlb.VpcIID.SystemId}}')">&nbsp;• {{$nlb.VpcIID.SystemId}}</span>
+                    {{if $nlb.VpcIID.NameId}}
+                        {{$nlb.VpcIID.NameId}}
+                        <span class="nlb-system-id" onclick="showSystemIdOverlay('{{$nlb.VpcIID.SystemId}}')">&nbsp;• {{$nlb.VpcIID.SystemId}}</span>
+                    {{end}}
                 </td>
-                <td class="scope-type">{{$nlb.Scope}} | {{$nlb.Type}}</td>
+                <td class="scope-type">
+                    {{if $nlb.VpcIID.NameId}}
+                        {{$nlb.Scope}} | {{$nlb.Type}}
+                    {{end}}
+                </td>
                 
                 <!-- Listener -->
                 <td class="listener">
-                    <table class="inner-table">
-                        <tr>
-                            <th>Protocol</th>
-                            <td>{{$nlb.Listener.Protocol}}</td>
-                        </tr>
-                        <tr>
-                            <th>Port</th>
-                            <td>{{$nlb.Listener.Port}}</td>
-                        </tr>
-                        <tr>
-                            <th>Public IP</th>
-                            <td>{{$nlb.Listener.IP}}</td>
-                        </tr>
-                        <tr>
-                            <th>DNS</th>
-                            <td>{{$nlb.Listener.DNSName}}</td>
-                        </tr>
-                        <tr>
-                            <th>Status</th>
-                            <td>
-                                <button class="check-btn" 
-                                        onclick="checkNLBListener('{{$nlb.Listener.Protocol}}', '{{$nlb.Listener.Port}}', '{{$nlb.Listener.IP}}', '{{$nlb.Listener.DNSName}}')" 
-                                        style="font-size: 11px; padding: 4px 8px;">
-                                    Check
-                                </button>
-                            </td>
-                        </tr>
-                    </table>
+                    {{if $nlb.VpcIID.NameId}}
+                        <table class="inner-table">
+                            <tr>
+                                <th>Protocol</th>
+                                <td>{{$nlb.Listener.Protocol}}</td>
+                            </tr>
+                            <tr>
+                                <th>Port</th>
+                                <td>{{$nlb.Listener.Port}}</td>
+                            </tr>
+                            <tr>
+                                <th>Public IP</th>
+                                <td>{{$nlb.Listener.IP}}</td>
+                            </tr>
+                            <tr>
+                                <th>DNS</th>
+                                <td>{{$nlb.Listener.DNSName}}</td>
+                            </tr>
+                            <tr>
+                                <th>Status</th>
+                                <td>
+                                    <button class="check-btn" 
+                                            onclick="checkNLBListener('{{$nlb.Listener.Protocol}}', '{{$nlb.Listener.Port}}', '{{$nlb.Listener.IP}}', '{{$nlb.Listener.DNSName}}')" 
+                                            style="font-size: 11px; padding: 4px 8px;">
+                                        Check
+                                    </button>
+                                </td>
+                            </tr>
+                        </table>
+                    {{end}}
                 </td>
                                 
                 <!-- VM Groups -->
                 <td class="vm-groups">
-                    <table class="inner-table">
-                        <tr>
-                            <th>Protocol</th>
-                            <td>{{$nlb.VMGroup.Protocol}}</td>
-                        </tr>
-                        <tr>
-                            <th>Port</th>
-                            <td>{{$nlb.VMGroup.Port}}</td>
-                        </tr>
-                        <tr>
-                            <td colspan="2">
-                                <div style="display: flex; justify-content: center; align-items: center; position: relative;">
-                                    <span style="font-weight: bold; margin-right: auto; text-align: center; width: 100%;">VMs</span>
-                                    <div style="position: absolute; right: 0; padding-right: 3%">
-                                        <button class="vm-add" style="padding: 1px 5px; font-size: 12px;" onclick="showVMOverlay('{{$nlb.IId.NameId}}', extractNames('{{$nlb.VMGroup.VMs}}'))">add</button>
+                    {{if $nlb.VpcIID.NameId}}
+                        <table class="inner-table">
+                            <tr>
+                                <th>Protocol</th>
+                                <td>{{$nlb.VMGroup.Protocol}}</td>
+                            </tr>
+                            <tr>
+                                <th>Port</th>
+                                <td>{{$nlb.VMGroup.Port}}</td>
+                            </tr>
+                            <tr>
+                                <td colspan="2">
+                                    <div style="display: flex; justify-content: center; align-items: center; position: relative;">
+                                        <span style="font-weight: bold; margin-right: auto; text-align: center; width: 100%;">VMs</span>
+                                        <div style="position: absolute; right: 0; padding-right: 3%">
+                                            <button class="vm-add" style="padding: 1px 5px; font-size: 12px;" onclick="showVMOverlay('{{$nlb.IId.NameId}}', extractNames('{{$nlb.VMGroup.VMs}}'))">add</button>
+                                        </div>
                                     </div>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td colspan="2">
-                                <table class="inner-table vm-list">
-                                    {{range $vm := $nlb.VMGroup.VMs}}
-                                    <tr>
-                                        <td style="text-align: center;">{{$vm.NameId}}</td>
-                                        <td style="background-color: white; width: 10%;">
-                                            <button id="vm-del" style="padding: 1px 5px; font-size: 12px; font-size: 12px;" onclick="delVMFromNLB('{{$nlb.IId.NameId}}', '{{$vm.NameId}}')">del</button>
-                                        </td>
-                                    </tr>
-                                    {{end}}
-                                </table>
-                            </td>
-                        </tr>
-                    </table>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="2">
+                                    <table class="inner-table vm-list">
+                                        {{range $vm := $nlb.VMGroup.VMs}}
+                                        <tr>
+                                            <td style="text-align: center;">{{$vm.NameId}}</td>
+                                            <td style="background-color: white; width: 10%;">
+                                                <button id="vm-del" style="padding: 1px 5px; font-size: 12px; font-size: 12px;" onclick="delVMFromNLB('{{$nlb.IId.NameId}}', '{{$vm.NameId}}')">del</button>
+                                            </td>
+                                        </tr>
+                                        {{end}}
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+                    {{end}}
                 </td>
 
                 
                 <!-- Health Checker -->
                 <td class="health-checker">
-                    <table class="inner-table-health">
-                        <tr>
-                            <th>Protocol</th>
-                            <td>{{$nlb.HealthChecker.Protocol}}</td>
-                        </tr>
-                        <tr>
-                            <th>Port</th>
-                            <td>{{$nlb.HealthChecker.Port}}</td>
-                        </tr>
-                        <tr>
-                            <th>Interval</th>
-                            <td>{{$nlb.HealthChecker.Interval}}</td>
-                        </tr>
-                        <tr>
-                            <th>Timeout</th>
-                            <td>{{$nlb.HealthChecker.Timeout}}</td>
-                        </tr>
-                        <tr>
-                            <th>Threshold</th>
-                            <td>{{$nlb.HealthChecker.Threshold}}</td>
-                        </tr>
-                        <tr>
-                            <th>Status</th>
-                            <td>
-                                <button class="check-btn" onclick="checkNLBHealth('{{$nlb.IId.NameId}}')" style="font-size: 11px; padding: 4px 8px;">Check</button>
-                            </td>
-                        </tr>
-                    </table>
+                    {{if $nlb.VpcIID.NameId}}
+                        <table class="inner-table-health">
+                            <tr>
+                                <th>Protocol</th>
+                                <td>{{$nlb.HealthChecker.Protocol}}</td>
+                            </tr>
+                            <tr>
+                                <th>Port</th>
+                                <td>{{$nlb.HealthChecker.Port}}</td>
+                            </tr>
+                            <tr>
+                                <th>Interval</th>
+                                <td>{{$nlb.HealthChecker.Interval}}</td>
+                            </tr>
+                            <tr>
+                                <th>Timeout</th>
+                                <td>{{$nlb.HealthChecker.Timeout}}</td>
+                            </tr>
+                            <tr>
+                                <th>Threshold</th>
+                                <td>{{$nlb.HealthChecker.Threshold}}</td>
+                            </tr>
+                            <tr>
+                                <th>Status</th>
+                                <td>
+                                    <button class="check-btn" onclick="checkNLBHealth('{{$nlb.IId.NameId}}')" style="font-size: 11px; padding: 4px 8px;">Check</button>
+                                </td>
+                            </tr>
+                        </table>
+                    {{end}}
                 </td>                
                 
                 <td class="tags" style="text-align: left;">
-                    {{range $tag := $nlb.TagList}}
-                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'NLB', '{{$nlb.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                    {{if $nlb.VpcIID.NameId}}
+                        {{range $tag := $nlb.TagList}}
+                        <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'NLB', '{{$nlb.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                        {{end}}
+                        <div class="add-btn-container">
+                            <button class="add-btn" onclick="showAddTagOverlay('{{$nlb.IId.NameId}}')">+</button>
+                        </div>
                     {{end}}
-                    <div class="add-btn-container">
-                        <button class="add-btn" onclick="showAddTagOverlay('{{$nlb.IId.NameId}}')">+</button>
-                    </div>
                 </td>
                 
                 <td class="misc misc-cell">
@@ -1161,21 +1175,10 @@
         });
 
         Promise.all(deletePromises)
-            .then(dataList => {
-                let allSuccess = true;
-                dataList.forEach((data, index) => {
-                    if (data.Result !== "true") {
-                        allSuccess = false;
-                        showError("Failed to delete some NLBs: " + (data.Message || "Unknown error"), "NLB Name: " + checkboxes[index].value);
-                    }
-                });
-                if (allSuccess) {
-                    location.reload();
-                }
-            })
+            .then(() => location.reload())
             .catch(error => {
-                showError("Error deleting NLBs: " + error.message, "Multiple NLBs");
-            });
+                alert("Error deleting NLBs: " + error.message);
+        });
     }
 
     function toggleSelectAll(source) {

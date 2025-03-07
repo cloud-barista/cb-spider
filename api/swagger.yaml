@@ -236,7 +236,7 @@ definitions:
     properties:
       Count:
         description: Number of GPUs, "-1" when not applicable
-        example: "1"
+        example: "2"
         type: string
       MemSizeGB:
         description: Memory size of the GPU in GB, "-1" when not applicable
@@ -249,6 +249,10 @@ definitions:
       Model:
         description: Model of the GPU, NA when not applicable
         example: Tesla K80
+        type: string
+      TotalMemSizeGB:
+        description: Total Memory size of the GPU in GB, "-1" when not applicable
+        example: "24"
         type: string
     required:
     - Count
@@ -327,7 +331,7 @@ definitions:
       IId:
         allOf:
         - $ref: '#/definitions/spider.IID'
-        description: '{NameId, SystemId} // Deprecated'
+        description: '{NameId, SystemId}, {ami-00aa5a103ddf4509f, ami-00aa5a103ddf4509f}'
       ImageStatus:
         allOf:
         - $ref: '#/definitions/spider.ImageStatus'
@@ -346,7 +350,7 @@ definitions:
         - $ref: '#/definitions/spider.OSArchitecture'
         description: arm64, x86_64 etc.
         example: x86_64
-      OSDiskSizeInGB:
+      OSDiskSizeGB:
         description: 10, 50, 100 etc.
         example: "50"
         type: string
@@ -368,7 +372,7 @@ definitions:
     - ImageStatus
     - Name
     - OSArchitecture
-    - OSDiskSizeInGB
+    - OSDiskSizeGB
     - OSDiskType
     - OSDistribution
     - OSPlatform

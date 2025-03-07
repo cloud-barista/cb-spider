@@ -291,7 +291,7 @@ func extractVmSpec(instanceTypeInfo *cvm.InstanceTypeQuotaItem) irs.VMSpecInfo {
 
 	//Memory 정보 처리
 	if !reflect.ValueOf(instanceTypeInfo.Memory).IsNil() {
-		vmSpecInfo.MemSizeMiB = strconv.FormatInt(*instanceTypeInfo.Memory*1024, 10) // GiB->MiB
+		vmSpecInfo.MemSizeMiB = irs.ConvertGiBToMiBInt64(*instanceTypeInfo.Memory)
 	}
 
 	//VCPU 정보 처리 - Count
@@ -338,10 +338,11 @@ func extractVmSpec(instanceTypeInfo *cvm.InstanceTypeQuotaItem) irs.VMSpecInfo {
 
 		// 기본 값 설정
 		gpuInfo := irs.GpuInfo{
-			Count:     "-1",
-			Model:     "NA",
-			Mfr:       "NA",
-			MemSizeGB: "-1",
+			Count:          "-1",
+			Model:          "NA",
+			Mfr:            "NA",
+			MemSizeGB:      "-1",
+			TotalMemSizeGB: "-1",
 		}
 		gpuInfo.Count = strconv.FormatInt(*instanceTypeInfo.Gpu, 10)
 

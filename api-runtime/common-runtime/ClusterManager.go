@@ -958,7 +958,9 @@ func ListCluster(connectionName string, rsType string) ([]*cres.ClusterInfo, err
 		if err != nil {
 			clusterSPLock.RUnlock(connectionName, iidInfo.NameId)
 			if checkNotFoundError(err) {
-				cblog.Info(err)
+				cblog.Error(err)
+				info = cres.ClusterInfo{IId: cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}}
+				infoList2 = append(infoList2, &info)
 				continue
 			}
 			cblog.Error(err)
@@ -1613,7 +1615,10 @@ func RemoveNodeGroup(connectionName string, clusterName string, nodeGroupName st
 	result, err := handler.RemoveNodeGroup(cluserDriverIID, nodeGroupDriverIID)
 	if err != nil {
 		cblog.Error(err)
-		if force != "true" {
+		if checkNotFoundError(err) {
+			// if not found in CSP, continue
+			force = "true"
+		} else if force != "true" {
 			return false, err
 		}
 	}
@@ -1846,7 +1851,10 @@ func DeleteCluster(connectionName string, rsType string, nameID string, force st
 	result, err = handler.(cres.ClusterHandler).DeleteCluster(driverIId)
 	if err != nil {
 		cblog.Error(err)
-		if force != "true" {
+		if checkNotFoundError(err) {
+			// if not found in CSP, continue
+			force = "true"
+		} else if force != "true" {
 			return false, err
 		}
 	}

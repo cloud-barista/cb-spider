@@ -41,8 +41,8 @@ func PrepareVMSpec(mockName string) {
 	}
 
 	prepareVMSpecInfoList = []*irs.VMSpecInfo{
-		{"common-region", "mock-vmspec-01", irs.VCpuInfo{"4", "2.7"}, "32768", "-1", []irs.GpuInfo{{"2", "NVIDIA", "V100", "512"}}, nil},
-		{"common-region", "mock-vmspec-02", irs.VCpuInfo{"4", "3.2"}, "32768", "-1", []irs.GpuInfo{{"1", "NVIDIA", "V100", "512"}}, nil},
+		{"common-region", "mock-vmspec-01", irs.VCpuInfo{"4", "2.7"}, "32768", "-1", []irs.GpuInfo{{"2", "NVIDIA", "V100", "512", "1024"}}, nil},
+		{"common-region", "mock-vmspec-02", irs.VCpuInfo{"4", "3.2"}, "32768", "-1", []irs.GpuInfo{{"1", "NVIDIA", "V100", "512", "512"}}, nil},
 		{"common-region", "mock-vmspec-03", irs.VCpuInfo{"8", "2.7"}, "62464", "-1", nil, nil},
 		{"common-region", "mock-vmspec-04", irs.VCpuInfo{"8", "2.7"}, "1024", "-1", nil, nil},
 	}

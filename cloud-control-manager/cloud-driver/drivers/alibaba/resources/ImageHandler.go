@@ -268,36 +268,10 @@ func ExtractImageDescribeInfo(image *ecs.Image) irs.ImageInfo {
 		OSPlatform:     extractOsPlatform(image),
 		OSDistribution: image.OSNameEn,
 		OSDiskType:     "NA",
-		OSDiskSizeInGB: strconv.Itoa(image.Size),
+		OSDiskSizeGB:   strconv.Itoa(image.Size),
 		ImageStatus:    irs.ImageStatus(image.Status),
+		KeyValueList:   irs.StructToKeyValueList(image),
 	}
-
-	keyValueList := []irs.KeyValue{
-		{Key: "CreationTime", Value: image.CreationTime},
-		{Key: "Architecture", Value: image.Architecture},
-
-		{Key: "OSNameEn", Value: image.OSNameEn},
-		{Key: "ProductCode", Value: image.ProductCode},
-		{Key: "OSType", Value: image.OSType},
-		{Key: "OSName", Value: image.OSName},
-		{Key: "Progress", Value: image.Progress},
-		{Key: "IsSupportCloudinit", Value: strconv.FormatBool(image.IsSupportCloudinit)},
-		{Key: "Usage", Value: image.Usage},
-		{Key: "ImageVersion", Value: image.ImageVersion},
-		{Key: "IsSupportIoOptimized", Value: strconv.FormatBool(image.IsSupportIoOptimized)},
-		{Key: "IsSelfShared", Value: image.IsSelfShared},
-		{Key: "IsCopied", Value: strconv.FormatBool(image.IsCopied)},
-		{Key: "IsSubscribed", Value: strconv.FormatBool(image.IsSubscribed)},
-		{Key: "Platform", Value: image.Platform},
-		{Key: "Size", Value: strconv.Itoa(image.Size)},
-	}
-	// keyValueList = append(keyValueList, irs.KeyValue{Key: "Description", Value: image.Description})
-	// imageInfo.KeyValueList = keyValueList
-	keyValueList, err := ConvertKeyValueList(image)
-	if err != nil {
-		cblogger.Error("Failed to convert image to KeyValueList:", err)
-	}
-	imageInfo.KeyValueList = keyValueList
 
 	return imageInfo
 }

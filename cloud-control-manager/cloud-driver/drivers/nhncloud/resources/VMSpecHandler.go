@@ -153,39 +153,39 @@ func (vmSpecHandler *NhnCloudVMSpecHandler) GetOrgVMSpec(specName string) (strin
 	return jsonString, nil
 }
 
-func getGpuCount(vmSize string) (ea int, memory int) {
+func getGpuCount(vmSize string) (ea int, memory int, totalMemory int) {
 	vmSize = strings.ToLower(vmSize)
 
 	// https://www.nhncloud.com/kr/pricing/m-content?c=Machine%20Learning&s=AI%20EasyMaker
 	if strings.Contains(vmSize, "g2") {
 		if strings.Contains(vmSize, "v100") {
 			if strings.Contains(vmSize, "c8m90") {
-				return 1, 32
+				return 1, 32, 32
 			} else if strings.Contains(vmSize, "c16m180") {
-				return 2, 64
+				return 2, 32, 64
 			} else if strings.Contains(vmSize, "c32m360") {
-				return 4, 128
+				return 4, 32, 128
 			} else if strings.Contains(vmSize, "c64m720") {
-				return 8, 256
+				return 8, 32, 256
 			}
 		} else if strings.Contains(vmSize, "t4") {
 			if strings.Contains(vmSize, "c4m32") {
-				return 1, 16
+				return 1, 16, 16
 			} else if strings.Contains(vmSize, "c8m64") {
-				return 2, 32
+				return 2, 16, 32
 			} else if strings.Contains(vmSize, "c16m128") {
-				return 4, 64
+				return 4, 16, 64
 			} else if strings.Contains(vmSize, "c32m256") {
-				return 8, 128
+				return 8, 16, 128
 			}
 		}
 	} else if strings.Contains(vmSize, "g4") {
 		if strings.Contains(vmSize, "c92m1800") {
-			return 8, 320
+			return 8, 40, 320
 		}
 	}
 
-	return -1, -1
+	return -1, -1, -1
 }
 
 func getGpuModel(vmSize string) string {
@@ -211,14 +211,15 @@ func parseGpuInfo(vmSizeName string) *irs.GpuInfo {
 		return nil
 	}
 
-	count, mem := getGpuCount(vmSizeLower)
+	count, mem, totalMem := getGpuCount(vmSizeLower)
 	model := getGpuModel(vmSizeLower)
 
 	return &irs.GpuInfo{
-		Count:     fmt.Sprintf("%d", count),
-		MemSizeGB: fmt.Sprintf("%d", mem),
-		Mfr:       "NVIDIA",
-		Model:     model,
+		Mfr:            "NVIDIA",
+		Model:          model,
+		MemSizeGB:      fmt.Sprintf("%d", mem),
+		Count:          fmt.Sprintf("%d", count),
+		TotalMemSizeGB: fmt.Sprintf("%d", totalMem),
 	}
 }
 

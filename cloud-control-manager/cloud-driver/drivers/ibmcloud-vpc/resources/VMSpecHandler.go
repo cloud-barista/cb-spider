@@ -192,18 +192,17 @@ func getGpuModel(name string) string {
 	return "NA"
 }
 
-func getGpuInfo(name string) (string, string, string, string) {
+func getGpuInfo(name string) (string, string, string) {
 	//check NVIDIA gpu
 	mfr := getGpuMfr(name)
 	if mfr == "NA" {
-		return mfr, "-1", "NA", "-1"
+		return mfr, "-1", "NA"
 	}
 
 	count := getGpuCount(name)
 	model := getGpuModel(name)
-	mem := "-1" // getGpuMem(name): Memory size in SpecName is main memory size, not GPU memory size
 
-	return mfr, count, model, mem
+	return mfr, count, model
 }
 
 func setVmSpecInfo(profile vpcv1.InstanceProfile, region string) (irs.VMSpecInfo, error) {
@@ -232,13 +231,14 @@ func setVmSpecInfo(profile vpcv1.InstanceProfile, region string) (irs.VMSpecInfo
 
 	vmSpecInfo.Gpu = []irs.GpuInfo{}
 	if strings.HasPrefix(*profile.Name, "gx") {
-		gpuMfr, gpuCount, gpuModel, gpuMem := getGpuInfo(*profile.Name)
+		gpuMfr, gpuCount, gpuModel := getGpuInfo(*profile.Name)
 		vmSpecInfo.Gpu = []irs.GpuInfo{
 			{
-				Mfr:       gpuMfr,
-				Count:     gpuCount,
-				Model:     gpuModel,
-				MemSizeGB: gpuMem,
+				Mfr:            gpuMfr,
+				Count:          gpuCount,
+				Model:          gpuModel,
+				MemSizeGB:      "-1", // Memory size in SpecName is main memory size, not GPU memory size
+				TotalMemSizeGB: "-1",
 			},
 		}
 	}

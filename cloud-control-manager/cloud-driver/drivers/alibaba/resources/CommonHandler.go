@@ -1880,3 +1880,37 @@ func WaitForNlbTagExist(client *slb.Client, regionInfo idrv.RegionInfo, resType 
 
 	//return false, nil
 }
+
+// GetDiskTypesByZone returns a slice of available disk types for the specified zone
+func getDiskTypesByZone(client *ecs.Client, zoneID string) ([]string, error) {
+
+	// Create DescribeAvailableResource request
+	request := ecs.CreateDescribeAvailableResourceRequest()
+	request.Scheme = "https"
+	request.ZoneId = zoneID
+	request.DestinationResource = "DataDisk"
+	request.ResourceType = "disk"
+
+	response, err := client.DescribeAvailableResource(request)
+	if err != nil {
+		return nil, fmt.Errorf("Alibaba API call failed: %v", err)
+	}
+
+	// Process response and collect disk types
+	var diskTypes []string
+
+	for _, zone := range response.AvailableZones.AvailableZone {
+		if zone.ZoneId == zoneID {
+			for _, resource := range zone.AvailableResources.AvailableResource {
+				for _, diskType := range resource.SupportedResources.SupportedResource {
+					// Only add available disk types
+					if diskType.Status == "Available" {
+						diskTypes = append(diskTypes, diskType.Value)
+					}
+				}
+			}
+		}
+	}
+
+	return diskTypes, nil
+}

@@ -57,12 +57,21 @@ func ExtractGpuInfo(gpuDeviceInfo *ec2.GpuDeviceInfo) irs.GpuInfo {
 		gpuInfo.Model = "NA" // Set string values to "NA" if nil
 	}
 
-	// Check MemoryInfo and transform MiB to GB
+	// Check GPU MemoryInfo and transform MiB to GB
 	if gpuDeviceInfo.MemoryInfo != nil && gpuDeviceInfo.MemoryInfo.SizeInMiB != nil {
-		gb := float64(*gpuDeviceInfo.MemoryInfo.SizeInMiB) / 1024.0 * 1.073741824
-		gpuInfo.MemSizeGB = strconv.FormatFloat(gb, 'f', 2, 64)
+		// Convert MiB to GB
+		gpuInfo.MemSizeGB = irs.ConvertMiBToGBInt64(*gpuDeviceInfo.MemoryInfo.SizeInMiB)
+
+		// Calculate TotalMemSizeGB
+		if gpuDeviceInfo.Count != nil {
+			totalMiB := *gpuDeviceInfo.MemoryInfo.SizeInMiB * *gpuDeviceInfo.Count
+			gpuInfo.TotalMemSizeGB = irs.ConvertMiBToGBInt64(totalMiB)
+		} else {
+			gpuInfo.TotalMemSizeGB = "-1"
+		}
 	} else {
 		gpuInfo.MemSizeGB = "-1" // Set number values to "-1" if nil
+		gpuInfo.TotalMemSizeGB = "-1"
 	}
 
 	return gpuInfo

@@ -639,44 +639,48 @@
                     <span class="desc-system-id" onclick="showSystemIdOverlay('{{$vpc.IId.SystemId}}')">&nbsp;• {{$vpc.IId.SystemId}}</span></td>
                     <td class="vpc-cidr center-align">{{$vpc.IPv4_CIDR}}</td>
                     <td class="subnet-info">
-                    <table class="inner-table">
-                        <tr>
-                            <th class="name-column">Name</th>
-                            <th class="cidr-column">CIDR</th>
-                            <th class="zone-column">Zone</th>
-                            <th class="tags-column">Tags</th>
-                            <th class="actions-cell"><button class="add-btn" onclick="showSubnetOverlay('{{$vpcNameId}}')">add</button></th>
-                        </tr>
-                        {{range $subnetIndex, $subnet := $vpc.SubnetInfoList}}
-                        {{ $subnetNameId := $subnet.IId.NameId }}
-                        <tr>
-                            <td class="vpc-name-cell" style="text-align: left;">{{$subnet.IId.NameId}}
-                                <span class="desc-system-id" onclick="showSystemIdOverlay('{{$subnet.IId.SystemId}}')">&nbsp;• {{$subnet.IId.SystemId}}</span>
-                            </td>
-                            <td>{{$subnet.IPv4_CIDR}}</td>
-                            <td>{{$subnet.Zone}}</td>
-                            <td class="tags-cell">
-                                {{range $tag := $subnet.TagList}}
-                                <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'SUBNET', '{{$subnetNameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                        {{if $vpc.IPv4_CIDR}}
+                            <table class="inner-table">
+                                <tr>
+                                    <th class="name-column">Name</th>
+                                    <th class="cidr-column">CIDR</th>
+                                    <th class="zone-column">Zone</th>
+                                    <th class="tags-column">Tags</th>
+                                    <th class="actions-cell"><button class="add-btn" onclick="showSubnetOverlay('{{$vpcNameId}}')">add</button></th>
+                                </tr>
+                                {{range $subnetIndex, $subnet := $vpc.SubnetInfoList}}
+                                {{ $subnetNameId := $subnet.IId.NameId }}
+                                <tr>
+                                    <td class="vpc-name-cell" style="text-align: left;">{{$subnet.IId.NameId}}
+                                        <span class="desc-system-id" onclick="showSystemIdOverlay('{{$subnet.IId.SystemId}}')">&nbsp;• {{$subnet.IId.SystemId}}</span>
+                                    </td>
+                                    <td>{{$subnet.IPv4_CIDR}}</td>
+                                    <td>{{$subnet.Zone}}</td>
+                                    <td class="tags-cell">
+                                        {{range $tag := $subnet.TagList}}
+                                        <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'SUBNET', '{{$subnetNameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                                        {{end}}
+                                        <div class="add-btn-container">
+                                            <button class="plus-btn" onclick="showAddSubnetTagOverlay('{{$vpcNameId}}', '{{$subnetNameId}}')">+</button>
+                                        </div>
+                                    </td>
+                                    <td class="actions-cell">
+                                        <button class="delete-btn" onclick="deleteSubnet('{{$vpcNameId}}', '{{$subnet.IId.NameId}}')">del</button>
+                                    </td>
+                                </tr>
                                 {{end}}
-                                <div class="add-btn-container">
-                                    <button class="plus-btn" onclick="showAddSubnetTagOverlay('{{$vpcNameId}}', '{{$subnetNameId}}')">+</button>
-                                </div>
-                            </td>
-                            <td class="actions-cell">
-                                <button class="delete-btn" onclick="deleteSubnet('{{$vpcNameId}}', '{{$subnet.IId.NameId}}')">del</button>
-                            </td>
-                        </tr>
+                            </table>
                         {{end}}
-                    </table>
                 </td>
                 <td class="tags">
-                    {{range $tag := $vpc.TagList}}
-                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'VPC', '{{$vpcNameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                    {{if $vpc.IPv4_CIDR}}
+                        {{range $tag := $vpc.TagList}}
+                        <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'VPC', '{{$vpcNameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                        {{end}}
+                        <div class="add-btn-container">
+                            <button class="add-btn" onclick="showAddTagOverlay('{{$vpcNameId}}')">+</button>
+                        </div>
                     {{end}}
-                    <div class="add-btn-container">
-                        <button class="add-btn" onclick="showAddTagOverlay('{{$vpcNameId}}')">+</button>
-                    </div>
                 </td>                
                 <td class="misc center-align misc-cell">
                     <div class="misc-content">{{range $kv := $vpc.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
@@ -903,20 +907,9 @@
         });
 
         Promise.all(deletePromises)
-            .then(dataList => {
-                let allSuccess = true;
-                dataList.forEach((data, index) => {
-                    if (data.Result !== "true") {
-                        allSuccess = false;
-                        showError("Failed to delete some VPCs: " + (data.Message || "Unknown error"), "VPC Name: " + checkboxes[index].value);
-                    }
-                });
-                if (allSuccess) {
-                    location.reload();
-                }
-            })
+            .then(() => location.reload())
             .catch(error => {
-                showError("Error deleting VPCs: " + error.message, "Multiple VPCs");
+                alert("Error deleting VPCs: " + error.message);
             });
     }
 

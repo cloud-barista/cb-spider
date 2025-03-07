@@ -629,7 +629,9 @@ func ListNLB(connectionName string, rsType string) ([]*cres.NLBInfo, error) {
 		if err != nil {
 			nlbSPLock.RUnlock(connectionName, iidInfo.NameId)
 			if checkNotFoundError(err) {
-				cblog.Info(err)
+				cblog.Error(err)
+				info = cres.NLBInfo{IId: cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}}
+				infoList2 = append(infoList2, &info)
 				continue
 			}
 			cblog.Error(err)
@@ -1869,7 +1871,10 @@ func DeleteNLB(connectionName string, rsType string, nameID string, force string
 	result, err = handler.(cres.NLBHandler).DeleteNLB(driverIId)
 	if err != nil {
 		cblog.Error(err)
-		if force != "true" {
+		if checkNotFoundError(err) {
+			// if not found in CSP, continue
+			force = "true"
+		} else if force != "true" {
 			return false, err
 		}
 	}

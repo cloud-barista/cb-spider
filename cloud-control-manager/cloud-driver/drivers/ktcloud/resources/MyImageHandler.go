@@ -1,12 +1,21 @@
+// Cloud Driver Interface of CB-Spider.
+// The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
+// The CB-Spider Mission is to connect all the clouds with a single interface.
+//
+//      * Cloud-Barista: https://github.com/cloud-barista
+//
+// KT Cloud MyImage Handler
+//
+// Updated by ETRI, 2025.02.
+
 package resources
 
 import (
-	"errors"
+	// "errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
-
 	// "google.golang.org/grpc/metadata"
 	// "github.com/davecgh/go-spew/spew"
 
@@ -425,5 +434,21 @@ func (myImageHandler *KtCloudMyImageHandler) isPublicImage(imageIID irs.IID) (bo
 
 func (ImageHandler *KtCloudMyImageHandler) ListIID() ([]*irs.IID, error) {
 	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+
+    ktImages, err := ImageHandler.listKTImages()
+    if err != nil {
+        newErr := fmt.Errorf("Failed to Get KT Cloud Image List!! [%v]", err)
+        cblogger.Error(newErr.Error())
+        return nil, newErr
+    }
+
+    var iidList []*irs.IID
+    for _, ktImage := range *ktImages {
+        iid := &irs.IID{
+            NameId:   ktImage.Name,
+            SystemId: ktImage.ID,
+        }
+        iidList = append(iidList, iid)
+    }
+    return iidList, nil
 }

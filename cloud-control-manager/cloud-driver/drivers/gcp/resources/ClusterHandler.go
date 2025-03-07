@@ -798,24 +798,121 @@ func (ClusterHandler *GCPClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 	hiscallInfo := GetCallLogScheme(ClusterHandler.Region, call.CLUSTER, clusterIID.NameId, "UpgradeCluster()")
 
 	parent := getParentClusterAtContainer(projectID, zone, clusterIID.NameId)
-	rb := &container.UpdateMasterRequest{
-		MasterVersion: newVersion,
-	}
 
-	start := call.Start()
-	op, err := ClusterHandler.ContainerClient.Projects.Locations.Clusters.UpdateMaster(parent, rb).Do()
-	hiscallInfo.ElapsedTime = call.Elapsed(start)
+	// 현재 클러스터 버전 확인
+	currentCluster, err := ClusterHandler.ContainerClient.Projects.Locations.Clusters.Get(parent).Do()
 	if err != nil {
-		err := fmt.Errorf("Failed to UpgradeCluster :  %v", err)
-		cblogger.Error(err)
-		return clusterInfo, err
+		return clusterInfo, fmt.Errorf("Failed to get current cluster version: %v", err)
 	}
-	cblogger.Debug(op)
 
-	operationErr := WaitContainerOperationFail(ClusterHandler.ContainerClient, projectID, region, zone, op.Name, GCP_CONTAINER_OPERATION_UPDATE_CLUSTER)
-	if operationErr != nil {
+	// 이미 원하는 버전으로 업그레이드되었다면 노드 풀만 업그레이드
+	if currentCluster.CurrentMasterVersion == newVersion {
+		cblogger.Info(fmt.Sprintf("Control plane is already at version %s, skipping control plane upgrade", newVersion))
+	} else {
+		// 기존 컨트롤 플레인 업그레이드 로직
+		rb := &container.UpdateMasterRequest{
+			MasterVersion: newVersion,
+		}
+
+		start := call.Start()
+		op, err := ClusterHandler.ContainerClient.Projects.Locations.Clusters.UpdateMaster(parent, rb).Do()
+		hiscallInfo.ElapsedTime = call.Elapsed(start)
+		if err != nil {
+			err := fmt.Errorf("Failed to UpgradeCluster: %v", err)
+			cblogger.Error(err)
+			return clusterInfo, err
+		}
+		cblogger.Debug(op)
+
+		// WaitContainerOperationDone 함수 사용 (20분 타임아웃)
+		operationErr := WaitContainerOperationDone(ClusterHandler.ContainerClient, projectID, region, zone, op.Name, GCP_CONTAINER_OPERATION_UPDATE_CLUSTER, 1200)
+		if operationErr != nil {
+			cblogger.Error(operationErr)
+			return clusterInfo, operationErr
+		}
+
+		// 컨트롤 플레인 업그레이드 후 클러스터 상태 확인
+		updatedCluster, err := ClusterHandler.ContainerClient.Projects.Locations.Clusters.Get(parent).Do()
+		if err != nil {
+			return clusterInfo, fmt.Errorf("Failed to get cluster after master upgrade: %v", err)
+		}
+
+		// 컨트롤 플레인 버전이 실제로 업그레이드 되었는지 확인
+		if updatedCluster.CurrentMasterVersion != newVersion {
+			return clusterInfo, fmt.Errorf("Control plane upgrade not complete. Current version: %s, Expected: %s",
+				updatedCluster.CurrentMasterVersion, newVersion)
+		}
+		cblogger.Info(fmt.Sprintf("Control plane upgraded successfully to version %s", newVersion))
+	}
+
+	// 업그레이드 재시도 로직
+	maxRetries := 10
+	retryInterval := 120
+	backoffFactor := 1.5
+
+	currentInterval := retryInterval
+	for i := 0; i < maxRetries; i++ {
+		hasActive, err := ClusterHandler.hasActiveOperations(projectID, zone, clusterIID.NameId)
+		if err != nil {
+			return clusterInfo, err
+		}
+
+		if !hasActive {
+			break // 진행 중인 작업이 없으면 계속 진행
+		}
+
+		if i == maxRetries-1 {
+			return clusterInfo, fmt.Errorf("Cluster has active operations after %d retries", maxRetries)
+		}
+
+		cblogger.Info(fmt.Sprintf("Cluster has active operations, waiting %d seconds before retry (%d/%d)",
+			currentInterval, i+1, maxRetries))
+		time.Sleep(time.Duration(currentInterval) * time.Second)
+
+		// 지수 백오프 적용
+		currentInterval = int(float64(currentInterval) * backoffFactor)
+	}
+
+	// 노드풀 리스트 조회
+	cblogger.Info(fmt.Sprintf("Fetching node pools for cluster: %s", clusterIID.NameId))
+
+	nodePools, err := ClusterHandler.ContainerClient.Projects.Locations.Clusters.NodePools.List(parent).Do()
+	if err != nil {
+		err := fmt.Errorf("Failed to list Node Pools: %v", err)
 		cblogger.Error(err)
-		return clusterInfo, err
+		return clusterInfo, err // 노드풀 리스트 조회 오류 시 clusterInfo 반환
+	}
+
+	// Worker Node(노드풀) 업그레이드 기능
+	for _, nodePool := range nodePools.NodePools { // 각 노드풀을 순회하며 업그레이드
+		// cblogger.Info(fmt.Sprintf("Upgrading Node Pool: %s", nodePool.Name))
+		cblogger.Info(fmt.Sprintf("Upgrading Node Pool: %s to version %s", nodePool.Name, newVersion))
+
+		nodePoolParent := fmt.Sprintf("projects/%s/locations/%s/clusters/%s/nodePools/%s", projectID, zone, clusterIID.NameId, nodePool.Name)
+		nodePoolRequest := &container.UpdateNodePoolRequest{
+			NodeVersion: newVersion, // 각 노드풀의 버전 변경 요청
+		}
+
+		// 업그레이드 요청 전에 로그 추가
+		cblogger.Info(fmt.Sprintf("Sending upgrade request for Node Pool: %s with path: %s", nodePool.Name, nodePoolParent))
+
+		nodeOp, err := ClusterHandler.ContainerClient.Projects.Locations.Clusters.NodePools.Update(nodePoolParent, nodePoolRequest).Do()
+		if err != nil {
+			err := fmt.Errorf("Failed to Upgrade Node Pool: %v", err)
+			cblogger.Error(err)
+			return clusterInfo, err // 노드풀 업그레이드 실패 시 clusterInfo 반환
+		}
+
+		// GCP 업그레이드 요청 완료 로그
+		cblogger.Info(fmt.Sprintf("Upgrade request sent for Node Pool: %s, Operation Name: %s", nodePool.Name, nodeOp.Name))
+
+		// WaitContainerOperationDone 함수 사용 (20분 타임아웃)
+		operationErr := WaitContainerOperationDone(ClusterHandler.ContainerClient, projectID, region, zone, nodeOp.Name, GCP_CONTAINER_OPERATION_UPGRADE_NODES, 1200)
+		if operationErr != nil {
+			return clusterInfo, operationErr
+		}
+
+		cblogger.Info(fmt.Sprintf("Node Pool %s upgrade completed", nodePool.Name))
 	}
 
 	return ClusterHandler.GetCluster(clusterIID)
@@ -1392,4 +1489,26 @@ func (ClusterHandler *GCPClusterHandler) ListIID() ([]*irs.IID, error) {
 		iidList = append(iidList, &iid)
 	}
 	return iidList, nil
+}
+
+// 클러스터에 진행 중인 작업이 있는지 확인하는 함수
+func (ClusterHandler *GCPClusterHandler) hasActiveOperations(projectID, zone, clusterName string) (bool, error) {
+	listOperationsParent := fmt.Sprintf("projects/%s/locations/%s", projectID, zone)
+
+	// 진행 중인 작업 목록 조회
+	operations, err := ClusterHandler.ContainerClient.Projects.Locations.Operations.List(listOperationsParent).Do()
+	if err != nil {
+		return false, err
+	}
+
+	// 클러스터와 관련된 진행 중인 작업 검색
+	clusterPattern := fmt.Sprintf("/clusters/%s/", clusterName)
+	for _, op := range operations.Operations {
+		if strings.Contains(op.TargetLink, clusterPattern) && op.Status != "DONE" {
+			cblogger.Info(fmt.Sprintf("Found active operation: %s, status: %s", op.Name, op.Status))
+			return true, nil
+		}
+	}
+
+	return false, nil
 }

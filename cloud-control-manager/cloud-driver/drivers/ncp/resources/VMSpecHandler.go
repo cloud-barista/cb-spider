@@ -10,7 +10,6 @@ package resources
 import (
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 
 	// "github.com/davecgh/go-spew/spew"
@@ -358,8 +357,8 @@ func mappingVMSpecInfo(region string, vmSpec server.Product) irs.VMSpecInfo {
 
 		// 'server.Product' does not contain GPU information.
 		// No GPU, No Info Gpu: []irs.GpuInfo{{Count: "-1", Mfr: "NA", Model: "NA", Mem: "-1"}},
-		MemSizeMiB: strconv.FormatFloat(float64(*vmSpec.MemorySize)/(1024*1024), 'f', 0, 64),                // byte -> MiB
-		DiskSizeGB: strconv.FormatFloat(float64(*vmSpec.BaseBlockStorageSize)/(1000*1000*1000), 'f', 0, 64), // byte -> GB
+		MemSizeMiB: irs.ConvertByteToMiBInt64(*vmSpec.MemorySize),          // byte -> MiB
+		DiskSizeGB: irs.ConvertByteToGBInt64(*vmSpec.BaseBlockStorageSize), // byte -> GB
 
 		KeyValueList: irs.StructToKeyValueList(vmSpec),
 	}

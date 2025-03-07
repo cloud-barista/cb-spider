@@ -8,11 +8,12 @@
 //
 // by ETRI, 2022.12.
 // Updated by ETRI, 2024.09.
+// Updated by ETRI, 2025.02.
 
 package resources
 
 import (
-	"errors"
+	// "errors"
 	"fmt"
 	"io"
 	"os"
@@ -258,7 +259,7 @@ func (securityHandler *KTVpcSecurityHandler) ListSecurity() ([]*irs.SecurityInfo
 	}
 
 	for _, file := range dirFiles {
-		fileName := strings.TrimSuffix(file.Name(), ".json") // 접미사 제거
+		fileName := strings.TrimSuffix(file.Name(), ".json") // Remove suffix
 		decString, baseErr := base64.StdEncoding.DecodeString(fileName)
 		if baseErr != nil {
 			cblogger.Errorf("Failed to Decode the Filename : %s", fileName)
@@ -378,6 +379,51 @@ func (securityHandler *KTVpcSecurityHandler) mappingSecurityInfo(sg SecurityGrou
 }
 
 func (securityHandler *KTVpcSecurityHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	cblogger.Info("KT Cloud VPC driver: called ListIID()!")
+
+    if strings.EqualFold(securityHandler.RegionInfo.Zone, "") {
+        newErr := fmt.Errorf("Invalid Region Info!!")
+        cblogger.Error(newErr.Error())
+        return nil, newErr
+    }
+
+    sgPath := os.Getenv("CBSPIDER_ROOT") + sgDir
+    sgFilePath := sgPath + securityHandler.RegionInfo.Zone + "/"
+
+    // Check if the KeyPair Folder Exists, and Create it
+    if err := checkFolderAndCreate(sgPath); err != nil {
+        cblogger.Errorf("Failed to Create the SecurityGroup Path : [%v]", err)
+        return nil, err
+    }
+
+    // Check if the KeyPair Folder Exists, and Create it
+    if err := checkFolderAndCreate(sgFilePath); err != nil {
+        cblogger.Errorf("Failed to Create the SecurityGroup File Path : [%v]", err)
+        return nil, err
+    }
+
+    // File list on the local directory
+	dirFiles, readErr := os.ReadDir(sgFilePath)
+    if readErr != nil {
+        return nil, readErr
+    }
+
+    var iidList []*irs.IID
+    for _, file := range dirFiles {
+        fileName := strings.TrimSuffix(file.Name(), ".json") // Remove suffix
+        decString, baseErr := base64.StdEncoding.DecodeString(fileName)
+        if baseErr != nil {
+            cblogger.Errorf("Failed to Decode the Filename : %s", fileName)
+            return nil, baseErr
+        }
+        sgFileName := string(decString)
+
+        iid := &irs.IID{
+            NameId:   sgFileName,
+            SystemId: sgFileName,
+        }
+        iidList = append(iidList, iid)
+    }
+
+    return iidList, nil
 }

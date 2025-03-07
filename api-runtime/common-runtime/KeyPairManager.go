@@ -310,7 +310,9 @@ func ListKey(connectionName string, rsType string) ([]*cres.KeyPairInfo, error) 
 		if err != nil {
 			keySPLock.RUnlock(connectionName, iidInfo.NameId)
 			if checkNotFoundError(err) {
-				cblog.Info(err)
+				cblog.Error(err)
+				info = cres.KeyPairInfo{IId: cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}}
+				infoList2 = append(infoList2, &info)
 				continue
 			}
 			cblog.Error(err)
@@ -466,7 +468,10 @@ func DeleteKey(connectionName string, rsType string, nameID string, force string
 	result, err = handler.(cres.KeyPairHandler).DeleteKey(driverIId)
 	if err != nil {
 		cblog.Error(err)
-		if force != "true" {
+		if checkNotFoundError(err) {
+			// if not found in CSP, continue
+			force = "true"
+		} else if force != "true" {
 			return false, err
 		}
 	}

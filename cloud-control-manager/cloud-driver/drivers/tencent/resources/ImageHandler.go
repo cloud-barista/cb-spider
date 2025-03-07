@@ -144,17 +144,10 @@ func ExtractImageDescribeInfo(image *cvm.Image) irs.ImageInfo {
 	imageInfo.OSArchitecture = osArchitecture
 	imageInfo.OSDistribution = distribution
 	imageInfo.ImageStatus = imageStatus
-	imageInfo.OSDiskSizeInGB = strconv.FormatInt(*image.ImageSize, 10)
+	imageInfo.OSDiskSizeGB = strconv.FormatInt(*image.ImageSize, 10)
 	imageInfo.OSDiskType = "NA"
+	imageInfo.KeyValueList = irs.StructToKeyValueList(image)
 
-	//KeyValue 목록 처리
-	keyValueList, errKeyValue := ConvertKeyValueList(image)
-	if errKeyValue != nil {
-		cblogger.Errorf("KeyValue extraction failed for [%]", *image.ImageId)
-		cblogger.Error(errKeyValue)
-	}
-
-	imageInfo.KeyValueList = keyValueList
 	return imageInfo
 }
 

@@ -7,6 +7,7 @@
 // KT Cloud KeyPair Handler
 //
 // by ETRI, 2021.05.
+// Updated by ETRI, 2025.02.
 
 package resources
 
@@ -14,7 +15,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-
 	// "github.com/davecgh/go-spew/spew"
 
 	ktsdk "github.com/cloud-barista/ktcloud-sdk-go"
@@ -39,14 +39,18 @@ func init() {
 
 func (keyPairHandler *KtCloudKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error) {
 	cblogger.Info("KT Cloud cloud driver: called ListKey()!!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(keyPairHandler.RegionInfo.Zone, call.VMKEYPAIR, "ListKey()", "ListKey()")
 
 	keyPairName := ""
+	callLogStart := call.Start()
 	result, err := keyPairHandler.Client.ListSSHKeyPairs(keyPairName)
 	if err != nil {
-		cblogger.Errorf("Failed to Get the KeyPairList : ", err)
-		//spew.Dump(err)
-		return []*irs.KeyPairInfo{}, err
+		newErr := fmt.Errorf("Failed to Get the KeyPairList from KT Cloud : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
 	}
+	LoggingInfo(callLogInfo, callLogStart)
 	// spew.Dump(result)
 
 	if result.Listsshkeypairsresponse.Count < 1 {
@@ -61,8 +65,7 @@ func (keyPairHandler *KtCloudKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, erro
 		keyPairInfo := mappingKeyPairInfo(keyPair)
 		keyPairList = append(keyPairList, &keyPairInfo)
 	}
-
-	cblogger.Debug(keyPairList)
+	// cblogger.Debug(keyPairList)
 	//spew.Dump(keyPairList)
 	return keyPairList, nil
 }
@@ -71,7 +74,7 @@ func (keyPairHandler *KtCloudKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 	cblogger.Info("KT Cloud cloud driver: called CreateKey()!!")
 	InitLog()
 	callLogInfo := GetCallLogScheme(keyPairHandler.RegionInfo.Zone, call.VMKEYPAIR, keyPairReqInfo.IId.NameId, "CreateKey()")
-	cblogger.Info(keyPairReqInfo)
+	// cblogger.Info(keyPairReqInfo)
 
 	//***** Make sure that Keypair Name already exists *****
 	resultKey, keyGetError := keyPairHandler.GetKey(keyPairReqInfo.IId)
@@ -241,5 +244,32 @@ func mappingKeyPairInfo(KtCloudKeyPair ktsdk.KeyPair) irs.KeyPairInfo {
 
 func (keyPairHandler *KtCloudKeyPairHandler) ListIID() ([]*irs.IID, error) {
 	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(keyPairHandler.RegionInfo.Zone, call.VMKEYPAIR, "ListIID()", "ListIID()")
+
+	keyPairName := ""
+	callLogStart := call.Start()
+	result, err := keyPairHandler.Client.ListSSHKeyPairs(keyPairName)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get the KeyPairList from KT Cloud : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+	LoggingInfo(callLogInfo, callLogStart)
+	// spew.Dump(result)
+
+    if result.Listsshkeypairsresponse.Count < 1 {
+        cblogger.Info("KeyPair does not exist in the zone!!")
+        return nil, nil
+    }
+
+    var iidList []*irs.IID
+    for _, keyPair := range result.Listsshkeypairsresponse.KeyPair {
+        iid := &irs.IID{
+            NameId:   keyPair.Name,
+            SystemId: keyPair.Name, // Since KT Cloud does not have a SystemID, use NameId as SystemId
+        }
+        iidList = append(iidList, iid)
+    }
+    return iidList, nil
 }
