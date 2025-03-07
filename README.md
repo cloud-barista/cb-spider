@@ -1,4 +1,4 @@
-# CB-Spider : "One Code, Multi-Cloud"
+# CB-Spider : "One-Code, Multi-Cloud"
 [![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/cloud-barista/cb-spider?label=go.mod)](https://github.com/cloud-barista/cb-spider/blob/master/go.mod)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/cloud-barista/cb-spider/blob/master/LICENSE)&nbsp;&nbsp;&nbsp;
 [![Release Version](https://img.shields.io/github/v/release/cloud-barista/cb-spider)](https://github.com/cloud-barista/cb-spider/releases)
