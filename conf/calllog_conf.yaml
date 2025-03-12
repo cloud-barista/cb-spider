@@ -4,8 +4,13 @@ calllog:
   ## true | false
   loopcheck: false # This temp method for development is busy wait. cf) calllogger.go:levelSetupLoop().
 
-  ## error | info  // The error is like switching off the call-log.
-  loglevel: error # If loopcheck is true, You can set this online.
+  ## info | error  // The error is like switching off the call-log.
+  loglevel: info # If loopcheck is true, You can set this online.
+
+  ## true | false
+  ## If true, log output to console.
+  ## Default output to console: false
+  console: false
 
   ## true | false  // Now false is reserved for the future.
   logfile: true 

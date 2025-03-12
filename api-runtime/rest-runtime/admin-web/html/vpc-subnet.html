@@ -639,44 +639,48 @@
                     <span class="desc-system-id" onclick="showSystemIdOverlay('{{$vpc.IId.SystemId}}')">&nbsp;• {{$vpc.IId.SystemId}}</span></td>
                     <td class="vpc-cidr center-align">{{$vpc.IPv4_CIDR}}</td>
                     <td class="subnet-info">
-                    <table class="inner-table">
-                        <tr>
-                            <th class="name-column">Name</th>
-                            <th class="cidr-column">CIDR</th>
-                            <th class="zone-column">Zone</th>
-                            <th class="tags-column">Tags</th>
-                            <th class="actions-cell"><button class="add-btn" onclick="showSubnetOverlay('{{$vpcNameId}}')">add</button></th>
-                        </tr>
-                        {{range $subnetIndex, $subnet := $vpc.SubnetInfoList}}
-                        {{ $subnetNameId := $subnet.IId.NameId }}
-                        <tr>
-                            <td class="vpc-name-cell" style="text-align: left;">{{$subnet.IId.NameId}}
-                                <span class="desc-system-id" onclick="showSystemIdOverlay('{{$subnet.IId.SystemId}}')">&nbsp;• {{$subnet.IId.SystemId}}</span>
-                            </td>
-                            <td>{{$subnet.IPv4_CIDR}}</td>
-                            <td>{{$subnet.Zone}}</td>
-                            <td class="tags-cell">
-                                {{range $tag := $subnet.TagList}}
-                                <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'SUBNET', '{{$subnetNameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                        {{if $vpc.IPv4_CIDR}}
+                            <table class="inner-table">
+                                <tr>
+                                    <th class="name-column">Name</th>
+                                    <th class="cidr-column">CIDR</th>
+                                    <th class="zone-column">Zone</th>
+                                    <th class="tags-column">Tags</th>
+                                    <th class="actions-cell"><button class="add-btn" onclick="showSubnetOverlay('{{$vpcNameId}}')">add</button></th>
+                                </tr>
+                                {{range $subnetIndex, $subnet := $vpc.SubnetInfoList}}
+                                {{ $subnetNameId := $subnet.IId.NameId }}
+                                <tr>
+                                    <td class="vpc-name-cell" style="text-align: left;">{{$subnet.IId.NameId}}
+                                        <span class="desc-system-id" onclick="showSystemIdOverlay('{{$subnet.IId.SystemId}}')">&nbsp;• {{$subnet.IId.SystemId}}</span>
+                                    </td>
+                                    <td>{{$subnet.IPv4_CIDR}}</td>
+                                    <td>{{$subnet.Zone}}</td>
+                                    <td class="tags-cell">
+                                        {{range $tag := $subnet.TagList}}
+                                        <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'SUBNET', '{{$subnetNameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                                        {{end}}
+                                        <div class="add-btn-container">
+                                            <button class="plus-btn" onclick="showAddSubnetTagOverlay('{{$vpcNameId}}', '{{$subnetNameId}}')">+</button>
+                                        </div>
+                                    </td>
+                                    <td class="actions-cell">
+                                        <button class="delete-btn" onclick="deleteSubnet('{{$vpcNameId}}', '{{$subnet.IId.NameId}}')">del</button>
+                                    </td>
+                                </tr>
                                 {{end}}
-                                <div class="add-btn-container">
-                                    <button class="plus-btn" onclick="showAddSubnetTagOverlay('{{$vpcNameId}}', '{{$subnetNameId}}')">+</button>
-                                </div>
-                            </td>
-                            <td class="actions-cell">
-                                <button class="delete-btn" onclick="deleteSubnet('{{$vpcNameId}}', '{{$subnet.IId.NameId}}')">del</button>
-                            </td>
-                        </tr>
+                            </table>
                         {{end}}
-                    </table>
                 </td>
                 <td class="tags">
-                    {{range $tag := $vpc.TagList}}
-                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'VPC', '{{$vpcNameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                    {{if $vpc.IPv4_CIDR}}
+                        {{range $tag := $vpc.TagList}}
+                        <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'VPC', '{{$vpcNameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                        {{end}}
+                        <div class="add-btn-container">
+                            <button class="add-btn" onclick="showAddTagOverlay('{{$vpcNameId}}')">+</button>
+                        </div>
                     {{end}}
-                    <div class="add-btn-container">
-                        <button class="add-btn" onclick="showAddTagOverlay('{{$vpcNameId}}')">+</button>
-                    </div>
                 </td>                
                 <td class="misc center-align misc-cell">
                     <div class="misc-content">{{range $kv := $vpc.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
@@ -756,7 +760,7 @@
                 <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
                 <div class="form-group">
                     <label for="subnetVPCNameDisplay">VPC Name:</label>
-                    <input type="text" id="subnetVPCNameDisplay" name="subnetVPCNameDisplay" readonly>
+                    <input type="text" id="subnetVPCNameDisplay" name="subnetVPCNameDisplay" style="background-color:#d0d0d0" readonly>
                 </div>
                 <div class="form-group">
                     <label for="addSubnetName">Name:</label>
@@ -768,7 +772,7 @@
                 </div>
                 <div class="form-group">
                     <label for="addSubnetZone">Zone:</label>
-                    <input type="text" id="addSubnetZone" name="addSubnetZone" required>
+                    <select id="addSubnetZone" name="addSubnetZone" required></select>
                 </div>
                 <div class="form-group" style="padding-left: 20px;">
                     <label for="addSubnetTags">Tags:</label>
@@ -903,20 +907,9 @@
         });
 
         Promise.all(deletePromises)
-            .then(dataList => {
-                let allSuccess = true;
-                dataList.forEach((data, index) => {
-                    if (data.Result !== "true") {
-                        allSuccess = false;
-                        showError("Failed to delete some VPCs: " + (data.Message || "Unknown error"), "VPC Name: " + checkboxes[index].value);
-                    }
-                });
-                if (allSuccess) {
-                    location.reload();
-                }
-            })
+            .then(() => location.reload())
             .catch(error => {
-                showError("Error deleting VPCs: " + error.message, "Multiple VPCs");
+                alert("Error deleting VPCs: " + error.message);
             });
     }
 
@@ -1018,40 +1011,8 @@
     }
 
     function showOverlay() {
-        const region = '{{.RegionName}}';
-        const regionId = '{{.Region}}';
-        const defaultZone = '{{.Zone}}';
-        const vpcNameInput = document.getElementById('vpcName');
-        const subnetNameInput = document.getElementById('subnetName');
         const zoneSelect = document.getElementById('subnetZone');
-        const connConfig = document.getElementById('connConfig').value;
-
-        vpcNameInput.value = `${region}-vpc-${Math.random().toString(36).substring(2, 5)}`;
-        document.getElementById('vpcCIDR').value = '10.0.0.0/16';
-        subnetNameInput.value = `${region}-${defaultZone}-subnet-${Math.random().toString(36).substring(2, 5)}`;
-        document.getElementById('subnetCIDR').value = '10.0.1.0/24';
-
-        fetch(`/spider/regionzone/${regionId}?ConnectionName=${connConfig}`)
-            .then(response => response.json())
-            .then(data => {
-                zoneSelect.innerHTML = '';
-                data.ZoneList.forEach(zone => {
-                    const option = document.createElement('option');
-                    option.value = zone.Name;
-                    option.textContent = `${zone.DisplayName} (${zone.Status})`;
-
-                    if (zone.Name === defaultZone) {
-                        option.selected = true;
-                    }
-
-                    zoneSelect.appendChild(option);
-                });
-            })
-            .catch(error => {
-                console.error('Error fetching Zone List:', error);
-                alert('Failed to load Zone list.');
-            });
-
+        fetchZone(zoneSelect);
         document.getElementById('overlay').style.display = 'flex';
         document.addEventListener('keydown', handleEsc);
         clearFormFields();
@@ -1075,12 +1036,16 @@
         const vpcNameInput = document.getElementById('vpcName');
         const subnetNameInput = document.getElementById('subnetName');
         const zoneInput = document.getElementById('subnetZone');
+        const connConfig = document.getElementById('connConfig').value;
+        const vpcCIDRInput = document.getElementById('vpcCIDR');
+        const subnetCIDRInput = document.getElementById('subnetCIDR');
 
         vpcNameInput.value = `${region}-vpc-${Math.random().toString(36).substring(2, 5)}`;
-        document.getElementById('vpcCIDR').value = '10.0.0.0/16';
+        vpcCIDRInput.value = '10.0.0.0/16';
+        disableGCPCIDR(connConfig);
         zoneInput.value = zone;
         subnetNameInput.value = `${region}-${zone}-subnet-${Math.random().toString(36).substring(2, 5)}`;
-        document.getElementById('subnetCIDR').value = '10.0.1.0/24';
+        subnetCIDRInput.value = '10.0.1.0/24';
 
         document.querySelectorAll('.vpc-tag-input, .subnet-tag-input').forEach(tagInput => tagInput.remove());
     }
@@ -1088,10 +1053,12 @@
     function showSubnetOverlay(vpcName) {
         const region = '{{.RegionName}}';
         const zone = '{{.Zone}}';
-
+        const zoneSelect = document.getElementById('addSubnetZone');
+        
+        fetchZone(zoneSelect);
+        
         document.getElementById('subnetVPCName').value = vpcName;
         document.getElementById('subnetVPCNameDisplay').value = vpcName;
-        document.getElementById('addSubnetZone').value = zone;
         document.getElementById('addSubnetName').value = `${region}-${zone}-subnet-${Math.random().toString(36).substring(2, 5)}`;
         document.getElementById('addSubnetCIDR').value = '10.0.2.0/24';
 
@@ -1760,6 +1727,45 @@
 
         selection.removeAllRanges();
     }
+
+    // Disable VPC CIDR Input in GCP
+    function disableGCPCIDR(connConfig){
+        const vpcCIDRInput = document.getElementById('vpcCIDR');
+        if (currentProvider == 'GCP') {
+            vpcCIDRInput.disabled = true;
+            vpcCIDRInput.value = 'NA';
+            vpcCIDRInput.style.color = 'gray';
+            vpcCIDRInput.style.backgroundColor = '#f0f0f0';
+        }
+    }
+
+    function fetchZone(zoneSelect){
+        const regionId = '{{.Region}}';
+        const defaultZone = '{{.Zone}}';
+        const connConfig = document.getElementById('connConfig').value;
+
+        fetch(`/spider/regionzone/${regionId}?ConnectionName=${connConfig}`)
+            .then(response => response.json())
+            .then(data => {
+                zoneSelect.innerHTML = '';
+                data.ZoneList.forEach(zone => {
+                    const option = document.createElement('option');
+                    option.value = zone.Name;
+                    option.textContent = `${zone.Name} (${zone.DisplayName})`;
+
+                    if (zone.Name === defaultZone) {
+                        option.selected = true;
+                    }
+
+                    zoneSelect.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching Zone List:', error);
+                alert('Failed to load Zone list.');
+            });
+    }
+           
 
 </script>
 </html>

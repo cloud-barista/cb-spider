@@ -1,13 +1,12 @@
 package resources
 
 import (
-	"errors"
+	// "errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 	_ "time/tzdata" // To prevent 'unknown time zone Asia/Seoul' error
-
 	// "github.com/davecgh/go-spew/spew"
 
 	ktvpcsdk "github.com/cloud-barista/ktcloudvpc-sdk-go"
@@ -55,11 +54,11 @@ func (myImageHandler *KTVpcMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImag
 		return irs.MyImageInfo{}, newErr
 	}
 
-	start := call.Start()
 	uploadImageOpts := volumeactions.UploadImageOpts{
 		ImageName: snapshotName,
 		Force:     true, // Even if the volume is connected to the server, whether to create an image.
 	}
+	start := call.Start()
 	volumeImage, err := volumeactions.UploadImage(myImageHandler.VolumeClient, bootableVolumeId, uploadImageOpts).Extract()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Create Image from the Volume!! : [%v] ", err)
@@ -120,10 +119,10 @@ func (myImageHandler *KTVpcMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, er
 		ImageVisibilityCommunity ImageVisibility = "community"
 	*/
 
-	start := call.Start()
 	listOpts := images.ListOpts{
 		Visibility: images.ImageVisibilityShared, // Not 'ImageVisibilityPrivate'
 	}
+	start := call.Start()
 	allPages, err := images.List(myImageHandler.ImageClient, listOpts).AllPages()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get KT Cloud VPC Image pages. [%v]", err.Error())
@@ -131,6 +130,8 @@ func (myImageHandler *KTVpcMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, er
 		loggingError(callLogInfo, newErr)
 		return nil, newErr
 	}
+	loggingInfo(callLogInfo, start)
+
 	ktImageList, err := images.ExtractImages(allPages)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get KT Cloud VPC Image List. [%v]", err.Error())
@@ -138,7 +139,6 @@ func (myImageHandler *KTVpcMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, er
 		loggingError(callLogInfo, newErr)
 		return nil, newErr
 	}
-	loggingInfo(callLogInfo, start)
 
 	// cblogger.Info("\n\n### ktImageList : ")
 	// spew.Dump(ktImageList)
@@ -204,6 +204,7 @@ func (myImageHandler *KTVpcMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bo
 		return false, newErr
 	}
 
+	start := call.Start()
 	err := images.Delete(myImageHandler.ImageClient, myImageIID.SystemId).ExtractErr()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Delete the Image. [%v]", err.Error())
@@ -211,6 +212,7 @@ func (myImageHandler *KTVpcMyImageHandler) DeleteMyImage(myImageIID irs.IID) (bo
 		loggingError(callLogInfo, newErr)
 		return false, newErr
 	}
+	loggingInfo(callLogInfo, start)
 
 	return true, nil
 }
@@ -383,7 +385,36 @@ func (myImageHandler *KTVpcMyImageHandler) getBootableVolumeID(vmIID irs.IID) (s
 	return bootableVolumeId, nil
 }
 
-func (ImageHandler *KTVpcMyImageHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+func (myImageHandler *KTVpcMyImageHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("KT Cloud VPC driver: called ListIID()!!")
+	callLogInfo := getCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, "ListIID()", "ListMyImage()")
+
+    listOpts := images.ListOpts{
+        Visibility: images.ImageVisibilityShared, // Not 'ImageVisibilityPrivate'
+    }
+	start := call.Start()
+    allPages, err := images.List(myImageHandler.ImageClient, listOpts).AllPages()
+    if err != nil {
+        newErr := fmt.Errorf("Failed to Get KT Cloud VPC Image pages. [%v]", err.Error())
+        cblogger.Error(newErr.Error())
+        return nil, newErr
+    }
+	loggingInfo(callLogInfo, start)
+
+    ktImageList, err := images.ExtractImages(allPages)
+    if err != nil {
+        newErr := fmt.Errorf("Failed to Get KT Cloud VPC Image List. [%v]", err.Error())
+        cblogger.Error(newErr.Error())
+        return nil, newErr
+    }
+
+    var iidList []*irs.IID
+    for _, ktImage := range ktImageList {
+        iid := &irs.IID{
+            NameId:   ktImage.Name,
+            SystemId: ktImage.ID,
+        }
+        iidList = append(iidList, iid)
+    }
+    return iidList, nil
 }

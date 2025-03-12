@@ -321,6 +321,21 @@ func ListAllVM(c echo.Context) error {
 	return c.JSON(http.StatusOK, &allResourceList)
 }
 
+// listAllVMInfo godoc
+// @ID list-all-vm-info
+// @Summary List All VM Info
+// @Description Retrieve a list of detailed information on all Virtual Machines (VMs) associated with a specific connection, <br> including those mapped between CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing in the CSP.
+// @Tags [VM Management]
+// @Accept  json
+// @Produce  json
+// @Param ConnectionName query string true "The name of the Connection to list VMs for"
+// @Success 200 {object} AllResourceInfoListResponse "List of detailed information on all VMs within the specified connection, including VMs in CB-Spider only, CSP only, and mapped between both."
+// @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid JSON structure or missing fields"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /allvminfo [get]
+func ListAllVMInfo(c echo.Context) error { return listAllResourceInfo(c, cres.VM) }
+
 // getVM godoc
 // @ID get-vm
 // @Summary Get VM

@@ -53,23 +53,27 @@ func (GCPDriver) GetDriverVersion() string {
 func (GCPDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
+	drvCapabilityInfo.ZoneBasedControl = true
+
+	drvCapabilityInfo.RegionZoneHandler = true
+	drvCapabilityInfo.PriceInfoHandler = true
 	drvCapabilityInfo.ImageHandler = true
+	drvCapabilityInfo.VMSpecHandler = true
+
 	drvCapabilityInfo.VPCHandler = true
 	drvCapabilityInfo.SecurityHandler = true
 	drvCapabilityInfo.KeyPairHandler = true
-	//drvCapabilityInfo.VNicHandler = true
-	//drvCapabilityInfo.PublicIPHandler = true
 	drvCapabilityInfo.VMHandler = true
-	drvCapabilityInfo.VMSpecHandler = true
-	drvCapabilityInfo.VPCHandler = true
-	drvCapabilityInfo.DiskHandler = false
-	drvCapabilityInfo.MyImageHandler = false
-	drvCapabilityInfo.RegionZoneHandler = true
+	drvCapabilityInfo.DiskHandler = true
+	drvCapabilityInfo.MyImageHandler = true
+	drvCapabilityInfo.NLBHandler = true
 	drvCapabilityInfo.ClusterHandler = true
-	drvCapabilityInfo.PriceInfoHandler = true
+
 	drvCapabilityInfo.TagHandler = true
 	// ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.NLB, ires.MYIMAGE
-	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.ALL, ires.VM, ires.DISK, ires.CLUSTER}
+	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.VM, ires.DISK, ires.CLUSTER}
+
+	drvCapabilityInfo.VPC_CIDR = false
 
 	return drvCapabilityInfo
 }

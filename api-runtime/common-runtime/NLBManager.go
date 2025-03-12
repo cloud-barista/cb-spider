@@ -11,6 +11,7 @@ package commonruntime
 import (
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
@@ -78,12 +79,22 @@ func GetNLBOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, err 
 
 	// (1) check existence(cspID)
 	var iidInfoList []*NLBIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		//vpcSPLock.RUnlock()
-		//nlbSPLock.RUnlock()
-		cblog.Error(err)
-		return cres.IID{}, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			//vpcSPLock.RUnlock()
+			//nlbSPLock.RUnlock()
+			cblog.Error(err)
+			return cres.IID{}, err
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			//vpcSPLock.RUnlock()
+			//nlbSPLock.RUnlock()
+			cblog.Error(err)
+			return cres.IID{}, err
+		}
 	}
 	var isExist bool = false
 	var nameId string
@@ -115,12 +126,22 @@ func GetNLBOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, err 
 
 	// (3) get VPC IID:list
 	var vpcIIDInfoList []*VPCIIDInfo
-	err = infostore.ListByCondition(&vpcIIDInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		//vpcSPLock.RUnlock()
-		//nlbSPLock.RUnlock()
-		cblog.Error(err)
-		return cres.IID{}, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &vpcIIDInfoList)
+		if err != nil {
+			//vpcSPLock.RUnlock()
+			//nlbSPLock.RUnlock()
+			cblog.Error(err)
+			return cres.IID{}, err
+		}
+	} else {
+		err = infostore.ListByCondition(&vpcIIDInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			//vpcSPLock.RUnlock()
+			//nlbSPLock.RUnlock()
+			cblog.Error(err)
+			return cres.IID{}, err
+		}
 	}
 	//vpcSPLock.RUnlock()
 	//nlbSPLock.RUnlock()
@@ -194,10 +215,26 @@ func RegisterNLB(connectionName string, vpcUserID string, userIID cres.IID) (*cr
 	defer nlbSPLock.Unlock(connectionName, userIID.NameId)
 
 	// (0) check VPC existence(VPC UserID)
-	bool_ret, err := infostore.HasByConditions(&VPCIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcUserID)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	var bool_ret bool
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		// check permission to vpcName
+		var iidInfoList []*VPCIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		bool_ret, err = isNameIdExists(&iidInfoList, vpcUserID)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		bool_ret, err = infostore.HasByConditions(&VPCIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcUserID)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	if !bool_ret {
 		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(VPC), vpcUserID)
@@ -206,17 +243,18 @@ func RegisterNLB(connectionName string, vpcUserID string, userIID cres.IID) (*cr
 	}
 
 	// (1) check existence(UserID)
-	var iidInfoList []*NLBIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
-	var isExist bool = false
-	for _, OneIIdInfo := range iidInfoList {
-		if OneIIdInfo.NameId == userIID.NameId {
-			isExist = true
-			break
+	var isExist bool
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		isExist, err = infostore.HasByCondition(&NLBIIDInfo{}, NAME_ID_COLUMN, userIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		isExist, err = infostore.HasByConditions(&NLBIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, userIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
 		}
 	}
 
@@ -311,10 +349,25 @@ func CreateNLB(connectionName string, rsType string, reqInfo cres.NLBInfo, IDTra
 	//+++++++++++++++++++++++++++++++++++++++++++
 	// set VPC's SystemId
 	var vpcIIDInfo VPCIIDInfo
-	err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, reqInfo.VpcIID.NameId)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*VPCIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, reqInfo.VpcIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		vpcIIDInfo = *castedIIDInfo.(*VPCIIDInfo)
+	} else {
+		err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, reqInfo.VpcIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	reqInfo.VpcIID = getDriverIID(cres.IID{NameId: vpcIIDInfo.NameId, SystemId: vpcIIDInfo.SystemId})
 	//+++++++++++++++++++++++++++++++++++++++++++
@@ -322,10 +375,25 @@ func CreateNLB(connectionName string, rsType string, reqInfo cres.NLBInfo, IDTra
 	vmList := reqInfo.VMGroup.VMs
 	for idx, vmIID := range *vmList {
 		var vmIIDInfo VMIIDInfo
-		err = infostore.GetByConditions(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vmIID.NameId)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*VMIIDInfo
+			err = getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, vmIID.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			vmIIDInfo = *castedIIDInfo.(*VMIIDInfo)
+		} else {
+			err = infostore.GetByConditions(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vmIID.NameId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
 		}
 		(*vmList)[idx] = getDriverIID(cres.IID{NameId: vmIIDInfo.NameId, SystemId: vmIIDInfo.SystemId})
 	}
@@ -351,10 +419,18 @@ func CreateNLB(connectionName string, rsType string, reqInfo cres.NLBInfo, IDTra
 
 	// (1) check exist(NameID)
 	var iidInfoList []*NLBIIDInfo
-	err = infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, OWNER_VPC_NAME_COLUMN, reqInfo.VpcIID.NameId)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = infostore.ListByCondition(&iidInfoList, OWNER_VPC_NAME_COLUMN, reqInfo.VpcIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		err = infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, OWNER_VPC_NAME_COLUMN, reqInfo.VpcIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	var isExist bool = false
 	for _, OneIIdInfo := range iidInfoList {
@@ -522,10 +598,18 @@ func ListNLB(connectionName string, rsType string) ([]*cres.NLBInfo, error) {
 
 	// (1) get IID:list
 	var iidInfoList []*NLBIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	var infoList []*cres.NLBInfo
@@ -545,7 +629,9 @@ func ListNLB(connectionName string, rsType string) ([]*cres.NLBInfo, error) {
 		if err != nil {
 			nlbSPLock.RUnlock(connectionName, iidInfo.NameId)
 			if checkNotFoundError(err) {
-				cblog.Info(err)
+				cblog.Error(err)
+				info = cres.NLBInfo{IId: cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}}
+				infoList2 = append(infoList2, &info)
 				continue
 			}
 			cblog.Error(err)
@@ -562,20 +648,50 @@ func ListNLB(connectionName string, rsType string) ([]*cres.NLBInfo, error) {
 
 		// set VPC UserIID
 		var vpcIIDInfo VPCIIDInfo
-		err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*VPCIIDInfo
+			err = getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, iidInfo.OwnerVPCName)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			vpcIIDInfo = *castedIIDInfo.(*VPCIIDInfo)
+		} else {
+			err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
 		}
 		info.VpcIID = getUserIID(cres.IID{NameId: vpcIIDInfo.NameId, SystemId: vpcIIDInfo.SystemId})
 
 		// set VM's UserIID
 		for idx, vmIID := range *info.VMGroup.VMs {
 			var vmIIDInfo VMIIDInfo
-			err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vmIID.SystemId)
-			if err != nil {
-				cblog.Error(err)
-				return nil, err
+			if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+				var iidInfoList []*VMIIDInfo
+				err := getAuthIIDInfoList(connectionName, &iidInfoList)
+				if err != nil {
+					cblog.Error(err)
+					return nil, err
+				}
+				castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, vmIID.SystemId)
+				if err != nil {
+					cblog.Error(err)
+					return nil, err
+				}
+				vmIIDInfo = *castedIIDInfo.(*VMIIDInfo)
+			} else {
+				err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vmIID.SystemId)
+				if err != nil {
+					cblog.Error(err)
+					return nil, err
+				}
 			}
 			(*info.VMGroup.VMs)[idx].NameId = vmIIDInfo.NameId
 		}
@@ -622,11 +738,20 @@ func GetNLB(connectionName string, rsType string, nameID string) (*cres.NLBInfo,
 
 	// (1) get IID(NameId)
 	var iidInfoList []*NLBIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
+
 	var iidInfo *NLBIIDInfo
 	var bool_ret = false
 	for _, OneIIdInfo := range iidInfoList {
@@ -657,20 +782,50 @@ func GetNLB(connectionName string, rsType string, nameID string) (*cres.NLBInfo,
 
 	// set VPC UserIID
 	var vpcIIDInfo VPCIIDInfo
-	err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*VPCIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, iidInfo.OwnerVPCName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		vpcIIDInfo = *castedIIDInfo.(*VPCIIDInfo)
+	} else {
+		err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	info.VpcIID = getUserIID(cres.IID{NameId: vpcIIDInfo.NameId, SystemId: vpcIIDInfo.SystemId})
 
 	// set VM's UserIID
 	for idx, vmIID := range *info.VMGroup.VMs {
 		var vmIIDInfo VMIIDInfo
-		err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vmIID.SystemId)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*VMIIDInfo
+			err = getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, vmIID.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			vmIIDInfo = *castedIIDInfo.(*VMIIDInfo)
+		} else {
+			err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vmIID.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
 		}
 		(*info.VMGroup.VMs)[idx].NameId = vmIIDInfo.NameId
 	}
@@ -715,11 +870,20 @@ func AddNLBVMs(connectionName string, nlbName string, vmNames []string) (*cres.N
 
 	// (1) check exist(nlbName)
 	var iidInfoList []*NLBIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
+
 	var iidInfo *NLBIIDInfo
 	var bool_ret = false
 	for _, OneIIdInfo := range iidInfoList {
@@ -740,10 +904,25 @@ func AddNLBVMs(connectionName string, nlbName string, vmNames []string) (*cres.N
 	var vmIIDs []cres.IID
 	for _, one := range vmNames {
 		// check vm existence
-		bool_ret, err := infostore.HasByConditions(&VMIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, one)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
+		bool_ret := false
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*VMIIDInfo
+			err = getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			bool_ret, err = isNameIdExists(&iidInfoList, one)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+		} else {
+			bool_ret, err = infostore.HasByConditions(&VMIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, one)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
 		}
 		if bool_ret == false {
 			err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(VM), one)
@@ -752,15 +931,31 @@ func AddNLBVMs(connectionName string, nlbName string, vmNames []string) (*cres.N
 		}
 
 		var vmIIDInfo VMIIDInfo
-		err = infostore.GetByConditions(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, one)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*VMIIDInfo
+			err = getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, one)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			vmIIDInfo = *castedIIDInfo.(*VMIIDInfo)
+		} else {
+			err = infostore.GetByConditions(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, one)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
 		}
 		vmIID := getDriverIID(cres.IID{NameId: vmIIDInfo.NameId, SystemId: vmIIDInfo.SystemId})
 
 		vmIIDs = append(vmIIDs, vmIID)
 	}
+
 	_, err = handler.AddVMs(getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}), &vmIIDs)
 	if err != nil {
 		cblog.Error(err)
@@ -782,20 +977,50 @@ func AddNLBVMs(connectionName string, nlbName string, vmNames []string) (*cres.N
 
 	// set VPC UserIID
 	var vpcIIDInfo VPCIIDInfo
-	err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*VPCIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, iidInfo.OwnerVPCName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		vpcIIDInfo = *castedIIDInfo.(*VPCIIDInfo)
+	} else {
+		err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	info.VpcIID = getUserIID(cres.IID{NameId: vpcIIDInfo.NameId, SystemId: vpcIIDInfo.SystemId})
 
 	// set VM's UserIID
 	for idx, vmIID := range *info.VMGroup.VMs {
 		var vmIIDInfo VMIIDInfo
-		err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vmIID.SystemId)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*VMIIDInfo
+			err := getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, vmIID.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			vmIIDInfo = *castedIIDInfo.(*VMIIDInfo)
+		} else {
+			err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vmIID.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
 		}
 		(*info.VMGroup.VMs)[idx].NameId = vmIIDInfo.NameId
 	}
@@ -838,11 +1063,20 @@ func RemoveNLBVMs(connectionName string, nlbName string, vmNames []string) (bool
 
 	// (1) check exist(nlbName)
 	var iidInfoList []*NLBIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return false, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
 	}
+
 	var iidInfo *NLBIIDInfo
 	var bool_ret = false
 	for _, OneIIdInfo := range iidInfoList {
@@ -863,10 +1097,25 @@ func RemoveNLBVMs(connectionName string, nlbName string, vmNames []string) (bool
 	var vmIIDs []cres.IID
 	for _, one := range vmNames {
 		var vmIIDInfo VMIIDInfo
-		err = infostore.GetByConditions(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, one)
-		if err != nil {
-			cblog.Error(err)
-			return false, err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*VMIIDInfo
+			err = getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
+			castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, one)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
+			vmIIDInfo = *castedIIDInfo.(*VMIIDInfo)
+		} else {
+			err = infostore.GetByConditions(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, one)
+			if err != nil {
+				cblog.Error(err)
+				return false, err
+			}
 		}
 		vmIID := getDriverIID(cres.IID{NameId: vmIIDInfo.NameId, SystemId: vmIIDInfo.SystemId})
 
@@ -933,11 +1182,20 @@ func ChangeListener(connectionName string, nlbName string, listener cres.Listene
 
 	// (1) check exist(nlbName)
 	var iidInfoList []*NLBIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
+
 	var iidInfo *NLBIIDInfo
 	var bool_ret = false
 	for _, OneIIdInfo := range iidInfoList {
@@ -976,20 +1234,50 @@ func ChangeListener(connectionName string, nlbName string, listener cres.Listene
 
 	// set VPC UserIID
 	var vpcIIDInfo VPCIIDInfo
-	err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*VPCIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, iidInfo.OwnerVPCName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		vpcIIDInfo = *castedIIDInfo.(*VPCIIDInfo)
+	} else {
+		err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	info.VpcIID = getUserIID(cres.IID{NameId: vpcIIDInfo.NameId, SystemId: vpcIIDInfo.SystemId})
 
 	// set VM's UserIID
 	for idx, vmIID := range *info.VMGroup.VMs {
 		var vmIIDInfo VMIIDInfo
-		err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vmIID.SystemId)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*VMIIDInfo
+			err := getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, vmIID.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			vmIIDInfo = *castedIIDInfo.(*VMIIDInfo)
+		} else {
+			err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vmIID.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
 		}
 		(*info.VMGroup.VMs)[idx].NameId = vmIIDInfo.NameId
 	}
@@ -1049,11 +1337,20 @@ func ChangeVMGroup(connectionName string, nlbName string, vmGroup cres.VMGroupIn
 
 	// (1) check exist(nlbName)
 	var iidInfoList []*NLBIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
+
 	var iidInfo *NLBIIDInfo
 	var bool_ret = false
 	for _, OneIIdInfo := range iidInfoList {
@@ -1093,20 +1390,50 @@ func ChangeVMGroup(connectionName string, nlbName string, vmGroup cres.VMGroupIn
 	// set VM's UserIID
 	for idx, vmIID := range *info.VMGroup.VMs {
 		var vmIIDInfo VMIIDInfo
-		err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vmIID.SystemId)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*VMIIDInfo
+			err := getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, vmIID.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			vmIIDInfo = *castedIIDInfo.(*VMIIDInfo)
+		} else {
+			err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vmIID.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
 		}
 		(*info.VMGroup.VMs)[idx].NameId = vmIIDInfo.NameId
 	}
 
 	// set VPC SystemId
 	var vpcIIDInfo VPCIIDInfo
-	err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*VPCIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, iidInfo.OwnerVPCName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		vpcIIDInfo = *castedIIDInfo.(*VPCIIDInfo)
+	} else {
+		err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	info.VpcIID = getUserIID(cres.IID{NameId: vpcIIDInfo.NameId, SystemId: vpcIIDInfo.SystemId})
 
@@ -1162,11 +1489,20 @@ func ChangeHealthChecker(connectionName string, nlbName string, healthChecker cr
 
 	// (1) check exist(nlbName)
 	var iidInfoList []*NLBIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
+
 	var iidInfo *NLBIIDInfo
 	var bool_ret = false
 	for _, OneIIdInfo := range iidInfoList {
@@ -1205,20 +1541,50 @@ func ChangeHealthChecker(connectionName string, nlbName string, healthChecker cr
 
 	// set VPC UserIID
 	var vpcIIDInfo VPCIIDInfo
-	err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*VPCIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, iidInfo.OwnerVPCName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		vpcIIDInfo = *castedIIDInfo.(*VPCIIDInfo)
+	} else {
+		err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	info.VpcIID = getUserIID(cres.IID{NameId: vpcIIDInfo.NameId, SystemId: vpcIIDInfo.SystemId})
 
 	// set VM's UserIID
 	for idx, vmIID := range *info.VMGroup.VMs {
 		var vmIIDInfo VMIIDInfo
-		err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vmIID.SystemId)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*VMIIDInfo
+			err := getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, vmIID.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			vmIIDInfo = *castedIIDInfo.(*VMIIDInfo)
+		} else {
+			err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vmIID.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
 		}
 		(*info.VMGroup.VMs)[idx].NameId = vmIIDInfo.NameId
 	}
@@ -1275,11 +1641,20 @@ func GetVMGroupHealthInfo(connectionName string, nlbName string) (*cres.HealthIn
 
 	// (1) check exist(nlbName)
 	var iidInfoList []*NLBIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
+
 	var iidInfo *NLBIIDInfo
 	var bool_ret = false
 	for _, OneIIdInfo := range iidInfoList {
@@ -1320,10 +1695,25 @@ func setVMUserIIDwithSystemId(connectionName string, nlbName string, healthInfo 
 	for idx, vm := range *vmIIDList {
 		foundFlag := false
 		var vmIIDInfo VMIIDInfo
-		err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vm.SystemId)
-		if err != nil {
-			cblog.Error(err)
-			return err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*VMIIDInfo
+			err := getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
+			castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, vm.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
+			vmIIDInfo = *castedIIDInfo.(*VMIIDInfo)
+		} else {
+			err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vm.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
 		}
 		if vm.SystemId == getDriverSystemId(cres.IID{NameId: vmIIDInfo.NameId, SystemId: vmIIDInfo.SystemId}) {
 			foundFlag = true
@@ -1338,10 +1728,25 @@ func setVMUserIIDwithSystemId(connectionName string, nlbName string, healthInfo 
 	for idx, vm := range *vmIIDList {
 		foundFlag := false
 		var vmIIDInfo VMIIDInfo
-		err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vm.SystemId)
-		if err != nil {
-			cblog.Error(err)
-			return err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*VMIIDInfo
+			err := getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
+			castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, vm.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
+			vmIIDInfo = *castedIIDInfo.(*VMIIDInfo)
+		} else {
+			err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vm.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
 		}
 		if vm.SystemId == getDriverSystemId(cres.IID{NameId: vmIIDInfo.NameId, SystemId: vmIIDInfo.SystemId}) {
 			foundFlag = true
@@ -1356,10 +1761,25 @@ func setVMUserIIDwithSystemId(connectionName string, nlbName string, healthInfo 
 	for idx, vm := range *vmIIDList {
 		foundFlag := false
 		var vmIIDInfo VMIIDInfo
-		err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vm.SystemId)
-		if err != nil {
-			cblog.Error(err)
-			return err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*VMIIDInfo
+			err := getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
+			castedIIDInfo, err := getAuthIIDInfoBySystemIdContain(&iidInfoList, vm.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
+			vmIIDInfo = *castedIIDInfo.(*VMIIDInfo)
+		} else {
+			err := infostore.GetByContain(&vmIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, vm.SystemId)
+			if err != nil {
+				cblog.Error(err)
+				return err
+			}
 		}
 		if vm.SystemId == getDriverSystemId(cres.IID{NameId: vmIIDInfo.NameId, SystemId: vmIIDInfo.SystemId}) {
 			foundFlag = true
@@ -1415,11 +1835,20 @@ func DeleteNLB(connectionName string, rsType string, nameID string, force string
 
 	// (1) get spiderIID for creating driverIID
 	var iidInfoList []*NLBIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return false, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
 	}
+
 	var iidInfo *NLBIIDInfo
 	var bool_ret = false
 	for _, OneIIdInfo := range iidInfoList {
@@ -1442,7 +1871,10 @@ func DeleteNLB(connectionName string, rsType string, nameID string, force string
 	result, err = handler.(cres.NLBHandler).DeleteNLB(driverIId)
 	if err != nil {
 		cblog.Error(err)
-		if force != "true" {
+		if checkNotFoundError(err) {
+			// if not found in CSP, continue
+			force = "true"
+		} else if force != "true" {
 			return false, err
 		}
 	}
@@ -1454,7 +1886,7 @@ func DeleteNLB(connectionName string, rsType string, nameID string, force string
 	}
 
 	// (3) delete IID
-	_, err = infostore.DeleteByConditions(&NLBIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+	_, err = infostore.DeleteByConditions(&NLBIIDInfo{}, CONNECTION_NAME_COLUMN, iidInfo.ConnectionName, NAME_ID_COLUMN, nameID)
 	if err != nil {
 		cblog.Error(err)
 		if force != "true" {

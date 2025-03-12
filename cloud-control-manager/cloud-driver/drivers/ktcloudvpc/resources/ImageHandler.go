@@ -11,34 +11,36 @@
 package resources
 
 import (
-	"strings"
 	"fmt"
+	"strings"
+
+	// "strconv"
 	// "github.com/davecgh/go-spew/spew"
 
-	ktvpcsdk 	"github.com/cloud-barista/ktcloudvpc-sdk-go"
+	ktvpcsdk "github.com/cloud-barista/ktcloudvpc-sdk-go"
 
 	// "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/compute/v2/images"
-	images 		"github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/imageservice/v2/images"  // Caution!!
-		//Ref) 'Image API' return struct of image : ktcloudvpc-sdk-go/openstack/imageservice/v2/images/results.go
-		//Ref) 'Compute API' return struct of image : ktcloudvpc-sdk-go/openstack/compute/v2/images/results.go
+	images "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/imageservice/v2/images" // Caution!!
+	//Ref) 'Image API' return struct of image : ktcloudvpc-sdk-go/openstack/imageservice/v2/images/results.go
+	//Ref) 'Compute API' return struct of image : ktcloudvpc-sdk-go/openstack/compute/v2/images/results.go
 
-	call 		"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
-	idrv 		"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs 		"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
 type KTVpcImageHandler struct {
-	RegionInfo    idrv.RegionInfo
-	VMClient      *ktvpcsdk.ServiceClient
-	ImageClient   *ktvpcsdk.ServiceClient
+	RegionInfo  idrv.RegionInfo
+	VMClient    *ktvpcsdk.ServiceClient
+	ImageClient *ktvpcsdk.ServiceClient
 }
 
 func (imageHandler *KTVpcImageHandler) ListImage() ([]*irs.ImageInfo, error) {
-	cblogger.Info("KT Cloud VPC Driver: called ListImage()")	
+	cblogger.Info("KT Cloud VPC Driver: called ListImage()")
 	callLogInfo := getCallLogScheme(imageHandler.RegionInfo.Zone, call.VMIMAGE, "ListImage()", "ListImage()") // HisCall logging
 
-	listOpts :=	images.ListOpts{
-		Limit: 300,  //default : 20
+	listOpts := images.ListOpts{
+		Limit:      300,                          //default : 20
 		Visibility: images.ImageVisibilityPublic, // Note : Public image only
 	}
 	start := call.Start()
@@ -50,8 +52,6 @@ func (imageHandler *KTVpcImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		return nil, newErr
 	}
 	loggingInfo(callLogInfo, start)
-
-	// # To Check!!
 	// cblogger.Info("### allPages : ")
 	// spew.Dump(allPages)
 
@@ -62,14 +62,12 @@ func (imageHandler *KTVpcImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 		loggingError(callLogInfo, newErr)
 		return nil, newErr
 	}
-
-	// # To Check!!
 	// cblogger.Info("### imageList : ")
 	// spew.Dump(imageList)
 
 	var imageInfoList []*irs.ImageInfo
-    for _, vmImage := range imageList {
-		imageInfo, err := imageHandler.mappingImageInfo(vmImage)
+	for _, image := range imageList {
+		imageInfo, err := imageHandler.mappingImageInfo(&image)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Map KT Cloud VPC Image Info. [%v]", err)
 			cblogger.Error(newErr.Error())
@@ -77,7 +75,7 @@ func (imageHandler *KTVpcImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 			return nil, newErr
 		}
 		imageInfoList = append(imageInfoList, imageInfo)
-    }
+	}
 	return imageInfoList, nil
 }
 
@@ -105,7 +103,7 @@ func (imageHandler *KTVpcImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo
 
 	//Ref) 'Image API' return struct of image :ktcloudvpc-sdk-go/openstack/imageservice/v2/images/results.go
 	//Ref) 'Compute API' return struct of image : ktcloudvpc-sdk-go/openstack/compute/v2/images/results.go
-	imageInfo, err := imageHandler.mappingImageInfo(*ktImage)
+	imageInfo, err := imageHandler.mappingImageInfo(ktImage)
 	if err != nil {
 		cblogger.Error(err.Error())
 		loggingError(callLogInfo, err)
@@ -127,7 +125,7 @@ func (imageHandler *KTVpcImageHandler) CheckWindowsImage(imageIID irs.IID) (bool
 		newErr := fmt.Errorf("Invalid Image SystemId!!")
 		cblogger.Error(newErr.Error())
 		return false, newErr
-	}	
+	}
 
 	ktImage, err := imageHandler.getKTImage(imageIID)
 	if err != nil {
@@ -153,9 +151,11 @@ func (imageHandler *KTVpcImageHandler) DeleteImage(imageIID irs.IID) (bool, erro
 	return true, fmt.Errorf("Does not support DeleteImage() yet!!")
 }
 
-func (imageHandler *KTVpcImageHandler) mappingImageInfo(image images.Image) (*irs.ImageInfo, error) {
+func (imageHandler *KTVpcImageHandler) mappingImageInfo(image *images.Image) (*irs.ImageInfo, error) {
 	cblogger.Info("KT Cloud VPC Driver: called mappingImageInfo()!")
+	// cblogger.Info("\n\n### image : ")
 	// spew.Dump(image)
+	// cblogger.Info("\n")
 
 	//Ref) 'Image API' return struct of image :ktcloudvpc-sdk-go/openstack/imageservice/v2/images/results.go
 	//Ref) 'Compute API' return struct of image : ktcloudvpc-sdk-go/openstack/compute/v2/images/results.go
@@ -164,33 +164,50 @@ func (imageHandler *KTVpcImageHandler) mappingImageInfo(image images.Image) (*ir
 		return nil, fmt.Errorf("Failed to Get Any Image Info.")
 	}
 
-	var imgAvailability string
-	if strings.EqualFold(string(image.Status), "active") {
-		imgAvailability = "available"
+	var osPlatform irs.OSPlatform
+	if image.Name != "" {
+		if strings.Contains(image.Name, "Windows") || strings.Contains(image.Name, "windows") || strings.Contains(image.Name, "win") {
+			osPlatform = irs.Windows
+		} else {
+			osPlatform = irs.Linux_UNIX
+		}
 	} else {
-		imgAvailability = "unavailable"
+		osPlatform = irs.PlatformNA
 	}
 
-	imageInfo := &irs.ImageInfo {
+	var imageStatus irs.ImageStatus
+	if image.Status != "" {
+		if strings.EqualFold(string(image.Status), "active") {
+			imageStatus = irs.ImageAvailable
+		} else {
+			imageStatus = irs.ImageUnavailable
+		}
+	} else {
+		imageStatus = irs.ImageNA
+	}
+
+	// ### Note) 'image.SizeBytes' is not Root Disk Size
+	// valueInGB := float64(image.SizeBytes) / (1024 * 1024 * 1024)
+	// diskSizeInGB := strconv.FormatFloat(valueInGB, 'f', 0, 64)
+
+	imageInfo := &irs.ImageInfo{
 		IId: irs.IID{
 			NameId:   image.ID, // Caution!!
 			SystemId: image.ID,
 		},
-		GuestOS:      image.Name, // Caution!!
-		Status: 	  imgAvailability,
+
+		Name:           image.ID,
+		OSArchitecture: "NA",
+		OSPlatform:     osPlatform,
+		OSDistribution: image.Name,
+		OSDiskType:     "NA",
+		OSDiskSizeGB:   "-1",
+		ImageStatus:    imageStatus,
+		KeyValueList:   irs.StructToKeyValueList(image),
 	}
 
-	keyValueList := []irs.KeyValue{
-		{Key: "Zone", Value: imageHandler.RegionInfo.Zone},
-		{Key: "DiskFormat:", Value: string(image.DiskFormat)},
-		{Key: "ContainerFormat:", Value: string(image.ContainerFormat)},
-		{Key: "Visibility:", Value: string(image.Visibility)},
-
-	}
-	imageInfo.KeyValueList = keyValueList
 	return imageInfo, nil
 }
-
 
 // # Get 'MyImage' Info from KT Cloud
 func (imageHandler *KTVpcImageHandler) getKTImage(imageIID irs.IID) (*images.Image, error) {
@@ -205,7 +222,7 @@ func (imageHandler *KTVpcImageHandler) getKTImage(imageIID irs.IID) (*images.Ima
 	}
 
 	start := call.Start()
-	image, err := images.Get(imageHandler.ImageClient, imageIID.SystemId).Extract()  // Not ~.VMClient
+	image, err := images.Get(imageHandler.ImageClient, imageIID.SystemId).Extract() // Not ~.VMClient
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get KT Cloud VPC Image Info. [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -213,7 +230,7 @@ func (imageHandler *KTVpcImageHandler) getKTImage(imageIID irs.IID) (*images.Ima
 		return nil, newErr
 	}
 	loggingInfo(callLogInfo, start)
-	
+
 	if strings.EqualFold(image.ID, "") {
 		return nil, fmt.Errorf("Failed to Get Any Image Info.")
 	}
@@ -227,7 +244,7 @@ func (imageHandler *KTVpcImageHandler) isPublicImage(imageIID irs.IID) (bool, er
 		newErr := fmt.Errorf("Invalid Image SystemId!!")
 		cblogger.Error(newErr.Error())
 		return false, newErr
-	}	
+	}
 
 	ktImage, err := imageHandler.getKTImage(imageIID)
 	if err != nil {
@@ -241,7 +258,7 @@ func (imageHandler *KTVpcImageHandler) isPublicImage(imageIID irs.IID) (bool, er
 	}
 
 	isPublicImage := false
-	if (ktImage.Visibility == images.ImageVisibilityPublic) {
+	if ktImage.Visibility == images.ImageVisibilityPublic {
 		isPublicImage = true
 	}
 	return isPublicImage, nil

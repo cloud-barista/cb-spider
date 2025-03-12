@@ -27,7 +27,12 @@ func (MyImageHandler *GCPMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageI
 	start := call.Start()
 
 	projectID := MyImageHandler.Credential.ProjectID
+
 	zone := MyImageHandler.Region.Zone
+	if MyImageHandler.Region.TargetZone != "" {
+		zone = MyImageHandler.Region.TargetZone
+	}
+
 	myImageName := snapshotReqInfo.IId.NameId
 
 	machineImage := &compute.MachineImage{

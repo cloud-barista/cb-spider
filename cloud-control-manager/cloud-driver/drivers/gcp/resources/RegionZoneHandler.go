@@ -180,7 +180,7 @@ func (regionZoneHandler *GCPRegionZoneHandler) ListOrgRegion() (string, error) {
 	callogger.Info(call.String(callLogInfo))
 	j, _ := resp.MarshalJSON()
 
-	//callogger.Info(j)
+	//cblogger.Info(j)
 	return string(j), err
 }
 func (regionZoneHandler *GCPRegionZoneHandler) ListOrgZone() (string, error) {
@@ -210,7 +210,7 @@ func (regionZoneHandler *GCPRegionZoneHandler) ListOrgZone() (string, error) {
 	callogger.Info(call.String(callLogInfo))
 	j, _ := resp.MarshalJSON()
 
-	//callogger.Info(j)
+	//cblogger.Info(j)
 	return string(j), err
 }
 

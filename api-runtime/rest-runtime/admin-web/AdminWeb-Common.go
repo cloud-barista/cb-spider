@@ -10,6 +10,8 @@ package adminweb
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
@@ -19,6 +21,49 @@ import (
 	"io/ioutil"
 	"net/http"
 )
+
+// ------------------- Data Structures for Claude -------------------
+type ClaudeMessage struct {
+	Role    string          `json:"role"`
+	Content []ClaudeContent `json:"content"`
+}
+
+type ClaudeContent struct {
+	Type string `json:"type"`
+	Text string `json:"text"`
+}
+
+type ClaudeRequestBody struct {
+	Model       string          `json:"model"`
+	MaxTokens   int             `json:"max_tokens"`
+	Temperature float64         `json:"temperature"`
+	System      string          `json:"system"`
+	Messages    []ClaudeMessage `json:"messages"`
+}
+
+// -------------------------------------------------------
+
+// getClaudeAPIKey first checks environment variable, then falls back to key file
+func getClaudeAPIKey() (string, error) {
+	// First check environment variable
+	if envKey := os.Getenv("CLAUDE_API_KEY"); envKey != "" {
+		return envKey, nil
+	}
+
+	// If environment variable is not set, try to read from file
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("error getting home directory: %v", err)
+	}
+
+	keyPath := filepath.Join(homeDir, ".claude", "claude_api.key")
+	keyBytes, err := ioutil.ReadFile(keyPath)
+	if err != nil {
+		return "", fmt.Errorf("error reading API key file: %v", err)
+	}
+
+	return string(bytes.TrimSpace(keyBytes)), nil
+}
 
 func makeSelect_html(onchangeFunctionName string, strList []string, id string) string {
 
@@ -318,4 +363,43 @@ func genLoggingResult2(response string) string {
 	`
 
 	return htmlStr
+}
+
+// Fetch regions and map them to RegionName -> "Region / Zone"
+func fetchRegions() (map[string]string, error) {
+	resp, err := http.Get("http://localhost:1024/spider/region")
+	if err != nil {
+		return nil, fmt.Errorf("error fetching regions: %v", err)
+	}
+	defer resp.Body.Close()
+
+	var regions struct {
+		Regions []struct {
+			RegionName       string `json:"RegionName"`
+			KeyValueInfoList []struct {
+				Key   string `json:"Key"`
+				Value string `json:"Value"`
+			} `json:"KeyValueInfoList"`
+		} `json:"region"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&regions); err != nil {
+		return nil, fmt.Errorf("error decoding regions: %v", err)
+	}
+
+	regionMap := make(map[string]string)
+	for _, region := range regions.Regions {
+		var regionValue, zoneValue string
+		for _, kv := range region.KeyValueInfoList {
+			if kv.Key == "Region" {
+				regionValue = kv.Value
+			} else if kv.Key == "Zone" {
+				zoneValue = kv.Value
+			}
+		}
+		if zoneValue == "" {
+			zoneValue = "N/A"
+		}
+		regionMap[region.RegionName] = fmt.Sprintf("%s / %s", regionValue, zoneValue)
+	}
+	return regionMap, nil
 }

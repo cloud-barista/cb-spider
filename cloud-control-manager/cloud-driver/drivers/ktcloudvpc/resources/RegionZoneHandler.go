@@ -4,6 +4,7 @@
 // KT Cloud VPC RegionZone Handler
 //
 // Created by ETRI, 2023.10.
+// Updated by ETRI, 2025.02.
 //==================================================================================================
 
 package resources
@@ -33,10 +34,10 @@ type KtVpcRegion struct {
 func getSupportedRegionZones() []KtVpcRegion {
 	regionList := []KtVpcRegion {
 		{	RegionCode: 	"KR1",
-			RegionName: 	"서울",
+			RegionName: 	"Seoul",
 			ZoneList: []KtVpcZone {
 				{	ZoneCode: 	"DX-M1",
-					ZoneName: 	"목동-1",
+					ZoneName: 	"Mokdong-1",
 				},
 			},
 		},
@@ -66,6 +67,7 @@ func (regionZoneHandler *KTVpcRegionZoneHandler) ListRegionZone() ([]*irs.Region
 			regionZoneInfo := irs.RegionZoneInfo{
 				Name: 			region.RegionCode,
 				DisplayName: 	region.RegionName,
+				CSPDisplayName:	region.RegionName,
 			}
 
 			zoneInfoList, err := regionZoneHandler.getZoneInfoList(region.RegionCode)
@@ -105,6 +107,7 @@ func (regionZoneHandler KTVpcRegionZoneHandler) GetRegionZone(regionCode string)
 			regionZoneInfo = irs.RegionZoneInfo {
 				Name: 			region.RegionCode,
 				DisplayName: 	region.RegionName,
+				CSPDisplayName:	region.RegionName,
 			}
 		}
 	}
@@ -240,6 +243,7 @@ func (regionZoneHandler KTVpcRegionZoneHandler) getZoneInfoList(regionCode strin
 				zoneInfo := irs.ZoneInfo{
 					Name: 			zone.ZoneCode,
 					DisplayName: 	zone.ZoneName,
+					CSPDisplayName:	zone.ZoneName,
 					Status:			irs.NotSupported,
 				}	
 				zoneInfoList = append(zoneInfoList, zoneInfo)

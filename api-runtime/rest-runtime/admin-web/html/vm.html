@@ -655,6 +655,31 @@ THE SOFTWARE.
         transform: translateX(-100%);
         animation: progress-animation 3s linear infinite;
     }
+    .checkbox-wrapper {
+        display: block;
+        margin-right: 0px; 
+    }
+
+    .checkbox-wrapper input[type="checkbox"] {
+        margin-right: 5px;
+    }
+
+    #dataDiskSelect {
+        border: 1px solid black;
+        padding: 10px;
+        width: 60%;
+        overflow-y: auto;
+        overflow-x: auto;
+        margin: 0 auto;
+        white-space: normal;
+        max-height:300px;
+    }
+
+    #diskSelect p {
+        margin: 5px 0;
+        color: black;
+        font-size: 14px;
+    }
 
     @keyframes progress-animation {
         0% {
@@ -713,69 +738,79 @@ THE SOFTWARE.
                     <span class="vm-start-time" data-time="{{$vm.StartTime}}"></span>
                 </td>    
                 <td class="ssh-access-cell">
+                    {{if $vm.PublicIP}}
                     • Public IP: {{$vm.PublicIP}}
                     <button class="copy-icon-btn" onclick="copyToClipboard('{{$vm.PublicIP}}')">
                         📋
                     </button>
                     <br> • 
                     <div class="ssh-connect-btn" 
-                        onclick="if ('{{$vm.PublicIP}}') { openSSHAccess({ vmUserId: '{{$vm.VMUserId}}', publicIP: '{{$vm.PublicIP}}', keyName: '{{$vm.KeyPairIId.NameId}}' }); }">
+                        onclick="openSSHAccess({ vmUserId: '{{$vm.VMUserId}}', publicIP: '{{$vm.PublicIP}}', keyName: '{{$vm.KeyPairIId.NameId}}' });">
                         <span class="ssh-terminal-style">SSH: {{$vm.PublicIP}}</span>
                     </div>
+                    {{end}}
                 </td>                                      
                 <td id="vmcontrol-{{$vm.IId.NameId}}" class="center-align vm-control-buttons">
-                    {{if eq (index $.VMStatusMap $vm.IId.NameId) "Running"}}
-                        <div style="display: inline-flex; align-items: center;">
-                            <span style="margin-right: 8px;">Running &nbsp; |</span>
-                            <button class="vm-action-btn" onclick="vmControl('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}', 'suspend')">⏸️</button>
-                            <button class="vm-action-btn" onclick="vmControl('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}', 'reboot')">&nbsp;🔄</button>
-                        </div>
-                    {{else if eq (index $.VMStatusMap $vm.IId.NameId) "Suspended"}}
-                        <div style="display: inline-flex; align-items: center;">
-                            <span style="margin-right: 8px;">Suspended &nbsp; |</span>
-                            <button class="vm-action-btn" onclick="vmControl('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}', 'resume')">⏯️</button>
-                        </div>
-                    {{else}}
-                        <div style="display: inline-flex; align-items: center;">
-                            <span style="margin-right: 8px;">{{index $.VMStatusMap $vm.IId.NameId}}</span>
-                            
-                        </div>
+                    {{if $vm.VMSpecName}}
+                        {{if eq (index $.VMStatusMap $vm.IId.NameId) "Running"}}
+                            <div style="display: inline-flex; align-items: center;">
+                                <span style="margin-right: 8px;">Running &nbsp; |</span>
+                                <button class="vm-action-btn" onclick="vmControl('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}', 'suspend')">⏸️</button>
+                                <button class="vm-action-btn" onclick="vmControl('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}', 'reboot')">&nbsp;🔄</button>
+                            </div>
+                        {{else if eq (index $.VMStatusMap $vm.IId.NameId) "Suspended"}}
+                            <div style="display: inline-flex; align-items: center;">
+                                <span style="margin-right: 8px;">Suspended &nbsp; |</span>
+                                <button class="vm-action-btn" onclick="vmControl('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}', 'resume')">⏯️</button>
+                            </div>
+                        {{else}}
+                            <div style="display: inline-flex; align-items: center;">
+                                <span style="margin-right: 8px;">{{index $.VMStatusMap $vm.IId.NameId}}</span>
+                                
+                            </div>
+                        {{end}}
                     {{end}}
                 </td>                                
                 <td class="snapshot-cell">
+                    {{if $vm.VMSpecName}}
                     <input type="text" id="snapshot-name-{{$vm.IId.NameId}}" value="myimage-1">
                     <button type="button" onclick="postSnapshotVM('{{$.ConnectionConfig}}', '{{$vm.IId.NameId}}', document.getElementById('snapshot-name-{{$vm.IId.NameId}}').value)">Snap</button>
+                    {{end}}
                 </td>
                 <td class="center-align provisioning-info-cell">
-                    <a class="provisioning-info-link" onclick="showProvisioningInfoOverlay({
-                        vpcName: '{{$vm.VpcIID.NameId}}',
-                        subnetName: '{{$vm.SubnetIID.NameId}}',
-                        zone: '{{$vm.Region.Zone}}',
-                        securityGroupName: ['{{range $index, $sg := $vm.SecurityGroupIIds}}{{if $index}},{{end}}{{$sg.NameId}}{{end}}'],
-                        keypairName: '{{$vm.KeyPairIId.NameId}}',
-                        vmUserId: '{{$vm.VMUserId}}',
-                        imageType: '{{$vm.ImageType}}',
-                        imageName: '{{$vm.ImageIId.NameId}}',
-                        platform: '{{$vm.Platform}}',
-                        vmSpecName: '{{$vm.VMSpecName}}',
-                        rootDiskType: '{{$vm.RootDiskType}}',
-                        rootDiskSize: '{{$vm.RootDiskSize}}',
-                        rootDeviceName: '{{$vm.RootDeviceName}}',
-                        dataDisks: ['{{range $index, $disk := $vm.DataDiskIIDs}}{{if $index}},{{end}}{{$disk.NameId}}{{end}}'],
-                        networkInterface: '{{$vm.NetworkInterface}}',
-                        publicIP: '{{$vm.PublicIP}}',
-                        publicDNS: '{{$vm.PublicDNS}}',
-                        privateIP: '{{$vm.PrivateIP}}',
-                        privateDNS: '{{$vm.PrivateDNS}}'
-                    })">View Details</a>                    
+                    {{if $vm.VMSpecName}}
+                        <a class="provisioning-info-link" onclick="showProvisioningInfoOverlay({
+                            vpcName: '{{$vm.VpcIID.NameId}}',
+                            subnetName: '{{$vm.SubnetIID.NameId}}',
+                            zone: '{{$vm.Region.Zone}}',
+                            securityGroupName: ['{{range $index, $sg := $vm.SecurityGroupIIds}}{{if $index}},{{end}}{{$sg.NameId}}{{end}}'],
+                            keypairName: '{{$vm.KeyPairIId.NameId}}',
+                            vmUserId: '{{$vm.VMUserId}}',
+                            imageType: '{{$vm.ImageType}}',
+                            imageName: '{{$vm.ImageIId.NameId}}',
+                            platform: '{{$vm.Platform}}',
+                            vmSpecName: '{{$vm.VMSpecName}}',
+                            rootDiskType: '{{$vm.RootDiskType}}',
+                            rootDiskSize: '{{$vm.RootDiskSize}}',
+                            rootDeviceName: '{{$vm.RootDeviceName}}',
+                            dataDisks: ['{{range $index, $disk := $vm.DataDiskIIDs}}{{if $index}},{{end}}{{$disk.NameId}}{{end}}'],
+                            networkInterface: '{{$vm.NetworkInterface}}',
+                            publicIP: '{{$vm.PublicIP}}',
+                            publicDNS: '{{$vm.PublicDNS}}',
+                            privateIP: '{{$vm.PrivateIP}}',
+                            privateDNS: '{{$vm.PrivateDNS}}'
+                        })">View Details</a>                    
+                    {{end}}
                 </td>
                 <td>
-                    {{range $tag := $vm.TagList}}
-                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'VM', '{{$vm.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                    {{if $vm.VMSpecName}}
+                        {{range $tag := $vm.TagList}}
+                        <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'VM', '{{$vm.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                        {{end}}
+                        <div class="add-btn-container">
+                            <button class="add-btn" onclick="showAddTagOverlay('{{$vm.IId.NameId}}')">+</button>
+                        </div>
                     {{end}}
-                    <div class="add-btn-container">
-                        <button class="add-btn" onclick="showAddTagOverlay('{{$vm.IId.NameId}}')">+</button>
-                    </div>
                 </td>                
                 <td class="center-align misc-cell">
                     <div class="misc-content">{{range $kv := $vm.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
@@ -811,7 +846,7 @@ THE SOFTWARE.
 
                 <div class="form-group">
                     <label for="vpcSelect">VPC:</label>
-                    <select id="vpcSelect" name="vpcSelect" required onchange="updateSubnets()" style="background-color: #f3f3fd;">
+                    <select id="vpcSelect" name="vpcSelect" required onchange="updateSubnets(); loadSecurityGroups();" style="background-color: #f3f3fd;">
                     </select>
                 </div>
                 
@@ -866,9 +901,7 @@ THE SOFTWARE.
                 
                 <div class="form-group">
                     <label for="dataDiskSelect">Data Disk Names:</label>
-                    <select id="dataDiskSelect" name="dataDiskSelect" multiple>
-                        <option value="">Select a Subnet first...</option>
-                    </select>
+                    <div id="dataDiskSelect" name="dataDiskSelect"></div>
                 </div>
                                 
                 <div class="form-group">
@@ -1249,8 +1282,8 @@ THE SOFTWARE.
                     SubnetName: document.getElementById('subnetSelect').value,
                     SecurityGroupNames: [document.getElementById('securityGroupSelect').value],
                     RootDiskType: document.getElementById('rootDiskType').value,
-                    RootDiskSize: document.getElementById('rootDiskSize').value || undefined,
-                    DataDiskNames: Array.from(document.getElementById('dataDiskSelect').selectedOptions).map(option => option.value),
+                    RootDiskSize: document.getElementById('rootDiskSize').value || undefined,  
+                    DataDiskNames: Array.from(document.querySelectorAll('#dataDiskSelect input[type="checkbox"]:checked')).map(checkbox => checkbox.value),    
                     KeyPairName: document.getElementById('keypairSelect').value,
                     VMUserId: document.getElementById('vmUserId').value,
                     VMUserPasswd: document.getElementById('vmUserPasswd').value,
@@ -1329,32 +1362,25 @@ THE SOFTWARE.
     }
 
     function showOverlay() {
-        const region = '{{.RegionName}}';
-        const vmNameInput = document.getElementById('vmName');
-
-        if (vmNameInput) {
-            vmNameInput.value = `${region}-vm-${Math.random().toString(36).substring(2, 8)}`;
-        } else {
-            console.error("Element with ID 'vmName' not found.");
-        }
-
+        console.log("showOverlay()");
         document.getElementById('overlay').style.display = 'flex';
         document.addEventListener('keydown', handleEsc);
         clearFormFields();
-        
-        const dataDiskSelect = document.getElementById('dataDiskSelect');
-        dataDiskSelect.selectedIndex = -1;
     }
 
     function clearFormFields() {
+        // Clear form fields
+        document.getElementById('addVMForm').reset();
+
         const region = '{{.RegionName}}';
         const vmNameInput = document.getElementById('vmName');
         vmNameInput.value = `${region}-vm-${Math.random().toString(36).substring(2, 5)}`;
-
+        loadSecurityGroups();
         const tagContainer = document.getElementById('vm-tag-container');
         while (tagContainer.firstChild) {
             tagContainer.removeChild(tagContainer.firstChild);
         }
+        
     }
 
     function hideOverlay() {
@@ -1646,7 +1672,7 @@ THE SOFTWARE.
         if (connConfigElement) {
             loadVPCs();
             loadKeyPairs();
-            loadSecurityGroups();
+            //loadSecurityGroups();
         } else {
             console.error("Error: 'connConfig' element not found.");
         }
@@ -1686,6 +1712,7 @@ THE SOFTWARE.
                     vpcSelect.appendChild(option);
                 });
                 updateSubnets(); // Update subnets based on selected VPC
+                loadSecurityGroups(); // Load security groups based on selected VPC
             } else {
                 vpcSelect.innerHTML = '<option>No VPCs. Create one.</option>';
             }
@@ -1716,7 +1743,6 @@ THE SOFTWARE.
             loadDataDisks(firstSubnetZone);
         } else {
             subnetSelect.innerHTML = '<option>No subnets available for this VPC.</option>';
-            dataDiskSelect.innerHTML = '<option>Select a Subnet first...</option>';
         }
     }
 
@@ -1758,13 +1784,15 @@ THE SOFTWARE.
     function loadSecurityGroups() {
         const connConfig = document.getElementById('connConfig').value;
         const securityGroupSelect = document.getElementById('securityGroupSelect');
+        const vpcName = document.getElementById('vpcSelect').options[document.getElementById('vpcSelect').selectedIndex].text.split(' ')[0];
+        const url = `/spider/securitygroup/vpc/${vpcName}?ConnectionName=${connConfig}`
         
         if (!securityGroupSelect) {
             console.error('Security Group select element not found');
             return;
         }
 
-        fetch(`/spider/securitygroup?ConnectionName=${connConfig}`, {
+        fetch(url, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json'
@@ -2053,45 +2081,6 @@ THE SOFTWARE.
         }
     });
 
-    function loadDataDisks() {
-        const vmZone = document.getElementById('vmZone').value;
-        const connConfig = document.getElementById('connConfig').value;
-
-        fetch('/spider/disk', {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ ConnectionName: connConfig })
-        })
-        .then(response => response.json())
-        .then(data => {
-            const diskSelect = document.getElementById('dataDiskSelect');
-            diskSelect.innerHTML = '';
-
-            if (data.disk && data.disk.length > 0) {
-                data.disk.forEach(disk => {
-                    if (disk.Zone === vmZone && disk.Status === "Available") {
-                        const option = document.createElement('option');
-                        option.value = disk.IId.NameId;
-                        option.textContent = `${disk.IId.NameId} (${disk.DiskSize} GB)`;
-                        diskSelect.appendChild(option);
-                    }
-                });
-            } else {
-                diskSelect.innerHTML = '<option>No disks available in the same zone.</option>';
-            }
-        })
-        .catch(error => {
-            alert('Error loading data disks: ' + error.message);
-        });
-    }
-
-    document.getElementById('subnetSelect').addEventListener('change', function() {
-        const selectedZone = this.options[this.selectedIndex].dataset.zone;
-        loadDataDisks(selectedZone);
-    });
-
     function loadDataDisks(zone) {
         const connConfig = document.getElementById('connConfig').value;
 
@@ -2105,24 +2094,46 @@ THE SOFTWARE.
         .then(data => {
             const diskSelect = document.getElementById('dataDiskSelect');
             diskSelect.innerHTML = '';
+            
+            const filteredDisks = data.disk.filter(disk => disk.Zone === zone && disk.Status === "Available");
+            
+            if (filteredDisks.length > 0){
+                console.log(filteredDisks);
+                filteredDisks.forEach(disk => {
+                    if (disk.Zone === zone && disk.Status === "Available"){
+                        const checkboxWrapper = document.createElement('div');
+                        checkboxWrapper.className = 'checkbox-wrapper';
 
-            if (data.disk && data.disk.length > 0) {
-                data.disk.forEach(disk => {
-                    if (disk.Zone === zone && disk.Status === "Available") {
-                        const option = document.createElement('option');
-                        option.value = disk.IId.NameId;
-                        option.textContent = `${disk.IId.NameId} (${disk.DiskSize} GB)`;
-                        diskSelect.appendChild(option);
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.name = 'disks';
+                        checkbox.value = disk.IId.NameId;
+                        checkbox.id = `disk-${disk.IId.NameId}`;
+
+                        const label = document.createElement('label');
+                        label.htmlFor = `disk-${disk.IId.NameId}`;
+                        label.textContent = `${disk.IId.NameId} (${disk.DiskSize} GB)`;
+
+                        checkboxWrapper.appendChild(checkbox);
+                        checkboxWrapper.appendChild(label);
+
+                        diskSelect.appendChild(checkboxWrapper);
                     }
                 });
             } else {
-                diskSelect.innerHTML = '<option>No disks available in the same zone.</option>';
+                const noDiskMessage = document.createElement('p');
+                noDiskMessage.textContent = 'No disks available in the same zone.';
+                diskSelect.appendChild(noDiskMessage);
             }
-        })
-        .catch(error => {
-            alert('Error loading data disks: ' + error.message);
+        }).catch(error =>{
+            alert("Error loading data disks: " + error.message);
         });
     }
+
+    document.getElementById('subnetSelect').addEventListener('change', function() {
+        const selectedZone = this.options[this.selectedIndex].dataset.zone;
+        loadDataDisks(selectedZone);
+    });
 
     function showMiscOverlay(button) {
         const miscContent = button.previousElementSibling.innerHTML;

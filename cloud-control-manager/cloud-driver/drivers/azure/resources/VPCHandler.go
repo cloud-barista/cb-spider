@@ -291,7 +291,8 @@ func (vpcHandler *AzureVPCHandler) getRawVPC(vpcIID irs.IID) (*armnetwork.Virtua
 				return vpc, nil
 			}
 		}
-		return nil, errors.New("not found SecurityGroup")
+
+		return nil, errors.New("VPC not found")
 	} else {
 		resp, err := vpcHandler.Client.Get(vpcHandler.Ctx, vpcHandler.Region.Region, vpcIID.NameId, nil)
 		if err != nil {

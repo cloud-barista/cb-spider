@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -2381,42 +2382,82 @@ func (nlbHandler *GCPNLBHandler) removeTargetPoolHealthCheck(regionID string, ta
 // Target pools are used for network TCP/UDP load balancing. A target pool references member instances, an associated legacy HttpHealthCheck resource, and, optionally, a backup target poo
 */
 func (nlbHandler *GCPNLBHandler) addTargetPoolInstance(regionID string, targetPoolName string, instanceIIDs *[]irs.IID) error {
-	// path param
+	// Path parameter
 	projectID := nlbHandler.Credential.ProjectID
-	zoneID := nlbHandler.Region.Zone
 
-	// TODO : 해당 region 아래의 모든 zone을 검색하여 조회해야 할 듯. 특정 zone으로만 조회해서는 vm을 제대로 찾을 수 없음.
+	// Get all zones in the region
+	regionZoneHandler := GCPRegionZoneHandler{
+		Client:     nlbHandler.Client,
+		Credential: nlbHandler.Credential,
+		Region:     nlbHandler.Region,
+		Ctx:        nlbHandler.Ctx,
+	}
+	regionZoneInfo, err := regionZoneHandler.GetRegionZone(regionID)
+	if err != nil {
+		cblogger.Error("Failed to get ZoneInfo by region:", err)
+		return err
+	}
 
-	if instanceIIDs != nil {
-		// queryParam
-		instanceRequest := compute.TargetPoolsAddInstanceRequest{}
-		instanceReferenceList := []*compute.InstanceReference{}
-		for _, instance := range *instanceIIDs {
-			//instanceUrl := instance.SystemId
-			instanceUrl, err := nlbHandler.getVmUrl(zoneID, instance)
+	if instanceIIDs == nil || len(*instanceIIDs) == 0 {
+		return errors.New("instanceIIDs are empty")
+	}
+
+	// Query parameter
+	instanceRequest := compute.TargetPoolsAddInstanceRequest{}
+	instanceReferenceList := []*compute.InstanceReference{}
+
+	// Iterate over each instance and find its zone
+	for _, instance := range *instanceIIDs {
+		found := false
+
+		// Search for the VM in all zones within the region
+		for _, zoneItem := range regionZoneInfo.ZoneList {
+			// Check if the VM exists in the zone
+			vm, err := nlbHandler.Client.Instances.Get(projectID, zoneItem.Name, instance.SystemId).Do()
 			if err != nil {
+				if isNotFoundError(err) {
+					// VM not found in this zone, continue to next zone
+					continue
+				}
+				// Other errors should stop processing
+				cblogger.Errorf("Error fetching VM instance in zone %s: %v", zoneItem.Name, err)
 				return err
 			}
-			instanceReference := &compute.InstanceReference{Instance: instanceUrl}
+
+			// VM found, add its SelfLink to the instanceReferenceList
+			instanceReference := &compute.InstanceReference{Instance: vm.SelfLink}
 			instanceReferenceList = append(instanceReferenceList, instanceReference)
-		}
-		instanceRequest.Instances = instanceReferenceList
-
-		// requestBody
-		res, err := nlbHandler.Client.TargetPools.AddInstance(projectID, regionID, targetPoolName, &instanceRequest).Do()
-		if err != nil {
-			return err
+			found = true
+			break // Move to the next VM in the input list
 		}
 
-		printToJson(res)
-		err = WaitUntilComplete(nlbHandler.Client, projectID, regionID, res.Name, false)
-		if err != nil {
-			return err
+		if !found {
+			// Log and return an error if the VM cannot be found in any zone
+			cblogger.Errorf("VM with SystemId '%s' not found in any zone of region '%s'", instance.SystemId, regionID)
+			return fmt.Errorf("VM with SystemId '%s' not found in any zone of region '%s'", instance.SystemId, regionID)
 		}
-		cblogger.Info("Done")
-		return nil
 	}
-	return errors.New("instanceIIDs are empty.)")
+
+	instanceRequest.Instances = instanceReferenceList
+
+	// Make the API request to add instances to the TargetPool
+	res, err := nlbHandler.Client.TargetPools.AddInstance(projectID, regionID, targetPoolName, &instanceRequest).Do()
+	if err != nil {
+		cblogger.Errorf("Failed to add instances to TargetPool '%s': %v", targetPoolName, err)
+		return err
+	}
+
+	// Print the response for debugging
+	printToJson(res)
+
+	// Wait for the operation to complete
+	err = WaitUntilComplete(nlbHandler.Client, projectID, regionID, res.Name, false)
+	if err != nil {
+		cblogger.Errorf("Error waiting for TargetPool operation to complete: %v", err)
+		return err
+	}
+
+	return nil
 }
 
 /*
@@ -2424,39 +2465,82 @@ TargetPool에서 instance bind 삭제
 parameter instance = The URL for a specific instance
 */
 func (nlbHandler *GCPNLBHandler) removeTargetPoolInstances(regionID string, targetPoolName string, deleteInstanceIIDs *[]irs.IID) error {
-	// path param
+	// Path parameter
 	projectID := nlbHandler.Credential.ProjectID
-	zoneID := nlbHandler.Region.Zone
 
-	if deleteInstanceIIDs != nil {
-		instanceRequest := compute.TargetPoolsRemoveInstanceRequest{}
-		instanceReferenceList := []*compute.InstanceReference{}
-		for _, instance := range *deleteInstanceIIDs {
-			//instanceUrl := instance.SystemId
-			instanceUrl, err := nlbHandler.getVmUrl(zoneID, instance)
+	// Get all zones in the region
+	regionZoneHandler := GCPRegionZoneHandler{
+		Client:     nlbHandler.Client,
+		Credential: nlbHandler.Credential,
+		Region:     nlbHandler.Region,
+		Ctx:        nlbHandler.Ctx,
+	}
+	regionZoneInfo, err := regionZoneHandler.GetRegionZone(regionID)
+	if err != nil {
+		cblogger.Error("Failed to get ZoneInfo by region:", err)
+		return err
+	}
+
+	if deleteInstanceIIDs == nil || len(*deleteInstanceIIDs) == 0 {
+		return errors.New("deleteInstanceIIDs are empty")
+	}
+
+	// Query parameter
+	instanceRequest := compute.TargetPoolsRemoveInstanceRequest{}
+	instanceReferenceList := []*compute.InstanceReference{}
+
+	// Iterate over each instance and find its zone
+	for _, instance := range *deleteInstanceIIDs {
+		found := false
+
+		// Search for the VM in all zones within the region
+		for _, zoneItem := range regionZoneInfo.ZoneList {
+			// Check if the VM exists in the zone
+			vm, err := nlbHandler.Client.Instances.Get(projectID, zoneItem.Name, instance.SystemId).Do()
 			if err != nil {
+				if isNotFoundError(err) {
+					// VM not found in this zone, continue to next zone
+					continue
+				}
+				// Other errors should stop processing
+				cblogger.Errorf("Error fetching VM instance in zone %s: %v", zoneItem.Name, err)
 				return err
 			}
-			instanceReference := &compute.InstanceReference{Instance: instanceUrl}
+
+			// VM found, add its SelfLink to the instanceReferenceList
+			instanceReference := &compute.InstanceReference{Instance: vm.SelfLink}
 			instanceReferenceList = append(instanceReferenceList, instanceReference)
-		}
-		instanceRequest.Instances = instanceReferenceList
-
-		// requestBody
-		res, err := nlbHandler.Client.TargetPools.RemoveInstance(projectID, regionID, targetPoolName, &instanceRequest).Do()
-		if err != nil {
-			return err
+			found = true
+			break // Move to the next VM in the input list
 		}
 
-		printToJson(res)
-		err = WaitUntilComplete(nlbHandler.Client, projectID, regionID, res.Name, false)
-		if err != nil {
-			return err
+		if !found {
+			// Log and return an error if the VM cannot be found in any zone
+			cblogger.Errorf("VM with SystemId '%s' not found in any zone of region '%s'", instance.SystemId, regionID)
+			return fmt.Errorf("VM with SystemId '%s' not found in any zone of region '%s'", instance.SystemId, regionID)
 		}
-		cblogger.Info("Done")
-		return nil
 	}
-	return errors.New("instanceIIDs are empty.)")
+
+	instanceRequest.Instances = instanceReferenceList
+
+	// Make the API request to remove instances from the TargetPool
+	res, err := nlbHandler.Client.TargetPools.RemoveInstance(projectID, regionID, targetPoolName, &instanceRequest).Do()
+	if err != nil {
+		cblogger.Errorf("Failed to remove instances from TargetPool '%s': %v", targetPoolName, err)
+		return err
+	}
+
+	// Print the response for debugging
+	printToJson(res)
+
+	// Wait for the operation to complete
+	err = WaitUntilComplete(nlbHandler.Client, projectID, regionID, res.Name, false)
+	if err != nil {
+		cblogger.Errorf("Error waiting for TargetPool operation to complete: %v", err)
+		return err
+	}
+
+	return nil
 }
 
 // slice 제거
@@ -2613,33 +2697,71 @@ func (nlbHandler *GCPNLBHandler) convertNlbInfoToTargetPool(nlbInfo *irs.NLBInfo
 	vmList := nlbInfo.VMGroup.VMs
 
 	projectID := nlbHandler.Credential.ProjectID
-	//regionID := nlbHandler.Region.Region
-	zoneID := nlbHandler.Region.Zone
+	regionID := nlbHandler.Region.Region
 
-	instancesUrl := []string{}
-	for _, instance := range *vmList {
-		// get instance url from instance id
-		//instanceUrl := "https://www.googleapis.com/compute/v1/projects/" + projectID + "/zones/" + zoneID + "/instances/" + instance.SystemId
-		//instancesUrl = append(instancesUrl, instanceUrl) // URL
-
-		vm, err := nlbHandler.Client.Instances.Get(projectID, zoneID, instance.SystemId).Do()
-		if err != nil {
-			cblogger.Error(err)
-			return compute.TargetPool{}, err
-		}
-		instancesUrl = append(instancesUrl, vm.SelfLink) // URL
-
-		printToJson(instancesUrl)
+	// Get all zones in the region
+	regionZoneHandler := GCPRegionZoneHandler{
+		Client:     nlbHandler.Client,
+		Credential: nlbHandler.Credential,
+		Region:     nlbHandler.Region,
+		Ctx:        nlbHandler.Ctx,
+	}
+	regionZoneInfo, err := regionZoneHandler.GetRegionZone(regionID)
+	if err != nil {
+		cblogger.Error("Failed to get ZoneInfo by region:", err)
+		return compute.TargetPool{}, err
 	}
 
-	healthChecks := []string{nlbInfo.HealthChecker.CspID} // url
+	// Prepare instancesUrl for the TargetPool
+	instancesUrl := []string{}
 
+	for _, instance := range *vmList {
+		found := false
+
+		// Search for the VM in all zones within the region
+		for _, zoneItem := range regionZoneInfo.ZoneList {
+			vm, err := nlbHandler.Client.Instances.Get(projectID, zoneItem.Name, instance.SystemId).Do()
+			if err != nil {
+				if isNotFoundError(err) {
+					continue
+				}
+				// Other errors should stop processing
+				cblogger.Errorf("Error fetching VM instance in zone %s: %v", zoneItem.Name, err)
+				return compute.TargetPool{}, err
+			}
+			instancesUrl = append(instancesUrl, vm.SelfLink)
+			found = true
+			break // Move to the next VM in the input list
+		}
+
+		if !found {
+			// Log and return an error if the VM cannot be found in any zone
+			cblogger.Errorf("VM with SystemId '%s' not found in any zone of region '%s'", instance.SystemId, regionID)
+			return compute.TargetPool{}, fmt.Errorf("VM with SystemId '%s' not found in any zone of region '%s'", instance.SystemId, regionID)
+		}
+	}
+
+	// Debug: Print the collected instancesUrl
+	printToJson(instancesUrl)
+
+	healthChecks := []string{nlbInfo.HealthChecker.CspID}
+
+	// Create the TargetPool struct with the collected instancesUrl
 	targetPool := compute.TargetPool{
 		Name:         nlbInfo.IId.NameId,
 		Instances:    instancesUrl,
 		HealthChecks: healthChecks,
 	}
+
 	return targetPool, nil
+}
+
+// Helper function to determine if an error is a "not found" error
+func isNotFoundError(err error) bool {
+	if gErr, ok := err.(*googleapi.Error); ok {
+		return gErr.Code == 404
+	}
+	return false
 }
 
 /*

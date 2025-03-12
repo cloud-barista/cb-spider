@@ -16,7 +16,7 @@
             height: 100%;
         }
         .left-menu {
-            width: 120px; /* Set width to 120px */
+            width: 120px;
             border-right: 1px solid #ccc;
             height: 100%;
             flex-shrink: 0;
@@ -51,28 +51,28 @@
         .dropdown-content {
             display: none;
             position: absolute;
-            background-color: #000; /* Background color */
-            color: #fff; /* Font color */
-            font-size: 14px; /* Font size increased */
-            min-width: 100px; /* Increased the width */
+            background-color: #000;
+            color: #fff;
+            font-size: 14px;
+            min-width: 100px;
             box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-            z-index: 1000; /* Ensure dropdown appears above everything else */
-            top: 100%; /* Show dropdown below the button */
-            left: -1cm; /* Move the dropdown 1cm to the left */
-            padding: 10px; /* Padding for content */
-            border-radius: 8px; /* Rounded corners */
+            z-index: 1000;
+            top: 100%;
+            left: -1cm;
+            padding: 10px;
+            border-radius: 8px;
         }
         .dropdown-content a {
-            color: #fff; /* Font color */
+            color: #fff;
             text-decoration: none;
             display: block;
-            margin-bottom: 10px; /* Space between items */
+            margin-bottom: 10px;
         }
         .dropdown-content a:hover {
-            background-color: #555; /* Hover background color */
+            background-color: #555;
         }
         .dropdown-content p {
-            margin: 0; /* Remove margin for the paragraph */
+            margin: 0;
         }
         .dropdown:hover .dropdown-content {
             display: block;
@@ -80,19 +80,19 @@
         .top-menu-right {
             margin-left: auto;
             display: flex;
-            gap: 20px; /* Increased gap */
-            padding-right: 0.5cm; /* Move the menu items 0.5cm to the left */
+            gap: 20px;
+            padding-right: 0.5cm;
             align-items: center;
         }
         .connection-info {
             display: flex;
-            gap: 10px; /* Increased gap */
+            gap: 10px;
             align-items: center;
         }
         .connection-info img {
-            height: 30px; /* Image height */
+            height: 30px;
             position: relative;
-            margin-left: 0.5cm; /* Move the image 1cm to the right */
+            margin-left: 0.5cm;
         }
         .connection-info .conn-name {
             font-size: 16px;
@@ -112,8 +112,8 @@
         }
         .menu-item img {
             vertical-align: bottom;
-            height: 2em; /* Set image height to 2 times text height */
-            width: auto; /* Maintain aspect ratio */
+            height: 2em;
+            width: auto;
             margin-right: 2px;
             font-size: 14px;
         }
@@ -128,7 +128,7 @@
             display: none;
         }
         .selectedConfigName {
-            margin-left: 0.5cm; /* Move the text 1cm to the right */
+            margin-left: 0.5cm;
             color: #08aab0; 
         }
         .digital-font {
@@ -137,8 +137,8 @@
             color: #08aab0;
         }
         .separator {
-            height: 25px; /* Height of the separator */
-            border-left: 1px solid #ccc; /* Vertical separator */
+            height: 25px;
+            border-left: 1px solid #ccc;
         }
         .progress-bar {
             position: absolute;
@@ -151,7 +151,7 @@
             border: 1px solid #bdbdbd;
             border-radius: 5px;
             overflow: hidden;
-            display: none; /* Initially hidden */
+            display: none;
         }
         .progress-bar-inner {
             height: 100%;
@@ -176,119 +176,244 @@
             display: none;
             z-index: 1000;
         }
+        
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0; 
+            left: 0; 
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+        }
+        .overlay-content {
+            background: white;
+            padding: 20px;
+            border-radius: 5px;
+            width: 80%;
+            height: 80vh;
+            text-align: center;
+            display: flex; 
+            flex-direction: column; 
+        }
+
+        .overlay-content iframe {
+            flex: 1;
+            min-height: 500px;
+        }
+
+        .overlay-content button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #08aab0;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .ai-menu-item {
+            position: relative;
+            text-decoration: none;
+            color: inherit;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 5px 10px;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .ai-menu-item:hover {
+            background: rgba(8, 170, 176, 0.1);
+            transform: scale(1.05);
+        }
+
+        .ai-menu-item::after {
+            content: "Experimental Version - Under Development";
+            position: absolute;
+            bottom: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: nowrap;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .ai-menu-item:hover::after {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .beta-tag {
+            font-size: 12px;
+            color: #08aab0;
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: rgba(8, 170, 176, 0.1);
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+
+        .ai-icon {
+            font-size: 20px;
+        }
+
+        .ai-text {
+            font-weight: 500;
+            background: linear-gradient(45deg, hsl(52, 91%, 36%), #1b1911e5);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
     </style>
-    <script>
-        function updateTopMenu(configName, provider, region) {
-            const selectedConfigNameElement = document.getElementById('selectedConfigName');
-            const topMenuRight = document.querySelector('.top-menu-right');
-            if (!provider || provider === 'None') {
-                selectedConfigNameElement.innerHTML = '<h1 class="selectedConfigName">Please select a connection first.</h1>';
-                selectedConfigNameElement.classList.remove('hidden');
-                document.getElementById('selectedProvider').innerHTML = '';
-                document.getElementById('selectedRegion').innerHTML = '';
-                document.querySelector('.dynamic-menu').innerHTML = '';
+
+<script>
+    function updateTopMenu(configName, provider, region) {
+        const selectedConfigNameElement = document.getElementById('selectedConfigName');
+        const topMenuRight = document.querySelector('.top-menu-right');
+        if (!provider || provider === 'None') {
+            selectedConfigNameElement.innerHTML = '<h1 class="selectedConfigName">Please select a connection first.</h1>';
+            selectedConfigNameElement.classList.remove('hidden');
+            document.getElementById('selectedProvider').innerHTML = '';
+            document.getElementById('selectedRegion').innerHTML = '';
+            document.querySelector('.dynamic-menu').innerHTML = '';
+        } else {
+            const providerImg = `<img src="/spider/adminweb/images/${provider.toLowerCase()}.png" alt="${configName}" title="${configName}">`;
+            selectedConfigNameElement.innerHTML = configName;
+            selectedConfigNameElement.classList.add('hidden');
+            document.getElementById('selectedProvider').innerHTML = providerImg;
+            document.getElementById('selectedRegion').innerHTML = '<div class="digital-font">' + region + '<span class="conn-name">(' + configName + ')</span></div>';
+            
+            const dynamicMenuHtml = `
+                <a href="/spider/adminweb/regionzone/${configName}" target="body_frame" class="menu-item" id="region-zone-menu" onclick="selectMainMenu('region-zone')">
+                    <img id="region-zone-img" src="/spider/adminweb/images/top-menu/region-zone.png" alt="Region/Zone Icon">Region/Zone
+                </a>
+                <a href="/spider/adminweb/priceinfo/${configName}" target="body_frame" class="menu-item" id="price-menu" onclick="selectMainMenu('price')">
+                    <img id="price-img" src="/spider/adminweb/images/top-menu/price.png" alt="Price Icon">Price
+                </a>
+                <a href="/spider/adminweb/vmimage/${configName}" target="body_frame" class="menu-item" id="vm-image-menu" onclick="selectMainMenu('vm-image')">
+                    <img id="vm-image-img" src="/spider/adminweb/images/top-menu/vm-image.png" alt="VM Image Icon">VM Image
+                </a>
+                <a href="/spider/adminweb/vmspec/${configName}" target="body_frame" class="menu-item" id="vm-specs-menu" onclick="selectMainMenu('vm-specs')">
+                    <img id="vm-specs-img" src="/spider/adminweb/images/top-menu/vm-specs.png" alt="VM Specs Icon">VM Specs
+                </a>
+            `;
+            document.querySelector('.dynamic-menu').innerHTML = dynamicMenuHtml;
+        }
+        sessionStorage.setItem('selectedConfigName', configName);
+        sessionStorage.setItem('selectedProvider', provider);
+        sessionStorage.setItem('selectedRegion', region);
+    }
+
+    function showProgressBar() {
+        const progressBar = document.querySelector('.progress-bar');
+        progressBar.style.display = 'block';
+    }
+
+    function hideProgressBar() {
+        const progressBar = document.querySelector('.progress-bar');
+        progressBar.style.display = 'none';
+    }
+
+    function showError(message) {
+        const errorMessage = document.querySelector('.error-message');
+        errorMessage.textContent = message;
+        errorMessage.style.display = 'block';
+        setTimeout(() => {
+            errorMessage.style.display = 'none';
+        }, 5000);
+    }
+
+    function selectMainMenu(selectedMenu) {
+        showProgressBar();
+        const menus = ['region-zone', 'price', 'vm-image', 'vm-specs'];
+        menus.forEach(menu => {
+            const imgElement = document.getElementById(menu + '-img');
+            if (menu === selectedMenu) {
+                imgElement.src = `/spider/adminweb/images/top-menu/${menu}_selected.png`;
             } else {
-                const providerImg = `<img src="/spider/adminweb/images/${provider.toLowerCase()}.png" alt="${configName}" title="${configName}">`;
-                selectedConfigNameElement.innerHTML = configName;
-                selectedConfigNameElement.classList.add('hidden');
-                document.getElementById('selectedProvider').innerHTML = providerImg;
-                document.getElementById('selectedRegion').innerHTML = '<div class="digital-font">' + region + '<span class="conn-name">(' + configName + ')</span></div>';
-                
-                const dynamicMenuHtml = `
-                    <a href="/spider/adminweb/regionzone/${configName}" target="body_frame" class="menu-item" id="region-zone-menu" onclick="selectMainMenu('region-zone')">
-                        <img id="region-zone-img" src="/spider/adminweb/images/top-menu/region-zone.png" alt="Region/Zone Icon">Region/Zone
-                    </a>
-                    <a href="/spider/adminweb/priceinfo/${configName}" target="body_frame" class="menu-item" id="price-menu" onclick="selectMainMenu('price')">
-                        <img id="price-img" src="/spider/adminweb/images/top-menu/price.png" alt="Price Icon">Price
-                    </a>
-                    <a href="/spider/adminweb/vmimage/${configName}" target="body_frame" class="menu-item" id="vm-image-menu" onclick="selectMainMenu('vm-image')">
-                        <img id="vm-image-img" src="/spider/adminweb/images/top-menu/vm-image.png" alt="VM Image Icon">VM image
-                    </a>
-                    <a href="/spider/adminweb/vmspec/${configName}" target="body_frame" class="menu-item" id="vm-specs-menu" onclick="selectMainMenu('vm-specs')">
-                        <img id="vm-specs-img" src="/spider/adminweb/images/top-menu/vm-specs.png" alt="VM Specs Icon">VM Specs
-                    </a>
-                `;
-                document.querySelector('.dynamic-menu').innerHTML = dynamicMenuHtml;
+                imgElement.src = `/spider/adminweb/images/top-menu/${menu}.png`;
             }
-            sessionStorage.setItem('selectedConfigName', configName);
-            sessionStorage.setItem('selectedProvider', provider);
-            sessionStorage.setItem('selectedRegion', region);
-        }
+        });
+        parent.frames['left_menu'].postMessage({ type: 'deselectLeftMenu' }, '*');
+        
+        const iframe = document.querySelector('iframe[name="body_frame"]');
+        iframe.onload = function() {
+            hideProgressBar();
+        };
+        iframe.onerror = function() {
+            hideProgressBar();
+            showError('Failed to load the page. Please try again.');
+        };
+    }
 
-        function showProgressBar() {
-            const progressBar = document.querySelector('.progress-bar');
-            progressBar.style.display = 'block';
-        }
-
-        function hideProgressBar() {
-            const progressBar = document.querySelector('.progress-bar');
-            progressBar.style.display = 'none';
-        }
-
-        function showError(message) {
-            const errorMessage = document.querySelector('.error-message');
-            errorMessage.textContent = message;
-            errorMessage.style.display = 'block';
-            setTimeout(() => {
-                errorMessage.style.display = 'none';
-            }, 5000);
-        }
-
-        function selectMainMenu(selectedMenu) {
-            showProgressBar();
+    window.addEventListener('message', function(event) {
+        if (event.data.type === 'deselectMainMenu') {
             const menus = ['region-zone', 'price', 'vm-image', 'vm-specs'];
             menus.forEach(menu => {
                 const imgElement = document.getElementById(menu + '-img');
-                if (menu === selectedMenu) {
-                    imgElement.src = `/spider/adminweb/images/top-menu/${menu}_selected.png`;
-                } else {
-                    imgElement.src = `/spider/adminweb/images/top-menu/${menu}.png`;
-                }
+                imgElement.src = `/spider/adminweb/images/top-menu/${menu}.png`;
             });
-            parent.frames['left_menu'].postMessage({ type: 'deselectLeftMenu' }, '*');
-            
-            const iframe = document.querySelector('iframe[name="body_frame"]');
-            iframe.onload = function() {
-                hideProgressBar();
-            };
-            iframe.onerror = function() {
-                hideProgressBar();
-                showError('Failed to load the page. Please try again.');
-            };
         }
+        if (event.data.type === 'closeCmdAgent') {
+            closeCmdAgent();
+        }
+        if (event.data.type === 'closeCallLogAnalyzer') {
+            closeCallLogAnalyzer();
+        }        
+    });
 
-        window.addEventListener('message', function(event) {
-            if (event.data.type === 'deselectMainMenu') {
-                const menus = ['region-zone', 'price', 'vm-image', 'vm-specs'];
-                menus.forEach(menu => {
-                    const imgElement = document.getElementById(menu + '-img');
-                    imgElement.src = `/spider/adminweb/images/top-menu/${menu}.png`;
-                });
-            }
-        });
+    window.addEventListener('message', function(event) {
+        if (event.data.type === 'updateTopMenu') {
+            updateTopMenu(event.data.configName, event.data.provider, event.data.region);
+        }
+    });
 
-        window.addEventListener('message', function(event) {
-            if (event.data.type === 'updateTopMenu') {
-                updateTopMenu(event.data.configName, event.data.provider, event.data.region);
-            }
-        });
+    window.addEventListener('message', function(event) {
+        if (event.data.type === 'showProgressBar') {
+            showProgressBar();
+        } else if (event.data.type === 'hideProgressBar') {
+            hideProgressBar();
+        }
+    });
 
-        // Event listener to handle showing and hiding progress bar
-        window.addEventListener('message', function(event) {
-            if (event.data.type === 'showProgressBar') {
-                showProgressBar();
-            } else if (event.data.type === 'hideProgressBar') {
-                hideProgressBar();
-            }
-        });
+    window.addEventListener('message', function(event) {
+        if (event.data.type === 'iframeLoaded') {
+            hideProgressBar();
+        }
+    });
 
-        // Add event listener to handle iframe load completion
-        window.addEventListener('message', function(event) {
-            if (event.data.type === 'iframeLoaded') {
-                hideProgressBar();
-            }
-        });
-    </script>
+    function showCmdAgent() {
+        const iframe = document.querySelector('#cmdAgentOverlay iframe');
+        iframe.src = iframe.src;
+        document.getElementById('cmdAgentOverlay').style.display = 'flex';
+    }
+
+    function closeCmdAgent() {
+        document.getElementById('cmdAgentOverlay').style.display = 'none';
+    }
+
+    function showCallLogAnalyzer() {
+        const iframe = document.querySelector('#callLogAnalyzerOverlay iframe');
+        iframe.src = iframe.src;
+        document.getElementById('callLogAnalyzerOverlay').style.display = 'flex';
+    }
+    
+    function closeCallLogAnalyzer() {
+        document.getElementById('callLogAnalyzerOverlay').style.display = 'none';
+    }
+</script>
 </head>
 <body>
     <div class="container">
@@ -298,13 +423,26 @@
         <div class="right-content">
             <div class="top-menu">
                 <div class="connection-info">
-                    <div id="selectedConfigName" class=""><h1 class="selectedConfigName">Please select a connection first.</h1></div>
+                    <div id="selectedConfigName" class="">
+                        <h1 class="selectedConfigName">Please select a connection first.</h1>
+                    </div>
                     <div id="selectedProvider"></div>
                     <div id="selectedRegion"></div>
                 </div>
                 <div class="top-menu-right">
                     <div class="dynamic-menu"></div>
                     <div class="separator"></div>
+                    <div class="dropdown">
+                        <div class="ai-menu-item" title="AI Agents">
+                            <span class="ai-icon">🤖</span>
+                            <span class="ai-text">AI-Agent</span>
+                            <span class="beta-tag">beta</span>
+                        </div>
+                        <div class="dropdown-content">
+                            <a href="#" onclick="showCmdAgent()">CMD-Agent</a>
+                            <a href="#" onclick="showCallLogAnalyzer()">CallLog-Analyzer</a>
+                        </div>
+                    </div>
                     <div class="dropdown">
                         <span>help</span>
                         <div class="dropdown-content">
@@ -322,12 +460,30 @@
                 </div>
             </div>
             <div class="body-frame">
-                <iframe src="/spider/adminweb/body_frame" name="body_frame" onload="parent.postMessage({ type: 'iframeLoaded' }, '*')"></iframe>
+                <iframe src="/spider/adminweb/body_frame" name="body_frame"
+                        onload="parent.postMessage({ type: 'iframeLoaded' }, '*')">
+                </iframe>
                 <div class="progress-bar">
                     <div class="progress-bar-inner"></div>
                 </div>
                 <div class="error-message"></div>
             </div>
+        </div>
+    </div>
+
+    <div id="cmdAgentOverlay" class="overlay">
+        <div class="overlay-content">            
+            <iframe src="/spider/adminweb/cmd-agent" frameborder="0" width="100%" height="100%"></iframe>
+            <br><br>
+            <button onclick="closeCmdAgent()">close</button>
+        </div>
+    </div>
+    
+    <div id="callLogAnalyzerOverlay" class="overlay">
+        <div class="overlay-content">            
+            <iframe src="/spider/adminweb/calllog-analyzer" frameborder="0" width="100%" height="100%"></iframe>
+            <br><br>
+            <button onclick="closeCallLogAnalyzer()">close</button>
         </div>
     </div>
 </body>

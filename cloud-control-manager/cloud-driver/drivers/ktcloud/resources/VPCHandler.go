@@ -7,6 +7,7 @@
 // KT Cloud VPC Handler
 //
 // by ETRI, 2021.05.
+// Updated by ETRI, 2025.02.
 
 package resources
 
@@ -68,16 +69,15 @@ func (vpcHandler *KtCloudVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 	vpcInfo, _ := vpcHandler.GetVPC(irs.IID{SystemId: vpcReqInfo.IId.NameId})
 
 	if vpcInfo.IId.SystemId != "" {
-		cblogger.Error("The VPC already exists .")
-		return irs.VPCInfo{}, errors.New("The VPC already exists.")
+		newErr := fmt.Errorf("The VPC already exists.")
+		cblogger.Error(newErr.Error())
+		return irs.VPCInfo{}, newErr
 	}
 
-	zoneId := vpcHandler.RegionInfo.Zone
-	if zoneId == "" {
-		cblogger.Error("Failed to Get Zone info. from the connection info.")
-		return irs.VPCInfo{}, errors.New("Failed to Get Zone info. from the connection info.")
-	} else {
-		cblogger.Infof("ZoneId : %s", zoneId)
+	if strings.EqualFold(vpcHandler.RegionInfo.Zone, "") {
+		newErr := fmt.Errorf("Failed to Get Zone info. from the connection info.")
+		cblogger.Error(newErr.Error())
+		return irs.VPCInfo{}, newErr
 	}
 
 	var subnetList []irs.SubnetInfo
@@ -109,9 +109,9 @@ func (vpcHandler *KtCloudVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 	// spew.Dump(newVpcInfo)
 
 	vpcPath := os.Getenv("CBSPIDER_ROOT") + vpcDir
-	vpcFilePath := vpcPath + zoneId + "/"
+	vpcFilePath := vpcPath + vpcHandler.RegionInfo.Zone + "/"
 	jsonFileName := vpcFilePath + vpcReqInfo.IId.NameId + ".json"
-	cblogger.Infof("jsonFileName to Create : " + jsonFileName)
+	// cblogger.Infof("jsonFileName to Create : " + jsonFileName)
 
 	// Check if the VPC Folder Exists, and Create it
 	if err := CheckFolderAndCreate(vpcPath); err != nil {
@@ -137,8 +137,7 @@ func (vpcHandler *KtCloudVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 	// cblogger.Infof("Succeeded in writing the VPC info file: " + jsonFileName)
 	// cblogger.Info("Succeeded in Creating the VPC : " + newVpcInfo.IId.NameId)
 
-	// Because it's managed as a file, there's no SystemId created.
-	// Return the created SecurityGroup info.
+	// # There's no SystemId created because it's managed as a file.
 	vpcInfo, vpcErr := vpcHandler.GetVPC(irs.IID{SystemId: vpcReqInfo.IId.NameId})
 	if vpcErr != nil {
 		cblogger.Error("Failed to Get the VPC info.")
@@ -150,26 +149,23 @@ func (vpcHandler *KtCloudVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 func (vpcHandler *KtCloudVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 	cblogger.Info("KT Cloud Cloud Driver: called GetVPC()!")
 
-	//Caution!!
+	// Caution!!
 	if vpcIID.SystemId != "" {
 		vpcIID.NameId = vpcIID.SystemId
 	}
 
-	zoneId := vpcHandler.RegionInfo.Zone
-	if zoneId == "" {
-		cblogger.Error("Failed to Get Zone info. from the connection info.")
-
-		return irs.VPCInfo{}, errors.New("Failed to Get Zone info. from the connection info.")
-	} else {
-		cblogger.Infof("ZoneId : %s", zoneId)
+	if strings.EqualFold(vpcHandler.RegionInfo.Zone, "") {
+		newErr := fmt.Errorf("Failed to Get Zone info. from the connection info.")
+		cblogger.Error(newErr.Error())
+		return irs.VPCInfo{}, newErr
 	}
 
 	vpcPath := os.Getenv("CBSPIDER_ROOT") + vpcDir
-	vpcFilePath := vpcPath + zoneId + "/"
+	vpcFilePath := vpcPath + vpcHandler.RegionInfo.Zone + "/"
 	jsonFileName := vpcFilePath + vpcIID.NameId + ".json"
 
-	cblogger.Infof("vpcIID.NameId : " + vpcIID.NameId)
-	cblogger.Infof("jsonFileName : " + jsonFileName)
+	// cblogger.Infof("vpcIID.NameId : " + vpcIID.NameId)
+	// cblogger.Infof("jsonFileName : " + jsonFileName)
 
 	// Check if the VPC Folder Exists, and Create it
 	if err := CheckFolderAndCreate(vpcPath); err != nil {
@@ -191,8 +187,8 @@ func (vpcHandler *KtCloudVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 		cblogger.Error("Failed to Find the VPC info!!")
 		return irs.VPCInfo{}, err
 	}
-	cblogger.Infof("Succeeded in Finding and Opening the S/G file: " + jsonFileName)
 	defer jsonFile.Close()
+	// cblogger.Infof("Succeeded in Finding and Opening the S/G file: " + jsonFileName)
 
 	byteValue, readErr := io.ReadAll(jsonFile)
 	if readErr != nil {
@@ -213,38 +209,36 @@ func (vpcHandler *KtCloudVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 func (vpcHandler *KtCloudVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	cblogger.Info("KT Cloud Cloud Driver: called ListVPC()!")
 
-	zoneId := vpcHandler.RegionInfo.Zone
-	if zoneId == "" {
-		cblogger.Error("Failed to Get Zone info. from the connection info.")
-
-		return []*irs.VPCInfo{}, errors.New("Failed to Get Zone info. from the connection info.")
-	} else {
-		cblogger.Infof("ZoneId : %s", zoneId)
+	if strings.EqualFold(vpcHandler.RegionInfo.Zone, "") {
+		newErr := fmt.Errorf("Failed to Get Zone info. from the connection info.")
+		cblogger.Error(newErr.Error())
+		return nil, newErr
 	}
-
-	vpcFilePath := os.Getenv("CBSPIDER_ROOT") + vpcDir + zoneId + "/"
+		
+	vpcFilePath := os.Getenv("CBSPIDER_ROOT") + vpcDir + vpcHandler.RegionInfo.Zone + "/"
 	// File list on the local directory
 	dirFiles, readRrr := os.ReadDir(vpcFilePath)
 	if readRrr != nil {
-		return []*irs.VPCInfo{}, readRrr
+		return nil, readRrr
 	}
 
-	var vpcIID irs.IID
 	var vpcInfoList []*irs.VPCInfo
+	if len(dirFiles) > 0 {
+		var vpcIID irs.IID
+		for _, file := range dirFiles {
+			vpcIID.NameId = strings.TrimSuffix(file.Name(), ".json") // Remove suffix from the string
+			// cblogger.Infof("# VPC Name : " + vpcIID.NameId)
 
-	for _, file := range dirFiles {
-		fileName := strings.TrimSuffix(file.Name(), ".json") // 접미사 제거
-		vpcIID.NameId = fileName
-		cblogger.Infof("# VPC Name : " + vpcIID.NameId)
-
-		vpcInfo, getVpcErr := vpcHandler.GetVPC(irs.IID{SystemId: vpcIID.NameId})
-		if getVpcErr != nil {
-			cblogger.Errorf("Failed to Find the VPC : %s", vpcIID.SystemId)
-			return []*irs.VPCInfo{}, getVpcErr
+			vpcInfo, getVpcErr := vpcHandler.GetVPC(irs.IID{SystemId: vpcIID.NameId})
+			if getVpcErr != nil {
+				cblogger.Errorf("Failed to Get the VPC info : %s", vpcIID.SystemId)
+				return nil, getVpcErr
+			}
+			vpcInfoList = append(vpcInfoList, &vpcInfo)
 		}
-		vpcInfoList = append(vpcInfoList, &vpcInfo)
+		return vpcInfoList, nil
 	}
-	return vpcInfoList, nil
+	return nil, nil
 }
 
 func (vpcHandler *KtCloudVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
@@ -254,6 +248,12 @@ func (vpcHandler *KtCloudVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 		vpcIID.NameId = vpcIID.SystemId
 	}
 
+	if strings.EqualFold(vpcHandler.RegionInfo.Zone, "") {
+		newErr := fmt.Errorf("Failed to Get Zone info. from the connection info.")
+		cblogger.Error(newErr.Error())
+		return false, newErr
+	}
+
 	//To check whether the VPC exists.
 	_, getVpcErr := vpcHandler.GetVPC(irs.IID{SystemId: vpcIID.NameId})
 	if getVpcErr != nil {
@@ -261,19 +261,10 @@ func (vpcHandler *KtCloudVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 		return false, getVpcErr
 	}
 
-	zoneId := vpcHandler.RegionInfo.Zone
-	if zoneId == "" {
-		cblogger.Error("Failed to Get Zone info. from the connection info.")
-		return false, errors.New("Failed to Get Zone info. from the connection info.")
-	} else {
-		cblogger.Infof("ZoneId : %s", zoneId)
-	}
-
 	vpcPath := os.Getenv("CBSPIDER_ROOT") + vpcDir
-	vpcFilePath := vpcPath + zoneId + "/"
+	vpcFilePath := vpcPath + vpcHandler.RegionInfo.Zone + "/"
 	jsonFileName := vpcFilePath + vpcIID.NameId + ".json"
-
-	cblogger.Infof("VPC info file to Delete : [%s]", jsonFileName)
+	// cblogger.Infof("VPC info file to Delete : [%s]", jsonFileName)
 
 	// Check if the VPC Folder Exists, and Create it
 	if err := CheckFolderAndCreate(vpcPath); err != nil {
@@ -296,7 +287,7 @@ func (vpcHandler *KtCloudVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 		cblogger.Error(newErr.Error())
 		return false, newErr
 	}
-	cblogger.Infof("Succeeded in Deleting the VPC : " + vpcIID.NameId)
+	// cblogger.Infof("Succeeded in Deleting the VPC : " + vpcIID.NameId)
 
 	return true, nil
 }
@@ -314,12 +305,19 @@ func (vpcHandler *KtCloudVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.
 func (vpcHandler *KtCloudVPCHandler) CreateSubnet(subnetReqInfo irs.SubnetInfo) (irs.SubnetInfo, error) {
 	cblogger.Info("KT Cloud cloud driver: called CreateSubnet()!!")
 
-	// zoneId := vpcHandler.RegionInfo.Zone
-	// cblogger.Infof("ZoneId : %s", zoneId)
-	// if zoneId == "" {
-	// 	cblogger.Error("Failed to Get Zone info. from the connection info.")
-	// 	return irs.SubnetInfo{}, errors.New("Failed to Get Zone info. from the connection info.")
-	// }
+	if strings.EqualFold(vpcHandler.RegionInfo.Zone, "") {
+		newErr := fmt.Errorf("Failed to Get Zone info. from the connection info.")
+		cblogger.Error(newErr.Error())
+		return irs.SubnetInfo{}, newErr
+	}
+
+	var zoneInfo string
+	if !strings.EqualFold(subnetReqInfo.Zone, "") {
+		zoneInfo = subnetReqInfo.Zone		
+	} else {
+		zoneInfo = vpcHandler.RegionInfo.Zone
+	}
+	// cblogger.Infof("# zoneInfo : %s", zoneInfo)
 
 	currentTime := getSeoulCurrentTime()
 
@@ -329,7 +327,7 @@ func (vpcHandler *KtCloudVPCHandler) CreateSubnet(subnetReqInfo irs.SubnetInfo) 
 			// Caution!! : subnetReqInfo.IId.NameId -> SystemId
 			SystemId: subnetReqInfo.IId.NameId,
 		},
-		Zone: subnetReqInfo.Zone,
+		Zone: zoneInfo,
 		IPv4_CIDR: "N/A",
 		KeyValueList: []irs.KeyValue{
 			{Key: "KTCloud-Subnet-info.", Value: "This Subne info. is temporary."},
@@ -372,7 +370,7 @@ func (vpcHandler *KtCloudVPCHandler) mappingVPCInfo(vpcFileInfo VPCFileInfo) (ir
 	}
 
 	vpcInfo := irs.VPCInfo{
-		//KT Cloud의 VPC 정보는 CB에서 파일로 관리되므로 SystemId는 NameId와 동일하게
+		// Since KT Cloud's VPC information is managed as a file in CB, SystemId is the same as NameId.
 		IId:            irs.IID{NameId: vpcFileInfo.IID.NameID, SystemId: vpcFileInfo.IID.NameID},
 		IPv4_CIDR:      vpcFileInfo.Cidr,
 		SubnetInfoList: subnetInfoList,
@@ -424,6 +422,29 @@ func (vpcHandler *KtCloudVPCHandler) getSubnetZone(vpcIID irs.IID, subnetIID irs
 }
 
 func (vpcHandler *KtCloudVPCHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	cblogger.Info("KT Cloud Cloud Driver: called ListIID()!")
+
+	if strings.EqualFold(vpcHandler.RegionInfo.Zone, "") {
+		newErr := fmt.Errorf("Failed to Get Zone info. from the connection info.")
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+		
+	vpcFilePath := os.Getenv("CBSPIDER_ROOT") + vpcDir + vpcHandler.RegionInfo.Zone + "/"
+	// File list on the local directory
+	dirFiles, readRrr := os.ReadDir(vpcFilePath)
+	if readRrr != nil {
+		return nil, readRrr
+	}
+
+	// Since KT Cloud's VPC information is managed as a file in CB, SystemId is the same as NameId.
+	var iidList []*irs.IID
+	if len(dirFiles) > 0 {
+		for _, file := range dirFiles {
+			vpcId := strings.TrimSuffix(file.Name(), ".json") // Remove suffix from the string
+			iidList = append(iidList, &irs.IID{NameId: vpcId, SystemId: vpcId})
+		}
+		return iidList, nil
+	}
+	return nil, nil
 }

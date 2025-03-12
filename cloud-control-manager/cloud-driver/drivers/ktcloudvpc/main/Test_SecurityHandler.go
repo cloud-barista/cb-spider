@@ -54,6 +54,7 @@ func handleSecurity() {
 		fmt.Println("4. Add Rules")
 		fmt.Println("5. Remove Rules")
 		fmt.Println("6. Delete Security")
+		fmt.Println("7. List IID")
 		fmt.Println("0. Quit")
 		fmt.Println("\n   Select a number above!! : ")
 		fmt.Println("============================================================================================")
@@ -61,7 +62,7 @@ func handleSecurity() {
 		var commandNum int
 
 		securityName := "ktvpc-sg-1"
-		securityId := "ktvpc-sg-1"
+		securityId := "ktcloudvp-crt5ndcvtts41jm39tcg"
 		vpcId := "60e5d9da-55cd-47be-a0d9-6cf67c54f15c"
 		// vpcNameId := "nhn-vpc-01"
 
@@ -79,42 +80,40 @@ func handleSecurity() {
 				result, err := handler.ListSecurity()
 				if err != nil {
 					cblogger.Error(err)
-					cblogger.Error("SecurityGroup list 조회 실패 : ", err)
+					cblogger.Error("Failed to Get S/G list : ", err)
 				} else {
-					cblogger.Info("SecurityGroup list 조회 결과")
+					cblogger.Info("S/G list retrieval result : ")
 					//cblogger.Info(result)
 					spew.Dump(result)
 
-					cblogger.Infof("=========== S/G list 수 : [%d] ================", len(result))
+					cblogger.Infof("=========== Count of S/G list : [%d] ================", len(result))
 					if result != nil {
-						securityId = result[0].IId.SystemId // 조회 및 삭제를 위해 생성된 ID로 변경
+						securityId = result[0].IId.SystemId // Change to IDs generated for lookup and deletion
 					}
 				}
-
-				cblogger.Info("\nListSecurity Test Finished")
+				cblogger.Info("\nListSecurity() Test Finished")
 
 			case 2:
-				cblogger.Infof("[%s] SecurityGroup 정보 조회 테스트", securityId)
+				cblogger.Infof("[%s] : Testing S/G info retrieval ", securityId)
 				result, err := handler.GetSecurity(irs.IID{SystemId: securityId})
 				// result, err := handler.GetSecurity(irs.IID{NameId: securityName})
 				if err != nil {
 					cblogger.Error(err)
-					cblogger.Error(securityId, " SecurityGroup 조회 실패 : ", err)
+					cblogger.Error(securityId, "Failed to Get S/G : ", err)
 				} else {
-					cblogger.Infof("[%s] SecurityGroup 조회 결과 : [%v]", securityId, result)
+					cblogger.Infof("[%s] S/G info : [%v]", securityId, result)
 					spew.Dump(result)
 				}
-
-				cblogger.Info("\nGetSecurity Test Finished")
+				cblogger.Info("\nGetSecurity() Test Finished")
 
 			case 3:
-				cblogger.Infof("[%s] Security 생성 테스트", securityName)
+				cblogger.Infof("[%s] : Testing S/G creation", securityName)
 
 				securityReqInfo := irs.SecurityReqInfo{
 					IId:    irs.IID{NameId: securityName},
 					VpcIID: irs.IID{SystemId: vpcId},
 					// VpcIID: irs.IID{NameId: vpcNameId},
-					SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
+					SecurityRules: &[]irs.SecurityRuleInfo{ // Set Security Rules
 						// {
 						// 	Direction:  "inbound",
 						// 	IPProtocol: "tcp",
@@ -169,7 +168,7 @@ func handleSecurity() {
 						// },
 
 
-						// // All traffic 허용 rule
+						// // Allow All traffic
 						{
 							Direction:  "inbound",
 							IPProtocol: "ALL",
@@ -191,14 +190,14 @@ func handleSecurity() {
 
 				result, err := handler.CreateSecurity(securityReqInfo)
 				if err != nil {
-					cblogger.Infof(securityName, " Security 생성 실패 : ", err)
+					cblogger.Infof(securityName, "Failed to Create S/G : ", err)
 				} else {
-					cblogger.Infof("[%s] Security 생성 결과 : [%v]", securityName, result)
+					cblogger.Infof("[%s] S/G Creation Result : [%v]", securityName, result)
 					spew.Dump(result)
 				}
 
 			case 4:
-				cblogger.Infof("[%s] Security Rule 추가 테스트", securityName)
+				cblogger.Infof("[%s] Security Rule Adding Test", securityName)
 
 				securityRuleReqInfo := &[]irs.SecurityRuleInfo{
 					// {
@@ -255,7 +254,7 @@ func handleSecurity() {
 					// },
 
 
-					// // All traffic 허용 rule
+					// // Allow All traffic
 					{
 						Direction:  "inbound",
 						IPProtocol: "ALL",
@@ -274,15 +273,15 @@ func handleSecurity() {
 
 				result, err := handler.AddRules(irs.IID{SystemId: securityId}, securityRuleReqInfo)
 				if err != nil {
-					cblogger.Infof("[%s] Security Rule Add failed : [%v]", securityName, err)
+					cblogger.Infof("[%s] : Failed to Add Security Rule : [%v]", securityName, err)
 				} else {
-					cblogger.Infof("[%s] Security Rule 추가 결과 : [%v]", securityName, result)
+					cblogger.Infof("[%s] Security Rule Adding Result : [%v]", securityName, result)
 					spew.Dump(result)
 				}
-				cblogger.Info("\nAddRules Test Finished")
+				cblogger.Info("\nAddRules() Test Finished")
 
 			case 5:
-				cblogger.Infof("[%s] Security Rule 제거 테스트", securityName)
+				cblogger.Infof("[%s] : Test for Removal Security Rule", securityName)
 
 				securityRuleReqInfo := &[]irs.SecurityRuleInfo{
 					// {
@@ -355,21 +354,35 @@ func handleSecurity() {
 				}
 				result, err := handler.RemoveRules(irs.IID{SystemId: securityId}, securityRuleReqInfo)
 				if err != nil {
-					cblogger.Infof("[%s] Security Rule Remove failed : [%v]", securityName, err)
+					cblogger.Infof("[%s] : Failed to Remove Security Rule : [%v]", securityName, err)
 				} else {
-					cblogger.Infof("[%s] Security Rule 제거 결과 : [%t]", securityName, result)
+					cblogger.Infof("[%s] Security Rule Removal Result : [%t]", securityName, result)
 					spew.Dump(result)
 				}	
-				cblogger.Info("\nRemoveRules Test Finished")
+				cblogger.Info("\nRemoveRules() Test Finished")
 
 			case 6:
-				cblogger.Infof("[%s] Security 삭제 테스트", securityId)
+				cblogger.Infof("[%s] S/G Deletion Test", securityId)
 				result, err := handler.DeleteSecurity(irs.IID{SystemId: securityId})
 				if err != nil {
-					cblogger.Infof(securityId, " Security 삭제 실패 : ", err)
+					cblogger.Infof(securityId, "Failed to Delete S/G : ", err)
 				} else {
-					cblogger.Infof("[%s] Security 삭제 결과 : [%t]", securityId, result)
+					cblogger.Infof("[%s] S/G Deletion Result : [%t]", securityId, result)
 				}
+				cblogger.Info("\nDeleteSecurity() Test Finished")
+
+			case 7:
+				cblogger.Info("Start ListIID() ...")
+				result, err := handler.ListIID()
+				if err != nil {
+					cblogger.Error("Failed to retrieve S/G IID list: ", err)
+				} else {
+					cblogger.Info("Successfully retrieved S/G IID list!!")
+					spew.Dump(result)
+					cblogger.Debug(result)
+					cblogger.Infof("Total number of IID list: [%d]", len(result))
+				}
+				cblogger.Info("\nListIID() Test Finished")	
 			}
 		}
 	}

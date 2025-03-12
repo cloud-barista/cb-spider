@@ -12,7 +12,6 @@ package resources
 import (
 	"errors"
 	"reflect"
-	"strconv"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -52,14 +51,13 @@ func (imageHandler *AwsImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) 
 
 	return irs.ImageInfo{
 		IId:            imageReqInfo.IId,
-		GuestOS:        "default-guest-os",
 		Name:           "default-image-name",
 		OSArchitecture: "x86_64",
 		OSPlatform:     "Linux/UNIX",
 		OSDistribution: "Ubuntu 18.04",
 		OSDiskType:     "gp3",
-		OSDiskSizeInGB: "35",
-		Status:         "Available",
+		OSDiskSizeGB:   "35",
+		ImageStatus:    "Available",
 		KeyValueList:   nil,
 	}, nil
 
@@ -167,57 +165,42 @@ func ExtractImageDescribeInfo(image *ec2.Image) irs.ImageInfo {
 		IId: irs.IID{*image.ImageId, *image.ImageId},
 		//Id:     *image.ImageId,
 		//Name:   *image.Name,
-		Status: *image.State,
+		//Status: *image.State,
 	}
 
-	keyValueList := []irs.KeyValue{
-		//{Key: "Name", Value: *image.Name}, //20200723-Name이 없는 이미지 존재 - 예)ami-0008a301
-		{Key: "CreationDate", Value: *image.CreationDate},
-		{Key: "Architecture", Value: *image.Architecture}, //x86_64
-		{Key: "OwnerId", Value: *image.OwnerId},
-		{Key: "ImageType", Value: *image.ImageType},
-		{Key: "ImageLocation", Value: *image.ImageLocation},
-		{Key: "VirtualizationType", Value: *image.VirtualizationType},
-		{Key: "Public", Value: strconv.FormatBool(*image.Public)},
+	osPlatform := extractOsPlatform(image)
+	osArchitecture := extractOsArchitecture(image)
+	distribution := extractOsDistribution(image)
+	imageStatus := extractImageAvailability(image)
+
+	imageDiskType := "NA"
+
+	// 생성 될 vm에 요구되는 root disk의 type
+	if image.RootDeviceType != nil {
+		imageDiskType = *image.RootDeviceType
 	}
 
-	//주로 윈도우즈는 Platform 정보가 존재하며 리눅스 계열은 PlatformDetails만 존재하는 듯. - "Linux/UNIX"
-	//윈도우즈 계열은 PlatformDetails에는 "Windows with SQL Server Standard"처럼 SQL정보도 포함되어있음.
-	if !reflect.ValueOf(image.Platform).IsNil() {
-		imageInfo.GuestOS = *image.Platform //Linux/UNIX
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "Platform", Value: *image.Platform})
-	} else {
-		// Platform 정보가 없는 경우 PlatformDetails 정보가 존재하면 PlatformDetails 값을 이용함.
-		if !reflect.ValueOf(image.PlatformDetails).IsNil() {
-			imageInfo.GuestOS = *image.PlatformDetails //Linux/UNIX
-		}
-	}
+	// 생성 될 vm에 요구되는 root disk에 참고할 size 는 필요하다면 ebs volume size를 참고하여 계산할 것.
+	// for _, blockDevice := range image.BlockDeviceMappings {
+	// 	// EBS 또는 인스턴스 스토어 볼륨
+	// 	if blockDevice.Ebs != nil {
+	// 		imageSize = strconv.FormatInt(*blockDevice.Ebs.VolumeSize, 10)
+	// 		imageDiskType = "EBS"
+	// 		break
+	// 	} else {
+	// 		// cblogger.Error("blockDevice: ", blockDevice)
+	// 		cblogger.Error("image: ", image)
+	// 		continue
+	// 	}
+	// }
 
-	// 일부 이미지들은 아래 정보가 없어서 예외 처리 함.
-	if !reflect.ValueOf(image.PlatformDetails).IsNil() {
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "PlatformDetails", Value: *image.PlatformDetails})
-	}
-
-	// 일부 이미지들은 아래 정보가 없어서 예외 처리 함.
-	if !reflect.ValueOf(image.Name).IsNil() {
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "Name", Value: *image.Name})
-	}
-	if !reflect.ValueOf(image.Description).IsNil() {
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "Description", Value: *image.Description})
-	}
-	if !reflect.ValueOf(image.ImageOwnerAlias).IsNil() {
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "ImageOwnerAlias", Value: *image.ImageOwnerAlias})
-	}
-	if !reflect.ValueOf(image.RootDeviceName).IsNil() {
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "RootDeviceName", Value: *image.RootDeviceName})
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "RootDeviceType", Value: *image.RootDeviceType})
-	}
-	if !reflect.ValueOf(image.EnaSupport).IsNil() {
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "EnaSupport", Value: strconv.FormatBool(*image.EnaSupport)})
-	}
-
-	imageInfo.KeyValueList = keyValueList
-
+	imageInfo.OSPlatform = osPlatform
+	imageInfo.OSArchitecture = osArchitecture
+	imageInfo.OSDistribution = distribution
+	imageInfo.ImageStatus = imageStatus
+	imageInfo.OSDiskSizeGB = "-1"
+	imageInfo.OSDiskType = imageDiskType
+	imageInfo.KeyValueList = irs.StructToKeyValueList(image)
 	return imageInfo
 }
 
@@ -353,4 +336,67 @@ func (imageHandler *AwsImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, 
 	}
 
 	return isWindowsImage, nil
+}
+
+func extractOsPlatform(image *ec2.Image) irs.OSPlatform {
+	var platform string
+
+	if !reflect.ValueOf(image.Platform).IsNil() {
+		platform = *image.Platform //Linux/UNIX
+	} else {
+		if !reflect.ValueOf(image.PlatformDetails).IsNil() {
+			platform = *image.PlatformDetails //Linux/UNIX
+		}
+	}
+
+	if platform == "" {
+		return irs.PlatformNA
+	}
+
+	switch {
+	case strings.Contains(platform, "Linux"), strings.Contains(platform, "Ubuntu"), strings.Contains(platform, "Red Hat"):
+		return irs.Linux_UNIX
+	case strings.Contains(platform, "Windows"), strings.Contains(platform, "windows"):
+		return irs.Windows
+	default:
+		return irs.PlatformNA
+	}
+}
+
+func extractOsArchitecture(image *ec2.Image) irs.OSArchitecture {
+	arch := image.Architecture
+	if arch == nil {
+		return irs.ArchitectureNA
+	}
+
+	switch *arch {
+	case "arm64":
+		return irs.ARM64
+	case "arm64_mac":
+		return irs.ARM64_MAC
+	case "x86_64":
+		return irs.X86_64
+	case "x86_64_mac":
+		return irs.X86_64_MAC
+	default:
+		return irs.ArchitectureNA
+	}
+}
+
+func extractImageAvailability(image *ec2.Image) irs.ImageStatus {
+	state := image.State
+
+	if state == nil {
+		return irs.ImageNA
+	}
+	switch *state {
+	case "available":
+		return irs.ImageAvailable
+	default:
+		return irs.ImageUnavailable
+	}
+}
+
+func extractOsDistribution(image *ec2.Image) string {
+	return *image.Name
 }

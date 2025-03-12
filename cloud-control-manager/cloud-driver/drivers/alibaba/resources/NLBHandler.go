@@ -226,8 +226,8 @@ func (NLBHandler *AlibabaNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 		return nil, err
 	}
 
-	callogger.Info("result count ", result.TotalCount)
-	callogger.Info(result)
+	cblogger.Info("result count ", result.TotalCount)
+	cblogger.Info(result)
 	var nlbInfoList []*irs.NLBInfo
 	for _, curLB := range result.LoadBalancers.LoadBalancer { // LB 목록 조회시 가져오는 값들이 많지 않음. 상세정보는 GetNL로로
 		nlbInfo, nlbErr := NLBHandler.GetNLB(irs.IID{SystemId: curLB.LoadBalancerId})
@@ -1459,8 +1459,8 @@ func (NLBHandler *AlibabaNLBHandler) ListIID() ([]*irs.IID, error) {
 			return iidList, err
 		}
 
-		callogger.Info("result count ", result.TotalCount)
-		callogger.Info(result)
+		cblogger.Info("result count ", result.TotalCount)
+		cblogger.Info(result)
 
 		for _, curLB := range result.LoadBalancers.LoadBalancer {
 			cblogger.Debugf("[%s] NLB information retrieval", curLB.LoadBalancerId)

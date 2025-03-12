@@ -15,14 +15,15 @@ import (
 	// "github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 
-	cblog "github.com/cloud-barista/cb-log"	
+	cblog "github.com/cloud-barista/cb-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	icon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/connect"
+	ires "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
 	ncloud "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
-	vserver "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
-	vpc "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vpc"
 	vlb "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vloadbalancer"
+	vpc "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vpc"
+	vserver "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
 
 	// ncpvpccon "github.com/cloud-barista/ncpvpc/ncpvpc/connect"	// For local testing
 	ncpvpccon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncpvpc/connect"
@@ -45,21 +46,26 @@ func (NcpVpcDriver) GetDriverVersion() string {
 func (NcpVpcDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
-	// NOTE Temporary Setting
-	drvCapabilityInfo.VPCHandler = true
-	drvCapabilityInfo.VNicHandler = false
+	drvCapabilityInfo.ZoneBasedControl = true
+
+	drvCapabilityInfo.RegionZoneHandler = true
+	drvCapabilityInfo.PriceInfoHandler = true
 	drvCapabilityInfo.ImageHandler = true
 	drvCapabilityInfo.VMSpecHandler = true
+
+	drvCapabilityInfo.VPCHandler = true
 	drvCapabilityInfo.SecurityHandler = true
-	drvCapabilityInfo.KeyPairHandler = true	
-	drvCapabilityInfo.PublicIPHandler = false
+	drvCapabilityInfo.KeyPairHandler = true
 	drvCapabilityInfo.VMHandler = true
 	drvCapabilityInfo.DiskHandler = true
 	drvCapabilityInfo.MyImageHandler = true
 	drvCapabilityInfo.NLBHandler = true
-	drvCapabilityInfo.PriceInfoHandler = true
-	drvCapabilityInfo.RegionZoneHandler = true	
+	drvCapabilityInfo.ClusterHandler = false
+
 	drvCapabilityInfo.TagHandler = false
+	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{}
+
+	drvCapabilityInfo.VPC_CIDR = true
 
 	return drvCapabilityInfo
 }

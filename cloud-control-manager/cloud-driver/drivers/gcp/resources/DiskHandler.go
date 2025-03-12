@@ -111,7 +111,7 @@ func (DiskHandler *GCPDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 	regionID := DiskHandler.Region.Region
 	//zone := DiskHandler.Region.Zone
 
-	cblogger.Error("get ZoneInfo by region ")
+	cblogger.Debug("get ZoneInfo by region ")
 	//GetRegionZone(regionName string) (irs.RegionZoneInfo, error)
 	// #1067에 의해 connection의 zone -> region내 disk 조회로 변경
 	regionZoneHandler := GCPRegionZoneHandler{
@@ -127,9 +127,8 @@ func (DiskHandler *GCPDiskHandler) ListDisk() ([]*irs.DiskInfo, error) {
 		cblogger.Error(err)
 		return nil, err
 	} else {
-		cblogger.Error("get region zone Info ", regionZoneInfo)
+		cblogger.Debug("get region zone Info ", regionZoneInfo)
 		for _, zoneItem := range regionZoneInfo.ZoneList {
-			cblogger.Error("zone Info ", zoneItem)
 			// get Disks by Zone
 			hiscallInfo.ElapsedTime = call.Elapsed(start)
 			diskList, err := DiskHandler.Client.Disks.List(projectID, zoneItem.Name).Do()

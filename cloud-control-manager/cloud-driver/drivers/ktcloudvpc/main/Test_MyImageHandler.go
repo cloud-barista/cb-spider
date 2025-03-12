@@ -41,20 +41,19 @@ func handleMyImage() {
 		cblogger.Error(err)
 		return
 	}
-	diskHandler := resourceHandler.(irs.MyImageHandler)
+	myImageHandler := resourceHandler.(irs.MyImageHandler)
 	//config := readConfigFile()
 
 	for {
 		fmt.Println("\n============================================================================================")
 		fmt.Println("[ MyImageHandler Test ]")
-		cblogger.Info("1. ListMyImage()")
-		cblogger.Info("2. GetMyImage()")
-		cblogger.Info("3. SnapshotVM()")
-		cblogger.Info("4. DeleteMyImage()")
-		cblogger.Info("5. ChangeMyImageSize()")
-		cblogger.Info("6. AttachMyImage()")
-		cblogger.Info("7. DetachMyImage()")
-		cblogger.Info("0. Exit")
+		fmt.Println("1. ListMyImage()")
+		fmt.Println("2. GetMyImage()")
+		fmt.Println("3. SnapshotVM()")
+		fmt.Println("4. CheckWindowsImage()")
+		fmt.Println("5. DeleteMyImage()")
+		fmt.Println("6. ListIID()")
+		fmt.Println("0. Exit")
 		fmt.Println("\n   Select a number above!! : ")
 		fmt.Println("============================================================================================")
 
@@ -62,7 +61,7 @@ func handleMyImage() {
 
 		myImageIId := irs.IID{
 			NameId: "ktvpc-disk-01",
-			SystemId: "18c1f485-f06c-47f2-8d05-a25b9a4bb0fc",
+			SystemId: "de2f41c9-7c56-4fd3-a567-d542f4174f80",
 		}
 
 		snapshotReqInfo := irs.MyImageInfo{
@@ -86,16 +85,16 @@ func handleMyImage() {
 				return
 			case 1:
 				cblogger.Info("Start ListMyImage() ...")
-				if listResult, err := diskHandler.ListMyImage(); err != nil {
+				if listResult, err := myImageHandler.ListMyImage(); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(listResult)
-					cblogger.Info("# 출력 결과 수 : ", len(listResult))
+					cblogger.Info("# My Image Count : ", len(listResult))
 				}
 				cblogger.Info("Finish ListMyImage()")
 			case 2:
 				cblogger.Info("Start GetMyImage() ...")
-				if diskInfo, err := diskHandler.GetMyImage(myImageIId); err != nil {
+				if diskInfo, err := myImageHandler.GetMyImage(myImageIId); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(diskInfo)
@@ -103,20 +102,43 @@ func handleMyImage() {
 				cblogger.Info("Finish GetMyImage()")
 			case 3:
 				cblogger.Info("Start SnapshotVM() ...")
-				if diskInfo, err := diskHandler.SnapshotVM(snapshotReqInfo); err != nil {
+				if diskInfo, err := myImageHandler.SnapshotVM(snapshotReqInfo); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(diskInfo)
 				}
 				cblogger.Info("Finish SnapshotVM()")
+
 			case 4:
+				cblogger.Info("Start CheckWindowsImage() ...")
+				if checkresult, err := myImageHandler.CheckWindowsImage(myImageIId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(checkresult)
+				}
+				cblogger.Info("Finish CheckWindowsImage()")
+
+			case 5:
 				cblogger.Info("Start DeleteMyImage() ...")
-				if delResult, err := diskHandler.DeleteMyImage(myImageIId); err != nil {
+				if delResult, err := myImageHandler.DeleteMyImage(myImageIId); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(delResult)
 				}
-				cblogger.Info("Finish DeleteMyImage()")			
+				cblogger.Info("Finish DeleteMyImage()")
+
+			case 6:
+				cblogger.Info("Start ListIID() ...")
+				result, err := myImageHandler.ListIID()
+				if err != nil {
+					cblogger.Error("Failed to Get MyImage IID list : ", err)
+				} else {
+					cblogger.Info("Succeeded in Getting MyImage IID list!!")
+					spew.Dump(result)
+					cblogger.Debug(result)
+					cblogger.Infof("Total IID list count : [%d]", len(result))
+				}
+				cblogger.Info("\nListIID() Test Finished")
 			}
 		}
 	}

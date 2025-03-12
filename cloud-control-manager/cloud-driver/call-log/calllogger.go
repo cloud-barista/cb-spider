@@ -39,13 +39,11 @@ const (
 	TENCENT    CLOUD_OS = "TENCENT"
 	IBM        CLOUD_OS = "IBM"
 	OPENSTACK  CLOUD_OS = "OPENSTACK"
-	CLOUDIT    CLOUD_OS = "CLOUDIT"
 	NCP        CLOUD_OS = "NCP"
 	NCPVPC     CLOUD_OS = "NCPVPC"
 	NHNCLOUD   CLOUD_OS = "NHNCLOUD"
 	KTCLOUD    CLOUD_OS = "KTCLOUD"
 	KTCLOUDVPC CLOUD_OS = "KTCLOUDVPC"
-	DOCKER     CLOUD_OS = "DOCKER"
 	MOCK       CLOUD_OS = "MOCK"
 	CLOUDTWIN  CLOUD_OS = "CLOUDTWIN"
 
@@ -130,6 +128,16 @@ func setup(loggerName string) {
 	if calllogConfig.CALLLOG.LOGFILE {
 		setRotateFileHook(loggerName, &calllogConfig)
 	}
+
+	if !calllogConfig.CALLLOG.CONSOLE {
+		devNull, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+		if err != nil {
+			logrus.Fatalf("Failed to open os.DevNull: %v", err)
+		}
+		callLogger.logrus.SetOutput(devNull)
+	} else {
+		callLogger.logrus.SetOutput(os.Stderr)
+	}
 }
 
 // Now, this method is busy wait.
@@ -198,7 +206,7 @@ func getFormatter(loggerName string) *calllogformatter.Formatter {
 
 // =========================
 type CLOUDLOGSCHEMA struct {
-	CloudOS      CLOUD_OS // ex) AWS | AZURE | ALIBABA | GCP | OPENSTACK | CLOUDTWIN | CLOUDIT | DOCKER | NCP | MOCK | IBM
+	CloudOS      CLOUD_OS // ex) AWS | AZURE | ALIBABA | GCP | OPENSTACK | CLOUDTWIN | NCP | MOCK | IBM
 	RegionZone   string   // ex) us-east1/us-east1-c
 	ResourceType RES_TYPE // ex) VMIMAGE | VMSPEC | VPCSUBNET | SECURITYGROUP | VMKEYPAIR | VM
 	ResourceName string   // ex) vpc-01

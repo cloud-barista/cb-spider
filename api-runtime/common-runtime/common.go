@@ -8,13 +8,13 @@
 
 package commonruntime
 
+// CB-Spider Start Time
 var StartTime string
 var MiddleStartTime string
 var ShortStartTime string
 
-
-//// CB-Spider Servcie Address Configuration
-////   cf)  https://github.com/cloud-barista/cb-spider/wiki/CB-Spider-Service-Address-Configuration
+// // CB-Spider Servcie Address Configuration
+// //   cf)  https://github.com/cloud-barista/cb-spider/wiki/CB-Spider-Service-Address-Configuration
 // REST and GO SERVER_ADDRESS since v0.4.4
 var ServerIPorName string
 var ServerPort string

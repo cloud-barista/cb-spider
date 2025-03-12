@@ -3,7 +3,9 @@ package resources
 import (
 	"errors"
 	"reflect"
+	"regexp"
 	"strconv"
+	"strings"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -40,7 +42,8 @@ func (vmSpecHandler *TencentVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, erro
 		ErrorMSG:     "",
 	}
 
-	request := cvm.NewDescribeInstanceTypeConfigsRequest()
+	request := cvm.NewDescribeZoneInstanceConfigInfosRequest()
+	// request := cvm.NewDescribeInstanceTypeConfigsRequest()
 	request.Filters = []*cvm.Filter{
 		&cvm.Filter{
 			Name:   common.StringPtr("zone"),
@@ -48,7 +51,9 @@ func (vmSpecHandler *TencentVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, erro
 		},
 	}
 	callLogStart := call.Start()
-	response, err := vmSpecHandler.Client.DescribeInstanceTypeConfigs(request)
+	//DescribeInstanceTypes 로 바뀐것인가?
+	response, err := vmSpecHandler.Client.DescribeZoneInstanceConfigInfos(request)
+	// response, err := vmSpecHandler.Client.DescribeInstanceTypeConfigs(request)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	if err != nil {
@@ -64,21 +69,31 @@ func (vmSpecHandler *TencentVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, erro
 	callogger.Info(call.String(callLogInfo))
 
 	var vmSpecInfoList []*irs.VMSpecInfo
-	for _, curSpec := range response.Response.InstanceTypeConfigSet {
+	for _, curSpec := range response.Response.InstanceTypeQuotaSet {
 		cblogger.Debugf("[%s] VM Spec Information Processing", *curSpec.InstanceType)
 
-		vmSpecInfo := ExtractVMSpecInfo(curSpec)
+		vmSpecInfo := extractVmSpec(curSpec)
 		vmSpecInfoList = append(vmSpecInfoList, &vmSpecInfo)
 	}
+
+	// for _, curSpec := range response.Response.InstanceTypeConfigSet {
+	// 	cblogger.Debugf("[%s] VM Spec Information Processing", *curSpec.InstanceType)
+
+	// 	vmSpecInfo := ExtractVMSpecInfo(curSpec)
+	// 	vmSpecInfoList = append(vmSpecInfoList, &vmSpecInfo)
+	// }
 
 	cblogger.Debug(vmSpecInfoList)
 	//cblogger.Debug(vmSpecInfoList)
 	return vmSpecInfoList, nil
 }
 
-func (vmSpecHandler *TencentVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo, error) {
+// name = "MA5.LARGE32"
+// name = "S2.SMALL1"
+// name = "GN7.20XLARGE320"
+func (vmSpecHandler *TencentVmSpecHandler) GetVMSpec(name string) (irs.VMSpecInfo, error) {
 	//cblogger.Infof("Start GetVMSpec(ZoneId:[%s], Name:[%s])", Region, Name)
-	cblogger.Infof("Spec Name:[%s]", Name)
+	cblogger.Infof("Spec Name:[%s]", name)
 
 	zoneId := vmSpecHandler.Region.Zone
 	//zoneId := Region
@@ -93,13 +108,14 @@ func (vmSpecHandler *TencentVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInf
 		CloudOS:      call.TENCENT,
 		RegionZone:   vmSpecHandler.Region.Zone,
 		ResourceType: call.VMSPEC,
-		ResourceName: Name,
+		ResourceName: name,
 		CloudOSAPI:   "DescribeInstanceTypeConfigs()",
 		ElapsedTime:  "",
 		ErrorMSG:     "",
 	}
 
-	request := cvm.NewDescribeInstanceTypeConfigsRequest()
+	//request := cvm.NewDescribeInstanceTypeConfigsRequest()
+	request := cvm.NewDescribeZoneInstanceConfigInfosRequest()
 	request.Filters = []*cvm.Filter{
 		&cvm.Filter{
 			Name:   common.StringPtr("zone"), //존으로 검색
@@ -107,11 +123,13 @@ func (vmSpecHandler *TencentVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInf
 		},
 		&cvm.Filter{
 			Name:   common.StringPtr("instance-type"), //인스턴스 타입으로 검색
-			Values: common.StringPtrs([]string{Name}),
+			Values: common.StringPtrs([]string{name}),
 		},
 	}
 	callLogStart := call.Start()
-	response, err := vmSpecHandler.Client.DescribeInstanceTypeConfigs(request)
+	//response, err := vmSpecHandler.Client.DescribeInstanceTypeConfigs(request)
+	response, err := vmSpecHandler.Client.DescribeZoneInstanceConfigInfos(request)
+
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
 	if err != nil {
@@ -126,8 +144,15 @@ func (vmSpecHandler *TencentVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInf
 	//cblogger.Debug(response.ToJsonString())
 	callogger.Info(call.String(callLogInfo))
 
-	if len(response.Response.InstanceTypeConfigSet) > 0 {
-		vmSpecInfo := ExtractVMSpecInfo(response.Response.InstanceTypeConfigSet[0])
+	// if len(response.Response.InstanceTypeConfigSet) > 0 {
+	// 	vmSpecInfo := ExtractVMSpecInfo(response.Response.InstanceTypeConfigSet[0])
+	// 	cblogger.Debug(vmSpecInfo)
+	// 	return vmSpecInfo, nil
+	// } else {
+	// 	return irs.VMSpecInfo{}, errors.New("No information found")
+	// }
+	if len(response.Response.InstanceTypeQuotaSet) > 0 { // 요금제만 다른 같은 값이 오므로 0번째 선택해도 무방
+		vmSpecInfo := extractVmSpec(response.Response.InstanceTypeQuotaSet[0])
 		cblogger.Debug(vmSpecInfo)
 		return vmSpecInfo, nil
 	} else {
@@ -254,6 +279,88 @@ func (vmSpecHandler *TencentVmSpecHandler) GetOrgVMSpec(Name string) (string, er
 	}
 }
 
+func extractVmSpec(instanceTypeInfo *cvm.InstanceTypeQuotaItem) irs.VMSpecInfo {
+	vCpuInfo := irs.VCpuInfo{}
+	// gpuInfoList := []irs.GpuInfo{}
+
+	//기본 정보
+	vmSpecInfo := irs.VMSpecInfo{
+		Name:   *instanceTypeInfo.InstanceType,
+		Region: *instanceTypeInfo.Zone,
+	}
+
+	//Memory 정보 처리
+	if !reflect.ValueOf(instanceTypeInfo.Memory).IsNil() {
+		vmSpecInfo.MemSizeMiB = irs.ConvertGiBToMiBInt64(*instanceTypeInfo.Memory)
+	}
+
+	//VCPU 정보 처리 - Count
+	if !reflect.ValueOf(instanceTypeInfo.Cpu).IsNil() {
+		vCpuInfo.Count = strconv.FormatInt(*instanceTypeInfo.Cpu, 10)
+
+		// Clock 추출
+		//"Frequency": "-/3.1GHz", "Frequency": "2.5GHz/-", "Frequency": "2.5GHz/3.1GHz",
+
+		parts := strings.Split(*instanceTypeInfo.Frequency, "/")
+		var targetClock string
+
+		if parts[0] != "-" {
+			targetClock = parts[0] // 기본 주파수 우선
+		} else if len(parts) > 1 && parts[1] != "-" {
+			targetClock = parts[1] // 최대 터보 주파수 사용
+		} else {
+			targetClock = "-1"
+		}
+
+		re := regexp.MustCompile(`[-+]?([0-9]*\.[0-9]+|[0-9]+)`)
+		match := re.FindString(targetClock)
+
+		if match != "" {
+			//targetClock = match
+			vCpuInfo.ClockGHz = match
+		} else {
+			vCpuInfo.ClockGHz = "-1"
+		}
+
+	}
+	vmSpecInfo.VCpu = vCpuInfo
+
+	cblogger.Info("instanceTypeInfo.Gpu ", *instanceTypeInfo.Gpu)
+	gpuInfoList := []irs.GpuInfo{}
+	//GPU 정보가 있는 인스터스는 GPU 처리
+	val := reflect.ValueOf(*instanceTypeInfo.Gpu)
+	//val int64 :: int64 ::: 4
+	cblogger.Info("instanceTypeInfo.Gpu val ", val.Kind(), " :: ", reflect.Int64, " ::: ", val.Int())
+	//if !reflect.ValueOf(*instanceTypeInfo.Gpu).IsNil() {
+	if val.Kind() == reflect.Int64 && val.Int() > 0 {
+		//vmSpecInfo.Gpu = []irs.GpuInfo{irs.GpuInfo{Count: strconv.FormatInt(*instanceTypeInfo.GPU, 10)}}
+		//GPUInfo
+
+		// 기본 값 설정
+		gpuInfo := irs.GpuInfo{
+			Count:          "-1",
+			Model:          "NA",
+			Mfr:            "NA",
+			MemSizeGB:      "-1",
+			TotalMemSizeGB: "-1",
+		}
+		gpuInfo.Count = strconv.FormatInt(*instanceTypeInfo.Gpu, 10)
+
+		gpuInfoList = append(gpuInfoList, gpuInfo)
+	} else {
+		cblogger.Info("val.Kind() == reflect.Int64", val.Kind() == reflect.Int64)
+		cblogger.Info("val.Int() > 0", val.Int() > 0)
+	}
+	vmSpecInfo.Gpu = gpuInfoList
+
+	// Disk   string    `json:"Disk" validate:"required" example:"8"`           // Disk size in GB, "-1" when not applicable
+	vmSpecInfo.DiskSizeGB = "-1"
+
+	vmSpecInfo.KeyValueList = irs.StructToKeyValueList(instanceTypeInfo)
+
+	return vmSpecInfo
+}
+
 // 인스턴스 스펙 정보를 추출함
 func ExtractVMSpecInfo(instanceTypeInfo *cvm.InstanceTypeConfig) irs.VMSpecInfo {
 	cblogger.Debugf("ExtractVMSpecInfo : SpecName:[%s]", *instanceTypeInfo.InstanceType)
@@ -270,7 +377,7 @@ func ExtractVMSpecInfo(instanceTypeInfo *cvm.InstanceTypeConfig) irs.VMSpecInfo 
 
 	//Memory 정보 처리
 	if !reflect.ValueOf(instanceTypeInfo.Memory).IsNil() {
-		vmSpecInfo.Mem = strconv.FormatInt(*instanceTypeInfo.Memory*1024, 10) // GB->MB로 변환
+		vmSpecInfo.MemSizeMiB = strconv.FormatInt(*instanceTypeInfo.Memory*1024, 10) // GB->MB로 변환
 	}
 
 	//VCPU 정보 처리 - Count

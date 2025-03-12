@@ -14,12 +14,14 @@ package resources
 import (
 	"context"
 	"errors"
+	"regexp"
 	"strconv"
 	"strings"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"github.com/sirupsen/logrus"
 	compute "google.golang.org/api/compute/v1"
 )
 
@@ -28,6 +30,23 @@ type GCPImageHandler struct {
 	Ctx        context.Context
 	Client     *compute.Service
 	Credential idrv.CredentialInfo
+}
+
+var arrImageProjectList = []string{
+	"gce-uefi-images", // 보안 VM을 지원하는 이미지
+
+	//보안 VM을 지원하지 않는 이미지들
+	"centos-cloud",
+	"cos-cloud",
+	"coreos-cloud",
+	"debian-cloud",
+	"rhel-cloud",
+	"rhel-sap-cloud",
+	"suse-cloud",
+	"suse-sap-cloud",
+	"ubuntu-os-cloud",
+	"windows-cloud",
+	"windows-sql-cloud",
 }
 
 /*
@@ -76,26 +95,17 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 */
 
 // 리스트의 경우 Name 기반으로 조회해서 처리하기에는 너무 느리기 때문에 직접 컨버팅함.
+// filter := "NOT deprecated:*" 적용
+// 아래와 같이 deprecated가 있는 image는 다른 image로 대체된 것임
+//
+//	      "deprecated": {
+//				"state": "DEPRECATED",
+//				"replacement": "https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-2204-jammy-v20241218"
+//			 },
 func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	cblogger.Debug("Retrieve All VM Images")
 
 	//https://cloud.google.com/compute/docs/images?hl=ko
-	arrImageProjectList := []string{
-		"gce-uefi-images", // 보안 VM을 지원하는 이미지
-
-		//보안 VM을 지원하지 않는 이미지들
-		"centos-cloud",
-		"cos-cloud",
-		"coreos-cloud",
-		"debian-cloud",
-		"rhel-cloud",
-		"rhel-sap-cloud",
-		"suse-cloud",
-		"suse-sap-cloud",
-		"ubuntu-os-cloud",
-		"windows-cloud",
-		"windows-sql-cloud",
-	}
 
 	var imageList []*irs.ImageInfo
 
@@ -120,6 +130,8 @@ func (imageHandler *GCPImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	for _, projectId := range arrImageProjectList {
 		cblogger.Infof("Processing image list owned by [%s] project", projectId)
 
+		// filter := "NOT deprecated:*" // deprecated가 있는 항목은 다른 image로 대체된 것임
+		// req = imageHandler.Client.Images.List(projectId).Filter(filter)
 		//첫번째 호출
 		req = imageHandler.Client.Images.List(projectId)
 		res, err = req.Do()
@@ -191,8 +203,6 @@ func (imageHandler *GCPImageHandler) ConvertGcpImageInfoToCbImageInfo(imageInfo 
 			NameId:   imageInfo.Name,
 			SystemId: imageInfo.Name,
 		},
-		GuestOS: imageInfo.GuestOS,
-		Status:  imageInfo.Status,
 
 		KeyValueList: []irs.KeyValue{
 			{"Name", imageInfo.Name},
@@ -258,6 +268,77 @@ func (imageHandler *GCPImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, 
 	callogger.Info(call.String(callLogInfo))
 	imageInfo := mappingImageInfo(image)
 	return imageInfo, nil
+}
+
+// getImage by name
+//
+// ubuntu-1204-precise-v20141031 // OBSOLETE  -> rejected, error
+// ubuntu-1804-bionic-v20220505 //DEPRECATED -> create but worning
+// ubuntu-2204-jammy-v20241218 // ACTIVE
+func (imageHandler *GCPImageHandler) GetImageN(imageName string) (irs.ImageInfo, error) {
+	projectId := ""
+	imageInfo := irs.ImageInfo{}
+
+	cblogger.SetLevel(logrus.InfoLevel)
+
+	targetOs := strings.Split(imageName, "-")[0]
+	cblogger.Debug("targetOs = ", targetOs)
+
+	// logger for HisCall
+	callogger := call.GetLogger("HISCALL")
+	callLogInfo := call.CLOUDLOGSCHEMA{
+		CloudOS:      call.GCP,
+		RegionZone:   imageHandler.Region.Zone,
+		ResourceType: call.VMIMAGE,
+		ResourceName: imageName,
+		CloudOSAPI:   "Images.Get()",
+		ElapsedTime:  "",
+		ErrorMSG:     "",
+	}
+	callLogStart := call.Start()
+
+	// ubuntu, window ....
+	for _, imgageProjectId := range arrImageProjectList {
+		if strings.Contains(imgageProjectId, targetOs) {
+			projectId = imgageProjectId
+			break
+		}
+	}
+	cblogger.Debug("projectId = ", projectId)
+	// if found
+	if projectId != "" {
+		gcpImage, err := imageHandler.Client.Images.Get(projectId, imageName).Do()
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+		if err != nil {
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Info(call.String(callLogInfo))
+			cblogger.Info("try to get image by projectId ", projectId)
+		}
+
+		if gcpImage != nil {
+			imageInfo = mappingImageInfo(gcpImage)
+			return imageInfo, nil
+		}
+	}
+
+	cblogger.Info("image not found at specific project url. try all project.")
+	// if not. query all
+	for _, imgageProjectId := range arrImageProjectList {
+		gcpImage, err := imageHandler.Client.Images.Get(imgageProjectId, imageName).Do()
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+		if err != nil {
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Info(call.String(callLogInfo))
+			cblogger.Info("try to get image by all projectId ", projectId)
+			continue
+		}
+		imageInfo = mappingImageInfo(gcpImage)
+		return imageInfo, nil
+	}
+
+	// not found Image
+	return imageInfo, errors.New("Image not found." + imageName)
+
 }
 
 // 이슈 #239에 의해 Name 기반에서 URL 기반으로 로직 변경
@@ -619,41 +700,161 @@ func (imageHandler *GCPImageHandler) FindImageInfo(projectId string, reqImageNam
 }
 */
 
-// @TODO : 나중에 시스템아이디 값 변경해야 함.(현재 이미지 핸들러는 이름 기반으로 변경되어 있기 때문...)
 func mappingImageInfo(imageInfo *compute.Image) irs.ImageInfo {
 	//lArr := strings.Split(imageInfo.Licenses[0], "/")
 	//os := lArr[len(lArr)-1]
 
 	//cblogger.Info("===================================")
 
-	imageList := irs.ImageInfo{
-		IId: irs.IID{
-			NameId: imageInfo.SelfLink,
-			//NameId: imageInfo.Name, //2020-07-23 이미지 핸들러는 아직 생성 기능을 지원하지 않기 때문에 NameId대신 SystemId로 통일
-			//SystemId: imageInfo.Name, //자체 기능 구현을 위해 Name 기반으로 리턴함. - 2020-05-14 다음 버전에 적용 예정
-			SystemId: imageInfo.SelfLink, //2020-05-14 카푸치노는 VM 생성시 URL 방식을 사용하기 때문에 임의로 맞춤(이미지 핸들러의 다른 함수에는 적용 못함)
-			//SystemId: strconv.FormatUint(imageInfo.Id, 10), //이 값으로는 VM생성 안됨.
+	//"description": "Canonical, Ubuntu, 12.04 LTS,	amd64 precise image built on 2016-03-02",
+	//"description": "Microsoft, Windows Server, version 1709 Core for Containers (Beta), Server Core, x64 built on 2017-12-12",
+	//"description": "Canonical, Ubuntu, 18.04 LTS, amd64 bionic image built on 2022-05-05, supports Shielded VM features",
 
-			//SystemId: imageInfo.SourceImage, //imageInfo.SourceImage의 경우 공백("")인 경우가 있음
-		},
-		//Id:      strconv.FormatUint(imageInfo.Id, 10),
-		//Id:      imageInfo.SelfLink,
-		//Name:    imageInfo.Name,
-		GuestOS: imageInfo.Family,
-		Status:  imageInfo.Status,
-		KeyValueList: []irs.KeyValue{
-			{"Name", imageInfo.Name},
-			{"SourceImage", imageInfo.SourceImage}, // VM생성 시에는 SourceImage나 SelfLink 값을 이용해야 함.
-			{"SourceType", imageInfo.SourceType},
-			{"SelfLink", imageInfo.SelfLink},
-			//{"GuestOsFeature", imageInfo.GuestOsFeatures[0].Type},	//Data가 없는 경우가 있어서 필요한 경우 체크해야 함.
-			{"Family", imageInfo.Family},
-			{"DiskSizeGb", strconv.FormatInt(imageInfo.DiskSizeGb, 10)},
-		},
+	distribution := extractOsDistribution(imageInfo)
+	imageStatus := extractImageAvailability(imageInfo)
+
+	if imageInfo.Deprecated != nil {
+		gcpImageState := imageInfo.Deprecated.State
+		distribution = distribution + ". ImageState : " + gcpImageState
+		if imageInfo.Deprecated.Replacement != "" {
+			gcpImageReplacement := imageInfo.Deprecated.Replacement
+			distribution = distribution + ", Replacement : " + gcpImageReplacement
+		}
 	}
 
-	return imageList
+	// 2024-12-23 ImageInfo changed for meta. IID, GuestOS, Status deprecated.
+	// 2025-01-18: Postpone the deprecation of IID, so revoke IID changes.
+	imageInfo.ShieldedInstanceInitialState = nil // 너무 길어 임시로 주석처리함.
+	returnImageInfo := irs.ImageInfo{
+		IId: irs.IID{
+			NameId:   imageInfo.SelfLink,
+			SystemId: imageInfo.SelfLink,
+		},
+		// GuestOS: imageInfo.Family,
+		// Status:  imageInfo.Status,
 
+		Name:           imageInfo.Name,
+		OSArchitecture: extractOsArchitecture(imageInfo),
+		OSPlatform:     extractOsPlatform(imageInfo), // imageInfo.Description
+		OSDistribution: distribution,
+		OSDiskType:     "NA",
+		OSDiskSizeGB:   strconv.FormatInt(imageInfo.DiskSizeGb, 10),
+		ImageStatus:    imageStatus,
+		KeyValueList:   irs.StructToKeyValueList(imageInfo),
+	}
+
+	return returnImageInfo
+}
+
+// OS Platform (contains description or family, name)
+// "name": "ubuntu-1804-bionic-arm64-v20220712",
+func extractOsPlatform(orgImage *compute.Image) irs.OSPlatform {
+	platformInfo := orgImage.Name
+
+	osPlatform := irs.PlatformNA
+
+	lowerCasePlatformInfo := strings.ToLower(platformInfo)
+
+	if strings.Contains(lowerCasePlatformInfo, "windows") {
+		osPlatform = irs.Windows
+	} else if strings.Contains(lowerCasePlatformInfo, "ubuntu") ||
+		strings.Contains(lowerCasePlatformInfo, "linux") ||
+		strings.Contains(lowerCasePlatformInfo, "centos") ||
+		strings.Contains(lowerCasePlatformInfo, "debian") ||
+		strings.Contains(lowerCasePlatformInfo, "fedora") ||
+		strings.Contains(lowerCasePlatformInfo, "rhel") ||
+		strings.Contains(lowerCasePlatformInfo, "rocky") ||
+		strings.Contains(lowerCasePlatformInfo, "unix") {
+		osPlatform = irs.Linux_UNIX
+	}
+
+	// "centos-cloud",
+	// "cos-cloud",
+	// "coreos-cloud",
+	// "debian-cloud",
+	// "rhel-cloud",
+	// "rhel-sap-cloud",
+	// "suse-cloud",
+	// "suse-sap-cloud",
+	// "ubuntu-os-cloud",
+	// "windows-cloud",
+	// "windows-sql-cloud",
+	return osPlatform
+}
+
+// OS Architecture
+// 2024-12 MAC OS not supported(ARM64, X86_64 from compute.Image)
+func extractOsArchitecture(orgImage *compute.Image) irs.OSArchitecture {
+	// if Architecture exists
+	if orgImage.Architecture != "" {
+		arch := strings.ToLower(orgImage.Architecture)
+		switch arch {
+		case "arm64":
+			return irs.OSArchitecture(orgImage.Architecture)
+		case "x86_64", "amd64":
+			return irs.OSArchitecture(orgImage.Architecture)
+		}
+	}
+
+	//
+	description := orgImage.Description
+	archRegex := regexp.MustCompile(`(?i)\b(mac|x64|amd64|x86|arm64|arm)\b`)
+
+	archMatch := archRegex.FindString(description)
+
+	osArchitecture := irs.ArchitectureNA
+	switch archMatch {
+	case "arm64":
+		if strings.Contains(strings.ToLower(description), "mac") {
+			osArchitecture = irs.ARM64_MAC
+		} else {
+			osArchitecture = irs.ARM64
+		}
+	case "x64", "amd64":
+		if strings.Contains(strings.ToLower(description), "mac") {
+			osArchitecture = irs.X86_64_MAC
+		} else {
+			osArchitecture = irs.X86_64
+		}
+	default:
+		osArchitecture = irs.ArchitectureNA
+	}
+
+	return osArchitecture
+}
+
+func extractOsDistribution(orgImage *compute.Image) string {
+	if orgImage.Description != "" {
+		return orgImage.Description
+	} else {
+		return orgImage.Name
+	}
+}
+
+// Image Status 추출
+func extractImageAvailability(orgImage *compute.Image) irs.ImageStatus {
+	//imageStatus := irs.ImageNA
+	imageStatus := irs.ImageAvailable
+
+	// Image를 만들 때 체크하는 상태로 보임.
+	//status := orgImage.Status
+	// if strings.Contains(strings.ToUpper(status), "READY") {
+	// 	imageStatus = irs.ImageAvailable
+	// } else if strings.Contains(strings.ToUpper(status), "FAILED") ||
+	// 	strings.Contains(strings.ToUpper(status), "PENDING") {
+	// 	imageStatus = irs.ImageUnavailable
+	// }
+
+	// deprecated 가 있는 경우 deprecated.state 가 ACTIVE, DEPRECATED, OBSOLETE, DELETED
+	// ACTIVE 는 deprecated가 없음.
+	// DEPRECATED인 경우 생성은 되나, warning이 발생함.
+	// OBSOLETE, DELETED는 생성도 안되고 error 발생함.
+	if orgImage.Deprecated != nil { // deprecated 필드가 nil인 경우
+		if orgImage.Deprecated.State == "OBSOLETE" || orgImage.Deprecated.State == "DELETED" {
+			imageStatus = irs.ImageUnavailable
+		}
+	}
+	return imageStatus
 }
 
 // windows os 여부 return

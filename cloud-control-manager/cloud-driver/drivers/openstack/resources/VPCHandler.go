@@ -46,7 +46,8 @@ func (vpcHandler *OpenStackVPCHandler) setterVPC(nvpc NetworkWithExt) *irs.VPCIn
 			NameId:   nvpc.Name,
 			SystemId: nvpc.ID,
 		},
-		TagList: tags,
+		IPv4_CIDR: "OpenStack VPC does not support IPv4_CIDR",
+		TagList:   tags,
 	}
 	var External string
 	if nvpc.External == true {
@@ -438,12 +439,38 @@ func (vpcHandler *OpenStackVPCHandler) DeleteInterface(subnetId string, routerId
 	return true, nil
 }
 
+func (vpcHandler *OpenStackVPCHandler) AddSubnetInterfaceToVPCRouter(vpcName string, subnetID string) error {
+	routerId, err := vpcHandler.GetRouter(vpcName)
+	if err != nil {
+		return err
+	}
+
+	addOpts := routers.AddInterfaceOpts{
+		SubnetID: subnetID,
+	}
+
+	_, err = routers.AddInterface(vpcHandler.NetworkClient, *routerId, addOpts).Extract()
+	if err != nil {
+		return fmt.Errorf("failed to add interface to router: %v", err)
+	}
+
+	return nil
+}
+
 func (vpcHandler *OpenStackVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
 	// log HisCall
 	hiscallInfo := GetCallLogScheme(vpcHandler.NetworkClient.IdentityEndpoint, call.VPCSUBNET, subnetInfo.IId.NameId, "AddSubnet()")
 
+	vpc, err := vpcHandler.GetVPC(vpcIID)
+	if err != nil {
+		addSubnetErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err.Error()))
+		cblogger.Error(addSubnetErr.Error())
+		LoggingError(hiscallInfo, addSubnetErr)
+		return irs.VPCInfo{}, addSubnetErr
+	}
+
 	subnetCreateOpts := subnets.CreateOpts{
-		NetworkID:      vpcIID.SystemId,
+		NetworkID:      vpc.IId.SystemId,
 		Name:           subnetInfo.IId.NameId,
 		CIDR:           subnetInfo.IPv4_CIDR,
 		IPVersion:      gophercloud.IPv4,
@@ -451,14 +478,21 @@ func (vpcHandler *OpenStackVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.
 	}
 
 	start := call.Start()
-	_, err := subnets.Create(vpcHandler.NetworkClient, subnetCreateOpts).Extract()
+	subnet, err := subnets.Create(vpcHandler.NetworkClient, subnetCreateOpts).Extract()
 	if err != nil {
 		addSubnetErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err.Error()))
 		cblogger.Error(addSubnetErr.Error())
 		LoggingError(hiscallInfo, addSubnetErr)
 		return irs.VPCInfo{}, addSubnetErr
 	}
-	LoggingInfo(hiscallInfo, start)
+
+	err = vpcHandler.AddSubnetInterfaceToVPCRouter(vpc.IId.NameId, subnet.ID)
+	if err != nil {
+		addSubnetErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err.Error()))
+		cblogger.Error(addSubnetErr.Error())
+		LoggingError(hiscallInfo, addSubnetErr)
+		return irs.VPCInfo{}, addSubnetErr
+	}
 
 	result, err := vpcHandler.GetVPC(vpcIID)
 	if err != nil {
@@ -467,6 +501,9 @@ func (vpcHandler *OpenStackVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.
 		LoggingError(hiscallInfo, addSubnetErr)
 		return irs.VPCInfo{}, addSubnetErr
 	}
+
+	LoggingInfo(hiscallInfo, start)
+
 	return result, nil
 }
 

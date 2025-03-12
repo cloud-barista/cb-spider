@@ -30,7 +30,8 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMS
 	//cblogger.Debug(instanceTypeInfo)
 
 	vCpuInfo := irs.VCpuInfo{
-		Clock: "0",
+		Count:    "-1",
+		ClockGHz: "-1",
 	}
 	// gpuInfoList := []irs.GpuInfo{
 	// 	{
@@ -42,30 +43,31 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMS
 
 	// 기본 값 설정
 	gpuInfo := irs.GpuInfo{
-		Count: "-1",
-		Model: "NA",
-		Mfr:   "NA",
-		Mem:   "0",
+		Count:          "-1",
+		Model:          "NA",
+		Mfr:            "NA",
+		MemSizeGB:      "-1",
+		TotalMemSizeGB: "-1",
 	}
 
 	if instanceTypeInfo.GPUAmount != 0 {
 		gpuInfo.Count = strconv.Itoa(instanceTypeInfo.GPUAmount)
-	}
-
-	if instanceTypeInfo.GPUSpec != "" {
-		gpuInfo.Model = strings.ToUpper(instanceTypeInfo.GPUSpec)
-		gpu := strings.Split(instanceTypeInfo.GPUSpec, " ") // "Nvidia Tesla P4"
-		if len(gpu) > 0 {
-			gpuInfo.Mfr = strings.ToUpper(gpu[0])
-			cblogger.Infof("Manufacturer Information Extraction: Original[%s] / Extracted[%s]", instanceTypeInfo.GPUSpec, gpuInfo.Mfr)
+		if instanceTypeInfo.GPUSpec != "" {
+			gpuInfo.Model = strings.ToUpper(instanceTypeInfo.GPUSpec)
+			gpu := strings.Split(instanceTypeInfo.GPUSpec, " ") // "Nvidia Tesla P4"
+			if len(gpu) > 0 {
+				gpuInfo.Mfr = strings.ToUpper(gpu[0])
+				cblogger.Infof("Manufacturer Information Extraction: Original[%s] / Extracted[%s]", instanceTypeInfo.GPUSpec, gpuInfo.Mfr)
+			}
 		}
-	}
 
-	if instanceTypeInfo.GPUMemorySize != 0 {
-		gpuInfo.Mem = strconv.FormatFloat(instanceTypeInfo.GPUMemorySize, 'f', -1, 64)
-	}
+		if instanceTypeInfo.GPUMemorySize != 0 {
+			gpuInfo.MemSizeGB = strconv.Itoa(int(instanceTypeInfo.GPUMemorySize))
+			gpuInfo.TotalMemSizeGB = strconv.Itoa(int(instanceTypeInfo.GPUMemorySize) * instanceTypeInfo.GPUAmount)
+		}
 
-	gpuInfoList = append(gpuInfoList, gpuInfo)
+		gpuInfoList = append(gpuInfoList, gpuInfo)
+	}
 
 	// if !reflect.ValueOf(&instanceTypeInfo.GPUSpec).IsNil() {
 	// 	gpu := strings.Split(instanceTypeInfo.GPUSpec, " ") //"Nvidia Tesla P4"
@@ -93,24 +95,17 @@ func ExtractVMSpecInfo(Region string, instanceTypeInfo ecs.InstanceType) irs.VMS
 
 	//if !reflect.ValueOf(&instanceTypeInfo.MemorySize).IsNil() {
 	//vmSpecInfo.Mem = strconv.FormatFloat(instanceTypeInfo.MemorySize, 'f', 0, 64)
-	vmSpecInfo.Mem = strconv.FormatFloat(instanceTypeInfo.MemorySize*1024, 'f', 0, 64) // GB->MB로 변환
+	vmSpecInfo.MemSizeMiB = strconv.FormatFloat(instanceTypeInfo.MemorySize*1024, 'f', 0, 64) // GiB(real)->MiB로 변환
 	//}
 
-	// LocalStorageCapacity -> GIB
+	// LocalStorageCapacity: GiB -> GB (1GiB = 1.073741824GB)
 	if instanceTypeInfo.LocalStorageCapacity > 0 {
-		gb := float64(instanceTypeInfo.LocalStorageCapacity) * 1.073741824
-		vmSpecInfo.Disk = strconv.FormatFloat(gb, 'f', 2, 64)
+		vmSpecInfo.DiskSizeGB = irs.ConvertGiBToGBInt64(instanceTypeInfo.LocalStorageCapacity)
 	} else {
-		vmSpecInfo.Disk = "-1"
+		vmSpecInfo.DiskSizeGB = "-1"
 	}
 
-	//KeyValue 목록 처리
-	keyValueList, errKeyValue := ConvertKeyValueList(instanceTypeInfo)
-	if errKeyValue != nil {
-		cblogger.Error(errKeyValue)
-		return irs.VMSpecInfo{}
-	}
-	vmSpecInfo.KeyValueList = keyValueList
+	vmSpecInfo.KeyValueList = irs.StructToKeyValueList(instanceTypeInfo)
 
 	return vmSpecInfo
 }

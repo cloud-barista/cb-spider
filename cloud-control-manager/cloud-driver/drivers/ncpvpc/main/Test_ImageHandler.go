@@ -63,10 +63,10 @@ func handleImage() {
 		}
 
 		imageReqInfo := irs.ImageReqInfo{
-			// IId: irs.IID{NameId: "Test OS Image", SystemId: "SW.VSVR.OS.LNX64.UBNTU.SVR1804.B050"}, //NCP : ubuntu-18.04, Ubuntu Server 64-bit
+			IId: irs.IID{NameId: "Test OS Image", SystemId: "23214590"}, //NCP : ubuntu-22.04, Ubuntu Server 64-bit
 
 			// NCP VPC 공공
-			IId: irs.IID{NameId: "Test OS Image", SystemId: "SW.VSVR.OS.LNX64.UBNTU.SVR2004.B050"}, //NCP VPC 공공 : Ubuntu Server 20.04 (64-bit)
+			// IId: irs.IID{NameId: "Test OS Image", SystemId: "SW.VSVR.OS.LNX64.UBNTU.SVR2004.B050"}, //NCP VPC 공공 : Ubuntu Server 20.04 (64-bit)
 
 			// IId: irs.IID{NameId: "Test OS Image", SystemId: "SW.VSVR.OS.WND64.WND.SVR2019EN.B100"}, //NCP : Windows Server 2019 (64-bit) English Edition			
 		}

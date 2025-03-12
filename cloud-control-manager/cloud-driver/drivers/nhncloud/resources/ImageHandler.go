@@ -14,11 +14,14 @@ package resources
 import (
 	// "errors"
 	"fmt"
+	"strconv"
 	"strings"
+
 	// "github.com/davecgh/go-spew/spew"
 
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
 	images "github.com/cloud-barista/nhncloud-sdk-go/openstack/imageservice/v2/images" // imageservice/v2/images : For Visibility parameter
+
 	// comimages "github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/images" // compute/v2/images
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -94,6 +97,31 @@ func (imageHandler *NhnCloudImageHandler) GetImage(imageIID irs.IID) (irs.ImageI
 	return *imageInfo, nil
 }
 
+func (imageHandler *NhnCloudImageHandler) GetImageN(name string) (irs.ImageInfo, error) {
+	cblogger.Info("NHN Cloud Driver: called GetImage()")
+	callLogInfo := getCallLogScheme(imageHandler.RegionInfo.Region, call.VMIMAGE, name, "GetImage()")
+
+	if strings.EqualFold(name, "") {
+		newErr := fmt.Errorf("Invalid SystemId!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.ImageInfo{}, newErr
+	}
+
+	start := call.Start()
+	nhnImage, err := images.Get(imageHandler.ImageClient, name).Extract()
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get NHN Cloud Image Info. [%v]", err.Error())
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.ImageInfo{}, newErr
+	}
+	LoggingInfo(callLogInfo, start)
+
+	imageInfo := imageHandler.mappingImageInfo(*nhnImage)
+	return *imageInfo, nil
+}
+
 func (imageHandler *NhnCloudImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called CreateImage()!")
 
@@ -138,38 +166,45 @@ func (imageHandler *NhnCloudImageHandler) DeleteImage(imageIID irs.IID) (bool, e
 func (imageHandler *NhnCloudImageHandler) mappingImageInfo(image images.Image) *irs.ImageInfo {
 	cblogger.Info("NHN Cloud Driver: called mappingImagInfo()!")
 
-	var imgAvailability string
+	var imgAvailability irs.ImageStatus
 	if strings.EqualFold(string(image.Status), "active") {
-		imgAvailability = "available"
+		imgAvailability = irs.ImageAvailable
 	} else {
-		imgAvailability = "unavailable"
+		imgAvailability = irs.ImageUnavailable
+	}
+
+	arch := irs.ArchitectureNA
+	osArch := strings.ToLower(image.Properties["os_architecture"].(string))
+	if osArch == "amd64" {
+		arch = irs.X86_64
+	} else if osArch == "arm64" {
+		arch = irs.ARM64
+	}
+
+	platform := irs.PlatformNA
+	osPlatform := strings.ToLower(image.Properties["os_type"].(string))
+	if osPlatform == "linux" {
+		platform = irs.Linux_UNIX
+	} else if osPlatform == "windows" {
+		platform = irs.Windows
 	}
 
 	imageInfo := &irs.ImageInfo{
+		// 2025-01-18: Postpone the deprecation of IID, so revoke IID changes.
 		IId: irs.IID{
-			NameId:   image.ID, // Caution!!
+			NameId:   image.ID,
 			SystemId: image.ID,
 		},
-		GuestOS: image.Name, // Caution!!
-		Status:  imgAvailability,
+		Name:           image.ID,
+		OSArchitecture: arch,
+		OSPlatform:     platform,
+		OSDistribution: image.Properties["os_distro"].(string) + " " + image.Properties["os_version"].(string),
+		OSDiskType:     "NA",
+		OSDiskSizeGB:   strconv.Itoa(image.MinDiskGigabytes),
+		ImageStatus:    imgAvailability,
+		KeyValueList:   irs.StructToKeyValueList(image),
 	}
 
-	keyValueList := []irs.KeyValue{
-		{Key: "Region", Value: imageHandler.RegionInfo.Region},
-		{Key: "Visibility:", Value: string(image.Visibility)},
-	}
-
-	for key, val := range image.Properties {
-		if key == "os_architecture" || key == "hypervisor_type" || key == "release_date" || key == "description" || key == "os_distro" || key == "os_version" || key == "nhncloud_product" {
-			metadata := irs.KeyValue{
-				Key:   strings.ToUpper(key),
-				Value: fmt.Sprintf("%v", val),
-			}
-			keyValueList = append(keyValueList, metadata)
-		}
-	}
-
-	imageInfo.KeyValueList = keyValueList
 	return imageInfo
 }
 

@@ -57,8 +57,10 @@ func handleVMSpec() {
 
 		// reqVMSpec := config.Ncp.VMSpec
 		// reqVMSpec := "SPSVRSTAND000049" // Count: "2", Mem: "2048", Disk: 50G, 해당 Image ID : SPSW0LINUX000029, SPSW0LINUX000031,
-		reqVMSpec := "SVR.VSVR.HICPU.C016.M032.NET.SSD.B050.G002" //When Region is 'KR'. vCPU 16EA, Memory 32GB, [SSD]Disk 50GB", Image ID : SW.VSVR.OS.LNX64.UBNTU.SVR1804.B050
-
+		// reqVMSpec := "SVR.VSVR.HICPU.C016.M032.NET.SSD.B050.G002" //When Region is 'KR'. vCPU 16EA, Memory 32GB, [SSD]Disk 50GB", Image ID : SW.VSVR.OS.
+		
+		reqVMSpec := "gp2t32-g1-h50"
+		
 		config := readConfigFile()
 
 		reqRegion := config.Ncp.Region

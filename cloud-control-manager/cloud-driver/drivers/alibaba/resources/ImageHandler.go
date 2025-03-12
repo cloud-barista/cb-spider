@@ -12,6 +12,7 @@ package resources
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
@@ -187,6 +188,64 @@ func (imageHandler *AlibabaImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 	return imageInfoList, nil
 }
 
+func extractOsPlatform(image *ecs.Image) irs.OSPlatform {
+	// Ubuntu
+	// Rocky Linux
+	// Debian
+	// Aliyun
+	// AlmaLinux
+	// CentOS Stream
+	// Windows Server 2025
+	// Freebsd
+	// Anolis
+	// openSUSE
+	// Gentoo
+	platformInfo := image.Platform
+	osPlatform := irs.PlatformNA
+
+	lowerCasePlatformInfo := strings.ToLower(platformInfo)
+
+	if strings.Contains(lowerCasePlatformInfo, "windows") {
+		osPlatform = irs.Windows
+	} else if strings.Contains(lowerCasePlatformInfo, "ubuntu") ||
+		strings.Contains(lowerCasePlatformInfo, "rocky") ||
+		strings.Contains(lowerCasePlatformInfo, "debian") ||
+		strings.Contains(lowerCasePlatformInfo, "aliyun") ||
+		strings.Contains(lowerCasePlatformInfo, "almalinux") ||
+		strings.Contains(lowerCasePlatformInfo, "centos") ||
+		strings.Contains(lowerCasePlatformInfo, "freebsd") ||
+		strings.Contains(lowerCasePlatformInfo, "anolis") ||
+		strings.Contains(lowerCasePlatformInfo, "opensuse") ||
+		strings.Contains(lowerCasePlatformInfo, "gentoo") {
+		osPlatform = irs.Linux_UNIX
+	}
+	return osPlatform
+}
+
+func extractOsArchitecture(image *ecs.Image) irs.OSArchitecture {
+
+	architectureInfo := image.Architecture
+	osArchitecture := irs.ArchitectureNA
+
+	lowerCaseArchitectureInfo := strings.ToLower(architectureInfo)
+
+	if strings.Contains(lowerCaseArchitectureInfo, "x86_64") {
+		osArchitecture = irs.X86_64
+	} else if strings.Contains(lowerCaseArchitectureInfo, "arm64") {
+		osArchitecture = irs.ARM64
+	} else if strings.Contains(lowerCaseArchitectureInfo, "arm64_mac") {
+		osArchitecture = irs.ARM64_MAC
+	} else if strings.Contains(lowerCaseArchitectureInfo, "x86_32") || strings.Contains(lowerCaseArchitectureInfo, "i386") {
+		osArchitecture = irs.X86_32
+	} else if strings.Contains(lowerCaseArchitectureInfo, "x86_32_mac") {
+		osArchitecture = irs.X86_32_MAC
+	} else if strings.Contains(lowerCaseArchitectureInfo, "x86_64_mac") {
+		osArchitecture = irs.X86_64_MAC
+	}
+
+	return osArchitecture
+}
+
 // https://pkg.go.dev/github.com/aliyun/alibaba-cloud-sdk-go/services/ecs?tab=doc#Image
 // package ecs v1.61.170 Latest Published: Apr 30, 2020
 // Image 정보를 추출함
@@ -199,34 +258,20 @@ func ExtractImageDescribeInfo(image *ecs.Image) irs.ImageInfo {
 	cblogger.Debug(image)
 
 	imageInfo := irs.ImageInfo{
+		// 2025-01-18: Postpone the deprecation of IID, so revoke IID changes.
 		IId: irs.IID{NameId: image.ImageId, SystemId: image.ImageId},
-		//Name:    image.ImageName,
-		Status:  image.Status,
-		GuestOS: image.OSNameEn,
+		// //Name:    image.ImageName,
+		// Status:  image.Status,
+		// GuestOS: image.OSNameEn,
+		Name:           image.ImageName,
+		OSArchitecture: extractOsArchitecture(image),
+		OSPlatform:     extractOsPlatform(image),
+		OSDistribution: image.OSNameEn,
+		OSDiskType:     "NA",
+		OSDiskSizeGB:   strconv.Itoa(image.Size),
+		ImageStatus:    irs.ImageStatus(image.Status),
+		KeyValueList:   irs.StructToKeyValueList(image),
 	}
-
-	keyValueList := []irs.KeyValue{
-		{Key: "CreationTime", Value: image.CreationTime},
-		{Key: "Architecture", Value: image.Architecture},
-
-		{Key: "OSNameEn", Value: image.OSNameEn},
-		{Key: "ProductCode", Value: image.ProductCode},
-		{Key: "OSType", Value: image.OSType},
-		{Key: "OSName", Value: image.OSName},
-		{Key: "Progress", Value: image.Progress},
-		{Key: "IsSupportCloudinit", Value: strconv.FormatBool(image.IsSupportCloudinit)},
-		{Key: "Usage", Value: image.Usage},
-		{Key: "ImageVersion", Value: image.ImageVersion},
-		{Key: "IsSupportIoOptimized", Value: strconv.FormatBool(image.IsSupportIoOptimized)},
-		{Key: "IsSelfShared", Value: image.IsSelfShared},
-		{Key: "IsCopied", Value: strconv.FormatBool(image.IsCopied)},
-		{Key: "IsSubscribed", Value: strconv.FormatBool(image.IsSubscribed)},
-		{Key: "Platform", Value: image.Platform},
-		{Key: "Size", Value: strconv.Itoa(image.Size)},
-	}
-
-	keyValueList = append(keyValueList, irs.KeyValue{Key: "Description", Value: image.Description})
-	imageInfo.KeyValueList = keyValueList
 
 	return imageInfo
 }
@@ -275,6 +320,20 @@ func (imageHandler *AlibabaImageHandler) GetImage(imageIID irs.IID) (irs.ImageIn
 	// }
 
 	result, err := DescribeImageByImageId(imageHandler.Client, imageHandler.Region, imageIID, false)
+
+	if err != nil {
+		return irs.ImageInfo{}, err
+	}
+
+	imageInfo := ExtractImageDescribeInfo(&result)
+
+	return imageInfo, nil
+}
+
+func (imageHandler *AlibabaImageHandler) GetImageN(Name string) (irs.ImageInfo, error) {
+	cblogger.Infof("imageId : ", Name)
+
+	result, err := DescribeImageByImageName(imageHandler.Client, imageHandler.Region, Name, false)
 
 	if err != nil {
 		return irs.ImageInfo{}, err

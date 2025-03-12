@@ -10,6 +10,7 @@ package commonruntime
 
 import (
 	"fmt"
+	"os"
 
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
 	cres "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -81,10 +82,19 @@ func RegisterKey(connectionName string, userIID cres.IID) (*cres.KeyPairInfo, er
 	defer keySPLock.Unlock(connectionName, userIID.NameId)
 
 	// (1) check existence(UserID)
-	bool_ret, err := infostore.HasByConditions(&KeyIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, userIID.NameId)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	bool_ret := false
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		bool_ret, err = infostore.HasByCondition(&KeyIIDInfo{}, NAME_ID_COLUMN, userIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		bool_ret, err = infostore.HasByConditions(&KeyIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, userIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	if bool_ret {
 		err := fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
@@ -164,11 +174,20 @@ func CreateKey(connectionName string, rsType string, reqInfo cres.KeyPairReqInfo
 	defer keySPLock.Unlock(connectionName, reqInfo.IId.NameId)
 
 	// (1) check exist(NameID)
-	bool_ret, err := infostore.HasByConditions(&KeyIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN,
-		reqInfo.IId.NameId)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	bool_ret := false
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		bool_ret, err = infostore.HasByCondition(&KeyIIDInfo{}, NAME_ID_COLUMN, reqInfo.IId.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		bool_ret, err = infostore.HasByConditions(&KeyIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN,
+			reqInfo.IId.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	if bool_ret {
@@ -260,10 +279,18 @@ func ListKey(connectionName string, rsType string) ([]*cres.KeyPairInfo, error) 
 
 	// (1) get IID:list
 	var iidInfoList []*KeyIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	var infoList []*cres.KeyPairInfo
@@ -283,7 +310,9 @@ func ListKey(connectionName string, rsType string) ([]*cres.KeyPairInfo, error) 
 		if err != nil {
 			keySPLock.RUnlock(connectionName, iidInfo.NameId)
 			if checkNotFoundError(err) {
-				cblog.Info(err)
+				cblog.Error(err)
+				info = cres.KeyPairInfo{IId: cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}}
+				infoList2 = append(infoList2, &info)
 				continue
 			}
 			cblog.Error(err)
@@ -341,10 +370,25 @@ func GetKey(connectionName string, rsType string, nameID string) (*cres.KeyPairI
 
 	// (1) get IID(NameId)
 	var iidInfo KeyIIDInfo
-	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*KeyIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		iidInfo = *castedIIDInfo.(*KeyIIDInfo)
+	} else {
+		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	// (2) get resource(SystemId)
@@ -397,10 +441,25 @@ func DeleteKey(connectionName string, rsType string, nameID string, force string
 
 	// (1) get spiderIID for creating driverIID
 	var iidInfo KeyIIDInfo
-	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
-	if err != nil {
-		cblog.Error(err)
-		return false, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*KeyIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		iidInfo = *castedIIDInfo.(*KeyIIDInfo)
+	} else {
+		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
 	}
 
 	// (2) delete Resource(SystemId)
@@ -409,7 +468,10 @@ func DeleteKey(connectionName string, rsType string, nameID string, force string
 	result, err = handler.(cres.KeyPairHandler).DeleteKey(driverIId)
 	if err != nil {
 		cblog.Error(err)
-		if force != "true" {
+		if checkNotFoundError(err) {
+			// if not found in CSP, continue
+			force = "true"
+		} else if force != "true" {
 			return false, err
 		}
 	}
@@ -421,7 +483,7 @@ func DeleteKey(connectionName string, rsType string, nameID string, force string
 	}
 
 	// (3) delete IID
-	_, err = infostore.DeleteByConditions(&KeyIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+	_, err = infostore.DeleteByConditions(&KeyIIDInfo{}, CONNECTION_NAME_COLUMN, iidInfo.ConnectionName, NAME_ID_COLUMN, nameID)
 	if err != nil {
 		cblog.Error(err)
 		if force != "true" {

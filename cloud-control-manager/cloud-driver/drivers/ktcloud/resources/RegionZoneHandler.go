@@ -4,6 +4,7 @@
 // KT Cloud RegionZone Handler
 //
 // Created by ETRI, 2023.10.
+// Updated by ETRI, 2025.02.
 //==================================================================================================
 
 package resources
@@ -39,10 +40,10 @@ type KtRegionInfo struct {
 func getSupportedRegions() []KtRegionInfo {
 	regionInfoList := []KtRegionInfo {
 		{	RegionCode: 	"KOR-Seoul",
-			RegionName: 	"서울",
+			RegionName: 	"Seoul",
 		},
 		{	RegionCode: 	"KOR-Central",
-			RegionName: 	"천안",
+			RegionName: 	"Cheonan",
 		},
 	}
 	return regionInfoList
@@ -78,6 +79,7 @@ func (regionZoneHandler *KtCloudRegionZoneHandler) ListRegionZone() ([]*irs.Regi
 			regionZoneInfo := irs.RegionZoneInfo{
 				Name: 			region.RegionCode,
 				DisplayName: 	region.RegionName,
+				CSPDisplayName:	region.RegionName,
 			}
 
 			zoneInfoList, err := regionZoneHandler.getZoneInfoList(region.RegionCode)
@@ -129,6 +131,7 @@ func (regionZoneHandler KtCloudRegionZoneHandler) GetRegionZone(regionCode strin
 			regionZoneInfo = irs.RegionZoneInfo {
 				Name: 			region.RegionCode,
 				DisplayName: 	region.RegionName,
+				CSPDisplayName:	region.RegionName,
 			}
 			break
 		}		
@@ -235,6 +238,7 @@ func (regionZoneHandler KtCloudRegionZoneHandler) getZoneInfoList(regionCode str
 		zoneInfo := irs.ZoneInfo{
 			Name: 			zone.ID,
 			DisplayName: 	zone.Name,
+			CSPDisplayName: zone.Name,
 		}			
 		if strings.EqualFold(zone.AllocationState, "Enabled") {
 			zoneInfo.Status = irs.ZoneAvailable

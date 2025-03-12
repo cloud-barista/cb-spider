@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CB-Spider CallLog-Analyzer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding-top: 50px;
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+        }
+        .main-header {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        .reference-notice {
+            position: absolute;
+            top: -60px;
+            right: -40px;
+            font-size: 14px;
+            color: #B22222;
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            padding: 8px 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            text-align: center;
+            display: inline-block;
+        }
+        .examples-panel {
+            width: 300px;
+            text-align: left;
+            background: #f8f8f8;
+            padding: 20px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            position: relative;
+        }
+        .example-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border: 1px solid #eee;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .example-item:hover {
+            background: #f0f0f0;
+        }
+        .main-content {
+            flex: 1;
+            padding: 0 20px;
+        }
+        .button-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        #query-input {
+            flex: 1;
+            padding: 8px;
+            font-size: 14px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .analyze-btn {
+            padding: 8px 16px;
+            font-size: 14px;
+            cursor: pointer;
+            background-color: #08aab0;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        #analysis-result {
+            margin-top: 20px;
+            padding: 20px;
+            background: white;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            text-align: left;
+            min-height: 400px;
+            overflow: auto;
+        }
+        .progress-indicator {
+            display: none;
+            width: 100%;
+            height: 3px;
+            background-color: #f0f0f0;
+            position: relative;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+        .progress-indicator::after {
+            content: '';
+            position: absolute;
+            left: -50%;
+            width: 50%;
+            height: 100%;
+            background-color: #08aab0;
+            animation: progress 1s linear infinite;
+        }
+        @keyframes progress {
+            0% { left: -50%; }
+            100% { left: 100%; }
+        }
+        .language-toggle {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 3px 8px;
+            font-size: 12px;
+            background-color: #08aab0;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        .examples-title {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .error-message {
+            color: #721c24;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            display: none;
+        }
+        .read-logs-btn {
+            padding: 8px 8px;
+            font-size: 14px;
+            cursor: pointer;
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+        .overlay-content {
+            position: relative;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: white;
+            padding: 20px;
+            border-radius: 4px;
+            width: 90%;
+            height: 90%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+        }
+        .log-content {
+            text-align: left;
+            flex: 1;
+            overflow: auto;
+            padding: 10px;
+            background-color: white;
+            font-family: monospace;
+            font-size: 14px;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            border: 1px solid #ccc;
+        }
+        .log-subtitle {
+            display: flex;
+            align-items: center;
+            gap: 8px;            
+            margin-top: -5px;
+            margin-bottom: 10px;
+        }
+        .file-icon {
+            fill: none;
+            stroke: #666;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        .log-path {
+            font-family: monospace;
+            background-color: #f5f5f5;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        .log-header {
+            margin-bottom: 10px;
+        }
+        .close-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            color: #666;
+        }
+        .log-entry {
+            padding: 2px 0;
+        }
+        .log-timestamp {
+            color: #666;
+            margin-right: 8px;
+        }
+        .log-entry.error {
+            padding: 2px 0;
+        }
+    </style>
+    <script>
+        const examples = {
+            kr: [
+                "로그에서 가장 자주 호출되는 API를 분석해줘",
+                "CSP별 API 호출 통계를 보여줘",
+                "에러가 발생한 API 호출을 분석해줘",
+                "응답 시간이 긴 API 호출을 찾아줘",
+                "시간대별 API 호출 패턴을 분석해줘",
+                "리소스 타입별 API 호출 분포를 보여줘",
+                "지역별 API 호출 통계를 보여줘",
+                "성공/실패 비율을 분석해줘",
+                "특정 리소스의 생성/삭제 패턴을 분석해줘",
+                "API 응답시간 추세를 분석해줘"
+            ],
+            en: [
+                "Analyze the most frequently called APIs",
+                "Show API call statistics by CSP",
+                "Analyze API calls with errors",
+                "Find API calls with long response times",
+                "Analyze API call patterns by time",
+                "Show API call distribution by resource type",
+                "Show API call statistics by region",
+                "Analyze success/failure ratio",
+                "Analyze create/delete patterns for specific resources",
+                "Analyze API response time trends"
+            ]
+        };
+
+        let currentLang = 'kr';
+
+        window.onload = function() {
+            setupExamples();
+            clearAll();
+
+            document.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape') {
+                    const logOverlay = document.getElementById('logOverlay');
+
+                    if (logOverlay && logOverlay.style.display === 'block') {
+                        hideReadLogs();
+                    } else {
+                        parent.postMessage({ type: 'closeCallLogAnalyzer' }, '*');
+                    }
+                }
+            });
+        }
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'kr' ? 'en' : 'kr';
+            setupExamples();
+            document.getElementById('langToggle').textContent = currentLang === 'kr' ? 'en' : 'kr';
+        }
+
+        function setupExamples() {
+            const examplesContainer = document.getElementById('examples-list');
+            examplesContainer.innerHTML = '';
+            
+            examples[currentLang].forEach(example => {
+                const div = document.createElement('div');
+                div.className = 'example-item';
+                div.textContent = example;
+                div.onclick = () => {
+                    document.getElementById('query-input').value = example;
+                };
+                examplesContainer.appendChild(div);
+            });
+        }
+
+        function analyzeLogs() {
+            const query = document.getElementById('query-input').value;
+            if (!query) {
+                showError('Please enter an analysis query first.');
+                return;
+            }
+
+            const resultArea = document.getElementById('analysis-result');
+            resultArea.innerHTML = '';
+            document.getElementById('progress').style.display = 'block';
+            document.getElementById('error-message').style.display = 'none';
+
+            fetch('/spider/adminweb/analyze-logs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Analysis request failed');
+                }
+                return response.text();
+            })
+            .then(data => {
+                resultArea.innerHTML = data;
+                resultArea.style.display = 'block';
+                
+                const scripts = resultArea.getElementsByTagName('script');
+                Array.from(scripts).forEach(script => {
+                    const newScript = document.createElement('script');
+                    Array.from(script.attributes).forEach(attr => {
+                        newScript.setAttribute(attr.name, attr.value);
+                    });
+                    newScript.textContent = script.textContent;
+                    script.parentNode.replaceChild(newScript, script);
+                });
+            })
+            .catch(error => {
+                showError('Error during analysis: ' + error.message);
+                console.error('Analysis error:', error);
+            })
+            .finally(() => {
+                document.getElementById('progress').style.display = 'none';
+            });
+        }
+
+        function showError(message) {
+            const errorElement = document.getElementById('error-message');
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+            setTimeout(() => {
+                errorElement.style.display = 'none';
+            }, 5000);
+        }
+
+        function clearAll() {
+            document.getElementById('query-input').value = '';
+            document.getElementById('analysis-result').innerHTML = '';
+            document.getElementById('error-message').style.display = 'none';
+        }
+
+        function showReadLogs() {
+            document.getElementById('progress').style.display = 'block';
+            document.getElementById('error-message').style.display = 'none';
+            document.getElementById('logOverlay').style.display = 'block';
+            document.body.style.overflow = 'hidden';
+
+            fetch('/spider/adminweb/read-logs', {
+                method: 'GET'
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to fetch read logs');
+                }
+                return response.text();
+            })
+            .then(data => {
+                const logContent = document.getElementById('logContent');
+                const cleanData = data.replace(/<\/?pre[^>]*>/g, '');
+                const entries = cleanData.split('\n').filter(entry => entry.trim());
+                
+                const formattedEntries = entries.map(entry => {
+                    const timestampMatch = entry.match(/\[([\d-]+ [\d:]+)\]/);
+                    const isError = entry.toLowerCase().includes('error');
+                    
+                    if (timestampMatch) {
+                        const timestamp = timestampMatch[1];
+                        const restOfLog = entry.replace(`[${timestamp}]`, '').trim();
+                        return `<div class="log-entry ${isError ? 'error' : ''}">
+                            <span class="log-timestamp">[${timestamp}]</span>
+                            <span class="log-message">${restOfLog}</span>
+                        </div>`;
+                    }
+                    return `<div class="log-entry ${isError ? 'error' : ''}">${entry}</div>`;
+                });
+                
+                logContent.innerHTML = formattedEntries.join('');
+            })
+            .catch(error => {
+                showError('Error fetching read logs: ' + error.message);
+                console.error('Read logs error:', error);
+            })
+            .finally(() => {
+                document.getElementById('progress').style.display = 'none';
+            });
+        }
+
+        function hideReadLogs() {
+            document.getElementById('logOverlay').style.display = 'none';
+            document.body.style.overflow = '';
+        }
+    </script>
+</head>
+<body>
+    <div class="examples-panel">
+        <button id="langToggle" class="language-toggle" onclick="toggleLanguage()">en</button>
+        <div class="examples-title">Example Prompts</div>
+        <div id="examples-list"></div>
+    </div>
+    <div class="main-content">
+        <div class="main-header">
+            <h2>CB-Spider CallLog-Analyzer <small style="font-size: 60%; font-weight: normal; font-style: italic;">- powered by LLM</small></h2>
+            <div class="reference-notice">Analysis Results may not be accurate, use as reference!!</div>
+        </div>
+        <p>Select examples or enter your prompt below</p>
+        <div class="button-container">
+            <input type="text" id="query-input" placeholder="What would you like to analyze in the logs?" />
+            <button class="analyze-btn" onclick="analyzeLogs()">Analyze Logs</button>
+            <button class="read-logs-btn" onclick="showReadLogs()">View Logs</button>
+        </div>
+        <div class="progress-indicator" id="progress"></div>
+        <div class="error-message" id="error-message"></div>
+        <div id="analysis-result"></div>
+    </div>
+
+    <div id="logOverlay" class="overlay">
+        <div class="overlay-content">
+            <button class="close-btn" onclick="hideReadLogs()">&times;</button>
+            <div class="log-header">
+                <h3>Call Logs</h3>
+                <div class="log-subtitle">
+                    <svg class="file-icon" width="14" height="14" viewBox="0 0 24 24">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                    </svg>
+                    Latest 1000 lines from <span class="log-path">$CBSPIDER_ROOT/log/calllog/calllogs.log</span>
+                </div>
+            </div>
+            <div id="logContent" class="log-content"></div>
+        </div>
+    </div>
+</body>
+</html>

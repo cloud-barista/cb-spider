@@ -25,31 +25,32 @@
         font-size: 14px;
         text-align: center;
     }
-    .th-column-Misc {
-        width: 25%;
-        text-align: center;
-    }    
+
     .column-num {
         width: 5%;
         text-align: center;
     }
     .column-vmspecname {
-        width: 25%;
-        text-align: center;
-    }
-    .column-vcpuinfo {
-        width: 25%;
-        text-align: left;
-        padding-left: 0.5cm; /* Left padding to create a 0.5cm gap */
-    }
-    .column-meminfo {
         width: 20%;
         text-align: center;
     }
-    .column-gpuinfo {
-        width: 25%;
+    .column-vcpuinfo {
+        width: 10%;
         text-align: left;
-        padding-left: 0.5cm; /* Left padding to create a 0.5cm gap */
+        padding-left: 0.2cm; /* Left padding to create a 0.5cm gap */
+    }
+    .column-meminfo {
+        width: 10%;
+        text-align: center;
+    }
+    .column-diskinfo {
+        width: 10%;
+        text-align: center;
+    }
+    .column-gpuinfo {
+        width: 20%;
+        text-align: left;
+        padding-left: 0.2cm; /* Left padding to create a 0.5cm gap */
     }
     .column-Misc {
         width: 25%;
@@ -144,7 +145,8 @@
         <th class="column-num">#</th>
         <th class="column-vmspecname">VMSpec Name</th>
         <th>VCPU</th>
-        <th class="column-meminfo">Memory</th>
+        <th class="column-meminfo">Memory (MiB)</th>
+        <th class="column-diskinfo">Disk (GB)</th>
         <th>GPU</th>
         <th class="th-column-Misc">Misc</th>
     </tr>
@@ -154,15 +156,17 @@
         <td class="column-vmspecname">{{$spec.Name}}</td>
         <td class="column-vcpuinfo">
             &nbsp;* Count: {{$spec.VCpu.Count}}<br>
-            &nbsp;* Clock: {{$spec.VCpu.Clock}} GHz<br>
+            &nbsp;* Clock: {{$spec.VCpu.ClockGHz}} GHz<br>
         </td>
-        <td class="column-meminfo">{{$spec.Mem}} MB</td>
+        <td class="column-meminfo">{{$spec.MemSizeMiB}} MiB</td>
+        <td class="column-diskinfo">{{$spec.DiskSizeGB}}</td>
         <td class="column-gpuinfo">
             {{range $gpu := $spec.Gpu}}
                 &nbsp;* Mfr: {{$gpu.Mfr}}<br>
                 &nbsp;* Model: {{$gpu.Model}}<br>
-                &nbsp;* Memory: {{$gpu.Mem}} MB<br>
-                &nbsp;* Count: {{$gpu.Count}}<br><br>
+                &nbsp;* Memory: {{$gpu.MemSizeGB}} GB<br>
+                &nbsp;* Count: {{$gpu.Count}}<br>
+                &nbsp;* TotalMemory: {{$gpu.TotalMemSizeGB}} GB<br>
             {{end}}
         </td>
         <td class="column-Misc">

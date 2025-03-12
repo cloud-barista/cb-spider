@@ -10,6 +10,7 @@ package commonruntime
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
@@ -77,12 +78,22 @@ func GetSGOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, err e
 
 	// (1) check existence(cspID)
 	var iidInfoList []*SGIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		//vpcSPLock.RUnlock()
-		//sgSPLock.RUnlock()
-		cblog.Error(err)
-		return cres.IID{}, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			//vpcSPLock.RUnlock()
+			//sgSPLock.RUnlock()
+			cblog.Error(err)
+			return cres.IID{}, err
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			//vpcSPLock.RUnlock()
+			//sgSPLock.RUnlock()
+			cblog.Error(err)
+			return cres.IID{}, err
+		}
 	}
 	var isExist bool = false
 	var nameId string
@@ -96,7 +107,7 @@ func GetSGOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, err e
 	if isExist {
 		//vpcSPLock.RUnlock()
 		//sgSPLock.RUnlock()
-		err := fmt.Errorf(rsType + "-" + cspID + " already exists with " + nameId + "!")
+		err := fmt.Errorf("%s", rsType+"-"+cspID+" already exists with "+nameId+"!")
 		cblog.Error(err)
 		return cres.IID{}, err
 	}
@@ -114,12 +125,22 @@ func GetSGOwnerVPC(connectionName string, cspID string) (owerVPC cres.IID, err e
 
 	// (3) get VPC IID:list
 	var vpcIIDInfoList []*VPCIIDInfo
-	err = infostore.ListByCondition(&vpcIIDInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		//vpcSPLock.RUnlock()
-		//sgSPLock.RUnlock()
-		cblog.Error(err)
-		return cres.IID{}, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &vpcIIDInfoList)
+		if err != nil {
+			//vpcSPLock.RUnlock()
+			//sgSPLock.RUnlock()
+			cblog.Error(err)
+			return cres.IID{}, err
+		}
+	} else {
+		err = infostore.ListByCondition(&vpcIIDInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			//vpcSPLock.RUnlock()
+			//sgSPLock.RUnlock()
+			cblog.Error(err)
+			return cres.IID{}, err
+		}
 	}
 	//vpcSPLock.RUnlock()
 	//sgSPLock.RUnlock()
@@ -193,10 +214,26 @@ func RegisterSecurity(connectionName string, vpcUserID string, userIID cres.IID)
 	defer sgSPLock.Unlock(connectionName, userIID.NameId)
 
 	// (0) check VPC existence(VPC UserID)
-	bool_ret, err := infostore.HasByConditions(&VPCIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcUserID)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	var bool_ret bool
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		// check permission to vpcName
+		var iidInfoList []*VPCIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		bool_ret, err = isNameIdExists(&iidInfoList, vpcUserID)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		bool_ret, err = infostore.HasByConditions(&VPCIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcUserID)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	if !bool_ret {
 		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(VPC), vpcUserID)
@@ -205,13 +242,22 @@ func RegisterSecurity(connectionName string, vpcUserID string, userIID cres.IID)
 	}
 
 	// (1) check existence(UserID)
-	isExist, err := infostore.HasByConditions(&SGIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, userIID.NameId)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	var isExist bool
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		isExist, err = infostore.HasByCondition(&SGIIDInfo{}, NAME_ID_COLUMN, userIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		isExist, err = infostore.HasByConditions(&SGIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, userIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	if isExist {
-		err := fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
+		err := fmt.Errorf("%s", rsType+"-"+userIID.NameId+" already exists!")
 		cblog.Error(err)
 		return nil, err
 	}
@@ -249,16 +295,20 @@ func RegisterSecurity(connectionName string, vpcUserID string, userIID cres.IID)
 
 	// set up VPC UserIID for return info
 	var iidInfo VPCIIDInfo
-	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcUserID)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = infostore.Get(&iidInfo, NAME_ID_COLUMN, vpcUserID)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcUserID)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	getInfo.VpcIID = getUserIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
-	}
 
 	return &getInfo, nil
 }
@@ -299,11 +349,27 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 	//+++++++++++++++++++++++++++++++++++++++++++
 	// set VPC's SystemId
 	var vpcIIDInfo VPCIIDInfo
-	err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, reqInfo.VpcIID.NameId)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*VPCIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, reqInfo.VpcIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		vpcIIDInfo = *castedIIDInfo.(*VPCIIDInfo)
+	} else {
+		err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, reqInfo.VpcIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
+
 	reqInfo.VpcIID.SystemId = getDriverSystemId(cres.IID{NameId: vpcIIDInfo.NameId, SystemId: vpcIIDInfo.SystemId})
 	//+++++++++++++++++++++++++++++++++++++++++++
 
@@ -328,10 +394,18 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 	defer sgSPLock.Unlock(connectionName, reqInfo.IId.NameId)
 	// (1) check exist(NameID)
 	var iidInfoList []*SGIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = infostore.List(&iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	var isExist bool = false
 	for _, OneIIdInfo := range iidInfoList {
@@ -341,7 +415,7 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 	}
 
 	if isExist {
-		err := fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
+		err := fmt.Errorf("%s", rsType+"-"+reqInfo.IId.NameId+" already exists!")
 		cblog.Error(err)
 		return nil, err
 	}
@@ -398,7 +472,7 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 		_, err2 := handler.DeleteSecurity(info.IId)
 		if err2 != nil {
 			cblog.Error(err2)
-			return nil, fmt.Errorf(err.Error() + ", " + err2.Error())
+			return nil, fmt.Errorf("%s", err.Error()+", "+err2.Error())
 		}
 		cblog.Error(err)
 		return nil, err
@@ -416,7 +490,7 @@ func CreateSecurity(connectionName string, rsType string, reqInfo cres.SecurityR
 }
 
 func transformArgs(ruleList *[]cres.SecurityRuleInfo) {
-	for n, _ := range *ruleList {
+	for n := range *ruleList {
 		// Direction: to lower => inbound | outbound
 		(*ruleList)[n].Direction = strings.ToLower((*ruleList)[n].Direction)
 		// IPProtocol: to upper => ALL | TCP | UDP | ICMP
@@ -455,15 +529,22 @@ func ListSecurity(connectionName string, rsType string) ([]*cres.SecurityInfo, e
 
 	// (1) get IID:list
 	var iidInfoList []*SGIIDInfo
-	err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
-	var infoList []*cres.SecurityInfo
+	infoList := []*cres.SecurityInfo{}
 	if iidInfoList == nil || len(iidInfoList) <= 0 {
-		infoList = []*cres.SecurityInfo{}
 		return infoList, nil
 	}
 
@@ -478,7 +559,9 @@ func ListSecurity(connectionName string, rsType string) ([]*cres.SecurityInfo, e
 		if err != nil {
 			sgSPLock.RUnlock(connectionName, iidInfo.NameId)
 			if checkNotFoundError(err) {
-				cblog.Info(err)
+				cblog.Error(err)
+				info = cres.SecurityInfo{IId: cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}}
+				infoList2 = append(infoList2, &info)
 				continue
 			}
 			cblog.Error(err)
@@ -496,10 +579,25 @@ func ListSecurity(connectionName string, rsType string) ([]*cres.SecurityInfo, e
 
 		// set VPC SystemId
 		var vpcIIDInfo VPCIIDInfo
-		err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
-		if err != nil {
-			cblog.Error(err)
-			return nil, err
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			var iidInfoList []*VPCIIDInfo
+			err = getAuthIIDInfoList(connectionName, &iidInfoList)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, iidInfo.OwnerVPCName)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+			vpcIIDInfo = *castedIIDInfo.(*VPCIIDInfo)
+		} else {
+			err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
 		}
 		info.VpcIID = getUserIID(cres.IID{NameId: vpcIIDInfo.NameId, SystemId: vpcIIDInfo.SystemId})
 
@@ -507,6 +605,127 @@ func ListSecurity(connectionName string, rsType string) ([]*cres.SecurityInfo, e
 	}
 
 	return infoList2, nil
+}
+
+// (1) get IID of Security Group for typical VPC:list
+// (2) get SecurityInfo:list
+// (3) set userIID, and ...
+func ListVpcSecurity(connectionName, rsType, vpcName string) ([]*cres.SecurityInfo, error) {
+	cblog.Info("call ListVpcSecurity()")
+
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	cldConn, err := ccm.GetCloudConnection(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	handler, err := cldConn.CreateSecurityHandler()
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// (0) check whether vpcName is exist
+	var isExist bool
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		// check permission to vpcName
+		var iidInfoList []*VPCIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		isExist, err = isNameIdExists(&iidInfoList, vpcName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		isExist, _ = infostore.HasByConditions(&VPCIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName,
+			NAME_ID_COLUMN, vpcName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	}
+	if !isExist {
+		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(VPC), vpcName)
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// (1) get IId of SG for typical vpc -> iidInfoList
+	var iidInfoList []*SGIIDInfo
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoListAll []*SGIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoListAll)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		for _, iidInfo := range iidInfoListAll {
+			if iidInfo.OwnerVPCName == vpcName {
+				iidInfoList = append(iidInfoList, iidInfo)
+			}
+		}
+	} else {
+		err = infostore.ListByConditions(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName, OWNER_VPC_NAME_COLUMN, vpcName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	}
+
+	// (2) Get Security Group list with iidInfoList
+	infoList := []*cres.SecurityInfo{}
+	for _, iidInfo := range iidInfoList {
+		sgSPLock.RLock(connectionName, iidInfo.NameId)
+		defer sgSPLock.RUnlock(connectionName, iidInfo.NameId)
+
+		info, err := handler.GetSecurity(getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}))
+
+		if err != nil {
+			if checkNotFoundError(err) {
+				cblog.Info(err)
+				continue
+			}
+			cblog.Error(err)
+			return nil, err
+		}
+
+		//Transform security rules
+		transformArgs(info.SecurityRules)
+
+		// Set resource info
+		info.IId = getUserIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
+
+		// Set VPC SystemId
+		var vpcIIDInfo VPCIIDInfo
+		if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+			err = infostore.Get(&vpcIIDInfo, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+		} else {
+			err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+		}
+		info.VpcIID = getUserIID(cres.IID{NameId: vpcIIDInfo.NameId, SystemId: vpcIIDInfo.SystemId})
+
+		infoList = append(infoList, &info)
+	}
+
+	return infoList, nil
 }
 
 // (1) get IID(NameId)
@@ -545,10 +764,25 @@ func GetSecurity(connectionName string, rsType string, nameID string) (*cres.Sec
 
 	// (1) get IID(NameId)
 	var iidInfo SGIIDInfo
-	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*SGIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		iidInfo = *castedIIDInfo.(*SGIIDInfo)
+	} else {
+		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	// (2) get resource(SystemId)
@@ -568,10 +802,25 @@ func GetSecurity(connectionName string, rsType string, nameID string) (*cres.Sec
 
 	// set VPC SystemId
 	var vpcIIDInfo VPCIIDInfo
-	err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*VPCIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, iidInfo.OwnerVPCName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		vpcIIDInfo = *castedIIDInfo.(*VPCIIDInfo)
+	} else {
+		err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	info.VpcIID = getUserIID(cres.IID{NameId: vpcIIDInfo.NameId, SystemId: vpcIIDInfo.SystemId})
 
@@ -617,10 +866,25 @@ func AddRules(connectionName string, sgName string, reqInfoList []cres.SecurityR
 	defer sgSPLock.Unlock(connectionName, sgName)
 
 	// (1) check exist(sgName)
-	bool_ret, err := infostore.HasByConditions(&SGIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, sgName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	bool_ret := false
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*SGIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		bool_ret, err = isNameIdExists(&iidInfoList, sgName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		bool_ret, err = infostore.HasByConditions(&SGIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, sgName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	if !bool_ret {
 		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(SG), sgName)
@@ -629,10 +893,25 @@ func AddRules(connectionName string, sgName string, reqInfoList []cres.SecurityR
 	}
 
 	var iidInfo SGIIDInfo
-	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, sgName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*SGIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, sgName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		iidInfo = *castedIIDInfo.(*SGIIDInfo)
+	} else {
+		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, sgName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	// (2) add Rules
@@ -652,10 +931,25 @@ func AddRules(connectionName string, sgName string, reqInfoList []cres.SecurityR
 
 	// set VPC SystemId
 	var vpcIIDInfo VPCIIDInfo
-	err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*VPCIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, iidInfo.OwnerVPCName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		vpcIIDInfo = *castedIIDInfo.(*VPCIIDInfo)
+	} else {
+		err = infostore.GetByConditions(&vpcIIDInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, iidInfo.OwnerVPCName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	info.VpcIID = getUserIID(cres.IID{NameId: vpcIIDInfo.NameId, SystemId: vpcIIDInfo.SystemId})
 
@@ -701,10 +995,25 @@ func RemoveRules(connectionName string, sgName string, reqRuleInfoList []cres.Se
 	defer sgSPLock.Unlock(connectionName, sgName)
 
 	// (1) check exist(sgName)
-	bool_ret, err := infostore.HasByConditions(&SGIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, sgName)
-	if err != nil {
-		cblog.Error(err)
-		return false, err
+	bool_ret := false
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*SGIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		bool_ret, err = isNameIdExists(&iidInfoList, sgName)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+	} else {
+		bool_ret, err = infostore.HasByConditions(&SGIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, sgName)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
 	}
 	if !bool_ret {
 		err := fmt.Errorf("The %s '%s' does not exist!", RSTypeString(SG), sgName)
@@ -713,10 +1022,25 @@ func RemoveRules(connectionName string, sgName string, reqRuleInfoList []cres.Se
 	}
 
 	var iidInfo SGIIDInfo
-	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, sgName)
-	if err != nil {
-		cblog.Error(err)
-		return false, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*SGIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, sgName)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		iidInfo = *castedIIDInfo.(*SGIIDInfo)
+	} else {
+		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, sgName)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
 	}
 
 	// (2) remove Rules
@@ -766,10 +1090,25 @@ func DeleteSecurity(connectionName string, rsType string, nameID string, force s
 
 	// (1) get spiderIID for creating driverIID
 	var iidInfo SGIIDInfo
-	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
-	if err != nil {
-		cblog.Error(err)
-		return false, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*SGIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		iidInfo = *castedIIDInfo.(*SGIIDInfo)
+	} else {
+		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
 	}
 
 	// (2) delete Resource(SystemId)
@@ -777,7 +1116,10 @@ func DeleteSecurity(connectionName string, rsType string, nameID string, force s
 	result, err := handler.(cres.SecurityHandler).DeleteSecurity(driverIId)
 	if err != nil {
 		cblog.Error(err)
-		if force != "true" {
+		if checkNotFoundError(err) {
+			// if not found in CSP, continue
+			force = "true"
+		} else if force != "true" {
 			return false, err
 		}
 	}
@@ -789,7 +1131,7 @@ func DeleteSecurity(connectionName string, rsType string, nameID string, force s
 	}
 
 	// (3) delete IID
-	_, err = infostore.DeleteBy3Conditions(&SGIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID,
+	_, err = infostore.DeleteBy3Conditions(&SGIIDInfo{}, CONNECTION_NAME_COLUMN, iidInfo.ConnectionName, NAME_ID_COLUMN, nameID,
 		OWNER_VPC_NAME_COLUMN, iidInfo.OwnerVPCName)
 	if err != nil {
 		cblog.Error(err)

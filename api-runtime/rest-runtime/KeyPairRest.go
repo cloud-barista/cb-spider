@@ -227,6 +227,18 @@ func ListAllKey(c echo.Context) error {
 	return c.JSON(http.StatusOK, &allResourceList)
 }
 
+// listAllKeyPairInfo godoc
+// @ID list-all-keypair-info
+// @Summary List All KeyPair Info
+// @Description Retrieve a list of KeyPair information associated with all connections.
+// @Tags [KeyPair Management]
+// @Accept  json
+// @Produce  json
+// @Success 200 {object} AllResourceInfoListResponse "List of KeyPair information associated with all connections"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /allkeypairinfo [get]
+func ListAllKeyPairInfo(c echo.Context) error { return listAllResourceInfo(c, cres.KEY) }
+
 // getKey godoc
 // @ID get-keypair
 // @Summary Get KeyPair

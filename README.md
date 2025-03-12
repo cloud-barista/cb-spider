@@ -1,4 +1,4 @@
-# CB-Spider : "One Code, Multi-Cloud"
+# CB-Spider : "One-Code, Multi-Cloud"
 [![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/cloud-barista/cb-spider?label=go.mod)](https://github.com/cloud-barista/cb-spider/blob/master/go.mod)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/cloud-barista/cb-spider/blob/master/LICENSE)&nbsp;&nbsp;&nbsp;
 [![Release Version](https://img.shields.io/github/v/release/cloud-barista/cb-spider)](https://github.com/cloud-barista/cb-spider/releases)
@@ -6,9 +6,12 @@
 [![Swagger API Docs](https://img.shields.io/badge/docs-Swagger_API-blue)](https://cloud-barista.github.io/api/?url=https://raw.githubusercontent.com/cloud-barista/cb-spider/refs/heads/master/api/swagger.yaml)
 
 
-CB-Spider is a sub-framework of the Cloud-Barista Multi-Cloud Platform.<br>
-CB-Spider offers a unified view and interface for multi-cloud management.
+- CB-Spider is a sub-framework of the Cloud-Barista Multi-Cloud Platform.<br>
+- CB-Spider offers a unified view and interface for multi-cloud management.
 
+<p align="center">
+  <img width="850" alt="image" src="https://github.com/user-attachments/assets/c1e5328b-151d-4b24-ad62-947e8bfcbbcf">
+</p>
 
 ```
 [NOTE]
@@ -62,11 +65,11 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 | Tencent       | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O           |
 | IBM VPC       | O<br>(Spec제외)| O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | WIP        |
 | OpenStack     | NA             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | ?           |
-| NCP Classic   | WIP            | O                   | O             | O              | O<br>(Type1)       | O<br>(Note1)     | O               | O              | O    | O   | O       | NA           |
-| NCP VPC       | WIP            | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | ?           |
-| NHN           | NA             | O                   | O             | O              | O<br>(Type2)       | O                 | O               | O<br>(Note2)   | O    | WIP  | O     | O           |
+| NCP Classic   | O            | O                   | O             | O              | O<br>(Type1)       | O<br>(Note1)     | O               | O              | O    | O   | O       | NA           |
+| NCP VPC       | O            | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | ?           |
+| NHN           | NA             | O                   | O             | O              | O<br>(Type2)       | O                 | O               | O<br>(Note2)   | O    | O    | O     | O           |
 | KT Classic    | NA             | O                   | O             | O              | O<br>(Type1)       | O                 | O               | O              | O    | O   | O       | NA          |
-| KT VPC        | NA             | O                   | O             | O              | O<br>(Type3)       | O                 | O               | O              | O    | WIP   | O<br>(Note3)| Wait API    |
+| KT VPC        | NA             | O                   | O             | O              | O<br>(Type3)       | O                 | O               | O              | O    | O   | O<br>(Note3)| Wait API    |
 
 
     ※ WIP: Work In Progress, NA: Not Applicable, Wait API: CSP API 공개 대기, ?: 미정/분석필요

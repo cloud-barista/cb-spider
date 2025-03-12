@@ -7,16 +7,16 @@
 // This is a Cloud Driver Example for PoC Test.
 //
 // by ETRI Team, 2024.01.
+// Updated by ETRI, 2025.02.
 
 package resources
 
 import (
-	"errors"
+	// "errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
-
 	// "github.com/davecgh/go-spew/spew"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -40,7 +40,7 @@ const (
 func (nlbHandler *KtCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBInfo, error) {
 	cblogger.Info("KT Cloud Driver: called CreateNLB()")
 	InitLog()
-	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbReqInfo.IId.NameId, "CreateNLB()")
+	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, call.NLB, nlbReqInfo.IId.NameId, "CreateNLB()")
 
 	if strings.EqualFold(nlbReqInfo.IId.NameId, "") {
 		newErr := fmt.Errorf("Invalid NLB NameId!!")
@@ -119,7 +119,7 @@ func (nlbHandler *KtCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (irs.NLBI
 func (nlbHandler *KtCloudNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	cblogger.Info("KT Cloud Driver: called ListNLB()")
 	InitLog()
-	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", "ListNLB()", "ListNLB()")
+	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, call.NLB, "ListNLB()", "ListNLB()")
 
 	lbReq := ktsdk.ListNLBsReqInfo{
 		ZoneId: nlbHandler.RegionInfo.Zone,
@@ -127,8 +127,9 @@ func (nlbHandler *KtCloudNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	start := call.Start()
 	nlbResp, err := nlbHandler.NLBClient.ListNLBs(lbReq) // Not 'Client'
 	if err != nil {
-		cblogger.Error("Failed to Get KT Cloud NLB list : [%v]", err)
-		return []*irs.NLBInfo{}, err
+		newErr := fmt.Errorf("Failed to Get NLB list from KT Cloud : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
 	}
 	LoggingInfo(callLogInfo, start)
 	// spew.Dump(result)
@@ -138,7 +139,7 @@ func (nlbHandler *KtCloudNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 
 	if len(nlbResp.Listnlbsresponse.NLB) < 1 {
 		cblogger.Info("# KT Cloud NLB does Not Exist!!")
-		return []*irs.NLBInfo{}, nil // Not Return Error
+		return nil, nil // Not Return Error
 	}
 	// cblogger.Info("\n\n### nlbResp.Listnlbsresponse : ")
 	// spew.Dump(nlbResp.Listnlbsresponse)
@@ -160,7 +161,7 @@ func (nlbHandler *KtCloudNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 func (nlbHandler *KtCloudNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error) {
 	cblogger.Info("KT Cloud Driver: called GetNLB()")
 	InitLog()
-	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbIID.SystemId, "GetNLB()")
+	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, call.NLB, nlbIID.SystemId, "GetNLB()")
 
 	if strings.EqualFold(nlbIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid NLB ID!!")
@@ -190,7 +191,7 @@ func (nlbHandler *KtCloudNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 func (nlbHandler *KtCloudNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	cblogger.Info("KT Cloud Driver: called DeleteNLB()")
 	InitLog()
-	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbIID.SystemId, "DeleteNLB()")
+	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, call.NLB, nlbIID.SystemId, "DeleteNLB()")
 
 	if strings.EqualFold(nlbIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid NLB ID!!")
@@ -276,7 +277,7 @@ func (nlbHandler *KtCloudNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup i
 func (nlbHandler *KtCloudNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.VMGroupInfo, error) {
 	cblogger.Info("KT Cloud Driver: called AddVMs()")
 	InitLog()
-	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbIID.SystemId, "AddVMs()")
+	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, call.NLB, nlbIID.SystemId, "AddVMs()")
 
 	if strings.EqualFold(nlbIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid NLB ID!!")
@@ -374,7 +375,7 @@ func (nlbHandler *KtCloudNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (
 func (nlbHandler *KtCloudNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (bool, error) {
 	cblogger.Info("KT Cloud Driver: called RemoveVMs()")
 	InitLog()
-	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", "RemoveVMs()", "RemoveVMs()")
+	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, call.NLB, "RemoveVMs()", "RemoveVMs()")
 
 	if strings.EqualFold(nlbIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid NLB ID!!")
@@ -456,7 +457,7 @@ func (nlbHandler *KtCloudNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID
 func (nlbHandler *KtCloudNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.HealthInfo, error) {
 	cblogger.Info("KT Cloud Driver: called GetVMGroupHealthInfo()")
 	InitLog()
-	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbIID.SystemId, "GetVMGroupHealthInfo()")
+	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, call.NLB, nlbIID.SystemId, "GetVMGroupHealthInfo()")
 
 	if strings.EqualFold(nlbIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid NLB ID!!")
@@ -533,7 +534,7 @@ func (nlbHandler *KtCloudNLBHandler) getListenerInfo(nlb *ktsdk.NLB) (irs.Listen
 	cblogger.Info("KT Cloud Driver: called getListenerInfo()")
 	nlbId := strconv.Itoa(nlb.NLBId)
 	InitLog()
-	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbId, "getListenerInfo()")
+	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, call.NLB, nlbId, "getListenerInfo()")
 
 	if strings.EqualFold(nlbId, "") {
 		newErr := fmt.Errorf("Invalid Load-Balancer ID. The LB does Not Exit!!")
@@ -560,7 +561,7 @@ func (nlbHandler *KtCloudNLBHandler) getHealthCheckerInfo(nlb *ktsdk.NLB) (irs.H
 	cblogger.Info("KT Cloud Driver: called getHealthCheckerInfo()")
 	nlbId := strconv.Itoa(nlb.NLBId)
 	InitLog()
-	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbId, "getHealthCheckerInfo()")
+	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, call.NLB, nlbId, "getHealthCheckerInfo()")
 
 	if strings.EqualFold(nlbId, "") {
 		newErr := fmt.Errorf("Invalid Load-Balancer ID. The LB does Not Exit!!")
@@ -580,7 +581,7 @@ func (nlbHandler *KtCloudNLBHandler) getHealthCheckerInfo(nlb *ktsdk.NLB) (irs.H
 func (nlbHandler *KtCloudNLBHandler) getVMGroupInfo(nlbId string) (irs.VMGroupInfo, error) {
 	cblogger.Info("KT Cloud Driver: called getVMGroupInfo()")
 	InitLog()
-	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbId, "getVMGroupInfo()")
+	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, call.NLB, nlbId, "getVMGroupInfo()")
 
 	if strings.EqualFold(nlbId, "") {
 		newErr := fmt.Errorf("Invalid NLB ID")
@@ -768,7 +769,7 @@ func (nlbHandler *KtCloudNLBHandler) mappingNlbInfo(nlb *ktsdk.NLB) (irs.NLBInfo
 func (nlbHandler *KtCloudNLBHandler) getKTCloudNLB(nlbId string) (*ktsdk.NLB, error) {
 	cblogger.Info("KT Cloud Driver: called getKTCloudNLB()")
 	InitLog()
-	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbId, "getKTCloudNLB()")
+	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, call.NLB, nlbId, "getKTCloudNLB()")
 
 	if strings.EqualFold(nlbId, "") {
 		newErr := fmt.Errorf("Invalid NLB ID!!")
@@ -783,8 +784,9 @@ func (nlbHandler *KtCloudNLBHandler) getKTCloudNLB(nlbId string) (*ktsdk.NLB, er
 	start := call.Start()
 	nlbResp, err := nlbHandler.NLBClient.ListNLBs(lbReq) // Not 'Client'
 	if err != nil {
-		cblogger.Error("Failed to Get KT Cloud NLB list : [%v]", err)
-		return nil, err
+		newErr := fmt.Errorf("Failed to Get NLB list from KT Cloud : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
 	}
 	LoggingInfo(callLogInfo, start)
 	// cblogger.Info("\n# nlbResp : ")
@@ -804,7 +806,35 @@ func (nlbHandler *KtCloudNLBHandler) getKTCloudNLB(nlbId string) (*ktsdk.NLB, er
 	return &nlbResp.Listnlbsresponse.NLB[0], nil
 }
 
-func (NLBHandler *KtCloudNLBHandler) ListIID() ([]*irs.IID, error) {
+func (nlbHandler *KtCloudNLBHandler) ListIID() ([]*irs.IID, error) {
 	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(nlbHandler.RegionInfo.Region, call.NLB, "ListIID()", "ListIID()")
+
+	lbReq := ktsdk.ListNLBsReqInfo{
+		ZoneId: nlbHandler.RegionInfo.Zone,
+	}
+	start := call.Start()
+	nlbResp, err := nlbHandler.NLBClient.ListNLBs(lbReq) // Not 'Client'
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get NLB list from KT Cloud : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+	LoggingInfo(callLogInfo, start)
+
+    if len(nlbResp.Listnlbsresponse.NLB) < 1 {
+        cblogger.Info("### There is No NLB!!")
+        return nil, nil
+    }
+
+    var iidList []*irs.IID
+    for _, nlb := range nlbResp.Listnlbsresponse.NLB {
+        iid := &irs.IID{
+            NameId:   nlb.Name,
+            SystemId: strconv.Itoa(nlb.NLBId),
+        }
+        iidList = append(iidList, iid)
+    }
+    return iidList, nil
 }

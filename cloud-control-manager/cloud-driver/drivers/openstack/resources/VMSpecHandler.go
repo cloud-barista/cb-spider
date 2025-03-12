@@ -4,8 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	"strconv"
+
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 
 	"github.com/gophercloud/gophercloud"
 	"github.com/gophercloud/gophercloud/openstack/compute/v2/flavors"
@@ -25,18 +26,14 @@ type OpenStackVMSpecHandler struct {
 
 func setterVMSpec(region string, vmSpec flavors.Flavor) *irs.VMSpecInfo {
 	vmSpecInfo := &irs.VMSpecInfo{
-		Region: region,
-		Name:   vmSpec.Name,
-		VCpu:   irs.VCpuInfo{Count: strconv.Itoa(vmSpec.VCPUs)},
-		Mem:    strconv.Itoa(vmSpec.RAM),
-		Disk:   strconv.Itoa(vmSpec.Disk),
-		Gpu:    nil,
+		Region:     region,
+		Name:       vmSpec.Name,
+		VCpu:       irs.VCpuInfo{Count: strconv.Itoa(vmSpec.VCPUs), ClockGHz: "-1"},
+		MemSizeMiB: strconv.Itoa(vmSpec.RAM),
+		DiskSizeGB: strconv.Itoa(vmSpec.Disk),
+		Gpu:        nil,
 
-		KeyValueList: []irs.KeyValue{
-			{Key: "Swap (MB)", Value: strconv.Itoa(vmSpec.Swap)},
-			{Key: "Ephemeral Disk (GB)", Value: strconv.Itoa(vmSpec.Ephemeral)},
-			{Key: "IsPublic", Value: strconv.FormatBool(vmSpec.IsPublic)},
-		},
+		KeyValueList: irs.StructToKeyValueList(vmSpec),
 	}
 
 	return vmSpecInfo

@@ -69,18 +69,15 @@ func (vmSpecHandler *GCPVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
 			Region: zone,
 			Name:   i.Name,
 			VCpu: irs.VCpuInfo{
-				Count: strconv.FormatInt(i.GuestCpus, 10),
+				Count:    strconv.FormatInt(i.GuestCpus, 10),
+				ClockGHz: "-1",
 			},
-			Mem:  strconv.FormatInt(i.MemoryMb, 10),
-			Disk: "-1",
-			Gpu:  gpuInfoList,
+			MemSizeMiB: irs.ConvertMBToMiBInt64(i.MemoryMb), // MB -> MiB
+			DiskSizeGB: "-1",
+			Gpu:        gpuInfoList,
 		}
 
-		info.KeyValueList, err = ConvertKeyValueList(i)
-		if err != nil {
-			info.KeyValueList = nil
-			cblogger.Error(err)
-		}
+		info.KeyValueList = irs.StructToKeyValueList(i)
 
 		vmSpecInfo = append(vmSpecInfo, &info)
 	}
@@ -126,19 +123,17 @@ func (vmSpecHandler *GCPVMSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo, e
 		Region: vmSpecHandler.Region.Region,
 		Name:   Name,
 		VCpu: irs.VCpuInfo{
-			Count: strconv.FormatInt(info.GuestCpus, 10),
-			Clock: "",
+			Count:    strconv.FormatInt(info.GuestCpus, 10),
+			ClockGHz: "-1",
 		},
-		Mem:  strconv.FormatInt(info.MemoryMb, 10),
-		Disk: "-1",
-		Gpu:  gpuInfoList,
+		MemSizeMiB: irs.ConvertMBToMiBInt64(info.MemoryMb), // MB -> MiB
+
+		DiskSizeGB: "-1",
+		Gpu:        gpuInfoList,
 	}
 
-	vmSpecInfo.KeyValueList, err = ConvertKeyValueList(vmSpecInfo)
-	if err != nil {
-		vmSpecInfo.KeyValueList = nil
-		cblogger.Error(err)
-	}
+	vmSpecInfo.KeyValueList = irs.StructToKeyValueList(info)
+
 	return vmSpecInfo, nil
 }
 
@@ -227,19 +222,22 @@ func acceleratorsToGPUInfoList(accerators []*compute.MachineTypeAccelerators) []
 	gpuInfoList := []irs.GpuInfo{}
 	for _, accelerator := range accerators {
 		gpuInfo := irs.GpuInfo{}
+		gpuInfo.Model = strings.ToUpper(accelerator.GuestAcceleratorType)
 
 		accrType := strings.Split(accelerator.GuestAcceleratorType, "-")
 		if len(accrType) >= 3 {
 			// 첫 번째 요소를 Mfr에 할당
 			gpuInfo.Mfr = strings.ToUpper(accrType[0])
-
+			gpuInfo.MemSizeGB = "-1"
+			gpuInfo.TotalMemSizeGB = "-1"
 			// 마지막 요소를 확인
 			lastElement := accrType[len(accrType)-1]
 			if strings.HasSuffix(lastElement, "gb") {
 				// "gb"를 제거하고 숫자만 추출
 				numStr := strings.TrimSuffix(lastElement, "gb")
 				if num, err := strconv.Atoi(numStr); err == nil {
-					gpuInfo.Mem = strconv.Itoa(num * 1024) // GB를 MB로 변환 후 숫자만 string으로 저장
+					gpuInfo.MemSizeGB = strconv.Itoa(num)
+					gpuInfo.TotalMemSizeGB = strconv.Itoa(num * int(accelerator.GuestAcceleratorCount))
 				}
 				// 첫 번째와 마지막 요소를 제외한 나머지를 Model에 할당
 				if len(accrType) > 2 {
@@ -247,12 +245,17 @@ func acceleratorsToGPUInfoList(accerators []*compute.MachineTypeAccelerators) []
 				}
 			} else {
 				// 마지막 요소가 "gb"로 끝나지 않는 경우
-				gpuInfo.Mem = "" // Mem은 빈 문자열로 설정
+				gpuInfo.MemSizeGB = "-1" // Mem은 빈 문자열로 설정
 				if len(accrType) > 1 {
 					// 첫 번째 요소를 제외한 나머지를 Model에 할당
 					gpuInfo.Model = strings.ToUpper(strings.Join(accrType[1:], " "))
 				}
 			}
+		} else if len(accrType) == 2 { // ex) "nvidia-l4"
+			gpuInfo.Mfr = strings.ToUpper(accrType[0])   // Manufacturer
+			gpuInfo.Model = strings.ToUpper(accrType[1]) //  Model
+			gpuInfo.MemSizeGB = "-1"
+			gpuInfo.TotalMemSizeGB = "-1"
 		}
 
 		gpuCount := accelerator.GuestAcceleratorCount

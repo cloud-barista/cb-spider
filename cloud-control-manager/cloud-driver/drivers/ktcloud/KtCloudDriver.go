@@ -46,18 +46,27 @@ func (KtCloudDriver) GetDriverVersion() string {
 func (KtCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	var drvCapabilityInfo idrv.DriverCapabilityInfo
 
-	// NOTE Temporary Setting
+	drvCapabilityInfo.ZoneBasedControl = false
+
+	drvCapabilityInfo.RegionZoneHandler = true
+	drvCapabilityInfo.PriceInfoHandler = false
 	drvCapabilityInfo.ImageHandler = true
+	drvCapabilityInfo.VMSpecHandler = true
+
 	drvCapabilityInfo.VPCHandler = true
 	drvCapabilityInfo.SecurityHandler = true
 	drvCapabilityInfo.KeyPairHandler = true
-	drvCapabilityInfo.VNicHandler = false
-	drvCapabilityInfo.PublicIPHandler = false
 	drvCapabilityInfo.VMHandler = true
-	drvCapabilityInfo.VMSpecHandler = true
+	drvCapabilityInfo.DiskHandler = true
+	drvCapabilityInfo.MyImageHandler = true
+	drvCapabilityInfo.NLBHandler = true
+	drvCapabilityInfo.ClusterHandler = false
+
 	drvCapabilityInfo.TagHandler = true
 	// ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.NLB, ires.CLUSTER
-	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.ALL, ires.VM, ires.DISK, ires.MYIMAGE}
+	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.VM, ires.DISK, ires.MYIMAGE}
+
+	drvCapabilityInfo.EMULATED_VPC = true
 
 	return drvCapabilityInfo
 }

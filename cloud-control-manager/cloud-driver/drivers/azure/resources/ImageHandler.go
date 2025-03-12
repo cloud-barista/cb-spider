@@ -28,28 +28,26 @@ type AzureImageHandler struct {
 	VMImageClient *armcompute.VirtualMachineImagesClient
 }
 
-func (imageHandler *AzureImageHandler) setterImage(image armcompute.Image) *irs.ImageInfo {
-	imageInfo := &irs.ImageInfo{
-		IId: irs.IID{
-			NameId:   *image.Name,
-			SystemId: *image.Name,
-		},
-		GuestOS:      fmt.Sprint(image.Properties.StorageProfile.OSDisk.OSType),
-		Status:       *image.Properties.ProvisioningState,
-		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: imageHandler.Region.Region}},
-	}
+func (imageHandler *AzureImageHandler) setterVMImage(vmiCleintGetRes *armcompute.VirtualMachineImagesClientGetResponse, pulisher string, offer string, sku string, version string,
+	arch irs.OSArchitecture, platform irs.OSPlatform) *irs.ImageInfo {
+	imageName := pulisher + ":" + offer + ":" + sku + ":" + version
 
-	return imageInfo
-}
+	distribution := offer + ":" + sku
 
-func (imageHandler *AzureImageHandler) setterVMImage(imageName string, os string) *irs.ImageInfo {
 	imageInfo := &irs.ImageInfo{
+		// 2025-01-18: Postpone the deprecation of IID, so revoke IID changes.
 		IId: irs.IID{
 			NameId:   imageName,
 			SystemId: imageName,
 		},
-		GuestOS:      os,
-		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: imageHandler.Region.Region}},
+		Name:           imageName,
+		OSArchitecture: arch,
+		OSPlatform:     platform,
+		OSDistribution: distribution,
+		OSDiskType:     "NA",
+		OSDiskSizeGB:   "-1",
+		ImageStatus:    irs.ImageAvailable,
+		KeyValueList:   irs.StructToKeyValueList(vmiCleintGetRes.VirtualMachineImage),
 	}
 
 	return imageInfo
@@ -134,76 +132,96 @@ func checkRequest(errMessage string) (repeat bool) {
 	return false
 }
 
-func determineOSQuickly(pName, sName, oName string) string {
+func determineArchQuickly(pName, sName, oName string) irs.OSArchitecture {
+	merged := pName + ":" + sName + ":" + oName
+	merged = strings.ToLower(merged)
+	merged = strings.ReplaceAll(merged, "_", "-")
+
+	if strings.Contains(merged, "arm64") {
+		return irs.ARM64
+	}
+
+	return irs.X86_64
+}
+
+func determineOSQuickly(pName, sName, oName string) irs.OSPlatform {
 	merged := pName + ":" + sName + ":" + oName
 	merged = strings.ToLower(merged)
 	merged = strings.ReplaceAll(merged, "_", "-")
 
 	if strings.Contains(merged, "redhat") {
-		return "Linux"
+		return irs.Linux_UNIX
 	}
 
 	if strings.Contains(merged, "rhel") {
-		return "Linux"
+		return irs.Linux_UNIX
 	}
 
 	if strings.Contains(merged, "centos") {
-		return "Linux"
+		return irs.Linux_UNIX
+	}
+
+	if strings.Contains(merged, "fedora") {
+		return irs.Linux_UNIX
 	}
 
 	if strings.Contains(merged, "rocky") {
-		return "Linux"
+		return irs.Linux_UNIX
 	}
 
 	if strings.Contains(merged, "ubuntu") {
-		return "Linux"
+		return irs.Linux_UNIX
 	}
 
 	if strings.Contains(merged, "debian") {
-		return "Linux"
+		return irs.Linux_UNIX
 	}
 
 	if strings.Contains(merged, "suse") {
-		return "Linux"
+		return irs.Linux_UNIX
+	}
+
+	if strings.Contains(merged, "kali") {
+		return irs.Linux_UNIX
 	}
 
 	if strings.Contains(merged, "linux") {
-		return "Linux"
+		return irs.Linux_UNIX
 	}
 
 	if strings.Contains(merged, "windows") {
-		return "Windows"
+		return irs.Windows
 	}
 
 	if strings.Contains(merged, "-win-") {
-		return "Windows"
+		return irs.Windows
 	}
 
 	if strings.HasPrefix(merged, "win-") {
-		return "Windows"
+		return irs.Windows
 	}
 
 	if strings.Contains(merged, "win10") {
-		return "Windows"
+		return irs.Windows
 	}
 
 	if strings.Contains(merged, "win11") {
-		return "Windows"
+		return irs.Windows
 	}
 
 	if strings.Contains(merged, "win20") {
-		return "Windows"
+		return irs.Windows
 	}
 
 	if strings.Contains(merged, "windows") {
-		return "Windows"
+		return irs.Windows
 	}
 
 	if strings.Contains(merged, "visualstudio") && !strings.Contains(merged, "code") {
-		return "Windows"
+		return irs.Windows
 	}
 
-	return ""
+	return irs.PlatformNA
 }
 
 var reqCount int
@@ -224,7 +242,6 @@ var reqWaitCheck = func() {
 }
 
 func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
-	// log HisCall
 	hiscallInfo := GetCallLogScheme(imageHandler.Region, call.VMIMAGE, Image, "ListImage()")
 	start := call.Start()
 	var imageList []*irs.ImageInfo
@@ -383,11 +400,13 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 							imageIdArr := strings.Split(*latest.ID, "/")
 							imageVersion := imageIdArr[len(imageIdArr)-1]
 
+							respGet := armcompute.VirtualMachineImagesClientGetResponse{}
+							arch := determineArchQuickly(pName, oName, sName)
 							os := determineOSQuickly(pName, oName, sName)
-							if os == "" {
+							if os == irs.PlatformNA {
 								for {
 									reqWaitCheck()
-									resp, err := imageHandler.VMImageClient.Get(imageHandler.Ctx, imageHandler.Region.Region, pName, oName, sName, imageVersion, nil)
+									respGet, err = imageHandler.VMImageClient.Get(imageHandler.Ctx, imageHandler.Region.Region, pName, oName, sName, imageVersion, nil)
 									if err != nil {
 										if checkRequest(err.Error()) {
 											continue
@@ -401,19 +420,22 @@ func (imageHandler *AzureImageHandler) ListImage() ([]*irs.ImageInfo, error) {
 										return
 									}
 
-									if resp.VirtualMachineImage.Properties != nil &&
-										resp.VirtualMachineImage.Properties.OSDiskImage != nil &&
-										resp.VirtualMachineImage.Properties.OSDiskImage.OperatingSystem != nil {
-										os = string(*resp.VirtualMachineImage.Properties.OSDiskImage.OperatingSystem)
+									if respGet.VirtualMachineImage.Properties != nil &&
+										respGet.VirtualMachineImage.Properties.OSDiskImage != nil &&
+										respGet.VirtualMachineImage.Properties.OSDiskImage.OperatingSystem != nil {
+										osType := *respGet.VirtualMachineImage.Properties.OSDiskImage.OperatingSystem
+										if osType == armcompute.OperatingSystemTypesLinux {
+											os = irs.Linux_UNIX
+										} else if osType == armcompute.OperatingSystemTypesWindows {
+											os = irs.Windows
+										}
 									}
 
 									break
 								}
 							}
 
-							imageName := pName + ":" + oName + ":" + sName + ":" + imageVersion
-
-							vmImageInfo := imageHandler.setterVMImage(imageName, os)
+							vmImageInfo := imageHandler.setterVMImage(&respGet, pName, oName, sName, imageVersion, arch, os)
 							mutex.Lock()
 							imageList = append(imageList, vmImageInfo)
 							mutex.Unlock()
@@ -493,6 +515,7 @@ func (imageHandler *AzureImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo
 	LoggingInfo(hiscallInfo, start)
 
 	if !(resp.VirtualMachineImage.Properties != nil &&
+		resp.VirtualMachineImage.Properties.Architecture != nil &&
 		resp.VirtualMachineImage.Properties.OSDiskImage != nil &&
 		resp.VirtualMachineImage.Properties.OSDiskImage.OperatingSystem != nil) {
 		createErr := errors.New(fmt.Sprintf("Failed to Get Image. err = Failed to get image information"))
@@ -501,7 +524,76 @@ func (imageHandler *AzureImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo
 		return irs.ImageInfo{}, createErr
 	}
 
-	imageInfo := imageHandler.setterVMImage(strings.Join(imageArr, ":"), string(*resp.VirtualMachineImage.Properties.OSDiskImage.OperatingSystem))
+	arch := irs.ArchitectureNA
+	os := irs.PlatformNA
+
+	archType := *resp.VirtualMachineImage.Properties.Architecture
+	if archType == armcompute.ArchitectureTypesArm64 {
+		arch = irs.ARM64
+	} else if archType == armcompute.ArchitectureTypesX64 {
+		arch = irs.X86_64
+	}
+
+	osType := *resp.VirtualMachineImage.Properties.OSDiskImage.OperatingSystem
+	if osType == armcompute.OperatingSystemTypesLinux {
+		os = irs.Linux_UNIX
+	} else if osType == armcompute.OperatingSystemTypesWindows {
+		os = irs.Windows
+	}
+
+	imageInfo := imageHandler.setterVMImage(&resp, imageArr[0], imageArr[1], imageArr[2], imageArr[3], arch, os)
+	return *imageInfo, nil
+}
+
+func (imageHandler *AzureImageHandler) GetImageN(name string) (irs.ImageInfo, error) {
+	hiscallInfo := GetCallLogScheme(imageHandler.Region, call.VMIMAGE, name, "GetImage()")
+	start := call.Start()
+	imageArr := strings.Split(name, ":")
+
+	if len(imageArr) != 4 {
+		createErr := errors.New(fmt.Sprintf("Failed to Get Image. err = %s", "invalid format for image name, name="+name))
+		cblogger.Error(createErr)
+		LoggingError(hiscallInfo, createErr)
+		return irs.ImageInfo{}, createErr
+	}
+
+	resp, err := imageHandler.VMImageClient.Get(imageHandler.Ctx, imageHandler.Region.Region, imageArr[0], imageArr[1], imageArr[2], imageArr[3], nil)
+	if err != nil {
+		createErr := errors.New(fmt.Sprintf("Failed to Get Image. err = %s", err.Error()))
+		cblogger.Error(createErr)
+		LoggingError(hiscallInfo, createErr)
+		return irs.ImageInfo{}, createErr
+	}
+	LoggingInfo(hiscallInfo, start)
+
+	if !(resp.VirtualMachineImage.Properties != nil &&
+		resp.VirtualMachineImage.Properties.Architecture != nil &&
+		resp.VirtualMachineImage.Properties.OSDiskImage != nil &&
+		resp.VirtualMachineImage.Properties.OSDiskImage.OperatingSystem != nil) {
+		createErr := errors.New(fmt.Sprintf("Failed to Get Image. err = Failed to get image information"))
+		cblogger.Error(createErr)
+		LoggingError(hiscallInfo, createErr)
+		return irs.ImageInfo{}, createErr
+	}
+
+	arch := irs.ArchitectureNA
+	os := irs.PlatformNA
+
+	archType := *resp.VirtualMachineImage.Properties.Architecture
+	if archType == armcompute.ArchitectureTypesArm64 {
+		arch = irs.ARM64
+	} else if archType == armcompute.ArchitectureTypesX64 {
+		arch = irs.X86_64
+	}
+
+	osType := *resp.VirtualMachineImage.Properties.OSDiskImage.OperatingSystem
+	if osType == armcompute.OperatingSystemTypesLinux {
+		os = irs.Linux_UNIX
+	} else if osType == armcompute.OperatingSystemTypesWindows {
+		os = irs.Windows
+	}
+
+	imageInfo := imageHandler.setterVMImage(&resp, imageArr[0], imageArr[1], imageArr[2], imageArr[3], arch, os)
 	return *imageInfo, nil
 }
 

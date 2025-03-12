@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
 	// "github.com/davecgh/go-spew/spew"
 
 	ktvpcsdk "github.com/cloud-barista/ktcloudvpc-sdk-go"
@@ -30,11 +31,11 @@ type KTVpcVMSpecHandler struct {
 }
 
 func (vmSpecHandler *KTVpcVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
-	cblogger.Info("KT Cloud VPC Driver: called ListVMSpec()!")	
+	cblogger.Info("KT Cloud VPC Driver: called ListVMSpec()!")
 	callLogInfo := getCallLogScheme(vmSpecHandler.RegionInfo.Zone, call.VMSPEC, "ListVMSpec()", "ListVMSpec()")
 
-	listOpts :=	flavors.ListOpts{
-		Limit: 300,  //default : 20
+	listOpts := flavors.ListOpts{
+		Limit: 300, //default : 20
 	}
 
 	start := call.Start()
@@ -59,18 +60,18 @@ func (vmSpecHandler *KTVpcVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error)
 	// spew.Dump(specList)
 
 	var vmSpecInfoList []*irs.VMSpecInfo
-    for _, flavor := range flavorList {
+	for _, flavor := range flavorList {
 		vmSpecInfo := vmSpecHandler.mappingVMSpecInfo(&flavor)
 		vmSpecInfoList = append(vmSpecInfoList, vmSpecInfo)
-    }
+	}
 	return vmSpecInfoList, nil
 }
 
 func (vmSpecHandler *KTVpcVMSpecHandler) GetVMSpec(specName string) (irs.VMSpecInfo, error) {
-	cblogger.Info("KT Cloud VPC Driver: called GetVMSpec()!")	
+	cblogger.Info("KT Cloud VPC Driver: called GetVMSpec()!")
 	callLogInfo := getCallLogScheme(vmSpecHandler.RegionInfo.Zone, call.VMSPEC, specName, "GetVMSpec()")
 
-	if strings.EqualFold(specName,"") {
+	if strings.EqualFold(specName, "") {
 		newErr := fmt.Errorf("Invalid vmSpec Name!!")
 		cblogger.Error(newErr.Error())
 		loggingError(callLogInfo, newErr)
@@ -92,12 +93,12 @@ func (vmSpecHandler *KTVpcVMSpecHandler) GetVMSpec(specName string) (irs.VMSpecI
 		return irs.VMSpecInfo{}, err
 	}
 	loggingInfo(callLogInfo, start)
-	vmSpecInfo := vmSpecHandler.mappingVMSpecInfo(vmSpec)	
+	vmSpecInfo := vmSpecHandler.mappingVMSpecInfo(vmSpec)
 	return *vmSpecInfo, nil
 }
 
 func (vmSpecHandler *KTVpcVMSpecHandler) ListOrgVMSpec() (string, error) {
-	cblogger.Info("KT Cloud VPC Driver: called ListOrgVMSpec()!")	
+	cblogger.Info("KT Cloud VPC Driver: called ListOrgVMSpec()!")
 	callLogInfo := getCallLogScheme(vmSpecHandler.RegionInfo.Zone, call.VMSPEC, "ListOrgVMSpec()", "ListOrgVMSpec()")
 
 	var vmSpecInfoList []*irs.VMSpecInfo
@@ -119,10 +120,10 @@ func (vmSpecHandler *KTVpcVMSpecHandler) ListOrgVMSpec() (string, error) {
 }
 
 func (vmSpecHandler *KTVpcVMSpecHandler) GetOrgVMSpec(specName string) (string, error) {
-	cblogger.Info("KT Cloud VPC Driver: called GetOrgVMSpec()!")	
+	cblogger.Info("KT Cloud VPC Driver: called GetOrgVMSpec()!")
 	callLogInfo := getCallLogScheme(vmSpecHandler.RegionInfo.Zone, call.VMSPEC, specName, "GetOrgVMSpec()")
 
-	if strings.EqualFold(specName,"") {
+	if strings.EqualFold(specName, "") {
 		newErr := fmt.Errorf("Invalid vmSpec Name!!")
 		cblogger.Error(newErr.Error())
 		loggingError(callLogInfo, newErr)
@@ -174,28 +175,33 @@ func (vmSpecHandler *KTVpcVMSpecHandler) getVMSpecIdWithName(specName string) (s
 
 func (vmSpecHandler *KTVpcVMSpecHandler) mappingVMSpecInfo(flavor *flavors.Flavor) *irs.VMSpecInfo {
 	cblogger.Info("KT Cloud VPC Driver: called mappingVMSpecInfo()!")
-	// spew.Dump(vmSpec)	
-	vmSpecInfo := irs.VMSpecInfo {
-		Region:       vmSpecHandler.RegionInfo.Zone,
-		Name:         flavor.Name,
-		VCpu:         irs.VCpuInfo{Count: strconv.Itoa(flavor.VCPUs), },
-		Mem:          strconv.Itoa(flavor.RAM),
-		// Gpu:          []irs.GpuInfo{{Count: "N/A", Mfr: "N/A", Model: "N/A", Mem: "N/A"}},
+	// cblogger.Info("\n\n### flavor : ")
+	// spew.Dump(flavor)
 
-		KeyValueList: []irs.KeyValue{
-			{Key: "Zone", Value: vmSpecHandler.RegionInfo.Zone},
-			{Key: "RootDiskSize(GB)", Value: strconv.Itoa(flavor.Disk)},
-			{Key: "EphemeralDiskSize(GB)", Value: strconv.Itoa(flavor.Ephemeral)},
-			{Key: "SwapDiskSize(MB)", Value: strconv.Itoa(flavor.Swap)},
-			{Key: "IsPublic", Value: strconv.FormatBool(flavor.IsPublic)},
-			{Key: "VMSpecID", Value: flavor.ID},
-		},
+	vmSpecInfo := irs.VMSpecInfo{
+		Region:     vmSpecHandler.RegionInfo.Zone,
+		Name:       flavor.Name,
+		VCpu:       irs.VCpuInfo{Count: strconv.Itoa(flavor.VCPUs), ClockGHz: "-1"},
+		MemSizeMiB: strconv.Itoa(flavor.RAM),
+		DiskSizeGB: strconv.Itoa(flavor.Disk),
+
+		KeyValueList: irs.StructToKeyValueList(flavor),
+	}
+
+	// If the flavor name contains "gpu", set the GPU information
+	if strings.Contains(strings.ToLower(flavor.Name), "gpu") {
+		vmSpecInfo.Gpu = []irs.GpuInfo{{
+			Count:     "-1",
+			Mfr:       "NA",
+			Model:     strings.ToUpper(flavor.Name),
+			MemSizeGB: "-1",
+		}}
 	}
 
 	// if strings.EqualFold(strconv.Itoa(vmSpec.Disk), "0") {
 	// 	keyValue := irs.KeyValue {
 	// 		Key:   "Notice",
-	// 		Value: "Specify 'RootDiskType' and 'RootDiskSize' when VM Creation to Boot from the Attached Volume!!",	
+	// 		Value: "Specify 'RootDiskType' and 'RootDiskSize' when VM Creation to Boot from the Attached Volume!!",
 	// 	}
 	// 	vmSpecInfo.KeyValueList = append(vmSpecInfo.KeyValueList, keyValue)
 	// }

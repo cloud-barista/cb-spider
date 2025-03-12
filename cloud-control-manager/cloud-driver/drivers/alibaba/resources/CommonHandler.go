@@ -536,6 +536,38 @@ func DescribeImageByImageId(client *ecs.Client, regionInfo idrv.RegionInfo, imag
 
 /*
 *
+ImageName으로 1개 Image의 정보 조회
+*/
+func DescribeImageByImageName(client *ecs.Client, regionInfo idrv.RegionInfo, imageName string, isMyImage bool) (ecs.Image, error) {
+
+	var imageNameList []string
+	imageNameList = append(imageNameList, imageName)
+
+	var imageIIDList []irs.IID
+	for _, name := range imageNameList {
+		imageIIDList = append(imageIIDList, irs.IID{NameId: name, SystemId: name})
+	}
+
+	imageList, err := DescribeImages(client, regionInfo, imageIIDList, isMyImage)
+	if err != nil {
+		return ecs.Image{}, err
+	}
+
+	//if len(imageList) != 1 {
+	//	return ecs.Image{}, errors.New("search failed")
+	//}
+
+	if len(imageList) == 0 {
+		// return ecs.Image{}, errors.New("no result with request image Name: " + imageName)
+	} else if len(imageList) > 1 {
+		return ecs.Image{}, errors.New("search failed. too many results")
+	}
+
+	return imageList[0], nil
+}
+
+/*
+*
 이미지의 상태 조회
 조회하고 싶은 상태값을 줘야 정상적으로 조회가 됨.(default = available )
 그래서 request 객체에 status를 set하고 DescribeImage를 직접호출함.
@@ -1847,4 +1879,38 @@ func WaitForNlbTagExist(client *slb.Client, regionInfo idrv.RegionInfo, resType 
 	}
 
 	//return false, nil
+}
+
+// GetDiskTypesByZone returns a slice of available disk types for the specified zone
+func getDiskTypesByZone(client *ecs.Client, zoneID string) ([]string, error) {
+
+	// Create DescribeAvailableResource request
+	request := ecs.CreateDescribeAvailableResourceRequest()
+	request.Scheme = "https"
+	request.ZoneId = zoneID
+	request.DestinationResource = "DataDisk"
+	request.ResourceType = "disk"
+
+	response, err := client.DescribeAvailableResource(request)
+	if err != nil {
+		return nil, fmt.Errorf("Alibaba API call failed: %v", err)
+	}
+
+	// Process response and collect disk types
+	var diskTypes []string
+
+	for _, zone := range response.AvailableZones.AvailableZone {
+		if zone.ZoneId == zoneID {
+			for _, resource := range zone.AvailableResources.AvailableResource {
+				for _, diskType := range resource.SupportedResources.SupportedResource {
+					// Only add available disk types
+					if diskType.Status == "Available" {
+						diskTypes = append(diskTypes, diskType.Value)
+					}
+				}
+			}
+		}
+	}
+
+	return diskTypes, nil
 }

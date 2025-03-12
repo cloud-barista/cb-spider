@@ -309,7 +309,7 @@ func DescribeVolumnesBySnapshot(svc *ec2.EC2, snapShotIIDs []string) (*ec2.Descr
 	callLogStart := call.Start()
 
 	result, err := svc.DescribeVolumes(input)
-	callogger.Info("DescribeVolumnesBySnapshot   IN PU T")
+	cblogger.Info("DescribeVolumnesBySnapshot   IN PU T")
 	cblogger.Debug(input)
 
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
@@ -731,8 +731,8 @@ func DescribeRegions(client *ec2.EC2, AllRegionsBool bool, regionName string) (*
 	resp, err := client.DescribeRegions(RegionsInput)
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	callogger.Info(call.String(callLogInfo))
-	callogger.Info("########################")
-	callogger.Info(resp.Regions)
+	cblogger.Info("########################")
+	cblogger.Info(resp.Regions)
 
 	if err != nil {
 		cblogger.Error(err)
@@ -762,7 +762,7 @@ func DescribeAvailabilityZones(client *ec2.EC2, AllRegionsBool bool) (*ec2.Descr
 	respZones, err := client.DescribeAvailabilityZones(nil) //ZonesInput
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	callogger.Info(call.String(callLogInfo))
-	callogger.Info(respZones.AvailabilityZones)
+	cblogger.Info(respZones.AvailabilityZones)
 
 	if err != nil {
 		cblogger.Error(err)

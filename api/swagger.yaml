@@ -236,11 +236,11 @@ definitions:
     properties:
       Count:
         description: Number of GPUs, "-1" when not applicable
-        example: "1"
+        example: "2"
         type: string
-      Mem:
-        description: Memory size of the GPU in MB, "-1" when not applicable
-        example: "8192"
+      MemSizeGB:
+        description: Memory size of the GPU in GB, "-1" when not applicable
+        example: "12"
         type: string
       Mfr:
         description: Manufacturer of the GPU, NA when not applicable
@@ -249,6 +249,10 @@ definitions:
       Model:
         description: Model of the GPU, NA when not applicable
         example: Tesla K80
+        type: string
+      TotalMemSizeGB:
+        description: Total Memory size of the GPU in GB, "-1" when not applicable
+        example: "24"
         type: string
     required:
     - Count
@@ -324,14 +328,15 @@ definitions:
     type: object
   spider.ImageInfo:
     properties:
-      GuestOS:
-        description: Windows7, Ubuntu etc. // Deprecated
-        example: Ubuntu 18.04
-        type: string
       IId:
         allOf:
         - $ref: '#/definitions/spider.IID'
-        description: '{NameId, SystemId} // Deprecated'
+        description: '{NameId, SystemId}, {ami-00aa5a103ddf4509f, ami-00aa5a103ddf4509f}'
+      ImageStatus:
+        allOf:
+        - $ref: '#/definitions/spider.ImageStatus'
+        description: Available, Unavailable
+        example: Available
       KeyValueList:
         items:
           $ref: '#/definitions/spider.KeyValue'
@@ -345,13 +350,13 @@ definitions:
         - $ref: '#/definitions/spider.OSArchitecture'
         description: arm64, x86_64 etc.
         example: x86_64
-      OSDiskSizeInGB:
-        description: 35, etc., GB
-        example: "35"
+      OSDiskSizeGB:
+        description: 10, 50, 100 etc.
+        example: "50"
         type: string
       OSDiskType:
-        description: gp3, etc.
-        example: gp3
+        description: ebs, HDD, etc.
+        example: HDD
         type: string
       OSDistribution:
         description: Ubuntu 22.04~, CentOS 8 etc.
@@ -362,22 +367,15 @@ definitions:
         - $ref: '#/definitions/spider.OSPlatform'
         description: Linux/UNIX, Windows, NA
         example: Linux/UNIX
-      Status:
-        allOf:
-        - $ref: '#/definitions/spider.ImageStatus'
-        description: Available, Unavailable
-        example: Available
     required:
-    - GuestOS
     - IId
+    - ImageStatus
     - Name
     - OSArchitecture
-    - OSDiskSizeInGB
+    - OSDiskSizeGB
     - OSDiskType
     - OSDistribution
     - OSPlatform
-    - Status
-    - Status
     type: object
   spider.ImageStatus:
     enum:
@@ -663,16 +661,22 @@ definitions:
     - NodeGroupDeleting
   spider.OSArchitecture:
     enum:
+    - arm32
     - arm64
     - arm64_mac
+    - x86_32
     - x86_64
+    - x86_32_mac
     - x86_64_mac
     - NA
     type: string
     x-enum-varnames:
+    - ARM32
     - ARM64
     - ARM64_MAC
+    - X86_32
     - X86_64
+    - X86_32_MAC
     - X86_64_MAC
     - ArchitectureNA
   spider.OSPlatform:
@@ -994,12 +998,12 @@ definitions:
     type: object
   spider.VCpuInfo:
     properties:
-      Clock:
+      ClockGHz:
         description: Clock speed in GHz, "-1" when not applicable
         example: "2.5"
         type: string
       Count:
-        description: Number of CPU cores, "-1" when not applicable
+        description: Number of VCpu, "-1" when not applicable
         example: "2"
         type: string
     required:
@@ -1169,7 +1173,7 @@ definitions:
     type: object
   spider.VMSpecInfo:
     properties:
-      Disk:
+      DiskSizeGB:
         description: Disk size in GB, "-1" when not applicable
         example: "8"
         type: string
@@ -1183,8 +1187,8 @@ definitions:
         items:
           $ref: '#/definitions/spider.KeyValue'
         type: array
-      Mem:
-        description: Memory size in MB
+      MemSizeMib:
+        description: Memory size in MiB
         example: "1024"
         type: string
       Name:
@@ -1200,8 +1204,8 @@ definitions:
         - $ref: '#/definitions/spider.VCpuInfo'
         description: CPU details of the VM spec
     required:
-    - Disk
-    - Mem
+    - DiskSizeGB
+    - MemSizeMib
     - Name
     - Region
     - VCpu
@@ -1475,6 +1479,33 @@ definitions:
     - KeyValueInfoList
     - ProviderName
     - RegionName
+    type: object
+  spider.AllResourceInfoListResponse:
+    properties:
+      AllListInfo:
+        properties:
+          MappedInfoList:
+            items: {}
+            type: array
+          OnlyCSPInfoList:
+            items: {}
+            type: array
+          OnlySpiderList:
+            items:
+              $ref: '#/definitions/spider.IID'
+            type: array
+        required:
+        - MappedInfoList
+        - OnlyCSPInfoList
+        - OnlySpiderList
+        type: object
+      ResourceType:
+        allOf:
+        - $ref: '#/definitions/spider.RSType'
+        example: vpc
+    required:
+    - AllListInfo
+    - ResourceType
     type: object
   spider.AllResourceListResponse:
     properties:
@@ -1892,6 +1923,66 @@ definitions:
     required:
     - ConnectionName
     - ReqInfo
+    type: object
+  spider.DriverCapabilityResponse:
+    properties:
+      clusterHandler:
+        description: 'support: true, do not support: false'
+        type: boolean
+      diskHandler:
+        description: 'support: true, do not support: false'
+        type: boolean
+      emulated_VPC:
+        description: 'support: true, do not support: false'
+        type: boolean
+      imageHandler:
+        description: 'support: true, do not support: false'
+        type: boolean
+      keyPairHandler:
+        description: 'support: true, do not support: false'
+        type: boolean
+      myImageHandler:
+        description: 'support: true, do not support: false'
+        type: boolean
+      nlbhandler:
+        description: 'support: true, do not support: false'
+        type: boolean
+      priceInfoHandler:
+        description: 'support: true, do not support: false'
+        type: boolean
+      regionZoneHandler:
+        description: Metadata Handler
+        type: boolean
+      securityHandler:
+        description: 'support: true, do not support: false'
+        type: boolean
+      single_VPC:
+        description: 'support: true, do not support: false'
+        type: boolean
+      tagHandler:
+        description: 'support: true, do not support: false'
+        type: boolean
+      tagSupportResourceType:
+        description: ex) {ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.VM, ires.NLB,
+          ires.DISK, ires.MYIMAGE, ires.CLUSTER}
+        items:
+          $ref: '#/definitions/spider.RSType'
+        type: array
+      vmhandler:
+        description: 'support: true, do not support: false'
+        type: boolean
+      vmspecHandler:
+        description: 'support: true, do not support: false'
+        type: boolean
+      vpc_CIDR:
+        description: etc.
+        type: boolean
+      vpchandler:
+        description: Resource Handler
+        type: boolean
+      zoneBasedControl:
+        description: Resource Control Scope
+        type: boolean
     type: object
   spider.HealthCheckResponse:
     properties:
@@ -2852,6 +2943,12 @@ definitions:
     - ConnectionName
     - ReqInfo
     type: object
+  spider.VersionInfoResponse:
+    properties:
+      Version:
+        example: CB-Spider v0.10.2-22
+        type: string
+    type: object
 host: localhost:1024
 info:
   contact:
@@ -2905,6 +3002,41 @@ paths:
       summary: List All Clusters in a Connection
       tags:
       - '[Cluster Management]'
+  /allclusterinfo:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of all Cluster information associated with a specific
+        connection.
+      operationId: list-all-cluster-info
+      parameters:
+      - description: The name of the Connection to list Cluster information for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all Cluster information within the specified connection
+          schema:
+            $ref: '#/definitions/spider.AllResourceInfoListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid query parameter
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All Cluster Info
+      tags:
+      - '[Cluster Management]'
   /alldisk:
     get:
       consumes:
@@ -2943,6 +3075,26 @@ paths:
       summary: List All Disks in a Connection
       tags:
       - '[Disk Management]'
+  /alldiskinfo:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of all Disk information associated with all connections.
+      operationId: list-all-disk-info
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all Disk information across all connections
+          schema:
+            $ref: '#/definitions/spider.AllResourceListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All Disk Info
+      tags:
+      - '[Disk Management]'
   /allkeypair:
     get:
       consumes:
@@ -2979,6 +3131,26 @@ paths:
           schema:
             $ref: '#/definitions/spider.SimpleMsg'
       summary: List All KeyPairs in a Connection
+      tags:
+      - '[KeyPair Management]'
+  /allkeypairinfo:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of KeyPair information associated with all connections.
+      operationId: list-all-keypair-info
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of KeyPair information associated with all connections
+          schema:
+            $ref: '#/definitions/spider.AllResourceInfoListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All KeyPair Info
       tags:
       - '[KeyPair Management]'
   /allmyimage:
@@ -3020,6 +3192,46 @@ paths:
       summary: List All MyImages in a Connection
       tags:
       - '[MyImage Management]'
+  /allmyimageinfo:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a comprehensive list of all MyImage information associated
+        with a specific connection, <br> including those mapped between CB-Spider
+        and the CSP, <br> only registered in CB-Spider's metadata, <br> and only existing
+        in the CSP.
+      operationId: list-all-myimage-info
+      parameters:
+      - description: The name of the Connection to list MyImage information for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all MyImage information within the specified connection,
+            including MyImage information in CB-Spider only, CSP only, and mapped
+            between both.
+          schema:
+            $ref: '#/definitions/spider.AllResourceInfoListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All MyImage Info
+      tags:
+      - '[MyImage Management]'
   /allnlb:
     get:
       consumes:
@@ -3057,6 +3269,45 @@ paths:
           schema:
             $ref: '#/definitions/spider.SimpleMsg'
       summary: List All NLBs in a Connection
+      tags:
+      - '[NLB Management]'
+  /allnlbinfo:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a comprehensive list of all Network Load Balancers (NLBs)
+        associated with a specific connection, <br> including those mapped between
+        CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br>
+        and only existing in the CSP.
+      operationId: list-all-nlb-info
+      parameters:
+      - description: The name of the Connection to list NLBs for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all NLBs within the specified connection, including
+            NLBs in CB-Spider only, CSP only, and mapped between both.
+          schema:
+            $ref: '#/definitions/spider.AllResourceInfoListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All NLB Info
       tags:
       - '[NLB Management]'
   /allsecuritygroup:
@@ -3099,6 +3350,27 @@ paths:
       summary: List All Security Groups in a Connection
       tags:
       - '[SecurityGroup Management]'
+  /allsecuritygroupinfo:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of Security Group information associated with all
+        connections.
+      operationId: list-all-securitygroup-info
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all Security Group information
+          schema:
+            $ref: '#/definitions/spider.AllResourceInfoListResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All SecurityGroup Info
+      tags:
+      - '[SecurityGroup Management]'
   /allvm:
     get:
       consumes:
@@ -3138,6 +3410,46 @@ paths:
       summary: List All VMs in a Connection
       tags:
       - '[VM Management]'
+  /allvminfo:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of detailed information on all Virtual Machines
+        (VMs) associated with a specific connection, <br> including those mapped between
+        CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br>
+        and only existing in the CSP.
+      operationId: list-all-vm-info
+      parameters:
+      - description: The name of the Connection to list VMs for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of detailed information on all VMs within the specified
+            connection, including VMs in CB-Spider only, CSP only, and mapped between
+            both.
+          schema:
+            $ref: '#/definitions/spider.AllResourceInfoListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All VM Info
+      tags:
+      - '[VM Management]'
   /allvpc:
     get:
       consumes:
@@ -3175,6 +3487,45 @@ paths:
           schema:
             $ref: '#/definitions/spider.SimpleMsg'
       summary: List All VPCs in a Connection
+      tags:
+      - '[VPC Management]'
+  /allvpcinfo:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a comprehensive list of all Virtual Private Clouds (VPCs)
+        associated with a specific connection, <br> including those mapped between
+        CB-Spider and the CSP, <br> only registered in CB-Spider's metadata, <br>
+        and only existing in the CSP.
+      operationId: list-all-vpc-info
+      parameters:
+      - description: The name of the Connection to list VPCs for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of all VPCs within the specified connection, including
+            VPCs in CB-Spider only, CSP only, and mapped between both.
+          schema:
+            $ref: '#/definitions/spider.AllResourceInfoListResponse'
+        "400":
+          description: Bad Request, possibly due to invalid JSON structure or missing
+            fields
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List All VPCs Info
       tags:
       - '[VPC Management]'
   /anycall:
@@ -5174,6 +5525,40 @@ paths:
       summary: Get Cloud Driver
       tags:
       - '[Cloud Info Management] Driver Info'
+  /driver/capability:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve capability information of the cloud driver.
+      operationId: get-driver-capability
+      parameters:
+      - description: Name of connection to retrieve driver capability for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Driver Capability Information Details
+          schema:
+            $ref: '#/definitions/spider.DriverCapabilityResponse'
+        "400":
+          description: Bad Request, possibly due to empty or invalid connection name
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get Driver Capability Information
+      tags:
+      - '[Cloud Driver] Capability'
   /driver/upload:
     post:
       consumes:
@@ -6239,7 +6624,7 @@ paths:
             $ref: '#/definitions/spider.SimpleMsg'
       summary: Get Price Information
       tags:
-      - '[Cloud Metadata] Price'
+      - '[Cloud Metadata] Price Info'
   /productfamily/{RegionName}:
     get:
       consumes:
@@ -6280,7 +6665,7 @@ paths:
             $ref: '#/definitions/spider.SimpleMsg'
       summary: List Product Families
       tags:
-      - '[Cloud Metadata] Price'
+      - '[Cloud Metadata] Price Info'
   /readyz:
     get:
       consumes:
@@ -7419,6 +7804,42 @@ paths:
       summary: Add Rules to SecurityGroup
       tags:
       - '[SecurityGroup Management]'
+  /securitygroup/vpc/{VPCName}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of Security Groups associated with a specific VPC
+        in a given cloud connection.
+      operationId: list-vpc-securitygroup
+      parameters:
+      - description: The name of the VPC to list Security Groups for
+        in: path
+        name: VPCName
+        required: true
+        type: string
+      - description: The name of the Connection to list Security Groups for
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Response containing security groups under the key 'securitygroup'
+          schema:
+            $ref: '#/definitions/spider.SecurityGroupListResponse'
+        "400":
+          description: Bad Request, possibly due to missing parameters
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List Security Groups in a Specific VPC
+      tags:
+      - '[SecurityGroup Management]'
   /tag:
     get:
       consumes:
@@ -7598,6 +8019,26 @@ paths:
       summary: Get Tag
       tags:
       - '[Tag Management]'
+  /version:
+    get:
+      consumes:
+      - application/json
+      description: Retrieves the version information of CB-Spider.
+      operationId: version-info
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Version information retrieved successfully
+          schema:
+            $ref: '#/definitions/spider.VersionInfoResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get Version Information
+      tags:
+      - '[Version]'
   /vm:
     get:
       consumes:

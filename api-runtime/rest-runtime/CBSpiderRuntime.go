@@ -192,6 +192,9 @@ func RunServer() {
 		//----------EndpointInfo
 		{"GET", "/endpointinfo", endpointInfo},
 
+		//---------- Server VersionInfo
+		{"GET", "/version", versionInfo},
+
 		//----------healthcheck
 		{"GET", "/healthcheck", healthCheck},
 		{"GET", "/health", healthCheck},
@@ -203,6 +206,9 @@ func RunServer() {
 
 		//----------CloudOSMetaInfo
 		{"GET", "/cloudos/metainfo/:CloudOSName", GetCloudOSMetaInfo},
+
+		//----------CloudDriver CapabilityInfo
+		{"GET", "/driver/capability", GetDriverCapability},
 
 		//----------CloudDriverInfo
 		{"POST", "/driver", RegisterCloudDriver},
@@ -276,6 +282,7 @@ func RunServer() {
 		{"DELETE", "/vpc/:VPCName/cspsubnet/:Id", RemoveCSPSubnet},
 		//-- for management
 		{"GET", "/allvpc", ListAllVPC},
+		{"GET", "/allvpcinfo", ListAllVPCInfo},
 		{"DELETE", "/cspvpc/:Id", DeleteCSPVPC},
 		//-- for dashboard
 		{"GET", "/countvpc", CountAllVPCs},
@@ -292,6 +299,7 @@ func RunServer() {
 		{"POST", "/securitygroup", CreateSecurity},
 		{"GET", "/securitygroup", ListSecurity},
 		{"GET", "/securitygroup/:Name", GetSecurity},
+		{"GET", "/securitygroup/vpc/:VPCName", ListVpcSecurity},
 		{"DELETE", "/securitygroup/:Name", DeleteSecurity},
 		//-- for rule
 		{"POST", "/securitygroup/:SGName/rules", AddRules},
@@ -299,6 +307,7 @@ func RunServer() {
 		// no CSP Option, {"DELETE", "/securitygroup/:SGName/csprules", RemoveCSPRules},
 		//-- for management
 		{"GET", "/allsecuritygroup", ListAllSecurity},
+		{"GET", "/allsecuritygroupinfo", ListAllSecurityGroupInfo},
 		{"DELETE", "/cspsecuritygroup/:Id", DeleteCSPSecurity},
 		//-- for dashboard
 		{"GET", "/countsecuritygroup", CountAllSecurityGroups},
@@ -314,6 +323,7 @@ func RunServer() {
 		{"DELETE", "/keypair/:Name", DeleteKey},
 		//-- for management
 		{"GET", "/allkeypair", ListAllKey},
+		{"GET", "/allkeypairinfo", ListAllKeyPairInfo},
 		{"DELETE", "/cspkeypair/:Id", DeleteCSPKey},
 		//-- for dashboard
 		{"GET", "/countkeypair", CountAllKeys},
@@ -351,6 +361,7 @@ func RunServer() {
 
 		//-- for management
 		{"GET", "/allvm", ListAllVM},
+		{"GET", "/allvminfo", ListAllVMInfo},
 		{"DELETE", "/cspvm/:Id", TerminateCSPVM},
 		//-- for dashboard
 		{"GET", "/countvm", CountAllVMs},
@@ -376,6 +387,7 @@ func RunServer() {
 
 		//-- for management
 		{"GET", "/allnlb", ListAllNLB},
+		{"GET", "/allnlbinfo", ListAllNLBInfo},
 		{"DELETE", "/cspnlb/:Id", DeleteCSPNLB},
 		//-- for dashboard
 		{"GET", "/countnlb", CountAllNLBs},
@@ -396,6 +408,7 @@ func RunServer() {
 
 		//-- for management
 		{"GET", "/alldisk", ListAllDisk},
+		{"GET", "/alldiskinfo", ListAllDiskInfo},
 		{"DELETE", "/cspdisk/:Id", DeleteCSPDisk},
 		//-- for dashboard
 		{"GET", "/countdisk", CountAllDisks},
@@ -412,6 +425,7 @@ func RunServer() {
 
 		//-- for management
 		{"GET", "/allmyimage", ListAllMyImage},
+		{"GET", "/allmyimageinfo", ListAllMyImageInfo},
 		{"DELETE", "/cspmyimage/:Id", DeleteCSPMyImage},
 		//-- for dashboard
 		{"GET", "/countmyimage", CountAllMyImages},
@@ -437,6 +451,7 @@ func RunServer() {
 
 		//-- for management
 		{"GET", "/allcluster", ListAllCluster},
+		{"GET", "/allclusterinfo", ListAllClusterInfo},
 		{"DELETE", "/cspcluster/:Id", DeleteCSPCluster},
 		//-- for dashboard
 		{"GET", "/countcluster", CountAllClusters},
@@ -531,9 +546,16 @@ func RunServer() {
 		{"GET", "/adminweb/vmimage/:ConnectConfig", aw.VMImage},
 		{"GET", "/adminweb/vmspec/:ConnectConfig", aw.VMSpec},
 		{"GET", "/adminweb/regionzone/:ConnectConfig", aw.RegionZone},
-
 		{"GET", "/adminweb/priceinfo/:ConnectConfig", aw.PriceInfoRequest},
 		{"GET", "/adminweb/priceinfotablelist/:ProductFamily/:RegionName/:ConnectConfig", aw.PriceInfoTableList},
+
+		{"GET", "/adminweb/cmd-agent", aw.CmdAgent},
+		{"POST", "/adminweb/generate-cmd", aw.GenerateCmd},
+
+		{"GET", "/adminweb/calllog-analyzer", aw.CallLogAnalyzer},
+		{"POST", "/adminweb/analyze-logs", aw.AnalyzeLogs},
+		{"GET", "/adminweb/read-logs", aw.GetReadLogs},
+
 		// download price info with JSON file
 		{"GET", "/adminweb/priceinfo/download/:FileName", aw.DownloadPriceInfo},
 
@@ -616,6 +638,7 @@ func ApiServer(routes []route) {
 
 	// SkipAuthPaths defines paths to skip authentication
 	SkipAuthPaths := map[string]bool{
+		"/spider/version":     true,
 		"/spider/healthcheck": true,
 		"/spider/health":      true,
 		"/spider/ping":        true,
@@ -699,6 +722,46 @@ func endpointInfo(c echo.Context) error {
 	// endpointInfo += fmt.Sprintf("     - Go   API: %s\n", gRPCServer)
 
 	return c.String(http.StatusOK, endpointInfo)
+}
+
+// ================ Version Info
+// func versionInfo(c echo.Context) error {
+// 	cblog.Info("call versionInfo()")
+
+// 	versionInfo := fmt.Sprintf("\n  <CB-Spider> Multi-Cloud Infrastructure Federation Framework\n")
+// 	versionInfo += fmt.Sprintf("     - Version: %s\n", ar.Version)
+// 	versionInfo += fmt.Sprintf("     - Git Commit SHA: %s\n", ar.CommitSHA)
+// 	versionInfo += fmt.Sprintf("     - Build Timestamp: %s\n", ar.BuildTime)
+// 	versionInfo += fmt.Sprintf("     - Server Started At: %s\n", cr.StartTime)
+
+//		return c.String(http.StatusOK, versionInfo)
+//	}
+//
+// VersionInfoResponse represents the response body for the versionInfo API.
+type VersionInfoResponse struct {
+	Version string `json:"Version" example:"CB-Spider v0.10.2-22"`
+}
+
+var spiderVersionInfo = VersionInfoResponse{}
+
+func SetVersionInfo(version string) {
+	spiderVersionInfo.Version = "CB-Spider " + version
+}
+
+// versionInfo godoc
+// @ID version-info
+// @Summary Get Version Information
+// @Description Retrieves the version information of CB-Spider.
+// @Tags [Version]
+// @Accept  json
+// @Produce  json
+// @Success 200 {object} VersionInfoResponse "Version information retrieved successfully"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /version [get]
+func versionInfo(c echo.Context) error {
+	cblog.Info("call versionInfo()")
+
+	return c.JSON(http.StatusOK, spiderVersionInfo)
 }
 
 // HealthCheckResponse represents the response body for the healthCheck API.

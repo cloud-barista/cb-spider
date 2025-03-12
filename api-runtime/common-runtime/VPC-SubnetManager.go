@@ -90,10 +90,19 @@ func RegisterVPC(connectionName string, userIID cres.IID) (*cres.VPCInfo, error)
 	defer vpcSPLock.Unlock(connectionName, userIID.NameId)
 
 	// (1) check existence with NameId
-	bool_ret, err := infostore.HasByConditions(&VPCIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, userIID.NameId)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	var bool_ret bool
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		bool_ret, err = infostore.HasByCondition(&VPCIIDInfo{}, NAME_ID_COLUMN, userIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		bool_ret, err = infostore.HasByConditions(&VPCIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, userIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	rsType := VPC
 	if bool_ret {
@@ -207,6 +216,26 @@ func RegisterSubnet(connectionName string, zoneId string, vpcName string, userII
 		return nil, err
 	}
 
+	// Subnet and Disk can be created in a specific Zone(Zone-Based Control).
+	// but, Some CSPs do not support Zone-Based Control.
+	// if the Zone info is different from defaultZoneId,
+	// check the capability of ZONE_BASED_CONTROL for the CSP
+	// (1) get defaultZoneId with ConnectionName
+	_, defaultZoneId, err := ccm.GetRegionNameByConnectionName(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// (2) check the Zone info and the capability of ZONE_BASED_CONTROL
+	if zoneId != "" && zoneId != defaultZoneId {
+		err := checkCapability(connectionName, ZONE_BASED_CONTROL)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	}
+
 	if zoneId == "" {
 		// get defaultZoneId
 		_, zoneId, err = ccm.GetRegionNameByConnectionName(connectionName)
@@ -231,25 +260,62 @@ func RegisterSubnet(connectionName string, zoneId string, vpcName string, userII
 	vpcSPLock.Lock(connectionName, userIID.NameId)
 	defer vpcSPLock.Unlock(connectionName, userIID.NameId)
 
+	var iidInfoList []*VPCIIDInfo
 	// (1) check existence with NameId
-	bool_ret, err := infostore.HasBy3Conditions(&SubnetIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, OWNER_VPC_NAME_COLUMN, vpcName, NAME_ID_COLUMN, userIID.NameId)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	var bool_ret bool
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		// check permission to vpcName
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		isExist, err := isNameIdExists(&iidInfoList, vpcName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		if !isExist {
+			err := fmt.Errorf("%s", "The VPC-"+vpcName+" does not exist!")
+			cblog.Error(err)
+			return nil, err
+		}
+
+		bool_ret, err = infostore.HasByConditions(&SubnetIIDInfo{}, OWNER_VPC_NAME_COLUMN, vpcName, NAME_ID_COLUMN, userIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+
+	} else {
+		bool_ret, err = infostore.HasBy3Conditions(&SubnetIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, OWNER_VPC_NAME_COLUMN, vpcName, NAME_ID_COLUMN, userIID.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	rsType := SUBNET
 	if bool_ret {
-		err := fmt.Errorf(rsType + "-" + userIID.NameId + " already exists!")
+		err := fmt.Errorf("%s", rsType+"-"+userIID.NameId+" already exists!")
 		cblog.Error(err)
 		return nil, err
 	}
 
 	// (2) get resource info(CSP-ID)
 	var iidInfo VPCIIDInfo
-	err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, vpcName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		iidInfo = *castedIIDInfo.(*VPCIIDInfo)
+	} else {
+		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 
 	// (2) get resource(driverIID)
@@ -270,7 +336,7 @@ func RegisterSubnet(connectionName string, zoneId string, vpcName string, userII
 		if subnetInfo.IId.SystemId == userIID.SystemId {
 			// insert a subnet SpiderIID to metadb
 			subnetSpiderIId := cres.IID{NameId: subnetUserId, SystemId: systemId + ":" + subnetInfo.IId.SystemId}
-			err = infostore.Insert(&SubnetIIDInfo{ConnectionName: connectionName, ZoneId: zoneId, NameId: subnetSpiderIId.NameId, SystemId: subnetSpiderIId.SystemId,
+			err = infostore.Insert(&SubnetIIDInfo{ConnectionName: iidInfo.ConnectionName, ZoneId: zoneId, NameId: subnetSpiderIId.NameId, SystemId: subnetSpiderIId.SystemId,
 				OwnerVPCName: vpcName})
 			if err != nil {
 				cblog.Error(err)
@@ -318,23 +384,40 @@ func UnregisterSubnet(connectionName string, vpcName string, nameId string) (boo
 	defer vpcSPLock.Unlock(connectionName, nameId)
 
 	// (1) check existence with NameId
-	bool_ret, err := infostore.HasBy3Conditions(&SubnetIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, OWNER_VPC_NAME_COLUMN, vpcName, NAME_ID_COLUMN, nameId)
-	if err != nil {
-		cblog.Error(err)
-		return false, err
+	var bool_ret bool
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		bool_ret, err = infostore.HasByConditions(&SubnetIIDInfo{}, OWNER_VPC_NAME_COLUMN, vpcName, NAME_ID_COLUMN, nameId)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+	} else {
+		bool_ret, err = infostore.HasBy3Conditions(&SubnetIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, OWNER_VPC_NAME_COLUMN, vpcName, NAME_ID_COLUMN, nameId)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
 	}
 	rsType := SUBNET
 	if !bool_ret {
-		err := fmt.Errorf("The " + rsType + "-" + nameId + " in " + vpcName + " does not exist!")
+		err := fmt.Errorf("%s", "The "+rsType+"-"+nameId+" in "+vpcName+" does not exist!")
 		cblog.Error(err)
 		return false, err
 	}
 
 	// (2) delete subnet's spiderIIDs from metadb
-	_, err = infostore.DeleteBy3Conditions(&SubnetIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, OWNER_VPC_NAME_COLUMN, vpcName, NAME_ID_COLUMN, nameId)
-	if err != nil {
-		cblog.Error(err)
-		return false, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		_, err = infostore.DeleteByConditions(&SubnetIIDInfo{}, OWNER_VPC_NAME_COLUMN, vpcName, NAME_ID_COLUMN, nameId)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+	} else {
+		_, err = infostore.DeleteBy3Conditions(&SubnetIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, OWNER_VPC_NAME_COLUMN, vpcName, NAME_ID_COLUMN, nameId)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
 	}
 	return true, nil
 }
@@ -375,6 +458,28 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo, ID
 		return nil, err
 	}
 
+	// Subnet and Disk can be created in a specific Zone(Zone-Based Control).
+	// but, Some CSPs do not support Zone-Based Control.
+	// if the Zone info is different from defaultZoneId,
+	// check the capability of ZONE_BASED_CONTROL for the CSP
+	// (1) get defaultZoneId with ConnectionName
+	_, defaultZoneId, err := ccm.GetRegionNameByConnectionName(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// (2) check the Zone info and the capability of ZONE_BASED_CONTROL
+	for _, subnetInfo := range reqInfo.SubnetInfoList {
+		if subnetInfo.Zone != "" && subnetInfo.Zone != defaultZoneId {
+			err := checkCapability(connectionName, ZONE_BASED_CONTROL)
+			if err != nil {
+				cblog.Error(err)
+				return nil, err
+			}
+		}
+	}
+
 	cldConn, err := ccm.GetCloudConnection(connectionName)
 	if err != nil {
 		cblog.Error(err)
@@ -391,13 +496,22 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo, ID
 	defer vpcSPLock.Unlock(connectionName, reqInfo.IId.NameId)
 
 	// (1) check existence with NameId
-	bool_ret, err := infostore.HasByConditions(&VPCIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, reqInfo.IId.NameId)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	bool_ret := false
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		bool_ret, err = infostore.HasByCondition(&VPCIIDInfo{}, NAME_ID_COLUMN, reqInfo.IId.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		bool_ret, err = infostore.HasByConditions(&VPCIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, reqInfo.IId.NameId)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	if bool_ret {
-		err := fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
+		err := fmt.Errorf("%s", rsType+"-"+reqInfo.IId.NameId+" already exists!")
 		cblog.Error(err)
 		return nil, err
 	}
@@ -416,7 +530,7 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo, ID
 			return nil, err
 		}
 		if len(vpcIIDInfoList) > 0 {
-			err := fmt.Errorf(rsType + "-" + connectionName + " can have only 1 VPC, but already have a VPC " + vpcIIDInfoList[0].NameId)
+			err := fmt.Errorf("%s", rsType+"-"+connectionName+" can have only 1 VPC, but already have a VPC "+vpcIIDInfoList[0].NameId)
 			cblog.Error(err)
 			return nil, err
 		}
@@ -510,7 +624,7 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo, ID
 		_, err2 := handler.DeleteVPC(info.IId)
 		if err2 != nil {
 			cblog.Error(err2)
-			return nil, fmt.Errorf(err.Error() + ", " + err2.Error())
+			return nil, fmt.Errorf("%s", err.Error()+", "+err2.Error())
 		}
 		cblog.Error(err)
 		return nil, err
@@ -537,14 +651,14 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo, ID
 			_, err2 := handler.DeleteVPC(info.IId)
 			if err2 != nil {
 				cblog.Error(err2)
-				return nil, fmt.Errorf(err.Error() + ", " + err2.Error())
+				return nil, fmt.Errorf("%s", err.Error()+", "+err2.Error())
 			}
 			// (2) for VPC IID
 			cblog.Info("<<ROLLBACK:TRY:VPC-IID>> " + info.IId.NameId)
 			_, err3 := infostore.DeleteByConditions(&VPCIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, spiderIId.NameId)
 			if err3 != nil {
 				cblog.Error(err3)
-				return nil, fmt.Errorf(err.Error() + ", " + err3.Error())
+				return nil, fmt.Errorf("%s", err.Error()+", "+err3.Error())
 			}
 			// (3) for Subnet IID
 			// delete all subnets of target VPC
@@ -633,16 +747,10 @@ func ListVPC(connectionName string, rsType string) ([]*cres.VPCInfo, error) {
 	// (1) get IID:list
 	var iidInfoList []*VPCIIDInfo
 	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-		// fetch granted idlist from CSP
-		iidList, err := handler.ListIID()
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
-		}
-		err2 := getAuthorizedIIdInfoList(iidList, connectionName, &iidInfoList)
-		if err2 != nil {
-			cblog.Error(err2)
-			return nil, err2
 		}
 	} else {
 		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
@@ -683,7 +791,9 @@ func ListVPC(connectionName string, rsType string) ([]*cres.VPCInfo, error) {
 
 		if chanInfo.err != nil {
 			if checkNotFoundError(chanInfo.err) {
-				cblog.Info(chanInfo.err)
+				cblog.Error(chanInfo.err)
+				info := cres.VPCInfo{IId: cres.IID{NameId: iidInfoList[idx].NameId, SystemId: iidInfoList[idx].SystemId}}
+				resultInfoList = append(resultInfoList, &info)
 			} else {
 				errList = append(errList, connectionName+":VPC:"+iidInfoList[idx].NameId+" # "+chanInfo.err.Error())
 			}
@@ -786,11 +896,18 @@ func GetVPC(connectionName string, rsType string, nameID string) (*cres.VPCInfo,
 	// (1) get spiderIID(NameId)
 	var iidInfo VPCIIDInfo
 	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-		err = getAuthorizedIIdInfo(connectionName, nameID, &iidInfo)
+		var iidInfoList []*VPCIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
 		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		iidInfo = *castedIIDInfo.(*VPCIIDInfo)
 	} else {
 		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
 		if err != nil {
@@ -850,6 +967,26 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 		return nil, err
 	}
 
+	// Subnet and Disk can be created in a specific Zone(Zone-Based Control).
+	// but, Some CSPs do not support Zone-Based Control.
+	// if the Zone info is different from defaultZoneId,
+	// check the capability of ZONE_BASED_CONTROL for the CSP
+	// (1) get defaultZoneId with ConnectionName
+	_, defaultZoneId, err := ccm.GetRegionNameByConnectionName(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return nil, err
+	}
+
+	// (2) check the Zone info and the capability of ZONE_BASED_CONTROL
+	if reqInfo.Zone != "" && reqInfo.Zone != defaultZoneId {
+		err := checkCapability(connectionName, ZONE_BASED_CONTROL)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	}
+
 	vpcName, err = EmptyCheckAndTrim("vpcName", vpcName)
 	if err != nil {
 		cblog.Error(err)
@@ -871,25 +1008,58 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 	vpcSPLock.Lock(connectionName, vpcName)
 	defer vpcSPLock.Unlock(connectionName, vpcName)
 	// (1) check exist(NameID)
-	bool_ret, err := infostore.HasBy3Conditions(&SubnetIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName,
-		NAME_ID_COLUMN, reqInfo.IId.NameId, OWNER_VPC_NAME_COLUMN, vpcName)
-	if err != nil {
-		cblog.Error(err)
-		return nil, err
+	bool_ret := false
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		// 1. get VPC IIDInfo
+		var iidInfoList []*VPCIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, vpcName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		vpcIIDInfo := *castedIIDInfo.(*VPCIIDInfo)
+
+		// 2. check exist(Subnet NameID) in ConnectionName of VPC IIDInfo
+		bool_ret, err = infostore.HasBy3Conditions(&SubnetIIDInfo{}, CONNECTION_NAME_COLUMN, vpcIIDInfo.ConnectionName,
+			NAME_ID_COLUMN, reqInfo.IId.NameId, OWNER_VPC_NAME_COLUMN, vpcName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+	} else {
+		bool_ret, err = infostore.HasBy3Conditions(&SubnetIIDInfo{}, CONNECTION_NAME_COLUMN, connectionName,
+			NAME_ID_COLUMN, reqInfo.IId.NameId, OWNER_VPC_NAME_COLUMN, vpcName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
 	}
 	if bool_ret {
-		err := fmt.Errorf(rsType + "-" + reqInfo.IId.NameId + " already exists!")
+		err := fmt.Errorf("%s", rsType+"-"+reqInfo.IId.NameId+" already exists!")
 		cblog.Error(err)
 		return nil, err
 	}
 	// (2) create Resource
 	var iidVPCInfo VPCIIDInfo
 	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-		err = getAuthorizedIIdInfo(connectionName, vpcName, &iidVPCInfo)
+		// fetch all idlist from metadb without connectionName condition
+		var iidInfoList []*VPCIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
 		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, vpcName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		iidVPCInfo = *castedIIDInfo.(*VPCIIDInfo)
 	} else {
 		err = infostore.GetByConditions(&iidVPCInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcName)
 		if err != nil {
@@ -947,7 +1117,7 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 				_, err2 := handler.RemoveSubnet(getDriverIID(cres.IID{NameId: iidVPCInfo.NameId, SystemId: iidVPCInfo.SystemId}), subnetInfo.IId)
 				if err2 != nil {
 					cblog.Error(err2)
-					return nil, fmt.Errorf(err.Error() + ", " + err2.Error())
+					return nil, fmt.Errorf("%s", err.Error()+", "+err2.Error())
 				}
 				// (2) for Subnet IID
 				cblog.Info("<<ROLLBACK:TRY:VPC-SUBNET-IID>> " + subnetInfo.IId.NameId)
@@ -955,7 +1125,7 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 					OWNER_VPC_NAME_COLUMN, vpcName)
 				if err3 != nil {
 					cblog.Error(err3)
-					return nil, fmt.Errorf(err.Error() + ", " + err3.Error())
+					return nil, fmt.Errorf("%s", err.Error()+", "+err3.Error())
 				}
 				cblog.Error(err)
 				return nil, err
@@ -1041,11 +1211,18 @@ func GetSubnet(connectionName string, vpcName string, nameID string) (*cres.Subn
 	// (5) Get VPC IID Info from infostore
 	var iidInfo VPCIIDInfo
 	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-		err = getAuthorizedIIdInfo(connectionName, vpcName, &iidInfo)
+		var iidInfoList []*VPCIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
 		if err != nil {
 			cblog.Error(err)
 			return nil, err
 		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, vpcName)
+		if err != nil {
+			cblog.Error(err)
+			return nil, err
+		}
+		iidInfo = *castedIIDInfo.(*VPCIIDInfo)
 	} else {
 		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcName)
 		if err != nil {
@@ -1125,7 +1302,22 @@ func RemoveSubnet(connectionName string, vpcName string, nameID string, force st
 	// (1) get spiderIID for creating driverIID
 	var iidInfo SubnetIIDInfo
 	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-		err = getAuthorizedIIdInfoInVPC(connectionName, nameID, vpcName, &iidInfo)
+		// 1. get VPC IIDInfo
+		var iidInfoList []*VPCIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, vpcName)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		vpcIIDInfo := *castedIIDInfo.(*VPCIIDInfo)
+
+		// 2. get Subnet IIDInfo
+		err = infostore.GetBy3Conditions(&iidInfo, CONNECTION_NAME_COLUMN, vpcIIDInfo.ConnectionName, NAME_ID_COLUMN, nameID, OWNER_VPC_NAME_COLUMN, vpcName)
 		if err != nil {
 			cblog.Error(err)
 			return false, err
@@ -1163,7 +1355,10 @@ func RemoveSubnet(connectionName string, vpcName string, nameID string, force st
 	result, err = handler.(cres.VPCHandler).RemoveSubnet(getDriverIID(cres.IID{NameId: iidVPCInfo.NameId, SystemId: iidVPCInfo.SystemId}), driverIId)
 	if err != nil {
 		cblog.Error(err)
-		if force != "true" {
+		if checkNotFoundError(err) {
+			// if not found in CSP, continue
+			force = "true"
+		} else if force != "true" {
 			return false, err
 		}
 	}
@@ -1228,10 +1423,25 @@ func RemoveCSPSubnet(connectionName string, vpcName string, systemID string) (bo
 	result := false
 	// get owner vpc IIDInfo
 	var iidVPCInfo VPCIIDInfo
-	err = infostore.GetByConditions(&iidVPCInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcName)
-	if err != nil {
-		cblog.Error(err)
-		return false, err
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		var iidInfoList []*VPCIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, vpcName)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		iidVPCInfo = *castedIIDInfo.(*VPCIIDInfo)
+	} else {
+		err = infostore.GetByConditions(&iidVPCInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, vpcName)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
 	}
 	result, err = handler.(cres.VPCHandler).RemoveSubnet(getDriverIID(cres.IID{NameId: iidVPCInfo.NameId, SystemId: iidVPCInfo.SystemId}), iid)
 	if err != nil {
@@ -1279,11 +1489,18 @@ func DeleteVPC(connectionName string, rsType string, nameID string, force string
 	// (1) get spiderIID for creating driverIID
 	var iidInfo VPCIIDInfo
 	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
-		err = getAuthorizedIIdInfo(connectionName, nameID, &iidInfo)
+		var iidInfoList []*VPCIIDInfo
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
 		if err != nil {
 			cblog.Error(err)
 			return false, err
 		}
+		castedIIDInfo, err := getAuthIIDInfo(&iidInfoList, nameID)
+		if err != nil {
+			cblog.Error(err)
+			return false, err
+		}
+		iidInfo = *castedIIDInfo.(*VPCIIDInfo)
 	} else {
 		err = infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
 		if err != nil {
@@ -1298,7 +1515,10 @@ func DeleteVPC(connectionName string, rsType string, nameID string, force string
 	result, err = handler.(cres.VPCHandler).DeleteVPC(driverIId)
 	if err != nil {
 		cblog.Error(err)
-		if force != "true" {
+		if checkNotFoundError(err) {
+			// if not found in CSP, continue
+			force = "true"
+		} else if force != "true" {
 			return false, err
 		}
 	}

@@ -288,34 +288,6 @@ func GetByConditions(info interface{}, columnName1 string, columnValue1 string, 
 	return nil
 }
 
-// GetByConditionAndContain finds an entry that matches the given conditions:
-// - columnName1 must equal columnValue1
-// - columnName2 must contain columnContainValue2
-func GetByConditionAndContain(info interface{}, columnName1 string, columnValue1 string, columnName2 string, columnContainValue2 string) error {
-	db, err := Open()
-	if err != nil {
-		return err
-	}
-	defer Close(db)
-
-	// Check if columnValue3 is empty and handle accordingly
-	if columnContainValue2 == "" {
-		return fmt.Errorf("%s, %s: does not exist!", columnValue1, columnContainValue2)
-	}
-
-	// Use LIKE operator for columnName2 to check if it contains columnContainValue2
-	query := fmt.Sprintf("%s = ? AND %s LIKE ?", columnName1, columnName2)
-	if err := db.Where(query, columnValue1, "%"+columnContainValue2+"%").First(&info).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return fmt.Errorf("%s, %s: does not exist!", columnValue1, columnContainValue2)
-		} else {
-			return fmt.Errorf("%s, %s: %v", columnValue1, columnContainValue2, err)
-		}
-	}
-
-	return nil
-}
-
 // Get a Info with three conditions(Conneciton Name, Resource NameId, Owner VPC Name)
 func GetBy3Conditions(info interface{}, columnName1 string, columnValue1 string, columnName2 string, columnValue2 string,
 	columnName3 string, columnValue3 string) error {
@@ -356,6 +328,34 @@ func GetByContain(info interface{}, columnName1 string, columnValue1 string, col
 	return nil
 }
 
+// GetByConditionAndContain finds an entry that matches the given conditions:
+// - columnName1 must equal columnValue1
+// - columnName2 must contain columnContainValue2
+func GetByConditionAndContain(info interface{}, columnName1 string, columnValue1 string, columnName2 string, columnContainValue2 string) error {
+	db, err := Open()
+	if err != nil {
+		return err
+	}
+	defer Close(db)
+
+	// Check if columnValue3 is empty and handle accordingly
+	if columnContainValue2 == "" {
+		return fmt.Errorf("%s, %s: does not exist!", columnValue1, columnContainValue2)
+	}
+
+	// Use LIKE operator for columnName2 to check if it contains columnContainValue2
+	query := fmt.Sprintf("%s = ? AND %s LIKE ?", columnName1, columnName2)
+	if err := db.Where(query, columnValue1, "%"+columnContainValue2+"%").First(&info).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return fmt.Errorf("%s, %s: does not exist!", columnValue1, columnContainValue2)
+		} else {
+			return fmt.Errorf("%s, %s: %v", columnValue1, columnContainValue2, err)
+		}
+	}
+
+	return nil
+}
+
 // Get a Info with two conditions(Conneciton Name, Resource NameId) and contain(contained_text)
 func GetByConditionsAndContain(info interface{}, columnName1 string, columnValue1 string, columnName2 string, columnValue2 string,
 	columnName3 string, columnValue3 string) error {
@@ -380,6 +380,25 @@ func GetByConditionsAndContain(info interface{}, columnName1 string, columnValue
 	}
 
 	return nil
+}
+
+// Check if an Info exists with one condition (Connection Name or Resource NameId)
+func HasByCondition(info interface{}, columnName1 string, columnValue1 string) (bool, error) {
+	db, err := Open()
+	if err != nil {
+		return false, err
+	}
+	defer Close(db)
+
+	if err := db.Where(columnName1+" = ?", columnValue1).First(&info).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return false, nil
+		} else {
+			return false, fmt.Errorf("%s: %v", columnValue1, err)
+		}
+	}
+
+	return true, nil
 }
 
 // Check if a Info exists with two conditions(Conneciton Name, Resource NameId)
@@ -415,6 +434,27 @@ func HasBy3Conditions(info interface{}, columnName1 string, columnValue1 string,
 			return false, nil
 		} else {
 			return false, fmt.Errorf(columnValue1+", "+columnValue2+": %v", err)
+		}
+	}
+
+	return true, nil
+}
+
+// Delete Info with one condition
+// ex) Owner VPC Name
+func DeleteByCondition(info interface{}, columnName string, columnValue string) (bool, error) {
+	db, err := Open()
+	if err != nil {
+		return false, err
+	}
+
+	defer Close(db)
+
+	if err := db.Delete(&info, columnName+" = ?", columnValue).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return false, fmt.Errorf("%s: does not exist!", columnValue)
+		} else {
+			return false, fmt.Errorf("%s: %v", columnValue, err)
 		}
 	}
 

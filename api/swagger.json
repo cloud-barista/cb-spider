@@ -71,6 +71,57 @@
                 }
             }
         },
+        "/allclusterinfo": {
+            "get": {
+                "description": "Retrieve a list of all Cluster information associated with a specific connection.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cluster Management]"
+                ],
+                "summary": "List All Cluster Info",
+                "operationId": "list-all-cluster-info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list Cluster information for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of all Cluster information within the specified connection",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceInfoListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid query parameter",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/alldisk": {
             "get": {
                 "description": "Retrieve a comprehensive list of all Disks associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
@@ -111,6 +162,36 @@
                         "description": "Resource Not Found",
                         "schema": {
                             "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/alldiskinfo": {
+            "get": {
+                "description": "Retrieve a list of all Disk information associated with all connections.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Disk Management]"
+                ],
+                "summary": "List All Disk Info",
+                "operationId": "list-all-disk-info",
+                "responses": {
+                    "200": {
+                        "description": "List of all Disk information across all connections",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceListResponse"
                         }
                     },
                     "500": {
@@ -173,6 +254,36 @@
                 }
             }
         },
+        "/allkeypairinfo": {
+            "get": {
+                "description": "Retrieve a list of KeyPair information associated with all connections.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[KeyPair Management]"
+                ],
+                "summary": "List All KeyPair Info",
+                "operationId": "list-all-keypair-info",
+                "responses": {
+                    "200": {
+                        "description": "List of KeyPair information associated with all connections",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceInfoListResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/allmyimage": {
             "get": {
                 "description": "Retrieve a comprehensive list of all MyImages associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
@@ -201,6 +312,57 @@
                         "description": "List of all MyImages within the specified connection, including MyImages in CB-Spider only, CSP only, and mapped between both.",
                         "schema": {
                             "$ref": "#/definitions/spider.AllResourceListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/allmyimageinfo": {
+            "get": {
+                "description": "Retrieve a comprehensive list of all MyImage information associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[MyImage Management]"
+                ],
+                "summary": "List All MyImage Info",
+                "operationId": "list-all-myimage-info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list MyImage information for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of all MyImage information within the specified connection, including MyImage information in CB-Spider only, CSP only, and mapped between both.",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceInfoListResponse"
                         }
                     },
                     "400": {
@@ -275,6 +437,57 @@
                 }
             }
         },
+        "/allnlbinfo": {
+            "get": {
+                "description": "Retrieve a comprehensive list of all Network Load Balancers (NLBs) associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[NLB Management]"
+                ],
+                "summary": "List All NLB Info",
+                "operationId": "list-all-nlb-info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list NLBs for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of all NLBs within the specified connection, including NLBs in CB-Spider only, CSP only, and mapped between both.",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceInfoListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/allsecuritygroup": {
             "get": {
                 "description": "Retrieve a comprehensive list of all Security Groups associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
@@ -315,6 +528,36 @@
                         "description": "Resource Not Found",
                         "schema": {
                             "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/allsecuritygroupinfo": {
+            "get": {
+                "description": "Retrieve a list of Security Group information associated with all connections.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[SecurityGroup Management]"
+                ],
+                "summary": "List All SecurityGroup Info",
+                "operationId": "list-all-securitygroup-info",
+                "responses": {
+                    "200": {
+                        "description": "List of all Security Group information",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceInfoListResponse"
                         }
                     },
                     "500": {
@@ -377,6 +620,57 @@
                 }
             }
         },
+        "/allvminfo": {
+            "get": {
+                "description": "Retrieve a list of detailed information on all Virtual Machines (VMs) associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VM Management]"
+                ],
+                "summary": "List All VM Info",
+                "operationId": "list-all-vm-info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list VMs for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of detailed information on all VMs within the specified connection, including VMs in CB-Spider only, CSP only, and mapped between both.",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceInfoListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/allvpc": {
             "get": {
                 "description": "Retrieve a comprehensive list of all Virtual Private Clouds (VPCs) associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
@@ -405,6 +699,57 @@
                         "description": "List of all VPCs within the specified connection, including VPCs in CB-Spider only, CSP only, and mapped between both.",
                         "schema": {
                             "$ref": "#/definitions/spider.AllResourceListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to invalid JSON structure or missing fields",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/allvpcinfo": {
+            "get": {
+                "description": "Retrieve a comprehensive list of all Virtual Private Clouds (VPCs) associated with a specific connection, \u003cbr\u003e including those mapped between CB-Spider and the CSP, \u003cbr\u003e only registered in CB-Spider's metadata, \u003cbr\u003e and only existing in the CSP.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[VPC Management]"
+                ],
+                "summary": "List All VPCs Info",
+                "operationId": "list-all-vpc-info",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list VPCs for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of all VPCs within the specified connection, including VPCs in CB-Spider only, CSP only, and mapped between both.",
+                        "schema": {
+                            "$ref": "#/definitions/spider.AllResourceInfoListResponse"
                         }
                     },
                     "400": {
@@ -3273,6 +3618,57 @@
                 }
             }
         },
+        "/driver/capability": {
+            "get": {
+                "description": "Retrieve capability information of the cloud driver.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cloud Driver] Capability"
+                ],
+                "summary": "Get Driver Capability Information",
+                "operationId": "get-driver-capability",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Name of connection to retrieve driver capability for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Driver Capability Information Details",
+                        "schema": {
+                            "$ref": "#/definitions/spider.DriverCapabilityResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to empty or invalid connection name",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/driver/upload": {
             "post": {
                 "description": "Upload a Cloud Driver library file.",
@@ -4842,7 +5238,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "[Cloud Metadata] Price"
+                    "[Cloud Metadata] Price Info"
                 ],
                 "summary": "Get Price Information",
                 "operationId": "get-price-info",
@@ -4908,7 +5304,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "[Cloud Metadata] Price"
+                    "[Cloud Metadata] Price Info"
                 ],
                 "summary": "List Product Families",
                 "operationId": "list-product-family",
@@ -6376,6 +6772,58 @@
                 }
             }
         },
+        "/securitygroup/vpc/{VPCName}": {
+            "get": {
+                "description": "Retrieve a list of Security Groups associated with a specific VPC in a given cloud connection.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[SecurityGroup Management]"
+                ],
+                "summary": "List Security Groups in a Specific VPC",
+                "operationId": "list-vpc-securitygroup",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the VPC to list Security Groups for",
+                        "name": "VPCName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to list Security Groups for",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response containing security groups under the key 'securitygroup'",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SecurityGroupListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, possibly due to missing parameters",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/securitygroup/{Name}": {
             "get": {
                 "description": "Retrieve details of a specific Security Group.",
@@ -6854,6 +7302,36 @@
                         "description": "Resource Not Found",
                         "schema": {
                             "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/version": {
+            "get": {
+                "description": "Retrieves the version information of CB-Spider.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Version]"
+                ],
+                "summary": "Get Version Information",
+                "operationId": "version-info",
+                "responses": {
+                    "200": {
+                        "description": "Version information retrieved successfully",
+                        "schema": {
+                            "$ref": "#/definitions/spider.VersionInfoResponse"
                         }
                     },
                     "500": {
@@ -8339,12 +8817,12 @@
                 "Count": {
                     "description": "Number of GPUs, \"-1\" when not applicable",
                     "type": "string",
-                    "example": "1"
+                    "example": "2"
                 },
-                "Mem": {
-                    "description": "Memory size of the GPU in MB, \"-1\" when not applicable",
+                "MemSizeGB": {
+                    "description": "Memory size of the GPU in GB, \"-1\" when not applicable",
                     "type": "string",
-                    "example": "8192"
+                    "example": "12"
                 },
                 "Mfr": {
                     "description": "Manufacturer of the GPU, NA when not applicable",
@@ -8355,6 +8833,11 @@
                     "description": "Model of the GPU, NA when not applicable",
                     "type": "string",
                     "example": "Tesla K80"
+                },
+                "TotalMemSizeGB": {
+                    "description": "Total Memory size of the GPU in GB, \"-1\" when not applicable",
+                    "type": "string",
+                    "example": "24"
                 }
             }
         },
@@ -8454,30 +8937,32 @@
         "spider.ImageInfo": {
             "type": "object",
             "required": [
-                "GuestOS",
                 "IId",
+                "ImageStatus",
                 "Name",
                 "OSArchitecture",
-                "OSDiskSizeInGB",
+                "OSDiskSizeGB",
                 "OSDiskType",
                 "OSDistribution",
-                "OSPlatform",
-                "Status",
-                "Status"
+                "OSPlatform"
             ],
             "properties": {
-                "GuestOS": {
-                    "description": "Windows7, Ubuntu etc. // Deprecated",
-                    "type": "string",
-                    "example": "Ubuntu 18.04"
-                },
                 "IId": {
-                    "description": "{NameId, SystemId} // Deprecated",
+                    "description": "{NameId, SystemId}, {ami-00aa5a103ddf4509f, ami-00aa5a103ddf4509f}",
                     "allOf": [
                         {
                             "$ref": "#/definitions/spider.IID"
                         }
                     ]
+                },
+                "ImageStatus": {
+                    "description": "Available, Unavailable",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.ImageStatus"
+                        }
+                    ],
+                    "example": "Available"
                 },
                 "KeyValueList": {
                     "type": "array",
@@ -8499,15 +8984,15 @@
                     ],
                     "example": "x86_64"
                 },
-                "OSDiskSizeInGB": {
-                    "description": "35, etc., GB",
+                "OSDiskSizeGB": {
+                    "description": "10, 50, 100 etc.",
                     "type": "string",
-                    "example": "35"
+                    "example": "50"
                 },
                 "OSDiskType": {
-                    "description": "gp3, etc.",
+                    "description": "ebs, HDD, etc.",
                     "type": "string",
-                    "example": "gp3"
+                    "example": "HDD"
                 },
                 "OSDistribution": {
                     "description": "Ubuntu 22.04~, CentOS 8 etc.",
@@ -8522,15 +9007,6 @@
                         }
                     ],
                     "example": "Linux/UNIX"
-                },
-                "Status": {
-                    "description": "Available, Unavailable",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/spider.ImageStatus"
-                        }
-                    ],
-                    "example": "Available"
                 }
             }
         },
@@ -8941,16 +9417,22 @@
         "spider.OSArchitecture": {
             "type": "string",
             "enum": [
+                "arm32",
                 "arm64",
                 "arm64_mac",
+                "x86_32",
                 "x86_64",
+                "x86_32_mac",
                 "x86_64_mac",
                 "NA"
             ],
             "x-enum-varnames": [
+                "ARM32",
                 "ARM64",
                 "ARM64_MAC",
+                "X86_32",
                 "X86_64",
+                "X86_32_MAC",
                 "X86_64_MAC",
                 "ArchitectureNA"
             ]
@@ -9396,13 +9878,13 @@
                 "Count"
             ],
             "properties": {
-                "Clock": {
+                "ClockGHz": {
                     "description": "Clock speed in GHz, \"-1\" when not applicable",
                     "type": "string",
                     "example": "2.5"
                 },
                 "Count": {
-                    "description": "Number of CPU cores, \"-1\" when not applicable",
+                    "description": "Number of VCpu, \"-1\" when not applicable",
                     "type": "string",
                     "example": "2"
                 }
@@ -9642,14 +10124,14 @@
         "spider.VMSpecInfo": {
             "type": "object",
             "required": [
-                "Disk",
-                "Mem",
+                "DiskSizeGB",
+                "MemSizeMib",
                 "Name",
                 "Region",
                 "VCpu"
             ],
             "properties": {
-                "Disk": {
+                "DiskSizeGB": {
                     "description": "Disk size in GB, \"-1\" when not applicable",
                     "type": "string",
                     "example": "8"
@@ -9668,8 +10150,8 @@
                         "$ref": "#/definitions/spider.KeyValue"
                     }
                 },
-                "Mem": {
-                    "description": "Memory size in MB",
+                "MemSizeMib": {
+                    "description": "Memory size in MiB",
                     "type": "string",
                     "example": "1024"
                 },
@@ -10049,6 +10531,47 @@
                     "description": "The name of the region, used as a unique identifier.",
                     "type": "string",
                     "example": "region01"
+                }
+            }
+        },
+        "spider.AllResourceInfoListResponse": {
+            "type": "object",
+            "required": [
+                "AllListInfo",
+                "ResourceType"
+            ],
+            "properties": {
+                "AllListInfo": {
+                    "type": "object",
+                    "required": [
+                        "MappedInfoList",
+                        "OnlyCSPInfoList",
+                        "OnlySpiderList"
+                    ],
+                    "properties": {
+                        "MappedInfoList": {
+                            "type": "array",
+                            "items": {}
+                        },
+                        "OnlyCSPInfoList": {
+                            "type": "array",
+                            "items": {}
+                        },
+                        "OnlySpiderList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.IID"
+                            }
+                        }
+                    }
+                },
+                "ResourceType": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.RSType"
+                        }
+                    ],
+                    "example": "vpc"
                 }
             }
         },
@@ -10640,6 +11163,86 @@
                             "example": "150"
                         }
                     }
+                }
+            }
+        },
+        "spider.DriverCapabilityResponse": {
+            "type": "object",
+            "properties": {
+                "clusterHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "diskHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "emulated_VPC": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "imageHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "keyPairHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "myImageHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "nlbhandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "priceInfoHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "regionZoneHandler": {
+                    "description": "Metadata Handler",
+                    "type": "boolean"
+                },
+                "securityHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "single_VPC": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "tagHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "tagSupportResourceType": {
+                    "description": "ex) {ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER}",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.RSType"
+                    }
+                },
+                "vmhandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "vmspecHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
+                "vpc_CIDR": {
+                    "description": "etc.",
+                    "type": "boolean"
+                },
+                "vpchandler": {
+                    "description": "Resource Handler",
+                    "type": "boolean"
+                },
+                "zoneBasedControl": {
+                    "description": "Resource Control Scope",
+                    "type": "boolean"
                 }
             }
         },
@@ -12023,6 +12626,15 @@
                             "example": "vpc-01"
                         }
                     }
+                }
+            }
+        },
+        "spider.VersionInfoResponse": {
+            "type": "object",
+            "properties": {
+                "Version": {
+                    "type": "string",
+                    "example": "CB-Spider v0.10.2-22"
                 }
             }
         }

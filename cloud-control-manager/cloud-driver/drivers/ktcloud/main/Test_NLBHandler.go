@@ -46,17 +46,18 @@ func handleNLB() {
 	for {
 		fmt.Println("\n============================================================================================")
 		fmt.Println("[ NLB Resource Test ]")
-		cblogger.Info("1. ListNLB()")
-		cblogger.Info("2. GetNLB()")
-		cblogger.Info("3. CreateNLB()")
-		cblogger.Info("4. DeleteNLB()")
-		cblogger.Info("5. ChangeListener()")
-		cblogger.Info("6. ChangeVMGroupInfo()")
-		cblogger.Info("7. AddVMs()")
-		cblogger.Info("8. RemoveVMs()")
-		cblogger.Info("9. GetVMGroupHealthInfo()")
-		cblogger.Info("10. ChangeHealthCheckerInfo()")
-		cblogger.Info("11. Exit")
+		fmt.Println("1. ListNLB()")
+		fmt.Println("2. GetNLB()")
+		fmt.Println("3. CreateNLB()")
+		fmt.Println("4. DeleteNLB()")
+		fmt.Println("5. ChangeListener()")
+		fmt.Println("6. ChangeVMGroupInfo()")
+		fmt.Println("7. AddVMs()")
+		fmt.Println("8. RemoveVMs()")
+		fmt.Println("9. GetVMGroupHealthInfo()")
+		fmt.Println("10. ChangeHealthCheckerInfo()")
+		fmt.Println("11. ListIID()")
+		fmt.Println("12. Exit")
 		fmt.Println("============================================================================================")
 
 		config := readConfigFile()
@@ -65,13 +66,13 @@ func handleNLB() {
 		cblogger.Info("\n # Num : ")
 
 		nlbIId := irs.IID{
-			NameId: "new_lb-5",
-			SystemId: "38044",
+			NameId: "new-nlb-01",
+			SystemId: "38446",
 		}
 
 		nlbCreateReqInfo := irs.NLBInfo{
 			IId: irs.IID{
-				NameId: "new-nlb-2",
+				NameId: "new-nlb-02",
 			},
 			VpcIID: irs.IID{
 				NameId: "kt-vpc-01",
@@ -84,8 +85,8 @@ func handleNLB() {
 				Protocol: "TCP",
 				Port:     "80",
 				VMs: &[]irs.IID{
-					{NameId: "kt-vm-1"},
-					{NameId: "kt-vm-2"},
+					{NameId: "kt-vm-03"},
+					// {NameId: "kt-vm-2"},
 				},
 			},
 			HealthChecker: irs.HealthCheckerInfo{
@@ -224,6 +225,18 @@ func handleNLB() {
 				}
 				cblogger.Info("Finish ChangeHealthCheckerInfo()")
 			case 11:
+				cblogger.Info("Start ListIID() ...")
+				result, err := nlbHandler.ListIID()
+				if err != nil {
+					cblogger.Error("Failed to retrieve NLB IID list: [%v]", err)
+				} else {
+					cblogger.Info("Successfully retrieved NLB IID list!!")
+					spew.Dump(result)
+					cblogger.Debug(result)
+					cblogger.Infof("Total IID list count : [%d]", len(result))
+				}
+				cblogger.Info("\nListIID() Test Finished")
+			case 12:
 				cblogger.Info("Exit")
 			}
 		}
@@ -232,7 +245,6 @@ func handleNLB() {
 
 func main() {
 	cblogger.Info("KT Cloud Resource Test")
-
 	handleNLB()
 }
 

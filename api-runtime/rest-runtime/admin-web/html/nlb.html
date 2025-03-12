@@ -643,6 +643,23 @@
         background-color: #82b8e6;
     }
 
+    .checkbox-wrapper {
+        display: block;
+        margin-right: 0px; 
+    }
+
+    .checkbox-wrapper input[type="checkbox"] {
+        margin-right: 5px;
+    }
+
+    #vmContainer, #addVMContainer {
+        border: 1px solid black;
+        padding: 10px;
+        width: 60%;
+        overflow-y: auto;
+        margin: 0 auto;
+        white-space: normal;
+    }
 
 </style>
 </head>
@@ -693,111 +710,135 @@
                     <span class="nlb-created-time" data-time="{{ $nlb.CreatedTime }}"></span>
                 </td>
                 <td class="nlb-name vpc-name">
-                    {{$nlb.VpcIID.NameId}}
-                    <span class="nlb-system-id" onclick="showSystemIdOverlay('{{$nlb.VpcIID.SystemId}}')">&nbsp;• {{$nlb.VpcIID.SystemId}}</span>
+                    {{if $nlb.VpcIID.NameId}}
+                        {{$nlb.VpcIID.NameId}}
+                        <span class="nlb-system-id" onclick="showSystemIdOverlay('{{$nlb.VpcIID.SystemId}}')">&nbsp;• {{$nlb.VpcIID.SystemId}}</span>
+                    {{end}}
                 </td>
-                <td class="scope-type">{{$nlb.Scope}} | {{$nlb.Type}}</td>
+                <td class="scope-type">
+                    {{if $nlb.VpcIID.NameId}}
+                        {{$nlb.Scope}} | {{$nlb.Type}}
+                    {{end}}
+                </td>
                 
                 <!-- Listener -->
                 <td class="listener">
-                    <table class="inner-table">
-                        <tr>
-                            <th>Protocol</th>
-                            <td>{{$nlb.Listener.Protocol}}</td>
-                        </tr>
-                        <tr>
-                            <th>Port</th>
-                            <td>{{$nlb.Listener.Port}}</td>
-                        </tr>
-                        <tr>
-                            <th>Public IP</th>
-                            <td>{{$nlb.Listener.IP}}</td>
-                        </tr>
-                        <tr>
-                            <th>DNS</th>
-                            <td>{{$nlb.Listener.DNSName}}</td>
-                        </tr>
-                        <tr>
-                            <th>Status</th>
-                            <td>
-                                <button class="check-btn" 
-                                        onclick="checkNLBListener('{{$nlb.Listener.Protocol}}', '{{$nlb.Listener.Port}}', '{{$nlb.Listener.IP}}', '{{$nlb.Listener.DNSName}}')" 
-                                        style="font-size: 11px; padding: 4px 8px;">
-                                    Check
-                                </button>
-                            </td>
-                        </tr>
-                    </table>
+                    {{if $nlb.VpcIID.NameId}}
+                        <table class="inner-table">
+                            <tr>
+                                <th>Protocol</th>
+                                <td>{{$nlb.Listener.Protocol}}</td>
+                            </tr>
+                            <tr>
+                                <th>Port</th>
+                                <td>{{$nlb.Listener.Port}}</td>
+                            </tr>
+                            <tr>
+                                <th>Public IP</th>
+                                <td>{{$nlb.Listener.IP}}</td>
+                            </tr>
+                            <tr>
+                                <th>DNS</th>
+                                <td>{{$nlb.Listener.DNSName}}</td>
+                            </tr>
+                            <tr>
+                                <th>Status</th>
+                                <td>
+                                    <button class="check-btn" 
+                                            onclick="checkNLBListener('{{$nlb.Listener.Protocol}}', '{{$nlb.Listener.Port}}', '{{$nlb.Listener.IP}}', '{{$nlb.Listener.DNSName}}')" 
+                                            style="font-size: 11px; padding: 4px 8px;">
+                                        Check
+                                    </button>
+                                </td>
+                            </tr>
+                        </table>
+                    {{end}}
                 </td>
                                 
                 <!-- VM Groups -->
                 <td class="vm-groups">
-                    <table class="inner-table">
-                        <tr>
-                            <th>Protocol</th>
-                            <td>{{$nlb.VMGroup.Protocol}}</td>
-                        </tr>
-                        <tr>
-                            <th>Port</th>
-                            <td>{{$nlb.VMGroup.Port}}</td>
-                        </tr>
-                        <tr>
-                            <th colspan="2" style="text-align: center;">VMs</th>
-                        </tr>
-                        <tr>
-                            <td colspan="2">
-                                <table class="inner-table vm-list">
-                                    {{range $vm := $nlb.VMGroup.VMs}}
-                                    <tr>
-                                        <td style="text-align: center;">{{$vm.NameId}}</td>
-                                    </tr>
-                                    {{end}}
-                                </table>
-                            </td>
-                        </tr>
-                    </table>
+                    {{if $nlb.VpcIID.NameId}}
+                        <table class="inner-table">
+                            <tr>
+                                <th>Protocol</th>
+                                <td>{{$nlb.VMGroup.Protocol}}</td>
+                            </tr>
+                            <tr>
+                                <th>Port</th>
+                                <td>{{$nlb.VMGroup.Port}}</td>
+                            </tr>
+                            <tr>
+                                <td colspan="2">
+                                    <div style="display: flex; justify-content: center; align-items: center; position: relative;">
+                                        <span style="font-weight: bold; margin-right: auto; text-align: center; width: 100%;">VMs</span>
+                                        <div style="position: absolute; right: 0; padding-right: 3%">
+                                            <button class="vm-add" style="padding: 1px 5px; font-size: 12px;" onclick="showVMOverlay('{{$nlb.IId.NameId}}', extractNames('{{$nlb.VMGroup.VMs}}'))">add</button>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="2">
+                                    <table class="inner-table vm-list">
+                                        {{range $vm := $nlb.VMGroup.VMs}}
+                                        <tr>
+                                            <td style="text-align: center;">{{$vm.NameId}}</td>
+                                            <td style="background-color: white; width: 10%;">
+                                                <button id="vm-del" style="padding: 1px 5px; font-size: 12px; font-size: 12px;" onclick="delVMFromNLB('{{$nlb.IId.NameId}}', '{{$vm.NameId}}')">del</button>
+                                            </td>
+                                        </tr>
+                                        {{end}}
+                                    </table>
+                                </td>
+                            </tr>
+                        </table>
+                    {{end}}
                 </td>
 
                 
                 <!-- Health Checker -->
                 <td class="health-checker">
-                    <table class="inner-table-health">
-                        <tr>
-                            <th>Protocol</th>
-                            <td>{{$nlb.HealthChecker.Protocol}}</td>
-                        </tr>
-                        <tr>
-                            <th>Port</th>
-                            <td>{{$nlb.HealthChecker.Port}}</td>
-                        </tr>
-                        <tr>
-                            <th>Interval</th>
-                            <td>{{$nlb.HealthChecker.Interval}}</td>
-                        </tr>
-                        <tr>
-                            <th>Timeout</th>
-                            <td>{{$nlb.HealthChecker.Timeout}}</td>
-                        </tr>
-                        <tr>
-                            <th>Threshold</th>
-                            <td>{{$nlb.HealthChecker.Threshold}}</td>
-                        </tr>
-                        <tr>
-                            <th>Status</th>
-                            <td>
-                                <button class="check-btn" onclick="checkNLBHealth('{{$nlb.IId.NameId}}')" style="font-size: 11px; padding: 4px 8px;">Check</button>
-                            </td>
-                        </tr>
-                    </table>
+                    {{if $nlb.VpcIID.NameId}}
+                        <table class="inner-table-health">
+                            <tr>
+                                <th>Protocol</th>
+                                <td>{{$nlb.HealthChecker.Protocol}}</td>
+                            </tr>
+                            <tr>
+                                <th>Port</th>
+                                <td>{{$nlb.HealthChecker.Port}}</td>
+                            </tr>
+                            <tr>
+                                <th>Interval</th>
+                                <td>{{$nlb.HealthChecker.Interval}}</td>
+                            </tr>
+                            <tr>
+                                <th>Timeout</th>
+                                <td>{{$nlb.HealthChecker.Timeout}}</td>
+                            </tr>
+                            <tr>
+                                <th>Threshold</th>
+                                <td>{{$nlb.HealthChecker.Threshold}}</td>
+                            </tr>
+                            <tr>
+                                <th>Status</th>
+                                <td>
+                                    <button class="check-btn" onclick="checkNLBHealth('{{$nlb.IId.NameId}}')" style="font-size: 11px; padding: 4px 8px;">Check</button>
+                                </td>
+                            </tr>
+                        </table>
+                    {{end}}
                 </td>                
                 
                 <td class="tags" style="text-align: left;">
-                    {{range $tag := $nlb.TagList}}
-                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'NLB', '{{$nlb.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                    {{if $nlb.VpcIID.NameId}}
+                        {{range $tag := $nlb.TagList}}
+                        <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'NLB', '{{$nlb.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                        {{end}}
+                        <div class="add-btn-container">
+                            <button class="add-btn" onclick="showAddTagOverlay('{{$nlb.IId.NameId}}')">+</button>
+                        </div>
                     {{end}}
-                    <div class="add-btn-container">
-                        <button class="add-btn" onclick="showAddTagOverlay('{{$nlb.IId.NameId}}')">+</button>
-                    </div>
                 </td>
                 
                 <td class="misc misc-cell">
@@ -814,9 +855,7 @@
                 <td colspan="11" class="center-align">No NLBs found for this connection.</td>
             </tr>
             {{end}}
-        </table>
-        
-        
+        </table>  
     </div>
 
     <!-- Overlay: Add New NLB -->
@@ -877,9 +916,8 @@
                     <input type="number" id="vmPort" name="vmPort" required min="1" max="65535" value="22" style="background-color: #F5F5DC; width: 70%;" onchange="if(this.value<1)this.value=1;if(this.value>65535)this.value=65535;">
                 </div>
                 <div class="form-group">
-                    <label for="vms">VMs:</label>
-                    <select id="vms" name="vms" multiple style="width: 65%; height: 100px;">                        
-                    </select>
+                    <label for="vmContainer">VMs:</label>
+                    <div id="vmContainer" name="vmContainer"></div>                        
                 </div>
     
                 <div style="margin-top: 20px;"></div>
@@ -912,7 +950,7 @@
                 </div>    
                 <div class="form-group" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
                     <button type="submit">Add NLB</button>
-                    <button type="button" onclick="hideOverlay()" style="margin-left: 10px;">Cancel</button>
+                    <button type="button" onclick="hideOverlay('overlay')" style="margin-left: 10px;">Cancel</button>
                 </div>
             </form>
         </div>
@@ -925,6 +963,23 @@
     <!-- Add Tag Overlay -->
     <div id="add-tag-overlay" class="overlay">
         <div class="add-tag-overlay-content overlay-content"></div>
+    </div>
+
+    <!-- Add VM Overlay -->
+    <div id="vmOverlay" class="overlay" style="display: none;">
+        <div class="overlay-content">
+            <h2>Add VM</h2>
+            <form id="addVMForm" onsubmit="event.preventDefault(); addVMToNLB();">
+                <div class="form-group">
+                    <label for="addVmContainer">VMs:</label>
+                    <div id="addVMContainer" name="addVmContainer"></div>                        
+                </div>
+                <div class="form-group" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+                    <button type="submit">Add VM</button>
+                    <button type="button" onclick="hideOverlay('vmOverlay')" style="margin-left: 10px;">Cancel</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <!-- Error Modal -->
@@ -1001,7 +1056,6 @@
         }
     }
 
-
     function clearSearchInput() {
         let input = document.getElementById('searchInput');
         input.value = '';
@@ -1017,7 +1071,6 @@
             }
         }
     }
-
 
     let currentProvider = '';
 
@@ -1087,7 +1140,6 @@
         }, 500);
     }
 
-
     function deleteSelectedNLBs() {
         const connConfig = document.getElementById('connConfig').value;
         const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
@@ -1123,21 +1175,10 @@
         });
 
         Promise.all(deletePromises)
-            .then(dataList => {
-                let allSuccess = true;
-                dataList.forEach((data, index) => {
-                    if (data.Result !== "true") {
-                        allSuccess = false;
-                        showError("Failed to delete some NLBs: " + (data.Message || "Unknown error"), "NLB Name: " + checkboxes[index].value);
-                    }
-                });
-                if (allSuccess) {
-                    location.reload();
-                }
-            })
+            .then(() => location.reload())
             .catch(error => {
-                showError("Error deleting NLBs: " + error.message, "Multiple NLBs");
-            });
+                alert("Error deleting NLBs: " + error.message);
+        });
     }
 
     function toggleSelectAll(source) {
@@ -1158,10 +1199,9 @@
             return false;
         }
 
-        const vms = Array.from(document.getElementById('vms').options)
-                        .filter(option => option.selected)
-                        .map(option => option.value);
-
+        const vms = Array.from(document.querySelectorAll('#vmContainer input[type="checkbox"]:checked'))
+        .map(checkbox => checkbox.value);
+                        
         if (vms.length === 0) {
             alert("Please select at least one VM.");
             return false;
@@ -1174,7 +1214,7 @@
         if (!validateForm()) {
             return;
         }
-
+        console.log("POSTNLB");
         const connConfig = document.getElementById('connConfig').value;
         const nlbName = String(document.getElementById('nlbName').value);
         const vpcName = document.getElementById('vpcName').value;
@@ -1184,7 +1224,7 @@
         const port = document.getElementById('port').value;
         const vmProtocol = document.getElementById('vmProtocol').value;
         const vmPort = document.getElementById('vmPort').value;
-        const vms = Array.from(document.getElementById('vms').selectedOptions).map(option => option.value);
+        const vms = Array.from(document.querySelectorAll('#vmContainer input[type="checkbox"]:checked')).map(checkbox => checkbox.value);
         const hcProtocol = document.getElementById('hcProtocol').value;
         const hcPort = document.getElementById('hcPort').value;
         const interval = document.getElementById('interval').value;
@@ -1246,15 +1286,15 @@
     function showErrorModal(title, message) {
         document.getElementById('errorTitle').textContent = title;
         document.getElementById('errorMessage').textContent = message;
-        document.getElementById('errorModal').style.display = 'flex'; // Show the modal
+        document.getElementById('errorModal').style.display = 'flex';
     }
 
     function closeErrorModal() {
-        document.getElementById('errorModal').style.display = 'none'; // Hide the modal
+        document.getElementById('errorModal').style.display = 'none';
     }
 
     function showOverlay() {
-        Promise.all([loadVPCs(), loadVMs()])
+        Promise.all([loadVPCs(), loadVMs('vmContainer')])
             .then(() => {
                 const region = '{{.RegionName}}';
                 const nlbNameInput = document.getElementById('nlbName');
@@ -1289,20 +1329,38 @@
         // Reset Health Checker information
         document.getElementById('hcProtocol').value = 'TCP';
         document.getElementById('hcPort').value = '22';
-        document.getElementById('interval').value = 'default';
-        document.getElementById('timeout').value = 'default';
-        document.getElementById('threshold').value = 'default';
+
+        var provider = '{{.ProviderName}}';
+        if (provider === 'IBM') {
+            document.getElementById('interval').value = '10';
+            document.getElementById('timeout').value = '9';
+            document.getElementById('threshold').value = 'default';
+        } else {
+            document.getElementById('interval').value = 'default';
+            document.getElementById('timeout').value = 'default';
+            document.getElementById('threshold').value = 'default';
+        }
 
         // Reset VM list
-        document.getElementById('vms').innerHTML = ''; 
+        document.getElementById('vmContainer').innerHTML = ''; 
 
         // Reset tag fields
         document.querySelectorAll('.nlb-tag-input').forEach(tagInput => tagInput.remove());
     }
 
+    function extractNames(vmString) {
+        return vmString.match(/\{([^ ]+)/g).map(match => match.replace("{", ""));
+    }
 
-    function hideOverlay() {
-        document.getElementById('overlay').style.display = 'none';
+    let currnetNLBName = ""
+    function showVMOverlay(nlbName, vmGroups) {
+        loadVMsExceptExist('addVMContainer', vmGroups);
+        currnetNLBName = nlbName;
+        document.getElementById('vmOverlay').style.display = 'flex';
+    }
+
+    function hideOverlay(pos) {
+        document.getElementById(pos).style.display = 'none';
         document.removeEventListener('keydown', handleEsc);
         clearFormFields();
     }
@@ -1753,41 +1811,156 @@
         }
     });
 
-    function loadVMs() {
-        const connConfig = document.getElementById('connConfig').value;
-        const url = `/spider/vm?ConnectionName=${encodeURIComponent(connConfig)}`;
+    function addVMToNLB(){
+        const selectedVMs = getSelectedVMs();
+        const url = `/spider/nlb/${currnetNLBName}/vms`;
+
+        if(selectedVMs.length === 0){
+            alert("Please Select at Least One VM.");
+            return;
+        }
+
+        const requestBody = {
+            ConnectionName: '{{.ConnectionConfig}}',
+            ReqInfo:{
+                VMs: selectedVMs
+            }
+        };
 
         fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(requestBody)
+        })
+        .then(response => {
+            if(!response.ok){
+                throw new Error(`ADD VM ERROR!: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            alert("VMs added successfuly!");
+            location.reload();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert("Failed to add VMs");
+        });
+    } // end of addVMtoNLB()
+
+    function getSelectedVMs(){
+        const checkboxes = document.querySelectorAll("input[name='vms']:checked");
+        return Array.from(checkboxes).map(checkbox => checkbox.value);
+    } // end of getSelectedVMs()
+
+    function loadVMs(container) {
+        fetchVMs()
+            .then(data => {
+                renderVMs(data.vm, container);
+            })
+            .catch(error => {
+                console.error('Error loading VMs:', error);
+            });
+    } // end of loadVMs()
+
+    function loadVMsExceptExist(container, existVMList){
+        fetchVMs().then(data => {
+            const filteredVMs = data.vm.filter(vm => !existVMList.includes(vm.IId.NameId));
+            renderVMs(filteredVMs, container);
+        });
+    } // end of loadVMsExceptExist()
+
+    function fetchVMs() {
+        const connConfig = '{{.ConnectionConfig}}';
+        const url = `/spider/vm?ConnectionName=${encodeURIComponent(connConfig)}`;
+
+        return fetch(url, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json'
             }
         })
-        .then(response => response.json())
-        .then(data => {
-            const vmSelect = document.getElementById('vms');
-            vmSelect.innerHTML = '';
-
-            if (data.vm.length === 0) {
-                const noVMOption = document.createElement('option');
-                noVMOption.text = 'No VMs available.';
-                noVMOption.disabled = true;
-                vmSelect.appendChild(noVMOption);
-            } else {
-                data.vm.forEach((vm) => {
-                    const option = document.createElement('option');
-                    option.value = vm.IId.NameId;
-                    option.text = `${vm.IId.NameId} (${vm.PrivateIP})`;
-                    vmSelect.appendChild(option);
-                });
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
+            return response.json();
         })
         .catch(error => {
-            console.error('Error loading VMs:', error);
+            console.error('Error fetching VMs:', error);
+            throw error;
         });
-    }
+    } // end of fetch VMs()
+
+    function renderVMs(vms, container) {
+        const vmContainer = document.getElementById(container);
+        vmContainer.innerHTML = '';
+
+        if (vms.length === 0) {
+            const noVMMessage = document.createElement('p');
+            noVMMessage.textContent = 'No VMs available.';
+            noVMMessage.style.color = 'red';
+            vmContainer.appendChild(noVMMessage);
+        } else {
+            vms.forEach((vm) => {
+                const checkboxWrapper = document.createElement('div');
+                checkboxWrapper.className = 'checkbox-wrapper';
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.name = 'vms';
+                checkbox.value = vm.IId.NameId;
+                checkbox.id = `vm-${vm.IId.NameId}`;
+
+                const label = document.createElement('label');
+                label.htmlFor = `vm-${vm.IId.NameId}`;
+                label.textContent = `${vm.IId.NameId} (${vm.PrivateIP})`;
+
+                checkboxWrapper.appendChild(checkbox);
+                checkboxWrapper.appendChild(label);
+
+                vmContainer.appendChild(checkboxWrapper);
+            });
+        }
+    } // end of renderVMs()
 
     document.addEventListener('DOMContentLoaded', loadVMs);
+
+    function delVMFromNLB(nlbName, vmName){
+        const url = `/spider/nlb/${nlbName}/vms`;
+        console.log(url);
+        const requestBody = {
+            ConnectionName: '{{.ConnectionConfig}}',
+            ReqInfo: {
+                VMs: [vmName]
+            }
+        };
+
+        fetch(url, {
+            method: "DELETE",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(requestBody)
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            alert(`VM ${vmName} removed Successfully`);
+            location.reload();
+        })
+        .catch(error => {
+            console.error("Error:", error);
+            alert(`Failed to remove VM ${vmName}`);
+        });
+    } // end of delVMFromNLB()
+
 
     function showNLBHealthOverlay(nlbName) {
         // Fetch the NLB health check info
@@ -1900,6 +2073,8 @@
 
         selection.removeAllRanges();
     }
+
+
 </script>
 
 </html>

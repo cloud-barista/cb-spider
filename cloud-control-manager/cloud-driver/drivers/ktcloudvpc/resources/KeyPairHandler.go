@@ -7,14 +7,13 @@
 // This is a Cloud Driver Example for PoC Test.
 //
 // by ETRI, 2022.08.
+// Updated by ETRI, 2025.02.
 
 package resources
 
 import (
-	"errors"
 	"fmt"
 	"strings"
-
 	// "github.com/davecgh/go-spew/spew"
 
 	ktvpcsdk "github.com/cloud-barista/ktcloudvpc-sdk-go"
@@ -110,7 +109,6 @@ func (keyPairHandler *KTVpcKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error)
 	callLogInfo := getCallLogScheme(keyPairHandler.RegionInfo.Zone, call.VMKEYPAIR, "ListKey()", "ListKey()")
 
 	var listOptsBuilder keys.ListOptsBuilder
-
 	start := call.Start()
 	allPages, err := keys.List(keyPairHandler.VMClient, listOptsBuilder).AllPages()
 	if err != nil {
@@ -274,6 +272,30 @@ func (keyPairHandler *KTVpcKeyPairHandler) keyPairExists(keyIID irs.IID) (bool, 
 }
 
 func (keyPairHandler *KTVpcKeyPairHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	return nil, errors.New("Does not support ListIID() yet!!")
+	cblogger.Info("KT Cloud VPC driver: called ListIID()!!")
+
+    var listOptsBuilder keys.ListOptsBuilder
+    allPages, err := keys.List(keyPairHandler.VMClient, listOptsBuilder).AllPages()
+    if err != nil {
+        newErr := fmt.Errorf("Failed to Get KeyPair Pages from KT Cloud. : [%v]", err)
+        cblogger.Error(newErr.Error())
+        return nil, newErr
+    }
+
+    keyPairs, err := keys.ExtractKeyPairs(allPages)
+    if err != nil {
+        newErr := fmt.Errorf("Failed to Get KeyPair list. : [%v]", err)
+        cblogger.Error(newErr.Error())
+        return nil, newErr
+    }
+
+    var iidList []*irs.IID
+    for _, keyPair := range keyPairs {
+        iid := &irs.IID{
+            NameId:   keyPair.Name,
+            SystemId: keyPair.Name,
+        }
+        iidList = append(iidList, iid)
+    }
+    return iidList, nil
 }
