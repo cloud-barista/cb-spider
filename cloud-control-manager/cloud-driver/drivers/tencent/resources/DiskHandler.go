@@ -280,6 +280,8 @@ func convertDiskInfo(diskResp *cbs.Disk) (irs.DiskInfo, error) {
 		}
 	}
 
+	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	diskInfo.KeyValueList = irs.StructToKeyValueList(diskResp)
 	return diskInfo, nil
 }
 

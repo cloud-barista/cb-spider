@@ -682,7 +682,7 @@ func ExtractDiskDescribeInfo(aliDisk *ecs.Disk) (irs.DiskInfo, error) {
 	diskInfo.Status = diskStatus
 
 	// 2025-03-13 StructToKeyValueList 사용으로 변경
-	diskInfo.KeyValueList = irs.StructToKeyValueList(&aliDisk)
+	diskInfo.KeyValueList = irs.StructToKeyValueList(aliDisk)
 	// keyValueList := []irs.KeyValue{
 	// 	{Key: "CreationTime", Value: aliDisk.CreationTime},
 	// 	{Key: "AttachedTime", Value: aliDisk.AttachedTime},

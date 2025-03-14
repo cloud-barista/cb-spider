@@ -458,7 +458,7 @@ func (securityHandler *AlibabaSecurityHandler) ExtractSecurityInfo(securityGroup
 		}
 		securityInfo.TagList = tagList
 	}
-	securityInfo.KeyValueList = irs.StructToKeyValueList(&securityGroupResult)
+	securityInfo.KeyValueList = irs.StructToKeyValueList(securityGroupResult)
 	return securityInfo, nil
 }
 
