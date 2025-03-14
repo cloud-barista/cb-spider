@@ -315,7 +315,7 @@ func ExtractMyImageDescribeInfo(aliMyImage *ecs.Image) (irs.MyImageInfo, error) 
 
 	// 2025-03-13 StructToKeyValueList 사용으로 변경
 	keyValueList := []irs.KeyValue{}
-	keyValueList = irs.StructToKeyValueList(&aliMyImage)
+	keyValueList = irs.StructToKeyValueList(aliMyImage)
 	// keyValueList := []irs.KeyValue{}
 	// keyValueList = append(keyValueList, irs.KeyValue{Key: "ImageOwnerAlias", Value: aliMyImage.ImageOwnerAlias})
 	// keyValueList = append(keyValueList, irs.KeyValue{Key: "IsSelfShared", Value: aliMyImage.IsSelfShared})

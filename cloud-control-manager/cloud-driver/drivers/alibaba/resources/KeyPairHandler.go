@@ -276,7 +276,6 @@ func ExtractKeyPairDescribeInfo(keyPair *ecs.KeyPair) (irs.KeyPairInfo, error) {
 	}
 
 	tagList := []irs.KeyValue{}
-	cblogger.Info("eeeeeeeeeee", keyPair.Tags)
 	for _, aliTag := range keyPair.Tags.Tag {
 		kTag := irs.KeyValue{}
 		kTag.Key = aliTag.TagKey
@@ -319,7 +318,7 @@ func ExtractKeyPairDescribeInfo(keyPair *ecs.KeyPair) (irs.KeyPairInfo, error) {
 	// }
 	// keyPairInfo.KeyValueList = keyValueList
 	// 2025-03-13 keyvalueList를 StructToKeyValueList로 set
-	keyPairInfo.KeyValueList = irs.StructToKeyValueList(&keyPair)
+	keyPairInfo.KeyValueList = irs.StructToKeyValueList(keyPair)
 
 	return keyPairInfo, nil
 }

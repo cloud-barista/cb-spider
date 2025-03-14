@@ -12,7 +12,6 @@ package resources
 
 import (
 	"errors"
-	"strconv"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -160,6 +159,8 @@ func ExtractVpcDescribeInfo(vpcInfo *vpc.Vpc) irs.VPCInfo {
 		resVpcInfo.TagList = tagList
 	}
 
+	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	resVpcInfo.KeyValueList = irs.StructToKeyValueList(vpcInfo)
 	return resVpcInfo
 }
 
@@ -384,12 +385,14 @@ func (VPCHandler *TencentVPCHandler) ListSubnet(reqVpcId string) ([]irs.SubnetIn
 			resSubnetInfo.TagList = tagList
 		}
 
-		keyValueList := []irs.KeyValue{
-			{Key: "VpcId", Value: *curSubnet.VpcId},
-			{Key: "IsDefault", Value: strconv.FormatBool(*curSubnet.IsDefault)},
-			{Key: "AvailabilityZone", Value: *curSubnet.Zone},
-		}
-		resSubnetInfo.KeyValueList = keyValueList
+		// 2025-03-13 StructToKeyValueList 사용으로 변경
+		resSubnetInfo.KeyValueList = irs.StructToKeyValueList(curSubnet)
+		// keyValueList := []irs.KeyValue{
+		// 	{Key: "VpcId", Value: *curSubnet.VpcId},
+		// 	{Key: "IsDefault", Value: strconv.FormatBool(*curSubnet.IsDefault)},
+		// 	{Key: "AvailabilityZone", Value: *curSubnet.Zone},
+		// }
+		// resSubnetInfo.KeyValueList = keyValueList
 		arrSubnetInfoList = append(arrSubnetInfoList, resSubnetInfo)
 	}
 

@@ -287,6 +287,8 @@ func convertImageSetToMyImageInfo(tencentImage *cvm.Image) (irs.MyImageInfo, err
 		returnMyImageInfo.TagList = tagList
 	}
 
+	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	returnMyImageInfo.KeyValueList = irs.StructToKeyValueList(tencentImage)
 	return returnMyImageInfo, nil
 }
 

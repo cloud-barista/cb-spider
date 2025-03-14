@@ -1678,18 +1678,20 @@ func convertFromFirewallToSecurityInfo(firewallList compute.FirewallList) (irs.S
 			},
 
 			// Direction: security.Direction,
-			KeyValueList: []irs.KeyValue{
-				{Key: "Priority", Value: strconv.FormatInt(item.Priority, 10)},
-				// {"SourceRanges", security.SourceRanges[0]},
-				{Key: "Allowed", Value: ipProtocol},
-				{Key: "Vpc", Value: vpcName},
-			},
+			// KeyValueList: []irs.KeyValue{
+			// 	{Key: "Priority", Value: strconv.FormatInt(item.Priority, 10)},
+			// 	// {"SourceRanges", security.SourceRanges[0]},
+			// 	{Key: "Allowed", Value: ipProtocol},
+			// 	{Key: "Vpc", Value: vpcName},
+			// },
 			SecurityRules: &securityRules,
 		}
 		cblogger.Info("securityRules : ", securityRules)
 		cblogger.Info("securityRules length: ", len(securityRules))
 	} // end of result.items
 	cblogger.Info("securityInfo : ", securityInfo)
+	//2025-03-13 StructToKeyValueList 사용으로 변경
+	securityInfo.KeyValueList = irs.StructToKeyValueList(firewallList)
 	return securityInfo, nil
 }
 

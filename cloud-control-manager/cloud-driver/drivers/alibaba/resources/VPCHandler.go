@@ -271,7 +271,7 @@ func ExtractVpcDescribeInfo(vpcInfo *vpc.Vpc) irs.VPCInfo {
 	aliVpcInfo.TagList = tagList
 
 	// 2025-03-13 StructToKeyValueList 사용으로 변경
-	aliVpcInfo.KeyValueList = irs.StructToKeyValueList(&vpcInfo)
+	aliVpcInfo.KeyValueList = irs.StructToKeyValueList(vpcInfo)
 	// keyValueList := []irs.KeyValue{
 	// 	{Key: "IsDefault", Value: strconv.FormatBool(vpcInfo.IsDefault)},
 	// 	{Key: "Status", Value: vpcInfo.Status},

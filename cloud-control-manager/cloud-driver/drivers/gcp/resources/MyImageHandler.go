@@ -154,6 +154,9 @@ func (MyImageHandler *GCPMyImageHandler) convertMyImageInfo(myImageResp *compute
 
 	myImageInfo.CreatedTime, _ = time.Parse(time.RFC3339, myImageResp.CreationTimestamp)
 
+	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	myImageInfo.KeyValueList = irs.StructToKeyValueList(myImageResp)
+
 	return myImageInfo, nil
 }
 

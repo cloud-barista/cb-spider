@@ -119,12 +119,14 @@ func ExtractKeyPairDescribeInfo(keyPair *cvm.KeyPair) (irs.KeyPairInfo, error) {
 	keyPairInfo.PublicKey = string(publicKeyBytes)
 	keyPairInfo.PrivateKey = string(privateKeyBytes)
 	*/
-	keyValueList := []irs.KeyValue{
-		{Key: "KeyId", Value: *keyPair.KeyId},
-		//{Key: "KeyMaterial", Value: *keyPair.KeyMaterial},
-	}
+	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	keyPairInfo.KeyValueList = irs.StructToKeyValueList(keyPair)
+	// keyValueList := []irs.KeyValue{
+	// 	{Key: "KeyId", Value: *keyPair.KeyId},
+	// 	//{Key: "KeyMaterial", Value: *keyPair.KeyMaterial},
+	// }
 
-	keyPairInfo.KeyValueList = keyValueList
+	// keyPairInfo.KeyValueList = keyValueList
 
 	return keyPairInfo, nil
 }

@@ -357,7 +357,7 @@ func (NLBHandler *AlibabaNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 		time.RFC3339,
 		lbAttributeResponse.CreateTime) // RFC3339형태이므로 해당 시간으로 다시 생성. "CreateTime": "2022-07-05T07:54:37Z",
 	nlbInfo.CreatedTime = createdTime
-	nlbInfo.KeyValueList = irs.StructToKeyValueList(&lbAttributeResponse)
+	nlbInfo.KeyValueList = irs.StructToKeyValueList(lbAttributeResponse)
 	return nlbInfo, nil
 }
 
@@ -1341,7 +1341,7 @@ func (NLBHandler *AlibabaNLBHandler) describeLoadBalancerTcpListenerAttribute(nl
 	nlbInfo.VMGroup = vmGroup
 	nlbInfo.HealthChecker = healthChecker
 	// 2025-03-13 StructToKeyValueList 사용으로 변경
-	nlbInfo.KeyValueList = irs.StructToKeyValueList(&listenerAttributeResponse)
+	nlbInfo.KeyValueList = irs.StructToKeyValueList(listenerAttributeResponse)
 	return nlbInfo, nil
 }
 

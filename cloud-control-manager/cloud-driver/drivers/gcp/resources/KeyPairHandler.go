@@ -95,14 +95,21 @@ func (keyPairHandler *GCPKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 
 	publicKeyString := string(publicKeyBytes)
 	publicKeyString = strings.TrimSpace(publicKeyString) + " " + "cb-user"
+	// keyPairInfo := irs.KeyPairInfo{
+	// 	IId: irs.IID{
+	// 		NameId:   keyPairName,
+	// 		SystemId: keyPairName,
+	// 	},
+	// 	PublicKey:  publicKeyString,
+	// 	PrivateKey: string(privateKeyBytes),
+	// }
 
-	keyPairInfo := irs.KeyPairInfo{
-		IId: irs.IID{
-			NameId:   keyPairName,
-			SystemId: keyPairName,
-		},
-		PublicKey:  publicKeyString,
-		PrivateKey: string(privateKeyBytes),
+	keyPairInfo, err := keyPairHandler.GetKey(irs.IID{SystemId: keyPairName})
+	if err != nil {
+		cblogger.Error("Fail GetKey")
+		cblogger.Error(err)
+		cblogger.Infof("publicKeyString : [%s]", publicKeyString)
+		return irs.KeyPairInfo{}, err
 	}
 	return keyPairInfo, nil
 }

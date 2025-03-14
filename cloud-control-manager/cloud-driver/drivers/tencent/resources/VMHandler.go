@@ -778,15 +778,15 @@ func (vmHandler *TencentVMHandler) ExtractDescribeInstances(curVm *cvm.Instance)
 		vmInfo.TagList = tagList
 	}
 
-	keyValueList := []irs.KeyValue{
-		{Key: "InstanceState", Value: *curVm.InstanceState},
-		{Key: "OsName", Value: *curVm.OsName},
-	}
+	// keyValueList := []irs.KeyValue{
+	// 	{Key: "InstanceState", Value: *curVm.InstanceState},
+	// 	{Key: "OsName", Value: *curVm.OsName},
+	// }
 
 	//요금타입
-	if !reflect.ValueOf(curVm.InstanceChargeType).IsNil() {
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "InstanceChargeType", Value: *curVm.InstanceChargeType})
-	}
+	// if !reflect.ValueOf(curVm.InstanceChargeType).IsNil() {
+	// 	keyValueList = append(keyValueList, irs.KeyValue{Key: "InstanceChargeType", Value: *curVm.InstanceChargeType})
+	// }
 
 	//데이터 디스크 정보
 	if !reflect.ValueOf(curVm.DataDisks).IsNil() {
@@ -804,30 +804,32 @@ func (vmHandler *TencentVMHandler) ExtractDescribeInstances(curVm *cvm.Instance)
 	//시스템 디스크 정보
 	if !reflect.ValueOf(curVm.SystemDisk).IsNil() {
 		if !reflect.ValueOf(curVm.SystemDisk.DiskType).IsNil() {
-			keyValueList = append(keyValueList, irs.KeyValue{Key: "SystemDiskType", Value: *curVm.SystemDisk.DiskType})
+			//keyValueList = append(keyValueList, irs.KeyValue{Key: "SystemDiskType", Value: *curVm.SystemDisk.DiskType})
 			vmInfo.RootDiskType = *curVm.SystemDisk.DiskType
 		}
 		if !reflect.ValueOf(curVm.SystemDisk.DiskId).IsNil() {
-			keyValueList = append(keyValueList, irs.KeyValue{Key: "SystemDiskId", Value: *curVm.SystemDisk.DiskId})
+			//keyValueList = append(keyValueList, irs.KeyValue{Key: "SystemDiskId", Value: *curVm.SystemDisk.DiskId})
 			vmInfo.VMBootDisk = *curVm.SystemDisk.DiskId
 			vmInfo.RootDeviceName = *curVm.SystemDisk.DiskId
 		}
 		if !reflect.ValueOf(curVm.SystemDisk.DiskSize).IsNil() {
-			keyValueList = append(keyValueList, irs.KeyValue{Key: "SystemDiskSize", Value: strconv.FormatInt(*curVm.SystemDisk.DiskSize, 10)})
+			//keyValueList = append(keyValueList, irs.KeyValue{Key: "SystemDiskSize", Value: strconv.FormatInt(*curVm.SystemDisk.DiskSize, 10)})
 			vmInfo.RootDiskSize = strconv.FormatInt(*curVm.SystemDisk.DiskSize, 10)
 		}
 	}
 
-	if !reflect.ValueOf(curVm.InternetAccessible).IsNil() {
-		if !reflect.ValueOf(curVm.InternetAccessible.InternetChargeType).IsNil() {
-			keyValueList = append(keyValueList, irs.KeyValue{Key: "InternetChargeType", Value: *curVm.InternetAccessible.InternetChargeType})
-		}
-		if !reflect.ValueOf(curVm.InternetAccessible.InternetMaxBandwidthOut).IsNil() {
-			keyValueList = append(keyValueList, irs.KeyValue{Key: "InternetMaxBandwidthOut", Value: strconv.FormatInt(*curVm.InternetAccessible.InternetMaxBandwidthOut, 10)})
-		}
-	}
+	// if !reflect.ValueOf(curVm.InternetAccessible).IsNil() {
+	// 	if !reflect.ValueOf(curVm.InternetAccessible.InternetChargeType).IsNil() {
+	// 		//keyValueList = append(keyValueList, irs.KeyValue{Key: "InternetChargeType", Value: *curVm.InternetAccessible.InternetChargeType})
+	// 	}
+	// 	if !reflect.ValueOf(curVm.InternetAccessible.InternetMaxBandwidthOut).IsNil() {
+	// 		//keyValueList = append(keyValueList, irs.KeyValue{Key: "InternetMaxBandwidthOut", Value: strconv.FormatInt(*curVm.InternetAccessible.InternetMaxBandwidthOut, 10)})
+	// 	}
+	// }
 
-	vmInfo.KeyValueList = keyValueList
+	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	vmInfo.KeyValueList = irs.StructToKeyValueList(curVm)
+	// vmInfo.KeyValueList = keyValueList
 
 	return vmInfo, nil
 }
