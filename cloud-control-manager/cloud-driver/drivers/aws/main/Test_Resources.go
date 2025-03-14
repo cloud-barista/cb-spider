@@ -2358,8 +2358,8 @@ func main() {
 	//handleCluster()
 	// handleImage() //AMI
 	// handleVNic() //Lancard
-	handleVMSpec()
+	//handleVMSpec()
 	//handleRegionZone()
-	//handlePriceInfo()
+	handlePriceInfo()
 	//handleTag()
 }
