@@ -2348,7 +2348,7 @@ func main() {
 	//handleTag()
 	// handlePublicIP() // PublicIP 생성 후 conf
 
-	//handleVPC()
+	handleVPC()
 	//handleSecurity()
 	//handleKeyPair()
 	//handleVM()
@@ -2360,6 +2360,6 @@ func main() {
 	// handleVNic() //Lancard
 	//handleVMSpec()
 	//handleRegionZone()
-	handlePriceInfo()
+	//handlePriceInfo()
 	//handleTag()
 }
