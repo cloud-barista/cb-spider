@@ -246,7 +246,7 @@ func (NLBHandler *AlibabaNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 	var nlbInfo irs.NLBInfo
 	vmGroup := irs.VMGroupInfo{}
 	healthChecker := irs.HealthCheckerInfo{}
-	keyvalueList := []irs.KeyValue{}
+	//keyvalueList := []irs.KeyValue{}
 
 	request := slb.CreateDescribeLoadBalancerAttributeRequest()
 	request.LoadBalancerId = nlbIID.SystemId
