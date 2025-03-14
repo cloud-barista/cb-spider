@@ -246,6 +246,7 @@ func (NLBHandler *AlibabaNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 	var nlbInfo irs.NLBInfo
 	vmGroup := irs.VMGroupInfo{}
 	healthChecker := irs.HealthCheckerInfo{}
+	keyvalueList := []irs.KeyValue{}
 
 	request := slb.CreateDescribeLoadBalancerAttributeRequest()
 	request.LoadBalancerId = nlbIID.SystemId
@@ -324,10 +325,11 @@ func (NLBHandler *AlibabaNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 		if err != nil {
 			cblogger.Error(err.Error())
 			// vm 정보 조회 실패
-			var inKeyValueList []irs.KeyValue
-			keyValue := irs.KeyValue{"reason", err.Error()}
-			inKeyValueList = append(inKeyValueList, keyValue)
-			vmGroup.KeyValueList = inKeyValueList
+			// var inKeyValueList []irs.KeyValue
+			// keyValue := irs.KeyValue{"reason", err.Error()}
+			// inKeyValueList = append(inKeyValueList, keyValue)
+			// vmGroup.KeyValueList = inKeyValueList
+			vmGroup.KeyValueList = irs.StructToKeyValueList(err)
 		} else {
 			vmIID = vmInfo.IId
 			nlbInfo.VpcIID = vmInfo.VpcIID
@@ -355,7 +357,7 @@ func (NLBHandler *AlibabaNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 		time.RFC3339,
 		lbAttributeResponse.CreateTime) // RFC3339형태이므로 해당 시간으로 다시 생성. "CreateTime": "2022-07-05T07:54:37Z",
 	nlbInfo.CreatedTime = createdTime
-
+	nlbInfo.KeyValueList = irs.StructToKeyValueList(&lbAttributeResponse)
 	return nlbInfo, nil
 }
 
@@ -1338,6 +1340,8 @@ func (NLBHandler *AlibabaNLBHandler) describeLoadBalancerTcpListenerAttribute(nl
 	//nlbInfo.Listener = listener// listener자체는 변경안됨( protocol, port 변경 불가함.)
 	nlbInfo.VMGroup = vmGroup
 	nlbInfo.HealthChecker = healthChecker
+	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	nlbInfo.KeyValueList = irs.StructToKeyValueList(&listenerAttributeResponse)
 	return nlbInfo, nil
 }
 

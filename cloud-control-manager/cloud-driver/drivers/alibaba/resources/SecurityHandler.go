@@ -443,10 +443,10 @@ func (securityHandler *AlibabaSecurityHandler) ExtractSecurityInfo(securityGroup
 		VpcIID:        irs.IID{SystemId: securityGroupResult.VpcId},
 		SecurityRules: &securityRuleInfos,
 
-		KeyValueList: []irs.KeyValue{
-			{Key: "SecurityGroupName", Value: securityGroupResult.SecurityGroupName},
-			{Key: "CreationTime", Value: securityGroupResult.CreationTime},
-		},
+		// KeyValueList: []irs.KeyValue{
+		// 	{Key: "SecurityGroupName", Value: securityGroupResult.SecurityGroupName},
+		// 	{Key: "CreationTime", Value: securityGroupResult.CreationTime},
+		// },
 	}
 	if securityGroupResult.Tags.Tag != nil {
 		var tagList []irs.KeyValue
@@ -458,7 +458,7 @@ func (securityHandler *AlibabaSecurityHandler) ExtractSecurityInfo(securityGroup
 		}
 		securityInfo.TagList = tagList
 	}
-
+	securityInfo.KeyValueList = irs.StructToKeyValueList(&securityGroupResult)
 	return securityInfo, nil
 }
 
