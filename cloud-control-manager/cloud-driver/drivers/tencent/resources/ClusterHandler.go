@@ -23,7 +23,6 @@ import (
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent/utils/tencent"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/jeremywohl/flatten"
 
 	tke "github.com/tencentcloud/tencentcloud-sdk-go-intl-en/tencentcloud/tke/v20180525"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
@@ -498,26 +497,7 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 		}
 	}
 	// k,v 추출 & 추가
-	// KeyValueList: []irs.KeyValue{}, // flatten data 입력하기
-	temp, err := json.Marshal(*res.Response.Clusters[0])
-	if err != nil {
-		err := fmt.Errorf("Failed to Marshal Cluster Info :  %v", err)
-		cblogger.Error(err)
-		panic(err)
-	}
-	var json_obj map[string]interface{}
-	json.Unmarshal([]byte(temp), &json_obj)
-
-	flat, err := flatten.Flatten(json_obj, "", flatten.DotStyle)
-	if err != nil {
-		err := fmt.Errorf("Failed to Flatten Cluster Info :  %v", err)
-		cblogger.Error(err)
-		return nil, err
-	}
-	for k, v := range flat {
-		temp := fmt.Sprintf("%v", v)
-		clusterInfo.KeyValueList = append(clusterInfo.KeyValueList, irs.KeyValue{Key: k, Value: temp})
-	}
+	clusterInfo.KeyValueList = irs.StructToKeyValueList(*res.Response.Clusters[0])
 
 	// NodeGroups
 	res2, err := tencent.ListNodeGroup(access_key, access_secret, region_id, cluster_id)
@@ -735,24 +715,7 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 	}
 
 	// add key value list
-	temp, err := json.Marshal(*res.Response.NodePool)
-	if err != nil {
-		err := fmt.Errorf("Failed to Marshal NodeGroup Info :  %v", err)
-		cblogger.Error(err)
-		panic(err)
-	}
-	var json_obj map[string]interface{}
-	json.Unmarshal([]byte(temp), &json_obj)
-	flat, err := flatten.Flatten(json_obj, "", flatten.DotStyle)
-	if err != nil {
-		err := fmt.Errorf("Failed to Flatten NodeGroup Info :  %v", err)
-		cblogger.Error(err)
-		return nil, err
-	}
-	for k, v := range flat {
-		temp := fmt.Sprintf("%v", v)
-		nodeGroupInfo.KeyValueList = append(nodeGroupInfo.KeyValueList, irs.KeyValue{Key: k, Value: temp})
-	}
+	nodeGroupInfo.KeyValueList = irs.StructToKeyValueList(*res.Response.NodePool)
 
 	return nodeGroupInfo, err
 }
