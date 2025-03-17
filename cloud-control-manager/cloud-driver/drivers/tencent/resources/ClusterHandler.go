@@ -500,6 +500,7 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 	// 2025-03-13 StructToKeyValueList 사용으로 변경
 	clusterInfo.KeyValueList = irs.StructToKeyValueList(res.Response.Clusters[0])
 	// k,v 추출 & 추가
+
 	// KeyValueList: []irs.KeyValue{}, // flatten data 입력하기
 	// temp, err := json.Marshal(*res.Response.Clusters[0])
 	// if err != nil {
@@ -520,6 +521,9 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 	// 	temp := fmt.Sprintf("%v", v)
 	// 	clusterInfo.KeyValueList = append(clusterInfo.KeyValueList, irs.KeyValue{Key: k, Value: temp})
 	// }
+
+	clusterInfo.KeyValueList = irs.StructToKeyValueList(*res.Response.Clusters[0])
+
 
 	// NodeGroups
 	res2, err := tencent.ListNodeGroup(access_key, access_secret, region_id, cluster_id)
@@ -739,6 +743,7 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 	// 2025-03-13 StructToKeyValueList 사용으로 변경
 	nodeGroupInfo.KeyValueList = irs.StructToKeyValueList(res.Response.NodePool)
 	// add key value list
+
 	// temp, err := json.Marshal(*res.Response.NodePool)
 	// if err != nil {
 	// 	err := fmt.Errorf("Failed to Marshal NodeGroup Info :  %v", err)
@@ -757,6 +762,9 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 	// 	temp := fmt.Sprintf("%v", v)
 	// 	nodeGroupInfo.KeyValueList = append(nodeGroupInfo.KeyValueList, irs.KeyValue{Key: k, Value: temp})
 	// }
+
+	nodeGroupInfo.KeyValueList = irs.StructToKeyValueList(*res.Response.NodePool)
+
 
 	return nodeGroupInfo, err
 }
