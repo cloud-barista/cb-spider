@@ -5,7 +5,6 @@ package resources
 import (
 	"errors"
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
 
@@ -425,6 +424,7 @@ func (DiskHandler *AwsDiskHandler) AttachDisk(diskIID irs.IID, ownerVM irs.IID) 
 	}
 	return returnDiskInfo, nil
 }
+
 func (DiskHandler *AwsDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) (bool, error) {
 	hiscallInfo := GetCallLogScheme(DiskHandler.Region, call.DISK, diskIID.NameId, "DetachDisk()")
 	start := call.Start()
@@ -893,24 +893,28 @@ func (DiskHandler *AwsDiskHandler) convertVolumeInfoToDiskInfo(volumeInfo *ec2.V
 	}
 
 	diskInfo.CreatedTime = *volumeInfo.CreateTime
-	//KeyValueList []KeyValue
-	var inKeyValueList []irs.KeyValue
-	//if !reflect.ValueOf(volumeInfo.Encrypted).IsNil() {
-	inKeyValueList = append(inKeyValueList, irs.KeyValue{Key: "Encrypted", Value: strconv.FormatBool(*volumeInfo.Encrypted)})
-	//}
-	if !reflect.ValueOf(volumeInfo.Iops).IsNil() {
-		inKeyValueList = append(inKeyValueList, irs.KeyValue{Key: "Iops", Value: strconv.Itoa(int(*volumeInfo.Iops))})
-	}
-	//inKeyValueList = append(inKeyValueList, icbs.KeyValue{Key: "KmsKeyId", Value: *volumeInfo.KmsKeyId})
-	inKeyValueList = append(inKeyValueList, irs.KeyValue{Key: "MultiAttachEnabled", Value: strconv.FormatBool(*volumeInfo.MultiAttachEnabled)})
 
-	//inKeyValueList = append(inKeyValueList, icbs.KeyValue{Key: "Tags", Value: strings.Join(volumeInfo.Tags, ",")})
-	//inKeyValueList = append(inKeyValueList, icbs.KeyValue{Key: "OutpostArn", Value: *volumeInfo.OutpostArn})
-	diskInfo.KeyValueList = inKeyValueList
-	cblogger.Debug("keyvalue2")
-	cblogger.Debug(diskInfo)
+	// //KeyValueList []KeyValue
+	// var inKeyValueList []irs.KeyValue
+	// //if !reflect.ValueOf(volumeInfo.Encrypted).IsNil() {
+	// inKeyValueList = append(inKeyValueList, irs.KeyValue{Key: "Encrypted", Value: strconv.FormatBool(*volumeInfo.Encrypted)})
+	// //}
+	// if !reflect.ValueOf(volumeInfo.Iops).IsNil() {
+	// 	inKeyValueList = append(inKeyValueList, irs.KeyValue{Key: "Iops", Value: strconv.Itoa(int(*volumeInfo.Iops))})
+	// }
+	// //inKeyValueList = append(inKeyValueList, icbs.KeyValue{Key: "KmsKeyId", Value: *volumeInfo.KmsKeyId})
+	// inKeyValueList = append(inKeyValueList, irs.KeyValue{Key: "MultiAttachEnabled", Value: strconv.FormatBool(*volumeInfo.MultiAttachEnabled)})
+
+	// //inKeyValueList = append(inKeyValueList, icbs.KeyValue{Key: "Tags", Value: strings.Join(volumeInfo.Tags, ",")})
+	// //inKeyValueList = append(inKeyValueList, icbs.KeyValue{Key: "OutpostArn", Value: *volumeInfo.OutpostArn})
+	// diskInfo.KeyValueList = inKeyValueList
+	// cblogger.Debug("keyvalue2")
+
+	// Use irs.StructToKeyValueList to populate KeyValueList
+	diskInfo.KeyValueList = irs.StructToKeyValueList(volumeInfo)
 
 	diskInfo.TagList, _ = DiskHandler.TagHandler.ListTag(irs.DISK, diskInfo.IId)
+	cblogger.Debug(diskInfo)
 
 	return diskInfo, nil
 }

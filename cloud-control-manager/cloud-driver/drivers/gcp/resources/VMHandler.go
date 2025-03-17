@@ -1260,16 +1260,16 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 		RootDiskSize:   strconv.FormatInt(diskInfo.SizeGb, 10),
 		RootDeviceName: server.Disks[0].DeviceName,
 		DataDiskIIDs:   attachedDisk.Items,
-		KeyValueList: []irs.KeyValue{
-			{"SubNetwork", server.NetworkInterfaces[0].Subnetwork},
-			{"AccessConfigName", server.NetworkInterfaces[0].AccessConfigs[0].Name},
-			{"NetworkTier", server.NetworkInterfaces[0].AccessConfigs[0].NetworkTier},
-			{"DiskDeviceName", server.Disks[0].DeviceName},
-			{"DiskName", server.Disks[0].Source},
+		// KeyValueList: []irs.KeyValue{
+		// 	{"SubNetwork", server.NetworkInterfaces[0].Subnetwork},
+		// 	{"AccessConfigName", server.NetworkInterfaces[0].AccessConfigs[0].Name},
+		// 	{"NetworkTier", server.NetworkInterfaces[0].AccessConfigs[0].NetworkTier},
+		// 	{"DiskDeviceName", server.Disks[0].DeviceName},
+		// 	{"DiskName", server.Disks[0].Source},
 
-			{"Kind", server.Kind},
-			{"ZoneUrl", server.Zone},
-		},
+		// 	{"Kind", server.Kind},
+		// 	{"ZoneUrl", server.Zone},
+		// },
 	}
 
 	vmInfo.ImageType = vmHandler.getImageType(server.SourceMachineImage)
@@ -1312,6 +1312,8 @@ func (vmHandler *GCPVMHandler) mappingServerInfo(server *compute.Instance) irs.V
 	}
 	vmInfo.TagList = tags
 
+	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	vmInfo.KeyValueList = irs.StructToKeyValueList(server)
 	return vmInfo
 }
 

@@ -14,7 +14,6 @@ package resources
 
 import (
 	"errors"
-	"strconv"
 	"strings"
 	"time"
 
@@ -271,13 +270,15 @@ func ExtractVpcDescribeInfo(vpcInfo *vpc.Vpc) irs.VPCInfo {
 	}
 	aliVpcInfo.TagList = tagList
 
-	keyValueList := []irs.KeyValue{
-		{Key: "IsDefault", Value: strconv.FormatBool(vpcInfo.IsDefault)},
-		{Key: "Status", Value: vpcInfo.Status},
-		{Key: "VRouterId", Value: vpcInfo.VRouterId},
-		{Key: "RegionId", Value: vpcInfo.RegionId},
-	}
-	aliVpcInfo.KeyValueList = keyValueList
+	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	aliVpcInfo.KeyValueList = irs.StructToKeyValueList(vpcInfo)
+	// keyValueList := []irs.KeyValue{
+	// 	{Key: "IsDefault", Value: strconv.FormatBool(vpcInfo.IsDefault)},
+	// 	{Key: "Status", Value: vpcInfo.Status},
+	// 	{Key: "VRouterId", Value: vpcInfo.VRouterId},
+	// 	{Key: "RegionId", Value: vpcInfo.RegionId},
+	// }
+	// aliVpcInfo.KeyValueList = keyValueList
 
 	return aliVpcInfo
 }
@@ -514,13 +515,14 @@ func ExtractSubnetDescribeInfo(subnetInfo vpc.VSwitch) irs.SubnetInfo {
 	vNetworkInfo.TagList = tagList
 
 	/////
-
-	keyValueList := []irs.KeyValue{
-		{Key: "Status", Value: subnetInfo.Status},
-		{Key: "IsDefault", Value: strconv.FormatBool(subnetInfo.IsDefault)},
-		{Key: "ZoneId", Value: subnetInfo.ZoneId},
-	}
-	vNetworkInfo.KeyValueList = keyValueList
+	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	vNetworkInfo.KeyValueList = irs.StructToKeyValueList(subnetInfo)
+	// keyValueList := []irs.KeyValue{
+	// 	{Key: "Status", Value: subnetInfo.Status},
+	// 	{Key: "IsDefault", Value: strconv.FormatBool(subnetInfo.IsDefault)},
+	// 	{Key: "ZoneId", Value: subnetInfo.ZoneId},
+	// }
+	// vNetworkInfo.KeyValueList = keyValueList
 
 	return vNetworkInfo
 }

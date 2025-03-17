@@ -5,7 +5,6 @@ package resources
 import (
 	"errors"
 	"reflect"
-	"strconv"
 	"strings"
 	"time"
 
@@ -314,25 +313,28 @@ func ExtractMyImageDescribeInfo(aliMyImage *ecs.Image) (irs.MyImageInfo, error) 
 		aliMyImage.CreationTime) // RFC3339형태이므로 해당 시간으로 다시 생성
 	returnMyImageInfo.CreatedTime = createdTime
 
+	// 2025-03-13 StructToKeyValueList 사용으로 변경
 	keyValueList := []irs.KeyValue{}
-	keyValueList = append(keyValueList, irs.KeyValue{Key: "ImageOwnerAlias", Value: aliMyImage.ImageOwnerAlias})
-	keyValueList = append(keyValueList, irs.KeyValue{Key: "IsSelfShared", Value: aliMyImage.IsSelfShared})
-	keyValueList = append(keyValueList, irs.KeyValue{Key: "Description", Value: aliMyImage.Description})
-	keyValueList = append(keyValueList, irs.KeyValue{Key: "Platform", Value: aliMyImage.Platform})
-	keyValueList = append(keyValueList, irs.KeyValue{Key: "ResourceGroupId", Value: aliMyImage.ResourceGroupId})
-	keyValueList = append(keyValueList, irs.KeyValue{Key: "Size", Value: strconv.Itoa(aliMyImage.Size)})
-	keyValueList = append(keyValueList, irs.KeyValue{Key: "IsSubscribed", Value: strconv.FormatBool(aliMyImage.IsSubscribed)})
-	//keyValueList = append(keyValueList, irs.KeyValue{Key: "architecture", Value: strconv.FormatBool(aliMyImage.)})
-	keyValueList = append(keyValueList, irs.KeyValue{Key: "OSName", Value: aliMyImage.OSName})
-	keyValueList = append(keyValueList, irs.KeyValue{Key: "OSNameEn", Value: aliMyImage.OSNameEn})
+	keyValueList = irs.StructToKeyValueList(aliMyImage)
+	// keyValueList := []irs.KeyValue{}
+	// keyValueList = append(keyValueList, irs.KeyValue{Key: "ImageOwnerAlias", Value: aliMyImage.ImageOwnerAlias})
+	// keyValueList = append(keyValueList, irs.KeyValue{Key: "IsSelfShared", Value: aliMyImage.IsSelfShared})
+	// keyValueList = append(keyValueList, irs.KeyValue{Key: "Description", Value: aliMyImage.Description})
+	// keyValueList = append(keyValueList, irs.KeyValue{Key: "Platform", Value: aliMyImage.Platform})
+	// keyValueList = append(keyValueList, irs.KeyValue{Key: "ResourceGroupId", Value: aliMyImage.ResourceGroupId})
+	// keyValueList = append(keyValueList, irs.KeyValue{Key: "Size", Value: strconv.Itoa(aliMyImage.Size)})
+	// keyValueList = append(keyValueList, irs.KeyValue{Key: "IsSubscribed", Value: strconv.FormatBool(aliMyImage.IsSubscribed)})
+	// //keyValueList = append(keyValueList, irs.KeyValue{Key: "architecture", Value: strconv.FormatBool(aliMyImage.)})
+	// keyValueList = append(keyValueList, irs.KeyValue{Key: "OSName", Value: aliMyImage.OSName})
+	// keyValueList = append(keyValueList, irs.KeyValue{Key: "OSNameEn", Value: aliMyImage.OSNameEn})
 
-	keyValueList = append(keyValueList, irs.KeyValue{Key: "Progress", Value: aliMyImage.Progress})
-	keyValueList = append(keyValueList, irs.KeyValue{Key: "Usage", Value: aliMyImage.Usage})
-	keyValueList = append(keyValueList, irs.KeyValue{Key: "Architecture", Value: aliMyImage.Architecture})
-	keyValueList = append(keyValueList, irs.KeyValue{Key: "IsCopied", Value: strconv.FormatBool(aliMyImage.IsCopied)})
-	keyValueList = append(keyValueList, irs.KeyValue{Key: "IsSupportCloudinit", Value: strconv.FormatBool(aliMyImage.IsSupportCloudinit)})
-	keyValueList = append(keyValueList, irs.KeyValue{Key: "ImageVersion", Value: aliMyImage.ImageVersion})
-	keyValueList = append(keyValueList, irs.KeyValue{Key: "OSType", Value: aliMyImage.OSType})
+	// keyValueList = append(keyValueList, irs.KeyValue{Key: "Progress", Value: aliMyImage.Progress})
+	// keyValueList = append(keyValueList, irs.KeyValue{Key: "Usage", Value: aliMyImage.Usage})
+	// keyValueList = append(keyValueList, irs.KeyValue{Key: "Architecture", Value: aliMyImage.Architecture})
+	// keyValueList = append(keyValueList, irs.KeyValue{Key: "IsCopied", Value: strconv.FormatBool(aliMyImage.IsCopied)})
+	// keyValueList = append(keyValueList, irs.KeyValue{Key: "IsSupportCloudinit", Value: strconv.FormatBool(aliMyImage.IsSupportCloudinit)})
+	// keyValueList = append(keyValueList, irs.KeyValue{Key: "ImageVersion", Value: aliMyImage.ImageVersion})
+	// keyValueList = append(keyValueList, irs.KeyValue{Key: "OSType", Value: aliMyImage.OSType})
 
 	returnMyImageInfo.KeyValueList = keyValueList
 
