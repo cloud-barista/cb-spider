@@ -280,6 +280,7 @@ func (NLBHandler *AlibabaNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 		//DNSName		string	// Optional, Auto Generated and attached
 		listener.CspID = lbAttributeResponse.ResourceGroupId
 		//KeyValueList []KeyValue
+		//listener.KeyValueList = irs.StructToKeyValueList(listenerProtocolAndPort) // nlbInfo의 keyvalue에 있는 내용이므로 추가하지 않음
 		break
 	}
 	nlbInfo.Listener = listener
@@ -305,6 +306,7 @@ func (NLBHandler *AlibabaNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 
 		vmGroup = responseNlbInfo.VMGroup
 		healthChecker = responseNlbInfo.HealthChecker
+		healthChecker.KeyValueList = irs.StructToKeyValueList(responseNlbInfo)
 	} else if strings.EqualFold(listener.Protocol, ListenerProtocol_UDP) {
 		responseNlbInfo, err := NLBHandler.describeLoadBalancerUdpListenerAttribute(nlbIID, listener)
 		if err != nil {
@@ -313,6 +315,7 @@ func (NLBHandler *AlibabaNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, error)
 
 		vmGroup = responseNlbInfo.VMGroup
 		healthChecker = responseNlbInfo.HealthChecker
+		healthChecker.KeyValueList = irs.StructToKeyValueList(responseNlbInfo)
 	}
 
 	var vms []irs.IID
