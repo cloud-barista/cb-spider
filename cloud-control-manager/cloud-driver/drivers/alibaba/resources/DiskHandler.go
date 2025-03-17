@@ -681,58 +681,60 @@ func ExtractDiskDescribeInfo(aliDisk *ecs.Disk) (irs.DiskInfo, error) {
 	}
 	diskInfo.Status = diskStatus
 
-	keyValueList := []irs.KeyValue{
-		{Key: "CreationTime", Value: aliDisk.CreationTime},
-		{Key: "AttachedTime", Value: aliDisk.AttachedTime},
-		{Key: "DetachedTime", Value: aliDisk.DetachedTime},
-		{Key: "ExpiredTime", Value: aliDisk.ExpiredTime},
+	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	diskInfo.KeyValueList = irs.StructToKeyValueList(aliDisk)
+	// keyValueList := []irs.KeyValue{
+	// 	{Key: "CreationTime", Value: aliDisk.CreationTime},
+	// 	{Key: "AttachedTime", Value: aliDisk.AttachedTime},
+	// 	{Key: "DetachedTime", Value: aliDisk.DetachedTime},
+	// 	{Key: "ExpiredTime", Value: aliDisk.ExpiredTime},
 
-		{Key: "SerialNumber", Value: aliDisk.SerialNumber},
-		{Key: "Status", Value: aliDisk.Status}, // In_use, Available, Attaching, Detaching, Creating, ReIniting
-		{Key: "Size", Value: strconv.Itoa(aliDisk.Size)},
-		{Key: "Category", Value: aliDisk.Category},
-		{Key: "Type", Value: aliDisk.Type},                         // system, data
-		{Key: "PerformanceLevel", Value: aliDisk.PerformanceLevel}, // PL0, PL1, PL2, PL3
-		{Key: "BdfId", Value: aliDisk.BdfId},
-		{Key: "EnableAutoSnapshot", Value: strconv.FormatBool(aliDisk.EnableAutoSnapshot)},
-		{Key: "StorageSetId", Value: aliDisk.StorageSetId},
-		{Key: "StorageSetPartitionNumber", Value: strconv.Itoa(aliDisk.StorageSetPartitionNumber)},
+	// 	{Key: "SerialNumber", Value: aliDisk.SerialNumber},
+	// 	{Key: "Status", Value: aliDisk.Status}, // In_use, Available, Attaching, Detaching, Creating, ReIniting
+	// 	{Key: "Size", Value: strconv.Itoa(aliDisk.Size)},
+	// 	{Key: "Category", Value: aliDisk.Category},
+	// 	{Key: "Type", Value: aliDisk.Type},                         // system, data
+	// 	{Key: "PerformanceLevel", Value: aliDisk.PerformanceLevel}, // PL0, PL1, PL2, PL3
+	// 	{Key: "BdfId", Value: aliDisk.BdfId},
+	// 	{Key: "EnableAutoSnapshot", Value: strconv.FormatBool(aliDisk.EnableAutoSnapshot)},
+	// 	{Key: "StorageSetId", Value: aliDisk.StorageSetId},
+	// 	{Key: "StorageSetPartitionNumber", Value: strconv.Itoa(aliDisk.StorageSetPartitionNumber)},
 
-		{Key: "aliDiskId", Value: aliDisk.DiskId},
-		{Key: "DeleteAutoSnapshot", Value: strconv.FormatBool(aliDisk.DeleteAutoSnapshot)},
-		{Key: "Encrypted", Value: strconv.FormatBool(aliDisk.Encrypted)},
-		{Key: "IOPS", Value: strconv.Itoa(aliDisk.IOPS)},
-		{Key: "IOPSRead", Value: strconv.Itoa(aliDisk.IOPSRead)},
-		{Key: "IOPSWrite", Value: strconv.Itoa(aliDisk.IOPSWrite)},
-		{Key: "Throughput", Value: strconv.Itoa(aliDisk.Throughput)},
-		{Key: "MountInstanceNum", Value: strconv.Itoa(aliDisk.MountInstanceNum)},
+	// 	{Key: "aliDiskId", Value: aliDisk.DiskId},
+	// 	{Key: "DeleteAutoSnapshot", Value: strconv.FormatBool(aliDisk.DeleteAutoSnapshot)},
+	// 	{Key: "Encrypted", Value: strconv.FormatBool(aliDisk.Encrypted)},
+	// 	{Key: "IOPS", Value: strconv.Itoa(aliDisk.IOPS)},
+	// 	{Key: "IOPSRead", Value: strconv.Itoa(aliDisk.IOPSRead)},
+	// 	{Key: "IOPSWrite", Value: strconv.Itoa(aliDisk.IOPSWrite)},
+	// 	{Key: "Throughput", Value: strconv.Itoa(aliDisk.Throughput)},
+	// 	{Key: "MountInstanceNum", Value: strconv.Itoa(aliDisk.MountInstanceNum)},
 
-		{Key: "Description", Value: aliDisk.Description},
-		{Key: "Device", Value: aliDisk.Device},
-		{Key: "aliDiskName", Value: aliDisk.DiskName},
-		{Key: "Portable", Value: strconv.FormatBool(aliDisk.Portable)},
-		{Key: "ImageId", Value: aliDisk.ImageId},
-		{Key: "KMSKeyId", Value: aliDisk.KMSKeyId},
+	// 	{Key: "Description", Value: aliDisk.Description},
+	// 	{Key: "Device", Value: aliDisk.Device},
+	// 	{Key: "aliDiskName", Value: aliDisk.DiskName},
+	// 	{Key: "Portable", Value: strconv.FormatBool(aliDisk.Portable)},
+	// 	{Key: "ImageId", Value: aliDisk.ImageId},
+	// 	{Key: "KMSKeyId", Value: aliDisk.KMSKeyId},
 
-		{Key: "DeleteWithInstance", Value: strconv.FormatBool(aliDisk.DeleteWithInstance)},
+	// 	{Key: "DeleteWithInstance", Value: strconv.FormatBool(aliDisk.DeleteWithInstance)},
 
-		{Key: "SourceSnapshotId", Value: aliDisk.SourceSnapshotId},
-		{Key: "AutoSnapshotPolicyId", Value: aliDisk.AutoSnapshotPolicyId},
-		{Key: "EnableAutomatedSnapshotPolicy", Value: strconv.FormatBool(aliDisk.EnableAutomatedSnapshotPolicy)},
-		{Key: "InstanceId", Value: aliDisk.InstanceId},
-		{Key: "RegionId", Value: aliDisk.RegionId},
-		{Key: "ZoneId", Value: aliDisk.ZoneId},
+	// 	{Key: "SourceSnapshotId", Value: aliDisk.SourceSnapshotId},
+	// 	{Key: "AutoSnapshotPolicyId", Value: aliDisk.AutoSnapshotPolicyId},
+	// 	{Key: "EnableAutomatedSnapshotPolicy", Value: strconv.FormatBool(aliDisk.EnableAutomatedSnapshotPolicy)},
+	// 	{Key: "InstanceId", Value: aliDisk.InstanceId},
+	// 	{Key: "RegionId", Value: aliDisk.RegionId},
+	// 	{Key: "ZoneId", Value: aliDisk.ZoneId},
 
-		{Key: "aliDiskChargeType", Value: aliDisk.DiskChargeType},
-		{Key: "ResourceGroupId", Value: aliDisk.ResourceGroupId},
-		{Key: "ProductCode", Value: aliDisk.ProductCode},
-		{Key: "MultiAttach", Value: aliDisk.MultiAttach},
+	// 	{Key: "aliDiskChargeType", Value: aliDisk.DiskChargeType},
+	// 	{Key: "ResourceGroupId", Value: aliDisk.ResourceGroupId},
+	// 	{Key: "ProductCode", Value: aliDisk.ProductCode},
+	// 	{Key: "MultiAttach", Value: aliDisk.MultiAttach},
 
-		{Key: "ResourceGroupId", Value: aliDisk.ResourceGroupId},
-	}
+	// 	{Key: "ResourceGroupId", Value: aliDisk.ResourceGroupId},
+	// }
 
-	//keyValueList = append(keyValueList, irs.KeyValue{Key: "Description", Value: disk.Description})
-	diskInfo.KeyValueList = keyValueList
+	// //keyValueList = append(keyValueList, irs.KeyValue{Key: "Description", Value: disk.Description})
+	// diskInfo.KeyValueList = keyValueList
 	return diskInfo, nil
 }
 

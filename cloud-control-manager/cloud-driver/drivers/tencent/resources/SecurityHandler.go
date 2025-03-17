@@ -322,6 +322,9 @@ func (securityHandler *TencentSecurityHandler) GetSecurity(securityIID irs.IID) 
 			cblogger.Error(err)
 			return irs.SecurityInfo{}, err
 		}
+
+		// 2025-03-13 StructToKeyValueList 사용으로 변경
+		securityInfo.KeyValueList = irs.StructToKeyValueList(response.Response.SecurityGroupSet)
 		return securityInfo, nil
 	} else {
 		return irs.SecurityInfo{}, errors.New("InvalidSecurityGroupId.NotFound: The SecurityGroup " + securityIID.SystemId + " does not exist")

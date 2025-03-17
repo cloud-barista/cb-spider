@@ -14,7 +14,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"strconv"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -570,6 +569,8 @@ func ExtractVpcDescribeInfo(vpcInfo *ec2.Vpc) irs.VPCInfo {
 		}
 	}
 
+	awsVpcInfo.KeyValueList = irs.StructToKeyValueList(vpcInfo)
+
 	return awsVpcInfo
 }
 
@@ -1092,14 +1093,15 @@ func ExtractSubnetDescribeInfo(subnetInfo *ec2.Subnet) irs.SubnetInfo {
 		}
 	*/
 
-	keyValueList := []irs.KeyValue{
-		{Key: "VpcId", Value: *subnetInfo.VpcId},
-		{Key: "MapPublicIpOnLaunch", Value: strconv.FormatBool(*subnetInfo.MapPublicIpOnLaunch)},
-		{Key: "AvailableIpAddressCount", Value: strconv.FormatInt(*subnetInfo.AvailableIpAddressCount, 10)},
-		{Key: "AvailabilityZone", Value: *subnetInfo.AvailabilityZone},
-		{Key: "Status", Value: *subnetInfo.State},
-	}
-	vNetworkInfo.KeyValueList = keyValueList
+	// keyValueList := []irs.KeyValue{
+	// 	{Key: "VpcId", Value: *subnetInfo.VpcId},
+	// 	{Key: "MapPublicIpOnLaunch", Value: strconv.FormatBool(*subnetInfo.MapPublicIpOnLaunch)},
+	// 	{Key: "AvailableIpAddressCount", Value: strconv.FormatInt(*subnetInfo.AvailableIpAddressCount, 10)},
+	// 	{Key: "AvailabilityZone", Value: *subnetInfo.AvailabilityZone},
+	// 	{Key: "Status", Value: *subnetInfo.State},
+	// }
+	// vNetworkInfo.KeyValueList = keyValueList
+	vNetworkInfo.KeyValueList = irs.StructToKeyValueList(subnetInfo)
 
 	return vNetworkInfo
 }

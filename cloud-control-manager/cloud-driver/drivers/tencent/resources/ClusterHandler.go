@@ -496,8 +496,34 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 			clusterInfo.TagList = tagList
 		}
 	}
+
+	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	clusterInfo.KeyValueList = irs.StructToKeyValueList(res.Response.Clusters[0])
 	// k,v 추출 & 추가
+
+	// KeyValueList: []irs.KeyValue{}, // flatten data 입력하기
+	// temp, err := json.Marshal(*res.Response.Clusters[0])
+	// if err != nil {
+	// 	err := fmt.Errorf("Failed to Marshal Cluster Info :  %v", err)
+	// 	cblogger.Error(err)
+	// 	panic(err)
+	// }
+	// var json_obj map[string]interface{}
+	// json.Unmarshal([]byte(temp), &json_obj)
+
+	// flat, err := flatten.Flatten(json_obj, "", flatten.DotStyle)
+	// if err != nil {
+	// 	err := fmt.Errorf("Failed to Flatten Cluster Info :  %v", err)
+	// 	cblogger.Error(err)
+	// 	return nil, err
+	// }
+	// for k, v := range flat {
+	// 	temp := fmt.Sprintf("%v", v)
+	// 	clusterInfo.KeyValueList = append(clusterInfo.KeyValueList, irs.KeyValue{Key: k, Value: temp})
+	// }
+
 	clusterInfo.KeyValueList = irs.StructToKeyValueList(*res.Response.Clusters[0])
+
 
 	// NodeGroups
 	res2, err := tencent.ListNodeGroup(access_key, access_secret, region_id, cluster_id)
@@ -714,8 +740,31 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 		}
 	}
 
+	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	nodeGroupInfo.KeyValueList = irs.StructToKeyValueList(res.Response.NodePool)
 	// add key value list
+
+	// temp, err := json.Marshal(*res.Response.NodePool)
+	// if err != nil {
+	// 	err := fmt.Errorf("Failed to Marshal NodeGroup Info :  %v", err)
+	// 	cblogger.Error(err)
+	// 	panic(err)
+	// }
+	// var json_obj map[string]interface{}
+	// json.Unmarshal([]byte(temp), &json_obj)
+	// flat, err := flatten.Flatten(json_obj, "", flatten.DotStyle)
+	// if err != nil {
+	// 	err := fmt.Errorf("Failed to Flatten NodeGroup Info :  %v", err)
+	// 	cblogger.Error(err)
+	// 	return nil, err
+	// }
+	// for k, v := range flat {
+	// 	temp := fmt.Sprintf("%v", v)
+	// 	nodeGroupInfo.KeyValueList = append(nodeGroupInfo.KeyValueList, irs.KeyValue{Key: k, Value: temp})
+	// }
+
 	nodeGroupInfo.KeyValueList = irs.StructToKeyValueList(*res.Response.NodePool)
+
 
 	return nodeGroupInfo, err
 }

@@ -464,22 +464,23 @@ func (vVPCHandler *GCPVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
 		},
 		IPv4_CIDR:      "GCP VPC does not support IPv4_CIDR",
 		SubnetInfoList: subnetInfoList,
-		KeyValueList: []irs.KeyValue{
-			{"RoutingMode", infoVPC.RoutingConfig.RoutingMode},
-			{"Description", infoVPC.Description},
-			{"SelfLink", infoVPC.SelfLink},
-		},
+		// KeyValueList: []irs.KeyValue{
+		// 	{"RoutingMode", infoVPC.RoutingConfig.RoutingMode},
+		// 	{"Description", infoVPC.Description},
+		// 	{"SelfLink", infoVPC.SelfLink},
+		// },
 	}
-
+	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	networkInfo.KeyValueList = irs.StructToKeyValueList(infoVPC)
 	return networkInfo, nil
 }
 
 func mappingSubnet(subnet *compute.Subnetwork) irs.SubnetInfo {
 	//str := subnet.SelfLink
-	str := strings.Split(subnet.SelfLink, "/")
-	subnetName := str[len(str)-1]
-	regionStr := strings.Split(subnet.Region, "/")
-	region := regionStr[len(regionStr)-1]
+	//str := strings.Split(subnet.SelfLink, "/")
+	//subnetName := str[len(str)-1]
+	//regionStr := strings.Split(subnet.Region, "/")
+	//region := regionStr[len(regionStr)-1]
 	subnetInfo := irs.SubnetInfo{
 		IId: irs.IID{
 			NameId: subnet.Name,
@@ -487,11 +488,14 @@ func mappingSubnet(subnet *compute.Subnetwork) irs.SubnetInfo {
 			SystemId: subnet.Name,
 		},
 		IPv4_CIDR: subnet.IpCidrRange,
-		KeyValueList: []irs.KeyValue{
-			{"region", region},
-			{"subnet", subnetName},
-		},
+		// KeyValueList: []irs.KeyValue{
+		// 	{"region", region},
+		// 	{"subnet", subnetName},
+		// },
 	}
+
+	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	subnetInfo.KeyValueList = irs.StructToKeyValueList(subnet)
 	return subnetInfo
 }
 

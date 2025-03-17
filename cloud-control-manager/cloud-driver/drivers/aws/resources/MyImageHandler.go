@@ -551,6 +551,8 @@ func convertAWSImageToMyImageInfo(awsImage *ec2.Image) (irs.MyImageInfo, error) 
 	//usageOperation		The operation of the Amazon EC2 instance and the billing code that is associated with the AMI. usageOperation corresponds to the lineitem/Operation column on your AWS Cost and Usage Report and in the AWS Price List API. You can view these fields on the Instances or AMIs pages in the Amazon EC2 console, or in the responses that are returned by the DescribeImages command in the Amazon EC2 API, or the describe-images command in the AWS CLI.
 	//virtualizationType	The type of virtualization of the AMI.	Type: String	Valid Values: hvm | paravirtual
 
+	// Use irs.StructToKeyValueList to populate KeyValueList
+	returnMyImage.KeyValueList = irs.StructToKeyValueList(awsImage)
 	return returnMyImage, nil
 }
 

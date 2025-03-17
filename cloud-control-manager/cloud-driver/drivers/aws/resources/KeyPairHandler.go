@@ -179,10 +179,11 @@ func (keyPairHandler *AwsKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairReq
 		PrivateKey:  *result.KeyMaterial, // AWS(PEM파일-RSA PRIVATE KEY)
 		//PublicKey:   publicKey,
 		//KeyMaterial: *result.KeyMaterial,
-		KeyValueList: []irs.KeyValue{
-			{Key: "KeyMaterial", Value: *result.KeyMaterial},
-		},
+		// KeyValueList: []irs.KeyValue{
+		// 	{Key: "KeyMaterial", Value: *result.KeyMaterial},
+		// },
 	}
+	keyPairInfo.KeyValueList = irs.StructToKeyValueList(result) // 공통 KeyValueList 추가
 
 	//cblogger.Debug(keyPairInfo)
 
@@ -342,11 +343,12 @@ func ExtractKeyPairDescribeInfo(keyPair *ec2.KeyPairInfo) (irs.KeyPairInfo, erro
 	keyPairInfo.PrivateKey = string(privateKeyBytes)
 	*/
 
-	keyValueList := []irs.KeyValue{
-		//{Key: "KeyMaterial", Value: *keyPair.KeyMaterial},
-	}
+	// keyValueList := []irs.KeyValue{
+	// 	//{Key: "KeyMaterial", Value: *keyPair.KeyMaterial},
+	// }
 
-	keyPairInfo.KeyValueList = keyValueList
+	// keyPairInfo.KeyValueList = keyValueList
+	keyPairInfo.KeyValueList = irs.StructToKeyValueList(keyPair) // KeyValueList 추가
 
 	return keyPairInfo, nil
 }

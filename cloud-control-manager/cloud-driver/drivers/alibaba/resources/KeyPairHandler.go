@@ -168,15 +168,18 @@ func (keyPairHandler *AlibabaKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 	cblogger.Infof("Public Key")
 	cblogger.Debug(publicKey)
 	*/
-	keyPairInfo := irs.KeyPairInfo{
-		IId:         irs.IID{NameId: result.KeyPairName, SystemId: result.KeyPairName},
-		Fingerprint: result.KeyPairFingerPrint,
-		PrivateKey:  result.PrivateKeyBody,
-		//PublicKey:   publicKey,
-		KeyValueList: []irs.KeyValue{
-			{Key: "KeyMaterial", Value: result.PrivateKeyBody},
-		},
-	}
+	// keyPairInfo := irs.KeyPairInfo{
+	// 	IId:         irs.IID{NameId: result.KeyPairName, SystemId: result.KeyPairName},
+	// 	Fingerprint: result.KeyPairFingerPrint,
+	// 	PrivateKey:  result.PrivateKeyBody,
+	// 	//PublicKey:   publicKey,
+	// 	KeyValueList: []irs.KeyValue{
+	// 		{Key: "KeyMaterial", Value: result.PrivateKeyBody},
+	// 	},
+	// }
+
+	// keyPairInfo 를 직접  set에서 GetKey로 변경
+	keyPairInfo, err := keyPairHandler.GetKey(irs.IID{NameId: keyPairReqInfo.IId.NameId, SystemId: result.KeyPairName})
 
 	/* 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 	hashString := strings.ReplaceAll(keyPairInfo.Fingerprint, ":", "") // 필요한 경우 리전 정보 추가하면 될 듯. 나중에 키 이름과 리전으로 암복호화를 진행하면 될 것같음.
@@ -273,7 +276,6 @@ func ExtractKeyPairDescribeInfo(keyPair *ecs.KeyPair) (irs.KeyPairInfo, error) {
 	}
 
 	tagList := []irs.KeyValue{}
-	cblogger.Info("eeeeeeeeeee", keyPair.Tags)
 	for _, aliTag := range keyPair.Tags.Tag {
 		kTag := irs.KeyValue{}
 		kTag.Key = aliTag.TagKey
@@ -310,12 +312,13 @@ func ExtractKeyPairDescribeInfo(keyPair *ecs.KeyPair) (irs.KeyPairInfo, error) {
 	keyPairInfo.PublicKey = string(publicKeyBytes)
 	keyPairInfo.PrivateKey = string(privateKeyBytes)
 	*/
-	keyValueList := []irs.KeyValue{
-		//{Key: "ResourceGroupId", Value: keyPair.ResourceGroupId},
-		{Key: "CreationTime", Value: keyPair.CreationTime},
-	}
-
-	keyPairInfo.KeyValueList = keyValueList
+	// keyValueList := []irs.KeyValue{
+	// 	//{Key: "ResourceGroupId", Value: keyPair.ResourceGroupId},
+	// 	{Key: "CreationTime", Value: keyPair.CreationTime},
+	// }
+	// keyPairInfo.KeyValueList = keyValueList
+	// 2025-03-13 keyvalueList를 StructToKeyValueList로 set
+	keyPairInfo.KeyValueList = irs.StructToKeyValueList(keyPair)
 
 	return keyPairInfo, nil
 }

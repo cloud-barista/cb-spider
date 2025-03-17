@@ -939,7 +939,8 @@ func (NLBHandler *TencentNLBHandler) ExtractNLBDescribeInfo(nlbInfo *clb.LoadBal
 		}
 		resNLBInfo.TagList = tagList
 	}
-
+	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	resNLBInfo.KeyValueList = irs.StructToKeyValueList(nlbInfo)
 	return resNLBInfo, nil
 }
 
@@ -974,6 +975,9 @@ func (NLBHandler *TencentNLBHandler) ExtractListenerInfo(nlbIID irs.IID) (irs.Li
 		return irs.ListenerInfo{}, ipErr
 	}
 	resListenerInfo.IP = *ipResponse.Response.LoadBalancerSet[0].LoadBalancerVips[0]
+
+	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	resListenerInfo.KeyValueList = irs.StructToKeyValueList(ipResponse.Response.LoadBalancerSet[0])
 
 	return resListenerInfo, nil
 }
@@ -1049,8 +1053,9 @@ func (NLBHandler *TencentNLBHandler) ExtractHealthCheckerInfo(nlbIID irs.IID) (i
 	if tencentHealthCheck.CheckPort != nil {
 		resHealthCheckerInfo.Port = strconv.FormatInt(*tencentHealthCheck.CheckPort, 10)
 	}
-	cblogger.Debug("after")
 
+	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	resHealthCheckerInfo.KeyValueList = irs.StructToKeyValueList(tencentHealthCheck)
 	return resHealthCheckerInfo, nil
 
 }

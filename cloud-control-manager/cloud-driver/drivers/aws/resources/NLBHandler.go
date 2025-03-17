@@ -866,8 +866,11 @@ func (NLBHandler *AwsNLBHandler) ExtractListenerInfo(nlbIID irs.IID) (irs.Listen
 		retListenerInfo.Port = strconv.FormatInt(*resListener.Listeners[0].Port, 10)
 
 		//Key Value 처리
-		keyValueList, _ := ConvertKeyValueList(resListener.Listeners[0])
-		retListenerInfo.KeyValueList = keyValueList
+		// keyValueList, _ := ConvertKeyValueList(resListener.Listeners[0])
+		// retListenerInfo.KeyValueList = keyValueList
+
+		// Use irs.StructToKeyValueList to populate KeyValueList
+		retListenerInfo.KeyValueList = irs.StructToKeyValueList(resListener.Listeners[0])
 
 		return retListenerInfo, nil
 	} else {
@@ -930,8 +933,12 @@ func (NLBHandler *AwsNLBHandler) ExtractVMGroupInfo(nlbIID irs.IID) (TargetGroup
 		//================
 		//Key Value 처리
 		//================
-		keyValueList, _ := ConvertKeyValueList(result.TargetGroups[0])
-		targetGroupInfo.VMGroup.KeyValueList = keyValueList
+		// keyValueList, _ := ConvertKeyValueList(result.TargetGroups[0])
+		// targetGroupInfo.VMGroup.KeyValueList = keyValueList
+
+		// Use irs.StructToKeyValueList to populate KeyValueList
+		targetGroupInfo.VMGroup.KeyValueList = irs.StructToKeyValueList(result.TargetGroups[0])
+		targetGroupInfo.HealthChecker.KeyValueList = irs.StructToKeyValueList(result.TargetGroups[0])
 
 		//=========================
 		// 헬스 상태별 VM 목록 처리
@@ -1005,8 +1012,11 @@ func (NLBHandler *AwsNLBHandler) ExtractNLBInfo(nlbResInfo *elbv2.LoadBalancer) 
 		}
 	*/
 
-	keyValueList, _ := ConvertKeyValueList(nlbResInfo)
-	retNLBInfo.KeyValueList = keyValueList
+	// keyValueList, _ := ConvertKeyValueList(nlbResInfo)
+	// retNLBInfo.KeyValueList = keyValueList
+
+	// Use irs.StructToKeyValueList to populate KeyValueList
+	retNLBInfo.KeyValueList = irs.StructToKeyValueList(nlbResInfo)
 
 	//==================
 	// VM Group 처리
