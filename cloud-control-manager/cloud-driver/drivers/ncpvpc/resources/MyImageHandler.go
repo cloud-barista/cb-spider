@@ -365,21 +365,14 @@ func (myImageHandler *NcpVpcMyImageHandler) mappingMyImageInfo(myImage *vserver.
 
 	myImageInfo := &irs.MyImageInfo{
 		IId: irs.IID{
-			NameId:   *myImage.MemberServerImageName,
-			SystemId: *myImage.MemberServerImageInstanceNo,
+			NameId:   	*myImage.MemberServerImageName,
+			SystemId: 	*myImage.MemberServerImageInstanceNo,
 		},
-		SourceVM:    irs.IID{SystemId: *myImage.OriginalServerInstanceNo},
-		Status:      convertImageStatus(*myImage.MemberServerImageInstanceStatus.Code),
-		CreatedTime: convertedTime,
+		SourceVM:    	irs.IID{SystemId: *myImage.OriginalServerInstanceNo},
+		Status:      	convertImageStatus(*myImage.MemberServerImageInstanceStatus.Code),
+		CreatedTime: 	convertedTime,
+		KeyValueList:   irs.StructToKeyValueList(myImage),
 	}
-
-	keyValueList := []irs.KeyValue{
-		{Key: "Region", Value: myImageHandler.RegionInfo.Region},
-		{Key: "OriginalServerImageProductCode", Value: *myImage.OriginalServerImageProductCode},
-		{Key: "CreateDate", Value: *myImage.CreateDate},
-	}
-
-	myImageInfo.KeyValueList = keyValueList
 	return myImageInfo, nil
 }
 

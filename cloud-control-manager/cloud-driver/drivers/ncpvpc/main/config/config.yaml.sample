@@ -4,7 +4,7 @@ ncpvpc:
   ncp_access_key_id: XXXXXXXXXXXXXXXXXXXXXXXXXXX
   ncp_secret_key: XXXXXXXXXXXXXXXXXXXXXXXXXXX
 
-  ### (NOte) 현재 NCP VPC는 한국, 싱가포르, 일본 region만 지원!!
+  ### (Note) Currently, NCP VPC only supports the Korea, Singapore, and Japan regions.
   region: KR
   zone: KR-1
   # zone: KR-2

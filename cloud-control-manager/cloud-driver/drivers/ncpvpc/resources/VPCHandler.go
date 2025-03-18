@@ -686,18 +686,12 @@ func (vpcHandler *NcpVpcVPCHandler) mappingVpcInfo(vpc *vpc.Vpc) (*irs.VPCInfo, 
 	// VPC info mapping
 	vpcInfo := irs.VPCInfo{
 		IId: irs.IID{
-			NameId:   *vpc.VpcName,
-			SystemId: *vpc.VpcNo,
+			NameId:   	*vpc.VpcName,
+			SystemId: 	*vpc.VpcNo,
 		},
-		IPv4_CIDR: *vpc.Ipv4CidrBlock,
+		IPv4_CIDR: 		*vpc.Ipv4CidrBlock,
+		KeyValueList:   irs.StructToKeyValueList(vpc),
 	}
-
-	keyValueList := []irs.KeyValue{
-		{Key: "RegionCode", Value: *vpc.RegionCode},
-		{Key: "VpcStatus", Value: *vpc.VpcStatus.Code},
-		{Key: "CreateDate", Value: *vpc.CreateDate},
-	}
-	vpcInfo.KeyValueList = keyValueList
 
 	subnetList, err := vpcHandler.ListSubnet(vpc.VpcNo)
 	if err != nil {
@@ -706,7 +700,6 @@ func (vpcHandler *NcpVpcVPCHandler) mappingVpcInfo(vpc *vpc.Vpc) (*irs.VPCInfo, 
 	}
 
 	var subnetInfoList []irs.SubnetInfo
-
 	if len(subnetList) > 0 {
 		for _, subnetInfo := range subnetList { // Ref) var subnetList []*irs.SubnetInfo
 			cblogger.Infof("# Subnet NameId : [%s]", subnetInfo.IId.NameId)
@@ -741,22 +734,13 @@ func (vpcHandler *NcpVpcVPCHandler) mappingSubnetInfo(subnet *vpc.Subnet) *irs.S
 	// Subnet info mapping
 	subnetInfo := irs.SubnetInfo{
 		IId: irs.IID{
-			NameId:   *subnet.SubnetName,
-			SystemId: *subnet.SubnetNo,
+			NameId:   	*subnet.SubnetName,
+			SystemId: 	*subnet.SubnetNo,
 		},
-		Zone:      *subnet.ZoneCode,
-		IPv4_CIDR: *subnet.Subnet,
+		Zone:      		*subnet.ZoneCode,
+		IPv4_CIDR: 		*subnet.Subnet,
+		KeyValueList: 	irs.StructToKeyValueList(subnet),
 	}
-
-	keyValueList := []irs.KeyValue{
-		// {Key: "ZoneCode", Value: *subnet.ZoneCode},
-		{Key: "SubnetStatus", Value: *subnet.SubnetStatus.Code},
-		{Key: "SubnetType", Value: *subnet.SubnetType.Code},
-		{Key: "UsageType", Value: *subnet.UsageType.Code},
-		{Key: "NetworkACLNo", Value: *subnet.NetworkAclNo},
-		{Key: "CreateDate", Value: *subnet.CreateDate},
-	}
-	subnetInfo.KeyValueList = keyValueList
 	return &subnetInfo
 }
 

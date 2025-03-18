@@ -307,7 +307,7 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 	cblogger.Infof("# Waitting while Initializing New VM!!")
 	time.Sleep(time.Second * 15) // Waitting Before Getting New VM Status Info!!
 
-	curStatus, statusErr := vmHandler.WaitToGetInfo(newVMIID) // # Waitting while Creating VM!!")
+	curStatus, statusErr := vmHandler.WaitToGetVMInfo(newVMIID) // # Waitting while Creating VM!!")
 	if statusErr != nil {
 		cblogger.Error(statusErr.Error())
 		LoggingError(callLogInfo, statusErr)
@@ -374,7 +374,7 @@ func (vmHandler *NcpVpcVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 		return irs.VMInfo{}, newErr
 	}
 
-	vmInfo, err := vmHandler.mappingServerInfo(ncpVMInfo)
+	vmInfo, err := vmHandler.mappingVMInfo(ncpVMInfo)
 	if err != nil {
 		LoggingError(callLogInfo, err)
 		return irs.VMInfo{}, err
@@ -924,14 +924,13 @@ func (vmHandler *NcpVpcVMHandler) ListVM() ([]*irs.VMInfo, error) {
 	return vmInfoList, nil
 }
 
-func (vmHandler *NcpVpcVMHandler) mappingServerInfo(NcpInstance *vserver.ServerInstance) (irs.VMInfo, error) {
-	cblogger.Info("NCPVPC Cloud driver: called mappingServerInfo()!")
+func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInstance) (irs.VMInfo, error) {
+	cblogger.Info("NCPVPC Cloud driver: called mappingVMInfo()!")
 	// cblogger.Infof("# NcpInstance Info :")
 	// spew.Dump(NcpInstance)
 
 	var publicIp *string
 	var privateIp *string
-	var publicIpInstanceNo *string
 
 	convertedTime, err := convertTimeFormat(*NcpInstance.CreateDate)
 	if err != nil {
@@ -961,7 +960,6 @@ func (vmHandler *NcpVpcVMHandler) mappingServerInfo(NcpInstance *vserver.ServerI
 		}
 
 		publicIp = result.PublicIpInstanceList[0].PublicIp
-		publicIpInstanceNo = result.PublicIpInstanceList[0].PublicIpInstanceNo
 		privateIp = result.PublicIpInstanceList[0].PrivateIp
 
 		cblogger.Infof("*** PublicIp : %s ", ncloud.StringValue(publicIp))
@@ -986,7 +984,6 @@ func (vmHandler *NcpVpcVMHandler) mappingServerInfo(NcpInstance *vserver.ServerI
 			cblogger.Error(newErr.Error())
 			return irs.VMInfo{}, newErr
 		}
-		publicIpInstanceNo = result.PublicIpInstanceList[0].PublicIpInstanceNo
 		privateIp = result.PublicIpInstanceList[0].PrivateIp
 
 		cblogger.Infof("Finished to Get PublicIP InstanceNo")
@@ -1019,23 +1016,16 @@ func (vmHandler *NcpVpcVMHandler) mappingServerInfo(NcpInstance *vserver.ServerI
 			SystemId: *NcpInstance.ServerImageNo,
 		},
 
-		VMSpecName:       ncloud.StringValue(NcpInstance.ServerSpecCode), // Old : ~.ServerProductCode
-		VpcIID:           irs.IID{SystemId: *NcpInstance.VpcNo},          // Cauton!!) 'NameId: "N/A"' makes an Error on CB-Spider
-		SubnetIID:        irs.IID{SystemId: *NcpInstance.SubnetNo},       // Cauton!!) 'NameId: "N/A"' makes an Error on CB-Spider
-		KeyPairIId:       irs.IID{NameId: *NcpInstance.LoginKeyName, SystemId: *NcpInstance.LoginKeyName},
-		NetworkInterface: *netInterfaceName,
-		PublicIP:         *publicIp,
-		PrivateIP:        *privateIp,
-		RootDiskType:     *NcpInstance.BaseBlockStorageDiskDetailType.CodeName,
-		SSHAccessPoint:   *publicIp + ":22",
-
-		KeyValueList: []irs.KeyValue{
-			{Key: "ServerInstanceType", Value: *NcpInstance.ServerInstanceType.CodeName},
-			{Key: "CpuCount", Value: String(*NcpInstance.CpuCount)},
-			{Key: "MemorySize(GB)", Value: strconv.FormatFloat(float64(*NcpInstance.MemorySize)/(1024*1024*1024), 'f', 0, 64)},
-			{Key: "PlatformType", Value: *NcpInstance.PlatformType.CodeName},
-			{Key: "PublicIpID", Value: *publicIpInstanceNo},
-		},
+		VMSpecName:       	ncloud.StringValue(NcpInstance.ServerSpecCode), // Old : ~.ServerProductCode
+		VpcIID:           	irs.IID{SystemId: *NcpInstance.VpcNo},          // Cauton!!) 'NameId: "N/A"' makes an Error on CB-Spider
+		SubnetIID:        	irs.IID{SystemId: *NcpInstance.SubnetNo},       // Cauton!!) 'NameId: "N/A"' makes an Error on CB-Spider
+		KeyPairIId:       	irs.IID{NameId: *NcpInstance.LoginKeyName, SystemId: *NcpInstance.LoginKeyName},
+		NetworkInterface: 	*netInterfaceName,
+		PublicIP:         	*publicIp,
+		PrivateIP:        	*privateIp,
+		RootDiskType:     	*NcpInstance.BaseBlockStorageDiskDetailType.CodeName,
+		SSHAccessPoint:   	*publicIp + ":22",
+		KeyValueList:   	irs.StructToKeyValueList(NcpInstance),
 	}
 
 	// Get SecurityGroupInfo from DB
@@ -1071,10 +1061,11 @@ func (vmHandler *NcpVpcVMHandler) mappingServerInfo(NcpInstance *vserver.ServerI
 		isPublicImage, err := imageHandler.isPublicImage(*NcpInstance.ServerImageNo) // Caution!! : Not '*NcpInstance.ServerImageProductCode'
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
-		if isPublicImage {
+			cblogger.Debug(newErr.Error())
+			
+			vmInfo.ImageType = "NA"
+			// return irs.VMInfo{}, newErr // Caution!! Consider what happens when an image that was supported in the past is no longer available.
+		} else if isPublicImage {
 			vmInfo.ImageType = irs.PublicImage
 		} else {
 			vmInfo.ImageType = irs.MyImage
@@ -1326,7 +1317,7 @@ func (vmHandler *NcpVpcVMHandler) deleteInitScript(initScriptNum *string) (*stri
 }
 
 // Waiting for up to 500 seconds until VM info. can be Get
-func (vmHandler *NcpVpcVMHandler) WaitToGetInfo(vmIID irs.IID) (irs.VMStatus, error) {
+func (vmHandler *NcpVpcVMHandler) WaitToGetVMInfo(vmIID irs.IID) (irs.VMStatus, error) {
 	cblogger.Info("===> As VM info. cannot be retrieved immediately after VM creation, it waits until running.")
 
 	curRetryCnt := 0
@@ -1401,13 +1392,13 @@ func (vmHandler *NcpVpcVMHandler) DeletePublicIP(vmInfo irs.VMInfo) (irs.VMStatu
 
 	var publicIPId string
 	for _, keyInfo := range vmInfo.KeyValueList {
-		if keyInfo.Key == "PublicIpID" {
+		if strings.EqualFold(keyInfo.Key, "PublicIpInstanceNo") {  // Public IP ID 
 			publicIPId = keyInfo.Value
 			break
 		}
 	}
-	cblogger.Infof("vmInfo.PublicIP : [%s]", vmInfo.PublicIP)
-	cblogger.Infof("publicIPId : [%s]", publicIPId)
+	cblogger.Infof("Public IP : [%s]", vmInfo.PublicIP)
+	cblogger.Infof("Public IP ID : [%s]", publicIPId)
 
 	//=========================================
 	// Wait for that the VM is terminated
