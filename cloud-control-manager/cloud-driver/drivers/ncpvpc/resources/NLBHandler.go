@@ -609,10 +609,10 @@ func (nlbHandler *NcpVpcNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.He
 
 			// HealthCheckStatus : UP(Health UP), DOWN(Health DOWN), UNUSED(Health UNUSED)
 			if strings.EqualFold(*member.HealthCheckStatus.Code, "UP") {
-				cblogger.Infof("\n### [%s] is Healthy VM.", "")
+				cblogger.Infof("\n### [%s] is Healthy VM.", *vm.ServerInstanceNo)
 				healthVMs = append(healthVMs, irs.IID{NameId: *vm.ServerName, SystemId: *vm.ServerInstanceNo})
 			} else {
-				cblogger.Infof("\n### [%s] is Unhealthy VM.", "")
+				cblogger.Infof("\n### [%s] is Unhealthy VM.", *vm.ServerInstanceNo)
 				unHealthVMs = append(unHealthVMs, irs.IID{NameId: *vm.ServerName, SystemId: *vm.ServerInstanceNo}) // In case of "INACTIVE", ...
 			}
 		}
@@ -1201,7 +1201,7 @@ func (nlbHandler *NcpVpcNLBHandler) getSubnetIdForNlbOnly(vpcId string) (string,
 		// Use Key/Value info of the subnetInfo
 		for _, keyInfo := range subnetInfo.KeyValueList {
 			if strings.EqualFold(keyInfo.Key, "UsageType") {
-				if strings.EqualFold(keyInfo.Value, "LOADB") {
+				if strings.Contains(keyInfo.Value, "LOADB") { // Ex) Value : "{code:GEN,codeName:General}" or "{code:LOADB,codeName:LoadBalancer Only}" due to irs.StructToKeyValueList(subnet)
 					subnetId = subnetInfo.IId.SystemId
 					break
 				}
@@ -1533,21 +1533,16 @@ func (nlbHandler *NcpVpcNLBHandler) mappingNlbInfo(nlb vlb.LoadBalancerInstance)
 
 	nlbInfo := irs.NLBInfo{
 		IId: irs.IID{
-			NameId:   *nlb.LoadBalancerName,
-			SystemId: *nlb.LoadBalancerInstanceNo,
+			NameId:   	*nlb.LoadBalancerName,
+			SystemId: 	*nlb.LoadBalancerInstanceNo,
 		},
 		VpcIID: irs.IID{
-			SystemId: *nlb.VpcNo,
+			SystemId: 	*nlb.VpcNo,
 		},
-		Type:        nlbType,
-		Scope:       "REGION",
-		CreatedTime: convertedTime,
-	}
-
-	keyValueList := []irs.KeyValue{
-		{Key: "RegionCode", Value: *nlb.RegionCode},
-		{Key: "NLB1stSubnetZone", Value: *nlb.LoadBalancerSubnetList[0].ZoneCode},
-		{Key: "NLB_Status", Value: *nlb.LoadBalancerInstanceStatusName},
+		Type:        	nlbType,
+		Scope:       	"REGION",
+		CreatedTime: 	convertedTime,
+		KeyValueList:   irs.StructToKeyValueList(nlb),
 	}
 
 	if len(nlb.LoadBalancerListenerNoList) > 0 {
@@ -1566,7 +1561,7 @@ func (nlbHandler *NcpVpcNLBHandler) mappingNlbInfo(nlb vlb.LoadBalancerInstance)
 			nlbInfo.Listener = *listenerInfo
 
 			listenerKeyValue := irs.KeyValue{Key: "ListenerId", Value: *nlb.LoadBalancerListenerNoList[0]}
-			keyValueList = append(keyValueList, listenerKeyValue)
+			nlbInfo.KeyValueList = append(nlbInfo.KeyValueList, listenerKeyValue)
 
 			vmGroupInfo, err := nlbHandler.GetVMGroupInfo(nlb)
 			if err != nil {
@@ -1585,11 +1580,11 @@ func (nlbHandler *NcpVpcNLBHandler) mappingNlbInfo(nlb vlb.LoadBalancerInstance)
 			nlbInfo.HealthChecker = healthCheckerInfo
 
 			monitorKeyValue := irs.KeyValue{Key: "HealthCheckerId", Value: nlbInfo.HealthChecker.CspID}
-			keyValueList = append(keyValueList, monitorKeyValue)
+			nlbInfo.KeyValueList = append(nlbInfo.KeyValueList, monitorKeyValue)
 		}
 	}
 
-	nlbInfo.KeyValueList = keyValueList
+	// nlbInfo.KeyValueList = keyValueList
 	return nlbInfo, nil
 }
 
@@ -1609,15 +1604,16 @@ func (nlbHandler *NcpVpcNLBHandler) mappingListenerInfo(listener vlb.LoadBalance
 	}
 
 	listenerInfo := irs.ListenerInfo{
-		Protocol: *listener.ProtocolType.Code,
-		Port:     strconv.FormatInt(int64(*listener.Port), 10),
-		CspID:    *listener.LoadBalancerListenerNo,
+		Protocol: 		*listener.ProtocolType.Code,
+		Port:     		strconv.FormatInt(int64(*listener.Port), 10),
+		CspID:    		*listener.LoadBalancerListenerNo,
+		KeyValueList:   irs.StructToKeyValueList(listener),
 	}
 
-	keyValueList := []irs.KeyValue{
-		{Key: "UseHttp2", Value: strconv.FormatBool(*listener.UseHttp2)},
-	}
-	listenerInfo.KeyValueList = keyValueList
+	// keyValueList := []irs.KeyValue{
+	// 	{Key: "UseHttp2", Value: strconv.FormatBool(*listener.UseHttp2)},
+	// }
+	// listenerInfo.KeyValueList = keyValueList
 
 	return listenerInfo, nil
 }

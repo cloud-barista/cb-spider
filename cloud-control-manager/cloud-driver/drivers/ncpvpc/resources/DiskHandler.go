@@ -649,11 +649,12 @@ func (diskHandler *NcpVpcDiskHandler) mappingDiskInfo(storage vserver.BlockStora
 			NameId: 	ncloud.StringValue(storage.BlockStorageName),
 			SystemId: 	ncloud.StringValue(storage.BlockStorageInstanceNo),
 		},
-		Zone:		 ncloud.StringValue(storage.ZoneCode),
-		DiskSize:    strconv.FormatInt((*storage.BlockStorageSize)/(1024*1024*1024), 10),
-		Status:		 convertDiskStatus(ncloud.StringValue(storage.BlockStorageInstanceStatusName)), // Not BlockStorageInstanceStatus.Code
-		CreatedTime: convertedTime,
-		DiskType: 	 ncloud.StringValue(storage.BlockStorageDiskDetailType.Code),
+		Zone:		 	ncloud.StringValue(storage.ZoneCode),
+		DiskSize:    	strconv.FormatInt((*storage.BlockStorageSize)/(1024*1024*1024), 10),
+		Status:		 	convertDiskStatus(ncloud.StringValue(storage.BlockStorageInstanceStatusName)), // Not BlockStorageInstanceStatus.Code
+		CreatedTime: 	convertedTime,
+		DiskType: 	 	ncloud.StringValue(storage.BlockStorageDiskDetailType.Code),
+		KeyValueList:   irs.StructToKeyValueList(storage),
 	}
 
 	if strings.EqualFold(ncloud.StringValue(storage.BlockStorageInstanceStatusName), "attached") {
@@ -675,16 +676,17 @@ func (diskHandler *NcpVpcDiskHandler) mappingDiskInfo(storage vserver.BlockStora
 		}
 	}
 
-	keyValueList := []irs.KeyValue{
-		{Key: "DeviceName",   			Value: ncloud.StringValue(storage.DeviceName)},				
-		// {Key: "ZoneCode",   			Value: ncloud.StringValue(storage.ZoneCode)},		 
-		{Key: "BlockStorageType",   	Value: ncloud.StringValue(storage.BlockStorageType.CodeName)},
-		{Key: "BlockStorageDiskType",  	Value: ncloud.StringValue(storage.BlockStorageDiskType.CodeName)},		
-		{Key: "MaxIOPS",  				Value: strconv.FormatInt(int64(*storage.MaxIopsThroughput), 10)},
-		{Key: "IsReturnProtection", 	Value: strconv.FormatBool(*storage.IsReturnProtection)},
-		{Key: "IsEncryptedVolume", 		Value: strconv.FormatBool(*storage.IsEncryptedVolume)},		
-	}
-	diskInfo.KeyValueList = keyValueList
+
+	// keyValueList := []irs.KeyValue{
+	// 	{Key: "DeviceName",   			Value: ncloud.StringValue(storage.DeviceName)},				
+	// 	// {Key: "ZoneCode",   			Value: ncloud.StringValue(storage.ZoneCode)},		 
+	// 	{Key: "BlockStorageType",   	Value: ncloud.StringValue(storage.BlockStorageType.CodeName)},
+	// 	{Key: "BlockStorageDiskType",  	Value: ncloud.StringValue(storage.BlockStorageDiskType.CodeName)},		
+	// 	{Key: "MaxIOPS",  				Value: strconv.FormatInt(int64(*storage.MaxIopsThroughput), 10)},
+	// 	{Key: "IsReturnProtection", 	Value: strconv.FormatBool(*storage.IsReturnProtection)},
+	// 	{Key: "IsEncryptedVolume", 		Value: strconv.FormatBool(*storage.IsEncryptedVolume)},		
+	// }
+	// diskInfo.KeyValueList = keyValueList
 
 	return diskInfo, nil
 }
