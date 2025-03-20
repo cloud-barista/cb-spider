@@ -601,7 +601,7 @@ func (securityHandler *NhnCloudSecurityHandler) mappingSecurityInfo(nhnSG secgro
 		secInfo.SecurityRules = &sgRuleList
 	}
 
-	secInfo.KeyValueList = irs.StructToKeyValueList(nhnSG)
+	secInfo.KeyValueList = irs.StructToKeyValueList(secInfo)
 	return secInfo, nil
 }
 
