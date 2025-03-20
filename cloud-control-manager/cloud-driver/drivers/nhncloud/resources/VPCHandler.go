@@ -16,6 +16,7 @@ package resources
 import (
 	"errors"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"strings"
 
 	// "sync"
@@ -219,7 +220,7 @@ func (vpcHandler *NhnCloudVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error
 		return irs.VPCInfo{}, newErr
 	}
 	//keyvaluelist
-	vpcInfo.KeyValueList = irs.StructToKeyValueList(vpcInfo)
+	vpcInfo.KeyValueList = irs.StructToKeyValueList(vpc)
 	return *vpcInfo, nil
 }
 
@@ -491,9 +492,9 @@ func (vpcHandler *NhnCloudVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs
 
 func (vpcHandler *NhnCloudVPCHandler) mappingVpcInfo(vpc vpcs.VPC) (*irs.VPCInfo, error) {
 	cblogger.Info("NHN Cloud cloud driver: called mappingVpcInfo()!!")
-	// cblogger.Info("\n\n### vpc : ")
-	// spew.Dump(vpc)
-	// cblogger.Info("\n")
+	cblogger.Info("\n\n### vpc : ")
+	spew.Dump(vpc)
+	cblogger.Info("\n")
 
 	vpcInfo := irs.VPCInfo{
 		IId: irs.IID{
@@ -547,21 +548,21 @@ func (vpcHandler *NhnCloudVPCHandler) mappingVpcInfo(vpc vpcs.VPC) (*irs.VPCInfo
 	}
 	vpcInfo.SubnetInfoList = subnetInfoList
 
-	//var RouterExternal string
-	//if vpc.RouterExternal {
-	//	RouterExternal = "Yes"
-	//} else if !vpc.RouterExternal {
-	//	RouterExternal = "No"
-	//}
+	var RouterExternal string
+	if vpc.RouterExternal {
+		RouterExternal = "Yes"
+	} else if !vpc.RouterExternal {
+		RouterExternal = "No"
+	}
 
 	vpcInfo.KeyValueList = irs.StructToKeyValueList(vpc)
-	//
-	//keyValueList := []irs.KeyValue{
-	//	{Key: "Status", Value: vpc.State},
-	//	{Key: "RouterExternal", Value: RouterExternal},
-	//	{Key: "CreatedTime", Value: vpc.CreateTime},
-	//}
-	//vpcInfo.KeyValueList = keyValueList
+
+	keyValueList := []irs.KeyValue{
+		{Key: "Status", Value: vpc.State},
+		{Key: "RouterExternal", Value: RouterExternal},
+		{Key: "CreatedTime", Value: vpc.CreateTime},
+	}
+	vpcInfo.KeyValueList = keyValueList
 
 	return &vpcInfo, nil
 }
