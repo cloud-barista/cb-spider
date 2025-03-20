@@ -219,8 +219,6 @@ func (vpcHandler *NhnCloudVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error
 		cblogger.Error(newErr.Error())
 		return irs.VPCInfo{}, newErr
 	}
-	//keyvaluelist
-	vpcInfo.KeyValueList = irs.StructToKeyValueList(vpc)
 	return *vpcInfo, nil
 }
 
@@ -263,9 +261,7 @@ func (vpcHandler *NhnCloudVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 				cblogger.Error(newErr.Error())
 				return nil, newErr
 			}
-			//keyvaluelist
-			vpcInfo.KeyValueList = irs.StructToKeyValueList(vpcInfo)
-			//vpcInfoList = append(vpcInfoList, vpcInfo)
+			vpcInfoList = append(vpcInfoList, vpcInfo)
 		}
 	}
 
