@@ -1037,8 +1037,8 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 	}
 
 	// Flavor Info
-	var vRam string
-	var vCPU string
+	//var vRam string
+	//var vCPU string
 	flavorId, ok := server.Flavor["id"].(string)
 	if ok {
 		nhnFlavor, err := flavors.Get(vmHandler.VMClient, flavorId).Extract()
@@ -1054,12 +1054,21 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 				vmInfo.RootDiskSize = strconv.Itoa(nhnFlavor.Disk)
 				vmInfo.RootDeviceName = "/dev/vda"
 			}
-			if strconv.Itoa(nhnFlavor.VCPUs) != "" {
-				vCPU = strconv.Itoa(nhnFlavor.VCPUs)
-			}
-			if strconv.Itoa(nhnFlavor.RAM) != "" {
-				vRam = strconv.Itoa(nhnFlavor.RAM)
-			}
+
+			vCPU := strconv.Itoa(nhnFlavor.VCPUs)
+			vRam := strconv.Itoa(nhnFlavor.RAM)
+
+			vmInfo.KeyValueList = irs.StructToKeyValueList(vmInfo)
+			vmInfo.KeyValueList = append(vmInfo.KeyValueList,
+				irs.KeyValue{Key: "vCPU", Value: vCPU},
+				irs.KeyValue{Key: "vRAM(GB)", Value: vRam})
+
+			//if strconv.Itoa(nhnFlavor.VCPUs) != "" {
+			//	vCPU = strconv.Itoa(nhnFlavor.VCPUs)
+			//}
+			//if strconv.Itoa(nhnFlavor.RAM) != "" {
+			//	vRam = strconv.Itoa(nhnFlavor.RAM)
+			//}
 		}
 	}
 
@@ -1181,16 +1190,18 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 		vmInfo.SSHAccessPoint = vmInfo.PublicIP + ":22"
 	}
 
-	var keyValueList []irs.KeyValue
-	if vCPU != "" {
-		keyValue := irs.KeyValue{Key: "vCPU", Value: vCPU}
-		keyValueList = append(keyValueList, keyValue)
-	}
-	if vRam != "" {
-		keyValue := irs.KeyValue{Key: "vRAM(GB)", Value: vRam}
-		keyValueList = append(keyValueList, keyValue)
-	}
-	vmInfo.KeyValueList = keyValueList
+	//var keyValueList []irs.KeyValue
+	//if vCPU != "" {
+	//	keyValue := irs.KeyValue{Key: "vCPU", Value: vCPU}
+	//	keyValueList = append(keyValueList, keyValue)
+	//}
+	//if vRam != "" {
+	//	keyValue := irs.KeyValue{Key: "vRAM(GB)", Value: vRam}
+	//	keyValueList = append(keyValueList, keyValue)
+	//}
+	//vmInfo.KeyValueList = keyValueList
+
+	vmInfo.KeyValueList = irs.StructToKeyValueList(vmInfo)
 	return vmInfo, nil
 }
 

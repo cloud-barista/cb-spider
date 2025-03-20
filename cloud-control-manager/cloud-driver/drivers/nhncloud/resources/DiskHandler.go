@@ -617,13 +617,21 @@ func (diskHandler *NhnCloudDiskHandler) mappingDiskInfo(volume volumes.Volume) (
 		}
 	}
 
-	keyValueList := []irs.KeyValue{
-		// {Key: "AvailabilityZone", Value: volume.AvailabilityZone},
-		{Key: "IsBootable", Value: volume.Bootable},
-		{Key: "IsMultiattached", Value: strconv.FormatBool(volume.Multiattach)},
-		{Key: "IsEncrypted", Value: strconv.FormatBool(volume.Encrypted)},
-	}
-	diskInfo.KeyValueList = keyValueList
+	diskInfo.KeyValueList = irs.StructToKeyValueList(diskInfo)
+
+	//keyValueList := []irs.KeyValue{
+	//	// {Key: "AvailabilityZone", Value: volume.AvailabilityZone},
+	//	{Key: "IsBootable", Value: volume.Bootable},
+	//	{Key: "IsMultiattached", Value: strconv.FormatBool(volume.Multiattach)},
+	//	{Key: "IsEncrypted", Value: strconv.FormatBool(volume.Encrypted)},
+	//}
+	//diskInfo.KeyValueList = keyValueList
+
+	diskInfo.KeyValueList = append(diskInfo.KeyValueList,
+		irs.KeyValue{Key: "IsBootable", Value: volume.Bootable},
+		irs.KeyValue{Key: "IsMultiattached", Value: strconv.FormatBool(volume.Multiattach)},
+		irs.KeyValue{Key: "IsEncrypted", Value: strconv.FormatBool(volume.Encrypted)},
+	)
 
 	return diskInfo, nil
 }

@@ -55,10 +55,13 @@ func (vpcHandler *OpenStackVPCHandler) setterVPC(nvpc NetworkWithExt) *irs.VPCIn
 	} else if nvpc.External == false {
 		External = "No"
 	}
-	keyValueList := []irs.KeyValue{
-		{Key: "External Network", Value: External},
-	}
-	vpcInfo.KeyValueList = keyValueList
+	//keyValueList := []irs.KeyValue{
+	//	{Key: "External Network", Value: External},
+	//}
+	//vpcInfo.KeyValueList = keyValueList
+
+	vpcInfo.KeyValueList = irs.StructToKeyValueList(vpcInfo)
+	vpcInfo.KeyValueList = append(vpcInfo.KeyValueList, irs.KeyValue{Key: "External Network", Value: External})
 
 	// 서브넷 정보 조회
 	subnetInfoList := make([]irs.SubnetInfo, len(nvpc.Subnets))

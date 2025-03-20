@@ -1632,14 +1632,14 @@ func (nlbHandler *NhnCloudNLBHandler) mappingNlbInfo(nhnNLB loadbalancers.LoadBa
 		Scope: "REGION",
 	}
 
-	keyValueList := []irs.KeyValue{
-		{Key: "NLB_ProvisioningStatus", Value: nhnNLB.ProvisioningStatus},
-		{Key: "NLB_OperatingStatus", Value: nhnNLB.OperatingStatus},
-		{Key: "Provider", Value: nhnNLB.Provider},
-		{Key: "NLB_PrivateIp", Value: nhnNLB.VipAddress},
-		{Key: "SubnetId", Value: nhnNLB.VipSubnetID},
-		{Key: "VipPortId", Value: nhnNLB.VipPortID},
-	}
+	//keyValueList := []irs.KeyValue{
+	//	{Key: "NLB_ProvisioningStatus", Value: nhnNLB.ProvisioningStatus},
+	//	{Key: "NLB_OperatingStatus", Value: nhnNLB.OperatingStatus},
+	//	{Key: "Provider", Value: nhnNLB.Provider},
+	//	{Key: "NLB_PrivateIp", Value: nhnNLB.VipAddress},
+	//	{Key: "SubnetId", Value: nhnNLB.VipSubnetID},
+	//	{Key: "VipPortId", Value: nhnNLB.VipPortID},
+	//}
 
 	if len(nhnNLB.Listeners) > 0 {
 		publicIp, err := nlbHandler.getNlbPublicIP(nhnNLB.ID)
@@ -1657,8 +1657,8 @@ func (nlbHandler *NhnCloudNLBHandler) mappingNlbInfo(nhnNLB loadbalancers.LoadBa
 		listenerInfo.IP = publicIp
 		nlbInfo.Listener = listenerInfo
 
-		listenerKeyValue := irs.KeyValue{Key: "ListenerId", Value: nhnNLB.Listeners[0].ID}
-		keyValueList = append(keyValueList, listenerKeyValue)
+		//listenerKeyValue := irs.KeyValue{Key: "ListenerId", Value: nhnNLB.Listeners[0].ID}
+		//keyValueList = append(keyValueList, listenerKeyValue)
 
 		monitorInfo, err := nlbHandler.getHealthMonitorInfoWithListenerId(nhnNLB.Listeners[0].ID)
 		if err != nil {
@@ -1668,8 +1668,8 @@ func (nlbHandler *NhnCloudNLBHandler) mappingNlbInfo(nhnNLB loadbalancers.LoadBa
 		}
 		nlbInfo.HealthChecker = monitorInfo
 
-		monitorKeyValue := irs.KeyValue{Key: "HealthCheckerId", Value: nlbInfo.HealthChecker.CspID}
-		keyValueList = append(keyValueList, monitorKeyValue)
+		//monitorKeyValue := irs.KeyValue{Key: "HealthCheckerId", Value: nlbInfo.HealthChecker.CspID}
+		//keyValueList = append(keyValueList, monitorKeyValue)
 
 		vmGroupInfo, err := nlbHandler.getVMGroupInfo(nhnNLB)
 		if err != nil {
@@ -1680,11 +1680,12 @@ func (nlbHandler *NhnCloudNLBHandler) mappingNlbInfo(nhnNLB loadbalancers.LoadBa
 
 		nlbInfo.VMGroup = vmGroupInfo
 
-		poolKeyValue := irs.KeyValue{Key: "PoolId", Value: nlbInfo.VMGroup.CspID} // Note : VMGroup.CspID => PoolId
-		keyValueList = append(keyValueList, poolKeyValue)
+		//poolKeyValue := irs.KeyValue{Key: "PoolId", Value: nlbInfo.VMGroup.CspID} // Note : VMGroup.CspID => PoolId
+		//keyValueList = append(keyValueList, poolKeyValue)
 	}
 
-	nlbInfo.KeyValueList = keyValueList
+	//nlbInfo.KeyValueList = keyValueList
+	nlbInfo.KeyValueList = irs.StructToKeyValueList(nlbInfo)
 
 	return nlbInfo, nil
 }
@@ -1704,13 +1705,15 @@ func (nlbHandler *NhnCloudNLBHandler) mappingListenerInfo(nhnListener listeners.
 		Port:     strconv.Itoa(nhnListener.ProtocolPort),
 		CspID:    nhnListener.ID,
 	}
+	//
+	//keyValueList := []irs.KeyValue{
+	//	{Key: "AdminStateUp", Value: strconv.FormatBool(nhnListener.AdminStateUp)},
+	//	{Key: "ConnectionLimit", Value: strconv.Itoa(nhnListener.ConnLimit)},
+	//	{Key: "KeepaliveTimeout(Sec)", Value: strconv.Itoa(nhnListener.KeepaliveTimeout)},
+	//}
+	//listenerInfo.KeyValueList = keyValueList
 
-	keyValueList := []irs.KeyValue{
-		{Key: "AdminStateUp", Value: strconv.FormatBool(nhnListener.AdminStateUp)},
-		{Key: "ConnectionLimit", Value: strconv.Itoa(nhnListener.ConnLimit)},
-		{Key: "KeepaliveTimeout(Sec)", Value: strconv.Itoa(nhnListener.KeepaliveTimeout)},
-	}
-	listenerInfo.KeyValueList = keyValueList
+	listenerInfo.KeyValueList = irs.StructToKeyValueList(listenerInfo)
 
 	return listenerInfo, nil
 }
@@ -1727,11 +1730,17 @@ func (nlbHandler *NhnCloudNLBHandler) mappingMonitorInfo(nhnMonitor monitors.Mon
 		CspID:     nhnMonitor.ID,
 	}
 
-	keyValueList := []irs.KeyValue{
-		{Key: "AdminStateUp", Value: strconv.FormatBool(nhnMonitor.AdminStateUp)},
-		{Key: "PoolId", Value: nhnMonitor.Pools[0].ID},
+	healthCheckerInfo.KeyValueList = irs.StructToKeyValueList(healthCheckerInfo)
+
+	//keyValueList := []irs.KeyValue{
+	//	{Key: "AdminStateUp", Value: strconv.FormatBool(nhnMonitor.AdminStateUp)},
+	//	{Key: "PoolId", Value: nhnMonitor.Pools[0].ID},
+	//}
+	//healthCheckerInfo.KeyValueList = keyValueList
+	if len(nhnMonitor.Pools) > 0 {
+		healthCheckerInfo.KeyValueList = append(healthCheckerInfo.KeyValueList, irs.KeyValue{Key: "PoolId", Value: nhnMonitor.Pools[0].ID})
 	}
-	healthCheckerInfo.KeyValueList = keyValueList
+	healthCheckerInfo.KeyValueList = append(healthCheckerInfo.KeyValueList, irs.KeyValue{Key: "AdminStateUp", Value: strconv.FormatBool(nhnMonitor.AdminStateUp)})
 
 	return healthCheckerInfo
 }

@@ -218,6 +218,8 @@ func (vpcHandler *NhnCloudVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error
 		cblogger.Error(newErr.Error())
 		return irs.VPCInfo{}, newErr
 	}
+	//keyvaluelist
+	vpcInfo.KeyValueList = irs.StructToKeyValueList(vpcInfo)
 	return *vpcInfo, nil
 }
 
@@ -260,9 +262,12 @@ func (vpcHandler *NhnCloudVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 				cblogger.Error(newErr.Error())
 				return nil, newErr
 			}
+			//keyvaluelist
+			vpcInfo.KeyValueList = irs.StructToKeyValueList(vpcInfo)
 			vpcInfoList = append(vpcInfoList, vpcInfo)
 		}
 	}
+
 	return vpcInfoList, nil
 }
 
@@ -549,12 +554,16 @@ func (vpcHandler *NhnCloudVPCHandler) mappingVpcInfo(vpc vpcs.VPC) (*irs.VPCInfo
 		RouterExternal = "No"
 	}
 
-	keyValueList := []irs.KeyValue{
-		{Key: "Status", Value: vpc.State},
-		{Key: "RouterExternal", Value: RouterExternal},
-		{Key: "CreatedTime", Value: vpc.CreateTime},
-	}
-	vpcInfo.KeyValueList = keyValueList
+	vpcInfo.KeyValueList = irs.StructToKeyValueList(vpcInfo)
+
+	vpcInfo.KeyValueList = append(vpcInfo.KeyValueList, irs.KeyValue{Key: "RouterExternal", Value: RouterExternal})
+
+	//keyValueList := []irs.KeyValue{
+	//	{Key: "Status", Value: vpc.State},
+	//	{Key: "RouterExternal", Value: RouterExternal},
+	//	{Key: "CreatedTime", Value: vpc.CreateTime},
+	//}
+	//vpcInfo.KeyValueList = keyValueList
 
 	return &vpcInfo, nil
 }
@@ -626,19 +635,22 @@ func (vpcHandler *NhnCloudVPCHandler) mappingSubnetInfo(subnet vpcsubnets.Vpcsub
 		IPv4_CIDR: subnet.CIDR,
 	}
 
-	var RouterExternal string
-	if subnet.RouterExternal {
-		RouterExternal = "Yes"
-	} else if !subnet.RouterExternal {
-		RouterExternal = "No"
-	}
+	//var RouterExternal string
+	//if subnet.RouterExternal {
+	//	RouterExternal = "Yes"
+	//} else if !subnet.RouterExternal {
+	//	RouterExternal = "No"
+	//}
 
-	keyValueList := []irs.KeyValue{
-		{Key: "VPCId", Value: subnet.VPCID},
-		{Key: "RouterExternal", Value: RouterExternal},
-		{Key: "CreatedTime", Value: subnet.CreateTime},
-	}
-	subnetInfo.KeyValueList = keyValueList
+	//keyValueList := []irs.KeyValue{
+	//	{Key: "VPCId", Value: subnet.VPCID},
+	//	{Key: "RouterExternal", Value: RouterExternal},
+	//	{Key: "CreatedTime", Value: subnet.CreateTime},
+	//}
+	//subnetInfo.KeyValueList = keyValueList
+
+	subnetInfo.KeyValueList = irs.StructToKeyValueList(subnetInfo)
+
 	return &subnetInfo
 }
 
