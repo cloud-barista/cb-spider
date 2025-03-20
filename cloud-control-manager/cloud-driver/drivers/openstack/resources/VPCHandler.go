@@ -60,7 +60,7 @@ func (vpcHandler *OpenStackVPCHandler) setterVPC(nvpc NetworkWithExt) *irs.VPCIn
 	//}
 	//vpcInfo.KeyValueList = keyValueList
 
-	vpcInfo.KeyValueList = irs.StructToKeyValueList(vpcInfo)
+	vpcInfo.KeyValueList = irs.StructToKeyValueList(nvpc)
 	vpcInfo.KeyValueList = append(vpcInfo.KeyValueList, irs.KeyValue{Key: "External Network", Value: External})
 
 	// 서브넷 정보 조회
