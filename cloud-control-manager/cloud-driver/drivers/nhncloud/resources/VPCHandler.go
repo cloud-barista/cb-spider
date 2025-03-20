@@ -264,7 +264,7 @@ func (vpcHandler *NhnCloudVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 			}
 			//keyvaluelist
 			vpcInfo.KeyValueList = irs.StructToKeyValueList(vpcInfo)
-			vpcInfoList = append(vpcInfoList, vpcInfo)
+			//vpcInfoList = append(vpcInfoList, vpcInfo)
 		}
 	}
 
@@ -547,17 +547,15 @@ func (vpcHandler *NhnCloudVPCHandler) mappingVpcInfo(vpc vpcs.VPC) (*irs.VPCInfo
 	}
 	vpcInfo.SubnetInfoList = subnetInfoList
 
-	var RouterExternal string
-	if vpc.RouterExternal {
-		RouterExternal = "Yes"
-	} else if !vpc.RouterExternal {
-		RouterExternal = "No"
-	}
+	//var RouterExternal string
+	//if vpc.RouterExternal {
+	//	RouterExternal = "Yes"
+	//} else if !vpc.RouterExternal {
+	//	RouterExternal = "No"
+	//}
 
 	vpcInfo.KeyValueList = irs.StructToKeyValueList(vpc)
-
-	vpcInfo.KeyValueList = append(vpcInfo.KeyValueList, irs.KeyValue{Key: "RouterExternal", Value: RouterExternal})
-
+	//
 	//keyValueList := []irs.KeyValue{
 	//	{Key: "Status", Value: vpc.State},
 	//	{Key: "RouterExternal", Value: RouterExternal},
@@ -606,12 +604,12 @@ func (vpcHandler *NhnCloudVPCHandler) mappingVpcSubnetInfo(vpc vpcs.VPC) (*irs.V
 	}
 	vpcInfo.SubnetInfoList = subnetInfoList
 
-	var RouterExternal string
-	if vpc.RouterExternal {
-		RouterExternal = "Yes"
-	} else if !vpc.RouterExternal {
-		RouterExternal = "No"
-	}
+	//var RouterExternal string
+	//if vpc.RouterExternal {
+	//	RouterExternal = "Yes"
+	//} else if !vpc.RouterExternal {
+	//	RouterExternal = "No"
+	//}
 
 	// Shoud Add Create time
 	//keyValueList := []irs.KeyValue{
@@ -621,11 +619,6 @@ func (vpcHandler *NhnCloudVPCHandler) mappingVpcSubnetInfo(vpc vpcs.VPC) (*irs.V
 	//vpcInfo.KeyValueList = keyValueList
 	//
 	vpcInfo.KeyValueList = irs.StructToKeyValueList(vpc)
-
-	vpcInfo.KeyValueList = append(vpcInfo.KeyValueList,
-		irs.KeyValue{Key: "Status", Value: vpc.State},
-		irs.KeyValue{Key: "RouterExternal", Value: RouterExternal},
-	)
 
 	return &vpcInfo, nil
 }
@@ -644,12 +637,12 @@ func (vpcHandler *NhnCloudVPCHandler) mappingSubnetInfo(subnet vpcsubnets.Vpcsub
 
 	subnetInfo.KeyValueList = irs.StructToKeyValueList(subnet)
 
-	var RouterExternal string
-	if subnet.RouterExternal {
-		RouterExternal = "Yes"
-	} else if !subnet.RouterExternal {
-		RouterExternal = "No"
-	}
+	//var RouterExternal string
+	//if subnet.RouterExternal {
+	//	RouterExternal = "Yes"
+	//} else if !subnet.RouterExternal {
+	//	RouterExternal = "No"
+	//}
 
 	//keyValueList := []irs.KeyValue{
 	//	{Key: "VPCId", Value: subnet.VPCID},
@@ -657,12 +650,6 @@ func (vpcHandler *NhnCloudVPCHandler) mappingSubnetInfo(subnet vpcsubnets.Vpcsub
 	//	{Key: "CreatedTime", Value: subnet.CreateTime},
 	//}
 	//subnetInfo.KeyValueList = keyValueList
-
-	subnetInfo.KeyValueList = append(subnetInfo.KeyValueList,
-		irs.KeyValue{Key: "VPCId", Value: subnet.VPCID},
-		irs.KeyValue{Key: "RouterExternal", Value: RouterExternal},
-		irs.KeyValue{Key: "CreatedTime", Value: subnet.CreateTime},
-	)
 
 	return &subnetInfo
 }

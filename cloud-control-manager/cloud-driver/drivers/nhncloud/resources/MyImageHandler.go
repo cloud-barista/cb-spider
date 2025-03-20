@@ -350,10 +350,6 @@ func (myImageHandler *NhnCloudMyImageHandler) mappingMyImageInfo(myImage images.
 
 	myImageInfo.KeyValueList = irs.StructToKeyValueList(myImage)
 
-	myImageInfo.KeyValueList = append(myImageInfo.KeyValueList, irs.KeyValue{Key: "Region", Value: myImageHandler.RegionInfo.Region})
-	myImageInfo.KeyValueList = append(myImageInfo.KeyValueList, irs.KeyValue{Key: "Visibility", Value: string(myImage.Visibility)})
-	myImageInfo.KeyValueList = append(myImageInfo.KeyValueList, irs.KeyValue{Key: "DiskSize", Value: strconv.Itoa(myImage.MinDiskGigabytes)})
-
 	//keyValueList := []irs.KeyValue{
 	//	{Key: "Region", Value: myImageHandler.RegionInfo.Region},
 	//	{Key: "Visibility", Value: string(myImage.Visibility)},

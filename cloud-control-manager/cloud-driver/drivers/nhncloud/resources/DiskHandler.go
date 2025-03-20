@@ -627,12 +627,6 @@ func (diskHandler *NhnCloudDiskHandler) mappingDiskInfo(volume volumes.Volume) (
 	//}
 	//diskInfo.KeyValueList = keyValueList
 
-	diskInfo.KeyValueList = append(diskInfo.KeyValueList,
-		irs.KeyValue{Key: "IsBootable", Value: volume.Bootable},
-		irs.KeyValue{Key: "IsMultiattached", Value: strconv.FormatBool(volume.Multiattach)},
-		irs.KeyValue{Key: "IsEncrypted", Value: strconv.FormatBool(volume.Encrypted)},
-	)
-
 	return diskInfo, nil
 }
 

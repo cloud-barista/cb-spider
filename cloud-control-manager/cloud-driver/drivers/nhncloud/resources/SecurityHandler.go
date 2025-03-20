@@ -602,10 +602,6 @@ func (securityHandler *NhnCloudSecurityHandler) mappingSecurityInfo(nhnSG secgro
 	}
 
 	secInfo.KeyValueList = irs.StructToKeyValueList(nhnSG)
-	secInfo.KeyValueList = append(secInfo.KeyValueList,
-		irs.KeyValue{Key: "TenantID", Value: nhnSG.TenantID},
-	)
-
 	return secInfo, nil
 }
 
