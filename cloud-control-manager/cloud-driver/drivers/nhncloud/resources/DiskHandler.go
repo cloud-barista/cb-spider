@@ -617,7 +617,7 @@ func (diskHandler *NhnCloudDiskHandler) mappingDiskInfo(volume volumes.Volume) (
 		}
 	}
 
-	diskInfo.KeyValueList = irs.StructToKeyValueList(diskInfo)
+	diskInfo.KeyValueList = irs.StructToKeyValueList(volume)
 
 	//keyValueList := []irs.KeyValue{
 	//	// {Key: "AvailabilityZone", Value: volume.AvailabilityZone},

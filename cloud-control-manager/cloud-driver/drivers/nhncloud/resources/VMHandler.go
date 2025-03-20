@@ -1037,8 +1037,8 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 	}
 
 	// Flavor Info
-	//var vRam string
-	//var vCPU string
+	var vRam string
+	var vCPU string
 	flavorId, ok := server.Flavor["id"].(string)
 	if ok {
 		nhnFlavor, err := flavors.Get(vmHandler.VMClient, flavorId).Extract()
@@ -1200,6 +1200,11 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 	//	keyValueList = append(keyValueList, keyValue)
 	//}
 	//vmInfo.KeyValueList = keyValueList
+
+	vmInfo.KeyValueList = append(vmInfo.KeyValueList,
+		irs.KeyValue{Key: "vCPU", Value: vCPU},
+		irs.KeyValue{Key: "vRAM(GB)", Value: vRam},
+	)
 
 	vmInfo.KeyValueList = irs.StructToKeyValueList(vmInfo)
 	return vmInfo, nil

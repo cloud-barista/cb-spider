@@ -554,7 +554,7 @@ func (vpcHandler *NhnCloudVPCHandler) mappingVpcInfo(vpc vpcs.VPC) (*irs.VPCInfo
 		RouterExternal = "No"
 	}
 
-	vpcInfo.KeyValueList = irs.StructToKeyValueList(vpcInfo)
+	vpcInfo.KeyValueList = irs.StructToKeyValueList(vpc)
 
 	vpcInfo.KeyValueList = append(vpcInfo.KeyValueList, irs.KeyValue{Key: "RouterExternal", Value: RouterExternal})
 
@@ -614,11 +614,18 @@ func (vpcHandler *NhnCloudVPCHandler) mappingVpcSubnetInfo(vpc vpcs.VPC) (*irs.V
 	}
 
 	// Shoud Add Create time
-	keyValueList := []irs.KeyValue{
-		{Key: "Status", Value: vpc.State},
-		{Key: "RouterExternal", Value: RouterExternal},
-	}
-	vpcInfo.KeyValueList = keyValueList
+	//keyValueList := []irs.KeyValue{
+	//	{Key: "Status", Value: vpc.State},
+	//	{Key: "RouterExternal", Value: RouterExternal},
+	//}
+	//vpcInfo.KeyValueList = keyValueList
+	//
+	vpcInfo.KeyValueList = irs.StructToKeyValueList(vpc)
+
+	vpcInfo.KeyValueList = append(vpcInfo.KeyValueList,
+		irs.KeyValue{Key: "Status", Value: vpc.State},
+		irs.KeyValue{Key: "RouterExternal", Value: RouterExternal},
+	)
 
 	return &vpcInfo, nil
 }
@@ -635,12 +642,14 @@ func (vpcHandler *NhnCloudVPCHandler) mappingSubnetInfo(subnet vpcsubnets.Vpcsub
 		IPv4_CIDR: subnet.CIDR,
 	}
 
-	//var RouterExternal string
-	//if subnet.RouterExternal {
-	//	RouterExternal = "Yes"
-	//} else if !subnet.RouterExternal {
-	//	RouterExternal = "No"
-	//}
+	subnetInfo.KeyValueList = irs.StructToKeyValueList(subnet)
+
+	var RouterExternal string
+	if subnet.RouterExternal {
+		RouterExternal = "Yes"
+	} else if !subnet.RouterExternal {
+		RouterExternal = "No"
+	}
 
 	//keyValueList := []irs.KeyValue{
 	//	{Key: "VPCId", Value: subnet.VPCID},
@@ -649,7 +658,11 @@ func (vpcHandler *NhnCloudVPCHandler) mappingSubnetInfo(subnet vpcsubnets.Vpcsub
 	//}
 	//subnetInfo.KeyValueList = keyValueList
 
-	subnetInfo.KeyValueList = irs.StructToKeyValueList(subnetInfo)
+	subnetInfo.KeyValueList = append(subnetInfo.KeyValueList,
+		irs.KeyValue{Key: "VPCId", Value: subnet.VPCID},
+		irs.KeyValue{Key: "RouterExternal", Value: RouterExternal},
+		irs.KeyValue{Key: "CreatedTime", Value: subnet.CreateTime},
+	)
 
 	return &subnetInfo
 }

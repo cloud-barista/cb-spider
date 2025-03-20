@@ -348,7 +348,7 @@ func (myImageHandler *NhnCloudMyImageHandler) mappingMyImageInfo(myImage images.
 		CreatedTime: myImage.CreatedAt,
 	}
 
-	myImageInfo.KeyValueList = irs.StructToKeyValueList(myImageInfo)
+	myImageInfo.KeyValueList = irs.StructToKeyValueList(myImage)
 
 	myImageInfo.KeyValueList = append(myImageInfo.KeyValueList, irs.KeyValue{Key: "Region", Value: myImageHandler.RegionInfo.Region})
 	myImageInfo.KeyValueList = append(myImageInfo.KeyValueList, irs.KeyValue{Key: "Visibility", Value: string(myImage.Visibility)})
