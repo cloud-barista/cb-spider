@@ -1058,7 +1058,7 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 			vCPU := strconv.Itoa(nhnFlavor.VCPUs)
 			vRam := strconv.Itoa(nhnFlavor.RAM)
 
-			vmInfo.KeyValueList = irs.StructToKeyValueList(vmInfo)
+			vmInfo.KeyValueList = irs.StructToKeyValueList(server)
 			vmInfo.KeyValueList = append(vmInfo.KeyValueList,
 				irs.KeyValue{Key: "vCPU", Value: vCPU},
 				irs.KeyValue{Key: "vRAM(GB)", Value: vRam})
@@ -1206,7 +1206,7 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 		irs.KeyValue{Key: "vRAM(GB)", Value: vRam},
 	)
 
-	vmInfo.KeyValueList = irs.StructToKeyValueList(vmInfo)
+	vmInfo.KeyValueList = irs.StructToKeyValueList(server)
 	return vmInfo, nil
 }
 
