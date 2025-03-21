@@ -23,7 +23,6 @@ import (
 	"os"
 
 	"github.com/chyeh/pubip"
-	"github.com/shirou/gopsutil/mem"
 
 	cblogger "github.com/cloud-barista/cb-log"
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
@@ -631,8 +630,6 @@ func ApiServer(routes []route) {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 
-	e.Use(memoryCheckMiddleware)
-
 	cbspiderRoot := os.Getenv("CBSPIDER_ROOT")
 
 	// for HTTP Access Log
@@ -716,44 +713,6 @@ func ApiServer(routes []route) {
 	if err := e.StartServer(server); err != nil {
 		cblog.Fatalf("Failed to start the server: %v", err)
 	}
-}
-
-const memoryThreshold = 0.9
-
-func checkMemoryUsage() bool {
-	vmStat, err := mem.VirtualMemory()
-	if err != nil {
-		fmt.Println("🚨 ERROR: Unable to get memory info:", err)
-		return false
-	}
-
-	usageRatio := vmStat.UsedPercent / 100.0
-
-	if usageRatio > memoryThreshold {
-		cblog.Errorf("REST Call: 🚨 WARNING: Memory usage high (%.2f%%) - OOM Danger!\n", vmStat.UsedPercent)
-		return true
-	}
-	return false
-}
-
-// detect high memory usage
-func memoryCheckMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		if checkMemoryUsage() {
-			return c.JSON(http.StatusServiceUnavailable, map[string]string{
-				"error": "⚠️ System is under high memory usage. Please try again later.",
-			})
-		}
-		return next(c) // normal status
-	}
-}
-
-// ================ API Info
-func apiInfo(c echo.Context) error {
-	cblog.Info("call apiInfo()")
-
-	apiInfo := "api info"
-	return c.String(http.StatusOK, apiInfo)
 }
 
 // ================ Endpoint Info
