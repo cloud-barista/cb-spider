@@ -97,7 +97,8 @@ func (keyPairHandler *KTVpcKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPairR
 		return irs.KeyPairInfo{}, newErr
 	}
 
-	keyPairInfo := mappingKeypairInfo(*keyPair)
+	// Returns the value of key only when created.
+	keyPairInfo := mappingKeyPairInfo(*keyPair)
 	keyPairInfo.PublicKey = keyPair.PublicKey
 	keyPairInfo.PrivateKey = keyPair.PrivateKey
 
@@ -128,7 +129,7 @@ func (keyPairHandler *KTVpcKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error)
 	}
 	keyPairList := make([]*irs.KeyPairInfo, len(keys))
 	for i, key := range keys {
-		keyPairList[i] = mappingKeypairInfo(key)
+		keyPairList[i] = mappingKeyPairInfo(key)
 	}
 	return keyPairList, nil
 }
@@ -157,7 +158,7 @@ func (keyPairHandler *KTVpcKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairIn
 	}
 	loggingInfo(callLogInfo, start)
 
-	keyPairInfo := mappingKeypairInfo(*keyPair)
+	keyPairInfo := mappingKeyPairInfo(*keyPair)
 	return *keyPairInfo, nil
 }
 
@@ -223,20 +224,30 @@ func (keyPairHandler *KTVpcKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, erro
 	return true, nil
 }
 
-func mappingKeypairInfo(keypair keys.KeyPair) *irs.KeyPairInfo {
-	cblogger.Info("KT Cloud VPC Driver: called mappingKeypairInfo()")
+func mappingKeyPairInfo(keypair keys.KeyPair) *irs.KeyPairInfo {
+	cblogger.Info("KT Cloud VPC Driver: called mappingKeyPairInfo()")
 
-	keypairInfo := &irs.KeyPairInfo{
+	keyPairInfo := &irs.KeyPairInfo{
 		IId: irs.IID{
-			NameId:   keypair.Name,
-			SystemId: keypair.Name,
+			NameId:   	keypair.Name,
+			SystemId: 	keypair.Name,
 		},
-		Fingerprint: keypair.Fingerprint,
-		PublicKey:   "N/A",
-		PrivateKey:  "N/A",
-		VMUserID:    LnxUserName,
+		Fingerprint: 	keypair.Fingerprint,
+		PublicKey:   	"NA",
+		PrivateKey:  	"NA",
+		VMUserID:    	LnxUserName,
+		KeyValueList:   irs.StructToKeyValueList(keypair),
 	}
-	return keypairInfo
+
+	// For security
+	for i, kv := range keyPairInfo.KeyValueList {
+		if kv.Key == "PublicKey" {
+			keyPairInfo.KeyValueList[i].Value = "NA"
+			break
+		}
+	}
+
+	return keyPairInfo
 }
 
 func (keyPairHandler *KTVpcKeyPairHandler) keyPairExists(keyIID irs.IID) (bool, error) {

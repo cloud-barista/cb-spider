@@ -539,6 +539,8 @@ func (diskHandler *KTVpcDiskHandler) mappingDiskInfo(volume volumes2.Volume) (ir
 		DiskSize:    strconv.Itoa(volume.Size),
 		Status:      convertDiskStatus(volume.Status),
 		CreatedTime: convertedTime,
+
+		KeyValueList:   irs.StructToKeyValueList(volume),
 	}
 
 	if strings.EqualFold(volume.Name, "") { // Bootable disk
@@ -570,23 +572,14 @@ func (diskHandler *KTVpcDiskHandler) mappingDiskInfo(volume volumes2.Volume) (ir
 		}
 	}
 
-	keyValueList := []irs.KeyValue{
-		// {Key: "AvailabilityZone",   Value: volume.AvailabilityZone},
-		{Key: "IsBootable", Value: volume.Bootable},
-		{Key: "IsMultiattached", Value: strconv.FormatBool(volume.Multiattach)},
-		{Key: "IsEncrypted", Value: strconv.FormatBool(volume.Encrypted)},
-	}
-
 	// Check if 'Image Name' value exists and add it to the key/value list
 	keyValue := irs.KeyValue{}
 	if imageName, exists := volume.VolumeImageMetadata["image_name"]; exists {
-		// fmt.Printf("Image Name: %s\n", imageName)
 		keyValue = irs.KeyValue{Key: "ImageName", Value: imageName}
 	} else {
 		cblogger.Info("Image Name not found in volume info.")
 	}
-	keyValueList = append(keyValueList, keyValue)
-	diskInfo.KeyValueList = keyValueList
+	diskInfo.KeyValueList = append(diskInfo.KeyValueList, keyValue)
 
 	return diskInfo, nil
 }
