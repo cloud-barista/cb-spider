@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"runtime"
 	"sort"
 	"syscall"
 	"time"
@@ -168,8 +169,13 @@ func getSystemInfo() (SystemInfo, error) {
 
 	// Get CPU information
 	cpuInfo, err := cpu.Info()
-	if err != nil {
-		return SystemInfo{}, fmt.Errorf(ERR_GETTING_CPU_INFO, err)
+	if err != nil || len(cpuInfo) == 0 {
+		cblog.Warn("cpu.Info() failed or returned no info. Trying fallback...")
+		sysInfo.CPUModel = "Unknown"
+		sysInfo.ClockSpeed = "Unknown"
+	} else {
+		sysInfo.CPUModel = cpuInfo[0].ModelName
+		sysInfo.ClockSpeed = fmt.Sprintf("%.2f GHz", mhzToGHz(cpuInfo[0].Mhz)) // Convert MHz to GHz
 	}
 
 	if len(cpuInfo) > 0 {
@@ -257,14 +263,17 @@ func getResourceUsage(currentProcess *process.Process) (ResourceUsage, error) {
 	}
 
 	// Get process I/O before
-	processIOStatBefore, err := currentProcess.IOCounters()
 	var processReadBytesBefore, processWriteBytesBefore uint64 = 0, 0
-	if err != nil {
-		cblog.Error(fmt.Errorf("error getting process I/O counters: %v", err))
-		// Continue despite error
+	if runtime.GOOS != "darwin" {
+		processIOStatBefore, err := currentProcess.IOCounters()
+		if err != nil {
+			cblog.Error(fmt.Errorf("error getting process I/O counters: %v", err))
+		} else {
+			processReadBytesBefore = processIOStatBefore.ReadBytes
+			processWriteBytesBefore = processIOStatBefore.WriteBytes
+		}
 	} else {
-		processReadBytesBefore = processIOStatBefore.ReadBytes
-		processWriteBytesBefore = processIOStatBefore.WriteBytes
+		cblog.Warn("Process.IOCounters() is not implemented on macOS, skipping.")
 	}
 
 	// Get first network I/O measurement
@@ -362,15 +371,19 @@ func getResourceUsage(currentProcess *process.Process) (ResourceUsage, error) {
 	}
 
 	// Get process I/O after the interval
-	processIOStatAfter, err := currentProcess.IOCounters()
-	if err != nil {
-		cblog.Error(fmt.Errorf("error getting process I/O counters after interval: %v", err))
-		// Continue despite error
+	if runtime.GOOS != "darwin" {
+		processIOStatAfter, err := currentProcess.IOCounters()
+		if err != nil {
+			cblog.Error(fmt.Errorf("error getting process I/O counters after interval: %v", err))
+		} else {
+			processReadRate := processIOStatAfter.ReadBytes - processReadBytesBefore
+			processWriteRate := processIOStatAfter.WriteBytes - processWriteBytesBefore
+			usage.ProcessDiskRead = formatBytes(processReadRate) + "/s"
+			usage.ProcessDiskWrite = formatBytes(processWriteRate) + "/s"
+		}
 	} else {
-		processReadRate := processIOStatAfter.ReadBytes - processReadBytesBefore
-		processWriteRate := processIOStatAfter.WriteBytes - processWriteBytesBefore
-		usage.ProcessDiskRead = formatBytes(processReadRate) + "/s"
-		usage.ProcessDiskWrite = formatBytes(processWriteRate) + "/s"
+		usage.ProcessDiskRead = "NA"
+		usage.ProcessDiskWrite = "NA"
 	}
 
 	// Get second disk I/O measurement

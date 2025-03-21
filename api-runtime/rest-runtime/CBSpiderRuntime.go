@@ -17,13 +17,13 @@ import (
 	"log"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"time"
 
 	"net/http"
 	"os"
 
 	"github.com/chyeh/pubip"
+	"github.com/shirou/gopsutil/mem"
 
 	cblogger "github.com/cloud-barista/cb-log"
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
@@ -721,23 +721,19 @@ func ApiServer(routes []route) {
 const memoryThreshold = 0.9
 
 func checkMemoryUsage() bool {
-	var sysInfo syscall.Sysinfo_t
-	if err := syscall.Sysinfo(&sysInfo); err != nil {
-		fmt.Println("🚨 ERROR: Unable to get system memory info:", err)
+	vmStat, err := mem.VirtualMemory()
+	if err != nil {
+		fmt.Println("🚨 ERROR: Unable to get memory info:", err)
 		return false
 	}
 
-	totalMem := float64(sysInfo.Totalram) * float64(sysInfo.Unit)
-	freeMem := float64(sysInfo.Freeram) * float64(sysInfo.Unit)
-	usedMem := totalMem - freeMem
-	usageRatio := usedMem / totalMem
+	usageRatio := vmStat.UsedPercent / 100.0
 
-	// detect high memory usage
 	if usageRatio > memoryThreshold {
-		cblog.Errorf("REST Call: 🚨 WARNING: Memory usage high (%.2f%%) - OOM Danger!\n", usageRatio*100)
-		return true // high memory usage
+		cblog.Errorf("REST Call: 🚨 WARNING: Memory usage high (%.2f%%) - OOM Danger!\n", vmStat.UsedPercent)
+		return true
 	}
-	return false // normal status
+	return false
 }
 
 // detect high memory usage
