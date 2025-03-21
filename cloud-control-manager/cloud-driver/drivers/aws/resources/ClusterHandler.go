@@ -403,12 +403,14 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 		}
 	}
 
-	keyValueList := []irs.KeyValue{
-		{Key: "Status", Value: *result.Cluster.Status},
-		{Key: "Arn", Value: *result.Cluster.Arn},
-		{Key: "RoleArn", Value: *result.Cluster.RoleArn},
-	}
-	clusterInfo.KeyValueList = keyValueList
+	// keyValueList := []irs.KeyValue{
+	// 	{Key: "Status", Value: *result.Cluster.Status},
+	// 	{Key: "Arn", Value: *result.Cluster.Arn},
+	// 	{Key: "RoleArn", Value: *result.Cluster.RoleArn},
+	// }
+	// clusterInfo.KeyValueList = keyValueList
+	// irs.StructToKeyValueList() 함수 사용
+	clusterInfo.KeyValueList = irs.StructToKeyValueList(result.Cluster)
 
 	clusterInfo.TagList, _ = ClusterHandler.TagHandler.ListTag(irs.CLUSTER, clusterInfo.IId)
 
@@ -886,9 +888,24 @@ func (ClusterHandler *AwsClusterHandler) UpgradeCluster(clusterIID irs.IID, newV
 		}
 	}
 	cblogger.Debug(result)
-	// getClusterInfo
-	return irs.ClusterInfo{}, nil
 
+	// return irs.ClusterInfo{}, nil
+
+	// // 클러스터 업데이트 작업이 완료될 때까지 대기
+	// err = ClusterHandler.WaitUntilClusterActive(clusterIID.SystemId)
+	// if err != nil {
+	//     cblogger.Error(err)
+	//     return irs.ClusterInfo{}, err
+	// }
+
+	// getClusterInfo
+	clusterInfo, err := ClusterHandler.GetCluster(clusterIID)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.ClusterInfo{}, err
+	}
+
+	return clusterInfo, nil
 }
 
 func (ClusterHandler *AwsClusterHandler) getRole(role irs.IID) (*iam.GetRoleOutput, error) {
@@ -1069,6 +1086,9 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 	//arn:partition:service:region:account-id:resource-id
 	//arn:partition:service:region:account-id:resource-type/resource-id
 	//arn:partition:service:region:account-id:resource-type:resource-id
+
+	// irs.StructToKeyValueList() 함수 사용
+	nodeGroupInfo.KeyValueList = irs.StructToKeyValueList(nodeGroup)
 
 	PrintToJson(nodeGroupInfo)
 	//return irs.NodeGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "추출 오류", nil)
