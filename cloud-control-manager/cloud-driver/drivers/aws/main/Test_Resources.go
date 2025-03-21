@@ -1504,17 +1504,20 @@ func handleCluster() {
 	}
 
 	subnets := []irs.IID{}
-	subnets = append(subnets, irs.IID{SystemId: "subnet-02127b9d8c84f7440"}) //2a
-	subnets = append(subnets, irs.IID{SystemId: "subnet-0c2b7e03a5f397e25"}) //2c
+	// subnets = append(subnets, irs.IID{SystemId: "subnet-02127b9d8c84f7440"}) //2a
+	// subnets = append(subnets, irs.IID{SystemId: "subnet-0c2b7e03a5f397e25"}) //2c
+
+	subnets = append(subnets, irs.IID{SystemId: "subnet-0d5357fe8ea45219c"}) //2a
+	subnets = append(subnets, irs.IID{SystemId: "subnet-05fb1d006711bc103"}) //2c
 
 	//vpc-0c4d36a3ac3924419
 	clusterReqInfo := irs.ClusterInfo{
 		//TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}, {Key: "Name", Value: securityName+"123"}},
 		TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}},
 		IId:     irs.IID{NameId: "cb-eks-cluster-tag-test", SystemId: "cb-eks-cluster-tag-test"},
-		//Version : "1.23.3", //K8s version
+		Version: "1.23.3", //K8s version
 		Network: irs.NetworkInfo{
-			VpcIID: irs.IID{SystemId: "vpc-0a115f43d4fcbab36"},
+			VpcIID: irs.IID{SystemId: "vpc-002cb8cb8b00b0769"},
 			//SubnetIID: [irs.IID{SystemId: "subnet-262d6d7a"},irs.IID{SystemId: "vpc-c0479cab"}],
 			SubnetIIDs: subnets,
 		},
@@ -1530,8 +1533,8 @@ func handleCluster() {
 		VMSpecName:   "t3.medium",
 		RootDiskType: "SSD(gp2)", // "SSD(gp2)", "Premium SSD", ...
 		RootDiskSize: "20",       // "", "default", "50", "1000" (GB)
-		KeyPairIID:   irs.IID{SystemId: "CB-KeyPairTagTest"},
-
+		// KeyPairIID:   irs.IID{SystemId: "CB-KeyPairTagTest"},
+		KeyPairIID: irs.IID{SystemId: "aws-ap-northeast-2-ap-northeast-2a-keypair-be3-test-cvejdsqhucphg4rlj3gg"},
 		//Status NodeGroupStatus
 
 		// Scaling config.
@@ -1584,9 +1587,13 @@ func handleCluster() {
 					cblogger.Info("Cluster List Lookup Result")
 					cblogger.Debug(result)
 					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
-					//spew.Dump(result)
 					cblogger.Info("Number of output results : ", len(result))
 
+					if cblogger.Level.String() == "debug" {
+						cblogger.Info("========= DEBUG ==========")
+						spew.Dump(result)
+						cblogger.Info("========= DEBUG ==========")
+					}
 					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
 					if len(result) > 0 {
 						clusterReqInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
@@ -1602,7 +1609,9 @@ func handleCluster() {
 					cblogger.Info("Cluster Create Success : ", result)
 					clusterReqInfo.IId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
 					if cblogger.Level.String() == "debug" {
+						cblogger.Info("========= DEBUG ==========")
 						spew.Dump(result)
+						cblogger.Info("========= DEBUG ==========")
 					}
 				}
 
@@ -1616,7 +1625,9 @@ func handleCluster() {
 				} else {
 					cblogger.Infof("[%s] Cluster Get Success : [%s]", clusterReqInfo.IId.NameId, result)
 					if cblogger.Level.String() == "debug" {
+						cblogger.Info("========= DEBUG ==========")
 						spew.Dump(result)
+						cblogger.Info("========= DEBUG ==========")
 					}
 				}
 
@@ -1660,7 +1671,9 @@ func handleCluster() {
 				} else {
 					cblogger.Infof("[%s] AddNodeGroup Success : [%s]", clusterReqInfo.IId.NameId, result)
 					if cblogger.Level.String() == "debug" {
+						cblogger.Info("========= DEBUG ==========")
 						spew.Dump(result)
+						cblogger.Info("========= DEBUG ==========")
 					}
 				}
 
@@ -1684,7 +1697,9 @@ func handleCluster() {
 				} else {
 					cblogger.Infof("[%s] UpgradeCluster Success : [%s]", clusterReqInfo.IId.NameId, result)
 					if cblogger.Level.String() == "debug" {
+						cblogger.Info("========= DEBUG ==========")
 						spew.Dump(result)
+						cblogger.Info("========= DEBUG ==========")
 					}
 				}
 
@@ -2344,6 +2359,10 @@ func readConfigFile() Config {
 }
 
 func main() {
+	cblogger.Info("=======================================")
+	cblogger.Info("CB-Spider DEBUG Level : ", cblogger.Level.String())
+	cblogger.Info("=======================================")
+
 	// myimage
 	//handleTag()
 	// handlePublicIP() // PublicIP 생성 후 conf
