@@ -734,7 +734,7 @@ func checkMemoryUsage() bool {
 
 	// detect high memory usage
 	if usageRatio > memoryThreshold {
-		fmt.Printf("REST Call: 🚨 WARNING: Memory usage high (%.2f%%) - OOM Danger!\n", usageRatio*100)
+		cblog.Errorf("REST Call: 🚨 WARNING: Memory usage high (%.2f%%) - OOM Danger!\n", usageRatio*100)
 		return true // high memory usage
 	}
 	return false // normal status
