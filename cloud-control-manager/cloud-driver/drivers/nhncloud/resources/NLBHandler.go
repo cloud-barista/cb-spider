@@ -1478,6 +1478,7 @@ func (nlbHandler *NhnCloudNLBHandler) getVMGroupInfo(nlb loadbalancers.LoadBalan
 		})
 	}
 	vmGroupInfo.VMs = &vmIIds
+	vmGroupInfo.KeyValueList = irs.StructToKeyValueList(nlb)
 	return vmGroupInfo, nil
 }
 
@@ -1685,31 +1686,31 @@ func (nlbHandler *NhnCloudNLBHandler) mappingNlbInfo(nhnNLB loadbalancers.LoadBa
 	}
 
 	//nlbInfo.KeyValueList = keyValueList
-	nlbInfo.KeyValueList = irs.StructToKeyValueList(nhnNLB)
+	nlbInfo.KeyValueList = irs.StructToKeyValueList(nlbInfo)
 
-	nlbInfo.KeyValueList = append(nlbInfo.KeyValueList,
-		irs.KeyValue{Key: "NLB_ProvisioningStatus", Value: nhnNLB.ProvisioningStatus},
-		irs.KeyValue{Key: "NLB_OperatingStatus", Value: nhnNLB.OperatingStatus},
-		irs.KeyValue{Key: "NLB_PrivateIp", Value: nhnNLB.VipAddress},
-		irs.KeyValue{Key: "Provider", Value: nhnNLB.Provider},
-		irs.KeyValue{Key: "SubnetId", Value: nhnNLB.VipSubnetID},
-		irs.KeyValue{Key: "VipPortId", Value: nhnNLB.VipPortID},
-	)
+	//nlbInfo.KeyValueList = append(nlbInfo.KeyValueList,
+	//	irs.KeyValue{Key: "NLB_ProvisioningStatus", Value: nhnNLB.ProvisioningStatus},
+	//	irs.KeyValue{Key: "NLB_OperatingStatus", Value: nhnNLB.OperatingStatus},
+	//	irs.KeyValue{Key: "NLB_PrivateIp", Value: nhnNLB.VipAddress},
+	//	irs.KeyValue{Key: "Provider", Value: nhnNLB.Provider},
+	//	irs.KeyValue{Key: "SubnetId", Value: nhnNLB.VipSubnetID},
+	//	irs.KeyValue{Key: "VipPortId", Value: nhnNLB.VipPortID},
+	//)
 
-	if nlbInfo.Listener.CspID != "" {
-		nlbInfo.KeyValueList = append(nlbInfo.KeyValueList,
-			irs.KeyValue{Key: "ListenerId", Value: nlbInfo.Listener.CspID})
-	}
-
-	if nlbInfo.HealthChecker.CspID != "" {
-		nlbInfo.KeyValueList = append(nlbInfo.KeyValueList,
-			irs.KeyValue{Key: "HealthCheckerId", Value: nlbInfo.HealthChecker.CspID})
-	}
-
-	if nlbInfo.VMGroup.CspID != "" {
-		nlbInfo.KeyValueList = append(nlbInfo.KeyValueList,
-			irs.KeyValue{Key: "PoolId", Value: nlbInfo.VMGroup.CspID})
-	}
+	//if nlbInfo.Listener.CspID != "" {
+	//	nlbInfo.KeyValueList = append(nlbInfo.KeyValueList,
+	//		irs.KeyValue{Key: "ListenerId", Value: nlbInfo.Listener.CspID})
+	//}
+	//
+	//if nlbInfo.HealthChecker.CspID != "" {
+	//	nlbInfo.KeyValueList = append(nlbInfo.KeyValueList,
+	//		irs.KeyValue{Key: "HealthCheckerId", Value: nlbInfo.HealthChecker.CspID})
+	//}
+	//
+	//if nlbInfo.VMGroup.CspID != "" {
+	//	nlbInfo.KeyValueList = append(nlbInfo.KeyValueList,
+	//		irs.KeyValue{Key: "PoolId", Value: nlbInfo.VMGroup.CspID})
+	//}
 
 	return nlbInfo, nil
 }
@@ -1738,12 +1739,6 @@ func (nlbHandler *NhnCloudNLBHandler) mappingListenerInfo(nhnListener listeners.
 	//listenerInfo.KeyValueList = keyValueList
 
 	listenerInfo.KeyValueList = irs.StructToKeyValueList(nhnListener)
-
-	listenerInfo.KeyValueList = append(listenerInfo.KeyValueList,
-		irs.KeyValue{Key: "AdminStateUp", Value: strconv.FormatBool(nhnListener.AdminStateUp)},
-		irs.KeyValue{Key: "ConnectionLimit", Value: strconv.Itoa(nhnListener.ConnLimit)},
-		irs.KeyValue{Key: "KeepaliveTimeout(Sec)", Value: strconv.Itoa(nhnListener.KeepaliveTimeout)},
-	)
 
 	return listenerInfo, nil
 }
