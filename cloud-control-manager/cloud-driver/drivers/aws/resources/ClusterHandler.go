@@ -950,18 +950,6 @@ func attachIAMPolicy(ClusterHandler *AwsClusterHandler, accountID, roleName stri
 		cblogger.Errorf("Failed to attach EBS CSI Driver policy: %v", err)
 		return
 	}
-
-	// Attach EKS Cluster Policy
-	eksClusterPolicyArn := "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
-
-	_, err = ClusterHandler.Iam.AttachRolePolicy(&iam.AttachRolePolicyInput{
-		RoleName:  aws.String(roleName),
-		PolicyArn: aws.String(eksClusterPolicyArn),
-	})
-	if err != nil {
-		cblogger.Errorf("Failed to attach EKS Cluster policy: %v", err)
-		return
-	}
 }
 
 func (ClusterHandler *AwsClusterHandler) installEBSCSIDriver(clusterID string, roleArn string) error {
