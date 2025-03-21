@@ -1712,7 +1712,9 @@ func handleCluster() {
 				} else {
 					cblogger.Infof("[%s] ChangeNodeGroupScaling Success : [%s]", clusterReqInfo.IId.NameId, result)
 					if cblogger.Level.String() == "debug" {
+						cblogger.Info("========= DEBUG START ==========")
 						spew.Dump(result)
+						cblogger.Info("========= DEBUG END ==========")
 					}
 				}
 			}
