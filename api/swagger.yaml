@@ -41,6 +41,13 @@ definitions:
     - DeletedAllListByResourceType
     - IsAllDestroyed
     type: object
+  spider.DiskPartitionInfo:
+    properties:
+      mountPoint:
+        type: string
+      totalSpace:
+        type: string
+    type: object
   spider.RemainedErrorInfo:
     properties:
       ErrorMsg:
@@ -54,6 +61,90 @@ definitions:
     required:
     - ErrorMsg
     - Name
+    type: object
+  spider.ResourceUsage:
+    properties:
+      processCPUCorePercent:
+        additionalProperties:
+          type: string
+        description: Per-core process CPU usage percentages with core number as key
+        type: object
+      processCPUPercent:
+        description: Total process CPU usage with % format
+        type: string
+      processDiskRead:
+        type: string
+      processDiskWrite:
+        type: string
+      processMemoryPercent:
+        description: '% format'
+        type: string
+      processMemoryUsed:
+        description: GiB format
+        type: string
+      processName:
+        description: Process information
+        type: string
+      processNetReceived:
+        type: string
+      processNetSent:
+        type: string
+      systemCPUCorePercent:
+        additionalProperties:
+          type: string
+        description: Per-core CPU usage percentages with core number as key
+        type: object
+      systemCPUPercent:
+        description: System information
+        type: string
+      systemDiskRead:
+        type: string
+      systemDiskWrite:
+        type: string
+      systemMemoryPercent:
+        description: '% format'
+        type: string
+      systemMemoryTotal:
+        description: GiB format
+        type: string
+      systemMemoryUsed:
+        description: GiB format
+        type: string
+      systemNetReceived:
+        type: string
+      systemNetSent:
+        type: string
+    type: object
+  spider.SystemInfo:
+    properties:
+      clockSpeed:
+        type: string
+      cpumodel:
+        type: string
+      diskPartitions:
+        items:
+          $ref: '#/definitions/spider.DiskPartitionInfo'
+        type: array
+      hostname:
+        type: string
+      kernelArch:
+        type: string
+      kernelVersion:
+        type: string
+      logicalCores:
+        type: integer
+      physicalCores:
+        type: integer
+      platform:
+        type: string
+      platformVersion:
+        type: string
+      swapMemory:
+        type: string
+      totalMemory:
+        type: string
+      uptime:
+        type: string
     type: object
   spider.AccessInfo:
     description: Access Information for a Kubernetes Cluster. <br> Take some time
@@ -7840,6 +7931,67 @@ paths:
       summary: List Security Groups in a Specific VPC
       tags:
       - '[SecurityGroup Management]'
+  /sysstats/system:
+    get:
+      consumes:
+      - application/json
+      description: |-
+        Retrieve system information such as hostname, platform, CPU, memory, and disk.
+        Use query parameter 'mode=text' to get the output in text format instead of JSON.
+      operationId: fetch-system-info
+      parameters:
+      - description: 'Output format: set to ''text'' for text output (default is JSON)'
+        enum:
+        - text
+        in: query
+        name: mode
+        type: string
+      produces:
+      - application/json
+      - text/plain
+      responses:
+        "200":
+          description: System Information in JSON or text format based on 'mode' parameter
+          schema:
+            $ref: '#/definitions/spider.SystemInfo'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Fetch System Information
+      tags:
+      - '[Utility]'
+  /sysstats/usage:
+    get:
+      consumes:
+      - application/json
+      description: |-
+        Retrieve resource usage information such as CPU, memory, disk I/O, and network I/O.
+        Use query parameter 'mode=text' to get the output in text format instead of JSON.
+      operationId: fetch-resource-usage
+      parameters:
+      - description: 'Output format: set to ''text'' for text output (default is JSON)'
+        enum:
+        - text
+        in: query
+        name: mode
+        type: string
+      produces:
+      - application/json
+      - text/plain
+      responses:
+        "200":
+          description: Resource Usage Information in JSON or text format based on
+            'mode' parameter
+          schema:
+            $ref: '#/definitions/spider.ResourceUsage'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Fetch Resource Usage Information
+      tags:
+      - '[Utility]'
   /tag:
     get:
       consumes:

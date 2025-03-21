@@ -14,8 +14,10 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"net/http"
@@ -33,7 +35,7 @@ import (
 	// REST API (echo)
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/labstack/gommon/log"
+	lblog "github.com/labstack/gommon/log"
 
 	// echo-swagger middleware
 	_ "github.com/cloud-barista/cb-spider/api"
@@ -200,6 +202,10 @@ func RunServer() {
 		{"GET", "/health", healthCheck},
 		{"GET", "/ping", healthCheck},
 		{"GET", "/readyz", healthCheck},
+
+		//----------SystemStatsInfo Handler
+		{"GET", "/sysstats/system", FetchSystemInfo},
+		{"GET", "/sysstats/usage", FetchResourceUsage},
 
 		//----------CloudOS
 		{"GET", "/cloudos", ListCloudOS},
@@ -527,6 +533,8 @@ func RunServer() {
 
 		{"GET", "/adminweb/spiderinfo", aw.SpiderInfo},
 
+		{"GET", "/adminweb/sysstats", aw.SystemStatsInfoPage},
+
 		{"GET", "/adminweb/vpc/:ConnectConfig", aw.VPCSubnetManagement},
 		{"GET", "/adminweb/vpcmgmt/:ConnectConfig", aw.VPCMgmt},
 		{"GET", "/adminweb/securitygroup/:ConnectConfig", aw.SecurityGroupManagement},
@@ -571,7 +579,7 @@ func RunServer() {
 
 func RunTLSServer(certFile, keyFile, caCertFile string, port int) {
 	e := echo.New()
-	e.Logger.SetLevel(log.ERROR) // Set logging level to ERROR only
+	e.Logger.SetLevel(lblog.ERROR) // Set logging level to ERROR only
 
 	// Recovery middleware for handling panics
 	e.Use(middleware.Recover())
@@ -622,6 +630,8 @@ func ApiServer(routes []route) {
 	e.Use(middleware.CORS())
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
+
+	e.Use(memoryCheckMiddleware)
 
 	cbspiderRoot := os.Getenv("CBSPIDER_ROOT")
 
@@ -694,10 +704,52 @@ func ApiServer(routes []route) {
 
 	spiderBanner()
 
-	if err := e.Start(cr.ServerPort); err != nil {
-		cblog.Fatalf("Failed to start the server: %v", err)
+	server := &http.Server{
+		Addr:           cr.ServerPort,
+		ReadTimeout:    600 * time.Second, // Increase the maximum duration of reading the entire request
+		WriteTimeout:   600 * time.Second, // Increase the maximum duration of writing the entire response
+		IdleTimeout:    600 * time.Second, // Increase the maximum duration of idle keep-alive connections
+		MaxHeaderBytes: 500 * 1024 * 1024, // Increase the maximum header size allowed by the server
+		ErrorLog:       log.New(os.Stderr, "HTTP SERVER ERROR: ", log.LstdFlags),
 	}
 
+	if err := e.StartServer(server); err != nil {
+		cblog.Fatalf("Failed to start the server: %v", err)
+	}
+}
+
+const memoryThreshold = 0.9
+
+func checkMemoryUsage() bool {
+	var sysInfo syscall.Sysinfo_t
+	if err := syscall.Sysinfo(&sysInfo); err != nil {
+		fmt.Println("🚨 ERROR: Unable to get system memory info:", err)
+		return false
+	}
+
+	totalMem := float64(sysInfo.Totalram) * float64(sysInfo.Unit)
+	freeMem := float64(sysInfo.Freeram) * float64(sysInfo.Unit)
+	usedMem := totalMem - freeMem
+	usageRatio := usedMem / totalMem
+
+	// detect high memory usage
+	if usageRatio > memoryThreshold {
+		fmt.Printf("REST Call: 🚨 WARNING: Memory usage high (%.2f%%) - OOM Danger!\n", usageRatio*100)
+		return true // high memory usage
+	}
+	return false // normal status
+}
+
+// detect high memory usage
+func memoryCheckMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		if checkMemoryUsage() {
+			return c.JSON(http.StatusServiceUnavailable, map[string]string{
+				"error": "⚠️ System is under high memory usage. Please try again later.",
+			})
+		}
+		return next(c) // normal status
+	}
 }
 
 // ================ API Info
