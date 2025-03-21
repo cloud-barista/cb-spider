@@ -1590,9 +1590,9 @@ func handleCluster() {
 					cblogger.Info("Number of output results : ", len(result))
 
 					if cblogger.Level.String() == "debug" {
-						cblogger.Info("========= DEBUG ==========")
+						cblogger.Info("========= DEBUG START ==========")
 						spew.Dump(result)
-						cblogger.Info("========= DEBUG ==========")
+						cblogger.Info("========= DEBUG END ==========")
 					}
 					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
 					if len(result) > 0 {
@@ -1609,9 +1609,9 @@ func handleCluster() {
 					cblogger.Info("Cluster Create Success : ", result)
 					clusterReqInfo.IId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
 					if cblogger.Level.String() == "debug" {
-						cblogger.Info("========= DEBUG ==========")
+						cblogger.Info("========= DEBUG START ==========")
 						spew.Dump(result)
-						cblogger.Info("========= DEBUG ==========")
+						cblogger.Info("========= DEBUG END ==========")
 					}
 				}
 
@@ -1625,9 +1625,9 @@ func handleCluster() {
 				} else {
 					cblogger.Infof("[%s] Cluster Get Success : [%s]", clusterReqInfo.IId.NameId, result)
 					if cblogger.Level.String() == "debug" {
-						cblogger.Info("========= DEBUG ==========")
+						cblogger.Info("========= DEBUG START ==========")
 						spew.Dump(result)
-						cblogger.Info("========= DEBUG ==========")
+						cblogger.Info("========= DEBUG END ==========")
 					}
 				}
 
@@ -1671,9 +1671,9 @@ func handleCluster() {
 				} else {
 					cblogger.Infof("[%s] AddNodeGroup Success : [%s]", clusterReqInfo.IId.NameId, result)
 					if cblogger.Level.String() == "debug" {
-						cblogger.Info("========= DEBUG ==========")
+						cblogger.Info("========= DEBUG START ==========")
 						spew.Dump(result)
-						cblogger.Info("========= DEBUG ==========")
+						cblogger.Info("========= DEBUG END ==========")
 					}
 				}
 
@@ -1697,9 +1697,9 @@ func handleCluster() {
 				} else {
 					cblogger.Infof("[%s] UpgradeCluster Success : [%s]", clusterReqInfo.IId.NameId, result)
 					if cblogger.Level.String() == "debug" {
-						cblogger.Info("========= DEBUG ==========")
+						cblogger.Info("========= DEBUG START ==========")
 						spew.Dump(result)
-						cblogger.Info("========= DEBUG ==========")
+						cblogger.Info("========= DEBUG END ==========")
 					}
 				}
 
