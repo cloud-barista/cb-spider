@@ -1170,6 +1170,8 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 		},
 		VMUserId: LnxUserName,
 		// VMUserPasswd:      "N/A",
+
+		KeyValueList:   irs.StructToKeyValueList(vm),
 	}
 	vmInfo.StartTime = convertedTime
 	vmInfo.VMSpecName = vm.Flavor["original_name"].(string)
@@ -1187,18 +1189,6 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 			sgIIDs = append(sgIIDs, irs.IID{NameId: kv.Key, SystemId: kv.Value})
 		}
 		vmInfo.SecurityGroupIIds = sgIIDs
-	}
-
-	float64Vcpus := vm.Flavor["vcpus"].(float64)
-	float64Ram := vm.Flavor["ram"].(float64)
-
-	var vCPU string
-	var vRAM string
-	if float64Vcpus != 0 {
-		vCPU = strconv.FormatFloat(vm.Flavor["vcpus"].(float64), 'f', -1, 64)
-	}
-	if float64Ram != 0 {
-		vRAM = strconv.FormatFloat(vm.Flavor["ram"].(float64), 'f', -1, 64)
 	}
 
 	// # Get Network Info
@@ -1333,8 +1323,20 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 			vmInfo.SSHAccessPoint = netInfo.PublicIP + ":22"
 		}
 	}
+	
+	float64Vcpus := vm.Flavor["vcpus"].(float64)
+	float64Ram := vm.Flavor["ram"].(float64)
 
-	// Set KeyValueList
+	var vCPU string
+	var vRAM string
+	if float64Vcpus != 0 {
+		vCPU = strconv.FormatFloat(vm.Flavor["vcpus"].(float64), 'f', -1, 64)
+	}
+	if float64Ram != 0 {
+		vRAM = strconv.FormatFloat(vm.Flavor["ram"].(float64), 'f', -1, 64)
+	}
+
+	//# Append to KeyValueList
 	var keyValueList []irs.KeyValue
 	if vCPU != "" {
 		keyValue := irs.KeyValue{Key: "vCPU", Value: vCPU}
@@ -1348,7 +1350,8 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 		keyValue := irs.KeyValue{Key: "VM_Status", Value: string(getVmStatus(vm.Status))}
 		keyValueList = append(keyValueList, keyValue)
 	}
-	vmInfo.KeyValueList = keyValueList
+	vmInfo.KeyValueList = append(vmInfo.KeyValueList, keyValueList...)
+		
 	return vmInfo, nil
 }
 

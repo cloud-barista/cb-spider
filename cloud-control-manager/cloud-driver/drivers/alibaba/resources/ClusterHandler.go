@@ -792,6 +792,7 @@ func (ach *AlibabaClusterHandler) getClusterInfoWithoutNodeGroupList(regionId, c
 	clusterInfo.KeyValueList = irs.StructToKeyValueList(cluster)
 	// Fill clusterInfo.KeyValueList
 	//
+
 	// jsonCluster, err := json.Marshal(cluster)
 	// if err != nil {
 	// 	err = fmt.Errorf("failed to marshal cluster: %v", err)
@@ -817,6 +818,9 @@ func (ach *AlibabaClusterHandler) getClusterInfoWithoutNodeGroupList(regionId, c
 	// for k, v := range flat {
 	// 	clusterInfo.KeyValueList = append(clusterInfo.KeyValueList, irs.KeyValue{Key: k, Value: fmt.Sprintf("%v", v)})
 	// }
+
+	clusterInfo.KeyValueList = irs.StructToKeyValueList(cluster)
+
 
 	return clusterInfo, nil
 }
@@ -938,6 +942,7 @@ func (ach *AlibabaClusterHandler) getNodeGroupInfo(clusterId, nodeGroupId string
 	nodeGroupInfo.KeyValueList = irs.StructToKeyValueList(nodepool)
 	// Fill nodeGroupInfo.KeyValueList
 	//
+
 	// jsonNodepool, err := json.Marshal(nodepool)
 	// if err != nil {
 	// 	err = fmt.Errorf("failed to marshal nodepool: %v", err)
@@ -963,6 +968,9 @@ func (ach *AlibabaClusterHandler) getNodeGroupInfo(clusterId, nodeGroupId string
 	// for k, v := range flat {
 	// 	nodeGroupInfo.KeyValueList = append(nodeGroupInfo.KeyValueList, irs.KeyValue{Key: k, Value: fmt.Sprintf("%v", v)})
 	// }
+
+	nodeGroupInfo.KeyValueList = irs.StructToKeyValueList(nodepool)
+
 
 	return nodeGroupInfo, err
 }

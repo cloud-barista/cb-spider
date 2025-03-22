@@ -34,6 +34,17 @@
             text-align: center;
             font-size: 11px;
         }
+        .text-menu {
+            text-align: center;
+            font-size: 11px;
+            font-weight: bold;
+            margin: -10px 0 0 0;
+            color: #0645AD;
+            cursor: pointer;
+        }
+        .text-menu:hover {
+            text-decoration: underline;
+        }
         .divider {
             width: 80%;
             height: 1px;
@@ -114,6 +125,11 @@
             parent.postMessage({ type: 'deselectMainMenu' }, '*');
         }
 
+        function openSysStatsInNewWindow() {
+            // Open SysStats in a new window
+            window.open('/spider/adminweb/sysstats', 'SysStatsWindow', 'width=740,height=1400');            
+        }
+
         function changeSelectedImage(selectedMenu) {
             const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'disk', 'myimage', 'nlb', 'cluster'];
             menus.forEach(menu => {
@@ -133,7 +149,9 @@
                 const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'disk', 'myimage', 'nlb', 'cluster'];
                 menus.forEach(menu => {
                     const imgElement = document.getElementById(menu + '-img');
-                    imgElement.src = `./images/left-menu/${menu}.png`;
+                    if (imgElement) {
+                        imgElement.src = `./images/left-menu/${menu}.png`;
+                    }
                 });
             }
         });
@@ -143,7 +161,8 @@
     <a href="/spider/adminweb" target="_top" class="menu-item logo">
         <img src="./images/logo.png" border="0">
     </a>
-    <div class="divider"></div> <!-- Divider after logo -->
+    <div class="text-menu" onclick="openSysStatsInNewWindow()">SysStats</div>
+    <div class="divider"></div> <!-- Divider after logo and SysStats -->
     <div class="menu-item" onclick="selectLeftMenu('dashboard')">
         <img id="dashboard-img" src="./images/left-menu/dashboard.png" alt="Dashboard Icon">
         <div class="menu-text">Dashboard</div>

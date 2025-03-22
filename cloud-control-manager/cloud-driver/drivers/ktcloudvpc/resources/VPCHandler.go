@@ -339,17 +339,12 @@ func (vpcHandler *KTVpcVPCHandler) mappingVpcInfo(nvpc *networks.Network) (*irs.
 	// Mapping VPC info.
 	vpcInfo := irs.VPCInfo{
 		IId: irs.IID{
-			NameId:   nvpc.Name,
-			SystemId: nvpc.ID,
+			NameId:   	nvpc.Name,
+			SystemId: 	nvpc.ID,
 		},
-		IPv4_CIDR: "172.25.0.0/12", // VPC CIDR of KT Cloud D1 Platform Default VPC
+		IPv4_CIDR: 		"172.25.0.0/12", // VPC CIDR of KT Cloud D1 Platform Default VPC
+		KeyValueList:   irs.StructToKeyValueList(nvpc),
 	}
-	keyValueList := []irs.KeyValue{
-		{Key: "VpcID", Value: nvpc.ID},
-		{Key: "ZoneId", Value: nvpc.ZoneID},
-		// {Key: "CreatedTime", Value: nvpc.CreatedAt.String()},
-	}
-	vpcInfo.KeyValueList = keyValueList
 
 	// Get Subnet info list.
 	var subnetInfoList []irs.SubnetInfo
@@ -379,21 +374,19 @@ func (vpcHandler *KTVpcVPCHandler) mappingSubnetInfo(subnet subnets.Subnet) *irs
 
 	subnetInfo := irs.SubnetInfo{
 		IId: irs.IID{
-			NameId:   newName,
-			SystemId: subnet.OsNetworkID, // Caution!! Not 'ID' but 'OsNetworkID' to Create VM!!
+			NameId:   	newName,
+			SystemId: 	subnet.OsNetworkID, // Caution!! Not 'subnet.ID(Tier ID)' but 'subnet.OsNetworkID' to Create VM!!
 		},
-		Zone:      subnet.ZoneID,
-		IPv4_CIDR: subnet.CIDR,
+		Zone:      		subnet.ZoneID,
+		IPv4_CIDR: 		subnet.CIDR,
+		KeyValueList:   irs.StructToKeyValueList(subnet),
 	}
 
-	keyValueList := []irs.KeyValue{
-		{Key: "Type", Value: subnet.Type},
-		{Key: "StartIP", Value: subnet.StartIP},
-		{Key: "EndIP", Value: subnet.EndIP},
-		{Key: "Gateway", Value: subnet.Gateway},
-		{Key: "TierUUID", Value: subnet.ID}, // Tier 'ID' on KT Cloud D platform Consol
+	keyValue := irs.KeyValue{}
+	if !strings.EqualFold(subnet.ID, "") {
+		keyValue = irs.KeyValue{Key: "TierUUID", Value: subnet.ID} // 'Tier ID' on KT Cloud D platform Consol
 	}
-	subnetInfo.KeyValueList = keyValueList
+	subnetInfo.KeyValueList = append(subnetInfo.KeyValueList, keyValue)
 	return &subnetInfo
 }
 
