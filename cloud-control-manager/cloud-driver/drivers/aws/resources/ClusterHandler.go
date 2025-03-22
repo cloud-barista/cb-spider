@@ -408,12 +408,15 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 		}
 	}
 
-	keyValueList := []irs.KeyValue{
-		{Key: "Status", Value: *result.Cluster.Status},
-		{Key: "Arn", Value: *result.Cluster.Arn},
-		{Key: "RoleArn", Value: *result.Cluster.RoleArn},
-	}
-	clusterInfo.KeyValueList = keyValueList
+	// keyValueList := []irs.KeyValue{
+	// 	{Key: "Status", Value: *result.Cluster.Status},
+	// 	{Key: "Arn", Value: *result.Cluster.Arn},
+	// 	{Key: "RoleArn", Value: *result.Cluster.RoleArn},
+	// }
+	// clusterInfo.KeyValueList = keyValueList
+	// irs.StructToKeyValueList() 함수 사용
+	clusterInfo.KeyValueList = irs.StructToKeyValueList(result.Cluster)
+	clusterInfo.Network.KeyValueList = irs.StructToKeyValueList(result.Cluster.ResourcesVpcConfig)
 
 	clusterInfo.TagList, _ = ClusterHandler.TagHandler.ListTag(irs.CLUSTER, clusterInfo.IId)
 
@@ -429,12 +432,64 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 	//노드 그룹 타입 변환
 	for _, curNodeGroup := range resNodeGroupList {
 		cblogger.Debugf("Nod Group : [%s]", curNodeGroup.IId.NameId)
+		curNodeGroup.KeyValueList = irs.StructToKeyValueList(curNodeGroup)
 		clusterInfo.NodeGroupList = append(clusterInfo.NodeGroupList, *curNodeGroup)
 	}
+
+	// Addons 처리
+	addons, err := ClusterHandler.ListAddons(clusterIID)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.ClusterInfo{}, err
+	}
+	clusterInfo.Addons = addons
 
 	cblogger.Debug(clusterInfo)
 
 	return clusterInfo, nil
+}
+
+func (ClusterHandler *AwsClusterHandler) ListAddons(clusterIID irs.IID) (irs.AddonsInfo, error) {
+	input := &eks.ListAddonsInput{
+		ClusterName: aws.String(clusterIID.SystemId),
+	}
+
+	result, err := ClusterHandler.Client.ListAddons(input)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.AddonsInfo{}, err
+	}
+
+	addonsInfo := irs.AddonsInfo{}
+	for _, addonName := range result.Addons {
+		addonInfo, err := ClusterHandler.GetAddon(clusterIID, *addonName)
+		if err != nil {
+			cblogger.Error(err)
+			continue
+		}
+		addonsInfo.KeyValueList = append(addonsInfo.KeyValueList, addonInfo.KeyValueList...)
+	}
+
+	return addonsInfo, nil
+}
+
+func (ClusterHandler *AwsClusterHandler) GetAddon(clusterIID irs.IID, addonName string) (irs.AddonsInfo, error) {
+	input := &eks.DescribeAddonInput{
+		ClusterName: aws.String(clusterIID.SystemId),
+		AddonName:   aws.String(addonName),
+	}
+
+	result, err := ClusterHandler.Client.DescribeAddon(input)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.AddonsInfo{}, err
+	}
+
+	addonInfo := irs.AddonsInfo{
+		KeyValueList: irs.StructToKeyValueList(result.Addon),
+	}
+
+	return addonInfo, nil
 }
 
 func getKubeConfig(clusterDesc *eks.DescribeClusterOutput) string {
@@ -1613,6 +1668,9 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 	//arn:partition:service:region:account-id:resource-id
 	//arn:partition:service:region:account-id:resource-type/resource-id
 	//arn:partition:service:region:account-id:resource-type:resource-id
+
+	// irs.StructToKeyValueList() 함수 사용
+	nodeGroupInfo.KeyValueList = irs.StructToKeyValueList(nodeGroup)
 
 	PrintToJson(nodeGroupInfo)
 	//return irs.NodeGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "추출 오류", nil)
