@@ -89,7 +89,8 @@ func (vpcHandler *OpenStackVPCHandler) setterSubnet(subnet subnets.Subnet) *irs.
 
 	subnetInfo := irs.SubnetInfo{
 		IId: irs.IID{
-			NameId:   subnet.Name,
+			NameId: subnet.Name,
+
 			SystemId: subnet.ID,
 		},
 		IPv4_CIDR: subnet.CIDR,
