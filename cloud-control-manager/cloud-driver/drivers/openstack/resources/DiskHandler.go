@@ -423,6 +423,8 @@ func (diskHandler *OpenstackDiskHandler) setterDisk(rawVolume volumes3.Volume) (
 		info.Zone = diskHandler.Region.Zone
 	}
 
+	info.KeyValueList = irs.StructToKeyValueList(rawVolume)
+
 	return info, nil
 }
 
