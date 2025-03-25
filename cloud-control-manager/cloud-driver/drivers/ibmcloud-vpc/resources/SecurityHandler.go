@@ -307,6 +307,8 @@ func (securityHandler *IbmSecurityHandler) setSecurityGroupInfo(securityGroup vp
 
 	securityInfo.TagList = tags
 
+	securityInfo.KeyValueList = irs.StructToKeyValueList(securityGroup)
+
 	return securityInfo, nil
 }
 
