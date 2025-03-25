@@ -273,6 +273,8 @@ func (keyPairHandler *IbmKeyPairHandler) setKeyInfo(key vpcv1.Key, privateKey st
 
 	keypairInfo.TagList = tags
 
+	keypairInfo.KeyValueList = irs.StructToKeyValueList(key)
+
 	return keypairInfo, nil
 }
 
