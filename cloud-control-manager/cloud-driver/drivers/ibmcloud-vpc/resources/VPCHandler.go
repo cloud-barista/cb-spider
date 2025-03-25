@@ -503,6 +503,8 @@ func (vpcHandler *IbmVPCHandler) setVPCInfo(vpc vpcv1.VPC, vpcService *vpcv1.Vpc
 	}
 	vpcInfo.TagList = tags
 
+	vpcInfo.KeyValueList = irs.StructToKeyValueList(vpc)
+
 	rawSubnets, err := getVPCRawSubnets(vpc, vpcService, ctx)
 	if err != nil {
 		return irs.VPCInfo{}, err
@@ -519,6 +521,8 @@ func (vpcHandler *IbmVPCHandler) setVPCInfo(vpc vpcv1.VPC, vpcService *vpcv1.Vpc
 				IPv4_CIDR: *subnet.Ipv4CIDRBlock,
 			}
 
+			subnetInfo.KeyValueList = irs.StructToKeyValueList(subnet)
+
 			tags, err := tagHandler.ListTag(irs.SUBNET, subnetInfo.IId)
 			if err != nil {
 				cblogger.Warn("failed to get tags of the subnet (" + subnetInfo.IId.NameId + ")")
@@ -528,6 +532,14 @@ func (vpcHandler *IbmVPCHandler) setVPCInfo(vpc vpcv1.VPC, vpcService *vpcv1.Vpc
 			newSubnetInfos = append(newSubnetInfos, subnetInfo)
 		}
 		vpcInfo.SubnetInfoList = newSubnetInfos
+
+		// VPC의 key-value 리스트와 별도로 서브넷들의 key-value 리스트 생성
+		var subnetKeyValueList []irs.KeyValue
+		for _, subnetInfo := range newSubnetInfos {
+			subnetKeyValueList = append(subnetKeyValueList, subnetInfo.KeyValueList...)
+		}
+		// 필요에 따라 VPCInfo.KeyValueList와 합치기
+		vpcInfo.KeyValueList = append(vpcInfo.KeyValueList, subnetKeyValueList...)
 	}
 
 	return vpcInfo, nil
