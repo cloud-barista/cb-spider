@@ -919,6 +919,8 @@ func (nlbHandler *IbmNLBHandler) setterNLB(nlb vpcv1.LoadBalancer) (*irs.NLBInfo
 
 	nlbInfo.TagList = tags
 
+	nlbInfo.KeyValueList = irs.StructToKeyValueList(nlb)
+
 	return &nlbInfo, nil
 }
 
@@ -952,6 +954,8 @@ func (nlbHandler *IbmNLBHandler) getListenerInfo(nlb vpcv1.LoadBalancer) (irs.Li
 		listenerInfo.Protocol = strings.ToUpper(*listener.Protocol)
 		listenerInfo.Port = strconv.Itoa(int(*listener.Port))
 	}
+
+	listenerInfo.KeyValueList = irs.StructToKeyValueList(listenerInfo)
 	return listenerInfo, nil
 }
 func (nlbHandler *IbmNLBHandler) getVPCIID(nlb vpcv1.LoadBalancer) (irs.IID, error) {
@@ -994,6 +998,8 @@ func (nlbHandler *IbmNLBHandler) getHealthCheckerInfo(nlb vpcv1.LoadBalancer) (i
 	} else {
 		return healthCheckerInfo, errors.New("VMGroup does not exist within that NLB")
 	}
+
+	healthCheckerInfo.KeyValueList = irs.StructToKeyValueList(healthCheckerInfo)
 	return healthCheckerInfo, nil
 }
 
@@ -1337,6 +1343,8 @@ func (nlbHandler *IbmNLBHandler) getVMGroup(nlb vpcv1.LoadBalancer) (irs.VMGroup
 		}
 		vmGroup.Port = strconv.Itoa(portInt)
 	}
+
+	vmGroup.KeyValueList = irs.StructToKeyValueList(vmGroup)
 	return vmGroup, nil
 }
 
