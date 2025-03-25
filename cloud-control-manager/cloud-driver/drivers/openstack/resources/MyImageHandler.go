@@ -263,6 +263,9 @@ func setterMyImageInfo(image images.Image, computeClient *gophercloud.ServiceCli
 	if err == nil {
 		info.CreatedTime = createdTime
 	}
+
+	info.KeyValueList = irs.StructToKeyValueList(image)
+
 	return info, nil
 }
 
