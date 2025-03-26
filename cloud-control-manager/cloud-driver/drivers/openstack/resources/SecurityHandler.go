@@ -71,6 +71,7 @@ func (securityHandler *OpenStackSecurityHandler) setterSeg(secGroup secgroups.Se
 		ruleInfo := convertOpenStackRuleToCBRuleInfo(&rule)
 		secRuleList = append(secRuleList, ruleInfo)
 	}
+
 	secInfo.SecurityRules = &secRuleList
 
 	return secInfo
@@ -235,6 +236,7 @@ func (securityHandler *OpenStackSecurityHandler) GetSecurity(securityIID irs.IID
 	LoggingInfo(hiscallInfo, start)
 
 	securityInfo := securityHandler.setterSeg(*securityGroup)
+	securityInfo.KeyValueList = irs.StructToKeyValueList(securityInfo)
 	return *securityInfo, nil
 }
 

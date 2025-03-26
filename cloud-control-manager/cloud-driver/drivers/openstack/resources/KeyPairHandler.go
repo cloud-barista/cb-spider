@@ -29,6 +29,7 @@ func setterKeypair(keypair keypairs.KeyPair) *irs.KeyPairInfo {
 		PublicKey:   keypair.PublicKey,
 		PrivateKey:  keypair.PrivateKey,
 	}
+	keypairInfo.KeyValueList = irs.StructToKeyValueList(keypair)
 	return keypairInfo
 }
 
