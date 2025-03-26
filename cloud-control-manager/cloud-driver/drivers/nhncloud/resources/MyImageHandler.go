@@ -348,11 +348,13 @@ func (myImageHandler *NhnCloudMyImageHandler) mappingMyImageInfo(myImage images.
 		CreatedTime: myImage.CreatedAt,
 	}
 
-	keyValueList := []irs.KeyValue{
-		{Key: "Region", Value: myImageHandler.RegionInfo.Region},
-		{Key: "Visibility", Value: string(myImage.Visibility)},
-		{Key: "DiskSize", Value: strconv.Itoa(myImage.MinDiskGigabytes)},
-	}
+	myImageInfo.KeyValueList = irs.StructToKeyValueList(myImage)
+
+	//keyValueList := []irs.KeyValue{
+	//	{Key: "Region", Value: myImageHandler.RegionInfo.Region},
+	//	{Key: "Visibility", Value: string(myImage.Visibility)},
+	//	{Key: "DiskSize", Value: strconv.Itoa(myImage.MinDiskGigabytes)},
+	//}
 
 	// In case the VMSpec type of the SourceVM is 'u2', the map of a snapshot image contains "instance_uuid".
 	if val, ok := myImage.Properties["instance_uuid"]; ok {
@@ -365,11 +367,11 @@ func (myImageHandler *NhnCloudMyImageHandler) mappingMyImageInfo(myImage images.
 				Key:   strings.ToUpper(key),
 				Value: fmt.Sprintf("%v", val),
 			}
-			keyValueList = append(keyValueList, metadata)
+			myImageInfo.KeyValueList = append(myImageInfo.KeyValueList, metadata)
 		}
 	}
 
-	myImageInfo.KeyValueList = keyValueList
+	//myImageInfo.KeyValueList = keyValueList
 	return myImageInfo
 }
 

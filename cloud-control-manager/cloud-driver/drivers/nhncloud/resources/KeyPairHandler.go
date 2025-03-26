@@ -230,6 +230,8 @@ func mappingKeypairInfo(keypair keypairs.KeyPair) *irs.KeyPairInfo {
 		VMUserID:    DefaultVMUserName,
 	}
 
+	keypairInfo.KeyValueList = irs.StructToKeyValueList(keypair)
+
 	return keypairInfo
 }
 

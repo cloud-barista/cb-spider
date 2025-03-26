@@ -1047,19 +1047,8 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 			cblogger.Error(newErr.Error())
 			return irs.VMInfo{}, newErr
 		} else if nhnFlavor != nil {
-			// spew.Dump(flavor)
-			vmInfo.VMSpecName = nhnFlavor.Name
-			if vmInfo.RootDiskSize == "" { // In case of u2 VMSpec type
-				vmInfo.RootDiskType = "General_HDD" // u2 type VMSpec only supports 'General_HHD'.
-				vmInfo.RootDiskSize = strconv.Itoa(nhnFlavor.Disk)
-				vmInfo.RootDeviceName = "/dev/vda"
-			}
-			if strconv.Itoa(nhnFlavor.VCPUs) != "" {
-				vCPU = strconv.Itoa(nhnFlavor.VCPUs)
-			}
-			if strconv.Itoa(nhnFlavor.RAM) != "" {
-				vRam = strconv.Itoa(nhnFlavor.RAM)
-			}
+			vCPU = strconv.Itoa(nhnFlavor.VCPUs)
+			vRam = strconv.Itoa(nhnFlavor.RAM)
 		}
 	}
 
@@ -1181,16 +1170,13 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 		vmInfo.SSHAccessPoint = vmInfo.PublicIP + ":22"
 	}
 
-	var keyValueList []irs.KeyValue
-	if vCPU != "" {
-		keyValue := irs.KeyValue{Key: "vCPU", Value: vCPU}
-		keyValueList = append(keyValueList, keyValue)
-	}
-	if vRam != "" {
-		keyValue := irs.KeyValue{Key: "vRAM(GB)", Value: vRam}
-		keyValueList = append(keyValueList, keyValue)
-	}
-	vmInfo.KeyValueList = keyValueList
+	vmInfo.KeyValueList = irs.StructToKeyValueList(server)
+
+	vmInfo.KeyValueList = append(vmInfo.KeyValueList,
+		irs.KeyValue{Key: "vCPU", Value: vCPU},
+		irs.KeyValue{Key: "vRAM(GB)", Value: vRam},
+	)
+
 	return vmInfo, nil
 }
 
