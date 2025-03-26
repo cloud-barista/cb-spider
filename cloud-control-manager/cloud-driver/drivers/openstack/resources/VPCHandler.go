@@ -49,30 +49,31 @@ func (vpcHandler *OpenStackVPCHandler) setterVPC(nvpc NetworkWithExt) *irs.VPCIn
 		IPv4_CIDR: "OpenStack VPC does not support IPv4_CIDR",
 		TagList:   tags,
 	}
-	var External string
-	if nvpc.External == true {
-		External = "Yes"
-	} else if nvpc.External == false {
-		External = "No"
-	}
+	//var External string
+	//if nvpc.External == true {
+	//	External = "Yes"
+	//} else if nvpc.External == false {
+	//	External = "No"
+	//}
 	//keyValueList := []irs.KeyValue{
 	//	{Key: "External Network", Value: External},
 	//}
 	//vpcInfo.KeyValueList = keyValueList
 
 	vpcInfo.KeyValueList = irs.StructToKeyValueList(nvpc)
-	vpcInfo.KeyValueList = append(vpcInfo.KeyValueList, irs.KeyValue{Key: "External Network", Value: External})
 
 	// 서브넷 정보 조회
 	subnetInfoList := make([]irs.SubnetInfo, len(nvpc.Subnets))
 
 	for i, subnetId := range nvpc.Subnets {
-		subnetInfo, err := vpcHandler.GetSubnet(irs.IID{SystemId: subnetId})
+		subnet, err := vpcHandler.GetSubnet(irs.IID{SystemId: subnetId})
 		if err != nil {
 			cblogger.Error("Failed to Get Subnet with Id %s, err=%s", subnetId, err)
 			continue
 		}
-		subnetInfoList[i] = subnetInfo
+		subnetInfoList[i] = subnet
+		subnet.KeyValueList = irs.StructToKeyValueList(subnet)
+		//subnetInfoList[i] = subnetInfo
 	}
 	vpcInfo.SubnetInfoList = subnetInfoList
 
@@ -88,12 +89,16 @@ func (vpcHandler *OpenStackVPCHandler) setterSubnet(subnet subnets.Subnet) *irs.
 
 	subnetInfo := irs.SubnetInfo{
 		IId: irs.IID{
-			NameId:   subnet.Name,
+			NameId: subnet.Name,
+
 			SystemId: subnet.ID,
 		},
 		IPv4_CIDR: subnet.CIDR,
-		TagList:   tags,
+		//TagList:   tags,
 	}
+
+	subnetInfo.KeyValueList = irs.StructToKeyValueList(subnet)
+
 	return &subnetInfo
 }
 

@@ -184,6 +184,7 @@ func (nlbHandler *OpenStackNLBHandler) GetNLB(nlbIID irs.IID) (irs.NLBInfo, erro
 		return irs.NLBInfo{}, getErr
 	}
 	LoggingInfo(hiscallInfo, start)
+
 	return info, nil
 }
 func (nlbHandler *OpenStackNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
@@ -821,6 +822,8 @@ func (nlbHandler *OpenStackNLBHandler) setterNLB(rawNLB loadbalancers.LoadBalanc
 	if err == nil {
 		nlbInfo.HealthChecker = healthInfo
 	}
+
+	nlbInfo.KeyValueList = irs.StructToKeyValueList(rawNLB)
 
 	return nlbInfo, nil
 }

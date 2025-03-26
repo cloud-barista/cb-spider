@@ -1,9 +1,12 @@
 package resources
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -405,12 +408,15 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 		}
 	}
 
-	keyValueList := []irs.KeyValue{
-		{Key: "Status", Value: *result.Cluster.Status},
-		{Key: "Arn", Value: *result.Cluster.Arn},
-		{Key: "RoleArn", Value: *result.Cluster.RoleArn},
-	}
-	clusterInfo.KeyValueList = keyValueList
+	// keyValueList := []irs.KeyValue{
+	// 	{Key: "Status", Value: *result.Cluster.Status},
+	// 	{Key: "Arn", Value: *result.Cluster.Arn},
+	// 	{Key: "RoleArn", Value: *result.Cluster.RoleArn},
+	// }
+	// clusterInfo.KeyValueList = keyValueList
+	// irs.StructToKeyValueList() 함수 사용
+	clusterInfo.KeyValueList = irs.StructToKeyValueList(result.Cluster)
+	clusterInfo.Network.KeyValueList = irs.StructToKeyValueList(result.Cluster.ResourcesVpcConfig)
 
 	clusterInfo.TagList, _ = ClusterHandler.TagHandler.ListTag(irs.CLUSTER, clusterInfo.IId)
 
@@ -426,12 +432,64 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 	//노드 그룹 타입 변환
 	for _, curNodeGroup := range resNodeGroupList {
 		cblogger.Debugf("Nod Group : [%s]", curNodeGroup.IId.NameId)
+		curNodeGroup.KeyValueList = irs.StructToKeyValueList(curNodeGroup)
 		clusterInfo.NodeGroupList = append(clusterInfo.NodeGroupList, *curNodeGroup)
 	}
+
+	// Addons 처리
+	addons, err := ClusterHandler.ListAddons(clusterIID)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.ClusterInfo{}, err
+	}
+	clusterInfo.Addons = addons
 
 	cblogger.Debug(clusterInfo)
 
 	return clusterInfo, nil
+}
+
+func (ClusterHandler *AwsClusterHandler) ListAddons(clusterIID irs.IID) (irs.AddonsInfo, error) {
+	input := &eks.ListAddonsInput{
+		ClusterName: aws.String(clusterIID.SystemId),
+	}
+
+	result, err := ClusterHandler.Client.ListAddons(input)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.AddonsInfo{}, err
+	}
+
+	addonsInfo := irs.AddonsInfo{}
+	for _, addonName := range result.Addons {
+		addonInfo, err := ClusterHandler.GetAddon(clusterIID, *addonName)
+		if err != nil {
+			cblogger.Error(err)
+			continue
+		}
+		addonsInfo.KeyValueList = append(addonsInfo.KeyValueList, addonInfo.KeyValueList...)
+	}
+
+	return addonsInfo, nil
+}
+
+func (ClusterHandler *AwsClusterHandler) GetAddon(clusterIID irs.IID, addonName string) (irs.AddonsInfo, error) {
+	input := &eks.DescribeAddonInput{
+		ClusterName: aws.String(clusterIID.SystemId),
+		AddonName:   aws.String(addonName),
+	}
+
+	result, err := ClusterHandler.Client.DescribeAddon(input)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.AddonsInfo{}, err
+	}
+
+	addonInfo := irs.AddonsInfo{
+		KeyValueList: irs.StructToKeyValueList(result.Addon),
+	}
+
+	return addonInfo, nil
 }
 
 func getKubeConfig(clusterDesc *eks.DescribeClusterOutput) string {
@@ -530,7 +588,56 @@ func (ClusterHandler *AwsClusterHandler) DeleteCluster(clusterIID irs.IID) (bool
 			return false, err
 		}
 	*/
+
+	err = ClusterHandler.deleteIAMRole(clusterIID.SystemId)
+	if err != nil {
+		cblogger.Warningf("Cluster was successfully deleted, but there was an issue cleaning up the IAM role: %v", err)
+	}
+
 	return true, nil
+}
+
+func (ClusterHandler *AwsClusterHandler) deleteIAMRole(clusterID string) error {
+	roleName := generateIAMRoleName(clusterID)
+
+	listRolePoliciesInput := &iam.ListAttachedRolePoliciesInput{
+		RoleName: aws.String(roleName),
+	}
+
+	listPoliciesOutput, err := ClusterHandler.Iam.ListAttachedRolePolicies(listRolePoliciesInput)
+	if err != nil {
+		if awsErr, ok := err.(awserr.Error); ok && awsErr.Code() == "NoSuchEntity" {
+			cblogger.Infof("IAM Role %s already deleted or does not exist", roleName)
+			return nil
+		}
+		cblogger.Errorf("Failed to list attached policies for role %s: %v", roleName, err)
+		return err
+	}
+
+	for _, policy := range listPoliciesOutput.AttachedPolicies {
+		detachInput := &iam.DetachRolePolicyInput{
+			PolicyArn: policy.PolicyArn,
+			RoleName:  aws.String(roleName),
+		}
+
+		_, err := ClusterHandler.Iam.DetachRolePolicy(detachInput)
+		if err != nil {
+			cblogger.Errorf("Failed to detach policy %s from role %s: %v", *policy.PolicyArn, roleName, err)
+			return err
+		}
+	}
+
+	deleteRoleInput := &iam.DeleteRoleInput{
+		RoleName: aws.String(roleName),
+	}
+
+	_, err = ClusterHandler.Iam.DeleteRole(deleteRoleInput)
+	if err != nil {
+		cblogger.Errorf("Failed to delete IAM role %s: %v", roleName, err)
+		return err
+	}
+
+	return nil
 }
 
 // ------ NodeGroup Management
@@ -677,13 +784,248 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 	}
 	*/
 
+	//--- install CSI driver for EBS
+	csierr := ClusterHandler.InstallEBSCSIDriverIfNotExists(clusterIID.SystemId, *nodegroupName)
+	if csierr != nil {
+		cblogger.Errorf("Failed to install EBS CSI Driver: %v", csierr)
+		return irs.NodeGroupInfo{}, csierr
+	}
+	//--- end of install CSI driver for EBS
+
 	nodeGroup, err := ClusterHandler.GetNodeGroup(clusterIID, irs.IID{NameId: nodeGroupReqInfo.IId.NameId, SystemId: *nodegroupName})
 	if err != nil {
 		cblogger.Error(err)
 		return irs.NodeGroupInfo{}, err
 	}
 	nodeGroup.IId.NameId = nodeGroupReqInfo.IId.NameId
+
 	return nodeGroup, nil
+}
+
+// installs the EBS CSI driver only if it doesn't exist
+func (ClusterHandler *AwsClusterHandler) InstallEBSCSIDriverIfNotExists(clusterID string, nodegroupName string) error {
+	// Check if EBS CSI driver already exists
+	addonListParams := &eks.ListAddonsInput{
+		ClusterName: aws.String(clusterID),
+	}
+
+	addonList, err := ClusterHandler.Client.ListAddons(addonListParams)
+	if err != nil {
+		cblogger.Errorf("Failed to list addons: %v", err)
+		return err
+	}
+
+	// Check if EBS CSI driver is already installed
+	csiDriverExists := false
+	for _, addon := range addonList.Addons {
+		if *addon == "aws-ebs-csi-driver" {
+			csiDriverExists = true
+			break
+		}
+	}
+
+	// Install CSI driver only if it doesn't exist
+	if csiDriverExists {
+		cblogger.Infof("EBS CSI driver already exists in cluster %s", clusterID)
+		return nil
+	}
+
+	accountID, err := ClusterHandler.getAccountIDFromOIDC(clusterID)
+	if err != nil {
+		cblogger.Errorf("Failed to retrieve account ID")
+		return err
+	}
+
+	oidcID, err := ClusterHandler.getOIDCProvider(clusterID)
+	if err != nil {
+		cblogger.Errorf("Failed to retrieve OIDC provider")
+		return err
+	}
+
+	roleName := generateIAMRoleName(clusterID)
+
+	roleArn := createIAMRole(ClusterHandler, accountID, oidcID, roleName)
+	if roleArn == "" {
+		cblogger.Errorf("Failed to create or retrieve IAM Role")
+		return errors.New("Failed to create or retrieve IAM Role")
+	}
+
+	attachIAMPolicy(ClusterHandler, accountID, roleName)
+
+	err = ClusterHandler.waitForNodeGroupActive(clusterID, nodegroupName)
+	if err != nil {
+		cblogger.Errorf("Failed to wait for default nodegroup to become active: %v", err)
+		return err
+	}
+
+	err = ClusterHandler.installEBSCSIDriver(clusterID, roleArn)
+	if err != nil {
+		cblogger.Errorf("Failed to install EBS CSI driver: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+func (ClusterHandler *AwsClusterHandler) waitForNodeGroupActive(clusterName string, nodeGroupName string) error {
+	input := &eks.DescribeNodegroupInput{
+		ClusterName:   aws.String(clusterName),
+		NodegroupName: aws.String(nodeGroupName),
+	}
+
+	err := ClusterHandler.Client.WaitUntilNodegroupActive(input)
+	if err != nil {
+		cblogger.Errorf("Error waiting for nodegroup to become active: %v", err)
+		return err
+	}
+
+	return nil
+}
+
+// Function to generate a valid IAM role name
+func generateIAMRoleName(clusterName string) string {
+	// Max IAM role name length
+	const maxRoleNameLength = 64
+
+	// Suffix that must remain unchanged
+	const roleSuffix = "_AmazonEKS_EBS_CSI_DriverRole"
+
+	// Allowed IAM role characters
+	var allowedChars = regexp.MustCompile(`[^a-zA-Z0-9+=,.@-_]`)
+
+	// Remove any invalid characters
+	clusterName = allowedChars.ReplaceAllString(clusterName, "")
+
+	// Calculate the maximum allowed length for the cluster name
+	maxClusterLength := maxRoleNameLength - len(roleSuffix)
+
+	// Truncate the cluster name if necessary
+	if len(clusterName) > maxClusterLength {
+		clusterName = clusterName[:maxClusterLength]
+	}
+
+	// Construct the final IAM role name
+	roleName := clusterName + roleSuffix
+
+	return roleName
+}
+
+func (ClusterHandler *AwsClusterHandler) getAccountIDFromOIDC(clusterID string) (string, error) {
+	clusterInfo, err := ClusterHandler.Client.DescribeCluster(&eks.DescribeClusterInput{
+		Name: aws.String(clusterID),
+	})
+	if err != nil {
+		cblogger.Errorf("Failed to describe EKS cluster: %v", err)
+		return "", err
+	}
+
+	oidcURL := *clusterInfo.Cluster.Identity.Oidc.Issuer
+
+	parsedURL, err := url.Parse(oidcURL)
+	if err != nil {
+		cblogger.Errorf("Failed to parse OIDC URL: %v", err)
+		return "", err
+	}
+
+	hostParts := strings.Split(parsedURL.Host, ".")
+	if len(hostParts) < 5 || hostParts[0] != "oidc" || hostParts[1] != "eks" {
+		cblogger.Errorf("Unexpected OIDC host format: %s", parsedURL.Host)
+		return "", errors.New("Unexpected OIDC host format")
+	}
+
+	clusterARN := *clusterInfo.Cluster.Arn
+	arnParts := strings.Split(clusterARN, ":")
+	if len(arnParts) < 5 {
+		cblogger.Errorf("Unexpected cluster ARN format: %s", clusterARN)
+		return "", errors.New("Unexpected cluster ARN format")
+	}
+
+	// ARN format: arn:aws:eks:[region]:[account-id]:cluster/[cluster-name]
+	accountID := arnParts[4]
+
+	return accountID, nil
+}
+
+func (ClusterHandler *AwsClusterHandler) getOIDCProvider(clusterID string) (string, error) {
+	result, err := ClusterHandler.Client.DescribeCluster(&eks.DescribeClusterInput{
+		Name: aws.String(clusterID),
+	})
+	if err != nil {
+		cblogger.Errorf("Failed to get OIDC provider: %v", err)
+		return "", err
+	}
+
+	oidcURL := *result.Cluster.Identity.Oidc.Issuer
+	oidcID := strings.TrimPrefix(oidcURL, "https://")
+
+	return oidcID, nil
+}
+
+func createIAMRole(ClusterHandler *AwsClusterHandler, accountID, oidcID, roleName string) string {
+	serviceAcct := "system:serviceaccount:kube-system:ebs-csi-controller-sa"
+
+	roleArn := fmt.Sprintf("arn:aws:iam::%s:role/%s", accountID, roleName)
+
+	_, err := ClusterHandler.Iam.GetRole(&iam.GetRoleInput{RoleName: aws.String(roleName)})
+	if err == nil {
+		return roleArn
+	}
+
+	assumeRolePolicy := fmt.Sprintf(`{
+		"Version": "2012-10-17",
+		"Statement": [{
+			"Effect": "Allow",
+			"Principal": {"Federated": "arn:aws:iam::%s:oidc-provider/%s"},
+			"Action": "sts:AssumeRoleWithWebIdentity",
+			"Condition": {"StringEquals": {"%s:sub": "%s", "%s:aud": "sts.amazonaws.com"}}
+		}]
+	}`, accountID, oidcID, oidcID, serviceAcct, oidcID)
+
+	_, err = ClusterHandler.Iam.CreateRole(&iam.CreateRoleInput{
+		RoleName:                 aws.String(roleName),
+		AssumeRolePolicyDocument: aws.String(assumeRolePolicy),
+	})
+	if err != nil {
+		cblogger.Errorf("Failed to create IAM role: %v", err)
+		return ""
+	}
+
+	return roleArn
+}
+
+func attachIAMPolicy(ClusterHandler *AwsClusterHandler, accountID, roleName string) {
+	// Attach EBS CSI Driver Policy
+	ebsCSIPolicyArn := "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+
+	_, err := ClusterHandler.Iam.AttachRolePolicy(&iam.AttachRolePolicyInput{
+		RoleName:  aws.String(roleName),
+		PolicyArn: aws.String(ebsCSIPolicyArn),
+	})
+	if err != nil {
+		cblogger.Errorf("Failed to attach EBS CSI Driver policy: %v", err)
+		return
+	}
+}
+
+func (ClusterHandler *AwsClusterHandler) installEBSCSIDriver(clusterID string, roleArn string) error {
+	addonName := "aws-ebs-csi-driver" // EBS CSI Driver, don't change
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	input := &eks.CreateAddonInput{
+		ClusterName:           aws.String(clusterID),
+		AddonName:             aws.String(addonName),
+		ServiceAccountRoleArn: aws.String(roleArn),
+		ResolveConflicts:      aws.String("OVERWRITE"),
+	}
+
+	_, err := ClusterHandler.Client.CreateAddonWithContext(ctx, input)
+	if err != nil {
+		cblogger.Errorf("Failed to install EBS CSI Driver: %v", err)
+		return err
+	}
+	return nil
 }
 
 func (ClusterHandler *AwsClusterHandler) ListNodeGroup(clusterIID irs.IID) ([]*irs.NodeGroupInfo, error) {
@@ -1326,6 +1668,9 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 	//arn:partition:service:region:account-id:resource-id
 	//arn:partition:service:region:account-id:resource-type/resource-id
 	//arn:partition:service:region:account-id:resource-type:resource-id
+
+	// irs.StructToKeyValueList() 함수 사용
+	nodeGroupInfo.KeyValueList = irs.StructToKeyValueList(nodeGroup)
 
 	PrintToJson(nodeGroupInfo)
 	//return irs.NodeGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "추출 오류", nil)

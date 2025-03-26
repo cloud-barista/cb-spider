@@ -649,16 +649,13 @@ func (nlbHandler *KTVpcNLBHandler) getListenerInfo(nlb *ktvpclb.LoadBalancer) (i
 	}
 
 	listenerInfo := irs.ListenerInfo{
-		Protocol: nlb.ServiceType,
-		IP:       nlb.ServiceIP,
-		Port:     nlb.ServicePort,
-		// DNSName:	"NA",
+		Protocol: 		nlb.ServiceType,
+		IP:       		nlb.ServiceIP,
+		Port:     		nlb.ServicePort,
+		// DNSName:		"NA",
 		// CspID: 		"NA",
+		// KeyValueList:   irs.StructToKeyValueList(nlb),
 	}
-	listenerKVList := []irs.KeyValue{
-		// {Key: "NLB_DomainName", Value: *nlb.DomainName},
-	}
-	listenerInfo.KeyValueList = listenerKVList
 	return listenerInfo, nil
 }
 
@@ -727,20 +724,20 @@ func (nlbHandler *KTVpcNLBHandler) getVMGroupInfo(nlbId string) (irs.VMGroupInfo
 	// spew.Dump(nlbVmList)
 	// cblogger.Info("\n")
 
-	vmIIds := []irs.IID{}
-	keyValueList := []irs.KeyValue{}
-
 	if len(nlbVmList) < 1 {
 		cblogger.Debug("# NLB VM does Not Exist!!")
 		return irs.VMGroupInfo{}, nil // Not Return Error
 	}
 
 	vmGroupInfo := irs.VMGroupInfo{
-		Protocol: ktNLB.ServiceType,       // Caution!!
-		Port:     nlbVmList[0].PublicPort, // In case, Any VM exists
+		Protocol: 		ktNLB.ServiceType,       // Caution!!
+		Port:     		nlbVmList[0].PublicPort, // In case, Any VM exists
 		// CspID:    	"NA",
+		KeyValueList:   irs.StructToKeyValueList(nlbVmList[0]),
 	}
 
+	vmIIds := []irs.IID{}
+	keyValue :=  irs.KeyValue{}
 	vmHandler := KTVpcVMHandler{
 		RegionInfo: nlbHandler.RegionInfo,
 		VMClient:   nlbHandler.VMClient,
@@ -758,16 +755,16 @@ func (nlbHandler *KTVpcNLBHandler) getVMGroupInfo(nlbId string) (irs.VMGroupInfo
 			SystemId: vm.VmID,
 		})
 
-		keyValueList = append(keyValueList, irs.KeyValue{
+		keyValue = irs.KeyValue{
 			Key:   vmName + "_ServiceId",
 			Value: strconv.Itoa(vm.ServiceID),
-		})
+		}
 
 		time.Sleep(time.Second * 1)
 		// To Prevent the Error : "Unable to execute API command listTags due to ratelimit timeout"
 	}
 	vmGroupInfo.VMs = &vmIIds
-	vmGroupInfo.KeyValueList = keyValueList
+	vmGroupInfo.KeyValueList = append(vmGroupInfo.KeyValueList, keyValue)
 	return vmGroupInfo, nil
 }
 
@@ -874,16 +871,9 @@ func (nlbHandler *KTVpcNLBHandler) mappingNlbInfo(nlb *ktvpclb.LoadBalancer) (ir
 		},
 		Type:  "PUBLIC",
 		Scope: "REGION",
-	}
 
-	keyValueList := []irs.KeyValue{
-		{Key: "NLB_Method", Value: nlb.NlbOption},
-		{Key: "NLB_State", Value: nlb.State},
-		{Key: "NLB_ServiceIP", Value: nlb.ServiceIP},
-		{Key: "NLB_ServicePort", Value: nlb.ServicePort},
-		{Key: "ZoneName", Value: nlb.ZoneName},
+		KeyValueList:   irs.StructToKeyValueList(nlb),
 	}
-	nlbInfo.KeyValueList = keyValueList
 
 	if !strings.EqualFold(nlb.ServiceIP, "") {
 		listenerInfo, err := nlbHandler.getListenerInfo(nlb)
