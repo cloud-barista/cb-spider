@@ -29,8 +29,8 @@ func (vpcHandler *AzureVPCHandler) setterVPC(network *armnetwork.VirtualNetwork)
 			NameId:   *network.Name,
 			SystemId: *network.ID,
 		},
-		IPv4_CIDR:    *(network.Properties.AddressSpace.AddressPrefixes)[0],
-		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: vpcHandler.Region.Region}},
+		IPv4_CIDR: *(network.Properties.AddressSpace.AddressPrefixes)[0],
+		//KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: vpcHandler.Region.Region}},
 	}
 	subnetArr := make([]irs.SubnetInfo, len(network.Properties.Subnets))
 	for i, subnet := range network.Properties.Subnets {
@@ -41,6 +41,9 @@ func (vpcHandler *AzureVPCHandler) setterVPC(network *armnetwork.VirtualNetwork)
 	if network.Tags != nil {
 		vpcInfo.TagList = setTagList(network.Tags)
 	}
+
+	vpcInfo.KeyValueList = irs.StructToKeyValueList(network)
+
 	return vpcInfo
 }
 
@@ -50,9 +53,12 @@ func (vpcHandler *AzureVPCHandler) setterSubnet(subnet *armnetwork.Subnet) *irs.
 			NameId:   *subnet.Name,
 			SystemId: *subnet.ID,
 		},
-		IPv4_CIDR:    *subnet.Properties.AddressPrefix,
-		KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: vpcHandler.Region.Region}},
+		IPv4_CIDR: *subnet.Properties.AddressPrefix,
+		//KeyValueList: []irs.KeyValue{{Key: "ResourceGroup", Value: vpcHandler.Region.Region}},
 	}
+
+	subnetInfo.KeyValueList = irs.StructToKeyValueList(subnet)
+
 	return subnetInfo
 }
 
