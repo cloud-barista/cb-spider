@@ -16,6 +16,7 @@ package resources
 import (
 	"errors"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"strings"
 
 	// "sync"
@@ -263,6 +264,7 @@ func (vpcHandler *NhnCloudVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 			vpcInfoList = append(vpcInfoList, vpcInfo)
 		}
 	}
+
 	return vpcInfoList, nil
 }
 
@@ -486,9 +488,9 @@ func (vpcHandler *NhnCloudVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs
 
 func (vpcHandler *NhnCloudVPCHandler) mappingVpcInfo(vpc vpcs.VPC) (*irs.VPCInfo, error) {
 	cblogger.Info("NHN Cloud cloud driver: called mappingVpcInfo()!!")
-	// cblogger.Info("\n\n### vpc : ")
-	// spew.Dump(vpc)
-	// cblogger.Info("\n")
+	cblogger.Info("\n\n### vpc : ")
+	spew.Dump(vpc)
+	cblogger.Info("\n")
 
 	vpcInfo := irs.VPCInfo{
 		IId: irs.IID{
@@ -549,6 +551,8 @@ func (vpcHandler *NhnCloudVPCHandler) mappingVpcInfo(vpc vpcs.VPC) (*irs.VPCInfo
 		RouterExternal = "No"
 	}
 
+	vpcInfo.KeyValueList = irs.StructToKeyValueList(vpc)
+
 	keyValueList := []irs.KeyValue{
 		{Key: "Status", Value: vpc.State},
 		{Key: "RouterExternal", Value: RouterExternal},
@@ -597,19 +601,21 @@ func (vpcHandler *NhnCloudVPCHandler) mappingVpcSubnetInfo(vpc vpcs.VPC) (*irs.V
 	}
 	vpcInfo.SubnetInfoList = subnetInfoList
 
-	var RouterExternal string
-	if vpc.RouterExternal {
-		RouterExternal = "Yes"
-	} else if !vpc.RouterExternal {
-		RouterExternal = "No"
-	}
+	//var RouterExternal string
+	//if vpc.RouterExternal {
+	//	RouterExternal = "Yes"
+	//} else if !vpc.RouterExternal {
+	//	RouterExternal = "No"
+	//}
 
 	// Shoud Add Create time
-	keyValueList := []irs.KeyValue{
-		{Key: "Status", Value: vpc.State},
-		{Key: "RouterExternal", Value: RouterExternal},
-	}
-	vpcInfo.KeyValueList = keyValueList
+	//keyValueList := []irs.KeyValue{
+	//	{Key: "Status", Value: vpc.State},
+	//	{Key: "RouterExternal", Value: RouterExternal},
+	//}
+	//vpcInfo.KeyValueList = keyValueList
+	//
+	vpcInfo.KeyValueList = irs.StructToKeyValueList(vpc)
 
 	return &vpcInfo, nil
 }
@@ -626,19 +632,22 @@ func (vpcHandler *NhnCloudVPCHandler) mappingSubnetInfo(subnet vpcsubnets.Vpcsub
 		IPv4_CIDR: subnet.CIDR,
 	}
 
-	var RouterExternal string
-	if subnet.RouterExternal {
-		RouterExternal = "Yes"
-	} else if !subnet.RouterExternal {
-		RouterExternal = "No"
-	}
+	subnetInfo.KeyValueList = irs.StructToKeyValueList(subnet)
 
-	keyValueList := []irs.KeyValue{
-		{Key: "VPCId", Value: subnet.VPCID},
-		{Key: "RouterExternal", Value: RouterExternal},
-		{Key: "CreatedTime", Value: subnet.CreateTime},
-	}
-	subnetInfo.KeyValueList = keyValueList
+	//var RouterExternal string
+	//if subnet.RouterExternal {
+	//	RouterExternal = "Yes"
+	//} else if !subnet.RouterExternal {
+	//	RouterExternal = "No"
+	//}
+
+	//keyValueList := []irs.KeyValue{
+	//	{Key: "VPCId", Value: subnet.VPCID},
+	//	{Key: "RouterExternal", Value: RouterExternal},
+	//	{Key: "CreatedTime", Value: subnet.CreateTime},
+	//}
+	//subnetInfo.KeyValueList = keyValueList
+
 	return &subnetInfo
 }
 

@@ -537,13 +537,13 @@ func (securityHandler *NhnCloudSecurityHandler) mappingSecurityInfo(nhnSG secgro
 		},
 
 		VpcIID: irs.IID{
-			// NameId:   "",
-			// SystemId: "",
+			//NameId:   "",
+			//SystemId: "",
 		},
 
-		KeyValueList: []irs.KeyValue{
-			{Key: "TenantID", Value: nhnSG.TenantID},
-		},
+		//KeyValueList: []irs.KeyValue{
+		//	{Key: "TenantID", Value: nhnSG.TenantID},
+		//},
 	}
 
 	listOpts := rules.ListOpts{
@@ -599,6 +599,8 @@ func (securityHandler *NhnCloudSecurityHandler) mappingSecurityInfo(nhnSG secgro
 
 		secInfo.SecurityRules = &sgRuleList
 	}
+
+	secInfo.KeyValueList = irs.StructToKeyValueList(nhnSG)
 	return secInfo, nil
 }
 

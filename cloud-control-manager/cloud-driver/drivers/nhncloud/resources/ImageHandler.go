@@ -183,11 +183,13 @@ func (imageHandler *NhnCloudImageHandler) mappingImageInfo(image images.Image) *
 
 	platform := irs.PlatformNA
 	osPlatform := strings.ToLower(image.Properties["os_type"].(string))
+
 	if osPlatform == "linux" {
 		platform = irs.Linux_UNIX
 	} else if osPlatform == "windows" {
 		platform = irs.Windows
 	}
+	platform = irs.Linux_UNIX
 
 	imageInfo := &irs.ImageInfo{
 		// 2025-01-18: Postpone the deprecation of IID, so revoke IID changes.
