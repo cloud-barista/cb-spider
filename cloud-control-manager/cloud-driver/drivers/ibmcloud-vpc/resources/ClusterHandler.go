@@ -1309,18 +1309,28 @@ func (ic *IbmClusterHandler) getAddonInfo(clusterId string, resourceGroupId stri
 	if getClusterAddonsErr != nil {
 		return irs.AddonsInfo{}, getClusterAddonsErr
 	}
-	var keyValues []irs.KeyValue
-	for _, clusterAddon := range rawClusterAddons {
-		addonJsonValue, marshalErr := json.Marshal(clusterAddon)
-		if marshalErr != nil {
-			cblogger.Error(marshalErr)
-		}
-		keyValues = append(keyValues, irs.KeyValue{
-			Key:   *clusterAddon.Name,
-			Value: string(addonJsonValue),
-		})
+	//var keyValues []irs.KeyValue
+	//for _, clusterAddon := range rawClusterAddons {
+	//	addonJsonValue, marshalErr := json.Marshal(clusterAddon)
+	//	if marshalErr != nil {
+	//		cblogger.Error(marshalErr)
+	//	}
+	//	keyValues = append(keyValues, irs.KeyValue{
+	//		Key:   *clusterAddon.Name,
+	//		Value: string(addonJsonValue),
+	//	})
+	//}
+	//clusterAddons := irs.AddonsInfo{KeyValueList: keyValues}
+
+	var addons []irs.KeyValue
+	for _, addon := range rawClusterAddons {
+		keyValues := irs.StructToKeyValueList(addon)
+		addons = append(addons, keyValues...)
 	}
-	clusterAddons := irs.AddonsInfo{KeyValueList: keyValues}
+
+	clusterAddons := irs.AddonsInfo{
+		KeyValueList: addons,
+	}
 	return clusterAddons, nil
 }
 
@@ -1692,7 +1702,7 @@ func (ic *IbmClusterHandler) setClusterInfo(rawCluster kubernetesserviceapiv1.Ge
 			})
 		}
 
-		nodeGroupList = append(nodeGroupList, irs.NodeGroupInfo{
+		ng := irs.NodeGroupInfo{
 			IId: irs.IID{
 				NameId:   element.PoolName,
 				SystemId: element.Id,
@@ -1715,7 +1725,9 @@ func (ic *IbmClusterHandler) setClusterInfo(rawCluster kubernetesserviceapiv1.Ge
 			Status:          ic.getNodeGroupStatusFromString(element.Lifecycle.DesiredState),
 			Nodes:           nodesIID,
 			KeyValueList:    nil,
-		})
+		}
+		ng.KeyValueList = irs.StructToKeyValueList(ng)
+		nodeGroupList = append(nodeGroupList, ng)
 	}
 
 	// Get Network.Subnet Info
@@ -1865,7 +1877,31 @@ func (ic *IbmClusterHandler) setClusterInfo(rawCluster kubernetesserviceapiv1.Ge
 	}
 
 	// Build result
-	return irs.ClusterInfo{
+	//return irs.ClusterInfo{
+	//	IId: irs.IID{
+	//		NameId:   rawCluster.Name,
+	//		SystemId: rawCluster.Id,
+	//	},
+	//	Version: rawCluster.MasterKubeVersion,
+	//	Network: irs.NetworkInfo{
+	//		VpcIID:            vpcIID,
+	//		SubnetIIDs:        subnetIIDs,
+	//		SecurityGroupIIDs: securityGroups,
+	//		KeyValueList:      nil,
+	//	},
+	//	NodeGroupList: nodeGroupList,
+	//	AccessInfo: irs.AccessInfo{
+	//		Endpoint:   serviceEndpoint,
+	//		Kubeconfig: kubeConfigStr,
+	//	},
+	//	Addons:       clusterAddons,
+	//	Status:       clusterStatus,
+	//	CreatedTime:  time.Time(createdTime).Local(),
+	//	TagList:      tags,
+	//	KeyValueList: nil,
+	//}, nil
+
+	clusterInfo := irs.ClusterInfo{
 		IId: irs.IID{
 			NameId:   rawCluster.Name,
 			SystemId: rawCluster.Id,
@@ -1875,7 +1911,11 @@ func (ic *IbmClusterHandler) setClusterInfo(rawCluster kubernetesserviceapiv1.Ge
 			VpcIID:            vpcIID,
 			SubnetIIDs:        subnetIIDs,
 			SecurityGroupIIDs: securityGroups,
-			KeyValueList:      nil,
+			KeyValueList: irs.StructToKeyValueList(irs.NetworkInfo{
+				VpcIID:            vpcIID,
+				SubnetIIDs:        subnetIIDs,
+				SecurityGroupIIDs: securityGroups,
+			}),
 		},
 		NodeGroupList: nodeGroupList,
 		AccessInfo: irs.AccessInfo{
@@ -1887,7 +1927,12 @@ func (ic *IbmClusterHandler) setClusterInfo(rawCluster kubernetesserviceapiv1.Ge
 		CreatedTime:  time.Time(createdTime).Local(),
 		TagList:      tags,
 		KeyValueList: nil,
-	}, nil
+	}
+
+	clusterInfo.Network.KeyValueList = irs.StructToKeyValueList(clusterInfo.Network)
+	clusterInfo.KeyValueList = irs.StructToKeyValueList(clusterInfo)
+
+	return clusterInfo, nil
 }
 
 func (ic *IbmClusterHandler) uninstallAutoScalerAddon(clusterId string, clusterCrn string, resourceGroupId string) error {

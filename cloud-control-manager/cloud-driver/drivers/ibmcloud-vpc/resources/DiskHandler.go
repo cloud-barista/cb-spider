@@ -298,14 +298,33 @@ func (diskHandler *IbmDiskHandler) DetachDisk(diskIID irs.IID, ownerVM irs.IID) 
 }
 
 func (diskHandler *IbmDiskHandler) ToIRSDisk(disk *vpcv1.Volume) *irs.DiskInfo {
-	var diskKeyValueList []irs.KeyValue
+	//var diskKeyValueList []irs.KeyValue
 	if disk != nil {
-		if disk.Iops != nil {
-			strIops := strconv.Itoa(int(*disk.Iops))
-			diskKeyValueList = append(diskKeyValueList, irs.KeyValue{Key: "Iops", Value: strIops})
-		}
-		if disk.ResourceGroup != nil {
-			diskKeyValueList = append(diskKeyValueList, irs.KeyValue{Key: "ResourceGroup", Value: *disk.ResourceGroup.Name})
+		diskKeyValueList := irs.StructToKeyValueList(disk)
+
+		//if disk.Iops != nil {
+		//	strIops := strconv.Itoa(int(*disk.Iops))
+		//	diskKeyValueList = append(diskKeyValueList, irs.KeyValue{Key: "Iops", Value: strIops})
+		//}
+		//if disk.ResourceGroup != nil {
+		//	diskKeyValueList = append(diskKeyValueList, irs.KeyValue{Key: "ResourceGroup", Value: *disk.ResourceGroup.Name})
+		//}
+
+		for i, kv := range diskKeyValueList {
+			switch kv.Key {
+			case "Profile":
+				if disk.Profile != nil && disk.Profile.Name != nil {
+					diskKeyValueList[i].Value = *disk.Profile.Name
+				}
+			case "ResourceGroup":
+				if disk.ResourceGroup != nil && disk.ResourceGroup.Name != nil {
+					diskKeyValueList[i].Value = *disk.ResourceGroup.Name
+				}
+			case "Zone":
+				if disk.Zone != nil && disk.Zone.Name != nil {
+					diskKeyValueList[i].Value = *disk.Zone.Name
+				}
+			}
 		}
 
 		var diskStatus irs.DiskStatus

@@ -1368,6 +1368,8 @@ func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, e
 
 	vmInfo.TagList = tags
 
+	vmInfo.KeyValueList = irs.StructToKeyValueList(instance)
+
 	return vmInfo, nil
 }
 
