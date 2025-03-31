@@ -17,7 +17,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/bootfromvolume"
 	"io"
 	"net/http"
 	"os"
@@ -25,6 +24,9 @@ import (
 	"strings"
 	"time"
 	_ "time/tzdata" // To prevent 'unknown time zone Asia/Seoul' error
+
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/bootfromvolume"
+
 	// "github.com/davecgh/go-spew/spew"
 
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
@@ -35,6 +37,7 @@ import (
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/flavors"
 	comimages "github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/images" // compute/v2/images
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/servers"
+
 	//	images "github.com/cloud-barista/nhncloud-sdk-go/openstack/imageservice/v2/images" // imageservice/v2/images : For Visibility parameter
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -49,6 +52,7 @@ const (
 	WinCloudInitFilePath    string = "/cloud-driver-libs/.cloud-init-nhncloud/cloud-init-windows"
 	DefaultDiskSize         string = "20"
 	DefaultWinRootDiskSize  string = "50"
+	DefaultNodeRootDiskSize string = "30"
 )
 
 type NhnCloudVMHandler struct {
