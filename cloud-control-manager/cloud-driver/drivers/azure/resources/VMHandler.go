@@ -1149,11 +1149,11 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server armcompute.VirtualMach
 		if key == "keypair" && val != nil {
 			vmInfo.KeyPairIId = irs.IID{NameId: *val, SystemId: GetSshKeyIdByName(vmHandler.CredentialInfo, vmHandler.Region, *val)}
 		}
-		if key == "publicip" && val != nil {
-			vmInfo.KeyValueList = []irs.KeyValue{
-				{Key: "publicip", Value: *val},
-			}
-		}
+		//if key == "publicip" && val != nil {
+		//	vmInfo.KeyValueList = []irs.KeyValue{
+		//		{Key: "publicip", Value: *val},
+		//	}
+		//}
 	}
 
 	if server.Properties.StorageProfile != nil && server.Properties.StorageProfile.DataDisks != nil && len(server.Properties.StorageProfile.DataDisks) > 0 {
@@ -1180,6 +1180,8 @@ func (vmHandler *AzureVMHandler) mappingServerInfo(server armcompute.VirtualMach
 	if server.Tags != nil {
 		vmInfo.TagList = setTagList(server.Tags)
 	}
+
+	vmInfo.KeyValueList = irs.StructToKeyValueList(server)
 
 	return vmInfo
 }
