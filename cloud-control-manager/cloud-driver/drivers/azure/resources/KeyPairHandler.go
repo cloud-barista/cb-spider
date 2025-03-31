@@ -41,6 +41,8 @@ func (keyPairHandler *AzureKeyPairHandler) setterKey(key *armcompute.SSHPublicKe
 		keypairInfo.TagList = setTagList(key.Tags)
 	}
 
+	keypairInfo.KeyValueList = irs.StructToKeyValueList(key)
+
 	return &keypairInfo, nil
 }
 
