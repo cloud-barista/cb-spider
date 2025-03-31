@@ -1158,6 +1158,8 @@ func (nlbHandler *AzureNLBHandler) setterNLB(nlb *armnetwork.LoadBalancer) (*irs
 		nlbInfo.TagList = setTagList(nlb.Tags)
 	}
 
+	nlbInfo.KeyValueList = irs.StructToKeyValueList(nlb)
+
 	return &nlbInfo, nil
 }
 
