@@ -1335,6 +1335,8 @@ func (nlbHandler *AzureNLBHandler) getLoadBalancingRuleInfoByNLB(nlb *armnetwork
 		CspID: "",
 	}
 
+	listenerInfo.KeyValueList = irs.StructToKeyValueList(cbOnlyOneLoadBalancingRule.Properties)
+
 	if len(nlb.Properties.BackendAddressPools) < 1 {
 		return nil, nil, nil, errors.New("invalid LoadBalancer")
 	}
