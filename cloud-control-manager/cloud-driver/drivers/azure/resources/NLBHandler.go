@@ -1325,6 +1325,8 @@ func (nlbHandler *AzureNLBHandler) getLoadBalancingRuleInfoByNLB(nlb *armnetwork
 		CspID: "",
 	}
 
+	VMGroup.KeyValueList = irs.StructToKeyValueList(cbOnlyOneLoadBalancingRule.Properties)
+
 	listenerInfo := &irs.ListenerInfo{
 		Protocol: strings.ToUpper(string(*cbOnlyOneLoadBalancingRule.Properties.Protocol)),
 		Port:     strconv.Itoa(int(*cbOnlyOneLoadBalancingRule.Properties.FrontendPort)),
