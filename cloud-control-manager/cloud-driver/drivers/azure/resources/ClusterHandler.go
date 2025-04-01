@@ -630,7 +630,7 @@ func setterClusterInfo(cluster *armcontainerservice.ManagedCluster,
 		if err == nil {
 			clusterInfo.AccessInfo = accessInfo
 		}
-		keyValues := []irs.KeyValue{}
+		//keyValues := []irs.KeyValue{}
 		if cluster.Tags != nil {
 			tags := cluster.Tags
 			createdTime, createdTimeExist := tags["createdAt"]
@@ -640,16 +640,20 @@ func setterClusterInfo(cluster *armcontainerservice.ManagedCluster,
 					clusterInfo.CreatedTime = time.Unix(timeInt64, 0).UTC()
 				}
 			}
-			sshkey, sshKeyExist := tags[ClusterNodeSSHKeyKey]
-			if sshKeyExist && sshkey != nil {
-				keyValues = append(keyValues, irs.KeyValue{Key: ClusterNodeSSHKeyKey, Value: *sshkey})
-			}
+			//sshkey, sshKeyExist := tags[ClusterNodeSSHKeyKey]
+			//if sshKeyExist && sshkey != nil {
+			//	keyValues = append(keyValues, irs.KeyValue{Key: ClusterNodeSSHKeyKey, Value: *sshkey})
+			//}
 		}
-		clusterInfo.KeyValueList = keyValues
+		//clusterInfo.KeyValueList = keyValues
 	}
+
 	if cluster.Tags != nil {
 		clusterInfo.TagList = setTagList(cluster.Tags)
 	}
+
+	clusterInfo.KeyValueList = irs.StructToKeyValueList(cluster)
+
 	return clusterInfo, nil
 }
 

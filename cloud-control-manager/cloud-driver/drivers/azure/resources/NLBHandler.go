@@ -1158,6 +1158,8 @@ func (nlbHandler *AzureNLBHandler) setterNLB(nlb *armnetwork.LoadBalancer) (*irs
 		nlbInfo.TagList = setTagList(nlb.Tags)
 	}
 
+	nlbInfo.KeyValueList = irs.StructToKeyValueList(nlb)
+
 	return &nlbInfo, nil
 }
 
@@ -1323,6 +1325,8 @@ func (nlbHandler *AzureNLBHandler) getLoadBalancingRuleInfoByNLB(nlb *armnetwork
 		CspID: "",
 	}
 
+	VMGroup.KeyValueList = irs.StructToKeyValueList(cbOnlyOneLoadBalancingRule.Properties)
+
 	listenerInfo := &irs.ListenerInfo{
 		Protocol: strings.ToUpper(string(*cbOnlyOneLoadBalancingRule.Properties.Protocol)),
 		Port:     strconv.Itoa(int(*cbOnlyOneLoadBalancingRule.Properties.FrontendPort)),
@@ -1330,6 +1334,8 @@ func (nlbHandler *AzureNLBHandler) getLoadBalancingRuleInfoByNLB(nlb *armnetwork
 		// TODO: ?
 		CspID: "",
 	}
+
+	listenerInfo.KeyValueList = irs.StructToKeyValueList(cbOnlyOneLoadBalancingRule.Properties)
 
 	if len(nlb.Properties.BackendAddressPools) < 1 {
 		return nil, nil, nil, errors.New("invalid LoadBalancer")
