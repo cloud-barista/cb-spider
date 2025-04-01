@@ -1069,7 +1069,7 @@ func (nch *NhnCloudClusterHandler) getLabelsForNodeGroup(nodeGroupInfo *irs.Node
 	}
 
 	if strings.EqualFold(nodeGroupInfo.RootDiskSize, "") || strings.EqualFold(nodeGroupInfo.RootDiskSize, "default") {
-		nodeGroupInfo.RootDiskSize = DefaultDiskSize
+		nodeGroupInfo.RootDiskSize = DefaultNodeRootDiskSize
 	}
 	bootVolumeSize := nodeGroupInfo.RootDiskSize
 
