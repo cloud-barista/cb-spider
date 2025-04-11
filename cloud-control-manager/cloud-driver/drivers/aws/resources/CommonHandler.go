@@ -145,6 +145,24 @@ func DescribeAvailableDiskDeviceList(svc *ec2.EC2, vmIID irs.IID) ([]string, err
 	return availableDevices, nil
 }
 
+func ModifyInstanceMetadataOptionsHttpPutResponseHopLimit(svc *ec2.EC2, instanceId string, httpPutResponseHopLimit int) error {
+	modifyInstanceMetadataOptionsInput := &ec2.ModifyInstanceMetadataOptionsInput{
+		InstanceId:              aws.String(instanceId),
+		HttpPutResponseHopLimit: aws.Int64(int64(httpPutResponseHopLimit)),
+	}
+
+	modifyInstanceMetadataOptionsOutput, err := svc.ModifyInstanceMetadataOptions(modifyInstanceMetadataOptionsInput)
+	if err != nil {
+		return err
+	}
+
+	if aws.StringValue(modifyInstanceMetadataOptionsOutput.InstanceId) != instanceId {
+		return fmt.Errorf("invalid InstanceId")
+	}
+
+	return nil
+}
+
 // ---------------- Instance Area end ---------------//
 
 // ---------------- VOLUME Area begin -----------------//
