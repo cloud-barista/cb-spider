@@ -304,24 +304,37 @@ func (priceInfoHandler *NcpPriceInfoHandler) GetPriceInfo(productFamily string, 
 			vCPUs := strconv.Itoa(product.CpuCount)
 			vMemGb := strconv.FormatInt(product.MemorySize/(1024*1024*1024), 10)
 			storageGB := strconv.FormatInt(product.BaseBlockStorageSize/(1024*1024*1024), 10)
-			vGPUs := strconv.Itoa(product.GpuCount)
+
+			var gpuInfoList []irs.GpuInfo
+			if product.GpuCount > 0 {
+				aGPU := irs.GpuInfo{
+					Count:          strconv.Itoa(product.GpuCount),
+					MemSizeGB:      "-1",
+					TotalMemSizeGB: "-1",
+					Mfr:            "NA",
+					Model:          "NA",
+				}
+				gpuInfoList = append(gpuInfoList, aGPU)
+			}
 
 			priceList = append(priceList, irs.Price{
 				ProductInfo: irs.ProductInfo{
-					ProductId:       product.ProductCode,
-					RegionName:      regionCode,
-					InstanceType:    product.ProductType.CodeName,
-					Vcpu:            vCPUs,
-					Memory:          vMemGb,
-					Storage:         storageGB,
-					Gpu:             vGPUs,
-					GpuMemory:       "N/A",
-					OperatingSystem: "N/A",
-					PreInstalledSw:  "N/A",
-					VolumeType:      product.DiskType.CodeName,
-					StorageMedia:    product.DiskDetailType.CodeName,
-					Description:     product.ProductDescription,
-					CSPProductInfo:  product,
+					ProductId:  product.ProductCode,
+					RegionName: regionCode,
+					ZoneName:   "N/A",
+					VMSpecInfo: irs.VMSpecInfo{
+						Name:       product.ProductType.CodeName,
+						VCpu:       irs.VCpuInfo{Count: vCPUs, ClockGHz: "-1"},
+						MemSizeMiB: vMemGb,
+						DiskSizeGB: storageGB,
+						Gpu:        gpuInfoList,
+					},
+					OSDistribution: "N/A",
+					PreInstalledSw: "N/A",
+					VolumeType:     product.DiskType.CodeName,
+					StorageMedia:   product.DiskDetailType.CodeName,
+					Description:    product.ProductDescription,
+					CSPProductInfo: product,
 				},
 				PriceInfo: irs.PriceInfo{
 					PricingPolicies: pricingPolicies,

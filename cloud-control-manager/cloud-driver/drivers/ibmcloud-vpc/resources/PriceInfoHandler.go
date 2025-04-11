@@ -4,11 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
-	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"io"
-	"k8s.io/apimachinery/pkg/util/json"
 	"net/http"
 	"reflect"
 	"sort"
@@ -16,6 +12,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
+	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"k8s.io/apimachinery/pkg/util/json"
 )
 
 type IbmPriceInfoHandler struct {
@@ -458,20 +459,19 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetPriceInfo(productFamily string, 
 		}
 
 		if strings.ToLower(productFamily) == "is.instance" {
-			productInfo.InstanceType = resource.Name
-			productInfo.Vcpu = "NA"
-			productInfo.Memory = "NA"
-			productInfo.Gpu = "NA"
-			productInfo.GpuMemory = "NA"
-			productInfo.OperatingSystem = "NA"
+			productInfo.VMSpecInfo.Name = resource.Name
+			productInfo.VMSpecInfo.VCpu.Count = "-1"
+			productInfo.VMSpecInfo.VCpu.ClockGHz = "-1"
+			productInfo.VMSpecInfo.MemSizeMiB = "-1"
+			productInfo.OSDistribution = "NA"
 			productInfo.PreInstalledSw = "NA"
 
 			splitedSpec := strings.Split(resource.Name, "-")
 			if len(splitedSpec) == 2 {
 				splitedCPUMemory := strings.Split(splitedSpec[1], "x")
 				if len(splitedCPUMemory) == 2 {
-					productInfo.Vcpu = splitedCPUMemory[0]
-					productInfo.Memory = splitedCPUMemory[1] + " GiB"
+					productInfo.VMSpecInfo.VCpu.Count = splitedCPUMemory[0]
+					productInfo.VMSpecInfo.MemSizeMiB = splitedCPUMemory[1] + " GiB"
 				}
 			}
 		} else if strings.ToLower(productFamily) == "is.volume" {

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"sort"
 	"strings"
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -114,18 +115,19 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 				return "", err
 			}
 
-			machineTypeSlice := make([]*compute.MachineType, 0)
+			// Fetch machine types from all zones and remove duplicates
+			machineTypeMap := make(map[string]*compute.MachineType)
 
 			for _, zone := range zoneList.Items {
+				// Process only the specified zone if zoneName filter exists
 				if zoneName, ok := filter["zoneName"]; ok && zone.Name != *zoneName {
 					continue
 				}
 
-				keepFetching := true // machine type 조회 반복 호출 flag
+				keepFetching := true
 				nextPageToken := ""
 
 				for keepFetching {
-
 					machineTypes, err := priceInfoHandler.Client.MachineTypes.List(projectID, zone.Name).Do(googleapi.QueryParameter("pageToken", nextPageToken))
 
 					if err != nil {
@@ -133,20 +135,35 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 						return "", err
 					}
 
+					// Handle pagination
 					if keepFetching = machineTypes.NextPageToken != ""; keepFetching {
 						nextPageToken = machineTypes.NextPageToken
 					}
 
-					machineTypeSlice = append(machineTypeSlice, machineTypes.Items...)
+					// Add to map to eliminate duplicates
+					for _, mt := range machineTypes.Items {
+						if _, exists := machineTypeMap[mt.Name]; !exists {
+							machineTypeMap[mt.Name] = mt
+						}
+					}
 				}
 			}
 
+			// Convert map to slice
+			machineTypeSlice := make([]*compute.MachineType, 0, len(machineTypeMap))
+			for _, mt := range machineTypeMap {
+				machineTypeSlice = append(machineTypeSlice, mt)
+			}
+
+			// Optional: Sort by machine type name
+			sort.Slice(machineTypeSlice, func(i, j int) bool {
+				return machineTypeSlice[i].Name < machineTypeSlice[j].Name
+			})
 
 			if len(machineTypeSlice) > 0 {
 				cblogger.Infof("%d machine types have been retrieved", len(machineTypeSlice))
 
 				for _, machineType := range machineTypeSlice {
-
 
 					if machineTypeFilter, ok := filter["instanceType"]; ok && machineType.Name != *machineTypeFilter {
 						continue
@@ -165,20 +182,21 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 							continue
 						}
 
+						estimatedCostResponse := &cbb.EstimateCostScenarioForBillingAccountResponse{}
+
 						// call cost estimation api
-						estimatedCostResponse, err := callEstimateCostScenario(priceInfoHandler, regionName, billingAccountId, machineType)
+						estimatedCostResponse, err = callEstimateCostScenario(priceInfoHandler, regionName, billingAccountId, machineType)
 						if err != nil {
-							cblogger.Error("error occurred when calling the EstimateCostScenario; message:", err)
-							
+							// cblogger.Error("error occurred when calling the EstimateCostScenario; message:", err)
+
 							if googleApiError, ok := err.(*googleapi.Error); ok {
-								if googleApiError.Code == 403  {
+								if googleApiError.Code == 403 {
 									return "", errors.New("you don't have any permission to access billing account")
 								}
 							}
 
 							continue
 						}
-
 
 						// mapping to price info struct
 						priceInfo, err := mappingToPriceInfoForComputePrice(estimatedCostResponse, filter)
@@ -188,13 +206,12 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 							return "", err
 						}
 
-						cblogger.Infof("fetch :: %s machine type", productInfo.InstanceType)
+						cblogger.Infof("fetch :: %s machine type", productInfo.VMSpecInfo.Name)
 
 						priceList := irs.Price{
 							ProductInfo: *productInfo,
 							PriceInfo:   *priceInfo,
 						}
-
 
 						priceLists = append(priceLists, priceList)
 					}
@@ -365,10 +382,7 @@ func productInfoFilter(productInfo *irs.ProductInfo, filter map[string]*string) 
  * billingAccountId format - billingAccounts/xxxx-xxxx-xxxx
  */
 func callEstimateCostScenario(priceInfoHandler *GCPPriceInfoHandler, region, billingAccountId string, machineType *compute.MachineType) (*cbb.EstimateCostScenarioForBillingAccountResponse, error) {
-	machineTypeName := getMachineTypeFromSelfLink(machineType.SelfLink)
-	if machineTypeName == "" {
-		return nil, errors.New("machine type is not defined")
-	}
+	machineTypeName := machineType.Name
 
 	machineSeries := getMachineSeriesFromMachineType(machineTypeName)
 	if machineSeries == "" {
@@ -434,7 +448,7 @@ func callEstimateCostScenario(priceInfoHandler *GCPPriceInfoHandler, region, bil
 	).Do()
 
 	if err != nil {
-		cblogger.Errorf("error occurred when calling EstimateCostScenario; machine spec; machine type: %s, memory: %d, calculated memory: %f", machineType.Name, machineType.MemoryMb, memory)
+		// cblogger.Errorf("error occurred when calling EstimateCostScenario; machine spec; machine type: %s, memory: %d, calculated memory: %f", machineType.Name, machineType.MemoryMb, memory)
 		return nil, err
 	}
 
@@ -488,16 +502,25 @@ func mappingToProductInfoForComputePrice(region string, machineType *compute.Mac
 		CSPProductInfo: machineType,
 	}
 
-	productInfo.InstanceType = machineType.Name
-	productInfo.Vcpu = fmt.Sprintf("%d", machineType.GuestCpus)
-	productInfo.Memory = fmt.Sprintf("%.2f GB", roundToNearestMultiple(parseMbToGb(machineType.MemoryMb)))
-	productInfo.Description = machineType.Description
-
-	productInfo.Gpu = "NA"
-	productInfo.Storage = "NA"
-	productInfo.GpuMemory = "NA"
-	productInfo.OperatingSystem = "NA"
+	productInfo.VMSpecInfo.Name = machineType.Name
+	productInfo.VMSpecInfo.VCpu.Count = fmt.Sprintf("%d", machineType.GuestCpus)
+	productInfo.VMSpecInfo.VCpu.ClockGHz = "-1"
+	productInfo.VMSpecInfo.MemSizeMiB = fmt.Sprintf("%d", machineType.MemoryMb)
+	productInfo.VMSpecInfo.DiskSizeGB = "-1"
+	/*
+		productInfo.VMSpecInfo.Gpu = []irs.GpuInfo{
+			{
+				Count:          "-1",
+				MemSizeGB:      "-1",
+				TotalMemSizeGB: "-1",
+				Mfr:            "NA",
+				Model:          "NA",
+			},
+		}
+	*/
+	productInfo.OSDistribution = "NA"
 	productInfo.PreInstalledSw = "NA"
+	productInfo.Description = machineType.Description
 
 	productInfo.VolumeType = ""
 	productInfo.StorageMedia = ""

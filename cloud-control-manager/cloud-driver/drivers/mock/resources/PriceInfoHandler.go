@@ -240,13 +240,11 @@ func transformToProductInfo(productFamily string, jsonData *interface{}, filterL
 		productInfo.RegionName = json.InstanceInfo.RegionName
 		productInfo.RegionName = json.InstanceInfo.RegionName
 		productInfo.ZoneName = "NA"
-		productInfo.InstanceType = json.InstanceInfo.InstanceType
-		productInfo.Vcpu = json.InstanceInfo.Vcpu
-		productInfo.Memory = json.InstanceInfo.Memory
-		productInfo.Storage = json.InstanceInfo.Storage
-		productInfo.Gpu = "NA"
-		productInfo.GpuMemory = "NA"
-		productInfo.OperatingSystem = json.InstanceInfo.Os
+		productInfo.VMSpecInfo.Name = json.InstanceInfo.InstanceType
+		productInfo.VMSpecInfo.VCpu.Count = json.InstanceInfo.Vcpu
+		productInfo.VMSpecInfo.MemSizeMiB = json.InstanceInfo.Memory
+		productInfo.VMSpecInfo.DiskSizeGB = json.InstanceInfo.Storage
+		productInfo.OSDistribution = json.InstanceInfo.Os
 		productInfo.PreInstalledSw = "NA"
 		productInfo.Description = json.InstanceInfo.ProcessorArchitecture + ", " +
 			json.InstanceInfo.ProcessorFeatures

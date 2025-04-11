@@ -9,7 +9,7 @@ import (
 func ConvertMBToMiB(mbStr string) (string, error) {
 	mb, err := strconv.Atoi(mbStr)
 	if err != nil {
-		return "", fmt.Errorf("invalid MB value: %v", err)
+		return "-1", fmt.Errorf("invalid MB value: %v", err)
 	}
 	return ConvertMBToMiBInt64(int64(mb)), nil
 }
@@ -24,7 +24,7 @@ func ConvertMBToMiBInt64(mb int64) string {
 func ConvertMiBToGB(mibStr string) (string, error) {
 	mib, err := strconv.Atoi(mibStr)
 	if err != nil {
-		return "", fmt.Errorf("invalid MiB value: %v", err)
+		return "-1", fmt.Errorf("invalid MiB value: %v", err)
 	}
 	return ConvertMiBToGBInt64(int64(mib)), nil
 }
@@ -39,7 +39,7 @@ func ConvertMiBToGBInt64(mib int64) string {
 func ConvertGBToMiB(gbStr string) (string, error) {
 	gb, err := strconv.Atoi(gbStr)
 	if err != nil {
-		return "", fmt.Errorf("invalid GB value: %v", err)
+		return "-1", fmt.Errorf("invalid GB value: %v", err)
 	}
 	return ConvertGBToMiBInt64(int64(gb)), nil
 }
@@ -54,7 +54,7 @@ func ConvertGBToMiBInt64(gb int64) string {
 func ConvertGiBToGB(gibStr string) (string, error) {
 	gib, err := strconv.Atoi(gibStr)
 	if err != nil {
-		return "", fmt.Errorf("invalid GiB value: %v", err)
+		return "-1", fmt.Errorf("invalid GiB value: %v", err)
 	}
 	return ConvertGiBToGBInt64(int64(gib)), nil
 }
@@ -69,7 +69,7 @@ func ConvertGiBToGBInt64(gib int64) string {
 func ConvertGiBToMiB(gibStr string) (string, error) {
 	gib, err := strconv.Atoi(gibStr)
 	if err != nil {
-		return "", fmt.Errorf("invalid GiB value: %v", err)
+		return "-1", fmt.Errorf("invalid GiB value: %v", err)
 	}
 	return ConvertGiBToMiBInt64(int64(gib)), nil
 }
@@ -84,7 +84,7 @@ func ConvertGiBToMiBInt64(gib int64) string {
 func ConvertByteToMiB(byteStr string) (string, error) {
 	byteValue, err := strconv.Atoi(byteStr)
 	if err != nil {
-		return "", fmt.Errorf("invalid Byte value: %v", err)
+		return "-1", fmt.Errorf("invalid Byte value: %v", err)
 	}
 	return ConvertByteToMiBInt64(int64(byteValue)), nil
 }
@@ -99,7 +99,7 @@ func ConvertByteToMiBInt64(byteValue int64) string {
 func ConvertByteToGB(byteStr string) (string, error) {
 	byteValue, err := strconv.Atoi(byteStr)
 	if err != nil {
-		return "", fmt.Errorf("invalid Byte value: %v", err)
+		return "-1", fmt.Errorf("invalid Byte value: %v", err)
 	}
 	return ConvertByteToGBInt64(int64(byteValue)), nil
 }

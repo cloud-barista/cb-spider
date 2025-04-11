@@ -15,7 +15,7 @@ type VMSpecInfo struct {
 	Region     string    `json:"Region" validate:"required" example:"us-east-1"` // Region where the VM spec is available
 	Name       string    `json:"Name" validate:"required" example:"t2.micro"`    // Name of the VM spec
 	VCpu       VCpuInfo  `json:"VCpu" validate:"required"`                       // CPU details of the VM spec
-	MemSizeMiB string    `json:"MemSizeMib" validate:"required" example:"1024"`  // Memory size in MiB
+	MemSizeMiB string    `json:"MemSizeMiB" validate:"required" example:"1024"`  // Memory size in MiB
 	DiskSizeGB string    `json:"DiskSizeGB" validate:"required" example:"8"`     // Disk size in GB, "-1" when not applicable
 	Gpu        []GpuInfo `json:"Gpu,omitempty" validate:"omitempty"`             // GPU details if available
 

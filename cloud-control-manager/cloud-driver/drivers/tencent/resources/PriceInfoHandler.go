@@ -301,22 +301,27 @@ func productFilter(filterMap map[string]string, productInfo *irs.ProductInfo) bo
 		return true
 	}
 
-	if value, ok := filterMap["instanceType"]; ok && value != "" && value != (*productInfo).InstanceType {
+	if value, ok := filterMap["instanceType"]; ok && value != "" && value != (*productInfo).VMSpecInfo.Name {
 		return true
 	}
 
-	if value, ok := filterMap["vcpu"]; ok && value != "" && value != (*productInfo).Vcpu {
+	if value, ok := filterMap["vcpu"]; ok && value != "" && value != (*productInfo).VMSpecInfo.VCpu.Count {
 		return true
 	}
 
-	if value, ok := filterMap["memory"]; ok && value != "" && value != (*productInfo).Memory {
+	if value, ok := filterMap["memory"]; ok && value != "" && value != (*productInfo).VMSpecInfo.MemSizeMiB {
 		return true
 	}
 
-	if value, ok := filterMap["gpu"]; ok && value != "" && value != (*productInfo).Gpu {
-		return true
+	if value, ok := filterMap["gpu"]; ok && value != "" {
+		if len((*productInfo).VMSpecInfo.Gpu) <= 0 {
+			return true
+		}
+		if value != (*productInfo).VMSpecInfo.Gpu[0].Count {
+			return true
+		}
 	}
-	if value, ok := filterMap["storage"]; ok && value != "" && value != (*productInfo).Storage {
+	if value, ok := filterMap["storage"]; ok && value != "" && value != (*productInfo).VMSpecInfo.DiskSizeGB {
 		return true
 	}
 	return false
@@ -370,17 +375,28 @@ func mappingProductInfo(regionName string, i interface{}) irs.ProductInfo {
 	case cvm.InstanceTypeQuotaItem:
 		vm := i.(cvm.InstanceTypeQuotaItem)
 		productInfo.ProductId = regionName + "-" + *vm.InstanceType
-		productInfo.InstanceType = strPtrNilCheck(vm.InstanceType)
+		productInfo.VMSpecInfo.Name = strPtrNilCheck(vm.InstanceType)
 		productInfo.ZoneName = *vm.Zone
-		productInfo.Vcpu = intPtrNilCheck(vm.Cpu)
-		productInfo.Memory = intPtrNilCheck(vm.Memory)
-		productInfo.Gpu = intPtrNilCheck(vm.Gpu)
-		productInfo.Description = strPtrNilCheck(vm.CpuType)
+		productInfo.VMSpecInfo.VCpu.Count = intPtrNilCheck(vm.Cpu)
+		productInfo.VMSpecInfo.VCpu.ClockGHz = *vm.Frequency
+		productInfo.VMSpecInfo.MemSizeMiB = irs.ConvertGiBToMiBInt64(*vm.Memory)
+
+		if int(*vm.Gpu) > 0 {
+			productInfo.VMSpecInfo.Gpu = []irs.GpuInfo{
+				{
+					Count:          strconv.Itoa(int(*vm.Gpu)),
+					MemSizeGB:      "-1",
+					TotalMemSizeGB: "-1",
+					Mfr:            "NA",
+					Model:          "NA",
+				},
+			}
+		}
+		productInfo.Description = strPtrNilCheck(vm.CpuType) + ", " + strPtrNilCheck(vm.Remark)
 
 		// not provide from tencent
-		productInfo.Storage = intPtrNilCheck(vm.StorageBlockAmount)
-		productInfo.GpuMemory = strPtrNilCheck(nil)
-		productInfo.OperatingSystem = strPtrNilCheck(nil)
+		productInfo.VMSpecInfo.DiskSizeGB = "-1"
+		productInfo.OSDistribution = strPtrNilCheck(nil)
 		productInfo.PreInstalledSw = strPtrNilCheck(nil)
 
 		// storage 관련 정보 삭제
@@ -388,18 +404,29 @@ func mappingProductInfo(regionName string, i interface{}) irs.ProductInfo {
 
 	case cvm.ReservedInstanceTypeItem:
 		reservedVm := i.(cvm.ReservedInstanceTypeItem)
-		productInfo.ProductId = regionName + "-" + *reservedVm.InstanceType
-		productInfo.InstanceType = strPtrNilCheck(reservedVm.InstanceType)
+		productInfo.ProductId = regionName + "-" + *reservedVm.InstanceType + "-" + "Reserved"
+		productInfo.VMSpecInfo.Name = strPtrNilCheck(reservedVm.InstanceType)
 		productInfo.ZoneName = *reservedVm.Prices[0].Zone
-		productInfo.Vcpu = uintPtrNilCheck(reservedVm.Cpu)
-		productInfo.Memory = uintPtrNilCheck(reservedVm.Memory)
-		productInfo.Gpu = uintPtrNilCheck(reservedVm.Gpu)
+		productInfo.VMSpecInfo.VCpu.Count = uintPtrNilCheck(reservedVm.Cpu)
+		productInfo.VMSpecInfo.VCpu.ClockGHz = *reservedVm.Frequency
+		productInfo.VMSpecInfo.MemSizeMiB = irs.ConvertGiBToMiBInt64(int64(*reservedVm.Memory))
+
+		if int(*reservedVm.Gpu) > 0 {
+			productInfo.VMSpecInfo.Gpu = []irs.GpuInfo{
+				{
+					Count:          strconv.Itoa(int(*reservedVm.Gpu)),
+					MemSizeGB:      "-1",
+					TotalMemSizeGB: "-1",
+					Mfr:            "NA",
+					Model:          "NA",
+				},
+			}
+		}
 		productInfo.Description = strPtrNilCheck(reservedVm.CpuModelName)
 
 		// not provide from tencent
-		productInfo.Storage = strPtrNilCheck(nil)
-		productInfo.GpuMemory = strPtrNilCheck(nil)
-		productInfo.OperatingSystem = strPtrNilCheck(nil)
+		productInfo.VMSpecInfo.DiskSizeGB = "-1"
+		productInfo.OSDistribution = strPtrNilCheck(nil)
 		productInfo.PreInstalledSw = strPtrNilCheck(nil)
 
 		// storage 관련 정보 삭제

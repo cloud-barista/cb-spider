@@ -3,6 +3,7 @@ package connect
 import (
 	"context"
 	"errors"
+
 	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"

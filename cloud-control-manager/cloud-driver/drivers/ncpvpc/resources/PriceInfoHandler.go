@@ -80,6 +80,7 @@ type ProductListAPIResponse struct {
 
 	Error *ErrorResponse `json:"error,omitempty"`
 }
+
 // =========================== For ProductList ============================
 
 // =========================== For PriceList ============================
@@ -142,6 +143,7 @@ type PriceListAPIResponse struct {
 
 	Error *ErrorResponse `json:"error,omitempty"`
 }
+
 // =========================== For PriceList ============================
 
 // =========================== Common ============================
@@ -150,6 +152,7 @@ type ErrorResponse struct {
 	Message string `json:"message,omitempty"`
 	Details string `json:"details,omitempty"`
 }
+
 // =========================== Common ============================
 
 const (
@@ -176,7 +179,7 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) ListProductFamily(regionName str
 		return nil, newErr
 	}
 	// log.Printf("### productItemKindList")
-	// spew.Dump(productItemKindList)	
+	// spew.Dump(productItemKindList)
 
 	var productCodeNameList []string
 	if len(productItemKindList) > 0 {
@@ -211,7 +214,7 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 		cblogger.Error(newErr.Error())
 		return "", newErr
 	}
-	
+
 	found := false
 	for _, productItemKind := range productItemKindList {
 		if strings.EqualFold(productItemKind.CodeName, productFamily) {
@@ -274,24 +277,37 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 			vCPUs := strconv.Itoa(productPrice.CpuCount)
 			vMemGb := strconv.FormatInt(productPrice.MemorySize/(1024*1024*1024), 10)
 			storageGB := strconv.FormatInt(productPrice.BaseBlockStorageSize/(1024*1024*1024), 10)
-			vGPUs := strconv.Itoa(productPrice.GpuCount)
+
+			var gpuInfoList []irs.GpuInfo
+			if productPrice.GpuCount > 0 {
+				aGPU := irs.GpuInfo{
+					Count:          strconv.Itoa(productPrice.GpuCount),
+					MemSizeGB:      "-1",
+					TotalMemSizeGB: "-1",
+					Mfr:            "NA",
+					Model:          "NA",
+				}
+				gpuInfoList = append(gpuInfoList, aGPU)
+			}
 
 			priceList = append(priceList, irs.Price{
 				ProductInfo: irs.ProductInfo{
-					ProductId:       productPrice.ProductCode,
-					RegionName:      regionCode,
-					InstanceType:    productPrice.ProductType.CodeName,
-					Vcpu:            vCPUs,
-					Memory:          vMemGb,
-					Storage:         storageGB,
-					Gpu:             vGPUs,
-					GpuMemory:       "N/A",
-					OperatingSystem: "N/A",
-					PreInstalledSw:  "N/A",
-					VolumeType:      productPrice.DiskType.CodeName,
-					StorageMedia:    productPrice.DiskDetailType.CodeName,
-					Description:     productPrice.ProductName, // Some items do not give 'ProductDescription' info
-					CSPProductInfo:  productPrice,
+					ProductId:  productPrice.ProductCode,
+					RegionName: regionCode,
+					ZoneName:   "N/A",
+					VMSpecInfo: irs.VMSpecInfo{
+						Name:       productPrice.ProductType.CodeName,
+						VCpu:       irs.VCpuInfo{Count: vCPUs, ClockGHz: "-1"},
+						MemSizeMiB: vMemGb,
+						DiskSizeGB: storageGB,
+						Gpu:        gpuInfoList,
+					},
+					OSDistribution: "N/A",
+					PreInstalledSw: "N/A",
+					VolumeType:     productPrice.DiskType.CodeName,
+					StorageMedia:   productPrice.DiskDetailType.CodeName,
+					Description:    productPrice.ProductName, // Some items do not give 'ProductDescription' info
+					CSPProductInfo: productPrice,
 				},
 				PriceInfo: irs.PriceInfo{
 					PricingPolicies: pricingPolicies,
@@ -465,7 +481,7 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) getProductCodeList(regionCode st
 			productCodeList = append(productCodeList, uniqueProduct.ItemKind.Code)
 		}
 	} else {
-		return nil, nil	
+		return nil, nil
 	}
 	return productCodeList, nil
 }
@@ -487,7 +503,7 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) getProductItemKindList(regionNam
 		return nil, newErr
 	}
 	// log.Printf("### productCodeList")
-	// spew.Dump(productCodeList)		
+	// spew.Dump(productCodeList)
 
 	uniqueCodeNames := make(map[string]bool)
 	var productItemKindList []ProductItemKind
@@ -502,27 +518,26 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) getProductItemKindList(regionNam
 				return nil, newErr
 			}
 			// log.Printf("### productPriceList")
-			// spew.Dump(productPriceList)		
+			// spew.Dump(productPriceList)
 
 			// # Remove Duplicated CodeName
 			for _, productPrice := range productPriceList {
 				if _, exists := uniqueCodeNames[productPrice.ProductItemKind.CodeName]; !exists {
-					newProductItemKind := ProductItemKind { 
-						Code: productPrice.ProductItemKind.Code,
+					newProductItemKind := ProductItemKind{
+						Code:     productPrice.ProductItemKind.Code,
 						CodeName: productPrice.ProductItemKind.CodeName,
 					}
 					productItemKindList = append(productItemKindList, newProductItemKind)
 					uniqueCodeNames[productPrice.ProductItemKind.CodeName] = true
 				}
-			}			
+			}
 		}
 	}
 	// log.Printf("### productItemKindList")
-	// spew.Dump(productItemKindList)		
+	// spew.Dump(productItemKindList)
 
 	return productItemKindList, nil
 }
-
 
 // This is necessary because NCP GoSDK does not support these PriceInfo APIs.
 func (priceInfoHandler *NcpVpcPriceInfoHandler) getProductPriceListWithProductCode(regionCode string, callURL string, productCode string, filterList []irs.KeyValue) ([]ProductPrice, error) {
@@ -598,7 +613,6 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) getProductPriceListWithProductCo
 	return priceListResp.GetProductPriceListResponse.ProductPriceList, nil
 }
 
-
 func (priceInfoHandler *NcpVpcPriceInfoHandler) getProductCodeWithProductName(productName string, regionName string) (string, error) {
 	cblogger.Info("NCP VPC Cloud driver: called getProductCodeWithProductName()!!")
 	// API Guide : https://api.ncloud-docs.com/docs/platform-listprice-getproductlist
@@ -627,8 +641,8 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) getProductCodeWithProductName(pr
 		for _, productItemKind := range productItemKindList {
 			if strings.EqualFold(productItemKind.CodeName, productName) {
 				productCode = productItemKind.Code
-				break				
-			}		
+				break
+			}
 		}
 	}
 	return productCode, nil

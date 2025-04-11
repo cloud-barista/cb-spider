@@ -702,10 +702,10 @@ func ApiServer(routes []route) {
 	spiderBanner()
 
 	server := &http.Server{
-		Addr:           cr.ServerPort,
-		ReadTimeout:    600 * time.Second, // Increase the maximum duration of reading the entire request
-		WriteTimeout:   600 * time.Second, // Increase the maximum duration of writing the entire response
-		IdleTimeout:    600 * time.Second, // Increase the maximum duration of idle keep-alive connections
+		Addr: cr.ServerPort,
+		//ReadTimeout:    6000 * time.Second, // Increase the maximum duration of reading the entire request
+		//WriteTimeout:   6000 * time.Second, // Increase the maximum duration of writing the entire response
+		//IdleTimeout:    6000 * time.Second, // Increase the maximum duration of idle keep-alive connections
 		MaxHeaderBytes: 500 * 1024 * 1024, // Increase the maximum header size allowed by the server
 		ErrorLog:       log.New(os.Stderr, "HTTP SERVER ERROR: ", log.LstdFlags),
 	}

@@ -872,6 +872,11 @@ func QueryProductList(bssClient *bssopenapi.Client) (*bssopenapi.QueryProductLis
 		return nil, err
 	}
 
+	fmt.Printf("Total Count : %d\n", responseTotalcount.Data.TotalCount)
+	fmt.Printf("Page Size : %d\n", request.PageSize)
+	fmt.Printf("Page Num : %d\n", request.PageNum)
+	fmt.Printf("productListresponse. Total Count : %d\n", productListresponse.Data.TotalCount)
+
 	return productListresponse, nil
 }
 

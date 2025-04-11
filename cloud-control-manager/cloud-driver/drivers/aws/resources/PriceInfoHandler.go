@@ -2,9 +2,13 @@ package resources
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
+	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -216,6 +220,8 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 								pricingPolicyInfo.PurchaseOption = purchaseOption.(string)
 							}
 
+							pricingPolicy.PricingPolicyInfo = &pricingPolicyInfo
+
 							// policy 추출하여 추가
 							aPrice, ok := AppendPolicyToPrice(priceMap, productInfo, pricingPolicy, awsPrice)
 							if !ok {
@@ -264,7 +270,11 @@ func ExtractProductInfo(jsonValue aws.JSONValue, productFamily string) (irs.Prod
 	}
 	switch productFamily {
 	case "Compute Instance":
-		ReplaceEmptyWithNAforComputeInstance(&productInfo)
+		//ReplaceEmptyWithNAforComputeInstance(&productInfo)
+		err := setVMspecInfo(&productInfo, string(jsonString))
+		if err != nil {
+			return productInfo, err
+		}
 	case "Storage":
 		ReplaceEmptyWithNAforStorage(&productInfo)
 	case "Load Balancer-Network":
@@ -282,12 +292,80 @@ func ExtractProductInfo(jsonValue aws.JSONValue, productFamily string) (irs.Prod
 	productId := fmt.Sprintf("%s", jsonValue["product"].(map[string]interface{})["sku"])
 	productInfo.ProductId = productId
 	productInfo.RegionName = fmt.Sprintf("%s", jsonValue["product"].(map[string]interface{})["attributes"].(map[string]interface{})["regionCode"])
+	productInfo.ZoneName = "NA" // AWS zone is Not Applicable - 202401
+	productInfo.OSDistribution = fmt.Sprintf("%s", jsonValue["product"].(map[string]interface{})["attributes"].(map[string]interface{})["operatingSystem"])
 	productInfo.Description = fmt.Sprintf("productFamily= %s, version= %s", jsonValue["product"].(map[string]interface{})["productFamily"], jsonValue["version"])
 	productInfo.CSPProductInfo = jsonValue["product"]
-	productInfo.ZoneName = "NA" // AWS zone is Not Applicable - 202401
 
 	return productInfo, nil
 
+}
+
+func setVMspecInfo(productInfo *resources.ProductInfo, jsonValueString string) error {
+	var jsonData map[string]string
+	if err := json.Unmarshal([]byte(jsonValueString), &jsonData); err != nil {
+		return fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	vcpu := jsonData["vcpu"]
+	if vcpu == "" {
+		return errors.New("missing required field: vcpu")
+	}
+
+	memoryInt := extractNumericValue(jsonData["memory"])
+
+	instanceType := jsonData["instanceType"]
+	if instanceType == "" {
+		return errors.New("missing required field: instanceType")
+	}
+
+	regionCode := jsonData["regionCode"]
+	if regionCode == "" {
+		return errors.New("missing required field: regionCode")
+	}
+
+	// set GPU info if available
+	var gpuInfo []irs.GpuInfo
+	if gpuCount, ok := jsonData["gpu"]; ok && gpuCount != "0" {
+		gpuCountInt, err := strconv.Atoi(gpuCount)
+		if err != nil {
+			return fmt.Errorf("failed to parse gpu: %w", err)
+		}
+		gpuMemoryFloat := extractNumericValue(jsonData["gpuMemory"])
+		gpuInfo = []irs.GpuInfo{
+			{
+				Count:          gpuCount,
+				Mfr:            "NA",
+				Model:          "NA",
+				MemSizeGB:      fmt.Sprintf("%d", int(gpuMemoryFloat)),
+				TotalMemSizeGB: fmt.Sprintf("%d", int(float64(gpuCountInt)*gpuMemoryFloat)),
+			},
+		}
+	}
+
+	// set VMSpecInfo
+	productInfo.VMSpecInfo = irs.VMSpecInfo{
+		Region:     regionCode,
+		Name:       instanceType,
+		VCpu:       irs.VCpuInfo{Count: vcpu, ClockGHz: "-1"},
+		MemSizeMiB: irs.ConvertGiBToMiBInt64(int64(memoryInt)),
+		DiskSizeGB: "-1",
+		Gpu:        gpuInfo,
+	}
+
+	return nil
+}
+
+func extractNumericValue(input string) float64 {
+	fields := strings.Fields(input)
+	if len(fields) == 0 {
+		return -1
+	}
+	value, err := strconv.ParseFloat(fields[0], 64)
+	if err != nil {
+		return -1
+	}
+	return value
 }
 
 // price에 해당 product가 있으면 append, 없으면 추가
@@ -326,59 +404,60 @@ func setProductsInputRequestFilter(filterList []irs.KeyValue) ([]*pricing.Filter
 
 	if filterList != nil {
 		for _, filter := range filterList {
-			if filter.Key == "instanceType" {
-				requestFilters = append(requestFilters, &pricing.Filter{
-					Field: aws.String("instanceType"),
-					Type:  aws.String("TERM_MATCH"),
-					Value: aws.String(filter.Value),
-				})
-			}
-
-			if filter.Key == "operatingSystem" {
-				requestFilters = append(requestFilters, &pricing.Filter{
-					Field: aws.String("operatingSystem"),
-					Type:  aws.String("TERM_MATCH"),
-					Value: aws.String(filter.Value),
-				})
-			}
-			if filter.Key == "vcpu" {
-				requestFilters = append(requestFilters, &pricing.Filter{
-					Field: aws.String("vcpu"),
-					Type:  aws.String("TERM_MATCH"),
-					Value: aws.String(filter.Value),
-				})
-			}
-			if filter.Key == "productId" {
+			//--------------------- ProductInfo
+			if filter.Key == "ProductId" {
 				requestFilters = append(requestFilters, &pricing.Filter{
 					Field: aws.String("sku"),
 					Type:  aws.String("TERM_MATCH"),
 					Value: aws.String(filter.Value),
 				})
 			}
-			if filter.Key == "memory" {
+			if filter.Key == "SpecName" {
 				requestFilters = append(requestFilters, &pricing.Filter{
-					Field: aws.String("memory"),
+					Field: aws.String("instanceType"),
 					Type:  aws.String("TERM_MATCH"),
 					Value: aws.String(filter.Value),
 				})
 			}
-			if filter.Key == "storage" {
+			if filter.Key == "VCpu.Count" {
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Field: aws.String("vcpu"),
+					Type:  aws.String("TERM_MATCH"),
+					Value: aws.String(filter.Value),
+				})
+			}
+			if filter.Key == "MemSizeMiB" {
+				filterValue := convertMiBtoGiBStringWithUnitForFilter(filter.Value)
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Field: aws.String("memory"),
+					Type:  aws.String("TERM_MATCH"),
+					Value: aws.String(filterValue),
+				})
+			}
+			if filter.Key == "DiskSizeGB" {
 				requestFilters = append(requestFilters, &pricing.Filter{
 					Field: aws.String("storage"),
 					Type:  aws.String("TERM_MATCH"),
 					Value: aws.String(filter.Value),
 				})
 			}
-			if filter.Key == "gpu" {
+			if filter.Key == "Gpu.Count" {
 				requestFilters = append(requestFilters, &pricing.Filter{
 					Field: aws.String("gpu"),
 					Type:  aws.String("TERM_MATCH"),
 					Value: aws.String(filter.Value),
 				})
 			}
-			if filter.Key == "gpuMemory" {
+			if filter.Key == "Gpu.MemSizeGB" {
 				requestFilters = append(requestFilters, &pricing.Filter{
 					Field: aws.String("gpuMemory"),
+					Type:  aws.String("TERM_MATCH"),
+					Value: aws.String(filter.Value + " GB"),
+				})
+			}
+			if filter.Key == "OSDistribution" {
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Field: aws.String("operatingSystem"),
 					Type:  aws.String("TERM_MATCH"),
 					Value: aws.String(filter.Value),
 				})
@@ -390,9 +469,81 @@ func setProductsInputRequestFilter(filterList []irs.KeyValue) ([]*pricing.Filter
 					Value: aws.String(filter.Value),
 				})
 			}
+			//--------------------- PriceInfo
+			if filter.Key == "PricingId" {
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Field: aws.String("rateCode"),
+					Type:  aws.String("TERM_MATCH"),
+					Value: aws.String(filter.Value),
+				})
+			}
+			if filter.Key == "PricingPolicy" {
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Field: aws.String("terms"),
+					Type:  aws.String("TERM_MATCH"),
+					Value: aws.String(filter.Value),
+				})
+			}
+			if filter.Key == "Unit" {
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Field: aws.String("unit"),
+					Type:  aws.String("TERM_MATCH"),
+					Value: aws.String(filter.Value),
+				})
+			}
+			if filter.Key == "Currency" {
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Field: aws.String("pricePerUnit"),
+					Type:  aws.String("TERM_MATCH"),
+					Value: aws.String(filter.Value),
+				})
+			}
+			if filter.Key == "Price" {
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Field: aws.String("USD"),
+					Type:  aws.String("TERM_MATCH"),
+					Value: aws.String(filter.Value),
+				})
+			}
+			if filter.Key == "LeaseContractLength" {
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Field: aws.String("LeaseContractLength"),
+					Type:  aws.String("TERM_MATCH"),
+					Value: aws.String(filter.Value),
+				})
+			}
+			if filter.Key == "OfferingClass" {
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Field: aws.String("OfferingClass"),
+					Type:  aws.String("TERM_MATCH"),
+					Value: aws.String(filter.Value),
+				})
+			}
+			if filter.Key == "PurchaseOption" {
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Field: aws.String("PurchaseOption"),
+					Type:  aws.String("TERM_MATCH"),
+					Value: aws.String(filter.Value),
+				})
+			}
 		} //end of for
 	} // end of if
 	return requestFilters, nil
+}
+
+// "1024" (MiB) => "1 GB"
+func convertMiBtoGiBStringWithUnitForFilter(mibStr string) string {
+	mibVal, err := strconv.ParseFloat(mibStr, 64)
+	if err != nil {
+		return mibStr
+	}
+
+	gibVal := mibVal / 1024
+	if gibVal == float64(int64(gibVal)) {
+		return fmt.Sprintf("%d GiB", int64(gibVal))
+	}
+
+	return fmt.Sprintf("%.1f GiB", gibVal)
 }
 
 // 결과에서 filter. filter에 걸리면 true, 안걸리면 false

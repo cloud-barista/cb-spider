@@ -7,11 +7,12 @@ package resources
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
 	bssopenapi "github.com/aliyun/alibaba-cloud-sdk-go/services/bssopenapi" // update to v1.62.327 from v1.61.1743, due to QuerySkuPriceListRequest struct
@@ -22,6 +23,7 @@ import (
 
 type AlibabaPriceInfoHandler struct {
 	BssClient *bssopenapi.Client
+	EcsClient *ecs.Client
 }
 
 // Alibaba  GetSubscriptionPrice struct start
@@ -79,6 +81,8 @@ type AliInstanceType struct {
 	Memory       float64 `json:"MemorySize,omitempty"`
 	// Storage      string  `json:"LocalStorageCategory,omitempty"` 잘못된 데이터 맵핑
 	Gpu       string `json:"GPUSpec,omitempty"`
+	GpuAmount int64  `json:"GpuAmount"`
+	GpuSpec   string `json:"GpuSpec"`
 	GpuMemory int64  `json:"GPUAmount,omitempty"`
 }
 
@@ -147,34 +151,33 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) ListProductFamily(regionName st
 }
 
 func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue) (string, error) {
+	const (
+		OS_TYPE_LINUX   = "Linux"
+		OS_TYPE_WINDOWS = "Windows"
+	)
 	priceMap := make(map[string]irs.Price)
+
+	// mutex for thread safety
+	priceMutex := &sync.Mutex{}
+
 	cblogger.Debug(filterList)
 	filter, _ := filterListToMap(filterList)
 
 	cblogger.Infof("filter value : %+v", filterList)
 
+	// Set region from filter or use default
 	if filteredRegionName, ok := filter["regionName"]; ok {
 		regionName = *filteredRegionName
 	} else if regionName == "" {
 		regionName = irs.RegionInfo{}.Region
 	}
 
-	productListresponse, err := QueryProductList(priceInfoHandler.BssClient)
-	if err != nil {
-		return "", err
+	// Handle non-ECS product families separately
+	if productFamily != "ecs" {
+		return priceInfoHandler.getOtherProductFamilyPriceInfo(productFamily, regionName, filterList)
 	}
 
-	targetProducts := []bssopenapi.Product{}
-	for _, product := range productListresponse.Data.ProductList.Product {
-		if product.ProductCode == productFamily {
-			targetProducts = append(targetProducts, product)
-		}
-	} // targetProducts에는 PayAsYouGo, Subscription
-	if len(targetProducts) == 0 {
-		cblogger.Debugf("There is no match productFamily input - [%s]", productFamily)
-		return "", err // 뉴 에러로 처리 해야 함
-	}
-
+	// Initialize price data structures
 	cloudPriceData := irs.CloudPriceData{}
 	cloudPriceData.Meta.Version = "v0.1"
 	cloudPriceData.Meta.Description = "Multi-Cloud Price Info"
@@ -182,271 +185,436 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 	cloudPrice := irs.CloudPrice{}
 	cloudPrice.CloudName = "Alibaba"
 
-	for _, product := range targetProducts {
+	// Get available instance types
+	availableInstanceTypes := make(map[string]bool)
 
-		if product.SubscriptionType == "PayAsYouGo" {
-			if _, ok := filter["pricingPolicy"]; ok && "PayAsYouGo" != *filter["pricingPolicy"] {
-				continue
-			}
-			pricingModuleRequest := bssopenapi.CreateDescribePricingModuleRequest()
-			pricingModuleRequest.Scheme = "https"
-			pricingModuleRequest.SubscriptionType = product.SubscriptionType
-			pricingModuleRequest.ProductCode = product.ProductCode
-			pricingModuleRequest.ProductType = product.ProductType
+	availableResourceRequest := ecs.CreateDescribeAvailableResourceRequest()
+	availableResourceRequest.Scheme = "https"
+	availableResourceRequest.RegionId = regionName
+	availableResourceRequest.DestinationResource = "InstanceType"
 
-			pricingModulesPayAsYouGo, err := priceInfoHandler.BssClient.DescribePricingModule(pricingModuleRequest)
-			if err != nil {
-				cblogger.Error(err)
-				continue
-			}
-			// cblogger.Info("pricingModuleRequest ", pricingModuleRequest)
-			// cblogger.Info("pricingModulesPayAsYouGo ", pricingModulesPayAsYouGo)
-			isExist := bool(false)
-			var pricingModulePriceType string
-			for _, pricingModule := range pricingModulesPayAsYouGo.Data.ModuleList.Module {
-				// cblogger.Info("pricingModule ", pricingModule)
-				if pricingModule.ModuleCode == "InstanceType" {
-					for _, config := range pricingModule.ConfigList.ConfigList {
-						if config == "InstanceType" {
-							pricingModulePriceType = pricingModule.PriceType
-							isExist = true
-							break
-						}
-					}
-					break
-				}
-			}
+	availableResourceResponse, err := priceInfoHandler.EcsClient.DescribeAvailableResource(availableResourceRequest)
+	if err != nil {
+		cblogger.Error("Failed to get available instance types: ", err)
+		return "", err
+	}
 
-			if !isExist {
-				cblogger.Errorf("There is no InstanceType Module Config - [%s]", productFamily)
-				continue
-				//break
-			}
-
-			getPayAsYouGoPriceRequest := requests.NewCommonRequest()
-			getPayAsYouGoPriceRequest.Method = "POST"
-			getPayAsYouGoPriceRequest.Scheme = "https"
-			getPayAsYouGoPriceRequest.Domain = "business.ap-southeast-1.aliyuncs.com" // endPoint 고정
-			getPayAsYouGoPriceRequest.Version = "2017-12-14"
-			getPayAsYouGoPriceRequest.ApiName = "GetPayAsYouGoPrice"
-			getPayAsYouGoPriceRequest.QueryParams["SubscriptionType"] = "PayAsYouGo"
-			getPayAsYouGoPriceRequest.QueryParams["ProductCode"] = product.ProductCode
-			getPayAsYouGoPriceRequest.QueryParams["ProductType"] = product.ProductType
-			getPayAsYouGoPriceRequest.QueryParams["Region"] = regionName
-
-			for _, pricingModulesAttr := range pricingModulesPayAsYouGo.Data.AttributeList.Attribute {
-				if pricingModulesAttr.Code == "InstanceType" {
-					for _, attr := range pricingModulesAttr.Values.AttributeValue {
-						// 특정 InstanceType에 Attr 에 존재하지만, 쿼리에 InternalError 발생. 부득이 단건 호출.
-						//cblogger.Infof("Now query is : [%s] %s ", product.SubscriptionType, attr.Value)
-
-						if filter["instanceType"] != nil && attr.Value != *filter["instanceType"] {
-							continue
-						}
-
-						getPayAsYouGoPriceRequest.QueryParams["ModuleList.1.ModuleCode"] = "InstanceType"
-						getPayAsYouGoPriceRequest.QueryParams["ModuleList.1.PriceType"] = pricingModulePriceType // Hour
-						getPayAsYouGoPriceRequest.QueryParams["ModuleList.1.Config"] = "InstanceType:" + attr.Value
-
-						if filter["leaseContractLength"] != nil {
-							getPayAsYouGoPriceRequest.QueryParams["ModuleList.1.PriceType"] = *filter["leaseContractLength"]
-						}
-
-						priceResponse, err := priceInfoHandler.BssClient.ProcessCommonRequest(getPayAsYouGoPriceRequest)
-						if err != nil {
-							cblogger.Error(err.Error())
-							continue
-						}
-
-						priceResp := AliPriceInfo{}
-						priceResponseStr := priceResponse.GetHttpContentString()
-						err = json.Unmarshal([]byte(priceResponseStr), &priceResp)
-						if err != nil {
-							cblogger.Error(err.Error())
-							continue
-						}
-
-						if filteredCurrency, ok := filter["currency"]; ok {
-							if priceResp.Data.Currency != *filteredCurrency {
-								cblogger.Info(priceResp.Data.Currency + ":" + *filteredCurrency)
-								continue
-							}
-						}
-
-						if filteredPrice, ok := filter["price"]; ok {
-							priceNum, _ := strconv.ParseFloat(*filteredPrice, 0)
-							if priceResp.Data.ModuleDetails.ModuleDetail[0].Price != priceNum {
-								//cblogger.Info(priceResp.Data.ModuleDetail[0].Price , *filteredCurrency)
-								continue
-							}
-						}
-
-						pricingPolicy, err := BindpricingPolicy(priceResp, product.SubscriptionType, pricingModulePriceType, regionName, attr.Value)
-						if err != nil {
-							cblogger.Error(err.Error())
-							continue
-						}
-
-						productId := regionName + "_" + attr.Value
-						// product : price = 1 : 1
-						// price : price policy = 1 : n
-						aPrice, ok := priceMap[productId]
-						if ok { // product가 존재하면 policy 추가
-							aPrice.PriceInfo.PricingPolicies = append(aPrice.PriceInfo.PricingPolicies, pricingPolicy)
-							aPrice.PriceInfo.CSPPriceInfo = priceResp
-							priceMap[productId] = aPrice
-						} else { // product가 없으면 price 추가
-							newProductInfo, err := GetDescribeInstanceTypesForPricing(priceInfoHandler.BssClient, regionName, attr.Value, filter, productFamily)
-							if err != nil {
-								cblogger.Errorf("[%s] instanceType is Empty", attr.Value)
-								continue
-							}
-
-							newPriceInfo := irs.PriceInfo{}
-							newPolicies := []irs.PricingPolicies{}
-							newPolicies = append(newPolicies, pricingPolicy)
-
-							newPriceInfo.PricingPolicies = newPolicies
-							newCSPPriceInfo := []string{}
-							newCSPPriceInfo = append(newCSPPriceInfo, priceResponseStr)
-							newPriceInfo.CSPPriceInfo = newCSPPriceInfo
-
-							newPrice := irs.Price{}
-							newPrice.PriceInfo = newPriceInfo
-							newPrice.ProductInfo = newProductInfo
-
-							priceMap[productId] = newPrice
-						}
-					}
-				}
-			}
-		} else if product.SubscriptionType == "Subscription" {
-			if _, ok := filter["pricingPolicy"]; ok && "Subscription" != *filter["pricingPolicy"] {
-				continue
-			}
-			pricingModuleRequest := bssopenapi.CreateDescribePricingModuleRequest()
-			pricingModuleRequest.Scheme = "https"
-			pricingModuleRequest.SubscriptionType = product.SubscriptionType
-			pricingModuleRequest.ProductCode = product.ProductCode
-			pricingModuleRequest.ProductType = product.ProductType
-
-			pricingModulesSubscription, err := priceInfoHandler.BssClient.DescribePricingModule(pricingModuleRequest)
-			if err != nil {
-				cblogger.Error(err)
-				return "", err
-			}
-
-			isExist := bool(false)
-			for _, pricingModule := range pricingModulesSubscription.Data.ModuleList.Module {
-				if pricingModule.ModuleCode == "InstanceType" {
-					for _, config := range pricingModule.ConfigList.ConfigList {
-						if config == "InstanceType" {
-							isExist = true
-						}
-					}
-				}
-			}
-			if !isExist {
-				cblogger.Debugf("There is no InstanceType Module Config - [%s]", productFamily)
-				continue
-			}
-			pricingModulePriceTypes := []string{"Month", "Year"}
-			if filteredpricingModulePriceTypes, ok := filter["leaseContractLength"]; ok { //filter key = leaseContractLength, 결과 : unit
-				pricingModulePriceTypes = []string{*filteredpricingModulePriceTypes}
-			}
-			for _, pricingModulePriceType := range pricingModulePriceTypes {
-				getSubscriptionPrice := requests.NewCommonRequest()
-				getSubscriptionPrice.Method = "POST"
-				getSubscriptionPrice.Scheme = "https" // https | http
-				getSubscriptionPrice.Domain = "business.ap-southeast-1.aliyuncs.com"
-				getSubscriptionPrice.Version = "2017-12-14"
-				getSubscriptionPrice.ApiName = "GetSubscriptionPrice"
-
-				getSubscriptionPrice.QueryParams["SubscriptionType"] = product.SubscriptionType //"Subscription"
-				getSubscriptionPrice.QueryParams["ProductCode"] = product.ProductCode           //"ecs"
-				getSubscriptionPrice.QueryParams["OrderType"] = "NewOrder"                      // NewOrder, Upgrade, Renewal
-				getSubscriptionPrice.QueryParams["ServicePeriodUnit"] = pricingModulePriceType
-				getSubscriptionPrice.QueryParams["ServicePeriodQuantity"] = "1" // 1 초과시 PromotionDetails 응답 없음
-
-				for _, pricingModulesAttr := range pricingModulesSubscription.Data.AttributeList.Attribute {
-
-					if pricingModulesAttr.Code == "InstanceType" {
-						for _, attr := range pricingModulesAttr.Values.AttributeValue {
-							//cblogger.Infof("Now query is : [%s] %s ", product.SubscriptionType, attr.Value)
-
-							// 특정 InstanceType에 Attr 에 존재하지만, 쿼리에 InternalError 발생. 부득이 단건 호출.
-							getSubscriptionPrice.QueryParams["ModuleList.1.ModuleCode"] = "InstanceType"
-							getSubscriptionPrice.QueryParams["ModuleList.1.Config"] = "InstanceType:" + attr.Value
-
-							if filter["instanceType"] != nil && attr.Value != *filter["instanceType"] {
-								continue
-							}
-
-							priceResponse, err := priceInfoHandler.BssClient.ProcessCommonRequest(getSubscriptionPrice)
-							if err != nil {
-								cblogger.Error(err.Error())
-								continue
-							}
-							priceResp := AliPriceInfo{}
-							priceResponseStr := priceResponse.GetHttpContentString()
-
-							err = json.Unmarshal([]byte(priceResponseStr), &priceResp)
-
-							if err != nil {
-								cblogger.Error(err.Error())
-								continue
-							}
-
-							cblogger.Debug("priceResponseStr::", priceResponseStr)
-
-							pricingPolicy, err := BindpricingPolicy(priceResp, product.SubscriptionType, pricingModulePriceType, regionName, attr.Value)
-							if err != nil {
-								cblogger.Error(err.Error())
-								continue
-							}
-							productId := regionName + "_" + attr.Value
-
-							aPrice, ok := priceMap[productId]
-							if ok { // product가 존재하면 policy 추가
-								aPrice.PriceInfo.PricingPolicies = append(aPrice.PriceInfo.PricingPolicies, pricingPolicy)
-								aPrice.PriceInfo.CSPPriceInfo = priceResp
-								priceMap[productId] = aPrice
-							} else { // product가 없으면 price 추가
-								newProductInfo, err := GetDescribeInstanceTypesForPricing(priceInfoHandler.BssClient, regionName, attr.Value, filter, productFamily)
-								if err != nil {
-									cblogger.Errorf("[%s] instanceType is Empty", attr.Value)
-									continue
-								}
-
-								newPriceInfo := irs.PriceInfo{}
-								newPolicies := []irs.PricingPolicies{}
-								newPolicies = append(newPolicies, pricingPolicy)
-
-								newPriceInfo.PricingPolicies = newPolicies
-								newCSPPriceInfo := []string{}
-								newCSPPriceInfo = append(newCSPPriceInfo, priceResponseStr)
-								newPriceInfo.CSPPriceInfo = newCSPPriceInfo
-
-								newPrice := irs.Price{}
-								newPrice.PriceInfo = newPriceInfo
-								newPrice.ProductInfo = newProductInfo
-
-								priceMap[productId] = newPrice
-							}
-
-						}
-					}
-				}
+	// Extract available instance types
+	for _, availableZone := range availableResourceResponse.AvailableZones.AvailableZone {
+		for _, availableResource := range availableZone.AvailableResources.AvailableResource {
+			for _, supportedResource := range availableResource.SupportedResources.SupportedResource {
+				availableInstanceTypes[supportedResource.Value] = true
 			}
 		}
 	}
-	//
-	// priceMap 을 List 로 반환
+
+	// Apply instance type filter if specified
+	if filter["instanceType"] != nil {
+		if _, ok := availableInstanceTypes[*filter["instanceType"]]; !ok {
+			cblogger.Warnf("Filtered instance type %s is not available in region %s", *filter["instanceType"], regionName)
+			if !availableInstanceTypes[*filter["instanceType"]] {
+				availableInstanceTypes = make(map[string]bool)
+				availableInstanceTypes[*filter["instanceType"]] = true
+			}
+		} else {
+			filteredType := *filter["instanceType"]
+			availableInstanceTypes = make(map[string]bool)
+			availableInstanceTypes[filteredType] = true
+		}
+	}
+
+	cblogger.Infof("Found %d available instance types in region %s", len(availableInstanceTypes), regionName)
+
+	// Return error if no instance types available
+	if len(availableInstanceTypes) == 0 {
+		cblogger.Error("No available instance types found in region: ", regionName)
+		return "", fmt.Errorf("No available instance types found in region: %s", regionName)
+	}
+
+	// Get instance type details
+	instanceTypesRequest := ecs.CreateDescribeInstanceTypesRequest()
+	instanceTypesRequest.Scheme = "https"
+	instanceTypesRequest.RegionId = regionName
+
+	// Apply filters to request
+	if filter["vcpu"] != nil {
+		vcpuInt, _ := strconv.Atoi(*filter["vcpu"])
+		instanceTypesRequest.MinimumCpuCoreCount = requests.NewInteger(vcpuInt)
+		instanceTypesRequest.MaximumCpuCoreCount = requests.NewInteger(vcpuInt)
+	}
+
+	if filter["memory"] != nil {
+		memoryFloat, _ := strconv.ParseFloat(*filter["memory"], 64)
+		instanceTypesRequest.MinimumMemorySize = requests.NewFloat(memoryFloat)
+		instanceTypesRequest.MaximumMemorySize = requests.NewFloat(memoryFloat)
+	}
+
+	if filter["storage"] != nil {
+		instanceTypesRequest.LocalStorageCategory = *filter["storage"]
+	}
+
+	if filter["gpu"] != nil {
+		instanceTypesRequest.GPUSpec = *filter["gpu"]
+	}
+
+	if filter["gpuMemory"] != nil {
+		gpuMemoryInt, _ := strconv.Atoi(*filter["gpuMemory"])
+		instanceTypesRequest.MinimumGPUAmount = requests.NewInteger(gpuMemoryInt)
+		instanceTypesRequest.MaximumGPUAmount = requests.NewInteger(gpuMemoryInt)
+	}
+
+	instanceTypesResponse, err := priceInfoHandler.EcsClient.DescribeInstanceTypes(instanceTypesRequest)
+	if err != nil {
+		cblogger.Error("Failed to get instance types: ", err)
+		return "", err
+	}
+
+	// Map instance types for easier access
+	instanceTypesInfo := make(map[string]ecs.InstanceType)
+	for _, typeInfo := range instanceTypesResponse.InstanceTypes.InstanceType {
+		instanceTypesInfo[typeInfo.InstanceTypeId] = typeInfo
+	}
+
+	// Filter by available instance types
+	filteredInstanceTypesInfo := make(map[string]ecs.InstanceType)
+	for instanceType := range availableInstanceTypes {
+		if typeInfo, exists := instanceTypesInfo[instanceType]; exists {
+			filteredInstanceTypesInfo[instanceType] = typeInfo
+		}
+	}
+
+	instanceTypesInfo = filteredInstanceTypesInfo
+
+	cblogger.Infof("Retrieved details for %d instance types", len(instanceTypesInfo))
+
+	// Get Windows image ID for Windows pricing
+	windowsImageId, err := getLatestWindowsImageId(priceInfoHandler.EcsClient, regionName)
+	if err != nil {
+		cblogger.Error("Failed to get Windows image ID: ", err)
+		windowsImageId = ""
+	} else {
+		cblogger.Infof("Latest Windows Image ID: %s", windowsImageId)
+	}
+
+	// Function to convert instance type to product info
+	convertToProductInfo := func(instanceType string, region string, osType string) (irs.ProductInfo, error) {
+		productInfo := irs.ProductInfo{}
+
+		instanceTypeInfo, exists := instanceTypesInfo[instanceType]
+		if !exists {
+			return productInfo, fmt.Errorf("instance type %s not found in cache", instanceType)
+		}
+
+		// Apply additional filters
+		if filter["vcpu"] != nil {
+			vcpuInt, _ := strconv.Atoi(*filter["vcpu"])
+			if int(instanceTypeInfo.CpuCoreCount) != vcpuInt {
+				return productInfo, fmt.Errorf("vcpu filter not matched")
+			}
+		}
+
+		if filter["memory"] != nil {
+			memoryFloat, _ := strconv.ParseFloat(*filter["memory"], 64)
+			if instanceTypeInfo.MemorySize != memoryFloat {
+				return productInfo, fmt.Errorf("memory filter not matched")
+			}
+		}
+
+		if filter["storage"] != nil && *filter["storage"] != "" {
+			if instanceTypeInfo.LocalStorageCategory != *filter["storage"] {
+				return productInfo, fmt.Errorf("storage filter not matched")
+			}
+		}
+
+		if filter["gpu"] != nil && *filter["gpu"] != "" {
+			if instanceTypeInfo.GPUSpec != *filter["gpu"] {
+				return productInfo, fmt.Errorf("gpu filter not matched")
+			}
+		}
+
+		if filter["gpuMemory"] != nil {
+			gpuMemoryInt, _ := strconv.Atoi(*filter["gpuMemory"])
+			if int(instanceTypeInfo.GPUAmount) != gpuMemoryInt {
+				return productInfo, fmt.Errorf("gpuMemory filter not matched")
+			}
+		}
+
+		// Build product info
+		r := make(map[string]interface{})
+		jsonBytes, _ := json.Marshal(instanceTypeInfo)
+		json.Unmarshal(jsonBytes, &r)
+		productInfo.CSPProductInfo = r
+
+		productInfo.ProductId = "NA"
+		productInfo.RegionName = region
+		productInfo.ZoneName = "NA"
+		productInfo.VMSpecInfo.Name = instanceTypeInfo.InstanceTypeId
+		productInfo.VMSpecInfo.VCpu.Count = strconv.Itoa(int(instanceTypeInfo.CpuCoreCount))
+		productInfo.VMSpecInfo.VCpu.ClockGHz = "-1"
+		productInfo.VMSpecInfo.MemSizeMiB = strconv.FormatFloat(instanceTypeInfo.MemorySize*1024, 'f', -1, 64)
+		productInfo.VMSpecInfo.DiskSizeGB = "-1"
+
+		// Add GPU info if applicable
+		if instanceTypeInfo.GPUAmount > 0 {
+			productInfo.VMSpecInfo.Gpu = []irs.GpuInfo{
+				{
+					Count:          strconv.Itoa(int(instanceTypeInfo.GPUAmount)),
+					MemSizeGB:      strconv.FormatInt(int64(instanceTypeInfo.GPUMemorySize), 10),
+					TotalMemSizeGB: strconv.FormatInt(int64(instanceTypeInfo.GPUMemorySize*float64(instanceTypeInfo.GPUAmount)), 10),
+					Mfr:            "NA",
+					Model:          instanceTypeInfo.GPUSpec,
+				},
+			}
+		}
+
+		// Set OS distribution
+		if osType == string(OS_TYPE_WINDOWS) {
+			productInfo.OSDistribution = "Windows"
+		} else {
+			productInfo.OSDistribution = "Linux"
+		}
+
+		productInfo.PreInstalledSw = "NA"
+
+		if productFamily != "ecs" {
+			productInfo.VolumeType = "NA"
+			productInfo.StorageMedia = "NA"
+			productInfo.MaxVolumeSize = "NA"
+			productInfo.MaxIOPSVolume = "NA"
+			productInfo.MaxThroughputVolume = "NA"
+		}
+		productInfo.Description = "NA"
+
+		return productInfo, nil
+	}
+
+	// Set price units to retrieve
+	priceUnits := []string{"Hour", "Month", "Year"}
+	if filteredPriceUnit, ok := filter["leaseContractLength"]; ok {
+		priceUnits = []string{*filteredPriceUnit}
+	}
+
+	// Convert instance types to slice for parallel processing
+	var instanceTypeKeys []string
+	for instanceType := range instanceTypesInfo {
+		if filter["instanceType"] != nil && instanceType != *filter["instanceType"] {
+			continue
+		}
+		instanceTypeKeys = append(instanceTypeKeys, instanceType)
+	}
+
+	// Split work for parallel processing
+	numParts := 3
+	chunkSize := (len(instanceTypeKeys) + numParts - 1) / numParts
+
+	var wg sync.WaitGroup
+
+	// Launch goroutines to fetch prices in parallel
+	for part := 0; part < numParts; part++ {
+		wg.Add(1)
+
+		start := part * chunkSize
+		end := (part + 1) * chunkSize
+		if end > len(instanceTypeKeys) {
+			end = len(instanceTypeKeys)
+		}
+
+		partInstanceTypes := instanceTypeKeys[start:end]
+
+		go func(partNum int, instanceTypes []string) {
+			defer wg.Done()
+
+			cblogger.Infof("Starting goroutine %d with %d instance types", partNum, len(instanceTypes))
+
+			delay := time.Duration(20*partNum) * time.Millisecond
+
+			for _, instanceType := range instanceTypes {
+				// Process Linux and Windows if Windows image available
+				osTypes := []string{OS_TYPE_LINUX, OS_TYPE_WINDOWS}
+				if windowsImageId == "" {
+					osTypes = []string{OS_TYPE_LINUX}
+				}
+
+				for _, osType := range osTypes {
+					for _, priceUnit := range priceUnits {
+						time.Sleep(delay)
+
+						period := 1
+						systemDiskCategories := []string{"cloud_essd", "cloud_efficiency"}
+
+						var priceResp *ecs.DescribePriceResponse
+						var priceErr error
+						var usedSystemDiskCategory string
+
+						// Try different disk categories
+						for _, diskCategory := range systemDiskCategories {
+							priceRequest := ecs.CreateDescribePriceRequest()
+							priceRequest.Scheme = "https"
+							priceRequest.RegionId = regionName
+							priceRequest.ResourceType = "instance"
+							priceRequest.InstanceType = instanceType
+							priceRequest.SystemDiskCategory = diskCategory
+							priceRequest.Period = requests.NewInteger(period)
+							priceRequest.PriceUnit = priceUnit
+
+							// Set image ID for Windows
+							if osType == OS_TYPE_WINDOWS && windowsImageId != "" {
+								priceRequest.ImageId = windowsImageId
+							}
+
+							// Retry logic for API calls
+							for retry := 0; retry < 3; retry++ {
+								priceResp, priceErr = priceInfoHandler.EcsClient.DescribePrice(priceRequest)
+
+								if priceErr == nil {
+									break
+								}
+
+								errMsg := priceErr.Error()
+								if strings.Contains(errMsg, "ErrorCode: Throttling") {
+									cblogger.Warnf("Throttling error for instance type %s with disk category %s, OS %s: %v",
+										instanceType, diskCategory, osType, priceErr)
+									cblogger.Infof("Rate limit exceeded. Waiting 5 seconds before retrying...")
+									time.Sleep(5 * time.Second)
+									continue
+								}
+								if strings.Contains(errMsg, "ErrorCode: UnknownError") ||
+									strings.Contains(errMsg, "ErrorCode: ImageNotSupportInstanceType") {
+									break
+								}
+							}
+
+							// Store successful disk category
+							if priceErr == nil {
+								usedSystemDiskCategory = diskCategory
+								break
+							}
+
+							// Log failure of first disk category
+							if diskCategory == systemDiskCategories[0] && len(systemDiskCategories) > 1 {
+								cblogger.Warnf("Failed to get price with disk category %s, trying %s: %v",
+									diskCategory, systemDiskCategories[1], priceErr)
+							}
+						}
+
+						// Skip if all disk categories failed
+						if priceErr != nil {
+							errMsg := priceErr.Error()
+							if strings.Contains(errMsg, "ErrorCode: UnknownError") ||
+								strings.Contains(errMsg, "ErrorCode: ImageNotSupportInstanceType") {
+								break
+							}
+							cblogger.Errorf("Failed to get price for instance type %s with all disk categories for OS %s: %v", instanceType, osType, priceErr)
+							continue
+						}
+
+						// Create product ID based on region, instance type and OS
+						productId := regionName + "_" + instanceType
+						if osType == OS_TYPE_WINDOWS {
+							productId += "_windows"
+						} else {
+							productId += "_linux"
+						}
+
+						// Set purchase option based on price unit
+						purchaseOption := "Reserved"
+						if priceUnit == "Hour" {
+							purchaseOption = "OnDemand"
+						}
+
+						// Extract resource-specific prices from response
+						var instanceTypePrice float64 = 0
+						var imagePrice float64 = 0
+
+						if priceResp != nil && priceResp.PriceInfo.Price.DetailInfos.DetailInfo != nil {
+							for _, detailInfo := range priceResp.PriceInfo.Price.DetailInfos.DetailInfo {
+								if detailInfo.Resource == "instanceType" {
+									instanceTypePrice = detailInfo.TradePrice
+								} else if detailInfo.Resource == "image" {
+									imagePrice = detailInfo.TradePrice
+								}
+							}
+						}
+
+						// Calculate total price - Linux uses only instance price, Windows adds image price
+						totalPrice := instanceTypePrice
+						if osType == OS_TYPE_WINDOWS {
+							totalPrice = instanceTypePrice + imagePrice
+						}
+
+						// Create pricing policy
+						pricingPolicy := irs.PricingPolicies{
+							PricingId:     "NA",
+							PricingPolicy: purchaseOption,
+							Unit:          priceUnit,
+							Currency:      priceResp.PriceInfo.Price.Currency,
+							Price:         strconv.FormatFloat(totalPrice, 'f', -1, 64),
+							Description:   fmt.Sprintf("Available SystemDisk: %s", usedSystemDiskCategory),
+							PricingPolicyInfo: &irs.PricingPolicyInfo{
+								LeaseContractLength: priceUnit,
+								OfferingClass:       "Standard",
+								PurchaseOption:      purchaseOption,
+							},
+						}
+
+						// Store CSP-specific price info
+						aliPriceInfo := make(map[string]interface{})
+						jsonBytes, _ := json.Marshal(priceResp.PriceInfo.Price)
+						json.Unmarshal(jsonBytes, &aliPriceInfo)
+
+						// Thread-safe price map update
+						priceMutex.Lock()
+
+						// Add to existing product or create new one
+						aPrice, ok := priceMap[productId]
+						if ok { // Add pricing policy to existing product
+							aPrice.PriceInfo.PricingPolicies = append(aPrice.PriceInfo.PricingPolicies, pricingPolicy)
+							aPrice.PriceInfo.CSPPriceInfo = aliPriceInfo
+							priceMap[productId] = aPrice
+						} else { // Create new price entry
+							newProductInfo, err := convertToProductInfo(instanceType, regionName, osType)
+							if err != nil {
+								priceMutex.Unlock()
+								cblogger.Errorf("[%s] instanceType error: %s", instanceType, err.Error())
+								continue
+							}
+
+							// Create new price entry
+							newPrice := irs.Price{}
+							newProductInfo.ProductId = productId
+							newProductInfo.Description = fmt.Sprintf("SystemDisk: %s, OS: %s", usedSystemDiskCategory, osType)
+							newPrice.ProductInfo = newProductInfo
+
+							// Set price info
+							newPriceInfo := irs.PriceInfo{}
+							newPolicies := []irs.PricingPolicies{pricingPolicy}
+							newPriceInfo.PricingPolicies = newPolicies
+							newPriceInfo.CSPPriceInfo = aliPriceInfo
+							newPrice.PriceInfo = newPriceInfo
+
+							priceMap[productId] = newPrice
+						}
+
+						priceMutex.Unlock()
+					}
+				}
+			}
+
+			cblogger.Infof("Completed goroutine %d", partNum)
+		}(part, partInstanceTypes)
+	}
+
+	// Wait for all goroutines to complete
+	wg.Wait()
+	cblogger.Infof("All goroutines completed")
+
+	// Convert map to list
 	priceList := []irs.Price{}
 	for _, value := range priceMap {
 		priceList = append(priceList, value)
 	}
 
+	// Build final response
 	cloudPrice.PriceList = priceList
 	cloudPriceData.CloudPriceList = append(cloudPriceData.CloudPriceList, cloudPrice)
 
@@ -457,152 +625,35 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 	}
 
 	return string(resultString), nil
-
-	//return resultStringTest, nil
 }
 
-func jsonStringToMap(jsonString string) (map[string]interface{}, error) {
-	var result map[string]interface{}
+// get latest Windows image ID
+func getLatestWindowsImageId(ecsClient *ecs.Client, regionName string) (string, error) {
+	imageRequest := ecs.CreateDescribeImagesRequest()
+	imageRequest.Scheme = "https"
+	imageRequest.RegionId = regionName
+	imageRequest.ImageOwnerAlias = "system"
+	imageRequest.OSType = "windows"
 
-	// JSON 문자열을 []byte로 변환
-	jsonBytes := []byte(jsonString)
+	imageRequest.Status = "Available"
+	imageRequest.PageSize = requests.NewInteger(10)
+	imageRequest.PageNumber = requests.NewInteger(1)
 
-	// JSON을 맵으로 파싱
-	err := json.Unmarshal(jsonBytes, &result)
+	imageResponse, err := ecsClient.DescribeImages(imageRequest)
 	if err != nil {
-		return nil, err
+		return "", fmt.Errorf("Failed to get Windows images: %v", err)
 	}
 
-	return result, nil
+	if len(imageResponse.Images.Image) == 0 {
+		return "", fmt.Errorf("No Windows images found in region %s", regionName)
+	}
+
+	return imageResponse.Images.Image[0].ImageId, nil
 }
 
-// Util start
-
-// region의 특정 instanceType의 내용조회
-// func GetDescribeInstanceTypesForPricing(bssClient *bssopenapi.Client, instanceType string) (map[string]interface{}, error) {
-func GetDescribeInstanceTypesForPricing(bssClient *bssopenapi.Client, regionName string, instanceType string, filter map[string]*string, productFamily string) (irs.ProductInfo, error) {
-	DescribeInstanceRequest := requests.NewCommonRequest()
-	DescribeInstanceRequest.Method = "POST"
-	DescribeInstanceRequest.Scheme = "https" // https | http
-	DescribeInstanceRequest.Domain = "ecs.ap-southeast-1.aliyuncs.com"
-	DescribeInstanceRequest.Version = "2014-05-26"
-	DescribeInstanceRequest.ApiName = "DescribeInstanceTypes"
-	DescribeInstanceRequest.QueryParams["InstanceTypes.1"] = instanceType
-
-	if filter["instanceType"] != nil {
-		DescribeInstanceRequest.QueryParams["InstanceTypes.1"] = *filter["instanceType"]
-	}
-
-	if filter["vcpu"] != nil {
-		DescribeInstanceRequest.QueryParams["MinimumCpuCoreCount"] = *filter["vcpu"]
-		DescribeInstanceRequest.QueryParams["MaximumCpuCoreCount"] = *filter["vcpu"]
-	}
-
-	if filter["memory"] != nil {
-		DescribeInstanceRequest.QueryParams["MinimumMemorySize"] = *filter["memory"]
-		DescribeInstanceRequest.QueryParams["MaximumMemorySize"] = *filter["memory"]
-	}
-
-	if filter["storage"] != nil {
-		DescribeInstanceRequest.QueryParams["LocalStorageCategory"] = *filter["storage"]
-	}
-
-	if filter["gpu"] != nil {
-		DescribeInstanceRequest.QueryParams["GPUSpec"] = *filter["gpu"]
-	}
-
-	if filter["gpuMemory"] != nil {
-		DescribeInstanceRequest.QueryParams["MinimumGPUAmount"] = *filter["gpuMemory"]
-		DescribeInstanceRequest.QueryParams["MaximumGPUAmount"] = *filter["gpuMemory"]
-	}
-
-	productInfo := irs.ProductInfo{}
-	instanceResponse, err := bssClient.ProcessCommonRequest(DescribeInstanceRequest)
-	if err != nil {
-		cblogger.Error(err.Error())
-		return productInfo, err
-	}
-	instanceResp := AliProudctInstanceTypes{}
-	err = json.Unmarshal([]byte(instanceResponse.GetHttpContentString()), &instanceResp)
-	if err != nil {
-		cblogger.Errorf("Error parsing JSON:%s", err.Error())
-	} else {
-		if len(instanceResp.InstanceTypes.InstanceType) > 0 {
-			resultProduct := instanceResp.InstanceTypes.InstanceType[0]
-
-			//productInfo.CSPProductInfo = instanceResponse.GetHttpContentString()
-			r, _ := jsonStringToMap(instanceResponse.GetHttpContentString())
-			productInfo.CSPProductInfo = r
-
-			productInfo.ProductId = "NA" //regionName + "_" + instanceType
-			productInfo.RegionName = regionName
-			productInfo.ZoneName = "NA"
-			productInfo.InstanceType = resultProduct.InstanceType
-			productInfo.Vcpu = strconv.FormatInt(resultProduct.Vcpu, 10)
-			productInfo.Memory = strconv.FormatFloat(resultProduct.Memory, 'f', -1, 64)
-			//resultProduct.Storage ==  LocalStorageCategory 관계가없는 데이터 맵핑 NA 처리
-			//productInfo.Storage = resultProduct.Storage
-			productInfo.Storage = "NA"
-			productInfo.Gpu = resultProduct.Gpu
-
-			if productInfo.Gpu == "" {
-				productInfo.Gpu = "NA"
-			}
-			productInfo.GpuMemory = strconv.FormatInt(resultProduct.GpuMemory, 10)
-
-			if productInfo.GpuMemory == "0" {
-				productInfo.GpuMemory = "NA"
-			}
-
-			productInfo.OperatingSystem = "NA"
-			productInfo.PreInstalledSw = "NA"
-
-			if productFamily != "ecs" {
-				productInfo.VolumeType = "NA"
-				productInfo.StorageMedia = "NA"
-				productInfo.MaxVolumeSize = "NA"
-				productInfo.MaxIOPSVolume = "NA"
-				productInfo.MaxThroughputVolume = "NA"
-			}
-			productInfo.Description = "NA"
-		} else {
-			return productInfo, errors.New("there is no instanceType")
-		}
-	}
-	// 문자열 인터페이스 파싱
-
-	return productInfo, nil
-}
-
-func BindpricingPolicy(priceResp AliPriceInfo, subscriptionType string, pricingModulePriceType string, regionName string, instanceType string) (irs.PricingPolicies, error) {
-
-	pricingPolicy := irs.PricingPolicies{}
-	pricingPolicy.PricingId = regionName + "_" + instanceType + "_" + subscriptionType + "_" + pricingModulePriceType //"NA"
-	pricingPolicy.PricingPolicy = subscriptionType
-	pricingPolicy.Unit = "NA"
-	pricingPolicy.Currency = priceResp.Data.Currency
-	if len(priceResp.Data.ModuleDetails.ModuleDetail) > 0 {
-		resultModuleDetailPrice := priceResp.Data.ModuleDetails.ModuleDetail[0]
-		pricingPolicy.Price = strconv.FormatFloat(resultModuleDetailPrice.Price, 'f', -1, 64)
-	} else {
-		// return irs.PricingPolicies{}, errors.New("No Price Data") // https://github.com/cloud-barista/cb-spider/issues/1274
-		cblogger.Infof("No Price Data at PricingId[%s]", pricingPolicy.PricingId)
-		return pricingPolicy, nil
-	}
-
-	if len(priceResp.Data.PromotionDetails.PromotionDetail) > 0 {
-		pricingPolicy.Description = fmt.Sprintf("%s(%d)", priceResp.Data.PromotionDetails.PromotionDetail[0].PromotionName, priceResp.Data.PromotionDetails.PromotionDetail[0].PromotionId)
-	} else {
-		pricingPolicy.Description = "NA"
-
-	}
-	pricingPolicy.PricingPolicyInfo = &irs.PricingPolicyInfo{
-		LeaseContractLength: pricingModulePriceType,
-		OfferingClass:       "NA",
-		PurchaseOption:      "NA",
-	}
-
-	return pricingPolicy, nil
+// exception handling for other product family except ecs
+func (priceInfoHandler *AlibabaPriceInfoHandler) getOtherProductFamilyPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue) (string, error) {
+	return "", fmt.Errorf("Non-ECS product family pricing not implemented yet")
 }
 
 func toCamelCase(val string) string {

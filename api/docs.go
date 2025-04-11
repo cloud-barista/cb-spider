@@ -8846,16 +8846,16 @@ const docTemplate = `{
         "spider.CloudPrice": {
             "type": "object",
             "required": [
-                "cloudName",
-                "priceList"
+                "CloudName",
+                "PriceList"
             ],
             "properties": {
-                "cloudName": {
+                "CloudName": {
                     "description": "Name of the cloud provider",
                     "type": "string",
                     "example": "AWS"
                 },
-                "priceList": {
+                "PriceList": {
                     "description": "List of prices for different services/products",
                     "type": "array",
                     "items": {
@@ -9360,15 +9360,15 @@ const docTemplate = `{
         "spider.Meta": {
             "type": "object",
             "required": [
-                "version"
+                "Version"
             ],
             "properties": {
-                "description": {
+                "Description": {
                     "description": "Description of the pricing data",
                     "type": "string",
                     "example": "Cloud price data"
                 },
-                "version": {
+                "Version": {
                     "description": "Version of the pricing data",
                     "type": "string",
                     "example": "1.0"
@@ -9684,11 +9684,11 @@ const docTemplate = `{
         "spider.Price": {
             "type": "object",
             "required": [
-                "priceInfo",
-                "productInfo"
+                "PriceInfo",
+                "ProductInfo"
             ],
             "properties": {
-                "priceInfo": {
+                "PriceInfo": {
                     "description": "Pricing details of the product",
                     "allOf": [
                         {
@@ -9696,7 +9696,7 @@ const docTemplate = `{
                         }
                     ]
                 },
-                "productInfo": {
+                "ProductInfo": {
                     "description": "Information about the product",
                     "allOf": [
                         {
@@ -9709,14 +9709,14 @@ const docTemplate = `{
         "spider.PriceInfo": {
             "type": "object",
             "required": [
-                "cspPriceInfo",
-                "pricingPolicies"
+                "CSPPriceInfo",
+                "PricingPolicies"
             ],
             "properties": {
-                "cspPriceInfo": {
+                "CSPPriceInfo": {
                     "description": "Additional price information specific to CSP"
                 },
-                "pricingPolicies": {
+                "PricingPolicies": {
                     "description": "List of pricing policies",
                     "type": "array",
                     "items": {
@@ -9728,39 +9728,39 @@ const docTemplate = `{
         "spider.PricingPolicies": {
             "type": "object",
             "required": [
-                "currency",
-                "price",
-                "pricingId",
-                "pricingPolicy",
-                "unit"
+                "Currency",
+                "Price",
+                "PricingId",
+                "PricingPolicy",
+                "Unit"
             ],
             "properties": {
-                "currency": {
+                "Currency": {
                     "description": "Currency of the pricing",
                     "type": "string",
                     "example": "USD"
                 },
-                "description": {
+                "Description": {
                     "description": "Description of the pricing policy",
                     "type": "string",
                     "example": "Pricing for t2.micro"
                 },
-                "price": {
+                "Price": {
                     "description": "Price in the specified currency per unit",
                     "type": "string",
                     "example": "0.02"
                 },
-                "pricingId": {
+                "PricingId": {
                     "description": "ID of the pricing policy",
                     "type": "string",
                     "example": "price-123"
                 },
-                "pricingPolicy": {
+                "PricingPolicy": {
                     "description": "Name of the pricing policy",
                     "type": "string",
                     "example": "On-Demand"
                 },
-                "pricingPolicyInfo": {
+                "PricingPolicyInfo": {
                     "description": "Detail information about the pricing policy",
                     "allOf": [
                         {
@@ -9768,7 +9768,7 @@ const docTemplate = `{
                         }
                     ]
                 },
-                "unit": {
+                "Unit": {
                     "description": "Unit of the pricing (e.g., per hour)",
                     "type": "string",
                     "example": "hour"
@@ -9798,95 +9798,74 @@ const docTemplate = `{
         "spider.ProductInfo": {
             "type": "object",
             "required": [
-                "cspProductInfo",
-                "productId",
-                "regionName"
+                "CSPProductInfo",
+                "ProductId",
+                "RegionName",
+                "VMSpecInfo"
             ],
             "properties": {
-                "cspProductInfo": {
+                "CSPProductInfo": {
                     "description": "Additional product information specific to CSP"
                 },
-                "description": {
+                "Description": {
                     "description": "Description of the product",
                     "type": "string",
                     "example": "General purpose instance"
                 },
-                "gpu": {
-                    "description": "Number of GPUs",
-                    "type": "string",
-                    "example": "1"
-                },
-                "gpuMemory": {
-                    "description": "GPU memory size in MB",
-                    "type": "string",
-                    "example": "8192"
-                },
-                "instanceType": {
-                    "description": "--------- Compute Instance Info",
-                    "type": "string",
-                    "example": "t2.micro"
-                },
-                "maxIopsvolume": {
+                "MaxIopsvolume": {
                     "description": "Maximum IOPS for the volume",
                     "type": "string",
                     "example": "3000"
                 },
-                "maxThroughputvolume": {
+                "MaxThroughputvolume": {
                     "description": "Maximum throughput for the volume in MB/s",
                     "type": "string",
                     "example": "250"
                 },
-                "maxVolumeSize": {
+                "MaxVolumeSize": {
                     "description": "Maximum volume size in GB",
                     "type": "string",
                     "example": "16384"
                 },
-                "memory": {
-                    "description": "Amount of memory in MB",
-                    "type": "string",
-                    "example": "4096"
-                },
-                "operatingSystem": {
-                    "description": "Operating system type",
+                "OSDistribution": {
+                    "description": "Operating system distribution",
                     "type": "string",
                     "example": "Linux"
                 },
-                "preInstalledSw": {
+                "PreInstalledSw": {
                     "description": "Pre-installed software",
                     "type": "string",
                     "example": "None"
                 },
-                "productId": {
+                "ProductId": {
                     "description": "ID of the product",
                     "type": "string",
                     "example": "prod-123"
                 },
-                "regionName": {
+                "RegionName": {
                     "description": "Name of the region",
                     "type": "string",
                     "example": "us-east-1"
                 },
-                "storage": {
-                    "description": "Root-disk storage size in GB",
-                    "type": "string",
-                    "example": "100"
-                },
-                "storageMedia": {
+                "StorageMedia": {
                     "description": "Storage media type",
                     "type": "string",
                     "example": "SSD"
                 },
-                "vcpu": {
-                    "description": "Number of vCPUs",
-                    "type": "string",
-                    "example": "2"
+                "VMSpecInfo": {
+                    "description": "--------- Compute Instance Info",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.VMSpecInfo"
+                        }
+                    ]
                 },
-                "volumeType": {
+                "VolumeType": {
                     "description": "--------- Storage Info  // Data-Disk(AWS:EBS)",
                     "type": "string",
                     "example": "gp2"
                 },
-                "zoneName": {
+                "ZoneName": {
                     "description": "Name of the zone",
                     "type": "string",
                     "example": "us-east-1a"
@@ -10345,7 +10324,7 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "DiskSizeGB",
-                "MemSizeMib",
+                "MemSizeMiB",
                 "Name",
                 "Region",
                 "VCpu"
@@ -10370,7 +10349,7 @@ const docTemplate = `{
                         "$ref": "#/definitions/spider.KeyValue"
                     }
                 },
-                "MemSizeMib": {
+                "MemSizeMiB": {
                     "description": "Memory size in MiB",
                     "type": "string",
                     "example": "1024"
@@ -12079,17 +12058,17 @@ const docTemplate = `{
         "spider.PriceInfoResponse": {
             "type": "object",
             "required": [
-                "cloudPriceList",
-                "meta"
+                "CloudPriceList",
+                "Meta"
             ],
             "properties": {
-                "cloudPriceList": {
+                "CloudPriceList": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/spider.CloudPrice"
                     }
                 },
-                "meta": {
+                "Meta": {
                     "$ref": "#/definitions/spider.Meta"
                 }
             }

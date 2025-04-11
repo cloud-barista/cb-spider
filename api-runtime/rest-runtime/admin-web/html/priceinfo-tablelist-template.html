@@ -242,14 +242,19 @@
             <td class="center-text">{{.ProductInfo.RegionName}}/{{.ProductInfo.ZoneName}}</td>
             <td>
                 <ul>
-                    {{if .ProductInfo.InstanceType}}
-                        <li><strong>Type: {{.ProductInfo.InstanceType}}</strong></li> 
-                        <li>VCPU: {{.ProductInfo.Vcpu}}</li>
-                        <li>Memory: {{.ProductInfo.Memory}}</li>
-                        <li>Storage: {{.ProductInfo.Storage}}</li>
-                        <li>GPU: {{.ProductInfo.Gpu}}</li>
-                        <li>GPU Memory: {{.ProductInfo.GpuMemory}}</li>
-                        <li>OS: {{.ProductInfo.OperatingSystem}}</li>
+                    {{if .ProductInfo.VMSpecInfo}}
+                        <li><strong>Type: {{.ProductInfo.VMSpecInfo.Name}}</strong></li>
+                        <li>VCPU: {{.ProductInfo.VMSpecInfo.VCpu.Count}}</li>
+                        <li>Memory(MiB): {{.ProductInfo.VMSpecInfo.MemSizeMiB}}</li>
+                        <li>Disk(GB): {{.ProductInfo.VMSpecInfo.DiskSizeGB}}</li>
+                        {{if .ProductInfo.VMSpecInfo.Gpu}}
+                            {{range .ProductInfo.VMSpecInfo.Gpu}}
+                                <li>GPU: {{.Count}}</li>                                
+                                <li>GPU Memory(GB): {{.MemSizeGB}}</li>
+                                <li>GPU Total Memory(GB): {{.TotalMemSizeGB}}</li>
+                            {{end}}
+                        {{end}}
+                        <li>OS: {{.ProductInfo.OSDistribution}}</li>
                         <li>PreInstalledSW: {{.ProductInfo.PreInstalledSw}}</li>
                     {{end}}
 
@@ -261,6 +266,7 @@
                         <li>MaxIOPSVolume: {{.ProductInfo.MaxIOPSVolume}}</li>
                         <li>MaxThroughputVolume: {{.ProductInfo.MaxThroughputVolume}}</li>
                     {{end}}
+                </ul>
             </td>
             <td class="top-align">
                 <!-- CSP Product Info -->
@@ -286,8 +292,8 @@
                                     <li>Offering Class: {{.PricingPolicyInfo.OfferingClass}}</li>
                                     <li>Purchase Option: {{.PricingPolicyInfo.PurchaseOption}}</li>
                                 </ul>
+                                {{end}}
                             </ul>
-                            {{end}}
                         </td>
                     </tr>
                     {{end}}
