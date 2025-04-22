@@ -685,8 +685,14 @@ func ApiServer(routes []route) {
 
 	spiderBanner()
 
-	server := &http.Server{
-		Addr: cr.ServerPort,
+	httpServerPort := cr.ServerPort
+        if cr.ServerIPorName == "localhost" || cr.ServerIPorName == "127.0.0.1" {
+                // Bind to localhost only (127.0.0.1), external clients cannot connect
+                httpServerPort = cr.ServerIPorName + cr.ServerPort
+        }
+
+        server := &http.Server{
+                Addr: httpServerPort,
 		//ReadTimeout:    6000 * time.Second, // Increase the maximum duration of reading the entire request
 		//WriteTimeout:   6000 * time.Second, // Increase the maximum duration of writing the entire response
 		//IdleTimeout:    6000 * time.Second, // Increase the maximum duration of idle keep-alive connections
