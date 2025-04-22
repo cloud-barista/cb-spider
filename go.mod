@@ -15,7 +15,6 @@ require (
 	github.com/aliyun/alibaba-cloud-sdk-go v1.63.103
 	github.com/aws/aws-sdk-go v1.39.4
 	github.com/bramvdbogaerde/go-scp v1.0.0
-	github.com/chyeh/pubip v0.0.0-20170203095919-b7e679cf541c
 	github.com/cloud-barista/cb-log v0.9.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/fsnotify/fsnotify v1.7.0
@@ -147,7 +146,6 @@ require (
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
-	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/labstack/gommon v0.4.2
 	github.com/leodido/go-urn v1.2.1 // indirect

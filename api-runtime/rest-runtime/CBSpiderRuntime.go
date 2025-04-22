@@ -22,8 +22,6 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/chyeh/pubip"
-
 	cblogger "github.com/cloud-barista/cb-log"
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	aw "github.com/cloud-barista/cb-spider/api-runtime/rest-runtime/admin-web"
@@ -106,7 +104,7 @@ func getServerIPorName(env string) string {
 	hostEnv := os.Getenv(env) // SERVER_ADDRESS or SERVICE_ADDRESS
 
 	if hostEnv == "" {
-		return getPublicIP()
+		return "localhost"
 	}
 
 	// "1.2.3.4" or "localhost"
@@ -116,24 +114,10 @@ func getServerIPorName(env string) string {
 
 	strs := strings.Split(hostEnv, ":")
 	if strs[0] == "" { // ":31024"
-		return getPublicIP()
+		return "localhost"
 	} else { // "1.2.3.4:31024" or "localhost:31024"
 		return strs[0]
 	}
-}
-
-func getPublicIP() string {
-	ip, err := pubip.Get()
-	if err != nil {
-		cblog.Error(err)
-		hostName, err := os.Hostname()
-		if err != nil {
-			cblog.Error(err)
-		}
-		return hostName
-	}
-
-	return ip.String()
 }
 
 func getServerPort(env string) string {
