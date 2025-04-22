@@ -1566,6 +1566,7 @@ func (nch *NhnCloudClusterHandler) createNodeGroup(clusterId string, nodeGroupRe
 			return "", fmt.Errorf("failed to create a node group(%s) of cluster(id=%s): %v",
 				nodeGroupName, clusterId, err)
 		}
+		imageId = imageName
 	}
 
 	flavorId, err := nch.getFlavorIdByName(nodeGroupReqInfo.VMSpecName)
