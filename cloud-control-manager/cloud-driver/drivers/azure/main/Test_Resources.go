@@ -1533,7 +1533,7 @@ func testClusterHandler(config Config) {
 			SubnetIIDs:        []irs.IID{{NameId: "mcb-test-vpc-subnet1"}},
 			SecurityGroupIIDs: []irs.IID{{NameId: "mcb-test-sg"}},
 		},
-		Version: "1.29.4",
+		Version: "1.32.3",
 		// ImageIID
 		NodeGroupList: []irs.NodeGroupInfo{
 			{
