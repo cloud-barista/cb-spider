@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/hmac" // Caution!! : Not "crypto/hmac"
@@ -186,6 +187,24 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) ListProductFamily(regionName str
 	return productCodeNameList, nil
 }
 
+// extract GPUMemory from productName
+// productName ex) "productName": "NVIDIA A100P GPU 8EA, GPUMemory 640GB, vCPU 56EA, Memory 1960GB",
+func extractGPUMemoryFromProductName(productName string) (int64, error) {
+	re := regexp.MustCompile(`GPUMemory\s+(\d+)GB`)
+	matches := re.FindStringSubmatch(productName)
+
+	if len(matches) > 1 {
+		memSizeStr := matches[1]
+		memSize, err := strconv.ParseInt(memSizeStr, 10, 64)
+		if err != nil {
+			return -1, err
+		}
+		return memSize, nil
+	}
+
+	return -1, fmt.Errorf("GPUMemory information not found in product name")
+}
+
 func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue) (string, error) {
 	cblogger.Info("NCP VPC Cloud driver: called GetPriceInfo()!!")
 	// API Guide : https://api.ncloud-docs.com/docs/platform-listprice-getproductlist
@@ -293,10 +312,26 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 
 			var gpuInfoList []irs.GpuInfo
 			if productPrice.GpuCount > 0 {
+				// Extract GPU memory information from productName
+				totalGpuMemGB := "-1"  // default value
+				singleGpuMemGB := "-1" // default value
+
+				gpuMemSize, err := extractGPUMemoryFromProductName(productPrice.ProductName)
+				if err == nil && gpuMemSize > 0 {
+					// Set total GPU memory size
+					totalGpuMemGB = strconv.FormatInt(gpuMemSize, 10)
+
+					// Calculate memory size per GPU (total / GPU count)
+					if productPrice.GpuCount > 0 {
+						singleGpuMemPerGPU := gpuMemSize / int64(productPrice.GpuCount)
+						singleGpuMemGB = strconv.FormatInt(singleGpuMemPerGPU, 10)
+					}
+				}
+
 				aGPU := irs.GpuInfo{
 					Count:          strconv.Itoa(productPrice.GpuCount),
-					MemSizeGB:      "-1",
-					TotalMemSizeGB: "-1",
+					MemSizeGB:      singleGpuMemGB, // Memory size per single GPU
+					TotalMemSizeGB: totalGpuMemGB,  // Total GPU memory size
 					Mfr:            "NA",
 					Model:          "NA",
 				}
@@ -407,7 +442,7 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 		},
 		CloudPriceList: []irs.CloudPrice{
 			{
-				CloudName: "NCP VPC",
+				CloudName: "NCP-VPC",
 				PriceList: priceList,
 			},
 		},
