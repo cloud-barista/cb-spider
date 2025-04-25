@@ -54,11 +54,17 @@ func (vmSpecHandler *NcpVpcVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error
 	}
 
 	vmSpecMap := make(map[string]*irs.VMSpecInfo)
+	var zoneCode *string
+	if vmSpecHandler.RegionInfo.Zone == "" { // this case used by PriceInfoHandler
+		zoneCode = nil
+	} else {
+		zoneCode = &vmSpecHandler.RegionInfo.Zone
+	}
 	for _, image := range imgListResult {
 		cblogger.Infof("\n### Lookup by NCP VPC Image ID(ImageProductCode) : [%s]", image.IId.SystemId)
 		vmSpecReq := vserver.GetServerSpecListRequest{
 			RegionCode:    &vmSpecHandler.RegionInfo.Region,
-			ZoneCode:      &vmSpecHandler.RegionInfo.Zone,
+			ZoneCode:      zoneCode,
 			ServerImageNo: ncloud.String(image.IId.SystemId), // ***** Caution : Mandatory. *****
 		}
 		callLogStart := call.Start()
@@ -70,8 +76,8 @@ func (vmSpecHandler *NcpVpcVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error
 		LoggingInfo(callLogInfo, callLogStart)
 
 		if len(result.ServerSpecList) < 1 {
-			rtnErr := logAndReturnError(callLogInfo, "# VMSpec info corresponding to the Image ID does Not Exist!!", "")
-			return nil, rtnErr
+			cblogger.Info("# VMSpec info corresponding to the Image ID does Not Exist!!")
+			continue // some region may not have VMSpec related specific image
 		} else {
 			for _, vmSpec := range result.ServerSpecList {
 				vmSpecInfo := vmSpecHandler.mappingVMSpecInfo(image.IId.SystemId, vmSpec)
