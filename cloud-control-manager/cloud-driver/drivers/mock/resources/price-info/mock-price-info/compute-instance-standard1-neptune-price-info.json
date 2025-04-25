@@ -5,9 +5,9 @@
         "regionName": "neptune",
         "instanceType": "mock.standard1",
         "vcpu": "2",
-        "clock": "3.4 GHz",
-        "memory": "32 GB",
-        "storage": "100 GB",
+        "clock": "3.4",
+        "memory": "32768",
+        "storage": "100",
         "processorArchitecture": "x86_64",
         "os": "Linux",
         "processorFeatures": "Intel AVX; Intel AVX2; Intel Turbo"

@@ -5,9 +5,9 @@
         "regionName": "mercury",
         "instanceType": "mock.standard2",
         "vcpu": "20",
-        "clock": "3.4 GHz",
-        "memory": "532 GB",
-        "storage": "100 GB",
+        "clock": "3.4",
+        "memory": "524288",
+        "storage": "100",
         "processorArchitecture": "x86_64",
         "os": "Linux",
         "processorFeatures": "Intel AVX; Intel AVX2; Intel Turbo"
