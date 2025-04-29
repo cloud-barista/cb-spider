@@ -206,16 +206,27 @@ func getGpuInfo(name string) (string, string, string) {
 }
 
 func setVmSpecInfo(profile vpcv1.InstanceProfile, region string) (irs.VMSpecInfo, error) {
-	if profile.Name == nil {
+	vmSpecInfo, err := setVmSpecInfoWithVMSpecName(*profile.Name, region)
+	if err != nil {
+		return irs.VMSpecInfo{}, err
+	}
+
+	vmSpecInfo.KeyValueList = irs.StructToKeyValueList(profile)
+
+	return vmSpecInfo, nil
+}
+
+func setVmSpecInfoWithVMSpecName(Name string, region string) (irs.VMSpecInfo, error) {
+	if Name == "" {
 		return irs.VMSpecInfo{}, errors.New(fmt.Sprintf("Invalid vmspec"))
 	}
 	vmSpecInfo := irs.VMSpecInfo{
 		Region:     region,
-		Name:       *profile.Name,
+		Name:       Name,
 		DiskSizeGB: "-1",
 	}
 
-	specslice := strings.Split(*profile.Name, "-")
+	specslice := strings.Split(Name, "-")
 	if len(specslice) > 1 {
 		specslice2 := strings.Split(specslice[1], "x")
 		if len(specslice2) > 1 {
@@ -230,8 +241,8 @@ func setVmSpecInfo(profile vpcv1.InstanceProfile, region string) (irs.VMSpecInfo
 	}
 
 	vmSpecInfo.Gpu = []irs.GpuInfo{}
-	if strings.HasPrefix(*profile.Name, "gx") {
-		gpuMfr, gpuCount, gpuModel := getGpuInfo(*profile.Name)
+	if strings.HasPrefix(Name, "gx") {
+		gpuMfr, gpuCount, gpuModel := getGpuInfo(Name)
 		vmSpecInfo.Gpu = []irs.GpuInfo{
 			{
 				Mfr:            gpuMfr,
@@ -242,8 +253,6 @@ func setVmSpecInfo(profile vpcv1.InstanceProfile, region string) (irs.VMSpecInfo
 			},
 		}
 	}
-
-	vmSpecInfo.KeyValueList = irs.StructToKeyValueList(profile)
 
 	return vmSpecInfo, nil
 }

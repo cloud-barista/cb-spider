@@ -186,8 +186,10 @@ func (cloudConn *IbmCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHa
 func (cloudConn *IbmCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
 	cblogger.Info("Ibm Cloud Driver: called CreatePriceInfoHandler()!")
 	priceInfoHandler := ibmrs.IbmPriceInfoHandler{
-		Region: cloudConn.Region,
-		Ctx:    cloudConn.Ctx,
+		CredentialInfo: cloudConn.CredentialInfo,
+		Region:         cloudConn.Region,
+		VpcService:     cloudConn.VpcService,
+		Ctx:            cloudConn.Ctx,
 	}
 	return &priceInfoHandler, nil
 }
