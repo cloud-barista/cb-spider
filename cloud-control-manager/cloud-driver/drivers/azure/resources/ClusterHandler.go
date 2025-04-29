@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns"
 	"io"
 	"math"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"reflect"
 	"sort"
 	"strconv"
@@ -50,6 +53,7 @@ type AzureClusterHandler struct {
 	SecurityRulesClient             *armnetwork.SecurityRulesClient
 	VirtualMachineSizesClient       *armcompute.VirtualMachineSizesClient
 	SSHPublicKeysClient             *armcompute.SSHPublicKeysClient
+	DnsZonesClient                  *armdns.ZonesClient
 }
 
 type auth struct {
@@ -200,7 +204,14 @@ func (ac *AzureClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (in
 	}
 	defer func() {
 		if createErr != nil {
-			_ = cleanCluster(clusterReqInfo.IId.NameId, ac.ManagedClustersClient, ac.Region.Region, ac.Ctx)
+			_ = cleanCluster(
+				clusterReqInfo.IId.NameId,
+				ac.ManagedClustersClient,
+				ac.Region.Region,
+				ac.Ctx,
+				ac.CredentialInfo,
+				ac.DnsZonesClient,
+			)
 		}
 	}()
 	baseSecurityGroup, err := waitingClusterBaseSecurityGroup(irs.IID{NameId: clusterReqInfo.IId.NameId}, ac.ManagedClustersClient, ac.SecurityGroupsClient, ac.Ctx, ac.CredentialInfo, ac.Region)
@@ -295,11 +306,14 @@ func (ac *AzureClusterHandler) DeleteCluster(clusterIID irs.IID) (deleteResult b
 	hiscallInfo := GetCallLogScheme(ac.Region, call.CLUSTER, clusterIID.NameId, "DeleteCluster()")
 	start := call.Start()
 
-	err := cleanCluster(clusterIID.NameId, ac.ManagedClustersClient, ac.Region.Region, ac.Ctx)
+	err := cleanCluster(clusterIID.NameId, ac.ManagedClustersClient, ac.Region.Region, ac.Ctx, ac.CredentialInfo, ac.DnsZonesClient)
 	if err != nil {
 		delErr = errors.New(fmt.Sprintf("Failed to Delete Cluster. err = %s", err))
 		cblogger.Error(delErr.Error())
 		LoggingError(hiscallInfo, delErr)
+		if err != nil {
+			return false, fmt.Errorf("failed to delete cluster and dns zone: %w", err)
+		}
 		return false, delErr
 	}
 	LoggingInfo(hiscallInfo, start)
@@ -1082,6 +1096,52 @@ func checkValidationNodeGroups(nodeGroups []irs.NodeGroupInfo, virtualMachineSiz
 	return nil
 }
 
+func makeDNSZoneName(clusterName string) string {
+	baseDomain := os.Getenv("DNS_BASE_DOMAIN")
+	if baseDomain == "" {
+		baseDomain = "com"
+	}
+	return fmt.Sprintf("%s.%s", clusterName, baseDomain)
+}
+
+func generateDnsZone(regionInfo irs.RegionInfo, credentialInfo idrv.CredentialInfo, clusterName string) (string, error) {
+	resourceGroup := regionInfo.Region
+	dnsZoneName := makeDNSZoneName(clusterName)
+	cred, err := azidentity.NewClientSecretCredential(
+		credentialInfo.TenantId,
+		credentialInfo.ClientId,
+		credentialInfo.ClientSecret,
+		nil,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to create azure credential: %v", err)
+	}
+
+	dnsZoneClient, err := armdns.NewZonesClient(credentialInfo.SubscriptionId, cred, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create dns zone client: %v", err)
+	}
+
+	ctx := context.Background()
+
+	globalLocation := "global"
+
+	resp, err := dnsZoneClient.CreateOrUpdate(
+		ctx,
+		resourceGroup,
+		dnsZoneName,
+		armdns.Zone{
+			Location: &globalLocation,
+		},
+		nil,
+	)
+	if err != nil {
+		return "", fmt.Errorf("failed to create or update dns zone: %v", err)
+	}
+
+	return *resp.ID, nil
+}
+
 func checkValidationCreateCluster(clusterReqInfo irs.ClusterInfo, virtualMachineSizesClient *armcompute.VirtualMachineSizesClient, regionInfo idrv.RegionInfo, ctx context.Context) error {
 	// nodegroup 확인
 	err := checkValidationNodeGroups(clusterReqInfo.NodeGroupList, virtualMachineSizesClient, regionInfo, ctx)
@@ -1093,7 +1153,6 @@ func checkValidationCreateCluster(clusterReqInfo irs.ClusterInfo, virtualMachine
 }
 
 func createCluster(clusterReqInfo irs.ClusterInfo, ac *AzureClusterHandler) error {
-	// 사전 확인
 	err := checkValidationCreateCluster(clusterReqInfo, ac.VirtualMachineSizesClient, ac.Region, ac.Ctx)
 	if err != nil {
 		return err
@@ -1121,7 +1180,17 @@ func createCluster(clusterReqInfo irs.ClusterInfo, ac *AzureClusterHandler) erro
 	if err != nil {
 		return err
 	}
-	addonProfiles := generatePreparedAddonProfiles()
+
+	regionForDns := irs.RegionInfo{
+		Region: ac.Region.Region,
+	}
+
+	zoneID, err := generateDnsZone(regionForDns, ac.CredentialInfo, clusterReqInfo.IId.NameId)
+	if err != nil {
+		return fmt.Errorf("failed to create dns zone: %v", err)
+	}
+
+	ingressProfile := generateIngressProfile(&zoneID)
 
 	clusterCreateOpts := armcontainerservice.ManagedCluster{
 		Location: toStrPtr(ac.Region.Region),
@@ -1141,7 +1210,7 @@ func createCluster(clusterReqInfo irs.ClusterInfo, ac *AzureClusterHandler) erro
 			AgentPoolProfiles: agentPoolProfiles,
 			NetworkProfile:    &networkProfile,
 			LinuxProfile:      &linuxProfileSSH,
-			AddonProfiles:     addonProfiles,
+			IngressProfile:    ingressProfile,
 		},
 	}
 	if clusterReqInfo.TagList != nil {
@@ -1162,12 +1231,51 @@ func createCluster(clusterReqInfo irs.ClusterInfo, ac *AzureClusterHandler) erro
 	return nil
 }
 
-func cleanCluster(clusterName string, managedClustersClient *armcontainerservice.ManagedClustersClient, region string, ctx context.Context) error {
-	// cluster subresource Clean 현재 없음
-	// delete Cluster
-	_, err := managedClustersClient.BeginDelete(ctx, region, clusterName, nil)
+func cleanCluster(
+	clusterName string,
+	managedClustersClient *armcontainerservice.ManagedClustersClient,
+	region string,
+	ctx context.Context,
+	credentialInfo idrv.CredentialInfo, // ① 추가
+	dnsZonesClient *armdns.ZonesClient,
+) error {
+
+	poller, err := managedClustersClient.BeginDelete(ctx, region, clusterName, nil)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to begin deleting cluster: %w", err)
+	}
+	if _, err := poller.PollUntilDone(ctx, nil); err != nil {
+		return fmt.Errorf("failed to delete cluster: %w", err)
+	}
+
+	if dnsZonesClient == nil {
+		cred, err := azidentity.NewClientSecretCredential(
+			credentialInfo.TenantId,
+			credentialInfo.ClientId,
+			credentialInfo.ClientSecret,
+			nil,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to create credential for dns client: %w", err)
+		}
+		dnsZonesClient, err = armdns.NewZonesClient(credentialInfo.SubscriptionId, cred, nil)
+		if err != nil {
+			return fmt.Errorf("failed to create dns zones client: %w", err)
+		}
+	}
+
+	baseDomain := os.Getenv("DNS_BASE_DOMAIN")
+	if baseDomain == "" {
+		baseDomain = "com"
+	}
+	dnsZoneName := fmt.Sprintf("%s.%s", clusterName, baseDomain)
+
+	dnsPoller, err := dnsZonesClient.BeginDelete(ctx, region, dnsZoneName, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin deleting dns zone %q: %w", dnsZoneName, err)
+	}
+	if _, err := dnsPoller.PollUntilDone(ctx, nil); err != nil {
+		return fmt.Errorf("failed to delete dns zone %q: %w", dnsZoneName, err)
 	}
 
 	return nil
@@ -1346,10 +1454,11 @@ func getSSHKeyIIDByNodeGroups(NodeGroupInfos []irs.NodeGroupInfo) (irs.IID, erro
 	return *key, nil
 }
 
-func generatePreparedAddonProfiles() map[string]*armcontainerservice.ManagedClusterAddonProfile {
-	return map[string]*armcontainerservice.ManagedClusterAddonProfile{
-		"httpApplicationRouting": {
-			Enabled: toBoolPtr(true),
+func generateIngressProfile(dnsZoneID *string) *armcontainerservice.ManagedClusterIngressProfile {
+	return &armcontainerservice.ManagedClusterIngressProfile{
+		WebAppRouting: &armcontainerservice.ManagedClusterIngressProfileWebAppRouting{
+			Enabled:            toBoolPtr(true),
+			DNSZoneResourceIDs: []*string{dnsZoneID},
 		},
 	}
 }
