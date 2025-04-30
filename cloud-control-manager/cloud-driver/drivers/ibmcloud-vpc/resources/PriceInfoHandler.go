@@ -1418,12 +1418,11 @@ func (priceInfoHandler *IbmPriceInfoHandler) CreateGen2ProfilePrice(profile VPCP
 		return irs.Price{}, fmt.Errorf("Profile %s doesn't match filters or has no pricing policies", profile.Name)
 	}
 
-	// CSP API로부터 얻은 원본 프로파일 가격 정보를 그대로 CSPPriceInfo에 저장
 	return irs.Price{
 		ProductInfo: productInfo,
 		PriceInfo: irs.PriceInfo{
-			PricingPolicies: pricingPolicies, // Only return the TOTAL pricing policy
-			CSPPriceInfo:    profilePricing,  // 원본 API 응답인 ProfilePricing 객체 그대로 전달
+			PricingPolicies: pricingPolicies,
+			CSPPriceInfo:    profilePricing,
 		},
 	}, nil
 }
@@ -1502,10 +1501,10 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen3ProfilePrice(childrenURL str
 
 	// Create product info
 	productInfo := irs.ProductInfo{
-		ProductId:      fmt.Sprintf("%s-%s", profile.Name, regionName), // {profile name}-{region} 형식으로 변경
+		ProductId:      fmt.Sprintf("%s-%s", profile.Name, regionName), // {profile name}-{region} format
 		RegionName:     regionName,
 		Description:    fmt.Sprintf("IBM VPC %s instance profile %s with %d vCPU and %d GB RAM", profile.Generation, profile.Name, profile.VCPU, profile.Memory),
-		CSPProductInfo: profile, // 원본 VPC Profile 객체 그대로 전달
+		CSPProductInfo: profile,
 	}
 
 	// Set VM spec info
@@ -1549,7 +1548,7 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen3ProfilePrice(childrenURL str
 	var totalPrice float64 = 0
 
 	for _, metric := range priceInfo.Metrics {
-		// 오직 INSTANCE_HOURS_MULTI_TENANT와 INSTANCE_HOURS_MULTI_TENANT_TDX만 처리
+		// only consider INSTANCE_HOURS_MULTI_TENANT and INSTANCE_HOURS_MULTI_TENANT_TDX
 		if metric.ChargeUnitName == "INSTANCE_HOURS_MULTI_TENANT" ||
 			metric.ChargeUnitName == "INSTANCE_HOURS_MULTI_TENANT_TDX" {
 
@@ -1567,7 +1566,7 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen3ProfilePrice(childrenURL str
 				}
 			}
 
-			// USA/USD 가격이 없을 경우 첫 번째 USD 가격을 사용
+			// if no USA price found, fallback to other prices
 			if !foundUSAPrice {
 				for _, amount := range metric.Amounts {
 					if amount.Currency == "USD" && len(amount.Prices) > 0 {
@@ -1578,7 +1577,7 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen3ProfilePrice(childrenURL str
 				}
 			}
 
-			// 가격 설명 생성
+			// generate description based on charge unit name
 			var description string
 			if metric.ChargeUnitName == "INSTANCE_HOURS_MULTI_TENANT" {
 				description = fmt.Sprintf("Standard Instance-Hours for %s (%d vCPU, %d GB)",
@@ -1588,16 +1587,14 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen3ProfilePrice(childrenURL str
 					profile.Name, profile.VCPU, profile.Memory)
 			}
 
-			// 총 가격에 추가
 			totalPrice += metricPrice
 
-			// 가격 정책 생성 (for internal calculation only)
 			allPricingPolicies = append(allPricingPolicies, irs.PricingPolicies{
 				PricingId:     metric.MetricID,
 				PricingPolicy: "OnDemand",
 				Unit:          metric.ChargeUnit,
 				Currency:      metricCurrency,
-				Price:         strconv.FormatFloat(math.Round(metricPrice*1000)/1000, 'f', 3, 64), // 소수점 3자리 반올림
+				Price:         strconv.FormatFloat(math.Round(metricPrice*1000)/1000, 'f', 3, 64),
 				Description:   description,
 			})
 		}
@@ -1606,14 +1603,13 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen3ProfilePrice(childrenURL str
 	// Create final pricing policies list (only TOTAL)
 	var pricingPolicies []irs.PricingPolicies
 
-	// 표준 가격과 TDX 가격이 모두 있는 경우, 총합 가격 추가
 	if len(allPricingPolicies) > 0 {
 		pricingPolicies = append(pricingPolicies, irs.PricingPolicies{
 			PricingId:     "TOTAL",
 			PricingPolicy: "OnDemand",
 			Unit:          "Hour",
 			Currency:      "USD",
-			Price:         strconv.FormatFloat(math.Round(totalPrice*1000)/1000, 'f', 3, 64), // 소수점 3자리 반올림
+			Price:         strconv.FormatFloat(math.Round(totalPrice*1000)/1000, 'f', 3, 64),
 			Description: fmt.Sprintf("Total hourly cost for %s (%d vCPU, %d GB)",
 				profile.Name, profile.VCPU, profile.Memory),
 		})
