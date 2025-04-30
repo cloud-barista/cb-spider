@@ -1111,6 +1111,8 @@ func mappingClusterInfo(cluster *container.Cluster) (ClusterInfo irs.ClusterInfo
 	clusterInfo.CreatedTime = createDatetime
 	clusterInfo.Addons = addOnsInfo
 
+	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	clusterInfo.KeyValueList = irs.StructToKeyValueList(cluster)
 	// cblogger.Debug(clusterInfo)
 
 	return clusterInfo, nil
@@ -1146,7 +1148,9 @@ func mappingNodeGroupInfo(nodePool *container.NodePool) (NodeGroupInfo irs.NodeG
 	nodeGroupInfo.RootDiskSize = strconv.FormatInt(nodePool.Config.DiskSizeGb, 10)
 	nodeGroupInfo.RootDiskType = nodePool.Config.DiskType
 
-	keyValueList := []irs.KeyValue{}
+	// 2025-03-13 StructToKeyValueList 사용으로 변경. InstanceGroup_idx 와 GCP_PMKS_KEYPAIR_KEY 는 살려둠
+	keyValueList := irs.StructToKeyValueList(nodePool)
+
 	if nodePool.InstanceGroupUrls != nil {
 		for idx, instanceGroupUrl := range nodePool.InstanceGroupUrls {
 			urlArr := strings.Split(instanceGroupUrl, "/")
@@ -1156,7 +1160,6 @@ func mappingNodeGroupInfo(nodePool *container.NodePool) (NodeGroupInfo irs.NodeG
 			// InstanceGroup.ListInstances
 			//"instance": "https://www.googleapis.com/compute/v1/projects/csta-349809/zones/asia-northeast1-a/instances/gke-spider-cluster-03-ce-default-pool-3082fa6f-kvks",
 		}
-
 	}
 
 	// add keypair label
@@ -1167,8 +1170,8 @@ func mappingNodeGroupInfo(nodePool *container.NodePool) (NodeGroupInfo irs.NodeG
 			}
 		}
 	}
-
 	nodeGroupInfo.KeyValueList = keyValueList
+	// nodeGroupInfo.KeyValueList = keyValueList
 
 	return nodeGroupInfo, nil
 }

@@ -5,9 +5,9 @@
         "regionName": "jupiter",
         "instanceType": "mock.enhnace1",
         "vcpu": "8",
-        "clock": "2.4 GHz",
-        "memory": "16 GB",
-        "storage": "40 GB",
+        "clock": "2.4",
+        "memory": "16384",
+        "storage": "40",
         "processorArchitecture": "x86_64",
         "os": "Linux",
         "processorFeatures": "Intel AVX; Intel AVX2; Intel Turbo"

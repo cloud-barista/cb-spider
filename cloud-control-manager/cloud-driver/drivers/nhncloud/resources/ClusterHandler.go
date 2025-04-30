@@ -11,7 +11,6 @@
 package resources
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"runtime/debug"
@@ -30,7 +29,6 @@ import (
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/subnets"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/vpcs"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/vpcsubnets"
-	"github.com/jeremywohl/flatten"
 	"golang.org/x/mod/semver"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -750,15 +748,7 @@ func (nch *NhnCloudClusterHandler) getClusterInfoWithoutNodeGroupList(clusterId 
 	//
 	// Fill clusterInfo.KeyValueList
 	//
-	kvList, err := nch.convertObjectToKeyValueList(cluster)
-	if err != nil {
-		err = fmt.Errorf("failed to get key value list: %v", err)
-		return nil, "", err
-	}
-
-	for _, kv := range kvList {
-		clusterInfo.KeyValueList = append(clusterInfo.KeyValueList, kv)
-	}
+	clusterInfo.KeyValueList = irs.StructToKeyValueList(cluster)
 
 	return clusterInfo, cluster.KeyPair, nil
 }
@@ -980,15 +970,7 @@ func (nch *NhnCloudClusterHandler) getNodeGroupInfo(clusterId, nodeGroupId, keyP
 	//
 	// Fill nodeGroupInfo.KeyValueList
 	//
-	kvList, err := nch.convertObjectToKeyValueList(nodeGroup)
-	if err != nil {
-		err = fmt.Errorf("failed to get key value list: %v", err)
-		return nil, err
-	}
-
-	for _, kv := range kvList {
-		nodeGroupInfo.KeyValueList = append(nodeGroupInfo.KeyValueList, kv)
-	}
+	nodeGroupInfo.KeyValueList = irs.StructToKeyValueList(nodeGroup)
 
 	return nodeGroupInfo, err
 }
@@ -1087,7 +1069,7 @@ func (nch *NhnCloudClusterHandler) getLabelsForNodeGroup(nodeGroupInfo *irs.Node
 	}
 
 	if strings.EqualFold(nodeGroupInfo.RootDiskSize, "") || strings.EqualFold(nodeGroupInfo.RootDiskSize, "default") {
-		nodeGroupInfo.RootDiskSize = DefaultDiskSize
+		nodeGroupInfo.RootDiskSize = DefaultNodeRootDiskSize
 	}
 	bootVolumeSize := nodeGroupInfo.RootDiskSize
 
@@ -1530,37 +1512,6 @@ func (nch *NhnCloudClusterHandler) getClusterAccessInfo(cluster *clusters.Cluste
 	return accessInfo, nil
 }
 
-func (nch *NhnCloudClusterHandler) convertObjectToKeyValueList(v any) ([]irs.KeyValue, error) {
-	var emptyObjectKeyValueList []irs.KeyValue
-
-	jsonAny, err := json.Marshal(v)
-	if err != nil {
-		err = fmt.Errorf("failed to marshal object: %v", err)
-		return emptyObjectKeyValueList, err
-	}
-
-	var mapAny map[string]interface{}
-	err = json.Unmarshal(jsonAny, &mapAny)
-	if err != nil {
-		err = fmt.Errorf("failed to unmarshal object: %v", err)
-		return emptyObjectKeyValueList, err
-	}
-
-	flat, err := flatten.Flatten(mapAny, "", flatten.DotStyle)
-	if err != nil {
-		err = fmt.Errorf("failed to flatten object: %v", err)
-		return emptyObjectKeyValueList, err
-	}
-	delete(flat, "meta_data")
-
-	var objectKeyValueList []irs.KeyValue
-	for k, v := range flat {
-		objectKeyValueList = append(objectKeyValueList, irs.KeyValue{Key: k, Value: fmt.Sprintf("%v", v)})
-	}
-
-	return objectKeyValueList, nil
-}
-
 func (nch *NhnCloudClusterHandler) createNodeGroup(clusterId string, nodeGroupReqInfo *irs.NodeGroupInfo) (string, error) {
 	nodeGroupName := nodeGroupReqInfo.IId.NameId
 
@@ -1615,6 +1566,7 @@ func (nch *NhnCloudClusterHandler) createNodeGroup(clusterId string, nodeGroupRe
 			return "", fmt.Errorf("failed to create a node group(%s) of cluster(id=%s): %v",
 				nodeGroupName, clusterId, err)
 		}
+		imageId = imageName
 	}
 
 	flavorId, err := nch.getFlavorIdByName(nodeGroupReqInfo.VMSpecName)

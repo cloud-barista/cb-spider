@@ -29,7 +29,7 @@ type AzureSecurityHandler struct {
 }
 
 func (securityHandler *AzureSecurityHandler) setterSec(securityGroup *armnetwork.SecurityGroup) *irs.SecurityInfo {
-	keyValues := []irs.KeyValue{{Key: "ResourceGroup", Value: securityHandler.Region.Region}}
+	//keyValues := []irs.KeyValue{{Key: "ResourceGroup", Value: securityHandler.Region.Region}}
 	security := &irs.SecurityInfo{
 		IId: irs.IID{
 			NameId:   *securityGroup.Name,
@@ -42,51 +42,52 @@ func (securityHandler *AzureSecurityHandler) setterSec(securityGroup *armnetwork
 		if *sgRule.Properties.Access == armnetwork.SecurityRuleAccessAllow {
 			ruleInfo, _ := convertRuleInfoAZToCB(sgRule)
 			securityRuleArr = append(securityRuleArr, ruleInfo)
-		} else {
-			unControlledRule := unControlledRule{
-				Name:        *sgRule.Name,
-				Port:        *sgRule.Properties.DestinationPortRange,
-				Protocol:    fmt.Sprint(*sgRule.Properties.Protocol),
-				source:      *sgRule.Properties.SourceAddressPrefix,
-				Destination: *sgRule.Properties.DestinationAddressPrefix,
-				Action:      string(armnetwork.SecurityRuleAccessDeny),
-			}
-			b, err := json.Marshal(unControlledRule)
-			if err == nil {
-				keyValues = append(keyValues, irs.KeyValue{
-					Key:   *sgRule.Name,
-					Value: string(b),
-				})
-			}
-		}
+		} // else {
+		//unControlledRule := unControlledRule{
+		//	Name:        *sgRule.Name,
+		//	Port:        *sgRule.Properties.DestinationPortRange,
+		//	Protocol:    fmt.Sprint(*sgRule.Properties.Protocol),
+		//	source:      *sgRule.Properties.SourceAddressPrefix,
+		//	Destination: *sgRule.Properties.DestinationAddressPrefix,
+		//	Action:      string(armnetwork.SecurityRuleAccessDeny),
+		//}
+		//b, err := json.Marshal(unControlledRule)
+		//if err == nil {
+		//	keyValues = append(keyValues, irs.KeyValue{
+		//		Key:   *sgRule.Name,
+		//		Value: string(b),
+		//	})
+		//}
+		//}
 	}
-	for _, sgRule := range securityGroup.Properties.DefaultSecurityRules {
-		action := string(armnetwork.SecurityRuleAccessDeny)
-		if *sgRule.Properties.Access == armnetwork.SecurityRuleAccessAllow {
-			action = string(armnetwork.SecurityRuleAccessAllow)
-		}
-		unControlledRule := unControlledRule{
-			Name:        *sgRule.Name,
-			Port:        *sgRule.Properties.DestinationPortRange,
-			Protocol:    fmt.Sprint(*sgRule.Properties.Protocol),
-			source:      *sgRule.Properties.SourceAddressPrefix,
-			Destination: *sgRule.Properties.DestinationAddressPrefix,
-			Action:      action,
-		}
-		b, err := json.Marshal(unControlledRule)
-		if err == nil {
-			keyValues = append(keyValues, irs.KeyValue{
-				Key:   *sgRule.Name,
-				Value: string(b),
-			})
-		}
-	}
+	//for _, sgRule := range securityGroup.Properties.DefaultSecurityRules {
+	//	action := string(armnetwork.SecurityRuleAccessDeny)
+	//	if *sgRule.Properties.Access == armnetwork.SecurityRuleAccessAllow {
+	//		action = string(armnetwork.SecurityRuleAccessAllow)
+	//	}
+	//	unControlledRule := unControlledRule{
+	//		Name:        *sgRule.Name,
+	//		Port:        *sgRule.Properties.DestinationPortRange,
+	//		Protocol:    fmt.Sprint(*sgRule.Properties.Protocol),
+	//		source:      *sgRule.Properties.SourceAddressPrefix,
+	//		Destination: *sgRule.Properties.DestinationAddressPrefix,
+	//		Action:      action,
+	//	}
+	//	b, err := json.Marshal(unControlledRule)
+	//	if err == nil {
+	//		keyValues = append(keyValues, irs.KeyValue{
+	//			Key:   *sgRule.Name,
+	//			Value: string(b),
+	//		})
+	//	}
+	//}
 
 	if securityGroup.Tags != nil {
 		security.TagList = setTagList(securityGroup.Tags)
 	}
 
-	security.KeyValueList = keyValues
+	//security.KeyValueList = keyValues
+	security.KeyValueList = irs.StructToKeyValueList(securityGroup)
 	security.SecurityRules = &securityRuleArr
 
 	return security

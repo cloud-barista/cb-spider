@@ -14,14 +14,13 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"net/http"
 	"os"
-
-	"github.com/chyeh/pubip"
 
 	cblogger "github.com/cloud-barista/cb-log"
 	cr "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
@@ -33,7 +32,7 @@ import (
 	// REST API (echo)
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/labstack/gommon/log"
+	lblog "github.com/labstack/gommon/log"
 
 	// echo-swagger middleware
 	_ "github.com/cloud-barista/cb-spider/api"
@@ -105,7 +104,7 @@ func getServerIPorName(env string) string {
 	hostEnv := os.Getenv(env) // SERVER_ADDRESS or SERVICE_ADDRESS
 
 	if hostEnv == "" {
-		return getPublicIP()
+		return "localhost"
 	}
 
 	// "1.2.3.4" or "localhost"
@@ -115,24 +114,10 @@ func getServerIPorName(env string) string {
 
 	strs := strings.Split(hostEnv, ":")
 	if strs[0] == "" { // ":31024"
-		return getPublicIP()
+		return "localhost"
 	} else { // "1.2.3.4:31024" or "localhost:31024"
 		return strs[0]
 	}
-}
-
-func getPublicIP() string {
-	ip, err := pubip.Get()
-	if err != nil {
-		cblog.Error(err)
-		hostName, err := os.Hostname()
-		if err != nil {
-			cblog.Error(err)
-		}
-		return hostName
-	}
-
-	return ip.String()
 }
 
 func getServerPort(env string) string {
@@ -200,6 +185,10 @@ func RunServer() {
 		{"GET", "/health", healthCheck},
 		{"GET", "/ping", healthCheck},
 		{"GET", "/readyz", healthCheck},
+
+		//----------SystemStatsInfo Handler
+		{"GET", "/sysstats/system", FetchSystemInfo},
+		{"GET", "/sysstats/usage", FetchResourceUsage},
 
 		//----------CloudOS
 		{"GET", "/cloudos", ListCloudOS},
@@ -527,6 +516,8 @@ func RunServer() {
 
 		{"GET", "/adminweb/spiderinfo", aw.SpiderInfo},
 
+		{"GET", "/adminweb/sysstats", aw.SystemStatsInfoPage},
+
 		{"GET", "/adminweb/vpc/:ConnectConfig", aw.VPCSubnetManagement},
 		{"GET", "/adminweb/vpcmgmt/:ConnectConfig", aw.VPCMgmt},
 		{"GET", "/adminweb/securitygroup/:ConnectConfig", aw.SecurityGroupManagement},
@@ -571,7 +562,7 @@ func RunServer() {
 
 func RunTLSServer(certFile, keyFile, caCertFile string, port int) {
 	e := echo.New()
-	e.Logger.SetLevel(log.ERROR) // Set logging level to ERROR only
+	e.Logger.SetLevel(lblog.ERROR) // Set logging level to ERROR only
 
 	// Recovery middleware for handling panics
 	e.Use(middleware.Recover())
@@ -694,18 +685,24 @@ func ApiServer(routes []route) {
 
 	spiderBanner()
 
-	if err := e.Start(cr.ServerPort); err != nil {
-		cblog.Fatalf("Failed to start the server: %v", err)
+	httpServerPort := cr.ServerPort
+        if cr.ServerIPorName == "localhost" || cr.ServerIPorName == "127.0.0.1" {
+                // Bind to localhost only (127.0.0.1), external clients cannot connect
+                httpServerPort = cr.ServerIPorName + cr.ServerPort
+        }
+
+        server := &http.Server{
+                Addr: httpServerPort,
+		//ReadTimeout:    6000 * time.Second, // Increase the maximum duration of reading the entire request
+		//WriteTimeout:   6000 * time.Second, // Increase the maximum duration of writing the entire response
+		//IdleTimeout:    6000 * time.Second, // Increase the maximum duration of idle keep-alive connections
+		MaxHeaderBytes: 500 * 1024 * 1024, // Increase the maximum header size allowed by the server
+		ErrorLog:       log.New(os.Stderr, "HTTP SERVER ERROR: ", log.LstdFlags),
 	}
 
-}
-
-// ================ API Info
-func apiInfo(c echo.Context) error {
-	cblog.Info("call apiInfo()")
-
-	apiInfo := "api info"
-	return c.String(http.StatusOK, apiInfo)
+	if err := e.StartServer(server); err != nil {
+		cblog.Fatalf("Failed to start the server: %v", err)
+	}
 }
 
 // ================ Endpoint Info

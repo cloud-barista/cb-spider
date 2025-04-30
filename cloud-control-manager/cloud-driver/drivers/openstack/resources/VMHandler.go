@@ -841,6 +841,8 @@ func (vmHandler *OpenStackVMHandler) mappingServerInfo(server servers.Server) ir
 		cblogger.Warn("Failed to get VM tags. err = " + err.Error())
 	}
 
+	vmInfo.KeyValueList = irs.StructToKeyValueList(server)
+
 	return vmInfo
 }
 

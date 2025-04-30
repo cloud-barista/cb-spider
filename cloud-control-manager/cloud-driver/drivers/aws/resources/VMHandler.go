@@ -1018,10 +1018,10 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstanceToVmInfo(instance *ec2.Ins
 		//AdditionalInfo: "State:" + *reservation.Instances[0].State.Name,
 	}
 
-	keyValueList := []irs.KeyValue{
-		{Key: "State", Value: *instance.State.Name},
-		{Key: "Architecture", Value: *instance.Architecture},
-	}
+	// keyValueList := []irs.KeyValue{
+	// 	{Key: "State", Value: *instance.State.Name},
+	// 	{Key: "Architecture", Value: *instance.Architecture},
+	// }
 
 	//if *reservation.Instances[0].LaunchTime != "" {
 	vmInfo.StartTime = *instance.LaunchTime
@@ -1113,11 +1113,11 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstanceToVmInfo(instance *ec2.Ins
 		if !reflect.ValueOf(instance.NetworkInterfaces[0].VpcId).IsNil() {
 			//vmInfo.VirtualNetworkId = *reservation.Instances[0].NetworkInterfaces[0].VpcId
 			vmInfo.VpcIID = irs.IID{NameId: "", SystemId: *instance.NetworkInterfaces[0].VpcId}
-			keyValueList = append(keyValueList, irs.KeyValue{Key: "VpcId", Value: *instance.NetworkInterfaces[0].VpcId})
+			// keyValueList = append(keyValueList, irs.KeyValue{Key: "VpcId", Value: *instance.NetworkInterfaces[0].VpcId})
 		}
 
 		if !reflect.ValueOf(instance.NetworkInterfaces[0].SubnetId).IsNil() {
-			keyValueList = append(keyValueList, irs.KeyValue{Key: "SubnetId", Value: *instance.NetworkInterfaces[0].SubnetId})
+			// keyValueList = append(keyValueList, irs.KeyValue{Key: "SubnetId", Value: *instance.NetworkInterfaces[0].SubnetId})
 			vmInfo.SubnetIID = irs.IID{SystemId: *instance.NetworkInterfaces[0].SubnetId}
 		}
 
@@ -1157,9 +1157,9 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstanceToVmInfo(instance *ec2.Ins
 		}
 	*/
 
-	if !reflect.ValueOf(instance.KeyName).IsNil() {
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "KeyName", Value: *instance.KeyName})
-	}
+	// if !reflect.ValueOf(instance.KeyName).IsNil() {
+	// 	keyValueList = append(keyValueList, irs.KeyValue{Key: "KeyName", Value: *instance.KeyName})
+	// }
 
 	if !reflect.ValueOf(instance.Platform).IsNil() {
 		if strings.ToLower(*instance.Platform) == "windows" {
@@ -1168,9 +1168,10 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstanceToVmInfo(instance *ec2.Ins
 	} else {
 		vmInfo.Platform = irs.LINUX_UNIX
 	}
-	if !reflect.ValueOf(instance.VirtualizationType).IsNil() {
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "VirtualizationType", Value: *instance.VirtualizationType})
-	}
+
+	// if !reflect.ValueOf(instance.VirtualizationType).IsNil() {
+	// 	keyValueList = append(keyValueList, irs.KeyValue{Key: "VirtualizationType", Value: *instance.VirtualizationType})
+	// }
 
 	//Name은 Tag의 "Name" 속성에만 저장됨
 	cblogger.Debug("Name Tag 찾기")
@@ -1182,7 +1183,8 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstanceToVmInfo(instance *ec2.Ins
 		}
 	}
 
-	vmInfo.KeyValueList = keyValueList
+	// vmInfo.KeyValueList = keyValueList
+	vmInfo.KeyValueList = irs.StructToKeyValueList(instance) // KeyValueList 추가
 	vmInfo.TagList, _ = vmHandler.TagHandler.ListTag(irs.VM, vmInfo.IId)
 	//vmInfo.TagList, _ = GetResourceTag(vmHandler, vmInfo.IId)
 	return vmInfo
@@ -1210,10 +1212,10 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reserva
 		//AdditionalInfo: "State:" + *reservation.Instances[0].State.Name,
 	}
 
-	keyValueList := []irs.KeyValue{
-		{Key: "State", Value: *reservation.Instances[0].State.Name},
-		{Key: "Architecture", Value: *reservation.Instances[0].Architecture},
-	}
+	// keyValueList := []irs.KeyValue{
+	// 	{Key: "State", Value: *reservation.Instances[0].State.Name},
+	// 	{Key: "Architecture", Value: *reservation.Instances[0].Architecture},
+	// }
 
 	//if *reservation.Instances[0].LaunchTime != "" {
 	vmInfo.StartTime = *reservation.Instances[0].LaunchTime
@@ -1270,11 +1272,11 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reserva
 		if !reflect.ValueOf(reservation.Instances[0].NetworkInterfaces[0].VpcId).IsNil() {
 			//vmInfo.VirtualNetworkId = *reservation.Instances[0].NetworkInterfaces[0].VpcId
 			vmInfo.VpcIID = irs.IID{"", *reservation.Instances[0].NetworkInterfaces[0].VpcId}
-			keyValueList = append(keyValueList, irs.KeyValue{Key: "VpcId", Value: *reservation.Instances[0].NetworkInterfaces[0].VpcId})
+			// keyValueList = append(keyValueList, irs.KeyValue{Key: "VpcId", Value: *reservation.Instances[0].NetworkInterfaces[0].VpcId})
 		}
 
 		if !reflect.ValueOf(reservation.Instances[0].NetworkInterfaces[0].SubnetId).IsNil() {
-			keyValueList = append(keyValueList, irs.KeyValue{Key: "SubnetId", Value: *reservation.Instances[0].NetworkInterfaces[0].SubnetId})
+			// keyValueList = append(keyValueList, irs.KeyValue{Key: "SubnetId", Value: *reservation.Instances[0].NetworkInterfaces[0].SubnetId})
 			vmInfo.SubnetIID = irs.IID{SystemId: *reservation.Instances[0].NetworkInterfaces[0].SubnetId}
 		}
 
@@ -1322,16 +1324,17 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reserva
 		}
 	*/
 
-	if !reflect.ValueOf(reservation.Instances[0].KeyName).IsNil() {
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "KeyName", Value: *reservation.Instances[0].KeyName})
-	}
+	// if !reflect.ValueOf(reservation.Instances[0].KeyName).IsNil() {
+	// 	keyValueList = append(keyValueList, irs.KeyValue{Key: "KeyName", Value: *reservation.Instances[0].KeyName})
+	// }
 
-	if !reflect.ValueOf(reservation.Instances[0].Platform).IsNil() {
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "Platform", Value: *reservation.Instances[0].Platform})
-	}
-	if !reflect.ValueOf(reservation.Instances[0].VirtualizationType).IsNil() {
-		keyValueList = append(keyValueList, irs.KeyValue{Key: "VirtualizationType", Value: *reservation.Instances[0].VirtualizationType})
-	}
+	// if !reflect.ValueOf(reservation.Instances[0].Platform).IsNil() {
+	// 	keyValueList = append(keyValueList, irs.KeyValue{Key: "Platform", Value: *reservation.Instances[0].Platform})
+	// }
+
+	// if !reflect.ValueOf(reservation.Instances[0].VirtualizationType).IsNil() {
+	// 	keyValueList = append(keyValueList, irs.KeyValue{Key: "VirtualizationType", Value: *reservation.Instances[0].VirtualizationType})
+	// }
 
 	//Name은 Tag의 "Name" 속성에만 저장됨
 	cblogger.Debug("Name Tag Search")
@@ -1343,7 +1346,8 @@ func (vmHandler *AwsVMHandler) ExtractDescribeInstances(reservation *ec2.Reserva
 		}
 	}
 
-	vmInfo.KeyValueList = keyValueList
+	// vmInfo.KeyValueList = keyValueList
+	vmInfo.KeyValueList = irs.StructToKeyValueList(reservation.Instances[0]) // KeyValueList 추가
 	return vmInfo
 }
 

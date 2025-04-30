@@ -537,6 +537,9 @@ func convertDiskInfo(diskResp *compute.Disk) (irs.DiskInfo, error) {
 	}
 	diskInfo.TagList = tags
 
+	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	diskInfo.KeyValueList = irs.StructToKeyValueList(diskResp)
+
 	return diskInfo, nil
 }
 

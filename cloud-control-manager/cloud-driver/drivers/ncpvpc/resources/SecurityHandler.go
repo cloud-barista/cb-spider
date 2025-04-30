@@ -14,7 +14,7 @@ package resources
 import (
 	"fmt"
 	"errors"
-	"strconv"
+	// "strconv"
 	"strings"
 	"time"
 	// "github.com/davecgh/go-spew/spew"
@@ -389,7 +389,7 @@ func (securityHandler *NcpVpcSecurityHandler) GetSecurity(securityIID irs.IID) (
 
 	cblogger.Info("Succeeded in Getting S/G info.")
 
-	sgInfo, sgInfoErr := securityHandler.MappingSecurityInfo(*ncpVpcSG.AccessControlGroupList[0])
+	sgInfo, sgInfoErr := securityHandler.mappingSecurityInfo(*ncpVpcSG.AccessControlGroupList[0])
 	if sgInfoErr != nil {
 		cblogger.Error(sgInfoErr)
 		return irs.SecurityInfo{}, sgInfoErr
@@ -430,7 +430,7 @@ func (securityHandler *NcpVpcSecurityHandler) ListSecurity() ([]*irs.SecurityInf
 
 	for _, sg := range sgList.AccessControlGroupList {		
 		cblogger.Infof("NCP VPC S/G No : [%s]", *sg.AccessControlGroupNo)
-		sgInfo, sgInfoErr := securityHandler.MappingSecurityInfo(*sg)
+		sgInfo, sgInfoErr := securityHandler.mappingSecurityInfo(*sg)
 		if sgInfoErr != nil {
 			cblogger.Error(sgInfoErr)
 			return nil, sgInfoErr
@@ -1050,8 +1050,8 @@ func (securityHandler *NcpVpcSecurityHandler) OpenOutboundAllProtocol(sgIID irs.
 	return nil
 }
 
-func (securityHandler *NcpVpcSecurityHandler) MappingSecurityInfo(ncpVpcSG vserver.AccessControlGroup) (irs.SecurityInfo, error) {
-	cblogger.Info("NCP VPC cloud driver: called MappingSecurityInfo()!")
+func (securityHandler *NcpVpcSecurityHandler) mappingSecurityInfo(ncpVpcSG vserver.AccessControlGroup) (irs.SecurityInfo, error) {
+	cblogger.Info("NCP VPC cloud driver: called mappingSecurityInfo()!")
 
 	sgRuleList, ruleInfoErr := securityHandler.ExtractSecurityRuleInfo(ncloud.StringValue(ncpVpcSG.AccessControlGroupNo))
 	if ruleInfoErr != nil {
@@ -1060,15 +1060,10 @@ func (securityHandler *NcpVpcSecurityHandler) MappingSecurityInfo(ncpVpcSG vserv
 	}
 
 	securityInfo := irs.SecurityInfo{
-		IId: 		irs.IID{NameId: ncloud.StringValue(ncpVpcSG.AccessControlGroupName), SystemId: ncloud.StringValue(ncpVpcSG.AccessControlGroupNo)},
-		VpcIID: 	irs.IID{SystemId: ncloud.StringValue(ncpVpcSG.VpcNo)},
-		SecurityRules: &sgRuleList,
-
-		KeyValueList: []irs.KeyValue{
-			{Key: "SecurityGroupDescription", Value: ncloud.StringValue(ncpVpcSG.AccessControlGroupDescription)},
-			{Key: "SecurityGroupStatus", Value: ncloud.StringValue(ncpVpcSG.AccessControlGroupStatus.CodeName)},
-			{Key: "IsDefault", Value: strconv.FormatBool(*ncpVpcSG.IsDefault)},
-		},
+		IId: 			irs.IID{NameId: ncloud.StringValue(ncpVpcSG.AccessControlGroupName), SystemId: ncloud.StringValue(ncpVpcSG.AccessControlGroupNo)},
+		VpcIID: 		irs.IID{SystemId: ncloud.StringValue(ncpVpcSG.VpcNo)},
+		SecurityRules: 	&sgRuleList,
+		KeyValueList:   irs.StructToKeyValueList(ncpVpcSG),
 	}
 	return securityInfo, nil
 }

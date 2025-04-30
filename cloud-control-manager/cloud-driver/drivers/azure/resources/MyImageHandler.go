@@ -299,6 +299,8 @@ func setterMyImageInfo(myImage *armcompute.Image, credentialInfo idrv.Credential
 		myImageInfo.TagList = setTagList(myImage.Tags)
 	}
 
+	myImageInfo.KeyValueList = irs.StructToKeyValueList(myImage)
+
 	return myImageInfo, nil
 }
 

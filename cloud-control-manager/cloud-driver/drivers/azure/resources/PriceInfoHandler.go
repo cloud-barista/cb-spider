@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"io"
 	"net/http"
 	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -64,31 +65,57 @@ type PriceInfo struct {
 func getAzurePriceInfo(filterOption string) ([]byte, error) {
 	URL := AzurePriceApiEndpoint + "?$filter=" + url.QueryEscape(filterOption)
 
-	fmt.Println(url.Parse(URL))
-
 	ctx := context.Background()
 	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodGet, URL, nil)
-	if err != nil {
-		return nil, err
+
+	var jsonResponse map[string]interface{}
+
+	for URL != "" {
+		req, err := http.NewRequest(http.MethodGet, URL, nil)
+		if err != nil {
+			return nil, err
+		}
+		req = req.WithContext(ctx)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, err
+		}
+
+		responseBody, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			return nil, err
+		}
+
+		var currentPage map[string]interface{}
+		err = json.Unmarshal(responseBody, &currentPage)
+		if err != nil {
+			return nil, err
+		}
+
+		if jsonResponse == nil {
+			jsonResponse = currentPage
+		} else {
+			if items, ok := jsonResponse["Items"].([]interface{}); ok {
+				if nextItems, ok := currentPage["Items"].([]interface{}); ok {
+					jsonResponse["Items"] = append(items, nextItems...)
+				}
+			}
+		}
+
+		if nextURL, ok := currentPage["NextPageLink"].(string); ok && nextURL != "" {
+			URL = nextURL
+		} else {
+			break
+		}
 	}
 
-	req = req.WithContext(ctx)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
+	if jsonResponse != nil {
+		return json.Marshal(jsonResponse)
 	}
 
-	return responseBody, nil
+	return nil, fmt.Errorf("no data received")
 }
 
 func isFieldToFilterExist(structVal any, filterList []irs.KeyValue) (exist bool, fields []string) {
@@ -222,7 +249,7 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 
 	if strings.ToLower(productFamily) == "compute" {
 		pager := priceInfoHandler.ResourceSkusClient.NewListPager(&armcompute.ResourceSKUsClientListOptions{
-			Filter: toStrPtr("location eq '" + regionName + "'"),
+			// Filter: toStrPtr("location eq '" + regionName + "'"), // PriceInfo has more info than sprecific regions's ResourceSku
 		})
 
 		for pager.More() {
@@ -250,47 +277,81 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 		if len(value) == 0 {
 			continue
 		}
+		// Azure Service Name: "Azure App Service", "Azure Container Apps", "Azure Kubernetes Service",
+		//						"Functions", "Virtual Machines", "Cloud Services"
+		if value[0].ServiceName != "Virtual Machines" {
+			continue
+		}
 
 		productInfo := irs.ProductInfo{
-			ProductId:      value[0].ProductID,
-			RegionName:     value[0].ArmRegionName,
+			ProductId:  value[0].ProductID,
+			RegionName: value[0].ArmRegionName,
+			VMSpecInfo: irs.VMSpecInfo{
+				Name: "NA",
+				VCpu: irs.VCpuInfo{
+					Count:    "-1",
+					ClockGHz: "-1",
+				},
+				MemSizeMiB: "-1",
+				DiskSizeGB: "-1",
+			},
 			Description:    value[0].ProductName,
 			CSPProductInfo: value[0],
 		}
 
 		if strings.ToLower(productFamily) == "compute" {
 			for _, sku := range skuList {
-				if value[0].SkuName == *sku.Name {
+				if value[0].ArmSkuName == *sku.Name {
 					for _, capability := range sku.Capabilities {
-						if *capability.Name == "OSVhdSizeMB" {
-							sizeMB, _ := strconv.Atoi(*capability.Value)
-							sizeGB := float64(sizeMB) / 1024
-							productInfo.Storage = strconv.FormatFloat(sizeGB, 'f', -1, 64) + " GiB"
-						} else if *capability.Name == "vCPUs" {
-							productInfo.Vcpu = *capability.Value
-						} else if *capability.Name == "MemoryGB" {
-							productInfo.Memory = *capability.Value + " GiB"
+						if capability.Name == nil || capability.Value == nil {
+							continue
+						}
+
+						name := *capability.Name
+						value := *capability.Value
+
+						switch name {
+						case "OSVhdSizeMB":
+							productInfo.VMSpecInfo.DiskSizeGB, _ = irs.ConvertMiBToGB(value)
+						case "vCPUs":
+							productInfo.VMSpecInfo.VCpu.Count = value
+							productInfo.VMSpecInfo.VCpu.ClockGHz = "-1"
+						case "MemoryGB":
+							productInfo.VMSpecInfo.MemSizeMiB, _ = irs.ConvertGiBToMiB(value)
+						case "GPUs":
+							productInfo.VMSpecInfo.Gpu = []irs.GpuInfo{
+								{
+									Count:          value,
+									MemSizeGB:      "-1",
+									TotalMemSizeGB: "-1",
+									Mfr:            "NA",
+									Model:          "NA",
+								},
+							}
 						}
 					}
+					break
 				}
 			}
 
-			productInfo.InstanceType = value[0].ArmSkuName
+			if value[0].ArmSkuName == "" {
+				productInfo.VMSpecInfo.Name = "NA"
+			} else {
+				productInfo.VMSpecInfo.Name = value[0].ArmSkuName
+			}
 
 			productNameToLower := strings.ToLower(value[0].ProductName)
 			armSkuNameToLower := strings.ToLower(value[0].ArmSkuName)
 			if strings.Contains(productNameToLower, "windows") ||
 				strings.Contains(armSkuNameToLower, "windows") {
-				productInfo.OperatingSystem = "Windows"
+				productInfo.OSDistribution = "Windows"
 			} else if strings.Contains(productNameToLower, "linux") ||
 				strings.Contains(armSkuNameToLower, "linux") {
-				productInfo.OperatingSystem = "Linux"
+				productInfo.OSDistribution = "Linux"
 			} else {
-				productInfo.OperatingSystem = "NA"
+				productInfo.OSDistribution = "NA"
 			}
 
-			productInfo.Gpu = "NA"
-			productInfo.GpuMemory = "NA"
 			productInfo.PreInstalledSw = "NA"
 		} else if strings.ToLower(productFamily) == "storage" {
 			productInfo.VolumeType = value[0].SkuName

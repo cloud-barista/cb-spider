@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>System Statistics Dashboard</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+    }
+    .header-container {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .header-container img {
+        margin-right: 10px;
+        height: 28px;
+    }
+    .header-container h1 {
+        font-size: 16px;
+        margin: 0;
+    }
+    h2 {
+        font-size: 16px;
+        margin: 10px 0;
+    }
+    h3 {
+        font-size: 14px;
+        margin: 10px 0;
+        margin-left: 1cm;
+    }
+    .content {
+        margin-top: 70px;
+    }
+    .fixed-header {
+        position: fixed;
+        top: 0;
+        width: 97%;
+        background-color: white;
+        z-index: 1000;
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 20px;
+        align-items: center;
+        box-shadow: 0 4px 6px -6px #222;
+    }
+    .fixed-action-buttons {
+        display: flex;
+        align-items: center;
+    }
+    .fixed-action-buttons button {
+        margin-left: 10px;
+    }
+    .section-title {
+        font-size: 16px;
+        font-weight: bold;
+        margin: 20px 0 10px 0;
+        color: #333;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 5px 0;
+        border-bottom: 2px solid #4CAF50;
+    }
+    .refresh-button {
+        background-color: #4CAF50;
+        color: white;
+        padding: 5px 8px;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 12px;
+        margin-left: 8px;
+    }
+
+    .refresh-button:hover {
+        background-color: #45a049;
+    }
+
+    .stop-refresh-button {
+        background-color: #f44336;
+        color: white;
+        padding: 5px 8px;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 12px;
+        margin-left: 8px;
+    }
+
+    .stop-refresh-button:hover {
+        background-color: #d32f2f;
+    }
+
+    .close-button {
+        background-color: #808080;
+        color: white;
+        padding: 5px 8px;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 12px;
+        margin-left: 8px;
+    }
+
+    .close-button:hover {
+        background-color: #606060;
+    }
+    .time-info {
+        font-size: 12px;
+        color: #666;
+        margin-left: auto;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-bottom: 20px;
+        border: 1px solid #ddd;
+    }
+    th, td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        position: relative;
+    }
+    th {
+        background-color: #f2f2f2;
+        font-size: 14px;
+        text-align: center;
+        padding: 10px;
+    }
+    td {
+        text-align: left;
+    }
+    .column-num {
+        width: 5%;
+        text-align: center;
+    }
+    .center-align {
+        text-align: center;
+    }
+    .property-column {
+        width: 30%;
+        font-weight: bold;
+        background-color: #f8f8f8;
+        text-align: right;
+        padding-right: 15px;
+    }
+    .value-column {
+        width: 70%;
+        text-align: left;
+        padding-left: 15px;
+    }
+    .positive-value {
+        color: green;
+    }
+    .warning-value {
+        color: orange;
+    }
+    .critical-value {
+        color: red;
+    }
+    .usage-row {
+        background-color: #f9f9f9;
+    }
+    .usage-row:hover {
+        background-color: #f0f0f0;
+    }
+    .cpu-cores-table {
+        margin-top: 15px;
+    }
+    .cpu-usage-bar {
+        height: 12px;
+        background-color: #e0e0e0;
+        position: relative;
+        border-radius: 2px;
+        overflow: hidden;
+        width: 100%;
+    }
+    .cpu-usage-fill {
+        height: 100%;
+        position: absolute;
+        left: 0;
+        top: 0;
+        background-color: #4CAF50;
+        border-radius: 2px;
+    }
+    .system-cpu {
+        background-color: #4CAF50;
+    }
+    .process-cpu {
+        background-color: #2196F3;
+    }
+    .refresh-controls {
+        display: flex;
+        align-items: center;
+        margin-left: auto;
+    }
+    .refresh-controls select {
+        margin-left: 10px;
+        padding: 5px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+    }
+    .refresh-controls span {
+        font-size: 12px;
+        margin-left: 10px;
+    }
+    .refresh-status {
+        font-size: 12px;
+        font-weight: bold;
+    }
+    .auto-refresh-on {
+        color: green;
+    }
+    .auto-refresh-off {
+        color: red;
+    }
+    hr.divider {
+        border: 0;
+        height: 1px;
+        background-image: linear-gradient(to right, rgba(0,0,0,0), rgba(0,0,0,0.75), rgba(0,0,0,0));
+        margin: 30px 0;
+    }
+    .section-container {
+        margin-bottom: 20px;
+    }
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+        background-color: #f2f2f2;
+        border-radius: 5px;
+        margin-bottom: 15px;
+    }
+    .section-header h2 {
+        margin: 0;
+        font-size: 16px;
+    }
+    tr:hover {
+        background-color: #f5f5f5;
+    }
+    tr:nth-child(even) {
+        background-color: #f9f9f9;
+    }
+    .collapsed {
+        display: none;
+    }    
+    .memory-usage-info {
+        width: 160px !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    /* IO progress bars styling */
+    .io-container {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        width: 100%;
+    }
+    .io-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 3px;
+    }
+    .io-label {
+        width: 80px;
+        font-size: 12px;
+    }
+    .io-value {
+        width: 100px;
+        font-size: 12px;
+    }
+    .io-bar-container {
+        flex-grow: 1;
+        height: 8px;
+        background-color: #e0e0e0;
+        border-radius: 2px;
+    }
+    .io-bar {
+        height: 100%;
+        border-radius: 2px;
+    }
+    .read-bar {
+        background-color: #2196F3;
+    }
+    .write-bar {
+        background-color: #FF9800;
+    }
+    .sent-bar {
+        background-color: #9C27B0;
+    }
+    .received-bar {
+        background-color: #00BCD4;
+    }
+    
+    /* Resource column width adjustment */
+    .resource-column {
+        width: 15%; /* Resource column width adjusted to 15% */
+    }
+    .usage-column {
+        width: 42.5%; /* System Usage and Spider Usage columns each 42.5% */
+    }
+    
+    /* Estimated value indicator styles */
+    .estimated-value {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .estimated-value:after {
+        content: "*";
+        font-size: 10px;
+        vertical-align: super;
+        color: #607D8B;
+        margin-left: 2px;
+    }
+    
+    .estimation-note {
+        margin-top: 5px;
+        font-size: 11px;
+        color: #607D8B;
+        font-style: italic;
+        text-align: right;
+    }
+</style>
+</head>
+<body>
+    <div class="fixed-header">
+        <div class="header-container">
+            <img src="/spider/adminweb/images/logo.png" alt="System Info Icon">
+            <h1>System Statistics Dashboard</h1>
+        </div>        
+        <div class="fixed-action-buttons">
+            <span class="time-info">Spider Start Time: {{.ShortStartTime}}</span>
+        </div>
+    </div>
+
+    <div class="content">
+        <!-- System Information Section -->
+        <div class="section-container" id="sysInfoSection">
+            <div class="section-header">
+                <h2>System Information</h2>
+                <button id="toggleSysInfoBtn" class="close-button" onclick="toggleSysInfoSection()">Hide System Info</button>
+            </div>
+
+            <div id="sysInfoContent">
+                <div class="section-title">Host Information</div>
+                <table>
+                    <tr>
+                        <td class="property-column">Hostname</td>
+                        <td class="value-column" id="hostname">{{.SystemInfo.Hostname}}</td>
+                    </tr>
+                    <tr>
+                        <td class="property-column">Operating System</td>
+                        <td class="value-column" id="os">{{.SystemInfo.Platform}} {{.SystemInfo.PlatformVersion}}</td>
+                    </tr>
+                    <tr>
+                        <td class="property-column">Kernel</td>
+                        <td class="value-column" id="kernel">{{.SystemInfo.KernelVersion}} ({{.SystemInfo.KernelArch}})</td>
+                    </tr>
+                    <tr>
+                        <td class="property-column">Uptime</td>
+                        <td class="value-column" id="uptime">{{.SystemInfo.Uptime}}</td>
+                    </tr>
+                </table>
+
+                <div class="section-title">CPU Information</div>
+                <table>
+                    <tr>
+                        <td class="property-column">CPU Model</td>
+                        <td class="value-column" id="cpuModel">{{.SystemInfo.CPUModel}}</td>
+                    </tr>
+                    <tr>
+                        <td class="property-column">Clock Speed</td>
+                        <td class="value-column" id="clockSpeed">{{.SystemInfo.ClockSpeed}}</td>
+                    </tr>
+                    <tr>
+                        <td class="property-column">CPU Cores</td>
+                        <td class="value-column" id="cores">{{.SystemInfo.PhysicalCores}} physical, {{.SystemInfo.LogicalCores}} logical</td>
+                    </tr>
+                </table>
+
+                <div class="section-title">Memory Information</div>
+                <table>
+                    <tr>
+                        <td class="property-column">Total Memory</td>
+                        <td class="value-column" id="totalMemory">{{.SystemInfo.TotalMemory}}</td>
+                    </tr>
+                    <tr>
+                        <td class="property-column">Swap Memory</td>
+                        <td class="value-column" id="swapMemory">{{.SystemInfo.SwapMemory}}</td>
+                    </tr>
+                </table>
+
+                <div class="section-title">Disk Information</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="column-num">#</th>
+                            <th class="center-align">Mount Point</th>
+                            <th class="center-align">Total Space</th>
+                        </tr>
+                    </thead>
+                    <tbody id="diskTableBody">
+                        {{range $index, $partition := .SystemInfo.DiskPartitions}}
+                        <tr>
+                            <td class="column-num">{{$index | inc}}</td>
+                            <td>{{$partition.MountPoint}}</td>
+                            <td>{{$partition.TotalSpace}}</td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <hr class="divider">
+
+        <!-- Resource Usage Section -->
+        <div class="section-container" id="resourceUsageSection">
+            <div class="section-header">
+                <h2>Resource Usage Information</h2>
+                <div class="refresh-controls">
+                    <span class="refresh-status" id="refreshStatus">Auto-refresh: <span class="auto-refresh-on">ON</span></span>
+                    <select id="refreshInterval" onchange="changeRefreshInterval()">
+                        <option value="0.5" selected>0.5 seconds</option>
+                        <option value="1">1 second</option>
+                        <option value="5">5 seconds</option>
+                        <option value="10">10 seconds</option>
+                        <option value="30">30 seconds</option>
+                        <option value="60">60 seconds</option>
+                    </select>
+                    <button id="toggleRefreshBtn" class="stop-refresh-button" onclick="toggleAutoRefresh()">Stop Auto-Refresh</button>
+                    <button class="refresh-button" onclick="refreshResourceUsage()">Refresh Now</button>
+                </div>
+            </div>
+
+            <div class="section-title">Resource Usage Overview</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th class="resource-column">Resource</th>
+                        <th class="usage-column">System Usage</th>
+                        <th class="usage-column">Spider Usage</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="usage-row">
+                        <td class="resource-column"><strong>CPU: {{.SystemInfo.LogicalCores}} core</strong></td>
+                        <td>
+                            <div style="display: flex; align-items: center;">
+                                <span id="systemCPUPercent" style="width: 60px;">{{.ResourceUsage.SystemCPUPercent}}</span>
+                                <div class="cpu-usage-bar">
+                                    <div id="systemCPUBar" class="cpu-usage-fill system-cpu" style="width: {{parsePercentage .ResourceUsage.SystemCPUPercent}}%;"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div style="display: flex; align-items: center;">
+                                <span id="processCPUPercent" style="width: 60px;">{{.ResourceUsage.ProcessCPUPercent}}</span>
+                                <div class="cpu-usage-bar">
+                                    <div id="processCPUBar" class="cpu-usage-fill process-cpu" style="width: {{parsePercentage .ResourceUsage.ProcessCPUPercent}}%;"></div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="usage-row">
+                        <td class="resource-column"><strong>Memory: {{.SystemInfo.TotalMemory}}</strong></td>
+                        <td>
+                            <div style="display: flex; align-items: center;">
+                                <span id="systemMemoryInfo" class="memory-usage-info">{{.ResourceUsage.SystemMemoryUsed}} ({{.ResourceUsage.SystemMemoryPercent}})</span>
+                                <div class="cpu-usage-bar">
+                                    <div id="systemMemoryBar" class="cpu-usage-fill system-cpu" style="width: {{parsePercentage .ResourceUsage.SystemMemoryPercent}}%;"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div style="display: flex; align-items: center;">
+                                <span id="processMemoryInfo" class="memory-usage-info">{{.ResourceUsage.ProcessMemoryUsed}} ({{.ResourceUsage.ProcessMemoryPercent}})</span>
+                                <div class="cpu-usage-bar">
+                                    <div id="processMemoryBar" class="cpu-usage-fill process-cpu" style="width: {{parsePercentage .ResourceUsage.ProcessMemoryPercent}}%;"></div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="usage-row">
+                        <td class="resource-column"><strong>Disk I/O</strong></td>
+                        <td>
+                            <div class="io-container">
+                                <div class="io-row">
+                                    <span class="io-label">Read:</span>
+                                    <span class="io-value" id="systemDiskReadValue">{{.ResourceUsage.SystemDiskRead}}</span>
+                                    <div class="io-bar-container">
+                                        <div id="systemDiskReadBar" class="io-bar read-bar" style="width: 0%;"></div>
+                                    </div>
+                                </div>
+                                <div class="io-row">
+                                    <span class="io-label">Write:</span>
+                                    <span class="io-value" id="systemDiskWriteValue">{{.ResourceUsage.SystemDiskWrite}}</span>
+                                    <div class="io-bar-container">
+                                        <div id="systemDiskWriteBar" class="io-bar write-bar" style="width: 0%;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="io-container">
+                                <div class="io-row">
+                                    <span class="io-label">Read:</span>
+                                    <span class="io-value" id="processDiskReadValue">{{.ResourceUsage.ProcessDiskRead}}</span>
+                                    <div class="io-bar-container">
+                                        <div id="processDiskReadBar" class="io-bar read-bar" style="width: 0%;"></div>
+                                    </div>
+                                </div>
+                                <div class="io-row">
+                                    <span class="io-label">Write:</span>
+                                    <span class="io-value" id="processDiskWriteValue">{{.ResourceUsage.ProcessDiskWrite}}</span>
+                                    <div class="io-bar-container">
+                                        <div id="processDiskWriteBar" class="io-bar write-bar" style="width: 0%;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    <tr class="usage-row">
+                        <td class="resource-column"><strong>Network I/O</strong></td>
+                        <td>
+                            <div class="io-container">
+                                <div class="io-row">
+                                    <span class="io-label">Sent:</span>
+                                    <span class="io-value" id="systemNetSentValue">{{.ResourceUsage.SystemNetSent}}</span>
+                                    <div class="io-bar-container">
+                                        <div id="systemNetSentBar" class="io-bar sent-bar" style="width: 0%;"></div>
+                                    </div>
+                                </div>
+                                <div class="io-row">
+                                    <span class="io-label">Received:</span>
+                                    <span class="io-value" id="systemNetReceivedValue">{{.ResourceUsage.SystemNetReceived}}</span>
+                                    <div class="io-bar-container">
+                                        <div id="systemNetReceivedBar" class="io-bar received-bar" style="width: 0%;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="io-container">
+                                <div class="io-row">
+                                    <span class="io-label">Sent:</span>
+                                    <span class="io-value estimated-value" id="processNetSentValue">{{.ResourceUsage.ProcessNetSent}}</span>
+                                    <div class="io-bar-container">
+                                        <div id="processNetSentBar" class="io-bar sent-bar" style="width: 0%;"></div>
+                                    </div>
+                                </div>
+                                <div class="io-row">
+                                    <span class="io-label">Received:</span>
+                                    <span class="io-value estimated-value" id="processNetReceivedValue">{{.ResourceUsage.ProcessNetReceived}}</span>
+                                    <div class="io-bar-container">
+                                        <div id="processNetReceivedBar" class="io-bar received-bar" style="width: 0%;"></div>
+                                    </div>
+                                </div>
+                                <div class="estimation-note">* Connection-based estimate</div>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="section-title">
+                CPU Core Usage
+                <div class="estimation-note">* Spider usage values are resource distribution estimates</div>
+            </div>
+            <table class="cpu-cores-table">
+                <thead>
+                    <tr>
+                        <th style="width: 15%;">Core #</th>
+                        <th style="width: 42.5%;">System Usage</th>
+                        <th style="width: 42.5%;">Spider Usage</th>
+                    </tr>
+                </thead>
+                <tbody id="cpuCoresTableBody">
+                    {{range $index, $coreKey := .SystemCoreKeys}}
+                    <tr class="usage-row">
+                        <td class="center-align">{{$coreKey}}</td>
+                        <td>
+                            <div style="display: flex; align-items: center;">
+                                <span style="width: 60px;">{{index $.ResourceUsage.SystemCPUCorePercent $coreKey}}</span>
+                                <div class="cpu-usage-bar">
+                                    <div class="cpu-usage-fill system-cpu" style="width: {{parsePercentage (index $.ResourceUsage.SystemCPUCorePercent $coreKey)}}%;"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div style="display: flex; align-items: center;">
+                                <span style="width: 60px;" class="estimated-value">{{index $.ResourceUsage.ProcessCPUCorePercent $coreKey}}</span>
+                                <div class="cpu-usage-bar">
+                                    <div class="cpu-usage-fill process-cpu" style="width: {{parsePercentage (index $.ResourceUsage.ProcessCPUCorePercent $coreKey)}}%;"></div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+<script>
+    let refreshTimer = null;
+    let isAutoRefreshEnabled = true;
+    let refreshInterval = 0.5; // Default to 0.5 seconds
+    let lastRefreshTime = new Date();
+    let nextRefreshTime = new Date(lastRefreshTime.getTime() + refreshInterval * 1000);
+    let countdownInterval = null;
+    let isSysInfoVisible = true;
+    
+    // Variables to track maximum I/O values (for relative scaling)
+    let maxDiskRead = 1;    // Starting with 1 to avoid division by zero
+    let maxDiskWrite = 1;
+    let maxNetSent = 1;
+    let maxNetReceived = 1;
+
+    let systemCores = "{{.SystemInfo.LogicalCores}}"; // Initialize with template value
+    let systemTotalMemory = "{{.SystemInfo.TotalMemory}}"; // Initialize with template value
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Store system info if already loaded
+        const coresElement = document.getElementById('cores');
+        if (coresElement) {
+            const coresText = coresElement.textContent;
+            const logicalMatch = coresText.match(/(\d+) logical/);
+            if (logicalMatch && logicalMatch[1]) {
+                systemCores = logicalMatch[1];
+            }
+        }
+        
+        const memoryElement = document.getElementById('totalMemory');
+        if (memoryElement) {
+            systemTotalMemory = memoryElement.textContent;
+        }
+        
+        // Apply styling
+        applyColorCoding();
+        
+        // Initialize auto-refresh
+        resetRefreshTimer();
+    });
+
+    function toggleSysInfoSection() {
+        const sysInfoContent = document.getElementById('sysInfoContent');
+        const toggleBtn = document.getElementById('toggleSysInfoBtn');
+        
+        if (isSysInfoVisible) {
+            sysInfoContent.classList.add('collapsed');
+            toggleBtn.textContent = 'Show System Info';
+            isSysInfoVisible = false;
+        } else {
+            sysInfoContent.classList.remove('collapsed');
+            toggleBtn.textContent = 'Hide System Info';
+            isSysInfoVisible = true;
+        }
+    }
+
+    function refreshResourceUsage() {
+        fetch('/spider/sysstats/usage')
+            .then(response => response.json())
+            .then(data => {
+                updateResourceUsageUI(data);
+                if (isAutoRefreshEnabled) {
+                    resetRefreshTimer();
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching resource usage:', error);
+                alert('Failed to refresh resource usage information.');
+            });
+    }
+    
+    // Function to parse I/O values (e.g. "1.23 MB/s" to 1.23)
+    function parseIOValue(valueStr) {
+        // Extract the numeric part from strings like "1.23 MB/s"
+        const match = valueStr.match(/([0-9.]+)/);
+        return match ? parseFloat(match[1]) : 0;
+    }
+
+    // Function to update an I/O bar (with relative scaling)
+    function updateIOBar(barId, valueStr, maxValue) {
+        const value = parseIOValue(valueStr);
+        const maxVal = Math.max(value, maxValue);
+        const percentage = (value / maxVal) * 100;
+        
+        document.getElementById(barId).style.width = `${percentage}%`;
+        
+        return maxVal; // Return the new max value
+    }
+
+    function updateResourceUsageUI(data) {
+        // Update CPU label (maintain core count)
+        const cpuLabel = document.querySelector('tr.usage-row td strong:first-child');
+        if (cpuLabel) {
+            cpuLabel.textContent = `CPU: ${systemCores} core`;
+        }
+        
+        // Update memory label (maintain total memory)
+        const memoryLabel = document.querySelector('tr.usage-row:nth-child(2) td strong');
+        if (memoryLabel) {
+            memoryLabel.textContent = `Memory: ${systemTotalMemory}`;
+        }
+        
+        // Update CPU usage
+        document.getElementById('systemCPUPercent').textContent = data.SystemCPUPercent;
+        document.getElementById('processCPUPercent').textContent = data.ProcessCPUPercent;
+        updateUsageBar('systemCPUBar', data.SystemCPUPercent);
+        updateUsageBar('processCPUBar', data.ProcessCPUPercent);
+
+        // Update memory usage
+        document.getElementById('systemMemoryInfo').textContent = `${data.SystemMemoryUsed} (${data.SystemMemoryPercent})`;
+        document.getElementById('processMemoryInfo').textContent = `${data.ProcessMemoryUsed} (${data.ProcessMemoryPercent})`;
+        updateUsageBar('systemMemoryBar', data.SystemMemoryPercent);
+        updateUsageBar('processMemoryBar', data.ProcessMemoryPercent);
+
+        // Update disk I/O
+        document.getElementById('systemDiskReadValue').textContent = data.SystemDiskRead;
+        document.getElementById('systemDiskWriteValue').textContent = data.SystemDiskWrite;
+        document.getElementById('processDiskReadValue').textContent = data.ProcessDiskRead;
+        document.getElementById('processDiskWriteValue').textContent = data.ProcessDiskWrite;
+        
+        // Update disk I/O bars with relative scaling
+        maxDiskRead = updateIOBar('systemDiskReadBar', data.SystemDiskRead, maxDiskRead);
+        maxDiskWrite = updateIOBar('systemDiskWriteBar', data.SystemDiskWrite, maxDiskWrite);
+        updateIOBar('processDiskReadBar', data.ProcessDiskRead, maxDiskRead);
+        updateIOBar('processDiskWriteBar', data.ProcessDiskWrite, maxDiskWrite);
+        
+        // Update network I/O
+        document.getElementById('systemNetSentValue').textContent = data.SystemNetSent;
+        document.getElementById('systemNetReceivedValue').textContent = data.SystemNetReceived;
+        document.getElementById('processNetSentValue').textContent = data.ProcessNetSent;
+        document.getElementById('processNetReceivedValue').textContent = data.ProcessNetReceived;
+        
+        // Update network I/O bars with relative scaling
+        maxNetSent = updateIOBar('systemNetSentBar', data.SystemNetSent, maxNetSent);
+        maxNetReceived = updateIOBar('systemNetReceivedBar', data.SystemNetReceived, maxNetReceived);
+        updateIOBar('processNetSentBar', data.ProcessNetSent, maxNetSent);
+        updateIOBar('processNetReceivedBar', data.ProcessNetReceived, maxNetReceived);
+
+        // Update CPU cores table
+        const cpuCoresTableBody = document.getElementById('cpuCoresTableBody');
+        cpuCoresTableBody.innerHTML = '';
+        
+        // Get and sort core keys
+        const coreKeys = Object.keys(data.SystemCPUCorePercent).sort((a, b) => {
+            const numA = parseInt(a.replace(/\D/g, ''));
+            const numB = parseInt(b.replace(/\D/g, ''));
+            return numA - numB;
+        });
+        
+        coreKeys.forEach(coreKey => {
+            const systemValue = data.SystemCPUCorePercent[coreKey];
+            const processValue = data.ProcessCPUCorePercent[coreKey];
+            const systemPercentage = parsePercentage(systemValue);
+            const processPercentage = parsePercentage(processValue);
+            
+            const row = document.createElement('tr');
+            row.className = 'usage-row';
+            row.innerHTML = `
+                <td class="center-align">${coreKey}</td>
+                <td>
+                    <div style="display: flex; align-items: center;">
+                        <span style="width: 60px;">${systemValue}</span>
+                        <div class="cpu-usage-bar">
+                            <div class="cpu-usage-fill system-cpu" style="width: ${systemPercentage}%;"></div>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <div style="display: flex; align-items: center;">
+                        <span style="width: 60px;" class="estimated-value">${processValue}</span>
+                        <div class="cpu-usage-bar">
+                            <div class="cpu-usage-fill process-cpu" style="width: ${processPercentage}%;"></div>
+                        </div>
+                    </div>
+                </td>
+            `;
+            cpuCoresTableBody.appendChild(row);
+        });
+        
+        // Make sure to maintain the estimated-value class for network values
+        document.getElementById('processNetSentValue').className = 'io-value estimated-value';
+        document.getElementById('processNetReceivedValue').className = 'io-value estimated-value';
+        
+        // Apply color coding
+        applyColorCoding();
+    }
+
+    function updateUsageBar(elementId, percentStr) {
+        const percentage = parsePercentage(percentStr);
+        const bar = document.getElementById(elementId);
+        bar.style.width = `${percentage}%`;
+        
+        // Update color based on usage level
+        if (percentage > 80) {
+            bar.style.backgroundColor = '#FF5252'; // Critical
+        } else if (percentage > 50) {
+            bar.style.backgroundColor = '#FFC107'; // Warning
+        } else {
+            if (elementId.includes('system')) {
+                bar.style.backgroundColor = '#4CAF50'; // System
+            } else {
+                bar.style.backgroundColor = '#2196F3'; // Process
+            }
+        }
+    }
+
+    function toggleAutoRefresh() {
+        isAutoRefreshEnabled = !isAutoRefreshEnabled;
+        const toggleBtn = document.getElementById('toggleRefreshBtn');
+        const refreshStatus = document.getElementById('refreshStatus');
+        
+        if (isAutoRefreshEnabled) {
+            toggleBtn.textContent = 'Stop Auto-Refresh';
+            toggleBtn.className = 'stop-refresh-button';
+            refreshStatus.innerHTML = 'Auto-refresh: <span class="auto-refresh-on">ON</span>';
+            resetRefreshTimer();
+        } else {
+            toggleBtn.textContent = 'Start Auto-Refresh';
+            toggleBtn.className = 'refresh-button';
+            refreshStatus.innerHTML = 'Auto-refresh: <span class="auto-refresh-off">OFF</span>';
+            clearTimeout(refreshTimer);
+            clearInterval(countdownInterval);
+        }
+    }
+
+    function changeRefreshInterval() {
+        const selectElement = document.getElementById('refreshInterval');
+        refreshInterval = parseFloat(selectElement.value);
+        
+        if (isAutoRefreshEnabled) {
+            resetRefreshTimer();
+        }
+    }
+
+    function resetRefreshTimer() {
+        clearTimeout(refreshTimer);
+        clearInterval(countdownInterval);
+        
+        refreshTimer = setTimeout(() => {
+            refreshResourceUsage();
+        }, refreshInterval * 1000);
+        
+        lastRefreshTime = new Date();
+        nextRefreshTime = new Date(lastRefreshTime.getTime() + refreshInterval * 1000);
+    }
+
+    // Parse percentage string like "12.34 %" to number 12.34
+    function parsePercentage(percentStr) {
+        if (!percentStr) return 0;
+        return parseFloat(percentStr.replace('%', '').trim());
+    }
+
+    function applyColorCoding() {
+        // Apply color coding to all usage bars
+        document.querySelectorAll('.cpu-usage-fill').forEach(bar => {
+            if (!bar.id) return; // Skip if no ID (already handled in the CPU cores table)
+            
+            const percentage = parseFloat(bar.style.width);
+            if (percentage > 80) {
+                bar.style.backgroundColor = '#FF5252'; // Critical
+            } else if (percentage > 50) {
+                bar.style.backgroundColor = '#FFC107'; // Warning
+            }
+        });
+    }
+    
+    // Function to reset max values after a certain period
+    // This allows the bars to readjust if I/O values drop significantly
+    function resetMaxValues() {
+        maxDiskRead = maxDiskRead * 0.8;
+        maxDiskWrite = maxDiskWrite * 0.8;
+        maxNetSent = maxNetSent * 0.8;
+        maxNetReceived = maxNetReceived * 0.8;
+    }
+
+    // Call this every minute to gradually adjust scaling
+    setInterval(resetMaxValues, 60000);
+
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', function() {
+        // Apply color coding to all usage bars
+        applyColorCoding();
+        
+        // Initialize auto-refresh for resource usage
+        resetRefreshTimer();
+    });
+</script>
+</body>
+</html>

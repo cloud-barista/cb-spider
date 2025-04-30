@@ -21,7 +21,6 @@ import (
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/jeremywohl/flatten"
 	"gopkg.in/yaml.v2"
 
 	cs2015 "github.com/alibabacloud-go/cs-20151215/v4/client"
@@ -789,33 +788,39 @@ func (ach *AlibabaClusterHandler) getClusterInfoWithoutNodeGroupList(regionId, c
 	}
 
 	//
+	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	clusterInfo.KeyValueList = irs.StructToKeyValueList(cluster)
 	// Fill clusterInfo.KeyValueList
 	//
-	jsonCluster, err := json.Marshal(cluster)
-	if err != nil {
-		err = fmt.Errorf("failed to marshal cluster: %v", err)
-		err = fmt.Errorf("failed to get ClusterInfo: %v", err)
-		return nil, err
-	}
 
-	var mapCluster map[string]interface{}
-	err = json.Unmarshal(jsonCluster, &mapCluster)
-	if err != nil {
-		err = fmt.Errorf("failed to unmarshal cluster: %v", err)
-		err = fmt.Errorf("failed to get ClusterInfo: %v", err)
-		return nil, err
-	}
+	// jsonCluster, err := json.Marshal(cluster)
+	// if err != nil {
+	// 	err = fmt.Errorf("failed to marshal cluster: %v", err)
+	// 	err = fmt.Errorf("failed to get ClusterInfo: %v", err)
+	// 	return nil, err
+	// }
 
-	flat, err := flatten.Flatten(mapCluster, "", flatten.DotStyle)
-	if err != nil {
-		err = fmt.Errorf("failed to flatten cluster: %v", err)
-		err = fmt.Errorf("failed to get ClusterInfo: %v", err)
-		return nil, err
-	}
-	delete(flat, "meta_data")
-	for k, v := range flat {
-		clusterInfo.KeyValueList = append(clusterInfo.KeyValueList, irs.KeyValue{Key: k, Value: fmt.Sprintf("%v", v)})
-	}
+	// var mapCluster map[string]interface{}
+	// err = json.Unmarshal(jsonCluster, &mapCluster)
+	// if err != nil {
+	// 	err = fmt.Errorf("failed to unmarshal cluster: %v", err)
+	// 	err = fmt.Errorf("failed to get ClusterInfo: %v", err)
+	// 	return nil, err
+	// }
+
+	// flat, err := flatten.Flatten(mapCluster, "", flatten.DotStyle)
+	// if err != nil {
+	// 	err = fmt.Errorf("failed to flatten cluster: %v", err)
+	// 	err = fmt.Errorf("failed to get ClusterInfo: %v", err)
+	// 	return nil, err
+	// }
+	// delete(flat, "meta_data")
+	// for k, v := range flat {
+	// 	clusterInfo.KeyValueList = append(clusterInfo.KeyValueList, irs.KeyValue{Key: k, Value: fmt.Sprintf("%v", v)})
+	// }
+
+	clusterInfo.KeyValueList = irs.StructToKeyValueList(cluster)
+
 
 	return clusterInfo, nil
 }
@@ -933,33 +938,39 @@ func (ach *AlibabaClusterHandler) getNodeGroupInfo(clusterId, nodeGroupId string
 	}
 
 	//
+	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	nodeGroupInfo.KeyValueList = irs.StructToKeyValueList(nodepool)
 	// Fill nodeGroupInfo.KeyValueList
 	//
-	jsonNodepool, err := json.Marshal(nodepool)
-	if err != nil {
-		err = fmt.Errorf("failed to marshal nodepool: %v", err)
-		err = fmt.Errorf("failed to get NodeGroupInfo: %v", err)
-		return nil, err
-	}
 
-	var mapNodepool map[string]interface{}
-	err = json.Unmarshal(jsonNodepool, &mapNodepool)
-	if err != nil {
-		err = fmt.Errorf("failed to unmarshal nodepool: %v", err)
-		err = fmt.Errorf("failed to get NodeGroupInfo: %v", err)
-		return nil, err
-	}
+	// jsonNodepool, err := json.Marshal(nodepool)
+	// if err != nil {
+	// 	err = fmt.Errorf("failed to marshal nodepool: %v", err)
+	// 	err = fmt.Errorf("failed to get NodeGroupInfo: %v", err)
+	// 	return nil, err
+	// }
 
-	flat, err := flatten.Flatten(mapNodepool, "", flatten.DotStyle)
-	if err != nil {
-		err = fmt.Errorf("failed to flatten nodepool: %v", err)
-		err = fmt.Errorf("failed to get NodeGroupInfo: %v", err)
-		return nil, err
-	}
-	delete(flat, "meta_data")
-	for k, v := range flat {
-		nodeGroupInfo.KeyValueList = append(nodeGroupInfo.KeyValueList, irs.KeyValue{Key: k, Value: fmt.Sprintf("%v", v)})
-	}
+	// var mapNodepool map[string]interface{}
+	// err = json.Unmarshal(jsonNodepool, &mapNodepool)
+	// if err != nil {
+	// 	err = fmt.Errorf("failed to unmarshal nodepool: %v", err)
+	// 	err = fmt.Errorf("failed to get NodeGroupInfo: %v", err)
+	// 	return nil, err
+	// }
+
+	// flat, err := flatten.Flatten(mapNodepool, "", flatten.DotStyle)
+	// if err != nil {
+	// 	err = fmt.Errorf("failed to flatten nodepool: %v", err)
+	// 	err = fmt.Errorf("failed to get NodeGroupInfo: %v", err)
+	// 	return nil, err
+	// }
+	// delete(flat, "meta_data")
+	// for k, v := range flat {
+	// 	nodeGroupInfo.KeyValueList = append(nodeGroupInfo.KeyValueList, irs.KeyValue{Key: k, Value: fmt.Sprintf("%v", v)})
+	// }
+
+	nodeGroupInfo.KeyValueList = irs.StructToKeyValueList(nodepool)
+
 
 	return nodeGroupInfo, err
 }

@@ -266,7 +266,7 @@ func (myImageHandler *KTVpcMyImageHandler) waitForImageSnapshot(myImageIID irs.I
 		} else {
 			cblogger.Infof("Succeeded in Getting the Image Status of [%s] : [%s]", myImageIID.SystemId, string(curStatus))
 		}
-		cblogger.Infof("===> Image Status(Converted) : [%s]", string(curStatus))
+		// cblogger.Infof("===> Image Status(Converted) : [%s]", string(curStatus))
 
 		if strings.EqualFold(string(curStatus), "Unavailable") {
 			curRetryCnt++
@@ -305,14 +305,15 @@ func (myImageHandler *KTVpcMyImageHandler) mappingMyImageInfo(myImage images.Ima
 		},
 		Status:      convertImageStatus(myImage.Status),
 		CreatedTime: convertedTime,
+
+		KeyValueList:   irs.StructToKeyValueList(myImage),
 	}
 
 	keyValueList := []irs.KeyValue{
 		{Key: "Zone", Value: myImageHandler.RegionInfo.Zone},
-		{Key: "Visibility", Value: string(myImage.Visibility)},
 		{Key: "ImageSize(GB)", Value: strconv.FormatInt(myImage.SizeBytes/(1024*1024*1024), 10)},
 	}
-	myImageInfo.KeyValueList = keyValueList
+	myImageInfo.KeyValueList = append(myImageInfo.KeyValueList, keyValueList...)
 	return myImageInfo, nil
 }
 

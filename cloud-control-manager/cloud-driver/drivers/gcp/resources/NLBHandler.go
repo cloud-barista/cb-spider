@@ -2814,6 +2814,9 @@ func convertRegionForwardingRuleToNlbListener(forwardingRule *compute.Forwarding
 		CspID: forwardingRule.Name, // forwarding rule name 전체
 		//KeyValueList:
 	}
+
+	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	listenerInfo.KeyValueList = irs.StructToKeyValueList(forwardingRule)
 	return listenerInfo
 }
 
@@ -2857,12 +2860,12 @@ func (nlbHandler *GCPNLBHandler) getListenerByNlbSystemID(nlbIID irs.IID) (irs.L
 			loadBalancerType = SPIDER_LoadBalancerType_PUBLIC
 		}
 
-		createTimeKeyValue := irs.KeyValue{Key: "createdTime", Value: regionForwardingRule.CreationTimestamp}
-		loadBalancerTypeKeyValue := irs.KeyValue{Key: "loadBalancerType", Value: loadBalancerType}
-		keyValueList := []irs.KeyValue{}
-		keyValueList = append(keyValueList, createTimeKeyValue)
-		keyValueList = append(keyValueList, loadBalancerTypeKeyValue)
-		listenerInfo.KeyValueList = keyValueList
+		// createTimeKeyValue := irs.KeyValue{Key: "createdTime", Value: regionForwardingRule.CreationTimestamp}
+		// loadBalancerTypeKeyValue := irs.KeyValue{Key: "loadBalancerType", Value: loadBalancerType}
+		// keyValueList := []irs.KeyValue{}
+		// keyValueList = append(keyValueList, createTimeKeyValue)
+		// keyValueList = append(keyValueList, loadBalancerTypeKeyValue)
+		// listenerInfo.KeyValueList = keyValueList
 	}
 
 	return listenerInfo, nil
@@ -2907,6 +2910,9 @@ func extractVmGroup(targetPool *compute.TargetPool, nlbInfo *irs.NLBInfo) irs.VM
 		//네트워크 부하 분산기는 전송 계층 보안(TLS) 오프로드 또는 프록시를 수행하지 않습니다. 트래픽은 VM으로 직접 라우팅됩니다.
 		vmGroup.CspID = targetPool.Name
 		vmGroup.VMs = &instanceIIDs
+
+		// 2025-03-13 StructToKeyValueList 사용으로 변경
+		vmGroup.KeyValueList = irs.StructToKeyValueList(targetPool.Instances)
 	}
 	return vmGroup
 }
@@ -2952,7 +2958,8 @@ func (nlbHandler *GCPNLBHandler) extractHealthChecker(regionID string, targetPoo
 			}
 			cblogger.Info("GlobalHttpHealthChecks end: ")
 		}
-
+		// 2025-03-13 StructToKeyValueList 사용으로 변경
+		returnHealthChecker.KeyValueList = irs.StructToKeyValueList(targetPool.HealthChecks)
 	}
 	return returnHealthChecker, nil
 }

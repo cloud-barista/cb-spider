@@ -1,11 +1,13 @@
 package resources
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -44,6 +46,10 @@ const (
 	nodeGroupStatusCreateFailed = "CREATE_FAILED"
 	nodeGroupStatusDeleteFailed = "DELETE_FAILED"
 	nodeGroupStatusDegraded     = "DEGRADED"
+)
+
+const (
+	httpPutResponseHopLimitIs2 = 2
 )
 
 //------ Cluster Management
@@ -195,6 +201,14 @@ func (ClusterHandler *AwsClusterHandler) CreateCluster(clusterReqInfo irs.Cluste
 	clusterInfo.IId.NameId = clusterReqInfo.IId.NameId
 	clusterInfo.TagList, _ = ClusterHandler.TagHandler.ListTag(irs.CLUSTER, clusterInfo.IId)
 
+	//--- install CSI driver and pod identity agent for EBS
+	csiagenterr := ClusterHandler.InstallEBSCSIDriverAndPodIdentityAgentIfNotExists(clusterInfo.IId.SystemId)
+	if csiagenterr != nil {
+		cblogger.Errorf("Failed to install EBS CSI Driver and pod identity agent: %w", csiagenterr)
+		return irs.ClusterInfo{}, csiagenterr
+	}
+	//--- end of install CSI driver for EBS
+
 	return clusterInfo, nil
 }
 
@@ -222,6 +236,7 @@ func (ClusterHandler *AwsClusterHandler) WaitUntilClusterActive(clusterName stri
 		Name: aws.String(clusterName),
 	}
 
+	// AWS SDK의 WaitUntilClusterActive 함수는 내부적으로 폴링(polling) 메커니즘을 구현
 	err := ClusterHandler.Client.WaitUntilClusterActive(input)
 	if err != nil {
 		cblogger.Errorf("failed to wait until cluster Active: %v", err)
@@ -403,12 +418,15 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 		}
 	}
 
-	keyValueList := []irs.KeyValue{
-		{Key: "Status", Value: *result.Cluster.Status},
-		{Key: "Arn", Value: *result.Cluster.Arn},
-		{Key: "RoleArn", Value: *result.Cluster.RoleArn},
-	}
-	clusterInfo.KeyValueList = keyValueList
+	// keyValueList := []irs.KeyValue{
+	// 	{Key: "Status", Value: *result.Cluster.Status},
+	// 	{Key: "Arn", Value: *result.Cluster.Arn},
+	// 	{Key: "RoleArn", Value: *result.Cluster.RoleArn},
+	// }
+	// clusterInfo.KeyValueList = keyValueList
+	// irs.StructToKeyValueList() 함수 사용
+	clusterInfo.KeyValueList = irs.StructToKeyValueList(result.Cluster)
+	clusterInfo.Network.KeyValueList = irs.StructToKeyValueList(result.Cluster.ResourcesVpcConfig)
 
 	clusterInfo.TagList, _ = ClusterHandler.TagHandler.ListTag(irs.CLUSTER, clusterInfo.IId)
 
@@ -423,13 +441,65 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 
 	//노드 그룹 타입 변환
 	for _, curNodeGroup := range resNodeGroupList {
-		cblogger.Debugf("Nod Group : [%s]", curNodeGroup.IId.NameId)
+		cblogger.Debugf("Node Group : [%s]", curNodeGroup.IId.NameId)
+		curNodeGroup.KeyValueList = irs.StructToKeyValueList(curNodeGroup)
 		clusterInfo.NodeGroupList = append(clusterInfo.NodeGroupList, *curNodeGroup)
 	}
+
+	// Addons 처리
+	addons, err := ClusterHandler.ListAddons(clusterIID)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.ClusterInfo{}, err
+	}
+	clusterInfo.Addons = addons
 
 	cblogger.Debug(clusterInfo)
 
 	return clusterInfo, nil
+}
+
+func (ClusterHandler *AwsClusterHandler) ListAddons(clusterIID irs.IID) (irs.AddonsInfo, error) {
+	input := &eks.ListAddonsInput{
+		ClusterName: aws.String(clusterIID.SystemId),
+	}
+
+	result, err := ClusterHandler.Client.ListAddons(input)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.AddonsInfo{}, err
+	}
+
+	addonsInfo := irs.AddonsInfo{}
+	for _, addonName := range result.Addons {
+		addonInfo, err := ClusterHandler.GetAddon(clusterIID, *addonName)
+		if err != nil {
+			cblogger.Error(err)
+			continue
+		}
+		addonsInfo.KeyValueList = append(addonsInfo.KeyValueList, addonInfo.KeyValueList...)
+	}
+
+	return addonsInfo, nil
+}
+
+func (ClusterHandler *AwsClusterHandler) GetAddon(clusterIID irs.IID, addonName string) (irs.AddonsInfo, error) {
+	input := &eks.DescribeAddonInput{
+		ClusterName: aws.String(clusterIID.SystemId),
+		AddonName:   aws.String(addonName),
+	}
+
+	result, err := ClusterHandler.Client.DescribeAddon(input)
+	if err != nil {
+		cblogger.Error(err)
+		return irs.AddonsInfo{}, err
+	}
+
+	addonInfo := irs.AddonsInfo{
+		KeyValueList: irs.StructToKeyValueList(result.Addon),
+	}
+
+	return addonInfo, nil
 }
 
 func getKubeConfig(clusterDesc *eks.DescribeClusterOutput) string {
@@ -528,6 +598,7 @@ func (ClusterHandler *AwsClusterHandler) DeleteCluster(clusterIID irs.IID) (bool
 			return false, err
 		}
 	*/
+
 	return true, nil
 }
 
@@ -666,14 +737,12 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 
 	nodegroupName := result.Nodegroup.NodegroupName
 
-	/*// Sync Call에서 Async Call로 변경 - 이슈:#716
-	//노드 그룹이 활성화될 때까지 대기
+	// To modify instances' metadata options, wait until nodegroup is active: #1487
 	errWait := ClusterHandler.WaitUntilNodegroupActive(clusterIID.SystemId, *nodegroupName)
 	if errWait != nil {
 		cblogger.Error(errWait)
 		return irs.NodeGroupInfo{}, errWait
 	}
-	*/
 
 	nodeGroup, err := ClusterHandler.GetNodeGroup(clusterIID, irs.IID{NameId: nodeGroupReqInfo.IId.NameId, SystemId: *nodegroupName})
 	if err != nil {
@@ -681,7 +750,109 @@ func (ClusterHandler *AwsClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGr
 		return irs.NodeGroupInfo{}, err
 	}
 	nodeGroup.IId.NameId = nodeGroupReqInfo.IId.NameId
+
+	// Update HttpPutReponseHopLimit as 2: #1487
+	for _, node := range nodeGroup.Nodes {
+		err = ModifyInstanceMetadataOptionsHttpPutResponseHopLimit(ClusterHandler.EC2Client, node.SystemId, httpPutResponseHopLimitIs2)
+		if err != nil {
+			cblogger.Error(err)
+		}
+	}
+
 	return nodeGroup, nil
+}
+
+// installs the EBS CSI driver and pod identity agent only if they doesn't exist
+func (ClusterHandler *AwsClusterHandler) InstallEBSCSIDriverAndPodIdentityAgentIfNotExists(clusterID string) error {
+	// Check if EBS CSI driver already exists
+	addonListParams := &eks.ListAddonsInput{
+		ClusterName: aws.String(clusterID),
+	}
+
+	addonList, err := ClusterHandler.Client.ListAddons(addonListParams)
+	if err != nil {
+		cblogger.Errorf("Failed to list addons: %v", err)
+		return err
+	}
+
+	// Check if EBS CSI driver is already installed
+	csiDriverExists := false
+	podIdentityAgentExists := false
+	for _, addon := range addonList.Addons {
+		if aws.StringValue(addon) == "aws-ebs-csi-driver" {
+			csiDriverExists = true
+		} else if aws.StringValue(addon) == "eks-pod-identity-agent" {
+			podIdentityAgentExists = true
+		}
+	}
+
+	// Install CSI driver and pod identity agent only if it doesn't exist
+	if csiDriverExists && podIdentityAgentExists {
+		cblogger.Infof("EBS CSI driver and pod identity agent already exist in cluster %s", clusterID)
+		return nil
+	}
+
+	var errCsiDriver error
+	if csiDriverExists == false {
+		errCsiDriver = ClusterHandler.installEBSCSIDriver(clusterID)
+		if errCsiDriver != nil {
+			cblogger.Errorf("Failed to install EBS CSI driver: %w", errCsiDriver)
+		}
+	}
+
+	var errPodIdentityAgent error
+	if podIdentityAgentExists == false {
+		errPodIdentityAgent = ClusterHandler.installPodIdentityAgent(clusterID)
+		if errPodIdentityAgent != nil {
+			cblogger.Errorf("Failed to install pod identity agent: %w", errPodIdentityAgent)
+		}
+	}
+
+	if errCsiDriver != nil || errPodIdentityAgent != nil {
+		return errors.Join(errCsiDriver, errPodIdentityAgent)
+	}
+
+	return nil
+}
+
+func (ClusterHandler *AwsClusterHandler) installEBSCSIDriver(clusterID string) error {
+	addonName := "aws-ebs-csi-driver" // EBS CSI Driver, don't change
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	input := &eks.CreateAddonInput{
+		ClusterName:      aws.String(clusterID),
+		AddonName:        aws.String(addonName),
+		ResolveConflicts: aws.String("OVERWRITE"),
+	}
+
+	_, err := ClusterHandler.Client.CreateAddonWithContext(ctx, input)
+	if err != nil {
+		cblogger.Errorf("Failed to install EBS CSI Driver: %w", err)
+		return err
+	}
+	return nil
+}
+
+func (ClusterHandler *AwsClusterHandler) installPodIdentityAgent(clusterID string) error {
+	addonName := "eks-pod-identity-agent" // Eks pod identity agent, don't change
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	input := &eks.CreateAddonInput{
+		ClusterName:      aws.String(clusterID),
+		AddonName:        aws.String(addonName),
+		ResolveConflicts: aws.String("OVERWRITE"),
+	}
+
+	_, err := ClusterHandler.Client.CreateAddonWithContext(ctx, input)
+	if err != nil {
+		cblogger.Errorf("Failed to install pod identity agent: %w", err)
+		return err
+	}
+	return nil
 }
 
 func (ClusterHandler *AwsClusterHandler) ListNodeGroup(clusterIID irs.IID) ([]*irs.NodeGroupInfo, error) {
@@ -836,6 +1007,7 @@ func (ClusterHandler *AwsClusterHandler) ChangeNodeGroupScaling(clusterIID irs.I
 
 func (ClusterHandler *AwsClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nodeGroupIID irs.IID) (bool, error) {
 	cblogger.Infof("Cluster SystemId : [%s] / NodeGroup SystemId : [%s]", clusterIID.SystemId, nodeGroupIID.SystemId)
+
 	input := &eks.DeleteNodegroupInput{
 		ClusterName:   aws.String(clusterIID.SystemId),   //required
 		NodegroupName: aws.String(nodeGroupIID.SystemId), // required
@@ -852,43 +1024,298 @@ func (ClusterHandler *AwsClusterHandler) RemoveNodeGroup(clusterIID irs.IID, nod
 	return true, nil
 }
 
-// ------ Upgrade K8S
+// Control Plane 과 Node Group(worked node)의 K8s 버전 업그레이드드
 func (ClusterHandler *AwsClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion string) (irs.ClusterInfo, error) {
 	cblogger.Infof("Cluster SystemId : [%s] / Request New Version : [%s]", clusterIID.SystemId, newVersion)
 
-	// -- version 만 update인 경우
-	input := &eks.UpdateClusterVersionInput{
-		Name:    aws.String(clusterIID.SystemId),
-		Version: aws.String(newVersion),
+	// 현재 클러스터 정보 조회 및 버전 비교
+	currentClusterInfo, err := ClusterHandler.GetCluster(clusterIID)
+	if err != nil {
+		cblogger.Errorf("Failed to get current cluster info: %v", err)
+		return irs.ClusterInfo{}, err
 	}
 
-	result, err := ClusterHandler.Client.UpdateClusterVersion(input)
+	currentVersion := currentClusterInfo.Version
+	cblogger.Infof("Current cluster version: %s, Target version: %s", currentVersion, newVersion)
+
+	// Control Plane이 업그레이드 필요한지 확인
+	needsControlPlaneUpgrade := currentVersion != newVersion
+
+	// 업그레이드가 필요한 Node Group이 있는지 확인하기 위해 모든 Node Group 조회
+	nodeGroups, err := ClusterHandler.ListNodeGroup(clusterIID)
 	if err != nil {
-		if aerr, ok := err.(awserr.Error); ok {
-			switch aerr.Code() {
-			case eks.ErrCodeInvalidParameterException:
-				cblogger.Error(eks.ErrCodeInvalidParameterException, aerr.Error())
-			case eks.ErrCodeClientException:
-				cblogger.Error(eks.ErrCodeClientException, aerr.Error())
-			case eks.ErrCodeResourceNotFoundException:
-				cblogger.Error(eks.ErrCodeResourceNotFoundException, aerr.Error())
-			case eks.ErrCodeServerException:
-				cblogger.Error(eks.ErrCodeServerException, aerr.Error())
-			case eks.ErrCodeInvalidRequestException:
-				cblogger.Error(eks.ErrCodeInvalidRequestException, aerr.Error())
-			default:
-				cblogger.Error(aerr.Error())
+		cblogger.Errorf("Failed to list node groups: %v", err)
+		return irs.ClusterInfo{}, err
+	}
+
+	// Node Group 업그레이드 필요 여부 확인
+	needsNodeGroupUpgrade := false
+	for _, nodeGroup := range nodeGroups {
+		// Node Group 버전을 확인
+		nodeGroupVersion := ""
+		for _, kv := range nodeGroup.KeyValueList {
+			if kv.Key == "Version" {
+				nodeGroupVersion = kv.Value
+				break
 			}
-		} else {
-			// Print the error, cast err to awserr.Error to get the Code and
-			// Message from an error.
-			cblogger.Error(err.Error())
+		}
+
+		// 버전을 결정할 수 없거나 대상 버전과 다른 경우
+		if nodeGroupVersion == "" || nodeGroupVersion != newVersion {
+			needsNodeGroupUpgrade = true
+			cblogger.Infof("Node group %s needs upgrade from version %s to %s",
+				nodeGroup.IId.SystemId, nodeGroupVersion, newVersion)
 		}
 	}
-	cblogger.Debug(result)
-	// getClusterInfo
-	return irs.ClusterInfo{}, nil
 
+	// 업그레이드가 필요 없는 경우 조기 반환
+	if !needsControlPlaneUpgrade && !needsNodeGroupUpgrade {
+		cblogger.Info("Both control plane and all node groups are already at target version. No upgrade needed.")
+		return currentClusterInfo, nil
+	}
+
+	if needsControlPlaneUpgrade {
+		cblogger.Infof("Control plane needs upgrade from version %s to %s", currentVersion, newVersion)
+	} else {
+		cblogger.Info("Control plane is already at target version. Only node groups will be upgraded.")
+	}
+
+	// Control Plane 업그레이드
+	if needsControlPlaneUpgrade {
+		input := &eks.UpdateClusterVersionInput{
+			Name:    aws.String(clusterIID.SystemId),
+			Version: aws.String(newVersion),
+		}
+
+		cblogger.Debug("Upgrading control plane with input:", input)
+
+		// logger for HisCall
+		callogger := call.GetLogger("HISCALL")
+		callLogInfo := call.CLOUDLOGSCHEMA{
+			CloudOS:      call.AWS,
+			RegionZone:   ClusterHandler.Region.Zone,
+			ResourceType: call.CLUSTER,
+			ResourceName: clusterIID.SystemId,
+			CloudOSAPI:   "UpdateClusterVersion()",
+			ElapsedTime:  "",
+			ErrorMSG:     "",
+		}
+		callLogStart := call.Start()
+
+		result, err := ClusterHandler.Client.UpdateClusterVersion(input)
+		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+
+		if err != nil {
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Info(call.String(callLogInfo))
+
+			if aerr, ok := err.(awserr.Error); ok {
+				switch aerr.Code() {
+				case eks.ErrCodeInvalidParameterException:
+					cblogger.Error(eks.ErrCodeInvalidParameterException, aerr.Error())
+				case eks.ErrCodeClientException:
+					cblogger.Error(eks.ErrCodeClientException, aerr.Error())
+				case eks.ErrCodeResourceNotFoundException:
+					cblogger.Error(eks.ErrCodeResourceNotFoundException, aerr.Error())
+				case eks.ErrCodeServerException:
+					cblogger.Error(eks.ErrCodeServerException, aerr.Error())
+				case eks.ErrCodeInvalidRequestException:
+					cblogger.Error(eks.ErrCodeInvalidRequestException, aerr.Error())
+				default:
+					cblogger.Error(aerr.Error())
+				}
+			} else {
+				cblogger.Error(err.Error())
+			}
+			return irs.ClusterInfo{}, err
+		}
+		callogger.Info(call.String(callLogInfo))
+		cblogger.Infof("Control plane upgrade initiated: %s", *result.Update.Id)
+
+		// Control Plane 업그레이드 완료 대기
+		cblogger.Info("Waiting for control plane upgrade to complete...")
+		errWait := ClusterHandler.WaitUntilClusterActive(clusterIID.SystemId)
+		if errWait != nil {
+			cblogger.Errorf("Failed to wait for cluster to become active after control plane upgrade: %v", errWait)
+			// Control Plane 대기 실패해도 Node Group 업그레이드 계속 진행
+		} else {
+			cblogger.Info("Control plane upgrade completed successfully")
+		}
+
+		// [추가] Control Plane 업그레이드 후 추가 대기 시간
+		cblogger.Info("Control plane marked as ACTIVE, waiting additional time for version propagation...")
+		time.Sleep(120 * time.Second) // 2분 대기
+
+		// [추가] Control Plane 버전 재확인
+		checkInput := &eks.DescribeClusterInput{
+			Name: aws.String(clusterIID.SystemId),
+		}
+		checkResult, checkErr := ClusterHandler.Client.DescribeCluster(checkInput)
+		if checkErr != nil {
+			cblogger.Errorf("Failed to verify cluster version: %v", checkErr)
+		} else {
+			cblogger.Infof("Verified control plane version: %s", *checkResult.Cluster.Version)
+			if *checkResult.Cluster.Version != newVersion {
+				cblogger.Warnf("Control plane version mismatch: expected %s, found %s",
+					newVersion, *checkResult.Cluster.Version)
+				// 버전이 맞지 않더라도 진행은 함
+			}
+		}
+	}
+
+	// Node Group 업그레이드 전 활성 작업 체크 및 백오프 재시도 로직 추가
+	maxRetries := 10
+	retryInterval := 60 // seconds
+	backoffFactor := 1.5
+
+	currentInterval := retryInterval
+	for i := 0; i < maxRetries; i++ {
+		// 클러스터가 Node Group 업그레이드를 할 수 있는 상태인지 확인
+		clusterStatus, err := ClusterHandler.checkClusterOperationStatus(clusterIID)
+		if err != nil {
+			cblogger.Errorf("Error checking cluster status: %v", err)
+			break // 상태 확인 실패해도 Node Group 업그레이드 계속 진행
+		}
+
+		if clusterStatus == "ACTIVE" {
+			break // 노드 그룹 업그레이드 진행
+		}
+
+		if i == maxRetries-1 {
+			cblogger.Warnf("Cluster not in ACTIVE state after %d retries. Proceeding with node group upgrades anyway.", maxRetries)
+			break
+		}
+
+		cblogger.Infof("Cluster is in %s state, waiting %d seconds before retrying (%d/%d)",
+			clusterStatus, currentInterval, i+1, maxRetries)
+		time.Sleep(time.Duration(currentInterval) * time.Second)
+
+		// 지수 백오프 적용
+		currentInterval = int(float64(currentInterval) * backoffFactor)
+	}
+
+	// Node Group 업그레이드
+	if needsNodeGroupUpgrade {
+		cblogger.Info("Starting node group upgrades...")
+
+		// Node Group 업그레이드 실패 추적을 목록
+		upgradeFailures := []string{}
+
+		for _, nodeGroup := range nodeGroups {
+			cblogger.Infof("Upgrading node group: %s to version: %s", nodeGroup.IId.SystemId, newVersion)
+
+			// [추가] Node Group 업그레이드에 재시도 로직 추가
+			maxNodeGroupRetries := 3
+			var updateErr error
+			var nodeGroupUpdateResult *eks.UpdateNodegroupVersionOutput
+
+			for retry := 0; retry < maxNodeGroupRetries; retry++ {
+				updateNodeGroupInput := &eks.UpdateNodegroupVersionInput{
+					ClusterName:   aws.String(clusterIID.SystemId),
+					NodegroupName: aws.String(nodeGroup.IId.SystemId),
+					Version:       aws.String(newVersion),
+				}
+
+				callogger := call.GetLogger("HISCALL")
+				nodeGroupCallLogInfo := call.CLOUDLOGSCHEMA{
+					CloudOS:      call.AWS,
+					RegionZone:   ClusterHandler.Region.Zone,
+					ResourceType: call.CLUSTER,
+					ResourceName: nodeGroup.IId.SystemId,
+					CloudOSAPI:   "UpdateNodegroupVersion()",
+					ElapsedTime:  "",
+					ErrorMSG:     "",
+				}
+				nodeGroupCallLogStart := call.Start()
+
+				nodeGroupUpdateResult, updateErr = ClusterHandler.Client.UpdateNodegroupVersion(updateNodeGroupInput)
+				nodeGroupCallLogInfo.ElapsedTime = call.Elapsed(nodeGroupCallLogStart)
+
+				if updateErr == nil {
+					// 업그레이드 요청 성공
+					callogger.Info(call.String(nodeGroupCallLogInfo))
+					cblogger.Infof("Node group update initiated for %s: %s",
+						nodeGroup.IId.SystemId, *nodeGroupUpdateResult.Update.Id)
+					break
+				}
+
+				// 에러 발생 시 로그 기록
+				nodeGroupCallLogInfo.ErrorMSG = updateErr.Error()
+				callogger.Info(call.String(nodeGroupCallLogInfo))
+				cblogger.Errorf("Attempt %d: Failed to upgrade node group %s: %v",
+					retry+1, nodeGroup.IId.SystemId, updateErr)
+
+				if retry < maxNodeGroupRetries-1 {
+					retryDelay := (retry + 1) * 60 // 점진적 증가: 60초, 120초, ...
+					cblogger.Infof("Retrying node group upgrade in %d seconds (%d/%d)",
+						retryDelay, retry+1, maxNodeGroupRetries)
+					time.Sleep(time.Duration(retryDelay) * time.Second)
+				}
+			}
+
+			if updateErr != nil {
+				// 모든 재시도 후에도 실패
+				cblogger.Errorf("Failed to upgrade node group %s after %d attempts: %v",
+					nodeGroup.IId.SystemId, maxNodeGroupRetries, updateErr)
+				upgradeFailures = append(upgradeFailures,
+					fmt.Sprintf("NodeGroup %s: %v", nodeGroup.IId.SystemId, updateErr))
+				continue // 다른 Node Group은 업그레이드를 계속 진행
+			}
+
+			// 하나씩 순차적으로 Node Group 업그레이드를 진행 (병렬 처리 X)
+			// Control Plane보다 짧은 타임아웃을 설정하여 Node Group 업그레이드 처리
+			cblogger.Infof("Waiting for node group %s upgrade to complete...", nodeGroup.IId.SystemId)
+			errWaitNodeGroup := ClusterHandler.WaitUntilNodegroupActive(clusterIID.SystemId, nodeGroup.IId.SystemId)
+			if errWaitNodeGroup != nil {
+				cblogger.Errorf("Failed to wait for node group to become active: %v", errWaitNodeGroup)
+				upgradeFailures = append(upgradeFailures,
+					fmt.Sprintf("Waiting for NodeGroup %s: %v", nodeGroup.IId.SystemId, errWaitNodeGroup))
+			} else {
+				cblogger.Infof("Node group %s upgraded successfully", nodeGroup.IId.SystemId)
+			}
+		}
+
+		// 실패 정보 종합 로깅
+		if len(upgradeFailures) > 0 {
+			cblogger.Warnf("Some node groups failed to upgrade: %s", strings.Join(upgradeFailures, "; "))
+		} else {
+			cblogger.Info("All node group upgrades completed successfully")
+		}
+	} else {
+		cblogger.Info("No node groups need upgrading")
+	}
+
+	// 최종 상태를 확인하고 업데이트된 클러스터 정보를 반환
+	cblogger.Info("Fetching updated cluster information")
+	updatedClusterInfo, err := ClusterHandler.GetCluster(clusterIID)
+	if err != nil {
+		cblogger.Errorf("Failed to get updated cluster info: %v", err)
+		return irs.ClusterInfo{}, err
+	}
+
+	// 업그레이드 결과 확인
+	if needsControlPlaneUpgrade && updatedClusterInfo.Version != newVersion {
+		cblogger.Warnf("Control plane upgrade may not have completed. Expected version: %s, Actual version: %s",
+			newVersion, updatedClusterInfo.Version)
+	} else {
+		cblogger.Info("Cluster upgrade completed successfully")
+	}
+
+	return updatedClusterInfo, nil
+}
+
+// Helper function to check if cluster has active operations
+func (ClusterHandler *AwsClusterHandler) checkClusterOperationStatus(clusterIID irs.IID) (string, error) {
+	input := &eks.DescribeClusterInput{
+		Name: aws.String(clusterIID.SystemId),
+	}
+
+	result, err := ClusterHandler.Client.DescribeCluster(input)
+	if err != nil {
+		return "", err
+	}
+
+	return *result.Cluster.Status, nil
 }
 
 func (ClusterHandler *AwsClusterHandler) getRole(role irs.IID) (*iam.GetRoleOutput, error) {
@@ -1022,8 +1449,7 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 		}
 	}
 
-	//nodeGroupInfo.RootDiskSize = strconv.FormatInt(*nodeGroup.DiskSize, 10)
-	nodeGroupInfo.RootDiskSize = strconv.FormatInt(*rootDiskSize, 10)
+	nodeGroupInfo.RootDiskSize = strconv.FormatInt(aws.Int64Value(rootDiskSize), 10)
 
 	// TODO : node 목록 NodegroupArn 으로 조회해야하나??
 	//nodeList := []irs.IID{}
@@ -1069,6 +1495,9 @@ func (NodeGroupHandler *AwsClusterHandler) convertNodeGroup(nodeGroupOutput *eks
 	//arn:partition:service:region:account-id:resource-id
 	//arn:partition:service:region:account-id:resource-type/resource-id
 	//arn:partition:service:region:account-id:resource-type:resource-id
+
+	// irs.StructToKeyValueList() 함수 사용
+	nodeGroupInfo.KeyValueList = irs.StructToKeyValueList(nodeGroup)
 
 	PrintToJson(nodeGroupInfo)
 	//return irs.NodeGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "추출 오류", nil)

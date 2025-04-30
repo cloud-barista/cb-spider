@@ -989,7 +989,7 @@ func (vmHandler *AlibabaVMHandler) ExtractDescribeInstances(instanceInfo *ecs.In
 			vmInfo.StartTime = t
 		}
 	}
-
+	vmInfo.KeyValueList = irs.StructToKeyValueList(instanceInfo)
 	return vmInfo, nil
 }
 

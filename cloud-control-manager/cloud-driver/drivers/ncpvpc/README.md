@@ -131,6 +131,10 @@ ssh -i /private_key_경로/private_key_파일명(~~.pem) cb-user@VM의_public_ip
    - VM 생성시 option으로 RootDiskSize 및 RootDiskType 지정은 지원하지 않음.
    - NCP VPC는 고정된 disk size로서, Linux 계열은 50GB, Windows 계열은 100GB를 지원함.
    - Disk type으로는 HDD와 SDD를 지원하는데, VMSpec type에따라 지원하는 type이 다르니 VMSpec 선정시 disk type 확인이 필요함.
+   - NCP 3세대(KVM 기반) VM을 REST API를 통해 처음 생성시 NCP 고객센터에 3세대(3G)용 쿼터 증가시켜주기를 요청해야함.
+     - 처음에는 "~ Product type: [G3] CPU > CPU Creation limit: 0 ~" 이라는 오류 발생
+   - NCP 3세대(KVM 기반) VM은 disk size 지정 가능
+     - 참고 : https://guide.ncloud-docs.com/docs/server-create-vpc
 
   O NCP VPC driver를 이용해 Root disk 외의 추가 Disk Volume(Block Storage) 생성시 다음 사항을 참고
    - (주의-1) NCP VPC에서 추가로 disk를 생성하기 위해서는 해당 region에 최소 하나의 VM이 생성되어있어야함.(Suspended or Running 상태의 VM)

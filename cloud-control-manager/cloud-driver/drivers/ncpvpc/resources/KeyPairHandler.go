@@ -10,11 +10,10 @@ package resources
 import (
 	"fmt"
 	"strings"
+	// "github.com/davecgh/go-spew/spew"
 
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
-
-	// "github.com/davecgh/go-spew/spew"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	keycommon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
@@ -52,7 +51,7 @@ func (keyPairHandler *NcpVpcKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error
 		cblogger.Info("### Keypair info does Not Exist!!")
 	} else {
 		for _, keyPair := range result.LoginKeyList {
-			keyPairInfo := MappingKeyPairInfo(keyPair)
+			keyPairInfo := mappingKeyPairInfo(keyPair)
 			keyPairList = append(keyPairList, &keyPairInfo)
 		}
 	}
@@ -165,7 +164,7 @@ func (keyPairHandler *NcpVpcKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairI
 		LoggingError(callLogInfo, newErr)
 		return irs.KeyPairInfo{}, newErr
 	} else {
-		keyPairInfo := MappingKeyPairInfo(result.LoginKeyList[0])
+		keyPairInfo := mappingKeyPairInfo(result.LoginKeyList[0])
 		return keyPairInfo, nil
 	}
 }
@@ -226,36 +225,29 @@ func (keyPairHandler *NcpVpcKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, err
 		LoggingError(callLogInfo, delKeyErr)
 		return false, delKeyErr
 	}
-
 	cblogger.Infof("(# result.ReturnMessage : %s ", ncloud.StringValue(result.ReturnMessage))
 	cblogger.Infof("Succeeded in Deleting KeyPair Info : '%s' \n", keyIID.NameId)
 
 	return true, nil
 }
 
-// KeyPair 정보를 추출함
-func MappingKeyPairInfo(ncpKeyPair *vserver.LoginKey) irs.KeyPairInfo {
+// Map KeyPair info.
+func mappingKeyPairInfo(ncpKeyPair *vserver.LoginKey) irs.KeyPairInfo {
 	cblogger.Infof("*** Mapping KeyPair Info of : %s", *ncpKeyPair.KeyName)
 
 	// NCP Key does not have SystemId, so the unique NameId value is also applied to the SystemId
 	keyPairInfo := irs.KeyPairInfo{
 		IId: irs.IID{
-			NameId:   *ncpKeyPair.KeyName,
-			SystemId: *ncpKeyPair.KeyName,
+			NameId:   	*ncpKeyPair.KeyName,
+			SystemId: 	*ncpKeyPair.KeyName,
 		},
-		Fingerprint: *ncpKeyPair.Fingerprint,
-		PublicKey:   "N/A",
+		Fingerprint: 	*ncpKeyPair.Fingerprint,
+		PublicKey:   	"N/A",
 		// PublicKey:  	*NcpKeyPairList.PublicKey, // Creates Error
-		PrivateKey: "N/A",
-		VMUserID:   lnxUserName,
+		PrivateKey: 	"N/A",
+		VMUserID:   	lnxUserName,
+		KeyValueList:   irs.StructToKeyValueList(ncpKeyPair),
 	}
-
-	keyValueList := []irs.KeyValue{
-		{Key: "CreateDate", Value: *ncpKeyPair.CreateDate},
-	}
-
-	keyPairInfo.KeyValueList = keyValueList
-
 	return keyPairInfo
 }
 

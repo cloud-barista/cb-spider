@@ -16,12 +16,12 @@ package calllog
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"reflect"
 	"strings"
 	"time"
 
-	"github.com/chyeh/pubip"
 	calllogformatter "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log/formatter"
 	"github.com/sirupsen/logrus"
 	"github.com/snowzach/rotatefilehook"
@@ -83,7 +83,7 @@ func init() {
 }
 
 func getHostIPorName() string {
-	ip, err := pubip.Get()
+	addrs, err := net.InterfaceAddrs()
 	if err != nil {
 		logrus.Error(err)
 		hostName, err := os.Hostname()
@@ -93,7 +93,19 @@ func getHostIPorName() string {
 		return hostName
 	}
 
-	return ip.String()
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+
+	hostName, err := os.Hostname()
+	if err != nil {
+		logrus.Error(err)
+	}
+	return hostName
 }
 
 func GetLogger(loggerName string) *logrus.Logger {

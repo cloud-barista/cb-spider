@@ -7,6 +7,7 @@
 // This is a Cloud Driver Example for PoC Test.
 //
 // by ETRI, 2022.11.
+// by ETRI, 2025.03. (Updated to support KVM Hypervisor)
 
 package resources
 
@@ -14,10 +15,9 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
 	// "github.com/davecgh/go-spew/spew"
 
-	// "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
+	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
 	vserver "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -48,13 +48,15 @@ func (myImageHandler *NcpVpcMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 		return irs.MyImageInfo{}, newErr
 	}
 
-	snapshotReq := vserver.CreateMemberServerImageInstanceRequest{ // Not CreateBlockStorageSnapshotInstanceRequest{}
-		RegionCode:            &myImageHandler.RegionInfo.Region,
-		MemberServerImageName: &snapshotReqInfo.IId.NameId,
-		ServerInstanceNo:      &snapshotReqInfo.SourceVM.SystemId,
+	// Note) CreateMemberServerImageInstance() : For XEN/RHV
+	// Note) CreateServerImage() : For XEN/RHV/KVM
+	snapshotReq := vserver.CreateServerImageRequest{ // Not CreateBlockStorageSnapshotInstanceRequest{}
+		RegionCode:         &myImageHandler.RegionInfo.Region,
+		ServerInstanceNo:   &snapshotReqInfo.SourceVM.SystemId,
+		ServerImageName: 	&snapshotReqInfo.IId.NameId,
 	}
 	callLogStart := call.Start()
-	result, err := myImageHandler.VMClient.V2Api.CreateMemberServerImageInstance(&snapshotReq) // Not CreateBlockStorageSnapshotInstance
+	result, err := myImageHandler.VMClient.V2Api.CreateServerImage(&snapshotReq) // Not CreateBlockStorageSnapshotInstance
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Create New VM Snapshot : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -63,7 +65,12 @@ func (myImageHandler *NcpVpcMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 	}
 	LoggingInfo(callLogInfo, callLogStart)
 
-	if len(result.MemberServerImageInstanceList) < 1 {
+
+	// cblogger.Info("\n\n### result.ServerImageList : ")
+	// spew.Dump(result.ServerImageList)
+	// cblogger.Info("\n")
+
+	if len(result.ServerImageList) < 1 {
 		newErr := fmt.Errorf("Failed to Create New VM Snapshot. Snapshot does Not Exist!!")
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
@@ -72,7 +79,7 @@ func (myImageHandler *NcpVpcMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 		cblogger.Info("Succeeded in Creating New Snapshot.")
 	}
 
-	newImageIID := irs.IID{SystemId: *result.MemberServerImageInstanceList[0].MemberServerImageInstanceNo}
+	newImageIID := irs.IID{SystemId: *result.ServerImageList[0].ServerImageNo}
 	// To Wait for Creating a Snapshot Image
 	curStatus, err := myImageHandler.waitForImageSnapshot(newImageIID)
 	if err != nil {
@@ -94,17 +101,17 @@ func (myImageHandler *NcpVpcMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyIma
 	return myImageInfo, nil
 }
 
-// To Manage My Images
 func (myImageHandler *NcpVpcMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called ListMyImage()")
 	InitLog()
 	callLogInfo := GetCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, "ListMyImage()", "ListMyImage()")
 
-	imageListReq := vserver.GetMemberServerImageInstanceListRequest{ // Not GetBlockStorageSnapshotInstanceListRequest
-		RegionCode: &myImageHandler.RegionInfo.Region,
+	imageListReq := vserver.GetServerImageListRequest{ // Not GetBlockStorageSnapshotInstanceListRequest
+		RegionCode: 				&myImageHandler.RegionInfo.Region,
+		ServerImageTypeCodeList: 	[]*string{ncloud.String("SELF")}, // Caution) Options: SELF | NCP
 	}
 	callLogStart := call.Start()
-	result, err := myImageHandler.VMClient.V2Api.GetMemberServerImageInstanceList(&imageListReq) // Caution : Not GetBlockStorageSnapshotInstanceList()
+	result, err := myImageHandler.VMClient.V2Api.GetServerImageList(&imageListReq) // Caution : Not GetBlockStorageSnapshotInstanceList()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Snapshot Image List from NCP VPC : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -113,12 +120,16 @@ func (myImageHandler *NcpVpcMyImageHandler) ListMyImage() ([]*irs.MyImageInfo, e
 	}
 	LoggingInfo(callLogInfo, callLogStart)
 
+	// cblogger.Info("\n\n### MyImageList : ")
+	// spew.Dump(result)
+	// cblogger.Info("\n")
+
 	var imageInfoList []*irs.MyImageInfo
-	if len(result.MemberServerImageInstanceList) < 1 {
+	if len(result.ServerImageList) < 1 {
 		cblogger.Info("# Snapshot Image does Not Exist!!")
 	} else {
 		cblogger.Info("Succeeded in Getting the Snapshot Info List.")
-		for _, snapshotImage := range result.MemberServerImageInstanceList {
+		for _, snapshotImage := range result.ServerImageList {
 			imageInfo, err := myImageHandler.mappingMyImageInfo(snapshotImage)
 			if err != nil {
 				newErr := fmt.Errorf("Failed to Map MyImage Info!!")
@@ -143,12 +154,12 @@ func (myImageHandler *NcpVpcMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.
 		return irs.MyImageInfo{}, newErr
 	}
 
-	imageReq := vserver.GetMemberServerImageInstanceDetailRequest{ // Not GetBlockStorageSnapshotInstanceDetailRequest{}
-		RegionCode:                  &myImageHandler.RegionInfo.Region,
-		MemberServerImageInstanceNo: &myImageIID.SystemId,
+	imageReq := vserver.GetServerImageDetailRequest{ // Not GetBlockStorageSnapshotInstanceDetailRequest{}
+		RegionCode:    &myImageHandler.RegionInfo.Region,
+		ServerImageNo: &myImageIID.SystemId,
 	}
 	callLogStart := call.Start()
-	result, err := myImageHandler.VMClient.V2Api.GetMemberServerImageInstanceDetail(&imageReq) // Caution : Not GetBlockStorageSnapshotInstanceDetail()
+	result, err := myImageHandler.VMClient.V2Api.GetServerImageDetail(&imageReq) // Caution : Not GetBlockStorageSnapshotInstanceDetail()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Snapshot Image Info : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -157,7 +168,7 @@ func (myImageHandler *NcpVpcMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.
 	}
 	LoggingInfo(callLogInfo, callLogStart)
 
-	if len(result.MemberServerImageInstanceList) < 1 {
+	if len(result.ServerImageList) < 1 {
 		newErr := fmt.Errorf("Failed to Get the Snapshot Image Info.Snapshot Image does Not Exist!!")
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
@@ -166,7 +177,7 @@ func (myImageHandler *NcpVpcMyImageHandler) GetMyImage(myImageIID irs.IID) (irs.
 		cblogger.Info("Succeeded in Getting the Snapshot Image Info.")
 	}
 
-	imageInfo, err := myImageHandler.mappingMyImageInfo(result.MemberServerImageInstanceList[0])
+	imageInfo, err := myImageHandler.mappingMyImageInfo(result.ServerImageList[0])
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Map MyImage Info!!")
 		cblogger.Error(newErr.Error())
@@ -195,18 +206,19 @@ func (myImageHandler *NcpVpcMyImageHandler) CheckWindowsImage(myImageIID irs.IID
 		return false, newErr
 	}
 
-	var originalImageProductCode string
+	// Ref) https://api.ncloud-docs.com/docs/common-vapidatatype-serverimage
+	var OsTypeCode string
 	// Use Key/Value info of the myImageInfo.
 	for _, keyInfo := range myImageInfo.KeyValueList {
-		if keyInfo.Key == "OriginalServerImageProductCode" {
-			originalImageProductCode = keyInfo.Value
+		if keyInfo.Key == "OsType" {
+			OsTypeCode = keyInfo.Value
 			break
 		}
 	}
-	cblogger.Infof("\n### OriginalServerImageProductCode : [%s]", originalImageProductCode)
+	cblogger.Infof("\n### OsTypeCode : [%s]", OsTypeCode)
 
 	isWindowsImage := false
-	if strings.Contains(strings.ToUpper(originalImageProductCode), "WND") {
+	if strings.Contains(strings.ToUpper(OsTypeCode), "WINDOWS") {
 		isWindowsImage = true
 	}
 
@@ -226,13 +238,13 @@ func (myImageHandler *NcpVpcMyImageHandler) DeleteMyImage(myImageIID irs.IID) (b
 	}
 
 	snapshotImageNoList := []*string{&myImageIID.SystemId}
-	delReq := vserver.DeleteMemberServerImageInstancesRequest{ // Not DeleteBlockStorageSnapshotInstancesRequest{}
-		RegionCode:                      &myImageHandler.RegionInfo.Region,
-		MemberServerImageInstanceNoList: snapshotImageNoList,
+	delReq := vserver.DeleteServerImageRequest{ // Not DeleteBlockStorageSnapshotInstancesRequest{}
+		RegionCode:        &myImageHandler.RegionInfo.Region,
+		ServerImageNoList: snapshotImageNoList,
 	}
 
 	callLogStart := call.Start()
-	result, err := myImageHandler.VMClient.V2Api.DeleteMemberServerImageInstances(&delReq) // Not DeleteBlockStorageSnapshotInstances()
+	result, err := myImageHandler.VMClient.V2Api.DeleteServerImage(&delReq) // Not DeleteBlockStorageSnapshotInstances()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Delete the Snapshot Image. : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -306,12 +318,12 @@ func (myImageHandler *NcpVpcMyImageHandler) GetImageStatus(myImageIID irs.IID) (
 		return "", newErr
 	}
 
-	imageReq := vserver.GetMemberServerImageInstanceDetailRequest{ // Not GetBlockStorageSnapshotInstanceDetailRequest{}
-		RegionCode:                  &myImageHandler.RegionInfo.Region,
-		MemberServerImageInstanceNo: &myImageIID.SystemId,
+	imageReq := vserver.GetServerImageDetailRequest{ // Not GetBlockStorageSnapshotInstanceDetailRequest{}
+		RegionCode:     &myImageHandler.RegionInfo.Region,
+		ServerImageNo: 	&myImageIID.SystemId,
 	}
 	callLogStart := call.Start()
-	result, err := myImageHandler.VMClient.V2Api.GetMemberServerImageInstanceDetail(&imageReq) // Caution : Not GetBlockStorageSnapshotInstanceDetail()
+	result, err := myImageHandler.VMClient.V2Api.GetServerImageDetail(&imageReq) // Caution : Not GetBlockStorageSnapshotInstanceDetail()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Snapshot Image Info : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -320,7 +332,7 @@ func (myImageHandler *NcpVpcMyImageHandler) GetImageStatus(myImageIID irs.IID) (
 	}
 	LoggingInfo(callLogInfo, callLogStart)
 
-	if len(result.MemberServerImageInstanceList) < 1 {
+	if len(result.ServerImageList) < 1 {
 		newErr := fmt.Errorf("Failed to Get the Snapshot Image Info.Snapshot Image does Not Exist!!")
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
@@ -329,13 +341,13 @@ func (myImageHandler *NcpVpcMyImageHandler) GetImageStatus(myImageIID irs.IID) (
 		cblogger.Info("Succeeded in Getting the Snapshot Image Info.")
 	}
 
-	myImageStatus := convertImageStatus(*result.MemberServerImageInstanceList[0].MemberServerImageInstanceStatus.Code)
+	myImageStatus := convertImageStatus(*result.ServerImageList[0].ServerImageStatus.Code)
 	return myImageStatus, nil
 }
 
 func convertImageStatus(myImageStatus string) irs.MyImageStatus {
 	cblogger.Info("NCP VPC Cloud Driver: called convertImageStatus()")
-	// Ref) https://api.ncloud-docs.com/docs/common-vapidatatype-blockstoragesnapshotinstance
+	// Ref) https://api.ncloud-docs.com/docs/common-vapidatatype-serverimage
 	var resultStatus irs.MyImageStatus
 	switch myImageStatus {
 	case "INIT":
@@ -349,37 +361,30 @@ func convertImageStatus(myImageStatus string) irs.MyImageStatus {
 	return resultStatus
 }
 
-func (myImageHandler *NcpVpcMyImageHandler) mappingMyImageInfo(myImage *vserver.MemberServerImageInstance) (*irs.MyImageInfo, error) {
+func (myImageHandler *NcpVpcMyImageHandler) mappingMyImageInfo(myImage *vserver.ServerImage) (*irs.MyImageInfo, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called mappingMyImageInfo()!")
 
 	// cblogger.Info("\n\n### myImage in mappingMyImageInfo() : ")
 	// spew.Dump(myImage)
 	// cblogger.Info("\n")
 
-	convertedTime, err := convertTimeFormat(*myImage.CreateDate)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Convert the Time Format!!")
-		cblogger.Error(newErr.Error())
-		return nil, newErr
-	}
+	// convertedTime, err := convertTimeFormat(*myImage.CreateDate)
+	// if err != nil {
+	// 	newErr := fmt.Errorf("Failed to Convert the Time Format!!")
+	// 	cblogger.Error(newErr.Error())
+	// 	return nil, newErr
+	// }
 
 	myImageInfo := &irs.MyImageInfo{
 		IId: irs.IID{
-			NameId:   *myImage.MemberServerImageName,
-			SystemId: *myImage.MemberServerImageInstanceNo,
+			NameId:   	*myImage.ServerImageName,
+			SystemId: 	*myImage.ServerImageNo,
 		},
-		SourceVM:    irs.IID{SystemId: *myImage.OriginalServerInstanceNo},
-		Status:      convertImageStatus(*myImage.MemberServerImageInstanceStatus.Code),
-		CreatedTime: convertedTime,
+		// SourceVM:    	irs.IID{SystemId: *myImage.OriginalServerInstanceNo},
+		Status:      	convertImageStatus(*myImage.ServerImageStatus.Code),
+		// CreatedTime: 	convertedTime,
+		KeyValueList:   irs.StructToKeyValueList(myImage),
 	}
-
-	keyValueList := []irs.KeyValue{
-		{Key: "Region", Value: myImageHandler.RegionInfo.Region},
-		{Key: "OriginalServerImageProductCode", Value: *myImage.OriginalServerImageProductCode},
-		{Key: "CreateDate", Value: *myImage.CreateDate},
-	}
-
-	myImageInfo.KeyValueList = keyValueList
 	return myImageInfo, nil
 }
 
@@ -406,7 +411,7 @@ func (myImageHandler *NcpVpcMyImageHandler) getOriginImageOSPlatform(myImageIID 
 	var originalImageProductCode string
 	// Use Key/Value info of the myImageInfo.
 	for _, keyInfo := range myImageInfo.KeyValueList {
-		if keyInfo.Key == "OriginalServerImageProductCode" {
+		if keyInfo.Key == "osType" {
 			originalImageProductCode = keyInfo.Value
 			break
 		}
@@ -435,12 +440,12 @@ func (myImageHandler *NcpVpcMyImageHandler) ListIID() ([]*irs.IID, error) {
 	InitLog()
 	callLogInfo := GetCallLogScheme(myImageHandler.RegionInfo.Region, call.MYIMAGE, "ListIID()", "ListIID()")
 
-	imageListReq := vserver.GetMemberServerImageInstanceListRequest{ // Not GetBlockStorageSnapshotInstanceListRequest
+	imageListReq := vserver.GetServerImageListRequest{ // Not GetBlockStorageSnapshotInstanceListRequest
 		RegionCode: &myImageHandler.RegionInfo.Region,
 	}
 
 	callLogStart := call.Start()
-	result, err := myImageHandler.VMClient.V2Api.GetMemberServerImageInstanceList(&imageListReq) // Caution : Not GetBlockStorageSnapshotInstanceList()
+	result, err := myImageHandler.VMClient.V2Api.GetServerImageList(&imageListReq) // Caution : Not GetBlockStorageSnapshotInstanceList()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the Snapshot Image List from NCP VPC : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -450,12 +455,12 @@ func (myImageHandler *NcpVpcMyImageHandler) ListIID() ([]*irs.IID, error) {
 	LoggingInfo(callLogInfo, callLogStart)
 
 	var iidList []*irs.IID
-	if len(result.MemberServerImageInstanceList) < 1 {
+	if len(result.ServerImageList) < 1 {
 		cblogger.Debug("### MyImage does Not Exist!!")
 		return nil, nil
 	} else {
-		for _, myImage := range result.MemberServerImageInstanceList {
-			iid := irs.IID{NameId: *myImage.MemberServerImageName, SystemId: *myImage.MemberServerImageInstanceNo}
+		for _, myImage := range result.ServerImageList {
+			iid := irs.IID{NameId: *myImage.ServerImageName, SystemId: *myImage.ServerImageNo}
 			iidList = append(iidList, &iid)
 		}
 	}

@@ -17,7 +17,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/bootfromvolume"
 	"io"
 	"net/http"
 	"os"
@@ -25,6 +24,9 @@ import (
 	"strings"
 	"time"
 	_ "time/tzdata" // To prevent 'unknown time zone Asia/Seoul' error
+
+	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/extensions/bootfromvolume"
+
 	// "github.com/davecgh/go-spew/spew"
 
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
@@ -35,6 +37,7 @@ import (
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/flavors"
 	comimages "github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/images" // compute/v2/images
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/compute/v2/servers"
+
 	//	images "github.com/cloud-barista/nhncloud-sdk-go/openstack/imageservice/v2/images" // imageservice/v2/images : For Visibility parameter
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -49,6 +52,7 @@ const (
 	WinCloudInitFilePath    string = "/cloud-driver-libs/.cloud-init-nhncloud/cloud-init-windows"
 	DefaultDiskSize         string = "20"
 	DefaultWinRootDiskSize  string = "50"
+	DefaultNodeRootDiskSize string = "30"
 )
 
 type NhnCloudVMHandler struct {
@@ -1047,19 +1051,8 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 			cblogger.Error(newErr.Error())
 			return irs.VMInfo{}, newErr
 		} else if nhnFlavor != nil {
-			// spew.Dump(flavor)
-			vmInfo.VMSpecName = nhnFlavor.Name
-			if vmInfo.RootDiskSize == "" { // In case of u2 VMSpec type
-				vmInfo.RootDiskType = "General_HDD" // u2 type VMSpec only supports 'General_HHD'.
-				vmInfo.RootDiskSize = strconv.Itoa(nhnFlavor.Disk)
-				vmInfo.RootDeviceName = "/dev/vda"
-			}
-			if strconv.Itoa(nhnFlavor.VCPUs) != "" {
-				vCPU = strconv.Itoa(nhnFlavor.VCPUs)
-			}
-			if strconv.Itoa(nhnFlavor.RAM) != "" {
-				vRam = strconv.Itoa(nhnFlavor.RAM)
-			}
+			vCPU = strconv.Itoa(nhnFlavor.VCPUs)
+			vRam = strconv.Itoa(nhnFlavor.RAM)
 		}
 	}
 
@@ -1181,16 +1174,13 @@ func (vmHandler *NhnCloudVMHandler) mappingVMInfo(server servers.Server) (irs.VM
 		vmInfo.SSHAccessPoint = vmInfo.PublicIP + ":22"
 	}
 
-	var keyValueList []irs.KeyValue
-	if vCPU != "" {
-		keyValue := irs.KeyValue{Key: "vCPU", Value: vCPU}
-		keyValueList = append(keyValueList, keyValue)
-	}
-	if vRam != "" {
-		keyValue := irs.KeyValue{Key: "vRAM(GB)", Value: vRam}
-		keyValueList = append(keyValueList, keyValue)
-	}
-	vmInfo.KeyValueList = keyValueList
+	vmInfo.KeyValueList = irs.StructToKeyValueList(server)
+
+	vmInfo.KeyValueList = append(vmInfo.KeyValueList,
+		irs.KeyValue{Key: "vCPU", Value: vCPU},
+		irs.KeyValue{Key: "vRAM(GB)", Value: vRam},
+	)
+
 	return vmInfo, nil
 }
 

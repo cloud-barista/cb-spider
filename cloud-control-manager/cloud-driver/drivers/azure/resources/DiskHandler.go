@@ -474,7 +474,9 @@ func setterDiskInfo(disk *armcompute.Disk) (*irs.DiskInfo, error) {
 	if disk.Tags != nil {
 		diskStatus.TagList = setTagList(disk.Tags)
 	}
-	// TODO KeyValueList
+
+	diskStatus.KeyValueList = irs.StructToKeyValueList(disk)
+
 	return &diskStatus, nil
 }
 
