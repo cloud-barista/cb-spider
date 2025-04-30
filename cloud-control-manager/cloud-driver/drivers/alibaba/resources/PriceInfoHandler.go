@@ -151,10 +151,6 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) ListProductFamily(regionName st
 }
 
 func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue) (string, error) {
-	const (
-		OS_TYPE_LINUX   = "Linux"
-		OS_TYPE_WINDOWS = "Windows"
-	)
 	priceMap := make(map[string]irs.Price)
 
 	// mutex for thread safety
@@ -287,17 +283,8 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 
 	cblogger.Infof("Retrieved details for %d instance types", len(instanceTypesInfo))
 
-	// Get Windows image ID for Windows pricing
-	windowsImageId, err := getLatestWindowsImageId(priceInfoHandler.EcsClient, regionName)
-	if err != nil {
-		cblogger.Error("Failed to get Windows image ID: ", err)
-		windowsImageId = ""
-	} else {
-		cblogger.Infof("Latest Windows Image ID: %s", windowsImageId)
-	}
-
 	// Function to convert instance type to product info
-	convertToProductInfo := func(instanceType string, region string, osType string) (irs.ProductInfo, error) {
+	convertToProductInfo := func(instanceType string, region string) (irs.ProductInfo, error) {
 		productInfo := irs.ProductInfo{}
 
 		instanceTypeInfo, exists := instanceTypesInfo[instanceType]
@@ -367,13 +354,6 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 			}
 		}
 
-		// Set OS distribution
-		if osType == string(OS_TYPE_WINDOWS) {
-			productInfo.OSDistribution = "Windows"
-		} else {
-			productInfo.OSDistribution = "Linux"
-		}
-
 		productInfo.PreInstalledSw = "NA"
 
 		if productFamily != "ecs" {
@@ -388,11 +368,8 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 		return productInfo, nil
 	}
 
-	// Set price units to retrieve
-	priceUnits := []string{"Hour", "Month", "Year"}
-	if filteredPriceUnit, ok := filter["leaseContractLength"]; ok {
-		priceUnits = []string{*filteredPriceUnit}
-	}
+	// Set price unit to Hour only
+	priceUnit := "Hour"
 
 	// Convert instance types to slice for parallel processing
 	var instanceTypeKeys []string
@@ -429,175 +406,141 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 			delay := time.Duration(20*partNum) * time.Millisecond
 
 			for _, instanceType := range instanceTypes {
-				// Process Linux and Windows if Windows image available
-				osTypes := []string{OS_TYPE_LINUX, OS_TYPE_WINDOWS}
-				if windowsImageId == "" {
-					osTypes = []string{OS_TYPE_LINUX}
-				}
+				time.Sleep(delay)
 
-				for _, osType := range osTypes {
-					for _, priceUnit := range priceUnits {
-						time.Sleep(delay)
+				period := 1
+				systemDiskCategories := []string{"cloud_essd", "cloud_efficiency"}
 
-						period := 1
-						systemDiskCategories := []string{"cloud_essd", "cloud_efficiency"}
+				var priceResp *ecs.DescribePriceResponse
+				var priceErr error
+				var usedSystemDiskCategory string
 
-						var priceResp *ecs.DescribePriceResponse
-						var priceErr error
-						var usedSystemDiskCategory string
+				// Try different disk categories
+				for _, diskCategory := range systemDiskCategories {
+					priceRequest := ecs.CreateDescribePriceRequest()
+					priceRequest.Scheme = "https"
+					priceRequest.RegionId = regionName
+					priceRequest.ResourceType = "instance"
+					priceRequest.InstanceType = instanceType
+					priceRequest.SystemDiskCategory = diskCategory
+					priceRequest.Period = requests.NewInteger(period)
+					priceRequest.PriceUnit = priceUnit
 
-						// Try different disk categories
-						for _, diskCategory := range systemDiskCategories {
-							priceRequest := ecs.CreateDescribePriceRequest()
-							priceRequest.Scheme = "https"
-							priceRequest.RegionId = regionName
-							priceRequest.ResourceType = "instance"
-							priceRequest.InstanceType = instanceType
-							priceRequest.SystemDiskCategory = diskCategory
-							priceRequest.Period = requests.NewInteger(period)
-							priceRequest.PriceUnit = priceUnit
+					// Retry logic for API calls
+					for retry := 0; retry < 3; retry++ {
+						priceResp, priceErr = priceInfoHandler.EcsClient.DescribePrice(priceRequest)
 
-							// Set image ID for Windows
-							if osType == OS_TYPE_WINDOWS && windowsImageId != "" {
-								priceRequest.ImageId = windowsImageId
-							}
-
-							// Retry logic for API calls
-							for retry := 0; retry < 3; retry++ {
-								priceResp, priceErr = priceInfoHandler.EcsClient.DescribePrice(priceRequest)
-
-								if priceErr == nil {
-									break
-								}
-
-								errMsg := priceErr.Error()
-								if strings.Contains(errMsg, "ErrorCode: Throttling") {
-									cblogger.Warnf("Throttling error for instance type %s with disk category %s, OS %s: %v",
-										instanceType, diskCategory, osType, priceErr)
-									cblogger.Infof("Rate limit exceeded. Waiting 5 seconds before retrying...")
-									time.Sleep(5 * time.Second)
-									continue
-								}
-								if strings.Contains(errMsg, "ErrorCode: UnknownError") ||
-									strings.Contains(errMsg, "ErrorCode: ImageNotSupportInstanceType") {
-									break
-								}
-							}
-
-							// Store successful disk category
-							if priceErr == nil {
-								usedSystemDiskCategory = diskCategory
-								break
-							}
-
-							// Log failure of first disk category
-							if diskCategory == systemDiskCategories[0] && len(systemDiskCategories) > 1 {
-								cblogger.Warnf("Failed to get price with disk category %s, trying %s: %v",
-									diskCategory, systemDiskCategories[1], priceErr)
-							}
+						if priceErr == nil {
+							break
 						}
 
-						// Skip if all disk categories failed
-						if priceErr != nil {
-							errMsg := priceErr.Error()
-							if strings.Contains(errMsg, "ErrorCode: UnknownError") ||
-								strings.Contains(errMsg, "ErrorCode: ImageNotSupportInstanceType") {
-								break
-							}
-							cblogger.Errorf("Failed to get price for instance type %s with all disk categories for OS %s: %v", instanceType, osType, priceErr)
+						errMsg := priceErr.Error()
+						if strings.Contains(errMsg, "ErrorCode: Throttling") {
+							cblogger.Warnf("Throttling error for instance type %s with disk category %s : %v",
+								instanceType, diskCategory, priceErr)
+							cblogger.Infof("Rate limit exceeded. Waiting 5 seconds before retrying...")
+							time.Sleep(5 * time.Second)
 							continue
 						}
-
-						// Create product ID based on region, instance type and OS
-						productId := regionName + "_" + instanceType
-						if osType == OS_TYPE_WINDOWS {
-							productId += "_windows"
-						} else {
-							productId += "_linux"
+						if strings.Contains(errMsg, "ErrorCode: UnknownError") ||
+							strings.Contains(errMsg, "ErrorCode: ImageNotSupportInstanceType") {
+							break
 						}
+					}
 
-						// Set purchase option based on price unit
-						purchaseOption := "Reserved"
-						if priceUnit == "Hour" {
-							purchaseOption = "OnDemand"
-						}
+					// Store successful disk category
+					if priceErr == nil {
+						usedSystemDiskCategory = diskCategory
+						break
+					}
 
-						// Extract resource-specific prices from response
-						var instanceTypePrice float64 = 0
-						var imagePrice float64 = 0
-
-						if priceResp != nil && priceResp.PriceInfo.Price.DetailInfos.DetailInfo != nil {
-							for _, detailInfo := range priceResp.PriceInfo.Price.DetailInfos.DetailInfo {
-								if detailInfo.Resource == "instanceType" {
-									instanceTypePrice = detailInfo.TradePrice
-								} else if detailInfo.Resource == "image" {
-									imagePrice = detailInfo.TradePrice
-								}
-							}
-						}
-
-						// Calculate total price - Linux uses only instance price, Windows adds image price
-						totalPrice := instanceTypePrice
-						if osType == OS_TYPE_WINDOWS {
-							totalPrice = instanceTypePrice + imagePrice
-						}
-
-						// Create pricing policy
-						pricingPolicy := irs.PricingPolicies{
-							PricingId:     "NA",
-							PricingPolicy: purchaseOption,
-							Unit:          priceUnit,
-							Currency:      priceResp.PriceInfo.Price.Currency,
-							Price:         strconv.FormatFloat(totalPrice, 'f', -1, 64),
-							Description:   fmt.Sprintf("Available SystemDisk: %s", usedSystemDiskCategory),
-							PricingPolicyInfo: &irs.PricingPolicyInfo{
-								LeaseContractLength: priceUnit,
-								OfferingClass:       "Standard",
-								PurchaseOption:      purchaseOption,
-							},
-						}
-
-						// Store CSP-specific price info
-						aliPriceInfo := make(map[string]interface{})
-						jsonBytes, _ := json.Marshal(priceResp.PriceInfo.Price)
-						json.Unmarshal(jsonBytes, &aliPriceInfo)
-
-						// Thread-safe price map update
-						priceMutex.Lock()
-
-						// Add to existing product or create new one
-						aPrice, ok := priceMap[productId]
-						if ok { // Add pricing policy to existing product
-							aPrice.PriceInfo.PricingPolicies = append(aPrice.PriceInfo.PricingPolicies, pricingPolicy)
-							aPrice.PriceInfo.CSPPriceInfo = aliPriceInfo
-							priceMap[productId] = aPrice
-						} else { // Create new price entry
-							newProductInfo, err := convertToProductInfo(instanceType, regionName, osType)
-							if err != nil {
-								priceMutex.Unlock()
-								cblogger.Errorf("[%s] instanceType error: %s", instanceType, err.Error())
-								continue
-							}
-
-							// Create new price entry
-							newPrice := irs.Price{}
-							newProductInfo.ProductId = productId
-							newProductInfo.Description = fmt.Sprintf("SystemDisk: %s, OS: %s", usedSystemDiskCategory, osType)
-							newPrice.ProductInfo = newProductInfo
-
-							// Set price info
-							newPriceInfo := irs.PriceInfo{}
-							newPolicies := []irs.PricingPolicies{pricingPolicy}
-							newPriceInfo.PricingPolicies = newPolicies
-							newPriceInfo.CSPPriceInfo = aliPriceInfo
-							newPrice.PriceInfo = newPriceInfo
-
-							priceMap[productId] = newPrice
-						}
-
-						priceMutex.Unlock()
+					// Log failure of first disk category
+					if diskCategory == systemDiskCategories[0] && len(systemDiskCategories) > 1 {
+						cblogger.Warnf("Failed to get price with disk category %s, trying %s: %v",
+							diskCategory, systemDiskCategories[1], priceErr)
 					}
 				}
+
+				// Skip if all disk categories failed
+				if priceErr != nil {
+					errMsg := priceErr.Error()
+					if strings.Contains(errMsg, "ErrorCode: UnknownError") ||
+						strings.Contains(errMsg, "ErrorCode: ImageNotSupportInstanceType") {
+						break
+					}
+					cblogger.Errorf("Failed to get price for instance type %s with all disk categories: %v", instanceType, priceErr)
+					continue
+				}
+
+				// Create product ID based on region and instance type
+				productId := regionName + "_" + instanceType
+
+				// Set purchase option to OnDemand for Hour pricing
+				purchaseOption := "OnDemand"
+
+				// Extract instance type price from response
+				var instanceTypePrice float64 = 0
+
+				if priceResp != nil && priceResp.PriceInfo.Price.DetailInfos.DetailInfo != nil {
+					for _, detailInfo := range priceResp.PriceInfo.Price.DetailInfos.DetailInfo {
+						if detailInfo.Resource == "instanceType" {
+							instanceTypePrice = detailInfo.TradePrice
+						}
+					}
+				}
+
+				// Use instance price
+				totalPrice := instanceTypePrice
+
+				// Create pricing policy
+				pricingPolicy := irs.PricingPolicies{
+					PricingId:     "NA",
+					PricingPolicy: purchaseOption,
+					Unit:          priceUnit,
+					Currency:      priceResp.PriceInfo.Price.Currency,
+					Price:         strconv.FormatFloat(totalPrice, 'f', -1, 64),
+					Description:   fmt.Sprintf("Available SystemDisk: %s", usedSystemDiskCategory),
+				}
+
+				// Store CSP-specific price info
+				aliPriceInfo := make(map[string]interface{})
+				jsonBytes, _ := json.Marshal(priceResp.PriceInfo.Price)
+				json.Unmarshal(jsonBytes, &aliPriceInfo)
+
+				// Thread-safe price map update
+				priceMutex.Lock()
+
+				// Add to existing product or create new one
+				aPrice, ok := priceMap[productId]
+				if ok { // Add pricing policy to existing product
+					aPrice.PriceInfo.PricingPolicies = append(aPrice.PriceInfo.PricingPolicies, pricingPolicy)
+					aPrice.PriceInfo.CSPPriceInfo = aliPriceInfo
+					priceMap[productId] = aPrice
+				} else { // Create new price entry
+					newProductInfo, err := convertToProductInfo(instanceType, regionName)
+					if err != nil {
+						priceMutex.Unlock()
+						cblogger.Errorf("[%s] instanceType error: %s", instanceType, err.Error())
+						continue
+					}
+
+					// Create new price entry
+					newPrice := irs.Price{}
+					newProductInfo.ProductId = productId
+					newProductInfo.Description = fmt.Sprintf("SystemDisk: %s", usedSystemDiskCategory)
+					newPrice.ProductInfo = newProductInfo
+
+					// Set price info
+					newPriceInfo := irs.PriceInfo{}
+					newPolicies := []irs.PricingPolicies{pricingPolicy}
+					newPriceInfo.PricingPolicies = newPolicies
+					newPriceInfo.CSPPriceInfo = aliPriceInfo
+					newPrice.PriceInfo = newPriceInfo
+
+					priceMap[productId] = newPrice
+				}
+
+				priceMutex.Unlock()
 			}
 
 			cblogger.Infof("Completed goroutine %d", partNum)
@@ -625,30 +568,6 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 	}
 
 	return string(resultString), nil
-}
-
-// get latest Windows image ID
-func getLatestWindowsImageId(ecsClient *ecs.Client, regionName string) (string, error) {
-	imageRequest := ecs.CreateDescribeImagesRequest()
-	imageRequest.Scheme = "https"
-	imageRequest.RegionId = regionName
-	imageRequest.ImageOwnerAlias = "system"
-	imageRequest.OSType = "windows"
-
-	imageRequest.Status = "Available"
-	imageRequest.PageSize = requests.NewInteger(10)
-	imageRequest.PageNumber = requests.NewInteger(1)
-
-	imageResponse, err := ecsClient.DescribeImages(imageRequest)
-	if err != nil {
-		return "", fmt.Errorf("Failed to get Windows images: %v", err)
-	}
-
-	if len(imageResponse.Images.Image) == 0 {
-		return "", fmt.Errorf("No Windows images found in region %s", regionName)
-	}
-
-	return imageResponse.Images.Image[0].ImageId, nil
 }
 
 // exception handling for other product family except ecs
