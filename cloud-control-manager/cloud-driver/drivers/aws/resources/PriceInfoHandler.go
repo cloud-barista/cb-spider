@@ -71,94 +71,141 @@ func (priceInfoHandler *AwsPriceInfoHandler) ListProductFamily(regionName string
 	return result, nil
 }
 
-// AWS에서는 ListProductFamily를 통해 ProductFamily와 AttributeName을 수집하고,
-// GetAttributeValues를 통해 AttributeValue를 수집하여 필터로 사용합니다.
-// GetPriceInfo는 DescribeServices를 통해 올바른 productFamily 인자만 검사합니다. -> AttributeName에 오류가 있을경우 빈값을 리턴
-
 func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue) (string, error) {
 	result := &irs.CloudPriceData{}
 	result.Meta.Version = "v0.1"
 	result.Meta.Description = "Multi-Cloud Price Info"
 
-	priceMap := make(map[string]irs.Price) // 전체 price를 id로 구분한 map
+	priceMap := make(map[string]irs.Price)
 
 	cblogger.Info("productFamily : ", productFamily)
 	cblogger.Info("filter value : ", filterList)
-	requestProductsInputFilters, err := setProductsInputRequestFilter(filterList)
 
-	// filter조건에 region 지정.
+	svc := priceInfoHandler.Client
+
+	filters := []*pricing.Filter{}
+
+	// add basic filters
+	filters = append(filters, &pricing.Filter{
+		Type:  aws.String("TERM_MATCH"),
+		Field: aws.String("marketoption"),
+		Value: aws.String("OnDemand"),
+	})
+
+	filters = append(filters, &pricing.Filter{
+		Type:  aws.String("TERM_MATCH"),
+		Field: aws.String("operatingSystem"),
+		Value: aws.String("Linux"),
+	})
+
+	filters = append(filters, &pricing.Filter{
+		Type:  aws.String("TERM_MATCH"),
+		Field: aws.String("tenancy"),
+		Value: aws.String("Shared"),
+	})
+
+	filters = append(filters, &pricing.Filter{
+		Type:  aws.String("TERM_MATCH"),
+		Field: aws.String("preInstalledSw"),
+		Value: aws.String("NA"),
+	})
+
+	filters = append(filters, &pricing.Filter{
+		Type:  aws.String("TERM_MATCH"),
+		Field: aws.String("capacitystatus"),
+		Value: aws.String("Used"),
+	})
+
+	filters = append(filters, &pricing.Filter{
+		Type:  aws.String("TERM_MATCH"),
+		Field: aws.String("currentGeneration"),
+		Value: aws.String("Yes"),
+	})
+
 	if regionName != "" {
-		requestProductsInputFilters = append(requestProductsInputFilters, &pricing.Filter{
-			Field: aws.String("regionCode"),
+		filters = append(filters, &pricing.Filter{
 			Type:  aws.String("EQUALS"),
+			Field: aws.String("regionCode"),
 			Value: aws.String(regionName),
 		})
 	} else {
-		requestProductsInputFilters = append(requestProductsInputFilters, &pricing.Filter{
-			Field: aws.String("regionCode"),
+		filters = append(filters, &pricing.Filter{
 			Type:  aws.String("EQUALS"),
+			Field: aws.String("regionCode"),
 			Value: aws.String(priceInfoHandler.Region.Region),
 		})
 	}
 
-	requestProductsInputFilters = append(requestProductsInputFilters, &pricing.Filter{
-		Field: aws.String("productFamily"),
-		Type:  aws.String("EQUALS"),
-		Value: aws.String(productFamily),
-	})
-	cblogger.Info("requestProductsInputFilters", requestProductsInputFilters)
+	// Filter for productFamily, but not used because both 'Compute Instance' and 'Compute Instance (bare metal)' are needed
+	// filters = append(filters, &pricing.Filter{
+	// 	Type:  aws.String("EQUALS"),
+	// 	Field: aws.String("productFamily"),
+	// 	Value: aws.String(productFamily),
+	// })
 
-	// NextToken 설정 x -> 1 ~ 100개 까지 출력
-	// NextToken값이 있으면 request에 NextToken값을 추가
-	// NextToken값이 없어질 때 까지 반복
-	// Region : us-west-1 / ProductFamily : Compute Instance 조회 결과 39200개 확인
-	var nextToken *string
-	for {
+	// add user filters
+	userFilters, err := setProductsInputRequestFilter(filterList)
+	if err != nil {
+		cblogger.Error(err)
+		return "", err
+	}
+	filters = append(filters, userFilters...)
 
-		getProductsRequest := &pricing.GetProductsInput{
-			Filters:     requestProductsInputFilters,
-			ServiceCode: aws.String("AmazonEC2"), // ServiceCode : AmazonEC2 고정
-			NextToken:   nextToken,
-		}
-		cblogger.Info("get Products request", getProductsRequest)
+	cblogger.Info("filters", filters)
 
-		priceInfos, err := priceInfoHandler.Client.GetProducts(getProductsRequest)
-		if err != nil {
-			cblogger.Error(err)
-			return "", err
-		}
-		cblogger.Info("get Products response", priceInfos)
+	// set input parameters
+	input := &pricing.GetProductsInput{
+		ServiceCode: aws.String("AmazonEC2"),
+		Filters:     filters,
+		MaxResults:  aws.Int64(100),
+	}
 
-		for _, awsPrice := range priceInfos.PriceList {
-			productInfo, err := ExtractProductInfo(awsPrice, productFamily)
+	// proccess pagenation
+	err = svc.GetProductsPages(input,
+		func(page *pricing.GetProductsOutput, lastPage bool) bool {
+			for _, awsPrice := range page.PriceList {
+				productInfoMap := awsPrice["product"].(map[string]interface{})
+				productFamilyVal, ok := productInfoMap["productFamily"].(string)
+				if !ok {
+					continue
+				}
 
-			if err != nil {
-				cblogger.Error(err)
-				continue
-			}
+				// only productFamily: 'Compute Instance' & 'Compute Instance (bare metal)'
+				if productFamilyVal != "Compute Instance" && productFamilyVal != "Compute Instance (bare metal)" {
+					continue
+				}
+				productInfo, err := ExtractProductInfo(awsPrice, productFamilyVal)
+				if err != nil {
+					cblogger.Error(err)
+					continue
+				}
 
-			// termsKey : OnDemand, Reserved
-			for termsKey, termsValue := range awsPrice["terms"].(map[string]interface{}) {
-				for _, policyValue := range termsValue.(map[string]interface{}) {
-					// OnDemand, Reserved 일 때, 항목이 다름.
-					priceDemensions := make(map[string]interface{})
-					termAttributes := make(map[string]interface{})
-					sku := ""
-					if priceDemensionsVal, ok := policyValue.(map[string]interface{})["priceDimensions"]; ok {
-						priceDemensions = priceDemensionsVal.(map[string]interface{})
+				// termsKey : OnDemand, Reserved
+				for termsKey, termsValue := range awsPrice["terms"].(map[string]interface{}) {
+					// only OnDemand
+					if termsKey != "OnDemand" {
+						continue
 					}
-					if termAttributesVal, ok := policyValue.(map[string]interface{})["termAttributes"]; ok {
-						termAttributes = termAttributesVal.(map[string]interface{})
-					}
-					if skuVal, ok := policyValue.(map[string]interface{})["sku"]; ok {
-						skuValString, ok := skuVal.(string)
-						if ok {
-							sku = skuValString
+
+					for _, policyValue := range termsValue.(map[string]interface{}) {
+						priceDimensions := make(map[string]interface{})
+						termAttributes := make(map[string]interface{})
+						sku := ""
+
+						if priceDimensionsVal, ok := policyValue.(map[string]interface{})["priceDimensions"]; ok {
+							priceDimensions = priceDimensionsVal.(map[string]interface{})
 						}
-					}
+						if termAttributesVal, ok := policyValue.(map[string]interface{})["termAttributes"]; ok {
+							termAttributes = termAttributesVal.(map[string]interface{})
+						}
+						if skuVal, ok := policyValue.(map[string]interface{})["sku"]; ok {
+							skuValString, ok := skuVal.(string)
+							if ok {
+								sku = skuValString
+							}
+						}
 
-					if termsKey == "OnDemand" {
-						for priceDimensionsKey, priceDimensionsValue := range priceDemensions {
+						for priceDimensionsKey, priceDimensionsValue := range priceDimensions {
 							isFiltered := OnDemandPolicyFilter(priceDimensionsKey, priceDimensionsValue.(map[string]interface{}), termAttributes, sku, filterList)
 							if isFiltered {
 								continue
@@ -170,59 +217,52 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 							pricingPolicy.Description = fmt.Sprintf("%s", priceDimensionsValue.(map[string]interface{})["description"])
 							for key, val := range priceDimensionsValue.(map[string]interface{})["pricePerUnit"].(map[string]interface{}) {
 								pricingPolicy.Currency = key
-								pricingPolicy.Price = fmt.Sprintf("%s", val)
+
+								// Parse price string to float
+								priceStr := fmt.Sprintf("%s", val)
+								priceFloat, err := strconv.ParseFloat(priceStr, 64)
+								if err == nil {
+									// Check decimal digits
+									parts := strings.Split(priceStr, ".")
+									decimalDigits := 0
+									if len(parts) > 1 {
+										// Calculate significant decimal digits (excluding trailing zeros)
+										decimalDigits = len(strings.TrimRight(parts[1], "0"))
+									}
+
+									// For integer or less than 2 decimal digits
+									if decimalDigits < 2 {
+										// Format with 2 decimal places
+										pricingPolicy.Price = fmt.Sprintf("%.2f", priceFloat)
+									} else {
+										// For 2 or more decimal digits, remove unnecessary zeros
+										trimmedPrice := strings.TrimRight(fmt.Sprintf("%f", priceFloat), "0")
+										// Remove trailing decimal point if exists
+										if trimmedPrice[len(trimmedPrice)-1] == '.' {
+											trimmedPrice = trimmedPrice[:len(trimmedPrice)-1]
+										}
+										pricingPolicy.Price = trimmedPrice
+									}
+								} else {
+									pricingPolicy.Price = priceStr // Use original price string if parsing fails
+								}
+
 								// USD is Default.
 								// if NO USD data, accept other currency.
 								if key == "USD" {
 									break
 								}
 							}
-							pricingPolicy.Unit = fmt.Sprintf("%s", priceDimensionsValue.(map[string]interface{})["unit"])
 
-							// policy 추출하여 추가
-							aPrice, ok := AppendPolicyToPrice(priceMap, productInfo, pricingPolicy, awsPrice)
-							if !ok {
-								priceMap[productInfo.ProductId] = aPrice
-							}
-						}
-
-					} else if termsKey == "Reserved" {
-
-						for priceDimensionsKey, priceDimensionsValue := range priceDemensions {
-							isFiltered := ReservedPolicyFilter(priceDimensionsKey, priceDimensionsValue.(map[string]interface{}), termAttributes, sku, filterList)
-							if isFiltered {
-								continue
+							// Convert 'Hrs' unit to 'Hour'
+							unitStr := fmt.Sprintf("%s", priceDimensionsValue.(map[string]interface{})["unit"])
+							if unitStr == "Hrs" {
+								pricingPolicy.Unit = "Hour"
+							} else {
+								pricingPolicy.Unit = unitStr
 							}
 
-							var pricingPolicy irs.PricingPolicies
-							pricingPolicy.PricingId = priceDimensionsKey
-							pricingPolicy.PricingPolicy = termsKey
-							pricingPolicy.Description = fmt.Sprintf("%s", priceDimensionsValue.(map[string]interface{})["description"])
-							for key, val := range priceDimensionsValue.(map[string]interface{})["pricePerUnit"].(map[string]interface{}) {
-								pricingPolicy.Currency = key
-								pricingPolicy.Price = fmt.Sprintf("%s", val)
-								// USD is Default.
-								// if NO USD data, accept other currency.
-								if key == "USD" {
-									break
-								}
-							}
-							pricingPolicy.Unit = fmt.Sprintf("%s", priceDimensionsValue.(map[string]interface{})["unit"])
-
-							pricingPolicyInfo := irs.PricingPolicyInfo{}
-							if leaseContractLength, ok := termAttributes["LeaseContractLength"]; ok {
-								pricingPolicyInfo.LeaseContractLength = leaseContractLength.(string)
-							}
-							if offeringClass, ok := termAttributes["OfferingClass"]; ok {
-								pricingPolicyInfo.OfferingClass = offeringClass.(string)
-							}
-							if purchaseOption, ok := termAttributes["PurchaseOption"]; ok {
-								pricingPolicyInfo.PurchaseOption = purchaseOption.(string)
-							}
-
-							pricingPolicy.PricingPolicyInfo = &pricingPolicyInfo
-
-							// policy 추출하여 추가
+							// Extract and add policy
 							aPrice, ok := AppendPolicyToPrice(priceMap, productInfo, pricingPolicy, awsPrice)
 							if !ok {
 								priceMap[productInfo.ProductId] = aPrice
@@ -231,20 +271,19 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 					}
 				}
 			}
-		}
+			return true // continue to the next page
+		})
 
-		// nextToken이 없으면 for Loop 중단.
-		if priceInfos.NextToken == nil {
-			break
-		}
-		// NextToken값이 있다면 설정
-		nextToken = priceInfos.NextToken
-	} // end of nextToken for
+	if err != nil {
+		cblogger.Error(err)
+		return "", err
+	}
 
 	priceList := []irs.Price{}
 	for _, value := range priceMap {
 		priceList = append(priceList, value)
 	}
+
 	priceone := irs.CloudPrice{
 		CloudName: "AWS",
 	}
@@ -256,10 +295,144 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 		cblogger.Error(err)
 		return "", err
 	}
+
 	return string(resultString), nil
 }
 
-// 가져온 결과에서 product 추출
+// set filter for GetProductsInput
+func setProductsInputRequestFilter(filterList []irs.KeyValue) ([]*pricing.Filter, error) {
+	requestFilters := []*pricing.Filter{}
+
+	if filterList != nil {
+		for _, filter := range filterList {
+			//--------------------- ProductInfo
+			if filter.Key == "ProductId" {
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Type:  aws.String("TERM_MATCH"),
+					Field: aws.String("sku"),
+					Value: aws.String(filter.Value),
+				})
+			}
+			if filter.Key == "SpecName" {
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Type:  aws.String("TERM_MATCH"),
+					Field: aws.String("instanceType"),
+					Value: aws.String(filter.Value),
+				})
+			}
+			if filter.Key == "VCpu.Count" {
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Type:  aws.String("TERM_MATCH"),
+					Field: aws.String("vcpu"),
+					Value: aws.String(filter.Value),
+				})
+			}
+			if filter.Key == "MemSizeMiB" {
+				filterValue := convertMiBtoGiBStringWithUnitForFilter(filter.Value)
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Type:  aws.String("TERM_MATCH"),
+					Field: aws.String("memory"),
+					Value: aws.String(filterValue),
+				})
+			}
+			if filter.Key == "DiskSizeGB" {
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Type:  aws.String("TERM_MATCH"),
+					Field: aws.String("storage"),
+					Value: aws.String(filter.Value),
+				})
+			}
+			if filter.Key == "Gpu.Count" {
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Type:  aws.String("TERM_MATCH"),
+					Field: aws.String("gpu"),
+					Value: aws.String(filter.Value),
+				})
+			}
+			if filter.Key == "Gpu.MemSizeGB" {
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Type:  aws.String("TERM_MATCH"),
+					Field: aws.String("gpuMemory"),
+					Value: aws.String(filter.Value + " GB"),
+				})
+			}
+			if filter.Key == "OSDistribution" {
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Type:  aws.String("TERM_MATCH"),
+					Field: aws.String("operatingSystem"),
+					Value: aws.String(filter.Value),
+				})
+			}
+			if filter.Key == "preInstalledSw" {
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Type:  aws.String("TERM_MATCH"),
+					Field: aws.String("preInstalledSw"),
+					Value: aws.String(filter.Value),
+				})
+			}
+			//--------------------- PriceInfo
+			if filter.Key == "PricingId" {
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Type:  aws.String("TERM_MATCH"),
+					Field: aws.String("rateCode"),
+					Value: aws.String(filter.Value),
+				})
+			}
+			if filter.Key == "PricingPolicy" {
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Type:  aws.String("TERM_MATCH"),
+					Field: aws.String("terms"),
+					Value: aws.String(filter.Value),
+				})
+			}
+			if filter.Key == "Unit" {
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Type:  aws.String("TERM_MATCH"),
+					Field: aws.String("unit"),
+					Value: aws.String(filter.Value),
+				})
+			}
+			if filter.Key == "Currency" {
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Type:  aws.String("TERM_MATCH"),
+					Field: aws.String("pricePerUnit"),
+					Value: aws.String(filter.Value),
+				})
+			}
+			if filter.Key == "Price" {
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Type:  aws.String("TERM_MATCH"),
+					Field: aws.String("USD"),
+					Value: aws.String(filter.Value),
+				})
+			}
+			if filter.Key == "LeaseContractLength" {
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Type:  aws.String("TERM_MATCH"),
+					Field: aws.String("LeaseContractLength"),
+					Value: aws.String(filter.Value),
+				})
+			}
+			if filter.Key == "OfferingClass" {
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Type:  aws.String("TERM_MATCH"),
+					Field: aws.String("OfferingClass"),
+					Value: aws.String(filter.Value),
+				})
+			}
+			if filter.Key == "PurchaseOption" {
+				requestFilters = append(requestFilters, &pricing.Filter{
+					Type:  aws.String("TERM_MATCH"),
+					Field: aws.String("PurchaseOption"),
+					Value: aws.String(filter.Value),
+				})
+			}
+		} //end of for
+	} // end of if
+	return requestFilters, nil
+}
+
+// extracts product information from the JSON value
 func ExtractProductInfo(jsonValue aws.JSONValue, productFamily string) (irs.ProductInfo, error) {
 	var productInfo irs.ProductInfo
 
@@ -269,8 +442,7 @@ func ExtractProductInfo(jsonValue aws.JSONValue, productFamily string) (irs.Prod
 		return productInfo, err
 	}
 	switch productFamily {
-	case "Compute Instance":
-		//ReplaceEmptyWithNAforComputeInstance(&productInfo)
+	case "Compute Instance", "Compute Instance (bare metal)":
 		err := setVMspecInfo(&productInfo, string(jsonString))
 		if err != nil {
 			return productInfo, err
@@ -298,7 +470,6 @@ func ExtractProductInfo(jsonValue aws.JSONValue, productFamily string) (irs.Prod
 	productInfo.CSPProductInfo = jsonValue["product"]
 
 	return productInfo, nil
-
 }
 
 func setVMspecInfo(productInfo *resources.ProductInfo, jsonValueString string) error {
@@ -398,140 +569,7 @@ func AppendPolicyToPrice(priceMap map[string]irs.Price, productInfo irs.ProductI
 	}
 }
 
-// 요청시 필요한 filter Set.
-func setProductsInputRequestFilter(filterList []irs.KeyValue) ([]*pricing.Filter, error) {
-	requestFilters := []*pricing.Filter{}
-
-	if filterList != nil {
-		for _, filter := range filterList {
-			//--------------------- ProductInfo
-			if filter.Key == "ProductId" {
-				requestFilters = append(requestFilters, &pricing.Filter{
-					Field: aws.String("sku"),
-					Type:  aws.String("TERM_MATCH"),
-					Value: aws.String(filter.Value),
-				})
-			}
-			if filter.Key == "SpecName" {
-				requestFilters = append(requestFilters, &pricing.Filter{
-					Field: aws.String("instanceType"),
-					Type:  aws.String("TERM_MATCH"),
-					Value: aws.String(filter.Value),
-				})
-			}
-			if filter.Key == "VCpu.Count" {
-				requestFilters = append(requestFilters, &pricing.Filter{
-					Field: aws.String("vcpu"),
-					Type:  aws.String("TERM_MATCH"),
-					Value: aws.String(filter.Value),
-				})
-			}
-			if filter.Key == "MemSizeMiB" {
-				filterValue := convertMiBtoGiBStringWithUnitForFilter(filter.Value)
-				requestFilters = append(requestFilters, &pricing.Filter{
-					Field: aws.String("memory"),
-					Type:  aws.String("TERM_MATCH"),
-					Value: aws.String(filterValue),
-				})
-			}
-			if filter.Key == "DiskSizeGB" {
-				requestFilters = append(requestFilters, &pricing.Filter{
-					Field: aws.String("storage"),
-					Type:  aws.String("TERM_MATCH"),
-					Value: aws.String(filter.Value),
-				})
-			}
-			if filter.Key == "Gpu.Count" {
-				requestFilters = append(requestFilters, &pricing.Filter{
-					Field: aws.String("gpu"),
-					Type:  aws.String("TERM_MATCH"),
-					Value: aws.String(filter.Value),
-				})
-			}
-			if filter.Key == "Gpu.MemSizeGB" {
-				requestFilters = append(requestFilters, &pricing.Filter{
-					Field: aws.String("gpuMemory"),
-					Type:  aws.String("TERM_MATCH"),
-					Value: aws.String(filter.Value + " GB"),
-				})
-			}
-			if filter.Key == "OSDistribution" {
-				requestFilters = append(requestFilters, &pricing.Filter{
-					Field: aws.String("operatingSystem"),
-					Type:  aws.String("TERM_MATCH"),
-					Value: aws.String(filter.Value),
-				})
-			}
-			if filter.Key == "preInstalledSw" {
-				requestFilters = append(requestFilters, &pricing.Filter{
-					Field: aws.String("preInstalledSw"),
-					Type:  aws.String("TERM_MATCH"),
-					Value: aws.String(filter.Value),
-				})
-			}
-			//--------------------- PriceInfo
-			if filter.Key == "PricingId" {
-				requestFilters = append(requestFilters, &pricing.Filter{
-					Field: aws.String("rateCode"),
-					Type:  aws.String("TERM_MATCH"),
-					Value: aws.String(filter.Value),
-				})
-			}
-			if filter.Key == "PricingPolicy" {
-				requestFilters = append(requestFilters, &pricing.Filter{
-					Field: aws.String("terms"),
-					Type:  aws.String("TERM_MATCH"),
-					Value: aws.String(filter.Value),
-				})
-			}
-			if filter.Key == "Unit" {
-				requestFilters = append(requestFilters, &pricing.Filter{
-					Field: aws.String("unit"),
-					Type:  aws.String("TERM_MATCH"),
-					Value: aws.String(filter.Value),
-				})
-			}
-			if filter.Key == "Currency" {
-				requestFilters = append(requestFilters, &pricing.Filter{
-					Field: aws.String("pricePerUnit"),
-					Type:  aws.String("TERM_MATCH"),
-					Value: aws.String(filter.Value),
-				})
-			}
-			if filter.Key == "Price" {
-				requestFilters = append(requestFilters, &pricing.Filter{
-					Field: aws.String("USD"),
-					Type:  aws.String("TERM_MATCH"),
-					Value: aws.String(filter.Value),
-				})
-			}
-			if filter.Key == "LeaseContractLength" {
-				requestFilters = append(requestFilters, &pricing.Filter{
-					Field: aws.String("LeaseContractLength"),
-					Type:  aws.String("TERM_MATCH"),
-					Value: aws.String(filter.Value),
-				})
-			}
-			if filter.Key == "OfferingClass" {
-				requestFilters = append(requestFilters, &pricing.Filter{
-					Field: aws.String("OfferingClass"),
-					Type:  aws.String("TERM_MATCH"),
-					Value: aws.String(filter.Value),
-				})
-			}
-			if filter.Key == "PurchaseOption" {
-				requestFilters = append(requestFilters, &pricing.Filter{
-					Field: aws.String("PurchaseOption"),
-					Type:  aws.String("TERM_MATCH"),
-					Value: aws.String(filter.Value),
-				})
-			}
-		} //end of for
-	} // end of if
-	return requestFilters, nil
-}
-
-// "1024" (MiB) => "1 GB"
+// "1024" (MiB) => "1 GiB"
 func convertMiBtoGiBStringWithUnitForFilter(mibStr string) string {
 	mibVal, err := strconv.ParseFloat(mibStr, 64)
 	if err != nil {
@@ -628,110 +666,6 @@ func OnDemandPolicyFilter(priceDimensionsKey string, priceDimensions map[string]
 	if hasPriceDimension {
 		if priceDemensionVal != priceDimensionsKey { // priceId
 			cblogger.Info("filtered by priceDimension ", priceDemensionVal, priceDimensionsKey)
-			return true
-		}
-	}
-	return isFiltered
-}
-
-// filter에 걸리면 true
-func ReservedPolicyFilter(priceDimensionsKey string, priceDimensionsValue map[string]interface{}, termAttributes map[string]interface{}, sku string, filterList []irs.KeyValue) bool {
-	isFiltered := false
-
-	hasPricingPolicy := false
-	pricingPolicyVal := ""
-
-	hasPriceDimension := false
-	priceDemensionVal := ""
-
-	hasUnit := false
-	unitVal := ""
-
-	hasLeaseContractLength := false
-	leaseContractLengthVal := ""
-
-	hasOfferingClass := false
-	offeringClassVal := ""
-
-	hasPurchaseOption := false
-	purchaseOptionVal := ""
-
-	if filterList != nil {
-
-		for _, filter := range filterList {
-			// find filter conditions
-			if filter.Key == "pricingPolicy" {
-				hasPricingPolicy = true
-				pricingPolicyVal = filter.Value
-				continue
-			}
-
-			if filter.Key == "pricingId" {
-				hasPriceDimension = true
-				priceDemensionVal = filter.Value
-				continue
-			}
-			if filter.Key == "unit" {
-				hasUnit = true
-				unitVal = filter.Value
-				continue
-			}
-			if filter.Key == "leaseContractLength" {
-				hasLeaseContractLength = true
-				leaseContractLengthVal = filter.Value
-				continue
-			}
-			if filter.Key == "offeringClass" {
-				hasOfferingClass = true
-				offeringClassVal = filter.Value
-				continue
-			}
-			if filter.Key == "purchaseOption" {
-				hasPurchaseOption = true
-				purchaseOptionVal = filter.Value
-				continue
-			}
-		}
-	}
-
-	if hasPriceDimension {
-		if priceDemensionVal != priceDimensionsKey { // priceId
-			return true
-		}
-	}
-
-	if hasPricingPolicy {
-		if pricingPolicyVal != "Reserved" {
-			return true
-		}
-	}
-	if hasUnit {
-		for key, val := range priceDimensionsValue["pricePerUnit"].(map[string]interface{}) {
-			// USD is Default.
-			// if NO USD data, accept other currency.
-			if key == "USD" {
-				if unitVal != val {
-					return true
-				}
-				break
-			}
-
-		}
-	}
-
-	if hasLeaseContractLength {
-		if leaseContractLengthVal != termAttributes["LeaseContractLength"] {
-			return true
-		}
-	}
-
-	if hasOfferingClass {
-		if offeringClassVal != termAttributes["OfferingClass"] {
-			return true
-		}
-	}
-	if hasPurchaseOption {
-		if purchaseOptionVal != termAttributes["PurchaseOption"] {
 			return true
 		}
 	}
