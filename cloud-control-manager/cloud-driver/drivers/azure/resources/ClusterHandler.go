@@ -5,14 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns"
 	"io"
 	"math"
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"reflect"
 	"sort"
 	"strconv"
@@ -204,14 +202,9 @@ func (ac *AzureClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (in
 	}
 	defer func() {
 		if createErr != nil {
-			_ = cleanCluster(
-				clusterReqInfo.IId.NameId,
-				ac.ManagedClustersClient,
-				ac.Region.Region,
-				ac.Ctx,
-				ac.CredentialInfo,
-				ac.DnsZonesClient,
-			)
+			if err := ac.CleanCluster(clusterReqInfo.IId.NameId); err != nil {
+				cblogger.Error(fmt.Sprintf("failed to clean up cluster %q: %s", clusterReqInfo.IId.NameId, err))
+			}
 		}
 	}()
 	baseSecurityGroup, err := waitingClusterBaseSecurityGroup(irs.IID{NameId: clusterReqInfo.IId.NameId}, ac.ManagedClustersClient, ac.SecurityGroupsClient, ac.Ctx, ac.CredentialInfo, ac.Region)
@@ -306,16 +299,13 @@ func (ac *AzureClusterHandler) DeleteCluster(clusterIID irs.IID) (deleteResult b
 	hiscallInfo := GetCallLogScheme(ac.Region, call.CLUSTER, clusterIID.NameId, "DeleteCluster()")
 	start := call.Start()
 
-	err := cleanCluster(clusterIID.NameId, ac.ManagedClustersClient, ac.Region.Region, ac.Ctx, ac.CredentialInfo, ac.DnsZonesClient)
-	if err != nil {
-		delErr = errors.New(fmt.Sprintf("Failed to Delete Cluster. err = %s", err))
+	if err := ac.CleanCluster(clusterIID.NameId); err != nil {
+		delErr := fmt.Errorf("Failed to Delete Cluster. err = %w", err)
 		cblogger.Error(delErr.Error())
 		LoggingError(hiscallInfo, delErr)
-		if err != nil {
-			return false, fmt.Errorf("failed to delete cluster and dns zone: %w", err)
-		}
 		return false, delErr
 	}
+
 	LoggingInfo(hiscallInfo, start)
 	return true, nil
 }
@@ -1096,50 +1086,28 @@ func checkValidationNodeGroups(nodeGroups []irs.NodeGroupInfo, virtualMachineSiz
 	return nil
 }
 
-func makeDNSZoneName(clusterName string) string {
-	baseDomain := os.Getenv("DNS_BASE_DOMAIN")
-	if baseDomain == "" {
-		baseDomain = "com"
-	}
-	return fmt.Sprintf("%s.%s", clusterName, baseDomain)
-}
+func (ac *AzureClusterHandler) generateDnsZone(clusterName string) (string, error) {
+	rg := ac.Region.Region
+	zoneName := fmt.Sprintf("%s.com", clusterName)
+	globalLoc := "global"
 
-func generateDnsZone(regionInfo irs.RegionInfo, credentialInfo idrv.CredentialInfo, clusterName string) (string, error) {
-	resourceGroup := regionInfo.Region
-	dnsZoneName := makeDNSZoneName(clusterName)
-	cred, err := azidentity.NewClientSecretCredential(
-		credentialInfo.TenantId,
-		credentialInfo.ClientId,
-		credentialInfo.ClientSecret,
-		nil,
-	)
-	if err != nil {
-		return "", fmt.Errorf("failed to create azure credential: %v", err)
-	}
-
-	dnsZoneClient, err := armdns.NewZonesClient(credentialInfo.SubscriptionId, cred, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to create dns zone client: %v", err)
-	}
-
-	ctx := context.Background()
-
-	globalLocation := "global"
-
-	resp, err := dnsZoneClient.CreateOrUpdate(
-		ctx,
-		resourceGroup,
-		dnsZoneName,
+	resp, err := ac.DnsZonesClient.CreateOrUpdate(
+		ac.Ctx,
+		rg,
+		zoneName,
 		armdns.Zone{
-			Location: &globalLocation,
+			Location: &globalLoc,
 		},
 		nil,
 	)
 	if err != nil {
-		return "", fmt.Errorf("failed to create or update dns zone: %v", err)
+		return "", fmt.Errorf("failed to create/update DNS zone %q: %w", zoneName, err)
 	}
 
-	return *resp.ID, nil
+	if resp.Zone.ID == nil {
+		return "", fmt.Errorf("DNS zone %q created but returned ID is nil", zoneName)
+	}
+	return *resp.Zone.ID, nil
 }
 
 func checkValidationCreateCluster(clusterReqInfo irs.ClusterInfo, virtualMachineSizesClient *armcompute.VirtualMachineSizesClient, regionInfo idrv.RegionInfo, ctx context.Context) error {
@@ -1181,11 +1149,7 @@ func createCluster(clusterReqInfo irs.ClusterInfo, ac *AzureClusterHandler) erro
 		return err
 	}
 
-	regionForDns := irs.RegionInfo{
-		Region: ac.Region.Region,
-	}
-
-	zoneID, err := generateDnsZone(regionForDns, ac.CredentialInfo, clusterReqInfo.IId.NameId)
+	zoneID, err := ac.generateDnsZone(clusterReqInfo.IId.NameId)
 	if err != nil {
 		return fmt.Errorf("failed to create dns zone: %v", err)
 	}
@@ -1231,51 +1195,23 @@ func createCluster(clusterReqInfo irs.ClusterInfo, ac *AzureClusterHandler) erro
 	return nil
 }
 
-func cleanCluster(
-	clusterName string,
-	managedClustersClient *armcontainerservice.ManagedClustersClient,
-	region string,
-	ctx context.Context,
-	credentialInfo idrv.CredentialInfo, // ① 추가
-	dnsZonesClient *armdns.ZonesClient,
-) error {
-
-	poller, err := managedClustersClient.BeginDelete(ctx, region, clusterName, nil)
+func (ac *AzureClusterHandler) CleanCluster(clusterName string) error {
+	delPoller, err := ac.ManagedClustersClient.BeginDelete(ac.Ctx, ac.Region.Region, clusterName, nil)
 	if err != nil {
-		return fmt.Errorf("failed to begin deleting cluster: %w", err)
+		return fmt.Errorf("failed to begin deleting cluster %q: %w", clusterName, err)
 	}
-	if _, err := poller.PollUntilDone(ctx, nil); err != nil {
-		return fmt.Errorf("failed to delete cluster: %w", err)
-	}
-
-	if dnsZonesClient == nil {
-		cred, err := azidentity.NewClientSecretCredential(
-			credentialInfo.TenantId,
-			credentialInfo.ClientId,
-			credentialInfo.ClientSecret,
-			nil,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to create credential for dns client: %w", err)
-		}
-		dnsZonesClient, err = armdns.NewZonesClient(credentialInfo.SubscriptionId, cred, nil)
-		if err != nil {
-			return fmt.Errorf("failed to create dns zones client: %w", err)
-		}
+	if _, err := delPoller.PollUntilDone(ac.Ctx, nil); err != nil {
+		return fmt.Errorf("failed to delete cluster %q: %w", clusterName, err)
 	}
 
-	baseDomain := os.Getenv("DNS_BASE_DOMAIN")
-	if baseDomain == "" {
-		baseDomain = "com"
-	}
-	dnsZoneName := fmt.Sprintf("%s.%s", clusterName, baseDomain)
+	zoneName := fmt.Sprintf("%s.com", clusterName)
 
-	dnsPoller, err := dnsZonesClient.BeginDelete(ctx, region, dnsZoneName, nil)
+	dnsPoller, err := ac.DnsZonesClient.BeginDelete(ac.Ctx, ac.Region.Region, zoneName, nil)
 	if err != nil {
-		return fmt.Errorf("failed to begin deleting dns zone %q: %w", dnsZoneName, err)
+		return fmt.Errorf("failed to begin deleting DNS zone %q: %w", zoneName, err)
 	}
-	if _, err := dnsPoller.PollUntilDone(ctx, nil); err != nil {
-		return fmt.Errorf("failed to delete dns zone %q: %w", dnsZoneName, err)
+	if _, err := dnsPoller.PollUntilDone(ac.Ctx, nil); err != nil {
+		return fmt.Errorf("failed to delete DNS zone %q: %w", zoneName, err)
 	}
 
 	return nil
