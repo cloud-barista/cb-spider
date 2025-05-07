@@ -1237,8 +1237,7 @@ func cleanCluster(
 	region string,
 	ctx context.Context,
 	credentialInfo idrv.CredentialInfo, // ① 추가
-	dnsZonesClient *armdns.ZonesClient,
-) error {
+	dnsZonesClient *armdns.ZonesClient) error {
 
 	poller, err := managedClustersClient.BeginDelete(ctx, region, clusterName, nil)
 	if err != nil {
@@ -1264,11 +1263,7 @@ func cleanCluster(
 		}
 	}
 
-	baseDomain := os.Getenv("DNS_BASE_DOMAIN")
-	if baseDomain == "" {
-		baseDomain = "com"
-	}
-	dnsZoneName := fmt.Sprintf("%s.%s", clusterName, baseDomain)
+	dnsZoneName := makeDNSZoneName(clusterName)
 
 	dnsPoller, err := dnsZonesClient.BeginDelete(ctx, region, dnsZoneName, nil)
 	if err != nil {
