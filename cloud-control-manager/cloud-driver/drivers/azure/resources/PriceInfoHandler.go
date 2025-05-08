@@ -224,7 +224,7 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 	hiscallInfo := GetCallLogScheme(priceInfoHandler.Region, call.PRICEINFO, "PriceInfo", "ListProductFamily()")
 	start := call.Start()
 
-	filterOption := "serviceFamily eq '" + productFamily + "' and armRegionName eq '" + regionName + "'"
+	filterOption := "serviceName eq 'Virtual Machines'" + " and priceType eq 'Consumption'" + " and armRegionName eq '" + regionName + "'"
 
 	result, err := getAzurePriceInfo(filterOption)
 	if err != nil {
@@ -283,6 +283,18 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 			continue
 		}
 
+		// condition 1: check if productName contains "Windows", "Cloud Services" and "CloudServices"
+		if strings.Contains(value[0].ProductName, "Windows") ||
+			strings.Contains(value[0].ProductName, "Cloud Services") ||
+			strings.Contains(value[0].ProductName, "CloudServices") {
+			continue
+		}
+
+		// condition 2: check if skuName contains "Low Priority" or "Spot"
+		if strings.Contains(value[0].SkuName, "Low Priority") || strings.Contains(value[0].SkuName, "Spot") {
+			continue
+		}
+
 		productInfo := irs.ProductInfo{
 			ProductId:  value[0].ProductID,
 			RegionName: value[0].ArmRegionName,
@@ -299,9 +311,12 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 			CSPProductInfo: value[0],
 		}
 
+		foundMatchingSku := false
 		if strings.ToLower(productFamily) == "compute" {
 			for _, sku := range skuList {
 				if value[0].ArmSkuName == *sku.Name {
+					foundMatchingSku = true
+
 					for _, capability := range sku.Capabilities {
 						if capability.Name == nil || capability.Value == nil {
 							continue
@@ -332,6 +347,11 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 					}
 					break
 				}
+			}
+
+			// if no matching SKU found, skip this item
+			if !foundMatchingSku {
+				continue
 			}
 
 			if value[0].ArmSkuName == "" {
@@ -369,15 +389,10 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 			pricingPolicy := irs.PricingPolicies{
 				PricingId:     item.SkuID,
 				PricingPolicy: item.Type,
-				Unit:          item.UnitOfMeasure,
+				Unit:          strings.TrimPrefix(item.UnitOfMeasure, "1 "), // e.g. "1 Hour" -> "Hour"
 				Currency:      item.CurrencyCode,
-				Price:         strconv.FormatFloat(item.RetailPrice, 'f', -1, 64),
+				Price:         strconv.FormatFloat(item.RetailPrice, 'f', 4, 64),
 				Description:   "NA",
-				PricingPolicyInfo: &irs.PricingPolicyInfo{
-					LeaseContractLength: "NA",
-					OfferingClass:       "NA",
-					PurchaseOption:      "NA",
-				},
 			}
 
 			picked := true
@@ -390,6 +405,11 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 			if picked {
 				pricingPolicies = append(pricingPolicies, pricingPolicy)
 			}
+		}
+
+		// if comsuption pricing policies are not found, skip this item
+		if len(pricingPolicies) == 0 {
+			continue
 		}
 
 		picked := true
