@@ -296,7 +296,7 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 		}
 
 		productInfo := irs.ProductInfo{
-			ProductId:  value[0].ProductID,
+			ProductId:  value[0].SkuID,
 			RegionName: value[0].ArmRegionName,
 			VMSpecInfo: irs.VMSpecInfo{
 				Name: "NA",
@@ -313,6 +313,16 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 
 		foundMatchingSku := false
 		if strings.ToLower(productFamily) == "compute" {
+			// Try to get GPU information using parseGpuInfo function
+			gpuInfo := parseGpuInfo(value[0].ArmSkuName)
+			if gpuInfo != nil {
+				if productInfo.VMSpecInfo.Gpu == nil {
+					productInfo.VMSpecInfo.Gpu = make([]irs.GpuInfo, 0)
+				}
+				productInfo.VMSpecInfo.Gpu = append(productInfo.VMSpecInfo.Gpu, *gpuInfo)
+			}
+
+			// Continue with the original SKU lookup logic for other VM details
 			for _, sku := range skuList {
 				if value[0].ArmSkuName == *sku.Name {
 					foundMatchingSku = true
@@ -334,14 +344,17 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 						case "MemoryGB":
 							productInfo.VMSpecInfo.MemSizeMiB, _ = irs.ConvertGiBToMiB(value)
 						case "GPUs":
-							productInfo.VMSpecInfo.Gpu = []irs.GpuInfo{
-								{
-									Count:          value,
-									MemSizeGB:      "-1",
-									TotalMemSizeGB: "-1",
-									Mfr:            "NA",
-									Model:          "NA",
-								},
+							// Only create a default GPU entry if parseGpuInfo didn't already provide one
+							if gpuInfo == nil {
+								productInfo.VMSpecInfo.Gpu = []irs.GpuInfo{
+									{
+										Count:          value,
+										MemSizeGB:      "-1",
+										TotalMemSizeGB: "-1",
+										Mfr:            "NA",
+										Model:          "NA",
+									},
+								}
 							}
 						}
 					}
