@@ -12,6 +12,7 @@ package azure
 
 import (
 	"context"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns"
 	"os"
 	"time"
 
@@ -256,6 +257,10 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	if err != nil {
 		return nil, err
 	}
+	Ctx, dnsZoneClient, err := getDnsZoneClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
 	iConn := azcon.AzureCloudConnection{
 		CredentialInfo:                  connectionInfo.CredentialInfo,
 		Region:                          connectionInfo.RegionInfo,
@@ -286,6 +291,7 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 		ResourceGroupsClient:            resourceGroupsClient,
 		TagsClient:                      tagsClient,
 		ResourceSKUsClient:              resourceSKUsClient,
+		DnsZoneClient:                   dnsZoneClient,
 	}
 
 	regionZoneHandler, err := iConn.CreateRegionZoneHandler()
@@ -708,4 +714,19 @@ func getTagsClient(credential idrv.CredentialInfo) (context.Context, *armresourc
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 
 	return ctx, tagsClient, nil
+}
+
+func getDnsZoneClient(credential idrv.CredentialInfo) (context.Context, *armdns.ZonesClient, error) {
+	cred, err := getCred(credential)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	dnsZoneClient, err := armdns.NewZonesClient(credential.SubscriptionId, cred, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+	return ctx, dnsZoneClient, nil
 }
