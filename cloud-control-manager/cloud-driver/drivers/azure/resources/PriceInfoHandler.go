@@ -401,7 +401,7 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 		for _, item := range value {
 			pricingPolicy := irs.PricingPolicies{
 				PricingId:     item.SkuID,
-				PricingPolicy: item.Type,
+				PricingPolicy: "OnDemand",
 				Unit:          strings.TrimPrefix(item.UnitOfMeasure, "1 "), // e.g. "1 Hour" -> "Hour"
 				Currency:      item.CurrencyCode,
 				Price:         strconv.FormatFloat(item.RetailPrice, 'f', 4, 64),
