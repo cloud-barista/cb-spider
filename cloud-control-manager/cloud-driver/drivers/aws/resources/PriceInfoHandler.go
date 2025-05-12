@@ -22,14 +22,11 @@ type AwsPriceInfoHandler struct {
 	Client *pricing.Pricing
 }
 
-// AWS에서는 Region이 Product list에 영향을 주지 않습니다.
-// 3개 Region Endpoint에서만 Product 정보를 리턴합니다.
-// getPricingClient에 Client *pricing.Pricing 정의
 func (priceInfoHandler *AwsPriceInfoHandler) ListProductFamily(regionName string) ([]string, error) {
 	var result []string
 	input := &pricing.GetAttributeValuesInput{
 		AttributeName: aws.String("productfamily"),
-		MaxResults:    aws.Int64(32), // 2024.01 기준 32개
+		MaxResults:    aws.Int64(32),
 		ServiceCode:   aws.String("AmazonEC2"),
 	}
 	for {
@@ -51,8 +48,6 @@ func (priceInfoHandler *AwsPriceInfoHandler) ListProductFamily(regionName string
 					cblogger.Error(aerr.Error())
 				}
 			} else {
-				// Prnit the error, cast err to awserr.Error to get the Code and
-				// Message from an error.
 				cblogger.Error(err.Error())
 			}
 		}
@@ -72,9 +67,18 @@ func (priceInfoHandler *AwsPriceInfoHandler) ListProductFamily(regionName string
 }
 
 func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue) (string, error) {
-	result := &irs.CloudPriceData{}
-	result.Meta.Version = "v0.1"
-	result.Meta.Description = "Multi-Cloud Price Info"
+	currentRegion := regionName
+	if currentRegion == "" {
+		currentRegion = priceInfoHandler.Region.Region
+	}
+
+	result := &irs.CloudPrice{
+		Meta:       irs.Meta{Version: "0.5", Description: "AWS Virtual Machines Price Info"},
+		CloudName:  "AWS",
+		RegionName: currentRegion,
+		ZoneName:   "NA",
+		PriceList:  []irs.Price{},
+	}
 
 	priceMap := make(map[string]irs.Price)
 
@@ -85,7 +89,6 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 
 	filters := []*pricing.Filter{}
 
-	// add basic filters
 	filters = append(filters, &pricing.Filter{
 		Type:  aws.String("TERM_MATCH"),
 		Field: aws.String("marketoption"),
@@ -136,14 +139,6 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 		})
 	}
 
-	// Filter for productFamily, but not used because both 'Compute Instance' and 'Compute Instance (bare metal)' are needed
-	// filters = append(filters, &pricing.Filter{
-	// 	Type:  aws.String("EQUALS"),
-	// 	Field: aws.String("productFamily"),
-	// 	Value: aws.String(productFamily),
-	// })
-
-	// add user filters
 	userFilters, err := setProductsInputRequestFilter(filterList)
 	if err != nil {
 		cblogger.Error(err)
@@ -153,14 +148,12 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 
 	cblogger.Info("filters", filters)
 
-	// set input parameters
 	input := &pricing.GetProductsInput{
 		ServiceCode: aws.String("AmazonEC2"),
 		Filters:     filters,
 		MaxResults:  aws.Int64(100),
 	}
 
-	// proccess pagenation
 	err = svc.GetProductsPages(input,
 		func(page *pricing.GetProductsOutput, lastPage bool) bool {
 			for _, awsPrice := range page.PriceList {
@@ -170,7 +163,6 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 					continue
 				}
 
-				// only productFamily: 'Compute Instance' & 'Compute Instance (bare metal)'
 				if productFamilyVal != "Compute Instance" && productFamilyVal != "Compute Instance (bare metal)" {
 					continue
 				}
@@ -180,9 +172,7 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 					continue
 				}
 
-				// termsKey : OnDemand, Reserved
 				for termsKey, termsValue := range awsPrice["terms"].(map[string]interface{}) {
-					// only OnDemand
 					if termsKey != "OnDemand" {
 						continue
 					}
@@ -211,59 +201,47 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 								continue
 							}
 
-							var pricingPolicy irs.PricingPolicies
-							pricingPolicy.PricingId = priceDimensionsKey
-							pricingPolicy.PricingPolicy = termsKey
-							pricingPolicy.Description = fmt.Sprintf("%s", priceDimensionsValue.(map[string]interface{})["description"])
+							var onDemand irs.OnDemand
+							onDemand.PricingId = priceDimensionsKey
+							onDemand.Description = fmt.Sprintf("%s", priceDimensionsValue.(map[string]interface{})["description"])
 							for key, val := range priceDimensionsValue.(map[string]interface{})["pricePerUnit"].(map[string]interface{}) {
-								pricingPolicy.Currency = key
+								onDemand.Currency = key
 
-								// Parse price string to float
 								priceStr := fmt.Sprintf("%s", val)
 								priceFloat, err := strconv.ParseFloat(priceStr, 64)
 								if err == nil {
-									// Check decimal digits
 									parts := strings.Split(priceStr, ".")
 									decimalDigits := 0
 									if len(parts) > 1 {
-										// Calculate significant decimal digits (excluding trailing zeros)
 										decimalDigits = len(strings.TrimRight(parts[1], "0"))
 									}
 
-									// For integer or less than 2 decimal digits
 									if decimalDigits < 2 {
-										// Format with 2 decimal places
-										pricingPolicy.Price = fmt.Sprintf("%.2f", priceFloat)
+										onDemand.Price = fmt.Sprintf("%.2f", priceFloat)
 									} else {
-										// For 2 or more decimal digits, remove unnecessary zeros
 										trimmedPrice := strings.TrimRight(fmt.Sprintf("%f", priceFloat), "0")
-										// Remove trailing decimal point if exists
 										if trimmedPrice[len(trimmedPrice)-1] == '.' {
 											trimmedPrice = trimmedPrice[:len(trimmedPrice)-1]
 										}
-										pricingPolicy.Price = trimmedPrice
+										onDemand.Price = trimmedPrice
 									}
 								} else {
-									pricingPolicy.Price = priceStr // Use original price string if parsing fails
+									onDemand.Price = priceStr
 								}
 
-								// USD is Default.
-								// if NO USD data, accept other currency.
 								if key == "USD" {
 									break
 								}
 							}
 
-							// Convert 'Hrs' unit to 'Hour'
 							unitStr := fmt.Sprintf("%s", priceDimensionsValue.(map[string]interface{})["unit"])
 							if unitStr == "Hrs" {
-								pricingPolicy.Unit = "Hour"
+								onDemand.Unit = "Hour"
 							} else {
-								pricingPolicy.Unit = unitStr
+								onDemand.Unit = unitStr
 							}
 
-							// Extract and add policy
-							aPrice, ok := AppendPolicyToPrice(priceMap, productInfo, pricingPolicy, awsPrice)
+							aPrice, ok := AppendOnDemandToPrice(priceMap, productInfo, onDemand, awsPrice)
 							if !ok {
 								priceMap[productInfo.ProductId] = aPrice
 							}
@@ -271,7 +249,7 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 					}
 				}
 			}
-			return true // continue to the next page
+			return true
 		})
 
 	if err != nil {
@@ -284,12 +262,7 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 		priceList = append(priceList, value)
 	}
 
-	priceone := irs.CloudPrice{
-		CloudName: "AWS",
-	}
-
-	priceone.PriceList = priceList
-	result.CloudPriceList = append(result.CloudPriceList, priceone)
+	result.PriceList = priceList
 	resultString, err := json.Marshal(result)
 	if err != nil {
 		cblogger.Error(err)
@@ -299,13 +272,11 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 	return string(resultString), nil
 }
 
-// set filter for GetProductsInput
 func setProductsInputRequestFilter(filterList []irs.KeyValue) ([]*pricing.Filter, error) {
 	requestFilters := []*pricing.Filter{}
 
 	if filterList != nil {
 		for _, filter := range filterList {
-			//--------------------- ProductInfo
 			if filter.Key == "ProductId" {
 				requestFilters = append(requestFilters, &pricing.Filter{
 					Type:  aws.String("TERM_MATCH"),
@@ -370,7 +341,6 @@ func setProductsInputRequestFilter(filterList []irs.KeyValue) ([]*pricing.Filter
 					Value: aws.String(filter.Value),
 				})
 			}
-			//--------------------- PriceInfo
 			if filter.Key == "PricingId" {
 				requestFilters = append(requestFilters, &pricing.Filter{
 					Type:  aws.String("TERM_MATCH"),
@@ -427,12 +397,11 @@ func setProductsInputRequestFilter(filterList []irs.KeyValue) ([]*pricing.Filter
 					Value: aws.String(filter.Value),
 				})
 			}
-		} //end of for
-	} // end of if
+		}
+	}
 	return requestFilters, nil
 }
 
-// extracts product information from the JSON value
 func ExtractProductInfo(jsonValue aws.JSONValue, productFamily string) (irs.ProductInfo, error) {
 	var productInfo irs.ProductInfo
 
@@ -463,9 +432,6 @@ func ExtractProductInfo(jsonValue aws.JSONValue, productFamily string) (irs.Prod
 
 	productId := fmt.Sprintf("%s", jsonValue["product"].(map[string]interface{})["sku"])
 	productInfo.ProductId = productId
-	productInfo.RegionName = fmt.Sprintf("%s", jsonValue["product"].(map[string]interface{})["attributes"].(map[string]interface{})["regionCode"])
-	productInfo.ZoneName = "NA" // AWS zone is Not Applicable - 202401
-	productInfo.OSDistribution = fmt.Sprintf("%s", jsonValue["product"].(map[string]interface{})["attributes"].(map[string]interface{})["operatingSystem"])
 	productInfo.Description = fmt.Sprintf("productFamily= %s, version= %s", jsonValue["product"].(map[string]interface{})["productFamily"], jsonValue["version"])
 	productInfo.CSPProductInfo = jsonValue["product"]
 
@@ -495,7 +461,6 @@ func setVMspecInfo(productInfo *resources.ProductInfo, jsonValueString string) e
 		return errors.New("missing required field: regionCode")
 	}
 
-	// set GPU info if available
 	var gpuInfo []irs.GpuInfo
 	if gpuCount, ok := jsonData["gpu"]; ok && gpuCount != "0" {
 		gpuCountInt, err := strconv.Atoi(gpuCount)
@@ -514,7 +479,6 @@ func setVMspecInfo(productInfo *resources.ProductInfo, jsonValueString string) e
 		}
 	}
 
-	// set VMSpecInfo
 	productInfo.VMSpecInfo = irs.VMSpecInfo{
 		Region:     regionCode,
 		Name:       instanceType,
@@ -539,25 +503,21 @@ func extractNumericValue(input string) float64 {
 	return value
 }
 
-// price에 해당 product가 있으면 append, 없으면 추가
-func AppendPolicyToPrice(priceMap map[string]irs.Price, productInfo irs.ProductInfo, pricingPolicy irs.PricingPolicies, jsonValue aws.JSONValue) (irs.Price, bool) {
+func AppendOnDemandToPrice(priceMap map[string]irs.Price, productInfo irs.ProductInfo, onDemand irs.OnDemand, jsonValue aws.JSONValue) (irs.Price, bool) {
 	productId := productInfo.ProductId
 	aPrice, ok := priceMap[productId]
 
-	if ok { // product가 존재하면 policy 추가
+	if ok {
 		cblogger.Info("product exist ", productId)
-		aPrice.PriceInfo.PricingPolicies = append(aPrice.PriceInfo.PricingPolicies, pricingPolicy)
+		aPrice.PriceInfo.OnDemand = onDemand
 		priceMap[productId] = aPrice
 		return aPrice, true
-	} else { // product가 없으면 price 추가
+	} else {
 		cblogger.Info("product not exist ", productId)
 
 		newPriceInfo := irs.PriceInfo{}
-		newPolicies := []irs.PricingPolicies{}
-		newPolicies = append(newPolicies, pricingPolicy)
-
-		newPriceInfo.PricingPolicies = newPolicies
-		newPriceInfo.CSPPriceInfo = jsonValue // 새로운 가격이면 terms아래값을 넣는다.
+		newPriceInfo.OnDemand = onDemand
+		newPriceInfo.CSPPriceInfo = jsonValue
 
 		newPrice := irs.Price{}
 		newPrice.PriceInfo = newPriceInfo
@@ -569,7 +529,6 @@ func AppendPolicyToPrice(priceMap map[string]irs.Price, productInfo irs.ProductI
 	}
 }
 
-// "1024" (MiB) => "1 GiB"
 func convertMiBtoGiBStringWithUnitForFilter(mibStr string) string {
 	mibVal, err := strconv.ParseFloat(mibStr, 64)
 	if err != nil {
@@ -584,7 +543,6 @@ func convertMiBtoGiBStringWithUnitForFilter(mibStr string) string {
 	return fmt.Sprintf("%.1f GiB", gibVal)
 }
 
-// 결과에서 filter. filter에 걸리면 true, 안걸리면 false
 func OnDemandPolicyFilter(priceDimensionsKey string, priceDimensions map[string]interface{}, termAttributes map[string]interface{}, sku string, filterList []irs.KeyValue) bool {
 	isFiltered := false
 
@@ -597,7 +555,6 @@ func OnDemandPolicyFilter(priceDimensionsKey string, priceDimensions map[string]
 	hasUnit := false
 	unitVal := ""
 
-	// reserved only options
 	hasLeaseContractLength := false
 	hasOfferingClass := false
 	hasPurchaseOption := false
@@ -605,7 +562,6 @@ func OnDemandPolicyFilter(priceDimensionsKey string, priceDimensions map[string]
 	if filterList != nil {
 
 		for _, filter := range filterList {
-			// find filter conditions
 			if filter.Key == "pricingPolicy" {
 				hasPricingPolicy = true
 				pricingPolicyVal = filter.Value
@@ -635,10 +591,9 @@ func OnDemandPolicyFilter(priceDimensionsKey string, priceDimensions map[string]
 				break
 			}
 		}
-		// check filters
 	}
 
-	if hasLeaseContractLength || hasOfferingClass || hasPurchaseOption { // reserved 전용 filter 임.
+	if hasLeaseContractLength || hasOfferingClass || hasPurchaseOption {
 		cblogger.Info("filtered by reserved options ", hasLeaseContractLength, hasOfferingClass, hasPurchaseOption)
 		return true
 	}
@@ -651,8 +606,6 @@ func OnDemandPolicyFilter(priceDimensionsKey string, priceDimensions map[string]
 	}
 	if hasUnit {
 		for key, val := range priceDimensions["pricePerUnit"].(map[string]interface{}) {
-			// USD is Default.
-			// if NO USD data, accept other currency.
 			if key == "USD" {
 				if unitVal != val {
 					cblogger.Info("filtered by price per unit ", unitVal, priceDimensions["pricePerUnit"])
@@ -664,7 +617,7 @@ func OnDemandPolicyFilter(priceDimensionsKey string, priceDimensions map[string]
 	}
 
 	if hasPriceDimension {
-		if priceDemensionVal != priceDimensionsKey { // priceId
+		if priceDemensionVal != priceDimensionsKey {
 			cblogger.Info("filtered by priceDimension ", priceDemensionVal, priceDimensionsKey)
 			return true
 		}

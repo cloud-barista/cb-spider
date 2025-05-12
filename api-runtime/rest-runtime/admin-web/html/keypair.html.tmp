@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>KeyPair Management</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+    }
+    .header-container {
+        display: flex;
+        align-items: flex-end;
+    }
+    .header-container img {
+        margin-right: 10px;
+        height: 28px;
+    }
+    .header-container h1 {
+        font-size: 16px;
+        margin: 0;
+    }
+    h2 {
+        font-size: 16px;
+        margin: 10px 0;
+    }
+    h3 {
+        font-size: 14px;
+        margin: 10px 0;
+        margin-left: 1cm;
+    }
+    .content {
+        margin-top: 70px;
+    }
+    #searchInput {
+        width: 190px;
+        font-family: Arial, sans-serif;
+        padding-right: 2.5cm;
+    }
+    #clearSearch {
+        position: absolute;
+        right: 0.1cm;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+    }
+    .searchContainer {
+        position: relative;
+        display: flex;
+        align-items: center;
+        padding-left: 0.5cm;
+    }
+    .searchContainer button {
+        position: absolute;
+        right: 0.5cm;
+        top: 50%;
+        transform: translateY(-50%);
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+        font-family: Arial, sans-serif;
+    }
+    .fixed-header {
+        position: fixed;
+        top: 0;
+        width: 97%;
+        background-color: white;
+        z-index: 1000;
+        display: flex;
+        justify-content: space-between;
+        padding: 10px 20px;
+        align-items: center;
+        box-shadow: 0 4px 6px -6px #222;
+    }
+    .fixed-action-buttons {
+        display: flex;
+        align-items: center;
+    }
+    .fixed-action-buttons button {
+        margin-left: 10px;
+    }
+    .header-with-progress {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0px;
+    }
+    .progress-bar-container {
+        width: 600px;
+        margin-left: 10px;
+        margin-bottom: 10px;
+        height: 22px;
+        background-color: #f0f5ff;
+        border-radius: 4px;
+        overflow: hidden;
+        display: none;
+        position: relative;
+        z-index: 20;
+    }
+
+    .progress-bar {
+        width: 0;
+        height: 100%;
+        background-color: #cce6ff;
+        border-radius: 4px;
+        transition: width 3s ease;
+    }
+
+    #timeDisplay {
+        position: absolute;
+        top: 50%;
+        right: 10px;
+        transform: translateY(-50%);
+        font-size: 14px;
+        color: #333;
+        z-index: 30;
+    }
+    .add-button {
+        font-size: 14px;
+        font-weight: bold;
+        margin-left: 1px;
+        margin-right: 5px;
+        margin-bottom: 10px;
+    }
+    .mock-add-button {
+        margin-right: 1px;
+    }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        margin-bottom: 0;
+    }
+    th, td {
+        border: 1px solid black;
+        padding: 6px;
+        position: relative;
+    }
+    th {
+        background-color: #f2f2f2;
+        font-size: 14px;
+        text-align: center;
+    }
+    td {
+        text-align: left;
+    }
+    .column-num {
+        width: 5%;
+        text-align: center;
+    }
+    .center-align {
+        text-align: center;
+    }
+    .fingerprint {
+        width: 25%;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: nowrap;
+    }
+    .check-column {
+        width: 5%;
+        text-align: center;
+    }
+    .highlight {
+        background-color: #fffab6;
+    }
+    .misc {
+        width: 15%;
+    }
+    .overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+    .overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+        font-family: Arial, sans-serif;
+        font-size: 12px;
+    }
+    .tag-container {
+        display: inline-block;
+        background-color: #e1e1e1;
+        border-radius: 3px;
+        padding: 2px 5px;
+        margin: 2px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: pointer;
+        max-width: calc(100% - 2ch);
+    }
+    .tag-container:hover {
+        background-color: #c1e1c1;
+    }        
+    .add-tag-overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        max-width: 300px;
+        word-wrap: break-word;
+        position: relative;
+    }
+
+    .add-tag-overlay-content .tag-overlay-input-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+
+    .add-tag-overlay-content .tag-overlay-input-group label {
+        flex: 1;
+        text-align: right;
+        margin-right: 10px;
+    }
+
+    .add-tag-overlay-content .tag-overlay-input-group input {
+        flex: 2;
+    }
+
+    .add-tag-overlay-content .tag-overlay-button-group {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+    }
+    .add-btn-container {
+        margin-top: 5px;
+    }
+    .add-btn-container .add-btn {
+        background-color: transparent;
+        font-size: 14px;
+        font-weight: bold;
+        border: none;
+        color: blue;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+
+    .form-group {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .form-group label {
+        flex: 1;
+        text-align: right;
+        margin-right: 10px;
+    }
+    .form-group input, .form-group textarea {
+        flex: 2;
+    }
+    .form-group button {
+        margin-left: 10px;
+    }
+    .tag-input-group {
+        display: flex;
+        align-items: center;
+        flex: 2;
+    }
+    .tag-input-group input {
+        width: 80px;
+        flex: 0.5;
+        margin-right: 5px;
+    }
+    .tag-input-group button {
+        margin-left: 5px;
+    }
+
+    #keypair-tag-container {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .tag-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    }
+
+    .tag-overlay-content {
+        background-color: white;
+        padding: 20px;
+        border-radius: 5px;
+        text-align: left;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        max-width: 300px;
+        word-wrap: break-word;
+        position: relative;
+    }
+
+    .tag-overlay-content .close-btn {
+        position: absolute;
+        top: 5px;
+        right: 10px;
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+    }
+
+    .tag-overlay-content .button-group {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+    }
+
+    .misc-content {
+        max-height: 2.5em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .more-btn {
+        display: none;
+        background-color: transparent;
+        border: none;
+        color: blue;
+        text-decoration: underline;
+        cursor: pointer;
+    }
+    .misc-cell {
+        position: relative;
+    }
+    .misc-cell .more-btn {
+        position: absolute;
+        right: 5px;
+        bottom: 5px;
+    }
+
+    .desc-name-cell {
+        text-align: left;
+        font-size: 13px;
+        font-weight: bold;
+    }
+
+    .desc-system-id {
+        display: block;
+        font-size: 12px;
+        font-weight: normal;
+        color: #666;
+        max-width: 200px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: pointer;
+    }
+
+    .system-id-overlay {
+        display: none;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 50%;
+        max-width: 600px;
+        background-color: white;
+        border: 1px solid black;
+        padding: 20px;
+        z-index: 2000;
+        border-radius: 5px;
+    }
+
+    .system-id-overlay-content {
+        position: relative;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        word-wrap: break-word;
+    }
+
+    .system-id-overlay .close-btn {
+        position: absolute;
+        top: -15px;
+        right: -5px;
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+    }
+
+    .copy-btn {
+        background: none;
+        border: none;
+        font-size: 16px;
+        cursor: pointer;
+        margin-left: 10px;
+    }
+
+    /* ❸ OnlyCSPInfoList, OnlySpiderList를 표시할 영역 스타일 */
+    #allKeyPairInfoSection {
+        margin-top: 20px;
+        display: none; /* 기본은 숨김 */
+    }
+    #allKeyPairInfoSection table {
+        margin-top: 10px;
+    }
+</style>
+</head>
+<body>
+    <div class="fixed-header">
+        <div class="header-container">
+            <img src="/spider/adminweb/images/left-menu/keypair.png" alt="KeyPair Icon">
+            <h1>KeyPair Management</h1>
+
+            <!-- 검색창 + 정렬버튼 영역 -->
+            <div class="searchContainer">
+                <input type="text" id="searchInput" onkeyup="searchKeyword()" placeholder="Search Keyword...">
+                <button id="clearSearch" onclick="clearSearchInput()">X</button>
+                <!-- ❶ ↓↑ 정렬/조회 버튼 추가 -->
+                <button class="sort-button" onclick="getAllKeyPairInfo()">↓↑</button>
+            </div>
+        </div>        
+        <div class="fixed-action-buttons">
+            <input type="checkbox" onclick="toggleSelectAll(this)">
+            <button onclick="deleteSelectedKeyPairs()">Delete</button>
+        </div>
+    </div>
+
+    <div class="content">
+        <div class="header-with-progress">
+            <button class="add-button" onclick="showOverlay()">+</button>
+            <div id="mockButtonsContainer" style="display: flex; align-items: center;"></div>
+            <div class="progress-bar-container" id="progressBarContainer">
+                <div class="progress-bar" id="progressBar"></div>
+                <span id="timeDisplay"></span>
+            </div>                       
+        </div>
+
+        <!-- 기존 KeyPair 테이블 -->
+        <table id="keypair-table">
+            <tr>
+                <th class="column-num">#</th>
+                <th class="center-align">Name</th>
+                <th class="center-align fingerprint">Fingerprint</th>
+                <th class="center-align">Tags</th>
+                <th class="center-align">Misc</th>
+                <th class="check-column">
+                    <input type="checkbox" onclick="toggleSelectAll(this)">
+                </th>
+            </tr>
+            {{range $index, $keyPair := .KeyPairs}}
+            <tr>
+                <td class="column-num">{{$index | inc}}</td>
+                <td class="name desc-name-cell center-align">{{$keyPair.IId.NameId}}
+                    <span class="desc-system-id" onclick="showSystemIdOverlay('{{$keyPair.IId.SystemId}}')">&nbsp;• {{$keyPair.IId.SystemId}}</span>
+                </td>
+                <td class="center-align fingerprint">{{$keyPair.Fingerprint}}</td>
+                <td>
+                    {{range $tag := $keyPair.TagList}}
+                    <div class="tag-container" onclick="showTagOverlay(event, '{{$tag.Key}}: {{$tag.Value}}', 'KEYPAIR', '{{$keyPair.IId.NameId}}')">{{$tag.Key}}: {{$tag.Value}}</div>
+                    {{end}}
+                    <div class="add-btn-container">
+                        <button class="add-btn" onclick="showAddTagOverlay('{{$keyPair.IId.NameId}}')">+</button>
+                    </div>
+                </td>
+                <td class="center-align misc-cell">
+                    <div class="misc-content">{{range $kv := $keyPair.KeyValueList}}{{$kv.Key}} : {{$kv.Value}}<br>{{end}}
+                    </div>
+                    <button class="more-btn" onclick="showMiscOverlay(this)">more...</button>
+                </td>
+                <td class="check-column">
+                    <input type="checkbox" name="deleteCheckbox" value="{{$keyPair.IId.NameId}}">
+                </td>
+            </tr>
+            {{end}}
+            {{if not .KeyPairs}}
+            <tr>
+                <td colspan="6" class="center-align">No KeyPairs found for this connection.</td>
+            </tr>
+            {{end}}
+        </table>       
+
+        <!-- ❷ OnlyCSPInfoList & OnlySpiderList용 테이블을 표시할 영역 -->
+        <div id="allKeyPairInfoSection">
+            <h2>OnlyCSPInfoList</h2>
+            <table id="onlyCSPInfoListTable">
+                <tr>
+                    <th class="column-num">#</th>
+                    <th class="center-align">Name</th>
+                    <th class="center-align fingerprint">Fingerprint</th>
+                    <th class="center-align">Tags</th>
+                    <th class="center-align">Misc</th>
+                </tr>
+            </table>
+
+            <h2>OnlySpiderList</h2>
+            <table id="onlySpiderListTable">
+                <tr>
+                    <th>NameId</th>
+                    <th>SystemId</th>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <!-- Add KeyPair Overlay -->
+    <div id="overlay" class="overlay">
+        <div class="overlay-content">
+            <h2>Add New KeyPair</h2>
+            <form id="addKeyPairForm" onsubmit="event.preventDefault(); postKeyPair();">
+                <input type="hidden" id="connConfig" value="{{.ConnectionConfig}}">
+                <div class="form-group">
+                    <label for="keyPairName">Name:</label>
+                    <input type="text" id="keyPairName" name="keyPairName" required>
+                </div>
+                
+                <div class="form-group" style="padding-left: 100px;">
+                    <label for="keyPairTags">Tags:</label>
+                    <div id="keypair-tag-container"></div>
+                    <button type="button" onclick="addKeyPairTagField()">+</button>
+                </div>
+                
+                <div class="form-group" style="display: flex; justify-content: center; align-items: center; margin-top: 20px;">
+                    <label for="keyPairCount" style="margin-right: 5px;margin-left: 40px;">#:</label>
+                    <input type="number" id="keyPairCount" name="keyPairCount" class="keypair-count" value="1" min="1" max="10" style="width: 50px; margin-right: 10px;">                
+                    <button type="submit">Add KeyPair</button>
+                    <button type="button" onclick="hideOverlay()" style="margin-left: 10px;">Cancel</button>
+                </div>                
+            </form>
+        </div>
+    </div>
+
+    <!-- Tag Overlay -->
+    <div id="tag-overlay" class="tag-overlay">
+        <div class="tag-overlay-content"></div>
+    </div>
+    
+    <!-- Add Tag Overlay -->
+    <div id="add-tag-overlay" class="overlay">
+        <div class="add-tag-overlay-content"></div>
+    </div>
+
+    <!-- System ID Overlay -->
+    <div id="system-id-overlay" class="system-id-overlay">
+        <div class="system-id-overlay-content">
+            <button class="close-btn" onclick="closeSystemIdOverlay()">x</button>
+            <h2>System ID (Managed by CSP)</h2>
+            <p id="fullSystemId"></p>
+            <button class="copy-btn" onclick="copySystemId()">📋</button>
+        </div>
+    </div>
+
+</body>
+<script>
+    function deleteSelectedKeyPairs() {
+        const connConfig = document.getElementById('connConfig').value;
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]:checked');
+        if (checkboxes.length === 0) {
+            alert("Please select KeyPairs to delete.");
+            return;
+        }
+
+        if (!confirm("Are you sure you want to delete the selected KeyPairs?")) {
+            return;
+        }
+
+        const deletePromises = Array.from(checkboxes).map(checkbox => {
+            const keyPairName = checkbox.value;
+            const data = {
+                ConnectionName: connConfig
+            };
+
+            return fetchWithProgress(`/spider/keypair/${keyPairName}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            }).then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => {
+                        throw new Error(error.message);
+                    });
+                }
+                return response.json();
+            });
+        });
+
+        Promise.all(deletePromises)
+            .then(() => location.reload())
+            .catch(error => {
+                alert("Error deleting KeyPairs: " + error.message);
+            });
+    }
+
+    function toggleSelectAll(source) {
+        const checkboxes = document.querySelectorAll('input[name="deleteCheckbox"]');
+        for (const checkbox of checkboxes) {
+            checkbox.checked = source.checked;
+        }
+    }
+
+    function deleteKeyPair(keyPairName) {
+        const connConfig = document.getElementById('connConfig').value;
+        const data = {
+            ConnectionName: connConfig
+        };
+
+        fetchWithProgress(`/spider/keypair/${keyPairName}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.Result === "true") {
+                location.reload();
+            } else {
+                showError("Failed to delete KeyPair: " + (data.Message || "Unknown error"), "KeyPair Name: " + keyPairName);
+            }
+        })
+        .catch(error => {
+            showError("Error deleting KeyPair: " + error.message, "KeyPair Name: " + keyPairName);
+        });
+    }
+
+    function postKeyPair() {
+        const keyPairCount = parseInt(document.getElementById('keyPairCount').value);
+        if (keyPairCount > 1) {
+            if (!confirm(`Are you sure you want to create ${keyPairCount} KeyPairs?`)) {
+                return;
+            }
+        }
+
+        const connConfig = document.getElementById('connConfig').value;
+
+        const keyPairPromises = Array.from({ length: keyPairCount }).map((_, index) => {
+            const keyPairName = keyPairCount > 1 ? `${document.getElementById('keyPairName').value}-${index + 1}` : document.getElementById('keyPairName').value;
+
+            const tags = Array.from(document.querySelectorAll('.keypair-tag-input')).map(tagInput => ({
+                Key: tagInput.querySelector('.keypair-tag-key').value.trim(),
+                Value: tagInput.querySelector('.keypair-tag-value').value.trim()
+            }));
+
+            const requestData = {
+                ConnectionName: connConfig,
+                ReqInfo: {
+                    Name: keyPairName,
+                    TagList: tags
+                }
+            };
+
+            return fetchWithProgress('/spider/keypair', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.IId && data.IId.NameId) {
+                    if (confirm(`KeyPair "${keyPairName}" created successfully. Do you want to download the private key?`)) {
+                        downloadPrivateKey(keyPairName, data.PrivateKey);
+                    }
+                } else {
+                    showError("Failed to create KeyPair: " + (data.Message || "Unknown error"), "KeyPair Name: " + keyPairName);
+                }
+            });
+        });
+
+        Promise.all(keyPairPromises)
+            .then(() => location.reload())
+            .catch(error => {
+                showError("Error creating KeyPairs: " + error.message, "Multiple KeyPairs");
+            });
+    }
+
+    function downloadPrivateKey(keyPairName, privateKey) {
+        const element = document.createElement('a');
+        const file = new Blob([privateKey], { type: 'text/plain' });
+        element.href = URL.createObjectURL(file);
+        element.download = `${keyPairName}.pem`;
+        document.body.appendChild(element); 
+        element.click();
+    }
+
+    function searchKeyword() {
+        let input, filter, table, tr, td, i;
+        input = document.getElementById('searchInput');
+        filter = input.value.toUpperCase().trim(); 
+        if (!filter) {
+            clearSearchInput();
+            return;
+        }
+
+        table = document.getElementById('keypair-table');
+        tr = table.getElementsByTagName('tr');
+        
+        for (i = 1; i < tr.length; i++) {
+            for (let j = 0; j < tr[i].cells.length; j++) {
+                td = tr[i].cells[j];
+                if (td) {
+                    let txtValue = td.textContent || td.innerText;
+                    if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                        td.classList.add('highlight');
+                    } else {
+                        td.classList.remove('highlight');
+                    }
+                }
+            }
+        }
+    }
+
+    function clearSearchInput() {
+        document.getElementById("searchInput").value = "";
+        let table = document.getElementById('keypair-table');
+        let tr = table.getElementsByTagName('tr');
+        for (let i = 1; i < tr.length; i++) {
+            for (let j = 0; j < tr[i].cells.length; j++) {
+                tr[i].cells[j].classList.remove('highlight');
+            }
+        }
+    }
+
+    function showOverlay() {
+        const region = '{{.RegionName}}';
+        const keyPairNameInput = document.getElementById('keyPairName');
+
+        keyPairNameInput.value = `${region}-keypair-${Math.random().toString(36).substring(2, 8)}`;
+
+        document.getElementById('overlay').style.display = 'flex';
+        document.addEventListener('keydown', handleEsc);
+        clearFormFields();
+    }
+
+    function clearFormFields() {
+        const region = '{{.RegionName}}';
+        const keyPairNameInput = document.getElementById('keyPairName');
+        keyPairNameInput.value = `${region}-keypair-${Math.random().toString(36).substring(2, 5)}`;
+
+        const tagContainer = document.getElementById('keypair-tag-container');
+        while (tagContainer.firstChild) {
+            tagContainer.removeChild(tagContainer.firstChild);
+        }
+    }
+
+    function hideOverlay() {
+        document.getElementById('overlay').style.display = 'none';
+        document.removeEventListener('keydown', handleEsc);
+        clearFormFields();
+    }
+
+    function handleEsc(event) {
+        if (event.key === "Escape") {
+            hideOverlay();
+        }
+    }
+
+    function addKeyPairTagField() {
+        const tagContainer = document.getElementById('keypair-tag-container');
+        const tagInput = document.createElement('div');
+        tagInput.className = 'keypair-tag-input tag-input-group';
+        tagInput.innerHTML = `
+            <input type="text" class="keypair-tag-key" placeholder="Key" required>
+            <input type="text" class="keypair-tag-value" placeholder="Value" required>
+            <button type="button" onclick="removeTagField(this)">-</button>
+        `;
+        tagContainer.appendChild(tagInput);
+    }
+    function removeTagField(button) {
+        button.parentElement.remove();
+    }
+
+    function showTagOverlay(event, tag, resourceType, resourceName) {
+        event.stopPropagation();
+
+        const tagOverlay = document.getElementById('tag-overlay');
+        const tagOverlayContent = document.querySelector('.tag-overlay-content');
+
+        tagOverlayContent.innerHTML = `
+            <button class="close-btn" onclick="closeTagOverlay()">x</button>
+            <p>${tag}</p>
+            <div class="button-group">
+                <button onclick="deleteTag('${tag}', '${resourceType}', '${resourceName}')">Delete</button>
+                <button onclick="closeTagOverlay()">Cancel</button>
+            </div>
+        `;
+
+        tagOverlay.style.display = 'flex';
+
+        document.addEventListener('keydown', handleEscTagOverlay);
+        document.addEventListener('click', handleClickOutsideOverlay);
+    }
+
+    function closeTagOverlay() {
+        const tagOverlay = document.getElementById('tag-overlay');
+        tagOverlay.style.display = 'none';
+        document.removeEventListener('keydown', handleEscTagOverlay);
+        document.removeEventListener('click', handleClickOutsideOverlay);
+    }
+
+    function showAddTagOverlay(keyPairName) {
+        const addTagOverlay = document.getElementById('add-tag-overlay');
+        const addTagOverlayContent = document.querySelector('.add-tag-overlay-content');
+        addTagOverlayContent.innerHTML = `
+            <div class="tag-overlay-input-group">
+                <label for="tagOverlayTagKey">Tag Key:</label>
+                <input type="text" id="tagOverlayTagKey" name="tagKey" required>
+            </div>
+            <div class="tag-overlay-input-group">
+                <label for="tagOverlayTagValue">Tag Value:</label>
+                <input type="text" id="tagOverlayTagValue" name="tagValue" required>
+            </div>
+            <div class="tag-overlay-button-group">
+                <button onclick="addTag('${keyPairName}')">Add</button>
+                <button onclick="closeAddTagOverlay()">Cancel</button>
+            </div>
+        `;
+        addTagOverlay.style.display = 'flex';
+        document.addEventListener('keydown', handleEscAddTagOverlay);
+    }
+
+    function closeAddTagOverlay() {
+        const addTagOverlay = document.getElementById('add-tag-overlay');
+        addTagOverlay.style.display = 'none';
+        document.removeEventListener('keydown', handleEscAddTagOverlay);
+    }
+
+    function handleEscAddTagOverlay(event) {
+        if (event.key === "Escape") {
+            closeAddTagOverlay();
+        }
+    }
+
+    function addTag(keyPairName) {
+        const tagKey = document.getElementById('tagOverlayTagKey').value;
+        const tagValue = document.getElementById('tagOverlayTagValue').value;
+        const connConfig = document.getElementById('connConfig').value;
+
+        const data = {
+            ConnectionName: connConfig,
+            ReqInfo: {
+                ResourceType: 'KEYPAIR',
+                ResourceName: keyPairName,
+                Tag: { Key: tagKey, Value: tagValue }
+            }
+        };
+
+        fetchWithProgress('/spider/tag', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        }).then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.message);
+                });
+            }
+            return response.json();
+        }).then(() => {
+            closeAddTagOverlay();
+            location.reload();
+        }).catch(error => {
+            showError("Error adding tag: " + error.message, "KeyPair Name: " + keyPairName);
+        });
+    }
+
+    function handleEscTagOverlay(event) {
+        if (event.key === "Escape") {
+            closeTagOverlay();
+        }
+    }
+
+    function handleClickOutsideOverlay(event) {
+        const tagOverlay = document.getElementById('tag-overlay');
+        if (tagOverlay.style.display === 'flex' && !tagOverlay.contains(event.target)) {
+            closeTagOverlay();
+        }
+    }
+    
+    function showError(message, title) {
+        alert(`${title}: ${message}`);
+    }
+
+    function deleteTag(tag, resourceType, resourceName) {
+        const connConfig = document.getElementById('connConfig').value;
+        const [tagKey, tagValue] = tag.split(': ');
+
+        const data = {
+            ConnectionName: connConfig,
+            ReqInfo: {
+                ResourceType: resourceType.trim(),
+                ResourceName: resourceName.trim()
+            }
+        };
+
+        fetchWithProgress(`/spider/tag/${tagKey.trim()}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        }).then(response => {
+            if (!response.ok) {
+                return response.json().then(error => {
+                    throw new Error(error.message);
+                });
+            }
+            return response.json();
+        }).then(() => {
+            closeTagOverlay();
+            location.reload();
+        }).catch(error => {
+            showError("Error deleting tag: " + error.message, "Resource Name: " + resourceName);
+        });
+    }
+
+    document.addEventListener('click', (event) => {
+        const tagOverlay = document.getElementById('tag-overlay');
+        if (tagOverlay.style.display === 'flex' && !tagOverlay.contains(event.target)) {
+            closeTagOverlay();
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const connConfig = document.getElementById('connConfig').value;
+
+        // 현재 Provider가 MOCK인 경우 +10, +50 버튼 추가
+        fetch(`/spider/connectionconfig/${connConfig}`)
+            .then(response => response.json())
+            .then(data => {
+                const currentProvider = data.ProviderName;
+                if (currentProvider === 'MOCK') {
+                    const mockButtonsContainer = document.getElementById('mockButtonsContainer');
+
+                    const button10 = document.createElement('button');
+                    button10.className = 'mock-add-button add-button';
+                    button10.textContent = '+10';
+                    button10.onclick = () => createMultipleKeyPairs(10);
+
+                    const button50 = document.createElement('button');
+                    button50.className = 'mock-add-button add-button';
+                    button50.textContent = '+50';
+                    button50.onclick = () => createMultipleKeyPairs(50);
+
+                    mockButtonsContainer.appendChild(button10);
+                    mockButtonsContainer.appendChild(button50);
+                }
+            })
+            .catch(error => {
+                showError("Error loading connection configuration: " + error.message, "Connection Config Error");
+            });
+    });
+
+    function createMultipleKeyPairs(count) {
+        const connConfig = document.getElementById('connConfig').value;
+
+        const keyPairPromises = Array.from({ length: count }).map(() => {
+            const keyPairName = `mock-keypair-${Math.random().toString(36).substring(2, 7)}`;
+
+            const requestData = {
+                ConnectionName: connConfig,
+                ReqInfo: {
+                    Name: keyPairName,
+                    TagList: []
+                }
+            };
+
+            return fetchWithProgress('/spider/keypair', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            }).then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => {
+                        throw new Error(error.message);
+                    });
+                }
+                return response.json();
+            });
+        });
+
+        Promise.all(keyPairPromises)
+            .then(() => location.reload())
+            .catch(error => {
+                showError("Error creating KeyPairs: " + error.message, "KeyPair Creation Error");
+            });
+    }
+
+    function fetchWithProgress(url, options) {
+        showProgressBar();
+        
+        const startTime = Date.now();
+        const timerInterval = 500; 
+        let timerId = setInterval(() => {
+            const elapsedTime = (Date.now() - startTime) / 1000;
+            const timeDisplay = document.getElementById('timeDisplay');
+            timeDisplay.textContent = `${(Math.floor(elapsedTime * 2) / 2).toFixed(1)}s`;
+        }, timerInterval);
+
+        return fetch(url, options)
+            .then(response => {
+                clearInterval(timerId); 
+                hideProgressBar();
+                return response;
+            })
+            .catch(error => {
+                clearInterval(timerId);
+                hideProgressBar();
+                throw error;
+            });
+    }
+
+    function showProgressBar() {
+        const progressBarContainer = document.getElementById('progressBarContainer');
+        const progressBar = document.getElementById('progressBar');
+        progressBar.style.width = '0%';
+        progressBarContainer.style.display = 'block';
+
+        setTimeout(() => {
+            progressBar.style.width = '100%';
+        }, 100);
+    }
+
+    function hideProgressBar() {
+        const progressBarContainer = document.getElementById('progressBarContainer');
+        setTimeout(() => {
+            progressBarContainer.style.display = 'none';
+            document.getElementById('timeDisplay').textContent = ''; 
+        }, 500);
+    }
+
+    function showSystemIdOverlay(systemId) {
+        const overlay = document.getElementById('system-id-overlay');
+        const fullSystemIdElement = document.getElementById('fullSystemId');
+        fullSystemIdElement.textContent = systemId;
+
+        overlay.style.display = 'block';
+        document.addEventListener('keydown', handleEscSystemIdOverlay);
+    }
+
+    function closeSystemIdOverlay() {
+        const overlay = document.getElementById('system-id-overlay');
+        overlay.style.display = 'none';
+        document.removeEventListener('keydown', handleEscSystemIdOverlay);
+    }
+
+    function handleEscSystemIdOverlay(event) {
+        if (event.key === "Escape") {
+            closeSystemIdOverlay();
+        }
+    }
+
+    function copySystemId() {
+        const fullSystemIdElement = document.getElementById('fullSystemId');
+        const range = document.createRange();
+        range.selectNode(fullSystemIdElement);
+        const selection = window.getSelection();
+
+        selection.removeAllRanges();
+        selection.addRange(range);
+
+        try {
+            document.execCommand('copy');
+            closeSystemIdOverlay();
+        } catch (err) {
+            console.error('Error copying SystemId: ', err);
+        }
+
+        selection.removeAllRanges();
+    }
+
+
+    // ❹ OnlyCSPInfoList & OnlySpiderList를 가져와서 화면에 표시하는 함수
+    async function getAllKeyPairInfo() {
+        const connConfig = document.getElementById('connConfig').value;
+        try {
+            // 쿼리 파라미터를 통해 ConnectionName 전달
+            const url = `/spider/allkeypairinfo?ConnectionName=${connConfig}`;
+
+            // GET 메서드로 호출
+            const response = await fetchWithProgress(url, {
+                method: 'GET'
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to fetch allkeypairinfo');
+            }
+
+            const result = await response.json();
+            const allListInfo = result.AllListInfo;
+            
+            // OnlyCSPInfoList 테이블 채우기
+            fillOnlyCspInfoList(allListInfo.OnlyCSPInfoList);
+
+            // OnlySpiderList 테이블 채우기
+            fillOnlySpiderList(allListInfo.OnlySpiderList);
+
+            // 테이블 영역 보이기
+            document.getElementById('allKeyPairInfoSection').style.display = 'block';
+        } catch (error) {
+            showError("Error fetching allkeypairinfo: " + error.message, "All KeyPair Info Error");
+        }
+    }
+
+
+    function fillOnlyCspInfoList(list) {
+        const table = document.getElementById('onlyCSPInfoListTable');
+
+        // 기존 행 제거(헤더 제외)
+        while (table.rows.length > 1) {
+            table.deleteRow(1);
+        }
+
+        list.forEach((kp, idx) => {
+            const row = table.insertRow(-1);
+
+            // # (index)
+            const cellIndex = row.insertCell();
+            cellIndex.className = 'column-num';
+            cellIndex.innerText = (idx + 1);
+
+            // Name
+            const cellName = row.insertCell();
+            cellName.className = 'center-align desc-name-cell';
+            cellName.innerHTML = `
+                ${kp.IId.NameId}
+                <span class="desc-system-id">&nbsp;• ${kp.IId.SystemId}</span>
+            `;
+
+            // Fingerprint
+            const cellFprint = row.insertCell();
+            cellFprint.className = 'center-align fingerprint';
+            cellFprint.innerText = kp.Fingerprint || '';
+
+            // Tags
+            const cellTags = row.insertCell();
+            cellTags.className = 'center-align';
+            if (kp.TagList && kp.TagList.length > 0) {
+                kp.TagList.forEach(t => {
+                    const tagDiv = document.createElement('div');
+                    tagDiv.className = 'tag-container';
+                    tagDiv.innerText = `${t.Key}: ${t.Value}`;
+                    cellTags.appendChild(tagDiv);
+                });
+            }
+
+            // Misc (여기서는 KeyValueList가 없으므로 비워둠)
+            const cellMisc = row.insertCell();
+            cellMisc.className = 'center-align';
+            // 필요한 경우 여기에 추가 정보 삽입 가능
+        });
+    }
+
+    function fillOnlySpiderList(list) {
+        const table = document.getElementById('onlySpiderListTable');
+
+        // 기존 행 제거(헤더 제외)
+        while (table.rows.length > 1) {
+            table.deleteRow(1);
+        }
+
+        list.forEach(sp => {
+            const row = table.insertRow(-1);
+
+            const cellNameId = row.insertCell();
+            cellNameId.innerText = sp.NameId;
+
+            const cellSystemId = row.insertCell();
+            cellSystemId.innerText = sp.SystemId;
+        });
+    }
+</script>
+</html>

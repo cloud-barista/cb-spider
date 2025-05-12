@@ -20,11 +20,6 @@ import (
 	"google.golang.org/api/googleapi"
 )
 
-// API를 호출하는 데 특정 IAM 권한이 필요하지 않습니다.
-// https://cloudbilling.googleapis.com/v2beta/services?key=API_KEY&pageSize=PAGE_SIZE&pageToken=PAGE_TOKEN
-
-// sku
-// https://cloud.google.com/skus/?currency=USD&filter=38FA-6071-3D88&hl=ko
 var validFilterKey map[string]bool
 
 func init() {
@@ -41,7 +36,7 @@ func init() {
 		}
 	}
 
-	refelectValue = reflect.ValueOf(irs.PricingPolicies{})
+	refelectValue = reflect.ValueOf(irs.OnDemand{})
 
 	for i := 0; i < refelectValue.NumField(); i++ {
 
@@ -51,18 +46,6 @@ func init() {
 			validFilterKey[camelCaseFieldName] = true
 		}
 	}
-
-	refelectValue = reflect.ValueOf(irs.PricingPolicyInfo{})
-
-	for i := 0; i < refelectValue.NumField(); i++ {
-
-		fieldName := refelectValue.Type().Field(i).Name
-		camelCaseFieldName := toCamelCase(fieldName)
-		if _, ok := validFilterKey[camelCaseFieldName]; !ok {
-			validFilterKey[camelCaseFieldName] = true
-		}
-	}
-
 }
 
 type GCPPriceInfoHandler struct {
@@ -74,7 +57,6 @@ type GCPPriceInfoHandler struct {
 	Credential           idrv.CredentialInfo
 }
 
-// Return the price information of products belonging to the specified Region's PriceFamily in JSON format
 func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, additionalFilterList []irs.KeyValue) (string, error) {
 	priceLists := make([]irs.Price, 0)
 
@@ -115,11 +97,9 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 				return "", err
 			}
 
-			// Fetch machine types from all zones and remove duplicates
 			machineTypeMap := make(map[string]*compute.MachineType)
 
 			for _, zone := range zoneList.Items {
-				// Process only the specified zone if zoneName filter exists
 				if zoneName, ok := filter["zoneName"]; ok && zone.Name != *zoneName {
 					continue
 				}
@@ -135,12 +115,10 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 						return "", err
 					}
 
-					// Handle pagination
 					if keepFetching = machineTypes.NextPageToken != ""; keepFetching {
 						nextPageToken = machineTypes.NextPageToken
 					}
 
-					// Add to map to eliminate duplicates
 					for _, mt := range machineTypes.Items {
 						if _, exists := machineTypeMap[mt.Name]; !exists {
 							machineTypeMap[mt.Name] = mt
@@ -149,13 +127,11 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 				}
 			}
 
-			// Convert map to slice
 			machineTypeSlice := make([]*compute.MachineType, 0, len(machineTypeMap))
 			for _, mt := range machineTypeMap {
 				machineTypeSlice = append(machineTypeSlice, mt)
 			}
 
-			// Optional: Sort by machine type name
 			sort.Slice(machineTypeSlice, func(i, j int) bool {
 				return machineTypeSlice[i].Name < machineTypeSlice[j].Name
 			})
@@ -170,7 +146,6 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 					}
 
 					if machineType != nil {
-						// mapping to product info struct
 						productInfo, err := mappingToProductInfoForComputePrice(regionName, machineType)
 
 						if err != nil {
@@ -184,11 +159,8 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 
 						estimatedCostResponse := &cbb.EstimateCostScenarioForBillingAccountResponse{}
 
-						// call cost estimation api
 						estimatedCostResponse, err = callEstimateCostScenario(priceInfoHandler, regionName, billingAccountId, machineType)
 						if err != nil {
-							// cblogger.Error("error occurred when calling the EstimateCostScenario; message:", err)
-
 							if googleApiError, ok := err.(*googleapi.Error); ok {
 								if googleApiError.Code == 403 {
 									return "", errors.New("you don't have any permission to access billing account")
@@ -198,7 +170,6 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 							continue
 						}
 
-						// mapping to price info struct
 						priceInfo, err := mappingToPriceInfoForComputePrice(estimatedCostResponse, filter)
 
 						if err != nil {
@@ -220,20 +191,15 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 		}
 	}
 
-	cloudPriceData := irs.CloudPriceData{
-		Meta: irs.Meta{
-			Version:     "v0.1",
-			Description: "Multi-Cloud Price Info Api",
-		},
-		CloudPriceList: []irs.CloudPrice{
-			{
-				CloudName: "GCP",
-				PriceList: priceLists,
-			},
-		},
+	cloudPrice := irs.CloudPrice{
+		Meta:       irs.Meta{Version: "0.5", Description: "GCP Virtual Machines Price Info"},
+		CloudName:  "GCP",
+		RegionName: regionName,
+		ZoneName:   "NA",
+		PriceList:  priceLists,
 	}
 
-	convertedPriceData, err := ConvertJsonStringNoEscape(cloudPriceData)
+	convertedPriceData, err := ConvertJsonStringNoEscape(cloudPrice)
 
 	if err != nil {
 		cblogger.Error("error occurred when removing escape characters from the response struct;", err)
@@ -250,85 +216,6 @@ func toCamelCase(val string) string {
 	}
 
 	return fmt.Sprintf("%s%s", strings.ToLower(val[:1]), val[1:])
-}
-
-func pricePolicyInfoFilter(policy interface{}, filter map[string]*string) bool {
-	if len(filter) == 0 {
-		return false
-	}
-
-	refelectValue := reflect.ValueOf(policy)
-
-	for i := 0; i < refelectValue.NumField(); i++ {
-
-		fieldName := refelectValue.Type().Field(i).Name
-		camelCaseFieldName := toCamelCase(fieldName)
-		fieldValue := refelectValue.Field(i)
-
-		if invalidRefelctCheck(fieldValue) ||
-			fieldValue.Kind() == reflect.Ptr ||
-			fieldValue.Kind() == reflect.Struct {
-			continue
-		}
-
-		fieldStringValue := fmt.Sprintf("%v", fieldValue)
-
-		if value, ok := filter[camelCaseFieldName]; ok {
-			skipFlag := value != nil && *value != fieldStringValue
-			if skipFlag {
-				return true
-			}
-		}
-	}
-
-	return false
-}
-
-func priceInfoFilter(policy irs.PricingPolicies, filter map[string]*string) bool {
-	if len(filter) == 0 {
-		return false
-	}
-
-	refelectValue := reflect.ValueOf(policy)
-
-	for i := 0; i < refelectValue.NumField(); i++ {
-		fieldName := refelectValue.Type().Field(i).Name
-		camelCaseFieldName := toCamelCase(fieldName)
-		fieldValue := refelectValue.Field(i)
-
-		if invalidRefelctCheck(fieldValue) ||
-			fieldValue.Kind() == reflect.Struct {
-			continue
-		} else if fieldValue.Kind() == reflect.Ptr {
-
-			derefernceValue := fieldValue.Elem()
-
-			if derefernceValue.Kind() == reflect.Invalid {
-				skipFlag := pricePolicyInfoFilter(irs.PricingPolicyInfo{}, filter)
-				if skipFlag {
-					return true
-				}
-			} else if derefernceValue.Kind() == reflect.Struct {
-				if derefernceValue.Type().Name() == "PricingPolicyInfo" {
-					skipFlag := pricePolicyInfoFilter(*policy.PricingPolicyInfo, filter)
-					if skipFlag {
-						return true
-					}
-				}
-			}
-		}
-
-		fieldStringValue := fmt.Sprintf("%v", fieldValue)
-
-		if value, ok := filter[camelCaseFieldName]; ok {
-			skipFlag := value != nil && *value != fieldStringValue
-			if skipFlag {
-				return true
-			}
-		}
-	}
-
-	return false
 }
 
 func invalidRefelctCheck(value reflect.Value) bool {
@@ -378,9 +265,6 @@ func productInfoFilter(productInfo *irs.ProductInfo, filter map[string]*string) 
 	return false
 }
 
-/* @Info
- * billingAccountId format - billingAccounts/xxxx-xxxx-xxxx
- */
 func callEstimateCostScenario(priceInfoHandler *GCPPriceInfoHandler, region, billingAccountId string, machineType *compute.MachineType) (*cbb.EstimateCostScenarioForBillingAccountResponse, error) {
 	machineTypeName := machineType.Name
 
@@ -448,46 +332,28 @@ func callEstimateCostScenario(priceInfoHandler *GCPPriceInfoHandler, region, bil
 	).Do()
 
 	if err != nil {
-		// cblogger.Errorf("error occurred when calling EstimateCostScenario; machine spec; machine type: %s, memory: %d, calculated memory: %f", machineType.Name, machineType.MemoryMb, memory)
 		return nil, err
 	}
 
 	return estimateCostScenarioResponse, nil
 }
 
-/*
- * parse mb to gb
- * mb memory devide to 2^10 = 1024
- */
 func parseMbToGb(memoryMb int64) float64 {
 	return float64(memoryMb) / float64(1<<10)
 }
 
-/*
- * obtain the closest multiple of 0.25 to the origin value.
- */
 func roundToNearestMultiple(originValue float64) float64 {
 	multiple := 0.25
 
-	// Round the result of dividing "value" by "multiple" to the nearest integer
 	rounded := math.Round(originValue / multiple)
 
-	// multiply "rounded" by "multiple," you will get the closest multiple of the original value.
 	return rounded * multiple
 }
 
-/*
- * BillingCatalogClient.Services.Skus.List()을 호출하여 가져온 Category.ResourceFamily 를 중복 제거하여 리스트 생성
- */
 func (priceInfoHandler *GCPPriceInfoHandler) ListProductFamily(regionName string) ([]string, error) {
 	returnProductFamilyNames := []string{}
 
 	returnProductFamilyNames = append(returnProductFamilyNames, "Compute")
-	// returnProductFamilyNames = append(returnProductFamilyNames, "License")
-	// returnProductFamilyNames = append(returnProductFamilyNames, "Network")
-	// returnProductFamilyNames = append(returnProductFamilyNames, "Search")
-	// returnProductFamilyNames = append(returnProductFamilyNames, "Storage")
-	// returnProductFamilyNames = append(returnProductFamilyNames, "Utility")
 
 	return returnProductFamilyNames, nil
 }
@@ -497,8 +363,6 @@ func mappingToProductInfoForComputePrice(region string, machineType *compute.Mac
 
 	productInfo := &irs.ProductInfo{
 		ProductId:      productId,
-		RegionName:     region,
-		ZoneName:       machineType.Zone,
 		CSPProductInfo: machineType,
 	}
 
@@ -507,49 +371,21 @@ func mappingToProductInfoForComputePrice(region string, machineType *compute.Mac
 	productInfo.VMSpecInfo.VCpu.ClockGHz = "-1"
 	productInfo.VMSpecInfo.MemSizeMiB = fmt.Sprintf("%d", machineType.MemoryMb)
 	productInfo.VMSpecInfo.DiskSizeGB = "-1"
-	/*
-		productInfo.VMSpecInfo.Gpu = []irs.GpuInfo{
-			{
-				Count:          "-1",
-				MemSizeGB:      "-1",
-				TotalMemSizeGB: "-1",
-				Mfr:            "NA",
-				Model:          "NA",
-			},
-		}
-	*/
-	productInfo.OSDistribution = "NA"
-	productInfo.PreInstalledSw = "NA"
-	productInfo.Description = machineType.Description
 
-	productInfo.VolumeType = ""
-	productInfo.StorageMedia = ""
-	productInfo.MaxVolumeSize = ""
-	productInfo.MaxIOPSVolume = ""
-	productInfo.MaxThroughputVolume = ""
+	productInfo.Description = machineType.Description
 
 	return productInfo, nil
 }
 
-/*
-	@GCP 가격 정책
-	ListPrice => list price -> 정가 (cpu + ram)
-	ContractPrice => contract price -> 계약 가격 (cpu + ram + storage, disk 등)
-	CUD => committed use discount (CUD) -> 약정 각격 (cpu + ram + 약정 + a(storage, disk 등))
-		1YearCUD
-		3YearCUD
-*/
-
 func mappingToPriceInfoForComputePrice(res *cbb.EstimateCostScenarioForBillingAccountResponse, filter map[string]*string) (*irs.PriceInfo, error) {
 
 	result := res.CostEstimationResult
-	policies := make([]irs.PricingPolicies, 0)
-	cspInfo := make([]interface{}, 0)
+	var onDemand irs.OnDemand
+	var cspInfo interface{}
 
 	if len(result.SegmentCostEstimates) > 0 {
 		segmentCostEstimate := result.SegmentCostEstimates[0]
 
-		// mapping from GCP OnDemand price struct to PricingPolicies struct
 		if segmentCostEstimate.SegmentTotalCostEstimate != nil {
 			firstWorkloadCostEstimate := segmentCostEstimate.WorkloadCostEstimates[0]
 
@@ -558,65 +394,22 @@ func mappingToPriceInfoForComputePrice(res *cbb.EstimateCostScenarioForBillingAc
 				parsedPrice := fmt.Sprintf("%d.%09d", price.Units, price.Nanos)
 				description := *getDescription(result.Skus, "OnDemand")
 
-				policy := irs.PricingPolicies{
-					PricingId:     "NA",
-					PricingPolicy: "OnDemand",
-					Unit:          "Hrs",
-					Currency:      price.CurrencyCode,
-					Price:         parsedPrice,
-					Description:   description,
+				onDemand = irs.OnDemand{
+					PricingId:   "NA",
+					Unit:        "Hour",
+					Currency:    price.CurrencyCode,
+					Price:       parsedPrice,
+					Description: description,
 				}
 
-				if !priceInfoFilter(policy, filter) {
-					policies = append(policies, policy)
-					cspInfo = append(cspInfo, firstWorkloadCostEstimate)
-				}
-			}
-		}
-
-		if len(segmentCostEstimate.CommitmentCostEstimates) > 0 {
-			for _, commitment := range segmentCostEstimate.CommitmentCostEstimates {
-				if commitment.CommitmentTotalCostEstimate != nil {
-					priceStruct := commitment.CommitmentTotalCostEstimate.NetCostEstimate
-
-					pricingPolicy := "Commit1Yr"
-					contract := "1yr"
-
-					if commitment.Name == "3yrs-commitment-price" {
-						pricingPolicy = "Commit3Yr"
-						contract = "3yr"
-					}
-
-					pricingPolicyInfo := &irs.PricingPolicyInfo{
-						LeaseContractLength: contract,
-						OfferingClass:       "NA",
-						PurchaseOption:      "NA",
-					}
-
-					description := *getDescription(result.Skus, "Commitment")
-
-					policy := irs.PricingPolicies{
-						PricingId:         "NA",
-						PricingPolicy:     pricingPolicy,
-						Unit:              "Yrs",
-						Currency:          priceStruct.CurrencyCode,
-						Price:             fmt.Sprintf("%d.%09d", priceStruct.Units, priceStruct.Nanos),
-						Description:       description,
-						PricingPolicyInfo: pricingPolicyInfo,
-					}
-
-					if !priceInfoFilter(policy, filter) {
-						policies = append(policies, policy)
-						cspInfo = append(cspInfo, commitment)
-					}
-				}
+				cspInfo = firstWorkloadCostEstimate
 			}
 		}
 	}
 
 	return &irs.PriceInfo{
-		PricingPolicies: policies,
-		CSPPriceInfo:    cspInfo,
+		OnDemand:     onDemand,
+		CSPPriceInfo: cspInfo,
 	}, nil
 }
 
@@ -648,7 +441,6 @@ func getDescription(skus []*cbb.Sku, condition string) *string {
 	return &description
 }
 
-// Convert from Cloud Object to JSON String type
 func ConvertJsonStringNoEscape(v interface{}) (string, error) {
 	buffer := &bytes.Buffer{}
 	encoder := json.NewEncoder(buffer)
@@ -666,29 +458,23 @@ func ConvertJsonStringNoEscape(v interface{}) (string, error) {
 	return jsonString, nil
 }
 
-// Extracting machine type through the self-link
 func getMachineTypeFromSelfLink(selfLink string) string {
-	// Finding the index of the last '/' character
 	lastSlashIndex := strings.LastIndex(selfLink, "/")
 
 	if lastSlashIndex == -1 {
 		return ""
 	}
 
-	// Extracting the substring after the last '/'
 	return selfLink[lastSlashIndex+1:]
 }
 
-// machine type 을 통해서 machine series 추출
 func getMachineSeriesFromMachineType(machineType string) string {
-	// 마지막 / 의 인덱스 찾기
 	firstDashIndex := strings.Index(machineType, "-")
 
 	if firstDashIndex == -1 {
 		return ""
 	}
 
-	// 마지막 / 뒤의 부분 문자열 추출
 	return machineType[:firstDashIndex]
 }
 

@@ -114,7 +114,7 @@ func GetPriceInfo(connectionName string, productFamily string, regionName string
 
 func getProviderSpecificPFName(providerName, pfName string) string {
 
-	if pfName != "ComputeInstance" {
+	if pfName != cres.RSTypeString(cres.VM) {
 		return pfName
 	}
 
@@ -134,7 +134,7 @@ func getProviderSpecificPFName(providerName, pfName string) string {
 	case "NCP":
 		return "SVR"
 	case "NCPVPC":
-		return "Server"
+		return "Server (VPC)"
 	default:
 		return pfName
 	}

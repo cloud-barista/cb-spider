@@ -1,8 +1,3 @@
-// The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
-// The CB-Spider Mission is to connect all the clouds with a single interface.
-//
-//      * Cloud-Barista: https://github.com/cloud-barista
-
 package resources
 
 import (
@@ -13,17 +8,13 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/hmac" // Caution!! : Not "crypto/hmac"
-	// Ref) https://github.com/NaverCloudPlatform/ncloud-sdk-go-v2/blob/master/services/vserver/api_client.go
-
-	// "log"
-	// "github.com/davecgh/go-spew/spew"
-
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
+
+	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/hmac"
 
 	vserver "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
 
@@ -38,14 +29,10 @@ type NcpVpcPriceInfoHandler struct {
 	VMClient       *vserver.APIClient
 }
 
-// Already declared in CommonNcpFunc.go
-// var cblogger *logrus.Logger
 func init() {
-	// cblog is a global variable.
 	cblogger = cblog.GetLogger("NCP VPC VMHandler")
 }
 
-// =========================== For ProductList ============================
 type ProductItemKind struct {
 	Code     string `json:"code"`
 	CodeName string `json:"code_name"`
@@ -77,31 +64,28 @@ type ProductListAPIResponse struct {
 	Error *ErrorResponse `json:"error,omitempty"`
 }
 
-// =========================== For ProductList ============================
-
-// =========================== For PriceList ============================
 type Code struct {
 	Code     string `json:"code"`
 	CodeName string `json:"codeName"`
 }
 
 type Region struct {
-	RegionNo   int    `json:"regionNo"` // Not string
+	RegionNo   int    `json:"regionNo"`
 	RegionCode string `json:"regionCode"`
 	RegionName string `json:"regionName"`
 }
 
 type Price struct {
-	PriceNo                string  `json:"priceNo"` // Not int
+	PriceNo                string  `json:"priceNo"`
 	PriceType              Code    `json:"priceType"`
 	Region                 Region  `json:"region"`
 	ChargingUnitType       Code    `json:"chargingUnitType"`
 	RatingUnitType         Code    `json:"ratingUnitType"`
-	ChargingUnitBasicValue string  `json:"chargingUnitBasicValue"` // Not int
+	ChargingUnitBasicValue string  `json:"chargingUnitBasicValue"`
 	Unit                   Code    `json:"unit"`
-	PriceValue             float32 `json:"price"` // Not float64
+	PriceValue             float32 `json:"price"`
 	ConditionType          Code    `json:"conditionType"`
-	ConditionPrice         float32 `json:"conditionPrice"` // Not float64
+	ConditionPrice         float32 `json:"conditionPrice"`
 	PriceDescription       string  `json:"priceDescription"`
 	MeteringUnit           Code    `json:"meteringUnit"`
 	StartDate              string  `json:"startDate"`
@@ -140,16 +124,11 @@ type PriceListAPIResponse struct {
 	Error *ErrorResponse `json:"error,omitempty"`
 }
 
-// =========================== For PriceList ============================
-
-// =========================== Common ============================
 type ErrorResponse struct {
 	Code    string `json:"errorCode,omitempty"`
 	Message string `json:"message,omitempty"`
 	Details string `json:"details,omitempty"`
 }
-
-// =========================== Common ============================
 
 const (
 	BaseURL             string = "https://billingapi.apigw.ntruss.com/billing/v1"
@@ -157,10 +136,8 @@ const (
 	ProductPriceListURL string = "/product/getProductPriceList"
 )
 
-// # Get Product 'Name' of all Products instead of Product 'Code'
 func (priceInfoHandler *NcpVpcPriceInfoHandler) ListProductFamily(regionName string) ([]string, error) {
 	cblogger.Info("NCP VPC Cloud driver: called ListProductFamily()!!")
-	// API Guide : https://api.ncloud-docs.com/docs/platform-listprice-getproductlist
 
 	if strings.EqualFold(regionName, "") {
 		newErr := fmt.Errorf("Invalid regionName!!")
@@ -174,8 +151,6 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) ListProductFamily(regionName str
 		cblogger.Error(newErr.Error())
 		return nil, newErr
 	}
-	// log.Printf("### productItemKindList")
-	// spew.Dump(productItemKindList)
 
 	var productCodeNameList []string
 	if len(productItemKindList) > 0 {
@@ -187,8 +162,6 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) ListProductFamily(regionName str
 	return productCodeNameList, nil
 }
 
-// extract GPUMemory from productName
-// productName ex) "productName": "NVIDIA A100P GPU 8EA, GPUMemory 640GB, vCPU 56EA, Memory 1960GB",
 func extractGPUMemoryFromProductName(productName string) (int64, error) {
 	re := regexp.MustCompile(`GPUMemory\s+(\d+)GB`)
 	matches := re.FindStringSubmatch(productName)
@@ -207,7 +180,6 @@ func extractGPUMemoryFromProductName(productName string) (int64, error) {
 
 func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue) (string, error) {
 	cblogger.Info("NCP VPC Cloud driver: called GetPriceInfo()!!")
-	// API Guide : https://api.ncloud-docs.com/docs/platform-listprice-getproductlist
 
 	if strings.EqualFold(productFamily, "") {
 		newErr := fmt.Errorf("Invalid productFamily Name!!")
@@ -221,10 +193,8 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 		return "", newErr
 	}
 
-	// ex) "Serrver%20(VPC)" -> "Server (VPC)"
 	productFamily = decodeURLString(productFamily)
 
-	// Check whether the presented ProductFamily exists.
 	productItemKindList, err := priceInfoHandler.getProductItemKindList(regionName)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get ProductItemKind List : [%v]", err)
@@ -258,8 +228,7 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 
 	var priceList []irs.Price
 	switch productCode {
-	case "VSVR": // "Server (VPC)"
-		// Get VMSpec information for the region to map ProductCode to ServerSpecCode
+	case "VSVR":
 		vmSpecMap, err := priceInfoHandler.getVMSpecMap(regionName)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Get VMSpec information: [%v]", err)
@@ -268,41 +237,29 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 		}
 
 		for _, productPrice := range productPriceList {
-			var regionCode string
-			for _, price := range productPrice.PriceList {
-				if strings.EqualFold(price.Region.RegionCode, regionName) {
-					regionCode = price.Region.RegionCode
-					break
-				}
-				cblogger.Infof("RegionCode: %s\n", price.Region.RegionCode)
-			}
 
-			var pricingPolicies []irs.PricingPolicies
-			// only MTRAT code is used for OnDemand
+			var onDemand irs.OnDemand
 			for _, price := range productPrice.PriceList {
 				if strings.EqualFold(price.PriceType.Code, "MTRAT") {
 					priceString := fmt.Sprintf("%f", price.PriceValue)
 
-					// Unit name conversion (Usage time (per hour) -> Hour)
 					unitName := price.Unit.CodeName
 					if strings.EqualFold(unitName, "Usage time (per hour)") {
 						unitName = "Hour"
 					}
 
-					pricingPolicies = append(pricingPolicies, irs.PricingPolicies{
-						PricingId:         price.PriceNo,
-						PricingPolicy:     "OnDemand", // MTRAT is changed to OnDemand
-						Unit:              unitName,
-						Currency:          price.PayCurrency.Code,
-						Price:             priceString,
-						Description:       price.PriceDescription,
-						PricingPolicyInfo: nil,
-					})
+					onDemand = irs.OnDemand{
+						PricingId:   price.PriceNo,
+						Unit:        unitName,
+						Currency:    price.PayCurrency.Code,
+						Price:       priceString,
+						Description: price.PriceDescription,
+					}
+					break
 				}
 			}
 
-			// If there are no OnDemand pricing policies, skip this product
-			if len(pricingPolicies) == 0 {
+			if onDemand.Price == "" {
 				continue
 			}
 
@@ -312,16 +269,13 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 
 			var gpuInfoList []irs.GpuInfo
 			if productPrice.GpuCount > 0 {
-				// Extract GPU memory information from productName
-				totalGpuMemGB := "-1"  // default value
-				singleGpuMemGB := "-1" // default value
+				totalGpuMemGB := "-1"
+				singleGpuMemGB := "-1"
 
 				gpuMemSize, err := extractGPUMemoryFromProductName(productPrice.ProductName)
 				if err == nil && gpuMemSize > 0 {
-					// Set total GPU memory size
 					totalGpuMemGB = strconv.FormatInt(gpuMemSize, 10)
 
-					// Calculate memory size per GPU (total / GPU count)
 					if productPrice.GpuCount > 0 {
 						singleGpuMemPerGPU := gpuMemSize / int64(productPrice.GpuCount)
 						singleGpuMemGB = strconv.FormatInt(singleGpuMemPerGPU, 10)
@@ -330,16 +284,15 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 
 				aGPU := irs.GpuInfo{
 					Count:          strconv.Itoa(productPrice.GpuCount),
-					MemSizeGB:      singleGpuMemGB, // Memory size per single GPU
-					TotalMemSizeGB: totalGpuMemGB,  // Total GPU memory size
+					MemSizeGB:      singleGpuMemGB,
+					TotalMemSizeGB: totalGpuMemGB,
 					Mfr:            "NA",
 					Model:          "NA",
 				}
 				gpuInfoList = append(gpuInfoList, aGPU)
 			}
 
-			// Look up the ServerSpecCode that matches this ProductCode
-			specName := productPrice.ProductType.CodeName // Default fallback
+			specName := productPrice.ProductType.CodeName
 			if serverSpecCode, exists := vmSpecMap[productPrice.ProductCode]; exists {
 				specName = serverSpecCode
 			} else {
@@ -348,83 +301,61 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 
 			priceList = append(priceList, irs.Price{
 				ProductInfo: irs.ProductInfo{
-					ProductId:  productPrice.ProductCode,
-					RegionName: regionCode,
-					ZoneName:   "NA",
+					ProductId:      productPrice.ProductCode,
+					Description:    productPrice.ProductName,
+					CSPProductInfo: productPrice,
 					VMSpecInfo: irs.VMSpecInfo{
-						Name:       specName, // Use matched ServerSpecCode or fallback
+						Name:       specName,
 						VCpu:       irs.VCpuInfo{Count: vCPUs, ClockGHz: "-1"},
 						MemSizeMiB: vMemGb,
 						DiskSizeGB: storageGB,
 						Gpu:        gpuInfoList,
 					},
-					OSDistribution: "NA",
-					PreInstalledSw: "NA",
-					Description:    productPrice.ProductName,
-					CSPProductInfo: productPrice,
 				},
 				PriceInfo: irs.PriceInfo{
-					PricingPolicies: pricingPolicies,
-					CSPPriceInfo:    productPrice.PriceList,
+					OnDemand:     onDemand,
+					CSPPriceInfo: productPrice.PriceList,
 				},
 			})
 		}
 
-	case "BST": // Block storage
+	case "BST":
 		for _, productPrice := range productPriceList {
-			var regionCode string
-			for _, price := range productPrice.PriceList {
-				if strings.EqualFold(price.Region.RegionCode, regionName) {
-					regionCode = price.Region.RegionCode
-					break
-				}
-				cblogger.Infof("RegionCode: %s\n", price.Region.RegionCode)
-			}
 
-			var pricingPolicies []irs.PricingPolicies
-			// only MTRAT code is used for OnDemand
+			var onDemand irs.OnDemand
 			for _, price := range productPrice.PriceList {
 				if strings.EqualFold(price.PriceType.Code, "MTRAT") {
 					priceString := fmt.Sprintf("%f", price.PriceValue)
 
-					// Unit name conversion (Usage time (per hour) -> Hour)
 					unitName := price.Unit.CodeName
 					if strings.EqualFold(unitName, "Usage time (per hour)") {
 						unitName = "Hour"
 					}
 
-					pricingPolicies = append(pricingPolicies, irs.PricingPolicies{
-						PricingId:         price.PriceNo,
-						PricingPolicy:     "OnDemand", // MTRAT is changed to OnDemand
-						Unit:              unitName,
-						Currency:          price.PayCurrency.Code,
-						Price:             priceString,
-						Description:       price.PriceDescription,
-						PricingPolicyInfo: nil,
-					})
+					onDemand = irs.OnDemand{
+						PricingId:   price.PriceNo,
+						Unit:        unitName,
+						Currency:    price.PayCurrency.Code,
+						Price:       priceString,
+						Description: price.PriceDescription,
+					}
+					break
 				}
 			}
 
-			// If there are no OnDemand pricing policies, skip this product
-			if len(pricingPolicies) == 0 {
+			if onDemand.Price == "" {
 				continue
 			}
 
 			priceList = append(priceList, irs.Price{
 				ProductInfo: irs.ProductInfo{
-					ProductId:           productPrice.ProductCode,
-					RegionName:          regionCode,
-					VolumeType:          productPrice.ProductType.CodeName,
-					StorageMedia:        productPrice.DiskDetailType.CodeName,
-					MaxVolumeSize:       "-1",
-					MaxIOPSVolume:       "-1",
-					MaxThroughputVolume: "-1",
-					Description:         productPrice.ProductDescription,
-					CSPProductInfo:      productPrice,
+					ProductId:      productPrice.ProductCode,
+					Description:    productPrice.ProductDescription,
+					CSPProductInfo: productPrice,
 				},
 				PriceInfo: irs.PriceInfo{
-					PricingPolicies: pricingPolicies,
-					CSPPriceInfo:    productPrice.PriceList,
+					OnDemand:     onDemand,
+					CSPPriceInfo: productPrice.PriceList,
 				},
 			})
 		}
@@ -435,20 +366,15 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 		return "", newErr
 	}
 
-	cloudPriceData := irs.CloudPriceData{
-		Meta: irs.Meta{
-			Version:     "v0.1",
-			Description: "Multi-Cloud Price Info",
-		},
-		CloudPriceList: []irs.CloudPrice{
-			{
-				CloudName: "NCP-VPC",
-				PriceList: priceList,
-			},
-		},
+	cloudPrice := irs.CloudPrice{
+		Meta:       irs.Meta{Version: "0.5", Description: "NCP VPC Virtual Machines Price Info"},
+		CloudName:  "NCPVPC",
+		RegionName: regionName,
+		ZoneName:   "NA",
+		PriceList:  priceList,
 	}
 
-	jsonData, err := json.MarshalIndent(cloudPriceData, "", "    ")
+	jsonData, err := json.MarshalIndent(cloudPrice, "", "    ")
 	if err != nil {
 		newErr := errors.New(fmt.Sprintf("Failed to Get PriceInfo Data : [%s]", err))
 		cblogger.Error(newErr.Error())
@@ -457,21 +383,18 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 	return string(jsonData), nil
 }
 
-// getVMSpecMap retrieves VM Spec information and creates a mapping between ProductCode and ServerSpecCode
 func (priceInfoHandler *NcpVpcPriceInfoHandler) getVMSpecMap(regionName string) (map[string]string, error) {
 	cblogger.Info("NCP VPC Cloud driver: called getVMSpecMap()!!")
 
-	// Create VMSpecHandler with the same region information
 	vmSpecHandler := NcpVpcVMSpecHandler{
 		CredentialInfo: priceInfoHandler.CredentialInfo,
 		RegionInfo: idrv.RegionInfo{
 			Region: regionName,
-			Zone:   "", // to get all spec list in this Region
+			Zone:   "",
 		},
 		VMClient: priceInfoHandler.VMClient,
 	}
 
-	// Get all VM Specs from the handler
 	vmSpecList, err := vmSpecHandler.ListVMSpec()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to get VM Spec list: [%v]", err)
@@ -479,20 +402,17 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) getVMSpecMap(regionName string) 
 		return nil, newErr
 	}
 
-	// Create mapping between ProductCode (ServerProductCode) and ServerSpecCode
 	vmSpecMap := make(map[string]string)
 
 	for _, spec := range vmSpecList {
-		// Check KeyValueList for ServerProductCode
 		for _, kv := range spec.KeyValueList {
 			if kv.Key == "ServerProductCode" {
-				vmSpecMap[kv.Value] = spec.Name // Map ProductCode to ServerSpecCode
+				vmSpecMap[kv.Value] = spec.Name
 				break
 			}
 		}
 	}
 
-	// If no specs were found, get the original VM specs and extract necessary info
 	if len(vmSpecMap) == 0 {
 		orgVMSpecList, err := vmSpecHandler.getNcpVpcVMSpecList()
 		if err != nil {
@@ -512,13 +432,11 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) getVMSpecMap(regionName string) 
 }
 
 func decodeURLString(encodedString string) string {
-	// Try using the standard library's QueryUnescape function
 	decoded, err := url.QueryUnescape(encodedString)
 	if err == nil {
 		return decoded
 	}
 
-	// If standard decoding fails, manually replace common URL encodings
 	replacements := map[string]string{
 		"%20": " ",  // space
 		"%21": "!",  // exclamation mark
@@ -549,28 +467,22 @@ func decodeURLString(encodedString string) string {
 	return result
 }
 
-// This is necessary because NCP GoSDK does not support these PriceInfo APIs.
 func (priceInfoHandler *NcpVpcPriceInfoHandler) getProductCodeList(regionCode string, callURL string) ([]string, error) {
 	cblogger.Info("NCP VPC Cloud driver: called getProductCodeList()!!")
 
-	// ### Ref for Auth.) https://api.ncloud-docs.com/docs/common-ncpapi
-	// Set Query Parameters
 	params := url.Values{}
-	params.Add("responseFormatType", "json") // Note!! : 'json' or 'xml'
+	params.Add("responseFormatType", "json")
 	params.Add("regionCode", regionCode)
 
-	// Add Query Parameters to BaseURL
 	fullURL := BaseURL + callURL + "?" + params.Encode()
 
 	accessKey := priceInfoHandler.CredentialInfo.ClientId
 	secretKey := priceInfoHandler.CredentialInfo.ClientSecret
 
-	// Current time -> Calculated in Milli-Second
 	timestamp := strconv.FormatInt(time.Now().UnixNano()/int64(time.Millisecond), 10)
 
-	// Ref) https://github.com/NaverCloudPlatform/ncloud-sdk-go-v2/blob/master/services/vserver/api_client.go  line 269 ~ 270
 	signer := hmac.NewSigner(secretKey, crypto.SHA256)
-	signature, _ := signer.Sign("GET", fullURL, accessKey, timestamp) // Caution!! : Different from the general signature format.
+	signature, _ := signer.Sign("GET", fullURL, accessKey, timestamp)
 
 	req, err := http.NewRequest("GET", fullURL, nil)
 	if err != nil {
@@ -598,11 +510,8 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) getProductCodeList(regionCode st
 		cblogger.Error(newErr.Error())
 		return nil, newErr
 	}
-	// log.Printf("### body")
-	// spew.Dump(body)
 
-	// ### Convert []byte format of date to []unit8 format
-	var bodyInUint8 []uint8 = body // Caution!!
+	var bodyInUint8 []uint8 = body
 
 	var productListResp ProductListAPIResponse
 	err = json.Unmarshal(bodyInUint8, &productListResp)
@@ -616,10 +525,7 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) getProductCodeList(regionCode st
 		cblogger.Error(newErr.Error())
 		return nil, nil
 	}
-	// log.Printf("### productListResp")
-	// spew.Dump(productListResp)
 
-	// # Remove Duplicated Product Code
 	uniqueCodes := make(map[string]bool)
 	uniqueProducts := []Product{}
 	if len(productListResp.GetProductListResponse.ProductList) > 0 {
@@ -634,7 +540,6 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) getProductCodeList(regionCode st
 	var productCodeList []string
 	if len(uniqueProducts) > 0 {
 		for _, uniqueProduct := range uniqueProducts {
-			// fmt.Println("Code:", uniqueProduct.ItemKind.Code)
 			productCodeList = append(productCodeList, uniqueProduct.ItemKind.Code)
 		}
 	} else {
@@ -645,7 +550,6 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) getProductCodeList(regionCode st
 
 func (priceInfoHandler *NcpVpcPriceInfoHandler) getProductItemKindList(regionName string) ([]ProductItemKind, error) {
 	cblogger.Info("NCP VPC Cloud driver: called getProductItemKindList()!!")
-	// API Guide : https://api.ncloud-docs.com/docs/platform-listprice-getproductlist
 
 	if strings.EqualFold(regionName, "") {
 		newErr := fmt.Errorf("Invalid regionName!!")
@@ -659,13 +563,10 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) getProductItemKindList(regionNam
 		cblogger.Error(newErr.Error())
 		return nil, newErr
 	}
-	// log.Printf("### productCodeList")
-	// spew.Dump(productCodeList)
 
 	uniqueCodeNames := make(map[string]bool)
 	var productItemKindList []ProductItemKind
 
-	// # Since some productItemKind.codeName is empty in getProductList (API) supporting from NCP
 	if len(productCodeList) > 0 {
 		for _, productCode := range productCodeList {
 			productPriceList, err := priceInfoHandler.getProductPriceListWithProductCode(regionName, ProductPriceListURL, productCode, nil)
@@ -674,10 +575,7 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) getProductItemKindList(regionNam
 				cblogger.Error(newErr.Error())
 				return nil, newErr
 			}
-			// log.Printf("### productPriceList")
-			// spew.Dump(productPriceList)
 
-			// # Remove Duplicated CodeName
 			for _, productPrice := range productPriceList {
 				if _, exists := uniqueCodeNames[productPrice.ProductItemKind.CodeName]; !exists {
 					newProductItemKind := ProductItemKind{
@@ -690,24 +588,18 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) getProductItemKindList(regionNam
 			}
 		}
 	}
-	// log.Printf("### productItemKindList")
-	// spew.Dump(productItemKindList)
 
 	return productItemKindList, nil
 }
 
-// This is necessary because NCP GoSDK does not support these PriceInfo APIs.
 func (priceInfoHandler *NcpVpcPriceInfoHandler) getProductPriceListWithProductCode(regionCode string, callURL string, productCode string, filterList []irs.KeyValue) ([]ProductPrice, error) {
 	cblogger.Info("NCP VPC Cloud driver: called getProductPriceListWithProductCode()!!")
 
-	// ### Ref for Auth.) https://api.ncloud-docs.com/docs/common-ncpapi
-	// Set Query Parameters
-	// NCP API Call URL Ex) : GET {API_URL}/product/getProductPriceList?regionCode=KR&productItemKindCode=VSVR&productName=6248R
 	params := url.Values{}
-	params.Add("responseFormatType", "json") // Note!! : 'json' or 'xml'
+	params.Add("responseFormatType", "json")
 	params.Add("regionCode", regionCode)
-	params.Add("productItemKindCode", productCode) // Ex) SVR or VSVR, ...
-	params.Add("payCurrencyCode", "USD")           // Ex) KRW, USD, JPY
+	params.Add("productItemKindCode", productCode)
+	params.Add("payCurrencyCode", "USD")
 
 	if len(filterList) == 0 {
 		filterList = nil
@@ -717,18 +609,15 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) getProductPriceListWithProductCo
 		}
 	}
 
-	// Add Query Parameters to BaseURL
 	fullURL := BaseURL + callURL + "?" + params.Encode()
 
 	accessKey := priceInfoHandler.CredentialInfo.ClientId
 	secretKey := priceInfoHandler.CredentialInfo.ClientSecret
 
-	// Current time -> Calculated in Milli-Second
 	timestamp := strconv.FormatInt(time.Now().UnixNano()/int64(time.Millisecond), 10)
 
-	// Ref) https://github.com/NaverCloudPlatform/ncloud-sdk-go-v2/blob/master/services/vserver/api_client.go  line 269 ~ 270
 	signer := hmac.NewSigner(secretKey, crypto.SHA256)
-	signature, _ := signer.Sign("GET", fullURL, accessKey, timestamp) // Caution!! : Different from the general signature format.
+	signature, _ := signer.Sign("GET", fullURL, accessKey, timestamp)
 
 	req, err := http.NewRequest("GET", fullURL, nil)
 	if err != nil {
@@ -757,8 +646,7 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) getProductPriceListWithProductCo
 		return nil, newErr
 	}
 
-	// ### Convert []byte format of date to []unit8 format
-	var bodyInUint8 []uint8 = body // Caution!!
+	var bodyInUint8 []uint8 = body
 
 	var priceListResp PriceListAPIResponse
 	err = json.Unmarshal(bodyInUint8, &priceListResp)

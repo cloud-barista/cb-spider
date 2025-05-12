@@ -278,27 +278,24 @@ func (priceInfoHandler *NcpPriceInfoHandler) GetPriceInfo(productFamily string, 
 			// fmt.Printf("DiskType CodeName: %s\n", product.DiskType.CodeName)
 			// fmt.Println("------------------------------")
 
-			var regionCode string
+			var onDemand irs.OnDemand
 			for _, price := range product.PriceList {
 				if strings.EqualFold(price.Region.RegionCode, regionName) {
-					regionCode = price.Region.RegionCode
+					priceString := fmt.Sprintf("%f", price.PriceValue)
+					onDemand = irs.OnDemand{
+						PricingId:   price.PriceNo,
+						Unit:        price.Unit.CodeName,
+						Currency:    price.PayCurrency.Code,
+						Price:       priceString,
+						Description: price.PriceDescription,
+					}
 					break
 				}
-				cblogger.Infof("RegionCode: %s\n", price.Region.RegionCode)
 			}
 
-			var pricingPolicies []irs.PricingPolicies
-			for _, price := range product.PriceList {
-				priceString := fmt.Sprintf("%f", price.PriceValue)
-				pricingPolicies = append(pricingPolicies, irs.PricingPolicies{
-					PricingId:         price.PriceNo,
-					PricingPolicy:     price.PriceType.CodeName,
-					Unit:              price.Unit.CodeName,
-					Currency:          price.PayCurrency.Code,
-					Price:             priceString,
-					Description:       price.PriceDescription,
-					PricingPolicyInfo: nil,
-				})
+			// Skip if there's no OnDemand price
+			if onDemand.PricingId == "" {
+				continue
 			}
 
 			vCPUs := strconv.Itoa(product.CpuCount)
@@ -317,31 +314,31 @@ func (priceInfoHandler *NcpPriceInfoHandler) GetPriceInfo(productFamily string, 
 				gpuInfoList = append(gpuInfoList, aGPU)
 			}
 
+			// Create KeyValueList for disk type information
+			diskTypeInfo := []irs.KeyValue{
+				{Key: "DiskType", Value: product.DiskType.CodeName},
+				{Key: "DiskDetailType", Value: product.DiskDetailType.CodeName},
+			}
+
 			priceList = append(priceList, irs.Price{
 				ProductInfo: irs.ProductInfo{
-					ProductId:  product.ProductCode,
-					RegionName: regionCode,
-					ZoneName:   "N/A",
+					ProductId: product.ProductCode,
 					VMSpecInfo: irs.VMSpecInfo{
-						Name:       product.ProductType.CodeName,
-						VCpu:       irs.VCpuInfo{Count: vCPUs, ClockGHz: "-1"},
-						MemSizeMiB: vMemGb,
-						DiskSizeGB: storageGB,
-						Gpu:        gpuInfoList,
+						Name:         product.ProductType.CodeName,
+						VCpu:         irs.VCpuInfo{Count: vCPUs, ClockGHz: "-1"},
+						MemSizeMiB:   vMemGb,
+						DiskSizeGB:   storageGB,
+						Gpu:          gpuInfoList,
+						KeyValueList: diskTypeInfo,
 					},
-					OSDistribution: "N/A",
-					PreInstalledSw: "N/A",
-					VolumeType:     product.DiskType.CodeName,
-					StorageMedia:   product.DiskDetailType.CodeName,
 					Description:    product.ProductDescription,
 					CSPProductInfo: product,
 				},
 				PriceInfo: irs.PriceInfo{
-					PricingPolicies: pricingPolicies,
-					CSPPriceInfo:    product.PriceList,
+					OnDemand:     onDemand,
+					CSPPriceInfo: product.PriceList,
 				},
 			})
-
 		}
 
 	case "BST": // Block Storage
@@ -351,47 +348,37 @@ func (priceInfoHandler *NcpPriceInfoHandler) GetPriceInfo(productFamily string, 
 			// fmt.Printf("DiskDetailType CodeName: %s\n", product.DiskDetailType.CodeName)
 			// fmt.Println("------------------------------")
 
-			var regionCode string
+			var onDemand irs.OnDemand
 			for _, price := range product.PriceList {
 				if strings.EqualFold(price.Region.RegionCode, regionName) {
-					regionCode = price.Region.RegionCode
+					priceString := fmt.Sprintf("%f", price.PriceValue)
+					onDemand = irs.OnDemand{
+						PricingId:   price.PriceNo,
+						Unit:        price.Unit.CodeName,
+						Currency:    price.PayCurrency.Code,
+						Price:       priceString,
+						Description: price.PriceDescription,
+					}
 					break
 				}
-				cblogger.Infof("RegionCode: %s\n", price.Region.RegionCode)
 			}
 
-			var pricingPolicies []irs.PricingPolicies
-			for _, price := range product.PriceList {
-				priceString := fmt.Sprintf("%f", price.PriceValue)
-				pricingPolicies = append(pricingPolicies, irs.PricingPolicies{
-					PricingId:         price.PriceNo,
-					PricingPolicy:     price.PriceType.CodeName,
-					Unit:              price.Unit.CodeName,
-					Currency:          price.PayCurrency.Code,
-					Price:             priceString,
-					Description:       price.PriceDescription,
-					PricingPolicyInfo: nil,
-				})
+			// Skip if there's no OnDemand price
+			if onDemand.PricingId == "" {
+				continue
 			}
 
 			priceList = append(priceList, irs.Price{
 				ProductInfo: irs.ProductInfo{
-					ProductId:           product.ProductCode,
-					RegionName:          regionCode,
-					VolumeType:          product.ProductType.CodeName,
-					StorageMedia:        product.DiskDetailType.CodeName,
-					MaxVolumeSize:       "N/A",
-					MaxIOPSVolume:       "N/A",
-					MaxThroughputVolume: "N/A",
-					Description:         product.ProductDescription,
-					CSPProductInfo:      product,
+					ProductId:      product.ProductCode,
+					Description:    product.ProductDescription,
+					CSPProductInfo: product,
 				},
 				PriceInfo: irs.PriceInfo{
-					PricingPolicies: pricingPolicies,
-					CSPPriceInfo:    product.PriceList,
+					OnDemand:     onDemand,
+					CSPPriceInfo: product.PriceList,
 				},
 			})
-
 		}
 
 	default:
@@ -400,21 +387,15 @@ func (priceInfoHandler *NcpPriceInfoHandler) GetPriceInfo(productFamily string, 
 		return "", newErr
 	}
 
-	cloudPriceData := irs.CloudPriceData{
-		Meta: irs.Meta{
-			Version:     "v0.1",
-			Description: "Multi-Cloud Price Info",
-		},
-		CloudPriceList: []irs.CloudPrice{
-			{
-				CloudName: "NCP Classic",
-				PriceList: priceList,
-			},
-		},
+	cloudPrice := irs.CloudPrice{
+		Meta:       irs.Meta{Version: "0.1", Description: "NCP Classic Price Info"},
+		CloudName:  "NCP",
+		RegionName: regionName,
+		ZoneName:   "NA",
+		PriceList:  priceList,
 	}
 
-	jsonData, err := json.MarshalIndent(cloudPriceData, "", "    ")
-	// jsonData, err := json.Marshal(cloudPriceData)
+	jsonData, err := json.MarshalIndent(cloudPrice, "", "    ")
 	if err != nil {
 		newErr := errors.New(fmt.Sprintf("Failed to Get PriceInfo Data : [%s]", err))
 		cblogger.Error(newErr.Error())

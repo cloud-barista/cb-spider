@@ -63,34 +63,33 @@ func ListProductFamily(c echo.Context) error {
 	return c.JSON(http.StatusOK, &jsonResult)
 }
 
-// PriceInfoRequest represents the request body structure for the GetPriceInfo API.
+// PriceInfoRequest represents the request body structure for the GetVMPriceInfo API.
 type PriceInfoRequest struct {
 	ConnectionName string          `json:"connectionName" validate:"required" description:"The name of the Connection to get Price Information for"`
 	FilterList     []cres.KeyValue `json:"filterList" description:"A list of filters to apply to the price information request"`
 }
 
-// PriceInfoResponse represents the response body structure for the GetPriceInfo API.
+// PriceInfoResponse represents the response body structure for the GetVMPriceInfo API.
 type PriceInfoResponse struct {
-	cres.CloudPriceData `json:",inline" description:"Price information details"`
+	cres.CloudPrice `json:",inline" description:"VM Price information details"`
 }
 
-// getPriceInfo godoc
-// @ID get-price-info
-// @Summary Get Price Information
-// @Description Retrieve price details of a specific Product Family in a specific Region. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Price-Info-and-Cloud-Driver-API)], 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/RestAPI-Multi%E2%80%90Cloud-Price-Information-Guide)] <br> * example body: {"connectionName":"aws-connection","FilterList":[{"Key":"instanceType","Value":"t2.micro"}]}
+// getVMPriceInfo godoc
+// @ID get-vmprice-info
+// @Summary Get VM Price Information
+// @Description Retrieve VM Price Information for a specific connection and region. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Price-Info-and-Cloud-Driver-API)], 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/RestAPI-Multi%E2%80%90Cloud-Price-Information-Guide)] <br> * example body: {"connectionName":"aws-connection","FilterList":[{"Key":"instanceType","Value":"t2.micro"}]}
 // @Tags [Cloud Metadata] Price Info
 // @Accept  json
 // @Produce  json
-// @Param ProductFamily path string true "The name of the Product Family to retrieve price information for"
-// @Param RegionName path string true "The name of the Region to retrieve price information for"
-// @Param PriceInfoRequest body PriceInfoRequest false "The request body containing additional filters for price information"
-// @Success 200 {object} PriceInfoResponse "Price Information Details"
+// @Param RegionName path string true "The name of the Region to retrieve vm price information for"
+// @Param PriceInfoRequest body PriceInfoRequest false "The request body containing additional filters for vm price information"
+// @Success 200 {object} PriceInfoResponse "VM Price Information Details"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameter"
 // @Failure 404 {object} SimpleMsg "Resource Not Found"
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
-// @Router /priceinfo/{ProductFamily}/{RegionName} [post]
-func GetPriceInfo(c echo.Context) error {
-	cblog.Info("call GetPriceInfo()")
+// @Router /priceinfo/vm/{RegionName} [post]
+func GetVMPriceInfo(c echo.Context) error {
+	cblog.Info("call GetVMPriceInfo()")
 
 	var req PriceInfoRequest
 
@@ -104,7 +103,8 @@ func GetPriceInfo(c echo.Context) error {
 	}
 
 	// Call common-runtime API
-	result, err := cmrt.GetPriceInfo(req.ConnectionName, c.Param("ProductFamily"), c.Param("RegionName"), req.FilterList)
+	// result, err := cmrt.GetPriceInfo(req.ConnectionName, c.Param("ProductFamily"), c.Param("RegionName"), req.FilterList)
+	result, err := cmrt.GetPriceInfo(req.ConnectionName, cres.RSTypeString(cres.VM), c.Param("RegionName"), req.FilterList)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

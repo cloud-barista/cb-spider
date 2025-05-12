@@ -5231,9 +5231,9 @@ const docTemplate = `{
                 }
             }
         },
-        "/priceinfo/{ProductFamily}/{RegionName}": {
+        "/priceinfo/vm/{RegionName}": {
             "post": {
-                "description": "Retrieve price details of a specific Product Family in a specific Region. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Price-Info-and-Cloud-Driver-API)], 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/RestAPI-Multi%E2%80%90Cloud-Price-Information-Guide)] \u003cbr\u003e * example body: {\"connectionName\":\"aws-connection\",\"FilterList\":[{\"Key\":\"instanceType\",\"Value\":\"t2.micro\"}]}",
+                "description": "Retrieve VM Price Information for a specific connection and region. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Price-Info-and-Cloud-Driver-API)], 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/RestAPI-Multi%E2%80%90Cloud-Price-Information-Guide)] \u003cbr\u003e * example body: {\"connectionName\":\"aws-connection\",\"FilterList\":[{\"Key\":\"instanceType\",\"Value\":\"t2.micro\"}]}",
                 "consumes": [
                     "application/json"
                 ],
@@ -5243,25 +5243,18 @@ const docTemplate = `{
                 "tags": [
                     "[Cloud Metadata] Price Info"
                 ],
-                "summary": "Get Price Information",
-                "operationId": "get-price-info",
+                "summary": "Get VM Price Information",
+                "operationId": "get-vmprice-info",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "The name of the Product Family to retrieve price information for",
-                        "name": "ProductFamily",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "The name of the Region to retrieve price information for",
+                        "description": "The name of the Region to retrieve vm price information for",
                         "name": "RegionName",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "The request body containing additional filters for price information",
+                        "description": "The request body containing additional filters for vm price information",
                         "name": "PriceInfoRequest",
                         "in": "body",
                         "schema": {
@@ -5271,7 +5264,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Price Information Details",
+                        "description": "VM Price Information Details",
                         "schema": {
                             "$ref": "#/definitions/spider.PriceInfoResponse"
                         }
@@ -8843,27 +8836,6 @@ const docTemplate = `{
                 }
             }
         },
-        "spider.CloudPrice": {
-            "type": "object",
-            "required": [
-                "CloudName",
-                "PriceList"
-            ],
-            "properties": {
-                "CloudName": {
-                    "description": "Name of the cloud provider",
-                    "type": "string",
-                    "example": "AWS"
-                },
-                "PriceList": {
-                    "description": "List of prices for different services/products",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/spider.Price"
-                    }
-                }
-            }
-        },
         "spider.ClusterInfo": {
             "description": "Kubernetes Cluster Information",
             "type": "object",
@@ -9670,6 +9642,42 @@ const docTemplate = `{
                 "PlatformNA"
             ]
         },
+        "spider.OnDemand": {
+            "type": "object",
+            "required": [
+                "Currency",
+                "Price",
+                "PricingId",
+                "Unit"
+            ],
+            "properties": {
+                "Currency": {
+                    "description": "Currency of the pricing",
+                    "type": "string",
+                    "example": "USD"
+                },
+                "Description": {
+                    "description": "Description of the pricing policy",
+                    "type": "string",
+                    "example": "Pricing for t2.micro"
+                },
+                "Price": {
+                    "description": "Price in the specified currency per unit",
+                    "type": "string",
+                    "example": "0.02"
+                },
+                "PricingId": {
+                    "description": "ID of the pricing policy",
+                    "type": "string",
+                    "example": "price-123"
+                },
+                "Unit": {
+                    "description": "Unit of the pricing (e.g., per hour)",
+                    "type": "string",
+                    "example": "Hour"
+                }
+            }
+        },
         "spider.Platform": {
             "type": "string",
             "enum": [
@@ -9710,88 +9718,19 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "CSPPriceInfo",
-                "PricingPolicies"
+                "OnDemand"
             ],
             "properties": {
                 "CSPPriceInfo": {
                     "description": "Additional price information specific to CSP"
                 },
-                "PricingPolicies": {
-                    "description": "List of pricing policies",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/spider.PricingPolicies"
-                    }
-                }
-            }
-        },
-        "spider.PricingPolicies": {
-            "type": "object",
-            "required": [
-                "Currency",
-                "Price",
-                "PricingId",
-                "PricingPolicy",
-                "Unit"
-            ],
-            "properties": {
-                "Currency": {
-                    "description": "Currency of the pricing",
-                    "type": "string",
-                    "example": "USD"
-                },
-                "Description": {
-                    "description": "Description of the pricing policy",
-                    "type": "string",
-                    "example": "Pricing for t2.micro"
-                },
-                "Price": {
-                    "description": "Price in the specified currency per unit",
-                    "type": "string",
-                    "example": "0.02"
-                },
-                "PricingId": {
-                    "description": "ID of the pricing policy",
-                    "type": "string",
-                    "example": "price-123"
-                },
-                "PricingPolicy": {
-                    "description": "Name of the pricing policy",
-                    "type": "string",
-                    "example": "On-Demand"
-                },
-                "PricingPolicyInfo": {
-                    "description": "Detail information about the pricing policy",
+                "OnDemand": {
+                    "description": "Ondemand pricing details",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/spider.PricingPolicyInfo"
+                            "$ref": "#/definitions/spider.OnDemand"
                         }
                     ]
-                },
-                "Unit": {
-                    "description": "Unit of the pricing (e.g., per hour)",
-                    "type": "string",
-                    "example": "hour"
-                }
-            }
-        },
-        "spider.PricingPolicyInfo": {
-            "type": "object",
-            "properties": {
-                "LeaseContractLength": {
-                    "description": "Length of the lease contract",
-                    "type": "string",
-                    "example": "1 year"
-                },
-                "OfferingClass": {
-                    "description": "Offering class (e.g., standard, convertible)",
-                    "type": "string",
-                    "example": "standard"
-                },
-                "PurchaseOption": {
-                    "description": "Purchase option (e.g., no upfront, partial upfront)",
-                    "type": "string",
-                    "example": "No Upfront"
                 }
             }
         },
@@ -9800,7 +9739,6 @@ const docTemplate = `{
             "required": [
                 "CSPProductInfo",
                 "ProductId",
-                "RegionName",
                 "VMSpecInfo"
             ],
             "properties": {
@@ -9812,63 +9750,18 @@ const docTemplate = `{
                     "type": "string",
                     "example": "General purpose instance"
                 },
-                "MaxIopsvolume": {
-                    "description": "Maximum IOPS for the volume",
-                    "type": "string",
-                    "example": "3000"
-                },
-                "MaxThroughputvolume": {
-                    "description": "Maximum throughput for the volume in MB/s",
-                    "type": "string",
-                    "example": "250"
-                },
-                "MaxVolumeSize": {
-                    "description": "Maximum volume size in GB",
-                    "type": "string",
-                    "example": "16384"
-                },
-                "OSDistribution": {
-                    "description": "Operating system distribution",
-                    "type": "string",
-                    "example": "Linux"
-                },
-                "PreInstalledSw": {
-                    "description": "Pre-installed software",
-                    "type": "string",
-                    "example": "None"
-                },
                 "ProductId": {
                     "description": "ID of the product",
                     "type": "string",
                     "example": "prod-123"
                 },
-                "RegionName": {
-                    "description": "Name of the region",
-                    "type": "string",
-                    "example": "us-east-1"
-                },
-                "StorageMedia": {
-                    "description": "Storage media type",
-                    "type": "string",
-                    "example": "SSD"
-                },
                 "VMSpecInfo": {
-                    "description": "--------- Compute Instance Info",
+                    "description": "Information about the VM spec",
                     "allOf": [
                         {
                             "$ref": "#/definitions/spider.VMSpecInfo"
                         }
                     ]
-                },
-                "VolumeType": {
-                    "description": "--------- Storage Info  // Data-Disk(AWS:EBS)",
-                    "type": "string",
-                    "example": "gp2"
-                },
-                "ZoneName": {
-                    "description": "Name of the zone",
-                    "type": "string",
-                    "example": "us-east-1a"
                 }
             }
         },
@@ -12058,18 +11951,36 @@ const docTemplate = `{
         "spider.PriceInfoResponse": {
             "type": "object",
             "required": [
-                "CloudPriceList",
-                "Meta"
+                "CloudName",
+                "Meta",
+                "PriceList",
+                "RegionName"
             ],
             "properties": {
-                "CloudPriceList": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/spider.CloudPrice"
-                    }
+                "CloudName": {
+                    "description": "Name of the cloud provider",
+                    "type": "string",
+                    "example": "AWS"
                 },
                 "Meta": {
                     "$ref": "#/definitions/spider.Meta"
+                },
+                "PriceList": {
+                    "description": "List of prices for different services/products",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.Price"
+                    }
+                },
+                "RegionName": {
+                    "description": "Name of the region",
+                    "type": "string",
+                    "example": "us-east-1"
+                },
+                "ZoneName": {
+                    "description": "Name of the zone",
+                    "type": "string",
+                    "example": "us-east-1a"
                 }
             }
         },

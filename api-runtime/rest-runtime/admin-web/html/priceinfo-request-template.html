@@ -144,15 +144,6 @@
                         {{end}}
                     </select>                    
                 </div>
-                
-                <div class="form-group">
-                    <label for="productFamily">Product Family</label>
-                    <select id="productFamily" name="productFamily">
-                        {{range .ProductFamilyList}}
-                        <option value="{{.}}">{{.}}</option>
-                        {{end}}
-                    </select>
-                </div>
             </div>
             <div class="form-group">
                 <div class="button-textarea-group">
@@ -182,12 +173,6 @@
             updateRegionList(connectionName);
         });
 
-        document.getElementById('region').addEventListener('change', function() {
-            const selectedRegion = this.value;
-            const connectionName = document.getElementById('connectionName').value;
-            updateProductFamilyList(selectedRegion, connectionName);
-        });
-    
         function updateRegionList(connectionName) {
             const regionSelect = document.getElementById('region');
             regionSelect.innerHTML = '<option>fetching</option>'; // Initial option message
@@ -202,11 +187,6 @@
                 .then(data => {
                     clearInterval(intervalId); // Stop the interval
                     populateRegionSelect('region', data.regionzone); // Update the select box
-
-                    // Call Product Family update function for the first Region
-                    if (data.regionzone.length > 0) {
-                        updateProductFamilyList(data.regionzone[0].Name, connectionName);
-                    }
                 })
                 .catch(error => {
                     console.error('Error:', error);
@@ -228,54 +208,6 @@
             });
         }
 
-        function updateProductFamilyList(region, connectionName) {
-            // Clear the product family select box and show a fetching message
-            const productFamilySelect = document.getElementById('productFamily');
-            productFamilySelect.innerHTML = '<option>fetching</option>';
-            let fetchText = 'fetching';
-            let intervalId = setInterval(() => {
-                fetchText += '.';
-                productFamilySelect.innerHTML = `<option>${fetchText}</option>`;
-            }, 100);
-
-            fetch(`/spider/productfamily/${region}?ConnectionName=${connectionName}`)
-                .then(response => response.json())
-                .then(data => {
-                    clearInterval(intervalId); // stop the interval
-                    populateProductFamilySelect('productFamily', data.productfamily);
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    alert(error);
-                    clearInterval(intervalId); // stop the interval
-                });
-        }
-
-        function populateProductFamilySelect(selectId, options) {
-            const select = document.getElementById(selectId);
-            // Remove all existing options
-            while (select.options.length > 0) {
-                select.remove(0);
-            }
-            options.forEach(option => {
-                let opt = document.createElement('option');
-                opt.value = option;
-                opt.innerHTML = option;
-                select.appendChild(opt);
-            });
-        }
-
-        document.getElementById('region').addEventListener('keydown', function() {
-            const selectedRegion = this.value;
-            const connectionName = document.getElementById('connectionName').value;
-            const currentProductFamily = document.getElementById('productFamily').value;
-            
-            if (currentProductFamily === 'Select a Region first' || this.dataset.lastRegion !== selectedRegion) {
-                updateProductFamilyList(selectedRegion, connectionName);
-                this.dataset.lastRegion = selectedRegion;
-            }
-        });
-
         function setFilter(filterContent) {
             document.getElementById('filter').value = filterContent;
             closeGenOverlay();
@@ -293,7 +225,6 @@
 
         function OpenFetchOverlay() {
             var region = document.getElementById('region').value;
-            var productFamily = document.getElementById('productFamily').value;
             var connectionName = document.getElementById('connectionName').value;
             var filterList = document.getElementById('filter').value;
 
@@ -301,14 +232,14 @@
             document.getElementById('fetchOverlay').style.display = 'block';
             fetchOverlayContent.src = 'about:blank'; // clear the iframe content
 
-            var url = `/spider/adminweb/priceinfotablelist/${productFamily}/${region}/${connectionName}?filterlist=${filterList}`;
+            var url = `/spider/adminweb/priceinfotablelist/vm/${region}/${connectionName}?filterlist=${filterList}`;
 
             // logging the fetch URL
             var hostname = window.location.hostname;
             var port = window.location.port;
 
             // make apiURL just to log curl command
-            var apiURL = `/spider/priceinfo/${encodeURIComponent(productFamily)}/${encodeURIComponent(region)}?ConnectionName=${connectionName}`;
+            var apiURL = `/spider/priceinfo/vm/${encodeURIComponent(region)}?ConnectionName=${connectionName}`;
             if (filterList) {
                 apiURL += ` -H 'Content-Type: application/json' -d '${filterList}'`
             }

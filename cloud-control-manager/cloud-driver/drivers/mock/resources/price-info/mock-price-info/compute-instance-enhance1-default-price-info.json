@@ -15,7 +15,7 @@
     "pricingList": {
         "payAsYouGo": {
             "priceId": "mock.default.enhnace1.payg",
-            "unit": "Hours",
+            "unit": "Hour",
             "currency": "USD",
             "price" : "0.2"
         },
@@ -23,21 +23,21 @@
             {
                 "priceId": "mock.default.enhnace1.savingplan1",
                 "term": "1 Year",
-                "unit": "Hours",
+                "unit": "Hour",
                 "currency": "USD",
                 "price" : "0.15"        
             },
             {
                 "priceId": "mock.default.enhnace1.savingplan2",
                 "term": "2 Year",
-                "unit": "Hours",
+                "unit": "Hour",
                 "currency": "USD",
                 "price" : "0.1"        
             },
             {
                 "priceId": "mock.default.enhnace1.savingplan3",
                 "term": "3 Year",
-                "unit": "Hours",
+                "unit": "Hour",
                 "currency": "USD",
                 "price" : "0.05"
             }

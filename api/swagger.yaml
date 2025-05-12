@@ -192,21 +192,6 @@ definitions:
     - IKeyValueList
     - OKeyValueList
     type: object
-  spider.CloudPrice:
-    properties:
-      CloudName:
-        description: Name of the cloud provider
-        example: AWS
-        type: string
-      PriceList:
-        description: List of prices for different services/products
-        items:
-          $ref: '#/definitions/spider.Price'
-        type: array
-    required:
-    - CloudName
-    - PriceList
-    type: object
   spider.ClusterInfo:
     description: Kubernetes Cluster Information
     properties:
@@ -780,6 +765,34 @@ definitions:
     - Linux_UNIX
     - Windows
     - PlatformNA
+  spider.OnDemand:
+    properties:
+      Currency:
+        description: Currency of the pricing
+        example: USD
+        type: string
+      Description:
+        description: Description of the pricing policy
+        example: Pricing for t2.micro
+        type: string
+      Price:
+        description: Price in the specified currency per unit
+        example: "0.02"
+        type: string
+      PricingId:
+        description: ID of the pricing policy
+        example: price-123
+        type: string
+      Unit:
+        description: Unit of the pricing (e.g., per hour)
+        example: Hour
+        type: string
+    required:
+    - Currency
+    - Price
+    - PricingId
+    - Unit
+    type: object
   spider.Platform:
     enum:
     - LINUX/UNIX
@@ -806,66 +819,13 @@ definitions:
     properties:
       CSPPriceInfo:
         description: Additional price information specific to CSP
-      PricingPolicies:
-        description: List of pricing policies
-        items:
-          $ref: '#/definitions/spider.PricingPolicies'
-        type: array
+      OnDemand:
+        allOf:
+        - $ref: '#/definitions/spider.OnDemand'
+        description: Ondemand pricing details
     required:
     - CSPPriceInfo
-    - PricingPolicies
-    type: object
-  spider.PricingPolicies:
-    properties:
-      Currency:
-        description: Currency of the pricing
-        example: USD
-        type: string
-      Description:
-        description: Description of the pricing policy
-        example: Pricing for t2.micro
-        type: string
-      Price:
-        description: Price in the specified currency per unit
-        example: "0.02"
-        type: string
-      PricingId:
-        description: ID of the pricing policy
-        example: price-123
-        type: string
-      PricingPolicy:
-        description: Name of the pricing policy
-        example: On-Demand
-        type: string
-      PricingPolicyInfo:
-        allOf:
-        - $ref: '#/definitions/spider.PricingPolicyInfo'
-        description: Detail information about the pricing policy
-      Unit:
-        description: Unit of the pricing (e.g., per hour)
-        example: hour
-        type: string
-    required:
-    - Currency
-    - Price
-    - PricingId
-    - PricingPolicy
-    - Unit
-    type: object
-  spider.PricingPolicyInfo:
-    properties:
-      LeaseContractLength:
-        description: Length of the lease contract
-        example: 1 year
-        type: string
-      OfferingClass:
-        description: Offering class (e.g., standard, convertible)
-        example: standard
-        type: string
-      PurchaseOption:
-        description: Purchase option (e.g., no upfront, partial upfront)
-        example: No Upfront
-        type: string
+    - OnDemand
     type: object
   spider.ProductInfo:
     properties:
@@ -875,54 +835,17 @@ definitions:
         description: Description of the product
         example: General purpose instance
         type: string
-      MaxIopsvolume:
-        description: Maximum IOPS for the volume
-        example: "3000"
-        type: string
-      MaxThroughputvolume:
-        description: Maximum throughput for the volume in MB/s
-        example: "250"
-        type: string
-      MaxVolumeSize:
-        description: Maximum volume size in GB
-        example: "16384"
-        type: string
-      OSDistribution:
-        description: Operating system distribution
-        example: Linux
-        type: string
-      PreInstalledSw:
-        description: Pre-installed software
-        example: None
-        type: string
       ProductId:
         description: ID of the product
         example: prod-123
         type: string
-      RegionName:
-        description: Name of the region
-        example: us-east-1
-        type: string
-      StorageMedia:
-        description: Storage media type
-        example: SSD
-        type: string
       VMSpecInfo:
         allOf:
         - $ref: '#/definitions/spider.VMSpecInfo'
-        description: '--------- Compute Instance Info'
-      VolumeType:
-        description: '--------- Storage Info  // Data-Disk(AWS:EBS)'
-        example: gp2
-        type: string
-      ZoneName:
-        description: Name of the zone
-        example: us-east-1a
-        type: string
+        description: Information about the VM spec
     required:
     - CSPProductInfo
     - ProductId
-    - RegionName
     - VMSpecInfo
     type: object
   spider.RSType:
@@ -2480,15 +2403,30 @@ definitions:
     type: object
   spider.PriceInfoResponse:
     properties:
-      CloudPriceList:
-        items:
-          $ref: '#/definitions/spider.CloudPrice'
-        type: array
+      CloudName:
+        description: Name of the cloud provider
+        example: AWS
+        type: string
       Meta:
         $ref: '#/definitions/spider.Meta'
+      PriceList:
+        description: List of prices for different services/products
+        items:
+          $ref: '#/definitions/spider.Price'
+        type: array
+      RegionName:
+        description: Name of the region
+        example: us-east-1
+        type: string
+      ZoneName:
+        description: Name of the zone
+        example: us-east-1a
+        type: string
     required:
-    - CloudPriceList
+    - CloudName
     - Meta
+    - PriceList
+    - RegionName
     type: object
   spider.ProductFamilyListResponse:
     properties:
@@ -6649,28 +6587,22 @@ paths:
       summary: Get Pre-configured Region Zone
       tags:
       - '[Cloud Metadata] Region/Zone'
-  /priceinfo/{ProductFamily}/{RegionName}:
+  /priceinfo/vm/{RegionName}:
     post:
       consumes:
       - application/json
-      description: "Retrieve price details of a specific Product Family in a specific
-        Region. \U0001F577️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Price-Info-and-Cloud-Driver-API)],
+      description: "Retrieve VM Price Information for a specific connection and region.
+        \U0001F577️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Price-Info-and-Cloud-Driver-API)],
         \U0001F577️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/RestAPI-Multi%E2%80%90Cloud-Price-Information-Guide)]
         <br> * example body: {\"connectionName\":\"aws-connection\",\"FilterList\":[{\"Key\":\"instanceType\",\"Value\":\"t2.micro\"}]}"
-      operationId: get-price-info
+      operationId: get-vmprice-info
       parameters:
-      - description: The name of the Product Family to retrieve price information
-          for
-        in: path
-        name: ProductFamily
-        required: true
-        type: string
-      - description: The name of the Region to retrieve price information for
+      - description: The name of the Region to retrieve vm price information for
         in: path
         name: RegionName
         required: true
         type: string
-      - description: The request body containing additional filters for price information
+      - description: The request body containing additional filters for vm price information
         in: body
         name: PriceInfoRequest
         schema:
@@ -6679,7 +6611,7 @@ paths:
       - application/json
       responses:
         "200":
-          description: Price Information Details
+          description: VM Price Information Details
           schema:
             $ref: '#/definitions/spider.PriceInfoResponse'
         "400":
@@ -6694,7 +6626,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/spider.SimpleMsg'
-      summary: Get Price Information
+      summary: Get VM Price Information
       tags:
       - '[Cloud Metadata] Price Info'
   /productfamily/{RegionName}:
