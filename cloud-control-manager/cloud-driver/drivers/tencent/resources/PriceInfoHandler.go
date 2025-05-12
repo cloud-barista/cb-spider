@@ -156,6 +156,7 @@ func mappingToComputeStruct(regionName string, standardInfo *cvm.DescribeZoneIns
 				}
 
 				aPrice := irs.Price{}
+				aPrice.ZoneName = *v.Zone
 				priceInfo := irs.PriceInfo{}
 				priceInfo.CSPPriceInfo = *v.Price
 				priceInfo.OnDemand = onDemand
@@ -176,10 +177,9 @@ func mappingToComputeStruct(regionName string, standardInfo *cvm.DescribeZoneIns
 	}
 
 	cloudPrice := &irs.CloudPrice{
-		Meta:       irs.Meta{Version: "0.5", Description: "TENCENT Virtual Machines Price Info"},
+		Meta:       irs.Meta{Version: "0.5", Description: "Multi-Cloud Price Info"},
 		CloudName:  "TENCENT",
 		RegionName: regionName,
-		ZoneName:   "NA",
 		PriceList:  priceList,
 	}
 

@@ -9711,6 +9711,11 @@ const docTemplate = `{
                             "$ref": "#/definitions/spider.ProductInfo"
                         }
                     ]
+                },
+                "ZoneName": {
+                    "description": "Name of the zone",
+                    "type": "string",
+                    "example": "us-east-1a"
                 }
             }
         },
@@ -11976,11 +11981,6 @@ const docTemplate = `{
                     "description": "Name of the region",
                     "type": "string",
                     "example": "us-east-1"
-                },
-                "ZoneName": {
-                    "description": "Name of the zone",
-                    "type": "string",
-                    "example": "us-east-1a"
                 }
             }
         },

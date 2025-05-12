@@ -811,6 +811,10 @@ definitions:
         allOf:
         - $ref: '#/definitions/spider.ProductInfo'
         description: Information about the product
+      ZoneName:
+        description: Name of the zone
+        example: us-east-1a
+        type: string
     required:
     - PriceInfo
     - ProductInfo
@@ -2417,10 +2421,6 @@ definitions:
       RegionName:
         description: Name of the region
         example: us-east-1
-        type: string
-      ZoneName:
-        description: Name of the zone
-        example: us-east-1a
         type: string
     required:
     - CloudName

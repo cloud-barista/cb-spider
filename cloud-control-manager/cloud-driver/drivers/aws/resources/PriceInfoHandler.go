@@ -73,10 +73,9 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 	}
 
 	result := &irs.CloudPrice{
-		Meta:       irs.Meta{Version: "0.5", Description: "AWS Virtual Machines Price Info"},
+		Meta:       irs.Meta{Version: "0.5", Description: "Multi-Cloud Price Info"},
 		CloudName:  "AWS",
 		RegionName: currentRegion,
-		ZoneName:   "NA",
 		PriceList:  []irs.Price{},
 	}
 
@@ -520,6 +519,7 @@ func AppendOnDemandToPrice(priceMap map[string]irs.Price, productInfo irs.Produc
 		newPriceInfo.CSPPriceInfo = jsonValue
 
 		newPrice := irs.Price{}
+		newPrice.ZoneName = "NA"
 		newPrice.PriceInfo = newPriceInfo
 		newPrice.ProductInfo = productInfo
 

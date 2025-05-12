@@ -170,10 +170,9 @@ func transformPriceInfo(productFamily string, regionName string, jsonData []*int
 	var cloudPrice irs.CloudPrice
 
 	cloudPrice.Meta.Version = "0.5"
-	cloudPrice.Meta.Description = "MOCK Virtual Machines Price Info"
+	cloudPrice.Meta.Description = "Multi-Cloud Price Info"
 	cloudPrice.CloudName = "MOCK"
 	cloudPrice.RegionName = regionName
-	cloudPrice.ZoneName = "NA"
 
 	for _, v := range jsonData {
 		// transform csp price info to Spider price info(Global view)
@@ -197,6 +196,7 @@ func transformPriceInfo(productFamily string, regionName string, jsonData []*int
 		// Add to PriceList only if the both return values are not nil
 		if gProductInfo != nil && gOnePriceInfo != nil {
 			cloudPrice.PriceList = append(cloudPrice.PriceList, irs.Price{
+				ZoneName:    "NA",
 				ProductInfo: *gProductInfo,
 				PriceInfo:   *gOnePriceInfo,
 			})
