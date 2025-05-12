@@ -200,50 +200,44 @@
 </head>
 
 <body onload="formatNumbers();">
-    <h3>{{.Data.Meta.Description}} - {{.Data.Meta.Version}}</h3>
     <h4 id="totalItems">Total Products: #{{.TotalItems}}</h4>    
     <button type="button" class="close-btn" onclick="window.parent.closeFetchOverlay()">X</button>
     
     {{ $totalNum := .TotalItems }}
     {{ $fileName := .CachedFileName }}
 
-    {{range .Data.CloudPriceList}}
     <div class="cloudHeader">
-        <h3>{{.CloudName}}</h3>
-        <button id="toggleButton-{{.CloudName}}" onclick="toggleView('{{.CloudName}}')">JSON View</button>
+        <h3>{{.Data.CloudName}}</h3>
+        <button id="toggleButton-{{.Data.CloudName}}" onclick="toggleView('{{.Data.CloudName}}')">JSON View</button>
 
-        <button onclick="conditionalDownload('{{.CloudName}}', '{{$totalNum}}', '{{$fileName}}')">JSON Download</button>
+        <button onclick="conditionalDownload('{{.Data.CloudName}}', '{{$totalNum}}', '{{$fileName}}')">JSON Download</button>
 
-        <button id="copyButton-{{.CloudName}}" class="copy-btn" onclick="copyToClipboard('json-all')">📋</button>
+        <button id="copyButton-{{.Data.CloudName}}" class="copy-btn" onclick="copyToClipboard('json-all')">📋</button>
 
         {{if gt ($totalNum) 200}}
         <span style="margin-left: 10px; color: blue;">※ Display limit: 200. Full info via 'JSON Download'.</span>
         {{end}}
-
     </div>
-    {{end}}
 
-    {{range .Data.CloudPriceList}}
-
-    <table id="table-{{.CloudName}}">
+    <table id="table-{{.Data.CloudName}}">
         <tr>
             <th>#</th>
             <th>Product ID</th>
             <th>Region/Zone</th>
             <th>Product Info</th>
-            <th>{{.CloudName}} Product Info</th>
-            <th class="pricing-policies-header">Pricing Policies</th>
-            <th class="pricing-policies-header">{{.CloudName}} Price Info</th>
+            <th>{{.Data.CloudName}} Product Info</th>
+            <th class="pricing-policies-header">Price Info</th>
+            <th class="pricing-policies-header">{{.Data.CloudName}} Price Info</th>
         </tr>
-        {{range $index, $_ := .PriceList}}
+        {{range $index, $_ := .Data.PriceList}}
         <tr>
             <td class="center-text">{{inc $index}}</td>
             <td class="center-text">[{{.ProductInfo.ProductId}}]<br><br>※ {{.ProductInfo.Description}}</td>
-            <td class="center-text">{{.ProductInfo.RegionName}}/{{.ProductInfo.ZoneName}}</td>
+            <td class="center-text">{{$.Data.RegionName}}/{{$.Data.ZoneName}}</td>
             <td>
                 <ul>
                     {{if .ProductInfo.VMSpecInfo}}
-                        <li><strong>Type: {{.ProductInfo.VMSpecInfo.Name}}</strong></li>
+                        <li><strong>VMSpec: {{.ProductInfo.VMSpecInfo.Name}}</strong></li>
                         <li>VCPU: {{.ProductInfo.VMSpecInfo.VCpu.Count}}</li>
                         <li>Memory(MiB): {{.ProductInfo.VMSpecInfo.MemSizeMiB}}</li>
                         <li>Disk(GB): {{.ProductInfo.VMSpecInfo.DiskSizeGB}}</li>
@@ -254,17 +248,6 @@
                                 <li>GPU Total Memory(GB): {{.TotalMemSizeGB}}</li>
                             {{end}}
                         {{end}}
-                        <li>OS: {{.ProductInfo.OSDistribution}}</li>
-                        <li>PreInstalledSW: {{.ProductInfo.PreInstalledSw}}</li>
-                    {{end}}
-
-                    <!-- Storage Info -->
-                    {{if .ProductInfo.VolumeType}}
-                        <li><strong>VolumeType: {{.ProductInfo.VolumeType}}</strong></li>
-                        <li>StorageMedia: {{.ProductInfo.StorageMedia}}</li>
-                        <li>MaxVolumeSize: {{.ProductInfo.MaxVolumeSize}}</li>
-                        <li>MaxIOPSVolume: {{.ProductInfo.MaxIOPSVolume}}</li>
-                        <li>MaxThroughputVolume: {{.ProductInfo.MaxThroughputVolume}}</li>
                     {{end}}
                 </ul>
             </td>
@@ -275,28 +258,17 @@
             </td>
             <td>
                 <table class="inner-table">
-                    {{range .PriceInfo.PricingPolicies}}
                     <tr>
-                        <th>{{.PricingPolicy}}: <span class="price">{{.Price}}</span> {{.Currency}} / {{.Unit}}</th>
+                        <th>OnDemand: <span class="price">{{.PriceInfo.OnDemand.Price}}</span> {{.PriceInfo.OnDemand.Currency}} / {{.PriceInfo.OnDemand.Unit}}</th>
                     </tr>
                     <tr>
                         <td>
                             <ul>
-                                <li>Pricing ID: {{.PricingId}}</li>
-                                <li>Description: {{.Description}}</li>                                
-                                <!-- Pricing Policy Info -->
-                                {{if .PricingPolicyInfo}}
-                                [Pricing PolicyInfo]
-                                <ul>
-                                    <li>Lease Contract Length: {{.PricingPolicyInfo.LeaseContractLength}}</li>
-                                    <li>Offering Class: {{.PricingPolicyInfo.OfferingClass}}</li>
-                                    <li>Purchase Option: {{.PricingPolicyInfo.PurchaseOption}}</li>
-                                </ul>
-                                {{end}}
+                                <li>Pricing ID: {{.PriceInfo.OnDemand.PricingId}}</li>
+                                <li>Description: {{.PriceInfo.OnDemand.Description}}</li>
                             </ul>
                         </td>
                     </tr>
-                    {{end}}
                 </table>
             </td>
             <td class="top-align">
@@ -307,7 +279,6 @@
         </tr>
         {{end}}
     </table>
-    {{end}}
 
     <pre class="jsonView" id="json-all">{{.Data | json}}</pre>
 </body>

@@ -54,7 +54,7 @@ func getGpuCount(vmSize string) (ea float32, memory int) {
 				return 4, 320
 			}
 		} else {
-			re := regexp.MustCompile(`v(\d+)$`)
+			re := regexp.MustCompile(`v(\d+)`)
 			matches := re.FindStringSubmatch(vmSize)
 			if len(matches) > 1 {
 				version, _ := strconv.Atoi(matches[1])
@@ -105,15 +105,18 @@ func getGpuCount(vmSize string) (ea float32, memory int) {
 				}
 			}
 		} else {
-			re := regexp.MustCompile(`v(\d+)$`)
+			re := regexp.MustCompile(`v(\d+)`)
 			matches := re.FindStringSubmatch(vmSize)
 			if len(matches) > 1 {
 				version, _ := strconv.Atoi(matches[1])
 				if version == 2 {
 					if strings.Contains(vmSize, "nd40") {
 						// https://learn.microsoft.com/ko-kr/azure/virtual-machines/sizes/gpu-accelerated/ndv2-series?tabs=sizeaccelerators#sizes-in-series
-						// Dose not provide quantity
-						return 0, 256
+						return 8, 256
+					}
+				} else if version == 3 {
+					if strings.Contains(vmSize, "nd40") {
+						return 8, 256 // V100 GPU x8
 					}
 				}
 			} else {
@@ -145,6 +148,7 @@ func getGpuCount(vmSize string) (ea float32, memory int) {
 	// NV series
 	// https://learn.microsoft.com/ko-kr/azure/virtual-machines/sizes/gpu-accelerated/nv-family
 	if strings.HasPrefix(vmSize, "nv") {
+		// A10 GPU series
 		if strings.Contains(vmSize, "a10") {
 			if strings.Contains(vmSize, "nv6") {
 				// original quantity: 1/6 = 0.167
@@ -159,7 +163,11 @@ func getGpuCount(vmSize string) (ea float32, memory int) {
 			} else if strings.Contains(vmSize, "nv72") {
 				return 2, 48
 			}
-		} else if strings.Contains(vmSize, "v710") {
+			return -1, -1
+		}
+
+		// V710 GPU series
+		if strings.Contains(vmSize, "v710") {
 			if strings.Contains(vmSize, "nv4") {
 				// original quantity: 1/6 = 0.167
 				return 0.167, 4
@@ -173,39 +181,65 @@ func getGpuCount(vmSize string) (ea float32, memory int) {
 			} else if strings.Contains(vmSize, "nv28") {
 				return 1, 24
 			}
-		} else {
-			re := regexp.MustCompile(`v(\d+)$`)
-			matches := re.FindStringSubmatch(vmSize)
-			if len(matches) > 1 {
-				version, _ := strconv.Atoi(matches[1])
-				if version == 3 {
-					if strings.Contains(vmSize, "nv12") {
-						return 1, 8
-					} else if strings.Contains(vmSize, "nv24") {
-						return 2, 16
-					} else if strings.Contains(vmSize, "nv48") {
-						return 4, 32
-					}
-				} else if version == 4 {
-					if strings.Contains(vmSize, "nv4") {
-						return 0.125, 2
-					} else if strings.Contains(vmSize, "nv8") {
-						return 0.25, 4
-					} else if strings.Contains(vmSize, "nv16") {
-						return 0.5, 8
-					} else if strings.Contains(vmSize, "nv32") {
-						return 1, 16
-					}
+			return -1, -1
+		}
+
+		// V2 series
+		if strings.Contains(vmSize, "v2") {
+			if strings.Contains(vmSize, "nv6") {
+				return 1, 8 // Tesla M60 GPU
+			} else if strings.Contains(vmSize, "nv12") {
+				return 2, 16 // Tesla M60 GPU x2
+			} else if strings.Contains(vmSize, "nv24") {
+				return 4, 32 // Tesla M60 GPU x4
+			}
+			return -1, -1
+		}
+
+		// V3 series
+		if strings.Contains(vmSize, "v3") {
+			if strings.Contains(vmSize, "nv12") {
+				return 1, 8
+			} else if strings.Contains(vmSize, "nv24") {
+				return 2, 16
+			} else if strings.Contains(vmSize, "nv48") {
+				return 4, 32
+			}
+			return -1, -1
+		}
+
+		// V4 series
+		if strings.Contains(vmSize, "v4") {
+			// checak if "as" is in the vmSize
+			if strings.Contains(vmSize, "as") {
+				if strings.Contains(vmSize, "nv8") {
+					return 0.25, 4
+				} else if strings.Contains(vmSize, "nv16") {
+					return 0.5, 8
+				} else if strings.Contains(vmSize, "nv32") {
+					return 1, 16
 				}
 			} else {
-				if strings.Contains(vmSize, "nd24") {
-					return 4, 96
-				} else if strings.Contains(vmSize, "nd12") {
-					return 2, 48
-				} else if strings.Contains(vmSize, "nd6") {
-					return 1, 24
+				if strings.Contains(vmSize, "nv4") {
+					return 0.125, 2
+				} else if strings.Contains(vmSize, "nv8") {
+					return 0.25, 4
+				} else if strings.Contains(vmSize, "nv16") {
+					return 0.5, 8
+				} else if strings.Contains(vmSize, "nv32") {
+					return 1, 16
 				}
 			}
+			return -1, -1
+		}
+
+		// NV series no version
+		if strings.Contains(vmSize, "nd24") {
+			return 4, 96
+		} else if strings.Contains(vmSize, "nd12") {
+			return 2, 48
+		} else if strings.Contains(vmSize, "nd6") {
+			return 1, 24
 		}
 	}
 
@@ -233,15 +267,10 @@ func getGpuModel(vmSize string) string {
 
 	// NC series
 	if strings.Contains(vmSize, "nc") {
-		re := regexp.MustCompile(`v(\d+)$`)
-		matches := re.FindStringSubmatch(vmSize)
-		if len(matches) > 1 {
-			version, _ := strconv.Atoi(matches[1])
-			if version == 2 {
-				return "NVIDIA Tesla P100"
-			} else if version == 3 {
-				return "NVIDIA Tesla V100"
-			}
+		if strings.Contains(vmSize, "v2") {
+			return "NVIDIA Tesla P100"
+		} else if strings.Contains(vmSize, "v3") {
+			return "NVIDIA Tesla V100"
 		} else {
 			return "NVIDIA Tesla K80"
 		}
@@ -249,13 +278,12 @@ func getGpuModel(vmSize string) string {
 
 	// ND series
 	if strings.Contains(vmSize, "nd") {
-		re := regexp.MustCompile(`v(\d+)$`)
-		matches := re.FindStringSubmatch(vmSize)
-		if len(matches) > 1 {
-			version, _ := strconv.Atoi(matches[1])
-			if version == 2 {
-				return "NVIDIA Tesla V100 NVLINK"
-			}
+		if strings.Contains(vmSize, "asr") {
+			return "NVIDIA A100"
+		} else if strings.Contains(vmSize, "v2") {
+			return "NVIDIA Tesla V100 NVLINK"
+		} else if strings.Contains(vmSize, "v3") {
+			return "NVIDIA Tesla V100"
 		} else {
 			return "NVIDIA Tesla P40"
 		}
@@ -263,13 +291,10 @@ func getGpuModel(vmSize string) string {
 
 	// NV series
 	if strings.Contains(vmSize, "nv") {
-		re := regexp.MustCompile(`v(\d+)$`)
-		matches := re.FindStringSubmatch(vmSize)
-		if len(matches) > 1 {
-			version, _ := strconv.Atoi(matches[1])
-			if version == 4 {
-				return "AMD Radeon Instinct MI25"
-			}
+		if strings.Contains(vmSize, "v4") {
+			return "AMD Radeon Instinct MI25"
+		} else if strings.Contains(vmSize, "v2") || strings.Contains(vmSize, "v3") {
+			return "NVIDIA Tesla M60"
 		} else {
 			return "NVIDIA Tesla M60"
 		}
@@ -278,30 +303,165 @@ func getGpuModel(vmSize string) string {
 	return "NA"
 }
 
-func formatGpuCountValue(value float32) string {
-	// Check if integer
-	if value == float32(int32(value)) {
-		return fmt.Sprintf("%d", int32(value))
-	}
-	return fmt.Sprintf("%.3f", value)
-}
-
 func parseGpuInfo(vmSizeName string) *irs.GpuInfo {
 	vmSizeLower := strings.ToLower(vmSizeName)
-
 	vmSizeLower = strings.ReplaceAll(vmSizeLower, "standard_", "")
 
-	// Check if it's a GPU series
-	if !strings.HasPrefix(vmSizeLower, "nc") &&
-		!strings.HasPrefix(vmSizeLower, "nd") &&
-		!strings.HasPrefix(vmSizeLower, "ng") &&
-		!strings.HasPrefix(vmSizeLower, "nv") {
+	// check if the vmSize is in a GPU series
+	isGpuSeries := false
+	for _, prefix := range []string{"nc", "nd", "ng", "nv"} {
+		if strings.HasPrefix(vmSizeLower, prefix) {
+			isGpuSeries = true
+			break
+		}
+	}
+
+	if !isGpuSeries {
+		cblogger.Infof("VM %s is not in a GPU series", vmSizeLower)
 		return nil
 	}
 
 	count, mem := getGpuCount(vmSizeLower)
+
+	// invalid gpu info
+	if count == -1 || mem == -1 {
+		cblogger.Warningf("Could not determine GPU info for %s (count: %f, mem: %d)",
+			vmSizeLower, count, mem)
+
+		// set default values
+		vmSizeBase := vmSizeLower
+
+		vmSizeBase = strings.Replace(vmSizeBase, "s_v", "_v", 1)  // "s_v" -> "_v"
+		vmSizeBase = strings.Replace(vmSizeBase, "sv", "v", 1)    // "sv" -> "v"
+		vmSizeBase = strings.Replace(vmSizeBase, "as_v", "_v", 1) // "as_v" -> "_v"
+		vmSizeBase = strings.Replace(vmSizeBase, "asv", "v", 1)   // "asv" -> "v"
+
+		cblogger.Infof("Transformed VM name for matching: %s -> %s", vmSizeLower, vmSizeBase)
+
+		// NV series
+		if strings.HasPrefix(vmSizeLower, "nv") {
+			// NVv2 series
+			if strings.Contains(vmSizeBase, "v2") {
+				if strings.Contains(vmSizeBase, "nv6") {
+					count = 1
+					mem = 8
+				} else if strings.Contains(vmSizeBase, "nv12") {
+					count = 2
+					mem = 16
+				} else if strings.Contains(vmSizeBase, "nv24") {
+					count = 4
+					mem = 32
+				}
+			}
+
+			// NVv3 series
+			if strings.Contains(vmSizeBase, "v3") {
+				if strings.Contains(vmSizeBase, "nv12") {
+					count = 1
+					mem = 8
+				} else if strings.Contains(vmSizeBase, "nv24") {
+					count = 2
+					mem = 16
+				} else if strings.Contains(vmSizeBase, "nv48") {
+					count = 4
+					mem = 32
+				}
+			}
+
+			// NVv4 series
+			if strings.Contains(vmSizeBase, "v4") {
+				if strings.Contains(vmSizeBase, "nv8") {
+					count = 0.25
+					mem = 4
+				} else if strings.Contains(vmSizeBase, "nv16") {
+					count = 0.5
+					mem = 8
+				} else if strings.Contains(vmSizeBase, "nv32") {
+					count = 1
+					mem = 16
+				} else if strings.Contains(vmSizeBase, "nv4") {
+					count = 0.125
+					mem = 2
+				}
+			}
+		}
+
+		// ND series
+		if strings.HasPrefix(vmSizeLower, "nd") {
+			if strings.Contains(vmSizeBase, "nd40") {
+				count = 8
+				mem = 256
+			} else if strings.Contains(vmSizeBase, "nd96") {
+				count = 8
+				mem = 320
+			}
+		}
+
+		// case where GPU info is still not determined
+		if count == -1 || mem == -1 {
+			// set vm size from vmSizeLower
+			reSize := regexp.MustCompile(`(\d+)`)
+			sizeMatches := reSize.FindStringSubmatch(vmSizeLower)
+			if len(sizeMatches) > 0 {
+				sizeNum, err := strconv.Atoi(sizeMatches[1])
+				if err == nil {
+					if strings.HasPrefix(vmSizeLower, "nv") {
+						// NV series
+						if sizeNum <= 6 {
+							count = 1
+							mem = 8
+						} else if sizeNum <= 12 {
+							count = 2
+							mem = 16
+						} else if sizeNum <= 24 {
+							count = 4
+							mem = 32
+						} else {
+							count = 8
+							mem = 64
+						}
+					} else if strings.HasPrefix(vmSizeLower, "nd") {
+						// ND series
+						if sizeNum <= 24 {
+							count = 4
+							mem = 96
+						} else if sizeNum <= 40 {
+							count = 8
+							mem = 256
+						} else {
+							count = 8
+							mem = 320
+						}
+					}
+				}
+			}
+
+			// Fallback logic for GPU info
+			if count == -1 || mem == -1 {
+				if strings.HasPrefix(vmSizeLower, "nv") {
+					count = 1
+					mem = 8
+				} else if strings.HasPrefix(vmSizeLower, "nd") {
+					count = 4
+					mem = 96
+				} else if strings.HasPrefix(vmSizeLower, "nc") {
+					count = 1
+					mem = 12
+				}
+			}
+
+			if count == -1 || mem == -1 {
+				cblogger.Errorf("Failed to determine GPU info for %s even with fallback logic", vmSizeLower)
+			} else {
+				cblogger.Infof("Applied estimated GPU values for %s: count=%f, mem=%d",
+					vmSizeLower, count, mem)
+			}
+		}
+	}
+
 	countStr := formatGpuCountValue(count)
 	modelFullName := getGpuModel(vmSizeLower)
+
 	var mfr = "NA"
 	var model = "NA"
 	if strings.HasPrefix(modelFullName, "NVIDIA") {
@@ -312,13 +472,31 @@ func parseGpuInfo(vmSizeName string) *irs.GpuInfo {
 		model, _ = strings.CutPrefix(modelFullName, "AMD ")
 	}
 
-	return &irs.GpuInfo{
+	// GPU Memroy Size
+	var memPerGpu string
+	if count <= 0 || mem <= 0 {
+		memPerGpu = "-1"
+	} else {
+		memPerGpu = fmt.Sprintf("%d", int64(float64(mem)/float64(count)))
+	}
+
+	gpuInfo := &irs.GpuInfo{
 		Mfr:            mfr,
 		Model:          model,
-		MemSizeGB:      fmt.Sprintf("%d", int64(float64(mem)/float64(count))), // GB, mem is total memory size
+		MemSizeGB:      memPerGpu,
 		Count:          countStr,
-		TotalMemSizeGB: fmt.Sprintf("%d", mem), // GB, mem is total memory size
+		TotalMemSizeGB: fmt.Sprintf("%d", mem),
 	}
+
+	return gpuInfo
+}
+
+func formatGpuCountValue(value float32) string {
+	// Check if integer
+	if value == float32(int32(value)) {
+		return fmt.Sprintf("%d", int32(value))
+	}
+	return fmt.Sprintf("%.3f", value)
 }
 
 func setterVmSpec(region string, vmSpec *armcompute.VirtualMachineSize) *irs.VMSpecInfo {

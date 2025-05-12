@@ -212,8 +212,8 @@ func isFieldToFilterExist(structVal any, filterList []irs.KeyValue) (exist bool,
 	if _, ok := structVal.(irs.ProductInfo); ok {
 		data := structVal.(irs.ProductInfo)
 		val = reflect.ValueOf(&data).Elem()
-	} else if _, ok := structVal.(irs.PricingPolicies); ok {
-		data := structVal.(irs.PricingPolicies)
+	} else if _, ok := structVal.(irs.OnDemand); ok {
+		data := structVal.(irs.OnDemand)
 		val = reflect.ValueOf(&data).Elem()
 	} else {
 		return false, fields
@@ -243,8 +243,8 @@ func isPicked(structVal any, fields []string, filterList []irs.KeyValue) bool {
 	if _, ok := structVal.(irs.ProductInfo); ok {
 		data := structVal.(irs.ProductInfo)
 		val = reflect.ValueOf(&data).Elem()
-	} else if _, ok := structVal.(irs.PricingPolicies); ok {
-		data := structVal.(irs.PricingPolicies)
+	} else if _, ok := structVal.(irs.OnDemand); ok {
+		data := structVal.(irs.OnDemand)
 		val = reflect.ValueOf(&data).Elem()
 	} else {
 		return false
@@ -335,7 +335,6 @@ func (priceInfoHandler *IbmPriceInfoHandler) ListProductFamily(regionName string
 
 				mutex.Lock()
 				for _, resource := range rsInfoTemp.Resources {
-					// Only accept name starts with 'is.' or find kubernetes
 					if strings.HasPrefix(resource.Name, "is.") || resource.Name == "containers-kubernetes" {
 						for _, geo := range resource.GeoTags {
 							if geo == regionName {
@@ -371,7 +370,6 @@ func (priceInfoHandler *IbmPriceInfoHandler) ListProductFamily(regionName string
 	return kinds, nil
 }
 
-// VPC Profile structure definition
 type VPCProfile struct {
 	Name         string `json:"name"`
 	Family       string `json:"family"`
@@ -383,7 +381,6 @@ type VPCProfile struct {
 	Generation   string `json:"generation"`
 }
 
-// ServicePlan represents IBM Cloud service plan information
 type ServicePlan struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
@@ -391,7 +388,6 @@ type ServicePlan struct {
 	ChildrenURL string `json:"children_url"`
 }
 
-// ProfilePricing represents the pricing information for a specific profile
 type ProfilePricing struct {
 	ProfileName  string
 	RegionName   string
@@ -402,14 +398,12 @@ type ProfilePricing struct {
 	}
 }
 
-// ExtendedPricingInfo represents pricing information with metrics
 type ExtendedPricingInfo struct {
 	Metrics []PriceMetric `json:"metrics"`
 	Origin  string        `json:"origin"`
 	Type    string        `json:"type"`
 }
 
-// ExtendedMetadata represents metadata with extended pricing info
 type ExtendedMetadata struct {
 	Deployment struct {
 		Location string `json:"location"`
@@ -418,7 +412,6 @@ type ExtendedMetadata struct {
 	RcCompatible bool                `json:"rc_compatible"`
 }
 
-// ExtendedResource represents a resource with extended metadata for pricing
 type ExtendedResource struct {
 	Id          string           `json:"id"`
 	Name        string           `json:"name"`
@@ -428,7 +421,6 @@ type ExtendedResource struct {
 	OverviewUI  OverviewUI       `json:"overview_ui"`
 }
 
-// ExtendedResourceInfo represents resource info with extended resources
 type ExtendedResourceInfo struct {
 	Offset        int                `json:"offset"`
 	Limit         int                `json:"limit"`
@@ -439,12 +431,10 @@ type ExtendedResourceInfo struct {
 	Resources     []ExtendedResource `json:"resources"`
 }
 
-// GetProfilesForRegion returns VPC profiles for the specified region
 func (priceInfoHandler *IbmPriceInfoHandler) GetProfilesForRegion(regionName string) ([]VPCProfile, error) {
 	hiscallInfo := GetCallLogScheme(priceInfoHandler.Region, call.PRICEINFO, "PriceInfo", "GetProfilesForRegion()")
 	start := call.Start()
 
-	// Get profile list using IBM VPC API
 	vmSpecHandler := &IbmVmSpecHandler{
 		CredentialInfo: priceInfoHandler.CredentialInfo,
 		Region:         priceInfoHandler.Region,
@@ -452,7 +442,6 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetProfilesForRegion(regionName str
 		Ctx:            priceInfoHandler.Ctx,
 	}
 
-	// Get VM spec list
 	specList, err := vmSpecHandler.ListVMSpec()
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to list instance profiles. err = %s", err))
@@ -461,29 +450,25 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetProfilesForRegion(regionName str
 		return nil, getErr
 	}
 
-	// Transform and filter profile information
 	var profiles []VPCProfile
 	for _, spec := range specList {
-		// Parse vCPU info
 		vcpu, err := strconv.Atoi(spec.VCpu.Count)
 		if err != nil {
 			cblogger.Error(fmt.Sprintf("Failed to parse vCPU count: %s", err))
-			vcpu = 1 // Default value
+			vcpu = 1
 		}
 
-		// Parse memory info (convert MiB to GB)
-		memory := 1 // Default value
+		memory := 1
 		if spec.MemSizeMiB != "" && spec.MemSizeMiB != "-1" {
 			memMiB, err := strconv.Atoi(spec.MemSizeMiB)
 			if err == nil {
-				memory = memMiB / 1024 // Convert MiB to GB
+				memory = memMiB / 1024
 				if memory < 1 {
-					memory = 1 // Ensure minimum 1GB
+					memory = 1
 				}
 			}
 		}
 
-		// Extract GPU info
 		gpuModel := ""
 		gpuCount := 0
 		if len(spec.Gpu) > 0 {
@@ -496,12 +481,11 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetProfilesForRegion(regionName str
 							gpuCount = count
 						}
 					}
-					break // Use only first GPU info
+					break
 				}
 			}
 		}
 
-		// Determine generation (Gen2, Gen3, etc.)
 		generation := "unknown"
 		if isGen2Profile(spec.Name) {
 			generation = "gen2"
@@ -509,9 +493,8 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetProfilesForRegion(regionName str
 			generation = "gen3"
 		}
 
-		// Extract architecture and family information
-		architecture := "amd64" // Default (x86)
-		family := ""            // Default family
+		architecture := "amd64"
+		family := ""
 
 		for _, kv := range spec.KeyValueList {
 			if kv.Key == "Architecture" {
@@ -521,16 +504,13 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetProfilesForRegion(regionName str
 			}
 		}
 
-		// Detect s390x architecture from profile name
 		if strings.Contains(spec.Name, "z2") && architecture == "amd64" {
-			architecture = "s390x" // IBM Z architecture
+			architecture = "s390x"
 		}
 
-		// Extract family from name if not provided
 		if family == "" {
 			if parts := strings.Split(spec.Name, "-"); len(parts) > 0 {
 				firstPart := parts[0]
-				// First letter indicates family
 				if len(firstPart) > 0 {
 					switch firstPart[0] {
 					case 'b':
@@ -547,7 +527,6 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetProfilesForRegion(regionName str
 						family = "unknown"
 					}
 
-					// Indicate IBM Z architecture if detected
 					if strings.Contains(firstPart, "z2") {
 						family = family + "_z"
 					}
@@ -555,7 +534,6 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetProfilesForRegion(regionName str
 			}
 		}
 
-		// Store profile information
 		profiles = append(profiles, VPCProfile{
 			Name:         spec.Name,
 			Family:       family,
@@ -572,12 +550,10 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetProfilesForRegion(regionName str
 	return profiles, nil
 }
 
-// GetServicePlans retrieves all service plans for a product family
 func (priceInfoHandler *IbmPriceInfoHandler) GetServicePlans(productFamily string) ([]ServicePlan, error) {
 	hiscallInfo := GetCallLogScheme(priceInfoHandler.Region, call.PRICEINFO, "PriceInfo", "GetServicePlans()")
 	start := call.Start()
 
-	// Get initial API response to determine total count
 	result, err := getIbmPlanInfo(0, 1, productFamily)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to get Service Plans. err = %s", err))
@@ -604,7 +580,6 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetServicePlans(productFamily strin
 
 	cblogger.Info(fmt.Sprintf("Found %d total service plans for %s", totalCount, productFamily))
 
-	// Retrieve all pages of service plans
 	var servicePlans []ServicePlan
 	var routineMax = 50
 	var wait sync.WaitGroup
@@ -636,7 +611,6 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetServicePlans(productFamily strin
 					return
 				}
 
-				// Convert resources to ServicePlan objects
 				var plans []ServicePlan
 				for _, resource := range rsInfoTemp.Resources {
 					plans = append(plans, ServicePlan{
@@ -674,13 +648,10 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetServicePlans(productFamily strin
 	return servicePlans, nil
 }
 
-// GetPriceInfo retrieves pricing information for a given product family and region
 func (priceInfoHandler *IbmPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue) (string, error) {
 	hiscallInfo := GetCallLogScheme(priceInfoHandler.Region, call.PRICEINFO, "PriceInfo", "GetPriceInfo()")
 	start := call.Start()
 
-	// Step 1: Retrieve profiles and service plans
-	// Get all profiles for the region
 	profiles, err := priceInfoHandler.GetProfilesForRegion(regionName)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to get region profiles. err = %s", err))
@@ -690,7 +661,6 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetPriceInfo(productFamily string, 
 	}
 	cblogger.Info(fmt.Sprintf("Retrieved %d profiles for region %s", len(profiles), regionName))
 
-	// Get service plans for the product family
 	servicePlans, err := priceInfoHandler.GetServicePlans(productFamily)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to get service plans. err = %s", err))
@@ -703,8 +673,6 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetPriceInfo(productFamily string, 
 	var priceList []irs.Price
 
 	if strings.ToLower(productFamily) == "is.instance" {
-		// Step 2: Get Gen2 profile pricing
-		// Find the gen2-instance service plan
 		var gen2Plan *ServicePlan
 		for i, plan := range servicePlans {
 			if plan.Name == "gen2-instance" {
@@ -716,7 +684,6 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetPriceInfo(productFamily string, 
 		if gen2Plan != nil {
 			cblogger.Info(fmt.Sprintf("Found Gen2 service plan: %s", gen2Plan.Name))
 
-			// Filter Gen2 profiles
 			var gen2Profiles []VPCProfile
 			for _, profile := range profiles {
 				if profile.Generation == "gen2" {
@@ -725,15 +692,11 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetPriceInfo(productFamily string, 
 			}
 			cblogger.Info(fmt.Sprintf("Found %d Gen2 profiles to get pricing for", len(gen2Profiles)))
 
-			// Get prices for Gen2 profiles
 			gen2ProfilePrices, err := priceInfoHandler.GetGen2ProfilePrices(gen2Plan.ChildrenURL, regionName, gen2Profiles)
 			if err != nil {
 				cblogger.Error(fmt.Sprintf("Error getting Gen2 profile prices: %s", err.Error()))
-				// Continue even with errors to try getting Gen3 prices
 			} else {
-				// Extract product and price information for Gen2 profiles
 				for _, profilePricing := range gen2ProfilePrices {
-					// Find matching profile
 					var profile *VPCProfile
 					for i, p := range gen2Profiles {
 						if p.Name == profilePricing.ProfileName {
@@ -758,8 +721,6 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetPriceInfo(productFamily string, 
 			cblogger.Warning("Gen2 service plan not found")
 		}
 
-		// Step 3: Get Gen3 profile pricing
-		// Filter Gen3 profiles
 		var gen3Profiles []VPCProfile
 		for _, profile := range profiles {
 			if profile.Generation != "gen2" {
@@ -768,7 +729,6 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetPriceInfo(productFamily string, 
 		}
 		cblogger.Info(fmt.Sprintf("Found %d Gen3/other profiles to process", len(gen3Profiles)))
 
-		// Process each Gen3 profile
 		for _, profile := range gen3Profiles {
 			var matchingPlan *ServicePlan
 			for i, plan := range servicePlans {
@@ -781,7 +741,6 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetPriceInfo(productFamily string, 
 			if matchingPlan != nil {
 				cblogger.Info(fmt.Sprintf("Found matching service plan for profile %s", profile.Name))
 
-				// Get price for this profile
 				price, err := priceInfoHandler.GetGen3ProfilePrice(matchingPlan.ChildrenURL, profile, regionName, filterList)
 				if err != nil {
 					cblogger.Warning(fmt.Sprintf("Could not get price for profile %s: %s", profile.Name, err.Error()))
@@ -796,22 +755,15 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetPriceInfo(productFamily string, 
 		}
 	}
 
-	// Create cloud price data structure
-	cloudPriceData := irs.CloudPriceData{
-		Meta: irs.Meta{
-			Version:     "v0.1",
-			Description: "Multi-Cloud Price Info",
-		},
-		CloudPriceList: []irs.CloudPrice{
-			{
-				CloudName: "IBM",
-				PriceList: priceList,
-			},
-		},
+	cloudPrice := irs.CloudPrice{
+		Meta:       irs.Meta{Version: "0.5", Description: "IBM VPC Virtual Machines Price Info"},
+		CloudName:  "IBM",
+		RegionName: regionName,
+		ZoneName:   "NA",
+		PriceList:  priceList,
 	}
 
-	// Marshal to JSON
-	data, err := json.Marshal(cloudPriceData)
+	data, err := json.Marshal(cloudPrice)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to marshal price data. err = %s", err))
 		cblogger.Error(getErr.Error())
@@ -823,12 +775,10 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetPriceInfo(productFamily string, 
 	return string(data), nil
 }
 
-// GetGen2ProfilePrices retrieves pricing for Gen2 profiles
 func (priceInfoHandler *IbmPriceInfoHandler) GetGen2ProfilePrices(childrenURL string, regionName string, gen2Profiles []VPCProfile) ([]ProfilePricing, error) {
 	hiscallInfo := GetCallLogScheme(priceInfoHandler.Region, call.PRICEINFO, "PriceInfo", "GetGen2ProfilePrices()")
 	start := call.Start()
 
-	// Get initial response to determine total count
 	initialResponse, err := getIbmPlanDetail(0, 1, childrenURL)
 	if err != nil {
 		return nil, err
@@ -843,7 +793,6 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen2ProfilePrices(childrenURL st
 	totalResources := initialDeployments.Count
 	cblogger.Info(fmt.Sprintf("Found %d total deployment resources for Gen2 profiles", totalResources))
 
-	// Retrieve all deployment resources
 	limit := 100
 	pages := totalResources / limit
 	if totalResources%limit > 0 {
@@ -903,22 +852,17 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen2ProfilePrices(childrenURL st
 
 	cblogger.Info(fmt.Sprintf("Retrieved %d total deployment resources", len(allResources)))
 
-	// Filter resources for the target region and map to profiles
 	var regionResources []ExtendedResource
 
-	// Standard pattern: "profileName-regionName"
 	profileNameRegex := regexp.MustCompile(`^([a-z0-9-]+)-` + regionName + "$")
 
-	// Find region resources
 	for _, res := range allResources {
 		matched := false
 
-		// Check basic regex pattern (profileName-regionName)
 		matches := profileNameRegex.FindStringSubmatch(res.Name)
 		if len(matches) > 1 {
 			profileName := matches[1]
 
-			// Check if this profile exists in our list
 			for _, profile := range gen2Profiles {
 				if profile.Name == profileName {
 					cblogger.Info(fmt.Sprintf("Found matching resource for profile: %s", profile.Name))
@@ -929,14 +873,11 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen2ProfilePrices(childrenURL st
 			}
 
 			if matched {
-				continue // Go to next resource
+				continue
 			}
 		}
 
-		// Check if profile name is contained within resource name
 		for _, profile := range gen2Profiles {
-			// Add boundary conditions for more accurate matching
-			// E.g., to prevent "bx2" from matching "bx2d"
 			if (strings.Contains(res.Name, "-"+profile.Name+"-") ||
 				strings.HasPrefix(res.Name, profile.Name+"-") ||
 				strings.Contains(res.Name, "profile-"+profile.Name)) &&
@@ -952,14 +893,11 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen2ProfilePrices(childrenURL st
 		}
 
 		if matched {
-			continue // Go to next resource
+			continue
 		}
 
-		// Check for IBM Z architecture patterns
 		for _, profile := range gen2Profiles {
-			// Check for z2 pattern (IBM Z architecture)
 			if strings.Contains(profile.Name, "z2") {
-				// Match Z architecture specific patterns
 				if (strings.Contains(res.Name, "ibmz") ||
 					strings.Contains(res.Name, "s390x") ||
 					strings.Contains(res.Name, "z-arch")) &&
@@ -976,13 +914,11 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen2ProfilePrices(childrenURL st
 		}
 
 		if matched {
-			continue // Go to next resource
+			continue
 		}
 
-		// Region-based matching (fallback method)
 		if res.Metadata.Deployment.Location == regionName ||
 			containsRegionInGeoTags(res.GeoTags, regionName) {
-			// Add as region resource even without explicit profile matching
 			cblogger.Info(fmt.Sprintf("Found resource for region by deployment location/geo_tags: %s", res.Name))
 			regionResources = append(regionResources, res)
 		}
@@ -990,7 +926,6 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen2ProfilePrices(childrenURL st
 
 	cblogger.Info(fmt.Sprintf("Found %d resources matching region %s", len(regionResources), regionName))
 
-	// Get detailed pricing information for each profile
 	var profilePricings []ProfilePricing
 	targetChargeUnits := []string{
 		"MEMORY_HOURS",
@@ -1000,54 +935,45 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen2ProfilePrices(childrenURL st
 		"V100_HOURS",
 		"SECUREEXECUTION_VCPU_HOURS",
 		"SECUREEXECUTION_MEMORY_HOURS",
-		"Z_VCPU_HOURS",             // IBM Z vCPU Hours
-		"Z_MEMORY_HOURS",           // IBM Z Memory Hours
-		"Z_STORAGE_GIGABYTE_HOURS", // IBM Z Storage Hours
+		"Z_VCPU_HOURS",
+		"Z_MEMORY_HOURS",
+		"Z_STORAGE_GIGABYTE_HOURS",
 	}
 
-	// Create profile name pattern mapping
 	profilePatterns := make(map[string][]string)
 
-	// Generate matching patterns for each profile
 	for _, profile := range gen2Profiles {
 		patterns := []string{
-			profile.Name,                    // Exact name matching
-			profile.Name + "-" + regionName, // name-region pattern
+			profile.Name,
+			profile.Name + "-" + regionName,
 		}
 
-		// Support for x86 extended profiles (bx2/bx2d)
 		if strings.Contains(profile.Name, "x2") {
-			baseName := strings.Replace(profile.Name, "d", "", -1) // Remove 'd' (bx2d -> bx2)
+			baseName := strings.Replace(profile.Name, "d", "", -1)
 			if baseName != profile.Name {
-				patterns = append(patterns, baseName) // Add base name to patterns
+				patterns = append(patterns, baseName)
 			}
 		}
 
-		// Support for Z architecture profiles (bz2/bz2e)
 		if strings.Contains(profile.Name, "z2") {
-			baseName := strings.Replace(profile.Name, "e", "", -1) // Remove 'e' (bz2e -> bz2)
+			baseName := strings.Replace(profile.Name, "e", "", -1)
 			if baseName != profile.Name {
-				patterns = append(patterns, baseName) // Add base name to patterns
+				patterns = append(patterns, baseName)
 			}
 
-			// Z architecture related keywords
 			patterns = append(patterns, "ibmz", "s390x", "z-arch")
 		}
 
 		profilePatterns[profile.Name] = patterns
 	}
 
-	// Extract pricing information from resources
 	for _, res := range regionResources {
-		// Extract profile name from resource
 		matchedProfileName := ""
 		highestMatchScore := 0
 
-		// Calculate matching score for all profiles
 		for profileName, patterns := range profilePatterns {
 			for _, pattern := range patterns {
 				if strings.Contains(res.Name, pattern) {
-					// Longer pattern means more accurate matching
 					matchScore := len(pattern)
 					if matchScore > highestMatchScore {
 						highestMatchScore = matchScore
@@ -1057,13 +983,11 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen2ProfilePrices(childrenURL st
 			}
 		}
 
-		// If no profile match found, try regex matching
 		if matchedProfileName == "" {
 			matches := profileNameRegex.FindStringSubmatch(res.Name)
 			if len(matches) > 1 {
 				baseProfileName := matches[1]
 
-				// Check if this base profile name matches any of our profiles
 				for _, profile := range gen2Profiles {
 					if strings.HasPrefix(profile.Name, baseProfileName) ||
 						strings.HasPrefix(baseProfileName, profile.Name) {
@@ -1073,7 +997,6 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen2ProfilePrices(childrenURL st
 				}
 			}
 
-			// Still no match, log and continue
 			if matchedProfileName == "" {
 				cblogger.Warning(fmt.Sprintf("Could not determine profile for resource: %s", res.Name))
 				continue
@@ -1083,13 +1006,11 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen2ProfilePrices(childrenURL st
 		cblogger.Info(fmt.Sprintf("Processing pricing for profile: %s from resource: %s",
 			matchedProfileName, res.Name))
 
-		// Extract pricing from metadata
 		if len(res.Metadata.Pricing.Metrics) == 0 {
 			cblogger.Warning(fmt.Sprintf("Resource %s has no pricing metrics", res.Name))
 			continue
 		}
 
-		// Extract pricing for specific charge unit types
 		metricPrices := make(map[string]struct {
 			Price    float64
 			Currency string
@@ -1099,7 +1020,6 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen2ProfilePrices(childrenURL st
 		for _, metric := range res.Metadata.Pricing.Metrics {
 			chargeUnitName := metric.ChargeUnitName
 
-			// Check if this is one of our target charge units
 			isTargetUnit := false
 			for _, target := range targetChargeUnits {
 				if chargeUnitName == target {
@@ -1112,13 +1032,11 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen2ProfilePrices(childrenURL st
 				continue
 			}
 
-			// Find USA/USD price or fallback to other pricing
 			var bestPrice struct {
 				Price    float64
 				Currency string
 			}
 
-			// First try to find USA/USD price
 			hasUSAPrice := false
 			for _, amount := range metric.Amounts {
 				if amount.Country == "USA" && amount.Currency == "USD" && len(amount.Prices) > 0 {
@@ -1129,13 +1047,11 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen2ProfilePrices(childrenURL st
 				}
 			}
 
-			// If no USA price, use other price
 			if !hasUSAPrice && len(metric.Amounts) > 0 && len(metric.Amounts[0].Prices) > 0 {
 				bestPrice.Price = metric.Amounts[0].Prices[0].Price
 				bestPrice.Currency = metric.Amounts[0].Currency
 			}
 
-			// Store price information
 			if bestPrice.Currency != "" {
 				metricPrices[chargeUnitName] = struct {
 					Price    float64
@@ -1152,9 +1068,7 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen2ProfilePrices(childrenURL st
 			}
 		}
 
-		// Add pricing to profile
 		if len(metricPrices) > 0 {
-			// Find existing profile pricing (to avoid duplicates)
 			existingIndex := -1
 			for i, pp := range profilePricings {
 				if pp.ProfileName == matchedProfileName {
@@ -1164,14 +1078,12 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen2ProfilePrices(childrenURL st
 			}
 
 			if existingIndex >= 0 {
-				// Merge metricPrices with existing profile
 				for k, v := range metricPrices {
 					profilePricings[existingIndex].MetricPrices[k] = v
 				}
 				cblogger.Info(fmt.Sprintf("Updated pricing for profile %s with %d additional metrics",
 					matchedProfileName, len(metricPrices)))
 			} else {
-				// Add new ProfilePricing
 				profilePricings = append(profilePricings, ProfilePricing{
 					ProfileName:  matchedProfileName,
 					RegionName:   regionName,
@@ -1185,12 +1097,9 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen2ProfilePrices(childrenURL st
 		}
 	}
 
-	// Special handling: Copy pricing for missing IBM Z profiles
-	// Some Z profiles (bz2e, cz2e, mz2e) may have same pricing as base profiles (bz2, cz2, mz2)
-	missingZProfiles := make(map[string]string) // key: missing profile, value: base profile
+	missingZProfiles := make(map[string]string)
 
 	for _, profile := range gen2Profiles {
-		// Check for Z extended profiles (bz2e, cz2e, mz2e)
 		if strings.Contains(profile.Name, "z2e") {
 			found := false
 			for _, pp := range profilePricings {
@@ -1201,18 +1110,15 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen2ProfilePrices(childrenURL st
 			}
 
 			if !found {
-				// Map missing extended profile to base profile
-				baseProfileName := strings.Replace(profile.Name, "e", "", -1) // Remove 'e' (bz2e -> bz2)
+				baseProfileName := strings.Replace(profile.Name, "e", "", -1)
 				missingZProfiles[profile.Name] = baseProfileName
 			}
 		}
 	}
 
-	// Clone pricing for missing Z profiles
 	for missingProfile, baseProfile := range missingZProfiles {
 		for _, pp := range profilePricings {
 			if pp.ProfileName == baseProfile {
-				// Clone base profile pricing for missing profile
 				newPricing := ProfilePricing{
 					ProfileName: missingProfile,
 					RegionName:  regionName,
@@ -1223,7 +1129,6 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen2ProfilePrices(childrenURL st
 					}),
 				}
 
-				// Copy metric prices
 				for k, v := range pp.MetricPrices {
 					newPricing.MetricPrices[k] = v
 				}
@@ -1240,12 +1145,9 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen2ProfilePrices(childrenURL st
 	return profilePricings, nil
 }
 
-// CreateGen2ProfilePrice creates a price entry for a Gen2 profile
 func (priceInfoHandler *IbmPriceInfoHandler) CreateGen2ProfilePrice(profile VPCProfile, profilePricing ProfilePricing, regionName string, filterList []irs.KeyValue) (irs.Price, error) {
-	// Check for IBM Z architecture
 	isIBMZ := profile.Architecture == "s390x" || strings.Contains(profile.Name, "z2")
 
-	// Create profile description
 	var description string
 	if isIBMZ {
 		description = fmt.Sprintf("IBM VPC Gen2 IBM Z instance profile %s with %d vCPU and %d GB RAM",
@@ -1255,26 +1157,22 @@ func (priceInfoHandler *IbmPriceInfoHandler) CreateGen2ProfilePrice(profile VPCP
 			profile.Name, profile.VCPU, profile.Memory)
 	}
 
-	// Create product info
 	productInfo := irs.ProductInfo{
 		ProductId:      fmt.Sprintf("%s-%s", profile.Name, regionName),
-		RegionName:     regionName,
 		Description:    description,
 		CSPProductInfo: profile,
 	}
 
-	// Set VM spec info
 	vmSpecInfo := irs.VMSpecInfo{
 		Region:     regionName,
 		Name:       profile.Name,
 		VCpu:       irs.VCpuInfo{Count: strconv.Itoa(profile.VCPU), ClockGHz: "-1"},
-		MemSizeMiB: strconv.Itoa(profile.Memory * 1024), // GB to MiB
+		MemSizeMiB: strconv.Itoa(profile.Memory * 1024),
 		DiskSizeGB: "-1",
 	}
 
-	// Set GPU info if available
 	if profile.GPUCount > 0 && profile.GPUModel != "" {
-		gpuMfr := "NVIDIA" // Default GPU manufacturer
+		gpuMfr := "NVIDIA"
 		vmSpecInfo.Gpu = []irs.GpuInfo{
 			{
 				Count:          strconv.Itoa(profile.GPUCount),
@@ -1288,19 +1186,16 @@ func (priceInfoHandler *IbmPriceInfoHandler) CreateGen2ProfilePrice(profile VPCP
 		vmSpecInfo.Gpu = []irs.GpuInfo{}
 	}
 
-	// Set key-value list with additional architecture info
 	vmSpecInfo.KeyValueList = []irs.KeyValue{
 		{Key: "Family", Value: profile.Family},
 		{Key: "Architecture", Value: profile.Architecture},
 		{Key: "Generation", Value: profile.Generation},
 	}
 
-	// Add IBM Z architecture specific info
 	if isIBMZ {
 		vmSpecInfo.KeyValueList = append(vmSpecInfo.KeyValueList,
 			irs.KeyValue{Key: "Platform", Value: "IBM Z"})
 
-		// Check for extended profile (bz2e, cz2e, mz2e)
 		if strings.HasSuffix(profile.Name, "e") {
 			vmSpecInfo.KeyValueList = append(vmSpecInfo.KeyValueList,
 				irs.KeyValue{Key: "Secure", Value: "Enhanced"})
@@ -1308,19 +1203,14 @@ func (priceInfoHandler *IbmPriceInfoHandler) CreateGen2ProfilePrice(profile VPCP
 	}
 
 	productInfo.VMSpecInfo = vmSpecInfo
-	productInfo.OSDistribution = "NA"
-	productInfo.PreInstalledSw = "NA"
 
-	// Calculate total price from all charge unit types
-	var allPricingPolicies []irs.PricingPolicies
 	var totalPrice float64
 
-	// Add all relevant charge types from the pricing data
+	var allPriceDetails []map[string]interface{}
 	for chargeUnitName, priceData := range profilePricing.MetricPrices {
 		var price float64
 		var description string
 
-		// Calculate specific price based on profile resources
 		switch chargeUnitName {
 		case "MEMORY_HOURS":
 			price = priceData.Price
@@ -1353,30 +1243,25 @@ func (priceInfoHandler *IbmPriceInfoHandler) CreateGen2ProfilePrice(profile VPCP
 			price = priceData.Price
 			description = "IBM Z Storage Gigabyte-Hours"
 		default:
-			// For other charge types, use base price
 			price = priceData.Price
 			description = chargeUnitName
 		}
 
-		// Add to total price
 		totalPrice += price
 
-		// Create pricing policy (for internal use only)
-		allPricingPolicies = append(allPricingPolicies, irs.PricingPolicies{
-			PricingId:     chargeUnitName,
-			PricingPolicy: "OnDemand",
-			Unit:          priceData.Unit,
-			Currency:      priceData.Currency,
-			Price:         strconv.FormatFloat(price, 'f', -1, 64),
-			Description:   description,
-		})
+		priceDetail := map[string]interface{}{
+			"chargeUnitName": chargeUnitName,
+			"price":          price,
+			"currency":       priceData.Currency,
+			"unit":           priceData.Unit,
+			"description":    description,
+		}
+		allPriceDetails = append(allPriceDetails, priceDetail)
 	}
 
-	// Create the final pricing policies list (only TOTAL)
-	var pricingPolicies []irs.PricingPolicies
+	var onDemand irs.OnDemand
 
-	// Add total price policy if there are any prices
-	if len(allPricingPolicies) > 0 {
+	if len(allPriceDetails) > 0 {
 		var totalDescription string
 		if isIBMZ {
 			totalDescription = fmt.Sprintf("Total hourly cost for IBM Z profile %s (%d vCPU, %d GB)",
@@ -1386,26 +1271,21 @@ func (priceInfoHandler *IbmPriceInfoHandler) CreateGen2ProfilePrice(profile VPCP
 				profile.Name, profile.VCPU, profile.Memory)
 		}
 
-		pricingPolicies = append(pricingPolicies, irs.PricingPolicies{
-			PricingId:     "TOTAL",
-			PricingPolicy: "OnDemand",
-			Unit:          "Hour",
-			Currency:      "USD",
-			Price:         strconv.FormatFloat(math.Round(totalPrice*1000)/1000, 'f', 3, 64),
-			Description:   totalDescription,
-		})
+		onDemand = irs.OnDemand{
+			PricingId:   "TOTAL",
+			Unit:        "Hour",
+			Currency:    "USD",
+			Price:       strconv.FormatFloat(math.Round(totalPrice*1000)/1000, 'f', 3, 64),
+			Description: totalDescription,
+		}
 	}
 
-	// Apply filtering (only for TOTAL since that's all we're returning)
 	matchesFilter := true
-	isPricingPoliciesFilterExist, fields := isFieldToFilterExist(irs.PricingPolicies{}, filterList)
-	if isPricingPoliciesFilterExist && len(pricingPolicies) > 0 {
-		matchesFilter = false
-		for _, policy := range pricingPolicies {
-			if isPicked(policy, fields, filterList) {
-				matchesFilter = true
-				break
-			}
+	isOnDemandFilterExist, fields := isFieldToFilterExist(irs.OnDemand{}, filterList)
+
+	if isOnDemandFilterExist && onDemand.Price != "" {
+		if !isPicked(onDemand, fields, filterList) {
+			matchesFilter = false
 		}
 	}
 
@@ -1414,25 +1294,27 @@ func (priceInfoHandler *IbmPriceInfoHandler) CreateGen2ProfilePrice(profile VPCP
 		matchesFilter = false
 	}
 
-	if !matchesFilter || len(pricingPolicies) == 0 {
-		return irs.Price{}, fmt.Errorf("Profile %s doesn't match filters or has no pricing policies", profile.Name)
+	if !matchesFilter || onDemand.Price == "" {
+		return irs.Price{}, fmt.Errorf("Profile %s doesn't match filters or has no pricing information", profile.Name)
 	}
 
-	// CSP API로부터 얻은 원본 프로파일 가격 정보를 그대로 CSPPriceInfo에 저장
+	priceInfo := irs.PriceInfo{
+		OnDemand: onDemand,
+		CSPPriceInfo: map[string]interface{}{
+			"profilePricing": profilePricing,
+			"priceDetails":   allPriceDetails,
+		},
+	}
+
 	return irs.Price{
 		ProductInfo: productInfo,
-		PriceInfo: irs.PriceInfo{
-			PricingPolicies: pricingPolicies, // Only return the TOTAL pricing policy
-			CSPPriceInfo:    profilePricing,  // 원본 API 응답인 ProfilePricing 객체 그대로 전달
-		},
+		PriceInfo:   priceInfo,
 	}, nil
 }
 
-// GetGen3ProfilePrice retrieves pricing for a Gen3 or other profile
 func (priceInfoHandler *IbmPriceInfoHandler) GetGen3ProfilePrice(childrenURL string, profile VPCProfile, regionName string, filterList []irs.KeyValue) (irs.Price, error) {
 	var price irs.Price
 
-	// Get initial response to determine total count
 	initialResponse, err := getIbmPlanDetail(0, 1, childrenURL)
 	if err != nil {
 		return price, err
@@ -1447,7 +1329,6 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen3ProfilePrice(childrenURL str
 	totalResources := initialDeployments.Count
 	cblogger.Info(fmt.Sprintf("Found %d deployment resources for profile %s", totalResources, profile.Name))
 
-	// Retrieve all resources
 	limit := 100
 	pages := totalResources / limit
 	if totalResources%limit > 0 {
@@ -1471,7 +1352,6 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen3ProfilePrice(childrenURL str
 		allResources = append(allResources, pageDeployments.Resources...)
 	}
 
-	// Find the resource for the target region
 	var pricingURL string
 	for _, resource := range allResources {
 		if resource.Metadata.Deployment.Location == regionName ||
@@ -1488,7 +1368,6 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen3ProfilePrice(childrenURL str
 		return price, fmt.Errorf("No pricing URL found for profile %s in region %s", profile.Name, regionName)
 	}
 
-	// Get pricing information
 	response, err := getIbmPriceInfo(pricingURL)
 	if err != nil {
 		return price, err
@@ -1500,26 +1379,22 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen3ProfilePrice(childrenURL str
 		return price, err
 	}
 
-	// Create product info
 	productInfo := irs.ProductInfo{
-		ProductId:      fmt.Sprintf("%s-%s", profile.Name, regionName), // {profile name}-{region} 형식으로 변경
-		RegionName:     regionName,
+		ProductId:      fmt.Sprintf("%s-%s", profile.Name, regionName),
 		Description:    fmt.Sprintf("IBM VPC %s instance profile %s with %d vCPU and %d GB RAM", profile.Generation, profile.Name, profile.VCPU, profile.Memory),
-		CSPProductInfo: profile, // 원본 VPC Profile 객체 그대로 전달
+		CSPProductInfo: profile,
 	}
 
-	// Set VM spec info
 	vmSpecInfo := irs.VMSpecInfo{
 		Region:     regionName,
 		Name:       profile.Name,
 		VCpu:       irs.VCpuInfo{Count: strconv.Itoa(profile.VCPU), ClockGHz: "-1"},
-		MemSizeMiB: strconv.Itoa(profile.Memory * 1024), // GB to MiB
+		MemSizeMiB: strconv.Itoa(profile.Memory * 1024),
 		DiskSizeGB: "-1",
 	}
 
-	// Set GPU info if available
 	if profile.GPUCount > 0 && profile.GPUModel != "" {
-		gpuMfr := "NVIDIA" // Default GPU manufacturer
+		gpuMfr := "NVIDIA"
 		vmSpecInfo.Gpu = []irs.GpuInfo{
 			{
 				Count:          strconv.Itoa(profile.GPUCount),
@@ -1533,7 +1408,6 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen3ProfilePrice(childrenURL str
 		vmSpecInfo.Gpu = []irs.GpuInfo{}
 	}
 
-	// Set key-value list
 	vmSpecInfo.KeyValueList = []irs.KeyValue{
 		{Key: "Family", Value: profile.Family},
 		{Key: "Architecture", Value: profile.Architecture},
@@ -1541,15 +1415,11 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen3ProfilePrice(childrenURL str
 	}
 
 	productInfo.VMSpecInfo = vmSpecInfo
-	productInfo.OSDistribution = "NA"
-	productInfo.PreInstalledSw = "NA"
 
-	// Find pricing information for INSTANCE_HOURS_MULTI_TENANT and INSTANCE_HOURS_MULTI_TENANT_TDX
-	var allPricingPolicies []irs.PricingPolicies
 	var totalPrice float64 = 0
+	var allPriceDetails []map[string]interface{}
 
 	for _, metric := range priceInfo.Metrics {
-		// 오직 INSTANCE_HOURS_MULTI_TENANT와 INSTANCE_HOURS_MULTI_TENANT_TDX만 처리
 		if metric.ChargeUnitName == "INSTANCE_HOURS_MULTI_TENANT" ||
 			metric.ChargeUnitName == "INSTANCE_HOURS_MULTI_TENANT_TDX" {
 
@@ -1557,7 +1427,6 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen3ProfilePrice(childrenURL str
 			var metricCurrency string = "USD"
 			var foundUSAPrice bool = false
 
-			// 우선 USA/USD 가격을 찾음
 			for _, amount := range metric.Amounts {
 				if amount.Country == "USA" && amount.Currency == "USD" && len(amount.Prices) > 0 {
 					metricPrice = amount.Prices[0].Price
@@ -1567,7 +1436,6 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen3ProfilePrice(childrenURL str
 				}
 			}
 
-			// USA/USD 가격이 없을 경우 첫 번째 USD 가격을 사용
 			if !foundUSAPrice {
 				for _, amount := range metric.Amounts {
 					if amount.Currency == "USD" && len(amount.Prices) > 0 {
@@ -1578,7 +1446,6 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen3ProfilePrice(childrenURL str
 				}
 			}
 
-			// 가격 설명 생성
 			var description string
 			if metric.ChargeUnitName == "INSTANCE_HOURS_MULTI_TENANT" {
 				description = fmt.Sprintf("Standard Instance-Hours for %s (%d vCPU, %d GB)",
@@ -1588,47 +1455,39 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen3ProfilePrice(childrenURL str
 					profile.Name, profile.VCPU, profile.Memory)
 			}
 
-			// 총 가격에 추가
 			totalPrice += metricPrice
 
-			// 가격 정책 생성 (for internal calculation only)
-			allPricingPolicies = append(allPricingPolicies, irs.PricingPolicies{
-				PricingId:     metric.MetricID,
-				PricingPolicy: "OnDemand",
-				Unit:          metric.ChargeUnit,
-				Currency:      metricCurrency,
-				Price:         strconv.FormatFloat(math.Round(metricPrice*1000)/1000, 'f', 3, 64), // 소수점 3자리 반올림
-				Description:   description,
-			})
+			priceDetail := map[string]interface{}{
+				"metricID":       metric.MetricID,
+				"chargeUnitName": metric.ChargeUnitName,
+				"price":          metricPrice,
+				"currency":       metricCurrency,
+				"unit":           metric.ChargeUnit,
+				"description":    description,
+			}
+			allPriceDetails = append(allPriceDetails, priceDetail)
 		}
 	}
 
-	// Create final pricing policies list (only TOTAL)
-	var pricingPolicies []irs.PricingPolicies
+	var onDemand irs.OnDemand
 
-	// 표준 가격과 TDX 가격이 모두 있는 경우, 총합 가격 추가
-	if len(allPricingPolicies) > 0 {
-		pricingPolicies = append(pricingPolicies, irs.PricingPolicies{
-			PricingId:     "TOTAL",
-			PricingPolicy: "OnDemand",
-			Unit:          "Hour",
-			Currency:      "USD",
-			Price:         strconv.FormatFloat(math.Round(totalPrice*1000)/1000, 'f', 3, 64), // 소수점 3자리 반올림
+	if len(allPriceDetails) > 0 {
+		onDemand = irs.OnDemand{
+			PricingId: "TOTAL",
+			Unit:      "Hour",
+			Currency:  "USD",
+			Price:     strconv.FormatFloat(math.Round(totalPrice*1000)/1000, 'f', 3, 64),
 			Description: fmt.Sprintf("Total hourly cost for %s (%d vCPU, %d GB)",
 				profile.Name, profile.VCPU, profile.Memory),
-		})
+		}
 	}
 
-	// Apply filtering (only for TOTAL since that's all we're returning)
 	matchesFilter := true
-	isPricingPoliciesFilterExist, fields := isFieldToFilterExist(irs.PricingPolicies{}, filterList)
-	if isPricingPoliciesFilterExist {
-		matchesFilter = false
-		for _, policy := range pricingPolicies {
-			if isPicked(policy, fields, filterList) {
-				matchesFilter = true
-				break
-			}
+	isOnDemandFilterExist, fields := isFieldToFilterExist(irs.OnDemand{}, filterList)
+
+	if isOnDemandFilterExist {
+		if !isPicked(onDemand, fields, filterList) {
+			matchesFilter = false
 		}
 	}
 
@@ -1637,22 +1496,24 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen3ProfilePrice(childrenURL str
 		matchesFilter = false
 	}
 
-	if !matchesFilter || len(pricingPolicies) == 0 {
-		return price, fmt.Errorf("Profile %s doesn't match filters or has no pricing policies", profile.Name)
+	if !matchesFilter || onDemand.Price == "" {
+		return price, fmt.Errorf("Profile %s doesn't match filters or has no pricing information", profile.Name)
 	}
 
 	price = irs.Price{
 		ProductInfo: productInfo,
 		PriceInfo: irs.PriceInfo{
-			PricingPolicies: pricingPolicies, // Only return the TOTAL pricing policy
-			CSPPriceInfo:    priceInfo,       // Keep original PriceInfo
+			OnDemand: onDemand,
+			CSPPriceInfo: map[string]interface{}{
+				"priceInfo":    priceInfo,
+				"priceDetails": allPriceDetails,
+			},
 		},
 	}
 
 	return price, nil
 }
 
-// Helper function to check if a region is in geo_tags
 func containsRegionInGeoTags(geoTags []string, regionName string) bool {
 	for _, tag := range geoTags {
 		if tag == regionName {
@@ -1662,14 +1523,11 @@ func containsRegionInGeoTags(geoTags []string, regionName string) bool {
 	return false
 }
 
-// Helper function to check if a profile is Gen2
 func isGen2Profile(profileName string) bool {
-	// "gen2-instance" is explicitly Gen2
 	if profileName == "gen2-instance" {
 		return true
 	}
 
-	// Split the profile name to analyze parts
 	parts := strings.Split(profileName, "-")
 	if len(parts) < 1 {
 		return false
@@ -1677,22 +1535,15 @@ func isGen2Profile(profileName string) bool {
 
 	firstPart := parts[0]
 
-	// Gen3 profiles are explicitly excluded - check only first part
 	if strings.Contains(firstPart, "x3") || strings.Contains(profileName, "-gen3") {
 		return false
 	}
 
-	// Check x86 architecture Gen2 patterns
-	// - Base x86 patterns: ends with "x2" (e.g., bx2, cx2, mx2, gx2, ox2)
-	// - Extended x86 patterns: contains "x2" and has additional suffix (e.g., bx2d, cx2d, mx2d)
 	if strings.HasSuffix(firstPart, "x2") ||
 		(strings.Contains(firstPart, "x2") && len(firstPart) > 3) {
 		return true
 	}
 
-	// Check IBM Z architecture Gen2 patterns
-	// - Base Z patterns: ends with "z2" (e.g., bz2, cz2, mz2)
-	// - Extended Z patterns: contains "z2" and has additional suffix (e.g., bz2e, cz2e, mz2e)
 	if strings.HasSuffix(firstPart, "z2") ||
 		(strings.Contains(firstPart, "z2") && len(firstPart) > 3) {
 		return true

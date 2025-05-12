@@ -15,7 +15,7 @@
     "pricingList": {
         "payAsYouGo": {
             "priceId": "mock.mercury.standard2.payg",
-            "unit": "Hours",
+            "unit": "Hour",
             "currency": "USD",
             "price" : "0.3"
         },
@@ -23,21 +23,21 @@
             {
                 "priceId": "mock.mercury.standard2.savingplan1",
                 "term": "1 Year",
-                "unit": "Hours",
+                "unit": "Hour",
                 "currency": "USD",
                 "price" : "0.2"        
             },
             {
                 "priceId": "mock.mercury.standard2.savingplan2",
                 "term": "2 Year",
-                "unit": "Hours",
+                "unit": "Hour",
                 "currency": "USD",
                 "price" : "0.2"        
             },
             {
                 "priceId": "mock.mercury.standard2.savingplan3",
                 "term": "3 Year",
-                "unit": "Hours",
+                "unit": "Hour",
                 "currency": "USD",
                 "price" : "0.1"
             }

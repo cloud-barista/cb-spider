@@ -241,8 +241,8 @@ func RunServer() {
 
 		//----------PriceInfo Handler
 		{"GET", "/productfamily/:RegionName", ListProductFamily},
-		{"GET", "/priceinfo/:ProductFamily/:RegionName", GetPriceInfo},  // GET with a body for backward compatibility
-		{"POST", "/priceinfo/:ProductFamily/:RegionName", GetPriceInfo}, // POST with a body for standard
+		{"GET", "/priceinfo/vm/:RegionName", GetVMPriceInfo},  // GET with a body for backward compatibility
+		{"POST", "/priceinfo/vm/:RegionName", GetVMPriceInfo}, // POST with a body for standard
 
 		//----------Image Handler
 		{"GET", "/vmimage", ListImage},
@@ -686,13 +686,13 @@ func ApiServer(routes []route) {
 	spiderBanner()
 
 	httpServerPort := cr.ServerPort
-        if cr.ServerIPorName == "localhost" || cr.ServerIPorName == "127.0.0.1" {
-                // Bind to localhost only (127.0.0.1), external clients cannot connect
-                httpServerPort = cr.ServerIPorName + cr.ServerPort
-        }
+	if cr.ServerIPorName == "localhost" || cr.ServerIPorName == "127.0.0.1" {
+		// Bind to localhost only (127.0.0.1), external clients cannot connect
+		httpServerPort = cr.ServerIPorName + cr.ServerPort
+	}
 
-        server := &http.Server{
-                Addr: httpServerPort,
+	server := &http.Server{
+		Addr: httpServerPort,
 		//ReadTimeout:    6000 * time.Second, // Increase the maximum duration of reading the entire request
 		//WriteTimeout:   6000 * time.Second, // Increase the maximum duration of writing the entire response
 		//IdleTimeout:    6000 * time.Second, // Increase the maximum duration of idle keep-alive connections

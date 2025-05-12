@@ -154,7 +154,7 @@ func (handler *MockPriceInfoHandler) GetPriceInfo(productFamily string, regionNa
 		return "", err
 	}
 
-	resultJson, err := transformPriceInfo(productFamily, data, filterList)
+	resultJson, err := transformPriceInfo(productFamily, regionName, data, filterList)
 	if err != nil {
 		cblogger.Error(err)
 		return "", err
@@ -163,14 +163,17 @@ func (handler *MockPriceInfoHandler) GetPriceInfo(productFamily string, regionNa
 	return resultJson, nil
 }
 
-func transformPriceInfo(productFamily string, jsonData []*interface{}, filterList []irs.KeyValue) (string, error) {
+func transformPriceInfo(productFamily string, regionName string, jsonData []*interface{}, filterList []irs.KeyValue) (string, error) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mock Driver: called transformVMPriceInfo()!")
 
-	var gPriceInfo irs.CloudPriceData
 	var cloudPrice irs.CloudPrice
 
-	cloudPrice.CloudName = "Mock"
+	cloudPrice.Meta.Version = "0.5"
+	cloudPrice.Meta.Description = "MOCK Virtual Machines Price Info"
+	cloudPrice.CloudName = "MOCK"
+	cloudPrice.RegionName = regionName
+	cloudPrice.ZoneName = "NA"
 
 	for _, v := range jsonData {
 		// transform csp price info to Spider price info(Global view)
@@ -200,21 +203,12 @@ func transformPriceInfo(productFamily string, jsonData []*interface{}, filterLis
 		}
 	}
 
-	if len(cloudPrice.PriceList) > 0 {
-		gPriceInfo.CloudPriceList = append(gPriceInfo.CloudPriceList, cloudPrice)
+	// if cloudPrice.PriceList is nil, initialize it to print out as '[]'
+	if cloudPrice.PriceList == nil {
+		cloudPrice.PriceList = []irs.Price{}
 	}
 
-	// if gPriceInfo.CloudPriceList is  nil, initialize it to print out as '[]'
-	if gPriceInfo.CloudPriceList == nil {
-		gPriceInfo.CloudPriceList = []irs.CloudPrice{}
-	}
-
-	gPriceInfo.Meta = irs.Meta{
-		Version:     "v0.1",
-		Description: "Multi-Cloud Price Info",
-	}
-
-	globalJsonData, err := json.MarshalIndent(gPriceInfo, "", "    ")
+	globalJsonData, err := json.MarshalIndent(cloudPrice, "", "    ")
 	if err != nil {
 		cblogger.Error(err)
 		return "", err
@@ -237,35 +231,21 @@ func transformToProductInfo(productFamily string, jsonData *interface{}, filterL
 	case COMPUTE_INSTANCE:
 		json := (*jsonData).(InstanceData)
 		productInfo.ProductId = json.InstanceName
-		productInfo.RegionName = json.InstanceInfo.RegionName
-		productInfo.RegionName = json.InstanceInfo.RegionName
-		productInfo.ZoneName = "NA"
 		productInfo.VMSpecInfo.Name = json.InstanceInfo.InstanceType
 		productInfo.VMSpecInfo.VCpu.Count = json.InstanceInfo.Vcpu
 		productInfo.VMSpecInfo.MemSizeMiB = json.InstanceInfo.Memory
 		productInfo.VMSpecInfo.DiskSizeGB = json.InstanceInfo.Storage
-		productInfo.OSDistribution = json.InstanceInfo.Os
-		productInfo.PreInstalledSw = "NA"
 		productInfo.Description = json.InstanceInfo.ProcessorArchitecture + ", " +
 			json.InstanceInfo.ProcessorFeatures
 
 	case STORAGE:
 		json := (*jsonData).(StorageData)
 		productInfo.ProductId = json.StorageName
-		productInfo.RegionName = json.StorageInfo.RegionName
-		productInfo.ZoneName = "NA"
-		productInfo.VolumeType = json.StorageInfo.StorageType
-		productInfo.StorageMedia = "NA"
-		productInfo.MaxVolumeSize = json.StorageInfo.MaxVolume
-		productInfo.MaxIOPSVolume = json.StorageInfo.MaxIOPS
-		productInfo.MaxThroughputVolume = "NA"
 		productInfo.Description = "NA"
 
 	case NETWORK_LOAD_BALANCER:
 		json := (*jsonData).(NLBData)
 		productInfo.ProductId = json.NLBName
-		productInfo.RegionName = json.NLBInfo.RegionName
-		productInfo.ZoneName = "NA"
 		productInfo.Description = "NA"
 
 	default:
@@ -381,81 +361,39 @@ func transformToPriceInfo(productFamily string, jsonData *interface{}, filterLis
 	}
 
 	var priceInfo irs.PriceInfo
+	var onDemand irs.OnDemand
 
-	// Transform PayAsYouGo를 to PricingPolicies
+	// Transform PayAsYouGo to OnDemand
 	if priceList.PayAsYouGo.PricingId != "" {
-		paygPolicy := irs.PricingPolicies{
-			PricingId:     priceList.PayAsYouGo.PricingId,
-			PricingPolicy: "OnDemand", // "PayAsYouGo",
-			Unit:          priceList.PayAsYouGo.Unit,
-			Currency:      priceList.PayAsYouGo.Currency,
-			Price:         priceList.PayAsYouGo.Price,
-			Description:   "Pay-as-you-go pricing policy",
+		onDemand = irs.OnDemand{
+			PricingId:   priceList.PayAsYouGo.PricingId,
+			Unit:        priceList.PayAsYouGo.Unit,
+			Currency:    priceList.PayAsYouGo.Currency,
+			Price:       priceList.PayAsYouGo.Price,
+			Description: "Pay-as-you-go pricing policy",
 		}
-		priceInfo.PricingPolicies = append(priceInfo.PricingPolicies, paygPolicy)
 	}
 
-	// Transform SavingPlan to PricingPolicies
-	for _, plan := range priceList.SavingPlan {
-		savingPolicy := irs.PricingPolicies{
-			PricingId:     plan.PricingId,
-			PricingPolicy: "Reserved", // "SavingPlan",
-			Unit:          plan.Unit,
-			Currency:      plan.Currency,
-			Price:         plan.Price,
-			Description:   plan.Term + " saving plan",
-			PricingPolicyInfo: &irs.PricingPolicyInfo{
-				LeaseContractLength: plan.Term,
-				OfferingClass:       "NA",
-				PurchaseOption:      "NA",
-			},
-		}
-		priceInfo.PricingPolicies = append(priceInfo.PricingPolicies, savingPolicy)
-	}
+	priceInfo.OnDemand = onDemand
+	priceInfo.CSPPriceInfo = priceList
 
 	if filterList == nil {
-		priceInfo.CSPPriceInfo = priceList
 		return false, &priceInfo, nil
 	}
 
 	gHasKey := false
 	checked := false
-	for _, policy := range priceInfo.PricingPolicies {
-		// check filter
-		i := interface{}(policy)
-		hasKey := false
-		hasKey, checked = checkFilters(&i, filterList)
-		if hasKey {
-			gHasKey = true
-			if checked {
-				break
-			}
-		} else {
-			if policy.PricingPolicyInfo != nil {
-				// and then checking for policy.PricingPolicyInfo struct
-				// check filter
-				i := interface{}(*policy.PricingPolicyInfo)
-				hasKey := false
-				hasKey, checked = checkFilters(&i, filterList)
-				if hasKey {
-					gHasKey = true
-					if checked {
-						break
-					}
-				}
-			}
-		}
-	}
 
-	if gHasKey {
+	// check filter on OnDemand
+	i := interface{}(onDemand)
+	hasKey, checked := checkFilters(&i, filterList)
+	if hasKey {
+		gHasKey = true
 		if !checked { // Has any key but not matched
 			return gHasKey, nil, nil
 		}
 	}
 
-	// filterList == nil or no policy Filter or checked == true
-	// set CSPPriceInfo after checking filter, because CSPPriceInfo is not used for filtering
-	priceInfo.CSPPriceInfo = priceList
 	return gHasKey, &priceInfo, nil
 }
 
@@ -528,7 +466,7 @@ func getMockPriceInfo(productFamily string, regionName string) ([]*interface{}, 
 	return results, nil
 }
 
-func GetGlobalViewTemplate(productFamily string) (irs.CloudPriceData, error) {
+func GetGlobalViewTemplate(productFamily string) (irs.CloudPrice, error) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mock Driver: called GetGlobalViewTemplate()!")
 
@@ -541,7 +479,7 @@ func GetGlobalViewTemplate(productFamily string) (irs.CloudPriceData, error) {
 	files, err := os.ReadDir(priceInfoDir)
 	if err != nil {
 		cblogger.Error(err)
-		return irs.CloudPriceData{}, err
+		return irs.CloudPrice{}, err
 	}
 
 	productFileName := ""
@@ -555,7 +493,7 @@ func GetGlobalViewTemplate(productFamily string) (irs.CloudPriceData, error) {
 	default:
 		err := errors.New(productFamily + " is not supported product family!")
 		cblogger.Error(err)
-		return irs.CloudPriceData{}, err
+		return irs.CloudPrice{}, err
 	}
 
 	for _, file := range files {
@@ -564,21 +502,25 @@ func GetGlobalViewTemplate(productFamily string) (irs.CloudPriceData, error) {
 			data, err := os.ReadFile(filePath)
 			if err != nil {
 				cblogger.Error(err)
-				return irs.CloudPriceData{}, err
+				return irs.CloudPrice{}, err
 			}
 
-			var cloudPriceData irs.CloudPriceData
-			err = json.Unmarshal(data, &cloudPriceData)
+			var cloudPrice irs.CloudPrice
+			err = json.Unmarshal(data, &cloudPrice)
 			if err != nil {
 				cblogger.Error(err)
-				return irs.CloudPriceData{}, err
+				return irs.CloudPrice{}, err
 			}
 
-			return cloudPriceData, nil
+			if len(cloudPrice.PriceList) > 0 {
+				return cloudPrice, nil
+			} else {
+				return irs.CloudPrice{}, errors.New("Empty CloudPriceList in template")
+			}
 		}
 	}
 
 	err = errors.New(productFamily + " has not Global View Template!")
 	cblogger.Error(err)
-	return irs.CloudPriceData{}, err
+	return irs.CloudPrice{}, err
 }

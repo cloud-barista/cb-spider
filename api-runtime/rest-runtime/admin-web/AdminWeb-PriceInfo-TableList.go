@@ -50,7 +50,7 @@ func saveJSONToFile(data interface{}) (string, error) {
 		return "", err
 	}
 
-	cloudName := data.(cres.CloudPriceData).CloudPriceList[0].CloudName
+	cloudName := data.(cres.CloudPrice).CloudName
 	fileName := cloudName + "_price_info_" + time.Now().Format("2006-01-02_15-04-05") + ".json"
 	cacheFilePath := filepath.Join(PRICEINFO_CACHE_PATH, fileName)
 	if err := ioutil.WriteFile(cacheFilePath, jsonData, 0644); err != nil {
@@ -89,7 +89,7 @@ func deleteOldJSONFiles() {
 	}
 }
 
-// PriceInfoTableList handles the display of CloudPriceData to Table
+// PriceInfoTableList handles the display of CloudPrice to Table
 func PriceInfoTableList(c echo.Context) error {
 	cblog.Info("call PriceInfoTableList()")
 
@@ -135,7 +135,7 @@ func PriceInfoTableList(c echo.Context) error {
 
 	json.Unmarshal([]byte(c.QueryParam("filterlist")), &info)
 
-	var data cres.CloudPriceData
+	var data cres.CloudPrice
 	err := getPriceInfoJsonString(connConfig, "priceinfo", c.Param("ProductFamily"), c.Param("RegionName"), info.FilterList, &data)
 	if err != nil {
 		cblog.Error(err)
@@ -144,7 +144,7 @@ func PriceInfoTableList(c echo.Context) error {
 
 	// TemplateData structure to render the HTML template
 	type TemplateData struct {
-		Data           cres.CloudPriceData
+		Data           cres.CloudPrice
 		CachedFileName string
 		TotalItems     int
 	}
@@ -157,14 +157,12 @@ func PriceInfoTableList(c echo.Context) error {
 
 	tmplData := TemplateData{
 		CachedFileName: cachedFileName,
-		TotalItems:     len(data.CloudPriceList[0].PriceList),
+		TotalItems:     len(data.PriceList),
 	}
 
-	// Limit PriceList items to 200 per CloudPrice
-	for i, cloudPrice := range data.CloudPriceList {
-		if len(cloudPrice.PriceList) > 200 {
-			data.CloudPriceList[i].PriceList = cloudPrice.PriceList[:200]
-		}
+	// Limit PriceList items to 200
+	if len(data.PriceList) > 200 {
+		data.PriceList = data.PriceList[:200]
 	}
 
 	tmplData.Data = data

@@ -128,8 +128,8 @@ func isFieldToFilterExist(structVal any, filterList []irs.KeyValue) (exist bool,
 	if _, ok := structVal.(irs.ProductInfo); ok {
 		data := structVal.(irs.ProductInfo)
 		val = reflect.ValueOf(&data).Elem()
-	} else if _, ok := structVal.(irs.PricingPolicies); ok {
-		data := structVal.(irs.PricingPolicies)
+	} else if _, ok := structVal.(irs.OnDemand); ok {
+		data := structVal.(irs.OnDemand)
 		val = reflect.ValueOf(&data).Elem()
 	} else {
 		return false, fields
@@ -159,8 +159,8 @@ func isPicked(structVal any, fields []string, filterList []irs.KeyValue) bool {
 	if _, ok := structVal.(irs.ProductInfo); ok {
 		data := structVal.(irs.ProductInfo)
 		val = reflect.ValueOf(&data).Elem()
-	} else if _, ok := structVal.(irs.PricingPolicies); ok {
-		data := structVal.(irs.PricingPolicies)
+	} else if _, ok := structVal.(irs.OnDemand); ok {
+		data := structVal.(irs.OnDemand)
 		val = reflect.ValueOf(&data).Elem()
 	} else {
 		return false
@@ -224,7 +224,7 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 	hiscallInfo := GetCallLogScheme(priceInfoHandler.Region, call.PRICEINFO, "PriceInfo", "ListProductFamily()")
 	start := call.Start()
 
-	filterOption := "serviceFamily eq '" + productFamily + "' and armRegionName eq '" + regionName + "'"
+	filterOption := "serviceName eq 'Virtual Machines'" + " and priceType eq 'Consumption'" + " and armRegionName eq '" + regionName + "'"
 
 	result, err := getAzurePriceInfo(filterOption)
 	if err != nil {
@@ -248,9 +248,7 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 	var skuList []*armcompute.ResourceSKU
 
 	if strings.ToLower(productFamily) == "compute" {
-		pager := priceInfoHandler.ResourceSkusClient.NewListPager(&armcompute.ResourceSKUsClientListOptions{
-			// Filter: toStrPtr("location eq '" + regionName + "'"), // PriceInfo has more info than sprecific regions's ResourceSku
-		})
+		pager := priceInfoHandler.ResourceSkusClient.NewListPager(&armcompute.ResourceSKUsClientListOptions{})
 
 		for pager.More() {
 			page, err := pager.NextPage(priceInfoHandler.Ctx)
@@ -277,15 +275,22 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 		if len(value) == 0 {
 			continue
 		}
-		// Azure Service Name: "Azure App Service", "Azure Container Apps", "Azure Kubernetes Service",
-		//						"Functions", "Virtual Machines", "Cloud Services"
 		if value[0].ServiceName != "Virtual Machines" {
 			continue
 		}
 
+		if strings.Contains(value[0].ProductName, "Windows") ||
+			strings.Contains(value[0].ProductName, "Cloud Services") ||
+			strings.Contains(value[0].ProductName, "CloudServices") {
+			continue
+		}
+
+		if strings.Contains(value[0].SkuName, "Low Priority") || strings.Contains(value[0].SkuName, "Spot") {
+			continue
+		}
+
 		productInfo := irs.ProductInfo{
-			ProductId:  value[0].ProductID,
-			RegionName: value[0].ArmRegionName,
+			ProductId: value[0].SkuID,
 			VMSpecInfo: irs.VMSpecInfo{
 				Name: "NA",
 				VCpu: irs.VCpuInfo{
@@ -299,9 +304,20 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 			CSPProductInfo: value[0],
 		}
 
+		foundMatchingSku := false
 		if strings.ToLower(productFamily) == "compute" {
+			gpuInfo := parseGpuInfo(value[0].ArmSkuName)
+			if gpuInfo != nil {
+				if productInfo.VMSpecInfo.Gpu == nil {
+					productInfo.VMSpecInfo.Gpu = make([]irs.GpuInfo, 0)
+				}
+				productInfo.VMSpecInfo.Gpu = append(productInfo.VMSpecInfo.Gpu, *gpuInfo)
+			}
+
 			for _, sku := range skuList {
 				if value[0].ArmSkuName == *sku.Name {
+					foundMatchingSku = true
+
 					for _, capability := range sku.Capabilities {
 						if capability.Name == nil || capability.Value == nil {
 							continue
@@ -319,14 +335,16 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 						case "MemoryGB":
 							productInfo.VMSpecInfo.MemSizeMiB, _ = irs.ConvertGiBToMiB(value)
 						case "GPUs":
-							productInfo.VMSpecInfo.Gpu = []irs.GpuInfo{
-								{
-									Count:          value,
-									MemSizeGB:      "-1",
-									TotalMemSizeGB: "-1",
-									Mfr:            "NA",
-									Model:          "NA",
-								},
+							if gpuInfo == nil {
+								productInfo.VMSpecInfo.Gpu = []irs.GpuInfo{
+									{
+										Count:          value,
+										MemSizeGB:      "-1",
+										TotalMemSizeGB: "-1",
+										Mfr:            "NA",
+										Model:          "NA",
+									},
+								}
 							}
 						}
 					}
@@ -334,62 +352,44 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 				}
 			}
 
+			if !foundMatchingSku {
+				continue
+			}
+
 			if value[0].ArmSkuName == "" {
 				productInfo.VMSpecInfo.Name = "NA"
 			} else {
 				productInfo.VMSpecInfo.Name = value[0].ArmSkuName
 			}
-
-			productNameToLower := strings.ToLower(value[0].ProductName)
-			armSkuNameToLower := strings.ToLower(value[0].ArmSkuName)
-			if strings.Contains(productNameToLower, "windows") ||
-				strings.Contains(armSkuNameToLower, "windows") {
-				productInfo.OSDistribution = "Windows"
-			} else if strings.Contains(productNameToLower, "linux") ||
-				strings.Contains(armSkuNameToLower, "linux") {
-				productInfo.OSDistribution = "Linux"
-			} else {
-				productInfo.OSDistribution = "NA"
-			}
-
-			productInfo.PreInstalledSw = "NA"
-		} else if strings.ToLower(productFamily) == "storage" {
-			productInfo.VolumeType = value[0].SkuName
-			productInfo.StorageMedia = "NA"
-			productInfo.MaxVolumeSize = "NA"
-			productInfo.MaxIOPSVolume = "NA"
-			productInfo.MaxThroughputVolume = "NA"
 		}
 
-		var pricingPolicies []irs.PricingPolicies
-		var isPickedByPricingPolicies bool
-		isPricingPoliciesFilterExist, fields := isFieldToFilterExist(irs.PricingPolicies{}, filterList)
+		var onDemand irs.OnDemand
+		isOnDemandFilterExist, fields := isFieldToFilterExist(irs.OnDemand{}, filterList)
+		itemSelected := false
 
 		for _, item := range value {
-			pricingPolicy := irs.PricingPolicies{
-				PricingId:     item.SkuID,
-				PricingPolicy: item.Type,
-				Unit:          item.UnitOfMeasure,
-				Currency:      item.CurrencyCode,
-				Price:         strconv.FormatFloat(item.RetailPrice, 'f', -1, 64),
-				Description:   "NA",
-				PricingPolicyInfo: &irs.PricingPolicyInfo{
-					LeaseContractLength: "NA",
-					OfferingClass:       "NA",
-					PurchaseOption:      "NA",
-				},
+			currentOnDemand := irs.OnDemand{
+				PricingId:   item.SkuID,
+				Unit:        strings.TrimPrefix(item.UnitOfMeasure, "1 "),
+				Currency:    item.CurrencyCode,
+				Price:       strconv.FormatFloat(item.RetailPrice, 'f', 4, 64),
+				Description: "NA",
 			}
 
 			picked := true
-			if isPricingPoliciesFilterExist {
-				picked = isPicked(pricingPolicy, fields, filterList)
-				if picked {
-					isPickedByPricingPolicies = true
-				}
+			if isOnDemandFilterExist {
+				picked = isPicked(currentOnDemand, fields, filterList)
 			}
+
 			if picked {
-				pricingPolicies = append(pricingPolicies, pricingPolicy)
+				onDemand = currentOnDemand
+				itemSelected = true
+				break
 			}
+		}
+
+		if !itemSelected {
+			continue
 		}
 
 		picked := true
@@ -397,34 +397,27 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 		if isProductInfoFilterExist {
 			picked = isPicked(productInfo, fields, filterList)
 		}
+
 		if picked {
-			if isPricingPoliciesFilterExist && !isPickedByPricingPolicies {
-				continue
-			}
 			priceList = append(priceList, irs.Price{
 				ProductInfo: productInfo,
 				PriceInfo: irs.PriceInfo{
-					PricingPolicies: pricingPolicies,
-					CSPPriceInfo:    value,
+					OnDemand:     onDemand,
+					CSPPriceInfo: value,
 				},
 			})
 		}
 	}
 
-	cloudPriceData := irs.CloudPriceData{
-		Meta: irs.Meta{
-			Version:     "v0.1",
-			Description: "Multi-Cloud Price Info",
-		},
-		CloudPriceList: []irs.CloudPrice{
-			{
-				CloudName: "Azure",
-				PriceList: priceList,
-			},
-		},
+	cloudPrice := irs.CloudPrice{
+		Meta:       irs.Meta{Version: "0.5", Description: "AZURE Virtual Machines Price Info"},
+		CloudName:  "AZURE",
+		RegionName: regionName,
+		ZoneName:   "NA",
+		PriceList:  priceList,
 	}
 
-	data, err := json.Marshal(cloudPriceData)
+	data, err := json.Marshal(cloudPrice)
 	if err != nil {
 		getErr := errors.New(fmt.Sprintf("Failed to get PriceInfo. err = %s", err))
 		cblogger.Error(getErr.Error())
