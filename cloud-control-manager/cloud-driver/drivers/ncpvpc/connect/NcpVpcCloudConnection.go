@@ -12,6 +12,7 @@
 package connect
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/sirupsen/logrus"
@@ -20,7 +21,9 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
+	vas "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vautoscaling"
 	vlb "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vloadbalancer"
+	vnks "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vnks"
 	vpc "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vpc"
 	vserver "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
 
@@ -34,6 +37,8 @@ type NcpVpcCloudConnection struct {
 	VmClient       *vserver.APIClient
 	VpcClient      *vpc.APIClient
 	VlbClient      *vlb.APIClient
+	VnksClient     *vnks.APIClient
+	VasClient      *vas.APIClient
 }
 
 var cblogger *logrus.Logger
@@ -124,7 +129,11 @@ func (cloudConn *NcpVpcCloudConnection) CreateMyImageHandler() (irs.MyImageHandl
 func (cloudConn *NcpVpcCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
 	cblogger.Info("NCP VPC Cloud Driver: called CreateClusterHandler()!")
 
-	return nil, fmt.Errorf("NCP VPC Cloud Driver does not support CreateClusterHandler yet.")
+	ctx := context.Background()
+	clusterHandler := ncpvpcrs.NcpVpcClusterHandler{
+		cloudConn.RegionInfo, ctx, cloudConn.VmClient, cloudConn.VpcClient,
+		cloudConn.VnksClient, cloudConn.VasClient}
+	return &clusterHandler, nil
 }
 
 func (cloudConn *NcpVpcCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
