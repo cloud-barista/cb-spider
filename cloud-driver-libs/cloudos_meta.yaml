@@ -28,6 +28,7 @@ AZURE:
   disktype: PremiumSSD / StandardSSD / StandardHDD
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
   idmaxlength: 64 / 80 / 64 / 80 / 64 / 80 / 80 / 80 / 63
+  defaultregiontoquery: koreacentral / 1
 
 GCP:
   region: Region / Zone
