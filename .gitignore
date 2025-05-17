@@ -77,3 +77,17 @@ test/vm-cb-user-validation-cli/2.6-csp-test/connection/.azure-credential
 test/vm-cb-user-validation-cli/2.6-csp-test/connection/.alibaba-credential
 test/vm-cb-user-validation-cli/2.6-csp-test/connection/.tencent-credential
 test/vm-cb-user-validation-cli/2.6-csp-test/connection/.openstack-credential
+
+utils/register-default-conn/.alibaba-credential
+utils/register-default-conn/.aws-credential
+utils/register-default-conn/.azure-credential
+utils/register-default-conn/.gcp-credential
+utils/register-default-conn/.ibmvpc-credential
+utils/register-default-conn/.ktclassic-credential
+utils/register-default-conn/.ktvpc-credential
+utils/register-default-conn/.mock-credential
+utils/register-default-conn/.ncpclassic-credential
+utils/register-default-conn/.ncpvpc-credential
+utils/register-default-conn/.nhncloud-credential
+utils/register-default-conn/.openstack-credential
+utils/register-default-conn/.tencent-credential
