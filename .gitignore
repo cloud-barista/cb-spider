@@ -70,24 +70,5 @@ cloud-control-manager/cloud-driver/drivers/ncpvpc/main/config/config.yaml
 cloud-control-manager/cloud-driver/drivers/nhncloud/main/conf/config.yaml
 cloud-control-manager/cloud-driver/drivers/ktcloud/main/config/config.yaml
 
-test/vm-cb-user-validation-cli/2.6-csp-test/connection/.aws-credential
-test/vm-cb-user-validation-cli/2.6-csp-test/connection/.azure-credential
-test/vm-cb-user-validation-cli/2.6-csp-test/connection/.gcp-credential
-test/vm-cb-user-validation-cli/2.6-csp-test/connection/.azure-credential
-test/vm-cb-user-validation-cli/2.6-csp-test/connection/.alibaba-credential
-test/vm-cb-user-validation-cli/2.6-csp-test/connection/.tencent-credential
-test/vm-cb-user-validation-cli/2.6-csp-test/connection/.openstack-credential
-
-utils/default-connection-helper/.alibaba-credential
-utils/default-connection-helper/.aws-credential
-utils/default-connection-helper/.azure-credential
-utils/default-connection-helper/.gcp-credential
-utils/default-connection-helper/.ibmvpc-credential
-utils/default-connection-helper/.ktclassic-credential
-utils/default-connection-helper/.ktvpc-credential
-utils/default-connection-helper/.mock-credential
-utils/default-connection-helper/.ncpclassic-credential
-utils/default-connection-helper/.ncpvpc-credential
-utils/default-connection-helper/.nhncloud-credential
-utils/default-connection-helper/.openstack-credential
-utils/default-connection-helper/.tencent-credential
+test/vm-cb-user-validation-cli/2.6-csp-test/connection/.*-credential
+utils/default-connection-helper/.*-credential
