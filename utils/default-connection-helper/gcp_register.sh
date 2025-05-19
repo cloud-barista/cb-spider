@@ -4,7 +4,7 @@
 source ./common_register.sh
 
 # Load GCP credentials
-GCP_CREDENTIAL_FILE="./.gcp-credential"
+GCP_CREDENTIAL_FILE="$HOME/.cb-spider/.gcp-credential"
 check_credential_file "$GCP_CREDENTIAL_FILE" "GCP credential file not found"
 
 # Check required variables

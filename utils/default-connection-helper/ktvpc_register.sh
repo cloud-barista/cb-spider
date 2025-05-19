@@ -4,7 +4,7 @@
 source ./common_register.sh
 
 # Load KT Cloud VPC credentials
-KTCLOUD_CREDENTIAL_FILE="./.ktvpc-credential"
+KTCLOUD_CREDENTIAL_FILE="$HOME/.cb-spider/.ktvpc-credential"
 check_credential_file "$KTCLOUD_CREDENTIAL_FILE" "KT Cloud VPC credential file not found"
 
 # Check required variables

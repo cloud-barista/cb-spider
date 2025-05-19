@@ -4,7 +4,7 @@
 source ./common_register.sh
 
 # Load NCP VPC credentials
-NCP_CREDENTIAL_FILE="./.ncpvpc-credential"
+NCP_CREDENTIAL_FILE="$HOME/.cb-spider/.ncpvpc-credential"
 check_credential_file "$NCP_CREDENTIAL_FILE" "NCP VPC credential file not found"
 
 # Check required variables

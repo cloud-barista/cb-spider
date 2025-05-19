@@ -4,7 +4,7 @@
 source ./common_register.sh
 
 # Load OpenStack credentials
-OPENSTACK_CREDENTIAL_FILE="./.openstack-credential"
+OPENSTACK_CREDENTIAL_FILE="$HOME/.cb-spider/.openstack-credential"
 check_credential_file "$OPENSTACK_CREDENTIAL_FILE" "OpenStack credential file not found"
 
 # Check required variables

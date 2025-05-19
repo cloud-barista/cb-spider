@@ -4,7 +4,7 @@
 source ./common_register.sh
 
 # Load KT Cloud Classic credentials
-KTCLOUD_CREDENTIAL_FILE="./.ktclassic-credential"
+KTCLOUD_CREDENTIAL_FILE="$HOME/.cb-spider/.ktclassic-credential"
 check_credential_file "$KTCLOUD_CREDENTIAL_FILE" "KT Cloud Classic credential file not found"
 
 # Check required variables

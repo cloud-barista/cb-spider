@@ -39,8 +39,8 @@ echo "Waiting for completion (this might take a few minutes)..."
 for PID in "${PIDS[@]}"; do
   PROVIDER=$(grep "^$PID:" "$TMP_DONE_LOG.map" | cut -d':' -f2)
   
-  # Set a timeout of 60 seconds for each process
-  TIMEOUT=60
+  # Set a timeout of 240 seconds for each process
+  TIMEOUT=240
   COUNT=0
   
   while kill -0 $PID 2>/dev/null; do

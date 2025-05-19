@@ -4,7 +4,7 @@
 source ./common_register.sh
 
 # Load Azure credentials
-AZURE_CREDENTIAL_FILE="./.azure-credential"
+AZURE_CREDENTIAL_FILE="$HOME/.cb-spider/.azure-credential"
 check_credential_file "$AZURE_CREDENTIAL_FILE" "Azure credential file not found"
 
 # Check required variables

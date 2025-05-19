@@ -4,7 +4,7 @@
 source ./common_register.sh
 
 # Load Tencent credentials
-TENCENT_CREDENTIAL_FILE="./.tencent-credential"
+TENCENT_CREDENTIAL_FILE="$HOME/.cb-spider/.tencent-credential"
 check_credential_file "$TENCENT_CREDENTIAL_FILE" "Tencent credential file not found"
 
 # Check required variables

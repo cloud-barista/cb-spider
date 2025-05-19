@@ -4,7 +4,7 @@
 source ./common_register.sh
 
 # Load Mock credentials
-MOCK_CREDENTIAL_FILE="./.mock-credential"
+MOCK_CREDENTIAL_FILE="$HOME/.cb-spider/.mock-credential"
 check_credential_file "$MOCK_CREDENTIAL_FILE" "Mock credential file not found"
 
 # Check required variables

@@ -4,7 +4,7 @@
 source ./common_register.sh
 
 # Load IBM credentials
-IBM_CREDENTIAL_FILE="./.ibmvpc-credential"
+IBM_CREDENTIAL_FILE="$HOME/.cb-spider/.ibmvpc-credential"
 check_credential_file "$IBM_CREDENTIAL_FILE" "IBM credential file not found"
 
 # Check required variables

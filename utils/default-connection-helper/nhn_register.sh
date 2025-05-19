@@ -4,7 +4,7 @@
 source ./common_register.sh
 
 # Load NHN Cloud credentials
-NHN_CREDENTIAL_FILE="./.nhncloud-credential"
+NHN_CREDENTIAL_FILE="$HOME/.cb-spider/.nhncloud-credential"
 check_credential_file "$NHN_CREDENTIAL_FILE" "NHN Cloud credential file not found"
 
 # Check required variables

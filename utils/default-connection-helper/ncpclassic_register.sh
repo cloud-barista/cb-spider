@@ -4,7 +4,7 @@
 source ./common_register.sh
 
 # Load NCP Classic credentials
-NCP_CREDENTIAL_FILE="./.ncpclassic-credential"
+NCP_CREDENTIAL_FILE="$HOME/.cb-spider/.ncpclassic-credential"
 check_credential_file "$NCP_CREDENTIAL_FILE" "NCP Classic credential file not found"
 
 # Check required variables

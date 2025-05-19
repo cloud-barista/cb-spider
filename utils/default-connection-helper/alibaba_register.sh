@@ -4,7 +4,7 @@
 source ./common_register.sh
 
 # Load Alibaba credentials
-ALIBABA_CREDENTIAL_FILE="./.alibaba-credential"
+ALIBABA_CREDENTIAL_FILE="$HOME/.cb-spider/.alibaba-credential"
 check_credential_file "$ALIBABA_CREDENTIAL_FILE" "Alibaba credential file not found"
 
 # Check required variables

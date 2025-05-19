@@ -33,15 +33,17 @@ Before using this utility, you need to:
 For each CSP you want to connect to, you need to set up a credential file:
 
 1. Find the sample credential file (e.g., `.aws-credential.sample`)
-2. Create a copy with the proper name (e.g., `.aws-credential`)
+2. Create a copy with the proper name (e.g., `.aws-credential` in `$HOME/.cb-spider/`)
 3. Edit the file and add your actual cloud credentials
 
 Example for AWS:
 ```bash
-cp .aws-credential.sample .aws-credential
-vi .aws-credential
+cp .aws-credential.sample $HOME/.cb-spider/.aws-credential
+vi $HOME/.cb-spider/.aws-credential
 # Add your AWS access key and secret key
 ```
+
+✅ All credential files should be placed under $HOME/.cb-spider/ for consistency and automatic loading by each CSP script.
 
 ## Usage
 
@@ -150,9 +152,9 @@ This utility supports the following Cloud Service Providers:
 
 ## Troubleshooting
 
-- If a script hangs, it will automatically timeout after 60 seconds
+- If a script hangs, it will automatically timeout after 240 seconds
 - Check the status report at the end of execution for any failed operations
-- Make sure your credential files are properly set up
+- Make sure your credential files are properly set up in $HOME/.cb-spider/
 - Verify that the Spider server is running and accessible
 
 ## Advanced Configuration

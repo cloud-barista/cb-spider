@@ -4,7 +4,7 @@
 source ./common_register.sh
 
 # Load AWS credentials
-AWS_CREDENTIAL_FILE="./.aws-credential"
+AWS_CREDENTIAL_FILE="$HOME/.cb-spider/.aws-credential"
 check_credential_file "$AWS_CREDENTIAL_FILE" "AWS credential file not found"
 
 # Check required variables
