@@ -6592,8 +6592,7 @@ paths:
       consumes:
       - application/json
       description: "Retrieve VM Price Information for a specific connection and region.
-        \U0001F577️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Price-Info-and-Cloud-Driver-API)],
-        \U0001F577️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/RestAPI-Multi%E2%80%90Cloud-Price-Information-Guide)]
+        \U0001F577️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/VM-Price-Info-Guide)]
         <br> * example body: {\"connectionName\":\"aws-connection\",\"FilterList\":[{\"Key\":\"instanceType\",\"Value\":\"t2.micro\"}]}"
       operationId: get-vmprice-info
       parameters:
