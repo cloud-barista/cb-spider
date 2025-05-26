@@ -15,7 +15,6 @@ type CloudPrice struct {
 	Meta       Meta   `json:"Meta" validate:"required" description:"Metadata information about the price data"`
 	CloudName  string `json:"CloudName" validate:"required" example:"AWS"`        // Name of the cloud provider
 	RegionName string `json:"RegionName" validate:"required" example:"us-east-1"` // Name of the region
-	ZoneName   string `json:"ZoneName,omitempty" example:"us-east-1a"`            // Name of the zone
 
 	PriceList []Price `json:"PriceList" validate:"required" description:"List of prices"` // List of prices for different services/products
 }
@@ -28,6 +27,7 @@ type Meta struct {
 
 // Price represents the price information for a specific product.
 type Price struct {
+	ZoneName    string      `json:"ZoneName,omitempty" example:"us-east-1a"`                                     // Name of the zone
 	ProductInfo ProductInfo `json:"ProductInfo" validate:"required" description:"Information about the product"` // Information about the product
 	PriceInfo   PriceInfo   `json:"PriceInfo" validate:"required" description:"Pricing details of the product"`  // Pricing details of the product
 }

@@ -179,12 +179,13 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 
 						cblogger.Infof("fetch :: %s machine type", productInfo.VMSpecInfo.Name)
 
-						priceList := irs.Price{
+						aPrice := irs.Price{
+							ZoneName:    machineType.Zone,
 							ProductInfo: *productInfo,
 							PriceInfo:   *priceInfo,
 						}
 
-						priceLists = append(priceLists, priceList)
+						priceLists = append(priceLists, aPrice)
 					}
 				}
 			}
@@ -192,10 +193,9 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 	}
 
 	cloudPrice := irs.CloudPrice{
-		Meta:       irs.Meta{Version: "0.5", Description: "GCP Virtual Machines Price Info"},
+		Meta:       irs.Meta{Version: "0.5", Description: "Multi-Cloud Price Info"},
 		CloudName:  "GCP",
 		RegionName: regionName,
-		ZoneName:   "NA",
 		PriceList:  priceLists,
 	}
 
@@ -327,7 +327,7 @@ func callEstimateCostScenario(priceInfoHandler *GCPPriceInfoHandler, region, bil
 						},
 					},
 				},
-			},
+			},			
 		},
 	).Do()
 

@@ -241,7 +241,7 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 			var onDemand irs.OnDemand
 			for _, price := range productPrice.PriceList {
 				if strings.EqualFold(price.PriceType.Code, "MTRAT") {
-					priceString := fmt.Sprintf("%f", price.PriceValue)
+					priceString := fmt.Sprintf("%.4f", price.PriceValue)
 
 					unitName := price.Unit.CodeName
 					if strings.EqualFold(unitName, "Usage time (per hour)") {
@@ -300,6 +300,7 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 			}
 
 			priceList = append(priceList, irs.Price{
+				ZoneName: "NA",
 				ProductInfo: irs.ProductInfo{
 					ProductId:      productPrice.ProductCode,
 					Description:    productPrice.ProductName,
@@ -325,7 +326,7 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 			var onDemand irs.OnDemand
 			for _, price := range productPrice.PriceList {
 				if strings.EqualFold(price.PriceType.Code, "MTRAT") {
-					priceString := fmt.Sprintf("%f", price.PriceValue)
+					priceString := fmt.Sprintf("%.4f", price.PriceValue)
 
 					unitName := price.Unit.CodeName
 					if strings.EqualFold(unitName, "Usage time (per hour)") {
@@ -348,6 +349,7 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 			}
 
 			priceList = append(priceList, irs.Price{
+				ZoneName: "NA",
 				ProductInfo: irs.ProductInfo{
 					ProductId:      productPrice.ProductCode,
 					Description:    productPrice.ProductDescription,
@@ -367,10 +369,9 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 	}
 
 	cloudPrice := irs.CloudPrice{
-		Meta:       irs.Meta{Version: "0.5", Description: "NCP VPC Virtual Machines Price Info"},
+		Meta:       irs.Meta{Version: "0.5", Description: "Multi-Cloud Price Info"},
 		CloudName:  "NCPVPC",
 		RegionName: regionName,
-		ZoneName:   "NA",
 		PriceList:  priceList,
 	}
 

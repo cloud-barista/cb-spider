@@ -77,7 +77,7 @@ type PriceInfoResponse struct {
 // getVMPriceInfo godoc
 // @ID get-vmprice-info
 // @Summary Get VM Price Information
-// @Description Retrieve VM Price Information for a specific connection and region. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Price-Info-and-Cloud-Driver-API)], 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/RestAPI-Multi%E2%80%90Cloud-Price-Information-Guide)] <br> * example body: {"connectionName":"aws-connection","FilterList":[{"Key":"instanceType","Value":"t2.micro"}]}
+// @Description Retrieve VM Price Information for a specific connection and region. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/VM-Price-Info-Guide)] <br> * example body: {"connectionName":"aws-connection","FilterList":[{"Key":"instanceType","Value":"t2.micro"}]}
 // @Tags [Cloud Metadata] Price Info
 // @Accept  json
 // @Produce  json

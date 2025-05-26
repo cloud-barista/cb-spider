@@ -400,6 +400,7 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 
 		if picked {
 			priceList = append(priceList, irs.Price{
+				ZoneName:    "NA",
 				ProductInfo: productInfo,
 				PriceInfo: irs.PriceInfo{
 					OnDemand:     onDemand,
@@ -410,10 +411,9 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 	}
 
 	cloudPrice := irs.CloudPrice{
-		Meta:       irs.Meta{Version: "0.5", Description: "AZURE Virtual Machines Price Info"},
+		Meta:       irs.Meta{Version: "0.5", Description: "Multi-Cloud Price Info"},
 		CloudName:  "AZURE",
 		RegionName: regionName,
-		ZoneName:   "NA",
 		PriceList:  priceList,
 	}
 

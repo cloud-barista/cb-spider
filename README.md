@@ -59,13 +59,13 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 | Provider      | Price<br>Info | Region/Zone<br>Info | Image<br>Info | VMSpec<br>Info | VPC<br>Subnet       | Security<br>Group | VM KeyPair      | VM             | Disk | MyImage | NLB | managed-K8S |
 |:-------------:|:-------------:|:-------------------:|:-------------:|:--------------:|:-------------------:|:-----------------:|:---------------:|:--------------:|:----:|:---:|:-------:|:-----------:|
 | AWS           | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O        |
-| Azure         | O<br>(Spec제외)| O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O        |
-| GCP           | WIP           | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O        |
+| Azure         | O             | O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O        |
+| GCP           | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O        |
 | Alibaba       | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O           |
 | Tencent       | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O           |
-| IBM VPC       | O<br>(Spec제외)| O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | WIP        |
+| IBM VPC       | O             | O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | WIP        |
 | OpenStack     | NA             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | ?           |
-| NCP Classic   | O            | O                   | O             | O              | O<br>(Type1)       | O<br>(Note1)     | O               | O              | O    | O   | O       | NA           |
+| NCP Classic   | -            | O                   | O             | O              | O<br>(Type1)       | O<br>(Note1)     | O               | O              | O    | O   | O       | NA           |
 | NCP VPC       | O            | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | ?           |
 | NHN           | NA             | O                   | O             | O              | O<br>(Type2)       | O                 | O               | O<br>(Note2)   | O    | O    | O     | O           |
 | KT Classic    | NA             | O                   | O             | O              | O<br>(Type1)       | O                 | O               | O              | O    | O   | O       | NA          |

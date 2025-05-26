@@ -200,6 +200,7 @@
 </head>
 
 <body onload="formatNumbers();">
+    <h3>{{.Data.Meta.Description}} - v{{.Data.Meta.Version}}</h3>
     <h4 id="totalItems">Total Products: #{{.TotalItems}}</h4>    
     <button type="button" class="close-btn" onclick="window.parent.closeFetchOverlay()">X</button>
     
@@ -233,7 +234,7 @@
         <tr>
             <td class="center-text">{{inc $index}}</td>
             <td class="center-text">[{{.ProductInfo.ProductId}}]<br><br>※ {{.ProductInfo.Description}}</td>
-            <td class="center-text">{{$.Data.RegionName}}/{{$.Data.ZoneName}}</td>
+            <td class="center-text">{{$.Data.RegionName}}/{{.ZoneName}}</td>
             <td>
                 <ul>
                     {{if .ProductInfo.VMSpecInfo}}
