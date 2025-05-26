@@ -756,10 +756,9 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetPriceInfo(productFamily string, 
 	}
 
 	cloudPrice := irs.CloudPrice{
-		Meta:       irs.Meta{Version: "0.5", Description: "IBM VPC Virtual Machines Price Info"},
+		Meta:       irs.Meta{Version: "0.5", Description: "Multi-Cloud Price Info"},
 		CloudName:  "IBM",
 		RegionName: regionName,
-		ZoneName:   "NA",
 		PriceList:  priceList,
 	}
 
@@ -1501,6 +1500,7 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen3ProfilePrice(childrenURL str
 	}
 
 	price = irs.Price{
+		ZoneName:    "NA",
 		ProductInfo: productInfo,
 		PriceInfo: irs.PriceInfo{
 			OnDemand: onDemand,

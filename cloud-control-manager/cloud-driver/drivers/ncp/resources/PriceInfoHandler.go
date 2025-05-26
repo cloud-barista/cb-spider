@@ -321,6 +321,7 @@ func (priceInfoHandler *NcpPriceInfoHandler) GetPriceInfo(productFamily string, 
 			}
 
 			priceList = append(priceList, irs.Price{
+				ZoneName: "NA",
 				ProductInfo: irs.ProductInfo{
 					ProductId: product.ProductCode,
 					VMSpecInfo: irs.VMSpecInfo{
@@ -369,6 +370,7 @@ func (priceInfoHandler *NcpPriceInfoHandler) GetPriceInfo(productFamily string, 
 			}
 
 			priceList = append(priceList, irs.Price{
+				ZoneName: "NA",
 				ProductInfo: irs.ProductInfo{
 					ProductId:      product.ProductCode,
 					Description:    product.ProductDescription,
@@ -391,7 +393,6 @@ func (priceInfoHandler *NcpPriceInfoHandler) GetPriceInfo(productFamily string, 
 		Meta:       irs.Meta{Version: "0.1", Description: "NCP Classic Price Info"},
 		CloudName:  "NCP",
 		RegionName: regionName,
-		ZoneName:   "NA",
 		PriceList:  priceList,
 	}
 

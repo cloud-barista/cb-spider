@@ -5233,7 +5233,7 @@ const docTemplate = `{
         },
         "/priceinfo/vm/{RegionName}": {
             "post": {
-                "description": "Retrieve VM Price Information for a specific connection and region. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Price-Info-and-Cloud-Driver-API)], 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/RestAPI-Multi%E2%80%90Cloud-Price-Information-Guide)] \u003cbr\u003e * example body: {\"connectionName\":\"aws-connection\",\"FilterList\":[{\"Key\":\"instanceType\",\"Value\":\"t2.micro\"}]}",
+                "description": "Retrieve VM Price Information for a specific connection and region. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/VM-Price-Info-Guide)] \u003cbr\u003e * example body: {\"connectionName\":\"aws-connection\",\"FilterList\":[{\"Key\":\"instanceType\",\"Value\":\"t2.micro\"}]}",
                 "consumes": [
                     "application/json"
                 ],
@@ -9711,6 +9711,11 @@ const docTemplate = `{
                             "$ref": "#/definitions/spider.ProductInfo"
                         }
                     ]
+                },
+                "ZoneName": {
+                    "description": "Name of the zone",
+                    "type": "string",
+                    "example": "us-east-1a"
                 }
             }
         },
@@ -11976,11 +11981,6 @@ const docTemplate = `{
                     "description": "Name of the region",
                     "type": "string",
                     "example": "us-east-1"
-                },
-                "ZoneName": {
-                    "description": "Name of the zone",
-                    "type": "string",
-                    "example": "us-east-1a"
                 }
             }
         },

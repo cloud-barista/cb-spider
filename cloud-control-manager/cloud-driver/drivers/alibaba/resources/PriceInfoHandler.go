@@ -136,10 +136,9 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 	cloudPrice := irs.CloudPrice{}
 
 	cloudPrice.Meta.Version = "0.5"
-	cloudPrice.Meta.Description = "ALIBABA Virtual Machines Price Info"
+	cloudPrice.Meta.Description = "Multi-Cloud Price Info"
 	cloudPrice.CloudName = "ALIBABA"
 	cloudPrice.RegionName = regionName
-	cloudPrice.ZoneName = "NA"
 
 	availableInstanceTypes := make(map[string]bool)
 
@@ -442,6 +441,7 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 					}
 
 					newPrice := irs.Price{}
+					newPrice.ZoneName = "NA"
 					newProductInfo.ProductId = productId
 					newProductInfo.Description = fmt.Sprintf("SystemDisk: %s", usedSystemDiskCategory)
 					newPrice.ProductInfo = newProductInfo
