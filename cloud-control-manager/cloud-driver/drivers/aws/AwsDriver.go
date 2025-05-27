@@ -82,7 +82,7 @@ func (AwsDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 
 // 공통 AWS 세션 생성 함수
 func newAWSSession(connectionInfo idrv.ConnectionInfo, region string) (*session.Session, error) {
-	// cblog.Debug("전달 받은 커넥션 정보")
+	// cblog.Debug("Received connection information")
 	// cblog.Debug("============================================================================================")
 	// if connectionInfo.CredentialInfo.StsToken != "" {
 	// 	cblog.Debugf("Using SessionToken(For iam-manager - STS) for AWS API calls : [%s]", connectionInfo.CredentialInfo.StsToken)
