@@ -80,38 +80,89 @@ func (AwsDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	return drvCapabilityInfo
 }
 
-// func getVMClient(regionInfo idrv.RegionInfo) (*ec2.EC2, error) {
-func getVMClient(connectionInfo idrv.ConnectionInfo) (*ec2.EC2, error) {
+// 공통 AWS 세션 생성 함수
+func newAWSSession(connectionInfo idrv.ConnectionInfo, region string) (*session.Session, error) {
+	cblog.Debug("전달 받은 커넥션 정보")
+	cblog.Debug("============================================================================================")
+	if connectionInfo.CredentialInfo.StsToken != "" {
+		cblog.Debugf("Using SessionToken(For iam-manager - STS) for AWS API calls : [%s]", connectionInfo.CredentialInfo.StsToken)
+	} else {
+		cblog.Debugf("Using Normal AWS Session for AWS API calls [%s]", connectionInfo.CredentialInfo.ClientId)
+	}
+	cblog.Debug("============================================================================================")
 
 	awsConfig := &aws.Config{
 		CredentialsChainVerboseErrors: aws.Bool(true),
-		Region:                        aws.String(connectionInfo.RegionInfo.Region),
+		Region:                        aws.String(region),
 		Credentials: credentials.NewStaticCredentials(
 			connectionInfo.CredentialInfo.ClientId,
 			connectionInfo.CredentialInfo.ClientSecret,
+			// connectionInfo.CredentialInfo.StsToken, // TS SessionToekn field in AWS
 			"",
 		),
 	}
+	// return session.NewSession(awsConfig)
 
-	var sess *session.Session
-
+	// 기존의 getVMClient에 있던 NewCountingSession 로직을 살려 놓음.
+	// API 호출 카운트를 위해 만들었던데 용도 파악 후 지금처럼 모든 Client에 적용하거나 필요 없으면 전부 제거해도 좋을 듯.
 	// If the CALL_COUNT environment variable is set, use a counting session
 	if os.Getenv("CALL_COUNT") != "" {
-		sess = profile.NewCountingSession(awsConfig)
+		// profile.NewCountingSession은 별도 구현체(테스트/계측용)라고 가정
+		sess := profile.NewCountingSession(awsConfig)
 		if sess == nil {
 			return nil, fmt.Errorf("failed to create counting session")
 		}
 		cblog.Infof("Using counting session for AWS API calls")
+		return sess, nil
 	} else {
-		var err error
-		sess, err = session.NewSession(awsConfig)
+		sess, err := session.NewSession(awsConfig)
 		if err != nil {
 			cblog.Error("Could not create AWS session", err)
 			return nil, err
 		}
 		cblog.Infof("Using regular session for AWS API calls")
+		return sess, nil
 	}
+}
 
+// func getVMClient(regionInfo idrv.RegionInfo) (*ec2.EC2, error) {
+func getVMClient(connectionInfo idrv.ConnectionInfo) (*ec2.EC2, error) {
+	// // setup Region
+	// awsConfig := &aws.Config{
+	// 	CredentialsChainVerboseErrors: aws.Bool(true),
+	// 	Region:                        aws.String(connectionInfo.RegionInfo.Region),
+	// 	Credentials: credentials.NewStaticCredentials(
+	// 		connectionInfo.CredentialInfo.ClientId,
+	// 		connectionInfo.CredentialInfo.ClientSecret,
+	// 		connectionInfo.CredentialInfo.AuthToken, // The AuthToken field is a SessionToken value based on STS in AWS. (for iam-manager) // @todo
+	// 		//"",
+	// 	),
+	// }
+
+	// var sess *session.Session
+
+	// // If the CALL_COUNT environment variable is set, use a counting session
+	// if os.Getenv("CALL_COUNT") != "" {
+	// 	sess = profile.NewCountingSession(awsConfig)
+	// 	if sess == nil {
+	// 		return nil, fmt.Errorf("failed to create counting session")
+	// 	}
+	// 	cblog.Infof("Using counting session for AWS API calls")
+	// } else {
+	// 	var err error
+	// 	sess, err = session.NewSession(awsConfig)
+	// 	if err != nil {
+	// 		cblog.Error("Could not create AWS session", err)
+	// 		return nil, err
+	// 	}
+	// 	cblog.Infof("Using regular session for AWS API calls")
+	// }
+
+	sess, err := newAWSSession(connectionInfo, connectionInfo.RegionInfo.Region)
+	if err != nil {
+		cblog.Error("Could not create AWS session", err)
+		return nil, err
+	}
 	// EC2 서비스 클라이언트 생성
 	svc := ec2.New(sess)
 
@@ -127,25 +178,22 @@ func getNLBClient(connectionInfo idrv.ConnectionInfo) (*elbv2.ELBV2, error) {
 	//cblog.Info("AwsDriver : getVMClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
 	//cblog.Info("전달 받은 커넥션 정보")
 
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(connectionInfo.RegionInfo.Region),
-		//Region:      aws.String("ap-northeast-2"),
-		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
-	)
+	sess, err := newAWSSession(connectionInfo, connectionInfo.RegionInfo.Region)
 	if err != nil {
-		cblog.Error("Could not create aws New Session", err)
+		cblog.Error("Could not create AWS session", err)
 		return nil, err
 	}
 
-	//svc := elb.New(sess)
-	// Create ELBv2 service client
-	svc := elbv2.New(sess)
-	if err != nil {
-		cblog.Error("Could not create ELBv2 service client", err)
-		return nil, err
-	}
+	// //svc := elb.New(sess)
+	// // Create ELBv2 service client
+	// svc := elbv2.New(sess)
+	// if err != nil {
+	// 	cblog.Error("Could not create ELBv2 service client", err)
+	// 	return nil, err
+	// }
 
-	return svc, nil
+	// return svc, nil
+	return elbv2.New(sess), nil
 }
 
 // EKS 처리를 위한 EKS 클라이언트 획득
@@ -156,23 +204,29 @@ func getEKSClient(connectionInfo idrv.ConnectionInfo) (*eks.EKS, error) {
 	//cblog.Info("AwsDriver : getEKSClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
 	//cblog.Info("전달 받은 커넥션 정보")
 
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(connectionInfo.RegionInfo.Region),
-		//Region:      aws.String("ap-northeast-2"),
-		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
-	)
+	// sess, err := session.NewSession(&aws.Config{
+	// 	Region: aws.String(connectionInfo.RegionInfo.Region),
+	// 	//Region:      aws.String("ap-northeast-2"),
+	// 	Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
+	// )
+	// if err != nil {
+	// 	cblog.Error("Could not create aws New Session", err)
+	// 	return nil, err
+	// }
+
+	// svc := eks.New(sess)
+	// //if err != nil {
+	// //	cblog.Error("Could not create eks service client", err)
+	// //	return nil, err
+	// //}
+
+	// return svc, nil
+	sess, err := newAWSSession(connectionInfo, connectionInfo.RegionInfo.Region)
 	if err != nil {
-		cblog.Error("Could not create aws New Session", err)
+		cblog.Error("Could not create AWS session", err)
 		return nil, err
 	}
-
-	svc := eks.New(sess)
-	//if err != nil {
-	//	cblog.Error("Could not create eks service client", err)
-	//	return nil, err
-	//}
-
-	return svc, nil
+	return eks.New(sess), nil
 }
 
 // Iam 처리를 위한 iam 클라이언트 획득
@@ -182,23 +236,29 @@ func getIamClient(connectionInfo idrv.ConnectionInfo) (*iam.IAM, error) {
 	//cblog.Info("AwsDriver : getIamClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
 	//cblog.Info("전달 받은 커넥션 정보")
 
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(connectionInfo.RegionInfo.Region),
-		//Region:      aws.String("ap-northeast-2"),
-		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
-	)
+	// sess, err := session.NewSession(&aws.Config{
+	// 	Region: aws.String(connectionInfo.RegionInfo.Region),
+	// 	//Region:      aws.String("ap-northeast-2"),
+	// 	Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
+	// )
+	// if err != nil {
+	// 	cblog.Error("Could not create aws New Session", err)
+	// 	return nil, err
+	// }
+
+	// svc := iam.New(sess)
+	// //if err != nil {
+	// //	cblog.Error("Could not create iam service client", err)
+	// //	return nil, err
+	// //}
+
+	// return svc, nil
+	sess, err := newAWSSession(connectionInfo, connectionInfo.RegionInfo.Region)
 	if err != nil {
-		cblog.Error("Could not create aws New Session", err)
+		cblog.Error("Could not create AWS session", err)
 		return nil, err
 	}
-
-	svc := iam.New(sess)
-	//if err != nil {
-	//	cblog.Error("Could not create iam service client", err)
-	//	return nil, err
-	//}
-
-	return svc, nil
+	return iam.New(sess), nil
 }
 
 // AutoScaling 처리를 위한 autoScaling 클라이언트 획득
@@ -209,24 +269,31 @@ func getAutoScalingClient(connectionInfo idrv.ConnectionInfo) (*autoscaling.Auto
 	//cblog.Info("AwsDriver : getAutoScalingClient() - Zone : [" + connectionInfo.RegionInfo.Zone + "]")
 	//cblog.Info("전달 받은 커넥션 정보")
 
-	sess, err := session.NewSession(&aws.Config{
-		Region:      aws.String(connectionInfo.RegionInfo.Region),
-		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
-	)
+	// sess, err := session.NewSession(&aws.Config{
+	// 	Region:      aws.String(connectionInfo.RegionInfo.Region),
+	// 	Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
+	// )
+	// if err != nil {
+	// 	cblog.Error("Could not create aws New Session", err)
+	// 	return nil, err
+	// }
+
+	// //svc := elb.New(sess)
+	// // Create ELBv2 service client
+	// svc := autoscaling.New(sess)
+	// //if err != nil {
+	// //	cblog.Error("Could not create autoscaling service client", err)
+	// //	return nil, err
+	// //}
+
+	// return svc, nil
+
+	sess, err := newAWSSession(connectionInfo, connectionInfo.RegionInfo.Region)
 	if err != nil {
-		cblog.Error("Could not create aws New Session", err)
+		cblog.Error("Could not create AWS session", err)
 		return nil, err
 	}
-
-	//svc := elb.New(sess)
-	// Create ELBv2 service client
-	svc := autoscaling.New(sess)
-	//if err != nil {
-	//	cblog.Error("Could not create autoscaling service client", err)
-	//	return nil, err
-	//}
-
-	return svc, nil
+	return autoscaling.New(sess), nil
 }
 
 func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
@@ -300,61 +367,85 @@ func getPricingClient(connectionInfo idrv.ConnectionInfo) (*pricing.Pricing, err
 	// https://docs.aws.amazon.com/ko_kr/awsaccountbilling/latest/aboutv2/using-price-list-query-api.html#price-list-query-api-endpoints
 
 	pricingEndpointRegion := []string{"us-east-1", "eu-central-1", "ap-south-1"}
-	match := false
+	// match := false
+	// for _, str := range pricingEndpointRegion {
+	// 	if str == connectionInfo.RegionInfo.Region {
+	// 		match = true
+	// 		break
+	// 	}
+	// }
+
+	// var targetRegion string
+	// if match {
+	// 	targetRegion = connectionInfo.RegionInfo.Region
+	// } else {
+	// 	targetRegion = "us-east-1"
+	// }
+
+	// sess := session.Must(session.NewSession())
+	// // Create a Pricing client with additional configuration
+	// svc := pricing.New(sess, &aws.Config{
+	// 	// Region: aws.String(connectionInfo.RegionInfo.Region),
+	// 	Region: aws.String(targetRegion),
+	// 	//Region:      aws.String("ap-northeast-2"),
+	// 	Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
+	// )
+
+	// return svc, nil
+	targetRegion := "us-east-1"
 	for _, str := range pricingEndpointRegion {
 		if str == connectionInfo.RegionInfo.Region {
-			match = true
+			targetRegion = connectionInfo.RegionInfo.Region
 			break
 		}
 	}
-
-	var targetRegion string
-	if match {
-		targetRegion = connectionInfo.RegionInfo.Region
-	} else {
-		targetRegion = "us-east-1"
+	sess, err := newAWSSession(connectionInfo, targetRegion)
+	if err != nil {
+		cblog.Error("Could not create AWS session", err)
+		return nil, err
 	}
-
-	sess := session.Must(session.NewSession())
-	// Create a Pricing client with additional configuration
-	svc := pricing.New(sess, &aws.Config{
-		// Region: aws.String(connectionInfo.RegionInfo.Region),
-		Region: aws.String(targetRegion),
-		//Region:      aws.String("ap-northeast-2"),
-		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
-	)
-
-	return svc, nil
+	return pricing.New(sess), nil
 }
 
 func getCostExplorerClient(connectionInfo idrv.ConnectionInfo) (*costexplorer.CostExplorer, error) {
-	sess := session.Must(session.NewSession())
-	svc := costexplorer.New(sess, &aws.Config{
-		Region:      aws.String(connectionInfo.RegionInfo.Region),
-		Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
-	)
+	// sess := session.Must(session.NewSession())
+	// svc := costexplorer.New(sess, &aws.Config{
+	// 	Region:      aws.String(connectionInfo.RegionInfo.Region),
+	// 	Credentials: credentials.NewStaticCredentials(connectionInfo.CredentialInfo.ClientId, connectionInfo.CredentialInfo.ClientSecret, "")},
+	// )
 
-	return svc, nil
+	// return svc, nil
+	sess, err := newAWSSession(connectionInfo, connectionInfo.RegionInfo.Region)
+	if err != nil {
+		cblog.Error("Could not create AWS session", err)
+		return nil, err
+	}
+	return costexplorer.New(sess), nil
 }
 
 func getCloudWatchClient(connectionInfo idrv.ConnectionInfo) (*cloudwatch.CloudWatch, error) {
 
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String(connectionInfo.RegionInfo.Region),
-		Credentials: credentials.NewStaticCredentials(
-			connectionInfo.CredentialInfo.ClientId,
-			connectionInfo.CredentialInfo.ClientSecret,
-			"",
-		),
-	})
+	// sess, err := session.NewSession(&aws.Config{
+	// 	Region: aws.String(connectionInfo.RegionInfo.Region),
+	// 	Credentials: credentials.NewStaticCredentials(
+	// 		connectionInfo.CredentialInfo.ClientId,
+	// 		connectionInfo.CredentialInfo.ClientSecret,
+	// 		"",
+	// 	),
+	// })
 
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to create session: %v", err)
+	// }
+
+	// svc := cloudwatch.New(sess)
+
+	// return svc, nil
+	sess, err := newAWSSession(connectionInfo, connectionInfo.RegionInfo.Region)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create session: %v", err)
 	}
-
-	svc := cloudwatch.New(sess)
-
-	return svc, nil
+	return cloudwatch.New(sess), nil
 }
 
 /*
