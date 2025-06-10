@@ -2190,8 +2190,9 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 	config := readConfigFile()
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
-			ClientId:     config.Aws.AawsAccessKeyID,
+			ClientId:     config.Aws.AwsAccessKeyID,
 			ClientSecret: config.Aws.AwsSecretAccessKey,
+			StsToken:     config.Aws.AwsStsToken,
 		},
 		RegionInfo: idrv.RegionInfo{
 			Region: config.Aws.Region,
@@ -2251,8 +2252,9 @@ func setKeyPairHandler() (irs.KeyPairHandler, error) {
 	config := readConfigFile()
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
-			ClientId:     config.Aws.AawsAccessKeyID,
+			ClientId:     config.Aws.AwsAccessKeyID,
 			ClientSecret: config.Aws.AwsSecretAccessKey,
+			StsToken:     config.Aws.AwsStsToken,
 		},
 		RegionInfo: idrv.RegionInfo{
 			Region: config.Aws.Region,
@@ -2279,8 +2281,9 @@ func setVPCHandler() (irs.VPCHandler, error) {
 	config := readConfigFile()
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
-			ClientId:     config.Aws.AawsAccessKeyID,
+			ClientId:     config.Aws.AwsAccessKeyID,
 			ClientSecret: config.Aws.AwsSecretAccessKey,
+			StsToken:     config.Aws.AwsStsToken,
 		},
 		RegionInfo: idrv.RegionInfo{
 			Region: config.Aws.Region,
@@ -2312,8 +2315,9 @@ func setVPCHandler() (irs.VPCHandler, error) {
 // SecurityGroupID : 생성할 VM에 적용할 보안그룹 ID (ex) sg-0df1c209ea1915e4b
 type Config struct {
 	Aws struct {
-		AawsAccessKeyID    string `yaml:"aws_access_key_id"`
+		AwsAccessKeyID     string `yaml:"aws_access_key_id"`
 		AwsSecretAccessKey string `yaml:"aws_secret_access_key"`
+		AwsStsToken        string `yaml:"aws_sts_token"`
 		Region             string `yaml:"region"`
 		Zone               string `yaml:"zone"`
 
@@ -2356,7 +2360,7 @@ func readConfigFile() Config {
 	}
 
 	cblogger.Info("Loaded ConfigFile...")
-	cblogger.Debug(config.Aws.AawsAccessKeyID, " ", config.Aws.Region)
+	cblogger.Debug(config.Aws.AwsAccessKeyID, " ", config.Aws.Region)
 	return config
 }
 
@@ -2369,10 +2373,10 @@ func main() {
 	//handleTag()
 	// handlePublicIP() // PublicIP 생성 후 conf
 
-	//handleVPC()
+	handleVPC()
 	//handleSecurity()
 	//handleKeyPair()
-	//handleVM()
+	handleVM()
 	//handleDisk()
 	//handleMyImage()
 	//handleNLB()
