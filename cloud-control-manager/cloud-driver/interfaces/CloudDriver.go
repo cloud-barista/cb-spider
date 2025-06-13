@@ -54,6 +54,7 @@ type CredentialInfo struct {
 	// key-value pairs
 	ClientId         string // Azure Credential
 	ClientSecret     string // Azure Credential
+	StsToken         string // STS SessionToekn field in AWS, Alibaba
 	TenantId         string // Azure Credential
 	SubscriptionId   string // Azure Credential
 	IdentityEndpoint string // OpenStack Credential

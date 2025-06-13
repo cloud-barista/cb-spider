@@ -164,6 +164,7 @@ func createConnectionInfo(cloudConnectName string, targetZoneName string) (idrv.
 		CredentialInfo: idrv.CredentialInfo{
 			ClientId:         getValue(crdInfo.KeyValueInfoList, "ClientId"),
 			ClientSecret:     getValue(crdInfo.KeyValueInfoList, "ClientSecret"),
+			StsToken:         getValue(crdInfo.KeyValueInfoList, "StsToken"),
 			TenantId:         getValue(crdInfo.KeyValueInfoList, "TenantId"),
 			SubscriptionId:   getValue(crdInfo.KeyValueInfoList, "SubscriptionId"),
 			IdentityEndpoint: getValue(crdInfo.KeyValueInfoList, "IdentityEndpoint"),
@@ -261,6 +262,7 @@ func CreateCloudConnection(connectName string) (icon.CloudConnection, error) {
 				ClientEmail      string `json:"ClientEmail"`
 				ClientId         string `json:"ClientId"`
 				ClientSecret     string `json:"ClientSecret"`
+				StsToken         string `json:"StsToken"`
 				ClusterId        string `json:"ClusterId"`
 				ConnectionName   string `json:"ConnectionName"`
 				DomainName       string `json:"DomainName"`
@@ -300,6 +302,7 @@ func CreateCloudConnection(connectName string) (icon.CloudConnection, error) {
 		CredentialInfo: idrv.CredentialInfo{
 			ClientId:         apiResponse.ConnectionInfo.CredentialInfo.ClientId,
 			ClientSecret:     apiResponse.ConnectionInfo.CredentialInfo.ClientSecret,
+			StsToken:         apiResponse.ConnectionInfo.CredentialInfo.StsToken,
 			ConnectionName:   apiResponse.ConnectionInfo.CredentialInfo.ConnectionName,
 			APIVersion:       apiResponse.ConnectionInfo.CredentialInfo.APIVersion,
 			ApiKey:           apiResponse.ConnectionInfo.CredentialInfo.ApiKey,
@@ -362,6 +365,7 @@ func GetCloudConnectionByDriverNameAndCredentialName(driverName string, credenti
 		CredentialInfo: idrv.CredentialInfo{
 			ClientId:         getValue(crdInfo.KeyValueInfoList, "ClientId"),
 			ClientSecret:     getValue(crdInfo.KeyValueInfoList, "ClientSecret"),
+			StsToken:         getValue(crdInfo.KeyValueInfoList, "StsToken"),
 			TenantId:         getValue(crdInfo.KeyValueInfoList, "TenantId"),
 			SubscriptionId:   getValue(crdInfo.KeyValueInfoList, "SubscriptionId"),
 			IdentityEndpoint: getValue(crdInfo.KeyValueInfoList, "IdentityEndpoint"),
