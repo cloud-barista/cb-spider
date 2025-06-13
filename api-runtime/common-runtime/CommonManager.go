@@ -33,17 +33,18 @@ import (
 // define string of resource types
 // redefined for backward compatibility
 const (
-	IMAGE     string = string(cres.IMAGE)
-	VPC       string = string(cres.VPC)
-	SUBNET    string = string(cres.SUBNET)
-	SG        string = string(cres.SG)
-	KEY       string = string(cres.KEY)
-	VM        string = string(cres.VM)
-	NLB       string = string(cres.NLB)
-	DISK      string = string(cres.DISK)
-	MYIMAGE   string = string(cres.MYIMAGE)
-	CLUSTER   string = string(cres.CLUSTER)
-	NODEGROUP string = string(cres.NODEGROUP)
+	IMAGE      string = string(cres.IMAGE)
+	VPC        string = string(cres.VPC)
+	SUBNET     string = string(cres.SUBNET)
+	SG         string = string(cres.SG)
+	KEY        string = string(cres.KEY)
+	VM         string = string(cres.VM)
+	NLB        string = string(cres.NLB)
+	DISK       string = string(cres.DISK)
+	MYIMAGE    string = string(cres.MYIMAGE)
+	CLUSTER    string = string(cres.CLUSTER)
+	NODEGROUP  string = string(cres.NODEGROUP)
+	FILESYSTEM string = string(cres.FILESYSTEM)
 )
 
 func RSTypeString(rsType string) string {
@@ -59,6 +60,7 @@ var nlbSPLock = splock.New()
 var diskSPLock = splock.New()
 var myImageSPLock = splock.New()
 var clusterSPLock = splock.New()
+var fsSPLock = splock.New()
 
 // ====================================================================
 // Common column name and struct for GORM
@@ -311,6 +313,9 @@ func UnregisterResource(connectionName string, rsType string, nameId string) (bo
 	case CLUSTER:
 		clusterSPLock.Lock(connectionName, nameId)
 		defer clusterSPLock.Unlock(connectionName, nameId)
+	case FILESYSTEM:
+		fsSPLock.Lock(connectionName, nameId)
+		defer fsSPLock.Unlock(connectionName, nameId)
 	default:
 		return false, fmt.Errorf(rsType + " is not supported Resource!!")
 	}

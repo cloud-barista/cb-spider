@@ -42,6 +42,11 @@ type OpenStackCloudConnection struct {
 	IdentityClient *gophercloud.ServiceClient
 }
 
+// CreateFileSystemHandler implements connect.CloudConnection.
+func (cloudConn *OpenStackCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
+	panic("unimplemented")
+}
+
 func (cloudConn *OpenStackCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
 	cblogger.Info("OpenStack Cloud Driver: called CreateImageHandler()!")
 	imageHandler := osrs.OpenStackImageHandler{Client: cloudConn.ComputeClient, ImageClient: cloudConn.ImageClient}

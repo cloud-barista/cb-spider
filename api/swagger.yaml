@@ -247,6 +247,29 @@ definitions:
     - ClusterInactive
     - ClusterUpdating
     - ClusterDeleting
+  spider.CronSchedule:
+    properties:
+      DayOfMonth:
+        default: '*'
+        description: 1-31, *
+        type: string
+      DayOfWeek:
+        default: '*'
+        description: 0-6 (Sunday=0), *
+        type: string
+      Hour:
+        default: "5"
+        description: 0-23, *
+        type: string
+      Minute:
+        default: "0"
+        description: 0-59, *
+        type: string
+      Month:
+        default: '*'
+        description: 1-12, *
+        type: string
+    type: object
   spider.DiskInfo:
     properties:
       CreatedTime:
@@ -308,6 +331,134 @@ definitions:
     - DiskAttached
     - DiskDeleting
     - DiskError
+  spider.FileSystemBackupInfo:
+    properties:
+      BackupID:
+        description: for response only, not for request
+        type: string
+      BackupSchedule:
+        allOf:
+        - $ref: '#/definitions/spider.CronSchedule'
+        description: Cron schedule for backups, default is "0 5 * * *" (Every day
+          at 5 AM)
+      CreationTime:
+        type: string
+      FileSystemIID:
+        description: The File System IID to which this backup belongs
+        type: string
+      KeyValueList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+    required:
+    - BackupID
+    - FileSystemIID
+    type: object
+  spider.FileSystemInfo:
+    properties:
+      BackupSchedule:
+        allOf:
+        - $ref: '#/definitions/spider.FileSystemBackupInfo'
+        description: Cron schedule for backups, default is "0 5 * * *" (Every day
+          at 5 AM)
+      CapacityGB:
+        description: Capacity in GB, -1 when not applicable. Ignored if CSP unsupported.;
+          CSP default if omitted
+        example: 1024
+        type: integer
+      CreatedTime:
+        type: string
+      Encryption:
+        default: false
+        description: Encryption enabled or not
+        type: boolean
+      FileSystemType:
+        allOf:
+        - $ref: '#/definitions/spider.FileSystemType'
+        description: |-
+          **************************************************************************************************
+          ** (1) Basic setup: If not set by the user, these fields use CSP default values.
+          ** (2) Advanced setup: If set by the user, these fields enable CSP-specific file system features.
+          **************************************************************************************************
+        example: RegionType
+      IId:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: '{NameId, SystemId}'
+      KeyValueList:
+        description: Additional key-value pairs associated with this File System
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      MountTargetList:
+        items:
+          $ref: '#/definitions/spider.MountTargetInfo'
+        type: array
+      NFSVersion:
+        description: NFS protocol version, e.g., "3.0", "4.1"; CSP default if omitted
+        example: "4.1"
+        type: string
+      PerformanceInfo:
+        additionalProperties:
+          type: string
+        description: Each key/value must match one of the PerformanceOptions provided
+          by the cloud driver for the selected file system type.
+        type: object
+      Region:
+        example: us-east-1
+        type: string
+      Status:
+        allOf:
+        - $ref: '#/definitions/spider.FileSystemStatus'
+        description: only for response, not for request
+        example: Available
+      TagList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      UsedSizeGB:
+        description: Current used size in GB.
+        example: 256
+        type: integer
+      VpcIID:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: Owner VPC IID
+      Zone:
+        example: us-east-1a
+        type: string
+    required:
+    - CreatedTime
+    - IId
+    - NFSVersion
+    - Status
+    - UsedSizeGB
+    - VpcIID
+    type: object
+  spider.FileSystemStatus:
+    enum:
+    - Creating
+    - Available
+    - Deleting
+    - Error
+    type: string
+    x-enum-varnames:
+    - FileSystemCreating
+    - FileSystemAvailable
+    - FileSystemDeleting
+    - FileSystemError
+  spider.FileSystemType:
+    enum:
+    - REGION-TYPE
+    - ZONE-TYPE
+    - REGION-VPC-BASED-TYPE
+    - REGION-ZONE-BASED-TYPE
+    type: string
+    x-enum-varnames:
+    - RegionType
+    - ZoneType
+    - RegionVPCBasedType
+    - RegionZoneBasedType
   spider.GpuInfo:
     properties:
       Count:
@@ -556,6 +707,29 @@ definitions:
         type: string
     required:
     - Version
+    type: object
+  spider.MountTargetInfo:
+    properties:
+      Endpoint:
+        description: mount target endpoint (IP, DNS, URL)
+        type: string
+      KeyValueList:
+        description: Additional key-value pairs associated with this mount target
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      MountCommandExample:
+        description: Example mount command
+        type: string
+      SecurityGroups:
+        description: security groups associated with the mount target
+        items:
+          type: string
+        type: array
+      SubnetIID:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: location of the mount target
     type: object
   spider.MyImageInfo:
     properties:
@@ -866,6 +1040,7 @@ definitions:
     - myimage
     - cluster
     - nodegroup
+    - filesystem
     type: string
     x-enum-varnames:
     - ALL
@@ -880,6 +1055,7 @@ definitions:
     - MYIMAGE
     - CLUSTER
     - NODEGROUP
+    - FILESYSTEM
   spider.RegionInfo:
     properties:
       Region:
@@ -1479,6 +1655,17 @@ definitions:
     - ProviderName
     - RegionName
     type: object
+  spider.AddMountTargetRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      Target:
+        $ref: '#/definitions/spider.MountTargetInfo'
+    required:
+    - ConnectionName
+    - Target
+    type: object
   spider.AllResourceInfoListResponse:
     properties:
       AllListInfo:
@@ -1983,6 +2170,48 @@ definitions:
         description: Resource Control Scope
         type: boolean
     type: object
+  spider.FileSystemCreateRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          Encrypted:
+            example: false
+            type: boolean
+          FileSystemType:
+            example: efs
+            type: string
+          KmsKeyId:
+            type: string
+          Name:
+            example: efs-01
+            type: string
+          PerformanceMode:
+            example: generalPurpose
+            type: string
+          ProvisionedThroughput:
+            example: "0"
+            type: string
+          TagList:
+            items:
+              $ref: '#/definitions/spider.KeyValue'
+            type: array
+          ThroughputMode:
+            example: bursting
+            type: string
+          Zone:
+            example: us-east-1a
+            type: string
+        required:
+        - Name
+        - Zone
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
+    type: object
   spider.HealthCheckResponse:
     properties:
       message:
@@ -2445,6 +2674,17 @@ definitions:
         type: array
     required:
     - regionzone
+    type: object
+  spider.RemoveMountTargetRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      Target:
+        $ref: '#/definitions/spider.MountTargetInfo'
+    required:
+    - ConnectionName
+    - Target
     type: object
   spider.RuleControlRequest:
     properties:
@@ -5595,6 +5835,183 @@ paths:
       summary: Upload Cloud Driver
       tags:
       - '[Cloud Info Management] Driver Info'
+  /filesystem:
+    get:
+      parameters:
+      - description: Connection Name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/spider.FileSystemInfo'
+            type: array
+      summary: List FileSystems
+      tags:
+      - '[FileSystem Management]'
+    post:
+      consumes:
+      - application/json
+      description: Create a new FileSystem with the specified configuration.
+      operationId: create-filesystem
+      parameters:
+      - description: Request body for creating a FileSystem
+        in: body
+        name: FileSystemCreateRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.FileSystemCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the created FileSystem
+          schema:
+            $ref: '#/definitions/spider.FileSystemInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Create FileSystem
+      tags:
+      - '[FileSystem Management]'
+  /filesystem/{Name}:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: Connection Name
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: FileSystem Name
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+      summary: Delete FileSystem
+      tags:
+      - '[FileSystem Management]'
+    get:
+      parameters:
+      - description: Connection Name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: FileSystem Name
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.FileSystemInfo'
+      summary: Get FileSystem
+      tags:
+      - '[FileSystem Management]'
+  /filesystem/{Name}/mount-target:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: FileSystem Name
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: Remove MountTarget Info
+        in: body
+        name: RemoveRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.RemoveMountTargetRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+      summary: Remove Mount Target from FileSystem
+      tags:
+      - '[FileSystem Management]'
+    get:
+      parameters:
+      - description: Connection Name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: FileSystem Name
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/spider.MountTargetInfo'
+            type: array
+      summary: List Mount Targets of FileSystem
+      tags:
+      - '[FileSystem Management]'
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: FileSystem Name
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: Add MountTarget Info
+        in: body
+        name: AddRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.AddMountTargetRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.FileSystemInfo'
+      summary: Add Mount Target to FileSystem
+      tags:
+      - '[FileSystem Management]'
   /getclusterowner:
     post:
       consumes:

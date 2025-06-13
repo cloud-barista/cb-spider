@@ -452,6 +452,19 @@ func RunServer() {
 		{"GET", "/tag/:Key", GetTag},
 		{"DELETE", "/tag/:Key", RemoveTag},
 
+		//----------FileSystem Handler
+		// {"POST", "/regfilesystem", RegisterFileSystem},
+		// {"DELETE", "/regfilesystem/:Name", UnregisterFileSystem},
+
+		{"POST", "/filesystem", CreateFileSystem},
+		{"GET", "/filesystem", ListFileSystem},
+		{"GET", "/filesystem/:Name", GetFileSystem},
+		{"DELETE", "/filesystem/:Name", DeleteFileSystem},
+		//-- for MountTarget
+		{"POST", "/filesystem/:Name/mounttarget", AddMountTarget},
+		{"GET", "/filesystem/:Name/mounttarget", ListMountTarget},
+		{"DELETE", "/filesystem/:Name/mounttarget/:MountTargetId", RemoveMountTarget},
+
 		//----------Destory All Resources in a Connection
 		{"DELETE", "/destroy", Destroy},
 

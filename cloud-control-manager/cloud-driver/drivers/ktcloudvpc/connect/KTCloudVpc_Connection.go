@@ -42,6 +42,11 @@ type KTCloudVpcConnection struct {
 	NLBClient      *ktvpcsdk.ServiceClient
 }
 
+// CreateFileSystemHandler implements connect.CloudConnection.
+func (cloudConn *KTCloudVpcConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
+	panic("unimplemented")
+}
+
 func (cloudConn *KTCloudVpcConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("KT Cloud VPC Driver: called CreateVMHandler()!")
 	vmHandler := ktvpcrs.KTVpcVMHandler{CredentialInfo: cloudConn.CredentialInfo, RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VMClient, ImageClient: cloudConn.ImageClient, NetworkClient: cloudConn.NetworkClient, VolumeClient: cloudConn.VolumeClient}

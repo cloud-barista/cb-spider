@@ -63,6 +63,9 @@ const (
 
 	//=========== PMKS: Provider-Managed K8S
 	CLUSTER RES_TYPE = "CLUSTER"
+
+	//=========== FileSystem
+	FILESYSTEM RES_TYPE = "FILESYSTEM"
 )
 
 type CALLLogger struct {

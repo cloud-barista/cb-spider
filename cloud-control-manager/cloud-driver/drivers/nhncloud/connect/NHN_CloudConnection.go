@@ -45,6 +45,11 @@ type NhnCloudConnection struct {
 	ClusterClient  *nhnsdk.ServiceClient
 }
 
+// CreateFileSystemHandler implements connect.CloudConnection.
+func (cloudConn *NhnCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
+	panic("unimplemented")
+}
+
 func (cloudConn *NhnCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 	cblogger.Info("NhnCloud Cloud Driver: called CreateVMHandler()!")
 	vmHandler := nhnrs.NhnCloudVMHandler{RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VMClient, ImageClient: cloudConn.ImageClient, NetworkClient: cloudConn.NetworkClient, VolumeClient: cloudConn.VolumeClient}

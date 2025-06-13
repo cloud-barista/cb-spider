@@ -3793,6 +3793,275 @@ const docTemplate = `{
                 }
             }
         },
+        "/filesystem": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[FileSystem Management]"
+                ],
+                "summary": "List FileSystems",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection Name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.FileSystemInfo"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new FileSystem with the specified configuration.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[FileSystem Management]"
+                ],
+                "summary": "Create FileSystem",
+                "operationId": "create-filesystem",
+                "parameters": [
+                    {
+                        "description": "Request body for creating a FileSystem",
+                        "name": "FileSystemCreateRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.FileSystemCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Details of the created FileSystem",
+                        "schema": {
+                            "$ref": "#/definitions/spider.FileSystemInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/filesystem/{Name}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[FileSystem Management]"
+                ],
+                "summary": "Get FileSystem",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection Name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "FileSystem Name",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/spider.FileSystemInfo"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[FileSystem Management]"
+                ],
+                "summary": "Delete FileSystem",
+                "parameters": [
+                    {
+                        "description": "Connection Name",
+                        "name": "ConnectionRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.ConnectionRequest"
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "FileSystem Name",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    }
+                }
+            }
+        },
+        "/filesystem/{Name}/mount-target": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[FileSystem Management]"
+                ],
+                "summary": "List Mount Targets of FileSystem",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection Name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "FileSystem Name",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.MountTargetInfo"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[FileSystem Management]"
+                ],
+                "summary": "Add Mount Target to FileSystem",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "FileSystem Name",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Add MountTarget Info",
+                        "name": "AddRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.AddMountTargetRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/spider.FileSystemInfo"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[FileSystem Management]"
+                ],
+                "summary": "Remove Mount Target from FileSystem",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "FileSystem Name",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Remove MountTarget Info",
+                        "name": "RemoveRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.RemoveMountTargetRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    }
+                }
+            }
+        },
         "/getclusterowner": {
             "post": {
                 "description": "Retrieve the owner VPC of a specified Cluster.",
@@ -8913,6 +9182,36 @@ const docTemplate = `{
                 "ClusterDeleting"
             ]
         },
+        "spider.CronSchedule": {
+            "type": "object",
+            "properties": {
+                "DayOfMonth": {
+                    "description": "1-31, *",
+                    "type": "string",
+                    "default": "*"
+                },
+                "DayOfWeek": {
+                    "description": "0-6 (Sunday=0), *",
+                    "type": "string",
+                    "default": "*"
+                },
+                "Hour": {
+                    "description": "0-23, *",
+                    "type": "string",
+                    "default": "5"
+                },
+                "Minute": {
+                    "description": "0-59, *",
+                    "type": "string",
+                    "default": "0"
+                },
+                "Month": {
+                    "description": "1-12, *",
+                    "type": "string",
+                    "default": "*"
+                }
+            }
+        },
         "spider.DiskInfo": {
             "type": "object",
             "required": [
@@ -8998,6 +9297,182 @@ const docTemplate = `{
                 "DiskAttached",
                 "DiskDeleting",
                 "DiskError"
+            ]
+        },
+        "spider.FileSystemBackupInfo": {
+            "type": "object",
+            "required": [
+                "BackupID",
+                "FileSystemIID"
+            ],
+            "properties": {
+                "BackupID": {
+                    "description": "for response only, not for request",
+                    "type": "string"
+                },
+                "BackupSchedule": {
+                    "description": "Cron schedule for backups, default is \"0 5 * * *\" (Every day at 5 AM)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.CronSchedule"
+                        }
+                    ]
+                },
+                "CreationTime": {
+                    "type": "string"
+                },
+                "FileSystemIID": {
+                    "description": "The File System IID to which this backup belongs",
+                    "type": "string"
+                },
+                "KeyValueList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                }
+            }
+        },
+        "spider.FileSystemInfo": {
+            "type": "object",
+            "required": [
+                "CreatedTime",
+                "IId",
+                "NFSVersion",
+                "Status",
+                "UsedSizeGB",
+                "VpcIID"
+            ],
+            "properties": {
+                "BackupSchedule": {
+                    "description": "Cron schedule for backups, default is \"0 5 * * *\" (Every day at 5 AM)",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.FileSystemBackupInfo"
+                        }
+                    ]
+                },
+                "CapacityGB": {
+                    "description": "Capacity in GB, -1 when not applicable. Ignored if CSP unsupported.; CSP default if omitted",
+                    "type": "integer",
+                    "example": 1024
+                },
+                "CreatedTime": {
+                    "type": "string"
+                },
+                "Encryption": {
+                    "description": "Encryption enabled or not",
+                    "type": "boolean",
+                    "default": false
+                },
+                "FileSystemType": {
+                    "description": "**************************************************************************************************\n** (1) Basic setup: If not set by the user, these fields use CSP default values.\n** (2) Advanced setup: If set by the user, these fields enable CSP-specific file system features.\n**************************************************************************************************",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.FileSystemType"
+                        }
+                    ],
+                    "example": "RegionType"
+                },
+                "IId": {
+                    "description": "{NameId, SystemId}",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "KeyValueList": {
+                    "description": "Additional key-value pairs associated with this File System",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "MountTargetList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.MountTargetInfo"
+                    }
+                },
+                "NFSVersion": {
+                    "description": "NFS protocol version, e.g., \"3.0\", \"4.1\"; CSP default if omitted",
+                    "type": "string",
+                    "example": "4.1"
+                },
+                "PerformanceInfo": {
+                    "description": "Each key/value must match one of the PerformanceOptions provided by the cloud driver for the selected file system type.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "Region": {
+                    "type": "string",
+                    "example": "us-east-1"
+                },
+                "Status": {
+                    "description": "only for response, not for request",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.FileSystemStatus"
+                        }
+                    ],
+                    "example": "Available"
+                },
+                "TagList": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "UsedSizeGB": {
+                    "description": "Current used size in GB.",
+                    "type": "integer",
+                    "example": 256
+                },
+                "VpcIID": {
+                    "description": "Owner VPC IID",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
+                },
+                "Zone": {
+                    "type": "string",
+                    "example": "us-east-1a"
+                }
+            }
+        },
+        "spider.FileSystemStatus": {
+            "type": "string",
+            "enum": [
+                "Creating",
+                "Available",
+                "Deleting",
+                "Error"
+            ],
+            "x-enum-varnames": [
+                "FileSystemCreating",
+                "FileSystemAvailable",
+                "FileSystemDeleting",
+                "FileSystemError"
+            ]
+        },
+        "spider.FileSystemType": {
+            "type": "string",
+            "enum": [
+                "REGION-TYPE",
+                "ZONE-TYPE",
+                "REGION-VPC-BASED-TYPE",
+                "REGION-ZONE-BASED-TYPE"
+            ],
+            "x-enum-varnames": [
+                "RegionType",
+                "ZoneType",
+                "RegionVPCBasedType",
+                "RegionZoneBasedType"
             ]
         },
         "spider.GpuInfo": {
@@ -9344,6 +9819,41 @@ const docTemplate = `{
                     "description": "Version of the pricing data",
                     "type": "string",
                     "example": "1.0"
+                }
+            }
+        },
+        "spider.MountTargetInfo": {
+            "type": "object",
+            "properties": {
+                "Endpoint": {
+                    "description": "mount target endpoint (IP, DNS, URL)",
+                    "type": "string"
+                },
+                "KeyValueList": {
+                    "description": "Additional key-value pairs associated with this mount target",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.KeyValue"
+                    }
+                },
+                "MountCommandExample": {
+                    "description": "Example mount command",
+                    "type": "string"
+                },
+                "SecurityGroups": {
+                    "description": "security groups associated with the mount target",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "SubnetIID": {
+                    "description": "location of the mount target",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/spider.IID"
+                        }
+                    ]
                 }
             }
         },
@@ -9784,7 +10294,8 @@ const docTemplate = `{
                 "disk",
                 "myimage",
                 "cluster",
-                "nodegroup"
+                "nodegroup",
+                "filesystem"
             ],
             "x-enum-varnames": [
                 "ALL",
@@ -9798,7 +10309,8 @@ const docTemplate = `{
                 "DISK",
                 "MYIMAGE",
                 "CLUSTER",
-                "NODEGROUP"
+                "NODEGROUP",
+                "FILESYSTEM"
             ]
         },
         "spider.RegionInfo": {
@@ -10631,6 +11143,22 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.AddMountTargetRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "Target"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "Target": {
+                    "$ref": "#/definitions/spider.MountTargetInfo"
+                }
+            }
+        },
         "spider.AllResourceInfoListResponse": {
             "type": "object",
             "required": [
@@ -11343,6 +11871,65 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.FileSystemCreateRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "ReqInfo"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "ReqInfo": {
+                    "type": "object",
+                    "required": [
+                        "Name",
+                        "Zone"
+                    ],
+                    "properties": {
+                        "Encrypted": {
+                            "type": "boolean",
+                            "example": false
+                        },
+                        "FileSystemType": {
+                            "type": "string",
+                            "example": "efs"
+                        },
+                        "KmsKeyId": {
+                            "type": "string"
+                        },
+                        "Name": {
+                            "type": "string",
+                            "example": "efs-01"
+                        },
+                        "PerformanceMode": {
+                            "type": "string",
+                            "example": "generalPurpose"
+                        },
+                        "ProvisionedThroughput": {
+                            "type": "string",
+                            "example": "0"
+                        },
+                        "TagList": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.KeyValue"
+                            }
+                        },
+                        "ThroughputMode": {
+                            "type": "string",
+                            "example": "bursting"
+                        },
+                        "Zone": {
+                            "type": "string",
+                            "example": "us-east-1a"
+                        }
+                    }
+                }
+            }
+        },
         "spider.HealthCheckResponse": {
             "type": "object",
             "required": [
@@ -12009,6 +12596,22 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/spider.RegionZoneInfo"
                     }
+                }
+            }
+        },
+        "spider.RemoveMountTargetRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "Target"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-connection"
+                },
+                "Target": {
+                    "$ref": "#/definitions/spider.MountTargetInfo"
                 }
             }
         },

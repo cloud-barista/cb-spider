@@ -68,6 +68,11 @@ type AzureCloudConnection struct {
 	DnsZoneClient                   *armdns.ZonesClient
 }
 
+// CreateFileSystemHandler implements connect.CloudConnection.
+func (cloudConn *AzureCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
+	panic("unimplemented")
+}
+
 func (cloudConn *AzureCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateImageHandler()!")
 	imageHandler := azrs.AzureImageHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.ImageClient, cloudConn.VMImageClient}

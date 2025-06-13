@@ -25,6 +25,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/costexplorer"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/efs"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/pricing"
 
@@ -65,6 +66,8 @@ type AwsCloudConnection struct {
 
 	AnyCallClient *ec2.EC2
 	TagClient     *ec2.EC2
+
+	FSClient *efs.EFS
 
 	CostExplorerClient *costexplorer.CostExplorer
 
@@ -162,6 +165,11 @@ func (cloudConn *AwsCloudConnection) CreateDiskHandler() (irs.DiskHandler, error
 	tagHandler := cloudConn.CreateAwsTagHandler()
 	handler := ars.AwsDiskHandler{Region: cloudConn.Region, Client: cloudConn.DiskClient, TagHandler: &tagHandler}
 	return &handler, nil
+}
+
+// CreateFileSystemHandler implements connect.CloudConnection.
+func (cloudConn *AwsCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
+	panic("unimplemented")
 }
 
 func (cloudConn *AwsCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
