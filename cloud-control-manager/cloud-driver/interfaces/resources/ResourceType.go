@@ -97,6 +97,8 @@ func StringToRSType(str string) (RSType, error) {
 		return CLUSTER, nil
 	case "nodegroup":
 		return NODEGROUP, nil
+	case "filesystem":
+		return FILESYSTEM, nil
 	default:
 		return "", fmt.Errorf("%s is not a valid resource type", str)
 	}
