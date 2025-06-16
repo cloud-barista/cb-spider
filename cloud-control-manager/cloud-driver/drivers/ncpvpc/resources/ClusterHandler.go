@@ -427,7 +427,113 @@ func (nvch *NcpVpcClusterHandler) ListCluster() ([]*irs.ClusterInfo, error) {
 }
 
 func (nvch *NcpVpcClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInfo, error) {
-	return irs.ClusterInfo{}, nil
+	defer func() {
+		if r := recover(); r != nil {
+			err := fmt.Errorf("PANIC!!\n%v\n%v", r, string(debug.Stack()))
+			cblogger.Error(err)
+		}
+	}()
+
+	cblogger.Debug("NCPVPC Cloud Driver: called GetCluster()")
+	emptyClusterInfo := irs.ClusterInfo{}
+	hiscallInfo := GetCallLogScheme(nvch.RegionInfo.Region, call.CLUSTER, clusterIID.SystemId, "GetCluster()")
+	start := call.Start()
+
+	var getErr error
+	defer func() {
+		if getErr != nil {
+			cblogger.Error(getErr)
+			LoggingError(hiscallInfo, getErr)
+		}
+	}()
+
+	clusterList, err := ncpvpcClustersGet(nvch.ClusterClient, nvch.Ctx)
+	if err != nil {
+		getErr = fmt.Errorf("failed to list clusters: %v", err)
+		return emptyClusterInfo, getErr
+	}
+
+	var targetCluster *vnks.Cluster
+	for _, c := range clusterList {
+		if ncloud.StringValue(c.Uuid) == clusterIID.SystemId {
+			targetCluster = c
+			break
+		}
+	}
+	if targetCluster == nil {
+		getErr = fmt.Errorf("cluster with SystemId %s not found", clusterIID.SystemId)
+		return emptyClusterInfo, getErr
+	}
+
+	var createdTime time.Time
+	if targetCluster.CreatedAt != nil && *targetCluster.CreatedAt != "" {
+		parsedTime, err := time.Parse(time.RFC3339, *targetCluster.CreatedAt)
+		if err != nil {
+			getErr = fmt.Errorf("failed to parse CreatedAt (%s): %v", *targetCluster.CreatedAt, err)
+			return emptyClusterInfo, getErr
+		}
+		createdTime = parsedTime
+	}
+
+	clusterInfo := irs.ClusterInfo{
+		IId: irs.IID{
+			NameId:   ncloud.StringValue(targetCluster.Name),
+			SystemId: ncloud.StringValue(targetCluster.Uuid),
+		},
+		Version:     ncloud.StringValue(targetCluster.K8sVersion),
+		CreatedTime: createdTime,
+		Status:      irs.ClusterStatus(ncloud.StringValue(targetCluster.Status)),
+		AccessInfo: irs.AccessInfo{
+			Endpoint:   ncloud.StringValue(targetCluster.Endpoint),
+			Kubeconfig: "Kubeconfig is not provided for NCP.",
+		},
+		Network: irs.NetworkInfo{
+			VpcIID: irs.IID{
+				NameId:   ncloud.StringValue(targetCluster.VpcName),
+				SystemId: fmt.Sprintf("%d", ncloud.Int32Value(targetCluster.VpcNo)),
+			},
+			SubnetIIDs: func() []irs.IID {
+				var list []irs.IID
+				for _, sn := range targetCluster.SubnetNoList {
+					list = append(list, irs.IID{SystemId: fmt.Sprintf("%d", ncloud.Int32Value(sn))})
+				}
+				return list
+			}(),
+		},
+	}
+
+	for _, np := range targetCluster.NodePool {
+		onAutoScaling := false
+		minNodeSize := 0
+		maxNodeSize := 0
+		if np.Autoscale != nil {
+			onAutoScaling = ncloud.BoolValue(np.Autoscale.Enabled)
+			minNodeSize = int(ncloud.Int32Value(np.Autoscale.Min))
+			maxNodeSize = int(ncloud.Int32Value(np.Autoscale.Max))
+		}
+
+		nodeGroupInfo := irs.NodeGroupInfo{
+			IId: irs.IID{
+				NameId:   ncloud.StringValue(np.Name),
+				SystemId: fmt.Sprintf("%d", ncloud.Int32Value(np.InstanceNo)),
+			},
+			VMSpecName:      ncloud.StringValue(np.ServerSpecCode),
+			ImageIID:        irs.IID{NameId: ncloud.StringValue(np.SoftwareCode)},
+			DesiredNodeSize: int(ncloud.Int32Value(np.NodeCount)),
+			MinNodeSize:     minNodeSize,
+			MaxNodeSize:     maxNodeSize,
+			RootDiskSize:    fmt.Sprintf("%d", ncloud.Int32Value(np.StorageSize)),
+			KeyPairIID:      irs.IID{NameId: ncloud.StringValue(targetCluster.LoginKeyName)},
+			OnAutoScaling:   onAutoScaling,
+			Status:          irs.NodeGroupStatus(ncloud.StringValue(np.Status)),
+		}
+		clusterInfo.NodeGroupList = append(clusterInfo.NodeGroupList, nodeGroupInfo)
+	}
+
+	LoggingInfo(hiscallInfo, start)
+	cblogger.Debug(clusterInfo)
+	return clusterInfo, nil
+
 	/*
 		input := &vnks.DescribeClusterInput{
 			Name: ncloud.String(clusterIID.SystemId),
