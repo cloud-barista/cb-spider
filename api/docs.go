@@ -11813,6 +11813,10 @@ const docTemplate = `{
                     "description": "support: true, do not support: false",
                     "type": "boolean"
                 },
+                "fileSystemHandler": {
+                    "description": "support: true, do not support: false",
+                    "type": "boolean"
+                },
                 "imageHandler": {
                     "description": "support: true, do not support: false",
                     "type": "boolean"
