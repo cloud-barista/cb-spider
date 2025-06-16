@@ -26,14 +26,15 @@ type DriverCapabilityInfo struct {
 	VMSpecHandler     bool // support: true, do not support: false
 
 	// Resource Handler
-	VPCHandler      bool // support: true, do not support: false
-	SecurityHandler bool // support: true, do not support: false
-	KeyPairHandler  bool // support: true, do not support: false
-	VMHandler       bool // support: true, do not support: false
-	DiskHandler     bool // support: true, do not support: false
-	MyImageHandler  bool // support: true, do not support: false
-	NLBHandler      bool // support: true, do not support: false
-	ClusterHandler  bool // support: true, do not support: false
+	VPCHandler        bool // support: true, do not support: false
+	SecurityHandler   bool // support: true, do not support: false
+	KeyPairHandler    bool // support: true, do not support: false
+	VMHandler         bool // support: true, do not support: false
+	DiskHandler       bool // support: true, do not support: false
+	MyImageHandler    bool // support: true, do not support: false
+	NLBHandler        bool // support: true, do not support: false
+	ClusterHandler    bool // support: true, do not support: false
+	FileSystemHandler bool // support: true, do not support: false
 
 	TagHandler bool // support: true, do not support: false
 	// ex) {ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER}

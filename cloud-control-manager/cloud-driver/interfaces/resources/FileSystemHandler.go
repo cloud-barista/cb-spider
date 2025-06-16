@@ -28,13 +28,13 @@ const (
 	ZoneType   FileSystemType = "ZONE-TYPE"
 )
 
+// -------- File System Meta Info Constants
 const (
-	// only for response, not for request
 	RegionVPCBasedType  FileSystemType = "REGION-VPC-BASED-TYPE"
 	RegionZoneBasedType FileSystemType = "REGION-ZONE-BASED-TYPE"
 )
 
-// =============================== Meta API
+// -------- File System Meta Info Structures
 type FileSystemMetaInfo struct {
 	// filled by the cloud driver
 	SupportsFileSystemType map[FileSystemType]bool    `json:"SupportsFileSystemType"`       // e.g., {"RegionType": true, "ZoneType": true, "RegionZoneBasedType": true, ...}
@@ -49,12 +49,6 @@ type CapacityGBRange struct {
 	Min int64 `json:"Min" example:"100"`    // Minimum capacity in GB
 	Max int64 `json:"Max" example:"102400"` // Maximum capacity in GB
 }
-
-type FileSystemMetaApi interface {
-	GetMetaInfo() (FileSystemMetaInfo, error)
-}
-
-//=============================== Meta API
 
 // -------- File System Info Structures
 type FileSystemInfo struct {
@@ -118,8 +112,13 @@ type CronSchedule struct { // default: "0 5 * * *" ## Every day at 5 AM
 
 // -------- File System Handler Interface
 type FileSystemHandler interface {
+	// Meta API
+	GetMetaInfo() (FileSystemMetaInfo, error)
+
+	// List all file system IDs, not detailed info
 	ListIID() ([]*IID, error)
 
+	// File System Management
 	CreateFileSystem(reqInfo FileSystemInfo) (FileSystemInfo, error)
 	ListFileSystem() ([]*FileSystemInfo, error)
 	GetFileSystem(iid IID) (FileSystemInfo, error)
@@ -133,7 +132,7 @@ type FileSystemHandler interface {
 	// Backup Management
 	ScheduleBackup(reqInfo FileSystemBackupInfo) (FileSystemBackupInfo, error) // Create a backup with the specified schedule
 	OnDemandBackup(fsIID IID) (FileSystemBackupInfo, error)                    // Create an on-demand backup for the specified file system
-	ListBackups(fsIID IID) ([]FileSystemBackupInfo, error)
+	ListBackup(fsIID IID) ([]FileSystemBackupInfo, error)
 	GetBackup(fsIID IID, backupID string) (FileSystemBackupInfo, error)
 	DeleteBackup(fsIID IID, backupID string) (bool, error)
 
