@@ -38,6 +38,7 @@ const (
 type FileSystemMetaInfo struct {
 	// filled by the cloud driver
 	SupportsFileSystemType map[FileSystemType]bool    `json:"SupportsFileSystemType"`       // e.g., {"RegionType": true, "ZoneType": true, "RegionZoneBasedType": true, ...}
+	SupportsVPC            map[RSType]bool            `json:"SupportsVPC"`                  // e.g., {"VPC": true} or {"VPC": false} (if not supported)
 	SupportsNFSVersion     []string                   `json:"SupportsNFSVersion"`           // e.g., ["3.0", "4.1"]
 	SupportsCapacity       bool                       `json:"SupportsCapacity"`             // true if capacity can be specified
 	CapacityGBOptions      map[string]CapacityGBRange `json:"CapacityGBOptions,omitempty"`  // Capacity ranges per file system option (valid only if SupportsCapacity is true). e.g., GCP Filestore: {"Basic": {Min: 1024, Max: 65229}, "Zonal": {Min: 1024, Max: 102400}, "Regional": {Min: 1024, Max: 102400}}
@@ -57,10 +58,11 @@ type FileSystemMetaApi interface {
 
 // -------- File System Info Structures
 type FileSystemInfo struct {
-	IId    IID    `json:"IId" validate:"required"` // {NameId, SystemId}
-	Region string `json:"Region,omitempty" example:"us-east-1"`
-	Zone   string `json:"Zone,omitempty" example:"us-east-1a"`
-	VpcIID IID    `json:"VpcIID" validate:"required"` // Owner VPC IID
+	IId              IID    `json:"IId" validate:"required"` // {NameId, SystemId}
+	Region           string `json:"Region,omitempty" example:"us-east-1"`
+	Zone             string `json:"Zone,omitempty" example:"us-east-1a"`
+	VpcIID           IID    `json:"VpcIID" validate:"required"` // Owner VPC IID
+	AccessSubnetList []IID  `json:"AccessSubnetList,omitempty"` // List of subnets whose VMs can use this file system
 
 	Encryption     bool                 `json:"Encryption,omitempty" default:"false"` // Encryption enabled or not
 	BackupSchedule FileSystemBackupInfo `json:"BackupSchedule,omitempty"`             // Cron schedule for backups, default is "0 5 * * *" (Every day at 5 AM)
@@ -87,7 +89,8 @@ type FileSystemInfo struct {
 }
 
 type MountTargetInfo struct {
-	SubnetIID           IID        `json:"SubnetIID,omitempty"`                         // location of the mount target
+	SubnetIID IID `json:"SubnetIID,omitempty"` // location of the mount target
+
 	SecurityGroups      []string   `json:"SecurityGroups,omitempty"`                    // security groups associated with the mount target
 	Endpoint            string     `json:"Endpoint,omitempty"`                          // mount target endpoint (IP, DNS, URL)
 	MountCommandExample string     `json:"MountCommandExample,omitempty"`               // Example mount command
@@ -122,10 +125,10 @@ type FileSystemHandler interface {
 	GetFileSystem(iid IID) (FileSystemInfo, error)
 	DeleteFileSystem(iid IID) (bool, error)
 
-	// Mount Target Management
-	AddMountTarget(iid IID, target MountTargetInfo) (FileSystemInfo, error)
-	RemoveMountTarget(iid IID, target MountTargetInfo) (bool, error)
-	ListMountTarget(iid IID) ([]MountTargetInfo, error)
+	// Access Subnet Management
+	AddAccessSubnet(iid IID, subnetIID IID) (FileSystemInfo, error) // Add a subnet to the file system for access; creates a mount target in the driver if needed
+	RemoveAccessSubnet(iid IID, subnetIID IID) (bool, error)        // Remove a subnet from the file system access list; deletes the mount target if needed
+	ListAccessSubnet(iid IID) ([]IID, error)                        // List of subnets whose VMs can use this file system
 
 	// Backup Management
 	ScheduleBackup(reqInfo FileSystemBackupInfo) (FileSystemBackupInfo, error) // Create a backup with the specified schedule

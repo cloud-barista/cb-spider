@@ -460,10 +460,10 @@ func RunServer() {
 		{"GET", "/filesystem", ListFileSystem},
 		{"GET", "/filesystem/:Name", GetFileSystem},
 		{"DELETE", "/filesystem/:Name", DeleteFileSystem},
-		//-- for MountTarget
-		{"POST", "/filesystem/:Name/mounttarget", AddMountTarget},
-		{"GET", "/filesystem/:Name/mounttarget", ListMountTarget},
-		{"DELETE", "/filesystem/:Name/mounttarget/:MountTargetId", RemoveMountTarget},
+		// -- for AccessSubnet
+		{"POST", "/filesystem/:Name/accesssubnet", AddAccessSubnet},
+		{"GET", "/filesystem/:Name/accesssubnet", ListAccessSubnet},
+		{"DELETE", "/filesystem/:Name/accesssubnet", RemoveAccessSubnet},
 
 		//----------Destory All Resources in a Connection
 		{"DELETE", "/destroy", Destroy},

@@ -356,6 +356,11 @@ definitions:
     type: object
   spider.FileSystemInfo:
     properties:
+      AccessSubnetList:
+        description: List of subnets whose VMs can use this file system
+        items:
+          $ref: '#/definitions/spider.IID'
+        type: array
       BackupSchedule:
         allOf:
         - $ref: '#/definitions/spider.FileSystemBackupInfo'
@@ -1655,16 +1660,16 @@ definitions:
     - ProviderName
     - RegionName
     type: object
-  spider.AddMountTargetRequest:
+  spider.AccessSubnetRequest:
     properties:
       ConnectionName:
         example: aws-connection
         type: string
-      Target:
-        $ref: '#/definitions/spider.MountTargetInfo'
+      SubnetIID:
+        $ref: '#/definitions/spider.IID'
     required:
     - ConnectionName
-    - Target
+    - SubnetIID
     type: object
   spider.AllResourceInfoListResponse:
     properties:
@@ -2674,17 +2679,6 @@ definitions:
         type: array
     required:
     - regionzone
-    type: object
-  spider.RemoveMountTargetRequest:
-    properties:
-      ConnectionName:
-        example: aws-connection
-        type: string
-      Target:
-        $ref: '#/definitions/spider.MountTargetInfo'
-    required:
-    - ConnectionName
-    - Target
     type: object
   spider.RuleControlRequest:
     properties:
@@ -5937,7 +5931,7 @@ paths:
       summary: Get FileSystem
       tags:
       - '[FileSystem Management]'
-  /filesystem/{Name}/mount-target:
+  /filesystem/{Name}/access-subnet:
     delete:
       consumes:
       - application/json
@@ -5947,12 +5941,12 @@ paths:
         name: Name
         required: true
         type: string
-      - description: Remove MountTarget Info
+      - description: Remove Access Subnet Info
         in: body
         name: RemoveRequest
         required: true
         schema:
-          $ref: '#/definitions/spider.RemoveMountTargetRequest'
+          $ref: '#/definitions/spider.AccessSubnetRequest'
       produces:
       - application/json
       responses:
@@ -5960,7 +5954,7 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/spider.BooleanInfo'
-      summary: Remove Mount Target from FileSystem
+      summary: Remove Access Subnet from FileSystem
       tags:
       - '[FileSystem Management]'
     get:
@@ -5982,9 +5976,9 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/spider.MountTargetInfo'
+              $ref: '#/definitions/spider.IID'
             type: array
-      summary: List Mount Targets of FileSystem
+      summary: List Access Subnets of FileSystem
       tags:
       - '[FileSystem Management]'
     post:
@@ -5996,12 +5990,12 @@ paths:
         name: Name
         required: true
         type: string
-      - description: Add MountTarget Info
+      - description: Add Access Subnet Info
         in: body
         name: AddRequest
         required: true
         schema:
-          $ref: '#/definitions/spider.AddMountTargetRequest'
+          $ref: '#/definitions/spider.AccessSubnetRequest'
       produces:
       - application/json
       responses:
@@ -6009,7 +6003,7 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/spider.FileSystemInfo'
-      summary: Add Mount Target to FileSystem
+      summary: Add Access Subnet to FileSystem
       tags:
       - '[FileSystem Management]'
   /getclusterowner:

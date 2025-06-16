@@ -121,80 +121,67 @@ func DeleteFileSystem(c echo.Context) error {
 	return c.JSON(http.StatusOK, BooleanInfo{Result: strconv.FormatBool(result)})
 }
 
-type AddMountTargetRequest struct {
-	ConnectionName string               `json:"ConnectionName" validate:"required" example:"aws-connection"`
-	Target         cres.MountTargetInfo `json:"Target" validate:"required"`
+type AccessSubnetRequest struct {
+	ConnectionName string   `json:"ConnectionName" validate:"required" example:"aws-connection"`
+	SubnetIID      cres.IID `json:"SubnetIID" validate:"required"`
 }
 
-// AddMountTarget godoc
-// @Summary Add Mount Target to FileSystem
+// AddAccessSubnet godoc
+// @Summary Add Access Subnet to FileSystem
 // @Tags [FileSystem Management]
 // @Accept json
 // @Produce json
 // @Param Name path string true "FileSystem Name"
-// @Param AddRequest body restruntime.AddMountTargetRequest true "Add MountTarget Info"
-//
+// @Param AddRequest body restruntime.AccessSubnetRequest true "Add Access Subnet Info"
 // @Success 200 {object} cres.FileSystemInfo
-// @Router /filesystem/{Name}/mount-target [post]
-func AddMountTarget(c echo.Context) error {
+// @Router /filesystem/{Name}/access-subnet [post]
+func AddAccessSubnet(c echo.Context) error {
 	name := c.Param("Name")
-	var req struct {
-		ConnectionName string
-		Target         cres.MountTargetInfo
-	}
+	var req AccessSubnetRequest
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	result, err := cmrt.AddMountTarget(req.ConnectionName, name, req.Target)
+	result, err := cmrt.AddAccessSubnet(req.ConnectionName, name, req.SubnetIID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return c.JSON(http.StatusOK, result)
 }
 
-type RemoveMountTargetRequest struct {
-	ConnectionName string               `json:"ConnectionName" validate:"required" example:"aws-connection"`
-	Target         cres.MountTargetInfo `json:"Target" validate:"required"`
-}
-
-// RemoveMountTarget godoc
-// @Summary Remove Mount Target from FileSystem
+// RemoveAccessSubnet godoc
+// @Summary Remove Access Subnet from FileSystem
 // @Tags [FileSystem Management]
 // @Accept json
 // @Produce json
 // @Param Name path string true "FileSystem Name"
-// @Param RemoveRequest body restruntime.RemoveMountTargetRequest true "Remove MountTarget Info"
-//
+// @Param RemoveRequest body restruntime.AccessSubnetRequest true "Remove Access Subnet Info"
 // @Success 200 {object} BooleanInfo
-// @Router /filesystem/{Name}/mount-target [delete]
-func RemoveMountTarget(c echo.Context) error {
+// @Router /filesystem/{Name}/access-subnet [delete]
+func RemoveAccessSubnet(c echo.Context) error {
 	name := c.Param("Name")
-	var req struct {
-		ConnectionName string
-		Target         cres.MountTargetInfo
-	}
+	var req AccessSubnetRequest
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	result, err := cmrt.RemoveMountTarget(req.ConnectionName, name, req.Target)
+	result, err := cmrt.RemoveAccessSubnet(req.ConnectionName, name, req.SubnetIID)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return c.JSON(http.StatusOK, BooleanInfo{Result: strconv.FormatBool(result)})
 }
 
-// ListMountTarget godoc
-// @Summary List Mount Targets of FileSystem
+// ListAccessSubnet godoc
+// @Summary List Access Subnets of FileSystem
 // @Tags [FileSystem Management]
 // @Produce json
 // @Param ConnectionName query string true "Connection Name"
 // @Param Name path string true "FileSystem Name"
-// @Success 200 {array} cres.MountTargetInfo
-// @Router /filesystem/{Name}/mount-target [get]
-func ListMountTarget(c echo.Context) error {
+// @Success 200 {array} cres.IID
+// @Router /filesystem/{Name}/access-subnet [get]
+func ListAccessSubnet(c echo.Context) error {
 	conn := c.QueryParam("ConnectionName")
 	name := c.Param("Name")
-	result, err := cmrt.ListMountTarget(conn, name)
+	result, err := cmrt.ListAccessSubnet(conn, name)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

@@ -167,8 +167,8 @@ func DeleteFileSystem(connectionName string, nameID string) (bool, error) {
 	return result, nil
 }
 
-func AddMountTarget(connectionName string, nameID string, target cres.MountTargetInfo) (*cres.FileSystemInfo, error) {
-	cblog.Info("call AddMountTarget()")
+func AddAccessSubnet(connectionName string, nameID string, subnetIID cres.IID) (*cres.FileSystemInfo, error) {
+	cblog.Info("call AddAccessSubnet()")
 	var iidInfo FileSystemIIDInfo
 	err := infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
 	if err != nil {
@@ -182,7 +182,7 @@ func AddMountTarget(connectionName string, nameID string, target cres.MountTarge
 	if err != nil {
 		return nil, err
 	}
-	info, err := handler.AddMountTarget(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}, target)
+	info, err := handler.AddAccessSubnet(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}, subnetIID)
 	if err != nil {
 		return nil, err
 	}
@@ -190,8 +190,8 @@ func AddMountTarget(connectionName string, nameID string, target cres.MountTarge
 	return &info, nil
 }
 
-func RemoveMountTarget(connectionName string, nameID string, target cres.MountTargetInfo) (bool, error) {
-	cblog.Info("call RemoveMountTarget()")
+func RemoveAccessSubnet(connectionName string, nameID string, subnetIID cres.IID) (bool, error) {
+	cblog.Info("call RemoveAccessSubnet()")
 	var iidInfo FileSystemIIDInfo
 	err := infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
 	if err != nil {
@@ -205,11 +205,11 @@ func RemoveMountTarget(connectionName string, nameID string, target cres.MountTa
 	if err != nil {
 		return false, err
 	}
-	return handler.RemoveMountTarget(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}, target)
+	return handler.RemoveAccessSubnet(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}, subnetIID)
 }
 
-func ListMountTarget(connectionName string, nameID string) ([]cres.MountTargetInfo, error) {
-	cblog.Info("call ListMountTarget()")
+func ListAccessSubnet(connectionName string, nameID string) ([]cres.IID, error) {
+	cblog.Info("call ListAccessSubnet()")
 	var iidInfo FileSystemIIDInfo
 	err := infostore.GetByConditions(&iidInfo, CONNECTION_NAME_COLUMN, connectionName, NAME_ID_COLUMN, nameID)
 	if err != nil {
@@ -223,5 +223,5 @@ func ListMountTarget(connectionName string, nameID string) ([]cres.MountTargetIn
 	if err != nil {
 		return nil, err
 	}
-	return handler.ListMountTarget(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
+	return handler.ListAccessSubnet(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
 }

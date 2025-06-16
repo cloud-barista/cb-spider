@@ -3948,7 +3948,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/filesystem/{Name}/mount-target": {
+        "/filesystem/{Name}/access-subnet": {
             "get": {
                 "produces": [
                     "application/json"
@@ -3956,7 +3956,7 @@ const docTemplate = `{
                 "tags": [
                     "[FileSystem Management]"
                 ],
-                "summary": "List Mount Targets of FileSystem",
+                "summary": "List Access Subnets of FileSystem",
                 "parameters": [
                     {
                         "type": "string",
@@ -3979,7 +3979,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/spider.MountTargetInfo"
+                                "$ref": "#/definitions/spider.IID"
                             }
                         }
                     }
@@ -3995,7 +3995,7 @@ const docTemplate = `{
                 "tags": [
                     "[FileSystem Management]"
                 ],
-                "summary": "Add Mount Target to FileSystem",
+                "summary": "Add Access Subnet to FileSystem",
                 "parameters": [
                     {
                         "type": "string",
@@ -4005,12 +4005,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Add MountTarget Info",
+                        "description": "Add Access Subnet Info",
                         "name": "AddRequest",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/spider.AddMountTargetRequest"
+                            "$ref": "#/definitions/spider.AccessSubnetRequest"
                         }
                     }
                 ],
@@ -4033,7 +4033,7 @@ const docTemplate = `{
                 "tags": [
                     "[FileSystem Management]"
                 ],
-                "summary": "Remove Mount Target from FileSystem",
+                "summary": "Remove Access Subnet from FileSystem",
                 "parameters": [
                     {
                         "type": "string",
@@ -4043,12 +4043,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Remove MountTarget Info",
+                        "description": "Remove Access Subnet Info",
                         "name": "RemoveRequest",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/spider.RemoveMountTargetRequest"
+                            "$ref": "#/definitions/spider.AccessSubnetRequest"
                         }
                     }
                 ],
@@ -9344,6 +9344,13 @@ const docTemplate = `{
                 "VpcIID"
             ],
             "properties": {
+                "AccessSubnetList": {
+                    "description": "List of subnets whose VMs can use this file system",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.IID"
+                    }
+                },
                 "BackupSchedule": {
                     "description": "Cron schedule for backups, default is \"0 5 * * *\" (Every day at 5 AM)",
                     "allOf": [
@@ -11143,19 +11150,19 @@ const docTemplate = `{
                 }
             }
         },
-        "spider.AddMountTargetRequest": {
+        "spider.AccessSubnetRequest": {
             "type": "object",
             "required": [
                 "ConnectionName",
-                "Target"
+                "SubnetIID"
             ],
             "properties": {
                 "ConnectionName": {
                     "type": "string",
                     "example": "aws-connection"
                 },
-                "Target": {
-                    "$ref": "#/definitions/spider.MountTargetInfo"
+                "SubnetIID": {
+                    "$ref": "#/definitions/spider.IID"
                 }
             }
         },
@@ -12596,22 +12603,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/spider.RegionZoneInfo"
                     }
-                }
-            }
-        },
-        "spider.RemoveMountTargetRequest": {
-            "type": "object",
-            "required": [
-                "ConnectionName",
-                "Target"
-            ],
-            "properties": {
-                "ConnectionName": {
-                    "type": "string",
-                    "example": "aws-connection"
-                },
-                "Target": {
-                    "$ref": "#/definitions/spider.MountTargetInfo"
                 }
             }
         },
