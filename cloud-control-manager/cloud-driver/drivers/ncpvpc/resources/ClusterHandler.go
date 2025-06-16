@@ -475,6 +475,34 @@ func (nvch *NcpVpcClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInf
 		createdTime = parsedTime
 	}
 
+	// ACG(Access Control Group)를 SecurityGroupIIDs로 매핑
+	securityGroupIIDs := []irs.IID{}
+	if targetCluster.AcgNo != nil {
+		securityGroupIIDs = append(securityGroupIIDs, irs.IID{
+			SystemId: fmt.Sprintf("%d", ncloud.Int32Value(targetCluster.AcgNo)),
+			NameId:   ncloud.StringValue(targetCluster.AcgName),
+		})
+	}
+
+	// KeyValueList에 부가 정보 추가
+	keyValueList := []irs.KeyValue{
+		{Key: "Status", Value: ncloud.StringValue(targetCluster.Status)},
+		{Key: "Uuid", Value: ncloud.StringValue(targetCluster.Uuid)},
+		{Key: "VpcNo", Value: fmt.Sprintf("%d", ncloud.Int32Value(targetCluster.VpcNo))},
+	}
+	if targetCluster.Endpoint != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "Endpoint", Value: ncloud.StringValue(targetCluster.Endpoint)})
+	}
+	if targetCluster.K8sVersion != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "K8sVersion", Value: ncloud.StringValue(targetCluster.K8sVersion)})
+	}
+	if targetCluster.AcgName != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "AcgName", Value: ncloud.StringValue(targetCluster.AcgName)})
+	}
+	if targetCluster.AcgNo != nil {
+		keyValueList = append(keyValueList, irs.KeyValue{Key: "AcgNo", Value: fmt.Sprintf("%d", ncloud.Int32Value(targetCluster.AcgNo))})
+	}
+
 	clusterInfo := irs.ClusterInfo{
 		IId: irs.IID{
 			NameId:   ncloud.StringValue(targetCluster.Name),
@@ -485,7 +513,7 @@ func (nvch *NcpVpcClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInf
 		Status:      irs.ClusterStatus(ncloud.StringValue(targetCluster.Status)),
 		AccessInfo: irs.AccessInfo{
 			Endpoint:   ncloud.StringValue(targetCluster.Endpoint),
-			Kubeconfig: "Kubeconfig is not provided for NCP.",
+			Kubeconfig: "Kubeconfig is not provided for NCP.", // NCP는 kubeconfig 미제공
 		},
 		Network: irs.NetworkInfo{
 			VpcIID: irs.IID{
@@ -499,9 +527,12 @@ func (nvch *NcpVpcClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInf
 				}
 				return list
 			}(),
+			SecurityGroupIIDs: securityGroupIIDs,
 		},
+		KeyValueList: keyValueList,
 	}
 
+	// NodePool 상세 정보 KeyValueList 포함 (NHN/GCP 스타일)
 	for _, np := range targetCluster.NodePool {
 		onAutoScaling := false
 		minNodeSize := 0
@@ -510,6 +541,20 @@ func (nvch *NcpVpcClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInf
 			onAutoScaling = ncloud.BoolValue(np.Autoscale.Enabled)
 			minNodeSize = int(ncloud.Int32Value(np.Autoscale.Min))
 			maxNodeSize = int(ncloud.Int32Value(np.Autoscale.Max))
+		}
+
+		nodeGroupKeyValueList := []irs.KeyValue{
+			{Key: "InstanceNo", Value: fmt.Sprintf("%d", ncloud.Int32Value(np.InstanceNo))},
+			{Key: "Status", Value: ncloud.StringValue(np.Status)},
+			{Key: "ServerSpecCode", Value: ncloud.StringValue(np.ServerSpecCode)},
+			{Key: "SoftwareCode", Value: ncloud.StringValue(np.SoftwareCode)},
+		}
+		if np.Autoscale != nil {
+			nodeGroupKeyValueList = append(nodeGroupKeyValueList,
+				irs.KeyValue{Key: "AutoScalingEnabled", Value: fmt.Sprintf("%v", ncloud.BoolValue(np.Autoscale.Enabled))},
+				irs.KeyValue{Key: "AutoScalingMin", Value: fmt.Sprintf("%d", ncloud.Int32Value(np.Autoscale.Min))},
+				irs.KeyValue{Key: "AutoScalingMax", Value: fmt.Sprintf("%d", ncloud.Int32Value(np.Autoscale.Max))},
+			)
 		}
 
 		nodeGroupInfo := irs.NodeGroupInfo{
@@ -526,114 +571,16 @@ func (nvch *NcpVpcClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInf
 			KeyPairIID:      irs.IID{NameId: ncloud.StringValue(targetCluster.LoginKeyName)},
 			OnAutoScaling:   onAutoScaling,
 			Status:          irs.NodeGroupStatus(ncloud.StringValue(np.Status)),
+			KeyValueList:    nodeGroupKeyValueList,
 		}
 		clusterInfo.NodeGroupList = append(clusterInfo.NodeGroupList, nodeGroupInfo)
 	}
 
-	LoggingInfo(hiscallInfo, start)
-	cblogger.Debug(clusterInfo)
-	return clusterInfo, nil
+    // NCP 정책상 NodeGroup의 실제 노드 목록 및 컨테이너(파드) 목록 반환은 미지원
 
-	/*
-		input := &vnks.DescribeClusterInput{
-			Name: ncloud.String(clusterIID.SystemId),
-		}
-
-		cblogger.Debug(input)
-
-		// logger for HisCall
-		callogger := call.GetLogger("HISCALL")
-		callLogInfo := call.CLOUDLOGSCHEMA{
-			CloudOS:      call.AWS,
-			RegionZone:   nvch.Region.Zone,
-			ResourceType: call.CLUSTER,
-			ResourceName: clusterIID.SystemId,
-			CloudOSAPI:   "DescribeCluster()",
-			ElapsedTime:  "",
-			ErrorMSG:     "",
-		}
-		callLogStart := call.Start()
-
-		result, err := nvch.ClusterClient.DescribeCluster(input)
-		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
-		if err != nil {
-			callLogInfo.ErrorMSG = err.Error()
-			callogger.Info(call.String(callLogInfo))
-			cblogger.Error(err.Error())
-			return irs.ClusterInfo{}, err
-		}
-		callogger.Info(call.String(callLogInfo))
-
-		cblogger.Debug(result)
-
-		clusterInfo := irs.ClusterInfo{
-			IId:         irs.IID{NameId: "", SystemId: *result.Cluster.Name},
-			Version:     *result.Cluster.Version,
-			CreatedTime: *result.Cluster.CreatedAt,
-			Status:      irs.ClusterStatus(*result.Cluster.Status),
-			//AccessInfo:  irs.AccessInfo{Endpoint: *result.Cluster.Endpoint},
-			AccessInfo: irs.AccessInfo{},
-		}
-
-		if !reflect.ValueOf(result.Cluster.Endpoint).IsNil() {
-			clusterInfo.AccessInfo.Endpoint = *result.Cluster.Endpoint
-		}
-		if !reflect.ValueOf(result.Cluster.CertificateAuthority.Data).IsNil() {
-			clusterInfo.AccessInfo.Kubeconfig = getKubeConfig(result)
-		}
-
-		if !reflect.ValueOf(result.Cluster.ResourcesVpcConfig).IsNil() {
-			clusterInfo.Network.VpcIID = irs.IID{SystemId: *result.Cluster.ResourcesVpcConfig.VpcId}
-
-			//서브넷 처리
-			//SubnetIds: ["subnet-0d30ee6b367974a39","subnet-06d5c04b32019b81f","subnet-05c5d26bd2f014591"],
-			if len(result.Cluster.ResourcesVpcConfig.SubnetIds) > 0 {
-				for _, curSubnetId := range result.Cluster.ResourcesVpcConfig.SubnetIds {
-					clusterInfo.Network.SubnetIIDs = append(clusterInfo.Network.SubnetIIDs, irs.IID{SystemId: *curSubnetId})
-				}
-			}
-
-			//클러스터 보안그룹 처리
-			// ClusterSecurityGroupId: "sg-0bb02bf07fe5f42f0",
-			//@TODO - 클러스터 생성시 자동으로 추가되는 보안 그룹이라서 일단 CB보안그룹 목록에 포함은 시키지 않았음.
-			if !reflect.ValueOf(result.Cluster.ResourcesVpcConfig.ClusterSecurityGroupId).IsNil() {
-				//if *result.Cluster.ResourcesVpcConfig.ClusterSecurityGroupId != "" {
-			}
-
-			//보안그룹 처리 : "추가 보안 그룹"에 해당하는 듯
-			if len(result.Cluster.ResourcesVpcConfig.SecurityGroupIds) > 0 {
-				for _, curSecurityGroupId := range result.Cluster.ResourcesVpcConfig.SecurityGroupIds {
-					clusterInfo.Network.SecurityGroupIIDs = append(clusterInfo.Network.SecurityGroupIIDs, irs.IID{SystemId: *curSecurityGroupId})
-				}
-			}
-		}
-
-		keyValueList := []irs.KeyValue{
-			{Key: "Status", Value: *result.Cluster.Status},
-			{Key: "Arn", Value: *result.Cluster.Arn},
-			{Key: "RoleArn", Value: *result.Cluster.RoleArn},
-		}
-		clusterInfo.KeyValueList = keyValueList
-
-		//노드 그룹 처리
-		resNodeGroupList, errNodeGroup := nvch.ListNodeGroup(clusterInfo.IId)
-		if errNodeGroup != nil {
-			cblogger.Error(errNodeGroup)
-			return irs.ClusterInfo{}, errNodeGroup
-		}
-
-		cblogger.Debug(resNodeGroupList)
-
-		//노드 그룹 타입 변환
-		for _, curNodeGroup := range resNodeGroupList {
-			cblogger.Debugf("Nod Group : [%s]", curNodeGroup.IId.NameId)
-			clusterInfo.NodeGroupList = append(clusterInfo.NodeGroupList, *curNodeGroup)
-		}
-
-		cblogger.Debug(clusterInfo)
-
-		return clusterInfo, nil
-	*/
+    LoggingInfo(hiscallInfo, start)
+    cblogger.Debug(clusterInfo)
+    return clusterInfo, nil
 }
 
 /*
