@@ -14,6 +14,7 @@ package aws
 import (
 	"fmt"
 	"os"
+	"reflect"
 
 	acon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/connect"
 	profile "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/profile"
@@ -82,9 +83,35 @@ func (AwsDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 
 // 공통 AWS 세션 생성 함수
 func newAWSSession(connectionInfo idrv.ConnectionInfo, region string) (*session.Session, error) {
+	// cblog.Info("****************************************************")
+	// cblog.Info("ClientId : ", connectionInfo.CredentialInfo.ClientId)
+	// cblog.Info("ClientSecret : ", connectionInfo.CredentialInfo.ClientSecret)
+	// cblog.Info("StsToken : ", connectionInfo.CredentialInfo.StsToken)
+	// cblog.Info("****************************************************")
+
+	StsToken := ""
+	if connectionInfo.CredentialInfo.StsToken == "Not set" || connectionInfo.CredentialInfo.StsToken == "" || reflect.ValueOf(connectionInfo.CredentialInfo.StsToken).IsNil() {
+		cblog.Debug("======> StsToken is not set")
+		connectionInfo.CredentialInfo.StsToken = "" // Ensure StsToken is empty if not set
+		StsToken = ""
+	} else {
+		cblog.Debug("======> StsToken is set")
+		StsToken = connectionInfo.CredentialInfo.StsToken
+	}
+
+	/*
+		if !reflect.ValueOf(connectionInfo.CredentialInfo.StsToken).IsNil() {
+			StsToken = connectionInfo.CredentialInfo.StsToken
+			cblog.Info("======> StsToken : ", connectionInfo.CredentialInfo.StsToken)
+		} else {
+			cblog.Info("======> StsToken is nil")
+		}
+	*/
+
 	cblog.Debug("Received connection information")
 	cblog.Debug("============================================================================================")
-	if connectionInfo.CredentialInfo.StsToken != "" {
+	// if connectionInfo.CredentialInfo.StsToken != "" {
+	if StsToken != "" {
 		cblog.Debugf("Using SessionToken(For iam-manager - STS) for AWS API calls : [%s]", connectionInfo.CredentialInfo.StsToken)
 	} else {
 		cblog.Debugf("Using Normal AWS Session for AWS API calls [%s]", connectionInfo.CredentialInfo.ClientId)
@@ -97,7 +124,8 @@ func newAWSSession(connectionInfo idrv.ConnectionInfo, region string) (*session.
 		Credentials: credentials.NewStaticCredentials(
 			connectionInfo.CredentialInfo.ClientId,
 			connectionInfo.CredentialInfo.ClientSecret,
-			connectionInfo.CredentialInfo.StsToken, // TS SessionToekn field in AWS
+			StsToken,
+			//connectionInfo.CredentialInfo.StsToken, // TS SessionToekn field in AWS
 		),
 	}
 	// return session.NewSession(awsConfig)
