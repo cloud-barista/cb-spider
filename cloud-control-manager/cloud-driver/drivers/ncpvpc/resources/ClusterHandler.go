@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"time"
 
@@ -155,9 +156,24 @@ func (nvch *NcpVpcClusterHandler) getSupportedK8sVersions() ([]string, error) {
 func (nvch *NcpVpcClusterHandler) createCluster(clusterReqInfo *irs.ClusterInfo) (string, error) {
 	clusterName := clusterReqInfo.IId.NameId
 
-	//
-	// Check if Private Subnet for LB and Public Subnet for LB
-	//
+	// 1. 필수 파라미터 검증
+	if clusterName == "" || clusterReqInfo.Version == "" || clusterReqInfo.Network.VpcIID.SystemId == "" {
+		return "", fmt.Errorf("required parameter missing (name, version, vpcNo)")
+	}
+
+	// 2. NCP 특화 옵션(KeyValueList) 파싱 및 기본값 처리
+	clusterType := "XEN"  // 기본값
+	publicNetwork := true // 기본값
+	for _, kv := range clusterReqInfo.KeyValueList {
+		if kv.Key == "ClusterType" && kv.Value != "" {
+			clusterType = kv.Value
+		}
+		if kv.Key == "PublicNetwork" && kv.Value != "" {
+			publicNetwork = (kv.Value == "true")
+		}
+	}
+
+	// 3. VPC 및 LB 서브넷 준비
 	vpcHandler := NcpVpcVPCHandler{
 		RegionInfo: nvch.RegionInfo,
 		VPCClient:  nvch.VPCClient,
@@ -179,7 +195,6 @@ func (nvch *NcpVpcClusterHandler) createCluster(clusterReqInfo *irs.ClusterInfo)
 		} else {
 			existingSubnets = append(existingSubnets, subnetInfo.IPv4_CIDR)
 		}
-
 		if existPrivateLbSubnet && existPublicLbSubnet {
 			break
 		}
@@ -187,123 +202,113 @@ func (nvch *NcpVpcClusterHandler) createCluster(clusterReqInfo *irs.ClusterInfo)
 
 	availSubnets, err := GetReverseSubnetCidrs(vpc.IPv4_CIDR, existingSubnets, lbSubnetPrefixLengthForK8s, 2)
 	if err != nil {
-		err = fmt.Errorf("failed to create a cluster(%s): %v", clusterName, err)
-		return "", err
+		return "", fmt.Errorf("failed to create a cluster(%s): %v", clusterName, err)
 	}
 	if len(availSubnets) < 2 {
-		err = fmt.Errorf("no availalbe subnet range")
-		err = fmt.Errorf("failed to create a cluster(%s): %v", clusterName, err)
-		return "", err
+		return "", fmt.Errorf("no available subnet range for LB")
 	}
 
 	if !existPrivateLbSubnet {
-		// Create Private Subnet For LB
 		err = nvch.addSubnetAndWait(vpc.IId.SystemId, defaultPrivateLbSubnetForK8s, availSubnets[0], subnetTypeCodePrivate, usageTypeCodeLoadb)
 		if err != nil {
-			err = fmt.Errorf("failed to create a cluster(%s): %v", clusterName, err)
-			return "", err
+			return "", fmt.Errorf("failed to create private LB subnet: %v", err)
 		}
-
 		availSubnets = availSubnets[1:]
 	}
-
 	if !existPublicLbSubnet {
-		// Create Public Subnet For LB
 		err = nvch.addSubnetAndWait(vpc.IId.SystemId, defaultPublicLbSubnetForK8s, availSubnets[0], subnetTypeCodePublic, usageTypeCodeLoadb)
 		if err != nil {
-			err = fmt.Errorf("failed to create a cluster(%s): %v", clusterName, err)
-			return "", err
+			return "", fmt.Errorf("failed to create public LB subnet: %v", err)
 		}
 	}
 
-	/*
-		hasGateway, err := nch.isVpcConnectedToGateway(vpc.ID)
-		if err != nil {
-			return "", fmt.Errorf("Failed to Create Cluster: %v", err)
-		}
-		if hasGateway == false {
-			return "", fmt.Errorf("Failed to Create Cluster: VPC Should Be Connected to Internet Gateway for Providing Public Endpoint")
-		}
-	*/
-
-	firstNodeGroupInfo := &clusterReqInfo.NodeGroupList[0]
-
-	imageName := firstNodeGroupInfo.ImageIID.NameId
-
-	var softwareCode string
-	if strings.EqualFold(imageName, "") || strings.EqualFold(imageName, "default") {
-		var defaultServerImageNamePrefix string
-		if hypervisorCodeDefault == hypervisorCodeXen {
-			defaultServerImageNamePrefix = defaultServerImageNamePrefixForXen
-		} else {
-			defaultServerImageNamePrefix = defaultServerImageNamePrefixForKvm
+	// 4. NodePool(nodeGroup) 매핑 및 이미지 코드 추출
+	var nodePools []*vnks.NodePoolDto
+	for _, ng := range clusterReqInfo.NodeGroupList {
+		if ng.IId.NameId == "" || ng.DesiredNodeSize < 1 || ng.VMSpecName == "" || ng.KeyPairIID.NameId == "" {
+			return "", fmt.Errorf("required node group parameter missing")
 		}
 
-		softwareCode, err = nvch.getServerImageByNamePrefix(defaultServerImageNamePrefix)
-		if err != nil {
-			err = fmt.Errorf("failed to create a cluster(%s): %v", clusterName, err)
-			return "", err
-		}
-	} else {
-		softwareCode, err = nvch.getServerImageByNamePrefix(imageName)
-		if err != nil {
-			serverList, err2 := nvch.getAvailableServerImageList()
-			if err2 != nil {
-				err2 = fmt.Errorf("failed to create a cluster(%s): %v", clusterName, err2)
-				return "", err2
+		// 이미지 코드 추출
+		imageName := ng.ImageIID.NameId
+		var softwareCode string
+		var err error
+		if imageName == "" || strings.EqualFold(imageName, "default") {
+			var defaultServerImageNamePrefix string
+			if hypervisorCodeDefault == hypervisorCodeXen {
+				defaultServerImageNamePrefix = defaultServerImageNamePrefixForXen
+			} else {
+				defaultServerImageNamePrefix = defaultServerImageNamePrefixForKvm
 			}
-
-			err = fmt.Errorf("available server images: (" + strings.Join(serverList, ", ") + ")")
-			return "", fmt.Errorf("failed to create a cluster(%s): %v", clusterName, err)
-		}
-	}
-
-	softwareCode = softwareCode
-	/*
-		flavorName := firstNodeGroupInfo.VMSpecName
-		flavorId, err := nch.getFlavorIdByName(flavorName)
-		if err != nil {
-			return "", err
-		}
-
-		fixedNetwork := vpc.ID
-		var fixedSubnet string
-		if clusterReqInfo.Network.SubnetIIDs[0].SystemId == "" {
-			if len(vpc.Subnets) > 0 {
-				for _, subnet := range vpc.Subnets {
-					if subnet.Name == clusterReqInfo.Network.SubnetIIDs[0].NameId {
-						fixedSubnet = subnet.ID
-						break
-					}
+			softwareCode, err = nvch.getServerImageByNamePrefix(defaultServerImageNamePrefix)
+			if err != nil {
+				return "", fmt.Errorf("failed to get default server image: %v", err)
+			}
+		} else {
+			softwareCode, err = nvch.getServerImageByNamePrefix(imageName)
+			if err != nil {
+				serverList, err2 := nvch.getAvailableServerImageList()
+				if err2 != nil {
+					return "", fmt.Errorf("failed to create a cluster(%s): %v", clusterName, err2)
 				}
+				return "", fmt.Errorf("failed to create a cluster(%s): %v (available server images: %s)", clusterName, err, strings.Join(serverList, ", "))
 			}
+		}
+
+		nodePool := &vnks.NodePoolDto{
+			Name:           ncloud.String(ng.IId.NameId),
+			NodeCount:      ncloud.Int32(int32(ng.DesiredNodeSize)),
+			SoftwareCode:   ncloud.String(softwareCode),
+			ServerSpecCode: ncloud.String(ng.VMSpecName),
+			// 필요시 SubnetNo, Labels, Taints, StorageSize 등 추가
+		}
+		nodePools = append(nodePools, nodePool)
+	}
+
+	// 5. Subnet, LB 서브넷 등 네트워크 정보 준비
+	var subnetNoList []int32
+	var lbPrivateSubnetNo, lbPublicSubnetNo int32
+	for _, subnet := range vpc.SubnetInfoList {
+		if subnet.IId.NameId == defaultPrivateLbSubnetForK8s {
+			no, _ := strconv.ParseInt(subnet.IId.SystemId, 10, 32)
+			lbPrivateSubnetNo = int32(no)
+		} else if subnet.IId.NameId == defaultPublicLbSubnetForK8s {
+			no, _ := strconv.ParseInt(subnet.IId.SystemId, 10, 32)
+			lbPublicSubnetNo = int32(no)
 		} else {
-			fixedSubnet = clusterReqInfo.Network.SubnetIIDs[0].SystemId
+			no, _ := strconv.ParseInt(subnet.IId.SystemId, 10, 32)
+			subnetNoList = append(subnetNoList, int32(no))
 		}
+	}
 
-		keyPair := firstNodeGroupInfo.KeyPairIID.NameId
-		if firstNodeGroupInfo.KeyPairIID.NameId == "" {
-			keyPair = firstNodeGroupInfo.KeyPairIID.SystemId
-		}
+	// 6. NCP API 호출 파라미터 구성
+	vpcNoInt64, err := strconv.ParseInt(vpc.IId.SystemId, 10, 32)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse VPC SystemId '%s' to int32: %v", vpc.IId.SystemId, err)
+	}
+	clusterInputBody := &vnks.ClusterInputBody{
+		Name:              ncloud.String(clusterName),
+		ClusterType:       ncloud.String(clusterType),
+		K8sVersion:        ncloud.String(clusterReqInfo.Version),
+		LoginKeyName:      ncloud.String(clusterReqInfo.NodeGroupList[0].KeyPairIID.NameId),
+		RegionCode:        ncloud.String(nvch.RegionInfo.Region),
+		ZoneCode:          ncloud.String(nvch.RegionInfo.Zone),
+		PublicNetwork:     ncloud.Bool(publicNetwork),
+		VpcNo:             ncloud.Int32(int32(vpcNoInt64)),
+		SubnetNoList:      int32List(subnetNoList), // []int32 → []*int32 변환 함수 사용
+		LbPrivateSubnetNo: ncloud.Int32(int32(lbPrivateSubnetNo)),
+		LbPublicSubnetNo:  ncloud.Int32(int32(lbPublicSubnetNo)),
+		NodePool:          nodePools, // []*vnks.NodePoolDto 타입으로 전달
+	}
 
-		labels, err := nch.getLabelsForCluster(clusterReqInfo, firstNodeGroupInfo)
-		if err != nil {
-			return "", err
-		}
+	// 7. NCP API 호출 및 에러 발생 시 롤백 처리
+	createClusterRes, err := nvch.ClusterClient.V2Api.ClustersPost(nvch.Ctx, clusterInputBody)
+	if err != nil {
+		// TODO: 에러 발생 시 롤백(클러스터 삭제) 구현 필요
+		return "", fmt.Errorf("failed to create cluster: %v", err)
+	}
 
-		nodeCount := firstNodeGroupInfo.DesiredNodeSize
-		timeout := createTimeout
-
-		uuid, err := ncpvpcClustersPost(nvch.ClusterClient, nvch.Ctx, clusterName,
-			clusterType, k8sVersion, loginKeyName, regionCode, zoneCode, vpcNo,
-			subnetNoList, lbPrivateSubnetNo, lbPublicSubnetNo)
-		if err != nil {
-			err = fmt.Errorf("failed to create a cluster(%s): %v", clusterName, err)
-			return "", err
-		}
-	*/
-	uuid := ""
-	return uuid, nil
+	return ncloud.StringValue(createClusterRes.Uuid), nil
 }
 
 func (nvch *NcpVpcClusterHandler) addSubnetAndWait(vpcNo, subnetName, subnetRange, subnetTypeCode, usageTypeCode string) error {
@@ -576,11 +581,11 @@ func (nvch *NcpVpcClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInf
 		clusterInfo.NodeGroupList = append(clusterInfo.NodeGroupList, nodeGroupInfo)
 	}
 
-    // NCP 정책상 NodeGroup의 실제 노드 목록 및 컨테이너(파드) 목록 반환은 미지원
+	// NCP 정책상 NodeGroup의 실제 노드 목록 및 컨테이너(파드) 목록 반환은 미지원
 
-    LoggingInfo(hiscallInfo, start)
-    cblogger.Debug(clusterInfo)
-    return clusterInfo, nil
+	LoggingInfo(hiscallInfo, start)
+	cblogger.Debug(clusterInfo)
+	return clusterInfo, nil
 }
 
 /*
@@ -1177,7 +1182,7 @@ func (nvch *NcpVpcClusterHandler) isValidServerImageName(imageName string) (bool
 		}
 	}
 
-	return false, nil
+	return false, fmt.Errorf("no server image with name prefix(%s)", imageName)
 }
 
 func (nvch *NcpVpcClusterHandler) getServerImageByNamePrefix(imageNamePrefix string) (string, error) {
