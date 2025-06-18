@@ -6935,6 +6935,458 @@ const docTemplate = `{
                 }
             }
         },
+        "/s3/bucket": {
+            "get": {
+                "description": "List S3 buckets managed by CB-Spider (infostore).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Management]"
+                ],
+                "summary": "List S3 Buckets",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection Name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.S3BucketInfo"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Create a new S3 bucket and register to CB-Spider infostore.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Management]"
+                ],
+                "summary": "Create S3 Bucket",
+                "parameters": [
+                    {
+                        "description": "Request body for creating an S3 bucket",
+                        "name": "S3BucketCreateRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3BucketCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3BucketInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/s3/bucket/{BucketName}/object": {
+            "get": {
+                "description": "List objects in an S3 bucket (managed bucket only)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Management]"
+                ],
+                "summary": "List S3 Objects",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection Name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bucket Name",
+                        "name": "BucketName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Prefix for filtering objects",
+                        "name": "Prefix",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.S3ObjectInfo"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/s3/bucket/{BucketName}/object/{ObjectName}": {
+            "get": {
+                "description": "Get metadata/stat of an object in S3",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Management]"
+                ],
+                "summary": "Get S3 Object Metadata",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection Name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bucket Name",
+                        "name": "BucketName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Object Name",
+                        "name": "ObjectName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3ObjectInfo"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/s3/bucket/{BucketName}/object/{ObjectName}/download": {
+            "get": {
+                "description": "Stream (download) an S3 object as a file (managed bucket only)",
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "[S3 Management]"
+                ],
+                "summary": "Download S3 Object (Streaming)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection Name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bucket Name",
+                        "name": "BucketName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Object Name",
+                        "name": "ObjectName",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/s3/bucket/{Name}": {
+            "get": {
+                "description": "Get information of a specific S3 bucket",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Management]"
+                ],
+                "summary": "Get S3 Bucket",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection Name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bucket Name",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3BucketInfo"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete an S3 bucket (from S3 and infostore)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Management]"
+                ],
+                "summary": "Delete S3 Bucket",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection Name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bucket Name",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/s3/object": {
+            "post": {
+                "description": "Upload a file to S3 bucket (managed bucket only)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Management]"
+                ],
+                "summary": "Upload S3 Object (from file path)",
+                "parameters": [
+                    {
+                        "description": "Upload info",
+                        "name": "S3ObjectUploadRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3ObjectUploadRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3UploadInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Delete an object from S3 bucket (managed bucket only)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Management]"
+                ],
+                "summary": "Delete S3 Object",
+                "parameters": [
+                    {
+                        "description": "Delete info",
+                        "name": "S3ObjectDeleteRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3ObjectDeleteRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/s3/object/presigned-url": {
+            "post": {
+                "description": "Get a presigned URL for S3 object (GET/PUT)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Management]"
+                ],
+                "summary": "Get S3 Presigned URL",
+                "parameters": [
+                    {
+                        "description": "Presigned URL info",
+                        "name": "S3PresignedURLRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3PresignedURLRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3PresignedURL"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/securitygroup": {
             "get": {
                 "description": "Retrieve a list of Security Groups associated with a specific connection.",
@@ -12662,6 +13114,158 @@ const docTemplate = `{
                             }
                         }
                     }
+                }
+            }
+        },
+        "spider.S3BucketCreateRequest": {
+            "type": "object",
+            "required": [
+                "ConnectionName",
+                "Name"
+            ],
+            "properties": {
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-s3-conn"
+                },
+                "Name": {
+                    "type": "string",
+                    "example": "my-bucket-01"
+                }
+            }
+        },
+        "spider.S3BucketInfo": {
+            "type": "object",
+            "properties": {
+                "CreationDate": {
+                    "type": "string"
+                },
+                "Name": {
+                    "type": "string"
+                }
+            }
+        },
+        "spider.S3ObjectDeleteRequest": {
+            "type": "object",
+            "required": [
+                "BucketName",
+                "ConnectionName",
+                "ObjectName"
+            ],
+            "properties": {
+                "BucketName": {
+                    "type": "string",
+                    "example": "my-bucket-01"
+                },
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-s3-conn"
+                },
+                "ObjectName": {
+                    "type": "string",
+                    "example": "my-object.txt"
+                }
+            }
+        },
+        "spider.S3ObjectInfo": {
+            "type": "object",
+            "properties": {
+                "ETag": {
+                    "type": "string"
+                },
+                "Key": {
+                    "type": "string"
+                },
+                "LastModified": {
+                    "type": "string"
+                },
+                "Size": {
+                    "type": "integer"
+                }
+            }
+        },
+        "spider.S3ObjectUploadRequest": {
+            "type": "object",
+            "required": [
+                "BucketName",
+                "ConnectionName",
+                "FilePath",
+                "ObjectName"
+            ],
+            "properties": {
+                "BucketName": {
+                    "type": "string",
+                    "example": "my-bucket-01"
+                },
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-s3-conn"
+                },
+                "FilePath": {
+                    "type": "string",
+                    "example": "/tmp/data.txt"
+                },
+                "ObjectName": {
+                    "type": "string",
+                    "example": "my-object.txt"
+                }
+            }
+        },
+        "spider.S3PresignedURL": {
+            "type": "object",
+            "properties": {
+                "PresignedURL": {
+                    "type": "string"
+                }
+            }
+        },
+        "spider.S3PresignedURLRequest": {
+            "type": "object",
+            "required": [
+                "BucketName",
+                "ConnectionName",
+                "ExpiresSeconds",
+                "Method",
+                "ObjectName"
+            ],
+            "properties": {
+                "BucketName": {
+                    "type": "string",
+                    "example": "my-bucket-01"
+                },
+                "ConnectionName": {
+                    "type": "string",
+                    "example": "aws-s3-conn"
+                },
+                "ExpiresSeconds": {
+                    "type": "integer",
+                    "example": 3600
+                },
+                "Method": {
+                    "description": "\"GET\" or \"PUT\"",
+                    "type": "string",
+                    "example": "GET"
+                },
+                "ObjectName": {
+                    "type": "string",
+                    "example": "my-object.txt"
+                }
+            }
+        },
+        "spider.S3UploadInfo": {
+            "type": "object",
+            "properties": {
+                "Bucket": {
+                    "type": "string"
+                },
+                "ETag": {
+                    "type": "string"
+                },
+                "Key": {
+                    "type": "string"
+                },
+                "Size": {
+                    "type": "integer"
                 }
             }
         },

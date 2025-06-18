@@ -2722,6 +2722,113 @@ definitions:
     - ConnectionName
     - ReqInfo
     type: object
+  spider.S3BucketCreateRequest:
+    properties:
+      ConnectionName:
+        example: aws-s3-conn
+        type: string
+      Name:
+        example: my-bucket-01
+        type: string
+    required:
+    - ConnectionName
+    - Name
+    type: object
+  spider.S3BucketInfo:
+    properties:
+      CreationDate:
+        type: string
+      Name:
+        type: string
+    type: object
+  spider.S3ObjectDeleteRequest:
+    properties:
+      BucketName:
+        example: my-bucket-01
+        type: string
+      ConnectionName:
+        example: aws-s3-conn
+        type: string
+      ObjectName:
+        example: my-object.txt
+        type: string
+    required:
+    - BucketName
+    - ConnectionName
+    - ObjectName
+    type: object
+  spider.S3ObjectInfo:
+    properties:
+      ETag:
+        type: string
+      Key:
+        type: string
+      LastModified:
+        type: string
+      Size:
+        type: integer
+    type: object
+  spider.S3ObjectUploadRequest:
+    properties:
+      BucketName:
+        example: my-bucket-01
+        type: string
+      ConnectionName:
+        example: aws-s3-conn
+        type: string
+      FilePath:
+        example: /tmp/data.txt
+        type: string
+      ObjectName:
+        example: my-object.txt
+        type: string
+    required:
+    - BucketName
+    - ConnectionName
+    - FilePath
+    - ObjectName
+    type: object
+  spider.S3PresignedURL:
+    properties:
+      PresignedURL:
+        type: string
+    type: object
+  spider.S3PresignedURLRequest:
+    properties:
+      BucketName:
+        example: my-bucket-01
+        type: string
+      ConnectionName:
+        example: aws-s3-conn
+        type: string
+      ExpiresSeconds:
+        example: 3600
+        type: integer
+      Method:
+        description: '"GET" or "PUT"'
+        example: GET
+        type: string
+      ObjectName:
+        example: my-object.txt
+        type: string
+    required:
+    - BucketName
+    - ConnectionName
+    - ExpiresSeconds
+    - Method
+    - ObjectName
+    type: object
+  spider.S3UploadInfo:
+    properties:
+      Bucket:
+        type: string
+      ETag:
+        type: string
+      Key:
+        type: string
+      Size:
+        type: integer
+    type: object
   spider.SecurityGroupCreateRequest:
     properties:
       ConnectionName:
@@ -7985,6 +8092,306 @@ paths:
       summary: Unregister VPC
       tags:
       - '[VPC Management]'
+  /s3/bucket:
+    get:
+      description: List S3 buckets managed by CB-Spider (infostore).
+      parameters:
+      - description: Connection Name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/spider.S3BucketInfo'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List S3 Buckets
+      tags:
+      - '[S3 Management]'
+    post:
+      consumes:
+      - application/json
+      description: Create a new S3 bucket and register to CB-Spider infostore.
+      parameters:
+      - description: Request body for creating an S3 bucket
+        in: body
+        name: S3BucketCreateRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.S3BucketCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.S3BucketInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Create S3 Bucket
+      tags:
+      - '[S3 Management]'
+  /s3/bucket/{BucketName}/object:
+    get:
+      description: List objects in an S3 bucket (managed bucket only)
+      parameters:
+      - description: Connection Name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Bucket Name
+        in: path
+        name: BucketName
+        required: true
+        type: string
+      - description: Prefix for filtering objects
+        in: query
+        name: Prefix
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/spider.S3ObjectInfo'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List S3 Objects
+      tags:
+      - '[S3 Management]'
+  /s3/bucket/{BucketName}/object/{ObjectName}:
+    get:
+      description: Get metadata/stat of an object in S3
+      parameters:
+      - description: Connection Name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Bucket Name
+        in: path
+        name: BucketName
+        required: true
+        type: string
+      - description: Object Name
+        in: path
+        name: ObjectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.S3ObjectInfo'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get S3 Object Metadata
+      tags:
+      - '[S3 Management]'
+  /s3/bucket/{BucketName}/object/{ObjectName}/download:
+    get:
+      description: Stream (download) an S3 object as a file (managed bucket only)
+      parameters:
+      - description: Connection Name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Bucket Name
+        in: path
+        name: BucketName
+        required: true
+        type: string
+      - description: Object Name
+        in: path
+        name: ObjectName
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Download S3 Object (Streaming)
+      tags:
+      - '[S3 Management]'
+  /s3/bucket/{Name}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete an S3 bucket (from S3 and infostore)
+      parameters:
+      - description: Connection Name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Bucket Name
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete S3 Bucket
+      tags:
+      - '[S3 Management]'
+    get:
+      description: Get information of a specific S3 bucket
+      parameters:
+      - description: Connection Name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Bucket Name
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.S3BucketInfo'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get S3 Bucket
+      tags:
+      - '[S3 Management]'
+  /s3/object:
+    delete:
+      consumes:
+      - application/json
+      description: Delete an object from S3 bucket (managed bucket only)
+      parameters:
+      - description: Delete info
+        in: body
+        name: S3ObjectDeleteRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.S3ObjectDeleteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete S3 Object
+      tags:
+      - '[S3 Management]'
+    post:
+      consumes:
+      - application/json
+      description: Upload a file to S3 bucket (managed bucket only)
+      parameters:
+      - description: Upload info
+        in: body
+        name: S3ObjectUploadRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.S3ObjectUploadRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.S3UploadInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Upload S3 Object (from file path)
+      tags:
+      - '[S3 Management]'
+  /s3/object/presigned-url:
+    post:
+      consumes:
+      - application/json
+      description: Get a presigned URL for S3 object (GET/PUT)
+      parameters:
+      - description: Presigned URL info
+        in: body
+        name: S3PresignedURLRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.S3PresignedURLRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.S3PresignedURL'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get S3 Presigned URL
+      tags:
+      - '[S3 Management]'
   /securitygroup:
     get:
       consumes:

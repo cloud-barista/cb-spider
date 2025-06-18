@@ -465,6 +465,25 @@ func RunServer() {
 		{"GET", "/filesystem/:Name/accesssubnet", ListAccessSubnet},
 		{"DELETE", "/filesystem/:Name/accesssubnet", RemoveAccessSubnet},
 
+		//----------S3 Handler
+		// S3 Bucket 관리
+		{"POST", "/s3/bucket", CreateS3Bucket},
+		{"GET", "/s3/bucket", ListS3Buckets},
+		{"GET", "/s3/bucket/:Name", GetS3Bucket},
+		{"DELETE", "/s3/bucket/:Name", DeleteS3Bucket},
+
+		// S3 Object 관리 (목록, 업로드, 삭제 등)
+		{"GET", "/s3/bucket/:BucketName/object", ListS3Objects},
+		{"GET", "/s3/bucket/:BucketName/object/:ObjectName", GetS3ObjectInfo},
+		{"POST", "/s3/object", PutS3ObjectFromFile},
+		{"DELETE", "/s3/object", DeleteS3Object},
+
+		// S3 Object 다운로드 (스트리밍)
+		{"GET", "/s3/bucket/:BucketName/object/:ObjectName/download", DownloadS3Object},
+
+		// Presigned URL
+		{"POST", "/s3/object/presigned-url", GetS3PresignedURL},
+
 		//----------Destory All Resources in a Connection
 		{"DELETE", "/destroy", Destroy},
 
