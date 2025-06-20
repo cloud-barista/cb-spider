@@ -50,6 +50,7 @@ conf/config.yaml
 
 bin/cb-spider
 bin/cb-spider-dyna
+bin/cb-spider-android-arm64
 
 cli/spctl
 
