@@ -466,23 +466,31 @@ func RunServer() {
 		{"DELETE", "/filesystem/:Name/accesssubnet", RemoveAccessSubnet},
 
 		//----------S3 Handler
-		// S3 Bucket 관리
+		// S3 Bucket Management
 		{"POST", "/s3/bucket", CreateS3Bucket},
 		{"GET", "/s3/bucket", ListS3Buckets},
 		{"GET", "/s3/bucket/:Name", GetS3Bucket},
 		{"DELETE", "/s3/bucket/:Name", DeleteS3Bucket},
 
-		// S3 Object 관리 (목록, 업로드, 삭제 등)
-		{"GET", "/s3/bucket/:BucketName/object", ListS3Objects},
-		{"GET", "/s3/bucket/:BucketName/object/:ObjectName", GetS3ObjectInfo},
+		// S3 Object Management
 		{"POST", "/s3/object", PutS3ObjectFromFile},
+		{"GET", "/s3/bucket/:BucketName/objectlist", ListS3Objects},
+		{"GET", "/s3/bucket/:BucketName/object", GetS3ObjectInfo},
 		{"DELETE", "/s3/object", DeleteS3Object},
 
-		// S3 Object 다운로드 (스트리밍)
-		{"GET", "/s3/bucket/:BucketName/object/:ObjectName/download", DownloadS3Object},
+		// S3 Object Download(Stream)
+		{"GET", "/s3/bucket/:BucketName/object/download", DownloadS3Object},
 
 		// Presigned URL
 		{"POST", "/s3/object/presigned-url", GetS3PresignedURL},
+
+		// S3 ACL & Policy
+		{"POST", "/s3/bucket/acl", SetS3BucketACL},
+
+		// S3 Versioning
+		{"POST", "/s3/bucket/versioning/enable", EnableVersioning},
+		{"POST", "/s3/bucket/versioning/suspend", SuspendVersioning},
+		{"POST", "/s3/bucket/object/versions", ListS3ObjectVersions},
 
 		//----------Destory All Resources in a Connection
 		{"DELETE", "/destroy", Destroy},
@@ -571,6 +579,10 @@ func RunServer() {
 		{"GET", "/adminweb/regionzone/:ConnectConfig", aw.RegionZone},
 		{"GET", "/adminweb/priceinfo/:ConnectConfig", aw.PriceInfoRequest},
 		{"GET", "/adminweb/priceinfotablelist/:ProductFamily/:RegionName/:ConnectConfig", aw.PriceInfoTableList},
+		// download price info with JSON file
+		{"GET", "/adminweb/priceinfo/download/:FileName", aw.DownloadPriceInfo},
+
+		{"GET", "/adminweb/s3/:ConnectConfig", aw.S3Management},
 
 		{"GET", "/adminweb/cmd-agent", aw.CmdAgent},
 		{"POST", "/adminweb/generate-cmd", aw.GenerateCmd},
@@ -578,9 +590,6 @@ func RunServer() {
 		{"GET", "/adminweb/calllog-analyzer", aw.CallLogAnalyzer},
 		{"POST", "/adminweb/analyze-logs", aw.AnalyzeLogs},
 		{"GET", "/adminweb/read-logs", aw.GetReadLogs},
-
-		// download price info with JSON file
-		{"GET", "/adminweb/priceinfo/download/:FileName", aw.DownloadPriceInfo},
 
 		//----------SSH WebTerminal Handler
 		{"GET", "/adminweb/sshwebterminal/ws", aw.HandleWebSocket},

@@ -1,11 +1,12 @@
 // Cloud Control Manager's Rest Runtime of CB-Spider.
-// REST API implementation for S3Handler (minio-go 기반, Swagger dummy struct 적용)
+// REST API implementation for S3Manager (minio-go based).
 // by CB-Spider Team
 
 package restruntime
 
 import (
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -13,35 +14,86 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-// ---------- Swagger 문서화용 dummy struct ----------
+// ---------- dummy struct for Swagger documentation ----------
 
-// S3BucketInfo Swagger doc용 (minio.BucketInfo와 호환)
+// --------------- for Swagger doc (minio.BucketInfo)
 type S3BucketInfo struct {
 	Name         string    `json:"Name"`
+	BucketRegion string    `json:"BucketRegion,omitempty"`
 	CreationDate time.Time `json:"CreationDate"`
 }
 
-// S3ObjectInfo Swagger doc용 (minio.ObjectInfo와 호환)
+// --------------- for Swagger doc (minio.ObjectInfo)
 type S3ObjectInfo struct {
-	Key          string    `json:"Key"`
-	Size         int64     `json:"Size"`
-	LastModified time.Time `json:"LastModified"`
-	ETag         string    `json:"ETag"`
+	ETag              string              `json:"ETag"`
+	Key               string              `json:"Key"`
+	LastModified      time.Time           `json:"LastModified"`
+	Size              int64               `json:"Size"`
+	ContentType       string              `json:"ContentType"`
+	Expires           time.Time           `json:"Expires"`
+	Metadata          map[string][]string `json:"Metadata"`
+	UserMetadata      map[string]string   `json:"UserMetadata,omitempty"`
+	UserTags          map[string]string   `json:"UserTags,omitempty"`
+	UserTagCount      int                 `json:"UserTagCount"`
+	Owner             *S3Owner            `json:"Owner,omitempty"`
+	Grant             []S3Grant           `json:"Grant,omitempty"`
+	StorageClass      string              `json:"StorageClass"`
+	IsLatest          bool                `json:"IsLatest"`
+	IsDeleteMarker    bool                `json:"IsDeleteMarker"`
+	VersionID         string              `json:"VersionID"`
+	ReplicationStatus string              `json:"ReplicationStatus"`
+	ReplicationReady  bool                `json:"ReplicationReady"`
+	Expiration        time.Time           `json:"Expiration"`
+	ExpirationRuleID  string              `json:"ExpirationRuleID"`
+	NumVersions       int                 `json:"NumVersions"`
+	Restore           *S3RestoreInfo      `json:"Restore,omitempty"`
+	ChecksumCRC32     string              `json:"ChecksumCRC32"`
+	ChecksumCRC32C    string              `json:"ChecksumCRC32C"`
+	ChecksumSHA1      string              `json:"ChecksumSHA1"`
+	ChecksumSHA256    string              `json:"ChecksumSHA256"`
+	ChecksumCRC64NVME string              `json:"ChecksumCRC64NVME"`
+	ChecksumMode      string              `json:"ChecksumMode"`
 }
 
-// S3UploadInfo Swagger doc용 (minio.UploadInfo와 호환)
+type S3Owner struct {
+	DisplayName string `json:"DisplayName"`
+	ID          string `json:"ID"`
+}
+type S3Grant struct {
+	Grantee    interface{} `json:"Grantee"`
+	Permission string      `json:"Permission"`
+}
+type S3RestoreInfo struct {
+	OngoingRestore bool `json:"OngoingRestore"` // Whether the object is currently being restored
+	// When the restored copy of the archived object will be removed
+	ExpiryTime time.Time `json:"ExpiryTime,omitempty"` // Optional, only if applicable
+}
+
+// --------------- for Swagger doc (minio.UploadInfo)
 type S3UploadInfo struct {
-	Bucket string `json:"Bucket"`
-	Key    string `json:"Key"`
-	Size   int64  `json:"Size"`
-	ETag   string `json:"ETag"`
+	Bucket            string    `json:"Bucket"`
+	Key               string    `json:"Key"`
+	ETag              string    `json:"ETag"`
+	Size              int64     `json:"Size"`
+	LastModified      time.Time `json:"LastModified"`
+	Location          string    `json:"Location"`
+	VersionID         string    `json:"VersionID"`
+	Expiration        time.Time `json:"Expiration"`
+	ExpirationRuleID  string    `json:"ExpirationRuleID"`
+	ChecksumCRC32     string    `json:"ChecksumCRC32"`
+	ChecksumCRC32C    string    `json:"ChecksumCRC32C"`
+	ChecksumSHA1      string    `json:"ChecksumSHA1"`
+	ChecksumSHA256    string    `json:"ChecksumSHA256"`
+	ChecksumCRC64NVME string    `json:"ChecksumCRC64NVME"`
+	ChecksumMode      string    `json:"ChecksumMode"`
 }
 
+// --------------- for Swagger doc (minio.BooleanInfo)
 type S3PresignedURL struct {
 	PresignedURL string `json:"PresignedURL"`
 }
 
-// ---------- API 요청 구조체 ----------
+// ---------- API Request structs ----------
 
 type S3BucketCreateRequest struct {
 	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-s3-conn"`
@@ -61,15 +113,7 @@ type S3ObjectDeleteRequest struct {
 	ObjectName     string `json:"ObjectName" validate:"required" example:"my-object.txt"`
 }
 
-type S3PresignedURLRequest struct {
-	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-s3-conn"`
-	BucketName     string `json:"BucketName" validate:"required" example:"my-bucket-01"`
-	ObjectName     string `json:"ObjectName" validate:"required" example:"my-object.txt"`
-	Method         string `json:"Method" validate:"required" example:"GET"` // "GET" or "PUT"
-	ExpiresSeconds int    `json:"ExpiresSeconds" validate:"required" example:"3600"`
-}
-
-// ---------- REST API 구현 ----------
+// ---------- REST API Implementation ----------
 
 // @Summary Create S3 Bucket
 // @Description Create a new S3 bucket and register to CB-Spider infostore.
@@ -141,6 +185,7 @@ func GetS3Bucket(c echo.Context) error {
 	swaggerBucket := S3BucketInfo{
 		Name:         b.Name,
 		CreationDate: b.CreationDate,
+		BucketRegion: b.BucketRegion,
 	}
 	return c.JSON(http.StatusOK, swaggerBucket)
 }
@@ -174,7 +219,7 @@ func DeleteS3Bucket(c echo.Context) error {
 // @Param Prefix query string false "Prefix for filtering objects"
 // @Success 200 {array} restruntime.S3ObjectInfo
 // @Failure 500 {object} restruntime.SimpleMsg
-// @Router /s3/bucket/{BucketName}/object [get]
+// @Router /s3/bucket/{BucketName}/objectlist [get]
 func ListS3Objects(c echo.Context) error {
 	conn := c.QueryParam("ConnectionName")
 	bucket := c.Param("BucketName")
@@ -201,24 +246,85 @@ func ListS3Objects(c echo.Context) error {
 // @Produce json
 // @Param ConnectionName query string true "Connection Name"
 // @Param BucketName path string true "Bucket Name"
-// @Param ObjectName path string true "Object Name"
+// @Param ObjectName query string true "Object Name"
 // @Success 200 {object} restruntime.S3ObjectInfo
 // @Failure 500 {object} restruntime.SimpleMsg
-// @Router /s3/bucket/{BucketName}/object/{ObjectName} [get]
+// @Router /s3/bucket/{BucketName}/object [get]
 func GetS3ObjectInfo(c echo.Context) error {
 	conn := c.QueryParam("ConnectionName")
 	bucket := c.Param("BucketName")
-	obj := c.Param("ObjectName")
+	obj := c.QueryParam("ObjectName")
 	o, err := cmrt.GetS3ObjectInfo(conn, bucket, obj)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
-	return c.JSON(http.StatusOK, S3ObjectInfo{
-		Key:          o.Key,
-		Size:         o.Size,
-		LastModified: o.LastModified,
-		ETag:         o.ETag,
-	})
+
+	var owner *S3Owner
+	if o.Owner.DisplayName != "" || o.Owner.ID != "" {
+		owner = &S3Owner{
+			DisplayName: o.Owner.DisplayName,
+			ID:          o.Owner.ID,
+		}
+	}
+
+	var grantList []S3Grant
+	for _, g := range o.Grant {
+		grantList = append(grantList, S3Grant{
+			Grantee:    g.Grantee,
+			Permission: g.Permission,
+		})
+	}
+
+	var restore *S3RestoreInfo
+	if o.Restore != nil {
+		restore = &S3RestoreInfo{
+			OngoingRestore: o.Restore.OngoingRestore,
+			ExpiryTime:     o.Restore.ExpiryTime,
+		}
+	}
+
+	// Convert UserMetadata and UserTags to maps
+	um := map[string]string{}
+	for k, v := range o.UserMetadata {
+		um[k] = v
+	}
+	ut := map[string]string{}
+	for k, v := range o.UserTags {
+		ut[k] = v
+	}
+
+	s3Obj := S3ObjectInfo{
+		ETag:              o.ETag,
+		Key:               o.Key,
+		LastModified:      o.LastModified,
+		Size:              o.Size,
+		ContentType:       o.ContentType,
+		Expires:           o.Expires,
+		Metadata:          map[string][]string(o.Metadata), // http.Header -> map[string][]string
+		UserMetadata:      um,
+		UserTags:          ut,
+		UserTagCount:      o.UserTagCount,
+		Owner:             owner,
+		Grant:             grantList,
+		StorageClass:      o.StorageClass,
+		IsLatest:          o.IsLatest,
+		IsDeleteMarker:    o.IsDeleteMarker,
+		VersionID:         o.VersionID,
+		ReplicationStatus: o.ReplicationStatus,
+		ReplicationReady:  o.ReplicationReady,
+		Expiration:        o.Expiration,
+		ExpirationRuleID:  o.ExpirationRuleID,
+		NumVersions:       o.NumVersions,
+		Restore:           restore,
+		ChecksumCRC32:     o.ChecksumCRC32,
+		ChecksumCRC32C:    o.ChecksumCRC32C,
+		ChecksumSHA1:      o.ChecksumSHA1,
+		ChecksumSHA256:    o.ChecksumSHA256,
+		ChecksumCRC64NVME: o.ChecksumCRC64NVME,
+		ChecksumMode:      o.ChecksumMode,
+	}
+
+	return c.JSON(http.StatusOK, s3Obj)
 }
 
 // @Summary Upload S3 Object (from file path)
@@ -241,10 +347,21 @@ func PutS3ObjectFromFile(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return c.JSON(http.StatusOK, S3UploadInfo{
-		Bucket: info.Bucket,
-		Key:    info.Key,
-		Size:   info.Size,
-		ETag:   info.ETag,
+		Bucket:            info.Bucket,
+		Key:               info.Key,
+		ETag:              info.ETag,
+		Size:              info.Size,
+		LastModified:      info.LastModified,
+		Location:          info.Location,
+		VersionID:         info.VersionID,
+		Expiration:        info.Expiration,
+		ExpirationRuleID:  info.ExpirationRuleID,
+		ChecksumCRC32:     info.ChecksumCRC32,
+		ChecksumCRC32C:    info.ChecksumCRC32C,
+		ChecksumSHA1:      info.ChecksumSHA1,
+		ChecksumSHA256:    info.ChecksumSHA256,
+		ChecksumCRC64NVME: info.ChecksumCRC64NVME,
+		ChecksumMode:      info.ChecksumMode,
 	})
 }
 
@@ -276,14 +393,14 @@ func DeleteS3Object(c echo.Context) error {
 // @Produce application/octet-stream
 // @Param ConnectionName query string true "Connection Name"
 // @Param BucketName path string true "Bucket Name"
-// @Param ObjectName path string true "Object Name"
+// @Param ObjectName query string true "Object Name"
 // @Success 200 {file} file
 // @Failure 500 {object} restruntime.SimpleMsg
-// @Router /s3/bucket/{BucketName}/object/{ObjectName}/download [get]
+// @Router /s3/bucket/{BucketName}/object/download [get]
 func DownloadS3Object(c echo.Context) error {
 	conn := c.QueryParam("ConnectionName")
 	bucket := c.Param("BucketName")
-	obj := c.Param("ObjectName")
+	obj := c.QueryParam("ObjectName")
 
 	stream, err := cmrt.GetS3ObjectStream(conn, bucket, obj)
 	if err != nil {
@@ -291,9 +408,19 @@ func DownloadS3Object(c echo.Context) error {
 	}
 	defer stream.Close()
 
-	c.Response().Header().Set("Content-Disposition", "attachment; filename=\""+obj+"\"")
+	filename := filepath.Base(obj) // obj = "/tmp/file.txt" -> "file.txt"
+	c.Response().Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
+
 	c.Response().Header().Set("Content-Type", "application/octet-stream")
 	return c.Stream(http.StatusOK, "application/octet-stream", stream)
+}
+
+type S3PresignedURLRequest struct {
+	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-s3-conn"`
+	BucketName     string `json:"BucketName" validate:"required" example:"my-bucket-01"`
+	ObjectName     string `json:"ObjectName" validate:"required" example:"my-object.txt"`
+	Method         string `json:"Method" validate:"required" example:"GET"` // "GET" or "PUT"
+	ExpiresSeconds int    `json:"ExpiresSeconds" validate:"required" example:"3600"`
 }
 
 // @Summary Get S3 Presigned URL
@@ -316,4 +443,161 @@ func GetS3PresignedURL(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	return c.JSON(http.StatusOK, S3PresignedURL{PresignedURL: url})
+}
+
+type S3BucketACLRequest struct {
+	ConnectionName string `json:"ConnectionName" validate:"required"`
+	BucketName     string `json:"BucketName" validate:"required"`
+	ACL            string `json:"ACL" validate:"required" example:"private|public-read"`
+}
+
+type S3ObjectACLRequest struct {
+	ConnectionName string `json:"ConnectionName" validate:"required"`
+	BucketName     string `json:"BucketName" validate:"required"`
+	ObjectName     string `json:"ObjectName" validate:"required"`
+	ACL            string `json:"ACL" validate:"required" example:"private|public-read"`
+}
+
+type S3BucketACLSetResponse struct {
+	Policy string `json:"Policy"`
+}
+
+type S3BucketACLInfo struct {
+	Policy string `json:"Policy"`
+}
+
+// @Summary Set S3 Bucket ACL
+// @Description Set the ACL for a specific S3 bucket and return the applied policy
+// @Tags [S3 Management]
+// @Accept json
+// @Produce json
+// @Param S3BucketACLRequest body restruntime.S3BucketACLRequest true "ACL info"
+// @Success 200 {object} restruntime.S3BucketACLSetResponse
+// @Failure 400 {object} restruntime.SimpleMsg
+// @Failure 500 {object} restruntime.SimpleMsg
+// @Router /s3/bucket/acl [post]
+func SetS3BucketACL(c echo.Context) error {
+	var req S3BucketACLRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	policy, err := cmrt.SetS3BucketACL(req.ConnectionName, req.BucketName, req.ACL)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	return c.JSON(http.StatusOK, S3BucketACLSetResponse{
+		Policy: policy,
+	})
+}
+
+// @Summary Get S3 Bucket ACL (Policy)
+// @Description Get the current ACL(policy) for an S3 bucket
+// @Tags [S3 Management]
+// @Produce json
+// @Param ConnectionName query string true "Connection Name"
+// @Param BucketName query string true "Bucket Name"
+// @Success 200 {object} restruntime.S3BucketACLInfo
+// @Failure 400 {object} restruntime.SimpleMsg
+// @Failure 500 {object} restruntime.SimpleMsg
+// @Router /s3/bucket/acl [get]
+func GetS3BucketACL(c echo.Context) error {
+	conn := c.QueryParam("ConnectionName")
+	bucket := c.QueryParam("BucketName")
+	if conn == "" || bucket == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "ConnectionName and BucketName are required")
+	}
+	policy, err := cmrt.GetS3BucketACL(conn, bucket)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	return c.JSON(http.StatusOK, S3BucketACLInfo{Policy: policy})
+}
+
+type S3BucketVersioningRequest struct {
+	ConnectionName string `json:"ConnectionName" validate:"required"`
+	BucketName     string `json:"BucketName" validate:"required"`
+}
+
+type S3ObjectVersionsRequest struct {
+	ConnectionName string `json:"ConnectionName" validate:"required"`
+	BucketName     string `json:"BucketName" validate:"required"`
+	Prefix         string `json:"Prefix"`
+}
+
+// @Summary Enable S3 Bucket Versioning
+// @Description Enable versioning for an S3 bucket
+// @Tags [S3 Management]
+// @Accept json
+// @Produce json
+// @Param S3BucketVersioningRequest body restruntime.S3BucketVersioningRequest true "Versioning info"
+// @Success 200 {object} restruntime.BooleanInfo
+// @Failure 400 {object} restruntime.SimpleMsg
+// @Failure 500 {object} restruntime.SimpleMsg
+// @Router /s3/bucket/versioning/enable [post]
+func EnableVersioning(c echo.Context) error {
+	var req S3BucketVersioningRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	result, err := cmrt.EnableVersioning(req.ConnectionName, req.BucketName)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	return c.JSON(http.StatusOK, BooleanInfo{Result: strconv.FormatBool(result)})
+}
+
+// @Summary Suspend S3 Bucket Versioning
+// @Description Suspend versioning for an S3 bucket
+// @Tags [S3 Management]
+// @Accept json
+// @Produce json
+// @Param S3BucketVersioningRequest body restruntime.S3BucketVersioningRequest true "Versioning info"
+// @Success 200 {object} restruntime.BooleanInfo
+// @Failure 400 {object} restruntime.SimpleMsg
+// @Failure 500 {object} restruntime.SimpleMsg
+// @Router /s3/bucket/versioning/suspend [post]
+func SuspendVersioning(c echo.Context) error {
+	var req S3BucketVersioningRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	result, err := cmrt.SuspendVersioning(req.ConnectionName, req.BucketName)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	return c.JSON(http.StatusOK, BooleanInfo{Result: strconv.FormatBool(result)})
+}
+
+// @Summary List S3 Object Versions
+// @Description List all versions of objects in a bucket (versioning enabled)
+// @Tags [S3 Management]
+// @Accept json
+// @Produce json
+// @Param S3ObjectVersionsRequest body restruntime.S3ObjectVersionsRequest true "Versions info"
+// @Success 200 {array} restruntime.S3ObjectInfo
+// @Failure 400 {object} restruntime.SimpleMsg
+// @Failure 500 {object} restruntime.SimpleMsg
+// @Router /s3/bucket/object/versions [post]
+func ListS3ObjectVersions(c echo.Context) error {
+	var req S3ObjectVersionsRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+	result, err := cmrt.ListS3ObjectVersions(req.ConnectionName, req.BucketName, req.Prefix)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+	var swaggerList []S3ObjectInfo
+	for _, o := range result {
+		swaggerList = append(swaggerList, S3ObjectInfo{
+			Key:            o.Key,
+			Size:           o.Size,
+			LastModified:   o.LastModified,
+			ETag:           o.ETag,
+			VersionID:      o.VersionID,
+			IsLatest:       o.IsLatest,
+			IsDeleteMarker: o.IsDeleteMarker,
+		})
+	}
+	return c.JSON(http.StatusOK, swaggerList)
 }

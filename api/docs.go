@@ -7017,7 +7017,338 @@ const docTemplate = `{
                 }
             }
         },
+        "/s3/bucket/acl": {
+            "get": {
+                "description": "Get the current ACL(policy) for an S3 bucket",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Management]"
+                ],
+                "summary": "Get S3 Bucket ACL (Policy)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection Name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bucket Name",
+                        "name": "BucketName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3BucketACLInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Set the ACL for a specific S3 bucket and return the applied policy",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Management]"
+                ],
+                "summary": "Set S3 Bucket ACL",
+                "parameters": [
+                    {
+                        "description": "ACL info",
+                        "name": "S3BucketACLRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3BucketACLRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3BucketACLSetResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/s3/bucket/object/versions": {
+            "post": {
+                "description": "List all versions of objects in a bucket (versioning enabled)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Management]"
+                ],
+                "summary": "List S3 Object Versions",
+                "parameters": [
+                    {
+                        "description": "Versions info",
+                        "name": "S3ObjectVersionsRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3ObjectVersionsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/spider.S3ObjectInfo"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/s3/bucket/versioning/enable": {
+            "post": {
+                "description": "Enable versioning for an S3 bucket",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Management]"
+                ],
+                "summary": "Enable S3 Bucket Versioning",
+                "parameters": [
+                    {
+                        "description": "Versioning info",
+                        "name": "S3BucketVersioningRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3BucketVersioningRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/s3/bucket/versioning/suspend": {
+            "post": {
+                "description": "Suspend versioning for an S3 bucket",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Management]"
+                ],
+                "summary": "Suspend S3 Bucket Versioning",
+                "parameters": [
+                    {
+                        "description": "Versioning info",
+                        "name": "S3BucketVersioningRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3BucketVersioningRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/s3/bucket/{BucketName}/object": {
+            "get": {
+                "description": "Get metadata/stat of an object in S3",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Management]"
+                ],
+                "summary": "Get S3 Object Metadata",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection Name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bucket Name",
+                        "name": "BucketName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Object Name",
+                        "name": "ObjectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3ObjectInfo"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/s3/bucket/{BucketName}/object/download": {
+            "get": {
+                "description": "Stream (download) an S3 object as a file (managed bucket only)",
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "tags": [
+                    "[S3 Management]"
+                ],
+                "summary": "Download S3 Object (Streaming)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection Name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bucket Name",
+                        "name": "BucketName",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Object Name",
+                        "name": "ObjectName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/s3/bucket/{BucketName}/objectlist": {
             "get": {
                 "description": "List objects in an S3 bucket (managed bucket only)",
                 "produces": [
@@ -7057,104 +7388,6 @@ const docTemplate = `{
                             "items": {
                                 "$ref": "#/definitions/spider.S3ObjectInfo"
                             }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/spider.SimpleMsg"
-                        }
-                    }
-                }
-            }
-        },
-        "/s3/bucket/{BucketName}/object/{ObjectName}": {
-            "get": {
-                "description": "Get metadata/stat of an object in S3",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "[S3 Management]"
-                ],
-                "summary": "Get S3 Object Metadata",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Connection Name",
-                        "name": "ConnectionName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Bucket Name",
-                        "name": "BucketName",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Object Name",
-                        "name": "ObjectName",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/spider.S3ObjectInfo"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/spider.SimpleMsg"
-                        }
-                    }
-                }
-            }
-        },
-        "/s3/bucket/{BucketName}/object/{ObjectName}/download": {
-            "get": {
-                "description": "Stream (download) an S3 object as a file (managed bucket only)",
-                "produces": [
-                    "application/octet-stream"
-                ],
-                "tags": [
-                    "[S3 Management]"
-                ],
-                "summary": "Download S3 Object (Streaming)",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Connection Name",
-                        "name": "ConnectionName",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Bucket Name",
-                        "name": "BucketName",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Object Name",
-                        "name": "ObjectName",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "file"
                         }
                     },
                     "500": {
@@ -13117,6 +13350,42 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.S3BucketACLInfo": {
+            "type": "object",
+            "properties": {
+                "Policy": {
+                    "type": "string"
+                }
+            }
+        },
+        "spider.S3BucketACLRequest": {
+            "type": "object",
+            "required": [
+                "ACL",
+                "BucketName",
+                "ConnectionName"
+            ],
+            "properties": {
+                "ACL": {
+                    "type": "string",
+                    "example": "private|public-read"
+                },
+                "BucketName": {
+                    "type": "string"
+                },
+                "ConnectionName": {
+                    "type": "string"
+                }
+            }
+        },
+        "spider.S3BucketACLSetResponse": {
+            "type": "object",
+            "properties": {
+                "Policy": {
+                    "type": "string"
+                }
+            }
+        },
         "spider.S3BucketCreateRequest": {
             "type": "object",
             "required": [
@@ -13137,10 +13406,37 @@ const docTemplate = `{
         "spider.S3BucketInfo": {
             "type": "object",
             "properties": {
+                "BucketRegion": {
+                    "type": "string"
+                },
                 "CreationDate": {
                     "type": "string"
                 },
                 "Name": {
+                    "type": "string"
+                }
+            }
+        },
+        "spider.S3BucketVersioningRequest": {
+            "type": "object",
+            "required": [
+                "BucketName",
+                "ConnectionName"
+            ],
+            "properties": {
+                "BucketName": {
+                    "type": "string"
+                },
+                "ConnectionName": {
+                    "type": "string"
+                }
+            }
+        },
+        "spider.S3Grant": {
+            "type": "object",
+            "properties": {
+                "Grantee": {},
+                "Permission": {
                     "type": "string"
                 }
             }
@@ -13170,8 +13466,50 @@ const docTemplate = `{
         "spider.S3ObjectInfo": {
             "type": "object",
             "properties": {
+                "ChecksumCRC32": {
+                    "type": "string"
+                },
+                "ChecksumCRC32C": {
+                    "type": "string"
+                },
+                "ChecksumCRC64NVME": {
+                    "type": "string"
+                },
+                "ChecksumMode": {
+                    "type": "string"
+                },
+                "ChecksumSHA1": {
+                    "type": "string"
+                },
+                "ChecksumSHA256": {
+                    "type": "string"
+                },
+                "ContentType": {
+                    "type": "string"
+                },
                 "ETag": {
                     "type": "string"
+                },
+                "Expiration": {
+                    "type": "string"
+                },
+                "ExpirationRuleID": {
+                    "type": "string"
+                },
+                "Expires": {
+                    "type": "string"
+                },
+                "Grant": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/spider.S3Grant"
+                    }
+                },
+                "IsDeleteMarker": {
+                    "type": "boolean"
+                },
+                "IsLatest": {
+                    "type": "boolean"
                 },
                 "Key": {
                     "type": "string"
@@ -13179,8 +13517,53 @@ const docTemplate = `{
                 "LastModified": {
                     "type": "string"
                 },
+                "Metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "NumVersions": {
+                    "type": "integer"
+                },
+                "Owner": {
+                    "$ref": "#/definitions/spider.S3Owner"
+                },
+                "ReplicationReady": {
+                    "type": "boolean"
+                },
+                "ReplicationStatus": {
+                    "type": "string"
+                },
+                "Restore": {
+                    "$ref": "#/definitions/spider.S3RestoreInfo"
+                },
                 "Size": {
                     "type": "integer"
+                },
+                "StorageClass": {
+                    "type": "string"
+                },
+                "UserMetadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "UserTagCount": {
+                    "type": "integer"
+                },
+                "UserTags": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "VersionID": {
+                    "type": "string"
                 }
             }
         },
@@ -13208,6 +13591,35 @@ const docTemplate = `{
                 "ObjectName": {
                     "type": "string",
                     "example": "my-object.txt"
+                }
+            }
+        },
+        "spider.S3ObjectVersionsRequest": {
+            "type": "object",
+            "required": [
+                "BucketName",
+                "ConnectionName"
+            ],
+            "properties": {
+                "BucketName": {
+                    "type": "string"
+                },
+                "ConnectionName": {
+                    "type": "string"
+                },
+                "Prefix": {
+                    "type": "string"
+                }
+            }
+        },
+        "spider.S3Owner": {
+            "type": "object",
+            "properties": {
+                "DisplayName": {
+                    "type": "string"
+                },
+                "ID": {
+                    "type": "string"
                 }
             }
         },
@@ -13252,20 +13664,66 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.S3RestoreInfo": {
+            "type": "object",
+            "properties": {
+                "ExpiryTime": {
+                    "description": "When the restored copy of the archived object will be removed",
+                    "type": "string"
+                },
+                "OngoingRestore": {
+                    "description": "Whether the object is currently being restored",
+                    "type": "boolean"
+                }
+            }
+        },
         "spider.S3UploadInfo": {
             "type": "object",
             "properties": {
                 "Bucket": {
                     "type": "string"
                 },
+                "ChecksumCRC32": {
+                    "type": "string"
+                },
+                "ChecksumCRC32C": {
+                    "type": "string"
+                },
+                "ChecksumCRC64NVME": {
+                    "type": "string"
+                },
+                "ChecksumMode": {
+                    "type": "string"
+                },
+                "ChecksumSHA1": {
+                    "type": "string"
+                },
+                "ChecksumSHA256": {
+                    "type": "string"
+                },
                 "ETag": {
+                    "type": "string"
+                },
+                "Expiration": {
+                    "type": "string"
+                },
+                "ExpirationRuleID": {
                     "type": "string"
                 },
                 "Key": {
                     "type": "string"
                 },
+                "LastModified": {
+                    "type": "string"
+                },
+                "Location": {
+                    "type": "string"
+                },
                 "Size": {
                     "type": "integer"
+                },
+                "VersionID": {
+                    "type": "string"
                 }
             }
         },

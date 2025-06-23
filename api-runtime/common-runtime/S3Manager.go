@@ -1,3 +1,7 @@
+// Cloud Control Manager's Rest Runtime of CB-Spider.
+// Common Runtime for S3 Management
+// by CB-Spider Team
+
 package commonruntime
 
 import (
@@ -45,12 +49,14 @@ type S3ConnectionInfo struct {
 func GetS3ConnectionInfo(connectionName string) (*S3ConnectionInfo, error) {
 	// 실제 환경에서는 info-store에서 추출
 	switch connectionName {
-	case "aws":
+	case "aws-config01":
+		region := "us-east-1"
+		endpoint := "s3." + region + ".amazonaws.com"
 		return &S3ConnectionInfo{
-			Endpoint:  "s3.amazonaws.com",
-			AccessKey: "YOUR_AWS_ACCESS_KEY",
-			SecretKey: "YOUR_AWS_SECRET_KEY",
-			Region:    "us-east-1",
+			Endpoint:  endpoint,
+			AccessKey: "AccessKey",
+			SecretKey: "SecretKey",
+			Region:    region,
 			UseSSL:    true,
 		}, nil
 	default:
@@ -376,4 +382,150 @@ func GetS3PresignedURL(connectionName, bucketName, objectName, method string, ex
 	default:
 		return "", fmt.Errorf("Unsupported method: %s", method)
 	}
+}
+
+func SetS3BucketACL(connectionName, bucketName, acl string) (string, error) {
+	cblog.Info("call SetS3BucketACL()")
+	// acl: "private", "public-read", etc.
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return "", err
+	}
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return "", err
+	}
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return "", err
+	}
+	ctx := context.Background()
+	// SetBucketPolicy for ACL: minio-go does not provide direct SetBucketACL, so map to policy
+	var policy string
+	switch acl {
+	case "public-read":
+		policy = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::` + bucketName + `/*"]}]}`
+	case "private":
+		policy = `{"Version":"2012-10-17","Statement":[]}`
+	default:
+		return "", fmt.Errorf("unsupported ACL: %s", acl)
+	}
+	err = client.SetBucketPolicy(ctx, bucketName, policy)
+	if err != nil {
+		return "", err
+	}
+	appliedPolicy, err := client.GetBucketPolicy(ctx, bucketName)
+	if err != nil {
+		return "", err
+	}
+	return appliedPolicy, nil
+}
+
+func GetS3BucketACL(connectionName, bucketName string) (string, error) {
+	cblog.Info("call GetS3BucketACL()")
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return "", err
+	}
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return "", err
+	}
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return "", err
+	}
+	ctx := context.Background()
+	policy, err := client.GetBucketPolicy(ctx, bucketName)
+	if err != nil {
+		return "", err
+	}
+	return policy, nil
+}
+
+func EnableVersioning(connectionName, bucketName string) (bool, error) {
+	cblog.Info("call EnableVersioning()")
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return false, err
+	}
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return false, err
+	}
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return false, err
+	}
+	ctx := context.Background()
+	opts := minio.BucketVersioningConfiguration{
+		Status: "Enabled",
+	}
+
+	err = client.SetBucketVersioning(ctx, bucketName, opts)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func SuspendVersioning(connectionName, bucketName string) (bool, error) {
+	cblog.Info("call SuspendVersioning()")
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return false, err
+	}
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return false, err
+	}
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return false, err
+	}
+	ctx := context.Background()
+	opts := minio.BucketVersioningConfiguration{
+		Status: "Suspended",
+	}
+	err = client.SetBucketVersioning(ctx, bucketName, opts)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func ListS3ObjectVersions(connectionName, bucketName, prefix string) ([]minio.ObjectInfo, error) {
+	cblog.Info("call ListS3ObjectVersions()")
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return nil, err
+	}
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return nil, err
+	}
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return nil, err
+	}
+	ctx := context.Background()
+	opts := minio.ListObjectsOptions{
+		Prefix:       prefix,
+		Recursive:    true,
+		WithVersions: true,
+	}
+
+	var out []minio.ObjectInfo
+	for obj := range client.ListObjects(ctx, bucketName, opts) {
+		if obj.Err != nil {
+			continue
+		}
+		out = append(out, obj)
+	}
+	return out, nil
 }
