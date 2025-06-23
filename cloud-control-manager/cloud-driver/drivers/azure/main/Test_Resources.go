@@ -167,7 +167,8 @@ func showTestHandlerInfo() {
 	cblogger.Info("11. PriceInfoHandler")
 	cblogger.Info("12. ClusterHandler")
 	cblogger.Info("13. TagHandler")
-	cblogger.Info("14. Exit")
+	cblogger.Info("14. FileSystemHandler")
+	cblogger.Info("15. Exit")
 	cblogger.Info("==========================================================")
 }
 
@@ -221,6 +222,8 @@ func getResourceHandler(resourceType string, config Config) (interface{}, error)
 		resourceHandler, err = cloudConnection.CreateClusterHandler()
 	case "tag":
 		resourceHandler, err = cloudConnection.CreateTagHandler()
+	case "fileSystem":
+		resourceHandler, err = cloudConnection.CreateFileSystemHandler()
 	}
 
 	if err != nil {
@@ -2115,6 +2118,109 @@ Loop:
 		}
 	}
 }
+func testFileSystemHandlerListPrint() {
+	cblogger.Info("Test fileSystemHandler")
+	cblogger.Info("0. Print Menu")
+	cblogger.Info("1. ListFileSystem()")
+	cblogger.Info("2. GetFileSystem()")
+	cblogger.Info("3. CreateFileSystem()")
+	cblogger.Info("4. DeleteFileSystem()")
+	cblogger.Info("5. AddAccessSubnet()")
+	cblogger.Info("6. RemoveAccessSubnet()")
+	cblogger.Info("7. ListIID()")
+	cblogger.Info("8. Exit")
+}
+
+// FileSystemHandler
+func testFileSystemHandler(config Config) {
+	resourceHandler, err := getResourceHandler("fileSystem", config)
+	if err != nil {
+		cblogger.Error(err)
+		return
+	}
+
+	fileSystemHandler := resourceHandler.(irs.FileSystemHandler)
+
+	testFileSystemHandlerListPrint()
+
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				testFileSystemHandlerListPrint()
+			case 1:
+				fmt.Println("Start ListFileSystem() ...")
+				if fileSystemList, err := fileSystemHandler.ListFileSystem(); err != nil {
+					fmt.Println(err)
+				} else {
+					spew.Dump(fileSystemList)
+				}
+				fmt.Println("Finish ListFileSystem()")
+			case 2:
+				fmt.Println("Start GetFileSystem() ...")
+				if fileSystemInfo, err := fileSystemHandler.GetFileSystem(irs.IID{}); err != nil {
+					fmt.Println(err)
+				} else {
+					spew.Dump(fileSystemInfo)
+				}
+				fmt.Println("Finish GetFileSystem()")
+			case 3:
+				fmt.Println("Start CreateFileSystem() ...")
+				reqInfo := irs.FileSystemInfo{
+					IId:     irs.IID{},
+					TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"}, {Key: "Environment2", Value: "Production2"}},
+					VpcIID:  irs.IID{},
+				}
+				fileSystem, err := fileSystemHandler.CreateFileSystem(reqInfo)
+				if err != nil {
+					fmt.Println(err)
+				} else {
+					spew.Dump(fileSystem)
+				}
+				fmt.Println("Finish CreateFileSystem()")
+			case 4:
+				fmt.Println("Start DeleteFileSystem() ...")
+				if ok, err := fileSystemHandler.DeleteFileSystem(irs.IID{}); !ok {
+					fmt.Println(err)
+				}
+				fmt.Println("Finish DeleteFileSystem()")
+			case 5:
+				fmt.Println("Start AddAccessSubnet() ...")
+				fileSystem, err := fileSystemHandler.AddAccessSubnet(irs.IID{}, irs.IID{})
+				if err != nil {
+					fmt.Println(err)
+				} else {
+					spew.Dump(fileSystem)
+				}
+				fmt.Println("Finish AddAccessSubnet()")
+			case 6:
+				fmt.Println("Start RemoveAccessSubnet() ...")
+				if ok, err := fileSystemHandler.RemoveAccessSubnet(irs.IID{}, irs.IID{}); !ok {
+					fmt.Println(err)
+				}
+				fmt.Println("Finish RemoveAccessSubnet()")
+			case 7:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := fileSystemHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 8:
+				fmt.Println("Exit")
+				break Loop
+			}
+		}
+	}
+}
 
 func main() {
 	showTestHandlerInfo()
@@ -2169,6 +2275,9 @@ Loop:
 				testTagHandler(config)
 				showTestHandlerInfo()
 			case 14:
+				testFileSystemHandler(config)
+				showTestHandlerInfo()
+			case 15:
 				cblogger.Info("Exit Test ResourceHandler Program")
 				break Loop
 			}

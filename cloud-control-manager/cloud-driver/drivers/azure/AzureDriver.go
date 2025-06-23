@@ -13,6 +13,7 @@ package azure
 import (
 	"context"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"os"
 	"time"
 
@@ -261,6 +262,10 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	if err != nil {
 		return nil, err
 	}
+	Ctx, fileShareClient, err := getFileShareClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
 	iConn := azcon.AzureCloudConnection{
 		CredentialInfo:                  connectionInfo.CredentialInfo,
 		Region:                          connectionInfo.RegionInfo,
@@ -292,6 +297,7 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 		TagsClient:                      tagsClient,
 		ResourceSKUsClient:              resourceSKUsClient,
 		DnsZoneClient:                   dnsZoneClient,
+		FileShareClient:                 fileShareClient,
 	}
 
 	regionZoneHandler, err := iConn.CreateRegionZoneHandler()
@@ -729,4 +735,19 @@ func getDnsZoneClient(credential idrv.CredentialInfo) (context.Context, *armdns.
 
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 	return ctx, dnsZoneClient, nil
+}
+
+func getFileShareClient(credential idrv.CredentialInfo) (context.Context, *armstorage.FileSharesClient, error) {
+	cred, err := getCred(credential)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	fileShareClient, err := armstorage.NewFileSharesClient(credential.SubscriptionId, cred, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+	return ctx, fileShareClient, nil
 }
