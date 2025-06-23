@@ -2,6 +2,7 @@ VERSION := $(shell git describe --tags --abbrev=8 | sed 's/-g.*//')
 COMMIT_SHA := $(shell git rev-parse --short HEAD)
 BUILD_TIME := $(shell date)
 
+export CGO_CFLAGS := -Wno-deprecated-declarations
 
 default: swag
 	@printf '\t[CB-Spider] building ./bin/cb-spider...\n'
