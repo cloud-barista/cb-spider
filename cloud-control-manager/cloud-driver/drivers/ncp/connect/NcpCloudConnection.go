@@ -34,6 +34,11 @@ type NcpCloudConnection struct {
 	LbClient       *lb.APIClient
 }
 
+// CreateFileSystemHandler implements connect.CloudConnection.
+func (cloudConn *NcpCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
+	panic("unimplemented")
+}
+
 var cblogger *logrus.Logger
 
 func init() {

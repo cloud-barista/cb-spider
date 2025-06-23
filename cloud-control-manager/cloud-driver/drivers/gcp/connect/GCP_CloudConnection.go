@@ -55,6 +55,11 @@ type GCPCloudConnection struct {
 	CostEstimationClient *cbb.Service
 }
 
+// CreateFileSystemHandler implements connect.CloudConnection.
+func (cloudConn *GCPCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
+	panic("unimplemented")
+}
+
 // func (cloudConn *GCPCloudConnection) CreateVNetworkHandler() (irs.VNetworkHandler, error) {
 // 	cblogger.Info("GCP Cloud Driver: called CreateVNetworkHandler()!")
 

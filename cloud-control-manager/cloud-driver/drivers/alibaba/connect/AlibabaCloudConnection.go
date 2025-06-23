@@ -59,6 +59,11 @@ type AlibabaCloudConnection struct {
 	BssClient     *bssopenapi.Client
 }
 
+// CreateFileSystemHandler implements connect.CloudConnection.
+func (cloudConn *AlibabaCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
+	panic("unimplemented")
+}
+
 func (cloudConn *AlibabaCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
 	//regionZoneHandler := alirs.AlibabaRegionZoneHandler{Region: cloudConn.Region, Client: cloudConn.RegionZoneClient}
 	regionZoneHandler := alirs.AlibabaRegionZoneHandler{Region: cloudConn.Region, Client: cloudConn.RegionZoneClient}

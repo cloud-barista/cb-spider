@@ -38,6 +38,8 @@ type CloudConnection interface {
 
 	CreateTagHandler() (irs.TagHandler, error)
 
+	CreateFileSystemHandler() (irs.FileSystemHandler, error)
+
 	IsConnected() (bool, error)
 	Close() error
 }

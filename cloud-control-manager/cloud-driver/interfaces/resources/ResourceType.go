@@ -30,6 +30,8 @@ const (
 	MYIMAGE   RSType = "myimage"
 	CLUSTER   RSType = "cluster"
 	NODEGROUP RSType = "nodegroup"
+
+	FILESYSTEM RSType = "filesystem"
 )
 
 func RSTypeString(rsType RSType) string {
@@ -58,6 +60,8 @@ func RSTypeString(rsType RSType) string {
 		return "Kubernetes Cluster"
 	case NODEGROUP:
 		return "Kubernetes NodeGroup"
+	case FILESYSTEM:
+		return "FileSystem"
 	default:
 		return string(rsType) + " is not supported Resource!!"
 
@@ -93,6 +97,8 @@ func StringToRSType(str string) (RSType, error) {
 		return CLUSTER, nil
 	case "nodegroup":
 		return NODEGROUP, nil
+	case "filesystem":
+		return FILESYSTEM, nil
 	default:
 		return "", fmt.Errorf("%s is not a valid resource type", str)
 	}

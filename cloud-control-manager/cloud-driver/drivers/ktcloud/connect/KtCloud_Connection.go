@@ -31,6 +31,11 @@ type KtCloudConnection struct {
 	NLBClient      *ktsdk.KtCloudClient
 }
 
+// CreateFileSystemHandler implements connect.CloudConnection.
+func (cloudConn *KtCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
+	panic("unimplemented")
+}
+
 var cblogger *logrus.Logger
 
 func init() {

@@ -45,6 +45,11 @@ type TencentCloudConnection struct {
 	ClusterClient    *tke.Client
 }
 
+// CreateFileSystemHandler implements connect.CloudConnection.
+func (cloudConn *TencentCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
+	panic("unimplemented")
+}
+
 var cblogger *logrus.Logger
 
 func init() {

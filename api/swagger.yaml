@@ -247,6 +247,29 @@ definitions:
     - ClusterInactive
     - ClusterUpdating
     - ClusterDeleting
+  spider.CronSchedule:
+    properties:
+      DayOfMonth:
+        default: '*'
+        description: 1-31, *
+        type: string
+      DayOfWeek:
+        default: '*'
+        description: 0-6 (Sunday=0), *
+        type: string
+      Hour:
+        default: "5"
+        description: 0-23, *
+        type: string
+      Minute:
+        default: "0"
+        description: 0-59, *
+        type: string
+      Month:
+        default: '*'
+        description: 1-12, *
+        type: string
+    type: object
   spider.DiskInfo:
     properties:
       CreatedTime:
@@ -308,6 +331,139 @@ definitions:
     - DiskAttached
     - DiskDeleting
     - DiskError
+  spider.FileSystemBackupInfo:
+    properties:
+      BackupID:
+        description: for response only, not for request
+        type: string
+      BackupSchedule:
+        allOf:
+        - $ref: '#/definitions/spider.CronSchedule'
+        description: Cron schedule for backups, default is "0 5 * * *" (Every day
+          at 5 AM)
+      CreationTime:
+        type: string
+      FileSystemIID:
+        description: The File System IID to which this backup belongs
+        type: string
+      KeyValueList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+    required:
+    - BackupID
+    - FileSystemIID
+    type: object
+  spider.FileSystemInfo:
+    properties:
+      AccessSubnetList:
+        description: List of subnets whose VMs can use this file system
+        items:
+          $ref: '#/definitions/spider.IID'
+        type: array
+      BackupSchedule:
+        allOf:
+        - $ref: '#/definitions/spider.FileSystemBackupInfo'
+        description: Cron schedule for backups, default is "0 5 * * *" (Every day
+          at 5 AM)
+      CapacityGB:
+        description: Capacity in GB, -1 when not applicable. Ignored if CSP unsupported.;
+          CSP default if omitted
+        example: 1024
+        type: integer
+      CreatedTime:
+        type: string
+      Encryption:
+        default: false
+        description: Encryption enabled or not
+        type: boolean
+      FileSystemType:
+        allOf:
+        - $ref: '#/definitions/spider.FileSystemType'
+        description: |-
+          **************************************************************************************************
+          ** (1) Basic setup: If not set by the user, these fields use CSP default values.
+          ** (2) Advanced setup: If set by the user, these fields enable CSP-specific file system features.
+          **************************************************************************************************
+        example: RegionType
+      IId:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: '{NameId, SystemId}'
+      KeyValueList:
+        description: Additional key-value pairs associated with this File System
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      MountTargetList:
+        items:
+          $ref: '#/definitions/spider.MountTargetInfo'
+        type: array
+      NFSVersion:
+        description: NFS protocol version, e.g., "3.0", "4.1"; CSP default if omitted
+        example: "4.1"
+        type: string
+      PerformanceInfo:
+        additionalProperties:
+          type: string
+        description: Each key/value must match one of the PerformanceOptions provided
+          by the cloud driver for the selected file system type.
+        type: object
+      Region:
+        example: us-east-1
+        type: string
+      Status:
+        allOf:
+        - $ref: '#/definitions/spider.FileSystemStatus'
+        description: only for response, not for request
+        example: Available
+      TagList:
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      UsedSizeGB:
+        description: Current used size in GB.
+        example: 256
+        type: integer
+      VpcIID:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: Owner VPC IID
+      Zone:
+        example: us-east-1a
+        type: string
+    required:
+    - CreatedTime
+    - IId
+    - NFSVersion
+    - Status
+    - UsedSizeGB
+    - VpcIID
+    type: object
+  spider.FileSystemStatus:
+    enum:
+    - Creating
+    - Available
+    - Deleting
+    - Error
+    type: string
+    x-enum-varnames:
+    - FileSystemCreating
+    - FileSystemAvailable
+    - FileSystemDeleting
+    - FileSystemError
+  spider.FileSystemType:
+    enum:
+    - REGION-TYPE
+    - ZONE-TYPE
+    - REGION-VPC-BASED-TYPE
+    - REGION-ZONE-BASED-TYPE
+    type: string
+    x-enum-varnames:
+    - RegionType
+    - ZoneType
+    - RegionVPCBasedType
+    - RegionZoneBasedType
   spider.GpuInfo:
     properties:
       Count:
@@ -556,6 +712,29 @@ definitions:
         type: string
     required:
     - Version
+    type: object
+  spider.MountTargetInfo:
+    properties:
+      Endpoint:
+        description: mount target endpoint (IP, DNS, URL)
+        type: string
+      KeyValueList:
+        description: Additional key-value pairs associated with this mount target
+        items:
+          $ref: '#/definitions/spider.KeyValue'
+        type: array
+      MountCommandExample:
+        description: Example mount command
+        type: string
+      SecurityGroups:
+        description: security groups associated with the mount target
+        items:
+          type: string
+        type: array
+      SubnetIID:
+        allOf:
+        - $ref: '#/definitions/spider.IID'
+        description: location of the mount target
     type: object
   spider.MyImageInfo:
     properties:
@@ -866,6 +1045,7 @@ definitions:
     - myimage
     - cluster
     - nodegroup
+    - filesystem
     type: string
     x-enum-varnames:
     - ALL
@@ -880,6 +1060,7 @@ definitions:
     - MYIMAGE
     - CLUSTER
     - NODEGROUP
+    - FILESYSTEM
   spider.RegionInfo:
     properties:
       Region:
@@ -1479,6 +1660,17 @@ definitions:
     - ProviderName
     - RegionName
     type: object
+  spider.AccessSubnetRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      SubnetIID:
+        $ref: '#/definitions/spider.IID'
+    required:
+    - ConnectionName
+    - SubnetIID
+    type: object
   spider.AllResourceInfoListResponse:
     properties:
       AllListInfo:
@@ -1934,6 +2126,9 @@ definitions:
       emulated_VPC:
         description: 'support: true, do not support: false'
         type: boolean
+      fileSystemHandler:
+        description: 'support: true, do not support: false'
+        type: boolean
       imageHandler:
         description: 'support: true, do not support: false'
         type: boolean
@@ -1982,6 +2177,48 @@ definitions:
       zoneBasedControl:
         description: Resource Control Scope
         type: boolean
+    type: object
+  spider.FileSystemCreateRequest:
+    properties:
+      ConnectionName:
+        example: aws-connection
+        type: string
+      ReqInfo:
+        properties:
+          Encrypted:
+            example: false
+            type: boolean
+          FileSystemType:
+            example: efs
+            type: string
+          KmsKeyId:
+            type: string
+          Name:
+            example: efs-01
+            type: string
+          PerformanceMode:
+            example: generalPurpose
+            type: string
+          ProvisionedThroughput:
+            example: "0"
+            type: string
+          TagList:
+            items:
+              $ref: '#/definitions/spider.KeyValue'
+            type: array
+          ThroughputMode:
+            example: bursting
+            type: string
+          Zone:
+            example: us-east-1a
+            type: string
+        required:
+        - Name
+        - Zone
+        type: object
+    required:
+    - ConnectionName
+    - ReqInfo
     type: object
   spider.HealthCheckResponse:
     properties:
@@ -2484,6 +2721,263 @@ definitions:
     required:
     - ConnectionName
     - ReqInfo
+    type: object
+  spider.S3BucketACLInfo:
+    properties:
+      Policy:
+        type: string
+    type: object
+  spider.S3BucketACLRequest:
+    properties:
+      ACL:
+        example: private|public-read
+        type: string
+      BucketName:
+        type: string
+      ConnectionName:
+        type: string
+    required:
+    - ACL
+    - BucketName
+    - ConnectionName
+    type: object
+  spider.S3BucketACLSetResponse:
+    properties:
+      Policy:
+        type: string
+    type: object
+  spider.S3BucketCreateRequest:
+    properties:
+      ConnectionName:
+        example: aws-s3-conn
+        type: string
+      Name:
+        example: my-bucket-01
+        type: string
+    required:
+    - ConnectionName
+    - Name
+    type: object
+  spider.S3BucketInfo:
+    properties:
+      BucketRegion:
+        type: string
+      CreationDate:
+        type: string
+      Name:
+        type: string
+    type: object
+  spider.S3BucketVersioningRequest:
+    properties:
+      BucketName:
+        type: string
+      ConnectionName:
+        type: string
+    required:
+    - BucketName
+    - ConnectionName
+    type: object
+  spider.S3Grant:
+    properties:
+      Grantee: {}
+      Permission:
+        type: string
+    type: object
+  spider.S3ObjectDeleteRequest:
+    properties:
+      BucketName:
+        example: my-bucket-01
+        type: string
+      ConnectionName:
+        example: aws-s3-conn
+        type: string
+      ObjectName:
+        example: my-object.txt
+        type: string
+    required:
+    - BucketName
+    - ConnectionName
+    - ObjectName
+    type: object
+  spider.S3ObjectInfo:
+    properties:
+      ChecksumCRC32:
+        type: string
+      ChecksumCRC32C:
+        type: string
+      ChecksumCRC64NVME:
+        type: string
+      ChecksumMode:
+        type: string
+      ChecksumSHA1:
+        type: string
+      ChecksumSHA256:
+        type: string
+      ContentType:
+        type: string
+      ETag:
+        type: string
+      Expiration:
+        type: string
+      ExpirationRuleID:
+        type: string
+      Expires:
+        type: string
+      Grant:
+        items:
+          $ref: '#/definitions/spider.S3Grant'
+        type: array
+      IsDeleteMarker:
+        type: boolean
+      IsLatest:
+        type: boolean
+      Key:
+        type: string
+      LastModified:
+        type: string
+      Metadata:
+        additionalProperties:
+          items:
+            type: string
+          type: array
+        type: object
+      NumVersions:
+        type: integer
+      Owner:
+        $ref: '#/definitions/spider.S3Owner'
+      ReplicationReady:
+        type: boolean
+      ReplicationStatus:
+        type: string
+      Restore:
+        $ref: '#/definitions/spider.S3RestoreInfo'
+      Size:
+        type: integer
+      StorageClass:
+        type: string
+      UserMetadata:
+        additionalProperties:
+          type: string
+        type: object
+      UserTagCount:
+        type: integer
+      UserTags:
+        additionalProperties:
+          type: string
+        type: object
+      VersionID:
+        type: string
+    type: object
+  spider.S3ObjectUploadRequest:
+    properties:
+      BucketName:
+        example: my-bucket-01
+        type: string
+      ConnectionName:
+        example: aws-s3-conn
+        type: string
+      FilePath:
+        example: /tmp/data.txt
+        type: string
+      ObjectName:
+        example: my-object.txt
+        type: string
+    required:
+    - BucketName
+    - ConnectionName
+    - FilePath
+    - ObjectName
+    type: object
+  spider.S3ObjectVersionsRequest:
+    properties:
+      BucketName:
+        type: string
+      ConnectionName:
+        type: string
+      Prefix:
+        type: string
+    required:
+    - BucketName
+    - ConnectionName
+    type: object
+  spider.S3Owner:
+    properties:
+      DisplayName:
+        type: string
+      ID:
+        type: string
+    type: object
+  spider.S3PresignedURL:
+    properties:
+      PresignedURL:
+        type: string
+    type: object
+  spider.S3PresignedURLRequest:
+    properties:
+      BucketName:
+        example: my-bucket-01
+        type: string
+      ConnectionName:
+        example: aws-s3-conn
+        type: string
+      ExpiresSeconds:
+        example: 3600
+        type: integer
+      Method:
+        description: '"GET" or "PUT"'
+        example: GET
+        type: string
+      ObjectName:
+        example: my-object.txt
+        type: string
+    required:
+    - BucketName
+    - ConnectionName
+    - ExpiresSeconds
+    - Method
+    - ObjectName
+    type: object
+  spider.S3RestoreInfo:
+    properties:
+      ExpiryTime:
+        description: When the restored copy of the archived object will be removed
+        type: string
+      OngoingRestore:
+        description: Whether the object is currently being restored
+        type: boolean
+    type: object
+  spider.S3UploadInfo:
+    properties:
+      Bucket:
+        type: string
+      ChecksumCRC32:
+        type: string
+      ChecksumCRC32C:
+        type: string
+      ChecksumCRC64NVME:
+        type: string
+      ChecksumMode:
+        type: string
+      ChecksumSHA1:
+        type: string
+      ChecksumSHA256:
+        type: string
+      ETag:
+        type: string
+      Expiration:
+        type: string
+      ExpirationRuleID:
+        type: string
+      Key:
+        type: string
+      LastModified:
+        type: string
+      Location:
+        type: string
+      Size:
+        type: integer
+      VersionID:
+        type: string
     type: object
   spider.SecurityGroupCreateRequest:
     properties:
@@ -5595,6 +6089,183 @@ paths:
       summary: Upload Cloud Driver
       tags:
       - '[Cloud Info Management] Driver Info'
+  /filesystem:
+    get:
+      parameters:
+      - description: Connection Name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/spider.FileSystemInfo'
+            type: array
+      summary: List FileSystems
+      tags:
+      - '[FileSystem Management]'
+    post:
+      consumes:
+      - application/json
+      description: Create a new FileSystem with the specified configuration.
+      operationId: create-filesystem
+      parameters:
+      - description: Request body for creating a FileSystem
+        in: body
+        name: FileSystemCreateRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.FileSystemCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Details of the created FileSystem
+          schema:
+            $ref: '#/definitions/spider.FileSystemInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Create FileSystem
+      tags:
+      - '[FileSystem Management]'
+  /filesystem/{Name}:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: Connection Name
+        in: body
+        name: ConnectionRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.ConnectionRequest'
+      - description: FileSystem Name
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+      summary: Delete FileSystem
+      tags:
+      - '[FileSystem Management]'
+    get:
+      parameters:
+      - description: Connection Name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: FileSystem Name
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.FileSystemInfo'
+      summary: Get FileSystem
+      tags:
+      - '[FileSystem Management]'
+  /filesystem/{Name}/access-subnet:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: FileSystem Name
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: Remove Access Subnet Info
+        in: body
+        name: RemoveRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.AccessSubnetRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+      summary: Remove Access Subnet from FileSystem
+      tags:
+      - '[FileSystem Management]'
+    get:
+      parameters:
+      - description: Connection Name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: FileSystem Name
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/spider.IID'
+            type: array
+      summary: List Access Subnets of FileSystem
+      tags:
+      - '[FileSystem Management]'
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: FileSystem Name
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: Add Access Subnet Info
+        in: body
+        name: AddRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.AccessSubnetRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.FileSystemInfo'
+      summary: Add Access Subnet to FileSystem
+      tags:
+      - '[FileSystem Management]'
   /getclusterowner:
     post:
       consumes:
@@ -7571,6 +8242,459 @@ paths:
       summary: Unregister VPC
       tags:
       - '[VPC Management]'
+  /s3/bucket:
+    get:
+      description: List S3 buckets managed by CB-Spider (infostore).
+      parameters:
+      - description: Connection Name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/spider.S3BucketInfo'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List S3 Buckets
+      tags:
+      - '[S3 Management]'
+    post:
+      consumes:
+      - application/json
+      description: Create a new S3 bucket and register to CB-Spider infostore.
+      parameters:
+      - description: Request body for creating an S3 bucket
+        in: body
+        name: S3BucketCreateRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.S3BucketCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.S3BucketInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Create S3 Bucket
+      tags:
+      - '[S3 Management]'
+  /s3/bucket/{BucketName}/object:
+    get:
+      description: Get metadata/stat of an object in S3
+      parameters:
+      - description: Connection Name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Bucket Name
+        in: path
+        name: BucketName
+        required: true
+        type: string
+      - description: Object Name
+        in: query
+        name: ObjectName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.S3ObjectInfo'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get S3 Object Metadata
+      tags:
+      - '[S3 Management]'
+  /s3/bucket/{BucketName}/object/download:
+    get:
+      description: Stream (download) an S3 object as a file (managed bucket only)
+      parameters:
+      - description: Connection Name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Bucket Name
+        in: path
+        name: BucketName
+        required: true
+        type: string
+      - description: Object Name
+        in: query
+        name: ObjectName
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Download S3 Object (Streaming)
+      tags:
+      - '[S3 Management]'
+  /s3/bucket/{BucketName}/objectlist:
+    get:
+      description: List objects in an S3 bucket (managed bucket only)
+      parameters:
+      - description: Connection Name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Bucket Name
+        in: path
+        name: BucketName
+        required: true
+        type: string
+      - description: Prefix for filtering objects
+        in: query
+        name: Prefix
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/spider.S3ObjectInfo'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List S3 Objects
+      tags:
+      - '[S3 Management]'
+  /s3/bucket/{Name}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete an S3 bucket (from S3 and infostore)
+      parameters:
+      - description: Connection Name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Bucket Name
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete S3 Bucket
+      tags:
+      - '[S3 Management]'
+    get:
+      description: Get information of a specific S3 bucket
+      parameters:
+      - description: Connection Name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Bucket Name
+        in: path
+        name: Name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.S3BucketInfo'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get S3 Bucket
+      tags:
+      - '[S3 Management]'
+  /s3/bucket/acl:
+    get:
+      description: Get the current ACL(policy) for an S3 bucket
+      parameters:
+      - description: Connection Name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Bucket Name
+        in: query
+        name: BucketName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.S3BucketACLInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get S3 Bucket ACL (Policy)
+      tags:
+      - '[S3 Management]'
+    post:
+      consumes:
+      - application/json
+      description: Set the ACL for a specific S3 bucket and return the applied policy
+      parameters:
+      - description: ACL info
+        in: body
+        name: S3BucketACLRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.S3BucketACLRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.S3BucketACLSetResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Set S3 Bucket ACL
+      tags:
+      - '[S3 Management]'
+  /s3/bucket/object/versions:
+    post:
+      consumes:
+      - application/json
+      description: List all versions of objects in a bucket (versioning enabled)
+      parameters:
+      - description: Versions info
+        in: body
+        name: S3ObjectVersionsRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.S3ObjectVersionsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/spider.S3ObjectInfo'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: List S3 Object Versions
+      tags:
+      - '[S3 Management]'
+  /s3/bucket/versioning/enable:
+    post:
+      consumes:
+      - application/json
+      description: Enable versioning for an S3 bucket
+      parameters:
+      - description: Versioning info
+        in: body
+        name: S3BucketVersioningRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.S3BucketVersioningRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Enable S3 Bucket Versioning
+      tags:
+      - '[S3 Management]'
+  /s3/bucket/versioning/suspend:
+    post:
+      consumes:
+      - application/json
+      description: Suspend versioning for an S3 bucket
+      parameters:
+      - description: Versioning info
+        in: body
+        name: S3BucketVersioningRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.S3BucketVersioningRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Suspend S3 Bucket Versioning
+      tags:
+      - '[S3 Management]'
+  /s3/object:
+    delete:
+      consumes:
+      - application/json
+      description: Delete an object from S3 bucket (managed bucket only)
+      parameters:
+      - description: Delete info
+        in: body
+        name: S3ObjectDeleteRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.S3ObjectDeleteRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Delete S3 Object
+      tags:
+      - '[S3 Management]'
+    post:
+      consumes:
+      - application/json
+      description: Upload a file to S3 bucket (managed bucket only)
+      parameters:
+      - description: Upload info
+        in: body
+        name: S3ObjectUploadRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.S3ObjectUploadRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.S3UploadInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Upload S3 Object (from file path)
+      tags:
+      - '[S3 Management]'
+  /s3/object/presigned-url:
+    post:
+      consumes:
+      - application/json
+      description: Get a presigned URL for S3 object (GET/PUT)
+      parameters:
+      - description: Presigned URL info
+        in: body
+        name: S3PresignedURLRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.S3PresignedURLRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.S3PresignedURL'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get S3 Presigned URL
+      tags:
+      - '[S3 Management]'
   /securitygroup:
     get:
       consumes:

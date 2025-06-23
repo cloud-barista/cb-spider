@@ -20,6 +20,11 @@ type MockConnection struct {
 	MockName string
 }
 
+// CreateFileSystemHandler implements connect.CloudConnection.
+func (cloudConn *MockConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
+	panic("unimplemented")
+}
+
 func (cloudConn *MockConnection) CreateImageHandler() (irs.ImageHandler, error) {
 	cblogger.Info("Mock Driver: called CreateImageHandler()!")
 	handler := mkrs.MockImageHandler{cloudConn.MockName}
