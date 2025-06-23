@@ -72,14 +72,21 @@ clean clear:
 # 3. Set environment variable (for bash):
 #    export ANDROID_NDK_HOME=$$HOME/android-ndk-r26d
 # =============================================================
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+  NDK_PREBUILT := darwin-x86_64
+else
+  NDK_PREBUILT := linux-x86_64
+endif
+
 android-arm64: swag
 	@printf '\t[CB-Spider] build ./bin/cb-spider-android-arm64 for Android arm64...\n'
-	@PATH="$(ANDROID_NDK_HOME)/toolchains/llvm/prebuilt/linux-x86_64/bin:$$PATH" \
+	@PATH="$(ANDROID_NDK_HOME)/toolchains/llvm/prebuilt/$(NDK_PREBUILT)/bin:$$PATH" \
 	CC=aarch64-linux-android21-clang \
 	CGO_ENABLED=1 \
 	GOOS=android GOARCH=arm64 \
-	CGO_CFLAGS="--sysroot=$(ANDROID_NDK_HOME)/toolchains/llvm/prebuilt/linux-x86_64/sysroot" \
-	CGO_LDFLAGS="--sysroot=$(ANDROID_NDK_HOME)/toolchains/llvm/prebuilt/linux-x86_64/sysroot" \
+	CGO_CFLAGS="--sysroot=$(ANDROID_NDK_HOME)/toolchains/llvm/prebuilt/$(NDK_PREBUILT)/sysroot" \
+	CGO_LDFLAGS="--sysroot=$(ANDROID_NDK_HOME)/toolchains/llvm/prebuilt/$(NDK_PREBUILT)/sysroot" \
 	go build -ldflags="-X 'main.Version=$(VERSION)' \
 		-X 'main.CommitSHA=$(COMMIT_SHA)' \
 		-X 'main.BuildTime=$(BUILD_TIME)'" \
