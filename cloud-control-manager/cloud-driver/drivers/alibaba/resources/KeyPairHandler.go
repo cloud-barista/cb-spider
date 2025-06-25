@@ -180,6 +180,7 @@ func (keyPairHandler *AlibabaKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPai
 
 	// keyPairInfo 를 직접  set에서 GetKey로 변경
 	keyPairInfo, err := keyPairHandler.GetKey(irs.IID{NameId: keyPairReqInfo.IId.NameId, SystemId: result.KeyPairName})
+	keyPairInfo.PrivateKey = result.PrivateKeyBody // need to set PrivateKey here, because GetKey() does not return PrivateKey
 
 	/* 2021-10-27 이슈#480에 의해 Local Key 로직 제거
 	hashString := strings.ReplaceAll(keyPairInfo.Fingerprint, ":", "") // 필요한 경우 리전 정보 추가하면 될 듯. 나중에 키 이름과 리전으로 암복호화를 진행하면 될 것같음.
