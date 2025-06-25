@@ -56,21 +56,20 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 - #### ※ 참고: [Tagging Guide](https://github.com/cloud-barista/cb-spider/wiki/Tag-and-Cloud-Driver-API)
 
 
-| Provider      | Price<br>Info | Region/Zone<br>Info | Image<br>Info | VMSpec<br>Info | VPC<br>Subnet       | Security<br>Group | VM KeyPair      | VM             | Disk | MyImage | NLB | managed-K8S |
-|:-------------:|:-------------:|:-------------------:|:-------------:|:--------------:|:-------------------:|:-----------------:|:---------------:|:--------------:|:----:|:---:|:-------:|:-----------:|
-| AWS           | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O        |
-| Azure         | O             | O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O        |
-| GCP           | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O        |
-| Alibaba       | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O           |
-| Tencent       | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O           |
-| IBM VPC       | O             | O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | WIP        |
-| OpenStack     | NA             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | ?           |
-| NCP Classic   | -            | O                   | O             | O              | O<br>(Type1)       | O<br>(Note1)     | O               | O              | O    | O   | O       | NA           |
-| NCP VPC       | O            | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | ?           |
-| NHN           | NA             | O                   | O             | O              | O<br>(Type2)       | O                 | O               | O<br>(Note2)   | O    | O    | O     | O           |
-| KT Classic    | NA             | O                   | O             | O              | O<br>(Type1)       | O                 | O               | O              | O    | O   | O       | NA          |
-| KT VPC        | NA             | O                   | O             | O              | O<br>(Type3)       | O                 | O               | O              | O    | O   | O<br>(Note3)| Wait API    |
-
+| Provider      | Price<br>Info | Region/Zone<br>Info | Image<br>Info | VMSpec<br>Info | VPC<br>Subnet       | Security<br>Group | VM KeyPair      | VM             | Disk | MyImage | NLB | managed-K8S | Object<br> Storage |
+|:-------------:|:-------------:|:-------------------:|:-------------:|:--------------:|:-------------------:|:-----------------:|:---------------:|:--------------:|:----:|:---:|:-------:|:-----------:|:-----------:|
+| AWS           | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O        | O        |
+| Azure         | O             | O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O        | WIP        |
+| GCP           | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O        | O        |
+| Alibaba       | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O           | O        |
+| Tencent       | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O           | WIP        |
+| IBM VPC       | O             | O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | WIP        | O        |
+| OpenStack     | NA             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | ?           | WIP        |
+| NCP Classic   | -            | O                   | O             | O              | O<br>(Type1)       | O<br>(Note1)     | O               | O              | O    | O   | O       | NA           | -        |
+| NCP VPC       | O            | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | WIP           | O        |
+| NHN           | NA             | O                   | O             | O              | O<br>(Type2)       | O                 | O               | O<br>(Note2)   | O    | O    | O     | O           | O        |
+| KT Classic    | NA             | O                   | O             | O              | O<br>(Type1)       | O                 | O               | O              | O    | O   | O       | NA          | -        |
+| KT VPC        | NA             | O                   | O             | O              | O<br>(Type3)       | O                 | O               | O              | O    | O   | O<br>(Note3)| Wait API  | O        |
 
     ※ WIP: Work In Progress, NA: Not Applicable, Wait API: CSP API 공개 대기, ?: 미정/분석필요
     
