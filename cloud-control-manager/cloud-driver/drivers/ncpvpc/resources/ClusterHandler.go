@@ -162,7 +162,12 @@ func (nvch *NcpVpcClusterHandler) createCluster(clusterReqInfo *irs.ClusterInfo)
 	}
 
 	// 2. NCP 특화 옵션(KeyValueList) 파싱 및 기본값 처리
-	clusterType := "XEN"  // 기본값
+	// productCode는 "hypervisorCode"가 XEN인 경우만 사용하는 optional 변수라고 되어있으나 지정이 꼭 필요.
+	// clusterType := "SVR.VNKS.STAND.C002.M008.NET.SSD.B050.G002"  // XEN
+	// clusterType := SVR.VNKS.STAND.C004.M016.NET.SSD.B050.G002  	// XEN
+	clusterType := "SVR.VNKS.STAND.C002.M008.NET.SSD.B050.G002" // KVM
+	// clusterType := "SVR.VNKS.STAND.C004.M016.NET.SSD.B050.G002"	// KVM
+	// clusterType := "SVR.VNKS.STAND.C004.M016.G003" // API 문서상의 KVM, 하지만 실제로는 지원하지 않음
 	publicNetwork := true // 기본값
 	for _, kv := range clusterReqInfo.KeyValueList {
 		if kv.Key == "ClusterType" && kv.Value != "" {
@@ -260,6 +265,7 @@ func (nvch *NcpVpcClusterHandler) createCluster(clusterReqInfo *irs.ClusterInfo)
 			NodeCount:      ncloud.Int32(int32(ng.DesiredNodeSize)),
 			SoftwareCode:   ncloud.String(softwareCode),
 			ServerSpecCode: ncloud.String(ng.VMSpecName),
+			ProductCode:    ncloud.String("SVR.VSVR.STAND.C002.M008.NET.SSD.B050.G002"),
 			// 필요시 SubnetNo, Labels, Taints, StorageSize 등 추가
 		}
 		nodePools = append(nodePools, nodePool)
