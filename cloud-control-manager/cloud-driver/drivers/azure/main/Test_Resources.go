@@ -121,6 +121,11 @@ type Config struct {
 					NameId string `yaml:"nameId"`
 				} `yaml:"attachedVM"`
 			} `yaml:"disk"`
+			File struct {
+				IID struct {
+					NameId string `yaml:"nameId"`
+				} `yaml:"IID"`
+			} `yaml:"file"`
 		} `yaml:"resources"`
 	} `yaml:"azure"`
 }
@@ -2141,6 +2146,10 @@ func testFileSystemHandler(config Config) {
 
 	fileSystemHandler := resourceHandler.(irs.FileSystemHandler)
 
+	iid := irs.IID{
+		NameId: config.Azure.Resources.File.IID.NameId,
+	}
+
 	testFileSystemHandlerListPrint()
 
 Loop:
@@ -2164,13 +2173,13 @@ Loop:
 				}
 				fmt.Println("Finish ListFileSystem()")
 			case 2:
-				fmt.Println("Start GetFileSystem() ...")
-				if fileSystemInfo, err := fileSystemHandler.GetFileSystem(irs.IID{}); err != nil {
-					fmt.Println(err)
+				cblogger.Info("Start GetFileSystem() ...")
+				if fileSystem, err := fileSystemHandler.GetFileSystem(iid); err != nil {
+					cblogger.Error(err)
 				} else {
-					spew.Dump(fileSystemInfo)
+					spew.Dump(fileSystem)
 				}
-				fmt.Println("Finish GetFileSystem()")
+				cblogger.Info("Finish GetFileSystem()")
 			case 3:
 				fmt.Println("Start CreateFileSystem() ...")
 				reqInfo := irs.FileSystemInfo{

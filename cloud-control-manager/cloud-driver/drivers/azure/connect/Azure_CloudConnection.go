@@ -68,6 +68,7 @@ type AzureCloudConnection struct {
 	TagsClient                      *armresources.TagsClient
 	DnsZoneClient                   *armdns.ZonesClient
 	FileShareClient                 *armstorage.FileSharesClient
+	AccountsClient                  *armstorage.AccountsClient
 }
 
 // CreateFileSystemHandler implements connect.CloudConnection.
@@ -76,8 +77,9 @@ func (cloudConn *AzureCloudConnection) CreateFileSystemHandler() (irs.FileSystem
 	fileSystemHandler := azrs.AzureFileSystemHandler{
 		CredentialInfo:  cloudConn.CredentialInfo,
 		Region:          cloudConn.Region,
-		FileShareClient: cloudConn.FileShareClient,
 		Ctx:             cloudConn.Ctx,
+		AccountsClient:  cloudConn.AccountsClient,
+		FileShareClient: cloudConn.FileShareClient,
 	}
 
 	return &fileSystemHandler, nil

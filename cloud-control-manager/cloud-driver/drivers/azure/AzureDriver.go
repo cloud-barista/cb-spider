@@ -266,6 +266,10 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 	if err != nil {
 		return nil, err
 	}
+	Ctx, accountsClient, err := getAccountsClient(connectionInfo.CredentialInfo)
+	if err != nil {
+		return nil, err
+	}
 	iConn := azcon.AzureCloudConnection{
 		CredentialInfo:                  connectionInfo.CredentialInfo,
 		Region:                          connectionInfo.RegionInfo,
@@ -298,6 +302,7 @@ func (driver *AzureDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ico
 		ResourceSKUsClient:              resourceSKUsClient,
 		DnsZoneClient:                   dnsZoneClient,
 		FileShareClient:                 fileShareClient,
+		AccountsClient:                  accountsClient,
 	}
 
 	regionZoneHandler, err := iConn.CreateRegionZoneHandler()
@@ -743,11 +748,24 @@ func getFileShareClient(credential idrv.CredentialInfo) (context.Context, *armst
 		return nil, nil, err
 	}
 
-	fileShareClient, err := armstorage.NewFileSharesClient(credential.SubscriptionId, cred, nil)
+	fileShareClient, err := armstorage.NewFileSharesClient(credential.SubscriptionId, cred, &arm.ClientOptions{})
 	if err != nil {
 		return nil, nil, err
 	}
 
 	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
 	return ctx, fileShareClient, nil
+}
+
+func getAccountsClient(credInfo idrv.CredentialInfo) (context.Context, *armstorage.AccountsClient, error) {
+	cred, err := getCred(credInfo)
+	if err != nil {
+		return nil, nil, err
+	}
+	client, err := armstorage.NewAccountsClient(credInfo.SubscriptionId, cred, &arm.ClientOptions{})
+	if err != nil {
+		return nil, nil, err
+	}
+	ctx, _ := context.WithTimeout(context.Background(), cspTimeout*time.Second)
+	return ctx, client, nil
 }
