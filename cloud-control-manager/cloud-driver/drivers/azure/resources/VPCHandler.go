@@ -112,6 +112,11 @@ func (vpcHandler *AzureVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPC
 			Name: &subnet.IId.NameId,
 			Properties: &armnetwork.SubnetPropertiesFormat{
 				AddressPrefix: toStrPtr(subnet.IPv4_CIDR),
+				ServiceEndpoints: []*armnetwork.ServiceEndpointPropertiesFormat{
+					{
+						Service: toStrPtr("Microsoft.Storage"),
+					},
+				},
 			},
 		}
 		poller, err := vpcHandler.SubnetClient.BeginCreateOrUpdate(vpcHandler.Ctx, vpcHandler.Region.Region, vpcReqInfo.IId.NameId, subnet.IId.NameId, subnetCreateOpts, nil)
@@ -226,6 +231,11 @@ func (vpcHandler *AzureVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Subn
 		Name: &subnetInfo.IId.NameId,
 		Properties: &armnetwork.SubnetPropertiesFormat{
 			AddressPrefix: toStrPtr(subnetInfo.IPv4_CIDR),
+			ServiceEndpoints: []*armnetwork.ServiceEndpointPropertiesFormat{
+				{
+					Service: toStrPtr("Microsoft.Storage"),
+				},
+			},
 		},
 	}
 	start := call.Start()
