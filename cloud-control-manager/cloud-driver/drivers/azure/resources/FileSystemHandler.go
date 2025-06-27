@@ -182,7 +182,7 @@ func (af *AzureFileSystemHandler) RemoveAccessSubnet(iid irs.IID, subnetIID irs.
 
 	targetID := subnetIID.SystemId
 
-	var newRules []*armstorage.VirtualNetworkRule
+	var newRules = make([]*armstorage.VirtualNetworkRule, 0)
 	removed := false
 	for _, rule := range nr.VirtualNetworkRules {
 		if rule != nil && rule.VirtualNetworkResourceID != nil && *rule.VirtualNetworkResourceID == targetID {
