@@ -80,6 +80,8 @@ func (cloudConn *AzureCloudConnection) CreateFileSystemHandler() (irs.FileSystem
 		Ctx:             cloudConn.Ctx,
 		AccountsClient:  cloudConn.AccountsClient,
 		FileShareClient: cloudConn.FileShareClient,
+		SubnetClient:    cloudConn.SubnetClient,
+		VnetClient:      cloudConn.VNetClient,
 	}
 
 	return &fileSystemHandler, nil

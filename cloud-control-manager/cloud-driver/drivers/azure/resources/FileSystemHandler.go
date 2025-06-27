@@ -3,11 +3,13 @@ package resources
 import (
 	"context"
 	"fmt"
-	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
+	"strings"
 	"time"
 )
 
@@ -17,25 +19,245 @@ type AzureFileSystemHandler struct {
 	Ctx             context.Context
 	AccountsClient  *armstorage.AccountsClient
 	FileShareClient *armstorage.FileSharesClient
+	SubnetClient    *armnetwork.SubnetsClient
+	VnetClient      *armnetwork.VirtualNetworksClient
 }
 
-// Access Subnet
-func (af *AzureFileSystemHandler) AddAccessSubnet(iid irs.IID, subnetIID irs.IID) (irs.FileSystemInfo, error) {
+func (af *AzureFileSystemHandler) AddAccessSubnet(fsIID irs.IID, subnetIID irs.IID) (irs.FileSystemInfo, error) {
+	rg := af.Region.Region
 
-	return irs.FileSystemInfo{}, nil
+	sa, err := af.getFirstStorageAccountName()
+	if err != nil {
+		cblogger.Errorf("Failed to get storage account name: %v", err)
+		return irs.FileSystemInfo{}, err
+	}
+
+	if subnetIID.SystemId == "" {
+		cblogger.Infof("SystemId not provided. Finding VNet for subnet '%s'...", subnetIID.NameId)
+
+		vnetPager := af.VnetClient.NewListPager(rg, nil)
+		found := false
+
+		for vnetPager.More() {
+			page, err := vnetPager.NextPage(af.Ctx)
+			if err != nil {
+				return irs.FileSystemInfo{}, fmt.Errorf("failed to get next VNet page: %v", err)
+			}
+
+			for _, vnet := range page.Value {
+				if vnet.Name == nil {
+					continue
+				}
+
+				vnetName := *vnet.Name
+				subnetPager := af.SubnetClient.NewListPager(rg, vnetName, nil)
+
+				for subnetPager.More() {
+					subnetPage, err := subnetPager.NextPage(af.Ctx)
+					if err != nil {
+						return irs.FileSystemInfo{}, fmt.Errorf("failed to get subnets: %v", err)
+					}
+
+					for _, subnet := range subnetPage.Value {
+						if subnet.Name != nil && *subnet.Name == subnetIID.NameId {
+							subnetIID.SystemId = *subnet.ID
+							cblogger.Infof("Matched subnet. SystemId: %s", subnetIID.SystemId)
+							found = true
+							break
+						}
+					}
+					if found {
+						break
+					}
+				}
+				if found {
+					break
+				}
+			}
+			if found {
+				break
+			}
+		}
+
+		if !found {
+			return irs.FileSystemInfo{}, fmt.Errorf("failed to find VNet containing subnet '%s'", subnetIID.NameId)
+		}
+
+		cblogger.Infof("Constructed SystemId: %s", subnetIID.SystemId)
+	}
+
+	acctProps, err := af.AccountsClient.GetProperties(af.Ctx, rg, sa, nil)
+	if err != nil {
+		cblogger.Errorf("Failed to get storage account '%s': %v", sa, err)
+		return irs.FileSystemInfo{}, err
+	}
+
+	nr := acctProps.Properties.NetworkRuleSet
+	if nr == nil {
+		cblogger.Infof("No existing NetworkRuleSet found. Creating new rule set with default Deny policy.")
+		nr = &armstorage.NetworkRuleSet{
+			DefaultAction:       to.Ptr(armstorage.DefaultActionDeny),
+			IPRules:             []*armstorage.IPRule{},
+			VirtualNetworkRules: []*armstorage.VirtualNetworkRule{},
+		}
+	} else {
+		cblogger.Infof("Retrieved existing NetworkRuleSet. DefaultAction: %s", *nr.DefaultAction)
+	}
+
+	exists := false
+	for _, r := range nr.VirtualNetworkRules {
+		if r != nil && r.VirtualNetworkResourceID != nil && *r.VirtualNetworkResourceID == subnetIID.SystemId {
+			exists = true
+			cblogger.Infof("VNet rule for subnet '%s' already exists. Skipping addition.", subnetIID.SystemId)
+			break
+		}
+	}
+	if !exists {
+		nr.VirtualNetworkRules = append(nr.VirtualNetworkRules, &armstorage.VirtualNetworkRule{
+			VirtualNetworkResourceID: to.Ptr(subnetIID.SystemId),
+			Action:                   to.Ptr(string(armstorage.DefaultActionAllow)),
+		})
+		cblogger.Infof("Added new VNet rule for subnet '%s'.", subnetIID.SystemId)
+	}
+
+	_, err = af.AccountsClient.Update(
+		af.Ctx,
+		rg,
+		sa,
+		armstorage.AccountUpdateParameters{
+			Properties: &armstorage.AccountPropertiesUpdateParameters{
+				NetworkRuleSet: nr,
+			},
+		},
+		nil,
+	)
+	if err != nil {
+		cblogger.Errorf("Failed to update storage account '%s': %v", sa, err)
+		return irs.FileSystemInfo{}, err
+	}
+	cblogger.Infof("Successfully updated storage account '%s'.", sa)
+
+	rawFS, err := af.getRawFileSystem(fsIID)
+	if err != nil {
+		cblogger.Errorf("Failed to get raw file system: %v", err)
+		return irs.FileSystemInfo{}, err
+	}
+	info, err := af.setterFileSystemInfo(&rawFS)
+	if err != nil {
+		cblogger.Errorf("Failed to set file system info: %v", err)
+		return irs.FileSystemInfo{}, err
+	}
+
+	cblogger.Infof("Completed AddAccessSubnet operation successfully.")
+	return *info, nil
 }
 
 func (af *AzureFileSystemHandler) RemoveAccessSubnet(iid irs.IID, subnetIID irs.IID) (bool, error) {
-	return false, nil
+	rg := af.Region.Region
+
+	saName, err := af.getFirstStorageAccountName()
+	if err != nil {
+		return false, fmt.Errorf("failed to get storage account name: %v", err)
+	}
+
+	acctProps, err := af.AccountsClient.GetProperties(af.Ctx, rg, saName, nil)
+	if err != nil {
+		return false, fmt.Errorf("failed to get storage account properties: %v", err)
+	}
+
+	nr := acctProps.Properties.NetworkRuleSet
+	if nr == nil || nr.VirtualNetworkRules == nil {
+		return false, fmt.Errorf("no network rule set found for storage account")
+	}
+
+	if subnetIID.SystemId == "" {
+		subnetIID.SystemId = GetSubnetIdByName(
+			af.CredentialInfo,
+			rg,
+			iid.NameId,
+			subnetIID.NameId,
+		)
+		cblogger.Infof("Constructed SystemId for removal: %s", subnetIID.SystemId)
+	}
+
+	targetID := subnetIID.SystemId
+
+	var newRules []*armstorage.VirtualNetworkRule
+	removed := false
+	for _, rule := range nr.VirtualNetworkRules {
+		if rule != nil && rule.VirtualNetworkResourceID != nil && *rule.VirtualNetworkResourceID == targetID {
+			removed = true
+			continue
+		}
+		newRules = append(newRules, rule)
+	}
+
+	if !removed {
+		return false, fmt.Errorf("subnet %s not found in current access list", targetID)
+	}
+
+	nr.VirtualNetworkRules = newRules
+
+	_, err = af.AccountsClient.Update(
+		af.Ctx,
+		rg,
+		saName,
+		armstorage.AccountUpdateParameters{
+			Properties: &armstorage.AccountPropertiesUpdateParameters{
+				NetworkRuleSet: nr,
+			},
+		},
+		nil,
+	)
+	if err != nil {
+		return false, fmt.Errorf("failed to update storage account: %v", err)
+	}
+
+	cblogger.Infof("Successfully removed subnet %s from access list", targetID)
+	return true, nil
 }
 
 func (af *AzureFileSystemHandler) ListAccessSubnet(iid irs.IID) ([]irs.IID, error) {
-	return nil, nil
+	rg := af.Region.Region
+
+	saName, err := af.getFirstStorageAccountName()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get storage account name: %v", err)
+	}
+
+	acctProps, err := af.AccountsClient.GetProperties(af.Ctx, rg, saName, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get storage account properties: %v", err)
+	}
+
+	nr := acctProps.Properties.NetworkRuleSet
+	if nr == nil || nr.VirtualNetworkRules == nil {
+		return []irs.IID{}, nil
+	}
+
+	var subnetList []irs.IID
+
+	for _, rule := range nr.VirtualNetworkRules {
+		if rule != nil && rule.VirtualNetworkResourceID != nil {
+			split := strings.Split(*rule.VirtualNetworkResourceID, "/")
+			var subnetName string
+			if len(split) >= 11 {
+				subnetName = split[10]
+			}
+
+			subnetList = append(subnetList, irs.IID{
+				NameId:   subnetName,
+				SystemId: *rule.VirtualNetworkResourceID,
+			})
+		}
+	}
+
+	return subnetList, nil
 }
 
-// File System
 func (af *AzureFileSystemHandler) GetMetaInfo() (irs.FileSystemMetaInfo, error) {
 	return irs.FileSystemMetaInfo{}, nil
+
 }
 
 func (af *AzureFileSystemHandler) ListIID() ([]*irs.IID, error) {
@@ -44,18 +266,7 @@ func (af *AzureFileSystemHandler) ListIID() ([]*irs.IID, error) {
 
 	var iidList []*irs.IID
 
-	cred, err := azidentity.NewClientSecretCredential(af.CredentialInfo.TenantId, af.CredentialInfo.ClientId, af.CredentialInfo.ClientSecret, nil)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to create credential: %w", err)
-	}
-
-	storageClient, err := armstorage.NewAccountsClient(af.CredentialInfo.SubscriptionId, cred, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create storage account client: %w", err)
-	}
-
-	pager := storageClient.NewListPager(nil)
+	pager := af.AccountsClient.NewListPager(nil)
 
 	for pager.More() {
 		page, err := pager.NextPage(af.Ctx)
@@ -166,7 +377,6 @@ func (af *AzureFileSystemHandler) GetFileSystem(iid irs.IID) (irs.FileSystemInfo
 func (af *AzureFileSystemHandler) setterFileSystemInfo(
 	fs *armstorage.FileShare,
 ) (*irs.FileSystemInfo, error) {
-
 	if fs == nil || fs.Name == nil || fs.ID == nil {
 		return nil, fmt.Errorf("invalid FileShare input")
 	}
@@ -204,6 +414,36 @@ func (af *AzureFileSystemHandler) setterFileSystemInfo(
 		}
 	}
 
+	rg := af.Region.Region
+	saName, err := af.getFirstStorageAccountName()
+	if err == nil {
+		acctProps, err := af.AccountsClient.GetProperties(af.Ctx, rg, saName, nil)
+		if err == nil && acctProps.Properties.NetworkRuleSet != nil {
+			var subnetList []irs.IID
+			for _, rule := range acctProps.Properties.NetworkRuleSet.VirtualNetworkRules {
+				if rule != nil && rule.VirtualNetworkResourceID != nil {
+					split := strings.Split(*rule.VirtualNetworkResourceID, "/")
+					if len(split) >= 11 {
+						vnetName := split[8]
+						subnetName := split[10]
+
+						if info.VpcIID.NameId == "" {
+							info.VpcIID.NameId = vnetName
+							info.VpcIID.SystemId = strings.Join(split[:9], "/")
+						}
+
+						subnetList = append(subnetList, irs.IID{
+							NameId:   subnetName,
+							SystemId: *rule.VirtualNetworkResourceID,
+						})
+					}
+				}
+			}
+			info.AccessSubnetList = subnetList
+		}
+	}
+
+	// 키밸류
 	baseKVs := irs.StructToKeyValueList(fs)
 	var kvs []irs.KeyValue
 	for _, kv := range baseKVs {
@@ -222,11 +462,122 @@ func (af *AzureFileSystemHandler) setterFileSystemInfo(
 }
 
 func (af *AzureFileSystemHandler) DeleteFileSystem(iid irs.IID) (bool, error) {
-	return false, nil
+	rg := af.Region.Region
+	fsName := iid.NameId
+	if fsName == "" {
+		return false, fmt.Errorf("invalid IID: NameId (file system name) is required")
+	}
+
+	saName, err := af.getFirstStorageAccountName()
+	if err != nil {
+		return false, fmt.Errorf("failed to get storage account name: %v", err)
+	}
+
+	_, err = af.FileShareClient.Delete(af.Ctx, rg, saName, fsName, nil)
+	if err != nil {
+		return false, fmt.Errorf("failed to delete file share '%s' in storage account '%s': %v", fsName, saName, err)
+	}
+
+	cblogger.Infof("Successfully deleted file share '%s' in storage account '%s'", fsName, saName)
+	return true, nil
+}
+
+func (af *AzureFileSystemHandler) getFirstStorageAccountName() (string, error) {
+	rg := af.Region.Region
+	pager := af.AccountsClient.NewListByResourceGroupPager(rg, nil)
+	for pager.More() {
+		page, err := pager.NextPage(af.Ctx)
+		if err != nil {
+			return "", fmt.Errorf("list storage accounts failed: %w", err)
+		}
+		for _, acct := range page.Value {
+			if acct.Name != nil {
+				return *acct.Name, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("no storage account found in resource group %q", rg)
 }
 
 func (af *AzureFileSystemHandler) CreateFileSystem(reqInfo irs.FileSystemInfo) (irs.FileSystemInfo, error) {
-	return irs.FileSystemInfo{}, nil
+
+	hiscallInfo := GetCallLogScheme(
+		af.Region, call.FILESYSTEM, af.Region.Region, "CreateFileSystem()",
+	)
+	start := call.Start()
+
+	shareName := reqInfo.IId.NameId
+	if shareName == "" {
+		err := fmt.Errorf("invalid request: NameId is required")
+		LoggingError(hiscallInfo, err)
+		return irs.FileSystemInfo{}, err
+	}
+	rg := af.Region.Region
+
+	saName, err := af.getFirstStorageAccountName()
+	if err != nil {
+		LoggingError(hiscallInfo, err)
+		return irs.FileSystemInfo{}, err
+	}
+
+	props := armstorage.FileShareProperties{}
+
+	if strings.EqualFold(reqInfo.NFSVersion, "4.1") {
+		props.EnabledProtocols = to.Ptr(armstorage.EnabledProtocolsNFS)
+	} else {
+		return irs.FileSystemInfo{}, fmt.Errorf("unsupported NFS version: %q", reqInfo.NFSVersion)
+	}
+
+	if tier, ok := reqInfo.PerformanceInfo["Tier"]; ok {
+		switch strings.ToLower(tier) {
+		case "hot":
+			props.AccessTier = to.Ptr(armstorage.ShareAccessTierHot)
+		case "cool":
+			props.AccessTier = to.Ptr(armstorage.ShareAccessTierCool)
+		case "transactionoptimized":
+			props.AccessTier = to.Ptr(armstorage.ShareAccessTierTransactionOptimized)
+		}
+	}
+
+	_, err = af.FileShareClient.Create(
+		af.Ctx,
+		rg,
+		saName,
+		shareName,
+		armstorage.FileShare{FileShareProperties: &props},
+		nil,
+	)
+
+	if err != nil {
+		LoggingError(hiscallInfo, err)
+		return irs.FileSystemInfo{}, fmt.Errorf("failed to create file share: %w", err)
+	}
+
+	for _, subnetIID := range reqInfo.AccessSubnetList {
+		subnetInfo := irs.SubnetInfo{
+			IId: subnetIID,
+		}
+
+		fsIID := irs.IID{SystemId: fmt.Sprintf(
+			"/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Storage/storageAccounts/%s",
+			af.CredentialInfo.SubscriptionId, rg, saName,
+		)}
+
+		if _, err := af.AddAccessSubnet(fsIID, subnetInfo.IId); err != nil {
+			cblogger.Warnf("CreateFileSystem: AddAccessSubnet(%s) failed: %v",
+				subnetIID.SystemId, err)
+		}
+
+	}
+
+	fileSystemInfo, err := af.GetFileSystem(irs.IID{NameId: shareName})
+	if err != nil {
+		LoggingError(hiscallInfo, err)
+		return irs.FileSystemInfo{}, fmt.Errorf("created but get failed: %w", err)
+	}
+
+	LoggingInfo(hiscallInfo, start)
+	return fileSystemInfo, nil
 }
 
 func (af *AzureFileSystemHandler) ListFileSystem() ([]*irs.FileSystemInfo, error) {

@@ -125,6 +125,12 @@ type Config struct {
 				IID struct {
 					NameId string `yaml:"nameId"`
 				} `yaml:"IID"`
+				VpcIID struct {
+					NameId string `yaml:"nameId"`
+				} `yaml:"VpcIID"`
+				SubnetIID struct {
+					NameId string `yaml:"nameId"`
+				} `yaml:"SubnetIID"`
 			} `yaml:"file"`
 		} `yaml:"resources"`
 	} `yaml:"azure"`
@@ -2132,8 +2138,9 @@ func testFileSystemHandlerListPrint() {
 	cblogger.Info("4. DeleteFileSystem()")
 	cblogger.Info("5. AddAccessSubnet()")
 	cblogger.Info("6. RemoveAccessSubnet()")
-	cblogger.Info("7. ListIID()")
-	cblogger.Info("8. Exit")
+	cblogger.Info("7. ListAccessSubnet")
+	cblogger.Info("8. ListIID()")
+	cblogger.Info("9. Exit")
 }
 
 // FileSystemHandler
@@ -2146,8 +2153,27 @@ func testFileSystemHandler(config Config) {
 
 	fileSystemHandler := resourceHandler.(irs.FileSystemHandler)
 
-	iid := irs.IID{
+	fileNameId := irs.IID{
 		NameId: config.Azure.Resources.File.IID.NameId,
+	}
+
+	vpcIID := irs.IID{
+		NameId: config.Azure.Resources.File.VpcIID.NameId,
+	}
+
+	subnetIID := irs.IID{
+		NameId: config.Azure.Resources.File.SubnetIID.NameId,
+	}
+
+	createreq := irs.FileSystemInfo{
+		IId: fileNameId,
+		//Region:           string,
+		//Zone:
+		VpcIID:     vpcIID,
+		NFSVersion: "4.1",
+		PerformanceInfo: map[string]string{
+			"Tier": "Premium",
+		},
 	}
 
 	testFileSystemHandlerListPrint()
@@ -2174,7 +2200,7 @@ Loop:
 				fmt.Println("Finish ListFileSystem()")
 			case 2:
 				cblogger.Info("Start GetFileSystem() ...")
-				if fileSystem, err := fileSystemHandler.GetFileSystem(iid); err != nil {
+				if fileSystem, err := fileSystemHandler.GetFileSystem(fileNameId); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(fileSystem)
@@ -2182,12 +2208,7 @@ Loop:
 				cblogger.Info("Finish GetFileSystem()")
 			case 3:
 				fmt.Println("Start CreateFileSystem() ...")
-				reqInfo := irs.FileSystemInfo{
-					IId:     irs.IID{},
-					TagList: []irs.KeyValue{{Key: "Environment", Value: "Production"}, {Key: "Environment2", Value: "Production2"}},
-					VpcIID:  irs.IID{},
-				}
-				fileSystem, err := fileSystemHandler.CreateFileSystem(reqInfo)
+				fileSystem, err := fileSystemHandler.CreateFileSystem(createreq)
 				if err != nil {
 					fmt.Println(err)
 				} else {
@@ -2196,26 +2217,34 @@ Loop:
 				fmt.Println("Finish CreateFileSystem()")
 			case 4:
 				fmt.Println("Start DeleteFileSystem() ...")
-				if ok, err := fileSystemHandler.DeleteFileSystem(irs.IID{}); !ok {
+				if ok, err := fileSystemHandler.DeleteFileSystem(fileNameId); !ok {
 					fmt.Println(err)
 				}
 				fmt.Println("Finish DeleteFileSystem()")
 			case 5:
 				fmt.Println("Start AddAccessSubnet() ...")
-				fileSystem, err := fileSystemHandler.AddAccessSubnet(irs.IID{}, irs.IID{})
-				if err != nil {
-					fmt.Println(err)
+				fmt.Printf("DEBUG: subnetIID.NameId = '%s'\n", subnetIID.NameId)
+				if fileSystem, err := fileSystemHandler.AddAccessSubnet(fileNameId, subnetIID); err != nil {
+					cblogger.Error(err)
 				} else {
 					spew.Dump(fileSystem)
 				}
 				fmt.Println("Finish AddAccessSubnet()")
 			case 6:
 				fmt.Println("Start RemoveAccessSubnet() ...")
-				if ok, err := fileSystemHandler.RemoveAccessSubnet(irs.IID{}, irs.IID{}); !ok {
+				if ok, err := fileSystemHandler.RemoveAccessSubnet(vpcIID, subnetIID); !ok {
 					fmt.Println(err)
 				}
 				fmt.Println("Finish RemoveAccessSubnet()")
 			case 7:
+				cblogger.Info("Start ListAccessSubnet() ...")
+				if listSubnet, err := fileSystemHandler.ListAccessSubnet(fileNameId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listSubnet)
+				}
+				cblogger.Info("Finish ListAccessSubnet()")
+			case 8:
 				cblogger.Info("Start ListIID() ...")
 				if listIID, err := fileSystemHandler.ListIID(); err != nil {
 					cblogger.Error(err)
@@ -2223,7 +2252,7 @@ Loop:
 					spew.Dump(listIID)
 				}
 				cblogger.Info("Finish ListIID()")
-			case 8:
+			case 9:
 				fmt.Println("Exit")
 				break Loop
 			}
