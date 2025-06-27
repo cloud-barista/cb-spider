@@ -2140,7 +2140,8 @@ func testFileSystemHandlerListPrint() {
 	cblogger.Info("6. RemoveAccessSubnet()")
 	cblogger.Info("7. ListAccessSubnet")
 	cblogger.Info("8. ListIID()")
-	cblogger.Info("9. Exit")
+	cblogger.Info("9. GetMetaInfo()")
+	cblogger.Info("10. Exit")
 }
 
 // FileSystemHandler
@@ -2253,6 +2254,14 @@ Loop:
 				}
 				cblogger.Info("Finish ListIID()")
 			case 9:
+				cblogger.Info("Start GetMetaInfo() ...")
+				if listIID, err := fileSystemHandler.GetMetaInfo(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 10:
 				fmt.Println("Exit")
 				break Loop
 			}

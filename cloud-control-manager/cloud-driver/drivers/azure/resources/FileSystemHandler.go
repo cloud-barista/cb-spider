@@ -256,8 +256,32 @@ func (af *AzureFileSystemHandler) ListAccessSubnet(iid irs.IID) ([]irs.IID, erro
 }
 
 func (af *AzureFileSystemHandler) GetMetaInfo() (irs.FileSystemMetaInfo, error) {
-	return irs.FileSystemMetaInfo{}, nil
+	metaInfo := irs.FileSystemMetaInfo{
+		SupportsFileSystemType: map[irs.FileSystemType]bool{
+			irs.FileSystemType("RegionType"): true,
+		},
 
+		SupportsVPC: map[irs.RSType]bool{
+			irs.RSType("VPC"): true,
+		},
+
+		SupportsNFSVersion: []string{"4.1"},
+
+		SupportsCapacity: true,
+
+		CapacityGBOptions: map[string]irs.CapacityGBRange{
+			"Premium": {
+				Min: 100,
+				Max: 102400,
+			},
+		},
+
+		PerformanceOptions: map[string][]string{
+			"Tier": {"Premium", "Hot", "Cool", "TransactionOptimized"},
+		},
+	}
+
+	return metaInfo, nil
 }
 
 func (af *AzureFileSystemHandler) ListIID() ([]*irs.IID, error) {
