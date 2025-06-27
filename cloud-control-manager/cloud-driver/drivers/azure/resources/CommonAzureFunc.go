@@ -382,3 +382,7 @@ func toInt32Ptr(input int) *int32 {
 func toBoolPtr(input bool) *bool {
 	return &input
 }
+
+const (
+	AzureStorageAccountPrefix = "cbspider"
+)

@@ -26,7 +26,7 @@ type AzureFileSystemHandler struct {
 func (af *AzureFileSystemHandler) AddAccessSubnet(fsIID irs.IID, subnetIID irs.IID) (irs.FileSystemInfo, error) {
 	rg := af.Region.Region
 
-	sa, err := af.getFirstStorageAccountName()
+	sa, err := af.getOrCreateStorageAccount()
 	if err != nil {
 		cblogger.Errorf("Failed to get storage account name: %v", err)
 		return irs.FileSystemInfo{}, err
@@ -137,7 +137,7 @@ func (af *AzureFileSystemHandler) AddAccessSubnet(fsIID irs.IID, subnetIID irs.I
 	}
 	cblogger.Infof("Successfully updated storage account '%s'.", sa)
 
-	rawFS, err := af.getRawFileSystem(fsIID)
+	rawFS, err := af.getRawFileSystem(sa, fsIID)
 	if err != nil {
 		cblogger.Errorf("Failed to get raw file system: %v", err)
 		return irs.FileSystemInfo{}, err
@@ -155,7 +155,7 @@ func (af *AzureFileSystemHandler) AddAccessSubnet(fsIID irs.IID, subnetIID irs.I
 func (af *AzureFileSystemHandler) RemoveAccessSubnet(iid irs.IID, subnetIID irs.IID) (bool, error) {
 	rg := af.Region.Region
 
-	saName, err := af.getFirstStorageAccountName()
+	saName, err := af.getOrCreateStorageAccount()
 	if err != nil {
 		return false, fmt.Errorf("failed to get storage account name: %v", err)
 	}
@@ -220,7 +220,7 @@ func (af *AzureFileSystemHandler) RemoveAccessSubnet(iid irs.IID, subnetIID irs.
 func (af *AzureFileSystemHandler) ListAccessSubnet(iid irs.IID) ([]irs.IID, error) {
 	rg := af.Region.Region
 
-	saName, err := af.getFirstStorageAccountName()
+	saName, err := af.getOrCreateStorageAccount()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get storage account name: %v", err)
 	}
@@ -290,87 +290,59 @@ func (af *AzureFileSystemHandler) ListIID() ([]*irs.IID, error) {
 
 	var iidList []*irs.IID
 
-	pager := af.AccountsClient.NewListPager(nil)
+	resourceGroup := af.Region.Region
+	saName, err := af.getOrCreateStorageAccount()
+	if err != nil {
+		return make([]*irs.IID, 0), fmt.Errorf("failed to get storage account name: %v", err)
+	}
 
-	for pager.More() {
-		page, err := pager.NextPage(af.Ctx)
+	sharePager := af.FileShareClient.NewListPager(resourceGroup, saName, nil)
+
+	for sharePager.More() {
+		sharePage, err := sharePager.NextPage(af.Ctx)
 		if err != nil {
-			LoggingError(hiscallInfo, err)
-			return nil, fmt.Errorf("failed to list storage accounts: %w", err)
+			cblogger.Warnf("Failed to list shares for %s: %v", saName, err)
+			continue
 		}
 
-		for _, acct := range page.Value {
-			if acct.ID == nil || acct.Name == nil {
-				continue
+		for _, fs := range sharePage.Value {
+			iid := &irs.IID{}
+			if fs.ID != nil {
+				iid.SystemId = *fs.ID
 			}
-
-			resourceGroup := af.Region.Region
-
-			fmt.Printf("[INFO] StorageAccount Name: %s | ResourceGroup: %s\n", *acct.Name, resourceGroup)
-
-			sharePager := af.FileShareClient.NewListPager(resourceGroup, *acct.Name, nil)
-
-			for sharePager.More() {
-				sharePage, err := sharePager.NextPage(af.Ctx)
-				if err != nil {
-					cblogger.Warnf("Failed to list shares for %s: %v", *acct.Name, err)
-					continue
-				}
-
-				for _, fs := range sharePage.Value {
-					iid := &irs.IID{}
-					if fs.ID != nil {
-						iid.SystemId = *fs.ID
-					}
-					if fs.Name != nil {
-						iid.NameId = *fs.Name
-					}
-					iidList = append(iidList, iid)
-				}
+			if fs.Name != nil {
+				iid.NameId = *fs.Name
 			}
+			iidList = append(iidList, iid)
 		}
 	}
+
 	LoggingInfo(hiscallInfo, start)
+
 	return iidList, nil
 
 }
 
-func (af *AzureFileSystemHandler) getRawFileSystem(iid irs.IID) (armstorage.FileShare, error) {
-
+func (af *AzureFileSystemHandler) getRawFileSystem(saName string, iid irs.IID) (armstorage.FileShare, error) {
 	shareName := iid.NameId
 	if shareName == "" {
 		return armstorage.FileShare{}, fmt.Errorf("invalid IID: NameId is required")
 	}
 
 	rg := af.Region.Region
-
-	acctPager := af.AccountsClient.NewListByResourceGroupPager(rg, nil)
-	for acctPager.More() {
-		page, err := acctPager.NextPage(af.Ctx)
+	sharePager := af.FileShareClient.NewListPager(rg, saName, nil)
+	for sharePager.More() {
+		sp, err := sharePager.NextPage(af.Ctx)
 		if err != nil {
-			return armstorage.FileShare{}, fmt.Errorf("listing storage accounts failed: %w", err)
+			continue
 		}
-		for _, acct := range page.Value {
-			if acct.Name == nil {
-				continue
-			}
-			sa := *acct.Name
-
-			sharePager := af.FileShareClient.NewListPager(rg, sa, nil)
-			for sharePager.More() {
-				sp, err := sharePager.NextPage(af.Ctx)
-				if err != nil {
-					continue
-				}
-				for _, item := range sp.Value {
-					if item.Name != nil && *item.Name == shareName {
-						return armstorage.FileShare{
-							ID:                  item.ID,
-							Name:                item.Name,
-							FileShareProperties: item.Properties,
-						}, nil
-					}
-				}
+		for _, item := range sp.Value {
+			if item.Name != nil && *item.Name == shareName {
+				return armstorage.FileShare{
+					ID:                  item.ID,
+					Name:                item.Name,
+					FileShareProperties: item.Properties,
+				}, nil
 			}
 		}
 	}
@@ -382,7 +354,12 @@ func (af *AzureFileSystemHandler) GetFileSystem(iid irs.IID) (irs.FileSystemInfo
 	hiscallInfo := GetCallLogScheme(af.Region, call.FILESYSTEM, "FILESYSTEM", "GetFileSystem()")
 	start := call.Start()
 
-	fs, err := af.getRawFileSystem(iid)
+	saName, err := af.getOrCreateStorageAccount()
+	if err != nil {
+		return irs.FileSystemInfo{}, fmt.Errorf("failed to get storage account name: %v", err)
+	}
+
+	fs, err := af.getRawFileSystem(saName, iid)
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.FileSystemInfo{}, fmt.Errorf("failed to get FileShare: %v", err)
@@ -439,7 +416,7 @@ func (af *AzureFileSystemHandler) setterFileSystemInfo(
 	}
 
 	rg := af.Region.Region
-	saName, err := af.getFirstStorageAccountName()
+	saName, err := af.getOrCreateStorageAccount()
 	if err == nil {
 		acctProps, err := af.AccountsClient.GetProperties(af.Ctx, rg, saName, nil)
 		if err == nil && acctProps.Properties.NetworkRuleSet != nil {
@@ -492,7 +469,7 @@ func (af *AzureFileSystemHandler) DeleteFileSystem(iid irs.IID) (bool, error) {
 		return false, fmt.Errorf("invalid IID: NameId (file system name) is required")
 	}
 
-	saName, err := af.getFirstStorageAccountName()
+	saName, err := af.getOrCreateStorageAccount()
 	if err != nil {
 		return false, fmt.Errorf("failed to get storage account name: %v", err)
 	}
@@ -506,21 +483,68 @@ func (af *AzureFileSystemHandler) DeleteFileSystem(iid irs.IID) (bool, error) {
 	return true, nil
 }
 
-func (af *AzureFileSystemHandler) getFirstStorageAccountName() (string, error) {
+func (af *AzureFileSystemHandler) createStorageAccount(accountName string) error {
 	rg := af.Region.Region
-	pager := af.AccountsClient.NewListByResourceGroupPager(rg, nil)
-	for pager.More() {
-		page, err := pager.NextPage(af.Ctx)
-		if err != nil {
-			return "", fmt.Errorf("list storage accounts failed: %w", err)
-		}
-		for _, acct := range page.Value {
-			if acct.Name != nil {
-				return *acct.Name, nil
-			}
-		}
+
+	storageAccountParams := armstorage.AccountCreateParameters{
+		Location: to.Ptr(rg),
+		SKU: &armstorage.SKU{
+			Name: to.Ptr(armstorage.SKUNamePremiumLRS),
+		},
+		Kind: to.Ptr(armstorage.KindFileStorage),
+		Properties: &armstorage.AccountPropertiesCreateParameters{
+			AllowBlobPublicAccess:  to.Ptr(false),
+			AllowSharedKeyAccess:   to.Ptr(true),
+			MinimumTLSVersion:      to.Ptr(armstorage.MinimumTLSVersionTLS12),
+			EnableHTTPSTrafficOnly: to.Ptr(true),
+			NetworkRuleSet: &armstorage.NetworkRuleSet{
+				DefaultAction:       to.Ptr(armstorage.DefaultActionDeny),
+				IPRules:             []*armstorage.IPRule{},
+				VirtualNetworkRules: []*armstorage.VirtualNetworkRule{},
+			},
+		},
 	}
-	return "", fmt.Errorf("no storage account found in resource group %q", rg)
+
+	pollerResp, err := af.AccountsClient.BeginCreate(
+		af.Ctx,
+		rg,
+		accountName,
+		storageAccountParams,
+		nil,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to begin storage account creation: %v", err)
+	}
+
+	_, err = pollerResp.PollUntilDone(af.Ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create storage account: %v", err)
+	}
+
+	cblogger.Infof("Successfully created storage account '%s' in resource group '%s'", accountName, rg)
+	return nil
+}
+
+func (af *AzureFileSystemHandler) getOrCreateStorageAccount() (string, error) {
+	rg := af.Region.Region
+	accountName := AzureStorageAccountPrefix + af.Region.Region
+
+	_, err := af.AccountsClient.GetProperties(af.Ctx, rg, accountName, nil)
+	if err == nil {
+		cblogger.Infof("Using existing storage account: %s", accountName)
+		return accountName, nil
+	}
+
+	cblogger.Infof("Storage account '%s' not found. Creating new account...", accountName)
+
+	err = af.createStorageAccount(accountName)
+	if err != nil {
+		return "", fmt.Errorf("failed to create storage account: %v", err)
+	}
+
+	cblogger.Infof("Storage account '%s' created.", accountName)
+
+	return accountName, nil
 }
 
 func (af *AzureFileSystemHandler) CreateFileSystem(reqInfo irs.FileSystemInfo) (irs.FileSystemInfo, error) {
@@ -538,7 +562,7 @@ func (af *AzureFileSystemHandler) CreateFileSystem(reqInfo irs.FileSystemInfo) (
 	}
 	rg := af.Region.Region
 
-	saName, err := af.getFirstStorageAccountName()
+	saName, err := af.getOrCreateStorageAccount()
 	if err != nil {
 		LoggingError(hiscallInfo, err)
 		return irs.FileSystemInfo{}, err
@@ -610,43 +634,33 @@ func (af *AzureFileSystemHandler) ListFileSystem() ([]*irs.FileSystemInfo, error
 	)
 	start := call.Start()
 
-	rg := af.Region.Region
 	var list []*irs.FileSystemInfo
 
-	acctPager := af.AccountsClient.NewListByResourceGroupPager(rg, nil)
-	for acctPager.More() {
-		page, err := acctPager.NextPage(af.Ctx)
+	resourceGroup := af.Region.Region
+	saName, err := af.getOrCreateStorageAccount()
+	if err != nil {
+		return make([]*irs.FileSystemInfo, 0), fmt.Errorf("failed to get storage account name: %v", err)
+	}
+
+	sharePager := af.FileShareClient.NewListPager(resourceGroup, saName, nil)
+	for sharePager.More() {
+		sp, err := sharePager.NextPage(af.Ctx)
 		if err != nil {
-			LoggingError(hiscallInfo, err)
-			return nil, fmt.Errorf("ListFileSystem: list accounts failed: %w", err)
+			continue
 		}
-		for _, acct := range page.Value {
-			if acct.Name == nil {
+		for _, share := range sp.Value {
+			raw := armstorage.FileShare{
+				ID:                  share.ID,
+				Name:                share.Name,
+				FileShareProperties: share.Properties,
+			}
+			info, err := af.setterFileSystemInfo(&raw)
+			if err != nil {
+				cblogger.Warnf("ListFileSystem: setter error for %s/%s/%s: %v",
+					resourceGroup, saName, *share.Name, err)
 				continue
 			}
-			sa := *acct.Name
-
-			sharePager := af.FileShareClient.NewListPager(rg, sa, nil)
-			for sharePager.More() {
-				sp, err := sharePager.NextPage(af.Ctx)
-				if err != nil {
-					continue
-				}
-				for _, share := range sp.Value {
-					raw := armstorage.FileShare{
-						ID:                  share.ID,
-						Name:                share.Name,
-						FileShareProperties: share.Properties,
-					}
-					info, err := af.setterFileSystemInfo(&raw)
-					if err != nil {
-						cblogger.Warnf("ListFileSystem: setter error for %s/%s/%s: %v",
-							rg, sa, *share.Name, err)
-						continue
-					}
-					list = append(list, info)
-				}
-			}
+			list = append(list, info)
 		}
 	}
 
