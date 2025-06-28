@@ -8,11 +8,16 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
+	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
+	ccim "github.com/cloud-barista/cb-spider/cloud-info-manager/connection-config-info-manager"
+	cim "github.com/cloud-barista/cb-spider/cloud-info-manager/credential-info-manager"
+	rim "github.com/cloud-barista/cb-spider/cloud-info-manager/region-info-manager"
 	infostore "github.com/cloud-barista/cb-spider/info-store"
 )
 
@@ -39,126 +44,63 @@ func init() {
 }
 
 type S3ConnectionInfo struct {
-	Endpoint  string
-	AccessKey string
-	SecretKey string
-	Region    string
-	UseSSL    bool
+	Endpoint       string
+	AccessKey      string
+	SecretKey      string
+	UseSSL         bool
+	RegionRequired bool   // Indicates if region is required for the S3 service
+	Region         string // Region ID
 }
 
 func GetS3ConnectionInfo(connectionName string) (*S3ConnectionInfo, error) {
-	// 실제 환경에서는 info-store에서 추출
-	switch connectionName {
-	case "aws-config01":
-		region := "us-east-1"
-		endpoint := "s3." + region + ".amazonaws.com"
-		return &S3ConnectionInfo{
-			Endpoint:  endpoint,
-			AccessKey: "",
-			SecretKey: "",
-			Region:    region,
-			UseSSL:    true,
-		}, nil
-	case "azure-northeu-config": // Azure does not support S3 compatibility.
-		storageAccount := "powerkimstorageaccount"
-		region := "northeurope"
-		endpoint := storageAccount + ".blob.core.windows.net"
-		return &S3ConnectionInfo{
-			Endpoint:  endpoint,
-			AccessKey: "",
-			SecretKey: "",
-			Region:    region,
-			UseSSL:    true,
-		}, nil
-	case "gcp-iowa-config":
-		region := "us-central1"
-		endpoint := "storage.googleapis.com"
-		return &S3ConnectionInfo{
-			Endpoint:  endpoint,
-			AccessKey: "",
-			SecretKey: "",
-			Region:    region,
-			UseSSL:    true,
-		}, nil
-	case "alibaba-beijing-config": // Don't use region to make Client session and create a Bucket
-		region := "cn-beijing"
-		endpoint := "oss-" + region + ".aliyuncs.com"
-		return &S3ConnectionInfo{
-			Endpoint:  endpoint,
-			AccessKey: "",
-			SecretKey: "",
-			Region:    region,
-			UseSSL:    true,
-		}, nil
-	case "tencent-tokyo-config": // @ERROR List Object and Delete Bucket error
 
-		// (1) endpoint format for Bucket control
-		region := "ap-tokyo"
-		endpoint := "cos." + region + ".myqcloud.com"
-
-		// (2) endpoint format for Object contorl(Virtual-hosted-style)
-		// APPID := "1328906629"
-		// region := "ap-tokyo"
-		// bucketName := "spider-test-bucket-" + APPID
-		// // Virtual-hosted-style endpoint
-		// endpoint := bucketName + ".cos." + region + ".myqcloud.com"
-		return &S3ConnectionInfo{
-			Endpoint:  endpoint,
-			AccessKey: "",
-			SecretKey: "",
-			Region:    region,
-			UseSSL:    true,
-		}, nil
-	case "ibmvpc-us-east-1-config": // Don't use region to make Client session and create a Bucket
-		region := "us-east"
-		endpoint := "s3." + region + ".cloud-object-storage.appdomain.cloud"
-		return &S3ConnectionInfo{
-			Endpoint:  endpoint,
-			AccessKey: "",
-			SecretKey: "", Region: region,
-			UseSSL: true,
-		}, nil
-	case "nhncloud-korea-pangyo-config":
-		region := "kr1"
-		endpoint := region + "-api-object-storage.nhncloudservice.com"
-		return &S3ConnectionInfo{
-			Endpoint:  endpoint,
-			AccessKey: "",
-			SecretKey: "",
-			Region:    region,
-			UseSSL:    true,
-		}, nil
-	case "ncpvpc-korea1-config": // Don't use region to make Client session and create a Bucket, // need to check jp or jpn, sg or sgn
-		region := "kr"
-		endpoint := region + ".object.ncloudstorage.com"
-		return &S3ConnectionInfo{
-			Endpoint:  endpoint,
-			AccessKey: "",
-			SecretKey: "",
-			Region:    region,
-			UseSSL:    true,
-		}, nil
-	case "ktcloudvpc-mokdong1-config":
-		region := "kr1"
-		endpoint := "obj-e-1.ktcloud.com"
-		return &S3ConnectionInfo{
-			Endpoint:  endpoint,
-			AccessKey: "",
-			SecretKey: "",
-			Region:    region,
-			UseSSL:    true,
-		}, nil
-	default:
-		return nil, fmt.Errorf("No S3 connection info found for: %s", connectionName)
+	// Get connection configuration
+	cccInfo, err := ccim.GetConnectionConfig(connectionName)
+	if err != nil {
+		return nil, err
 	}
+
+	// Get Region information
+	regionInfo, err := rim.GetRegion(cccInfo.RegionName)
+	if err != nil {
+		return nil, err
+	}
+	regionID := ccm.KeyValueListGetValue(regionInfo.KeyValueInfoList, "Region")
+	// Get decrypted credential information
+	crdInfo, err := cim.GetCredentialDecrypt(cccInfo.CredentialName)
+	if err != nil {
+		return nil, err
+	}
+
+	endpoint := ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3Endpoint")
+	endpoint = strings.Replace(endpoint, "{region}", regionID, -1) // Replace {region} with actual region name
+	endpoint = strings.Replace(endpoint, "{REGION}", regionID, -1) // Replace {REGION} with actual region name
+	endpoint = strings.Replace(endpoint, "{Region}", regionID, -1) // Replace {Region} with actual region name
+
+	return &S3ConnectionInfo{
+		Endpoint:       endpoint,
+		AccessKey:      ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3AccessKey"),
+		SecretKey:      ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3SecretKey"),
+		UseSSL:         ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3UseSSL") == "true",
+		RegionRequired: ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3RegionRequired") == "true",
+		Region:         regionID,
+	}, nil
+
 }
 
 func NewS3Client(connInfo *S3ConnectionInfo) (*minio.Client, error) {
-	return minio.New(connInfo.Endpoint, &minio.Options{
-		Creds:  credentials.NewStaticV4(connInfo.AccessKey, connInfo.SecretKey, ""),
-		Secure: connInfo.UseSSL,
-		Region: connInfo.Region, // Alibaba, IBM VPC, NCP VPC, KT VPC: Region is not required
-	})
+	if connInfo.RegionRequired {
+		return minio.New(connInfo.Endpoint, &minio.Options{
+			Creds:  credentials.NewStaticV4(connInfo.AccessKey, connInfo.SecretKey, ""),
+			Secure: connInfo.UseSSL,
+			Region: connInfo.Region,
+		})
+	} else { // Alibaba, IBM VPC, NCP VPC, KT VPC: Region is not required
+		return minio.New(connInfo.Endpoint, &minio.Options{
+			Creds:  credentials.NewStaticV4(connInfo.AccessKey, connInfo.SecretKey, ""),
+			Secure: connInfo.UseSSL,
+		})
+	}
 }
 
 func CreateS3Bucket(connectionName, bucketName string) (*minio.BucketInfo, error) {
@@ -197,8 +139,15 @@ func CreateS3Bucket(connectionName, bucketName string) (*minio.BucketInfo, error
 	if exists {
 		return nil, fmt.Errorf("S3 Bucket %s already exists in S3", bucketName)
 	}
-	err = client.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{Region: connInfo.Region})
-	// err = client.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{}) // Alibaba, IBM VPC, NCP VPC, KT VPC: Region is not required
+	if connInfo.RegionRequired {
+		if connInfo.Region == "" {
+			return nil, fmt.Errorf("Region is required for S3 connection %s", connectionName)
+		} else {
+			err = client.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{Region: connInfo.Region})
+		}
+	} else { // Alibaba, IBM VPC, NCP VPC, KT VPC: Region is not required
+		err = client.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{})
+	}
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
@@ -754,7 +703,7 @@ func InitiateMultipartUpload(connectionName string, bucketName string, objectNam
 
 	ctx := context.Background()
 
-	// MinIO에서는 Core API를 사용해야 함
+	// Use Core API to initiate multipart upload
 	core := minio.Core{Client: client}
 	uploadID, err := core.NewMultipartUpload(ctx, bucketName, objectName, minio.PutObjectOptions{})
 	if err != nil {
@@ -826,7 +775,7 @@ func CompleteMultipartUpload(connectionName string, bucketName string, objectNam
 		})
 	}
 
-	// Core API 사용
+	// Use Core API to complete multipart upload
 	core := minio.Core{Client: client}
 	uploadInfo, err := core.CompleteMultipartUpload(ctx, bucketName, objectName, uploadID, completeParts, minio.PutObjectOptions{})
 	if err != nil {
@@ -860,7 +809,7 @@ func AbortMultipartUpload(connectionName string, bucketName string, objectName s
 
 	ctx := context.Background()
 
-	// Core API 사용
+	// Use Core API to abort multipart upload
 	core := minio.Core{Client: client}
 	err = core.AbortMultipartUpload(ctx, bucketName, objectName, uploadID)
 	if err != nil {

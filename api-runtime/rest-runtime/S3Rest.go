@@ -69,9 +69,8 @@ type S3Grant struct {
 	Permission string      `json:"Permission"`
 }
 type S3RestoreInfo struct {
-	OngoingRestore bool `json:"OngoingRestore"` // Whether the object is currently being restored
-	// When the restored copy of the archived object will be removed
-	ExpiryTime time.Time `json:"ExpiryTime,omitempty"` // Optional, only if applicable
+	OngoingRestore bool      `json:"OngoingRestore"`       // Whether the object is currently being restored
+	ExpiryTime     time.Time `json:"ExpiryTime,omitempty"` // Optional, only if applicable
 }
 
 // --------------- for Swagger doc (minio.UploadInfo)
@@ -360,7 +359,7 @@ func ListS3Buckets(c echo.Context) error {
 			Buckets: Buckets{Bucket: bucketElems},
 		}
 
-		// XML을 수동으로 생성하여 정확한 형식 보장
+		// Generate XML response
 		var buf bytes.Buffer
 		buf.WriteString(xml.Header)
 		enc := xml.NewEncoder(&buf)
@@ -666,7 +665,7 @@ func ListS3Objects(c echo.Context) error {
 			return c.Blob(http.StatusOK, "application/xml", fullXML)
 		}
 
-		// delimiter가 없으면 기존 방식대로 처리
+		// Default XML response for S3 API without delimiter
 		var contents []S3ObjectXML
 		for _, o := range result {
 			contents = append(contents, S3ObjectXML{
@@ -846,13 +845,9 @@ func PutS3ObjectFromFile(c echo.Context) error {
 		bucket := c.Param("BucketName")
 		objKey := c.Param("ObjectKey+")
 
-		// S3 Browser는 폴더 생성 시 Content-Length: 0으로 요청을 보냄
-		// 폴더인지 확인 (Content-Length가 0이고 슬래시로 끝나지 않는 경우)
 		if c.Request().ContentLength == 0 && !strings.HasSuffix(objKey, "/") {
-			// User-Agent로 S3 Browser 확인
 			userAgent := c.Request().Header.Get("User-Agent")
 			if strings.Contains(userAgent, "S3 Browser") {
-				// S3 Browser의 폴더 생성 요청인 경우 키 이름에 슬래시 추가
 				objKey = objKey + "/"
 				cblog.Infof("S3 Browser folder creation detected, adding trailing slash: %s", objKey)
 			}
@@ -924,17 +919,13 @@ func DeleteS3Object(c echo.Context) error {
 		bucket := c.Param("BucketName")
 		objKey := c.Param("ObjectKey+")
 
-		// 로깅 추가
 		cblog.Infof("DeleteS3Object called - bucket: %s, objKey: %s", bucket, objKey)
 
-		// S3 Browser의 폴더 삭제 요청 처리
 		userAgent := c.Request().Header.Get("User-Agent")
 		if strings.Contains(userAgent, "S3 Browser") && !strings.HasSuffix(objKey, "/") {
-			// 먼저 슬래시가 붙은 버전이 있는지 확인
 			objKeyWithSlash := objKey + "/"
 			_, err := cmrt.GetS3ObjectInfo(conn, bucket, objKeyWithSlash)
 			if err == nil {
-				// 폴더가 존재하면 슬래시를 추가
 				objKey = objKeyWithSlash
 				cblog.Infof("S3 Browser folder deletion detected, adding trailing slash: %s", objKey)
 			} else {
@@ -1291,7 +1282,6 @@ func ListS3ObjectVersions(c echo.Context) error {
 
 // HandleS3BucketPost handles various POST operations on S3 bucket
 func HandleS3BucketPost(c echo.Context) error {
-	// 쿼리 파라미터 확인
 	if c.QueryParam("uploads") != "" {
 		return InitiateMultipartUpload(c)
 	}
@@ -1302,20 +1292,16 @@ func HandleS3BucketPost(c echo.Context) error {
 		return DeleteMultipleObjects(c)
 	}
 
-	// Content-Type 확인하여 bulk delete 요청 감지
 	contentType := c.Request().Header.Get("Content-Type")
 	if strings.Contains(contentType, "application/xml") || c.Request().Header.Get("Content-MD5") != "" {
-		// S3 Browser의 bulk delete 요청
 		cblog.Info("Bulk delete request detected")
 		return DeleteMultipleObjects(c)
 	}
 
-	// multipart/form-data인 경우 PostObject 처리
 	if strings.Contains(contentType, "multipart/form-data") {
 		return PostObject(c)
 	}
 
-	// 기본적으로 DeleteMultipleObjects 시도
 	return DeleteMultipleObjects(c)
 }
 
