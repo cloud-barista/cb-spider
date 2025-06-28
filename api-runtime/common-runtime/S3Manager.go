@@ -54,8 +54,97 @@ func GetS3ConnectionInfo(connectionName string) (*S3ConnectionInfo, error) {
 		endpoint := "s3." + region + ".amazonaws.com"
 		return &S3ConnectionInfo{
 			Endpoint:  endpoint,
-			AccessKey: "AccessKey",
-			SecretKey: "SecretKey",
+			AccessKey: "",
+			SecretKey: "",
+			Region:    region,
+			UseSSL:    true,
+		}, nil
+	case "azure-northeu-config": // Azure does not support S3 compatibility.
+		storageAccount := "powerkimstorageaccount"
+		region := "northeurope"
+		endpoint := storageAccount + ".blob.core.windows.net"
+		return &S3ConnectionInfo{
+			Endpoint:  endpoint,
+			AccessKey: "",
+			SecretKey: "",
+			Region:    region,
+			UseSSL:    true,
+		}, nil
+	case "gcp-iowa-config":
+		region := "us-central1"
+		endpoint := "storage.googleapis.com"
+		return &S3ConnectionInfo{
+			Endpoint:  endpoint,
+			AccessKey: "",
+			SecretKey: "",
+			Region:    region,
+			UseSSL:    true,
+		}, nil
+	case "alibaba-beijing-config": // Don't use region to make Client session and create a Bucket
+		region := "cn-beijing"
+		endpoint := "oss-" + region + ".aliyuncs.com"
+		return &S3ConnectionInfo{
+			Endpoint:  endpoint,
+			AccessKey: "",
+			SecretKey: "",
+			Region:    region,
+			UseSSL:    true,
+		}, nil
+	case "tencent-tokyo-config": // @ERROR List Object and Delete Bucket error
+
+		// (1) endpoint format for Bucket control
+		region := "ap-tokyo"
+		endpoint := "cos." + region + ".myqcloud.com"
+
+		// (2) endpoint format for Object contorl(Virtual-hosted-style)
+		// APPID := "1328906629"
+		// region := "ap-tokyo"
+		// bucketName := "spider-test-bucket-" + APPID
+		// // Virtual-hosted-style endpoint
+		// endpoint := bucketName + ".cos." + region + ".myqcloud.com"
+		return &S3ConnectionInfo{
+			Endpoint:  endpoint,
+			AccessKey: "",
+			SecretKey: "",
+			Region:    region,
+			UseSSL:    true,
+		}, nil
+	case "ibmvpc-us-east-1-config": // Don't use region to make Client session and create a Bucket
+		region := "us-east"
+		endpoint := "s3." + region + ".cloud-object-storage.appdomain.cloud"
+		return &S3ConnectionInfo{
+			Endpoint:  endpoint,
+			AccessKey: "",
+			SecretKey: "", Region: region,
+			UseSSL: true,
+		}, nil
+	case "nhncloud-korea-pangyo-config":
+		region := "kr1"
+		endpoint := region + "-api-object-storage.nhncloudservice.com"
+		return &S3ConnectionInfo{
+			Endpoint:  endpoint,
+			AccessKey: "",
+			SecretKey: "",
+			Region:    region,
+			UseSSL:    true,
+		}, nil
+	case "ncpvpc-korea1-config": // Don't use region to make Client session and create a Bucket, // need to check jp or jpn, sg or sgn
+		region := "kr"
+		endpoint := region + ".object.ncloudstorage.com"
+		return &S3ConnectionInfo{
+			Endpoint:  endpoint,
+			AccessKey: "",
+			SecretKey: "",
+			Region:    region,
+			UseSSL:    true,
+		}, nil
+	case "ktcloudvpc-mokdong1-config":
+		region := "kr1"
+		endpoint := "obj-e-1.ktcloud.com"
+		return &S3ConnectionInfo{
+			Endpoint:  endpoint,
+			AccessKey: "",
+			SecretKey: "",
 			Region:    region,
 			UseSSL:    true,
 		}, nil
@@ -68,7 +157,7 @@ func NewS3Client(connInfo *S3ConnectionInfo) (*minio.Client, error) {
 	return minio.New(connInfo.Endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(connInfo.AccessKey, connInfo.SecretKey, ""),
 		Secure: connInfo.UseSSL,
-		Region: connInfo.Region,
+		Region: connInfo.Region, // Alibaba, IBM VPC, NCP VPC, KT VPC: Region is not required
 	})
 }
 
@@ -109,6 +198,7 @@ func CreateS3Bucket(connectionName, bucketName string) (*minio.BucketInfo, error
 		return nil, fmt.Errorf("S3 Bucket %s already exists in S3", bucketName)
 	}
 	err = client.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{Region: connInfo.Region})
+	// err = client.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{}) // Alibaba, IBM VPC, NCP VPC, KT VPC: Region is not required
 	if err != nil {
 		cblog.Error(err)
 		return nil, err
@@ -159,6 +249,7 @@ func ListS3Buckets(connectionName string) ([]*minio.BucketInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	var out []*minio.BucketInfo
 	for _, iid := range iidInfoList {
 		for _, b := range allBuckets {
@@ -528,4 +619,350 @@ func ListS3ObjectVersions(connectionName, bucketName, prefix string) ([]minio.Ob
 		out = append(out, obj)
 	}
 	return out, nil
+}
+
+// PutS3ObjectFromReader uploads an object to S3 from io.Reader
+func PutS3ObjectFromReader(connectionName string, bucketName string, objectName string, reader io.Reader, objectSize int64) (minio.UploadInfo, error) {
+	cblog.Info("call PutS3ObjectFromReader()")
+
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return minio.UploadInfo{}, err
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return minio.UploadInfo{}, err
+	}
+
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return minio.UploadInfo{}, err
+	}
+
+	ctx := context.Background()
+	contentType := "application/octet-stream"
+
+	info, err := client.PutObject(
+		ctx,
+		bucketName,
+		objectName,
+		reader,
+		objectSize,
+		minio.PutObjectOptions{ContentType: contentType},
+	)
+
+	if err != nil {
+		cblog.Error("Failed to upload object from reader:", err)
+		return minio.UploadInfo{}, err
+	}
+
+	cblog.Infof("Successfully uploaded %s of size %d to bucket %s", objectName, info.Size, bucketName)
+
+	uploadInfo := minio.UploadInfo{
+		Bucket:       info.Bucket,
+		Key:          info.Key,
+		ETag:         info.ETag,
+		Size:         info.Size,
+		LastModified: info.LastModified,
+		Location:     info.Location,
+		VersionID:    info.VersionID,
+	}
+
+	return uploadInfo, nil
+}
+
+// CopyS3Object copies an object within S3
+func CopyS3Object(connectionName string, srcBucket string, srcObject string, dstBucket string, dstObject string) (minio.ObjectInfo, error) {
+	cblog.Info("call CopyS3Object()")
+
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", srcBucket)
+	if err != nil {
+		return minio.ObjectInfo{}, err
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return minio.ObjectInfo{}, err
+	}
+
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return minio.ObjectInfo{}, err
+	}
+
+	ctx := context.Background()
+	srcOpts := minio.CopySrcOptions{
+		Bucket: srcBucket,
+		Object: srcObject,
+	}
+
+	dstOpts := minio.CopyDestOptions{
+		Bucket: dstBucket,
+		Object: dstObject,
+	}
+
+	_, err = client.CopyObject(ctx, dstOpts, srcOpts)
+	if err != nil {
+		cblog.Error("Failed to copy object:", err)
+		return minio.ObjectInfo{}, err
+	}
+
+	objInfo, err := client.StatObject(ctx, dstBucket, dstObject, minio.StatObjectOptions{})
+	if err != nil {
+		cblog.Error("Failed to get copied object info:", err)
+		return minio.ObjectInfo{}, err
+	}
+
+	return objInfo, nil
+}
+
+// CompletePart represents a part to be committed in CompleteMultipartUpload
+type CompletePart struct {
+	PartNumber int
+	ETag       string
+}
+
+// DeleteResult represents the result of deleting an object
+type DeleteResult struct {
+	Key     string
+	Success bool
+	Error   string
+}
+
+// InitiateMultipartUpload initiates a multipart upload and returns upload ID
+func InitiateMultipartUpload(connectionName string, bucketName string, objectName string) (string, error) {
+	cblog.Info("call InitiateMultipartUpload()")
+
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return "", err
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return "", err
+	}
+
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return "", err
+	}
+
+	ctx := context.Background()
+
+	// MinIO에서는 Core API를 사용해야 함
+	core := minio.Core{Client: client}
+	uploadID, err := core.NewMultipartUpload(ctx, bucketName, objectName, minio.PutObjectOptions{})
+	if err != nil {
+		cblog.Error("Failed to initiate multipart upload:", err)
+		return "", err
+	}
+
+	return uploadID, nil
+}
+
+// UploadPart uploads a part in a multipart upload
+func UploadPart(connectionName string, bucketName string, objectName string, uploadID string, partNumber int, reader io.Reader, size int64) (string, error) {
+	cblog.Info("call UploadPart()")
+
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return "", err
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return "", err
+	}
+
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return "", err
+	}
+
+	ctx := context.Background()
+
+	core := minio.Core{Client: client}
+	part, err := core.PutObjectPart(ctx, bucketName, objectName, uploadID, partNumber, reader, size, minio.PutObjectPartOptions{})
+	if err != nil {
+		cblog.Error("Failed to upload part:", err)
+		return "", err
+	}
+
+	return part.ETag, nil
+}
+
+// CompleteMultipartUpload completes a multipart upload
+func CompleteMultipartUpload(connectionName string, bucketName string, objectName string, uploadID string, parts []CompletePart) (string, string, error) {
+	cblog.Info("call CompleteMultipartUpload()")
+
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return "", "", err
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return "", "", err
+	}
+
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return "", "", err
+	}
+
+	ctx := context.Background()
+	var completeParts []minio.CompletePart
+	for _, part := range parts {
+		completeParts = append(completeParts, minio.CompletePart{
+			PartNumber: part.PartNumber,
+			ETag:       part.ETag,
+		})
+	}
+
+	// Core API 사용
+	core := minio.Core{Client: client}
+	uploadInfo, err := core.CompleteMultipartUpload(ctx, bucketName, objectName, uploadID, completeParts, minio.PutObjectOptions{})
+	if err != nil {
+		cblog.Error("Failed to complete multipart upload:", err)
+		return "", "", err
+	}
+
+	location := fmt.Sprintf("/%s/%s", bucketName, objectName)
+	return location, uploadInfo.ETag, nil
+}
+
+// AbortMultipartUpload aborts a multipart upload
+func AbortMultipartUpload(connectionName string, bucketName string, objectName string, uploadID string) error {
+	cblog.Info("call AbortMultipartUpload()")
+
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return err
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return err
+	}
+
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	// Core API 사용
+	core := minio.Core{Client: client}
+	err = core.AbortMultipartUpload(ctx, bucketName, objectName, uploadID)
+	if err != nil {
+		cblog.Error("Failed to abort multipart upload:", err)
+		return err
+	}
+
+	return nil
+}
+
+// DeleteMultipleObjects deletes multiple objects from a bucket
+func DeleteMultipleObjects(connectionName string, bucketName string, objectNames []string) ([]DeleteResult, error) {
+	cblog.Info("call DeleteMultipleObjects()")
+
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return nil, err
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx := context.Background()
+	objectsCh := make(chan minio.ObjectInfo)
+
+	go func() {
+		defer close(objectsCh)
+		for _, objectName := range objectNames {
+			objectsCh <- minio.ObjectInfo{
+				Key: objectName,
+			}
+		}
+	}()
+
+	results := []DeleteResult{}
+	for err := range client.RemoveObjects(ctx, bucketName, objectsCh, minio.RemoveObjectsOptions{}) {
+		result := DeleteResult{
+			Key:     err.ObjectName,
+			Success: false,
+			Error:   err.Err.Error(),
+		}
+		results = append(results, result)
+	}
+
+	for _, objectName := range objectNames {
+		found := false
+		for _, result := range results {
+			if result.Key == objectName {
+				found = true
+				break
+			}
+		}
+		if !found {
+			results = append(results, DeleteResult{
+				Key:     objectName,
+				Success: true,
+			})
+		}
+	}
+
+	return results, nil
+}
+
+// ListMultipartUploads lists all multipart uploads in progress
+func ListMultipartUploads(connectionName string, bucketName string, prefix string) ([]minio.ObjectMultipartInfo, error) {
+	cblog.Info("call ListMultipartUploads()")
+
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return nil, err
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx := context.Background()
+	var uploads []minio.ObjectMultipartInfo
+
+	multipartInfoCh := client.ListIncompleteUploads(ctx, bucketName, prefix, true)
+	for multipartInfo := range multipartInfoCh {
+		if multipartInfo.Err != nil {
+			cblog.Error("Error listing multipart uploads:", multipartInfo.Err)
+			continue
+		}
+		uploads = append(uploads, multipartInfo)
+	}
+
+	return uploads, nil
 }

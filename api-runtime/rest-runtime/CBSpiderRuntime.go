@@ -9,10 +9,12 @@
 package restruntime
 
 import (
+	"bytes"
 	"crypto/subtle"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"path/filepath"
@@ -594,10 +596,27 @@ func RunServer() {
 		//----------SSH WebTerminal Handler
 		{"GET", "/adminweb/sshwebterminal/ws", aw.HandleWebSocket},
 	}
+
+	// for Standard S3 API
+	// RestRuntime.go의 s3Routes 수정
+	s3Routes := []route{
+		{"GET", "/", ListS3Buckets},
+		{"PUT", "/:Name", CreateS3Bucket},
+		{"HEAD", "/:Name", GetS3Bucket},
+		{"GET", "/:Name", GetS3Bucket},
+		{"GET", "/:Name/", GetS3Bucket}, // trailing slash 처리 추가
+		{"DELETE", "/:Name", DeleteS3Bucket},
+		{"PUT", "/:BucketName/:ObjectKey+", PutS3ObjectFromFile},
+		{"HEAD", "/:BucketName/:ObjectKey+", GetS3ObjectInfo},
+		{"GET", "/:BucketName/:ObjectKey+", DownloadS3Object},
+		{"DELETE", "/:BucketName/:ObjectKey+", DeleteS3Object},
+		{"POST", "/:Name", HandleS3BucketPost},
+		{"POST", "/:Name/", HandleS3BucketPost}, // trailing slash 처리 추가
+	}
 	//======================================= setup routes
 
 	// Run API Server
-	ApiServer(routes)
+	ApiServer(routes, s3Routes)
 
 }
 
@@ -646,14 +665,52 @@ func RunTLSServer(certFile, keyFile, caCertFile string, port int) {
 	}
 }
 
+type bodyDumpResponseWriter struct {
+	io.Writer
+	http.ResponseWriter
+}
+
+func (w *bodyDumpResponseWriter) Write(b []byte) (int, error) {
+	return w.Writer.Write(b)
+}
+
 // ================ REST API Server: setup & start
-func ApiServer(routes []route) {
+func ApiServer(routes []route, s3Routes []route) {
 	e := echo.New()
 
 	// Middleware
 	e.Use(middleware.CORS())
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
+	// Trailing slash 제거 미들웨어 추가
+	e.Pre(middleware.RemoveTrailingSlash())
+
+	// S3 API 요청/응답 로깅 미들웨어
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if strings.HasPrefix(c.Request().Header.Get("Authorization"), "AWS4-HMAC-SHA256") {
+				cblog.Infof("S3 API Request: %s %s", c.Request().Method, c.Request().URL.Path)
+				cblog.Debugf("Request Headers: %v", c.Request().Header)
+
+				// Response를 가로채기 위한 custom writer
+				resBody := new(bytes.Buffer)
+				mw := io.MultiWriter(c.Response().Writer, resBody)
+				writer := &bodyDumpResponseWriter{Writer: mw, ResponseWriter: c.Response().Writer}
+				c.Response().Writer = writer
+
+				err := next(c)
+
+				cblog.Debugf("Response Status: %d", c.Response().Status)
+				cblog.Debugf("Response Headers: %v", c.Response().Header())
+				if c.Response().Status < 300 {
+					cblog.Debugf("Response Body: %s", resBody.String())
+				}
+
+				return err
+			}
+			return next(c)
+		}
+	})
 
 	cbspiderRoot := os.Getenv("CBSPIDER_ROOT")
 
@@ -709,6 +766,21 @@ func ApiServer(routes []route) {
 		case "DELETE":
 			e.DELETE(route.path, route.function)
 
+		}
+	}
+
+	for _, route := range s3Routes {
+		switch route.method {
+		case "GET":
+			e.GET(route.path, route.function)
+		case "HEAD":
+			e.HEAD(route.path, route.function)
+		case "PUT":
+			e.PUT(route.path, route.function)
+		case "POST":
+			e.POST(route.path, route.function)
+		case "DELETE":
+			e.DELETE(route.path, route.function)
 		}
 	}
 
