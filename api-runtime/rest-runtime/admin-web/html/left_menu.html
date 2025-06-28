@@ -71,7 +71,8 @@
                 disk: "/spider/adminweb/disk",
                 myimage: "/spider/adminweb/myimage",
                 nlb: "/spider/adminweb/nlb",
-                cluster: "/spider/adminweb/cluster"
+                cluster: "/spider/adminweb/cluster",
+                s3: "/spider/adminweb/s3"
             };
 
             const targetUrl = `${menuUrlMap[menu]}/${encodeURIComponent(connectionName)}`;
@@ -131,7 +132,7 @@
         }
 
         function changeSelectedImage(selectedMenu) {
-            const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'disk', 'myimage', 'nlb', 'cluster'];
+            const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'disk', 'myimage', 'nlb', 'cluster', 's3'];
             menus.forEach(menu => {
                 const imgElement = document.getElementById(menu + '-img');
                 if (imgElement) {
@@ -146,7 +147,7 @@
 
         window.addEventListener('message', function(event) {
             if (event.data.type === 'deselectLeftMenu') {
-                const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'disk', 'myimage', 'nlb', 'cluster'];
+                const menus = ['dashboard', 'connection', 'vpc', 'securitygroup', 'keypair', 'vm', 'disk', 'myimage', 'nlb', 'cluster', 's3'];
                 menus.forEach(menu => {
                     const imgElement = document.getElementById(menu + '-img');
                     if (imgElement) {
@@ -207,5 +208,10 @@
         <div class="menu-text">Cluster</div>
     </div>
     <div class="divider"></div> <!-- Divider after Cluster -->
+    <div class="menu-item" onclick="checkConnectionAndRedirect('s3', event)">
+        <img id="s3-img" src="./images/left-menu/s3.png" alt="S3 Icon">
+        <div class="menu-text">S3</div>
+    </div>
+    <div class="divider"></div> <!-- Divider after S3 -->
 </body>
 </html>

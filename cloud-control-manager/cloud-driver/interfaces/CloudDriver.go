@@ -72,6 +72,13 @@ type CredentialInfo struct {
 	ApiKey           string // Ibm
 	ConnectionName   string // MINI
 	ClusterId        string // Cloudit
+
+	//----- S3 Access Info
+	S3Endpoint       string // S3 Endpoint
+	S3AccessKey      string // S3 Access Key
+	S3SecretKey      string // S3 Secret Key
+	S3UseSSL         bool   // Use SSL
+	S3RegionRequired bool   // S3 Region Required or not
 }
 
 type RegionInfo struct {

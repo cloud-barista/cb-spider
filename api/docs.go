@@ -13668,7 +13668,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "ExpiryTime": {
-                    "description": "When the restored copy of the archived object will be removed",
+                    "description": "Optional, only if applicable",
                     "type": "string"
                 },
                 "OngoingRestore": {
