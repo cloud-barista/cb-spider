@@ -2373,18 +2373,18 @@ func main() {
 	//handleTag()
 	// handlePublicIP() // PublicIP 생성 후 conf
 
-	handleVPC()
+	//handleVPC()
 	//handleSecurity()
 	//handleKeyPair()
-	handleVM()
+	//handleVM()
 	//handleDisk()
 	//handleMyImage()
 	//handleNLB()
-	handleCluster()
+	//handleCluster()
 	// handleImage() //AMI
 	// handleVNic() //Lancard
 	//handleVMSpec()
-	//handleRegionZone()
+	handleRegionZone()
 	//handlePriceInfo()
 	//handleTag()
 }
