@@ -33,11 +33,6 @@ type IbmCloudConnection struct {
 	Ctx            context.Context
 }
 
-// CreateFileSystemHandler implements connect.CloudConnection.
-func (cloudConn *IbmCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
-	panic("unimplemented")
-}
-
 func (cloudConn *IbmCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
 	cblogger.Info("Ibm Cloud Driver: called CreateImageHandler()!")
 	imageHandler := ibmrs.IbmImageHandler{
@@ -192,6 +187,19 @@ func (cloudConn *IbmCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHand
 		Region:         cloudConn.Region,
 		VpcService:     cloudConn.VpcService,
 		Ctx:            cloudConn.Ctx,
+	}
+	return &priceInfoHandler, nil
+}
+
+func (cloudConn *IbmCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
+	cblogger.Info("Ibm Cloud Driver: called CreateFileSystemHandler()!")
+	priceInfoHandler := ibmrs.IbmFileSystemHandler{
+		Region:         cloudConn.Region,
+		CredentialInfo: cloudConn.CredentialInfo,
+		Ctx:            cloudConn.Ctx,
+		VpcService:     cloudConn.VpcService,
+		TaggingService: cloudConn.TaggingService,
+		SearchService:  cloudConn.SearchService,
 	}
 	return &priceInfoHandler, nil
 }

@@ -176,7 +176,7 @@ func (securityHandler *IbmSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, 
 
 			if securityInfo.TagList != nil && len(securityInfo.TagList) > 0 {
 				for _, tag := range securityInfo.TagList {
-					if tag.Key == "nlb_name" || tag.Key == "nlb_id" {
+					if tag.Key == "nlb_name" || tag.Key == "nlb_id" || tag.Key == IBMFileSystemSGTagKey {
 						continue
 					}
 				}
@@ -836,6 +836,27 @@ func (securityHandler *IbmSecurityHandler) ListIID() ([]*irs.IID, error) {
 			}
 			if securityGroup.Name != nil {
 				iid.NameId = *securityGroup.Name
+			}
+
+			tagHandler := IbmTagHandler{
+				Region:         securityHandler.Region,
+				CredentialInfo: securityHandler.CredentialInfo,
+				VpcService:     securityHandler.VpcService,
+				Ctx:            securityHandler.Ctx,
+				SearchService:  securityHandler.SearchService,
+			}
+
+			tags, err := tagHandler.ListTag(irs.SG, irs.IID{SystemId: *securityGroup.ID})
+			if err != nil {
+				cblogger.Warn("Failed to get tags of the Key (" + *securityGroup.Name + "). err = " + err.Error())
+			}
+
+			if tags != nil && len(tags) > 0 {
+				for _, tag := range tags {
+					if tag.Key == "nlb_name" || tag.Key == "nlb_id" || tag.Key == IBMFileSystemSGTagKey {
+						continue
+					}
+				}
 			}
 
 			iidList = append(iidList, &iid)
