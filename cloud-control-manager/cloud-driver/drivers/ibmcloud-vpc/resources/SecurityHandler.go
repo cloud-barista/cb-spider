@@ -395,7 +395,7 @@ func setRule(securityGroup vpcv1.SecurityGroup) ([]irs.SecurityRuleInfo, error) 
 	return ruleList, nil
 }
 
-func getSecurityGroupNextHref(next *vpcv1.SecurityGroupCollectionNext) (string, error) {
+func getSecurityGroupNextHref(next *vpcv1.PageLink) (string, error) {
 	if next != nil {
 		href := *next.Href
 		u, err := url.Parse(href)

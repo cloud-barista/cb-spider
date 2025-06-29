@@ -389,6 +389,11 @@ func (vpcHandler *IbmVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 func (vpcHandler *IbmVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
 	hiscallInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, subnetInfo.IId.NameId, "AddSubnet()")
 	start := call.Start()
+
+	if subnetInfo.Zone == "" {
+		subnetInfo.Zone = vpcHandler.Region.Zone
+	}
+
 	vpc, err := GetRawVPC(vpcIID, vpcHandler.VpcService, vpcHandler.Ctx)
 	if err != nil {
 		addSubnetErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err.Error()))
@@ -571,7 +576,7 @@ func attachSubnet(vpc vpcv1.VPC, subnetInfo irs.SubnetInfo, vpcService *vpcv1.Vp
 	_, _, err = vpcService.CreateSubnetWithContext(ctx, options)
 	return err
 }
-func getVPCNextHref(next *vpcv1.VPCCollectionNext) (string, error) {
+func getVPCNextHref(next *vpcv1.PageLink) (string, error) {
 	if next != nil {
 		href := *next.Href
 		u, err := url.Parse(href)
@@ -588,7 +593,7 @@ func getVPCNextHref(next *vpcv1.VPCCollectionNext) (string, error) {
 	}
 	return "", errors.New("NOT NEXT")
 }
-func getSubnetNextHref(next *vpcv1.SubnetCollectionNext) (string, error) {
+func getSubnetNextHref(next *vpcv1.PageLink) (string, error) {
 	if next != nil {
 		href := *next.Href
 		u, err := url.Parse(href)

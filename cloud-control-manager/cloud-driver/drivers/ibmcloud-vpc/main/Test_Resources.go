@@ -1108,7 +1108,7 @@ func testNLBHandler(config Config) {
 			NameId: "test-nlb-01",
 		},
 		VpcIID: irs.IID{
-			NameId: "nlb-tester-vpc",
+			NameId: "mcb-test-vpc",
 		},
 		Listener: irs.ListenerInfo{
 			Protocol: "TCP",
@@ -1118,7 +1118,7 @@ func testNLBHandler(config Config) {
 			Port:     "8080",
 			Protocol: "TCP",
 			VMs: &[]irs.IID{
-				{NameId: "nlb-tester-vm-02"},
+				{NameId: "mcb-test-vm"},
 			},
 		},
 		HealthChecker: irs.HealthCheckerInfo{
@@ -1138,10 +1138,10 @@ func testNLBHandler(config Config) {
 		Port:     "8087",
 	}
 	addVMs := []irs.IID{
-		{NameId: "nlb-tester-vm-02"},
+		{NameId: "nlb-add-vm"},
 	}
 	removeVMs := []irs.IID{
-		{NameId: "nlb-tester-vm-03"},
+		{NameId: "nlb-add-vm"},
 	}
 
 	updateHealthCheckerInfo := irs.HealthCheckerInfo{
