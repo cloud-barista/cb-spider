@@ -1506,12 +1506,6 @@ func (nlbHandler *IbmNLBHandler) cleanerNLB(nlbIID irs.IID) (bool, error) {
 		TaggingService: nlbHandler.TaggingService,
 		SearchService:  nlbHandler.SearchService,
 	}
-	_, err := securityHandler.DeleteSecurity(irs.IID{
-		NameId: "sg-" + nlbIID.NameId,
-	})
-	if err != nil {
-		cblogger.Error(err.Error())
-	}
 
 	exist, err := nlbHandler.existNLBByName(nlbIID.NameId)
 	if err != nil {
@@ -1536,6 +1530,14 @@ func (nlbHandler *IbmNLBHandler) cleanerNLB(nlbIID irs.IID) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
+	_, err = securityHandler.DeleteSecurity(irs.IID{
+		NameId: "sg-" + nlbIID.NameId,
+	})
+	if err != nil {
+		cblogger.Error(err.Error())
+	}
+
 	return true, nil
 }
 
