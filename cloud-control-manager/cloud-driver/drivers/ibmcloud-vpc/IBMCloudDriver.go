@@ -44,7 +44,7 @@ func (IbmCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.DiskHandler = true
 	drvCapabilityInfo.MyImageHandler = true
 	drvCapabilityInfo.NLBHandler = true
-	drvCapabilityInfo.ClusterHandler = false
+	drvCapabilityInfo.ClusterHandler = true
 	drvCapabilityInfo.FileSystemHandler = true
 
 	drvCapabilityInfo.TagHandler = true
