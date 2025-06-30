@@ -2940,7 +2940,7 @@ definitions:
   spider.S3RestoreInfo:
     properties:
       ExpiryTime:
-        description: When the restored copy of the archived object will be removed
+        description: Optional, only if applicable
         type: string
       OngoingRestore:
         description: Whether the object is currently being restored
