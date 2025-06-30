@@ -476,14 +476,14 @@ func getRegionNameByRegionInfo(rgnInfo *rim.RegionInfo) (string, string, error) 
 func KeyValueListGetValue(keyValueInfoList []icdrs.KeyValue, key string) string {
 	// Check if keyValueInfoList is nil or empty
 	if keyValueInfoList == nil || len(keyValueInfoList) == 0 {
-		cblog.Error(key + " is not set")
-		return key + " is not set"
+		// cblog.Info(key + " is not set")
+		return "Not set" // Do not edit return message
 	}
 	for _, kv := range keyValueInfoList {
 		if strings.EqualFold(kv.Key, key) { // ignore case
 			return kv.Value
 		}
 	}
-	cblog.Error(key + " is not set")
-	return key + " is not set"
+	// cblog.Info(key + " is not set")
+	return "Not set" // Do not edit return message
 }

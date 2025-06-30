@@ -19,6 +19,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/network/armnetwork/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/subscription/armsubscription"
 
 	cblog "github.com/cloud-barista/cb-log"
@@ -66,11 +67,24 @@ type AzureCloudConnection struct {
 	ResourceSKUsClient              *armcompute.ResourceSKUsClient
 	TagsClient                      *armresources.TagsClient
 	DnsZoneClient                   *armdns.ZonesClient
+	FileShareClient                 *armstorage.FileSharesClient
+	AccountsClient                  *armstorage.AccountsClient
 }
 
 // CreateFileSystemHandler implements connect.CloudConnection.
 func (cloudConn *AzureCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
-	panic("unimplemented")
+	cblogger.Info("Azure Cloud Driver: called CreateFileSystemHandler()!")
+	fileSystemHandler := azrs.AzureFileSystemHandler{
+		CredentialInfo:  cloudConn.CredentialInfo,
+		Region:          cloudConn.Region,
+		Ctx:             cloudConn.Ctx,
+		AccountsClient:  cloudConn.AccountsClient,
+		FileShareClient: cloudConn.FileShareClient,
+		SubnetClient:    cloudConn.SubnetClient,
+		VnetClient:      cloudConn.VNetClient,
+	}
+
+	return &fileSystemHandler, nil
 }
 
 func (cloudConn *AzureCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
