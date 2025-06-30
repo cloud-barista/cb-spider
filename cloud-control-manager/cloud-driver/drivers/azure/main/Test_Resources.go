@@ -2233,7 +2233,7 @@ Loop:
 				fmt.Println("Finish AddAccessSubnet()")
 			case 6:
 				fmt.Println("Start RemoveAccessSubnet() ...")
-				if ok, err := fileSystemHandler.RemoveAccessSubnet(vpcIID, subnetIID); !ok {
+				if ok, err := fileSystemHandler.RemoveAccessSubnet(fileNameId, subnetIID); !ok {
 					fmt.Println(err)
 				}
 				fmt.Println("Finish RemoveAccessSubnet()")
