@@ -44,7 +44,7 @@ type ListCloudOSResponse struct {
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
 // @Router /cloudos [get]
 func ListCloudOS(c echo.Context) error {
-	cblog.Info("call ListCloudOS()")
+	// cblog.Info("call ListCloudOS()")
 
 	infoList := im.ListCloudOS()
 
@@ -414,7 +414,7 @@ type ListRegionResponse struct {
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
 // @Router /region [get]
 func ListRegion(c echo.Context) error {
-	cblog.Info("call ListRegion()")
+	// cblog.Info("call ListRegion()")
 
 	var providerName string
 	providerName = c.QueryParam("provider")
@@ -537,7 +537,7 @@ type ListConnectionConfigResponse struct {
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
 // @Router /connectionconfig [get]
 func ListConnectionConfig(c echo.Context) error {
-	cblog.Info("call ListConnectionConfig()")
+	// cblog.Info("call ListConnectionConfig()")
 
 	infoList, err := ccim.ListConnectionConfig()
 	if err != nil {
