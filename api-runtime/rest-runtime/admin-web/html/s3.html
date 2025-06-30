@@ -19,12 +19,14 @@
     .progress-bar { width: 0; height: 100%; background: #cce6ff; border-radius: 4px; transition: width 2s ease; }
     #timeDisplay { position: absolute; top: 50%; right: 10px; transform: translateY(-50%); font-size: 14px; color: #333; z-index: 30; }
     .add-button { font-size: 14px; font-weight: bold; margin-left: 1px; margin-right: 5px; margin-bottom: 10px; }
+    .content { margin-top: 70px; }
     table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 0; }
     th, td { border: 1px solid #aaa; padding: 6px; position: relative; }
     th { background: #f2f2f2; font-size: 14px; text-align: center; }
     td { text-align: left; }
     .column-num { width: 5%; text-align: center; }
     .bucket-name-cell, .object-key-cell { font-weight: bold; }
+    .bucket-name-cell.selected { color: blue; }
     .center-align { text-align: center; }
     .highlight { background: #fffab6; }
     .overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
@@ -33,10 +35,13 @@
     .object-detail-table th, .object-detail-table td { border: 1px solid #ddd; }
     .object-detail-table th { width: 110px; }
     .progress-bar { transition: width 1.5s ease; }
+    #object-panel { margin-top: 20px; margin-left: 40px; }
+    .object-panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0px; }
+    .object-panel-header h2 { margin: 0; }
+    .object-panel-actions { display: flex; align-items: center; }
 </style>
 </head>
 <body>
-    <!-- HEADER -->
     <div class="fixed-header">
         <div class="header-container">
             <img src="/spider/adminweb/images/left-menu/s3.png" alt="S3 Icon">
@@ -47,20 +52,20 @@
             </div>
         </div>
         <div class="fixed-action-buttons">
-            <button onclick="showBucketCreateOverlay()" class="add-button">+ Bucket</button>
+            <input type="checkbox" onclick="toggleSelectAll(this, 'bucket')">
             <button onclick="deleteSelectedBuckets()">Delete</button>
         </div>
     </div>
 
-    <div class="header-with-progress" style="margin-top: 60px;">
-        <div class="progress-bar-container" id="progressBarContainer">
-            <div class="progress-bar" id="progressBar"></div>
-            <span id="timeDisplay"></span>
+    <div class="content">
+        <div class="header-with-progress">
+            <button onclick="showBucketCreateOverlay()" class="add-button">+ Bucket</button>
+            <div class="progress-bar-container" id="progressBarContainer">
+                <div class="progress-bar" id="progressBar"></div>
+                <span id="timeDisplay"></span>
+            </div>
         </div>
-    </div>
 
-    <!-- BUCKET TABLE -->
-    <div style="margin-top: 100px;">
         <table id="bucket-table">
             <thead>
                 <tr>
@@ -76,7 +81,7 @@
                 {{range $i, $b := .Buckets}}
                 <tr>
                     <td class="column-num">{{$i | inc}}</td>
-                    <td class="bucket-name-cell"><span style="cursor:pointer;" onclick="showObjectPanel('{{$b.Name}}')">{{$b.Name}}</span></td>
+                    <td class="bucket-name-cell" id="bucket-{{$b.Name}}"><span style="cursor:pointer;" onclick="showObjectPanel('{{$b.Name}}')">{{$b.Name}}</span></td>
                     <td class="center-align">{{$b.CreationDate}}</td>
                     <td class="center-align">{{$b.BucketRegion}}</td>
                     <td class="center-align">
@@ -87,33 +92,33 @@
                 {{end}}
             </tbody>
         </table>
+
+        <div id="object-panel" style="display:none;">
+            <div class="header-with-progress">
+                <button onclick="showObjectUploadOverlay()" class="add-button">+ Object</button>
+                <div style="flex: 1;"></div>
+                <div class="object-panel-actions">
+                    <input type="checkbox" onclick="toggleSelectAll(this, 'object')">
+                    <button onclick="deleteSelectedObjects()" style="margin-left: 10px;">Delete</button>
+                </div>
+            </div>
+            <table id="object-table">
+                <thead>
+                    <tr>
+                        <th class="column-num">#</th>
+                        <th class="object-key-cell">Object Key</th>
+                        <th class="center-align">Size</th>
+                        <th class="center-align">Last Modified</th>
+                        <th class="center-align">Actions</th>
+                        <th class="center-align"><input type="checkbox" onclick="toggleSelectAll(this, 'object')"></th>
+                    </tr>
+                </thead>
+                <tbody id="object-list-body">
+                </tbody>
+            </table>
+        </div>
     </div>
 
-    <!-- OBJECT LIST (Bucket별) -->
-    <div id="object-panel" style="display:none; margin-top:40px;">
-        <h2>Objects in Bucket: <span id="selected-bucket"></span>
-            <button onclick="hideObjectPanel()" style="margin-left:10px;">Close</button>
-        </h2>
-        <button onclick="showObjectUploadOverlay()" class="add-button">+ Upload Object</button>
-        <button onclick="deleteSelectedObjects()" style="margin-left:8px;">Delete</button>
-        <table id="object-table">
-            <thead>
-                <tr>
-                    <th class="column-num">#</th>
-                    <th class="object-key-cell">Object Key</th>
-                    <th class="center-align">Size</th>
-                    <th class="center-align">Last Modified</th>
-                    <th class="center-align">Actions</th>
-                    <th class="center-align"><input type="checkbox" onclick="toggleSelectAll(this, 'object')"></th>
-                </tr>
-            </thead>
-            <tbody id="object-list-body">
-                <!-- 동적 로딩 -->
-            </tbody>
-        </table>
-    </div>
-
-    <!-- BUCKET CREATE OVERLAY -->
     <div id="bucket-create-overlay" class="overlay">
         <div class="overlay-content" style="position:relative;">
             <button class="close-btn" onclick="hideBucketCreateOverlay()">x</button>
@@ -131,36 +136,37 @@
         </div>
     </div>
 
-    <!-- OBJECT UPLOAD OVERLAY -->
     <div id="object-upload-overlay" class="overlay">
-        <div class="overlay-content" style="position:relative;">
+        <div class="overlay-content" style="position:relative; width: 400px;">
             <button class="close-btn" onclick="hideObjectUploadOverlay()">x</button>
-            <h2>Upload Object to <span id="upload-bucket-name"></span></h2>
-            <form id="object-upload-form" onsubmit="event.preventDefault(); uploadObject();">
-                <div>
-                    <label>Object Name:</label>
-                    <input type="text" id="object-upload-name" required>
+            <h2>Upload Objects to <span id="upload-bucket-name"></span></h2>
+            <form id="object-upload-form" onsubmit="event.preventDefault(); uploadFiles();">
+                <div style="margin-bottom: 15px;">
+                    <label>Select Files:</label>
+                    <input type="file" id="file-input" multiple required style="margin-top: 5px;">
                 </div>
-                <div>
-                    <label>File Path (서버 경로):</label>
-                    <input type="text" id="object-upload-path" placeholder="/tmp/file.txt" required>
+                <div id="selected-files-list" style="margin-bottom: 15px; max-height: 200px; overflow-y: auto;">No files selected</div>
+                <div id="upload-progress" style="display: none; margin-bottom: 15px;">
+                    <div style="margin-bottom: 5px;">Uploading: <span id="current-file"></span></div>
+                    <div style="background: #f0f0f0; height: 20px; border-radius: 4px; overflow: hidden;">
+                        <div id="progress-bar-inner" style="background: #4CAF50; height: 100%; width: 0%; transition: width 0.3s;"></div>
+                    </div>
+                    <div style="margin-top: 5px; font-size: 11px;">Progress: <span id="progress-text">0%</span></div>
                 </div>
-                <div style="margin-top:20px; text-align:center;">
-                    <button type="submit">Upload</button>
+                <div style="text-align:center;">
+                    <button type="submit" id="upload-btn">Upload</button>
                     <button type="button" onclick="hideObjectUploadOverlay()">Cancel</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- OBJECT DETAIL OVERLAY -->
     <div id="object-detail-overlay" class="overlay">
         <div class="overlay-content" style="position:relative; width: 500px;">
             <button class="close-btn" onclick="hideObjectDetailOverlay()">x</button>
             <h2>Object Detail: <span id="object-detail-key"></span></h2>
             <table class="object-detail-table" style="width:100%;">
                 <tbody id="object-detail-body">
-                    <!-- 동적 로딩 -->
                 </tbody>
             </table>
         </div>
@@ -169,7 +175,6 @@
 <script>
 const connConfig = "{{.ConnectionConfig}}";
 
-// 1. S3 BUCKETS ===============
 function showProgressBar() {
     const bar = document.getElementById('progressBar');
     const cont = document.getElementById('progressBarContainer');
@@ -211,22 +216,26 @@ function deleteSelectedBuckets() {
     showProgressBar();
     Promise.all(Array.from(checked).map(chk =>
         fetch(`/spider/s3/bucket/${chk.value}?ConnectionName=${connConfig}`, { method: 'DELETE' })
-    )).then(() => { location.reload(); hideProgressBar(); });
+    )).then(() => { 
+        location.reload(); 
+        hideProgressBar(); 
+    });
 }
 function showBucketCreateOverlay() { document.getElementById('bucket-create-overlay').style.display = 'flex'; }
 function hideBucketCreateOverlay() { document.getElementById('bucket-create-overlay').style.display = 'none'; }
 
-// 2. OBJECT PANEL ===============
 let currentBucket = null;
 function showObjectPanel(bucket) {
     currentBucket = bucket;
-    document.getElementById('selected-bucket').innerText = bucket;
+    document.querySelectorAll('.bucket-name-cell').forEach(el => el.classList.remove('selected'));
+    document.getElementById(`bucket-${bucket}`).classList.add('selected');
     document.getElementById('object-panel').style.display = 'block';
     fetchObjects(bucket);
 }
 function hideObjectPanel() {
     document.getElementById('object-panel').style.display = 'none';
     document.getElementById('object-list-body').innerHTML = '';
+    document.querySelectorAll('.bucket-name-cell').forEach(el => el.classList.remove('selected'));
     currentBucket = null;
 }
 function fetchObjects(bucket) {
@@ -261,7 +270,12 @@ function deleteObject(bucket, objectKey) {
         body: JSON.stringify({ ConnectionName: connConfig, BucketName: bucket, ObjectName: objectKey })
     })
     .then(r => r.json())
-    .then(() => { fetchObjects(bucket); hideProgressBar(); })
+    .then(() => { 
+        fetchObjects(bucket); 
+        hideProgressBar(); 
+        // Uncheck all checkboxes after deletion
+        uncheckAllCheckboxes('object');
+    })
     .catch(e => { alert('Error: ' + e.message); hideProgressBar(); });
 }
 function deleteSelectedObjects() {
@@ -275,29 +289,245 @@ function deleteSelectedObjects() {
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ ConnectionName: connConfig, BucketName: currentBucket, ObjectName: chk.value })
         })
-    )).then(() => { fetchObjects(currentBucket); hideProgressBar(); });
+    )).then(() => { 
+        fetchObjects(currentBucket); 
+        hideProgressBar(); 
+        // Uncheck all checkboxes after deletion
+        uncheckAllCheckboxes('object');
+    });
 }
 
-// 3. OBJECT UPLOAD / DETAIL ===========
+function uncheckAllCheckboxes(mode) {
+    // Uncheck individual checkboxes
+    const checkboxes = document.getElementsByName(mode + '-checkbox');
+    for (const c of checkboxes) {
+        c.checked = false;
+    }
+    
+    // Uncheck select all checkboxes in header
+    const selectAllCheckboxes = document.querySelectorAll(`#${mode}-table thead input[type="checkbox"]`);
+    selectAllCheckboxes.forEach(cb => cb.checked = false);
+    
+    // Also uncheck the select all checkbox in the fixed header for buckets
+    if (mode === 'bucket') {
+        const fixedHeaderCheckbox = document.querySelector('.fixed-action-buttons input[type="checkbox"]');
+        if (fixedHeaderCheckbox) fixedHeaderCheckbox.checked = false;
+    }
+    
+    // Uncheck the select all checkbox in object panel header
+    if (mode === 'object') {
+        const objectPanelCheckbox = document.querySelector('.object-panel-actions input[type="checkbox"]');
+        if (objectPanelCheckbox) objectPanelCheckbox.checked = false;
+    }
+}
+
 function showObjectUploadOverlay() {
     if (!currentBucket) return;
     document.getElementById('upload-bucket-name').innerText = currentBucket;
     document.getElementById('object-upload-overlay').style.display = 'flex';
+    document.getElementById('file-input').value = '';
+    document.getElementById('selected-files-list').innerHTML = 'No files selected';
+    document.getElementById('upload-progress').style.display = 'none';
+    
+    document.getElementById('file-input').addEventListener('change', function(e) {
+        const files = e.target.files;
+        const fileList = document.getElementById('selected-files-list');
+        if (files.length === 0) {
+            fileList.innerHTML = 'No files selected';
+        } else {
+            fileList.innerHTML = '<strong>Selected files:</strong><br>';
+            for (let i = 0; i < files.length; i++) {
+                fileList.innerHTML += `${i + 1}. ${files[i].name} (${formatBytes(files[i].size)})<br>`;
+            }
+        }
+    });
 }
-function hideObjectUploadOverlay() { document.getElementById('object-upload-overlay').style.display = 'none'; }
-function uploadObject() {
-    const objectName = document.getElementById('object-upload-name').value.trim();
-    const filePath = document.getElementById('object-upload-path').value.trim();
-    if (!objectName || !filePath) return alert('필수 입력 필요!');
-    showProgressBar();
-    fetch('/spider/s3/object', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ ConnectionName: connConfig, BucketName: currentBucket, ObjectName: objectName, FilePath: filePath })
-    })
-    .then(r => r.json())
-    .then(() => { hideObjectUploadOverlay(); fetchObjects(currentBucket); hideProgressBar(); })
-    .catch(e => { alert('Error: ' + e.message); hideProgressBar(); });
+function hideObjectUploadOverlay() { 
+    document.getElementById('object-upload-overlay').style.display = 'none';
+    document.getElementById('file-input').value = '';
+    document.getElementById('selected-files-list').innerHTML = 'No files selected';
+    document.getElementById('upload-progress').style.display = 'none';
+}
+async function uploadFiles() {
+    const files = document.getElementById('file-input').files;
+    if (!files.length) return alert('Please select files to upload!');
+    
+    const uploadBtn = document.getElementById('upload-btn');
+    uploadBtn.disabled = true;
+    document.getElementById('upload-progress').style.display = 'block';
+    
+    // First, enable CORS on the bucket
+    try {
+        console.log('Enabling CORS for bucket:', currentBucket);
+        const corsResponse = await fetch(`/spider/s3/bucket/cors/enable?ConnectionName=${connConfig}&BucketName=${currentBucket}`, {
+            method: 'POST'
+        });
+        if (!corsResponse.ok) {
+            console.warn('CORS enable response:', await corsResponse.text());
+        } else {
+            console.log('CORS enabled successfully');
+        }
+    } catch (error) {
+        console.warn('Could not enable CORS, continuing anyway:', error);
+    }
+    
+    let successCount = 0;
+    let failedFiles = [];
+    
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        document.getElementById('current-file').textContent = file.name;
+        document.getElementById('progress-bar-inner').style.width = '0%';
+        document.getElementById('progress-text').textContent = `0% (${i + 1}/${files.length})`;
+        
+        try {
+            console.log(`Getting presigned URL for: ${file.name}`);
+            
+            // Check current CORS configuration
+            try {
+                const corsCheckResponse = await fetch(`/spider/s3/bucket/acl?ConnectionName=${connConfig}&BucketName=${currentBucket}`, {
+                    method: 'GET'
+                });
+                if (corsCheckResponse.ok) {
+                    const corsData = await corsCheckResponse.json();
+                    console.log('Current bucket policy:', corsData);
+                }
+            } catch (e) {
+                console.log('Could not check bucket policy:', e);
+            }
+            
+            // Get presigned URL for upload
+            const presignedResponse = await fetch('/spider/s3/object/presigned-url', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    ConnectionName: connConfig,
+                    BucketName: currentBucket,
+                    ObjectName: file.name,
+                    Method: 'PUT',
+                    ExpiresSeconds: 3600
+                    // Remove ContentType from request - let S3 handle it
+                })
+            });
+            
+            if (!presignedResponse.ok) {
+                const errorText = await presignedResponse.text();
+                console.error('Presigned URL error:', errorText);
+                throw new Error(`Failed to get presigned URL: ${presignedResponse.statusText}`);
+            }
+            
+            const presignedData = await presignedResponse.json();
+            const presignedUrl = presignedData.PresignedURL;
+            console.log('Got presigned URL:', presignedUrl);
+            
+            // Try direct upload first
+            console.log(`Uploading ${file.name} directly with presigned URL...`);
+            
+            const uploadResponse = await uploadWithProgress(presignedUrl, file, (progress) => {
+                document.getElementById('progress-bar-inner').style.width = progress + '%';
+                document.getElementById('progress-text').textContent = `${Math.round(progress)}% (${i + 1}/${files.length})`;
+            });
+            
+            console.log('Upload response status:', uploadResponse.status);
+            
+            if (!uploadResponse.ok) {
+                // If forbidden, it might be a CORS or permission issue
+                if (uploadResponse.status === 403) {
+                    console.error('403 Forbidden - Trying alternative upload method...');
+                    
+                    // Alternative: Use base64 upload through server
+                    const reader = new FileReader();
+                    const base64Promise = new Promise((resolve, reject) => {
+                        reader.onload = () => {
+                            const base64 = reader.result.split(',')[1];
+                            resolve(base64);
+                        };
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    });
+                    
+                    const base64Data = await base64Promise;
+                    console.log('Attempting server-side upload for:', file.name);
+                    
+                    // Note: This would require a new API endpoint that accepts base64 data
+                    throw new Error(`Direct upload not supported. Please ensure CORS is properly configured on the S3 bucket.`);
+                }
+                throw new Error(`Upload failed: ${uploadResponse.statusText} (${uploadResponse.status})`);
+            }
+            
+            successCount++;
+            console.log(`Successfully uploaded: ${file.name}`);
+            
+        } catch (error) {
+            console.error(`Failed to upload ${file.name}:`, error);
+            failedFiles.push({name: file.name, error: error.message});
+        }
+    }
+    
+    uploadBtn.disabled = false;
+    
+    if (failedFiles.length > 0) {
+        let errorMsg = `Successfully uploaded ${successCount} file(s).\n\nFailed files:\n`;
+        failedFiles.forEach(f => {
+            errorMsg += `- ${f.name}: ${f.error}\n`;
+        });
+        errorMsg += '\n\nTroubleshooting:\n';
+        errorMsg += '1. Check if the S3 bucket has proper CORS configuration\n';
+        errorMsg += '2. Verify the connection has sufficient permissions\n';
+        errorMsg += '3. Check browser console for detailed error messages';
+        alert(errorMsg);
+    }
+    
+    // Removed success alert message
+    hideObjectUploadOverlay();
+    fetchObjects(currentBucket);
+}
+
+function uploadWithProgress(url, file, onProgress) {
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        
+        xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable) {
+                const percentComplete = (e.loaded / e.total) * 100;
+                onProgress(percentComplete);
+            }
+        });
+        
+        xhr.addEventListener('load', () => {
+            console.log('XHR response:', xhr.status, xhr.statusText);
+            console.log('Response headers:', xhr.getAllResponseHeaders());
+            if (xhr.status >= 200 && xhr.status < 300) {
+                resolve({ ok: true, status: xhr.status, statusText: xhr.statusText });
+            } else {
+                resolve({ ok: false, status: xhr.status, statusText: xhr.statusText });
+            }
+        });
+        
+        xhr.addEventListener('error', () => {
+            console.error('XHR error event triggered');
+            reject(new Error('Network error'));
+        });
+        
+        xhr.addEventListener('timeout', () => reject(new Error('Request timeout')));
+        
+        // Parse presigned URL to check if it already has query parameters
+        const urlObj = new URL(url);
+        
+        xhr.open('PUT', url, true);
+        
+        // Don't set any additional headers - presigned URL includes everything needed
+        // The signature in presigned URL is calculated with specific headers
+        
+        xhr.timeout = 600000; // 10 minutes timeout for large files
+        
+        console.log(`Sending PUT request to: ${url}`);
+        console.log(`File size: ${file.size} bytes`);
+        
+        xhr.send(file);
+    });
 }
 function showObjectDetail(bucket, key) {
     showProgressBar();
@@ -321,12 +551,28 @@ function showObjectDetail(bucket, key) {
     }).catch(e => { alert('Error: ' + e.message); hideProgressBar(); });
 }
 function hideObjectDetailOverlay() { document.getElementById('object-detail-overlay').style.display = 'none'; }
-function downloadObject(bucket, key) {
-    window.open(`/spider/s3/bucket/${bucket}/object/download?ConnectionName=${connConfig}&ObjectName=${encodeURIComponent(key)}`, '_blank');
-
+async function downloadObject(bucket, key) {
+    const res = await fetch('/spider/s3/object/presigned-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            ConnectionName: connConfig,
+            BucketName: bucket,
+            ObjectName: key,
+            Method: 'GET',
+            ExpiresSeconds: 3600,
+            ResponseContentDisposition: `attachment; filename="${key.split('/').pop()}"`
+        })
+    });
+    if (!res.ok) {
+        alert('Error: ' + res.statusText);
+        return;
+    }
+    const data = await res.json();
+    window.open(data.PresignedURL, '_blank');
 }
 
-// 4. SEARCH, SELECT ==============
+
 function searchKeyword() {
     const filter = document.getElementById('searchInput').value.trim().toUpperCase();
     highlightRows(document.getElementById('bucket-table'), filter);

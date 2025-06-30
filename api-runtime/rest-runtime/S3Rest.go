@@ -1005,16 +1005,29 @@ func DownloadS3Object(c echo.Context) error {
 	return c.Stream(http.StatusOK, "application/octet-stream", stream)
 }
 
+// S3PresignedURLRequest with CORS option
 type S3PresignedURLRequest struct {
-	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-s3-conn"`
-	BucketName     string `json:"BucketName" validate:"required" example:"my-bucket-01"`
-	ObjectName     string `json:"ObjectName" validate:"required" example:"my-object.txt"`
-	Method         string `json:"Method" validate:"required" example:"GET"` // "GET" or "PUT"
-	ExpiresSeconds int    `json:"ExpiresSeconds" validate:"required" example:"3600"`
+	ConnectionName             string `json:"ConnectionName"`
+	BucketName                 string `json:"BucketName"`
+	ObjectName                 string `json:"ObjectName"`
+	Method                     string `json:"Method"`
+	ExpiresSeconds             int64  `json:"ExpiresSeconds"`
+	ResponseContentDisposition string `json:"ResponseContentDisposition,omitempty"`
 }
 
-// @Summary Get S3 Presigned URL
-// @Description Get a presigned URL for S3 object (GET/PUT)
+// S3BucketCORSRequest for setting bucket CORS
+type S3BucketCORSRequest struct {
+	ConnectionName string   `json:"ConnectionName" validate:"required"`
+	BucketName     string   `json:"BucketName" validate:"required"`
+	AllowedOrigins []string `json:"AllowedOrigins" validate:"required"`
+	AllowedMethods []string `json:"AllowedMethods" validate:"required"`
+	AllowedHeaders []string `json:"AllowedHeaders"`
+	ExposeHeaders  []string `json:"ExposeHeaders"`
+	MaxAgeSeconds  int      `json:"MaxAgeSeconds"`
+}
+
+// @Summary Get S3 Presigned URL (Enhanced for Browser Upload)
+// @Description Get a presigned URL for S3 object (GET/PUT) with CORS support
 // @Tags [S3 Management]
 // @Accept json
 // @Produce json
@@ -1028,11 +1041,94 @@ func GetS3PresignedURL(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	url, err := cmrt.GetS3PresignedURL(req.ConnectionName, req.BucketName, req.ObjectName, req.Method, int64(req.ExpiresSeconds))
+
+	url, err := cmrt.GetS3PresignedURL(
+		req.ConnectionName,
+		req.BucketName,
+		req.ObjectName,
+		req.Method,
+		int64(req.ExpiresSeconds),
+		req.ResponseContentDisposition,
+	)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+
 	return c.JSON(http.StatusOK, S3PresignedURL{PresignedURL: url})
+}
+
+// @Summary Set S3 Bucket CORS Configuration
+// @Description Configure CORS settings for S3 bucket to allow browser uploads
+// @Tags [S3 Management]
+// @Accept json
+// @Produce json
+// @Param S3BucketCORSRequest body restruntime.S3BucketCORSRequest true "CORS configuration"
+// @Success 200 {object} restruntime.BooleanInfo
+// @Failure 400 {object} restruntime.SimpleMsg
+// @Failure 500 {object} restruntime.SimpleMsg
+// @Router /s3/bucket/cors [post]
+func SetS3BucketCORS(c echo.Context) error {
+	var req S3BucketCORSRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	// Default CORS configuration if not provided
+	if len(req.AllowedOrigins) == 0 {
+		req.AllowedOrigins = []string{"*"}
+	}
+	if len(req.AllowedMethods) == 0 {
+		req.AllowedMethods = []string{"GET", "PUT", "POST", "DELETE", "HEAD"}
+	}
+	if len(req.AllowedHeaders) == 0 {
+		req.AllowedHeaders = []string{"*"}
+	}
+	if len(req.ExposeHeaders) == 0 {
+		req.ExposeHeaders = []string{"ETag", "x-amz-server-side-encryption", "x-amz-request-id", "x-amz-id-2"}
+	}
+	if req.MaxAgeSeconds == 0 {
+		req.MaxAgeSeconds = 3600
+	}
+
+	result, err := cmrt.SetS3BucketCORS(req.ConnectionName, req.BucketName, req.AllowedOrigins, req.AllowedMethods, req.AllowedHeaders, req.ExposeHeaders, req.MaxAgeSeconds)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, BooleanInfo{Result: strconv.FormatBool(result)})
+}
+
+// @Summary Enable S3 Bucket CORS for Browser Upload
+// @Description Quick setup CORS for browser-based file uploads
+// @Tags [S3 Management]
+// @Produce json
+// @Param ConnectionName query string true "Connection Name"
+// @Param BucketName query string true "Bucket Name"
+// @Success 200 {object} restruntime.BooleanInfo
+// @Failure 400 {object} restruntime.SimpleMsg
+// @Failure 500 {object} restruntime.SimpleMsg
+// @Router /s3/bucket/cors/enable [post]
+func EnableS3BucketCORSForUpload(c echo.Context) error {
+	conn := c.QueryParam("ConnectionName")
+	bucket := c.QueryParam("BucketName")
+
+	if conn == "" || bucket == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "ConnectionName and BucketName are required")
+	}
+
+	// Standard CORS configuration for browser uploads
+	allowedOrigins := []string{"*"}
+	allowedMethods := []string{"GET", "PUT", "POST", "DELETE", "HEAD"}
+	allowedHeaders := []string{"*"}
+	exposeHeaders := []string{"ETag", "x-amz-server-side-encryption", "x-amz-request-id", "x-amz-id-2", "x-amz-version-id"}
+	maxAgeSeconds := 3600
+
+	result, err := cmrt.SetS3BucketCORS(conn, bucket, allowedOrigins, allowedMethods, allowedHeaders, exposeHeaders, maxAgeSeconds)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, BooleanInfo{Result: strconv.FormatBool(result)})
 }
 
 type S3BucketACLRequest struct {
@@ -1282,41 +1378,56 @@ func ListS3ObjectVersions(c echo.Context) error {
 
 // HandleS3BucketPost handles various POST operations on S3 bucket
 func HandleS3BucketPost(c echo.Context) error {
-	if c.QueryParam("uploads") != "" {
+	// 1. multipart upload start
+	if c.QueryParam("uploads") != "" || c.QueryParams().Has("uploads") {
 		return InitiateMultipartUpload(c)
 	}
+
+	// 2. multipart upload complete
 	if c.QueryParam("uploadId") != "" {
 		return CompleteMultipartUpload(c)
 	}
+
+	// 3. delete multiple objects
 	if c.QueryParam("delete") != "" {
 		return DeleteMultipleObjects(c)
 	}
 
+	// 4. browser-based form upload
 	contentType := c.Request().Header.Get("Content-Type")
-	if strings.Contains(contentType, "application/xml") || c.Request().Header.Get("Content-MD5") != "" {
-		cblog.Info("Bulk delete request detected")
-		return DeleteMultipleObjects(c)
-	}
-
 	if strings.Contains(contentType, "multipart/form-data") {
 		return PostObject(c)
 	}
 
-	return DeleteMultipleObjects(c)
+	// fallback
+	return returnS3Error(c, http.StatusBadRequest, "InvalidRequest", "Unsupported POST request", c.Path())
 }
 
-// InitiateMultipartUpload initiates a multipart upload
 func InitiateMultipartUpload(c echo.Context) error {
 	conn, isS3Api := getConnectionName(c)
-	bucket := c.Param("Name")
+
+	bucket := c.Param("BucketName")
 	if bucket == "" {
-		bucket = c.Param("BucketName")
+		bucket = c.Param("Name")
 	}
-	key := c.QueryParam("key")
+
+	key := c.Param("ObjectKey+")
+	if key == "" {
+		key = c.Param("*")
+	}
+	if key == "" {
+		key = c.QueryParam("key")
+	}
 
 	if key == "" {
 		if isS3Api {
-			return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "key parameter is required", "/"+bucket)
+			return returnS3Error(
+				c,
+				http.StatusBadRequest,
+				"MissingParameter",
+				"key parameter is required",
+				"/"+bucket,
+			)
 		}
 		return echo.NewHTTPError(http.StatusBadRequest, "key parameter is required")
 	}

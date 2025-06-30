@@ -8,10 +8,12 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
 	"time"
 
 	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/cors"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
 	ccm "github.com/cloud-barista/cb-spider/cloud-control-manager"
@@ -388,37 +390,45 @@ func GetS3ObjectStream(connectionName, bucketName, objectName string) (io.ReadCl
 	return obj, nil // io.ReadCloser
 }
 
-func GetS3PresignedURL(connectionName, bucketName, objectName, method string, expiresSeconds int64) (string, error) {
-	cblog.Info("call GetS3PresignedURL()")
+func GetS3PresignedURL(connectionName, bucketName, objectName, method string, expiresSeconds int64, contentDisposition string) (string, error) {
 	var iidInfo S3BucketIIDInfo
-	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
-	if err != nil {
+	if err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName); err != nil {
 		return "", err
 	}
+
 	connInfo, err := GetS3ConnectionInfo(connectionName)
 	if err != nil {
 		return "", err
 	}
+
 	client, err := NewS3Client(connInfo)
 	if err != nil {
 		return "", err
 	}
+
 	ctx := context.Background()
 	expires := time.Duration(expiresSeconds) * time.Second
 
 	switch method {
 	case "GET":
-		u, err := client.PresignedGetObject(ctx, bucketName, objectName, expires, nil)
+		var params url.Values
+		if contentDisposition != "" {
+			params = url.Values{}
+			params.Set("response-content-disposition", contentDisposition)
+		}
+		u, err := client.PresignedGetObject(ctx, bucketName, objectName, expires, params)
 		if err != nil {
 			return "", err
 		}
 		return u.String(), nil
+
 	case "PUT":
 		u, err := client.PresignedPutObject(ctx, bucketName, objectName, expires)
 		if err != nil {
 			return "", err
 		}
 		return u.String(), nil
+
 	default:
 		return "", fmt.Errorf("Unsupported method: %s", method)
 	}
@@ -914,4 +924,186 @@ func ListMultipartUploads(connectionName string, bucketName string, prefix strin
 	}
 
 	return uploads, nil
+}
+
+func GetS3PresignedURLWithHeaders(connectionName string, bucketName string, objectName string, method string, expiresSeconds int64, headers map[string][]string) (string, error) {
+	cblog.Info("call GetS3PresignedURLWithHeaders()")
+
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return "", err
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return "", err
+	}
+
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return "", err
+	}
+
+	ctx := context.Background()
+	expiresDuration := time.Duration(expiresSeconds) * time.Second
+
+	switch method {
+	case "GET":
+		// Convert headers map[string][]string to url.Values for GET
+		reqParams := make(url.Values)
+		for key, values := range headers {
+			for _, value := range values {
+				reqParams.Add(key, value)
+			}
+		}
+		u, err := client.PresignedGetObject(ctx, bucketName, objectName, expiresDuration, reqParams)
+		if err != nil {
+			return "", err
+		}
+		return u.String(), nil
+
+	case "PUT":
+		// For PUT requests, we need to use PresignedPutObject
+		u, err := client.PresignedPutObject(ctx, bucketName, objectName, expiresDuration)
+		if err != nil {
+			return "", err
+		}
+
+		// For PUT with specific content-type, we need to add it to the URL
+		if contentTypes, ok := headers["Content-Type"]; ok && len(contentTypes) > 0 {
+			parsedURL, err := url.Parse(u.String())
+			if err != nil {
+				return "", err
+			}
+			q := parsedURL.Query()
+			q.Set("Content-Type", contentTypes[0])
+			parsedURL.RawQuery = q.Encode()
+			return parsedURL.String(), nil
+		}
+
+		return u.String(), nil
+
+	default:
+		return "", fmt.Errorf("Unsupported method: %s", method)
+	}
+}
+
+func SetS3BucketCORS(connectionName string, bucketName string, allowedOrigins []string, allowedMethods []string, allowedHeaders []string, exposeHeaders []string, maxAgeSeconds int) (bool, error) {
+	cblog.Info("call SetS3BucketCORS()")
+
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return false, err
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return false, err
+	}
+
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return false, err
+	}
+
+	ctx := context.Background()
+
+	// Create CORS configuration using cors.Config with correct field names
+	corsConfig := &cors.Config{
+		CORSRules: []cors.Rule{
+			{
+				AllowedOrigin: allowedOrigins,
+				AllowedMethod: allowedMethods,
+				AllowedHeader: allowedHeaders,
+				ExposeHeader:  exposeHeaders,
+				MaxAgeSeconds: maxAgeSeconds,
+			},
+		},
+	}
+
+	// Set bucket CORS using Core API
+	core := minio.Core{Client: client}
+	err = core.SetBucketCors(ctx, bucketName, corsConfig)
+	if err != nil {
+		cblog.Error("Failed to set bucket CORS:", err)
+		return false, err
+	}
+
+	cblog.Infof("Successfully set CORS for bucket %s", bucketName)
+	return true, nil
+}
+
+// GetS3BucketCORS gets CORS configuration for a bucket
+func GetS3BucketCORS(connectionName string, bucketName string) (*cors.Config, error) {
+	cblog.Info("call GetS3BucketCORS()")
+
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return nil, err
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx := context.Background()
+
+	// Get bucket CORS using Core API
+	core := minio.Core{Client: client}
+	corsConfig, err := core.GetBucketCors(ctx, bucketName)
+	if err != nil {
+		// Check if CORS is not set
+		if strings.Contains(err.Error(), "NoSuchCORSConfiguration") {
+			return nil, fmt.Errorf("CORS configuration not found for bucket %s", bucketName)
+		}
+		cblog.Error("Failed to get bucket CORS:", err)
+		return nil, err
+	}
+
+	return corsConfig, nil
+}
+
+func DeleteS3BucketCORS(connectionName string, bucketName string) (bool, error) {
+	cblog.Info("call DeleteS3BucketCORS()")
+
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return false, err
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return false, err
+	}
+
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return false, err
+	}
+
+	ctx := context.Background()
+
+	// Delete bucket CORS by setting empty CORS configuration
+	core := minio.Core{Client: client}
+	emptyCORS := &cors.Config{
+		CORSRules: []cors.Rule{},
+	}
+	err = core.SetBucketCors(ctx, bucketName, emptyCORS)
+	if err != nil {
+		cblog.Error("Failed to delete bucket CORS:", err)
+		return false, err
+	}
+
+	cblog.Infof("Successfully deleted CORS for bucket %s", bucketName)
+	return true, nil
 }
