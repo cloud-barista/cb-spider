@@ -128,9 +128,9 @@ type Config struct {
 				VpcIID struct {
 					NameId string `yaml:"nameId"`
 				} `yaml:"VpcIID"`
-				SubnetIID struct {
+				AccessSubnetIIDs []struct {
 					NameId string `yaml:"nameId"`
-				} `yaml:"SubnetIID"`
+				} `yaml:"AccessSubnetIIDs"`
 			} `yaml:"file"`
 		} `yaml:"resources"`
 	} `yaml:"azure"`
@@ -2162,16 +2162,21 @@ func testFileSystemHandler(config Config) {
 		NameId: config.Azure.Resources.File.VpcIID.NameId,
 	}
 
-	subnetIID := irs.IID{
-		NameId: config.Azure.Resources.File.SubnetIID.NameId,
+	subnetIIDs := config.Azure.Resources.File.AccessSubnetIIDs
+	var accessSubnetList []irs.IID
+	for _, subnet := range subnetIIDs {
+		accessSubnetList = append(accessSubnetList, irs.IID{
+			NameId:   subnet.NameId,
+			SystemId: "",
+		})
 	}
-
 	createreq := irs.FileSystemInfo{
 		IId: fileNameId,
 		//Region:           string,
 		//Zone:
-		VpcIID:     vpcIID,
-		NFSVersion: "4.1",
+		VpcIID:           vpcIID,
+		AccessSubnetList: accessSubnetList,
+		NFSVersion:       "4.1",
 		PerformanceInfo: map[string]string{
 			"Tier": "Premium",
 		},
@@ -2224,8 +2229,8 @@ Loop:
 				fmt.Println("Finish DeleteFileSystem()")
 			case 5:
 				fmt.Println("Start AddAccessSubnet() ...")
-				fmt.Printf("DEBUG: subnetIID.NameId = '%s'\n", subnetIID.NameId)
-				if fileSystem, err := fileSystemHandler.AddAccessSubnet(fileNameId, subnetIID); err != nil {
+				fmt.Printf("DEBUG: subnetIID.NameId = '%s'\n", accessSubnetList)
+				if fileSystem, err := fileSystemHandler.AddAccessSubnet(fileNameId, vpcIID); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(fileSystem)
@@ -2233,7 +2238,7 @@ Loop:
 				fmt.Println("Finish AddAccessSubnet()")
 			case 6:
 				fmt.Println("Start RemoveAccessSubnet() ...")
-				if ok, err := fileSystemHandler.RemoveAccessSubnet(vpcIID, subnetIID); !ok {
+				if ok, err := fileSystemHandler.RemoveAccessSubnet(fileNameId, vpcIID); !ok {
 					fmt.Println(err)
 				}
 				fmt.Println("Finish RemoveAccessSubnet()")
