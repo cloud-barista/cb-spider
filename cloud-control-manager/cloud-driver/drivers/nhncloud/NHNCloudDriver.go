@@ -115,6 +115,11 @@ func (driver *NhnCloudDriver) ConnectCloud(connInfo idrv.ConnectionInfo) (icon.C
 		}
 	}
 
+	FSClient, err := getFSClient(providerClient, connInfo)
+	if err != nil {
+		return nil, err
+	}
+
 	iConn := nhncon.NhnCloudConnection{
 		CredentialInfo: connInfo.CredentialInfo, // Note) Need in RegionZoneHandler
 		RegionInfo:     connInfo.RegionInfo,
@@ -123,6 +128,7 @@ func (driver *NhnCloudDriver) ConnectCloud(connInfo idrv.ConnectionInfo) (icon.C
 		NetworkClient:  NetworkClient,
 		VolumeClient:   VolumeClient,
 		ClusterClient:  ClusterClient,
+		FSClient:       FSClient,
 	}
 	return &iConn, nil
 }
@@ -185,4 +191,10 @@ func getClusterClient(providerClient *nhnsdk.ProviderClient, connInfo idrv.Conne
 	}
 
 	return client, err
+}
+
+func getFSClient(provider *nhnsdk.ProviderClient, connInfo idrv.ConnectionInfo) (*nhnsdk.ServiceClient, error) {
+	return ostack.NewSharedFileSystemV2(provider, nhnsdk.EndpointOpts{
+		Region: connInfo.RegionInfo.Region,
+	})
 }
