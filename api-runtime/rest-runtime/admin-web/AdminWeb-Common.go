@@ -399,7 +399,7 @@ func fetchRegions() (map[string]string, error) {
 		if zoneValue == "" {
 			zoneValue = "N/A"
 		}
-		regionMap[region.RegionName] = fmt.Sprintf("%s / %s", regionValue, zoneValue)
+		regionMap[region.RegionName] = fmt.Sprintf("%s/%s", regionValue, zoneValue)
 	}
 	return regionMap, nil
 }
