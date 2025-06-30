@@ -360,6 +360,15 @@ func setTagList(tags map[string]*string) []irs.KeyValue {
 	return nil
 }
 
+func GetSubnetIdByName(credentialInfo idrv.CredentialInfo, resourceGroup string, vnetName string, subnetName string) string {
+	return fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Network/virtualNetworks/%s/subnets/%s",
+		credentialInfo.SubscriptionId,
+		resourceGroup,
+		vnetName,
+		subnetName,
+	)
+}
+
 func toStrPtr(input string) *string {
 	return &input
 }
@@ -373,3 +382,7 @@ func toInt32Ptr(input int) *int32 {
 func toBoolPtr(input bool) *bool {
 	return &input
 }
+
+const (
+	AzureStorageAccountPrefix = "cbspider"
+)
