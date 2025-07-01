@@ -9,6 +9,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -135,7 +136,7 @@ func getConnectionName(c echo.Context) (string, bool) {
 		return conn, false
 	}
 
-	cblog.Debug("No connection name found in request")
+	// cblog.Debug("No connection name found in request")
 	return "", false
 }
 
@@ -405,7 +406,7 @@ func GetS3Bucket(c echo.Context) error {
 
 	if isS3Api && c.Request().Method == "GET" {
 		if c.QueryParam("location") != "" {
-			return GetBucketLocation(c)
+			return getBucketLocation(c)
 		}
 
 		if c.QueryParam("acl") == "" &&
@@ -452,8 +453,8 @@ func GetS3Bucket(c echo.Context) error {
 	return c.JSON(http.StatusOK, swaggerBucket)
 }
 
-// GetBucketLocation returns the location (region) of a bucket
-func GetBucketLocation(c echo.Context) error {
+// getBucketLocation returns the location (region) of a bucket
+func getBucketLocation(c echo.Context) error {
 	conn, _ := getConnectionName(c)
 	bucketName := c.Param("Name")
 	bucketName = strings.TrimSuffix(bucketName, "/")
@@ -836,7 +837,7 @@ func GetS3ObjectInfo(c echo.Context) error {
 // @Router /s3/object [post]
 func PutS3ObjectFromFile(c echo.Context) error {
 	if c.QueryParam("uploadId") != "" && c.QueryParam("partNumber") != "" {
-		return UploadPart(c)
+		return uploadPart(c)
 	}
 
 	conn, isS3Api := getConnectionName(c)
@@ -1380,30 +1381,52 @@ func ListS3ObjectVersions(c echo.Context) error {
 func HandleS3BucketPost(c echo.Context) error {
 	// 1. multipart upload start
 	if c.QueryParam("uploads") != "" || c.QueryParams().Has("uploads") {
-		return InitiateMultipartUpload(c)
+		return initiateMultipartUpload(c)
 	}
 
 	// 2. multipart upload complete
 	if c.QueryParam("uploadId") != "" {
-		return CompleteMultipartUpload(c)
+		return completeMultipartUpload(c)
 	}
 
 	// 3. delete multiple objects
-	if c.QueryParam("delete") != "" {
-		return DeleteMultipleObjects(c)
+	if c.QueryParam("delete") != "" ||
+		c.QueryParams().Has("delete") ||
+		strings.Contains(c.Request().URL.RawQuery, "delete") {
+		return deleteMultipleObjects(c)
 	}
 
-	// 4. browser-based form upload
+	// 4. XML-based delete operation
 	contentType := c.Request().Header.Get("Content-Type")
+	if c.Request().ContentLength > 0 && (contentType == "" || contentType == "application/xml") {
+		bodyBytes, err := io.ReadAll(c.Request().Body)
+		if err == nil {
+			c.Request().Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+			if strings.Contains(string(bodyBytes[:min(len(bodyBytes), 100)]), "<Delete") {
+				return deleteMultipleObjects(c)
+			}
+		}
+	}
+
+	// 5. browser-based form upload
 	if strings.Contains(contentType, "multipart/form-data") {
-		return PostObject(c)
+		return postObject(c)
 	}
 
 	// fallback
 	return returnS3Error(c, http.StatusBadRequest, "InvalidRequest", "Unsupported POST request", c.Path())
 }
 
-func InitiateMultipartUpload(c echo.Context) error {
+// min helper function
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func initiateMultipartUpload(c echo.Context) error {
 	conn, isS3Api := getConnectionName(c)
 
 	bucket := c.Param("BucketName")
@@ -1480,8 +1503,8 @@ func InitiateMultipartUpload(c echo.Context) error {
 	})
 }
 
-// CompleteMultipartUpload completes a multipart upload
-func CompleteMultipartUpload(c echo.Context) error {
+// completeMultipartUpload completes a multipart upload
+func completeMultipartUpload(c echo.Context) error {
 	conn, isS3Api := getConnectionName(c)
 	bucket := c.Param("Name")
 	if bucket == "" {
@@ -1574,8 +1597,8 @@ func CompleteMultipartUpload(c echo.Context) error {
 	})
 }
 
-// DeleteMultipleObjects deletes multiple objects from S3
-func DeleteMultipleObjects(c echo.Context) error {
+// deleteMultipleObjects deletes multiple objects from S3
+func deleteMultipleObjects(c echo.Context) error {
 	conn, isS3Api := getConnectionName(c)
 	bucket := c.Param("Name")
 	if bucket == "" {
@@ -1606,14 +1629,63 @@ func DeleteMultipleObjects(c echo.Context) error {
 
 	cblog.Infof("Deleting %d objects from bucket %s", len(req.Objects), bucket)
 
+	// Filter out empty keys
 	var keys []string
 	for _, obj := range req.Objects {
-		keys = append(keys, obj.Key)
-		cblog.Debugf("Object to delete: %s", obj.Key)
+		if obj.Key != "" {
+			keys = append(keys, obj.Key)
+			cblog.Debugf("Object to delete: %s", obj.Key)
+		} else {
+			cblog.Warnf("Skipping empty key in delete request")
+		}
+	}
+
+	// If no valid keys, return error
+	if len(keys) == 0 {
+		if isS3Api {
+			return returnS3Error(c, http.StatusBadRequest, "MalformedXML", "No valid keys provided", "/"+bucket)
+		}
+		return echo.NewHTTPError(http.StatusBadRequest, "No valid keys provided")
 	}
 
 	results, err := cmrt.DeleteMultipleObjects(conn, bucket, keys)
-	if err != nil {
+
+	// Check if all results indicate "not implemented"
+	allNotImplemented := false
+	if err == nil && len(results) > 0 {
+		notImplementedCount := 0
+		for _, result := range results {
+			if !result.Success && strings.Contains(result.Error, "not implemented") {
+				notImplementedCount++
+			}
+		}
+		if notImplementedCount == len(results) {
+			allNotImplemented = true
+		}
+	}
+
+	// If error indicates not implemented or all results are not implemented, fall back to individual deletes
+	if (err != nil && (strings.Contains(err.Error(), "not implemented") || strings.Contains(err.Error(), "NotImplemented"))) || allNotImplemented {
+		cblog.Warnf("Bulk delete not supported, falling back to individual deletes")
+
+		results = []cmrt.DeleteResult{}
+		for _, key := range keys {
+			_, deleteErr := cmrt.DeleteS3Object(conn, bucket, key)
+			if deleteErr != nil {
+				results = append(results, cmrt.DeleteResult{
+					Key:     key,
+					Success: false,
+					Error:   deleteErr.Error(),
+				})
+			} else {
+				results = append(results, cmrt.DeleteResult{
+					Key:     key,
+					Success: true,
+				})
+			}
+		}
+	} else if err != nil {
+		// Other errors
 		cblog.Errorf("Failed to delete multiple objects: %v", err)
 		if isS3Api {
 			return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucket)
@@ -1647,10 +1719,24 @@ func DeleteMultipleObjects(c echo.Context) error {
 			if result.Success {
 				resp.Deleted = append(resp.Deleted, Deleted{Key: result.Key})
 			} else {
+				// Map common error messages to S3 error codes
+				errorCode := "InternalError"
+				errorMsg := result.Error
+
+				if strings.Contains(result.Error, "not found") ||
+					strings.Contains(result.Error, "NoSuchKey") {
+					errorCode = "NoSuchKey"
+				} else if strings.Contains(result.Error, "access denied") ||
+					strings.Contains(result.Error, "AccessDenied") {
+					errorCode = "AccessDenied"
+				} else if strings.Contains(result.Error, "not implemented") {
+					errorCode = "NotImplemented"
+				}
+
 				resp.Error = append(resp.Error, Error{
 					Key:     result.Key,
-					Code:    "InternalError",
-					Message: result.Error,
+					Code:    errorCode,
+					Message: errorMsg,
 				})
 			}
 		}
@@ -1670,8 +1756,8 @@ func DeleteMultipleObjects(c echo.Context) error {
 	return c.JSON(http.StatusOK, results)
 }
 
-// PostObject handles browser-based file upload using HTML form
-func PostObject(c echo.Context) error {
+// postObject handles browser-based file upload using HTML form
+func postObject(c echo.Context) error {
 	conn, isS3Api := getConnectionName(c)
 	bucket := c.Param("Name")
 	if bucket == "" {
@@ -1746,8 +1832,8 @@ func PostObject(c echo.Context) error {
 	})
 }
 
-// UploadPart uploads a part in a multipart upload
-func UploadPart(c echo.Context) error {
+// uploadPart uploads a part in a multipart upload
+func uploadPart(c echo.Context) error {
 	conn, isS3Api := getConnectionName(c)
 	bucket := c.Param("BucketName")
 	key := c.Param("ObjectKey+")

@@ -391,6 +391,7 @@ func GetS3ObjectStream(connectionName, bucketName, objectName string) (io.ReadCl
 }
 
 func GetS3PresignedURL(connectionName, bucketName, objectName, method string, expiresSeconds int64, contentDisposition string) (string, error) {
+	cblog.Info("call GetS3PresignedURL()")
 	var iidInfo S3BucketIIDInfo
 	if err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName); err != nil {
 		return "", err
