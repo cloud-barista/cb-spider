@@ -489,7 +489,7 @@ func (vpcHandler *NhnCloudVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs
 func (vpcHandler *NhnCloudVPCHandler) mappingVpcInfo(vpc vpcs.VPC) (*irs.VPCInfo, error) {
 	cblogger.Info("NHN Cloud cloud driver: called mappingVpcInfo()!!")
 	cblogger.Info("\n\n### vpc : ")
-	spew.Dump(vpc)
+	// spew.Dump(vpc)
 	cblogger.Info("\n")
 
 	vpcInfo := irs.VPCInfo{
