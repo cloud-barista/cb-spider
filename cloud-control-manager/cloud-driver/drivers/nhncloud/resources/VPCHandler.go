@@ -16,7 +16,7 @@ package resources
 import (
 	"errors"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
+	_ "github.com/davecgh/go-spew/spew"
 	"strings"
 
 	// "sync"
