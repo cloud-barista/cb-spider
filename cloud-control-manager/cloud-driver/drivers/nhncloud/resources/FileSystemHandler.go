@@ -1,12 +1,16 @@
 package resources
 
 import (
+	"encoding/json"
 	"fmt"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
-	"github.com/cloud-barista/nhncloud-sdk-go/openstack/sharedfilesystems/v2/shares"
+	ostack "github.com/cloud-barista/nhncloud-sdk-go/openstack"
+	"io"
+	"net/http"
+	"strings"
 )
 
 type NhnCloudFileSystemHandler struct {
@@ -15,29 +19,70 @@ type NhnCloudFileSystemHandler struct {
 	FSClient       *nhnsdk.ServiceClient
 }
 
+func getTokenFromCredential(cred idrv.CredentialInfo) (string, error) {
+	authOpts := nhnsdk.AuthOptions{
+		IdentityEndpoint: cred.IdentityEndpoint,
+		Username:         cred.Username,
+		Password:         cred.Password,
+		DomainName:       cred.DomainName,
+		TenantID:         cred.TenantId,
+	}
+
+	provider, err := ostack.AuthenticatedClient(authOpts)
+	if err != nil {
+		return "", fmt.Errorf("인증 토큰 발급 실패: %v", err)
+	}
+
+	return provider.TokenID, nil
+}
+
 func (nf *NhnCloudFileSystemHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("Cloud driver: called ListIID()!!")
-	callLogInfo := getCallLogScheme(nf.RegionInfo.Zone, call.FILESYSTEM, "fileSystemId", "ListIID()")
+	cblogger.Info("Cloud driver: called ListIID()")
+
+	callLogInfo := getCallLogScheme(nf.RegionInfo.Zone, call.FILESYSTEM, "volumeId", "ListIID()")
 	start := call.Start()
 
 	var iidList []*irs.IID
 
-	pager := shares.ListDetail(nf.FSClient, shares.ListOpts{}) // 여기만 사용하면 됨
+	authToken, err := getTokenFromCredential(nf.CredentialInfo)
+	if err != nil {
+		return nil, fmt.Errorf("토큰 발급 실패: %v", err)
+	}
 
-	allPages, err := pager.AllPages()
+	region := strings.ToLower(nf.RegionInfo.Region)
+	url := fmt.Sprintf("https://%s-api-nas-infrastructure.nhncloudservice.com/v1/volumes", region)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("요청 생성 실패: %v", err)
+	}
+	req.Header.Add("X-Auth-Token", authToken)
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("NAS 목록 조회 실패: %v", err)
 	}
+	defer resp.Body.Close()
 
-	allShares, err := shares.ExtractShares(allPages)
-	if err != nil {
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("NAS 목록 응답 오류 [%d]: %s", resp.StatusCode, string(body))
+	}
+
+	var result struct {
+		Volumes []struct {
+			ID   string `json:"volumeId"`
+			Name string `json:"volumeName"`
+		} `json:"volumes"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("NAS 응답 파싱 실패: %v", err)
 	}
 
-	for _, sh := range allShares {
+	for _, vol := range result.Volumes {
 		iidList = append(iidList, &irs.IID{
-			NameId:   sh.Name,
-			SystemId: sh.ID,
+			NameId:   vol.Name,
+			SystemId: vol.ID,
 		})
 	}
 

@@ -15,6 +15,8 @@ import (
 	// "github.com/davecgh/go-spew/spew"
 
 	"errors"
+	"fmt"
+	"strings"
 
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
 	ostack "github.com/cloud-barista/nhncloud-sdk-go/openstack"
@@ -193,8 +195,16 @@ func getClusterClient(providerClient *nhnsdk.ProviderClient, connInfo idrv.Conne
 	return client, err
 }
 
-func getFSClient(provider *nhnsdk.ProviderClient, connInfo idrv.ConnectionInfo) (*nhnsdk.ServiceClient, error) {
-	return ostack.NewSharedFileSystemV2(provider, nhnsdk.EndpointOpts{
-		Region: connInfo.RegionInfo.Region,
-	})
+func getFSClient(providerClient *nhnsdk.ProviderClient, connInfo idrv.ConnectionInfo) (*nhnsdk.ServiceClient, error) {
+	region := connInfo.RegionInfo.Region
+
+	endpoint := fmt.Sprintf("https://%s-api-nas-infrastructure.nhncloudservice.com/v1/", strings.ToLower(region))
+
+	fsClient := &nhnsdk.ServiceClient{
+		ProviderClient: providerClient,
+		Endpoint:       endpoint,
+		Type:           "sharev2",
+	}
+
+	return fsClient, nil
 }
