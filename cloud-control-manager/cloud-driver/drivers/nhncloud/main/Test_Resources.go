@@ -128,7 +128,7 @@ type Config struct {
 				} `yaml:"VpcIID"`
 				AccessSubnetIIDs []struct {
 					NameId string `yaml:"nameId"`
-				} `yaml:"AccessSubnetIIDs:"`
+				} `yaml:"AccessSubnetIIDs"`
 			} `yaml:"file"`
 		} `yaml:"resources"`
 	} `yaml:"nhncloud"`
@@ -2067,16 +2067,11 @@ func testFileSystemHandler(config Config) {
 	}
 
 	createreq := irs.FileSystemInfo{
-		IId: fileNameId,
-		//Region:           string,
-		//Zone:
+		IId:              fileNameId,
 		VpcIID:           vpcIID,
 		NFSVersion:       "4.1",
 		AccessSubnetList: accessSubnetList,
-		CapacityGB:       100,
-		//PerformanceInfo: map[string]string{
-		//	"Tier": "S",
-		//},
+		CapacityGB:       300,
 	}
 
 	testFileSystemHandlerListPrint()

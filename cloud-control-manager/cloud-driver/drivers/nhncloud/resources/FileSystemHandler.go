@@ -1,6 +1,7 @@
 package resources
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -379,7 +380,89 @@ func (nf *NhnCloudFileSystemHandler) ListFileSystem() ([]*irs.FileSystemInfo, er
 }
 
 func (nf *NhnCloudFileSystemHandler) CreateFileSystem(reqInfo irs.FileSystemInfo) (irs.FileSystemInfo, error) {
-	return reqInfo, nil
+	hiscallInfo := getCallLogScheme(nf.RegionInfo.Region, call.FILESYSTEM, "FILESYSTEM", "CreateFileSystem()")
+	start := call.Start()
+
+	authToken, err := getTokenFromCredential(nf.CredentialInfo)
+	if err != nil {
+		cblogger.Errorf("Failed to get token: %v", err)
+		return irs.FileSystemInfo{}, fmt.Errorf("failed to get token: %v", err)
+	}
+
+	if len(reqInfo.AccessSubnetList) == 0 {
+		return irs.FileSystemInfo{}, fmt.Errorf("AccessSubnetList is empty")
+	}
+
+	subnetName := reqInfo.AccessSubnetList[0].NameId
+	subnetInfo, err := GetVpcsubnetWithName(nf.NetworkClient, subnetName)
+	if err != nil {
+		return irs.FileSystemInfo{}, fmt.Errorf("failed to get subnet ID: %v", err)
+	}
+
+	subnetID := subnetInfo.ID
+
+	region := strings.ToLower(nf.RegionInfo.Region)
+	url := fmt.Sprintf("https://%s-api-nas-infrastructure.nhncloudservice.com/v1/volumes", region)
+
+	createReq := map[string]interface{}{
+		"volume": map[string]interface{}{
+			"name":        reqInfo.IId.NameId,
+			"description": "NAS created by cb-spider",
+			"sizeGb":      reqInfo.CapacityGB,
+			"encryption": map[string]bool{
+				"enabled": reqInfo.Encryption,
+			},
+			"interfaces": []map[string]string{
+				{
+					"subnetId": subnetID,
+				},
+			},
+			"mountProtocol": map[string]string{
+				"protocol": "nfs",
+			},
+		},
+	}
+
+	jsonBody, err := json.Marshal(createReq)
+	if err != nil {
+		return irs.FileSystemInfo{}, fmt.Errorf("failed to marshal NAS create body: %v", err)
+	}
+
+	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonBody))
+	httpReq.Header.Add("X-Auth-Token", authToken)
+	httpReq.Header.Add("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(httpReq)
+	if err != nil {
+		return irs.FileSystemInfo{}, fmt.Errorf("failed to send NAS create request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted && resp.StatusCode != http.StatusCreated {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return irs.FileSystemInfo{}, fmt.Errorf("NAS creation failed: %s", string(bodyBytes))
+	}
+
+	createdIID := irs.IID{NameId: reqInfo.IId.NameId}
+
+	var fsInfo irs.FileSystemInfo
+	var getErr error
+	maxRetry := 10
+
+	for i := 0; i < maxRetry; i++ {
+		time.Sleep(1 * time.Second)
+
+		fsInfo, getErr = nf.GetFileSystem(createdIID)
+		if getErr == nil {
+			return fsInfo, nil
+		}
+
+		cblogger.Infof("Waiting for NAS to become available... (%d/%d)", i+1, maxRetry)
+	}
+
+	LoggingInfo(hiscallInfo, start)
+	return irs.FileSystemInfo{}, fmt.Errorf("NAS created but not found after retries: %v", getErr)
 }
 
 func (nf *NhnCloudFileSystemHandler) DeleteFileSystem(iid irs.IID) (bool, error) {
