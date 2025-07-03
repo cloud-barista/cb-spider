@@ -2114,10 +2114,10 @@ Loop:
 				}
 				fmt.Println("Finish CreateFileSystem()")
 			case 4:
-				//fmt.Println("Start DeleteFileSystem() ...")
-				//if ok, err := fileSystemHandler.DeleteFileSystem(fileNameId); !ok {
-				//	fmt.Println(err)
-				//}
+				fmt.Println("Start DeleteFileSystem() ...")
+				if ok, err := fileSystemHandler.DeleteFileSystem(fileNameId); !ok {
+					fmt.Println(err)
+				}
 				fmt.Println("Finish DeleteFileSystem()")
 			case 5:
 				fmt.Println("Start AddAccessSubnet() ...")

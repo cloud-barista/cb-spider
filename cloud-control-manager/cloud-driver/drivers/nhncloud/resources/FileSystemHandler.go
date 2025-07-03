@@ -466,7 +466,78 @@ func (nf *NhnCloudFileSystemHandler) CreateFileSystem(reqInfo irs.FileSystemInfo
 }
 
 func (nf *NhnCloudFileSystemHandler) DeleteFileSystem(iid irs.IID) (bool, error) {
-	return false, nil
+	if iid.NameId == "" {
+		return false, fmt.Errorf("NameId is required")
+	}
+
+	authToken, err := getTokenFromCredential(nf.CredentialInfo)
+	if err != nil {
+		return false, fmt.Errorf("failed to get token: %v", err)
+	}
+
+	region := strings.ToLower(nf.RegionInfo.Region)
+	url := fmt.Sprintf("https://%s-api-nas-infrastructure.nhncloudservice.com/v1/volumes", region)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return false, fmt.Errorf("failed to create list request: %v", err)
+	}
+	req.Header.Add("X-Auth-Token", authToken)
+	req.Header.Add("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return false, fmt.Errorf("failed to send list request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return false, fmt.Errorf("failed to list NAS volumes: %s", string(body))
+	}
+
+	var result struct {
+		Volumes []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"volumes"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return false, fmt.Errorf("failed to decode NAS list response: %v", err)
+	}
+
+	var volumeID string
+	for _, v := range result.Volumes {
+		if v.Name == iid.NameId {
+			volumeID = v.ID
+			break
+		}
+	}
+	if volumeID == "" {
+		return false, fmt.Errorf("NAS not found with name: %s", iid.NameId)
+	}
+
+	deleteURL := fmt.Sprintf("https://%s-api-nas-infrastructure.nhncloudservice.com/v1/volumes/%s", region, volumeID)
+	deleteReq, err := http.NewRequest("DELETE", deleteURL, nil)
+	if err != nil {
+		return false, fmt.Errorf("failed to create delete request: %v", err)
+	}
+	deleteReq.Header.Add("X-Auth-Token", authToken)
+	deleteReq.Header.Add("Content-Type", "application/json")
+
+	deleteResp, err := client.Do(deleteReq)
+	if err != nil {
+		return false, fmt.Errorf("failed to send delete request: %v", err)
+	}
+	defer deleteResp.Body.Close()
+
+	if deleteResp.StatusCode >= 200 && deleteResp.StatusCode < 300 {
+		cblogger.Infof("Successfully deleted file share '%s' in storage account '%s'", iid.NameId, volumeID)
+		return true, nil
+	}
+
+	return false, fmt.Errorf("failed to delete NAS: status=%d, body=%s", deleteResp.StatusCode)
 }
 
 // Access Subnet Management
