@@ -71,8 +71,8 @@ func (nf *NhnCloudFileSystemHandler) ListIID() ([]*irs.IID, error) {
 
 	var result struct {
 		Volumes []struct {
-			ID   string `json:"volumeId"`
-			Name string `json:"volumeName"`
+			ID   string `json:"id"`
+			Name string `json:"name"`
 		} `json:"volumes"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
