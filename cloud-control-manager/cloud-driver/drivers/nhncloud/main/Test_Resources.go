@@ -119,6 +119,17 @@ type Config struct {
 					NameId string `yaml:"nameId"`
 				} `yaml:"attachedVM"`
 			} `yaml:"disk"`
+			File struct {
+				IID struct {
+					NameId string `yaml:"nameId"`
+				} `yaml:"IID"`
+				VpcIID struct {
+					NameId string `yaml:"nameId"`
+				} `yaml:"VpcIID"`
+				AccessSubnetIIDs []struct {
+					NameId string `yaml:"nameId"`
+				} `yaml:"AccessSubnetIIDs:"`
+			} `yaml:"file"`
 		} `yaml:"resources"`
 	} `yaml:"nhncloud"`
 }
@@ -2038,6 +2049,36 @@ func testFileSystemHandler(config Config) {
 
 	fileSystemHandler := resourceHandler.(irs.FileSystemHandler)
 
+	fileNameId := irs.IID{
+		NameId: config.NhnCloud.Resources.File.IID.NameId,
+	}
+
+	vpcIID := irs.IID{
+		NameId: config.NhnCloud.Resources.File.VpcIID.NameId,
+	}
+
+	subnetIIDs := config.NhnCloud.Resources.File.AccessSubnetIIDs
+	var accessSubnetList []irs.IID
+	for _, subnet := range subnetIIDs {
+		accessSubnetList = append(accessSubnetList, irs.IID{
+			NameId:   subnet.NameId,
+			SystemId: "",
+		})
+	}
+
+	createreq := irs.FileSystemInfo{
+		IId: fileNameId,
+		//Region:           string,
+		//Zone:
+		VpcIID:           vpcIID,
+		NFSVersion:       "4.1",
+		AccessSubnetList: accessSubnetList,
+		CapacityGB:       100,
+		//PerformanceInfo: map[string]string{
+		//	"Tier": "S",
+		//},
+	}
+
 	testFileSystemHandlerListPrint()
 
 Loop:
@@ -2054,31 +2095,31 @@ Loop:
 				testFileSystemHandlerListPrint()
 			case 1:
 				fmt.Println("Start ListFileSystem() ...")
-				//if fileSystemList, err := fileSystemHandler.ListFileSystem(); err != nil {
-				//	fmt.Println(err)
-				//} else {
-				//	spew.Dump(fileSystemList)
-				//}
+				if fileSystemList, err := fileSystemHandler.ListFileSystem(); err != nil {
+					fmt.Println(err)
+				} else {
+					spew.Dump(fileSystemList)
+				}
 				fmt.Println("Finish ListFileSystem()")
 			case 2:
 				cblogger.Info("Start GetFileSystem() ...")
-				//if fileSystem, err := fileSystemHandler.GetFileSystem(); err != nil {
-				//	cblogger.Error(err)
-				//} else {
-				//	spew.Dump(fileSystem)
-				//}
+				if fileSystem, err := fileSystemHandler.GetFileSystem(fileNameId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(fileSystem)
+				}
 				cblogger.Info("Finish GetFileSystem()")
 			case 3:
 				fmt.Println("Start CreateFileSystem() ...")
-				//fileSystem, err := fileSystemHandler.CreateFileSystem(createreq)
-				//if err != nil {
-				//	fmt.Println(err)
-				//} else {
-				//	spew.Dump(fileSystem)
-				//}
+				fileSystem, err := fileSystemHandler.CreateFileSystem(createreq)
+				if err != nil {
+					fmt.Println(err)
+				} else {
+					spew.Dump(fileSystem)
+				}
 				fmt.Println("Finish CreateFileSystem()")
 			case 4:
-				fmt.Println("Start DeleteFileSystem() ...")
+				//fmt.Println("Start DeleteFileSystem() ...")
 				//if ok, err := fileSystemHandler.DeleteFileSystem(fileNameId); !ok {
 				//	fmt.Println(err)
 				//}
@@ -2116,11 +2157,11 @@ Loop:
 				cblogger.Info("Finish ListIID()")
 			case 9:
 				cblogger.Info("Start GetMetaInfo() ...")
-				//if listIID, err := fileSystemHandler.GetMetaInfo(); err != nil {
-				//	cblogger.Error(err)
-				//} else {
-				//	spew.Dump(listIID)
-				//}
+				if listIID, err := fileSystemHandler.GetMetaInfo(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
 				cblogger.Info("Finish ListIID()")
 			case 10:
 				fmt.Println("Exit")

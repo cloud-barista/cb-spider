@@ -44,12 +44,13 @@ type NhnCloudConnection struct {
 	VolumeClient   *nhnsdk.ServiceClient
 	ClusterClient  *nhnsdk.ServiceClient
 	FSClient       *nhnsdk.ServiceClient
+	NetworkClient1 *nhnsdk.ServiceClient
 }
 
 // CreateFileSystemHandler implements connect.CloudConnection.
 func (cloudConn *NhnCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
 	cblogger.Info("NhnCloud Cloud Driver: called CreateFileSystemHandler()!")
-	fileSystemHandler := nhnrs.NhnCloudFileSystemHandler{CredentialInfo: cloudConn.CredentialInfo, RegionInfo: cloudConn.RegionInfo, FSClient: cloudConn.FSClient}
+	fileSystemHandler := nhnrs.NhnCloudFileSystemHandler{CredentialInfo: cloudConn.CredentialInfo, RegionInfo: cloudConn.RegionInfo, FSClient: cloudConn.FSClient, NetworkClient: cloudConn.NetworkClient}
 
 	return &fileSystemHandler, nil
 }
