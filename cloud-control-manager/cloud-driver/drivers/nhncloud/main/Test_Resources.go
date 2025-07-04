@@ -2048,6 +2048,7 @@ func testFileSystemHandler(config Config) {
 	}
 
 	fileSystemHandler := resourceHandler.(irs.FileSystemHandler)
+	testFileSystemHandlerListPrint()
 
 	fileNameId := irs.IID{
 		NameId: config.NhnCloud.Resources.File.IID.NameId,
@@ -2073,8 +2074,6 @@ func testFileSystemHandler(config Config) {
 		AccessSubnetList: accessSubnetList,
 		CapacityGB:       300,
 	}
-
-	testFileSystemHandlerListPrint()
 
 Loop:
 	for {
@@ -2121,26 +2120,47 @@ Loop:
 				fmt.Println("Finish DeleteFileSystem()")
 			case 5:
 				fmt.Println("Start AddAccessSubnet() ...")
-				//fmt.Printf("DEBUG: subnetIID.NameId = '%s'\n", subnetIID.NameId)
-				//if fileSystem, err := fileSystemHandler.AddAccessSubnet(fileNameId, subnetIID); err != nil {
-				//	cblogger.Error(err)
-				//} else {
-				//	spew.Dump(fileSystem)
-				//}
+				fsInfo, err := fileSystemHandler.GetFileSystem(fileNameId)
+				if err != nil {
+					cblogger.Errorf("Failed to get NAS info: %v", err)
+					return
+				}
+				fileNameId.SystemId = fsInfo.IId.SystemId
+				for _, subnetIID := range accessSubnetList {
+					fileSystem, err := fileSystemHandler.AddAccessSubnet(fileNameId, subnetIID)
+					if err != nil {
+						cblogger.Errorf("Failed to add access subnet (%s): %v", subnetIID.NameId, err)
+						continue
+					}
+					cblogger.Infof("Successfully added subnet %s", subnetIID.NameId)
+					spew.Dump(fileSystem)
+				}
 				fmt.Println("Finish AddAccessSubnet()")
 			case 6:
 				fmt.Println("Start RemoveAccessSubnet() ...")
-				//if ok, err := fileSystemHandler.RemoveAccessSubnet(vpcIID, subnetIID); !ok {
-				//	fmt.Println(err)
-				//}
+				fsInfo, err := fileSystemHandler.GetFileSystem(fileNameId)
+				if err != nil {
+					cblogger.Errorf("Failed to get NAS info: %v", err)
+					return
+				}
+				fileNameId.SystemId = fsInfo.IId.SystemId
+
+				for _, attachedSubnet := range fsInfo.AccessSubnetList {
+					ok, err := fileSystemHandler.RemoveAccessSubnet(fileNameId, attachedSubnet)
+					if !ok || err != nil {
+						cblogger.Errorf("Failed to remove access subnet (%s): %v", attachedSubnet.NameId, err)
+						continue
+					}
+					cblogger.Infof("Successfully removed subnet %s", attachedSubnet.NameId)
+				}
 				fmt.Println("Finish RemoveAccessSubnet()")
 			case 7:
 				cblogger.Info("Start ListAccessSubnet() ...")
-				//if listSubnet, err := fileSystemHandler.ListAccessSubnet(fileNameId); err != nil {
-				//	cblogger.Error(err)
-				//} else {
-				//	spew.Dump(listSubnet)
-				//}
+				if listSubnet, err := fileSystemHandler.ListAccessSubnet(fileNameId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listSubnet)
+				}
 				cblogger.Info("Finish ListAccessSubnet()")
 			case 8:
 				cblogger.Info("Start ListIID() ...")

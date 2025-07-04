@@ -223,24 +223,25 @@ func (nf *NhnCloudFileSystemHandler) setterFileSystemInfo(raw map[string]interfa
 
 	var accessSubnetList []irs.IID
 	var vpcIID irs.IID
+	var mountTargetList []irs.MountTargetInfo
 
 	if rawIfaces, ok := raw["interfaces"].([]interface{}); ok {
 		for _, ifaceRaw := range rawIfaces {
 			iface, ok := ifaceRaw.(map[string]interface{})
 			if !ok {
-				cblogger.Warn("Skipping non-map interface entry in raw data.")
-				continue
-			}
-			subnetId, _ := iface["subnetId"].(string)
-			if subnetId == "" {
-				cblogger.Warn("Skipping interface with empty subnetId.")
 				continue
 			}
 
-			cblogger.Infof("Querying subnet with ID: %s", subnetId)
+			subnetId, _ := iface["subnetId"].(string)
+			interfaceId, _ := iface["id"].(string)
+
+			if subnetId == "" || interfaceId == "" {
+				continue
+			}
+
+			// Get subnet name
 			subnet, err := vpcsubnets.Get(nf.NetworkClient, subnetId).Extract()
 			if err != nil {
-				cblogger.Errorf("Failed to query subnet '%s': %v", subnetId, err)
 				continue
 			}
 
@@ -249,18 +250,24 @@ func (nf *NhnCloudFileSystemHandler) setterFileSystemInfo(raw map[string]interfa
 				SystemId: subnet.ID,
 			})
 
-			// 🔍 Query VPC
+			mountTargetList = append(mountTargetList, irs.MountTargetInfo{
+				SubnetIID: irs.IID{
+					NameId:   subnet.Name,
+					SystemId: subnet.ID,
+				},
+				KeyValueList: []irs.KeyValue{
+					{Key: "InterfaceId", Value: interfaceId},
+				},
+			})
+
+			// Set VPC info only once
 			if vpcIID.SystemId == "" && subnet.VPCID != "" {
-				cblogger.Infof("Querying VPC with ID: %s", subnet.VPCID)
 				vpc, err := vpcs.Get(nf.NetworkClient, subnet.VPCID).Extract()
 				if err == nil {
 					vpcIID = irs.IID{
 						NameId:   vpc.Name,
 						SystemId: vpc.ID,
 					}
-					cblogger.Infof("VPC '%s' found for subnet '%s'.", vpc.ID, subnetId)
-				} else {
-					cblogger.Errorf("Failed to query VPC '%s' for subnet '%s': %v", subnet.VPCID, subnetId, err)
 				}
 			}
 		}
@@ -297,7 +304,7 @@ func (nf *NhnCloudFileSystemHandler) setterFileSystemInfo(raw map[string]interfa
 		PerformanceInfo: map[string]string{"Tier": "STANDARD"},
 		Status:          irs.FileSystemStatus(statusStr),
 		UsedSizeGB:      0,
-		MountTargetList: nil,
+		MountTargetList: mountTargetList,
 		CreatedTime:     irs.FileSystemInfo{}.CreatedTime,
 
 		KeyValueList: kvs,
@@ -542,14 +549,154 @@ func (nf *NhnCloudFileSystemHandler) DeleteFileSystem(iid irs.IID) (bool, error)
 
 // Access Subnet Management
 func (nf *NhnCloudFileSystemHandler) AddAccessSubnet(iid irs.IID, subnetIID irs.IID) (irs.FileSystemInfo, error) {
-	return irs.FileSystemInfo{}, nil
-} // Add a subnet to the file system for access; creates a mount target in the driver if needed
+
+	cblogger.Info("Cloud driver: called AddAccessSubnet()")
+
+	authToken, err := getTokenFromCredential(nf.CredentialInfo)
+	if err != nil {
+		cblogger.Errorf("Failed to get auth token: %v", err)
+		return irs.FileSystemInfo{}, fmt.Errorf("failed to get auth token: %v", err)
+	}
+
+	subnetName := subnetIID.NameId
+	subnet, err := GetVpcsubnetWithName(nf.NetworkClient, subnetName)
+	if err != nil {
+		return irs.FileSystemInfo{}, fmt.Errorf("failed to get subnet ID: %v", err)
+	}
+
+	region := strings.ToLower(nf.RegionInfo.Region)
+	url := fmt.Sprintf("https://%s-api-nas-infrastructure.nhncloudservice.com/v1/volumes/%s/interfaces", region, iid.SystemId)
+
+	cblogger.Infof("DEBUG: volumeId = %s", iid.SystemId)
+	cblogger.Infof("DEBUG: subnetName = %s", subnetName)
+	cblogger.Infof("DEBUG: subnetId = %s", subnet.ID)
+
+	addAccessReq := map[string]interface{}{
+		"interface": map[string]interface{}{
+			"subnetId": subnet.ID,
+			"mountProtocol": map[string]string{
+				"protocol": "nfs",
+			},
+		},
+	}
+
+	jsonBody, err := json.Marshal(addAccessReq)
+	if err != nil {
+		cblogger.Errorf("Failed to marshal JSON: %v", err)
+		return irs.FileSystemInfo{}, fmt.Errorf("failed to marshal JSON: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		cblogger.Errorf("Failed to create HTTP request: %v", err)
+		return irs.FileSystemInfo{}, fmt.Errorf("failed to create HTTP request: %v", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Auth-Token", authToken)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		cblogger.Errorf("Failed to send HTTP request: %v", err)
+		return irs.FileSystemInfo{}, fmt.Errorf("failed to send HTTP request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted && resp.StatusCode != http.StatusCreated {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		cblogger.Errorf("AddAccessSubnet request failed: %s", string(bodyBytes))
+		return irs.FileSystemInfo{}, fmt.Errorf("add AccessSubnet failed: %s", string(bodyBytes))
+	}
+
+	cblogger.Info("Successfully added access subnet to the volume")
+	updatedFsInfo, err := nf.GetFileSystem(iid)
+	if err != nil {
+		cblogger.Warnf("Subnet added but failed to retrieve updated NAS info: %v", err)
+		return irs.FileSystemInfo{IId: iid}, nil
+	}
+	return updatedFsInfo, nil
+}
+
 func (nf *NhnCloudFileSystemHandler) RemoveAccessSubnet(id irs.IID, subnetIID irs.IID) (bool, error) {
-	return false, nil
-} // Remove a subnet from the file system access list; deletes the mount target if needed
+	cblogger.Info("Cloud driver: called RemoveAccessSubnet()")
+
+	callLogInfo := getCallLogScheme(nf.RegionInfo.Zone, call.FILESYSTEM, id.SystemId, "RemoveAccessSubnet()")
+	start := call.Start()
+
+	if id.SystemId == "" {
+		cblogger.Error("FileSystem IID SystemId is empty")
+		return false, fmt.Errorf("FileSystem IID SystemId is empty")
+	}
+
+	fsInfo, err := nf.GetFileSystem(id)
+	if err != nil {
+		cblogger.Errorf("Failed to get FileSystem info: %v", err)
+		return false, err
+	}
+
+	var interfaceID string
+	for _, mt := range fsInfo.MountTargetList {
+		if mt.SubnetIID.NameId == subnetIID.NameId {
+			for _, kv := range mt.KeyValueList {
+				if kv.Key == "InterfaceId" || kv.Key == "interfaceId" {
+					interfaceID = kv.Value
+					break
+				}
+			}
+		}
+	}
+	if interfaceID == "" {
+		return false, fmt.Errorf("interface ID not found for subnet %s", subnetIID.NameId)
+	}
+
+	authToken, err := getTokenFromCredential(nf.CredentialInfo)
+	if err != nil {
+		cblogger.Errorf("Failed to get auth token: %v", err)
+		return false, fmt.Errorf("failed to get auth token: %v", err)
+	}
+
+	region := strings.ToLower(nf.RegionInfo.Region)
+	url := fmt.Sprintf("https://%s-api-nas-infrastructure.nhncloudservice.com/v1/volumes/%s/interfaces/%s", region, id.SystemId, interfaceID)
+	cblogger.Infof("Request DELETE URL: %s", url)
+
+	req, err := http.NewRequest("DELETE", url, nil)
+	if err != nil {
+		cblogger.Errorf("Failed to create DELETE request: %v", err)
+		return false, err
+	}
+	req.Header.Set("X-Auth-Token", authToken)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		cblogger.Errorf("Failed to send DELETE request: %v", err)
+		return false, err
+	}
+	defer resp.Body.Close()
+
+	bodyBytes, _ := io.ReadAll(resp.Body)
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted && resp.StatusCode != http.StatusNoContent {
+		cblogger.Errorf("RemoveAccessSubnet request failed: %s", string(bodyBytes))
+		return false, fmt.Errorf("remove AccessSubnet failed: %s", string(bodyBytes))
+	}
+
+	cblogger.Infof("Successfully removed access subnet from the NAS volume")
+	LoggingInfo(callLogInfo, start)
+	return true, nil
+}
+
 func (nf *NhnCloudFileSystemHandler) ListAccessSubnet(iid irs.IID) ([]irs.IID, error) {
-	return []irs.IID{}, nil
-} // List of subnets whose VMs can use this file system
+	cblogger.Info("Called ListAccessSubnet()")
+
+	fsInfo, err := nf.GetFileSystem(iid)
+	if err != nil {
+		cblogger.Errorf("Failed to get file system info: %v", err)
+		return nil, fmt.Errorf("failed to get file system info: %v", err)
+	}
+
+	return fsInfo.AccessSubnetList, nil
+}
 
 // Backup Management
 func (nf *NhnCloudFileSystemHandler) ScheduleBackup(reqInfo irs.FileSystemBackupInfo) (irs.FileSystemBackupInfo, error) {
