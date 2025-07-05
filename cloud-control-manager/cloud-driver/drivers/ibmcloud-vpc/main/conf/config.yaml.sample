@@ -6,8 +6,8 @@ ibmvpc:
   zone: us-south-1
   resources:
     image:
-      nameId: r006-3a44e4ee-9c9f-4693-98ae-fced7a46ffce
-      systemId: r006-3a44e4ee-9c9f-4693-98ae-fced7a46ffce
+      nameId: r006-cec640a3-615e-4364-bae7-d3642d9f9e34
+      systemId: r006-cec640a3-615e-4364-bae7-d3642d9f9e34
     security:
       nameId: mcb-test-sg
       systemId:
@@ -54,8 +54,8 @@ ibmvpc:
         nameId: nlb-tester-vm-01
         systemId:
       ImageIID:
-        nameId: r006-b628ea7a-b73a-488b-802f-d0e155c15f0f
-        systemId: r006-b628ea7a-b73a-488b-802f-d0e155c15f0f
+        nameId: r006-cec640a3-615e-4364-bae7-d3642d9f9e34
+        systemId: r006-cec640a3-615e-4364-bae7-d3642d9f9e34
       VmSpecName: bx2-2x8
       KeyPairIID:
         nameId: mcb-test-key
@@ -113,4 +113,10 @@ ibmvpc:
           minNodeSize: 2
           maxNodeSize: 3
         upgradeVersion: "1.30.4"
-
+    file:
+        IID:
+          nameId: "mcb-test-file"
+        vpcIID:
+          nameId: "mcb-test-vpc"
+        subnetIID:
+          - nameId: "mcb-test-vpc-subnet1"
