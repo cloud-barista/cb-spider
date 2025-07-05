@@ -2238,7 +2238,7 @@ func testFileSystemHandler(config Config) {
 		VpcIID:     vpcIID,
 		NFSVersion: "4.1",
 		PerformanceInfo: map[string]string{
-			"Tier": "Premium",
+			"IOPS": "100",
 		},
 	}
 
