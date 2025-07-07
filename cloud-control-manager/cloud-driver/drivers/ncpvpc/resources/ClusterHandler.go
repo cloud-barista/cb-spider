@@ -120,20 +120,16 @@ func (nvch *NcpVpcClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) 
 	// Get ClusterInfo
 	//
 
-	clusterInfo := &irs.ClusterInfo{}
+	// Get ClusterInfo (생성된 클러스터의 uuid로 정보 조회)
+	clusterInfo, err := nvch.GetCluster(irs.IID{SystemId: clusterId})
+	if err != nil {
+		createErr = fmt.Errorf("Failed to Get Created Cluster Info: %v", err)
+		return emptyClusterInfo, createErr
+	}
 
-	/*
-		clusterInfo, err := nvch.getClusterInfo(clusterId)
-		if err != nil {
-			createErr = fmt.Errorf("Failed to Create Cluster: %v", err)
-			return emptyClusterInfo, createErr
-		}
-	*/
 	LoggingInfo(hiscallInfo, start)
-
 	cblogger.Infof("Creating Cluster(name=%s, id=%s)", clusterInfo.IId.NameId, clusterInfo.IId.SystemId)
-
-	return *clusterInfo, nil
+	return clusterInfo, nil
 }
 
 func (nvch *NcpVpcClusterHandler) getSupportedK8sVersions() ([]string, error) {
@@ -631,42 +627,25 @@ users:
 */
 
 func (nvch *NcpVpcClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
-	return false, nil
-	/*
-		cblogger.Infof("Cluster Name : %s", clusterIID.SystemId)
-		input := &vnks.DeleteClusterInput{
-			Name: ncloud.String(clusterIID.SystemId),
-		}
+	cblogger.Infof("NCPVPC Cloud Driver: called DeleteCluster()")
 
-		cblogger.Debug(input)
+	if clusterIID.SystemId == "" {
+		return false, fmt.Errorf("DeleteCluster: SystemId is required")
+	}
 
-		// logger for HisCall
-		callogger := call.GetLogger("HISCALL")
-		callLogInfo := call.CLOUDLOGSCHEMA{
-			CloudOS:      call.AWS,
-			RegionZone:   nvch.Region.Zone,
-			ResourceType: call.CLUSTER,
-			ResourceName: clusterIID.SystemId,
-			CloudOSAPI:   "DeleteCluster()",
-			ElapsedTime:  "",
-			ErrorMSG:     "",
-		}
-		callLogStart := call.Start()
+	hiscallInfo := GetCallLogScheme(nvch.RegionInfo.Region, call.CLUSTER, clusterIID.SystemId, "DeleteCluster()")
+	start := call.Start()
 
-		result, err := nvch.ClusterClient.DeleteCluster(input)
-		callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+	err := nvch.deleteCluster(clusterIID.SystemId)
+	if err != nil {
+		cblogger.Error(err)
+		LoggingError(hiscallInfo, err)
+		return false, fmt.Errorf("DeleteCluster: failed to delete cluster (SystemId=%s): %v", clusterIID.SystemId, err)
+	}
 
-		if err != nil {
-			callLogInfo.ErrorMSG = err.Error()
-			callogger.Info(call.String(callLogInfo))
-			cblogger.Error(err.Error())
-			return false, err
-		}
-		callogger.Info(call.String(callLogInfo))
-
-		cblogger.Debug(result)
-		return true, nil
-	*/
+	LoggingInfo(hiscallInfo, start)
+	cblogger.Infof("Cluster(SystemId=%s) deleted successfully.", clusterIID.SystemId)
+	return true, nil
 }
 
 // ------ NodeGroup Management
@@ -678,7 +657,7 @@ NodeGroup에 다른 Subnet 설정이 꼭 필요시 추후 재논의
 //https://github.com/cloud-barista/cb-spider/wiki/Provider-Managed-Kubernetes-and-Driver-API
 */
 func (nvch *NcpVpcClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo irs.NodeGroupInfo) (irs.NodeGroupInfo, error) {
-	return irs.NodeGroupInfo{}, fmt.Errorf("The MaxNodeSize value must be greater than or equal to 1.")
+	return irs.NodeGroupInfo{}, fmt.Errorf("the MaxNodeSize value must be greater than or equal to 1")
 	/*
 		// validation check
 		if nodeGroupReqInfo.MaxNodeSize < 1 { // nodeGroupReqInfo.MaxNodeSize 는 최소가 1이다.
@@ -1238,16 +1217,12 @@ func (nvch *NcpVpcClusterHandler) getRoleNo(roleName string) (string, error) {
 }
 */
 
+// deleteCluster: 실제 NCP 클러스터 삭제 로직만 담당하는 헬퍼 함수
 func (nvch *NcpVpcClusterHandler) deleteCluster(clusterId string) error {
-	// cluster subresource Clean 현재 없음
-
-	/*
-		err := ncpvpcDeleteCluster(nvch.ClusterClient, clusterId)
-		if err != nil {
-			err = fmt.Errorf("failed to delete a cluster(id=%s): %v", clusterId, err)
-			return err
-		}
-	*/
+	err := nvch.ClusterClient.V2Api.ClustersUuidDelete(nvch.Ctx, &clusterId)
+	if err != nil {
+		return fmt.Errorf("failed to delete a cluster(id=%s): %v", clusterId, err)
+	}
 	return nil
 }
 
