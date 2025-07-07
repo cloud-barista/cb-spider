@@ -2746,6 +2746,36 @@ definitions:
       Policy:
         type: string
     type: object
+  spider.S3BucketCORSRequest:
+    properties:
+      AllowedHeaders:
+        items:
+          type: string
+        type: array
+      AllowedMethods:
+        items:
+          type: string
+        type: array
+      AllowedOrigins:
+        items:
+          type: string
+        type: array
+      BucketName:
+        type: string
+      ConnectionName:
+        type: string
+      ExposeHeaders:
+        items:
+          type: string
+        type: array
+      MaxAgeSeconds:
+        type: integer
+    required:
+    - AllowedMethods
+    - AllowedOrigins
+    - BucketName
+    - ConnectionName
+    type: object
   spider.S3BucketCreateRequest:
     properties:
       ConnectionName:
@@ -2915,27 +2945,17 @@ definitions:
   spider.S3PresignedURLRequest:
     properties:
       BucketName:
-        example: my-bucket-01
         type: string
       ConnectionName:
-        example: aws-s3-conn
         type: string
       ExpiresSeconds:
-        example: 3600
         type: integer
       Method:
-        description: '"GET" or "PUT"'
-        example: GET
         type: string
       ObjectName:
-        example: my-object.txt
         type: string
-    required:
-    - BucketName
-    - ConnectionName
-    - ExpiresSeconds
-    - Method
-    - ObjectName
+      ResponseContentDisposition:
+        type: string
     type: object
   spider.S3RestoreInfo:
     properties:
@@ -8514,6 +8534,68 @@ paths:
       summary: Set S3 Bucket ACL
       tags:
       - '[S3 Management]'
+  /s3/bucket/cors:
+    post:
+      consumes:
+      - application/json
+      description: Configure CORS settings for S3 bucket to allow browser uploads
+      parameters:
+      - description: CORS configuration
+        in: body
+        name: S3BucketCORSRequest
+        required: true
+        schema:
+          $ref: '#/definitions/spider.S3BucketCORSRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Set S3 Bucket CORS Configuration
+      tags:
+      - '[S3 Management]'
+  /s3/bucket/cors/enable:
+    post:
+      description: Quick setup CORS for browser-based file uploads
+      parameters:
+      - description: Connection Name
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      - description: Bucket Name
+        in: query
+        name: BucketName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/spider.BooleanInfo'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Enable S3 Bucket CORS for Browser Upload
+      tags:
+      - '[S3 Management]'
   /s3/bucket/object/versions:
     post:
       consumes:
@@ -8669,7 +8751,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Get a presigned URL for S3 object (GET/PUT)
+      description: Get a presigned URL for S3 object (GET/PUT) with CORS support
       parameters:
       - description: Presigned URL info
         in: body
@@ -8692,7 +8774,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/spider.SimpleMsg'
-      summary: Get S3 Presigned URL
+      summary: Get S3 Presigned URL (Enhanced for Browser Upload)
       tags:
       - '[S3 Management]'
   /securitygroup:

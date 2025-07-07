@@ -80,7 +80,6 @@ azure:
       IID:
         nameId: test-create-2
       VpcIID:
-        nameId: nhn-vpc-01
+        nameId:  mcb-test-vpc
       AccessSubnetIIDs:
-        - nameId: nhn-vpc-sb-01
-        - nameId: nhn-vpc-sb-02
+        - nameId: mcb-test-sub-1

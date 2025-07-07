@@ -473,9 +473,10 @@ func RunServer() {
 		{"GET", "/s3/bucket", ListS3Buckets},
 		{"GET", "/s3/bucket/:Name", GetS3Bucket},
 		{"DELETE", "/s3/bucket/:Name", DeleteS3Bucket},
+		{"POST", "/s3/bucket/cors", SetS3BucketCORS},
+		{"POST", "/s3/bucket/cors/enable", EnableS3BucketCORSForUpload},
 
 		// S3 Object Management
-		{"POST", "/s3/object", PutS3ObjectFromFile},
 		{"GET", "/s3/bucket/:BucketName/objectlist", ListS3Objects},
 		{"GET", "/s3/bucket/:BucketName/object", GetS3ObjectInfo},
 		{"DELETE", "/s3/object", DeleteS3Object},
@@ -598,21 +599,26 @@ func RunServer() {
 	}
 
 	// for Standard S3 API
-	// RestRuntime.go의 s3Routes 수정
 	s3Routes := []route{
 		{"GET", "/", ListS3Buckets},
 		{"PUT", "/:Name", CreateS3Bucket},
 		{"HEAD", "/:Name", GetS3Bucket},
 		{"GET", "/:Name", GetS3Bucket},
-		{"GET", "/:Name/", GetS3Bucket}, // trailing slash 처리 추가
+		{"GET", "/:Name/", GetS3Bucket},
 		{"DELETE", "/:Name", DeleteS3Bucket},
+
+		//--------- don't change the order of these routes
+		{"POST", "/:BucketName/:ObjectKey+", HandleS3BucketPost},
+		{"POST", "/:Name", HandleS3BucketPost},
+		{"POST", "/:Name/", HandleS3BucketPost},
+		//--------- don't change the order of these routes
+
 		{"PUT", "/:BucketName/:ObjectKey+", PutS3ObjectFromFile},
 		{"HEAD", "/:BucketName/:ObjectKey+", GetS3ObjectInfo},
 		{"GET", "/:BucketName/:ObjectKey+", DownloadS3Object},
 		{"DELETE", "/:BucketName/:ObjectKey+", DeleteS3Object},
-		{"POST", "/:Name", HandleS3BucketPost},
-		{"POST", "/:Name/", HandleS3BucketPost}, // trailing slash 처리 추가
 	}
+
 	//======================================= setup routes
 
 	// Run API Server
@@ -682,17 +688,17 @@ func ApiServer(routes []route, s3Routes []route) {
 	e.Use(middleware.CORS())
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
-	// Trailing slash 제거 미들웨어 추가
+	// Remove trailing slash middleware
 	e.Pre(middleware.RemoveTrailingSlash())
 
-	// S3 API 요청/응답 로깅 미들웨어
+	// Custom logging for S3 API requests
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			if strings.HasPrefix(c.Request().Header.Get("Authorization"), "AWS4-HMAC-SHA256") {
 				cblog.Infof("S3 API Request: %s %s", c.Request().Method, c.Request().URL.Path)
 				cblog.Debugf("Request Headers: %v", c.Request().Header)
 
-				// Response를 가로채기 위한 custom writer
+				// Capture the response body
 				resBody := new(bytes.Buffer)
 				mw := io.MultiWriter(c.Response().Writer, resBody)
 				writer := &bodyDumpResponseWriter{Writer: mw, ResponseWriter: c.Response().Writer}

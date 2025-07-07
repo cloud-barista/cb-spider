@@ -7109,6 +7109,100 @@ const docTemplate = `{
                 }
             }
         },
+        "/s3/bucket/cors": {
+            "post": {
+                "description": "Configure CORS settings for S3 bucket to allow browser uploads",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Management]"
+                ],
+                "summary": "Set S3 Bucket CORS Configuration",
+                "parameters": [
+                    {
+                        "description": "CORS configuration",
+                        "name": "S3BucketCORSRequest",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/spider.S3BucketCORSRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
+        "/s3/bucket/cors/enable": {
+            "post": {
+                "description": "Quick setup CORS for browser-based file uploads",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[S3 Management]"
+                ],
+                "summary": "Enable S3 Bucket CORS for Browser Upload",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Connection Name",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Bucket Name",
+                        "name": "BucketName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/spider.BooleanInfo"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/s3/bucket/object/versions": {
             "post": {
                 "description": "List all versions of objects in a bucket (versioning enabled)",
@@ -7576,7 +7670,7 @@ const docTemplate = `{
         },
         "/s3/object/presigned-url": {
             "post": {
-                "description": "Get a presigned URL for S3 object (GET/PUT)",
+                "description": "Get a presigned URL for S3 object (GET/PUT) with CORS support",
                 "consumes": [
                     "application/json"
                 ],
@@ -7586,7 +7680,7 @@ const docTemplate = `{
                 "tags": [
                     "[S3 Management]"
                 ],
-                "summary": "Get S3 Presigned URL",
+                "summary": "Get S3 Presigned URL (Enhanced for Browser Upload)",
                 "parameters": [
                     {
                         "description": "Presigned URL info",
@@ -13386,6 +13480,50 @@ const docTemplate = `{
                 }
             }
         },
+        "spider.S3BucketCORSRequest": {
+            "type": "object",
+            "required": [
+                "AllowedMethods",
+                "AllowedOrigins",
+                "BucketName",
+                "ConnectionName"
+            ],
+            "properties": {
+                "AllowedHeaders": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "AllowedMethods": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "AllowedOrigins": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "BucketName": {
+                    "type": "string"
+                },
+                "ConnectionName": {
+                    "type": "string"
+                },
+                "ExposeHeaders": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "MaxAgeSeconds": {
+                    "type": "integer"
+                }
+            }
+        },
         "spider.S3BucketCreateRequest": {
             "type": "object",
             "required": [
@@ -13633,34 +13771,24 @@ const docTemplate = `{
         },
         "spider.S3PresignedURLRequest": {
             "type": "object",
-            "required": [
-                "BucketName",
-                "ConnectionName",
-                "ExpiresSeconds",
-                "Method",
-                "ObjectName"
-            ],
             "properties": {
                 "BucketName": {
-                    "type": "string",
-                    "example": "my-bucket-01"
+                    "type": "string"
                 },
                 "ConnectionName": {
-                    "type": "string",
-                    "example": "aws-s3-conn"
+                    "type": "string"
                 },
                 "ExpiresSeconds": {
-                    "type": "integer",
-                    "example": 3600
+                    "type": "integer"
                 },
                 "Method": {
-                    "description": "\"GET\" or \"PUT\"",
-                    "type": "string",
-                    "example": "GET"
+                    "type": "string"
                 },
                 "ObjectName": {
-                    "type": "string",
-                    "example": "my-object.txt"
+                    "type": "string"
+                },
+                "ResponseContentDisposition": {
+                    "type": "string"
                 }
             }
         },

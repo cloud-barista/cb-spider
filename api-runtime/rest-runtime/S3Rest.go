@@ -9,6 +9,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -135,7 +136,7 @@ func getConnectionName(c echo.Context) (string, bool) {
 		return conn, false
 	}
 
-	cblog.Debug("No connection name found in request")
+	// cblog.Debug("No connection name found in request")
 	return "", false
 }
 
@@ -405,7 +406,7 @@ func GetS3Bucket(c echo.Context) error {
 
 	if isS3Api && c.Request().Method == "GET" {
 		if c.QueryParam("location") != "" {
-			return GetBucketLocation(c)
+			return getBucketLocation(c)
 		}
 
 		if c.QueryParam("acl") == "" &&
@@ -452,8 +453,8 @@ func GetS3Bucket(c echo.Context) error {
 	return c.JSON(http.StatusOK, swaggerBucket)
 }
 
-// GetBucketLocation returns the location (region) of a bucket
-func GetBucketLocation(c echo.Context) error {
+// getBucketLocation returns the location (region) of a bucket
+func getBucketLocation(c echo.Context) error {
 	conn, _ := getConnectionName(c)
 	bucketName := c.Param("Name")
 	bucketName = strings.TrimSuffix(bucketName, "/")
@@ -836,7 +837,7 @@ func GetS3ObjectInfo(c echo.Context) error {
 // @Router /s3/object [post]
 func PutS3ObjectFromFile(c echo.Context) error {
 	if c.QueryParam("uploadId") != "" && c.QueryParam("partNumber") != "" {
-		return UploadPart(c)
+		return uploadPart(c)
 	}
 
 	conn, isS3Api := getConnectionName(c)
@@ -1005,16 +1006,29 @@ func DownloadS3Object(c echo.Context) error {
 	return c.Stream(http.StatusOK, "application/octet-stream", stream)
 }
 
+// S3PresignedURLRequest with CORS option
 type S3PresignedURLRequest struct {
-	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-s3-conn"`
-	BucketName     string `json:"BucketName" validate:"required" example:"my-bucket-01"`
-	ObjectName     string `json:"ObjectName" validate:"required" example:"my-object.txt"`
-	Method         string `json:"Method" validate:"required" example:"GET"` // "GET" or "PUT"
-	ExpiresSeconds int    `json:"ExpiresSeconds" validate:"required" example:"3600"`
+	ConnectionName             string `json:"ConnectionName"`
+	BucketName                 string `json:"BucketName"`
+	ObjectName                 string `json:"ObjectName"`
+	Method                     string `json:"Method"`
+	ExpiresSeconds             int64  `json:"ExpiresSeconds"`
+	ResponseContentDisposition string `json:"ResponseContentDisposition,omitempty"`
 }
 
-// @Summary Get S3 Presigned URL
-// @Description Get a presigned URL for S3 object (GET/PUT)
+// S3BucketCORSRequest for setting bucket CORS
+type S3BucketCORSRequest struct {
+	ConnectionName string   `json:"ConnectionName" validate:"required"`
+	BucketName     string   `json:"BucketName" validate:"required"`
+	AllowedOrigins []string `json:"AllowedOrigins" validate:"required"`
+	AllowedMethods []string `json:"AllowedMethods" validate:"required"`
+	AllowedHeaders []string `json:"AllowedHeaders"`
+	ExposeHeaders  []string `json:"ExposeHeaders"`
+	MaxAgeSeconds  int      `json:"MaxAgeSeconds"`
+}
+
+// @Summary Get S3 Presigned URL (Enhanced for Browser Upload)
+// @Description Get a presigned URL for S3 object (GET/PUT) with CORS support
 // @Tags [S3 Management]
 // @Accept json
 // @Produce json
@@ -1028,11 +1042,94 @@ func GetS3PresignedURL(c echo.Context) error {
 	if err := c.Bind(&req); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
-	url, err := cmrt.GetS3PresignedURL(req.ConnectionName, req.BucketName, req.ObjectName, req.Method, int64(req.ExpiresSeconds))
+
+	url, err := cmrt.GetS3PresignedURL(
+		req.ConnectionName,
+		req.BucketName,
+		req.ObjectName,
+		req.Method,
+		int64(req.ExpiresSeconds),
+		req.ResponseContentDisposition,
+	)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
+
 	return c.JSON(http.StatusOK, S3PresignedURL{PresignedURL: url})
+}
+
+// @Summary Set S3 Bucket CORS Configuration
+// @Description Configure CORS settings for S3 bucket to allow browser uploads
+// @Tags [S3 Management]
+// @Accept json
+// @Produce json
+// @Param S3BucketCORSRequest body restruntime.S3BucketCORSRequest true "CORS configuration"
+// @Success 200 {object} restruntime.BooleanInfo
+// @Failure 400 {object} restruntime.SimpleMsg
+// @Failure 500 {object} restruntime.SimpleMsg
+// @Router /s3/bucket/cors [post]
+func SetS3BucketCORS(c echo.Context) error {
+	var req S3BucketCORSRequest
+	if err := c.Bind(&req); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	// Default CORS configuration if not provided
+	if len(req.AllowedOrigins) == 0 {
+		req.AllowedOrigins = []string{"*"}
+	}
+	if len(req.AllowedMethods) == 0 {
+		req.AllowedMethods = []string{"GET", "PUT", "POST", "DELETE", "HEAD"}
+	}
+	if len(req.AllowedHeaders) == 0 {
+		req.AllowedHeaders = []string{"*"}
+	}
+	if len(req.ExposeHeaders) == 0 {
+		req.ExposeHeaders = []string{"ETag", "x-amz-server-side-encryption", "x-amz-request-id", "x-amz-id-2"}
+	}
+	if req.MaxAgeSeconds == 0 {
+		req.MaxAgeSeconds = 3600
+	}
+
+	result, err := cmrt.SetS3BucketCORS(req.ConnectionName, req.BucketName, req.AllowedOrigins, req.AllowedMethods, req.AllowedHeaders, req.ExposeHeaders, req.MaxAgeSeconds)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, BooleanInfo{Result: strconv.FormatBool(result)})
+}
+
+// @Summary Enable S3 Bucket CORS for Browser Upload
+// @Description Quick setup CORS for browser-based file uploads
+// @Tags [S3 Management]
+// @Produce json
+// @Param ConnectionName query string true "Connection Name"
+// @Param BucketName query string true "Bucket Name"
+// @Success 200 {object} restruntime.BooleanInfo
+// @Failure 400 {object} restruntime.SimpleMsg
+// @Failure 500 {object} restruntime.SimpleMsg
+// @Router /s3/bucket/cors/enable [post]
+func EnableS3BucketCORSForUpload(c echo.Context) error {
+	conn := c.QueryParam("ConnectionName")
+	bucket := c.QueryParam("BucketName")
+
+	if conn == "" || bucket == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "ConnectionName and BucketName are required")
+	}
+
+	// Standard CORS configuration for browser uploads
+	allowedOrigins := []string{"*"}
+	allowedMethods := []string{"GET", "PUT", "POST", "DELETE", "HEAD"}
+	allowedHeaders := []string{"*"}
+	exposeHeaders := []string{"ETag", "x-amz-server-side-encryption", "x-amz-request-id", "x-amz-id-2", "x-amz-version-id"}
+	maxAgeSeconds := 3600
+
+	result, err := cmrt.SetS3BucketCORS(conn, bucket, allowedOrigins, allowedMethods, allowedHeaders, exposeHeaders, maxAgeSeconds)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, BooleanInfo{Result: strconv.FormatBool(result)})
 }
 
 type S3BucketACLRequest struct {
@@ -1282,41 +1379,78 @@ func ListS3ObjectVersions(c echo.Context) error {
 
 // HandleS3BucketPost handles various POST operations on S3 bucket
 func HandleS3BucketPost(c echo.Context) error {
-	if c.QueryParam("uploads") != "" {
-		return InitiateMultipartUpload(c)
+	// 1. multipart upload start
+	if c.QueryParam("uploads") != "" || c.QueryParams().Has("uploads") {
+		return initiateMultipartUpload(c)
 	}
+
+	// 2. multipart upload complete
 	if c.QueryParam("uploadId") != "" {
-		return CompleteMultipartUpload(c)
-	}
-	if c.QueryParam("delete") != "" {
-		return DeleteMultipleObjects(c)
+		return completeMultipartUpload(c)
 	}
 
+	// 3. delete multiple objects
+	if c.QueryParam("delete") != "" ||
+		c.QueryParams().Has("delete") ||
+		strings.Contains(c.Request().URL.RawQuery, "delete") {
+		return deleteMultipleObjects(c)
+	}
+
+	// 4. XML-based delete operation
 	contentType := c.Request().Header.Get("Content-Type")
-	if strings.Contains(contentType, "application/xml") || c.Request().Header.Get("Content-MD5") != "" {
-		cblog.Info("Bulk delete request detected")
-		return DeleteMultipleObjects(c)
+	if c.Request().ContentLength > 0 && (contentType == "" || contentType == "application/xml") {
+		bodyBytes, err := io.ReadAll(c.Request().Body)
+		if err == nil {
+			c.Request().Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+			if strings.Contains(string(bodyBytes[:min(len(bodyBytes), 100)]), "<Delete") {
+				return deleteMultipleObjects(c)
+			}
+		}
 	}
 
+	// 5. browser-based form upload
 	if strings.Contains(contentType, "multipart/form-data") {
-		return PostObject(c)
+		return postObject(c)
 	}
 
-	return DeleteMultipleObjects(c)
+	// fallback
+	return returnS3Error(c, http.StatusBadRequest, "InvalidRequest", "Unsupported POST request", c.Path())
 }
 
-// InitiateMultipartUpload initiates a multipart upload
-func InitiateMultipartUpload(c echo.Context) error {
-	conn, isS3Api := getConnectionName(c)
-	bucket := c.Param("Name")
-	if bucket == "" {
-		bucket = c.Param("BucketName")
+// min helper function
+func min(a, b int) int {
+	if a < b {
+		return a
 	}
-	key := c.QueryParam("key")
+	return b
+}
+
+func initiateMultipartUpload(c echo.Context) error {
+	conn, isS3Api := getConnectionName(c)
+
+	bucket := c.Param("BucketName")
+	if bucket == "" {
+		bucket = c.Param("Name")
+	}
+
+	key := c.Param("ObjectKey+")
+	if key == "" {
+		key = c.Param("*")
+	}
+	if key == "" {
+		key = c.QueryParam("key")
+	}
 
 	if key == "" {
 		if isS3Api {
-			return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "key parameter is required", "/"+bucket)
+			return returnS3Error(
+				c,
+				http.StatusBadRequest,
+				"MissingParameter",
+				"key parameter is required",
+				"/"+bucket,
+			)
 		}
 		return echo.NewHTTPError(http.StatusBadRequest, "key parameter is required")
 	}
@@ -1369,8 +1503,8 @@ func InitiateMultipartUpload(c echo.Context) error {
 	})
 }
 
-// CompleteMultipartUpload completes a multipart upload
-func CompleteMultipartUpload(c echo.Context) error {
+// completeMultipartUpload completes a multipart upload
+func completeMultipartUpload(c echo.Context) error {
 	conn, isS3Api := getConnectionName(c)
 	bucket := c.Param("Name")
 	if bucket == "" {
@@ -1463,8 +1597,8 @@ func CompleteMultipartUpload(c echo.Context) error {
 	})
 }
 
-// DeleteMultipleObjects deletes multiple objects from S3
-func DeleteMultipleObjects(c echo.Context) error {
+// deleteMultipleObjects deletes multiple objects from S3
+func deleteMultipleObjects(c echo.Context) error {
 	conn, isS3Api := getConnectionName(c)
 	bucket := c.Param("Name")
 	if bucket == "" {
@@ -1495,14 +1629,63 @@ func DeleteMultipleObjects(c echo.Context) error {
 
 	cblog.Infof("Deleting %d objects from bucket %s", len(req.Objects), bucket)
 
+	// Filter out empty keys
 	var keys []string
 	for _, obj := range req.Objects {
-		keys = append(keys, obj.Key)
-		cblog.Debugf("Object to delete: %s", obj.Key)
+		if obj.Key != "" {
+			keys = append(keys, obj.Key)
+			cblog.Debugf("Object to delete: %s", obj.Key)
+		} else {
+			cblog.Warnf("Skipping empty key in delete request")
+		}
+	}
+
+	// If no valid keys, return error
+	if len(keys) == 0 {
+		if isS3Api {
+			return returnS3Error(c, http.StatusBadRequest, "MalformedXML", "No valid keys provided", "/"+bucket)
+		}
+		return echo.NewHTTPError(http.StatusBadRequest, "No valid keys provided")
 	}
 
 	results, err := cmrt.DeleteMultipleObjects(conn, bucket, keys)
-	if err != nil {
+
+	// Check if all results indicate "not implemented"
+	allNotImplemented := false
+	if err == nil && len(results) > 0 {
+		notImplementedCount := 0
+		for _, result := range results {
+			if !result.Success && strings.Contains(result.Error, "not implemented") {
+				notImplementedCount++
+			}
+		}
+		if notImplementedCount == len(results) {
+			allNotImplemented = true
+		}
+	}
+
+	// If error indicates not implemented or all results are not implemented, fall back to individual deletes
+	if (err != nil && (strings.Contains(err.Error(), "not implemented") || strings.Contains(err.Error(), "NotImplemented"))) || allNotImplemented {
+		cblog.Warnf("Bulk delete not supported, falling back to individual deletes")
+
+		results = []cmrt.DeleteResult{}
+		for _, key := range keys {
+			_, deleteErr := cmrt.DeleteS3Object(conn, bucket, key)
+			if deleteErr != nil {
+				results = append(results, cmrt.DeleteResult{
+					Key:     key,
+					Success: false,
+					Error:   deleteErr.Error(),
+				})
+			} else {
+				results = append(results, cmrt.DeleteResult{
+					Key:     key,
+					Success: true,
+				})
+			}
+		}
+	} else if err != nil {
+		// Other errors
 		cblog.Errorf("Failed to delete multiple objects: %v", err)
 		if isS3Api {
 			return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucket)
@@ -1536,10 +1719,24 @@ func DeleteMultipleObjects(c echo.Context) error {
 			if result.Success {
 				resp.Deleted = append(resp.Deleted, Deleted{Key: result.Key})
 			} else {
+				// Map common error messages to S3 error codes
+				errorCode := "InternalError"
+				errorMsg := result.Error
+
+				if strings.Contains(result.Error, "not found") ||
+					strings.Contains(result.Error, "NoSuchKey") {
+					errorCode = "NoSuchKey"
+				} else if strings.Contains(result.Error, "access denied") ||
+					strings.Contains(result.Error, "AccessDenied") {
+					errorCode = "AccessDenied"
+				} else if strings.Contains(result.Error, "not implemented") {
+					errorCode = "NotImplemented"
+				}
+
 				resp.Error = append(resp.Error, Error{
 					Key:     result.Key,
-					Code:    "InternalError",
-					Message: result.Error,
+					Code:    errorCode,
+					Message: errorMsg,
 				})
 			}
 		}
@@ -1559,8 +1756,8 @@ func DeleteMultipleObjects(c echo.Context) error {
 	return c.JSON(http.StatusOK, results)
 }
 
-// PostObject handles browser-based file upload using HTML form
-func PostObject(c echo.Context) error {
+// postObject handles browser-based file upload using HTML form
+func postObject(c echo.Context) error {
 	conn, isS3Api := getConnectionName(c)
 	bucket := c.Param("Name")
 	if bucket == "" {
@@ -1635,8 +1832,8 @@ func PostObject(c echo.Context) error {
 	})
 }
 
-// UploadPart uploads a part in a multipart upload
-func UploadPart(c echo.Context) error {
+// uploadPart uploads a part in a multipart upload
+func uploadPart(c echo.Context) error {
 	conn, isS3Api := getConnectionName(c)
 	bucket := c.Param("BucketName")
 	key := c.Param("ObjectKey+")

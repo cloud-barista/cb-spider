@@ -513,7 +513,7 @@ func RemoveRules(c echo.Context) error {
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
 // @Router /countsecuritygroup [get]
 func CountAllSecurityGroups(c echo.Context) error {
-	cblog.Info("call CountAllSecurityGroups()")
+	// cblog.Info("call CountAllSecurityGroups()")
 
 	count, err := cmrt.CountAllSecurityGroups()
 	if err != nil {
@@ -538,7 +538,7 @@ func CountAllSecurityGroups(c echo.Context) error {
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
 // @Router /countsecuritygroup/{ConnectionName} [get]
 func CountSecurityGroupsByConnection(c echo.Context) error {
-	cblog.Info("call CountSecurityGroupsByConnection()")
+	// cblog.Info("call CountSecurityGroupsByConnection()")
 
 	count, err := cmrt.CountSecurityGroupsByConnection(c.Param("ConnectionName"))
 	if err != nil {
