@@ -116,7 +116,7 @@ func (nf *NhnCloudFileSystemHandler) GetMetaInfo() (irs.FileSystemMetaInfo, erro
 		CapacityGBOptions: map[string]irs.CapacityGBRange{
 			"STANDARD": {
 				Min: 300,
-				Max: 10240,
+				Max: 10000,
 			},
 		},
 
