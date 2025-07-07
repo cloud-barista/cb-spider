@@ -53,7 +53,7 @@ func (nf *NhnCloudFileSystemHandler) ListIID() ([]*irs.IID, error) {
 
 	authToken, err := getTokenFromCredential(nf.CredentialInfo)
 	if err != nil {
-		return nil, fmt.Errorf("토큰 발급 실패: %v", err)
+		return nil, fmt.Errorf("failed to issue authentication token: %v", err)
 	}
 
 	region := strings.ToLower(nf.RegionInfo.Region)
@@ -61,19 +61,19 @@ func (nf *NhnCloudFileSystemHandler) ListIID() ([]*irs.IID, error) {
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("요청 생성 실패: %v", err)
+		return nil, fmt.Errorf("failed to create request: %v", err)
 	}
 	req.Header.Add("X-Auth-Token", authToken)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("NAS 목록 조회 실패: %v", err)
+		return nil, fmt.Errorf("failed to fetch NAS list: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("NAS 목록 응답 오류 [%d]: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("failed to parse NAS response [%d]: %s", resp.StatusCode, string(body))
 	}
 
 	var result struct {
