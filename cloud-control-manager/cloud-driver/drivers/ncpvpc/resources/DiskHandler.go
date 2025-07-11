@@ -28,7 +28,8 @@ import (
 )
 
 const (
-	DefaultDiskSize	string = "10"
+	DefaultDiskSize	string = "100"
+	// DefaultDiskSize	string = "10" : makes an error
 )
 
 type NcpVpcDiskHandler struct {
@@ -36,7 +37,7 @@ type NcpVpcDiskHandler struct {
 	VMClient      *vserver.APIClient
 }
 
-// Caution : Incase of NCP VPC, there must be a created VM to create a new disk volume.
+// ### Caution : Incase of NCP VPC, there must be a created VM to create a new disk volume.
 func (diskHandler *NcpVpcDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.DiskInfo, error) {
 	cblogger.Info("NCP VPC Driver: called CreateDisk()")	
 	InitLog()
@@ -49,6 +50,103 @@ func (diskHandler *NcpVpcDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.
 		return irs.DiskInfo{}, newErr
 	}
 	
+	// ### In case of KVM based VM and Bockstorage
+	// ### Bloack storage size : In case of KVM Block Storage : Min : 100, Max : 16380 GB(in 10 GB increments)
+	// The API manual is incorrect.
+	reqDiskType := diskReqInfo.DiskType  // Option : 'default', 'SSD' or 'HDD'
+	reqDiskSizeGbStr := diskReqInfo.DiskSize
+
+	var reqDiskTypeKVM string
+	// In case, Volume Type is not specified.
+	if strings.EqualFold(reqDiskType, "") || strings.EqualFold(reqDiskType, "default") {
+		reqDiskTypeKVM = "FB1"
+	} else if strings.EqualFold(reqDiskType, "SSD") {
+		reqDiskTypeKVM = "FB1"
+	} else if strings.EqualFold(reqDiskType, "HDD") {
+		reqDiskTypeKVM = "CB1"
+	}
+
+	if strings.EqualFold(reqDiskSizeGbStr, "") || strings.EqualFold(reqDiskSizeGbStr, "default") {
+		reqDiskSizeGbStr = DefaultDiskSize  // In case, Volume Size is not specified.
+	}
+	cblogger.Infof("==> reqDiskSizeGbStr : [%s]", reqDiskSizeGbStr)
+
+	// Covert String to Int64
+	reqDiskSizeGbInt64, err := strconv.ParseInt(reqDiskSizeGbStr, 10, 64)
+	if err != nil {
+		newErr := fmt.Errorf("String to Int64 Converting Error!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.DiskInfo{}, newErr
+	}
+
+	// Convert to int32 (but only for 2TB or less)
+	reqDiskSizeGbInt32 := int32(reqDiskSizeGbInt64)
+	cblogger.Infof("==> reqDiskSizeGbInt32 : [%d]", reqDiskSizeGbInt32)
+
+	// if reqDiskSizeInt < 10 || reqDiskSizeInt > 2000 {   // Range : 10~2000(GB)
+	// 	newErr := fmt.Errorf("Invalid Disk Size. Disk Size Must be between 10 and 2000(GB).")
+	// 	cblogger.Error(newErr.Error())
+	// 	return irs.DiskInfo{}, newErr
+	// }
+
+	// For Zone-based control!!
+	var reqZoneId string
+	if strings.EqualFold(diskReqInfo.Zone, "") {
+		reqZoneId = diskHandler.RegionInfo.Zone
+	} else {
+		reqZoneId = diskReqInfo.Zone
+	}
+
+	// Ref) https://api.ncloud-docs.com/docs/compute-vserver-storage-createblockstorageinstance
+    // KVM block storage must not have a serverInstanceNo because it is not supported to be assigned to a server at creation time.
+    // ### Bloack storage size : In case of KVM Block Storage : Min : 100, Max : 16380 GB(in 10 GB increments)
+	storageReq := vserver.CreateBlockStorageInstanceRequest{
+		RegionCode: 					ncloud.String(diskHandler.RegionInfo.Region),
+		ZoneCode: 						ncloud.String(reqZoneId), 				// *** Required for KVM block storage
+		BlockStorageName: 				ncloud.String(diskReqInfo.IId.NameId),
+		BlockStorageSize: 				&reqDiskSizeGbInt32,						// *** Required (Not Optional)
+		// BlockStorageDiskDetailTypeCode: ncloud.String(reqDiskType),				// Only XEN block storage is valid. Options : SSD | HDD (Default : SSD)
+		BlockStorageVolumeTypeCode:		ncloud.String(reqDiskTypeKVM),			// *** Required for KVM block storage. Options : FB1 | CB1 (Not SSD or HDD)
+		// ServerInstanceNo: 				ncloud.String(instanceNo),				// *** Required for XEN block storage.
+	}
+	// cblogger.Info("\n\n### storageReq : ")
+	// spew.Dump(storageReq)
+	// cblogger.Info("\n")
+
+	callLogStart := call.Start()
+	result, err := diskHandler.VMClient.V2Api.CreateBlockStorageInstance(&storageReq)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Create New Disk Volume. : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.DiskInfo{}, newErr
+	}
+	LoggingInfo(callLogInfo, callLogStart)
+
+	if *result.TotalRows < 1 {
+		newErr := fmt.Errorf("Failed to Find the Created New Disk Volume Info!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.DiskInfo{}, newErr
+	} else {
+		cblogger.Info("Succeeded in Creating the Block Storage Volume.")
+	}
+
+	newDiskIID := irs.IID{NameId: *result.BlockStorageInstanceList[0].BlockStorageName, SystemId: *result.BlockStorageInstanceList[0].BlockStorageInstanceNo}
+
+	// Wait for Disk Creation Process finished
+	curStatus, err := diskHandler.waitForDiskCreation(newDiskIID)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Wait for the Disk Creation. [%v]", err.Error())
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.DiskInfo{}, newErr
+	}
+	cblogger.Infof("==> New Disk Volume Status : [%s]", curStatus)
+
+	// ### In case of XEN based VM and Bockstorage
+	/*
 	instanceList, err := diskHandler.getNcpVMList()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get NCP VPC Instacne List. [%v]", err.Error())
@@ -60,16 +158,19 @@ func (diskHandler *NcpVpcDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.
 	instanceNo := *instanceList[0].ServerInstanceNo  // InstanceNo of any VM on the Zone 
 	// cblogger.Infof("# instanceNo : [%v]", instanceNo)
 
+	hypervisorType := *instanceList[0].HypervisorType.CodeName
+	cblogger.Infof("\n\n# hypervisorType : [%s]", hypervisorType)
+	
 	reqDiskType := diskReqInfo.DiskType  // Option : 'default', 'SSD' or 'HDD'
 	reqDiskSize := diskReqInfo.DiskSize  // Range : 10~2000(GB)
 
 	if strings.EqualFold(reqDiskType, "") || strings.EqualFold(reqDiskType, "default") {
 		reqDiskType = "SSD"  // In case, Volume Type is not specified.
-	}		
+	}
 	if strings.EqualFold(reqDiskSize, "") || strings.EqualFold(reqDiskSize, "default") {
 		reqDiskSize = DefaultDiskSize  // In case, Volume Size is not specified.
-	} 
-	
+	}
+		
 	// Covert String to Int32
 	i, err := strconv.ParseInt(reqDiskSize, 10, 32)
 	if err != nil {
@@ -91,14 +192,22 @@ func (diskHandler *NcpVpcDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.
 		reqZoneId = diskReqInfo.Zone
 	}
 
+	// Caution) Different for Zen hypervisor and KVM hypervisor
+	// Ref) https://api.ncloud-docs.com/docs/compute-vserver-storage-createblockstorageinstance
+
+	// For XEN block storage, must be assigned to a server when the block storage is initially created 
+    // KVM block storage must not have a serverInstanceNo because it is not supported to be assigned to a server at creation time.
+    // Bloack storage size : XEN Block Storage : Min: 10, Max: 2000 GB, KVM Block Storage : Min : 10, Max : 16380 GB(in 10 GB increments)
 	storageReq := vserver.CreateBlockStorageInstanceRequest{
 		RegionCode: 					ncloud.String(diskHandler.RegionInfo.Region),
+		ZoneCode: 						ncloud.String(reqZoneId), 				// *** Required for KVM block storage
 		BlockStorageName: 				ncloud.String(diskReqInfo.IId.NameId),
 		BlockStorageSize: 				&reqDiskSizeInt,						// *** Required (Not Optional)
-		BlockStorageDiskDetailTypeCode: ncloud.String(reqDiskType),
-		ServerInstanceNo: 				ncloud.String(instanceNo),				// *** Required (Not Optional)
-		ZoneCode: 						ncloud.String(reqZoneId), // Apply Zone-based control!!
+		BlockStorageDiskDetailTypeCode: ncloud.String(reqDiskType),				// Only XEN block storage is valid. Options : SSD | HDD (Default : SSD)
+		BlockStorageVolumeTypeCode:		ncloud.String(reqDiskTypeKVM),			// *** Required for KVM block storage. Options : FB1 | CB1 (Not SSD or HDD)
+		ServerInstanceNo: 				ncloud.String(instanceNo),				// *** Required for XEN block storage.
 	}
+
 	callLogStart := call.Start()
 	result, err := diskHandler.VMClient.V2Api.CreateBlockStorageInstance(&storageReq)
 	if err != nil {
@@ -154,6 +263,7 @@ func (diskHandler *NcpVpcDiskHandler) CreateDisk(diskReqInfo irs.DiskInfo) (irs.
 		cblogger.Error(newErr.Error())
 		return irs.DiskInfo{}, newErr
 	}
+	*/
 
 	newDiskInfo, err := diskHandler.GetDisk(newDiskIID)
 	if err != nil {
@@ -644,6 +754,14 @@ func (diskHandler *NcpVpcDiskHandler) mappingDiskInfo(storage vserver.BlockStora
 		return irs.DiskInfo{}, newErr
 	}
 
+	// ### The API return value is incorrect. (because HDD and SSD are reversed)
+	var diskType string
+	if strings.EqualFold(ncloud.StringValue(storage.BlockStorageDiskDetailType.Code), "HDD") {
+		diskType = "SSD"
+	} else if strings.EqualFold(ncloud.StringValue(storage.BlockStorageDiskDetailType.Code), "SSD") {
+		diskType = "HDD"
+	}	
+
 	diskInfo := irs.DiskInfo{
 		IId: irs.IID{
 			NameId: 	ncloud.StringValue(storage.BlockStorageName),
@@ -653,7 +771,7 @@ func (diskHandler *NcpVpcDiskHandler) mappingDiskInfo(storage vserver.BlockStora
 		DiskSize:    	strconv.FormatInt((*storage.BlockStorageSize)/(1024*1024*1024), 10),
 		Status:		 	convertDiskStatus(ncloud.StringValue(storage.BlockStorageInstanceStatusName)), // Not BlockStorageInstanceStatus.Code
 		CreatedTime: 	convertedTime,
-		DiskType: 	 	ncloud.StringValue(storage.BlockStorageDiskDetailType.Code),
+		DiskType: 	 	diskType,
 		KeyValueList:   irs.StructToKeyValueList(storage),
 	}
 
@@ -675,7 +793,6 @@ func (diskHandler *NcpVpcDiskHandler) mappingDiskInfo(storage vserver.BlockStora
 			SystemId: 	ncloud.StringValue(storage.ServerInstanceNo),
 		}
 	}
-
 
 	// keyValueList := []irs.KeyValue{
 	// 	{Key: "DeviceName",   			Value: ncloud.StringValue(storage.DeviceName)},				
