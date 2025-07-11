@@ -214,12 +214,22 @@ func (nvch *NcpVpcClusterHandler) createCluster(clusterReqInfo *irs.ClusterInfo)
 		if err != nil {
 			return "", fmt.Errorf("failed to create private LB subnet: %v", err)
 		}
+		// VPC 재조회
+		vpc, err = vpcHandler.GetVPC(vpcIID)
+		if err != nil {
+			return "", fmt.Errorf("failed to get VPC after private LB subnet creation: %v", err)
+		}
 		availSubnets = availSubnets[1:]
 	}
 	if !existPublicLbSubnet {
 		err = nvch.addSubnetAndWait(vpc.IId.SystemId, defaultPublicLbSubnetForK8s, availSubnets[0], subnetTypeCodePublic, usageTypeCodeLoadb)
 		if err != nil {
 			return "", fmt.Errorf("failed to create public LB subnet: %v", err)
+		}
+		// VPC 재조회
+		vpc, err = vpcHandler.GetVPC(vpcIID)
+		if err != nil {
+			return "", fmt.Errorf("failed to get VPC after public LB subnet creation: %v", err)
 		}
 	}
 
