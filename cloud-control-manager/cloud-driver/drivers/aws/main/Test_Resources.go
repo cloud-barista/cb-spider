@@ -2093,18 +2093,14 @@ func handleMyImage() {
 	}
 	handler := ResourceHandler.(irs.MyImageHandler)
 
-	reqIID := irs.IID{NameId: "tag-test", SystemId: "ami-03cda261fe3252863"}
-	reqKey := "tag3"
-	reqInfo := irs.MyImageInfo{
-		IId:      reqIID,
-		SourceVM: irs.IID{SystemId: "i-0c65033e158e0fd99"},
+	//config := readConfigFile()
+	//VmID := config.Aws.VmID
 
-		//TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}, {Key: "Name", Value: securityName+"123"}},
-		TagList: []irs.KeyValue{{Key: "Name1", Value: "Tag Name Value1"}, {Key: "Name2", Value: "Tag Name Value2"}},
-	}
+	myImageName := "CB-MyImage-Test"
+	myImageId := "ami-0d6a2bb960481ce68"
 
 	for {
-		fmt.Println("TagHandler Management")
+		fmt.Println("MyImage Management")
 		fmt.Println("0. Quit")
 		fmt.Println("1. MyImage List")
 		fmt.Println("2. MyImage Create")
@@ -2134,46 +2130,210 @@ func handleMyImage() {
 				}
 
 			case 1:
-				cblogger.Infof("Lookup MyImage list")
 				result, err := handler.ListMyImage()
 				if err != nil {
 					cblogger.Info(" MyImage List Lookup Failed : ", err)
 				} else {
 					cblogger.Info("MyImage List Lookup Result")
-					cblogger.Debug(result)
-					cblogger.Infof("Log Level : [%s]", cblog.GetLevel())
-					//spew.Dump(result)
-					cblogger.Info("Number of output results : ", len(result))
+					cblogger.Info(result)
+
+					if result != nil {
+						myImageId = result[0].IId.SystemId // 조회 및 삭제를 위해 생성된 ID로 변경
+					}
 				}
 
 			case 2:
-				cblogger.Infof("[%s] MyImage Create Test", reqIID.NameId)
-				result, err := handler.SnapshotVM(reqInfo)
+				cblogger.Infof("[%s] MyImage Create Test", myImageName)
+
+				myImageReqInfo := irs.MyImageInfo{
+					IId: irs.IID{NameId: myImageName},
+					SourceVM: irs.IID{
+						SystemId: "i-0d6a2bb960481ce68", // VM ID
+					},
+					TagList: []irs.KeyValue{{Key: "Name", Value: myImageName}},
+				}
+
+				result, err := handler.SnapshotVM(myImageReqInfo)
 				if err != nil {
-					cblogger.Infof(reqIID.NameId, " MyImage Create Failed : ", err)
+					cblogger.Infof(myImageName, " MyImage Create Failed : ", err)
 				} else {
-					cblogger.Info("MyImage Create Result : ", result)
-					reqIID = result.IId
+					cblogger.Infof("[%s] MyImage Create Result : [%v]", myImageName, result)
+					myImageId = result.IId.SystemId
 					spew.Dump(result)
 				}
 
 			case 3:
-				cblogger.Infof("[%s] MyImage Lookup Test - Key[%s]", reqIID.SystemId, reqKey)
-				result, err := handler.GetMyImage(reqIID)
+				cblogger.Infof("[%s] MyImage Lookup Test", myImageId)
+				result, err := handler.GetMyImage(irs.IID{SystemId: myImageId})
 				if err != nil {
-					cblogger.Infof("[%s] MyImage Lookup Failed : [%v]", reqKey, err)
+					cblogger.Infof(myImageId, " MyImage Lookup Failed : ", err)
 				} else {
-					cblogger.Infof("[%s] MyImage Lookup Result : [%s]", reqKey, result)
+					cblogger.Infof("[%s] MyImage Lookup Result : [%v]", myImageId, result)
 					spew.Dump(result)
 				}
 
 			case 4:
-				cblogger.Infof("[%s] MyImage Delete Test - Key[%s]", reqIID.SystemId, reqKey)
-				result, err := handler.DeleteMyImage(reqIID)
+				cblogger.Infof("[%s] MyImage Delete Test", myImageId)
+				result, err := handler.DeleteMyImage(irs.IID{SystemId: myImageId})
 				if err != nil {
-					cblogger.Infof("[%s] MyImage Delete Failed : [%v]", reqKey, err)
+					cblogger.Infof(myImageId, " MyImage Delete Failed : ", err)
 				} else {
-					cblogger.Infof("[%s] MyImage Delete Result : [%v]", reqKey, result)
+					cblogger.Infof("[%s] MyImage Delete Result : [%v]", myImageId, result)
+				}
+			}
+		}
+	}
+}
+
+func handleFileSystem() {
+	cblogger.Debug("Start FileSystem Resource Test")
+
+	ResourceHandler, err := getResourceHandler("FileSystem")
+	if err != nil {
+		panic(err)
+	}
+	handler := ResourceHandler.(irs.FileSystemHandler)
+
+	fileSystemName := "CB-FileSystem-Test"
+	fileSystemId := "fs-03e7efece09ee8a48"
+	subnetId := "subnet-0bfe6a60232e5bb3b" // vpc-c0479cab // ap-northeast-2a
+
+	for {
+		fmt.Println("FileSystem Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. Get Meta Info")
+		fmt.Println("2. FileSystem List")
+		fmt.Println("3. FileSystem Create")
+		fmt.Println("4. FileSystem Get")
+		fmt.Println("5. FileSystem Delete")
+		fmt.Println("6. Add Access Subnet")
+		fmt.Println("7. Remove Access Subnet")
+		fmt.Println("8. List Access Subnet")
+		fmt.Println("9. ListIID")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				cblogger.Info("Get Meta Info Test")
+				result, err := handler.GetMetaInfo()
+				if err != nil {
+					cblogger.Info("Get Meta Info Failed : ", err)
+				} else {
+					cblogger.Info("Get Meta Info Result")
+					spew.Dump(result)
+				}
+
+			case 2:
+				result, err := handler.ListFileSystem()
+				if err != nil {
+					cblogger.Info("FileSystem List Lookup Failed : ", err)
+				} else {
+					cblogger.Info("FileSystem List Lookup Result")
+					// cblogger.Info(result)
+					spew.Dump(result)
+					if result != nil && len(result) > 0 {
+						fileSystemId = result[0].IId.SystemId // 조회 및 삭제를 위해 생성된 ID로 변경
+						cblogger.Infof("Total number of file systems: %d", len(result))
+					}
+				}
+
+			case 3:
+				cblogger.Infof("[%s] FileSystem Create Test", fileSystemName)
+
+				fileSystemReqInfo := irs.FileSystemInfo{
+					IId: irs.IID{NameId: fileSystemName},
+					VpcIID: irs.IID{
+						SystemId: "vpc-0a48d45f6bc3a71da", // VPC ID
+					},
+				}
+
+				// fileSystemReqInfo := irs.FileSystemInfo{
+				// 	IId: irs.IID{NameId: fileSystemName},
+				// 	VpcIID: irs.IID{
+				// 		SystemId: "vpc-0a48d45f6bc3a71da",
+				// 	},
+				// 	FileSystemType: irs.RegionType,
+				// 	PerformanceInfo: map[string]string{
+				// 		"ThroughputMode":        "Provisioned",
+				// 		"PerformanceMode":       "MaxIO",
+				// 		"ProvisionedThroughput": "128",
+				// 	},
+				// 	Encryption: true,
+				// }
+
+				result, err := handler.CreateFileSystem(fileSystemReqInfo)
+				if err != nil {
+					cblogger.Infof(fileSystemName, " FileSystem Create Failed : ", err)
+				} else {
+					cblogger.Infof("[%s] FileSystem Create Result : [%v]", fileSystemName, result)
+					fileSystemId = result.IId.SystemId
+					spew.Dump(result)
+				}
+
+			case 4:
+				cblogger.Infof("[%s] FileSystem Lookup Test", fileSystemId)
+				result, err := handler.GetFileSystem(irs.IID{SystemId: fileSystemId})
+				if err != nil {
+					cblogger.Infof(fileSystemId, " FileSystem Lookup Failed : ", err)
+				} else {
+					cblogger.Infof("[%s] FileSystem Lookup Result : [%v]", fileSystemId, result)
+					spew.Dump(result)
+				}
+
+			case 5:
+				cblogger.Infof("[%s] FileSystem Delete Test", fileSystemId)
+				result, err := handler.DeleteFileSystem(irs.IID{SystemId: fileSystemId})
+				if err != nil {
+					cblogger.Infof(fileSystemId, " FileSystem Delete Failed : ", err)
+				} else {
+					cblogger.Infof("[%s] FileSystem Delete Result : [%v]", fileSystemId, result)
+				}
+
+			case 6:
+				cblogger.Infof("[%s] Add Access Subnet Test", subnetId)
+				result, err := handler.AddAccessSubnet(irs.IID{SystemId: fileSystemId}, irs.IID{SystemId: subnetId})
+				if err != nil {
+					cblogger.Infof(subnetId, " Add Access Subnet Failed : ", err)
+				} else {
+					cblogger.Infof("[%s] Add Access Subnet Result : [%v]", subnetId, result)
+					spew.Dump(result)
+				}
+
+			case 7:
+				cblogger.Infof("[%s] Remove Access Subnet Test", subnetId)
+				result, err := handler.RemoveAccessSubnet(irs.IID{SystemId: fileSystemId}, irs.IID{SystemId: subnetId})
+				if err != nil {
+					cblogger.Infof(subnetId, " Remove Access Subnet Failed : ", err)
+				} else {
+					cblogger.Infof("[%s] Remove Access Subnet Result : [%v]", subnetId, result)
+				}
+
+			case 8:
+				cblogger.Infof("[%s] List Access Subnet Test", fileSystemId)
+				result, err := handler.ListAccessSubnet(irs.IID{SystemId: fileSystemId})
+				if err != nil {
+					cblogger.Infof(fileSystemId, " List Access Subnet Failed : ", err)
+				} else {
+					cblogger.Infof("[%s] List Access Subnet Result : [%v]", fileSystemId, result)
+					spew.Dump(result)
+				}
+
+			case 9:
+				result, err := handler.ListIID()
+				if err != nil {
+					cblogger.Info(" ListIID Lookup Failed : ", err)
+				} else {
+					cblogger.Info(" ListIID Lookup Result")
+					spew.Dump(result)
 				}
 			}
 		}
@@ -2237,6 +2397,8 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateDiskHandler()
 	case "MyImage":
 		resourceHandler, err = cloudConnection.CreateMyImageHandler()
+	case "FileSystem":
+		resourceHandler, err = cloudConnection.CreateFileSystemHandler()
 	}
 
 	if err != nil {
@@ -2373,18 +2535,19 @@ func main() {
 	//handleTag()
 	// handlePublicIP() // PublicIP 생성 후 conf
 
-	handleVPC()
+	//handleVPC()
 	//handleSecurity()
 	//handleKeyPair()
-	handleVM()
+	//handleVM()
 	//handleDisk()
 	//handleMyImage()
 	//handleNLB()
-	handleCluster()
+	//handleCluster()
 	// handleImage() //AMI
 	// handleVNic() //Lancard
 	//handleVMSpec()
 	//handleRegionZone()
 	//handlePriceInfo()
 	//handleTag()
+	handleFileSystem()
 }
