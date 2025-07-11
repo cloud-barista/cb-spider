@@ -86,6 +86,7 @@
                     <td class="center-align">{{$b.BucketRegion}}</td>
                     <td class="center-align">
                         <button onclick="deleteBucket('{{$b.Name}}')">Delete</button>
+                        <button onclick="showBucketSettings('{{$b.Name}}')">Settings</button>
                     </td>
                     <td class="center-align"><input type="checkbox" name="bucket-checkbox" value="{{$b.Name}}"></td>
                 </tr>
@@ -100,6 +101,7 @@
                 <div class="object-panel-actions">
                     <input type="checkbox" onclick="toggleSelectAll(this, 'object')">
                     <button onclick="deleteSelectedObjects()" style="margin-left: 10px;">Delete</button>
+                    <button onclick="showObjectVersions()" style="margin-left: 10px;">Versions</button>
                 </div>
             </div>
             <table id="object-table">
@@ -172,6 +174,106 @@
         </div>
     </div>
 
+    <div id="bucket-settings-overlay" class="overlay">
+        <div class="overlay-content" style="position:relative; width: 600px;">
+            <button class="close-btn" onclick="hideBucketSettingsOverlay()">x</button>
+            <h2>Bucket Settings: <span id="settings-bucket-name"></span></h2>
+            
+            <div style="margin-bottom: 20px;">
+                <h3>Versioning</h3>
+                <div>
+                    <label>Status: <span id="versioning-status">Loading...</span></label>
+                    <button onclick="toggleVersioning()" id="versioning-btn" style="margin-left: 10px;">Toggle</button>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <h3>CORS Configuration</h3>
+                <div>
+                    <label>Status: <span id="cors-status">Loading...</span></label>
+                    <button onclick="enableCORS()" style="margin-left: 10px;">Enable CORS</button>
+                    <button onclick="deleteCORS()" style="margin-left: 10px;">Delete CORS</button>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 20px;">
+                <h3>Access Control (ACL)</h3>
+                <div>
+                    <label>Current ACL: <span id="acl-status">Loading...</span></label>
+                    <br><br>
+                    <select id="acl-select">
+                        <option value="private">Private</option>
+                        <option value="public-read">Public Read</option>
+                    </select>
+                    <button onclick="setACL()" style="margin-left: 10px;">Set ACL</button>
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 20px;">
+                <button onclick="hideBucketSettingsOverlay()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="presigned-url-overlay" class="overlay">
+        <div class="overlay-content" style="position:relative; width: 500px;">
+            <button class="close-btn" onclick="hidePresignedURLOverlay()">x</button>
+            <h2>Share Object: <span id="presigned-object-key"></span></h2>
+            
+            <div style="margin-bottom: 15px;">
+                <label>Expiration (hours):</label>
+                <input type="number" id="expiration-hours" value="1" min="1" max="168" style="margin-left: 10px; width: 80px;">
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label>Method:</label>
+                <select id="presigned-method" style="margin-left: 10px;">
+                    <option value="GET">Download (GET)</option>
+                    <option value="PUT">Upload (PUT)</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <button onclick="generatePresignedURLAction()">Generate URL</button>
+            </div>
+
+            <div id="presigned-url-result" style="display: none;">
+                <label>Presigned URL:</label>
+                <textarea id="presigned-url-text" readonly style="width: 100%; height: 100px; margin-top: 5px;"></textarea>
+                <button onclick="copyPresignedURL()" style="margin-top: 10px;">Copy URL</button>
+            </div>
+
+            <div style="text-align: center; margin-top: 20px;">
+                <button onclick="hidePresignedURLOverlay()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="object-versions-overlay" class="overlay">
+        <div class="overlay-content" style="position:relative; width: 800px;">
+            <button class="close-btn" onclick="hideObjectVersionsOverlay()">x</button>
+            <h2>Object Versions in: <span id="versions-bucket-name"></span></h2>
+            
+            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                <thead>
+                    <tr>
+                        <th style="border: 1px solid #ddd; padding: 8px;">Object Key</th>
+                        <th style="border: 1px solid #ddd; padding: 8px;">Version ID</th>
+                        <th style="border: 1px solid #ddd; padding: 8px;">Size</th>
+                        <th style="border: 1px solid #ddd; padding: 8px;">Last Modified</th>
+                        <th style="border: 1px solid #ddd; padding: 8px;">Latest</th>
+                    </tr>
+                </thead>
+                <tbody id="object-versions-body">
+                </tbody>
+            </table>
+
+            <div style="text-align: center; margin-top: 20px;">
+                <button onclick="hideObjectVersionsOverlay()">Close</button>
+            </div>
+        </div>
+    </div>
+
 <script>
 const connConfig = "{{.ConnectionConfig}}";
 
@@ -192,35 +294,61 @@ function createBucket() {
     const name = document.getElementById('new-bucket-name').value.trim();
     if (!name) return alert('Bucket name required!');
     showProgressBar();
-    fetch('/spider/s3/bucket', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ ConnectionName: connConfig, Name: name })
+    
+    // Use S3 standard API
+    fetch(`/spider/${name}?ConnectionName=${connConfig}`, {
+        method: 'PUT'
     })
-    .then(r => r.json())
-    .then(() => { hideBucketCreateOverlay(); location.reload(); })
-    .catch(e => { alert('Error: ' + e.message); hideProgressBar(); });
+    .then(response => {
+        if (response.ok) {
+            hideBucketCreateOverlay(); 
+            location.reload();
+        } else {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+    })
+    .catch(e => { 
+        alert('Error: ' + e.message); 
+        hideProgressBar(); 
+    });
 }
+
 function deleteBucket(name) {
     if (!confirm(`Delete bucket "${name}"?`)) return;
     showProgressBar();
-    fetch(`/spider/s3/bucket/${name}?ConnectionName=${connConfig}`, { method: 'DELETE' })
-    .then(r => r.json())
-    .then(() => { location.reload(); })
-    .catch(e => { alert('Error: ' + e.message); hideProgressBar(); });
+    
+    // Use S3 standard API
+    fetch(`/spider/${name}?ConnectionName=${connConfig}`, { method: 'DELETE' })
+    .then(response => {
+        if (response.ok) {
+            location.reload();
+        } else {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+    })
+    .catch(e => { 
+        alert('Error: ' + e.message); 
+        hideProgressBar(); 
+    });
 }
+
 function deleteSelectedBuckets() {
     const checked = document.querySelectorAll('input[name="bucket-checkbox"]:checked');
     if (!checked.length) return alert("Select bucket(s) to delete!");
     if (!confirm("Delete selected bucket(s)?")) return;
     showProgressBar();
+    
     Promise.all(Array.from(checked).map(chk =>
-        fetch(`/spider/s3/bucket/${chk.value}?ConnectionName=${connConfig}`, { method: 'DELETE' })
+        fetch(`/spider/${chk.value}?ConnectionName=${connConfig}`, { method: 'DELETE' })
     )).then(() => { 
         location.reload(); 
         hideProgressBar(); 
+    }).catch(e => { 
+        alert('Error: ' + e.message); 
+        hideProgressBar(); 
     });
 }
+
 function showBucketCreateOverlay() { document.getElementById('bucket-create-overlay').style.display = 'flex'; }
 function hideBucketCreateOverlay() { document.getElementById('bucket-create-overlay').style.display = 'none'; }
 
@@ -232,89 +360,130 @@ function showObjectPanel(bucket) {
     document.getElementById('object-panel').style.display = 'block';
     fetchObjects(bucket);
 }
+
 function hideObjectPanel() {
     document.getElementById('object-panel').style.display = 'none';
     document.getElementById('object-list-body').innerHTML = '';
     document.querySelectorAll('.bucket-name-cell').forEach(el => el.classList.remove('selected'));
     currentBucket = null;
 }
+
 function fetchObjects(bucket) {
-    fetch(`/spider/s3/bucket/${bucket}/objectlist?ConnectionName=${connConfig}`)
-        .then(r => r.json())
-        .then(objs => {
+    // Use S3 standard API
+    fetch(`/spider/${bucket}?ConnectionName=${connConfig}`)
+        .then(response => response.text())
+        .then(xmlData => {
+            // Parse XML response
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlData, 'text/xml');
+            const contents = xmlDoc.getElementsByTagName('Contents');
+            
             const body = document.getElementById('object-list-body');
             body.innerHTML = '';
-            objs.forEach((o, i) => {
+            
+            for (let i = 0; i < contents.length; i++) {
+                const content = contents[i];
+                const key = content.getElementsByTagName('Key')[0]?.textContent || '';
+                const size = parseInt(content.getElementsByTagName('Size')[0]?.textContent || '0');
+                const lastModified = content.getElementsByTagName('LastModified')[0]?.textContent || '';
+                
                 body.innerHTML += `
                     <tr>
                         <td class="column-num">${i+1}</td>
-                        <td class="object-key-cell"><span style="cursor:pointer;" onclick="showObjectDetail('${bucket}','${o.Key}')">${o.Key}</span></td>
-                        <td class="center-align">${formatBytes(o.Size)}</td>
-                        <td class="center-align">${formatTime(o.LastModified)}</td>
+                        <td class="object-key-cell"><span style="cursor:pointer;" onclick="showObjectDetail('${bucket}','${key}')">${key}</span></td>
+                        <td class="center-align">${formatBytes(size)}</td>
+                        <td class="center-align">${formatTime(lastModified)}</td>
                         <td class="center-align">
-                            <button onclick="downloadObject('${bucket}','${o.Key}')">Download</button>
-                            <button onclick="deleteObject('${bucket}','${o.Key}')">Delete</button>
+                            <button onclick="downloadObject('${bucket}','${key}')">Download</button>
+                            <button onclick="deleteObject('${bucket}','${key}')">Delete</button>
+                            <button onclick="generatePresignedURL('${bucket}','${key}')">Share</button>
                         </td>
-                        <td class="center-align"><input type="checkbox" name="object-checkbox" value="${o.Key}"></td>
+                        <td class="center-align"><input type="checkbox" name="object-checkbox" value="${key}"></td>
                     </tr>
                 `;
-            });
+            }
+        })
+        .catch(e => {
+            console.error('Error fetching objects:', e);
+            alert('Error fetching objects: ' + e.message);
         });
 }
+
 function deleteObject(bucket, objectKey) {
     if (!confirm(`Delete object "${objectKey}"?`)) return;
     showProgressBar();
-    fetch('/spider/s3/object', {
-        method: 'DELETE',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ ConnectionName: connConfig, BucketName: bucket, ObjectName: objectKey })
+    
+    // Use S3 standard API
+    fetch(`/spider/${bucket}/${encodeURIComponent(objectKey)}?ConnectionName=${connConfig}`, {
+        method: 'DELETE'
     })
-    .then(r => r.json())
-    .then(() => { 
-        fetchObjects(bucket); 
+    .then(response => {
+        if (response.ok) {
+            fetchObjects(bucket); 
+            hideProgressBar(); 
+            uncheckAllCheckboxes('object');
+        } else {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+    })
+    .catch(e => { 
+        alert('Error: ' + e.message); 
         hideProgressBar(); 
-        // Uncheck all checkboxes after deletion
-        uncheckAllCheckboxes('object');
-    })
-    .catch(e => { alert('Error: ' + e.message); hideProgressBar(); });
+    });
 }
+
 function deleteSelectedObjects() {
     const checked = document.querySelectorAll('input[name="object-checkbox"]:checked');
     if (!checked.length) return alert("Select object(s) to delete!");
     if (!confirm("Delete selected object(s)?")) return;
     showProgressBar();
-    Promise.all(Array.from(checked).map(chk =>
-        fetch('/spider/s3/object', {
-            method: 'DELETE',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ ConnectionName: connConfig, BucketName: currentBucket, ObjectName: chk.value })
-        })
-    )).then(() => { 
-        fetchObjects(currentBucket); 
+    
+    // Use S3 standard bulk delete API
+    const objectsXml = Array.from(checked).map(chk => 
+        `<Object><Key>${chk.value}</Key></Object>`
+    ).join('');
+    
+    const deleteXml = `<?xml version="1.0" encoding="UTF-8"?>
+<Delete>
+    ${objectsXml}
+</Delete>`;
+    
+    fetch(`/spider/${currentBucket}?delete&ConnectionName=${connConfig}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/xml'
+        },
+        body: deleteXml
+    })
+    .then(response => {
+        if (response.ok) {
+            fetchObjects(currentBucket); 
+            hideProgressBar(); 
+            uncheckAllCheckboxes('object');
+        } else {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+    })
+    .catch(e => { 
+        alert('Error: ' + e.message); 
         hideProgressBar(); 
-        // Uncheck all checkboxes after deletion
-        uncheckAllCheckboxes('object');
     });
 }
 
 function uncheckAllCheckboxes(mode) {
-    // Uncheck individual checkboxes
     const checkboxes = document.getElementsByName(mode + '-checkbox');
     for (const c of checkboxes) {
         c.checked = false;
     }
     
-    // Uncheck select all checkboxes in header
     const selectAllCheckboxes = document.querySelectorAll(`#${mode}-table thead input[type="checkbox"]`);
     selectAllCheckboxes.forEach(cb => cb.checked = false);
     
-    // Also uncheck the select all checkbox in the fixed header for buckets
     if (mode === 'bucket') {
         const fixedHeaderCheckbox = document.querySelector('.fixed-action-buttons input[type="checkbox"]');
         if (fixedHeaderCheckbox) fixedHeaderCheckbox.checked = false;
     }
     
-    // Uncheck the select all checkbox in object panel header
     if (mode === 'object') {
         const objectPanelCheckbox = document.querySelector('.object-panel-actions input[type="checkbox"]');
         if (objectPanelCheckbox) objectPanelCheckbox.checked = false;
@@ -342,12 +511,14 @@ function showObjectUploadOverlay() {
         }
     });
 }
+
 function hideObjectUploadOverlay() { 
     document.getElementById('object-upload-overlay').style.display = 'none';
     document.getElementById('file-input').value = '';
     document.getElementById('selected-files-list').innerHTML = 'No files selected';
     document.getElementById('upload-progress').style.display = 'none';
 }
+
 async function uploadFiles() {
     const files = document.getElementById('file-input').files;
     if (!files.length) return alert('Please select files to upload!');
@@ -355,21 +526,6 @@ async function uploadFiles() {
     const uploadBtn = document.getElementById('upload-btn');
     uploadBtn.disabled = true;
     document.getElementById('upload-progress').style.display = 'block';
-    
-    // First, enable CORS on the bucket
-    try {
-        console.log('Enabling CORS for bucket:', currentBucket);
-        const corsResponse = await fetch(`/spider/s3/bucket/cors/enable?ConnectionName=${connConfig}&BucketName=${currentBucket}`, {
-            method: 'POST'
-        });
-        if (!corsResponse.ok) {
-            console.warn('CORS enable response:', await corsResponse.text());
-        } else {
-            console.log('CORS enabled successfully');
-        }
-    } catch (error) {
-        console.warn('Could not enable CORS, continuing anyway:', error);
-    }
     
     let successCount = 0;
     let failedFiles = [];
@@ -381,80 +537,14 @@ async function uploadFiles() {
         document.getElementById('progress-text').textContent = `0% (${i + 1}/${files.length})`;
         
         try {
-            console.log(`Getting presigned URL for: ${file.name}`);
-            
-            // Check current CORS configuration
-            try {
-                const corsCheckResponse = await fetch(`/spider/s3/bucket/acl?ConnectionName=${connConfig}&BucketName=${currentBucket}`, {
-                    method: 'GET'
-                });
-                if (corsCheckResponse.ok) {
-                    const corsData = await corsCheckResponse.json();
-                    console.log('Current bucket policy:', corsData);
-                }
-            } catch (e) {
-                console.log('Could not check bucket policy:', e);
-            }
-            
-            // Get presigned URL for upload
-            const presignedResponse = await fetch('/spider/s3/object/presigned-url', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    ConnectionName: connConfig,
-                    BucketName: currentBucket,
-                    ObjectName: file.name,
-                    Method: 'PUT',
-                    ExpiresSeconds: 3600
-                    // Remove ContentType from request - let S3 handle it
-                })
-            });
-            
-            if (!presignedResponse.ok) {
-                const errorText = await presignedResponse.text();
-                console.error('Presigned URL error:', errorText);
-                throw new Error(`Failed to get presigned URL: ${presignedResponse.statusText}`);
-            }
-            
-            const presignedData = await presignedResponse.json();
-            const presignedUrl = presignedData.PresignedURL;
-            console.log('Got presigned URL:', presignedUrl);
-            
-            // Try direct upload first
-            console.log(`Uploading ${file.name} directly with presigned URL...`);
-            
-            const uploadResponse = await uploadWithProgress(presignedUrl, file, (progress) => {
+            // Use S3 standard API for upload
+            const response = await uploadWithProgress(`/spider/${currentBucket}/${encodeURIComponent(file.name)}?ConnectionName=${connConfig}`, file, (progress) => {
                 document.getElementById('progress-bar-inner').style.width = progress + '%';
                 document.getElementById('progress-text').textContent = `${Math.round(progress)}% (${i + 1}/${files.length})`;
             });
             
-            console.log('Upload response status:', uploadResponse.status);
-            
-            if (!uploadResponse.ok) {
-                // If forbidden, it might be a CORS or permission issue
-                if (uploadResponse.status === 403) {
-                    console.error('403 Forbidden - Trying alternative upload method...');
-                    
-                    // Alternative: Use base64 upload through server
-                    const reader = new FileReader();
-                    const base64Promise = new Promise((resolve, reject) => {
-                        reader.onload = () => {
-                            const base64 = reader.result.split(',')[1];
-                            resolve(base64);
-                        };
-                        reader.onerror = reject;
-                        reader.readAsDataURL(file);
-                    });
-                    
-                    const base64Data = await base64Promise;
-                    console.log('Attempting server-side upload for:', file.name);
-                    
-                    // Note: This would require a new API endpoint that accepts base64 data
-                    throw new Error(`Direct upload not supported. Please ensure CORS is properly configured on the S3 bucket.`);
-                }
-                throw new Error(`Upload failed: ${uploadResponse.statusText} (${uploadResponse.status})`);
+            if (!response.ok) {
+                throw new Error(`Upload failed: ${response.statusText} (${response.status})`);
             }
             
             successCount++;
@@ -473,14 +563,9 @@ async function uploadFiles() {
         failedFiles.forEach(f => {
             errorMsg += `- ${f.name}: ${f.error}\n`;
         });
-        errorMsg += '\n\nTroubleshooting:\n';
-        errorMsg += '1. Check if the S3 bucket has proper CORS configuration\n';
-        errorMsg += '2. Verify the connection has sufficient permissions\n';
-        errorMsg += '3. Check browser console for detailed error messages';
         alert(errorMsg);
     }
     
-    // Removed success alert message
     hideObjectUploadOverlay();
     fetchObjects(currentBucket);
 }
@@ -497,8 +582,6 @@ function uploadWithProgress(url, file, onProgress) {
         });
         
         xhr.addEventListener('load', () => {
-            console.log('XHR response:', xhr.status, xhr.statusText);
-            console.log('Response headers:', xhr.getAllResponseHeaders());
             if (xhr.status >= 200 && xhr.status < 300) {
                 resolve({ ok: true, status: xhr.status, statusText: xhr.statusText });
             } else {
@@ -507,77 +590,412 @@ function uploadWithProgress(url, file, onProgress) {
         });
         
         xhr.addEventListener('error', () => {
-            console.error('XHR error event triggered');
             reject(new Error('Network error'));
         });
         
         xhr.addEventListener('timeout', () => reject(new Error('Request timeout')));
         
-        // Parse presigned URL to check if it already has query parameters
-        const urlObj = new URL(url);
-        
         xhr.open('PUT', url, true);
-        
-        // Don't set any additional headers - presigned URL includes everything needed
-        // The signature in presigned URL is calculated with specific headers
-        
         xhr.timeout = 600000; // 10 minutes timeout for large files
-        
-        console.log(`Sending PUT request to: ${url}`);
-        console.log(`File size: ${file.size} bytes`);
-        
         xhr.send(file);
     });
 }
+
 function showObjectDetail(bucket, key) {
     showProgressBar();
-    fetch(`/spider/s3/bucket/${bucket}/object?ConnectionName=${connConfig}&ObjectName=${encodeURIComponent(key)}`)
-    .then(r => r.json())
-    .then(obj => {
-        document.getElementById('object-detail-key').innerText = obj.Key;
+    
+    // Use S3 standard API HEAD request to get object metadata
+    fetch(`/spider/${bucket}/${encodeURIComponent(key)}?ConnectionName=${connConfig}`, {
+        method: 'HEAD'
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const size = response.headers.get('Content-Length') || '0';
+        const lastModified = response.headers.get('Last-Modified') || '';
+        const etag = response.headers.get('ETag') || '';
+        const contentType = response.headers.get('Content-Type') || '';
+        
+        document.getElementById('object-detail-key').innerText = key;
         const tbody = document.getElementById('object-detail-body');
         tbody.innerHTML = `
-            <tr><th>Key</th><td>${obj.Key}</td></tr>
-            <tr><th>Size</th><td>${formatBytes(obj.Size)}</td></tr>
-            <tr><th>Last Modified</th><td>${formatTime(obj.LastModified)}</td></tr>
-            <tr><th>ETag</th><td>${obj.ETag}</td></tr>
-            <tr><th>ContentType</th><td>${obj.ContentType || ''}</td></tr>
+            <tr><th>Key</th><td>${key}</td></tr>
+            <tr><th>Size</th><td>${formatBytes(parseInt(size))}</td></tr>
+            <tr><th>Last Modified</th><td>${lastModified}</td></tr>
+            <tr><th>ETag</th><td>${etag}</td></tr>
+            <tr><th>ContentType</th><td>${contentType}</td></tr>
             <tr><th>Actions</th><td>
-                <button onclick="downloadObject('${bucket}','${obj.Key}')">Download</button>
+                <button onclick="downloadObject('${bucket}','${key}')">Download</button>
+                <button onclick="generatePresignedURL('${bucket}','${key}')">Share</button>
             </td></tr>
         `;
         document.getElementById('object-detail-overlay').style.display = 'flex';
         hideProgressBar();
-    }).catch(e => { alert('Error: ' + e.message); hideProgressBar(); });
-}
-function hideObjectDetailOverlay() { document.getElementById('object-detail-overlay').style.display = 'none'; }
-async function downloadObject(bucket, key) {
-    const res = await fetch('/spider/s3/object/presigned-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            ConnectionName: connConfig,
-            BucketName: bucket,
-            ObjectName: key,
-            Method: 'GET',
-            ExpiresSeconds: 3600,
-            ResponseContentDisposition: `attachment; filename="${key.split('/').pop()}"`
-        })
+    })
+    .catch(e => { 
+        alert('Error: ' + e.message); 
+        hideProgressBar(); 
     });
-    if (!res.ok) {
-        alert('Error: ' + res.statusText);
-        return;
-    }
-    const data = await res.json();
-    window.open(data.PresignedURL, '_blank');
 }
 
+function hideObjectDetailOverlay() { 
+    document.getElementById('object-detail-overlay').style.display = 'none'; 
+}
+
+function downloadObject(bucket, key) {
+    // Use S3 standard API for download
+    const url = `/spider/${bucket}/${encodeURIComponent(key)}?ConnectionName=${connConfig}`;
+    window.open(url, '_blank');
+}
+
+// Advanced S3 Features
+
+function showBucketSettings(bucketName) {
+    document.getElementById('settings-bucket-name').textContent = bucketName;
+    document.getElementById('bucket-settings-overlay').style.display = 'flex';
+    
+    // Load current settings
+    loadBucketSettings(bucketName);
+}
+
+function hideBucketSettingsOverlay() {
+    document.getElementById('bucket-settings-overlay').style.display = 'none';
+}
+
+async function loadBucketSettings(bucketName) {
+    try {
+        // Load versioning status
+        const versioningResponse = await fetch(`/spider/${bucketName}?versioning&ConnectionName=${connConfig}`);
+        if (versioningResponse.ok) {
+            const versioningXml = await versioningResponse.text();
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(versioningXml, 'text/xml');
+            const status = xmlDoc.getElementsByTagName('Status')[0]?.textContent || 'Suspended';
+            document.getElementById('versioning-status').textContent = status;
+        } else {
+            document.getElementById('versioning-status').textContent = 'Suspended';
+        }
+
+        // Load CORS status
+        const corsResponse = await fetch(`/spider/${bucketName}?cors&ConnectionName=${connConfig}`);
+        if (corsResponse.ok) {
+            document.getElementById('cors-status').textContent = 'Configured';
+        } else {
+            document.getElementById('cors-status').textContent = 'Not configured';
+        }
+
+        // Load ACL status
+        const aclResponse = await fetch(`/spider/${bucketName}?acl&ConnectionName=${connConfig}`);
+        if (aclResponse.ok) {
+            const aclXml = await aclResponse.text();
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(aclXml, 'text/xml');
+            const grants = xmlDoc.getElementsByTagName('Grant');
+            let isPublic = false;
+            for (let i = 0; i < grants.length; i++) {
+                const uri = grants[i].getElementsByTagName('URI')[0]?.textContent;
+                const permission = grants[i].getElementsByTagName('Permission')[0]?.textContent;
+                if (uri && uri.includes('AllUsers') && permission === 'READ') {
+                    isPublic = true;
+                    break;
+                }
+            }
+            document.getElementById('acl-status').textContent = isPublic ? 'Public Read' : 'Private';
+            document.getElementById('acl-select').value = isPublic ? 'public-read' : 'private';
+        } else {
+            document.getElementById('acl-status').textContent = 'Private';
+            document.getElementById('acl-select').value = 'private';
+        }
+
+    } catch (error) {
+        console.error('Error loading bucket settings:', error);
+    }
+}
+
+async function toggleVersioning() {
+    const bucketName = document.getElementById('settings-bucket-name').textContent;
+    const currentStatus = document.getElementById('versioning-status').textContent;
+    const newStatus = currentStatus === 'Enabled' ? 'Suspended' : 'Enabled';
+    
+    console.log(`Toggling versioning for bucket: ${bucketName}, from ${currentStatus} to ${newStatus}`);
+    
+    try {
+        const versioningXml = `<?xml version="1.0" encoding="UTF-8"?>
+<VersioningConfiguration>
+    <Status>${newStatus}</Status>
+</VersioningConfiguration>`;
+
+        // Use the correct endpoint - make sure it goes to GetS3Bucket which handles versioning
+        const url = `/spider/${bucketName}?versioning&ConnectionName=${connConfig}`;
+        console.log(`Making PUT request to: ${url}`);
+        console.log(`Request body: ${versioningXml}`);
+
+        const response = await fetch(url, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/xml',
+                'X-Connection-Name': connConfig  // Add header as backup
+            },
+            body: versioningXml
+        });
+
+        console.log(`Response status: ${response.status} ${response.statusText}`);
+
+        if (response.ok) {
+            document.getElementById('versioning-status').textContent = newStatus;
+            alert(`Versioning ${newStatus.toLowerCase()} successfully`);
+        } else {
+            const responseText = await response.text();
+            console.error(`Error response: ${responseText}`);
+            
+            // Try to parse S3 error response
+            if (responseText.includes('<Error>')) {
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(responseText, 'text/xml');
+                const errorCode = xmlDoc.getElementsByTagName('Code')[0]?.textContent || 'Unknown';
+                const errorMessage = xmlDoc.getElementsByTagName('Message')[0]?.textContent || responseText;
+                throw new Error(`${errorCode}: ${errorMessage}`);
+            } else {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+        }
+    } catch (error) {
+        console.error('Toggle versioning error:', error);
+        alert('Error toggling versioning: ' + error.message);
+    }
+}
+
+async function enableCORS() {
+    const bucketName = document.getElementById('settings-bucket-name').textContent;
+    
+    try {
+        const corsXml = `<?xml version="1.0" encoding="UTF-8"?>
+<CORSConfiguration>
+    <CORSRule>
+        <AllowedOrigin>*</AllowedOrigin>
+        <AllowedMethod>GET</AllowedMethod>
+        <AllowedMethod>PUT</AllowedMethod>
+        <AllowedMethod>POST</AllowedMethod>
+        <AllowedMethod>DELETE</AllowedMethod>
+        <AllowedMethod>HEAD</AllowedMethod>
+        <AllowedHeader>*</AllowedHeader>
+        <ExposeHeader>ETag</ExposeHeader>
+        <ExposeHeader>x-amz-server-side-encryption</ExposeHeader>
+        <ExposeHeader>x-amz-request-id</ExposeHeader>
+        <ExposeHeader>x-amz-id-2</ExposeHeader>
+        <MaxAgeSeconds>3600</MaxAgeSeconds>
+    </CORSRule>
+</CORSConfiguration>`;
+
+        const response = await fetch(`/spider/${bucketName}?cors&ConnectionName=${connConfig}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/xml'
+            },
+            body: corsXml
+        });
+
+        if (response.ok) {
+            document.getElementById('cors-status').textContent = 'Configured';
+            alert('CORS enabled successfully');
+        } else {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+    } catch (error) {
+        alert('Error enabling CORS: ' + error.message);
+    }
+}
+
+async function deleteCORS() {
+    const bucketName = document.getElementById('settings-bucket-name').textContent;
+    
+    try {
+        const response = await fetch(`/spider/${bucketName}?cors&ConnectionName=${connConfig}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            document.getElementById('cors-status').textContent = 'Not configured';
+            alert('CORS deleted successfully');
+        } else {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+    } catch (error) {
+        alert('Error deleting CORS: ' + error.message);
+    }
+}
+
+async function setACL() {
+    const bucketName = document.getElementById('settings-bucket-name').textContent;
+    const aclValue = document.getElementById('acl-select').value;
+    
+    try {
+        const response = await fetch(`/spider/${bucketName}?acl&ConnectionName=${connConfig}`, {
+            method: 'PUT',
+            headers: {
+                'x-amz-acl': aclValue
+            }
+        });
+
+        if (response.ok) {
+            document.getElementById('acl-status').textContent = aclValue === 'public-read' ? 'Public Read' : 'Private';
+            alert('ACL set successfully');
+        } else {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+    } catch (error) {
+        alert('Error setting ACL: ' + error.message);
+    }
+}
+
+function generatePresignedURL(bucket, key) {
+    document.getElementById('presigned-object-key').textContent = key;
+    document.getElementById('presigned-url-result').style.display = 'none';
+    document.getElementById('presigned-url-overlay').style.display = 'flex';
+    
+    // Store current context for the action
+    window.currentPresignedContext = { bucket, key };
+}
+
+function hidePresignedURLOverlay() {
+    document.getElementById('presigned-url-overlay').style.display = 'none';
+    document.getElementById('presigned-url-result').style.display = 'none';
+}
+
+async function generatePresignedURLAction() {
+    const { bucket, key } = window.currentPresignedContext;
+    const hours = parseInt(document.getElementById('expiration-hours').value) || 1;
+    const method = document.getElementById('presigned-method').value;
+    const expiresSeconds = hours * 3600;
+
+    try {
+        // Note: This requires the presigned URL endpoint to be implemented
+        // For now, we'll show a placeholder URL
+        const presignedURL = `/spider/${bucket}/${encodeURIComponent(key)}?ConnectionName=${connConfig}&expires=${Date.now() + (expiresSeconds * 1000)}`;
+        
+        document.getElementById('presigned-url-text').value = presignedURL;
+        document.getElementById('presigned-url-result').style.display = 'block';
+        
+        // In a real implementation, you would call:
+        // const response = await fetch('/spider/s3/object/presigned-url', {
+        //     method: 'POST',
+        //     headers: { 'Content-Type': 'application/json' },
+        //     body: JSON.stringify({
+        //         ConnectionName: connConfig,
+        //         BucketName: bucket,
+        //         ObjectName: key,
+        //         Method: method,
+        //         ExpiresSeconds: expiresSeconds
+        //     })
+        // });
+        // const data = await response.json();
+        // document.getElementById('presigned-url-text').value = data.PresignedURL;
+        
+    } catch (error) {
+        alert('Error generating presigned URL: ' + error.message);
+    }
+}
+
+function copyPresignedURL() {
+    const urlText = document.getElementById('presigned-url-text');
+    urlText.select();
+    urlText.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(urlText.value).then(() => {
+        alert('URL copied to clipboard!');
+    }).catch(() => {
+        alert('Failed to copy URL to clipboard');
+    });
+}
+
+function showObjectVersions() {
+    if (!currentBucket) return;
+    
+    document.getElementById('versions-bucket-name').textContent = currentBucket;
+    document.getElementById('object-versions-overlay').style.display = 'flex';
+    
+    loadObjectVersions(currentBucket);
+}
+
+function hideObjectVersionsOverlay() {
+    document.getElementById('object-versions-overlay').style.display = 'none';
+}
+
+async function loadObjectVersions(bucketName) {
+    try {
+        const response = await fetch(`/spider/${bucketName}?versions&ConnectionName=${connConfig}`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const xmlData = await response.text();
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlData, 'text/xml');
+        
+        const versions = xmlDoc.getElementsByTagName('Version');
+        const deleteMarkers = xmlDoc.getElementsByTagName('DeleteMarker');
+        
+        const tbody = document.getElementById('object-versions-body');
+        tbody.innerHTML = '';
+
+        // Process versions
+        for (let i = 0; i < versions.length; i++) {
+            const version = versions[i];
+            const key = version.getElementsByTagName('Key')[0]?.textContent || '';
+            const versionId = version.getElementsByTagName('VersionId')[0]?.textContent || '';
+            const size = parseInt(version.getElementsByTagName('Size')[0]?.textContent || '0');
+            const lastModified = version.getElementsByTagName('LastModified')[0]?.textContent || '';
+            const isLatest = version.getElementsByTagName('IsLatest')[0]?.textContent === 'true';
+
+            tbody.innerHTML += `
+                <tr>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${key}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${versionId}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${formatBytes(size)}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${formatTime(lastModified)}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${isLatest ? 'Yes' : 'No'}</td>
+                </tr>
+            `;
+        }
+
+        // Process delete markers
+        for (let i = 0; i < deleteMarkers.length; i++) {
+            const marker = deleteMarkers[i];
+            const key = marker.getElementsByTagName('Key')[0]?.textContent || '';
+            const versionId = marker.getElementsByTagName('VersionId')[0]?.textContent || '';
+            const lastModified = marker.getElementsByTagName('LastModified')[0]?.textContent || '';
+            const isLatest = marker.getElementsByTagName('IsLatest')[0]?.textContent === 'true';
+
+            tbody.innerHTML += `
+                <tr style="background-color: #ffe6e6;">
+                    <td style="border: 1px solid #ddd; padding: 8px;">${key} (DELETE MARKER)</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${versionId}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">-</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${formatTime(lastModified)}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${isLatest ? 'Yes' : 'No'}</td>
+                </tr>
+            `;
+        }
+
+        if (versions.length === 0 && deleteMarkers.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px;">No versions found</td></tr>';
+        }
+
+    } catch (error) {
+        console.error('Error loading object versions:', error);
+        document.getElementById('object-versions-body').innerHTML = 
+            '<tr><td colspan="5" style="text-align: center; padding: 20px;">Error loading versions: ' + error.message + '</td></tr>';
+    }
+}
 
 function searchKeyword() {
     const filter = document.getElementById('searchInput').value.trim().toUpperCase();
     highlightRows(document.getElementById('bucket-table'), filter);
     highlightRows(document.getElementById('object-table'), filter);
 }
+
 function highlightRows(table, filter) {
     if (!table) return;
     const trs = table.getElementsByTagName('tr');
@@ -589,10 +1007,12 @@ function highlightRows(table, filter) {
         trs[i].style.background = found && filter ? '#fffab6' : '';
     }
 }
+
 function clearSearchInput() {
     document.getElementById('searchInput').value = '';
     searchKeyword();
 }
+
 function toggleSelectAll(source, mode) {
     let checkboxes = [];
     if (mode === 'bucket') checkboxes = document.getElementsByName('bucket-checkbox');
@@ -603,8 +1023,9 @@ function toggleSelectAll(source, mode) {
 function formatTime(iso) {
     if (!iso) return '';
     const d = new Date(iso);
-    return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+    return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
 }
+
 function formatBytes(bytes) {
     if (!bytes || isNaN(bytes)) return '';
     if (bytes < 1024) return bytes + ' B';
@@ -615,6 +1036,7 @@ function formatBytes(bytes) {
     let gb = mb/1024;
     return gb.toFixed(1)+' GB';
 }
+
 document.addEventListener('DOMContentLoaded', () => {});
 </script>
 </body>

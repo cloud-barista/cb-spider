@@ -98,26 +98,6 @@ type S3PresignedURL struct {
 	PresignedURL string `json:"PresignedURL"`
 }
 
-// ---------- API Request structs ----------
-
-type S3BucketCreateRequest struct {
-	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-s3-conn"`
-	Name           string `json:"Name" validate:"required" example:"my-bucket-01"`
-}
-
-type S3ObjectUploadRequest struct {
-	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-s3-conn"`
-	BucketName     string `json:"BucketName" validate:"required" example:"my-bucket-01"`
-	ObjectName     string `json:"ObjectName" validate:"required" example:"my-object.txt"`
-	FilePath       string `json:"FilePath" validate:"required" example:"/tmp/data.txt"`
-}
-
-type S3ObjectDeleteRequest struct {
-	ConnectionName string `json:"ConnectionName" validate:"required" example:"aws-s3-conn"`
-	BucketName     string `json:"BucketName" validate:"required" example:"my-bucket-01"`
-	ObjectName     string `json:"ObjectName" validate:"required" example:"my-object.txt"`
-}
-
 // ---------- Common functions ----------
 
 func getConnectionName(c echo.Context) (string, bool) {
@@ -136,7 +116,14 @@ func getConnectionName(c echo.Context) (string, bool) {
 		return conn, false
 	}
 
-	// cblog.Debug("No connection name found in request")
+	// Check custom header for AdminWeb
+	headerConn := c.Request().Header.Get("X-Connection-Name")
+	if headerConn != "" {
+		cblog.Debugf("AdminWeb request with X-Connection-Name: %s", headerConn)
+		return headerConn, false
+	}
+
+	cblog.Debug("No connection name found in request")
 	return "", false
 }
 
@@ -245,183 +232,845 @@ type CreateBucketConfiguration struct {
 	LocationConstraint string   `xml:"LocationConstraint"`
 }
 
+// ---------- S3 Advanced Features XML Structures ----------
+
+type CORSConfiguration struct {
+	XMLName   xml.Name   `xml:"CORSConfiguration"`
+	Xmlns     string     `xml:"xmlns,attr"`
+	CORSRules []CORSRule `xml:"CORSRule"`
+}
+
+type CORSRule struct {
+	AllowedOrigin []string `xml:"AllowedOrigin"`
+	AllowedMethod []string `xml:"AllowedMethod"`
+	AllowedHeader []string `xml:"AllowedHeader,omitempty"`
+	ExposeHeader  []string `xml:"ExposeHeader,omitempty"`
+	MaxAgeSeconds int      `xml:"MaxAgeSeconds,omitempty"`
+}
+
+type AccessControlPolicy struct {
+	XMLName           xml.Name          `xml:"AccessControlPolicy"`
+	Xmlns             string            `xml:"xmlns,attr"`
+	Owner             Owner             `xml:"Owner"`
+	AccessControlList AccessControlList `xml:"AccessControlList"`
+}
+
+type AccessControlList struct {
+	Grant []Grant `xml:"Grant"`
+}
+
+type Grant struct {
+	Grantee    Grantee `xml:"Grantee"`
+	Permission string  `xml:"Permission"`
+}
+
+type Grantee struct {
+	XMLName      xml.Name `xml:"Grantee"`
+	Type         string   `xml:"type,attr"`
+	ID           string   `xml:"ID,omitempty"`
+	DisplayName  string   `xml:"DisplayName,omitempty"`
+	EmailAddress string   `xml:"EmailAddress,omitempty"`
+	URI          string   `xml:"URI,omitempty"`
+}
+
+type ListVersionsResult struct {
+	XMLName             xml.Name        `xml:"ListVersionsResult"`
+	Xmlns               string          `xml:"xmlns,attr"`
+	Name                string          `xml:"Name"`
+	Prefix              string          `xml:"Prefix"`
+	KeyMarker           string          `xml:"KeyMarker"`
+	VersionIdMarker     string          `xml:"VersionIdMarker"`
+	NextKeyMarker       string          `xml:"NextKeyMarker"`
+	NextVersionIdMarker string          `xml:"NextVersionIdMarker"`
+	MaxKeys             int             `xml:"MaxKeys"`
+	IsTruncated         bool            `xml:"IsTruncated"`
+	Versions            []ObjectVersion `xml:"Version"`
+	DeleteMarkers       []DeleteMarker  `xml:"DeleteMarker"`
+}
+
+type ObjectVersion struct {
+	Key          string `xml:"Key"`
+	VersionId    string `xml:"VersionId"`
+	IsLatest     bool   `xml:"IsLatest"`
+	LastModified string `xml:"LastModified"`
+	ETag         string `xml:"ETag"`
+	Size         int64  `xml:"Size"`
+	StorageClass string `xml:"StorageClass"`
+	Owner        *Owner `xml:"Owner,omitempty"`
+}
+
+type DeleteMarker struct {
+	Key          string `xml:"Key"`
+	VersionId    string `xml:"VersionId"`
+	IsLatest     bool   `xml:"IsLatest"`
+	LastModified string `xml:"LastModified"`
+	Owner        *Owner `xml:"Owner,omitempty"`
+}
+
 type VersioningConfiguration struct {
 	XMLName xml.Name `xml:"VersioningConfiguration"`
 	Status  string   `xml:"Status"`
 }
 
-// ---------- REST API Implementation ----------
+// ---------- S3 Advanced Features Implementation ----------
 
-// @Summary Create S3 Bucket
-// @Description Create a new S3 bucket and register to CB-Spider infostore.
-// @Tags [S3 Management]
-// @Accept  json
-// @Produce  json
-// @Param S3BucketCreateRequest body restruntime.S3BucketCreateRequest true "Request body for creating an S3 bucket"
-// @Success 200 {object} restruntime.S3BucketInfo
-// @Failure 400 {object} restruntime.SimpleMsg
-// @Failure 500 {object} restruntime.SimpleMsg
-// @Router /s3/bucket [post]
-func CreateS3Bucket(c echo.Context) error {
-	conn, isS3Api := getConnectionName(c)
+// getBucketVersioning returns the versioning configuration of a bucket
+func getBucketVersioning(c echo.Context) error {
+	conn, _ := getConnectionName(c)
+	bucketName := c.Param("Name")
+	bucketName = strings.TrimSuffix(bucketName, "/")
 
-	if isS3Api {
-		bucketName := c.Param("Name")
-		if bucketName == "" {
-			return returnS3Error(c, http.StatusBadRequest, "InvalidBucketName", "Bucket name is required", "/")
+	// Check if bucket exists
+	_, err := cmrt.GetS3Bucket(conn, bucketName)
+	if err != nil {
+		errorCode := "NoSuchBucket"
+		if strings.Contains(err.Error(), "not found") {
+			return returnS3Error(c, http.StatusNotFound, errorCode, err.Error(), "/"+bucketName)
 		}
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucketName)
+	}
 
-		var region string = "us-east-1"
-		if c.Request().ContentLength > 0 {
-			var config CreateBucketConfiguration
-			if err := xml.NewDecoder(c.Request().Body).Decode(&config); err == nil {
-				if config.LocationConstraint != "" {
-					region = config.LocationConstraint
-				}
-			}
+	// Default versioning status is Suspended if not enabled
+	resp := VersioningConfiguration{
+		Status: "Suspended", // Default status
+	}
+
+	addS3Headers(c)
+	xmlData, err := xml.Marshal(resp)
+	if err != nil {
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucketName)
+	}
+
+	fullXML := append([]byte(xml.Header), xmlData...)
+	return c.Blob(http.StatusOK, "application/xml", fullXML)
+}
+
+// putBucketVersioning sets the versioning configuration of a bucket
+func putBucketVersioning(c echo.Context) error {
+	conn, _ := getConnectionName(c)
+	bucketName := c.Param("Name")
+	bucketName = strings.TrimSuffix(bucketName, "/")
+
+	cblog.Infof("putBucketVersioning called - Bucket: %s, Connection: %s", bucketName, conn)
+	cblog.Infof("Request method: %s", c.Request().Method)
+	cblog.Infof("Request URL: %s", c.Request().URL.String())
+	cblog.Infof("Request Content-Length: %d", c.Request().ContentLength)
+	cblog.Infof("Request Content-Type: %s", c.Request().Header.Get("Content-Type"))
+
+	// Log all query parameters
+	cblog.Infof("All query parameters: %v", c.QueryParams())
+
+	// First, check if bucket exists
+	_, err := cmrt.GetS3Bucket(conn, bucketName)
+	if err != nil {
+		cblog.Errorf("Bucket %s not found: %v", bucketName, err)
+		if strings.Contains(err.Error(), "not found") {
+			return returnS3Error(c, http.StatusNotFound, "NoSuchBucket",
+				"The specified bucket does not exist", "/"+bucketName)
 		}
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError",
+			err.Error(), "/"+bucketName)
+	}
 
-		cblog.Infof("Creating S3 bucket: %s in region: %s", bucketName, region)
+	cblog.Infof("Bucket %s exists, proceeding with versioning configuration", bucketName)
 
-		_, err := cmrt.CreateS3Bucket(conn, bucketName)
+	// Read and parse the XML body
+	var config VersioningConfiguration
+	if c.Request().ContentLength > 0 {
+		bodyBytes, err := io.ReadAll(c.Request().Body)
 		if err != nil {
-			cblog.Errorf("Failed to create bucket %s: %v", bucketName, err)
+			cblog.Errorf("Failed to read request body: %v", err)
+			return returnS3Error(c, http.StatusBadRequest, "MalformedXML",
+				"Error reading request body: "+err.Error(), "/"+bucketName)
+		}
 
+		cblog.Infof("Request body: %s", string(bodyBytes))
+
+		if err := xml.Unmarshal(bodyBytes, &config); err != nil {
+			cblog.Errorf("Failed to unmarshal XML: %v", err)
+			return returnS3Error(c, http.StatusBadRequest, "MalformedXML",
+				"Error parsing XML: "+err.Error(), "/"+bucketName)
+		}
+	} else {
+		cblog.Error("No request body provided")
+		return returnS3Error(c, http.StatusBadRequest, "MalformedXML",
+			"Request body is required", "/"+bucketName)
+	}
+
+	cblog.Infof("Parsed versioning config - Status: %s", config.Status)
+
+	// Validate the status
+	if config.Status != "Enabled" && config.Status != "Suspended" {
+		cblog.Errorf("Invalid versioning status: %s", config.Status)
+		return returnS3Error(c, http.StatusBadRequest, "InvalidArgument",
+			"Invalid versioning status: "+config.Status, "/"+bucketName)
+	}
+
+	// Apply the versioning configuration
+	var versioningErr error
+	if config.Status == "Enabled" {
+		cblog.Infof("Enabling versioning for bucket: %s", bucketName)
+		_, versioningErr = cmrt.EnableVersioning(conn, bucketName)
+	} else if config.Status == "Suspended" {
+		cblog.Infof("Suspending versioning for bucket: %s", bucketName)
+		_, versioningErr = cmrt.SuspendVersioning(conn, bucketName)
+	}
+
+	if versioningErr != nil {
+		cblog.Errorf("Failed to set versioning for bucket %s: %v", bucketName, versioningErr)
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+		if strings.Contains(versioningErr.Error(), "not found") {
+			errorCode = "NoSuchBucket"
+			statusCode = http.StatusNotFound
+		} else if strings.Contains(versioningErr.Error(), "not implemented") {
+			errorCode = "NotImplemented"
+			statusCode = http.StatusNotImplemented
+		}
+		return returnS3Error(c, statusCode, errorCode, versioningErr.Error(), "/"+bucketName)
+	}
+
+	cblog.Infof("Successfully set versioning to %s for bucket %s", config.Status, bucketName)
+	addS3Headers(c)
+	return c.NoContent(http.StatusOK)
+}
+
+// getBucketCORS returns the CORS configuration of a bucket
+func getBucketCORS(c echo.Context) error {
+	conn, _ := getConnectionName(c)
+	bucketName := c.Param("Name")
+	bucketName = strings.TrimSuffix(bucketName, "/")
+
+	corsConfig, err := cmrt.GetS3BucketCORS(conn, bucketName)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "NoSuchCORSConfiguration") {
+			return returnS3Error(c, http.StatusNotFound, "NoSuchCORSConfiguration", "The CORS configuration does not exist", "/"+bucketName)
+		}
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucketName)
+	}
+
+	// Convert minio CORS config to S3 XML format
+	var corsRules []CORSRule
+	for _, rule := range corsConfig.CORSRules {
+		corsRules = append(corsRules, CORSRule{
+			AllowedOrigin: rule.AllowedOrigin,
+			AllowedMethod: rule.AllowedMethod,
+			AllowedHeader: rule.AllowedHeader,
+			ExposeHeader:  rule.ExposeHeader,
+			MaxAgeSeconds: rule.MaxAgeSeconds,
+		})
+	}
+
+	resp := CORSConfiguration{
+		Xmlns:     "http://s3.amazonaws.com/doc/2006-03-01/",
+		CORSRules: corsRules,
+	}
+
+	addS3Headers(c)
+	xmlData, err := xml.Marshal(resp)
+	if err != nil {
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucketName)
+	}
+
+	fullXML := append([]byte(xml.Header), xmlData...)
+	return c.Blob(http.StatusOK, "application/xml", fullXML)
+}
+
+// putBucketCORS sets the CORS configuration of a bucket
+func putBucketCORS(c echo.Context) error {
+	conn, _ := getConnectionName(c)
+	bucketName := c.Param("Name")
+	bucketName = strings.TrimSuffix(bucketName, "/")
+
+	var config CORSConfiguration
+	if err := xml.NewDecoder(c.Request().Body).Decode(&config); err != nil {
+		return returnS3Error(c, http.StatusBadRequest, "MalformedXML", err.Error(), "/"+bucketName)
+	}
+
+	if len(config.CORSRules) == 0 {
+		return returnS3Error(c, http.StatusBadRequest, "InvalidRequest", "At least one CORS rule is required", "/"+bucketName)
+	}
+
+	// Use the first CORS rule for simplicity (CB-Spider limitation)
+	rule := config.CORSRules[0]
+
+	// Set default values if not provided
+	if len(rule.AllowedOrigin) == 0 {
+		rule.AllowedOrigin = []string{"*"}
+	}
+	if len(rule.AllowedMethod) == 0 {
+		rule.AllowedMethod = []string{"GET", "PUT", "POST", "DELETE", "HEAD"}
+	}
+	if len(rule.AllowedHeader) == 0 {
+		rule.AllowedHeader = []string{"*"}
+	}
+	if len(rule.ExposeHeader) == 0 {
+		rule.ExposeHeader = []string{"ETag", "x-amz-server-side-encryption", "x-amz-request-id", "x-amz-id-2"}
+	}
+	if rule.MaxAgeSeconds == 0 {
+		rule.MaxAgeSeconds = 3600
+	}
+
+	_, err := cmrt.SetS3BucketCORS(conn, bucketName, rule.AllowedOrigin, rule.AllowedMethod, rule.AllowedHeader, rule.ExposeHeader, rule.MaxAgeSeconds)
+	if err != nil {
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "not found") {
+			errorCode = "NoSuchBucket"
+			statusCode = http.StatusNotFound
+		}
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucketName)
+	}
+
+	addS3Headers(c)
+	return c.NoContent(http.StatusOK)
+}
+
+// deleteBucketCORS deletes the CORS configuration of a bucket
+func deleteBucketCORS(c echo.Context) error {
+	conn, _ := getConnectionName(c)
+	bucketName := c.Param("Name")
+	bucketName = strings.TrimSuffix(bucketName, "/")
+
+	_, err := cmrt.DeleteS3BucketCORS(conn, bucketName)
+	if err != nil {
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "not found") {
+			errorCode = "NoSuchBucket"
+			statusCode = http.StatusNotFound
+		}
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucketName)
+	}
+
+	addS3Headers(c)
+	return c.NoContent(http.StatusNoContent)
+}
+
+// getBucketACL returns the ACL of a bucket
+func getBucketACL(c echo.Context) error {
+	conn, _ := getConnectionName(c)
+	bucketName := c.Param("Name")
+	bucketName = strings.TrimSuffix(bucketName, "/")
+
+	policy, err := cmrt.GetS3BucketACL(conn, bucketName)
+	if err != nil {
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "not found") {
+			errorCode = "NoSuchBucket"
+			statusCode = http.StatusNotFound
+		}
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucketName)
+	}
+
+	// Simple ACL response (private by default)
+	acl := AccessControlPolicy{
+		Xmlns: "http://s3.amazonaws.com/doc/2006-03-01/",
+		Owner: Owner{
+			ID:          conn,
+			DisplayName: conn,
+		},
+		AccessControlList: AccessControlList{
+			Grant: []Grant{
+				{
+					Grantee: Grantee{
+						Type:        "CanonicalUser",
+						ID:          conn,
+						DisplayName: conn,
+					},
+					Permission: "FULL_CONTROL",
+				},
+			},
+		},
+	}
+
+	// Add public read if policy allows it
+	if strings.Contains(policy, "GetObject") && strings.Contains(policy, "Principal\":\"*") {
+		acl.AccessControlList.Grant = append(acl.AccessControlList.Grant, Grant{
+			Grantee: Grantee{
+				Type: "Group",
+				URI:  "http://acs.amazonaws.com/groups/global/AllUsers",
+			},
+			Permission: "READ",
+		})
+	}
+
+	addS3Headers(c)
+	xmlData, err := xml.Marshal(acl)
+	if err != nil {
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucketName)
+	}
+
+	fullXML := append([]byte(xml.Header), xmlData...)
+	return c.Blob(http.StatusOK, "application/xml", fullXML)
+}
+
+// putBucketACL sets the ACL of a bucket
+func putBucketACL(c echo.Context) error {
+	conn, _ := getConnectionName(c)
+	bucketName := c.Param("Name")
+	bucketName = strings.TrimSuffix(bucketName, "/")
+
+	// Check for x-amz-acl header first
+	aclHeader := c.Request().Header.Get("x-amz-acl")
+	if aclHeader != "" {
+		_, err := cmrt.SetS3BucketACL(conn, bucketName, aclHeader)
+		if err != nil {
 			errorCode := "InternalError"
 			statusCode := http.StatusInternalServerError
-
-			if strings.Contains(err.Error(), "already exists") {
-				errorCode = "BucketAlreadyExists"
-				statusCode = http.StatusConflict
-			} else if strings.Contains(err.Error(), "already owned") {
-				errorCode = "BucketAlreadyOwnedByYou"
-				statusCode = http.StatusConflict
+			if strings.Contains(err.Error(), "not found") {
+				errorCode = "NoSuchBucket"
+				statusCode = http.StatusNotFound
 			}
-
 			return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucketName)
 		}
-
 		addS3Headers(c)
-		c.Response().Header().Set("Location", "/"+bucketName)
 		return c.NoContent(http.StatusOK)
 	}
 
-	var req S3BucketCreateRequest
-	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	// Parse XML ACL body
+	var aclPolicy AccessControlPolicy
+	if err := xml.NewDecoder(c.Request().Body).Decode(&aclPolicy); err != nil {
+		return returnS3Error(c, http.StatusBadRequest, "MalformedXML", err.Error(), "/"+bucketName)
 	}
-	bucketInfo, err := cmrt.CreateS3Bucket(req.ConnectionName, req.Name)
+
+	// Convert ACL to simple policy (check for public read)
+	acl := "private"
+	for _, grant := range aclPolicy.AccessControlList.Grant {
+		if grant.Grantee.URI == "http://acs.amazonaws.com/groups/global/AllUsers" && grant.Permission == "READ" {
+			acl = "public-read"
+			break
+		}
+	}
+
+	_, err := cmrt.SetS3BucketACL(conn, bucketName, acl)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "not found") {
+			errorCode = "NoSuchBucket"
+			statusCode = http.StatusNotFound
+		}
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucketName)
 	}
-	swaggerBucket := S3BucketInfo{
-		Name:         bucketInfo.Name,
-		CreationDate: bucketInfo.CreationDate,
-	}
-	return c.JSON(http.StatusOK, swaggerBucket)
+
+	addS3Headers(c)
+	return c.NoContent(http.StatusOK)
 }
 
-// @Summary List S3 Buckets
-// @Description List S3 buckets managed by CB-Spider (infostore).
-// @Tags [S3 Management]
-// @Produce  json
-// @Param ConnectionName query string true "Connection Name"
-// @Success 200 {array} restruntime.S3BucketInfo
-// @Failure 500 {object} restruntime.SimpleMsg
-// @Router /s3/bucket [get]
-func ListS3Buckets(c echo.Context) error {
-	conn, isS3Api := getConnectionName(c)
+// getBucketPolicy returns the bucket policy
+func getBucketPolicy(c echo.Context) error {
+	conn, _ := getConnectionName(c)
+	bucketName := c.Param("Name")
+	bucketName = strings.TrimSuffix(bucketName, "/")
 
-	cblog.Infof("ListS3Buckets called - isS3Api: %v, conn: %s", isS3Api, conn)
+	policy, err := cmrt.GetS3BucketACL(conn, bucketName)
+	if err != nil {
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "not found") {
+			errorCode = "NoSuchBucket"
+			statusCode = http.StatusNotFound
+		}
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucketName)
+	}
+
+	if policy == "" {
+		return returnS3Error(c, http.StatusNotFound, "NoSuchBucketPolicy", "The bucket policy does not exist", "/"+bucketName)
+	}
+
+	addS3Headers(c)
+	c.Response().Header().Set("Content-Type", "application/json")
+	return c.String(http.StatusOK, policy)
+}
+
+// putBucketPolicy sets the bucket policy
+func putBucketPolicy(c echo.Context) error {
+	conn, _ := getConnectionName(c)
+	bucketName := c.Param("Name")
+	bucketName = strings.TrimSuffix(bucketName, "/")
+
+	bodyBytes, err := io.ReadAll(c.Request().Body)
+	if err != nil {
+		return returnS3Error(c, http.StatusBadRequest, "MalformedPolicy", err.Error(), "/"+bucketName)
+	}
+
+	policy := string(bodyBytes)
+	if policy == "" {
+		return returnS3Error(c, http.StatusBadRequest, "MalformedPolicy", "Policy cannot be empty", "/"+bucketName)
+	}
+
+	// For simplicity, determine ACL from policy content
+	acl := "private"
+	if strings.Contains(policy, "GetObject") && strings.Contains(policy, "Principal\":\"*") {
+		acl = "public-read"
+	}
+
+	_, err = cmrt.SetS3BucketACL(conn, bucketName, acl)
+	if err != nil {
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "not found") {
+			errorCode = "NoSuchBucket"
+			statusCode = http.StatusNotFound
+		}
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucketName)
+	}
+
+	addS3Headers(c)
+	return c.NoContent(http.StatusNoContent)
+}
+
+// deleteBucketPolicy deletes the bucket policy
+func deleteBucketPolicy(c echo.Context) error {
+	conn, _ := getConnectionName(c)
+	bucketName := c.Param("Name")
+	bucketName = strings.TrimSuffix(bucketName, "/")
+
+	// Set to private (default)
+	_, err := cmrt.SetS3BucketACL(conn, bucketName, "private")
+	if err != nil {
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "not found") {
+			errorCode = "NoSuchBucket"
+			statusCode = http.StatusNotFound
+		}
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucketName)
+	}
+
+	addS3Headers(c)
+	return c.NoContent(http.StatusNoContent)
+}
+
+// listObjectVersions lists all versions of objects in a bucket
+func listObjectVersions(c echo.Context) error {
+	conn, _ := getConnectionName(c)
+	bucketName := c.Param("Name")
+	bucketName = strings.TrimSuffix(bucketName, "/")
+
+	prefix := c.QueryParam("prefix")
+	if prefix == "" {
+		prefix = c.QueryParam("Prefix")
+	}
+
+	result, err := cmrt.ListS3ObjectVersions(conn, bucketName, prefix)
+	if err != nil {
+		errorCode := "NoSuchBucket"
+		statusCode := http.StatusNotFound
+		if !strings.Contains(err.Error(), "not found") {
+			errorCode = "InternalError"
+			statusCode = http.StatusInternalServerError
+		}
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucketName)
+	}
+
+	var versions []ObjectVersion
+	var deleteMarkers []DeleteMarker
+
+	for _, obj := range result {
+		if obj.IsDeleteMarker {
+			deleteMarkers = append(deleteMarkers, DeleteMarker{
+				Key:          obj.Key,
+				VersionId:    obj.VersionID,
+				IsLatest:     obj.IsLatest,
+				LastModified: obj.LastModified.UTC().Format(time.RFC3339),
+				Owner: &Owner{
+					ID:          conn,
+					DisplayName: conn,
+				},
+			})
+		} else {
+			versions = append(versions, ObjectVersion{
+				Key:          obj.Key,
+				VersionId:    obj.VersionID,
+				IsLatest:     obj.IsLatest,
+				LastModified: obj.LastModified.UTC().Format(time.RFC3339),
+				ETag:         strings.Trim(obj.ETag, "\""),
+				Size:         obj.Size,
+				StorageClass: "STANDARD",
+				Owner: &Owner{
+					ID:          conn,
+					DisplayName: conn,
+				},
+			})
+		}
+	}
+
+	resp := ListVersionsResult{
+		Xmlns:         "http://s3.amazonaws.com/doc/2006-03-01/",
+		Name:          bucketName,
+		Prefix:        prefix,
+		MaxKeys:       1000,
+		IsTruncated:   false,
+		Versions:      versions,
+		DeleteMarkers: deleteMarkers,
+	}
+
+	addS3Headers(c)
+	xmlData, err := xml.Marshal(resp)
+	if err != nil {
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucketName)
+	}
+
+	fullXML := append([]byte(xml.Header), xmlData...)
+	return c.Blob(http.StatusOK, "application/xml", fullXML)
+}
+
+func CreateS3Bucket(c echo.Context) error {
+	conn, _ := getConnectionName(c)
+	bucketName := c.Param("Name")
+	if bucketName == "" {
+		return returnS3Error(c, http.StatusBadRequest, "InvalidBucketName", "Bucket name is required", "/")
+	}
+
+	// Get all query parameters for debugging
+	queryParams := c.QueryParams()
+	cblog.Infof("CreateS3Bucket called - Method: %s, Path: %s, Bucket: %s", c.Request().Method, c.Path(), bucketName)
+	cblog.Infof("Query parameters: %v", queryParams)
+
+	// Check individual query parameters - if any configuration params exist, redirect to GetS3Bucket
+	versioning := c.QueryParam("versioning")
+	cors := c.QueryParam("cors")
+	acl := c.QueryParam("acl")
+	policy := c.QueryParam("policy")
+	location := c.QueryParam("location")
+	versions := c.QueryParam("versions")
+
+	cblog.Infof("Individual params - versioning: '%s', cors: '%s', acl: '%s', policy: '%s', location: '%s', versions: '%s'", versioning, cors, acl, policy, location, versions)
+
+	// Check if this is a configuration request (any query parameter that indicates configuration)
+	// Use QueryParams().Has() to check for parameter existence regardless of value
+	if c.QueryParams().Has("versioning") || c.QueryParams().Has("cors") || c.QueryParams().Has("acl") ||
+		c.QueryParams().Has("policy") || c.QueryParams().Has("location") || c.QueryParams().Has("versions") {
+		cblog.Infof("Detected bucket configuration request, redirecting to GetS3Bucket")
+		return GetS3Bucket(c)
+	}
+
+	// Check for any other query parameters that might indicate this is not a bucket creation
+	hasNonConnectionParams := false
+	for key := range queryParams {
+		// Skip ConnectionName as it's our internal parameter
+		if key != "ConnectionName" {
+			hasNonConnectionParams = true
+			cblog.Infof("Found query parameter '%s', redirecting to GetS3Bucket for proper handling", key)
+			break
+		}
+	}
+
+	if hasNonConnectionParams {
+		return GetS3Bucket(c)
+	}
+
+	// Only proceed with bucket creation if this is a pure PUT request without configuration query parameters
+	if c.Request().Method != "PUT" {
+		cblog.Infof("Non-PUT request, redirecting to GetS3Bucket")
+		return GetS3Bucket(c)
+	}
+
+	var region string = "us-east-1"
+	if c.Request().ContentLength > 0 {
+		var config CreateBucketConfiguration
+		if err := xml.NewDecoder(c.Request().Body).Decode(&config); err == nil {
+			if config.LocationConstraint != "" {
+				region = config.LocationConstraint
+			}
+		}
+	}
+
+	cblog.Infof("Proceeding with bucket creation: %s in region: %s", bucketName, region)
+
+	_, err := cmrt.CreateS3Bucket(conn, bucketName)
+	if err != nil {
+		cblog.Errorf("Failed to create bucket %s: %v", bucketName, err)
+
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+
+		if strings.Contains(err.Error(), "already exists") {
+			errorCode = "BucketAlreadyExists"
+			statusCode = http.StatusConflict
+		} else if strings.Contains(err.Error(), "already owned") {
+			errorCode = "BucketAlreadyOwnedByYou"
+			statusCode = http.StatusConflict
+		}
+
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucketName)
+	}
+
+	addS3Headers(c)
+	c.Response().Header().Set("Location", "/"+bucketName)
+	return c.NoContent(http.StatusOK)
+}
+
+func ListS3Buckets(c echo.Context) error {
+	conn, _ := getConnectionName(c)
+
+	cblog.Infof("ListS3Buckets called - conn: %s", conn)
+
+	// If no connection name found, return error instead of empty response
+	if conn == "" {
+		return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "ConnectionName parameter is required", "/")
+	}
 
 	result, err := cmrt.ListS3Buckets(conn)
 	if err != nil {
-		if isS3Api {
-			return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/")
-		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/")
 	}
 
-	if isS3Api {
-		var bucketElems []Bucket
-		for _, b := range result {
-			bucketElems = append(bucketElems, Bucket{
-				Name:         b.Name,
-				CreationDate: b.CreationDate.UTC().Format(time.RFC3339),
-			})
-		}
-
-		resp := ListAllMyBucketsResult{
-			Xmlns: "http://s3.amazonaws.com/doc/2006-03-01/",
-			Owner: Owner{
-				ID:          conn,
-				DisplayName: conn,
-			},
-			Buckets: Buckets{Bucket: bucketElems},
-		}
-
-		// Generate XML response
-		var buf bytes.Buffer
-		buf.WriteString(xml.Header)
-		enc := xml.NewEncoder(&buf)
-		enc.Indent("", "  ")
-
-		if err := enc.Encode(resp); err != nil {
-			return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/")
-		}
-
-		xmlContent := buf.Bytes()
-		cblog.Debugf("Generated XML response: %s", string(xmlContent))
-
-		addS3Headers(c)
-		c.Response().Header().Set("Content-Type", "application/xml")
-		c.Response().Header().Set("Content-Length", strconv.Itoa(len(xmlContent)))
-
-		return c.Blob(http.StatusOK, "application/xml", xmlContent)
-	}
-
-	var swaggerBuckets []S3BucketInfo
+	var bucketElems []Bucket
 	for _, b := range result {
-		swaggerBuckets = append(swaggerBuckets, S3BucketInfo{
+		bucketElems = append(bucketElems, Bucket{
 			Name:         b.Name,
-			CreationDate: b.CreationDate,
+			CreationDate: b.CreationDate.UTC().Format(time.RFC3339),
 		})
 	}
-	return c.JSON(http.StatusOK, swaggerBuckets)
+
+	resp := ListAllMyBucketsResult{
+		Xmlns: "http://s3.amazonaws.com/doc/2006-03-01/",
+		Owner: Owner{
+			ID:          conn,
+			DisplayName: conn,
+		},
+		Buckets: Buckets{Bucket: bucketElems},
+	}
+
+	// Generate XML response
+	var buf bytes.Buffer
+	buf.WriteString(xml.Header)
+	enc := xml.NewEncoder(&buf)
+	enc.Indent("", "  ")
+
+	if err := enc.Encode(resp); err != nil {
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/")
+	}
+
+	xmlContent := buf.Bytes()
+	cblog.Debugf("Generated XML response: %s", string(xmlContent))
+
+	addS3Headers(c)
+	c.Response().Header().Set("Content-Type", "application/xml")
+	c.Response().Header().Set("Content-Length", strconv.Itoa(len(xmlContent)))
+
+	return c.Blob(http.StatusOK, "application/xml", xmlContent)
 }
 
-// @Summary Get S3 Bucket
-// @Description Get information of a specific S3 bucket
-// @Tags [S3 Management]
-// @Produce json
-// @Param ConnectionName query string true "Connection Name"
-// @Param Name path string true "Bucket Name"
-// @Success 200 {object} restruntime.S3BucketInfo
-// @Failure 500 {object} restruntime.SimpleMsg
-// @Router /s3/bucket/{Name} [get]
 func GetS3Bucket(c echo.Context) error {
-	conn, isS3Api := getConnectionName(c)
+	conn, _ := getConnectionName(c)
 	name := c.Param("Name")
 	name = strings.TrimSuffix(name, "/")
 
-	if isS3Api && c.Request().Method == "GET" {
-		if c.QueryParam("location") != "" {
-			return getBucketLocation(c)
+	cblog.Infof("GetS3Bucket called - Method: %s, Path: %s, Bucket: %s", c.Request().Method, c.Path(), name)
+	cblog.Infof("Query parameters: %v", c.QueryParams())
+
+	// Handle PUT requests with specific query parameters
+	if c.Request().Method == "PUT" {
+		cblog.Infof("PUT request received for bucket: %s", name)
+
+		// Check for versioning parameter - this parameter exists but may be empty
+		if c.QueryParams().Has("versioning") {
+			cblog.Infof("Handling PUT versioning for bucket: %s", name)
+			return putBucketVersioning(c)
+		}
+		if c.QueryParams().Has("cors") {
+			cblog.Infof("Handling PUT cors for bucket: %s", name)
+			return putBucketCORS(c)
+		}
+		if c.QueryParams().Has("acl") {
+			cblog.Infof("Handling PUT acl for bucket: %s", name)
+			return putBucketACL(c)
+		}
+		if c.QueryParams().Has("policy") {
+			cblog.Infof("Handling PUT policy for bucket: %s", name)
+			return putBucketPolicy(c)
 		}
 
+		// Log all query parameters for debugging
+		cblog.Infof("All query parameters: %v", c.QueryParams())
+
+		// If PUT request has no matching query params, check if bucket exists
+		// If bucket doesn't exist, this might be a creation request that was misrouted
+		cblog.Infof("PUT request with no matching query params, checking if bucket exists")
+		_, err := cmrt.GetS3Bucket(conn, name)
+		if err != nil {
+			if strings.Contains(err.Error(), "not found") {
+				// Bucket doesn't exist, this might be a creation request
+				cblog.Infof("Bucket %s doesn't exist, this might be a creation request", name)
+				return returnS3Error(c, http.StatusNotFound, "NoSuchBucket",
+					"The specified bucket does not exist", "/"+name)
+			}
+			return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+name)
+		}
+
+		// Bucket exists but no valid operation specified
+		cblog.Errorf("PUT request for existing bucket %s with no valid operation. Query params: %v", name, c.QueryParams())
+		return returnS3Error(c, http.StatusBadRequest, "InvalidRequest",
+			"Invalid PUT request - no valid operation specified", "/"+name)
+	}
+
+	// Handle GET requests with specific query parameters
+	if c.Request().Method == "GET" {
+		if c.QueryParam("location") != "" {
+			cblog.Infof("Handling GET location for bucket: %s", name)
+			return getBucketLocation(c)
+		}
+		if c.QueryParam("versioning") != "" {
+			cblog.Infof("Handling GET versioning for bucket: %s", name)
+			return getBucketVersioning(c)
+		}
+		if c.QueryParam("cors") != "" {
+			cblog.Infof("Handling GET cors for bucket: %s", name)
+			return getBucketCORS(c)
+		}
+		if c.QueryParam("acl") != "" {
+			cblog.Infof("Handling GET acl for bucket: %s", name)
+			return getBucketACL(c)
+		}
+		if c.QueryParam("policy") != "" {
+			cblog.Infof("Handling GET policy for bucket: %s", name)
+			return getBucketPolicy(c)
+		}
+		if c.QueryParam("versions") != "" {
+			cblog.Infof("Handling GET versions for bucket: %s", name)
+			return listObjectVersions(c)
+		}
+
+		// If no special query parameters, this is a list objects request
 		if c.QueryParam("acl") == "" &&
 			c.QueryParam("versioning") == "" &&
 			c.QueryParam("policy") == "" &&
 			c.QueryParam("lifecycle") == "" &&
-			c.QueryParam("cors") == "" {
-			cblog.Infof("Redirecting to ListS3Objects for bucket: %s", name)
+			c.QueryParam("cors") == "" &&
+			c.QueryParam("versions") == "" &&
+			c.QueryParam("location") == "" {
+			cblog.Infof("No special query params, treating as list objects request for bucket: %s", name)
 			c.SetParamNames("Name")
 			c.SetParamValues(name)
 			return ListS3Objects(c)
 		}
 	}
 
-	if isS3Api && c.Request().Method == "HEAD" {
+	// Handle DELETE requests with specific query parameters
+	if c.Request().Method == "DELETE" {
+		if c.QueryParam("cors") != "" {
+			cblog.Infof("Handling DELETE cors for bucket: %s", name)
+			return deleteBucketCORS(c)
+		}
+		if c.QueryParam("policy") != "" {
+			cblog.Infof("Handling DELETE policy for bucket: %s", name)
+			return deleteBucketPolicy(c)
+		}
+
+		// If no query parameters, this is likely a delete bucket request
+		// but it should go to DeleteS3Bucket function instead
+		cblog.Infof("DELETE request with no query params, redirecting to bucket deletion")
+		return DeleteS3Bucket(c)
+	}
+
+	// Handle HEAD requests
+	if c.Request().Method == "HEAD" {
+		cblog.Infof("HEAD request for bucket: %s", name)
 		_, err := cmrt.GetS3Bucket(conn, name)
 		if err != nil {
 			if strings.Contains(err.Error(), "not found") {
@@ -433,24 +1082,18 @@ func GetS3Bucket(c echo.Context) error {
 		return c.NoContent(http.StatusOK)
 	}
 
-	b, err := cmrt.GetS3Bucket(conn, name)
+	// Default behavior - just check if bucket exists
+	cblog.Infof("Default bucket existence check for: %s", name)
+	_, err := cmrt.GetS3Bucket(conn, name)
 	if err != nil {
-		if isS3Api {
-			errorCode := "NoSuchBucket"
-			if strings.Contains(err.Error(), "not found") {
-				return returnS3Error(c, http.StatusNotFound, errorCode, err.Error(), "/"+name)
-			}
-			return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+name)
+		errorCode := "NoSuchBucket"
+		if strings.Contains(err.Error(), "not found") {
+			return returnS3Error(c, http.StatusNotFound, errorCode, err.Error(), "/"+name)
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+name)
 	}
 
-	swaggerBucket := S3BucketInfo{
-		Name:         b.Name,
-		CreationDate: b.CreationDate,
-		BucketRegion: b.BucketRegion,
-	}
-	return c.JSON(http.StatusOK, swaggerBucket)
+	return c.NoContent(http.StatusOK)
 }
 
 // getBucketLocation returns the location (region) of a bucket
@@ -487,209 +1130,134 @@ func getBucketLocation(c echo.Context) error {
 	return c.Blob(http.StatusOK, "application/xml", fullXML)
 }
 
-// @Summary Delete S3 Bucket
-// @Description Delete an S3 bucket (from S3 and infostore)
-// @Tags [S3 Management]
-// @Accept json
-// @Produce json
-// @Param ConnectionName query string true "Connection Name"
-// @Param Name path string true "Bucket Name"
-// @Success 200 {object} restruntime.BooleanInfo
-// @Failure 500 {object} restruntime.SimpleMsg
-// @Router /s3/bucket/{Name} [delete]
 func DeleteS3Bucket(c echo.Context) error {
-	conn, isS3Api := getConnectionName(c)
+	conn, _ := getConnectionName(c)
 	name := c.Param("Name")
 
-	result, err := cmrt.DeleteS3Bucket(conn, name)
+	_, err := cmrt.DeleteS3Bucket(conn, name)
 	if err != nil {
-		if isS3Api {
-			errorCode := "InternalError"
-			if strings.Contains(err.Error(), "not empty") {
-				errorCode = "BucketNotEmpty"
-			} else if strings.Contains(err.Error(), "not found") {
-				errorCode = "NoSuchBucket"
-			}
-			return returnS3Error(c, http.StatusConflict, errorCode, err.Error(), "/"+name)
+		errorCode := "InternalError"
+		if strings.Contains(err.Error(), "not empty") {
+			errorCode = "BucketNotEmpty"
+		} else if strings.Contains(err.Error(), "not found") {
+			errorCode = "NoSuchBucket"
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return returnS3Error(c, http.StatusConflict, errorCode, err.Error(), "/"+name)
 	}
 
-	if isS3Api {
-		addS3Headers(c)
-		return c.NoContent(http.StatusNoContent)
-	}
-
-	return c.JSON(http.StatusOK, BooleanInfo{Result: strconv.FormatBool(result)})
+	addS3Headers(c)
+	return c.NoContent(http.StatusNoContent)
 }
 
-// @Summary List S3 Objects
-// @Description List objects in an S3 bucket (managed bucket only)
-// @Tags [S3 Management]
-// @Produce json
-// @Param ConnectionName query string true "Connection Name"
-// @Param BucketName path string true "Bucket Name"
-// @Param Prefix query string false "Prefix for filtering objects"
-// @Success 200 {array} restruntime.S3ObjectInfo
-// @Failure 500 {object} restruntime.SimpleMsg
-// @Router /s3/bucket/{BucketName}/objectlist [get]
 func ListS3Objects(c echo.Context) error {
 	cblog.Infof("ListS3Objects called - Path: %s, Method: %s", c.Path(), c.Request().Method)
 
-	conn, isS3Api := getConnectionName(c)
+	conn, _ := getConnectionName(c)
 	var bucket string
 	var prefix string
 	var delimiter string
 
-	if isS3Api {
-		bucket = c.Param("Name")
-		if bucket == "" {
-			bucket = c.Param("BucketName")
-		}
-		bucket = strings.TrimSuffix(bucket, "/")
-
-		prefix = c.QueryParam("prefix")
-		if prefix == "" {
-			prefix = c.QueryParam("Prefix")
-		}
-
-		delimiter = c.QueryParam("delimiter")
-		if delimiter == "" {
-			delimiter = c.QueryParam("Delimiter")
-		}
-
-		cblog.Infof("S3 API - Bucket: %s, Prefix: %s, Delimiter: %s", bucket, prefix, delimiter)
-	} else {
+	bucket = c.Param("Name")
+	if bucket == "" {
 		bucket = c.Param("BucketName")
+	}
+	bucket = strings.TrimSuffix(bucket, "/")
+
+	prefix = c.QueryParam("prefix")
+	if prefix == "" {
 		prefix = c.QueryParam("Prefix")
-		cblog.Infof("CB-Spider API - Bucket: %s, Prefix: %s", bucket, prefix)
 	}
 
+	delimiter = c.QueryParam("delimiter")
+	if delimiter == "" {
+		delimiter = c.QueryParam("Delimiter")
+	}
+
+	cblog.Infof("S3 API - Bucket: %s, Prefix: %s, Delimiter: %s", bucket, prefix, delimiter)
+
 	if bucket == "" {
-		if isS3Api {
-			return returnS3Error(c, http.StatusBadRequest, "InvalidBucketName", "Bucket name is required", "/")
-		}
-		return echo.NewHTTPError(http.StatusBadRequest, "Bucket name is required")
+		return returnS3Error(c, http.StatusBadRequest, "InvalidBucketName", "Bucket name is required", "/")
 	}
 
 	result, err := cmrt.ListS3Objects(conn, bucket, prefix)
 	if err != nil {
 		cblog.Errorf("Failed to list objects in bucket %s: %v", bucket, err)
-		if isS3Api {
-			errorCode := "NoSuchBucket"
-			statusCode := http.StatusNotFound
-			if !strings.Contains(err.Error(), "not found") {
-				errorCode = "InternalError"
-				statusCode = http.StatusInternalServerError
-			}
-			return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket)
+		errorCode := "NoSuchBucket"
+		statusCode := http.StatusNotFound
+		if !strings.Contains(err.Error(), "not found") {
+			errorCode = "InternalError"
+			statusCode = http.StatusInternalServerError
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket)
 	}
 
 	cblog.Infof("Found %d objects in bucket %s", len(result), bucket)
 
-	if isS3Api {
-		if delimiter == "/" {
-			type CommonPrefix struct {
-				Prefix string `xml:"Prefix"`
-			}
-
-			type ListBucketResultWithPrefix struct {
-				XMLName        xml.Name       `xml:"ListBucketResult"`
-				Xmlns          string         `xml:"xmlns,attr"`
-				Name           string         `xml:"Name"`
-				Prefix         string         `xml:"Prefix"`
-				Delimiter      string         `xml:"Delimiter"`
-				Marker         string         `xml:"Marker"`
-				MaxKeys        int            `xml:"MaxKeys"`
-				IsTruncated    bool           `xml:"IsTruncated"`
-				Contents       []S3ObjectXML  `xml:"Contents"`
-				CommonPrefixes []CommonPrefix `xml:"CommonPrefixes"`
-			}
-
-			var contents []S3ObjectXML
-			commonPrefixMap := make(map[string]bool)
-
-			for _, obj := range result {
-				if prefix != "" && !strings.HasPrefix(obj.Key, prefix) {
-					continue
-				}
-
-				relativeKey := obj.Key
-				if prefix != "" {
-					relativeKey = strings.TrimPrefix(obj.Key, prefix)
-				}
-
-				if idx := strings.Index(relativeKey, delimiter); idx > 0 {
-					subPrefix := prefix + relativeKey[:idx+1]
-					commonPrefixMap[subPrefix] = true
-				} else if relativeKey != "" {
-					if !(strings.HasSuffix(obj.Key, "/") && obj.Key == prefix) {
-						contents = append(contents, S3ObjectXML{
-							Key:          obj.Key,
-							LastModified: obj.LastModified.UTC().Format(time.RFC3339),
-							ETag:         strings.Trim(obj.ETag, "\""),
-							Size:         obj.Size,
-							StorageClass: "STANDARD",
-						})
-					}
-				}
-			}
-
-			var commonPrefixes []CommonPrefix
-			for prefix := range commonPrefixMap {
-				commonPrefixes = append(commonPrefixes, CommonPrefix{Prefix: prefix})
-			}
-
-			resp := ListBucketResultWithPrefix{
-				Xmlns:          "http://s3.amazonaws.com/doc/2006-03-01/",
-				Name:           bucket,
-				Prefix:         prefix,
-				Delimiter:      delimiter,
-				Marker:         "",
-				MaxKeys:        1000,
-				IsTruncated:    false,
-				Contents:       contents,
-				CommonPrefixes: commonPrefixes,
-			}
-
-			addS3Headers(c)
-
-			xmlData, err := xml.Marshal(resp)
-			if err != nil {
-				return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucket)
-			}
-
-			fullXML := append([]byte(xml.Header), xmlData...)
-			cblog.Debugf("Returning XML with %d objects and %d common prefixes", len(contents), len(commonPrefixes))
-			return c.Blob(http.StatusOK, "application/xml", fullXML)
+	if delimiter == "/" {
+		type CommonPrefix struct {
+			Prefix string `xml:"Prefix"`
 		}
 
-		// Default XML response for S3 API without delimiter
+		type ListBucketResultWithPrefix struct {
+			XMLName        xml.Name       `xml:"ListBucketResult"`
+			Xmlns          string         `xml:"xmlns,attr"`
+			Name           string         `xml:"Name"`
+			Prefix         string         `xml:"Prefix"`
+			Delimiter      string         `xml:"Delimiter"`
+			Marker         string         `xml:"Marker"`
+			MaxKeys        int            `xml:"MaxKeys"`
+			IsTruncated    bool           `xml:"IsTruncated"`
+			Contents       []S3ObjectXML  `xml:"Contents"`
+			CommonPrefixes []CommonPrefix `xml:"CommonPrefixes"`
+		}
+
 		var contents []S3ObjectXML
-		for _, o := range result {
-			contents = append(contents, S3ObjectXML{
-				Key:          o.Key,
-				LastModified: o.LastModified.UTC().Format(time.RFC3339),
-				ETag:         strings.Trim(o.ETag, "\""),
-				Size:         o.Size,
-				StorageClass: "STANDARD",
-			})
+		commonPrefixMap := make(map[string]bool)
+
+		for _, obj := range result {
+			if prefix != "" && !strings.HasPrefix(obj.Key, prefix) {
+				continue
+			}
+
+			relativeKey := obj.Key
+			if prefix != "" {
+				relativeKey = strings.TrimPrefix(obj.Key, prefix)
+			}
+
+			if idx := strings.Index(relativeKey, delimiter); idx > 0 {
+				subPrefix := prefix + relativeKey[:idx+1]
+				commonPrefixMap[subPrefix] = true
+			} else if relativeKey != "" {
+				if !(strings.HasSuffix(obj.Key, "/") && obj.Key == prefix) {
+					contents = append(contents, S3ObjectXML{
+						Key:          obj.Key,
+						LastModified: obj.LastModified.UTC().Format(time.RFC3339),
+						ETag:         strings.Trim(obj.ETag, "\""),
+						Size:         obj.Size,
+						StorageClass: "STANDARD",
+					})
+				}
+			}
 		}
 
-		resp := ListBucketResult{
-			Xmlns:       "http://s3.amazonaws.com/doc/2006-03-01/",
-			Name:        bucket,
-			Prefix:      prefix,
-			Marker:      "",
-			MaxKeys:     1000,
-			IsTruncated: false,
-			Contents:    contents,
+		var commonPrefixes []CommonPrefix
+		for prefix := range commonPrefixMap {
+			commonPrefixes = append(commonPrefixes, CommonPrefix{Prefix: prefix})
+		}
+
+		resp := ListBucketResultWithPrefix{
+			Xmlns:          "http://s3.amazonaws.com/doc/2006-03-01/",
+			Name:           bucket,
+			Prefix:         prefix,
+			Delimiter:      delimiter,
+			Marker:         "",
+			MaxKeys:        1000,
+			IsTruncated:    false,
+			Contents:       contents,
+			CommonPrefixes: commonPrefixes,
 		}
 
 		addS3Headers(c)
-		cblog.Debugf("Returning XML response with %d objects", len(contents))
 
 		xmlData, err := xml.Marshal(resp)
 		if err != nil {
@@ -697,56 +1265,60 @@ func ListS3Objects(c echo.Context) error {
 		}
 
 		fullXML := append([]byte(xml.Header), xmlData...)
+		cblog.Debugf("Returning XML with %d objects and %d common prefixes", len(contents), len(commonPrefixes))
 		return c.Blob(http.StatusOK, "application/xml", fullXML)
 	}
 
-	var swaggerList []S3ObjectInfo
+	// Default XML response for S3 API without delimiter
+	var contents []S3ObjectXML
 	for _, o := range result {
-		swaggerList = append(swaggerList, S3ObjectInfo{
+		contents = append(contents, S3ObjectXML{
 			Key:          o.Key,
+			LastModified: o.LastModified.UTC().Format(time.RFC3339),
+			ETag:         strings.Trim(o.ETag, "\""),
 			Size:         o.Size,
-			LastModified: o.LastModified,
-			ETag:         o.ETag,
+			StorageClass: "STANDARD",
 		})
 	}
-	return c.JSON(http.StatusOK, swaggerList)
+
+	resp := ListBucketResult{
+		Xmlns:       "http://s3.amazonaws.com/doc/2006-03-01/",
+		Name:        bucket,
+		Prefix:      prefix,
+		Marker:      "",
+		MaxKeys:     1000,
+		IsTruncated: false,
+		Contents:    contents,
+	}
+
+	addS3Headers(c)
+	cblog.Debugf("Returning XML response with %d objects", len(contents))
+
+	xmlData, err := xml.Marshal(resp)
+	if err != nil {
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucket)
+	}
+
+	fullXML := append([]byte(xml.Header), xmlData...)
+	return c.Blob(http.StatusOK, "application/xml", fullXML)
 }
 
-// @Summary Get S3 Object Metadata
-// @Description Get metadata/stat of an object in S3
-// @Tags [S3 Management]
-// @Produce json
-// @Param ConnectionName query string true "Connection Name"
-// @Param BucketName path string true "Bucket Name"
-// @Param ObjectName query string true "Object Name"
-// @Success 200 {object} restruntime.S3ObjectInfo
-// @Failure 500 {object} restruntime.SimpleMsg
-// @Router /s3/bucket/{BucketName}/object [get]
 func GetS3ObjectInfo(c echo.Context) error {
-	conn, isS3Api := getConnectionName(c)
+	conn, _ := getConnectionName(c)
 	bucket := c.Param("BucketName")
-	var obj string
-
-	if isS3Api {
-		obj = c.Param("ObjectKey+")
-	} else {
-		obj = c.QueryParam("ObjectName")
-	}
+	obj := c.Param("ObjectKey+")
 
 	o, err := cmrt.GetS3ObjectInfo(conn, bucket, obj)
 	if err != nil {
-		if isS3Api {
-			errorCode := "NoSuchKey"
-			statusCode := http.StatusNotFound
-			if strings.Contains(err.Error(), "bucket") {
-				errorCode = "NoSuchBucket"
-			}
-			return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+obj)
+		errorCode := "NoSuchKey"
+		statusCode := http.StatusNotFound
+		if strings.Contains(err.Error(), "bucket") {
+			errorCode = "NoSuchBucket"
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+obj)
 	}
 
-	if isS3Api && c.Request().Method == "HEAD" {
+	if c.Request().Method == "HEAD" {
 		addS3Headers(c)
 		c.Response().Header().Set("Content-Type", o.ContentType)
 		c.Response().Header().Set("Content-Length", strconv.FormatInt(o.Size, 10))
@@ -825,556 +1397,99 @@ func GetS3ObjectInfo(c echo.Context) error {
 	return c.JSON(http.StatusOK, s3Obj)
 }
 
-// @Summary Upload S3 Object (from file path)
-// @Description Upload a file to S3 bucket (managed bucket only)
-// @Tags [S3 Management]
-// @Accept json
-// @Produce json
-// @Param S3ObjectUploadRequest body restruntime.S3ObjectUploadRequest true "Upload info"
-// @Success 200 {object} restruntime.S3UploadInfo
-// @Failure 400 {object} restruntime.SimpleMsg
-// @Failure 500 {object} restruntime.SimpleMsg
-// @Router /s3/object [post]
 func PutS3ObjectFromFile(c echo.Context) error {
 	if c.QueryParam("uploadId") != "" && c.QueryParam("partNumber") != "" {
 		return uploadPart(c)
 	}
 
-	conn, isS3Api := getConnectionName(c)
-
-	if isS3Api {
-		bucket := c.Param("BucketName")
-		objKey := c.Param("ObjectKey+")
-
-		if c.Request().ContentLength == 0 && !strings.HasSuffix(objKey, "/") {
-			userAgent := c.Request().Header.Get("User-Agent")
-			if strings.Contains(userAgent, "S3 Browser") {
-				objKey = objKey + "/"
-				cblog.Infof("S3 Browser folder creation detected, adding trailing slash: %s", objKey)
-			}
-		}
-
-		body := c.Request().Body
-		defer body.Close()
-
-		info, err := cmrt.PutS3ObjectFromReader(conn, bucket, objKey, body, c.Request().ContentLength)
-		if err != nil {
-			errorCode := "InternalError"
-			statusCode := http.StatusInternalServerError
-			if strings.Contains(err.Error(), "bucket") {
-				errorCode = "NoSuchBucket"
-				statusCode = http.StatusNotFound
-			}
-			return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+objKey)
-		}
-
-		addS3Headers(c)
-		c.Response().Header().Set("ETag", info.ETag)
-		if info.VersionID != "" {
-			c.Response().Header().Set("x-amz-version-id", info.VersionID)
-		}
-		return c.NoContent(http.StatusOK)
-	}
-
-	var req S3ObjectUploadRequest
-	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
-	}
-	info, err := cmrt.PutS3ObjectFromFile(req.ConnectionName, req.BucketName, req.ObjectName, req.FilePath)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-	return c.JSON(http.StatusOK, S3UploadInfo{
-		Bucket:            info.Bucket,
-		Key:               info.Key,
-		ETag:              info.ETag,
-		Size:              info.Size,
-		LastModified:      info.LastModified,
-		Location:          info.Location,
-		VersionID:         info.VersionID,
-		Expiration:        info.Expiration,
-		ExpirationRuleID:  info.ExpirationRuleID,
-		ChecksumCRC32:     info.ChecksumCRC32,
-		ChecksumCRC32C:    info.ChecksumCRC32C,
-		ChecksumSHA1:      info.ChecksumSHA1,
-		ChecksumSHA256:    info.ChecksumSHA256,
-		ChecksumCRC64NVME: info.ChecksumCRC64NVME,
-		ChecksumMode:      info.ChecksumMode,
-	})
-}
-
-// @Summary Delete S3 Object
-// @Description Delete an object from S3 bucket (managed bucket only)
-// @Tags [S3 Management]
-// @Accept json
-// @Produce json
-// @Param S3ObjectDeleteRequest body restruntime.S3ObjectDeleteRequest true "Delete info"
-// @Success 200 {object} restruntime.BooleanInfo
-// @Failure 400 {object} restruntime.SimpleMsg
-// @Failure 500 {object} restruntime.SimpleMsg
-// @Router /s3/object [delete]
-func DeleteS3Object(c echo.Context) error {
-	conn, isS3Api := getConnectionName(c)
-
-	if isS3Api {
-		bucket := c.Param("BucketName")
-		objKey := c.Param("ObjectKey+")
-
-		cblog.Infof("DeleteS3Object called - bucket: %s, objKey: %s", bucket, objKey)
-
-		userAgent := c.Request().Header.Get("User-Agent")
-		if strings.Contains(userAgent, "S3 Browser") && !strings.HasSuffix(objKey, "/") {
-			objKeyWithSlash := objKey + "/"
-			_, err := cmrt.GetS3ObjectInfo(conn, bucket, objKeyWithSlash)
-			if err == nil {
-				objKey = objKeyWithSlash
-				cblog.Infof("S3 Browser folder deletion detected, adding trailing slash: %s", objKey)
-			} else {
-				cblog.Debugf("No folder found with slash, proceeding with original key: %s", objKey)
-			}
-		}
-
-		_, err := cmrt.DeleteS3Object(conn, bucket, objKey)
-		if err != nil {
-			errorCode := "NoSuchKey"
-			statusCode := http.StatusNotFound
-			if strings.Contains(err.Error(), "bucket") {
-				errorCode = "NoSuchBucket"
-			}
-			return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+objKey)
-		}
-
-		addS3Headers(c)
-		return c.NoContent(http.StatusNoContent)
-	}
-
-	var req S3ObjectDeleteRequest
-	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
-	}
-	result, err := cmrt.DeleteS3Object(req.ConnectionName, req.BucketName, req.ObjectName)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-	return c.JSON(http.StatusOK, BooleanInfo{Result: strconv.FormatBool(result)})
-}
-
-// @Summary Download S3 Object (Streaming)
-// @Description Stream (download) an S3 object as a file (managed bucket only)
-// @Tags [S3 Management]
-// @Produce application/octet-stream
-// @Param ConnectionName query string true "Connection Name"
-// @Param BucketName path string true "Bucket Name"
-// @Param ObjectName query string true "Object Name"
-// @Success 200 {file} file
-// @Failure 500 {object} restruntime.SimpleMsg
-// @Router /s3/bucket/{BucketName}/object/download [get]
-func DownloadS3Object(c echo.Context) error {
-	conn, isS3Api := getConnectionName(c)
+	conn, _ := getConnectionName(c)
 	bucket := c.Param("BucketName")
-	var obj string
+	objKey := c.Param("ObjectKey+")
 
-	if isS3Api {
-		objKey := c.Param("ObjectKey+")
-		obj = objKey
-	} else {
-		obj = c.QueryParam("ObjectName")
+	if c.Request().ContentLength == 0 && !strings.HasSuffix(objKey, "/") {
+		userAgent := c.Request().Header.Get("User-Agent")
+		if strings.Contains(userAgent, "S3 Browser") {
+			objKey = objKey + "/"
+			cblog.Infof("S3 Browser folder creation detected, adding trailing slash: %s", objKey)
+		}
 	}
 
-	stream, err := cmrt.GetS3ObjectStream(conn, bucket, obj)
+	body := c.Request().Body
+	defer body.Close()
+
+	info, err := cmrt.PutS3ObjectFromReader(conn, bucket, objKey, body, c.Request().ContentLength)
 	if err != nil {
-		if isS3Api {
-			errorCode := "NoSuchKey"
-			statusCode := http.StatusNotFound
-			if strings.Contains(err.Error(), "bucket") {
-				errorCode = "NoSuchBucket"
-			}
-			return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+obj)
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "bucket") {
+			errorCode = "NoSuchBucket"
+			statusCode = http.StatusNotFound
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+objKey)
+	}
+
+	addS3Headers(c)
+	c.Response().Header().Set("ETag", info.ETag)
+	if info.VersionID != "" {
+		c.Response().Header().Set("x-amz-version-id", info.VersionID)
+	}
+	return c.NoContent(http.StatusOK)
+}
+
+func DeleteS3Object(c echo.Context) error {
+	conn, _ := getConnectionName(c)
+	bucket := c.Param("BucketName")
+	objKey := c.Param("ObjectKey+")
+
+	cblog.Infof("DeleteS3Object called - bucket: %s, objKey: %s", bucket, objKey)
+
+	userAgent := c.Request().Header.Get("User-Agent")
+	if strings.Contains(userAgent, "S3 Browser") && !strings.HasSuffix(objKey, "/") {
+		objKeyWithSlash := objKey + "/"
+		_, err := cmrt.GetS3ObjectInfo(conn, bucket, objKeyWithSlash)
+		if err == nil {
+			objKey = objKeyWithSlash
+			cblog.Infof("S3 Browser folder deletion detected, adding trailing slash: %s", objKey)
+		} else {
+			cblog.Debugf("No folder found with slash, proceeding with original key: %s", objKey)
+		}
+	}
+
+	_, err := cmrt.DeleteS3Object(conn, bucket, objKey)
+	if err != nil {
+		errorCode := "NoSuchKey"
+		statusCode := http.StatusNotFound
+		if strings.Contains(err.Error(), "bucket") {
+			errorCode = "NoSuchBucket"
+		}
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+objKey)
+	}
+
+	addS3Headers(c)
+	return c.NoContent(http.StatusNoContent)
+}
+
+func DownloadS3Object(c echo.Context) error {
+	conn, _ := getConnectionName(c)
+	bucket := c.Param("BucketName")
+	objKey := c.Param("ObjectKey+")
+
+	stream, err := cmrt.GetS3ObjectStream(conn, bucket, objKey)
+	if err != nil {
+		errorCode := "NoSuchKey"
+		statusCode := http.StatusNotFound
+		if strings.Contains(err.Error(), "bucket") {
+			errorCode = "NoSuchBucket"
+		}
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+objKey)
 	}
 	defer stream.Close()
 
-	if isS3Api {
-		addS3Headers(c)
-	} else {
-		filename := filepath.Base(obj)
-		c.Response().Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
-	}
-
+	addS3Headers(c)
+	filename := filepath.Base(objKey)
+	c.Response().Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
 	c.Response().Header().Set("Content-Type", "application/octet-stream")
 	return c.Stream(http.StatusOK, "application/octet-stream", stream)
-}
-
-// S3PresignedURLRequest with CORS option
-type S3PresignedURLRequest struct {
-	ConnectionName             string `json:"ConnectionName"`
-	BucketName                 string `json:"BucketName"`
-	ObjectName                 string `json:"ObjectName"`
-	Method                     string `json:"Method"`
-	ExpiresSeconds             int64  `json:"ExpiresSeconds"`
-	ResponseContentDisposition string `json:"ResponseContentDisposition,omitempty"`
-}
-
-// S3BucketCORSRequest for setting bucket CORS
-type S3BucketCORSRequest struct {
-	ConnectionName string   `json:"ConnectionName" validate:"required"`
-	BucketName     string   `json:"BucketName" validate:"required"`
-	AllowedOrigins []string `json:"AllowedOrigins" validate:"required"`
-	AllowedMethods []string `json:"AllowedMethods" validate:"required"`
-	AllowedHeaders []string `json:"AllowedHeaders"`
-	ExposeHeaders  []string `json:"ExposeHeaders"`
-	MaxAgeSeconds  int      `json:"MaxAgeSeconds"`
-}
-
-// @Summary Get S3 Presigned URL (Enhanced for Browser Upload)
-// @Description Get a presigned URL for S3 object (GET/PUT) with CORS support
-// @Tags [S3 Management]
-// @Accept json
-// @Produce json
-// @Param S3PresignedURLRequest body restruntime.S3PresignedURLRequest true "Presigned URL info"
-// @Success 200 {object} restruntime.S3PresignedURL
-// @Failure 400 {object} restruntime.SimpleMsg
-// @Failure 500 {object} restruntime.SimpleMsg
-// @Router /s3/object/presigned-url [post]
-func GetS3PresignedURL(c echo.Context) error {
-	var req S3PresignedURLRequest
-	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
-	}
-
-	url, err := cmrt.GetS3PresignedURL(
-		req.ConnectionName,
-		req.BucketName,
-		req.ObjectName,
-		req.Method,
-		int64(req.ExpiresSeconds),
-		req.ResponseContentDisposition,
-	)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	return c.JSON(http.StatusOK, S3PresignedURL{PresignedURL: url})
-}
-
-// @Summary Set S3 Bucket CORS Configuration
-// @Description Configure CORS settings for S3 bucket to allow browser uploads
-// @Tags [S3 Management]
-// @Accept json
-// @Produce json
-// @Param S3BucketCORSRequest body restruntime.S3BucketCORSRequest true "CORS configuration"
-// @Success 200 {object} restruntime.BooleanInfo
-// @Failure 400 {object} restruntime.SimpleMsg
-// @Failure 500 {object} restruntime.SimpleMsg
-// @Router /s3/bucket/cors [post]
-func SetS3BucketCORS(c echo.Context) error {
-	var req S3BucketCORSRequest
-	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
-	}
-
-	// Default CORS configuration if not provided
-	if len(req.AllowedOrigins) == 0 {
-		req.AllowedOrigins = []string{"*"}
-	}
-	if len(req.AllowedMethods) == 0 {
-		req.AllowedMethods = []string{"GET", "PUT", "POST", "DELETE", "HEAD"}
-	}
-	if len(req.AllowedHeaders) == 0 {
-		req.AllowedHeaders = []string{"*"}
-	}
-	if len(req.ExposeHeaders) == 0 {
-		req.ExposeHeaders = []string{"ETag", "x-amz-server-side-encryption", "x-amz-request-id", "x-amz-id-2"}
-	}
-	if req.MaxAgeSeconds == 0 {
-		req.MaxAgeSeconds = 3600
-	}
-
-	result, err := cmrt.SetS3BucketCORS(req.ConnectionName, req.BucketName, req.AllowedOrigins, req.AllowedMethods, req.AllowedHeaders, req.ExposeHeaders, req.MaxAgeSeconds)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	return c.JSON(http.StatusOK, BooleanInfo{Result: strconv.FormatBool(result)})
-}
-
-// @Summary Enable S3 Bucket CORS for Browser Upload
-// @Description Quick setup CORS for browser-based file uploads
-// @Tags [S3 Management]
-// @Produce json
-// @Param ConnectionName query string true "Connection Name"
-// @Param BucketName query string true "Bucket Name"
-// @Success 200 {object} restruntime.BooleanInfo
-// @Failure 400 {object} restruntime.SimpleMsg
-// @Failure 500 {object} restruntime.SimpleMsg
-// @Router /s3/bucket/cors/enable [post]
-func EnableS3BucketCORSForUpload(c echo.Context) error {
-	conn := c.QueryParam("ConnectionName")
-	bucket := c.QueryParam("BucketName")
-
-	if conn == "" || bucket == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "ConnectionName and BucketName are required")
-	}
-
-	// Standard CORS configuration for browser uploads
-	allowedOrigins := []string{"*"}
-	allowedMethods := []string{"GET", "PUT", "POST", "DELETE", "HEAD"}
-	allowedHeaders := []string{"*"}
-	exposeHeaders := []string{"ETag", "x-amz-server-side-encryption", "x-amz-request-id", "x-amz-id-2", "x-amz-version-id"}
-	maxAgeSeconds := 3600
-
-	result, err := cmrt.SetS3BucketCORS(conn, bucket, allowedOrigins, allowedMethods, allowedHeaders, exposeHeaders, maxAgeSeconds)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	return c.JSON(http.StatusOK, BooleanInfo{Result: strconv.FormatBool(result)})
-}
-
-type S3BucketACLRequest struct {
-	ConnectionName string `json:"ConnectionName" validate:"required"`
-	BucketName     string `json:"BucketName" validate:"required"`
-	ACL            string `json:"ACL" validate:"required" example:"private|public-read"`
-}
-
-type S3ObjectACLRequest struct {
-	ConnectionName string `json:"ConnectionName" validate:"required"`
-	BucketName     string `json:"BucketName" validate:"required"`
-	ObjectName     string `json:"ObjectName" validate:"required"`
-	ACL            string `json:"ACL" validate:"required" example:"private|public-read"`
-}
-
-type S3BucketACLSetResponse struct {
-	Policy string `json:"Policy"`
-}
-
-type S3BucketACLInfo struct {
-	Policy string `json:"Policy"`
-}
-
-// @Summary Set S3 Bucket ACL
-// @Description Set the ACL for a specific S3 bucket and return the applied policy
-// @Tags [S3 Management]
-// @Accept json
-// @Produce json
-// @Param S3BucketACLRequest body restruntime.S3BucketACLRequest true "ACL info"
-// @Success 200 {object} restruntime.S3BucketACLSetResponse
-// @Failure 400 {object} restruntime.SimpleMsg
-// @Failure 500 {object} restruntime.SimpleMsg
-// @Router /s3/bucket/acl [post]
-func SetS3BucketACL(c echo.Context) error {
-	conn, isS3Api := getConnectionName(c)
-
-	if isS3Api {
-		bucket := c.Param("Name")
-		if c.QueryParam("acl") == "" {
-			return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "ACL parameter required", "/"+bucket)
-		}
-
-		aclHeader := c.Request().Header.Get("x-amz-acl")
-		if aclHeader == "" {
-			aclHeader = "private"
-		}
-
-		_, err := cmrt.SetS3BucketACL(conn, bucket, aclHeader)
-		if err != nil {
-			errorCode := "InternalError"
-			statusCode := http.StatusInternalServerError
-			if strings.Contains(err.Error(), "not found") {
-				errorCode = "NoSuchBucket"
-				statusCode = http.StatusNotFound
-			}
-			return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket)
-		}
-
-		addS3Headers(c)
-		return c.NoContent(http.StatusOK)
-	}
-
-	var req S3BucketACLRequest
-	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
-	}
-	policy, err := cmrt.SetS3BucketACL(req.ConnectionName, req.BucketName, req.ACL)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-	return c.JSON(http.StatusOK, S3BucketACLSetResponse{
-		Policy: policy,
-	})
-}
-
-// @Summary Get S3 Bucket ACL (Policy)
-// @Description Get the current ACL(policy) for an S3 bucket
-// @Tags [S3 Management]
-// @Produce json
-// @Param ConnectionName query string true "Connection Name"
-// @Param BucketName query string true "Bucket Name"
-// @Success 200 {object} restruntime.S3BucketACLInfo
-// @Failure 400 {object} restruntime.SimpleMsg
-// @Failure 500 {object} restruntime.SimpleMsg
-// @Router /s3/bucket/acl [get]
-func GetS3BucketACL(c echo.Context) error {
-	conn := c.QueryParam("ConnectionName")
-	bucket := c.QueryParam("BucketName")
-	if conn == "" || bucket == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "ConnectionName and BucketName are required")
-	}
-	policy, err := cmrt.GetS3BucketACL(conn, bucket)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-	return c.JSON(http.StatusOK, S3BucketACLInfo{Policy: policy})
-}
-
-type S3BucketVersioningRequest struct {
-	ConnectionName string `json:"ConnectionName" validate:"required"`
-	BucketName     string `json:"BucketName" validate:"required"`
-}
-
-type S3ObjectVersionsRequest struct {
-	ConnectionName string `json:"ConnectionName" validate:"required"`
-	BucketName     string `json:"BucketName" validate:"required"`
-	Prefix         string `json:"Prefix"`
-}
-
-// @Summary Enable S3 Bucket Versioning
-// @Description Enable versioning for an S3 bucket
-// @Tags [S3 Management]
-// @Accept json
-// @Produce json
-// @Param S3BucketVersioningRequest body restruntime.S3BucketVersioningRequest true "Versioning info"
-// @Success 200 {object} restruntime.BooleanInfo
-// @Failure 400 {object} restruntime.SimpleMsg
-// @Failure 500 {object} restruntime.SimpleMsg
-// @Router /s3/bucket/versioning/enable [post]
-func EnableVersioning(c echo.Context) error {
-	conn, isS3Api := getConnectionName(c)
-
-	if isS3Api {
-		bucket := c.Param("Name")
-		if c.QueryParam("versioning") == "" {
-			return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "versioning parameter required", "/"+bucket)
-		}
-
-		var config VersioningConfiguration
-		if err := xml.NewDecoder(c.Request().Body).Decode(&config); err != nil {
-			return returnS3Error(c, http.StatusBadRequest, "MalformedXML", err.Error(), "/"+bucket)
-		}
-
-		var err error
-		if config.Status == "Enabled" {
-			_, err = cmrt.EnableVersioning(conn, bucket)
-		} else if config.Status == "Suspended" {
-			_, err = cmrt.SuspendVersioning(conn, bucket)
-		} else {
-			return returnS3Error(c, http.StatusBadRequest, "InvalidArgument", "Invalid versioning status", "/"+bucket)
-		}
-
-		if err != nil {
-			errorCode := "InternalError"
-			statusCode := http.StatusInternalServerError
-			if strings.Contains(err.Error(), "not found") {
-				errorCode = "NoSuchBucket"
-				statusCode = http.StatusNotFound
-			}
-			return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket)
-		}
-
-		addS3Headers(c)
-		return c.NoContent(http.StatusOK)
-	}
-
-	var req S3BucketVersioningRequest
-	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
-	}
-	result, err := cmrt.EnableVersioning(req.ConnectionName, req.BucketName)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-	return c.JSON(http.StatusOK, BooleanInfo{Result: strconv.FormatBool(result)})
-}
-
-// @Summary Suspend S3 Bucket Versioning
-// @Description Suspend versioning for an S3 bucket
-// @Tags [S3 Management]
-// @Accept json
-// @Produce json
-// @Param S3BucketVersioningRequest body restruntime.S3BucketVersioningRequest true "Versioning info"
-// @Success 200 {object} restruntime.BooleanInfo
-// @Failure 400 {object} restruntime.SimpleMsg
-// @Failure 500 {object} restruntime.SimpleMsg
-// @Router /s3/bucket/versioning/suspend [post]
-func SuspendVersioning(c echo.Context) error {
-	var req S3BucketVersioningRequest
-	if err := c.Bind(&req); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
-	}
-	result, err := cmrt.SuspendVersioning(req.ConnectionName, req.BucketName)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-	return c.JSON(http.StatusOK, BooleanInfo{Result: strconv.FormatBool(result)})
-}
-
-// @Summary List S3 Object Versions
-// @Description List all versions of objects in a bucket (versioning enabled)
-// @Tags [S3 Management]
-// @Accept json
-// @Produce json
-// @Param S3ObjectVersionsRequest body restruntime.S3ObjectVersionsRequest true "Versions info"
-// @Success 200 {array} restruntime.S3ObjectInfo
-// @Failure 400 {object} restruntime.SimpleMsg
-// @Failure 500 {object} restruntime.SimpleMsg
-// @Router /s3/bucket/object/versions [post]
-func ListS3ObjectVersions(c echo.Context) error {
-	conn, isS3Api := getConnectionName(c)
-
-	var bucket, prefix string
-	if isS3Api {
-		bucket = c.Param("BucketName")
-		if c.QueryParam("versions") == "" {
-			return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "versions parameter required", "/"+bucket)
-		}
-		prefix = c.QueryParam("prefix")
-	} else {
-		var req S3ObjectVersionsRequest
-		if err := c.Bind(&req); err != nil {
-			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
-		}
-		bucket = req.BucketName
-		prefix = req.Prefix
-	}
-
-	result, err := cmrt.ListS3ObjectVersions(conn, bucket, prefix)
-	if err != nil {
-		if isS3Api {
-			errorCode := "NoSuchBucket"
-			statusCode := http.StatusNotFound
-			if !strings.Contains(err.Error(), "not found") {
-				errorCode = "InternalError"
-				statusCode = http.StatusInternalServerError
-			}
-			return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket)
-		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	var swaggerList []S3ObjectInfo
-	for _, o := range result {
-		swaggerList = append(swaggerList, S3ObjectInfo{
-			Key:            o.Key,
-			Size:           o.Size,
-			LastModified:   o.LastModified,
-			ETag:           o.ETag,
-			VersionID:      o.VersionID,
-			IsLatest:       o.IsLatest,
-			IsDeleteMarker: o.IsDeleteMarker,
-		})
-	}
-	return c.JSON(http.StatusOK, swaggerList)
 }
 
 // HandleS3BucketPost handles various POST operations on S3 bucket
@@ -1427,7 +1542,7 @@ func min(a, b int) int {
 }
 
 func initiateMultipartUpload(c echo.Context) error {
-	conn, isS3Api := getConnectionName(c)
+	conn, _ := getConnectionName(c)
 
 	bucket := c.Param("BucketName")
 	if bucket == "" {
@@ -1443,69 +1558,55 @@ func initiateMultipartUpload(c echo.Context) error {
 	}
 
 	if key == "" {
-		if isS3Api {
-			return returnS3Error(
-				c,
-				http.StatusBadRequest,
-				"MissingParameter",
-				"key parameter is required",
-				"/"+bucket,
-			)
-		}
-		return echo.NewHTTPError(http.StatusBadRequest, "key parameter is required")
+		return returnS3Error(
+			c,
+			http.StatusBadRequest,
+			"MissingParameter",
+			"key parameter is required",
+			"/"+bucket,
+		)
 	}
 
 	uploadID, err := cmrt.InitiateMultipartUpload(conn, bucket, key)
 	if err != nil {
-		if isS3Api {
-			errorCode := "InternalError"
-			statusCode := http.StatusInternalServerError
-			if strings.Contains(err.Error(), "not found") {
-				errorCode = "NoSuchBucket"
-				statusCode = http.StatusNotFound
-			}
-			return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+key)
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "not found") {
+			errorCode = "NoSuchBucket"
+			statusCode = http.StatusNotFound
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+key)
 	}
 
-	if isS3Api {
-		type InitiateMultipartUploadResult struct {
-			XMLName  xml.Name `xml:"InitiateMultipartUploadResult"`
-			Xmlns    string   `xml:"xmlns,attr"`
-			Bucket   string   `xml:"Bucket"`
-			Key      string   `xml:"Key"`
-			UploadId string   `xml:"UploadId"`
-		}
-
-		resp := InitiateMultipartUploadResult{
-			Xmlns:    "http://s3.amazonaws.com/doc/2006-03-01/",
-			Bucket:   bucket,
-			Key:      key,
-			UploadId: uploadID,
-		}
-
-		addS3Headers(c)
-
-		xmlData, err := xml.Marshal(resp)
-		if err != nil {
-			return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucket+"/"+key)
-		}
-
-		fullXML := append([]byte(xml.Header), xmlData...)
-		return c.Blob(http.StatusOK, "application/xml", fullXML)
+	type InitiateMultipartUploadResult struct {
+		XMLName  xml.Name `xml:"InitiateMultipartUploadResult"`
+		Xmlns    string   `xml:"xmlns,attr"`
+		Bucket   string   `xml:"Bucket"`
+		Key      string   `xml:"Key"`
+		UploadId string   `xml:"UploadId"`
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{
-		"UploadId": uploadID,
-		"Bucket":   bucket,
-		"Key":      key,
-	})
+	resp := InitiateMultipartUploadResult{
+		Xmlns:    "http://s3.amazonaws.com/doc/2006-03-01/",
+		Bucket:   bucket,
+		Key:      key,
+		UploadId: uploadID,
+	}
+
+	addS3Headers(c)
+
+	xmlData, err := xml.Marshal(resp)
+	if err != nil {
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucket+"/"+key)
+	}
+
+	fullXML := append([]byte(xml.Header), xmlData...)
+	return c.Blob(http.StatusOK, "application/xml", fullXML)
 }
 
 // completeMultipartUpload completes a multipart upload
 func completeMultipartUpload(c echo.Context) error {
-	conn, isS3Api := getConnectionName(c)
+	conn, _ := getConnectionName(c)
 	bucket := c.Param("Name")
 	if bucket == "" {
 		bucket = c.Param("BucketName")
@@ -1514,10 +1615,7 @@ func completeMultipartUpload(c echo.Context) error {
 	uploadID := c.QueryParam("uploadId")
 
 	if uploadID == "" {
-		if isS3Api {
-			return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "uploadId parameter is required", "/"+bucket+"/"+key)
-		}
-		return echo.NewHTTPError(http.StatusBadRequest, "uploadId parameter is required")
+		return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "uploadId parameter is required", "/"+bucket+"/"+key)
 	}
 
 	type Part struct {
@@ -1532,10 +1630,7 @@ func completeMultipartUpload(c echo.Context) error {
 
 	var req CompleteMultipartUploadRequest
 	if err := xml.NewDecoder(c.Request().Body).Decode(&req); err != nil {
-		if isS3Api {
-			return returnS3Error(c, http.StatusBadRequest, "MalformedXML", err.Error(), "/"+bucket+"/"+key)
-		}
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		return returnS3Error(c, http.StatusBadRequest, "MalformedXML", err.Error(), "/"+bucket+"/"+key)
 	}
 
 	var parts []cmrt.CompletePart
@@ -1548,58 +1643,46 @@ func completeMultipartUpload(c echo.Context) error {
 
 	location, etag, err := cmrt.CompleteMultipartUpload(conn, bucket, key, uploadID, parts)
 	if err != nil {
-		if isS3Api {
-			errorCode := "InternalError"
-			statusCode := http.StatusInternalServerError
-			if strings.Contains(err.Error(), "not found") {
-				errorCode = "NoSuchUpload"
-				statusCode = http.StatusNotFound
-			}
-			return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+key)
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "not found") {
+			errorCode = "NoSuchUpload"
+			statusCode = http.StatusNotFound
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+key)
 	}
 
-	if isS3Api {
-		type CompleteMultipartUploadResult struct {
-			XMLName  xml.Name `xml:"CompleteMultipartUploadResult"`
-			Xmlns    string   `xml:"xmlns,attr"`
-			Location string   `xml:"Location"`
-			Bucket   string   `xml:"Bucket"`
-			Key      string   `xml:"Key"`
-			ETag     string   `xml:"ETag"`
-		}
-
-		resp := CompleteMultipartUploadResult{
-			Xmlns:    "http://s3.amazonaws.com/doc/2006-03-01/",
-			Location: location,
-			Bucket:   bucket,
-			Key:      key,
-			ETag:     etag,
-		}
-
-		addS3Headers(c)
-
-		xmlData, err := xml.Marshal(resp)
-		if err != nil {
-			return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucket+"/"+key)
-		}
-
-		fullXML := append([]byte(xml.Header), xmlData...)
-		return c.Blob(http.StatusOK, "application/xml", fullXML)
+	type CompleteMultipartUploadResult struct {
+		XMLName  xml.Name `xml:"CompleteMultipartUploadResult"`
+		Xmlns    string   `xml:"xmlns,attr"`
+		Location string   `xml:"Location"`
+		Bucket   string   `xml:"Bucket"`
+		Key      string   `xml:"Key"`
+		ETag     string   `xml:"ETag"`
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{
-		"Location": location,
-		"Bucket":   bucket,
-		"Key":      key,
-		"ETag":     etag,
-	})
+	resp := CompleteMultipartUploadResult{
+		Xmlns:    "http://s3.amazonaws.com/doc/2006-03-01/",
+		Location: location,
+		Bucket:   bucket,
+		Key:      key,
+		ETag:     etag,
+	}
+
+	addS3Headers(c)
+
+	xmlData, err := xml.Marshal(resp)
+	if err != nil {
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucket+"/"+key)
+	}
+
+	fullXML := append([]byte(xml.Header), xmlData...)
+	return c.Blob(http.StatusOK, "application/xml", fullXML)
 }
 
 // deleteMultipleObjects deletes multiple objects from S3
 func deleteMultipleObjects(c echo.Context) error {
-	conn, isS3Api := getConnectionName(c)
+	conn, _ := getConnectionName(c)
 	bucket := c.Param("Name")
 	if bucket == "" {
 		bucket = c.Param("BucketName")
@@ -1621,10 +1704,7 @@ func deleteMultipleObjects(c echo.Context) error {
 	var req Delete
 	if err := xml.NewDecoder(c.Request().Body).Decode(&req); err != nil {
 		cblog.Errorf("Failed to decode delete request: %v", err)
-		if isS3Api {
-			return returnS3Error(c, http.StatusBadRequest, "MalformedXML", err.Error(), "/"+bucket)
-		}
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		return returnS3Error(c, http.StatusBadRequest, "MalformedXML", err.Error(), "/"+bucket)
 	}
 
 	cblog.Infof("Deleting %d objects from bucket %s", len(req.Objects), bucket)
@@ -1642,10 +1722,7 @@ func deleteMultipleObjects(c echo.Context) error {
 
 	// If no valid keys, return error
 	if len(keys) == 0 {
-		if isS3Api {
-			return returnS3Error(c, http.StatusBadRequest, "MalformedXML", "No valid keys provided", "/"+bucket)
-		}
-		return echo.NewHTTPError(http.StatusBadRequest, "No valid keys provided")
+		return returnS3Error(c, http.StatusBadRequest, "MalformedXML", "No valid keys provided", "/"+bucket)
 	}
 
 	results, err := cmrt.DeleteMultipleObjects(conn, bucket, keys)
@@ -1687,78 +1764,71 @@ func deleteMultipleObjects(c echo.Context) error {
 	} else if err != nil {
 		// Other errors
 		cblog.Errorf("Failed to delete multiple objects: %v", err)
-		if isS3Api {
-			return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucket)
-		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucket)
 	}
 
-	if isS3Api {
-		type Deleted struct {
-			Key string `xml:"Key"`
-		}
+	type Deleted struct {
+		Key string `xml:"Key"`
+	}
 
-		type Error struct {
-			Key     string `xml:"Key"`
-			Code    string `xml:"Code"`
-			Message string `xml:"Message"`
-		}
+	type Error struct {
+		Key     string `xml:"Key"`
+		Code    string `xml:"Code"`
+		Message string `xml:"Message"`
+	}
 
-		type DeleteResult struct {
-			XMLName xml.Name  `xml:"DeleteResult"`
-			Xmlns   string    `xml:"xmlns,attr"`
-			Deleted []Deleted `xml:"Deleted"`
-			Error   []Error   `xml:"Error"`
-		}
+	type DeleteResult struct {
+		XMLName xml.Name  `xml:"DeleteResult"`
+		Xmlns   string    `xml:"xmlns,attr"`
+		Deleted []Deleted `xml:"Deleted"`
+		Error   []Error   `xml:"Error"`
+	}
 
-		resp := DeleteResult{
-			Xmlns: "http://s3.amazonaws.com/doc/2006-03-01/",
-		}
+	resp := DeleteResult{
+		Xmlns: "http://s3.amazonaws.com/doc/2006-03-01/",
+	}
 
-		for _, result := range results {
-			if result.Success {
-				resp.Deleted = append(resp.Deleted, Deleted{Key: result.Key})
-			} else {
-				// Map common error messages to S3 error codes
-				errorCode := "InternalError"
-				errorMsg := result.Error
+	for _, result := range results {
+		if result.Success {
+			resp.Deleted = append(resp.Deleted, Deleted{Key: result.Key})
+		} else {
+			// Map common error messages to S3 error codes
+			errorCode := "InternalError"
+			errorMsg := result.Error
 
-				if strings.Contains(result.Error, "not found") ||
-					strings.Contains(result.Error, "NoSuchKey") {
-					errorCode = "NoSuchKey"
-				} else if strings.Contains(result.Error, "access denied") ||
-					strings.Contains(result.Error, "AccessDenied") {
-					errorCode = "AccessDenied"
-				} else if strings.Contains(result.Error, "not implemented") {
-					errorCode = "NotImplemented"
-				}
-
-				resp.Error = append(resp.Error, Error{
-					Key:     result.Key,
-					Code:    errorCode,
-					Message: errorMsg,
-				})
+			if strings.Contains(result.Error, "not found") ||
+				strings.Contains(result.Error, "NoSuchKey") {
+				errorCode = "NoSuchKey"
+			} else if strings.Contains(result.Error, "access denied") ||
+				strings.Contains(result.Error, "AccessDenied") {
+				errorCode = "AccessDenied"
+			} else if strings.Contains(result.Error, "not implemented") {
+				errorCode = "NotImplemented"
 			}
+
+			resp.Error = append(resp.Error, Error{
+				Key:     result.Key,
+				Code:    errorCode,
+				Message: errorMsg,
+			})
 		}
-
-		addS3Headers(c)
-
-		xmlData, err := xml.Marshal(resp)
-		if err != nil {
-			return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucket)
-		}
-
-		fullXML := append([]byte(xml.Header), xmlData...)
-		cblog.Debugf("Returning delete result with %d deleted and %d errors", len(resp.Deleted), len(resp.Error))
-		return c.Blob(http.StatusOK, "application/xml", fullXML)
 	}
 
-	return c.JSON(http.StatusOK, results)
+	addS3Headers(c)
+
+	xmlData, err := xml.Marshal(resp)
+	if err != nil {
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucket)
+	}
+
+	fullXML := append([]byte(xml.Header), xmlData...)
+	cblog.Debugf("Returning delete result with %d deleted and %d errors", len(resp.Deleted), len(resp.Error))
+	return c.Blob(http.StatusOK, "application/xml", fullXML)
 }
 
 // postObject handles browser-based file upload using HTML form
 func postObject(c echo.Context) error {
-	conn, isS3Api := getConnectionName(c)
+	conn, _ := getConnectionName(c)
 	bucket := c.Param("Name")
 	if bucket == "" {
 		bucket = c.Param("BucketName")
@@ -1766,49 +1836,34 @@ func postObject(c echo.Context) error {
 
 	form, err := c.MultipartForm()
 	if err != nil {
-		if isS3Api {
-			return returnS3Error(c, http.StatusBadRequest, "MalformedPOSTRequest", err.Error(), "/"+bucket)
-		}
-		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		return returnS3Error(c, http.StatusBadRequest, "MalformedPOSTRequest", err.Error(), "/"+bucket)
 	}
 
 	key := form.Value["key"][0]
 	if key == "" {
-		if isS3Api {
-			return returnS3Error(c, http.StatusBadRequest, "MissingFields", "key is required", "/"+bucket)
-		}
-		return echo.NewHTTPError(http.StatusBadRequest, "key is required")
+		return returnS3Error(c, http.StatusBadRequest, "MissingFields", "key is required", "/"+bucket)
 	}
 
 	files := form.File["file"]
 	if len(files) == 0 {
-		if isS3Api {
-			return returnS3Error(c, http.StatusBadRequest, "MissingFields", "file is required", "/"+bucket)
-		}
-		return echo.NewHTTPError(http.StatusBadRequest, "file is required")
+		return returnS3Error(c, http.StatusBadRequest, "MissingFields", "file is required", "/"+bucket)
 	}
 
 	file, err := files[0].Open()
 	if err != nil {
-		if isS3Api {
-			return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucket+"/"+key)
-		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucket+"/"+key)
 	}
 	defer file.Close()
 
-	info, err := cmrt.PutS3ObjectFromReader(conn, bucket, key, file, files[0].Size)
+	_, err = cmrt.PutS3ObjectFromReader(conn, bucket, key, file, files[0].Size)
 	if err != nil {
-		if isS3Api {
-			errorCode := "InternalError"
-			statusCode := http.StatusInternalServerError
-			if strings.Contains(err.Error(), "bucket") {
-				errorCode = "NoSuchBucket"
-				statusCode = http.StatusNotFound
-			}
-			return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+key)
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "bucket") {
+			errorCode = "NoSuchBucket"
+			statusCode = http.StatusNotFound
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+key)
 	}
 
 	successRedirect := form.Value["success_action_redirect"]
@@ -1816,43 +1871,25 @@ func postObject(c echo.Context) error {
 		return c.Redirect(http.StatusSeeOther, successRedirect[0])
 	}
 
-	if isS3Api {
-		addS3Headers(c)
-		return c.NoContent(http.StatusNoContent)
-	}
-
-	return c.JSON(http.StatusOK, S3UploadInfo{
-		Bucket:       info.Bucket,
-		Key:          info.Key,
-		ETag:         info.ETag,
-		Size:         info.Size,
-		LastModified: info.LastModified,
-		Location:     info.Location,
-		VersionID:    info.VersionID,
-	})
+	addS3Headers(c)
+	return c.NoContent(http.StatusNoContent)
 }
 
 // uploadPart uploads a part in a multipart upload
 func uploadPart(c echo.Context) error {
-	conn, isS3Api := getConnectionName(c)
+	conn, _ := getConnectionName(c)
 	bucket := c.Param("BucketName")
 	key := c.Param("ObjectKey+")
 	uploadID := c.QueryParam("uploadId")
 	partNumberStr := c.QueryParam("partNumber")
 
 	if uploadID == "" || partNumberStr == "" {
-		if isS3Api {
-			return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "uploadId and partNumber are required", "/"+bucket+"/"+key)
-		}
-		return echo.NewHTTPError(http.StatusBadRequest, "uploadId and partNumber are required")
+		return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "uploadId and partNumber are required", "/"+bucket+"/"+key)
 	}
 
 	partNumber, err := strconv.Atoi(partNumberStr)
 	if err != nil {
-		if isS3Api {
-			return returnS3Error(c, http.StatusBadRequest, "InvalidArgument", "invalid partNumber", "/"+bucket+"/"+key)
-		}
-		return echo.NewHTTPError(http.StatusBadRequest, "invalid partNumber")
+		return returnS3Error(c, http.StatusBadRequest, "InvalidArgument", "invalid partNumber", "/"+bucket+"/"+key)
 	}
 
 	body := c.Request().Body
@@ -1860,26 +1897,16 @@ func uploadPart(c echo.Context) error {
 
 	etag, err := cmrt.UploadPart(conn, bucket, key, uploadID, partNumber, body, c.Request().ContentLength)
 	if err != nil {
-		if isS3Api {
-			errorCode := "InternalError"
-			statusCode := http.StatusInternalServerError
-			if strings.Contains(err.Error(), "not found") {
-				errorCode = "NoSuchUpload"
-				statusCode = http.StatusNotFound
-			}
-			return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+key)
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "not found") {
+			errorCode = "NoSuchUpload"
+			statusCode = http.StatusNotFound
 		}
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+key)
 	}
 
-	if isS3Api {
-		addS3Headers(c)
-		c.Response().Header().Set("ETag", etag)
-		return c.NoContent(http.StatusOK)
-	}
-
-	return c.JSON(http.StatusOK, map[string]string{
-		"ETag":       etag,
-		"PartNumber": partNumberStr,
-	})
+	addS3Headers(c)
+	c.Response().Header().Set("ETag", etag)
+	return c.NoContent(http.StatusOK)
 }

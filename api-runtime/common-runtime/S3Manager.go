@@ -50,34 +50,31 @@ type S3ConnectionInfo struct {
 	AccessKey      string
 	SecretKey      string
 	UseSSL         bool
-	RegionRequired bool   // Indicates if region is required for the S3 service
-	Region         string // Region ID
+	RegionRequired bool
+	Region         string
 }
 
 func GetS3ConnectionInfo(connectionName string) (*S3ConnectionInfo, error) {
-
-	// Get connection configuration
 	cccInfo, err := ccim.GetConnectionConfig(connectionName)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get Region information
 	regionInfo, err := rim.GetRegion(cccInfo.RegionName)
 	if err != nil {
 		return nil, err
 	}
 	regionID := ccm.KeyValueListGetValue(regionInfo.KeyValueInfoList, "Region")
-	// Get decrypted credential information
+
 	crdInfo, err := cim.GetCredentialDecrypt(cccInfo.CredentialName)
 	if err != nil {
 		return nil, err
 	}
 
 	endpoint := ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3Endpoint")
-	endpoint = strings.Replace(endpoint, "{region}", regionID, -1) // Replace {region} with actual region name
-	endpoint = strings.Replace(endpoint, "{REGION}", regionID, -1) // Replace {REGION} with actual region name
-	endpoint = strings.Replace(endpoint, "{Region}", regionID, -1) // Replace {Region} with actual region name
+	endpoint = strings.Replace(endpoint, "{region}", regionID, -1)
+	endpoint = strings.Replace(endpoint, "{REGION}", regionID, -1)
+	endpoint = strings.Replace(endpoint, "{Region}", regionID, -1)
 
 	return &S3ConnectionInfo{
 		Endpoint:       endpoint,
@@ -87,7 +84,6 @@ func GetS3ConnectionInfo(connectionName string) (*S3ConnectionInfo, error) {
 		RegionRequired: ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3RegionRequired") == "true",
 		Region:         regionID,
 	}, nil
-
 }
 
 func NewS3Client(connInfo *S3ConnectionInfo) (*minio.Client, error) {
@@ -97,7 +93,7 @@ func NewS3Client(connInfo *S3ConnectionInfo) (*minio.Client, error) {
 			Secure: connInfo.UseSSL,
 			Region: connInfo.Region,
 		})
-	} else { // Alibaba, IBM VPC, NCP VPC, KT VPC: Region is not required
+	} else {
 		return minio.New(connInfo.Endpoint, &minio.Options{
 			Creds:  credentials.NewStaticV4(connInfo.AccessKey, connInfo.SecretKey, ""),
 			Secure: connInfo.UseSSL,
@@ -147,7 +143,7 @@ func CreateS3Bucket(connectionName, bucketName string) (*minio.BucketInfo, error
 		} else {
 			err = client.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{Region: connInfo.Region})
 		}
-	} else { // Alibaba, IBM VPC, NCP VPC, KT VPC: Region is not required
+	} else {
 		err = client.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{})
 	}
 	if err != nil {
@@ -321,29 +317,6 @@ func GetS3ObjectInfo(connectionName, bucketName, objectName string) (*minio.Obje
 	return &stat, nil
 }
 
-func PutS3ObjectFromFile(connectionName, bucketName, objectName, filePath string) (*minio.UploadInfo, error) {
-	cblog.Info("call PutS3ObjectFromFile()")
-	var iidInfo S3BucketIIDInfo
-	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
-	if err != nil {
-		return nil, err
-	}
-	connInfo, err := GetS3ConnectionInfo(connectionName)
-	if err != nil {
-		return nil, err
-	}
-	client, err := NewS3Client(connInfo)
-	if err != nil {
-		return nil, err
-	}
-	ctx := context.Background()
-	info, err := client.FPutObject(ctx, bucketName, objectName, filePath, minio.PutObjectOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return &info, nil
-}
-
 func DeleteS3Object(connectionName, bucketName, objectName string) (bool, error) {
 	cblog.Info("call DeleteS3Object()")
 	var iidInfo S3BucketIIDInfo
@@ -387,201 +360,9 @@ func GetS3ObjectStream(connectionName, bucketName, objectName string) (io.ReadCl
 	if err != nil {
 		return nil, err
 	}
-	return obj, nil // io.ReadCloser
+	return obj, nil
 }
 
-func GetS3PresignedURL(connectionName, bucketName, objectName, method string, expiresSeconds int64, contentDisposition string) (string, error) {
-	cblog.Info("call GetS3PresignedURL()")
-	var iidInfo S3BucketIIDInfo
-	if err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName); err != nil {
-		return "", err
-	}
-
-	connInfo, err := GetS3ConnectionInfo(connectionName)
-	if err != nil {
-		return "", err
-	}
-
-	client, err := NewS3Client(connInfo)
-	if err != nil {
-		return "", err
-	}
-
-	ctx := context.Background()
-	expires := time.Duration(expiresSeconds) * time.Second
-
-	switch method {
-	case "GET":
-		var params url.Values
-		if contentDisposition != "" {
-			params = url.Values{}
-			params.Set("response-content-disposition", contentDisposition)
-		}
-		u, err := client.PresignedGetObject(ctx, bucketName, objectName, expires, params)
-		if err != nil {
-			return "", err
-		}
-		return u.String(), nil
-
-	case "PUT":
-		u, err := client.PresignedPutObject(ctx, bucketName, objectName, expires)
-		if err != nil {
-			return "", err
-		}
-		return u.String(), nil
-
-	default:
-		return "", fmt.Errorf("Unsupported method: %s", method)
-	}
-}
-
-func SetS3BucketACL(connectionName, bucketName, acl string) (string, error) {
-	cblog.Info("call SetS3BucketACL()")
-	// acl: "private", "public-read", etc.
-	var iidInfo S3BucketIIDInfo
-	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
-	if err != nil {
-		return "", err
-	}
-	connInfo, err := GetS3ConnectionInfo(connectionName)
-	if err != nil {
-		return "", err
-	}
-	client, err := NewS3Client(connInfo)
-	if err != nil {
-		return "", err
-	}
-	ctx := context.Background()
-	// SetBucketPolicy for ACL: minio-go does not provide direct SetBucketACL, so map to policy
-	var policy string
-	switch acl {
-	case "public-read":
-		policy = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::` + bucketName + `/*"]}]}`
-	case "private":
-		policy = `{"Version":"2012-10-17","Statement":[]}`
-	default:
-		return "", fmt.Errorf("unsupported ACL: %s", acl)
-	}
-	err = client.SetBucketPolicy(ctx, bucketName, policy)
-	if err != nil {
-		return "", err
-	}
-	appliedPolicy, err := client.GetBucketPolicy(ctx, bucketName)
-	if err != nil {
-		return "", err
-	}
-	return appliedPolicy, nil
-}
-
-func GetS3BucketACL(connectionName, bucketName string) (string, error) {
-	cblog.Info("call GetS3BucketACL()")
-	var iidInfo S3BucketIIDInfo
-	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
-	if err != nil {
-		return "", err
-	}
-	connInfo, err := GetS3ConnectionInfo(connectionName)
-	if err != nil {
-		return "", err
-	}
-	client, err := NewS3Client(connInfo)
-	if err != nil {
-		return "", err
-	}
-	ctx := context.Background()
-	policy, err := client.GetBucketPolicy(ctx, bucketName)
-	if err != nil {
-		return "", err
-	}
-	return policy, nil
-}
-
-func EnableVersioning(connectionName, bucketName string) (bool, error) {
-	cblog.Info("call EnableVersioning()")
-	var iidInfo S3BucketIIDInfo
-	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
-	if err != nil {
-		return false, err
-	}
-	connInfo, err := GetS3ConnectionInfo(connectionName)
-	if err != nil {
-		return false, err
-	}
-	client, err := NewS3Client(connInfo)
-	if err != nil {
-		return false, err
-	}
-	ctx := context.Background()
-	opts := minio.BucketVersioningConfiguration{
-		Status: "Enabled",
-	}
-
-	err = client.SetBucketVersioning(ctx, bucketName, opts)
-	if err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-func SuspendVersioning(connectionName, bucketName string) (bool, error) {
-	cblog.Info("call SuspendVersioning()")
-	var iidInfo S3BucketIIDInfo
-	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
-	if err != nil {
-		return false, err
-	}
-	connInfo, err := GetS3ConnectionInfo(connectionName)
-	if err != nil {
-		return false, err
-	}
-	client, err := NewS3Client(connInfo)
-	if err != nil {
-		return false, err
-	}
-	ctx := context.Background()
-	opts := minio.BucketVersioningConfiguration{
-		Status: "Suspended",
-	}
-	err = client.SetBucketVersioning(ctx, bucketName, opts)
-	if err != nil {
-		return false, err
-	}
-	return true, nil
-}
-
-func ListS3ObjectVersions(connectionName, bucketName, prefix string) ([]minio.ObjectInfo, error) {
-	cblog.Info("call ListS3ObjectVersions()")
-	var iidInfo S3BucketIIDInfo
-	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
-	if err != nil {
-		return nil, err
-	}
-	connInfo, err := GetS3ConnectionInfo(connectionName)
-	if err != nil {
-		return nil, err
-	}
-	client, err := NewS3Client(connInfo)
-	if err != nil {
-		return nil, err
-	}
-	ctx := context.Background()
-	opts := minio.ListObjectsOptions{
-		Prefix:       prefix,
-		Recursive:    true,
-		WithVersions: true,
-	}
-
-	var out []minio.ObjectInfo
-	for obj := range client.ListObjects(ctx, bucketName, opts) {
-		if obj.Err != nil {
-			continue
-		}
-		out = append(out, obj)
-	}
-	return out, nil
-}
-
-// PutS3ObjectFromReader uploads an object to S3 from io.Reader
 func PutS3ObjectFromReader(connectionName string, bucketName string, objectName string, reader io.Reader, objectSize int64) (minio.UploadInfo, error) {
 	cblog.Info("call PutS3ObjectFromReader()")
 
@@ -633,66 +414,17 @@ func PutS3ObjectFromReader(connectionName string, bucketName string, objectName 
 	return uploadInfo, nil
 }
 
-// CopyS3Object copies an object within S3
-func CopyS3Object(connectionName string, srcBucket string, srcObject string, dstBucket string, dstObject string) (minio.ObjectInfo, error) {
-	cblog.Info("call CopyS3Object()")
-
-	var iidInfo S3BucketIIDInfo
-	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", srcBucket)
-	if err != nil {
-		return minio.ObjectInfo{}, err
-	}
-
-	connInfo, err := GetS3ConnectionInfo(connectionName)
-	if err != nil {
-		return minio.ObjectInfo{}, err
-	}
-
-	client, err := NewS3Client(connInfo)
-	if err != nil {
-		return minio.ObjectInfo{}, err
-	}
-
-	ctx := context.Background()
-	srcOpts := minio.CopySrcOptions{
-		Bucket: srcBucket,
-		Object: srcObject,
-	}
-
-	dstOpts := minio.CopyDestOptions{
-		Bucket: dstBucket,
-		Object: dstObject,
-	}
-
-	_, err = client.CopyObject(ctx, dstOpts, srcOpts)
-	if err != nil {
-		cblog.Error("Failed to copy object:", err)
-		return minio.ObjectInfo{}, err
-	}
-
-	objInfo, err := client.StatObject(ctx, dstBucket, dstObject, minio.StatObjectOptions{})
-	if err != nil {
-		cblog.Error("Failed to get copied object info:", err)
-		return minio.ObjectInfo{}, err
-	}
-
-	return objInfo, nil
-}
-
-// CompletePart represents a part to be committed in CompleteMultipartUpload
 type CompletePart struct {
 	PartNumber int
 	ETag       string
 }
 
-// DeleteResult represents the result of deleting an object
 type DeleteResult struct {
 	Key     string
 	Success bool
 	Error   string
 }
 
-// InitiateMultipartUpload initiates a multipart upload and returns upload ID
 func InitiateMultipartUpload(connectionName string, bucketName string, objectName string) (string, error) {
 	cblog.Info("call InitiateMultipartUpload()")
 
@@ -714,7 +446,6 @@ func InitiateMultipartUpload(connectionName string, bucketName string, objectNam
 
 	ctx := context.Background()
 
-	// Use Core API to initiate multipart upload
 	core := minio.Core{Client: client}
 	uploadID, err := core.NewMultipartUpload(ctx, bucketName, objectName, minio.PutObjectOptions{})
 	if err != nil {
@@ -725,7 +456,6 @@ func InitiateMultipartUpload(connectionName string, bucketName string, objectNam
 	return uploadID, nil
 }
 
-// UploadPart uploads a part in a multipart upload
 func UploadPart(connectionName string, bucketName string, objectName string, uploadID string, partNumber int, reader io.Reader, size int64) (string, error) {
 	cblog.Info("call UploadPart()")
 
@@ -757,7 +487,6 @@ func UploadPart(connectionName string, bucketName string, objectName string, upl
 	return part.ETag, nil
 }
 
-// CompleteMultipartUpload completes a multipart upload
 func CompleteMultipartUpload(connectionName string, bucketName string, objectName string, uploadID string, parts []CompletePart) (string, string, error) {
 	cblog.Info("call CompleteMultipartUpload()")
 
@@ -786,7 +515,6 @@ func CompleteMultipartUpload(connectionName string, bucketName string, objectNam
 		})
 	}
 
-	// Use Core API to complete multipart upload
 	core := minio.Core{Client: client}
 	uploadInfo, err := core.CompleteMultipartUpload(ctx, bucketName, objectName, uploadID, completeParts, minio.PutObjectOptions{})
 	if err != nil {
@@ -798,40 +526,6 @@ func CompleteMultipartUpload(connectionName string, bucketName string, objectNam
 	return location, uploadInfo.ETag, nil
 }
 
-// AbortMultipartUpload aborts a multipart upload
-func AbortMultipartUpload(connectionName string, bucketName string, objectName string, uploadID string) error {
-	cblog.Info("call AbortMultipartUpload()")
-
-	var iidInfo S3BucketIIDInfo
-	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
-	if err != nil {
-		return err
-	}
-
-	connInfo, err := GetS3ConnectionInfo(connectionName)
-	if err != nil {
-		return err
-	}
-
-	client, err := NewS3Client(connInfo)
-	if err != nil {
-		return err
-	}
-
-	ctx := context.Background()
-
-	// Use Core API to abort multipart upload
-	core := minio.Core{Client: client}
-	err = core.AbortMultipartUpload(ctx, bucketName, objectName, uploadID)
-	if err != nil {
-		cblog.Error("Failed to abort multipart upload:", err)
-		return err
-	}
-
-	return nil
-}
-
-// DeleteMultipleObjects deletes multiple objects from a bucket
 func DeleteMultipleObjects(connectionName string, bucketName string, objectNames []string) ([]DeleteResult, error) {
 	cblog.Info("call DeleteMultipleObjects()")
 
@@ -892,47 +586,12 @@ func DeleteMultipleObjects(connectionName string, bucketName string, objectNames
 	return results, nil
 }
 
-// ListMultipartUploads lists all multipart uploads in progress
-func ListMultipartUploads(connectionName string, bucketName string, prefix string) ([]minio.ObjectMultipartInfo, error) {
-	cblog.Info("call ListMultipartUploads()")
+// S3 Advanced Features Implementation
 
+func GetS3PresignedURL(connectionName string, bucketName string, objectName string, method string, expiresSeconds int64, responseContentDisposition string) (string, error) {
+	cblog.Info("call GetS3PresignedURL()")
 	var iidInfo S3BucketIIDInfo
-	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
-	if err != nil {
-		return nil, err
-	}
-
-	connInfo, err := GetS3ConnectionInfo(connectionName)
-	if err != nil {
-		return nil, err
-	}
-
-	client, err := NewS3Client(connInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	ctx := context.Background()
-	var uploads []minio.ObjectMultipartInfo
-
-	multipartInfoCh := client.ListIncompleteUploads(ctx, bucketName, prefix, true)
-	for multipartInfo := range multipartInfoCh {
-		if multipartInfo.Err != nil {
-			cblog.Error("Error listing multipart uploads:", multipartInfo.Err)
-			continue
-		}
-		uploads = append(uploads, multipartInfo)
-	}
-
-	return uploads, nil
-}
-
-func GetS3PresignedURLWithHeaders(connectionName string, bucketName string, objectName string, method string, expiresSeconds int64, headers map[string][]string) (string, error) {
-	cblog.Info("call GetS3PresignedURLWithHeaders()")
-
-	var iidInfo S3BucketIIDInfo
-	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
-	if err != nil {
+	if err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName); err != nil {
 		return "", err
 	}
 
@@ -947,47 +606,176 @@ func GetS3PresignedURLWithHeaders(connectionName string, bucketName string, obje
 	}
 
 	ctx := context.Background()
-	expiresDuration := time.Duration(expiresSeconds) * time.Second
+	expires := time.Duration(expiresSeconds) * time.Second
 
 	switch method {
 	case "GET":
-		// Convert headers map[string][]string to url.Values for GET
-		reqParams := make(url.Values)
-		for key, values := range headers {
-			for _, value := range values {
-				reqParams.Add(key, value)
-			}
+		var params url.Values
+		if responseContentDisposition != "" {
+			params = url.Values{}
+			params.Set("response-content-disposition", responseContentDisposition)
 		}
-		u, err := client.PresignedGetObject(ctx, bucketName, objectName, expiresDuration, reqParams)
+		u, err := client.PresignedGetObject(ctx, bucketName, objectName, expires, params)
 		if err != nil {
 			return "", err
 		}
 		return u.String(), nil
 
 	case "PUT":
-		// For PUT requests, we need to use PresignedPutObject
-		u, err := client.PresignedPutObject(ctx, bucketName, objectName, expiresDuration)
+		u, err := client.PresignedPutObject(ctx, bucketName, objectName, expires)
 		if err != nil {
 			return "", err
 		}
-
-		// For PUT with specific content-type, we need to add it to the URL
-		if contentTypes, ok := headers["Content-Type"]; ok && len(contentTypes) > 0 {
-			parsedURL, err := url.Parse(u.String())
-			if err != nil {
-				return "", err
-			}
-			q := parsedURL.Query()
-			q.Set("Content-Type", contentTypes[0])
-			parsedURL.RawQuery = q.Encode()
-			return parsedURL.String(), nil
-		}
-
 		return u.String(), nil
 
 	default:
 		return "", fmt.Errorf("Unsupported method: %s", method)
 	}
+}
+
+func SetS3BucketACL(connectionName string, bucketName string, acl string) (string, error) {
+	cblog.Info("call SetS3BucketACL()")
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return "", err
+	}
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return "", err
+	}
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return "", err
+	}
+	ctx := context.Background()
+
+	var policy string
+	switch acl {
+	case "public-read":
+		policy = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::` + bucketName + `/*"]}]}`
+	case "private":
+		policy = `{"Version":"2012-10-17","Statement":[]}`
+	default:
+		return "", fmt.Errorf("unsupported ACL: %s", acl)
+	}
+	err = client.SetBucketPolicy(ctx, bucketName, policy)
+	if err != nil {
+		return "", err
+	}
+	appliedPolicy, err := client.GetBucketPolicy(ctx, bucketName)
+	if err != nil {
+		return "", err
+	}
+	return appliedPolicy, nil
+}
+
+func GetS3BucketACL(connectionName string, bucketName string) (string, error) {
+	cblog.Info("call GetS3BucketACL()")
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return "", err
+	}
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return "", err
+	}
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return "", err
+	}
+	ctx := context.Background()
+	policy, err := client.GetBucketPolicy(ctx, bucketName)
+	if err != nil {
+		return "", err
+	}
+	return policy, nil
+}
+
+func EnableVersioning(connectionName string, bucketName string) (bool, error) {
+	cblog.Info("call EnableVersioning()")
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return false, err
+	}
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return false, err
+	}
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return false, err
+	}
+	ctx := context.Background()
+	opts := minio.BucketVersioningConfiguration{
+		Status: "Enabled",
+	}
+
+	err = client.SetBucketVersioning(ctx, bucketName, opts)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func SuspendVersioning(connectionName string, bucketName string) (bool, error) {
+	cblog.Info("call SuspendVersioning()")
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return false, err
+	}
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return false, err
+	}
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return false, err
+	}
+	ctx := context.Background()
+	opts := minio.BucketVersioningConfiguration{
+		Status: "Suspended",
+	}
+	err = client.SetBucketVersioning(ctx, bucketName, opts)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func ListS3ObjectVersions(connectionName string, bucketName string, prefix string) ([]minio.ObjectInfo, error) {
+	cblog.Info("call ListS3ObjectVersions()")
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return nil, err
+	}
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return nil, err
+	}
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return nil, err
+	}
+	ctx := context.Background()
+	opts := minio.ListObjectsOptions{
+		Prefix:       prefix,
+		Recursive:    true,
+		WithVersions: true,
+	}
+
+	var out []minio.ObjectInfo
+	for obj := range client.ListObjects(ctx, bucketName, opts) {
+		if obj.Err != nil {
+			continue
+		}
+		out = append(out, obj)
+	}
+	return out, nil
 }
 
 func SetS3BucketCORS(connectionName string, bucketName string, allowedOrigins []string, allowedMethods []string, allowedHeaders []string, exposeHeaders []string, maxAgeSeconds int) (bool, error) {
@@ -1011,7 +799,6 @@ func SetS3BucketCORS(connectionName string, bucketName string, allowedOrigins []
 
 	ctx := context.Background()
 
-	// Create CORS configuration using cors.Config with correct field names
 	corsConfig := &cors.Config{
 		CORSRules: []cors.Rule{
 			{
@@ -1024,7 +811,6 @@ func SetS3BucketCORS(connectionName string, bucketName string, allowedOrigins []
 		},
 	}
 
-	// Set bucket CORS using Core API
 	core := minio.Core{Client: client}
 	err = core.SetBucketCors(ctx, bucketName, corsConfig)
 	if err != nil {
@@ -1036,7 +822,6 @@ func SetS3BucketCORS(connectionName string, bucketName string, allowedOrigins []
 	return true, nil
 }
 
-// GetS3BucketCORS gets CORS configuration for a bucket
 func GetS3BucketCORS(connectionName string, bucketName string) (*cors.Config, error) {
 	cblog.Info("call GetS3BucketCORS()")
 
@@ -1058,11 +843,9 @@ func GetS3BucketCORS(connectionName string, bucketName string) (*cors.Config, er
 
 	ctx := context.Background()
 
-	// Get bucket CORS using Core API
 	core := minio.Core{Client: client}
 	corsConfig, err := core.GetBucketCors(ctx, bucketName)
 	if err != nil {
-		// Check if CORS is not set
 		if strings.Contains(err.Error(), "NoSuchCORSConfiguration") {
 			return nil, fmt.Errorf("CORS configuration not found for bucket %s", bucketName)
 		}
@@ -1094,7 +877,6 @@ func DeleteS3BucketCORS(connectionName string, bucketName string) (bool, error) 
 
 	ctx := context.Background()
 
-	// Delete bucket CORS by setting empty CORS configuration
 	core := minio.Core{Client: client}
 	emptyCORS := &cors.Config{
 		CORSRules: []cors.Rule{},
