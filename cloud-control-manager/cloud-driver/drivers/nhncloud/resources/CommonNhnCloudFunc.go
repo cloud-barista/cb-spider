@@ -290,3 +290,24 @@ func convertTimeToKTC(givenTime time.Time) (time.Time, error) {
 	}
 	return givenTime.In(loc), nil
 }
+
+func GetVpcsubnetWithName(networkClient *nhnsdk.ServiceClient, name string) (*vpcsubnets.Vpcsubnet, error) {
+	cblogger.Infof("NHN Cloud Driver: called GetVpcsubnetWithName(%s)", name)
+
+	allPages, err := vpcsubnets.List(networkClient, vpcsubnets.ListOpts{}).AllPages()
+	if err != nil {
+		return nil, err
+	}
+	allSubnets, err := vpcsubnets.ExtractVpcsubnets(allPages)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, subnet := range allSubnets {
+		if subnet.Name == name {
+			return &subnet, nil
+		}
+	}
+
+	return nil, fmt.Errorf("subnet not found: %s", name)
+}
