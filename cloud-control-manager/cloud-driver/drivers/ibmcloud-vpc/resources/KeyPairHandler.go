@@ -331,7 +331,7 @@ func getRawKey(keyIID irs.IID, vpcService *vpcv1.VpcV1, ctx context.Context) (vp
 	}
 }
 
-func getKeyNextHref(next *vpcv1.KeyCollectionNext) (string, error) {
+func getKeyNextHref(next *vpcv1.PageLink) (string, error) {
 	if next != nil {
 		href := *next.Href
 		u, err := url.Parse(href)
