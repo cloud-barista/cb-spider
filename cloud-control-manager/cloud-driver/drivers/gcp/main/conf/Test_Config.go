@@ -58,6 +58,7 @@ const (
 	Price         = "Price"
 	Tag           = "Tag"
 	Cluster       = "Cluster"
+	FileSystem    = "FileSystem"
 )
 
 const (
@@ -126,6 +127,8 @@ func GetResourceHandler(handlerType HandlerType) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateTagHandler()
 	case Cluster:
 		resourceHandler, err = cloudConnection.CreateClusterHandler()
+	case FileSystem:
+		resourceHandler, err = cloudConnection.CreateFileSystemHandler()
 	}
 
 	if err != nil {
