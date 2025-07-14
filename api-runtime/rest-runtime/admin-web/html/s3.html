@@ -1431,15 +1431,22 @@ function hideBucketSettingsOverlay() {
 async function loadBucketSettings(bucketName) {
     try {
         // Load versioning status
+        console.log(`Loading versioning status for bucket: ${bucketName}`);
         const versioningResponse = await fetch(`/spider/${bucketName}?versioning&ConnectionName=${connConfig}`);
+        
         if (versioningResponse.ok) {
             const versioningXml = await versioningResponse.text();
+            console.log(`Versioning XML response: ${versioningXml}`);
+            
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(versioningXml, 'text/xml');
             const status = xmlDoc.getElementsByTagName('Status')[0]?.textContent || 'Suspended';
+            
+            console.log(`Parsed versioning status: ${status}`);
             document.getElementById('versioning-status').textContent = status;
         } else {
-            document.getElementById('versioning-status').textContent = 'Suspended';
+            console.error(`Failed to load versioning status: ${versioningResponse.status} ${versioningResponse.statusText}`);
+            document.getElementById('versioning-status').textContent = 'Error loading status';
         }
 
         // Load CORS status
@@ -1475,6 +1482,9 @@ async function loadBucketSettings(bucketName) {
 
     } catch (error) {
         console.error('Error loading bucket settings:', error);
+        document.getElementById('versioning-status').textContent = 'Error';
+        document.getElementById('cors-status').textContent = 'Error';
+        document.getElementById('acl-status').textContent = 'Error';
     }
 }
 
@@ -1483,7 +1493,7 @@ async function toggleVersioning() {
     const currentStatus = document.getElementById('versioning-status').textContent;
     const newStatus = currentStatus === 'Enabled' ? 'Suspended' : 'Enabled';
     
-    console.log(`Toggling versioning for bucket: ${bucketName}, from ${currentStatus} to ${newStatus}`);
+    console.log(`Toggling versioning: ${currentStatus} -> ${newStatus}`);
     
     try {
         const versioningXml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -1508,7 +1518,11 @@ async function toggleVersioning() {
         console.log(`Response status: ${response.status} ${response.statusText}`);
 
         if (response.ok) {
-            document.getElementById('versioning-status').textContent = newStatus;
+            console.log('Versioning toggle successful, reloading status...');
+            setTimeout(() => {
+                loadBucketSettings(bucketName);
+            }, 1000); // Wait a second to reload status
+            
             alert(`Versioning ${newStatus.toLowerCase()} successfully`);
         } else {
             const responseText = await response.text();
@@ -1595,21 +1609,29 @@ async function setACL() {
     const bucketName = document.getElementById('settings-bucket-name').textContent;
     const aclValue = document.getElementById('acl-select').value;
     
+    console.log(`Setting ACL for bucket: ${bucketName}, value: ${aclValue}`);
+    
     try {
         const response = await fetch(`/spider/${bucketName}?acl&ConnectionName=${connConfig}`, {
             method: 'PUT',
             headers: {
-                'x-amz-acl': aclValue
+                'x-amz-acl': aclValue,
+                'X-Connection-Name': connConfig
             }
         });
+
+        console.log(`ACL response status: ${response.status} ${response.statusText}`);
 
         if (response.ok) {
             document.getElementById('acl-status').textContent = aclValue === 'public-read' ? 'Public Read' : 'Private';
             alert('ACL set successfully');
         } else {
+            const errorText = await response.text();
+            console.error(`ACL error response: ${errorText}`);
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
     } catch (error) {
+        console.error('Error setting ACL:', error);
         alert('Error setting ACL: ' + error.message);
     }
 }

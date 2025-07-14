@@ -312,27 +312,29 @@ type VersioningConfiguration struct {
 	Status  string   `xml:"Status"`
 }
 
-// ---------- S3 Advanced Features Implementation ----------
-
-// getBucketVersioning returns the versioning configuration of a bucket
 func getBucketVersioning(c echo.Context) error {
 	conn, _ := getConnectionName(c)
 	bucketName := c.Param("Name")
 	bucketName = strings.TrimSuffix(bucketName, "/")
 
-	// Check if bucket exists
-	_, err := cmrt.GetS3Bucket(conn, bucketName)
+	status, err := cmrt.GetVersioning(conn, bucketName)
 	if err != nil {
-		errorCode := "NoSuchBucket"
-		if strings.Contains(err.Error(), "not found") {
-			return returnS3Error(c, http.StatusNotFound, errorCode, err.Error(), "/"+bucketName)
+		cblog.Errorf("Failed to get versioning status for bucket %s: %v", bucketName, err)
+
+		_, bucketErr := cmrt.GetS3Bucket(conn, bucketName)
+		if bucketErr != nil {
+			errorCode := "NoSuchBucket"
+			if strings.Contains(bucketErr.Error(), "not found") {
+				return returnS3Error(c, http.StatusNotFound, errorCode, bucketErr.Error(), "/"+bucketName)
+			}
+			return returnS3Error(c, http.StatusInternalServerError, "InternalError", bucketErr.Error(), "/"+bucketName)
 		}
-		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucketName)
+
+		status = "Suspended"
 	}
 
-	// Default versioning status is Suspended if not enabled
 	resp := VersioningConfiguration{
-		Status: "Suspended", // Default status
+		Status: status,
 	}
 
 	addS3Headers(c)
@@ -428,6 +430,17 @@ func putBucketVersioning(c echo.Context) error {
 			statusCode = http.StatusNotImplemented
 		}
 		return returnS3Error(c, statusCode, errorCode, versioningErr.Error(), "/"+bucketName)
+	}
+
+	cblog.Infof("Verifying versioning status after setting to %s for bucket %s", config.Status, bucketName)
+	actualStatus, verifyErr := cmrt.GetVersioning(conn, bucketName)
+	if verifyErr != nil {
+		cblog.Warnf("Failed to verify versioning status: %v", verifyErr)
+	} else {
+		cblog.Infof("Verification result: requested=%s, actual=%s", config.Status, actualStatus)
+		if actualStatus != config.Status {
+			cblog.Warnf("Versioning status mismatch: requested=%s, actual=%s", config.Status, actualStatus)
+		}
 	}
 
 	cblog.Infof("Successfully set versioning to %s for bucket %s", config.Status, bucketName)
@@ -608,55 +621,58 @@ func getBucketACL(c echo.Context) error {
 
 // putBucketACL sets the ACL of a bucket
 func putBucketACL(c echo.Context) error {
-	conn, _ := getConnectionName(c)
-	bucketName := c.Param("Name")
-	bucketName = strings.TrimSuffix(bucketName, "/")
+    conn, _ := getConnectionName(c)
+    bucketName := c.Param("Name")
+    bucketName = strings.TrimSuffix(bucketName, "/")
 
-	// Check for x-amz-acl header first
-	aclHeader := c.Request().Header.Get("x-amz-acl")
-	if aclHeader != "" {
-		_, err := cmrt.SetS3BucketACL(conn, bucketName, aclHeader)
-		if err != nil {
-			errorCode := "InternalError"
-			statusCode := http.StatusInternalServerError
-			if strings.Contains(err.Error(), "not found") {
-				errorCode = "NoSuchBucket"
-				statusCode = http.StatusNotFound
-			}
-			return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucketName)
-		}
-		addS3Headers(c)
-		return c.NoContent(http.StatusOK)
-	}
+    aclHeader := c.Request().Header.Get("x-amz-acl")
+    cblog.Infof("putBucketACL - Bucket: %s, x-amz-acl header: '%s'", bucketName, aclHeader)
+    
+    if aclHeader != "" {
+        _, err := cmrt.SetS3BucketACL(conn, bucketName, aclHeader)
+        if err != nil {
+            errorCode := "InternalError"
+            statusCode := http.StatusInternalServerError
+            if strings.Contains(err.Error(), "not found") {
+                errorCode = "NoSuchBucket"
+                statusCode = http.StatusNotFound
+            }
+            return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucketName)
+        }
+        addS3Headers(c)
+        return c.NoContent(http.StatusOK)
+    }
 
-	// Parse XML ACL body
-	var aclPolicy AccessControlPolicy
-	if err := xml.NewDecoder(c.Request().Body).Decode(&aclPolicy); err != nil {
-		return returnS3Error(c, http.StatusBadRequest, "MalformedXML", err.Error(), "/"+bucketName)
-	}
+    if c.Request().ContentLength == 0 {
+        return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "ACL parameter or request body is required", "/"+bucketName)
+    }
 
-	// Convert ACL to simple policy (check for public read)
-	acl := "private"
-	for _, grant := range aclPolicy.AccessControlList.Grant {
-		if grant.Grantee.URI == "http://acs.amazonaws.com/groups/global/AllUsers" && grant.Permission == "READ" {
-			acl = "public-read"
-			break
-		}
-	}
+    var aclPolicy AccessControlPolicy
+    if err := xml.NewDecoder(c.Request().Body).Decode(&aclPolicy); err != nil {
+        return returnS3Error(c, http.StatusBadRequest, "MalformedXML", err.Error(), "/"+bucketName)
+    }
 
-	_, err := cmrt.SetS3BucketACL(conn, bucketName, acl)
-	if err != nil {
-		errorCode := "InternalError"
-		statusCode := http.StatusInternalServerError
-		if strings.Contains(err.Error(), "not found") {
-			errorCode = "NoSuchBucket"
-			statusCode = http.StatusNotFound
-		}
-		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucketName)
-	}
+    acl := "private"
+    for _, grant := range aclPolicy.AccessControlList.Grant {
+        if grant.Grantee.URI == "http://acs.amazonaws.com/groups/global/AllUsers" && grant.Permission == "READ" {
+            acl = "public-read"
+            break
+        }
+    }
 
-	addS3Headers(c)
-	return c.NoContent(http.StatusOK)
+    _, err := cmrt.SetS3BucketACL(conn, bucketName, acl)
+    if err != nil {
+        errorCode := "InternalError"
+        statusCode := http.StatusInternalServerError
+        if strings.Contains(err.Error(), "not found") {
+            errorCode = "NoSuchBucket"
+            statusCode = http.StatusNotFound
+        }
+        return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucketName)
+    }
+
+    addS3Headers(c)
+    return c.NoContent(http.StatusOK)
 }
 
 // getBucketPolicy returns the bucket policy
@@ -1104,11 +1120,11 @@ func GetS3Bucket(c echo.Context) error {
 
 	// Handle DELETE requests with specific query parameters
 	if c.Request().Method == "DELETE" {
-		if c.QueryParam("cors") != "" {
+		if c.QueryParams().Has("cors") {
 			cblog.Infof("Handling DELETE cors for bucket: %s", name)
 			return deleteBucketCORS(c)
 		}
-		if c.QueryParam("policy") != "" {
+		if c.QueryParams().Has("policy") {
 			cblog.Infof("Handling DELETE policy for bucket: %s", name)
 			return deleteBucketPolicy(c)
 		}
@@ -1190,8 +1206,12 @@ func DeleteS3Bucket(c echo.Context) error {
 	cblog.Infof("Query parameters: %v", c.QueryParams())
 
 	// Check if this is actually a configuration delete request
-	if c.QueryParams().Has("cors") || c.QueryParams().Has("policy") {
-		cblog.Infof("Configuration delete request detected, redirecting to GetS3Bucket")
+	if c.QueryParams().Has("cors") {
+		cblog.Infof("CORS delete request detected, redirecting to GetS3Bucket")
+		return GetS3Bucket(c)
+	}
+	if c.QueryParams().Has("policy") {
+		cblog.Infof("Policy delete request detected, redirecting to GetS3Bucket")
 		return GetS3Bucket(c)
 	}
 

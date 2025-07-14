@@ -680,38 +680,88 @@ func GetS3PresignedURL(connectionName string, bucketName string, objectName stri
 
 func SetS3BucketACL(connectionName string, bucketName string, acl string) (string, error) {
 	cblog.Info("call SetS3BucketACL()")
+	cblog.Infof("Setting ACL for bucket: %s, ACL: %s", bucketName, acl)
+
 	var iidInfo S3BucketIIDInfo
 	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
 	if err != nil {
+		cblog.Errorf("Failed to get bucket info: %v", err)
 		return "", err
 	}
+
 	connInfo, err := GetS3ConnectionInfo(connectionName)
 	if err != nil {
+		cblog.Errorf("Failed to get connection info: %v", err)
 		return "", err
 	}
+
 	client, err := NewS3Client(connInfo)
 	if err != nil {
+		cblog.Errorf("Failed to create S3 client: %v", err)
 		return "", err
 	}
+
 	ctx := context.Background()
+
+	if acl == "private" {
+		cblog.Infof("Setting bucket to private by deleting bucket policy")
+
+		err = client.SetBucketPolicy(ctx, bucketName, "")
+		if err != nil {
+			cblog.Errorf("Failed to remove bucket policy: %v", err)
+			if strings.Contains(err.Error(), "NoSuchBucketPolicy") {
+				cblog.Infof("No existing bucket policy to remove, bucket is already private")
+				return "private", nil
+			}
+			return "", err
+		}
+
+		cblog.Infof("Successfully set bucket %s to private", bucketName)
+		return "private", nil
+	}
 
 	var policy string
 	switch acl {
 	case "public-read":
-		policy = `{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::` + bucketName + `/*"]}]}`
-	case "private":
-		policy = `{"Version":"2012-10-17","Statement":[]}`
+		policy = fmt.Sprintf(`{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "PublicReadGetObject",
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": "s3:GetObject",
+            "Resource": "arn:aws:s3:::%s/*"
+        }
+    ]
+}`, bucketName)
 	default:
+		cblog.Errorf("Unsupported ACL: %s", acl)
 		return "", fmt.Errorf("unsupported ACL: %s", acl)
 	}
+
+	cblog.Infof("Setting bucket policy: %s", policy)
+
 	err = client.SetBucketPolicy(ctx, bucketName, policy)
 	if err != nil {
+		cblog.Errorf("Failed to set bucket policy: %v", err)
+
+		if strings.Contains(err.Error(), "BlockPublicPolicy") || strings.Contains(err.Error(), "public policies are blocked") {
+			cblog.Warnf("Public policy blocked by AWS Block Public Access settings")
+			return "", fmt.Errorf("cannot set public-read ACL: AWS Block Public Access is enabled. Please disable 'Block public bucket policies' in AWS Console, or use MinIO which doesn't have this restriction")
+		}
+
 		return "", err
 	}
+
+	cblog.Infof("Successfully set ACL %s for bucket %s", acl, bucketName)
+
 	appliedPolicy, err := client.GetBucketPolicy(ctx, bucketName)
 	if err != nil {
-		return "", err
+		cblog.Warnf("Failed to get applied policy for verification: %v", err)
+		return policy, nil
 	}
+
 	return appliedPolicy, nil
 }
 
@@ -789,6 +839,49 @@ func SuspendVersioning(connectionName string, bucketName string) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+func GetVersioning(connectionName string, bucketName string) (string, error) {
+	cblog.Info("call GetVersioning()")
+	cblog.Infof("Getting versioning for bucket: %s, connection: %s", bucketName, connectionName)
+
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		cblog.Errorf("Failed to get bucket IID info: %v", err)
+		return "", err
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		cblog.Errorf("Failed to get connection info: %v", err)
+		return "", err
+	}
+
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		cblog.Errorf("Failed to create S3 client: %v", err)
+		return "", err
+	}
+
+	ctx := context.Background()
+	cblog.Infof("Calling GetBucketVersioning for bucket: %s", bucketName)
+
+	versioningConfig, err := client.GetBucketVersioning(ctx, bucketName)
+	if err != nil {
+		cblog.Errorf("GetBucketVersioning failed: %v", err)
+		cblog.Infof("Returning default status 'Suspended' due to error")
+		return "Suspended", nil
+	}
+
+	cblog.Infof("GetBucketVersioning success - Status: %s", versioningConfig.Status)
+
+	if versioningConfig.Status == "" {
+		cblog.Infof("Empty status returned, defaulting to 'Suspended'")
+		return "Suspended", nil
+	}
+
+	return versioningConfig.Status, nil
 }
 
 func ListS3ObjectVersions(connectionName string, bucketName string, prefix string) ([]minio.ObjectInfo, error) {
@@ -921,14 +1014,11 @@ func DeleteS3BucketCORS(connectionName string, bucketName string) (bool, error) 
 	}
 
 	ctx := context.Background()
-
 	core := minio.Core{Client: client}
-	emptyCORS := &cors.Config{
-		CORSRules: []cors.Rule{},
-	}
-	err = core.SetBucketCors(ctx, bucketName, emptyCORS)
+
+	err = core.SetBucketCors(ctx, bucketName, nil)
 	if err != nil {
-		cblog.Error("Failed to delete bucket CORS:", err)
+		cblog.Errorf("Failed to delete bucket CORS: %v", err)
 		return false, err
 	}
 
