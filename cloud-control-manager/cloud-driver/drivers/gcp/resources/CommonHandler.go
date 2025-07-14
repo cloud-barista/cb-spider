@@ -171,7 +171,7 @@ func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 		/*
 			_, ok := v.(string)
 			if !ok {
-				cblogger.Errorf("Key[%s]의 값은 변환 불가", k)
+				cblogger.Errorf("Key[%s] value cannot be converted", k)
 				continue
 			}
 			keyValueList = append(keyValueList, irs.KeyValue{k, v.(string)})
@@ -1286,7 +1286,7 @@ func extractFileSystemInfo(
 		matches := parentFormat.FindStringSubmatch(fsInstanceName)
 
 		if len(matches) != 3 {
-			cblogger.Error("유효하지 않은 인스턴스 이름 형식: %s", fsInstanceName)
+			cblogger.Error("invalid instance name format: %s", fsInstanceName)
 			//return nil, errors.New("유효하지 않은 인스턴스 이름 형식: " + fsInstanceName)
 			continue
 		}

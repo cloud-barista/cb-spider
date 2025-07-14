@@ -680,7 +680,7 @@ func extractInstancePerformanceRange(metaInfo irs.FileSystemMetaInfo, tier strin
 		} else if capacityGiB >= 10*GiBPerTiB && capacityGiB <= 100*GiBPerTiB {
 			actualTierKey = "ZONAL_BETWEEN_10_TO_100TiB"
 		} else {
-			return nil, fmt.Errorf("ZONAL tier에서 지원하지 않는 용량: %d GiB", capacityGiB)
+			return nil, fmt.Errorf("unsupported capacity for ZONAL tier: %d GiB", capacityGiB)
 		}
 	} else if tier == "REGIONAL" {
 		if capacityGiB >= 1*GiBPerTiB && capacityGiB <= int64(9.75*float64(GiBPerTiB)) {
@@ -688,7 +688,7 @@ func extractInstancePerformanceRange(metaInfo irs.FileSystemMetaInfo, tier strin
 		} else if capacityGiB >= 10*GiBPerTiB && capacityGiB <= 100*GiBPerTiB {
 			actualTierKey = "REGIONAL_BETWEEN_10_TO_100TiB"
 		} else {
-			return nil, fmt.Errorf("REGIONAL tier에서 지원하지 않는 용량: %d GiB", capacityGiB)
+			return nil, fmt.Errorf("unsupported capacity for REGIONAL tier: %d GiB", capacityGiB)
 		}
 	} else {
 		// BASIC_HDD, BASIC_SSD 등의 경우
@@ -728,7 +728,7 @@ func extractInstancePerformanceRange(metaInfo irs.FileSystemMetaInfo, tier strin
 		// PerformanceOptions에 "NONE" 또는 "DEFAULT"로 정의되어 있다면,
 		// requestedIops가 0이 아니거나 (즉, 사용자가 값을 지정하려 했다면) 에러를 반환합니다.
 		if requestedIops != 0 {
-			return nil, fmt.Errorf("%s 티어는 사용자 정의 IOPS를 지원하지 않습니다. 요청된 IOPS: %d", tier, requestedIops)
+			return nil, fmt.Errorf("%s tier does not support custom IOPS. Requested IOPS: %d", tier, requestedIops)
 		}
 		// Basic 티어는 특별한 검증 없이 nil 반환 (항상 DEFAULT 모드)
 		return nil, nil
@@ -739,7 +739,7 @@ func extractInstancePerformanceRange(metaInfo irs.FileSystemMetaInfo, tier strin
 	// 해당 용량 범위에 대한 성능 규칙 가져오기
 	performanceCapacityRange, ok := metaInfo.PerformanceOptions[actualTierKey]
 	if !ok {
-		return nil, fmt.Errorf("Tier '%s' 용량 %d GiB에 대한 성능 규칙을 찾을 수 없습니다 (키: %s).", tier, capacityGiB, actualTierKey)
+		return nil, fmt.Errorf("performance rules not found for Tier '%s' capacity %d GiB (key: %s).", tier, capacityGiB, actualTierKey)
 	}
 
 	// 4. Min, Max, Default IOPS 값 파싱
@@ -748,22 +748,22 @@ func extractInstancePerformanceRange(metaInfo irs.FileSystemMetaInfo, tier strin
 		if strings.HasPrefix(valStr, "Default_fixed_") { // 사용하지 않을 듯.
 			defaultIops, err = extractPerformanceIOPSValue(valStr)
 			if err != nil {
-				return nil, fmt.Errorf("기본 IOPS '%s' 파싱 오류: %w", valStr, err)
+				return nil, fmt.Errorf("default IOPS '%s' parsing error: %w", valStr, err)
 			}
 		} else if strings.HasPrefix(valStr, "Custom_Default_") {
 			defaultIops, err = extractPerformanceIOPSValue(valStr)
 			if err != nil {
-				return nil, fmt.Errorf("기본 IOPS '%s' 파싱 오류: %w", valStr, err)
+				return nil, fmt.Errorf("default IOPS '%s' parsing error: %w", valStr, err)
 			}
 		} else if strings.HasPrefix(valStr, "Custom_Min_") {
 			customMin, err = extractPerformanceIOPSValue(valStr)
 			if err != nil {
-				return nil, fmt.Errorf("최소 IOPS '%s' 파싱 오류: %w", valStr, err)
+				return nil, fmt.Errorf("minimum IOPS '%s' parsing error: %w", valStr, err)
 			}
 		} else if strings.HasPrefix(valStr, "Custom_Max_") {
 			customMax, err = extractPerformanceIOPSValue(valStr)
 			if err != nil {
-				return nil, fmt.Errorf("최대 IOPS '%s' 파싱 오류: %w", valStr, err)
+				return nil, fmt.Errorf("maximum IOPS '%s' parsing error: %w", valStr, err)
 			}
 		}
 	}
@@ -774,7 +774,7 @@ func extractInstancePerformanceRange(metaInfo irs.FileSystemMetaInfo, tier strin
 		if requestedIops == defaultIops {
 			// default 값을 요청한 경우 (CUSTOM으로 처리해도 무방하지만, 여기서는 DEFAULT로 간주)
 			// 특별한 에러 없이 nil 반환
-			fmt.Printf("Tier %s, 용량 %d GiB: Default IOPS %d가 명시적으로 요청됨.\n", tier, capacityGiB, requestedIops)
+			fmt.Printf("Tier %s, capacity %d GiB: Default IOPS %d explicitly requested.\n", tier, capacityGiB, requestedIops)
 			performanceConfig.Mode = &filestorepb.Instance_PerformanceConfig_FixedIops{
 				FixedIops: &filestorepb.Instance_FixedIOPS{
 					MaxIops: defaultIops,
@@ -783,10 +783,10 @@ func extractInstancePerformanceRange(metaInfo irs.FileSystemMetaInfo, tier strin
 		} else {
 			// Custom 값 요청 시 Min/Max 범위 검증
 			if requestedIops < customMin || requestedIops > customMax {
-				return nil, fmt.Errorf("요청된 IOPS %d는 Tier '%s' (%s)의 허용 범위 %d~%d IOPS를 벗어납니다.",
-					requestedIops, tier, formatGiB(capacityGiB), customMin, customMax)
+				return nil, fmt.Errorf("requested IOPS %d is outside the allowed range %d~%d IOPS for Tier '%s' (%s).",
+					requestedIops, customMin, customMax, tier, formatGiB(capacityGiB))
 			}
-			fmt.Printf("Tier %s, 용량 %d GiB: Custom IOPS %d가 유효함.\n", tier, capacityGiB, requestedIops)
+			fmt.Printf("Tier %s, capacity %d GiB: Custom IOPS %d is valid.\n", tier, capacityGiB, requestedIops)
 			performanceConfig.Mode = &filestorepb.Instance_PerformanceConfig_FixedIops{
 				FixedIops: &filestorepb.Instance_FixedIOPS{
 					MaxIops: requestedIops,
@@ -799,7 +799,7 @@ func extractInstancePerformanceRange(metaInfo irs.FileSystemMetaInfo, tier strin
 			return nil, fmt.Errorf("supplied IOPS %d must be a multiple of 1000.", requestedIops)
 		}
 	} else { // 사용자가 IOPS를 요청하지 않은 경우 (Default 값 적용)
-		fmt.Printf("Tier %s, 용량 %d GiB: IOPS가 요청되지 않아 기본 IOPS %d가 적용됩니다.\n", tier, capacityGiB, defaultIops)
+		fmt.Printf("Tier %s, capacity %d GiB: No IOPS requested, applying default IOPS %d.\n", tier, capacityGiB, defaultIops)
 		performanceConfig.Mode = &filestorepb.Instance_PerformanceConfig_FixedIops{
 			FixedIops: &filestorepb.Instance_FixedIOPS{
 				MaxIops: defaultIops,
@@ -815,7 +815,7 @@ func extractPerformanceIOPSValue(s string) (int64, error) {
 	valueNumRegex := regexp.MustCompile(`_(\d+)$`)
 	matches := valueNumRegex.FindStringSubmatch(s)
 	if len(matches) < 2 {
-		return 0, fmt.Errorf("형식에 맞는 숫자를 찾을 수 없음: %s", s)
+		return 0, fmt.Errorf("no matching number format found: %s", s)
 	}
 	return strconv.ParseInt(matches[1], 10, 64)
 }
