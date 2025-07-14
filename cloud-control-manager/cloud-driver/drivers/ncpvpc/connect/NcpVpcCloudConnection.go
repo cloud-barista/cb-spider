@@ -41,11 +41,6 @@ type NcpVpcCloudConnection struct {
 	VasClient      *vas.APIClient
 }
 
-// CreateFileSystemHandler implements connect.CloudConnection.
-func (cloudConn *NcpVpcCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
-	panic("unimplemented")
-}
-
 var cblogger *logrus.Logger
 
 func init() {
