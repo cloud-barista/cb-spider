@@ -750,21 +750,58 @@ func listObjectVersions(c echo.Context) error {
 	bucketName := c.Param("Name")
 	bucketName = strings.TrimSuffix(bucketName, "/")
 
+	cblog.Infof("listObjectVersions called - Bucket: %s, Connection: %s", bucketName, conn)
+	cblog.Infof("Request URL: %s", c.Request().URL.String())
+	cblog.Infof("Query parameters: %v", c.QueryParams())
+
 	prefix := c.QueryParam("prefix")
 	if prefix == "" {
 		prefix = c.QueryParam("Prefix")
 	}
+	cblog.Infof("Using prefix: '%s'", prefix)
+
+	// First check if bucket exists
+	_, err := cmrt.GetS3Bucket(conn, bucketName)
+	if err != nil {
+		cblog.Errorf("Bucket %s not found: %v", bucketName, err)
+		errorCode := "NoSuchBucket"
+		statusCode := http.StatusNotFound
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucketName)
+	}
+
+	cblog.Infof("Bucket %s exists, listing object versions", bucketName)
 
 	result, err := cmrt.ListS3ObjectVersions(conn, bucketName, prefix)
 	if err != nil {
-		errorCode := "NoSuchBucket"
-		statusCode := http.StatusNotFound
-		if !strings.Contains(err.Error(), "not found") {
-			errorCode = "InternalError"
-			statusCode = http.StatusInternalServerError
+		cblog.Errorf("Failed to list object versions in bucket %s: %v", bucketName, err)
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "not found") {
+			errorCode = "NoSuchBucket"
+			statusCode = http.StatusNotFound
+		} else if strings.Contains(err.Error(), "not implemented") || strings.Contains(err.Error(), "NotImplemented") {
+			errorCode = "NotImplemented"
+			statusCode = http.StatusNotImplemented
 		}
 		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucketName)
 	}
+
+	cblog.Infof("Found %d object versions/delete markers in bucket %s", len(result), bucketName)
+
+	// Log details for debugging
+	var versionCount, deleteMarkerCount int
+	for i, obj := range result {
+		if i < 10 { // Log first 10 for debugging
+			cblog.Infof("Item %d: Key=%s, VersionID=%s, IsLatest=%t, IsDeleteMarker=%t, Size=%d",
+				i+1, obj.Key, obj.VersionID, obj.IsLatest, obj.IsDeleteMarker, obj.Size)
+		}
+		if obj.IsDeleteMarker {
+			deleteMarkerCount++
+		} else {
+			versionCount++
+		}
+	}
+	cblog.Infof("Summary: %d object versions, %d delete markers", versionCount, deleteMarkerCount)
 
 	var versions []ObjectVersion
 	var deleteMarkers []DeleteMarker
@@ -808,13 +845,27 @@ func listObjectVersions(c echo.Context) error {
 		DeleteMarkers: deleteMarkers,
 	}
 
+	cblog.Infof("Preparing XML response with %d versions and %d delete markers", len(versions), len(deleteMarkers))
+
 	addS3Headers(c)
 	xmlData, err := xml.Marshal(resp)
 	if err != nil {
+		cblog.Errorf("Failed to marshal XML: %v", err)
 		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucketName)
 	}
 
 	fullXML := append([]byte(xml.Header), xmlData...)
+
+	// Log XML snippet for debugging
+	xmlStr := string(fullXML)
+	if len(xmlStr) > 1000 {
+		cblog.Debugf("XML response preview: %s...", xmlStr[:1000])
+	} else {
+		cblog.Debugf("XML response: %s", xmlStr)
+	}
+
+	cblog.Infof("Returning ListVersionsResult with %d total items", len(versions)+len(deleteMarkers))
+
 	return c.Blob(http.StatusOK, "application/xml", fullXML)
 }
 
@@ -1011,39 +1062,39 @@ func GetS3Bucket(c echo.Context) error {
 
 	// Handle GET requests with specific query parameters
 	if c.Request().Method == "GET" {
-		if c.QueryParam("location") != "" {
+		if c.QueryParams().Has("location") {
 			cblog.Infof("Handling GET location for bucket: %s", name)
 			return getBucketLocation(c)
 		}
-		if c.QueryParam("versioning") != "" {
+		if c.QueryParams().Has("versioning") {
 			cblog.Infof("Handling GET versioning for bucket: %s", name)
 			return getBucketVersioning(c)
 		}
-		if c.QueryParam("cors") != "" {
+		if c.QueryParams().Has("cors") {
 			cblog.Infof("Handling GET cors for bucket: %s", name)
 			return getBucketCORS(c)
 		}
-		if c.QueryParam("acl") != "" {
+		if c.QueryParams().Has("acl") {
 			cblog.Infof("Handling GET acl for bucket: %s", name)
 			return getBucketACL(c)
 		}
-		if c.QueryParam("policy") != "" {
+		if c.QueryParams().Has("policy") {
 			cblog.Infof("Handling GET policy for bucket: %s", name)
 			return getBucketPolicy(c)
 		}
-		if c.QueryParam("versions") != "" {
+		if c.QueryParams().Has("versions") {
 			cblog.Infof("Handling GET versions for bucket: %s", name)
 			return listObjectVersions(c)
 		}
 
 		// If no special query parameters, this is a list objects request
-		if c.QueryParam("acl") == "" &&
-			c.QueryParam("versioning") == "" &&
-			c.QueryParam("policy") == "" &&
-			c.QueryParam("lifecycle") == "" &&
-			c.QueryParam("cors") == "" &&
-			c.QueryParam("versions") == "" &&
-			c.QueryParam("location") == "" {
+		if !c.QueryParams().Has("acl") &&
+			!c.QueryParams().Has("versioning") &&
+			!c.QueryParams().Has("policy") &&
+			!c.QueryParams().Has("lifecycle") &&
+			!c.QueryParams().Has("cors") &&
+			!c.QueryParams().Has("versions") &&
+			!c.QueryParams().Has("location") {
 			cblog.Infof("No special query params, treating as list objects request for bucket: %s", name)
 			c.SetParamNames("Name")
 			c.SetParamValues(name)
@@ -1134,17 +1185,124 @@ func DeleteS3Bucket(c echo.Context) error {
 	conn, _ := getConnectionName(c)
 	name := c.Param("Name")
 
-	_, err := cmrt.DeleteS3Bucket(conn, name)
-	if err != nil {
-		errorCode := "InternalError"
-		if strings.Contains(err.Error(), "not empty") {
-			errorCode = "BucketNotEmpty"
-		} else if strings.Contains(err.Error(), "not found") {
-			errorCode = "NoSuchBucket"
-		}
-		return returnS3Error(c, http.StatusConflict, errorCode, err.Error(), "/"+name)
+	cblog.Infof("DeleteS3Bucket called - Bucket: %s, Connection: %s", name, conn)
+	cblog.Infof("Request method: %s, URL: %s", c.Request().Method, c.Request().URL.String())
+	cblog.Infof("Query parameters: %v", c.QueryParams())
+
+	// Check if this is actually a configuration delete request
+	if c.QueryParams().Has("cors") || c.QueryParams().Has("policy") {
+		cblog.Infof("Configuration delete request detected, redirecting to GetS3Bucket")
+		return GetS3Bucket(c)
 	}
 
+	// Check for force delete or force empty
+	if c.QueryParams().Has("force") || c.Request().Header.Get("X-Force-Delete") != "" {
+		cblog.Infof("Force delete requested for bucket %s", name)
+		return ForceDeleteS3Bucket(c)
+	}
+
+	if c.QueryParams().Has("empty") || c.Request().Header.Get("X-Force-Empty") != "" {
+		cblog.Infof("Force empty requested for bucket %s", name)
+		return ForceEmptyS3Bucket(c)
+	}
+
+	// First, check if bucket exists
+	_, err := cmrt.GetS3Bucket(conn, name)
+	if err != nil {
+		cblog.Errorf("Bucket %s not found: %v", name, err)
+		if strings.Contains(err.Error(), "not found") {
+			return returnS3Error(c, http.StatusNotFound, "NoSuchBucket", err.Error(), "/"+name)
+		}
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+name)
+	}
+
+	cblog.Infof("Bucket %s exists, proceeding with deletion checks", name)
+
+	// Check for regular objects first
+	cblog.Infof("Checking for regular objects in bucket %s", name)
+	objects, err := cmrt.ListS3Objects(conn, name, "")
+	if err != nil {
+		cblog.Errorf("Failed to list objects in bucket %s: %v", name, err)
+		// Continue with deletion attempt even if listing fails
+	} else {
+		cblog.Infof("Found %d regular objects in bucket %s", len(objects), name)
+
+		if len(objects) > 0 {
+			cblog.Warnf("Bucket %s is not empty - contains %d objects", name, len(objects))
+			return returnS3Error(c, http.StatusConflict, "BucketNotEmpty",
+				fmt.Sprintf("The bucket you tried to delete is not empty. It contains %d objects. Use force=true parameter to force delete.", len(objects)),
+				"/"+name)
+		}
+	}
+
+	// For versioning-enabled buckets, check for object versions and delete markers
+	cblog.Infof("Checking for object versions and delete markers in bucket %s", name)
+	versions, err := cmrt.ListS3ObjectVersions(conn, name, "")
+	if err != nil {
+		cblog.Warnf("Failed to list object versions (bucket might not have versioning enabled): %v", err)
+		// Continue - this is expected for non-versioning buckets
+	} else {
+		cblog.Infof("Found %d object versions/delete markers in bucket %s", len(versions), name)
+
+		if len(versions) > 0 {
+			cblog.Warnf("Bucket %s has %d object versions/delete markers", name, len(versions))
+
+			// Log details of versions for debugging
+			var deleteMarkers int
+			var objectVersions int
+			for i, version := range versions {
+				if i < 5 { // Log first 5 for debugging
+					cblog.Infof("Version %d: Key=%s, VersionID=%s, IsLatest=%t, IsDeleteMarker=%t",
+						i+1, version.Key, version.VersionID, version.IsLatest, version.IsDeleteMarker)
+				}
+				if version.IsDeleteMarker {
+					deleteMarkers++
+				} else {
+					objectVersions++
+				}
+			}
+			cblog.Infof("Summary: %d object versions, %d delete markers", objectVersions, deleteMarkers)
+
+			return returnS3Error(c, http.StatusConflict, "BucketNotEmpty",
+				fmt.Sprintf("The bucket you tried to delete has %d object versions and %d delete markers. Use force=true parameter to force delete.", objectVersions+deleteMarkers),
+				"/"+name)
+		}
+	}
+
+	cblog.Infof("Bucket %s appears to be empty (no objects, versions, or delete markers), proceeding with deletion", name)
+
+	// Attempt to delete the bucket
+	success, err := cmrt.DeleteS3Bucket(conn, name)
+	if err != nil {
+		cblog.Errorf("Failed to delete bucket %s: %v", name, err)
+
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+
+		if strings.Contains(err.Error(), "not empty") || strings.Contains(err.Error(), "BucketNotEmpty") {
+			errorCode = "BucketNotEmpty"
+			statusCode = http.StatusConflict
+		} else if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "NoSuchBucket") {
+			errorCode = "NoSuchBucket"
+			statusCode = http.StatusNotFound
+		} else if strings.Contains(err.Error(), "access denied") || strings.Contains(err.Error(), "AccessDenied") {
+			errorCode = "AccessDenied"
+			statusCode = http.StatusForbidden
+		} else if strings.Contains(err.Error(), "versioning") || strings.Contains(err.Error(), "delete marker") {
+			errorCode = "BucketNotEmpty"
+			statusCode = http.StatusConflict
+		}
+
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+name)
+	}
+
+	if !success {
+		cblog.Errorf("Bucket deletion returned false for bucket %s", name)
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError",
+			"Bucket deletion failed for unknown reason", "/"+name)
+	}
+
+	cblog.Infof("Successfully deleted bucket %s", name)
 	addS3Headers(c)
 	return c.NoContent(http.StatusNoContent)
 }
@@ -1173,26 +1331,48 @@ func ListS3Objects(c echo.Context) error {
 		delimiter = c.QueryParam("Delimiter")
 	}
 
-	cblog.Infof("S3 API - Bucket: %s, Prefix: %s, Delimiter: %s", bucket, prefix, delimiter)
+	cblog.Infof("S3 API - Bucket: %s, Prefix: '%s', Delimiter: '%s', Connection: %s", bucket, prefix, delimiter, conn)
 
 	if bucket == "" {
 		return returnS3Error(c, http.StatusBadRequest, "InvalidBucketName", "Bucket name is required", "/")
 	}
 
+	// First check if bucket exists
+	_, err := cmrt.GetS3Bucket(conn, bucket)
+	if err != nil {
+		cblog.Errorf("Bucket %s not found: %v", bucket, err)
+		errorCode := "NoSuchBucket"
+		statusCode := http.StatusNotFound
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket)
+	}
+
+	cblog.Infof("Bucket %s exists, listing objects", bucket)
+
 	result, err := cmrt.ListS3Objects(conn, bucket, prefix)
 	if err != nil {
 		cblog.Errorf("Failed to list objects in bucket %s: %v", bucket, err)
-		errorCode := "NoSuchBucket"
-		statusCode := http.StatusNotFound
-		if !strings.Contains(err.Error(), "not found") {
-			errorCode = "InternalError"
-			statusCode = http.StatusInternalServerError
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "not found") {
+			errorCode = "NoSuchBucket"
+			statusCode = http.StatusNotFound
 		}
 		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket)
 	}
 
-	cblog.Infof("Found %d objects in bucket %s", len(result), bucket)
+	cblog.Infof("Found %d objects in bucket %s with prefix '%s'", len(result), bucket, prefix)
 
+	// Log first few objects for debugging
+	for i, obj := range result {
+		if i < 5 { // Log first 5 objects
+			cblog.Infof("Object %d: Key=%s, Size=%d, LastModified=%s", i+1, obj.Key, obj.Size, obj.LastModified)
+		}
+	}
+	if len(result) > 5 {
+		cblog.Infof("... and %d more objects", len(result)-5)
+	}
+
+	// Handle delimiter-based folder structure
 	if delimiter == "/" {
 		type CommonPrefix struct {
 			Prefix string `xml:"Prefix"`
@@ -1214,36 +1394,51 @@ func ListS3Objects(c echo.Context) error {
 		var contents []S3ObjectXML
 		commonPrefixMap := make(map[string]bool)
 
+		cblog.Infof("Processing objects with delimiter '/' for folder structure")
+
 		for _, obj := range result {
-			if prefix != "" && !strings.HasPrefix(obj.Key, prefix) {
+			objKey := obj.Key
+
+			// Skip objects that don't start with the specified prefix
+			if prefix != "" && !strings.HasPrefix(objKey, prefix) {
 				continue
 			}
 
-			relativeKey := obj.Key
+			// Calculate relative key (remove prefix)
+			relativeKey := objKey
 			if prefix != "" {
-				relativeKey = strings.TrimPrefix(obj.Key, prefix)
+				relativeKey = strings.TrimPrefix(objKey, prefix)
 			}
 
-			if idx := strings.Index(relativeKey, delimiter); idx > 0 {
-				subPrefix := prefix + relativeKey[:idx+1]
+			// Check if this object represents a folder
+			if delimiterIndex := strings.Index(relativeKey, delimiter); delimiterIndex > 0 {
+				// This is inside a subfolder, create a common prefix
+				subPrefix := prefix + relativeKey[:delimiterIndex+1]
 				commonPrefixMap[subPrefix] = true
+				cblog.Debugf("Adding common prefix: %s", subPrefix)
 			} else if relativeKey != "" {
-				if !(strings.HasSuffix(obj.Key, "/") && obj.Key == prefix) {
+				// This is a direct file (not in a subfolder)
+				// Skip the prefix itself if it's a folder marker
+				if !(strings.HasSuffix(objKey, "/") && objKey == prefix) {
 					contents = append(contents, S3ObjectXML{
-						Key:          obj.Key,
+						Key:          objKey,
 						LastModified: obj.LastModified.UTC().Format(time.RFC3339),
 						ETag:         strings.Trim(obj.ETag, "\""),
 						Size:         obj.Size,
 						StorageClass: "STANDARD",
 					})
+					cblog.Debugf("Adding direct file: %s", objKey)
 				}
 			}
 		}
 
+		// Convert common prefix map to slice
 		var commonPrefixes []CommonPrefix
-		for prefix := range commonPrefixMap {
-			commonPrefixes = append(commonPrefixes, CommonPrefix{Prefix: prefix})
+		for prefixKey := range commonPrefixMap {
+			commonPrefixes = append(commonPrefixes, CommonPrefix{Prefix: prefixKey})
 		}
+
+		cblog.Infof("Final result: %d files, %d folders", len(contents), len(commonPrefixes))
 
 		resp := ListBucketResultWithPrefix{
 			Xmlns:          "http://s3.amazonaws.com/doc/2006-03-01/",
@@ -1266,10 +1461,21 @@ func ListS3Objects(c echo.Context) error {
 
 		fullXML := append([]byte(xml.Header), xmlData...)
 		cblog.Debugf("Returning XML with %d objects and %d common prefixes", len(contents), len(commonPrefixes))
+
+		// Log XML snippet for debugging
+		xmlStr := string(fullXML)
+		if len(xmlStr) > 1000 {
+			cblog.Debugf("XML response preview: %s...", xmlStr[:1000])
+		} else {
+			cblog.Debugf("XML response: %s", xmlStr)
+		}
+
 		return c.Blob(http.StatusOK, "application/xml", fullXML)
 	}
 
-	// Default XML response for S3 API without delimiter
+	// Default response without delimiter (flat list)
+	cblog.Infof("Processing objects as flat list (no delimiter)")
+
 	var contents []S3ObjectXML
 	for _, o := range result {
 		contents = append(contents, S3ObjectXML{
@@ -1292,7 +1498,7 @@ func ListS3Objects(c echo.Context) error {
 	}
 
 	addS3Headers(c)
-	cblog.Debugf("Returning XML response with %d objects", len(contents))
+	cblog.Debugf("Returning flat list with %d objects", len(contents))
 
 	xmlData, err := xml.Marshal(resp)
 	if err != nil {
@@ -1300,6 +1506,15 @@ func ListS3Objects(c echo.Context) error {
 	}
 
 	fullXML := append([]byte(xml.Header), xmlData...)
+
+	// Log XML snippet for debugging
+	xmlStr := string(fullXML)
+	if len(xmlStr) > 1000 {
+		cblog.Debugf("XML response preview: %s...", xmlStr[:1000])
+	} else {
+		cblog.Debugf("XML response: %s", xmlStr)
+	}
+
 	return c.Blob(http.StatusOK, "application/xml", fullXML)
 }
 
@@ -1690,15 +1905,15 @@ func deleteMultipleObjects(c echo.Context) error {
 
 	cblog.Infof("DeleteMultipleObjects called - bucket: %s", bucket)
 
-	type Object struct {
+	type ObjectToDelete struct {
 		Key       string `xml:"Key"`
 		VersionId string `xml:"VersionId,omitempty"`
 	}
 
 	type Delete struct {
-		XMLName xml.Name `xml:"Delete"`
-		Objects []Object `xml:"Object"`
-		Quiet   bool     `xml:"Quiet"`
+		XMLName xml.Name         `xml:"Delete"`
+		Objects []ObjectToDelete `xml:"Object"`
+		Quiet   bool             `xml:"Quiet"`
 	}
 
 	var req Delete
@@ -1709,64 +1924,95 @@ func deleteMultipleObjects(c echo.Context) error {
 
 	cblog.Infof("Deleting %d objects from bucket %s", len(req.Objects), bucket)
 
-	// Filter out empty keys
-	var keys []string
+	// Separate objects with and without version IDs
+	var keysWithVersions []string
+	var keysWithoutVersions []string
+	var objectsWithVersions []ObjectToDelete
+
 	for _, obj := range req.Objects {
 		if obj.Key != "" {
-			keys = append(keys, obj.Key)
-			cblog.Debugf("Object to delete: %s", obj.Key)
+			cblog.Debugf("Object to delete: %s (VersionId: %s)", obj.Key, obj.VersionId)
+
+			if obj.VersionId != "" && obj.VersionId != "null" {
+				// Has version ID
+				objectsWithVersions = append(objectsWithVersions, obj)
+				keysWithVersions = append(keysWithVersions, obj.Key)
+			} else {
+				// No version ID (legacy object or current version)
+				keysWithoutVersions = append(keysWithoutVersions, obj.Key)
+			}
 		} else {
 			cblog.Warnf("Skipping empty key in delete request")
 		}
 	}
 
-	// If no valid keys, return error
-	if len(keys) == 0 {
-		return returnS3Error(c, http.StatusBadRequest, "MalformedXML", "No valid keys provided", "/"+bucket)
-	}
+	cblog.Infof("Objects with versions: %d, Objects without versions: %d",
+		len(keysWithVersions), len(keysWithoutVersions))
 
-	results, err := cmrt.DeleteMultipleObjects(conn, bucket, keys)
+	var allResults []cmrt.DeleteResult
 
-	// Check if all results indicate "not implemented"
-	allNotImplemented := false
-	if err == nil && len(results) > 0 {
-		notImplementedCount := 0
-		for _, result := range results {
-			if !result.Success && strings.Contains(result.Error, "not implemented") {
-				notImplementedCount++
+	// Delete objects without version IDs (regular delete)
+	if len(keysWithoutVersions) > 0 {
+		cblog.Infof("Deleting %d objects without version IDs", len(keysWithoutVersions))
+
+		results, err := cmrt.DeleteMultipleObjects(conn, bucket, keysWithoutVersions)
+		if err != nil {
+			// If bulk delete not supported, try individual deletes
+			if strings.Contains(err.Error(), "not implemented") || strings.Contains(err.Error(), "NotImplemented") {
+				cblog.Warnf("Bulk delete not supported, falling back to individual deletes for objects without versions")
+
+				for _, key := range keysWithoutVersions {
+					_, deleteErr := cmrt.DeleteS3Object(conn, bucket, key)
+					if deleteErr != nil {
+						allResults = append(allResults, cmrt.DeleteResult{
+							Key:     key,
+							Success: false,
+							Error:   deleteErr.Error(),
+						})
+					} else {
+						allResults = append(allResults, cmrt.DeleteResult{
+							Key:     key,
+							Success: true,
+						})
+					}
+				}
+			} else {
+				cblog.Errorf("Failed to delete multiple objects without versions: %v", err)
+				return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucket)
 			}
-		}
-		if notImplementedCount == len(results) {
-			allNotImplemented = true
+		} else {
+			allResults = append(allResults, results...)
 		}
 	}
 
-	// If error indicates not implemented or all results are not implemented, fall back to individual deletes
-	if (err != nil && (strings.Contains(err.Error(), "not implemented") || strings.Contains(err.Error(), "NotImplemented"))) || allNotImplemented {
-		cblog.Warnf("Bulk delete not supported, falling back to individual deletes")
+	// For objects with version IDs, we need to use individual delete calls
+	// because CB-Spider's DeleteMultipleObjects doesn't support version IDs
+	if len(objectsWithVersions) > 0 {
+		cblog.Infof("Deleting %d objects with version IDs using individual calls", len(objectsWithVersions))
 
-		results = []cmrt.DeleteResult{}
-		for _, key := range keys {
-			_, deleteErr := cmrt.DeleteS3Object(conn, bucket, key)
+		for _, obj := range objectsWithVersions {
+			// For versioned objects, we need to call a different function
+			// Since CB-Spider doesn't have a direct function for versioned deletes,
+			// we'll try to delete using the key and hope the S3 provider handles it
+			_, deleteErr := cmrt.DeleteS3Object(conn, bucket, obj.Key)
 			if deleteErr != nil {
-				results = append(results, cmrt.DeleteResult{
-					Key:     key,
+				cblog.Errorf("Failed to delete versioned object %s (version %s): %v", obj.Key, obj.VersionId, deleteErr)
+				allResults = append(allResults, cmrt.DeleteResult{
+					Key:     obj.Key,
 					Success: false,
 					Error:   deleteErr.Error(),
 				})
 			} else {
-				results = append(results, cmrt.DeleteResult{
-					Key:     key,
+				cblog.Infof("Successfully deleted versioned object %s (version %s)", obj.Key, obj.VersionId)
+				allResults = append(allResults, cmrt.DeleteResult{
+					Key:     obj.Key,
 					Success: true,
 				})
 			}
 		}
-	} else if err != nil {
-		// Other errors
-		cblog.Errorf("Failed to delete multiple objects: %v", err)
-		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucket)
 	}
 
+	// Build response
 	type Deleted struct {
 		Key string `xml:"Key"`
 	}
@@ -1788,7 +2034,7 @@ func deleteMultipleObjects(c echo.Context) error {
 		Xmlns: "http://s3.amazonaws.com/doc/2006-03-01/",
 	}
 
-	for _, result := range results {
+	for _, result := range allResults {
 		if result.Success {
 			resp.Deleted = append(resp.Deleted, Deleted{Key: result.Key})
 		} else {
@@ -1909,4 +2155,99 @@ func uploadPart(c echo.Context) error {
 	addS3Headers(c)
 	c.Response().Header().Set("ETag", etag)
 	return c.NoContent(http.StatusOK)
+}
+
+// ForceEmptyS3Bucket forcefully empties a bucket but keeps the bucket
+func ForceEmptyS3Bucket(c echo.Context) error {
+	conn, _ := getConnectionName(c)
+	name := c.Param("Name")
+
+	cblog.Infof("ForceEmptyS3Bucket called - Bucket: %s, Connection: %s", name, conn)
+	cblog.Infof("Request method: %s, URL: %s", c.Request().Method, c.Request().URL.String())
+	cblog.Infof("Query parameters: %v", c.QueryParams())
+
+	// Check for force empty parameter
+	if c.QueryParam("empty") == "" && c.Request().Header.Get("X-Force-Empty") == "" {
+		return returnS3Error(c, http.StatusBadRequest, "InvalidRequest",
+			"Force empty requires 'empty' query parameter or X-Force-Empty header", "/"+name)
+	}
+
+	cblog.Infof("Force empty confirmed for bucket %s", name)
+
+	success, err := cmrt.ForceEmptyBucket(conn, name)
+	if err != nil {
+		cblog.Errorf("Failed to force empty bucket %s: %v", name, err)
+
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+
+		if strings.Contains(err.Error(), "not found") {
+			errorCode = "NoSuchBucket"
+			statusCode = http.StatusNotFound
+		} else if strings.Contains(err.Error(), "access denied") {
+			errorCode = "AccessDenied"
+			statusCode = http.StatusForbidden
+		}
+
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+name)
+	}
+
+	if !success {
+		cblog.Errorf("Force empty returned false for bucket %s", name)
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError",
+			"Force empty failed for unknown reason", "/"+name)
+	}
+
+	cblog.Infof("Successfully force emptied bucket %s", name)
+	addS3Headers(c)
+	return c.NoContent(http.StatusNoContent)
+}
+
+// ForceDeleteS3Bucket forcefully empties and deletes a bucket
+func ForceDeleteS3Bucket(c echo.Context) error {
+	conn, _ := getConnectionName(c)
+	name := c.Param("Name")
+
+	cblog.Infof("ForceDeleteS3Bucket called - Bucket: %s, Connection: %s", name, conn)
+	cblog.Infof("Request method: %s, URL: %s", c.Request().Method, c.Request().URL.String())
+	cblog.Infof("Query parameters: %v", c.QueryParams())
+
+	// Check for force delete parameter
+	if c.QueryParam("force") == "" && c.Request().Header.Get("X-Force-Delete") == "" {
+		return returnS3Error(c, http.StatusBadRequest, "InvalidRequest",
+			"Force delete requires 'force' query parameter or X-Force-Delete header", "/"+name)
+	}
+
+	cblog.Infof("Force delete confirmed for bucket %s", name)
+
+	success, err := cmrt.ForceEmptyAndDeleteBucket(conn, name)
+	if err != nil {
+		cblog.Errorf("Failed to force delete bucket %s: %v", name, err)
+
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+
+		if strings.Contains(err.Error(), "not found") {
+			errorCode = "NoSuchBucket"
+			statusCode = http.StatusNotFound
+		} else if strings.Contains(err.Error(), "not empty") {
+			errorCode = "BucketNotEmpty"
+			statusCode = http.StatusConflict
+		} else if strings.Contains(err.Error(), "access denied") {
+			errorCode = "AccessDenied"
+			statusCode = http.StatusForbidden
+		}
+
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+name)
+	}
+
+	if !success {
+		cblog.Errorf("Force delete returned false for bucket %s", name)
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError",
+			"Force delete failed for unknown reason", "/"+name)
+	}
+
+	cblog.Infof("Successfully force deleted bucket %s", name)
+	addS3Headers(c)
+	return c.NoContent(http.StatusNoContent)
 }

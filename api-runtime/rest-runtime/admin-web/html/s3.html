@@ -250,9 +250,14 @@
     </div>
 
     <div id="object-versions-overlay" class="overlay">
-        <div class="overlay-content" style="position:relative; width: 800px;">
+        <div class="overlay-content" style="position:relative; width: 900px; max-width: 90vw;">
             <button class="close-btn" onclick="hideObjectVersionsOverlay()">x</button>
             <h2>Object Versions in: <span id="versions-bucket-name"></span></h2>
+            
+            <div style="margin-bottom: 15px; padding: 10px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px;">
+                <strong>Note:</strong> Versioning-enabled buckets cannot be deleted until all object versions and delete markers are removed.
+                <br>Use the "Delete" buttons below or "Delete All" to clean up before deleting the bucket.
+            </div>
             
             <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
                 <thead>
@@ -262,6 +267,7 @@
                         <th style="border: 1px solid #ddd; padding: 8px;">Size</th>
                         <th style="border: 1px solid #ddd; padding: 8px;">Last Modified</th>
                         <th style="border: 1px solid #ddd; padding: 8px;">Latest</th>
+                        <th style="border: 1px solid #ddd; padding: 8px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="object-versions-body">
@@ -314,37 +320,434 @@ function createBucket() {
 }
 
 function deleteBucket(name) {
-    if (!confirm(`Delete bucket "${name}"?`)) return;
+    if (!confirm(`Delete bucket "${name}"?\n\nWarning: The bucket must be empty before it can be deleted. If the bucket contains objects, the deletion will fail.`)) return;
     showProgressBar();
     
+    console.log(`Attempting to delete bucket: ${name}`);
+    
     // Use S3 standard API
-    fetch(`/spider/${name}?ConnectionName=${connConfig}`, { method: 'DELETE' })
+    fetch(`/spider/${name}?ConnectionName=${connConfig}`, { 
+        method: 'DELETE',
+        headers: {
+            'X-Connection-Name': connConfig
+        }
+    })
     .then(response => {
+        console.log(`Delete response status: ${response.status} ${response.statusText}`);
+        
         if (response.ok) {
+            console.log(`Successfully deleted bucket: ${name}`);
             location.reload();
         } else {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            return response.text().then(errorText => {
+                console.error(`Delete error response: ${errorText}`);
+                
+                // Try to parse S3 error response
+                if (errorText.includes('<?xml') || errorText.includes('<Error>')) {
+                    try {
+                        const parser = new DOMParser();
+                        const xmlDoc = parser.parseFromString(errorText, 'text/xml');
+                        const errorCode = xmlDoc.getElementsByTagName('Code')[0]?.textContent || 'Unknown';
+                        const errorMessage = xmlDoc.getElementsByTagName('Message')[0]?.textContent || 'Unknown error';
+                        
+                        if (errorCode === 'BucketNotEmpty') {
+                            throw new Error(`Cannot delete bucket "${name}": The bucket is not empty.\n\nPlease delete all objects in the bucket first, then try again.`);
+                        } else if (errorCode === 'NoSuchBucket') {
+                            throw new Error(`Bucket "${name}" does not exist.`);
+                        } else if (errorCode === 'AccessDenied') {
+                            throw new Error(`Access denied: You don't have permission to delete bucket "${name}".`);
+                        } else {
+                            throw new Error(`${errorCode}: ${errorMessage}`);
+                        }
+                    } catch (parseError) {
+                        if (parseError.message.includes('Cannot delete bucket')) {
+                            throw parseError; // Re-throw our custom errors
+                        }
+                        console.error('Failed to parse error XML:', parseError);
+                        throw new Error(`HTTP ${response.status}: ${errorText}`);
+                    }
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+                }
+            });
         }
     })
     .catch(e => { 
+        console.error('Delete bucket error:', e);
         alert('Error: ' + e.message); 
         hideProgressBar(); 
     });
 }
 
+
+// Enhanced object versions display with delete functionality
+async function loadObjectVersionsWithActions(bucketName) {
+    console.log(`Loading object versions for bucket: ${bucketName}`);
+    
+    try {
+        const url = `/spider/${bucketName}?versions&ConnectionName=${connConfig}`;
+        console.log(`Making request to: ${url}`);
+        
+        const response = await fetch(url);
+        console.log(`Response status: ${response.status} ${response.statusText}`);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Error response: ${errorText}`);
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const xmlData = await response.text();
+        console.log(`Response XML length: ${xmlData.length}`);
+        console.log(`Response XML preview: ${xmlData.substring(0, 1000)}`);
+        
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlData, 'text/xml');
+        
+        // Check for parsing errors
+        const parseError = xmlDoc.getElementsByTagName('parsererror')[0];
+        if (parseError) {
+            console.error('XML parsing error:', parseError.textContent);
+            throw new Error('Failed to parse XML response');
+        }
+        
+        // Look for ListVersionsResult
+        const listVersionsResult = xmlDoc.getElementsByTagName('ListVersionsResult')[0];
+        if (!listVersionsResult) {
+            console.error('No ListVersionsResult found in XML response');
+            throw new Error('Invalid XML response format - no ListVersionsResult');
+        }
+        
+        const versions = xmlDoc.getElementsByTagName('Version');
+        const deleteMarkers = xmlDoc.getElementsByTagName('DeleteMarker');
+        
+        console.log(`Found ${versions.length} versions and ${deleteMarkers.length} delete markers`);
+        
+        const tbody = document.getElementById('object-versions-body');
+        tbody.innerHTML = '';
+
+        let hasVersions = false;
+
+        // Process versions first
+        for (let i = 0; i < versions.length; i++) {
+            const version = versions[i];
+            const key = version.getElementsByTagName('Key')[0]?.textContent || '';
+            const versionId = version.getElementsByTagName('VersionId')[0]?.textContent || '';
+            const size = parseInt(version.getElementsByTagName('Size')[0]?.textContent || '0');
+            const lastModified = version.getElementsByTagName('LastModified')[0]?.textContent || '';
+            const isLatest = version.getElementsByTagName('IsLatest')[0]?.textContent === 'true';
+
+            console.log(`Version ${i+1}: Key=${key}, VersionId=${versionId}, Size=${size}, IsLatest=${isLatest}`);
+
+            hasVersions = true;
+            tbody.innerHTML += `
+                <tr>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${key}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${versionId}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${formatBytes(size)}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${formatTime(lastModified)}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${isLatest ? 'Yes' : 'No'}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <button onclick="deleteObjectVersion('${bucketName}', '${key.replace(/'/g, "\\'")}', '${versionId}')" 
+                                style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">
+                            Delete
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }
+
+        // Process delete markers
+        for (let i = 0; i < deleteMarkers.length; i++) {
+            const marker = deleteMarkers[i];
+            const key = marker.getElementsByTagName('Key')[0]?.textContent || '';
+            const versionId = marker.getElementsByTagName('VersionId')[0]?.textContent || '';
+            const lastModified = marker.getElementsByTagName('LastModified')[0]?.textContent || '';
+            const isLatest = marker.getElementsByTagName('IsLatest')[0]?.textContent === 'true';
+
+            console.log(`Delete Marker ${i+1}: Key=${key}, VersionId=${versionId}, IsLatest=${isLatest}`);
+
+            hasVersions = true;
+            tbody.innerHTML += `
+                <tr style="background-color: #ffe6e6;">
+                    <td style="border: 1px solid #ddd; padding: 8px;">${key} (DELETE MARKER)</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${versionId}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">-</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${formatTime(lastModified)}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">${isLatest ? 'Yes' : 'No'}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <button onclick="deleteObjectVersion('${bucketName}', '${key.replace(/'/g, "\\'")}', '${versionId}')" 
+                                style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">
+                            Delete
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }
+
+        if (!hasVersions) {
+            console.log('No versions or delete markers found');
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">No versions found</td></tr>';
+        } else {
+            console.log(`Displaying ${versions.length + deleteMarkers.length} total items`);
+            
+            // Add bulk delete button at the top
+            const totalItems = versions.length + deleteMarkers.length;
+            tbody.innerHTML = `
+                <tr style="background-color: #f8f9fa;">
+                    <td colspan="6" style="text-align: center; padding: 15px;">
+                        <button onclick="deleteAllVersions('${bucketName}')" 
+                                style="background: #dc3545; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer;">
+                            Delete All Versions and Markers
+                        </button>
+                        <span style="margin-left: 15px; color: #666;">This will permanently delete all ${totalItems} object versions and delete markers</span>
+                    </td>
+                </tr>
+                <tr style="background-color: #fff8dc; border: 2px solid #ffa500;">
+                    <td colspan="6" style="text-align: center; padding: 20px;">
+                        <h4 style="margin: 0 0 15px 0; color: #d9534f;">⚠️ If standard deletion doesn't work:</h4>
+                        
+                        <button onclick="forceDeleteBucket('${bucketName}')" 
+                                style="background: #d9534f; color: white; border: none; padding: 10px 20px; margin: 5px; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                            🔥 Force Delete Bucket (Complete Cleanup)
+                        </button>
+                        
+                        <br><br>
+                        <small style="color: #666;">
+                            Force Delete will completely empty the bucket and delete it.<br>
+                            This action cannot be undone and will remove ALL versions and delete markers.
+                        </small>
+                    </td>
+                </tr>
+            ` + tbody.innerHTML;
+        }
+
+    } catch (error) {
+        console.error('Error loading object versions:', error);
+        const tbody = document.getElementById('object-versions-body');
+        tbody.innerHTML = 
+            `<tr><td colspan="6" style="text-align: center; padding: 20px; color: red;">
+                Error loading versions: ${error.message}
+                <br><br>
+                <button onclick="loadObjectVersionsWithActions('${bucketName}')" style="margin-top: 10px;">Retry</button>
+            </td></tr>`;
+        alert('Error loading object versions: ' + error.message);
+    }
+}
+
+async function deleteObjectVersion(bucketName, objectKey, versionId) {
+    if (!confirm(`Delete version ${versionId.substring(0, 20)}... of object "${objectKey}"?`)) return;
+    
+    console.log(`Deleting version: ${objectKey} (${versionId})`);
+    showProgressBar();
+    
+    try {
+        const response = await fetch(`/spider/${bucketName}/${encodeURIComponent(objectKey)}?versionId=${versionId}&ConnectionName=${connConfig}`, {
+            method: 'DELETE'
+        });
+        
+        hideProgressBar();
+        
+        if (response.ok) {
+            alert('Version deleted successfully');
+            loadObjectVersionsWithActions(bucketName);
+        } else {
+            const errorText = await response.text();
+            console.error(`Delete version error: ${errorText}`);
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+    } catch (error) {
+        hideProgressBar();
+        console.error('Error deleting version:', error);
+        alert('Error deleting version: ' + error.message);
+    }
+}
+
+async function deleteAllVersions(bucketName) {
+    if (!confirm(`Delete ALL object versions and delete markers in bucket "${bucketName}"?\n\nThis action cannot be undone!`)) return;
+    
+    console.log(`Deleting all versions in bucket: ${bucketName}`);
+    showProgressBar();
+    
+    try {
+        // Get all versions first
+        const response = await fetch(`/spider/${bucketName}?versions&ConnectionName=${connConfig}`);
+        const xmlData = await response.text();
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlData, 'text/xml');
+        
+        const versions = xmlDoc.getElementsByTagName('Version');
+        const deleteMarkers = xmlDoc.getElementsByTagName('DeleteMarker');
+        
+        const objectsToDelete = [];
+        
+        // Add all versions
+        for (let i = 0; i < versions.length; i++) {
+            const key = versions[i].getElementsByTagName('Key')[0]?.textContent;
+            const versionId = versions[i].getElementsByTagName('VersionId')[0]?.textContent;
+            if (key && versionId && versionId !== 'null') {
+                objectsToDelete.push(`<Object><Key>${key}</Key><VersionId>${versionId}</VersionId></Object>`);
+                console.log(`Adding version to delete: ${key} (${versionId})`);
+            } else if (key && (!versionId || versionId === 'null')) {
+                // Handle objects without version ID (legacy objects)
+                objectsToDelete.push(`<Object><Key>${key}</Key></Object>`);
+                console.log(`Adding version to delete (no versionId): ${key}`);
+            }
+        }
+        
+        // Add all delete markers
+        for (let i = 0; i < deleteMarkers.length; i++) {
+            const key = deleteMarkers[i].getElementsByTagName('Key')[0]?.textContent;
+            const versionId = deleteMarkers[i].getElementsByTagName('VersionId')[0]?.textContent;
+            if (key && versionId && versionId !== 'null') {
+                objectsToDelete.push(`<Object><Key>${key}</Key><VersionId>${versionId}</VersionId></Object>`);
+                console.log(`Adding delete marker to delete: ${key} (${versionId})`);
+            } else if (key && (!versionId || versionId === 'null')) {
+                // Handle delete markers without version ID
+                objectsToDelete.push(`<Object><Key>${key}</Key></Object>`);
+                console.log(`Adding delete marker to delete (no versionId): ${key}`);
+            }
+        }
+        
+        if (objectsToDelete.length === 0) {
+            alert('No versions to delete');
+            hideProgressBar();
+            return;
+        }
+        
+        console.log(`Deleting ${objectsToDelete.length} versions and delete markers`);
+        console.log('Delete XML objects:', objectsToDelete);
+        
+        // Use bulk delete API
+        const deleteXml = `<?xml version="1.0" encoding="UTF-8"?>
+<Delete>
+    ${objectsToDelete.join('')}
+</Delete>`;
+        
+        console.log('Delete XML request:', deleteXml);
+        
+        const deleteResponse = await fetch(`/spider/${bucketName}?delete&ConnectionName=${connConfig}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/xml'
+            },
+            body: deleteXml
+        });
+        
+        console.log(`Delete response status: ${deleteResponse.status} ${deleteResponse.statusText}`);
+        
+        hideProgressBar();
+        
+        if (deleteResponse.ok) {
+            const responseText = await deleteResponse.text();
+            console.log('Delete response:', responseText);
+            
+            // Parse the delete response to check for any errors
+            const deleteParser = new DOMParser();
+            const deleteXmlDoc = deleteParser.parseFromString(responseText, 'text/xml');
+            const deletedItems = deleteXmlDoc.getElementsByTagName('Deleted');
+            const errorItems = deleteXmlDoc.getElementsByTagName('e>');
+            
+            console.log(`Delete result: ${deletedItems.length} deleted, ${errorItems.length} errors`);
+            
+            if (errorItems.length > 0) {
+                let errorMsg = `Some items could not be deleted:\n`;
+                for (let i = 0; i < errorItems.length; i++) {
+                    const key = errorItems[i].getElementsByTagName('Key')[0]?.textContent || 'Unknown';
+                    const code = errorItems[i].getElementsByTagName('Code')[0]?.textContent || 'Unknown';
+                    const message = errorItems[i].getElementsByTagName('Message')[0]?.textContent || 'Unknown error';
+                    errorMsg += `- ${key}: ${code} - ${message}\n`;
+                }
+                alert(errorMsg);
+            } else {
+                alert(`All ${objectsToDelete.length} versions and delete markers deleted successfully!\n\nYou can now delete the bucket.`);
+            }
+            
+            // Reload the versions list
+            loadObjectVersionsWithActions(bucketName);
+        } else {
+            const errorText = await deleteResponse.text();
+            console.error(`Bulk delete error: ${errorText}`);
+            throw new Error(`HTTP ${deleteResponse.status}: ${deleteResponse.statusText}\n\nResponse: ${errorText}`);
+        }
+        
+    } catch (error) {
+        hideProgressBar();
+        console.error('Error deleting all versions:', error);
+        alert('Error deleting all versions: ' + error.message);
+    }
+}
+
 function deleteSelectedBuckets() {
     const checked = document.querySelectorAll('input[name="bucket-checkbox"]:checked');
     if (!checked.length) return alert("Select bucket(s) to delete!");
-    if (!confirm("Delete selected bucket(s)?")) return;
+    
+    const bucketNames = Array.from(checked).map(chk => chk.value).join(', ');
+    if (!confirm(`Delete selected bucket(s): ${bucketNames}?\n\nWarning: All buckets must be empty before they can be deleted.`)) return;
+    
     showProgressBar();
     
-    Promise.all(Array.from(checked).map(chk =>
-        fetch(`/spider/${chk.value}?ConnectionName=${connConfig}`, { method: 'DELETE' })
-    )).then(() => { 
-        location.reload(); 
-        hideProgressBar(); 
+    console.log(`Attempting to delete buckets: ${bucketNames}`);
+    
+    const deletePromises = Array.from(checked).map(chk => {
+        const bucketName = chk.value;
+        return fetch(`/spider/${bucketName}?ConnectionName=${connConfig}`, { 
+            method: 'DELETE',
+            headers: {
+                'X-Connection-Name': connConfig
+            }
+        }).then(response => {
+            if (!response.ok) {
+                return response.text().then(errorText => {
+                    console.error(`Failed to delete ${bucketName}: ${errorText}`);
+                    
+                    // Try to parse error for better user feedback
+                    if (errorText.includes('BucketNotEmpty')) {
+                        return { bucket: bucketName, error: 'Bucket is not empty' };
+                    } else if (errorText.includes('NoSuchBucket')) {
+                        return { bucket: bucketName, error: 'Bucket does not exist' };
+                    } else if (errorText.includes('AccessDenied')) {
+                        return { bucket: bucketName, error: 'Access denied' };
+                    } else {
+                        return { bucket: bucketName, error: `HTTP ${response.status}` };
+                    }
+                });
+            }
+            return { bucket: bucketName, success: true };
+        }).catch(error => {
+            console.error(`Network error deleting ${bucketName}:`, error);
+            return { bucket: bucketName, error: 'Network error' };
+        });
+    });
+    
+    Promise.all(deletePromises).then(results => {
+        hideProgressBar();
+        
+        const successes = results.filter(r => r.success);
+        const failures = results.filter(r => r.error);
+        
+        if (failures.length === 0) {
+            console.log('All buckets deleted successfully');
+            location.reload();
+        } else {
+            let message = `Deletion completed:\n\n`;
+            if (successes.length > 0) {
+                message += `Successfully deleted: ${successes.map(s => s.bucket).join(', ')}\n\n`;
+            }
+            if (failures.length > 0) {
+                message += `Failed to delete:\n`;
+                failures.forEach(f => {
+                    message += `- ${f.bucket}: ${f.error}\n`;
+                });
+            }
+            alert(message);
+            
+            // Reload to refresh the list
+            location.reload();
+        }
     }).catch(e => { 
-        alert('Error: ' + e.message); 
+        console.error('Bulk delete error:', e);
+        alert('Error during bulk deletion: ' + e.message); 
         hideProgressBar(); 
     });
 }
@@ -353,12 +756,195 @@ function showBucketCreateOverlay() { document.getElementById('bucket-create-over
 function hideBucketCreateOverlay() { document.getElementById('bucket-create-overlay').style.display = 'none'; }
 
 let currentBucket = null;
-function showObjectPanel(bucket) {
+let currentPrefix = ""; // Track current folder path
+
+function showObjectPanel(bucket, prefix = "") {
     currentBucket = bucket;
+    currentPrefix = prefix;
+    
+    console.log(`Showing object panel for bucket: ${bucket}, prefix: '${prefix}'`);
+    
     document.querySelectorAll('.bucket-name-cell').forEach(el => el.classList.remove('selected'));
     document.getElementById(`bucket-${bucket}`).classList.add('selected');
     document.getElementById('object-panel').style.display = 'block';
-    fetchObjects(bucket);
+    
+    // Update panel header to show current path
+    updateObjectPanelHeader(bucket, prefix);
+    
+    fetchObjects(bucket, prefix);
+}
+
+function updateObjectPanelHeader(bucket, prefix) {
+    const header = document.querySelector('.object-panel-header h2');
+    if (!header) {
+        // Create header if it doesn't exist
+        const panelHeader = document.querySelector('.object-panel-header');
+        if (panelHeader) {
+            const h2 = document.createElement('h2');
+            h2.style.margin = '0';
+            panelHeader.insertBefore(h2, panelHeader.firstChild);
+        }
+    }
+    
+    const headerElement = document.querySelector('.object-panel-header h2');
+    if (headerElement) {
+        if (prefix && prefix !== "") {
+            headerElement.innerHTML = `
+                Objects in: <strong>${bucket}</strong>/${prefix}
+                <button onclick="showObjectPanel('${bucket}', '')" style="margin-left: 10px; font-size: 12px;">📁 Root</button>
+            `;
+        } else {
+            headerElement.innerHTML = `Objects in: <strong>${bucket}</strong>`;
+        }
+    }
+}
+
+function fetchObjects(bucket, prefix = "") {
+    console.log(`Fetching objects for bucket: ${bucket}, prefix: '${prefix}'`);
+    
+    // Use S3 standard API with delimiter to get folder structure
+    let url = `/spider/${bucket}?delimiter=/&ConnectionName=${connConfig}`;
+    if (prefix && prefix !== "") {
+        url += `&prefix=${encodeURIComponent(prefix)}`;
+    }
+    
+    console.log(`Request URL: ${url}`);
+    
+    fetch(url)
+        .then(response => {
+            console.log(`Response status: ${response.status} ${response.statusText}`);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            return response.text();
+        })
+        .then(xmlData => {
+            console.log(`Response XML length: ${xmlData.length}`);
+            console.log(`Response XML preview: ${xmlData.substring(0, 1000)}`);
+            
+            // Parse XML response
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlData, 'text/xml');
+            
+            // Check for parsing errors
+            const parseError = xmlDoc.getElementsByTagName('parsererror')[0];
+            if (parseError) {
+                console.error('XML parsing error:', parseError.textContent);
+                throw new Error('Failed to parse XML response');
+            }
+            
+            // Check if this is an error response
+            const errorElement = xmlDoc.getElementsByTagName('e>')[0];
+            if (errorElement) {
+                const errorCode = xmlDoc.getElementsByTagName('Code')[0]?.textContent || 'Unknown';
+                const errorMessage = xmlDoc.getElementsByTagName('Message')[0]?.textContent || 'Unknown error';
+                throw new Error(`${errorCode}: ${errorMessage}`);
+            }
+            
+            // Look for the root element
+            const listBucketResult = xmlDoc.getElementsByTagName('ListBucketResult')[0];
+            if (!listBucketResult) {
+                console.error('No ListBucketResult found in XML');
+                console.error('XML content:', xmlData);
+                throw new Error('Invalid XML response format');
+            }
+            
+            const contents = xmlDoc.getElementsByTagName('Contents');
+            const commonPrefixes = xmlDoc.getElementsByTagName('CommonPrefixes');
+            
+            console.log(`Found ${contents.length} objects and ${commonPrefixes.length} folders`);
+            
+            const body = document.getElementById('object-list-body');
+            body.innerHTML = '';
+            
+            let itemCount = 0;
+            
+            // Process common prefixes (folders/directories) first
+            for (let i = 0; i < commonPrefixes.length; i++) {
+                const prefixElement = commonPrefixes[i].getElementsByTagName('Prefix')[0];
+                if (prefixElement) {
+                    const folderPrefix = prefixElement.textContent;
+                    console.log(`Folder ${i+1}: ${folderPrefix}`);
+                    
+                    // Extract folder name from prefix
+                    let folderName = folderPrefix;
+                    if (prefix && folderPrefix.startsWith(prefix)) {
+                        folderName = folderPrefix.substring(prefix.length);
+                    }
+                    if (folderName.endsWith('/')) {
+                        folderName = folderName.slice(0, -1);
+                    }
+                    
+                    itemCount++;
+                    body.innerHTML += `
+                        <tr style="background-color: #f8f9fa;">
+                            <td class="column-num">${itemCount}</td>
+                            <td class="object-key-cell">
+                                <span style="cursor:pointer; font-weight: bold; color: #0066cc;" onclick="showObjectPanel('${bucket}', '${folderPrefix}')">
+                                    📁 ${folderName}/
+                                </span>
+                            </td>
+                            <td class="center-align">-</td>
+                            <td class="center-align">-</td>
+                            <td class="center-align">
+                                <button onclick="showObjectPanel('${bucket}', '${folderPrefix}')">Open</button>
+                                <button onclick="deleteFolder('${bucket}', '${folderPrefix}')">Delete</button>
+                            </td>
+                            <td class="center-align"><input type="checkbox" name="object-checkbox" value="${folderPrefix}"></td>
+                        </tr>
+                    `;
+                }
+            }
+            
+            // Process objects (files)
+            for (let i = 0; i < contents.length; i++) {
+                const content = contents[i];
+                const key = content.getElementsByTagName('Key')[0]?.textContent || '';
+                const size = parseInt(content.getElementsByTagName('Size')[0]?.textContent || '0');
+                const lastModified = content.getElementsByTagName('LastModified')[0]?.textContent || '';
+                
+                console.log(`Object ${i+1}: ${key} (${size} bytes)`);
+                
+                // Extract file name from full key
+                let displayName = key;
+                if (prefix && key.startsWith(prefix)) {
+                    displayName = key.substring(prefix.length);
+                }
+                
+                itemCount++;
+                body.innerHTML += `
+                    <tr>
+                        <td class="column-num">${itemCount}</td>
+                        <td class="object-key-cell">
+                            <span style="cursor:pointer;" onclick="showObjectDetail('${bucket}','${key.replace(/'/g, "\\'")}')">${displayName}</span>
+                        </td>
+                        <td class="center-align">${formatBytes(size)}</td>
+                        <td class="center-align">${formatTime(lastModified)}</td>
+                        <td class="center-align">
+                            <button onclick="downloadObject('${bucket}','${key.replace(/'/g, "\\'")}')">Download</button>
+                            <button onclick="deleteObject('${bucket}','${key.replace(/'/g, "\\'")}')">Delete</button>
+                            <button onclick="generatePresignedURL('${bucket}','${key.replace(/'/g, "\\'")}')">Share</button>
+                        </td>
+                        <td class="center-align"><input type="checkbox" name="object-checkbox" value="${key}"></td>
+                    </tr>
+                `;
+            }
+            
+            if (itemCount === 0) {
+                body.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">No objects found</td></tr>';
+                console.log('No objects or folders found');
+            } else {
+                console.log(`Total items displayed: ${itemCount}`);
+            }
+        })
+        .catch(e => {
+            console.error('Error fetching objects:', e);
+            const body = document.getElementById('object-list-body');
+            body.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: red;">Error loading objects: ${e.message}</td></tr>`;
+            alert('Error fetching objects: ' + e.message);
+        });
 }
 
 function hideObjectPanel() {
@@ -369,43 +955,221 @@ function hideObjectPanel() {
 }
 
 function fetchObjects(bucket) {
+    console.log(`Fetching objects for bucket: ${bucket}`);
+    
     // Use S3 standard API
-    fetch(`/spider/${bucket}?ConnectionName=${connConfig}`)
-        .then(response => response.text())
+    const url = `/spider/${bucket}?ConnectionName=${connConfig}`;
+    console.log(`Request URL: ${url}`);
+    
+    fetch(url)
+        .then(response => {
+            console.log(`Response status: ${response.status} ${response.statusText}`);
+            console.log(`Response headers:`, response.headers);
+            console.log(`Response Content-Type: ${response.headers.get('Content-Type')}`);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            return response.text();
+        })
         .then(xmlData => {
+            console.log(`Response XML length: ${xmlData.length}`);
+            console.log(`Response XML preview: ${xmlData.substring(0, 500)}`);
+            
             // Parse XML response
             const parser = new DOMParser();
             const xmlDoc = parser.parseFromString(xmlData, 'text/xml');
+            
+            // Check for parsing errors
+            const parseError = xmlDoc.getElementsByTagName('parsererror')[0];
+            if (parseError) {
+                console.error('XML parsing error:', parseError.textContent);
+                throw new Error('Failed to parse XML response');
+            }
+            
+            // Check if this is an error response
+            const errorElement = xmlDoc.getElementsByTagName('e>')[0];
+            if (errorElement) {
+                const errorCode = xmlDoc.getElementsByTagName('Code')[0]?.textContent || 'Unknown';
+                const errorMessage = xmlDoc.getElementsByTagName('Message')[0]?.textContent || 'Unknown error';
+                throw new Error(`${errorCode}: ${errorMessage}`);
+            }
+            
+            // Look for the root element
+            const listBucketResult = xmlDoc.getElementsByTagName('ListBucketResult')[0];
+            if (!listBucketResult) {
+                console.error('No ListBucketResult found in XML');
+                console.error('Available root elements:', xmlDoc.documentElement?.tagName);
+                throw new Error('Invalid XML response format');
+            }
+            
             const contents = xmlDoc.getElementsByTagName('Contents');
+            const commonPrefixes = xmlDoc.getElementsByTagName('CommonPrefixes');
+            
+            console.log(`Found ${contents.length} objects and ${commonPrefixes.length} common prefixes`);
             
             const body = document.getElementById('object-list-body');
             body.innerHTML = '';
             
+            let itemCount = 0;
+            
+            // Process objects (files)
             for (let i = 0; i < contents.length; i++) {
                 const content = contents[i];
                 const key = content.getElementsByTagName('Key')[0]?.textContent || '';
                 const size = parseInt(content.getElementsByTagName('Size')[0]?.textContent || '0');
                 const lastModified = content.getElementsByTagName('LastModified')[0]?.textContent || '';
+                const etag = content.getElementsByTagName('ETag')[0]?.textContent || '';
+                const storageClass = content.getElementsByTagName('StorageClass')[0]?.textContent || 'STANDARD';
                 
+                console.log(`Object ${i+1}: ${key} (${size} bytes)`);
+                
+                itemCount++;
                 body.innerHTML += `
                     <tr>
-                        <td class="column-num">${i+1}</td>
-                        <td class="object-key-cell"><span style="cursor:pointer;" onclick="showObjectDetail('${bucket}','${key}')">${key}</span></td>
+                        <td class="column-num">${itemCount}</td>
+                        <td class="object-key-cell"><span style="cursor:pointer;" onclick="showObjectDetail('${bucket}','${key.replace(/'/g, "\\'")}')">${key}</span></td>
                         <td class="center-align">${formatBytes(size)}</td>
                         <td class="center-align">${formatTime(lastModified)}</td>
                         <td class="center-align">
-                            <button onclick="downloadObject('${bucket}','${key}')">Download</button>
-                            <button onclick="deleteObject('${bucket}','${key}')">Delete</button>
-                            <button onclick="generatePresignedURL('${bucket}','${key}')">Share</button>
+                            <button onclick="downloadObject('${bucket}','${key.replace(/'/g, "\\'")}')">Download</button>
+                            <button onclick="deleteObject('${bucket}','${key.replace(/'/g, "\\'")}')">Delete</button>
+                            <button onclick="generatePresignedURL('${bucket}','${key.replace(/'/g, "\\'")}')">Share</button>
                         </td>
                         <td class="center-align"><input type="checkbox" name="object-checkbox" value="${key}"></td>
                     </tr>
                 `;
             }
+            
+            // Process common prefixes (folders/directories)
+            for (let i = 0; i < commonPrefixes.length; i++) {
+                const prefix = commonPrefixes[i].getElementsByTagName('Prefix')[0]?.textContent || '';
+                if (prefix) {
+                    console.log(`Folder ${i+1}: ${prefix}`);
+                    
+                    itemCount++;
+                    const displayName = prefix.endsWith('/') ? prefix.slice(0, -1) : prefix;
+                    const folderName = displayName.split('/').pop() || displayName;
+                    
+                    body.innerHTML += `
+                        <tr style="background-color: #f8f9fa;">
+                            <td class="column-num">${itemCount}</td>
+                            <td class="object-key-cell">
+                                <span style="cursor:pointer; font-weight: bold;" onclick="showFolderContents('${bucket}','${prefix}')">
+                                    📁 ${folderName}/
+                                </span>
+                            </td>
+                            <td class="center-align">-</td>
+                            <td class="center-align">-</td>
+                            <td class="center-align">
+                                <button onclick="showFolderContents('${bucket}','${prefix}')">Open</button>
+                                <button onclick="deleteFolder('${bucket}','${prefix}')">Delete</button>
+                            </td>
+                            <td class="center-align"><input type="checkbox" name="object-checkbox" value="${prefix}"></td>
+                        </tr>
+                    `;
+                }
+            }
+            
+            if (itemCount === 0) {
+                body.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">No objects found</td></tr>';
+                console.log('No objects or folders found in bucket');
+            } else {
+                console.log(`Total items displayed: ${itemCount}`);
+            }
         })
         .catch(e => {
             console.error('Error fetching objects:', e);
+            const body = document.getElementById('object-list-body');
+            body.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: red;">Error loading objects: ${e.message}</td></tr>`;
             alert('Error fetching objects: ' + e.message);
+        });
+}
+
+// Helper function to show folder contents
+function showFolderContents(bucket, prefix) {
+    console.log(`Opening folder: ${prefix} in bucket: ${bucket}`);
+    
+    // For now, just fetch objects with this prefix
+    const url = `/spider/${bucket}?prefix=${encodeURIComponent(prefix)}&delimiter=/&ConnectionName=${connConfig}`;
+    console.log(`Fetching folder contents from: ${url}`);
+    
+    fetch(url)
+        .then(response => response.text())
+        .then(xmlData => {
+            console.log(`Folder contents XML: ${xmlData.substring(0, 500)}`);
+            // You could implement a drill-down view here
+            alert(`Folder contents for ${prefix}:\n\nSee console for details. \nImplement drill-down view as needed.`);
+        })
+        .catch(e => {
+            console.error('Error fetching folder contents:', e);
+            alert('Error fetching folder contents: ' + e.message);
+        });
+}
+
+// Helper function to delete folder and all its contents
+function deleteFolder(bucket, prefix) {
+    if (!confirm(`Delete folder "${prefix}" and ALL its contents?\n\nThis action cannot be undone.`)) return;
+    
+    console.log(`Deleting folder: ${prefix} from bucket: ${bucket}`);
+    showProgressBar();
+    
+    // First, list all objects with this prefix (without delimiter to get everything)
+    const url = `/spider/${bucket}?prefix=${encodeURIComponent(prefix)}&ConnectionName=${connConfig}`;
+    
+    fetch(url)
+        .then(response => response.text())
+        .then(xmlData => {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlData, 'text/xml');
+            const contents = xmlDoc.getElementsByTagName('Contents');
+            
+            if (contents.length === 0) {
+                alert('Folder appears to be empty or already deleted');
+                hideProgressBar();
+                fetchObjects(bucket, currentPrefix);
+                return;
+            }
+            
+            // Collect all object keys to delete
+            const objectsToDelete = [];
+            for (let i = 0; i < contents.length; i++) {
+                const key = contents[i].getElementsByTagName('Key')[0]?.textContent;
+                if (key) {
+                    objectsToDelete.push(key);
+                }
+            }
+            
+            console.log(`Found ${objectsToDelete.length} objects to delete in folder ${prefix}`);
+            
+            // Use bulk delete API
+            const deleteXml = `<?xml version="1.0" encoding="UTF-8"?>
+<Delete>
+    ${objectsToDelete.map(key => `<Object><Key>${key}</Key></Object>`).join('')}
+</Delete>`;
+            
+            return fetch(`/spider/${bucket}?delete&ConnectionName=${connConfig}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/xml'
+                },
+                body: deleteXml
+            });
+        })
+        .then(response => {
+            hideProgressBar();
+            if (response.ok) {
+                alert(`Folder "${prefix}" deleted successfully`);
+                fetchObjects(bucket, currentPrefix);
+            } else {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+        })
+        .catch(e => {
+            console.error('Error deleting folder:', e);
+            hideProgressBar();
+            alert('Error deleting folder: ' + e.message);
         });
 }
 
@@ -910,37 +1674,71 @@ function copyPresignedURL() {
 }
 
 function showObjectVersions() {
-    if (!currentBucket) return;
+    if (!currentBucket) {
+        console.error('No current bucket selected');
+        alert('Please select a bucket first');
+        return;
+    }
     
+    console.log(`Opening object versions for bucket: ${currentBucket}`);
     document.getElementById('versions-bucket-name').textContent = currentBucket;
     document.getElementById('object-versions-overlay').style.display = 'flex';
     
-    loadObjectVersions(currentBucket);
+    loadObjectVersionsWithActions(currentBucket);
 }
 
 function hideObjectVersionsOverlay() {
     document.getElementById('object-versions-overlay').style.display = 'none';
 }
 
-async function loadObjectVersions(bucketName) {
+async function loadObjectVersionsWithActions(bucketName) {
+    console.log(`Loading object versions for bucket: ${bucketName}`);
+    
     try {
-        const response = await fetch(`/spider/${bucketName}?versions&ConnectionName=${connConfig}`);
+        const url = `/spider/${bucketName}?versions&ConnectionName=${connConfig}`;
+        console.log(`Making request to: ${url}`);
+        
+        const response = await fetch(url);
+        console.log(`Response status: ${response.status} ${response.statusText}`);
         
         if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`Error response: ${errorText}`);
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
         const xmlData = await response.text();
+        console.log(`Response XML length: ${xmlData.length}`);
+        console.log(`Response XML preview: ${xmlData.substring(0, 1000)}`);
+        
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(xmlData, 'text/xml');
+        
+        // Check for parsing errors
+        const parseError = xmlDoc.getElementsByTagName('parsererror')[0];
+        if (parseError) {
+            console.error('XML parsing error:', parseError.textContent);
+            throw new Error('Failed to parse XML response');
+        }
+        
+        // Look for ListVersionsResult
+        const listVersionsResult = xmlDoc.getElementsByTagName('ListVersionsResult')[0];
+        if (!listVersionsResult) {
+            console.error('No ListVersionsResult found in XML response');
+            throw new Error('Invalid XML response format - no ListVersionsResult');
+        }
         
         const versions = xmlDoc.getElementsByTagName('Version');
         const deleteMarkers = xmlDoc.getElementsByTagName('DeleteMarker');
         
+        console.log(`Found ${versions.length} versions and ${deleteMarkers.length} delete markers`);
+        
         const tbody = document.getElementById('object-versions-body');
         tbody.innerHTML = '';
 
-        // Process versions
+        let hasVersions = false;
+
+        // Process versions first
         for (let i = 0; i < versions.length; i++) {
             const version = versions[i];
             const key = version.getElementsByTagName('Key')[0]?.textContent || '';
@@ -949,6 +1747,9 @@ async function loadObjectVersions(bucketName) {
             const lastModified = version.getElementsByTagName('LastModified')[0]?.textContent || '';
             const isLatest = version.getElementsByTagName('IsLatest')[0]?.textContent === 'true';
 
+            console.log(`Version ${i+1}: Key=${key}, VersionId=${versionId}, Size=${size}, IsLatest=${isLatest}`);
+
+            hasVersions = true;
             tbody.innerHTML += `
                 <tr>
                     <td style="border: 1px solid #ddd; padding: 8px;">${key}</td>
@@ -956,6 +1757,12 @@ async function loadObjectVersions(bucketName) {
                     <td style="border: 1px solid #ddd; padding: 8px;">${formatBytes(size)}</td>
                     <td style="border: 1px solid #ddd; padding: 8px;">${formatTime(lastModified)}</td>
                     <td style="border: 1px solid #ddd; padding: 8px;">${isLatest ? 'Yes' : 'No'}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <button onclick="deleteObjectVersion('${bucketName}', '${key.replace(/'/g, "\\'")}', '${versionId}')" 
+                                style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">
+                            Delete
+                        </button>
+                    </td>
                 </tr>
             `;
         }
@@ -968,6 +1775,9 @@ async function loadObjectVersions(bucketName) {
             const lastModified = marker.getElementsByTagName('LastModified')[0]?.textContent || '';
             const isLatest = marker.getElementsByTagName('IsLatest')[0]?.textContent === 'true';
 
+            console.log(`Delete Marker ${i+1}: Key=${key}, VersionId=${versionId}, IsLatest=${isLatest}`);
+
+            hasVersions = true;
             tbody.innerHTML += `
                 <tr style="background-color: #ffe6e6;">
                     <td style="border: 1px solid #ddd; padding: 8px;">${key} (DELETE MARKER)</td>
@@ -975,18 +1785,63 @@ async function loadObjectVersions(bucketName) {
                     <td style="border: 1px solid #ddd; padding: 8px;">-</td>
                     <td style="border: 1px solid #ddd; padding: 8px;">${formatTime(lastModified)}</td>
                     <td style="border: 1px solid #ddd; padding: 8px;">${isLatest ? 'Yes' : 'No'}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <button onclick="deleteObjectVersion('${bucketName}', '${key.replace(/'/g, "\\'")}', '${versionId}')" 
+                                style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">
+                            Delete
+                        </button>
+                    </td>
                 </tr>
             `;
         }
 
-        if (versions.length === 0 && deleteMarkers.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 20px;">No versions found</td></tr>';
+        if (!hasVersions) {
+            console.log('No versions or delete markers found');
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">No versions found</td></tr>';
+        } else {
+            console.log(`Displaying ${versions.length + deleteMarkers.length} total items`);
+            
+            // Add bulk delete button at the top
+            const totalItems = versions.length + deleteMarkers.length;
+            tbody.innerHTML = `
+                <tr style="background-color: #f8f9fa;">
+                    <td colspan="6" style="text-align: center; padding: 15px;">
+                        <button onclick="deleteAllVersions('${bucketName}')" 
+                                style="background: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-weight: bold; cursor: pointer;">
+                            🗂️ Empty Bucket (Delete All Versions and Markers)
+                        </button>
+                        <span style="margin-left: 15px; color: #666;">This will empty the bucket but keep the bucket itself</span>
+                    </td>
+                </tr>
+                <tr style="background-color: #fff8dc; border: 2px solid #ffa500;">
+                    <td colspan="6" style="text-align: center; padding: 20px;">
+                        <h4 style="margin: 0 0 15px 0; color: #d9534f;">⚠️ Complete Bucket Removal:</h4>
+                        
+                        <button onclick="forceDeleteBucket('${bucketName}')" 
+                                style="background: #d9534f; color: white; border: none; padding: 10px 20px; margin: 5px; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                            🔥 Force Delete Bucket (Complete Removal)
+                        </button>
+                        
+                        <br><br>
+                        <small style="color: #666;">
+                            Force Delete will completely remove the bucket and all its contents.<br>
+                            Use "Empty Bucket" first if you want to keep the bucket.
+                        </small>
+                    </td>
+                </tr>
+            ` + tbody.innerHTML;
         }
 
     } catch (error) {
         console.error('Error loading object versions:', error);
-        document.getElementById('object-versions-body').innerHTML = 
-            '<tr><td colspan="5" style="text-align: center; padding: 20px;">Error loading versions: ' + error.message + '</td></tr>';
+        const tbody = document.getElementById('object-versions-body');
+        tbody.innerHTML = 
+            `<tr><td colspan="6" style="text-align: center; padding: 20px; color: red;">
+                Error loading versions: ${error.message}
+                <br><br>
+                <button onclick="loadObjectVersionsWithActions('${bucketName}')" style="margin-top: 10px;">Retry</button>
+            </td></tr>`;
+        alert('Error loading object versions: ' + error.message);
     }
 }
 
@@ -1035,6 +1890,72 @@ function formatBytes(bytes) {
     if (mb < 1024) return mb.toFixed(1)+' MB';
     let gb = mb/1024;
     return gb.toFixed(1)+' GB';
+}
+
+// Force Delete Bucket - Complete cleanup and deletion
+async function forceDeleteBucket(bucketName) {
+    if (!confirm(`⚠️ FORCE DELETE BUCKET "${bucketName}" ⚠️\n\nThis will:\n• Delete ALL object versions\n• Delete ALL delete markers\n• Completely empty and delete the bucket\n\nThis action CANNOT be undone!\n\nContinue?`)) {
+        return;
+    }
+    
+    // Double confirmation for safety
+    const confirmText = prompt(`To confirm force deletion, type the bucket name: ${bucketName}`);
+    if (confirmText !== bucketName) {
+        alert('Bucket name confirmation failed. Operation cancelled.');
+        return;
+    }
+    
+    showProgressBar();
+    
+    try {
+        console.log(`Force deleting bucket: ${bucketName}`);
+        
+        const response = await fetch(`/spider/${bucketName}?force=true&ConnectionName=${connConfig}`, {
+            method: 'DELETE',
+            headers: {
+                'X-Force-Delete': 'true',
+                'X-Connection-Name': connConfig
+            }
+        });
+        
+        console.log(`Force delete response status: ${response.status} ${response.statusText}`);
+        
+        hideProgressBar();
+        
+        if (response.ok) {
+            alert(`✅ Bucket "${bucketName}" has been completely deleted!\n\nAll object versions and delete markers have been removed.`);
+            
+            // Close any open overlays
+            hideObjectVersionsOverlay();
+            hideBucketSettingsOverlay();
+            
+            // Reload the page to refresh bucket list
+            location.reload();
+        } else {
+            const errorText = await response.text();
+            console.error('Force delete failed:', errorText);
+            
+            // Try to parse S3 error response
+            if (errorText.includes('<?xml') || errorText.includes('<e>')) {
+                try {
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(errorText, 'text/xml');
+                    const errorCode = xmlDoc.getElementsByTagName('Code')[0]?.textContent || 'Unknown';
+                    const errorMessage = xmlDoc.getElementsByTagName('Message')[0]?.textContent || 'Unknown error';
+                    throw new Error(`${errorCode}: ${errorMessage}`);
+                } catch (parseError) {
+                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                }
+            } else {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}\n\nResponse: ${errorText}`);
+            }
+        }
+        
+    } catch (error) {
+        hideProgressBar();
+        console.error('Force delete error:', error);
+        alert(`❌ Force delete failed: ${error.message}\n\nPlease check:\n1. Network connection\n2. Bucket permissions\n3. Server logs for details`);
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {});

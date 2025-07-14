@@ -266,31 +266,76 @@ func DeleteS3Bucket(connectionName, bucketName string) (bool, error) {
 
 func ListS3Objects(connectionName, bucketName, prefix string) ([]minio.ObjectInfo, error) {
 	cblog.Info("call ListS3Objects()")
+	cblog.Infof("Parameters - Connection: %s, Bucket: %s, Prefix: '%s'", connectionName, bucketName, prefix)
+
 	var iidInfo S3BucketIIDInfo
 	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
 	if err != nil {
+		cblog.Errorf("Failed to get bucket info for %s: %v", bucketName, err)
 		return nil, err
 	}
+	cblog.Infof("Found bucket info - SystemId: %s, Region: %s", iidInfo.SystemId, iidInfo.Region)
+
 	connInfo, err := GetS3ConnectionInfo(connectionName)
 	if err != nil {
+		cblog.Errorf("Failed to get connection info: %v", err)
 		return nil, err
 	}
+
 	client, err := NewS3Client(connInfo)
 	if err != nil {
+		cblog.Errorf("Failed to create S3 client: %v", err)
 		return nil, err
 	}
+
 	ctx := context.Background()
 	opts := minio.ListObjectsOptions{
 		Prefix:    prefix,
-		Recursive: true,
+		Recursive: true, // Get all objects, including in subdirectories
 	}
+
+	cblog.Infof("Listing objects with options - Prefix: '%s', Recursive: %t", opts.Prefix, opts.Recursive)
+
 	var out []minio.ObjectInfo
+	objectCount := 0
+
 	for obj := range client.ListObjects(ctx, bucketName, opts) {
 		if obj.Err != nil {
+			cblog.Errorf("Error listing object: %v", obj.Err)
 			continue
 		}
+
+		objectCount++
+		if objectCount <= 10 { // Log first 10 objects for debugging
+			cblog.Infof("Object %d: Key=%s, Size=%d, LastModified=%s, ETag=%s",
+				objectCount, obj.Key, obj.Size, obj.LastModified, obj.ETag)
+		}
+
 		out = append(out, obj)
 	}
+
+	cblog.Infof("Total objects found: %d", len(out))
+
+	if len(out) > 10 {
+		cblog.Infof("... and %d more objects (showing first 10 in logs)", len(out)-10)
+	}
+
+	// Log some statistics
+	var totalSize int64
+	var folderCount int
+	var fileCount int
+
+	for _, obj := range out {
+		totalSize += obj.Size
+		if strings.HasSuffix(obj.Key, "/") {
+			folderCount++
+		} else {
+			fileCount++
+		}
+	}
+
+	cblog.Infof("Summary - Files: %d, Folders: %d, Total size: %d bytes", fileCount, folderCount, totalSize)
+
 	return out, nil
 }
 
@@ -888,5 +933,310 @@ func DeleteS3BucketCORS(connectionName string, bucketName string) (bool, error) 
 	}
 
 	cblog.Infof("Successfully deleted CORS for bucket %s", bucketName)
+	return true, nil
+}
+
+// DeleteS3ObjectVersion deletes a specific version of an object
+func DeleteS3ObjectVersion(connectionName, bucketName, objectName, versionID string) (bool, error) {
+	cblog.Info("call DeleteS3ObjectVersion()")
+	cblog.Infof("Parameters - Connection: %s, Bucket: %s, Object: %s, Version: %s",
+		connectionName, bucketName, objectName, versionID)
+
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		cblog.Errorf("Failed to get bucket info for %s: %v", bucketName, err)
+		return false, err
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		cblog.Errorf("Failed to get connection info: %v", err)
+		return false, err
+	}
+
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		cblog.Errorf("Failed to create S3 client: %v", err)
+		return false, err
+	}
+
+	ctx := context.Background()
+
+	opts := minio.RemoveObjectOptions{
+		VersionID: versionID,
+	}
+
+	cblog.Infof("Deleting object version - Bucket: %s, Object: %s, Version: %s", bucketName, objectName, versionID)
+
+	err = client.RemoveObject(ctx, bucketName, objectName, opts)
+	if err != nil {
+		cblog.Errorf("Failed to delete object version: %v", err)
+		return false, err
+	}
+
+	cblog.Infof("Successfully deleted object version - Bucket: %s, Object: %s, Version: %s", bucketName, objectName, versionID)
+	return true, nil
+}
+
+// DeleteMultipleObjectVersions deletes multiple object versions
+func DeleteMultipleObjectVersions(connectionName, bucketName string, objects []ObjectVersionToDelete) ([]DeleteResult, error) {
+	cblog.Info("call DeleteMultipleObjectVersions()")
+	cblog.Infof("Parameters - Connection: %s, Bucket: %s, Objects: %d", connectionName, bucketName, len(objects))
+
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		cblog.Errorf("Failed to get bucket info for %s: %v", bucketName, err)
+		return nil, err
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		cblog.Errorf("Failed to get connection info: %v", err)
+		return nil, err
+	}
+
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		cblog.Errorf("Failed to create S3 client: %v", err)
+		return nil, err
+	}
+
+	ctx := context.Background()
+
+	// For version-specific deletes, we need to use individual calls
+	// as minio-go doesn't support bulk versioned deletes directly
+	var results []DeleteResult
+
+	for _, obj := range objects {
+		cblog.Infof("Deleting object version: %s (version: %s)", obj.Key, obj.VersionID)
+
+		if obj.VersionID == "" || obj.VersionID == "null" {
+			// Delete current version (no version ID)
+			err = client.RemoveObject(ctx, bucketName, obj.Key, minio.RemoveObjectOptions{})
+		} else {
+			// Delete specific version
+			err = client.RemoveObject(ctx, bucketName, obj.Key, minio.RemoveObjectOptions{
+				VersionID: obj.VersionID,
+			})
+		}
+
+		if err != nil {
+			cblog.Errorf("Failed to delete object %s (version %s): %v", obj.Key, obj.VersionID, err)
+			results = append(results, DeleteResult{
+				Key:     obj.Key,
+				Success: false,
+				Error:   err.Error(),
+			})
+		} else {
+			cblog.Infof("Successfully deleted object %s (version %s)", obj.Key, obj.VersionID)
+			results = append(results, DeleteResult{
+				Key:     obj.Key,
+				Success: true,
+			})
+		}
+	}
+
+	cblog.Infof("Deletion completed: %d total objects processed", len(results))
+	return results, nil
+}
+
+// Helper struct for versioned delete operations
+type ObjectVersionToDelete struct {
+	Key       string
+	VersionID string
+}
+
+// ForceEmptyBucket completely empties a bucket but keeps the bucket
+func ForceEmptyBucket(connectionName, bucketName string) (bool, error) {
+	cblog.Info("call ForceEmptyBucket()")
+	cblog.Infof("Parameters - Connection: %s, Bucket: %s", connectionName, bucketName)
+
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		cblog.Errorf("Failed to get bucket info for %s: %v", bucketName, err)
+		return false, err
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		cblog.Errorf("Failed to get connection info: %v", err)
+		return false, err
+	}
+
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		cblog.Errorf("Failed to create S3 client: %v", err)
+		return false, err
+	}
+
+	ctx := context.Background()
+
+	// Step 1: List all object versions and delete markers
+	cblog.Infof("Step 1: Listing all object versions and delete markers in bucket %s", bucketName)
+
+	opts := minio.ListObjectsOptions{
+		Recursive:    true,
+		WithVersions: true,
+	}
+
+	var allObjects []minio.ObjectInfo
+	for obj := range client.ListObjects(ctx, bucketName, opts) {
+		if obj.Err != nil {
+			cblog.Errorf("Error listing object: %v", obj.Err)
+			continue
+		}
+		allObjects = append(allObjects, obj)
+	}
+
+	cblog.Infof("Found %d total items (objects and delete markers) to delete", len(allObjects))
+
+	if len(allObjects) == 0 {
+		cblog.Infof("Bucket %s is already empty", bucketName)
+		return true, nil
+	}
+
+	// Step 2: Delete each version individually
+	deletedCount := 0
+	errorCount := 0
+
+	for i, obj := range allObjects {
+		cblog.Infof("Deleting item %d/%d: Key=%s, VersionID=%s, IsDeleteMarker=%t",
+			i+1, len(allObjects), obj.Key, obj.VersionID, obj.IsDeleteMarker)
+
+		// Create remove options with version ID
+		removeOpts := minio.RemoveObjectOptions{}
+		if obj.VersionID != "" && obj.VersionID != "null" {
+			removeOpts.VersionID = obj.VersionID
+		}
+
+		err := client.RemoveObject(ctx, bucketName, obj.Key, removeOpts)
+		if err != nil {
+			cblog.Errorf("Failed to delete object %s (version %s): %v", obj.Key, obj.VersionID, err)
+			errorCount++
+
+			// Try alternative deletion methods if the first attempt fails
+			if obj.VersionID != "" && obj.VersionID != "null" {
+				cblog.Infof("Trying alternative deletion method for %s", obj.Key)
+
+				// Try deleting without version ID (this might work for some edge cases)
+				err2 := client.RemoveObject(ctx, bucketName, obj.Key, minio.RemoveObjectOptions{})
+				if err2 != nil {
+					cblog.Errorf("Alternative deletion also failed for %s: %v", obj.Key, err2)
+				} else {
+					cblog.Infof("Alternative deletion succeeded for %s", obj.Key)
+					deletedCount++
+				}
+			}
+		} else {
+			cblog.Infof("Successfully deleted %s (version %s)", obj.Key, obj.VersionID)
+			deletedCount++
+		}
+
+		// Add a small delay to avoid overwhelming the API
+		if i%10 == 0 && i > 0 {
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+
+	cblog.Infof("Deletion summary: %d successful, %d errors", deletedCount, errorCount)
+
+	// Step 3: Verify bucket is empty
+	cblog.Infof("Step 3: Verifying bucket is empty")
+
+	// Check if bucket is now empty
+	remainingObjects := []minio.ObjectInfo{}
+	for obj := range client.ListObjects(ctx, bucketName, opts) {
+		if obj.Err != nil {
+			cblog.Errorf("Error checking remaining objects: %v", obj.Err)
+			continue
+		}
+		remainingObjects = append(remainingObjects, obj)
+	}
+
+	if len(remainingObjects) > 0 {
+		cblog.Warnf("Bucket still contains %d objects after cleanup:", len(remainingObjects))
+		for i, obj := range remainingObjects {
+			if i < 5 { // Log first 5 remaining objects
+				cblog.Warnf("  Remaining: Key=%s, VersionID=%s, IsDeleteMarker=%t",
+					obj.Key, obj.VersionID, obj.IsDeleteMarker)
+			}
+		}
+
+		// Try one more round of cleanup for remaining objects
+		cblog.Infof("Attempting final cleanup round for %d remaining objects", len(remainingObjects))
+		for _, obj := range remainingObjects {
+			// Try multiple deletion strategies
+			strategies := []minio.RemoveObjectOptions{
+				{VersionID: obj.VersionID}, // With version ID
+				{},                         // Without version ID
+				{ForceDelete: true},        // Force delete if supported
+			}
+
+			deleted := false
+			for j, strategy := range strategies {
+				err := client.RemoveObject(ctx, bucketName, obj.Key, strategy)
+				if err == nil {
+					cblog.Infof("Final cleanup succeeded for %s using strategy %d", obj.Key, j+1)
+					deleted = true
+					break
+				} else {
+					cblog.Debugf("Strategy %d failed for %s: %v", j+1, obj.Key, err)
+				}
+			}
+
+			if !deleted {
+				cblog.Errorf("All strategies failed for %s", obj.Key)
+			}
+		}
+	}
+
+	// Final verification
+	finalCheck := []minio.ObjectInfo{}
+	for obj := range client.ListObjects(ctx, bucketName, opts) {
+		if obj.Err != nil {
+			continue
+		}
+		finalCheck = append(finalCheck, obj)
+	}
+
+	if len(finalCheck) > 0 {
+		cblog.Errorf("Bucket still not empty after all cleanup attempts: %d objects remain", len(finalCheck))
+		return false, fmt.Errorf("failed to completely empty bucket: %d objects remain", len(finalCheck))
+	}
+
+	cblog.Infof("Successfully force-emptied bucket %s (bucket preserved)", bucketName)
+	return true, nil
+}
+
+// ForceEmptyAndDeleteBucket completely empties a bucket and deletes it
+func ForceEmptyAndDeleteBucket(connectionName, bucketName string) (bool, error) {
+	cblog.Info("call ForceEmptyAndDeleteBucket()")
+	cblog.Infof("Parameters - Connection: %s, Bucket: %s", connectionName, bucketName)
+
+	// First, empty the bucket
+	success, err := ForceEmptyBucket(connectionName, bucketName)
+	if err != nil {
+		cblog.Errorf("Failed to empty bucket %s: %v", bucketName, err)
+		return false, err
+	}
+
+	if !success {
+		cblog.Errorf("Failed to empty bucket %s", bucketName)
+		return false, fmt.Errorf("failed to empty bucket")
+	}
+
+	cblog.Infof("Bucket %s emptied successfully, now deleting bucket", bucketName)
+
+	// Now delete the empty bucket
+	success, err = DeleteS3Bucket(connectionName, bucketName)
+	if err != nil {
+		cblog.Errorf("Failed to delete empty bucket %s: %v", bucketName, err)
+		return false, fmt.Errorf("bucket emptied but deletion failed: %v", err)
+	}
+
+	cblog.Infof("Successfully force-emptied and deleted bucket %s", bucketName)
 	return true, nil
 }
