@@ -178,3 +178,8 @@ func (cloudConn *NcpVpcCloudConnection) Close() error {
 func (cloudConn *NcpVpcCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
 	return nil, fmt.Errorf("NCP VPC Cloud Driver: not implemented")
 }
+
+func (cloudConn *NcpVpcCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called CreateFileSystemHandler()!")
+	return nil, fmt.Errorf("NCP VPC Cloud Driver: CreateFileSystemHandler is not implemented")
+}

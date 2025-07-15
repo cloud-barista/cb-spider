@@ -357,7 +357,7 @@ func (nvch *NcpVpcClusterHandler) addSubnetAndWait(vpcNo, subnetName, subnetRang
 			cblogger.Errorf("failed to wait until Nodegroup Active : %v", err)
 			return err
 		}
-		cblogger.Debug("=========WaitUntilNodegroupActive() 종료")
+			   cblogger.Debug("=========WaitUntilNodegroupActive() ended")
 		return nil
 	}
 
@@ -381,44 +381,44 @@ func (nvch *NcpVpcClusterHandler) addSubnetAndWait(vpcNo, subnetName, subnetRang
 func (nvch *NcpVpcClusterHandler) ListCluster() ([]*irs.ClusterInfo, error) {
 	return nil, nil
 	/*
-	   	if ClusterHandler == nil {
-	   		cblogger.Error("ClusterHandlerIs nil")
-	   		return nil, errors.New("ClusterHandler is nil")
+		if ClusterHandler == nil {
+			cblogger.Error("ClusterHandlerIs nil")
+			return nil, errors.New("ClusterHandler is nil")
 
 	   }
 
 	   cblogger.Debug(ClusterHandler)
 
-	   	if nvch.Client == nil {
-	   		cblogger.Error(" nvch.Client Is nil")
-	   		return nil, errors.New("ClusterHandler is nil")
-	   	}
+		if nvch.Client == nil {
+			cblogger.Error(" nvch.Client Is nil")
+			return nil, errors.New("ClusterHandler is nil")
+		}
 
 	   input := &vnks.ListClustersInput{}
 	   // logger for HisCall
 	   callogger := call.GetLogger("HISCALL")
 
-	   	callLogInfo := call.CLOUDLOGSCHEMA{
-	   		CloudOS:      call.AWS,
-	   		RegionZone:   nvch.Region.Zone,
-	   		ResourceType: call.CLUSTER,
-	   		ResourceName: "List()",
-	   		CloudOSAPI:   "ListClusters()",
-	   		ElapsedTime:  "",
-	   		ErrorMSG:     "",
-	   	}
+		callLogInfo := call.CLOUDLOGSCHEMA{
+			CloudOS:      call.AWS,
+			RegionZone:   nvch.Region.Zone,
+			ResourceType: call.CLUSTER,
+			ResourceName: "List()",
+			CloudOSAPI:   "ListClusters()",
+			ElapsedTime:  "",
+			ErrorMSG:     "",
+		}
 
 	   callLogStart := call.Start()
 
 	   result, err := nvch.ClusterClient.ListClusters(input)
 	   callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
-	   	if err != nil {
-	   		callLogInfo.ErrorMSG = err.Error()
-	   		callogger.Info(call.String(callLogInfo))
-	   		cblogger.Error(err.Error())
-	   		return nil, err
-	   	}
+		if err != nil {
+			callLogInfo.ErrorMSG = err.Error()
+			callogger.Info(call.String(callLogInfo))
+			cblogger.Error(err.Error())
+			return nil, err
+		}
 
 	   callogger.Info(call.String(callLogInfo))
 
@@ -427,12 +427,12 @@ func (nvch *NcpVpcClusterHandler) ListCluster() ([]*irs.ClusterInfo, error) {
 	   clusterList := []*irs.ClusterInfo{}
 	   for _, clusterName := range result.Clusters {
 
-	   	clusterInfo, err := nvch.GetCluster(irs.IID{SystemId: *clusterName})
-	   	if err != nil {
-	   		cblogger.Error(err)
-	   		continue //	에러가 나면 일단 skip시킴.
-	   	}
-	   	clusterList = append(clusterList, &clusterInfo)
+		clusterInfo, err := nvch.GetCluster(irs.IID{SystemId: *clusterName})
+		if err != nil {
+			cblogger.Error(err)
+			continue //	에러가 나면 일단 skip시킴.
+		}
+		clusterList = append(clusterList, &clusterInfo)
 
 	   }
 	   return clusterList, nil
@@ -604,13 +604,13 @@ func getKubeConfig(clusterDesc *vnks.DescribeClusterOutput) string {
 	kubeconfigContent := fmt.Sprintf(`apiVersion: v1
 clusters:
 - cluster:
-    server: %s
-    certificate-authority-data: %s
+	server: %s
+	certificate-authority-data: %s
   name: kubernetes
 contexts:
 - context:
-    cluster: kubernetes
-    user: aws
+	cluster: kubernetes
+	user: aws
   name: aws
 current-context: aws
 kind: Config
@@ -618,14 +618,14 @@ preferences: {}
 users:
 - name: aws
   user:
-    exec:
-      apiVersion: client.authentication.k8s.io/v1beta1
-      command: aws
-      args:
-        - "eks"
-        - "get-token"
-        - "--cluster-name"
-        - "%s"
+	exec:
+	  apiVersion: client.authentication.k8s.io/v1beta1
+	  command: aws
+	  args:
+		- "eks"
+		- "get-token"
+		- "--cluster-name"
+		- "%s"
 `, *cluster.Endpoint, *cluster.CertificateAuthority.Data, *cluster.Name)
 
 	return kubeconfigContent
@@ -1155,7 +1155,7 @@ func (nvch *NcpVpcClusterHandler) convertNodeGroup(nodeGroupOutput *vnks.Describ
 		//arn:partition:service:region:account-id:resource-type:resource-id
 
 		PrintToJson(nodeGroupInfo)
-		//return irs.NodeGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "추출 오류", nil)
+//return irs.NodeGroupInfo{}, awserr.New(CUSTOM_ERR_CODE_BAD_REQUEST, "Extraction error", nil)
 		return nodeGroupInfo, nil
 }
 */
