@@ -21,7 +21,9 @@ import (
 	ires "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
 	ncloud "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
+	vas "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vautoscaling"
 	vlb "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vloadbalancer"
+	vnks "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vnks"
 	vpc "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vpc"
 	vserver "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
 
@@ -60,7 +62,7 @@ func (NcpVpcDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.DiskHandler = true
 	drvCapabilityInfo.MyImageHandler = true
 	drvCapabilityInfo.NLBHandler = true
-	drvCapabilityInfo.ClusterHandler = false
+	drvCapabilityInfo.ClusterHandler = true
 
 	drvCapabilityInfo.TagHandler = false
 	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{}
@@ -77,10 +79,6 @@ func getVmClient(connectionInfo idrv.ConnectionInfo) (*vserver.APIClient, error)
 		AccessKey: connectionInfo.CredentialInfo.ClientId,
 		SecretKey: connectionInfo.CredentialInfo.ClientSecret,
 	}
-
-	// NOTE for just test
-	// cblogger.Info(apiKeys.AccessKey)
-	// cblogger.Info(apiKeys.SecretKey)
 
 	// Create NCPVPC service client
 	client := vserver.NewAPIClient(vserver.NewConfiguration(&apiKeys))
@@ -112,6 +110,30 @@ func getVlbClient(connectionInfo idrv.ConnectionInfo) (*vlb.APIClient, error) {
 	return client, nil
 }
 
+func getVnksClient(connectionInfo idrv.ConnectionInfo) (*vnks.APIClient, error) {
+	apiKeys := ncloud.APIKey{
+		AccessKey: connectionInfo.CredentialInfo.ClientId,
+		SecretKey: connectionInfo.CredentialInfo.ClientSecret,
+	}
+
+	// Create NCP VNKS service client
+	client := vnks.NewAPIClient(vnks.NewConfiguration(connectionInfo.RegionInfo.Region, &apiKeys))
+
+	return client, nil
+}
+
+func getVasClient(connectionInfo idrv.ConnectionInfo) (*vas.APIClient, error) {
+	apiKeys := ncloud.APIKey{
+		AccessKey: connectionInfo.CredentialInfo.ClientId,
+		SecretKey: connectionInfo.CredentialInfo.ClientSecret,
+	}
+
+	// Create NCP VPC Load Balancer service client
+	client := vas.NewAPIClient(vas.NewConfiguration(&apiKeys))
+
+	return client, nil
+}
+
 func (driver *NcpVpcDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	// 1. get info of credential and region for Test A Cloud from connectionInfo.
 	// 2. create a client object(or service  object) of Test A Cloud with credential info.
@@ -133,12 +155,24 @@ func (driver *NcpVpcDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (ic
 		return nil, err
 	}
 
+	vnksClient, err := getVnksClient(connectionInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	vasClient, err := getVasClient(connectionInfo)
+	if err != nil {
+		return nil, err
+	}
+
 	iConn := ncpvpccon.NcpVpcCloudConnection{
 		CredentialInfo: connectionInfo.CredentialInfo,
 		RegionInfo:     connectionInfo.RegionInfo,
 		VmClient:       vmClient,
 		VpcClient:      vpcClient,
 		VlbClient:      vlbClient,
+		VnksClient:     vnksClient,
+		VasClient:      vasClient,
 	}
 
 	return &iConn, nil
