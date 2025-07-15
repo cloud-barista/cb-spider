@@ -133,7 +133,7 @@ func GetKeyValueList(i map[string]interface{}) []irs.KeyValue {
 	return keyValueList
 }
 
-// Cloud Object를 CB-KeyValue 형식으로 변환이 필요할 경우 이용
+// Use when Cloud Object needs to be converted to CB-KeyValue format
 func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 	//cblogger.Debug(v)
 	var keyValueList []irs.KeyValue
@@ -163,7 +163,7 @@ func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 		//value := fmt.Sprint(v)
 		value, errString := ConvertToString(v)
 		if errString != nil {
-			//cblogger.Debugf("Key[%s]의 값은 변환 불가 - [%s]", k, errString) //요구에 의해서 Error에서 Warn으로 낮춤
+			//cblogger.Debugf("Key[%s] value cannot be converted - [%s]", k, errString) //Changed from Error to Warn as requested
 			continue
 		}
 		keyValueList = append(keyValueList, irs.KeyValue{k, value})
@@ -183,7 +183,7 @@ func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 	return keyValueList, nil
 }
 
-// CB-KeyValue 등을 위해 String 타입으로 변환
+// Convert to String type for CB-KeyValue etc.
 func ConvertToString(value interface{}) (string, error) {
 	if value == nil {
 		if KEY_VALUE_CONVERT_DEBUG_INFO {
@@ -215,7 +215,7 @@ func ConvertToString(value interface{}) (string, error) {
 	return result, nil
 }
 
-// KeyPair 해시 생성 함수
+// KeyPair hash generation function
 func CreateHashString(credentialInfo idrv.CredentialInfo) (string, error) {
 	keyString := credentialInfo.ClientId + credentialInfo.ClientSecret + credentialInfo.TenantId + credentialInfo.SubscriptionId
 	hasher := md5.New()
@@ -226,7 +226,7 @@ func CreateHashString(credentialInfo idrv.CredentialInfo) (string, error) {
 	return fmt.Sprintf("%x", hasher.Sum(nil)), nil
 }
 
-// Public KeyPair 정보 가져오기
+// Get Public KeyPair information
 func GetPublicKey(credentialInfo idrv.CredentialInfo, keyPairName string) (string, error) {
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
 	hashString, err := CreateHashString(credentialInfo)
@@ -258,7 +258,7 @@ func hasInstanceGroup(client *compute.Service, credential idrv.CredentialInfo, r
 	return instanceGroupGet != nil, nil
 }
 
-// InstanceGroup의 인스턴스 목록 return
+// Return list of instances in InstanceGroup
 func GetInstancesOfInstanceGroup(client *compute.Service, credential idrv.CredentialInfo, region idrv.RegionInfo, instanceGroup string) ([]string, error) {
 	projectID := credential.ProjectID
 	zone := region.Zone
@@ -285,7 +285,7 @@ func GetInstancesOfInstanceGroup(client *compute.Service, credential idrv.Creden
 	return instanceList, nil
 }
 
-// Instance 정보조회
+// Get Instance information
 func GetInstance(client *compute.Service, credential idrv.CredentialInfo, region idrv.RegionInfo, instance string) (*compute.Instance, error) {
 	projectID := credential.ProjectID
 	zone := region.Zone
@@ -298,10 +298,10 @@ func GetInstance(client *compute.Service, credential idrv.CredentialInfo, region
 	return instanceInfo, nil
 }
 
-// Operation 이 완료 될 때까지 기다림.
+// Wait until Operation is complete.
 func WaitUntilComplete(client *compute.Service, project string, region string, resourceId string, isGlobalAction bool) error {
 	before_time := time.Now()
-	max_time := 300 //최대 300초간 체크
+	max_time := 300 //Check for maximum 300 seconds
 
 	var opSatus *compute.Operation
 	var err error
@@ -340,7 +340,7 @@ func WaitUntilComplete(client *compute.Service, project string, region string, r
 
 func WaitOperationComplete(client *compute.Service, project string, region string, zone string, resourceId string, operationType int) error {
 	before_time := time.Now()
-	max_time := 300 //최대 300초간 체크
+	max_time := 300 //Check for maximum 300 seconds
 
 	var opSatus *compute.Operation
 	var err error
@@ -380,13 +380,13 @@ func WaitOperationComplete(client *compute.Service, project string, region strin
 	return nil
 }
 
-// Get 공통으로 사용
+// Common Get function
 func GetDiskInfo(client *compute.Service, credential idrv.CredentialInfo, region idrv.RegionInfo, diskName string) (*compute.Disk, error) {
 	projectID := credential.ProjectID
 	zone := region.Zone
 	targetZone := region.TargetZone
 
-	// 대상 zone이 다른경우 targetZone을 사용
+	// Use targetZone if the target zone is different
 	if targetZone != "" {
 		zone = targetZone
 	}
@@ -414,7 +414,7 @@ func GetMachineImageInfo(client *compute.Service, projectId string, imageName st
 	return imageResp, nil
 }
 
-// IID 에서 systemID로 image 조회.  : systemID가 URL로 되어있어 필요한 값들을 추출하여 사용. projectId, imageName
+// Get image from IID systemID: systemID is in URL format, extract required values. projectId, imageName
 func GetPublicImageInfo(client *compute.Service, imageIID irs.IID) (*compute.Image, error) {
 	projectId := ""
 	imageName := ""
@@ -443,7 +443,7 @@ func GetPublicImageInfo(client *compute.Service, imageIID irs.IID) (*compute.Ima
 
 }
 
-// IID 에서 systemID로 image 조회.
+// Get image from IID systemID.
 func FindImageByID(client *compute.Service, imageIID irs.IID) (*compute.Image, error) {
 	reqImageName := imageIID.SystemId
 
@@ -451,9 +451,9 @@ func FindImageByID(client *compute.Service, imageIID irs.IID) (*compute.Image, e
 	arrImageProjectList := []string{
 		//"ubuntu-os-cloud",
 
-		"gce-uefi-images", // 보안 VM을 지원하는 이미지
+		"gce-uefi-images", // Images that support secure VMs
 
-		//보안 VM을 지원하지 않는 이미지들
+		//Images that do not support secure VMs
 		"centos-cloud",
 		"cos-cloud",
 		"coreos-cloud",
@@ -503,10 +503,10 @@ func FindImageByID(client *compute.Service, imageIID irs.IID) (*compute.Image, e
 
 }
 
-// container 의 operation
+// container operation
 func WaitContainerOperationComplete(client *container.Service, project string, region string, zone string, resourceId string, operationType int) error {
 	before_time := time.Now()
-	max_time := 300 //최대 300초간 체크
+	max_time := 300 //Check for maximum 300 seconds
 
 	var opSatus *container.Operation
 	var err error
@@ -544,7 +544,7 @@ func WaitContainerOperationComplete(client *container.Service, project string, r
 	return nil
 }
 
-// 30초동안 Fail 이 떨어지지 않으면 성공
+// Success if Fail does not occur for 30 seconds
 func WaitContainerOperationFail(client *container.Service, project string, region string, zone string, resourceId string, operationType int) error {
 	before_time := time.Now()
 	max_time := 30
@@ -589,7 +589,7 @@ func WaitContainerOperationFail(client *container.Service, project string, regio
 	return nil
 }
 
-// 20분
+// 20 minutes
 func WaitContainerOperationDone(client *container.Service, project string, region string, zone string, resourceId string, operationType int, maxTime int) error {
 	before_time := time.Now()
 
@@ -630,7 +630,7 @@ func WaitContainerOperationDone(client *container.Service, project string, regio
 	return nil
 }
 
-// 리전 목록 조회
+// Get region list
 func ListRegion(client *compute.Service, projectId string) (*compute.RegionList, error) {
 
 	if projectId == "" {
@@ -660,8 +660,8 @@ func ListRegion(client *compute.Service, projectId string) (*compute.RegionList,
 	return resp, nil
 }
 
-// region 조회
-// GCP에서 region은 regionName과 regionUri로 구분 됨. regionName으로 찾는 function임.
+// Get region
+// In GCP, regions are distinguished by regionName and regionUri. This function finds by regionName.
 func GetRegion(client *compute.Service, projectId string, regionName string) (*compute.Region, error) {
 
 	if projectId == "" {
@@ -696,14 +696,14 @@ func GetRegion(client *compute.Service, projectId string, regionName string) (*c
 
 }
 
-// region에 해당하는 zone 목록 조회
-// filter조건으로 사용하는 region조건은 regionUrl로 넘겨야 함.
-// filter조건 자체가 string이며 regionUrl에 특수문자가 있고 따옴표로 감싸야만 결과가 정상적으로 나옴
-// region="xxx/xxx/xxx" 형태로 보내야하며
-// ` ` 로 감싸야 함.
+// Get zone list for the region
+// The region condition used as filter condition must be passed as regionUrl.
+// The filter condition itself is a string and regionUrl has special characters, so it must be wrapped in quotes for normal results
+// Must be sent in the form region="xxx/xxx/xxx"
+// Must be wrapped in ` `.
 // filter := "region=https://www.googleapis.com/compute/v1/projects/xxx/regions/us-east1" -> error return.
-// filter := `region="https://www.googleapis.com/compute/v1/projects/xxx/regions/us-east1"` -> 조회결과 옴
-// filter := `region="us-east1"`// -> 조회결과 없음
+// filter := `region="https://www.googleapis.com/compute/v1/projects/xxx/regions/us-east1"` -> query results come
+// filter := `region="us-east1"`// -> no query results
 func GetZoneListByRegion(client *compute.Service, projectId string, regionUrl string) (*compute.ZoneList, error) {
 
 	if projectId == "" {
@@ -727,7 +727,7 @@ func GetZoneListByRegion(client *compute.Service, projectId string, regionUrl st
 
 func GetZonesByRegion(client *compute.Service, projectId string, region string) (*compute.ZoneList, error) {
 
-	// region에 대한 selflink를 만들어서 GetZoneListByRegion 호출
+	// Create selflink for region and call GetZoneListByRegion
 	if projectId == "" {
 		return nil, errors.New("Project information not found")
 	}
@@ -745,8 +745,8 @@ func GetZonesByRegion(client *compute.Service, projectId string, region string) 
 	return resp, nil
 }
 
-// Available or Unavailable 로 return
-// Status of the zone, either UP or DOWN. (지원하지 않는 경우 NotSupported)
+// Return Available or Unavailable
+// Status of the zone, either UP or DOWN. (NotSupported if not supported)
 func GetZoneStatus(status string) irs.ZoneStatus {
 	if status == "UP" {
 		return irs.ZoneAvailable
@@ -825,7 +825,7 @@ func ListFilestoreInstancesByRegionAndZones(filestoreClient *filestore.CloudFile
 	cblogger.Debug("regionInstances", regionInstances)
 	instances = append(instances, regionInstances...)
 
-	// 해당 connection에 대한 region
+	// region for the corresponding connection
 	zonesByRegion, err := GetZonesByRegion(computeClient, credential.ProjectID, region.Region)
 	if err != nil {
 		cblogger.Error("error while listing zones by region")
@@ -871,7 +871,7 @@ func ListFilestoreInstances(filestoreClient *filestore.CloudFilestoreManagerClie
 	return instances, nil
 }
 
-// GetFilestoreInstance gets a specific filestore instance by name : parent 구조로 된 이름이어야 함.
+// GetFilestoreInstance gets a specific filestore instance by name : must be a parent-structured name.
 func GetFilestoreInstance(filestoreClient *filestore.CloudFilestoreManagerClient, ctx context.Context, name string) (*filestorepb.Instance, error) {
 	cblogger.Debug("GetFilestoreInstance name: ", name)
 	req := &filestorepb.GetInstanceRequest{
@@ -927,7 +927,7 @@ func DeleteFilestoreInstance(filestoreClient *filestore.CloudFilestoreManagerCli
 }
 
 // FormatParentPath formats the parent path for filestore API calls
-// filestore에서 parent는 zone임. In Filestore, locations map to Google Cloud zones, for example us-west1-b.
+// In filestore, parent is zone. In Filestore, locations map to Google Cloud zones, for example us-west1-b.
 func FormatParentPath(projectID, zone string) string {
 	return fmt.Sprintf("projects/%s/locations/%s", projectID, zone)
 }
@@ -936,7 +936,7 @@ func FormatFilestoreInstanceName(projectID, zone, instanceName string) string {
 	return fmt.Sprintf("projects/%s/locations/%s/instances/%s", projectID, zone, instanceName)
 }
 
-// "projects/%s/locations/%s/instances/%s" 이 형태에서 마지막 부분을 추출
+// Extract the last part from the format "projects/%s/locations/%s/instances/%s"
 func ExtractFilestoreName(instanceName string) string {
 	parentName := strings.Split(instanceName, "/")
 	return parentName[len(parentName)-1]
@@ -950,7 +950,7 @@ func ExtractFilestoreName(instanceName string) string {
 // 	matches := parentFormat.FindStringSubmatch(fsInstanceName)
 
 // 	if len(matches) != 3 {
-// 		cblogger.Error("유효하지 않은 인스턴스 이름 형식: %s", fsInstanceName)
+// 		cblogger.Error("invalid instance name format: %s", fsInstanceName)
 // 		return nil
 // 	}
 
@@ -1089,7 +1089,7 @@ func ExtractFilestoreName(instanceName string) string {
 // 	matches := parentFormat.FindStringSubmatch(fsInstanceName)
 
 // 	if len(matches) != 3 {
-// 		cblogger.Error("유효하지 않은 인스턴스 이름 형식: %s", fsInstanceName)
+// 		cblogger.Error("invalid instance name format: %s", fsInstanceName)
 // 		return nil
 // 	}
 
@@ -1111,7 +1111,7 @@ func ExtractFilestoreName(instanceName string) string {
 // 	cblogger.Debug("fsNetwork: ", fsNetwork)
 // 	cblogger.Debug("fsEtag: ", fsEtag)
 
-// 	// Tier는 hdd/ssd/ .
+// 	// Tier is hdd/ssd/ .
 // 	// Instance_TIER_UNSPECIFIED Instance_Tier = 0
 // 	// // STANDARD tier. BASIC_HDD is the preferred term for this tier.
 // 	// Instance_STANDARD Instance_Tier = 1
@@ -1252,7 +1252,7 @@ func GetVpcInfo(client *compute.Service, credential idrv.CredentialInfo, region 
 		IPv4_CIDR:      "GCP VPC does not support IPv4_CIDR",
 		SubnetInfoList: subnetInfoList,
 	}
-	// 2025-03-13 StructToKeyValueList 사용으로 변경
+	// 2025-03-13 Changed to use StructToKeyValueList
 	vpcInfo.KeyValueList = irs.StructToKeyValueList(infoVPC)
 
 	return vpcInfo, nil
@@ -1280,19 +1280,19 @@ func extractFileSystemInfo(
 	vpcInfoMap := make(map[string]irs.VPCInfo)
 	for _, instance := range fileStoreInstances {
 
-		// fileStore 정보 설정
+		// Set fileStore information
 		fsInstanceName := instance.Name
 		parentFormat := regexp.MustCompile(`^projects/[^/]+/locations/([^/]+)/instances/([^/]+)$`)
 		matches := parentFormat.FindStringSubmatch(fsInstanceName)
 
 		if len(matches) != 3 {
 			cblogger.Error("invalid instance name format: %s", fsInstanceName)
-			//return nil, errors.New("유효하지 않은 인스턴스 이름 형식: " + fsInstanceName)
+			//return nil, errors.New("invalid instance name format: " + fsInstanceName)
 			continue
 		}
 
 		location := matches[1]
-		fsName := matches[2] // fileStoreName := ExtractFilestoreName(instance.Name) 이것도 가능한데 위치정보랑 추출한 것을 그대로 사용
+		fsName := matches[2] // fileStoreName := ExtractFilestoreName(instance.Name) is also possible, but using location info and extracted value as is
 
 		fsType := irs.FileSystemType("")
 		if instance.Tier == filestorepb.Instance_ZONAL {
@@ -1342,7 +1342,7 @@ func extractFileSystemInfo(
 		fsRegion := ""
 		fsZone := ""
 
-		switch instance.Tier { // Tier에 따라서 location이 region인지 zone인지 구별 가능
+		switch instance.Tier { // Can distinguish whether location is region or zone based on Tier
 		case filestorepb.Instance_ZONAL:
 			fsType = irs.ZoneType
 			fsRegion = location[:len(location)-2]
@@ -1356,8 +1356,8 @@ func extractFileSystemInfo(
 		cblogger.Debug("fsRegion: ", fsRegion)
 		cblogger.Debug("fsZone: ", fsZone)
 
-		// vpc 조회
-		vpcSystemId := fsVPCNetworkName // 현재버전에서 1개의 vpc만 지원 됨. subnet은 지정 불가
+		// Get vpc
+		vpcSystemId := fsVPCNetworkName // Current version supports only 1 vpc. subnet cannot be specified
 		if _, ok := vpcInfoMap[vpcSystemId]; !ok {
 			vpcIID := irs.IID{SystemId: vpcSystemId}
 			vpcInfo, errVnet := GetVpcInfo(computeClient, credential, region, vpcIID)
@@ -1421,9 +1421,9 @@ func extractFileSystemInfo(
 
 		//subnetList
 		mountTarget := irs.MountTargetInfo{
-			// subnet은 매핑불가. vpc의 subnet과 다름. SecurityGroup도 지정 불가
+			// subnet cannot be mapped. Different from vpc's subnet. SecurityGroup also cannot be specified
 			//SecurityGroups:      ,
-			Endpoint:            endpoint, // instance 접속 ip
+			Endpoint:            endpoint, // instance connection ip
 			MountCommandExample: "sudo mount -o hard,intr,rw,vers=" + fsNfsVersion + ",tcp " + endpoint + " /mnt/" + fsName,
 			KeyValueList:        mountTargetKeyList,
 		}
@@ -1436,7 +1436,7 @@ func extractFileSystemInfo(
 
 		// fileShares
 		if len(instance.FileShares) > 0 {
-			// mount 정보 설정 : 모니터링 api 에서 가져오기
+			// Set mount information: get from monitoring api
 		}
 
 		fsInfo := irs.FileSystemInfo{}
