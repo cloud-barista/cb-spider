@@ -31,20 +31,16 @@ func init() {
 
 // OpenStackCloudConnection modified by powerkim, 2019.07.29
 type OpenStackCloudConnection struct {
-	CredentialInfo idrv.CredentialInfo
-	Region         idrv.RegionInfo
-	ComputeClient  *gophercloud.ServiceClient
-	ImageClient    *gophercloud.ServiceClient
-	NetworkClient  *gophercloud.ServiceClient
-	Volume2Client  *gophercloud.ServiceClient
-	Volume3Client  *gophercloud.ServiceClient
-	NLBClient      *gophercloud.ServiceClient
-	IdentityClient *gophercloud.ServiceClient
-}
-
-// CreateFileSystemHandler implements connect.CloudConnection.
-func (cloudConn *OpenStackCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
-	panic("unimplemented")
+	CredentialInfo         idrv.CredentialInfo
+	Region                 idrv.RegionInfo
+	ComputeClient          *gophercloud.ServiceClient
+	ImageClient            *gophercloud.ServiceClient
+	NetworkClient          *gophercloud.ServiceClient
+	Volume2Client          *gophercloud.ServiceClient
+	Volume3Client          *gophercloud.ServiceClient
+	NLBClient              *gophercloud.ServiceClient
+	SharedFileSystemClient *gophercloud.ServiceClient
+	IdentityClient         *gophercloud.ServiceClient
 }
 
 func (cloudConn *OpenStackCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
@@ -193,4 +189,17 @@ func (cloudConn *OpenStackCloudConnection) CreateTagHandler() (irs.TagHandler, e
 		NLBClient:      cloudConn.NLBClient,
 	}
 	return &tagHandler, nil
+}
+
+func (cloudConn *OpenStackCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
+	cblogger.Info("OpenStack Driver: called CreateFileSystemHandler()!")
+
+	fileSystemHandler := osrs.OpenstackFileSystemHandler{
+		Region:                 cloudConn.Region,
+		CredentialInfo:         cloudConn.CredentialInfo,
+		SharedFileSystemClient: cloudConn.SharedFileSystemClient,
+		NetworkClient:          cloudConn.NetworkClient,
+		ComputeClient:          cloudConn.ComputeClient,
+	}
+	return &fileSystemHandler, nil
 }
