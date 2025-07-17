@@ -13,6 +13,7 @@ package connect
 import (
 	"context"
 
+	filestore "cloud.google.com/go/filestore/apiv1"
 	cblog "github.com/cloud-barista/cb-log"
 	gcprs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp/resources"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -53,11 +54,14 @@ type GCPCloudConnection struct {
 	ContainerClient      *container.Service
 	BillingCatalogClient *cloudbilling.APIService
 	CostEstimationClient *cbb.Service
+	FilestoreClient      *filestore.CloudFilestoreManagerClient
 }
 
 // CreateFileSystemHandler implements connect.CloudConnection.
 func (cloudConn *GCPCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
-	panic("unimplemented")
+	cblogger.Info("GCP Cloud Driver: called CreateFileSystemHandler()!")
+	fsHandler := gcprs.GCPFileSystemHandler{Region: cloudConn.Region, Ctx: cloudConn.Ctx, Client: cloudConn.VMClient, ContainerClient: cloudConn.ContainerClient, Credential: cloudConn.Credential, FilestoreClient: cloudConn.FilestoreClient}
+	return &fsHandler, nil
 }
 
 // func (cloudConn *GCPCloudConnection) CreateVNetworkHandler() (irs.VNetworkHandler, error) {

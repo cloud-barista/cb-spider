@@ -30,6 +30,7 @@ import (
 	o2 "golang.org/x/oauth2"
 	goo "golang.org/x/oauth2/google"
 
+	filestore "cloud.google.com/go/filestore/apiv1"
 	"google.golang.org/api/cloudbilling/v1"
 	cbb "google.golang.org/api/cloudbilling/v1beta"
 	compute "google.golang.org/api/compute/v1"
@@ -120,6 +121,14 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		return nil, err
 	}
 
+	_, filestoreClient, err := getFilestoreClient(connectionInfo.CredentialInfo)
+	cblog.Debug("################## getFilestoreClient ##################")
+	cblog.Debug("getFilestoreClient")
+	cblog.Debug("################## getFilestoreClient ##################")
+	if err != nil {
+		return nil, err
+	}
+
 	iConn := gcpcon.GCPCloudConnection{
 		Region:      connectionInfo.RegionInfo,
 		Credential:  connectionInfo.CredentialInfo,
@@ -137,6 +146,7 @@ func (driver *GCPDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		ContainerClient:      containerClient,
 		BillingCatalogClient: billingCatalogClient,
 		CostEstimationClient: costEstimationClient,
+		FilestoreClient:      filestoreClient,
 	}
 
 	//cblog.Info("################## resource ConnectionInfo ##################")
@@ -301,4 +311,40 @@ func getCostEstimationClient(credential idrv.CredentialInfo) (context.Context, *
 	}
 
 	return ctx, costEstimationClient, nil
+}
+
+func getFilestoreClient(credential idrv.CredentialInfo) (context.Context, *filestore.CloudFilestoreManagerClient, error) {
+
+	// GCP 는  ClientSecret에
+	gcpType := "service_account"
+	data := make(map[string]string)
+
+	data["type"] = gcpType
+	data["private_key"] = credential.PrivateKey
+	data["client_email"] = credential.ClientEmail
+
+	//cblog.Debug("################## data ##################")
+	//cblog.Debug("data to json : ", data)
+	//cblog.Debug("################## data ##################")
+
+	res, _ := json.Marshal(data)
+	authURL := "https://www.googleapis.com/auth/cloud-platform"
+
+	conf, err := goo.JWTConfigFromJSON(res, authURL)
+
+	if err != nil {
+
+		return nil, nil, err
+	}
+
+	ctx := context.Background()
+
+	filestoreClient, err := filestore.NewCloudFilestoreManagerClient(ctx, option.WithTokenSource(conf.TokenSource(ctx)))
+
+	if err != nil {
+		cblog.Error("filestore client create err ", err)
+		return nil, nil, err
+	}
+
+	return ctx, filestoreClient, nil
 }
