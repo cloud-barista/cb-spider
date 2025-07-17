@@ -362,8 +362,123 @@ func GetS3ObjectInfo(connectionName, bucketName, objectName string) (*minio.Obje
 	return &stat, nil
 }
 
+func GetS3ObjectInfoWithVersion(connectionName, bucketName, objectName, versionId string) (*minio.ObjectInfo, error) {
+	cblog.Info("call GetS3ObjectInfoWithVersion()")
+	cblog.Infof("Parameters - Connection: %s, Bucket: %s, Object: %s, Version: %s",
+		connectionName, bucketName, objectName, versionId)
+
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		cblog.Errorf("Failed to get bucket info: %v", err)
+		return nil, err
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		cblog.Errorf("Failed to get connection info: %v", err)
+		return nil, err
+	}
+
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		cblog.Errorf("Failed to create S3 client: %v", err)
+		return nil, err
+	}
+
+	ctx := context.Background()
+
+	// Special handling for null version ID
+	if versionId == "null" {
+		cblog.Infof("Handling null version ID")
+
+		// List all versions to find the null version
+		opts := minio.ListObjectsOptions{
+			Prefix:       objectName,
+			Recursive:    false,
+			WithVersions: true,
+		}
+
+		var nullVersionExists bool
+		var actualVersionId string
+
+		for obj := range client.ListObjects(ctx, bucketName, opts) {
+			if obj.Err != nil {
+				cblog.Errorf("Error listing objects: %v", obj.Err)
+				continue
+			}
+
+			// Look for the exact object with null version ID that has content
+			if obj.Key == objectName && !obj.IsDeleteMarker && obj.Size > 0 {
+				if obj.VersionID == "" || obj.VersionID == "null" {
+					nullVersionExists = true
+					actualVersionId = obj.VersionID
+					break
+				}
+			}
+		}
+
+		if !nullVersionExists {
+			cblog.Errorf("Could not find null version object with content")
+			return nil, fmt.Errorf("null version object not found or has no content")
+		}
+
+		// Use the actual version ID we found
+		statOpts := minio.StatObjectOptions{VersionID: actualVersionId}
+		stat, err := client.StatObject(ctx, bucketName, objectName, statOpts)
+		if err == nil {
+			cblog.Infof("Successfully got null version object info")
+			return &stat, nil
+		}
+		cblog.Errorf("Failed to get null version object info: %v", err)
+
+		// Try alternative methods if the direct approach fails
+		methods := []string{"", "null"}
+		for _, versionID := range methods {
+			if versionID != actualVersionId {
+				statOpts := minio.StatObjectOptions{VersionID: versionID}
+				stat, err := client.StatObject(ctx, bucketName, objectName, statOpts)
+				if err == nil {
+					cblog.Infof("Successfully got object info using alternative method")
+					return &stat, nil
+				}
+			}
+		}
+
+		// Try without version ID as last resort
+		statOpts2 := minio.StatObjectOptions{}
+		stat, err = client.StatObject(ctx, bucketName, objectName, statOpts2)
+		if err == nil {
+			cblog.Infof("Successfully got object info without version ID")
+			return &stat, nil
+		}
+
+		return nil, fmt.Errorf("all methods failed to get null version object info")
+	}
+
+	// Handle normal version IDs
+	opts := minio.StatObjectOptions{}
+	if versionId != "" && versionId != "undefined" {
+		opts.VersionID = versionId
+		cblog.Infof("Using version ID: %s", versionId)
+	} else {
+		cblog.Infof("No version ID specified, getting latest version")
+	}
+
+	stat, err := client.StatObject(ctx, bucketName, objectName, opts)
+	if err != nil {
+		cblog.Errorf("Failed to stat object: %v", err)
+		return nil, err
+	}
+
+	cblog.Infof("Successfully got object info for %s (version: %s)", objectName, versionId)
+	return &stat, nil
+}
+
 func DeleteS3Object(connectionName, bucketName, objectName string) (bool, error) {
 	cblog.Info("call DeleteS3Object()")
+	cblog.Infof("Parameters - Connection: %s, Bucket: %s, Object: %s", connectionName, bucketName, objectName)
+
 	var iidInfo S3BucketIIDInfo
 	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
 	if err != nil {
@@ -380,9 +495,229 @@ func DeleteS3Object(connectionName, bucketName, objectName string) (bool, error)
 	ctx := context.Background()
 	err = client.RemoveObject(ctx, bucketName, objectName, minio.RemoveObjectOptions{})
 	if err != nil {
+		cblog.Errorf("Failed to delete object: %v", err)
 		return false, err
 	}
+	cblog.Infof("Successfully deleted object - Bucket: %s, Object: %s", bucketName, objectName)
 	return true, nil
+}
+
+// DeleteS3ObjectDeleteMarker deletes a delete marker (null version ID case)
+func DeleteS3ObjectDeleteMarker(connectionName, bucketName, objectName string) (bool, error) {
+	cblog.Info("call DeleteS3ObjectDeleteMarker()")
+	cblog.Infof("Parameters - Connection: %s, Bucket: %s, Object: %s", connectionName, bucketName, objectName)
+
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		cblog.Errorf("Failed to get bucket info: %v", err)
+		return false, err
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		cblog.Errorf("Failed to get connection info: %v", err)
+		return false, err
+	}
+
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		cblog.Errorf("Failed to create S3 client: %v", err)
+		return false, err
+	}
+
+	ctx := context.Background()
+
+	// Declare variables that will be reused
+	var stillExists bool
+	var verifyErr error
+
+	// Method 1: Try to delete using empty version ID (for latest delete marker)
+	cblog.Infof("Attempting to delete DELETE MARKER using empty version ID")
+	err = client.RemoveObject(ctx, bucketName, objectName, minio.RemoveObjectOptions{
+		VersionID: "",
+	})
+
+	if err == nil {
+		cblog.Infof("RemoveObject call succeeded, verifying DELETE MARKER is actually deleted")
+
+		// Verify the delete marker is actually gone
+		stillExists, verifyErr := verifyDeleteMarkerRemoved(client, ctx, bucketName, objectName)
+		if verifyErr != nil {
+			cblog.Warnf("Failed to verify DELETE MARKER deletion: %v", verifyErr)
+		} else if stillExists {
+			cblog.Warnf("DELETE MARKER still exists after deletion attempt")
+		} else {
+			cblog.Infof("DELETE MARKER successfully removed and verified")
+			return true, nil
+		}
+	}
+
+	cblog.Warnf("Failed to delete with empty version ID: %v", err)
+
+	// Method 2: Try to find the actual delete marker and delete it
+	cblog.Infof("Attempting to find and delete DELETE MARKER by listing versions")
+
+	opts := minio.ListObjectsOptions{
+		Prefix:       objectName,
+		Recursive:    false,
+		WithVersions: true,
+	}
+
+	for obj := range client.ListObjects(ctx, bucketName, opts) {
+		if obj.Err != nil {
+			cblog.Errorf("Error listing objects: %v", obj.Err)
+			continue
+		}
+
+		// Look for the exact object that is a delete marker
+		if obj.Key == objectName && obj.IsDeleteMarker {
+			cblog.Infof("Found DELETE MARKER: Key=%s, VersionID=%s, IsLatest=%t",
+				obj.Key, obj.VersionID, obj.IsLatest)
+
+			// Try to delete using the actual version ID if available
+			if obj.VersionID != "" {
+				cblog.Infof("Attempting to delete DELETE MARKER using version ID: %s", obj.VersionID)
+				err = client.RemoveObject(ctx, bucketName, objectName, minio.RemoveObjectOptions{
+					VersionID: obj.VersionID,
+				})
+
+				if err == nil {
+					cblog.Infof("Successfully deleted DELETE MARKER using version ID: %s", obj.VersionID)
+
+					// Verify deletion
+					stillExists, verifyErr := verifyDeleteMarkerRemoved(client, ctx, bucketName, objectName)
+					if verifyErr != nil {
+						cblog.Warnf("Failed to verify DELETE MARKER deletion: %v", verifyErr)
+					} else if !stillExists {
+						return true, nil
+					}
+				}
+
+				cblog.Warnf("Failed to delete DELETE MARKER with version ID %s: %v", obj.VersionID, err)
+			}
+
+			// Try deleting without version ID for this specific delete marker
+			cblog.Infof("Attempting to delete DELETE MARKER without version ID")
+			err = client.RemoveObject(ctx, bucketName, objectName, minio.RemoveObjectOptions{})
+
+			if err == nil {
+				cblog.Infof("Successfully deleted DELETE MARKER without version ID")
+
+				// Verify deletion
+				stillExists, verifyErr = verifyDeleteMarkerRemoved(client, ctx, bucketName, objectName)
+				if verifyErr != nil {
+					cblog.Warnf("Failed to verify DELETE MARKER deletion: %v", verifyErr)
+				} else if !stillExists {
+					return true, nil
+				}
+			}
+
+			cblog.Warnf("Failed to delete DELETE MARKER without version ID: %v", err)
+
+			// Try using minio Core API for low-level access
+			cblog.Infof("Attempting to delete DELETE MARKER using Core API")
+			core := minio.Core{Client: client}
+			err = core.RemoveObject(ctx, bucketName, objectName, minio.RemoveObjectOptions{})
+
+			if err == nil {
+				cblog.Infof("Successfully deleted DELETE MARKER using Core API")
+
+				// Verify deletion
+				stillExists, verifyErr = verifyDeleteMarkerRemoved(client, ctx, bucketName, objectName)
+				if verifyErr != nil {
+					cblog.Warnf("Failed to verify DELETE MARKER deletion: %v", verifyErr)
+				} else if !stillExists {
+					return true, nil
+				}
+			}
+
+			cblog.Warnf("Failed to delete DELETE MARKER using Core API: %v", err)
+		}
+	}
+
+	// Method 3: Alternative approach - try to restore object by creating a new version
+	// This effectively removes the delete marker by making it non-latest
+	cblog.Infof("Attempting to remove DELETE MARKER by creating a minimal new version")
+
+	// Create a very small temporary object to overwrite the delete marker
+	tempContent := strings.NewReader("temp")
+	putInfo, err := client.PutObject(ctx, bucketName, objectName, tempContent, 4, minio.PutObjectOptions{
+		ContentType: "text/plain",
+	})
+
+	if err != nil {
+		cblog.Errorf("Failed to create temporary object to overwrite DELETE MARKER: %v", err)
+		return false, fmt.Errorf("all deletion methods failed for DELETE MARKER")
+	}
+
+	cblog.Infof("Created temporary object to overwrite DELETE MARKER, ETag: %s", putInfo.ETag)
+
+	// Now the delete marker should no longer be the latest version
+	// Verify this worked
+	stillExists, verifyErr = verifyDeleteMarkerRemoved(client, ctx, bucketName, objectName)
+	if verifyErr != nil {
+		cblog.Warnf("Failed to verify DELETE MARKER removal after creating new version: %v", verifyErr)
+	} else if !stillExists {
+		cblog.Infof("DELETE MARKER successfully removed by creating new version")
+
+		// Optionally, delete the temporary object we just created
+		cblog.Infof("Deleting temporary object created to remove DELETE MARKER")
+		err = client.RemoveObject(ctx, bucketName, objectName, minio.RemoveObjectOptions{})
+		if err != nil {
+			cblog.Warnf("Failed to delete temporary object: %v", err)
+			// This is not a critical error, just log it
+		}
+
+		return true, nil
+	}
+
+	cblog.Errorf("DELETE MARKER still exists even after creating new version")
+
+	// Clean up the temporary object since our approach didn't work
+	cblog.Infof("Cleaning up temporary object")
+	err = client.RemoveObject(ctx, bucketName, objectName, minio.RemoveObjectOptions{})
+	if err != nil {
+		cblog.Warnf("Failed to clean up temporary object: %v", err)
+	}
+
+	cblog.Infof("Successfully removed DELETE MARKER by creating and deleting new version")
+
+	// Final verification
+	stillExists, verifyErr = verifyDeleteMarkerRemoved(client, ctx, bucketName, objectName)
+	if verifyErr != nil {
+		cblog.Warnf("Failed to verify final DELETE MARKER deletion: %v", verifyErr)
+	} else if stillExists {
+		cblog.Errorf("DELETE MARKER still exists after all deletion attempts")
+		return false, fmt.Errorf("DELETE MARKER still exists after all deletion attempts")
+	}
+
+	return true, nil
+}
+
+// Helper function to verify if delete marker is actually removed
+func verifyDeleteMarkerRemoved(client *minio.Client, ctx context.Context, bucketName, objectName string) (bool, error) {
+	cblog.Infof("Verifying DELETE MARKER removal for %s", objectName)
+
+	opts := minio.ListObjectsOptions{
+		Prefix:       objectName,
+		Recursive:    false,
+		WithVersions: true,
+	}
+
+	for obj := range client.ListObjects(ctx, bucketName, opts) {
+		if obj.Err != nil {
+			return false, obj.Err
+		}
+
+		if obj.Key == objectName && obj.IsDeleteMarker {
+			cblog.Warnf("DELETE MARKER still exists: Key=%s, VersionID=%s", obj.Key, obj.VersionID)
+			return true, nil // Still exists
+		}
+	}
+
+	cblog.Infof("DELETE MARKER no longer exists for %s", objectName)
+	return false, nil // Successfully removed
 }
 
 func GetS3ObjectStream(connectionName, bucketName, objectName string) (io.ReadCloser, error) {
@@ -405,6 +740,127 @@ func GetS3ObjectStream(connectionName, bucketName, objectName string) (io.ReadCl
 	if err != nil {
 		return nil, err
 	}
+	return obj, nil
+}
+
+func GetS3ObjectStreamWithVersion(connectionName, bucketName, objectName, versionId string) (io.ReadCloser, error) {
+	cblog.Info("call GetS3ObjectStreamWithVersion()")
+	cblog.Infof("Parameters - Connection: %s, Bucket: %s, Object: %s, Version: %s",
+		connectionName, bucketName, objectName, versionId)
+
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		cblog.Errorf("Failed to get bucket info: %v", err)
+		return nil, err
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		cblog.Errorf("Failed to get connection info: %v", err)
+		return nil, err
+	}
+
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		cblog.Errorf("Failed to create S3 client: %v", err)
+		return nil, err
+	}
+
+	ctx := context.Background()
+
+	// Special handling for null version ID
+	if versionId == "null" {
+		cblog.Infof("Handling null version ID")
+
+		// List all versions to find the null version
+		opts := minio.ListObjectsOptions{
+			Prefix:       objectName,
+			Recursive:    false,
+			WithVersions: true,
+		}
+
+		var nullVersionExists bool
+		var actualVersionId string
+
+		for obj := range client.ListObjects(ctx, bucketName, opts) {
+			if obj.Err != nil {
+				cblog.Errorf("Error listing objects: %v", obj.Err)
+				continue
+			}
+
+			// Look for the exact object with null version ID that has content
+			if obj.Key == objectName && !obj.IsDeleteMarker && obj.Size > 0 {
+				if obj.VersionID == "" || obj.VersionID == "null" {
+					nullVersionExists = true
+					actualVersionId = obj.VersionID
+					cblog.Infof("Found null version object with size: %d", obj.Size)
+					break
+				}
+			}
+		}
+
+		if !nullVersionExists {
+			cblog.Errorf("Could not find null version object with content")
+			return nil, fmt.Errorf("null version object not found or has no content")
+		}
+
+		// Use the actual version ID we found
+		getOpts := minio.GetObjectOptions{VersionID: actualVersionId}
+		obj, err := client.GetObject(ctx, bucketName, objectName, getOpts)
+		if err == nil {
+			cblog.Infof("Successfully got null version object")
+			return obj, nil
+		}
+		cblog.Errorf("Failed to get null version object: %v", err)
+
+		// Try alternative methods if the direct approach fails
+		methods := []struct {
+			name      string
+			versionID string
+		}{
+			{"empty string", ""},
+			{"null string", "null"},
+		}
+
+		for _, method := range methods {
+			if method.versionID != actualVersionId {
+				getOpts := minio.GetObjectOptions{VersionID: method.versionID}
+				obj, err := client.GetObject(ctx, bucketName, objectName, getOpts)
+				if err == nil {
+					cblog.Infof("Successfully got object using alternative method")
+					return obj, nil
+				}
+			}
+		}
+
+		// Try without version ID as last resort
+		getOpts2 := minio.GetObjectOptions{}
+		obj, err = client.GetObject(ctx, bucketName, objectName, getOpts2)
+		if err == nil {
+			cblog.Infof("Successfully got object without version ID")
+			return obj, nil
+		}
+
+		return nil, fmt.Errorf("all methods failed to get null version object")
+	}
+
+	// Handle normal version IDs
+	opts := minio.GetObjectOptions{}
+	if versionId != "" && versionId != "undefined" {
+		opts.VersionID = versionId
+		cblog.Infof("Using version ID: %s", versionId)
+	} else {
+		cblog.Infof("No version ID specified, getting latest version")
+	}
+
+	obj, err := client.GetObject(ctx, bucketName, objectName, opts)
+	if err != nil {
+		cblog.Errorf("Failed to get object: %v", err)
+		return nil, err
+	}
+
+	cblog.Infof("Successfully got object stream for %s (version: %s)", objectName, versionId)
 	return obj, nil
 }
 
@@ -1053,11 +1509,58 @@ func DeleteS3ObjectVersion(connectionName, bucketName, objectName, versionID str
 
 	ctx := context.Background()
 
-	opts := minio.RemoveObjectOptions{
-		VersionID: versionID,
+	// Special handling for null version ID
+	if versionID == "null" {
+		cblog.Infof("Handling null version ID deletion")
+
+		// List all versions to find the actual null version
+		opts := minio.ListObjectsOptions{
+			Prefix:       objectName,
+			Recursive:    false,
+			WithVersions: true,
+		}
+
+		var actualVersionId string
+		var found bool
+
+		for obj := range client.ListObjects(ctx, bucketName, opts) {
+			if obj.Err != nil {
+				cblog.Errorf("Error listing objects: %v", obj.Err)
+				continue
+			}
+
+			if obj.Key == objectName && (obj.VersionID == "" || obj.VersionID == "null") {
+				actualVersionId = obj.VersionID
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			cblog.Errorf("Could not find null version object")
+			return false, fmt.Errorf("null version object not found")
+		}
+
+		// Use the actual version ID we found
+		removeOpts := minio.RemoveObjectOptions{VersionID: actualVersionId}
+		err = client.RemoveObject(ctx, bucketName, objectName, removeOpts)
+		if err != nil {
+			cblog.Errorf("Failed to delete null version object: %v", err)
+			return false, err
+		}
+
+		cblog.Infof("Successfully deleted null version object")
+		return true, nil
 	}
 
-	cblog.Infof("Deleting object version - Bucket: %s, Object: %s, Version: %s", bucketName, objectName, versionID)
+	// Handle normal version IDs
+	opts := minio.RemoveObjectOptions{}
+	if versionID != "" && versionID != "undefined" {
+		opts.VersionID = versionID
+		cblog.Infof("Using version ID for deletion: %s", versionID)
+	} else {
+		cblog.Infof("No version ID specified for deletion")
+	}
 
 	err = client.RemoveObject(ctx, bucketName, objectName, opts)
 	if err != nil {

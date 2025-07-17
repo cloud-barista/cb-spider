@@ -18,6 +18,7 @@ import (
 
 	cmrt "github.com/cloud-barista/cb-spider/api-runtime/common-runtime"
 	"github.com/labstack/echo/v4"
+	"github.com/minio/minio-go/v7"
 )
 
 // ---------- dummy struct for Swagger documentation ----------
@@ -621,58 +622,58 @@ func getBucketACL(c echo.Context) error {
 
 // putBucketACL sets the ACL of a bucket
 func putBucketACL(c echo.Context) error {
-    conn, _ := getConnectionName(c)
-    bucketName := c.Param("Name")
-    bucketName = strings.TrimSuffix(bucketName, "/")
+	conn, _ := getConnectionName(c)
+	bucketName := c.Param("Name")
+	bucketName = strings.TrimSuffix(bucketName, "/")
 
-    aclHeader := c.Request().Header.Get("x-amz-acl")
-    cblog.Infof("putBucketACL - Bucket: %s, x-amz-acl header: '%s'", bucketName, aclHeader)
-    
-    if aclHeader != "" {
-        _, err := cmrt.SetS3BucketACL(conn, bucketName, aclHeader)
-        if err != nil {
-            errorCode := "InternalError"
-            statusCode := http.StatusInternalServerError
-            if strings.Contains(err.Error(), "not found") {
-                errorCode = "NoSuchBucket"
-                statusCode = http.StatusNotFound
-            }
-            return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucketName)
-        }
-        addS3Headers(c)
-        return c.NoContent(http.StatusOK)
-    }
+	aclHeader := c.Request().Header.Get("x-amz-acl")
+	cblog.Infof("putBucketACL - Bucket: %s, x-amz-acl header: '%s'", bucketName, aclHeader)
 
-    if c.Request().ContentLength == 0 {
-        return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "ACL parameter or request body is required", "/"+bucketName)
-    }
+	if aclHeader != "" {
+		_, err := cmrt.SetS3BucketACL(conn, bucketName, aclHeader)
+		if err != nil {
+			errorCode := "InternalError"
+			statusCode := http.StatusInternalServerError
+			if strings.Contains(err.Error(), "not found") {
+				errorCode = "NoSuchBucket"
+				statusCode = http.StatusNotFound
+			}
+			return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucketName)
+		}
+		addS3Headers(c)
+		return c.NoContent(http.StatusOK)
+	}
 
-    var aclPolicy AccessControlPolicy
-    if err := xml.NewDecoder(c.Request().Body).Decode(&aclPolicy); err != nil {
-        return returnS3Error(c, http.StatusBadRequest, "MalformedXML", err.Error(), "/"+bucketName)
-    }
+	if c.Request().ContentLength == 0 {
+		return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "ACL parameter or request body is required", "/"+bucketName)
+	}
 
-    acl := "private"
-    for _, grant := range aclPolicy.AccessControlList.Grant {
-        if grant.Grantee.URI == "http://acs.amazonaws.com/groups/global/AllUsers" && grant.Permission == "READ" {
-            acl = "public-read"
-            break
-        }
-    }
+	var aclPolicy AccessControlPolicy
+	if err := xml.NewDecoder(c.Request().Body).Decode(&aclPolicy); err != nil {
+		return returnS3Error(c, http.StatusBadRequest, "MalformedXML", err.Error(), "/"+bucketName)
+	}
 
-    _, err := cmrt.SetS3BucketACL(conn, bucketName, acl)
-    if err != nil {
-        errorCode := "InternalError"
-        statusCode := http.StatusInternalServerError
-        if strings.Contains(err.Error(), "not found") {
-            errorCode = "NoSuchBucket"
-            statusCode = http.StatusNotFound
-        }
-        return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucketName)
-    }
+	acl := "private"
+	for _, grant := range aclPolicy.AccessControlList.Grant {
+		if grant.Grantee.URI == "http://acs.amazonaws.com/groups/global/AllUsers" && grant.Permission == "READ" {
+			acl = "public-read"
+			break
+		}
+	}
 
-    addS3Headers(c)
-    return c.NoContent(http.StatusOK)
+	_, err := cmrt.SetS3BucketACL(conn, bucketName, acl)
+	if err != nil {
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "not found") {
+			errorCode = "NoSuchBucket"
+			statusCode = http.StatusNotFound
+		}
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucketName)
+	}
+
+	addS3Headers(c)
+	return c.NoContent(http.StatusOK)
 }
 
 // getBucketPolicy returns the bucket policy
@@ -767,8 +768,6 @@ func listObjectVersions(c echo.Context) error {
 	bucketName = strings.TrimSuffix(bucketName, "/")
 
 	cblog.Infof("listObjectVersions called - Bucket: %s, Connection: %s", bucketName, conn)
-	cblog.Infof("Request URL: %s", c.Request().URL.String())
-	cblog.Infof("Query parameters: %v", c.QueryParams())
 
 	prefix := c.QueryParam("prefix")
 	if prefix == "" {
@@ -784,8 +783,6 @@ func listObjectVersions(c echo.Context) error {
 		statusCode := http.StatusNotFound
 		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucketName)
 	}
-
-	cblog.Infof("Bucket %s exists, listing object versions", bucketName)
 
 	result, err := cmrt.ListS3ObjectVersions(conn, bucketName, prefix)
 	if err != nil {
@@ -804,29 +801,23 @@ func listObjectVersions(c echo.Context) error {
 
 	cblog.Infof("Found %d object versions/delete markers in bucket %s", len(result), bucketName)
 
-	// Log details for debugging
-	var versionCount, deleteMarkerCount int
-	for i, obj := range result {
-		if i < 10 { // Log first 10 for debugging
-			cblog.Infof("Item %d: Key=%s, VersionID=%s, IsLatest=%t, IsDeleteMarker=%t, Size=%d",
-				i+1, obj.Key, obj.VersionID, obj.IsLatest, obj.IsDeleteMarker, obj.Size)
-		}
-		if obj.IsDeleteMarker {
-			deleteMarkerCount++
-		} else {
-			versionCount++
-		}
-	}
-	cblog.Infof("Summary: %d object versions, %d delete markers", versionCount, deleteMarkerCount)
-
 	var versions []ObjectVersion
 	var deleteMarkers []DeleteMarker
 
 	for _, obj := range result {
 		if obj.IsDeleteMarker {
+			cblog.Infof("Processing DELETE MARKER: Key=%s, VersionID=%s", obj.Key, obj.VersionID)
+
+			// For DELETE MARKER, if Version ID is empty, use "null" as per AWS standard
+			versionID := obj.VersionID
+			if versionID == "" {
+				versionID = "null"
+				cblog.Infof("DELETE MARKER has empty version ID, using 'null': %s", obj.Key)
+			}
+
 			deleteMarkers = append(deleteMarkers, DeleteMarker{
 				Key:          obj.Key,
-				VersionId:    obj.VersionID,
+				VersionId:    versionID,
 				IsLatest:     obj.IsLatest,
 				LastModified: obj.LastModified.UTC().Format(time.RFC3339),
 				Owner: &Owner{
@@ -861,8 +852,6 @@ func listObjectVersions(c echo.Context) error {
 		DeleteMarkers: deleteMarkers,
 	}
 
-	cblog.Infof("Preparing XML response with %d versions and %d delete markers", len(versions), len(deleteMarkers))
-
 	addS3Headers(c)
 	xmlData, err := xml.Marshal(resp)
 	if err != nil {
@@ -871,17 +860,6 @@ func listObjectVersions(c echo.Context) error {
 	}
 
 	fullXML := append([]byte(xml.Header), xmlData...)
-
-	// Log XML snippet for debugging
-	xmlStr := string(fullXML)
-	if len(xmlStr) > 1000 {
-		cblog.Debugf("XML response preview: %s...", xmlStr[:1000])
-	} else {
-		cblog.Debugf("XML response: %s", xmlStr)
-	}
-
-	cblog.Infof("Returning ListVersionsResult with %d total items", len(versions)+len(deleteMarkers))
-
 	return c.Blob(http.StatusOK, "application/xml", fullXML)
 }
 
@@ -1542,13 +1520,29 @@ func GetS3ObjectInfo(c echo.Context) error {
 	conn, _ := getConnectionName(c)
 	bucket := c.Param("BucketName")
 	obj := c.Param("ObjectKey+")
+	versionId := c.QueryParam("versionId")
 
-	o, err := cmrt.GetS3ObjectInfo(conn, bucket, obj)
+	cblog.Infof("GetS3ObjectInfo - Bucket: %s, Object: %s, VersionId: %s", bucket, obj, versionId)
+
+	var o *minio.ObjectInfo
+	var err error
+
+	if versionId != "" && versionId != "null" && versionId != "undefined" {
+		cblog.Infof("Getting info for specific version: %s", versionId)
+		o, err = cmrt.GetS3ObjectInfoWithVersion(conn, bucket, obj, versionId)
+	} else {
+		cblog.Infof("Getting info for latest version")
+		o, err = cmrt.GetS3ObjectInfo(conn, bucket, obj)
+	}
+
 	if err != nil {
+		cblog.Errorf("Failed to get object info: %v", err)
 		errorCode := "NoSuchKey"
 		statusCode := http.StatusNotFound
 		if strings.Contains(err.Error(), "bucket") {
 			errorCode = "NoSuchBucket"
+		} else if strings.Contains(err.Error(), "version") {
+			errorCode = "NoSuchVersion"
 		}
 		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+obj)
 	}
@@ -1561,6 +1555,8 @@ func GetS3ObjectInfo(c echo.Context) error {
 		c.Response().Header().Set("ETag", o.ETag)
 		if o.VersionID != "" {
 			c.Response().Header().Set("x-amz-version-id", o.VersionID)
+		} else if versionId != "" && versionId != "null" && versionId != "undefined" {
+			c.Response().Header().Set("x-amz-version-id", versionId)
 		}
 		return c.NoContent(http.StatusOK)
 	}
@@ -1675,8 +1671,9 @@ func DeleteS3Object(c echo.Context) error {
 	conn, _ := getConnectionName(c)
 	bucket := c.Param("BucketName")
 	objKey := c.Param("ObjectKey+")
+	versionID := c.QueryParam("versionId")
 
-	cblog.Infof("DeleteS3Object called - bucket: %s, objKey: %s", bucket, objKey)
+	cblog.Infof("DeleteS3Object called - bucket: %s, objKey: %s, versionID: %s", bucket, objKey, versionID)
 
 	userAgent := c.Request().Header.Get("User-Agent")
 	if strings.Contains(userAgent, "S3 Browser") && !strings.HasSuffix(objKey, "/") {
@@ -1690,16 +1687,47 @@ func DeleteS3Object(c echo.Context) error {
 		}
 	}
 
-	_, err := cmrt.DeleteS3Object(conn, bucket, objKey)
+	var success bool
+	var err error
+
+	// Special handling for DELETE MARKER with null version ID
+	if versionID == "null" {
+		cblog.Infof("Detected DELETE MARKER with null version ID")
+
+		// For DELETE MARKER with null version ID, we need to use a different approach
+		// This typically means deleting the latest version (which is the delete marker)
+		success, err = cmrt.DeleteS3ObjectDeleteMarker(conn, bucket, objKey)
+		if err != nil {
+			cblog.Warnf("Failed to delete DELETE MARKER, trying regular delete: %v", err)
+			// Fallback to regular delete
+			success, err = cmrt.DeleteS3Object(conn, bucket, objKey)
+		}
+	} else if versionID != "" && versionID != "undefined" {
+		cblog.Infof("Deleting specific version: %s", versionID)
+		success, err = cmrt.DeleteS3ObjectVersion(conn, bucket, objKey, versionID)
+	} else {
+		cblog.Infof("Deleting current version (no valid versionID specified)")
+		success, err = cmrt.DeleteS3Object(conn, bucket, objKey)
+	}
+
 	if err != nil {
+		cblog.Errorf("Failed to delete object/version: %v", err)
 		errorCode := "NoSuchKey"
 		statusCode := http.StatusNotFound
 		if strings.Contains(err.Error(), "bucket") {
 			errorCode = "NoSuchBucket"
+		} else if strings.Contains(err.Error(), "version") {
+			errorCode = "NoSuchVersion"
 		}
 		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+objKey)
 	}
 
+	if !success {
+		cblog.Errorf("Object/version deletion returned false")
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError", "Failed to delete object", "/"+bucket+"/"+objKey)
+	}
+
+	cblog.Infof("Successfully deleted object/version - bucket: %s, objKey: %s, versionID: %s", bucket, objKey, versionID)
 	addS3Headers(c)
 	return c.NoContent(http.StatusNoContent)
 }
@@ -1708,13 +1736,32 @@ func DownloadS3Object(c echo.Context) error {
 	conn, _ := getConnectionName(c)
 	bucket := c.Param("BucketName")
 	objKey := c.Param("ObjectKey+")
+	versionId := c.QueryParam("versionId")
 
-	stream, err := cmrt.GetS3ObjectStream(conn, bucket, objKey)
+	cblog.Infof("DownloadS3Object - Bucket: %s, Object: %s, VersionId: %s", bucket, objKey, versionId)
+
+	var stream io.ReadCloser
+	var err error
+
+	if versionId != "" && versionId != "null" && versionId != "undefined" {
+		cblog.Infof("Downloading specific version: %s", versionId)
+		stream, err = cmrt.GetS3ObjectStreamWithVersion(conn, bucket, objKey, versionId)
+	} else if versionId == "null" {
+		cblog.Infof("Downloading null version (original version)")
+		stream, err = cmrt.GetS3ObjectStreamWithVersion(conn, bucket, objKey, "null")
+	} else {
+		cblog.Infof("Downloading latest version")
+		stream, err = cmrt.GetS3ObjectStream(conn, bucket, objKey)
+	}
+
 	if err != nil {
+		cblog.Errorf("Failed to get object stream: %v", err)
 		errorCode := "NoSuchKey"
 		statusCode := http.StatusNotFound
 		if strings.Contains(err.Error(), "bucket") {
 			errorCode = "NoSuchBucket"
+		} else if strings.Contains(err.Error(), "version") {
+			errorCode = "NoSuchVersion"
 		}
 		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+objKey)
 	}
@@ -1724,6 +1771,12 @@ func DownloadS3Object(c echo.Context) error {
 	filename := filepath.Base(objKey)
 	c.Response().Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
 	c.Response().Header().Set("Content-Type", "application/octet-stream")
+
+	if versionId != "" && versionId != "null" && versionId != "undefined" {
+		c.Response().Header().Set("x-amz-version-id", versionId)
+	}
+
+	cblog.Infof("Successfully streaming object: %s", objKey)
 	return c.Stream(http.StatusOK, "application/octet-stream", stream)
 }
 
