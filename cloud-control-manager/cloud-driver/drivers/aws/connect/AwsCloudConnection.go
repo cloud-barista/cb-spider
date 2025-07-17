@@ -72,6 +72,7 @@ type AwsCloudConnection struct {
 	CostExplorerClient *costexplorer.CostExplorer
 
 	CloudWatchClient *cloudwatch.CloudWatch
+	FileSystemClient *efs.EFS
 }
 
 var cblogger *logrus.Logger
@@ -169,7 +170,8 @@ func (cloudConn *AwsCloudConnection) CreateDiskHandler() (irs.DiskHandler, error
 
 // CreateFileSystemHandler implements connect.CloudConnection.
 func (cloudConn *AwsCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
-	panic("unimplemented")
+	handler := ars.AwsFileSystemHandler{Region: cloudConn.Region, Client: cloudConn.FileSystemClient, EC2Client: cloudConn.VNetworkClient}
+	return &handler, nil
 }
 
 func (cloudConn *AwsCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
