@@ -54,13 +54,14 @@ func (myImageHandler *IbmMyImageHandler) SnapshotVM(snapshotReqInfo irs.MyImageI
 	for _, attachedDisk := range (*attachedDiskList).VolumeAttachments {
 		mountIndex++
 		snapshotName := fmt.Sprintf("%s%s%d", snapshotReqInfo.IId.NameId, DEV, mountIndex)
-		createSnapshotOptions := vpcv1.CreateSnapshotOptions{
+		snapshotPrototype := &vpcv1.SnapshotPrototype{
 			Name: &snapshotName,
 			SourceVolume: &vpcv1.VolumeIdentityByID{
 				ID: attachedDisk.Volume.ID,
 			},
 		}
-		_, _, createSnapshotErr := myImageHandler.VpcService.CreateSnapshotWithContext(myImageHandler.Ctx, &createSnapshotOptions)
+		createSnapshotOptions := myImageHandler.VpcService.NewCreateSnapshotOptions(snapshotPrototype)
+		_, _, createSnapshotErr := myImageHandler.VpcService.CreateSnapshotWithContext(myImageHandler.Ctx, createSnapshotOptions)
 		if createSnapshotErr != nil {
 			createErr := errors.New(fmt.Sprintf("Failed to SnapshotVM VM. err = %s", createSnapshotErr.Error()))
 			cblogger.Error(createErr.Error())
