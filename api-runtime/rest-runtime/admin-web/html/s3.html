@@ -18,8 +18,8 @@
     .progress-bar-container { width: 600px; margin-left: 10px; margin-bottom: 10px; height: 22px; background: #f0f5ff; border-radius: 4px; overflow: hidden; display: none; position: relative; z-index: 2000; }
     .progress-bar { width: 0; height: 100%; background: #cce6ff; border-radius: 4px; transition: width 2s ease; }
     #timeDisplay { position: absolute; top: 50%; right: 10px; transform: translateY(-50%); font-size: 14px; color: #333; z-index: 30; }
-    .add-button { font-size: 14px; font-weight: bold; margin-left: 1px; margin-right: 5px; margin-bottom: 10px; }
-    .content { margin-top: 70px; }
+    .add-button { font-size: 14px; font-weight: bold; margin-left: 1px; margin-right: 5px; margin-bottom: 10px; margin-top: 20px; }
+    .content { margin-top: 50px; }
     table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-bottom: 0; }
     th, td { border: 1px solid #aaa; padding: 6px; position: relative; }
     th { background: #f2f2f2; font-size: 14px; text-align: center; }
@@ -42,11 +42,112 @@
     .object-panel-actions { display: flex; align-items: center; }
     
     /* Object Versions Table Styling */
-    .object-versions-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .object-versions-table { width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed; }
     .object-versions-table th { border: 1px solid #ddd; padding: 8px; text-align: center; background: #f2f2f2; }
-    .object-versions-table td { border: 1px solid #ddd; padding: 8px; }
-    .object-versions-table td:first-child { text-align: left; } /* Object Key column - left aligned */
-    .object-versions-table td:not(:first-child) { text-align: center; } /* All other columns - center aligned */
+    .object-versions-table td { border: 1px solid #ddd; padding: 8px; word-wrap: break-word; overflow-wrap: break-word; }
+    .object-versions-table td:first-child { text-align: left; }
+    .object-versions-table td:not(:first-child) { text-align: center; }
+    
+    /* Versioning column styling */
+    .versioning-enabled { color: #28a745; font-weight: bold; }
+    .versioning-suspended { color: #000000; font-weight: bold; }
+    .versioning-error { color: #ffc107; font-weight: bold; }
+    .versioning-toggle { cursor: pointer; }
+    
+    /* Toggle button styling */
+    .versioning-toggle-btn {
+        width: 32px;
+        height: 16px;
+        border-radius: 16px;
+        border: none;
+        cursor: pointer;
+        position: relative;
+        transition: all 0.3s ease;
+        display: inline-block;
+        margin-right: 8px;
+        vertical-align: middle;
+    }
+    
+    .versioning-toggle-btn.enabled {
+        background: #28a745;
+    }
+    
+    .versioning-toggle-btn.suspended {
+        background: #6c757d;
+    }
+    
+    .versioning-toggle-btn.error {
+        background: #ffc107;
+    }
+    
+    .versioning-toggle-btn::after {
+        content: '';
+        position: absolute;
+        top: 2px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: white;
+        transition: all 0.3s ease;
+    }
+    
+    .versioning-toggle-btn.enabled::after {
+        right: 2px;
+    }
+    
+    .versioning-toggle-btn.suspended::after {
+        left: 2px;
+    }
+    
+    .versioning-toggle-btn.error::after {
+        left: 2px;
+    }
+    
+    /* CORS toggle button styling */
+    .cors-toggle-btn {
+        width: 32px;
+        height: 16px;
+        border-radius: 16px;
+        border: none;
+        cursor: pointer;
+        position: relative;
+        transition: all 0.3s ease;
+        display: inline-block;
+        margin-right: 8px;
+        vertical-align: middle;
+    }
+    
+    .cors-toggle-btn.configured {
+        background: #17a2b8;
+    }
+    
+    .cors-toggle-btn.not-configured {
+        background: #6c757d;
+    }
+    
+    .cors-toggle-btn::after {
+        content: '';
+        position: absolute;
+        top: 2px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: white;
+        transition: all 0.3s ease;
+    }
+    
+    .cors-toggle-btn.configured::after {
+        right: 2px;
+    }
+    
+    .cors-toggle-btn.not-configured::after {
+        left: 2px;
+    }
+    
+    /* CORS status styling */
+    .cors-configured { color: #17a2b8; font-weight: bold; cursor: pointer; text-decoration: underline; }
+    .cors-not-configured { color: #6c757d; font-weight: bold; }
+    .cors-toggle { cursor: pointer; }
 </style>
 </head>
 <body>
@@ -59,15 +160,16 @@
                 <button id="clearSearch" onclick="clearSearchInput()">X</button>
             </div>
         </div>
-        <div class="fixed-action-buttons">
-            <input type="checkbox" onclick="toggleSelectAll(this, 'bucket')">
-            <button onclick="deleteSelectedBuckets()">Delete</button>
-        </div>
     </div>
 
     <div class="content">
         <div class="header-with-progress">
             <button onclick="showBucketCreateOverlay()" class="add-button">+ Bucket</button>
+            <div style="flex: 1;"></div>
+            <div class="fixed-action-buttons">
+                <input type="checkbox" onclick="toggleSelectAll(this, 'bucket')">
+                <button onclick="deleteSelectedBuckets()" style="margin-left: 10px;">Delete</button>
+            </div>
             <div class="progress-bar-container" id="progressBarContainer">
                 <div class="progress-bar" id="progressBar"></div>
                 <span id="timeDisplay"></span>
@@ -80,7 +182,8 @@
                     <th class="column-num">#</th>
                     <th class="center-align bucket-name-cell">Bucket Name</th>
                     <th class="center-align">Created</th>
-                    <th class="center-align">Region</th>
+                    <th class="center-align">Versioning</th>
+                    <th class="center-align">CORS</th>
                     <th class="center-align">Actions</th>
                     <th class="check-column"><input type="checkbox" onclick="toggleSelectAll(this, 'bucket')"></th>
                 </tr>
@@ -90,11 +193,28 @@
                 <tr>
                     <td class="column-num">{{$i | inc}}</td>
                     <td class="bucket-name-cell" id="bucket-{{$b.Name}}"><span style="cursor:pointer;" onclick="showObjectPanel('{{$b.Name}}')">{{$b.Name}}</span></td>
-                    <td class="center-align">{{$b.CreationDate}}</td>
-                    <td class="center-align">{{$b.BucketRegion}}</td>
+                    <td class="center-align" data-utc-time="{{$b.CreationDate}}">{{$b.CreationDate}}</td>
+                    <td class="center-align">
+                        <div class="versioning-toggle" onclick="toggleVersioningQuick('{{$b.Name}}', '{{$b.VersioningStatus}}')">
+                            <button class="versioning-toggle-btn {{if eq $b.VersioningStatus "Enabled"}}enabled{{else if eq $b.VersioningStatus "Suspended"}}suspended{{else}}error{{end}}" 
+                                    type="button"></button>
+                            <span class="versioning-{{if eq $b.VersioningStatus "Enabled"}}enabled{{else if eq $b.VersioningStatus "Suspended"}}suspended{{else}}error{{end}}">
+                                {{$b.VersioningStatus}}
+                            </span>
+                        </div>
+                    </td>
+                    <td class="center-align">
+                        <div class="cors-toggle" onclick="toggleCORSQuick('{{$b.Name}}', '{{$b.CORSStatus}}')">
+                            <button class="cors-toggle-btn {{if eq $b.CORSStatus "Configured"}}configured{{else}}not-configured{{end}}" 
+                                    type="button"></button>
+                            <span class="cors-{{if eq $b.CORSStatus "Configured"}}configured{{else}}not-configured{{end}}" 
+                                  {{if eq $b.CORSStatus "Configured"}}onclick="showCORSInfo('{{$b.Name}}')"{{end}}>
+                                {{$b.CORSStatus}}
+                            </span>
+                        </div>
+                    </td>
                     <td class="center-align">
                         <button onclick="deleteBucket('{{$b.Name}}')">Delete</button>
-                        <button onclick="showBucketSettings('{{$b.Name}}')">Settings</button>
                     </td>
                     <td class="check-column"><input type="checkbox" name="bucket-checkbox" value="{{$b.Name}}"></td>
                 </tr>
@@ -116,7 +236,7 @@
                 <thead>
                     <tr>
                         <th class="column-num">#</th>
-                        <th class="object-key-cell">Object Key</th>
+                        <th class="center-align">Object Key</th>
                         <th class="center-align">Size</th>
                         <th class="center-align">Last Modified</th>
                         <th class="center-align">Actions</th>
@@ -181,44 +301,18 @@
             </table>
         </div>
     </div>
-
-    <div id="bucket-settings-overlay" class="overlay">
-        <div class="overlay-content" style="position:relative; width: 600px;">
-            <button class="close-btn" onclick="hideBucketSettingsOverlay()">x</button>
-            <h2>Bucket Settings: <span id="settings-bucket-name"></span></h2>
+    
+    <div id="cors-info-overlay" class="overlay">
+        <div class="overlay-content" style="position:relative; width: 700px; max-height: 80vh;">
+            <button class="close-btn" onclick="hideCORSInfoOverlay()">x</button>
+            <h2>CORS Configuration: <span id="cors-bucket-name"></span></h2>
             
-            <div style="margin-bottom: 20px;">
-                <h3>Versioning</h3>
-                <div>
-                    <label>Status: <span id="versioning-status">Loading...</span></label>
-                    <button onclick="toggleVersioning()" id="versioning-btn" style="margin-left: 10px;">Toggle</button>
-                </div>
-            </div>
-
-            <div style="margin-bottom: 20px;">
-                <h3>CORS Configuration</h3>
-                <div>
-                    <label>Status: <span id="cors-status">Loading...</span></label>
-                    <button onclick="enableCORS()" style="margin-left: 10px;">Enable CORS</button>
-                    <button onclick="deleteCORS()" style="margin-left: 10px;">Delete CORS</button>
-                </div>
-            </div>
-
-            <div style="margin-bottom: 20px;">
-                <h3>Access Control (ACL)</h3>
-                <div>
-                    <label>Current ACL: <span id="acl-status">Loading...</span></label>
-                    <br><br>
-                    <select id="acl-select">
-                        <option value="private">Private</option>
-                        <option value="public-read">Public Read</option>
-                    </select>
-                    <button onclick="setACL()" style="margin-left: 10px;">Set ACL</button>
-                </div>
+            <div style="max-height: 60vh; overflow-y: auto; padding: 10px; background: #f8f9fa; border-radius: 4px; border: 1px solid #dee2e6;">
+                <pre id="cors-json-content" style="margin: 0; font-family: 'Courier New', monospace; font-size: 12px; white-space: pre-wrap; word-wrap: break-word;"></pre>
             </div>
 
             <div style="text-align: center; margin-top: 20px;">
-                <button onclick="hideBucketSettingsOverlay()">Close</button>
+                <button onclick="hideCORSInfoOverlay()">Close</button>
             </div>
         </div>
     </div>
@@ -258,11 +352,11 @@
     </div>
 
     <div id="object-versions-overlay" class="overlay">
-        <div class="overlay-content" style="position:relative; width: 900px; max-width: 90vw; max-height: 80vh; overflow-y: auto;">
+        <div class="overlay-content" style="position:relative; width: 1100px; max-width: 95vw; max-height: 80vh; overflow-y: auto;">
             <button class="close-btn" onclick="hideObjectVersionsOverlay()">x</button>
             <h2>Object Versions in: <span id="versions-bucket-name"></span></h2>
             
-            <div style="margin-bottom: 15px; padding: 10px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px;">
+            <div style="margin-bottom: 15px; padding: 10px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; font-size: 13px;">
                 <strong>Note:</strong> Versioning-enabled buckets cannot be deleted until all object versions and delete markers are removed.
                 <br>Use the "Delete" buttons below or "Empty Bucket" to clean up before deleting the bucket.
             </div>
@@ -277,12 +371,12 @@
             <table class="object-versions-table">
                 <thead>
                     <tr>
-                        <th>Object Key</th>
-                        <th>Version ID</th>
-                        <th>Size</th>
-                        <th>Last Modified</th>
-                        <th>Latest</th>
-                        <th>Actions</th>
+                        <th style="width: 30%;">Object Key</th>
+                        <th style="width: 25%;">Version ID</th>
+                        <th style="width: 10%;">Size</th>
+                        <th style="width: 15%;">Last Modified</th>
+                        <th style="width: 6%;">Latest</th>
+                        <th style="width: 14%;">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="object-versions-body">
@@ -330,6 +424,128 @@ function createBucket() {
     .catch(e => { 
         alert('Error: ' + e.message); 
         hideProgressBar(); 
+    });
+}
+
+function toggleVersioningQuick(bucketName, currentStatus) {
+    const newStatus = currentStatus === 'Enabled' ? 'Suspended' : 'Enabled';
+    
+    if (!confirm(`Change versioning for bucket "${bucketName}" from "${currentStatus}" to "${newStatus}"?`)) {
+        return;
+    }
+    
+    showProgressBar();
+    
+    const versioningXml = `<?xml version="1.0" encoding="UTF-8"?>
+<VersioningConfiguration>
+    <Status>${newStatus}</Status>
+</VersioningConfiguration>`;
+
+    const url = `/spider/${bucketName}?versioning&ConnectionName=${connConfig}`;
+    
+    fetch(url, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/xml',
+            'X-Connection-Name': connConfig
+        },
+        body: versioningXml
+    })
+    .then(response => {
+        hideProgressBar();
+        if (response.ok) {
+            const savedBucket = currentBucket;
+            const savedPrefix = currentPrefix;
+            
+            setTimeout(() => {
+                location.reload();
+                setTimeout(() => {
+                    if (savedBucket) {
+                        showObjectPanel(savedBucket, savedPrefix);
+                    }
+                }, 100);
+            }, 100);
+        } else {
+            return response.text().then(responseText => {
+                if (responseText.includes('<e>')) {
+                    const parser = new DOMParser();
+                    const xmlDoc = parser.parseFromString(responseText, 'text/xml');
+                    const errorCode = xmlDoc.getElementsByTagName('Code')[0]?.textContent || 'Unknown';
+                    const errorMessage = xmlDoc.getElementsByTagName('Message')[0]?.textContent || responseText;
+                    throw new Error(`${errorCode}: ${errorMessage}`);
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            });
+        }
+    })
+    .catch(error => {
+        hideProgressBar();
+        alert('Error toggling versioning: ' + error.message);
+    });
+}
+
+function toggleCORSQuick(bucketName, currentStatus) {
+    if (currentStatus === 'Configured') {
+        if (typeof event !== 'undefined') {
+            event.stopPropagation();
+        }
+        showCORSInfo(bucketName);
+        return;
+    }
+    
+    if (!confirm(`Enable CORS for bucket "${bucketName}"?`)) {
+        return;
+    }
+    
+    showProgressBar();
+    
+    const corsXml = `<?xml version="1.0" encoding="UTF-8"?>
+<CORSConfiguration>
+    <CORSRule>
+        <AllowedOrigin>*</AllowedOrigin>
+        <AllowedMethod>GET</AllowedMethod>
+        <AllowedMethod>PUT</AllowedMethod>
+        <AllowedMethod>POST</AllowedMethod>
+        <AllowedMethod>DELETE</AllowedMethod>
+        <AllowedMethod>HEAD</AllowedMethod>
+        <AllowedHeader>*</AllowedHeader>
+        <ExposeHeader>ETag</ExposeHeader>
+        <ExposeHeader>x-amz-server-side-encryption</ExposeHeader>
+        <ExposeHeader>x-amz-request-id</ExposeHeader>
+        <ExposeHeader>x-amz-id-2</ExposeHeader>
+        <MaxAgeSeconds>3600</MaxAgeSeconds>
+    </CORSRule>
+</CORSConfiguration>`;
+
+    fetch(`/spider/${bucketName}?cors&ConnectionName=${connConfig}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/xml'
+        },
+        body: corsXml
+    })
+    .then(response => {
+        hideProgressBar();
+        if (response.ok) {
+            const savedBucket = currentBucket;
+            const savedPrefix = currentPrefix;
+            
+            setTimeout(() => {
+                location.reload();
+                setTimeout(() => {
+                    if (savedBucket) {
+                        showObjectPanel(savedBucket, savedPrefix);
+                    }
+                }, 100);
+            }, 100);
+        } else {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+    })
+    .catch(error => {
+        hideProgressBar();
+        alert('Error enabling CORS: ' + error.message);
     });
 }
 
@@ -382,6 +598,860 @@ function deleteBucket(name) {
     });
 }
 
+function disableCORS(bucketName) {
+    if (!confirm(`Disable CORS for bucket "${bucketName}"?`)) {
+        return;
+    }
+    
+    showProgressBar();
+    
+    fetch(`/spider/${bucketName}?cors&ConnectionName=${connConfig}`, {
+        method: 'DELETE'
+    })
+    .then(response => {
+        hideProgressBar();
+        if (response.ok) {
+            location.reload();
+        } else {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+    })
+    .catch(error => {
+        hideProgressBar();
+        alert('Error disabling CORS: ' + error.message);
+    });
+}
+
+function showCORSInfo(bucketName) {
+    document.getElementById('cors-bucket-name').textContent = bucketName;
+    document.getElementById('cors-info-overlay').style.display = 'flex';
+    document.getElementById('cors-json-content').textContent = 'Loading...';
+    
+    fetch(`/spider/${bucketName}?cors&ConnectionName=${connConfig}`)
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.text();
+    })
+    .then(corsXml => {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(corsXml, 'text/xml');
+        
+        const corsRules = xmlDoc.getElementsByTagName('CORSRule');
+        const corsData = {
+            CORSRules: []
+        };
+        
+        for (let i = 0; i < corsRules.length; i++) {
+            const rule = corsRules[i];
+            const corsRule = {
+                AllowedOrigin: [],
+                AllowedMethod: [],
+                AllowedHeader: [],
+                ExposeHeader: [],
+                MaxAgeSeconds: null
+            };
+            
+            const origins = rule.getElementsByTagName('AllowedOrigin');
+            for (let j = 0; j < origins.length; j++) {
+                corsRule.AllowedOrigin.push(origins[j].textContent);
+            }
+            
+            const methods = rule.getElementsByTagName('AllowedMethod');
+            for (let j = 0; j < methods.length; j++) {
+                corsRule.AllowedMethod.push(methods[j].textContent);
+            }
+            
+            const headers = rule.getElementsByTagName('AllowedHeader');
+            for (let j = 0; j < headers.length; j++) {
+                corsRule.AllowedHeader.push(headers[j].textContent);
+            }
+            
+            const exposeHeaders = rule.getElementsByTagName('ExposeHeader');
+            for (let j = 0; j < exposeHeaders.length; j++) {
+                corsRule.ExposeHeader.push(exposeHeaders[j].textContent);
+            }
+            
+            const maxAge = rule.getElementsByTagName('MaxAgeSeconds')[0];
+            if (maxAge) {
+                corsRule.MaxAgeSeconds = parseInt(maxAge.textContent);
+            }
+            
+            corsData.CORSRules.push(corsRule);
+        }
+        
+        document.getElementById('cors-json-content').textContent = JSON.stringify(corsData, null, 2);
+    })
+    .catch(error => {
+        document.getElementById('cors-json-content').textContent = `Error loading CORS configuration: ${error.message}`;
+    });
+}
+
+function hideCORSInfoOverlay() {
+    document.getElementById('cors-info-overlay').style.display = 'none';
+    document.getElementById('cors-json-content').textContent = '';
+}
+
+function showBucketCreateOverlay() { 
+    const region = '{{.RegionName}}';
+    const bucketNameInput = document.getElementById('new-bucket-name');
+    bucketNameInput.value = `${region}-bucket-${Math.random().toString(36).substring(2, 8)}`;
+    document.getElementById('bucket-create-overlay').style.display = 'flex'; 
+}
+
+function hideBucketCreateOverlay() { 
+    document.getElementById('bucket-create-overlay').style.display = 'none';
+    const region = '{{.RegionName}}';
+    const bucketNameInput = document.getElementById('new-bucket-name');
+    bucketNameInput.value = `${region}-bucket-${Math.random().toString(36).substring(2, 8)}`;
+}
+
+function deleteSelectedBuckets() {
+    const checked = document.querySelectorAll('input[name="bucket-checkbox"]:checked');
+    if (!checked.length) {
+        alert("Select bucket(s) to delete!");
+        return;
+    }
+    
+    const bucketNames = Array.from(checked).map(chk => chk.value).join(', ');
+    if (!confirm(`Delete selected bucket(s): ${bucketNames}?\n\nWarning: All buckets must be empty before they can be deleted.`)) {
+        return;
+    }
+    
+    showProgressBar();
+    
+    const deletePromises = Array.from(checked).map(chk => {
+        const bucketName = chk.value;
+        return fetch(`/spider/${bucketName}?ConnectionName=${connConfig}`, { 
+            method: 'DELETE',
+            headers: {
+                'X-Connection-Name': connConfig
+            }
+        }).then(response => {
+            if (!response.ok) {
+                return response.text().then(errorText => {
+                    if (errorText.includes('BucketNotEmpty')) {
+                        return { bucket: bucketName, error: 'Bucket is not empty' };
+                    } else if (errorText.includes('NoSuchBucket')) {
+                        return { bucket: bucketName, error: 'Bucket does not exist' };
+                    } else if (errorText.includes('AccessDenied')) {
+                        return { bucket: bucketName, error: 'Access denied' };
+                    } else {
+                        return { bucket: bucketName, error: `HTTP ${response.status}` };
+                    }
+                });
+            }
+            return { bucket: bucketName, success: true };
+        }).catch(error => {
+            return { bucket: bucketName, error: 'Network error' };
+        });
+    });
+    
+    Promise.all(deletePromises).then(results => {
+        hideProgressBar();
+        
+        const successes = results.filter(r => r.success);
+        const failures = results.filter(r => r.error);
+        
+        if (failures.length > 0) {
+            let message = `Deletion completed:\n\n`;
+            if (successes.length > 0) {
+                message += `Successfully deleted: ${successes.map(s => s.bucket).join(', ')}\n\n`;
+            }
+            message += `Failed to delete:\n`;
+            failures.forEach(f => {
+                message += `- ${f.bucket}: ${f.error}\n`;
+            });
+            alert(message);
+        }
+        
+        location.reload();
+    }).catch(e => { 
+        alert('Error during bulk deletion: ' + e.message); 
+        hideProgressBar(); 
+    });
+}
+
+let currentBucket = null;
+let currentPrefix = "";
+
+function showObjectPanel(bucket, prefix = "") {
+    currentBucket = bucket;
+    currentPrefix = prefix;
+    
+    console.log(`Showing object panel for bucket: ${bucket}, prefix: ${prefix}`);
+    
+    // Clear previous selection
+    document.querySelectorAll('.bucket-name-cell').forEach(el => el.classList.remove('selected'));
+    
+    // Highlight selected bucket
+    const bucketElement = document.getElementById(`bucket-${bucket}`);
+    if (bucketElement) {
+        bucketElement.classList.add('selected');
+    }
+    
+    // Show object panel
+    document.getElementById('object-panel').style.display = 'block';
+    
+    // Update panel header
+    updateObjectPanelHeader(bucket, prefix);
+    
+    // Fetch and display objects
+    fetchObjects(bucket, prefix);
+}
+
+function updateObjectPanelHeader(bucket, prefix) {
+    let header = document.querySelector('.object-panel-header h2');
+    if (!header) {
+        const panelHeader = document.querySelector('.object-panel-header');
+        if (panelHeader) {
+            const h2 = document.createElement('h2');
+            h2.style.margin = '0';
+            panelHeader.insertBefore(h2, panelHeader.firstChild);
+            header = h2;
+        }
+    }
+    
+    if (header) {
+        if (prefix && prefix !== "") {
+            header.innerHTML = `
+                Objects in: <strong>${bucket}</strong>/${prefix}
+                <button onclick="showObjectPanel('${bucket}', '')" style="margin-left: 10px; font-size: 12px;">📁 Root</button>
+            `;
+        } else {
+            header.innerHTML = `Objects in: <strong>${bucket}</strong>`;
+        }
+    }
+}
+
+function fetchObjects(bucket, prefix = "") {
+    console.log(`Fetching objects for bucket: ${bucket}, prefix: ${prefix}`);
+    
+    let url = `/spider/${bucket}?delimiter=/&ConnectionName=${connConfig}`;
+    if (prefix && prefix !== "") {
+        url += `&prefix=${encodeURIComponent(prefix)}`;
+    }
+    
+    console.log(`Request URL: ${url}`);
+    
+    fetch(url)
+        .then(response => {
+            console.log(`Response status: ${response.status} ${response.statusText}`);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            return response.text();
+        })
+        .then(xmlData => {
+            console.log(`Response XML length: ${xmlData.length}`);
+            console.log(`Response XML preview: ${xmlData.substring(0, 500)}`);
+            
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlData, 'text/xml');
+            
+            const parseError = xmlDoc.getElementsByTagName('parsererror')[0];
+            if (parseError) {
+                console.error('XML parsing error:', parseError.textContent);
+                throw new Error('Failed to parse XML response');
+            }
+            
+            const errorElement = xmlDoc.getElementsByTagName('Error')[0];
+            if (errorElement) {
+                const errorCode = xmlDoc.getElementsByTagName('Code')[0]?.textContent || 'Unknown';
+                const errorMessage = xmlDoc.getElementsByTagName('Message')[0]?.textContent || 'Unknown error';
+                throw new Error(`${errorCode}: ${errorMessage}`);
+            }
+            
+            const listBucketResult = xmlDoc.getElementsByTagName('ListBucketResult')[0];
+            if (!listBucketResult) {
+                console.error('No ListBucketResult found in XML');
+                console.error('Available root elements:', xmlDoc.documentElement?.tagName);
+                throw new Error('Invalid XML response format');
+            }
+            
+            const contents = xmlDoc.getElementsByTagName('Contents');
+            const commonPrefixes = xmlDoc.getElementsByTagName('CommonPrefixes');
+            
+            console.log(`Found ${contents.length} objects and ${commonPrefixes.length} common prefixes`);
+            
+            const body = document.getElementById('object-list-body');
+            body.innerHTML = '';
+            
+            let itemCount = 0;
+            
+            // Display folders first
+            for (let i = 0; i < commonPrefixes.length; i++) {
+                const prefixElement = commonPrefixes[i].getElementsByTagName('Prefix')[0];
+                if (prefixElement) {
+                    const folderPrefix = prefixElement.textContent;
+                    
+                    let folderName = folderPrefix;
+                    if (prefix && folderPrefix.startsWith(prefix)) {
+                        folderName = folderPrefix.substring(prefix.length);
+                    }
+                    if (folderName.endsWith('/')) {
+                        folderName = folderName.slice(0, -1);
+                    }
+                    
+                    console.log(`Folder ${i+1}: ${folderPrefix} -> ${folderName}`);
+                    
+                    itemCount++;
+                    body.innerHTML += `
+                        <tr style="background-color: #f8f9fa;">
+                            <td class="column-num">${itemCount}</td>
+                            <td class="object-key-cell">
+                                <span style="cursor:pointer; font-weight: bold; color: #0066cc;" onclick="showObjectPanel('${bucket}', '${folderPrefix}')">
+                                    📁 ${folderName}/
+                                </span>
+                            </td>
+                            <td class="center-align">-</td>
+                            <td class="center-align">-</td>
+                            <td class="center-align">
+                                <button onclick="showObjectPanel('${bucket}', '${folderPrefix}')">Open</button>
+                                <button onclick="deleteFolder('${bucket}', '${folderPrefix}')">Delete</button>
+                            </td>
+                            <td class="check-column"><input type="checkbox" name="object-checkbox" value="${folderPrefix}"></td>
+                        </tr>
+                    `;
+                }
+            }
+            
+            // Display files
+            for (let i = 0; i < contents.length; i++) {
+                const content = contents[i];
+                const key = content.getElementsByTagName('Key')[0]?.textContent || '';
+                const size = parseInt(content.getElementsByTagName('Size')[0]?.textContent || '0');
+                const lastModified = content.getElementsByTagName('LastModified')[0]?.textContent || '';
+                
+                let displayName = key;
+                if (prefix && key.startsWith(prefix)) {
+                    displayName = key.substring(prefix.length);
+                }
+                
+                console.log(`Object ${i+1}: ${key} -> ${displayName} (${size} bytes)`);
+                
+                itemCount++;
+                body.innerHTML += `
+                    <tr>
+                        <td class="column-num">${itemCount}</td>
+                        <td class="object-key-cell">
+                            <span style="cursor:pointer;" onclick="showObjectDetail('${bucket}','${key.replace(/'/g, "\\'")}')">${displayName}</span>
+                        </td>
+                        <td class="center-align">${formatBytes(size)}</td>
+                        <td class="center-align">${formatTime(lastModified)}</td>
+                        <td class="center-align">
+                            <button onclick="downloadObject('${bucket}','${key.replace(/'/g, "\\'")}')">Download</button>
+                            <button onclick="deleteObject('${bucket}','${key.replace(/'/g, "\\'")}')">Delete</button>
+                            <button onclick="generatePresignedURL('${bucket}','${key.replace(/'/g, "\\'")}')">Share</button>
+                        </td>
+                        <td class="check-column"><input type="checkbox" name="object-checkbox" value="${key}"></td>
+                    </tr>
+                `;
+            }
+            
+            if (itemCount === 0) {
+                body.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">No objects found</td></tr>';
+                console.log('No objects or folders found in bucket');
+            } else {
+                console.log(`Total items displayed: ${itemCount}`);
+            }
+        })
+        .catch(e => {
+            console.error('Error fetching objects:', e);
+            const body = document.getElementById('object-list-body');
+            body.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: red;">Error loading objects: ${e.message}</td></tr>`;
+            alert('Error fetching objects: ' + e.message);
+        });
+}
+
+function hideObjectPanel() {
+    document.getElementById('object-panel').style.display = 'none';
+    document.getElementById('object-list-body').innerHTML = '';
+    document.querySelectorAll('.bucket-name-cell').forEach(el => el.classList.remove('selected'));
+    currentBucket = null;
+    currentPrefix = "";
+}
+
+function deleteFolder(bucket, prefix) {
+    if (!confirm(`Delete folder "${prefix}" and ALL its contents?\n\nThis action cannot be undone.`)) return;
+    
+    console.log(`Deleting folder: ${prefix} from bucket: ${bucket}`);
+    showProgressBar();
+    
+    const url = `/spider/${bucket}?prefix=${encodeURIComponent(prefix)}&ConnectionName=${connConfig}`;
+    
+    fetch(url)
+        .then(response => response.text())
+        .then(xmlData => {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(xmlData, 'text/xml');
+            const contents = xmlDoc.getElementsByTagName('Contents');
+            
+            if (contents.length === 0) {
+                alert('Folder appears to be empty or already deleted');
+                hideProgressBar();
+                fetchObjects(bucket, currentPrefix);
+                return;
+            }
+            
+            const objectsToDelete = [];
+            for (let i = 0; i < contents.length; i++) {
+                const key = contents[i].getElementsByTagName('Key')[0]?.textContent;
+                if (key) {
+                    objectsToDelete.push(key);
+                }
+            }
+            
+            console.log(`Found ${objectsToDelete.length} objects to delete in folder ${prefix}`);
+            
+            const deleteXml = `<?xml version="1.0" encoding="UTF-8"?>
+<Delete>
+    ${objectsToDelete.map(key => `<Object><Key>${key}</Key></Object>`).join('')}
+</Delete>`;
+            
+            return fetch(`/spider/${bucket}?delete&ConnectionName=${connConfig}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/xml'
+                },
+                body: deleteXml
+            });
+        })
+        .then(response => {
+            hideProgressBar();
+            if (response.ok) {
+                alert(`Folder "${prefix}" deleted successfully`);
+                fetchObjects(bucket, currentPrefix);
+            } else {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+        })
+        .catch(e => {
+            console.error('Error deleting folder:', e);
+            hideProgressBar();
+            alert('Error deleting folder: ' + e.message);
+        });
+}
+
+function deleteObject(bucket, objectKey) {
+    if (!confirm(`Delete object "${objectKey}"?`)) {
+        return;
+    }
+    showProgressBar();
+    
+    fetch(`/spider/${bucket}/${encodeURIComponent(objectKey)}?ConnectionName=${connConfig}`, {
+        method: 'DELETE'
+    })
+    .then(response => {
+        if (response.ok) {
+            fetchObjects(bucket, currentPrefix); 
+            hideProgressBar(); 
+            uncheckAllCheckboxes('object');
+        } else {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+    })
+    .catch(e => { 
+        alert('Error: ' + e.message); 
+        hideProgressBar(); 
+    });
+}
+
+function deleteSelectedObjects() {
+    const checked = document.querySelectorAll('input[name="object-checkbox"]:checked');
+    if (!checked.length) {
+        alert("Select object(s) to delete!");
+        return;
+    }
+    if (!confirm("Delete selected object(s)?")) {
+        return;
+    }
+    showProgressBar();
+    
+    const objectsXml = Array.from(checked).map(chk => 
+        `<Object><Key>${chk.value}</Key></Object>`
+    ).join('');
+    
+    const deleteXml = `<?xml version="1.0" encoding="UTF-8"?>
+<Delete>
+    ${objectsXml}
+</Delete>`;
+    
+    fetch(`/spider/${currentBucket}?delete&ConnectionName=${connConfig}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/xml'
+        },
+        body: deleteXml
+    })
+    .then(response => {
+        if (response.ok) {
+            fetchObjects(currentBucket, currentPrefix); 
+            hideProgressBar(); 
+            uncheckAllCheckboxes('object');
+        } else {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+    })
+    .catch(e => { 
+        alert('Error: ' + e.message); 
+        hideProgressBar(); 
+    });
+}
+
+function uncheckAllCheckboxes(mode) {
+    const checkboxes = document.getElementsByName(mode + '-checkbox');
+    for (const c of checkboxes) {
+        c.checked = false;
+    }
+    
+    const selectAllCheckboxes = document.querySelectorAll(`#${mode}-table thead input[type="checkbox"]`);
+    selectAllCheckboxes.forEach(cb => cb.checked = false);
+    
+    if (mode === 'bucket') {
+        const bucketHeaderCheckbox = document.querySelector('.content .header-with-progress .fixed-action-buttons input[type="checkbox"]');
+        if (bucketHeaderCheckbox) bucketHeaderCheckbox.checked = false;
+    }
+    
+    if (mode === 'object') {
+        const objectPanelCheckbox = document.querySelector('.object-panel-actions input[type="checkbox"]');
+        if (objectPanelCheckbox) objectPanelCheckbox.checked = false;
+    }
+}
+
+function showObjectUploadOverlay() {
+    if (!currentBucket) return;
+    document.getElementById('upload-bucket-name').innerText = currentBucket;
+    document.getElementById('object-upload-overlay').style.display = 'flex';
+    document.getElementById('file-input').value = '';
+    document.getElementById('selected-files-list').innerHTML = 'No files selected';
+    document.getElementById('upload-progress').style.display = 'none';
+    
+    document.getElementById('file-input').addEventListener('change', function(e) {
+        const files = e.target.files;
+        const fileList = document.getElementById('selected-files-list');
+        if (files.length === 0) {
+            fileList.innerHTML = 'No files selected';
+        } else {
+            fileList.innerHTML = '<strong>Selected files:</strong><br>';
+            for (let i = 0; i < files.length; i++) {
+                fileList.innerHTML += `${i + 1}. ${files[i].name} (${formatBytes(files[i].size)})<br>`;
+            }
+        }
+    });
+}
+
+function hideObjectUploadOverlay() { 
+    document.getElementById('object-upload-overlay').style.display = 'none';
+    document.getElementById('file-input').value = '';
+    document.getElementById('selected-files-list').innerHTML = 'No files selected';
+    document.getElementById('upload-progress').style.display = 'none';
+    document.getElementById('upload-btn').disabled = false;
+}
+
+async function uploadFiles() {
+    const files = document.getElementById('file-input').files;
+    if (!files.length) return alert('Please select files to upload!');
+    
+    const uploadBtn = document.getElementById('upload-btn');
+    uploadBtn.disabled = true;
+    document.getElementById('upload-progress').style.display = 'block';
+    
+    let successCount = 0;
+    let failedFiles = [];
+    
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        document.getElementById('current-file').textContent = file.name;
+        document.getElementById('progress-bar-inner').style.width = '0%';
+        document.getElementById('progress-text').textContent = `0% (${i + 1}/${files.length})`;
+        
+        try {
+            const response = await uploadWithProgress(`/spider/${currentBucket}/${encodeURIComponent(file.name)}?ConnectionName=${connConfig}`, file, (progress) => {
+                document.getElementById('progress-bar-inner').style.width = progress + '%';
+                document.getElementById('progress-text').textContent = `${Math.round(progress)}% (${i + 1}/${files.length})`;
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Upload failed: ${response.statusText} (${response.status})`);
+            }
+            
+            successCount++;
+            
+        } catch (error) {
+            failedFiles.push({name: file.name, error: error.message});
+        }
+    }
+    
+    uploadBtn.disabled = false;
+    
+    if (failedFiles.length > 0) {
+        let errorMsg = `Upload completed with errors:\n\nSuccessfully uploaded: ${successCount} file(s)\n\nFailed files:\n`;
+        failedFiles.forEach(f => {
+            errorMsg += `- ${f.name}: ${f.error}\n`;
+        });
+        alert(errorMsg);
+    }
+    
+    hideObjectUploadOverlay();
+    fetchObjects(currentBucket, currentPrefix);
+}
+
+function uploadWithProgress(url, file, onProgress) {
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        
+        xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable) {
+                const percentComplete = (e.loaded / e.total) * 100;
+                onProgress(percentComplete);
+            }
+        });
+        
+        xhr.addEventListener('load', () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                resolve({ ok: true, status: xhr.status, statusText: xhr.statusText });
+            } else {
+                resolve({ ok: false, status: xhr.status, statusText: xhr.statusText });
+            }
+        });
+        
+        xhr.addEventListener('error', () => {
+            reject(new Error('Network error'));
+        });
+        
+        xhr.addEventListener('timeout', () => reject(new Error('Request timeout')));
+        
+        xhr.open('PUT', url, true);
+        xhr.timeout = 600000;
+        xhr.send(file);
+    });
+}
+
+function showObjectDetail(bucket, key) {
+    showProgressBar();
+    
+    fetch(`/spider/${bucket}/${encodeURIComponent(key)}?ConnectionName=${connConfig}`, {
+        method: 'HEAD'
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const size = response.headers.get('Content-Length') || '0';
+        const lastModified = response.headers.get('Last-Modified') || '';
+        const etag = response.headers.get('ETag') || '';
+        const contentType = response.headers.get('Content-Type') || '';
+        
+        document.getElementById('object-detail-key').innerText = key;
+        const tbody = document.getElementById('object-detail-body');
+        tbody.innerHTML = `
+            <tr><th>Key</th><td>${key}</td></tr>
+            <tr><th>Size</th><td>${formatBytes(parseInt(size))}</td></tr>
+            <tr><th>Last Modified</th><td>${lastModified}</td></tr>
+            <tr><th>ETag</th><td>${etag}</td></tr>
+            <tr><th>ContentType</th><td>${contentType}</td></tr>
+            <tr><th>Actions</th><td>
+                <button onclick="downloadObject('${bucket}','${key}')">Download</button>
+                <button onclick="generatePresignedURL('${bucket}','${key}')">Share</button>
+            </td></tr>
+        `;
+        document.getElementById('object-detail-overlay').style.display = 'flex';
+        hideProgressBar();
+    })
+    .catch(e => { 
+        alert('Error: ' + e.message); 
+        hideProgressBar(); 
+    });
+}
+
+function hideObjectDetailOverlay() { 
+    document.getElementById('object-detail-overlay').style.display = 'none';
+    document.getElementById('object-detail-body').innerHTML = '';
+}
+
+function downloadObject(bucket, key) {
+    const url = `/spider/${bucket}/${encodeURIComponent(key)}?ConnectionName=${connConfig}`;
+    window.open(url, '_blank');
+}
+
+function generatePresignedURL(bucket, key) {
+    document.getElementById('presigned-object-key').textContent = key;
+    document.getElementById('presigned-url-result').style.display = 'none';
+    document.getElementById('presigned-url-overlay').style.display = 'flex';
+    
+    window.currentPresignedContext = { bucket, key };
+}
+
+function hidePresignedURLOverlay() {
+    document.getElementById('presigned-url-overlay').style.display = 'none';
+    document.getElementById('presigned-url-result').style.display = 'none';
+    document.getElementById('expiration-hours').value = '1';
+    document.getElementById('presigned-method').value = 'GET';
+    document.getElementById('presigned-url-text').value = '';
+    window.currentPresignedContext = null;
+}
+
+async function generatePresignedURLAction() {
+    const { bucket, key } = window.currentPresignedContext;
+    const hours = parseInt(document.getElementById('expiration-hours').value) || 1;
+    const method = document.getElementById('presigned-method').value;
+    const expiresSeconds = hours * 3600;
+
+    try {
+        const presignedURL = `/spider/${bucket}/${encodeURIComponent(key)}?ConnectionName=${connConfig}&expires=${Date.now() + (expiresSeconds * 1000)}`;
+        
+        document.getElementById('presigned-url-text').value = presignedURL;
+        document.getElementById('presigned-url-result').style.display = 'block';
+        
+    } catch (error) {
+        alert('Error generating presigned URL: ' + error.message);
+    }
+}
+
+function copyPresignedURL() {
+    const urlText = document.getElementById('presigned-url-text');
+    urlText.select();
+    urlText.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(urlText.value).then(() => {
+        alert('URL copied to clipboard!');
+    }).catch(() => {
+        alert('Failed to copy URL to clipboard');
+    });
+}
+
+function showObjectVersions() {
+    if (!currentBucket) {
+        console.error('No current bucket selected');
+        alert('Please select a bucket first');
+        return;
+    }
+    
+    console.log(`Opening object versions for bucket: ${currentBucket}`);
+    document.getElementById('versions-bucket-name').textContent = currentBucket;
+    document.getElementById('object-versions-overlay').style.display = 'flex';
+    
+    loadObjectVersionsWithActions(currentBucket);
+}
+
+function hideObjectVersionsOverlay() {
+    document.getElementById('object-versions-overlay').style.display = 'none';
+    document.getElementById('object-versions-body').innerHTML = '';
+}
+
+async function loadObjectVersionsWithActions(bucketName) {
+    try {
+        const url = `/spider/${bucketName}?versions&ConnectionName=${connConfig}`;
+        
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const xmlData = await response.text();
+        
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlData, 'text/xml');
+        
+        const parseError = xmlDoc.getElementsByTagName('parsererror')[0];
+        if (parseError) {
+            throw new Error('Failed to parse XML response');
+        }
+        
+        const listVersionsResult = xmlDoc.getElementsByTagName('ListVersionsResult')[0];
+        if (!listVersionsResult) {
+            throw new Error('Invalid XML response format - no ListVersionsResult');
+        }
+        
+        const versions = xmlDoc.getElementsByTagName('Version');
+        const deleteMarkers = xmlDoc.getElementsByTagName('DeleteMarker');
+        
+        const tbody = document.getElementById('object-versions-body');
+        tbody.innerHTML = '';
+
+        let hasVersions = false;
+
+        for (let i = 0; i < versions.length; i++) {
+            const version = versions[i];
+            const key = version.getElementsByTagName('Key')[0]?.textContent || '';
+            const versionId = version.getElementsByTagName('VersionId')[0]?.textContent || '';
+            const size = parseInt(version.getElementsByTagName('Size')[0]?.textContent || '0');
+            const lastModified = version.getElementsByTagName('LastModified')[0]?.textContent || '';
+            const isLatest = version.getElementsByTagName('IsLatest')[0]?.textContent === 'true';
+
+            hasVersions = true;
+            
+            const keyDisplay = key;
+            
+            tbody.innerHTML += `
+                <tr>
+                    <td>${keyDisplay}</td>
+                    <td>${versionId}</td>
+                    <td>${formatBytes(size)}</td>
+                    <td>${formatTime(lastModified)}</td>
+                    <td>${isLatest ? 'Yes' : 'No'}</td>
+                    <td>
+                        ${size > 0 ? `<button onclick="downloadObjectVersion('${bucketName}', '${key.replace(/'/g, "\\'")}', '${versionId}')">Download</button>` : ''}
+                        <button onclick="deleteObjectVersion('${bucketName}', '${key.replace(/'/g, "\\'")}', '${versionId}')">Delete</button>
+                    </td>
+                </tr>
+            `;
+        }
+
+        for (let i = 0; i < deleteMarkers.length; i++) {
+            const marker = deleteMarkers[i];
+            const key = marker.getElementsByTagName('Key')[0]?.textContent || '';
+            const versionId = marker.getElementsByTagName('VersionId')[0]?.textContent || '';
+            const lastModified = marker.getElementsByTagName('LastModified')[0]?.textContent || '';
+            const isLatest = marker.getElementsByTagName('IsLatest')[0]?.textContent === 'true';
+
+            const versionIdElement = marker.getElementsByTagName('VersionId')[0];
+            let actualVersionId = versionId;
+            
+            if (versionIdElement) {
+                actualVersionId = versionIdElement.textContent || versionIdElement.innerHTML || '';
+            }
+
+            hasVersions = true;
+            
+            const displayVersionId = actualVersionId || 'null';
+            
+            tbody.innerHTML += `
+                <tr style="background-color: #ffe6e6;">
+                    <td>${key} (DELETE MARKER)</td>
+                    <td>${displayVersionId}</td>
+                    <td>-</td>
+                    <td>${formatTime(lastModified)}</td>
+                    <td>${isLatest ? 'Yes' : 'No'}</td>
+                    <td>
+                        <button onclick="deleteObjectVersion('${bucketName}', '${key.replace(/'/g, "\\'")}', '${actualVersionId}')">Delete</button>
+                    </td>
+                </tr>
+            `;
+        }
+
+        if (!hasVersions) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">No versions found</td></tr>';
+        }
+
+    } catch (error) {
+        const tbody = document.getElementById('object-versions-body');
+        tbody.innerHTML = 
+            `<tr><td colspan="6" style="text-align: center; padding: 20px; color: red;">
+                Error loading versions: ${error.message}
+                <br><br>
+                <button onclick="loadObjectVersionsWithActions('${bucketName}')" style="margin-top: 10px;">Retry</button>
+            </td></tr>`;
+        alert('Error loading object versions: ' + error.message);
+    }
+}
+
 async function deleteObjectVersion(bucketName, objectKey, versionId) {
     if (versionId === null || versionId === undefined) {
         alert('Cannot delete: Version ID is null or undefined');
@@ -420,7 +1490,7 @@ async function deleteObjectVersion(bucketName, objectKey, versionId) {
         } else {
             const errorText = await response.text();
             
-            if (errorText.includes('<?xml') || errorText.includes('<e>')) {
+            if (errorText.includes('<?xml') || errorText.includes('<Error>')) {
                 try {
                     const parser = new DOMParser();
                     const xmlDoc = parser.parseFromString(errorText, 'text/xml');
@@ -438,6 +1508,30 @@ async function deleteObjectVersion(bucketName, objectKey, versionId) {
         hideProgressBar();
         alert('Error deleting version: ' + error.message);
     }
+}
+
+function downloadObjectVersion(bucket, key, versionId) {
+    if (versionId === null || versionId === undefined) {
+        alert('Cannot download: Version ID is null or undefined');
+        return;
+    }
+    
+    const cleanVersionId = String(versionId).trim();
+    
+    let downloadUrl;
+    if (cleanVersionId && cleanVersionId !== '' && cleanVersionId !== 'undefined') {
+        downloadUrl = `/spider/${bucket}/${encodeURIComponent(key)}?versionId=${encodeURIComponent(cleanVersionId)}&ConnectionName=${encodeURIComponent(connConfig)}`;
+    } else {
+        downloadUrl = `/spider/${bucket}/${encodeURIComponent(key)}?ConnectionName=${encodeURIComponent(connConfig)}`;
+    }
+    
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = key.split('/').pop() || key;
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 }
 
 async function deleteAllVersions(bucketName) {
@@ -548,1105 +1642,6 @@ async function deleteAllVersions(bucketName) {
     }
 }
 
-function deleteSelectedBuckets() {
-    const checked = document.querySelectorAll('input[name="bucket-checkbox"]:checked');
-    if (!checked.length) return alert("Select bucket(s) to delete!");
-    
-    const bucketNames = Array.from(checked).map(chk => chk.value).join(', ');
-    if (!confirm(`Delete selected bucket(s): ${bucketNames}?\n\nWarning: All buckets must be empty before they can be deleted.`)) return;
-    
-    showProgressBar();
-    
-    const deletePromises = Array.from(checked).map(chk => {
-        const bucketName = chk.value;
-        return fetch(`/spider/${bucketName}?ConnectionName=${connConfig}`, { 
-            method: 'DELETE',
-            headers: {
-                'X-Connection-Name': connConfig
-            }
-        }).then(response => {
-            if (!response.ok) {
-                return response.text().then(errorText => {
-                    if (errorText.includes('BucketNotEmpty')) {
-                        return { bucket: bucketName, error: 'Bucket is not empty' };
-                    } else if (errorText.includes('NoSuchBucket')) {
-                        return { bucket: bucketName, error: 'Bucket does not exist' };
-                    } else if (errorText.includes('AccessDenied')) {
-                        return { bucket: bucketName, error: 'Access denied' };
-                    } else {
-                        return { bucket: bucketName, error: `HTTP ${response.status}` };
-                    }
-                });
-            }
-            return { bucket: bucketName, success: true };
-        }).catch(error => {
-            return { bucket: bucketName, error: 'Network error' };
-        });
-    });
-    
-    Promise.all(deletePromises).then(results => {
-        hideProgressBar();
-        
-        const successes = results.filter(r => r.success);
-        const failures = results.filter(r => r.error);
-        
-        if (failures.length > 0) {
-            let message = `Deletion completed:\n\n`;
-            if (successes.length > 0) {
-                message += `Successfully deleted: ${successes.map(s => s.bucket).join(', ')}\n\n`;
-            }
-            message += `Failed to delete:\n`;
-            failures.forEach(f => {
-                message += `- ${f.bucket}: ${f.error}\n`;
-            });
-            alert(message);
-        }
-        
-        location.reload();
-    }).catch(e => { 
-        alert('Error during bulk deletion: ' + e.message); 
-        hideProgressBar(); 
-    });
-}
-
-function showBucketCreateOverlay() { document.getElementById('bucket-create-overlay').style.display = 'flex'; }
-function hideBucketCreateOverlay() { document.getElementById('bucket-create-overlay').style.display = 'none'; }
-
-let currentBucket = null;
-let currentPrefix = "";
-
-function showObjectPanel(bucket, prefix = "") {
-    currentBucket = bucket;
-    currentPrefix = prefix;
-    
-    document.querySelectorAll('.bucket-name-cell').forEach(el => el.classList.remove('selected'));
-    document.getElementById(`bucket-${bucket}`).classList.add('selected');
-    document.getElementById('object-panel').style.display = 'block';
-    
-    updateObjectPanelHeader(bucket, prefix);
-    
-    fetchObjects(bucket, prefix);
-}
-
-function updateObjectPanelHeader(bucket, prefix) {
-    const header = document.querySelector('.object-panel-header h2');
-    if (!header) {
-        const panelHeader = document.querySelector('.object-panel-header');
-        if (panelHeader) {
-            const h2 = document.createElement('h2');
-            h2.style.margin = '0';
-            panelHeader.insertBefore(h2, panelHeader.firstChild);
-        }
-    }
-    
-    const headerElement = document.querySelector('.object-panel-header h2');
-    if (headerElement) {
-        if (prefix && prefix !== "") {
-            headerElement.innerHTML = `
-                Objects in: <strong>${bucket}</strong>/${prefix}
-                <button onclick="showObjectPanel('${bucket}', '')" style="margin-left: 10px; font-size: 12px;">📁 Root</button>
-            `;
-        } else {
-            headerElement.innerHTML = `Objects in: <strong>${bucket}</strong>`;
-        }
-    }
-}
-
-function fetchObjects(bucket, prefix = "") {
-    let url = `/spider/${bucket}?delimiter=/&ConnectionName=${connConfig}`;
-    if (prefix && prefix !== "") {
-        url += `&prefix=${encodeURIComponent(prefix)}`;
-    }
-    
-    fetch(url)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            return response.text();
-        })
-        .then(xmlData => {
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(xmlData, 'text/xml');
-            
-            const parseError = xmlDoc.getElementsByTagName('parsererror')[0];
-            if (parseError) {
-                throw new Error('Failed to parse XML response');
-            }
-            
-            const errorElement = xmlDoc.getElementsByTagName('e>')[0];
-            if (errorElement) {
-                const errorCode = xmlDoc.getElementsByTagName('Code')[0]?.textContent || 'Unknown';
-                const errorMessage = xmlDoc.getElementsByTagName('Message')[0]?.textContent || 'Unknown error';
-                throw new Error(`${errorCode}: ${errorMessage}`);
-            }
-            
-            const listBucketResult = xmlDoc.getElementsByTagName('ListBucketResult')[0];
-            if (!listBucketResult) {
-                throw new Error('Invalid XML response format');
-            }
-            
-            const contents = xmlDoc.getElementsByTagName('Contents');
-            const commonPrefixes = xmlDoc.getElementsByTagName('CommonPrefixes');
-            
-            const body = document.getElementById('object-list-body');
-            body.innerHTML = '';
-            
-            let itemCount = 0;
-            
-            for (let i = 0; i < commonPrefixes.length; i++) {
-                const prefixElement = commonPrefixes[i].getElementsByTagName('Prefix')[0];
-                if (prefixElement) {
-                    const folderPrefix = prefixElement.textContent;
-                    
-                    let folderName = folderPrefix;
-                    if (prefix && folderPrefix.startsWith(prefix)) {
-                        folderName = folderPrefix.substring(prefix.length);
-                    }
-                    if (folderName.endsWith('/')) {
-                        folderName = folderName.slice(0, -1);
-                    }
-                    
-                    itemCount++;
-                    body.innerHTML += `
-                        <tr style="background-color: #f8f9fa;">
-                            <td class="column-num">${itemCount}</td>
-                            <td class="object-key-cell">
-                                <span style="cursor:pointer; font-weight: bold; color: #0066cc;" onclick="showObjectPanel('${bucket}', '${folderPrefix}')">
-                                    📁 ${folderName}/
-                                </span>
-                            </td>
-                            <td class="center-align">-</td>
-                            <td class="center-align">-</td>
-                            <td class="center-align">
-                                <button onclick="showObjectPanel('${bucket}', '${folderPrefix}')">Open</button>
-                                <button onclick="deleteFolder('${bucket}', '${folderPrefix}')">Delete</button>
-                            </td>
-                            <td class="check-column"><input type="checkbox" name="object-checkbox" value="${folderPrefix}"></td>
-                        </tr>
-                    `;
-                }
-            }
-            
-            for (let i = 0; i < contents.length; i++) {
-                const content = contents[i];
-                const key = content.getElementsByTagName('Key')[0]?.textContent || '';
-                const size = parseInt(content.getElementsByTagName('Size')[0]?.textContent || '0');
-                const lastModified = content.getElementsByTagName('LastModified')[0]?.textContent || '';
-                
-                let displayName = key;
-                if (prefix && key.startsWith(prefix)) {
-                    displayName = key.substring(prefix.length);
-                }
-                
-                itemCount++;
-                body.innerHTML += `
-                    <tr>
-                        <td class="column-num">${itemCount}</td>
-                        <td class="object-key-cell">
-                            <span style="cursor:pointer;" onclick="showObjectDetail('${bucket}','${key.replace(/'/g, "\\'")}')">${displayName}</span>
-                        </td>
-                        <td class="center-align">${formatBytes(size)}</td>
-                        <td class="center-align">${formatTime(lastModified)}</td>
-                        <td class="center-align">
-                            <button onclick="downloadObject('${bucket}','${key.replace(/'/g, "\\'")}')">Download</button>
-                            <button onclick="deleteObject('${bucket}','${key.replace(/'/g, "\\'")}')">Delete</button>
-                            <button onclick="generatePresignedURL('${bucket}','${key.replace(/'/g, "\\'")}')">Share</button>
-                        </td>
-                        <td class="check-column"><input type="checkbox" name="object-checkbox" value="${key}"></td>
-                    </tr>
-                `;
-            }
-            
-            if (itemCount === 0) {
-                body.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">No objects found</td></tr>';
-            }
-        })
-        .catch(e => {
-            const body = document.getElementById('object-list-body');
-            body.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: red;">Error loading objects: ${e.message}</td></tr>`;
-            alert('Error fetching objects: ' + e.message);
-        });
-}
-
-function hideObjectPanel() {
-    document.getElementById('object-panel').style.display = 'none';
-    document.getElementById('object-list-body').innerHTML = '';
-    document.querySelectorAll('.bucket-name-cell').forEach(el => el.classList.remove('selected'));
-    currentBucket = null;
-}
-
-function fetchObjects(bucket) {
-    console.log(`Fetching objects for bucket: ${bucket}`);
-    
-    const url = `/spider/${bucket}?ConnectionName=${connConfig}`;
-    console.log(`Request URL: ${url}`);
-    
-    fetch(url)
-        .then(response => {
-            console.log(`Response status: ${response.status} ${response.statusText}`);
-            console.log(`Response headers:`, response.headers);
-            console.log(`Response Content-Type: ${response.headers.get('Content-Type')}`);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-            
-            return response.text();
-        })
-        .then(xmlData => {
-            console.log(`Response XML length: ${xmlData.length}`);
-            console.log(`Response XML preview: ${xmlData.substring(0, 500)}`);
-            
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(xmlData, 'text/xml');
-            
-            const parseError = xmlDoc.getElementsByTagName('parsererror')[0];
-            if (parseError) {
-                console.error('XML parsing error:', parseError.textContent);
-                throw new Error('Failed to parse XML response');
-            }
-            
-            const errorElement = xmlDoc.getElementsByTagName('e>')[0];
-            if (errorElement) {
-                const errorCode = xmlDoc.getElementsByTagName('Code')[0]?.textContent || 'Unknown';
-                const errorMessage = xmlDoc.getElementsByTagName('Message')[0]?.textContent || 'Unknown error';
-                throw new Error(`${errorCode}: ${errorMessage}`);
-            }
-            
-            const listBucketResult = xmlDoc.getElementsByTagName('ListBucketResult')[0];
-            if (!listBucketResult) {
-                console.error('No ListBucketResult found in XML');
-                console.error('Available root elements:', xmlDoc.documentElement?.tagName);
-                throw new Error('Invalid XML response format');
-            }
-            
-            const contents = xmlDoc.getElementsByTagName('Contents');
-            const commonPrefixes = xmlDoc.getElementsByTagName('CommonPrefixes');
-            
-            console.log(`Found ${contents.length} objects and ${commonPrefixes.length} common prefixes`);
-            
-            const body = document.getElementById('object-list-body');
-            body.innerHTML = '';
-            
-            let itemCount = 0;
-            
-            for (let i = 0; i < contents.length; i++) {
-                const content = contents[i];
-                const key = content.getElementsByTagName('Key')[0]?.textContent || '';
-                const size = parseInt(content.getElementsByTagName('Size')[0]?.textContent || '0');
-                const lastModified = content.getElementsByTagName('LastModified')[0]?.textContent || '';
-                const etag = content.getElementsByTagName('ETag')[0]?.textContent || '';
-                const storageClass = content.getElementsByTagName('StorageClass')[0]?.textContent || 'STANDARD';
-                
-                console.log(`Object ${i+1}: ${key} (${size} bytes)`);
-                
-                itemCount++;
-                body.innerHTML += `
-                    <tr>
-                        <td class="column-num">${itemCount}</td>
-                        <td class="object-key-cell"><span style="cursor:pointer;" onclick="showObjectDetail('${bucket}','${key.replace(/'/g, "\\'")}')">${key}</span></td>
-                        <td class="center-align">${formatBytes(size)}</td>
-                        <td class="center-align">${formatTime(lastModified)}</td>
-                        <td class="center-align">
-                            <button onclick="downloadObject('${bucket}','${key.replace(/'/g, "\\'")}')">Download</button>
-                            <button onclick="deleteObject('${bucket}','${key.replace(/'/g, "\\'")}')">Delete</button>
-                            <button onclick="generatePresignedURL('${bucket}','${key.replace(/'/g, "\\'")}')">Share</button>
-                        </td>
-                        <td class="check-column"><input type="checkbox" name="object-checkbox" value="${key}"></td>
-                    </tr>
-                `;
-            }
-            
-            for (let i = 0; i < commonPrefixes.length; i++) {
-                const prefix = commonPrefixes[i].getElementsByTagName('Prefix')[0]?.textContent || '';
-                if (prefix) {
-                    console.log(`Folder ${i+1}: ${prefix}`);
-                    
-                    itemCount++;
-                    const displayName = prefix.endsWith('/') ? prefix.slice(0, -1) : prefix;
-                    const folderName = displayName.split('/').pop() || displayName;
-                    
-                    body.innerHTML += `
-                        <tr style="background-color: #f8f9fa;">
-                            <td class="column-num">${itemCount}</td>
-                            <td class="object-key-cell">
-                                <span style="cursor:pointer; font-weight: bold;" onclick="showFolderContents('${bucket}','${prefix}')">
-                                    📁 ${folderName}/
-                                </span>
-                            </td>
-                            <td class="center-align">-</td>
-                            <td class="center-align">-</td>
-                            <td class="center-align">
-                                <button onclick="showFolderContents('${bucket}','${prefix}')">Open</button>
-                                <button onclick="deleteFolder('${bucket}','${prefix}')">Delete</button>
-                            </td>
-                            <td class="check-column"><input type="checkbox" name="object-checkbox" value="${prefix}"></td>
-                        </tr>
-                    `;
-                }
-            }
-            
-            if (itemCount === 0) {
-                body.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">No objects found</td></tr>';
-                console.log('No objects or folders found in bucket');
-            } else {
-                console.log(`Total items displayed: ${itemCount}`);
-            }
-        })
-        .catch(e => {
-            console.error('Error fetching objects:', e);
-            const body = document.getElementById('object-list-body');
-            body.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 20px; color: red;">Error loading objects: ${e.message}</td></tr>`;
-            alert('Error fetching objects: ' + e.message);
-        });
-}
-
-function showFolderContents(bucket, prefix) {
-    console.log(`Opening folder: ${prefix} in bucket: ${bucket}`);
-    
-    const url = `/spider/${bucket}?prefix=${encodeURIComponent(prefix)}&delimiter=/&ConnectionName=${connConfig}`;
-    console.log(`Fetching folder contents from: ${url}`);
-    
-    fetch(url)
-        .then(response => response.text())
-        .then(xmlData => {
-            console.log(`Folder contents XML: ${xmlData.substring(0, 500)}`);
-            alert(`Folder contents for ${prefix}:\n\nSee console for details. \nImplement drill-down view as needed.`);
-        })
-        .catch(e => {
-            console.error('Error fetching folder contents:', e);
-            alert('Error fetching folder contents: ' + e.message);
-        });
-}
-
-function deleteFolder(bucket, prefix) {
-    if (!confirm(`Delete folder "${prefix}" and ALL its contents?\n\nThis action cannot be undone.`)) return;
-    
-    console.log(`Deleting folder: ${prefix} from bucket: ${bucket}`);
-    showProgressBar();
-    
-    const url = `/spider/${bucket}?prefix=${encodeURIComponent(prefix)}&ConnectionName=${connConfig}`;
-    
-    fetch(url)
-        .then(response => response.text())
-        .then(xmlData => {
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(xmlData, 'text/xml');
-            const contents = xmlDoc.getElementsByTagName('Contents');
-            
-            if (contents.length === 0) {
-                alert('Folder appears to be empty or already deleted');
-                hideProgressBar();
-                fetchObjects(bucket, currentPrefix);
-                return;
-            }
-            
-            const objectsToDelete = [];
-            for (let i = 0; i < contents.length; i++) {
-                const key = contents[i].getElementsByTagName('Key')[0]?.textContent;
-                if (key) {
-                    objectsToDelete.push(key);
-                }
-            }
-            
-            console.log(`Found ${objectsToDelete.length} objects to delete in folder ${prefix}`);
-            
-            const deleteXml = `<?xml version="1.0" encoding="UTF-8"?>
-<Delete>
-    ${objectsToDelete.map(key => `<Object><Key>${key}</Key></Object>`).join('')}
-</Delete>`;
-            
-            return fetch(`/spider/${bucket}?delete&ConnectionName=${connConfig}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/xml'
-                },
-                body: deleteXml
-            });
-        })
-        .then(response => {
-            hideProgressBar();
-            if (response.ok) {
-                alert(`Folder "${prefix}" deleted successfully`);
-                fetchObjects(bucket, currentPrefix);
-            } else {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-        })
-        .catch(e => {
-            console.error('Error deleting folder:', e);
-            hideProgressBar();
-            alert('Error deleting folder: ' + e.message);
-        });
-}
-
-function deleteObject(bucket, objectKey) {
-    if (!confirm(`Delete object "${objectKey}"?`)) return;
-    showProgressBar();
-    
-    fetch(`/spider/${bucket}/${encodeURIComponent(objectKey)}?ConnectionName=${connConfig}`, {
-        method: 'DELETE'
-    })
-    .then(response => {
-        if (response.ok) {
-            fetchObjects(bucket); 
-            hideProgressBar(); 
-            uncheckAllCheckboxes('object');
-        } else {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-    })
-    .catch(e => { 
-        alert('Error: ' + e.message); 
-        hideProgressBar(); 
-    });
-}
-
-function deleteSelectedObjects() {
-    const checked = document.querySelectorAll('input[name="object-checkbox"]:checked');
-    if (!checked.length) return alert("Select object(s) to delete!");
-    if (!confirm("Delete selected object(s)?")) return;
-    showProgressBar();
-    
-    const objectsXml = Array.from(checked).map(chk => 
-        `<Object><Key>${chk.value}</Key></Object>`
-    ).join('');
-    
-    const deleteXml = `<?xml version="1.0" encoding="UTF-8"?>
-<Delete>
-    ${objectsXml}
-</Delete>`;
-    
-    fetch(`/spider/${currentBucket}?delete&ConnectionName=${connConfig}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/xml'
-        },
-        body: deleteXml
-    })
-    .then(response => {
-        if (response.ok) {
-            fetchObjects(currentBucket); 
-            hideProgressBar(); 
-            uncheckAllCheckboxes('object');
-        } else {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-    })
-    .catch(e => { 
-        alert('Error: ' + e.message); 
-        hideProgressBar(); 
-    });
-}
-
-function uncheckAllCheckboxes(mode) {
-    const checkboxes = document.getElementsByName(mode + '-checkbox');
-    for (const c of checkboxes) {
-        c.checked = false;
-    }
-    
-    const selectAllCheckboxes = document.querySelectorAll(`#${mode}-table thead input[type="checkbox"]`);
-    selectAllCheckboxes.forEach(cb => cb.checked = false);
-    
-    if (mode === 'bucket') {
-        const fixedHeaderCheckbox = document.querySelector('.fixed-action-buttons input[type="checkbox"]');
-        if (fixedHeaderCheckbox) fixedHeaderCheckbox.checked = false;
-    }
-    
-    if (mode === 'object') {
-        const objectPanelCheckbox = document.querySelector('.object-panel-actions input[type="checkbox"]');
-        if (objectPanelCheckbox) objectPanelCheckbox.checked = false;
-    }
-}
-
-function showObjectUploadOverlay() {
-    if (!currentBucket) return;
-    document.getElementById('upload-bucket-name').innerText = currentBucket;
-    document.getElementById('object-upload-overlay').style.display = 'flex';
-    document.getElementById('file-input').value = '';
-    document.getElementById('selected-files-list').innerHTML = 'No files selected';
-    document.getElementById('upload-progress').style.display = 'none';
-    
-    document.getElementById('file-input').addEventListener('change', function(e) {
-        const files = e.target.files;
-        const fileList = document.getElementById('selected-files-list');
-        if (files.length === 0) {
-            fileList.innerHTML = 'No files selected';
-        } else {
-            fileList.innerHTML = '<strong>Selected files:</strong><br>';
-            for (let i = 0; i < files.length; i++) {
-                fileList.innerHTML += `${i + 1}. ${files[i].name} (${formatBytes(files[i].size)})<br>`;
-            }
-        }
-    });
-}
-
-function hideObjectUploadOverlay() { 
-    document.getElementById('object-upload-overlay').style.display = 'none';
-    document.getElementById('file-input').value = '';
-    document.getElementById('selected-files-list').innerHTML = 'No files selected';
-    document.getElementById('upload-progress').style.display = 'none';
-}
-
-async function uploadFiles() {
-    const files = document.getElementById('file-input').files;
-    if (!files.length) return alert('Please select files to upload!');
-    
-    const uploadBtn = document.getElementById('upload-btn');
-    uploadBtn.disabled = true;
-    document.getElementById('upload-progress').style.display = 'block';
-    
-    let successCount = 0;
-    let failedFiles = [];
-    
-    for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        document.getElementById('current-file').textContent = file.name;
-        document.getElementById('progress-bar-inner').style.width = '0%';
-        document.getElementById('progress-text').textContent = `0% (${i + 1}/${files.length})`;
-        
-        try {
-            const response = await uploadWithProgress(`/spider/${currentBucket}/${encodeURIComponent(file.name)}?ConnectionName=${connConfig}`, file, (progress) => {
-                document.getElementById('progress-bar-inner').style.width = progress + '%';
-                document.getElementById('progress-text').textContent = `${Math.round(progress)}% (${i + 1}/${files.length})`;
-            });
-            
-            if (!response.ok) {
-                throw new Error(`Upload failed: ${response.statusText} (${response.status})`);
-            }
-            
-            successCount++;
-            
-        } catch (error) {
-            failedFiles.push({name: file.name, error: error.message});
-        }
-    }
-    
-    uploadBtn.disabled = false;
-    
-    if (failedFiles.length > 0) {
-        let errorMsg = `Upload completed with errors:\n\nSuccessfully uploaded: ${successCount} file(s)\n\nFailed files:\n`;
-        failedFiles.forEach(f => {
-            errorMsg += `- ${f.name}: ${f.error}\n`;
-        });
-        alert(errorMsg);
-    }
-    
-    hideObjectUploadOverlay();
-    fetchObjects(currentBucket);
-}
-
-function uploadWithProgress(url, file, onProgress) {
-    return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        
-        xhr.upload.addEventListener('progress', (e) => {
-            if (e.lengthComputable) {
-                const percentComplete = (e.loaded / e.total) * 100;
-                onProgress(percentComplete);
-            }
-        });
-        
-        xhr.addEventListener('load', () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-                resolve({ ok: true, status: xhr.status, statusText: xhr.statusText });
-            } else {
-                resolve({ ok: false, status: xhr.status, statusText: xhr.statusText });
-            }
-        });
-        
-        xhr.addEventListener('error', () => {
-            reject(new Error('Network error'));
-        });
-        
-        xhr.addEventListener('timeout', () => reject(new Error('Request timeout')));
-        
-        xhr.open('PUT', url, true);
-        xhr.timeout = 600000;
-        xhr.send(file);
-    });
-}
-
-function showObjectDetail(bucket, key) {
-    showProgressBar();
-    
-    fetch(`/spider/${bucket}/${encodeURIComponent(key)}?ConnectionName=${connConfig}`, {
-        method: 'HEAD'
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        
-        const size = response.headers.get('Content-Length') || '0';
-        const lastModified = response.headers.get('Last-Modified') || '';
-        const etag = response.headers.get('ETag') || '';
-        const contentType = response.headers.get('Content-Type') || '';
-        
-        document.getElementById('object-detail-key').innerText = key;
-        const tbody = document.getElementById('object-detail-body');
-        tbody.innerHTML = `
-            <tr><th>Key</th><td>${key}</td></tr>
-            <tr><th>Size</th><td>${formatBytes(parseInt(size))}</td></tr>
-            <tr><th>Last Modified</th><td>${lastModified}</td></tr>
-            <tr><th>ETag</th><td>${etag}</td></tr>
-            <tr><th>ContentType</th><td>${contentType}</td></tr>
-            <tr><th>Actions</th><td>
-                <button onclick="downloadObject('${bucket}','${key}')">Download</button>
-                <button onclick="generatePresignedURL('${bucket}','${key}')">Share</button>
-            </td></tr>
-        `;
-        document.getElementById('object-detail-overlay').style.display = 'flex';
-        hideProgressBar();
-    })
-    .catch(e => { 
-        alert('Error: ' + e.message); 
-        hideProgressBar(); 
-    });
-}
-
-function hideObjectDetailOverlay() { 
-    document.getElementById('object-detail-overlay').style.display = 'none'; 
-}
-
-function downloadObjectVersion(bucket, key, versionId) {
-    if (versionId === null || versionId === undefined) {
-        alert('Cannot download: Version ID is null or undefined');
-        return;
-    }
-    
-    const cleanVersionId = String(versionId).trim();
-    
-    let downloadUrl;
-    if (cleanVersionId && cleanVersionId !== '' && cleanVersionId !== 'undefined') {
-        downloadUrl = `/spider/${bucket}/${encodeURIComponent(key)}?versionId=${encodeURIComponent(cleanVersionId)}&ConnectionName=${encodeURIComponent(connConfig)}`;
-    } else {
-        downloadUrl = `/spider/${bucket}/${encodeURIComponent(key)}?ConnectionName=${encodeURIComponent(connConfig)}`;
-    }
-    
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = key.split('/').pop() || key;
-    link.target = '_blank';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-
-function downloadObject(bucket, key) {
-    const url = `/spider/${bucket}/${encodeURIComponent(key)}?ConnectionName=${connConfig}`;
-    window.open(url, '_blank');
-}
-
-function showBucketSettings(bucketName) {
-    document.getElementById('settings-bucket-name').textContent = bucketName;
-    document.getElementById('bucket-settings-overlay').style.display = 'flex';
-    
-    loadBucketSettings(bucketName);
-}
-
-function hideBucketSettingsOverlay() {
-    document.getElementById('bucket-settings-overlay').style.display = 'none';
-}
-
-async function loadBucketSettings(bucketName) {
-    // Helper function to make silent requests
-    const silentFetch = async (url) => {
-        try {
-            const response = await fetch(url);
-            return response;
-        } catch (error) {
-            // Silently handle network errors
-            return { ok: false, status: 500 };
-        }
-    };
-
-    try {
-        // Load versioning status
-        try {
-            const versioningResponse = await silentFetch(`/spider/${bucketName}?versioning&ConnectionName=${connConfig}`);
-            
-            if (versioningResponse.ok) {
-                const versioningXml = await versioningResponse.text();
-                
-                const parser = new DOMParser();
-                const xmlDoc = parser.parseFromString(versioningXml, 'text/xml');
-                const status = xmlDoc.getElementsByTagName('Status')[0]?.textContent || 'Suspended';
-                
-                document.getElementById('versioning-status').textContent = status;
-            } else {
-                document.getElementById('versioning-status').textContent = 'Error loading status';
-            }
-        } catch (error) {
-            document.getElementById('versioning-status').textContent = 'Error';
-        }
-
-        // Load CORS status - handle 500 errors silently
-        try {
-            const corsResponse = await silentFetch(`/spider/${bucketName}?cors&ConnectionName=${connConfig}`);
-            if (corsResponse.ok) {
-                document.getElementById('cors-status').textContent = 'Configured';
-            } else {
-                // Any non-200 response (404, 500, etc.) means CORS is not configured
-                document.getElementById('cors-status').textContent = 'Not configured';
-            }
-        } catch (error) {
-            document.getElementById('cors-status').textContent = 'Not configured';
-        }
-
-        // Load ACL status
-        try {
-            const aclResponse = await silentFetch(`/spider/${bucketName}?acl&ConnectionName=${connConfig}`);
-            if (aclResponse.ok) {
-                const aclXml = await aclResponse.text();
-                const parser = new DOMParser();
-                const xmlDoc = parser.parseFromString(aclXml, 'text/xml');
-                const grants = xmlDoc.getElementsByTagName('Grant');
-                let isPublic = false;
-                for (let i = 0; i < grants.length; i++) {
-                    const uri = grants[i].getElementsByTagName('URI')[0]?.textContent;
-                    const permission = grants[i].getElementsByTagName('Permission')[0]?.textContent;
-                    if (uri && uri.includes('AllUsers') && permission === 'READ') {
-                        isPublic = true;
-                        break;
-                    }
-                }
-                document.getElementById('acl-status').textContent = isPublic ? 'Public Read' : 'Private';
-                document.getElementById('acl-select').value = isPublic ? 'public-read' : 'private';
-            } else {
-                document.getElementById('acl-status').textContent = 'Private';
-                document.getElementById('acl-select').value = 'private';
-            }
-        } catch (error) {
-            document.getElementById('acl-status').textContent = 'Private';
-            document.getElementById('acl-select').value = 'private';
-        }
-
-    } catch (error) {
-        // Fallback for any unexpected errors
-        document.getElementById('versioning-status').textContent = 'Error';
-        document.getElementById('cors-status').textContent = 'Error';
-        document.getElementById('acl-status').textContent = 'Error';
-    }
-}
-
-async function toggleVersioning() {
-    const bucketName = document.getElementById('settings-bucket-name').textContent;
-    const currentStatus = document.getElementById('versioning-status').textContent;
-    const newStatus = currentStatus === 'Enabled' ? 'Suspended' : 'Enabled';
-    
-    console.log(`Toggling versioning: ${currentStatus} -> ${newStatus}`);
-    
-    try {
-        const versioningXml = `<?xml version="1.0" encoding="UTF-8"?>
-<VersioningConfiguration>
-    <Status>${newStatus}</Status>
-</VersioningConfiguration>`;
-
-        const url = `/spider/${bucketName}?versioning&ConnectionName=${connConfig}`;
-        console.log(`Making PUT request to: ${url}`);
-        console.log(`Request body: ${versioningXml}`);
-
-        const response = await fetch(url, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/xml',
-                'X-Connection-Name': connConfig
-            },
-            body: versioningXml
-        });
-
-        console.log(`Response status: ${response.status} ${response.statusText}`);
-
-        if (response.ok) {
-            console.log('Versioning toggle successful, reloading status...');
-            setTimeout(() => {
-                loadBucketSettings(bucketName);
-            }, 1000);
-            
-            alert(`Versioning ${newStatus.toLowerCase()} successfully`);
-        } else {
-            const responseText = await response.text();
-            console.error(`Error response: ${responseText}`);
-            
-            if (responseText.includes('<Error>')) {
-                const parser = new DOMParser();
-                const xmlDoc = parser.parseFromString(responseText, 'text/xml');
-                const errorCode = xmlDoc.getElementsByTagName('Code')[0]?.textContent || 'Unknown';
-                const errorMessage = xmlDoc.getElementsByTagName('Message')[0]?.textContent || responseText;
-                throw new Error(`${errorCode}: ${errorMessage}`);
-            } else {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-        }
-    } catch (error) {
-        console.error('Toggle versioning error:', error);
-        alert('Error toggling versioning: ' + error.message);
-    }
-}
-
-async function enableCORS() {
-    const bucketName = document.getElementById('settings-bucket-name').textContent;
-    
-    try {
-        const corsXml = `<?xml version="1.0" encoding="UTF-8"?>
-<CORSConfiguration>
-    <CORSRule>
-        <AllowedOrigin>*</AllowedOrigin>
-        <AllowedMethod>GET</AllowedMethod>
-        <AllowedMethod>PUT</AllowedMethod>
-        <AllowedMethod>POST</AllowedMethod>
-        <AllowedMethod>DELETE</AllowedMethod>
-        <AllowedMethod>HEAD</AllowedMethod>
-        <AllowedHeader>*</AllowedHeader>
-        <ExposeHeader>ETag</ExposeHeader>
-        <ExposeHeader>x-amz-server-side-encryption</ExposeHeader>
-        <ExposeHeader>x-amz-request-id</ExposeHeader>
-        <ExposeHeader>x-amz-id-2</ExposeHeader>
-        <MaxAgeSeconds>3600</MaxAgeSeconds>
-    </CORSRule>
-</CORSConfiguration>`;
-
-        const response = await fetch(`/spider/${bucketName}?cors&ConnectionName=${connConfig}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/xml'
-            },
-            body: corsXml
-        });
-
-        if (response.ok) {
-            document.getElementById('cors-status').textContent = 'Configured';
-        } else {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-    } catch (error) {
-        alert('Error enabling CORS: ' + error.message);
-    }
-}
-
-async function deleteCORS() {
-    const bucketName = document.getElementById('settings-bucket-name').textContent;
-    
-    try {
-        const response = await fetch(`/spider/${bucketName}?cors&ConnectionName=${connConfig}`, {
-            method: 'DELETE'
-        });
-
-        if (response.ok) {
-            document.getElementById('cors-status').textContent = 'Not configured';
-        } else {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-    } catch (error) {
-        alert('Error deleting CORS: ' + error.message);
-    }
-}
-
-async function setACL() {
-    const bucketName = document.getElementById('settings-bucket-name').textContent;
-    const aclValue = document.getElementById('acl-select').value;
-    
-    try {
-        const response = await fetch(`/spider/${bucketName}?acl&ConnectionName=${connConfig}`, {
-            method: 'PUT',
-            headers: {
-                'x-amz-acl': aclValue,
-                'X-Connection-Name': connConfig
-            }
-        });
-
-        if (response.ok) {
-            document.getElementById('acl-status').textContent = aclValue === 'public-read' ? 'Public Read' : 'Private';
-        } else {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-    } catch (error) {
-        alert('Error setting ACL: ' + error.message);
-    }
-}
-
-function generatePresignedURL(bucket, key) {
-    document.getElementById('presigned-object-key').textContent = key;
-    document.getElementById('presigned-url-result').style.display = 'none';
-    document.getElementById('presigned-url-overlay').style.display = 'flex';
-    
-    window.currentPresignedContext = { bucket, key };
-}
-
-function hidePresignedURLOverlay() {
-    document.getElementById('presigned-url-overlay').style.display = 'none';
-    document.getElementById('presigned-url-result').style.display = 'none';
-}
-
-async function generatePresignedURLAction() {
-    const { bucket, key } = window.currentPresignedContext;
-    const hours = parseInt(document.getElementById('expiration-hours').value) || 1;
-    const method = document.getElementById('presigned-method').value;
-    const expiresSeconds = hours * 3600;
-
-    try {
-        const presignedURL = `/spider/${bucket}/${encodeURIComponent(key)}?ConnectionName=${connConfig}&expires=${Date.now() + (expiresSeconds * 1000)}`;
-        
-        document.getElementById('presigned-url-text').value = presignedURL;
-        document.getElementById('presigned-url-result').style.display = 'block';
-        
-    } catch (error) {
-        alert('Error generating presigned URL: ' + error.message);
-    }
-}
-
-function copyPresignedURL() {
-    const urlText = document.getElementById('presigned-url-text');
-    urlText.select();
-    urlText.setSelectionRange(0, 99999);
-    navigator.clipboard.writeText(urlText.value).then(() => {
-        alert('URL copied to clipboard!');
-    }).catch(() => {
-        alert('Failed to copy URL to clipboard');
-    });
-}
-
-function showObjectVersions() {
-    if (!currentBucket) {
-        console.error('No current bucket selected');
-        alert('Please select a bucket first');
-        return;
-    }
-    
-    console.log(`Opening object versions for bucket: ${currentBucket}`);
-    document.getElementById('versions-bucket-name').textContent = currentBucket;
-    document.getElementById('object-versions-overlay').style.display = 'flex';
-    
-    loadObjectVersionsWithActions(currentBucket);
-}
-
-function hideObjectVersionsOverlay() {
-    document.getElementById('object-versions-overlay').style.display = 'none';
-}
-
-async function loadObjectVersionsWithActions(bucketName) {
-    try {
-        const url = `/spider/${bucketName}?versions&ConnectionName=${connConfig}`;
-        
-        const response = await fetch(url);
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const xmlData = await response.text();
-        
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(xmlData, 'text/xml');
-        
-        const parseError = xmlDoc.getElementsByTagName('parsererror')[0];
-        if (parseError) {
-            throw new Error('Failed to parse XML response');
-        }
-        
-        const listVersionsResult = xmlDoc.getElementsByTagName('ListVersionsResult')[0];
-        if (!listVersionsResult) {
-            throw new Error('Invalid XML response format - no ListVersionsResult');
-        }
-        
-        const versions = xmlDoc.getElementsByTagName('Version');
-        const deleteMarkers = xmlDoc.getElementsByTagName('DeleteMarker');
-        
-        const tbody = document.getElementById('object-versions-body');
-        tbody.innerHTML = '';
-
-        let hasVersions = false;
-
-        for (let i = 0; i < versions.length; i++) {
-            const version = versions[i];
-            const key = version.getElementsByTagName('Key')[0]?.textContent || '';
-            const versionId = version.getElementsByTagName('VersionId')[0]?.textContent || '';
-            const size = parseInt(version.getElementsByTagName('Size')[0]?.textContent || '0');
-            const lastModified = version.getElementsByTagName('LastModified')[0]?.textContent || '';
-            const isLatest = version.getElementsByTagName('IsLatest')[0]?.textContent === 'true';
-
-            hasVersions = true;
-            
-            const keyDisplay = size > 0 ? 
-                `<span style="cursor:pointer; color: #0066cc; text-decoration: underline;" onclick="downloadObjectVersion('${bucketName}', '${key.replace(/'/g, "\\'")}', '${versionId}')">${key}</span>` : 
-                key;
-            
-            tbody.innerHTML += `
-                <tr>
-                    <td>${keyDisplay}</td>
-                    <td>${versionId}</td>
-                    <td>${formatBytes(size)}</td>
-                    <td>${formatTime(lastModified)}</td>
-                    <td>${isLatest ? 'Yes' : 'No'}</td>
-                    <td>
-                        ${size > 0 ? `<button onclick="downloadObjectVersion('${bucketName}', '${key.replace(/'/g, "\\'")}', '${versionId}')" 
-                                               style="background: #17a2b8; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; margin-right: 5px;">
-                                          Download
-                                      </button>` : ''}
-                        <button onclick="deleteObjectVersion('${bucketName}', '${key.replace(/'/g, "\\'")}', '${versionId}')" 
-                                style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">
-                            Delete
-                        </button>
-                    </td>
-                </tr>
-            `;
-        }
-
-        for (let i = 0; i < deleteMarkers.length; i++) {
-            const marker = deleteMarkers[i];
-            const key = marker.getElementsByTagName('Key')[0]?.textContent || '';
-            const versionId = marker.getElementsByTagName('VersionId')[0]?.textContent || '';
-            const lastModified = marker.getElementsByTagName('LastModified')[0]?.textContent || '';
-            const isLatest = marker.getElementsByTagName('IsLatest')[0]?.textContent === 'true';
-
-            const versionIdElement = marker.getElementsByTagName('VersionId')[0];
-            let actualVersionId = versionId;
-            
-            if (versionIdElement) {
-                actualVersionId = versionIdElement.textContent || versionIdElement.innerHTML || '';
-            }
-
-            hasVersions = true;
-            
-            const displayVersionId = actualVersionId || 'null';
-            
-            tbody.innerHTML += `
-                <tr style="background-color: #ffe6e6;">
-                    <td>${key} (DELETE MARKER)</td>
-                    <td>${displayVersionId}</td>
-                    <td>-</td>
-                    <td>${formatTime(lastModified)}</td>
-                    <td>${isLatest ? 'Yes' : 'No'}</td>
-                    <td>
-                        <button onclick="deleteObjectVersion('${bucketName}', '${key.replace(/'/g, "\\'")}', '${actualVersionId}')" 
-                                style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">
-                            Delete
-                        </button>
-                    </td>
-                </tr>
-            `;
-        }
-
-        if (!hasVersions) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 20px;">No versions found</td></tr>';
-        }
-
-    } catch (error) {
-        const tbody = document.getElementById('object-versions-body');
-        tbody.innerHTML = 
-            `<tr><td colspan="6" style="text-align: center; padding: 20px; color: red;">
-                Error loading versions: ${error.message}
-                <br><br>
-                <button onclick="loadObjectVersionsWithActions('${bucketName}')" style="margin-top: 10px;">Retry</button>
-            </td></tr>`;
-        alert('Error loading object versions: ' + error.message);
-    }
-}
-
 function searchKeyword() {
     const filter = document.getElementById('searchInput').value.trim().toUpperCase();
     highlightRows(document.getElementById('bucket-table'), filter);
@@ -1680,7 +1675,8 @@ function toggleSelectAll(source, mode) {
 function formatTime(iso) {
     if (!iso) return '';
     const d = new Date(iso);
-    return `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2,'0')}-${d.getDate().toString().padStart(2,'0')} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+    const koreaTime = new Date(d.getTime() + (9 * 60 * 60 * 1000));
+    return `${koreaTime.getUTCFullYear()}-${(koreaTime.getUTCMonth()+1).toString().padStart(2,'0')}-${koreaTime.getUTCDate().toString().padStart(2,'0')} ${koreaTime.getUTCHours().toString().padStart(2,'0')}:${koreaTime.getUTCMinutes().toString().padStart(2,'0')}:${koreaTime.getUTCSeconds().toString().padStart(2,'0')} KST`;
 }
 
 function formatBytes(bytes) {
@@ -1694,7 +1690,29 @@ function formatBytes(bytes) {
     return gb.toFixed(1)+' GB';
 }
 
-document.addEventListener('DOMContentLoaded', () => {});
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('S3 Manager loaded successfully');
+    
+    const utcTimeCells = document.querySelectorAll('[data-utc-time]');
+    utcTimeCells.forEach(cell => {
+        const utcTime = cell.getAttribute('data-utc-time');
+        if (utcTime) {
+            const formattedTime = formatTime(utcTime);
+            cell.textContent = formattedTime;
+        }
+    });
+    
+    const bucketRows = document.querySelectorAll('#bucket-list-body tr');
+    if (bucketRows.length > 0) {
+        const firstBucketCell = bucketRows[0].querySelector('.bucket-name-cell span');
+        if (firstBucketCell) {
+            const bucketName = firstBucketCell.textContent.trim();
+            if (bucketName) {
+                showObjectPanel(bucketName);
+            }
+        }
+    }
+});
 </script>
 </body>
 </html>

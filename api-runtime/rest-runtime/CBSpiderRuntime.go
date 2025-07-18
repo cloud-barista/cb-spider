@@ -575,7 +575,7 @@ func RunServer() {
 		{"GET", "/", ListS3Buckets},
 
 		// Bucket-level operations (with query parameters)
-		{"GET", "/:Name", GetS3Bucket}, // Handles ?versioning, ?cors, ?acl, ?policy, ?location, ?versions, and list objects
+		{"GET", "/:Name", GetS3Bucket}, // Handles ?versioning, ?cors, ?policy, ?location, ?versions, and list objects
 		{"GET", "/:Name/", GetS3Bucket},
 		{"HEAD", "/:Name", GetS3Bucket},
 		{"PUT", "/:Name", CreateS3Bucket}, // Handles bucket creation AND bucket config (redirects to GetS3Bucket)

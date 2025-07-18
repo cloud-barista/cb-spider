@@ -22,9 +22,11 @@ import (
 )
 
 type S3BucketInfo struct {
-	Name         string `json:"Name"`
-	BucketRegion string `json:"BucketRegion,omitempty"`
-	CreationDate string `json:"CreationDate"`
+	Name             string `json:"Name"`
+	BucketRegion     string `json:"BucketRegion,omitempty"`
+	CreationDate     string `json:"CreationDate"`
+	VersioningStatus string `json:"VersioningStatus"`
+	CORSStatus       string `json:"CORSStatus"`
 }
 type S3ObjectInfo struct {
 	ETag         string `json:"ETag"`
@@ -38,21 +40,26 @@ func S3Management(c echo.Context) error {
 	connConfig := c.Param("ConnectConfig")
 	if connConfig == "region not set" {
 		htmlStr := `
-			<html>
-			<head>
-			    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-				<style>
-				th { border: 1px solid lightgray; }
-				td { border: 1px solid lightgray; border-radius: 4px; }
-				</style>
-			    <script type="text/javascript"> alert(connConfig) </script>
-			</head>
-			<body>
-				<br><br>
-				<label style="font-size:24px;color:#606262;">&nbsp;&nbsp;&nbsp;Please select a Connection Configuration! (MENU: 2.CONNECTION)</label>
-			</body>
-		`
+            <html>
+            <head>
+                <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+                <style>
+                th { border: 1px solid lightgray; }
+                td { border: 1px solid lightgray; border-radius: 4px; }
+                </style>
+                <script type="text/javascript"> alert(connConfig) </script>
+            </head>
+            <body>
+                <br><br>
+                <label style="font-size:24px;color:#606262;">&nbsp;&nbsp;&nbsp;Please select a Connection Configuration! (MENU: 2.CONNECTION)</label>
+            </body>
+        `
 		return c.HTML(http.StatusOK, htmlStr)
+	}
+
+	regionName, err := getRegionName(connConfig)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
 	buckets, err := fetchS3Buckets(connConfig)
@@ -62,9 +69,11 @@ func S3Management(c echo.Context) error {
 
 	data := struct {
 		ConnectionConfig string
+		RegionName       string
 		Buckets          []S3BucketInfo
 	}{
 		ConnectionConfig: connConfig,
+		RegionName:       regionName,
 		Buckets:          buckets,
 	}
 
@@ -76,7 +85,6 @@ func S3Management(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Error loading template: " + err.Error()})
 	}
 	return tmpl.Execute(c.Response().Writer, data)
-
 }
 
 func fetchS3Buckets(connConfig string) ([]S3BucketInfo, error) {
@@ -133,15 +141,85 @@ func fetchS3Buckets(connConfig string) ([]S3BucketInfo, error) {
 
 	var result []S3BucketInfo
 	for _, bucket := range xmlResult.Buckets.Bucket {
+		versioningStatus := fetchVersioningStatus(connConfig, bucket.Name)
+		corsStatus := fetchCORSStatus(connConfig, bucket.Name)
 		result = append(result, S3BucketInfo{
-			Name:         bucket.Name,
-			CreationDate: bucket.CreationDate,
-			BucketRegion: "", // Region info not available in standard S3 list buckets response
+			Name:             bucket.Name,
+			CreationDate:     bucket.CreationDate,
+			BucketRegion:     "", // Region info not available in standard S3 list buckets response
+			VersioningStatus: versioningStatus,
+			CORSStatus:       corsStatus,
 		})
 	}
 
 	sort.Slice(result, func(i, j int) bool { return result[i].Name < result[j].Name })
 	return result, nil
+}
+
+func fetchVersioningStatus(connConfig, bucketName string) string {
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:1024/%s?versioning", bucketName), nil)
+	if err != nil {
+		return "Error"
+	}
+
+	q := req.URL.Query()
+	q.Add("ConnectionName", connConfig)
+	req.URL.RawQuery = q.Encode()
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "Error"
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "Suspended"
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "Error"
+	}
+
+	type VersioningConfiguration struct {
+		Status string `xml:"Status"`
+	}
+
+	var versioningConfig VersioningConfiguration
+	if err := xml.Unmarshal(body, &versioningConfig); err != nil {
+		return "Error"
+	}
+
+	if versioningConfig.Status == "" {
+		return "Suspended"
+	}
+
+	return versioningConfig.Status
+}
+
+func fetchCORSStatus(connConfig, bucketName string) string {
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:1024/%s?cors", bucketName), nil)
+	if err != nil {
+		return "Not configured"
+	}
+
+	q := req.URL.Query()
+	q.Add("ConnectionName", connConfig)
+	req.URL.RawQuery = q.Encode()
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "Not configured"
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "Not configured"
+	}
+
+	return "Configured"
 }
 
 func min(a, b int) int {
