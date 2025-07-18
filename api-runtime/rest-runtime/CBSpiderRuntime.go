@@ -170,9 +170,7 @@ func RunServer() {
 		{"GET", "/", aw.SpiderInfo},
 
 		//----------Swagger
-		{"GET", "/api", func(c echo.Context) error {
-			return c.Redirect(http.StatusMovedPermanently, "/spider/api/")
-		}},
+		{"GET", "/api", echoSwagger.EchoWrapHandler(echoSwagger.DocExpansion("none"))},
 		{"GET", "/api/", echoSwagger.EchoWrapHandler(echoSwagger.DocExpansion("none"))},
 		{"GET", "/api/*", echoSwagger.EchoWrapHandler(echoSwagger.DocExpansion("none"))},
 
@@ -932,6 +930,30 @@ func healthCheckPing(c echo.Context) error {
 // @Router /readyz [get]
 func healthCheckReadyz(c echo.Context) error {
 	return healthCheck(c)
+}
+
+func customRemoveTrailingSlash() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			req := c.Request()
+			url := req.URL
+			path := url.Path
+
+			if strings.HasPrefix(path, "/spider/api") {
+				return next(c)
+			}
+
+			if len(path) > 1 && strings.HasSuffix(path, "/") {
+				redirectPath := path[:len(path)-1]
+				if url.RawQuery != "" {
+					redirectPath += "?" + url.RawQuery
+				}
+				return c.Redirect(http.StatusMovedPermanently, redirectPath)
+			}
+
+			return next(c)
+		}
+	}
 }
 
 // Common health check logic

@@ -15,7 +15,7 @@
     .fixed-action-buttons { display: flex; align-items: center; }
     .fixed-action-buttons button { margin-left: 10px; }
     .header-with-progress { display: flex; align-items: center; margin-bottom: 0px; }
-    .progress-bar-container { width: 600px; margin-left: 10px; margin-bottom: 10px; height: 22px; background: #f0f5ff; border-radius: 4px; overflow: hidden; display: none; position: relative; z-index: 2000; }
+    .progress-bar-container { width: 600px; margin-left: 10px; margin-bottom: 0px; margin-top: 10px; height: 22px; background: #f0f5ff; border-radius: 4px; overflow: hidden; display: none; position: relative; z-index: 2000; }
     .progress-bar { width: 0; height: 100%; background: #cce6ff; border-radius: 4px; transition: width 2s ease; }
     #timeDisplay { position: absolute; top: 50%; right: 10px; transform: translateY(-50%); font-size: 14px; color: #333; z-index: 30; }
     .add-button { font-size: 14px; font-weight: bold; margin-left: 1px; margin-right: 5px; margin-bottom: 10px; margin-top: 20px; }
@@ -165,14 +165,14 @@
     <div class="content">
         <div class="header-with-progress">
             <button onclick="showBucketCreateOverlay()" class="add-button">+ Bucket</button>
+            <div class="progress-bar-container" id="progressBarContainer">
+                <div class="progress-bar" id="progressBar"></div>
+                <span id="timeDisplay"></span>
+            </div>
             <div style="flex: 1;"></div>
             <div class="fixed-action-buttons">
                 <input type="checkbox" onclick="toggleSelectAll(this, 'bucket')">
                 <button onclick="deleteSelectedBuckets()" style="margin-left: 10px;">Delete</button>
-            </div>
-            <div class="progress-bar-container" id="progressBarContainer">
-                <div class="progress-bar" id="progressBar"></div>
-                <span id="timeDisplay"></span>
             </div>
         </div>
 
