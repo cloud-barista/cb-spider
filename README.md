@@ -15,12 +15,12 @@
 
 ```
 [NOTE]
-CB-Spider is currently under development. (not v1.0 yet)
-We welcome any new suggestions, issues, opinions, and contributors !
-Please note that the functionalities of Cloud-Barista are not stable and secure yet.
-Be careful if you plan to use the current release in production.
-If you have any difficulties in using Cloud-Barista, please let us know.
-(Open an issue or Join the Cloud-Barista Slack)
+CB-Spider is currently under development and has not yet reached version 1.0.
+We welcome suggestions, issues, feedback, and contributions!
+Please be aware that the functionalities of Cloud-Barista are not yet stable or secure.
+Exercise caution if you plan to use the current release in a production environment.
+If you encounter any difficulties while using Cloud-Barista, please let us know.
+(You can open an issue or join the Cloud-Barista Slack community.)
 ```
 ***
 ### ▶ **[Quick Guide](https://github.com/cloud-barista/cb-spider/wiki/Quick-Start-Guide)**
@@ -65,21 +65,16 @@ If you have any difficulties in using Cloud-Barista, please let us know.
 | Tencent       | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O           | WIP        |
 | IBM VPC       | O             | O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | WIP        | O        |
 | OpenStack     | NA             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | ?           | WIP        |
-| NCP Classic   | -            | O                   | O             | O              | O<br>(Type1)       | O<br>(Note1)     | O               | O              | O    | O   | O       | NA           | -        |
 | NCP VPC       | O            | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | WIP           | O        |
-| NHN           | NA             | O                   | O             | O              | O<br>(Type2)       | O                 | O               | O<br>(Note2)   | O    | O    | O     | O           | O        |
-| KT Classic    | NA             | O                   | O             | O              | O<br>(Type1)       | O                 | O               | O              | O    | O   | O       | NA          | -        |
-| KT VPC        | NA             | O                   | O             | O              | O<br>(Type3)       | O                 | O               | O              | O    | O   | O<br>(Note3)| Wait API  | O        |
+| NHN           | NA             | O                   | O             | O              | O<br>(Type1)       | O                 | O               | O<br>(Note2)   | O    | O    | O     | O           | O        |
+| KT VPC        | NA             | O                   | O             | O              | O<br>(Type2)       | O                 | O               | O              | O    | O   | O<br>(Note3)| Wait API  | O        |
+| KT Classic    | NA             | O                   | O             | O              | O<br>(Type3)       | O                 | O               | O              | O    | O   | O       | NA          | -        |
+| NCP Classic   | -            | O                   | O             | O              | O<br>(Type3)       | O<br>(Note1)     | O               | O              | O    | O   | O       | NA           | -        |
 
     ※ WIP: Work In Progress, NA: Not Applicable, Wait API: CSP API 공개 대기, ?: 미정/분석필요, -: 연동 제외 Classic 자원
     
     ※ VPC 특이사항(세부 내용: 각 드라이버 Readme 참고)
-        ◉ Type1: VPC/Subnet Emulation
-          - CSP: VPC 개념 제공하지 않음
-          - CB-Spider: API 추상화를 위한 단일 VPC/Subnet 생성 제공 (두개 이상 VPC/Subnet 생성 불가)
-          - CIDR: 제공하지 않음(설정 무의미)
-          
-        ◉ Type2: Console에서 사전 생성 후 등록 활용
+        ◉ Type1: Console에서 사전 생성 후 등록 활용
           - CSP(NHN) IG(Internet Gateway) 제어 API 부재(추후 제공 예정)
           - 사전 작업: Console에서 VPC 사전 생성 및 IG(Internet Gateway) 맵핑 필요(#1109 참고)
           - CB-Spider: Register/UnRegister API 활용
@@ -89,11 +84,17 @@ If you have any difficulties in using Cloud-Barista, please let us know.
                   "ConnectionName": "'${CONN_CONFIG}'", 
                   "ReqInfo": { "Name": "'${VPC_NAME}'", "CSPId": "'${VPC_CSPID}'"} 
                 }'
-
-        ◉ Type3: default VPC 활용 (KT VPC)
+          
+        ◉ Type2: default VPC 활용 (KT VPC)
           - CSP: 생성 제공 없이 고정된 default VPC 1개만 제공
           - CB-Spider: API 추상화를 위한 단일 VPC 생성만 제공 (이름 등록 수준)
             - 두개 이상 VPC 생성 불가, Subnet은 추가/삭제 가능
+
+        ◉ Type3: VPC/Subnet Emulation
+          - CSP: VPC 개념 제공하지 않음
+          - CB-Spider: API 추상화를 위한 단일 VPC/Subnet 생성 제공 (두개 이상 VPC/Subnet 생성 불가)
+          - CIDR: 제공하지 않음(설정 무의미)
+
 
     ※ Security Group 특이사항(세부 내용: 각 드라이버 Readme 참고)
         ◉ Note1: Console에서 사전 생성 후 등록 활용
