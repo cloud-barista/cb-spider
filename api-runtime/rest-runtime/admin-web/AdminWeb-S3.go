@@ -108,11 +108,6 @@ func fetchS3Buckets(connConfig string) ([]S3BucketInfo, error) {
 
 	body, _ := ioutil.ReadAll(resp.Body)
 
-	// Debug: print response to understand what we're getting
-	fmt.Printf("Response status: %d\n", resp.StatusCode)
-	fmt.Printf("Response Content-Type: %s\n", resp.Header.Get("Content-Type"))
-	fmt.Printf("Response body preview: %s\n", string(body[:min(len(body), 200)]))
-
 	// Check if response is XML (should start with <?xml or <ListAllMyBucketsResult)
 	bodyStr := string(body)
 	if !strings.HasPrefix(bodyStr, "<?xml") && !strings.HasPrefix(bodyStr, "<ListAllMyBucketsResult") {
