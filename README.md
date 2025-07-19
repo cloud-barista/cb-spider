@@ -15,12 +15,12 @@
 
 ```
 [NOTE]
-CB-Spider is currently under development. (not v1.0 yet)
-We welcome any new suggestions, issues, opinions, and contributors !
-Please note that the functionalities of Cloud-Barista are not stable and secure yet.
-Be careful if you plan to use the current release in production.
-If you have any difficulties in using Cloud-Barista, please let us know.
-(Open an issue or Join the Cloud-Barista Slack)
+CB-Spider is currently under development and has not yet reached version 1.0.
+We welcome suggestions, issues, feedback, and contributions!
+Please be aware that the functionalities of Cloud-Barista are not yet stable or secure.
+Exercise caution if you plan to use the current release in a production environment.
+If you encounter any difficulties while using Cloud-Barista, please let us know.
+(You can open an issue or join the Cloud-Barista Slack community.)
 ```
 ***
 ### ▶ **[Quick Guide](https://github.com/cloud-barista/cb-spider/wiki/Quick-Start-Guide)**
