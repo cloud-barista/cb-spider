@@ -627,7 +627,7 @@ func (diskHandler *NcpVpcDiskHandler) waitForDiskCreation(diskIID irs.IID) (irs.
 			cblogger.Infof("Succeeded in Getting the Disk Status : [%s]", string(curStatus))
 		}
 
-		cblogger.Infof("===> Disk Status : [%s]", string(curStatus))
+		cblogger.Infof("==> Disk Status : [%s]", string(curStatus))
 
 		switch string(curStatus) {
 		case "Creating":
@@ -661,7 +661,7 @@ func (diskHandler *NcpVpcDiskHandler) waitForDiskAttachment(diskIID irs.IID) (ir
 			cblogger.Infof("Succeeded in Getting the Disk Status : [%s]", curStatus)
 		}
 
-		cblogger.Infof("===> Disk Status : [%s]", string(curStatus))
+		cblogger.Infof("==> Disk Status : [%s]", string(curStatus))
 
 		switch string(curStatus) {
 		case string(irs.DiskCreating), string(irs.DiskAvailable), string(irs.DiskDeleting), string(irs.DiskError), "Unknown" :
@@ -695,7 +695,7 @@ func (diskHandler *NcpVpcDiskHandler) waitForDiskDetachment(diskIID irs.IID) (ir
 			cblogger.Infof("Succeeded in Getting the Disk Status : [%s]", curStatus)
 		}
 
-		cblogger.Infof("===> Disk Status : [%s]", string(curStatus))
+		cblogger.Infof("==> Disk Status : [%s]", string(curStatus))
 
 		switch string(curStatus) {
 		case string(irs.DiskCreating), string(irs.DiskAttached), string(irs.DiskDeleting), string(irs.DiskError), "Detaching", "Unknown" :
@@ -716,7 +716,7 @@ func (diskHandler *NcpVpcDiskHandler) waitForDiskDetachment(diskIID irs.IID) (ir
 }
 
 func (diskHandler *NcpVpcDiskHandler) GetDiskStatus(diskIID irs.IID) (irs.DiskStatus, error) {
-	cblogger.Info("NHN Cloud Driver: called GetDiskStatus()")
+	cblogger.Info("NCP VPC Cloud Driver: called GetDiskStatus()")
 
 	if strings.EqualFold(diskIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid Disk SystemId!!")
@@ -833,7 +833,7 @@ func convertDiskStatus(diskStatus string) irs.DiskStatus {
 }
 
 func (diskHandler *NcpVpcDiskHandler) getNcpVMList() ([]*vserver.ServerInstance, error) {
-	cblogger.Info("Ncp VPC Cloud Driver: called getNcpVMList()")
+	cblogger.Info("NCP VPC Cloud Driver: called getNcpVMList()")
 
 	callLogInfo := GetCallLogScheme(diskHandler.RegionInfo.Region, call.DISK, "getNcpVMList()", "getNcpVMList()")
 
