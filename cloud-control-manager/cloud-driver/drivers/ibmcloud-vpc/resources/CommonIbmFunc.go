@@ -65,6 +65,8 @@ func addTag(tagService *globaltaggingv1.GlobalTaggingV1, tag irs.KeyValue, CRN s
 	return attachOrDetachTag(tagService, tag, CRN, "add")
 }
 
+const IBMFileSystemSGTagKey = "cb-spider-filesystem-vpc"
+
 func deleteUnusedTags(tagService *globaltaggingv1.GlobalTaggingV1) {
 	// It only cleans unused tags in IBM cloud user account.
 	// Not needed for checking errors and just wait for a long time for the resource deletion to complete.
