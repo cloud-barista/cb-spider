@@ -9,7 +9,6 @@ import (
 
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
-	vpc0230 "github.com/IBM/vpc-go-sdk/0.23.0/vpcv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/connect"
 	ibms "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/resources"
@@ -45,7 +44,8 @@ func (IbmCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.DiskHandler = true
 	drvCapabilityInfo.MyImageHandler = true
 	drvCapabilityInfo.NLBHandler = true
-	drvCapabilityInfo.ClusterHandler = false
+	drvCapabilityInfo.ClusterHandler = true
+	drvCapabilityInfo.FileSystemHandler = true
 
 	drvCapabilityInfo.TagHandler = true
 	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER}
@@ -97,15 +97,6 @@ func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (
 	if err != nil {
 		return nil, err
 	}
-	vpcService0230, err := vpc0230.NewVpcV1(&vpc0230.VpcV1Options{
-		Authenticator: &core.IamAuthenticator{
-			ApiKey: connectionInfo.CredentialInfo.ApiKey,
-		},
-		URL: endPoint,
-	})
-	if err != nil {
-		return nil, err
-	}
 	clusterService, err := kubernetesserviceapiv1.NewKubernetesServiceApiV1(&kubernetesserviceapiv1.KubernetesServiceApiV1Options{
 		Authenticator: &core.IamAuthenticator{
 			ApiKey: connectionInfo.CredentialInfo.ApiKey,
@@ -135,7 +126,6 @@ func (driver *IbmCloudDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (
 		CredentialInfo: connectionInfo.CredentialInfo,
 		Region:         connectionInfo.RegionInfo,
 		VpcService:     vpcService,
-		VpcService0230: vpcService0230,
 		ClusterService: clusterService,
 		TaggingService: taggingService,
 		SearchService:  searchService,
