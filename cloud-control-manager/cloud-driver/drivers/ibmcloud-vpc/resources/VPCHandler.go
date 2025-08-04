@@ -105,12 +105,7 @@ func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 		}
 	}
 
-	zoneSeen := make(map[string]bool)
 	for _, si := range vpcReqInfo.SubnetInfoList {
-		if zoneSeen[si.Zone] {
-			continue
-		}
-		zoneSeen[si.Zone] = true
 
 		opt := &vpcv1.CreateVPCAddressPrefixOptions{}
 		opt.SetVPCID(newVpcIId.SystemId)
