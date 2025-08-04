@@ -48,6 +48,7 @@ func (OpenStackDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.MyImageHandler = true
 	drvCapabilityInfo.NLBHandler = true
 	drvCapabilityInfo.ClusterHandler = false
+	drvCapabilityInfo.FileSystemHandler = true
 
 	drvCapabilityInfo.TagHandler = true
 	// ires.KEY, ires.DISK, ires.MYIMAGE, ires.CLUSTER: not supported
@@ -160,6 +161,13 @@ func clientCreator(connInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	}
 
 	iConn.ComputeClient, err = openstack.NewComputeV2(provider, gophercloud.EndpointOpts{
+		Region: connInfo.RegionInfo.Region,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	iConn.SharedFileSystemClient, err = openstack.NewSharedFileSystemV2(provider, gophercloud.EndpointOpts{
 		Region: connInfo.RegionInfo.Region,
 	})
 	if err != nil {
