@@ -105,25 +105,28 @@ func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 		}
 	}
 
-	// createVPCAddressPrefix
-	createVPCAddressPrefixOptions := &vpcv1.CreateVPCAddressPrefixOptions{}
-	createVPCAddressPrefixOptions.SetVPCID(newVpcIId.SystemId)
-	createVPCAddressPrefixOptions.SetCIDR(vpcReqInfo.IPv4_CIDR)
-	createVPCAddressPrefixOptions.SetName(newVpcIId.NameId)
-	createVPCAddressPrefixOptions.SetZone(&vpcv1.ZoneIdentity{
-		Name: core.StringPtr(vpcReqInfo.SubnetInfoList[0].Zone),
-	})
-	_, _, err = vpcHandler.VpcService.CreateVPCAddressPrefixWithContext(vpcHandler.Ctx, createVPCAddressPrefixOptions)
-	// createVPCAddressPrefix error
-	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Create VPC err = %s", err.Error()))
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		_, delErr := vpcHandler.DeleteVPC(newVpcIId)
-		if delErr != nil {
-			createErr = errors.New(err.Error() + delErr.Error())
+	zoneSeen := make(map[string]bool)
+	for _, si := range vpcReqInfo.SubnetInfoList {
+		if zoneSeen[si.Zone] {
+			continue
 		}
-		return irs.VPCInfo{}, createErr
+		zoneSeen[si.Zone] = true
+
+		opt := &vpcv1.CreateVPCAddressPrefixOptions{}
+		opt.SetVPCID(newVpcIId.SystemId)
+		opt.SetCIDR(vpcReqInfo.IPv4_CIDR)
+		opt.SetName(fmt.Sprintf("%s-%s-prefix", newVpcIId.NameId, si.Zone))
+		opt.SetZone(&vpcv1.ZoneIdentity{Name: core.StringPtr(si.Zone)})
+
+		_, _, err := vpcHandler.VpcService.
+			CreateVPCAddressPrefixWithContext(vpcHandler.Ctx, opt)
+		if err != nil {
+			_, _ = vpcHandler.DeleteVPC(newVpcIId)
+			createErr := fmt.Errorf("Failed to create Address Prefix in zone %s: %w", si.Zone, err)
+			cblogger.Error(createErr.Error())
+			LoggingError(hiscallInfo, createErr)
+			return irs.VPCInfo{}, createErr
+		}
 	}
 
 	if vpcReqInfo.SubnetInfoList != nil && len(vpcReqInfo.SubnetInfoList) > 0 {
@@ -389,6 +392,7 @@ func (vpcHandler *IbmVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 func (vpcHandler *IbmVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
 	hiscallInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, subnetInfo.IId.NameId, "AddSubnet()")
 	start := call.Start()
+
 	vpc, err := GetRawVPC(vpcIID, vpcHandler.VpcService, vpcHandler.Ctx)
 	if err != nil {
 		addSubnetErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err.Error()))
@@ -396,6 +400,11 @@ func (vpcHandler *IbmVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Subnet
 		LoggingError(hiscallInfo, addSubnetErr)
 		return irs.VPCInfo{}, addSubnetErr
 	}
+
+	if subnetInfo.Zone == "" {
+		subnetInfo.Zone = vpcHandler.Region.Zone
+	}
+
 	err = attachSubnet(vpc, subnetInfo, vpcHandler.VpcService, vpcHandler.Ctx)
 	if err != nil {
 		addSubnetErr := errors.New(fmt.Sprintf("Failed to Add Subnet err = %s", err.Error()))
