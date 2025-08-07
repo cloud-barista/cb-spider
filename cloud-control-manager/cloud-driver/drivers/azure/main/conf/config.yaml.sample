@@ -78,9 +78,8 @@ azure:
         nameId:
     file:
       IID:
-        nameId: mcb-test-file
+        nameId: test-create-2
       VpcIID:
         nameId:  mcb-test-vpc
       AccessSubnetIIDs:
         - nameId: mcb-test-sub-1
-        - nameId: mcb-test-sub-2
