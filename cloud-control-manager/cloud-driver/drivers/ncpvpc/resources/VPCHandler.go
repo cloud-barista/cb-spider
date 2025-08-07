@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
 	// "github.com/davecgh/go-spew/spew"
 	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vpc"
 
@@ -273,7 +272,6 @@ func (vpcHandler *NcpVpcVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
 	}
-	cblogger.Infof("VPC NameId to Delete [%s]", vpcInfo.IId.NameId)
 
 	// Get SubnetList to Delete
 	subnetInfoList, err := vpcHandler.ListSubnet(&vpcIID.SystemId)
@@ -294,7 +292,7 @@ func (vpcHandler *NcpVpcVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 		}
 
 		callLogStart := call.Start()
-		delResult, err := vpcHandler.VPCClient.V2Api.DeleteSubnet(&delReq)
+		_, err := vpcHandler.VPCClient.V2Api.DeleteSubnet(&delReq)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Remove the Subnet with the SystemId : [%s] : [%v]", subnet.IId.SystemId, err)
 			cblogger.Error(newErr.Error())
@@ -302,42 +300,42 @@ func (vpcHandler *NcpVpcVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 			return false, newErr
 		}
 		LoggingInfo(callLogInfo, callLogStart)
-
-		cblogger.Infof("Removed Subnet Name : [%s]", *delResult.SubnetList[0].SubnetName)
+		cblogger.Infof("# That subnet [%s] is being removed.", subnet.IId.SystemId)
 
 		lastSubnetNo = subnet.IId.SystemId
 	}
-
 	lastSubentIID := irs.IID{SystemId: lastSubnetNo}
 
 	cblogger.Infof("# Waitting while Deleting All Subnets belonging to the VPC!!")
-	subnetStatus, err := vpcHandler.waitForDeleteSubnet(vpcIID.SystemId, lastSubentIID)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Wait for Subnet Deletion : [%v]", err)
-		cblogger.Debug(newErr.Error()) // For Termination Completion of a Subnet
-		LoggingError(callLogInfo, newErr)
-		// return false, newErr
+	_, delErr := vpcHandler.waitForDeleteSubnet(vpcIID.SystemId, lastSubentIID)
+	if delErr != nil {
+		if strings.Contains(delErr.Error(), "Failed to Get any Subnet Info") {
+			cblogger.Debug(delErr.Error()) // For Termination Completion of a Subnet
+			// return false, err
+		} else {
+			newErr := fmt.Errorf("Failed to Wait for Subnet Deletion : [%v]", err)
+			cblogger.Error(newErr.Error())
+			return false, newErr
+		}
 	}
 
-	cblogger.Infof("===> # Status of Subnet [%s] : [%s]", lastSubentIID.SystemId, subnetStatus)
-
 	// Delete the VPC
+	cblogger.Infof("# Start to Delete the VPC!! : [%s]", vpcInfo.IId.NameId)
 	delReq := vpc.DeleteVpcRequest{
 		RegionCode: &vpcHandler.RegionInfo.Region,
 		VpcNo:      &vpcIID.SystemId,
 	}
-
 	callLogStart := call.Start()
-	delResult, err := vpcHandler.VPCClient.V2Api.DeleteVpc(&delReq)
+	_, delVpcErr := vpcHandler.VPCClient.V2Api.DeleteVpc(&delReq)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Delete the VPC with the SystemId : [%s] : [%v]", vpcIID.SystemId, err)
+		newErr := fmt.Errorf("Failed to Delete the VPC with the SystemId : [%s] : [%v]", vpcIID.SystemId, delVpcErr)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
 	}
 	LoggingInfo(callLogInfo, callLogStart)
 
-	cblogger.Infof("Succeeded in Deleting the VPC!! : [%s]", *delResult.VpcList[0].VpcName)
+	cblogger.Infof("Succeeded in Deleting the VPC!! : [%s]", vpcIID.SystemId)
 	return true, nil
 }
 
@@ -440,14 +438,12 @@ func (vpcHandler *NcpVpcVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.I
 	}
 
 	var subnetName string
-
 	for _, subnetInfo := range subnetInfoList {
 		if strings.EqualFold(subnetInfo.IId.SystemId, subnetIID.SystemId) {
 			subnetName = subnetInfo.IId.NameId
 			break
 		}
 	}
-
 	if strings.EqualFold(subnetName, "") {
 		return false, fmt.Errorf("Failed to Find the Subnet!! : [%s]", subnetIID.SystemId)
 	}
@@ -465,7 +461,22 @@ func (vpcHandler *NcpVpcVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.I
 		return false, newErr
 	}
 	LoggingInfo(callLogInfo, callLogStart)
-	cblogger.Infof("Removed Subnet Name : [%s]", *delResult.SubnetList[0].SubnetName)
+	cblogger.Infof("# That subnet [%s] is being removed.", *delResult.SubnetList[0].SubnetName)
+
+	cblogger.Infof("# Waitting while Deleting All Subnets belonging to the VPC!!")
+	_, delErr := vpcHandler.waitForDeleteSubnet(vpcIID.SystemId, subnetIID)
+	if delErr != nil {
+		if strings.Contains(delErr.Error(), "Failed to Get any Subnet Info") {
+			cblogger.Debug(delErr.Error()) // For Termination Completion of a Subnet
+			// return false, err
+		} else {
+			newErr := fmt.Errorf("Failed to Wait for Subnet Deletion : [%v]", err)
+			cblogger.Error(newErr.Error())
+			return false, newErr
+		}		
+	}
+	cblogger.Infof(" Succeeded in Removing the Subnet!! : [%s]", subnetIID.SystemId)
+
 	return true, nil
 }
 
@@ -591,7 +602,6 @@ func (vpcHandler *NcpVpcVPCHandler) getNcpSubnetInfo(sunbnetId *string) (*vpc.Su
 	if len(result.SubnetList) < 1 {
 		newErr := fmt.Errorf("Failed to Get any Subnet Info with the ID!!")
 		cblogger.Debug(newErr.Error()) // For Termination Completion of a Subnet
-		LoggingError(callLogInfo, newErr)
 		return nil, newErr
 	} else {
 		cblogger.Infof("Succeeded in Getting the Subnet Info from NCP VPC!!")
@@ -799,9 +809,14 @@ func (vpcHandler *NcpVpcVPCHandler) waitForDeleteSubnet(vpcNo string, subnetIID 
 		for {
 			ncpSubnetInfo, getErr := vpcHandler.getNcpSubnetInfo(&subnetIID.SystemId)
 			if getErr != nil {
-				newErr := fmt.Errorf("Failed to Get the Subnet Info : [%v]", getErr)
-				cblogger.Debug(newErr.Error()) // For Termination Completion of a Subnet
-				return "", newErr
+				if strings.Contains(getErr.Error(), "Failed to Get any Subnet Info") {
+					cblogger.Debug(getErr.Error()) // For Termination Completion of a Subnet
+					return "", getErr
+				} else {
+					newErr := fmt.Errorf("Failed to Get the Subnet Info : [%v]", getErr)
+					cblogger.Error(newErr.Error())
+					return "", newErr
+				}				
 			} else {
 				cblogger.Infof("Succeeded in Getting the Subnet Info of [%s]", subnetIID.SystemId)
 			}
