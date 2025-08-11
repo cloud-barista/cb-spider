@@ -26,6 +26,8 @@ import (
 	"gopkg.in/yaml.v3"
 
 	cblog "github.com/cloud-barista/cb-log"
+
+	ts "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/main/testscenario"
 )
 
 var cblogger *logrus.Logger
@@ -2249,6 +2251,7 @@ func handleFileSystem() {
 			case 3:
 				cblogger.Infof("[%s] FileSystem Create Test", fileSystemName)
 
+				// 기본 설정 모드 테스트
 				fileSystemReqInfo := irs.FileSystemInfo{
 					IId: irs.IID{NameId: fileSystemName},
 					VpcIID: irs.IID{
@@ -2256,19 +2259,39 @@ func handleFileSystem() {
 					},
 				}
 
-				// fileSystemReqInfo := irs.FileSystemInfo{
-				// 	IId: irs.IID{NameId: fileSystemName},
-				// 	VpcIID: irs.IID{
-				// 		SystemId: "vpc-0a48d45f6bc3a71da",
-				// 	},
-				// 	FileSystemType: irs.RegionType,
-				// 	PerformanceInfo: map[string]string{
-				// 		"ThroughputMode":        "Provisioned",
-				// 		"PerformanceMode":       "MaxIO",
-				// 		"ProvisionedThroughput": "128",
-				// 	},
-				// 	Encryption: true,
-				// }
+				// One Zone + MaxIO 에러 테스트 (주석 해제하여 테스트)
+				/*
+					fileSystemReqInfo := irs.FileSystemInfo{
+						IId: irs.IID{NameId: fileSystemName},
+						VpcIID: irs.IID{
+							SystemId: "vpc-0a48d45f6bc3a71da",
+						},
+						FileSystemType: irs.ZoneType,
+						Zone:           "ap-northeast-2a",
+						PerformanceInfo: map[string]string{
+							"ThroughputMode":  "Bursting",
+							"PerformanceMode": "MaxIO", // One Zone에서는 에러가 발생해야 함
+						},
+						Encryption: true,
+					}
+				*/
+
+				// Regional + MaxIO 테스트 (정상 동작 확인용)
+				/*
+					fileSystemReqInfo := irs.FileSystemInfo{
+						IId: irs.IID{NameId: fileSystemName},
+						VpcIID: irs.IID{
+							SystemId: "vpc-0a48d45f6bc3a71da",
+						},
+						FileSystemType: irs.RegionType,
+						PerformanceInfo: map[string]string{
+							"ThroughputMode":        "Provisioned",
+							"PerformanceMode":       "MaxIO",
+							"ProvisionedThroughput": "128",
+						},
+						Encryption: true,
+					}
+				*/
 
 				result, err := handler.CreateFileSystem(fileSystemReqInfo)
 				if err != nil {
@@ -2549,5 +2572,6 @@ func main() {
 	//handleRegionZone()
 	//handlePriceInfo()
 	//handleTag()
-	handleFileSystem()
+	//handleFileSystem()
+	ts.TestScenarioFileSystem()
 }

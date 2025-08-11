@@ -17,9 +17,10 @@ import (
 )
 
 type AwsFileSystemHandler struct {
-	Region    idrv.RegionInfo
-	Client    *efs.EFS
-	EC2Client *ec2.EC2
+	Region     idrv.RegionInfo
+	Client     *efs.EFS
+	EC2Client  *ec2.EC2
+	TagHandler *AwsTagHandler // TagHandler add
 }
 
 // GetMetaInfo returns metadata about the file system capabilities
@@ -168,23 +169,10 @@ func (fileSystemHandler *AwsFileSystemHandler) CreateFileSystem(reqInfo irs.File
 		return irs.FileSystemInfo{}, errors.New("VPC is required for AWS EFS file system creation")
 	}
 
-	input := &efs.CreateFileSystemInput{
-		CreationToken: aws.String(reqInfo.IId.NameId),
-	}
-
-	// ==============
-	// Prepare tags
-	// ==============
+	// Convert TagList to EFS Tags array
 	var tags []*efs.Tag
-	if reqInfo.IId.NameId != "" {
-		// Add default Name tag
-		tags = append(tags, &efs.Tag{
-			Key:   aws.String("Name"),
-			Value: aws.String(reqInfo.IId.NameId),
-		})
-	}
 
-	// Add user-provided tags
+	// Add user-provided tags first
 	if reqInfo.TagList != nil {
 		for _, tag := range reqInfo.TagList {
 			tags = append(tags, &efs.Tag{
@@ -194,9 +182,31 @@ func (fileSystemHandler *AwsFileSystemHandler) CreateFileSystem(reqInfo irs.File
 		}
 	}
 
-	// Only set Tags if there are tags to add
-	if len(tags) > 0 {
-		input.Tags = tags
+	// Add a "Name" tag if nameValue is provided and no "Name" tag already exists
+	if reqInfo.IId.NameId != "" {
+		nameTagExists := false
+		for _, tag := range tags {
+			if *tag.Key == "Name" {
+				nameTagExists = true
+				break
+			}
+		}
+		if !nameTagExists {
+			tags = append(tags, &efs.Tag{
+				Key:   aws.String("Name"),
+				Value: aws.String(reqInfo.IId.NameId),
+			})
+		}
+	}
+
+	// Generate CreationToken - AWS EFS CreationToken has max 64 characters
+	// Always generate a unique CreationToken like AWS Console does
+	creationToken := fmt.Sprintf("cb-spider-efs-%d", time.Now().UnixNano())
+	cblogger.Infof("Generated CreationToken: %s", creationToken)
+
+	input := &efs.CreateFileSystemInput{
+		CreationToken: aws.String(creationToken),
+		Tags:          tags,
 	}
 
 	// ================================================
@@ -284,8 +294,7 @@ func (fileSystemHandler *AwsFileSystemHandler) CreateFileSystem(reqInfo irs.File
 					}
 				case "OneZone":
 					if parts[1] == "MaxIO" && parts[2] == "NotSupported" && reqInfo.FileSystemType == irs.ZoneType && performanceMode == "MaxIO" {
-						cblogger.Warn("MaxIO performance mode is not supported for One Zone EFS, using GeneralPurpose")
-						performanceMode = "GeneralPurpose"
+						return irs.FileSystemInfo{}, fmt.Errorf("MaxIO performance mode is not supported for One Zone EFS. Please use GeneralPurpose performance mode")
 					}
 				case "Provisioned":
 					if parts[1] == "ProvisionedThroughput" && parts[2] == "Required" && throughputMode == "Provisioned" {
@@ -591,7 +600,15 @@ func (fileSystemHandler *AwsFileSystemHandler) GetFileSystem(iid irs.IID) (irs.F
 		return irs.FileSystemInfo{}, errors.New("file system not found")
 	}
 
-	return fileSystemHandler.convertToFileSystemInfo(result.FileSystems[0])
+	fileSystemInfo, err := fileSystemHandler.convertToFileSystemInfo(result.FileSystems[0])
+	if err != nil {
+		return irs.FileSystemInfo{}, err
+	}
+
+	// Get tags using TagHandler
+	fileSystemInfo.TagList, _ = fileSystemHandler.TagHandler.ListTag(irs.FILESYSTEM, fileSystemInfo.IId)
+
+	return fileSystemInfo, nil
 }
 
 // DeleteFileSystem deletes the specified file system
@@ -1049,19 +1066,6 @@ func (fileSystemHandler *AwsFileSystemHandler) convertToFileSystemInfo(fs *efs.F
 	}
 	// If backup is disabled, backupSchedule remains zero value (empty struct)
 
-	// Convert tags
-	var tagList []irs.KeyValue
-	if fs.Tags != nil {
-		for _, tag := range fs.Tags {
-			if tag.Key != nil && tag.Value != nil {
-				tagList = append(tagList, irs.KeyValue{
-					Key:   *tag.Key,
-					Value: *tag.Value,
-				})
-			}
-		}
-	}
-
 	// Determine file system type and zone based on availability zone
 	fileSystemType := irs.RegionType // Default to Regional
 	var zone string
@@ -1100,7 +1104,7 @@ func (fileSystemHandler *AwsFileSystemHandler) convertToFileSystemInfo(fs *efs.F
 		VpcIID:           vpcIID,
 		AccessSubnetList: accessSubnetList,
 		Encryption:       encryption,
-		TagList:          tagList,
+		TagList:          []irs.KeyValue{}, // Tags will be populated by TagHandler in GetFileSystem
 		FileSystemType:   fileSystemType,
 		NFSVersion:       "4.1", // AWS EFS uses NFS 4.1 by default, but supports 4.0 for mounting
 		CapacityGB:       0,     // AWS EFS doesn't support capacity specification
