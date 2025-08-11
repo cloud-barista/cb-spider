@@ -26,8 +26,6 @@ import (
 	"gopkg.in/yaml.v3"
 
 	cblog "github.com/cloud-barista/cb-log"
-
-	ts "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/main/testscenario"
 )
 
 var cblogger *logrus.Logger
@@ -1888,10 +1886,10 @@ func handleTag() {
 	}
 	handler := ResourceHandler.(irs.TagHandler)
 
-	var reqType irs.RSType = irs.KEY
+	var reqType irs.RSType = irs.FILESYSTEM
 	//reqIID := irs.IID{SystemId: "i-02ac1c4ff1d40815c"}
 	reqIID := irs.IID{SystemId: "CB-KeyPairTest123123"}
-	reqIID = irs.IID{SystemId: "ami-03cda261fe3252863"}
+	reqIID = irs.IID{SystemId: "fs-0580954bd3ccd0119"}
 
 	reqTag := irs.KeyValue{Key: "tag3", Value: "tag3 test"}
 	reqKey := "tag3"
@@ -1901,6 +1899,7 @@ func handleTag() {
 	reqKey = "cb-eks-cluster-tag-test"
 	reqKey = "tag3"
 	reqType = irs.ALL
+	reqType = irs.FILESYSTEM
 
 	for {
 		fmt.Println("TagHandler Management")
@@ -2572,6 +2571,6 @@ func main() {
 	//handleRegionZone()
 	//handlePriceInfo()
 	//handleTag()
-	//handleFileSystem()
-	ts.TestScenarioFileSystem()
+	handleFileSystem()
+	//ts.TestScenarioFileSystem()
 }
