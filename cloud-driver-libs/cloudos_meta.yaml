@@ -100,7 +100,7 @@ NCPVPC:
   rootdisktype: SSD / HDD
   rootdisksize: SSD|50|100|GB / HDD|50|100|GB
   disktype: SSD / HDD
-  disksize: SSD|10|2000|GB / HDD|10|2000|GB
+  disksize: SSD|100|16380|GB / HDD|100|16380|GB
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster / FileSystem
   idmaxlength: 30 / 30 / 30 / 30 / 30 / 30 / 30 / 30 / 20
 

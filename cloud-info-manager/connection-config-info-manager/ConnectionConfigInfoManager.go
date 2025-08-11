@@ -85,7 +85,7 @@ func CreateConnectionConfig(configName string,
 }
 
 func ListConnectionConfig() ([]*ConnectionConfigInfo, error) {
-	cblog.Info("call ListConnectionConfig()")
+	// cblog.Info("call ListConnectionConfig()")
 
 	var connectionConfigInfoList []*ConnectionConfigInfo
 	err := infostore.List(&connectionConfigInfoList)

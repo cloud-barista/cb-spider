@@ -682,7 +682,7 @@ func GetSGOwnerVPC(c echo.Context) error {
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
 // @Router /countvpc [get]
 func CountAllVPCs(c echo.Context) error {
-	cblog.Info("call CountAllVPCs()")
+	// cblog.Info("call CountAllVPCs()")
 
 	// Call common-runtime API to get count of VPCs
 	count, err := cmrt.CountAllVPCs()
@@ -710,7 +710,7 @@ func CountAllVPCs(c echo.Context) error {
 // @Failure 500 {object} SimpleMsg "Internal Server Error"
 // @Router /countvpc/{ConnectionName} [get]
 func CountVPCsByConnection(c echo.Context) error {
-	cblog.Info("call CountVPCsByConnection()")
+	// cblog.Info("call CountVPCsByConnection()")
 
 	// Call common-runtime API to get count of VPCs
 	count, err := cmrt.CountVPCsByConnection(c.Param("ConnectionName"))

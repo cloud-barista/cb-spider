@@ -59,8 +59,8 @@ func New(cloudConnectName string, rsType string, uid string) (string, error) {
 		retUID := strings.ToLower(strings.ReplaceAll(uid, "-", ""))
 
 		if len(retUID) > 12 {
-			// #6 + #6 => #12
-			retUID = uid[:6] + xid.New().String()[0:6]
+			// #7 + #5 => #12
+			retUID = uid[:7] + xid.New().String()[0:5]
 		}
 		return retUID, nil
 	}
@@ -70,8 +70,8 @@ func New(cloudConnectName string, rsType string, uid string) (string, error) {
 		retUID := strings.ToLower(uid)
 
 		if len(retUID) > 20 {
-			// #10 + #10 => #20
-			retUID = uid[:10] + xid.New().String()[0:10]
+			// #15 + #5 => #20
+			retUID = uid[:15] + xid.New().String()[0:5]
 		}
 		return retUID, nil
 	}
@@ -81,8 +81,19 @@ func New(cloudConnectName string, rsType string, uid string) (string, error) {
 		retUID := strings.ToLower(uid)
 
 		if len(retUID) > 15 {
-			// #8 + #7 => #15
-			retUID = uid[:8] + xid.New().String()[0:7]
+			// #10 + #5 => #15
+			retUID = uid[:10] + xid.New().String()[0:5]
+		}
+		return retUID, nil
+	}
+
+	// NCPVPC-Cluster: MaxLength = 20, lower, number, Cannot use '_'
+	if cccInfo.ProviderName == "NCPVPC" && (rsType == "cluster" || rsType == "nodegroup") {
+		retUID := strings.ToLower(strings.ReplaceAll(uid, "_", "-"))
+
+		if len(retUID) > 20 {
+			// #15 + #5 => #20
+			retUID = uid[:15] + xid.New().String()[0:5]
 		}
 		return retUID, nil
 	}

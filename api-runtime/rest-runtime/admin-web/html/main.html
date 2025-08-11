@@ -80,8 +80,8 @@
         .top-menu-right {
             margin-left: auto;
             display: flex;
-            gap: 20px;
-            padding-right: 0.5cm;
+            gap: 5px;
+            padding-right: 0.2cm;
             align-items: center;
         }
         .connection-info {
@@ -94,32 +94,44 @@
             position: relative;
             margin-left: 0.5cm;
         }
+        .connection-info .region-text {
+            margin: 0;
+            padding: 0;
+        }
+
         .connection-info .conn-name {
-            font-size: 16px;
-            margin-left: 10px;
+            font-size: 13px;
+            margin: 0;
+            padding: 0;
             color: #888;
         }
+        .menu-bar {
+            font-size: 0;
+        }
         .menu-item {
-            margin: 10px 0;
-            padding: 7px;
-            font-size: 12px;
+            display: inline-block;
+            font-size: 11px;
+            margin: 2px 1px;
+            padding: 2px;
             font-weight: bold;
             color: #0645AD;
             text-decoration: none;
             text-align: center;
             cursor: pointer;
             vertical-align: bottom;
+            width: 56px;
         }
         .menu-item img {
+            display: block;
+            margin: 0 auto;
             vertical-align: bottom;
-            height: 2em;
+            height: 1.8em;
             width: auto;
-            margin-right: 2px;
             font-size: 14px;
         }
         .menu-item:hover {
             background-color: #f0f0f0;            
-        }
+        }    
         h1 {
             font-size: 18px;
             margin: 0;
@@ -132,9 +144,11 @@
             color: #08aab0; 
         }
         .digital-font {
-            font-size: 16px; 
+            font-size: 13px;
             font-weight: bold;
             color: #08aab0;
+            line-height: 1;
+            text-align: center;
         }
         .separator {
             height: 25px;
@@ -255,7 +269,7 @@
         }
 
         .beta-tag {
-            font-size: 12px;
+            font-size: 10px;
             color: #08aab0;
             position: absolute;
             top: -5px;
@@ -270,11 +284,16 @@
         }
 
         .ai-text {
-            font-weight: 500;
+            margin: 1px 0;
+            padding: 1px;
+            font-size: 12px;  
             background: linear-gradient(45deg, hsl(52, 91%, 36%), #1b1911e5);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            text-align: left;
+            cursor: pointer;
+            vertical-align: bottom;
         }
     </style>
 
@@ -293,21 +312,30 @@
             selectedConfigNameElement.innerHTML = configName;
             selectedConfigNameElement.classList.add('hidden');
             document.getElementById('selectedProvider').innerHTML = providerImg;
-            document.getElementById('selectedRegion').innerHTML = '<div class="digital-font">' + region + '<span class="conn-name">(' + configName + ')</span></div>';
+            document.getElementById('selectedRegion').innerHTML = '<div class="digital-font">' +
+                                                                    '<div class="region-text">' + region + '</div>' +
+                                                                    '<div class="conn-name">(' + configName + ')</div>' +
+                                                                '</div>';
             
             const dynamicMenuHtml = `
-                <a href="/spider/adminweb/regionzone/${configName}" target="body_frame" class="menu-item" id="region-zone-menu" onclick="selectMainMenu('region-zone')">
-                    <img id="region-zone-img" src="/spider/adminweb/images/top-menu/region-zone.png" alt="Region/Zone Icon">Region/Zone
-                </a>
-                <a href="/spider/adminweb/priceinfo/${configName}" target="body_frame" class="menu-item" id="price-menu" onclick="selectMainMenu('price')">
-                    <img id="price-img" src="/spider/adminweb/images/top-menu/price.png" alt="Price Icon">Price
-                </a>
-                <a href="/spider/adminweb/vmimage/${configName}" target="body_frame" class="menu-item" id="vm-image-menu" onclick="selectMainMenu('vm-image')">
-                    <img id="vm-image-img" src="/spider/adminweb/images/top-menu/vm-image.png" alt="VM Image Icon">VM Image
-                </a>
-                <a href="/spider/adminweb/vmspec/${configName}" target="body_frame" class="menu-item" id="vm-specs-menu" onclick="selectMainMenu('vm-specs')">
-                    <img id="vm-specs-img" src="/spider/adminweb/images/top-menu/vm-specs.png" alt="VM Specs Icon">VM Specs
-                </a>
+                                <div class="menu-bar">
+                                    <a href="/spider/adminweb/regionzone/${configName}" target="body_frame" class="menu-item" id="region-zone-menu" onclick="selectMainMenu('region-zone')">
+                                        <img id="region-zone-img" src="/spider/adminweb/images/top-menu/region-zone.png" alt="Region/Zone Icon">
+                                        <span>Region</span>
+                                    </a>
+                                    <a href="/spider/adminweb/priceinfo/${configName}" target="body_frame" class="menu-item" id="price-menu" onclick="selectMainMenu('price')">
+                                        <img id="price-img" src="/spider/adminweb/images/top-menu/price.png" alt="Price Icon">
+                                        <span>Price</span>
+                                    </a>
+                                    <a href="/spider/adminweb/vmimage/${configName}" target="body_frame" class="menu-item" id="vm-image-menu" onclick="selectMainMenu('vm-image')">
+                                        <img id="vm-image-img" src="/spider/adminweb/images/top-menu/vm-image.png" alt="VM Image Icon">
+                                        <span>Image</span>
+                                    </a>
+                                    <a href="/spider/adminweb/vmspec/${configName}" target="body_frame" class="menu-item" id="vm-specs-menu" onclick="selectMainMenu('vm-specs')">
+                                        <img id="vm-specs-img" src="/spider/adminweb/images/top-menu/vm-specs.png" alt="VM Specs Icon">
+                                        <span>Spec</span>
+                                    </a>
+                                </div>
             `;
             document.querySelector('.dynamic-menu').innerHTML = dynamicMenuHtml;
         }
@@ -433,9 +461,9 @@
                     <div class="dynamic-menu"></div>
                     <div class="separator"></div>
                     <div class="dropdown">
-                        <div class="ai-menu-item" title="AI Agents">
+                        <div class="ai-menu-item" title="AI Assistant">
                             <span class="ai-icon">🤖</span>
-                            <span class="ai-text">AI-Agent</span>
+                            <span class="ai-text">Assist</span>
                             <span class="beta-tag">beta</span>
                         </div>
                         <div class="dropdown-content">
@@ -451,12 +479,12 @@
                             <a href="https://github.com/cloud-barista/cb-spider/wiki/CB-Spider-User-Interface" target="_blank">API Docs</a>
                         </div>
                     </div>
-                    <div class="dropdown">
+                    <!--<div class="dropdown">
                         <span>login</span>
                         <div class="dropdown-content">
                             <p>WIP</p>
                         </div>
-                    </div>
+                    </div>-->
                 </div>
             </div>
             <div class="body-frame">
