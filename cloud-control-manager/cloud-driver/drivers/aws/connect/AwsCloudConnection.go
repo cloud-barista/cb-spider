@@ -124,7 +124,7 @@ func (cloudConn *AwsCloudConnection) CreateSecurityHandler() (irs.SecurityHandle
 }
 
 func (cloudConn *AwsCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
-	handler := ars.AwsTagHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, NLBClient: cloudConn.NLBClient, EKSClient: cloudConn.EKSClient}
+	handler := ars.AwsTagHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, NLBClient: cloudConn.NLBClient, EKSClient: cloudConn.EKSClient, EFSClient: cloudConn.FileSystemClient}
 	return &handler, nil
 }
 

@@ -248,6 +248,53 @@ func (tagHandler *AwsTagHandler) RemoveEFSTag(resIID irs.IID, tagKey string) (bo
 	return true, nil
 }
 
+// GetAllEFSTags returns all EFS file systems with their tags
+func (tagHandler *AwsTagHandler) GetAllEFSTags() ([]*irs.TagInfo, error) {
+	// Step 1: List all file systems
+	input := &efs.DescribeFileSystemsInput{}
+
+	result, err := tagHandler.EFSClient.DescribeFileSystems(input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to describe file systems: %w", err)
+	}
+
+	if len(result.FileSystems) == 0 {
+		return nil, fmt.Errorf("no file systems found")
+	}
+
+	// Step 2: Get tags for each file system
+	var allTagInfos []*irs.TagInfo
+
+	for _, fs := range result.FileSystems {
+		resIID := irs.IID{
+			NameId:   aws.StringValue(fs.Name),
+			SystemId: aws.StringValue(fs.FileSystemId),
+		}
+
+		tagInfos, err := tagHandler.GetEFSTags(resIID)
+		if err != nil {
+			cblogger.Warnf("failed to get tags for file system %s: %v", resIID.SystemId, err)
+			continue
+		}
+
+		// Process only if tags exist
+		if len(tagInfos) == 0 {
+			continue
+		}
+
+		// Convert tags into TagInfo with the correct ResType
+		tagInfo := &irs.TagInfo{
+			ResType: irs.FILESYSTEM,
+			ResIId:  resIID,
+			TagList: tagInfos,
+		}
+
+		allTagInfos = append(allTagInfos, tagInfo)
+	}
+
+	return allTagInfos, nil
+}
+
 func (tagHandler *AwsTagHandler) GetAllNLBTags() ([]*irs.TagInfo, error) {
 	// Step 1: List all load balancers and store their ARNs and Names
 	lbArnToName := make(map[string]string)
@@ -771,8 +818,14 @@ func (tagHandler *AwsTagHandler) FindTag(resType irs.RSType, keyword string) ([]
 				return tagHandler.ExtractTagKeyValue(k8sTaginfos, keyword), nil
 			}
 		} else if resType == irs.FILESYSTEM {
-			// EFS tags are handled through the general EC2 DescribeTags API
-			// No special handling needed here as EFS tags are included in the general tag search
+			// Add a list of EFS Tags if this is a all search
+			if keyword == "" || keyword == "*" {
+				return tagHandler.GetAllEFSTags()
+			} else {
+				efsTaginfos, _ := tagHandler.GetAllEFSTags()
+				//spew.Dump(efsTaginfos)
+				return tagHandler.ExtractTagKeyValue(efsTaginfos, keyword), nil
+			}
 		}
 
 		if awsResType, ok := rsTypeToAwsResourceTypeMap[resType]; ok {
