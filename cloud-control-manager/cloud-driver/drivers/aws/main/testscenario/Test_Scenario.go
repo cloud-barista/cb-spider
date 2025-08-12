@@ -21,32 +21,32 @@ import (
 
 var cblogger *logrus.Logger
 
-// AWS 리소스 설정 - 사용자가 쉽게 수정할 수 있도록 변수로 정의
+// AWS Resource Configuration - Defined as variables for easy user modification
 const (
-	// VPC 및 네트워크 설정
+	// VPC and Network Configuration
 	VPC_ID  = "vpc-0a48d45f6bc3a71da"
 	ZONE_ID = "ap-northeast-2a"
 )
 
-// 서브넷과 보안 그룹 정보를 구조체로 관리
+// Subnet and Security Group information managed as struct
 type SubnetConfig struct {
 	SubnetID       string
 	SecurityGroups []string
 }
 
-// 테스트용 서브넷 설정 - 사용자가 쉽게 수정할 수 있도록 구조체로 정의
+// Test subnet configuration - Defined as struct for easy user modification
 var TestSubnets = map[string]SubnetConfig{
 	"subnet-1": {
 		SubnetID:       "subnet-04bd8bcbeb8cf7748",
-		SecurityGroups: []string{"sg-xxxxxxxxx"}, // 실제 보안 그룹 ID로 수정 필요
+		SecurityGroups: []string{"sg-xxxxxxxxx"}, // Need to modify with actual security group ID
 	},
 	"subnet-2": {
 		SubnetID:       "subnet-08124f8bc6b14d6c9",
-		SecurityGroups: []string{"sg-xxxxxxxxx"}, // 실제 보안 그룹 ID로 수정 필요
+		SecurityGroups: []string{"sg-xxxxxxxxx"}, // Need to modify with actual security group ID
 	},
 }
 
-// 실행할 시나리오 목록 정의 (이 목록에 있는 시나리오만 실행됨)
+// Define list of scenarios to execute (only scenarios in this list will be executed)
 var EXECUTE_SCENARIOS = []string{
 	"1.1", "1.2", "1.3", "1.4",
 	"2.1", "2.2", "2.3",
@@ -58,37 +58,37 @@ var EXECUTE_SCENARIOS = []string{
 	"8.1", "8.2",
 	"9.1", "9.3",
 	"10.1", "10.2", "10.3",
-	// 실행하지 않을 시나리오는 이 목록에서 제거하거나 주석 처리
-	// "9.2", // 비용이 많이 드는 시나리오 (1024 MiB/s provisioned throughput)
+	// Remove or comment out scenarios that should not be executed
+	// "9.2", // Expensive scenario (1024 MiB/s provisioned throughput)
 }
 
 func defineTestScenarios() []TestScenario {
 	return []TestScenario{
-		// 1. 기본 설정 모드 (Basic Setup Mode)
+		// 1. Basic Setup Mode
 		{
 			ID:          "1.1",
-			Description: "최소 필수 설정",
-			Purpose:     "기본 설정 모드의 최소 필수 설정 테스트",
+			Description: "Minimum Required Settings",
+			Purpose:     "Test minimum required settings in basic setup mode",
 			Request: irs.FileSystemInfo{
 				IId:    irs.IID{NameId: "01.01-efs-basic-01"},
 				VpcIID: irs.IID{SystemId: VPC_ID},
 			},
-			Expected: "성공 - 기본값 적용",
+			Expected: "Success - Default values applied",
 		},
 		{
 			ID:          "1.2",
-			Description: "VPC 없이 호출",
-			Purpose:     "VPC 필수 요구사항 검증",
+			Description: "Call without VPC",
+			Purpose:     "Validate VPC requirement",
 			Request: irs.FileSystemInfo{
 				IId:    irs.IID{NameId: "01.02-efs-no-vpc"},
 				VpcIID: irs.IID{SystemId: ""},
 			},
-			Expected: "실패 - VPC is required for AWS EFS file system creation",
+			Expected: "Failure - VPC is required for AWS EFS file system creation",
 		},
 		{
 			ID:          "1.3",
-			Description: "태그 처리 (Name Tag 미지정)",
-			Purpose:     "태그 처리 및 Name 태그 자동 추가 검증",
+			Description: "Tag Processing (Name Tag not specified)",
+			Purpose:     "Validate tag processing and automatic Name tag addition",
 			Request: irs.FileSystemInfo{
 				IId:    irs.IID{NameId: "01.03-efs-with-tags"},
 				VpcIID: irs.IID{SystemId: VPC_ID},
@@ -97,12 +97,12 @@ func defineTestScenarios() []TestScenario {
 					{Key: "Project", Value: "TestProject"},
 				},
 			},
-			Expected: "성공 - 사용자 태그 + Name 태그 자동 추가",
+			Expected: "Success - User tags + Name tag automatically added",
 		},
 		{
 			ID:          "1.4",
-			Description: "Name 태그가 있는 경우",
-			Purpose:     "사용자 정의 Name 태그 우선순위 검증",
+			Description: "When Name tag exists",
+			Purpose:     "Validate user-defined Name tag priority",
 			Request: irs.FileSystemInfo{
 				IId:    irs.IID{NameId: "01.04-efs-name-tag-exists"},
 				VpcIID: irs.IID{SystemId: VPC_ID},
@@ -111,14 +111,14 @@ func defineTestScenarios() []TestScenario {
 					{Key: "Environment", Value: "Dev"},
 				},
 			},
-			Expected: "성공 - 사용자 Name 태그 사용",
+			Expected: "Success - User Name tag used",
 		},
 
-		// 2. 고급 설정 모드 (Advanced Setup Mode)
+		// 2. Advanced Setup Mode
 		{
 			ID:          "2.1",
-			Description: "RegionType (Multi-AZ) + 기본 성능 설정",
-			Purpose:     "Multi-AZ EFS 기본 생성 테스트",
+			Description: "RegionType (Multi-AZ) + Basic Performance Settings",
+			Purpose:     "Test basic Multi-AZ EFS creation",
 			Request: irs.FileSystemInfo{
 				IId:            irs.IID{NameId: "02.01-efs-region-basic"},
 				VpcIID:         irs.IID{SystemId: VPC_ID},
@@ -126,12 +126,12 @@ func defineTestScenarios() []TestScenario {
 				Encryption:     true,
 				NFSVersion:     "4.1",
 			},
-			Expected: "성공 - Multi-AZ EFS 생성",
+			Expected: "Success - Multi-AZ EFS created",
 		},
 		{
 			ID:          "2.2",
-			Description: "ZoneType (One Zone) + 기본 성능 설정",
-			Purpose:     "One Zone EFS 기본 생성 테스트",
+			Description: "ZoneType (One Zone) + Basic Performance Settings",
+			Purpose:     "Test basic One Zone EFS creation",
 			Request: irs.FileSystemInfo{
 				IId:            irs.IID{NameId: "02.02-efs-zone-basic"},
 				VpcIID:         irs.IID{SystemId: VPC_ID},
@@ -140,12 +140,12 @@ func defineTestScenarios() []TestScenario {
 				Encryption:     true,
 				NFSVersion:     "4.1",
 			},
-			Expected: "성공 - One Zone EFS 생성",
+			Expected: "Success - One Zone EFS created",
 		},
 		{
 			ID:          "2.3",
-			Description: "ZoneType + Zone 미지정",
-			Purpose:     "Zone 자동 결정 기능 테스트",
+			Description: "ZoneType + Zone not specified",
+			Purpose:     "Test automatic zone determination feature",
 			Request: irs.FileSystemInfo{
 				IId:            irs.IID{NameId: "02.03-efs-zone-auto"},
 				VpcIID:         irs.IID{SystemId: VPC_ID},
@@ -153,14 +153,14 @@ func defineTestScenarios() []TestScenario {
 				Encryption:     true,
 				NFSVersion:     "4.1",
 			},
-			Expected: "성공 - Zone 자동 결정",
+			Expected: "Success - Zone automatically determined",
 		},
 
-		// 3. 성능 설정 테스트
+		// 3. Performance Settings Test
 		{
 			ID:          "3.1",
-			Description: "Elastic + GeneralPurpose (권장 조합)",
-			Purpose:     "Elastic + GeneralPurpose 성능 조합 테스트",
+			Description: "Elastic + GeneralPurpose (Recommended Combination)",
+			Purpose:     "Test Elastic + GeneralPurpose performance combination",
 			Request: irs.FileSystemInfo{
 				IId:            irs.IID{NameId: "03.01-efs-elastic-gp"},
 				VpcIID:         irs.IID{SystemId: VPC_ID},
@@ -170,12 +170,12 @@ func defineTestScenarios() []TestScenario {
 					"PerformanceMode": "GeneralPurpose",
 				},
 			},
-			Expected: "성공 - Elastic + GeneralPurpose",
+			Expected: "Success - Elastic + GeneralPurpose",
 		},
 		{
 			ID:          "3.2",
 			Description: "Bursting + MaxIO",
-			Purpose:     "Bursting + MaxIO 성능 조합 테스트",
+			Purpose:     "Test Bursting + MaxIO performance combination",
 			Request: irs.FileSystemInfo{
 				IId:            irs.IID{NameId: "03.02-efs-bursting-maxio"},
 				VpcIID:         irs.IID{SystemId: VPC_ID},
@@ -185,14 +185,14 @@ func defineTestScenarios() []TestScenario {
 					"PerformanceMode": "MaxIO",
 				},
 			},
-			Expected: "성공 - Bursting + MaxIO",
+			Expected: "Success - Bursting + MaxIO",
 		},
 
-		// 4. One Zone + MaxIO 에러 테스트
+		// 4. One Zone + MaxIO Error Test
 		{
 			ID:          "4.1",
-			Description: "One Zone + MaxIO (에러 발생해야 함)",
-			Purpose:     "One Zone에서 MaxIO 제한 검증",
+			Description: "One Zone + MaxIO (Should generate error)",
+			Purpose:     "Validate MaxIO limitation in One Zone",
 			Request: irs.FileSystemInfo{
 				IId:            irs.IID{NameId: "04.01-efs-onezone-maxio-error"},
 				VpcIID:         irs.IID{SystemId: VPC_ID},
@@ -203,63 +203,63 @@ func defineTestScenarios() []TestScenario {
 					"PerformanceMode": "MaxIO",
 				},
 			},
-			Expected: "실패 - One Zone에서는 MaxIO 성능 모드를 지원하지 않음",
+			Expected: "Failure - One Zone does not support MaxIO performance mode",
 		},
 
-		// 5. 암호화 설정 테스트
+		// 5. Encryption Settings Test
 		{
 			ID:          "5.1",
-			Description: "암호화 활성화",
-			Purpose:     "암호화 활성화 테스트",
+			Description: "Enable Encryption",
+			Purpose:     "Test encryption activation",
 			Request: irs.FileSystemInfo{
 				IId:        irs.IID{NameId: "05.01-efs-encrypted"},
 				VpcIID:     irs.IID{SystemId: VPC_ID},
 				Encryption: true,
 			},
-			Expected: "성공 - 암호화된 EFS 생성",
+			Expected: "Success - Encrypted EFS created",
 		},
 		{
 			ID:          "5.2",
-			Description: "암호화 비활성화",
-			Purpose:     "암호화 비활성화 테스트",
+			Description: "Disable Encryption",
+			Purpose:     "Test encryption deactivation",
 			Request: irs.FileSystemInfo{
 				IId:        irs.IID{NameId: "05.02-efs-not-encrypted"},
 				VpcIID:     irs.IID{SystemId: VPC_ID},
 				Encryption: false,
 			},
-			Expected: "성공 - 암호화되지 않은 EFS 생성",
+			Expected: "Success - Non-encrypted EFS created",
 		},
 
-		// 6. NFS 버전 테스트
+		// 6. NFS Version Test
 		{
 			ID:          "6.1",
-			Description: "NFS 4.1 버전",
-			Purpose:     "NFS 버전 설정 테스트",
+			Description: "NFS 4.1 Version",
+			Purpose:     "Test NFS version setting",
 			Request: irs.FileSystemInfo{
 				IId:        irs.IID{NameId: "06.01-efs-nfs41"},
 				VpcIID:     irs.IID{SystemId: VPC_ID},
 				NFSVersion: "4.1",
 			},
-			Expected: "성공 - NFS 4.1 버전 EFS 생성",
+			Expected: "Success - NFS 4.1 version EFS created",
 		},
 
-		// 7. 마운트 타겟 생성 테스트
+		// 7. Mount Target Creation Test
 		{
 			ID:          "7.1",
-			Description: "AccessSubnetList 사용 (공식 기능)",
-			Purpose:     "AccessSubnetList를 통한 마운트 타겟 생성 테스트",
+			Description: "Using AccessSubnetList (Official Feature)",
+			Purpose:     "Test mount target creation through AccessSubnetList",
 			Request: irs.FileSystemInfo{
 				IId:              irs.IID{NameId: "07.01-efs-access-subnets"},
 				VpcIID:           irs.IID{SystemId: VPC_ID},
 				FileSystemType:   irs.RegionType,
 				AccessSubnetList: createAccessSubnetList("subnet-1", "subnet-2"),
 			},
-			Expected: "성공 - 2개의 마운트 타겟 생성, 기본 보안 그룹 사용",
+			Expected: "Success - 2 mount targets created, default security group used",
 		},
 		{
 			ID:          "7.2",
-			Description: "AccessSubnetList - One Zone 제약사항",
-			Purpose:     "One Zone EFS 마운트 타겟 제한 검증",
+			Description: "AccessSubnetList - One Zone Constraint",
+			Purpose:     "Validate One Zone EFS mount target limitation",
 			Request: irs.FileSystemInfo{
 				IId:              irs.IID{NameId: "07.02-efs-zone-access-error"},
 				VpcIID:           irs.IID{SystemId: VPC_ID},
@@ -267,24 +267,24 @@ func defineTestScenarios() []TestScenario {
 				Zone:             ZONE_ID,
 				AccessSubnetList: createAccessSubnetList("subnet-1", "subnet-2"),
 			},
-			Expected: "실패 - One Zone EFS can only have 1 mount target, but 2 subnets were specified",
+			Expected: "Failure - One Zone EFS can only have 1 mount target, but 2 subnets were specified",
 		},
 		{
 			ID:          "7.3",
-			Description: "MountTargetList 사용 (보안 그룹 지정)",
-			Purpose:     "MountTargetList를 통한 보안 그룹 지정 테스트",
+			Description: "Using MountTargetList (Security Group Specification)",
+			Purpose:     "Test security group specification through MountTargetList",
 			Request: irs.FileSystemInfo{
 				IId:             irs.IID{NameId: "07.03-efs-mount-targets"},
 				VpcIID:          irs.IID{SystemId: VPC_ID},
 				FileSystemType:  irs.RegionType,
 				MountTargetList: createMountTargetList("subnet-1", "subnet-2"),
 			},
-			Expected: "성공 - 2개의 마운트 타겟 생성, 지정된 보안 그룹 사용",
+			Expected: "Success - 2 mount targets created, specified security group used",
 		},
 		{
 			ID:          "7.4",
-			Description: "MountTargetList - One Zone 제약사항",
-			Purpose:     "MountTargetList One Zone 제약사항 검증",
+			Description: "MountTargetList - One Zone Constraint",
+			Purpose:     "Validate MountTargetList One Zone constraint",
 			Request: irs.FileSystemInfo{
 				IId:             irs.IID{NameId: "07.04-efs-zone-mount-error"},
 				VpcIID:          irs.IID{SystemId: VPC_ID},
@@ -292,14 +292,14 @@ func defineTestScenarios() []TestScenario {
 				Zone:            ZONE_ID,
 				MountTargetList: createMountTargetList("subnet-1", "subnet-2"),
 			},
-			Expected: "실패 - One Zone EFS can only have 1 mount target, but 2 were specified",
+			Expected: "Failure - One Zone EFS can only have 1 mount target, but 2 were specified",
 		},
 
-		// 8. 복합 시나리오 테스트
+		// 8. Complex Scenario Test
 		{
 			ID:          "8.1",
-			Description: "완전한 고급 설정",
-			Purpose:     "복합 고급 설정 테스트",
+			Description: "Complete Advanced Settings",
+			Purpose:     "Test complex advanced settings",
 			Request: irs.FileSystemInfo{
 				IId:            irs.IID{NameId: "08.01-efs-complete-advanced"},
 				VpcIID:         irs.IID{SystemId: VPC_ID},
@@ -317,12 +317,12 @@ func defineTestScenarios() []TestScenario {
 					{Key: "CostCenter", Value: "IT-001"},
 				},
 			},
-			Expected: "성공 - Multi-AZ EFS + Provisioned + MaxIO + 암호화 + 태그",
+			Expected: "Success - Multi-AZ EFS + Provisioned + MaxIO + Encryption + Tags",
 		},
 		{
 			ID:          "8.2",
-			Description: "One Zone 완전 설정",
-			Purpose:     "One Zone 복합 설정 테스트",
+			Description: "One Zone Complete Settings",
+			Purpose:     "Test One Zone complex settings",
 			Request: irs.FileSystemInfo{
 				IId:            irs.IID{NameId: "08.02-efs-onezone-complete"},
 				VpcIID:         irs.IID{SystemId: VPC_ID},
@@ -340,14 +340,14 @@ func defineTestScenarios() []TestScenario {
 					{Key: "Backup", Value: "Daily"},
 				},
 			},
-			Expected: "성공 - One Zone EFS + Provisioned + GeneralPurpose + 암호화 + 태그",
+			Expected: "Success - One Zone EFS + Provisioned + GeneralPurpose + Encryption + Tags",
 		},
 
-		// 9. 경계값 테스트
+		// 9. Boundary Value Test
 		{
 			ID:          "9.1",
-			Description: "최소 ProvisionedThroughput",
-			Purpose:     "최소 ProvisionedThroughput 경계값 테스트",
+			Description: "Minimum ProvisionedThroughput",
+			Purpose:     "Test minimum ProvisionedThroughput boundary value",
 			Request: irs.FileSystemInfo{
 				IId:            irs.IID{NameId: "09.01-efs-min-throughput"},
 				VpcIID:         irs.IID{SystemId: VPC_ID},
@@ -358,12 +358,12 @@ func defineTestScenarios() []TestScenario {
 					"ProvisionedThroughput": "1",
 				},
 			},
-			Expected: "성공 - 1 MiB/s provisioned throughput",
+			Expected: "Success - 1 MiB/s provisioned throughput",
 		},
 		{
 			ID:          "9.2",
-			Description: "최대 ProvisionedThroughput",
-			Purpose:     "최대 ProvisionedThroughput 경계값 테스트 (비용이 많이 발생)",
+			Description: "Maximum ProvisionedThroughput",
+			Purpose:     "Test maximum ProvisionedThroughput boundary value (expensive)",
 			Request: irs.FileSystemInfo{
 				IId:            irs.IID{NameId: "09.02-efs-max-throughput"},
 				VpcIID:         irs.IID{SystemId: VPC_ID},
@@ -374,12 +374,12 @@ func defineTestScenarios() []TestScenario {
 					"ProvisionedThroughput": "1024",
 				},
 			},
-			Expected: "성공 - 1024 MiB/s provisioned throughput",
+			Expected: "Success - 1024 MiB/s provisioned throughput",
 		},
 		{
 			ID:          "9.3",
-			Description: "최대 ProvisionedThroughput 초과",
-			Purpose:     "최대 ProvisionedThroughput 초과 검증",
+			Description: "Exceed Maximum ProvisionedThroughput",
+			Purpose:     "Validate exceeding maximum ProvisionedThroughput",
 			Request: irs.FileSystemInfo{
 				IId:            irs.IID{NameId: "09.03-efs-throughput-overflow"},
 				VpcIID:         irs.IID{SystemId: VPC_ID},
@@ -390,44 +390,44 @@ func defineTestScenarios() []TestScenario {
 					"ProvisionedThroughput": "1025",
 				},
 			},
-			Expected: "실패 - provisioned throughput must be between 1 and 1024 MiB/s",
+			Expected: "Failure - provisioned throughput must be between 1 and 1024 MiB/s",
 		},
 
-		// 10. 특수 케이스 테스트
+		// 10. Special Case Test
 		{
 			ID:          "10.1",
-			Description: "빈 이름 (Name이 필수가 아님)",
-			Purpose:     "빈 이름 허용 검증",
+			Description: "Empty Name (Name is not required)",
+			Purpose:     "Validate empty name allowance",
 			Request: irs.FileSystemInfo{
 				IId:    irs.IID{NameId: ""},
 				VpcIID: irs.IID{SystemId: VPC_ID},
 			},
-			Expected: "성공 - AWS EFS는 Name이 필수가 아님",
+			Expected: "Success - AWS EFS does not require Name",
 		},
 		{
 			ID:          "10.2",
-			Description: "매우 긴 이름 (128자)",
-			Purpose:     "긴 이름(128자) 지원 검증",
+			Description: "Very Long Name (128 characters)",
+			Purpose:     "Validate long name (128 characters) support",
 			Request: irs.FileSystemInfo{
 				IId:    irs.IID{NameId: createLongString(128)},
 				VpcIID: irs.IID{SystemId: VPC_ID},
 			},
-			Expected: "성공 - AWS EFS는 최대 128자 이름 지원",
+			Expected: "Success - AWS EFS supports up to 128 character names",
 		},
 		{
 			ID:          "10.3",
-			Description: "매우 긴 이름 (257자)",
-			Purpose:     "긴 이름(257자) 제한 검증",
+			Description: "Very Long Name (257 characters)",
+			Purpose:     "Validate long name (257 characters) limitation",
 			Request: irs.FileSystemInfo{
 				IId:    irs.IID{NameId: createLongString(257)},
 				VpcIID: irs.IID{SystemId: VPC_ID},
 			},
-			Expected: "실패 - AWS EFS는 256자를 초과하는 이름을 지원하지 않음",
+			Expected: "Failure - AWS EFS does not support names exceeding 256 characters",
 		},
 	}
 }
 
-// 헬퍼 함수: AccessSubnetList 생성
+// Helper function: Create AccessSubnetList
 func createAccessSubnetList(subnetKeys ...string) []irs.IID {
 	var subnets []irs.IID
 	for _, key := range subnetKeys {
@@ -438,7 +438,7 @@ func createAccessSubnetList(subnetKeys ...string) []irs.IID {
 	return subnets
 }
 
-// 헬퍼 함수: MountTargetList 생성
+// Helper function: Create MountTargetList
 func createMountTargetList(subnetKeys ...string) []irs.MountTargetInfo {
 	var mountTargets []irs.MountTargetInfo
 	for _, key := range subnetKeys {
@@ -453,9 +453,9 @@ func createMountTargetList(subnetKeys ...string) []irs.MountTargetInfo {
 	return mountTargets
 }
 
-// 브라우저에서 HTML 파일 열기 (원격 환경 고려)
+// Open HTML file in browser (considering remote environment)
 func openBrowser(filename string) {
-	// 원격 환경에서는 브라우저 열기가 어려울 수 있으므로 HTTP 서버 시작을 제안
+	// In remote environments, opening browser may be difficult, so suggest starting HTTP server
 	cblogger.Info("=== Test Report Generated Successfully ===")
 	cblogger.Infof("File: %s", filename)
 	cblogger.Info("")
@@ -465,7 +465,7 @@ func openBrowser(filename string) {
 	cblogger.Info("3. Open browser: http://localhost:8080/Test_Scenario_Result.html")
 	cblogger.Info("")
 
-	// 로컬 환경에서만 브라우저 열기 시도
+	// Try to open browser only in local environment
 	if os.Getenv("DISPLAY") != "" || runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
 		var cmd *exec.Cmd
 
@@ -506,19 +506,19 @@ type TestResult struct {
 	Success         bool
 	ErrorMessage    string
 	Duration        time.Duration
-	FileSystemID    string // 실제 생성된 파일시스템 ID
-	RequestInfo     string // 요청 정보 요약
-	ResponseInfo    string // 응답 정보 요약 (성공한 경우)
-	Validation      string // 검증 결과
-	ScenarioSuccess bool   // 시나리오 성공 여부 (실행 실패가 예상된 경우 true)
-	Skipped         bool   // 시나리오가 Skip(주석처리 등)된 경우 true
+	FileSystemID    string // Actual created filesystem ID
+	RequestInfo     string // Request information summary
+	ResponseInfo    string // Response information summary (for successful cases)
+	Validation      string // Validation result
+	ScenarioSuccess bool   // Scenario success status (true when execution failure is expected)
+	Skipped         bool   // True when scenario is skipped (commented out, etc.)
 }
 
 // TestScenario represents a test scenario
 type TestScenario struct {
 	ID          string
 	Description string
-	Purpose     string // 테스트 목적 추가
+	Purpose     string // Test purpose added
 	Request     irs.FileSystemInfo
 	Expected    string
 }
@@ -534,7 +534,7 @@ type Config struct {
 	} `yaml:"aws"`
 }
 
-// TestScenarioFileSystem 함수 - Test_Resources.go에서 호출됨
+// TestScenarioFileSystem function - Called from Test_Resources.go
 func TestScenarioFileSystem() {
 	fmt.Println("=== AWS EFS Test Scenario Execution ===")
 
@@ -616,7 +616,7 @@ func executeTestScenarios(handler irs.FileSystemHandler, scenarios []TestScenari
 			Duration:    duration,
 		}
 
-		// 요청 정보 요약 생성
+		// Generate request information summary
 		requestInfo := fmt.Sprintf("Name: %s, VPC: %s", scenario.Request.IId.NameId, scenario.Request.VpcIID.SystemId)
 		if scenario.Request.FileSystemType != "" {
 			requestInfo += fmt.Sprintf(", Type: %s", scenario.Request.FileSystemType)
@@ -642,10 +642,10 @@ func executeTestScenarios(handler irs.FileSystemHandler, scenarios []TestScenari
 			}
 		}
 		if len(scenario.Request.TagList) > 0 {
-			requestInfo += fmt.Sprintf(", Tags: %d개", len(scenario.Request.TagList))
+			requestInfo += fmt.Sprintf(", Tags: %d", len(scenario.Request.TagList))
 		}
 		if len(scenario.Request.AccessSubnetList) > 0 {
-			requestInfo += fmt.Sprintf(", AccessSubnets: %d개", len(scenario.Request.AccessSubnetList))
+			requestInfo += fmt.Sprintf(", AccessSubnets: %d", len(scenario.Request.AccessSubnetList))
 		}
 		testResult.RequestInfo = requestInfo
 
@@ -656,10 +656,10 @@ func executeTestScenarios(handler irs.FileSystemHandler, scenarios []TestScenari
 			testResult.FileSystemID = ""
 			testResult.ResponseInfo = ""
 			testResult.Validation = ""
-			// 시나리오 성공 여부 판단
-			if strings.HasPrefix(scenario.Expected, "실패") {
-				// '실패 - ' 이후의 메시지를 추출
-				expectedMsg := strings.TrimSpace(strings.TrimPrefix(scenario.Expected, "실패 -"))
+			// Determine scenario success status
+			if strings.HasPrefix(scenario.Expected, "Failure") {
+				// Extract message after 'Failure - '
+				expectedMsg := strings.TrimSpace(strings.TrimPrefix(scenario.Expected, "Failure -"))
 				if expectedMsg != "" && strings.Contains(err.Error(), expectedMsg) {
 					testResult.ScenarioSuccess = true
 					cblogger.Infof("Test Scenario %s SUCCESS (Expected Failure): %v", scenario.ID, err)
@@ -694,7 +694,7 @@ func executeTestScenarios(handler irs.FileSystemHandler, scenarios []TestScenari
 						cblogger.Infof("Successfully deleted file system %s", fsID)
 					}
 				}(result.IId.SystemId)
-				testResult.ScenarioSuccess = strings.HasPrefix(scenario.Expected, "성공")
+				testResult.ScenarioSuccess = strings.HasPrefix(scenario.Expected, "Success")
 			} else {
 				testResult.Success = false
 				testResult.Actual = "실패"
@@ -714,14 +714,14 @@ func executeTestScenarios(handler irs.FileSystemHandler, scenarios []TestScenari
 		time.Sleep(2 * time.Second)
 	}
 
-	// Skip 처리: EXECUTE_SCENARIOS에 정의되지 않은 시나리오들을 skip으로 추가
+	// Skip processing: Add scenarios not defined in EXECUTE_SCENARIOS as skipped
 	allScenarios := defineTestScenarios()
 	scenarioMap := make(map[string]TestScenario)
 	for _, scenario := range allScenarios {
 		scenarioMap[scenario.ID] = scenario
 	}
 
-	// EXECUTE_SCENARIOS에 없는 시나리오들을 skip으로 추가
+	// Add scenarios not in EXECUTE_SCENARIOS as skipped
 	for _, scenario := range allScenarios {
 		if !executedIDs[scenario.ID] {
 			results = append(results, TestResult{
@@ -754,19 +754,19 @@ func createLongString(length int) string {
 	return result
 }
 
-// validateFileSystemCreation 함수 - 생성된 EFS를 조회하여 요청값과 비교 검증
+// validateFileSystemCreation function - Query created EFS and compare with request values for validation
 func validateFileSystemCreation(handler irs.FileSystemHandler, request irs.FileSystemInfo, fileSystemID string) (string, string, string) {
 	if fileSystemID == "" {
-		return "", "", "FileSystem ID가 없음"
+		return "", "", "FileSystem ID is missing"
 	}
 
-	// 생성된 EFS 조회
+	// Query created EFS
 	createdFS, err := handler.GetFileSystem(irs.IID{SystemId: fileSystemID})
 	if err != nil {
-		return "", "", fmt.Sprintf("EFS 조회 실패: %v", err)
+		return "", "", fmt.Sprintf("EFS query failed: %v", err)
 	}
 
-	// 요청 정보 요약
+	// Request information summary
 	requestInfo := fmt.Sprintf("Name: %s, VPC: %s", request.IId.NameId, request.VpcIID.SystemId)
 	if request.FileSystemType != "" {
 		requestInfo += fmt.Sprintf(", Type: %s", request.FileSystemType)
@@ -792,13 +792,13 @@ func validateFileSystemCreation(handler irs.FileSystemHandler, request irs.FileS
 		}
 	}
 	if len(request.TagList) > 0 {
-		requestInfo += fmt.Sprintf(", Tags: %d개", len(request.TagList))
+		requestInfo += fmt.Sprintf(", Tags: %d", len(request.TagList))
 	}
 	if len(request.AccessSubnetList) > 0 {
-		requestInfo += fmt.Sprintf(", AccessSubnets: %d개", len(request.AccessSubnetList))
+		requestInfo += fmt.Sprintf(", AccessSubnets: %d", len(request.AccessSubnetList))
 	}
 
-	// 응답 정보 요약
+	// Response information summary
 	responseInfo := fmt.Sprintf("ID: %s, Name: %s, VPC: %s",
 		createdFS.IId.SystemId, createdFS.IId.NameId, createdFS.VpcIID.SystemId)
 	if createdFS.FileSystemType != "" {
@@ -825,52 +825,52 @@ func validateFileSystemCreation(handler irs.FileSystemHandler, request irs.FileS
 		}
 	}
 	if len(createdFS.TagList) > 0 {
-		responseInfo += fmt.Sprintf(", Tags: %d개", len(createdFS.TagList))
+		responseInfo += fmt.Sprintf(", Tags: %d", len(createdFS.TagList))
 	}
 
-	// 검증 결과
-	validation := "✅ 검증 통과"
+	// Validation result
+	validation := "✅ Validation passed"
 
-	// 기본 검증
+	// Basic validation
 	if request.IId.NameId != "" && createdFS.IId.NameId != request.IId.NameId {
-		validation = "❌ Name 불일치"
+		validation = "❌ Name mismatch"
 	}
 	if request.VpcIID.SystemId != "" && createdFS.VpcIID.SystemId != request.VpcIID.SystemId {
-		validation = "❌ VPC 불일치"
+		validation = "❌ VPC mismatch"
 	}
 	if request.FileSystemType != "" && createdFS.FileSystemType != request.FileSystemType {
-		validation = "❌ FileSystemType 불일치"
+		validation = "❌ FileSystemType mismatch"
 	}
 	if request.Zone != "" && createdFS.Zone != request.Zone {
-		validation = "❌ Zone 불일치"
+		validation = "❌ Zone mismatch"
 	}
 	if request.Encryption != createdFS.Encryption {
-		validation = "❌ Encryption 불일치"
+		validation = "❌ Encryption mismatch"
 	}
 	if request.NFSVersion != "" && createdFS.NFSVersion != request.NFSVersion {
-		validation = "❌ NFSVersion 불일치"
+		validation = "❌ NFSVersion mismatch"
 	}
 
-	// PerformanceInfo 검증
+	// PerformanceInfo validation
 	if request.PerformanceInfo != nil && createdFS.PerformanceInfo != nil {
 		for key, expectedValue := range request.PerformanceInfo {
 			if actualValue, exists := createdFS.PerformanceInfo[key]; !exists || actualValue != expectedValue {
-				validation = fmt.Sprintf("❌ PerformanceInfo[%s] 불일치 (요청: %s, 실제: %s)", key, expectedValue, actualValue)
+				validation = fmt.Sprintf("❌ PerformanceInfo[%s] mismatch (request: %s, actual: %s)", key, expectedValue, actualValue)
 				break
 			}
 		}
 	}
 
-	// Tag 검증 (Name 태그는 자동 추가되므로 제외)
+	// Tag validation (Name tag is automatically added, so exclude)
 	if len(request.TagList) > 0 {
 		requestTagCount := 0
 		for _, tag := range request.TagList {
-			if tag.Key != "Name" { // Name 태그는 자동 추가되므로 제외
+			if tag.Key != "Name" { // Name tag is automatically added, so exclude
 				requestTagCount++
 			}
 		}
 		if requestTagCount > 0 && len(createdFS.TagList) < requestTagCount {
-			validation = "❌ Tag 개수 불일치"
+			validation = "❌ Tag count mismatch"
 		}
 	}
 
@@ -878,9 +878,9 @@ func validateFileSystemCreation(handler irs.FileSystemHandler, request irs.FileS
 }
 
 func generateTestReport(results []TestResult) {
-	// HTML 스타일과 JavaScript를 포함한 보고서 생성
+	// Generate report with HTML styles and JavaScript
 	html := `<!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -923,21 +923,21 @@ func generateTestReport(results []TestResult) {
         <h1>🚀 AWS EFS Test Scenario Results</h1>
         <p><strong>Test Execution Time:</strong> ` + time.Now().Format("2006-01-02 15:04:05") + `</p>`
 
-	// 목차 생성
+	// Generate table of contents
 	html += `
         <div class="toc">
-            <h3>📋 목차</h3>
+            <h3>📋 Table of Contents</h3>
             <ul>
-                <li><a href="#summary">📊 전체 요약</a></li>
-                <li><a href="#scenarios">📋 시나리오 목록</a></li>
-                <li><a href="#results">📈 전체 실행 결과</a></li>
-                <li><a href="#success">✅ 성공한 시나리오 상세</a></li>
-                <li><a href="#failure">❌ 실패한 시나리오 상세</a></li>
-                <li><a href="#skipped">⏭️ Skip된 시나리오</a></li>
+                <li><a href="#summary">📊 Overall Summary</a></li>
+                <li><a href="#scenarios">📋 Scenario List</a></li>
+                <li><a href="#results">📈 Overall Execution Results</a></li>
+                <li><a href="#success">✅ Successful Scenarios Detail</a></li>
+                <li><a href="#failure">❌ Failed Scenarios Detail</a></li>
+                <li><a href="#skipped">⏭️ Skipped Scenarios</a></li>
             </ul>
         </div>`
 
-	// 요약 통계
+	// Summary statistics
 	successCount := 0
 	failureCount := 0
 	var failedScenarios []TestResult
@@ -945,7 +945,7 @@ func generateTestReport(results []TestResult) {
 
 	for _, result := range results {
 		if result.Skipped {
-			continue // Skip는 통계에서 제외
+			continue // Exclude skipped from statistics
 		}
 		if result.ScenarioSuccess {
 			successCount++
@@ -964,25 +964,25 @@ func generateTestReport(results []TestResult) {
 
 	html += `
         <div id="summary">
-            <h2>📊 전체 요약</h2>
+            <h2>📊 Overall Summary</h2>
             <div class="summary">
-                <div class="summary-item">총 테스트 수: <span class="success">` + fmt.Sprintf("%d", totalCount) + `</span></div>
-                <div class="summary-item">성공: <span class="success">` + fmt.Sprintf("%d", successCount) + `</span></div>
-                <div class="summary-item">실패: <span class="failure">` + fmt.Sprintf("%d", failureCount) + `</span></div>
-                <div class="summary-item">성공률: <span class="success">` + fmt.Sprintf("%.2f%%", successRate) + `</span></div>
+                <div class="summary-item">Total Tests: <span class="success">` + fmt.Sprintf("%d", totalCount) + `</span></div>
+                <div class="summary-item">Success: <span class="success">` + fmt.Sprintf("%d", successCount) + `</span></div>
+                <div class="summary-item">Failure: <span class="failure">` + fmt.Sprintf("%d", failureCount) + `</span></div>
+                <div class="summary-item">Success Rate: <span class="success">` + fmt.Sprintf("%.2f%%", successRate) + `</span></div>
             </div>
         </div>`
 
-	// 시나리오 목록 (목차 역할)
+	// Scenario list (serves as table of contents)
 	html += `
         <div id="scenarios">
-            <h2>📋 시나리오 목록</h2>
+            <h2>📋 Scenario List</h2>
             <table>
                 <tr>
-                    <th>시나리오 번호</th>
-                    <th>시나리오 제목</th>
-                    <th>예상 결과</th>
-                    <th>테스트 목적</th>
+                    <th>Scenario Number</th>
+                    <th>Scenario Title</th>
+                    <th>Expected Result</th>
+                    <th>Test Purpose</th>
                 </tr>`
 
 	// 시나리오 정의를 다시 가져와서 목록 생성
@@ -1001,36 +1001,36 @@ func generateTestReport(results []TestResult) {
             </table>
         </div>`
 
-	// 전체 실행 결과
+	// Overall execution results
 	html += `
         <div id="results">
-            <h2>📈 전체 실행 결과</h2>
+            <h2>📈 Overall Execution Results</h2>
             <table>
                 <tr>
-                    <th>시나리오 번호</th>
-                    <th>시나리오 제목</th>
-                    <th>예상 결과</th>
-                    <th>실행 결과</th>
-                    <th>시나리오 결과</th>
+                    <th>Scenario Number</th>
+                    <th>Scenario Title</th>
+                    <th>Expected Result</th>
+                    <th>Execution Result</th>
+                    <th>Scenario Result</th>
                 </tr>`
 
 	for _, result := range results {
-		// 실행 결과
+		// Execution result
 		statusClass := "status-success"
-		statusText := "✅ 성공"
+		statusText := "✅ Success"
 		if !result.Success {
 			statusClass = "status-failure"
-			statusText = "❌ 실패"
+			statusText = "❌ Failure"
 		}
-		// 시나리오 결과
+		// Scenario result
 		scenarioClass := "status-success"
-		scenarioText := "✅ 성공"
+		scenarioText := "✅ Success"
 		if result.Skipped {
 			scenarioClass = "status-warning"
 			scenarioText = "⏭️ Skip"
 		} else if !result.ScenarioSuccess {
 			scenarioClass = "status-failure"
-			scenarioText = "❌ 실패"
+			scenarioText = "❌ Failure"
 		}
 		html += fmt.Sprintf(`
                 <tr class="%s">
@@ -1047,26 +1047,26 @@ func generateTestReport(results []TestResult) {
             </table>
         </div>`
 
-	// 성공한 시나리오 상세
+	// Successful scenarios detail
 	if len(successScenarios) > 0 {
 		html += `
         <div id="success">
-            <h2>✅ 성공한 시나리오 상세</h2>`
+            <h2>✅ Successful Scenarios Detail</h2>`
 
 		for _, result := range successScenarios {
 			html += fmt.Sprintf(`
-            <button class="collapsible">%s - %s (실행시간: %s)</button>
+            <button class="collapsible">%s - %s (Execution Time: %s)</button>
             <div class="content">
-                <h4>📋 요청 정보</h4>
+                <h4>📋 Request Information</h4>
                 <p><strong>%s</strong></p>
                 
-                <h4>📤 응답 정보</h4>
+                <h4>📤 Response Information</h4>
                 <p><strong>%s</strong></p>
                 
-                <h4>🔍 검증 결과</h4>
+                <h4>🔍 Validation Result</h4>
                 <p><strong>%s</strong></p>
                 
-                <h4>📝 상세 로그</h4>
+                <h4>📝 Detailed Log</h4>
                 <div class="log-content">FileSystem ID: %s
 Duration: %s
 Request Info: %s
@@ -1080,23 +1080,23 @@ Validation: %s</div>
 		html += `</div>`
 	}
 
-	// 실패한 시나리오 상세
+	// Failed scenarios detail
 	if len(failedScenarios) > 0 {
 		html += `
         <div id="failure">
-            <h2>❌ 실패한 시나리오 상세</h2>`
+            <h2>❌ Failed Scenarios Detail</h2>`
 
 		for _, result := range failedScenarios {
 			html += fmt.Sprintf(`
-            <button class="collapsible">%s - %s (실행시간: %s)</button>
+            <button class="collapsible">%s - %s (Execution Time: %s)</button>
             <div class="content">
-                <h4>📋 요청 정보</h4>
+                <h4>📋 Request Information</h4>
                 <p><strong>%s</strong></p>
                 
-                <h4>❌ 오류 메시지</h4>
+                <h4>❌ Error Message</h4>
                 <p><strong>%s</strong></p>
                 
-                <h4>📝 상세 로그</h4>
+                <h4>📝 Detailed Log</h4>
                 <div class="log-content">Scenario ID: %s
 Description: %s
 Expected: %s
@@ -1111,7 +1111,7 @@ Error Message: %s</div>
 		html += `</div>`
 	}
 
-	// Skip된 시나리오 상세
+	// Skipped scenarios detail
 	if len(results) > 0 {
 		skipScenarios := []TestResult{}
 		for _, result := range results {
@@ -1122,19 +1122,19 @@ Error Message: %s</div>
 		if len(skipScenarios) > 0 {
 			html += `
         <div id="skipped">
-            <h2>⏭️ Skip된 시나리오 상세</h2>`
+            <h2>⏭️ Skipped Scenarios Detail</h2>`
 			for _, result := range skipScenarios {
 				html += fmt.Sprintf(`
             <button class="collapsible">%s - %s</button>
             <div class="content">
-                <h4>📋 시나리오 정보</h4>
-                <p><strong>시나리오 ID:</strong> %s</p>
-                <p><strong>설명:</strong> %s</p>
-                <p><strong>예상 결과:</strong> %s</p>
+                <h4>📋 Scenario Information</h4>
+                <p><strong>Scenario ID:</strong> %s</p>
+                <p><strong>Description:</strong> %s</p>
+                <p><strong>Expected Result:</strong> %s</p>
                 
-                <h4>⏭️ Skip 이유</h4>
-                <p>이 시나리오는 비용, 시간, 또는 기타 이유로 인해 실행하지 않았습니다.</p>
-                <p>실행하려면 <code>EXECUTE_SCENARIOS</code> 목록에 "%s"를 추가하세요.</p>
+                <h4>⏭️ Skip Reason</h4>
+                <p>This scenario was not executed due to cost, time, or other reasons.</p>
+                <p>To execute, add "%s" to the <code>EXECUTE_SCENARIOS</code> list.</p>
             </div>`, result.ScenarioID, result.Description, result.ScenarioID, result.Description, result.Expected, result.ScenarioID)
 			}
 			html += `</div>`
@@ -1173,7 +1173,7 @@ Error Message: %s</div>
 	} else {
 		cblogger.Info("Test report written to " + filename)
 
-		// 브라우저에서 자동으로 열기
+		// Automatically open in browser
 		cblogger.Info("Opening test report in browser...")
 		openBrowser(filename)
 	}
@@ -1188,12 +1188,12 @@ func getRowClass(success bool) string {
 }
 
 func readConfigFile() Config {
-	// CBSPIDER_TEST_CONF_PATH 환경변수 사용
+	// Use CBSPIDER_TEST_CONF_PATH environment variable
 	confPath := os.Getenv("CBSPIDER_TEST_CONF_PATH")
 	if confPath == "" {
 		panic("CBSPIDER_TEST_CONF_PATH environment variable is not set")
 	}
-	cblogger.Infof("설정 파일 경로: [%s]", confPath)
+	cblogger.Infof("Configuration file path: [%s]", confPath)
 
 	data, err := ioutil.ReadFile(confPath)
 	if err != nil {
