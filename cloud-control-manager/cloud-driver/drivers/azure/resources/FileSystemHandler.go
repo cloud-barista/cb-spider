@@ -170,11 +170,22 @@ func (af *AzureFileSystemHandler) RemoveAccessSubnet(iid irs.IID, subnetIID irs.
 		return false, fmt.Errorf("no network rule set found for storage account")
 	}
 
+	rawFS, err := af.getRawFileSystem(saName, iid)
+	if err != nil {
+		cblogger.Errorf("Failed to get raw file system: %v", err)
+		return false, err
+	}
+	info, err := af.setterFileSystemInfo(&rawFS)
+	if err != nil {
+		cblogger.Errorf("Failed to get file system info: %v", err)
+		return false, err
+	}
+
 	if subnetIID.SystemId == "" {
 		subnetIID.SystemId = GetSubnetIdByName(
 			af.CredentialInfo,
 			rg,
-			iid.NameId,
+			info.VpcIID.NameId,
 			subnetIID.NameId,
 		)
 		cblogger.Infof("Constructed SystemId for removal: %s", subnetIID.SystemId)

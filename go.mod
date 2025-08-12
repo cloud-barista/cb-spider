@@ -36,6 +36,7 @@ require (
 	golang.org/x/oauth2 v0.29.0
 	google.golang.org/api v0.229.0
 	google.golang.org/grpc v1.71.1 // indirect
+
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 )

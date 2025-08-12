@@ -84,7 +84,7 @@ func RegisterRegion(regionName string, providerName string, keyValueInfoList []i
 }
 
 func ListRegion() ([]*RegionInfo, error) {
-	cblog.Info("call ListRegion()")
+	// cblog.Info("call ListRegion()")
 
 	var regionInfoList []*RegionInfo
 	err := infostore.List(&regionInfoList)

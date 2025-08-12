@@ -57,7 +57,7 @@ func ListCloudOS() []string {
 	}
 
 	//sort.Strings(cloudosList.Name)
-	cblog.Info(cloudosList)
+	// cblog.Info(cloudosList)
 
 	return cloudosList.Name
 }
