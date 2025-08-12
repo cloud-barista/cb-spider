@@ -69,7 +69,7 @@ If you encounter any difficulties while using Cloud-Barista, please let us know.
 | NHN           | NA             | O                   | O             | O              | O<br>(Type1)       | O                 | O               | O<br>(Note2)   | O    | O    | O     | O           | O        |
 | KT VPC        | NA             | O                   | O             | O              | O<br>(Type2)       | O                 | O               | O              | O    | O   | O<br>(Note3)| Wait API  | O        |
 | KT Classic    | NA             | O                   | O             | O              | O<br>(Type3)       | O                 | O               | O              | O    | O   | O       | NA          | -        |
-| NCP Classic   | -            | O                   | O             | O              | O<br>(Type3)       | O<br>(Note1)     | O               | O              | O    | O   | O       | NA           | -        |
+| NCP Classic<br> (25.9.18.부터 VM 생성 불가)   | -            | O                   | O             | O              | O<br>(Type3)       | O<br>(Note1)     | O               | O              | O    | O   | O       | NA           | -        |
 
     ※ WIP: Work In Progress, NA: Not Applicable, Wait API: CSP API 공개 대기, ?: 미정/분석필요, -: 연동 제외 Classic 자원
     
