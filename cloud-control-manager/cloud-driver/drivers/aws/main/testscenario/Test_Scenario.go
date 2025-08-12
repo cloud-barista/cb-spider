@@ -651,7 +651,7 @@ func executeTestScenarios(handler irs.FileSystemHandler, scenarios []TestScenari
 
 		if err != nil {
 			testResult.Success = false
-			testResult.Actual = "실패"
+			testResult.Actual = "Failure"
 			testResult.ErrorMessage = err.Error()
 			testResult.FileSystemID = ""
 			testResult.ResponseInfo = ""
@@ -674,12 +674,12 @@ func executeTestScenarios(handler irs.FileSystemHandler, scenarios []TestScenari
 		} else {
 			if result.IId.SystemId != "" {
 				testResult.Success = true
-				testResult.Actual = "성공"
+				testResult.Actual = "Success"
 				testResult.ErrorMessage = ""
 				testResult.FileSystemID = result.IId.SystemId
 				cblogger.Infof("Test Scenario %s SUCCESS: %s", scenario.ID, result.IId.SystemId)
 
-				// 생성된 EFS 검증
+				// Validate created EFS
 				_, responseInfo, validation := validateFileSystemCreation(handler, scenario.Request, result.IId.SystemId)
 				testResult.ResponseInfo = responseInfo
 				testResult.Validation = validation
@@ -697,7 +697,7 @@ func executeTestScenarios(handler irs.FileSystemHandler, scenarios []TestScenari
 				testResult.ScenarioSuccess = strings.HasPrefix(scenario.Expected, "Success")
 			} else {
 				testResult.Success = false
-				testResult.Actual = "실패"
+				testResult.Actual = "Failure"
 				testResult.ErrorMessage = "CreateFileSystem returned empty SystemId"
 				testResult.FileSystemID = ""
 				testResult.ResponseInfo = ""
@@ -985,7 +985,7 @@ func generateTestReport(results []TestResult) {
                     <th>Test Purpose</th>
                 </tr>`
 
-	// 시나리오 정의를 다시 가져와서 목록 생성
+	// Get scenario definitions again to create list
 	scenarios := defineTestScenarios()
 	for _, scenario := range scenarios {
 		html += fmt.Sprintf(`
