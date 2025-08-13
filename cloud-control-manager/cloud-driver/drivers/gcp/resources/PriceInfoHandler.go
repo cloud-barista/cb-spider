@@ -14,7 +14,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -28,13 +27,7 @@ import (
 
 var validFilterKey map[string]bool
 
-// Global price cache with mutex for thread safety
-var (
-	globalPriceCache map[string]*PriceData
-	priceCacheMutex  sync.RWMutex
-	cacheExpiry      time.Time
-	cacheDuration    = 1 * time.Hour // Cache for 1 hour
-)
+const pricingURL = "https://cloud.google.com/compute/all-pricing?hl=en"
 
 type PriceData struct {
 	Region      string
@@ -42,11 +35,11 @@ type PriceData struct {
 	Amount      float64
 	Currency    string
 	Unit        string
+	Source      string
 }
 
 func init() {
 	validFilterKey = make(map[string]bool, 0)
-	globalPriceCache = make(map[string]*PriceData)
 
 	refelectValue := reflect.ValueOf(irs.ProductInfo{})
 
@@ -96,18 +89,17 @@ var (
 )
 
 // fetchPricingData fetches and parses Google Cloud pricing data
-func fetchPricingData() error {
-	const url = "https://cloud.google.com/compute/all-pricing?hl=en"
+func fetchPricingData() (map[string]*PriceData, error) {
 	const minDataSize = 100 * 1024
 	const maxRetries = 3
 	const timeout = 5 * time.Minute
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		cblogger.Infof("Attempt %d/%d: Fetching pricing data from %s", attempt, maxRetries, url)
+		cblogger.Infof("Attempt %d/%d: Fetching pricing data from %s", attempt, maxRetries, pricingURL)
 
 		client := &http.Client{Timeout: timeout}
 
-		req, err := http.NewRequest("GET", url, nil)
+		req, err := http.NewRequest("GET", pricingURL, nil)
 		if err != nil {
 			cblogger.Error("Failed to create request:", err)
 			continue
@@ -178,8 +170,8 @@ func fetchPricingData() error {
 
 		cblogger.Infof("Successfully fetched %d bytes", len(data))
 
-		// Parse the data and update cache
-		err = parsePricingData(data)
+		// Parse the data and return price cache
+		priceCache, err := parsePricingData(data)
 		if err != nil {
 			cblogger.Error("Failed to parse pricing data:", err)
 			if attempt < maxRetries {
@@ -188,10 +180,10 @@ func fetchPricingData() error {
 			continue
 		}
 
-		return nil
+		return priceCache, nil
 	}
 
-	return errors.New("failed to fetch pricing data after all retry attempts")
+	return nil, errors.New("failed to fetch pricing data after all retry attempts")
 }
 
 // findBlocksByBrackets finds pricing blocks in the HTML
@@ -261,6 +253,7 @@ func parseBlock(block []byte, sectionIdx int) []*PriceData {
 			Amount:      amt,
 			Currency:    "USD",
 			Unit:        "Hour",
+			Source:      pricingURL,
 		})
 	}
 
@@ -290,11 +283,11 @@ func coalesceByRegionMachine(priceData []*PriceData) []*PriceData {
 	return out
 }
 
-// parsePricingData parses the fetched HTML data and updates the global cache
-func parsePricingData(data []byte) error {
+// parsePricingData parses the fetched HTML data and returns the price cache
+func parsePricingData(data []byte) (map[string]*PriceData, error) {
 	spans := findBlocksByBrackets(data)
 	if len(spans) == 0 {
-		return errors.New("no pricing blocks found")
+		return nil, errors.New("no pricing blocks found")
 	}
 
 	var allPriceData []*PriceData
@@ -306,49 +299,27 @@ func parsePricingData(data []byte) error {
 
 	allPriceData = coalesceByRegionMachine(allPriceData)
 	if len(allPriceData) == 0 {
-		return errors.New("no valid pricing data found")
+		return nil, errors.New("no valid pricing data found")
 	}
 
-	// Update global cache
-	priceCacheMutex.Lock()
-	defer priceCacheMutex.Unlock()
-
-	// Clear existing cache
-	globalPriceCache = make(map[string]*PriceData)
+	// Create price cache
+	priceCache := make(map[string]*PriceData)
 
 	// Populate cache with new data
 	for _, priceData := range allPriceData {
 		key := fmt.Sprintf("%s:%s", priceData.Region, priceData.MachineType)
-		globalPriceCache[key] = priceData
+		priceCache[key] = priceData
 	}
 
-	cacheExpiry = time.Now().Add(cacheDuration)
-	cblogger.Infof("Updated pricing cache with %d entries", len(globalPriceCache))
+	cblogger.Infof("Created pricing cache with %d entries", len(priceCache))
 
-	return nil
+	return priceCache, nil
 }
 
 // getPriceFromCache retrieves price data from cache
-func getPriceFromCache(region, machineType string) *PriceData {
-	priceCacheMutex.RLock()
-	defer priceCacheMutex.RUnlock()
-
+func getPriceFromCache(priceCache map[string]*PriceData, region, machineType string) *PriceData {
 	key := fmt.Sprintf("%s:%s", region, machineType)
-	return globalPriceCache[key]
-}
-
-// ensurePriceCacheLoaded ensures the price cache is loaded and up-to-date
-func ensurePriceCacheLoaded() error {
-	priceCacheMutex.RLock()
-	needsRefresh := time.Now().After(cacheExpiry) || len(globalPriceCache) == 0
-	priceCacheMutex.RUnlock()
-
-	if needsRefresh {
-		cblogger.Info("Refreshing pricing cache...")
-		return fetchPricingData()
-	}
-
-	return nil
+	return priceCache[key]
 }
 
 func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, additionalFilterList []irs.KeyValue) (string, error) {
@@ -361,10 +332,10 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 		return "", errors.New("invalid filter key")
 	}
 
-	// Ensure pricing cache is loaded
-	err := ensurePriceCacheLoaded()
+	// Fetch pricing data directly each time
+	priceCache, err := fetchPricingData()
 	if err != nil {
-		cblogger.Error("Failed to load pricing cache:", err)
+		cblogger.Error("Failed to fetch pricing data:", err)
 		return "", err
 	}
 
@@ -445,8 +416,8 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 						continue
 					}
 
-					// Get price from cache instead of calling EstimateCostScenario
-					priceData := getPriceFromCacheForRegion(regionName, machineType.Name)
+					// Get price from fetched data instead of cache
+					priceData := getPriceFromCacheForRegion(priceCache, regionName, machineType.Name)
 					if priceData == nil {
 						cblogger.Infof("No pricing data found for machine type %s in region %s, skipping", machineType.Name, regionName)
 						continue
@@ -458,7 +429,7 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 						return "", err
 					}
 
-					// cblogger.Infof("fetch :: %s machine type with price $%f", productInfo.VMSpecInfo.Name, priceData.Amount)
+					cblogger.Infof("fetch :: %s machine type with price $%f", productInfo.VMSpecInfo.Name, priceData.Amount)
 
 					aPrice := irs.Price{
 						ZoneName:    machineType.Zone,
@@ -489,18 +460,15 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 }
 
 // getPriceFromCacheForRegion gets price data from cache, trying to match region names
-func getPriceFromCacheForRegion(regionName, machineType string) *PriceData {
+func getPriceFromCacheForRegion(priceCache map[string]*PriceData, regionName, machineType string) *PriceData {
 	// Try exact match first
-	priceData := getPriceFromCache(regionName, machineType)
+	priceData := getPriceFromCache(priceCache, regionName, machineType)
 	if priceData != nil {
 		return priceData
 	}
 
 	// Try to find a matching region in cache (Google's pricing page may have different region naming)
-	priceCacheMutex.RLock()
-	defer priceCacheMutex.RUnlock()
-
-	for _, data := range globalPriceCache {
+	for _, data := range priceCache {
 		if data.MachineType == machineType {
 			// Check if region names are similar (contains the regionName or vice versa)
 			if strings.Contains(strings.ToLower(data.Region), strings.ToLower(regionName)) ||
@@ -519,7 +487,7 @@ func mappingToPriceInfoFromCache(priceData *PriceData, filter map[string]*string
 		PricingId:   "NA",
 		Unit:        priceData.Unit,
 		Currency:    priceData.Currency,
-		Price:       fmt.Sprintf("%.8f", priceData.Amount),
+		Price:       fmt.Sprintf("%g", priceData.Amount),
 		Description: fmt.Sprintf("OnDemand pricing for %s", priceData.MachineType),
 	}
 
@@ -607,11 +575,17 @@ func mappingToProductInfoForComputePrice(region string, machineType *compute.Mac
 		CSPProductInfo: machineType,
 	}
 
+	gpuInfoList := []irs.GpuInfo{}
+	if machineType.Accelerators != nil {
+		gpuInfoList = acceleratorsToGPUInfoList(machineType.Accelerators)
+	}
+
 	productInfo.VMSpecInfo.Name = machineType.Name
 	productInfo.VMSpecInfo.VCpu.Count = fmt.Sprintf("%d", machineType.GuestCpus)
 	productInfo.VMSpecInfo.VCpu.ClockGHz = "-1"
 	productInfo.VMSpecInfo.MemSizeMiB = fmt.Sprintf("%d", machineType.MemoryMb)
 	productInfo.VMSpecInfo.DiskSizeGB = "-1"
+	productInfo.VMSpecInfo.Gpu = gpuInfoList
 
 	productInfo.Description = machineType.Description
 
