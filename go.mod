@@ -29,7 +29,7 @@ require (
 	github.com/spf13/cobra v1.2.1
 	github.com/swaggo/swag v1.16.3
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb v1.0.415
-	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.0.1064
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common v1.1.8
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm v1.0.1064
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc v1.0.206
 	golang.org/x/crypto v0.38.0
@@ -116,6 +116,7 @@ require (
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/swaggo/files/v2 v2.0.0 // indirect
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cfs v1.1.8 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tinylib/msgp v1.3.0 // indirect
 	github.com/tjfoc/gmsm v1.4.1 // indirect

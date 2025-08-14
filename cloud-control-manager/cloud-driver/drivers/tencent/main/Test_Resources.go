@@ -84,11 +84,11 @@ func handleVMSpec() {
 				fmt.Println("Start ListVMSpec() ...")
 				result, err := handler.ListVMSpec()
 				if err != nil {
-					cblogger.Error("VMSpec 목록 조회 실패 : ", err)
+					cblogger.Error("VMSpec list lookup failed : ", err)
 				} else {
-					cblogger.Info("VMSpec 목록 조회 결과")
+					cblogger.Info("VMSpec list lookup results")
 					spew.Dump(result)
-					cblogger.Info("출력 결과 수 : ", len(result))
+					cblogger.Info("Number of output results : ", len(result))
 				}
 
 				fmt.Println("Finish ListVMSpec()")
@@ -97,9 +97,9 @@ func handleVMSpec() {
 				fmt.Println("Start GetVMSpec() ...")
 				result, err := handler.GetVMSpec(reqVMSpec)
 				if err != nil {
-					cblogger.Error(reqVMSpec, " VMSpec 정보 조회 실패 : ", err)
+					cblogger.Error(reqVMSpec, " VMSpec info lookup failed : ", err)
 				} else {
-					cblogger.Infof("VMSpec[%s]  정보 조회 결과", reqVMSpec)
+					cblogger.Infof("VMSpec[%s] info lookup results", reqVMSpec)
 					spew.Dump(result)
 				}
 				fmt.Println("Finish GetVMSpec()")
@@ -108,9 +108,9 @@ func handleVMSpec() {
 				fmt.Println("Start ListOrgVMSpec() ...")
 				result, err := handler.ListOrgVMSpec()
 				if err != nil {
-					cblogger.Error("VMSpec 목록 조회 실패 : ", err)
+					cblogger.Error("VMSpec list lookup failed : ", err)
 				} else {
-					cblogger.Info("VMSpec 목록 조회 결과")
+					cblogger.Info("VMSpec list lookup results")
 					cblogger.Info(result)
 					//spew.Dump(result)
 				}
@@ -121,9 +121,9 @@ func handleVMSpec() {
 				fmt.Println("Start GetOrgVMSpec() ...")
 				result, err := handler.GetOrgVMSpec(reqVMSpec)
 				if err != nil {
-					cblogger.Error(reqVMSpec, " VMSpec 정보 조회 실패 : ", err)
+					cblogger.Error(reqVMSpec, " VMSpec info lookup failed : ", err)
 				} else {
-					cblogger.Infof("VMSpec[%s]  정보 조회 결과", reqVMSpec)
+					cblogger.Infof("VMSpec[%s] info lookup results", reqVMSpec)
 					cblogger.Info(result)
 					//spew.Dump(result)
 				}
@@ -177,23 +177,23 @@ func handleSecurity() {
 			case 1:
 				result, err := handler.ListSecurity()
 				if err != nil {
-					cblogger.Infof(" Security 목록 조회 실패 : ", err)
+					cblogger.Infof(" Security list lookup failed : ", err)
 				} else {
-					cblogger.Info("Security 목록 조회 결과")
+					cblogger.Info("Security list lookup results")
 					//cblogger.Info(result)
 					spew.Dump(result)
 					if result != nil {
-						securityId = result[0].IId.SystemId // 조회 및 삭제를 위해 생성된 ID로 변경
+						securityId = result[0].IId.SystemId // Change to generated ID for lookup and deletion
 					}
 				}
 
 			case 2:
-				cblogger.Infof("[%s] Security 생성 테스트", securityName)
+				cblogger.Infof("[%s] Security creation test", securityName)
 				securityReqInfo := irs.SecurityReqInfo{
 					IId: irs.IID{NameId: securityName},
 					// VpcIID: irs.IID{SystemId: vpcId},
 					VpcIID: irs.IID{SystemId: "vpc-nqjv5krw"},
-					SecurityRules: &[]irs.SecurityRuleInfo{ //보안 정책 설정
+					SecurityRules: &[]irs.SecurityRuleInfo{ //Security policy configuration
 						//CIDR 테스트
 						{
 							FromPort:   "-1",
@@ -279,33 +279,33 @@ func handleSecurity() {
 
 				result, err := handler.CreateSecurity(securityReqInfo)
 				if err != nil {
-					cblogger.Infof(securityName, " Security 생성 실패 : ", err)
+					cblogger.Infof(securityName, " Security creation failed : ", err)
 				} else {
-					cblogger.Infof("[%s] Security 생성 결과 : [%v]", securityName, result)
+					cblogger.Infof("[%s] Security creation results : [%v]", securityName, result)
 					securityId = result.IId.SystemId
 					spew.Dump(result)
 				}
 
 			case 3:
-				cblogger.Infof("[%s] Security 조회 테스트", securityId)
+				cblogger.Infof("[%s] Security lookup test", securityId)
 				result, err := handler.GetSecurity(irs.IID{SystemId: securityId})
 				if err != nil {
-					cblogger.Infof(securityId, " Security 조회 실패 : ", err)
+					cblogger.Infof(securityId, " Security lookup failed : ", err)
 				} else {
-					cblogger.Infof("[%s] Security 조회 결과 : [%v]", securityId, result)
+					cblogger.Infof("[%s] Security lookup results : [%v]", securityId, result)
 					spew.Dump(result)
 				}
 
 			case 4:
-				cblogger.Infof("[%s] Security 삭제 테스트", securityId)
+				cblogger.Infof("[%s] Security deletion test", securityId)
 				result, err := handler.DeleteSecurity(irs.IID{SystemId: securityId})
 				if err != nil {
-					cblogger.Infof(securityId, " Security 삭제 실패 : ", err)
+					cblogger.Infof(securityId, " Security deletion failed : ", err)
 				} else {
-					cblogger.Infof("[%s] Security 삭제 결과 : [%s]", securityId, result)
+					cblogger.Infof("[%s] Security deletion results : [%s]", securityId, result)
 				}
 			case 5:
-				cblogger.Infof("[%s] Rule 추가 테스트", securityId)
+				cblogger.Infof("[%s] Rule addition test", securityId)
 				securityRules := &[]irs.SecurityRuleInfo{
 
 					{
@@ -737,9 +737,9 @@ func handleVPC() {
 	handler := ResourceHandler.(irs.VPCHandler)
 
 	vpcName := "CMIG-VPC01"
-	vpcSystemId := "vpc-9i891ww4"
+	vpcSystemId := ""
 	subnetName := "CMIG-Subnet001"
-	subnetSystemId := "subnet-1xtb36yf"
+	subnetSystemId := ""
 
 	subnetReqInfo := irs.SubnetInfo{
 		IId:       irs.IID{NameId: subnetName},
@@ -1947,12 +1947,12 @@ func handleFileSystem() {
 			panic(err)
 		}
 		fsName := "CB-FS-TEST05"
-		fsSystemId := "cfs-qnsl80fp"
+		fsSystemId := ""
 
 		vpcName := "CMIG-VPC01"
-		vpcSystemId := "vpc-9i891ww4"
+		vpcSystemId := ""
 		subnetName := "CMIG-Subnet001"
-		subnetSystemId := "subnet-1xtb36yf"
+		subnetSystemId := ""
 
 		//capacityGB := int64(1024)
 		capacityGB := int64(4000)
