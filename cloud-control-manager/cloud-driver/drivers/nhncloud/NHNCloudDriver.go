@@ -15,6 +15,8 @@ import (
 	// "github.com/davecgh/go-spew/spew"
 
 	"errors"
+	"fmt"
+	"strings"
 
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
 	ostack "github.com/cloud-barista/nhncloud-sdk-go/openstack"
@@ -115,6 +117,11 @@ func (driver *NhnCloudDriver) ConnectCloud(connInfo idrv.ConnectionInfo) (icon.C
 		}
 	}
 
+	FSClient, err := getFSClient(providerClient, connInfo)
+	if err != nil {
+		return nil, err
+	}
+
 	iConn := nhncon.NhnCloudConnection{
 		CredentialInfo: connInfo.CredentialInfo, // Note) Need in RegionZoneHandler
 		RegionInfo:     connInfo.RegionInfo,
@@ -123,6 +130,7 @@ func (driver *NhnCloudDriver) ConnectCloud(connInfo idrv.ConnectionInfo) (icon.C
 		NetworkClient:  NetworkClient,
 		VolumeClient:   VolumeClient,
 		ClusterClient:  ClusterClient,
+		FSClient:       FSClient,
 	}
 	return &iConn, nil
 }
@@ -185,4 +193,18 @@ func getClusterClient(providerClient *nhnsdk.ProviderClient, connInfo idrv.Conne
 	}
 
 	return client, err
+}
+
+func getFSClient(providerClient *nhnsdk.ProviderClient, connInfo idrv.ConnectionInfo) (*nhnsdk.ServiceClient, error) {
+	region := connInfo.RegionInfo.Region
+
+	endpoint := fmt.Sprintf("https://%s-api-nas-infrastructure.nhncloudservice.com/v1/", strings.ToLower(region))
+
+	fsClient := &nhnsdk.ServiceClient{
+		ProviderClient: providerClient,
+		Endpoint:       endpoint,
+		Type:           "sharev2",
+	}
+
+	return fsClient, nil
 }
