@@ -7,7 +7,6 @@ import (
 	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
-	vpcv0230 "github.com/IBM/vpc-go-sdk/0.23.0/vpcv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	cblog "github.com/cloud-barista/cb-log"
 	ibmrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/resources"
@@ -31,13 +30,7 @@ type IbmCloudConnection struct {
 	ClusterService *kubernetesserviceapiv1.KubernetesServiceApiV1
 	TaggingService *globaltaggingv1.GlobalTaggingV1
 	SearchService  *globalsearchv2.GlobalSearchV2
-	VpcService0230 *vpcv0230.VpcV1
 	Ctx            context.Context
-}
-
-// CreateFileSystemHandler implements connect.CloudConnection.
-func (cloudConn *IbmCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
-	panic("unimplemented")
 }
 
 func (cloudConn *IbmCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
@@ -57,7 +50,6 @@ func (cloudConn *IbmCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
 		CredentialInfo: cloudConn.CredentialInfo,
 		Region:         cloudConn.Region,
 		VpcService:     cloudConn.VpcService,
-		VpcService0230: cloudConn.VpcService0230,
 		Ctx:            cloudConn.Ctx,
 		TaggingService: cloudConn.TaggingService,
 		SearchService:  cloudConn.SearchService,
@@ -195,6 +187,19 @@ func (cloudConn *IbmCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHand
 		Region:         cloudConn.Region,
 		VpcService:     cloudConn.VpcService,
 		Ctx:            cloudConn.Ctx,
+	}
+	return &priceInfoHandler, nil
+}
+
+func (cloudConn *IbmCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
+	cblogger.Info("Ibm Cloud Driver: called CreateFileSystemHandler()!")
+	priceInfoHandler := ibmrs.IbmFileSystemHandler{
+		Region:         cloudConn.Region,
+		CredentialInfo: cloudConn.CredentialInfo,
+		Ctx:            cloudConn.Ctx,
+		VpcService:     cloudConn.VpcService,
+		TaggingService: cloudConn.TaggingService,
+		SearchService:  cloudConn.SearchService,
 	}
 	return &priceInfoHandler, nil
 }
