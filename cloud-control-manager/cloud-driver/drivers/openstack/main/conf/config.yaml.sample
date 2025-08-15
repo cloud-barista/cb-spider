@@ -43,7 +43,7 @@ openstack:
       nameId: m1.small
       systemId:
     vpc:
-      nameId:  nlb-tester-vpc
+      nameId:  mcb-test-vpc
       systemId:
       ipv4CIDR: 180.0.0.0/16
       subnets:
@@ -86,3 +86,10 @@ openstack:
       tags:
         - key: vm-tag-key
           value: vm-tag-value
+    file:
+      IID:
+        nameId: mcb-test-file
+      vpcIID:
+        nameId: mcb-test-vpc
+      subnetIID:
+        nameId: mcb-test-vpc-subnet1
