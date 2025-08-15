@@ -75,6 +75,7 @@ require (
 	github.com/swaggo/echo-swagger v1.4.1
 	github.com/tencentcloud/tencentcloud-sdk-go-intl-en v3.0.531+incompatible
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs v1.0.492
+	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cfs v1.1.8
 	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tag v1.0.964
 	golang.org/x/mod v0.24.0
 	k8s.io/api v0.22.5
@@ -122,8 +123,6 @@ require (
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/swaggo/files/v2 v2.0.0 // indirect
-	github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cfs v1.1.8 // indirect
-	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tinylib/msgp v1.3.0 // indirect
 	github.com/tjfoc/gmsm v1.4.1 // indirect
 	github.com/tklauser/go-sysconf v0.3.15 // indirect
