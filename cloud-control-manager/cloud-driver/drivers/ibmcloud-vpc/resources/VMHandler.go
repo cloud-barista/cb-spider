@@ -8,7 +8,6 @@ import (
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
-	vpcv0230 "github.com/IBM/vpc-go-sdk/0.23.0/vpcv1"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	cdcom "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
@@ -29,7 +28,6 @@ type IbmVMHandler struct {
 	CredentialInfo idrv.CredentialInfo
 	Region         idrv.RegionInfo
 	VpcService     *vpcv1.VpcV1
-	VpcService0230 *vpcv0230.VpcV1
 	Ctx            context.Context
 	TaggingService *globaltaggingv1.GlobalTaggingV1
 	SearchService  *globalsearchv2.GlobalSearchV2
@@ -187,14 +185,21 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 	// 2.Create VM
 	// TODO : UserData cloudInit
-	createInstanceOptions := &vpcv0230.CreateInstanceOptions{}
+	createInstanceOptions := &vpcv1.CreateInstanceOptions{}
 
-	var existingDataVolumeAttachments []vpcv0230.VolumeAttachmentPrototypeInstanceContext
+	var sgIdentities []vpcv1.SecurityGroupIdentityIntf
+	for _, sg := range securityGroups {
+		sgIdentities = append(sgIdentities, &vpcv1.SecurityGroupIdentityByID{
+			ID: sg.ID,
+		})
+	}
+
+	var existingDataVolumeAttachments []vpcv1.VolumeAttachmentPrototype
 	for _, dataVolumeIID := range vmReqInfo.DataDiskIIDs {
 		rawDisk, getRawDiskErr := getRawDisk(vmHandler.VpcService, vmHandler.Ctx, dataVolumeIID)
 		if getRawDiskErr == nil {
-			existingDataVolumeAttachments = append(existingDataVolumeAttachments, vpcv0230.VolumeAttachmentPrototypeInstanceContext{
-				Volume: &vpcv0230.VolumeAttachmentVolumePrototypeInstanceContextVolumeIdentity{ID: rawDisk.ID},
+			existingDataVolumeAttachments = append(existingDataVolumeAttachments, vpcv1.VolumeAttachmentPrototype{
+				Volume: &vpcv1.VolumeAttachmentPrototypeVolume{ID: rawDisk.ID},
 			})
 		}
 	}
@@ -216,31 +221,31 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 			return *associatedSnapshots[i].Name < *associatedSnapshots[j].Name
 		})
 
-		var dataVolumeAttachments []vpcv0230.VolumeAttachmentPrototypeInstanceContext
-		var bootVolumeAttachment vpcv0230.VolumeAttachmentPrototypeInstanceBySourceSnapshotContext
+		var dataVolumeAttachments []vpcv1.VolumeAttachmentPrototype
+		var bootVolumeAttachment vpcv1.VolumeAttachmentPrototypeInstanceBySourceSnapshotContext
 		for _, snapshot := range associatedSnapshots {
-			sourceVolume, _, getSourceVolumeErr := vmHandler.VpcService0230.GetVolumeWithContext(vmHandler.Ctx, &vpcv0230.GetVolumeOptions{ID: snapshot.SourceVolume.ID})
+			sourceVolume, _, getSourceVolumeErr := vmHandler.VpcService.GetVolumeWithContext(vmHandler.Ctx, &vpcv1.GetVolumeOptions{ID: snapshot.SourceVolume.ID})
 			if getSourceVolumeErr != nil {
 				return irs.VMInfo{}, errors.New(fmt.Sprintf("Failed to Get Source Volume. err = %s", getSourceVolumeErr.Error()))
 			}
 
 			volumeName := fmt.Sprintf("%s%s%s", vmReqInfo.IId.NameId, DEV, strings.Split(*snapshot.Name, DEV)[1])
 			if *snapshot.Bootable {
-				bootVolumeAttachment = vpcv0230.VolumeAttachmentPrototypeInstanceBySourceSnapshotContext{
-					Volume: &vpcv0230.VolumePrototypeInstanceBySourceSnapshotContext{
+				bootVolumeAttachment = vpcv1.VolumeAttachmentPrototypeInstanceBySourceSnapshotContext{
+					Volume: &vpcv1.VolumePrototypeInstanceBySourceSnapshotContext{
 						Name:           core.StringPtr(volumeName),
-						Profile:        &vpcv0230.VolumeProfileIdentityByName{Name: sourceVolume.Profile.Name},
+						Profile:        &vpcv1.VolumeProfileIdentityByName{Name: sourceVolume.Profile.Name},
 						Capacity:       sourceVolume.Capacity,
-						SourceSnapshot: &vpcv0230.SnapshotIdentityByID{ID: snapshot.ID},
+						SourceSnapshot: &vpcv1.SnapshotIdentityByID{ID: snapshot.ID},
 					},
 				}
 			} else {
-				model := vpcv0230.VolumeAttachmentPrototypeInstanceContext{
-					Volume: &vpcv0230.VolumeAttachmentVolumePrototypeInstanceContextVolumePrototypeInstanceContextVolumePrototypeInstanceContextVolumeBySourceSnapshot{
+				model := vpcv1.VolumeAttachmentPrototype{
+					Volume: &vpcv1.VolumeAttachmentPrototypeVolume{
 						Name:           core.StringPtr(volumeName),
-						Profile:        &vpcv0230.VolumeProfileIdentityByName{Name: sourceVolume.Profile.Name},
+						Profile:        &vpcv1.VolumeProfileIdentityByName{Name: sourceVolume.Profile.Name},
 						Capacity:       sourceVolume.Capacity,
-						SourceSnapshot: &vpcv0230.SnapshotIdentityByID{ID: snapshot.ID},
+						SourceSnapshot: &vpcv1.SnapshotIdentityByID{ID: snapshot.ID},
 					},
 				}
 
@@ -250,54 +255,56 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 
 		dataVolumeAttachments = append(dataVolumeAttachments, existingDataVolumeAttachments...)
 
-		createInstanceOptions.SetInstancePrototype(&vpcv0230.InstancePrototypeInstanceBySourceSnapshot{
+		createInstanceOptions.SetInstancePrototype(&vpcv1.InstancePrototypeInstanceBySourceSnapshot{
 			Name:                 &vmReqInfo.IId.NameId,
 			BootVolumeAttachment: &bootVolumeAttachment,
 			VolumeAttachments:    dataVolumeAttachments,
-			Profile: &vpcv0230.InstanceProfileIdentity{
+			Profile: &vpcv1.InstanceProfileIdentity{
 				Name: spec.Name,
 			},
-			Zone: &vpcv0230.ZoneIdentity{
+			Zone: &vpcv1.ZoneIdentity{
 				Name: vpcSubnet.Zone.Name,
 			},
-			PrimaryNetworkInterface: &vpcv0230.NetworkInterfacePrototype{
-				Subnet: &vpcv0230.SubnetIdentity{
+			PrimaryNetworkInterface: &vpcv1.NetworkInterfacePrototype{
+				Subnet: &vpcv1.SubnetIdentity{
 					ID: vpcSubnet.ID,
 				},
+				SecurityGroups: sgIdentities,
 			},
-			Keys: []vpcv0230.KeyIdentityIntf{
-				&vpcv0230.KeyIdentity{
+			Keys: []vpcv1.KeyIdentityIntf{
+				&vpcv1.KeyIdentity{
 					ID: key.ID,
 				},
 			},
-			VPC: &vpcv0230.VPCIdentity{
+			VPC: &vpcv1.VPCIdentity{
 				ID: vpc.ID,
 			},
 			UserData: &userData,
 		})
 	} else {
-		createInstanceOptions.SetInstancePrototype(&vpcv0230.InstancePrototype{
+		createInstanceOptions.SetInstancePrototype(&vpcv1.InstancePrototype{
 			Name: &vmReqInfo.IId.NameId,
-			Image: &vpcv0230.ImageIdentity{
+			Image: &vpcv1.ImageIdentity{
 				ID: image.ID,
 			},
-			Profile: &vpcv0230.InstanceProfileIdentity{
+			Profile: &vpcv1.InstanceProfileIdentity{
 				Name: spec.Name,
 			},
-			Zone: &vpcv0230.ZoneIdentity{
+			Zone: &vpcv1.ZoneIdentity{
 				Name: vpcSubnet.Zone.Name,
 			},
-			PrimaryNetworkInterface: &vpcv0230.NetworkInterfacePrototype{
-				Subnet: &vpcv0230.SubnetIdentity{
+			PrimaryNetworkInterface: &vpcv1.NetworkInterfacePrototype{
+				Subnet: &vpcv1.SubnetIdentity{
 					ID: vpcSubnet.ID,
 				},
+				SecurityGroups: sgIdentities,
 			},
-			Keys: []vpcv0230.KeyIdentityIntf{
-				&vpcv0230.KeyIdentity{
+			Keys: []vpcv1.KeyIdentityIntf{
+				&vpcv1.KeyIdentity{
 					ID: key.ID,
 				},
 			},
-			VPC: &vpcv0230.VPCIdentity{
+			VPC: &vpcv1.VPCIdentity{
 				ID: vpc.ID,
 			},
 			UserData:          &userData,
@@ -305,7 +312,7 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		})
 	}
 
-	createInstance, _, err := vmHandler.VpcService0230.CreateInstanceWithContext(vmHandler.Ctx, createInstanceOptions)
+	createInstance, _, err := vmHandler.VpcService.CreateInstanceWithContext(vmHandler.Ctx, createInstanceOptions)
 	if err != nil {
 		createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
 		cblogger.Error(createErr.Error())
@@ -332,33 +339,9 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		}
 	}
 
-	// 3.Attach SecurityGroup
-	if securityGroups != nil && len(securityGroups) > 0 {
-		for _, securityGroup := range securityGroups {
-			options := &vpcv1.AddSecurityGroupNetworkInterfaceOptions{}
-			options.SetSecurityGroupID(*securityGroup.ID)
-			options.SetID(*createInstance.PrimaryNetworkInterface.ID)
-			_, _, err = vmHandler.VpcService.AddSecurityGroupNetworkInterfaceWithContext(vmHandler.Ctx, options)
-			if err != nil {
-				//TODO DELETE
-				deleteErr := deleteInstance(*createInstance.ID, vmHandler.VpcService, vmHandler.Ctx)
-				if err != nil {
-					if deleteErr != nil {
-						newErrText := err.Error() + deleteErr.Error()
-						err = errors.New(newErrText)
-					}
-					createErr := errors.New(fmt.Sprintf("Failed to Create VM. err = %s", err.Error()))
-					cblogger.Error(createErr.Error())
-					LoggingError(hiscallInfo, createErr)
-					return irs.VMInfo{}, createErr
-				}
-			}
-		}
-	}
+	// 3.Attach FloatingIP
 
-	// 4.Attach FloatingIP
-
-	// 4-1. Create FloatingIP
+	// 3-1. Create FloatingIP
 	rand.Seed(time.Now().UnixNano())
 	floatingIPName := *createInstance.Zone.Name + "-floatingip-" + strconv.FormatInt(rand.Int63n(10000000), 10)
 	floatingIPExist, err := vmHandler.checkFloatingIPName(floatingIPName)
@@ -400,7 +383,7 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		return irs.VMInfo{}, createErr
 	}
 
-	//  4-2. Bind FloatingIP
+	//  3-2. Bind FloatingIP
 	ipBindInfo := IBMIPBindReqInfo{
 		vmID:               *createInstance.ID,
 		floatingIPID:       *floatingIP.ID,
@@ -426,7 +409,6 @@ func (vmHandler *IbmVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, err
 		NameId:   *createInstance.Name,
 		SystemId: *createInstance.ID,
 	}
-	// TODO : runnigCheck
 	curRetryCnt := 0
 	maxRetryCnt := 120
 	for {
@@ -862,7 +844,7 @@ func floatingIPUnBind(IPBindReqInfo IBMIPBindReqInfo, vpcService *vpcv1.VpcV1, c
 	return true, nil
 }
 
-func getFloatIPsNextHref(next *vpcv1.FloatingIPCollectionNext) (string, error) {
+func getFloatIPsNextHref(next *vpcv1.PageLink) (string, error) {
 	if next != nil {
 		href := *next.Href
 		u, err := url.Parse(href)
@@ -880,7 +862,7 @@ func getFloatIPsNextHref(next *vpcv1.FloatingIPCollectionNext) (string, error) {
 	return "", errors.New("NOT NEXT")
 }
 
-func getVMNextHref(next *vpcv1.InstanceCollectionNext) (string, error) {
+func getVMNextHref(next *vpcv1.PageLink) (string, error) {
 	if next != nil {
 		href := *next.Href
 		u, err := url.Parse(href)
@@ -897,7 +879,7 @@ func getVMNextHref(next *vpcv1.InstanceCollectionNext) (string, error) {
 	}
 	return "", errors.New("NOT NEXT")
 }
-func getVolumeNextHref(next *vpcv1.VolumeCollectionNext) (string, error) {
+func getVolumeNextHref(next *vpcv1.PageLink) (string, error) {
 	if next != nil {
 		href := *next.Href
 		u, err := url.Parse(href)
@@ -1174,7 +1156,7 @@ func (vmHandler *IbmVMHandler) getKeyIId(instance vpcv1.Instance) irs.IID {
 	if err == nil && initData.Keys != nil && len(initData.Keys) > 0 {
 		jsonInitDataBytes, err := json.Marshal(initData.Keys[0])
 		if err == nil {
-			var keyRef vpcv1.KeyReferenceInstanceInitializationContextKeyReference
+			var keyRef vpcv1.KeyReference
 			err = json.Unmarshal(jsonInitDataBytes, &keyRef)
 			if err == nil && keyRef.ID != nil && keyRef.Name != nil {
 				return irs.IID{
@@ -1296,7 +1278,7 @@ func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, e
 			NameId:   *instance.Image.Name,
 			SystemId: *instance.Image.ID,
 		},
-		PrivateIP:      *instance.PrimaryNetworkInterface.PrimaryIpv4Address,
+		PrivateIP:      *instance.PrimaryNetworkInterface.PrimaryIP.Address,
 		VMUserId:       CBDefaultVmUserName,
 		RootDeviceName: "Not visible in IBMCloud-VPC",
 		VMBlockDisk:    "Not visible in IBMCloud-VPC",

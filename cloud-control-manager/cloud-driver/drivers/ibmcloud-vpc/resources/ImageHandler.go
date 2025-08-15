@@ -251,7 +251,7 @@ func setImageInfo(image *vpcv1.Image) (irs.ImageInfo, error) {
 	return irs.ImageInfo{}, err
 }
 
-func getImageNextHref(next *vpcv1.ImageCollectionNext) (string, error) {
+func getImageNextHref(next *vpcv1.PageLink) (string, error) {
 	if next != nil {
 		href := *next.Href
 		u, err := url.Parse(href)

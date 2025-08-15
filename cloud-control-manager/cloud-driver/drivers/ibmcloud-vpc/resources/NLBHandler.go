@@ -1003,18 +1003,30 @@ func (nlbHandler *IbmNLBHandler) getHealthCheckerInfo(nlb vpcv1.LoadBalancer) (i
 	return healthCheckerInfo, nil
 }
 
-func convertHealthMonitorToHealthCheckerInfo(rawHealthMonitor *vpcv1.LoadBalancerPoolHealthMonitor) (irs.HealthCheckerInfo, error) {
+func convertHealthMonitorToHealthCheckerInfo(rawHealthMonitor vpcv1.LoadBalancerPoolHealthMonitorIntf) (irs.HealthCheckerInfo, error) {
 	healthCheckerInfo := irs.HealthCheckerInfo{}
 	if rawHealthMonitor != nil {
+		var healthMonitor *vpcv1.LoadBalancerPoolHealthMonitor
+
+		healthMonitorBytes, err := json.Marshal(rawHealthMonitor)
+		if err != nil {
+			return healthCheckerInfo, errors.New("failed to marshal health monitor")
+		}
+
+		err = json.Unmarshal(healthMonitorBytes, &healthMonitor)
+		if err != nil {
+			return healthCheckerInfo, errors.New("failed to unmarshal health monitor")
+		}
+
 		port := "-1"
-		if rawHealthMonitor.Port != nil {
-			port = strconv.Itoa(int(*rawHealthMonitor.Port))
+		if healthMonitor.Port != nil {
+			port = strconv.Itoa(int(*healthMonitor.Port))
 		}
 		healthCheckerInfo.Port = port
-		healthCheckerInfo.Protocol = strings.ToUpper(*rawHealthMonitor.Type)
-		healthCheckerInfo.Interval = int(*rawHealthMonitor.Delay)
-		healthCheckerInfo.Threshold = int(*rawHealthMonitor.MaxRetries)
-		healthCheckerInfo.Timeout = int(*rawHealthMonitor.Timeout)
+		healthCheckerInfo.Protocol = strings.ToUpper(*healthMonitor.Type)
+		healthCheckerInfo.Interval = int(*healthMonitor.Delay)
+		healthCheckerInfo.Threshold = int(*healthMonitor.MaxRetries)
+		healthCheckerInfo.Timeout = int(*healthMonitor.Timeout)
 		return healthCheckerInfo, nil
 	}
 	return healthCheckerInfo, errors.New("not exist HealthMonitor")
@@ -1057,9 +1069,9 @@ func getCreateListenerOptions(nlbReqInfo irs.NLBInfo, poolName *string) ([]vpcv1
 	return listenerArray, nil
 }
 
-func (nlbHandler *IbmNLBHandler) getCreatePoolOptions(nlbReqInfo irs.NLBInfo) ([]vpcv1.LoadBalancerPoolPrototype, error) {
+func (nlbHandler *IbmNLBHandler) getCreatePoolOptions(nlbReqInfo irs.NLBInfo) ([]vpcv1.LoadBalancerPoolPrototypeLoadBalancerContext, error) {
 	// memberOption := vpcv1.LoadBalancerPoolMemberTargetPrototype{}
-	var poolArray []vpcv1.LoadBalancerPoolPrototype
+	var poolArray []vpcv1.LoadBalancerPoolPrototypeLoadBalancerContext
 
 	memberArrayOption, err := nlbHandler.convertCBVMGroupToIbmPoolMember(nlbReqInfo.VMGroup)
 	if err != nil {
@@ -1082,7 +1094,7 @@ func (nlbHandler *IbmNLBHandler) getCreatePoolOptions(nlbReqInfo irs.NLBInfo) ([
 
 	poolName := generatePoolName(nlbReqInfo.VMGroup.Port)
 
-	poolOption := vpcv1.LoadBalancerPoolPrototype{
+	poolOption := vpcv1.LoadBalancerPoolPrototypeLoadBalancerContext{
 		Algorithm:     core.StringPtr(poolAlgorithm),
 		Protocol:      core.StringPtr(poolProtocol),
 		Name:          core.StringPtr(poolName),
@@ -1494,12 +1506,6 @@ func (nlbHandler *IbmNLBHandler) cleanerNLB(nlbIID irs.IID) (bool, error) {
 		TaggingService: nlbHandler.TaggingService,
 		SearchService:  nlbHandler.SearchService,
 	}
-	_, err := securityHandler.DeleteSecurity(irs.IID{
-		NameId: "sg-" + nlbIID.NameId,
-	})
-	if err != nil {
-		cblogger.Error(err.Error())
-	}
 
 	exist, err := nlbHandler.existNLBByName(nlbIID.NameId)
 	if err != nil {
@@ -1524,6 +1530,14 @@ func (nlbHandler *IbmNLBHandler) cleanerNLB(nlbIID irs.IID) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
+	_, err = securityHandler.DeleteSecurity(irs.IID{
+		NameId: "sg-" + nlbIID.NameId,
+	})
+	if err != nil {
+		cblogger.Error(err.Error())
+	}
+
 	return true, nil
 }
 
@@ -1582,7 +1596,7 @@ func (nlbHandler *IbmNLBHandler) getHealthInfoByMembers(members []vpcv1.LoadBala
 				}
 			}
 			for _, rawVM := range *allVMS {
-				if strings.EqualFold(*rawVM.PrimaryNetworkInterface.PrimaryIpv4Address, *memberTarget.Address) {
+				if strings.EqualFold(*rawVM.PrimaryNetworkInterface.PrimaryIP.Address, *memberTarget.Address) {
 					vmIIDs[i] = irs.IID{
 						NameId:   *rawVM.Name,
 						SystemId: *rawVM.ID,
@@ -1658,7 +1672,7 @@ func (nlbHandler *IbmNLBHandler) getAllVMIIDsByMembers(members []vpcv1.LoadBalan
 				}
 			}
 			for _, rawVM := range *allVMS {
-				if strings.EqualFold(*rawVM.PrimaryNetworkInterface.PrimaryIpv4Address, *memberTarget.Address) {
+				if strings.EqualFold(*rawVM.PrimaryNetworkInterface.PrimaryIP.Address, *memberTarget.Address) {
 					vmIIDs[i] = irs.IID{
 						NameId:   *rawVM.Name,
 						SystemId: *rawVM.ID,

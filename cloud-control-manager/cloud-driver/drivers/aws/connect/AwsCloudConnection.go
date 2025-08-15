@@ -67,11 +67,10 @@ type AwsCloudConnection struct {
 	AnyCallClient *ec2.EC2
 	TagClient     *ec2.EC2
 
-	FSClient *efs.EFS
-
 	CostExplorerClient *costexplorer.CostExplorer
 
 	CloudWatchClient *cloudwatch.CloudWatch
+	FileSystemClient *efs.EFS
 }
 
 var cblogger *logrus.Logger
@@ -125,12 +124,12 @@ func (cloudConn *AwsCloudConnection) CreateSecurityHandler() (irs.SecurityHandle
 }
 
 func (cloudConn *AwsCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
-	handler := ars.AwsTagHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, NLBClient: cloudConn.NLBClient, EKSClient: cloudConn.EKSClient}
+	handler := ars.AwsTagHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, NLBClient: cloudConn.NLBClient, EKSClient: cloudConn.EKSClient, EFSClient: cloudConn.FileSystemClient}
 	return &handler, nil
 }
 
 func (cloudConn *AwsCloudConnection) CreateAwsTagHandler() ars.AwsTagHandler {
-	handler := ars.AwsTagHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, NLBClient: cloudConn.NLBClient, EKSClient: cloudConn.EKSClient}
+	handler := ars.AwsTagHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, NLBClient: cloudConn.NLBClient, EKSClient: cloudConn.EKSClient, EFSClient: cloudConn.FileSystemClient}
 	return handler
 }
 
@@ -169,7 +168,9 @@ func (cloudConn *AwsCloudConnection) CreateDiskHandler() (irs.DiskHandler, error
 
 // CreateFileSystemHandler implements connect.CloudConnection.
 func (cloudConn *AwsCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
-	panic("unimplemented")
+	tagHandler := cloudConn.CreateAwsTagHandler()
+	handler := ars.AwsFileSystemHandler{Region: cloudConn.Region, Client: cloudConn.FileSystemClient, EC2Client: cloudConn.VNetworkClient, TagHandler: &tagHandler}
+	return &handler, nil
 }
 
 func (cloudConn *AwsCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
