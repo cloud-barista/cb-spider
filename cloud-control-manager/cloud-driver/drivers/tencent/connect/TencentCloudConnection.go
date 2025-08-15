@@ -18,6 +18,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	cbs "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs/v20170312"
+	cfs "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cfs/v20190719"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 	tag "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tag/v20180813"
@@ -43,11 +44,16 @@ type TencentCloudConnection struct {
 	RegionZoneClient *cvm.Client
 	TagClient        *tag.Client
 	ClusterClient    *tke.Client
+	FileSystemClient *cfs.Client
 }
 
 // CreateFileSystemHandler implements connect.CloudConnection.
 func (cloudConn *TencentCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
-	panic("unimplemented")
+	cblogger.Info("Start CreateFileSystemHandler()")
+
+	fileSystemHandler := trs.TencentFileSystemHandler{Region: cloudConn.Region, CFSClient: cloudConn.FileSystemClient, VPCClient: cloudConn.VNetworkClient}
+
+	return &fileSystemHandler, nil
 }
 
 var cblogger *logrus.Logger
