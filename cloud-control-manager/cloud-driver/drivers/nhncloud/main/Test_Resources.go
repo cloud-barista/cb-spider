@@ -119,6 +119,17 @@ type Config struct {
 					NameId string `yaml:"nameId"`
 				} `yaml:"attachedVM"`
 			} `yaml:"disk"`
+			File struct {
+				IID struct {
+					NameId string `yaml:"nameId"`
+				} `yaml:"IID"`
+				VpcIID struct {
+					NameId string `yaml:"nameId"`
+				} `yaml:"VpcIID"`
+				AccessSubnetIIDs []struct {
+					NameId string `yaml:"nameId"`
+				} `yaml:"AccessSubnetIIDs"`
+			} `yaml:"file"`
 		} `yaml:"resources"`
 	} `yaml:"nhncloud"`
 }
@@ -164,7 +175,8 @@ func showTestHandlerInfo() {
 	cblogger.Info("10. RegionZoneHandler")
 	cblogger.Info("11. PriceInfoHandler")
 	cblogger.Info("12. ClusterHandler")
-	cblogger.Info("13. Exit")
+	cblogger.Info("13. FileSystemHandler")
+	cblogger.Info("14. Exit")
 	cblogger.Info("==========================================================")
 }
 
@@ -217,6 +229,8 @@ func getResourceHandler(resourceType string, config Config) (interface{}, error)
 		resourceHandler, err = cloudConnection.CreatePriceInfoHandler()
 	case "cluster":
 		resourceHandler, err = cloudConnection.CreateClusterHandler()
+	case "fileSystem":
+		resourceHandler, err = cloudConnection.CreateFileSystemHandler()
 	}
 
 	if err != nil {
@@ -2011,6 +2025,167 @@ Loop:
 	}
 }
 
+func testFileSystemHandlerListPrint() {
+	cblogger.Info("Test fileSystemHandler")
+	cblogger.Info("0. Print Menu")
+	cblogger.Info("1. ListFileSystem()")
+	cblogger.Info("2. GetFileSystem()")
+	cblogger.Info("3. CreateFileSystem()")
+	cblogger.Info("4. DeleteFileSystem()")
+	cblogger.Info("5. AddAccessSubnet()")
+	cblogger.Info("6. RemoveAccessSubnet()")
+	cblogger.Info("7. ListAccessSubnet")
+	cblogger.Info("8. ListIID()")
+	cblogger.Info("9. GetMetaInfo()")
+	cblogger.Info("10. Exit")
+}
+
+func testFileSystemHandler(config Config) {
+	resourceHandler, err := getResourceHandler("fileSystem", config)
+	if err != nil {
+		cblogger.Error(err)
+		return
+	}
+
+	fileSystemHandler := resourceHandler.(irs.FileSystemHandler)
+	testFileSystemHandlerListPrint()
+
+	fileNameId := irs.IID{
+		NameId: config.NhnCloud.Resources.File.IID.NameId,
+	}
+
+	vpcIID := irs.IID{
+		NameId: config.NhnCloud.Resources.File.VpcIID.NameId,
+	}
+
+	subnetIIDs := config.NhnCloud.Resources.File.AccessSubnetIIDs
+	var accessSubnetList []irs.IID
+	for _, subnet := range subnetIIDs {
+		accessSubnetList = append(accessSubnetList, irs.IID{
+			NameId:   subnet.NameId,
+			SystemId: "",
+		})
+	}
+
+	createreq := irs.FileSystemInfo{
+		IId:              fileNameId,
+		VpcIID:           vpcIID,
+		NFSVersion:       "4.1",
+		AccessSubnetList: accessSubnetList,
+		CapacityGB:       300,
+	}
+
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				testFileSystemHandlerListPrint()
+			case 1:
+				fmt.Println("Start ListFileSystem() ...")
+				if fileSystemList, err := fileSystemHandler.ListFileSystem(); err != nil {
+					fmt.Println(err)
+				} else {
+					spew.Dump(fileSystemList)
+				}
+				fmt.Println("Finish ListFileSystem()")
+			case 2:
+				cblogger.Info("Start GetFileSystem() ...")
+				if fileSystem, err := fileSystemHandler.GetFileSystem(fileNameId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(fileSystem)
+				}
+				cblogger.Info("Finish GetFileSystem()")
+			case 3:
+				fmt.Println("Start CreateFileSystem() ...")
+				fileSystem, err := fileSystemHandler.CreateFileSystem(createreq)
+				if err != nil {
+					fmt.Println(err)
+				} else {
+					spew.Dump(fileSystem)
+				}
+				fmt.Println("Finish CreateFileSystem()")
+			case 4:
+				fmt.Println("Start DeleteFileSystem() ...")
+				if ok, err := fileSystemHandler.DeleteFileSystem(fileNameId); !ok {
+					fmt.Println(err)
+				}
+				fmt.Println("Finish DeleteFileSystem()")
+			case 5:
+				fmt.Println("Start AddAccessSubnet() ...")
+				fsInfo, err := fileSystemHandler.GetFileSystem(fileNameId)
+				if err != nil {
+					cblogger.Errorf("Failed to get NAS info: %v", err)
+					return
+				}
+				fileNameId.SystemId = fsInfo.IId.SystemId
+				for _, subnetIID := range accessSubnetList {
+					fileSystem, err := fileSystemHandler.AddAccessSubnet(fileNameId, subnetIID)
+					if err != nil {
+						cblogger.Errorf("Failed to add access subnet (%s): %v", subnetIID.NameId, err)
+						continue
+					}
+					cblogger.Infof("Successfully added subnet %s", subnetIID.NameId)
+					spew.Dump(fileSystem)
+				}
+				fmt.Println("Finish AddAccessSubnet()")
+			case 6:
+				fmt.Println("Start RemoveAccessSubnet() ...")
+				fsInfo, err := fileSystemHandler.GetFileSystem(fileNameId)
+				if err != nil {
+					cblogger.Errorf("Failed to get NAS info: %v", err)
+					return
+				}
+				fileNameId.SystemId = fsInfo.IId.SystemId
+
+				for _, attachedSubnet := range fsInfo.AccessSubnetList {
+					ok, err := fileSystemHandler.RemoveAccessSubnet(fileNameId, attachedSubnet)
+					if !ok || err != nil {
+						cblogger.Errorf("Failed to remove access subnet (%s): %v", attachedSubnet.NameId, err)
+						continue
+					}
+					cblogger.Infof("Successfully removed subnet %s", attachedSubnet.NameId)
+				}
+				fmt.Println("Finish RemoveAccessSubnet()")
+			case 7:
+				cblogger.Info("Start ListAccessSubnet() ...")
+				if listSubnet, err := fileSystemHandler.ListAccessSubnet(fileNameId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listSubnet)
+				}
+				cblogger.Info("Finish ListAccessSubnet()")
+			case 8:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := fileSystemHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 9:
+				cblogger.Info("Start GetMetaInfo() ...")
+				if listIID, err := fileSystemHandler.GetMetaInfo(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 10:
+				fmt.Println("Exit")
+				break Loop
+			}
+		}
+	}
+}
+
 func main() {
 	showTestHandlerInfo()
 	config := readConfigFile()
@@ -2061,6 +2236,9 @@ Loop:
 				testClusterHandler(config)
 				showTestHandlerInfo()
 			case 13:
+				testFileSystemHandler(config)
+				showTestHandlerInfo()
+			case 14:
 				cblogger.Info("Exit Test ResourceHandler Program")
 				break Loop
 			}
