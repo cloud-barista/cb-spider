@@ -24,6 +24,7 @@ import (
 
 	//"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/efs"
 	"github.com/aws/aws-sdk-go/service/eks"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 
@@ -37,21 +38,23 @@ type AwsTagHandler struct {
 	Client    *ec2.EC2
 	NLBClient *elbv2.ELBV2
 	EKSClient *eks.EKS
+	EFSClient *efs.EFS
 }
 
 // Map of RSType to AWS resource types
 var rsTypeToAwsResourceTypeMap = map[irs.RSType]string{
-	irs.IMAGE:     "image",
-	irs.VPC:       "vpc",
-	irs.SUBNET:    "subnet",
-	irs.SG:        "security-group",
-	irs.KEY:       "key-pair",
-	irs.VM:        "instance",
-	irs.NLB:       "network-load-balancer",
-	irs.DISK:      "volume",
-	irs.MYIMAGE:   "image",
-	irs.CLUSTER:   "cluster",
-	irs.NODEGROUP: "nodegroup",
+	irs.IMAGE:      "image",
+	irs.VPC:        "vpc",
+	irs.SUBNET:     "subnet",
+	irs.SG:         "security-group",
+	irs.KEY:        "key-pair",
+	irs.VM:         "instance",
+	irs.NLB:        "network-load-balancer",
+	irs.DISK:       "volume",
+	irs.MYIMAGE:    "image",
+	irs.CLUSTER:    "cluster",
+	irs.NODEGROUP:  "nodegroup",
+	irs.FILESYSTEM: "file-system",
 }
 
 // Map of AWS resource types to RSType for response handling
@@ -65,8 +68,9 @@ var awsResourceTypeToRSTypeMap = map[string]irs.RSType{
 	"network-load-balancer": irs.NLB,
 	"volume":                irs.DISK,
 	//"image":                 irs.MYIMAGE,
-	"cluster":   irs.CLUSTER,
-	"nodegroup": irs.NODEGROUP,
+	"cluster":     irs.CLUSTER,
+	"nodegroup":   irs.NODEGROUP,
+	"file-system": irs.FILESYSTEM,
 }
 
 func (tagHandler *AwsTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag irs.KeyValue) (irs.KeyValue, error) {
@@ -78,12 +82,14 @@ func (tagHandler *AwsTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag 
 		return irs.KeyValue{}, errors.New(msg)
 	}
 
-	if resType == irs.NLB || resType == irs.CLUSTER {
+	if resType == irs.NLB || resType == irs.CLUSTER || resType == irs.FILESYSTEM {
 		var err error
 		if resType == irs.NLB {
 			err = tagHandler.AddNLBTag(resIID, tag)
 		} else if resType == irs.CLUSTER {
 			err = tagHandler.AddClusterTag(resIID, tag)
+		} else if resType == irs.FILESYSTEM {
+			err = tagHandler.AddEFSTag(resIID, tag)
 		}
 
 		if err != nil {
@@ -97,7 +103,7 @@ func (tagHandler *AwsTagHandler) AddTag(resType irs.RSType, resIID irs.IID, tag 
 	hiscallInfo := GetCallLogScheme(tagHandler.Region, call.TAG, resIID.SystemId, "CreateTags()")
 	start := call.Start()
 
-	// 리소스에 신규 태그 추가
+	// Add new tag to resource
 	result, errtag := tagHandler.Client.CreateTags(&ec2.CreateTagsInput{
 		Resources: []*string{&resIID.SystemId},
 		Tags: []*ec2.Tag{
@@ -173,6 +179,120 @@ func (tagHandler *AwsTagHandler) AddClusterTag(resIID irs.IID, tag irs.KeyValue)
 	}
 
 	return nil
+}
+
+// Add EFS tag
+func (tagHandler *AwsTagHandler) AddEFSTag(resIID irs.IID, tag irs.KeyValue) error {
+	input := &efs.TagResourceInput{
+		ResourceId: aws.String(resIID.SystemId),
+		Tags: []*efs.Tag{
+			{
+				Key:   aws.String(tag.Key),
+				Value: aws.String(tag.Value),
+			},
+		},
+	}
+
+	_, err := tagHandler.EFSClient.TagResource(input)
+	if err != nil {
+		return fmt.Errorf("failed to add tag to EFS: %w", err)
+	}
+	return nil
+}
+
+// Get EFS tags
+func (tagHandler *AwsTagHandler) GetEFSTags(resIID irs.IID, key ...string) ([]irs.KeyValue, error) {
+	input := &efs.ListTagsForResourceInput{
+		ResourceId: aws.String(resIID.SystemId),
+	}
+
+	result, err := tagHandler.EFSClient.ListTagsForResource(input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list tags for EFS: %w", err)
+	}
+
+	var tags []irs.KeyValue
+	if len(key) > 0 { // If the key value exists
+		specificKey := key[0]
+		for _, tag := range result.Tags {
+			if aws.StringValue(tag.Key) == specificKey {
+				tags = append(tags, irs.KeyValue{
+					Key:   aws.StringValue(tag.Key),
+					Value: aws.StringValue(tag.Value),
+				})
+				break
+			}
+		}
+	} else { // If the key value not exists
+		for _, tag := range result.Tags {
+			tags = append(tags, irs.KeyValue{
+				Key:   aws.StringValue(tag.Key),
+				Value: aws.StringValue(tag.Value),
+			})
+		}
+	}
+	return tags, nil
+}
+
+// Remove EFS tag
+func (tagHandler *AwsTagHandler) RemoveEFSTag(resIID irs.IID, tagKey string) (bool, error) {
+	input := &efs.UntagResourceInput{
+		ResourceId: aws.String(resIID.SystemId),
+		TagKeys:    []*string{aws.String(tagKey)},
+	}
+
+	_, err := tagHandler.EFSClient.UntagResource(input)
+	if err != nil {
+		return false, fmt.Errorf("failed to remove tag from EFS: %w", err)
+	}
+	return true, nil
+}
+
+// GetAllEFSTags returns all EFS file systems with their tags
+func (tagHandler *AwsTagHandler) GetAllEFSTags() ([]*irs.TagInfo, error) {
+	// Step 1: List all file systems
+	input := &efs.DescribeFileSystemsInput{}
+
+	result, err := tagHandler.EFSClient.DescribeFileSystems(input)
+	if err != nil {
+		return nil, fmt.Errorf("failed to describe file systems: %w", err)
+	}
+
+	if len(result.FileSystems) == 0 {
+		return nil, fmt.Errorf("no file systems found")
+	}
+
+	// Step 2: Get tags for each file system
+	var allTagInfos []*irs.TagInfo
+
+	for _, fs := range result.FileSystems {
+		resIID := irs.IID{
+			NameId:   aws.StringValue(fs.Name),
+			SystemId: aws.StringValue(fs.FileSystemId),
+		}
+
+		tagInfos, err := tagHandler.GetEFSTags(resIID)
+		if err != nil {
+			cblogger.Warnf("failed to get tags for file system %s: %v", resIID.SystemId, err)
+			continue
+		}
+
+		// Process only if tags exist
+		if len(tagInfos) == 0 {
+			continue
+		}
+
+		// Convert tags into TagInfo with the correct ResType
+		tagInfo := &irs.TagInfo{
+			ResType: irs.FILESYSTEM,
+			ResIId:  resIID,
+			TagList: tagInfos,
+		}
+
+		allTagInfos = append(allTagInfos, tagInfo)
+	}
+
+	return allTagInfos, nil
 }
 
 func (tagHandler *AwsTagHandler) GetAllNLBTags() ([]*irs.TagInfo, error) {
@@ -361,6 +481,8 @@ func (tagHandler *AwsTagHandler) ListTag(resType irs.RSType, resIID irs.IID) ([]
 		return tagHandler.GetNLBTags(resIID)
 	} else if resType == irs.CLUSTER {
 		return tagHandler.GetClusterTags(resIID)
+	} else if resType == irs.FILESYSTEM {
+		return tagHandler.GetEFSTags(resIID)
 	}
 
 	resIID = tagHandler.GetRealResourceId(resType, resIID) // fix some resource id error
@@ -415,8 +537,8 @@ func (tagHandler *AwsTagHandler) GetTag(resType irs.RSType, resIID irs.IID, key 
 		return irs.KeyValue{}, errors.New(msg)
 	}
 
-	// NLB and Cluster use different APIs
-	if resType == irs.NLB || resType == irs.CLUSTER {
+	// NLB, Cluster, and FileSystem use different APIs
+	if resType == irs.NLB || resType == irs.CLUSTER || resType == irs.FILESYSTEM {
 		var tagList []irs.KeyValue
 		var err error
 
@@ -424,6 +546,8 @@ func (tagHandler *AwsTagHandler) GetTag(resType irs.RSType, resIID irs.IID, key 
 			tagList, err = tagHandler.GetNLBTags(resIID, key)
 		} else if resType == irs.CLUSTER {
 			tagList, err = tagHandler.GetClusterTags(resIID, key)
+		} else if resType == irs.FILESYSTEM {
+			tagList, err = tagHandler.GetEFSTags(resIID, key)
 		}
 
 		if err != nil {
@@ -543,6 +667,8 @@ func (tagHandler *AwsTagHandler) RemoveTag(resType irs.RSType, resIID irs.IID, k
 		return tagHandler.RemoveNLBTag(resIID, key)
 	} else if resType == irs.CLUSTER {
 		return tagHandler.RemoveClusterTag(resIID, key)
+	} else if resType == irs.FILESYSTEM {
+		return tagHandler.RemoveEFSTag(resIID, key)
 	}
 
 	resIID = tagHandler.GetRealResourceId(resType, resIID) // fix some resource id error
@@ -691,6 +817,15 @@ func (tagHandler *AwsTagHandler) FindTag(resType irs.RSType, keyword string) ([]
 				//spew.Dump(k8sTaginfos)
 				return tagHandler.ExtractTagKeyValue(k8sTaginfos, keyword), nil
 			}
+		} else if resType == irs.FILESYSTEM {
+			// Add a list of EFS Tags if this is a all search
+			if keyword == "" || keyword == "*" {
+				return tagHandler.GetAllEFSTags()
+			} else {
+				efsTaginfos, _ := tagHandler.GetAllEFSTags()
+				//spew.Dump(efsTaginfos)
+				return tagHandler.ExtractTagKeyValue(efsTaginfos, keyword), nil
+			}
 		}
 
 		if awsResType, ok := rsTypeToAwsResourceTypeMap[resType]; ok {
@@ -722,7 +857,7 @@ func (tagHandler *AwsTagHandler) FindTag(resType irs.RSType, keyword string) ([]
 			awsResType := aws.StringValue(tag.ResourceType)
 			rType, exists := awsResourceTypeToRSTypeMap[awsResType]
 			if !exists {
-				//@TODO - 변환 실패한 리소스의 경우 UNKNOWN을 만들거나 에러 로그만 찍거나 결정 필요할 듯
+				//@TODO - For resources that fail to convert, decide whether to create UNKNOWN or just log error
 				cblogger.Errorf("No RSType matching [%s] found.", awsResType)
 
 				rType = irs.RSType(awsResType) // Use the raw AWS resource type if not mapped
