@@ -7,6 +7,7 @@
 // This is a Cloud Driver Example for PoC Test.
 //
 // by ETRI, 2022.08.
+// Updated by ETRI, 2025.07.
 
 package resources
 
@@ -23,7 +24,7 @@ import (
 	ktvpcsdk "github.com/cloud-barista/ktcloudvpc-sdk-go"
 	"github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/compute/v2/extensions/secgroups"
 	"github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/compute/v2/flavors"
-	"github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/networking/v2/networks"
+	// "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/networking/v2/networks"
 	"github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/networking/v2/ports"
 	"github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/networking/v2/subnets"
 	
@@ -111,30 +112,30 @@ func getSGWithName(networkClient *ktvpcsdk.ServiceClient, securityName string) (
 	return nil, fmt.Errorf("Failed to Find the SecurityGroup with the Name [%s]", securityName)
 }
 
-func getNetworkWithName(networkClient *ktvpcsdk.ServiceClient, networkName string) (*networks.Network, error) {
-	cblogger.Info("KT Cloud VPC Driver: called GetNetworkWithName()")
+// func getNetworkWithName(networkClient *ktvpcsdk.ServiceClient, networkName string) (*networks.Network, error) {
+// 	cblogger.Info("KT Cloud VPC Driver: called GetNetworkWithName()")
 
-	allPages, err := networks.List(networkClient, networks.ListOpts{Name: networkName}).AllPages()
-	if err != nil {
-		return nil, err
-	}
-	netList, err := networks.ExtractNetworks(allPages)
-	if err != nil {
-		return nil, err
-	}
-	for _, net := range netList {
-		if strings.EqualFold(net.Name, networkName) {
-			return &net, nil
-		}
-	}
+// 	allPages, err := networks.List(networkClient, networks.ListOpts{Name: networkName}).AllPages()
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	netList, err := networks.ExtractNetworks(allPages)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	for _, net := range netList {
+// 		if strings.EqualFold(net.Name, networkName) {
+// 			return &net, nil
+// 		}
+// 	}
 
-	return nil, fmt.Errorf("Failed to Find KT Cloud Network Info with the name [%s]", networkName)
-}
+// 	return nil, fmt.Errorf("Failed to Find KT Cloud Network Info with the name [%s]", networkName)
+// }
 
 func getSubnetWithId(networkClient *ktvpcsdk.ServiceClient, subnetId string) (*subnets.Subnet, error) {
 	cblogger.Info("KT Cloud VPC Driver: called GetSubnetWithId()")
 
-	subnet, err := subnets.Get(networkClient, subnetId).Extract()
+	subnet, err := subnets.Get(networkClient, subnetId).ExtractSubnet()
 	if err != nil {
 		return nil, err
 	}
