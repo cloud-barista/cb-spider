@@ -85,6 +85,10 @@ func (fileSystemHandler *AlibabaFileSystemHandler) GetMetaInfo() (irs.FileSystem
 func (fileSystemHandler *AlibabaFileSystemHandler) ListIID() ([]*irs.IID, error) {
 	cblogger.Debug("Alibaba Cloud NAS ListIID() called")
 
+	if fileSystemHandler.Client == nil {
+		return nil, errors.New("NAS client is not initialized")
+	}
+
 	request := nas.CreateDescribeFileSystemsRequest()
 	request.Scheme = "https"
 
@@ -115,6 +119,10 @@ func (fileSystemHandler *AlibabaFileSystemHandler) ListIID() ([]*irs.IID, error)
 // CreateFileSystem creates a new Alibaba Cloud NAS file system
 func (fileSystemHandler *AlibabaFileSystemHandler) CreateFileSystem(reqInfo irs.FileSystemInfo) (irs.FileSystemInfo, error) {
 	cblogger.Debug("Alibaba Cloud NAS CreateFileSystem() called")
+
+	if fileSystemHandler.Client == nil {
+		return irs.FileSystemInfo{}, errors.New("NAS client is not initialized")
+	}
 
 	// ================================
 	// Validate VPC requirement
@@ -320,6 +328,7 @@ func (fileSystemHandler *AlibabaFileSystemHandler) ListFileSystem() ([]*irs.File
 		fileSystemInfo, err := fileSystemHandler.GetFileSystem(*iid)
 		if err != nil {
 			cblogger.Errorf("Failed to get file system info for %s: %v", iid.SystemId, err)
+			// Continue with other file systems instead of failing completely
 			continue
 		}
 		fileSystemList = append(fileSystemList, &fileSystemInfo)
@@ -332,6 +341,10 @@ func (fileSystemHandler *AlibabaFileSystemHandler) ListFileSystem() ([]*irs.File
 // GetFileSystem returns specific file system info
 func (fileSystemHandler *AlibabaFileSystemHandler) GetFileSystem(iid irs.IID) (irs.FileSystemInfo, error) {
 	cblogger.Debug("Alibaba Cloud NAS GetFileSystem() called")
+
+	if fileSystemHandler.Client == nil {
+		return irs.FileSystemInfo{}, errors.New("NAS client is not initialized")
+	}
 
 	request := nas.CreateDescribeFileSystemsRequest()
 	request.Scheme = "https"
@@ -359,7 +372,18 @@ func (fileSystemHandler *AlibabaFileSystemHandler) GetFileSystem(iid irs.IID) (i
 	}
 
 	// Get tags using TagHandler
-	fileSystemInfo.TagList, _ = fileSystemHandler.TagHandler.ListTag(irs.FILESYSTEM, fileSystemInfo.IId)
+	if fileSystemHandler.TagHandler != nil {
+		tagList, err := fileSystemHandler.TagHandler.ListTag(irs.FILESYSTEM, fileSystemInfo.IId)
+		if err != nil {
+			cblogger.Errorf("Failed to get tags: %v", err)
+			fileSystemInfo.TagList = []irs.KeyValue{}
+		} else {
+			fileSystemInfo.TagList = tagList
+		}
+	} else {
+		cblogger.Warn("TagHandler is nil, skipping tag retrieval")
+		fileSystemInfo.TagList = []irs.KeyValue{}
+	}
 
 	return fileSystemInfo, nil
 }
@@ -367,6 +391,10 @@ func (fileSystemHandler *AlibabaFileSystemHandler) GetFileSystem(iid irs.IID) (i
 // DeleteFileSystem deletes the specified file system
 func (fileSystemHandler *AlibabaFileSystemHandler) DeleteFileSystem(iid irs.IID) (bool, error) {
 	cblogger.Debug("Alibaba Cloud NAS DeleteFileSystem() called")
+
+	if fileSystemHandler.Client == nil {
+		return false, errors.New("NAS client is not initialized")
+	}
 
 	// First, delete all mount targets
 	mountTargets, err := fileSystemHandler.listMountTargets(iid.SystemId)
@@ -410,6 +438,10 @@ func (fileSystemHandler *AlibabaFileSystemHandler) DeleteFileSystem(iid irs.IID)
 func (fileSystemHandler *AlibabaFileSystemHandler) AddAccessSubnet(iid irs.IID, subnetIID irs.IID) (irs.FileSystemInfo, error) {
 	cblogger.Debug("Alibaba Cloud NAS AddAccessSubnet() called")
 
+	if fileSystemHandler.Client == nil {
+		return irs.FileSystemInfo{}, errors.New("NAS client is not initialized")
+	}
+
 	err := fileSystemHandler.createMountTarget(iid, subnetIID)
 	if err != nil {
 		return irs.FileSystemInfo{}, err
@@ -421,6 +453,10 @@ func (fileSystemHandler *AlibabaFileSystemHandler) AddAccessSubnet(iid irs.IID, 
 // RemoveAccessSubnet removes a subnet from the file system access list
 func (fileSystemHandler *AlibabaFileSystemHandler) RemoveAccessSubnet(iid irs.IID, subnetIID irs.IID) (bool, error) {
 	cblogger.Debug("Alibaba Cloud NAS RemoveAccessSubnet() called")
+
+	if fileSystemHandler.Client == nil {
+		return false, errors.New("NAS client is not initialized")
+	}
 
 	hiscallInfo := GetCallLogScheme(fileSystemHandler.Region, call.FILESYSTEM, iid.SystemId, "RemoveAccessSubnet()")
 	start := call.Start()
@@ -452,6 +488,10 @@ func (fileSystemHandler *AlibabaFileSystemHandler) RemoveAccessSubnet(iid irs.II
 // ListAccessSubnet returns list of subnets that can access the file system
 func (fileSystemHandler *AlibabaFileSystemHandler) ListAccessSubnet(iid irs.IID) ([]irs.IID, error) {
 	cblogger.Debug("Alibaba Cloud NAS ListAccessSubnet() called")
+
+	if fileSystemHandler.Client == nil {
+		return nil, errors.New("NAS client is not initialized")
+	}
 
 	hiscallInfo := GetCallLogScheme(fileSystemHandler.Region, call.FILESYSTEM, iid.SystemId, "ListAccessSubnet()")
 	start := call.Start()
@@ -501,6 +541,10 @@ func (fileSystemHandler *AlibabaFileSystemHandler) DeleteBackup(fsIID irs.IID, b
 func (fileSystemHandler *AlibabaFileSystemHandler) waitUntilFileSystemAvailable(fileSystemId string) error {
 	cblogger.Info("Waiting for file system to be available...")
 
+	if fileSystemHandler.Client == nil {
+		return errors.New("NAS client is not initialized")
+	}
+
 	request := nas.CreateDescribeFileSystemsRequest()
 	request.Scheme = "https"
 	request.FileSystemId = fileSystemId
@@ -526,6 +570,10 @@ func (fileSystemHandler *AlibabaFileSystemHandler) waitUntilFileSystemAvailable(
 }
 
 func (fileSystemHandler *AlibabaFileSystemHandler) listMountTargets(fileSystemId string) ([]nas.MountTarget, error) {
+	if fileSystemHandler.Client == nil {
+		return nil, errors.New("NAS client is not initialized")
+	}
+
 	request := nas.CreateDescribeMountTargetsRequest()
 	request.Scheme = "https"
 	request.FileSystemId = fileSystemId
@@ -539,6 +587,10 @@ func (fileSystemHandler *AlibabaFileSystemHandler) listMountTargets(fileSystemId
 }
 
 func (fileSystemHandler *AlibabaFileSystemHandler) deleteMountTarget(mountTargetDomain string) error {
+	if fileSystemHandler.Client == nil {
+		return errors.New("NAS client is not initialized")
+	}
+
 	request := nas.CreateDeleteMountTargetRequest()
 	request.Scheme = "https"
 	request.MountTargetDomain = mountTargetDomain
@@ -549,6 +601,10 @@ func (fileSystemHandler *AlibabaFileSystemHandler) deleteMountTarget(mountTarget
 
 func (fileSystemHandler *AlibabaFileSystemHandler) createMountTarget(iid irs.IID, subnetIID irs.IID) error {
 	cblogger.Debug("Alibaba Cloud NAS createMountTarget() called")
+
+	if fileSystemHandler.Client == nil {
+		return errors.New("NAS client is not initialized")
+	}
 
 	request := nas.CreateCreateMountTargetRequest()
 	request.Scheme = "https"
@@ -582,6 +638,8 @@ func (fileSystemHandler *AlibabaFileSystemHandler) convertToFileSystemInfo(fs *n
 	mountTargets, err := fileSystemHandler.listMountTargets(fs.FileSystemId)
 	if err != nil {
 		cblogger.Errorf("Failed to get mount targets: %v", err)
+		// Continue with empty mount targets instead of failing
+		mountTargets = []nas.MountTarget{}
 	}
 
 	var mountTargetList []irs.MountTargetInfo

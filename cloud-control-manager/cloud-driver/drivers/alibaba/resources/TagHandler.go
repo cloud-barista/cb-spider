@@ -261,6 +261,10 @@ func (tagHandler *AlibabaTagHandler) AddTag(resType irs.RSType, resIID irs.IID, 
 		cblogger.Debug("AddNlbTags response", response)
 
 	case "nas":
+		if tagHandler.NasClient == nil {
+			cblogger.Error("NAS client is nil - this should not happen. Check TagHandler initialization.")
+			return tag, errors.New("NAS client is not initialized - programming error")
+		}
 		response, err := aliAddNasTag(tagHandler.NasClient, tagHandler.Region, resType, resIID, tag)
 		if err != nil {
 			return tag, err
@@ -409,6 +413,10 @@ func (tagHandler *AlibabaTagHandler) ListTag(resType irs.RSType, resIID irs.IID)
 		// 	tagInfoList = append(tagInfoList, aTagInfo)
 		// }
 	case "nas":
+		if tagHandler.NasClient == nil {
+			cblogger.Error("NAS client is nil - this should not happen. Check TagHandler initialization.")
+			return tagInfoList, errors.New("NAS client is not initialized - programming error")
+		}
 		response, err := aliNasListTag(tagHandler.NasClient, tagHandler.Region, resType, resIID)
 		if err != nil {
 			cblogger.Error(err.Error())
@@ -485,6 +493,10 @@ func (tagHandler *AlibabaTagHandler) GetTag(resType irs.RSType, resIID irs.IID, 
 
 		}
 	case "nas":
+		if tagHandler.NasClient == nil {
+			cblogger.Error("NAS client is nil - this should not happen. Check TagHandler initialization.")
+			return tagInfo, errors.New("NAS client is not initialized - programming error")
+		}
 		response, err := aliNasListTag(tagHandler.NasClient, tagHandler.Region, resType, resIID)
 		if err != nil {
 			cblogger.Error(err.Error())
@@ -635,6 +647,10 @@ func (tagHandler *AlibabaTagHandler) RemoveTag(resType irs.RSType, resIID irs.II
 			return false, errors.New("waitForTagExist Error ")
 		}
 	case "nas":
+		if tagHandler.NasClient == nil {
+			cblogger.Error("NAS client is nil - this should not happen. Check TagHandler initialization.")
+			return false, errors.New("NAS client is not initialized - programming error")
+		}
 		response, err := aliRemoveNasTag(tagHandler.NasClient, tagHandler.Region, resType, resIID, key)
 		if err != nil {
 			return false, err
@@ -738,6 +754,10 @@ func (tagHandler *AlibabaTagHandler) FindTag(resType irs.RSType, keyword string)
 		tagInfoList = append(tagInfoList, responseTagList...)
 
 	case "FILESYSTEM", irs.FILESYSTEM:
+		if tagHandler.NasClient == nil {
+			cblogger.Error("NAS client is nil - this should not happen. Check TagHandler initialization.")
+			return tagInfoList, errors.New("NAS client is not initialized - programming error")
+		}
 		responseTagList, err := aliNasTagList(tagHandler.NasClient, tagHandler.Region, resType, keyword)
 		if err != nil {
 			cblogger.Error(err)
@@ -809,6 +829,10 @@ func (tagHandler *AlibabaTagHandler) FindTag(resType irs.RSType, keyword string)
 				}
 
 			case irs.FILESYSTEM:
+				if tagHandler.NasClient == nil {
+					cblogger.Error("NAS client is nil - this should not happen. Check TagHandler initialization.")
+					break
+				}
 				responseTagList, err := aliNasTagList(tagHandler.NasClient, regionInfo, resourceType, keyword)
 				if err != nil {
 					cblogger.Errorf("Error retrieving tags for FILESYSTEM: %v", err)

@@ -65,7 +65,7 @@ type AlibabaCloudConnection struct {
 // CreateFileSystemHandler implements connect.CloudConnection.
 func (cloudConn *AlibabaCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
 	cblogger.Info("Alibaba Cloud Driver: called CreateFileSystemHandler()!")
-	fileSystemHandler := alirs.AlibabaFileSystemHandler{Region: cloudConn.Region, Client: cloudConn.FileSystemClient, TagHandler: &alirs.AlibabaTagHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, CsClient: cloudConn.Cs2015Client, VpcClient: cloudConn.VpcClient, SlbClient: cloudConn.NLBClient}}
+	fileSystemHandler := alirs.AlibabaFileSystemHandler{Region: cloudConn.Region, Client: cloudConn.FileSystemClient, TagHandler: &alirs.AlibabaTagHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, CsClient: cloudConn.Cs2015Client, VpcClient: cloudConn.VpcClient, SlbClient: cloudConn.NLBClient, NasClient: cloudConn.NasClient}}
 	return &fileSystemHandler, nil
 }
 
