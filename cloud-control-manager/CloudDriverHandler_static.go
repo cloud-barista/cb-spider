@@ -26,7 +26,6 @@ import (
 
 	ktdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ktcloud"
 	ktvpcdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ktcloudvpc"
-	ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp"
 	ncpvpcdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncpvpc"
 	nhndrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/nhncloud"
 
@@ -65,8 +64,6 @@ func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
 		cloudDriver = new(tencentdrv.TencentDriver)
 	case "IBM":
 		cloudDriver = new(ibmvpcdrv.IbmCloudDriver)
-	case "NCP":
-		cloudDriver = new(ncpdrv.NcpDriver)
 	case "NCPVPC":
 		cloudDriver = new(ncpvpcdrv.NcpVpcDriver)
 	case "NHNCLOUD":
