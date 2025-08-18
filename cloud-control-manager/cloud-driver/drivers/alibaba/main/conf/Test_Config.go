@@ -152,6 +152,8 @@ func GetResourceHandler(handlerType string) (interface{}, error) {
 		resourceHandler, err = cloudConnection.CreateClusterHandler()
 	case "Tag":
 		resourceHandler, err = cloudConnection.CreateTagHandler()
+	case "FileSystem":
+		resourceHandler, err = cloudConnection.CreateFileSystemHandler()
 	}
 
 	if err != nil {

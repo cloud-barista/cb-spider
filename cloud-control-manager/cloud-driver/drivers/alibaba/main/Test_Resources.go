@@ -1881,20 +1881,174 @@ func handleCluster() {
 	}
 }
 
+func handleFileSystem() {
+	cblogger.Debug("Start FileSystem Resource Test")
+	ResourceHandler, err := testconf.GetResourceHandler("FileSystem")
+	if err != nil {
+		cblogger.Error(err)
+		return
+	}
+	handler := ResourceHandler.(irs.FileSystemHandler)
+	cblogger.Info(handler)
+
+	tag1 := irs.KeyValue{Key: "fsaa", Value: "fsbb"}
+
+	fileSystemReqInfo := irs.FileSystemInfo{
+		IId:    irs.IID{NameId: "cb-test-nas"},
+		VpcIID: irs.IID{SystemId: ""}, // VPC ID 필요
+		Zone:   "",                    // Zone ID 필요 (예: "cn-hongkong-b")
+		AccessSubnetList: []irs.IID{
+			{SystemId: ""}, // Subnet ID 필요
+		},
+		TagList: []irs.KeyValue{tag1},
+		// PerformanceInfo: map[string]string{
+		// 	"StorageType":  "Capacity",
+		// 	"ProtocolType": "NFS",
+		// 	"Capacity":     "1024",
+		// },
+	}
+
+	reqFileSystemId := irs.IID{SystemId: ""}
+
+	for {
+		fmt.Println("FileSystem Management")
+		fmt.Println("0. Quit")
+		fmt.Println("1. GetMetaInfo")
+		fmt.Println("2. FileSystem List")
+		fmt.Println("3. FileSystem Create")
+		fmt.Println("4. FileSystem Get")
+		fmt.Println("5. FileSystem Delete")
+		fmt.Println("6. Add Access Subnet")
+		fmt.Println("7. Remove Access Subnet")
+		fmt.Println("8. List Access Subnet")
+		fmt.Println("9. List IID")
+
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			panic(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				return
+
+			case 1:
+				cblogger.Info("Start GetMetaInfo() ...")
+				result, err := handler.GetMetaInfo()
+				if err != nil {
+					cblogger.Error("Failed to get meta info: ", err)
+				} else {
+					cblogger.Info("Result of GetMetaInfo()")
+					spew.Dump(result)
+				}
+
+			case 2:
+				cblogger.Info("Start ListFileSystem() ...")
+				result, err := handler.ListFileSystem()
+				if err != nil {
+					cblogger.Error("Failed to retrieve FileSystem list: ", err)
+				} else {
+					cblogger.Info("Result of FileSystem list")
+					spew.Dump(result)
+					if result != nil && len(result) > 0 {
+						reqFileSystemId = result[0].IId
+					}
+				}
+
+			case 3:
+				cblogger.Infof("[%s] Test of create FileSystem", fileSystemReqInfo.IId.NameId)
+				result, err := handler.CreateFileSystem(fileSystemReqInfo)
+				if err != nil {
+					cblogger.Error("Failed to create FileSystem: ", err)
+				} else {
+					cblogger.Info("Result of create FileSystem")
+					reqFileSystemId = result.IId
+					spew.Dump(result)
+				}
+
+			case 4:
+				cblogger.Infof("[%s] Test of retrieve FileSystem", reqFileSystemId)
+				result, err := handler.GetFileSystem(reqFileSystemId)
+				if err != nil {
+					cblogger.Error("Failed to retrieve FileSystem: ", err)
+				} else {
+					cblogger.Info("Result of retrieve FileSystem")
+					spew.Dump(result)
+				}
+
+			case 5:
+				cblogger.Infof("[%s] Test of delete FileSystem", reqFileSystemId)
+				result, err := handler.DeleteFileSystem(reqFileSystemId)
+				if err != nil {
+					cblogger.Error("Failed to delete FileSystem: ", err)
+				} else {
+					cblogger.Info("Result of delete FileSystem: ", result)
+				}
+
+			case 6:
+				cblogger.Infof("[%s] Test of add access subnet", reqFileSystemId)
+				subnetIID := irs.IID{SystemId: ""} // 추가할 Subnet ID
+				result, err := handler.AddAccessSubnet(reqFileSystemId, subnetIID)
+				if err != nil {
+					cblogger.Error("Failed to add access subnet: ", err)
+				} else {
+					cblogger.Info("Result of add access subnet")
+					spew.Dump(result)
+				}
+
+			case 7:
+				cblogger.Infof("[%s] Test of remove access subnet", reqFileSystemId)
+				subnetIID := irs.IID{SystemId: ""} // 제거할 Subnet ID
+				result, err := handler.RemoveAccessSubnet(reqFileSystemId, subnetIID)
+				if err != nil {
+					cblogger.Error("Failed to remove access subnet: ", err)
+				} else {
+					cblogger.Info("Result of remove access subnet: ", result)
+				}
+
+			case 8:
+				cblogger.Infof("[%s] Test of list access subnet", reqFileSystemId)
+				result, err := handler.ListAccessSubnet(reqFileSystemId)
+				if err != nil {
+					cblogger.Error("Failed to list access subnet: ", err)
+				} else {
+					cblogger.Info("Result of list access subnet")
+					spew.Dump(result)
+				}
+
+			case 9:
+				cblogger.Info("List IID test")
+				result, err := handler.ListIID()
+				if err != nil {
+					cblogger.Error("Failed to list IID: ", err)
+				} else {
+					cblogger.Info("Result of IID List")
+					for _, v := range result {
+						cblogger.Info("IID List: %+v", v)
+					}
+				}
+			}
+		}
+	}
+}
+
 func main() {
 	cblogger.Info("Alibaba Cloud Resource Test")
 	cblogger.Debug("Debug mode")
 
-	handleVPC() //VPC
+	// handleVPC() //VPC
 	//handleVMSpec()
-	handleImage() //AMI
-	handleSecurity()
-	handleKeyPair()
-	handleVM()
-	handleNLB()
-	handleDisk()
-	handleMyImage()
-	handleCluster()
+	// handleImage() //AMI
+	// handleSecurity()
+	// handleKeyPair()
+	// handleVM()
+	// handleNLB()
+	// handleDisk()
+	// handleMyImage()
+	// handleCluster()
+	handleFileSystem() // FileSystem (NAS)
 	//handlePublicIP()
 
 	//handleVNic() //Lancard
