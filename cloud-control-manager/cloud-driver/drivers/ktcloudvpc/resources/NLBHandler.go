@@ -80,13 +80,13 @@ func (nlbHandler *KTVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 		RegionInfo:    nlbHandler.RegionInfo,
 		NetworkClient: nlbHandler.NetworkClient, // Required!!
 	}
-	OsNetId, getError := vpcHandler.getOsNetworkIdWithTierName(NlbSubnetName)
+	tierId, getError := vpcHandler.getTierIdWithTierName(NlbSubnetName)
 	if getError != nil {
-		newErr := fmt.Errorf("Failed to Get the OsNetwork ID of the 'NLB-Subnet' : [%v]", getError)
+		newErr := fmt.Errorf("Failed to Get the Tier ID of the 'NLB-Subnet' : [%v]", getError)
 		cblogger.Error(newErr.Error())
 		return irs.NLBInfo{}, newErr
 	} else {
-		cblogger.Infof("# OsNetwork ID of NLB-SUBNET : %s", OsNetId)
+		cblogger.Infof("# Tier ID of NLB-SUBNET : %s", tierId)
 	}
 
 	createOpts := ktvpclb.CreateOpts{
@@ -98,7 +98,7 @@ func (nlbHandler *KTVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 		ServiceType:     nlbReqInfo.Listener.Protocol,      // Required
 		HealthCheckType: nlbReqInfo.HealthChecker.Protocol, // Required
 		HealthCheckURL:  DefaultHealthCheckURL,             // URL when the HealthCheckType (above) is 'http' or 'https'.
-		NetworkID:       OsNetId,                           // Required. Caution!!) Not Tier 'ID' but 'OsNetworkID' of the Tier!!
+		NetworkID:       *tierId,                           // Required. Caution!!) Not Tier 'ID' but 'OsNetworkID' of the Tier!!
 	}
 
 	start := call.Start()
@@ -838,22 +838,12 @@ func (nlbHandler *KTVpcNLBHandler) mappingNlbInfo(nlb *ktvpclb.LoadBalancer) (ir
 	// cblogger.Info("\n\n### nlb : ")
 	// spew.Dump(nlb)
 
-	// vpcId, subnetId, publicIp, _, err := vmHandler.getNetIDsWithPrivateIP(vmInfo.PrivateIP)
-	// if err != nil {
-	// 	newErr := fmt.Errorf("Failed to Get PortForwarding Info. [%v]", err)
-	// 	cblogger.Error(newErr.Error())
-	// 	return irs.VMInfo{}, newErr
-	// }
-	// vmInfo.VpcIID.SystemId	  = vpcId
-	// vmInfo.SubnetIID.SystemId = subnetId // Caution!!) Need modification. Not Tier 'ID' but 'OsNetworkID' to Create VM through REST API!!
-	// vmInfo.PublicIP			  = publicIp
-
 	vpcHandler := KTVpcVPCHandler{
 		RegionInfo:    nlbHandler.RegionInfo,
 		NetworkClient: nlbHandler.NetworkClient,
 	}
 
-	vpcId, err := vpcHandler.getVPCIdWithOsNetworkID(nlb.NetworkID)
+	vpcId, err := vpcHandler.getVPCIdWithTierId(nlb.NetworkID)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get PortForwarding Info. [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -867,7 +857,7 @@ func (nlbHandler *KTVpcNLBHandler) mappingNlbInfo(nlb *ktvpclb.LoadBalancer) (ir
 		},
 		VpcIID: irs.IID{
 			// NameId:   "N/A", // Cauton!!) 'NameId: "N/A"' makes an Error on CB-Spider
-			SystemId: vpcId,
+			SystemId: *vpcId,
 		},
 		Type:  "PUBLIC",
 		Scope: "REGION",
@@ -1031,13 +1021,14 @@ func (nlbHandler *KTVpcNLBHandler) createStaticNatForNLB(ktNLB *ktvpclb.LoadBala
 		VMClient:      nlbHandler.VMClient,
 		NetworkClient: nlbHandler.NetworkClient, // Need!!
 	}
-	if ok, publicIP, publicIPId, creatErr = vmHandler.createPublicIP(); !ok {
+	if ok, publicIPId, creatErr = vmHandler.createPublicIP(); !ok {
+	// if ok, publicIP, publicIPId, creatErr = vmHandler.createPublicIP(); !ok {
 		newErr := fmt.Errorf("Failed to Create a PublicIP : [%v]", creatErr)
 		cblogger.Error(newErr.Error())
 		loggingError(callLogInfo, newErr)
 		return "", "", newErr
 	}
-	cblogger.Infof("# New PublicIP : [%s]\n", publicIP)
+	// cblogger.Infof("# New PublicIP : [%s]\n", publicIP)
 	time.Sleep(time.Second * 1)
 
 	// ### Set Static NAT
@@ -1063,20 +1054,22 @@ func (nlbHandler *KTVpcNLBHandler) createStaticNatForNLB(ktNLB *ktvpclb.LoadBala
 		RegionInfo:    nlbHandler.RegionInfo,
 		NetworkClient: nlbHandler.NetworkClient, // Required!!
 	}
-	vpcId, err := vpcHandler.getVPCIdWithOsNetworkID(ktNLB.NetworkID)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the VPC ID with teh OsNetwork ID. [%v]", err)
+	_, getErr := vpcHandler.getVPCIdWithTierId(ktNLB.NetworkID)
+	// vpcId, err := vpcHandler.getVPCIdWithTierId(ktNLB.NetworkID)
+	if getErr != nil {
+		newErr := fmt.Errorf("Failed to Get the VPC ID with teh OsNetwork ID. [%v]", getErr)
 		cblogger.Error(newErr.Error())
 		return "", "", newErr
 	}
 
-	externalNetId, getErr := vpcHandler.getExtSubnetId(irs.IID{SystemId: vpcId})
+	externalNetId, getErr := vpcHandler.getExtSubnetId()
+	// externalNetId, getErr := vpcHandler.getExtSubnetId(irs.IID{SystemId: *vpcId})
 	if getErr != nil {
 		newErr := fmt.Errorf("Failed to Get the VPC Info : [%v]", getErr)
 		cblogger.Error(newErr.Error())
 		return "", "", newErr
 	} else {
-		cblogger.Infof("# ExternalNet ID : %s", externalNetId)
+		cblogger.Infof("# ExternalNet ID : %s", *externalNetId)
 	}
 
 	cblogger.Info("### Start to Create Firewall 'inbound' Rules!!")
@@ -1089,13 +1082,13 @@ func (nlbHandler *KTVpcNLBHandler) createStaticNatForNLB(ktNLB *ktvpclb.LoadBala
 		cblogger.Infof("Dest CIDR : %s", destCIDR)
 	}
 
-	tierId, getError := vpcHandler.getTierIdWithOsNetworkId(vpcId, ktNLB.NetworkID)
+	networkId, getError := vpcHandler.getNetworkIdWithTierId(ktNLB.NetworkID)
 	if getError != nil {
 		newErr := fmt.Errorf("Failed to Get the OsNetwork ID of the Tier : [%v]", getError)
 		cblogger.Error(newErr.Error())
 		return "", "", newErr
 	} else {
-		cblogger.Infof("# Tier ID : %s", tierId)
+		cblogger.Infof("# Tier ID : %s", *networkId)
 	}
 
 	protocol := ktNLB.ServiceType
@@ -1110,13 +1103,13 @@ func (nlbHandler *KTVpcNLBHandler) createStaticNatForNLB(ktNLB *ktvpclb.LoadBala
 	}
 
 	inboundFWOpts := &rules.InboundCreateOpts{
-		SourceNetID:   externalNetId, // ExternalNet
+		SourceNetID:   *externalNetId, // ExternalNet
 		PortFordingID: natResult.ID,  // Caution!!
 		DestIPAdds:    destCIDR,      // Destination network band (10.1.1.0/24, etc.)
 		StartPort:     ktNLB.ServicePort,
 		EndPort:       ktNLB.ServicePort,
 		Protocol:      convertedProtocol,
-		DestNetID:     tierId,            // Tier ID
+		DestNetID:     *networkId,         // Tier 'NetworkId'
 		Action:        rules.ActionAllow, // "allow"
 	}
 

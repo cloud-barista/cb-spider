@@ -61,8 +61,8 @@ require (
 	github.com/alibabacloud-go/tea v1.3.7
 	github.com/alibabacloud-go/vpc-20160428/v6 v6.4.0
 	github.com/cloud-barista/ktcloud-sdk-go v0.2.1-0.20240826073400-9dd317d24d0a
-	github.com/cloud-barista/ktcloudvpc-sdk-go v0.0.0-20240812121947-01daa5e57030
-	github.com/cloud-barista/nhncloud-sdk-go v0.0.0-20241002083344-08576c749329
+	github.com/cloud-barista/ktcloudvpc-sdk-go v0.0.0-20250818112513-c90e5b807d39
+	github.com/cloud-barista/nhncloud-sdk-go v0.0.1
 	github.com/go-openapi/strfmt v0.23.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/go-version v1.6.0
