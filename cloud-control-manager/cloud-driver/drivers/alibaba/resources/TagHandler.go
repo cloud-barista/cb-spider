@@ -7,6 +7,7 @@ import (
 
 	cs "github.com/alibabacloud-go/cs-20151215/v4/client" // cs  : container service
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs" // ecs : elastic compute service
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/nas" // nas : network attached storage
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/slb"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
 
@@ -21,6 +22,7 @@ type AlibabaTagHandler struct {
 	CsClient  *cs.Client
 	VpcClient *vpc.Client
 	SlbClient *slb.Client
+	NasClient *nas.Client
 }
 
 type AliTagResponse struct {
@@ -258,6 +260,13 @@ func (tagHandler *AlibabaTagHandler) AddTag(resType irs.RSType, resIID irs.IID, 
 		}
 		cblogger.Debug("AddNlbTags response", response)
 
+	case "nas":
+		response, err := aliAddNasTag(tagHandler.NasClient, tagHandler.Region, resType, resIID, tag)
+		if err != nil {
+			return tag, err
+		}
+		cblogger.Debug("AddNasTags response", response)
+
 	}
 
 	// request Tag를 retrun하므로 해당 Tag 정보조회 필요없음
@@ -399,6 +408,20 @@ func (tagHandler *AlibabaTagHandler) ListTag(resType irs.RSType, resIID irs.IID)
 		// 	cblogger.Debug("tagInfo ", aTagInfo)
 		// 	tagInfoList = append(tagInfoList, aTagInfo)
 		// }
+	case "nas":
+		response, err := aliNasListTag(tagHandler.NasClient, tagHandler.Region, resType, resIID)
+		if err != nil {
+			cblogger.Error(err.Error())
+			return tagInfoList, nil
+		}
+		cblogger.Debug("aliNasListTag ", response)
+
+		// NAS 태그 응답에서 태그 정보 추출
+		for _, nasTag := range response.Tags.Tag {
+			aTagInfo := irs.KeyValue{Key: nasTag.Key, Value: nasTag.Value}
+			cblogger.Debug("tagInfo ", aTagInfo)
+			tagInfoList = append(tagInfoList, aTagInfo)
+		}
 	}
 
 	return tagInfoList, nil
@@ -460,6 +483,22 @@ func (tagHandler *AlibabaTagHandler) GetTag(resType irs.RSType, resIID irs.IID, 
 			tagInfo = irs.KeyValue{Key: *aliTagResource.TagKey, Value: *aliTagResource.TagValue}
 			cblogger.Debug("tagInfo ", tagInfo)
 
+		}
+	case "nas":
+		response, err := aliNasListTag(tagHandler.NasClient, tagHandler.Region, resType, resIID)
+		if err != nil {
+			cblogger.Error(err.Error())
+			return tagInfo, nil
+		}
+		cblogger.Debug("aliNasTag ", response)
+
+		// 특정 키에 해당하는 태그 찾기
+		for _, nasTag := range response.Tags.Tag {
+			if nasTag.Key == key {
+				tagInfo = irs.KeyValue{Key: nasTag.Key, Value: nasTag.Value}
+				cblogger.Debug("tagInfo ", tagInfo)
+				break
+			}
 		}
 	}
 
@@ -595,6 +634,12 @@ func (tagHandler *AlibabaTagHandler) RemoveTag(resType irs.RSType, resIID irs.II
 		if !result {
 			return false, errors.New("waitForTagExist Error ")
 		}
+	case "nas":
+		response, err := aliRemoveNasTag(tagHandler.NasClient, tagHandler.Region, resType, resIID, key)
+		if err != nil {
+			return false, err
+		}
+		cblogger.Debug("RemoveNasTags response", response)
 	}
 	return true, nil
 }
@@ -603,7 +648,7 @@ func (tagHandler *AlibabaTagHandler) RemoveTag(resType irs.RSType, resIID irs.II
 // resType: ALL | VPC, SUBNET, etc.,.  ecs기준 : Ddh, Disk, Eni, Image, Instance, KeyPair, LaunchTemplate, ReservedInstance, Securitygroup, Snapshot, SnapshotPolicy, Volume,
 // keyword: The keyword to search for in the tag key or value.
 // if you want to find all tags, set keyword to "" or "*".
-// 해당 Resource Type에 tag가 있는 것들. ListTag는 resourceId가 있으나 당 function은 더 넒음
+// 해당 Resource Type에 tag가 있는 것들. ListTag는 resourceId가 있으나 당 function은 더 넓음
 func (tagHandler *AlibabaTagHandler) FindTag(resType irs.RSType, keyword string) ([]*irs.TagInfo, error) {
 
 	var tagInfoList []*irs.TagInfo
@@ -692,9 +737,18 @@ func (tagHandler *AlibabaTagHandler) FindTag(resType irs.RSType, keyword string)
 
 		tagInfoList = append(tagInfoList, responseTagList...)
 
+	case "FILESYSTEM", irs.FILESYSTEM:
+		responseTagList, err := aliNasTagList(tagHandler.NasClient, tagHandler.Region, resType, keyword)
+		if err != nil {
+			cblogger.Error(err)
+		}
+		cblogger.Debug("aliNasTag response : ", responseTagList)
+
+		tagInfoList = append(tagInfoList, responseTagList...)
+
 	case "ALL", irs.ALL:
 		// 모든 자원 유형을 포함하는 슬라이스를 선언
-		allResourceTypes := []irs.RSType{irs.VM, irs.KEY, irs.SG, irs.DISK, irs.MYIMAGE, irs.VPC, irs.SUBNET, irs.CLUSTER}
+		allResourceTypes := []irs.RSType{irs.VM, irs.KEY, irs.SG, irs.DISK, irs.MYIMAGE, irs.VPC, irs.SUBNET, irs.CLUSTER, irs.FILESYSTEM}
 
 		// 각 자원 유형별로 태그 정보 조회
 		for _, resourceType := range allResourceTypes {
@@ -752,6 +806,14 @@ func (tagHandler *AlibabaTagHandler) FindTag(resType irs.RSType, keyword string)
 							}
 						}
 					}
+				}
+
+			case irs.FILESYSTEM:
+				responseTagList, err := aliNasTagList(tagHandler.NasClient, regionInfo, resourceType, keyword)
+				if err != nil {
+					cblogger.Errorf("Error retrieving tags for FILESYSTEM: %v", err)
+				} else {
+					tagInfoList = append(tagInfoList, responseTagList...)
 				}
 			}
 		}
@@ -829,4 +891,104 @@ func ExtractTagResourceInfo(tagResource *AliTagResource) (irs.TagInfo, error) {
 	tagInfo.TagList = tagList
 
 	return tagInfo, nil
+}
+
+// NAS 태그 관리 함수들
+
+// aliAddNasTag adds a tag to NAS file system
+func aliAddNasTag(client *nas.Client, regionInfo idrv.RegionInfo, resType irs.RSType, resIID irs.IID, tag irs.KeyValue) (*nas.AddTagsResponse, error) {
+	request := nas.CreateAddTagsRequest()
+	request.Scheme = "https"
+	request.FileSystemId = resIID.SystemId
+	request.Tag = &[]nas.AddTagsTag{
+		{
+			Key:   tag.Key,
+			Value: tag.Value,
+		},
+	}
+
+	response, err := client.AddTags(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add tag to NAS file system: %w", err)
+	}
+
+	return response, nil
+}
+
+// aliNasListTag lists tags for NAS file system
+func aliNasListTag(client *nas.Client, regionInfo idrv.RegionInfo, resType irs.RSType, resIID irs.IID) (*nas.DescribeTagsResponse, error) {
+	request := nas.CreateDescribeTagsRequest()
+	request.Scheme = "https"
+	request.FileSystemId = resIID.SystemId
+
+	response, err := client.DescribeTags(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list tags for NAS file system: %w", err)
+	}
+
+	return response, nil
+}
+
+// aliNasTagList lists all NAS file systems and their tags that match the keyword
+func aliNasTagList(client *nas.Client, regionInfo idrv.RegionInfo, resType irs.RSType, keyword string) ([]*irs.TagInfo, error) {
+	var tagInfoList []*irs.TagInfo
+
+	// 먼저 모든 파일시스템을 조회
+	request := nas.CreateDescribeFileSystemsRequest()
+	request.Scheme = "https"
+
+	response, err := client.DescribeFileSystems(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to describe file systems: %w", err)
+	}
+
+	// 각 파일시스템의 태그를 조회
+	for _, fs := range response.FileSystems.FileSystem {
+		// 파일시스템의 태그 조회
+		tagRequest := nas.CreateDescribeTagsRequest()
+		tagRequest.Scheme = "https"
+		tagRequest.FileSystemId = fs.FileSystemId
+
+		tagResponse, err := client.DescribeTags(tagRequest)
+		if err != nil {
+			cblogger.Warnf("Failed to get tags for file system %s: %v", fs.FileSystemId, err)
+			continue
+		}
+
+		// 키워드와 일치하는 태그 찾기
+		for _, tag := range tagResponse.Tags.Tag {
+			if keyword == "" || keyword == "*" || tag.Key == keyword || tag.Value == keyword {
+				aTagInfo := irs.TagInfo{
+					ResIId:  irs.IID{SystemId: fs.FileSystemId},
+					ResType: resType,
+					TagList: []irs.KeyValue{
+						{Key: "TagKey", Value: tag.Key},
+						{Key: "TagValue", Value: tag.Value},
+					},
+				}
+				tagInfoList = append(tagInfoList, &aTagInfo)
+			}
+		}
+	}
+
+	return tagInfoList, nil
+}
+
+// aliRemoveNasTag removes a tag from NAS file system
+func aliRemoveNasTag(client *nas.Client, regionInfo idrv.RegionInfo, resType irs.RSType, resIID irs.IID, key string) (*nas.RemoveTagsResponse, error) {
+	request := nas.CreateRemoveTagsRequest()
+	request.Scheme = "https"
+	request.FileSystemId = resIID.SystemId
+	request.Tag = &[]nas.RemoveTagsTag{
+		{
+			Key: key,
+		},
+	}
+
+	response, err := client.RemoveTags(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to remove tag from NAS file system: %w", err)
+	}
+
+	return response, nil
 }
