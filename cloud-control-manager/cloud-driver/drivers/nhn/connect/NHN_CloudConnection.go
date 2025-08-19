@@ -49,70 +49,70 @@ type NhnCloudConnection struct {
 
 // CreateFileSystemHandler implements connect.CloudConnection.
 func (cloudConn *NhnCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
-	cblogger.Info("NhnCloud Cloud Driver: called CreateFileSystemHandler()!")
+	cblogger.Info("NNH cloud Driver: called CreateFileSystemHandler()!")
 	fileSystemHandler := nhnrs.NhnCloudFileSystemHandler{CredentialInfo: cloudConn.CredentialInfo, RegionInfo: cloudConn.RegionInfo, FSClient: cloudConn.FSClient, NetworkClient: cloudConn.NetworkClient}
 
 	return &fileSystemHandler, nil
 }
 
 func (cloudConn *NhnCloudConnection) CreateVMHandler() (irs.VMHandler, error) {
-	cblogger.Info("NhnCloud Cloud Driver: called CreateVMHandler()!")
+	cblogger.Info("NNH cloud Driver: called CreateVMHandler()!")
 	vmHandler := nhnrs.NhnCloudVMHandler{RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VMClient, ImageClient: cloudConn.ImageClient, NetworkClient: cloudConn.NetworkClient, VolumeClient: cloudConn.VolumeClient}
 
 	return &vmHandler, nil
 }
 
 func (cloudConn *NhnCloudConnection) CreateImageHandler() (irs.ImageHandler, error) {
-	cblogger.Info("NhnCloud Cloud Driver: called CreateImageHandler()!")
+	cblogger.Info("NNH cloud Driver: called CreateImageHandler()!")
 	imageHandler := nhnrs.NhnCloudImageHandler{RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VMClient, ImageClient: cloudConn.ImageClient}
 
 	return &imageHandler, nil
 }
 
 func (cloudConn *NhnCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
-	cblogger.Info("NhnCloud Cloud Driver: called CreateVMSpecHandler()!")
+	cblogger.Info("NNH cloud Driver: called CreateVMSpecHandler()!")
 	vmSpecHandler := nhnrs.NhnCloudVMSpecHandler{RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VMClient}
 
 	return &vmSpecHandler, nil
 }
 
 func (cloudConn *NhnCloudConnection) CreateKeyPairHandler() (irs.KeyPairHandler, error) {
-	cblogger.Info("NhnCloud Cloud Driver: called CreateKeyPairHandler()!")
+	cblogger.Info("NNH cloud Driver: called CreateKeyPairHandler()!")
 	keypairHandler := nhnrs.NhnCloudKeyPairHandler{RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VMClient}
 
 	return &keypairHandler, nil
 }
 
 func (cloudConn NhnCloudConnection) CreateSecurityHandler() (irs.SecurityHandler, error) {
-	cblogger.Info("NhnCloud Cloud Driver: called CreateSecurityHandler()!")
+	cblogger.Info("NNH cloud Driver: called CreateSecurityHandler()!")
 	securityHandler := nhnrs.NhnCloudSecurityHandler{RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VMClient, NetworkClient: cloudConn.NetworkClient}
 
 	return &securityHandler, nil
 }
 
 func (cloudConn *NhnCloudConnection) CreateVPCHandler() (irs.VPCHandler, error) {
-	cblogger.Info("NhnCloud Cloud Driver: called CreateVPCHandler()!")
+	cblogger.Info("NNH cloud Driver: called CreateVPCHandler()!")
 	vpcHandler := nhnrs.NhnCloudVPCHandler{CredentialInfo: cloudConn.CredentialInfo, RegionInfo: cloudConn.RegionInfo, NetworkClient: cloudConn.NetworkClient}
 
 	return &vpcHandler, nil
 }
 
 func (cloudConn *NhnCloudConnection) CreateNLBHandler() (irs.NLBHandler, error) {
-	cblogger.Info("NhnCloud Cloud Driver: called CreateNLBHandler()!")
+	cblogger.Info("NNH cloud Driver: called CreateNLBHandler()!")
 	nlbHandler := nhnrs.NhnCloudNLBHandler{RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VMClient, NetworkClient: cloudConn.NetworkClient} //Caution!! : No NLBClient
 
 	return &nlbHandler, nil
 }
 
 func (cloudConn *NhnCloudConnection) CreateDiskHandler() (irs.DiskHandler, error) {
-	cblogger.Info("NhnCloud Cloud Driver: called CreateDiskHandler()!")
+	cblogger.Info("NNH cloud Driver: called CreateDiskHandler()!")
 	diskHandler := nhnrs.NhnCloudDiskHandler{RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VMClient, VolumeClient: cloudConn.VolumeClient}
 
 	return &diskHandler, nil
 }
 
 func (cloudConn *NhnCloudConnection) CreateClusterHandler() (irs.ClusterHandler, error) {
-	cblogger.Info("NhnCloud Cloud Driver: called CreateClusterHandler()!")
+	cblogger.Info("NNH cloud Driver: called CreateClusterHandler()!")
 
 	if cloudConn.ClusterClient == nil {
 		// Some regions(ex. JPN) do not support a cluster service.
@@ -126,20 +126,20 @@ func (cloudConn *NhnCloudConnection) CreateClusterHandler() (irs.ClusterHandler,
 }
 
 func (cloudConn *NhnCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
-	cblogger.Info("NhnCloud Cloud Driver: called CreateMyImageHandler()!")
+	cblogger.Info("NNH cloud Driver: called CreateMyImageHandler()!")
 	myimageHandler := nhnrs.NhnCloudMyImageHandler{RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VMClient, ImageClient: cloudConn.ImageClient, NetworkClient: cloudConn.NetworkClient, VolumeClient: cloudConn.VolumeClient}
 
 	return &myimageHandler, nil
 }
 
 func (cloudConn *NhnCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
-	cblogger.Info("NhnCloud Cloud Driver: called CreateAnyCallHandler()!")
+	cblogger.Info("NNH cloud Driver: called CreateAnyCallHandler()!")
 
 	return nil, fmt.Errorf("NHN Cloud Driver does not support CreateAnyCallHandler yet.")
 }
 
 func (cloudConn *NhnCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
-	cblogger.Info("NhnCloud Cloud Driver: called CreateRegionZoneHandler()!")
+	cblogger.Info("NNH cloud Driver: called CreateRegionZoneHandler()!")
 	regionZoneHandler := nhnrs.NhnCloudRegionZoneHandler{CredentialInfo: cloudConn.CredentialInfo, RegionInfo: cloudConn.RegionInfo, VMClient: cloudConn.VMClient}
 
 	return &regionZoneHandler, nil

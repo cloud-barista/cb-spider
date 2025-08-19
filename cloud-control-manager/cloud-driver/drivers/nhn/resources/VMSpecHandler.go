@@ -33,7 +33,7 @@ type NhnCloudVMSpecHandler struct {
 }
 
 func (vmSpecHandler *NhnCloudVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error) {
-	cblogger.Info("NHN Cloud Cloud Driver: called ListVMSpec()!")
+	cblogger.Info("NHN Cloud Driver: called ListVMSpec()!")
 	callLogInfo := getCallLogScheme(vmSpecHandler.RegionInfo.Region, call.VMSPEC, "ListVMSpec()", "ListVMSpec()")
 
 	listOpts := flavors.ListOpts{
@@ -61,7 +61,7 @@ func (vmSpecHandler *NhnCloudVMSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, err
 }
 
 func (vmSpecHandler *NhnCloudVMSpecHandler) GetVMSpec(specName string) (irs.VMSpecInfo, error) {
-	cblogger.Info("NHN Cloud Cloud Driver: called GetVMSpec()!")
+	cblogger.Info("NHN Cloud Driver: called GetVMSpec()!")
 	callLogInfo := getCallLogScheme(vmSpecHandler.RegionInfo.Region, call.VMSPEC, specName, "GetVMSpec()")
 
 	if strings.EqualFold(specName, "") {
@@ -88,7 +88,7 @@ func (vmSpecHandler *NhnCloudVMSpecHandler) GetVMSpec(specName string) (irs.VMSp
 }
 
 func (vmSpecHandler *NhnCloudVMSpecHandler) ListOrgVMSpec() (string, error) {
-	cblogger.Info("NHN Cloud Cloud Driver: called ListOrgVMSpec()!")
+	cblogger.Info("NHN Cloud Driver: called ListOrgVMSpec()!")
 	callLogInfo := getCallLogScheme(vmSpecHandler.RegionInfo.Region, call.VMSPEC, "ListOrgVMSpec()", "ListOrgVMSpec()")
 
 	start := call.Start()
@@ -118,7 +118,7 @@ func (vmSpecHandler *NhnCloudVMSpecHandler) ListOrgVMSpec() (string, error) {
 }
 
 func (vmSpecHandler *NhnCloudVMSpecHandler) GetOrgVMSpec(specName string) (string, error) {
-	cblogger.Info("NHN Cloud Cloud Driver: called GetOrgVMSpec()!")
+	cblogger.Info("NHN Cloud Driver: called GetOrgVMSpec()!")
 	callLogInfo := getCallLogScheme(vmSpecHandler.RegionInfo.Region, call.VMSPEC, specName, "GetOrgVMSpec()")
 
 	if strings.EqualFold(specName, "") {
@@ -224,7 +224,7 @@ func parseGpuInfo(vmSizeName string) *irs.GpuInfo {
 }
 
 func (vmSpecHandler *NhnCloudVMSpecHandler) mappingVMSpecInfo(vmSpec flavors.Flavor) *irs.VMSpecInfo {
-	cblogger.Info("NHN Cloud Cloud Driver: called mappingVMSpecInfo()!")
+	cblogger.Info("NHN Cloud Driver: called mappingVMSpecInfo()!")
 
 	gpuInfoList := make([]irs.GpuInfo, 0)
 	gpuInfo := parseGpuInfo(vmSpec.Name)
@@ -254,7 +254,7 @@ func (vmSpecHandler *NhnCloudVMSpecHandler) mappingVMSpecInfo(vmSpec flavors.Fla
 }
 
 func (vmSpecHandler *NhnCloudVMSpecHandler) getIDFromName(specName string) (string, error) {
-	cblogger.Info("NHN Cloud Cloud Driver: called getIDFromName()!")
+	cblogger.Info("NHN Cloud Driver: called getIDFromName()!")
 
 	allPages, err := flavors.ListDetail(vmSpecHandler.VMClient, flavors.ListOpts{}).AllPages()
 	if err != nil {

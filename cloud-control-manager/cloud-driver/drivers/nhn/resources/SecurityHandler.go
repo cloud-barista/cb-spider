@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
 	// "github.com/davecgh/go-spew/spew"
 
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
@@ -35,7 +36,7 @@ type NhnCloudSecurityHandler struct {
 }
 
 func (securityHandler *NhnCloudSecurityHandler) CreateSecurity(securityReqInfo irs.SecurityReqInfo) (irs.SecurityInfo, error) {
-	cblogger.Info("NHN Cloud Cloud Driver: called CreateSecurity()!")
+	cblogger.Info("NHN Cloud Driver: called CreateSecurity()!")
 	callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, securityReqInfo.IId.NameId, "CreateSecurity()")
 
 	// Check if the SecurityGroup Exists
@@ -107,7 +108,7 @@ func (securityHandler *NhnCloudSecurityHandler) CreateSecurity(securityReqInfo i
 }
 
 func (securityHandler *NhnCloudSecurityHandler) ListSecurity() ([]*irs.SecurityInfo, error) {
-	cblogger.Info("NHN Cloud Cloud Driver: called ListSecurity()!")
+	cblogger.Info("NHN Cloud Driver: called ListSecurity()!")
 	callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, "ListSecurity()", "ListSecurity()")
 
 	// Get Security Group list
@@ -165,7 +166,7 @@ func (securityHandler *NhnCloudSecurityHandler) getRawSecurity(securityIID irs.I
 }
 
 func (securityHandler *NhnCloudSecurityHandler) GetSecurity(securityIID irs.IID) (irs.SecurityInfo, error) {
-	cblogger.Info("NHN Cloud Cloud Driver: called GetSecurity()!")
+	cblogger.Info("NHN Cloud Driver: called GetSecurity()!")
 	callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, securityIID.SystemId, "GetSecurity()")
 
 	start := call.Start()
@@ -189,7 +190,7 @@ func (securityHandler *NhnCloudSecurityHandler) GetSecurity(securityIID irs.IID)
 }
 
 func (securityHandler *NhnCloudSecurityHandler) DeleteSecurity(securityIID irs.IID) (bool, error) {
-	cblogger.Info("NHN Cloud Cloud Driver: called DeleteSecurity()!")
+	cblogger.Info("NHN Cloud Driver: called DeleteSecurity()!")
 	callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Region, call.SECURITYGROUP, securityIID.SystemId, "DeleteSecurity()")
 
 	start := call.Start()
