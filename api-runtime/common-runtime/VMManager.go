@@ -574,7 +574,7 @@ func StartVM(connectionName string, rsType string, reqInfo cres.VMReqInfo, IDTra
 	}
 
 	if isWindowsOS {
-		rsType = "windowsvm" // be used for NCP and NCPVPC in IIDManager.New()
+		rsType = "windowsvm" // be used for NCP and NCP in IIDManager.New()
 	}
 
 	spUUID := ""

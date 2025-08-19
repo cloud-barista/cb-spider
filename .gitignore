@@ -67,7 +67,6 @@ cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/main/conf/config.yaml
 cloud-control-manager/cloud-driver/drivers/openstack/main/conf/config.yaml
 cloud-control-manager/cloud-driver/drivers/tencent/main/conf/testConfigTencent.yaml
 cloud-control-manager/cloud-driver/drivers/ncp/main/config/config.yaml
-cloud-control-manager/cloud-driver/drivers/ncpvpc/main/config/config.yaml
 cloud-control-manager/cloud-driver/drivers/nhncloud/main/conf/config.yaml
 cloud-control-manager/cloud-driver/drivers/ktcloud/main/config/config.yaml
 

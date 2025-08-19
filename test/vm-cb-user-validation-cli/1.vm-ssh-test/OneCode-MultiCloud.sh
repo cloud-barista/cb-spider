@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CSPLIST=( aws azure gcp alibaba tencent ibm openstack ktcloudvpc ncp ncpvpc nhn )
+CSPLIST=( aws azure gcp alibaba tencent ibm openstack ktcloudvpc ncp ncp nhn )
 
 function run() {
     param=$1

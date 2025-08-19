@@ -340,7 +340,7 @@ func makeOnchangeCredentialProviderFunc_js() string {
 			credentialInfo = '[{"Key":"IdentityEndpoint", "Value":"http://123.456.789.123:5000/v3"}, {"Key":"Username", "Value":"etri"}, {"Key":"Password", "Value":"xxxx"}, {"Key":"DomainName", "Value":"default"}, {"Key":"ProjectID", "Value":"xxxx"}]'
 		    break;
 
-		  case "NCPVPC":
+		  case "NCP":
 			credentialInfo = '[{"Key":"ClientId", "Value":"XXXXXXXXXXXXXXXXXXX"}, {"Key":"ClientSecret", "Value":"XXXXXXXXXXXXXXXXXXXXXXXXXXX"}]'
 		    break;
 		  case "NCP":
@@ -642,7 +642,7 @@ func makeOnchangeRegionProviderFunc_js() string {
             region = 'RegionOne'
             break;
 
-          case "NCPVPC":
+          case "NCP":
             regionInfo = '[{"Key":"Region", "Value":"KR"}, {"Key":"Zone", "Value":"KR-1"}]'
             region = 'KR-1'
             break;
