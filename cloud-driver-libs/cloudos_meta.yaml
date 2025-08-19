@@ -104,7 +104,7 @@ NCPVPC:
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster / FileSystem
   idmaxlength: 30 / 30 / 30 / 30 / 30 / 30 / 30 / 30 / 20
 
-NHNCLOUD:
+NHN:
   region: Region / Zone
   credential: IdentityEndpoint / Username / Password / DomainName / TenantId
   credentialcsp: IdentityEndpoint / Username / Password / DomainName / TenantId

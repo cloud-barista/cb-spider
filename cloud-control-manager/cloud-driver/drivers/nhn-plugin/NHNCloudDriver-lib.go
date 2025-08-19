@@ -14,7 +14,8 @@ package main
 
 import (
 	"C"
-	nhn "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/nhncloud"
+
+	nhn "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/nhn"
 )
 
 var CloudDriver nhn.NhnCloudDriver

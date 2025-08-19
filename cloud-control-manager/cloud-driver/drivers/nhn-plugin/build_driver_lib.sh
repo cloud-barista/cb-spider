@@ -2,7 +2,7 @@
 source $CBSPIDER_ROOT/setup.env
 
 DRIVERLIB_PATH=$CBSPIDER_ROOT/cloud-driver-libs
-DRIVERFILENAME=nhncloud-driver-v1.0
+DRIVERFILENAME=nhn-driver-v1.0
 
 go mod download # cb-spider's go.mod and go.sum will be applied.
 

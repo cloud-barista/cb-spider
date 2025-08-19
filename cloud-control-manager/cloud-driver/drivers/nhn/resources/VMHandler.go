@@ -48,8 +48,8 @@ import (
 const (
 	DefaultVMUserName       string = "cb-user"
 	DefaultWindowsUserName  string = "cb-user"
-	UbuntuCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-nhncloud/cloud-init-ubuntu"
-	WinCloudInitFilePath    string = "/cloud-driver-libs/.cloud-init-nhncloud/cloud-init-windows"
+	UbuntuCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-nhn/cloud-init-ubuntu"
+	WinCloudInitFilePath    string = "/cloud-driver-libs/.cloud-init-nhn/cloud-init-windows"
 	DefaultDiskSize         string = "20"
 	DefaultWinRootDiskSize  string = "50"
 	DefaultNodeRootDiskSize string = "30"

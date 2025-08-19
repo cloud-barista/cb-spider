@@ -65,8 +65,8 @@ func New(cloudConnectName string, rsType string, uid string) (string, error) {
 		return retUID, nil
 	}
 
-	// NHNCLOUD-cluster,nogegroup: MaxLenth = 20, lower, number, '-'
-	if cccInfo.ProviderName == "NHNCLOUD" && (rsType == "cluster" || rsType == "nodegroup") {
+	// NHN-cluster,nogegroup: MaxLenth = 20, lower, number, '-'
+	if cccInfo.ProviderName == "NHN" && (rsType == "cluster" || rsType == "nodegroup") {
 		retUID := strings.ToLower(uid)
 
 		if len(retUID) > 20 {

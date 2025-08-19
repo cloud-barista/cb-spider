@@ -293,7 +293,7 @@ func (nlbHandler *NhnCloudNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	}
 	LoggingInfo(callLogInfo, callLogStart)
 
-	// cblogger.Info("\n\n# nlbList from NHNCLOUD : ")
+	// cblogger.Info("\n\n# nlbList from NHN : ")
 	// spew.Dump(nlbList)
 
 	var nlbInfoList []*irs.NLBInfo

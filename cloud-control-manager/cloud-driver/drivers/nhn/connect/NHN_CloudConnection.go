@@ -25,7 +25,7 @@ import (
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
 
 	// nhnrs "github.com/cloud-barista/nhncloud/nhncloud/resources"
-	nhnrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/nhncloud/resources"
+	nhnrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/nhn/resources"
 )
 
 var cblogger *logrus.Logger

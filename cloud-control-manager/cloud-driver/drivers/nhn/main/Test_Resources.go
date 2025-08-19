@@ -3,17 +3,18 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"strings"
+	"time"
+
 	cblog "github.com/cloud-barista/cb-log"
-	nhndrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/nhncloud"
+	nhndrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/nhn"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
-	"io/ioutil"
-	"os"
-	"strings"
-	"time"
 )
 
 type Config struct {
@@ -145,7 +146,7 @@ func init() {
 func readConfigFile() Config {
 	// Set Environment Value of Project Root Path
 	rootPath := os.Getenv("CBSPIDER_ROOT")
-	data, err := ioutil.ReadFile(rootPath + "/cloud-control-manager/cloud-driver/drivers/nhncloud/main/conf/config.yaml")
+	data, err := ioutil.ReadFile(rootPath + "/cloud-control-manager/cloud-driver/drivers/nhn/main/conf/config.yaml")
 
 	if err != nil {
 		cblogger.Error(err)

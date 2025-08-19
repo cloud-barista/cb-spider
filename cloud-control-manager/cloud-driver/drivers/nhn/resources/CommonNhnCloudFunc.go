@@ -56,10 +56,10 @@ func LoggingInfo(hiscallInfo call.CLOUDLOGSCHEMA, start time.Time) {
 }
 
 func getCallLogScheme(zone string, resourceType call.RES_TYPE, resourceName string, apiName string) call.CLOUDLOGSCHEMA {
-	cblogger.Info(fmt.Sprintf("Call %s %s", call.NHNCLOUD, apiName))
+	cblogger.Info(fmt.Sprintf("Call %s %s", call.NHN, apiName))
 
 	return call.CLOUDLOGSCHEMA{
-		CloudOS:      call.NHNCLOUD,
+		CloudOS:      call.NHN,
 		RegionZone:   zone,
 		ResourceType: resourceType,
 		ResourceName: resourceName,

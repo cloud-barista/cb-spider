@@ -64,7 +64,7 @@ func (securityHandler *NhnCloudSecurityHandler) CreateSecurity(securityReqInfo i
 	start := call.Start()
 	newSG, err := secgroups.Create(securityHandler.VMClient, createOpts).Extract()
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Create New S/G on NHNCLOUD!! : [%v] ", err)
+		newErr := fmt.Errorf("Failed to Create New S/G on NHN!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.SecurityInfo{}, newErr
@@ -171,7 +171,7 @@ func (securityHandler *NhnCloudSecurityHandler) GetSecurity(securityIID irs.IID)
 	start := call.Start()
 	nhnSG, err := securityHandler.getRawSecurity(securityIID)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the S/G info from NHNCLOUD!! : [%v] ", err)
+		newErr := fmt.Errorf("Failed to Get the S/G info from NHN!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.SecurityInfo{}, newErr
@@ -195,7 +195,7 @@ func (securityHandler *NhnCloudSecurityHandler) DeleteSecurity(securityIID irs.I
 	start := call.Start()
 	nhnSG, err := securityHandler.getRawSecurity(securityIID)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the S/G info from NHNCLOUD!! : [%v] ", err)
+		newErr := fmt.Errorf("Failed to Get the S/G info from NHN!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
@@ -203,7 +203,7 @@ func (securityHandler *NhnCloudSecurityHandler) DeleteSecurity(securityIID irs.I
 
 	result := secgroups.Delete(securityHandler.VMClient, nhnSG.ID)
 	if result.Err != nil {
-		newErr := fmt.Errorf("Failed to Delete the S/G on NHNCLOUD!! : [%v] ", result.Err)
+		newErr := fmt.Errorf("Failed to Delete the S/G on NHN!! : [%v] ", result.Err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
@@ -219,7 +219,7 @@ func (securityHandler *NhnCloudSecurityHandler) AddRules(sgIID irs.IID, security
 
 	nhnSG, err := securityHandler.getRawSecurity(sgIID)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the S/G info from NHNCLOUD!! : [%v] ", err)
+		newErr := fmt.Errorf("Failed to Get the S/G info from NHN!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.SecurityInfo{}, newErr
@@ -378,7 +378,7 @@ func (securityHandler *NhnCloudSecurityHandler) RemoveRules(sgIID irs.IID, secur
 
 	nhnSG, err := securityHandler.getRawSecurity(sgIID)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the S/G info from NHNCLOUD!! : [%v] ", err)
+		newErr := fmt.Errorf("Failed to Get the S/G info from NHN!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return false, newErr

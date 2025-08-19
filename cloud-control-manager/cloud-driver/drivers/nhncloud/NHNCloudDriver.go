@@ -26,16 +26,16 @@ import (
 	ires "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
 	// nhncon "github.com/cloud-barista/nhncloud/nhncloud/connect"
-	nhncon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/nhncloud/connect"
+	nhncon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/nhn/connect"
 
 	// nhnrs "github.com/cloud-barista/nhncloud/nhncloud/resources"
-	nhnrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/nhncloud/resources"
+	nhnrs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/nhn/resources"
 )
 
 type NhnCloudDriver struct{}
 
 func (NhnCloudDriver) GetDriverVersion() string {
-	return "NHNCLOUD DRIVER Version 1.0"
+	return "NHN DRIVER Version 1.0"
 }
 
 func (NhnCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {

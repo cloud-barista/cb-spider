@@ -1,5 +1,5 @@
-export CONN_CONFIG=nhncloud-korea-pangyo1-config
-#export CONN_CONFIG=nhncloud-korea-pyeongchon1-config
+export CONN_CONFIG=nhn-korea-pangyo1-config
+#export CONN_CONFIG=nhn-korea-pyeongchon1-config
 
 export IMAGE_NAME=5396655e-166a-4875-80d2-ed8613aa054f
 # Image Guest OS : Ubuntu Linux 18.04 기준
@@ -13,4 +13,4 @@ export SPEC_NAME=u2.c2m4
 # VM Spec : vCPU: 4, Mem: 8GB
 # Need to specify Disk Type and Disk Size
 
-./nhncloud-full_test.sh
+./nhn-full_test.sh

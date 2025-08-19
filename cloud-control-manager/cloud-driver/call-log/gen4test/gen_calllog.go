@@ -63,7 +63,7 @@ var cloudOSList = []call.CLOUD_OS{
 	call.OPENSTACK,
 	call.NCP,
 	call.NCPVPC,
-	call.NHNCLOUD,
+	call.NHN,
 	call.KTCLOUD,
 	call.KTCLOUDVPC,
 	call.MOCK,
