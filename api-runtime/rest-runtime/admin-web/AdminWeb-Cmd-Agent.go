@@ -75,7 +75,7 @@ func GenerateCmd(c echo.Context) error {
 					  - Tencent: img-pi0ii46r\n
 					  - IBM: r014-1696a049-e959-493d-9a97-1655ef4c942e\n
 					  - OpenStack: 16681742-f408-444d-a430-dd21a4bef42c\n
-					  - ncpvpc: 16187005\n					 
+					  - ncp: 16187005\n					 
 					VM을 만들때는, VMSpecName은 다음 맵핑 관계에서 각 CSP별 값으로 설정해줘.\n
 					  - AWS: t2.micro\n
 					  - Azure: Standard_B1ls\n
@@ -84,7 +84,7 @@ func GenerateCmd(c echo.Context) error {
 					  - Tencent: S5.MEDIUM8\n
 					  - IBM: bx2-2x8\n
 					  - OpenStack: ETRI-small-2\n
-					  - ncpvpc: c4-g2-s50\n	
+					  - ncp: c4-g2-s50\n	
 					사용자가 CSP 이름을 알려주지 않으면 aws를 이용해서 작성해줘.\n
 					사용자가 명시적으로 connection 이름을 알려주지 않으면, 
 					{CSP-Name}-config01을 이용해서 작성해줘.\n

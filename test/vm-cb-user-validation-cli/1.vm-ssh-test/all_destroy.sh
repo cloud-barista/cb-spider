@@ -1,6 +1,6 @@
 #!/bin/bash
 
-CSPLIST=( mock aws azure gcp alibaba tencent ibm openstack ktcloud ktcloudvpc ncp ncpvpc nhn )
+CSPLIST=( mock aws azure gcp alibaba tencent ibm openstack ktcloud ktcloudvpc ncp nhn )
 
 function run() {
     param=$1

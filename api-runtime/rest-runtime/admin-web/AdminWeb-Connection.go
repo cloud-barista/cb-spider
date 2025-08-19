@@ -75,10 +75,10 @@ func makeOnchangeConnectionConfigProviderFunc_js() string {
 	    regionNameList = document.getElementsByName('regionName-OPENSTACK');
             break;
 
-          case "NCPVPC":
-	    driverNameList = document.getElementsByName('driverName-NCPVPC');
-	    credentialNameList = document.getElementsByName('credentialName-NCPVPC');
-	    regionNameList = document.getElementsByName('regionName-NCPVPC');
+          case "NCP":
+	    driverNameList = document.getElementsByName('driverName-NCP');
+	    credentialNameList = document.getElementsByName('credentialName-NCP');
+	    regionNameList = document.getElementsByName('regionName-NCP');
             break;
           case "NCP":
 	    driverNameList = document.getElementsByName('driverName-NCP');
