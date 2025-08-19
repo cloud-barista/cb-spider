@@ -5,7 +5,7 @@ nhncloud:
   api_password:
   domain_name: default
   tenant_id:
-  # => NHN > Instance > 관리 > API 엔드포인트 설정 > TenantID를 입력해야함. (NHNCloudDriver.go의 각 client 참고)
+  # => NHN > Instance > 관리 > API 엔드포인트 설정 > TenantID를 입력해야함. (Driver.go의 각 client 참고)
 
   region: KR1
   zone: kr-pub-a

@@ -18,19 +18,20 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
 	// "sync"
 	"time"
 	// "github.com/davecgh/go-spew/spew"
 
 	nhnsdk "github.com/cloud-barista/nhncloud-sdk-go"
 	nhnstack "github.com/cloud-barista/nhncloud-sdk-go/openstack"
-	"github.com/cloud-barista/nhncloud-sdk-go/pagination"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/extensions/external"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/vpcs"
 	"github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/vpcsubnets"
+	"github.com/cloud-barista/nhncloud-sdk-go/pagination"
 
-	rt "github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/extensions/layer3/routers"
 	igw "github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/extensions/layer3/internetgateways"
+	rt "github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/extensions/layer3/routers"
 	rtable "github.com/cloud-barista/nhncloud-sdk-go/openstack/networking/v2/extensions/layer3/routingtables"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
@@ -51,13 +52,13 @@ type NetworkWithExt struct {
 
 // WaitCondition defines what condition to wait for
 type WaitCondition struct {
-	TargetState     	igw.InternetGatewayState
+	TargetState         igw.InternetGatewayState
 	TargetMigrateStatus igw.MigrateStatus
-	AvoidErrorState 	bool
+	AvoidErrorState     bool
 }
 
 func (vpcHandler *NhnCloudVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
-	cblogger.Info("NHN Cloud Cloud Driver: called CreateVPC()!")
+	cblogger.Info("NHN Cloud Driver: called CreateVPC()!")
 	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, vpcReqInfo.IId.NameId, "CreateVPC()")
 
 	if strings.EqualFold(vpcReqInfo.IId.NameId, "") {
@@ -143,7 +144,7 @@ func (vpcHandler *NhnCloudVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.
 }
 
 func (vpcHandler *NhnCloudVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
-	cblogger.Info("NHN Cloud Cloud Driver: called GetVPC()!")
+	cblogger.Info("NHN Cloud Driver: called GetVPC()!")
 	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, vpcIID.SystemId, "GetVPC()")
 
 	if strings.EqualFold(vpcIID.SystemId, "") {
@@ -172,7 +173,7 @@ func (vpcHandler *NhnCloudVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error
 }
 
 func (vpcHandler *NhnCloudVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
-	cblogger.Info("NHN Cloud Cloud Driver: called ListVPC()!")
+	cblogger.Info("NHN Cloud Driver: called ListVPC()!")
 	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, "ListVPC()", "ListVPC()")
 
 	if strings.EqualFold(vpcHandler.CredentialInfo.TenantId, "") {
@@ -218,7 +219,7 @@ func (vpcHandler *NhnCloudVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 }
 
 func (vpcHandler *NhnCloudVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
-	cblogger.Info("NHN Cloud Cloud Driver: called DeleteVPC()!")
+	cblogger.Info("NHN Cloud Driver: called DeleteVPC()!")
 	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, vpcIID.SystemId, "DeleteVPC()")
 
 	if strings.EqualFold(vpcIID.SystemId, "") {
@@ -285,7 +286,7 @@ func (vpcHandler *NhnCloudVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 }
 
 func (vpcHandler *NhnCloudVPCHandler) createSubnet(vpcId string, subnetReqInfo irs.SubnetInfo) (irs.SubnetInfo, error) {
-	cblogger.Info("NHN Cloud cloud driver: called createSubnet()!!")
+	cblogger.Info("NHN Cloud driver: called createSubnet()!!")
 	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, subnetReqInfo.IId.NameId, "createSubnet()")
 
 	if strings.EqualFold(vpcId, "") {
@@ -321,7 +322,7 @@ func (vpcHandler *NhnCloudVPCHandler) createSubnet(vpcId string, subnetReqInfo i
 }
 
 func (vpcHandler *NhnCloudVPCHandler) getSubnet(subnetIId irs.IID) (irs.SubnetInfo, error) {
-	cblogger.Info("NHN Cloud cloud driver: called getSubnet()!!")
+	cblogger.Info("NHN Cloud driver: called getSubnet()!!")
 	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, subnetIId.SystemId, "getSubnet()")
 
 	if strings.EqualFold(subnetIId.SystemId, "") {
@@ -342,7 +343,7 @@ func (vpcHandler *NhnCloudVPCHandler) getSubnet(subnetIId irs.IID) (irs.SubnetIn
 }
 
 func (vpcHandler *NhnCloudVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
-	cblogger.Info("NHN Cloud cloud driver: called AddSubnet()!!")
+	cblogger.Info("NHN Cloud driver: called AddSubnet()!!")
 	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, vpcIID.SystemId, "AddSubnet()")
 
 	vpc, err := vpcHandler.getRawVPC(vpcIID)
@@ -384,7 +385,7 @@ func (vpcHandler *NhnCloudVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.S
 }
 
 func (vpcHandler *NhnCloudVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
-	cblogger.Info("NHN Cloud cloud driver: called RemoveSubnet()!!")
+	cblogger.Info("NHN Cloud driver: called RemoveSubnet()!!")
 	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, subnetIID.SystemId, "RemoveSubnet()")
 
 	if vpcIID.SystemId == "" && vpcIID.NameId == "" {
@@ -446,7 +447,7 @@ func (vpcHandler *NhnCloudVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs
 }
 
 func (vpcHandler *NhnCloudVPCHandler) mappingVpcInfo(vpc vpcs.VPC) (*irs.VPCInfo, error) {
-	cblogger.Info("NHN Cloud cloud driver: called mappingVpcInfo()!!")
+	cblogger.Info("NHN Cloud driver: called mappingVpcInfo()!!")
 	// cblogger.Info("\n\n### vpc : ")
 	// spew.Dump(vpc)
 	// cblogger.Info("")
@@ -520,7 +521,7 @@ func (vpcHandler *NhnCloudVPCHandler) mappingVpcInfo(vpc vpcs.VPC) (*irs.VPCInfo
 }
 
 func (vpcHandler *NhnCloudVPCHandler) mappingVpcSubnetInfo(vpc vpcs.VPC) (*irs.VPCInfo, error) {
-	cblogger.Info("NHN Cloud cloud driver: called mappingVpcSubnetInfo()!!")
+	cblogger.Info("NHN Cloud driver: called mappingVpcSubnetInfo()!!")
 
 	vpcInfo := irs.VPCInfo{
 		IId: irs.IID{
@@ -577,7 +578,7 @@ func (vpcHandler *NhnCloudVPCHandler) mappingVpcSubnetInfo(vpc vpcs.VPC) (*irs.V
 }
 
 func (vpcHandler *NhnCloudVPCHandler) mappingSubnetInfo(subnet vpcsubnets.Vpcsubnet) *irs.SubnetInfo { // subnets.Subnets
-	cblogger.Info("NHN Cloud cloud driver: called mappingSubnetInfo()!!")
+	cblogger.Info("NHN Cloud driver: called mappingSubnetInfo()!!")
 	// spew.Dump(subnet)
 
 	subnetInfo := irs.SubnetInfo{
@@ -668,7 +669,7 @@ func (vpcHandler *NhnCloudVPCHandler) getVpcStatus(vpcIID irs.IID) (string, erro
 
 // # Check whether the Routing Table (of the VPC) is connected to an Internet Gateway
 func (vpcHandler *NhnCloudVPCHandler) isConnectedToGateway(vpcId string) (bool, error) {
-	cblogger.Info("NHN Cloud Cloud Driver: called isConnectedToGateway()!")
+	cblogger.Info("NHN Cloud Driver: called isConnectedToGateway()!")
 	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, vpcId, "isConnectedToGateway()")
 
 	if strings.EqualFold(vpcId, "") {
@@ -733,7 +734,7 @@ func (vpcHandler *NhnCloudVPCHandler) ListIID() ([]*irs.IID, error) {
 }
 
 func (vpcHandler *NhnCloudVPCHandler) getRawVPC(vpcIID irs.IID) (*vpcs.VPC, error) {
-	cblogger.Info("NHN Cloud Cloud Driver: called getRawVPC()!")
+	cblogger.Info("NHN Cloud Driver: called getRawVPC()!")
 
 	if vpcIID.SystemId == "" && vpcIID.NameId == "" {
 		return nil, errors.New("invalid IID")
@@ -812,20 +813,20 @@ func (vpcHandler *NhnCloudVPCHandler) getRawVPC(vpcIID irs.IID) (*vpcs.VPC, erro
 	return &vpc, nil
 }
 
-func (vpcHandler *NhnCloudVPCHandler) listRouter() (error) {
-	cblogger.Info("NHN Cloud Cloud Driver: called isConnectedToGateway()!")
+func (vpcHandler *NhnCloudVPCHandler) listRouter() error {
+	cblogger.Info("NHN Cloud Driver: called isConnectedToGateway()!")
 
 	listOpts := rt.ListOpts{}
 	allPages, err := rt.List(vpcHandler.NetworkClient, listOpts).AllPages()
 	if err != nil {
 		panic(err)
-		
+
 	}
 
 	allRouters, err := rt.ExtractRouters(allPages)
 	if err != nil {
 		panic(err)
-		
+
 	}
 
 	for _, router := range allRouters {
@@ -853,7 +854,7 @@ func (vpcHandler *NhnCloudVPCHandler) listInternetGateways() {
 		}
 
 		for _, gateway := range gateways {
-			cblogger.Infof("ID: %s, Name: %s, State: %s", 
+			cblogger.Infof("ID: %s, Name: %s, State: %s",
 				gateway.ID, gateway.Name, gateway.State)
 			cblogger.Infof("  External Network: %s", gateway.ExternalNetworkID)
 			if gateway.RoutingTableID != nil {
@@ -876,27 +877,27 @@ func (vpcHandler *NhnCloudVPCHandler) listInternetGateways() {
 
 // hasInternetGatewayByRoutingTable checks if there are any Internet Gateways for a specific routing table
 func (vpcHandler *NhnCloudVPCHandler) hasInternetGatewayByRoutingTable(routingtableId string) (bool, error) {
-	cblogger.Info("NHN Cloud Cloud Driver: called hasInternetGatewayByRoutingTable()!")
+	cblogger.Info("NHN Cloud Driver: called hasInternetGatewayByRoutingTable()!")
 
 	listOpts := igw.ListOpts{
 		RoutingTableID: routingtableId,
 	}
-	
+
 	pager := igw.List(vpcHandler.NetworkClient, listOpts)
 	page, err := pager.AllPages()
 	if err != nil {
 		return false, fmt.Errorf("Ｆailed to Get list of internet gateways by routingtableId: %w", err)
 	}
-	
+
 	gateways, err := igw.ExtractInternetGateways(page)
 	if err != nil {
 		return false, fmt.Errorf("Ｆailed to Ｅxtract Ｉnternet Ｇateways: %w", err)
-	}	
+	}
 	return len(gateways) > 0, nil
 }
 
 func (vpcHandler *NhnCloudVPCHandler) getExternalNetId() (string, error) {
-	cblogger.Info("NHN Cloud Cloud Driver: called getExternalNetId()!")
+	cblogger.Info("NHN Cloud Driver: called getExternalNetId()!")
 
 	listOpts := external.ListOptsExt{
 		ListOptsBuilder: vpcs.ListOpts{
@@ -930,7 +931,7 @@ func (vpcHandler *NhnCloudVPCHandler) getExternalNetId() (string, error) {
 
 // Returns New Internet Gatgway ID
 func (vpcHandler *NhnCloudVPCHandler) setInternetGateway(vpcId string) (string, error) {
-	cblogger.Info("NHN Cloud Cloud Driver: called setInternetGateway()!")
+	cblogger.Info("NHN Cloud Driver: called setInternetGateway()!")
 
 	if strings.EqualFold(vpcId, "") {
 		newErr := fmt.Errorf("Invalid VPC ID!!")
@@ -951,7 +952,7 @@ func (vpcHandler *NhnCloudVPCHandler) setInternetGateway(vpcId string) (string, 
 		for _, routingTable := range newVpc.RoutingTables {
 			if routingTable.DefaultTable {
 				defaultRoutingTableId = routingTable.ID
-				cblogger.Infof("### Default RoutingTable : [%s]", defaultRoutingTableId)	
+				cblogger.Infof("### Default RoutingTable : [%s]", defaultRoutingTableId)
 				break
 			}
 		}
@@ -978,7 +979,7 @@ func (vpcHandler *NhnCloudVPCHandler) setInternetGateway(vpcId string) (string, 
 			cblogger.Error(newErr.Error())
 			return "", newErr
 		}
-		cblogger.Infof("# External Network ID [%s]", extNetId)	
+		cblogger.Infof("# External Network ID [%s]", extNetId)
 
 		iGW, createErr := vpcHandler.createInternetGateway("GW_for_Default_RT", extNetId)
 		if createErr != nil {
@@ -1000,7 +1001,7 @@ func (vpcHandler *NhnCloudVPCHandler) setInternetGateway(vpcId string) (string, 
 
 // createInternetGateway creates a new Internet Gateway and waits for it to be ready
 func (vpcHandler *NhnCloudVPCHandler) createInternetGateway(name string, externalNetworkId string) (*igw.InternetGateway, error) {
-	cblogger.Info("NHN Cloud Cloud Driver: called createInternetGateway()!")
+	cblogger.Info("NHN Cloud Driver: called createInternetGateway()!")
 
 	if strings.EqualFold(name, "") {
 		newErr := fmt.Errorf("Invalid InternetGateway Name!!")
@@ -1019,7 +1020,7 @@ func (vpcHandler *NhnCloudVPCHandler) createInternetGateway(name string, externa
 		ExternalNetworkID: externalNetworkId,
 	}
 	cblogger.Infof("🔄 Creating Internet Gateway '%s'...", name)
-	
+
 	result := igw.Create(vpcHandler.NetworkClient, createOpts)
 	gateway, err := result.Extract()
 	if err != nil {
@@ -1033,7 +1034,7 @@ func (vpcHandler *NhnCloudVPCHandler) createInternetGateway(name string, externa
 	// cblogger.Infof("  Created At: %s", gateway.CreateTime.Format(time.RFC3339))
 
 	// Wait for the gateway to be in a stable state based on current status
-	cblogger.Infof("🔄 Waiting for Internet Gateway to reach stable state...")	
+	cblogger.Infof("🔄 Waiting for Internet Gateway to reach stable state...")
 	finalGateway, err := vpcHandler.waitForStableState(gateway)
 	if err != nil {
 		return gateway, fmt.Errorf("gateway created but failed to reach stable state: %w", err)
@@ -1048,7 +1049,7 @@ func (vpcHandler *NhnCloudVPCHandler) createInternetGateway(name string, externa
 
 // waitForStableState waits for the gateway to reach a stable state based on its current status
 func (vpcHandler *NhnCloudVPCHandler) waitForStableState(gateway *igw.InternetGateway) (*igw.InternetGateway, error) {
-	cblogger.Info("NHN Cloud Cloud Driver: called waitForStableState()!")
+	cblogger.Info("NHN Cloud Driver: called waitForStableState()!")
 
 	if gateway == nil {
 		newErr := fmt.Errorf("Invalid InternetGateway value!!")
@@ -1059,18 +1060,18 @@ func (vpcHandler *NhnCloudVPCHandler) waitForStableState(gateway *igw.InternetGa
 	// Default timeout and check interval
 	timeout := 10 * time.Minute
 	checkInterval := 3 * time.Second
-	
+
 	startTime := time.Now()
 	gatewayID := gateway.ID
 	currentState := gateway.State
 	currentMigrateStatus := gateway.MigrateStatus
-	
+
 	cblogger.Infof("  Current state: %s, migrate status: %s", currentState, currentMigrateStatus)
-	
+
 	// Determine what state to wait for based on current status
 	var targetCondition WaitCondition
 	var waitDescription string
-	
+
 	switch {
 	case currentState == string(igw.StateMigrating):
 		// If migrating, wait for migration to complete and reach available or unavailable
@@ -1080,7 +1081,7 @@ func (vpcHandler *NhnCloudVPCHandler) waitForStableState(gateway *igw.InternetGa
 			AvoidErrorState:     true,
 		}
 		waitDescription = "migration to complete"
-		
+
 	case currentMigrateStatus != string(igw.MigrateStatusNone):
 		// If any migration process is ongoing, wait for it to complete
 		targetCondition = WaitCondition{
@@ -1089,15 +1090,15 @@ func (vpcHandler *NhnCloudVPCHandler) waitForStableState(gateway *igw.InternetGa
 			AvoidErrorState:     true,
 		}
 		waitDescription = fmt.Sprintf("migration process (%s) to complete", currentMigrateStatus)
-		
+
 	case currentState == string(igw.StateUnavailable):
 		// Already in stable unavailable state, just verify it stays stable
 		return vpcHandler.verifyStableState(gatewayID, 30*time.Second, checkInterval)
-		
+
 	case currentState == string(igw.StateAvailable):
 		// Already in stable available state, just verify it stays stable
 		return vpcHandler.verifyStableState(gatewayID, 30*time.Second, checkInterval)
-		
+
 	case currentState == string(igw.StateError):
 		// Already in error state, return immediately
 		errorMsg := "unknown error"
@@ -1105,7 +1106,7 @@ func (vpcHandler *NhnCloudVPCHandler) waitForStableState(gateway *igw.InternetGa
 			errorMsg = *gateway.MigrateError
 		}
 		return nil, fmt.Errorf("gateway is in error state: %s", errorMsg)
-		
+
 	default:
 		// For any other state, wait for unavailable (most common stable state for new gateways)
 		targetCondition = WaitCondition{
@@ -1115,13 +1116,13 @@ func (vpcHandler *NhnCloudVPCHandler) waitForStableState(gateway *igw.InternetGa
 		}
 		waitDescription = "stable unavailable state"
 	}
-	
+
 	cblogger.Infof("  Waiting for %s (timeout: %v)...", waitDescription, timeout)
-	
+
 	// Wait for the determined condition
 	for {
 		elapsed := time.Since(startTime)
-		
+
 		// Check timeout
 		if elapsed > timeout {
 			return nil, fmt.Errorf("timeout after %v waiting for %s", elapsed.Round(time.Second), waitDescription)
@@ -1174,7 +1175,7 @@ func (vpcHandler *NhnCloudVPCHandler) waitForStableState(gateway *igw.InternetGa
 
 // verifyStableState verifies that a gateway remains in its current stable state
 func (vpcHandler *NhnCloudVPCHandler) verifyStableState(gatewayId string, verifyDuration, checkInterval time.Duration) (*igw.InternetGateway, error) {
-	cblogger.Info("NHN Cloud Cloud Driver: called verifyStableState()!")
+	cblogger.Info("NHN Cloud Driver: called verifyStableState()!")
 
 	if strings.EqualFold(gatewayId, "") {
 		newErr := fmt.Errorf("Invalid InternetGateway ID!!")
@@ -1195,41 +1196,41 @@ func (vpcHandler *NhnCloudVPCHandler) verifyStableState(gatewayId string, verify
 	}
 
 	cblogger.Infof("  Verifying gateway remains in stable state for %v...", verifyDuration)
-	
+
 	startTime := time.Now()
 	var lastGateway *igw.InternetGateway
-	
+
 	for time.Since(startTime) < verifyDuration {
 		result := igw.Get(vpcHandler.NetworkClient, gatewayId)
 		gateway, err := result.Extract()
 		if err != nil {
 			return nil, fmt.Errorf("failed to verify gateway state: %w", err)
 		}
-		
+
 		if lastGateway != nil {
 			// Check if state changed unexpectedly
 			if gateway.State != lastGateway.State {
-				return nil, fmt.Errorf("gateway state changed unexpectedly from %s to %s during verification", 
+				return nil, fmt.Errorf("gateway state changed unexpectedly from %s to %s during verification",
 					lastGateway.State, gateway.State)
 			}
-			
+
 			// Check if migration status changed unexpectedly
 			if gateway.MigrateStatus != lastGateway.MigrateStatus {
-				cblogger.Infof("    ⚠️  Migrate status changed during verification: %s → %s", 
+				cblogger.Infof("    ⚠️  Migrate status changed during verification: %s → %s",
 					lastGateway.MigrateStatus, gateway.MigrateStatus)
 			}
 		}
-		
+
 		lastGateway = gateway
 		time.Sleep(checkInterval)
 	}
-	
+
 	cblogger.Infof("    ✅ Gateway remained stable for %v", verifyDuration)
 	return lastGateway, nil
 }
 
 func (vpcHandler *NhnCloudVPCHandler) attachInternetGateway(routingTableId string, gatewayId string) error {
-	cblogger.Info("NHN Cloud Cloud Driver: called attachInternetGateway()!")
+	cblogger.Info("NHN Cloud Driver: called attachInternetGateway()!")
 
 	if strings.EqualFold(routingTableId, "") {
 		newErr := fmt.Errorf("Invalid RoutingTable ID!!")
@@ -1249,16 +1250,16 @@ func (vpcHandler *NhnCloudVPCHandler) attachInternetGateway(routingTableId strin
 	if getResult.Err != nil {
 		newErr := fmt.Errorf("Routing table not found: %v", getResult.Err)
 		cblogger.Error(newErr.Error())
-		return newErr		
-	}	
+		return newErr
+	}
 	originalRT, err := getResult.Extract()
 	if err != nil {
 		newErr := fmt.Errorf("Failed to extract routing table: %v", err)
 		cblogger.Error(newErr.Error())
 		return newErr
-	}	
+	}
 	cblogger.Infof("Found routing table: %s (Default: %t, Distributed: %t)", originalRT.Name, originalRT.DefaultTable, originalRT.Distributed)
-	
+
 	// Check if gateway is already attached
 	if originalRT.GatewayID != "" {
 		cblogger.Infof("Warning: Gateway %s is already attached to this routing table", originalRT.GatewayID)
@@ -1268,12 +1269,12 @@ func (vpcHandler *NhnCloudVPCHandler) attachInternetGateway(routingTableId strin
 		}
 		cblogger.Info("Proceeding to replace the existing gateway...")
 	}
-	
+
 	// Create attach gateway options
 	attachOpts := rtable.AttachGatewayOpts{
 		GatewayID: gatewayId,
 	}
-	
+
 	// Attach the gateway
 	cblogger.Infof("Attaching gateway %s to routing table %s", gatewayId, routingTableId)
 	result := rtable.AttachGateway(vpcHandler.NetworkClient, routingTableId, attachOpts)
@@ -1290,14 +1291,14 @@ func (vpcHandler *NhnCloudVPCHandler) attachInternetGateway(routingTableId strin
 		} else if nhnstack.ResponseCodeIs(result.Err, 409) {
 			newErr := fmt.Errorf("Conflict - gateway may already be in use: %v", result.Err)
 			cblogger.Error(newErr.Error())
-			return newErr			
+			return newErr
 		} else {
 			newErr := fmt.Errorf("Failed to attach gateway: %v", result.Err)
 			cblogger.Error(newErr.Error())
 			return newErr
 		}
 	}
-	
+
 	// Extract and validate the result
 	updatedRT, err := result.Extract()
 	if err != nil {
@@ -1305,7 +1306,7 @@ func (vpcHandler *NhnCloudVPCHandler) attachInternetGateway(routingTableId strin
 		cblogger.Error(newErr.Error())
 		return newErr
 	}
-	
+
 	// Verify the attachment was successful
 	if updatedRT.GatewayID != gatewayId {
 		newErr := fmt.Errorf("Gateway attachment failed - expected %s, got %s", gatewayId, updatedRT.GatewayID)
@@ -1313,13 +1314,13 @@ func (vpcHandler *NhnCloudVPCHandler) attachInternetGateway(routingTableId strin
 		return newErr
 	}
 	cblogger.Info("✓ Gateway attached successfully!")
-	
+
 	// Display the updated routes (if any)
 	if len(updatedRT.Routes) > 0 {
 		cblogger.Info("  Updated routes:")
 		for _, route := range updatedRT.Routes {
 			if route.GatewayID == gatewayId {
-				cblogger.Infof("    - %s -> %s (via gateway %s)", 
+				cblogger.Infof("    - %s -> %s (via gateway %s)",
 					route.CIDR, route.Gateway, route.GatewayID)
 			} else {
 				cblogger.Infof("    - %s -> %s", route.CIDR, route.Gateway)
@@ -1331,7 +1332,7 @@ func (vpcHandler *NhnCloudVPCHandler) attachInternetGateway(routingTableId strin
 }
 
 func (vpcHandler *NhnCloudVPCHandler) removeInternetGateway(vpcId string) (bool, error) {
-	cblogger.Info("NHN Cloud Cloud Driver: called removeInternetGateway()!")
+	cblogger.Info("NHN Cloud Driver: called removeInternetGateway()!")
 
 	if strings.EqualFold(vpcId, "") {
 		newErr := fmt.Errorf("Invalid VPC ID!!")
@@ -1352,7 +1353,7 @@ func (vpcHandler *NhnCloudVPCHandler) removeInternetGateway(vpcId string) (bool,
 		for _, routingTable := range vpc.RoutingTables {
 			if routingTable.DefaultTable {
 				defaultRoutingTableId = routingTable.ID
-				cblogger.Infof("### Default RoutingTable : [%s]", defaultRoutingTableId)	
+				cblogger.Infof("### Default RoutingTable : [%s]", defaultRoutingTableId)
 				break
 			}
 		}
@@ -1400,14 +1401,14 @@ func (vpcHandler *NhnCloudVPCHandler) removeInternetGateway(vpcId string) (bool,
 }
 
 func (vpcHandler *NhnCloudVPCHandler) detachGateway(routingTableId string) error {
-	cblogger.Info("NHN Cloud Cloud Driver: called detachGateway()!")
-	
+	cblogger.Info("NHN Cloud Driver: called detachGateway()!")
+
 	if strings.EqualFold(routingTableId, "") {
 		newErr := fmt.Errorf("Invalid RoutingTable ID!!")
 		cblogger.Error(newErr.Error())
 		return newErr
 	}
-	
+
 	// First, verify the routing table exists and has a gateway attached
 	cblogger.Infof("Verifying routing table %s exists and has gateway attached...", routingTableId)
 	getResult := rtable.Get(vpcHandler.NetworkClient, routingTableId)
@@ -1416,15 +1417,15 @@ func (vpcHandler *NhnCloudVPCHandler) detachGateway(routingTableId string) error
 		cblogger.Error(newErr.Error())
 		return newErr
 	}
-	
+
 	originalRT, err := getResult.Extract()
 	if err != nil {
 		cblogger.Errorf("Failed to extract routing table: %v", err)
 	}
-	
-	cblogger.Infof("Found routing table: %s (Default: %t, Distributed: %t)", 
+
+	cblogger.Infof("Found routing table: %s (Default: %t, Distributed: %t)",
 		originalRT.Name, originalRT.DefaultTable, originalRT.Distributed)
-	
+
 	// Check if a gateway is currently attached
 	if originalRT.GatewayID == "" {
 		cblogger.Info("Warning: No gateway currently attached to this routing table")
@@ -1433,11 +1434,11 @@ func (vpcHandler *NhnCloudVPCHandler) detachGateway(routingTableId string) error
 		cblogger.Infof("Current gateway: %s (%s)", originalRT.GatewayName, originalRT.GatewayID)
 		cblogger.Info("Proceeding with detach operation...")
 	}
-	
+
 	// Store original gateway info for potential rollback
 	originalGatewayID := originalRT.GatewayID
 	originalGatewayName := originalRT.GatewayName
-	
+
 	// Detach the gateway
 	cblogger.Infof("Detaching gateway from routing table %s...", routingTableId)
 	result := rtable.DetachGateway(vpcHandler.NetworkClient, routingTableId)
@@ -1465,29 +1466,29 @@ func (vpcHandler *NhnCloudVPCHandler) detachGateway(routingTableId string) error
 			return newErr
 		}
 	}
-	
+
 	// Extract and validate the result
 	updatedRT, err := result.Extract()
 	if err != nil {
 		cblogger.Errorf("Failed to extract updated routing table: %v", err)
 	}
-	
+
 	// Verify the detachment was successful
 	if updatedRT.GatewayID != "" {
 		cblogger.Debugf("Warning: Gateway detachment may not be complete - Gateway ID still present: %s", updatedRT.GatewayID)
 	}
-	
+
 	cblogger.Info("✓ Gateway detached successfully!")
 	// cblogger.Infof("  Routing Table: %s", updatedRT.Name)
 	// cblogger.Infof("  Gateway ID: %s (should be empty)", updatedRT.GatewayID)
 	// cblogger.Infof("  Gateway Name: %s (should be empty)", updatedRT.GatewayName)
-	
+
 	// Display the updated routes (gateway routes should be removed)
 	if len(updatedRT.Routes) > 0 {
 		cblogger.Info("  Remaining routes after gateway detach:")
 		for _, route := range updatedRT.Routes {
 			if route.GatewayID != "" {
-				cblogger.Infof("    ⚠ Route still references gateway: %s -> %s (Gateway: %s)", 
+				cblogger.Infof("    ⚠ Route still references gateway: %s -> %s (Gateway: %s)",
 					route.CIDR, route.Gateway, route.GatewayID)
 			} else {
 				cblogger.Infof("    - %s -> %s", route.CIDR, route.Gateway)
@@ -1496,7 +1497,7 @@ func (vpcHandler *NhnCloudVPCHandler) detachGateway(routingTableId string) error
 	} else {
 		cblogger.Info("  No routes remaining after gateway detach")
 	}
-	
+
 	// Store detach info for potential rollback demonstration
 	cblogger.Infof("Original gateway info stored for potential rollback:")
 	cblogger.Infof("  Detached Gateway ID: %s", originalGatewayID)
@@ -1523,8 +1524,8 @@ type DeleteGatewayResult struct {
 }
 
 // delete with validation and waiting
-func (vpcHandler *NhnCloudVPCHandler) deleteInternetGateway(gatewayId string ) error {
-	cblogger.Info("NHN Cloud Cloud Driver: called deleteInternetGateway()!")
+func (vpcHandler *NhnCloudVPCHandler) deleteInternetGateway(gatewayId string) error {
+	cblogger.Info("NHN Cloud Driver: called deleteInternetGateway()!")
 
 	if strings.EqualFold(gatewayId, "") {
 		newErr := fmt.Errorf("Invalid Internet Gateway ID!!")
@@ -1539,8 +1540,8 @@ func (vpcHandler *NhnCloudVPCHandler) deleteInternetGateway(gatewayId string ) e
 		CheckInterval:     3 * time.Second,
 		ForceDelete:       false,
 	}
-	
-	result := vpcHandler.deleteGatewayWithValidation(request)	
+
+	result := vpcHandler.deleteGatewayWithValidation(request)
 	if result.Success {
 		cblogger.Infof("✅ Gateway deletion completed:")
 		cblogger.Infof("  Time elapsed: %v", result.TimeElapsed)
@@ -1555,16 +1556,16 @@ func (vpcHandler *NhnCloudVPCHandler) deleteInternetGateway(gatewayId string ) e
 
 	return nil
 }
-	
+
 // deleteGatewayWithValidation performs deletion with validation and optional waiting
 func (vpcHandler *NhnCloudVPCHandler) deleteGatewayWithValidation(request DeleteGatewayRequest) DeleteGatewayResult {
-	cblogger.Info("NHN Cloud Cloud Driver: called deleteGatewayWithValidation()!")
+	cblogger.Info("NHN Cloud Driver: called deleteGatewayWithValidation()!")
 
 	startTime := time.Now()
-	
+
 	// Step 1: Check if gateway exists
 	cblogger.Infof("🔍 Validating gateway %s exists...", request.GatewayID)
-	
+
 	getResult := igw.Get(vpcHandler.NetworkClient, request.GatewayID)
 	gateway, err := getResult.Extract()
 	if err != nil {
@@ -1582,9 +1583,9 @@ func (vpcHandler *NhnCloudVPCHandler) deleteGatewayWithValidation(request Delete
 			TimeElapsed: time.Since(startTime),
 			WasAttached: false,
 		}
-	}	
+	}
 	cblogger.Infof("  Gateway found - State: %s", gateway.State)
-	
+
 	// Step 2: Check if gateway is attached to routing table
 	wasAttached := gateway.RoutingTableID != nil
 	if wasAttached && !request.ForceDelete {
@@ -1595,21 +1596,21 @@ func (vpcHandler *NhnCloudVPCHandler) deleteGatewayWithValidation(request Delete
 			WasAttached: true,
 		}
 	}
-	
+
 	if wasAttached {
 		cblogger.Infof("  ⚠️  Gateway is attached to routing table: %s", *gateway.RoutingTableID)
 	}
-	
+
 	// Step 3: Check gateway state
 	if gateway.State == string(igw.StateError) {
 		cblogger.Infof("  ⚠️  Gateway is in error state, proceeding with deletion")
 	} else if gateway.State == string(igw.StateMigrating) {
 		cblogger.Infof("  ⚠️  Gateway is migrating, deletion may fail")
 	}
-	
+
 	// Step 4: Perform deletion
 	cblogger.Infof("🔄 Proceeding with deletion...")
-	
+
 	deleteResult := igw.Delete(vpcHandler.NetworkClient, request.GatewayID)
 	if deleteResult.Err != nil {
 		return DeleteGatewayResult{
@@ -1619,11 +1620,11 @@ func (vpcHandler *NhnCloudVPCHandler) deleteGatewayWithValidation(request Delete
 			WasAttached: wasAttached,
 		}
 	}
-	
+
 	// Step 5: Wait for completion if requested
 	if request.WaitForCompletion {
 		cblogger.Infof("🔄 Waiting for deletion to complete...")
-		
+
 		err = vpcHandler.waitForGatewayDeletion(request.GatewayID, request.Timeout, request.CheckInterval)
 		if err != nil {
 			return DeleteGatewayResult{
@@ -1634,7 +1635,7 @@ func (vpcHandler *NhnCloudVPCHandler) deleteGatewayWithValidation(request Delete
 			}
 		}
 	}
-	
+
 	return DeleteGatewayResult{
 		Success:     true,
 		Error:       nil,
@@ -1664,21 +1665,21 @@ func (vpcHandler *NhnCloudVPCHandler) waitForGatewayDeletion(gatewayId string, t
 		return newErr
 	}
 
-	startTime := time.Now()	
+	startTime := time.Now()
 	cblogger.Infof("  ⏳ Waiting for gateway deletion to complete...")
-	
+
 	for {
 		elapsed := time.Since(startTime)
-		
+
 		// Check timeout
 		if elapsed > timeout {
 			return fmt.Errorf("timeout after %v waiting for gateway deletion", elapsed.Round(time.Second))
 		}
-		
+
 		// Try to get the gateway
 		getResult := igw.Get(vpcHandler.NetworkClient, gatewayId)
 		_, err := getResult.Extract()
-		
+
 		if err != nil {
 			// If 404, gateway is deleted
 			if nhnstack.ResponseCodeIs(err, 404) {
@@ -1687,15 +1688,15 @@ func (vpcHandler *NhnCloudVPCHandler) waitForGatewayDeletion(gatewayId string, t
 			} else if strings.Contains(err.Error(), "Not found internetgateway") {
 				cblogger.Infof("  ✅ Gateway deletion verified after %v", elapsed.Round(time.Second))
 				return nil
-			}			
-			
+			}
+
 			// Other errors might indicate temporary issues
 			cblogger.Infof("  [%v] Error checking deletion status: %v", elapsed.Round(time.Second), err)
 		} else {
 			// Gateway still exists
 			cblogger.Infof("  [%v] Gateway still exists, continuing to wait...", elapsed.Round(time.Second))
 		}
-		
+
 		time.Sleep(checkInterval)
 	}
 }
