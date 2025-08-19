@@ -346,7 +346,7 @@ func makeOnchangeCredentialProviderFunc_js() string {
 		  case "NCP":
 			credentialInfo = '[{"Key":"ClientId", "Value":"XXXXXXXXXXXXXXXXXXX"}, {"Key":"ClientSecret", "Value":"XXXXXXXXXXXXXXXXXXXXXXXXXXX"}]'
 		    break;
-		  case "NHNCLOUD":
+		  case "NHN":
 			credentialInfo = '[{"Key":"IdentityEndpoint", "Value":"https://api-identity-infrastructure.nhncloudservice.com"}, {"Key":"Username", "Value":"XXXXX@XXXXXXXXXXXXXXXX"}, {"Key":"Password", "Value":"XXXXXXXXXXXXXXXXXX"}, {"Key":"DomainName", "Value":"default"}, {"Key":"TenantId", "Value":"XXXXXXXXXXXXXXXXX"}]'
 		    break;
 		case "KTCLOUD":
@@ -650,7 +650,7 @@ func makeOnchangeRegionProviderFunc_js() string {
             regionInfo = '[{"Key":"region", "Value":"KR"}]'
             region = 'KR'
             break;
-          case "NHNCLOUD":
+          case "NHN":
             regionInfo = '[{"Key":"Region", "Value":"KR1"}]'
             region = 'KR1'
             break;

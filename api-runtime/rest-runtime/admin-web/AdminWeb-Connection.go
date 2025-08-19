@@ -85,10 +85,10 @@ func makeOnchangeConnectionConfigProviderFunc_js() string {
 	    credentialNameList = document.getElementsByName('credentialName-NCP');
 	    regionNameList = document.getElementsByName('regionName-NCP');
             break;
-          case "NHNCLOUD":
-	    driverNameList = document.getElementsByName('driverName-NHNCLOUD');
-	    credentialNameList = document.getElementsByName('credentialName-NHNCLOUD');
-	    regionNameList = document.getElementsByName('regionName-NHNCLOUD');
+          case "NHN":
+	    driverNameList = document.getElementsByName('driverName-NHN');
+	    credentialNameList = document.getElementsByName('credentialName-NHN');
+	    regionNameList = document.getElementsByName('regionName-NHN');
             break;
 		case "KTCLOUD":
 			driverNameList = document.getElementsByName('driverName-KTCLOUD');
