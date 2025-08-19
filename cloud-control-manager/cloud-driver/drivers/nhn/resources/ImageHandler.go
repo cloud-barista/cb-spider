@@ -61,7 +61,6 @@ func (imageHandler *NhnCloudImageHandler) ListImage() ([]*irs.ImageInfo, error) 
 
 	// cblogger.Info("\n\n### nhnImageList : ")
 	// spew.Dump(nhnImageList)
-	// cblogger.Info("# 출력 결과 수 : ", len(nhnImageList))
 
 	var imageInfoList []*irs.ImageInfo
 	for _, nhnImage := range nhnImageList {
