@@ -2,7 +2,7 @@
 source setup.env
 
 #DRIVERS=( aws-plugin azure-plugin openstack-plugin gcp-plugin alibaba-plugin ncp-plugin ncp-plugin)
-DRIVERS=( aws-plugin azure-plugin gcp-plugin alibaba-plugin openstack-plugin mock-plugin tencent-plugin ibmcloud-vpc-plugin ncp-plugin ncp-plugin nhn-plugin ktcloud-plugin ktcloudvpc-plugin )
+DRIVERS=( aws-plugin azure-plugin gcp-plugin alibaba-plugin openstack-plugin mock-plugin tencent-plugin ibmcloud-vpc-plugin ncp-plugin nhn-plugin ktcloud-plugin ktcloudvpc-plugin )
 
 DRIVER_PATH=$CBSPIDER_ROOT/cloud-control-manager/cloud-driver/drivers
 DRIVERLIB_PATH=$CBSPIDER_ROOT/cloud-driver-libs
