@@ -170,7 +170,9 @@ func RunServer() {
 		{"GET", "/", aw.SpiderInfo},
 
 		//----------Swagger
-		{"GET", "/api", echoSwagger.EchoWrapHandler(echoSwagger.DocExpansion("none"))},
+		{"GET", "/api", func(c echo.Context) error {
+			return c.Redirect(http.StatusMovedPermanently, "/spider/api/index.html")
+		}},
 		{"GET", "/api/", echoSwagger.EchoWrapHandler(echoSwagger.DocExpansion("none"))},
 		{"GET", "/api/*", echoSwagger.EchoWrapHandler(echoSwagger.DocExpansion("none"))},
 
