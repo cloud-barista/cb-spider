@@ -31,7 +31,7 @@ cloud-driver-libs/.ssh-aliyun/*
 cloud-driver-libs/.ssh-tencent/*
 cloud-driver-libs/.ssh-ncp/*
 cloud-driver-libs/.ssh-nhn/*
-cloud-driver-libs/.ssh-ktcloud/*
+cloud-driver-libs/.ssh-ktclassic/*
 cloud-driver-libs/.vpc-ncp/*
 cloud-driver-libs/.vpc-nhn/*
 cloud-driver-libs/.vpc-kt/*
@@ -68,7 +68,7 @@ cloud-control-manager/cloud-driver/drivers/openstack/main/conf/config.yaml
 cloud-control-manager/cloud-driver/drivers/tencent/main/conf/testConfigTencent.yaml
 cloud-control-manager/cloud-driver/drivers/ncp/main/config/config.yaml
 cloud-control-manager/cloud-driver/drivers/nhncloud/main/conf/config.yaml
-cloud-control-manager/cloud-driver/drivers/ktcloud/main/config/config.yaml
+cloud-control-manager/cloud-driver/drivers/ktclassic/main/config/config.yaml
 
 test/vm-cb-user-validation-cli/2.6-csp-test/connection/.*-credential
 utils/default-connection-helper/.*-credential

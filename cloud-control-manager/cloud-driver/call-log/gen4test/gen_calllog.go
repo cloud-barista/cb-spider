@@ -64,7 +64,7 @@ var cloudOSList = []call.CLOUD_OS{
 	call.NCP,
 	call.NCP,
 	call.NHN,
-	call.KTCLOUD,
+	call.KTCLASSIC,
 	call.KTCLOUDVPC,
 	call.MOCK,
 	call.CLOUDTWIN,

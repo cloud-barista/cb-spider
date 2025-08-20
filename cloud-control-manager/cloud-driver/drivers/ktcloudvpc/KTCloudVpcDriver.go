@@ -40,7 +40,7 @@ func init() {
 }
 
 func (KTCloudVpcDriver) GetDriverVersion() string {
-	return "KTCLOUD VPC DRIVER Version 1.0"
+	return "KT DRIVER Version 1.0"
 }
 
 func (KTCloudVpcDriver) GetDriverCapability() idrv.DriverCapabilityInfo {

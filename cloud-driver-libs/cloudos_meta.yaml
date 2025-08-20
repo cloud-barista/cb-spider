@@ -104,7 +104,7 @@ NHN:
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster / FileSystem
   idmaxlength: 32 / 32 / 255 / 32 / 90 / 255 / 80 / 255 / 32
 
-KTCLOUD:
+KTCLASSIC:
   region: Region / Zone
   credential: ClientId / ClientSecret
   credentialcsp: API_Key / Secret_Key

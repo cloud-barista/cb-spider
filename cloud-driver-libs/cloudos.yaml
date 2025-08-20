@@ -20,7 +20,7 @@ cloudos:
   - NCP
   - NHN
   - KTCLOUDVPC
-  - KTCLOUD
+  - KTCLASSIC
 #--- Emulation
   - MOCK
 #  - CLOUDTWIN
