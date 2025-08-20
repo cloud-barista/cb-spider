@@ -63,13 +63,12 @@ If you encounter any difficulties while using Cloud-Barista, please let us know.
 | GCP           | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O        | O        |
 | Alibaba       | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O           | O        |
 | Tencent       | O             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | O           | WIP        |
-| IBM VPC       | O             | O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | WIP        | O        |
+| IBM           | O             | O                  | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | WIP        | O        |
 | OpenStack     | NA             | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | ?           | WIP        |
-| NCP VPC       | O            | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | WIP           | O        |
+| NCP           | O            | O                   | O             | O              | O                   | O                 | O               | O              | O    | O   | O       | WIP           | O        |
 | NHN           | NA             | O                   | O             | O              | O<br>(Type1)       | O                 | O               | O<br>(Note2)   | O    | O    | O     | O           | O        |
-| KT VPC        | NA             | O                   | O             | O              | O<br>(Type2)       | O                 | O               | O              | O    | O   | O<br>(Note3)| Wait API  | O        |
+| KT            | NA             | O                   | O             | O              | O<br>(Type2)       | O                 | O               | O              | O    | O   | O<br>(Note3)| Wait API  | O        |
 | KT Classic    | NA             | O                   | O             | O              | O<br>(Type3)       | O                 | O               | O              | O    | O   | O       | NA          | -        |
-| NCP Classic<br> (25.9.18.부터 VM 생성 불가)   | -            | O                   | O             | O              | O<br>(Type3)       | O<br>(Note1)     | O               | O              | O    | O   | O       | NA           | -        |
 
     ※ WIP: Work In Progress, NA: Not Applicable, Wait API: CSP API 공개 대기, ?: 미정/분석필요, -: 연동 제외 Classic 자원
     
@@ -95,19 +94,6 @@ If you encounter any difficulties while using Cloud-Barista, please let us know.
           - CB-Spider: API 추상화를 위한 단일 VPC/Subnet 생성 제공 (두개 이상 VPC/Subnet 생성 불가)
           - CIDR: 제공하지 않음(설정 무의미)
 
-
-    ※ Security Group 특이사항(세부 내용: 각 드라이버 Readme 참고)
-        ◉ Note1: Console에서 사전 생성 후 등록 활용
-          - CSP: Security Group Create API 부재
-          - 사전 작업: Console에서 Security Group 사전 생성
-          - CB-Spider: Register/UnRegister API 활용
-          - 등록 예시
-              curl -sX POST http://localhost:1024/spider/regsecuritygroup -H 'Content-Type: application/json' -d \
-               	'{
-               		"ConnectionName": "'${CONN_CONFIG}'", 
-               		"ReqInfo": { "VPCName": "'${VPC_NAME}'", "Name": "'${SG_NAME}'", "CSPId": "'${SG_CSPID}'"} 
-               	}'
-          
     ※ VM 특이사항(세부 내용: 각 드라이버 Readme 참고)
         ◉ Note2: Wdindows VM일 경우 SSH Key 사용한 VM 생성 후 Console에서 Key를 이용하여 PW 확인 필요
 
