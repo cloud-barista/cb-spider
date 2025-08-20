@@ -32,7 +32,6 @@ cloud-driver-libs/.ssh-tencent/*
 cloud-driver-libs/.ssh-ncp/*
 cloud-driver-libs/.ssh-nhn/*
 cloud-driver-libs/.ssh-ktclassic/*
-cloud-driver-libs/.vpc-ncp/*
 cloud-driver-libs/.vpc-nhn/*
 cloud-driver-libs/.vpc-kt/*
 cloud-driver-libs/.securitygroup-kt/*
