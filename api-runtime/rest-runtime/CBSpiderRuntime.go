@@ -525,8 +525,6 @@ func RunServer() {
 		{"GET", "/adminweb/connectionconfig1", aw.Connectionconfig},
 		{"GET", "/adminweb/connectionconfig", aw.ConnectionManagement},
 
-		{"GET", "/adminweb/dashboard", aw.Dashboard},
-
 		{"GET", "/adminweb/spiderinfo", aw.SpiderInfo},
 
 		{"GET", "/adminweb/sysstats", aw.SystemStatsInfoPage},

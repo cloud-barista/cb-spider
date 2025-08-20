@@ -352,7 +352,7 @@ func makeOnchangeCredentialProviderFunc_js() string {
 		case "KTCLASSIC":
 			credentialInfo = '[{"Key":"ClientId", "Value":"XXXXXXXXXXXXXXXXXXX"}, {"Key":"ClientSecret", "Value":"XXXXXXXXXXXXXXXXXXXXXXXXXXX"}]'
 		    break;
-		case "KTCLOUDVPC":
+		case "KT":
 			credentialInfo = ' [{"Key":"IdentityEndpoint", "Value":"https://api.ucloudbiz.olleh.com/d1/identity/v3/"}, {"Key":"Username", "Value":"~~~@~~~.com"}, {"Key":"Password", "Value":"XXXXXXXXXX"}, {"Key":"DomainName", "Value":"default"}, {"Key":"ProjectID", "Value":"XXXXXXXXXX"}]'
 		    break;
 
@@ -658,7 +658,7 @@ func makeOnchangeRegionProviderFunc_js() string {
             regionInfo = '[{"Key":"Region", "Value":"KOR-Seoul"}, {"Key":"Zone", "Value":"95e2f517-d64a-4866-8585-5177c256f7c7"}]'
             region = 'KOR-Seoul-M'
             break;
-		case "KTCLOUDVPC":
+		case "KT":
             regionInfo = '[{"Key":"Region", "Value":"KR1"}, {"Key":"Zone", "Value":"DX-M1"}]'
             region = 'KR1-DX-M1'
             break;

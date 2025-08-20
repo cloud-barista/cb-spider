@@ -19,7 +19,7 @@ cloudos:
   - OPENSTACK
   - NCP
   - NHN
-  - KTCLOUDVPC
+  - KT
   - KTCLASSIC
 #--- Emulation
   - MOCK
