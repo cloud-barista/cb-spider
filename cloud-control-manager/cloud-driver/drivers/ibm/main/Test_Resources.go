@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	cblog "github.com/cloud-barista/cb-log"
-	ibm "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc"
+	ibm "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibm"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/davecgh/go-spew/spew"
@@ -19,7 +19,7 @@ import (
 )
 
 type Config struct {
-	IbmVPC struct {
+	Ibm struct {
 		ApiKey    string `yaml:"apiKey"`
 		Region    string `yaml:"region"`
 		Zone      string `yaml:"zone"`
@@ -229,7 +229,7 @@ type Config struct {
 				} `yaml:"subnetIID"`
 			} `yaml:"file"`
 		} `yaml:"resources"`
-	} `yaml:"ibmvpc"`
+	} `yaml:"ibm"`
 }
 
 var cblogger *logrus.Logger
@@ -243,7 +243,7 @@ func init() {
 func readConfigFile() Config {
 	// Set Environment Value of Project Root Path
 	rootPath := os.Getenv("CBSPIDER_ROOT")
-	data, err := ioutil.ReadFile(rootPath + "/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/main/conf/config.yaml")
+	data, err := ioutil.ReadFile(rootPath + "/cloud-control-manager/cloud-driver/drivers/ibm/main/conf/config.yaml")
 	if err != nil {
 		cblogger.Error(err)
 	}
@@ -281,11 +281,11 @@ func showTestHandlerInfo() {
 func getResourceHandler(resourceType string, config Config) (interface{}, error) {
 	ibmCloudConnectionIfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
-			ApiKey: config.IbmVPC.ApiKey,
+			ApiKey: config.Ibm.ApiKey,
 		},
 		RegionInfo: idrv.RegionInfo{
-			Region: config.IbmVPC.Region,
-			Zone:   config.IbmVPC.Zone,
+			Region: config.Ibm.Region,
+			Zone:   config.Ibm.Zone,
 		},
 	}
 
@@ -352,7 +352,7 @@ func testImageHandler(config Config) {
 
 	testImageHandlerListPrint()
 
-	imageIID := irs.IID{NameId: config.IbmVPC.Resources.Image.NameId}
+	imageIID := irs.IID{NameId: config.Ibm.Resources.Image.NameId}
 
 Loop:
 	for {
@@ -421,8 +421,8 @@ func testSecurityHandler(config Config) {
 
 	testSecurityHandlerListPrint()
 
-	securityIId := irs.IID{NameId: config.IbmVPC.Resources.Security.NameId}
-	securityRules := config.IbmVPC.Resources.Security.Rules
+	securityIId := irs.IID{NameId: config.Ibm.Resources.Security.NameId}
+	securityRules := config.Ibm.Resources.Security.Rules
 	var securityRulesInfos []irs.SecurityRuleInfo
 	for _, securityRule := range securityRules {
 		infos := irs.SecurityRuleInfo{
@@ -435,9 +435,9 @@ func testSecurityHandler(config Config) {
 		securityRulesInfos = append(securityRulesInfos, infos)
 	}
 	targetVPCIId := irs.IID{
-		NameId: config.IbmVPC.Resources.Security.VpcIID.NameId,
+		NameId: config.Ibm.Resources.Security.VpcIID.NameId,
 	}
-	securityAddRules := config.IbmVPC.Resources.Security.AddRules
+	securityAddRules := config.Ibm.Resources.Security.AddRules
 	var securityAddRulesInfos []irs.SecurityRuleInfo
 	for _, securityRule := range securityAddRules {
 		infos := irs.SecurityRuleInfo{
@@ -449,7 +449,7 @@ func testSecurityHandler(config Config) {
 		}
 		securityAddRulesInfos = append(securityAddRulesInfos, infos)
 	}
-	securityRemoveRules := config.IbmVPC.Resources.Security.RemoveRules
+	securityRemoveRules := config.Ibm.Resources.Security.RemoveRules
 	var securityRemoveRulesInfos []irs.SecurityRuleInfo
 	for _, securityRule := range securityRemoveRules {
 		infos := irs.SecurityRuleInfo{
@@ -572,7 +572,7 @@ func testKeyPairHandler(config Config) {
 	testKeyPairHandlerListPrint()
 
 	keypairIId := irs.IID{
-		NameId: config.IbmVPC.Resources.KeyPair.NameId,
+		NameId: config.Ibm.Resources.KeyPair.NameId,
 	}
 
 Loop:
@@ -689,7 +689,7 @@ Loop:
 				cblogger.Info("Finish ListVMSpec()")
 			case 2:
 				cblogger.Info("Start GetVMSpec() ...")
-				if vmSpecInfo, err := vmSpecHandler.GetVMSpec(config.IbmVPC.Resources.VmSpec.NameId); err != nil {
+				if vmSpecInfo, err := vmSpecHandler.GetVMSpec(config.Ibm.Resources.VmSpec.NameId); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(vmSpecInfo)
@@ -705,7 +705,7 @@ Loop:
 				cblogger.Info("Finish ListOrgVMSpec()")
 			case 4:
 				cblogger.Info("Start GetOrgVMSpec() ...")
-				if vmSpecStr, err := vmSpecHandler.GetOrgVMSpec(config.IbmVPC.Resources.VmSpec.NameId); err != nil {
+				if vmSpecStr, err := vmSpecHandler.GetOrgVMSpec(config.Ibm.Resources.VmSpec.NameId); err != nil {
 					cblogger.Error(err)
 				} else {
 					fmt.Println(vmSpecStr)
@@ -743,9 +743,9 @@ func testVPCHandler(config Config) {
 
 	testVPCHandlerListPrint()
 
-	vpcIID := irs.IID{NameId: config.IbmVPC.Resources.VPC.NameId}
+	vpcIID := irs.IID{NameId: config.Ibm.Resources.VPC.NameId}
 
-	subnetLists := config.IbmVPC.Resources.VPC.Subnets
+	subnetLists := config.Ibm.Resources.VPC.Subnets
 	var subnetInfoList []irs.SubnetInfo
 	for _, sb := range subnetLists {
 		info := irs.SubnetInfo{
@@ -759,10 +759,10 @@ func testVPCHandler(config Config) {
 
 	VPCReqInfo := irs.VPCReqInfo{
 		IId:            vpcIID,
-		IPv4_CIDR:      config.IbmVPC.Resources.VPC.IPv4CIDR,
+		IPv4_CIDR:      config.Ibm.Resources.VPC.IPv4CIDR,
 		SubnetInfoList: subnetInfoList,
 	}
-	addSubnet := config.IbmVPC.Resources.VPC.AddSubnet
+	addSubnet := config.Ibm.Resources.VPC.AddSubnet
 	addSubnetInfo := irs.SubnetInfo{
 		IId: irs.IID{
 			NameId: addSubnet.NameId,
@@ -907,64 +907,64 @@ func testVMHandler(config Config) {
 
 	testVMHandlerListPrint()
 
-	configsgIIDs := config.IbmVPC.Resources.Vm.SecurityGroupIIDs
+	configsgIIDs := config.Ibm.Resources.Vm.SecurityGroupIIDs
 	var SecurityGroupIIDs []irs.IID
 	for _, sg := range configsgIIDs {
 		SecurityGroupIIDs = append(SecurityGroupIIDs, irs.IID{NameId: sg.NameId})
 	}
 	var vmDataDiskIIDs []irs.IID
-	for _, dataDisk := range config.IbmVPC.Resources.Vm.DataDiskIIDs {
+	for _, dataDisk := range config.Ibm.Resources.Vm.DataDiskIIDs {
 		vmDataDiskIIDs = append(vmDataDiskIIDs, irs.IID{NameId: dataDisk.NameId})
 	}
 	vmIID := irs.IID{
-		NameId: config.IbmVPC.Resources.Vm.IID.NameId,
+		NameId: config.Ibm.Resources.Vm.IID.NameId,
 	}
 	vmReqInfo := irs.VMReqInfo{
 		IId: irs.IID{
-			NameId: config.IbmVPC.Resources.Vm.IID.NameId,
+			NameId: config.Ibm.Resources.Vm.IID.NameId,
 		},
 		ImageIID: irs.IID{
-			NameId: config.IbmVPC.Resources.Vm.ImageIID.NameId,
+			NameId: config.Ibm.Resources.Vm.ImageIID.NameId,
 		},
 		VpcIID: irs.IID{
-			NameId: config.IbmVPC.Resources.Vm.VpcIID.NameId,
+			NameId: config.Ibm.Resources.Vm.VpcIID.NameId,
 		},
 		SubnetIID: irs.IID{
-			NameId: config.IbmVPC.Resources.Vm.SubnetIID.NameId,
+			NameId: config.Ibm.Resources.Vm.SubnetIID.NameId,
 		},
-		VMSpecName: config.IbmVPC.Resources.Vm.VmSpecName,
+		VMSpecName: config.Ibm.Resources.Vm.VmSpecName,
 		KeyPairIID: irs.IID{
-			NameId: config.IbmVPC.Resources.KeyPair.NameId,
+			NameId: config.Ibm.Resources.KeyPair.NameId,
 		},
 		SecurityGroupIIDs: SecurityGroupIIDs,
 		RootDiskSize:      "",
 		RootDiskType:      "",
 		DataDiskIIDs:      vmDataDiskIIDs,
-		VMUserId:          config.IbmVPC.Resources.Vm.VMUserID,
-		VMUserPasswd:      config.IbmVPC.Resources.Vm.VMUserPassword,
+		VMUserId:          config.Ibm.Resources.Vm.VMUserID,
+		VMUserPasswd:      config.Ibm.Resources.Vm.VMUserPassword,
 	}
 	vmFromSnapshotReqInfo := irs.VMReqInfo{
 		IId: irs.IID{
-			NameId: config.IbmVPC.Resources.VmFromMyImage.IID.NameId,
+			NameId: config.Ibm.Resources.VmFromMyImage.IID.NameId,
 		},
 		ImageIID: irs.IID{
-			NameId: config.IbmVPC.Resources.VmFromMyImage.ImageIID.NameId,
+			NameId: config.Ibm.Resources.VmFromMyImage.ImageIID.NameId,
 		},
 		VpcIID: irs.IID{
-			NameId: config.IbmVPC.Resources.VmFromMyImage.VpcIID.NameId,
+			NameId: config.Ibm.Resources.VmFromMyImage.VpcIID.NameId,
 		},
 		SubnetIID: irs.IID{
-			NameId: config.IbmVPC.Resources.VmFromMyImage.SubnetIID.NameId,
+			NameId: config.Ibm.Resources.VmFromMyImage.SubnetIID.NameId,
 		},
-		VMSpecName: config.IbmVPC.Resources.VmFromMyImage.VmSpecName,
+		VMSpecName: config.Ibm.Resources.VmFromMyImage.VmSpecName,
 		KeyPairIID: irs.IID{
-			NameId: config.IbmVPC.Resources.KeyPair.NameId,
+			NameId: config.Ibm.Resources.KeyPair.NameId,
 		},
 		SecurityGroupIIDs: SecurityGroupIIDs,
 		RootDiskSize:      "",
 		RootDiskType:      "",
-		VMUserId:          config.IbmVPC.Resources.VmFromMyImage.VMUserID,
-		VMUserPasswd:      config.IbmVPC.Resources.VmFromMyImage.VMUserPassword,
+		VMUserId:          config.Ibm.Resources.VmFromMyImage.VMUserID,
+		VMUserPasswd:      config.Ibm.Resources.VmFromMyImage.VMUserPassword,
 	}
 
 Loop:
@@ -1307,7 +1307,7 @@ func testDiskHandler(config Config) {
 	diskHandler := resourceHandler.(irs.DiskHandler)
 
 	testDiskHandlerListPrint()
-	configdisk := config.IbmVPC.Resources.DISK
+	configdisk := config.Ibm.Resources.DISK
 
 	diskCreateReqInfo := irs.DiskInfo{
 		IId: irs.IID{
@@ -1320,7 +1320,7 @@ func testDiskHandler(config Config) {
 		NameId: configdisk.IID.NameId,
 	}
 	vmIID := irs.IID{
-		NameId: config.IbmVPC.Resources.Vm.IID.NameId,
+		NameId: config.Ibm.Resources.Vm.IID.NameId,
 	}
 Loop:
 	for {
@@ -1443,7 +1443,7 @@ func testMyImageHandler(config Config) {
 	myImageHandler := resourceHandler.(irs.MyImageHandler)
 
 	testMyImageHandlerListPrint()
-	configmyimage := config.IbmVPC.Resources.MYIMAGE
+	configmyimage := config.Ibm.Resources.MYIMAGE
 
 	snapshotCreateReqInfo := irs.MyImageInfo{
 		IId: irs.IID{
@@ -1731,7 +1731,7 @@ func testClusterHandler(config Config) {
 	clusterHandler := resourceHandler.(irs.ClusterHandler)
 
 	testClusterHandlerListPrint()
-	configCluster := config.IbmVPC.Resources.CLUSTER
+	configCluster := config.Ibm.Resources.CLUSTER
 
 	clusterIID := irs.IID{NameId: configCluster.IID.NameId}
 
@@ -2220,15 +2220,15 @@ func testFileSystemHandler(config Config) {
 	fileSystemHandler := resourceHandler.(irs.FileSystemHandler)
 
 	fileNameId := irs.IID{
-		NameId: config.IbmVPC.Resources.File.IID.NameId,
+		NameId: config.Ibm.Resources.File.IID.NameId,
 	}
 
 	vpcIID := irs.IID{
-		NameId: config.IbmVPC.Resources.File.VpcIID.NameId,
+		NameId: config.Ibm.Resources.File.VpcIID.NameId,
 	}
 
 	subnetIID := irs.IID{
-		NameId: config.IbmVPC.Resources.File.SubnetIID.NameId,
+		NameId: config.Ibm.Resources.File.SubnetIID.NameId,
 	}
 
 	createreq := irs.FileSystemInfo{

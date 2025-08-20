@@ -289,8 +289,8 @@ func (regionZoneHandler *IbmRegionZoneHandler) ListOrgZone() (string, error) {
 == GetRegionZone 실행 예시 ==
 [CLOUD-BARISTA].[INFO]: 2023-09-26 15:20:27 Test_Resources.go:1404, main.testRegionZoneHandler() - Start GetRegionZone() ...
 Enter Region Name: us-south
-[CLOUD-BARISTA].[INFO]: 2023-09-26 15:20:32 CommonIbmFunc.go:43, github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/resources.GetCallLogScheme() - Call IBM GetRegionZone()
-[HISCALL].[124.53.55.55] 2023-09-26 15:20:33 (Tuesday) github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/resources.LoggingInfo():39 - "CloudOS" : "IBM", "RegionZone" : "us-south", "ResourceType" : "REGIONZONE", "ResourceName" : "RegionZone", "CloudOSAPI" : "GetRegionZone()", "ElapsedTime" : "0.8174", "ErrorMSG" : ""
+[CLOUD-BARISTA].[INFO]: 2023-09-26 15:20:32 CommonIbmFunc.go:43, github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibm/resources.GetCallLogScheme() - Call IBM GetRegionZone()
+[HISCALL].[124.53.55.55] 2023-09-26 15:20:33 (Tuesday) github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibm/resources.LoggingInfo():39 - "CloudOS" : "IBM", "RegionZone" : "us-south", "ResourceType" : "REGIONZONE", "ResourceName" : "RegionZone", "CloudOSAPI" : "GetRegionZone()", "ElapsedTime" : "0.8174", "ErrorMSG" : ""
 (resources.RegionZoneInfo) {
  Name: (string) (len=8) "us-south",
  DisplayName: (string) (len=8) "us-south",

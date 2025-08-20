@@ -62,7 +62,7 @@ utils/clone-mc-meta-info/vm-image/az-data/*
 
 cloud-control-manager/cloud-driver/drivers/azure/main/conf/config.yaml
 cloud-control-manager/cloud-driver/drivers/ibm/main/conf/config.yaml
-cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/main/conf/config.yaml
+cloud-control-manager/cloud-driver/drivers/ibm/main/conf/config.yaml
 cloud-control-manager/cloud-driver/drivers/openstack/main/conf/config.yaml
 cloud-control-manager/cloud-driver/drivers/tencent/main/conf/testConfigTencent.yaml
 cloud-control-manager/cloud-driver/drivers/ncp/main/config/config.yaml

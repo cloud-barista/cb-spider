@@ -1,6 +1,6 @@
 ## Config for Ibm ##
 # Test : create => get
-ibmvpc:
+ibm:
   apiKey: XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
   region: us-south
   zone: us-south-1

@@ -19,7 +19,7 @@ import (
 	azuredrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure"
 	gcpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp"
 
-	ibmvpcdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc"
+	ibmdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibm"
 	mockdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/mock"
 	openstackdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack"
 	tencentdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent"
@@ -63,7 +63,7 @@ func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
 	case "TENCENT":
 		cloudDriver = new(tencentdrv.TencentDriver)
 	case "IBM":
-		cloudDriver = new(ibmvpcdrv.IbmCloudDriver)
+		cloudDriver = new(ibmdrv.IbmCloudDriver)
 	case "NCP":
 		cloudDriver = new(ncpdrv.NcpVpcDriver)
 	case "NHN":
