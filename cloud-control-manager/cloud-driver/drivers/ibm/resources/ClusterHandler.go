@@ -11,7 +11,7 @@ import (
 	"github.com/IBM/platform-services-go-sdk/resourcemanagerv2"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
-	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc/utils/kubernetesserviceapiv1"
+	"github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibm/utils/kubernetesserviceapiv1"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/go-openapi/strfmt"
@@ -32,7 +32,7 @@ const (
 	AutoscalerConfigMapOptionProperty = "workerPoolsConfig.json"
 
 	// Error Codes
-	RetrieveUnableErr      = "Not visible in IBMCloud-VPC"
+	RetrieveUnableErr      = "Not visible in IBM"
 	GetKubeConfigErr       = "Get Kube Config Error"
 	GetAutoScalerConfigErr = "Get Autoscaler Config Map Error"
 

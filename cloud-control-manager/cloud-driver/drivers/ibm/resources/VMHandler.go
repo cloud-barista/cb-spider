@@ -1280,8 +1280,8 @@ func (vmHandler *IbmVMHandler) setVmInfo(instance vpcv1.Instance) (irs.VMInfo, e
 		},
 		PrivateIP:      *instance.PrimaryNetworkInterface.PrimaryIP.Address,
 		VMUserId:       CBDefaultVmUserName,
-		RootDeviceName: "Not visible in IBMCloud-VPC",
-		VMBlockDisk:    "Not visible in IBMCloud-VPC",
+		RootDeviceName: "Not visible in IBM",
+		VMBlockDisk:    "Not visible in IBM",
 		DataDiskIIDs:   dataDiskIIDs,
 	}
 	chanCount := 0

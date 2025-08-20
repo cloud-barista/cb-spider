@@ -6,7 +6,7 @@ DRIVERFILENAME=ibm-driver-v1.0
 
 function build() {
     rm -rf $DRIVERLIB_PATH/${DRIVERFILENAME}.so
-    go build -buildmode=plugin -o ${DRIVERFILENAME}.so IBMCloudDriver-lib.go || return 1
+    go build -buildmode=plugin -o ${DRIVERFILENAME}.so IBMDriver-lib.go || return 1
     chmod +x ${DRIVERFILENAME}.so || return 1
     mv ./${DRIVERFILENAME}.so $DRIVERLIB_PATH || return 1
 }
