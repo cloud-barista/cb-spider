@@ -95,10 +95,10 @@ func makeOnchangeConnectionConfigProviderFunc_js() string {
 			credentialNameList = document.getElementsByName('credentialName-KTCLASSIC');
 			regionNameList = document.getElementsByName('regionName-KTCLASSIC');
 				break;
-		case "KTCLOUDVPC":
-			driverNameList = document.getElementsByName('driverName-KTCLOUDVPC');
-			credentialNameList = document.getElementsByName('credentialName-KTCLOUDVPC');
-			regionNameList = document.getElementsByName('regionName-KTCLOUDVPC');
+		case "KT":
+			driverNameList = document.getElementsByName('driverName-KT');
+			credentialNameList = document.getElementsByName('credentialName-KT');
+			regionNameList = document.getElementsByName('regionName-KT');
 				break;
 
           case "MOCK":

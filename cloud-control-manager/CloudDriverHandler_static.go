@@ -24,8 +24,8 @@ import (
 	openstackdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack"
 	tencentdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent"
 
+	ktvpcdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/kt"
 	ktdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ktclassic"
-	ktvpcdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ktcloudvpc"
 	ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp"
 	nhndrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/nhn"
 
@@ -70,7 +70,7 @@ func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
 		cloudDriver = new(nhndrv.NhnCloudDriver)
 	case "KTCLASSIC":
 		cloudDriver = new(ktdrv.KtCloudDriver)
-	case "KTCLOUDVPC":
+	case "KT":
 		cloudDriver = new(ktvpcdrv.KTCloudVpcDriver)
 	case "MOCK":
 		cloudDriver = new(mockdrv.MockDriver)

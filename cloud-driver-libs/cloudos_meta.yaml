@@ -115,7 +115,7 @@ KTCLASSIC:
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
   idmaxlength: 30 / 30 / 30 / 100 / 63 / 50 / 30 / 32 / 0
 
-KTCLOUDVPC:
+KT:
   region: Region / Zone
   credential: IdentityEndpoint / Username / Password / DomainName / ProjectID
   credentialcsp: IdentityEndpoint / Username / Password / DomainName / ProjectID
