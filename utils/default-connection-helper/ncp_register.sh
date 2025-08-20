@@ -3,17 +3,17 @@
 # Source common functions
 source ./common_register.sh
 
-# Load NCP VPC credentials
+# Load NCP credentials
 NCP_CREDENTIAL_FILE="$HOME/.cb-spider/.ncp-credential"
-check_credential_file "$NCP_CREDENTIAL_FILE" "NCP VPC credential file not found"
+check_credential_file "$NCP_CREDENTIAL_FILE" "NCP credential file not found"
 
 # Check required variables
 check_required_vars "ncp_client_id" "ncp_client_secret"
 
-# Register NCP VPC driver
+# Register NCP Cloud driver
 register_driver "ncp-driver" "NCP" "ncp-driver-v1.0.so"
 
-# Register NCP VPC credential
+# Register NCP credential
 NCP_KEY_VALUES='[
   {"Key":"ClientId", "Value":"'"$ncp_client_id"'"},
   {"Key":"ClientSecret", "Value":"'"$ncp_client_secret"'"}

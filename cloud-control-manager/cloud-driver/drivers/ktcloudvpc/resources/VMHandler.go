@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 	_ "time/tzdata" // To prevent 'unknown time zone Asia/Seoul' error
+
 	// "encoding/json"
 	// "github.com/davecgh/go-spew/spew"
 
@@ -344,7 +345,7 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		var creatErr error
 		var ok bool
 		if ok, publicIPId, creatErr = vmHandler.createPublicIP(); !ok {
-		// if ok, publicIP, publicIPId, creatErr = vmHandler.createPublicIP(); !ok {
+			// if ok, publicIP, publicIPId, creatErr = vmHandler.createPublicIP(); !ok {
 			newErr := fmt.Errorf("Failed to Create a PublicIP : [%v]", creatErr)
 			cblogger.Error(newErr.Error())
 			loggingError(callLogInfo, newErr)
@@ -842,7 +843,7 @@ func (vmHandler *KTVpcVMHandler) createPublicIP() (bool, string, error) {
 
 // ### To Apply 'PortForwarding Rules' and 'Firewall Rules' to the PublicIP ID.
 func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(vpcIID irs.IID, sgSystemIDs []string, privateIP string, publicIPId string) (bool, error) {
-	cblogger.Info("KT Cloud cloud driver: called createPortForwardingFirewallRules()!")
+	cblogger.Info("KT Cloud driver: called createPortForwardingFirewallRules()!")
 
 	if strings.EqualFold(vpcIID.SystemId, "") {
 		newErr := fmt.Errorf("Invalid VPC SystemId!!")
@@ -1027,7 +1028,7 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(vpcIID irs.II
 						// fmt.Println(udpPortFowardingId)
 
 						inboundFWOpts = &rules.InboundCreateOpts{
-							SourceNetID:   *externalNetId,      // ExternalNet
+							SourceNetID:   *externalNetId,     // ExternalNet
 							PortFordingID: udpPortFowardingId, // Caution!!
 							DestIPAdds:    destCIDR,           // Destination network band (10.1.1.0/24, etc.)
 							StartPort:     sgRule.FromPort,
@@ -1184,7 +1185,7 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 		VMUserId: LnxUserName,
 		// VMUserPasswd:      "N/A",
 
-		KeyValueList:   irs.StructToKeyValueList(vm),
+		KeyValueList: irs.StructToKeyValueList(vm),
 	}
 	vmInfo.StartTime = convertedTime
 	vmInfo.VMSpecName = vm.Flavor["original_name"].(string)
@@ -1253,9 +1254,9 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 		cblogger.Error(newErr.Error())
 		return irs.VMInfo{}, newErr
 	}
-	if (tierId != nil) {
+	if tierId != nil {
 		vmInfo.SubnetIID.SystemId = *tierId // Caution!!) Not Tier 'NetworkId' but 'TierId' to Create VM through REST API!!
-	}	
+	}
 
 	vpcId, err := vpcHandler.getVPCIdWithTierId(*tierId)
 	if err != nil {
@@ -1263,7 +1264,7 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 		cblogger.Error(newErr.Error())
 		return irs.VMInfo{}, newErr
 	}
-	if (vpcId != nil) {
+	if vpcId != nil {
 		vmInfo.VpcIID.SystemId = *vpcId
 	}
 
@@ -1347,7 +1348,7 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 			}
 		}
 	}
-	
+
 	float64Vcpus := vm.Flavor["vcpus"].(float64)
 	float64Ram := vm.Flavor["ram"].(float64)
 
@@ -1375,7 +1376,7 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 		keyValueList = append(keyValueList, keyValue)
 	}
 	vmInfo.KeyValueList = append(vmInfo.KeyValueList, keyValueList...)
-		
+
 	return vmInfo, nil
 }
 
@@ -1518,19 +1519,19 @@ func (vmHandler *KTVpcVMHandler) listPortForwarding() ([]portforward.PortForward
 	callLogInfo := getCallLogScheme(vmHandler.RegionInfo.Zone, call.VPCSUBNET, "listPortForwarding()", "listPortForwarding()")
 
 	// ### If enter a different number to ListOpts, the value will not be retrieved correctly.
-    listOpts := portforward.ListOpts{
-        Page: 1,
-        Size: 20,    
+	listOpts := portforward.ListOpts{
+		Page: 1,
+		Size: 20,
 	}
 	var pfRuls []portforward.PortForwarding
 	var extErr error
 	pager := portforward.List(vmHandler.NetworkClient, listOpts)
 	err := pager.EachPage(func(page pagination.Page) (bool, error) {
-        pfRuls, extErr = portforward.ExtractPFs(page)
-        if extErr != nil {
+		pfRuls, extErr = portforward.ExtractPFs(page)
+		if extErr != nil {
 			newErr := fmt.Errorf("Failed to Extract Port Forwarding list : [%v]", extErr)
 			cblogger.Error(newErr.Error())
-		    return false, newErr
+			return false, newErr
 		}
 
 		if len(pfRuls) < 1 {
@@ -1539,17 +1540,17 @@ func (vmHandler *KTVpcVMHandler) listPortForwarding() ([]portforward.PortForward
 			return false, newErr
 			// return false, newErr
 		}
-   
- 		return true, nil
+
+		return true, nil
 	})
-    if err != nil {
-        if err != nil {
+	if err != nil {
+		if err != nil {
 			newErr := fmt.Errorf("Failed to Get Port Forwarding list : [%v]", err)
 			cblogger.Error(newErr.Error())
 			loggingError(callLogInfo, newErr)
-		    return nil, newErr
+			return nil, newErr
 		}
-    }    
+	}
 
 	if len(pfRuls) < 1 {
 		newErr := fmt.Errorf("Failed to Get Any Port Forwarding Info.")
@@ -1780,7 +1781,7 @@ func (vmHandler *KTVpcVMHandler) removeFirewallRule(publicIpAddr string, private
 			// 	cblogger.Errorf("Failed to Wait the Job : [%v]", waitErr)
 			// 	return false, waitErr
 			// }
-		}	
+		}
 	}
 	return true, nil
 }
@@ -1931,7 +1932,7 @@ func (vmHandler *KTVpcVMHandler) waitForAsyncJob(jobId string, timeOut time.Dura
 }
 
 func (vmHandler *KTVpcVMHandler) listKTCloudVM() ([]servers.Server, error) {
-	cblogger.Info("KT Cloud cloud driver: called listKTCloudVM()!")
+	cblogger.Info("KT Cloud driver: called listKTCloudVM()!")
 	callLogInfo := getCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, "listKTCloudVM()", "listKTCloudVM()")
 
 	// Get VM list
@@ -1959,7 +1960,7 @@ func (vmHandler *KTVpcVMHandler) listKTCloudVM() ([]servers.Server, error) {
 }
 
 func (vmHandler *KTVpcVMHandler) getKTCloudVM(vmId string) (servers.Server, error) {
-	cblogger.Info("KT Cloud cloud driver: called getKTCloudVM()!")
+	cblogger.Info("KT Cloud driver: called getKTCloudVM()!")
 	callLogInfo := getCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmId, "GetVM()")
 
 	if strings.EqualFold(vmId, "") {
@@ -1983,7 +1984,7 @@ func (vmHandler *KTVpcVMHandler) getKTCloudVM(vmId string) (servers.Server, erro
 }
 
 func (vmHandler *KTVpcVMHandler) getVmIdAndPrivateIPWithName(vmName string) (string, string, error) {
-	cblogger.Info("KT Cloud cloud driver: called getVmIdAndPrivateIPWithName()!")
+	cblogger.Info("KT Cloud driver: called getVmIdAndPrivateIPWithName()!")
 
 	if strings.EqualFold(vmName, "") {
 		newErr := fmt.Errorf("Invalid VM Name!!")
@@ -2035,7 +2036,7 @@ func (vmHandler *KTVpcVMHandler) getVmIdAndPrivateIPWithName(vmName string) (str
 }
 
 func (vmHandler *KTVpcVMHandler) getVmNameWithId(vmId string) (string, error) {
-	cblogger.Info("KT Cloud cloud driver: called getVmNameWithId()!")
+	cblogger.Info("KT Cloud driver: called getVmNameWithId()!")
 
 	if strings.EqualFold(vmId, "") {
 		newErr := fmt.Errorf("Invalid VM ID!!")
@@ -2059,7 +2060,7 @@ func (vmHandler *KTVpcVMHandler) getVmNameWithId(vmId string) (string, error) {
 }
 
 func (vmHandler *KTVpcVMHandler) getPublicIPWithVMId(vmId string) (string, error) {
-	cblogger.Info("KT Cloud cloud driver: called getPublicIPWithVMId()!")
+	cblogger.Info("KT Cloud driver: called getPublicIPWithVMId()!")
 
 	if strings.EqualFold(vmId, "") {
 		newErr := fmt.Errorf("Invalid VM ID!!")
@@ -2107,7 +2108,7 @@ func (vmHandler *KTVpcVMHandler) getPublicIPWithVMId(vmId string) (string, error
 
 // Get VM PrivateIP and OSNetworkID with VMID
 func (vmHandler *KTVpcVMHandler) getVmPrivateIpAndNetIdWithVMId(vmId string) (string, string, error) {
-	cblogger.Info("KT Cloud cloud driver: called getVmPrivateIpAndNetIdWithVMId()!")
+	cblogger.Info("KT Cloud driver: called getVmPrivateIpAndNetIdWithVMId()!")
 
 	if strings.EqualFold(vmId, "") {
 		newErr := fmt.Errorf("Invalid VM ID!!")
@@ -2225,33 +2226,33 @@ func (vmHandler *KTVpcVMHandler) ListIID() ([]*irs.IID, error) {
 	cblogger.Info("Cloud driver: called ListIID()!!")
 	callLogInfo := getCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, "ListIID()", "ListIID()")
 
-    // Get VM list
-    listOpts := servers.ListOpts{
-        Limit: 100,
-    }
+	// Get VM list
+	listOpts := servers.ListOpts{
+		Limit: 100,
+	}
 	start := call.Start()
-    pager, err := servers.List(vmHandler.VMClient, listOpts).AllPages()
-    if err != nil {
-        newErr := fmt.Errorf("Failed to Get VM Pages from KT Cloud. : [%v]", err)
-        cblogger.Error(newErr.Error())
-        return nil, newErr
-    }
+	pager, err := servers.List(vmHandler.VMClient, listOpts).AllPages()
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get VM Pages from KT Cloud. : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
 	loggingInfo(callLogInfo, start)
 
-    vmList, err := servers.ExtractServers(pager)
-    if err != nil {
-        newErr := fmt.Errorf("Failed to Get VM list. : [%v]", err)
-        cblogger.Error(newErr.Error())
-        return nil, newErr
-    }
+	vmList, err := servers.ExtractServers(pager)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get VM list. : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
 
-    var iidList []*irs.IID
-    for _, vm := range vmList {
-        iid := &irs.IID{
-            NameId:   vm.Name,
-            SystemId: vm.ID,
-        }
-        iidList = append(iidList, iid)
-    }
-    return iidList, nil
+	var iidList []*irs.IID
+	for _, vm := range vmList {
+		iid := &irs.IID{
+			NameId:   vm.Name,
+			SystemId: vm.ID,
+		}
+		iidList = append(iidList, iid)
+	}
+	return iidList, nil
 }

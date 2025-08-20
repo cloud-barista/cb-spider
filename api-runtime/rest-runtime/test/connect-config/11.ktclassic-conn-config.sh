@@ -1,0 +1,29 @@
+RESTSERVER=localhost
+
+# Cloud Driver Info
+curl -X POST http://$RESTSERVER:1024/spider/driver -H 'Content-Type: application/json' -d '{"DriverName":"ktclassic-driver01","ProviderName":"KTCLASSIC", "DriverLibFileName":"ktclassic-driver-v1.0.so"}'
+
+# Cloud Credential Info
+curl -X POST http://$RESTSERVER:1024/spider/credential -H 'Content-Type: application/json' -d '{"CredentialName":"ktclassic-credential01","ProviderName":"KTCLASSIC", "KeyValueInfoList": [{"Key":"ClientId", "Value":"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"}, {"Key":"ClientSecret", "Value":"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"}]}'
+
+### Note!!
+### In the KT Cloud CSP, it is divided into Zone units without Region units, but the Region information is written for convenience.
+### The Zone ID of the following items requires modification after search using 'ListRegionZone()' for each account of KT Cloud Service.
+
+# Cloud Region & Zone Info
+curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"ktclassic-korea-seoul1","ProviderName":"KTCLASSIC", "KeyValueInfoList": [{"Key":"Region", "Value":"KOR-Seoul"}, {"Key":"Zone", "Value":"95e2f517-d64a-4866-8585-5177c256f7c7"}]}'
+
+curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"ktclassic-korea-seoul2","ProviderName":"KTCLASSIC", "KeyValueInfoList": [{"Key":"Region", "Value":"KOR-Seoul"}, {"Key":"Zone", "Value":"d7d0177e-6cda-404a-a46f-a5b356d2874e"}]}'
+
+curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"ktclassic-korea-cheonan1","ProviderName":"KTCLASSIC", "KeyValueInfoList": [{"Key":"Region", "Value":"KOR-Central"}, {"Key":"Zone", "Value":"eceb5d65-6571-4696-875f-5a17949f3317"}]}'
+
+curl -X POST http://$RESTSERVER:1024/spider/region -H 'Content-Type: application/json' -d '{"RegionName":"ktclassic-korea-cheonan2","ProviderName":"KTCLASSIC", "KeyValueInfoList": [{"Key":"Region", "Value":"KOR-Central"}, {"Key":"Zone", "Value":"9845bd17-d438-4bde-816d-1b12f37d5080"}]}'
+
+# Cloud Connection Config Info
+curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"ktclassic-korea-seoul1-config","ProviderName":"KTCLASSIC", "DriverName":"ktclassic-driver01", "CredentialName":"ktclassic-credential01", "RegionName":"ktclassic-korea-seoul1"}'
+
+curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"ktclassic-korea-seoul2-config","ProviderName":"KTCLASSIC", "DriverName":"ktclassic-driver01", "CredentialName":"ktclassic-credential01", "RegionName":"ktclassic-korea-seoul2"}'
+
+curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"ktclassic-korea-cheonan1-config","ProviderName":"KTCLASSIC", "DriverName":"ktclassic-driver01", "CredentialName":"ktclassic-credential01", "RegionName":"ktclassic-korea-cheonan1"}'
+
+curl -X POST http://$RESTSERVER:1024/spider/connectionconfig -H 'Content-Type: application/json' -d '{"ConfigName":"ktclassic-korea-cheonan2-config","ProviderName":"KTCLASSIC", "DriverName":"ktclassic-driver01", "CredentialName":"ktclassic-credential01", "RegionName":"ktclassic-korea-cheonan2"}'
