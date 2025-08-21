@@ -788,17 +788,16 @@ func (vmHandler *NhnCloudVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) 
 
 func (vmHandler *NhnCloudVMHandler) getVMStatus(vmIID irs.IID) (servers.Server, irs.VMStatus, error) {
 	cblogger.Info("NHN Cloud Driver: called GetVMStatus()")
-	callLogInfo := getCallLogScheme(vmHandler.RegionInfo.Region, call.VM, vmIID.SystemId, "GetVMStatus()")
 
-	start := call.Start()
 	nhnVM, err := vmHandler.getRawVM(vmIID)
 	if err != nil {
+		if strings.Contains(err.Error(), "Resource not found") { // Cases where VM termination has been completed
+			return servers.Server{}, irs.Terminated, nil
+		}
 		newErr := fmt.Errorf("Failed to Get the VM info.!! : [%v] ", err)
 		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
 		return servers.Server{}, irs.Failed, newErr
 	}
-	LoggingInfo(callLogInfo, start)
 
 	cblogger.Infof("# serverResult.Status of NHN Cloud : [%s]", nhnVM.Status)
 	vmStatus := getVmStatus(nhnVM.Status)
