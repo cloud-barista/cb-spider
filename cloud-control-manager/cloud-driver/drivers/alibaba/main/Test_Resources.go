@@ -44,10 +44,10 @@ func handleVMSpec() {
 
 	//config := testconf.ReadConfigFile()
 	//reqVMSpec := config.Ali.VMSpec
-	//reqVMSpec := "ecs.g6.large"	// GPU가 없음
-	// reqVMSpec := "ecs.vgn5i-m8.4xlarge" // GPU 1개
-	reqVMSpec := "" // GPU 1개
-	//reqVMSpec := "ecs.gn6i-c24g1.24xlarge" // GPU 4개
+	//reqVMSpec := "ecs.g6.large"	// No GPU
+	// reqVMSpec := "ecs.vgn5i-m8.4xlarge" // 1 GPU
+	reqVMSpec := "" // 1 GPU
+	//reqVMSpec := "ecs.gn6i-c24g1.24xlarge" // 4 GPUs
 
 	//reqRegion := config.Ali.Region
 	//reqRegion = "us-east-1"
@@ -946,7 +946,7 @@ func handleImage() {
 					cblogger.Infof(imageReqInfo.IId.NameId, "Fail to create Image : ", err)
 				} else {
 					cblogger.Infof("Result of create Image : ", result)
-					imageReqInfo.IId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					imageReqInfo.IId = result.IId // Changed to the ID created for retrieval and deletion
 					spew.Dump(result)
 				}
 
@@ -1025,15 +1025,15 @@ func handleVM() {
 					// SubnetIID: irs.IID{SystemId: ""}, //Tokyo Zone B
 					SubnetIID: irs.IID{SystemId: ""}, //hongkong-c
 					//SecurityGroupIIDs: []irs.IID{{SystemId: ""}, {SystemId: ""}},
-					SecurityGroupIIDs: []irs.IID{{SystemId: ""}}, // 홍콩 리전
+					SecurityGroupIIDs: []irs.IID{{SystemId: ""}}, // Hong Kong region
 					//VMSpecName:        "ecs.t5-lc2m1.nano",
-					//VMSpecName: "ecs.g6.large", //cn-wulanchabu 리전
-					// VMSpecName: "ecs.t5-lc2m1.nano", //도쿄리전
-					VMSpecName: "ecs.t5-lc2m1.nano", //홍콩리전
+					//VMSpecName: "ecs.g6.large", //cn-wulanchabu region
+					// VMSpecName: "ecs.t5-lc2m1.nano", //Tokyo region
+					VMSpecName: "ecs.t5-lc2m1.nano", //Hong Kong region
 					// KeyPairIID: irs.IID{SystemId: ""},
-					KeyPairIID: irs.IID{SystemId: ""}, //홍콩리전
-					//VMUserId:          "root", //root만 가능
-					//VMUserPasswd: "Cbuser!@#", //대문자 소문자 모두 사용되어야 함. 그리고 숫자나 특수 기호 중 하나가 포함되어야 함.
+					KeyPairIID: irs.IID{SystemId: ""}, //Hong Kong region
+					//VMUserId:          "root", //root only
+					//VMUserPasswd: "Cbuser!@#", //Must include both uppercase and lowercase letters, and one of numbers or special characters
 
 					// RootDiskType: "cloud_efficiency", //cloud / cloud_efficiency / cloud_ssd / cloud_essd
 					// RootDiskSize: "default",
@@ -1246,7 +1246,7 @@ func handleNLB() {
 					cblogger.Infof(nlbReqInfo.IId.NameId, "Fail to create NLB : ", err)
 				} else {
 					cblogger.Infof("Result of create NLB : ", result)
-					//reqNLBId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					//reqNLBId = result.IId // Changed to the ID created for retrieval and deletion
 					spew.Dump(result)
 				}
 
@@ -1280,7 +1280,7 @@ func handleNLB() {
 					cblogger.Infof("Fail to add VM : ", err)
 				} else {
 					cblogger.Infof("Result of add VM : ", result)
-					//reqSubnetId = result.SubnetInfoList[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+					//reqSubnetId = result.SubnetInfoList[0].IId // Changed to the ID created for retrieval and deletion
 					spew.Dump(result)
 				}
 
@@ -1704,9 +1704,9 @@ func handleMyImage() {
 
 				result, err := handler.ListMyImage()
 				if err != nil {
-					cblogger.Infof(" MyImage 목록 조회 실패 : ", err)
+					cblogger.Infof("Failed to retrieve MyImage list : ", err)
 				} else {
-					cblogger.Info("MyImage 목록 조회 결과")
+					cblogger.Info("Result of MyImage list retrieval")
 					spew.Dump(result)
 				}
 
@@ -1715,9 +1715,9 @@ func handleMyImage() {
 				// tagName = ""
 				result, err := handler.GetMyImage(resourceIID)
 				if err != nil {
-					cblogger.Info(" MyImage 조회 실패 : ", err)
+					cblogger.Info("Failed to retrieve MyImage : ", err)
 				} else {
-					cblogger.Info("GetMyImage 조회 결과")
+					cblogger.Info("Result of GetMyImage retrieval")
 					//spew.Dump(result)
 					cblogger.Info(result)
 				}
@@ -1726,9 +1726,9 @@ func handleMyImage() {
 				// tagName = ""
 				result, err := handler.SnapshotVM(snapshotReqInfo)
 				if err != nil {
-					cblogger.Info(" MyImage 조회 실패 : ", err)
+					cblogger.Info("Failed to create MyImage : ", err)
 				} else {
-					cblogger.Info("CreateMyImage 조회 결과")
+					cblogger.Info("Result of CreateMyImage")
 					//spew.Dump(result)
 					cblogger.Info(result)
 				}
@@ -1738,9 +1738,9 @@ func handleMyImage() {
 				// 	newTag.Value = "addValueT1"
 				// 	result, err := handler.AddTag(resourceType, resourceIID, newTag)
 				// 	if err != nil {
-				// 		cblogger.Info(" Tag 조회 실패 : ", err)
+				// 		cblogger.Info("Failed to retrieve Tag : ", err)
 				// 	} else {
-				// 		cblogger.Info("AddTag 조회 결과")
+				// 		cblogger.Info("Result of AddTag")
 				// 		//spew.Dump(result)
 				// 		cblogger.Info(result)
 				// 	}
@@ -1748,9 +1748,9 @@ func handleMyImage() {
 				// 	tagName := "addKeyT1"
 				// 	result, err := handler.RemoveTag(resourceType, resourceIID, tagName)
 				// 	if err != nil {
-				// 		cblogger.Info(" Tag 조회 실패 : ", err)
+				// 		cblogger.Info("Failed to retrieve Tag : ", err)
 				// 	} else {
-				// 		cblogger.Info("RemoveTag 조회 결과")
+				// 		cblogger.Info("Result of RemoveTag")
 				// 		//spew.Dump(result)
 				// 		cblogger.Info(result)
 				// 	}
@@ -1827,9 +1827,9 @@ func handleCluster() {
 
 				result, err := handler.ListCluster()
 				if err != nil {
-					cblogger.Infof(" MyImage 목록 조회 실패 : ", err)
+					cblogger.Infof("Failed to retrieve Cluster list : ", err)
 				} else {
-					cblogger.Info("MyImage 목록 조회 결과")
+					cblogger.Info("Result of Cluster list retrieval")
 					spew.Dump(result)
 				}
 			case 2:
@@ -1837,9 +1837,9 @@ func handleCluster() {
 				// tagName = ""
 				result, err := handler.GetCluster(resourceIID)
 				if err != nil {
-					cblogger.Info(" MyImage 조회 실패 : ", err)
+					cblogger.Info("Failed to retrieve Cluster : ", err)
 				} else {
-					cblogger.Info("GetMyImage 조회 결과")
+					cblogger.Info("Result of GetCluster retrieval")
 					//spew.Dump(result)
 					cblogger.Info(result)
 				}
@@ -1848,9 +1848,9 @@ func handleCluster() {
 				// tagName = ""
 				result, err := handler.CreateCluster(clusterReqInfo)
 				if err != nil {
-					cblogger.Info(" MyImage 조회 실패 : ", err)
+					cblogger.Info("Failed to create Cluster : ", err)
 				} else {
-					cblogger.Info("CreateMyImage 조회 결과")
+					cblogger.Info("Result of CreateCluster")
 					//spew.Dump(result)
 					cblogger.Info(result)
 				}
@@ -1860,9 +1860,9 @@ func handleCluster() {
 				// 	newTag.Value = "addValueT1"
 				// 	result, err := handler.AddTag(resourceType, resourceIID, newTag)
 				// 	if err != nil {
-				// 		cblogger.Info(" Tag 조회 실패 : ", err)
+				// 		cblogger.Info("Failed to retrieve Tag : ", err)
 				// 	} else {
-				// 		cblogger.Info("AddTag 조회 결과")
+				// 		cblogger.Info("Result of AddTag")
 				// 		//spew.Dump(result)
 				// 		cblogger.Info(result)
 				// 	}
@@ -1870,9 +1870,9 @@ func handleCluster() {
 				// 	tagName := "addKeyT1"
 				// 	result, err := handler.RemoveTag(resourceType, resourceIID, tagName)
 				// 	if err != nil {
-				// 		cblogger.Info(" Tag 조회 실패 : ", err)
+				// 		cblogger.Info("Failed to retrieve Tag : ", err)
 				// 	} else {
-				// 		cblogger.Info("RemoveTag 조회 결과")
+				// 		cblogger.Info("Result of RemoveTag")
 				// 		//spew.Dump(result)
 				// 		cblogger.Info(result)
 				// 	}
@@ -1893,19 +1893,66 @@ func handleFileSystem() {
 
 	tag1 := irs.KeyValue{Key: "fsaa", Value: "fsbb"}
 
-	fileSystemReqInfo := irs.FileSystemInfo{
-		IId:    irs.IID{NameId: "cb-test-nas"},
-		VpcIID: irs.IID{SystemId: ""}, // VPC ID 필요
-		Zone:   "",                    // Zone ID 필요 (예: "cn-hongkong-b")
+	// Basic setup - minimum required information
+	fileSystemReqInfoBasic := irs.FileSystemInfo{
+		IId:    irs.IID{NameId: "cb-test-nas-basic"},
+		VpcIID: irs.IID{SystemId: "vpc-6weua85b8bmwduzec8bvj"}, // VPC ID required
+		Zone:   "ap-northeast-1a",                              // Zone ID required (e.g., "cn-hongkong-b")
 		AccessSubnetList: []irs.IID{
-			{SystemId: ""}, // Subnet ID 필요
+			{SystemId: "vsw-6wemkeefn461cmrqi5fbl"}, // Subnet ID required
 		},
 		TagList: []irs.KeyValue{tag1},
-		// PerformanceInfo: map[string]string{
-		// 	"StorageType":  "Capacity",
-		// 	"ProtocolType": "NFS",
-		// 	"Capacity":     "1024",
-		// },
+		PerformanceInfo: map[string]string{
+			"StorageType": "Capacity", // Required: StorageType must be specified
+		},
+	}
+
+	// Advanced setup - with custom performance options (Capacity)
+	fileSystemReqInfoAdvanced := irs.FileSystemInfo{
+		IId:    irs.IID{NameId: "cb-test-nas-advanced"},
+		VpcIID: irs.IID{SystemId: "vpc-6weua85b8bmwduzec8bvj"}, // VPC ID required
+		Zone:   "ap-northeast-1a",                              // Zone ID required
+		AccessSubnetList: []irs.IID{
+			{SystemId: "vsw-6wemkeefn461cmrqi5fbl"}, // Subnet ID required
+		},
+		TagList: []irs.KeyValue{tag1},
+		PerformanceInfo: map[string]string{
+			"StorageType":  "Capacity",
+			"ProtocolType": "NFS",
+			"Capacity":     "1024",
+		},
+	}
+
+	// Premium storage type example
+	fileSystemReqInfoPremium := irs.FileSystemInfo{
+		IId:    irs.IID{NameId: "cb-test-nas-premium"},
+		VpcIID: irs.IID{SystemId: "vpc-6weua85b8bmwduzec8bvj"}, // VPC ID required
+		Zone:   "ap-northeast-1a",                              // Zone ID required
+		AccessSubnetList: []irs.IID{
+			{SystemId: "vsw-6wemkeefn461cmrqi5fbl"}, // Subnet ID required
+		},
+		TagList: []irs.KeyValue{tag1},
+		PerformanceInfo: map[string]string{
+			"StorageType":  "Premium",
+			"ProtocolType": "NFS",
+			"Capacity":     "2048",
+		},
+	}
+
+	// Performance storage type example
+	fileSystemReqInfoPerformance := irs.FileSystemInfo{
+		IId:    irs.IID{NameId: "cb-test-nas-performance"},
+		VpcIID: irs.IID{SystemId: "vpc-6weua85b8bmwduzec8bvj"}, // VPC ID required
+		Zone:   "ap-northeast-1a",                              // Zone ID required
+		AccessSubnetList: []irs.IID{
+			{SystemId: "vsw-6wemkeefn461cmrqi5fbl"}, // Subnet ID required
+		},
+		TagList: []irs.KeyValue{tag1},
+		PerformanceInfo: map[string]string{
+			"StorageType":  "Performance",
+			"ProtocolType": "NFS",
+			"Capacity":     "2048",
+		},
 	}
 
 	reqFileSystemId := irs.IID{SystemId: ""}
@@ -1915,13 +1962,16 @@ func handleFileSystem() {
 		fmt.Println("0. Quit")
 		fmt.Println("1. GetMetaInfo")
 		fmt.Println("2. FileSystem List")
-		fmt.Println("3. FileSystem Create")
-		fmt.Println("4. FileSystem Get")
-		fmt.Println("5. FileSystem Delete")
-		fmt.Println("6. Add Access Subnet")
-		fmt.Println("7. Remove Access Subnet")
-		fmt.Println("8. List Access Subnet")
-		fmt.Println("9. List IID")
+		fmt.Println("3. FileSystem Create (Basic Setup)")
+		fmt.Println("4. FileSystem Create (Advanced Setup - Capacity)")
+		fmt.Println("5. FileSystem Create (Premium Storage)")
+		fmt.Println("6. FileSystem Create (Performance Storage)")
+		fmt.Println("7. FileSystem Get")
+		fmt.Println("8. FileSystem Delete")
+		fmt.Println("9. Add Access Subnet")
+		fmt.Println("10. Remove Access Subnet")
+		fmt.Println("11. List Access Subnet")
+		fmt.Println("12. List IID")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -1958,17 +2008,50 @@ func handleFileSystem() {
 				}
 
 			case 3:
-				cblogger.Infof("[%s] Test of create FileSystem", fileSystemReqInfo.IId.NameId)
-				result, err := handler.CreateFileSystem(fileSystemReqInfo)
+				cblogger.Infof("[%s] Test of create FileSystem (Basic Setup)", fileSystemReqInfoBasic.IId.NameId)
+				result, err := handler.CreateFileSystem(fileSystemReqInfoBasic)
 				if err != nil {
 					cblogger.Error("Failed to create FileSystem: ", err)
 				} else {
-					cblogger.Info("Result of create FileSystem")
+					cblogger.Info("Result of create FileSystem (Basic Setup)")
 					reqFileSystemId = result.IId
 					spew.Dump(result)
 				}
 
 			case 4:
+				cblogger.Infof("[%s] Test of create FileSystem (Advanced Setup - Capacity)", fileSystemReqInfoAdvanced.IId.NameId)
+				result, err := handler.CreateFileSystem(fileSystemReqInfoAdvanced)
+				if err != nil {
+					cblogger.Error("Failed to create FileSystem: ", err)
+				} else {
+					cblogger.Info("Result of create FileSystem (Advanced Setup - Capacity)")
+					reqFileSystemId = result.IId
+					spew.Dump(result)
+				}
+
+			case 5:
+				cblogger.Infof("[%s] Test of create FileSystem (Premium Storage)", fileSystemReqInfoPremium.IId.NameId)
+				result, err := handler.CreateFileSystem(fileSystemReqInfoPremium)
+				if err != nil {
+					cblogger.Error("Failed to create FileSystem: ", err)
+				} else {
+					cblogger.Info("Result of create FileSystem (Premium Storage)")
+					reqFileSystemId = result.IId
+					spew.Dump(result)
+				}
+
+			case 6:
+				cblogger.Infof("[%s] Test of create FileSystem (Performance Storage)", fileSystemReqInfoPerformance.IId.NameId)
+				result, err := handler.CreateFileSystem(fileSystemReqInfoPerformance)
+				if err != nil {
+					cblogger.Error("Failed to create FileSystem: ", err)
+				} else {
+					cblogger.Info("Result of create FileSystem (Performance Storage)")
+					reqFileSystemId = result.IId
+					spew.Dump(result)
+				}
+
+			case 7:
 				cblogger.Infof("[%s] Test of retrieve FileSystem", reqFileSystemId)
 				result, err := handler.GetFileSystem(reqFileSystemId)
 				if err != nil {
@@ -1978,7 +2061,7 @@ func handleFileSystem() {
 					spew.Dump(result)
 				}
 
-			case 5:
+			case 8:
 				cblogger.Infof("[%s] Test of delete FileSystem", reqFileSystemId)
 				result, err := handler.DeleteFileSystem(reqFileSystemId)
 				if err != nil {
@@ -1987,9 +2070,9 @@ func handleFileSystem() {
 					cblogger.Info("Result of delete FileSystem: ", result)
 				}
 
-			case 6:
+			case 9:
 				cblogger.Infof("[%s] Test of add access subnet", reqFileSystemId)
-				subnetIID := irs.IID{SystemId: ""} // 추가할 Subnet ID
+				subnetIID := irs.IID{SystemId: "vsw-6wemkeefn461cmrqi5fbl"}
 				result, err := handler.AddAccessSubnet(reqFileSystemId, subnetIID)
 				if err != nil {
 					cblogger.Error("Failed to add access subnet: ", err)
@@ -1998,9 +2081,9 @@ func handleFileSystem() {
 					spew.Dump(result)
 				}
 
-			case 7:
+			case 10:
 				cblogger.Infof("[%s] Test of remove access subnet", reqFileSystemId)
-				subnetIID := irs.IID{SystemId: ""} // 제거할 Subnet ID
+				subnetIID := irs.IID{SystemId: "vsw-6wemkeefn461cmrqi5fbl"}
 				result, err := handler.RemoveAccessSubnet(reqFileSystemId, subnetIID)
 				if err != nil {
 					cblogger.Error("Failed to remove access subnet: ", err)
@@ -2008,7 +2091,7 @@ func handleFileSystem() {
 					cblogger.Info("Result of remove access subnet: ", result)
 				}
 
-			case 8:
+			case 11:
 				cblogger.Infof("[%s] Test of list access subnet", reqFileSystemId)
 				result, err := handler.ListAccessSubnet(reqFileSystemId)
 				if err != nil {
@@ -2018,17 +2101,18 @@ func handleFileSystem() {
 					spew.Dump(result)
 				}
 
-			case 9:
-				cblogger.Info("List IID test")
+			case 12:
+				cblogger.Info("Start ListIID() ...")
 				result, err := handler.ListIID()
 				if err != nil {
-					cblogger.Error("Failed to list IID: ", err)
+					cblogger.Error("Failed to retrieve FileSystem IID list: ", err)
 				} else {
-					cblogger.Info("Result of IID List")
-					for _, v := range result {
-						cblogger.Info("IID List: %+v", v)
-					}
+					cblogger.Info("Result of FileSystem IID list")
+					spew.Dump(result)
 				}
+
+			default:
+				fmt.Println("Unknown command")
 			}
 		}
 	}
