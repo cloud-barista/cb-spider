@@ -68,8 +68,12 @@ func (vpcHandler *KtCloudVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.V
 	// Check if the VPC Name already Exists
 	vpcInfo, checkErr := vpcHandler.GetVPC(irs.IID{SystemId: vpcReqInfo.IId.NameId})
 	if checkErr != nil {
-		cblogger.Error("Failed to Get the VPC info.")
-		return irs.VPCInfo{}, checkErr
+		if strings.Contains(checkErr.Error(), "does not exist") {
+			cblogger.Info("The VPC does not exist.")
+		} else {
+			cblogger.Error("Failed to Get the VPC info.")
+			return irs.VPCInfo{}, checkErr
+		}
 	}
 
 	if vpcInfo.IId.SystemId != "" {
@@ -187,8 +191,12 @@ func (vpcHandler *KtCloudVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 
 	jsonFile, err := os.Open(jsonFileName)
 	if err != nil {
-		cblogger.Error("Failed to Find the VPC file : "+jsonFileName+" ", err)
-		cblogger.Error("Failed to Find the VPC info!!")
+		if errors.Is(err, os.ErrNotExist) {
+			cblogger.Info("Failed to Find the VPC file : "+jsonFileName+" ", err)
+			err := fmt.Errorf("%s", "VPC:"+vpcIID.NameId+" does not exist!")
+			return irs.VPCInfo{}, err
+		}
+		cblogger.Error("Failed to open the VPC file : "+jsonFileName+" ", err)
 		return irs.VPCInfo{}, err
 	}
 	defer jsonFile.Close()
