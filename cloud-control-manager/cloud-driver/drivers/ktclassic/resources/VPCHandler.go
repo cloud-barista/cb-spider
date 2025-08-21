@@ -193,7 +193,7 @@ func (vpcHandler *KtCloudVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			cblogger.Info("Failed to Find the VPC file : "+jsonFileName+" ", err)
-			err := fmt.Errorf("%s", "VPC:"+vpcIID.NameId+" does not exist!")
+			err := fmt.Errorf("VPC:%s does not exist!", vpcIID.NameId)
 			return irs.VPCInfo{}, err
 		}
 		cblogger.Error("Failed to open the VPC file : "+jsonFileName+" ", err)
