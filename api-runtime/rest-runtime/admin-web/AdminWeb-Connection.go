@@ -75,30 +75,30 @@ func makeOnchangeConnectionConfigProviderFunc_js() string {
 	    regionNameList = document.getElementsByName('regionName-OPENSTACK');
             break;
 
-          case "NCPVPC":
-	    driverNameList = document.getElementsByName('driverName-NCPVPC');
-	    credentialNameList = document.getElementsByName('credentialName-NCPVPC');
-	    regionNameList = document.getElementsByName('regionName-NCPVPC');
+          case "NCP":
+	    driverNameList = document.getElementsByName('driverName-NCP');
+	    credentialNameList = document.getElementsByName('credentialName-NCP');
+	    regionNameList = document.getElementsByName('regionName-NCP');
             break;
           case "NCP":
 	    driverNameList = document.getElementsByName('driverName-NCP');
 	    credentialNameList = document.getElementsByName('credentialName-NCP');
 	    regionNameList = document.getElementsByName('regionName-NCP');
             break;
-          case "NHNCLOUD":
-	    driverNameList = document.getElementsByName('driverName-NHNCLOUD');
-	    credentialNameList = document.getElementsByName('credentialName-NHNCLOUD');
-	    regionNameList = document.getElementsByName('regionName-NHNCLOUD');
+          case "NHN":
+	    driverNameList = document.getElementsByName('driverName-NHN');
+	    credentialNameList = document.getElementsByName('credentialName-NHN');
+	    regionNameList = document.getElementsByName('regionName-NHN');
             break;
-		case "KTCLOUD":
-			driverNameList = document.getElementsByName('driverName-KTCLOUD');
-			credentialNameList = document.getElementsByName('credentialName-KTCLOUD');
-			regionNameList = document.getElementsByName('regionName-KTCLOUD');
+		case "KTCLASSIC":
+			driverNameList = document.getElementsByName('driverName-KTCLASSIC');
+			credentialNameList = document.getElementsByName('credentialName-KTCLASSIC');
+			regionNameList = document.getElementsByName('regionName-KTCLASSIC');
 				break;
-		case "KTCLOUDVPC":
-			driverNameList = document.getElementsByName('driverName-KTCLOUDVPC');
-			credentialNameList = document.getElementsByName('credentialName-KTCLOUDVPC');
-			regionNameList = document.getElementsByName('regionName-KTCLOUDVPC');
+		case "KT":
+			driverNameList = document.getElementsByName('driverName-KT');
+			credentialNameList = document.getElementsByName('credentialName-KT');
+			regionNameList = document.getElementsByName('regionName-KT');
 				break;
 
           case "MOCK":

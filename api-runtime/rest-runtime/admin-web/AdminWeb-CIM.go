@@ -340,19 +340,19 @@ func makeOnchangeCredentialProviderFunc_js() string {
 			credentialInfo = '[{"Key":"IdentityEndpoint", "Value":"http://123.456.789.123:5000/v3"}, {"Key":"Username", "Value":"etri"}, {"Key":"Password", "Value":"xxxx"}, {"Key":"DomainName", "Value":"default"}, {"Key":"ProjectID", "Value":"xxxx"}]'
 		    break;
 
-		  case "NCPVPC":
+		  case "NCP":
 			credentialInfo = '[{"Key":"ClientId", "Value":"XXXXXXXXXXXXXXXXXXX"}, {"Key":"ClientSecret", "Value":"XXXXXXXXXXXXXXXXXXXXXXXXXXX"}]'
 		    break;
 		  case "NCP":
 			credentialInfo = '[{"Key":"ClientId", "Value":"XXXXXXXXXXXXXXXXXXX"}, {"Key":"ClientSecret", "Value":"XXXXXXXXXXXXXXXXXXXXXXXXXXX"}]'
 		    break;
-		  case "NHNCLOUD":
+		  case "NHN":
 			credentialInfo = '[{"Key":"IdentityEndpoint", "Value":"https://api-identity-infrastructure.nhncloudservice.com"}, {"Key":"Username", "Value":"XXXXX@XXXXXXXXXXXXXXXX"}, {"Key":"Password", "Value":"XXXXXXXXXXXXXXXXXX"}, {"Key":"DomainName", "Value":"default"}, {"Key":"TenantId", "Value":"XXXXXXXXXXXXXXXXX"}]'
 		    break;
-		case "KTCLOUD":
+		case "KTCLASSIC":
 			credentialInfo = '[{"Key":"ClientId", "Value":"XXXXXXXXXXXXXXXXXXX"}, {"Key":"ClientSecret", "Value":"XXXXXXXXXXXXXXXXXXXXXXXXXXX"}]'
 		    break;
-		case "KTCLOUDVPC":
+		case "KT":
 			credentialInfo = ' [{"Key":"IdentityEndpoint", "Value":"https://api.ucloudbiz.olleh.com/d1/identity/v3/"}, {"Key":"Username", "Value":"~~~@~~~.com"}, {"Key":"Password", "Value":"XXXXXXXXXX"}, {"Key":"DomainName", "Value":"default"}, {"Key":"ProjectID", "Value":"XXXXXXXXXX"}]'
 		    break;
 
@@ -642,7 +642,7 @@ func makeOnchangeRegionProviderFunc_js() string {
             region = 'RegionOne'
             break;
 
-          case "NCPVPC":
+          case "NCP":
             regionInfo = '[{"Key":"Region", "Value":"KR"}, {"Key":"Zone", "Value":"KR-1"}]'
             region = 'KR-1'
             break;
@@ -650,15 +650,15 @@ func makeOnchangeRegionProviderFunc_js() string {
             regionInfo = '[{"Key":"region", "Value":"KR"}]'
             region = 'KR'
             break;
-          case "NHNCLOUD":
+          case "NHN":
             regionInfo = '[{"Key":"Region", "Value":"KR1"}]'
             region = 'KR1'
             break;
-		case "KTCLOUD":
+		case "KTCLASSIC":
             regionInfo = '[{"Key":"Region", "Value":"KOR-Seoul"}, {"Key":"Zone", "Value":"95e2f517-d64a-4866-8585-5177c256f7c7"}]'
             region = 'KOR-Seoul-M'
             break;
-		case "KTCLOUDVPC":
+		case "KT":
             regionInfo = '[{"Key":"Region", "Value":"KR1"}, {"Key":"Zone", "Value":"DX-M1"}]'
             region = 'KR1-DX-M1'
             break;

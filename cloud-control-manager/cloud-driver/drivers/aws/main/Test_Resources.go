@@ -2568,7 +2568,7 @@ func main() {
 	// handleImage() //AMI
 	// handleVNic() //Lancard
 	//handleVMSpec()
-	//handleRegionZone()
+	handleRegionZone()
 	//handlePriceInfo()
 	//handleTag()
 	handleFileSystem()

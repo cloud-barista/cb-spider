@@ -1,67 +1,55 @@
 // Proof of Concepts for the Cloud-Barista Multi-Cloud Project.
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
-// NCP Classic RegionZone Handler
+// NCP VPC RegionZone Handler
 //
 // Created by ETRI, 2023.09.
 // Updated by ETRI, 2025.02.
 //==================================================================================================
 
+// RegionZoneInfo Fetch Speed Improvement and KeyValueList Omission Issue :
+// https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
+
 package resources
 
 import (
-	"fmt"
 	// "errors"
+	"fmt"
 	"sync"
 	"strings"
 	// "github.com/davecgh/go-spew/spew"
 
 	// ncloud "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
-	server "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/server"
+	vserver "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
 
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
-// KeyValueList Omission Issue : https://github.com/cloud-barista/cb-spider/issues/930#issuecomment-1734817828
-
 type NcpRegionZoneHandler struct {
-	CredentialInfo 	idrv.CredentialInfo
 	RegionInfo     	idrv.RegionInfo
-	VMClient        *server.APIClient
+	VMClient        *vserver.APIClient
 }
 
 func (regionZoneHandler *NcpRegionZoneHandler) ListRegionZone() ([]*irs.RegionZoneInfo, error) {
-	cblogger.Info("NCP Classic Cloud Driver: called ListRegionZone()!!")	
+	cblogger.Info("NCP VPC Cloud Driver: called ListRegionZone()!!")	
 
 	InitLog()
 	callLogInfo := GetCallLogScheme(regionZoneHandler.RegionInfo.Zone, call.REGIONZONE, "ListRegionZone()", "ListRegionZone()")
 
-	regionListReq := server.GetRegionListRequest{}
-	callLogStart := call.Start()
-	regionListResult, err := regionZoneHandler.VMClient.V2Api.GetRegionList(&regionListReq)
+	ncpVpcRegionList, err := regionZoneHandler.getNcpVpcRegionList("ListRegionZone()")
 	if err != nil {
 		rtnErr := logAndReturnError(callLogInfo, "Failed to Get RegionList from NCP Cloud : ", err)
 		return nil, rtnErr
 	}
-	LoggingInfo(callLogInfo, callLogStart)
-
-	if len(regionListResult.RegionList) < 1 {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Find Any Region Info.", "")
-		return nil, rtnErr
-	} else {
-		cblogger.Infof("# Supported Region count : [%d]", len(regionListResult.RegionList))
-		// spew.Dump(regionListResult)
-	}
 
 	var regionZoneInfoList []*irs.RegionZoneInfo
 	var wait sync.WaitGroup
-	var zoneListErr error
-	var zoneExistErr error
-	for _, region := range regionListResult.RegionList {
+	var zoneListError error
+	for _, region := range ncpVpcRegionList {
 		wait.Add(1)
-		go func(region *server.Region) {
+		go func(region *vserver.Region) {
 			defer wait.Done()
 			cblogger.Info("# Search Criteria(NCP RegionCode) : ", *region.RegionCode)
 
@@ -70,39 +58,24 @@ func (regionZoneHandler *NcpRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 				DisplayName: 	*region.RegionName,
 				CSPDisplayName:	*region.RegionName,
 				// KeyValueList: []irs.KeyValue{
-				// 	{Key: "RegionNo", 		Value: *region.RegionNo},
 				// 	{Key: "RegionCode", 	Value: *region.RegionCode},
 				// },
 			}
-			zoneListReq := server.GetZoneListRequest{
-				RegionNo: 	region.RegionNo,
-				//RegionNo: nil, // Caution!! : If look up like this, only two Korean zones will be returned as zones.
-			}
-			callLogStart := call.Start()
-			zoneListResult, err := regionZoneHandler.VMClient.V2Api.GetZoneList(&zoneListReq)
+
+			ncpVpcZoneList, err := regionZoneHandler.getNcpVpcZoneList(region.RegionCode, "ListRegionZone()")
 			if err != nil {
-				zoneListErr = err
+				zoneListError = err
 				return
-			}
-			LoggingInfo(callLogInfo, callLogStart)
-			
-			if len(zoneListResult.ZoneList) < 1 {
-				zoneExistErr = fmt.Errorf("Failed to Find Any Zone Info!!")
-				return
-			} else {
-				cblogger.Infof("# Supported Zone count : [%d]", len(zoneListResult.ZoneList))
-				// spew.Dump(zoneListResult)
 			}
 
 			var zoneInfoList []irs.ZoneInfo
-			for _, zone := range zoneListResult.ZoneList {
+			for _, zone := range ncpVpcZoneList {
 				zoneInfo := irs.ZoneInfo{
 					Name: 			*zone.ZoneName,
 					DisplayName: 	*zone.ZoneDescription,
 					CSPDisplayName: *zone.ZoneDescription,
-					Status: 		irs.NotSupported,				
+					Status: 		irs.NotSupported,
 					// KeyValueList: []irs.KeyValue{
-					// 	{Key: "ZoneNo", 	Value: *zone.ZoneNo},
 					// 	{Key: "ZoneCode", 	Value: *zone.ZoneCode},
 					// },
 				}
@@ -114,12 +87,8 @@ func (regionZoneHandler *NcpRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 	}
 	wait.Wait()
 
-	if zoneListErr != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Get Zone List!!", zoneListErr)
-		return nil, rtnErr
-	}
-	if zoneExistErr != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Get Zone Info.", zoneExistErr)
+	if zoneListError != nil {
+		rtnErr := logAndReturnError(callLogInfo, "Failed to Get Zone List!!", zoneListError)
 		return nil, rtnErr
 	}
 
@@ -127,76 +96,50 @@ func (regionZoneHandler *NcpRegionZoneHandler) ListRegionZone() ([]*irs.RegionZo
 }
 
 func (regionZoneHandler NcpRegionZoneHandler) GetRegionZone(regionCode string) (irs.RegionZoneInfo, error) {
-	cblogger.Info("NCP Classic Cloud Driver: called GetRegionZone()!!")
-
+	cblogger.Info("NCP VPC Cloud Driver: called GetRegionZone()!!")
+	
 	InitLog()
 	callLogInfo := GetCallLogScheme(regionZoneHandler.RegionInfo.Zone, call.REGIONZONE, regionCode, "GetRegionZone()")
 
 	if len(regionCode) < 1 {
-		rtnErr := logAndReturnError(callLogInfo, "The RegionCode is Empty!!", "")
+		rtnErr := logAndReturnError(callLogInfo, "Invalid RegionCode!!", "")
 		return irs.RegionZoneInfo{}, rtnErr
 	}
 
-	regionListReq := server.GetRegionListRequest{}
-	callLogStart := call.Start()
-	regionListResult, err := regionZoneHandler.VMClient.V2Api.GetRegionList(&regionListReq)
+	ncpVpcRegionList, err := regionZoneHandler.getNcpVpcRegionList("GetRegionZone()")
 	if err != nil {
 		rtnErr := logAndReturnError(callLogInfo, "Failed to Get RegionList from NCP Cloud : ", err)
 		return irs.RegionZoneInfo{}, rtnErr
 	}
-	LoggingInfo(callLogInfo, callLogStart)
-
-	if len(regionListResult.RegionList) < 1 {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Find Any Region Info.", "")
-		return irs.RegionZoneInfo{}, rtnErr
-	} else {
-		cblogger.Infof("# Supported Region count : [%d]", len(regionListResult.RegionList))
-		// spew.Dump(regionListResult)
-	}
 
 	var regionZoneInfo irs.RegionZoneInfo
-	for _, region := range regionListResult.RegionList {
+	for _, region := range ncpVpcRegionList {
 		if strings.EqualFold(regionCode, *region.RegionCode){
 			cblogger.Info("# Search Criteria(NCP RegionCode) : ", *region.RegionCode)
 
 			regionZoneInfo = irs.RegionZoneInfo{
 				Name: 			*region.RegionCode,
-				DisplayName: 	*region.RegionName,	
+				DisplayName: 	*region.RegionName,
 				CSPDisplayName:	*region.RegionName,
 				// KeyValueList: []irs.KeyValue{
-				// 	{Key: "RegionNo", 		Value: *region.RegionNo},
 				// 	{Key: "RegionCode", 	Value: *region.RegionCode},
 				// },
 			}
-			zoneListReq := server.GetZoneListRequest{
-				RegionNo: 	region.RegionNo,
-				//RegionNo: nil, //CAUTION!! : If look up like this, only two Korean zones will be returned as zones.
-			}
-			callLogStart := call.Start()
-			zoneListResult, err := regionZoneHandler.VMClient.V2Api.GetZoneList(&zoneListReq)
+
+			ncpVpcZoneList, err := regionZoneHandler.getNcpVpcZoneList(region.RegionCode, "GetRegionZone()")
 			if err != nil {
 				rtnErr := logAndReturnError(callLogInfo, "Failed to Get ZoneList from NCP Cloud : ", err)
 				return irs.RegionZoneInfo{}, rtnErr
 			}
-			LoggingInfo(callLogInfo, callLogStart)
-			
-			if len(zoneListResult.ZoneList) < 1 {
-				rtnErr := logAndReturnError(callLogInfo, "Failed to Find Any Zone Info.", "")
-				return irs.RegionZoneInfo{}, rtnErr
-			} else {
-				cblogger.Infof("# Supported Zone count : [%d]", len(zoneListResult.ZoneList))
-				// spew.Dump(zoneListResult)
-			}
 	
 			var zoneInfoList []irs.ZoneInfo
-			for _, zone := range zoneListResult.ZoneList {
+			for _, zone := range ncpVpcZoneList {
 				zoneInfo := irs.ZoneInfo{
 					Name: 			*zone.ZoneName,
 					DisplayName: 	*zone.ZoneDescription,
 					CSPDisplayName: *zone.ZoneDescription,
-					Status: 		irs.NotSupported,	
+					Status: 		irs.NotSupported,
 					// KeyValueList: []irs.KeyValue{
-					// 	{Key: "ZoneNo", 	Value: *zone.ZoneNo},
 					// 	{Key: "ZoneCode", 	Value: *zone.ZoneCode},
 					// },
 				}
@@ -209,81 +152,115 @@ func (regionZoneHandler NcpRegionZoneHandler) GetRegionZone(regionCode string) (
 }
 
 func (regionZoneHandler *NcpRegionZoneHandler) ListOrgRegion() (string, error) {
-	cblogger.Info("NCP Classic Cloud Driver: called ListOrgRegion()!!")	
+	cblogger.Info("NCP VPC Cloud Driver: called ListOrgRegion()!!")	
 
 	InitLog()
 	callLogInfo := GetCallLogScheme(regionZoneHandler.RegionInfo.Zone, call.REGIONZONE, "ListOrgRegion()", "ListOrgRegion()")
 
-	regionListReq := server.GetRegionListRequest{}
+	// To return the results with a style similar to other CSPs.
+	type Regions struct {
+		RegionList 	[]*vserver.Region // Must be a capital letter!!
+	}
+
+	ncpVpcRegionList, err := regionZoneHandler.getNcpVpcRegionList("ListOrgRegion()")
+	if err != nil {
+		rtnErr := logAndReturnError(callLogInfo, "Failed to Get RegionList from NCP Cloud : ", err)
+		return "", rtnErr
+	}
+	ncpRegionList := Regions{
+		RegionList: ncpVpcRegionList,
+	}
+	jsonString, cvtErr := ConvertJsonString(ncpRegionList)
+	if cvtErr != nil {
+		rtnErr := logAndReturnError(callLogInfo, "Failed to Convert the RegionList to Json format string.", cvtErr)
+		return "", rtnErr
+	}
+	return jsonString, cvtErr
+}
+
+func (regionZoneHandler *NcpRegionZoneHandler) ListOrgZone() (string, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called ListOrgZone()!!")	
+
+	InitLog()
+	callLogInfo := GetCallLogScheme(regionZoneHandler.RegionInfo.Zone, call.REGIONZONE, "ListOrgZone()", "ListOrgZone()")
+
+	if len(regionZoneHandler.RegionInfo.Region) < 1 {
+		rtnErr := logAndReturnError(callLogInfo, "Invalid Region Info!!", "")
+		return "", rtnErr
+	}
+
+	// To return the results with a style similar to other CSPs.
+	type Zones struct {
+		ZoneList 	[]*vserver.Zone // Must be a capital letter!!
+	}
+
+	ncpVpcZoneList, err := regionZoneHandler.getNcpVpcZoneList(&regionZoneHandler.RegionInfo.Region, "ListOrgZone()")
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get ZoneList from NCP Cloud : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return "", newErr
+	}
+
+	ncpZoneList := Zones{
+		ZoneList: ncpVpcZoneList,
+	}
+	jsonString, cvtErr := ConvertJsonString(ncpZoneList)
+	if cvtErr != nil {
+		newErr := fmt.Errorf("Failed to Convert the ZoneList to Json format string. : [%v]", cvtErr)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return "", newErr
+	}
+	return jsonString, cvtErr
+}
+
+func (regionZoneHandler *NcpRegionZoneHandler) getNcpVpcRegionList(callLogfunc string) ([]*vserver.Region, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called getNcpVpcRegionList()!!")	
+
+	InitLog()
+	callLogInfo := GetCallLogScheme(regionZoneHandler.RegionInfo.Zone, call.REGIONZONE, callLogfunc, callLogfunc)
+
+	regionListReq := vserver.GetRegionListRequest{}
 	callLogStart := call.Start()
 	regionListResult, err := regionZoneHandler.VMClient.V2Api.GetRegionList(&regionListReq)
 	if err != nil {
 		rtnErr := logAndReturnError(callLogInfo, "Failed to Get RegionList from NCP Cloud : ", err)
-		return "", rtnErr
+		return nil, rtnErr
 	}
 	LoggingInfo(callLogInfo, callLogStart)
 
 	if len(regionListResult.RegionList) < 1 {
 		rtnErr := logAndReturnError(callLogInfo, "Failed to Find Any Region Info.", "")
-		return "", rtnErr
+		return nil, rtnErr
 	} else {
 		cblogger.Infof("# Supported Region count : [%d]", len(regionListResult.RegionList))
 		// spew.Dump(regionListResult)
 	}
-
-	jsonString, convertErr := ConvertJsonString(regionListResult)
-	if convertErr != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Convert the Region List to Json format string.", convertErr)
-		return "", rtnErr
-	}
-	return jsonString, convertErr
+	return regionListResult.RegionList, nil
 }
 
-func (regionZoneHandler *NcpRegionZoneHandler) ListOrgZone() (string, error) {
-	cblogger.Info("NCP Classic Cloud Driver: called ListOrgZone()!!")	
+func (regionZoneHandler *NcpRegionZoneHandler) getNcpVpcZoneList(regionCode *string, callLogfunc string) ([]*vserver.Zone, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called getNcpVpcZoneList()!!")	
 
 	InitLog()
-	callLogInfo := GetCallLogScheme(regionZoneHandler.RegionInfo.Zone, call.REGIONZONE, regionZoneHandler.RegionInfo.Region, "ListOrgZone()")
+	callLogInfo := GetCallLogScheme(regionZoneHandler.RegionInfo.Zone, call.REGIONZONE, *regionCode, callLogfunc)
 
-	if len(regionZoneHandler.RegionInfo.Region) < 1 {
-		rtnErr := logAndReturnError(callLogInfo, "RegionInfo.Region is Empty!!", "")
-		return "", rtnErr
-	}
-
-	vmHandler := NcpVMHandler{
-		CredentialInfo: 	regionZoneHandler.CredentialInfo,
-		RegionInfo:     	regionZoneHandler.RegionInfo,
-		VMClient:         	regionZoneHandler.VMClient,
-	}
-	regionNo, err := vmHandler.getRegionNo(regionZoneHandler.RegionInfo.Region)
-	if err != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Get NCP Region No of the Region Code : ", err)
-		return "", rtnErr
-	}
-	zoneListReq := server.GetZoneListRequest{
-		RegionNo: 	regionNo,
-		//RegionNo: nil, //CAUTION!! : If look up like this, only two Korean zones will be returned as zones.
-	}
+	zoneListReq := vserver.GetZoneListRequest{RegionCode: regionCode}
 	callLogStart := call.Start()
 	zoneListResult, err := regionZoneHandler.VMClient.V2Api.GetZoneList(&zoneListReq)
 	if err != nil {
 		rtnErr := logAndReturnError(callLogInfo, "Failed to Get ZoneList from NCP Cloud : ", err)
-		return "", rtnErr
+		return nil, rtnErr
 	}
 	LoggingInfo(callLogInfo, callLogStart)
-
+	
 	if len(zoneListResult.ZoneList) < 1 {
 		rtnErr := logAndReturnError(callLogInfo, "Failed to Find Any Zone Info.", "")
-		return "", rtnErr
+		return nil, rtnErr
 	} else {
-		cblogger.Infof("# Supported Zone count : [%d]", len(zoneListResult.ZoneList))
+		cblogger.Infof("# Supported Zone count [%s] : [%d]", *regionCode, len(zoneListResult.ZoneList))
 		// spew.Dump(zoneListResult)
 	}
-
-	jsonString, convertErr := ConvertJsonString(zoneListResult)
-	if convertErr != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Convert the Zone List to Json format string.", convertErr)
-		return "", rtnErr
-	}
-	return jsonString, convertErr
+	return zoneListResult.ZoneList, nil
 }

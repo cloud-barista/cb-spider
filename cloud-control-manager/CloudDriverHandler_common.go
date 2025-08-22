@@ -162,24 +162,24 @@ func createConnectionInfo(cloudConnectName string, targetZoneName string) (idrv.
 	// Create connection info object
 	connectionInfo := idrv.ConnectionInfo{
 		CredentialInfo: idrv.CredentialInfo{
-			ClientId:         getValue(crdInfo.KeyValueInfoList, "ClientId"),
-			ClientSecret:     getValue(crdInfo.KeyValueInfoList, "ClientSecret"),
-			StsToken:         getValue(crdInfo.KeyValueInfoList, "StsToken"),
-			TenantId:         getValue(crdInfo.KeyValueInfoList, "TenantId"),
-			SubscriptionId:   getValue(crdInfo.KeyValueInfoList, "SubscriptionId"),
-			IdentityEndpoint: getValue(crdInfo.KeyValueInfoList, "IdentityEndpoint"),
-			Username:         getValue(crdInfo.KeyValueInfoList, "Username"),
-			Password:         getValue(crdInfo.KeyValueInfoList, "Password"),
-			DomainName:       getValue(crdInfo.KeyValueInfoList, "DomainName"),
-			ProjectID:        getValue(crdInfo.KeyValueInfoList, "ProjectID"),
-			AuthToken:        getValue(crdInfo.KeyValueInfoList, "AuthToken"),
-			ClientEmail:      getValue(crdInfo.KeyValueInfoList, "ClientEmail"),
-			PrivateKey:       getValue(crdInfo.KeyValueInfoList, "PrivateKey"),
-			Host:             getValue(crdInfo.KeyValueInfoList, "Host"),
-			APIVersion:       getValue(crdInfo.KeyValueInfoList, "APIVersion"),
-			MockName:         getValue(crdInfo.KeyValueInfoList, "MockName"),
-			ApiKey:           getValue(crdInfo.KeyValueInfoList, "ApiKey"),
-			ClusterId:        getValue(crdInfo.KeyValueInfoList, "ClusterId"),
+			ClientId:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientId"),
+			ClientSecret:     KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientSecret"),
+			StsToken:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "StsToken"),
+			TenantId:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "TenantId"),
+			SubscriptionId:   KeyValueListGetValue(crdInfo.KeyValueInfoList, "SubscriptionId"),
+			IdentityEndpoint: KeyValueListGetValue(crdInfo.KeyValueInfoList, "IdentityEndpoint"),
+			Username:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "Username"),
+			Password:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "Password"),
+			DomainName:       KeyValueListGetValue(crdInfo.KeyValueInfoList, "DomainName"),
+			ProjectID:        KeyValueListGetValue(crdInfo.KeyValueInfoList, "ProjectID"),
+			AuthToken:        KeyValueListGetValue(crdInfo.KeyValueInfoList, "AuthToken"),
+			ClientEmail:      KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientEmail"),
+			PrivateKey:       KeyValueListGetValue(crdInfo.KeyValueInfoList, "PrivateKey"),
+			Host:             KeyValueListGetValue(crdInfo.KeyValueInfoList, "Host"),
+			APIVersion:       KeyValueListGetValue(crdInfo.KeyValueInfoList, "APIVersion"),
+			MockName:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "MockName"),
+			ApiKey:           KeyValueListGetValue(crdInfo.KeyValueInfoList, "ApiKey"),
+			ClusterId:        KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClusterId"),
 			ConnectionName:   cloudConnectName,
 		},
 		RegionInfo: idrv.RegionInfo{
@@ -363,24 +363,24 @@ func GetCloudConnectionByDriverNameAndCredentialName(driverName string, credenti
 
 	connectionInfo := idrv.ConnectionInfo{ // @todo powerkim
 		CredentialInfo: idrv.CredentialInfo{
-			ClientId:         getValue(crdInfo.KeyValueInfoList, "ClientId"),
-			ClientSecret:     getValue(crdInfo.KeyValueInfoList, "ClientSecret"),
-			StsToken:         getValue(crdInfo.KeyValueInfoList, "StsToken"),
-			TenantId:         getValue(crdInfo.KeyValueInfoList, "TenantId"),
-			SubscriptionId:   getValue(crdInfo.KeyValueInfoList, "SubscriptionId"),
-			IdentityEndpoint: getValue(crdInfo.KeyValueInfoList, "IdentityEndpoint"),
-			Username:         getValue(crdInfo.KeyValueInfoList, "Username"),
-			Password:         getValue(crdInfo.KeyValueInfoList, "Password"),
-			DomainName:       getValue(crdInfo.KeyValueInfoList, "DomainName"),
-			ProjectID:        getValue(crdInfo.KeyValueInfoList, "ProjectID"),
-			AuthToken:        getValue(crdInfo.KeyValueInfoList, "AuthToken"),
-			ClientEmail:      getValue(crdInfo.KeyValueInfoList, "ClientEmail"),
-			PrivateKey:       getValue(crdInfo.KeyValueInfoList, "PrivateKey"),
-			Host:             getValue(crdInfo.KeyValueInfoList, "Host"),
-			APIVersion:       getValue(crdInfo.KeyValueInfoList, "APIVersion"),
-			MockName:         getValue(crdInfo.KeyValueInfoList, "MockName"),
-			ApiKey:           getValue(crdInfo.KeyValueInfoList, "ApiKey"),
-			ClusterId:        getValue(crdInfo.KeyValueInfoList, "ClusterId"),
+			ClientId:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientId"),
+			ClientSecret:     KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientSecret"),
+			StsToken:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "StsToken"),
+			TenantId:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "TenantId"),
+			SubscriptionId:   KeyValueListGetValue(crdInfo.KeyValueInfoList, "SubscriptionId"),
+			IdentityEndpoint: KeyValueListGetValue(crdInfo.KeyValueInfoList, "IdentityEndpoint"),
+			Username:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "Username"),
+			Password:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "Password"),
+			DomainName:       KeyValueListGetValue(crdInfo.KeyValueInfoList, "DomainName"),
+			ProjectID:        KeyValueListGetValue(crdInfo.KeyValueInfoList, "ProjectID"),
+			AuthToken:        KeyValueListGetValue(crdInfo.KeyValueInfoList, "AuthToken"),
+			ClientEmail:      KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientEmail"),
+			PrivateKey:       KeyValueListGetValue(crdInfo.KeyValueInfoList, "PrivateKey"),
+			Host:             KeyValueListGetValue(crdInfo.KeyValueInfoList, "Host"),
+			APIVersion:       KeyValueListGetValue(crdInfo.KeyValueInfoList, "APIVersion"),
+			MockName:         KeyValueListGetValue(crdInfo.KeyValueInfoList, "MockName"),
+			ApiKey:           KeyValueListGetValue(crdInfo.KeyValueInfoList, "ApiKey"),
+			ClusterId:        KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClusterId"),
 		},
 	}
 
@@ -463,24 +463,27 @@ func getRegionNameByRegionInfo(rgnInfo *rim.RegionInfo) (string, string, error) 
 	var regionName string
 	var zoneName string
 	switch strings.ToUpper(rgnInfo.ProviderName) {
-	case "AWS", "AZURE", "ALIBABA", "GCP", "TENCENT", "IBM", "OPENSTACK", "NCP", "NCPVPC", "KTCLOUD", "NHNCLOUD", "KTCLOUDVPC":
-		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
-		zoneName = getValue(rgnInfo.KeyValueInfoList, "Zone")
 	case "CLOUDTWIN", "MOCK":
-		regionName = getValue(rgnInfo.KeyValueInfoList, "Region")
+		regionName = KeyValueListGetValue(rgnInfo.KeyValueInfoList, "Region")
 	default:
-		errmsg := rgnInfo.ProviderName + " is not a valid ProviderName!!"
-		return "", "", fmt.Errorf(errmsg)
+		regionName = KeyValueListGetValue(rgnInfo.KeyValueInfoList, "Region")
+		zoneName = KeyValueListGetValue(rgnInfo.KeyValueInfoList, "Zone")
 	}
 
 	return regionName, zoneName, nil
 }
 
-func getValue(keyValueInfoList []icdrs.KeyValue, key string) string {
+func KeyValueListGetValue(keyValueInfoList []icdrs.KeyValue, key string) string {
+	// Check if keyValueInfoList is nil or empty
+	if keyValueInfoList == nil || len(keyValueInfoList) == 0 {
+		// cblog.Info(key + " is not set")
+		return "Not set" // Do not edit return message
+	}
 	for _, kv := range keyValueInfoList {
 		if strings.EqualFold(kv.Key, key) { // ignore case
 			return kv.Value
 		}
 	}
-	return "Not set"
+	// cblog.Info(key + " is not set")
+	return "Not set" // Do not edit return message
 }

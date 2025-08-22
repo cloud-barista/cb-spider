@@ -2,7 +2,7 @@
 
 if [ "$1" = "" ]; then
         echo
-        echo -e 'usage: '$0' mock|aws|azure|gcp|alibaba|tencent|ibm|openstack|ncpvpc|nhncloud'
+        echo -e 'usage: '$0' mock|aws|azure|gcp|alibaba|tencent|ibm|openstack|ncp|nhn'
         echo -e '\n\tex) '$0' aws'
         echo
         exit 0;

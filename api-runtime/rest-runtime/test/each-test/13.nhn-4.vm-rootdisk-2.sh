@@ -1,5 +1,5 @@
-export CONN_CONFIG=nhncloud-korea-pangyo-config
-#export CONN_CONFIG=nhncloud-korea-pyeongchon-config
+export CONN_CONFIG=nhn-korea-pangyo-config
+#export CONN_CONFIG=nhn-korea-pyeongchon-config
 
 export IMAGE_NAME=5396655e-166a-4875-80d2-ed8613aa054f
 # Image Guest OS : Ubuntu Linux 18.04 기준

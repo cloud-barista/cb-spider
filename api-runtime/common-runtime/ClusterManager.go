@@ -586,7 +586,7 @@ func CreateCluster(connectionName string, rsType string, reqInfo cres.ClusterInf
 	ngInfoList := []cres.NodeGroupInfo{}
 	for idx, info := range reqInfo.NodeGroupList {
 		nodeGroupUUID := ""
-		if providerName == "NHNCLOUD" && idx == 0 {
+		if providerName == "NHN" && idx == 0 {
 			nodeGroupUUID = "default-worker" // fixed name in NHN
 		} else {
 			if GetID_MGMT(IDTransformMode) == "ON" { // Use IID Management
@@ -773,10 +773,10 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 					return getErr
 				}
 
-				// exception processing to Azure or NHNCLOUD, we create new SG for K8S.
+				// exception processing to Azure or NHN, we create new SG for K8S.
 				if strings.Contains(sgIID.SystemId, "/Microsoft.") && strings.Contains(err.Error(), "not exist") {
 					sgIIdInfo.NameId = "#" + getMSShortID(sgIID.SystemId)
-				} else if strings.EqualFold(providerName, "NHNCLOUD") && strings.Contains(err.Error(), "not exist") {
+				} else if strings.EqualFold(providerName, "NHN") && strings.Contains(err.Error(), "not exist") {
 					sgIIdInfo.NameId = "#" + sgIID.SystemId
 				} else {
 					cblog.Error(err)
@@ -794,10 +794,10 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 					return getErr
 				}
 
-				// exception processing to Azure or NHNCLOUD, we create new SG for K8S.
+				// exception processing to Azure or NHN, we create new SG for K8S.
 				if strings.Contains(sgIID.SystemId, "/Microsoft.") && strings.Contains(err.Error(), "not exist") {
 					sgIIdInfo.NameId = "#" + getMSShortID(sgIID.SystemId)
-				} else if strings.EqualFold(providerName, "NHNCLOUD") && strings.Contains(err.Error(), "not exist") {
+				} else if strings.EqualFold(providerName, "NHN") && strings.Contains(err.Error(), "not exist") {
 					sgIIdInfo.NameId = "#" + sgIID.SystemId
 				} else {
 					cblog.Error(err)

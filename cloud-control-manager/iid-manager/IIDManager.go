@@ -49,40 +49,46 @@ func New(cloudConnectName string, rsType string, uid string) (string, error) {
 		return "", err
 	}
 
-	// ref) https://github.com/cloud-barista/cb-spider/issues/655
-	if cccInfo.ProviderName == "NCP" && rsType == "sg" {
-		return uid, nil
-	}
-
 	// AZURE-nogegroup: MaxLength = 12, lower, number, Cannot use '-'
 	if cccInfo.ProviderName == "AZURE" && rsType == "nodegroup" {
 		retUID := strings.ToLower(strings.ReplaceAll(uid, "-", ""))
 
 		if len(retUID) > 12 {
-			// #6 + #6 => #12
-			retUID = uid[:6] + xid.New().String()[0:6]
+			// #7 + #5 => #12
+			retUID = uid[:7] + xid.New().String()[0:5]
 		}
 		return retUID, nil
 	}
 
-	// NHNCLOUD-cluster,nogegroup: MaxLenth = 20, lower, number, '-'
-	if cccInfo.ProviderName == "NHNCLOUD" && (rsType == "cluster" || rsType == "nodegroup") {
+	// NHN-cluster,nogegroup: MaxLenth = 20, lower, number, '-'
+	if cccInfo.ProviderName == "NHN" && (rsType == "cluster" || rsType == "nodegroup") {
 		retUID := strings.ToLower(uid)
 
 		if len(retUID) > 20 {
-			// #10 + #10 => #20
-			retUID = uid[:10] + xid.New().String()[0:10]
+			// #15 + #5 => #20
+			retUID = uid[:15] + xid.New().String()[0:5]
 		}
 		return retUID, nil
 	}
 
-	// NCP or NCPVPC-windowvm: MaxLenth = 15, lower, number, '-'
-	if (cccInfo.ProviderName == "NCP" || cccInfo.ProviderName == "NCPVPC") && (rsType == "windowsvm") {
+	// NCP or NCP-windowvm: MaxLenth = 15, lower, number, '-'
+	if (cccInfo.ProviderName == "NCP") && (rsType == "windowsvm") {
 		retUID := strings.ToLower(uid)
 
 		if len(retUID) > 15 {
-			// #8 + #7 => #15
-			retUID = uid[:8] + xid.New().String()[0:7]
+			// #10 + #5 => #15
+			retUID = uid[:10] + xid.New().String()[0:5]
+		}
+		return retUID, nil
+	}
+
+	// NCP-Cluster: MaxLength = 20, lower, number, Cannot use '_'
+	if cccInfo.ProviderName == "NCP" && (rsType == "cluster" || rsType == "nodegroup") {
+		retUID := strings.ToLower(strings.ReplaceAll(uid, "_", "-"))
+
+		if len(retUID) > 20 {
+			// #15 + #5 => #20
+			retUID = uid[:15] + xid.New().String()[0:5]
 		}
 		return retUID, nil
 	}

@@ -18,10 +18,9 @@ cloudos:
   - IBM
   - OPENSTACK
   - NCP
-  - NCPVPC
-  - NHNCLOUD
-  - KTCLOUD
-  - KTCLOUDVPC
+  - NHN
+  - KT
+  - KTCLASSIC
 #--- Emulation
   - MOCK
 #  - CLOUDTWIN

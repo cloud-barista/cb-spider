@@ -69,16 +69,16 @@ func handlePriceInfo() {
 		filterList := []irs.KeyValue{
 			{
 				Key:   "productCode",
-				Value: "SPSVRSTAND000060", // VMSpec ID (NCP Classic)
+				Value: "SPSVRSTAND000003-", // VMSpec ID (NCP VPC)
 			},
 			// {
 			// 	Key:   "generationCode",
-			// 	Value: "G2",
+			// 	Value: "G1",
 			// },
 
 			// {
 			// 	Key:   "productCode",
-			// 	Value: "SPBSTBSTAD000006", // Additional Block Storage ID (NCP Classic)
+			// 	Value: "SPBSTBSTBS000005", // Additional Block Storage ID (NCP VPC)
 			// },
 		}
 
@@ -134,7 +134,7 @@ func main() {
 // (예) PriceInfoHandler.go -> "PriceInfo"
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
-	cloudDriver = new(ncpdrv.NcpDriver)
+	cloudDriver = new(ncpdrv.NcpVpcDriver)
 
 	config := readConfigFile()
 	connectionInfo := idrv.ConnectionInfo{

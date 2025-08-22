@@ -22,14 +22,14 @@ import (
 	cblog "github.com/cloud-barista/cb-log"
 
 	// ncpdrv "github.com/cloud-barista/ncp/ncp"  // For local test
-	ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp"	
+	ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp"
 )
 
 var cblogger *logrus.Logger
 
 func init() {
 	// cblog is a global variable.
-	cblogger = cblog.GetLogger("NCP Resource Test")
+	cblogger = cblog.GetLogger("NCP VPC Resource Test")
 	cblog.SetLevel("info")
 }
 
@@ -57,15 +57,15 @@ func handleVMSpec() {
 
 		// reqVMSpec := config.Ncp.VMSpec
 		// reqVMSpec := "SPSVRSTAND000049" // Count: "2", Mem: "2048", Disk: 50G, 해당 Image ID : SPSW0LINUX000029, SPSW0LINUX000031,
-		reqVMSpec := "SPSVRHICPU000001" // Count: "2", Mem: "4096", Disk: 50G, 해당 Image ID : SPSW0LINUX000031, SPSW0LINUX000130,
-		// reqVMSpec := "SPSVRSTAND000063" // Region: 'DEN', vCPU 8EA, Memory 64GB, [SSD]Disk 50GB", Image ID : SPSW0LINUX000031
-
-		// reqVMSpec := "SPSVRSTAND000006A"  // Region: HK,  VCpu: "8", Mem: "16384",
-
+		// reqVMSpec := "SVR.VSVR.HICPU.C016.M032.NET.SSD.B050.G002" //When Region is 'KR'. vCPU 16EA, Memory 32GB, [SSD]Disk 50GB", Image ID : SW.VSVR.OS.
+		
+		reqVMSpec := "gp2t32-g1-h50"
+		
 		config := readConfigFile()
-		reqRegion := config.Ncp.Region
-		cblogger.Info("config.Ncp.Region : ", reqRegion)
 
+		reqRegion := config.Ncp.Region
+
+		cblogger.Info("config.Ncp.Region : ", reqRegion)
 		cblogger.Info("reqVMSpec : ", reqVMSpec)
 
 		var commandNum int
@@ -79,6 +79,7 @@ func handleVMSpec() {
 			switch commandNum {
 			case 1:
 				fmt.Println("Start ListVMSpec() ...")
+
 				result, err := handler.ListVMSpec()
 				if err != nil {
 					cblogger.Error("VMSpec list 조회 실패 : ", err)
@@ -87,13 +88,14 @@ func handleVMSpec() {
 					cblogger.Debug("VMSpec list 조회 성공!!")
 					spew.Dump(result)
 					cblogger.Debug(result)
-					cblogger.Infof("전체 VMSpec list 개수 : [%d]", len(result))
+					cblogger.Infof("전체 VMSpec list count for [%s] : [%d]", reqRegion, len(result))
 				}
 
 				fmt.Println("\nListVMSpec() Test Finished")
 
 			case 2:
 				fmt.Println("Start GetVMSpec() ...")
+
 				result, err := handler.GetVMSpec(reqVMSpec)
 				if err != nil {
 					cblogger.Error(reqVMSpec, " VMSpec 정보 조회 실패 : ", err)
@@ -102,7 +104,6 @@ func handleVMSpec() {
 					cblogger.Debugf("VMSpec[%s] 정보 조회 성공!!", reqVMSpec)
 					spew.Dump(result)
 					cblogger.Debug(result)
-					//cblogger.Infof(result)
 				}
 
 				fmt.Println("\nGetVMSpec() Test Finished")
@@ -116,11 +117,6 @@ func handleVMSpec() {
 					cblogger.Debug("VMSpec Org list 조회 성공")
 					spew.Dump(result)
 					cblogger.Debug(result)
-					//spew.Dump(result)
-					//fmt.Println(result)
-					//fmt.Println("=========================")
-					//fmt.Println(result)
-					cblogger.Infof("전체 목록 개수 : [%d]", len(result))
 				}
 
 				fmt.Println("\nListOrgVMSpec() Test Finished")
@@ -134,7 +130,6 @@ func handleVMSpec() {
 					cblogger.Debugf("VMSpec[%s] Org 정보 조회 성공", reqVMSpec)
 					spew.Dump(result)
 					cblogger.Debug(result)
-					//fmt.Println(result)
 				}
 
 				fmt.Println("\nGetOrgVMSpec() Test Finished")
@@ -148,7 +143,7 @@ func handleVMSpec() {
 }
 
 func main() {
-	cblogger.Info("NCP Resource Test")
+	cblogger.Info("NCP VPC Resource Test")
 
 	handleVMSpec()
 }
@@ -157,7 +152,7 @@ func main() {
 //(예) ImageHandler.go -> "Image"
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
-	cloudDriver = new(ncpdrv.NcpDriver)
+	cloudDriver = new(ncpdrv.NcpVpcDriver)
 
 	config := readConfigFile()
 	connectionInfo := idrv.ConnectionInfo{
@@ -254,8 +249,7 @@ func readConfigFile() Config {
 	if err != nil {
 		panic(err)
 	}
-
-	cblogger.Info("Loaded ConfigFile...")
+	cblogger.Info("ConfigFile Loaded ...")
 
 	// Just for test
 	cblogger.Debug(config.Ncp.NcpAccessKeyID, " ", config.Ncp.Region)

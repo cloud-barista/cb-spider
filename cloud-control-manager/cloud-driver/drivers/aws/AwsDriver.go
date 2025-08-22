@@ -14,7 +14,6 @@ package aws
 import (
 	"fmt"
 	"os"
-	"reflect"
 
 	acon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/connect"
 	profile "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/aws/profile"
@@ -92,7 +91,7 @@ func newAWSSession(connectionInfo idrv.ConnectionInfo, region string) (*session.
 	// cblog.Info("****************************************************")
 
 	StsToken := ""
-	if connectionInfo.CredentialInfo.StsToken == "Not set" || connectionInfo.CredentialInfo.StsToken == "" || reflect.ValueOf(connectionInfo.CredentialInfo.StsToken).IsNil() {
+	if connectionInfo.CredentialInfo.StsToken == "Not set" || connectionInfo.CredentialInfo.StsToken == "" {
 		cblog.Debug("======> StsToken is not set")
 		connectionInfo.CredentialInfo.StsToken = "" // Ensure StsToken is empty if not set
 		StsToken = ""
@@ -101,20 +100,11 @@ func newAWSSession(connectionInfo idrv.ConnectionInfo, region string) (*session.
 		StsToken = connectionInfo.CredentialInfo.StsToken
 	}
 
-	/*
-		if !reflect.ValueOf(connectionInfo.CredentialInfo.StsToken).IsNil() {
-			StsToken = connectionInfo.CredentialInfo.StsToken
-			cblog.Info("======> StsToken : ", connectionInfo.CredentialInfo.StsToken)
-		} else {
-			cblog.Info("======> StsToken is nil")
-		}
-	*/
-
 	cblog.Debug("Received connection information")
 	cblog.Debug("============================================================================================")
 	// if connectionInfo.CredentialInfo.StsToken != "" {
 	if StsToken != "" {
-		cblog.Debugf("Using SessionToken(For iam-manager - STS) for AWS API calls : [%s]", connectionInfo.CredentialInfo.StsToken)
+		cblog.Debugf("Using SessionToken(For iam-manager - STS) for AWS API calls : [%s]", StsToken)
 	} else {
 		cblog.Debugf("Using Normal AWS Session for AWS API calls [%s]", connectionInfo.CredentialInfo.ClientId)
 	}

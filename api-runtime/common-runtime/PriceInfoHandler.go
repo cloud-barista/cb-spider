@@ -132,9 +132,7 @@ func getProviderSpecificPFName(providerName, pfName string) string {
 	case "IBM":
 		return "is.instance"
 	case "NCP":
-		return "SVR"
-	case "NCPVPC":
-		return "Server (VPC)"
+		return "Server"
 	default:
 		return pfName
 	}

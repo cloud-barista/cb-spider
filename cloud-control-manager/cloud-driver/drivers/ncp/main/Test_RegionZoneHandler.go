@@ -22,7 +22,7 @@ import (
 	cblog "github.com/cloud-barista/cb-log"
 
 	// ncpdrv "github.com/cloud-barista/ncp/ncp"  // For local test
-	ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp"	
+	ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp"
 )
 
 var cblogger *logrus.Logger
@@ -138,7 +138,7 @@ func main() {
 //(예) ImageHandler.go -> "Image"
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
-	cloudDriver = new(ncpdrv.NcpDriver)
+	cloudDriver = new(ncpdrv.NcpVpcDriver)
 
 	config := readConfigFile()
 	connectionInfo := idrv.ConnectionInfo{
@@ -235,8 +235,7 @@ func readConfigFile() Config {
 	if err != nil {
 		panic(err)
 	}
-
-	cblogger.Info("Loaded ConfigFile...")
+	cblogger.Info("ConfigFile Loaded ...")
 
 	// Just for test
 	cblogger.Debug(config.Ncp.NcpAccessKeyID, " ", config.Ncp.Region)

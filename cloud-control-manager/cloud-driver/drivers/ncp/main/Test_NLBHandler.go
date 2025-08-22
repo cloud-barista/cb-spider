@@ -6,7 +6,7 @@
 //
 // This is a Cloud Driver Tester Example.
 //
-// by ETRI, 2023.08.
+// Updated by ETRI, 2024.11.
 
 package main
 
@@ -22,14 +22,14 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 
 	// ncpdrv "github.com/cloud-barista/ncp/ncp"  // For local test
-	ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp"	
+	ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp"
 )
 
 var cblogger *logrus.Logger
 
 func init() {
 	// cblog is a global variable.
-	cblogger = cblog.GetLogger("NCP Classic Resource Test")
+	cblogger = cblog.GetLogger("NCP VPC Resource Test")
 	cblog.SetLevel("info")
 }
 
@@ -57,39 +57,39 @@ func handleNLB() {
 		cblogger.Info("8. RemoveVMs()")
 		cblogger.Info("9. GetVMGroupHealthInfo()")
 		cblogger.Info("10. ChangeHealthCheckerInfo()")
+		cblogger.Info("12. ChangeHealthCheckerInfo()")
 		cblogger.Info("11. ListIID()")
 		cblogger.Info("12. Exit")
 		fmt.Println("============================================================================================")
 
 		config := readConfigFile()
-		cblogger.Infof("\n # NCP Classic Region : [%s]", config.Ncp.Region)
+		cblogger.Infof("\n # NCP VPC Region : [%s]", config.Ncp.Region)
 		cblogger.Info("\n # Select Num : ")
 
 		nlbIId := irs.IID{
-			NameId: "new-nlb-01",
-			SystemId: "19315507",
+			NameId: "new-lb-1",
+			SystemId: "13230864",
 		}
 
-		// Caution!! : Listener, VM Group and Healthchecker all use the same protocol type in NCP Classic NLB.(The Protocol specified by 'ProtocolTypeCode' when created).
 		nlbCreateReqInfo := irs.NLBInfo{
 			IId: irs.IID{
-				NameId: "new-nlb-05",
+				NameId: "new-nlb-1",
 			},
 			VpcIID: irs.IID{
 				NameId: "ncp-vpc-01",
+				// NameId: "ncp-vpc-01",
 			},
 			Listener: irs.ListenerInfo{
 				Protocol: "TCP",
-				Port:     "80",
-				// Port:     "8080",
+				Port:     "8080",
 			},
 			VMGroup: irs.VMGroupInfo{
 				Protocol: "TCP",
 				Port:     "8080",
-				// Port:     "8080",
 				VMs: &[]irs.IID{
-					{NameId: "ncp-test-vm-001"},
-					// {NameId: "ncp-test-vm-002"},
+					{NameId: "ncp-vm-1"},
+					// {NameId: "ncp-vm-2"},
+					// {NameId: "s18431a1837f"},
 				},
 			},
 			HealthChecker: irs.HealthCheckerInfo{
@@ -99,6 +99,13 @@ func handleNLB() {
 				Timeout:   -1,
 				Threshold: -1,
 			},
+			// HealthChecker: irs.HealthCheckerInfo{
+			// 	Protocol:  "TCP",
+			// 	Port:      "8080",
+			// 	Interval:  30,
+			// 	Timeout:   5,
+			// 	Threshold: 3,
+			// },
 		}
 
 		updateListener := irs.ListenerInfo{
@@ -112,13 +119,13 @@ func handleNLB() {
 		}
 
 		addVMs := []irs.IID{
-			// {NameId: "ncp-test-vm-002"},
-			{NameId: "vm-01-cjo33q9jcupp70i7ad1g"},
+			{NameId: "ncp-vm-1"},
+			// {NameId: "ncp-vm-01-ccuki71jcupot8j6d8t0"},
 			// {NameId: "s18431a1837f"},
 		}
 
 		removeVMs := []irs.IID{
-			{NameId: "ncp-test-vm-002"},
+			{NameId: "ncp-vm-1"},
 			// {NameId: "s18431a1837f"},
 		}
 	
@@ -144,7 +151,7 @@ func handleNLB() {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(list)
-					cblogger.Info("Total count : ", len(list))
+					cblogger.Info("# Total count: ", len(list))
 				}
 				cblogger.Info("Finish ListNLB()")
 			case 2:
@@ -219,6 +226,7 @@ func handleNLB() {
 					spew.Dump(info)
 				}
 				cblogger.Info("Finish ChangeHealthCheckerInfo()")
+
 			case 11:
 				cblogger.Info("Start ListIID() ...")
 				result, err := nlbHandler.ListIID()
@@ -231,6 +239,7 @@ func handleNLB() {
 					cblogger.Infof("Total IID list count : [%d]", len(result))
 				}
 				cblogger.Info("\nListIID() Test Finished")
+
 			case 12:
 				cblogger.Infof("Exit")
 				return
@@ -240,7 +249,7 @@ func handleNLB() {
 }
 
 func main() {
-	cblogger.Info("NCP Classic Resource Test")
+	cblogger.Info("NCP VPC Resource Test")
 
 	handleNLB()
 }
@@ -249,7 +258,7 @@ func main() {
 // (e.g.) ImageHandler.go -> "Image"
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
-	cloudDriver = new(ncpdrv.NcpDriver)
+	cloudDriver = new(ncpdrv.NcpVpcDriver)
 
 	config := readConfigFile()
 	connectionInfo := idrv.ConnectionInfo{
@@ -346,8 +355,7 @@ func readConfigFile() Config {
 	if err != nil {
 		panic(err)
 	}
-
-	cblogger.Info("Loaded ConfigFile...")
+	cblogger.Info("ConfigFile Loaded ...")
 
 	// Just for test
 	cblogger.Debug(config.Ncp.NcpAccessKeyID, " ", config.Ncp.Region)

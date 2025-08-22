@@ -121,6 +121,17 @@ type Config struct {
 					NameId string `yaml:"nameId"`
 				} `yaml:"attachedVM"`
 			} `yaml:"disk"`
+			File struct {
+				IID struct {
+					NameId string `yaml:"nameId"`
+				} `yaml:"IID"`
+				VpcIID struct {
+					NameId string `yaml:"nameId"`
+				} `yaml:"VpcIID"`
+				AccessSubnetIIDs []struct {
+					NameId string `yaml:"nameId"`
+				} `yaml:"AccessSubnetIIDs"`
+			} `yaml:"file"`
 		} `yaml:"resources"`
 	} `yaml:"azure"`
 }
@@ -167,7 +178,8 @@ func showTestHandlerInfo() {
 	cblogger.Info("11. PriceInfoHandler")
 	cblogger.Info("12. ClusterHandler")
 	cblogger.Info("13. TagHandler")
-	cblogger.Info("14. Exit")
+	cblogger.Info("14. FileSystemHandler")
+	cblogger.Info("15. Exit")
 	cblogger.Info("==========================================================")
 }
 
@@ -221,6 +233,8 @@ func getResourceHandler(resourceType string, config Config) (interface{}, error)
 		resourceHandler, err = cloudConnection.CreateClusterHandler()
 	case "tag":
 		resourceHandler, err = cloudConnection.CreateTagHandler()
+	case "fileSystem":
+		resourceHandler, err = cloudConnection.CreateFileSystemHandler()
 	}
 
 	if err != nil {
@@ -2115,6 +2129,154 @@ Loop:
 		}
 	}
 }
+func testFileSystemHandlerListPrint() {
+	cblogger.Info("Test fileSystemHandler")
+	cblogger.Info("0. Print Menu")
+	cblogger.Info("1. ListFileSystem()")
+	cblogger.Info("2. GetFileSystem()")
+	cblogger.Info("3. CreateFileSystem()")
+	cblogger.Info("4. DeleteFileSystem()")
+	cblogger.Info("5. AddAccessSubnet()")
+	cblogger.Info("6. RemoveAccessSubnet()")
+	cblogger.Info("7. ListAccessSubnet")
+	cblogger.Info("8. ListIID()")
+	cblogger.Info("9. GetMetaInfo()")
+	cblogger.Info("10. Exit")
+}
+
+// FileSystemHandler
+func testFileSystemHandler(config Config) {
+	resourceHandler, err := getResourceHandler("fileSystem", config)
+	if err != nil {
+		cblogger.Error(err)
+		return
+	}
+
+	fileSystemHandler := resourceHandler.(irs.FileSystemHandler)
+
+	fileNameId := irs.IID{
+		NameId: config.Azure.Resources.File.IID.NameId,
+	}
+
+	subnetIID := irs.IID{
+		NameId: config.Azure.Resources.File.AccessSubnetIIDs[0].NameId,
+	}
+
+	vpcIID := irs.IID{
+		NameId: config.Azure.Resources.File.VpcIID.NameId,
+	}
+
+	subnetIIDs := config.Azure.Resources.File.AccessSubnetIIDs
+	var accessSubnetList []irs.IID
+	for _, subnet := range subnetIIDs {
+		accessSubnetList = append(accessSubnetList, irs.IID{
+			NameId:   subnet.NameId,
+			SystemId: "",
+		})
+	}
+	createreq := irs.FileSystemInfo{
+		IId: fileNameId,
+		//Region:           string,
+		//Zone:
+		VpcIID:           vpcIID,
+		AccessSubnetList: accessSubnetList,
+		NFSVersion:       "4.1",
+		PerformanceInfo: map[string]string{
+			"Tier": "Premium",
+		},
+	}
+
+	testFileSystemHandlerListPrint()
+
+Loop:
+	for {
+		var commandNum int
+		inputCnt, err := fmt.Scan(&commandNum)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		if inputCnt == 1 {
+			switch commandNum {
+			case 0:
+				testFileSystemHandlerListPrint()
+			case 1:
+				fmt.Println("Start ListFileSystem() ...")
+				if fileSystemList, err := fileSystemHandler.ListFileSystem(); err != nil {
+					fmt.Println(err)
+				} else {
+					spew.Dump(fileSystemList)
+				}
+				fmt.Println("Finish ListFileSystem()")
+			case 2:
+				cblogger.Info("Start GetFileSystem() ...")
+				if fileSystem, err := fileSystemHandler.GetFileSystem(fileNameId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(fileSystem)
+				}
+				cblogger.Info("Finish GetFileSystem()")
+			case 3:
+				fmt.Println("Start CreateFileSystem() ...")
+				fileSystem, err := fileSystemHandler.CreateFileSystem(createreq)
+				if err != nil {
+					fmt.Println(err)
+				} else {
+					spew.Dump(fileSystem)
+				}
+				fmt.Println("Finish CreateFileSystem()")
+			case 4:
+				fmt.Println("Start DeleteFileSystem() ...")
+				if ok, err := fileSystemHandler.DeleteFileSystem(fileNameId); !ok {
+					fmt.Println(err)
+				}
+				fmt.Println("Finish DeleteFileSystem()")
+			case 5:
+				fmt.Println("Start AddAccessSubnet() ...")
+				fmt.Printf("DEBUG: subnetIID.NameId = '%s'\n", accessSubnetList)
+				if fileSystem, err := fileSystemHandler.AddAccessSubnet(fileNameId, subnetIID); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(fileSystem)
+				}
+				fmt.Println("Finish AddAccessSubnet()")
+			case 6:
+				fmt.Println("Start RemoveAccessSubnet() ...")
+				if ok, err := fileSystemHandler.RemoveAccessSubnet(fileNameId, subnetIID); !ok {
+					fmt.Println(err)
+				}
+				fmt.Println("Finish RemoveAccessSubnet()")
+			case 7:
+				cblogger.Info("Start ListAccessSubnet() ...")
+				if listSubnet, err := fileSystemHandler.ListAccessSubnet(fileNameId); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listSubnet)
+				}
+				cblogger.Info("Finish ListAccessSubnet()")
+			case 8:
+				cblogger.Info("Start ListIID() ...")
+				if listIID, err := fileSystemHandler.ListIID(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 9:
+				cblogger.Info("Start GetMetaInfo() ...")
+				if listIID, err := fileSystemHandler.GetMetaInfo(); err != nil {
+					cblogger.Error(err)
+				} else {
+					spew.Dump(listIID)
+				}
+				cblogger.Info("Finish ListIID()")
+			case 10:
+				fmt.Println("Exit")
+				break Loop
+			}
+		}
+	}
+}
 
 func main() {
 	showTestHandlerInfo()
@@ -2169,6 +2331,9 @@ Loop:
 				testTagHandler(config)
 				showTestHandlerInfo()
 			case 14:
+				testFileSystemHandler(config)
+				showTestHandlerInfo()
+			case 15:
 				cblogger.Info("Exit Test ResourceHandler Program")
 				break Loop
 			}

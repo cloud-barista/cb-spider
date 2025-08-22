@@ -2,7 +2,7 @@
 
 if [ "$1" = "" ]; then
         echo
-        echo -e 'usage: '$0' mock|aws|azure|gcp|alibaba|tencent|ibm|openstack|ncp|nhncloud nlb_port_number'
+        echo -e 'usage: '$0' mock|aws|azure|gcp|alibaba|tencent|ibm|openstack|ncp|nhn nlb_port_number'
         echo -e '\n\tex) '$0' aws vm-01'
         echo
         exit 0;
@@ -10,7 +10,7 @@ fi
 
 if [ "$2" = "" ]; then
         echo
-        echo -e 'usage: '$0' mock|aws|azure|gcp|alibaba|tencent|ibm|openstack|ncp|nhncloud nlb_port_number'
+        echo -e 'usage: '$0' mock|aws|azure|gcp|alibaba|tencent|ibm|openstack|ncp|nhn nlb_port_number'
         echo -e '\n\tex) '$0' aws vm-01'
         echo
         exit 0;

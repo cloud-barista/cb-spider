@@ -17,20 +17,20 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
-		
+
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cblog "github.com/cloud-barista/cb-log"
 
 	// ncpdrv "github.com/cloud-barista/ncp/ncp"  // For local test
-	ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp"	
+	ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp"
 )
 
 var cblogger *logrus.Logger
 
 func init() {
 	// cblog is a global variable.
-	cblogger = cblog.GetLogger("NCP Resource Test")
+	cblogger = cblog.GetLogger("NCP VPC Resource Test")
 	cblog.SetLevel("info")
 }
 
@@ -49,23 +49,22 @@ func handleSecurity() {
 	for {
 		cblogger.Info("\n============================================================================================")
 		cblogger.Info("[ Security Management Test ]")
-
-		// Related APIs on NCP classic services are not supported.
-		cblogger.Info("1. Create Security")
-		cblogger.Info("2. List Security")
-		cblogger.Info("3. Get Security")
-		cblogger.Info("4. Delete Security")
-		cblogger.Info("5. List IID")
+		cblogger.Info("1. List Security")
+		cblogger.Info("2. Get Security")
+		cblogger.Info("3. Create Security")
+		cblogger.Info("4. Add Rules")
+		cblogger.Info("5. Remove Rules")
+		cblogger.Info("6. Delete Security")
+		cblogger.Info("7. List IID")
 		cblogger.Info("0. Quit")
 		cblogger.Info("\n   Select a number above!! : ")
 		cblogger.Info("============================================================================================")
 
 		var commandNum int
 
-		securityName := "default1"
-		securityId := "1333707" //NCP default S/G
-		// securityId := "214436"
-		// vpcId := "vpc-c0479cab"
+		securityName := "ncp-sg-006"
+		securityId := "78628"
+		vpcId := "19368"
 
 		inputCnt, err := fmt.Scan(&commandNum)
 		if err != nil {
@@ -75,24 +74,10 @@ func handleSecurity() {
 		if inputCnt == 1 {
 			switch commandNum {
 			case 0:
+				cblogger.Infof("Exit")
 				return
 
 			case 1:
-				reqInfo := irs.SecurityReqInfo{
-					IId: irs.IID{
-						NameId: securityName,
-					},
-				}
-				result, err := handler.CreateSecurity(reqInfo)
-				if err != nil {
-					cblogger.Infof("%s SecurityGroup creation failed: %v", securityName, err)
-				} else {
-					cblogger.Infof("[%s] SecurityGroup creation result: [%v]", securityName, result)
-					spew.Dump(result)
-				}
-				cblogger.Info("\nCreateSecurity() Test Finished")
-
-			case 2:
 				result, err := handler.ListSecurity()
 				if err != nil {
 					cblogger.Infof("Failed to retrieve SecurityGroup list: ", err)
@@ -107,7 +92,7 @@ func handleSecurity() {
 				}
 				cblogger.Info("\nListSecurity() Test Finished")
 
-			case 3:
+			case 2:
 				cblogger.Infof("[%s] SecurityGroup information retrieval test", securityId)
 				result, err := handler.GetSecurity(irs.IID{SystemId: securityId})
 				if err != nil {
@@ -118,7 +103,253 @@ func handleSecurity() {
 				}
 				cblogger.Info("\nGetSecurity() Test Finished")
 
+			case 3:
+				cblogger.Infof("[%s] SecurityGroup creation test", securityName)
+
+				securityReqInfo := irs.SecurityReqInfo{
+					IId:    irs.IID{NameId: securityName},
+					VpcIID: irs.IID{SystemId: vpcId},
+					SecurityRules: &[]irs.SecurityRuleInfo{ // Setting Security Rules
+						// {
+						// 	Direction:  "inbound",
+						// 	IPProtocol: "tcp",
+						// 	FromPort:   "20",
+						// 	ToPort:     "22",
+						// 	CIDR: 		"0.0.0.0/0",
+						// },
+						// {
+						// 	Direction:  "inbound",
+						// 	IPProtocol: "tcp",
+						// 	FromPort:   "80",
+						// 	ToPort:     "80",
+						// 	CIDR: 		"172.16.0.0/16",							
+						// },
+						// {
+						// 	Direction:  "inbound",
+						// 	IPProtocol: "tcp",
+						// 	FromPort:   "-1",
+						// 	ToPort:     "-1",
+						// 	CIDR: 		"172.16.0.0/16",							
+						// },
+						// {
+						// 	Direction:  "inbound",
+						// 	IPProtocol: "udp",
+						// 	FromPort:   "8080",
+						// 	ToPort:     "8080",
+						// 	CIDR: 		"0.0.0.0/0",
+						// },
+						// {
+						// 	Direction:  "inbound",
+						// 	IPProtocol: "icmp",
+						// 	FromPort:   "-1",
+						// 	ToPort:     "-1",
+						// 	CIDR: 		"0.0.0.0/0",
+						// },
+						// {
+						// 	Direction:  "outbound",
+						// 	IPProtocol: "tcp",
+						// 	FromPort:   "443",
+						// 	ToPort:     "443",
+						// 	CIDR: 		"0.0.0.0/0",
+						// },
+						// {
+						// 	Direction:  "outbound",
+						// 	IPProtocol: "tcp",
+						// 	FromPort:   "8443",
+						// 	ToPort:     "9999",
+						// 	CIDR: 		"172.16.0.0/16",	
+						// },
+
+						// Allow all traffic
+						{
+							Direction:  "inbound",
+							IPProtocol: "ALL",
+							FromPort:   "-1",
+							ToPort:     "-1",
+							CIDR: 		"0.0.0.0/0",
+						},
+						{
+							Direction:  "outbound",
+							IPProtocol: "ALL",
+							FromPort:   "-1",
+							ToPort:     "-1",
+							CIDR: 		"0.0.0.0/0",
+						},
+					},
+				}
+
+				result, err := handler.CreateSecurity(securityReqInfo)
+				if err != nil {
+					cblogger.Infof("%s SecurityGroup creation failed: %v", securityName, err)
+				} else {
+					cblogger.Infof("[%s] SecurityGroup creation result: [%v]", securityName, result)
+					spew.Dump(result)
+				}
+				cblogger.Info("\nCreateSecurity() Test Finished")
+
 			case 4:
+				cblogger.Infof("[%s] Security Rule Add Test", securityName)
+
+				securityRuleReqInfo := &[]irs.SecurityRuleInfo{
+					{
+						Direction:  "inbound",
+						IPProtocol: "tcp",
+						FromPort:   "20",
+						ToPort:     "22",
+						CIDR: 		"0.0.0.0/0",
+					},
+					{
+						Direction:  "inbound",
+						IPProtocol: "tcp",
+						FromPort:   "80",
+						ToPort:     "80",
+						CIDR: 		"172.16.0.0/16",							
+					},
+					{
+						Direction:  "inbound",
+						IPProtocol: "tcp",
+						FromPort:   "-1",
+						ToPort:     "-1",
+						CIDR: 		"172.16.0.0/16",							
+					},
+					{
+						Direction:  "inbound",
+						IPProtocol: "udp",
+						FromPort:   "8080",
+						ToPort:     "8080",
+						CIDR: 		"0.0.0.0/0",
+					},
+					{
+						Direction:  "inbound",
+						IPProtocol: "icmp",
+						FromPort:   "-1",
+						ToPort:     "-1",
+						CIDR: 		"0.0.0.0/0",
+					},
+					{
+						Direction:  "outbound",
+						IPProtocol: "tcp",
+						FromPort:   "443",
+						ToPort:     "443",
+						CIDR: 		"0.0.0.0/0",
+					},
+					{
+						Direction:  "outbound",
+						IPProtocol: "tcp",
+						FromPort:   "8443",
+						ToPort:     "9999",
+						CIDR: 		"172.16.0.0/16",	
+					},
+
+					// Allow all traffic
+					{
+						Direction:  "inbound",
+						IPProtocol: "ALL",
+						FromPort:   "-1",
+						ToPort:     "-1",
+						CIDR: 		"0.0.0.0/0",
+					},
+					{
+						Direction:  "outbound",
+						IPProtocol: "ALL",
+						FromPort:   "-1",
+						ToPort:     "-1",
+						CIDR: 		"0.0.0.0/0",
+					},
+				}
+
+				result, err := handler.AddRules(irs.IID{SystemId: securityId}, securityRuleReqInfo)
+				if err != nil {
+					cblogger.Infof(securityName, " Security Rule Add failed : ", err)
+				} else {
+					cblogger.Infof("[%s] Security Rule Add result: [%v]", securityName, result)
+					spew.Dump(result)
+				}
+				cblogger.Info("\nAddRules() Test Finished")
+
+			case 5:
+				cblogger.Infof("[%s] Security Rule Remove Test", securityName)
+
+				securityRuleReqInfo := &[]irs.SecurityRuleInfo{
+					// {
+						
+					// 	Direction:  "inbound",
+					// 	IPProtocol: "tcp",
+					// 	FromPort:   "20",
+					// 	ToPort:     "22",
+					// 	CIDR: 		"0.0.0.0/0",
+					// },
+					// {
+					// 	Direction:  "inbound",
+					// 	IPProtocol: "tcp",
+					// 	FromPort:   "80",
+					// 	ToPort:     "80",
+					// 	CIDR: 		"172.16.0.0/16",							
+					// },
+					// {
+					// 	Direction:  "inbound",
+					// 	IPProtocol: "tcp",
+					// 	FromPort:   "-1",
+					// 	ToPort:     "-1",
+					// 	CIDR: 		"172.16.0.0/16",							
+					// },
+					// {
+					// 	Direction:  "inbound",
+					// 	IPProtocol: "udp",
+					// 	FromPort:   "8080",
+					// 	ToPort:     "8080",
+					// 	CIDR: 		"0.0.0.0/0",
+					// },
+					// {
+					// 	Direction:  "inbound",
+					// 	IPProtocol: "icmp",
+					// 	FromPort:   "-1",
+					// 	ToPort:     "-1",
+					// 	CIDR: 		"0.0.0.0/0",
+					// },
+					// {
+					// 	Direction:  "outbound",
+					// 	IPProtocol: "tcp",
+					// 	FromPort:   "443",
+					// 	ToPort:     "443",
+					// 	CIDR: 		"0.0.0.0/0",
+					// },
+					// {
+					// 	Direction:  "outbound",
+					// 	IPProtocol: "tcp",
+					// 	FromPort:   "8443",
+					// 	ToPort:     "9999",
+					// 	CIDR: 		"172.16.0.0/16",	
+					// },
+
+
+					// // All traffic 허용 rule
+					{
+						Direction:  "inbound",
+						IPProtocol: "ALL",
+						FromPort:   "-1",
+						ToPort:     "-1",
+						CIDR: 		"0.0.0.0/0",
+					},
+					{
+						Direction:  "outbound",
+						IPProtocol: "ALL",
+						FromPort:   "-1",
+						ToPort:     "-1",
+						CIDR: 		"0.0.0.0/0",
+					},
+				}
+
+				result, err := handler.RemoveRules(irs.IID{SystemId: securityId}, securityRuleReqInfo)
+				if err != nil {
+					cblogger.Infof(securityName, " Security Rule Remove failed : ", err)
+				} else {
+					cblogger.Infof("[%s] Security Rule removal result: [%v]", securityName, result)
+					spew.Dump(result)
+				}	
+				cblogger.Info("\nRemoveRules() Test Finished")
+
+			case 6:
 				cblogger.Infof("[%s] SecurityGroup deletion test", securityId)
 				result, err := handler.DeleteSecurity(irs.IID{SystemId: securityId})
 				if err != nil {
@@ -128,7 +359,7 @@ func handleSecurity() {
 				}
 				cblogger.Info("\nDeleteSecurity() Test Finished")
 
-			case 5:
+			case 7:
 				cblogger.Info("Start ListIID() ...")
 				result, err := handler.ListIID()
 				if err != nil {
@@ -146,30 +377,11 @@ func handleSecurity() {
 }
 
 func testErr() error {
-	//return awserr.Error("")
 	return errors.New("")
-	// return ncloud.New("504", "Not found", nil)
 }
 
 func main() {
-	cblogger.Info("NCP Resource Test")
-	/*
-		err := testErr()
-		spew.Dump(err)
-		if err != nil {
-			cblogger.Info("Error occurred")
-			awsErr, ok := err.(awserr.Error)
-			spew.Dump(awsErr)
-			spew.Dump(ok)
-			if ok {
-				if "404" == awsErr.Code() {
-					cblogger.Info("404!!!")
-				} else {
-					cblogger.Info("Not 404")
-				}
-			}
-		}
-	*/
+	cblogger.Info("NCP VPC Resource Test")
 
 	handleSecurity()
 }
@@ -178,7 +390,7 @@ func main() {
 // (e.g., ImageHandler.go -> "Image")
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
-	cloudDriver = new(ncpdrv.NcpDriver)
+	cloudDriver = new(ncpdrv.NcpVpcDriver)
 
 	config := readConfigFile()
 	connectionInfo := idrv.ConnectionInfo{
@@ -194,7 +406,7 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 
 	// NOTE Just for test
 	cblogger.Info(config.Ncp.NcpAccessKeyID)
-	cblogger.Info(config.Ncp.NcpSecretKey)
+	// cblogger.Info(config.Ncp.NcpSecretKey)
 
 	cloudConnection, errCon := cloudDriver.ConnectCloud(connectionInfo)
 	if errCon != nil {
@@ -207,14 +419,10 @@ func getResourceHandler(handlerType string) (interface{}, error) {
 	switch handlerType {
 	case "Image":
 		resourceHandler, err = cloudConnection.CreateImageHandler()
-	//case "Publicip":
-	//	resourceHandler, err = cloudConnection.CreatePublicIPHandler()
 	case "Security":
 		resourceHandler, err = cloudConnection.CreateSecurityHandler()
 	case "VNetwork":
 		resourceHandler, err = cloudConnection.CreateVPCHandler()
-		//case "VNic":
-		//	resourceHandler, err = cloudConnection.CreateVNicHandler()
 	case "VM":
 		resourceHandler, err = cloudConnection.CreateVMHandler()
 	case "VMSpec":
@@ -279,8 +487,7 @@ func readConfigFile() Config {
 	if err != nil {
 		panic(err)
 	}
-
-	cblogger.Info("Loaded ConfigFile...")
+	cblogger.Info("ConfigFile Loaded ...")
 
 	// Just for test
 	cblogger.Debug(config.Ncp.NcpAccessKeyID, " ", config.Ncp.Region)

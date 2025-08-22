@@ -9,10 +9,12 @@
 package restruntime
 
 import (
+	"bytes"
 	"crypto/subtle"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"path/filepath"
@@ -169,7 +171,7 @@ func RunServer() {
 
 		//----------Swagger
 		{"GET", "/api", func(c echo.Context) error {
-			return c.Redirect(http.StatusMovedPermanently, "/spider/api/")
+			return c.Redirect(http.StatusMovedPermanently, "/spider/api/index.html")
 		}},
 		{"GET", "/api/", echoSwagger.EchoWrapHandler(echoSwagger.DocExpansion("none"))},
 		{"GET", "/api/*", echoSwagger.EchoWrapHandler(echoSwagger.DocExpansion("none"))},
@@ -465,33 +467,6 @@ func RunServer() {
 		{"GET", "/filesystem/:Name/accesssubnet", ListAccessSubnet},
 		{"DELETE", "/filesystem/:Name/accesssubnet", RemoveAccessSubnet},
 
-		//----------S3 Handler
-		// S3 Bucket Management
-		{"POST", "/s3/bucket", CreateS3Bucket},
-		{"GET", "/s3/bucket", ListS3Buckets},
-		{"GET", "/s3/bucket/:Name", GetS3Bucket},
-		{"DELETE", "/s3/bucket/:Name", DeleteS3Bucket},
-
-		// S3 Object Management
-		{"POST", "/s3/object", PutS3ObjectFromFile},
-		{"GET", "/s3/bucket/:BucketName/objectlist", ListS3Objects},
-		{"GET", "/s3/bucket/:BucketName/object", GetS3ObjectInfo},
-		{"DELETE", "/s3/object", DeleteS3Object},
-
-		// S3 Object Download(Stream)
-		{"GET", "/s3/bucket/:BucketName/object/download", DownloadS3Object},
-
-		// Presigned URL
-		{"POST", "/s3/object/presigned-url", GetS3PresignedURL},
-
-		// S3 ACL & Policy
-		{"POST", "/s3/bucket/acl", SetS3BucketACL},
-
-		// S3 Versioning
-		{"POST", "/s3/bucket/versioning/enable", EnableVersioning},
-		{"POST", "/s3/bucket/versioning/suspend", SuspendVersioning},
-		{"POST", "/s3/bucket/object/versions", ListS3ObjectVersions},
-
 		//----------Destory All Resources in a Connection
 		{"DELETE", "/destroy", Destroy},
 
@@ -552,8 +527,6 @@ func RunServer() {
 		{"GET", "/adminweb/connectionconfig1", aw.Connectionconfig},
 		{"GET", "/adminweb/connectionconfig", aw.ConnectionManagement},
 
-		{"GET", "/adminweb/dashboard", aw.Dashboard},
-
 		{"GET", "/adminweb/spiderinfo", aw.SpiderInfo},
 
 		{"GET", "/adminweb/sysstats", aw.SystemStatsInfoPage},
@@ -594,10 +567,35 @@ func RunServer() {
 		//----------SSH WebTerminal Handler
 		{"GET", "/adminweb/sshwebterminal/ws", aw.HandleWebSocket},
 	}
+
+	// for Standard S3 API - Order matters! More specific routes should come first
+	s3Routes := []route{
+		{"GET", "/", ListS3Buckets},
+
+		// Bucket-level operations (with query parameters)
+		{"GET", "/:Name", GetS3Bucket}, // Handles ?versioning, ?cors, ?policy, ?location, ?versions, and list objects
+		{"GET", "/:Name/", GetS3Bucket},
+		{"HEAD", "/:Name", GetS3Bucket},
+		{"PUT", "/:Name", CreateS3Bucket}, // Handles bucket creation AND bucket config (redirects to GetS3Bucket)
+		{"DELETE", "/:Name", DeleteS3Bucket},
+
+		//--------- don't change the order of these routes
+		{"POST", "/:BucketName/:ObjectKey+", HandleS3BucketPost},
+		{"POST", "/:Name", HandleS3BucketPost},
+		{"POST", "/:Name/", HandleS3BucketPost},
+		//--------- don't change the order of these routes
+
+		// Object-level operations
+		{"PUT", "/:BucketName/:ObjectKey+", PutS3ObjectFromFile},
+		{"HEAD", "/:BucketName/:ObjectKey+", GetS3ObjectInfo},
+		{"GET", "/:BucketName/:ObjectKey+", DownloadS3Object},
+		{"DELETE", "/:BucketName/:ObjectKey+", DeleteS3Object},
+	}
+
 	//======================================= setup routes
 
 	// Run API Server
-	ApiServer(routes)
+	ApiServer(routes, s3Routes)
 
 }
 
@@ -646,14 +644,52 @@ func RunTLSServer(certFile, keyFile, caCertFile string, port int) {
 	}
 }
 
+type bodyDumpResponseWriter struct {
+	io.Writer
+	http.ResponseWriter
+}
+
+func (w *bodyDumpResponseWriter) Write(b []byte) (int, error) {
+	return w.Writer.Write(b)
+}
+
 // ================ REST API Server: setup & start
-func ApiServer(routes []route) {
+func ApiServer(routes []route, s3Routes []route) {
 	e := echo.New()
 
 	// Middleware
 	e.Use(middleware.CORS())
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
+	// Remove trailing slash middleware
+	e.Pre(middleware.RemoveTrailingSlash())
+
+	// Custom logging for S3 API requests
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			if strings.HasPrefix(c.Request().Header.Get("Authorization"), "AWS4-HMAC-SHA256") {
+				cblog.Infof("S3 API Request: %s %s", c.Request().Method, c.Request().URL.Path)
+				cblog.Debugf("Request Headers: %v", c.Request().Header)
+
+				// Capture the response body
+				resBody := new(bytes.Buffer)
+				mw := io.MultiWriter(c.Response().Writer, resBody)
+				writer := &bodyDumpResponseWriter{Writer: mw, ResponseWriter: c.Response().Writer}
+				c.Response().Writer = writer
+
+				err := next(c)
+
+				cblog.Debugf("Response Status: %d", c.Response().Status)
+				cblog.Debugf("Response Headers: %v", c.Response().Header())
+				if c.Response().Status < 300 {
+					cblog.Debugf("Response Body: %s", resBody.String())
+				}
+
+				return err
+			}
+			return next(c)
+		}
+	})
 
 	cbspiderRoot := os.Getenv("CBSPIDER_ROOT")
 
@@ -709,6 +745,39 @@ func ApiServer(routes []route) {
 		case "DELETE":
 			e.DELETE(route.path, route.function)
 
+		}
+	}
+
+	// Standard S3 API routes (root level)
+	for _, route := range s3Routes {
+		switch route.method {
+		case "GET":
+			e.GET(route.path, route.function)
+		case "HEAD":
+			e.HEAD(route.path, route.function)
+		case "PUT":
+			e.PUT(route.path, route.function)
+		case "POST":
+			e.POST(route.path, route.function)
+		case "DELETE":
+			e.DELETE(route.path, route.function)
+		}
+	}
+
+	// Standard S3 API routes with /spider prefix
+	for _, route := range s3Routes {
+		spiderPath := "/spider" + route.path
+		switch route.method {
+		case "GET":
+			e.GET(spiderPath, route.function)
+		case "HEAD":
+			e.HEAD(spiderPath, route.function)
+		case "PUT":
+			e.PUT(spiderPath, route.function)
+		case "POST":
+			e.POST(spiderPath, route.function)
+		case "DELETE":
+			e.DELETE(spiderPath, route.function)
 		}
 	}
 
@@ -861,6 +930,30 @@ func healthCheckPing(c echo.Context) error {
 // @Router /readyz [get]
 func healthCheckReadyz(c echo.Context) error {
 	return healthCheck(c)
+}
+
+func customRemoveTrailingSlash() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			req := c.Request()
+			url := req.URL
+			path := url.Path
+
+			if strings.HasPrefix(path, "/spider/api") {
+				return next(c)
+			}
+
+			if len(path) > 1 && strings.HasSuffix(path, "/") {
+				redirectPath := path[:len(path)-1]
+				if url.RawQuery != "" {
+					redirectPath += "?" + url.RawQuery
+				}
+				return c.Redirect(http.StatusMovedPermanently, redirectPath)
+			}
+
+			return next(c)
+		}
+	}
 }
 
 // Common health check logic

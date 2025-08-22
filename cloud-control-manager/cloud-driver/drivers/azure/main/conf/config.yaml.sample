@@ -76,3 +76,10 @@ azure:
       updateDiskSize: 78
       attachedVM:
         nameId:
+    file:
+      IID:
+        nameId: test-create-2
+      VpcIID:
+        nameId:  mcb-test-vpc
+      AccessSubnetIIDs:
+        - nameId: mcb-test-sub-1

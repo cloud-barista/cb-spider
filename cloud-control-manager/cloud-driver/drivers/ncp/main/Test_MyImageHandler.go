@@ -23,7 +23,7 @@ import (
 	cblog "github.com/cloud-barista/cb-log"
 
 	// ncpdrv "github.com/cloud-barista/ncp/ncp"  // For local test
-	ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp"	
+	ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp"
 )
 
 var cblogger *logrus.Logger
@@ -61,17 +61,17 @@ func handleMyImage() {
 		var commandNum int
 
 		myImageIId := irs.IID{
-			NameId: "ncp-myimage-01",
-			SystemId: "96215",
+			// NameId: "ncp-ubuntuimage-01",
+			SystemId: "13233784",
 		}
 
 		snapshotReqInfo := irs.MyImageInfo{
 			IId: irs.IID{
-				NameId: "ncp-myimage-01",
+				NameId: "ncp-winimage-01",
 			},
 			SourceVM: irs.IID{
-				NameId: "ncp-test-vm-003",
-				SystemId: "19391267",
+				NameId: "ncp-vm-3",
+				SystemId: "14917892",
 			}, 
 		}
 
@@ -91,7 +91,7 @@ func handleMyImage() {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(listResult)
-					cblogger.Info("# Total MyImage list count : ", len(listResult))
+					cblogger.Info("# Total list count : ", len(listResult))
 				}
 				cblogger.Info("Finish ListMyImage()")
 			case 2:
@@ -138,7 +138,7 @@ func handleMyImage() {
 					cblogger.Infof("Total IID list count : [%d]", len(result))
 				}
 				cblogger.Info("\nListIID() Test Finished")
-			}
+			}	
 		}
 	}
 }
@@ -155,7 +155,7 @@ func main() {
 
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
-	cloudDriver = new(ncpdrv.NcpDriver)
+	cloudDriver = new(ncpdrv.NcpVpcDriver)
 
 	config := readConfigFile()
 	connectionInfo := idrv.ConnectionInfo{
@@ -242,8 +242,7 @@ func readConfigFile() Config {
 	if err != nil {
 		panic(err)
 	}
-
-	cblogger.Info("Loaded ConfigFile...")
+	cblogger.Info("ConfigFile Loaded ...")
 
 	// Just for test
 	cblogger.Debug(config.Ncp.NcpAccessKeyID, " ", config.Ncp.Region)
