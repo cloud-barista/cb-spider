@@ -1892,6 +1892,7 @@ func handleFileSystem() {
 	cblogger.Info(handler)
 
 	tag1 := irs.KeyValue{Key: "fsaa", Value: "fsbb"}
+	subnetIID := irs.IID{SystemId: "vsw-6wemkeefn461cmrqi5fbl"}
 
 	// Basic setup - minimum required information
 	fileSystemReqInfoBasic := irs.FileSystemInfo{
@@ -2072,7 +2073,6 @@ func handleFileSystem() {
 
 			case 9:
 				cblogger.Infof("[%s] Test of add access subnet", reqFileSystemId)
-				subnetIID := irs.IID{SystemId: "vsw-6wemkeefn461cmrqi5fbl"}
 				result, err := handler.AddAccessSubnet(reqFileSystemId, subnetIID)
 				if err != nil {
 					cblogger.Error("Failed to add access subnet: ", err)
@@ -2083,7 +2083,6 @@ func handleFileSystem() {
 
 			case 10:
 				cblogger.Infof("[%s] Test of remove access subnet", reqFileSystemId)
-				subnetIID := irs.IID{SystemId: "vsw-6wemkeefn461cmrqi5fbl"}
 				result, err := handler.RemoveAccessSubnet(reqFileSystemId, subnetIID)
 				if err != nil {
 					cblogger.Error("Failed to remove access subnet: ", err)

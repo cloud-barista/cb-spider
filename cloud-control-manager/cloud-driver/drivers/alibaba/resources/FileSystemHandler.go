@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/sdk/requests"
@@ -37,74 +38,65 @@ func (fileSystemHandler *AlibabaFileSystemHandler) GetMetaInfo() (irs.FileSystem
 			irs.VPC: true,
 		},
 		SupportsNFSVersion: []string{"3.0", "4.0"}, // Alibaba NAS supports NFS v3 and v4
-		SupportsCapacity:   true,                   // Alibaba NAS supports capacity specification
+		SupportsCapacity:   true,                   // Alibaba NAS supports capacity specification for extreme type
 		CapacityGBOptions: map[string]irs.CapacityGBRange{
-			"GeneralPurpose": {Min: 0, Max: 10485760}, // General Purpose NAS: 0 GiB to 10 PiB (10,485,760 GiB)
-			"Extreme":        {Min: 100, Max: 262144}, // Extreme NAS: 100 GiB to 256 TiB (262,144 GiB)
+			"standard": {Min: 0, Max: 0},        // Standard NAS: capacity managed automatically by service
+			"extreme":  {Min: 100, Max: 262144}, // Extreme NAS: 100 GiB to 256 TiB (262,144 GiB)
 		},
 		PerformanceOptions: map[string][]string{
-			"BasicSetup": {
-				"DefaultProtocolType:NFS",        // Default: NFS protocol
-				"DefaultCapacity:100GB",          // Default: 100GB (minimum)
-				"DefaultNFSVersion:4.0",          // Default: NFS 4.0
-				"DefaultFileSystemType:ZoneType", // Default: Zone-based deployment
-			},
-			"AdvancedSetup": {
-				"StorageType:Capacity,Premium,Performance", // Required: Choose storage type (3 options)
-				"ProtocolType:NFS,SMB",                     // Optional: Choose protocol type
-				"Capacity:0-10485760GB",                    // Optional: Specify capacity (GB) - General Purpose range
-			},
 			"RequiredFields": {
-				"StorageType", // Required field: StorageType must be specified
+				"StorageType", // Required: StorageType must be specified (varies by region)
 			},
 			"OptionalFields": {
-				"ProtocolType", // Optional: NFS or SMB
-				"Capacity",     // Optional: Capacity in GB (varies by storage type)
+				"FileSystemType", // Optional: NAS file system type (standard/extreme/cpfs)
+				"ProtocolType",   // Optional: NFS or SMB
+				"Capacity",       // Optional: Capacity in GB (only for extreme type)
+			},
+			"FileSystemType": {
+				"standard (default): General-purpose NAS file system - capacity managed automatically",
+				"extreme: Extreme NAS file system - capacity must be specified (100-262144 GB)",
+				"cpfs: Cloud Parallel File Storage (CPFS) file system",
 			},
 			"StorageType": {
-				"Capacity",    // Capacity-based storage (pay for storage used) - 0 GiB to 10 PiB
-				"Premium",     // Premium storage (pay for performance tier) - 0 GiB to 1 PiB
-				"Performance", // Performance-based storage (pay for performance tier) - 0 GiB to 1 PiB
+				"Capacity",    // Capacity-based storage (pay for storage used)
+				"Premium",     // Premium storage (pay for performance tier)
+				"Performance", // Performance-based storage (pay for performance tier)
 			},
 			"ProtocolType": {
-				"NFS", // NFS protocol
+				"NFS", // NFS protocol (v3.0, v4.0)
 				"SMB", // SMB protocol
 			},
-			"Capacity": {
-				"GeneralPurpose:Min:0,Max:10485760",         // General Purpose: 0 GiB to 10 PiB
-				"Extreme:Min:100,Max:262144",                // Extreme: 100 GiB to 256 TiB
-				"StorageType:Capacity:Min:0,Max:10485760",   // Capacity storage: 0 GiB to 10 PiB
-				"StorageType:Premium:Min:0,Max:1048576",     // Premium storage: 0 GiB to 1 PiB
-				"StorageType:Performance:Min:0,Max:1048576", // Performance storage: 0 GiB to 1 PiB
+			"BasicSetup": {
+				"FileSystemType:standard", // Default: General-purpose NAS
+				"ProtocolType:NFS",        // Default: NFS protocol
+				"NFSVersion:4.0",          // Default: NFS 4.0
+				"StorageType:Required",    // Required: Must be specified by user
 			},
-			"Constraints": {
-				"ZoneType:Required",             // Zone is required for Alibaba NAS
-				"VPC:Required",                  // VPC is required (web console behavior)
-				"StorageType:Required",          // StorageType is required (no default)
-				"StorageType:Capacity:Min:0",    // Minimum capacity for Capacity storage
-				"StorageType:Premium:Min:0",     // Minimum capacity for Premium storage
-				"StorageType:Performance:Min:0", // Minimum capacity for Performance storage
-				"Extreme:Min:100",               // Minimum capacity for Extreme NAS
+			"AdvancedSetup": {
+				"FileSystemType:standard,extreme,cpfs",     // Choose NAS file system type
+				"StorageType:Capacity,Premium,Performance", // Choose storage type (varies by region)
+				"ProtocolType:NFS,SMB",                     // Choose protocol type
+				"Capacity:100-262144GB",                    // Capacity range (only for extreme type)
+			},
+			"CapacityRules": {
+				"standard:auto",        // General-purpose NAS: capacity managed automatically
+				"extreme:100-262144GB", // Extreme NAS: capacity must be specified
+				"extreme:required",     // Extreme NAS: capacity is required
+				"extreme:purchased",    // Extreme NAS: billed based on purchased capacity
 			},
 			"Examples": {
-				"BasicSetup:VPC+Zone+Name+StorageType:Capacity (all other options use defaults)",
-				"Advanced+Capacity+NFS:StorageType:Capacity,ProtocolType:NFS,Capacity:1024",
-				"Advanced+Premium+NFS:StorageType:Premium,ProtocolType:NFS,Capacity:2048",
-				"Advanced+Performance+NFS:StorageType:Performance,ProtocolType:NFS,Capacity:2048",
-				"Advanced+Capacity+SMB:StorageType:Capacity,ProtocolType:SMB,Capacity:512",
+				"Basic:StorageType:Capacity (FileSystemType defaults to standard)",
+				"Advanced:FileSystemType:extreme,StorageType:Capacity,Capacity:1024",
+				"Advanced:FileSystemType:standard,StorageType:Premium,ProtocolType:NFS",
 			},
 			"Notes": {
-				"Basic setup requires VPC, Zone, Name, and StorageType",
-				"StorageType is required - no default value provided",
-				"Advanced setup allows customization of protocol and capacity",
-				"Capacity storage: pay for actual storage used (0 GiB to 10 PiB)",
-				"Premium storage: pay for performance tier (0 GiB to 1 PiB)",
-				"Performance storage: pay for performance tier (0 GiB to 1 PiB)",
-				"Note: Available storage types may vary by region",
-				"Note: No API available to query region-specific storage type availability",
-				"Recommendation: Check Alibaba Cloud console for region-specific storage type availability",
-				"Note: VPC and VSwitch are required in web console but may be optional in API",
-				"Note: Capacity ranges differ between General Purpose NAS and Extreme NAS",
+				"StorageType is required and varies by region - check Alibaba Cloud console",
+				"FileSystemType 'standard' (default): General-purpose NAS, capacity auto-managed",
+				"FileSystemType 'extreme': Extreme NAS, capacity required (100-262144 GB)",
+				"Extreme NAS: billed based on purchased capacity, not actual usage",
+				"FileSystemType 'cpfs': Cloud Parallel File Storage (CPFS)",
+				"ProtocolType NFS supports v3.0 and v4.0",
+				"Zone and VPC are required for all file systems",
 			},
 		},
 	}
@@ -207,9 +199,10 @@ func (fileSystemHandler *AlibabaFileSystemHandler) CreateFileSystem(reqInfo irs.
 	// ================================
 	// Validate and set performance options
 	// ================================
-	protocolType := "NFS"  // Default protocol type
-	capacity := int64(100) // Default capacity in GB (minimum)
-	var storageType string
+	protocolType := "NFS"        // Default protocol type
+	storageType := ""            // StorageType is required - no default
+	fileSystemType := "standard" // Default NAS file system type (General-purpose NAS)
+	capacity := int64(100)       // Default capacity in GB (for extreme type)
 
 	// Get meta info for validation
 	metaInfo, err := fileSystemHandler.GetMetaInfo()
@@ -221,9 +214,41 @@ func (fileSystemHandler *AlibabaFileSystemHandler) CreateFileSystem(reqInfo irs.
 	validOptions := metaInfo.PerformanceOptions
 
 	// ================================
-	// Validate StorageType (Required field)
+	// Process PerformanceInfo for advanced setup
 	// ================================
 	if reqInfo.PerformanceInfo != nil && len(reqInfo.PerformanceInfo) > 0 {
+		// Validate FileSystemType if provided (NAS file system type)
+		if fst, exists := reqInfo.PerformanceInfo["FileSystemType"]; exists {
+			// Extract the actual type from the description
+			var actualType string
+			switch {
+			case strings.Contains(fst, "standard"):
+				actualType = "standard"
+			case strings.Contains(fst, "extreme"):
+				actualType = "extreme"
+			case strings.Contains(fst, "cpfs"):
+				actualType = "cpfs"
+			default:
+				actualType = fst // Use as-is if not in description format
+			}
+
+			// Validate against API-supported types
+			validTypes := []string{"standard", "extreme", "cpfs"}
+			fileSystemTypeValid := false
+			for _, validType := range validTypes {
+				if actualType == validType {
+					fileSystemTypeValid = true
+					fileSystemType = actualType
+					break
+				}
+			}
+			if !fileSystemTypeValid {
+				return irs.FileSystemInfo{}, fmt.Errorf("invalid FileSystemType '%s'. Valid options: standard, extreme, cpfs", fst)
+			}
+			cblogger.Infof("Using user-provided FileSystemType: %s", fileSystemType)
+		}
+
+		// Validate StorageType (Required field)
 		if st, exists := reqInfo.PerformanceInfo["StorageType"]; exists {
 			validStorageTypes := validOptions["StorageType"]
 			storageTypeValid := false
@@ -239,6 +264,7 @@ func (fileSystemHandler *AlibabaFileSystemHandler) CreateFileSystem(reqInfo irs.
 			}
 			cblogger.Infof("Using user-provided StorageType: %s", storageType)
 		} else {
+			// StorageType is required
 			return irs.FileSystemInfo{}, errors.New("StorageType is required. Please specify StorageType in PerformanceInfo (e.g., 'Capacity', 'Premium', or 'Performance')")
 		}
 
@@ -260,51 +286,54 @@ func (fileSystemHandler *AlibabaFileSystemHandler) CreateFileSystem(reqInfo irs.
 			cblogger.Info("ProtocolType not provided, using default: NFS")
 		}
 
-		// Validate capacity if specified
-		if cap, exists := reqInfo.PerformanceInfo["Capacity"]; exists {
-			if capInt, err := strconv.ParseInt(cap, 10, 64); err == nil {
-				// Determine capacity range based on storage type
-				var capacityRange irs.CapacityGBRange
-				switch storageType {
-				case "Capacity":
-					// Capacity storage: 0 GiB to 10 PiB (10,485,760 GiB)
-					capacityRange = irs.CapacityGBRange{Min: 0, Max: 10485760}
-				case "Premium":
-					// Premium storage: 0 GiB to 1 PiB (1,048,576 GiB)
-					capacityRange = irs.CapacityGBRange{Min: 0, Max: 1048576}
-				case "Performance":
-					// Performance storage: 0 GiB to 1 PiB (1,048,576 GiB)
-					capacityRange = irs.CapacityGBRange{Min: 0, Max: 1048576}
-				default:
-					// Fallback to GeneralPurpose range
-					capacityRange = metaInfo.CapacityGBOptions["GeneralPurpose"]
-				}
+		// Validate capacity if specified (from PerformanceInfo or CapacityGB)
+		var capacitySpecified bool
+		var capacityValue string
 
-				if capInt >= capacityRange.Min && capInt <= capacityRange.Max {
-					capacity = capInt
+		// Check PerformanceInfo first
+		if cap, exists := reqInfo.PerformanceInfo["Capacity"]; exists {
+			capacitySpecified = true
+			capacityValue = cap
+		} else if reqInfo.CapacityGB > 0 {
+			// Check CapacityGB field as fallback
+			capacitySpecified = true
+			capacityValue = strconv.FormatInt(reqInfo.CapacityGB, 10)
+		}
+
+		if capacitySpecified {
+			if capInt, err := strconv.ParseInt(capacityValue, 10, 64); err == nil {
+				// Capacity validation based on FileSystemType
+				if fileSystemType == "extreme" {
+					// Extreme NAS: capacity is required and must be 100-262144 GB
+					capacityRange := metaInfo.CapacityGBOptions["extreme"]
+					if capInt >= capacityRange.Min && capInt <= capacityRange.Max {
+						capacity = capInt
+						cblogger.Infof("Using user-provided capacity: %d GB for extreme file system", capacity)
+					} else {
+						return irs.FileSystemInfo{}, fmt.Errorf("capacity for extreme file system must be between %d and %d GB", capacityRange.Min, capacityRange.Max)
+					}
 				} else {
-					return irs.FileSystemInfo{}, fmt.Errorf("capacity for StorageType '%s' must be between %d and %d GB", storageType, capacityRange.Min, capacityRange.Max)
+					// Standard NAS: capacity is not supported (managed automatically)
+					cblogger.Warnf("Capacity specification is not supported for standard file system type. Capacity will be managed automatically by the service.")
 				}
 			} else {
 				return irs.FileSystemInfo{}, errors.New("invalid capacity value")
 			}
 		} else {
-			// Set default capacity based on storage type
-			switch storageType {
-			case "Capacity":
-				capacity = 100 // Default 100GB for Capacity storage
-			case "Premium", "Performance":
-				capacity = 100 // Default 100GB for Premium/Performance storage
-			default:
-				capacity = 100 // Default fallback
+			// No capacity specified
+			if fileSystemType == "extreme" {
+				// Extreme NAS requires capacity
+				return irs.FileSystemInfo{}, errors.New("capacity is required for extreme file system type. Please specify Capacity in PerformanceInfo")
+			} else {
+				// Standard NAS: capacity managed automatically
+				cblogger.Info("Capacity not specified for standard file system - will be managed automatically by the service")
 			}
-			cblogger.Infof("Capacity not provided, using default: %dGB for StorageType '%s'", capacity, storageType)
 		}
 
-		cblogger.Infof("Advanced setup - Performance settings: StorageType=%s, ProtocolType=%s, Capacity=%dGB", storageType, protocolType, capacity)
+		cblogger.Infof("Advanced setup - FileSystemType=%s, StorageType=%s, ProtocolType=%s, Capacity=%dGB", fileSystemType, storageType, protocolType, capacity)
 	} else {
-		// Basic setup mode - StorageType is still required
-		return irs.FileSystemInfo{}, errors.New("StorageType is required. Please specify StorageType in PerformanceInfo (e.g., 'Capacity' or 'Performance')")
+		// Basic setup mode - use defaults
+		cblogger.Info("Basic setup mode - using default values: FileSystemType=standard, StorageType=Capacity, ProtocolType=NFS")
 	}
 
 	// ================================
@@ -323,6 +352,7 @@ func (fileSystemHandler *AlibabaFileSystemHandler) CreateFileSystem(reqInfo irs.
 	// ================================
 	request := nas.CreateCreateFileSystemRequest()
 	request.Scheme = "https"
+	request.FileSystemType = fileSystemType
 	request.ProtocolType = protocolType
 	request.StorageType = storageType
 	request.ZoneId = reqInfo.Zone
@@ -336,20 +366,19 @@ func (fileSystemHandler *AlibabaFileSystemHandler) CreateFileSystem(reqInfo irs.
 		cblogger.Infof("Resource group ID: %s (will be used if API supports it)", resourceGroupId)
 	}
 
-	// Set capacity based on storage type
-	switch storageType {
-	case "Capacity":
+	// Set capacity only for extreme file system type
+	// According to Alibaba Cloud NAS API documentation:
+	// - Capacity is only valid and required for extreme file system type
+	// - For standard file systems, capacity is managed automatically by the service
+	if fileSystemType == "extreme" {
 		request.Capacity = requests.NewInteger(int(capacity))
-		cblogger.Infof("Setting capacity to %d GB for Capacity storage type", capacity)
-	case "Premium":
-		request.Capacity = requests.NewInteger(int(capacity))
-		cblogger.Infof("Setting capacity to %d GB for Premium storage type", capacity)
-	case "Performance":
-		request.Capacity = requests.NewInteger(int(capacity))
-		cblogger.Infof("Setting capacity to %d GB for Performance storage type", capacity)
-	default:
-		cblogger.Infof("StorageType '%s' selected - capacity will be managed automatically", storageType)
+		cblogger.Infof("Setting capacity to %d GB for extreme file system type", capacity)
+	} else {
+		cblogger.Infof("FileSystemType '%s' selected - capacity will be managed automatically by the service", fileSystemType)
 	}
+
+	// Note: Tags will be added after file system creation using TagResources API
+	// as CreateFileSystemRequest does not support Tag field directly
 
 	hiscallInfo := GetCallLogScheme(fileSystemHandler.Region, call.FILESYSTEM, reqInfo.IId.NameId, "CreateFileSystem()")
 	start := call.Start()
@@ -374,6 +403,36 @@ func (fileSystemHandler *AlibabaFileSystemHandler) CreateFileSystem(reqInfo irs.
 	if err != nil {
 		cblogger.Error(err)
 		return irs.FileSystemInfo{}, err
+	}
+
+	// ================================
+	// Add tags if provided using TagHandler
+	// ================================
+	if reqInfo.TagList != nil && len(reqInfo.TagList) > 0 {
+		cblogger.Infof("Adding %d tags to file system %s using TagHandler", len(reqInfo.TagList), response.FileSystemId)
+
+		// Use TagHandler to add tags
+		for _, tag := range reqInfo.TagList {
+			if tag.Key != "" && tag.Value != "" {
+				_, tagErr := fileSystemHandler.TagHandler.AddTag(irs.FILESYSTEM, irs.IID{SystemId: response.FileSystemId}, tag)
+				if tagErr != nil {
+					cblogger.Errorf("Failed to add tag (Key=%s, Value=%s) to file system %s: %v", tag.Key, tag.Value, response.FileSystemId, tagErr)
+					// Don't fail the entire operation for tag errors, just log the warning
+					cblogger.Warnf("File system %s created successfully but tag (Key=%s, Value=%s) could not be added", response.FileSystemId, tag.Key, tag.Value)
+				} else {
+					cblogger.Infof("Successfully added tag (Key=%s, Value=%s) to file system %s", tag.Key, tag.Value, response.FileSystemId)
+				}
+			}
+		}
+	}
+
+	// Add VpcId as a tag for future reference
+	vpcIdTag := irs.KeyValue{Key: "VpcId", Value: reqInfo.VpcIID.SystemId}
+	_, vpcTagErr := fileSystemHandler.TagHandler.AddTag(irs.FILESYSTEM, irs.IID{SystemId: response.FileSystemId}, vpcIdTag)
+	if vpcTagErr != nil {
+		cblogger.Warnf("Failed to add VpcId tag to file system %s: %v", response.FileSystemId, vpcTagErr)
+	} else {
+		cblogger.Infof("Successfully added VpcId tag (Value=%s) to file system %s", reqInfo.VpcIID.SystemId, response.FileSystemId)
 	}
 
 	// ================================
@@ -444,6 +503,11 @@ func (fileSystemHandler *AlibabaFileSystemHandler) GetFileSystem(iid irs.IID) (i
 
 	if fileSystemHandler.Client == nil {
 		return irs.FileSystemInfo{}, errors.New("NAS client is not initialized")
+	}
+
+	// Validate file system IID
+	if err := fileSystemHandler.validateFileSystemIID(iid); err != nil {
+		return irs.FileSystemInfo{}, err
 	}
 
 	request := nas.CreateDescribeFileSystemsRequest()
@@ -577,25 +641,43 @@ func (fileSystemHandler *AlibabaFileSystemHandler) DeleteFileSystem(iid irs.IID)
 		return false, errors.New("NAS client is not initialized")
 	}
 
-	// First, delete all mount targets
+	// Validate file system IID
+	if err := fileSystemHandler.validateFileSystemIID(iid); err != nil {
+		return false, err
+	}
+
+	// ================================
+	// Step 1: Delete all mount targets
+	// ================================
+	// Note: Tags will be automatically deleted when the file system is deleted
 	mountTargets, err := fileSystemHandler.listMountTargets(iid.SystemId)
 	if err != nil {
 		cblogger.Errorf("Failed to list mount targets: %v", err)
 		return false, err
 	}
 
+	cblogger.Infof("Found %d mount targets to delete", len(mountTargets))
 	for _, mt := range mountTargets {
-		err := fileSystemHandler.deleteMountTarget(mt.MountTargetDomain)
+		cblogger.Infof("Deleting mount target: %s", mt.MountTargetDomain)
+		err := fileSystemHandler.deleteMountTarget(iid.SystemId, mt.MountTargetDomain)
 		if err != nil {
 			cblogger.Errorf("Failed to delete mount target %s: %v", mt.MountTargetDomain, err)
+			// Continue with other mount targets even if one fails
+		} else {
+			cblogger.Infof("Successfully deleted mount target: %s", mt.MountTargetDomain)
 		}
 	}
 
 	// Wait for mount targets to be deleted
 	if len(mountTargets) > 0 {
+		cblogger.Info("Waiting for mount targets to be deleted...")
 		time.Sleep(30 * time.Second)
 	}
 
+	// ================================
+	// Step 2: Delete the file system
+	// ================================
+	cblogger.Infof("Deleting file system: %s", iid.SystemId)
 	request := nas.CreateDeleteFileSystemRequest()
 	request.Scheme = "https"
 	request.FileSystemId = iid.SystemId
@@ -612,6 +694,7 @@ func (fileSystemHandler *AlibabaFileSystemHandler) DeleteFileSystem(iid irs.IID)
 	}
 	LoggingInfo(hiscallInfo, start)
 
+	cblogger.Infof("Successfully deleted file system: %s", iid.SystemId)
 	return true, nil
 }
 
@@ -623,7 +706,24 @@ func (fileSystemHandler *AlibabaFileSystemHandler) AddAccessSubnet(iid irs.IID, 
 		return irs.FileSystemInfo{}, errors.New("NAS client is not initialized")
 	}
 
-	err := fileSystemHandler.createMountTarget(iid, subnetIID)
+	// Validate file system IID
+	if err := fileSystemHandler.validateFileSystemIID(iid); err != nil {
+		return irs.FileSystemInfo{}, err
+	}
+
+	// Validate subnet IID
+	if subnetIID.SystemId == "" {
+		return irs.FileSystemInfo{}, errors.New("subnet SystemId is required")
+	}
+
+	// Validate that the file system exists before proceeding
+	_, err := fileSystemHandler.GetFileSystem(iid)
+	if err != nil {
+		cblogger.Errorf("File system %s does not exist: %v", iid.SystemId, err)
+		return irs.FileSystemInfo{}, fmt.Errorf("file system %s does not exist: %w", iid.SystemId, err)
+	}
+
+	err = fileSystemHandler.createMountTarget(iid, subnetIID)
 	if err != nil {
 		return irs.FileSystemInfo{}, err
 	}
@@ -639,6 +739,23 @@ func (fileSystemHandler *AlibabaFileSystemHandler) RemoveAccessSubnet(iid irs.II
 		return false, errors.New("NAS client is not initialized")
 	}
 
+	// Validate file system IID
+	if err := fileSystemHandler.validateFileSystemIID(iid); err != nil {
+		return false, err
+	}
+
+	// Validate subnet IID
+	if subnetIID.SystemId == "" {
+		return false, errors.New("subnet SystemId is required")
+	}
+
+	// Validate that the file system exists before proceeding
+	_, err := fileSystemHandler.GetFileSystem(iid)
+	if err != nil {
+		cblogger.Errorf("File system %s does not exist: %v", iid.SystemId, err)
+		return false, fmt.Errorf("file system %s does not exist: %w", iid.SystemId, err)
+	}
+
 	hiscallInfo := GetCallLogScheme(fileSystemHandler.Region, call.FILESYSTEM, iid.SystemId, "RemoveAccessSubnet()")
 	start := call.Start()
 
@@ -651,7 +768,7 @@ func (fileSystemHandler *AlibabaFileSystemHandler) RemoveAccessSubnet(iid irs.II
 
 	for _, mt := range mountTargets {
 		if mt.VswId == subnetIID.SystemId {
-			err := fileSystemHandler.deleteMountTarget(mt.MountTargetDomain)
+			err := fileSystemHandler.deleteMountTarget(iid.SystemId, mt.MountTargetDomain)
 			if err != nil {
 				cblogger.Error(err)
 				LoggingError(hiscallInfo, err)
@@ -672,6 +789,18 @@ func (fileSystemHandler *AlibabaFileSystemHandler) ListAccessSubnet(iid irs.IID)
 
 	if fileSystemHandler.Client == nil {
 		return nil, errors.New("NAS client is not initialized")
+	}
+
+	// Validate file system IID
+	if err := fileSystemHandler.validateFileSystemIID(iid); err != nil {
+		return nil, err
+	}
+
+	// Validate that the file system exists before proceeding
+	_, err := fileSystemHandler.GetFileSystem(iid)
+	if err != nil {
+		cblogger.Errorf("File system %s does not exist: %v", iid.SystemId, err)
+		return nil, fmt.Errorf("file system %s does not exist: %w", iid.SystemId, err)
 	}
 
 	hiscallInfo := GetCallLogScheme(fileSystemHandler.Region, call.FILESYSTEM, iid.SystemId, "ListAccessSubnet()")
@@ -718,6 +847,57 @@ func (fileSystemHandler *AlibabaFileSystemHandler) DeleteBackup(fsIID irs.IID, b
 }
 
 // Helper functions
+
+// validateFileSystemIID validates that the file system IID is valid
+func (fileSystemHandler *AlibabaFileSystemHandler) validateFileSystemIID(iid irs.IID) error {
+	if iid.SystemId == "" {
+		return errors.New("file system SystemId is required")
+	}
+	return nil
+}
+
+// getVpcIdFromTag gets VpcId from file system tags
+func (fileSystemHandler *AlibabaFileSystemHandler) getVpcIdFromTag(fileSystemId string) (string, error) {
+	if fileSystemHandler.TagHandler == nil {
+		return "", errors.New("TagHandler is not initialized")
+	}
+
+	// Get VpcId tag from file system
+	vpcIdKeyValue, err := fileSystemHandler.TagHandler.GetTag(irs.FILESYSTEM, irs.IID{SystemId: fileSystemId}, "VpcId")
+	if err != nil {
+		return "", fmt.Errorf("failed to get VpcId tag: %w", err)
+	}
+
+	if vpcIdKeyValue.Value == "" {
+		return "", errors.New("VpcId tag not found or empty")
+	}
+
+	return vpcIdKeyValue.Value, nil
+}
+
+// getAccessGroupFromMountTarget gets Access Group information for a mount target
+func (fileSystemHandler *AlibabaFileSystemHandler) getAccessGroupFromMountTarget(mountTargetDomain string) (string, error) {
+	if fileSystemHandler.Client == nil {
+		return "", errors.New("NAS client is not initialized")
+	}
+
+	// Describe mount target to get access group information
+	request := nas.CreateDescribeMountTargetsRequest()
+	request.Scheme = "https"
+	request.MountTargetDomain = mountTargetDomain
+
+	response, err := fileSystemHandler.Client.DescribeMountTargets(request)
+	if err != nil {
+		return "", fmt.Errorf("failed to describe mount target %s: %w", mountTargetDomain, err)
+	}
+
+	if len(response.MountTargets.MountTarget) > 0 {
+		mt := response.MountTargets.MountTarget[0]
+		return mt.AccessGroup, nil
+	}
+
+	return "", errors.New("mount target not found")
+}
 
 func (fileSystemHandler *AlibabaFileSystemHandler) waitUntilFileSystemAvailable(fileSystemId string) error {
 	cblogger.Info("Waiting for file system to be available...")
@@ -767,13 +947,14 @@ func (fileSystemHandler *AlibabaFileSystemHandler) listMountTargets(fileSystemId
 	return response.MountTargets.MountTarget, nil
 }
 
-func (fileSystemHandler *AlibabaFileSystemHandler) deleteMountTarget(mountTargetDomain string) error {
+func (fileSystemHandler *AlibabaFileSystemHandler) deleteMountTarget(fileSystemId string, mountTargetDomain string) error {
 	if fileSystemHandler.Client == nil {
 		return errors.New("NAS client is not initialized")
 	}
 
 	request := nas.CreateDeleteMountTargetRequest()
 	request.Scheme = "https"
+	request.FileSystemId = fileSystemId
 	request.MountTargetDomain = mountTargetDomain
 
 	_, err := fileSystemHandler.Client.DeleteMountTarget(request)
@@ -798,13 +979,22 @@ func (fileSystemHandler *AlibabaFileSystemHandler) createMountTargetWithVPC(iid 
 		return err
 	}
 
-	// If VPC ID is not provided, try to get it from subnet
+	// If VPC ID is not provided, try to get it from file system tags first, then from subnet
 	if vpcId == "" {
-		vpcId, err = fileSystemHandler.getVPCFromSubnet(subnetIID.SystemId)
-		if err != nil {
-			cblogger.Errorf("Failed to get VPC ID from subnet %s: %v", subnetIID.SystemId, err)
-			// Continue without VPC ID - let Alibaba Cloud handle it
-			cblogger.Info("Continuing without VPC ID - Alibaba Cloud will determine it automatically")
+		// Try to get VPC ID from file system tags
+		tagVpcId, tagErr := fileSystemHandler.getVpcIdFromTag(iid.SystemId)
+		if tagErr == nil && tagVpcId != "" {
+			vpcId = tagVpcId
+			cblogger.Infof("Using VpcId from file system tags: %s", vpcId)
+		} else {
+			cblogger.Infof("VpcId not found in tags, trying subnet: %v", tagErr)
+			// Fallback to subnet-based VPC ID detection (commented out for now)
+			// vpcId, err = fileSystemHandler.getVPCFromSubnet(subnetIID.SystemId)
+			// if err != nil {
+			// 	cblogger.Errorf("Failed to get VPC ID from subnet %s: %v", subnetIID.SystemId, err)
+			// 	// Continue without VPC ID - let Alibaba Cloud handle it
+			// 	cblogger.Info("Continuing without VPC ID - Alibaba Cloud will determine it automatically")
+			// }
 		}
 	}
 
@@ -948,6 +1138,21 @@ func (fileSystemHandler *AlibabaFileSystemHandler) convertToFileSystemInfo(fs *n
 			Endpoint:  mt.MountTargetDomain,
 		}
 
+		// Get Access Group information (Alibaba Cloud NAS uses Access Group instead of Security Groups)
+		if mt.AccessGroup != "" {
+			// Map Access Group to SecurityGroups field for compatibility
+			mountTargetInfo.SecurityGroups = []string{mt.AccessGroup}
+		} else {
+			// Try to get Access Group from mount target details
+			accessGroup, err := fileSystemHandler.getAccessGroupFromMountTarget(mt.MountTargetDomain)
+			if err == nil && accessGroup != "" {
+				mountTargetInfo.SecurityGroups = []string{accessGroup}
+			} else {
+				// Set empty slice instead of nil for consistency
+				mountTargetInfo.SecurityGroups = []string{}
+			}
+		}
+
 		// Create mount command example
 		if fs.ProtocolType == "NFS" {
 			mountTargetInfo.MountCommandExample = fmt.Sprintf("sudo mount -t nfs %s:/ /mnt/nas", mt.MountTargetDomain)
@@ -957,6 +1162,14 @@ func (fileSystemHandler *AlibabaFileSystemHandler) convertToFileSystemInfo(fs *n
 
 		// Add complete Alibaba NAS mount target object information
 		mountTargetInfo.KeyValueList = irs.StructToKeyValueList(mt)
+
+		// Add Access Group information to KeyValueList for clarity
+		if len(mountTargetInfo.SecurityGroups) > 0 {
+			mountTargetInfo.KeyValueList = append(mountTargetInfo.KeyValueList, irs.KeyValue{
+				Key:   "AccessGroup",
+				Value: mountTargetInfo.SecurityGroups[0],
+			})
+		}
 
 		mountTargetList = append(mountTargetList, mountTargetInfo)
 		accessSubnetList = append(accessSubnetList, irs.IID{SystemId: mt.VswId})
@@ -995,13 +1208,24 @@ func (fileSystemHandler *AlibabaFileSystemHandler) convertToFileSystemInfo(fs *n
 
 	// Mount target에서 VPC ID 추출 (fs.VpcId가 비어있는 경우)
 	vpcId := fs.VpcId
-	if vpcId == "" && len(mountTargets) > 0 {
-		// Mount target의 VpcId 필드에서 직접 추출
-		for _, mt := range mountTargets {
-			if mt.VpcId != "" {
-				vpcId = mt.VpcId
-				break
-			}
+	if vpcId == "" {
+		// Try to get VPC ID from file system tags first
+		tagVpcId, tagErr := fileSystemHandler.getVpcIdFromTag(fs.FileSystemId)
+		if tagErr == nil && tagVpcId != "" {
+			vpcId = tagVpcId
+			cblogger.Infof("Using VpcId from file system tags: %s", vpcId)
+		} else {
+			// Fallback to mount target VpcId (commented out for now)
+			// if len(mountTargets) > 0 {
+			// 	// Mount target의 VpcId 필드에서 직접 추출
+			// 	for _, mt := range mountTargets {
+			// 		if mt.VpcId != "" {
+			// 			vpcId = mt.VpcId
+			// 			break
+			// 		}
+			// 	}
+			// }
+			cblogger.Infof("VpcId not found in tags or mount targets: %v", tagErr)
 		}
 	}
 

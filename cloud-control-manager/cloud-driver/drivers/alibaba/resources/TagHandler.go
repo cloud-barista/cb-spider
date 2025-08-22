@@ -950,19 +950,20 @@ func ExtractTagResourceInfo(tagResource *AliTagResource) (irs.TagInfo, error) {
 
 // NAS 태그 관리 함수들
 
-// aliAddNasTag adds a tag to NAS file system
-func aliAddNasTag(client *nas.Client, regionInfo idrv.RegionInfo, resType irs.RSType, resIID irs.IID, tag irs.KeyValue) (*nas.AddTagsResponse, error) {
-	request := nas.CreateAddTagsRequest()
+// aliAddNasTag adds a tag to NAS file system using TagResources API
+func aliAddNasTag(client *nas.Client, regionInfo idrv.RegionInfo, resType irs.RSType, resIID irs.IID, tag irs.KeyValue) (*nas.TagResourcesResponse, error) {
+	request := nas.CreateTagResourcesRequest()
 	request.Scheme = "https"
-	request.FileSystemId = resIID.SystemId
-	request.Tag = &[]nas.AddTagsTag{
+	request.ResourceType = "filesystem"
+	request.ResourceId = &[]string{resIID.SystemId}
+	request.Tag = &[]nas.TagResourcesTag{
 		{
 			Key:   tag.Key,
 			Value: tag.Value,
 		},
 	}
 
-	response, err := client.AddTags(request)
+	response, err := client.TagResources(request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add tag to NAS file system: %w", err)
 	}
@@ -1031,18 +1032,15 @@ func aliNasTagList(client *nas.Client, regionInfo idrv.RegionInfo, resType irs.R
 	return tagInfoList, nil
 }
 
-// aliRemoveNasTag removes a tag from NAS file system
-func aliRemoveNasTag(client *nas.Client, regionInfo idrv.RegionInfo, resType irs.RSType, resIID irs.IID, key string) (*nas.RemoveTagsResponse, error) {
-	request := nas.CreateRemoveTagsRequest()
+// aliRemoveNasTag removes a tag from NAS file system using UntagResources API
+func aliRemoveNasTag(client *nas.Client, regionInfo idrv.RegionInfo, resType irs.RSType, resIID irs.IID, key string) (*nas.UntagResourcesResponse, error) {
+	request := nas.CreateUntagResourcesRequest()
 	request.Scheme = "https"
-	request.FileSystemId = resIID.SystemId
-	request.Tag = &[]nas.RemoveTagsTag{
-		{
-			Key: key,
-		},
-	}
+	request.ResourceType = "filesystem"
+	request.ResourceId = &[]string{resIID.SystemId}
+	request.TagKey = &[]string{key}
 
-	response, err := client.RemoveTags(request)
+	response, err := client.UntagResources(request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to remove tag from NAS file system: %w", err)
 	}
