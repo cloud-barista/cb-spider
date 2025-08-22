@@ -40,8 +40,8 @@ func (fileSystemHandler *AlibabaFileSystemHandler) GetMetaInfo() (irs.FileSystem
 		SupportsNFSVersion: []string{"3.0", "4.0"}, // Alibaba NAS supports NFS v3 and v4
 		SupportsCapacity:   true,                   // Alibaba NAS supports capacity specification for extreme type
 		CapacityGBOptions: map[string]irs.CapacityGBRange{
-			"standard": {Min: 0, Max: 0},        // Standard NAS: capacity managed automatically by service
-			"extreme":  {Min: 100, Max: 262144}, // Extreme NAS: 100 GiB to 256 TiB (262,144 GiB)
+			// "standard": {Min: 0, Max: 0},        // Standard NAS: capacity managed automatically by service
+			"extreme": {Min: 100, Max: 262144}, // Extreme NAS: 100 GiB to 256 TiB (262,144 GiB)
 		},
 		PerformanceOptions: map[string][]string{
 			"RequiredFields": {
@@ -49,8 +49,8 @@ func (fileSystemHandler *AlibabaFileSystemHandler) GetMetaInfo() (irs.FileSystem
 			},
 			"OptionalFields": {
 				"FileSystemType", // Optional: NAS file system type (standard/extreme/cpfs)
-				"ProtocolType",   // Optional: NFS or SMB
-				"Capacity",       // Optional: Capacity in GB (only for extreme type)
+				// "Capacity",       // Optional: Capacity in GB (only for extreme type)
+				// "ProtocolType",   // Optional: NFS or SMB
 			},
 			"FileSystemType": {
 				"standard (default): General-purpose NAS file system - capacity managed automatically",
@@ -62,22 +62,22 @@ func (fileSystemHandler *AlibabaFileSystemHandler) GetMetaInfo() (irs.FileSystem
 				"Premium",     // Premium storage (pay for performance tier)
 				"Performance", // Performance-based storage (pay for performance tier)
 			},
-			"ProtocolType": {
-				"NFS", // NFS protocol (v3.0, v4.0)
-				"SMB", // SMB protocol
-			},
-			"BasicSetup": {
-				"FileSystemType:standard", // Default: General-purpose NAS
-				"ProtocolType:NFS",        // Default: NFS protocol
-				"NFSVersion:4.0",          // Default: NFS 4.0
-				"StorageType:Required",    // Required: Must be specified by user
-			},
-			"AdvancedSetup": {
-				"FileSystemType:standard,extreme,cpfs",     // Choose NAS file system type
-				"StorageType:Capacity,Premium,Performance", // Choose storage type (varies by region)
-				"ProtocolType:NFS,SMB",                     // Choose protocol type
-				"Capacity:100-262144GB",                    // Capacity range (only for extreme type)
-			},
+			// "ProtocolType": {
+			// 	"NFS", // NFS protocol (v3.0, v4.0)
+			// 	"SMB", // SMB protocol
+			// },
+			// "BasicSetup": {
+			// 	"FileSystemType:standard", // Default: General-purpose NAS
+			// 	"ProtocolType:NFS",        // Default: NFS protocol
+			// 	"NFSVersion:4.0",          // Default: NFS 4.0
+			// 	"StorageType:Required",    // Required: Must be specified by user
+			// },
+			// "AdvancedSetup": {
+			// 	"FileSystemType:standard,extreme,cpfs",     // Choose NAS file system type
+			// 	"StorageType:Capacity,Premium,Performance", // Choose storage type (varies by region)
+			// 	"ProtocolType:NFS,SMB",                     // Choose protocol type
+			// 	"Capacity:100-262144GB",                    // Capacity range (only for extreme type)
+			// },
 			"CapacityRules": {
 				"standard:auto",        // General-purpose NAS: capacity managed automatically
 				"extreme:100-262144GB", // Extreme NAS: capacity must be specified
@@ -87,16 +87,15 @@ func (fileSystemHandler *AlibabaFileSystemHandler) GetMetaInfo() (irs.FileSystem
 			"Examples": {
 				"Basic:StorageType:Capacity (FileSystemType defaults to standard)",
 				"Advanced:FileSystemType:extreme,StorageType:Capacity,Capacity:1024",
-				"Advanced:FileSystemType:standard,StorageType:Premium,ProtocolType:NFS",
+				// "Advanced:FileSystemType:standard,StorageType:Premium,ProtocolType:NFS",
 			},
 			"Notes": {
 				"StorageType is required and varies by region - check Alibaba Cloud console",
 				"FileSystemType 'standard' (default): General-purpose NAS, capacity auto-managed",
-				"FileSystemType 'extreme': Extreme NAS, capacity required (100-262144 GB)",
-				"Extreme NAS: billed based on purchased capacity, not actual usage",
+				"FileSystemType 'extreme': Extreme NAS, capacity required (100-262144 GB), billed based on purchased capacity, not actual usage",
 				"FileSystemType 'cpfs': Cloud Parallel File Storage (CPFS)",
-				"ProtocolType NFS supports v3.0 and v4.0",
-				"Zone and VPC are required for all file systems",
+				// "ProtocolType NFS supports v3.0 and v4.0",
+				// "Zone and VPC are required for all file systems",
 			},
 		},
 	}
@@ -268,23 +267,23 @@ func (fileSystemHandler *AlibabaFileSystemHandler) CreateFileSystem(reqInfo irs.
 			return irs.FileSystemInfo{}, errors.New("StorageType is required. Please specify StorageType in PerformanceInfo (e.g., 'Capacity', 'Premium', or 'Performance')")
 		}
 
-		// Validate protocol type if provided
-		if pt, exists := reqInfo.PerformanceInfo["ProtocolType"]; exists {
-			validProtocolTypes := validOptions["ProtocolType"]
-			protocolTypeValid := false
-			for _, validType := range validProtocolTypes {
-				if validType == pt {
-					protocolTypeValid = true
-					protocolType = pt
-					break
-				}
-			}
-			if !protocolTypeValid {
-				return irs.FileSystemInfo{}, fmt.Errorf("invalid ProtocolType '%s'. Valid options: %v", pt, validProtocolTypes)
-			}
-		} else {
-			cblogger.Info("ProtocolType not provided, using default: NFS")
-		}
+		// // Validate protocol type if provided
+		// if pt, exists := reqInfo.PerformanceInfo["ProtocolType"]; exists {
+		// 	validProtocolTypes := validOptions["ProtocolType"]
+		// 	protocolTypeValid := false
+		// 	for _, validType := range validProtocolTypes {
+		// 		if validType == pt {
+		// 			protocolTypeValid = true
+		// 			protocolType = pt
+		// 			break
+		// 		}
+		// 	}
+		// 	if !protocolTypeValid {
+		// 		return irs.FileSystemInfo{}, fmt.Errorf("invalid ProtocolType '%s'. Valid options: %v", pt, validProtocolTypes)
+		// 	}
+		// } else {
+		// 	cblogger.Info("ProtocolType not provided, using default: NFS")
+		// }
 
 		// Validate capacity if specified (from PerformanceInfo or CapacityGB)
 		var capacitySpecified bool
