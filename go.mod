@@ -62,7 +62,7 @@ require (
 	github.com/alibabacloud-go/vpc-20160428/v6 v6.4.0
 	github.com/cloud-barista/ktcloud-sdk-go v0.2.1-0.20240826073400-9dd317d24d0a
 	github.com/cloud-barista/ktcloudvpc-sdk-go v0.0.0-20250818112513-c90e5b807d39
-	github.com/cloud-barista/nhncloud-sdk-go v0.0.1
+	github.com/cloud-barista/nhncloud-sdk-go v0.0.2-0.20250820130332-f0e139707117
 	github.com/go-openapi/strfmt v0.23.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/go-version v1.6.0
