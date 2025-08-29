@@ -24,8 +24,6 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
-
-	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -40,6 +38,7 @@ type AlibabaCloudConnection struct {
 	Region         idrv.RegionInfo
 
 	VMClient      *ecs.Client
+	AnyCallClient *ecs.Client
 	KeyPairClient *ecs.Client
 	ImageClient   *ecs.Client
 	//PublicIPClient      *vpc.Client
@@ -174,7 +173,8 @@ func (AlibabaCloudConnection) Close() error {
 }
 
 func (cloudConn *AlibabaCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
-	return nil, errors.New("Alibaba Driver: not implemented")
+	handler := alirs.AlibabaAnyCallHandler{RegionId: cloudConn.Region.Region, ZoneId: cloudConn.Region.Zone, Client: cloudConn.AnyCallClient}
+	return &handler, nil
 }
 
 func (cloudConn *AlibabaCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {

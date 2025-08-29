@@ -1090,7 +1090,7 @@ func DeleteMultipleObjects(connectionName string, bucketName string, objectNames
 // S3 Advanced Features Implementation
 
 func GetS3PresignedURL(connectionName string, bucketName string, objectName string, method string, expiresSeconds int64, responseContentDisposition string) (string, error) {
-	cblog.Info("call GetS3PresignedURL()")
+	cblog.Info("call GetS3PresignedURL() - CSP S3 URL mode")
 	var iidInfo S3BucketIIDInfo
 	if err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName); err != nil {
 		return "", err
@@ -1109,6 +1109,7 @@ func GetS3PresignedURL(connectionName string, bucketName string, objectName stri
 	ctx := context.Background()
 	expires := time.Duration(expiresSeconds) * time.Second
 
+	// CSP S3 PreSigned URL 반환
 	switch method {
 	case "GET":
 		var params url.Values
@@ -1120,6 +1121,7 @@ func GetS3PresignedURL(connectionName string, bucketName string, objectName stri
 		if err != nil {
 			return "", err
 		}
+		cblog.Infof("CSP S3 PreSigned GET URL: %s", u.String())
 		return u.String(), nil
 
 	case "PUT":
@@ -1127,6 +1129,7 @@ func GetS3PresignedURL(connectionName string, bucketName string, objectName stri
 		if err != nil {
 			return "", err
 		}
+		cblog.Infof("CSP S3 PreSigned PUT URL: %s", u.String())
 		return u.String(), nil
 
 	default:

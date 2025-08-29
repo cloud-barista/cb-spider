@@ -88,9 +88,9 @@ func S3Management(c echo.Context) error {
 }
 
 func fetchS3Buckets(connConfig string) ([]S3BucketInfo, error) {
-	// Use root S3 API endpoint directly since /spider/ routing seems to have issues
+	// Use new S3 API endpoint: /spider/s3
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", "http://localhost:1024/", nil)
+	req, err := http.NewRequest("GET", "http://localhost:1024/spider/s3", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -153,7 +153,7 @@ func fetchS3Buckets(connConfig string) ([]S3BucketInfo, error) {
 
 func fetchVersioningStatus(connConfig, bucketName string) string {
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:1024/%s?versioning", bucketName), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:1024/spider/s3/%s?versioning", bucketName), nil)
 	if err != nil {
 		return "Error"
 	}
@@ -195,7 +195,7 @@ func fetchVersioningStatus(connConfig, bucketName string) string {
 
 func fetchCORSStatus(connConfig, bucketName string) string {
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:1024/%s?cors", bucketName), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:1024/spider/s3/%s?cors", bucketName), nil)
 	if err != nil {
 		return "Not configured"
 	}

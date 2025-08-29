@@ -6,11 +6,13 @@ package restruntime
 
 import (
 	"bytes"
+	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -1297,19 +1299,21 @@ func GetS3ObjectInfo(c echo.Context) error {
 	conn, _ := getConnectionName(c)
 	bucket := c.Param("BucketName")
 	obj := c.Param("ObjectKey+")
+	decodedObj, err := url.PathUnescape(obj)
+	if err != nil {
+		decodedObj = obj
+	}
 	versionId := c.QueryParam("versionId")
 
-	cblog.Infof("GetS3ObjectInfo - Bucket: %s, Object: %s, VersionId: %s", bucket, obj, versionId)
+	cblog.Infof("GetS3ObjectInfo - Bucket: %s, Object: %s, VersionId: %s", bucket, decodedObj, versionId)
 
 	var o *minio.ObjectInfo
-	var err error
-
 	if versionId != "" && versionId != "null" && versionId != "undefined" {
 		cblog.Infof("Getting info for specific version: %s", versionId)
-		o, err = cmrt.GetS3ObjectInfoWithVersion(conn, bucket, obj, versionId)
+		o, err = cmrt.GetS3ObjectInfoWithVersion(conn, bucket, decodedObj, versionId)
 	} else {
 		cblog.Infof("Getting info for latest version")
-		o, err = cmrt.GetS3ObjectInfo(conn, bucket, obj)
+		o, err = cmrt.GetS3ObjectInfo(conn, bucket, decodedObj)
 	}
 
 	if err != nil {
@@ -1413,12 +1417,16 @@ func PutS3ObjectFromFile(c echo.Context) error {
 	conn, _ := getConnectionName(c)
 	bucket := c.Param("BucketName")
 	objKey := c.Param("ObjectKey+")
+	decodedObjKey, err := url.PathUnescape(objKey)
+	if err != nil {
+		decodedObjKey = objKey
+	}
 
-	if c.Request().ContentLength == 0 && !strings.HasSuffix(objKey, "/") {
+	if c.Request().ContentLength == 0 && !strings.HasSuffix(decodedObjKey, "/") {
 		userAgent := c.Request().Header.Get("User-Agent")
 		if strings.Contains(userAgent, "S3 Browser") {
-			objKey = objKey + "/"
-			cblog.Infof("S3 Browser folder creation detected, adding trailing slash: %s", objKey)
+			decodedObjKey = decodedObjKey + "/"
+			cblog.Infof("S3 Browser folder creation detected, adding trailing slash: %s", decodedObjKey)
 		}
 	}
 
@@ -1444,28 +1452,71 @@ func PutS3ObjectFromFile(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
+// POST(FormData)
+func PutS3ObjectFromForm(c echo.Context) error {
+	conn, _ := getConnectionName(c)
+	bucket := c.Param("BucketName")
+	if bucket == "" {
+		bucket = c.Param("Name")
+	}
+	filename := c.FormValue("filename")
+	if filename == "" {
+		return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "filename is required", "/"+bucket)
+	}
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "file is required", "/"+bucket+"/"+filename)
+	}
+	file, err := fileHeader.Open()
+	if err != nil {
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucket+"/"+filename)
+	}
+	defer file.Close()
+
+	info, err := cmrt.PutS3ObjectFromReader(conn, bucket, filename, file, fileHeader.Size)
+	if err != nil {
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "bucket") {
+			errorCode = "NoSuchBucket"
+			statusCode = http.StatusNotFound
+		}
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+filename)
+	}
+
+	addS3Headers(c)
+	c.Response().Header().Set("ETag", info.ETag)
+	if info.VersionID != "" {
+		c.Response().Header().Set("x-amz-version-id", info.VersionID)
+	}
+	return c.NoContent(http.StatusOK)
+}
+
 func DeleteS3Object(c echo.Context) error {
 	conn, _ := getConnectionName(c)
 	bucket := c.Param("BucketName")
 	objKey := c.Param("ObjectKey+")
+	decodedObjKey, err := url.PathUnescape(objKey)
+	if err != nil {
+		decodedObjKey = objKey
+	}
 	versionID := c.QueryParam("versionId")
 
-	cblog.Infof("DeleteS3Object called - bucket: %s, objKey: %s, versionID: %s", bucket, objKey, versionID)
+	cblog.Infof("DeleteS3Object called - bucket: %s, objKey: %s, versionID: %s", bucket, decodedObjKey, versionID)
 
 	userAgent := c.Request().Header.Get("User-Agent")
-	if strings.Contains(userAgent, "S3 Browser") && !strings.HasSuffix(objKey, "/") {
-		objKeyWithSlash := objKey + "/"
+	if strings.Contains(userAgent, "S3 Browser") && !strings.HasSuffix(decodedObjKey, "/") {
+		objKeyWithSlash := decodedObjKey + "/"
 		_, err := cmrt.GetS3ObjectInfo(conn, bucket, objKeyWithSlash)
 		if err == nil {
-			objKey = objKeyWithSlash
-			cblog.Infof("S3 Browser folder deletion detected, adding trailing slash: %s", objKey)
+			decodedObjKey = objKeyWithSlash
+			cblog.Infof("S3 Browser folder deletion detected, adding trailing slash: %s", decodedObjKey)
 		} else {
-			cblog.Debugf("No folder found with slash, proceeding with original key: %s", objKey)
+			cblog.Debugf("No folder found with slash, proceeding with original key: %s", decodedObjKey)
 		}
 	}
 
 	var success bool
-	var err error
 
 	// Special handling for DELETE MARKER with null version ID
 	if versionID == "null" {
@@ -1473,18 +1524,18 @@ func DeleteS3Object(c echo.Context) error {
 
 		// For DELETE MARKER with null version ID, we need to use a different approach
 		// This typically means deleting the latest version (which is the delete marker)
-		success, err = cmrt.DeleteS3ObjectDeleteMarker(conn, bucket, objKey)
+		success, err = cmrt.DeleteS3ObjectDeleteMarker(conn, bucket, decodedObjKey)
 		if err != nil {
 			cblog.Warnf("Failed to delete DELETE MARKER, trying regular delete: %v", err)
 			// Fallback to regular delete
-			success, err = cmrt.DeleteS3Object(conn, bucket, objKey)
+			success, err = cmrt.DeleteS3Object(conn, bucket, decodedObjKey)
 		}
 	} else if versionID != "" && versionID != "undefined" {
 		cblog.Infof("Deleting specific version: %s", versionID)
-		success, err = cmrt.DeleteS3ObjectVersion(conn, bucket, objKey, versionID)
+		success, err = cmrt.DeleteS3ObjectVersion(conn, bucket, decodedObjKey, versionID)
 	} else {
 		cblog.Infof("Deleting current version (no valid versionID specified)")
-		success, err = cmrt.DeleteS3Object(conn, bucket, objKey)
+		success, err = cmrt.DeleteS3Object(conn, bucket, decodedObjKey)
 	}
 
 	if err != nil {
@@ -1496,15 +1547,15 @@ func DeleteS3Object(c echo.Context) error {
 		} else if strings.Contains(err.Error(), "version") {
 			errorCode = "NoSuchVersion"
 		}
-		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+objKey)
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+decodedObjKey)
 	}
 
 	if !success {
 		cblog.Errorf("Object/version deletion returned false")
-		return returnS3Error(c, http.StatusInternalServerError, "InternalError", "Failed to delete object", "/"+bucket+"/"+objKey)
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError", "Failed to delete object", "/"+bucket+"/"+decodedObjKey)
 	}
 
-	cblog.Infof("Successfully deleted object/version - bucket: %s, objKey: %s, versionID: %s", bucket, objKey, versionID)
+	cblog.Infof("Successfully deleted object/version - bucket: %s, objKey: %s, versionID: %s", bucket, decodedObjKey, versionID)
 	addS3Headers(c)
 	return c.NoContent(http.StatusNoContent)
 }
@@ -1513,22 +1564,24 @@ func DownloadS3Object(c echo.Context) error {
 	conn, _ := getConnectionName(c)
 	bucket := c.Param("BucketName")
 	objKey := c.Param("ObjectKey+")
+	decodedObjKey, err := url.PathUnescape(objKey)
+	if err != nil {
+		decodedObjKey = objKey
+	}
 	versionId := c.QueryParam("versionId")
 
-	cblog.Infof("DownloadS3Object - Bucket: %s, Object: %s, VersionId: %s", bucket, objKey, versionId)
+	cblog.Infof("DownloadS3Object - Bucket: %s, Object: %s, VersionId: %s", bucket, decodedObjKey, versionId)
 
 	var stream io.ReadCloser
-	var err error
-
 	if versionId != "" && versionId != "null" && versionId != "undefined" {
 		cblog.Infof("Downloading specific version: %s", versionId)
-		stream, err = cmrt.GetS3ObjectStreamWithVersion(conn, bucket, objKey, versionId)
+		stream, err = cmrt.GetS3ObjectStreamWithVersion(conn, bucket, decodedObjKey, versionId)
 	} else if versionId == "null" {
 		cblog.Infof("Downloading null version (original version)")
-		stream, err = cmrt.GetS3ObjectStreamWithVersion(conn, bucket, objKey, "null")
+		stream, err = cmrt.GetS3ObjectStreamWithVersion(conn, bucket, decodedObjKey, "null")
 	} else {
 		cblog.Infof("Downloading latest version")
-		stream, err = cmrt.GetS3ObjectStream(conn, bucket, objKey)
+		stream, err = cmrt.GetS3ObjectStream(conn, bucket, decodedObjKey)
 	}
 
 	if err != nil {
@@ -1540,12 +1593,12 @@ func DownloadS3Object(c echo.Context) error {
 		} else if strings.Contains(err.Error(), "version") {
 			errorCode = "NoSuchVersion"
 		}
-		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+objKey)
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+decodedObjKey)
 	}
 	defer stream.Close()
 
 	addS3Headers(c)
-	filename := filepath.Base(objKey)
+	filename := filepath.Base(decodedObjKey)
 	c.Response().Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
 	c.Response().Header().Set("Content-Type", "application/octet-stream")
 
@@ -1553,7 +1606,7 @@ func DownloadS3Object(c echo.Context) error {
 		c.Response().Header().Set("x-amz-version-id", versionId)
 	}
 
-	cblog.Infof("Successfully streaming object: %s", objKey)
+	cblog.Infof("Successfully streaming object: %s", decodedObjKey)
 	return c.Stream(http.StatusOK, "application/octet-stream", stream)
 }
 
@@ -1606,33 +1659,24 @@ func min(a, b int) int {
 	return b
 }
 
+// initiateMultipartUpload starts a multipart upload
 func initiateMultipartUpload(c echo.Context) error {
 	conn, _ := getConnectionName(c)
-
-	bucket := c.Param("BucketName")
+	bucket := c.Param("Name")
 	if bucket == "" {
-		bucket = c.Param("Name")
+		bucket = c.Param("BucketName")
 	}
-
 	key := c.Param("ObjectKey+")
-	if key == "" {
-		key = c.Param("*")
-	}
-	if key == "" {
-		key = c.QueryParam("key")
+	decodedKey, err := url.PathUnescape(key)
+	if err != nil {
+		decodedKey = key
 	}
 
-	if key == "" {
-		return returnS3Error(
-			c,
-			http.StatusBadRequest,
-			"MissingParameter",
-			"key parameter is required",
-			"/"+bucket,
-		)
+	if decodedKey == "" {
+		return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "key parameter is required", "/"+bucket)
 	}
 
-	uploadID, err := cmrt.InitiateMultipartUpload(conn, bucket, key)
+	uploadID, err := cmrt.InitiateMultipartUpload(conn, bucket, decodedKey)
 	if err != nil {
 		errorCode := "InternalError"
 		statusCode := http.StatusInternalServerError
@@ -1640,7 +1684,7 @@ func initiateMultipartUpload(c echo.Context) error {
 			errorCode = "NoSuchBucket"
 			statusCode = http.StatusNotFound
 		}
-		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+key)
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+decodedKey)
 	}
 
 	type InitiateMultipartUploadResult struct {
@@ -1654,7 +1698,7 @@ func initiateMultipartUpload(c echo.Context) error {
 	resp := InitiateMultipartUploadResult{
 		Xmlns:    "http://s3.amazonaws.com/doc/2006-03-01/",
 		Bucket:   bucket,
-		Key:      key,
+		Key:      decodedKey,
 		UploadId: uploadID,
 	}
 
@@ -1662,7 +1706,7 @@ func initiateMultipartUpload(c echo.Context) error {
 
 	xmlData, err := xml.Marshal(resp)
 	if err != nil {
-		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucket+"/"+key)
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucket+"/"+decodedKey)
 	}
 
 	fullXML := append([]byte(xml.Header), xmlData...)
@@ -2010,46 +2054,41 @@ func uploadPart(c echo.Context) error {
 // ForceEmptyS3Bucket forcefully empties a bucket but keeps the bucket
 func ForceEmptyS3Bucket(c echo.Context) error {
 	conn, _ := getConnectionName(c)
-	name := c.Param("Name")
-
-	cblog.Infof("ForceEmptyS3Bucket called - Bucket: %s, Connection: %s", name, conn)
-	cblog.Infof("Request method: %s, URL: %s", c.Request().Method, c.Request().URL.String())
-	cblog.Infof("Query parameters: %v", c.QueryParams())
-
-	// Check for force empty parameter
-	if c.QueryParam("empty") == "" && c.Request().Header.Get("X-Force-Empty") == "" {
-		return returnS3Error(c, http.StatusBadRequest, "InvalidRequest",
-			"Force empty requires 'empty' query parameter or X-Force-Empty header", "/"+name)
-	}
-
-	cblog.Infof("Force empty confirmed for bucket %s", name)
-
-	success, err := cmrt.ForceEmptyBucket(conn, name)
+	bucket := c.Param("BucketName")
+	objKey := c.Param("ObjectKey+")
+	decodedObjKey, err := url.PathUnescape(objKey)
 	if err != nil {
-		cblog.Errorf("Failed to force empty bucket %s: %v", name, err)
+		decodedObjKey = objKey
+	}
+	versionId := c.QueryParam("versionId")
 
-		errorCode := "InternalError"
-		statusCode := http.StatusInternalServerError
+	cblog.Infof("DeleteS3Object - Bucket: %s, Object: %s, VersionId: %s", bucket, decodedObjKey, versionId)
 
-		if strings.Contains(err.Error(), "not found") {
+	var success bool
+	if versionId != "" && versionId != "null" && versionId != "undefined" {
+		cblog.Infof("Deleting specific version: %s", versionId)
+		success, err = cmrt.DeleteS3ObjectVersion(conn, bucket, decodedObjKey, versionId)
+	} else if versionId == "null" {
+		cblog.Infof("Deleting null version (original version)")
+		success, err = cmrt.DeleteS3ObjectVersion(conn, bucket, decodedObjKey, "null")
+	} else {
+		cblog.Infof("Deleting latest version")
+		success, err = cmrt.DeleteS3Object(conn, bucket, decodedObjKey)
+	}
+
+	if err != nil || !success {
+		cblog.Errorf("Failed to delete object: %v", err)
+		errorCode := "NoSuchKey"
+		statusCode := http.StatusNotFound
+		if err != nil && strings.Contains(err.Error(), "bucket") {
 			errorCode = "NoSuchBucket"
-			statusCode = http.StatusNotFound
-		} else if strings.Contains(err.Error(), "access denied") {
-			errorCode = "AccessDenied"
-			statusCode = http.StatusForbidden
+		} else if err != nil && strings.Contains(err.Error(), "version") {
+			errorCode = "NoSuchVersion"
 		}
-
-		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+name)
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+decodedObjKey)
 	}
 
-	if !success {
-		cblog.Errorf("Force empty returned false for bucket %s", name)
-		return returnS3Error(c, http.StatusInternalServerError, "InternalError",
-			"Force empty failed for unknown reason", "/"+name)
-	}
-
-	cblog.Infof("Successfully force emptied bucket %s", name)
-	addS3Headers(c)
+	cblog.Infof("Successfully deleted object: %s", decodedObjKey)
 	return c.NoContent(http.StatusNoContent)
 }
 
@@ -2100,4 +2139,63 @@ func ForceDeleteS3Bucket(c echo.Context) error {
 	cblog.Infof("Successfully force deleted bucket %s", name)
 	addS3Headers(c)
 	return c.NoContent(http.StatusNoContent)
+}
+
+// GetS3PresignedURLHandler generates a presigned URL for S3 object access
+func GetS3PresignedURLHandler(c echo.Context) error {
+	conn, _ := getConnectionName(c)
+	bucket := c.Param("BucketName")
+	objKey := c.Param("ObjectKey+")
+	decodedObjKey, err := url.PathUnescape(objKey)
+	if err != nil {
+		decodedObjKey = objKey
+	}
+
+	method := c.QueryParam("method")
+	if method == "" {
+		method = "GET"
+	}
+
+	expiresSecondsStr := c.QueryParam("expires")
+	expiresSeconds := int64(3600) // Default 1 hour
+	if expiresSecondsStr != "" {
+		if parsed, err := strconv.ParseInt(expiresSecondsStr, 10, 64); err == nil {
+			expiresSeconds = parsed
+		}
+	}
+
+	responseContentDisposition := c.QueryParam("response-content-disposition")
+
+	cblog.Infof("GetS3PresignedURL - Bucket: %s, Object: %s, Method: %s, Expires: %d seconds",
+		bucket, decodedObjKey, method, expiresSeconds)
+
+	presignedURL, err := cmrt.GetS3PresignedURL(conn, bucket, decodedObjKey, method, expiresSeconds, responseContentDisposition)
+	if err != nil {
+		cblog.Errorf("Failed to generate presigned URL: %v", err)
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "bucket") {
+			errorCode = "NoSuchBucket"
+			statusCode = http.StatusNotFound
+		} else if strings.Contains(err.Error(), "object") {
+			errorCode = "NoSuchKey"
+			statusCode = http.StatusNotFound
+		}
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+decodedObjKey)
+	}
+
+	cblog.Infof("Successfully generated presigned URL: %s", presignedURL)
+
+	result := S3PresignedURL{
+		PresignedURL: presignedURL,
+	}
+
+	addS3Headers(c)
+
+	// Use custom JSON encoding to prevent HTML escaping of URLs
+	encoder := json.NewEncoder(c.Response().Writer)
+	encoder.SetEscapeHTML(false)
+	c.Response().Header().Set(echo.HeaderContentType, echo.MIMEApplicationJSONCharsetUTF8)
+	c.Response().WriteHeader(http.StatusOK)
+	return encoder.Encode(result)
 }
