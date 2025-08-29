@@ -177,12 +177,6 @@ func describeAvailableSystemDisksByInstanceTypeAnyCall(anyCallHandler *AlibabaAn
 			}
 		}
 	}
-	if err != nil {
-		cblogger.Errorf("JSON marshal error: %v", err)
-		callInfo.OKeyValueList = append(callInfo.OKeyValueList, irs.KeyValue{"Result", "false"})
-		callInfo.OKeyValueList = append(callInfo.OKeyValueList, irs.KeyValue{"Reason", err.Error()})
-		return callInfo, nil
-	}
 	callInfo.OKeyValueList = append(callInfo.OKeyValueList, irs.KeyValue{"Result", "true"})
 	var diskNames []string
 	if len(systemDiskList) == 0 {
