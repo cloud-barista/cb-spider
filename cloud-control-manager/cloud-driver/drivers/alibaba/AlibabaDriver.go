@@ -149,6 +149,9 @@ func (driver *AlibabaDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		Cs2015Client:     Cs2015Client,
 		Ecs2014Client:    Ecs2014Client,
 		BssClient:        BssClient,
+
+		// Connection for AnyCall
+		AnyCallClient: ECSClient,
 	}
 	return &iConn, nil
 }
