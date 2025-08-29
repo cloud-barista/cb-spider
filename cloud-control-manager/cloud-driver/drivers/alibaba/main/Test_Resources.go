@@ -1504,10 +1504,14 @@ func handleTagInfo() {
 
 		// resourceType := irs.RSType("VM")
 		resourceType := irs.ALL
+		resourceType = irs.FILESYSTEM
 
-		resourceIID := irs.IID{NameId: "", SystemId: ""}
+		resourceIID := irs.IID{NameId: "", SystemId: "2588fa4883d"}
 		// resourceType := irs.RSType("CLUSTER")
 		// resourceIID := irs.IID{NameId: "cs-issue-test", SystemId: ""}
+
+		reqTag := "fsaa"
+		//VpcId
 
 		if inputCnt == 1 {
 			switch commandNum {
@@ -1524,9 +1528,7 @@ func handleTagInfo() {
 				}
 
 			case 2:
-				tagName := "tagntest3"
-				tagName = ""
-				result, err := handler.GetTag(resourceType, resourceIID, tagName)
+				result, err := handler.GetTag(resourceType, resourceIID, reqTag)
 				if err != nil {
 					cblogger.Info("Fail to retrieve Tag : ", err)
 				} else {
@@ -1535,9 +1537,7 @@ func handleTagInfo() {
 					cblogger.Info(result)
 				}
 			case 3:
-				tagName := "aaa"
-
-				result, err := handler.FindTag(resourceType, tagName)
+				result, err := handler.FindTag(resourceType, reqTag)
 				if err != nil {
 					cblogger.Info("Fail to retrieve Tag : ", err)
 				} else {
@@ -1894,7 +1894,7 @@ func handleFileSystem() {
 	tag1 := irs.KeyValue{Key: "fsaa", Value: "fsbb"}
 	subnetIID := irs.IID{SystemId: "vsw-6wemkeefn461cmrqi5fbl"}
 
-	// Basic setup - minimum required information
+	// Basic setup - minimum required information (standard FileSystemType)
 	fileSystemReqInfoBasic := irs.FileSystemInfo{
 		IId:    irs.IID{NameId: "cb-test-nas-basic"},
 		VpcIID: irs.IID{SystemId: "vpc-6weua85b8bmwduzec8bvj"}, // VPC ID required
@@ -1904,27 +1904,11 @@ func handleFileSystem() {
 		},
 		TagList: []irs.KeyValue{tag1},
 		PerformanceInfo: map[string]string{
-			"StorageType": "Capacity", // Required: StorageType must be specified
+			"StorageType": "Capacity", // Required: StorageType for standard FileSystemType
 		},
 	}
 
-	// Advanced setup - with custom performance options (Capacity)
-	fileSystemReqInfoAdvanced := irs.FileSystemInfo{
-		IId:    irs.IID{NameId: "cb-test-nas-advanced"},
-		VpcIID: irs.IID{SystemId: "vpc-6weua85b8bmwduzec8bvj"}, // VPC ID required
-		Zone:   "ap-northeast-1a",                              // Zone ID required
-		AccessSubnetList: []irs.IID{
-			{SystemId: "vsw-6wemkeefn461cmrqi5fbl"}, // Subnet ID required
-		},
-		TagList: []irs.KeyValue{tag1},
-		PerformanceInfo: map[string]string{
-			"StorageType":  "Capacity",
-			"ProtocolType": "NFS",
-			"Capacity":     "1024",
-		},
-	}
-
-	// Premium storage type example
+	// Premium storage type example (standard FileSystemType)
 	fileSystemReqInfoPremium := irs.FileSystemInfo{
 		IId:    irs.IID{NameId: "cb-test-nas-premium"},
 		VpcIID: irs.IID{SystemId: "vpc-6weua85b8bmwduzec8bvj"}, // VPC ID required
@@ -1934,25 +1918,24 @@ func handleFileSystem() {
 		},
 		TagList: []irs.KeyValue{tag1},
 		PerformanceInfo: map[string]string{
-			"StorageType":  "Premium",
-			"ProtocolType": "NFS",
-			"Capacity":     "2048",
+			"StorageType": "Premium",
+			// Note: Capacity is not valid for standard FileSystemType
 		},
 	}
 
-	// Performance storage type example
-	fileSystemReqInfoPerformance := irs.FileSystemInfo{
-		IId:    irs.IID{NameId: "cb-test-nas-performance"},
+	// Extreme FileSystemType example (with Capacity required)
+	fileSystemReqInfoExtreme := irs.FileSystemInfo{
+		IId:    irs.IID{NameId: "cb-test-nas-extreme"},
 		VpcIID: irs.IID{SystemId: "vpc-6weua85b8bmwduzec8bvj"}, // VPC ID required
 		Zone:   "ap-northeast-1a",                              // Zone ID required
 		AccessSubnetList: []irs.IID{
 			{SystemId: "vsw-6wemkeefn461cmrqi5fbl"}, // Subnet ID required
 		},
-		TagList: []irs.KeyValue{tag1},
+		TagList:    []irs.KeyValue{tag1},
+		CapacityGB: 103, // Required for extreme FileSystemType (100GB ~ 262,144GB)
 		PerformanceInfo: map[string]string{
-			"StorageType":  "Performance",
-			"ProtocolType": "NFS",
-			"Capacity":     "2048",
+			"FileSystemType": "extreme",
+			"StorageType":    "standard", // For extreme: standard or advance
 		},
 	}
 
@@ -1964,15 +1947,14 @@ func handleFileSystem() {
 		fmt.Println("1. GetMetaInfo")
 		fmt.Println("2. FileSystem List")
 		fmt.Println("3. FileSystem Create (Basic Setup)")
-		fmt.Println("4. FileSystem Create (Advanced Setup - Capacity)")
-		fmt.Println("5. FileSystem Create (Premium Storage)")
-		fmt.Println("6. FileSystem Create (Performance Storage)")
-		fmt.Println("7. FileSystem Get")
-		fmt.Println("8. FileSystem Delete")
-		fmt.Println("9. Add Access Subnet")
-		fmt.Println("10. Remove Access Subnet")
-		fmt.Println("11. List Access Subnet")
-		fmt.Println("12. List IID")
+		fmt.Println("4. FileSystem Create (Premium Storage)")
+		fmt.Println("5. FileSystem Create (Extreme FileSystemType)")
+		fmt.Println("6. FileSystem Get")
+		fmt.Println("7. FileSystem Delete")
+		fmt.Println("8. Add Access Subnet")
+		fmt.Println("9. Remove Access Subnet")
+		fmt.Println("10. List Access Subnet")
+		fmt.Println("11. List IID")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -2020,17 +2002,6 @@ func handleFileSystem() {
 				}
 
 			case 4:
-				cblogger.Infof("[%s] Test of create FileSystem (Advanced Setup - Capacity)", fileSystemReqInfoAdvanced.IId.NameId)
-				result, err := handler.CreateFileSystem(fileSystemReqInfoAdvanced)
-				if err != nil {
-					cblogger.Error("Failed to create FileSystem: ", err)
-				} else {
-					cblogger.Info("Result of create FileSystem (Advanced Setup - Capacity)")
-					reqFileSystemId = result.IId
-					spew.Dump(result)
-				}
-
-			case 5:
 				cblogger.Infof("[%s] Test of create FileSystem (Premium Storage)", fileSystemReqInfoPremium.IId.NameId)
 				result, err := handler.CreateFileSystem(fileSystemReqInfoPremium)
 				if err != nil {
@@ -2041,18 +2012,18 @@ func handleFileSystem() {
 					spew.Dump(result)
 				}
 
-			case 6:
-				cblogger.Infof("[%s] Test of create FileSystem (Performance Storage)", fileSystemReqInfoPerformance.IId.NameId)
-				result, err := handler.CreateFileSystem(fileSystemReqInfoPerformance)
+			case 5:
+				cblogger.Infof("[%s] Test of create FileSystem (Extreme FileSystemType)", fileSystemReqInfoExtreme.IId.NameId)
+				result, err := handler.CreateFileSystem(fileSystemReqInfoExtreme)
 				if err != nil {
 					cblogger.Error("Failed to create FileSystem: ", err)
 				} else {
-					cblogger.Info("Result of create FileSystem (Performance Storage)")
+					cblogger.Info("Result of create FileSystem (Extreme FileSystemType)")
 					reqFileSystemId = result.IId
 					spew.Dump(result)
 				}
 
-			case 7:
+			case 6:
 				cblogger.Infof("[%s] Test of retrieve FileSystem", reqFileSystemId)
 				result, err := handler.GetFileSystem(reqFileSystemId)
 				if err != nil {
@@ -2062,7 +2033,7 @@ func handleFileSystem() {
 					spew.Dump(result)
 				}
 
-			case 8:
+			case 7:
 				cblogger.Infof("[%s] Test of delete FileSystem", reqFileSystemId)
 				result, err := handler.DeleteFileSystem(reqFileSystemId)
 				if err != nil {
@@ -2071,7 +2042,7 @@ func handleFileSystem() {
 					cblogger.Info("Result of delete FileSystem: ", result)
 				}
 
-			case 9:
+			case 8:
 				cblogger.Infof("[%s] Test of add access subnet", reqFileSystemId)
 				result, err := handler.AddAccessSubnet(reqFileSystemId, subnetIID)
 				if err != nil {
@@ -2081,7 +2052,7 @@ func handleFileSystem() {
 					spew.Dump(result)
 				}
 
-			case 10:
+			case 9:
 				cblogger.Infof("[%s] Test of remove access subnet", reqFileSystemId)
 				result, err := handler.RemoveAccessSubnet(reqFileSystemId, subnetIID)
 				if err != nil {
@@ -2090,7 +2061,7 @@ func handleFileSystem() {
 					cblogger.Info("Result of remove access subnet: ", result)
 				}
 
-			case 11:
+			case 10:
 				cblogger.Infof("[%s] Test of list access subnet", reqFileSystemId)
 				result, err := handler.ListAccessSubnet(reqFileSystemId)
 				if err != nil {
@@ -2100,7 +2071,7 @@ func handleFileSystem() {
 					spew.Dump(result)
 				}
 
-			case 12:
+			case 11:
 				cblogger.Info("Start ListIID() ...")
 				result, err := handler.ListIID()
 				if err != nil {
@@ -2137,7 +2108,7 @@ func main() {
 	//handleVNic() //Lancard
 	//handleRegionZone()
 	//handlePriceInfo()
-	// handleTagInfo()
+	handleTagInfo()
 	/*
 	   //StartTime := "2020-05-07T01:35:00Z"
 	   StartTime := "2020-05-07T01:35Z"
