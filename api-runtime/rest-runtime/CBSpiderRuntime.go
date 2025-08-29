@@ -69,7 +69,7 @@ func init() {
 	currentTime := time.Now()
 	cr.StartTime = currentTime.Format("2006.01.02 15:04:05 Mon")
 	cr.MiddleStartTime = currentTime.Format("2006.01.02.15:04:05")
-
+	cr.ShortStartTime = currentTime.Format("2006.01.02 15:04:05")
 	// REST and GO SERVER_ADDRESS since v0.4.4
 	cr.ServerIPorName = getServerIPorName("SERVER_ADDRESS")
 	cr.ServerPort = getServerPort("SERVER_ADDRESS")
