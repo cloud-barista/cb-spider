@@ -69,7 +69,6 @@ func init() {
 	currentTime := time.Now()
 	cr.StartTime = currentTime.Format("2006.01.02 15:04:05 Mon")
 	cr.MiddleStartTime = currentTime.Format("2006.01.02.15:04:05")
-	cr.ShortStartTime = fmt.Sprintf("T%02d:%02d:%02d", currentTime.Hour(), currentTime.Minute(), currentTime.Second())
 
 	// REST and GO SERVER_ADDRESS since v0.4.4
 	cr.ServerIPorName = getServerIPorName("SERVER_ADDRESS")
@@ -566,36 +565,37 @@ func RunServer() {
 
 		//----------SSH WebTerminal Handler
 		{"GET", "/adminweb/sshwebterminal/ws", aw.HandleWebSocket},
-	}
 
-	// for Standard S3 API - Order matters! More specific routes should come first
-	s3Routes := []route{
-		{"GET", "/", ListS3Buckets},
+		//----------S3 API Handler - Order matters! More specific routes should come first
+		{"GET", "/s3", ListS3Buckets},
 
 		// Bucket-level operations (with query parameters)
-		{"GET", "/:Name", GetS3Bucket}, // Handles ?versioning, ?cors, ?policy, ?location, ?versions, and list objects
-		{"GET", "/:Name/", GetS3Bucket},
-		{"HEAD", "/:Name", GetS3Bucket},
-		{"PUT", "/:Name", CreateS3Bucket}, // Handles bucket creation AND bucket config (redirects to GetS3Bucket)
-		{"DELETE", "/:Name", DeleteS3Bucket},
+		{"GET", "/s3/:Name", GetS3Bucket}, // Handles ?versioning, ?cors, ?policy, ?location, ?versions, and list objects
+		{"GET", "/s3/:Name/", GetS3Bucket},
+		{"HEAD", "/s3/:Name", GetS3Bucket},
+		{"PUT", "/s3/:Name", CreateS3Bucket}, // Handles bucket creation AND bucket config (redirects to GetS3Bucket)
+		{"DELETE", "/s3/:Name", DeleteS3Bucket},
 
 		//--------- don't change the order of these routes
-		{"POST", "/:BucketName/:ObjectKey+", HandleS3BucketPost},
-		{"POST", "/:Name", HandleS3BucketPost},
-		{"POST", "/:Name/", HandleS3BucketPost},
+		{"POST", "/s3/:BucketName/:ObjectKey+", HandleS3BucketPost},
+		{"POST", "/s3/:Name", PutS3ObjectFromForm},
+		{"POST", "/s3/:Name/", HandleS3BucketPost},
 		//--------- don't change the order of these routes
 
 		// Object-level operations
-		{"PUT", "/:BucketName/:ObjectKey+", PutS3ObjectFromFile},
-		{"HEAD", "/:BucketName/:ObjectKey+", GetS3ObjectInfo},
-		{"GET", "/:BucketName/:ObjectKey+", DownloadS3Object},
-		{"DELETE", "/:BucketName/:ObjectKey+", DeleteS3Object},
+		{"PUT", "/s3/:BucketName/:ObjectKey+", PutS3ObjectFromFile},
+		{"HEAD", "/s3/:BucketName/:ObjectKey+", GetS3ObjectInfo},
+		{"GET", "/s3/:BucketName/:ObjectKey+", DownloadS3Object},
+		{"DELETE", "/s3/:BucketName/:ObjectKey+", DeleteS3Object},
+
+		// PreSigned URL API
+		{"GET", "/s3-presigned/:BucketName/:ObjectKey+", GetS3PresignedURLHandler},
 	}
 
 	//======================================= setup routes
 
 	// Run API Server
-	ApiServer(routes, s3Routes)
+	ApiServer(routes)
 
 }
 
@@ -654,7 +654,7 @@ func (w *bodyDumpResponseWriter) Write(b []byte) (int, error) {
 }
 
 // ================ REST API Server: setup & start
-func ApiServer(routes []route, s3Routes []route) {
+func ApiServer(routes []route) {
 	e := echo.New()
 
 	// Middleware
@@ -667,9 +667,9 @@ func ApiServer(routes []route, s3Routes []route) {
 	// Custom logging for S3 API requests
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			if strings.HasPrefix(c.Request().Header.Get("Authorization"), "AWS4-HMAC-SHA256") {
-				cblog.Infof("S3 API Request: %s %s", c.Request().Method, c.Request().URL.Path)
-				cblog.Debugf("Request Headers: %v", c.Request().Header)
+			// Check for S3 API requests (both AWS signature and /spider/s3 path)
+			if strings.HasPrefix(c.Request().Header.Get("Authorization"), "AWS4-HMAC-SHA256") ||
+				strings.HasPrefix(c.Request().URL.Path, "/spider/s3") {
 
 				// Capture the response body
 				resBody := new(bytes.Buffer)
@@ -678,9 +678,6 @@ func ApiServer(routes []route, s3Routes []route) {
 				c.Response().Writer = writer
 
 				err := next(c)
-
-				cblog.Debugf("Response Status: %d", c.Response().Status)
-				cblog.Debugf("Response Headers: %v", c.Response().Header())
 				if c.Response().Status < 300 {
 					cblog.Debugf("Response Body: %s", resBody.String())
 				}
@@ -733,51 +730,18 @@ func ApiServer(routes []route, s3Routes []route) {
 	}
 
 	for _, route := range routes {
-		// /driver => /spider/driver
-		route.path = "/spider" + route.path
-		switch route.method {
-		case "POST":
-			e.POST(route.path, route.function)
-		case "GET":
-			e.GET(route.path, route.function)
-		case "PUT":
-			e.PUT(route.path, route.function)
-		case "DELETE":
-			e.DELETE(route.path, route.function)
-
-		}
-	}
-
-	// Standard S3 API routes (root level)
-	for _, route := range s3Routes {
-		switch route.method {
-		case "GET":
-			e.GET(route.path, route.function)
-		case "HEAD":
-			e.HEAD(route.path, route.function)
-		case "PUT":
-			e.PUT(route.path, route.function)
-		case "POST":
-			e.POST(route.path, route.function)
-		case "DELETE":
-			e.DELETE(route.path, route.function)
-		}
-	}
-
-	// Standard S3 API routes with /spider prefix
-	for _, route := range s3Routes {
 		spiderPath := "/spider" + route.path
 		switch route.method {
-		case "GET":
-			e.GET(spiderPath, route.function)
-		case "HEAD":
-			e.HEAD(spiderPath, route.function)
-		case "PUT":
-			e.PUT(spiderPath, route.function)
 		case "POST":
 			e.POST(spiderPath, route.function)
+		case "GET":
+			e.GET(spiderPath, route.function)
+		case "PUT":
+			e.PUT(spiderPath, route.function)
 		case "DELETE":
 			e.DELETE(spiderPath, route.function)
+		case "HEAD":
+			e.HEAD(spiderPath, route.function)
 		}
 	}
 
