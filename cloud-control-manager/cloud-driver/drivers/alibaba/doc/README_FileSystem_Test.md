@@ -277,6 +277,9 @@ reqInfo := irs.FileSystemInfo{
 7. **삭제**: FileSystem 삭제 시 모든 데이터 손실
 
 ## 제약사항
+### VPC 제약
+- **VPC Id 설정**: Alibaba NAS의 경우 VPC 정보가 NAS에있지 않고 Mount Target에 존재하기 때문에, Mount Target 없이 NAS만 존재하는 경우 VPC Id가 필요한 Mount Target 등의 추가가 불 가능 함.
+  - 이 문제를 해결하기 위해 NAS 생성 시 전달된 VpcId를 NAS 생성 후 생성된 NAS에 "VpcId"라는 태그를 추가해서 처리하고 있음.(현재 cb-spider i/f로는 다른 처리 방안이 없음)
 
 ### FileSystemType별 제약
 - **Standard**: Capacity 자동 관리, Performance/Capacity/Premium StorageType 지원
@@ -324,6 +327,7 @@ reqInfo := irs.FileSystemInfo{
 
 4. **권한 오류**: Alibaba Cloud RAM 권한 확인
 5. **VPC 오류**: VPC ID 및 Subnet ID 확인
+   - 기존의 NAS에 Mount Target을 추가하고 싶은데 NAS에 VpcId 태그가 없는 경우에는 수작업으로 VpcId 태그를 추가해줘야 함.(현재 cb-spider i/f로는 불 가능 함)
 6. **네트워크 오류**: 보안 그룹 설정 확인
 
 ### 로그 확인
