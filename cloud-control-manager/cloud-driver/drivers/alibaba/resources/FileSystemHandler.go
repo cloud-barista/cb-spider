@@ -58,9 +58,8 @@ func (fileSystemHandler *AlibabaFileSystemHandler) GetMetaInfo() (irs.FileSystem
 				"cpfs: Cloud Parallel File Storage (CPFS) file system",
 			},
 			"StorageType": {
-				"Capacity",    // Capacity-based storage (pay for storage used)
-				"Premium",     // Premium storage (pay for performance tier)
-				"Performance", // Performance-based storage (pay for performance tier)
+				"standard: Performance, Capacity, Premium",
+				"extreme: standard, advance",
 			},
 			// "ProtocolType": {
 			// 	"NFS", // NFS protocol (v3.0, v4.0)
@@ -79,21 +78,23 @@ func (fileSystemHandler *AlibabaFileSystemHandler) GetMetaInfo() (irs.FileSystem
 			// 	"Capacity:100-262144GB",                    // Capacity range (only for extreme type)
 			// },
 			"CapacityRules": {
-				"standard:auto",        // General-purpose NAS: capacity managed automatically
-				"extreme:100-262144GB", // Extreme NAS: capacity must be specified
-				"extreme:required",     // Extreme NAS: capacity is required
-				"extreme:purchased",    // Extreme NAS: billed based on purchased capacity
+				"standard:auto", // General-purpose NAS: capacity managed automatically by service
+				"extreme:100GB ~ 262144GB setting required", // Extreme NAS: capacity must be specified by user
 			},
 			"Examples": {
 				"Basic:StorageType:Capacity (FileSystemType defaults to standard)",
-				"Advanced:FileSystemType:extreme,StorageType:Capacity,Capacity:1024",
+				"Advanced:FileSystemType:extreme,StorageType:standard,CapacityGB:1024",
 				// "Advanced:FileSystemType:standard,StorageType:Premium,ProtocolType:NFS",
 			},
 			"Notes": {
 				"StorageType is required and varies by region - check Alibaba Cloud console",
+				"In cb-spider, StorageType can be configured through PerformanceInfo options",
+				"StorageType options vary by FileSystemType: standard supports Performance/Capacity/Premium, extreme supports standard/advance",
 				"FileSystemType 'standard' (default): General-purpose NAS, capacity auto-managed",
 				"FileSystemType 'extreme': Extreme NAS, capacity required (100-262144 GB), billed based on purchased capacity, not actual usage",
 				"FileSystemType 'cpfs': Cloud Parallel File Storage (CPFS)",
+				"Capacity is only valid and required for extreme FileSystemType",
+				"Capacity should be set using CapacityGB field (primary) or PerformanceInfo['Capacity'] (fallback)",
 				// "ProtocolType NFS supports v3.0 and v4.0",
 				// "Zone and VPC are required for all file systems",
 			},
@@ -210,8 +211,6 @@ func (fileSystemHandler *AlibabaFileSystemHandler) CreateFileSystem(reqInfo irs.
 		return irs.FileSystemInfo{}, fmt.Errorf("failed to get meta info: %v", err)
 	}
 
-	validOptions := metaInfo.PerformanceOptions
-
 	// ================================
 	// Process PerformanceInfo for advanced setup
 	// ================================
@@ -249,7 +248,20 @@ func (fileSystemHandler *AlibabaFileSystemHandler) CreateFileSystem(reqInfo irs.
 
 		// Validate StorageType (Required field)
 		if st, exists := reqInfo.PerformanceInfo["StorageType"]; exists {
-			validStorageTypes := validOptions["StorageType"]
+			// Validate StorageType based on FileSystemType
+			var validStorageTypes []string
+			switch fileSystemType {
+			case "standard":
+				validStorageTypes = []string{"Performance", "Capacity", "Premium"}
+			case "extreme":
+				validStorageTypes = []string{"standard", "advance"}
+			case "cpfs":
+				// CPFS might have different storage types - check API documentation
+				validStorageTypes = []string{"standard"} // Default for CPFS
+			default:
+				return irs.FileSystemInfo{}, fmt.Errorf("invalid FileSystemType '%s' for StorageType validation", fileSystemType)
+			}
+
 			storageTypeValid := false
 			for _, validType := range validStorageTypes {
 				if validType == st {
@@ -259,12 +271,12 @@ func (fileSystemHandler *AlibabaFileSystemHandler) CreateFileSystem(reqInfo irs.
 				}
 			}
 			if !storageTypeValid {
-				return irs.FileSystemInfo{}, fmt.Errorf("invalid StorageType '%s'. Valid options: %v", st, validStorageTypes)
+				return irs.FileSystemInfo{}, fmt.Errorf("invalid StorageType '%s' for FileSystemType '%s'. Valid options: %v", st, fileSystemType, validStorageTypes)
 			}
-			cblogger.Infof("Using user-provided StorageType: %s", storageType)
+			cblogger.Infof("Using user-provided StorageType: %s for FileSystemType: %s", storageType, fileSystemType)
 		} else {
 			// StorageType is required
-			return irs.FileSystemInfo{}, errors.New("StorageType is required. Please specify StorageType in PerformanceInfo (e.g., 'Capacity', 'Premium', or 'Performance')")
+			return irs.FileSystemInfo{}, errors.New("StorageType is mandatory for this action. Please specify StorageType in PerformanceInfo options. Valid options vary by FileSystemType: standard supports Performance/Capacity/Premium, extreme supports standard/advance. For detailed information, refer to GetMetaInfo()")
 		}
 
 		// // Validate protocol type if provided
@@ -285,18 +297,18 @@ func (fileSystemHandler *AlibabaFileSystemHandler) CreateFileSystem(reqInfo irs.
 		// 	cblogger.Info("ProtocolType not provided, using default: NFS")
 		// }
 
-		// Validate capacity if specified (from PerformanceInfo or CapacityGB)
+		// Validate capacity if specified (from CapacityGB or PerformanceInfo as fallback)
 		var capacitySpecified bool
 		var capacityValue string
 
-		// Check PerformanceInfo first
-		if cap, exists := reqInfo.PerformanceInfo["Capacity"]; exists {
-			capacitySpecified = true
-			capacityValue = cap
-		} else if reqInfo.CapacityGB > 0 {
-			// Check CapacityGB field as fallback
+		// Check CapacityGB field first (primary method)
+		if reqInfo.CapacityGB > 0 {
 			capacitySpecified = true
 			capacityValue = strconv.FormatInt(reqInfo.CapacityGB, 10)
+		} else if cap, exists := reqInfo.PerformanceInfo["Capacity"]; exists {
+			// Check PerformanceInfo as fallback
+			capacitySpecified = true
+			capacityValue = cap
 		}
 
 		if capacitySpecified {
@@ -322,7 +334,7 @@ func (fileSystemHandler *AlibabaFileSystemHandler) CreateFileSystem(reqInfo irs.
 			// No capacity specified
 			if fileSystemType == "extreme" {
 				// Extreme NAS requires capacity
-				return irs.FileSystemInfo{}, errors.New("capacity is required for extreme file system type. Please specify Capacity in PerformanceInfo")
+				return irs.FileSystemInfo{}, errors.New("capacity is required for extreme file system type. Please specify CapacityGB field or Capacity in PerformanceInfo")
 			} else {
 				// Standard NAS: capacity managed automatically
 				cblogger.Info("Capacity not specified for standard file system - will be managed automatically by the service")
@@ -331,8 +343,15 @@ func (fileSystemHandler *AlibabaFileSystemHandler) CreateFileSystem(reqInfo irs.
 
 		cblogger.Infof("Advanced setup - FileSystemType=%s, StorageType=%s, ProtocolType=%s, Capacity=%dGB", fileSystemType, storageType, protocolType, capacity)
 	} else {
-		// Basic setup mode - use defaults
-		cblogger.Info("Basic setup mode - using default values: FileSystemType=standard, StorageType=Capacity, ProtocolType=NFS")
+		// Basic setup mode - StorageType is still required
+		cblogger.Info("Basic setup mode - StorageType is still required as it varies by region")
+		// Set default values for basic setup (except StorageType)
+		fileSystemType = "standard"
+		protocolType = "NFS"
+		capacity = int64(100) // Default capacity (not used for standard type)
+
+		// StorageType is required even in basic setup
+		return irs.FileSystemInfo{}, errors.New("StorageType is mandatory for this action. Please specify StorageType in PerformanceInfo options (e.g., 'Capacity', 'Premium', or 'Performance'). For detailed information, refer to GetMetaInfo()")
 	}
 
 	// ================================
