@@ -4,6 +4,7 @@
 // NCP VPC KeyPair Handler
 //
 // by ETRI, 2020.10.
+// Updated by ETRI, 2025.09.
 
 package resources
 
@@ -34,7 +35,8 @@ func (keyPairHandler *NcpVpcKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error
 	callLogInfo := GetCallLogScheme(keyPairHandler.RegionInfo.Zone, call.VMKEYPAIR, "ListKey()", "ListKey()")
 
 	keypairReq := vserver.GetLoginKeyListRequest{
-		KeyName: nil,
+		RegionCode: ncloud.String(keyPairHandler.RegionInfo.Region),
+		KeyName: 	nil,
 	}
 
 	callLogStart := call.Start()
@@ -81,7 +83,8 @@ func (keyPairHandler *NcpVpcKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPair
 	}
 
 	keypairReq := vserver.CreateLoginKeyRequest{
-		KeyName: ncloud.String(keyPairReqInfo.IId.NameId),
+		RegionCode: ncloud.String(keyPairHandler.RegionInfo.Region),
+		KeyName: 	ncloud.String(keyPairReqInfo.IId.NameId),
 	}
 
 	// Creates a new  keypair with the given name
@@ -145,9 +148,9 @@ func (keyPairHandler *NcpVpcKeyPairHandler) GetKey(keyIID irs.IID) (irs.KeyPairI
 
 	// NCP VPC Key does not have SystemId, so the unique NameId value is also applied to the SystemId when create it.
 	keypairReq := vserver.GetLoginKeyListRequest{
-		KeyName: ncloud.String(keyNameId),
+		RegionCode: ncloud.String(keyPairHandler.RegionInfo.Region),
+		KeyName: 	ncloud.String(keyNameId),
 	}
-
 	callLogStart := call.Start()
 	result, err := keyPairHandler.VMClient.V2Api.GetLoginKeyList(&keypairReq)
 	if err != nil {
@@ -199,6 +202,7 @@ func (keyPairHandler *NcpVpcKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, err
 	}
 
 	keypairDelReq := vserver.DeleteLoginKeysRequest{
+		RegionCode: ncloud.String(keyPairHandler.RegionInfo.Region),
 		KeyNameList: []*string{
 			ncloud.String(keyIID.NameId),
 		},
@@ -257,7 +261,8 @@ func (keyPairHandler *NcpVpcKeyPairHandler) ListIID() ([]*irs.IID, error) {
 	callLogInfo := GetCallLogScheme(keyPairHandler.RegionInfo.Zone, call.VMKEYPAIR, "ListIID()", "ListIID()")
 
 	keypairReq := vserver.GetLoginKeyListRequest{
-		KeyName: nil,
+		RegionCode: ncloud.String(keyPairHandler.RegionInfo.Region),
+		KeyName: 	nil,
 	}
 
 	callLogStart := call.Start()
