@@ -65,23 +65,84 @@ func GetS3ConnectionInfo(connectionName string) (*S3ConnectionInfo, error) {
 		return nil, err
 	}
 	regionID := ccm.KeyValueListGetValue(regionInfo.KeyValueInfoList, "Region")
+	providerName := strings.ToUpper(regionInfo.ProviderName)
 
 	crdInfo, err := cim.GetCredentialDecrypt(cccInfo.CredentialName)
 	if err != nil {
 		return nil, err
 	}
 
-	endpoint := ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3Endpoint")
-	endpoint = strings.Replace(endpoint, "{region}", regionID, -1)
-	endpoint = strings.Replace(endpoint, "{REGION}", regionID, -1)
-	endpoint = strings.Replace(endpoint, "{Region}", regionID, -1)
+	// Get S3 Access Key and Secret Key based on provider mapping
+	var accessKey, secretKey string
+	var endpoint string
+	var useSSL, regionRequired bool
+
+	switch providerName {
+	case "AWS":
+		// accessKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "aws_access_key_id")
+		if accessKey == "" {
+			accessKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientId") // saved with this key
+		}
+		// secretKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "aws_secret_access_key")
+		if secretKey == "" {
+			secretKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientSecret")
+		}
+		endpoint = fmt.Sprintf("s3.%s.amazonaws.com", regionID)
+		useSSL = true
+		regionRequired = true
+
+	case "IBM":
+		accessKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3AccessKey")
+		secretKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3SecretKey")
+		endpoint = fmt.Sprintf("s3.%s.cloud-object-storage.appdomain.cloud", regionID)
+		useSSL = true
+		regionRequired = false
+
+	case "KT":
+		accessKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3AccessKey")
+		secretKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3SecretKey")
+		endpoint = "obj-e-1.ktcloud.com"
+		useSSL = true
+		regionRequired = false
+
+	case "GCP":
+		accessKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3AccessKey")
+		secretKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3SecretKey")
+		endpoint = "storage.googleapis.com"
+		useSSL = true
+		regionRequired = true
+
+	case "ALIBABA":
+		accessKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientId")
+		secretKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientSecret")
+		endpoint = fmt.Sprintf("oss-%s.aliyuncs.com", regionID)
+		useSSL = true
+		regionRequired = false
+
+	case "NCP":
+		accessKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientId")
+		secretKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientSecret")
+		endpoint = fmt.Sprintf("%s.object.ncloudstorage.com", regionID)
+		useSSL = true
+		regionRequired = false
+
+	case "NHN":
+		accessKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3AccessKey")
+		secretKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3SecretKey")
+		endpoint = fmt.Sprintf("%s-api-object-storage.nhncloudservice.com", regionID)
+		useSSL = true
+		regionRequired = true
+
+	default:
+		return nil, fmt.Errorf("provider '%s' does not support Object Storage service or is not configured for S3 access", providerName)
+	}
 
 	return &S3ConnectionInfo{
 		Endpoint:       endpoint,
-		AccessKey:      ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3AccessKey"),
-		SecretKey:      ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3SecretKey"),
-		UseSSL:         ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3UseSSL") == "true",
-		RegionRequired: ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3RegionRequired") == "true",
+		AccessKey:      accessKey,
+		SecretKey:      secretKey,
+		UseSSL:         useSSL,
+		RegionRequired: regionRequired,
 		Region:         regionID,
 	}, nil
 }
@@ -235,6 +296,16 @@ func GetS3Bucket(connectionName, bucketName string) (*minio.BucketInfo, error) {
 		}
 	}
 	return nil, fmt.Errorf("Bucket %s not found", bucketName)
+}
+
+func GetS3BucketRegionInfo(connectionName, bucketName string) (string, error) {
+	cblog.Info("call GetS3BucketRegionInfo()")
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return "", err
+	}
+	return iidInfo.Region, nil
 }
 
 func DeleteS3Bucket(connectionName, bucketName string) (bool, error) {
@@ -1025,6 +1096,216 @@ func CompleteMultipartUpload(connectionName string, bucketName string, objectNam
 
 	location := fmt.Sprintf("/%s/%s", bucketName, objectName)
 	return location, uploadInfo.ETag, nil
+}
+
+func AbortMultipartUpload(connectionName string, bucketName string, objectName string, uploadID string) error {
+	cblog.Info("call AbortMultipartUpload()")
+
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return err
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return err
+	}
+
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	core := minio.Core{Client: client}
+	err = core.AbortMultipartUpload(ctx, bucketName, objectName, uploadID)
+	if err != nil {
+		cblog.Error("Failed to abort multipart upload:", err)
+		return err
+	}
+
+	return nil
+}
+
+type ListPartsResult struct {
+	Bucket               string     `xml:"Bucket"`
+	Key                  string     `xml:"Key"`
+	UploadID             string     `xml:"UploadId"`
+	PartNumberMarker     int        `xml:"PartNumberMarker"`
+	NextPartNumberMarker int        `xml:"NextPartNumberMarker"`
+	MaxParts             int        `xml:"MaxParts"`
+	IsTruncated          bool       `xml:"IsTruncated"`
+	Parts                []PartInfo `xml:"Part"`
+	Initiator            Initiator  `xml:"Initiator"`
+	Owner                Owner      `xml:"Owner"`
+	StorageClass         string     `xml:"StorageClass"`
+}
+
+type PartInfo struct {
+	PartNumber   int       `xml:"PartNumber"`
+	LastModified time.Time `xml:"LastModified"`
+	ETag         string    `xml:"ETag"`
+	Size         int64     `xml:"Size"`
+}
+
+type Initiator struct {
+	ID          string `xml:"ID"`
+	DisplayName string `xml:"DisplayName"`
+}
+
+type Owner struct {
+	ID          string `xml:"ID"`
+	DisplayName string `xml:"DisplayName"`
+}
+
+func ListParts(connectionName string, bucketName string, objectName string, uploadID string, partNumberMarker int, maxParts int) (*ListPartsResult, error) {
+	cblog.Info("call ListParts()")
+
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return nil, err
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx := context.Background()
+	core := minio.Core{Client: client}
+
+	if maxParts == 0 {
+		maxParts = 1000 // Default max parts
+	}
+
+	result, err := core.ListObjectParts(ctx, bucketName, objectName, uploadID, partNumberMarker, maxParts)
+	if err != nil {
+		cblog.Error("Failed to list parts:", err)
+		return nil, err
+	}
+
+	listResult := &ListPartsResult{
+		Bucket:               result.Bucket,
+		Key:                  result.Key,
+		UploadID:             result.UploadID,
+		PartNumberMarker:     result.PartNumberMarker,
+		NextPartNumberMarker: result.NextPartNumberMarker,
+		MaxParts:             result.MaxParts,
+		IsTruncated:          result.IsTruncated,
+		StorageClass:         result.StorageClass,
+		Initiator: Initiator{
+			ID:          result.Initiator.ID,
+			DisplayName: result.Initiator.DisplayName,
+		},
+		Owner: Owner{
+			ID:          result.Owner.ID,
+			DisplayName: result.Owner.DisplayName,
+		},
+	}
+
+	for _, part := range result.ObjectParts {
+		listResult.Parts = append(listResult.Parts, PartInfo{
+			PartNumber:   part.PartNumber,
+			LastModified: part.LastModified,
+			ETag:         part.ETag,
+			Size:         part.Size,
+		})
+	}
+
+	return listResult, nil
+}
+
+type ListMultipartUploadsResult struct {
+	Bucket             string                `xml:"Bucket"`
+	KeyMarker          string                `xml:"KeyMarker"`
+	UploadIDMarker     string                `xml:"UploadIdMarker"`
+	NextKeyMarker      string                `xml:"NextKeyMarker"`
+	NextUploadIDMarker string                `xml:"NextUploadIdMarker"`
+	MaxUploads         int                   `xml:"MaxUploads"`
+	IsTruncated        bool                  `xml:"IsTruncated"`
+	Uploads            []MultipartUploadInfo `xml:"Upload"`
+	Prefix             string                `xml:"Prefix"`
+	Delimiter          string                `xml:"Delimiter"`
+}
+
+type MultipartUploadInfo struct {
+	Key          string    `xml:"Key"`
+	UploadID     string    `xml:"UploadId"`
+	Initiated    time.Time `xml:"Initiated"`
+	StorageClass string    `xml:"StorageClass"`
+	Initiator    Initiator `xml:"Initiator"`
+	Owner        Owner     `xml:"Owner"`
+}
+
+func ListMultipartUploads(connectionName string, bucketName string, prefix string, keyMarker string, uploadIDMarker string, delimiter string, maxUploads int) (*ListMultipartUploadsResult, error) {
+	cblog.Info("call ListMultipartUploads()")
+
+	var iidInfo S3BucketIIDInfo
+	err := infostore.GetByConditions(&iidInfo, "connection_name", connectionName, "name_id", bucketName)
+	if err != nil {
+		return nil, err
+	}
+
+	connInfo, err := GetS3ConnectionInfo(connectionName)
+	if err != nil {
+		return nil, err
+	}
+
+	client, err := NewS3Client(connInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx := context.Background()
+	core := minio.Core{Client: client}
+
+	if maxUploads == 0 {
+		maxUploads = 1000 // Default max uploads
+	}
+
+	result, err := core.ListMultipartUploads(ctx, bucketName, prefix, keyMarker, uploadIDMarker, delimiter, maxUploads)
+	if err != nil {
+		cblog.Error("Failed to list multipart uploads:", err)
+		return nil, err
+	}
+
+	listResult := &ListMultipartUploadsResult{
+		Bucket:             result.Bucket,
+		KeyMarker:          result.KeyMarker,
+		UploadIDMarker:     result.UploadIDMarker,
+		NextKeyMarker:      result.NextKeyMarker,
+		NextUploadIDMarker: result.NextUploadIDMarker,
+		MaxUploads:         int(result.MaxUploads),
+		IsTruncated:        result.IsTruncated,
+		Prefix:             result.Prefix,
+		Delimiter:          result.Delimiter,
+	}
+
+	for _, upload := range result.Uploads {
+		listResult.Uploads = append(listResult.Uploads, MultipartUploadInfo{
+			Key:          upload.Key,
+			UploadID:     upload.UploadID,
+			Initiated:    upload.Initiated,
+			StorageClass: upload.StorageClass,
+			Initiator: Initiator{
+				ID:          upload.Initiator.ID,
+				DisplayName: upload.Initiator.DisplayName,
+			},
+			Owner: Owner{
+				ID:          upload.Owner.ID,
+				DisplayName: upload.Owner.DisplayName,
+			},
+		})
+	}
+
+	return listResult, nil
 }
 
 func DeleteMultipleObjects(connectionName string, bucketName string, objectNames []string) ([]DeleteResult, error) {

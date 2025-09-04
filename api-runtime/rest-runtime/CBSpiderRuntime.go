@@ -589,7 +589,8 @@ func RunServer() {
 		{"DELETE", "/s3/:BucketName/:ObjectKey+", DeleteS3Object},
 
 		// PreSigned URL API
-		{"GET", "/s3-presigned/:BucketName/:ObjectKey+", GetS3PresignedURLHandler},
+		{"GET", "/s3/presigned/download/:BucketName/:ObjectKey+", GetS3PresignedURLHandler},
+		{"GET", "/s3/presigned/upload/:BucketName/:ObjectKey+", GetS3PresignedUploadURLHandler},
 	}
 
 	//======================================= setup routes
