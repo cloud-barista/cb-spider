@@ -285,6 +285,7 @@
                 </div>
                 <div style="text-align:center;">
                     <button type="submit" id="upload-btn">Upload</button>
+                    <button type="button" onclick="showUploadURLOverlay()">Get Upload URL</button>
                     <button type="button" onclick="hideObjectUploadOverlay()">Cancel</button>
                 </div>
             </form>
@@ -317,6 +318,45 @@
         </div>
     </div>
 
+    <div id="upload-url-overlay" class="overlay">
+        <div class="overlay-content" style="position:relative; width: 600px;">
+            <button class="close-btn" onclick="hideUploadURLOverlay()">x</button>
+            <h2>Generate Upload URL for: <span id="upload-url-bucket-name"></span></h2>
+            
+            <div style="margin-bottom: 15px;">
+                <label>Object Key (filename):</label>
+                <input type="text" id="upload-object-key" placeholder="Enter object key/filename" style="width: 100%; margin-top: 5px; padding: 8px;">
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label>Expiration (hours):</label>
+                <input type="number" id="upload-expiration-hours" value="1" min="1" max="168" style="margin-left: 10px; width: 80px;">
+            </div>
+            
+            <div style="text-align: center; margin-bottom: 15px;">
+                <button onclick="generateUploadURLAction()">Generate Upload URL</button>
+            </div>
+            
+            <div id="upload-url-result" style="display: none;">
+                <label>Presigned Upload URL:</label>
+                <textarea id="upload-url-text" readonly style="width: 100%; height: 100px; margin-top: 5px;"></textarea>
+                <div style="margin-top: 10px; text-align: center;">
+                    <button onclick="copyUploadURL()" style="margin-right: 10px;">Copy URL</button>
+                    <button onclick="testUploadURL()">Test Upload</button>
+                </div>
+                <div id="upload-instructions" style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px; font-size: 12px;">
+                    <strong>How to use this Upload URL:</strong><br>
+                    Use HTTP PUT request to upload file directly to S3:<br>
+                    <code>curl -X PUT -T "your-file" "the-presigned-url"</code>
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 15px;">
+                <button onclick="hideUploadURLOverlay()">Close</button>
+            </div>
+        </div>
+    </div>
+
     <div id="presigned-url-overlay" class="overlay">
         <div class="overlay-content" style="position:relative; width: 500px;">
             <button class="close-btn" onclick="hidePresignedURLOverlay()">x</button>
@@ -328,19 +368,11 @@
             </div>
 
             <div style="margin-bottom: 15px;">
-                <label>Method:</label>
-                <select id="presigned-method" style="margin-left: 10px;">
-                    <option value="GET">Download (GET)</option>
-                    <option value="PUT">Upload (PUT)</option>
-                </select>
-            </div>
-
-            <div style="margin-bottom: 15px;">
-                <button onclick="generatePresignedURLAction()">Generate URL</button>
+                <button onclick="generatePresignedURLAction()">Generate Download URL</button>
             </div>
 
             <div id="presigned-url-result" style="display: none;">
-                <label>Presigned URL:</label>
+                <label>Download URL:</label>
                 <textarea id="presigned-url-text" readonly style="width: 100%; height: 100px; margin-top: 5px;"></textarea>
                 <button onclick="copyPresignedURL()" style="margin-top: 10px;">Copy URL</button>
             </div>
@@ -487,10 +519,50 @@ function toggleVersioningQuick(bucketName, currentStatus) {
 
 function toggleCORSQuick(bucketName, currentStatus) {
     if (currentStatus === 'Configured') {
-        if (typeof event !== 'undefined') {
-            event.stopPropagation();
+        // Ask user what they want to do: view config or delete CORS
+        const action = confirm(`CORS is currently configured for bucket "${bucketName}".\n\nClick OK to DISABLE CORS, or Cancel to VIEW current configuration.`);
+        
+        if (action) {
+            // User wants to disable CORS
+            if (!confirm(`Are you sure you want to disable CORS for bucket "${bucketName}"?`)) {
+                return;
+            }
+            
+            showProgressBar();
+            
+            // Delete CORS configuration
+            fetch(`/spider/s3/${bucketName}?cors&ConnectionName=${connConfig}`, {
+                method: 'DELETE'
+            })
+            .then(response => {
+                hideProgressBar();
+                if (response.ok) {
+                    const savedBucket = currentBucket;
+                    const savedPrefix = currentPrefix;
+                    
+                    setTimeout(() => {
+                        location.reload();
+                        setTimeout(() => {
+                            if (savedBucket) {
+                                showObjectPanel(savedBucket, savedPrefix);
+                            }
+                        }, 100);
+                    }, 100);
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+            })
+            .catch(error => {
+                hideProgressBar();
+                alert('Error disabling CORS: ' + error.message);
+            });
+        } else {
+            // User wants to view current configuration
+            if (typeof event !== 'undefined') {
+                event.stopPropagation();
+            }
+            showCORSInfo(bucketName);
         }
-        showCORSInfo(bucketName);
         return;
     }
     
@@ -954,7 +1026,7 @@ function fetchObjects(bucket, prefix = "") {
                         <td class="center-align">
                             <button onclick="downloadObject('${bucket}','${encodedKey}')">Download</button>
                             <button onclick="deleteObject('${bucket}','${encodedKey}')">Delete</button>
-                            <button onclick="generatePresignedURL('${bucket}','${encodedKey}')">Share</button>
+                            <button onclick="generatePresignedURL('${bucket}','${key}')">Share</button>
                         </td>
                         <td class="check-column"><input type="checkbox" name="object-checkbox" value="${key}"></td>
                     </tr>
@@ -1195,7 +1267,22 @@ async function uploadFiles() {
             });
 
             if (!response.ok) {
-                throw new Error(`Upload failed: ${response.statusText} (${response.status})`);
+                let errorMsg = `Upload failed: ${response.statusText} (${response.status})`;
+                if (response.responseText) {
+                    // Try to extract meaningful error from response
+                    if (response.responseText.includes('<Message>')) {
+                        const parser = new DOMParser();
+                        const xmlDoc = parser.parseFromString(response.responseText, 'text/xml');
+                        const messageElement = xmlDoc.querySelector('Message');
+                        if (messageElement) {
+                            errorMsg += ` - ${messageElement.textContent}`;
+                        }
+                    } else if (response.responseText.length < 200) {
+                        // Include short response text
+                        errorMsg += ` - ${response.responseText}`;
+                    }
+                }
+                throw new Error(errorMsg);
             }
 
             successCount++;
@@ -1224,7 +1311,7 @@ function uploadWithProgress(url, file, filename, onProgress) {
         const xhr = new XMLHttpRequest();
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('filename', filename);
+        formData.append('key', filename);  // Use 'key' instead of 'filename' as per S3 API spec
 
         xhr.upload.addEventListener('progress', (e) => {
             if (e.lengthComputable) {
@@ -1237,7 +1324,14 @@ function uploadWithProgress(url, file, filename, onProgress) {
             if (xhr.status >= 200 && xhr.status < 300) {
                 resolve({ ok: true, status: xhr.status, statusText: xhr.statusText });
             } else {
-                resolve({ ok: false, status: xhr.status, statusText: xhr.statusText });
+                // Include response body for error details
+                const responseText = xhr.responseText || xhr.statusText;
+                resolve({ 
+                    ok: false, 
+                    status: xhr.status, 
+                    statusText: xhr.statusText,
+                    responseText: responseText
+                });
             }
         });
 
@@ -1313,7 +1407,9 @@ function downloadObject(bucket, key) {
 }
 
 function generatePresignedURL(bucket, key) {
-    document.getElementById('presigned-object-key').textContent = key;
+    // Decode the key to show the original filename without escape characters
+    const decodedKey = decodeURIComponent(key);
+    document.getElementById('presigned-object-key').textContent = decodedKey;
     document.getElementById('presigned-url-result').style.display = 'none';
     document.getElementById('presigned-url-overlay').style.display = 'flex';
     
@@ -1324,7 +1420,6 @@ function hidePresignedURLOverlay() {
     document.getElementById('presigned-url-overlay').style.display = 'none';
     document.getElementById('presigned-url-result').style.display = 'none';
     document.getElementById('expiration-hours').value = '1';
-    document.getElementById('presigned-method').value = 'GET';
     document.getElementById('presigned-url-text').value = '';
     window.currentPresignedContext = null;
 }
@@ -1332,7 +1427,6 @@ function hidePresignedURLOverlay() {
 async function generatePresignedURLAction() {
     const { bucket, key } = window.currentPresignedContext;
     const hours = parseInt(document.getElementById('expiration-hours').value) || 1;
-    const method = document.getElementById('presigned-method').value;
     const expiresSeconds = hours * 3600;
 
     try {
@@ -1340,17 +1434,23 @@ async function generatePresignedURLAction() {
         const decodedKey = decodeURIComponent(key);
         const encodedKey = encodeURIComponent(decodedKey);
         
-        // Call the presigned URL API to get CSP S3 presigned URL
-        const response = await fetch(`/spider/s3-presigned/${bucket}/${encodedKey}?ConnectionName=${connConfig}&method=${method}&expires=${expiresSeconds}`);
+        // Share Object always uses download endpoint (GET method)
+        const apiEndpoint = `/spider/s3/presigned/download/${bucket}/${encodedKey}`;
+        
+        const response = await fetch(`${apiEndpoint}?ConnectionName=${connConfig}&expires=${expiresSeconds}`);
         
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        const result = await response.json();
+        const xmlText = await response.text();
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
         
-        if (result.PresignedURL) {
-            document.getElementById('presigned-url-text').value = result.PresignedURL;
+        const presignedURL = xmlDoc.getElementsByTagName('PresignedURL')[0]?.textContent;
+        
+        if (presignedURL) {
+            document.getElementById('presigned-url-text').value = presignedURL;
             document.getElementById('presigned-url-result').style.display = 'block';
         } else {
             throw new Error('No presigned URL returned from server');
@@ -1367,7 +1467,7 @@ function copyPresignedURL() {
     urlText.select();
     urlText.setSelectionRange(0, 99999);
     navigator.clipboard.writeText(urlText.value).then(() => {
-        alert('URL copied to clipboard!');
+        // URL copied successfully - no notification needed
     }).catch(() => {
         alert('Failed to copy URL to clipboard');
     });
@@ -1757,6 +1857,134 @@ function formatBytes(bytes) {
     if (mb < 1024) return mb.toFixed(1)+' MB';
     let gb = mb/1024;
     return gb.toFixed(1)+' GB';
+}
+
+// Upload URL functions
+function showUploadURLOverlay() {
+    if (!currentBucket) {
+        alert('Please select a bucket first');
+        return;
+    }
+    
+    document.getElementById('upload-url-bucket-name').textContent = currentBucket;
+    document.getElementById('upload-object-key').value = '';
+    document.getElementById('upload-expiration-hours').value = '1';
+    document.getElementById('upload-url-result').style.display = 'none';
+    document.getElementById('upload-url-text').value = '';
+    document.getElementById('upload-url-overlay').style.display = 'flex';
+}
+
+function hideUploadURLOverlay() {
+    document.getElementById('upload-url-overlay').style.display = 'none';
+    document.getElementById('upload-url-result').style.display = 'none';
+    document.getElementById('upload-object-key').value = '';
+    document.getElementById('upload-expiration-hours').value = '1';
+    document.getElementById('upload-url-text').value = '';
+}
+
+async function generateUploadURLAction() {
+    const bucket = currentBucket;
+    const objectKey = document.getElementById('upload-object-key').value.trim();
+    const hours = parseInt(document.getElementById('upload-expiration-hours').value) || 1;
+    const expiresSeconds = hours * 3600;
+
+    if (!objectKey) {
+        alert('Please enter an object key/filename');
+        return;
+    }
+
+    try {
+        const encodedKey = encodeURIComponent(objectKey);
+        const response = await fetch(`/spider/s3/presigned/upload/${bucket}/${encodedKey}?ConnectionName=${connConfig}&expires=${expiresSeconds}`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const xmlText = await response.text();
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+        
+        const presignedURL = xmlDoc.getElementsByTagName('PresignedURL')[0]?.textContent;
+        
+        if (presignedURL) {
+            document.getElementById('upload-url-text').value = presignedURL;
+            document.getElementById('upload-url-result').style.display = 'block';
+        } else {
+            throw new Error('No presigned URL returned from server');
+        }
+        
+    } catch (error) {
+        console.error('Error generating upload URL:', error);
+        alert('Error generating upload URL: ' + error.message);
+    }
+}
+
+function copyUploadURL() {
+    const urlText = document.getElementById('upload-url-text');
+    urlText.select();
+    urlText.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(urlText.value).then(() => {
+        // Upload URL copied successfully - no notification needed
+    }).catch(() => {
+        alert('Failed to copy URL to clipboard');
+    });
+}
+
+function testUploadURL() {
+    const uploadURL = document.getElementById('upload-url-text').value;
+    if (!uploadURL) {
+        alert('No upload URL generated yet');
+        return;
+    }
+    
+    console.log('Testing upload URL:', uploadURL);
+    
+    // Create a simple test for the upload URL
+    const testContent = "This is a test file content generated by CB-Spider AdminWeb";
+    const blob = new Blob([testContent], { type: 'text/plain' });
+    
+    fetch(uploadURL, {
+        method: 'PUT',
+        body: blob,
+        headers: {
+            'Content-Type': 'text/plain'
+        }
+    })
+    .then(response => {
+        console.log('Upload response status:', response.status);
+        console.log('Upload response headers:', [...response.headers.entries()]);
+        
+        if (response.ok) {
+            alert('Test upload successful! Check your S3 bucket.');
+            // Refresh the object list
+            if (currentBucket) {
+                showObjectPanel(currentBucket);
+            }
+        } else {
+            return response.text().then(responseText => {
+                console.error('Upload failed response:', responseText);
+                throw new Error(`Upload failed with status: ${response.status} - ${responseText || response.statusText}`);
+            });
+        }
+    })
+    .catch(error => {
+        console.error('Test upload failed:', error);
+        
+        // Provide more detailed error information
+        let errorMessage = 'Test upload failed: ';
+        if (error.message.includes('Failed to fetch')) {
+            errorMessage += 'Network error or CORS issue. This might be due to:\n';
+            errorMessage += '1. CORS not configured for this bucket\n';
+            errorMessage += '2. Invalid PreSigned URL\n';
+            errorMessage += '3. Network connectivity issue\n\n';
+            errorMessage += 'Check browser console for more details.';
+        } else {
+            errorMessage += error.message;
+        }
+        
+        alert(errorMessage);
+    });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
