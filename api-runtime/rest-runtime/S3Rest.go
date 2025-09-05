@@ -2289,14 +2289,25 @@ func GetS3PresignedURLHandler(c echo.Context) error {
 
 	cblog.Infof("Successfully generated presigned URL: %s", presignedURL)
 
-	result := S3PresignedURLXML{
-		Xmlns:        "http://s3.amazonaws.com/doc/2006-03-01/",
-		PresignedURL: presignedURL,
-		Expires:      expiresSeconds,
-		Method:       method,
+	// Handle PreSigned URL response with custom encoding to prevent escaping
+	if isJSONResponse(c) {
+		// For JSON, create custom response to prevent \u0026 escaping
+		jsonResponse := fmt.Sprintf(`{"PresignedURL":"%s","Expires":%d,"Method":"%s"}`, presignedURL, expiresSeconds, method)
+		c.Response().Header().Set("Content-Type", "application/json")
+		addS3Headers(c)
+		return c.String(http.StatusOK, jsonResponse)
+	} else {
+		// For XML, create custom response to prevent &amp; escaping
+		xmlResponse := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+<PresignedURLResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <PresignedURL>%s</PresignedURL>
+  <Expires>%d</Expires>
+  <Method>%s</Method>
+</PresignedURLResult>`, presignedURL, expiresSeconds, method)
+		c.Response().Header().Set("Content-Type", "application/xml")
+		addS3Headers(c)
+		return c.String(http.StatusOK, xmlResponse)
 	}
-
-	return returnS3Response(c, http.StatusOK, result)
 }
 
 // GetS3PresignedUploadURLHandler generates a presigned URL for S3 object upload
@@ -2334,14 +2345,25 @@ func GetS3PresignedUploadURLHandler(c echo.Context) error {
 
 	cblog.Infof("Successfully generated presigned upload URL: %s", presignedURL)
 
-	result := S3PresignedURLXML{
-		Xmlns:        "http://s3.amazonaws.com/doc/2006-03-01/",
-		PresignedURL: presignedURL,
-		Expires:      expiresSeconds,
-		Method:       "PUT",
+	// Handle PreSigned URL response with custom encoding to prevent escaping
+	if isJSONResponse(c) {
+		// For JSON, create custom response to prevent \u0026 escaping
+		jsonResponse := fmt.Sprintf(`{"PresignedURL":"%s","Expires":%d,"Method":"PUT"}`, presignedURL, expiresSeconds)
+		c.Response().Header().Set("Content-Type", "application/json")
+		addS3Headers(c)
+		return c.String(http.StatusOK, jsonResponse)
+	} else {
+		// For XML, create custom response to prevent &amp; escaping
+		xmlResponse := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+<PresignedURLResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <PresignedURL>%s</PresignedURL>
+  <Expires>%d</Expires>
+  <Method>PUT</Method>
+</PresignedURLResult>`, presignedURL, expiresSeconds)
+		c.Response().Header().Set("Content-Type", "application/xml")
+		addS3Headers(c)
+		return c.String(http.StatusOK, xmlResponse)
 	}
-
-	return returnS3Response(c, http.StatusOK, result)
 }
 
 // HandleS3PresignedRequest handles AWS S3 standard presigned URL requests
