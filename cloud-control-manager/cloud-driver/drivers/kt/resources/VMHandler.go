@@ -15,7 +15,6 @@ import (
 	"errors"
 	"fmt"
 
-	// "go/doc/comment"
 	"os"
 	"strconv"
 	"strings"
