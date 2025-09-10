@@ -1770,7 +1770,7 @@ func (vmHandler *KTVpcVMHandler) removePortForwardingRules(publicIp string) (boo
 	cblogger.Info("KT Cloud VPC Driver: called removePortForwardingRules()!")
 
 	if strings.EqualFold(publicIp, "") {
-		newErr := fmt.Errorf("Invalid Private IP Address!!")
+		newErr := fmt.Errorf("Invalid Public IP Address!!")
 		cblogger.Error(newErr.Error())
 		return false, newErr
 	}
