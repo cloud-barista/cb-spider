@@ -1111,7 +1111,7 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(ruleSet *Secu
 					// fwRuleJobId := ""
 					fwResult := rules.Create(vmHandler.NetworkClient, outboundFWOpts)
 					if fwResult.Err != nil {
-						newErr := fmt.Errorf("Failed to Create the FireWall 'inbound' Rule : %v", fwResult.Err)
+						newErr := fmt.Errorf("Failed to Create the FireWall 'outbound' Rule : %v", fwResult.Err)
 						cblogger.Error(newErr.Error())
 						return false, newErr
 					} else {
