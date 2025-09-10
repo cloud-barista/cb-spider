@@ -75,6 +75,9 @@ type KTVpcVMHandler struct {
 	VolumeClient   *ktvpcsdk.ServiceClient
 }
 
+// NetworkInfo holds information about a VM's public network interface.
+// PublicIP is the public IP address assigned to the VM.
+// PublicIPID is the identifier of the public IP resource.
 type NetworkInfo struct {
 	PublicIP   string
 	PublicIPID string
