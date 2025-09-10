@@ -985,8 +985,8 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(ruleSet *Secu
 
 						pfResult := portforward.Create(vmHandler.NetworkClient, createPfOpts) // NetworkClient!!. and, Not ~.Extract()
 						if pfResult.Err != nil {
-							cblogger.Errorf("Failed to Create the Port Forwarding Rule : [%v]", err)
-							return false, err
+							cblogger.Errorf("Failed to Create the Port Forwarding Rule : [%v]", pfResult.Err)
+							return false, pfResult.Err
 						}
 
 						// Extract the created PortForwarding ID
