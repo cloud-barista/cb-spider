@@ -183,7 +183,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	// 2-1. related Resource Create - VNIC
 	vNicIId, err := CreateVNic(vmHandler, vmReqInfo, publicIPIId)
 	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Finished to rollback deleting", err.Error()))
+		createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s", err.Error()))
 		clean, deperr := vmHandler.cleanVMRelatedResource(VMCleanRelatedResource{
 			RequiredSet:         cleanVMClientSet,
 			CleanTargetResource: cleanResources,
@@ -260,6 +260,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			//	StorageAccountType: storageType,
 			//},
 			ManagedDisk:  managedDisk,
+			DiskSizeGB:   getRootDiskSizePtr(vmReqInfo.RootDiskSize),
 			DeleteOption: &deleteOption,
 		},
 	}
@@ -283,7 +284,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		//MyImage
 		convertMyImageIId, convertedErr := ConvertMyImageIID(vmReqInfo.ImageIID, vmHandler.CredentialInfo, vmHandler.Region)
 		if convertedErr != nil {
-			createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Finished to rollback deleting", convertedErr.Error()))
+			createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s", convertedErr.Error()))
 			cleanResource := CleanVMClientRequestResource{
 				publicIPIId.NameId, vNicIId.NameId, "",
 			}
@@ -314,7 +315,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		if vmReqInfo.KeyPairIID.NameId != "" {
 			key, keyErr := GetRawKey(vmReqInfo.KeyPairIID, vmHandler.Region.Region, vmHandler.SshKeyClient, vmHandler.Ctx)
 			if keyErr != nil {
-				createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Finished to rollback deleting", keyErr.Error()))
+				createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s", keyErr.Error()))
 				cleanResource := CleanVMClientRequestResource{
 					publicIPIId.NameId, vNicIId.NameId, "",
 				}
@@ -383,7 +384,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	start := call.Start()
 	poller, err := vmHandler.Client.BeginCreateOrUpdate(vmHandler.Ctx, vmHandler.Region.Region, vmReqInfo.IId.NameId, vmOpts, nil)
 	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Finished to rollback deleting", err.Error()))
+		createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s", err.Error()))
 		clean, deperr := vmHandler.cleanVMRelatedResource(VMCleanRelatedResource{
 			RequiredSet:         cleanVMClientSet,
 			CleanTargetResource: cleanResources,
@@ -404,7 +405,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	_, err = poller.PollUntilDone(vmHandler.Ctx, nil)
 	if err != nil {
 		// Exist VM? exist => vm delete, ResourceClean, not exist => ResourceClean
-		createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Finished to rollback deleting", err.Error()))
+		createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s", err.Error()))
 		exist, err := CheckExistVM(vmReqInfo.IId, vmHandler.Region.Region, vmHandler.Client, vmHandler.Ctx)
 		errMsg := ""
 		if err != nil {
@@ -436,18 +437,8 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		LoggingError(hiscallInfo, createErr)
 		return irs.VMInfo{}, createErr
 	}
-	// 4-1. ResizeVMDisk
-	_, err = resizeVMOsDisk(vmReqInfo.RootDiskSize, vmReqInfo.IId, vmHandler.Region.Region, vmHandler.Client, vmHandler.DiskClient, vmHandler.Ctx)
-	if err != nil {
-		createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Finished to rollback deleting", err.Error()))
-		cleanErr := vmHandler.cleanDeleteVm(vmReqInfo.IId)
-		if cleanErr != nil {
-			createErr = errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Failed to rollback err = %s", err.Error(), cleanErr.Error()))
-		}
-		cblogger.Error(createErr.Error())
-		LoggingError(hiscallInfo, createErr)
-		return irs.VMInfo{}, createErr
-	}
+	// 4-1. ResizeVMDisk - Removed: VM is already created with desired disk size via DiskSizeGB parameter
+	// 5. Wait Running
 	curRetryCnt := 0
 	maxRetryCnt := 40 // 15sec * 40 = 10min
 	// 5. Wait Running
@@ -461,7 +452,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		curRetryCnt++
 		time.Sleep(15 * time.Second)
 		if curRetryCnt > maxRetryCnt {
-			createErr := errors.New(fmt.Sprintf("Failed to Start VM. exceeded maximum retry count %d and Finished to rollback deleting", maxRetryCnt))
+			createErr := errors.New(fmt.Sprintf("Failed to Start VM. exceeded maximum retry count %d", maxRetryCnt))
 			cleanErr := vmHandler.cleanDeleteVm(vmReqInfo.IId)
 			if cleanErr != nil {
 				createErr = errors.New(fmt.Sprintf("Failed to Start VM. exceeded maximum retry count %d and Failed to rollback err = %s", maxRetryCnt, cleanErr.Error()))
@@ -476,7 +467,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		if vmReqInfo.ImageType == "" || vmReqInfo.ImageType == irs.PublicImage {
 			err = createAdministratorUser(vmReqInfo.IId, WindowBaseUser, vmReqInfo.VMUserPasswd, vmHandler.Client, vmHandler.VirtualMachineRunCommandsClient, vmHandler.Ctx, vmHandler.Region)
 			if err != nil {
-				createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Finished to rollback deleting", err.Error()))
+				createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s", err.Error()))
 				cleanErr := vmHandler.cleanDeleteVm(vmReqInfo.IId)
 				if cleanErr != nil {
 					createErr = errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Failed to rollback err = %s", err.Error(), cleanErr.Error()))
@@ -488,7 +479,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		} else {
 			err = changeUserPassword(vmReqInfo.IId, WindowBaseUser, vmReqInfo.VMUserPasswd, vmHandler.Client, vmHandler.VirtualMachineRunCommandsClient, vmHandler.Ctx, vmHandler.Region)
 			if err != nil {
-				createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Finished to rollback deleting", err.Error()))
+				createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s", err.Error()))
 				cleanErr := vmHandler.cleanDeleteVm(vmReqInfo.IId)
 				if cleanErr != nil {
 					createErr = errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Failed to rollback err = %s", err.Error(), cleanErr.Error()))
@@ -504,7 +495,7 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 	if len(vmReqInfo.DataDiskIIDs) > 0 {
 		vm, err := AttachList(vmReqInfo.DataDiskIIDs, vmReqInfo.IId, vmHandler.CredentialInfo, vmHandler.Region, vmHandler.Ctx, vmHandler.Client, vmHandler.DiskClient)
 		if err != nil {
-			createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Finished to rollback deleting", err.Error()))
+			createErr := errors.New(fmt.Sprintf("Failed to Start VM. err = %s, attempting to delete VM", err.Error()))
 			cleanErr := vmHandler.cleanDeleteVm(vmReqInfo.IId)
 			if cleanErr != nil {
 				createErr = errors.New(fmt.Sprintf("Failed to Start VM. err = %s, and Failed to rollback err = %s", err.Error(), cleanErr.Error()))
@@ -535,6 +526,19 @@ func (vmHandler *AzureVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 		LoggingInfo(hiscallInfo, start)
 		return vmInfo, nil
 	}
+}
+
+// getRootDiskSizePtr returns a pointer to int32 if rootDiskSize is set and valid, otherwise nil.
+func getRootDiskSizePtr(rootDiskSize string) *int32 {
+	if rootDiskSize == "" || strings.ToLower(rootDiskSize) == "default" {
+		return nil
+	}
+	size, err := strconv.Atoi(rootDiskSize)
+	if err != nil {
+		return nil
+	}
+	s := int32(size)
+	return &s
 }
 
 func (vmHandler *AzureVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
@@ -1771,6 +1775,8 @@ func generateVNicName(vmName string) string {
 	return fmt.Sprintf("%s-%s-VNic", vmName, strconv.FormatInt(rand.Int63n(100000), 10))
 }
 
+// resizeVMOsDisk - DEPRECATED: No longer needed as VM is created with desired disk size via DiskSizeGB parameter
+// This function was used to resize VM OS disk after creation, but it's more efficient to set the correct size during creation
 func resizeVMOsDisk(RootDiskSize string, vmReqIId irs.IID, resourceGroup string,
 	client *armcompute.VirtualMachinesClient, diskClient *armcompute.DisksClient, ctx context.Context) (bool, error) {
 	var desiredVmSize int32
