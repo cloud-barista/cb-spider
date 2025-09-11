@@ -26,7 +26,12 @@ import (
 	nim "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/kt/resources/info_manager/nlb_info_manager"
 	ktvpcsdk "github.com/cloud-barista/ktcloudvpc-sdk-go"
 	ktvpclb "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/loadbalancer/v1/loadbalancers"
-	rules "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/networking/v2/extensions/fwaas_v2/rules"
+
+
+	// rules "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/networking/v2/extensions/fwaas_v2/rules"
+
+
+
 	staticnat "github.com/cloud-barista/ktcloudvpc-sdk-go/openstack/networking/v2/extensions/layer3/staticnat"
 )
 
@@ -138,6 +143,10 @@ func (nlbHandler *KTVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 		}
 	}
 
+
+
+
+	/*
 	staticNatId, publicIp, natErr := nlbHandler.createStaticNatForNLB(ktNLB)
 	if natErr != nil {
 		newErr := fmt.Errorf("Failed to Add the VMGroup VMs!! [%v]", natErr)
@@ -164,6 +173,9 @@ func (nlbHandler *KTVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB 
 		return irs.NLBInfo{}, regErr
 	}
 	cblogger.Infof(" === NLB Info to Register to DB : [%v]", nlbDbInfo)
+
+*/
+
 
 	// createTagOpts := ktvpclb.CreateTagOpts{
 	// 	NlbID:           	strconv.Itoa(ktNLB.NlbID),  			// Required
@@ -285,6 +297,9 @@ func (nlbHandler *KTVpcNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 		return false, newErr
 	}
 
+
+
+/*
 	ktNLB, err := nlbHandler.getKTCloudNlb(nlbIID.SystemId)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get KT Cloud NLB info!! [%v]", err)
@@ -292,6 +307,9 @@ func (nlbHandler *KTVpcNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 		loggingError(callLogInfo, newErr)
 		return false, newErr
 	}
+*/
+
+
 
 	// Get NLB PublicIP Info from DB
 	nlbDbInfo, getSGErr := nim.GetNlb(nlbIID.SystemId)
@@ -320,6 +338,13 @@ func (nlbHandler *KTVpcNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	}
 
 	if !strings.EqualFold(publicIp, "") {
+
+
+
+
+
+
+/*
 		// Delete FirewallRules
 		_, dellFwErr := vmHandler.removeFirewallRule(publicIp, ktNLB.ServiceIP)
 		if dellFwErr != nil {
@@ -327,6 +352,9 @@ func (nlbHandler *KTVpcNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 			loggingError(callLogInfo, dellFwErr)
 			return false, dellFwErr
 		}
+*/
+
+
 
 		// Delete Static NAT
 		if !strings.EqualFold(staticNatId, "") {
@@ -1004,6 +1032,16 @@ func countVMs(vmGroup irs.VMGroupInfo) int {
 	return len(*vmGroup.VMs)
 }
 
+
+
+
+
+
+
+
+
+/*
+
 func (nlbHandler *KTVpcNLBHandler) createStaticNatForNLB(ktNLB *ktvpclb.LoadBalancer) (string, string, error) {
 	cblogger.Info("KT Cloud VPC Driver: called createStaticNatForNLB()")
 	callLogInfo := getCallLogScheme(nlbHandler.RegionInfo.Zone, "NETWORKLOADBALANCE", ktNLB.Name, "createStaticNatForNLB()")
@@ -1134,6 +1172,13 @@ func (nlbHandler *KTVpcNLBHandler) createStaticNatForNLB(ktNLB *ktvpclb.LoadBala
 
 	return natResult.ID, publicIP, nil
 }
+
+*/
+
+
+
+
+
 
 func countNlbKvList(nlb nim.NlbInfo) int {
 	if nlb.KeyValueInfoList == nil {

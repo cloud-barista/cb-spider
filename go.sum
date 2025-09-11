@@ -207,8 +207,8 @@ github.com/cloud-barista/cb-log v0.9.0 h1:pti3gxl85NyqaEiQDF8Dba4zniOy9+6XMy7Jzv
 github.com/cloud-barista/cb-log v0.9.0/go.mod h1:nGgfTFMPwl1MpCO3FBjexUkNdOYA0BNJoyM9Pd0lMms=
 github.com/cloud-barista/ktcloud-sdk-go v0.2.1-0.20240826073400-9dd317d24d0a h1:7sm+NSqmjuktaERMdTayiqsKmfgmFLMBzHrpG85Z5do=
 github.com/cloud-barista/ktcloud-sdk-go v0.2.1-0.20240826073400-9dd317d24d0a/go.mod h1:ZIrUxItUvMIGZyX6Re7tUdcS3cwBIzBPcL+Pk/6lt/8=
-github.com/cloud-barista/ktcloudvpc-sdk-go v0.0.0-20250818112513-c90e5b807d39 h1:hs/m/sy5CekvQy9ibINdir6aHCE/7Rlw/IjM/ob3kH0=
-github.com/cloud-barista/ktcloudvpc-sdk-go v0.0.0-20250818112513-c90e5b807d39/go.mod h1:SDTNI+0ZyoEWhQKHASGwhS1a9kad+mxsXCKSfnpWnSA=
+github.com/cloud-barista/ktcloudvpc-sdk-go v0.0.0-20250910122903-6175e6cf0fc1 h1:t9R7KH27RjN2533/OWiQGNKanNATD04zg/6RfxPlk/M=
+github.com/cloud-barista/ktcloudvpc-sdk-go v0.0.0-20250910122903-6175e6cf0fc1/go.mod h1:SDTNI+0ZyoEWhQKHASGwhS1a9kad+mxsXCKSfnpWnSA=
 github.com/cloud-barista/nhncloud-sdk-go v0.0.2-0.20250820130332-f0e139707117 h1:8DcfVIdNpwpRbjovtnelOtrwrxGVpwz9EuWrNPJBKss=
 github.com/cloud-barista/nhncloud-sdk-go v0.0.2-0.20250820130332-f0e139707117/go.mod h1:G+VjfmHi5IUt0oe14A5UXmbrGFlMTMQjLonBuvjy8Yc=
 github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=

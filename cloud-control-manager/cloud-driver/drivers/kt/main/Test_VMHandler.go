@@ -96,7 +96,7 @@ func handleVM() {
 					// ImageIID: irs.IID{NameId: "ubuntu-18.04-64bit-221115", SystemId: "22f5e22d-ebaf-4ffe-a56b-7ea12a9be770"}, //
 
 					// Public Image
-					ImageIID: irs.IID{NameId: "ubuntu-20.04-64bit", SystemId: "be9a35ed-5988-49d2-b86d-2ca9b375564b"},
+					ImageIID: irs.IID{NameId: "ubuntu-20.04-64bit", SystemId: config.KT.ReqVMImage},
 					// ImageIID: irs.IID{NameId: "windows-2019-std-64bit", SystemId: "0668b053-2a3c-4751-aef9-b6342d3a19c3"},
 					// ImageIID: irs.IID{NameId: "ubuntu-18.04-64bit-221115", SystemId: "d3f14f02-15b8-445e-9fb6-4cbd3f3c3387"},
 					// ImageIID: irs.IID{NameId: "ubuntu-18.04-64bit", SystemId: "c6814d96-9746-42eb-a7d3-80f31d9cd297"}, // ubuntu-18.04-64bit
@@ -111,12 +111,11 @@ func handleVM() {
 					// RootDiskSize: "default",
 
 					// KeyPairIID: irs.IID{NameId: "ohkeypair-cobpk3svtts5q0087n80"},
-					KeyPairIID: irs.IID{NameId: "oh-keypair-01-cp5b7dcvtts3j5nvrbfg"}, // Caution!!) Not SystemId
+					KeyPairIID: irs.IID{NameId: "kt-dx-m1-zone-keypair-kfy-d2qj0h2436uuh1thk7ig"}, // Caution!!) Not SystemId
 
-					SecurityGroupIIDs: []irs.IID{{SystemId: "ktvpc-sg-2"}},
+					SecurityGroupIIDs: []irs.IID{{SystemId: "ktcloudvp-crt5ndcvtts41jm39tcg"}}, // Caution!!) Not NameId but 'SystemId'
 					// SecurityGroupIIDs: []irs.IID{{SystemId: "ohsg02-cobsm0svtts66jc9kl8g"}},
 		
-
 					// $$$ Needs KT Cloud VPC VPC 'SystemId'
 					VpcIID: irs.IID{
 						NameId: "",
@@ -126,7 +125,7 @@ func handleVM() {
 					// Caution!! Not Tier 'ID' but 'OsNetworkID' (among REST API parameters) to Create VM!!
 					SubnetIID: irs.IID{
 						// NameId: "kt-subnet-ck1f929jcuppgg7kbvig",
-						SystemId: "63d4cbc2-4f46-4463-a7eb-5086304a025f",
+						SystemId: "65137bdd-d4c8-4a3c-a4cf-f4556ac69c4c",
 
 						// NameId: "kt-dx-subnet-1", // 172.25.6.1/24
 						// SystemId: "908bb72a-aa50-46d1-ba7d-32d23c0d3eea", // Not 'ID' of Tier but 'OsNetworkID' of Tier to Create VM!!
@@ -347,6 +346,7 @@ type Config struct {
 
 		VMId 			 string `yaml:"vm_id"`
 		ReqVMName 		 string `yaml:"req_vm_name"`
+		ReqVMImage 		 string `yaml:"req_vm_image"`
 		ReqVMSpec 		 string `yaml:"req_vm_spec"`
 		
 		Image struct {
@@ -384,7 +384,7 @@ type Config struct {
 func readConfigFile() Config {
 	// Set Environment Value of Project Root Path
 	rootPath := os.Getenv("CBSPIDER_ROOT")
-	configPath := rootPath + "/cloud-control-manager/cloud-driver/drivers/ktcloudvpc/main/conf/config.yaml"
+	configPath := rootPath + "/cloud-control-manager/cloud-driver/drivers/kt/main/conf/config.yaml"
 	cblogger.Debugf("Test Environment Config : [%s]", configPath)
 
 	data, err := os.ReadFile(configPath)

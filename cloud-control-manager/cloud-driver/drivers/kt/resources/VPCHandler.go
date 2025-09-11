@@ -668,7 +668,7 @@ func (vpcHandler *KTVpcVPCHandler) getNetworkIdWithTierId(tierId string) (*strin
 		loggingError(callLogInfo, newErr)
 		return nil, newErr
 	}
-	cblogger.Infof("\n# Subnet(Tier) ID to Find Network ID : %s", tierId)
+	cblogger.Infof("# Subnet(Tier) ID to Find Network ID : %s", tierId)
 
 	// ### If enter a different number to ListOpts, the value will not be retrieved correctly.
 	listOpts := subnets.ListOpts{
@@ -765,7 +765,7 @@ func (vpcHandler *KTVpcVPCHandler) getVPCIdWithTierId(tierId string) (*string, e
 		loggingError(callLogInfo, newErr)
 		return nil, newErr
 	}
-	cblogger.Infof("\n# Subnet(Tier) ID to Find Network ID : %s", tierId)
+	cblogger.Infof("# Subnet(Tier) ID to Find Network ID : %s", tierId)
 
 	// ### If enter a different number to ListOpts, the value will not be retrieved correctly.
 	listOpts := subnets.ListOpts{

@@ -62,10 +62,10 @@ func handleImage() {
 
 		imageReqInfo := irs.ImageReqInfo{
 			// IId: irs.IID{NameId: "d3f14f02-15b8-445e-9fb6-4cbd3f3c3387", SystemId: "d3f14f02-15b8-445e-9fb6-4cbd3f3c3387"},
-			 //KT Cloud VPC : ubuntu-18.04-64bit-221115
+			// KT Cloud VPC : ubuntu-18.04-64bit-221115
 
 			IId: irs.IID{NameId: "c6814d96-9746-42eb-a7d3-80f31d9cd297", SystemId: "c6814d96-9746-42eb-a7d3-80f31d9cd297"},
-			 //KT Cloud VPC : ubuntu-18.04-64bit
+			// KT Cloud VPC : ubuntu-18.04-64bit
 		}
 
 		if inputCnt == 1 {
@@ -74,40 +74,40 @@ func handleImage() {
 				return
 
 			case 1:
-				cblogger.Infof("Image list 조회 테스트")
+				cblogger.Infof("Image list lookup test")
 
 				result, err := handler.ListImage()
 				if err != nil {
 					cblogger.Error(err)
-					cblogger.Error("Image list 조회 실패 : ", err)
+					cblogger.Error("Image list lookup failed : ", err)
 				} else {
 					fmt.Println("\n==================================================================================================================")
-					cblogger.Info("Image list 조회 결과")
+					cblogger.Info("Image list lookup result")
 					//cblogger.Info(result)
-					cblogger.Info("출력 결과 수 : ", len(result))
+					cblogger.Info("Number of results : ", len(result))
 
 					fmt.Println("\n")
 					spew.Dump(result)
 
-					cblogger.Info("출력 결과 수 : ", len(result))
+					cblogger.Info("Number of results : ", len(result))
 
-					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
+					// For lookup and delete tests, automatically update the request ID with the first info in the list.
 					if result != nil {
-						imageReqInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
+						imageReqInfo.IId = result[0].IId // Change to the created ID for lookup and delete
 					}
 				}
 
 				cblogger.Info("\nListImage Test Finished")
 
 			case 2:
-				cblogger.Infof("[%s] Image 조회 테스트", imageReqInfo.IId)
+				cblogger.Infof("[%s] Image lookup test", imageReqInfo.IId)
 
 				result, err := handler.GetImage(imageReqInfo.IId)
 				if err != nil {
-					cblogger.Error("[%s] Image 조회 실패 : ", imageReqInfo.IId.SystemId, err)
+					cblogger.Error("[%s] Image lookup failed : ", imageReqInfo.IId.SystemId, err)
 				} else {
 					fmt.Println("\n==================================================================================================================")
-					cblogger.Infof("[%s] Image 조회 결과 : \n[%s]", imageReqInfo.IId.SystemId, result)
+					cblogger.Infof("[%s] Image lookup result : \n[%s]", imageReqInfo.IId.SystemId, result)
 
 					fmt.Println("\n")
 					spew.Dump(result)
@@ -116,23 +116,23 @@ func handleImage() {
 				cblogger.Info("\nGetImage Test Finished")
 
 				// case 3:
-				// 	cblogger.Infof("[%s] Image 생성 테스트", imageReqInfo.IId.NameId)
+				// 	cblogger.Infof("[%s] Image create test", imageReqInfo.IId.NameId)
 				// 	result, err := handler.CreateImage(imageReqInfo)
 				// 	if err != nil {
-				// 		cblogger.Infof(imageReqInfo.IId.NameId, " Image 생성 실패 : ", err)
+				// 		cblogger.Infof(imageReqInfo.IId.NameId, " Image create failed : ", err)
 				// 	} else {
-				// 		cblogger.Infof("Image 생성 결과 : ", result)
-				// 		imageReqInfo.IId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
+				// 		cblogger.Infof("Image create result : ", result)
+				// 		imageReqInfo.IId = result.IId // Change to the created ID for lookup and delete
 				// 		spew.Dump(result)
 				// 	}
 
 				// case 4:
-				// 	cblogger.Infof("[%s] Image 삭제 테스트", imageReqInfo.IId.NameId)
+				// 	cblogger.Infof("[%s] Image delete test", imageReqInfo.IId.NameId)
 				// 	result, err := handler.DeleteImage(imageReqInfo.IId)
 				// 	if err != nil {
-				// 		cblogger.Infof("[%s] Image 삭제 실패 : ", imageReqInfo.IId.NameId, err)
+				// 		cblogger.Infof("[%s] Image delete failed : ", imageReqInfo.IId.NameId, err)
 				// 	} else {
-				// 		cblogger.Infof("[%s] Image 삭제 결과 : [%s]", imageReqInfo.IId.NameId, result)
+				// 		cblogger.Infof("[%s] Image delete result : [%s]", imageReqInfo.IId.NameId, result)
 				// 	}
 			}
 		}
@@ -256,7 +256,7 @@ type Config struct {
 func readConfigFile() Config {
 	// Set Environment Value of Project Root Path
 	rootPath := os.Getenv("CBSPIDER_ROOT")
-	configPath := rootPath + "/cloud-control-manager/cloud-driver/drivers/ktcloudvpc/main/conf/config.yaml"
+	configPath := rootPath + "/cloud-control-manager/cloud-driver/drivers/kt/main/conf/config.yaml"
 	cblogger.Debugf("Test Environment Config : [%s]", configPath)
 
 	data, err := os.ReadFile(configPath)
