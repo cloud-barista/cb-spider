@@ -1721,7 +1721,7 @@ func (vmHandler *KTVpcVMHandler) removeFirewallRules(ip string) (bool, error) {
 	cblogger.Info("KT Cloud VPC Driver: called removeFirewallRules()!")
 
 	if strings.EqualFold(ip, "") {
-		newErr := fmt.Errorf("Invalid Public IP Address!!")
+		newErr := fmt.Errorf("Invalid IP Address!!")
 		cblogger.Error(newErr.Error())
 		return false, newErr
 	}
