@@ -27,7 +27,7 @@ if [ ! -f "$CMD_LIST_FILE" ]; then
   exit 3
 fi
 
-# Extract analysis date from log dir name (format: log-YYYYMMDD_HHMMSS)
+ # Extract analysis date from log dir name (format: log-YYYYMMDD_HHMMSS)
 ANALYSIS_DATE=$(echo "$LOG_DIR" | sed -E 's/.*log-([0-9_]+).*/\1/' | sed 's/_/ /')
 
 # Read Spider version info
