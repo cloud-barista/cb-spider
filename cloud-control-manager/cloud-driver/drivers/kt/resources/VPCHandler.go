@@ -549,7 +549,7 @@ func (vpcHandler *KTVpcVPCHandler) listSubnet() ([]*subnets.Subnet, error) {
 		}
 		if len(subnetlist) < 1 {
 			newErr := fmt.Errorf("Failed to Find Any Subnet!!")
-			cblogger.Debug("No Subent found : %v", newErr)
+			cblogger.Debug("No Subnet found : %v", newErr)
 			return false, newErr
 		}
 		for _, subnet := range subnetlist {
