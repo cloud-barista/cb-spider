@@ -14,13 +14,11 @@ package resources
 import (
 	"errors"
 	"fmt"
-
 	"os"
 	"strconv"
 	"strings"
 	"time"
 	_ "time/tzdata" // To prevent 'unknown time zone Asia/Seoul' error
-
 	// "encoding/json"
 	// "github.com/davecgh/go-spew/spew"
 
@@ -363,12 +361,12 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 			return irs.VMInfo{}, newErr
 		}		
 		
+		// To Create PortForwarding and Firewall Rules
 		var sgSystemIDs []string
 		var keyValueList []irs.KeyValue
 		for _, sgIID := range vmReqInfo.SecurityGroupIIDs {
 			cblogger.Infof("S/G ID : [%s]", sgIID.SystemId)
 
-			// To Create PortForwarding and Firewall Rules
 			sgSystemIDs = append(sgSystemIDs, sgIID.SystemId)
 
 			// To Register SecurityGroupInfo to DB
@@ -377,7 +375,7 @@ func (vmHandler *KTVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, e
 				Value: sgIID.SystemId,
 			})
 		}
-		cblogger.Infof("The SystemIds of the Security Group IIDs : [%s]", sgSystemIDs)
+		cblogger.Infof("The SystemIds of the Security Group : [%s]", sgSystemIDs)
 
 		// Register SecurityGroupInfo to DB
 		providerName := "KTVPC"
@@ -693,38 +691,46 @@ func (vmHandler *KTVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error
 		return irs.Failed, err
 	}
 
+	// Handle public IP and private IP cases separately
 	if !strings.EqualFold(vm.PublicIP, "") {
 		// Delete Firewall Rules
-		if !strings.EqualFold(vm.PublicIP, "") {
-			_, dellFwErr := vmHandler.removeFirewallRules(vm.PublicIP, vm.PrivateIP)
-			if dellFwErr != nil {
-				cblogger.Error(dellFwErr.Error())
-				loggingError(callLogInfo, dellFwErr)
-				return irs.Failed, dellFwErr
-			}
+		_, dellFwErr := vmHandler.removeFirewallRules(vm.PublicIP)
+		if dellFwErr != nil {
+			cblogger.Error(dellFwErr.Error())
+			loggingError(callLogInfo, dellFwErr)
+			return irs.Failed, dellFwErr
 		}
 
 		// Delete Port Forwarding Rules
-		if !strings.EqualFold(vm.PublicIP, "") {
-			_, dellPfErr := vmHandler.removePortForwardingRules(vm.PublicIP)
-			if dellPfErr != nil {
-				cblogger.Error(dellPfErr.Error())
-				loggingError(callLogInfo, dellPfErr)
-				return irs.Failed, dellPfErr
-			}
+		_, dellPfErr := vmHandler.removePortForwardingRules(vm.PublicIP)
+		if dellPfErr != nil {
+			cblogger.Error(dellPfErr.Error())
+			loggingError(callLogInfo, dellPfErr)
+			return irs.Failed, dellPfErr
 		}
 
 		// Delete PublicIP connected VM
-		if !strings.EqualFold(vm.PublicIP, "") {
-			_, dellIpErr := vmHandler.removePublicIP(vm.PublicIP)
-			if dellIpErr != nil {
-				cblogger.Error(dellIpErr.Error())
-				loggingError(callLogInfo, dellIpErr)
-				return irs.Failed, dellIpErr
-			}
+		_, dellIpErr := vmHandler.removePublicIP(vm.PublicIP)
+		if dellIpErr != nil {
+			cblogger.Error(dellIpErr.Error())
+			loggingError(callLogInfo, dellIpErr)
+			return irs.Failed, dellIpErr
 		}
+
 	} else {
 		cblogger.Info("The VM doesn't have any connected Pulbic IP!! Waitting for Termination!!")
+	}
+
+	if !strings.EqualFold(vm.PrivateIP, "") {
+		// Delete Firewall Rules
+		_, dellFwErr := vmHandler.removeFirewallRules(vm.PrivateIP)
+		if dellFwErr != nil {
+			cblogger.Error(dellFwErr.Error())
+			loggingError(callLogInfo, dellFwErr)
+			return irs.Failed, dellFwErr
+		}
+	} else {
+		cblogger.Info("The VM doesn't have any Private IP!! Waitting for Termination!!")
 	}
 
 	// Terminate VM
@@ -910,13 +916,17 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(ruleSet *Secu
 		return false, newErr
 	}
 
-	extNetId, getErr := vmHandler.getNetworkID("external")
+	vpcHandler := KTVpcVPCHandler{
+		RegionInfo: 	vmHandler.RegionInfo,
+		NetworkClient:  vmHandler.NetworkClient, // Required!!
+	}
+	extNetId, getErr := vpcHandler.getNetworkID("external")
 	if getErr != nil {
-		newErr := fmt.Errorf("Failed to Get External VlanName : [%v]", getErr)
+		newErr := fmt.Errorf("Failed to Get the External Network ID from Subnet Info : [%v]", getErr)
 		cblogger.Error(newErr.Error())
 		return false, newErr
 	} else {
-		cblogger.Infof("# External VlanName : %s", extNetId)
+		cblogger.Infof("# External Network ID : %s", *extNetId)
 	}
 
 	for _, sgSystemID := range ruleSet.SecurityGroupSystemIDs {
@@ -929,8 +939,9 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(ruleSet *Secu
 		}
 		sgInfo, err := securityHandler.GetSecurity(irs.IID{SystemId: sgSystemID})
 		if err != nil {
-			cblogger.Errorf("Failed to Find the SecurityGroup : %s", sgSystemID)
-			return false, err
+			newErr := fmt.Errorf("Failed to Get the SecurityGroup Info %s : %v", sgSystemID, err)
+			cblogger.Error(newErr.Error())
+			return false, newErr
 		}
 
 		var protocols []string
@@ -948,6 +959,7 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(ruleSet *Secu
 				return false, errors.New("Failed to Find mapping Protocol matching with the given Protocol." + sgRule.IPProtocol)
 			}
 
+			var pfRuleId string // ### To apply 'pfRuleId' value even in the case of the 'ICMP' protocol
 			for _, curProtocol := range protocols {
 				cblogger.Infof("\n")
 				cblogger.Infof("### Current Protocol : [%s]", curProtocol)
@@ -964,7 +976,6 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(ruleSet *Secu
 					sgRule.ToPort = ""
 				}
 				
-				pfRuleId := "" // Init PortForwarding Rule ID
 				if strings.EqualFold(sgRule.Direction, "inbound") {
 					if !(strings.EqualFold(curProtocol, "ICMP")) {
 						cblogger.Info("### Start to Create PortForwarding Rules!!")
@@ -1024,10 +1035,10 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(ruleSet *Secu
 							Protocol:      		curProtocol,
 							StartPort:     		sgRule.FromPort,
 							EndPort:       		sgRule.ToPort,
-							SrcNetwork:       	[]string{extNetId},
+							SrcNetwork:       	[]string{*extNetId},
 							PortForwardingId: 	pfRuleId,							
 							SrcAddress:       	[]string{srcIPAdds},
-        					DstAddress:       	[]string{destCIDR}, // Cannot be entered simultaneously with portForwardingId
+        					DstAddress:       	[]string{destCIDR},
 							Comment:          	comment,
 							SrcNat:           	false,
 						}
@@ -1036,12 +1047,11 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(ruleSet *Secu
 						inboundFWOpts = &rules.CreateOpts{
 							Action:           	true, // accept
 							Protocol:      		curProtocol,
-							// StartPort:     		sgRule.FromPort,
-							// EndPort:       		sgRule.ToPort,
-							SrcNetwork:       	[]string{extNetId},
-							DstNetwork:       	[]string{ruleSet.TierNetworkId},
+							SrcNetwork:       	[]string{*extNetId},
+							PortForwardingId: 	pfRuleId,
+							// DstNetwork:       	[]string{ruleSet.TierNetworkId},
 							SrcAddress:       	[]string{srcIPAdds},
-        					DstAddress:       	[]string{destCIDR}, // Cannot be entered simultaneously with portForwardingId
+        					DstAddress:       	[]string{destCIDR},
 							Comment:          	comment,
 							SrcNat:           	false,
 						}
@@ -1098,7 +1108,7 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(ruleSet *Secu
 							StartPort:     		sgRule.FromPort,
 							EndPort:       		sgRule.ToPort,
 							SrcNetwork:       	[]string{ruleSet.TierNetworkId},
-							DstNetwork: 	  	[]string{extNetId},
+							DstNetwork: 	  	[]string{*extNetId},
 							SrcAddress:       	[]string{srcCIDR},
         					DstAddress:       	[]string{destIPAdds}, // Cannot be entered simultaneously with portForwardingId
 							Comment:          	comment,
@@ -1107,7 +1117,7 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(ruleSet *Secu
 					// cblogger.Info("\n# Outbound FireWall Options : ")
 					// spew.Dump(outboundFWOpts)
 					// cblogger.Info("\n")
-					
+
 					// fwRuleJobId := ""
 					fwResult := rules.Create(vmHandler.NetworkClient, outboundFWOpts)
 					if fwResult.Err != nil {
@@ -1299,9 +1309,15 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 			}
 
 			if ktVolume.Bootable == "true" {
-				vmInfo.RootDiskType = ktVolume.VolumeType
-				vmInfo.RootDiskSize = strconv.Itoa(ktVolume.Size)
-				vmInfo.RootDeviceName = ktVolume.Attachments[0].Device
+				if ktVolume.VolumeType != "" {
+					vmInfo.RootDiskType = ktVolume.VolumeType
+				}
+				if ktVolume.Size != 0 {
+					vmInfo.RootDiskSize = strconv.Itoa(ktVolume.Size)
+				}
+				if (vm.Status == "ACTIVE") && len(ktVolume.Attachments) > 0 { // Caution!!
+					vmInfo.RootDeviceName = ktVolume.Attachments[0].Device
+				}
 
 				imageIID, getErr = diskHandler.getImageNameandIDWithDiskID(volume.ID)
 				if getErr != nil {
@@ -1363,10 +1379,10 @@ func (vmHandler *KTVpcVMHandler) mappingVMInfo(vm servers.Server) (irs.VMInfo, e
 	var vCPU string
 	var vRAM string
 	if float64Vcpus != 0 {
-		vCPU = strconv.FormatFloat(vm.Flavor["vcpus"].(float64), 'f', -1, 64)
+		vCPU = strconv.FormatFloat(float64Vcpus, 'f', -1, 64)
 	}
 	if float64Ram != 0 {
-		vRAM = strconv.FormatFloat(vm.Flavor["ram"].(float64), 'f', -1, 64)
+		vRAM = strconv.FormatFloat(float64Ram, 'f', -1, 64)
 	}
 
 	//# Append to KeyValueList
@@ -1517,7 +1533,7 @@ func (vmHandler *KTVpcVMHandler) listFirewallRule() ([]rules.FirewallRule, error
 		}
 
 		if len(rules) < 1 {
-			newErr := fmt.Errorf("Failed to Get Any FirewallRule Info.")
+			newErr := fmt.Errorf("Failed to Find Any FirewallRule Info.")
 			cblogger.Debug("No FirewallRule found : %v", newErr)
 			return false, newErr
 		}
@@ -1702,21 +1718,15 @@ func (vmHandler *KTVpcVMHandler) getPortForwardingID(privateIpAddr string, proto
 	return portForwardingId, nil
 }
 
-func (vmHandler *KTVpcVMHandler) removeFirewallRules(publicIp string, privateIp string) (bool, error) {
+func (vmHandler *KTVpcVMHandler) removeFirewallRules(ip string) (bool, error) {
 	cblogger.Info("KT Cloud VPC Driver: called removeFirewallRules()!")
 
-	if strings.EqualFold(publicIp, "") {
+	if strings.EqualFold(ip, "") {
 		newErr := fmt.Errorf("Invalid Public IP Address!!")
 		cblogger.Error(newErr.Error())
 		return false, newErr
 	}
 
-	if strings.EqualFold(privateIp, "") {
-		newErr := fmt.Errorf("Invalid Public IP Address!!")
-		cblogger.Error(newErr.Error())
-		return false, newErr
-	}
-	
 	cblogger.Info("Cloud driver: called listFirewallRule()!!")
 	fwRuleList, err := vmHandler.listFirewallRule()
 	if err != nil {
@@ -1727,39 +1737,31 @@ func (vmHandler *KTVpcVMHandler) removeFirewallRules(publicIp string, privateIp 
 	if len(fwRuleList) < 1 {
 		newErr := fmt.Errorf("Failed to Find Any Firewall Rule : [%v]", err)
 		cblogger.Debug(newErr.Error())
-		return true, newErr // Not 'false'
+		return true, nil // Not false, newErr
 	}
-	// cblogger.Info("\n\n### fwRuleList : ")
-	// spew.Dump(fwRuleList)
-	// cblogger.Info("\n\n")
 
-    policyIDsWithPublicIp, err := vmHandler.FindFirewallPolicyIDsByIP(fwRuleList, publicIp)
+    policyIDs, err := vmHandler.FindFirewallPolicyIDsByIP(fwRuleList, ip)
 	if err != nil {
+		if strings.Contains(err.Error(), "No PolicyIDs found") {
+			newErr := fmt.Errorf(err.Error())
+			cblogger.Debug(newErr.Error())
+			return false, nil
+		}
 		newErr := fmt.Errorf("Failed to Find FirewallPolicy IDs [%v]", err)
 		cblogger.Error(newErr.Error())
 		return false, newErr
 	}
     // fmt.Printf("PolicyIDs for IP %s: %v\n", publicIp, policyIDs)
-
-	policyIDsWithPrivateIp, err := vmHandler.FindFirewallPolicyIDsByIP(fwRuleList, privateIp)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Find FirewallPolicy IDs [%v]", err)
-		cblogger.Error(newErr.Error())
-		return false, newErr
-	}
-    // fmt.Printf("PolicyIDs for IP %s: %v\n", publicIp, policyIDs)
-
-	allPolicyIDs := append(policyIDsWithPublicIp, policyIDsWithPrivateIp...)
 
 	// Deletes all firewall rules matching the given policyIDs.
-    for _, policyID := range allPolicyIDs {
+    for _, policyID := range policyIDs {
         result := rules.Delete(vmHandler.NetworkClient, policyID)
         if result.Err != nil {
 			newErr := fmt.Errorf("Failed to delete firewall rule (PolicyID: %s): %v", policyID, result.Err)
 			cblogger.Error(newErr.Error())
 			return false, newErr
         } else {
-            cblogger.Infof("Successfully deleted firewall rule (PolicyID: %s)", policyID)
+            cblogger.Infof("Successfully Deleted Firewall rule (PolicyID: %s)", policyID)
         }
     }
 
@@ -1848,7 +1850,7 @@ func (vmHandler *KTVpcVMHandler) removePublicIP(publicIpAddr string) (bool, erro
 		cblogger.Error(newErr.Error())
 		return false, newErr
     }
-    cblogger.Infof("Successfully deleted public IP: %s (ID: %s)", publicIpAddr, publicIPID)
+    cblogger.Infof("Successfully Deleted Public IP: %s (ID: %s)", publicIpAddr, publicIPID)
 
 	return true, nil
 }
@@ -2242,49 +2244,6 @@ func (vmHandler *KTVpcVMHandler) ListIID() ([]*irs.IID, error) {
 	return iidList, nil
 }
 
-// getNetworkID() Gets Network ID of targetName from FirewallRule List
-func (vmHandler *KTVpcVMHandler) getNetworkID(targetName string) (string, error) {
-	cblogger.Info("KT Cloud driver: called getNetworkID()!!")
-
-	if strings.EqualFold(targetName, "") {
-		newErr := fmt.Errorf("Invalid targetName!!")
-		cblogger.Error(newErr.Error())
-		return "", newErr
-	}
-
-	fwRuleList, err := vmHandler.listFirewallRule()
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get Firewall Rule List. [%v]", err)
-		cblogger.Error(newErr.Error())
-		return "", newErr
-	}
-	if len(fwRuleList) < 1 {
-		newErr := fmt.Errorf("Failed to Find Any Firewall Rule : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return "", newErr
-	}
-
-	var netId string
-	for _, rule := range fwRuleList {
-		for _, dstInterface := range rule.DstInterface {
-			if strings.EqualFold(dstInterface.Name, targetName) {				
-				netId = dstInterface.NetworkID			
-			}
-		}
-		for _, srcInterface := range rule.SrcInterface {
-			if strings.EqualFold(srcInterface.Name, targetName) {
-				netId = srcInterface.NetworkID				
-			}
-		}
-	}
-
-	if strings.EqualFold(netId, "") {
-		return "", fmt.Errorf("No NetworkID found with targetName: %s", targetName)
-	} else {
-		return netId, nil
-	}	
-}
-
 // FindFirewallPolicyIDsByIP returns a list of PolicyIDs from the given FirewallRule list
 // that match the given 'public IP' or 'private IP' (as substring, CIDR, or exact match).
 func (vmHandler *KTVpcVMHandler) FindFirewallPolicyIDsByIP(fwRules []rules.FirewallRule, ip string) ([]string, error) {
@@ -2320,7 +2279,7 @@ func (vmHandler *KTVpcVMHandler) FindFirewallPolicyIDsByIP(fwRules []rules.Firew
     }
 
 	if policyIDs == nil {
-		return nil, fmt.Errorf("No PolicyIDs found with IP Address: %s", ip)
+		return nil, fmt.Errorf("No PolicyIDs found with the IP Address: %s", ip)
 	} else {
 		return policyIDs, nil
 	} 
