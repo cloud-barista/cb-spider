@@ -1049,7 +1049,6 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(ruleSet *Secu
 							Protocol:      		curProtocol,
 							SrcNetwork:       	[]string{*extNetId},
 							PortForwardingId: 	pfRuleId,
-							// DstNetwork:       	[]string{ruleSet.TierNetworkId},
 							SrcAddress:       	[]string{srcIPAdds},
         					DstAddress:       	[]string{destCIDR},
 							Comment:          	comment,
