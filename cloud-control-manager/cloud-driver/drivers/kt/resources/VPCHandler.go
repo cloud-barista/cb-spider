@@ -531,8 +531,9 @@ func (vpcHandler *KTVpcVPCHandler) listSubnet() ([]*subnets.Subnet, error) {
 
 	// ### If enter a different number to ListOpts, the value will not be retrieved correctly.
     listOpts := subnets.ListOpts{
-        Page: 1,
-        Size: 20,
+        Page: 			1,
+        Size: 			20,
+		NetworkType: 	"ALL", // [Optional] [default: trust] TRUST / UNTRUST / ALL
 	}
 	start := call.Start()
     pager := subnets.List(vpcHandler.NetworkClient, listOpts)
@@ -547,8 +548,8 @@ func (vpcHandler *KTVpcVPCHandler) listSubnet() ([]*subnets.Subnet, error) {
 		    return false, newErr
 		}
 		if len(subnetlist) < 1 {
-			newErr := fmt.Errorf("Failed to Get Any Subnet Info.")
-			cblogger.Infof("No Subent found : %v", newErr)
+			newErr := fmt.Errorf("Failed to Find Any Subnet!!")
+			cblogger.Debug("No Subent found : %v", newErr)
 			return false, newErr
 		}
 		for _, subnet := range subnetlist {
@@ -568,9 +569,16 @@ func (vpcHandler *KTVpcVPCHandler) listSubnet() ([]*subnets.Subnet, error) {
  	return subnetAdrsList, nil
 }
 
-func (vpcHandler *KTVpcVPCHandler) getExtSubnetId() (*string, error) {
-	cblogger.Info("KT Cloud VPC Driver: called getExtSubnetId()!")
-	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, "getExtSubnetId()", "getExtSubnetId()")
+// getNetworkID() Gets Network ID of targetName from Subnet(Tier) List
+func (vpcHandler *KTVpcVPCHandler) getNetworkID(targetName string) (*string, error) {
+	cblogger.Info("KT Cloud driver: called getNetworkID()!!")
+	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, "getNetworkID()", "getNetworkID()")
+	
+	if strings.EqualFold(targetName, "") {
+		newErr := fmt.Errorf("Invalid targetName!!")
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
 
 	// Get Subnet list
 	start := call.Start()
@@ -582,21 +590,27 @@ func (vpcHandler *KTVpcVPCHandler) getExtSubnetId() (*string, error) {
 	}
 	loggingInfo(callLogInfo, start)
 
-	var extSubnetId string
-	for _, subnet := range subnets {
-		if strings.EqualFold(subnet.RefName, "external") {
-			extSubnetId = subnet.NetworkID
-			break
-		}
-	}
-
-	if strings.EqualFold(extSubnetId, "") {
-		newErr := fmt.Errorf("Failed to Find the External Subnet ID!!")
+	if len(subnets) < 1 {
+		newErr := fmt.Errorf("Failed to Find Any Subnet!!")
 		cblogger.Error(newErr.Error())
 		return nil, newErr
 	}
 
-	return &extSubnetId, nil
+	var networkId string
+	for _, subnet := range subnets {
+		if strings.EqualFold(subnet.RefName, targetName) {
+			networkId = subnet.NetworkID
+			break
+		}
+	}
+
+	if strings.EqualFold(networkId, "") {
+		newErr := fmt.Errorf("Failed to Find the Network ID with targetName: %s", targetName)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	} else {
+		return &networkId, nil
+	}
 }
 
 func (vpcHandler *KTVpcVPCHandler) getTierIdWithNetworkId(networkId string) (*string, error) {
