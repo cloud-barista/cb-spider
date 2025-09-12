@@ -725,7 +725,7 @@ func (nlbHandler *NhnCloudNLBHandler) waitingNLBPoolActive(poolID string) (bool,
 	lbID := listener.Loadbalancers[0].ID
 
 	curRetry := 0
-	maxRetry := 60
+	maxRetry := 240
 	for {
 		curRetry++
 		rawLB, err := nlbHandler.getRawNLB(irs.IID{SystemId: lbID})
