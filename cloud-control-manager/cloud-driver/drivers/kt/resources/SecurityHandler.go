@@ -168,15 +168,15 @@ func (securityHandler *KTVpcSecurityHandler) GetSecurity(securityIID irs.IID) (i
 	cblogger.Info("KT Cloud VPC driver: called GetSecurity()!!")
 	callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Zone, call.SECURITYGROUP, securityIID.SystemId, "GetSecurity()")
 
-	var sg SecurityGroup
-	securityIID.NameId = securityIID.SystemId
-	hashFileName := base64.StdEncoding.EncodeToString([]byte(securityIID.NameId))
-
-	cblogger.Infof("# securityIID.NameId : " + securityIID.NameId)
-	// cblogger.Infof("# hashFileName : " + hashFileName + ".json")
-
 	if strings.EqualFold(securityHandler.RegionInfo.Zone, "") {
 		newErr := fmt.Errorf("Invalid Region Info!!")
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return irs.SecurityInfo{}, newErr
+	}
+
+	if strings.EqualFold(securityIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid S/G SystemId!!")
 		cblogger.Error(newErr.Error())
 		loggingError(callLogInfo, newErr)
 		return irs.SecurityInfo{}, newErr
@@ -197,6 +197,7 @@ func (securityHandler *KTVpcSecurityHandler) GetSecurity(securityIID irs.IID) (i
 		return irs.SecurityInfo{}, err
 	}
 
+	hashFileName := base64.StdEncoding.EncodeToString([]byte(securityIID.SystemId))
 	sgFileName := sgFilePath + hashFileName + ".json"
 	jsonFile, err := os.Open(sgFileName)
 	if err != nil {
@@ -205,6 +206,7 @@ func (securityHandler *KTVpcSecurityHandler) GetSecurity(securityIID irs.IID) (i
 	}
 	cblogger.Infof("Succeeded in Finding and Opening the S/G file: " + sgFileName)
 
+	var sg SecurityGroup
 	defer jsonFile.Close()
 	byteValue, readErr := io.ReadAll(jsonFile)
 	if readErr != nil {
