@@ -27,7 +27,7 @@ if [ ! -f "$CMD_LIST_FILE" ]; then
   exit 3
 fi
 
- # Extract analysis date from log dir name (format: log-YYYYMMDD_HHMMSS)
+# Extract analysis date from log dir name (format: log-YYYYMMDD_HHMMSS)
 ANALYSIS_DATE=$(echo "$LOG_DIR" | sed -E 's/.*log-([0-9_]+).*/\1/' | sed 's/_/ /')
 
 # Read Spider version info
@@ -73,7 +73,7 @@ cat > "$REPORT_FILE" <<EOF
 EOF
 
 
-# 2. 장별 리포트 함수
+# Section report generation function
 generate_section() {
   local SECTION_TITLE="$1"
   local CMD_KEYWORD="$2"
@@ -95,16 +95,16 @@ generate_section() {
     SUMMARY_FILE=$(ls "$LOG_DIR"/$SUMMARYPATTERN 2>/dev/null | head -1)
     # Extract memory info
     if [ -f "$SUMMARY_FILE" ]; then
-      AVG=$(grep '평균' "$SUMMARY_FILE" | grep -oE '[0-9.]+ MB' | head -1)
+      AVG=$(grep 'Average' "$SUMMARY_FILE" | grep -oE '[0-9.]+ MB' | head -1)
       PEAK=$(grep 'Peak' "$SUMMARY_FILE" | grep -oE '[0-9.]+ MB' | head -1)
-      MEM_SUMMARY="평균: $AVG / Peak: $PEAK"
+      MEM_SUMMARY="Average: $AVG / Peak: $PEAK"
     else
       MEM_SUMMARY="-"
     fi
     # Related files
     FILE_LINKS=""
-    [ -f "$SUMMARY_FILE" ] && FILE_LINKS+="<a href='$(basename "$SUMMARY_FILE")'>요약</a> "
-    [ -f "$GRAPH_FILE" ] && FILE_LINKS+="<a href='$(basename "$GRAPH_FILE")'>그래프</a> "
+    [ -f "$SUMMARY_FILE" ] && FILE_LINKS+="<a href='$(basename "$SUMMARY_FILE")'>Summary</a> "
+    [ -f "$GRAPH_FILE" ] && FILE_LINKS+="<a href='$(basename "$GRAPH_FILE")'>Graph</a> "
     # Insert row: single cell with command, graph, and link
     echo "<tr><td>" >> "$REPORT_FILE"
     # Extract output file name from command line (after '>')

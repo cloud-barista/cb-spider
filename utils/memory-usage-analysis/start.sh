@@ -6,7 +6,7 @@
 
 set -e
 
- # Color definitions
+# Color definitions
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -15,7 +15,7 @@ PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
- # Logging functions
+# Logging functions
 log_info() {
     echo -e "${BLUE}[INFO]${NC} $(date '+%Y-%m-%d %H:%M:%S') - $1"
 }
@@ -38,7 +38,7 @@ log_header() {
     echo -e "${PURPLE}===================================================${NC}"
 }
 
- # Script start
+# Script start
 log_header "CB-Spider Server Memory Usage Analysis Started"
 START_TIME=$(date '+%Y%m%d_%H%M%S')
 

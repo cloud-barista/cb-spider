@@ -61,22 +61,22 @@ def parse_pidstat_log(filename, target_pid):
     # Use current date as base (pidstat logs are typically from today)
     base_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     
-    for line in lines[2:]:  # 헤더 라인 건너뛰기
+    for line in lines[2:]:  # Skip header lines
         if line.strip() and not line.startswith('Linux') and 'UID' not in line:
             parts = line.strip().split()
             if len(parts) >= 8 and parts[2] == str(target_pid):
                 try:
-                    time_str = parts[0]  # HH:MM:SS 형식
+                    time_str = parts[0]  # HH:MM:SS format
                     time_obj = datetime.strptime(time_str, "%H:%M:%S")
                     
-                    # 날짜와 시간 결합
+                    # Combine date and time
                     timestamp = base_date.replace(
                         hour=time_obj.hour,
                         minute=time_obj.minute,
                         second=time_obj.second
                     )
                     
-                    # 자정을 넘어간 경우 처리
+                    # Handle crossing midnight
                     if len(data) > 0 and timestamp < data[-1]['timestamp']:
                         timestamp += timedelta(days=1)
                     
