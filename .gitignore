@@ -36,6 +36,8 @@ cloud-driver-libs/.vpc-nhn/*
 cloud-driver-libs/.vpc-kt/*
 cloud-driver-libs/.securitygroup-kt/*
 
+.venv/*
+__pycache__/*
 vendor/*
 cloud-driver-libs/*.so
 meta_db/*
