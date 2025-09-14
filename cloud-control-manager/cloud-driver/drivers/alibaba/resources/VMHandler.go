@@ -8,6 +8,7 @@ package resources
 import (
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -492,8 +493,16 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	curStatus, errStatus := vmHandler.WaitForRun(newVmIID) // 20210511 아직 정책이 최종 확정이 아니라서 WaitForRun을 사용하도록 원복함
 	if errStatus != nil {
 		cblogger.Error(errStatus.Error())
-		return irs.VMInfo{}, nil
+
+		_, cleanupErr := vmHandler.TerminateVM(newVmIID)
+		if cleanupErr != nil {
+			combinedErr := fmt.Errorf("VM creation failed: %v, and cleanup also failed: %v. VM may remain in cloud",
+				errStatus, cleanupErr)
+			return irs.VMInfo{}, combinedErr
+		}
+		return irs.VMInfo{}, errStatus
 	}
+
 	cblogger.Debug("==> Current status [%s] of the created VM [%s]", newVmIID, curStatus)
 
 	// dataDisk attach
