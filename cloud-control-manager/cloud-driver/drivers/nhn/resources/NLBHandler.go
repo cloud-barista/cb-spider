@@ -76,7 +76,6 @@ func (nlbHandler *NhnCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createN
 		return irs.NLBInfo{}, newErr
 	}
 
-	// 1. LoadBalancer
 	lb, err := nlbHandler.createLoadBalancer(nlbReqInfo)
 	if err != nil {
 		newErr := fmt.Errorf("failed to create LoadBalancer: %w", err)
@@ -87,7 +86,6 @@ func (nlbHandler *NhnCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createN
 		return irs.NLBInfo{}, newErr
 	}
 
-	// 5. Listener
 	listener, err := nlbHandler.createListener(lb.ID, nlbReqInfo)
 	if err != nil {
 		newErr := fmt.Errorf("failed to create Listener: %w", err)
@@ -103,7 +101,6 @@ func (nlbHandler *NhnCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createN
 		}
 	}()
 
-	// 2. Pool
 	pool, err := nlbHandler.createPool(listener.ID, nlbReqInfo)
 	if err != nil {
 		newErr := fmt.Errorf("failed to create Pool: %w", err)
@@ -114,7 +111,6 @@ func (nlbHandler *NhnCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createN
 		return irs.NLBInfo{}, newErr
 	}
 
-	// 3. HealthMonitor
 	_, err = nlbHandler.createHealthMonitor(pool.ID, nlbReqInfo)
 	if err != nil {
 		newErr := fmt.Errorf("failed to create HealthMonitor: %w", err)
@@ -125,18 +121,6 @@ func (nlbHandler *NhnCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createN
 		return irs.NLBInfo{}, newErr
 	}
 
-	// 4. Members
-	_, err = nlbHandler.AddVMs(nlbReqInfo.IId, nlbReqInfo.VMGroup.VMs)
-	if err != nil {
-		newErr := fmt.Errorf("failed to add VMs: %w", err)
-		cblogger.Error(newErr.Error())
-		callLogInfo.ErrorMSG = newErr.Error()
-		calllogger := calllog.GetLogger("NHN-CALLLOG")
-		calllogger.Error(calllog.String(callLogInfo))
-		return irs.NLBInfo{}, newErr
-	}
-
-	// 6. Public IP
 	publicIP, err := nlbHandler.createPublicIP(lb.VipPortID)
 	if err != nil {
 		newErr := fmt.Errorf("failed to create Public IP: %w", err)
@@ -147,7 +131,6 @@ func (nlbHandler *NhnCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createN
 		return irs.NLBInfo{}, newErr
 	}
 
-	// 7. 최종 매핑
 	rawnlb, err := nlbHandler.getRawNLB(irs.IID{SystemId: lb.ID})
 	if err != nil {
 		newErr := fmt.Errorf("failed to get RawNLB: %w", err)
@@ -168,7 +151,6 @@ func (nlbHandler *NhnCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createN
 	}
 	createNLB.Listener.IP = publicIP
 
-	// 성공 로그
 	callLogInfo.ElapsedTime = calllog.Elapsed(callLogStart)
 	callLogInfo.ErrorMSG = ""
 	calllogger := calllog.GetLogger("NHN-CALLLOG")
@@ -178,7 +160,6 @@ func (nlbHandler *NhnCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createN
 }
 
 func (nlbHandler *NhnCloudNLBHandler) createLoadBalancer(nlbReqInfo irs.NLBInfo) (*loadbalancers.LoadBalancer, error) {
-	// 동일 이름 체크
 	listOpts := loadbalancers.ListOpts{Name: nlbReqInfo.IId.NameId}
 	allPages, err := loadbalancers.List(nlbHandler.NetworkClient, listOpts).AllPages()
 	if err != nil {
@@ -189,13 +170,11 @@ func (nlbHandler *NhnCloudNLBHandler) createLoadBalancer(nlbReqInfo irs.NLBInfo)
 		return nil, fmt.Errorf("already exist NLB Name %s", nlbReqInfo.IId.NameId)
 	}
 
-	// Subnet 정보 가져오기
 	subnetID, _, err := nlbHandler.getFirstSubnetAndNetworkId(nlbReqInfo.VpcIID.NameId)
 	if err != nil {
 		return nil, err
 	}
 
-	// LoadBalancer 생성 옵션
 	createOpts := loadbalancers.CreateOpts{
 		Name:         nlbReqInfo.IId.NameId,
 		AdminStateUp: DefaultAdminStateUp,
@@ -203,13 +182,11 @@ func (nlbHandler *NhnCloudNLBHandler) createLoadBalancer(nlbReqInfo irs.NLBInfo)
 		// VipAddress:   networkID,  // ❌ 제거
 	}
 
-	// LB 생성
 	newLB, err := loadbalancers.Create(nlbHandler.NetworkClient, createOpts).Extract()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create loadbalancer: %s", err)
 	}
 
-	// LB Active 될 때까지 대기
 	_, err = nlbHandler.waitToGetNLBInfo(irs.IID{SystemId: newLB.ID})
 	if err != nil {
 		return nil, err
@@ -317,7 +294,6 @@ func (nlbHandler *NhnCloudNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 
 	var nlbList []*irs.NLBInfo
 
-	// 1. API 호출
 	allPages, err := loadbalancers.List(nlbHandler.NetworkClient, nil).AllPages()
 	if err != nil {
 		newErr := fmt.Errorf("failed to list NLBs: %w", err)
@@ -328,7 +304,6 @@ func (nlbHandler *NhnCloudNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 		return nil, newErr
 	}
 
-	// 2. JSON 직접 언마샬 → map 변환
 	var rawBody map[string]interface{}
 	if err := allPages.(loadbalancers.LoadBalancerPage).ExtractInto(&rawBody); err != nil {
 		newErr := fmt.Errorf("failed to extract NLBs into raw map: %w", err)
@@ -349,7 +324,6 @@ func (nlbHandler *NhnCloudNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 		return nil, newErr
 	}
 
-	// 3. 각 loadbalancer map → NLBInfo 변환
 	for _, lb := range lbList {
 		lbMap, ok := lb.(map[string]interface{})
 		if !ok {
@@ -612,78 +586,6 @@ func (nlbHandler *NhnCloudNLBHandler) createPool(listenerID string, nlbReqInfo i
 	return pool, nil
 }
 
-//func (nlbHandler *NhnCloudNLBHandler) createPool(listenerID string, nlbReqInfo irs.NLBInfo) (*pools.Pool, error) {
-//	cblogger.Info("NHN Cloud Driver: called createPool()")
-//	callLogInfo := getCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCER", "createPool()", "createPool()")
-//	callLogStart := calllog.Start()
-//
-//	if listenerID == "" {
-//		newErr := fmt.Errorf("invalid listener ID")
-//		cblogger.Error(newErr.Error())
-//		LoggingError(callLogInfo, newErr)
-//		return nil, newErr
-//	}
-//
-//	poolCreateOpts, err := nlbHandler.getPoolCreateOpt(nlbReqInfo, listenerID)
-//	if err != nil {
-//		newErr := fmt.Errorf("failed to get PoolCreateOpt: %s", err)
-//		cblogger.Error(newErr.Error())
-//		LoggingError(callLogInfo, newErr)
-//		return nil, newErr
-//	}
-//
-//	pool, err := pools.Create(nlbHandler.NetworkClient, poolCreateOpts).Extract()
-//	if err != nil {
-//		newErr := fmt.Errorf("failed to create pool: %s", err)
-//		cblogger.Error(newErr.Error())
-//		LoggingError(callLogInfo, newErr)
-//		return nil, newErr
-//	}
-//
-//	listener, err := nlbHandler.getRawListenerById(listenerID)
-//	if err != nil {
-//		return nil, fmt.Errorf("failed to get listener %s after pool creation: %w", listenerID, err)
-//	}
-//	if len(listener.Loadbalancers) < 1 {
-//		return nil, fmt.Errorf("listener %s has no associated loadbalancer", listenerID)
-//	}
-//	lbID := listener.Loadbalancers[0].ID
-//
-//	// 🔹 LB ACTIVE 될 때까지 대기
-//	_, err = nlbHandler.waitToGetNLBInfo(irs.IID{SystemId: lbID})
-//	if err != nil {
-//		return nil, fmt.Errorf("loadbalancer %s did not become ACTIVE after pool creation: %s", lbID, err)
-//	}
-//
-//	// DefaultPoolID는 SDK에 없으니 map 기반으로 강제로 넣어야 할 수 있음
-//	updateMap := map[string]interface{}{
-//		"listener": map[string]interface{}{
-//			"default_pool_id": pool.ID,
-//		},
-//	}
-//	_, err = nlbHandler.NetworkClient.Put(
-//		nlbHandler.NetworkClient.ServiceURL("lbaas", "listeners", listenerID),
-//		updateMap,
-//		nil,
-//		nil,
-//	)
-//	if err != nil {
-//		return nil, fmt.Errorf("failed to update listener with default pool: %s", err)
-//	}
-//
-//	_, err = nlbHandler.waitingNLBPoolActive(pool.ID)
-//	if err != nil {
-//		newErr := fmt.Errorf("pool did not become active: %s", err)
-//		cblogger.Error(newErr.Error())
-//		LoggingError(callLogInfo, newErr)
-//		return nil, newErr
-//	}
-//
-//	LoggingInfo(callLogInfo, callLogStart)
-//	return pool, nil
-//}
-
-// Pool 설명 업데이트
 func (nlbHandler *NhnCloudNLBHandler) setPoolDescription(des string, poolId string) (*pools.Pool, error) {
 	updateOpts := pools.UpdateOpts{
 		Description: &des,
@@ -693,7 +595,6 @@ func (nlbHandler *NhnCloudNLBHandler) setPoolDescription(des string, poolId stri
 		return nil, err
 	}
 
-	// Pool 상태 ACTIVE 될 때까지 대기
 	_, err = nlbHandler.waitingNLBPoolActive(pool.ID)
 	if err != nil {
 		return nil, err
@@ -780,8 +681,6 @@ func getPoolProtocol(protocol string) (pools.Protocol, error) {
 	return "", fmt.Errorf("unsupported pool protocol: %s", protocol)
 }
 
-// --------------------------------- create Monitor ---------------------------------
-
 func (nlbHandler *NhnCloudNLBHandler) getRawMonitorById(monitorID string) (*monitors.Monitor, error) {
 	if monitorID == "" {
 		return nil, fmt.Errorf("invalid monitor ID")
@@ -860,10 +759,116 @@ func (nlbHandler *NhnCloudNLBHandler) getRawPoolMemberById(poolID, memberID stri
 }
 
 func (nlbHandler *NhnCloudNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup irs.VMGroupInfo) (irs.VMGroupInfo, error) {
-	// 단순히 기존 Pool을 지우고 새로 만들거나
-	// Update API 지원 시 pools.Update 활용 가능
-	// 여기서는 단순화해서 Remove + Add 구현 가능
-	return vmGroup, errors.New("ChangeVMGroupInfo not implemented yet")
+	cblogger.Info("NHN Cloud Driver: called ChangeVMGroupInfo()")
+	callLogInfo := getCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCER", nlbIID.NameId, "ChangeVMGroupInfo()")
+	callLogStart := calllog.Start()
+
+	if err := nlbHandler.checkNLBClient(); err != nil {
+		newErr := fmt.Errorf("failed to change VMGroupInfo: %w", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMGroupInfo{}, newErr
+	}
+
+	rawNLB, err := nlbHandler.getRawNLB(nlbIID)
+	if err != nil {
+		newErr := fmt.Errorf("failed to get NLB: %w", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMGroupInfo{}, newErr
+	}
+
+	poolsIfc, ok := rawNLB["pools"].([]interface{})
+	if !ok || len(poolsIfc) < 1 {
+		newErr := fmt.Errorf("no pool found in NLB %s", nlbIID.SystemId)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMGroupInfo{}, newErr
+	}
+
+	poolMap, ok := poolsIfc[0].(map[string]interface{})
+	if !ok {
+		newErr := fmt.Errorf("invalid pool format in NLB %s", nlbIID.SystemId)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMGroupInfo{}, newErr
+	}
+	poolId, _ := poolMap["id"].(string)
+
+	oldPool, err := nlbHandler.getRawPoolById(poolId)
+	if err != nil {
+		newErr := fmt.Errorf("failed to get pool %s: %w", poolId, err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMGroupInfo{}, newErr
+	}
+
+	portInt, err := strconv.Atoi(vmGroup.Port)
+	if err != nil || portInt < 1 || portInt > 65535 {
+		newErr := fmt.Errorf("invalid VMGroup port: %s", vmGroup.Port)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMGroupInfo{}, newErr
+	}
+
+	if vmGroup.Protocol != "" && !strings.EqualFold(vmGroup.Protocol, oldPool.Protocol) {
+		newErr := fmt.Errorf("changing VMGroup protocol is not supported")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMGroupInfo{}, newErr
+	}
+
+	oldVMGroup, err := nlbHandler.getVMGroup(rawNLB)
+	if err != nil {
+		newErr := fmt.Errorf("failed to get old VMGroup: %w", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMGroupInfo{}, newErr
+	}
+
+	if strings.EqualFold(vmGroup.Port, oldVMGroup.Port) {
+		return oldVMGroup, nil
+	}
+
+	if err := nlbHandler.detachPoolMembers(poolId, *oldVMGroup.VMs); err != nil {
+		newErr := fmt.Errorf("failed to detach old pool members: %w", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMGroupInfo{}, newErr
+	}
+
+	if _, err := nlbHandler.attachPoolMembers(*oldVMGroup.VMs, vmGroup.Port, poolId); err != nil {
+		newErr := fmt.Errorf("failed to re-attach pool members: %w", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMGroupInfo{}, newErr
+	}
+
+	desc := fmt.Sprintf("cb-vmgroup-port-%d", portInt)
+	if _, err := nlbHandler.setPoolDescription(desc, poolId); err != nil {
+		newErr := fmt.Errorf("failed to update pool description: %w", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMGroupInfo{}, newErr
+	}
+
+	rawNLB, err = nlbHandler.getRawNLB(nlbIID)
+	if err != nil {
+		newErr := fmt.Errorf("failed to refresh NLB: %w", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMGroupInfo{}, newErr
+	}
+	newVMGroup, err := nlbHandler.getVMGroup(rawNLB)
+	if err != nil {
+		newErr := fmt.Errorf("failed to get new VMGroup: %w", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMGroupInfo{}, newErr
+	}
+
+	LoggingInfo(callLogInfo, callLogStart)
+	return newVMGroup, nil
 }
 
 func (nlbHandler *NhnCloudNLBHandler) ChangeListener(nlbIID irs.IID, listenerInfo irs.ListenerInfo) (irs.ListenerInfo, error) {
@@ -1138,7 +1143,6 @@ func (nlbHandler *NhnCloudNLBHandler) attachPoolMembers(vmIIDs []irs.IID, port s
 	return members, nil
 }
 
-// detachPoolMembers : Pool에서 VM 제거
 func (nlbHandler *NhnCloudNLBHandler) detachPoolMembers(poolID string, vmIIDs []irs.IID) error {
 	members, err := nlbHandler.getRawPoolMembersById(poolID)
 	if err != nil {
@@ -1168,7 +1172,6 @@ func (nlbHandler *NhnCloudNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) 
 		return irs.VMGroupInfo{}, err
 	}
 
-	// 중복 체크
 	for _, cur := range *vmGroup.VMs {
 		for _, add := range *vmIIDs {
 			if strings.EqualFold(cur.NameId, add.NameId) {
@@ -1177,12 +1180,10 @@ func (nlbHandler *NhnCloudNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) 
 		}
 	}
 
-	// Pool에 VM 추가
 	if _, err := nlbHandler.attachPoolMembers(*vmIIDs, vmGroup.Port, vmGroup.CspID); err != nil {
 		return irs.VMGroupInfo{}, err
 	}
 
-	// 업데이트된 VMGroup 반환
 	updatednlb, _ := nlbHandler.getRawNLB(nlbIID)
 	return nlbHandler.getVMGroup(updatednlb)
 }
@@ -1222,14 +1223,12 @@ func (nlbHandler *NhnCloudNLBHandler) GetNLB(iid irs.IID) (irs.NLBInfo, error) {
 }
 
 func (nlbHandler *NhnCloudNLBHandler) getFirstSubnetAndNetworkId(vpcName string) (string, string, error) {
-	// VPC(Network) 조회
 	listOpts := networks.ListOpts{Name: vpcName}
 	allPages, err := networks.List(nlbHandler.NetworkClient, listOpts).AllPages()
 	if err != nil {
 		return "", "", fmt.Errorf("failed to list networks: %v", err)
 	}
 
-	// --- map 기반으로 추출 ---
 	var rawNetworks []map[string]interface{}
 	if err := networks.ExtractNetworksInto(allPages, &rawNetworks); err != nil {
 		return "", "", fmt.Errorf("failed to extract raw networks: %v", err)
@@ -1241,7 +1240,6 @@ func (nlbHandler *NhnCloudNLBHandler) getFirstSubnetAndNetworkId(vpcName string)
 	first := rawNetworks[0]
 	networkID := fmt.Sprintf("%v", first["id"])
 
-	// Subnet이 []string 으로 오는 케이스 처리
 	subnets, ok := first["subnets"].([]interface{})
 	if !ok || len(subnets) < 1 {
 		return "", "", fmt.Errorf("no subnet found in vpc: %s", vpcName)
@@ -1282,7 +1280,6 @@ func (nlbHandler *NhnCloudNLBHandler) getNetInfoWithVMName(vmName string) (strin
 		return "", "", fmt.Errorf("failed to get private ip for vm: %s", vmName)
 	}
 
-	// Subnet ID 가져오기 (Port 조회)
 	port, err := getPortWithDeviceId(nlbHandler.NetworkClient, server.ID)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to get port info: %v", err)
