@@ -549,7 +549,29 @@ Loop:
 				cblogger.Info("Finish CreateVPC()")
 			case 4:
 				cblogger.Info("Start DeleteVPC() ...")
-				if result, err := vpcHandler.DeleteVPC(vpcIID); err != nil {
+
+				//get vpc list
+				vpcs, err := vpcHandler.ListVPC()
+				if err != nil {
+					cblogger.Error("ListVPC failed: ", err)
+					break
+				}
+
+				//find vpc by name
+				var targetIID irs.IID
+				for _, v := range vpcs {
+					if strings.EqualFold(v.IId.NameId, vpcIID.NameId) {
+						targetIID = v.IId
+						break
+					}
+				}
+
+				if targetIID.SystemId == "" {
+					cblogger.Errorf("VPC with NameId %s not found in CSP", vpcIID.NameId)
+					break
+				}
+
+				if result, err := vpcHandler.DeleteVPC(targetIID); err != nil {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(result)
