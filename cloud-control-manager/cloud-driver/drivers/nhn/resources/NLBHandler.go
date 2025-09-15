@@ -110,6 +110,7 @@ func (nlbHandler *NhnCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createN
 		calllogger.Error(calllog.String(callLogInfo))
 		return irs.NLBInfo{}, newErr
 	}
+	cblogger.Infof("============================= Created Pool: ID=%s, Protocol=%s, ListenerID=%s ============================= ", pool.ID, pool.Protocol, listener.ID)
 
 	_, err = nlbHandler.createHealthMonitor(pool.ID, nlbReqInfo)
 	if err != nil {
@@ -140,6 +141,23 @@ func (nlbHandler *NhnCloudNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createN
 		calllogger.Error(calllog.String(callLogInfo))
 		return irs.NLBInfo{}, newErr
 	}
+
+	if listeners, ok := rawnlb["listeners"].([]interface{}); ok && len(listeners) > 0 {
+		for _, l := range listeners {
+			if lm, ok := l.(map[string]interface{}); ok {
+				cblogger.Infof("=============================  Listener Found: ID=%s, DefaultPoolID=%v", lm["id"], lm["default_pool_id ============================= "])
+			}
+		}
+	}
+
+	if pools, ok := rawnlb["pools"].([]interface{}); ok && len(pools) > 0 {
+		for _, p := range pools {
+			if pm, ok := p.(map[string]interface{}); ok {
+				cblogger.Infof("=============================  Pool Found: ID=%s ============================= ", pm["id"])
+			}
+		}
+	}
+
 	createNLB, err = nlbHandler.setterNLB(rawnlb)
 	if err != nil {
 		newErr := fmt.Errorf("failed to set NLB Info: %w", err)
@@ -603,50 +621,6 @@ func (nlbHandler *NhnCloudNLBHandler) setPoolDescription(des string, poolId stri
 	return pool, nil
 }
 
-func (nlbHandler *NhnCloudNLBHandler) waitingNLBPoolActive(poolID string) (bool, error) {
-	pool, err := nlbHandler.getRawPoolById(poolID)
-	if err != nil {
-		return false, err
-	}
-
-	if len(pool.Listeners) < 1 {
-		return false, fmt.Errorf("pool %s has no associated listener", poolID)
-	}
-
-	listenerID := pool.Listeners[0].ID
-	listener, err := nlbHandler.getRawListenerById(listenerID)
-	if err != nil {
-		return false, err
-	}
-
-	if len(listener.Loadbalancers) < 1 {
-		return false, fmt.Errorf("listener %s has no associated loadbalancer", listenerID)
-	}
-
-	lbID := listener.Loadbalancers[0].ID
-
-	curRetry := 0
-	maxRetry := 240
-	for {
-		curRetry++
-		rawLB, err := nlbHandler.getRawNLB(irs.IID{SystemId: lbID})
-		if err == nil {
-			status := fmt.Sprintf("%v", rawLB["provisioning_status"])
-			switch strings.ToUpper(status) {
-			case "ACTIVE":
-				return true, nil
-			case "ERROR":
-				return false, fmt.Errorf("loadbalancer %s provisioning ERROR", lbID)
-			}
-		}
-
-		if curRetry > maxRetry {
-			return false, fmt.Errorf("timeout: loadbalancer %s not ACTIVE after %d retries", lbID, maxRetry)
-		}
-		time.Sleep(1 * time.Second)
-	}
-}
-
 func (nlbHandler *NhnCloudNLBHandler) getPool(poolID string) (*pools.Pool, error) {
 	if poolID == "" {
 		return nil, fmt.Errorf("invalid pool ID")
@@ -679,6 +653,62 @@ func getPoolProtocol(protocol string) (pools.Protocol, error) {
 		return pools.ProtocolHTTPS, nil
 	}
 	return "", fmt.Errorf("unsupported pool protocol: %s", protocol)
+}
+
+func (nlbHandler *NhnCloudNLBHandler) waitingNLBPoolActive(poolID string) (bool, error) {
+	pool, err := nlbHandler.getRawPoolById(poolID)
+	if err != nil {
+		return false, err
+	}
+
+	if len(pool.Listeners) < 1 {
+		return false, fmt.Errorf("pool %s has no associated listener", poolID)
+	}
+
+	listenerID := pool.Listeners[0].ID
+	listener, err := nlbHandler.getRawListenerById(listenerID)
+	if err != nil {
+		return false, err
+	}
+
+	if len(listener.Loadbalancers) < 1 {
+		return false, fmt.Errorf("listener %s has no associated loadbalancer", listenerID)
+	}
+	lbID := listener.Loadbalancers[0].ID
+
+	curRetry := 0
+	maxRetry := 360
+	for {
+		curRetry++
+
+		listener, err := nlbHandler.getRawListenerById(listenerID)
+		if err == nil {
+			if listener.DefaultPoolID == poolID {
+
+				rawLB, err := nlbHandler.getRawNLB(irs.IID{SystemId: lbID})
+				if err == nil {
+					status := fmt.Sprintf("%v", rawLB["provisioning_status"])
+					switch strings.ToUpper(status) {
+					case "ACTIVE":
+						cblogger.Infof("Listener %s successfully bound with pool %s and LB %s is ACTIVE",
+							listenerID, poolID, lbID)
+						return true, nil
+					case "ERROR":
+						return false, fmt.Errorf("loadbalancer %s provisioning ERROR", lbID)
+					}
+				}
+			} else {
+				cblogger.Infof("Listener %s still has no default_pool_id (expected %s), retry %d/%d",
+					listenerID, poolID, curRetry, maxRetry)
+			}
+		}
+
+		if curRetry > maxRetry {
+			return false, fmt.Errorf("timeout: listener %s default_pool_id not set to %s after %d retries",
+				listenerID, poolID, maxRetry)
+		}
+		time.Sleep(1 * time.Second)
+	}
 }
 
 func (nlbHandler *NhnCloudNLBHandler) getRawMonitorById(monitorID string) (*monitors.Monitor, error) {
@@ -818,7 +848,7 @@ func (nlbHandler *NhnCloudNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup 
 		return irs.VMGroupInfo{}, newErr
 	}
 
-	oldVMGroup, err := nlbHandler.getVMGroup(rawNLB)
+	oldVMGroup, err := nlbHandler.getVMGroup(nlbIID)
 	if err != nil {
 		newErr := fmt.Errorf("failed to get old VMGroup: %w", err)
 		cblogger.Error(newErr.Error())
@@ -859,7 +889,7 @@ func (nlbHandler *NhnCloudNLBHandler) ChangeVMGroupInfo(nlbIID irs.IID, vmGroup 
 		LoggingError(callLogInfo, newErr)
 		return irs.VMGroupInfo{}, newErr
 	}
-	newVMGroup, err := nlbHandler.getVMGroup(rawNLB)
+	newVMGroup, err := nlbHandler.getVMGroup(nlbIID)
 	if err != nil {
 		newErr := fmt.Errorf("failed to get new VMGroup: %w", err)
 		cblogger.Error(newErr.Error())
@@ -923,18 +953,12 @@ func (nlbHandler *NhnCloudNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, he
 		return irs.HealthCheckerInfo{}, err
 	}
 
-	listenersArr, ok := rawLB["listeners"].([]interface{})
-	if !ok || len(listenersArr) < 1 {
-		return irs.HealthCheckerInfo{}, fmt.Errorf("no listener found for NLB %s", nlbIID.SystemId)
+	poolID, err := nlbHandler.getDefaultPoolIDFromNLB(rawLB)
+	if err != nil {
+		return irs.HealthCheckerInfo{}, err
 	}
 
-	listener := listenersArr[0].(map[string]interface{})
-	poolID, ok := listener["default_pool_id"].(string)
-	if !ok || poolID == "" {
-		return irs.HealthCheckerInfo{}, fmt.Errorf("no default pool for listener %v", listener["id"])
-	}
-
-	pool, err := nlbHandler.getRawPoolById(poolID)
+	pool, err := nlbHandler.getDefaultPool(poolID)
 	if err != nil {
 		return irs.HealthCheckerInfo{}, err
 	}
@@ -942,9 +966,8 @@ func (nlbHandler *NhnCloudNLBHandler) ChangeHealthCheckerInfo(nlbIID irs.IID, he
 		return irs.HealthCheckerInfo{}, fmt.Errorf("no monitor attached to pool %s", pool.ID)
 	}
 
-	timeout := healthChecker.Timeout
 	updateOpts := monitors.UpdateOpts{
-		Timeout: timeout,
+		Timeout: healthChecker.Timeout,
 	}
 
 	_, err = monitors.Update(nlbHandler.NetworkClient, pool.MonitorID, updateOpts).Extract()
@@ -1042,21 +1065,16 @@ func (nlbHandler *NhnCloudNLBHandler) getListenerInfo(raw map[string]interface{}
 }
 
 func (nlbHandler *NhnCloudNLBHandler) getHealthCheckerInfo(raw map[string]interface{}) (irs.HealthCheckerInfo, error) {
-	listeners, ok := raw["listeners"].([]interface{})
-	if !ok || len(listeners) < 1 {
-		return irs.HealthCheckerInfo{}, fmt.Errorf("not Exist Listener")
-	}
-
-	listener := listeners[0].(map[string]interface{})
-	poolID, ok := listener["default_pool_id"].(string)
-	if !ok || poolID == "" {
-		return irs.HealthCheckerInfo{}, fmt.Errorf("no default pool for listener %v", listener["id"])
-	}
-
-	pool, err := nlbHandler.getRawPoolById(poolID)
+	poolID, err := nlbHandler.getDefaultPoolIDFromNLB(raw)
 	if err != nil {
 		return irs.HealthCheckerInfo{}, err
 	}
+
+	pool, err := nlbHandler.getDefaultPool(poolID)
+	if err != nil {
+		return irs.HealthCheckerInfo{}, err
+	}
+
 	if pool.MonitorID == "" {
 		return irs.HealthCheckerInfo{}, fmt.Errorf("no monitor attached to pool %s", pool.ID)
 	}
@@ -1093,7 +1111,7 @@ func (nlbHandler *NhnCloudNLBHandler) setterNLB(raw map[string]interface{}) (irs
 		nlbInfo.Listener = listenInfo
 	}
 
-	vmGroup, err := nlbHandler.getVMGroup(raw)
+	vmGroup, err := nlbHandler.getVMGroup(nlbInfo.IId)
 	if err == nil {
 		nlbInfo.VMGroup = vmGroup
 	}
@@ -1112,7 +1130,6 @@ func (nlbHandler *NhnCloudNLBHandler) setterNLB(raw map[string]interface{}) (irs
 	return nlbInfo, nil
 }
 
-// attachPoolMembers : Pool에 VM 추가
 func (nlbHandler *NhnCloudNLBHandler) attachPoolMembers(vmIIDs []irs.IID, port string, poolID string) ([]pools.Member, error) {
 	portNum, err := strconv.Atoi(port)
 	if err != nil {
@@ -1162,12 +1179,7 @@ func (nlbHandler *NhnCloudNLBHandler) detachPoolMembers(poolID string, vmIIDs []
 }
 
 func (nlbHandler *NhnCloudNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (irs.VMGroupInfo, error) {
-	rawnlb, err := nlbHandler.getRawNLB(nlbIID)
-	if err != nil {
-		return irs.VMGroupInfo{}, err
-	}
-
-	vmGroup, err := nlbHandler.getVMGroup(rawnlb)
+	vmGroup, err := nlbHandler.getVMGroup(nlbIID)
 	if err != nil {
 		return irs.VMGroupInfo{}, err
 	}
@@ -1184,17 +1196,11 @@ func (nlbHandler *NhnCloudNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) 
 		return irs.VMGroupInfo{}, err
 	}
 
-	updatednlb, _ := nlbHandler.getRawNLB(nlbIID)
-	return nlbHandler.getVMGroup(updatednlb)
+	return nlbHandler.getVMGroup(nlbIID)
 }
 
 func (nlbHandler *NhnCloudNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (bool, error) {
-	rawnlb, err := nlbHandler.getRawNLB(nlbIID)
-	if err != nil {
-		return false, err
-	}
-
-	vmGroup, err := nlbHandler.getVMGroup(rawnlb)
+	vmGroup, err := nlbHandler.getVMGroup(nlbIID)
 	if err != nil {
 		return false, err
 	}
@@ -1488,24 +1494,33 @@ func (nlbHandler *NhnCloudNLBHandler) ListIID() ([]*irs.IID, error) {
 	return iidList, nil
 }
 
-func (nlbHandler *NhnCloudNLBHandler) getVMGroup(raw map[string]interface{}) (irs.VMGroupInfo, error) {
-	listeners, ok := raw["listeners"].([]interface{})
+func (nlbHandler *NhnCloudNLBHandler) getVMGroup(nlbIID irs.IID) (irs.VMGroupInfo, error) {
+	rawLB, err := nlbHandler.getRawNLB(nlbIID)
+	if err != nil {
+		return irs.VMGroupInfo{}, fmt.Errorf("failed to get raw NLB: %v", err)
+	}
+
+	listeners, ok := rawLB["listeners"].([]interface{})
 	if !ok || len(listeners) < 1 {
-		return irs.VMGroupInfo{}, fmt.Errorf("no listener found for NLB %v", raw["id"])
+		return irs.VMGroupInfo{}, fmt.Errorf("no listener found for NLB %s", nlbIID.SystemId)
 	}
 
-	listener := listeners[0].(map[string]interface{})
-	poolID, ok := listener["default_pool_id"].(string)
-	if !ok || poolID == "" {
-		return irs.VMGroupInfo{}, fmt.Errorf("no default pool for listener %v", listener["id"])
+	listenerID := listeners[0].(map[string]interface{})["id"].(string)
+
+	listener, err := nlbHandler.getRawListenerById(listenerID)
+	if err != nil {
+		return irs.VMGroupInfo{}, fmt.Errorf("failed to get listener %s: %v", listenerID, err)
 	}
 
-	pool, err := nlbHandler.getRawPoolById(poolID)
+	if listener.DefaultPoolID == "" {
+		return irs.VMGroupInfo{}, fmt.Errorf("no default pool for listener %s", listenerID)
+	}
+
+	pool, err := nlbHandler.getRawPoolById(listener.DefaultPoolID)
 	if err != nil {
 		return irs.VMGroupInfo{}, err
 	}
 
-	// Pool Members
 	members, err := nlbHandler.getRawPoolMembersById(pool.ID)
 	if err != nil {
 		return irs.VMGroupInfo{}, err
@@ -1527,51 +1542,63 @@ func (nlbHandler *NhnCloudNLBHandler) getVMGroup(raw map[string]interface{}) (ir
 	}, nil
 }
 
+func (nlbHandler *NhnCloudNLBHandler) getDefaultPoolIDFromNLB(raw map[string]interface{}) (string, error) {
+	listeners, ok := raw["listeners"].([]interface{})
+	if !ok || len(listeners) < 1 {
+		return "", fmt.Errorf("no listener found for NLB %v", raw["id"])
+	}
+
+	listener := listeners[0].(map[string]interface{})
+	poolID, ok := listener["default_pool_id"].(string)
+	if !ok || poolID == "" {
+		return "", fmt.Errorf("no default pool for listener %v", listener["id"])
+	}
+	return poolID, nil
+}
+
+func (nlbHandler *NhnCloudNLBHandler) getDefaultPool(poolID string) (*pools.Pool, error) {
+	if poolID == "" {
+		return nil, fmt.Errorf("invalid pool ID")
+	}
+	return nlbHandler.getRawPoolById(poolID)
+}
+
 func (nlbHandler *NhnCloudNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.HealthInfo, error) {
 	cblogger.Info("NHN Cloud Driver: called GetVMGroupHealthInfo()")
-	callLogInfo := getCallLogScheme(nlbHandler.RegionInfo.Region, "NETWORKLOADBALANCE", nlbIID.SystemId, "GetVMGroupHealthInfo()")
-	callLogStart := calllog.Start()
 
 	var healthInfo irs.HealthInfo
 
 	rawLB, err := nlbHandler.getRawNLB(nlbIID)
 	if err != nil {
-		newErr := fmt.Errorf("failed to get NLB: %v", err)
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return healthInfo, newErr
+		return healthInfo, fmt.Errorf("failed to get NLB: %v", err)
 	}
 
-	listenersArr, ok := rawLB["listeners"].([]interface{})
-	if !ok || len(listenersArr) < 1 {
-		newErr := fmt.Errorf("no listener found for NLB %s", nlbIID.SystemId)
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return healthInfo, newErr
+	listeners, ok := rawLB["listeners"].([]interface{})
+	if !ok || len(listeners) < 1 {
+		return healthInfo, fmt.Errorf("no listener found for NLB %s", nlbIID.SystemId)
 	}
 
-	listener := listenersArr[0].(map[string]interface{})
-	poolID, ok := listener["default_pool_id"].(string)
-	if !ok || poolID == "" {
-		newErr := fmt.Errorf("no default pool found for listener %v", listener["id"])
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return healthInfo, newErr
-	}
+	listenerID := listeners[0].(map[string]interface{})["id"].(string)
 
-	members, err := nlbHandler.getRawPoolMembersById(poolID)
+	listener, err := nlbHandler.getRawListenerById(listenerID)
 	if err != nil {
-		newErr := fmt.Errorf("failed to get pool members: %v", err)
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return healthInfo, newErr
+		return healthInfo, fmt.Errorf("failed to get listener %s: %v", listenerID, err)
+	}
+
+	if listener.DefaultPoolID == "" {
+		return healthInfo, fmt.Errorf("no default pool found for listener %s", listenerID)
+	}
+
+	members, err := nlbHandler.getRawPoolMembersById(listener.DefaultPoolID)
+	if err != nil {
+		return healthInfo, fmt.Errorf("failed to get pool members: %v", err)
 	}
 
 	var allVMs, healthyVMs, unHealthyVMs []irs.IID
 	for _, m := range *members {
 		vmIID := irs.IID{SystemId: m.ID, NameId: m.Address}
-
 		allVMs = append(allVMs, vmIID)
+
 		if strings.ToUpper(m.OperatingStatus) == "ONLINE" {
 			healthyVMs = append(healthyVMs, vmIID)
 		} else {
@@ -1583,6 +1610,5 @@ func (nlbHandler *NhnCloudNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.
 	healthInfo.HealthyVMs = &healthyVMs
 	healthInfo.UnHealthyVMs = &unHealthyVMs
 
-	LoggingInfo(callLogInfo, callLogStart)
 	return healthInfo, nil
 }

@@ -1007,12 +1007,10 @@ func testNLBHandler(config Config) {
 		Port:     "8087",
 	}
 	addVMs := []irs.IID{
-		{NameId: "nhn-vm-02"},
-		{NameId: "nhn-vm-03"},
+		{NameId: "nhn-vm-01"},
 	}
 	removeVMs := []irs.IID{
-		{NameId: "nhn-vm-02"},
-		{NameId: "nhn-vm-03"},
+		{NameId: "nhn-vm-01"},
 	}
 
 	updateHealthCheckerInfo := irs.HealthCheckerInfo{
