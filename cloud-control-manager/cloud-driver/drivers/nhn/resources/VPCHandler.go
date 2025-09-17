@@ -222,19 +222,8 @@ func (vpcHandler *NhnCloudVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	cblogger.Info("NHN Cloud Driver: called DeleteVPC()!")
 	callLogInfo := getCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, vpcIID.SystemId, "DeleteVPC()")
 
-	if vpcIID.SystemId == "" && vpcIID.NameId != "" {
-		cblogger.Infof("SystemId not provided. Trying to find VPC by NameId: %s", vpcIID.NameId)
-		vpc, err := vpcHandler.getRawVPC(vpcIID)
-		if err != nil {
-			newErr := fmt.Errorf("failed to find VPC by NameId %s: %v", vpcIID.NameId, err)
-			cblogger.Error(newErr.Error())
-			return false, newErr
-		}
-		vpcIID.SystemId = vpc.ID
-	}
-
 	if vpcIID.SystemId == "" {
-		newErr := fmt.Errorf("invalid VPC IID: both SystemId and NameId are empty")
+		newErr := fmt.Errorf("invalid VPC IID: SystemId must be provided")
 		cblogger.Error(newErr.Error())
 		return false, newErr
 	}
