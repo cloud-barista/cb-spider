@@ -1025,11 +1025,15 @@ definitions:
       VMSpecInfo:
         allOf:
         - $ref: '#/definitions/spider.VMSpecInfo'
-        description: Information about the VM spec
+        description: Information about the VM spec (used in detailed mode, default
+          mode)
+      VMSpecName:
+        description: Name of the VM spec (used in simple mode)
+        example: t2.micro
+        type: string
     required:
     - CSPProductInfo
     - ProductId
-    - VMSpecInfo
     type: object
   spider.RSType:
     enum:
@@ -7041,7 +7045,7 @@ paths:
             $ref: '#/definitions/spider.SimpleMsg'
       summary: Get VM Price Information
       tags:
-      - '[Cloud Metadata] Price Info'
+      - '[Cloud Metadata] VM Price Info'
   /productfamily/{RegionName}:
     get:
       consumes:
@@ -7082,7 +7086,7 @@ paths:
             $ref: '#/definitions/spider.SimpleMsg'
       summary: List Product Families
       tags:
-      - '[Cloud Metadata] Price Info'
+      - '[Cloud Metadata] VM Price Info'
   /readyz:
     get:
       consumes:

@@ -3,6 +3,7 @@ package resources
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -248,27 +249,35 @@ func mappingProductInfo(regionName string, i interface{}) irs.ProductInfo {
 	case cvm.InstanceTypeQuotaItem:
 		vm := i.(cvm.InstanceTypeQuotaItem)
 		productInfo.ProductId = *vm.Zone + "_" + *vm.InstanceType
-		productInfo.VMSpecInfo.Name = strPtrNilCheck(vm.InstanceType)
 
-		productInfo.VMSpecInfo.VCpu.Count = intPtrNilCheck(vm.Cpu)
-		productInfo.VMSpecInfo.VCpu.ClockGHz = extractClockValue(*vm.Frequency)
+		simpleMode := strings.ToUpper(os.Getenv("VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO")) == "ON"
 
-		productInfo.VMSpecInfo.MemSizeMiB = irs.ConvertGiBToMiBInt64(*vm.Memory)
-
-		if int(*vm.Gpu) > 0 {
-			productInfo.VMSpecInfo.Gpu = []irs.GpuInfo{
-				{
-					Count:          strconv.Itoa(int(*vm.Gpu)),
-					MemSizeGB:      "-1",
-					TotalMemSizeGB: "-1",
-					Mfr:            "NA",
-					Model:          "NA",
-				},
+		if simpleMode {
+			productInfo.VMSpecName = strPtrNilCheck(vm.InstanceType)
+		} else {
+			vmSpecInfo := irs.VMSpecInfo{
+				Name:       strPtrNilCheck(vm.InstanceType),
+				VCpu:       irs.VCpuInfo{Count: intPtrNilCheck(vm.Cpu), ClockGHz: extractClockValue(*vm.Frequency)},
+				MemSizeMiB: irs.ConvertGiBToMiBInt64(*vm.Memory),
+				DiskSizeGB: "-1",
 			}
-		}
-		productInfo.Description = strPtrNilCheck(vm.CpuType) + ", " + strPtrNilCheck(vm.Remark)
 
-		productInfo.VMSpecInfo.DiskSizeGB = "-1"
+			if int(*vm.Gpu) > 0 {
+				vmSpecInfo.Gpu = []irs.GpuInfo{
+					{
+						Count:          strconv.Itoa(int(*vm.Gpu)),
+						MemSizeGB:      "-1",
+						TotalMemSizeGB: "-1",
+						Mfr:            "NA",
+						Model:          "NA",
+					},
+				}
+			}
+
+			productInfo.VMSpecInfo = &vmSpecInfo
+		}
+
+		productInfo.Description = strPtrNilCheck(vm.CpuType) + ", " + strPtrNilCheck(vm.Remark)
 
 		return productInfo
 

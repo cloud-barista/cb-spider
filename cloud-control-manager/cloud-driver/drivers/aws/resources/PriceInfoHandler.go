@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -443,17 +444,24 @@ func setVMspecInfo(productInfo *resources.ProductInfo, jsonValueString string) e
 		return fmt.Errorf("failed to parse JSON: %w", err)
 	}
 
+	instanceType := jsonData["instanceType"]
+	if instanceType == "" {
+		return errors.New("missing required field: instanceType")
+	}
+
+	simpleMode := strings.ToUpper(os.Getenv("VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO")) == "ON"
+
+	if simpleMode {
+		productInfo.VMSpecName = instanceType
+		return nil
+	}
+
 	vcpu := jsonData["vcpu"]
 	if vcpu == "" {
 		return errors.New("missing required field: vcpu")
 	}
 
 	memoryInt := extractNumericValue(jsonData["memory"])
-
-	instanceType := jsonData["instanceType"]
-	if instanceType == "" {
-		return errors.New("missing required field: instanceType")
-	}
 
 	regionCode := jsonData["regionCode"]
 	if regionCode == "" {
@@ -462,7 +470,7 @@ func setVMspecInfo(productInfo *resources.ProductInfo, jsonValueString string) e
 
 	var gpuInfo []irs.GpuInfo
 	if gpuCount, ok := jsonData["gpu"]; ok && gpuCount != "0" {
-		gpuCountInt, err := strconv.Atoi(gpuCount)
+		gpuCountFloat, err := strconv.ParseFloat(gpuCount, 64)
 		if err != nil {
 			return fmt.Errorf("failed to parse gpu: %w", err)
 		}
@@ -473,12 +481,12 @@ func setVMspecInfo(productInfo *resources.ProductInfo, jsonValueString string) e
 				Mfr:            "NA",
 				Model:          "NA",
 				MemSizeGB:      fmt.Sprintf("%d", int(gpuMemoryFloat)),
-				TotalMemSizeGB: fmt.Sprintf("%d", int(float64(gpuCountInt)*gpuMemoryFloat)),
+				TotalMemSizeGB: fmt.Sprintf("%.1f", gpuCountFloat*gpuMemoryFloat),
 			},
 		}
 	}
 
-	productInfo.VMSpecInfo = irs.VMSpecInfo{
+	productInfo.VMSpecInfo = &irs.VMSpecInfo{
 		Region:     regionCode,
 		Name:       instanceType,
 		VCpu:       irs.VCpuInfo{Count: vcpu, ClockGHz: "-1"},

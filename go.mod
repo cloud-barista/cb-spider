@@ -64,6 +64,7 @@ require (
 	github.com/cloud-barista/ktcloudvpc-sdk-go v0.0.0-20250911153447-1314aa57e794
 	github.com/cloud-barista/nhncloud-sdk-go v0.0.2-0.20250820130332-f0e139707117
 	github.com/go-openapi/strfmt v0.23.0
+	github.com/goccy/go-json v0.10.5
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/go-version v1.6.0
 	github.com/itchyny/gojq v0.12.17
@@ -106,7 +107,6 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-playground/validator/v10 v10.24.0 // indirect
-	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/golang-jwt/jwt/v5 v5.2.2 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/itchyny/timefmt-go v0.1.6 // indirect

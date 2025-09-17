@@ -3,6 +3,7 @@ package resources
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -234,7 +235,7 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 
 	cblogger.Infof("Retrieved details for %d instance types", len(instanceTypesInfo))
 
-	convertToProductInfo := func(instanceType string, region string) (irs.ProductInfo, error) {
+	convertToProductInfo := func(instanceType string, regionName string) (irs.ProductInfo, error) {
 		productInfo := irs.ProductInfo{}
 
 		instanceTypeInfo, exists := instanceTypesInfo[instanceType]
@@ -281,25 +282,37 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 		productInfo.CSPProductInfo = r
 
 		productInfo.ProductId = "NA"
-		productInfo.VMSpecInfo.Name = instanceTypeInfo.InstanceTypeId
-		productInfo.VMSpecInfo.VCpu.Count = strconv.Itoa(int(instanceTypeInfo.CpuCoreCount))
-		productInfo.VMSpecInfo.VCpu.ClockGHz = "-1"
-		productInfo.VMSpecInfo.MemSizeMiB = strconv.FormatFloat(instanceTypeInfo.MemorySize*1024, 'f', -1, 64)
-		productInfo.VMSpecInfo.DiskSizeGB = "-1"
 
-		if instanceTypeInfo.GPUAmount > 0 {
-			productInfo.VMSpecInfo.Gpu = []irs.GpuInfo{
-				{
-					Count:          strconv.Itoa(int(instanceTypeInfo.GPUAmount)),
-					MemSizeGB:      strconv.FormatInt(int64(instanceTypeInfo.GPUMemorySize), 10),
-					TotalMemSizeGB: strconv.FormatInt(int64(instanceTypeInfo.GPUMemorySize*float64(instanceTypeInfo.GPUAmount)), 10),
-					Mfr:            "NA",
-					Model:          instanceTypeInfo.GPUSpec,
-				},
+		simpleMode := strings.ToUpper(os.Getenv("VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO")) == "ON"
+
+		if simpleMode {
+			productInfo.VMSpecName = instanceType
+		} else {
+			var gpuInfo []irs.GpuInfo
+			if instanceTypeInfo.GPUAmount > 0 && instanceTypeInfo.GPUSpec != "" {
+				gpuMemorySize := int(instanceTypeInfo.GPUMemorySize)
+				totalMemory := instanceTypeInfo.GPUAmount * gpuMemorySize
+
+				gpuInfo = []irs.GpuInfo{
+					{
+						Count:          strconv.Itoa(instanceTypeInfo.GPUAmount),
+						Mfr:            "NA",
+						Model:          instanceTypeInfo.GPUSpec,
+						MemSizeGB:      strconv.Itoa(gpuMemorySize),
+						TotalMemSizeGB: strconv.Itoa(totalMemory),
+					},
+				}
+			}
+
+			productInfo.VMSpecInfo = &irs.VMSpecInfo{
+				Region:     regionName,
+				Name:       instanceType,
+				VCpu:       irs.VCpuInfo{Count: strconv.Itoa(instanceTypeInfo.CpuCoreCount), ClockGHz: "-1"},
+				MemSizeMiB: strconv.FormatFloat(instanceTypeInfo.MemorySize*1024, 'f', 0, 64),
+				DiskSizeGB: "-1",
+				Gpu:        gpuInfo,
 			}
 		}
-
-		productInfo.Description = "NA"
 
 		return productInfo, nil
 	}
@@ -395,7 +408,13 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 						strings.Contains(errMsg, "ErrorCode: ImageNotSupportInstanceType") {
 						break
 					}
-					cblogger.Errorf("Failed to get price for instance type %s with all disk categories: %v", instanceType, priceErr)
+
+					// InvalidSystemDiskCategory.ValueNotSupported는 정상적인 상황이므로 info 로그로 처리
+					if strings.Contains(errMsg, "ErrorCode: InvalidSystemDiskCategory.ValueNotSupported") {
+						cblogger.Infof("Instance type %s does not support available disk categories in region %s, skipping", instanceType, regionName)
+					} else {
+						cblogger.Errorf("Failed to get price for instance type %s with all disk categories: %v", instanceType, priceErr)
+					}
 					continue
 				}
 

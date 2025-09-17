@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"os"
 	"reflect"
 	"regexp"
 	"sort"
@@ -429,7 +430,14 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 						return "", err
 					}
 
-					cblogger.Infof("fetch :: %s machine type with price $%f", productInfo.VMSpecInfo.Name, priceData.Amount)
+					// Use VMSpecName for simple mode, VMSpecInfo.Name for detailed mode
+					var machineName string
+					if productInfo.VMSpecInfo != nil {
+						machineName = productInfo.VMSpecInfo.Name
+					} else {
+						machineName = productInfo.VMSpecName
+					}
+					cblogger.Infof("fetch :: %s machine type with price $%f", machineName, priceData.Amount)
 
 					aPrice := irs.Price{
 						ZoneName:    machineType.Zone,
@@ -575,17 +583,27 @@ func mappingToProductInfoForComputePrice(region string, machineType *compute.Mac
 		CSPProductInfo: machineType,
 	}
 
-	gpuInfoList := []irs.GpuInfo{}
-	if machineType.Accelerators != nil {
-		gpuInfoList = acceleratorsToGPUInfoList(machineType.Accelerators)
-	}
+	simpleMode := strings.ToUpper(os.Getenv("VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO")) == "ON"
 
-	productInfo.VMSpecInfo.Name = machineType.Name
-	productInfo.VMSpecInfo.VCpu.Count = fmt.Sprintf("%d", machineType.GuestCpus)
-	productInfo.VMSpecInfo.VCpu.ClockGHz = "-1"
-	productInfo.VMSpecInfo.MemSizeMiB = fmt.Sprintf("%d", machineType.MemoryMb)
-	productInfo.VMSpecInfo.DiskSizeGB = "-1"
-	productInfo.VMSpecInfo.Gpu = gpuInfoList
+	if simpleMode {
+		productInfo.VMSpecName = machineType.Name
+	} else {
+		gpuInfoList := []irs.GpuInfo{}
+		if machineType.Accelerators != nil {
+			gpuInfoList = acceleratorsToGPUInfoList(machineType.Accelerators)
+		}
+
+		productInfo.VMSpecInfo = &irs.VMSpecInfo{
+			Name: machineType.Name,
+			VCpu: irs.VCpuInfo{
+				Count:    fmt.Sprintf("%d", machineType.GuestCpus),
+				ClockGHz: "-1",
+			},
+			MemSizeMiB: fmt.Sprintf("%d", machineType.MemoryMb),
+			DiskSizeGB: "-1",
+			Gpu:        gpuInfoList,
+		}
+	}
 
 	productInfo.Description = machineType.Description
 

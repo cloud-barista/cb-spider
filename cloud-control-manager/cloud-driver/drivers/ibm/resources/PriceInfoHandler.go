@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"net"
 	"net/http"
+	"os"
 	"reflect"
 	"regexp"
 	"sort"
@@ -114,36 +116,84 @@ func getIbmGlobalCatalog(parameters map[string]string, endpoint string) ([]byte,
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
-	if err != nil {
-		return nil, err
+	client := &http.Client{
+		Transport: &http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second, // DNS lookup + connection timeout
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			TLSHandshakeTimeout: 10 * time.Second,
+		},
 	}
 
-	req = req.WithContext(ctx)
+	var lastErr error
+	maxRetries := 5
 
-	q := req.URL.Query()
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		if attempt > 0 {
+			// wait before retrying (exponential backoff)
+			waitTime := time.Duration(attempt) * 2 * time.Second
+			cblogger.Infof("Retrying IBM Global Catalog API call (attempt %d/%d) after %v", attempt+1, maxRetries, waitTime)
+			time.Sleep(waitTime)
+		}
 
-	for key, value := range parameters {
-		q.Add(key, value)
+		req, err := http.NewRequest(http.MethodGet, endpoint, nil)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		req = req.WithContext(ctx)
+
+		q := req.URL.Query()
+		for key, value := range parameters {
+			q.Add(key, value)
+		}
+		req.URL.RawQuery = q.Encode()
+
+		resp, err := client.Do(req)
+		if err != nil {
+			lastErr = err
+			// DNS timeout이나 일시적인 네트워크 오류인 경우 재시도
+			if strings.Contains(err.Error(), "i/o timeout") ||
+				strings.Contains(err.Error(), "dial tcp") ||
+				strings.Contains(err.Error(), "lookup") {
+				cblogger.Warnf("Network/DNS error on attempt %d: %v", attempt+1, err)
+				continue
+			}
+			// 다른 종류의 오류는 재시도하지 않음
+			return nil, err
+		}
+
+		defer func() {
+			_ = resp.Body.Close()
+		}()
+
+		// HTTP 상태 코드 확인 추가
+		if resp.StatusCode != http.StatusOK {
+			lastErr = fmt.Errorf("HTTP %d: %s", resp.StatusCode, resp.Status)
+			// 5xx 서버 오류는 재시도, 4xx 클라이언트 오류는 재시도하지 않음
+			if resp.StatusCode >= 500 && resp.StatusCode < 600 {
+				cblogger.Warnf("Server error %d on attempt %d, retrying", resp.StatusCode, attempt+1)
+				continue
+			}
+			return nil, lastErr
+		}
+
+		responseBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		if attempt > 0 {
+			cblogger.Infof("IBM Global Catalog API call succeeded on attempt %d", attempt+1)
+		}
+		return responseBody, nil
 	}
 
-	req.URL.RawQuery = q.Encode()
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	return responseBody, nil
+	// 모든 재시도 실패
+	return nil, fmt.Errorf("failed after %d attempts, last error: %v", maxRetries, lastErr)
 }
 
 func getIbmResourceInfo(offset int, limit int) ([]byte, error) {
@@ -1162,46 +1212,52 @@ func (priceInfoHandler *IbmPriceInfoHandler) CreateGen2ProfilePrice(profile VPCP
 		CSPProductInfo: profile,
 	}
 
-	vmSpecInfo := irs.VMSpecInfo{
-		Region:     regionName,
-		Name:       profile.Name,
-		VCpu:       irs.VCpuInfo{Count: strconv.Itoa(profile.VCPU), ClockGHz: "-1"},
-		MemSizeMiB: strconv.Itoa(profile.Memory * 1024),
-		DiskSizeGB: "-1",
-	}
+	simpleMode := strings.ToUpper(os.Getenv("VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO")) == "ON"
 
-	if profile.GPUCount > 0 && profile.GPUModel != "" {
-		gpuMfr := "NVIDIA"
-		vmSpecInfo.Gpu = []irs.GpuInfo{
-			{
-				Count:          strconv.Itoa(profile.GPUCount),
-				Mfr:            gpuMfr,
-				Model:          profile.GPUModel,
-				MemSizeGB:      "-1",
-				TotalMemSizeGB: "-1",
-			},
-		}
+	if simpleMode {
+		productInfo.VMSpecName = profile.Name
 	} else {
-		vmSpecInfo.Gpu = []irs.GpuInfo{}
-	}
-
-	vmSpecInfo.KeyValueList = []irs.KeyValue{
-		{Key: "Family", Value: profile.Family},
-		{Key: "Architecture", Value: profile.Architecture},
-		{Key: "Generation", Value: profile.Generation},
-	}
-
-	if isIBMZ {
-		vmSpecInfo.KeyValueList = append(vmSpecInfo.KeyValueList,
-			irs.KeyValue{Key: "Platform", Value: "IBM Z"})
-
-		if strings.HasSuffix(profile.Name, "e") {
-			vmSpecInfo.KeyValueList = append(vmSpecInfo.KeyValueList,
-				irs.KeyValue{Key: "Secure", Value: "Enhanced"})
+		vmSpecInfo := irs.VMSpecInfo{
+			Region:     regionName,
+			Name:       profile.Name,
+			VCpu:       irs.VCpuInfo{Count: strconv.Itoa(profile.VCPU), ClockGHz: "-1"},
+			MemSizeMiB: strconv.Itoa(profile.Memory * 1024),
+			DiskSizeGB: "-1",
 		}
-	}
 
-	productInfo.VMSpecInfo = vmSpecInfo
+		if profile.GPUCount > 0 && profile.GPUModel != "" {
+			gpuMfr := "NVIDIA"
+			vmSpecInfo.Gpu = []irs.GpuInfo{
+				{
+					Count:          strconv.Itoa(profile.GPUCount),
+					Mfr:            gpuMfr,
+					Model:          profile.GPUModel,
+					MemSizeGB:      "-1",
+					TotalMemSizeGB: "-1",
+				},
+			}
+		} else {
+			vmSpecInfo.Gpu = []irs.GpuInfo{}
+		}
+
+		vmSpecInfo.KeyValueList = []irs.KeyValue{
+			{Key: "Family", Value: profile.Family},
+			{Key: "Architecture", Value: profile.Architecture},
+			{Key: "Generation", Value: profile.Generation},
+		}
+
+		if isIBMZ {
+			vmSpecInfo.KeyValueList = append(vmSpecInfo.KeyValueList,
+				irs.KeyValue{Key: "Platform", Value: "IBM Z"})
+
+			if strings.HasSuffix(profile.Name, "e") {
+				vmSpecInfo.KeyValueList = append(vmSpecInfo.KeyValueList,
+					irs.KeyValue{Key: "Secure", Value: "Enhanced"})
+			}
+		}
+
+		productInfo.VMSpecInfo = &vmSpecInfo
+	}
 
 	var totalPrice float64
 
@@ -1384,36 +1440,42 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen3ProfilePrice(childrenURL str
 		CSPProductInfo: profile,
 	}
 
-	vmSpecInfo := irs.VMSpecInfo{
-		Region:     regionName,
-		Name:       profile.Name,
-		VCpu:       irs.VCpuInfo{Count: strconv.Itoa(profile.VCPU), ClockGHz: "-1"},
-		MemSizeMiB: strconv.Itoa(profile.Memory * 1024),
-		DiskSizeGB: "-1",
-	}
+	simpleMode := strings.ToUpper(os.Getenv("VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO")) == "ON"
 
-	if profile.GPUCount > 0 && profile.GPUModel != "" {
-		gpuMfr := "NVIDIA"
-		vmSpecInfo.Gpu = []irs.GpuInfo{
-			{
-				Count:          strconv.Itoa(profile.GPUCount),
-				Mfr:            gpuMfr,
-				Model:          profile.GPUModel,
-				MemSizeGB:      "-1",
-				TotalMemSizeGB: "-1",
-			},
-		}
+	if simpleMode {
+		productInfo.VMSpecName = profile.Name
 	} else {
-		vmSpecInfo.Gpu = []irs.GpuInfo{}
-	}
+		vmSpecInfo := irs.VMSpecInfo{
+			Region:     regionName,
+			Name:       profile.Name,
+			VCpu:       irs.VCpuInfo{Count: strconv.Itoa(profile.VCPU), ClockGHz: "-1"},
+			MemSizeMiB: strconv.Itoa(profile.Memory * 1024),
+			DiskSizeGB: "-1",
+		}
 
-	vmSpecInfo.KeyValueList = []irs.KeyValue{
-		{Key: "Family", Value: profile.Family},
-		{Key: "Architecture", Value: profile.Architecture},
-		{Key: "Generation", Value: profile.Generation},
-	}
+		if profile.GPUCount > 0 && profile.GPUModel != "" {
+			gpuMfr := "NVIDIA"
+			vmSpecInfo.Gpu = []irs.GpuInfo{
+				{
+					Count:          strconv.Itoa(profile.GPUCount),
+					Mfr:            gpuMfr,
+					Model:          profile.GPUModel,
+					MemSizeGB:      "-1",
+					TotalMemSizeGB: "-1",
+				},
+			}
+		} else {
+			vmSpecInfo.Gpu = []irs.GpuInfo{}
+		}
 
-	productInfo.VMSpecInfo = vmSpecInfo
+		vmSpecInfo.KeyValueList = []irs.KeyValue{
+			{Key: "Family", Value: profile.Family},
+			{Key: "Architecture", Value: profile.Architecture},
+			{Key: "Generation", Value: profile.Generation},
+		}
+
+		productInfo.VMSpecInfo = &vmSpecInfo
+	}
 
 	var totalPrice float64 = 0
 	var allPriceDetails []map[string]interface{}

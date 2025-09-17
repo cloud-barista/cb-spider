@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"regexp"
 	"strings"
 
@@ -178,6 +179,126 @@ func extractGPUMemoryFromProductName(productName string) (int64, error) {
 	return -1, fmt.Errorf("GPUMemory information not found in product name")
 }
 
+// getCodeNameAbbreviation returns abbreviation for productType codeName
+func getCodeNameAbbreviation(codeName string) string {
+	switch codeName {
+	case "Micro Server":
+		return "mi"
+	case "Standard":
+		return "s"
+	case "High CPU":
+		return "c"
+	case "High Memory":
+		return "m"
+	case "CPU Intensive":
+		return "ci"
+	case "GPU":
+		return "gp"
+	default:
+		return strings.ToLower(codeName)
+	}
+}
+
+// extractVCPUFromProductName extracts vCPU count from product name
+func extractVCPUFromProductName(productName string) (int, error) {
+	re := regexp.MustCompile(`vCPU\s+(\d+)EA`)
+	matches := re.FindStringSubmatch(productName)
+
+	if len(matches) > 1 {
+		vcpuStr := matches[1]
+		vcpu, err := strconv.Atoi(vcpuStr)
+		if err != nil {
+			return -1, err
+		}
+		return vcpu, nil
+	}
+
+	return -1, fmt.Errorf("vCPU information not found in product name")
+}
+
+// extractDiskSizeFromProductName extracts disk size from product name
+func extractDiskSizeFromProductName(productName string) (int, error) {
+	re := regexp.MustCompile(`Disk\s+(\d+)GB`)
+	matches := re.FindStringSubmatch(productName)
+
+	if len(matches) > 1 {
+		diskStr := matches[1]
+		disk, err := strconv.Atoi(diskStr)
+		if err != nil {
+			return -1, err
+		}
+		return disk, nil
+	}
+
+	return -1, fmt.Errorf("Disk information not found in product name")
+}
+
+// getDiskTypeAbbreviation returns disk type abbreviation
+func getDiskTypeAbbreviation(productName string) string {
+	if strings.Contains(productName, "SSD") {
+		return "s"
+	}
+	return "h"
+}
+
+// getGPUModelAbbreviation returns GPU model abbreviation
+func getGPUModelAbbreviation(productName string) string {
+	if strings.Contains(productName, "Tesla") {
+		return "t"
+	} else if strings.Contains(productName, "NVIDIA A100P") {
+		return "ap"
+	}
+	return ""
+}
+
+// generateVMSpecName generates VMSpec name based on the patterns
+func generateVMSpecName(productPrice ProductPrice) string {
+	codeName := productPrice.ProductType.CodeName
+	productName := productPrice.ProductName
+	generationCode := strings.ToLower(productPrice.GenerationCode)
+
+	// Get basic components
+	codeAbbr := getCodeNameAbbreviation(codeName)
+	diskTypeAbbr := getDiskTypeAbbreviation(productName)
+
+	vcpu, err := extractVCPUFromProductName(productName)
+	if err != nil {
+		vcpu = productPrice.CpuCount
+	}
+
+	diskSize, err := extractDiskSizeFromProductName(productName)
+	if err != nil {
+		diskSize = int(productPrice.BaseBlockStorageSize / (1024 * 1024 * 1024))
+	}
+
+	// Handle Standard server type exception for high memory configurations
+	// Standard servers with high memory configurations should use "m" prefix instead of "s"
+	if codeName == "Standard" {
+		memoryMiB := productPrice.MemorySize / (1024 * 1024) // Convert bytes to MiB
+
+		// Exception cases: Standard servers with high memory should be classified as High Memory
+		// VCPU 16, Memory 131072 MiB (128GB), Disk 100GB => m16-g2-h100
+		// VCPU 32, Memory 262144 MiB (256GB), Disk 100GB => m32-g2-h100
+		if (vcpu == 16 && memoryMiB == 131072 && diskSize == 100) ||
+			(vcpu == 32 && memoryMiB == 262144 && diskSize == 100) {
+			codeAbbr = "m" // Use High Memory abbreviation
+		}
+	}
+
+	// Handle GPU case
+	if codeName == "GPU" && productPrice.GpuCount > 0 {
+		gpuModelAbbr := getGPUModelAbbreviation(productName)
+		if gpuModelAbbr != "" {
+			return fmt.Sprintf("%s%d%s%d-%s-%s%d", codeAbbr, productPrice.GpuCount, gpuModelAbbr, vcpu, generationCode, diskTypeAbbr, diskSize)
+		} else {
+			return fmt.Sprintf("%s%d-%s-%s%d", codeAbbr, vcpu, generationCode, diskTypeAbbr, diskSize)
+		}
+	}
+
+	// Handle CPU/Memory case
+	return fmt.Sprintf("%s%d-%s-%s%d", codeAbbr, vcpu, generationCode, diskTypeAbbr, diskSize)
+}
+
 func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue) (string, error) {
 	cblogger.Info("NCP VPC Cloud driver: called GetPriceInfo()!!")
 
@@ -227,13 +348,19 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 	}
 
 	var priceList []irs.Price
+	simpleMode := strings.ToUpper(os.Getenv("VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO")) == "ON"
+
 	switch productCode {
 	case "SVR":
-		vmSpecMap, err := priceInfoHandler.getVMSpecMap(regionName)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Get VMSpec information: [%v]", err)
-			cblogger.Error(newErr.Error())
-			return "", newErr
+		var vmSpecMap map[string]string
+		if !simpleMode {
+			var err error
+			vmSpecMap, err = priceInfoHandler.getVMSpecMap(regionName)
+			if err != nil {
+				newErr := fmt.Errorf("Failed to Get VMSpec information: [%v]", err)
+				cblogger.Error(newErr.Error())
+				return "", newErr
+			}
 		}
 
 		for _, productPrice := range productPriceList {
@@ -260,6 +387,11 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 			}
 
 			if onDemand.Price == "" {
+				continue
+			}
+
+			// Filter out G1 generation products that are not GPU
+			if strings.ToLower(productPrice.GenerationCode) == "g1" && productPrice.ProductType.CodeName != "GPU" {
 				continue
 			}
 
@@ -292,27 +424,36 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 				gpuInfoList = append(gpuInfoList, aGPU)
 			}
 
-			specName := productPrice.ProductType.CodeName
-			if serverSpecCode, exists := vmSpecMap[productPrice.ProductCode]; exists {
-				specName = serverSpecCode
+			specName := generateVMSpecName(productPrice)
+			if !simpleMode {
+				if serverSpecCode, exists := vmSpecMap[productPrice.ProductCode]; exists {
+					specName = serverSpecCode
+				} else {
+					cblogger.Infof("Could not find matching ServerSpecCode for ProductCode: %s, using generated VMSpec name as fallback", productPrice.ProductCode)
+				}
+			}
+
+			productInfo := irs.ProductInfo{
+				ProductId:      productPrice.ProductCode,
+				Description:    productPrice.ProductName,
+				CSPProductInfo: productPrice,
+			}
+
+			if simpleMode {
+				productInfo.VMSpecName = specName
 			} else {
-				cblogger.Infof("Could not find matching ServerSpecCode for ProductCode: %s, using ProductType.CodeName as fallback", productPrice.ProductCode)
+				productInfo.VMSpecInfo = &irs.VMSpecInfo{
+					Name:       specName,
+					VCpu:       irs.VCpuInfo{Count: vCPUs, ClockGHz: "-1"},
+					MemSizeMiB: vMemGb,
+					DiskSizeGB: storageGB,
+					Gpu:        gpuInfoList,
+				}
 			}
 
 			priceList = append(priceList, irs.Price{
-				ZoneName: "NA",
-				ProductInfo: irs.ProductInfo{
-					ProductId:      productPrice.ProductCode,
-					Description:    productPrice.ProductName,
-					CSPProductInfo: productPrice,
-					VMSpecInfo: irs.VMSpecInfo{
-						Name:       specName,
-						VCpu:       irs.VCpuInfo{Count: vCPUs, ClockGHz: "-1"},
-						MemSizeMiB: vMemGb,
-						DiskSizeGB: storageGB,
-						Gpu:        gpuInfoList,
-					},
-				},
+				ZoneName:    "NA",
+				ProductInfo: productInfo,
 				PriceInfo: irs.PriceInfo{
 					OnDemand:     onDemand,
 					CSPPriceInfo: productPrice.PriceList,
