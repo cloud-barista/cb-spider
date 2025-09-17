@@ -231,12 +231,22 @@ func transformToProductInfo(productFamily string, jsonData *interface{}, filterL
 	case COMPUTE_INSTANCE:
 		json := (*jsonData).(InstanceData)
 		productInfo.ProductId = json.InstanceName
-		productInfo.VMSpecInfo.Name = json.InstanceInfo.InstanceType
-		productInfo.VMSpecInfo.VCpu.Count = json.InstanceInfo.Vcpu
-		productInfo.VMSpecInfo.MemSizeMiB = json.InstanceInfo.Memory
-		productInfo.VMSpecInfo.DiskSizeGB = json.InstanceInfo.Storage
-		productInfo.Description = json.InstanceInfo.ProcessorArchitecture + ", " +
-			json.InstanceInfo.ProcessorFeatures
+
+		simpleMode := strings.ToUpper(os.Getenv("VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO")) == "ON"
+
+		if simpleMode {
+			productInfo.VMSpecName = json.InstanceName
+		} else {
+			memSize, _ := irs.ConvertGiBToMiB(json.InstanceInfo.Memory)
+			productInfo.VMSpecInfo = &irs.VMSpecInfo{
+				Region:     json.InstanceInfo.RegionName,
+				Name:       json.InstanceName,
+				VCpu:       irs.VCpuInfo{Count: json.InstanceInfo.Vcpu, ClockGHz: json.InstanceInfo.Clock},
+				MemSizeMiB: memSize,
+				DiskSizeGB: json.InstanceInfo.Storage,
+				Gpu:        nil,
+			}
+		}
 
 	case STORAGE:
 		json := (*jsonData).(StorageData)

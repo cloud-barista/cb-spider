@@ -25,6 +25,14 @@ import (
 
 var PRICEINFO_CACHE_PATH string = os.Getenv("CBSPIDER_ROOT") + "/cache/priceinfo"
 
+// TemplateData structure to render the HTML template
+type TemplateData struct {
+	Data           cres.CloudPrice
+	CachedFileName string
+	TotalItems     int
+	SimpleMode     string
+}
+
 func init() {
 	// Create cache directory for PriceInfo if not exists
 	_, err := os.Stat(PRICEINFO_CACHE_PATH)
@@ -135,18 +143,28 @@ func PriceInfoTableList(c echo.Context) error {
 
 	json.Unmarshal([]byte(c.QueryParam("filterlist")), &info)
 
+	// Handle simplemode parameter and set environment variable
+	simpleMode := c.QueryParam("simplemode")
+	if simpleMode != "" {
+		if simpleMode == "ON" || simpleMode == "OFF" {
+			// Temporarily set the environment variable for this request
+			originalMode := os.Getenv("VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO")
+			os.Setenv("VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO", simpleMode)
+			cblog.Infof("Set VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO to: %s", simpleMode)
+
+			// Restore original value after processing (defer)
+			defer func() {
+				os.Setenv("VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO", originalMode)
+				cblog.Infof("Restored VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO to: %s", originalMode)
+			}()
+		}
+	}
+
 	var data cres.CloudPrice
 	err := getPriceInfoJsonString(connConfig, "priceinfo", c.Param("ProductFamily"), c.Param("RegionName"), info.FilterList, &data)
 	if err != nil {
 		cblog.Error(err)
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
-	}
-
-	// TemplateData structure to render the HTML template
-	type TemplateData struct {
-		Data           cres.CloudPrice
-		CachedFileName string
-		TotalItems     int
 	}
 
 	var cachedFileName string
@@ -155,10 +173,20 @@ func PriceInfoTableList(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to save JSON file: "+err.Error())
 	}
 
+	// Get current simple mode setting
+	currentSimpleMode := os.Getenv("VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO")
+	if currentSimpleMode == "" {
+		currentSimpleMode = "OFF" // default value
+	}
+
 	tmplData := TemplateData{
 		CachedFileName: cachedFileName,
 		TotalItems:     len(data.PriceList),
+		SimpleMode:     currentSimpleMode,
 	}
+
+	// Debug logging
+	cblog.Infof("TemplateData created: SimpleMode=%s, TotalItems=%d", tmplData.SimpleMode, tmplData.TotalItems)
 
 	// Limit PriceList items to 200
 	if len(data.PriceList) > 200 {
@@ -173,7 +201,7 @@ func PriceInfoTableList(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to load HTML template")
 	}
 
-	tmpl, err := addTemplateFuncs(template.New("cloudPrice")).Parse(cloudPriceTemplate)
+	tmpl, err := addTemplateFuncs(template.New("cloudPrice"), currentSimpleMode).Parse(cloudPriceTemplate)
 	if err != nil {
 		cblog.Error(err)
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -208,7 +236,7 @@ func getHtmlTemplate(filepath string) string {
 	return string(content)
 }
 
-func addTemplateFuncs(t *template.Template) *template.Template {
+func addTemplateFuncs(t *template.Template, simpleMode string) *template.Template {
 	return t.Funcs(template.FuncMap{
 		"json": func(v interface{}) string {
 			a, _ := json.MarshalIndent(v, "", "    ")
@@ -217,6 +245,10 @@ func addTemplateFuncs(t *template.Template) *template.Template {
 
 		"inc": func(i int) int {
 			return i + 1
+		},
+
+		"simpleMode": func() string {
+			return simpleMode
 		},
 	})
 }

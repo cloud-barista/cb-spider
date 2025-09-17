@@ -5510,7 +5510,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[Cloud Metadata] Price Info"
+                    "[Cloud Metadata] VM Price Info"
                 ],
                 "summary": "Get VM Price Information",
                 "operationId": "get-vmprice-info",
@@ -5569,7 +5569,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[Cloud Metadata] Price Info"
+                    "[Cloud Metadata] VM Price Info"
                 ],
                 "summary": "List Product Families",
                 "operationId": "list-product-family",
@@ -10260,8 +10260,7 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "CSPProductInfo",
-                "ProductId",
-                "VMSpecInfo"
+                "ProductId"
             ],
             "properties": {
                 "CSPProductInfo": {
@@ -10278,12 +10277,17 @@ const docTemplate = `{
                     "example": "prod-123"
                 },
                 "VMSpecInfo": {
-                    "description": "Information about the VM spec",
+                    "description": "Information about the VM spec (used in detailed mode, default mode)",
                     "allOf": [
                         {
                             "$ref": "#/definitions/spider.VMSpecInfo"
                         }
                     ]
+                },
+                "VMSpecName": {
+                    "description": "Name of the VM spec (used in simple mode)",
+                    "type": "string",
+                    "example": "t2.micro"
                 }
             }
         },
