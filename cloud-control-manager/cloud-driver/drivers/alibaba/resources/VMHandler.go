@@ -10,6 +10,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"os"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -490,10 +491,17 @@ func (vmHandler *AlibabaVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo,
 	//2021-05-11 WaitForRun을 호출하지 않아도 GetVM() 호출 시 에러가 발생하지 않는 것은 확인했음. (우선은 정책이 최종 확정이 아니라서 WaitForRun을 사용하도록 원복함.)
 	//curStatus, errStatus := vmHandler.WaitForExist(newVmIID) // 20210511 - NotExist 상태가 아닐 때 까지만 대기
 	curStatus, errStatus := vmHandler.WaitForRun(newVmIID) // 20210511 아직 정책이 최종 확정이 아니라서 WaitForRun을 사용하도록 원복함
-	if errStatus != nil {
-		cblogger.Error(errStatus.Error())
-		return irs.VMInfo{}, nil
-	}
+        if errStatus != nil {
+                cblogger.Error(errStatus.Error())
+
+               _, cleanupErr := vmHandler.TerminateVM(newVmIID)
+               if cleanupErr != nil {
+                       combinedErr := fmt.Errorf("VM creation failed: %v, and cleanup also failed: %v. VM may remain in cloud",
+                               errStatus, cleanupErr)
+                       return irs.VMInfo{}, combinedErr
+               }
+               return irs.VMInfo{}, errStatus
+        }
 	cblogger.Debug("==> Current status [%s] of the created VM [%s]", newVmIID, curStatus)
 
 	// dataDisk attach
