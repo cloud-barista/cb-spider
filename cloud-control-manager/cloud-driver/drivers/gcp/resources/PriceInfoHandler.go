@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"math"
 	"net/http"
-	"os"
 	"reflect"
 	"regexp"
 	"sort"
@@ -323,7 +322,7 @@ func getPriceFromCache(priceCache map[string]*PriceData, region, machineType str
 	return priceCache[key]
 }
 
-func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, additionalFilterList []irs.KeyValue) (string, error) {
+func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, additionalFilterList []irs.KeyValue, simpleVMSpecInfo bool) (string, error) {
 	priceLists := make([]irs.Price, 0)
 
 	filter, isValid := filterListToMap(additionalFilterList)
@@ -407,7 +406,7 @@ func (priceInfoHandler *GCPPriceInfoHandler) GetPriceInfo(productFamily string, 
 				}
 
 				if machineType != nil {
-					productInfo, err := mappingToProductInfoForComputePrice(regionName, machineType)
+					productInfo, err := mappingToProductInfoForComputePrice(regionName, machineType, simpleVMSpecInfo)
 					if err != nil {
 						cblogger.Error("error occurred while mapping the product info struct; machine type:", machineType.Name, ", message:", err)
 						return "", err
@@ -575,7 +574,7 @@ func (priceInfoHandler *GCPPriceInfoHandler) ListProductFamily(regionName string
 	return returnProductFamilyNames, nil
 }
 
-func mappingToProductInfoForComputePrice(region string, machineType *compute.MachineType) (*irs.ProductInfo, error) {
+func mappingToProductInfoForComputePrice(region string, machineType *compute.MachineType, simpleVMSpecInfo bool) (*irs.ProductInfo, error) {
 	productId := fmt.Sprintf("%d", machineType.Id)
 
 	productInfo := &irs.ProductInfo{
@@ -583,9 +582,7 @@ func mappingToProductInfoForComputePrice(region string, machineType *compute.Mac
 		CSPProductInfo: machineType,
 	}
 
-	simpleMode := strings.ToUpper(os.Getenv("VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO")) == "ON"
-
-	if simpleMode {
+	if simpleVMSpecInfo {
 		productInfo.VMSpecName = machineType.Name
 	} else {
 		gpuInfoList := []irs.GpuInfo{}

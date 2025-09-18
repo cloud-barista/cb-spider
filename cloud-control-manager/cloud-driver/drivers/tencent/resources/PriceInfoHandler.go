@@ -3,7 +3,6 @@ package resources
 import (
 	"bytes"
 	"encoding/json"
-	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -44,7 +43,7 @@ func (t *TencentPriceInfoHandler) ListProductFamily(regionName string) ([]string
 	return pl, nil
 }
 
-func (t *TencentPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, additionalFilters []irs.KeyValue) (string, error) {
+func (t *TencentPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, additionalFilters []irs.KeyValue, simpleVMSpecInfo bool) (string, error) {
 
 	filterKeyValueMap := mapToTencentFilter(additionalFilters)
 
@@ -63,7 +62,7 @@ func (t *TencentPriceInfoHandler) GetPriceInfo(productFamily string, regionName 
 			return "", err
 		}
 
-		res, err := mappingToComputeStruct(t.Client.GetRegion(), standardInfo, keyValueMap)
+		res, err := mappingToComputeStruct(t.Client.GetRegion(), standardInfo, keyValueMap, simpleVMSpecInfo)
 		if err != nil {
 			return "", err
 		}
@@ -121,7 +120,7 @@ func describeZoneInstanceConfigInfos(client *cvm.Client, filterMap map[string]*c
 	return res, nil
 }
 
-func mappingToComputeStruct(regionName string, standardInfo *cvm.DescribeZoneInstanceConfigInfosResponse, filterMap map[string]string) (*irs.CloudPrice, error) {
+func mappingToComputeStruct(regionName string, standardInfo *cvm.DescribeZoneInstanceConfigInfosResponse, filterMap map[string]string, simpleVMSpecInfo bool) (*irs.CloudPrice, error) {
 	priceMap := make(map[string]irs.Price)
 
 	if standardInfo != nil {
@@ -145,7 +144,7 @@ func mappingToComputeStruct(regionName string, standardInfo *cvm.DescribeZoneIns
 				priceMap[productId] = price
 
 			} else {
-				productInfo := mappingProductInfo(regionName, *v)
+				productInfo := mappingProductInfo(regionName, *v, simpleVMSpecInfo)
 				if productFilter(filterMap, &productInfo) {
 					continue
 				}
@@ -240,7 +239,7 @@ func priceFilter(policy *irs.OnDemand, filterMap map[string]string) bool {
 	return false
 }
 
-func mappingProductInfo(regionName string, i interface{}) irs.ProductInfo {
+func mappingProductInfo(regionName string, i interface{}, simpleVMSpecInfo bool) irs.ProductInfo {
 	productInfo := irs.ProductInfo{
 		CSPProductInfo: i,
 	}
@@ -250,9 +249,7 @@ func mappingProductInfo(regionName string, i interface{}) irs.ProductInfo {
 		vm := i.(cvm.InstanceTypeQuotaItem)
 		productInfo.ProductId = *vm.Zone + "_" + *vm.InstanceType
 
-		simpleMode := strings.ToUpper(os.Getenv("VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO")) == "ON"
-
-		if simpleMode {
+		if simpleVMSpecInfo {
 			productInfo.VMSpecName = strPtrNilCheck(vm.InstanceType)
 		} else {
 			vmSpecInfo := irs.VMSpecInfo{

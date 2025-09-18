@@ -58,5 +58,5 @@ type OnDemand struct {
 
 type PriceInfoHandler interface {
 	ListProductFamily(regionName string) ([]string, error)
-	GetPriceInfo(productFamily string, regionName string, filterList []KeyValue) (string, error) // return string: json format
+	GetPriceInfo(productFamily string, regionName string, filterList []KeyValue, simpleVMSpecInfo bool) (string, error) // return string: json format
 }

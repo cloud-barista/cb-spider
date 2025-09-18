@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"regexp"
 	"strings"
 
@@ -299,7 +298,7 @@ func generateVMSpecName(productPrice ProductPrice) string {
 	return fmt.Sprintf("%s%d-%s-%s%d", codeAbbr, vcpu, generationCode, diskTypeAbbr, diskSize)
 }
 
-func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue) (string, error) {
+func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue, simpleVMSpecInfo bool) (string, error) {
 	cblogger.Info("NCP VPC Cloud driver: called GetPriceInfo()!!")
 
 	if strings.EqualFold(productFamily, "") {
@@ -348,12 +347,11 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 	}
 
 	var priceList []irs.Price
-	simpleMode := strings.ToUpper(os.Getenv("VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO")) == "ON"
 
 	switch productCode {
 	case "SVR":
 		var vmSpecMap map[string]string
-		if !simpleMode {
+		if !simpleVMSpecInfo {
 			var err error
 			vmSpecMap, err = priceInfoHandler.getVMSpecMap(regionName)
 			if err != nil {
@@ -425,7 +423,7 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 			}
 
 			specName := generateVMSpecName(productPrice)
-			if !simpleMode {
+			if !simpleVMSpecInfo {
 				if serverSpecCode, exists := vmSpecMap[productPrice.ProductCode]; exists {
 					specName = serverSpecCode
 				} else {
@@ -439,7 +437,7 @@ func (priceInfoHandler *NcpVpcPriceInfoHandler) GetPriceInfo(productFamily strin
 				CSPProductInfo: productPrice,
 			}
 
-			if simpleMode {
+			if simpleVMSpecInfo {
 				productInfo.VMSpecName = specName
 			} else {
 				productInfo.VMSpecInfo = &irs.VMSpecInfo{

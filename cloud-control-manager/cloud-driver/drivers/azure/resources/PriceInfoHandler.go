@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -221,7 +220,7 @@ func (priceInfoHandler *AzurePriceInfoHandler) ListProductFamily(regionName stri
 	return serviceFamilyList, nil
 }
 
-func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue) (string, error) {
+func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue, simpleVMSpecInfo bool) (string, error) {
 	hiscallInfo := GetCallLogScheme(priceInfoHandler.Region, call.PRICEINFO, "PriceInfo", "ListProductFamily()")
 	start := call.Start()
 
@@ -247,9 +246,8 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 	}
 
 	var skuList []*armcompute.ResourceSKU
-	simpleMode := strings.ToUpper(os.Getenv("VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO")) == "ON"
 
-	if strings.ToLower(productFamily) == "compute" && !simpleMode {
+	if strings.ToLower(productFamily) == "compute" && !simpleVMSpecInfo {
 		pager := priceInfoHandler.ResourceSkusClient.NewListPager(&armcompute.ResourceSKUsClientListOptions{})
 
 		for pager.More() {
@@ -294,7 +292,7 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 		var productInfo irs.ProductInfo
 
 		// Simple 모드일 때는 VMSpecName만 설정
-		if simpleMode {
+		if simpleVMSpecInfo {
 			productInfo = irs.ProductInfo{
 				ProductId:      value[0].SkuID,
 				VMSpecName:     value[0].ArmSkuName,
@@ -319,7 +317,7 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 
 		foundMatchingSku := false
 		if strings.ToLower(productFamily) == "compute" {
-			if simpleMode {
+			if simpleVMSpecInfo {
 				// Simple mode에서는 SKU 처리를 건너뛰고 Name만 유지
 				foundMatchingSku = true
 			} else {

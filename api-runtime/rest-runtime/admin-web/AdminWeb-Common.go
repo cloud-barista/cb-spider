@@ -179,8 +179,12 @@ func getResource_JsonByte(resourceName string, name string) ([]byte, error) {
 	return resBody, err
 }
 
-func getPriceInfoJsonString(connConfig string, resourceName string, productFamily string, regionName string, filter []cres.KeyValue, target interface{}) error {
-	url := fmt.Sprintf("http://localhost:1024/spider/%s/%s/%s", resourceName, productFamily, regionName)
+func getPriceInfoJsonString(connConfig string, resourceName string, productFamily string, regionName string, filter []cres.KeyValue, simpleVMSpecInfo bool, target interface{}) error {
+	url := fmt.Sprintf("http://localhost:1024/spider/%s/%s/%s?ConnectionName=%s", resourceName, productFamily, regionName, connConfig)
+
+	if simpleVMSpecInfo {
+		url += "&SimpleVMSpecInfo"
+	}
 
 	reqBody := struct {
 		ConnectionName string          `json:"ConnectionName"`

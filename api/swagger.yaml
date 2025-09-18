@@ -7019,6 +7019,11 @@ paths:
         name: RegionName
         required: true
         type: string
+      - description: 'Return simplified VM specification information (only VMSpecName).
+          Default: false'
+        in: query
+        name: simple
+        type: boolean
       - description: The request body containing additional filters for vm price information
         in: body
         name: PriceInfoRequest
