@@ -143,25 +143,15 @@ func PriceInfoTableList(c echo.Context) error {
 
 	json.Unmarshal([]byte(c.QueryParam("filterlist")), &info)
 
-	// Handle simplemode parameter and set environment variable
+	// Handle simplemode parameter
 	simpleMode := c.QueryParam("simplemode")
-	if simpleMode != "" {
-		if simpleMode == "ON" || simpleMode == "OFF" {
-			// Temporarily set the environment variable for this request
-			originalMode := os.Getenv("VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO")
-			os.Setenv("VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO", simpleMode)
-			cblog.Infof("Set VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO to: %s", simpleMode)
-
-			// Restore original value after processing (defer)
-			defer func() {
-				os.Setenv("VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO", originalMode)
-				cblog.Infof("Restored VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO to: %s", originalMode)
-			}()
-		}
+	simpleVMSpecInfo := false
+	if simpleMode == "ON" {
+		simpleVMSpecInfo = true
 	}
 
 	var data cres.CloudPrice
-	err := getPriceInfoJsonString(connConfig, "priceinfo", c.Param("ProductFamily"), c.Param("RegionName"), info.FilterList, &data)
+	err := getPriceInfoJsonString(connConfig, "priceinfo", c.Param("ProductFamily"), c.Param("RegionName"), info.FilterList, simpleVMSpecInfo, &data)
 	if err != nil {
 		cblog.Error(err)
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -173,10 +163,10 @@ func PriceInfoTableList(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusInternalServerError, "Failed to save JSON file: "+err.Error())
 	}
 
-	// Get current simple mode setting
-	currentSimpleMode := os.Getenv("VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO")
-	if currentSimpleMode == "" {
-		currentSimpleMode = "OFF" // default value
+	// Set SimpleMode based on query parameter
+	currentSimpleMode := "OFF" // default value
+	if simpleVMSpecInfo {
+		currentSimpleMode = "ON"
 	}
 
 	tmplData := TemplateData{

@@ -5523,6 +5523,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
+                        "type": "boolean",
+                        "description": "Return simplified VM specification information (only VMSpecName). Default: false",
+                        "name": "simple",
+                        "in": "query"
+                    },
+                    {
                         "description": "The request body containing additional filters for vm price information",
                         "name": "PriceInfoRequest",
                         "in": "body",

@@ -8,7 +8,6 @@ import (
 	"math"
 	"net"
 	"net/http"
-	"os"
 	"reflect"
 	"regexp"
 	"sort"
@@ -698,7 +697,7 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetServicePlans(productFamily strin
 	return servicePlans, nil
 }
 
-func (priceInfoHandler *IbmPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue) (string, error) {
+func (priceInfoHandler *IbmPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue, simpleVMSpecInfo bool) (string, error) {
 	hiscallInfo := GetCallLogScheme(priceInfoHandler.Region, call.PRICEINFO, "PriceInfo", "GetPriceInfo()")
 	start := call.Start()
 
@@ -756,7 +755,7 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetPriceInfo(productFamily string, 
 					}
 
 					if profile != nil {
-						price, err := priceInfoHandler.CreateGen2ProfilePrice(*profile, profilePricing, regionName, filterList)
+						price, err := priceInfoHandler.CreateGen2ProfilePrice(*profile, profilePricing, regionName, filterList, simpleVMSpecInfo)
 						if err != nil {
 							cblogger.Warning(fmt.Sprintf("Error creating price for Gen2 profile %s: %s", profile.Name, err.Error()))
 							continue
@@ -791,7 +790,7 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetPriceInfo(productFamily string, 
 			if matchingPlan != nil {
 				cblogger.Info(fmt.Sprintf("Found matching service plan for profile %s", profile.Name))
 
-				price, err := priceInfoHandler.GetGen3ProfilePrice(matchingPlan.ChildrenURL, profile, regionName, filterList)
+				price, err := priceInfoHandler.GetGen3ProfilePrice(matchingPlan.ChildrenURL, profile, regionName, filterList, simpleVMSpecInfo)
 				if err != nil {
 					cblogger.Warning(fmt.Sprintf("Could not get price for profile %s: %s", profile.Name, err.Error()))
 					continue
@@ -1194,7 +1193,7 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen2ProfilePrices(childrenURL st
 	return profilePricings, nil
 }
 
-func (priceInfoHandler *IbmPriceInfoHandler) CreateGen2ProfilePrice(profile VPCProfile, profilePricing ProfilePricing, regionName string, filterList []irs.KeyValue) (irs.Price, error) {
+func (priceInfoHandler *IbmPriceInfoHandler) CreateGen2ProfilePrice(profile VPCProfile, profilePricing ProfilePricing, regionName string, filterList []irs.KeyValue, simpleVMSpecInfo bool) (irs.Price, error) {
 	isIBMZ := profile.Architecture == "s390x" || strings.Contains(profile.Name, "z2")
 
 	var description string
@@ -1212,9 +1211,7 @@ func (priceInfoHandler *IbmPriceInfoHandler) CreateGen2ProfilePrice(profile VPCP
 		CSPProductInfo: profile,
 	}
 
-	simpleMode := strings.ToUpper(os.Getenv("VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO")) == "ON"
-
-	if simpleMode {
+	if simpleVMSpecInfo {
 		productInfo.VMSpecName = profile.Name
 	} else {
 		vmSpecInfo := irs.VMSpecInfo{
@@ -1367,7 +1364,7 @@ func (priceInfoHandler *IbmPriceInfoHandler) CreateGen2ProfilePrice(profile VPCP
 	}, nil
 }
 
-func (priceInfoHandler *IbmPriceInfoHandler) GetGen3ProfilePrice(childrenURL string, profile VPCProfile, regionName string, filterList []irs.KeyValue) (irs.Price, error) {
+func (priceInfoHandler *IbmPriceInfoHandler) GetGen3ProfilePrice(childrenURL string, profile VPCProfile, regionName string, filterList []irs.KeyValue, simpleVMSpecInfo bool) (irs.Price, error) {
 	var price irs.Price
 
 	initialResponse, err := getIbmPlanDetail(0, 1, childrenURL)
@@ -1440,9 +1437,7 @@ func (priceInfoHandler *IbmPriceInfoHandler) GetGen3ProfilePrice(childrenURL str
 		CSPProductInfo: profile,
 	}
 
-	simpleMode := strings.ToUpper(os.Getenv("VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO")) == "ON"
-
-	if simpleMode {
+	if simpleVMSpecInfo {
 		productInfo.VMSpecName = profile.Name
 	} else {
 		vmSpecInfo := irs.VMSpecInfo{

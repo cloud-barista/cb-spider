@@ -3,7 +3,6 @@ package resources
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -114,7 +113,7 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) ListProductFamily(regionName st
 	return familyList, nil
 }
 
-func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue) (string, error) {
+func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue, simpleVMSpecInfo bool) (string, error) {
 	priceMap := make(map[string]irs.Price)
 
 	priceMutex := &sync.Mutex{}
@@ -283,9 +282,7 @@ func (priceInfoHandler *AlibabaPriceInfoHandler) GetPriceInfo(productFamily stri
 
 		productInfo.ProductId = "NA"
 
-		simpleMode := strings.ToUpper(os.Getenv("VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO")) == "ON"
-
-		if simpleMode {
+		if simpleVMSpecInfo {
 			productInfo.VMSpecName = instanceType
 		} else {
 			var gpuInfo []irs.GpuInfo

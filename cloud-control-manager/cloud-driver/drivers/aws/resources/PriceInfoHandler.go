@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 
@@ -67,7 +66,7 @@ func (priceInfoHandler *AwsPriceInfoHandler) ListProductFamily(regionName string
 	return result, nil
 }
 
-func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue) (string, error) {
+func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue, simpleVMSpecInfo bool) (string, error) {
 	currentRegion := regionName
 	if currentRegion == "" {
 		currentRegion = priceInfoHandler.Region.Region
@@ -166,7 +165,7 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 				if productFamilyVal != "Compute Instance" && productFamilyVal != "Compute Instance (bare metal)" {
 					continue
 				}
-				productInfo, err := ExtractProductInfo(awsPrice, productFamilyVal)
+				productInfo, err := ExtractProductInfo(awsPrice, productFamilyVal, simpleVMSpecInfo)
 				if err != nil {
 					cblogger.Error(err)
 					continue
@@ -402,7 +401,7 @@ func setProductsInputRequestFilter(filterList []irs.KeyValue) ([]*pricing.Filter
 	return requestFilters, nil
 }
 
-func ExtractProductInfo(jsonValue aws.JSONValue, productFamily string) (irs.ProductInfo, error) {
+func ExtractProductInfo(jsonValue aws.JSONValue, productFamily string, simpleVMSpecInfo bool) (irs.ProductInfo, error) {
 	var productInfo irs.ProductInfo
 
 	jsonString, err := json.MarshalIndent(jsonValue["product"].(map[string]interface{})["attributes"], "", "    ")
@@ -412,7 +411,7 @@ func ExtractProductInfo(jsonValue aws.JSONValue, productFamily string) (irs.Prod
 	}
 	switch productFamily {
 	case "Compute Instance", "Compute Instance (bare metal)":
-		err := setVMspecInfo(&productInfo, string(jsonString))
+		err := setVMspecInfo(&productInfo, string(jsonString), simpleVMSpecInfo)
 		if err != nil {
 			return productInfo, err
 		}
@@ -438,7 +437,7 @@ func ExtractProductInfo(jsonValue aws.JSONValue, productFamily string) (irs.Prod
 	return productInfo, nil
 }
 
-func setVMspecInfo(productInfo *resources.ProductInfo, jsonValueString string) error {
+func setVMspecInfo(productInfo *resources.ProductInfo, jsonValueString string, simpleVMSpecInfo bool) error {
 	var jsonData map[string]string
 	if err := json.Unmarshal([]byte(jsonValueString), &jsonData); err != nil {
 		return fmt.Errorf("failed to parse JSON: %w", err)
@@ -449,9 +448,7 @@ func setVMspecInfo(productInfo *resources.ProductInfo, jsonValueString string) e
 		return errors.New("missing required field: instanceType")
 	}
 
-	simpleMode := strings.ToUpper(os.Getenv("VMSPECINFO_SIMPLE_MODE_IN_PRICEINFO")) == "ON"
-
-	if simpleMode {
+	if simpleVMSpecInfo {
 		productInfo.VMSpecName = instanceType
 		return nil
 	}
