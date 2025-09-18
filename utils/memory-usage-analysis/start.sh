@@ -107,6 +107,12 @@ log_info "Total commands to execute: ${TOTAL_COMMANDS}"
 # Create log directory
 mkdir -p "${LOG_DIR}"
 
+# Copy command file to log directory for report.sh reference
+CMD_FILE_BASENAME=$(basename "${CMD_FILE}")
+LOG_CMD_FILE="${LOG_DIR}/${CMD_FILE_BASENAME}"
+cp "${CMD_FILE}" "${LOG_CMD_FILE}"
+log_info "Command file copied to log directory: ${LOG_CMD_FILE}"
+
 # Execute and analyze commands
 COMMAND_COUNT=0
 while IFS= read -r command || [ -n "$command" ]; do
@@ -132,8 +138,8 @@ while IFS= read -r command || [ -n "$command" ]; do
         CONNECTION_NAME="${BASH_REMATCH[1]}"
     fi
     
-    # Create filename (remove special chars, include ConnectionName)
-    CMD_SAFE=$(echo "${command}" | sed 's/[^a-zA-Z0-9._-]/_/g' | cut -c1-50)
+    # Create filename (remove special chars including quotes, include ConnectionName)
+    CMD_SAFE=$(echo "${command}" | sed 's/[^a-zA-Z0-9._-]/_/g' | sed 's/__*/_/g' | cut -c1-50)
     if [[ -n "${CONNECTION_NAME}" ]]; then
         CMD_SAFE="${CMD_SAFE}_ConnectionName_${CONNECTION_NAME}"
     fi
@@ -209,9 +215,34 @@ while IFS= read -r command || [ -n "$command" ]; do
     # Step 4: Analyze logs
     log_info "Step 4: Analyzing memory usage..."
     
-    # Wait 1 minute after analysis (minimize memory impact)
-    log_info "Sleeping 60 seconds before next command to reduce memory impact..."
-    sleep 60
+    # Store original PID for analysis (data was collected for this PID)
+    ORIGINAL_SPIDER_PID="${SPIDER_PID}"
+    
+    # Restart server to reduce memory impact
+    log_info "Restarting CB-Spider server to reset memory state..."
+    cd "${SCRIPT_DIR}/../../bin"
+    ./start.sh
+    cd "${SCRIPT_DIR}"
+    
+    # Wait 5 seconds after server restart
+    log_info "Waiting 5 seconds for server to stabilize..."
+    sleep 5
+    
+    # Re-read CB-Spider PID after restart for next iteration
+    log_info "Re-reading CB-Spider PID after restart..."
+    if [ ! -f "${PID_FILE}" ]; then
+        log_error "PID file not found after restart: ${PID_FILE}"
+        exit 1
+    fi
+    
+    SPIDER_PID=$(cat "${PID_FILE}")
+    log_info "New CB-Spider PID after restart: ${SPIDER_PID}"
+    
+    # Check if new PID is actually running
+    if ! ps -p "${SPIDER_PID}" > /dev/null 2>&1; then
+        log_error "CB-Spider process (PID: ${SPIDER_PID}) is not running after restart"
+        exit 1
+    fi
 
     # Generate title per command
     CMD_TITLE=""
@@ -232,13 +263,13 @@ while IFS= read -r command || [ -n "$command" ]; do
     fi
     
 
-    # Change to log dir and run analysis (pass args directly)
+    # Change to log dir and run analysis (use original PID that data was collected for)
     (
         cd "${LOG_DIR}"
         /bin/python3 "${SCRIPT_DIR}/analyze_cb_spider_memory.py" \
             "$(basename "${LOG_FILE}")" \
             "$(basename "${SYSTEM_MEMORY_FILE}")" \
-            "${SPIDER_PID}" \
+            "${ORIGINAL_SPIDER_PID}" \
             "${CMD_TITLE}" \
             "$(basename "${ANALYSIS_PREFIX}")" \
             "execution_time_$(basename "${LOG_FILE}" .log).txt" \
