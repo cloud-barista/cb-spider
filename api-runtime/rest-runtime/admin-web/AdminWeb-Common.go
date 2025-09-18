@@ -183,7 +183,7 @@ func getPriceInfoJsonString(connConfig string, resourceName string, productFamil
 	url := fmt.Sprintf("http://localhost:1024/spider/%s/%s/%s?ConnectionName=%s", resourceName, productFamily, regionName, connConfig)
 
 	if simpleVMSpecInfo {
-		url += "&SimpleVMSpecInfo"
+		url += "&simple=true"
 	}
 
 	reqBody := struct {
