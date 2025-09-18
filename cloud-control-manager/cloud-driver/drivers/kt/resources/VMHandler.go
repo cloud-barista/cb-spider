@@ -1111,7 +1111,7 @@ func (vmHandler *KTVpcVMHandler) createPortForwardingFirewallRules(ruleSet *Secu
 							SrcAddress:       	[]string{srcCIDR},
         					DstAddress:       	[]string{destIPAdds}, // Cannot be entered simultaneously with portForwardingId
 							Comment:          	comment,
-							SrcNat:           	false,
+							SrcNat:           	true,
 					}
 					// cblogger.Info("\n# Outbound FireWall Options : ")
 					// spew.Dump(outboundFWOpts)
