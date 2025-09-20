@@ -131,7 +131,7 @@ func fetchS3Buckets(connConfig string) ([]S3BucketInfo, error) {
 
 		// If we get HTML, it means the S3 API didn't recognize our request
 		if strings.Contains(bodyStr, "<html>") {
-			return nil, fmt.Errorf("S3 API endpoint not accessible with ConnectionName parameter. Response: %s", bodyStr[:min(len(bodyStr), 200)])
+			return nil, fmt.Errorf("S3 API endpoint not accessible with ConnectionName parameter. Try checking S3 routes configuration. Response: %s", bodyStr[:min(len(bodyStr), 200)])
 		}
 		return nil, fmt.Errorf("received non-XML response: %s", bodyStr[:min(len(bodyStr), 100)])
 	}
