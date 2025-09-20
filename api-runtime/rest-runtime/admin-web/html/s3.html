@@ -176,6 +176,15 @@
             </div>
         </div>
 
+        {{if .ErrorMessage}}
+        <script>
+            // Show error popup when page loads
+            window.addEventListener('DOMContentLoaded', function() {
+                alert('⚠️ S3 Connection Error:\n\n{{.ErrorMessage}}');
+            });
+        </script>
+        {{end}}
+
         <table id="bucket-table">
             <thead>
                 <tr>

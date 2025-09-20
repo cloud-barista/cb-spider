@@ -72,18 +72,27 @@ func GetS3ConnectionInfo(connectionName string) (*S3ConnectionInfo, error) {
 		return nil, err
 	}
 
-	// Get S3 Access Key and Secret Key based on provider mapping
+	// Helper to get access/secret key from multiple possible key names
+	getAccessKey := func(kvl infostore.KVList, keys ...string) string {
+		for _, key := range keys {
+			for _, kv := range kvl {
+				if kv.Key == key {
+					return kv.Value
+				}
+			}
+		}
+		return ""
+	}
+
 	var accessKey, secretKey string
 	var endpoint string
 	var useSSL, regionRequired bool
 
 	switch providerName {
 	case "AWS":
-		// accessKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "aws_access_key_id")
 		if accessKey == "" {
-			accessKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientId") // saved with this key
+			accessKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientId")
 		}
-		// secretKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "aws_secret_access_key")
 		if secretKey == "" {
 			secretKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "ClientSecret")
 		}
@@ -92,22 +101,22 @@ func GetS3ConnectionInfo(connectionName string) (*S3ConnectionInfo, error) {
 		regionRequired = true
 
 	case "IBM":
-		accessKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3AccessKey")
-		secretKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3SecretKey")
+		accessKey = getAccessKey(crdInfo.KeyValueInfoList, "S3AccessKey", "access_key_id")
+		secretKey = getAccessKey(crdInfo.KeyValueInfoList, "S3SecretKey", "secret_access_key")
 		endpoint = fmt.Sprintf("s3.%s.cloud-object-storage.appdomain.cloud", regionID)
 		useSSL = true
 		regionRequired = false
 
 	case "KT":
-		accessKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3AccessKey")
-		secretKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3SecretKey")
+		accessKey = getAccessKey(crdInfo.KeyValueInfoList, "S3AccessKey", "Access Key")
+		secretKey = getAccessKey(crdInfo.KeyValueInfoList, "S3SecretKey", "Secret Key")
 		endpoint = "obj-e-1.ktcloud.com"
 		useSSL = true
 		regionRequired = false
 
 	case "GCP":
-		accessKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3AccessKey")
-		secretKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3SecretKey")
+		accessKey = getAccessKey(crdInfo.KeyValueInfoList, "S3AccessKey", "Access Key")
+		secretKey = getAccessKey(crdInfo.KeyValueInfoList, "S3SecretKey", "Secret")
 		endpoint = "storage.googleapis.com"
 		useSSL = true
 		regionRequired = true
@@ -127,14 +136,22 @@ func GetS3ConnectionInfo(connectionName string) (*S3ConnectionInfo, error) {
 		regionRequired = false
 
 	case "NHN":
-		accessKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3AccessKey")
-		secretKey = ccm.KeyValueListGetValue(crdInfo.KeyValueInfoList, "S3SecretKey")
+		accessKey = getAccessKey(crdInfo.KeyValueInfoList, "S3AccessKey", "Access Key")
+		secretKey = getAccessKey(crdInfo.KeyValueInfoList, "S3SecretKey", "Secret Key")
 		endpoint = fmt.Sprintf("%s-api-object-storage.nhncloudservice.com", regionID)
 		useSSL = true
 		regionRequired = true
 
 	default:
 		return nil, fmt.Errorf("provider '%s' does not support Object Storage service or is not configured for S3 access", providerName)
+	}
+
+	// Check if we have empty credentials
+	if accessKey == "" {
+		return nil, fmt.Errorf("accessKey is empty for provider '%s'", providerName)
+	}
+	if secretKey == "" {
+		return nil, fmt.Errorf("secretKey is empty for provider '%s'", providerName)
 	}
 
 	return &S3ConnectionInfo{
