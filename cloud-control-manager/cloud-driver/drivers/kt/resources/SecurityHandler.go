@@ -477,14 +477,14 @@ func (securityHandler *KTVpcSecurityHandler) CheckSecurityGroupExists(securityII
     cblogger.Info("KT Cloud VPC driver: called CheckSecurityGroupExists()!")
     callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Zone, call.SECURITYGROUP, securityIID.SystemId, "CheckSecurityGroupExists()")
 
-    if strings.EqualFold(securityHandler.RegionInfo.Zone, "") {
+    if securityHandler.RegionInfo.Zone == "" {
         newErr := fmt.Errorf("invalid Region Info")
         cblogger.Error(newErr.Error())
         loggingError(callLogInfo, newErr)
         return newErr
     }
 
-    if strings.EqualFold(securityIID.SystemId, "") {
+    if securityIID.SystemId == "" {
         newErr := fmt.Errorf("invalid S/G SystemId")
         cblogger.Error(newErr.Error())
         loggingError(callLogInfo, newErr)
