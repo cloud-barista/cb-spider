@@ -334,7 +334,7 @@ func (securityHandler *KTVpcSecurityHandler) DeleteSecurity(securityIID irs.IID)
 	}
 
 	if strings.EqualFold(securityIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid S/G SystemId!!")
+		newErr := fmt.Errorf("invalid S/G SystemId.")
 		cblogger.Error(newErr.Error())
 		loggingError(callLogInfo, newErr)
 		return false, newErr
