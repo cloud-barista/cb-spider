@@ -117,8 +117,10 @@ ssh -i /private_key_경로/private_key_파일명(~~.pem) cb-user@VM의_public_ip
 ​  O Security Group 생성시 아래의 사항을 참고
 
    - KTCloud VPC에서는 Security Group(S/G) 개념을 지원하지 않지만, 본 드라이버에서 S/G을 생성한 후 VM 생성시 그 S/G을 적용 가능함.
-      - 사용자가 S/G을 정의하면, 드라이버 내부적으로, VM 생성시 public IP가 생성된 후 그 S/G rule들이 Port forwarding rule, Firewall rule로 전환되어 반영됨.
+      - 사용자가 S/G을 정의하면, 드라이버 내부적으로, VM 생성시 public IP가 생성된 후 그 security rule들이 Port forwarding rule, Firewall rule로 전환되어 반영됨.
    - KTCloud VPC에서는 outbound rule도 지원하기 때문에 VM에서 outbound 통신이 필요시 반드시 S/G의 outbound 로서 해당 protocol 및 port를 열여줘야함.
+      - 주의 : S/G 생성시, 사용자가 outbound 방향의 설정을 하지 않을 경우, outbound 방향으로 모든 protocol에 대해 모든 port가 열리는 설정이 반영됨.(Default 값)
+      - 만약 사용자가 S/G 생성시, outbound 방향의 어떤 protocol에 대해 port를 open하는 설정을 하면 상기 outbound 방향의 default 값은 적용되지 않고 사용자의 설정값이 적용됨.
 
  O NLB 생성시 아래의 사항을 참고
 
