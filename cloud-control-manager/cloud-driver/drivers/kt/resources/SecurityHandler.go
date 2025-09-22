@@ -9,21 +9,18 @@
 // by ETRI, 2022.12.
 // Updated by ETRI, 2024.09.
 // Updated by ETRI, 2025.02.
+// Updated by ETRI, 2025.09.
 
 package resources
 
 import (
-	// "errors"
 	"fmt"
 	"io"
 	"os"
 	"strings"
-	// "crypto/aes"
-	// "crypto/cipher"
 	"encoding/base64"
 	// "github.com/davecgh/go-spew/spew"
 	"encoding/json"
-	// "strconv"
 
 	ktvpcsdk "github.com/cloud-barista/ktcloudvpc-sdk-go"
 
@@ -124,15 +121,48 @@ func (securityHandler *KTVpcSecurityHandler) CreateSecurity(securityReqInfo irs.
 
 	currentTime := getSeoulCurrentTime()
 
+	// Process SecurityRules and add default outbound rules if none exist
+	processedSecurityRules := securityReqInfo.SecurityRules
+	if processedSecurityRules == nil {
+		processedSecurityRules = &[]irs.SecurityRuleInfo{}
+	}
+
+	// Check if there are any outbound rules
+	hasOutboundRules := false
+	for _, rule := range *processedSecurityRules {
+		if strings.EqualFold(rule.Direction, "outbound") {
+			hasOutboundRules = true
+			break
+		}
+	}
+
+	// If no outbound rules exist, add default outbound rules for all protocols
+	if !hasOutboundRules {
+		cblogger.Info("No 'outbound' rules specified. Adding default outbound rules for all protocols and ports.")
+		
+		defaultOutboundRules := []irs.SecurityRuleInfo{
+			{
+				Direction:  "outbound",
+				IPProtocol: "ALL",
+				FromPort:   "-1",
+				ToPort:     "-1",
+				CIDR: 		"0.0.0.0/0",
+			},
+		}
+    
+		// Append default outbound rules to existing rules
+		*processedSecurityRules = append(*processedSecurityRules, defaultOutboundRules...)
+	}
+
 	newSGInfo := irs.SecurityInfo{
 		IId: irs.IID{
-			NameId: securityReqInfo.IId.NameId,
+			NameId: 	securityReqInfo.IId.NameId,
 			// Caution!! : securityReqInfo.IId.NameId -> SystemId
-			SystemId: securityReqInfo.IId.NameId,
+			SystemId: 	securityReqInfo.IId.NameId,
 		},
-		VpcIID: 	securityReqInfo.VpcIID,
-		SecurityRules: securityReqInfo.SecurityRules,
-		KeyValueList: []irs.KeyValue{
+		VpcIID: 		securityReqInfo.VpcIID,
+		SecurityRules: 	processedSecurityRules, // Use the processed rules
+		KeyValueList: 	[]irs.KeyValue{
 			{Key: "KTCloud-SecuriyGroup-info.", Value: "This SecuriyGroup info. is temporary."},
 			{Key: "CreateTime", Value: currentTime},
 		},
@@ -149,7 +179,6 @@ func (securityHandler *KTVpcSecurityHandler) CreateSecurity(securityReqInfo irs.
 		cblogger.Error("Failed to write the file: "+sgFilePath+hashFileName+".json", writeErr)
 		return irs.SecurityInfo{}, writeErr
 	}
-
 	cblogger.Infof("Succeeded in writing the S/G file: " + sgFilePath + hashFileName + ".json")
 
 	// Because it's managed as a file, there's no SystemId created.
@@ -182,6 +211,13 @@ func (securityHandler *KTVpcSecurityHandler) GetSecurity(securityIID irs.IID) (i
 		return irs.SecurityInfo{}, newErr
 	}
 
+    // Check if S/G exists first
+    if err := securityHandler.CheckSecurityGroupExists(securityIID); err != nil {
+		newErr := fmt.Errorf("SecurityGroup validation failed: %w", err)
+		cblogger.Error(newErr.Error())
+		return irs.SecurityInfo{}, newErr
+    }
+
 	sgPath := os.Getenv("CBSPIDER_ROOT") + sgDir
 	sgFilePath := sgPath + securityHandler.RegionInfo.Zone + "/"
 
@@ -204,7 +240,7 @@ func (securityHandler *KTVpcSecurityHandler) GetSecurity(securityIID irs.IID) (i
 		cblogger.Error("Failed to Find the S/G file : "+sgFileName+" ", err)
 		return irs.SecurityInfo{}, err
 	}
-	cblogger.Infof("Succeeded in Finding and Opening the S/G file: " + sgFileName)
+	// cblogger.Infof("Succeeded in Finding and Opening the S/G file: " + sgFileName)
 
 	var sg SecurityGroup
 	defer jsonFile.Close()
@@ -268,7 +304,6 @@ func (securityHandler *KTVpcSecurityHandler) ListSecurity() ([]*irs.SecurityInfo
 			return nil, baseErr
 		}
 		sgFileName := string(decString)
-
 		// sgFileName := filePath + file.Name()
 
 		securityIID.SystemId = sgFileName
@@ -298,16 +333,30 @@ func (securityHandler *KTVpcSecurityHandler) DeleteSecurity(securityIID irs.IID)
 		return false, newErr
 	}
 
+	if strings.EqualFold(securityIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid S/G SystemId!!")
+		cblogger.Error(newErr.Error())
+		loggingError(callLogInfo, newErr)
+		return false, newErr
+	}
+
+	// Check if S/G exists first
+    if err := securityHandler.CheckSecurityGroupExists(securityIID); err != nil {
+		newErr := fmt.Errorf("SecurityGroup validation failed: %w", err)
+		cblogger.Error(newErr.Error())
+		return false, newErr
+    }
+
 	sgPath := os.Getenv("CBSPIDER_ROOT") + sgDir
 	sgFilePath := sgPath + securityHandler.RegionInfo.Zone + "/"
 
-	// Check if the KeyPair Folder Exists, and Create it
+	// Check if the S/G Folder Exists, and Create it
 	if err := checkFolderAndCreate(sgPath); err != nil {
 		cblogger.Errorf("Failed to Create the SecurityGroup Path : [%v]", err)
 		return false, err
 	}
 
-	// Check if the KeyPair Folder Exists, and Create it
+	// Check if the S/G Folder Exists, and Create it
 	if err := checkFolderAndCreate(sgFilePath); err != nil {
 		cblogger.Errorf("Failed to Create the SecurityGroup File Path : [%v]", err)
 		return false, err
@@ -315,16 +364,9 @@ func (securityHandler *KTVpcSecurityHandler) DeleteSecurity(securityIID irs.IID)
 
 	hashFileName := base64.StdEncoding.EncodeToString([]byte(securityIID.NameId))
 	sgFileName := sgFilePath + hashFileName + ".json"
-	cblogger.Infof("S/G file to Delete : [%s]", sgFileName)
+	// cblogger.Infof("S/G file to Delete : [%s]", sgFileName)
 
-	//To check whether the security group exists.
-	_, getErr := securityHandler.GetSecurity(irs.IID{SystemId: securityIID.SystemId})
-	if getErr != nil {
-		cblogger.Errorf("Failed to Find the SecurityGroup : %s", securityIID.SystemId)
-		return false, getErr
-	}
-
-	// To Remove the S/G file on the Local machine.
+	// Remove the S/G file on the Local machine
 	delErr := os.Remove(sgFileName)
 	if delErr != nil {
 		newErr := fmt.Errorf("Failed to Delete the file : %s, [%v]", sgFileName, delErr)
@@ -428,4 +470,45 @@ func (securityHandler *KTVpcSecurityHandler) ListIID() ([]*irs.IID, error) {
     }
 
     return iidList, nil
+}
+
+// CheckSecurityGroupExists checks if a S/G with the given SystemId exists
+func (securityHandler *KTVpcSecurityHandler) CheckSecurityGroupExists(securityIID irs.IID) error {
+    cblogger.Info("KT Cloud VPC driver: called CheckSecurityGroupExists()!")
+    callLogInfo := getCallLogScheme(securityHandler.RegionInfo.Zone, call.SECURITYGROUP, securityIID.SystemId, "CheckSecurityGroupExists()")
+
+    if strings.EqualFold(securityHandler.RegionInfo.Zone, "") {
+        newErr := fmt.Errorf("invalid Region Info")
+        cblogger.Error(newErr.Error())
+        loggingError(callLogInfo, newErr)
+        return newErr
+    }
+
+    if strings.EqualFold(securityIID.SystemId, "") {
+        newErr := fmt.Errorf("invalid S/G SystemId")
+        cblogger.Error(newErr.Error())
+        loggingError(callLogInfo, newErr)
+        return newErr
+    }
+
+    iidList, err := securityHandler.ListIID()
+    if err != nil {
+        newErr := fmt.Errorf("failed to get security group IID list: %w", err)
+        cblogger.Error(newErr.Error())
+        loggingError(callLogInfo, newErr)
+        return newErr
+    }
+
+    // Check if the S/G exists in the list
+    for _, iid := range iidList {
+        if iid.SystemId == securityIID.SystemId {
+            cblogger.Infof("Security group found: %s", securityIID.SystemId)
+            return nil // The S/G exists
+        }
+    }
+
+    newErr := fmt.Errorf("SecurityGroup with SystemId [%s] does not exist.", securityIID.SystemId)
+    cblogger.Error(newErr.Error())
+    loggingError(callLogInfo, newErr)
+    return newErr
 }
