@@ -14,6 +14,7 @@ package resources
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -339,6 +340,22 @@ func (vVPCHandler *GCPVPCHandler) WaitUntilComplete(resourceId string, isGlobalA
 		//PENDING, RUNNING, or DONE.
 		//if (opSatus.Status == "RUNNING" || opSatus.Status == "DONE") && opSatus.Progress >= 100 {
 		if opSatus.Status == "DONE" {
+			// Check if the operation completed with errors
+			if opSatus.Error != nil {
+				if opSatus.Error.Errors != nil {
+					for _, errDetail := range opSatus.Error.Errors {
+						// Check for CIDR conflict-related errors
+						errMsg := strings.ToLower(errDetail.Message)
+						if strings.Contains(errMsg, "overlap") || strings.Contains(errMsg, "conflict") ||
+							strings.Contains(errMsg, "range") || strings.Contains(errMsg, "cidr") ||
+							strings.Contains(errMsg, "address") || strings.Contains(errMsg, "invalid") {
+							return fmt.Errorf("CIDR conflict detected in operation: %s - %s", errDetail.Code, errDetail.Message)
+						}
+					}
+				}
+				// Return general operation error
+				return fmt.Errorf("operation failed: %v", opSatus.Error)
+			}
 			cblogger.Info("The request has been processed successfully, so the wait is terminated.")
 			return nil
 		}
@@ -386,19 +403,36 @@ func (vVPCHandler *GCPVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
 	var vpcInfo []*irs.VPCInfo
 
 	for _, item := range vpcList.Items {
-		iId := irs.IID{
-			NameId: item.Name,
-			//SystemId: strconv.FormatUint(item.Id, 10),
-			SystemId: item.Name,
-		}
-		subnetInfo, err := vVPCHandler.GetVPC(iId)
-		if err != nil {
-			cblogger.Error(err)
-			return vpcInfo, err
+		// Use Networks.List() result directly instead of calling GetVPC()
+		subnetInfoList := []irs.SubnetInfo{}
+
+		// Get subnet information if subnets exist
+		if item.Subnetworks != nil {
+			for _, subnetURL := range item.Subnetworks {
+				str := strings.Split(subnetURL, "/")
+				region := str[len(str)-3]
+				subnet := str[len(str)-1]
+				infoSubnet, err := vVPCHandler.Client.Subnetworks.Get(projectID, region, subnet).Do()
+				if err != nil {
+					cblogger.Error(err)
+					return vpcInfo, err
+				}
+				subnetInfoList = append(subnetInfoList, mappingSubnet(infoSubnet))
+			}
 		}
 
-		vpcInfo = append(vpcInfo, &subnetInfo)
+		networkInfo := irs.VPCInfo{
+			IId: irs.IID{
+				NameId:   item.Name,
+				SystemId: item.Name,
+			},
+			IPv4_CIDR:      "GCP VPC does not support IPv4_CIDR",
+			SubnetInfoList: subnetInfoList,
+		}
+		// Use StructToKeyValueList for VPC metadata
+		networkInfo.KeyValueList = irs.StructToKeyValueList(item)
 
+		vpcInfo = append(vpcInfo, &networkInfo)
 	}
 
 	return vpcInfo, nil
@@ -496,11 +530,11 @@ func mappingSubnet(subnet *compute.Subnetwork) irs.SubnetInfo {
 
 	// 2025-03-13 StructToKeyValueList 사용으로 변경
 	subnetInfo.KeyValueList = irs.StructToKeyValueList(subnet)
-	
+
 	// Add region and subnet information for DeleteVPC functionality
 	subnetInfo.KeyValueList = append(subnetInfo.KeyValueList, irs.KeyValue{Key: "region", Value: region})
 	subnetInfo.KeyValueList = append(subnetInfo.KeyValueList, irs.KeyValue{Key: "subnet", Value: subnet.Name})
-	
+
 	return subnetInfo
 }
 
@@ -586,7 +620,7 @@ func (vVPCHandler *GCPVPCHandler) DeleteVPC(vpcID irs.IID) (bool, error) {
 		}
 	*/
 
-	cblogger.Infof("Waiting for [%s] VPC to be finally deleted - Resource ID: [%d]", name)
+	cblogger.Infof("Waiting for [%s] VPC to be finally deleted - Resource ID: [%d]", name, info.Id)
 	errChkVpcStatus := vVPCHandler.WaitUntilComplete(strconv.FormatUint(info.Id, 10), true)
 	callogger.Info(call.String(callLogInfo))
 	if errChkVpcStatus != nil {
@@ -602,17 +636,12 @@ func (vVPCHandler *GCPVPCHandler) DeleteVPC(vpcID irs.IID) (bool, error) {
 }
 
 func (VPCHandler *GCPVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
-	cblogger.Infof("[%s] Subnet added - CIDR: %s", subnetInfo.IId.NameId, subnetInfo.IPv4_CIDR)
-	//resSubnet, errSubnet := VPCHandler.CreateSubnet(vpcIID.SystemId, subnetInfo)
 	_, errSubnet := VPCHandler.CreateSubnet(vpcIID.SystemId, subnetInfo)
 	if errSubnet != nil {
-		cblogger.Error(errSubnet)
 		return irs.VPCInfo{}, errSubnet
 	}
-	//cblogger.Debug(resSubnet)
 
 	return VPCHandler.GetVPC(vpcIID)
-	//return irs.VPCInfo{}, nil
 }
 
 // 리턴 값은 구현하지 않고 nil을 리턴함. - 현재 사용되는 곳이 없어서 시간상 누락 시킴.
@@ -642,7 +671,7 @@ func (vVPCHandler *GCPVPCHandler) CreateSubnet(vpcId string, reqSubnetInfo irs.S
 	checkInfo, err := vVPCHandler.Client.Subnetworks.Get(projectID, region, subnetName).Do()
 	callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 	if err == nil {
-		callLogInfo.ErrorMSG = err.Error()
+		callLogInfo.ErrorMSG = "Subnet already exists"
 		cblogger.Errorf("[%s] Subnet already exists ", subnetName)
 		callogger.Info(call.String(callLogInfo))
 		return irs.SubnetInfo{}, errors.New("Already Exist - " + subnetName + " Subnet is exist")
