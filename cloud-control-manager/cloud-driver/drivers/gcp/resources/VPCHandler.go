@@ -479,8 +479,8 @@ func mappingSubnet(subnet *compute.Subnetwork) irs.SubnetInfo {
 	//str := subnet.SelfLink
 	//str := strings.Split(subnet.SelfLink, "/")
 	//subnetName := str[len(str)-1]
-	//regionStr := strings.Split(subnet.Region, "/")
-	//region := regionStr[len(regionStr)-1]
+	regionStr := strings.Split(subnet.Region, "/")
+	region := regionStr[len(regionStr)-1]
 	subnetInfo := irs.SubnetInfo{
 		IId: irs.IID{
 			NameId: subnet.Name,
@@ -496,6 +496,11 @@ func mappingSubnet(subnet *compute.Subnetwork) irs.SubnetInfo {
 
 	// 2025-03-13 StructToKeyValueList 사용으로 변경
 	subnetInfo.KeyValueList = irs.StructToKeyValueList(subnet)
+	
+	// Add region and subnet information for DeleteVPC functionality
+	subnetInfo.KeyValueList = append(subnetInfo.KeyValueList, irs.KeyValue{Key: "region", Value: region})
+	subnetInfo.KeyValueList = append(subnetInfo.KeyValueList, irs.KeyValue{Key: "subnet", Value: subnet.Name})
+	
 	return subnetInfo
 }
 
@@ -587,7 +592,7 @@ func (vVPCHandler *GCPVPCHandler) DeleteVPC(vpcID irs.IID) (bool, error) {
 	if errChkVpcStatus != nil {
 		callLogInfo.ErrorMSG = errChkVpcStatus.Error()
 		callogger.Info(call.String(callLogInfo))
-		cblogger.Errorf("[%s] Subnet deletion completion wait failed", name)
+		cblogger.Errorf("[%s] VPC deletion completion wait failed", name)
 		cblogger.Error(errChkVpcStatus)
 		return false, errChkVpcStatus
 	}
