@@ -335,7 +335,7 @@ func (vVPCHandler *GCPVPCHandler) WaitUntilComplete(resourceId string, isGlobalA
 		if err != nil {
 			// Check if the operation is not found (404), which means it's already completed
 			if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "notFound") {
-				cblogger.Info("Operation not found, assuming it has already completed successfully.")
+				cblogger.Infof("Operation %s not found, assuming it has already completed successfully.", resourceId)
 				return nil
 			}
 			return err
