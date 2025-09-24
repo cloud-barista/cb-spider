@@ -2,6 +2,7 @@ package resources
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"reflect"
@@ -15,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/aws/aws-sdk-go/service/eks"
 	"github.com/aws/aws-sdk-go/service/iam"
+	"github.com/aws/aws-sdk-go/service/sts"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
@@ -25,6 +27,7 @@ type AwsClusterHandler struct {
 	Client      *eks.EKS
 	EC2Client   *ec2.EC2
 	Iam         *iam.IAM
+	StsClient   *sts.STS
 	AutoScaling *autoscaling.AutoScaling
 	TagHandler  *AwsTagHandler // 2024-07-18 TagHandler add
 }
@@ -49,6 +52,9 @@ const (
 )
 
 const (
+	// set up EKS token duration: 15 minutes (max 1 hour)
+	EKS_TOKEN_DURATION = 15 * time.Minute
+
 	httpPutResponseHopLimitIs2 = 2
 )
 
@@ -384,7 +390,7 @@ func (ClusterHandler *AwsClusterHandler) GetCluster(clusterIID irs.IID) (irs.Clu
 		clusterInfo.AccessInfo.Endpoint = *result.Cluster.Endpoint
 	}
 	if !reflect.ValueOf(result.Cluster.CertificateAuthority.Data).IsNil() {
-		clusterInfo.AccessInfo.Kubeconfig = getKubeConfig(result)
+		clusterInfo.AccessInfo.Kubeconfig = ClusterHandler.getKubeConfig(result)
 	}
 
 	if !reflect.ValueOf(result.Cluster.ResourcesVpcConfig).IsNil() {
@@ -502,38 +508,133 @@ func (ClusterHandler *AwsClusterHandler) GetAddon(clusterIID irs.IID, addonName 
 	return addonInfo, nil
 }
 
-func getKubeConfig(clusterDesc *eks.DescribeClusterOutput) string {
+func (ClusterHandler *AwsClusterHandler) getKubeConfig(clusterDesc *eks.DescribeClusterOutput) string {
+	// Return dynamic token kubeconfig instead of static token
+	return ClusterHandler.getDynamicKubeConfig(clusterDesc)
+}
+
+// getStaticKubeConfig generates kubeconfig with embedded static token
+func (ClusterHandler *AwsClusterHandler) getStaticKubeConfig(clusterDesc *eks.DescribeClusterOutput) string {
 
 	cluster := clusterDesc.Cluster
 
+	// create kubeconfig with EKS token
+	token, err := ClusterHandler.generateEKSToken(*cluster.Name)
+	if err != nil {
+		cblogger.Errorf("Failed to generate EKS token: %v", err)
+		// empty token when error occurs
+		token = ""
+	}
+
+	// Generate kubeconfig content with the token
 	kubeconfigContent := fmt.Sprintf(`apiVersion: v1
 clusters:
 - cluster:
     server: %s
     certificate-authority-data: %s
-  name: kubernetes
+  name: %s
 contexts:
 - context:
-    cluster: kubernetes
-    user: aws
-  name: aws
-current-context: aws
+    cluster: %s
+    user: aws-token
+  name: %s
+current-context: %s
 kind: Config
 preferences: {}
 users:
-- name: aws
+- name: aws-token
   user:
-    exec:
-      apiVersion: client.authentication.k8s.io/v1beta1
-      command: aws
-      args:
-        - "eks"
-        - "get-token"
-        - "--cluster-name"
-        - "%s"
-`, *cluster.Endpoint, *cluster.CertificateAuthority.Data, *cluster.Name)
+    token: %s
+`, *cluster.Endpoint, *cluster.CertificateAuthority.Data, *cluster.Name, *cluster.Name, *cluster.Name, *cluster.Name, token)
 
 	return kubeconfigContent
+}
+
+// getDynamicKubeConfig generates kubeconfig with exec-based dynamic token
+func (ClusterHandler *AwsClusterHandler) getDynamicKubeConfig(clusterDesc *eks.DescribeClusterOutput) string {
+
+	cluster := clusterDesc.Cluster
+
+	// Generate kubeconfig content with exec-based dynamic token using cluster NameId instead of SystemId
+	kubeconfigContent := fmt.Sprintf(`apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: %s
+    certificate-authority-data: %s
+  name: %s
+contexts:
+- context:
+    cluster: %s
+    user: aws-dynamic-token
+  name: %s
+current-context: %s
+users:
+- name: aws-dynamic-token
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1
+      interactiveMode: Never
+      command: curl
+      args:
+      - -s
+      - "http://localhost:1024/spider/cluster/CLUSTER_NAME_PLACEHOLDER/token?ConnectionName=CONNECTION_NAME_PLACEHOLDER"
+`, *cluster.Endpoint, *cluster.CertificateAuthority.Data, *cluster.Name, *cluster.Name, *cluster.Name, *cluster.Name)
+
+	return kubeconfigContent
+}
+
+// create EKS token using AWS STS
+func (ClusterHandler *AwsClusterHandler) generateEKSToken(clusterName string) (string, error) {
+	if ClusterHandler.StsClient == nil {
+		return "", fmt.Errorf("STS client not available")
+	}
+
+	// create request for GetCallerIdentity
+	input := &sts.GetCallerIdentityInput{}
+	req, _ := ClusterHandler.StsClient.GetCallerIdentityRequest(input)
+
+	req.HTTPRequest.Header.Set("x-k8s-aws-id", clusterName)
+
+	// set 15 minutes expiration for presigned URL(max is 1 hour)
+	duration := EKS_TOKEN_DURATION
+	presignedURL, err := req.Presign(duration)
+	if err != nil {
+		cblogger.Errorf("Failed to create presigned URL: %v", err)
+		return "", fmt.Errorf("failed to create presigned URL: %w", err)
+	}
+
+	encodedURL := base64.RawURLEncoding.EncodeToString([]byte(presignedURL))
+
+	// prepend "k8s-aws-v1." to the encoded URL
+	token := "k8s-aws-v1." + encodedURL
+
+	return token, nil
+}
+
+// GenerateClusterToken generates a token for cluster authentication
+// This implements the ClusterHandler interface
+func (ClusterHandler *AwsClusterHandler) GenerateClusterToken(clusterIID irs.IID) (string, error) {
+	cblogger.Info("call GenerateClusterToken()")
+
+	// For EKS, we need the cluster name to generate token
+	clusterName := clusterIID.SystemId
+	if clusterName == "" {
+		clusterName = clusterIID.NameId
+	}
+
+	if clusterName == "" {
+		return "", fmt.Errorf("cluster name is required for token generation")
+	}
+
+	// Generate EKS token using existing function
+	token, err := ClusterHandler.generateEKSToken(clusterName)
+	if err != nil {
+		cblogger.Errorf("Failed to generate cluster token: %v", err)
+		return "", fmt.Errorf("failed to generate cluster token: %w", err)
+	}
+
+	return token, nil
 }
 
 func (ClusterHandler *AwsClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {

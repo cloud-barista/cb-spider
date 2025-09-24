@@ -113,6 +113,9 @@ type ClusterHandler interface {
 	GetCluster(clusterIID IID) (ClusterInfo, error)
 	DeleteCluster(clusterIID IID) (bool, error)
 
+	//------ Token Management
+	GenerateClusterToken(clusterIID IID) (string, error)
+
 	//------ NodeGroup Management
 	AddNodeGroup(clusterIID IID, nodeGroupReqInfo NodeGroupInfo) (NodeGroupInfo, error)
 	SetNodeGroupAutoScaling(clusterIID IID, nodeGroupIID IID, on bool) (bool, error)

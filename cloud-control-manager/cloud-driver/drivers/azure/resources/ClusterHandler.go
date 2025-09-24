@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns"
 	"io"
 	"math"
 	"net"
@@ -17,6 +16,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
@@ -295,6 +296,13 @@ func (ac *AzureClusterHandler) GetCluster(clusterIID irs.IID) (info irs.ClusterI
 	LoggingInfo(hiscallInfo, start)
 	return info, nil
 }
+
+// GenerateClusterToken generates a token for cluster authentication
+// Azure AKS uses different authentication method, this is not supported yet
+func (ac *AzureClusterHandler) GenerateClusterToken(clusterIID irs.IID) (string, error) {
+	return "", errors.New("GenerateClusterToken is not supported for Azure AKS clusters yet")
+}
+
 func (ac *AzureClusterHandler) DeleteCluster(clusterIID irs.IID) (deleteResult bool, delErr error) {
 	hiscallInfo := GetCallLogScheme(ac.Region, call.CLUSTER, clusterIID.NameId, "DeleteCluster()")
 	start := call.Start()

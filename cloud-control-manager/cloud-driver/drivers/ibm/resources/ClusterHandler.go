@@ -5,6 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/platform-services-go-sdk/globalsearchv2"
 	"github.com/IBM/platform-services-go-sdk/globaltaggingv1"
@@ -16,11 +20,8 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/go-openapi/strfmt"
 	"github.com/hashicorp/go-version"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"strings"
-	"sync"
-	"time"
 )
 
 const (
@@ -457,6 +458,12 @@ func (ic *IbmClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInfo, er
 
 	LoggingInfo(hiscallInfo, start)
 	return irs.ClusterInfo{}, nil
+}
+
+// GenerateClusterToken generates a token for cluster authentication
+// IBM does not support dynamic token generation yet
+func (ic *IbmClusterHandler) GenerateClusterToken(clusterIID irs.IID) (string, error) {
+	return "", fmt.Errorf("GenerateClusterToken is not supported for IBM clusters yet")
 }
 
 func (ic *IbmClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {

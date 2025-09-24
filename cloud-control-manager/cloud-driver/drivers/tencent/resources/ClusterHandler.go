@@ -156,6 +156,12 @@ func (clusterHandler *TencentClusterHandler) GetCluster(clusterIID irs.IID) (irs
 	return *cluster_info, nil
 }
 
+// GenerateClusterToken generates a token for cluster authentication
+// Tencent Cloud does not support dynamic token generation yet
+func (clusterHandler *TencentClusterHandler) GenerateClusterToken(clusterIID irs.IID) (string, error) {
+	return "", fmt.Errorf("GenerateClusterToken is not supported for Tencent Cloud clusters yet")
+}
+
 func (clusterHandler *TencentClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
 	cblogger.Info("Tencent Cloud Driver: called DeleteCluster()")
 	callLogInfo := GetCallLogScheme(clusterHandler.RegionInfo, call.CLUSTER, clusterIID.NameId, "DeleteCluster()")
@@ -524,7 +530,6 @@ func getClusterInfo(access_key string, access_secret string, region_id string, c
 
 	clusterInfo.KeyValueList = irs.StructToKeyValueList(*res.Response.Clusters[0])
 
-
 	// NodeGroups
 	res2, err := tencent.ListNodeGroup(access_key, access_secret, region_id, cluster_id)
 	if err != nil {
@@ -764,7 +769,6 @@ func getNodeGroupInfo(access_key, access_secret, region_id, cluster_id, node_gro
 	// }
 
 	nodeGroupInfo.KeyValueList = irs.StructToKeyValueList(*res.Response.NodePool)
-
 
 	return nodeGroupInfo, err
 }

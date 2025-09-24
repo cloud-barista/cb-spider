@@ -28,6 +28,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/efs"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/pricing"
+	"github.com/aws/aws-sdk-go/service/sts"
 
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/eks"
@@ -62,6 +63,7 @@ type AwsCloudConnection struct {
 
 	EKSClient         *eks.EKS
 	IamClient         *iam.IAM
+	StsClient         *sts.STS
 	AutoScalingClient *autoscaling.AutoScaling
 
 	AnyCallClient *ec2.EC2
@@ -197,7 +199,7 @@ func (cloudConn *AwsCloudConnection) CreateClusterHandler() (irs.ClusterHandler,
 	if cloudConn.AutoScalingClient == nil {
 		cblogger.Info("cloudConn.AutoScalingClient is nil")
 	}
-	handler := ars.AwsClusterHandler{Region: cloudConn.Region, Client: cloudConn.EKSClient, EC2Client: cloudConn.VNetworkClient, Iam: cloudConn.IamClient, AutoScaling: cloudConn.AutoScalingClient, TagHandler: &tagHandler}
+	handler := ars.AwsClusterHandler{Region: cloudConn.Region, Client: cloudConn.EKSClient, EC2Client: cloudConn.VNetworkClient, Iam: cloudConn.IamClient, StsClient: cloudConn.StsClient, AutoScaling: cloudConn.AutoScalingClient, TagHandler: &tagHandler}
 	return &handler, nil
 }
 

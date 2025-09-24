@@ -1894,10 +1894,38 @@
         }
 
         function copyKubeconfigToClipboard(button) {
-            const kubeconfigText = button.previousElementSibling.textContent; // Grab the kubeconfig value
+            let kubeconfigText = button.previousElementSibling.textContent; // Grab the kubeconfig value
+            
+            // Remove leading/trailing whitespace and normalize line breaks
+            kubeconfigText = kubeconfigText.trim();
+            
+            // Remove excessive leading whitespace from each line while preserving YAML structure
+            const lines = kubeconfigText.split('\n');
+            const cleanLines = [];
+            let minIndent = Infinity;
+            
+            // Find minimum indentation (excluding empty lines)
+            lines.forEach(line => {
+                if (line.trim()) {
+                    const leadingSpaces = line.match(/^\s*/)[0].length;
+                    minIndent = Math.min(minIndent, leadingSpaces);
+                }
+            });
+            
+            // Remove the minimum indentation from all lines
+            lines.forEach(line => {
+                if (line.trim()) {
+                    cleanLines.push(line.substring(minIndent));
+                } else {
+                    cleanLines.push('');
+                }
+            });
+            
+            const cleanKubeconfigText = cleanLines.join('\n').trim();
+            
             const tempInput = document.createElement('textarea'); // Use textarea to handle multi-line text
             document.body.appendChild(tempInput);
-            tempInput.value = kubeconfigText; // Set its value to the kubeconfig YAML text
+            tempInput.value = cleanKubeconfigText; // Set its value to the cleaned kubeconfig YAML text
             tempInput.select(); // Select the text
             document.execCommand('copy'); // Execute the copy command
             document.body.removeChild(tempInput); // Remove the temporary input element            

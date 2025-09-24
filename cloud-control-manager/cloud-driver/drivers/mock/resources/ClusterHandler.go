@@ -207,6 +207,16 @@ func (clusterHandler *MockClusterHandler) GetCluster(iid irs.IID) (irs.ClusterIn
 	return irs.ClusterInfo{}, fmt.Errorf("%s Cluster does not exist!!", iid.NameId)
 }
 
+// GenerateClusterToken generates a token for cluster authentication
+// Mock implementation returns a fake token
+func (clusterHandler *MockClusterHandler) GenerateClusterToken(clusterIID irs.IID) (string, error) {
+	cblogger := cblog.GetLogger("CB-SPIDER")
+	cblogger.Info("Mock Driver: called GenerateClusterToken()!")
+
+	// Return a mock token for testing purposes
+	return "mock-token-k8s-aws-v1.aHR0cHM6Ly9zdHMuYW1hem9uYXdzLmNvbS8_QWN0aW9uPUdldENhbGxlcklkZW50aXR5", nil
+}
+
 func (clusterHandler *MockClusterHandler) DeleteCluster(iid irs.IID) (bool, error) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mock Driver: called DeleteCluster()!")

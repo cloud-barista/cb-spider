@@ -431,6 +431,7 @@ func RunServer() {
 		{"GET", "/cluster", ListCluster},
 		{"GET", "/cluster/:Name", GetCluster},
 		{"DELETE", "/cluster/:Name", DeleteCluster},
+		{"GET", "/cluster/:Name/token", GetClusterToken},
 		//-- for NodeGroup
 		{"POST", "/cluster/:Name/nodegroup", AddNodeGroup},
 		{"DELETE", "/cluster/:Name/nodegroup/:NodeGroupName", RemoveNodeGroup},
