@@ -271,6 +271,12 @@ func (nch *NhnCloudClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterIn
 	return *clusterInfo, nil
 }
 
+// GenerateClusterToken generates a token for cluster authentication
+// NHN Cloud does not support dynamic token generation yet
+func (nch *NhnCloudClusterHandler) GenerateClusterToken(clusterIID irs.IID) (string, error) {
+	return "", fmt.Errorf("GenerateClusterToken is not supported for NHN Cloud clusters yet")
+}
+
 func (nch *NhnCloudClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
 	defer func() {
 		if r := recover(); r != nil {

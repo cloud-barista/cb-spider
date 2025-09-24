@@ -38,6 +38,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/pricing"
+	"github.com/aws/aws-sdk-go/service/sts"
 	cblogger "github.com/cloud-barista/cb-log"
 )
 
@@ -280,6 +281,16 @@ func getIamClient(connectionInfo idrv.ConnectionInfo) (*iam.IAM, error) {
 	return iam.New(sess), nil
 }
 
+// STS 처리를 위한 STS 클라이언트 획득
+func getStsClient(connectionInfo idrv.ConnectionInfo) (*sts.STS, error) {
+	sess, err := newAWSSession(connectionInfo, connectionInfo.RegionInfo.Region)
+	if err != nil {
+		cblog.Error("Could not create AWS session", err)
+		return nil, err
+	}
+	return sts.New(sess), nil
+}
+
 // AutoScaling 처리를 위한 autoScaling 클라이언트 획득
 func getAutoScalingClient(connectionInfo idrv.ConnectionInfo) (*autoscaling.AutoScaling, error) {
 
@@ -342,6 +353,7 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 	nlbClient, err := getNLBClient(connectionInfo)
 	eksClient, err := getEKSClient(connectionInfo)
 	iamClient, err := getIamClient(connectionInfo)
+	stsClient, err := getStsClient(connectionInfo)
 	pricingClient, err := getPricingClient(connectionInfo)
 	autoScalingClient, err := getAutoScalingClient(connectionInfo)
 	efsClient, err := getEFSClient(connectionInfo)
@@ -372,6 +384,7 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 
 		EKSClient:         eksClient,
 		IamClient:         iamClient,
+		StsClient:         stsClient,
 		AutoScalingClient: autoScalingClient,
 
 		RegionZoneClient: vmClient,

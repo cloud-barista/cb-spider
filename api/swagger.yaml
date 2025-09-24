@@ -1959,6 +1959,23 @@ definitions:
     - ConnectionName
     - ReqInfo
     type: object
+  spider.ClusterTokenResponse:
+    properties:
+      apiVersion:
+        example: client.authentication.k8s.io/v1
+        type: string
+      kind:
+        example: ExecCredential
+        type: string
+      status:
+        $ref: '#/definitions/spider.ClusterTokenStatus'
+    type: object
+  spider.ClusterTokenStatus:
+    properties:
+      token:
+        example: k8s-aws-v1.aHR0cHM6Ly9zdHMuYXA...
+        type: string
+    type: object
   spider.ClusterUpgradeRequest:
     properties:
       ConnectionName:
@@ -4265,6 +4282,46 @@ paths:
           schema:
             $ref: '#/definitions/spider.SimpleMsg'
       summary: Set Node Group Auto Scaling
+      tags:
+      - '[Cluster Management]'
+  /cluster/{Name}/token:
+    get:
+      consumes:
+      - application/json
+      description: Get a temporary token for accessing EKS cluster (for kubectl exec
+        auth)
+      operationId: get-cluster-token
+      parameters:
+      - description: The name of the Cluster to get token for
+        in: path
+        name: Name
+        required: true
+        type: string
+      - description: The name of the Connection to use
+        in: query
+        name: ConnectionName
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Temporary token for cluster access
+          schema:
+            $ref: '#/definitions/spider.ClusterTokenResponse'
+        "400":
+          description: Bad Request, missing required parameters
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "404":
+          description: Resource Not Found
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/spider.SimpleMsg'
+      summary: Get Cluster Token
       tags:
       - '[Cluster Management]'
   /cluster/{Name}/upgrade:

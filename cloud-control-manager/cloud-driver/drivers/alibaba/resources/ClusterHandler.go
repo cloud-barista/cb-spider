@@ -289,6 +289,12 @@ func (ach *AlibabaClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInf
 	return *clusterInfo, nil
 }
 
+// GenerateClusterToken generates a token for cluster authentication
+// Alibaba Cloud does not support dynamic token generation yet
+func (ach *AlibabaClusterHandler) GenerateClusterToken(clusterIID irs.IID) (string, error) {
+	return "", fmt.Errorf("GenerateClusterToken is not supported for Alibaba Cloud clusters yet")
+}
+
 func (ach *AlibabaClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
 	cblogger.Debug("Alibaba Cloud Driver: called DeleteCluster()")
 	hiscallInfo := GetCallLogScheme(ach.RegionInfo, call.CLUSTER, clusterIID.NameId, "DeleteCluster()")
@@ -821,7 +827,6 @@ func (ach *AlibabaClusterHandler) getClusterInfoWithoutNodeGroupList(regionId, c
 
 	clusterInfo.KeyValueList = irs.StructToKeyValueList(cluster)
 
-
 	return clusterInfo, nil
 }
 
@@ -970,7 +975,6 @@ func (ach *AlibabaClusterHandler) getNodeGroupInfo(clusterId, nodeGroupId string
 	// }
 
 	nodeGroupInfo.KeyValueList = irs.StructToKeyValueList(nodepool)
-
 
 	return nodeGroupInfo, err
 }

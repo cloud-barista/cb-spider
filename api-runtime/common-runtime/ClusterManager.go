@@ -972,6 +972,16 @@ func ListCluster(connectionName string, rsType string) ([]*cres.ClusterInfo, err
 		// set ResourceInfo
 		info.IId = getUserIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
 
+		// Replace placeholders in kubeconfig with actual values
+		if info.AccessInfo.Kubeconfig != "" {
+			if strings.Contains(info.AccessInfo.Kubeconfig, "CONNECTION_NAME_PLACEHOLDER") {
+				info.AccessInfo.Kubeconfig = strings.ReplaceAll(info.AccessInfo.Kubeconfig, "CONNECTION_NAME_PLACEHOLDER", connectionName)
+			}
+			if strings.Contains(info.AccessInfo.Kubeconfig, "CLUSTER_NAME_PLACEHOLDER") {
+				info.AccessInfo.Kubeconfig = strings.ReplaceAll(info.AccessInfo.Kubeconfig, "CLUSTER_NAME_PLACEHOLDER", iidInfo.NameId)
+			}
+		}
+
 		// set used Resources's userIID
 		err = setResourcesNameId(connectionName, &info)
 		if err != nil {
@@ -1064,6 +1074,16 @@ func GetCluster(connectionName string, rsType string, clusterName string) (*cres
 	// set ResourceInfo
 	info.IId = getUserIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId})
 
+	// Replace placeholders in kubeconfig with actual values
+	if info.AccessInfo.Kubeconfig != "" {
+		if strings.Contains(info.AccessInfo.Kubeconfig, "CONNECTION_NAME_PLACEHOLDER") {
+			info.AccessInfo.Kubeconfig = strings.ReplaceAll(info.AccessInfo.Kubeconfig, "CONNECTION_NAME_PLACEHOLDER", connectionName)
+		}
+		if strings.Contains(info.AccessInfo.Kubeconfig, "CLUSTER_NAME_PLACEHOLDER") {
+			info.AccessInfo.Kubeconfig = strings.ReplaceAll(info.AccessInfo.Kubeconfig, "CLUSTER_NAME_PLACEHOLDER", clusterName)
+		}
+	}
+
 	// set used Resources's userIID
 	err = setResourcesNameId(connectionName, &info)
 	if err != nil {
@@ -1072,6 +1092,84 @@ func GetCluster(connectionName string, rsType string, clusterName string) (*cres
 	}
 
 	return &info, nil
+}
+
+// Generate Token for Cluster Authentication
+// (1) get IID(NameId)
+// (2) generate token using driver
+func GenerateClusterToken(connectionName string, clusterName string) (string, error) {
+	cblog.Info("call GenerateClusterToken()")
+
+	// check empty and trim user inputs
+	connectionName, err := EmptyCheckAndTrim("connectionName", connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return "", err
+	}
+
+	if err := checkCapability(connectionName, CLUSTER_HANDLER); err != nil {
+		return "", err
+	}
+
+	clusterName, err = EmptyCheckAndTrim("clusterName", clusterName)
+	if err != nil {
+		cblog.Error(err)
+		return "", err
+	}
+
+	cldConn, err := ccm.GetCloudConnection(connectionName)
+	if err != nil {
+		cblog.Error(err)
+		return "", err
+	}
+
+	handler, err := cldConn.CreateClusterHandler()
+	if err != nil {
+		cblog.Error(err)
+		return "", err
+	}
+
+	clusterSPLock.RLock(connectionName, clusterName)
+	defer clusterSPLock.RUnlock(connectionName, clusterName)
+
+	// (1) get IID(NameId)
+	var iidInfoList []*ClusterIIDInfo
+	if os.Getenv("PERMISSION_BASED_CONTROL_MODE") != "" {
+		err = getAuthIIDInfoList(connectionName, &iidInfoList)
+		if err != nil {
+			cblog.Error(err)
+			return "", err
+		}
+	} else {
+		err = infostore.ListByCondition(&iidInfoList, CONNECTION_NAME_COLUMN, connectionName)
+		if err != nil {
+			cblog.Error(err)
+			return "", err
+		}
+	}
+	var iidInfo *ClusterIIDInfo
+	var bool_ret = false
+	for _, OneIIdInfo := range iidInfoList {
+		if OneIIdInfo.NameId == clusterName {
+			iidInfo = OneIIdInfo
+			bool_ret = true
+			break
+		}
+	}
+	if bool_ret == false {
+		err := fmt.Errorf("The cluster '%s' does not exist!", clusterName)
+		cblog.Error(err)
+		return "", err
+	}
+
+	// (2) generate token using driver
+	token, err := handler.GenerateClusterToken(getDriverIID(cres.IID{NameId: iidInfo.NameId, SystemId: iidInfo.SystemId}))
+	if err != nil {
+		cblog.Error(err)
+		return "", err
+	}
+
+	return token, nil
 }
 
 // (1) check exist(NameID)

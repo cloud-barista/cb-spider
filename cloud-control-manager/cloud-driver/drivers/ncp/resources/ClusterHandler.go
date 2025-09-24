@@ -381,61 +381,61 @@ func (nvch *NcpVpcClusterHandler) addSubnetAndWait(vpcNo, subnetName, subnetRang
 func (nvch *NcpVpcClusterHandler) ListCluster() ([]*irs.ClusterInfo, error) {
 	return nil, nil
 	/*
-		if ClusterHandler == nil {
-			cblogger.Error("ClusterHandlerIs nil")
-			return nil, errors.New("ClusterHandler is nil")
+			if ClusterHandler == nil {
+				cblogger.Error("ClusterHandlerIs nil")
+				return nil, errors.New("ClusterHandler is nil")
 
-	   }
+		   }
 
-	   cblogger.Debug(ClusterHandler)
+		   cblogger.Debug(ClusterHandler)
 
-		if nvch.Client == nil {
-			cblogger.Error(" nvch.Client Is nil")
-			return nil, errors.New("ClusterHandler is nil")
-		}
+			if nvch.Client == nil {
+				cblogger.Error(" nvch.Client Is nil")
+				return nil, errors.New("ClusterHandler is nil")
+			}
 
-	   input := &vnks.ListClustersInput{}
-	   // logger for HisCall
-	   callogger := call.GetLogger("HISCALL")
+		   input := &vnks.ListClustersInput{}
+		   // logger for HisCall
+		   callogger := call.GetLogger("HISCALL")
 
-		callLogInfo := call.CLOUDLOGSCHEMA{
-			CloudOS:      call.AWS,
-			RegionZone:   nvch.Region.Zone,
-			ResourceType: call.CLUSTER,
-			ResourceName: "List()",
-			CloudOSAPI:   "ListClusters()",
-			ElapsedTime:  "",
-			ErrorMSG:     "",
-		}
+			callLogInfo := call.CLOUDLOGSCHEMA{
+				CloudOS:      call.AWS,
+				RegionZone:   nvch.Region.Zone,
+				ResourceType: call.CLUSTER,
+				ResourceName: "List()",
+				CloudOSAPI:   "ListClusters()",
+				ElapsedTime:  "",
+				ErrorMSG:     "",
+			}
 
-	   callLogStart := call.Start()
+		   callLogStart := call.Start()
 
-	   result, err := nvch.ClusterClient.ListClusters(input)
-	   callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
+		   result, err := nvch.ClusterClient.ListClusters(input)
+		   callLogInfo.ElapsedTime = call.Elapsed(callLogStart)
 
-		if err != nil {
-			callLogInfo.ErrorMSG = err.Error()
-			callogger.Info(call.String(callLogInfo))
-			cblogger.Error(err.Error())
-			return nil, err
-		}
+			if err != nil {
+				callLogInfo.ErrorMSG = err.Error()
+				callogger.Info(call.String(callLogInfo))
+				cblogger.Error(err.Error())
+				return nil, err
+			}
 
-	   callogger.Info(call.String(callLogInfo))
+		   callogger.Info(call.String(callLogInfo))
 
-	   cblogger.Debug(result)
+		   cblogger.Debug(result)
 
-	   clusterList := []*irs.ClusterInfo{}
-	   for _, clusterName := range result.Clusters {
+		   clusterList := []*irs.ClusterInfo{}
+		   for _, clusterName := range result.Clusters {
 
-		clusterInfo, err := nvch.GetCluster(irs.IID{SystemId: *clusterName})
-		if err != nil {
-			cblogger.Error(err)
-			continue //	에러가 나면 일단 skip시킴.
-		}
-		clusterList = append(clusterList, &clusterInfo)
+			clusterInfo, err := nvch.GetCluster(irs.IID{SystemId: *clusterName})
+			if err != nil {
+				cblogger.Error(err)
+				continue //	에러가 나면 일단 skip시킴.
+			}
+			clusterList = append(clusterList, &clusterInfo)
 
-	   }
-	   return clusterList, nil
+		   }
+		   return clusterList, nil
 	*/
 }
 
@@ -594,6 +594,12 @@ func (nvch *NcpVpcClusterHandler) GetCluster(clusterIID irs.IID) (irs.ClusterInf
 	LoggingInfo(hiscallInfo, start)
 	cblogger.Debug(clusterInfo)
 	return clusterInfo, nil
+}
+
+// GenerateClusterToken generates a token for cluster authentication
+// NCP does not support dynamic token generation yet
+func (nvch *NcpVpcClusterHandler) GenerateClusterToken(clusterIID irs.IID) (string, error) {
+	return "", fmt.Errorf("GenerateClusterToken is not supported for NCP clusters yet")
 }
 
 /*

@@ -2,6 +2,7 @@ package resources
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -15,6 +16,8 @@ import (
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	compute "google.golang.org/api/compute/v1"
 	container "google.golang.org/api/container/v1"
+	goo "golang.org/x/oauth2/google"
+	o2 "golang.org/x/oauth2"
 )
 
 const (
@@ -1375,9 +1378,15 @@ func convertNodeGroup(client *compute.Service, credential idrv.CredentialInfo, r
 }
 
 func getKubeConfig(cluster *container.Cluster) string {
+	// Return dynamic token kubeconfig instead of gke-gcloud-auth-plugin
+	return getDynamicKubeConfig(cluster)
+}
+
+// getStaticKubeConfig generates kubeconfig with gke-gcloud-auth-plugin (original format)
+func getStaticKubeConfig(cluster *container.Cluster) string {
 	configName := fmt.Sprintf("gke_%s_%s", cluster.Location, cluster.Name)
 
-	// Refernece format is from `gcloud container clusters get-credentials <cluster name> --location=<location>`
+	// Reference format is from `gcloud container clusters get-credentials <cluster name> --location=<location>`
 	kubeconfigContent := fmt.Sprintf(`apiVersion: v1
 clusters:
 - cluster:
@@ -1403,6 +1412,39 @@ users:
       provideClusterInfo: true
 `, cluster.Endpoint, cluster.MasterAuth.ClusterCaCertificate,
 		configName, configName, configName, configName, configName, configName)
+
+	return kubeconfigContent
+}
+
+// getDynamicKubeConfig generates kubeconfig with exec-based dynamic token
+func getDynamicKubeConfig(cluster *container.Cluster) string {
+	configName := fmt.Sprintf("gke_%s_%s", cluster.Location, cluster.Name)
+
+	// Generate kubeconfig content with exec-based dynamic token
+	kubeconfigContent := fmt.Sprintf(`apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    server: https://%s
+    certificate-authority-data: %s
+  name: %s
+contexts:
+- context:
+    cluster: %s
+    user: gcp-dynamic-token
+  name: %s
+current-context: %s
+users:
+- name: gcp-dynamic-token
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1
+      interactiveMode: Never
+      command: curl
+      args:
+      - -s
+      - "http://localhost:1024/spider/cluster/CLUSTER_NAME_PLACEHOLDER/token?ConnectionName=CONNECTION_NAME_PLACEHOLDER"
+`, cluster.Endpoint, cluster.MasterAuth.ClusterCaCertificate, configName, configName, configName, configName)
 
 	return kubeconfigContent
 }
@@ -1514,4 +1556,41 @@ func (ClusterHandler *GCPClusterHandler) hasActiveOperations(projectID, zone, cl
 	}
 
 	return false, nil
+}
+
+// GenerateClusterToken generates a token for cluster authentication
+// GCP uses OAuth2 access token for GKE cluster access
+func (ClusterHandler *GCPClusterHandler) GenerateClusterToken(clusterIID irs.IID) (string, error) {
+	cblogger.Info("call GenerateClusterToken()")
+	
+	// Create JWT config from credential info
+	gcpType := "service_account"
+	data := make(map[string]string)
+	data["type"] = gcpType
+	data["private_key"] = ClusterHandler.Credential.PrivateKey
+	data["client_email"] = ClusterHandler.Credential.ClientEmail
+
+	res, err := json.Marshal(data)
+	if err != nil {
+		cblogger.Errorf("Failed to marshal credential data: %v", err)
+		return "", fmt.Errorf("failed to marshal credential data: %w", err)
+	}
+
+	// Use cloud-platform scope for GKE access
+	authURL := "https://www.googleapis.com/auth/cloud-platform"
+	conf, err := goo.JWTConfigFromJSON(res, authURL)
+	if err != nil {
+		cblogger.Errorf("Failed to create JWT config: %v", err)
+		return "", fmt.Errorf("failed to create JWT config: %w", err)
+	}
+
+	// Get token using the JWT config
+	tokenSource := conf.TokenSource(o2.NoContext)
+	token, err := tokenSource.Token()
+	if err != nil {
+		cblogger.Errorf("Failed to get access token: %v", err)
+		return "", fmt.Errorf("failed to get access token: %w", err)
+	}
+	
+	return token.AccessToken, nil
 }
