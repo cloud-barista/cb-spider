@@ -333,6 +333,11 @@ func (vVPCHandler *GCPVPCHandler) WaitUntilComplete(resourceId string, isGlobalA
 			opSatus, err = vVPCHandler.Client.RegionOperations.Get(project, region, resourceId).Do()
 		}
 		if err != nil {
+			// Check if the operation is not found (404), which means it's already completed
+			if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "notFound") {
+				cblogger.Info("Operation not found, assuming it has already completed successfully.")
+				return nil
+			}
 			return err
 		}
 		cblogger.Infof("==> Status : Progress : [%d] / [%s]", opSatus.Progress, opSatus.Status)
