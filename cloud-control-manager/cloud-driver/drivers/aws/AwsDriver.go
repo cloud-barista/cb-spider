@@ -281,7 +281,7 @@ func getIamClient(connectionInfo idrv.ConnectionInfo) (*iam.IAM, error) {
 	return iam.New(sess), nil
 }
 
-// STS 처리를 위한 STS 클라이언트 획득
+// Get STS client for STS processing
 func getStsClient(connectionInfo idrv.ConnectionInfo) (*sts.STS, error) {
 	sess, err := newAWSSession(connectionInfo, connectionInfo.RegionInfo.Region)
 	if err != nil {
