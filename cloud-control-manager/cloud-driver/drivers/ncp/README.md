@@ -100,11 +100,6 @@ ssh -i /private_key_경로/private_key_파일명(~~.pem) cb-user@VM의_public_ip
 <p><br>
 
 #### # NCP VPC Cloud driver 사용시 참고 및 주의 사항
-  O NCP VPC 버전 driver이 지원하는 region 및 zone은 아래의 파일을 참고
-```
-  ./ncp/ncp/main/config/config.yaml.sample
-  ./cb-spider/api-runtime/rest-runtime/test/connect-config/14.ncp-conn-config.sh
-```
 
   ​O NCP VPC driver를 이용해 VM 생성시 VPC, Subnet, Network Interface에 대해 다음 사항을 참고
    - VPC의 private IP address 범위는, 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16 대역 내에서, 실제 생성시 /16~/28 범위여야함.
@@ -128,13 +123,22 @@ ssh -i /private_key_경로/private_key_파일명(~~.pem) cb-user@VM의_public_ip
      - Driver를 통해 조회된 VMSpec 목록의 부가정보들 중 'CorrespondingImageIds'에 그 Image ID가 포함되어 있는 VMSpec을 지정해야함.
 
   ​O NCP VPC driver를 이용해 VM 생성시 Root disk에 대해 다음 사항을 참고
-   - VM 생성시 option으로 RootDiskSize 및 RootDiskType 지정은 지원하지 않음.
-   - NCP VPC는 고정된 disk size로서, Linux 계열은 50GB, Windows 계열은 100GB를 지원함.
-   - Disk type으로는 HDD와 SDD를 지원하는데, VMSpec type에따라 지원하는 type이 다르니 VMSpec 선정시 disk type 확인이 필요함.
+	
+   - KVM 기반 VM 생성시는 option으로 RootDiskType / RootDiskSize 지정 기능을 지원
+     - 단, 현재 RootDiskType은 'HDD' type만 지원함.
+       - 참고) 'HDD' type은 NCP 내부적으로 'CB1'/'CB2' type(Common BlockStorage 1, Common BlockStorage 2 type)을 지칭하며, CB-Spider에 'HDD' type을 지정할 경우 드라이버에서 내부적으로 'CB1'이 지정됨.
+     - RootDiskSize는 10~2000GB 범위 내에서 지정 가능함.
+            
+   - XEN 기반 VM 생성시는 option으로 RootDiskType / RootDiskSize 지정 기능은 지원하지 않음.
+     - RootDiskType / RootDiskSize는 해당 VM image와 호횐되는 VMSpec에 지정된 type과 size로 자동 지정됨.
+       - Ex) VMSpec > s32-g2-h100 : HDD/100G, VMSpec > c32-g2-s50 : SSD/50G
+       - 단, Windows OS 계열은 RootDiskSize로서 기본적으로 100GB만 지원함.
+     
    - NCP 3세대(KVM 기반) VM을 REST API를 통해 처음 생성시 NCP 고객센터에 3세대(3G)용 쿼터 증가시켜주기를 요청해야함.
      - 처음에는 "~ Product type: [G3] CPU > CPU Creation limit: 0 ~" 이라는 오류 발생
-   - NCP 3세대(KVM 기반) VM은 disk size 지정 가능
-     - 참고 : https://guide.ncloud-docs.com/docs/server-create-vpc
+
+   - NCP VM 생성 관련 참고 가이드
+     - https://guide.ncloud-docs.com/docs/server-create-vpc
 
   O NCP VPC driver를 이용해 Root disk 외의 추가 Disk Volume(Block Storage) 생성시 다음 사항을 참고
    - (주의-1) NCP VPC에서 추가로 disk를 생성하기 위해서는 해당 region에 최소 하나의 VM이 생성되어있어야함.(Suspended or Running 상태의 VM)
