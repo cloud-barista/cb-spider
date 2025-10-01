@@ -130,7 +130,7 @@ ssh -i /private_key_경로/private_key_파일명(~~.pem) cb-user@VM의_public_ip
      - RootDiskSize는 10~2000GB 범위 내에서 지정 가능함.
             
    - XEN 기반 VM 생성시는 option으로 RootDiskType / RootDiskSize 지정 기능은 지원하지 않음.
-     - RootDiskType / RootDiskSize는 해당 VM image와 호횐되는 VMSpec에 지정된 type과 size로 자동 지정됨.
+     - RootDiskType / RootDiskSize는 해당 VM image와 호환되는 VMSpec에 지정된 type과 size로 자동 지정됨.
        - Ex) VMSpec > s32-g2-h100 : HDD/100G, VMSpec > c32-g2-s50 : SSD/50G
        - 단, Windows OS 계열은 RootDiskSize로서 기본적으로 100GB만 지원함.
      
