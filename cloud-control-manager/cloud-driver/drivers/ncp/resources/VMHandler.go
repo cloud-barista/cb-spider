@@ -6,6 +6,7 @@
 // by ETRI, 2020.12.
 // by ETRI, 2022.02. updated
 // by ETRI, 2025.01. updated
+// by ETRI, 2025.10. updated
 //==================================================================================================
 
 package resources
@@ -39,14 +40,14 @@ type NcpVpcVMHandler struct {
 }
 
 const (
-	lnxUserName             string = "cb-user"
+	lnxUserName 			string = "cb-user"
 	winUserName             string = "Administrator"
-	ubuntuCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-ncp/cloud-init"
-	centosCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-ncp/cloud-init-centos"
-	winCloudInitFilePath    string = "/cloud-driver-libs/.cloud-init-ncp/cloud-init-windows"
-	LnxTypeOs               string = "LNX" // LNX (LINUX)
-	WinTypeOS               string = "WND" // WND (WINDOWS)
-	KVMRootDiskType			string = "CB1" // Default root disk type for KVM-based VMs
+	ubuntuCloudInitFilePath	string = "/cloud-driver-libs/.cloud-init-ncp/cloud-init"
+	centosCloudInitFilePath	string = "/cloud-driver-libs/.cloud-init-ncp/cloud-init-centos"
+	winCloudInitFilePath 	string = "/cloud-driver-libs/.cloud-init-ncp/cloud-init-windows"
+	LnxTypeOs 				string = "LNX" // LNX (LINUX)
+	WinTypeOS 				string = "WND" // WND (WINDOWS)
+	KVMRootDiskType 		string = "CB1" // Default root disk type for KVM-based VMs
 )
 
 func init() {
@@ -163,7 +164,7 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 			reqDiskType = KVMRootDiskType
 		} else if strings.EqualFold(vmReqInfo.RootDiskType, "SSD") {
 			newErr := fmt.Errorf("Invalid root disk type. KVM-based VMs only support root disks of the ‘HDD’ type.")
-			cblogger.Error(newErr.Error())			
+			cblogger.Error(newErr.Error())
 			return irs.VMInfo{}, newErr
 		}
 
@@ -186,7 +187,7 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 					NetworkInterfaceOrder: 		orderInt32,					
 					// If you don't specify 'NetworkInterfaceNo', a NetworkInterface is automatically generated and applied.
 					AccessControlGroupNoList: 	securityGroupIds,
-				},				
+				},
 			},
 			
 			BlockStorageMappingList: []*vserver.BlockStorageMappingParameter{
@@ -1087,7 +1088,7 @@ func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInsta
 	} else if strings.EqualFold(*NcpInstance.BaseBlockStorageDiskDetailType.CodeName, "SSD") {
 		rootDiskType = "HDD"
 	}
-	
+
 	// PublicIpID : Using for deleting the PublicIP
 	vmInfo := irs.VMInfo{
 		IId: irs.IID{
