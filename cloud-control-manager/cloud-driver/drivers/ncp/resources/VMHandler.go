@@ -6,6 +6,7 @@
 // by ETRI, 2020.12.
 // by ETRI, 2022.02. updated
 // by ETRI, 2025.01. updated
+// by ETRI, 2025.10. updated
 //==================================================================================================
 
 package resources
@@ -13,7 +14,6 @@ package resources
 import (
 	"errors"
 	"fmt"
-
 	// "reflect"
 	"io"
 	"os"
@@ -39,18 +39,15 @@ type NcpVpcVMHandler struct {
 	VMClient       *vserver.APIClient
 }
 
-type nicOrderInt32 struct {
-	nicOrder *int32
-}
-
 const (
-	lnxUserName             string = "cb-user"
+	lnxUserName 			string = "cb-user"
 	winUserName             string = "Administrator"
-	ubuntuCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-ncp/cloud-init"
-	centosCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-ncp/cloud-init-centos"
-	winCloudInitFilePath    string = "/cloud-driver-libs/.cloud-init-ncp/cloud-init-windows"
-	LnxTypeOs               string = "LNX" // LNX (LINUX)
-	WinTypeOS               string = "WND" // WND (WINDOWS)
+	ubuntuCloudInitFilePath	string = "/cloud-driver-libs/.cloud-init-ncp/cloud-init"
+	centosCloudInitFilePath	string = "/cloud-driver-libs/.cloud-init-ncp/cloud-init-centos"
+	winCloudInitFilePath 	string = "/cloud-driver-libs/.cloud-init-ncp/cloud-init-windows"
+	LnxTypeOs 				string = "LNX" // LNX (LINUX)
+	WinTypeOS 				string = "WND" // WND (WINDOWS)
+	KVMRootDiskType 		string = "CB1" // Default root disk type for KVM-based VMs
 )
 
 func init() {
@@ -85,8 +82,6 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 		securityGroupIds = append(securityGroupIds, ncloud.String(sgID.SystemId))
 	}
 
-	nicOrderInt32 := getNicOrderInt32(0)
-
 	// Check whether the VM name exists
 	// Search by instanceName converted to lowercase
 	vmId, getErr := vmHandler.getVmIdByName(instanceName)
@@ -110,7 +105,9 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 
 	var initScriptNo *string
 	var instanceReq vserver.CreateServerInstancesRequest
+	orderInt32 := ncloud.Int32(0) // Convert numer 0 to *int32 type
 
+	// In case of Public Image
 	if vmReqInfo.ImageType == irs.PublicImage || vmReqInfo.ImageType == "" || vmReqInfo.ImageType == "default" {
 		imageHandler := NcpVpcImageHandler{
 			RegionInfo: vmHandler.RegionInfo,
@@ -162,6 +159,15 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 			}
 		}
 
+		var reqDiskType string
+		if strings.EqualFold(vmReqInfo.RootDiskType, "default") || strings.EqualFold(vmReqInfo.RootDiskType, "HDD") {
+			reqDiskType = KVMRootDiskType
+		} else if strings.EqualFold(vmReqInfo.RootDiskType, "SSD") {
+			newErr := fmt.Errorf("Invalid root disk type. KVM-based VMs only support root disks of the ‘HDD’ type.")
+			cblogger.Error(newErr.Error())
+			return irs.VMInfo{}, newErr
+		}
+
 		instanceReq = vserver.CreateServerInstancesRequest{
 			RegionCode: ncloud.String(vmHandler.RegionInfo.Region),
 			ServerName: ncloud.String(instanceName),
@@ -177,23 +183,27 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 
 			// ### Caution!! : AccessControlGroup corresponds to Server > 'ACG', not VPC > 'Network ACL' in the NCP VPC console.
 			NetworkInterfaceList: []*vserver.NetworkInterfaceParameter{
-				{NetworkInterfaceOrder: nicOrderInt32, AccessControlGroupNoList: securityGroupIds},
-				// If you don't enter NetworkInterfaceNo, a NetworkInterface is automatically generated and applied.
+				{
+					NetworkInterfaceOrder: 		orderInt32,					
+					// If you don't specify 'NetworkInterfaceNo', a NetworkInterface is automatically generated and applied.
+					AccessControlGroupNoList: 	securityGroupIds,
+				},
 			},
-
-			// BlockStorageMappingList: []*vserver.BlockStorageMappingParameter{
-			// 	{
-			// 		BlockStorageVolumeTypeCode: ncloud.String(vmReqInfo.RootDiskType),
-			// 		BlockStorageSize: 			ncloud.String(vmReqInfo.RootDiskSize),
-			// 	},
-			// }, 
+			
+			BlockStorageMappingList: []*vserver.BlockStorageMappingParameter{
+				{
+					Order:						orderInt32,
+					BlockStorageVolumeTypeCode: ncloud.String(reqDiskType),
+					BlockStorageSize: 			ncloud.String(vmReqInfo.RootDiskSize),
+				},
+			}, 
 
 			IsProtectServerTermination: ncloud.Bool(false), // Caution!! : If set to 'true', Terminate (VM return) is not controlled by API.
 			ServerCreateCount:          minCount,
 			InitScriptNo:               initScriptNo,
 		}
 
-	} else {
+	} else { // In case of My Image
 		imageHandler := NcpVpcImageHandler{
 			RegionInfo: vmHandler.RegionInfo,
 			VMClient:   vmHandler.VMClient,
@@ -275,8 +285,11 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 
 			// ### Caution!! : AccessControlGroup corresponds to Server > 'ACG', not VPC > 'Network ACL' in the NCP VPC console.
 			NetworkInterfaceList: []*vserver.NetworkInterfaceParameter{
-				{NetworkInterfaceOrder: nicOrderInt32, AccessControlGroupNoList: securityGroupIds},
-				// If you don't enter NetworkInterfaceNo, a NetworkInterface is automatically generated and applied.
+				{
+					NetworkInterfaceOrder: 		orderInt32, 
+					// If you don't specify 'NetworkInterfaceNo', a NetworkInterface is automatically generated and applied.
+					AccessControlGroupNoList: 	securityGroupIds,
+				},				
 			},
 
 			IsProtectServerTermination: ncloud.Bool(false), // Caution!! : If set to 'true', Terminate (VM return) is not controlled by API.
@@ -284,7 +297,6 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 			InitScriptNo:               initScriptNo,
 		}
 	}
-
 	// cblogger.Info("# instanceReq")
 	// spew.Dump(instanceReq)
 
@@ -1069,6 +1081,14 @@ func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInsta
 		return irs.VMInfo{}, newErr
 	}
 
+	// Caution!!) Because disk info within the NCP VM info is being returned with incorrect value.
+	var rootDiskType string
+	if strings.EqualFold(*NcpInstance.BaseBlockStorageDiskDetailType.CodeName, "CB1") || strings.EqualFold(*NcpInstance.BaseBlockStorageDiskDetailType.CodeName, "CB2") {
+		rootDiskType = "SSD"
+	} else if strings.EqualFold(*NcpInstance.BaseBlockStorageDiskDetailType.CodeName, "SSD") {
+		rootDiskType = "HDD"
+	}
+
 	// PublicIpID : Using for deleting the PublicIP
 	vmInfo := irs.VMInfo{
 		IId: irs.IID{
@@ -1096,7 +1116,7 @@ func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInsta
 		NetworkInterface: 	*netInterfaceName,
 		PublicIP:         	*publicIp,
 		PrivateIP:        	*privateIp,
-		RootDiskType:     	*NcpInstance.BaseBlockStorageDiskDetailType.CodeName,
+		RootDiskType:     	rootDiskType,
 		SSHAccessPoint:   	*publicIp + ":22",
 		KeyValueList:   	irs.StructToKeyValueList(NcpInstance),
 	}
@@ -1765,16 +1785,6 @@ func countSgKvList(sg sim.SecurityGroupInfo) int {
 		return 0
 	}
 	return len(sg.KeyValueInfoList)
-}
-
-// Convert Int data type to Int32 type!!
-func getNicOrderInt32(initInt int) *int32 {
-	temp := int32(initInt)
-	i32 := nicOrderInt32{
-		nicOrder: &temp,
-	}
-	cblogger.Infof("NicOrderInt32 : [%d]", *i32.nicOrder)
-	return i32.nicOrder
 }
 
 func (vmHandler *NcpVpcVMHandler) ListIID() ([]*irs.IID, error) {
