@@ -479,7 +479,7 @@ func (vmHandler *NcpVpcVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error)
 		callLogStart := call.Start()
 		_, err := vmHandler.VMClient.V2Api.StopServerInstances(&req)
 		if err != nil {
-			cblogger.Infof("Return message : [%v]", err.Error())
+			cblogger.Infof("Return message : [%v]", err)
 
 			if strings.Contains(err.Error(), "The storage allocated to the server is being manipulated.") || strings.Contains(err.Error(), "The storage assigned to the server is in operation.") {
 				retryCount++
@@ -1445,8 +1445,8 @@ func (vmHandler *NcpVpcVMHandler) waitToBeSuspended(vmIID irs.IID) (irs.VMStatus
 			cblogger.Infof("The VM is not 'Suspended' yet, so wait for a second more.")
 			time.Sleep(time.Second * 5)
 			if curRetryCnt > maxRetryCnt {
-				cblogger.Errorf("Despite waiting for a long time(%d sec), the VM is not 'suspended', so it is forcibly finishied.", maxRetryCnt)					
-				return irs.VMStatus("Failed"), errors.New("Despite waiting for a long time, the VM status is not 'suspended', so it is forcibly finishied..")
+				cblogger.Errorf("Despite waiting for a long time(%d sec), the VM is not 'suspended', so it is forcibly finished.", maxRetryCnt)					
+				return irs.VMStatus("Failed"), errors.New("Despite waiting for a long time, the VM status is not 'suspended', so it is forcibly finished..")
 			}
 		} else {
 			cblogger.Info("# SuspendVM() Finished")
@@ -1479,8 +1479,8 @@ func (vmHandler *NcpVpcVMHandler) waitToDelPublicIp(vmIID irs.IID) (irs.VMStatus
 			cblogger.Infof("The VM is still 'Terminating', so wait for a second more before inquiring the VM info.")
 			time.Sleep(time.Second * 5)
 			if curRetryCnt > maxRetryCnt {
-				cblogger.Errorf("Despite waiting for a long time(%d sec), the VM status is '%s', so it is forcibly finishied.", maxRetryCnt, curStatus)
-				return irs.VMStatus("Failed"), errors.New("Despite waiting for a long time, the VM status is 'Creating', so it is forcibly finishied.")
+				cblogger.Errorf("Despite waiting for a long time(%d sec), the VM status is '%s', so it is forcibly finished.", maxRetryCnt, curStatus)
+				return irs.VMStatus("Failed"), errors.New("Despite waiting for a long time, the VM status is 'Creating', so it is forcibly finished.")
 			}
 
 		case "Not Exist!!":
@@ -1524,8 +1524,8 @@ func (vmHandler *NcpVpcVMHandler) waitForDiskAttach(vmIID irs.IID) (irs.DiskStat
 			cblogger.Infof("The Root disk is not 'Attached' yet, so wait for a second more.")
 			time.Sleep(time.Second * 5)
 			if curRetryCnt > maxRetryCnt {
-				cblogger.Errorf("Despite waiting for a long time(%d sec), the Root disk status is '%s', so it is forcibly finishied.", maxRetryCnt, curStatus)
-				return irs.DiskStatus("Failed"), errors.New("Despite waiting for a long time, the Root disk is not 'Attached', so it is forcibly finishied.")
+				cblogger.Errorf("Despite waiting for a long time(%d sec), the Root disk status is '%s', so it is forcibly finished.", maxRetryCnt, curStatus)
+				return irs.DiskStatus("Failed"), errors.New("Despite waiting for a long time, the Root disk is not 'Attached', so it is forcibly finished.")
 			}
 		} else {
 			return irs.DiskStatus("Succeeded"), nil
