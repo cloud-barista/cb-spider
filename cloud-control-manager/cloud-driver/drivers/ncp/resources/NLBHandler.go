@@ -1558,7 +1558,7 @@ func (nlbHandler *NcpVpcNLBHandler) mappingNlbInfo(nlb vlb.LoadBalancerInstance)
 
 			healthCheckerInfo, err := nlbHandler.GetHealthCheckerInfo(nlb)
 			if err != nil {
-				newErr := fmt.Errorf("Failed to Get HealthChecker Info. frome the NLB. [%v]", err)
+				newErr := fmt.Errorf("Failed to Get HealthChecker Info. from the NLB. [%v]", err)
 				cblogger.Error(newErr.Error())
 				return irs.NLBInfo{}, newErr
 			}
