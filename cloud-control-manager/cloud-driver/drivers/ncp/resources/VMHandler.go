@@ -370,7 +370,7 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 		return irs.VMInfo{}, newErr
 	}
 	cblogger.Infof("==> Root disk [%s] status : [%s]", newVMIID.SystemId, curStat)
-	cblogger.Info("The Root disk has been fully Attatched to the VM!!")
+	cblogger.Info("The Root disk has been fully Attached to the VM!!")
 
 	vmInfo, error := vmHandler.GetVM(newVMIID)
 	if error != nil {
