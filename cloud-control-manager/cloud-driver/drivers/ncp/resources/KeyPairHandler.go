@@ -38,7 +38,6 @@ func (keyPairHandler *NcpVpcKeyPairHandler) ListKey() ([]*irs.KeyPairInfo, error
 		RegionCode: ncloud.String(keyPairHandler.RegionInfo.Region),
 		KeyName: 	nil,
 	}
-
 	callLogStart := call.Start()
 	result, err := keyPairHandler.VMClient.V2Api.GetLoginKeyList(&keypairReq)
 	if err != nil {
@@ -86,7 +85,6 @@ func (keyPairHandler *NcpVpcKeyPairHandler) CreateKey(keyPairReqInfo irs.KeyPair
 		RegionCode: ncloud.String(keyPairHandler.RegionInfo.Region),
 		KeyName: 	ncloud.String(keyPairReqInfo.IId.NameId),
 	}
-
 	// Creates a new  keypair with the given name
 	callLogStart := call.Start()
 	result, err := keyPairHandler.VMClient.V2Api.CreateLoginKey(&keypairReq)
@@ -230,7 +228,7 @@ func (keyPairHandler *NcpVpcKeyPairHandler) DeleteKey(keyIID irs.IID) (bool, err
 		return false, delKeyErr
 	}
 	cblogger.Infof("(# result.ReturnMessage : %s ", ncloud.StringValue(result.ReturnMessage))
-	cblogger.Infof("Succeeded in Deleting KeyPair Info : '%s' \n", keyIID.NameId)
+	cblogger.Infof("Succeeded in Deleting KeyPair Info : '%s'", keyIID.NameId)
 
 	return true, nil
 }
@@ -264,7 +262,6 @@ func (keyPairHandler *NcpVpcKeyPairHandler) ListIID() ([]*irs.IID, error) {
 		RegionCode: ncloud.String(keyPairHandler.RegionInfo.Region),
 		KeyName: 	nil,
 	}
-
 	callLogStart := call.Start()
 	result, err := keyPairHandler.VMClient.V2Api.GetLoginKeyList(&keypairReq)
 	if err != nil {
