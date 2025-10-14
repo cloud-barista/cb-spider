@@ -324,10 +324,10 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 	//=========================================
 	// Wait for VM information to be inquired
 	//=========================================
-	cblogger.Infof("# Waitting while Initializing New VM!!")
-	time.Sleep(time.Second * 15) // Waitting Before Getting New VM Status Info!!
+	cblogger.Infof("# Waiting while Initializing New VM!!")
+	time.Sleep(time.Second * 15) // Waiting Before Getting New VM Status Info!!
 
-	curStatus, statusErr := vmHandler.waitToGetVMInfo(newVMIID) // # Waitting while Creating VM!!")
+	curStatus, statusErr := vmHandler.waitToGetVMInfo(newVMIID) // # Waiting while Creating VM!!")
 	if statusErr != nil {
 		cblogger.Error(statusErr.Error())
 		LoggingError(callLogInfo, statusErr)
@@ -362,7 +362,7 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 	}
 	// cblogger.Infof(" === Registered S/G Info to DB : [%v]", sgInfo)
 
-	curStat, statErr := vmHandler.waitForDiskAttach(newVMIID) // # Waitting while Root disk is fully attached!!"
+	curStat, statErr := vmHandler.waitForDiskAttach(newVMIID) // # Waiting while Root disk is fully attached!!"
 	if statErr != nil {
 		newErr := fmt.Errorf("Failed to wait while Root disk is attaching!! : [%v]", statErr)
 		cblogger.Error(newErr.Error())
@@ -461,7 +461,7 @@ func (vmHandler *NcpVpcVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error)
 		return irs.VMStatus("Failed. " + resultStatus), err
 
 	} else {
-		curStatus, statusErr := vmHandler.waitForDiskAttach(vmIID) // # Waitting while Root disk is fully attached!!"
+		curStatus, statusErr := vmHandler.waitForDiskAttach(vmIID) // # Waiting while Root disk is fully attached!!"
 		if statusErr != nil {
 			cblogger.Error(statusErr.Error())
 			LoggingError(callLogInfo, statusErr)
