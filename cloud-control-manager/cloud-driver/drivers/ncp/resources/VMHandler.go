@@ -327,7 +327,7 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 	cblogger.Infof("# Waitting while Initializing New VM!!")
 	time.Sleep(time.Second * 15) // Waitting Before Getting New VM Status Info!!
 
-	curStatus, statusErr := vmHandler.waitToGetVMInfo(newVMIID) // # Waitting while Creating VM!!")
+	curStatus, statusErr := vmHandler.waitToGetVMInfo(newVMIID) // # Waiting while Creating VM!!")
 	if statusErr != nil {
 		cblogger.Error(statusErr.Error())
 		LoggingError(callLogInfo, statusErr)
