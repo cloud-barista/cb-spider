@@ -282,6 +282,23 @@ func (vpcHandler *NcpVpcVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 		return false, newErr
 	}
 
+
+	// 	nicNo := "5005759"
+	// 	delReq := vserver.DeleteNetworkInterfaceRequest{
+	// 		NetworkInterfaceNo:        &nicNo,
+	// 	}
+	// 	delResult, err := vmHandler.VMClient.V2Api.DeleteNetworkInterface(&delReq)
+	// 	if err != nil {
+	// 		newErr := fmt.Errorf("Failed to Get VM Instance List from NCP VPC!! : [%v]", err)
+	// 		cblogger.Error(newErr.Error())
+	// 		return nil, newErr
+	// 	}
+	// cblogger.Info("\n\n### delResult : ")
+	// spew.Dump(delResult)
+	// cblogger.Info("\n\n")
+
+
+	
 	var lastSubnetNo string
 	// Remove All Subnets belonging to the VPC
 	for _, subnet := range subnetInfoList {
@@ -772,7 +789,7 @@ func (vpcHandler *NcpVpcVPCHandler) waitForCreateVPC(vpcIID irs.IID) (string, er
 		}
 
 		vpcStatus := *ncpVpcInfo.VpcStatus.Code
-		cblogger.Infof("\n### VPC Status [%s] : ", vpcStatus)
+		cblogger.Infof("### VPC Status [%s] : ", vpcStatus)
 
 		if strings.EqualFold(vpcStatus, "CREATING") {
 			curRetryCnt++
@@ -822,7 +839,7 @@ func (vpcHandler *NcpVpcVPCHandler) waitForDeleteSubnet(vpcNo string, subnetIID 
 			}
 
 			subnetStatus := *ncpSubnetInfo.SubnetStatus.Code
-			cblogger.Infof("\n### Subnet Status [%s] : ", subnetStatus)
+			cblogger.Infof("### Subnet Status [%s] : ", subnetStatus)
 
 			if strings.EqualFold(subnetStatus, "TERMTING") || strings.EqualFold(subnetStatus, "CREATING") {
 				curRetryCnt++
@@ -864,7 +881,7 @@ func (vpcHandler *NcpVpcVPCHandler) waitForCreateSubnet(subnetId *string) (strin
 		}
 
 		subnetStatus := *ncpSubnetInfo.SubnetStatus.Code
-		cblogger.Infof("\n### Subnet Status [%s] : ", subnetStatus)
+		cblogger.Infof("### Subnet Status [%s] : ", subnetStatus)
 
 		if strings.EqualFold(subnetStatus, "CREATING") {
 			curRetryCnt++

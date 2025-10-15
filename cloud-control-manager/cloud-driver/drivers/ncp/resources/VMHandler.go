@@ -324,10 +324,10 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 	//=========================================
 	// Wait for VM information to be inquired
 	//=========================================
-	cblogger.Infof("# Waitting while Initializing New VM!!")
-	time.Sleep(time.Second * 15) // Waitting Before Getting New VM Status Info!!
+	cblogger.Infof("# Waiting while Initializing New VM!!")
+	time.Sleep(time.Second * 15) // Waiting Before Getting New VM Status Info!!
 
-	curStatus, statusErr := vmHandler.WaitToGetVMInfo(newVMIID) // # Waitting while Creating VM!!")
+	curStatus, statusErr := vmHandler.waitToGetVMInfo(newVMIID) // # Waiting while Creating VM!!")
 	if statusErr != nil {
 		cblogger.Error(statusErr.Error())
 		LoggingError(callLogInfo, statusErr)
@@ -355,12 +355,22 @@ func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, 
 	}
 
 	providerName := "NCP"
-	sgInfo, regErr := sim.RegisterSecurityGroup(newVMIID.SystemId, providerName, keyValueList)
+	_, regErr := sim.RegisterSecurityGroup(newVMIID.SystemId, providerName, keyValueList)
 	if regErr != nil {
 		cblogger.Error(regErr)
 		return irs.VMInfo{}, regErr
 	}
-	cblogger.Infof(" === S/G Info to Register to DB : [%v]", sgInfo)
+	// cblogger.Infof(" === Registered S/G Info to DB : [%v]", sgInfo)
+
+	curStat, statErr := vmHandler.waitForDiskAttach(newVMIID) // # Waiting while Root disk is fully attached!!"
+	if statErr != nil {
+		newErr := fmt.Errorf("Failed to wait while Root disk is attaching!! : [%v]", statErr)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMInfo{}, newErr
+	}
+	cblogger.Infof("==> Root disk [%s] status : [%s]", newVMIID.SystemId, curStat)
+	cblogger.Info("The Root disk has been fully Attached to the VM!!")
 
 	vmInfo, error := vmHandler.GetVM(newVMIID)
 	if error != nil {
@@ -451,7 +461,7 @@ func (vmHandler *NcpVpcVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error)
 		return irs.VMStatus("Failed. " + resultStatus), err
 
 	} else {
-		curStatus, statusErr := vmHandler.WaitForDiskAttach(vmIID) // # Waitting while Root disk is fully attached!!"
+		curStatus, statusErr := vmHandler.waitForDiskAttach(vmIID) // # Waiting while Root disk is fully attached!!"
 		if statusErr != nil {
 			cblogger.Error(statusErr.Error())
 			LoggingError(callLogInfo, statusErr)
@@ -467,9 +477,9 @@ func (vmHandler *NcpVpcVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error)
 			ServerInstanceNoList: instanceNoList,
 		}
 		callLogStart := call.Start()
-		runResult, err := vmHandler.VMClient.V2Api.StopServerInstances(&req)
+		_, err := vmHandler.VMClient.V2Api.StopServerInstances(&req)
 		if err != nil {
-			cblogger.Infof("Return message : [%v]", err.Error())
+			cblogger.Infof("Return message : [%v]", err)
 
 			if strings.Contains(err.Error(), "The storage allocated to the server is being manipulated.") || strings.Contains(err.Error(), "The storage assigned to the server is in operation.") {
 				retryCount++
@@ -485,7 +495,6 @@ func (vmHandler *NcpVpcVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error)
         	}
 		}
 		LoggingInfo(callLogInfo, callLogStart)
-		cblogger.Infof("[%v]", runResult)
 	}
 	return irs.VMStatus("Suspending"), nil
 }
@@ -725,15 +734,6 @@ func (vmHandler *NcpVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, erro
 		cblogger.Infof("VM Status : 'Running'. so it Can be Terminated AFTER SUSPENSION !!")
 		cblogger.Infof("vmID : [%s]", *serverInstanceNos[0])
 
-		curStatus, statusErr := vmHandler.WaitForDiskAttach(vmIID) // # Waitting while Root disk is fully attached!!"
-		if statusErr != nil {
-			cblogger.Error(statusErr.Error())
-			LoggingError(callLogInfo, statusErr)
-			return irs.VMStatus("Failed to wait while Root disk is attaching!!"), statusErr
-		}
-		cblogger.Infof("==> Root disk [%s] status : [%s]", vmIID.SystemId, curStatus)
-		cblogger.Info("The Root disk has been fully Attatched to the VM!!")
-
 		cblogger.Info("Start Suspend VM !!")
 		result, err := vmHandler.SuspendVM(vmIID)
 		if err != nil {
@@ -744,29 +744,15 @@ func (vmHandler *NcpVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, erro
 		}
 
 		//===================================
-		// 15-second wait for Suspending
+		// Wait for Suspending
 		//===================================
-		curRetryCnt := 0
-		maxRetryCnt := 15
-		for {
-			curStatus, statusErr := vmHandler.GetVMStatus(vmIID)
-			if statusErr != nil {
-				cblogger.Error(statusErr.Error())
-			}
-
-			cblogger.Infof("===> VM Status : [%s]", curStatus)
-			if curStatus != irs.VMStatus("Suspended") {
-				curRetryCnt++
-				cblogger.Infof("The VM is not 'Suspended' yet, so wait for a second more before inquiring Termination.")
-				time.Sleep(time.Second * 5)
-				if curRetryCnt > maxRetryCnt {
-					cblogger.Errorf("Despite waiting for a long time(%d sec), the VM is not 'suspended', so it is forcibly terminated.", maxRetryCnt)
-				}
-			} else {
-				break
-			}
+		curStatus, statusErr := vmHandler.waitToBeSuspended(vmIID)
+		if statusErr != nil {
+			cblogger.Error(statusErr.Error())
+			LoggingError(callLogInfo, statusErr)
+			return irs.VMStatus("Failed to Terminate!!"), statusErr
 		}
-		cblogger.Info("# SuspendVM() Finished")
+		cblogger.Infof("==> VM [%s] status : [%s]", vmIID.SystemId, curStatus)
 
 		retryCount := 0
 		timeout := 7 * time.Second
@@ -777,7 +763,6 @@ func (vmHandler *NcpVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, erro
 		callLogStart := call.Start()
 		runResult, err := vmHandler.VMClient.V2Api.TerminateServerInstances(&req)
 		if err != nil {
-			cblogger.Infof("Return message : [%v]", err.Error())
 
 			if strings.Contains(err.Error(), "The storage allocated to the server is being manipulated.") || strings.Contains(err.Error(), "The storage assigned to the server is in operation.") {
 				retryCount++
@@ -946,7 +931,6 @@ func (vmHandler *NcpVpcVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
 		return nil, newErr
 	}
 	LoggingInfo(callLogInfo, callLogStart)
-	cblogger.Info("Succeeded in Getting ServerInstanceList from NCP VPC!!")
 
 	var vmStatusList []*irs.VMStatusInfo
 	for _, vm := range result.ServerInstanceList {
@@ -991,8 +975,6 @@ func (vmHandler *NcpVpcVMHandler) ListVM() ([]*irs.VMInfo, error) {
 			newErr := fmt.Errorf("Failed to Get the Status of VM : [%s], [%v]", *vm.ServerInstanceNo, statusErr.Error())
 			cblogger.Error(newErr.Error())
 			return nil, newErr
-		} else {
-			cblogger.Infof("Succeeded in Getting the Status of VM [%s] : [%s]", *vm.ServerInstanceNo, string(curStatus))
 		}
 		cblogger.Infof("===> VM Status : [%s]", string(curStatus))
 
@@ -1268,8 +1250,6 @@ func (vmHandler *NcpVpcVMHandler) createLinuxInitScript(imageIID irs.IID, keyPai
 		newErr := fmt.Errorf("Failed to Find and Open the Cloud-Init File : [%v]", err)
 		cblogger.Error(newErr.Error())
 		return nil, newErr
-	} else {
-		cblogger.Infof("Succeeded in Finding and Opening the Cloud-Init File : ")
 	}
 	defer openFile.Close()
 
@@ -1410,11 +1390,12 @@ func (vmHandler *NcpVpcVMHandler) deleteInitScript(initScriptNum *string) (*stri
 }
 
 // Waiting for up to 500 seconds until VM info. can be Get
-func (vmHandler *NcpVpcVMHandler) WaitToGetVMInfo(vmIID irs.IID) (irs.VMStatus, error) {
+func (vmHandler *NcpVpcVMHandler) waitToGetVMInfo(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Info("NCP VPC Cloud driver: called waitToGetVMInfo()!!")
 	cblogger.Info("===> As VM info. cannot be retrieved immediately after VM creation, it waits until running.")
 
 	curRetryCnt := 0
-	maxRetryCnt := 500
+	maxRetryCnt := 100
 
 	for {
 		curStatus, statusErr := vmHandler.GetVMStatus(vmIID)
@@ -1442,12 +1423,45 @@ func (vmHandler *NcpVpcVMHandler) WaitToGetVMInfo(vmIID irs.IID) (irs.VMStatus, 
 	}
 }
 
-// Waiting for up to 600 seconds until Public IP can be Deleted.
-func (vmHandler *NcpVpcVMHandler) WaitToDelPublicIp(vmIID irs.IID) (irs.VMStatus, error) {
+// Waiting for up to 200 seconds until the VM is in suspended state.
+func (vmHandler *NcpVpcVMHandler) waitToBeSuspended(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Info("NCP VPC Cloud driver: called waitToBeSuspended()!!")
+	cblogger.Info("===> Wait until the VM is in suspended state.")
+
+	curRetryCnt := 0
+	maxRetryCnt := 40
+
+	for {
+		curStatus, statusErr := vmHandler.GetVMStatus(vmIID)
+		if statusErr != nil {
+			cblogger.Errorf("Failed to Get the VM Status of [%s]", vmIID.SystemId)
+			cblogger.Error(statusErr.Error())
+		} else {
+			cblogger.Infof("==> VM Status : [%s]", curStatus)
+		}
+
+		if curStatus != irs.VMStatus("Suspended") {
+			curRetryCnt++
+			cblogger.Infof("The VM is not 'Suspended' yet, so wait for a second more.")
+			time.Sleep(time.Second * 5)
+			if curRetryCnt > maxRetryCnt {
+				cblogger.Errorf("Despite waiting for a long time(%d sec), the VM is not 'suspended', so it is forcibly finished.", maxRetryCnt)					
+				return irs.VMStatus("Failed"), errors.New("Despite waiting for a long time, the VM status is not 'suspended', so it is forcibly finished..")
+			}
+		} else {
+			cblogger.Info("# SuspendVM() Finished")
+			return irs.VMStatus(curStatus), nil
+		}
+	}
+}
+
+// Waiting for up to 500 seconds until Public IP can be Deleted.
+func (vmHandler *NcpVpcVMHandler) waitToDelPublicIp(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Info("NCP VPC Cloud driver: called waitToDelPublicIp()!!")
 	cblogger.Info("======> As Public IP cannot be deleted immediately after VM termination call, it waits until termination is finished.")
 
 	curRetryCnt := 0
-	maxRetryCnt := 600
+	maxRetryCnt := 100
 
 	for {
 		curStatus, statusErr := vmHandler.GetVMStatus(vmIID)
@@ -1465,8 +1479,8 @@ func (vmHandler *NcpVpcVMHandler) WaitToDelPublicIp(vmIID irs.IID) (irs.VMStatus
 			cblogger.Infof("The VM is still 'Terminating', so wait for a second more before inquiring the VM info.")
 			time.Sleep(time.Second * 5)
 			if curRetryCnt > maxRetryCnt {
-				cblogger.Errorf("Despite waiting for a long time(%d sec), the VM status is '%s', so it is forcibly finishied.", maxRetryCnt, curStatus)
-				return irs.VMStatus("Failed"), errors.New("Despite waiting for a long time, the VM status is 'Creating', so it is forcibly finishied.")
+				cblogger.Errorf("Despite waiting for a long time(%d sec), the VM status is '%s', so it is forcibly finished.", maxRetryCnt, curStatus)
+				return irs.VMStatus("Failed"), errors.New("Despite waiting for a long time, the VM status is 'Creating', so it is forcibly finished.")
 			}
 
 		case "Not Exist!!":
@@ -1480,9 +1494,11 @@ func (vmHandler *NcpVpcVMHandler) WaitToDelPublicIp(vmIID irs.IID) (irs.VMStatus
 }
 
 // Waiting for up to 500 seconds until Root disk is fully attached
-func (vmHandler *NcpVpcVMHandler) WaitForDiskAttach(vmIID irs.IID) (irs.DiskStatus, error) {
+func (vmHandler *NcpVpcVMHandler) waitForDiskAttach(vmIID irs.IID) (irs.DiskStatus, error) {
+	cblogger.Info("NCP VPC Cloud driver: called waitForDiskAttach()!!")
+
 	curRetryCnt := 0
-	maxRetryCnt := 500
+	maxRetryCnt := 100
 
 	for {
 		storageNo, _, _, err := vmHandler.getVmRootDiskInfo(&vmIID.SystemId)
@@ -1505,11 +1521,11 @@ func (vmHandler *NcpVpcVMHandler) WaitForDiskAttach(vmIID irs.IID) (irs.DiskStat
 
 		if !strings.EqualFold(string(curStatus), string(irs.DiskAttached)) {
 			curRetryCnt++
-			cblogger.Infof("The Root disk is not 'Attached' yet, so wait for a second more before inquiring the VM Termination.")
+			cblogger.Infof("The Root disk is not 'Attached' yet, so wait for a second more.")
 			time.Sleep(time.Second * 5)
 			if curRetryCnt > maxRetryCnt {
-				cblogger.Errorf("Despite waiting for a long time(%d sec), the Root disk status is '%s', so it is forcibly finishied.", maxRetryCnt, curStatus)
-				return irs.DiskStatus("Failed"), errors.New("Despite waiting for a long time, the Root disk is not 'Attached', so it is forcibly finishied.")
+				cblogger.Errorf("Despite waiting for a long time(%d sec), the Root disk status is '%s', so it is forcibly finished.", maxRetryCnt, curStatus)
+				return irs.DiskStatus("Failed"), errors.New("Despite waiting for a long time, the Root disk is not 'Attached', so it is forcibly finished.")
 			}
 		} else {
 			return irs.DiskStatus("Succeeded"), nil
@@ -1534,12 +1550,12 @@ func (vmHandler *NcpVpcVMHandler) DeletePublicIP(vmInfo irs.VMInfo) (irs.VMStatu
 	//=========================================
 	// Wait for that the VM is terminated
 	//=========================================
-	curStatus, statusErr := vmHandler.WaitToDelPublicIp(vmInfo.IId)
+	curStatus, statusErr := vmHandler.waitToDelPublicIp(vmInfo.IId)
 	if statusErr != nil {
 		cblogger.Debug(statusErr.Error())
 		// return irs.VMStatus("Failed. "), statusErr   // Caution!! For in case 'VM instance does Not Exist' after VM Termination finished
 	}
-	cblogger.Infof("==> VM status of [%s] : [%s]", vmInfo.IId.NameId, curStatus)
+	cblogger.Infof("==> The status of VM : [%s] : [%s]", vmInfo.IId.NameId, curStatus)
 
 	deleteReq := vserver.DeletePublicIpInstanceRequest{
 		RegionCode:         ncloud.String(vmHandler.RegionInfo.Region), // $$$ Caution!!
@@ -1580,8 +1596,6 @@ func (vmHandler *NcpVpcVMHandler) getVmRootDiskInfo(vmId *string) (*string, *str
 
 	if len(storageResult.BlockStorageInstanceList) < 1 {
 		cblogger.Info("No BlockStorage Found!!") // Caution) No Error message!!
-	} else {
-		cblogger.Info("Succeeded in Getting BlockStorage Info!!")
 	}
 
 	var storageInstanceNo *string
@@ -1624,7 +1638,7 @@ func (vmHandler *NcpVpcVMHandler) getVmDataDiskList(vmId *string) ([]irs.IID, er
 		cblogger.Error(newErr.Error())
 		return nil, newErr
 	} else {
-		cblogger.Info("Succeeded in Getting BlockStorage Info!!")
+		cblogger.Info("Succeeded in Getting BlockStorage List!!")
 	}
 
 	var dataDiskIIDList []irs.IID
@@ -1661,10 +1675,7 @@ func (vmHandler *NcpVpcVMHandler) getNetworkInterfaceName(netInterfaceNo *string
 		newErr := fmt.Errorf("Failed to Get any NetworkInterface Info with the Network Interface ID!! : [%v]", err)
 		cblogger.Error(newErr.Error())
 		return nil, newErr
-	} else {
-		cblogger.Info("Succeeded in Getting NetworkInterface Info!!")
 	}
-
 	return netResult.NetworkInterfaceList[0].DeviceName, nil
 }
 
@@ -1742,10 +1753,7 @@ func (vmHandler *NcpVpcVMHandler) getNcpVMInfo(instanceId string) (*vserver.Serv
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return nil, newErr
-	} else {
-		cblogger.Info("Succeeded in Getting NCP VPC VM Instance Info.")
 	}
-
 	return instanceResult.ServerInstanceList[0], nil
 }
 

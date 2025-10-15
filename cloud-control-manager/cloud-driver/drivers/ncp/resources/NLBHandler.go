@@ -15,14 +15,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
 	// "github.com/davecgh/go-spew/spew"
 
 	ncloud "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
 	vlb "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vloadbalancer"
 	vpc "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vpc"
 	vserver "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
-
 	// cidr "github.com/apparentlymart/go-cidr/cidr"
 
 	cblog "github.com/cloud-barista/cb-log"
@@ -100,10 +98,6 @@ func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB
 		lbNetType = NcpInternalNlBType
 	}
 
-	// LB performance(throughput) type code : 'SMALL' | 'MEDIUM' | 'LARGE' (Default: 'SMALL')
-	// You can only select 'SMALL' if the LB type is 'NETWORK' and the LB network type is 'PRIVATE'.
-	throughputType := DefaultThroughputType
-
 	ncpVPCInfo, err := nlbHandler.getNcpVpcInfoWithName(nlbReqInfo.VpcIID.NameId)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get the NPC VPC Info : [%v]", err)
@@ -111,7 +105,6 @@ func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB
 		LoggingError(callLogInfo, newErr)
 		return irs.NLBInfo{}, newErr
 	}
-	cblogger.Infof("\n### ncpVPCInfo.VpcNo : [%s]", *ncpVPCInfo.VpcNo)
 
 	// Caution!! : ### Need a Subnet for 'LB Only'('LB Type' Subnet)
 	lbTypeSubnetId, err := nlbHandler.getSubnetIdForNlbOnly(*ncpVPCInfo.VpcNo)
@@ -122,7 +115,7 @@ func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB
 		return irs.NLBInfo{}, newErr
 	}
 
-	cblogger.Infof("\n### ncpVPCInfo.Ipv4CidrBlock : [%s]", *ncpVPCInfo.Ipv4CidrBlock)
+	cblogger.Infof("### ncpVPCInfo.Ipv4CidrBlock : [%s]", *ncpVPCInfo.Ipv4CidrBlock)
 	// VPC IP address ranges : /16~/28 in private IP range (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16)
 	cidrBlock := strings.Split(*ncpVPCInfo.Ipv4CidrBlock, ".")
 	cidrForNlbSubnet := cidrBlock[0] + "." + cidrBlock[1] + "." + cidrBlock[2] + LbTypeSubnetDefaultCidr
@@ -132,11 +125,11 @@ func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB
 
 	// ### In case, there is No Subnet for 'LB Only'('LB Type' subnet), Create the 'LB Type' subnet.
 	if strings.EqualFold(lbTypeSubnetId, "") {
-		cblogger.Info("\n# There is No Subnet for 'LB Only'('LB Type' Subnet), so it will be Created.")
+		cblogger.Info("# There is No Subnet for 'LB Only'('LB Type' Subnet), so it will be Created.")
 		// NCP VPC Subnet Name Max length : 30
 		// LbTypeSubnetDefaultName : "ncp-subnet-for-nlb" => length : 21
 		lbTypeSubnetName := LbTypeSubnetDefaultName + "-" + randSeq(8)
-		cblogger.Infof("\n### Subnet Name for LB Type subnet : [%s]", lbTypeSubnetName)
+		cblogger.Infof("### Subnet Name for LB Type subnet : [%s]", lbTypeSubnetName)
 
 		subnetReqInfo := irs.SubnetInfo{
 			IId: irs.IID{
@@ -158,7 +151,7 @@ func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB
 
 	// To Get Subnet No list
 	subnetNoList := []*string{ncloud.String(lbTypeSubnetId)}
-	// cblogger.Infof("\n### ID list of 'LB Type' Subnet : ")
+	// cblogger.Infof("### ID list of 'LB Type' Subnet : ")
 	// spew.Dump(subnetNoList)
 
 	// Note!! : SubnetNoList[] : Range constraints: Minimum range of 1. Maximum range of 2.
@@ -169,6 +162,9 @@ func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB
 		return irs.NLBInfo{}, newErr
 	}
 
+	// LB performance(throughput) type code : 'SMALL' | 'MEDIUM' | 'LARGE' (Default: 'SMALL')
+	// You can only select 'SMALL' if the LB type is 'NETWORK' and the LB network type is 'PRIVATE'.
+	throughputType := DefaultThroughputType
 	lbReq := vlb.CreateLoadBalancerInstanceRequest{
 		RegionCode:                  &nlbHandler.RegionInfo.Region,
 		IdleTimeout:                 &timeOut,
@@ -212,7 +208,7 @@ func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB
 	newNlbIID := irs.IID{SystemId: *result.LoadBalancerInstanceList[0].LoadBalancerInstanceNo}
 	_, err = nlbHandler.waitToGetNlbInfo(newNlbIID) // Wait until 'provisioningStatus' is "Running"
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Wait For Creating the NLB. [%v]", err.Error())
+		newErr := fmt.Errorf("Failed to Wait For Creating the NLB. [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.NLBInfo{}, newErr
@@ -220,29 +216,29 @@ func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB
 
 	ncpVMGroupInfo, err := nlbHandler.CreateVMGroup(*ncpVPCInfo.VpcNo, nlbReqInfo)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Create the VMGroup. [%v]", err.Error())
+		newErr := fmt.Errorf("Failed to Create the VMGroup. [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.NLBInfo{}, newErr
 	}
 	cblogger.Infof("# VMGroupNo : [%s]", *ncpVMGroupInfo.TargetGroupNo)
 
-	cblogger.Info("\n\n#### Waiting for Provisioning the New VMGroup!!")
+	cblogger.Info("#### Waiting for Provisioning the New VMGroup!!")
 	time.Sleep(20 * time.Second)
 
 	ncpListenerInfo, err := nlbHandler.CreateListener(newNlbIID.SystemId, nlbReqInfo, *ncpVMGroupInfo.TargetGroupNo)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Create the Listener. [%v]", err.Error())
+		newErr := fmt.Errorf("Failed to Create the Listener. [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.NLBInfo{}, newErr
 	}
 	cblogger.Infof("# LoadBalancerListenerNo : [%s]", *ncpListenerInfo.LoadBalancerListenerNo)
 
-	cblogger.Info("\n\n#### Waiting for Changing the NLB Settings!!")
+	cblogger.Info("#### Waiting for Changing the NLB Settings!!")
 	_, err = nlbHandler.waitToGetNlbInfo(newNlbIID) // Wait until 'provisioningStatus' is "Changing" -> "Running"
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Wait For Changing the NLB. [%v]", err.Error())
+		newErr := fmt.Errorf("Failed to Wait For Changing the NLB. [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.NLBInfo{}, newErr
@@ -250,7 +246,7 @@ func (nlbHandler *NcpVpcNLBHandler) CreateNLB(nlbReqInfo irs.NLBInfo) (createNLB
 
 	nlbInfo, err := nlbHandler.GetNLB(newNlbIID)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the Created NLB Info. [%v]", err.Error())
+		newErr := fmt.Errorf("Failed to Get the Created NLB Info. [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.NLBInfo{}, newErr
@@ -266,7 +262,6 @@ func (nlbHandler *NcpVpcNLBHandler) ListNLB() ([]*irs.NLBInfo, error) {
 	lbReq := vlb.GetLoadBalancerInstanceListRequest{
 		RegionCode: &nlbHandler.RegionInfo.Region, // CAUTION!! : Searching NLB Info by RegionCode (Not RegionNo)
 	}
-
 	callLogStart := call.Start()
 	result, err := nlbHandler.VLBClient.V2Api.GetLoadBalancerInstanceList(&lbReq)
 	if err != nil {
@@ -341,7 +336,6 @@ func (nlbHandler *NcpVpcNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 		LoadBalancerInstanceNoList: []*string{ncloud.String(nlbIID.SystemId)},
 		// ReturnPublicIpTogether: // It can only be used in the SGN(Singapore) and JPN(Japan) region. Default: 'true'
 	}
-
 	callLogStart := call.Start()
 	result, err := nlbHandler.VLBClient.V2Api.DeleteLoadBalancerInstances(&lbReq)
 	if err != nil {
@@ -364,7 +358,7 @@ func (nlbHandler *NcpVpcNLBHandler) DeleteNLB(nlbIID irs.IID) (bool, error) {
 	newNlbIID := irs.IID{SystemId: *result.LoadBalancerInstanceList[0].LoadBalancerInstanceNo}
 	_, err = nlbHandler.waitForDelNlb(newNlbIID) // Wait until 'provisioningStatus' is "Terminated"
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Wait For Deleting the NLB. [%v]", err.Error())
+		newErr := fmt.Errorf("Failed to Wait For Deleting the NLB. [%v]", err)
 		cblogger.Debug(newErr.Error())
 		// return false, newErr // Catuton!! : Incase the status is 'Terminated', fail to get NLB info.
 	}
@@ -430,7 +424,6 @@ func (nlbHandler *NcpVpcNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (i
 		TargetGroupNo: &nlbInfo.VMGroup.CspID,
 		TargetNoList:  newVmIdList,
 	}
-
 	callLogStart := call.Start()
 	result, err := nlbHandler.VLBClient.V2Api.AddTarget(&addReq)
 	if err != nil {
@@ -450,10 +443,10 @@ func (nlbHandler *NcpVpcNLBHandler) AddVMs(nlbIID irs.IID, vmIIDs *[]irs.IID) (i
 		cblogger.Info("Succeeded in Adding New VM to the Target Group.")
 	}
 
-	cblogger.Info("\n\n#### Waiting for Changing the NLB Settings!!")
+	cblogger.Info("#### Waiting for Changing the NLB Settings!!")
 	_, err = nlbHandler.waitToGetNlbInfo(nlbIID) // Wait until 'provisioningStatus' is "Changing" -> "Running"
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Wait For Changing the NLB. [%v]", err.Error())
+		newErr := fmt.Errorf("Failed to Wait For Changing the NLB. [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.VMGroupInfo{}, newErr
@@ -526,7 +519,6 @@ func (nlbHandler *NcpVpcNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID)
 		TargetGroupNo: &nlbInfo.VMGroup.CspID,
 		TargetNoList:  vmIdList,
 	}
-
 	callLogStart := call.Start()
 	result, err := nlbHandler.VLBClient.V2Api.RemoveTarget(&removeReq)
 	if err != nil {
@@ -546,10 +538,10 @@ func (nlbHandler *NcpVpcNLBHandler) RemoveVMs(nlbIID irs.IID, vmIIDs *[]irs.IID)
 		cblogger.Info("Succeeded in Removing the VM from the VMGroup!!")
 	}
 
-	cblogger.Info("\n\n#### Waiting for Changing the NLB Settings!!")
+	cblogger.Info("#### Waiting for Changing the NLB Settings!!")
 	_, err = nlbHandler.waitToGetNlbInfo(nlbIID) // Wait until 'provisioningStatus' is "Changing" -> "Running"
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Wait For Changing the NLB. [%v]", err.Error())
+		newErr := fmt.Errorf("Failed to Wait For Changing the NLB. [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
@@ -580,7 +572,7 @@ func (nlbHandler *NcpVpcNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.He
 
 	vmMemberList, err := nlbHandler.getNcpTargetVMList(nlbInfo.VMGroup.CspID)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get VM Member list. [%v]", err.Error())
+		newErr := fmt.Errorf("Failed to Get VM Member list. [%v]", err)
 		cblogger.Error(newErr.Error())
 		return irs.HealthInfo{}, newErr
 	}
@@ -599,7 +591,7 @@ func (nlbHandler *NcpVpcNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.He
 		for _, member := range vmMemberList {
 			vm, err := vmHandler.getNcpVMInfo(*member.TargetNo)
 			if err != nil {
-				newErr := fmt.Errorf("Failed to Get the NCP VM Info with Target No. [%v]", err.Error())
+				newErr := fmt.Errorf("Failed to Get the NCP VM Info with Target No. [%v]", err)
 				cblogger.Error(newErr.Error())
 				LoggingError(callLogInfo, newErr)
 				return irs.HealthInfo{}, newErr
@@ -609,10 +601,10 @@ func (nlbHandler *NcpVpcNLBHandler) GetVMGroupHealthInfo(nlbIID irs.IID) (irs.He
 
 			// HealthCheckStatus : UP(Health UP), DOWN(Health DOWN), UNUSED(Health UNUSED)
 			if strings.EqualFold(*member.HealthCheckStatus.Code, "UP") {
-				cblogger.Infof("\n### [%s] is Healthy VM.", *vm.ServerInstanceNo)
+				cblogger.Infof("### [%s] is Healthy VM.", *vm.ServerInstanceNo)
 				healthVMs = append(healthVMs, irs.IID{NameId: *vm.ServerName, SystemId: *vm.ServerInstanceNo})
 			} else {
-				cblogger.Infof("\n### [%s] is Unhealthy VM.", *vm.ServerInstanceNo)
+				cblogger.Infof("### [%s] is Unhealthy VM.", *vm.ServerInstanceNo)
 				unHealthVMs = append(unHealthVMs, irs.IID{NameId: *vm.ServerName, SystemId: *vm.ServerInstanceNo}) // In case of "INACTIVE", ...
 			}
 		}
@@ -665,7 +657,7 @@ func (nlbHandler *NcpVpcNLBHandler) CreateVMGroup(vpcId string, nlbReqInfo irs.N
 	vmGroupProtocol := strings.ToUpper(nlbReqInfo.VMGroup.Protocol)
 	switch vmGroupProtocol {
 	case "TCP", "UDP":
-		cblogger.Infof("\n# VMGroup Protocol : [%s]", vmGroupProtocol)
+		cblogger.Infof("# VMGroup Protocol : [%s]", vmGroupProtocol)
 	default:
 		newErr := fmt.Errorf("Invalid VMGroup Protocol Type. NCP VPC 'Network' Type LB VMGroup supports only TCP or UDP protocol!!") // According to the NCP VPC API document
 		cblogger.Error(newErr.Error())
@@ -694,7 +686,7 @@ func (nlbHandler *NcpVpcNLBHandler) CreateVMGroup(vpcId string, nlbReqInfo irs.N
 	healthCheckProtocol := strings.ToUpper(nlbReqInfo.HealthChecker.Protocol)
 	if strings.EqualFold(vmGroupProtocol, "TCP") || strings.EqualFold(vmGroupProtocol, "PROXY_TCP") {
 		if strings.EqualFold(healthCheckProtocol, "TCP") {
-			cblogger.Infof("\n# HealthChecker Protocol : [%s]", healthCheckProtocol)
+			cblogger.Infof("# HealthChecker Protocol : [%s]", healthCheckProtocol)
 		} else {
 			newErr := fmt.Errorf("Invalid HealthChecker Protocol Type!! (Must be 'TCP', when VMGroup Protocol is 'TCP' or 'PROXY_TCP' for NCP VPC Cloud.)")
 			cblogger.Error(newErr.Error())
@@ -704,7 +696,7 @@ func (nlbHandler *NcpVpcNLBHandler) CreateVMGroup(vpcId string, nlbReqInfo irs.N
 	}
 	if strings.EqualFold(vmGroupProtocol, "HTTP") || strings.EqualFold(vmGroupProtocol, "HTTPS") {
 		if strings.EqualFold(healthCheckProtocol, "HTTP") || strings.EqualFold(healthCheckProtocol, "HTTPS") {
-			cblogger.Infof("\n# HealthChecker Protocol : [%s]", healthCheckProtocol)
+			cblogger.Infof("# HealthChecker Protocol : [%s]", healthCheckProtocol)
 		} else {
 			newErr := fmt.Errorf("Invalid HealthChecker Protocol Type!! (Must be 'HTTP' or 'HTTPS', when VMGroup Protocol is 'HTTP' or 'HTTPS' for NCP VPC Cloud.)")
 			cblogger.Error(newErr.Error())
@@ -766,7 +758,6 @@ func (nlbHandler *NcpVpcNLBHandler) CreateVMGroup(vpcId string, nlbReqInfo irs.N
 		TargetNoList:                targetNoList,
 		VpcNo:                       &vpcId, // *** Required (Not Optional)
 	}
-
 	callLogStart := call.Start()
 	result, err := nlbHandler.VLBClient.V2Api.CreateTargetGroup(&targetGroupReq)
 	if err != nil {
@@ -805,7 +796,6 @@ func (nlbHandler *NcpVpcNLBHandler) DeleteVMGroup(vmGroupId string) (bool, error
 		RegionCode:        &nlbHandler.RegionInfo.Region,
 		TargetGroupNoList: vmGroupNoList,
 	}
-
 	callLogStart := call.Start()
 	result, err := nlbHandler.VLBClient.V2Api.DeleteTargetGroups(&vmGroupReq)
 	if err != nil {
@@ -856,7 +846,7 @@ func (nlbHandler *NcpVpcNLBHandler) CreateListener(nlbId string, nlbReqInfo irs.
 	listenerProtocol := strings.ToUpper(nlbReqInfo.Listener.Protocol)
 	switch listenerProtocol {
 	case "TCP", "UDP":
-		cblogger.Infof("\n# Listener Protocol : [%s]", listenerProtocol)
+		cblogger.Infof("# Listener Protocol : [%s]", listenerProtocol)
 	default:
 		newErr := fmt.Errorf("Invalid Listener Protocol Type. NCP VPC 'Network' Type LB Listener supports only TCP or UDP protocol!!") // According to the NCP VPC API document
 		cblogger.Error(newErr.Error())
@@ -872,7 +862,6 @@ func (nlbHandler *NcpVpcNLBHandler) CreateListener(nlbId string, nlbReqInfo irs.
 		ProtocolTypeCode:       &listenerProtocol, // *** Required (Not Optional)
 		TargetGroupNo:          &vmGroupNo,        // *** Required (Not Optional)
 	}
-
 	callLogStart := call.Start()
 	result, err := nlbHandler.VLBClient.V2Api.CreateLoadBalancerListener(&listenerReq)
 	if err != nil {
@@ -961,13 +950,13 @@ func (nlbHandler *NcpVpcNLBHandler) GetVMGroupInfo(nlb vlb.LoadBalancerInstance)
 	// Note : Cloud-Barista supports only this case => [ LB : Listener : VM Group : Health Checker = 1 : 1 : 1 : 1 ]
 	ncpTargetGroupList, err := nlbHandler.getNcpTargetGroupListWithVpcId(*nlb.VpcNo)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get NCP TargetGroup List with the VPC ID. [%v]", err.Error())
+		newErr := fmt.Errorf("Failed to Get NCP TargetGroup List with the VPC ID. [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.VMGroupInfo{}, newErr
 	}
 	if len(ncpTargetGroupList) < 1 {
-		newErr := fmt.Errorf("Failed to Get Any NCP TargetGroup. [%v]", err.Error())
+		newErr := fmt.Errorf("Failed to Get Any NCP TargetGroup. [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.VMGroupInfo{}, newErr
@@ -984,7 +973,7 @@ func (nlbHandler *NcpVpcNLBHandler) GetVMGroupInfo(nlb vlb.LoadBalancerInstance)
 
 	targetVmList, err := nlbHandler.getNcpTargetVMList(*ncpTargetGroupList[0].TargetGroupNo)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get NCP VPC Target Members. [%v]", err.Error())
+		newErr := fmt.Errorf("Failed to Get NCP VPC Target Members. [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.VMGroupInfo{}, newErr
@@ -1003,7 +992,7 @@ func (nlbHandler *NcpVpcNLBHandler) GetVMGroupInfo(nlb vlb.LoadBalancerInstance)
 		for _, member := range targetVmList {
 			vm, err := vmHandler.getNcpVMInfo(*member.TargetNo)
 			if err != nil {
-				newErr := fmt.Errorf("Failed to Get the NCP VM Info with Target No. [%v]", err.Error())
+				newErr := fmt.Errorf("Failed to Get the NCP VM Info with Target No. [%v]", err)
 				cblogger.Error(newErr.Error())
 				LoggingError(callLogInfo, newErr)
 				return irs.VMGroupInfo{}, newErr
@@ -1043,13 +1032,13 @@ func (nlbHandler *NcpVpcNLBHandler) GetHealthCheckerInfo(nlb vlb.LoadBalancerIns
 	// Note : Cloud-Barista supports only this case => [ LB : Listener : VM Group : Health Checker = 1 : 1 : 1 : 1 ]
 	ncpTargetGroupList, err := nlbHandler.getNcpTargetGroupListWithVpcId(*nlb.VpcNo)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get NCP TargetGroup List with the VPC ID. [%v]", err.Error())
+		newErr := fmt.Errorf("Failed to Get NCP TargetGroup List with the VPC ID. [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.HealthCheckerInfo{}, newErr
 	}
 	if len(ncpTargetGroupList) < 1 {
-		newErr := fmt.Errorf("Failed to Get Any NCP TargetGroup. [%v]", err.Error())
+		newErr := fmt.Errorf("Failed to Get Any NCP TargetGroup. [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.HealthCheckerInfo{}, newErr
@@ -1084,7 +1073,6 @@ func (nlbHandler *NcpVpcNLBHandler) getNcpTargetGroupListWithVpcId(vpcId string)
 		RegionCode: &nlbHandler.RegionInfo.Region,
 		VpcNo:      &vpcId,
 	}
-
 	callLogStart := call.Start()
 	result, err := nlbHandler.VLBClient.V2Api.GetTargetGroupList(&targetGroupReq)
 	if err != nil {
@@ -1286,7 +1274,7 @@ func (nlbHandler *NcpVpcNLBHandler) getNcpNlbStatus(nlbIID irs.IID) (string, err
 		return "", newErr
 	}
 
-	cblogger.Infof("\n### NLB Status : [%s]", *ncpNlbInfo.LoadBalancerInstanceStatusName)
+	cblogger.Infof("### NLB Status : [%s]", *ncpNlbInfo.LoadBalancerInstanceStatusName)
 	return *ncpNlbInfo.LoadBalancerInstanceStatusName, nil
 }
 
@@ -1319,8 +1307,6 @@ func (nlbHandler *NcpVpcNLBHandler) getNcpNlbInfo(nlbIID irs.IID) (*vlb.LoadBala
 		newErr := fmt.Errorf("The NLB does not exist on NCP VPC!!")
 		cblogger.Debug(newErr.Error())
 		return nil, newErr
-	} else {
-		cblogger.Info("Succeeded in Getting the NLB Info.")
 	}
 
 	return result.LoadBalancerInstanceList[0], nil
@@ -1343,7 +1329,6 @@ func (nlbHandler *NcpVpcNLBHandler) getNcpNlbListWithVpcId(vpcId *string) ([]*vl
 		RegionCode: &nlbHandler.RegionInfo.Region,
 		VpcNo:      vpcId,
 	}
-
 	callLogStart := call.Start()
 	result, err := nlbHandler.VLBClient.V2Api.GetLoadBalancerInstanceList(&lbReq)
 	if err != nil {
@@ -1419,7 +1404,7 @@ func (nlbHandler *NcpVpcNLBHandler) creatNcpSubnetForNlbOnly(vpcIID irs.IID, sub
 		LoggingError(callLogInfo, newErr)
 		return nil, newErr
 	}
-	cblogger.Infof("\n### Subnet Status : [%s]", subnetStatus)
+	cblogger.Infof("### Subnet Status : [%s]", subnetStatus)
 
 	return ncpSubnetInfo, nil
 }
@@ -1438,18 +1423,18 @@ func (nlbHandler *NcpVpcNLBHandler) CleanUpNLB(vpcId *string) (bool, error) {
 
 	ncpNlbList, err := nlbHandler.getNcpNlbListWithVpcId(vpcId)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get NCP NLB List with the VPC ID. [%v]", err.Error())
+		newErr := fmt.Errorf("Failed to Get NCP NLB List with the VPC ID. [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
 	}
 	nlbCount := len(ncpNlbList)
-	cblogger.Infof("\n# NLB Count : [%d]", nlbCount)
+	cblogger.Infof("# NLB Count : [%d]", nlbCount)
 
 	// Note : Cloud-Barista supports only this case => [ LB : Listener : VM Group : Health Checker = 1 : 1 : 1 : 1 ]
 	ncpTargetGroupList, err := nlbHandler.getNcpTargetGroupListWithVpcId(*vpcId)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get NCP VMGroup List with the VPC ID. [%v]", err.Error())
+		newErr := fmt.Errorf("Failed to Get NCP VMGroup List with the VPC ID. [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
@@ -1457,10 +1442,10 @@ func (nlbHandler *NcpVpcNLBHandler) CleanUpNLB(vpcId *string) (bool, error) {
 	if len(ncpTargetGroupList) < 1 {
 		cblogger.Info("# VMGroup does Not Exist!!")
 	} else {
-		cblogger.Infof("\n\n# VMGroup No to Delete : [%s]", *ncpTargetGroupList[0].TargetGroupNo)
+		cblogger.Info("# Start to Delete the VMGroup!!")
 		delResult, err := nlbHandler.DeleteVMGroup(*ncpTargetGroupList[0].TargetGroupNo)
 		if err != nil {
-			newErr := fmt.Errorf("Failed to Get NCP VMGroup List with the VPC ID. [%v]", err.Error())
+			newErr := fmt.Errorf("Failed to Get NCP VMGroup List with the VPC ID. [%v]", err)
 			cblogger.Error(newErr.Error())
 			LoggingError(callLogInfo, newErr)
 			return false, newErr
@@ -1484,19 +1469,19 @@ func (nlbHandler *NcpVpcNLBHandler) CleanUpNLB(vpcId *string) (bool, error) {
 			return false, newErr
 		}
 
+		cblogger.Info("# Start to Delete the LB Type Subnet!!")
 		vpcHandler := NcpVpcVPCHandler{
 			RegionInfo: nlbHandler.RegionInfo,
 			VPCClient:  nlbHandler.VPCClient,
 		}
-
 		result, removeErr := vpcHandler.RemoveSubnet(irs.IID{SystemId: *vpcId}, irs.IID{SystemId: lbTypeSubnetId})
 		if removeErr != nil {
-			newErr := fmt.Errorf("Failed to Remove the LB Type Subnet : [%v]", removeErr)
+			newErr := fmt.Errorf("Failed to Delete the LB Type Subnet : [%v]", removeErr)
 			cblogger.Error(newErr.Error())
 			return false, newErr
 		}
 		if result {
-			cblogger.Info("Succeeded in Removing the LB Type subnet.")
+			cblogger.Info("Succeeded in Deleting the LB Type subnet.")
 			return true, nil
 		}
 	}
@@ -1553,7 +1538,7 @@ func (nlbHandler *NcpVpcNLBHandler) mappingNlbInfo(nlb vlb.LoadBalancerInstance)
 			// Note : It is assumed that there is only one listener in the LB.
 			listenerInfo, err := nlbHandler.GetListenerInfo(*nlb.LoadBalancerListenerNoList[0], *nlb.LoadBalancerInstanceNo)
 			if err != nil {
-				newErr := fmt.Errorf("Failed to Get the Listener Info : [%v]", err.Error())
+				newErr := fmt.Errorf("Failed to Get the Listener Info : [%v]", err)
 				cblogger.Error(newErr.Error())
 				return irs.NLBInfo{}, newErr
 			}
@@ -1565,7 +1550,7 @@ func (nlbHandler *NcpVpcNLBHandler) mappingNlbInfo(nlb vlb.LoadBalancerInstance)
 
 			vmGroupInfo, err := nlbHandler.GetVMGroupInfo(nlb)
 			if err != nil {
-				newErr := fmt.Errorf("Failed to Get VMGroup Info from the NLB. [%v]", err.Error())
+				newErr := fmt.Errorf("Failed to Get VMGroup Info from the NLB. [%v]", err)
 				cblogger.Error(newErr.Error())
 				// return irs.NLBInfo{}, newErr
 			}
@@ -1573,7 +1558,7 @@ func (nlbHandler *NcpVpcNLBHandler) mappingNlbInfo(nlb vlb.LoadBalancerInstance)
 
 			healthCheckerInfo, err := nlbHandler.GetHealthCheckerInfo(nlb)
 			if err != nil {
-				newErr := fmt.Errorf("Failed to Get HealthChecker Info. frome the NLB. [%v]", err.Error())
+				newErr := fmt.Errorf("Failed to Get HealthChecker Info. from the NLB. [%v]", err)
 				cblogger.Error(newErr.Error())
 				return irs.NLBInfo{}, newErr
 			}
@@ -1609,7 +1594,7 @@ func (nlbHandler *NcpVpcNLBHandler) mappingListenerInfo(listener vlb.LoadBalance
 		CspID:    		*listener.LoadBalancerListenerNo,
 		KeyValueList:   irs.StructToKeyValueList(listener),
 	}
-
+	
 	// keyValueList := []irs.KeyValue{
 	// 	{Key: "UseHttp2", Value: strconv.FormatBool(*listener.UseHttp2)},
 	// }
@@ -1644,7 +1629,6 @@ func (nlbHandler *NcpVpcNLBHandler) ListIID() ([]*irs.IID, error) {
 	lbReq := vlb.GetLoadBalancerInstanceListRequest{
 		RegionCode: &nlbHandler.RegionInfo.Region, // CAUTION!! : Searching NLB Info by RegionCode (Not RegionNo)
 	}
-
 	callLogStart := call.Start()
 	result, err := nlbHandler.VLBClient.V2Api.GetLoadBalancerInstanceList(&lbReq)
 	if err != nil {
