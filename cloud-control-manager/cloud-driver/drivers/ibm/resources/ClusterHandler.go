@@ -1427,7 +1427,7 @@ func (ic *IbmClusterHandler) getAddonInfo(clusterId string, resourceGroupId stri
 	clusterAddons := irs.AddonsInfo{KeyValueList: keyValues}
 
 	// ## Don't use StructToKeyValueList() for AddonsInfo,
-	// ## because Addons key-value has speciffic structure and it is used in installAutoScalerAddon()
+	// ## because Addons key-value has specific structure and it is used in installAutoScalerAddon()
 	// var addons []irs.KeyValue
 	// for _, addon := range rawClusterAddons {
 	// 	keyValues := irs.StructToKeyValueList(addon)
