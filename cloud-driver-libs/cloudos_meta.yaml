@@ -65,7 +65,7 @@ TENCENT:
   disktype: CLOUD_PREMIUM / CLOUD_SSD / CLOUD_HSSD / CLOUD_BASIC / CLOUD_TSSD
   disksize: CLOUD_PREMIUM|10|32000|GB / CLOUD_SSD|20|32000|GB / CLOUD_HSSD|20|32000|GB / CLOUD_BASIC|10|32000|GB / CLOUD_TSSD|10|32000|GB
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster / FileSystem
-  idmaxlength: 60 / 60 / 60 / 25 / 88 / 60 / 60 / 60 /50
+  idmaxlength: 60 / 60 / 60 / 25 / 88 / 60 / 60 / 60 / 50
   defaultregiontoquery: ap-seoul / ap-seoul-1
 
 IBM:
@@ -73,7 +73,7 @@ IBM:
   credential: ApiKey
   credentialcsp: ApiKey
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster / FileSystem
-  idmaxlength: 63 / 63 / 63 / 63 / 63 / 63 / 63 / 63 / 63
+  idmaxlength: 63 / 63 / 63 / 63 / 63 / 63 / 63 / 63 / 32 / 63
   defaultregiontoquery: us-south / us-south-1
 
 OPENSTACK:

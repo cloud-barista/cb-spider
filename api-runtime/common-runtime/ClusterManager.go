@@ -779,8 +779,9 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 				} else if strings.EqualFold(providerName, "NHN") && strings.Contains(err.Error(), "not exist") {
 					sgIIdInfo.NameId = "#" + sgIID.SystemId
 				} else {
-					cblog.Error(err)
-					return err
+					// cblog.Error(err)
+					// return err
+					continue
 				}
 			}
 			sgIIdInfo = *castedIIDInfo.(*SGIIDInfo)
@@ -800,8 +801,9 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 				} else if strings.EqualFold(providerName, "NHN") && strings.Contains(err.Error(), "not exist") {
 					sgIIdInfo.NameId = "#" + sgIID.SystemId
 				} else {
-					cblog.Error(err)
-					return err
+					// cblog.Error(err)
+					// return err
+					continue
 				}
 			}
 		}
@@ -879,8 +881,8 @@ func setResourcesNameId(connectionName string, info *cres.ClusterInfo) error {
 			// ex) /.../Microsoft.Network/.../ID vs /.../Microsoft.Compute/.../ID
 			err := infostore.GetByContain(&keyIIDInfo, CONNECTION_NAME_COLUMN, connectionName, SYSTEM_ID_COLUMN, ngInfo.KeyPairIID.SystemId)
 			if err != nil {
-				cblog.Error(err)
-				return err
+				// cblog.Error(err)
+				// return err
 			}
 		}
 		info.NodeGroupList[idx].KeyPairIID.NameId = keyIIDInfo.NameId
