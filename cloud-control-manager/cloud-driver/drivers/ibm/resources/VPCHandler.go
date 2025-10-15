@@ -333,9 +333,16 @@ func (vpcHandler *IbmVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	}
 	if rawSubnets != nil {
 		for _, subnet := range rawSubnets {
+			// Clean up public gateway before deleting subnet
+			err := vpcHandler.cleanupSubnetPublicGateway(*subnet.ID)
+			if err != nil {
+				cblogger.Warnf("Failed to cleanup public gateway for subnet %s: %v", *subnet.ID, err)
+				// Continue with subnet deletion even if public gateway cleanup fails
+			}
+
 			options := &vpcv1.DeleteSubnetOptions{}
 			options.SetID(*subnet.ID)
-			_, err := vpcHandler.VpcService.DeleteSubnetWithContext(vpcHandler.Ctx, options)
+			_, err = vpcHandler.VpcService.DeleteSubnetWithContext(vpcHandler.Ctx, options)
 			if err != nil {
 				delErr := errors.New(fmt.Sprintf("Failed to Delete VPC err = %s", err.Error()))
 				cblogger.Error(delErr.Error())
@@ -432,9 +439,16 @@ func (vpcHandler *IbmVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID)
 	hiscallInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, subnetIID.NameId, "RemoveSubnet()")
 	start := call.Start()
 	if subnetIID.SystemId != "" {
+		// Clean up public gateway before deleting subnet
+		err := vpcHandler.cleanupSubnetPublicGateway(subnetIID.SystemId)
+		if err != nil {
+			cblogger.Warnf("Failed to cleanup public gateway for subnet %s: %v", subnetIID.SystemId, err)
+			// Continue with subnet deletion even if public gateway cleanup fails
+		}
+
 		options := &vpcv1.DeleteSubnetOptions{}
 		options.SetID(subnetIID.SystemId)
-		_, err := vpcHandler.VpcService.DeleteSubnetWithContext(vpcHandler.Ctx, options)
+		_, err = vpcHandler.VpcService.DeleteSubnetWithContext(vpcHandler.Ctx, options)
 		if err != nil {
 			delErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = %s", err.Error()))
 			cblogger.Error(delErr.Error())
@@ -455,9 +469,16 @@ func (vpcHandler *IbmVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID)
 	if len(rawSubnets) > 0 {
 		for _, subnet := range rawSubnets {
 			if *subnet.Name == subnetIID.NameId {
+				// Clean up public gateway before deleting subnet
+				err := vpcHandler.cleanupSubnetPublicGateway(*subnet.ID)
+				if err != nil {
+					cblogger.Warnf("Failed to cleanup public gateway for subnet %s: %v", *subnet.ID, err)
+					// Continue with subnet deletion even if public gateway cleanup fails
+				}
+
 				options := &vpcv1.DeleteSubnetOptions{}
 				options.SetID(*subnet.ID)
-				_, err := vpcHandler.VpcService.DeleteSubnetWithContext(vpcHandler.Ctx, options)
+				_, err = vpcHandler.VpcService.DeleteSubnetWithContext(vpcHandler.Ctx, options)
 				if err != nil {
 					delErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = %s", err.Error()))
 					cblogger.Error(delErr.Error())
@@ -882,4 +903,77 @@ func (vpcHandler *IbmVPCHandler) ListIID() ([]*irs.IID, error) {
 	LoggingInfo(hiscallInfo, start)
 
 	return iidList, nil
+}
+
+// cleanupSubnetPublicGateway detaches public gateway from subnet and cleans up unused gateway
+func (vpcHandler *IbmVPCHandler) cleanupSubnetPublicGateway(subnetId string) error {
+	// Check if subnet has a public gateway attached
+	getSubnetPublicGatewayOptions := vpcHandler.VpcService.NewGetSubnetPublicGatewayOptions(subnetId)
+	publicGateway, response, err := vpcHandler.VpcService.GetSubnetPublicGatewayWithContext(vpcHandler.Ctx, getSubnetPublicGatewayOptions)
+
+	// If no public gateway is attached, nothing to clean up
+	if err != nil {
+		if response != nil && response.StatusCode == 404 {
+			cblogger.Infof("Subnet %s has no public gateway attached", subnetId)
+			return nil
+		}
+		cblogger.Errorf("Failed to check subnet public gateway: %v", err)
+		return err
+	}
+
+	cblogger.Infof("Detaching public gateway %s from subnet %s", *publicGateway.ID, subnetId)
+
+	// Detach the public gateway from the subnet
+	unsetSubnetPublicGatewayOptions := vpcHandler.VpcService.NewUnsetSubnetPublicGatewayOptions(subnetId)
+	_, err = vpcHandler.VpcService.UnsetSubnetPublicGatewayWithContext(vpcHandler.Ctx, unsetSubnetPublicGatewayOptions)
+	if err != nil {
+		cblogger.Errorf("Failed to detach public gateway from subnet: %v", err)
+		return fmt.Errorf("failed to detach public gateway from subnet: %w", err)
+	}
+
+	cblogger.Infof("Successfully detached public gateway %s from subnet %s", *publicGateway.ID, subnetId)
+
+	// Check if the public gateway is used by other subnets
+	err = vpcHandler.cleanupUnusedPublicGateway(*publicGateway.ID, *publicGateway.VPC.ID)
+	if err != nil {
+		cblogger.Warnf("Failed to cleanup unused public gateway: %v", err)
+		// Don't return error here as the main operation (detaching) succeeded
+	}
+
+	return nil
+}
+
+// cleanupUnusedPublicGateway deletes public gateway if it's not used by any subnets
+func (vpcHandler *IbmVPCHandler) cleanupUnusedPublicGateway(publicGatewayId, vpcId string) error {
+	// List all subnets in the VPC to check if any still use this public gateway
+	listSubnetsOptions := vpcHandler.VpcService.NewListSubnetsOptions()
+	subnets, _, err := vpcHandler.VpcService.ListSubnetsWithContext(vpcHandler.Ctx, listSubnetsOptions)
+	if err != nil {
+		return fmt.Errorf("failed to list subnets: %w", err)
+	}
+
+	// Check if any subnet in the same VPC is still using this public gateway
+	for _, subnet := range subnets.Subnets {
+		if subnet.VPC != nil && subnet.VPC.ID != nil && *subnet.VPC.ID == vpcId {
+			getSubnetPublicGatewayOptions := vpcHandler.VpcService.NewGetSubnetPublicGatewayOptions(*subnet.ID)
+			subnetPublicGateway, response, err := vpcHandler.VpcService.GetSubnetPublicGatewayWithContext(vpcHandler.Ctx, getSubnetPublicGatewayOptions)
+			if err == nil && subnetPublicGateway.ID != nil && *subnetPublicGateway.ID == publicGatewayId {
+				cblogger.Infof("Public gateway %s is still used by subnet %s, not deleting", publicGatewayId, *subnet.ID)
+				return nil
+			} else if err != nil && (response == nil || response.StatusCode != 404) {
+				cblogger.Warnf("Failed to check subnet %s public gateway: %v", *subnet.ID, err)
+			}
+		}
+	}
+
+	// If no subnet is using this public gateway, delete it
+	cblogger.Infof("Public gateway %s is no longer used, deleting it", publicGatewayId)
+	deletePublicGatewayOptions := vpcHandler.VpcService.NewDeletePublicGatewayOptions(publicGatewayId)
+	_, err = vpcHandler.VpcService.DeletePublicGatewayWithContext(vpcHandler.Ctx, deletePublicGatewayOptions)
+	if err != nil {
+		return fmt.Errorf("failed to delete unused public gateway: %w", err)
+	}
+
+	cblogger.Infof("Successfully deleted unused public gateway %s", publicGatewayId)
+	return nil
 }

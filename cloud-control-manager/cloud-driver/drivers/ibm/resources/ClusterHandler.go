@@ -126,6 +126,136 @@ func (ic *IbmClusterHandler) SupportedVersions(requestedVersion string) ([]strin
 
 }
 
+func (ic *IbmClusterHandler) ensureWorkerSGOutboundAnyTCP(clusterID string) error {
+	// Wait for IBM to complete security group initialization by monitoring rule count
+	cblogger.Infof("Waiting for IBM to complete worker security group initialization for cluster %s...", clusterID)
+
+	sgHandler := IbmSecurityHandler{
+		CredentialInfo: ic.CredentialInfo,
+		Region:         ic.Region,
+		VpcService:     ic.VpcService,
+		Ctx:            ic.Ctx,
+		SearchService:  ic.SearchService,
+	}
+
+	// Monitor security group rules until IBM completes initialization
+	// Strategy: Wait until rule count stabilizes (no changes for a period)
+	// This is version-agnostic and adapts to any number of default rules IBM creates
+	const minRulesBeforeStabilityCheck = 5 // Wait until at least some rules exist
+	const stabilityChecks = 6              // Number of consecutive stable checks needed (60 seconds)
+	const maxWaitTime = 120                // 120 * 10 seconds = 20 minutes (fallback)
+
+	var sgInfo irs.SecurityInfo
+	var err error
+	var ruleCount int
+	var lastRuleCount int = -1
+	var stableCount int = 0
+	var sgFoundTime int = -1
+
+	for i := 0; i < maxWaitTime; i++ {
+		isMadeKubeSG, err := existSecurityGroup(irs.IID{NameId: fmt.Sprintf("kube-%s", clusterID)}, ic.VpcService, ic.Ctx)
+		if err != nil {
+			return fmt.Errorf("check worker SG existence: %w", err)
+		} else if !isMadeKubeSG {
+			if i%6 == 0 { // Log every minute if SG not found yet
+				cblogger.Infof("Waiting for worker security group kube-%s to be created...", clusterID)
+			}
+			if i < maxWaitTime-1 {
+				time.Sleep(10 * time.Second)
+			}
+			continue
+		}
+		sgInfo, err = sgHandler.GetSecurity(irs.IID{NameId: fmt.Sprintf("kube-%s", clusterID)})
+		if err == nil && sgInfo.IId.SystemId != "" {
+			if sgFoundTime == -1 {
+				sgFoundTime = i
+				cblogger.Infof("Worker security group kube-%s found, monitoring rule initialization...", clusterID)
+			}
+
+			ruleCount = len(*sgInfo.SecurityRules)
+
+			// Only start stability check after minimum rules exist and some time has passed since SG creation
+			if ruleCount >= minRulesBeforeStabilityCheck && i-sgFoundTime >= 3 {
+				// Check if rule count has stabilized
+				if ruleCount == lastRuleCount {
+					stableCount++
+					// If rule count is stable for stabilityChecks consecutive checks, consider it done
+					if stableCount >= stabilityChecks {
+						cblogger.Infof("Worker security group initialization complete: %d rules stable for %d seconds (cluster %s)",
+							ruleCount, stabilityChecks*10, clusterID)
+						break
+					}
+				} else {
+					// Rule count changed, reset stability counter
+					if lastRuleCount > 0 && ruleCount != lastRuleCount {
+						cblogger.Infof("Worker SG rules changed: %d → %d (cluster %s, resetting stability counter)",
+							lastRuleCount, ruleCount, clusterID)
+					}
+					stableCount = 0
+				}
+			}
+
+			// Log progress when rule count changes or first detection
+			if ruleCount != lastRuleCount {
+				if lastRuleCount == -1 {
+					cblogger.Infof("Worker SG for cluster %s: %d rules detected", clusterID, ruleCount)
+				}
+				lastRuleCount = ruleCount
+			}
+		} else if i%6 == 0 { // Log every minute if SG not found yet
+			cblogger.Infof("Waiting for worker security group kube-%s to be created...", clusterID)
+		}
+
+		if i < maxWaitTime-1 {
+			time.Sleep(10 * time.Second)
+		}
+	}
+
+	if err != nil {
+		return fmt.Errorf("get worker SG: %w", err)
+	}
+	if sgInfo.IId.SystemId == "" {
+		return fmt.Errorf("worker SG not found for cluster %s", clusterID)
+	}
+
+	cblogger.Infof("Worker security group ready: %s (SystemId: %s) with %d existing rules",
+		sgInfo.IId.NameId, sgInfo.IId.SystemId, len(*sgInfo.SecurityRules))
+
+	// Check if outbound any-TCP rule already exists
+	for _, rule := range *sgInfo.SecurityRules {
+		if rule.Direction == "outbound" && rule.IPProtocol == "tcp" {
+			// Check if it's an "any port" rule to 0.0.0.0/0
+			if rule.CIDR == "0.0.0.0/0" && (rule.ToPort == "" || rule.ToPort == "-1") {
+				cblogger.Infof("Outbound any-TCP rule already exists for worker SG %s, skipping", sgInfo.IId.SystemId)
+				return nil
+			}
+		}
+	}
+
+	rule := &vpcv1.SecurityGroupRulePrototypeSecurityGroupRuleProtocolTcpudp{
+		Direction: core.StringPtr("outbound"),
+		Protocol:  core.StringPtr("tcp"),
+		Remote:    &vpcv1.SecurityGroupRuleRemotePrototype{CIDRBlock: core.StringPtr("0.0.0.0/0")},
+		PortMin:   core.Int64Ptr(1),     // any port
+		PortMax:   core.Int64Ptr(65535), // any port
+	}
+
+	_, resp, createErr := ic.VpcService.CreateSecurityGroupRule(&vpcv1.CreateSecurityGroupRuleOptions{
+		SecurityGroupID:            core.StringPtr(sgInfo.IId.SystemId),
+		SecurityGroupRulePrototype: rule,
+	})
+	if createErr != nil {
+		// ignore if rule already exists (HTTP 409)
+		if resp != nil && resp.StatusCode == 409 {
+			cblogger.Infof("Outbound any-TCP rule already exists for worker SG %s (conflict)", sgInfo.IId.SystemId)
+			return nil
+		}
+		return fmt.Errorf("create outbound any-TCP rule: %w", createErr)
+	}
+	cblogger.Infof("Successfully added outbound any-TCP rule to worker SG %s", sgInfo.IId.SystemId)
+	return nil
+}
+
 func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.ClusterInfo, error) {
 	hiscallInfo := GetCallLogScheme(ic.Region, call.CLUSTER, clusterReqInfo.IId.NameId, "CreateCluster()")
 	start := call.Start()
@@ -176,6 +306,14 @@ func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.
 		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", getSubnetInfoErr))
 	}
 
+	// ensure subnet has public gateway for worker node internet access
+	ensurePublicGatewayErr := ic.ensureSubnetPublicGateway(subnetInfo.IId.SystemId, vpcInfo.IId.SystemId)
+	if ensurePublicGatewayErr != nil {
+		cblogger.Error(ensurePublicGatewayErr)
+		LoggingError(hiscallInfo, ensurePublicGatewayErr)
+		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", ensurePublicGatewayErr))
+	}
+
 	// check exists
 	_, _, getClusterErr := ic.ClusterService.VpcGetClusterWithContext(ic.Ctx, &kubernetesserviceapiv1.VpcGetClusterOptions{
 		Cluster:            core.StringPtr(clusterReqInfo.IId.NameId),
@@ -201,81 +339,6 @@ func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.
 			return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", createClusterErr))
 		}
 
-		rawVpcInfo, _, getRawVpcErr := ic.VpcService.GetVPCWithContext(ic.Ctx, &vpcv1.GetVPCOptions{
-			ID: core.StringPtr(vpcInfo.IId.SystemId),
-		})
-		if getRawVpcErr != nil {
-			cblogger.Error(getRawVpcErr)
-			LoggingError(hiscallInfo, getRawVpcErr)
-			_, _ = ic.DeleteCluster(clusterReqInfo.IId)
-			return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Create Cluster. err = %s", getRawVpcErr))
-		}
-
-		sgHander := IbmSecurityHandler{
-			CredentialInfo: ic.CredentialInfo,
-			Region:         ic.Region,
-			Ctx:            ic.Ctx,
-			VpcService:     ic.VpcService,
-			SearchService:  ic.SearchService,
-		}
-
-		// restore VPC default security group
-		// VPC default security group lost rules for unknown reasons while creating a cluster with API
-		// It makes communication failure between worker and master nodes in the cluster and worker status reaches failure
-		go func() {
-			cnt := 0
-			for cnt < RestoreDefaultSGRetry {
-				isSkip := false
-				brokenVpcDefaultSg, getBrokenVpcDefaultSgErr := sgHander.GetSecurity(irs.IID{SystemId: *rawVpcInfo.DefaultSecurityGroup.ID})
-				if getBrokenVpcDefaultSgErr != nil {
-					isSkip = true
-				} else {
-					rawClusters, _, getClustersErr := ic.ClusterService.VpcGetClusterWithContext(ic.Ctx, &kubernetesserviceapiv1.VpcGetClusterOptions{
-						Cluster:            core.StringPtr(clusterReqInfo.IId.NameId),
-						XAuthResourceGroup: core.StringPtr(resourceGroupId),
-						ShowResources:      core.StringPtr("true"),
-					})
-					if getClustersErr != nil {
-						isSkip = true
-					}
-					rawCluster := (*rawClusters)[0]
-					if rawCluster.State != "deploying" {
-						isSkip = true
-					}
-				}
-				if isSkip {
-					cnt++
-					time.Sleep(time.Minute)
-				} else {
-					mandatoriyRuleList := []irs.SecurityRuleInfo{{
-						Direction:  "inbound",
-						IPProtocol: "tcp",
-						FromPort:   "22",
-						ToPort:     "22",
-					}, {
-						Direction:  "inbound",
-						IPProtocol: "icmp",
-						FromPort:   "-1",
-						ToPort:     "-1",
-					}, {
-						Direction:  "outbound",
-						IPProtocol: "all",
-						FromPort:   "-1",
-						ToPort:     "-1",
-						CIDR:       "0.0.0.0/0",
-					}}
-
-					_, addRuleErr := sgHander.AddRules(brokenVpcDefaultSg.IId, &mandatoriyRuleList)
-					if addRuleErr != nil {
-						cblogger.Error(addRuleErr)
-						LoggingError(hiscallInfo, addRuleErr)
-						_, _ = ic.DeleteCluster(clusterReqInfo.IId)
-					}
-					break
-				}
-			}
-		}()
-
 	} else if getClusterErr != nil {
 		cblogger.Error(getClusterErr)
 		LoggingError(hiscallInfo, getClusterErr)
@@ -294,7 +357,18 @@ func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.
 		_, _ = ic.DeleteCluster(clusterReqInfo.IId)
 		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Get Cluster. err = %s", getClustersErr))
 	}
+
+	if rawClusters == nil || len(*rawClusters) == 0 {
+		cblogger.Error("No cluster found")
+		LoggingError(hiscallInfo, errors.New("no cluster found"))
+		_, _ = ic.DeleteCluster(clusterReqInfo.IId)
+		return irs.ClusterInfo{}, errors.New("Failed to Get Cluster: cluster not found")
+	}
+
 	rawCluster := (*rawClusters)[0]
+
+	// Add remaining worker pools
+	ic.createRemainingWorkerPools(clusterReqInfo, vpcInfo, subnetInfo, rawCluster, resourceGroupId)
 
 	// Enable cluster-autoscaler addon and apply autoscaler option
 	autoScalerErr := ic.installAutoScalerAddon(clusterReqInfo, rawCluster.Id, rawCluster.Crn, resourceGroupId, false)
@@ -305,11 +379,15 @@ func (ic *IbmClusterHandler) CreateCluster(clusterReqInfo irs.ClusterInfo) (irs.
 		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Get Cluster. err = %s", autoScalerErr))
 	}
 
-	// Add remaining worker pools
-	ic.createRemainingWorkerPools(clusterReqInfo, vpcInfo, subnetInfo, rawCluster, resourceGroupId)
-
-	// Set Security Group
-	ic.initSecurityGroup(clusterReqInfo, rawCluster.Id, rawCluster.Crn)
+	// Ensure worker security group has outbound any-TCP rule (after cluster is fully deployed)
+	// This runs asynchronously to avoid blocking the response
+	go func() {
+		if err := ic.ensureWorkerSGOutboundAnyTCP(rawCluster.Id); err != nil {
+			cblogger.Warnf("ensure worker SG outbound rule for cluster %s: %v", rawCluster.Id, err)
+		} else {
+			cblogger.Infof("Successfully ensured worker SG outbound rule for cluster %s", rawCluster.Id)
+		}
+	}()
 
 	// Attach Tag
 	if clusterReqInfo.TagList != nil && len(clusterReqInfo.TagList) > 0 {
@@ -501,6 +579,12 @@ func (ic *IbmClusterHandler) DeleteCluster(clusterIID irs.IID) (bool, error) {
 		return false, errors.New(fmt.Sprintf("Failed to Delete Cluster. err = %s", getClusterErr))
 	}
 
+	if rawCluster == nil || len(*rawCluster) == 0 {
+		cblogger.Error("No cluster found for deletion")
+		LoggingError(hiscallInfo, errors.New("no cluster found for deletion"))
+		return false, errors.New("Failed to Delete Cluster: cluster not found")
+	}
+
 	// delete cluster
 	_, deleteClusterErr := ic.ClusterService.RemoveClusterWithContext(ic.Ctx, &kubernetesserviceapiv1.RemoveClusterOptions{
 		IdOrName:           core.StringPtr((*rawCluster)[0].Id),
@@ -666,7 +750,7 @@ func (ic *IbmClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqInfo i
 			SystemId: RetrieveUnableErr,
 		},
 		OnAutoScaling:   false,
-		DesiredNodeSize: -1,
+		DesiredNodeSize: int(*newNodeGroup.WorkerCount),
 		MinNodeSize:     -1,
 		MaxNodeSize:     -1,
 		Status:          ic.getNodeGroupStatusFromString(*newNodeGroup.Lifecycle.DesiredState),
@@ -974,7 +1058,7 @@ func (ic *IbmClusterHandler) ChangeNodeGroupScaling(clusterIID irs.IID, nodeGrou
 			SystemId: RetrieveUnableErr,
 		},
 		OnAutoScaling:   newNodeGroupInfo[changedNodeGroupIndex].OnAutoScaling,
-		DesiredNodeSize: -1,
+		DesiredNodeSize: targetNodeGroup.WorkerCount,
 		MinNodeSize:     newNodeGroupInfo[changedNodeGroupIndex].MinNodeSize,
 		MaxNodeSize:     newNodeGroupInfo[changedNodeGroupIndex].MaxNodeSize,
 		Status:          ic.getNodeGroupStatusFromString(targetNodeGroup.Lifecycle.DesiredState),
@@ -1101,6 +1185,13 @@ func (ic *IbmClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion strin
 		LoggingError(hiscallInfo, getClusterErr)
 		return irs.ClusterInfo{}, errors.New(fmt.Sprintf("Failed to Upgrade Cluster. err = %s", getClusterErr))
 	}
+
+	if rawCluster == nil || len(*rawCluster) == 0 {
+		cblogger.Error("No cluster found for upgrade")
+		LoggingError(hiscallInfo, errors.New("no cluster found for upgrade"))
+		return irs.ClusterInfo{}, errors.New("Failed to Upgrade Cluster: cluster not found")
+	}
+
 	targetCluster := (*rawCluster)[0]
 
 	// uninstall autoscaler addon
@@ -1137,6 +1228,11 @@ func (ic *IbmClusterHandler) UpgradeCluster(clusterIID irs.IID, newVersion strin
 				ShowResources:      core.StringPtr("true"),
 			})
 			if getClusterErr != nil {
+				cnt++
+				time.Sleep(time.Minute)
+				continue
+			}
+			if rawCluster == nil || len(*rawCluster) == 0 {
 				cnt++
 				time.Sleep(time.Minute)
 				continue
@@ -1316,28 +1412,32 @@ func (ic *IbmClusterHandler) getAddonInfo(clusterId string, resourceGroupId stri
 	if getClusterAddonsErr != nil {
 		return irs.AddonsInfo{}, getClusterAddonsErr
 	}
-	//var keyValues []irs.KeyValue
-	//for _, clusterAddon := range rawClusterAddons {
-	//	addonJsonValue, marshalErr := json.Marshal(clusterAddon)
-	//	if marshalErr != nil {
-	//		cblogger.Error(marshalErr)
-	//	}
-	//	keyValues = append(keyValues, irs.KeyValue{
-	//		Key:   *clusterAddon.Name,
-	//		Value: string(addonJsonValue),
-	//	})
-	//}
-	//clusterAddons := irs.AddonsInfo{KeyValueList: keyValues}
 
-	var addons []irs.KeyValue
-	for _, addon := range rawClusterAddons {
-		keyValues := irs.StructToKeyValueList(addon)
-		addons = append(addons, keyValues...)
+	var keyValues []irs.KeyValue
+	for _, clusterAddon := range rawClusterAddons {
+		addonJsonValue, marshalErr := json.Marshal(clusterAddon)
+		if marshalErr != nil {
+			cblogger.Error(marshalErr)
+		}
+		keyValues = append(keyValues, irs.KeyValue{
+			Key:   *clusterAddon.Name,
+			Value: string(addonJsonValue),
+		})
 	}
+	clusterAddons := irs.AddonsInfo{KeyValueList: keyValues}
 
-	clusterAddons := irs.AddonsInfo{
-		KeyValueList: addons,
-	}
+	// ## Don't use StructToKeyValueList() for AddonsInfo,
+	// ## because Addons key-value has specific structure and it is used in installAutoScalerAddon()
+	// var addons []irs.KeyValue
+	// for _, addon := range rawClusterAddons {
+	// 	keyValues := irs.StructToKeyValueList(addon)
+	// 	addons = append(addons, keyValues...)
+	// }
+
+	// clusterAddons := irs.AddonsInfo{
+	// 	KeyValueList: addons,
+	// }
+
 	return clusterAddons, nil
 }
 
@@ -1393,6 +1493,10 @@ func (ic *IbmClusterHandler) getClusterIID(clusterIID irs.IID) (irs.IID, error) 
 	})
 	if getClustersErr != nil {
 		return irs.IID{}, errors.New(fmt.Sprintf("Failed to Get Cluster IID. err = %s", getClustersErr))
+	}
+
+	if rawClusters == nil || len(*rawClusters) == 0 {
+		return irs.IID{}, errors.New("Failed to Get Cluster IID: cluster not found")
 	}
 
 	return irs.IID{
@@ -1498,68 +1602,6 @@ func (ic *IbmClusterHandler) getWorkerPoolFromNodeGroupInfo(nodeGroupInfo irs.No
 			SubnetID: core.StringPtr(subnetId),
 		}},
 	}
-}
-
-func (ic *IbmClusterHandler) initSecurityGroup(clusterReqInfo irs.ClusterInfo, clusterId string, clusterCrn string) {
-	sgHandler := IbmSecurityHandler{
-		CredentialInfo: ic.CredentialInfo,
-		Region:         ic.Region,
-		VpcService:     ic.VpcService,
-		Ctx:            ic.Ctx,
-		SearchService:  ic.SearchService,
-	}
-
-	ic.manageStatusTag(clusterCrn, SecurityGroupStatus, INITIALIZING)
-	go func() {
-		cnt := 0
-		for cnt < InitSecurityGroupRetry {
-			defaultSgInfo, getDSIErr := sgHandler.GetSecurity(irs.IID{NameId: fmt.Sprintf("kube-%s", clusterId)})
-			if getDSIErr != nil {
-				time.Sleep(time.Minute)
-				cnt++
-				continue
-			}
-
-			initSuccess := true
-			for _, sgIID := range clusterReqInfo.Network.SecurityGroupIIDs {
-				sgInfo, getSgErr := sgHandler.GetSecurity(sgIID)
-				if getSgErr != nil {
-					initSuccess = false
-					ic.manageStatusTag(clusterCrn, SecurityGroupStatus, FAILED)
-					_, _ = ic.DeleteCluster(clusterReqInfo.IId)
-					break
-				}
-
-				var updateRules []irs.SecurityRuleInfo
-				for _, newRule := range *sgInfo.SecurityRules {
-					existCheck := false
-					for _, baseRule := range *defaultSgInfo.SecurityRules {
-						if equalsRule(newRule, baseRule) {
-							existCheck = true
-							break
-						}
-					}
-					if existCheck {
-						continue
-					}
-					updateRules = append(updateRules, newRule)
-				}
-				_, sgUpdateErr := sgHandler.AddRules(defaultSgInfo.IId, &updateRules)
-				if sgUpdateErr != nil {
-					initSuccess = false
-					ic.manageStatusTag(clusterCrn, SecurityGroupStatus, FAILED)
-					_, _ = ic.DeleteCluster(clusterReqInfo.IId)
-					break
-				}
-			}
-			if initSuccess {
-				ic.manageStatusTag(clusterCrn, SecurityGroupStatus, INITIALIZED)
-			}
-			break
-		}
-	}()
-
-	return
 }
 
 func (ic *IbmClusterHandler) installAutoScalerAddon(clusterReqInfo irs.ClusterInfo, clusterId string, clusterCrn string, resourceGroupId string, isUpdating bool) error {
@@ -1726,7 +1768,7 @@ func (ic *IbmClusterHandler) setClusterInfo(rawCluster kubernetesserviceapiv1.Ge
 				SystemId: RetrieveUnableErr,
 			},
 			OnAutoScaling:   false,
-			DesiredNodeSize: -1,
+			DesiredNodeSize: element.WorkerCount,
 			MinNodeSize:     0,
 			MaxNodeSize:     0,
 			Status:          ic.getNodeGroupStatusFromString(element.Lifecycle.DesiredState),
@@ -1800,7 +1842,7 @@ func (ic *IbmClusterHandler) setClusterInfo(rawCluster kubernetesserviceapiv1.Ge
 		// Get Autoscaling Info
 		configMap, getAutoScalerConfigMapErr := ic.getAutoScalerConfigMap(kubeConfigStr)
 		if getAutoScalerConfigMapErr != nil {
-			cblogger.Error(getAutoScalerConfigMapErr)
+			cblogger.Info("iks-ca-configmap is not yet available. The cluster may still be provisioning or initializing. Error: ", getAutoScalerConfigMapErr)
 		}
 
 		if configMap == nil {
@@ -1808,7 +1850,7 @@ func (ic *IbmClusterHandler) setClusterInfo(rawCluster kubernetesserviceapiv1.Ge
 				nodeGroupList[index].OnAutoScaling = false
 				nodeGroupList[index].MinNodeSize = -1
 				nodeGroupList[index].MaxNodeSize = -1
-				nodeGroupList[index].DesiredNodeSize = -1
+				// DesiredNodeSize is already set to the actual WorkerCount, so keep it as is
 			}
 		} else {
 			jsonProperty, exists := configMap.Data[AutoscalerConfigMapOptionProperty]
@@ -1828,47 +1870,48 @@ func (ic *IbmClusterHandler) setClusterInfo(rawCluster kubernetesserviceapiv1.Ge
 						nodeGroupList[index].OnAutoScaling = config.Enabled
 						nodeGroupList[index].MinNodeSize = config.MinSize
 						nodeGroupList[index].MaxNodeSize = config.MaxSize
-						nodeGroupList[index].DesiredNodeSize = -1
+						// DesiredNodeSize is already set to the actual WorkerCount, so keep it as is
 					}
 				}
 			}
 		}
 	} else {
-		cblogger.Error(getKubeConfigStrErr)
+		cblogger.Info("Kubeconfig is not yet available. The cluster may still be provisioning or initializing. Error: ", getKubeConfigStrErr)
 	}
 
 	// get cluster status
 	clusterStatus := ic.getClusterStatusFromString(rawCluster.State)
-	rawTags, _, getTagsErr := ic.TaggingService.ListTagsWithContext(ic.Ctx, &globaltaggingv1.ListTagsOptions{
-		TagType:    core.StringPtr("user"),
-		Providers:  []string{"ghost"},
-		AttachedTo: core.StringPtr(rawCluster.Crn),
-	})
-	if getTagsErr != nil {
-		clusterStatus = irs.ClusterInactive
-	}
+	/*
+	   rawTags, _, getTagsErr := ic.TaggingService.ListTagsWithContext(ic.Ctx, &globaltaggingv1.ListTagsOptions{
+	                   TagType:    core.StringPtr("user"),
+	                   Providers:  []string{"ghost"},
+	                   AttachedTo: core.StringPtr(rawCluster.Crn),
+	   })
+	   if getTagsErr != nil {
+	                   clusterStatus = irs.ClusterInactive
+	   }
 
-	autoScalerStatus := fmt.Sprintf("%s%s", AutoScalerStatus, FAILED)
-	if rawTags != nil {
-		for _, tag := range rawTags.Items {
-			if isTagStatusOf(*tag.Name, AutoScalerStatus) {
-				autoScalerStatus = *tag.Name
-				break
-			}
-		}
-	}
+	                   autoScalerStatus := fmt.Sprintf("%s%s", AutoScalerStatus, FAILED)
+	                   if rawTags != nil {
+	                                   for _, tag := range rawTags.Items {
+	                                                   if isTagStatusOf(*tag.Name, AutoScalerStatus) {
+	                                                                   autoScalerStatus = *tag.Name
+	                                                                   break
+	                                                   }
+	                                   }
+	                   }
 
-	securityGroupStatus := fmt.Sprintf("%s%s", SecurityGroupStatus, FAILED)
-	if rawTags != nil {
-		for _, tag := range rawTags.Items {
-			if isTagStatusOf(*tag.Name, SecurityGroupStatus) {
-				securityGroupStatus = *tag.Name
-				break
-			}
-		}
-	}
-	clusterStatus = ic.getClusterFinalStatus(clusterStatus, autoScalerStatus, securityGroupStatus)
-
+	                   securityGroupStatus := fmt.Sprintf("%s%s", SecurityGroupStatus, FAILED)
+	                   if rawTags != nil {
+	                                   for _, tag := range rawTags.Items {
+	                                                   if isTagStatusOf(*tag.Name, SecurityGroupStatus) {
+	                                                                   securityGroupStatus = *tag.Name
+	                                                                   break
+	                                                   }
+	                                   }
+	                   }
+	                   clusterStatus = ic.getClusterFinalStatus(clusterStatus, autoScalerStatus, securityGroupStatus)
+	*/
 	tagHandler := IbmTagHandler{
 		Region:         ic.Region,
 		CredentialInfo: ic.CredentialInfo,
@@ -1885,27 +1928,27 @@ func (ic *IbmClusterHandler) setClusterInfo(rawCluster kubernetesserviceapiv1.Ge
 
 	// Build result
 	//return irs.ClusterInfo{
-	//	IId: irs.IID{
-	//		NameId:   rawCluster.Name,
-	//		SystemId: rawCluster.Id,
-	//	},
-	//	Version: rawCluster.MasterKubeVersion,
-	//	Network: irs.NetworkInfo{
-	//		VpcIID:            vpcIID,
-	//		SubnetIIDs:        subnetIIDs,
-	//		SecurityGroupIIDs: securityGroups,
-	//		KeyValueList:      nil,
-	//	},
-	//	NodeGroupList: nodeGroupList,
-	//	AccessInfo: irs.AccessInfo{
-	//		Endpoint:   serviceEndpoint,
-	//		Kubeconfig: kubeConfigStr,
-	//	},
-	//	Addons:       clusterAddons,
-	//	Status:       clusterStatus,
-	//	CreatedTime:  time.Time(createdTime).Local(),
-	//	TagList:      tags,
-	//	KeyValueList: nil,
+	//            IId: irs.IID{
+	//                            NameId:   rawCluster.Name,
+	//                            SystemId: rawCluster.Id,
+	//            },
+	//            Version: rawCluster.MasterKubeVersion,
+	//            Network: irs.NetworkInfo{
+	//                            VpcIID:            vpcIID,
+	//                            SubnetIIDs:        subnetIIDs,
+	//                            SecurityGroupIIDs: securityGroups,
+	//                            KeyValueList:      nil,
+	//            },
+	//            NodeGroupList: nodeGroupList,
+	//            AccessInfo: irs.AccessInfo{
+	//                            Endpoint:   serviceEndpoint,
+	//                            Kubeconfig: kubeConfigStr,
+	//            },
+	//            Addons:       clusterAddons,
+	//            Status:       clusterStatus,
+	//            CreatedTime:  time.Time(createdTime).Local(),
+	//            TagList:      tags,
+	//            KeyValueList: nil,
 	//}, nil
 
 	clusterInfo := irs.ClusterInfo{
@@ -2054,9 +2097,10 @@ func (ic *IbmClusterHandler) validateAtCreateCluster(clusterInfo irs.ClusterInfo
 	if len(clusterInfo.NodeGroupList) < 1 {
 		return errors.New("At least one Node Group must be specified")
 	}
-	if clusterInfo.Version == "" || clusterInfo.Version == "default" {
-		clusterInfo.Version = "1.24.8"
-	}
+	// Cancel the default version setting because the setup version will become invalid in the future.
+	// if clusterInfo.Version == "" || clusterInfo.Version == "default" {
+	// 	clusterInfo.Version = "1.32.9"
+	// }
 	for i, nodeGroup := range clusterInfo.NodeGroupList {
 		if i != 0 && nodeGroup.IId.NameId == "" {
 			return errors.New(fmt.Sprintf("Node Group name is required for Node Group #%d ", i))
@@ -2165,4 +2209,88 @@ func (ic *IbmClusterHandler) ListIID() ([]*irs.IID, error) {
 	LoggingInfo(hiscallInfo, start)
 
 	return iidList, nil
+}
+
+// ensureSubnetPublicGateway ensures that the subnet has a public gateway attached
+// If no public gateway is attached, it creates and attaches one
+func (ic *IbmClusterHandler) ensureSubnetPublicGateway(subnetId, vpcId string) error {
+	// Check if subnet already has a public gateway
+	getSubnetPublicGatewayOptions := ic.VpcService.NewGetSubnetPublicGatewayOptions(subnetId)
+	_, response, err := ic.VpcService.GetSubnetPublicGatewayWithContext(ic.Ctx, getSubnetPublicGatewayOptions)
+
+	// If public gateway is already attached, return success
+	if err == nil {
+		cblogger.Infof("Subnet %s already has a public gateway attached", subnetId)
+		return nil
+	}
+
+	// If error is not "Not Found", return the error
+	if response == nil || response.StatusCode != 404 {
+		cblogger.Errorf("Failed to check subnet public gateway: %v", err)
+		return err
+	}
+
+	cblogger.Infof("Subnet %s does not have a public gateway, creating and attaching one...", subnetId)
+
+	// Get subnet info to determine the zone
+	getSubnetOptions := ic.VpcService.NewGetSubnetOptions(subnetId)
+	subnet, _, getSubnetErr := ic.VpcService.GetSubnetWithContext(ic.Ctx, getSubnetOptions)
+	if getSubnetErr != nil {
+		cblogger.Errorf("Failed to get subnet info: %v", getSubnetErr)
+		return fmt.Errorf("failed to get subnet info: %w", getSubnetErr)
+	}
+
+	// Check for existing public gateway in the same zone
+	var publicGatewayId string
+	listPublicGatewaysOptions := ic.VpcService.NewListPublicGatewaysOptions()
+	publicGateways, _, listErr := ic.VpcService.ListPublicGatewaysWithContext(ic.Ctx, listPublicGatewaysOptions)
+	if listErr != nil {
+		cblogger.Errorf("Failed to list public gateways: %v", listErr)
+		return fmt.Errorf("failed to list public gateways: %w", listErr)
+	}
+
+	// Look for an existing public gateway in the same zone and VPC
+	for _, gw := range publicGateways.PublicGateways {
+		if gw.Zone != nil && gw.Zone.Name != nil && subnet.Zone != nil && subnet.Zone.Name != nil &&
+			*gw.Zone.Name == *subnet.Zone.Name &&
+			gw.VPC != nil && gw.VPC.ID != nil && *gw.VPC.ID == vpcId {
+			publicGatewayId = *gw.ID
+			cblogger.Infof("Found existing public gateway %s in zone %s", publicGatewayId, *subnet.Zone.Name)
+			break
+		}
+	}
+
+	// Create a new public gateway if none exists in the zone
+	if publicGatewayId == "" {
+		cblogger.Infof("Creating new public gateway in zone %s for VPC %s", *subnet.Zone.Name, vpcId)
+
+		createPublicGatewayOptions := ic.VpcService.NewCreatePublicGatewayOptions(
+			&vpcv1.VPCIdentity{ID: &vpcId},
+			&vpcv1.ZoneIdentity{Name: subnet.Zone.Name},
+		)
+		createPublicGatewayOptions.SetName(fmt.Sprintf("pgw-%s-%s", *subnet.Zone.Name, time.Now().Format("20060102150405")))
+
+		newPublicGateway, _, createErr := ic.VpcService.CreatePublicGatewayWithContext(ic.Ctx, createPublicGatewayOptions)
+		if createErr != nil {
+			cblogger.Errorf("Failed to create public gateway: %v", createErr)
+			return fmt.Errorf("failed to create public gateway: %w", createErr)
+		}
+		publicGatewayId = *newPublicGateway.ID
+		cblogger.Infof("Created new public gateway %s in zone %s", publicGatewayId, *subnet.Zone.Name)
+	}
+
+	// Attach the public gateway to the subnet
+	setSubnetPublicGatewayOptions := ic.VpcService.NewSetSubnetPublicGatewayOptions(
+		subnetId,
+		&vpcv1.PublicGatewayIdentity{ID: &publicGatewayId},
+	)
+
+	_, _, setErr := ic.VpcService.SetSubnetPublicGatewayWithContext(ic.Ctx, setSubnetPublicGatewayOptions)
+	if setErr != nil {
+		cblogger.Errorf("Failed to attach public gateway to subnet: %v", setErr)
+		return fmt.Errorf("failed to attach public gateway to subnet: %w", setErr)
+	}
+
+	cblogger.Infof("Successfully attached public gateway %s to subnet %s", publicGatewayId, subnetId)
+	return nil
 }

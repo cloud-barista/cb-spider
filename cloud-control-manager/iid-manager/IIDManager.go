@@ -60,6 +60,17 @@ func New(cloudConnectName string, rsType string, uid string) (string, error) {
 		return retUID, nil
 	}
 
+	// IBM-nodegroup: MaxLength = 32, alphanumeric characters, '-', '_' or '.'
+	if cccInfo.ProviderName == "IBM" && rsType == "nodegroup" {
+		retUID := strings.ToLower(uid)
+
+		if len(retUID) > 32 {
+			// #27 + #5 => #32
+			retUID = uid[:27] + xid.New().String()[0:5]
+		}
+		return retUID, nil
+	}
+
 	// NHN-cluster,nogegroup: MaxLenth = 20, lower, number, '-'
 	if cccInfo.ProviderName == "NHN" && (rsType == "cluster" || rsType == "nodegroup") {
 		retUID := strings.ToLower(uid)
