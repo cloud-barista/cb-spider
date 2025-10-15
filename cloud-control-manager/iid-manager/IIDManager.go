@@ -60,7 +60,7 @@ func New(cloudConnectName string, rsType string, uid string) (string, error) {
 		return retUID, nil
 	}
 
-	// IBM-nogegroup: MaxLength = 32, alphanumeric characters, '-', '_' or '.'
+	// IBM-nodegroup: MaxLength = 32, alphanumeric characters, '-', '_' or '.'
 	if cccInfo.ProviderName == "IBM" && rsType == "nodegroup" {
 		retUID := strings.ToLower(uid)
 
