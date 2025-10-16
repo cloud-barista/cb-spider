@@ -45,7 +45,7 @@ If you encounter any difficulties while using Cloud-Barista, please let us know.
 #### 1. Recommended Environment
 
 - OS: Ubuntu 22.04  
-- Build: Go 1.23, Swag v1.16.3  
+- Build: Go 1.25, Swag v1.16.3  
 - Container: Docker v19.03  
 
 ---

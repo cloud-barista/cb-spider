@@ -2,10 +2,9 @@
 ## Stage 1 - Go Build
 ##############################################################
 
-#FROM golang:alpine AS builder
-FROM golang:1.23.0 AS builder
+FROM golang:1.25.0 AS builder
 
-ENV GO111MODULE on
+ENV GO111MODULE=on
 
 #RUN apk update && apk add --no-cache bash
 #RUN apt update
@@ -51,9 +50,9 @@ COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/api/ /root/go/src
 
 #COPY --from=builder /go/src/github.com/cloud-barista/cb-spider/setup.env /root/go/src/github.com/cloud-barista/cb-spider/
 #RUN /bin/bash -c "source /root/go/src/github.com/cloud-barista/cb-spider/setup.env"
-ENV CBSPIDER_ROOT /root/go/src/github.com/cloud-barista/cb-spider
-ENV CBLOG_ROOT /root/go/src/github.com/cloud-barista/cb-spider
-ENV PLUGIN_SW OFF
+ENV CBSPIDER_ROOT=/root/go/src/github.com/cloud-barista/cb-spider
+ENV CBLOG_ROOT=/root/go/src/github.com/cloud-barista/cb-spider
+ENV PLUGIN_SW=OFF
 
 ENTRYPOINT [ "/root/go/src/github.com/cloud-barista/cb-spider/api-runtime/cb-spider" ]
 

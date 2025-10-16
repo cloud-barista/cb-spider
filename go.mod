@@ -1,6 +1,6 @@
 module github.com/cloud-barista/cb-spider
 
-go 1.23.0
+go 1.25.0
 
 replace (
 	github.com/alibabacloud-go/ecs-20140526/v4 => github.com/alibabacloud-go/ecs-20140526/v4 v4.0.1
