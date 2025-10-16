@@ -4,7 +4,7 @@
 - CB-Spider: Cloud-Barista sub-framework, unified API for multiple CSPs.
 - Main runtime: REST (`api-runtime/rest-runtime`, Swagger).  
 - Drivers: `cloud-control-manager/*`, `cloud-driver-libs/*`.
-- Env: Ubuntu 22.04, Go 1.23, Docker 19.03+.
+- Env: Ubuntu 22.04, Go 1.25, Docker 19.03+.
 
 ## Style
 - Format: `gofmt`, `goimports`.
