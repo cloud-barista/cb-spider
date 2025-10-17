@@ -109,8 +109,8 @@ func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 
 		opt := &vpcv1.CreateVPCAddressPrefixOptions{}
 		opt.SetVPCID(newVpcIId.SystemId)
-		opt.SetCIDR(vpcReqInfo.IPv4_CIDR)
-		opt.SetName(fmt.Sprintf("%s-%s-prefix", newVpcIId.NameId, si.Zone))
+		opt.SetCIDR(si.IPv4_CIDR)
+		opt.SetName(fmt.Sprintf("%s-%s-%s-prefix", newVpcIId.NameId, si.IId.NameId, si.Zone))
 		opt.SetZone(&vpcv1.ZoneIdentity{Name: core.StringPtr(si.Zone)})
 
 		_, _, err := vpcHandler.VpcService.
@@ -383,6 +383,7 @@ func (vpcHandler *IbmVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
 	if err == nil && prefixes.AddressPrefixes != nil {
 		for _, p := range prefixes.AddressPrefixes {
 			delOpt := &vpcv1.DeleteVPCAddressPrefixOptions{}
+			delOpt.SetVPCID(*vpc.ID)
 			delOpt.SetID(*p.ID)
 			_, err := vpcHandler.VpcService.DeleteVPCAddressPrefixWithContext(vpcHandler.Ctx, delOpt)
 			if err != nil {
@@ -493,6 +494,13 @@ func (vpcHandler *IbmVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID)
 		return false, delErr
 	}
 
+	// Ensure VPCID is properly set
+	if vpc.ID != nil {
+		vpcIID.SystemId = *vpc.ID
+	} else {
+		cblogger.Warn("[DEBUG] VPC.ID is nil after GetRawVPC()")
+	}
+
 	rawSubnets, err := getVPCRawSubnets(vpc, vpcHandler.VpcService, vpcHandler.Ctx)
 	if err != nil {
 		delErr := fmt.Errorf("failed to get subnets: %v", err)
@@ -504,26 +512,7 @@ func (vpcHandler *IbmVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID)
 	for _, subnet := range rawSubnets {
 		if *subnet.Name == subnetIID.NameId || *subnet.ID == subnetIID.SystemId {
 
-			// [NEW] Step 1: Delete corresponding Prefix Address before removing the subnet
-			listOpt := &vpcv1.ListVPCAddressPrefixesOptions{}
-			listOpt.SetVPCID(vpcIID.SystemId)
-			prefixes, _, err := vpcHandler.VpcService.ListVPCAddressPrefixesWithContext(vpcHandler.Ctx, listOpt)
-			if err == nil {
-				for _, p := range prefixes.AddressPrefixes {
-					if p.CIDR != nil && p.Zone != nil && *p.CIDR == *subnet.Ipv4CIDRBlock && *p.Zone.Name == *subnet.Zone.Name {
-						delOpt := &vpcv1.DeleteVPCAddressPrefixOptions{}
-						delOpt.SetID(*p.ID)
-						_, err := vpcHandler.VpcService.DeleteVPCAddressPrefixWithContext(vpcHandler.Ctx, delOpt)
-						if err != nil {
-							cblogger.Warnf("Failed to delete address prefix %s: %v", *p.ID, err)
-						} else {
-							cblogger.Infof("Deleted address prefix %s (zone %s)", *p.ID, *p.Zone.Name)
-						}
-					}
-				}
-			}
-
-			// Step 2: Delete the subnet itself
+			// Step 1: Delete the subnet first
 			err = vpcHandler.cleanupSubnetPublicGateway(*subnet.ID)
 			if err != nil {
 				cblogger.Warnf("Failed to cleanup public gateway for subnet %s: %v", *subnet.ID, err)
@@ -538,6 +527,52 @@ func (vpcHandler *IbmVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID)
 				LoggingError(hiscallInfo, delErr)
 				return false, delErr
 			}
+			cblogger.Infof("[DEBUG] Requested deletion for subnet %s", *subnet.ID)
+
+			// Step 2: Wait for subnet deletion to be reflected on IBM side
+			for retry := 0; retry < 10; retry++ {
+				_, _, checkErr := vpcHandler.VpcService.GetSubnetWithContext(vpcHandler.Ctx, &vpcv1.GetSubnetOptions{ID: subnet.ID})
+				if checkErr != nil {
+					cblogger.Infof("[DEBUG] Subnet %s deletion confirmed after %d retries", *subnet.ID, retry)
+					break
+				}
+				time.Sleep(2 * time.Second)
+			}
+
+			// Step 3: Delete corresponding Prefix Address after subnet deletion
+			listOpt := &vpcv1.ListVPCAddressPrefixesOptions{}
+			listOpt.SetVPCID(vpcIID.SystemId)
+			prefixes, _, err := vpcHandler.VpcService.ListVPCAddressPrefixesWithContext(vpcHandler.Ctx, listOpt)
+			if err == nil {
+				for _, p := range prefixes.AddressPrefixes {
+					if p.CIDR != nil && p.Zone != nil && *p.CIDR == *subnet.Ipv4CIDRBlock && *p.Zone.Name == *subnet.Zone.Name {
+						cblogger.Infof("[DEBUG] Targeting Prefix delete: ID=%s CIDR=%s Zone=%s", *p.ID, *p.CIDR, *p.Zone.Name)
+
+						delOpt := &vpcv1.DeleteVPCAddressPrefixOptions{}
+						delOpt.SetVPCID(*vpc.ID)
+						delOpt.SetID(*p.ID)
+
+						resp, err := vpcHandler.VpcService.DeleteVPCAddressPrefixWithContext(vpcHandler.Ctx, delOpt)
+
+						if resp != nil {
+							cblogger.Infof("[DEBUG] DeleteVPCAddressPrefix Response: StatusCode=%d, RequestID=%s",
+								resp.GetStatusCode(),
+								resp.GetHeaders().Get("X-Request-Id"),
+							)
+						} else {
+							cblogger.Warn("[DEBUG] DeleteVPCAddressPrefix Response is nil")
+						}
+
+						if err != nil {
+							cblogger.Warnf("Failed to delete address prefix %s: %v", *p.ID, err)
+						} else {
+							cblogger.Infof("[DEBUG] Successfully requested deletion for prefix %s (zone %s)", *p.ID, *p.Zone.Name)
+						}
+					}
+				}
+			} else {
+				cblogger.Warnf("[DEBUG] Failed to list address prefixes: %v", err)
+			}
 
 			LoggingInfo(hiscallInfo, start)
 			return true, nil
@@ -550,71 +585,6 @@ func (vpcHandler *IbmVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID)
 	LoggingError(hiscallInfo, delErr)
 	return false, delErr
 }
-
-//func (vpcHandler *IbmVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
-//	hiscallInfo := GetCallLogScheme(vpcHandler.Region, call.VPCSUBNET, subnetIID.NameId, "RemoveSubnet()")
-//	start := call.Start()
-//	if subnetIID.SystemId != "" {
-//		// Clean up public gateway before deleting subnet
-//		err := vpcHandler.cleanupSubnetPublicGateway(subnetIID.SystemId)
-//		if err != nil {
-//			cblogger.Warnf("Failed to cleanup public gateway for subnet %s: %v", subnetIID.SystemId, err)
-//			// Continue with subnet deletion even if public gateway cleanup fails
-//		}
-//
-//		options := &vpcv1.DeleteSubnetOptions{}
-//		options.SetID(subnetIID.SystemId)
-//		_, err = vpcHandler.VpcService.DeleteSubnetWithContext(vpcHandler.Ctx, options)
-//		if err != nil {
-//			delErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = %s", err.Error()))
-//			cblogger.Error(delErr.Error())
-//			LoggingError(hiscallInfo, delErr)
-//			return false, delErr
-//		}
-//		LoggingInfo(hiscallInfo, start)
-//		return true, nil
-//	}
-//	vpc, err := GetRawVPC(vpcIID, vpcHandler.VpcService, vpcHandler.Ctx)
-//	if err != nil {
-//		delErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = %s", err.Error()))
-//		cblogger.Error(delErr.Error())
-//		LoggingError(hiscallInfo, delErr)
-//		return false, delErr
-//	}
-//	rawSubnets, err := getVPCRawSubnets(vpc, vpcHandler.VpcService, vpcHandler.Ctx)
-//	if len(rawSubnets) > 0 {
-//		for _, subnet := range rawSubnets {
-//			if *subnet.Name == subnetIID.NameId {
-//				// Clean up public gateway before deleting subnet
-//				err := vpcHandler.cleanupSubnetPublicGateway(*subnet.ID)
-//				if err != nil {
-//					cblogger.Warnf("Failed to cleanup public gateway for subnet %s: %v", *subnet.ID, err)
-//					// Continue with subnet deletion even if public gateway cleanup fails
-//				}
-//
-//				options := &vpcv1.DeleteSubnetOptions{}
-//				options.SetID(*subnet.ID)
-//				_, err = vpcHandler.VpcService.DeleteSubnetWithContext(vpcHandler.Ctx, options)
-//				if err != nil {
-//					delErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = %s", err.Error()))
-//					cblogger.Error(delErr.Error())
-//					LoggingError(hiscallInfo, delErr)
-//					return false, delErr
-//				}
-//				LoggingInfo(hiscallInfo, start)
-//				return true, nil
-//			}
-//		}
-//	}
-//	err = errors.New("not found subnet")
-//	delErr := errors.New(fmt.Sprintf("Failed to Remove Subnet err = %s", err.Error()))
-//	cblogger.Error(delErr.Error())
-//	LoggingError(hiscallInfo, delErr)
-//
-//	deleteUnusedTags(vpcHandler.TaggingService)
-//
-//	return false, delErr
-//}
 
 func (vpcHandler *IbmVPCHandler) setVPCInfo(vpc vpcv1.VPC, vpcService *vpcv1.VpcV1, ctx context.Context) (irs.VPCInfo, error) {
 	vpcInfo := irs.VPCInfo{
