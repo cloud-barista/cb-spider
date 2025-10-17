@@ -50,7 +50,7 @@ func (IbmCloudDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.TagHandler = true
 	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER}
 
-	drvCapabilityInfo.VPC_CIDR = true
+	drvCapabilityInfo.VPC_CIDR = false
 
 	return drvCapabilityInfo
 }
