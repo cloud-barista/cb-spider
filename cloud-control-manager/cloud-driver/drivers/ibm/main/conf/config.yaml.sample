@@ -119,4 +119,4 @@ ibm:
         vpcIID:
           nameId: "mcb-test-vpc"
         subnetIID:
-          - nameId: "mcb-test-vpc-subnet1"
+          nameId: "mcb-test-vpc-subnet1"
