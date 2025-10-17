@@ -189,20 +189,6 @@ func initAdminWebSetting() {
 	}
 }
 
-// isAdminWebRoute checks if the given path is an AdminWeb route
-func isAdminWebRoute(path string) bool {
-	adminWebPaths := []string{
-		"/adminweb",
-		"/adminweb1",
-	}
-
-	for _, adminPath := range adminWebPaths {
-		if strings.HasPrefix(path, adminPath) {
-			return true
-		}
-	}
-	return false
-}
 
 // getRoutes returns the routes list based on AdminWeb setting
 func getRoutes() []route {
