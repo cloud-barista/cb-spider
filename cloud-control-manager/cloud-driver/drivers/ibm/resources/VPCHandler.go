@@ -110,7 +110,7 @@ func (vpcHandler *IbmVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCIn
 		opt := &vpcv1.CreateVPCAddressPrefixOptions{}
 		opt.SetVPCID(newVpcIId.SystemId)
 		opt.SetCIDR(si.IPv4_CIDR)
-		opt.SetName(fmt.Sprintf("%s-%s-%s-prefix", newVpcIId.NameId, si.IId.NameId, si.Zone))
+		opt.SetName(fmt.Sprintf("%s", si.IId.NameId))
 		opt.SetZone(&vpcv1.ZoneIdentity{Name: core.StringPtr(si.Zone)})
 
 		_, _, err := vpcHandler.VpcService.
@@ -436,7 +436,7 @@ func (vpcHandler *IbmVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.Subnet
 	prefixOpt := &vpcv1.CreateVPCAddressPrefixOptions{}
 	prefixOpt.SetVPCID(*vpc.ID)
 	prefixOpt.SetCIDR(subnetInfo.IPv4_CIDR)
-	prefixOpt.SetName(fmt.Sprintf("%s-%s-prefix", subnetInfo.IId.NameId, subnetInfo.Zone))
+	prefixOpt.SetName(fmt.Sprintf("%s", subnetInfo.IId.NameId))
 	prefixOpt.SetZone(&vpcv1.ZoneIdentity{Name: core.StringPtr(subnetInfo.Zone)})
 
 	_, _, err = vpcHandler.VpcService.CreateVPCAddressPrefixWithContext(vpcHandler.Ctx, prefixOpt)
