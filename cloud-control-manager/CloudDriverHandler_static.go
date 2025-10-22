@@ -19,16 +19,15 @@ import (
 	azuredrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/azure"
 	gcpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/gcp"
 
-	ibmvpcdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibmcloud-vpc"
+	ibmdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ibm"
 	mockdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/mock"
 	openstackdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/openstack"
 	tencentdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/tencent"
 
-	ktdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ktcloud"
-	ktvpcdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ktcloudvpc"
+	ktvpcdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/kt"
+	ktdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ktclassic"
 	ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp"
-	ncpvpcdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncpvpc"
-	nhndrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/nhncloud"
+	nhndrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/nhn"
 
 	cblogger "github.com/cloud-barista/cb-log"
 	"github.com/sirupsen/logrus"
@@ -64,16 +63,14 @@ func getCloudDriver(cldDrvInfo dim.CloudDriverInfo) (idrv.CloudDriver, error) {
 	case "TENCENT":
 		cloudDriver = new(tencentdrv.TencentDriver)
 	case "IBM":
-		cloudDriver = new(ibmvpcdrv.IbmCloudDriver)
+		cloudDriver = new(ibmdrv.IbmCloudDriver)
 	case "NCP":
-		cloudDriver = new(ncpdrv.NcpDriver)
-	case "NCPVPC":
-		cloudDriver = new(ncpvpcdrv.NcpVpcDriver)
-	case "NHNCLOUD":
+		cloudDriver = new(ncpdrv.NcpVpcDriver)
+	case "NHN":
 		cloudDriver = new(nhndrv.NhnCloudDriver)
-	case "KTCLOUD":
+	case "KTCLASSIC":
 		cloudDriver = new(ktdrv.KtCloudDriver)
-	case "KTCLOUDVPC":
+	case "KT":
 		cloudDriver = new(ktvpcdrv.KTCloudVpcDriver)
 	case "MOCK":
 		cloudDriver = new(mockdrv.MockDriver)

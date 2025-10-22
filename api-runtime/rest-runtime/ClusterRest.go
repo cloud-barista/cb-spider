@@ -742,3 +742,60 @@ func convertNodeGroup(ngReq ClusterNodeGroupRequest) cres.NodeGroupInfo {
 	}
 	return nodeGroupInfo
 }
+
+// ClusterTokenResponse represents the response for EKS token
+type ClusterTokenResponse struct {
+	ApiVersion string             `json:"apiVersion" example:"client.authentication.k8s.io/v1"`
+	Kind       string             `json:"kind" example:"ExecCredential"`
+	Status     ClusterTokenStatus `json:"status"`
+}
+
+type ClusterTokenStatus struct {
+	Token string `json:"token" example:"k8s-aws-v1.aHR0cHM6Ly9zdHMuYXA..."`
+}
+
+// getClusterToken godoc
+// @ID get-cluster-token
+// @Summary Get Cluster Token
+// @Description Get a temporary token for accessing EKS cluster (for kubectl exec auth)
+// @Tags [Cluster Management]
+// @Accept  json
+// @Produce  json
+// @Param Name path string true "The name of the Cluster to get token for"
+// @Param ConnectionName query string true "The name of the Connection to use"
+// @Success 200 {object} ClusterTokenResponse "Temporary token for cluster access"
+// @Failure 400 {object} SimpleMsg "Bad Request, missing required parameters"
+// @Failure 404 {object} SimpleMsg "Resource Not Found"
+// @Failure 500 {object} SimpleMsg "Internal Server Error"
+// @Router /cluster/{Name}/token [get]
+func GetClusterToken(c echo.Context) error {
+	cblog.Info("call GetClusterToken()")
+
+	// Get parameters from path and query
+	clusterName := c.Param("Name")
+	if clusterName == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "clusterName is required")
+	}
+
+	connectionName := c.QueryParam("ConnectionName")
+	if connectionName == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "ConnectionName is required")
+	}
+
+	// Get cluster info first to validate cluster exists and get token
+	token, err := cmrt.GenerateClusterToken(connectionName, clusterName)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+	}
+
+	// Return in kubectl exec credential format
+	response := ClusterTokenResponse{
+		ApiVersion: "client.authentication.k8s.io/v1",
+		Kind:       "ExecCredential",
+		Status: ClusterTokenStatus{
+			Token: token,
+		},
+	}
+
+	return c.JSON(http.StatusOK, response)
+}

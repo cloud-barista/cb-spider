@@ -1,47 +1,23 @@
-ncp:
+ncpvpc:
 
-  # NCP Credential Info
-  ncp_access_key_id: XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-  ncp_secret_key: XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-  
+  # NCP VPC Credential Info
+  ncp_access_key_id: XXXXXXXXXXXXXXXXXXXXXXXXXXX
+  ncp_secret_key: XXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+  ### (Note) Currently, NCP VPC only supports the Korea, Singapore, and Japan regions.
   region: KR
   zone: KR-1
-  # region: KR
   # zone: KR-2
-  # region: HK
-  # zone: HK-1
+
   # region: SGN
-  # zone: SGN-1
+  # zone: SGN-4
+  # zone: SGN-5
+
   # region: JPN
-  # zone: JPN-1
-  # region: DEN
-  # zone: DEN-1
-  # region: USWN
-  # zone: USWN-1
+  # zone: JPN-4
+  # zone: JPN-5
 
-
-  # Note!! :
-  # region: KR (RegionNo: 1), zone: KR-1 (ZoneNo: 2) or KR-2 (ZoneNo: 3)
-  # region: HK (RegionNo: 3),  zone: HK-1 (ZoneNo: 20)
-  # region: SGN (RegionNo: 7), zone: SGN-1 (ZoneNo: 70)
-  # region: JPN (RegionNo: 8), zone: JPN-1 (ZoneNo: 80)
-  # region: USWN (RegionNo: 9), zone: USWN-1 (ZoneNo: 90)
-  # region: DEN (RegionNo: 10), zone: DEN-1  (ZoneNo: 100)
-
-  # AMI
-  image_id: SPSW0LINUX000130
-
-  # NCP
-  ncp_instance_id: 5344572
-  base_name: Cloud-Barista-VM-Test-10
-  instance_type: SPSVRHICPU000001
-  key_name: Sean01-AuthKey
-  min_count: 1
-  max_count: 1
-
-  # Network
-  #subnet_id: subnet-cf9ccf83
-  security_group_id: 293807
-
-  # PublicIP Test
-  #public_ip: 13.209.241.236
+  # Note!! : Supporting Regions and Zones
+  # region: KR, zone: KR-1 or KR-2
+  # region: SGN, zone: SGN-4 or SGN-5
+  # region: JPN, zone: JPN-4 or JPN-5

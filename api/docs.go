@@ -1481,6 +1481,64 @@ const docTemplate = `{
                 }
             }
         },
+        "/cluster/{Name}/token": {
+            "get": {
+                "description": "Get a temporary token for accessing EKS cluster (for kubectl exec auth)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "[Cluster Management]"
+                ],
+                "summary": "Get Cluster Token",
+                "operationId": "get-cluster-token",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "The name of the Cluster to get token for",
+                        "name": "Name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "The name of the Connection to use",
+                        "name": "ConnectionName",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Temporary token for cluster access",
+                        "schema": {
+                            "$ref": "#/definitions/spider.ClusterTokenResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request, missing required parameters",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "404": {
+                        "description": "Resource Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/spider.SimpleMsg"
+                        }
+                    }
+                }
+            }
+        },
         "/cluster/{Name}/upgrade": {
             "put": {
                 "description": "Upgrade a Cluster to a specified version.",
@@ -5510,7 +5568,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[Cloud Metadata] Price Info"
+                    "[Cloud Metadata] VM Price Info"
                 ],
                 "summary": "Get VM Price Information",
                 "operationId": "get-vmprice-info",
@@ -5521,6 +5579,12 @@ const docTemplate = `{
                         "name": "RegionName",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Return simplified VM specification information (only VMSpecName). Default: false",
+                        "name": "simple",
+                        "in": "query"
                     },
                     {
                         "description": "The request body containing additional filters for vm price information",
@@ -5569,7 +5633,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "[Cloud Metadata] Price Info"
+                    "[Cloud Metadata] VM Price Info"
                 ],
                 "summary": "List Product Families",
                 "operationId": "list-product-family",
@@ -10260,8 +10324,7 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "CSPProductInfo",
-                "ProductId",
-                "VMSpecInfo"
+                "ProductId"
             ],
             "properties": {
                 "CSPProductInfo": {
@@ -10278,12 +10341,17 @@ const docTemplate = `{
                     "example": "prod-123"
                 },
                 "VMSpecInfo": {
-                    "description": "Information about the VM spec",
+                    "description": "Information about the VM spec (used in detailed mode, default mode)",
                     "allOf": [
                         {
                             "$ref": "#/definitions/spider.VMSpecInfo"
                         }
                     ]
+                },
+                "VMSpecName": {
+                    "description": "Name of the VM spec (used in simple mode)",
+                    "type": "string",
+                    "example": "t2.micro"
                 }
             }
         },
@@ -11568,6 +11636,31 @@ const docTemplate = `{
                             "example": "true"
                         }
                     }
+                }
+            }
+        },
+        "spider.ClusterTokenResponse": {
+            "type": "object",
+            "properties": {
+                "apiVersion": {
+                    "type": "string",
+                    "example": "client.authentication.k8s.io/v1"
+                },
+                "kind": {
+                    "type": "string",
+                    "example": "ExecCredential"
+                },
+                "status": {
+                    "$ref": "#/definitions/spider.ClusterTokenStatus"
+                }
+            }
+        },
+        "spider.ClusterTokenStatus": {
+            "type": "object",
+            "properties": {
+                "token": {
+                    "type": "string",
+                    "example": "k8s-aws-v1.aHR0cHM6Ly9zdHMuYXA..."
                 }
             }
         },

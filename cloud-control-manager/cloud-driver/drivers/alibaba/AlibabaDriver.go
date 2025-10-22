@@ -19,6 +19,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/bssopenapi"
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/nas"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/slb"
 
 	"time"
@@ -120,6 +121,11 @@ func (driver *AlibabaDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		return nil, err
 	}
 
+	NASClient, err := getNASClient(connectionInfo)
+	if err != nil {
+		return nil, err
+	}
+
 	iConn := alicon.AlibabaCloudConnection{
 		CredentialInfo: connectionInfo.CredentialInfo,
 		Region:         connectionInfo.RegionInfo,
@@ -137,10 +143,15 @@ func (driver *AlibabaDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (i
 		DiskClient:       ECSClient,
 		MyImageClient:    ECSClient,
 		RegionZoneClient: ECSClient,
+		FileSystemClient: NASClient,
+		NasClient:        NASClient,
 		Vpc2016Client:    Vpc2016Client,
 		Cs2015Client:     Cs2015Client,
 		Ecs2014Client:    Ecs2014Client,
 		BssClient:        BssClient,
+
+		// Connection for AnyCall
+		AnyCallClient: ECSClient,
 	}
 	return &iConn, nil
 }
@@ -374,4 +385,27 @@ func getEcs2014Client(connectionInfo idrv.ConnectionInfo) (*ecs2014.Client, erro
 	}
 
 	return ecsClient, nil
+}
+
+func getNASClient(connectionInfo idrv.ConnectionInfo) (*nas.Client, error) {
+	// Region Info
+	cblog.Info("AlibabaDriver : getNASClient() - Region : [" + connectionInfo.RegionInfo.Region + "]")
+
+	credential := &credentials.AccessKeyCredential{
+		AccessKeyId:     connectionInfo.CredentialInfo.ClientId,
+		AccessKeySecret: connectionInfo.CredentialInfo.ClientSecret,
+	}
+
+	config := sdk.NewConfig()
+	config.Timeout = time.Duration(15) * time.Second
+	config.AutoRetry = true
+	config.MaxRetryTime = 2
+
+	nasClient, err := nas.NewClientWithOptions(connectionInfo.RegionInfo.Region, config, credential)
+	if err != nil {
+		cblog.Error("Could not create alibaba's nas service client", err)
+		return nil, err
+	}
+
+	return nasClient, nil
 }

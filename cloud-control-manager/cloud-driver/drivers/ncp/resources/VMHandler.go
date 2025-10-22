@@ -1,10 +1,12 @@
 // Proof of Concepts for the Cloud-Barista Multi-Cloud Project.
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
-// NCP Classic VM Handler
+// NCP VPC VM Handler
 //
-// Created by ETRI, 2020.09.
-// Updated by ETRI, 2023.08.
+// by ETRI, 2020.12.
+// by ETRI, 2022.02. updated
+// by ETRI, 2025.01. updated
+// by ETRI, 2025.10. updated
 //==================================================================================================
 
 package resources
@@ -12,6 +14,7 @@ package resources
 import (
 	"errors"
 	"fmt"
+	// "reflect"
 	"io"
 	"os"
 	"strconv"
@@ -19,602 +22,389 @@ import (
 	"time"
 	// "github.com/davecgh/go-spew/spew"
 
-	ncloud "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
-	server "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/server"
+	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
+	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
 
 	cblog "github.com/cloud-barista/cb-log"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	keycommon "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/common"
+	sim "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp/resources/info_manager/security_group_info_manager"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
-type NcpVMHandler struct {
-	CredentialInfo 	idrv.CredentialInfo
-	RegionInfo     	idrv.RegionInfo
-	VMClient        *server.APIClient
+type NcpVpcVMHandler struct {
+	CredentialInfo idrv.CredentialInfo
+	RegionInfo     idrv.RegionInfo
+	VMClient       *vserver.APIClient
 }
-
-// Global map to hold RegionNo against RegionCode. Initialize the map (with {})
-var regionMap = map[string]string{}
-
-// Global map to hold ZoneNo against ZoneCode within a specific RegionNo. Initialize the map (with {})
-var regionZoneMap = map[string]map[string]string{}
-
-// Global map to hold Subnet Zone info against the VM. Initialize the map (with {})
-var vmSubnetZoneMap = map[string]string{}
 
 const (
-	ubuntuCloudInitFilePath string 	= "/cloud-driver-libs/.cloud-init-ncp/cloud-init-ubuntu"
-	centosCloudInitFilePath string 	= "/cloud-driver-libs/.cloud-init-ncp/cloud-init-centos"
-	winCloudInitFilePath string 	= "/cloud-driver-libs/.cloud-init-ncp/cloud-init-windows"
-
-	lnxUserName 	string = "cb-user"
-	winUserName 	string = "Administrator"
-
-	LnxTypeOs 		string = "LINUX"
-	WinTypeOS 		string = "WINDOWS"
+	lnxUserName 			string = "cb-user"
+	winUserName             string = "Administrator"
+	ubuntuCloudInitFilePath	string = "/cloud-driver-libs/.cloud-init-ncp/cloud-init"
+	centosCloudInitFilePath	string = "/cloud-driver-libs/.cloud-init-ncp/cloud-init-centos"
+	winCloudInitFilePath 	string = "/cloud-driver-libs/.cloud-init-ncp/cloud-init-windows"
+	LnxTypeOs 				string = "LNX" // LNX (LINUX)
+	WinTypeOS 				string = "WND" // WND (WINDOWS)
+	KVMRootDiskType 		string = "CB1" // Default root disk type for KVM-based VMs
 )
 
-// Already declared in CommonNcpFunc.go
-// var cblogger *logrus.Logger
 func init() {
 	// cblog is a global variable.
-	cblogger = cblog.GetLogger("NCP Classic VMHandler")
+	cblogger = cblog.GetLogger("NCP VPC VMHandler")
 }
 
-func (vmHandler *NcpVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
-	cblogger.Info("NCP Classic Cloud driver: called StartVM()!!")
+func (vmHandler *NcpVpcVMHandler) StartVM(vmReqInfo irs.VMReqInfo) (irs.VMInfo, error) {
+	cblogger.Info("NCP VPC Cloud driver: called StartVM()!!")
 	InitLog()
-	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmReqInfo.IId.NameId, "StartVM()")
+	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Region, call.VM, vmReqInfo.IId.NameId, "StartVM()")
 
-	// Get Zone ID of the Requested Subnet (For Zone-based control)
-	vpcHandler := NcpVPCHandler{
-		CredentialInfo: vmHandler.CredentialInfo,
-		RegionInfo: 	vmHandler.RegionInfo,
-		VMClient:   	vmHandler.VMClient,
-	}
-	reqZoneId, err := vpcHandler.getSubnetZone(vmReqInfo.VpcIID, vmReqInfo.SubnetIID)
-	if err != err {
-		cblogger.Errorf("Failed to Get the Subnet Zone info!! : [%v]", err)
-		return irs.VMInfo{}, err
-	}
-	cblogger.Infof("\n\n### reqZoneId : [%s]", reqZoneId)
-
-	reqZoneNo, err := vmHandler.getZoneNo(vmHandler.RegionInfo.Region, reqZoneId) // Not vmHandler.RegionInfo.Zone
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get NCP Zone 'No' of the Zone : ", err)
+	if strings.EqualFold(vmReqInfo.IId.NameId, "") {
+		newErr := fmt.Errorf("Invalid VM Name required")
 		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
 		return irs.VMInfo{}, newErr
 	}
 
-	// CAUTION!! : Instance Name is Converted to lowercase.(strings.ToLower())
-	// NCP에서는 VM instance 이름에 영문 대문자 허용 안되므로 여기서 변환하여 반영.(대문자가 포함되면 Error 발생)
+	// CAUTION!! : Instance Name is Convert to lowercase.(strings.ToLower())
+	// NCP VPC does not allow uppercase letters in VM instance name, so convert to lowercase here to reflect.(uppercase : Error occurred)
 	instanceName := strings.ToLower(vmReqInfo.IId.NameId)
-	instanceType := vmReqInfo.VMSpecName
 	keyPairId := vmReqInfo.KeyPairIID.SystemId
+	vpcId := vmReqInfo.VpcIID.SystemId
+	subnetId := vmReqInfo.SubnetIID.SystemId
+
 	minCount := ncloud.Int32(1)
 
-	// Check whether the VM name exists. Search by instanceName converted to lowercase
-	vmId, err := vmHandler.getVmIdByName(instanceName)
-	if err != nil {
-		cblogger.Debug("The VM with the name does not exists : " + instanceName)
-		// return irs.VMInfo{}, err  //Caution!!
-    }
-	if vmId != "" {
-		cblogger.Info("The vmId : ", vmId)
-		createErr := fmt.Errorf("VM has the name '%s' already exist!!", vmReqInfo.IId.NameId)
-		LoggingError(callLogInfo, createErr)
-		return irs.VMInfo{}, createErr
-	}
-
-	// Set S/G IID (SystemId based)
-	var newSecurityGroupIds []*string
+	var securityGroupIds []*string
 	for _, sgID := range vmReqInfo.SecurityGroupIIDs {
 		// cblogger.Infof("Security Group IID : [%s]", sgID)
-		newSecurityGroupIds = append(newSecurityGroupIds, ncloud.String(sgID.SystemId))
+		securityGroupIds = append(securityGroupIds, ncloud.String(sgID.SystemId))
 	}
 
-	// Set cloud-init script
-	var publicImageId string
-	var myImageId string
-	var initUserData *string
+	// Check whether the VM name exists
+	// Search by instanceName converted to lowercase
+	vmId, getErr := vmHandler.getVmIdByName(instanceName)
+	if getErr != nil {
+		newErr := fmt.Errorf("Failed to Get VmId with the Name : [%s], [%v]", instanceName, getErr)
+		cblogger.Error(newErr.Error())
+		return irs.VMInfo{}, newErr
+	}
+	if vmId != "" {
+		newErr := fmt.Errorf("The VM Name [%s] is already In Use.", instanceName)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMInfo{}, newErr
+	}
 
+	var publicImageId string
+	var publicImageSpecId string
+	var myImageId string
+	// var myImageSpecId string
+	// var serverProductCode string
+
+	var initScriptNo *string
+	var instanceReq vserver.CreateServerInstancesRequest
+	orderInt32 := ncloud.Int32(0) // Convert numer 0 to *int32 type
+
+	// In case of Public Image
 	if vmReqInfo.ImageType == irs.PublicImage || vmReqInfo.ImageType == "" || vmReqInfo.ImageType == "default" {
-		imageHandler := NcpImageHandler{
-			RegionInfo:  vmHandler.RegionInfo,
-			VMClient:    vmHandler.VMClient,
+		imageHandler := NcpVpcImageHandler{
+			RegionInfo: vmHandler.RegionInfo,
+			VMClient:   vmHandler.VMClient,
 		}
-		isPublicImage, err := imageHandler.isPublicImage(vmReqInfo.ImageIID)
+
+		isPublicImage, err := imageHandler.isPublicImage(vmReqInfo.ImageIID.SystemId)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
 			cblogger.Error(newErr.Error())
 			return irs.VMInfo{}, newErr
-		}	
+		}
 		if !isPublicImage {
 			newErr := fmt.Errorf("'PublicImage' type is selected, but Specified image is Not a PublicImage in the region!!")
 			cblogger.Error(newErr.Error())
 			return irs.VMInfo{}, newErr
 		} else {
 			publicImageId = vmReqInfo.ImageIID.SystemId
+			publicImageSpecId = vmReqInfo.VMSpecName
+
+			cblogger.Infof("publicImageId : [%s]", publicImageId)
+			cblogger.Infof("publicImageSpecId : [%s]", publicImageSpecId)
 		}
 
 		isPublicWindowsImage, err := imageHandler.CheckWindowsImage(vmReqInfo.ImageIID)
 		if err != nil {
-			rtnErr := logAndReturnError(callLogInfo, "Failed to Check Whether the Image is MS Windows Image : ", err)
-			return irs.VMInfo{}, rtnErr
+			newErr := fmt.Errorf("Failed to Check Whether the Image is MS Windows Image : [%v]", err)
+			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)
+			return irs.VMInfo{}, newErr
 		}
 		if isPublicWindowsImage {
 			var createErr error
-			initUserData, createErr = vmHandler.createWinInitUserData(vmReqInfo.VMUserPasswd)
+			initScriptNo, createErr = vmHandler.createWinInitScript(vmReqInfo.VMUserPasswd)
 			if createErr != nil {
-				rtnErr := logAndReturnError(callLogInfo, "Failed to Create Cloud-Init Script with the Password : ", createErr)
-				return irs.VMInfo{}, rtnErr
+				newErr := fmt.Errorf("Failed to Create Cloud-Init Script with the Password : [%v]", createErr)
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
 			}
 		} else {
 			var createErr error
-			initUserData, createErr = vmHandler.createLinuxInitUserData(vmReqInfo.ImageIID, keyPairId)
+			initScriptNo, createErr = vmHandler.createLinuxInitScript(vmReqInfo.ImageIID, keyPairId)
 			if createErr != nil {
-				rtnErr := logAndReturnError(callLogInfo, "Failed to Create Cloud-Init Script with the KeyPairId : ", createErr)
-				return irs.VMInfo{}, rtnErr
+				newErr := fmt.Errorf("Failed to Create Cloud-Init Script with the KeyPairId : [%v]", createErr)
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
 			}
 		}
-	} else {
-		imageHandler := NcpImageHandler{
-			RegionInfo:  vmHandler.RegionInfo,
-			VMClient:    vmHandler.VMClient,
+
+		var reqDiskType string
+		if strings.EqualFold(vmReqInfo.RootDiskType, "default") || strings.EqualFold(vmReqInfo.RootDiskType, "HDD") {
+			reqDiskType = KVMRootDiskType
+		} else if strings.EqualFold(vmReqInfo.RootDiskType, "SSD") {
+			newErr := fmt.Errorf("Invalid root disk type. KVM-based VMs only support root disks of the ‘HDD’ type.")
+			cblogger.Error(newErr.Error())
+			return irs.VMInfo{}, newErr
 		}
-		isPublicImage, err := imageHandler.isPublicImage(vmReqInfo.ImageIID)
+
+		instanceReq = vserver.CreateServerInstancesRequest{
+			RegionCode: ncloud.String(vmHandler.RegionInfo.Region),
+			ServerName: ncloud.String(instanceName),
+			// MemberServerImageInstanceNo:	ncloud.String(myImageId),
+			// ServerImageProductCode: 		ncloud.String(publicImageId), // In case using New publicImageId(from New API). Use 'ServerImageNo' parameter!!
+			// ServerProductCode:      		ncloud.String(serverProductCode), // In case using New vmSpecId(from New API). Use 'ServerSpecCode' parameter!!
+			LoginKeyName: ncloud.String(keyPairId),
+			VpcNo:        ncloud.String(vpcId),
+			SubnetNo:     ncloud.String(subnetId), // Applied for Zone-based control!!
+
+			ServerImageNo:  ncloud.String(publicImageId),     // Added for using imageId from New API
+			ServerSpecCode: ncloud.String(publicImageSpecId), // Added for using specId from New API
+
+			// ### Caution!! : AccessControlGroup corresponds to Server > 'ACG', not VPC > 'Network ACL' in the NCP VPC console.
+			NetworkInterfaceList: []*vserver.NetworkInterfaceParameter{
+				{
+					NetworkInterfaceOrder: 		orderInt32,					
+					// If you don't specify 'NetworkInterfaceNo', a NetworkInterface is automatically generated and applied.
+					AccessControlGroupNoList: 	securityGroupIds,
+				},
+			},
+			
+			BlockStorageMappingList: []*vserver.BlockStorageMappingParameter{
+				{
+					Order:						orderInt32,
+					BlockStorageVolumeTypeCode: ncloud.String(reqDiskType),
+					BlockStorageSize: 			ncloud.String(vmReqInfo.RootDiskSize),
+				},
+			}, 
+
+			IsProtectServerTermination: ncloud.Bool(false), // Caution!! : If set to 'true', Terminate (VM return) is not controlled by API.
+			ServerCreateCount:          minCount,
+			InitScriptNo:               initScriptNo,
+		}
+
+	} else { // In case of My Image
+		imageHandler := NcpVpcImageHandler{
+			RegionInfo: vmHandler.RegionInfo,
+			VMClient:   vmHandler.VMClient,
+		}
+		isPublicImage, err := imageHandler.isPublicImage(vmReqInfo.ImageIID.SystemId)
 		if err != nil {
 			newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
 			cblogger.Error(newErr.Error())
 			return irs.VMInfo{}, newErr
-		}	
+		}
 		if isPublicImage {
 			newErr := fmt.Errorf("'MyImage' type is selected, but Specified image is Not a MyImage!!")
 			cblogger.Error(newErr.Error())
 			return irs.VMInfo{}, newErr
 		} else {
 			myImageId = vmReqInfo.ImageIID.SystemId
+			// myImageSpecId = vmReqInfo.VMSpecName
 		}
 
-		myImageHandler := NcpMyImageHandler{
-			RegionInfo:  vmHandler.RegionInfo,
-			VMClient:    vmHandler.VMClient,
+		// vmSpecHandler := NcpVpcVMSpecHandler{
+		// 	RegionInfo:  vmHandler.RegionInfo,
+		// 	VMClient:    vmHandler.VMClient,
+		// }
+		// var getErr error
+		// serverProductCode, getErr = vmSpecHandler.getNcpVpcServerProductCode(myImageSpecId)
+		// if err != nil {
+		// 	newErr := fmt.Errorf("Failed to Get ServerProductCode from NCP VPC : ", getErr)
+		// 	cblogger.Error(newErr.Error())
+		// 	LoggingError(callLogInfo, newErr)
+		// 	return irs.VMInfo{}, newErr
+		// }
+
+		myImageHandler := NcpVpcMyImageHandler{
+			RegionInfo: vmHandler.RegionInfo,
+			VMClient:   vmHandler.VMClient,
 		}
 		isMyWindowsImage, err := myImageHandler.CheckWindowsImage(vmReqInfo.ImageIID)
 		if err != nil {
-			rtnErr := logAndReturnError(callLogInfo, "Failed to Check Whether My Image is MS Windows Image : ", err)
-			return irs.VMInfo{}, rtnErr
+			newErr := fmt.Errorf("Failed to Check Whether My Image is MS Windows Image : [%v]", err)
+			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)
+			return irs.VMInfo{}, newErr
 		}
 		if isMyWindowsImage {
 			var createErr error
-			initUserData, createErr = vmHandler.createWinInitUserData(vmReqInfo.VMUserPasswd)
+			initScriptNo, createErr = vmHandler.createWinInitScript(vmReqInfo.VMUserPasswd)
 			if createErr != nil {
-				rtnErr := logAndReturnError(callLogInfo, "Failed to Create Cloud-Init Script with the Password : ", createErr)
-				return irs.VMInfo{}, rtnErr
+				newErr := fmt.Errorf("Failed to Create Cloud-Init Script with the Password : [%v]", createErr)
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
 			}
 		} else {
 			var createErr error
-			initUserData, createErr = vmHandler.createLinuxInitUserData(vmReqInfo.ImageIID, keyPairId)
+			initScriptNo, createErr = vmHandler.createLinuxInitScript(vmReqInfo.ImageIID, keyPairId)
 			if createErr != nil {
-				rtnErr := logAndReturnError(callLogInfo, "Failed to Create Cloud-Init Script with the KeyPairId : ", createErr)
-				return irs.VMInfo{}, rtnErr
+				newErr := fmt.Errorf("Failed to Create Cloud-Init Script with the KeyPairId : [%v]", createErr)
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.VMInfo{}, newErr
 			}
 		}
-	}
-	// cblogger.Info("### Succeeded in Creating Init UserData!!")
-	// cblogger.Infof("Init UserData : [%s]", *initUserData)
-	// Note) NCP에서는 UserData용 string에 Base64 인코딩 불필요
-	// cmdStringBase64 := base64.StdEncoding.EncodeToString([]byte(cmdString))
 
-	cblogger.Info("### Start to Create NCP VM Instance!!")
-	// VM Creation req. info. setting
-	// Note) Since NCP Classic is based on a physical network, it does not support VPC and Subnet specifications when creating VM.
-	instanceReq := server.CreateServerInstancesRequest{
-		ServerName:             				ncloud.String(instanceName),
-		ServerImageProductCode: 				ncloud.String(publicImageId),
-		MemberServerImageNo:					ncloud.String(myImageId),
-		ServerProductCode:      				ncloud.String(instanceType),
-		ServerDescription:  					ncloud.String(vmReqInfo.ImageIID.SystemId), // Caution!!
-		LoginKeyName:           				ncloud.String(keyPairId),
-		ZoneNo: 								reqZoneNo, 			// For Zone-based control
-		IsProtectServerTermination: 			ncloud.Bool(false), // NOTE Caution!! : 'true'로 설정하면 API로 Terminate(VM 반환) 제어 안됨.
-		ServerCreateCount:      				minCount,
-		AccessControlGroupConfigurationNoList: 	newSecurityGroupIds,
-		UserData: 								initUserData,
+		// ### Note) "These parameters cannot be used at the same time : [memberServerImageInstanceNo, serverImageProductCode, serverSpecCode]"
+		// $$$ Need to check what to set as a vmSpec when creating a VM with a MyImge(MemberServerImageInstanceNo).
+		instanceReq = vserver.CreateServerInstancesRequest{
+			RegionCode:                  ncloud.String(vmHandler.RegionInfo.Region),
+			ServerName:                  ncloud.String(instanceName),
+			MemberServerImageInstanceNo: ncloud.String(myImageId),
+			// ServerImageProductCode: 		ncloud.String(publicImageId), // In case using New publicImageId(from New API). Use 'ServerImageNo' parameter!!
+			// ServerProductCode:      		ncloud.String(serverProductCode), // In case using New vmSpecId(from New API). Use 'ServerSpecCode' parameter!!
+			LoginKeyName: 				ncloud.String(keyPairId),
+			VpcNo:        				ncloud.String(vpcId),
+			SubnetNo:     				ncloud.String(subnetId), // Applied for Zone-based control!!
+
+			// Note) If enabled and set "", an error will occur on VM creation with 'MemberServerImageInstanceNo'.
+			// ServerImageNo: 				ncloud.String(publicImageId), // Added for using imageId from New API
+			// ServerSpecCode: 				ncloud.String(publicImageSpecId), // Added for using specId from New API
+
+			// ### Caution!! : AccessControlGroup corresponds to Server > 'ACG', not VPC > 'Network ACL' in the NCP VPC console.
+			NetworkInterfaceList: []*vserver.NetworkInterfaceParameter{
+				{
+					NetworkInterfaceOrder: 		orderInt32, 
+					// If you don't specify 'NetworkInterfaceNo', a NetworkInterface is automatically generated and applied.
+					AccessControlGroupNoList: 	securityGroupIds,
+				},				
+			},
+
+			IsProtectServerTermination: ncloud.Bool(false), // Caution!! : If set to 'true', Terminate (VM return) is not controlled by API.
+			ServerCreateCount:          minCount,
+			InitScriptNo:               initScriptNo,
+		}
 	}
-	// cblogger.Info(instanceReq)
+	// cblogger.Info("# instanceReq")
+	// spew.Dump(instanceReq)
+
 	callLogStart := call.Start()
+	cblogger.Info("# Start to Create NCP VPC VM Instance!!")
 	runResult, err := vmHandler.VMClient.V2Api.CreateServerInstances(&instanceReq)
-	if err != nil {		
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Create NCP VM instance. : ", err)
-		return irs.VMInfo{}, rtnErr
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Create VM instance : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		scriptDelResult, err := vmHandler.deleteInitScript(initScriptNo)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Delete the Cloud-Init Script with the initScriptNo : [%s], [%v]", ncloud.StringValue(initScriptNo), err)
+			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)
+			return irs.VMInfo{}, newErr
+		}
+		cblogger.Infof("deleteInitScript Result : [%s]", *scriptDelResult)
+		return irs.VMInfo{}, newErr
 	}
 	LoggingInfo(callLogInfo, callLogStart)
 
-	// Because there are functions that use NameID
-	newVMIID := irs.IID{NameId: instanceName, SystemId: ncloud.StringValue(runResult.ServerInstanceList[0].ServerInstanceNo)}
+	newVMIID := irs.IID{SystemId: ncloud.StringValue(runResult.ServerInstanceList[0].ServerInstanceNo)}
 
-	// Save VPC name to tag on the VM instance
-	var vpcNameId string
-	var subnetNameId string
-	if !strings.EqualFold(vmReqInfo.VpcIID.NameId, "") {
-		vpcNameId = vmReqInfo.VpcIID.NameId
-	} else {
-		vpcNameId = vmReqInfo.VpcIID.SystemId
-	}	
-	if !strings.EqualFold(vmReqInfo.SubnetIID.NameId, "") {
-		subnetNameId = vmReqInfo.SubnetIID.NameId
-	} else {
-		subnetNameId = vmReqInfo.SubnetIID.SystemId
-	}
-	createTagResult, error := vmHandler.createVPCnSubnetTag(ncloud.String(newVMIID.SystemId), vpcNameId, subnetNameId)
-	if error != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Create VPC and Subnet Tag : ", error)
-		return irs.VMInfo{}, rtnErr
-	}
-	cblogger.Info("# createTagResult : ", createTagResult)
+	//=========================================
+	// Wait for VM information to be inquired
+	//=========================================
+	cblogger.Infof("# Waiting while Initializing New VM!!")
+	time.Sleep(time.Second * 15) // Waiting Before Getting New VM Status Info!!
 
-	// Wait while being created to get VM information.
-	curStatus, statusErr := vmHandler.waitToGetVMInfo(newVMIID)
+	curStatus, statusErr := vmHandler.waitToGetVMInfo(newVMIID) // # Waiting while Creating VM!!")
 	if statusErr != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Wait to Get the VM info. : ", statusErr)
-		return irs.VMInfo{}, rtnErr
+		cblogger.Error(statusErr.Error())
+		LoggingError(callLogInfo, statusErr)
+		return irs.VMInfo{}, statusErr
 	}
-	cblogger.Infof("==> VM status of [%s] : [%s]", newVMIID.NameId, curStatus)
+	cblogger.Infof("==> VM [%s] status : [%s]", newVMIID.SystemId, curStatus)
+	cblogger.Info("VM Creation Processes are Finished !!")
 
-	// Create a Public IP for the New VM
-	// Caution!!) The number of Public IPs cannot be more than the number of instances on NCP cloud default service.
-	time.Sleep(time.Second * 5)
-	cblogger.Info("### Start Creating a Public IP!!")
-	publicIpReq := server.CreatePublicIpInstanceRequest{
-		ServerInstanceNo: 	runResult.ServerInstanceList[0].ServerInstanceNo,
-		ZoneNo: 			runResult.ServerInstanceList[0].Zone.ZoneNo,
-	}
-	result, err := vmHandler.VMClient.V2Api.CreatePublicIpInstance(&publicIpReq)
+	scriptDelResult, err := vmHandler.deleteInitScript(initScriptNo)
 	if err != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Create PublicIp : ", err)
-		return irs.VMInfo{}, rtnErr
-	}
-	if len(result.PublicIpInstanceList) < 1 {
-		newErr := fmt.Errorf("Failed to Create any PublicIp.")
+		newErr := fmt.Errorf("Failed to Delete the Cloud-Init Script with the initScriptNo : [%s], [%v]", ncloud.StringValue(initScriptNo), err)
 		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
 		return irs.VMInfo{}, newErr
 	}
-	cblogger.Infof("*** NcpInstance.PublicIp : [%s]", ncloud.StringValue(result.PublicIpInstanceList[0].PublicIp))
-	time.Sleep(time.Second * 2)
+	cblogger.Infof("deleteInitScript Result : [%s]", *scriptDelResult)
 
-	// Create the Tag List on the VM
-	if len(vmReqInfo.TagList) > 0 {
-		tagHandler := NcpTagHandler {
-			RegionInfo:  vmHandler.RegionInfo,
-			VMClient:    vmHandler.VMClient,
-		}
-		_, createErr := tagHandler.createVMTagList(runResult.ServerInstanceList[0].ServerInstanceNo, vmReqInfo.TagList)
-		if err != nil {		
-			newErr := fmt.Errorf("Failed to Create the Tag List on the VM : [%v]", createErr)
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
+	// Register SecurityGroupInfo to DB
+	var keyValueList []irs.KeyValue
+	for _, sgIID := range vmReqInfo.SecurityGroupIIDs {
+		keyValueList = append(keyValueList, irs.KeyValue{
+			Key:   sgIID.SystemId,
+			Value: sgIID.SystemId,
+		})
 	}
-	
-	// Get Created New VM Info
+
+	providerName := "NCP"
+	_, regErr := sim.RegisterSecurityGroup(newVMIID.SystemId, providerName, keyValueList)
+	if regErr != nil {
+		cblogger.Error(regErr)
+		return irs.VMInfo{}, regErr
+	}
+	// cblogger.Infof(" === Registered S/G Info to DB : [%v]", sgInfo)
+
+	curStat, statErr := vmHandler.waitForDiskAttach(newVMIID) // # Waiting while Root disk is fully attached!!"
+	if statErr != nil {
+		newErr := fmt.Errorf("Failed to wait while Root disk is attaching!! : [%v]", statErr)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMInfo{}, newErr
+	}
+	cblogger.Infof("==> Root disk [%s] status : [%s]", newVMIID.SystemId, curStat)
+	cblogger.Info("The Root disk has been fully Attached to the VM!!")
+
 	vmInfo, error := vmHandler.GetVM(newVMIID)
 	if error != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Get the VM Info : ", error)
-		return irs.VMInfo{}, rtnErr
+		newErr := fmt.Errorf("Failed to Get the New VM Info with the VM ID : [%s], [%v]", newVMIID.SystemId, error)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMInfo{}, newErr
 	}
-	
 	if vmInfo.Platform == irs.WINDOWS {
 		vmInfo.VMUserPasswd = vmReqInfo.VMUserPasswd
 	}
 	return vmInfo, nil
 }
 
-func (vmHandler *NcpVMHandler) mappingServerInfo(NcpInstance *server.ServerInstance) (irs.VMInfo, error) {
-	cblogger.Info("NCP Classic Cloud driver: called mappingServerInfo()!")
-	InitLog()
-	// callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, "mappingServerInfo()", "mappingServerInfo()")
-
-	// cblogger.Info("\n NcpInstance : ")
-	// spew.Dump(NcpInstance)
-
-	convertedTime, err := convertTimeFormat(*NcpInstance.CreateDate)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Convert the Time Format!! : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return irs.VMInfo{}, newErr
-	}
-	
-	var publicIp *string = nil
-	var publicIpInstanceNo *string = nil
-
-	// Create a PublicIp, if the instance doesn't have a 'Public IP' after creation.
-	if strings.EqualFold(ncloud.StringValue(NcpInstance.PublicIp), "") {
-		publicIpReq := server.CreatePublicIpInstanceRequest{
-			ServerInstanceNo: 	NcpInstance.ServerInstanceNo,
-			ZoneNo: 			NcpInstance.Zone.ZoneNo,
-		}
-		// CAUTION!!) The number of Public IPs cannot be more than the number of instances on NCP cloud default service.
-		result, err := vmHandler.VMClient.V2Api.CreatePublicIpInstance(&publicIpReq)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Create PublicIp : ", err)
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
-		if len(result.PublicIpInstanceList) < 1 {
-			newErr := fmt.Errorf("Failed to Create any PublicIp.")
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
-		publicIp = result.PublicIpInstanceList[0].PublicIp
-		publicIpInstanceNo = result.PublicIpInstanceList[0].PublicIpInstanceNo
-		time.Sleep(time.Second * 1)
-		// cblogger.Infof("*** NcpInstance.PublicIp : [%s]", ncloud.StringValue(publicIp))
-		// cblogger.Infof("*** NcpInstance.publicIpInstanceNo [%s]: ", ncloud.StringValue(publicIpInstanceNo))
-
-		cblogger.Infof("Finished to Create New Public IP.")
-	} else {
-		publicIp = NcpInstance.PublicIp
-		// cblogger.Infof("*** NcpInstance.PublicIp : [%s]", ncloud.StringValue(publicIp))
-
-		instanceReq := server.GetPublicIpInstanceListRequest{
-			PublicIpList: 	[]*string{publicIp},
-			ZoneNo: 		NcpInstance.Zone.ZoneNo,
-		}
-		// Get the Public IP list info. to search the PublicIp InstanceNo
-		result, err := vmHandler.VMClient.V2Api.GetPublicIpInstanceList(&instanceReq)
-		if err != nil {
-			newErr := fmt.Errorf("Get PublicIp InstanceList : ", err)
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
-		if len(result.PublicIpInstanceList) < 1 {
-			cblogger.Errorf("Failed to Get Any PublicIp : [%v]", err)
-			return irs.VMInfo{}, errors.New("Failed to Get Any PublicIp.")
-		}
-		publicIpInstanceNo = result.PublicIpInstanceList[0].PublicIpInstanceNo
-		// cblogger.Infof("*** NcpInstance.publicIpInstanceNo : [%s]", ncloud.StringValue(publicIpInstanceNo))
-	}
-
-	// To Get the BlockStorage info. of the VM instance
-	blockStorageReq := server.GetBlockStorageInstanceListRequest{
-		ServerInstanceNo: 	NcpInstance.ServerInstanceNo,
-	}
-	blockStorageResult, err := vmHandler.VMClient.V2Api.GetBlockStorageInstanceList(&blockStorageReq)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get Block Storage List : ", err)
-		cblogger.Error(newErr.Error())
-		return irs.VMInfo{}, newErr		
-	}
-	if len(blockStorageResult.BlockStorageInstanceList) < 1 {
-		cblogger.Errorf("Failed to Find Any BlockStorageInstance!!")
-		return irs.VMInfo{}, errors.New("Failed to Find Any BlockStorageInstance.")
-	}
-	cblogger.Info("Succeeded in Getting Block Storage InstanceList!!")
-	// spew.Dump(blockStorageResult.BlockStorageInstanceList[0])
-
-	var sgList []irs.IID
-	if NcpInstance.AccessControlGroupList != nil {
-		for _, acg := range NcpInstance.AccessControlGroupList {
-			sgList = append(sgList, irs.IID{NameId: *acg.AccessControlGroupName, SystemId: *acg.AccessControlGroupConfigurationNo})
-		}
-	} else {
-		cblogger.Info("AccessControlGroupList is empty or nil")
-	}
-
-	// To Get the VM resources Info.
-	vmInfo := irs.VMInfo{
-		IId: irs.IID{
-			NameId:   	*NcpInstance.ServerName,
-			SystemId: 	*NcpInstance.ServerInstanceNo,
-		},
-		StartTime: 		convertedTime,
-
-		// (Ref) NCP region/zone info. example
-		// Region:  "KR", Zone: "KR-2"
-		Region: irs.RegionInfo{
-			Region: 	*NcpInstance.Region.RegionCode,
-			//  *NcpInstance.Zone.ZoneCode,  // Zone info is bellow.
-		},
-		VMSpecName: 		ncloud.StringValue(NcpInstance.ServerProductCode), //Server Spec code임.
-		SecurityGroupIIds: 	sgList,
-
-		//NCP Key에는 SystemID가 없으므로, 고유한 NameID 값을 SystemID에도 반영
-		KeyPairIId: irs.IID{
-			NameId: 	*NcpInstance.LoginKeyName,
-			SystemId: 	*NcpInstance.LoginKeyName,
-		},
-
-		PublicIP:   	*publicIp,
-		PrivateIP:  	*NcpInstance.PrivateIp,		
-		VMBootDisk: 	ncloud.StringValue(blockStorageResult.BlockStorageInstanceList[0].DeviceName),
-		VMBlockDisk: 	ncloud.StringValue(blockStorageResult.BlockStorageInstanceList[0].DeviceName),
-		RootDiskType: 	*NcpInstance.BaseBlockStorageDiskDetailType.CodeName,
-		SSHAccessPoint: *publicIp + ":22",
-
-		KeyValueList: []irs.KeyValue{
-			{Key: "ServerInstanceType", Value: *NcpInstance.ServerInstanceType.CodeName},
-			{Key: "CpuCount", Value: String(*NcpInstance.CpuCount)},
-			{Key: "MemorySize(GB)", Value: strconv.FormatFloat(float64(*NcpInstance.MemorySize)/(1024*1024*1024), 'f', 0, 64)},
-			{Key: "BaseBlockStorageSize(GB)", Value: strconv.FormatFloat(float64(*NcpInstance.BaseBlockStorageSize)/(1024*1024*1024), 'f', 0, 64)}, //GB로 변환
-			{Key: "DiskType", Value: ncloud.StringValue(blockStorageResult.BlockStorageInstanceList[0].DiskType.CodeName)},
-			{Key: "DiskDetailType", Value: ncloud.StringValue(blockStorageResult.BlockStorageInstanceList[0].DiskDetailType.CodeName)},
-			{Key: "PlatformType", Value: *NcpInstance.PlatformType.CodeName},
-			{Key: "ServerImageName", Value: *NcpInstance.ServerImageName},
-			{Key: "ZoneCode", Value: *NcpInstance.Zone.ZoneCode},
-			//{Key: "ZoneNo", Value: *NcpInstance.Zone.ZoneNo},
-			{Key: "PublicIpID", Value: *publicIpInstanceNo}, // # To use it when delete the PublicIP
-		},
-	}
-
-	imageHandler := NcpImageHandler{
-		RegionInfo:  vmHandler.RegionInfo,
-		VMClient:    vmHandler.VMClient,
-	}
-	// Set the VM Image Type : 'PublicImage' or 'MyImage'
-	if !strings.EqualFold(*NcpInstance.ServerDescription, "") {
-		vmInfo.ImageIId.SystemId = *NcpInstance.ServerDescription // Note!! : Since MyImage ID is not included in the 'NcpInstance' info 
-		vmInfo.ImageIId.NameId = *NcpInstance.ServerDescription
-		
-		isPublicImage, err := imageHandler.isPublicImage(irs.IID{SystemId: *NcpInstance.ServerDescription}) // Caution!! : Not '*NcpInstance.ServerImageProductCode'
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
-			return irs.VMInfo{}, newErr
-		}
-		if isPublicImage {
-			vmInfo.ImageType = irs.PublicImage
-		} else {
-			vmInfo.ImageType = irs.MyImage
-		}
-	} else {
-		vmInfo.ImageIId.SystemId = *NcpInstance.ServerImageProductCode
-		vmInfo.ImageIId.NameId = *NcpInstance.ServerImageProductCode
-	}
-
-	storageSize, deviceName, err := vmHandler.getVmRootDiskInfo(NcpInstance.ServerInstanceNo)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Find BlockStorage Info : ", err)
-		cblogger.Error(newErr.Error())
-		return irs.VMInfo{}, newErr
-	}
-	if !strings.EqualFold(*storageSize, "") {
-		vmInfo.RootDiskSize = *storageSize
-	}
-	if !strings.EqualFold(*deviceName, "") {
-		vmInfo.RootDeviceName = *deviceName
-	}
-
-	dataDiskList, err := vmHandler.getVmDataDiskList(NcpInstance.ServerInstanceNo)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get Data Disk List : ", err)
-		cblogger.Error(newErr.Error())
-		return irs.VMInfo{}, newErr
-	}
-	if len(dataDiskList) > 0 {
-		vmInfo.DataDiskIIDs = dataDiskList
-	}
-
-	// Set VM Zone Info
-	if NcpInstance.Zone != nil {
-		vmInfo.Region.Zone = *NcpInstance.Zone.ZoneCode
-		// *NcpInstance.Zone.ZoneCode or *NcpInstance.Zone.ZoneName etc...
-	}
-
-	// Get the VPC Name from Tag of the VM
-	vpcName, subnetName, error := vmHandler.getVPCnSubnetNameFromTag(NcpInstance.ServerInstanceNo)
-	if error != nil {
-		newErr := fmt.Errorf("Failed to Get VPC Name from Tag of the VM instance!! : [%v]", error)
-		cblogger.Debug(newErr.Error())
-		// return irs.VMInfo{}, newErr // Caution!!
-	}
-	// cblogger.Infof("# vpcName : [%s]", vpcName)
-	// cblogger.Infof("# subnetName : [%s]", subnetName)
-
-	if len(vpcName) < 1 {
-		cblogger.Debug("Failed to Get VPC Name from Tag!!")
-	} else {
-		// Get the VPC info
-		vpcHandler := NcpVPCHandler {
-			RegionInfo:			vmHandler.RegionInfo,
-			VMClient:         	vmHandler.VMClient,
-		}
-		vpcInfo, err := vpcHandler.GetVPC(irs.IID{SystemId: vpcName})
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Find the VPC : [%v]", err)
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
-
-		vmInfo.VpcIID.NameId = vpcName
-		vmInfo.VpcIID.SystemId = vpcInfo.IId.SystemId
-		vmInfo.SubnetIID.NameId = subnetName
-		for _, curSubnet := range vpcInfo.SubnetInfoList {
-			// cblogger.Infof("Subnet NameId : [%s]", curSubnet.IId.NameId)
-			if strings.EqualFold(curSubnet.IId.NameId, subnetName) {
-				vmInfo.SubnetIID.SystemId = curSubnet.IId.SystemId
-				break
-			}
-		}
-	}
-	// cblogger.Infof("NCP Instance Uptime : [%s]", *NcpInstance.Uptime)
-
-	// Note : NCP VPC PlatformType : LNX32, LNX64, WND32, WND64, UBD64, UBS64
-	if strings.Contains(*NcpInstance.PlatformType.Code, "LNX") || strings.Contains(*NcpInstance.PlatformType.Code, "UB") {
-		vmInfo.VMUserId = lnxUserName
-		vmInfo.Platform = irs.LINUX_UNIX
-	} else if strings.Contains(*NcpInstance.PlatformType.Code, "WND") {
-		vmInfo.VMUserId = winUserName
-		vmInfo.Platform = irs.WINDOWS
-	}
-
-	// Get the Tag List of the VM
-	var kvList []irs.KeyValue
-	tagHandler := NcpTagHandler {
-		RegionInfo:  vmHandler.RegionInfo,
-		VMClient:    vmHandler.VMClient,
-	}
-	tagList, err := tagHandler.getVMTagListWithVMId(NcpInstance.ServerInstanceNo)
-	if err != nil {		
-		newErr := fmt.Errorf("Failed to Get the Tag List with the VM SystemID : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return irs.VMInfo{}, newErr
-	}	
-	if len(tagList) > 0 {
-		for _, curTag := range tagList {
-			kv := irs.KeyValue {
-				Key : 	ncloud.StringValue(curTag.TagKey),
-				Value:  ncloud.StringValue(curTag.TagValue),
-			}
-			kvList = append(kvList, kv)
-		}
-		vmInfo.TagList = kvList
-	}
-
-	return vmInfo, nil
-}
-
-func (vmHandler *NcpVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
-	cblogger.Info("NCP Classic Cloud driver: called GetVM()!!")
+func (vmHandler *NcpVpcVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
+	cblogger.Info("NCP VPC Cloud driver: called GetVM()!!")
 	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmIID.NameId, "GetVM()")
 
-	cblogger.Infof("\n ### vmHandler.RegionInfo.TargetZone : [%s]", vmHandler.RegionInfo.TargetZone)
-
 	if strings.EqualFold(vmIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid VM System ID!!")
+		newErr := fmt.Errorf("Invalid VM SystemId required")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMInfo{}, newErr
+	}
+
+	ncpVMInfo, err := vmHandler.getNcpVMInfo(vmIID.SystemId)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get the VM Info : [%v]", err)
 		cblogger.Error(newErr.Error())
 		return irs.VMInfo{}, newErr
 	}
 
-	subnetZone, err := vmHandler.getVMSubnetZone(&vmIID.SystemId)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the Subnet Zone info of the VM!! : [%v]", err)
-		cblogger.Debug(newErr.Error())
-		// return irs.VMInfo{}, newErr  // Caution!!
-	}
-
-	var ncpVMInfo *server.ServerInstance
-	vmErr := errors.New("")
-
-	if strings.EqualFold(vmHandler.RegionInfo.Zone, subnetZone){ // Not vmHandler.RegionInfo.Zone
-		ncpVMInfo, vmErr = vmHandler.getNcpVMInfo(vmIID.SystemId)
-		if vmErr != nil {
-			newErr := fmt.Errorf("Failed to Get the VM Info of the Zone : [%s], [%v]", subnetZone, vmErr)
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
-	} else {
-		ncpVMInfo, vmErr = vmHandler.getNcpTargetZoneVMInfo(&vmIID.SystemId)
-		if vmErr != nil {
-			newErr := fmt.Errorf("Failed to Get the VM Info of the Zone : [%s], [%v]", subnetZone, vmErr)
-			cblogger.Error(newErr.Error())
-			return irs.VMInfo{}, newErr
-		}
-	}
-
-	vmInfo, err := vmHandler.mappingServerInfo(ncpVMInfo)
+	vmInfo, err := vmHandler.mappingVMInfo(ncpVMInfo)
 	if err != nil {
 		LoggingError(callLogInfo, err)
 		return irs.VMInfo{}, err
@@ -622,28 +412,34 @@ func (vmHandler *NcpVMHandler) GetVM(vmIID irs.IID) (irs.VMInfo, error) {
 	return vmInfo, nil
 }
 
-func (vmHandler *NcpVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
-	cblogger.Info("NCP Classic Cloud driver: called SuspendVM()!!")
+func (vmHandler *NcpVpcVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Info("NCP VPC Cloud driver: called SuspendVM()!!")
 	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmIID.NameId, "SuspendVM()")
 
-	var serverInstanceNo []*string
-	serverInstanceNo = []*string{ncloud.String(vmIID.SystemId)}
-	var resultStatus string
-
-	cblogger.Info("Start Get VM Status...")
-	vmStatus, err := vmHandler.GetVMStatus(vmIID)
-	if err != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Get the VM Status : ", err)
-		return irs.VMStatus("Failed. "), rtnErr
-	} else {
-		cblogger.Infof("Succeeded in Getting the VM Status of [%s] : [%s]", vmIID.SystemId, vmStatus)
+	if strings.EqualFold(vmIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid VM SystemId required")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMStatus("Failed"), newErr
 	}
 
+	vmStatus, err := vmHandler.GetVMStatus(vmIID)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get the VM Status with the VM ID : [%s], [%v]", vmIID.SystemId, err)
+		cblogger.Debug(newErr.Error())
+		return irs.VMStatus("Failed"), newErr
+	} else {
+		cblogger.Infof("Succeed in Getting the VM Status of [%s] : [%s]", vmIID.SystemId, vmStatus)
+	}
+
+	instanceNoList := []*string{ncloud.String(vmIID.SystemId),}
+	var resultStatus string
 	if strings.EqualFold(string(vmStatus), "Suspending") {
 		resultStatus = "The VM is already in the process of Suspending."
 		cblogger.Error(resultStatus)
 		return irs.VMStatus("Failed. " + resultStatus), err
+
 	} else if strings.EqualFold(string(vmStatus), "Suspended") {
 		resultStatus = "The VM is already Suspended."
 		cblogger.Error(resultStatus)
@@ -665,40 +461,67 @@ func (vmHandler *NcpVMHandler) SuspendVM(vmIID irs.IID) (irs.VMStatus, error) {
 		return irs.VMStatus("Failed. " + resultStatus), err
 
 	} else {
-		cblogger.Infof("vmID : [%s]", *serverInstanceNo[0])
+		curStatus, statusErr := vmHandler.waitForDiskAttach(vmIID) // # Waiting while Root disk is fully attached!!"
+		if statusErr != nil {
+			cblogger.Error(statusErr.Error())
+			LoggingError(callLogInfo, statusErr)
+			return irs.VMStatus("Failed to wait while Root disk is attaching!!"), statusErr
+		}
+		cblogger.Infof("==> Root disk [%s] status : [%s]", vmIID.SystemId, curStatus)
+		cblogger.Info("The Root disk has been fully Attatched to the VM!!")
 
-		stopReq := server.StopServerInstancesRequest{
-			ServerInstanceNoList: serverInstanceNo,
+		retryCount := 0
+		timeout := 7 * time.Second
+		req := vserver.StopServerInstancesRequest{
+			RegionCode:           ncloud.String(vmHandler.RegionInfo.Region), // $$$ Caution!!
+			ServerInstanceNoList: instanceNoList,
 		}
 		callLogStart := call.Start()
-		runResult, err := vmHandler.VMClient.V2Api.StopServerInstances(&stopReq)
+		_, err := vmHandler.VMClient.V2Api.StopServerInstances(&req)
 		if err != nil {
-			rtnErr := logAndReturnError(callLogInfo, "Failed to Stop the VM instance : ", err)
-			return irs.VMStatus("Failed. "), rtnErr
+			cblogger.Infof("Return message : [%v]", err)
+
+			if strings.Contains(err.Error(), "The storage allocated to the server is being manipulated.") || strings.Contains(err.Error(), "The storage assigned to the server is in operation.") {
+				retryCount++
+				if retryCount >= 6 {
+					_, err := vmHandler.VMClient.V2Api.StopServerInstances(&req)
+					if err != nil {
+						cblogger.Error(err.Error())
+						LoggingError(callLogInfo, err)
+						return irs.VMStatus("Suspending"), err
+					}
+				}
+				time.Sleep(timeout)
+        	}
 		}
 		LoggingInfo(callLogInfo, callLogStart)
-		cblogger.Info(runResult)
 	}
 	return irs.VMStatus("Suspending"), nil
 }
 
-func (vmHandler *NcpVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
-	cblogger.Info("NCP Classic Cloud driver: called ResumeVM()!")
+func (vmHandler *NcpVpcVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Info("NCP VPC Cloud driver: called ResumeVM()!")
 	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmIID.NameId, "ResumeVM()")
 
-	serverInstanceNo := []*string{ncloud.String(vmIID.SystemId)}
-	var resultStatus string
-
-	cblogger.Info("Start Get VM Status...")
-	vmStatus, err := vmHandler.GetVMStatus(vmIID)
-	if err != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Get the VM Status : ", err)
-		return irs.VMStatus("Failed. "), rtnErr
-	} else {
-		cblogger.Infof("Succeeded in Getting the VM Status of [%s] : [%s]", vmIID.SystemId, vmStatus)
+	if strings.EqualFold(vmIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid VM SystemId required")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMStatus("Failed"), newErr
 	}
 
+	vmStatus, err := vmHandler.GetVMStatus(vmIID)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get the VM Status with the VM ID : [%s], [%v]", vmIID.SystemId, err)
+		cblogger.Debug(newErr.Error())
+		return irs.VMStatus("Failed"), newErr
+	} else {
+		cblogger.Infof("Succeed in Getting the VM Status of [%s] : [%s]", vmIID.SystemId, vmStatus)
+	}
+
+	serverInstanceNo := []*string{ncloud.String(vmIID.SystemId)}
+	var resultStatus string
 	if strings.EqualFold(string(vmStatus), "Running") {
 		resultStatus = "The VM is Running. Cannot be Resumed!!"
 		cblogger.Error(resultStatus)
@@ -731,40 +554,47 @@ func (vmHandler *NcpVMHandler) ResumeVM(vmIID irs.IID) (irs.VMStatus, error) {
 
 	} else {
 		cblogger.Infof("vmID : [%s]", *serverInstanceNo[0])
-
-		startReq := server.StartServerInstancesRequest{
+		req := vserver.StartServerInstancesRequest{
+			RegionCode:           ncloud.String(vmHandler.RegionInfo.Region), // $$$ Caution!!
 			ServerInstanceNoList: serverInstanceNo,
 		}
 		callLogStart := call.Start()
-		runResult, err := vmHandler.VMClient.V2Api.StartServerInstances(&startReq)
+		runResult, err := vmHandler.VMClient.V2Api.StartServerInstances(&req)
 		if err != nil {
-			rtnErr := logAndReturnError(callLogInfo, "Failed to Start the VM instance : ", err)
-			return irs.VMStatus("Failed. "), rtnErr
+			cblogger.Error(err.Error())
+			LoggingError(callLogInfo, err)
+			return irs.VMStatus("Failed"), err
 		}
 		LoggingInfo(callLogInfo, callLogStart)
-		cblogger.Info(runResult)
+		cblogger.Infof("[%v]", runResult)
 
 		return irs.VMStatus("Resuming"), nil
 	}
 }
 
-func (vmHandler *NcpVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
-	cblogger.Info("NCP Classic Cloud driver: called RebootVM()!")
+func (vmHandler *NcpVpcVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Info("NCP VPC Cloud driver: called RebootVM()!")
 	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmIID.NameId, "RebootVM()")
 
-	var resultStatus string
-	serverInstanceNo := []*string{ncloud.String(vmIID.SystemId)}
-
-	cblogger.Info("Start Get VM Status...")
-	vmStatus, err := vmHandler.GetVMStatus(vmIID)
-	if err != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Get the VM Status : ", err)
-		return irs.VMStatus("Failed. "), rtnErr
-	} else {
-		cblogger.Infof("Succeeded in Getting the VM Status of [%s] : [%s]", vmIID, vmStatus)
+	if strings.EqualFold(vmIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid VM SystemId required")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMStatus("Failed"), newErr
 	}
 
+	vmStatus, err := vmHandler.GetVMStatus(vmIID)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get the VM Status with the VM ID : [%s], [%v]", vmIID.SystemId, err)
+		cblogger.Debug(newErr.Error())
+		return irs.VMStatus("Failed"), newErr
+	} else {
+		cblogger.Infof("Succeed in Getting the VM Status of [%s] : [%s]", vmIID.SystemId, vmStatus)
+	}
+
+	serverInstanceNo := []*string{ncloud.String(vmIID.SystemId)}
+	var resultStatus string
 	if strings.EqualFold(string(vmStatus), "Suspending") {
 		resultStatus = "The VM is in the process of Suspending."
 		cblogger.Error(resultStatus)
@@ -796,186 +626,191 @@ func (vmHandler *NcpVMHandler) RebootVM(vmIID irs.IID) (irs.VMStatus, error) {
 		return irs.VMStatus("Failed. " + resultStatus), err
 
 	} else {
-		// spew.Dump(serverInstanceNo)
 		cblogger.Infof("vmID : [%s]", *serverInstanceNo[0])
-
-		req := server.RebootServerInstancesRequest{
+		req := vserver.RebootServerInstancesRequest{
+			RegionCode:           ncloud.String(vmHandler.RegionInfo.Region), // $$$ Caution!!
 			ServerInstanceNoList: serverInstanceNo,
 		}
 		callLogStart := call.Start()
 		runResult, err := vmHandler.VMClient.V2Api.RebootServerInstances(&req)
 		if err != nil {
-			rtnErr := logAndReturnError(callLogInfo, "Failed to Reboot the VM instance : ", err)
-			return irs.VMStatus("Failed. "), rtnErr
+			newErr := fmt.Errorf("Failed to Reboot the VM Instance on NCP VPC!! : [%v]", err)
+			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)
+			return irs.VMStatus("Failed. "), newErr
 		}
 		LoggingInfo(callLogInfo, callLogStart)
-		cblogger.Info(runResult)
+		cblogger.Infof("[%v]", runResult)
 
 		return irs.VMStatus("Rebooting"), nil
 	}
 }
 
-func (vmHandler *NcpVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
-	cblogger.Info("NCP Classic Cloud driver: called TerminateVM()!")
+func (vmHandler *NcpVpcVMHandler) TerminateVM(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Info("NCP VPC Cloud driver: called TerminateVM()!")
 	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmIID.NameId, "TerminateVM()")
 
-	dataDiskList, err := vmHandler.getVmDataDiskList(ncloud.String(vmIID.SystemId))
-	if err != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Get Data Disk List : ", err)
-		return irs.VMStatus("Failed. "), rtnErr
-	}
-	if len(dataDiskList) > 0 {
-		newErr := fmt.Errorf("Please Detach the Storage Attached to the VM and Try again.")
+	if strings.EqualFold(vmIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid VM SystemId required")
 		cblogger.Error(newErr.Error())
-		return irs.VMStatus("Failed to Terminate the VM instance."), newErr
+		LoggingError(callLogInfo, newErr)
+		return irs.VMStatus("Failed"), newErr
 	}
 
-	serverInstanceNo := []*string{ncloud.String(vmIID.SystemId)}
-
-	cblogger.Info("Start Get VM Status...")
 	vmStatus, err := vmHandler.GetVMStatus(vmIID)
 	if err != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Get the VM Status : ", err)
-		return irs.VMStatus("Failed. "), rtnErr
+		newErr := fmt.Errorf("Failed to Get the VM Status with the VM ID : [%s], [%v]", vmIID.SystemId, err)
+		cblogger.Error(newErr.Error())
+		return irs.VMStatus("Failed"), newErr
 	} else {
-		cblogger.Infof("Succeeded in Getting the VM Status of [%s] : [%s]", vmIID.SystemId, vmStatus)
+		cblogger.Infof("Succeed in Getting the VM Status of [%s] : [%s]", vmIID.SystemId, vmStatus)
 	}
 
 	vmInfo, error := vmHandler.GetVM(vmIID)
 	if error != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Get the VM Info : ", error)
-		return irs.VMStatus("Failed. "), rtnErr
+		LoggingError(callLogInfo, error)
+		cblogger.Error(error.Error())
+		return irs.VMStatus("Failed to get the VM info"), err
 	}
 
+	serverInstanceNos := []*string{ncloud.String(vmIID.SystemId)}
 	switch string(vmStatus) {
 	case "Suspended":
-		cblogger.Infof("VM Status : 'Suspended'. so it Can be Terminated!!")		
-		cblogger.Infof("vmID : [%s]", *serverInstanceNo[0])
+		cblogger.Info("VM Status : 'Suspended'. so it Can be Terminated!!")
 
-		// To Terminate the VM instance
-		req := server.TerminateServerInstancesRequest{
-			ServerInstanceNoList: serverInstanceNo,
+		retryCount := 0
+		timeout := 7 * time.Second
+		req := vserver.TerminateServerInstancesRequest{
+			RegionCode:           ncloud.String(vmHandler.RegionInfo.Region), // $$$ Caution!!
+			ServerInstanceNoList: serverInstanceNos,
 		}
-		callLogStart := call.Start()
+		start := call.Start()
 		runResult, err := vmHandler.VMClient.V2Api.TerminateServerInstances(&req)
 		if err != nil {
-			rtnErr := logAndReturnError(callLogInfo, "Failed to Terminate the VM instance. : ", err)
-			return irs.VMStatus("Failed. "), rtnErr
-		}
-		LoggingInfo(callLogInfo, callLogStart)
-		cblogger.Info(runResult)
+			cblogger.Infof("Return message : [%v]", err.Error())
+			
+			if strings.Contains(err.Error(), "The storage allocated to the server is being manipulated.") || strings.Contains(err.Error(), "The storage assigned to the server is in operation.") {
+				retryCount++
+				if retryCount >= 6 {
+					_, err := vmHandler.VMClient.V2Api.TerminateServerInstances(&req)
+					if err != nil {
+						cblogger.Error(err.Error())
+						LoggingError(callLogInfo, err)
+						return irs.VMStatus("Suspending"), err
+					}
+				}
+				time.Sleep(timeout)
+        	}
 
-		// To Delete Tags of the VM instance
-		Result, error := vmHandler.deleteVMTags(serverInstanceNo[0])
-		if error != nil {
-			rtnErr := logAndReturnError(callLogInfo, "Failed to Delete Tags of the VM instance! : ", error)
-			return irs.VMStatus("Failed. "), rtnErr
-		} else {
-			cblogger.Infof("# DeleteVMTags Result : [%t]", Result)
+			newErr := fmt.Errorf("Failed to Terminate the VM instance on NCP VPC. : [%v]", err)
+			cblogger.Error(newErr.Error())
+			cblogger.Error(*runResult.ReturnMessage)
+			LoggingError(callLogInfo, newErr)
+			return irs.VMStatus("Failed to Terminate!!"), newErr
 		}
-		
+		LoggingInfo(callLogInfo, start)
+		// cblogger.Infof("[%v]", runResult)
+
 		// If the NCP instance has a 'Public IP', delete it after termination of the instance.
-		if ncloud.String(vmInfo.PublicIP) != nil {
-			// Delete the PublicIP of the VM
-			vmStatus, err := vmHandler.deletePublicIP(vmInfo)
+		if !strings.EqualFold(vmInfo.PublicIP, "") {
+			vmStatus, err := vmHandler.DeletePublicIP(vmInfo)
 			if err != nil {
-				rtnErr := logAndReturnError(callLogInfo, "Failed to Delete the PublicIP. : ", err)
-				return irs.VMStatus("Failed. "), rtnErr
+				cblogger.Error(err)
+				return vmStatus, err
 			}
-			cblogger.Info(vmStatus)
+		}
+
+		// Delete the S/G info from DB
+		_, unRegErr := sim.UnRegisterSecurityGroup(vmIID.SystemId)
+		if unRegErr != nil {
+			cblogger.Debug(unRegErr.Error())
+			// return irs.Failed, unRegErr
 		}
 
 		return irs.VMStatus("Terminating"), nil
 
 	case "Running":
 		cblogger.Infof("VM Status : 'Running'. so it Can be Terminated AFTER SUSPENSION !!")
-
-		// spew.Dump(serverInstanceNo)
-		cblogger.Infof("vmID : [%s]", *serverInstanceNo[0])
+		cblogger.Infof("vmID : [%s]", *serverInstanceNos[0])
 
 		cblogger.Info("Start Suspend VM !!")
 		result, err := vmHandler.SuspendVM(vmIID)
 		if err != nil {
-			rtnErr := logAndReturnError(callLogInfo, "Failed to Suspend the VM. : ", err)
-			return irs.VMStatus("Failed. "), rtnErr
+			cblogger.Errorf("Failed to Suspend the VM [%s] :  [%s]", vmIID.SystemId, result)
+			cblogger.Error(err)
 		} else {
-			cblogger.Infof("Succeeded in Suspending the VM [%s] : [%s]", vmIID, result)
+			cblogger.Infof("Succeed in Suspending the VM [%s] : [%s]", vmIID.SystemId, result)
 		}
 
 		//===================================
-		// 15-second wait for Suspending
+		// Wait for Suspending
 		//===================================
-		curRetryCnt := 0
-		maxRetryCnt := 15
-		for {
-			curStatus, errStatus := vmHandler.GetVMStatus(vmIID)
-			if errStatus != nil {
-				rtnErr := logAndReturnError(callLogInfo, "Failed to Get the VM Status : ", errStatus)
-				return irs.VMStatus("Failed. "), rtnErr
-			}
-
-			cblogger.Info("===> VM Status : ", curStatus)
-			if curStatus != irs.VMStatus("Suspended") {
-				curRetryCnt++
-				cblogger.Infof("The VM is not 'Suspended', so wait for a second more before inquiring Termination.")
-				time.Sleep(time.Second * 5)
-				if curRetryCnt > maxRetryCnt {
-					cblogger.Errorf("Despite waiting for a long time(%d sec), the VM is not 'suspended', so it is forcibly terminated.", maxRetryCnt)
-				}
-			} else {
-				break
-			}
+		curStatus, statusErr := vmHandler.waitToBeSuspended(vmIID)
+		if statusErr != nil {
+			cblogger.Error(statusErr.Error())
+			LoggingError(callLogInfo, statusErr)
+			return irs.VMStatus("Failed to Terminate!!"), statusErr
 		}
-		cblogger.Info("# SuspendVM() Finished")
+		cblogger.Infof("==> VM [%s] status : [%s]", vmIID.SystemId, curStatus)
 
-		// To Terminate the VM instance
-		req := server.TerminateServerInstancesRequest{
-			ServerInstanceNoList: serverInstanceNo,
+		retryCount := 0
+		timeout := 7 * time.Second
+		req := vserver.TerminateServerInstancesRequest{
+			RegionCode:           ncloud.String(vmHandler.RegionInfo.Region), // $$$ Caution!!
+			ServerInstanceNoList: serverInstanceNos,
 		}
 		callLogStart := call.Start()
 		runResult, err := vmHandler.VMClient.V2Api.TerminateServerInstances(&req)
 		if err != nil {
-			rtnErr := logAndReturnError(callLogInfo, "Failed to Terminate the NCP VM instance. : ", err)
-			return irs.VMStatus("Failed. "), rtnErr
+
+			if strings.Contains(err.Error(), "The storage allocated to the server is being manipulated.") || strings.Contains(err.Error(), "The storage assigned to the server is in operation.") {
+				retryCount++
+				if retryCount >= 6 {
+					_, err := vmHandler.VMClient.V2Api.TerminateServerInstances(&req)
+					if err != nil {
+						cblogger.Error(err.Error())
+						LoggingError(callLogInfo, err)
+						return irs.VMStatus("Suspending"), err
+					}
+				}
+				time.Sleep(timeout)
+        	}
+
+			newErr := fmt.Errorf("Failed to Terminate the VM instance on NCP VPC. : [%v]", err)
+			cblogger.Error(newErr.Error())
+			cblogger.Error(*runResult.ReturnMessage)
+			LoggingError(callLogInfo, newErr)
+			return irs.VMStatus("Failed to Terminate!!"), newErr
 		}
 		LoggingInfo(callLogInfo, callLogStart)
-		cblogger.Info(*runResult.ReturnMessage)
-
-		// To Delete Tags of the VM instance
-		Result, error := vmHandler.deleteVMTags(serverInstanceNo[0])
-		if error != nil {
-			rtnErr := logAndReturnError(callLogInfo, "Failed to Delete Tags of the VM instance!! : ", error)
-			return irs.VMStatus("Failed. "), rtnErr
-		} else {
-			cblogger.Infof("# DeleteVMTags Result : [%t]", Result)
-		}				
+		// cblogger.Infof("[%v]", runResult)
 
 		// If the NCP instance has a 'Public IP', delete it after termination of the instance.
-		if ncloud.String(vmInfo.PublicIP) != nil {
-			// PublicIP 삭제
-			vmStatus, err := vmHandler.deletePublicIP(vmInfo)
+		if !strings.EqualFold(vmInfo.PublicIP, "") {
+			vmStatus, err := vmHandler.DeletePublicIP(vmInfo)
 			if err != nil {
-				rtnErr := logAndReturnError(callLogInfo, "Failed to Delete the PublicIP : ", err)
-				return irs.VMStatus("Failed. "), rtnErr
+				cblogger.Error(err)
+				return vmStatus, err
 			}
-			cblogger.Info(vmStatus)
 		}
 
-		return irs.VMStatus("Terminateding"), nil
+		return irs.VMStatus("Terminating"), nil
+
+	case "Not Exist!!":
+		newErr := fmt.Errorf("The VM instance does Not Exist!!")
+		cblogger.Error(newErr.Error())
+		return irs.VMStatus("Failed to Terminate!!"), newErr
 
 	default:
-		resultStatus := "The VM status is not 'Running' or 'Suspended'. so it Can NOT be Terminated!! Run or Suspend the VM before terminating."
-
-		cblogger.Error(resultStatus)
-		return irs.VMStatus("Failed. " + resultStatus), err
+		newErr := fmt.Errorf("The VM status is not 'Running' or 'Suspended' yet. so it Can NOT be Terminated!! Run or Suspend the VM before terminating.")
+		cblogger.Error(newErr.Error())
+		return irs.VMStatus("Failed to Terminate!!"), newErr
 	}
 }
 
 /*
-# NCP 'serverInstanceStatusName' : Not 'serverInstanceStatus'
-	: https://api.ncloud-docs.com/docs/en/common-apidatatype-serverinstance
-
+# NCP serverInstanceStatusName
 init
 creating
 booting //Caution!! : During Creating or Resuming
@@ -994,9 +829,15 @@ repairing
 */
 
 func convertVMStatusString(vmStatus string) (irs.VMStatus, error) {
-	var resultStatus string
+	// cblogger.Info("NCP VPC Cloud driver: called convertVMStatusString()!")
 
-	// cblogger.Infof("NCP VM Status : [%s]", vmStatus)
+	if strings.EqualFold(vmStatus, "") {
+		newErr := fmt.Errorf("Invalid VM Status")
+		cblogger.Error(newErr.Error())
+		return irs.VMStatus("Failed"), newErr
+	}
+
+	var resultStatus string
 	if strings.EqualFold(vmStatus, "creating") {
 		resultStatus = "Creating"
 	} else if strings.EqualFold(vmStatus, "init") {
@@ -1024,207 +865,116 @@ func convertVMStatusString(vmStatus string) (irs.VMStatus, error) {
 	} else if strings.EqualFold(vmStatus, "terminating") {
 		resultStatus = "Terminating"
 	} else {
-		newErr := fmt.Errorf("No mapping information found matching with the vmStatus [%s].", string(vmStatus))
-		cblogger.Error(newErr.Error())
-		return irs.VMStatus("Failed. "), newErr
+		cblogger.Errorf("No mapping information found matching with the vmStatus [%s].", string(vmStatus))
+		return irs.VMStatus("Failed. "), errors.New(vmStatus + "No mapping information found matching with the vmStatus.")
 	}
-	cblogger.Infof("Succeeded in Converting the VM Status : [%s] ==> [%s]", vmStatus, resultStatus)
+	// cblogger.Infof("VM Status Conversion Completed : [%s] ==> [%s]", vmStatus, resultStatus)
+
 	return irs.VMStatus(resultStatus), nil
 }
 
-func (vmHandler *NcpVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) {
-	cblogger.Info("NCP Classic Cloud driver: called GetVMStatus()!")
+func (vmHandler *NcpVpcVMHandler) GetVMStatus(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Info("NCP VPC Cloud driver: called GetVMStatus()!")
 	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, vmIID.NameId, "GetVMStatus()")
 
-	cblogger.Infof("### Target Zone : [%s]", vmHandler.RegionInfo.TargetZone)
-
-	subnetZone, err := vmHandler.getVMSubnetZone(&vmIID.SystemId)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the Subnet Zone info of the VM!! : [%v]", err)
-		cblogger.Debug(newErr.Error())
-		// return irs.VMInfo{}, newErr  // Caution!!
+	if strings.EqualFold(vmIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid VM SystemId required")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMStatus("Failed"), newErr
 	}
 
-	regionNo, err := vmHandler.getRegionNo(vmHandler.RegionInfo.Region)
-	if err != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Get NCP Region No :", err)
-		return irs.VMStatus(""), rtnErr
-	}
-	// Note) ~.RegionInfo.TargetZone is specified by CB-Spider Server.
-	reqZoneNo, err := vmHandler.getZoneNo(vmHandler.RegionInfo.Region, subnetZone) // Not vmHandler.RegionInfo.Zone
-	if err != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Get NCP Zone No of the Zone Code :", err)
-		return irs.VMStatus(""), rtnErr
-	}
-	instanceReq := server.GetServerInstanceListRequest{
+	instanceReq := vserver.GetServerInstanceListRequest{
+		RegionCode: ncloud.String(vmHandler.RegionInfo.Region), // $$$ Caution!!
 		ServerInstanceNoList: []*string{
 			ncloud.String(vmIID.SystemId),
 		},
-		RegionNo: 				regionNo,
-		ZoneNo: 				reqZoneNo, // For Zone-based control!!
 	}
 	callLogStart := call.Start()
 	result, err := vmHandler.VMClient.V2Api.GetServerInstanceList(&instanceReq)
 	if err != nil {
-		cblogger.Error(err)
-		cblogger.Error(*result.ReturnMessage)
-		LoggingError(callLogInfo, err)
-		return irs.VMStatus(""), err   // Caution!!) Do not fill in "Failed."
+		newErr := fmt.Errorf("Failed to Find VM Instance List from NCP VPC!! : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VMStatus("Failed. "), newErr
 	}
 	LoggingInfo(callLogInfo, callLogStart)
 
 	if len(result.ServerInstanceList) < 1 {
-		newErr := fmt.Errorf("Failed to Find Any VM with the SystemId : [%s]", vmIID.SystemId)
-		cblogger.Debug(newErr.Error()) // For after Termination!!
-		return irs.VMStatus(""), newErr  // Caution!!) Do not fill in "Failed."
+		newErr := fmt.Errorf("The VM instance does Not Exist!!")
+		cblogger.Debug(newErr.Error())
+		return irs.VMStatus("Not Exist!!"), newErr
 	}
-	// cblogger.Info("Succeeded in Getting ServerInstanceList!!")
 
-	vmStatus, errStatus := convertVMStatusString(*result.ServerInstanceList[0].ServerInstanceStatusName)
-	// cblogger.Info("# Converted VM Status : " + vmStatus)
-	return vmStatus, errStatus
+	vmStatus, statusErr := convertVMStatusString(*result.ServerInstanceList[0].ServerInstanceStatusName)
+	// cblogger.Infof("VM Status of [%s] : [%s]", vmIID.SystemId, vmStatus)
+	return vmStatus, statusErr
 }
 
-func (vmHandler *NcpVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
-	cblogger.Info("NCP Classic Cloud driver: called ListVMStatus()!")
+func (vmHandler *NcpVpcVMHandler) ListVMStatus() ([]*irs.VMStatusInfo, error) {
+	cblogger.Info("NCP VPC Cloud driver: called ListVMStatus()!")
 	InitLog()
 	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, "ListVMStatus()", "ListVMStatus()")
 
-	regionNo, err := vmHandler.getRegionNo(vmHandler.RegionInfo.Region)
-	if err != nil {
-		cblogger.Errorf("Failed to Get RegionNo : [%v]", err)
-		return nil, err
-	}
-	zoneNo, err := vmHandler.getZoneNo(vmHandler.RegionInfo.Region, vmHandler.RegionInfo.Zone)
-	if err != nil {
-		cblogger.Errorf("Failed to Get NCP Zone No of the Zone Code : [%v]", err)
-		return nil, err
-	}
-	instanceReq := server.GetServerInstanceListRequest{
-		ServerInstanceNoList: 	[]*string{},
-		RegionNo:            	regionNo,
-		ZoneNo: 				zoneNo,
+	instanceReq := vserver.GetServerInstanceListRequest{
+		RegionCode:           ncloud.String(vmHandler.RegionInfo.Region), // $$$ Caution!!
+		ServerInstanceNoList: []*string{},
 	}
 	callLogStart := call.Start()
 	result, err := vmHandler.VMClient.V2Api.GetServerInstanceList(&instanceReq)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get GetServerInstanceList : [%v]", err)
+		newErr := fmt.Errorf("Failed to Find VM Instance List from NCP VPC!! : [%v]", err)
 		cblogger.Error(newErr.Error())
+		cblogger.Error(*result.ReturnMessage)
 		LoggingError(callLogInfo, newErr)
-		return []*irs.VMStatusInfo{}, newErr
+		return nil, newErr
 	}
 	LoggingInfo(callLogInfo, callLogStart)
-	if len(result.ServerInstanceList) < 1 {
-		newErr := fmt.Errorf("Failed to Find Any VM info in the Zone : [%s]", vmHandler.RegionInfo.Zone)
-		cblogger.Debug(newErr.Error())
-		return nil, newErr
-	} else {
-		cblogger.Info("Succeeded in Getting ServerInstanceList in the Zone!!")
 
-		var vmStatusList []*irs.VMStatusInfo
-		for _, vm := range result.ServerInstanceList {
-			//*vm.ServerInstanceStatusName
-			//*vm.ServerName
-			vmStatus, err := convertVMStatusString(*vm.ServerInstanceStatusName)
-			if err != nil {
-				cblogger.Error(err)
-				LoggingError(callLogInfo, err)
-				return []*irs.VMStatusInfo{}, err
-			}
-			// cblogger.Info(" VM Status : ", vmStatus)
-
-			vmStatusInfo := irs.VMStatusInfo{
-				IId:      irs.IID{NameId: *vm.ServerName, SystemId: *vm.ServerInstanceNo},
-				VmStatus: vmStatus,
-			}
-			cblogger.Infof(" VM Status of [%s] : [%s]", vmStatusInfo.IId.SystemId, vmStatusInfo.VmStatus)
-			vmStatusList = append(vmStatusList, &vmStatusInfo)
+	var vmStatusList []*irs.VMStatusInfo
+	for _, vm := range result.ServerInstanceList {
+		vmStatus, _ := convertVMStatusString(*vm.ServerInstanceStatusName)
+		vmStatusInfo := irs.VMStatusInfo{
+			IId: irs.IID{
+				NameId:   *vm.ServerName,
+				SystemId: *vm.ServerInstanceNo,
+			},
+			VmStatus: vmStatus,
 		}
-		return vmStatusList, err
+		cblogger.Infof("VM Status of [%s] : [%s]", vmStatusInfo.IId.SystemId, vmStatusInfo.VmStatus)
+		vmStatusList = append(vmStatusList, &vmStatusInfo)
 	}
+	return vmStatusList, nil
 }
 
-// VM List on 'All Zone' in the Region
-func (vmHandler *NcpVMHandler) ListVM() ([]*irs.VMInfo, error) {
-	cblogger.Info("NCP Classic Cloud driver: called ListVM()!")
+func (vmHandler *NcpVpcVMHandler) ListVM() ([]*irs.VMInfo, error) {
+	cblogger.Info("NCP VPC Cloud driver: called ListVM()!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, "ListVMS()", "ListVM()")
 
-	ncpVMList, err := vmHandler.getNcpVMListWithRegion(vmHandler.RegionInfo.Region)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get NCP VM List : [%v]", err.Error())
-		cblogger.Debug(newErr.Error())
-		return nil, newErr
-	}
-
-	var vmInfoList []*irs.VMInfo
-	for _, vm := range ncpVMList {
-		vmStatus, statusErr := convertVMStatusString(*vm.ServerInstanceStatusName)
-		if statusErr != nil {
-			newErr := fmt.Errorf("Failed to Get the Status of VM : [%s], [%v]", *vm.ServerInstanceNo, statusErr.Error())
-			cblogger.Debug(newErr.Error())
-			return nil, newErr
-		} else {
-			// cblogger.Infof("Succeeded to Get the Status of VM [%s] : [%s]", *vm.ServerInstanceNo, string(vmStatus))
-			cblogger.Infof("===> VM Status : [%s]", string(vmStatus))
-		}
-
-		if (string(vmStatus) != "Creating") && (string(vmStatus) != "Terminating") {
-			// cblogger.Infof("===> The VM Status not 'Creating' or 'Terminating', you can get the VM info.")
-			vmInfo, err := vmHandler.mappingServerInfo(vm)
-			if err != nil {
-				newErr := fmt.Errorf("Failed to Map the VM info : [%s], [%v]", *vm.ServerInstanceNo, err.Error())
-				cblogger.Error(newErr.Error())
-				return nil, newErr
-			}
-			vmInfoList = append(vmInfoList, &vmInfo)
-		}
-	}
-	return vmInfoList, nil
-	
-/*
-	regionNo, err := vmHandler.getRegionNo(vmHandler.RegionInfo.Region)
-	if err != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Get NCP Region No :", err)
-		return nil, rtnErr
-	}
-	zoneNo, err := vmHandler.getZoneNo(vmHandler.RegionInfo.Region, vmHandler.RegionInfo.Zone)
-	if err != nil {
-		rtnErr := logAndReturnError(callLogInfo, "Failed to Get NCP Zone No of the Zone Code :", err)
-		return nil, rtnErr
-	}
-	
-	instanceReq := server.GetServerInstanceListRequest{
-		ServerInstanceNoList: 	[]*string{},
-		RegionNo:             	regionNo,
-		ZoneNo: 				zoneNo,
+	instanceReq := vserver.GetServerInstanceListRequest{
+		RegionCode:           ncloud.String(vmHandler.RegionInfo.Region), // $$$ Caution!!
+		ServerInstanceNoList: []*string{},
 	}
 	callLogStart := call.Start()
 	result, err := vmHandler.VMClient.V2Api.GetServerInstanceList(&instanceReq)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get GetServerInstanceList : [%v]", err.Error())
+		newErr := fmt.Errorf("Failed to Get VM Instance List from NCP VPC!! : [%v]", err)
 		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)		
+		cblogger.Error(*result.ReturnMessage)
+		LoggingError(callLogInfo, newErr)
 		return nil, newErr
 	}
 	LoggingInfo(callLogInfo, callLogStart)
 
-	if len(result.ServerInstanceList) < 1 {
-		newErr := fmt.Errorf("Failed to Find Any VM in the Zone: [%s]", vmHandler.RegionInfo.Zone)
-		cblogger.Debug(newErr.Error())
-		return nil, nil // Not returns Error message		
-	} else {
-		cblogger.Info("Succeeded in Getting ServerInstanceList from NCP!!")
-	}	
-	
 	var vmInfoList []*irs.VMInfo
 	for _, vm := range result.ServerInstanceList {
 		curStatus, statusErr := vmHandler.GetVMStatus(irs.IID{SystemId: *vm.ServerInstanceNo})
 		if statusErr != nil {
 			newErr := fmt.Errorf("Failed to Get the Status of VM : [%s], [%v]", *vm.ServerInstanceNo, statusErr.Error())
-			cblogger.Debug(newErr.Error())  // For Zone-based control, different Zone VMs are included.
+			cblogger.Error(newErr.Error())
 			return nil, newErr
-		} else {
-			cblogger.Infof("Succeeded to Get the Status of VM [%s] : [%s]", *vm.ServerInstanceNo, string(curStatus))
 		}
 		cblogger.Infof("===> VM Status : [%s]", string(curStatus))
 
@@ -1239,457 +989,256 @@ func (vmHandler *NcpVMHandler) ListVM() ([]*irs.VMInfo, error) {
 		}
 	}
 	return vmInfoList, nil
-*/
-
 }
 
-func (vmHandler *NcpVMHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("NCP Classic Cloud driver: called ListIID()!")
+func (vmHandler *NcpVpcVMHandler) mappingVMInfo(NcpInstance *vserver.ServerInstance) (irs.VMInfo, error) {
+	cblogger.Info("NCP VPC Cloud driver: called mappingVMInfo()!")
+	// cblogger.Infof("# NcpInstance Info :")
+	// spew.Dump(NcpInstance)
 
-	ncpVMList, err := vmHandler.getNcpVMListWithRegion(vmHandler.RegionInfo.Region)
+	var publicIp *string
+	var privateIp *string
+
+	convertedTime, err := convertTimeFormat(*NcpInstance.CreateDate)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get NCP VM List : [%v]", err.Error())
-		cblogger.Debug(newErr.Error())
-		return nil, newErr
+		newErr := fmt.Errorf("Failed to Convert the Time Format!!")
+		cblogger.Error(newErr.Error())
+		return irs.VMInfo{}, newErr
 	}
 
-	var vmIIDList []*irs.IID
-	for _, vm := range ncpVMList {
-		vmIID := irs.IID{
-			NameId:    *vm.ServerName,
-			SystemId:  *vm.ServerInstanceNo,
+	// Create a PublicIp, if the instance doesn't have a 'Public IP' after creation.
+	if strings.EqualFold(ncloud.StringValue(NcpInstance.PublicIp), "") {
+		publicIpReq := vserver.CreatePublicIpInstanceRequest{
+			ServerInstanceNo: NcpInstance.ServerInstanceNo,
+			RegionCode:       ncloud.String(vmHandler.RegionInfo.Region),
 		}
-		vmIIDList = append(vmIIDList, &vmIID)
-	}
-	return vmIIDList, nil
-}
 
-// Waiting for up to 300 seconds until VM info. can be get
-func (vmHandler *NcpVMHandler) waitToGetVMInfo(vmIID irs.IID) (irs.VMStatus, error) {
-	cblogger.Info("======> As VM info. cannot be retrieved immediately after VM creation, it waits until running.")
-
-	curRetryCnt := 0
-	maxRetryCnt := 500
-
-	for {
-		curStatus, err := vmHandler.GetVMStatus(vmIID)
+		// CAUTION!! : The number of Public IPs cannot be more than the number of instances on NCP cloud default service.
+		result, err := vmHandler.VMClient.V2Api.CreatePublicIpInstance(&publicIpReq)
 		if err != nil {
-			newErr := fmt.Errorf("Failed to Get the Status of the VM : [%v]", err)
+			newErr := fmt.Errorf("Failed to Create Public IP : [%v]", err)
 			cblogger.Error(newErr.Error())
-			return irs.VMStatus("Failed. "), newErr
-		} else {
-			cblogger.Infof("===> VM Status : [%s]", curStatus)
+			return irs.VMInfo{}, newErr
+		}
+		if len(result.PublicIpInstanceList) < 1 {
+			newErr := fmt.Errorf("Failed to Create Any Public IP!!")
+			cblogger.Error(newErr.Error())
+			return irs.VMInfo{}, newErr
 		}
 
-		switch string(curStatus) {
-		case "Creating":
-			curRetryCnt++
-			cblogger.Infof("The VM Status is still 'Creating', so wait for a second more before inquiring the VM info.")
-			time.Sleep(time.Second * 5)
-			if curRetryCnt > maxRetryCnt {
-				cblogger.Errorf("Despite waiting for a long time(%d sec), the VM status is %s, so it is forcibly finishied.", maxRetryCnt, curStatus)
-				return irs.VMStatus("Failed. "), errors.New("Despite waiting for a long time, the VM status is 'Creating', so it is forcibly finishied.")
-			}
+		publicIp = result.PublicIpInstanceList[0].PublicIp
+		privateIp = result.PublicIpInstanceList[0].PrivateIp
 
-		default:
-			cblogger.Infof("===> ### The VM Creation has ended, stopping the waiting.")
-			return irs.VMStatus(curStatus), nil
-			//break
+		cblogger.Infof("*** PublicIp : %s ", ncloud.StringValue(publicIp))
+		cblogger.Infof("Finished to Create Public IP")
+	} else {
+		publicIp = NcpInstance.PublicIp
+		cblogger.Infof("*** NcpInstance.PublicIp : %s ", ncloud.StringValue(publicIp))
+
+		instanceReq := vserver.GetPublicIpInstanceListRequest{
+			RegionCode: ncloud.String(vmHandler.RegionInfo.Region), // $$$ Caution!!
+			PublicIp:   publicIp,
 		}
+		// Search the Public IP list info. to get the PublicIp InstanceNo
+		result, err := vmHandler.VMClient.V2Api.GetPublicIpInstanceList(&instanceReq)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Find PublicIp InstanceList from NCP VPC : [%v]", err)
+			cblogger.Error(newErr.Error())
+			return irs.VMInfo{}, newErr
+		}
+		if len(result.PublicIpInstanceList) < 1 {
+			newErr := fmt.Errorf("Failed to Find Any PublicIpInstance!!")
+			cblogger.Error(newErr.Error())
+			return irs.VMInfo{}, newErr
+		}
+		privateIp = result.PublicIpInstanceList[0].PrivateIp
+
+		cblogger.Infof("Finished to Get PublicIP InstanceNo")
 	}
-}
 
-// Waiting for up to 300 seconds until Public IP can be deleted.
-func (vmHandler *NcpVMHandler) waitToDelPublicIp(vmIID irs.IID) (irs.VMStatus, error) {
-	cblogger.Info("======> As Public IP cannot be deleted immediately after VM termination call, it waits until termination is finished.")
+	netInterfaceName, err := vmHandler.getNetworkInterfaceName(NcpInstance.NetworkInterfaceNoList[0])
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Find NetworkInterface Name : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return irs.VMInfo{}, newErr
+	}
 
-	curRetryCnt := 0
-	maxRetryCnt := 600
+	// Caution!!) Because disk info within the NCP VM info is being returned with incorrect value.
+	var rootDiskType string
+	if strings.EqualFold(*NcpInstance.BaseBlockStorageDiskDetailType.CodeName, "CB1") || strings.EqualFold(*NcpInstance.BaseBlockStorageDiskDetailType.CodeName, "CB2") {
+		rootDiskType = "SSD"
+	} else if strings.EqualFold(*NcpInstance.BaseBlockStorageDiskDetailType.CodeName, "SSD") {
+		rootDiskType = "HDD"
+	}
 
-	for {
-		curStatus, errStatus := vmHandler.GetVMStatus(vmIID)
-		if errStatus != nil {
-			newErr := fmt.Errorf("Failed to Get the Status of the VM : [%s], [%v]", vmIID, errStatus)
+	// PublicIpID : Using for deleting the PublicIP
+	vmInfo := irs.VMInfo{
+		IId: irs.IID{
+			NameId:   *NcpInstance.ServerName,
+			SystemId: *NcpInstance.ServerInstanceNo,
+		},
+
+		StartTime: convertedTime,
+
+		// (Ref) NCP region/zone info. Ex) Region: "KR", Zone: "KR-2"
+		Region: irs.RegionInfo{
+			Region: *NcpInstance.RegionCode,
+			Zone:   *NcpInstance.ZoneCode,
+		},
+
+		ImageIId: irs.IID{
+			NameId:   *NcpInstance.ServerImageNo,
+			SystemId: *NcpInstance.ServerImageNo,
+		},
+
+		VMSpecName:       	ncloud.StringValue(NcpInstance.ServerSpecCode), // Old : ~.ServerProductCode
+		VpcIID:           	irs.IID{SystemId: *NcpInstance.VpcNo},          // Cauton!!) 'NameId: "N/A"' makes an Error on CB-Spider
+		SubnetIID:        	irs.IID{SystemId: *NcpInstance.SubnetNo},       // Cauton!!) 'NameId: "N/A"' makes an Error on CB-Spider
+		KeyPairIId:       	irs.IID{NameId: *NcpInstance.LoginKeyName, SystemId: *NcpInstance.LoginKeyName},
+		NetworkInterface: 	*netInterfaceName,
+		PublicIP:         	*publicIp,
+		PrivateIP:        	*privateIp,
+		RootDiskType:     	rootDiskType,
+		SSHAccessPoint:   	*publicIp + ":22",
+		KeyValueList:   	irs.StructToKeyValueList(NcpInstance),
+	}
+
+	// Get SecurityGroupInfo from DB
+	sgInfo, getSGErr := sim.GetSecurityGroup(*NcpInstance.ServerInstanceNo)
+	if getSGErr != nil {
+		cblogger.Debug(getSGErr)
+		// return irs.VMInfo{}, getSGErr
+	}
+	securityHandler := NcpVpcSecurityHandler{
+		RegionInfo: vmHandler.RegionInfo,
+		VMClient:   vmHandler.VMClient,
+	}
+	if countSgKvList(*sgInfo) > 0 {
+		var sgIIDs []irs.IID
+		for _, kv := range sgInfo.KeyValueInfoList {
+			sgInfo, err := securityHandler.GetSecurity(irs.IID{SystemId: kv.Value})
+			if err != nil {
+				newErr := fmt.Errorf("Failed to Get the S/G info : [%v]", err)
+				cblogger.Debug(newErr.Error())
+				// return irs.VMInfo{}, newErr
+			}
+			sgIIDs = append(sgIIDs, irs.IID{NameId: sgInfo.IId.NameId, SystemId: kv.Value})
+		}
+		vmInfo.SecurityGroupIIds = sgIIDs
+	}
+
+	// Set the VM Image Info
+	imageHandler := NcpVpcImageHandler{
+		RegionInfo: vmHandler.RegionInfo,
+		VMClient:   vmHandler.VMClient,
+	}
+	if !strings.EqualFold(*NcpInstance.ServerImageNo, "") {
+		isPublicImage, err := imageHandler.isPublicImage(*NcpInstance.ServerImageNo) // Caution!! : Not '*NcpInstance.ServerImageProductCode'
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
 			cblogger.Debug(newErr.Error())
-			// return irs.VMStatus("Failed. "), newErr // Caution!!) For after Termination!!
+			
+			vmInfo.ImageType = "NA"
+			// return irs.VMInfo{}, newErr // Caution!! Consider what happens when an image that was supported in the past is no longer available.
+		} else if isPublicImage {
+			vmInfo.ImageType = irs.PublicImage
 		} else {
-			cblogger.Infof("Succeeded in Getting the VM Status of [%s] : [%s]", vmIID, curStatus)
-		}
-		cblogger.Info("===> VM Status : ", curStatus)
-
-		switch string(curStatus) {
-		case "Suspended", "Terminating":
-			curRetryCnt++
-			cblogger.Infof("The VM Status is still 'Terminating', so wait for a second more before inquiring the VM info.")
-			time.Sleep(time.Second * 5)
-			if curRetryCnt > maxRetryCnt {
-				cblogger.Errorf("Despite waiting for a long time(%d sec), the VM status is '%s', so it is forcibly finished.", maxRetryCnt, curStatus)
-				return irs.VMStatus("Failed"), errors.New("Despite waiting for a long time, the VM status is 'Terminating', so it is forcibly finishied.")
-			}
-
-		default:
-			cblogger.Infof("===>### The VM Termination is finished, so stopping the waiting.")
-			return irs.VMStatus(curStatus), nil
-			//break
+			vmInfo.ImageType = irs.MyImage
 		}
 	}
+
+	_, storageSize, deviceName, err := vmHandler.getVmRootDiskInfo(NcpInstance.ServerInstanceNo)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get BlockStorage Info : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return irs.VMInfo{}, newErr
+	}
+	if !strings.EqualFold(*storageSize, "") {
+		vmInfo.RootDiskSize = *storageSize
+	}
+	if !strings.EqualFold(*deviceName, "") {
+		vmInfo.RootDeviceName = *deviceName
+	}
+
+	dataDiskList, err := vmHandler.getVmDataDiskList(NcpInstance.ServerInstanceNo)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get Data Disk List : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return irs.VMInfo{}, newErr
+	}
+	if len(dataDiskList) > 0 {
+		vmInfo.DataDiskIIDs = dataDiskList
+	}
+
+	// Note : NCP VPC PlatformType : LNX32, LNX64, WND32, WND64, UBD64, UBS64
+	if strings.Contains(*NcpInstance.PlatformType.Code, "LNX") || strings.Contains(*NcpInstance.PlatformType.Code, "UB") {
+		vmInfo.VMUserId = lnxUserName
+		vmInfo.Platform = irs.LINUX_UNIX
+	} else if strings.Contains(*NcpInstance.PlatformType.Code, "WND") {
+		vmInfo.VMUserId = winUserName
+		vmInfo.Platform = irs.WINDOWS
+	}
+
+	return vmInfo, nil
 }
 
-// Whenever a VM is terminated, Delete the public IP that the VM has
-func (vmHandler *NcpVMHandler) deletePublicIP(vmInfo irs.VMInfo) (irs.VMStatus, error) {
-	cblogger.Info("NCP Classic Cloud driver: called deletePublicIP()!")
+func (vmHandler *NcpVpcVMHandler) createLinuxInitScript(imageIID irs.IID, keyPairId string) (*string, error) {
+	cblogger.Info("NCP VPC Cloud driver: called createLinuxInitScript()!!")
 
-	var publicIPId string
+	var originImagePlatform string
 
-	// Use Key/Value info of the vmInfo.
-	for _, keyInfo := range vmInfo.KeyValueList {
-		if keyInfo.Key == "PublicIpID" {
-			publicIPId = keyInfo.Value
-			break
-		}
+	imageHandler := NcpVpcImageHandler{
+		RegionInfo: vmHandler.RegionInfo,
+		VMClient:   vmHandler.VMClient,
 	}
-	// spew.Dump(vmInfo.PublicIP)
-	// spew.Dump(publicIPId)
-
-	//=========================================
-	// Wait for that the VM is terminated
-	//=========================================
-	curStatus, errStatus := vmHandler.waitToDelPublicIp(vmInfo.IId)
-	if errStatus != nil {
-		cblogger.Error(errStatus.Error())
-		// return irs.VMStatus("Failed. "), errStatus   // Caution!!
-	}
-	cblogger.Infof("==> VM status of [%s] : [%s]", vmInfo.IId.NameId, curStatus)
-
-	deleteReq := server.DeletePublicIpInstancesRequest{
-		PublicIpInstanceNoList: []*string{
-			ncloud.String(publicIPId),
-		},
-	}
-	cblogger.Infof("DeletePublicIPReq Ready!!")
-	result, err := vmHandler.VMClient.V2Api.DeletePublicIpInstances(&deleteReq)
+	isPublicImage, err := imageHandler.isPublicImage(imageIID.SystemId)
 	if err != nil {
-		cblogger.Error(*result.ReturnMessage)
-		newErr := fmt.Errorf("Failed to Delete the PublicIP of the instance : [%v]", err)
+		newErr := fmt.Errorf("Failed to Check Whether the Image is Public Image : [%v]", err)
 		cblogger.Error(newErr.Error())
-		return irs.VMStatus("Failed. "), newErr
+		return nil, newErr
 	}
-	if *result.TotalRows < 1 {
-		return irs.VMStatus("Failed to Delete any PublicIP of the instance. [%v]"), err
+	if isPublicImage {
+		ncpImage, err := imageHandler.getNcpVpcImage(imageIID.SystemId)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Get the Image Info from NCP : [%v]", err)
+			cblogger.Error(newErr.Error())
+			return nil, newErr
+		}
+
+		if strings.Contains(strings.ToUpper(*ncpImage.ServerImageName), "UBUNTU") { // Ex) "tensorflow-Ubuntu-20.04-64"
+			originImagePlatform = "UBUNTU"
+		} else if strings.Contains(strings.ToUpper(*ncpImage.ServerImageName), "CENTOS") {
+			originImagePlatform = "CENTOS"
+		} else if strings.Contains(strings.ToUpper(*ncpImage.ServerImageName), "ROCKY") {
+			originImagePlatform = "ROCKY"
+		} else if strings.Contains(strings.ToUpper(*ncpImage.ServerImageName), "WIN") { // Ex) "win-2019-64-en", "mssql(2019std)-win-2016-64-en"
+			originImagePlatform = "WINDOWS"
+		} else {
+			newErr := fmt.Errorf("Failed to Get OriginImageOSPlatform of the Public Image!!")
+			cblogger.Error(newErr.Error())
+			return nil, newErr
+		}
 	} else {
-		cblogger.Infof(" ### Succeeded in Deleting the PublicIP of the instance.!!")
-	}
-
-	return irs.VMStatus("Terminating"), nil
-}
-
-func (vmHandler *NcpVMHandler) getVmIdByName(vmNameID string) (string, error) {
-	cblogger.Info("NCP Classic Cloud driver: called getVmIdByName()!")
-
-	var vmId string
-	// Get VM list
-	vmList, err := vmHandler.ListVM()
-	if err != nil {
-		return "", err
-	}
-
-	// Search VM by Name in the VM list
-	for _, vm := range vmList {
-		if strings.EqualFold(vm.IId.NameId, vmNameID) {
-			vmId = vm.IId.SystemId
-			break
+		myImageHandler := NcpVpcMyImageHandler{
+			RegionInfo: vmHandler.RegionInfo,
+			VMClient:   vmHandler.VMClient,
+		}
+		var getErr error
+		originImagePlatform, getErr = myImageHandler.getOriginImageOSPlatform(imageIID)
+		if getErr != nil {
+			newErr := fmt.Errorf("Failed to Get OriginImageOSPlatform of the My Image : [%v]", getErr)
+			cblogger.Error(newErr.Error())
+			return nil, newErr
 		}
 	}
-
-	// Error handling when the VM is not found
-	if vmId == "" {
-		newErr := fmt.Errorf("Failed to Find the VM with the name : [%s]", vmNameID)
-		return "", newErr
-	} else {
-	return vmId, nil
-	}
-}
-
-// Save VPC/Subnet Name info as Tags on the VM
-func (vmHandler *NcpVMHandler) createVPCnSubnetTag(vmID *string, vpcName string, subnetName string) (bool, error) {
-	cblogger.Info("NCP Classic Cloud driver: called createVPCnSubnetTag()!")
-
-	tagKey := []string {"VPCName", "SubnetName"}
-
-	tagHandler := NcpTagHandler {
-		RegionInfo:  vmHandler.RegionInfo,
-		VMClient:    vmHandler.VMClient,
-	}
-	tagKVList := []irs.KeyValue {
-		{
-			Key: 	tagKey[0], 
-			Value: 	vpcName,
-		}, 
-		{
-			Key: 	tagKey[1], 
-			Value: 	subnetName,
-		},
-	}
-	_, err := tagHandler.createVMTagList(vmID, tagKVList)
-	if err != nil {		
-		newErr := fmt.Errorf("Failed to Add New Tag List : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return false, newErr
-	}
-
-	return true, nil
-}
-
-func (vmHandler *NcpVMHandler) getVPCnSubnetNameFromTag(vmID *string) (string, string, error) {
-	cblogger.Info("NCP Classic Cloud driver: called getVPCnSubnetNameFromTag()!")
-
-	tagHandler := NcpTagHandler {
-		RegionInfo:  vmHandler.RegionInfo,
-		VMClient:    vmHandler.VMClient,
-	}
-	tagList, err := tagHandler.getVMTagListWithVMId(vmID)
-	if err != nil {		
-		newErr := fmt.Errorf("Failed to Get the Tag List with the VM SystemID : [%v]", err)
-		cblogger.Debug(newErr.Error())
-		return "", "", newErr
-	}
-	if len(tagList) < 1 {
-		newErr := fmt.Errorf("Failed to Get Any Tag info with the VM SystemID!!")
-		return "", "", newErr
-	}
-
-	var kvList []irs.KeyValue
-	for _, curTag := range tagList {
-		kv := irs.KeyValue {
-			Key : 	ncloud.StringValue(curTag.TagKey),
-			Value:  ncloud.StringValue(curTag.TagValue),
-		}
-		kvList = append(kvList, kv)
-	}
-
-	var vpcName string
-	var subnetName string
-	for _, kv := range kvList {
-		if strings.EqualFold(kv.Key, "VPCName") {			
-			vpcName = kv.Value
-		} else if strings.EqualFold(kv.Key, "SubnetName") {			
-			subnetName = kv.Value
-		}
-	}
-	if len(vpcName) < 1 {
-		newErr := fmt.Errorf("Failed to Get VPC Name from the Tag!!")
-		cblogger.Debug(newErr.Error())
-		return "", "", newErr
-	}
-	if len(subnetName) < 1 {
-		newErr := fmt.Errorf("Failed to Get Subnet Name from the Tag!!")
-		cblogger.Debug(newErr.Error())
-		return "", "", newErr
-	}
-	return vpcName, subnetName, nil
-}
-
-func (vmHandler *NcpVMHandler) deleteVMTags(vmID *string) (bool, error) {
-	cblogger.Info("NCP Classic Cloud driver: called deleteVMTags()!")
-
-	var instanceNos []*string
-	instanceNos = append(instanceNos, vmID)
-
-	tagReq := server.DeleteInstanceTagsRequest {
-		InstanceNoList:     instanceNos,
-	}
-	tagResult, err := vmHandler.VMClient.V2Api.DeleteInstanceTags(&tagReq)
-	if err != nil {		
-		cblogger.Errorf("Failed to Delete NCP VM Tag. : [%v]", err)
-		cblogger.Error(*tagResult.ReturnMessage)
-		return false, err
-	} else {
-		cblogger.Infof("tagResult.ReturnMessage : [%s]", *tagResult.ReturnMessage)
-	}
-
-	return true, nil
-}
-
-func (vmHandler *NcpVMHandler) getNcpVMInfo(vmId string) (*server.ServerInstance, error) {
-	cblogger.Info("NCP Classic Cloud driver: called getNcpVMInfo()")
-	
-	if strings.EqualFold(vmId, "") {
-		newErr := fmt.Errorf("Invalid VM ID!!")
-		cblogger.Error(newErr.Error())
-		return nil, newErr
-	}
-
-	regionNo, err := vmHandler.getRegionNo(vmHandler.RegionInfo.Region)
-	if err != nil {
-		cblogger.Errorf("Failed to Get RegionNo : [%v]", err)
-		return nil, err
-	}
-	zoneNo, err := vmHandler.getZoneNo(vmHandler.RegionInfo.Region, vmHandler.RegionInfo.Zone)
-	if err != nil {
-		cblogger.Errorf("Failed to Get NCP Zone No of the Zone Code : [%v]", err)
-		return nil, err
-	}
-	instanceReq := server.GetServerInstanceListRequest{
-		ServerInstanceNoList: 	[]*string{ncloud.String(vmId)},
-		RegionNo: 				regionNo,	
-		ZoneNo: 				zoneNo,
-	}
-	result, err := vmHandler.VMClient.V2Api.GetServerInstanceList(&instanceReq)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Find VM list with the SystemId from NCP : [%s], [%v]", vmId, err)
-		cblogger.Error(newErr.Error())
-		return nil, newErr
-	}
-	if len(result.ServerInstanceList) < 1 {
-		newErr := fmt.Errorf("Failed to Find Any VM info with the SystemId : [%s]", vmId)
-		cblogger.Error(newErr.Error())
-		return nil, newErr
-	}
-	return result.ServerInstanceList[0], nil
-}
-
-func (vmHandler *NcpVMHandler) getNcpTargetZoneVMInfo(vmId *string) (*server.ServerInstance, error) {
-	cblogger.Info("NCP Classic Cloud driver: called getNcpTargetZoneVMInfo()")
-
-	if strings.EqualFold(*vmId, "") {
-		newErr := fmt.Errorf("Invalid VM ID!!")
-		cblogger.Error(newErr.Error())
-		return nil, newErr
-	}
-
-	subnetZone, err := vmHandler.getVMSubnetZone(vmId)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the Subnet Zone info of the VM!! : [%v]", err)
-		cblogger.Debug(newErr.Error())
-		// return irs.VMInfo{}, newErr  // Caution!!
-	}
-
-	regionNo, err := vmHandler.getRegionNo(vmHandler.RegionInfo.Region)
-	if err != nil {
-		cblogger.Errorf("Failed to Get RegionNo : [%v]", err)
-		return nil, err
-	}
-	// Note) ~.RegionInfo.TargetZone is specified by CB-Spider Server.
-	reqZoneNo, err := vmHandler.getZoneNo(vmHandler.RegionInfo.Region, subnetZone) // Not vmHandler.RegionInfo.Zone
-	if err != nil {
-		cblogger.Errorf("Failed to Get NCP Zone No of the Zone Code : [%v]", err)
-		return nil, err
-	}
-	instanceReq := server.GetServerInstanceListRequest{
-		ServerInstanceNoList: 	[]*string{vmId},
-		RegionNo: 				regionNo,	
-		ZoneNo: 				reqZoneNo, // For Zone-based control!!
-	}
-	result, err := vmHandler.VMClient.V2Api.GetServerInstanceList(&instanceReq)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Find VM list with the SystemId from NCP : [%s], [%v]", *vmId, err)
-		cblogger.Error(newErr.Error())
-		return nil, newErr
-	}
-	if len(result.ServerInstanceList) < 1 {
-		newErr := fmt.Errorf("Failed to Find Any VM info with the SystemId : [%s]", *vmId)
-		cblogger.Error(newErr.Error())
-		return nil, newErr
-	}
-	return result.ServerInstanceList[0], nil
-}
-
-func (vmHandler *NcpVMHandler) getVmRootDiskInfo(vmId *string) (*string, *string, error) {
-	cblogger.Info("NCPVPC Cloud driver: called getVmRootDiskInfo()!!")
-
-	if strings.EqualFold(*vmId, "") {
-		newErr := fmt.Errorf("Invalid VM ID!!")
-		cblogger.Error(newErr.Error())
-		return nil, nil, newErr
-	}
-
-	storageReq := server.GetBlockStorageInstanceListRequest {
-		ServerInstanceNo:   vmId,
-	}
-	storageResult, err := vmHandler.VMClient.V2Api.GetBlockStorageInstanceList(&storageReq)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get Block Storage List!! : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return nil, nil, newErr
-	}
-
-	if *storageResult.TotalRows < 1 {
-		newErr := fmt.Errorf("Failed to Get any BlockStorage Info!! : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return nil, nil, newErr
-	} else {
-		cblogger.Info("Succeeded in Getting BlockStorage Info!!")
-	}
-
-	var storageSize string
-	var deviceName *string
-	for _, disk := range storageResult.BlockStorageInstanceList {
-		if strings.EqualFold(*disk.ServerInstanceNo, *vmId) && strings.EqualFold(*disk.BlockStorageType.Code, "BASIC") {
-			storageSize = strconv.FormatFloat(float64(*disk.BlockStorageSize)/(1024*1024*1024), 'f', 0, 64)
-			deviceName = disk.DeviceName
-			break
-		}
-	}
-	return &storageSize, deviceName, nil
-}
-
-func (vmHandler *NcpVMHandler) getVmDataDiskList(vmId *string) ([]irs.IID, error) {
-	cblogger.Info("NCP Classic Cloud driver: called getVmDataDiskList()")
-
-	if strings.EqualFold(*vmId, "") {
-		newErr := fmt.Errorf("Invalid VM Instance ID!!")
-		cblogger.Error(newErr.Error())
-		return nil, newErr
-	}
-
-	storageReq := server.GetBlockStorageInstanceListRequest {
-		ServerInstanceNo:   vmId,
-	}
-	storageResult, err := vmHandler.VMClient.V2Api.GetBlockStorageInstanceList(&storageReq)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get Block Storage List!! : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return nil, newErr
-	}
-
-	if len(storageResult.BlockStorageInstanceList) < 1 {
-		newErr := fmt.Errorf("Failed to Get any BlockStorage Info!! : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return nil, newErr
-	} else {
-		cblogger.Info("Succeeded in Getting BlockStorage Info!!")
-	}
-
-	var dataDiskIIDList []irs.IID
-	for _, disk := range storageResult.BlockStorageInstanceList {
-		if strings.EqualFold(*disk.ServerInstanceNo, *vmId) && !strings.EqualFold(*disk.BlockStorageType.Code, "BASIC") {
-			dataDiskIIDList = append(dataDiskIIDList, irs.IID{NameId: *disk.BlockStorageName, SystemId: *disk.BlockStorageInstanceNo})
-			// break
-		}
-	}
-	return dataDiskIIDList, nil
-}
-
-func (vmHandler *NcpVMHandler) createLinuxInitUserData(imageIID irs.IID, keyPairId string) (*string, error) {
-	cblogger.Info("NCPVPC Cloud driver: called CreateLinuxInitScript()!!")
-
-	myImageHandler := NcpMyImageHandler{
-		RegionInfo:  vmHandler.RegionInfo,
-		VMClient:    vmHandler.VMClient,
-	}
-	var getErr error
-	originImagePlatform, getErr := myImageHandler.getOriginImageOSPlatform(imageIID)
-	if getErr != nil {
-		newErr := fmt.Errorf("Failed to Get OriginImageOSPlatform of the Image : [%v]", getErr)
-		cblogger.Error(newErr.Error())
-		return nil, newErr	
-	}	
 
 	var initFilePath string
 	switch originImagePlatform {
-	case "UBUNTU" :
+	case "UBUNTU":
 		initFilePath = os.Getenv("CBSPIDER_ROOT") + ubuntuCloudInitFilePath
-	case "CENTOS" :
+	case "CENTOS":
+		initFilePath = os.Getenv("CBSPIDER_ROOT") + centosCloudInitFilePath
+	case "ROCKY":
 		initFilePath = os.Getenv("CBSPIDER_ROOT") + centosCloudInitFilePath
 	default:
 		initFilePath = os.Getenv("CBSPIDER_ROOT") + centosCloudInitFilePath
@@ -1701,8 +1250,6 @@ func (vmHandler *NcpVMHandler) createLinuxInitUserData(imageIID irs.IID, keyPair
 		newErr := fmt.Errorf("Failed to Find and Open the Cloud-Init File : [%v]", err)
 		cblogger.Error(newErr.Error())
 		return nil, newErr
-	} else {
-		cblogger.Infof("Succeeded in Finding and Opening the Cloud-Init File : ")
 	}
 	defer openFile.Close()
 
@@ -1715,7 +1262,7 @@ func (vmHandler *NcpVMHandler) createLinuxInitUserData(imageIID irs.IID, keyPair
 	cmdString := string(cmdStringByte)
 
 	// For GetKey()
-	strList:= []string{
+	strList := []string{
 		vmHandler.CredentialInfo.ClientId,
 		vmHandler.CredentialInfo.ClientSecret,
 	}
@@ -1735,15 +1282,38 @@ func (vmHandler *NcpVMHandler) createLinuxInitUserData(imageIID irs.IID, keyPair
 		return nil, newErr
 	}
 
-	// Set Linux cloud-init script
+	// Set cloud-init script
 	cmdString = strings.ReplaceAll(cmdString, "{{username}}", lnxUserName)
 	cmdString = strings.ReplaceAll(cmdString, "{{public_key}}", keyValue.Value)
 	// cblogger.Info("cmdString : ", cmdString)
-	return &cmdString, nil
+
+	// Create Cloud-Init Script
+	// LnxTypeOs string = "LNX" // LNX (LINUX)
+	// WinTypeOS string = "WND" // WND (WINDOWS)
+	createInitReq := vserver.CreateInitScriptRequest{
+		RegionCode:        ncloud.String(vmHandler.RegionInfo.Region),
+		InitScriptContent: ncloud.String(cmdString),
+		OsTypeCode:        ncloud.String(LnxTypeOs),
+	}
+
+	result, err := vmHandler.VMClient.V2Api.CreateInitScript(&createInitReq)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Create Linux type Cloud-Init Script : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+	if len(result.InitScriptList) < 1 {
+		newErr := fmt.Errorf("Failed to Create any Linux type Cloud-Init Script!!")
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	} else {
+		cblogger.Info("Succeeded in Creating Linux type Cloud-Init Script!!")
+	}
+	return result.InitScriptList[0].InitScriptNo, nil
 }
 
-func (vmHandler *NcpVMHandler) createWinInitUserData(passWord string) (*string, error) {
-	cblogger.Info("NCPVPC Cloud driver: called createInitScript()!!")
+func (vmHandler *NcpVpcVMHandler) createWinInitScript(passWord string) (*string, error) {
+	cblogger.Info("NCP VPC Cloud driver: called createInitScript()!!")
 
 	// Preparing for UserData String
 	initFilePath := os.Getenv("CBSPIDER_ROOT") + winCloudInitFilePath
@@ -1765,373 +1335,497 @@ func (vmHandler *NcpVMHandler) createWinInitUserData(passWord string) (*string, 
 	}
 	cmdString := string(cmdStringByte)
 
-	// Set Windows cloud-init script
+	// Set cloud-init script
 	cmdString = strings.ReplaceAll(cmdString, "{{PASSWORD}}", passWord)
 	// cblogger.Info("cmdString : ", cmdString)
-	return &cmdString, nil
-}
 
-// Find the RegionNo that corresponds to a RegionCode
-func (vmHandler *NcpVMHandler) getRegionNo(regionCode string) (*string, error) {
-	cblogger.Info("NCP Classic Cloud driver: called getRegionNo()!")
-	// Search NCP Instance Region'No' corresponding to the NCP Region'Code'
-
-	if strings.EqualFold(regionCode, "") {
-		newErr := fmt.Errorf("Invalid Region Code!!")
-		cblogger.Error(newErr.Error())
-		return nil, newErr
+	// Create Cloud-Init Script
+	// LnxTypeOs string = "LNX" // LNX (LINUX)
+	// WinTypeOS string = "WND" // WND (WINDOWS)
+	createInitReq := vserver.CreateInitScriptRequest{
+		RegionCode:        ncloud.String(vmHandler.RegionInfo.Region),
+		InitScriptContent: ncloud.String(cmdString),
+		OsTypeCode:        ncloud.String(WinTypeOS),
 	}
-
-	// Populate the global map : regionMap
-	err := vmHandler.checkAndSetRegionNoList(regionCode)
+	result, err := vmHandler.VMClient.V2Api.CreateInitScript(&createInitReq)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Init RegionNoList : [%v]", err)
+		newErr := fmt.Errorf("Failed to Create Windows Cloud-Init Script : [%v]", err)
 		cblogger.Error(newErr.Error())
 		return nil, newErr
 	}
-
-	regionNo, exists := regionMap[regionCode]
-	if exists {
-		return &regionNo, nil
+	if len(result.InitScriptList) < 1 {
+		newErr := fmt.Errorf("Failed to Create any Windows Cloud-Init Script!!")
+		cblogger.Error(newErr.Error())
+		return nil, newErr
 	} else {
-		newErr := fmt.Errorf("Failed to Find the RegionNo that corresponds to the RegionCode.")
-		cblogger.Error(newErr.Error())
-		return nil, newErr
+		cblogger.Info("Succeeded in Creating Windows Cloud-Init Script!!")
 	}
+	return result.InitScriptList[0].InitScriptNo, nil
 }
 
-// Find the ZoneNo that corresponds to a ZoneCode
-func (vmHandler *NcpVMHandler) getZoneNo(regionCode string, zoneCode string) (*string, error) {
-	cblogger.Info("NCP Classic Cloud driver: called getZoneNo()!")
-	// Search NCP Instance Zone'No' corresponding to the NCP Zone'Code'
+func (vmHandler *NcpVpcVMHandler) deleteInitScript(initScriptNum *string) (*string, error) {
+	cblogger.Info("NCP VPC Cloud driver: called deleteInitScript()!!")
 
-	if strings.EqualFold(regionCode, "") {
-		newErr := fmt.Errorf("Invalid Region Code!!")
-		cblogger.Error(newErr.Error())
-		return nil, newErr
+	// Delete Cloud-Init Script with the No.
+	InitScriptNums := []*string{initScriptNum}
+	deleteInitReq := vserver.DeleteInitScriptsRequest{
+		RegionCode:       ncloud.String(vmHandler.RegionInfo.Region),
+		InitScriptNoList: InitScriptNums,
 	}
-
-	if strings.EqualFold(zoneCode, "") {
-		newErr := fmt.Errorf("Invalid Zone Code!!")
-		cblogger.Error(newErr.Error())
-		return nil, newErr
-	}
-
-	regionNo, getErr := vmHandler.getRegionNo(regionCode)
-	if getErr != nil {
-		newErr := fmt.Errorf("Failed to Init ZoneNoList : [%v]", getErr)
-		cblogger.Error(newErr.Error())
-		return nil, newErr
-	}
-
-	// Populate the global map : regionZoneMap
-	err := vmHandler.checkAndSetZoneNoList(*regionNo, zoneCode)
+	result, err := vmHandler.VMClient.V2Api.DeleteInitScripts(&deleteInitReq)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Init ZoneNoList : [%v]", err)
+		newErr := fmt.Errorf("Failed to Delete the Cloud-Init Script : [%v]", err)
 		cblogger.Error(newErr.Error())
 		return nil, newErr
 	}
 
-	if zones, exists := regionZoneMap[*regionNo]; exists {
-		if zoneNo, ok := zones[zoneCode]; ok {
-			return &zoneNo, nil
+	if !strings.EqualFold(*result.ReturnMessage, "success") {
+		newErr := fmt.Errorf("Failed to Delete any Cloud-Init Script!!")
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	} else {
+		cblogger.Info("Succeeded in Deleting the Cloud-Init Script!!")
+	}
+	return result.ReturnMessage, nil
+}
+
+// Waiting for up to 500 seconds until VM info. can be Get
+func (vmHandler *NcpVpcVMHandler) waitToGetVMInfo(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Info("NCP VPC Cloud driver: called waitToGetVMInfo()!!")
+	cblogger.Info("===> As VM info. cannot be retrieved immediately after VM creation, it waits until running.")
+
+	curRetryCnt := 0
+	maxRetryCnt := 100
+
+	for {
+		curStatus, statusErr := vmHandler.GetVMStatus(vmIID)
+		if statusErr != nil {
+			cblogger.Errorf("Failed to Get the VM Status of [%s]", vmIID.SystemId)
+			cblogger.Error(statusErr.Error())
 		} else {
-			newErr := fmt.Errorf("Zone Code '%s' not found in Region No '%s'\n", zoneCode, regionNo)
-			cblogger.Error(newErr.Error())
-			return nil, newErr
+			cblogger.Infof("==> VM Status : [%s]", curStatus)
 		}
-	} else {
-		newErr := fmt.Errorf("Region No '%s' not found from the Map\n", regionNo)
-			cblogger.Error(newErr.Error())
-			return nil, newErr		
+
+		switch string(curStatus) {
+		case "Creating":
+			curRetryCnt++
+			cblogger.Infof("The VM is 'Creating', so wait for a second more before inquiring the VM info.")
+			time.Sleep(time.Second * 5)
+			if curRetryCnt > maxRetryCnt {
+				cblogger.Errorf("Despite waiting for a long time(%d sec), the VM status is '%s', so it is forcibly finishied.", maxRetryCnt, curStatus)
+				return irs.VMStatus("Failed"), errors.New("Despite waiting for a long time, the VM status is 'Creating', so it is forcibly finishied.")
+			}
+
+		default:
+			cblogger.Infof("===>The VM status not 'Creating', stopping the waiting.")
+			return irs.VMStatus(curStatus), nil
+		}
 	}
 }
 
-// Check the global 'regionMap' parameter and Populate the map with the regions data.
-func (vmHandler *NcpVMHandler) checkAndSetRegionNoList(regionCode string) error {
-	cblogger.Info("NCP Classic Cloud driver: called checkAndSetRegionNoList()!")
+// Waiting for up to 200 seconds until the VM is in suspended state.
+func (vmHandler *NcpVpcVMHandler) waitToBeSuspended(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Info("NCP VPC Cloud driver: called waitToBeSuspended()!!")
+	cblogger.Info("===> Wait until the VM is in suspended state.")
 
-	if strings.EqualFold(regionCode, "") {
-		newErr := fmt.Errorf("Invalid Region Code!!")
-		cblogger.Error(newErr.Error())
-		return newErr
-	}
-	
-	regionNo, exists := regionMap[regionCode]
-	if exists {
-		cblogger.Infof("# Region Code '%s' has Region No: %s", regionCode, regionNo)
-	} else {
-		cblogger.Infof("# Region Code '%s' not found. So Set RegionNo List!!", regionCode)
+	curRetryCnt := 0
+	maxRetryCnt := 40
 
-		cblogger.Info("# SetRegionNoList()!")
-		regionListReq := server.GetRegionListRequest{}
-		regionListResult, err := vmHandler.VMClient.V2Api.GetRegionList(&regionListReq)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Get RegionList from NCP Cloud : [%v]", err)
-			cblogger.Error(newErr.Error())
-			return newErr
-		}
-		if len(regionListResult.RegionList) < 1 {
-			newErr := fmt.Errorf("Failed to Find Any Region Info.")
-			cblogger.Error(newErr.Error())
-			return newErr
-		}
-			
-		for _, region := range regionListResult.RegionList {
-			regionMap[*region.RegionCode] = *region.RegionNo
-		}
-	}
-
-	return nil
-}
-
-// Check the global 'regionZoneMap' and Populate the map with the regions data.
-func (vmHandler *NcpVMHandler) checkAndSetZoneNoList(regionNo string, zoneCode string) error {
-	cblogger.Info("NCP Classic Cloud driver: called checkAndSetZoneNoList()!")
-
-	if strings.EqualFold(regionNo, "") {
-		newErr := fmt.Errorf("Invalid Region Code!!")
-		cblogger.Error(newErr.Error())
-		return newErr
-	}
-
-	if strings.EqualFold(zoneCode, "") {
-		newErr := fmt.Errorf("Invalid Zone Code!!")
-		cblogger.Error(newErr.Error())
-		return newErr
-	}
-
-	if zones, exists := regionZoneMap[regionNo]; exists {
-		if zoneNo, ok := zones[zoneCode]; ok {
-			cblogger.Infof("# Region No '%s', Zone Code '%s' has Zone No: %s", regionNo, zoneCode, zoneNo)
+	for {
+		curStatus, statusErr := vmHandler.GetVMStatus(vmIID)
+		if statusErr != nil {
+			cblogger.Errorf("Failed to Get the VM Status of [%s]", vmIID.SystemId)
+			cblogger.Error(statusErr.Error())
 		} else {
-			cblogger.Infof("Zone Code '%s' not found in Region No. So Set ZoneNo List!!'%s'", zoneCode, regionNo)
+			cblogger.Infof("==> VM Status : [%s]", curStatus)
+		}
 
-			err := vmHandler.setZoneNoList()
-			if err != nil {
-				newErr := fmt.Errorf("Failed to Set ZoneNoList : [%v]", err)
-				cblogger.Error(newErr.Error())
-				return newErr
+		if curStatus != irs.VMStatus("Suspended") {
+			curRetryCnt++
+			cblogger.Infof("The VM is not 'Suspended' yet, so wait for a second more.")
+			time.Sleep(time.Second * 5)
+			if curRetryCnt > maxRetryCnt {
+				cblogger.Errorf("Despite waiting for a long time(%d sec), the VM is not 'suspended', so it is forcibly finished.", maxRetryCnt)					
+				return irs.VMStatus("Failed"), errors.New("Despite waiting for a long time, the VM status is not 'suspended', so it is forcibly finished..")
 			}
-		}
-	} else {
-		cblogger.Infof("Region No '%s' not found from the Map. So Set ZoneNo List!!\n", regionNo)
-
-		err := vmHandler.setZoneNoList()
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Set ZoneNoList : [%v]", err)
-			cblogger.Error(newErr.Error())
-			return newErr
+		} else {
+			cblogger.Info("# SuspendVM() Finished")
+			return irs.VMStatus(curStatus), nil
 		}
 	}
-
-	return nil
 }
 
-// Populate the global map with the zones data.
-func (vmHandler *NcpVMHandler) setZoneNoList() error {
-	cblogger.Info("NCP Classic Cloud driver: called setZoneNoList()!")
+// Waiting for up to 500 seconds until Public IP can be Deleted.
+func (vmHandler *NcpVpcVMHandler) waitToDelPublicIp(vmIID irs.IID) (irs.VMStatus, error) {
+	cblogger.Info("NCP VPC Cloud driver: called waitToDelPublicIp()!!")
+	cblogger.Info("======> As Public IP cannot be deleted immediately after VM termination call, it waits until termination is finished.")
 
-	regionListReq := server.GetRegionListRequest{}
-	regionListResult, err := vmHandler.VMClient.V2Api.GetRegionList(&regionListReq)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get RegionList from NCP Cloud : [%v]", err)
-		cblogger.Error(newErr.Error())
-		return newErr
-	}
-	if len(regionListResult.RegionList) < 1 {
-		newErr := fmt.Errorf("Failed to Find Any Region Info.")
-		cblogger.Error(newErr.Error())
-		return newErr
-	}
+	curRetryCnt := 0
+	maxRetryCnt := 100
 
-	for _, region := range regionListResult.RegionList {
-		cblogger.Info("# SetZoneNoList() of the Region!")
-		zoneListReq := server.GetZoneListRequest{
-			RegionNo: 	region.RegionNo,
-			//RegionNo: nil, //CAUTION!! : If you look up like this, only two Zones in Korea will come out.
-		}
-		zoneListResult, err := vmHandler.VMClient.V2Api.GetZoneList(&zoneListReq)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Get zoneList from NCP Cloud : [%v]", err)
-			cblogger.Error(newErr.Error())
-			return newErr
-		}
-		if len(zoneListResult.ZoneList) < 1 {
-			newErr := fmt.Errorf("Failed to Find Any Zone Info.")
-			cblogger.Error(newErr.Error())
-			return newErr
+	for {
+		curStatus, statusErr := vmHandler.GetVMStatus(vmIID)
+		if statusErr != nil {
+			newErr := fmt.Errorf("Failed to Get the VM Status with the VM ID : [%s], [%v]", vmIID.SystemId, statusErr)
+			cblogger.Debug(newErr.Error())
+			return irs.VMStatus("Not Exist!!"), newErr
+		} else {
+			cblogger.Infof("==> VM Status : [%s]", curStatus)
 		}
 
-		for _, zone := range zoneListResult.ZoneList {
-			if _, exists := regionZoneMap[*zone.RegionNo]; !exists {
-				regionZoneMap[*zone.RegionNo] = make(map[string]string)
+		switch string(curStatus) {
+		case "Suspended", "Terminating":
+			curRetryCnt++
+			cblogger.Infof("The VM is still 'Terminating', so wait for a second more before inquiring the VM info.")
+			time.Sleep(time.Second * 5)
+			if curRetryCnt > maxRetryCnt {
+				cblogger.Errorf("Despite waiting for a long time(%d sec), the VM status is '%s', so it is forcibly finished.", maxRetryCnt, curStatus)
+				return irs.VMStatus("Failed"), errors.New("Despite waiting for a long time, the VM status is 'Creating', so it is forcibly finished.")
 			}
-			regionZoneMap[*zone.RegionNo][*zone.ZoneCode] = *zone.ZoneNo			
+
+		case "Not Exist!!":
+			return irs.VMStatus(curStatus), nil
+
+		default:
+			cblogger.Infof("===>### The VM Termination is finished, so stopping the waiting.")
+			return irs.VMStatus(curStatus), nil
 		}
 	}
-
-	return nil
 }
 
-// Get NCP VM info list (in the All zone of the specified Region)
-func (vmHandler *NcpVMHandler) getNcpVMListWithRegion(regionCode string) ([]*server.ServerInstance, error) {
-	cblogger.Info("KT Cloud Driver: called getNcpVMListWithRegion()")
-	
-	regionNo, err := vmHandler.getRegionNo(vmHandler.RegionInfo.Region)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get NCP Region No :", err)
-		cblogger.Error(newErr.Error())
-		return nil, newErr
-	}
+// Waiting for up to 500 seconds until Root disk is fully attached
+func (vmHandler *NcpVpcVMHandler) waitForDiskAttach(vmIID irs.IID) (irs.DiskStatus, error) {
+	cblogger.Info("NCP VPC Cloud driver: called waitForDiskAttach()!!")
 
-	regionZoneHandler := NcpRegionZoneHandler{
-		CredentialInfo: vmHandler.CredentialInfo,
-		RegionInfo:    	vmHandler.RegionInfo,
-		VMClient:      	vmHandler.VMClient,
-	}
-	// Get Zone Name(Zone Code) list (in the Region)
-	regionInfo, err := regionZoneHandler.GetRegionZone(regionCode)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the Region Info : [%v]", err.Error())
-		cblogger.Error(newErr.Error())
-		return nil, newErr
-	}
+	curRetryCnt := 0
+	maxRetryCnt := 100
 
-	// Get NCP VM info list on 'Every Zone' in the Region
-	var ncpVMList []*server.ServerInstance
-	for _, zone := range regionInfo.ZoneList {
-		// For Zone-based control!!
-		// connInfo := idrv.ConnectionInfo {			
-		// 	RegionInfo: idrv.RegionInfo {
-		// 		Region: 		vmHandler.RegionInfo.Region,
-		// 		Zone: 			zone.Name, // Not vmHandler.RegionInfo.Zone
-		// 	},
-		// 	CredentialInfo: idrv.CredentialInfo {
-		// 		ClientId: 		vmHandler.CredentialInfo.ClientId,
-		// 		ClientSecret: 	vmHandler.CredentialInfo.ClientSecret,
-		// 	},
-		// }
-		// newClient, err := createClient(connInfo)
-		// if err != nil {
-		// 	newErr := fmt.Errorf("Failed to Create Client : [%v]", err.Error())
-		// 	cblogger.Error(newErr.Error())
-		// 	return nil, newErr
-		// }
-
-		zoneNo, err := vmHandler.getZoneNo(vmHandler.RegionInfo.Region, zone.Name) // Not vmHandler.RegionInfo.Zone
+	for {
+		storageNo, _, _, err := vmHandler.getVmRootDiskInfo(&vmIID.SystemId)
 		if err != nil {
-			newErr := fmt.Errorf("Failed to Get NCP Zone No of the Zone Code :", err)
+			newErr := fmt.Errorf("Failed to Get BlockStorage Info : [%v]", err)
 			cblogger.Error(newErr.Error())
-			return nil, newErr
+			return irs.DiskStatus("Failed"), newErr
 		}
-	
-		instanceReq := server.GetServerInstanceListRequest{
-			ServerInstanceNoList: 	[]*string{},
-			RegionNo:             	regionNo,
-			ZoneNo: 				zoneNo,
-		}
-		result, err := vmHandler.VMClient.V2Api.GetServerInstanceList(&instanceReq)
-		if err != nil {
-			newErr := fmt.Errorf("Failed to Get GetServerInstanceList : [%v]", err.Error())
-			cblogger.Error(newErr.Error())
-			return nil, newErr
-		}
-		ncpVMList = append(ncpVMList, result.ServerInstanceList...)
-	}
-	// cblogger.Info("\n\n### ncpVMList : \n")
-	// spew.Dump(ncpVMList)
 
-	if len(ncpVMList) < 1 {
-		newErr := fmt.Errorf("Failed to Find Any VM in the Region!!")
-		cblogger.Debug(newErr.Error())
-		return nil, newErr
+		diskHandler := NcpVpcDiskHandler{
+			RegionInfo: vmHandler.RegionInfo,
+			VMClient:   vmHandler.VMClient,
+		}
+		curStatus, err := diskHandler.GetDiskStatus(irs.IID{SystemId: *storageNo,})
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Get the Disk Status : [%v]", err)
+			cblogger.Error(newErr.Error())
+			return irs.DiskStatus("Failed"), newErr
+		}
+
+		if !strings.EqualFold(string(curStatus), string(irs.DiskAttached)) {
+			curRetryCnt++
+			cblogger.Infof("The Root disk is not 'Attached' yet, so wait for a second more.")
+			time.Sleep(time.Second * 5)
+			if curRetryCnt > maxRetryCnt {
+				cblogger.Errorf("Despite waiting for a long time(%d sec), the Root disk status is '%s', so it is forcibly finished.", maxRetryCnt, curStatus)
+				return irs.DiskStatus("Failed"), errors.New("Despite waiting for a long time, the Root disk is not 'Attached', so it is forcibly finished.")
+			}
+		} else {
+			return irs.DiskStatus("Succeeded"), nil
+		}		
 	}
-	return ncpVMList, nil
 }
 
-func (vmHandler *NcpVMHandler) getVMSubnetZone(vmId *string) (string, error) {
-	cblogger.Info("KT Cloud Driver: called getVMSubnetZone()")
+// Whenever a VM is terminated, Delete the public IP that the VM has
+func (vmHandler *NcpVpcVMHandler) DeletePublicIP(vmInfo irs.VMInfo) (irs.VMStatus, error) {
+	cblogger.Info("NCP VPC Cloud driver: called DeletePublicIP()!")
 
-	if strings.EqualFold(*vmId, "") {
-		newErr := fmt.Errorf("Invalid Region Code!!")
-		cblogger.Error(newErr.Error())
-		return "", newErr
+	var publicIPId string
+	for _, keyInfo := range vmInfo.KeyValueList {
+		if strings.EqualFold(keyInfo.Key, "PublicIpInstanceNo") {  // Public IP ID 
+			publicIPId = keyInfo.Value
+			break
+		}
 	}
+	cblogger.Infof("Public IP : [%s]", vmInfo.PublicIP)
+	cblogger.Infof("Public IP ID : [%s]", publicIPId)
 
-	// Populate the global map : vmSubnetZoneMap
-	err := vmHandler.checkAndSetVMSubnetZoneInfo(vmId)
+	//=========================================
+	// Wait for that the VM is terminated
+	//=========================================
+	curStatus, statusErr := vmHandler.waitToDelPublicIp(vmInfo.IId)
+	if statusErr != nil {
+		cblogger.Debug(statusErr.Error())
+		// return irs.VMStatus("Failed. "), statusErr   // Caution!! For in case 'VM instance does Not Exist' after VM Termination finished
+	}
+	cblogger.Infof("==> The status of VM : [%s] : [%s]", vmInfo.IId.NameId, curStatus)
+
+	deleteReq := vserver.DeletePublicIpInstanceRequest{
+		RegionCode:         ncloud.String(vmHandler.RegionInfo.Region), // $$$ Caution!!
+		PublicIpInstanceNo: ncloud.String(publicIPId),
+	}
+	result, err := vmHandler.VMClient.V2Api.DeletePublicIpInstance(&deleteReq)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Init VM SubnetZone Info : [%v]", err)
+		newErr := fmt.Errorf("Failed to Delete the Public IP of the VM instance. : [%v]", err)
 		cblogger.Error(newErr.Error())
-		return "", newErr
-	}
-
-	subnetZone, exists := vmSubnetZoneMap[*vmId]
-	if exists {
-		return subnetZone, nil
+		cblogger.Error(*result.ReturnMessage)
+		return irs.VMStatus("Failed. "), newErr
 	} else {
-		newErr := fmt.Errorf("Failed to Find the Subnet Zone Info that corresponds to the VM.")
-		cblogger.Error(newErr.Error())
-		return "", newErr
+		cblogger.Infof("Succeeded in Deleting the PublicIP of the instance. : [%s]", vmInfo.PublicIP)
 	}
+
+	return irs.VMStatus("Terminating"), nil
 }
 
-// Check the global 'vmSubnetZoneMap' parameter and Populate the map with the subnet zone info of the VM.
-func (vmHandler *NcpVMHandler) checkAndSetVMSubnetZoneInfo(vmId *string) error {
-	cblogger.Info("NCP Classic Cloud driver: called checkAndSetVMSubnetZoneInfo()!")
+func (vmHandler *NcpVpcVMHandler) getVmRootDiskInfo(vmId *string) (*string, *string, *string, error) {
+	cblogger.Info("NCP VPC Cloud driver: called getVmRootDiskInfo()!!")
 
 	if strings.EqualFold(*vmId, "") {
 		newErr := fmt.Errorf("Invalid VM ID!!")
 		cblogger.Error(newErr.Error())
-		return newErr
+		return nil, nil, nil, newErr
 	}
-	
-	subnetZone, exists := vmSubnetZoneMap[*vmId]
-	if exists {
-		cblogger.Infof("# The VM '%s' has Subnet Zone Info : %s", *vmId, subnetZone)
+
+	storageReq := vserver.GetBlockStorageInstanceListRequest{
+		RegionCode:       ncloud.String(vmHandler.RegionInfo.Region),
+		ServerInstanceNo: vmId,
+	}
+	storageResult, err := vmHandler.VMClient.V2Api.GetBlockStorageInstanceList(&storageReq)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get Block Storage List!! : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, nil, nil, newErr
+	}
+
+	if len(storageResult.BlockStorageInstanceList) < 1 {
+		cblogger.Info("No BlockStorage Found!!") // Caution) No Error message!!
+	}
+
+	var storageInstanceNo *string
+	var storageSize string
+	var deviceName *string
+	for _, disk := range storageResult.BlockStorageInstanceList {
+		if strings.EqualFold(*disk.ServerInstanceNo, *vmId) && strings.EqualFold(*disk.BlockStorageType.Code, "BASIC") {
+
+			storageInstanceNo = disk.BlockStorageInstanceNo
+			storageSize 	  = strconv.FormatFloat(float64(*disk.BlockStorageSize)/(1024*1024*1024), 'f', 0, 64)
+			deviceName 		  = disk.DeviceName
+			break
+		}
+	}
+	return storageInstanceNo, &storageSize, deviceName, nil
+}
+
+func (vmHandler *NcpVpcVMHandler) getVmDataDiskList(vmId *string) ([]irs.IID, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called getVmDataDiskList()")
+
+	if strings.EqualFold(*vmId, "") {
+		newErr := fmt.Errorf("Invalid VM Instance ID!!")
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+
+	storageReq := vserver.GetBlockStorageInstanceListRequest{
+		RegionCode:       ncloud.String(vmHandler.RegionInfo.Region),
+		ServerInstanceNo: vmId,
+	}
+	storageResult, err := vmHandler.VMClient.V2Api.GetBlockStorageInstanceList(&storageReq)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get Block Storage List!! : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+
+	if len(storageResult.BlockStorageInstanceList) < 1 {
+		newErr := fmt.Errorf("Failed to Get any BlockStorage Info!! : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
 	} else {
-		cblogger.Infof("# Subnet Zone Info not found. So Set the Info!!")
-
-		// Get the VPC Name from Tag of the VM
-		vpcName, subnetName, error := vmHandler.getVPCnSubnetNameFromTag(vmId)
-		if error != nil {
-			newErr := fmt.Errorf("Failed to Get VPC Name from Tag of the VM instance!! : [%v]", error)
-			cblogger.Debug(newErr.Error())
-			// return irs.VMInfo{}, newErr  // Caution!!
-		}
-		// cblogger.Infof("# vpcName : [%s]", vpcName)
-		// cblogger.Infof("# subnetName : [%s]", subnetName)
-
-		var subnetZoneId string
-		getErr := errors.New("")
-
-		if strings.EqualFold(vpcName, "") || strings.EqualFold(subnetName, ""){
-			cblogger.Debug("Failed to Get the VPC and Subnet Name from Tag!!")
-		} else {
-			// Get Zone ID of the Requested Subnet
-			vpcHandler := NcpVPCHandler {
-				CredentialInfo: 	vmHandler.CredentialInfo,
-				RegionInfo:			vmHandler.RegionInfo,
-				VMClient:         	vmHandler.VMClient,
-			}
-			subnetZoneId, getErr = vpcHandler.getSubnetZone(irs.IID{SystemId: vpcName}, irs.IID{SystemId: subnetName})
-			if getErr != nil {
-				newErr := fmt.Errorf("Failed to Get the Subnet Zone info!! : [%v]", getErr)
-				cblogger.Debug(newErr.Error())
-				return newErr
-			}
-			// cblogger.Infof("\n\n### subnetZoneId : [%s]", subnetZoneId)
-		}
-
-		if strings.EqualFold(subnetZoneId, "") {
-			newErr := fmt.Errorf("Failed to Get the Subnet Zone ID of the VM!!")
-			cblogger.Error(newErr.Error())
-			return newErr
-		}
-
-		vmSubnetZoneMap[*vmId] = subnetZoneId
+		cblogger.Info("Succeeded in Getting BlockStorage List!!")
 	}
 
-	return nil
+	var dataDiskIIDList []irs.IID
+	for _, disk := range storageResult.BlockStorageInstanceList {
+		if strings.EqualFold(*disk.ServerInstanceNo, *vmId) && !strings.EqualFold(*disk.BlockStorageType.Code, "BASIC") {
+			dataDiskIIDList = append(dataDiskIIDList, irs.IID{NameId: *disk.BlockStorageName, SystemId: *disk.BlockStorageInstanceNo})
+			// break
+		}
+	}
+	return dataDiskIIDList, nil
+}
+
+func (vmHandler *NcpVpcVMHandler) getNetworkInterfaceName(netInterfaceNo *string) (*string, error) {
+	cblogger.Info("NCP VPC Cloud driver: called getNetworkInterfaceName()!!")
+
+	if strings.EqualFold(*netInterfaceNo, "") {
+		newErr := fmt.Errorf("Invalid Net Interface ID!!")
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+
+	netReq := vserver.GetNetworkInterfaceDetailRequest{
+		RegionCode:         ncloud.String(vmHandler.RegionInfo.Region),
+		NetworkInterfaceNo: netInterfaceNo,
+	}
+	netResult, err := vmHandler.VMClient.V2Api.GetNetworkInterfaceDetail(&netReq)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get NetworkInterface Info!! : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+
+	if len(netResult.NetworkInterfaceList) < 1 {
+		newErr := fmt.Errorf("Failed to Get any NetworkInterface Info with the Network Interface ID!! : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+	return netResult.NetworkInterfaceList[0].DeviceName, nil
+}
+
+func (vmHandler *NcpVpcVMHandler) getVmIdByName(vmNameId string) (string, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called getVmIdByName()")
+	InitLog()
+	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Region, call.VM, vmNameId, "getVmIdByName()")
+
+	if strings.EqualFold(vmNameId, "") {
+		newErr := fmt.Errorf("Invalid VM Instance ID!!")
+		cblogger.Error(newErr.Error())
+		return "", newErr
+	}
+
+	instanceListReq := vserver.GetServerInstanceListRequest{
+		RegionCode: &vmHandler.RegionInfo.Region,
+	}
+	callLogStart := call.Start()
+	instanceResult, err := vmHandler.VMClient.V2Api.GetServerInstanceList(&instanceListReq)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get VM Instance List from NCP VPC : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return "", newErr
+	}
+	LoggingInfo(callLogInfo, callLogStart)
+
+	// Search by Name in the VM list
+	var vmId string
+	if len(instanceResult.ServerInstanceList) < 1 {
+		cblogger.Info("### VM Instance does Not Exist on NCP VPC!!")
+	} else {
+		cblogger.Info("Succeeded in Getting VM Instance List from NCP VPC.")
+		for _, vm := range instanceResult.ServerInstanceList {
+			if strings.EqualFold(*vm.ServerName, vmNameId) {
+				vmId = *vm.ServerInstanceNo
+				break
+			}
+		}
+
+		if strings.EqualFold(vmId, "") {
+			cblogger.Info("### VM Instance does Not Exist with the Name!!")
+		}
+	}
+	return vmId, nil
+}
+
+func (vmHandler *NcpVpcVMHandler) getNcpVMInfo(instanceId string) (*vserver.ServerInstance, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called getNcpVMInfo()")
+	InitLog()
+	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Region, call.VM, instanceId, "getNcpVMInfo()")
+
+	if strings.EqualFold(instanceId, "") {
+		newErr := fmt.Errorf("Invalid VM Instance ID!!")
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+
+	instanceReq := vserver.GetServerInstanceDetailRequest{
+		RegionCode:       &vmHandler.RegionInfo.Region,
+		ServerInstanceNo: &instanceId, // *** Required (Not Optional)
+	}
+	callLogStart := call.Start()
+	instanceResult, err := vmHandler.VMClient.V2Api.GetServerInstanceDetail(&instanceReq)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Find the VM Instance Info from NCP VPC : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+	LoggingInfo(callLogInfo, callLogStart)
+
+	if len(instanceResult.ServerInstanceList) < 1 {
+		newErr := fmt.Errorf("Failed to Find Any NCP VPC VM Instance Info!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+	return instanceResult.ServerInstanceList[0], nil
+}
+
+func (vmHandler *NcpVpcVMHandler) GetRootPassword(vmId *string, privateKey *string) (*string, error) {
+	cblogger.Info("NCP VPC Cloud driver: called GetRootPassword()!!")
+
+	if strings.EqualFold(*vmId, "") {
+		newErr := fmt.Errorf("Invalid VM Instance ID!!")
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+
+	pwdReq := vserver.GetRootPasswordRequest{
+		RegionCode:       ncloud.String(vmHandler.RegionInfo.Region),
+		ServerInstanceNo: vmId,
+		PrivateKey:       privateKey,
+	}
+	result, err := vmHandler.VMClient.V2Api.GetRootPassword(&pwdReq)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get the Root Password of the VM!! : [%v]", err)
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	}
+	if strings.EqualFold(*result.RootPassword, "") {
+		newErr := fmt.Errorf("Failed to Get the Root Password of the VM!!")
+		cblogger.Error(newErr.Error())
+		return nil, newErr
+	} else {
+		cblogger.Info("Succeeded in Getting the Root Password of the VM!!")
+	}
+
+	return result.RootPassword, nil
+}
+
+func countSgKvList(sg sim.SecurityGroupInfo) int {
+	if sg.KeyValueInfoList == nil {
+		return 0
+	}
+	return len(sg.KeyValueInfoList)
+}
+
+func (vmHandler *NcpVpcVMHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("NCP VPC Cloud driver: called vmHandler ListIID()!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(vmHandler.RegionInfo.Zone, call.VM, "ListIID()", "ListIID()")
+
+	instanceReq := vserver.GetServerInstanceListRequest{
+		RegionCode:           ncloud.String(vmHandler.RegionInfo.Region), // $$$ Caution!!
+		ServerInstanceNoList: []*string{},
+	}
+	callLogStart := call.Start()
+	result, err := vmHandler.VMClient.V2Api.GetServerInstanceList(&instanceReq)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get VM Instance List from NCP VPC!! : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+	LoggingInfo(callLogInfo, callLogStart)
+
+	var iidList []*irs.IID
+	if len(result.ServerInstanceList) < 1 {
+		cblogger.Debug("### VM does Not Exist!!")
+		return nil, nil
+	} else {
+		for _, vm := range result.ServerInstanceList {
+			var iid irs.IID
+			iid.NameId = *vm.ServerName
+			iid.SystemId = *vm.ServerInstanceNo
+
+			iidList = append(iidList, &iid)
+		}
+	}
+	return iidList, nil
 }

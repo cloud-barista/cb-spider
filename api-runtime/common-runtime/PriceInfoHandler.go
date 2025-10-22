@@ -59,7 +59,7 @@ func ListProductFamily(connectionName string, regionName string) ([]string, erro
 	return listProductFamily, nil
 }
 
-func GetPriceInfo(connectionName string, productFamily string, regionName string, filterList []cres.KeyValue) (string, error) {
+func GetPriceInfo(connectionName string, productFamily string, regionName string, filterList []cres.KeyValue, simpleVMSpecInfo bool) (string, error) {
 	cblog.Info("call GetPriceInfo()")
 
 	// check empty and trim user inputs
@@ -103,7 +103,7 @@ func GetPriceInfo(connectionName string, productFamily string, regionName string
 	}
 
 	cspProductFamily := getProviderSpecificPFName(providerName, productFamily)
-	priceInfo, err := handler.GetPriceInfo(cspProductFamily, regionName, filterList)
+	priceInfo, err := handler.GetPriceInfo(cspProductFamily, regionName, filterList, simpleVMSpecInfo)
 	if err != nil {
 		cblog.Error(err)
 		return "", err
@@ -132,9 +132,7 @@ func getProviderSpecificPFName(providerName, pfName string) string {
 	case "IBM":
 		return "is.instance"
 	case "NCP":
-		return "SVR"
-	case "NCPVPC":
-		return "Server (VPC)"
+		return "Server"
 	default:
 		return pfName
 	}

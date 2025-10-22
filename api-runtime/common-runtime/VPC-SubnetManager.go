@@ -585,7 +585,7 @@ func CreateVPC(connectionName string, rsType string, reqInfo cres.VPCReqInfo, ID
 		// special code for KT CLOUD VPC
 		// related Issue: #1105
 		//   [KT Cloud VPC] To use NLB, needs to support the subnet management features with a fixed name.
-		if providerName == "KTCLOUDVPC" {
+		if providerName == "KT" {
 			if info.IId.NameId == "NLB-SUBNET" {
 				subnetUUID = "NLB-SUBNET"
 			}
@@ -1087,7 +1087,7 @@ func AddSubnet(connectionName string, rsType string, vpcName string, reqInfo cre
 		cblog.Error(err)
 		return nil, err
 	}
-	if providerName == "KTCLOUDVPC" {
+	if providerName == "KT" {
 		if reqInfo.IId.NameId == "NLB-SUBNET" {
 			subnetUUID = "NLB-SUBNET"
 		}

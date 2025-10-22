@@ -12,6 +12,7 @@ import (
 	taglib "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/tag/v20180813"
 
 	cbs "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cbs/v20170312"
+	cfs "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cfs/v20190719"
 	clb "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/clb/v20180317"
 	cvm "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/cvm/v20170312"
 	vpc "github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/vpc/v20170312"
@@ -28,6 +29,7 @@ type TencentTagHandler struct {
 	NLBClient      *clb.Client
 	DiskClient     *cbs.Client
 	ClusterClient  *tke.Client
+	CFSClient      *cfs.Client
 }
 
 // Map of RSType to Tencent resource types
@@ -195,6 +197,19 @@ func validateResource(t *TencentTagHandler, resType irs.RSType, resIID irs.IID) 
 		response, err := t.ClusterClient.DescribeClusters(request)
 		if err != nil {
 			err := fmt.Errorf("An CLUSTER API error has returned: %s", err.Error())
+			return false, err
+		}
+		if *response.Response.TotalCount > 0 {
+			return true, nil
+		}
+		return false, nil
+
+	case irs.FILESYSTEM: // region Require
+		request := cfs.NewDescribeCfsFileSystemsRequest()
+		request.FileSystemId = common.StringPtr(resIID.SystemId)
+		response, err := t.CFSClient.DescribeCfsFileSystems(request)
+		if err != nil {
+			err := fmt.Errorf("An FILESYSTEM API error has returned: %s", err.Error())
 			return false, err
 		}
 		if *response.Response.TotalCount > 0 {

@@ -19,9 +19,9 @@ import (
 	"gopkg.in/yaml.v3"
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
-	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"	
+	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cblog "github.com/cloud-barista/cb-log"
-	
+
 	// ncpdrv "github.com/cloud-barista/ncp/ncp"  // For local test
 	ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp"
 )
@@ -30,7 +30,7 @@ var cblogger *logrus.Logger
 
 func init() {
 	// cblog is a global variable.
-	cblogger = cblog.GetLogger("NCP Resource Test")
+	cblogger = cblog.GetLogger("NCP VPC Resource Test")
 	cblog.SetLevel("info")
 }
 
@@ -63,12 +63,12 @@ func handleDisk() {
 		var commandNum int
 
 		diskIId := irs.IID{
-			SystemId: "26845333",
+			SystemId: "14812735",
 		}
 
 		createReqInfo := irs.DiskInfo{
 			IId: irs.IID{
-				NameId: "ncp-disk-02",
+				NameId: "ncp-disk-05",
 			},
 			// DiskType: "default",
 			DiskType: "HDD",
@@ -78,10 +78,10 @@ func handleDisk() {
 		}
 
 		vmIId := irs.IID{  // To attach disk
-			SystemId: "26844996",
+			SystemId: "13149859",
 		}
 
-		newDiskSize := "5"
+		newDiskSize := "160"
 
 		inputCnt, err := fmt.Scan(&commandNum)
 		if err != nil {
@@ -91,6 +91,7 @@ func handleDisk() {
 		if inputCnt == 1 {
 			switch commandNum {
 			case 0:
+				cblogger.Infof("Exit")
 				return
 			case 1:
 				cblogger.Info("Start ListDisk() ...")
@@ -98,7 +99,7 @@ func handleDisk() {
 					cblogger.Error(err)
 				} else {
 					spew.Dump(listResult)
-					cblogger.Info("# Total disk list count : ", len(listResult))
+					cblogger.Info("# Total count : ", len(listResult))
 				}
 				cblogger.Info("Finish ListDisk()")
 			case 2:
@@ -161,7 +162,7 @@ func handleDisk() {
 					cblogger.Infof("Total IID list count : [%d]", len(result))
 				}
 				cblogger.Info("\nListIID() Test Finished")
-			}	
+			}
 		}
 	}
 }
@@ -172,15 +173,15 @@ func testErr() error {
 }
 
 func main() {
-	cblogger.Info("NCP Resource Test")
+	cblogger.Info("NCP VPC Resource Test")
 	handleDisk()
 }
 
 // handlerType: The string before "Handler" in the xxxHandler.go file in the resources folder
-// (e.g.) ImageHandler.go -> "Image"
+// (e.g., ImageHandler.go -> "Image")
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
-	cloudDriver = new(ncpdrv.NcpDriver)
+	cloudDriver = new(ncpdrv.NcpVpcDriver)
 
 	config := readConfigFile()
 	connectionInfo := idrv.ConnectionInfo{

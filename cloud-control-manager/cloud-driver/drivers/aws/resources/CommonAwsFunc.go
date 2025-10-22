@@ -37,7 +37,7 @@ const CBDefaultCidrBlock string = "192.168.0.0/16"  // CB Default CidrBlock
 //const CBKeyPairPath string = "/meta_db/.ssh-aws/" // 이슈 #480에 의한 로컬 키 관리 제거
 
 const CBCloudInitWindowsFilePath string = "/cloud-driver-libs/.cloud-init-aws/cloud-init-windows" //Windows용 사용자 비번 설정을 위한 탬플릿
-const CBCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-common/cloud-init"
+const CBCloudInitFilePath string = "/cloud-driver-libs/.cloud-init-aws/cloud-init-ubuntu"
 const CBDefaultVmUserName string = "cb-user" // default VM User Name
 
 const CUSTOM_ERR_CODE_TOOMANY string = "600"            //awserr.New("600", "n개 이상의 xxxx 정보가 존재합니다.", nil)

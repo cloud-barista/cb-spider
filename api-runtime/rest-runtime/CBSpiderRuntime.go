@@ -45,6 +45,9 @@ import (
 
 var cblog *logrus.Logger
 
+// AdminWeb enabled flag
+var adminWebEnabled bool
+
 // @title CB-Spider REST API
 // @version latest
 // @description **🕷️ [User Guide](https://github.com/cloud-barista/cb-spider/wiki/features-and-usages)**  **🕷️ [API Guide](https://github.com/cloud-barista/cb-spider/wiki/REST-API-Examples)**
@@ -69,8 +72,7 @@ func init() {
 	currentTime := time.Now()
 	cr.StartTime = currentTime.Format("2006.01.02 15:04:05 Mon")
 	cr.MiddleStartTime = currentTime.Format("2006.01.02.15:04:05")
-	cr.ShortStartTime = fmt.Sprintf("T%02d:%02d:%02d", currentTime.Hour(), currentTime.Minute(), currentTime.Second())
-
+	cr.ShortStartTime = currentTime.Format("2006.01.02 15:04:05")
 	// REST and GO SERVER_ADDRESS since v0.4.4
 	cr.ServerIPorName = getServerIPorName("SERVER_ADDRESS")
 	cr.ServerPort = getServerPort("SERVER_ADDRESS")
@@ -78,6 +80,9 @@ func init() {
 	// REST SERVICE_ADDRESS for AdminWeb since v0.4.4
 	cr.ServiceIPorName = getServiceIPorName("SERVICE_ADDRESS")
 	cr.ServicePort = getServicePort("SERVICE_ADDRESS")
+
+	// Initialize AdminWeb setting
+	initAdminWebSetting()
 }
 
 // ex) {"POST", "/driver", registerCloudDriver}
@@ -161,23 +166,42 @@ func getServicePort(env string) string {
 	return getServerPort(env)
 }
 
-func RunServer() {
+// initAdminWebSetting initializes AdminWeb setting from environment variable
+func initAdminWebSetting() {
+	adminWebSetting := os.Getenv("ADMINWEB")
+	if adminWebSetting == "" {
+		// Default is ON if not set
+		adminWebEnabled = true
+	} else if strings.ToUpper(adminWebSetting) == "ON" {
+		adminWebEnabled = true
+	} else if strings.ToUpper(adminWebSetting) == "OFF" {
+		adminWebEnabled = false
+	} else {
+		// Invalid setting, default to ON
+		cblog.Warnf("Invalid ADMINWEB setting: %s, defaulting to ON", adminWebSetting)
+		adminWebEnabled = true
+	}
 
-	//======================================= setup routes
+	if adminWebEnabled {
+		cblog.Info("AdminWeb is enabled")
+	} else {
+		cblog.Info("AdminWeb is disabled")
+	}
+}
+
+
+// getRoutes returns the routes list based on AdminWeb setting
+func getRoutes() []route {
 	routes := []route{
 		//----------root
-		{"GET", "", aw.SpiderInfo},
-		{"GET", "/", aw.SpiderInfo},
-
-		//----------Swagger
-		{"GET", "/api", echoSwagger.EchoWrapHandler(echoSwagger.DocExpansion("none"))},
-		{"GET", "/api/", echoSwagger.EchoWrapHandler(echoSwagger.DocExpansion("none"))},
-		{"GET", "/api/*", echoSwagger.EchoWrapHandler(echoSwagger.DocExpansion("none"))},
+		// {"GET", "", aw.SpiderInfo},
+		// {"GET", "/", aw.SpiderInfo},
 
 		//----------EndpointInfo
 		{"GET", "/endpointinfo", endpointInfo},
 
 		//---------- Server VersionInfo
+		{"GET", "/ver", versionInfo},
 		{"GET", "/version", versionInfo},
 
 		//----------healthcheck
@@ -430,6 +454,7 @@ func RunServer() {
 		{"GET", "/cluster", ListCluster},
 		{"GET", "/cluster/:Name", GetCluster},
 		{"DELETE", "/cluster/:Name", DeleteCluster},
+		{"GET", "/cluster/:Name/token", GetClusterToken},
 		//-- for NodeGroup
 		{"POST", "/cluster/:Name/nodegroup", AddNodeGroup},
 		{"DELETE", "/cluster/:Name/nodegroup/:NodeGroupName", RemoveNodeGroup},
@@ -480,16 +505,10 @@ func RunServer() {
 		//----------AnyCall Handler
 		{"POST", "/anycall", AnyCall},
 
-		//----------WebMon Handler
-		{"GET", "/adminweb/vmmon", aw.VMMointoring},
-
 		//////////////////////////////////////////////////////////////
 		//------------------ Spiderlet Zone ------------------------
 
 		{"POST", "/spiderlet/anycall", SpiderletAnyCall},
-
-		//----------WebMon Handler
-		{"GET", "/adminweb/spiderlet/vmmon", aw.SpiderletVMMointoring},
 
 		//------------------ Spiderlet Zone ------------------------
 		//////////////////////////////////////////////////////////////
@@ -500,102 +519,127 @@ func RunServer() {
 		//----------SSH RUN
 		{"POST", "/sshrun", SSHRun},
 
-		//----------AdminWeb Handler
-		{"GET", "/adminweb1", aw.Frame},
-		{"GET", "/adminweb1/", aw.Frame},
-		{"GET", "/adminweb/top", aw.Top},
-		{"GET", "/adminweb/log", aw.Log},
-
-		{"GET", "/adminweb", aw.MainPage},
-		{"GET", "/adminweb/", aw.MainPage},
-		{"GET", "/adminweb/left_menu", aw.LeftMenu},
-		{"GET", "/adminweb/body_frame", aw.BodyFrame},
-
-		{"GET", "/adminweb/dashboard", aw.Dashboard},
-
-		{"GET", "/adminweb/driver1", aw.Driver},
-		{"GET", "/adminweb/driver", aw.DriverManagement},
-
-		{"GET", "/adminweb/credential1", aw.Credential},
-		{"GET", "/adminweb/credential", aw.CredentialManagement},
-
-		{"GET", "/adminweb/region1", aw.Region},
-		{"GET", "/adminweb/region", aw.RegionManagement},
-
-		{"GET", "/adminweb/connectionconfig1", aw.Connectionconfig},
-		{"GET", "/adminweb/connectionconfig", aw.ConnectionManagement},
-
-		{"GET", "/adminweb/dashboard", aw.Dashboard},
-
-		{"GET", "/adminweb/spiderinfo", aw.SpiderInfo},
-
-		{"GET", "/adminweb/sysstats", aw.SystemStatsInfoPage},
-
-		{"GET", "/adminweb/vpc/:ConnectConfig", aw.VPCSubnetManagement},
-		{"GET", "/adminweb/vpcmgmt/:ConnectConfig", aw.VPCMgmt},
-		{"GET", "/adminweb/securitygroup/:ConnectConfig", aw.SecurityGroupManagement},
-		{"GET", "/adminweb/securitygroupmgmt/:ConnectConfig", aw.SecurityGroupMgmt},
-		{"GET", "/adminweb/keypair/:ConnectConfig", aw.KeyPairManagement},
-		{"GET", "/adminweb/keypairmgmt/:ConnectConfig", aw.KeyPairMgmt},
-		{"GET", "/adminweb/vm/:ConnectConfig", aw.VMManagement},
-		{"GET", "/adminweb/vmmgmt/:ConnectConfig", aw.VMMgmt},
-		{"GET", "/adminweb/nlb/:ConnectConfig", aw.NLBManagement},
-		{"GET", "/adminweb/nlbmgmt/:ConnectConfig", aw.NLBMgmt},
-		{"GET", "/adminweb/disk/:ConnectConfig", aw.DiskManagement},
-		{"GET", "/adminweb/diskmgmt/:ConnectConfig", aw.DiskMgmt},
-		{"GET", "/adminweb/cluster/:ConnectConfig", aw.ClusterManagement},
-		{"GET", "/adminweb/clustermgmt/:ConnectConfig", aw.ClusterMgmt},
-		{"GET", "/adminweb/myimage/:ConnectConfig", aw.MyImageManagement},
-		{"GET", "/adminweb/myimagemgmt/:ConnectConfig", aw.MyImageMgmt},
-		{"GET", "/adminweb/vmimage/:ConnectConfig", aw.VMImage},
-		{"GET", "/adminweb/vmspec/:ConnectConfig", aw.VMSpec},
-		{"GET", "/adminweb/regionzone/:ConnectConfig", aw.RegionZone},
-		{"GET", "/adminweb/priceinfo/:ConnectConfig", aw.PriceInfoRequest},
-		{"GET", "/adminweb/priceinfotablelist/:ProductFamily/:RegionName/:ConnectConfig", aw.PriceInfoTableList},
-		// download price info with JSON file
-		{"GET", "/adminweb/priceinfo/download/:FileName", aw.DownloadPriceInfo},
-
-		{"GET", "/adminweb/s3/:ConnectConfig", aw.S3Management},
-
-		{"GET", "/adminweb/cmd-agent", aw.CmdAgent},
-		{"POST", "/adminweb/generate-cmd", aw.GenerateCmd},
-
-		{"GET", "/adminweb/calllog-analyzer", aw.CallLogAnalyzer},
-		{"POST", "/adminweb/analyze-logs", aw.AnalyzeLogs},
-		{"GET", "/adminweb/read-logs", aw.GetReadLogs},
-
-		//----------SSH WebTerminal Handler
-		{"GET", "/adminweb/sshwebterminal/ws", aw.HandleWebSocket},
-	}
-
-	// for Standard S3 API - Order matters! More specific routes should come first
-	s3Routes := []route{
-		{"GET", "/", ListS3Buckets},
+		//----------S3 API Handler - Order matters! More specific routes should come first
+		{"GET", "/s3", ListS3Buckets},
 
 		// Bucket-level operations (with query parameters)
-		{"GET", "/:Name", GetS3Bucket}, // Handles ?versioning, ?cors, ?policy, ?location, ?versions, and list objects
-		{"GET", "/:Name/", GetS3Bucket},
-		{"HEAD", "/:Name", GetS3Bucket},
-		{"PUT", "/:Name", CreateS3Bucket}, // Handles bucket creation AND bucket config (redirects to GetS3Bucket)
-		{"DELETE", "/:Name", DeleteS3Bucket},
+		{"GET", "/s3/:Name", GetS3Bucket}, // Handles ?versioning, ?cors, ?policy, ?location, ?versions, and list objects
+		{"GET", "/s3/:Name/", GetS3Bucket},
+		{"HEAD", "/s3/:Name", GetS3Bucket},
+		{"PUT", "/s3/:Name", CreateS3Bucket}, // Handles bucket creation AND bucket config (redirects to GetS3Bucket)
+		{"DELETE", "/s3/:Name", DeleteS3Bucket},
 
 		//--------- don't change the order of these routes
-		{"POST", "/:BucketName/:ObjectKey+", HandleS3BucketPost},
-		{"POST", "/:Name", HandleS3BucketPost},
-		{"POST", "/:Name/", HandleS3BucketPost},
+		{"POST", "/s3/:BucketName/:ObjectKey+", HandleS3BucketPost},
+		{"POST", "/s3/:Name", PutS3ObjectFromForm},
+		{"POST", "/s3/:Name/", HandleS3BucketPost},
 		//--------- don't change the order of these routes
 
 		// Object-level operations
-		{"PUT", "/:BucketName/:ObjectKey+", PutS3ObjectFromFile},
-		{"HEAD", "/:BucketName/:ObjectKey+", GetS3ObjectInfo},
-		{"GET", "/:BucketName/:ObjectKey+", DownloadS3Object},
-		{"DELETE", "/:BucketName/:ObjectKey+", DeleteS3Object},
+		{"PUT", "/s3/:BucketName/:ObjectKey+", PutS3ObjectFromFile},
+		{"HEAD", "/s3/:BucketName/:ObjectKey+", GetS3ObjectInfo},
+		{"GET", "/s3/:BucketName/:ObjectKey+", DownloadS3Object},
+		{"DELETE", "/s3/:BucketName/:ObjectKey+", DeleteS3Object},
+
+		// PreSigned URL API
+		{"GET", "/s3/presigned/download/:BucketName/:ObjectKey+", GetS3PresignedURLHandler},
+		{"GET", "/s3/presigned/upload/:BucketName/:ObjectKey+", GetS3PresignedUploadURLHandler},
 	}
+
+	// Add AdminWeb and Swagger routes conditionally
+	if adminWebEnabled {
+		adminWebRoutes := []route{
+			//----------Swagger
+			{"GET", "/api", func(c echo.Context) error {
+				return c.Redirect(http.StatusMovedPermanently, "/spider/api/index.html")
+			}},
+			{"GET", "/api/", echoSwagger.EchoWrapHandler(echoSwagger.DocExpansion("none"))},
+			{"GET", "/api/*", echoSwagger.EchoWrapHandler(echoSwagger.DocExpansion("none"))},
+
+			//----------AdminWeb Handler
+			{"GET", "/adminweb1", aw.Frame},
+			{"GET", "/adminweb1/", aw.Frame},
+			{"GET", "/adminweb/top", aw.Top},
+			{"GET", "/adminweb/log", aw.Log},
+
+			{"GET", "/adminweb", aw.MainPage},
+			{"GET", "/adminweb/", aw.MainPage},
+			{"GET", "/adminweb/left_menu", aw.LeftMenu},
+			{"GET", "/adminweb/body_frame", aw.BodyFrame},
+
+			{"GET", "/adminweb/dashboard", aw.Dashboard},
+
+			{"GET", "/adminweb/driver1", aw.Driver},
+			{"GET", "/adminweb/driver", aw.DriverManagement},
+
+			{"GET", "/adminweb/credential1", aw.Credential},
+			{"GET", "/adminweb/credential", aw.CredentialManagement},
+
+			{"GET", "/adminweb/region1", aw.Region},
+			{"GET", "/adminweb/region", aw.RegionManagement},
+
+			{"GET", "/adminweb/connectionconfig1", aw.Connectionconfig},
+			{"GET", "/adminweb/connectionconfig", aw.ConnectionManagement},
+
+			{"GET", "/adminweb/spiderinfo", aw.SpiderInfo},
+
+			{"GET", "/adminweb/sysstats", aw.SystemStatsInfoPage},
+
+			{"GET", "/adminweb/vpc/:ConnectConfig", aw.VPCSubnetManagement},
+			{"GET", "/adminweb/vpcmgmt/:ConnectConfig", aw.VPCMgmt},
+			{"GET", "/adminweb/securitygroup/:ConnectConfig", aw.SecurityGroupManagement},
+			{"GET", "/adminweb/securitygroupmgmt/:ConnectConfig", aw.SecurityGroupMgmt},
+			{"GET", "/adminweb/keypair/:ConnectConfig", aw.KeyPairManagement},
+			{"GET", "/adminweb/keypairmgmt/:ConnectConfig", aw.KeyPairMgmt},
+			{"GET", "/adminweb/vm/:ConnectConfig", aw.VMManagement},
+			{"GET", "/adminweb/vmmgmt/:ConnectConfig", aw.VMMgmt},
+			{"GET", "/adminweb/nlb/:ConnectConfig", aw.NLBManagement},
+			{"GET", "/adminweb/nlbmgmt/:ConnectConfig", aw.NLBMgmt},
+			{"GET", "/adminweb/disk/:ConnectConfig", aw.DiskManagement},
+			{"GET", "/adminweb/diskmgmt/:ConnectConfig", aw.DiskMgmt},
+			{"GET", "/adminweb/cluster/:ConnectConfig", aw.ClusterManagement},
+			{"GET", "/adminweb/clustermgmt/:ConnectConfig", aw.ClusterMgmt},
+			{"GET", "/adminweb/myimage/:ConnectConfig", aw.MyImageManagement},
+			{"GET", "/adminweb/myimagemgmt/:ConnectConfig", aw.MyImageMgmt},
+			{"GET", "/adminweb/vmimage/:ConnectConfig", aw.VMImage},
+			{"GET", "/adminweb/vmspec/:ConnectConfig", aw.VMSpec},
+			{"GET", "/adminweb/regionzone/:ConnectConfig", aw.RegionZone},
+			{"GET", "/adminweb/priceinfo/:ConnectConfig", aw.PriceInfoRequest},
+			{"GET", "/adminweb/priceinfotablelist/:ProductFamily/:RegionName/:ConnectConfig", aw.PriceInfoTableList},
+			// download price info with JSON file
+			{"GET", "/adminweb/priceinfo/download/:FileName", aw.DownloadPriceInfo},
+
+			{"GET", "/adminweb/s3/:ConnectConfig", aw.S3Management},
+
+			{"GET", "/adminweb/cmd-agent", aw.CmdAgent},
+			{"POST", "/adminweb/generate-cmd", aw.GenerateCmd},
+
+			{"GET", "/adminweb/calllog-analyzer", aw.CallLogAnalyzer},
+			{"POST", "/adminweb/analyze-logs", aw.AnalyzeLogs},
+			{"GET", "/adminweb/read-logs", aw.GetReadLogs},
+
+			//----------SSH WebTerminal Handler
+			{"GET", "/adminweb/sshwebterminal/ws", aw.HandleWebSocket},
+
+			//----------WebMon Handler
+			{"GET", "/adminweb/vmmon", aw.VMMointoring},
+			{"GET", "/adminweb/spiderlet/vmmon", aw.SpiderletVMMointoring},
+		}
+
+		routes = append(routes, adminWebRoutes...)
+	}
+
+	return routes
+}
+
+func RunServer() {
+	//======================================= setup routes
+	routes := getRoutes()
 
 	//======================================= setup routes
 
 	// Run API Server
-	ApiServer(routes, s3Routes)
+	ApiServer(routes)
 
 }
 
@@ -654,7 +698,7 @@ func (w *bodyDumpResponseWriter) Write(b []byte) (int, error) {
 }
 
 // ================ REST API Server: setup & start
-func ApiServer(routes []route, s3Routes []route) {
+func ApiServer(routes []route) {
 	e := echo.New()
 
 	// Middleware
@@ -667,9 +711,9 @@ func ApiServer(routes []route, s3Routes []route) {
 	// Custom logging for S3 API requests
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			if strings.HasPrefix(c.Request().Header.Get("Authorization"), "AWS4-HMAC-SHA256") {
-				cblog.Infof("S3 API Request: %s %s", c.Request().Method, c.Request().URL.Path)
-				cblog.Debugf("Request Headers: %v", c.Request().Header)
+			// Check for S3 API requests (both AWS signature and /spider/s3 path)
+			if strings.HasPrefix(c.Request().Header.Get("Authorization"), "AWS4-HMAC-SHA256") ||
+				strings.HasPrefix(c.Request().URL.Path, "/spider/s3") {
 
 				// Capture the response body
 				resBody := new(bytes.Buffer)
@@ -678,9 +722,6 @@ func ApiServer(routes []route, s3Routes []route) {
 				c.Response().Writer = writer
 
 				err := next(c)
-
-				cblog.Debugf("Response Status: %d", c.Response().Status)
-				cblog.Debugf("Response Headers: %v", c.Response().Header())
 				if c.Response().Status < 300 {
 					cblog.Debugf("Response Body: %s", resBody.String())
 				}
@@ -733,62 +774,32 @@ func ApiServer(routes []route, s3Routes []route) {
 	}
 
 	for _, route := range routes {
-		// /driver => /spider/driver
-		route.path = "/spider" + route.path
-		switch route.method {
-		case "POST":
-			e.POST(route.path, route.function)
-		case "GET":
-			e.GET(route.path, route.function)
-		case "PUT":
-			e.PUT(route.path, route.function)
-		case "DELETE":
-			e.DELETE(route.path, route.function)
-
-		}
-	}
-
-	// Standard S3 API routes (root level)
-	for _, route := range s3Routes {
-		switch route.method {
-		case "GET":
-			e.GET(route.path, route.function)
-		case "HEAD":
-			e.HEAD(route.path, route.function)
-		case "PUT":
-			e.PUT(route.path, route.function)
-		case "POST":
-			e.POST(route.path, route.function)
-		case "DELETE":
-			e.DELETE(route.path, route.function)
-		}
-	}
-
-	// Standard S3 API routes with /spider prefix
-	for _, route := range s3Routes {
 		spiderPath := "/spider" + route.path
 		switch route.method {
-		case "GET":
-			e.GET(spiderPath, route.function)
-		case "HEAD":
-			e.HEAD(spiderPath, route.function)
-		case "PUT":
-			e.PUT(spiderPath, route.function)
 		case "POST":
 			e.POST(spiderPath, route.function)
+		case "GET":
+			e.GET(spiderPath, route.function)
+		case "PUT":
+			e.PUT(spiderPath, route.function)
 		case "DELETE":
 			e.DELETE(spiderPath, route.function)
+		case "HEAD":
+			e.HEAD(spiderPath, route.function)
 		}
 	}
 
-	// for spider logo
-	e.Static("/spider/adminweb/images", filepath.Join(cbspiderRoot, "api-runtime/rest-runtime/admin-web/images"))
+	// AdminWeb static files (conditional)
+	if adminWebEnabled {
+		// for spider logo
+		e.Static("/spider/adminweb/images", filepath.Join(cbspiderRoot, "api-runtime/rest-runtime/admin-web/images"))
 
-	// for admin-web
-	e.File("/spider/adminweb/html/priceinfo-filter-gen.html", cbspiderRoot+"/api-runtime/rest-runtime/admin-web/html/priceinfo-filter-gen.html")
+		// for admin-web
+		e.File("/spider/adminweb/html/priceinfo-filter-gen.html", cbspiderRoot+"/api-runtime/rest-runtime/admin-web/html/priceinfo-filter-gen.html")
 
-	// for WebTerminal
-	e.Static("/spider/adminweb/static", filepath.Join(cbspiderRoot, "api-runtime/rest-runtime/admin-web/static"))
+		// for WebTerminal
+		e.Static("/spider/adminweb/static", filepath.Join(cbspiderRoot, "api-runtime/rest-runtime/admin-web/static"))
+	}
 
 	e.HideBanner = true
 	e.HidePort = true
@@ -819,11 +830,8 @@ func ApiServer(routes []route, s3Routes []route) {
 func endpointInfo(c echo.Context) error {
 	cblog.Info("call endpointInfo()")
 
-	endpointInfo := fmt.Sprintf("\n  <CB-Spider> Multi-Cloud Infrastructure Federation Framework\n")
-	adminWebURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/adminweb"
-	endpointInfo += fmt.Sprintf("     - AdminWeb: %s\n", adminWebURL)
-	swaggerURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/api"
-	endpointInfo += fmt.Sprintf("     - Swagger UI: %s\n", swaggerURL)
+	// Use the same banner string as spiderBanner()
+	endpointInfo := getSpiderBannerString()
 
 	// gRPCServer := "grpc://" + cr.ServiceIPorName + cr.GoServicePort
 	// endpointInfo += fmt.Sprintf("     - Go   API: %s\n", gRPCServer)
@@ -967,15 +975,26 @@ func healthCheck(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"message": "CB-Spider is ready"})
 }
 
+// getSpiderBannerString returns the spider banner as a string
+func getSpiderBannerString() string {
+	var bannerStr string
+	bannerStr += "\n  <CB-Spider> Multi-Cloud Unified Interface Framework >> One-Code, Multi-Cloud\n"
+
+	restAPIURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider"
+	// AdminWeb and Swagger (conditional)
+	if adminWebEnabled {
+		bannerStr += fmt.Sprintf("     - AdminWeb: %s/adminweb\n", restAPIURL)
+		bannerStr += fmt.Sprintf("     - Swagger UI: %s/api\n", restAPIURL)
+	} else {
+		// When AdminWeb is disabled, show health check and version info endpoints
+		bannerStr += fmt.Sprintf("     - REST API: %s\n", restAPIURL)
+		bannerStr += fmt.Sprintf("     - Health: %s/readyz\n", restAPIURL)
+	}
+	bannerStr += fmt.Sprintf("     - Version: %s/ver\n", restAPIURL)
+
+	return bannerStr
+}
+
 func spiderBanner() {
-	fmt.Println("\n  <CB-Spider> Multi-Cloud Infrastructure Federation Framework")
-
-	// AdminWeb
-	adminWebURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/adminweb"
-	fmt.Printf("     - AdminWeb: %s\n", adminWebURL)
-
-	// Swagger
-	swaggerURL := "http://" + cr.ServiceIPorName + cr.ServicePort + "/spider/api"
-	fmt.Printf("     - Swagger UI: %s\n", swaggerURL)
-
+	fmt.Print(getSpiderBannerString())
 }

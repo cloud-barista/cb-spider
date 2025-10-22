@@ -6,11 +6,13 @@ package restruntime
 
 import (
 	"bytes"
+	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -97,6 +99,17 @@ type S3UploadInfo struct {
 // --------------- for Swagger doc (minio.BooleanInfo)
 type S3PresignedURL struct {
 	PresignedURL string `json:"PresignedURL"`
+	Expires      int64  `json:"Expires"`
+	Method       string `json:"Method"`
+}
+
+// XML structure for PreSigned URL response
+type S3PresignedURLXML struct {
+	XMLName      xml.Name `xml:"PresignedURLResult" json:"-"`
+	Xmlns        string   `xml:"xmlns,attr" json:"-"`
+	PresignedURL string   `xml:"PresignedURL" json:"PresignedURL"`
+	Expires      int64    `xml:"Expires" json:"Expires"`
+	Method       string   `xml:"Method" json:"Method"`
 }
 
 // ---------- Common functions ----------
@@ -151,11 +164,33 @@ func extractAccessKey(authHeader string) (string, error) {
 
 // S3 Error Response
 type S3Error struct {
-	XMLName   xml.Name `xml:"Error"`
-	Code      string   `xml:"Code"`
-	Message   string   `xml:"Message"`
-	Resource  string   `xml:"Resource"`
-	RequestId string   `xml:"RequestId"`
+	XMLName   xml.Name `xml:"Error" json:"-"`
+	Code      string   `xml:"Code" json:"Code"`
+	Message   string   `xml:"Message" json:"Message"`
+	Resource  string   `xml:"Resource" json:"Resource"`
+	RequestId string   `xml:"RequestId" json:"RequestId"`
+}
+
+// Check if client requests JSON response
+func isJSONResponse(c echo.Context) bool {
+	// Check Accept header
+	accept := c.Request().Header.Get("Accept")
+	if strings.Contains(strings.ToLower(accept), "application/json") {
+		return true
+	}
+
+	// Check query parameter
+	if c.QueryParam("format") == "json" {
+		return true
+	}
+
+	// Check Content-Type header for POST/PUT requests
+	contentType := c.Request().Header.Get("Content-Type")
+	if strings.Contains(strings.ToLower(contentType), "application/json") {
+		return true
+	}
+
+	return false
 }
 
 func returnS3Error(c echo.Context, statusCode int, errorCode string, message string, resource string) error {
@@ -170,6 +205,10 @@ func returnS3Error(c echo.Context, statusCode int, errorCode string, message str
 		RequestId: requestId,
 	}
 
+	if isJSONResponse(c) {
+		return c.JSON(statusCode, s3Error)
+	}
+
 	xmlData, err := xml.Marshal(s3Error)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, "Internal Server Error")
@@ -177,6 +216,31 @@ func returnS3Error(c echo.Context, statusCode int, errorCode string, message str
 
 	fullXML := append([]byte(xml.Header), xmlData...)
 	return c.Blob(statusCode, "application/xml", fullXML)
+}
+
+// Generic response handler for both JSON and XML
+func returnS3Response(c echo.Context, statusCode int, data interface{}) error {
+	addS3Headers(c)
+
+	if isJSONResponse(c) {
+		return c.JSON(statusCode, data)
+	}
+
+	// XML response
+	var buf bytes.Buffer
+	buf.WriteString(xml.Header)
+	enc := xml.NewEncoder(&buf)
+	enc.Indent("", "  ")
+
+	if err := enc.Encode(data); err != nil {
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), c.Request().URL.Path)
+	}
+
+	xmlContent := buf.Bytes()
+	c.Response().Header().Set("Content-Type", "application/xml")
+	c.Response().Header().Set("Content-Length", strconv.Itoa(len(xmlContent)))
+
+	return c.Blob(statusCode, "application/xml", xmlContent)
 }
 
 func addS3Headers(c echo.Context) {
@@ -188,129 +252,129 @@ func addS3Headers(c echo.Context) {
 // ---------- XML Response Structures ----------
 
 type ListAllMyBucketsResult struct {
-	XMLName xml.Name `xml:"ListAllMyBucketsResult"`
-	Xmlns   string   `xml:"xmlns,attr"`
-	Owner   Owner    `xml:"Owner"`
-	Buckets Buckets  `xml:"Buckets"`
+	XMLName xml.Name `xml:"ListAllMyBucketsResult" json:"-"`
+	Xmlns   string   `xml:"xmlns,attr" json:"-"`
+	Owner   Owner    `xml:"Owner" json:"Owner"`
+	Buckets Buckets  `xml:"Buckets" json:"Buckets"`
 }
 
 type Owner struct {
-	ID          string `xml:"ID"`
-	DisplayName string `xml:"DisplayName"`
+	ID          string `xml:"ID" json:"ID"`
+	DisplayName string `xml:"DisplayName" json:"DisplayName"`
 }
 
 type Buckets struct {
-	Bucket []Bucket `xml:"Bucket"`
+	Bucket []Bucket `xml:"Bucket" json:"Bucket"`
 }
 
 type Bucket struct {
-	Name         string `xml:"Name"`
-	CreationDate string `xml:"CreationDate"`
+	Name         string `xml:"Name" json:"Name"`
+	CreationDate string `xml:"CreationDate" json:"CreationDate"`
 }
 
 type ListBucketResult struct {
-	XMLName     xml.Name      `xml:"ListBucketResult"`
-	Xmlns       string        `xml:"xmlns,attr"`
-	Name        string        `xml:"Name"`
-	Prefix      string        `xml:"Prefix"`
-	Marker      string        `xml:"Marker"`
-	MaxKeys     int           `xml:"MaxKeys"`
-	IsTruncated bool          `xml:"IsTruncated"`
-	Contents    []S3ObjectXML `xml:"Contents"`
+	XMLName     xml.Name      `xml:"ListBucketResult" json:"-"`
+	Xmlns       string        `xml:"xmlns,attr" json:"-"`
+	Name        string        `xml:"Name" json:"Name"`
+	Prefix      string        `xml:"Prefix" json:"Prefix"`
+	Marker      string        `xml:"Marker" json:"Marker"`
+	MaxKeys     int           `xml:"MaxKeys" json:"MaxKeys"`
+	IsTruncated bool          `xml:"IsTruncated" json:"IsTruncated"`
+	Contents    []S3ObjectXML `xml:"Contents" json:"Contents"`
 }
 
 type S3ObjectXML struct {
-	Key          string `xml:"Key"`
-	LastModified string `xml:"LastModified"`
-	ETag         string `xml:"ETag"`
-	Size         int64  `xml:"Size"`
-	StorageClass string `xml:"StorageClass"`
-	Owner        *Owner `xml:"Owner,omitempty"`
+	Key          string `xml:"Key" json:"Key"`
+	LastModified string `xml:"LastModified" json:"LastModified"`
+	ETag         string `xml:"ETag" json:"ETag"`
+	Size         int64  `xml:"Size" json:"Size"`
+	StorageClass string `xml:"StorageClass" json:"StorageClass"`
+	Owner        *Owner `xml:"Owner,omitempty" json:"Owner,omitempty"`
 }
 
 type CreateBucketConfiguration struct {
-	XMLName            xml.Name `xml:"CreateBucketConfiguration"`
-	LocationConstraint string   `xml:"LocationConstraint"`
+	XMLName            xml.Name `xml:"CreateBucketConfiguration" json:"-"`
+	LocationConstraint string   `xml:"LocationConstraint" json:"LocationConstraint"`
 }
 
 // ---------- S3 Advanced Features XML Structures ----------
 
 type CORSConfiguration struct {
-	XMLName   xml.Name   `xml:"CORSConfiguration"`
-	Xmlns     string     `xml:"xmlns,attr"`
-	CORSRules []CORSRule `xml:"CORSRule"`
+	XMLName   xml.Name   `xml:"CORSConfiguration" json:"-"`
+	Xmlns     string     `xml:"xmlns,attr" json:"-"`
+	CORSRules []CORSRule `xml:"CORSRule" json:"CORSRule"`
 }
 
 type CORSRule struct {
-	AllowedOrigin []string `xml:"AllowedOrigin"`
-	AllowedMethod []string `xml:"AllowedMethod"`
-	AllowedHeader []string `xml:"AllowedHeader,omitempty"`
-	ExposeHeader  []string `xml:"ExposeHeader,omitempty"`
-	MaxAgeSeconds int      `xml:"MaxAgeSeconds,omitempty"`
+	AllowedOrigin []string `xml:"AllowedOrigin" json:"AllowedOrigin"`
+	AllowedMethod []string `xml:"AllowedMethod" json:"AllowedMethod"`
+	AllowedHeader []string `xml:"AllowedHeader,omitempty" json:"AllowedHeader,omitempty"`
+	ExposeHeader  []string `xml:"ExposeHeader,omitempty" json:"ExposeHeader,omitempty"`
+	MaxAgeSeconds int      `xml:"MaxAgeSeconds,omitempty" json:"MaxAgeSeconds,omitempty"`
 }
 
 type AccessControlPolicy struct {
-	XMLName           xml.Name          `xml:"AccessControlPolicy"`
-	Xmlns             string            `xml:"xmlns,attr"`
-	Owner             Owner             `xml:"Owner"`
-	AccessControlList AccessControlList `xml:"AccessControlList"`
+	XMLName           xml.Name          `xml:"AccessControlPolicy" json:"-"`
+	Xmlns             string            `xml:"xmlns,attr" json:"-"`
+	Owner             Owner             `xml:"Owner" json:"Owner"`
+	AccessControlList AccessControlList `xml:"AccessControlList" json:"AccessControlList"`
 }
 
 type AccessControlList struct {
-	Grant []Grant `xml:"Grant"`
+	Grant []Grant `xml:"Grant" json:"Grant"`
 }
 
 type Grant struct {
-	Grantee    Grantee `xml:"Grantee"`
-	Permission string  `xml:"Permission"`
+	Grantee    Grantee `xml:"Grantee" json:"Grantee"`
+	Permission string  `xml:"Permission" json:"Permission"`
 }
 
 type Grantee struct {
-	XMLName      xml.Name `xml:"Grantee"`
-	Type         string   `xml:"type,attr"`
-	ID           string   `xml:"ID,omitempty"`
-	DisplayName  string   `xml:"DisplayName,omitempty"`
-	EmailAddress string   `xml:"EmailAddress,omitempty"`
-	URI          string   `xml:"URI,omitempty"`
+	XMLName      xml.Name `xml:"Grantee" json:"-"`
+	Type         string   `xml:"type,attr" json:"Type"`
+	ID           string   `xml:"ID,omitempty" json:"ID,omitempty"`
+	DisplayName  string   `xml:"DisplayName,omitempty" json:"DisplayName,omitempty"`
+	EmailAddress string   `xml:"EmailAddress,omitempty" json:"EmailAddress,omitempty"`
+	URI          string   `xml:"URI,omitempty" json:"URI,omitempty"`
 }
 
 type ListVersionsResult struct {
-	XMLName             xml.Name        `xml:"ListVersionsResult"`
-	Xmlns               string          `xml:"xmlns,attr"`
-	Name                string          `xml:"Name"`
-	Prefix              string          `xml:"Prefix"`
-	KeyMarker           string          `xml:"KeyMarker"`
-	VersionIdMarker     string          `xml:"VersionIdMarker"`
-	NextKeyMarker       string          `xml:"NextKeyMarker"`
-	NextVersionIdMarker string          `xml:"NextVersionIdMarker"`
-	MaxKeys             int             `xml:"MaxKeys"`
-	IsTruncated         bool            `xml:"IsTruncated"`
-	Versions            []ObjectVersion `xml:"Version"`
-	DeleteMarkers       []DeleteMarker  `xml:"DeleteMarker"`
+	XMLName             xml.Name        `xml:"ListVersionsResult" json:"-"`
+	Xmlns               string          `xml:"xmlns,attr" json:"-"`
+	Name                string          `xml:"Name" json:"Name"`
+	Prefix              string          `xml:"Prefix" json:"Prefix"`
+	KeyMarker           string          `xml:"KeyMarker" json:"KeyMarker"`
+	VersionIdMarker     string          `xml:"VersionIdMarker" json:"VersionIdMarker"`
+	NextKeyMarker       string          `xml:"NextKeyMarker" json:"NextKeyMarker"`
+	NextVersionIdMarker string          `xml:"NextVersionIdMarker" json:"NextVersionIdMarker"`
+	MaxKeys             int             `xml:"MaxKeys" json:"MaxKeys"`
+	IsTruncated         bool            `xml:"IsTruncated" json:"IsTruncated"`
+	Versions            []ObjectVersion `xml:"Version" json:"Version"`
+	DeleteMarkers       []DeleteMarker  `xml:"DeleteMarker" json:"DeleteMarker"`
 }
 
 type ObjectVersion struct {
-	Key          string `xml:"Key"`
-	VersionId    string `xml:"VersionId"`
-	IsLatest     bool   `xml:"IsLatest"`
-	LastModified string `xml:"LastModified"`
-	ETag         string `xml:"ETag"`
-	Size         int64  `xml:"Size"`
-	StorageClass string `xml:"StorageClass"`
-	Owner        *Owner `xml:"Owner,omitempty"`
+	Key          string `xml:"Key" json:"Key"`
+	VersionId    string `xml:"VersionId" json:"VersionId"`
+	IsLatest     bool   `xml:"IsLatest" json:"IsLatest"`
+	LastModified string `xml:"LastModified" json:"LastModified"`
+	ETag         string `xml:"ETag" json:"ETag"`
+	Size         int64  `xml:"Size" json:"Size"`
+	StorageClass string `xml:"StorageClass" json:"StorageClass"`
+	Owner        *Owner `xml:"Owner,omitempty" json:"Owner,omitempty"`
 }
 
 type DeleteMarker struct {
-	Key          string `xml:"Key"`
-	VersionId    string `xml:"VersionId"`
-	IsLatest     bool   `xml:"IsLatest"`
-	LastModified string `xml:"LastModified"`
-	Owner        *Owner `xml:"Owner,omitempty"`
+	Key          string `xml:"Key" json:"Key"`
+	VersionId    string `xml:"VersionId" json:"VersionId"`
+	IsLatest     bool   `xml:"IsLatest" json:"IsLatest"`
+	LastModified string `xml:"LastModified" json:"LastModified"`
+	Owner        *Owner `xml:"Owner,omitempty" json:"Owner,omitempty"`
 }
 
 type VersioningConfiguration struct {
-	XMLName xml.Name `xml:"VersioningConfiguration"`
-	Status  string   `xml:"Status"`
+	XMLName xml.Name `xml:"VersioningConfiguration" json:"-"`
+	Status  string   `xml:"Status" json:"Status"`
 }
 
 func getBucketVersioning(c echo.Context) error {
@@ -339,13 +403,7 @@ func getBucketVersioning(c echo.Context) error {
 	}
 
 	addS3Headers(c)
-	xmlData, err := xml.Marshal(resp)
-	if err != nil {
-		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucketName)
-	}
-
-	fullXML := append([]byte(xml.Header), xmlData...)
-	return c.Blob(http.StatusOK, "application/xml", fullXML)
+	return returnS3Response(c, http.StatusOK, resp)
 }
 
 // putBucketVersioning sets the versioning configuration of a bucket
@@ -377,7 +435,7 @@ func putBucketVersioning(c echo.Context) error {
 
 	cblog.Infof("Bucket %s exists, proceeding with versioning configuration", bucketName)
 
-	// Read and parse the XML body
+	// Read and parse the request body (XML or JSON)
 	var config VersioningConfiguration
 	if c.Request().ContentLength > 0 {
 		bodyBytes, err := io.ReadAll(c.Request().Body)
@@ -389,10 +447,19 @@ func putBucketVersioning(c echo.Context) error {
 
 		cblog.Infof("Request body: %s", string(bodyBytes))
 
-		if err := xml.Unmarshal(bodyBytes, &config); err != nil {
-			cblog.Errorf("Failed to unmarshal XML: %v", err)
-			return returnS3Error(c, http.StatusBadRequest, "MalformedXML",
-				"Error parsing XML: "+err.Error(), "/"+bucketName)
+		contentType := c.Request().Header.Get("Content-Type")
+		if strings.Contains(contentType, "application/json") {
+			if err := json.Unmarshal(bodyBytes, &config); err != nil {
+				cblog.Errorf("Failed to unmarshal JSON: %v", err)
+				return returnS3Error(c, http.StatusBadRequest, "MalformedJSON",
+					"Error parsing JSON: "+err.Error(), "/"+bucketName)
+			}
+		} else {
+			if err := xml.Unmarshal(bodyBytes, &config); err != nil {
+				cblog.Errorf("Failed to unmarshal XML: %v", err)
+				return returnS3Error(c, http.StatusBadRequest, "MalformedXML",
+					"Error parsing XML: "+err.Error(), "/"+bucketName)
+			}
 		}
 	} else {
 		cblog.Error("No request body provided")
@@ -463,6 +530,11 @@ func getBucketCORS(c echo.Context) error {
 		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucketName)
 	}
 
+	// Check if corsConfig is nil
+	if corsConfig == nil {
+		return returnS3Error(c, http.StatusNotFound, "NoSuchCORSConfiguration", "The CORS configuration does not exist", "/"+bucketName)
+	}
+
 	// Convert minio CORS config to S3 XML format
 	var corsRules []CORSRule
 	for _, rule := range corsConfig.CORSRules {
@@ -480,14 +552,7 @@ func getBucketCORS(c echo.Context) error {
 		CORSRules: corsRules,
 	}
 
-	addS3Headers(c)
-	xmlData, err := xml.Marshal(resp)
-	if err != nil {
-		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucketName)
-	}
-
-	fullXML := append([]byte(xml.Header), xmlData...)
-	return c.Blob(http.StatusOK, "application/xml", fullXML)
+	return returnS3Response(c, http.StatusOK, resp)
 }
 
 // putBucketCORS sets the CORS configuration of a bucket
@@ -497,8 +562,15 @@ func putBucketCORS(c echo.Context) error {
 	bucketName = strings.TrimSuffix(bucketName, "/")
 
 	var config CORSConfiguration
-	if err := xml.NewDecoder(c.Request().Body).Decode(&config); err != nil {
-		return returnS3Error(c, http.StatusBadRequest, "MalformedXML", err.Error(), "/"+bucketName)
+	contentType := c.Request().Header.Get("Content-Type")
+	if strings.Contains(contentType, "application/json") {
+		if err := json.NewDecoder(c.Request().Body).Decode(&config); err != nil {
+			return returnS3Error(c, http.StatusBadRequest, "MalformedJSON", err.Error(), "/"+bucketName)
+		}
+	} else {
+		if err := xml.NewDecoder(c.Request().Body).Decode(&config); err != nil {
+			return returnS3Error(c, http.StatusBadRequest, "MalformedXML", err.Error(), "/"+bucketName)
+		}
 	}
 
 	if len(config.CORSRules) == 0 {
@@ -653,14 +725,7 @@ func listObjectVersions(c echo.Context) error {
 	}
 
 	addS3Headers(c)
-	xmlData, err := xml.Marshal(resp)
-	if err != nil {
-		cblog.Errorf("Failed to marshal XML: %v", err)
-		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucketName)
-	}
-
-	fullXML := append([]byte(xml.Header), xmlData...)
-	return c.Blob(http.StatusOK, "application/xml", fullXML)
+	return returnS3Response(c, http.StatusOK, resp)
 }
 
 func CreateS3Bucket(c echo.Context) error {
@@ -780,24 +845,7 @@ func ListS3Buckets(c echo.Context) error {
 		Buckets: Buckets{Bucket: bucketElems},
 	}
 
-	// Generate XML response
-	var buf bytes.Buffer
-	buf.WriteString(xml.Header)
-	enc := xml.NewEncoder(&buf)
-	enc.Indent("", "  ")
-
-	if err := enc.Encode(resp); err != nil {
-		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/")
-	}
-
-	xmlContent := buf.Bytes()
-	cblog.Debugf("Generated XML response: %s", string(xmlContent))
-
-	addS3Headers(c)
-	c.Response().Header().Set("Content-Type", "application/xml")
-	c.Response().Header().Set("Content-Length", strconv.Itoa(len(xmlContent)))
-
-	return c.Blob(http.StatusOK, "application/xml", xmlContent)
+	return returnS3Response(c, http.StatusOK, resp)
 }
 
 func GetS3Bucket(c echo.Context) error {
@@ -862,6 +910,10 @@ func GetS3Bucket(c echo.Context) error {
 			cblog.Infof("Handling GET versions for bucket: %s", name)
 			return listObjectVersions(c)
 		}
+		if c.QueryParams().Has("uploads") {
+			cblog.Infof("Handling GET uploads for bucket: %s", name)
+			return listMultipartUploads(c)
+		}
 
 		// If no special query parameters, this is a list objects request
 		if !c.QueryParams().Has("versioning") &&
@@ -924,16 +976,17 @@ func getBucketLocation(c echo.Context) error {
 	bucketName := c.Param("Name")
 	bucketName = strings.TrimSuffix(bucketName, "/")
 
-	bucketInfo, err := cmrt.GetS3Bucket(conn, bucketName)
+	// Get region from CB-Spider's bucket info
 	region := ""
-	if err == nil && bucketInfo.BucketRegion != "" {
-		region = bucketInfo.BucketRegion
+	bucketIIDInfo, err := cmrt.GetS3BucketRegionInfo(conn, bucketName)
+	if err == nil && bucketIIDInfo != "" {
+		region = bucketIIDInfo
 	}
 
 	type LocationConstraint struct {
-		XMLName            xml.Name `xml:"LocationConstraint"`
-		Xmlns              string   `xml:"xmlns,attr"`
-		LocationConstraint string   `xml:",chardata"`
+		XMLName            xml.Name `xml:"LocationConstraint" json:"-"`
+		Xmlns              string   `xml:"xmlns,attr" json:"-"`
+		LocationConstraint string   `xml:",chardata" json:"LocationConstraint"`
 	}
 
 	resp := LocationConstraint{
@@ -943,13 +996,7 @@ func getBucketLocation(c echo.Context) error {
 
 	addS3Headers(c)
 
-	xmlData, err := xml.Marshal(resp)
-	if err != nil {
-		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucketName)
-	}
-
-	fullXML := append([]byte(xml.Header), xmlData...)
-	return c.Blob(http.StatusOK, "application/xml", fullXML)
+	return returnS3Response(c, http.StatusOK, resp)
 }
 
 func DeleteS3Bucket(c echo.Context) error {
@@ -1150,20 +1197,20 @@ func ListS3Objects(c echo.Context) error {
 	// Handle delimiter-based folder structure
 	if delimiter == "/" {
 		type CommonPrefix struct {
-			Prefix string `xml:"Prefix"`
+			Prefix string `xml:"Prefix" json:"Prefix"`
 		}
 
 		type ListBucketResultWithPrefix struct {
-			XMLName        xml.Name       `xml:"ListBucketResult"`
-			Xmlns          string         `xml:"xmlns,attr"`
-			Name           string         `xml:"Name"`
-			Prefix         string         `xml:"Prefix"`
-			Delimiter      string         `xml:"Delimiter"`
-			Marker         string         `xml:"Marker"`
-			MaxKeys        int            `xml:"MaxKeys"`
-			IsTruncated    bool           `xml:"IsTruncated"`
-			Contents       []S3ObjectXML  `xml:"Contents"`
-			CommonPrefixes []CommonPrefix `xml:"CommonPrefixes"`
+			XMLName        xml.Name       `xml:"ListBucketResult" json:"-"`
+			Xmlns          string         `xml:"xmlns,attr" json:"-"`
+			Name           string         `xml:"Name" json:"Name"`
+			Prefix         string         `xml:"Prefix" json:"Prefix"`
+			Delimiter      string         `xml:"Delimiter" json:"Delimiter"`
+			Marker         string         `xml:"Marker" json:"Marker"`
+			MaxKeys        int            `xml:"MaxKeys" json:"MaxKeys"`
+			IsTruncated    bool           `xml:"IsTruncated" json:"IsTruncated"`
+			Contents       []S3ObjectXML  `xml:"Contents" json:"Contents"`
+			CommonPrefixes []CommonPrefix `xml:"CommonPrefixes" json:"CommonPrefixes"`
 		}
 
 		var contents []S3ObjectXML
@@ -1229,23 +1276,7 @@ func ListS3Objects(c echo.Context) error {
 
 		addS3Headers(c)
 
-		xmlData, err := xml.Marshal(resp)
-		if err != nil {
-			return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucket)
-		}
-
-		fullXML := append([]byte(xml.Header), xmlData...)
-		cblog.Debugf("Returning XML with %d objects and %d common prefixes", len(contents), len(commonPrefixes))
-
-		// Log XML snippet for debugging
-		xmlStr := string(fullXML)
-		if len(xmlStr) > 1000 {
-			cblog.Debugf("XML response preview: %s...", xmlStr[:1000])
-		} else {
-			cblog.Debugf("XML response: %s", xmlStr)
-		}
-
-		return c.Blob(http.StatusOK, "application/xml", fullXML)
+		return returnS3Response(c, http.StatusOK, resp)
 	}
 
 	// Default response without delimiter (flat list)
@@ -1275,41 +1306,36 @@ func ListS3Objects(c echo.Context) error {
 	addS3Headers(c)
 	cblog.Debugf("Returning flat list with %d objects", len(contents))
 
-	xmlData, err := xml.Marshal(resp)
-	if err != nil {
-		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucket)
-	}
-
-	fullXML := append([]byte(xml.Header), xmlData...)
-
-	// Log XML snippet for debugging
-	xmlStr := string(fullXML)
-	if len(xmlStr) > 1000 {
-		cblog.Debugf("XML response preview: %s...", xmlStr[:1000])
-	} else {
-		cblog.Debugf("XML response: %s", xmlStr)
-	}
-
-	return c.Blob(http.StatusOK, "application/xml", fullXML)
+	return returnS3Response(c, http.StatusOK, resp)
 }
 
 func GetS3ObjectInfo(c echo.Context) error {
+	// Check if this is an AWS S3 standard presigned URL request
+	algorithm := c.QueryParam("X-Amz-Algorithm")
+	signature := c.QueryParam("X-Amz-Signature")
+
+	if algorithm != "" && signature != "" {
+		return HandleS3PresignedRequest(c)
+	}
+
 	conn, _ := getConnectionName(c)
 	bucket := c.Param("BucketName")
 	obj := c.Param("ObjectKey+")
+	decodedObj, err := url.PathUnescape(obj)
+	if err != nil {
+		decodedObj = obj
+	}
 	versionId := c.QueryParam("versionId")
 
-	cblog.Infof("GetS3ObjectInfo - Bucket: %s, Object: %s, VersionId: %s", bucket, obj, versionId)
+	cblog.Infof("GetS3ObjectInfo - Bucket: %s, Object: %s, VersionId: %s", bucket, decodedObj, versionId)
 
 	var o *minio.ObjectInfo
-	var err error
-
 	if versionId != "" && versionId != "null" && versionId != "undefined" {
 		cblog.Infof("Getting info for specific version: %s", versionId)
-		o, err = cmrt.GetS3ObjectInfoWithVersion(conn, bucket, obj, versionId)
+		o, err = cmrt.GetS3ObjectInfoWithVersion(conn, bucket, decodedObj, versionId)
 	} else {
 		cblog.Infof("Getting info for latest version")
-		o, err = cmrt.GetS3ObjectInfo(conn, bucket, obj)
+		o, err = cmrt.GetS3ObjectInfo(conn, bucket, decodedObj)
 	}
 
 	if err != nil {
@@ -1402,10 +1428,18 @@ func GetS3ObjectInfo(c echo.Context) error {
 		ChecksumMode:      o.ChecksumMode,
 	}
 
-	return c.JSON(http.StatusOK, s3Obj)
+	return returnS3Response(c, http.StatusOK, s3Obj)
 }
 
 func PutS3ObjectFromFile(c echo.Context) error {
+	// Check if this is an AWS S3 standard presigned URL request
+	algorithm := c.QueryParam("X-Amz-Algorithm")
+	signature := c.QueryParam("X-Amz-Signature")
+
+	if algorithm != "" && signature != "" {
+		return HandleS3PresignedRequest(c)
+	}
+
 	if c.QueryParam("uploadId") != "" && c.QueryParam("partNumber") != "" {
 		return uploadPart(c)
 	}
@@ -1413,12 +1447,16 @@ func PutS3ObjectFromFile(c echo.Context) error {
 	conn, _ := getConnectionName(c)
 	bucket := c.Param("BucketName")
 	objKey := c.Param("ObjectKey+")
+	decodedObjKey, err := url.PathUnescape(objKey)
+	if err != nil {
+		decodedObjKey = objKey
+	}
 
-	if c.Request().ContentLength == 0 && !strings.HasSuffix(objKey, "/") {
+	if c.Request().ContentLength == 0 && !strings.HasSuffix(decodedObjKey, "/") {
 		userAgent := c.Request().Header.Get("User-Agent")
 		if strings.Contains(userAgent, "S3 Browser") {
-			objKey = objKey + "/"
-			cblog.Infof("S3 Browser folder creation detected, adding trailing slash: %s", objKey)
+			decodedObjKey = decodedObjKey + "/"
+			cblog.Infof("S3 Browser folder creation detected, adding trailing slash: %s", decodedObjKey)
 		}
 	}
 
@@ -1444,28 +1482,106 @@ func PutS3ObjectFromFile(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
+// POST(FormData)
+func PutS3ObjectFromForm(c echo.Context) error {
+	// Check if this is a delete multiple objects request
+	if c.QueryParam("delete") != "" ||
+		c.QueryParams().Has("delete") ||
+		strings.Contains(c.Request().URL.RawQuery, "delete") {
+		return HandleS3BucketPost(c)
+	}
+
+	// Check for XML-based delete operation
+	contentType := c.Request().Header.Get("Content-Type")
+	if c.Request().ContentLength > 0 && (contentType == "" || contentType == "application/xml") {
+		bodyBytes, err := io.ReadAll(c.Request().Body)
+		if err == nil {
+			c.Request().Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+			bodyStr := string(bodyBytes[:min(len(bodyBytes), 100)])
+
+			if strings.Contains(bodyStr, "<Delete") {
+				return HandleS3BucketPost(c)
+			}
+		}
+	}
+
+	conn, _ := getConnectionName(c)
+	bucket := c.Param("BucketName")
+	if bucket == "" {
+		bucket = c.Param("Name")
+	}
+	filename := c.FormValue("key")
+	if filename == "" {
+		return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "key is required", "/"+bucket)
+	}
+	fileHeader, err := c.FormFile("file")
+	if err != nil {
+		return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "file is required", "/"+bucket+"/"+filename)
+	}
+	file, err := fileHeader.Open()
+	if err != nil {
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucket+"/"+filename)
+	}
+	defer file.Close()
+
+	info, err := cmrt.PutS3ObjectFromReader(conn, bucket, filename, file, fileHeader.Size)
+	if err != nil {
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "bucket") {
+			errorCode = "NoSuchBucket"
+			statusCode = http.StatusNotFound
+		}
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+filename)
+	}
+
+	addS3Headers(c)
+	c.Response().Header().Set("ETag", info.ETag)
+	if info.VersionID != "" {
+		c.Response().Header().Set("x-amz-version-id", info.VersionID)
+	}
+	return c.NoContent(http.StatusOK)
+}
+
 func DeleteS3Object(c echo.Context) error {
+	// Check if this is an AWS S3 standard presigned URL request
+	algorithm := c.QueryParam("X-Amz-Algorithm")
+	signature := c.QueryParam("X-Amz-Signature")
+
+	if algorithm != "" && signature != "" {
+		return HandleS3PresignedRequest(c)
+	}
+
+	// Check if this is an abort multipart upload request
+	uploadID := c.QueryParam("uploadId")
+	if uploadID != "" {
+		return abortMultipartUpload(c)
+	}
+
 	conn, _ := getConnectionName(c)
 	bucket := c.Param("BucketName")
 	objKey := c.Param("ObjectKey+")
+	decodedObjKey, err := url.PathUnescape(objKey)
+	if err != nil {
+		decodedObjKey = objKey
+	}
 	versionID := c.QueryParam("versionId")
 
-	cblog.Infof("DeleteS3Object called - bucket: %s, objKey: %s, versionID: %s", bucket, objKey, versionID)
+	cblog.Infof("DeleteS3Object called - bucket: %s, objKey: %s, versionID: %s", bucket, decodedObjKey, versionID)
 
 	userAgent := c.Request().Header.Get("User-Agent")
-	if strings.Contains(userAgent, "S3 Browser") && !strings.HasSuffix(objKey, "/") {
-		objKeyWithSlash := objKey + "/"
+	if strings.Contains(userAgent, "S3 Browser") && !strings.HasSuffix(decodedObjKey, "/") {
+		objKeyWithSlash := decodedObjKey + "/"
 		_, err := cmrt.GetS3ObjectInfo(conn, bucket, objKeyWithSlash)
 		if err == nil {
-			objKey = objKeyWithSlash
-			cblog.Infof("S3 Browser folder deletion detected, adding trailing slash: %s", objKey)
+			decodedObjKey = objKeyWithSlash
+			cblog.Infof("S3 Browser folder deletion detected, adding trailing slash: %s", decodedObjKey)
 		} else {
-			cblog.Debugf("No folder found with slash, proceeding with original key: %s", objKey)
+			cblog.Debugf("No folder found with slash, proceeding with original key: %s", decodedObjKey)
 		}
 	}
 
 	var success bool
-	var err error
 
 	// Special handling for DELETE MARKER with null version ID
 	if versionID == "null" {
@@ -1473,18 +1589,18 @@ func DeleteS3Object(c echo.Context) error {
 
 		// For DELETE MARKER with null version ID, we need to use a different approach
 		// This typically means deleting the latest version (which is the delete marker)
-		success, err = cmrt.DeleteS3ObjectDeleteMarker(conn, bucket, objKey)
+		success, err = cmrt.DeleteS3ObjectDeleteMarker(conn, bucket, decodedObjKey)
 		if err != nil {
 			cblog.Warnf("Failed to delete DELETE MARKER, trying regular delete: %v", err)
 			// Fallback to regular delete
-			success, err = cmrt.DeleteS3Object(conn, bucket, objKey)
+			success, err = cmrt.DeleteS3Object(conn, bucket, decodedObjKey)
 		}
 	} else if versionID != "" && versionID != "undefined" {
 		cblog.Infof("Deleting specific version: %s", versionID)
-		success, err = cmrt.DeleteS3ObjectVersion(conn, bucket, objKey, versionID)
+		success, err = cmrt.DeleteS3ObjectVersion(conn, bucket, decodedObjKey, versionID)
 	} else {
 		cblog.Infof("Deleting current version (no valid versionID specified)")
-		success, err = cmrt.DeleteS3Object(conn, bucket, objKey)
+		success, err = cmrt.DeleteS3Object(conn, bucket, decodedObjKey)
 	}
 
 	if err != nil {
@@ -1496,39 +1612,56 @@ func DeleteS3Object(c echo.Context) error {
 		} else if strings.Contains(err.Error(), "version") {
 			errorCode = "NoSuchVersion"
 		}
-		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+objKey)
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+decodedObjKey)
 	}
 
 	if !success {
 		cblog.Errorf("Object/version deletion returned false")
-		return returnS3Error(c, http.StatusInternalServerError, "InternalError", "Failed to delete object", "/"+bucket+"/"+objKey)
+		return returnS3Error(c, http.StatusInternalServerError, "InternalError", "Failed to delete object", "/"+bucket+"/"+decodedObjKey)
 	}
 
-	cblog.Infof("Successfully deleted object/version - bucket: %s, objKey: %s, versionID: %s", bucket, objKey, versionID)
+	cblog.Infof("Successfully deleted object/version - bucket: %s, objKey: %s, versionID: %s", bucket, decodedObjKey, versionID)
 	addS3Headers(c)
 	return c.NoContent(http.StatusNoContent)
 }
 
 func DownloadS3Object(c echo.Context) error {
+	// Check if this is an AWS S3 standard presigned URL request
+	algorithm := c.QueryParam("X-Amz-Algorithm")
+	signature := c.QueryParam("X-Amz-Signature")
+
+	if algorithm != "" && signature != "" {
+		return HandleS3PresignedRequest(c)
+	}
+
+	// Check if this is a list parts request
+	uploadID := c.QueryParam("uploadId")
+	listType := c.QueryParam("list-type")
+	if uploadID != "" && listType == "parts" {
+		return listParts(c)
+	}
+
 	conn, _ := getConnectionName(c)
 	bucket := c.Param("BucketName")
 	objKey := c.Param("ObjectKey+")
+	decodedObjKey, err := url.PathUnescape(objKey)
+	if err != nil {
+		decodedObjKey = objKey
+	}
 	versionId := c.QueryParam("versionId")
 
-	cblog.Infof("DownloadS3Object - Bucket: %s, Object: %s, VersionId: %s", bucket, objKey, versionId)
+	cblog.Infof("DownloadS3Object - Bucket: %s, Object: %s, VersionId: %s", bucket, decodedObjKey, versionId)
 
 	var stream io.ReadCloser
-	var err error
-
 	if versionId != "" && versionId != "null" && versionId != "undefined" {
 		cblog.Infof("Downloading specific version: %s", versionId)
-		stream, err = cmrt.GetS3ObjectStreamWithVersion(conn, bucket, objKey, versionId)
+		stream, err = cmrt.GetS3ObjectStreamWithVersion(conn, bucket, decodedObjKey, versionId)
 	} else if versionId == "null" {
 		cblog.Infof("Downloading null version (original version)")
-		stream, err = cmrt.GetS3ObjectStreamWithVersion(conn, bucket, objKey, "null")
+		stream, err = cmrt.GetS3ObjectStreamWithVersion(conn, bucket, decodedObjKey, "null")
 	} else {
 		cblog.Infof("Downloading latest version")
-		stream, err = cmrt.GetS3ObjectStream(conn, bucket, objKey)
+		stream, err = cmrt.GetS3ObjectStream(conn, bucket, decodedObjKey)
 	}
 
 	if err != nil {
@@ -1540,12 +1673,12 @@ func DownloadS3Object(c echo.Context) error {
 		} else if strings.Contains(err.Error(), "version") {
 			errorCode = "NoSuchVersion"
 		}
-		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+objKey)
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+decodedObjKey)
 	}
 	defer stream.Close()
 
 	addS3Headers(c)
-	filename := filepath.Base(objKey)
+	filename := filepath.Base(decodedObjKey)
 	c.Response().Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
 	c.Response().Header().Set("Content-Type", "application/octet-stream")
 
@@ -1553,7 +1686,7 @@ func DownloadS3Object(c echo.Context) error {
 		c.Response().Header().Set("x-amz-version-id", versionId)
 	}
 
-	cblog.Infof("Successfully streaming object: %s", objKey)
+	cblog.Infof("Successfully streaming object: %s", decodedObjKey)
 	return c.Stream(http.StatusOK, "application/octet-stream", stream)
 }
 
@@ -1582,8 +1715,10 @@ func HandleS3BucketPost(c echo.Context) error {
 		bodyBytes, err := io.ReadAll(c.Request().Body)
 		if err == nil {
 			c.Request().Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+			bodyStr := string(bodyBytes[:min(len(bodyBytes), 100)])
+			cblog.Infof("Request body start: %s", bodyStr)
 
-			if strings.Contains(string(bodyBytes[:min(len(bodyBytes), 100)]), "<Delete") {
+			if strings.Contains(bodyStr, "<Delete") {
 				return deleteMultipleObjects(c)
 			}
 		}
@@ -1606,33 +1741,24 @@ func min(a, b int) int {
 	return b
 }
 
+// initiateMultipartUpload starts a multipart upload
 func initiateMultipartUpload(c echo.Context) error {
 	conn, _ := getConnectionName(c)
-
-	bucket := c.Param("BucketName")
+	bucket := c.Param("Name")
 	if bucket == "" {
-		bucket = c.Param("Name")
+		bucket = c.Param("BucketName")
 	}
-
 	key := c.Param("ObjectKey+")
-	if key == "" {
-		key = c.Param("*")
-	}
-	if key == "" {
-		key = c.QueryParam("key")
+	decodedKey, err := url.PathUnescape(key)
+	if err != nil {
+		decodedKey = key
 	}
 
-	if key == "" {
-		return returnS3Error(
-			c,
-			http.StatusBadRequest,
-			"MissingParameter",
-			"key parameter is required",
-			"/"+bucket,
-		)
+	if decodedKey == "" {
+		return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "key parameter is required", "/"+bucket)
 	}
 
-	uploadID, err := cmrt.InitiateMultipartUpload(conn, bucket, key)
+	uploadID, err := cmrt.InitiateMultipartUpload(conn, bucket, decodedKey)
 	if err != nil {
 		errorCode := "InternalError"
 		statusCode := http.StatusInternalServerError
@@ -1640,33 +1766,25 @@ func initiateMultipartUpload(c echo.Context) error {
 			errorCode = "NoSuchBucket"
 			statusCode = http.StatusNotFound
 		}
-		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+key)
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+decodedKey)
 	}
 
 	type InitiateMultipartUploadResult struct {
-		XMLName  xml.Name `xml:"InitiateMultipartUploadResult"`
-		Xmlns    string   `xml:"xmlns,attr"`
-		Bucket   string   `xml:"Bucket"`
-		Key      string   `xml:"Key"`
-		UploadId string   `xml:"UploadId"`
+		XMLName  xml.Name `xml:"InitiateMultipartUploadResult" json:"-"`
+		Xmlns    string   `xml:"xmlns,attr" json:"-"`
+		Bucket   string   `xml:"Bucket" json:"Bucket"`
+		Key      string   `xml:"Key" json:"Key"`
+		UploadId string   `xml:"UploadId" json:"UploadId"`
 	}
 
 	resp := InitiateMultipartUploadResult{
 		Xmlns:    "http://s3.amazonaws.com/doc/2006-03-01/",
 		Bucket:   bucket,
-		Key:      key,
+		Key:      decodedKey,
 		UploadId: uploadID,
 	}
 
-	addS3Headers(c)
-
-	xmlData, err := xml.Marshal(resp)
-	if err != nil {
-		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucket+"/"+key)
-	}
-
-	fullXML := append([]byte(xml.Header), xmlData...)
-	return c.Blob(http.StatusOK, "application/xml", fullXML)
+	return returnS3Response(c, http.StatusOK, resp)
 }
 
 // completeMultipartUpload completes a multipart upload
@@ -1684,18 +1802,31 @@ func completeMultipartUpload(c echo.Context) error {
 	}
 
 	type Part struct {
-		PartNumber int    `xml:"PartNumber"`
-		ETag       string `xml:"ETag"`
+		PartNumber int    `xml:"PartNumber" json:"PartNumber"`
+		ETag       string `xml:"ETag" json:"ETag"`
 	}
 
 	type CompleteMultipartUploadRequest struct {
-		XMLName xml.Name `xml:"CompleteMultipartUpload"`
-		Parts   []Part   `xml:"Part"`
+		XMLName xml.Name `xml:"CompleteMultipartUpload" json:"-"`
+		Parts   []Part   `xml:"Part" json:"Parts"`
+	}
+
+	type JSONCompleteMultipartUploadRequest struct {
+		Parts []Part `json:"Parts"`
 	}
 
 	var req CompleteMultipartUploadRequest
-	if err := xml.NewDecoder(c.Request().Body).Decode(&req); err != nil {
-		return returnS3Error(c, http.StatusBadRequest, "MalformedXML", err.Error(), "/"+bucket+"/"+key)
+	contentType := c.Request().Header.Get("Content-Type")
+	if strings.Contains(contentType, "application/json") {
+		var jsonReq JSONCompleteMultipartUploadRequest
+		if err := json.NewDecoder(c.Request().Body).Decode(&jsonReq); err != nil {
+			return returnS3Error(c, http.StatusBadRequest, "MalformedJSON", err.Error(), "/"+bucket+"/"+key)
+		}
+		req.Parts = jsonReq.Parts
+	} else {
+		if err := xml.NewDecoder(c.Request().Body).Decode(&req); err != nil {
+			return returnS3Error(c, http.StatusBadRequest, "MalformedXML", err.Error(), "/"+bucket+"/"+key)
+		}
 	}
 
 	var parts []cmrt.CompletePart
@@ -1718,12 +1849,12 @@ func completeMultipartUpload(c echo.Context) error {
 	}
 
 	type CompleteMultipartUploadResult struct {
-		XMLName  xml.Name `xml:"CompleteMultipartUploadResult"`
-		Xmlns    string   `xml:"xmlns,attr"`
-		Location string   `xml:"Location"`
-		Bucket   string   `xml:"Bucket"`
-		Key      string   `xml:"Key"`
-		ETag     string   `xml:"ETag"`
+		XMLName  xml.Name `xml:"CompleteMultipartUploadResult" json:"-"`
+		Xmlns    string   `xml:"xmlns,attr" json:"-"`
+		Location string   `xml:"Location" json:"Location"`
+		Bucket   string   `xml:"Bucket" json:"Bucket"`
+		Key      string   `xml:"Key" json:"Key"`
+		ETag     string   `xml:"ETag" json:"ETag"`
 	}
 
 	resp := CompleteMultipartUploadResult{
@@ -1734,15 +1865,7 @@ func completeMultipartUpload(c echo.Context) error {
 		ETag:     etag,
 	}
 
-	addS3Headers(c)
-
-	xmlData, err := xml.Marshal(resp)
-	if err != nil {
-		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucket+"/"+key)
-	}
-
-	fullXML := append([]byte(xml.Header), xmlData...)
-	return c.Blob(http.StatusOK, "application/xml", fullXML)
+	return returnS3Response(c, http.StatusOK, resp)
 }
 
 // deleteMultipleObjects deletes multiple objects from S3
@@ -1756,23 +1879,48 @@ func deleteMultipleObjects(c echo.Context) error {
 	cblog.Infof("DeleteMultipleObjects called - bucket: %s", bucket)
 
 	type ObjectToDelete struct {
-		Key       string `xml:"Key"`
-		VersionId string `xml:"VersionId,omitempty"`
+		Key       string `xml:"Key" json:"Key"`
+		VersionId string `xml:"VersionId,omitempty" json:"VersionId,omitempty"`
 	}
 
 	type Delete struct {
-		XMLName xml.Name         `xml:"Delete"`
-		Objects []ObjectToDelete `xml:"Object"`
-		Quiet   bool             `xml:"Quiet"`
+		XMLName xml.Name         `xml:"Delete" json:"-"`
+		Objects []ObjectToDelete `xml:"Object" json:"Objects"`
+		Quiet   bool             `xml:"Quiet" json:"Quiet"`
+	}
+
+	type JSONDeleteRequest struct {
+		Delete Delete `json:"Delete"`
 	}
 
 	var req Delete
-	if err := xml.NewDecoder(c.Request().Body).Decode(&req); err != nil {
-		cblog.Errorf("Failed to decode delete request: %v", err)
-		return returnS3Error(c, http.StatusBadRequest, "MalformedXML", err.Error(), "/"+bucket)
+	contentType := strings.ToLower(c.Request().Header.Get("Content-Type"))
+
+	if strings.Contains(contentType, "application/json") {
+		// Parse JSON request
+		var jsonReq JSONDeleteRequest
+		if err := json.NewDecoder(c.Request().Body).Decode(&jsonReq); err != nil {
+			cblog.Errorf("Failed to decode JSON delete request: %v", err)
+			return returnS3Error(c, http.StatusBadRequest, "MalformedJSON", err.Error(), "/"+bucket)
+		}
+		req = jsonReq.Delete
+		cblog.Debugf("Parsed JSON delete request with %d objects", len(req.Objects))
+	} else {
+		// Parse XML request (default)
+		if err := xml.NewDecoder(c.Request().Body).Decode(&req); err != nil {
+			cblog.Errorf("Failed to decode XML delete request: %v", err)
+			return returnS3Error(c, http.StatusBadRequest, "MalformedXML", err.Error(), "/"+bucket)
+		}
+		cblog.Debugf("Parsed XML delete request with %d objects", len(req.Objects))
 	}
 
 	cblog.Infof("Deleting %d objects from bucket %s", len(req.Objects), bucket)
+
+	// Validate that we have objects to delete
+	if len(req.Objects) == 0 {
+		cblog.Errorf("No objects specified for deletion")
+		return returnS3Error(c, http.StatusBadRequest, "MalformedXML", "No objects specified for deletion", "/"+bucket)
+	}
 
 	// Separate objects with and without version IDs
 	var keysWithVersions []string
@@ -1794,6 +1942,12 @@ func deleteMultipleObjects(c echo.Context) error {
 		} else {
 			cblog.Warnf("Skipping empty key in delete request")
 		}
+	}
+
+	// Validate that at least one valid key was provided
+	if len(keysWithVersions) == 0 && len(keysWithoutVersions) == 0 {
+		cblog.Errorf("No valid keys found in delete request")
+		return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "At least one valid key is required", "/"+bucket)
 	}
 
 	cblog.Infof("Objects with versions: %d, Objects without versions: %d",
@@ -1864,20 +2018,20 @@ func deleteMultipleObjects(c echo.Context) error {
 
 	// Build response
 	type Deleted struct {
-		Key string `xml:"Key"`
+		Key string `xml:"Key" json:"Key"`
 	}
 
 	type Error struct {
-		Key     string `xml:"Key"`
-		Code    string `xml:"Code"`
-		Message string `xml:"Message"`
+		Key     string `xml:"Key" json:"Key"`
+		Code    string `xml:"Code" json:"Code"`
+		Message string `xml:"Message" json:"Message"`
 	}
 
 	type DeleteResult struct {
-		XMLName xml.Name  `xml:"DeleteResult"`
-		Xmlns   string    `xml:"xmlns,attr"`
-		Deleted []Deleted `xml:"Deleted"`
-		Error   []Error   `xml:"Error"`
+		XMLName xml.Name  `xml:"DeleteResult" json:"-"`
+		Xmlns   string    `xml:"xmlns,attr" json:"-"`
+		Deleted []Deleted `xml:"Deleted" json:"Deleted"`
+		Error   []Error   `xml:"Error" json:"Error"`
 	}
 
 	resp := DeleteResult{
@@ -1910,16 +2064,8 @@ func deleteMultipleObjects(c echo.Context) error {
 		}
 	}
 
-	addS3Headers(c)
-
-	xmlData, err := xml.Marshal(resp)
-	if err != nil {
-		return returnS3Error(c, http.StatusInternalServerError, "InternalError", err.Error(), "/"+bucket)
-	}
-
-	fullXML := append([]byte(xml.Header), xmlData...)
 	cblog.Debugf("Returning delete result with %d deleted and %d errors", len(resp.Deleted), len(resp.Error))
-	return c.Blob(http.StatusOK, "application/xml", fullXML)
+	return returnS3Response(c, http.StatusOK, resp)
 }
 
 // postObject handles browser-based file upload using HTML form
@@ -2031,24 +2177,20 @@ func ForceEmptyS3Bucket(c echo.Context) error {
 		errorCode := "InternalError"
 		statusCode := http.StatusInternalServerError
 
-		if strings.Contains(err.Error(), "not found") {
+		if strings.Contains(err.Error(), "not found") || strings.Contains(err.Error(), "NoSuchBucket") {
 			errorCode = "NoSuchBucket"
 			statusCode = http.StatusNotFound
-		} else if strings.Contains(err.Error(), "access denied") {
-			errorCode = "AccessDenied"
-			statusCode = http.StatusForbidden
 		}
 
 		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+name)
 	}
 
 	if !success {
-		cblog.Errorf("Force empty returned false for bucket %s", name)
 		return returnS3Error(c, http.StatusInternalServerError, "InternalError",
-			"Force empty failed for unknown reason", "/"+name)
+			"Failed to empty bucket", "/"+name)
 	}
 
-	cblog.Infof("Successfully force emptied bucket %s", name)
+	cblog.Infof("Successfully emptied bucket: %s", name)
 	addS3Headers(c)
 	return c.NoContent(http.StatusNoContent)
 }
@@ -2100,4 +2242,370 @@ func ForceDeleteS3Bucket(c echo.Context) error {
 	cblog.Infof("Successfully force deleted bucket %s", name)
 	addS3Headers(c)
 	return c.NoContent(http.StatusNoContent)
+}
+
+// GetS3PresignedURLHandler generates a presigned URL for S3 object access
+func GetS3PresignedURLHandler(c echo.Context) error {
+	conn, _ := getConnectionName(c)
+	bucket := c.Param("BucketName")
+	objKey := c.Param("ObjectKey+")
+	decodedObjKey, err := url.PathUnescape(objKey)
+	if err != nil {
+		decodedObjKey = objKey
+	}
+
+	method := c.QueryParam("method")
+	if method == "" {
+		method = "GET"
+	}
+
+	expiresSecondsStr := c.QueryParam("expires")
+	expiresSeconds := int64(3600) // Default 1 hour
+	if expiresSecondsStr != "" {
+		if parsed, err := strconv.ParseInt(expiresSecondsStr, 10, 64); err == nil {
+			expiresSeconds = parsed
+		}
+	}
+
+	responseContentDisposition := c.QueryParam("response-content-disposition")
+
+	cblog.Infof("GetS3PresignedURL - Bucket: %s, Object: %s, Method: %s, Expires: %d seconds",
+		bucket, decodedObjKey, method, expiresSeconds)
+
+	presignedURL, err := cmrt.GetS3PresignedURL(conn, bucket, decodedObjKey, method, expiresSeconds, responseContentDisposition)
+	if err != nil {
+		cblog.Errorf("Failed to generate presigned URL: %v", err)
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "bucket") {
+			errorCode = "NoSuchBucket"
+			statusCode = http.StatusNotFound
+		} else if strings.Contains(err.Error(), "object") {
+			errorCode = "NoSuchKey"
+			statusCode = http.StatusNotFound
+		}
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+decodedObjKey)
+	}
+
+	cblog.Infof("Successfully generated presigned URL: %s", presignedURL)
+
+	// Handle PreSigned URL response with custom encoding to prevent escaping
+	if isJSONResponse(c) {
+		// For JSON, create custom response to prevent \u0026 escaping
+		jsonResponse := fmt.Sprintf(`{"PresignedURL":"%s","Expires":%d,"Method":"%s"}`, presignedURL, expiresSeconds, method)
+		c.Response().Header().Set("Content-Type", "application/json")
+		addS3Headers(c)
+		return c.String(http.StatusOK, jsonResponse)
+	} else {
+		// For XML, create custom response to prevent &amp; escaping
+		xmlResponse := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+<PresignedURLResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <PresignedURL>%s</PresignedURL>
+  <Expires>%d</Expires>
+  <Method>%s</Method>
+</PresignedURLResult>`, presignedURL, expiresSeconds, method)
+		c.Response().Header().Set("Content-Type", "application/xml")
+		addS3Headers(c)
+		return c.String(http.StatusOK, xmlResponse)
+	}
+}
+
+// GetS3PresignedUploadURLHandler generates a presigned URL for S3 object upload
+func GetS3PresignedUploadURLHandler(c echo.Context) error {
+	conn, _ := getConnectionName(c)
+	bucket := c.Param("BucketName")
+	objKey := c.Param("ObjectKey+")
+	decodedObjKey, err := url.PathUnescape(objKey)
+	if err != nil {
+		decodedObjKey = objKey
+	}
+
+	expiresSecondsStr := c.QueryParam("expires")
+	expiresSeconds := int64(3600) // Default 1 hour
+	if expiresSecondsStr != "" {
+		if parsed, err := strconv.ParseInt(expiresSecondsStr, 10, 64); err == nil {
+			expiresSeconds = parsed
+		}
+	}
+
+	cblog.Infof("GetS3PresignedUploadURL - Bucket: %s, Object: %s, Expires: %d seconds",
+		bucket, decodedObjKey, expiresSeconds)
+
+	presignedURL, err := cmrt.GetS3PresignedURL(conn, bucket, decodedObjKey, "PUT", expiresSeconds, "")
+	if err != nil {
+		cblog.Errorf("Failed to generate presigned upload URL: %v", err)
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "bucket") {
+			errorCode = "NoSuchBucket"
+			statusCode = http.StatusNotFound
+		}
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+decodedObjKey)
+	}
+
+	cblog.Infof("Successfully generated presigned upload URL: %s", presignedURL)
+
+	// Handle PreSigned URL response with custom encoding to prevent escaping
+	if isJSONResponse(c) {
+		// For JSON, create custom response to prevent \u0026 escaping
+		jsonResponse := fmt.Sprintf(`{"PresignedURL":"%s","Expires":%d,"Method":"PUT"}`, presignedURL, expiresSeconds)
+		c.Response().Header().Set("Content-Type", "application/json")
+		addS3Headers(c)
+		return c.String(http.StatusOK, jsonResponse)
+	} else {
+		// For XML, create custom response to prevent &amp; escaping
+		xmlResponse := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+<PresignedURLResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">
+  <PresignedURL>%s</PresignedURL>
+  <Expires>%d</Expires>
+  <Method>PUT</Method>
+</PresignedURLResult>`, presignedURL, expiresSeconds)
+		c.Response().Header().Set("Content-Type", "application/xml")
+		addS3Headers(c)
+		return c.String(http.StatusOK, xmlResponse)
+	}
+}
+
+// HandleS3PresignedRequest handles AWS S3 standard presigned URL requests
+func HandleS3PresignedRequest(c echo.Context) error {
+	// Check if this is a presigned URL request
+	algorithm := c.QueryParam("X-Amz-Algorithm")
+	signature := c.QueryParam("X-Amz-Signature")
+
+	if algorithm == "" || signature == "" {
+		// Not a presigned URL request, handle as normal S3 request
+		method := c.Request().Method
+		switch method {
+		case "GET", "HEAD":
+			return DownloadS3Object(c)
+		case "PUT":
+			return PutS3ObjectFromFile(c)
+		case "POST":
+			return HandleS3BucketPost(c)
+		case "DELETE":
+			return DeleteS3Object(c)
+		default:
+			return returnS3Error(c, http.StatusMethodNotAllowed, "MethodNotAllowed",
+				"The specified method is not allowed against this resource",
+				c.Request().URL.Path)
+		}
+	}
+
+	// This is a presigned URL request
+	conn, _ := getConnectionName(c)
+	bucket := c.Param("BucketName")
+	objKey := c.Param("ObjectKey+")
+
+	// If no connection name found in query params, try to extract from credential
+	if conn == "" {
+		credential := c.QueryParam("X-Amz-Credential")
+		if credential != "" {
+			parts := strings.Split(credential, "/")
+			if len(parts) > 0 {
+				// Use the access key as connection name for now
+				// In production, you might want to map this to actual connection names
+				conn = parts[0]
+			}
+		}
+	}
+
+	if conn == "" {
+		return returnS3Error(c, http.StatusBadRequest, "InvalidRequest",
+			"Connection name is required", c.Request().URL.Path)
+	}
+
+	cblog.Infof("Handling presigned request - Method: %s, Bucket: %s, Object: %s, Connection: %s",
+		c.Request().Method, bucket, objKey, conn)
+
+	// Validate the presigned URL signature
+	// For now, we'll trust the signature and proceed with the operation
+	// In production, you should validate the signature against your credentials
+
+	method := c.Request().Method
+	switch method {
+	case "GET", "HEAD":
+		return handlePresignedDownload(c, conn, bucket, objKey)
+	case "PUT":
+		return handlePresignedUpload(c, conn, bucket, objKey)
+	default:
+		return returnS3Error(c, http.StatusMethodNotAllowed, "MethodNotAllowed",
+			"The specified method is not allowed for presigned URLs",
+			c.Request().URL.Path)
+	}
+}
+
+func handlePresignedDownload(c echo.Context, conn, bucket, objKey string) error {
+	decodedObjKey, err := url.PathUnescape(objKey)
+	if err != nil {
+		decodedObjKey = objKey
+	}
+
+	cblog.Infof("Presigned download - Bucket: %s, Object: %s", bucket, decodedObjKey)
+
+	stream, err := cmrt.GetS3ObjectStream(conn, bucket, decodedObjKey)
+	if err != nil {
+		cblog.Errorf("Failed to get object stream: %v", err)
+		errorCode := "NoSuchKey"
+		statusCode := http.StatusNotFound
+		if strings.Contains(err.Error(), "bucket") {
+			errorCode = "NoSuchBucket"
+		}
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+decodedObjKey)
+	}
+	defer stream.Close()
+
+	addS3Headers(c)
+	filename := filepath.Base(decodedObjKey)
+	c.Response().Header().Set("Content-Disposition", "attachment; filename=\""+filename+"\"")
+	c.Response().Header().Set("Content-Type", "application/octet-stream")
+
+	cblog.Infof("Successfully streaming presigned object: %s", decodedObjKey)
+	return c.Stream(http.StatusOK, "application/octet-stream", stream)
+}
+
+func handlePresignedUpload(c echo.Context, conn, bucket, objKey string) error {
+	decodedObjKey, err := url.PathUnescape(objKey)
+	if err != nil {
+		decodedObjKey = objKey
+	}
+
+	cblog.Infof("Presigned upload - Bucket: %s, Object: %s", bucket, decodedObjKey)
+
+	body := c.Request().Body
+	defer body.Close()
+
+	contentLength := c.Request().ContentLength
+	if contentLength <= 0 {
+		contentLength = -1 // Let minio handle unknown content length
+	}
+
+	uploadInfo, err := cmrt.PutS3ObjectFromReader(conn, bucket, decodedObjKey, body, contentLength)
+	if err != nil {
+		cblog.Errorf("Failed to upload object: %v", err)
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "bucket") {
+			errorCode = "NoSuchBucket"
+			statusCode = http.StatusNotFound
+		}
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+decodedObjKey)
+	}
+
+	cblog.Infof("Successfully uploaded presigned object: %s, ETag: %s", decodedObjKey, uploadInfo.ETag)
+
+	addS3Headers(c)
+	c.Response().Header().Set("ETag", uploadInfo.ETag)
+	return c.NoContent(http.StatusOK)
+}
+
+// abortMultipartUpload aborts a multipart upload
+func abortMultipartUpload(c echo.Context) error {
+	conn, _ := getConnectionName(c)
+	bucket := c.Param("BucketName")
+	objectKey := c.Param("ObjectKey+")
+	uploadID := c.QueryParam("uploadId")
+
+	if uploadID == "" {
+		return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "uploadId is required", "/"+bucket+"/"+objectKey)
+	}
+
+	decodedObjKey, err := url.PathUnescape(objectKey)
+	if err != nil {
+		decodedObjKey = objectKey
+	}
+
+	err = cmrt.AbortMultipartUpload(conn, bucket, decodedObjKey, uploadID)
+	if err != nil {
+		cblog.Error("Failed to abort multipart upload:", err)
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "NoSuchUpload") {
+			errorCode = "NoSuchUpload"
+			statusCode = http.StatusNotFound
+		}
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+decodedObjKey)
+	}
+
+	addS3Headers(c)
+	return c.NoContent(http.StatusNoContent)
+}
+
+// listParts lists the parts of a multipart upload
+func listParts(c echo.Context) error {
+	conn, _ := getConnectionName(c)
+	bucket := c.Param("BucketName")
+	objectKey := c.Param("ObjectKey+")
+	uploadID := c.QueryParam("uploadId")
+
+	if uploadID == "" {
+		return returnS3Error(c, http.StatusBadRequest, "MissingParameter", "uploadId is required", "/"+bucket+"/"+objectKey)
+	}
+
+	decodedObjKey, err := url.PathUnescape(objectKey)
+	if err != nil {
+		decodedObjKey = objectKey
+	}
+
+	partNumberMarker := 0
+	if pnm := c.QueryParam("part-number-marker"); pnm != "" {
+		partNumberMarker, _ = strconv.Atoi(pnm)
+	}
+
+	maxParts := 1000
+	if mp := c.QueryParam("max-parts"); mp != "" {
+		if parsed, err := strconv.Atoi(mp); err == nil && parsed > 0 {
+			maxParts = parsed
+		}
+	}
+
+	result, err := cmrt.ListParts(conn, bucket, decodedObjKey, uploadID, partNumberMarker, maxParts)
+	if err != nil {
+		cblog.Error("Failed to list parts:", err)
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "NoSuchUpload") {
+			errorCode = "NoSuchUpload"
+			statusCode = http.StatusNotFound
+		}
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket+"/"+decodedObjKey)
+	}
+
+	addS3Headers(c)
+	return returnS3Response(c, http.StatusOK, result)
+}
+
+// listMultipartUploads lists all in-progress multipart uploads in a bucket
+func listMultipartUploads(c echo.Context) error {
+	conn, _ := getConnectionName(c)
+	bucket := c.Param("Name")
+	if bucket == "" {
+		bucket = c.Param("BucketName")
+	}
+
+	prefix := c.QueryParam("prefix")
+	keyMarker := c.QueryParam("key-marker")
+	uploadIDMarker := c.QueryParam("upload-id-marker")
+	delimiter := c.QueryParam("delimiter")
+
+	maxUploads := 1000
+	if mu := c.QueryParam("max-uploads"); mu != "" {
+		if parsed, err := strconv.Atoi(mu); err == nil && parsed > 0 {
+			maxUploads = parsed
+		}
+	}
+
+	result, err := cmrt.ListMultipartUploads(conn, bucket, prefix, keyMarker, uploadIDMarker, delimiter, maxUploads)
+	if err != nil {
+		cblog.Error("Failed to list multipart uploads:", err)
+		errorCode := "InternalError"
+		statusCode := http.StatusInternalServerError
+		if strings.Contains(err.Error(), "bucket") {
+			errorCode = "NoSuchBucket"
+			statusCode = http.StatusNotFound
+		}
+		return returnS3Error(c, statusCode, errorCode, err.Error(), "/"+bucket)
+	}
+
+	addS3Headers(c)
+	return returnS3Response(c, http.StatusOK, result)
 }

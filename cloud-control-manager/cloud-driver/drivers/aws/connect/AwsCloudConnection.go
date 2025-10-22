@@ -28,6 +28,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/efs"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/pricing"
+	"github.com/aws/aws-sdk-go/service/sts"
 
 	"github.com/aws/aws-sdk-go/service/autoscaling"
 	"github.com/aws/aws-sdk-go/service/eks"
@@ -62,16 +63,16 @@ type AwsCloudConnection struct {
 
 	EKSClient         *eks.EKS
 	IamClient         *iam.IAM
+	StsClient         *sts.STS
 	AutoScalingClient *autoscaling.AutoScaling
 
 	AnyCallClient *ec2.EC2
 	TagClient     *ec2.EC2
 
-	FSClient *efs.EFS
-
 	CostExplorerClient *costexplorer.CostExplorer
 
 	CloudWatchClient *cloudwatch.CloudWatch
+	FileSystemClient *efs.EFS
 }
 
 var cblogger *logrus.Logger
@@ -125,12 +126,12 @@ func (cloudConn *AwsCloudConnection) CreateSecurityHandler() (irs.SecurityHandle
 }
 
 func (cloudConn *AwsCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
-	handler := ars.AwsTagHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, NLBClient: cloudConn.NLBClient, EKSClient: cloudConn.EKSClient}
+	handler := ars.AwsTagHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, NLBClient: cloudConn.NLBClient, EKSClient: cloudConn.EKSClient, EFSClient: cloudConn.FileSystemClient}
 	return &handler, nil
 }
 
 func (cloudConn *AwsCloudConnection) CreateAwsTagHandler() ars.AwsTagHandler {
-	handler := ars.AwsTagHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, NLBClient: cloudConn.NLBClient, EKSClient: cloudConn.EKSClient}
+	handler := ars.AwsTagHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, NLBClient: cloudConn.NLBClient, EKSClient: cloudConn.EKSClient, EFSClient: cloudConn.FileSystemClient}
 	return handler
 }
 
@@ -169,7 +170,9 @@ func (cloudConn *AwsCloudConnection) CreateDiskHandler() (irs.DiskHandler, error
 
 // CreateFileSystemHandler implements connect.CloudConnection.
 func (cloudConn *AwsCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
-	panic("unimplemented")
+	tagHandler := cloudConn.CreateAwsTagHandler()
+	handler := ars.AwsFileSystemHandler{Region: cloudConn.Region, Client: cloudConn.FileSystemClient, EC2Client: cloudConn.VNetworkClient, TagHandler: &tagHandler}
+	return &handler, nil
 }
 
 func (cloudConn *AwsCloudConnection) CreateMyImageHandler() (irs.MyImageHandler, error) {
@@ -196,7 +199,7 @@ func (cloudConn *AwsCloudConnection) CreateClusterHandler() (irs.ClusterHandler,
 	if cloudConn.AutoScalingClient == nil {
 		cblogger.Info("cloudConn.AutoScalingClient is nil")
 	}
-	handler := ars.AwsClusterHandler{Region: cloudConn.Region, Client: cloudConn.EKSClient, EC2Client: cloudConn.VNetworkClient, Iam: cloudConn.IamClient, AutoScaling: cloudConn.AutoScalingClient, TagHandler: &tagHandler}
+	handler := ars.AwsClusterHandler{Region: cloudConn.Region, Client: cloudConn.EKSClient, EC2Client: cloudConn.VNetworkClient, Iam: cloudConn.IamClient, StsClient: cloudConn.StsClient, AutoScaling: cloudConn.AutoScalingClient, TagHandler: &tagHandler}
 	return &handler, nil
 }
 

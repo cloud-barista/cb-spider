@@ -16,6 +16,7 @@ import (
 	vpc2016 "github.com/alibabacloud-go/vpc-20160428/v6/client"
 	bssopenapi "github.com/aliyun/alibaba-cloud-sdk-go/services/bssopenapi"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/nas"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/slb"
 	"github.com/aliyun/alibaba-cloud-sdk-go/services/vpc"
 	cblog "github.com/cloud-barista/cb-log"
@@ -23,8 +24,6 @@ import (
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	"github.com/sirupsen/logrus"
-
-	"errors"
 )
 
 var cblogger *logrus.Logger
@@ -39,6 +38,7 @@ type AlibabaCloudConnection struct {
 	Region         idrv.RegionInfo
 
 	VMClient      *ecs.Client
+	AnyCallClient *ecs.Client
 	KeyPairClient *ecs.Client
 	ImageClient   *ecs.Client
 	//PublicIPClient      *vpc.Client
@@ -52,6 +52,8 @@ type AlibabaCloudConnection struct {
 	DiskClient       *ecs.Client
 	MyImageClient    *ecs.Client
 	RegionZoneClient *ecs.Client
+	FileSystemClient *nas.Client
+	NasClient        *nas.Client
 
 	Vpc2016Client *vpc2016.Client
 	Cs2015Client  *cs2015.Client
@@ -61,7 +63,9 @@ type AlibabaCloudConnection struct {
 
 // CreateFileSystemHandler implements connect.CloudConnection.
 func (cloudConn *AlibabaCloudConnection) CreateFileSystemHandler() (irs.FileSystemHandler, error) {
-	panic("unimplemented")
+	cblogger.Info("Alibaba Cloud Driver: called CreateFileSystemHandler()!")
+	fileSystemHandler := alirs.AlibabaFileSystemHandler{Region: cloudConn.Region, Client: cloudConn.FileSystemClient, TagHandler: &alirs.AlibabaTagHandler{Region: cloudConn.Region, Client: cloudConn.VMClient, CsClient: cloudConn.Cs2015Client, VpcClient: cloudConn.VpcClient, SlbClient: cloudConn.NLBClient, NasClient: cloudConn.NasClient}}
+	return &fileSystemHandler, nil
 }
 
 func (cloudConn *AlibabaCloudConnection) CreateRegionZoneHandler() (irs.RegionZoneHandler, error) {
@@ -169,7 +173,8 @@ func (AlibabaCloudConnection) Close() error {
 }
 
 func (cloudConn *AlibabaCloudConnection) CreateAnyCallHandler() (irs.AnyCallHandler, error) {
-	return nil, errors.New("Alibaba Driver: not implemented")
+	handler := alirs.AlibabaAnyCallHandler{RegionId: cloudConn.Region.Region, ZoneId: cloudConn.Region.Zone, Client: cloudConn.AnyCallClient}
+	return &handler, nil
 }
 
 func (cloudConn *AlibabaCloudConnection) CreatePriceInfoHandler() (irs.PriceInfoHandler, error) {
@@ -180,6 +185,6 @@ func (cloudConn *AlibabaCloudConnection) CreatePriceInfoHandler() (irs.PriceInfo
 
 func (cloudConn *AlibabaCloudConnection) CreateTagHandler() (irs.TagHandler, error) {
 	cblogger.Info("Start")
-	handler := alirs.AlibabaTagHandler{cloudConn.Region, cloudConn.VMClient, cloudConn.Cs2015Client, cloudConn.VpcClient, cloudConn.NLBClient}
+	handler := alirs.AlibabaTagHandler{cloudConn.Region, cloudConn.VMClient, cloudConn.Cs2015Client, cloudConn.VpcClient, cloudConn.NLBClient, cloudConn.NasClient}
 	return &handler, nil
 }

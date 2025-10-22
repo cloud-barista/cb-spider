@@ -49,11 +49,6 @@ func New(cloudConnectName string, rsType string, uid string) (string, error) {
 		return "", err
 	}
 
-	// ref) https://github.com/cloud-barista/cb-spider/issues/655
-	if cccInfo.ProviderName == "NCP" && rsType == "sg" {
-		return uid, nil
-	}
-
 	// AZURE-nogegroup: MaxLength = 12, lower, number, Cannot use '-'
 	if cccInfo.ProviderName == "AZURE" && rsType == "nodegroup" {
 		retUID := strings.ToLower(strings.ReplaceAll(uid, "-", ""))
@@ -65,8 +60,19 @@ func New(cloudConnectName string, rsType string, uid string) (string, error) {
 		return retUID, nil
 	}
 
-	// NHNCLOUD-cluster,nogegroup: MaxLenth = 20, lower, number, '-'
-	if cccInfo.ProviderName == "NHNCLOUD" && (rsType == "cluster" || rsType == "nodegroup") {
+	// IBM-nodegroup: MaxLength = 32, alphanumeric characters, '-', '_' or '.'
+	if cccInfo.ProviderName == "IBM" && rsType == "nodegroup" {
+		retUID := strings.ToLower(uid)
+
+		if len(retUID) > 32 {
+			// #27 + #5 => #32
+			retUID = uid[:27] + xid.New().String()[0:5]
+		}
+		return retUID, nil
+	}
+
+	// NHN-cluster,nogegroup: MaxLenth = 20, lower, number, '-'
+	if cccInfo.ProviderName == "NHN" && (rsType == "cluster" || rsType == "nodegroup") {
 		retUID := strings.ToLower(uid)
 
 		if len(retUID) > 20 {
@@ -76,8 +82,8 @@ func New(cloudConnectName string, rsType string, uid string) (string, error) {
 		return retUID, nil
 	}
 
-	// NCP or NCPVPC-windowvm: MaxLenth = 15, lower, number, '-'
-	if (cccInfo.ProviderName == "NCP" || cccInfo.ProviderName == "NCPVPC") && (rsType == "windowsvm") {
+	// NCP or NCP-windowvm: MaxLenth = 15, lower, number, '-'
+	if (cccInfo.ProviderName == "NCP") && (rsType == "windowsvm") {
 		retUID := strings.ToLower(uid)
 
 		if len(retUID) > 15 {
@@ -87,8 +93,8 @@ func New(cloudConnectName string, rsType string, uid string) (string, error) {
 		return retUID, nil
 	}
 
-	// NCPVPC-Cluster: MaxLength = 20, lower, number, Cannot use '_'
-	if cccInfo.ProviderName == "NCPVPC" && (rsType == "cluster" || rsType == "nodegroup") {
+	// NCP-Cluster: MaxLength = 20, lower, number, Cannot use '_'
+	if cccInfo.ProviderName == "NCP" && (rsType == "cluster" || rsType == "nodegroup") {
 		retUID := strings.ToLower(strings.ReplaceAll(uid, "_", "-"))
 
 		if len(retUID) > 20 {

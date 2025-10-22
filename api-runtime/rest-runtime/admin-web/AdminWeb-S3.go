@@ -8,6 +8,7 @@
 package adminweb
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"html/template"
@@ -63,18 +64,23 @@ func S3Management(c echo.Context) error {
 	}
 
 	buckets, err := fetchS3Buckets(connConfig)
+	var errorMessage string
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		// Set error message but don't return error - show empty table with error message
+		errorMessage = err.Error()
+		buckets = []S3BucketInfo{} // Empty bucket list
 	}
 
 	data := struct {
 		ConnectionConfig string
 		RegionName       string
 		Buckets          []S3BucketInfo
+		ErrorMessage     string
 	}{
 		ConnectionConfig: connConfig,
 		RegionName:       regionName,
 		Buckets:          buckets,
+		ErrorMessage:     errorMessage,
 	}
 
 	templatePath := filepath.Join(os.Getenv("CBSPIDER_ROOT"), "/api-runtime/rest-runtime/admin-web/html/s3.html")
@@ -88,9 +94,9 @@ func S3Management(c echo.Context) error {
 }
 
 func fetchS3Buckets(connConfig string) ([]S3BucketInfo, error) {
-	// Use root S3 API endpoint directly since /spider/ routing seems to have issues
+	// Use new S3 API endpoint: /spider/s3
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", "http://localhost:1024/", nil)
+	req, err := http.NewRequest("GET", "http://localhost:1024/spider/s3", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -111,11 +117,44 @@ func fetchS3Buckets(connConfig string) ([]S3BucketInfo, error) {
 	// Check if response is XML (should start with <?xml or <ListAllMyBucketsResult)
 	bodyStr := string(body)
 	if !strings.HasPrefix(bodyStr, "<?xml") && !strings.HasPrefix(bodyStr, "<ListAllMyBucketsResult") {
+		// Check if it's a JSON error response first
+		if strings.HasPrefix(bodyStr, "{") && strings.Contains(bodyStr, "error") {
+			// Try to parse JSON error response
+			type JSONError struct {
+				Error string `json:"error"`
+			}
+			var jsonErr JSONError
+			if err := json.Unmarshal(body, &jsonErr); err == nil && jsonErr.Error != "" {
+				return nil, fmt.Errorf("%s", jsonErr.Error)
+			}
+		}
+
 		// If we get HTML, it means the S3 API didn't recognize our request
 		if strings.Contains(bodyStr, "<html>") {
 			return nil, fmt.Errorf("S3 API endpoint not accessible with ConnectionName parameter. Try checking S3 routes configuration. Response: %s", bodyStr[:min(len(bodyStr), 200)])
 		}
 		return nil, fmt.Errorf("received non-XML response: %s", bodyStr[:min(len(bodyStr), 100)])
+	}
+
+	// Check if it's an S3 Error XML response
+	if strings.Contains(bodyStr, "<Error>") {
+		// Parse S3 Error XML
+		type S3Error struct {
+			XMLName   xml.Name `xml:"Error"`
+			Code      string   `xml:"Code"`
+			Message   string   `xml:"Message"`
+			RequestId string   `xml:"RequestId"`
+		}
+
+		var s3Error S3Error
+		if err := xml.Unmarshal(body, &s3Error); err == nil {
+			if s3Error.Message != "" {
+				return nil, fmt.Errorf("S3 Error [%s]: %s", s3Error.Code, s3Error.Message)
+			} else if s3Error.Code != "" {
+				return nil, fmt.Errorf("S3 Error: %s", s3Error.Code)
+			}
+		}
+		return nil, fmt.Errorf("S3 Error response received but could not parse details")
 	}
 
 	// Parse S3 standard XML response
@@ -153,7 +192,7 @@ func fetchS3Buckets(connConfig string) ([]S3BucketInfo, error) {
 
 func fetchVersioningStatus(connConfig, bucketName string) string {
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:1024/%s?versioning", bucketName), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:1024/spider/s3/%s?versioning", bucketName), nil)
 	if err != nil {
 		return "Error"
 	}
@@ -195,7 +234,7 @@ func fetchVersioningStatus(connConfig, bucketName string) string {
 
 func fetchCORSStatus(connConfig, bucketName string) string {
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:1024/%s?cors", bucketName), nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:1024/spider/s3/%s?cors", bucketName), nil)
 	if err != nil {
 		return "Not configured"
 	}

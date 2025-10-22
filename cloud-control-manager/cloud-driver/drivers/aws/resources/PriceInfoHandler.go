@@ -66,7 +66,7 @@ func (priceInfoHandler *AwsPriceInfoHandler) ListProductFamily(regionName string
 	return result, nil
 }
 
-func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue) (string, error) {
+func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue, simpleVMSpecInfo bool) (string, error) {
 	currentRegion := regionName
 	if currentRegion == "" {
 		currentRegion = priceInfoHandler.Region.Region
@@ -165,7 +165,7 @@ func (priceInfoHandler *AwsPriceInfoHandler) GetPriceInfo(productFamily string, 
 				if productFamilyVal != "Compute Instance" && productFamilyVal != "Compute Instance (bare metal)" {
 					continue
 				}
-				productInfo, err := ExtractProductInfo(awsPrice, productFamilyVal)
+				productInfo, err := ExtractProductInfo(awsPrice, productFamilyVal, simpleVMSpecInfo)
 				if err != nil {
 					cblogger.Error(err)
 					continue
@@ -401,7 +401,7 @@ func setProductsInputRequestFilter(filterList []irs.KeyValue) ([]*pricing.Filter
 	return requestFilters, nil
 }
 
-func ExtractProductInfo(jsonValue aws.JSONValue, productFamily string) (irs.ProductInfo, error) {
+func ExtractProductInfo(jsonValue aws.JSONValue, productFamily string, simpleVMSpecInfo bool) (irs.ProductInfo, error) {
 	var productInfo irs.ProductInfo
 
 	jsonString, err := json.MarshalIndent(jsonValue["product"].(map[string]interface{})["attributes"], "", "    ")
@@ -411,7 +411,7 @@ func ExtractProductInfo(jsonValue aws.JSONValue, productFamily string) (irs.Prod
 	}
 	switch productFamily {
 	case "Compute Instance", "Compute Instance (bare metal)":
-		err := setVMspecInfo(&productInfo, string(jsonString))
+		err := setVMspecInfo(&productInfo, string(jsonString), simpleVMSpecInfo)
 		if err != nil {
 			return productInfo, err
 		}
@@ -437,10 +437,20 @@ func ExtractProductInfo(jsonValue aws.JSONValue, productFamily string) (irs.Prod
 	return productInfo, nil
 }
 
-func setVMspecInfo(productInfo *resources.ProductInfo, jsonValueString string) error {
+func setVMspecInfo(productInfo *resources.ProductInfo, jsonValueString string, simpleVMSpecInfo bool) error {
 	var jsonData map[string]string
 	if err := json.Unmarshal([]byte(jsonValueString), &jsonData); err != nil {
 		return fmt.Errorf("failed to parse JSON: %w", err)
+	}
+
+	instanceType := jsonData["instanceType"]
+	if instanceType == "" {
+		return errors.New("missing required field: instanceType")
+	}
+
+	if simpleVMSpecInfo {
+		productInfo.VMSpecName = instanceType
+		return nil
 	}
 
 	vcpu := jsonData["vcpu"]
@@ -450,11 +460,6 @@ func setVMspecInfo(productInfo *resources.ProductInfo, jsonValueString string) e
 
 	memoryInt := extractNumericValue(jsonData["memory"])
 
-	instanceType := jsonData["instanceType"]
-	if instanceType == "" {
-		return errors.New("missing required field: instanceType")
-	}
-
 	regionCode := jsonData["regionCode"]
 	if regionCode == "" {
 		return errors.New("missing required field: regionCode")
@@ -462,7 +467,7 @@ func setVMspecInfo(productInfo *resources.ProductInfo, jsonValueString string) e
 
 	var gpuInfo []irs.GpuInfo
 	if gpuCount, ok := jsonData["gpu"]; ok && gpuCount != "0" {
-		gpuCountInt, err := strconv.Atoi(gpuCount)
+		gpuCountFloat, err := strconv.ParseFloat(gpuCount, 64)
 		if err != nil {
 			return fmt.Errorf("failed to parse gpu: %w", err)
 		}
@@ -473,12 +478,12 @@ func setVMspecInfo(productInfo *resources.ProductInfo, jsonValueString string) e
 				Mfr:            "NA",
 				Model:          "NA",
 				MemSizeGB:      fmt.Sprintf("%d", int(gpuMemoryFloat)),
-				TotalMemSizeGB: fmt.Sprintf("%d", int(float64(gpuCountInt)*gpuMemoryFloat)),
+				TotalMemSizeGB: fmt.Sprintf("%.1f", gpuCountFloat*gpuMemoryFloat),
 			},
 		}
 	}
 
-	productInfo.VMSpecInfo = irs.VMSpecInfo{
+	productInfo.VMSpecInfo = &irs.VMSpecInfo{
 		Region:     regionCode,
 		Name:       instanceType,
 		VCpu:       irs.VCpuInfo{Count: vcpu, ClockGHz: "-1"},

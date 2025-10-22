@@ -34,10 +34,11 @@ type Price struct {
 
 // ProductInfo represents the product details.
 type ProductInfo struct {
-	ProductId      string      `json:"ProductId" validate:"required" example:"prod-123"`                           // ID of the product
-	VMSpecInfo     VMSpecInfo  `json:"VMSpecInfo" validate:"required" description:"Information about the VM spec"` // Information about the VM spec
-	Description    string      `json:"Description,omitempty" example:"General purpose instance"`                   // Description of the product
-	CSPProductInfo interface{} `json:"CSPProductInfo" validate:"required" description:"Additional product info"`   // Additional product information specific to CSP
+	ProductId      string      `json:"ProductId" validate:"required" example:"prod-123"`                                      // ID of the product
+	VMSpecName     string      `json:"VMSpecName,omitempty" validate:"omitempty" example:"t2.micro"`                          // Name of the VM spec (used in simple mode)
+	VMSpecInfo     *VMSpecInfo `json:"VMSpecInfo,omitempty" validate:"omitempty" description:"Information about the VM spec"` // Information about the VM spec (used in detailed mode, default mode)
+	Description    string      `json:"Description,omitempty" example:"General purpose instance"`                              // Description of the product
+	CSPProductInfo interface{} `json:"CSPProductInfo" validate:"required" description:"Additional product info"`              // Additional product information specific to CSP
 }
 
 // PriceInfo represents the pricing details for a product.
@@ -57,5 +58,5 @@ type OnDemand struct {
 
 type PriceInfoHandler interface {
 	ListProductFamily(regionName string) ([]string, error)
-	GetPriceInfo(productFamily string, regionName string, filterList []KeyValue) (string, error) // return string: json format
+	GetPriceInfo(productFamily string, regionName string, filterList []KeyValue, simpleVMSpecInfo bool) (string, error) // return string: json format
 }

@@ -30,7 +30,7 @@ var cblogger *logrus.Logger
 
 func init() {
 	// cblog is a global variable.
-	cblogger = cblog.GetLogger("NCP Resource Test")
+	cblogger = cblog.GetLogger("NCP VPC Resource Test")
 	cblog.SetLevel("info")
 }
 
@@ -49,9 +49,9 @@ func handleImage() {
 		fmt.Println("[ Image Management Test ]")
 		fmt.Println("1. ListImage()")
 		fmt.Println("2. GetImage()")
-		fmt.Println("3. CheckWindowsImage()")
-		fmt.Println("4. CreateImage (TBD)")
-		fmt.Println("5. DeleteImage (TBD)")
+		fmt.Println("3. CheckWindowsImage()")		
+		fmt.Println("4. CreateImage() (TBD)")
+		fmt.Println("5. DeleteImage() (TBD)")
 		fmt.Println("0. Quit")
 		fmt.Println("\n   Select a number above!! : ")
 		fmt.Println("============================================================================================")
@@ -63,10 +63,12 @@ func handleImage() {
 		}
 
 		imageReqInfo := irs.ImageReqInfo{
-			//IId: irs.IID{NameId: "Test OS Image", SystemId: "SPSW0LINUX000029"}, //NCP : Ubuntu Server 16.04 (64-bit)
-			// IId: irs.IID{NameId: "Test OS Image", SystemId: "SPSW0LINUX000130"}, //NCP : Ubuntu Server 18.04 (64-bit)
-			IId: irs.IID{NameId: "Test OS Image", SystemId: "SPSW0WINNTEN0016A"}, //NCP : Windows Server 2016 (64-bit) English Edition		
-			// IId: irs.IID{NameId: "Test OS Image", SystemId: "SPSW0LINUX000031"}, //NCP : CentOS 6.3(64bit)
+			IId: irs.IID{NameId: "Test OS Image", SystemId: "23214590"}, //NCP : ubuntu-22.04, Ubuntu Server 64-bit
+
+			// NCP VPC 공공
+			// IId: irs.IID{NameId: "Test OS Image", SystemId: "SW.VSVR.OS.LNX64.UBNTU.SVR2004.B050"}, //NCP VPC 공공 : Ubuntu Server 20.04 (64-bit)
+
+			// IId: irs.IID{NameId: "Test OS Image", SystemId: "SW.VSVR.OS.WND64.WND.SVR2019EN.B100"}, //NCP : Windows Server 2019 (64-bit) English Edition			
 		}
 
 		if inputCnt == 1 {
@@ -75,37 +77,38 @@ func handleImage() {
 				return
 
 			case 1:
-				cblogger.Infof("ListImage() Test")
+				cblogger.Infof("Image list 조회 테스트")
 
 				result, err := handler.ListImage()
 				if err != nil {
-					cblogger.Error(err)
-					cblogger.Error("Failed to List Image : ", err)
+					cblogger.Infof(" Image list 조회 실패 : ", err)
 				} else {
 					fmt.Println("\n==================================================================================================================")
-					cblogger.Info("Result of ListImage()")
-					//cblogger.Info(result)
-					cblogger.Info("ListImage() count : ", len(result))
+					cblogger.Info("Image list 조회 결과")
+					
 					fmt.Println("\n")
 					spew.Dump(result)
+					fmt.Println("\n")
 
+					cblogger.Infof("전체 Image list 개수 : [%d]", len(result))
+
+					//조회및 삭제 테스트를 위해 리스트의 첫번째 정보의 ID를 요청ID로 자동 갱신함.
 					if result != nil {
-						imageReqInfo.IId = result[0].IId
+						imageReqInfo.IId = result[0].IId // 조회 및 삭제를 위해 생성된 ID로 변경
 					}
 				}
 
 				cblogger.Info("\nListImage Test Finished")
 
 			case 2:
-				cblogger.Infof("[%s]GetImage() Test", imageReqInfo.IId)
+				cblogger.Infof("[%s] Image 조회 테스트", imageReqInfo.IId)
 
 				result, err := handler.GetImage(imageReqInfo.IId)
 				if err != nil {
-					cblogger.Error(err)
-					cblogger.Error("Failed to Get the Image Info of [%s] : ", imageReqInfo.IId.SystemId, err)
+					cblogger.Infof("[%s] Image 조회 실패 : ", imageReqInfo.IId.SystemId, err)
 				} else {
 					fmt.Println("\n==================================================================================================================")
-					cblogger.Infof("Result of GetImage() of [%s] : \n[%s]", imageReqInfo.IId.SystemId, result)
+					cblogger.Infof("[%s] Image 조회 결과 : \n[%s]", imageReqInfo.IId.SystemId, result)
 
 					fmt.Println("\n")
 					spew.Dump(result)
@@ -113,23 +116,35 @@ func handleImage() {
 
 				cblogger.Info("\nGetImage Test Finished")
 
-
 			case 3:
-				cblogger.Infof("[%s] CheckWindowsImage() Test", imageReqInfo.IId)
-
-				result, err := handler.CheckWindowsImage(imageReqInfo.IId)
+				cblogger.Infof("[%s] Image Check 테스트", imageReqInfo.IId.NameId)
+				checkResult, err := handler.CheckWindowsImage(imageReqInfo.IId)
 				if err != nil {
-					cblogger.Error(err)
-					cblogger.Error("Failed to CheckWindowsImage() of [%s] : ", imageReqInfo.IId.SystemId, err)
+					cblogger.Infof(imageReqInfo.IId.NameId, " Image Check 실패 : ", err)
 				} else {
-					fmt.Println("\n==================================================================================================================")
-					cblogger.Infof("Result of CheckWindowsImage() of [%s] : [%v]", imageReqInfo.IId.SystemId, result)
+					cblogger.Infof("Image 생성 결과 : ", checkResult)
+					spew.Dump(checkResult)
+				}
 
-					fmt.Println("\n")
+			case 4:
+				cblogger.Infof("[%s] Image Check 테스트", imageReqInfo.IId.NameId)
+				result, err := handler.CreateImage(imageReqInfo)
+				if err != nil {
+					cblogger.Infof(imageReqInfo.IId.NameId, " Image 생성 실패 : ", err)
+				} else {
+					cblogger.Infof("Image 생성 결과 : ", result)
+					imageReqInfo.IId = result.IId // 조회 및 삭제를 위해 생성된 ID로 변경
 					spew.Dump(result)
 				}
 
-				cblogger.Info("\nCheckWindowsImage() Test Finished")
+			// case 5:
+			// 	cblogger.Infof("[%s] Image 삭제 테스트", imageReqInfo.IId.NameId)
+			// 	result, err := handler.DeleteImage(imageReqInfo.IId)
+			// 	if err != nil {
+			// 		cblogger.Infof("[%s] Image 삭제 실패 : ", imageReqInfo.IId.NameId, err)
+			// 	} else {
+			// 		cblogger.Infof("[%s] Image 삭제 결과 : [%s]", imageReqInfo.IId.NameId, result)
+			// 	}
 			}
 		}
 	}
@@ -142,7 +157,7 @@ func testErr() error {
 }
 
 func main() {
-	cblogger.Info("NCP Resource Test")
+	cblogger.Info("NCP VPC Resource Test")
 
 	handleImage()
 }
@@ -151,7 +166,7 @@ func main() {
 //(예) ImageHandler.go -> "Image"
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
-	cloudDriver = new(ncpdrv.NcpDriver)
+	cloudDriver = new(ncpdrv.NcpVpcDriver)
 
 	config := readConfigFile()
 	connectionInfo := idrv.ConnectionInfo{
@@ -248,8 +263,7 @@ func readConfigFile() Config {
 	if err != nil {
 		panic(err)
 	}
-
-	cblogger.Info("Loaded ConfigFile...")
+	cblogger.Info("ConfigFile Loaded ...")
 
 	// Just for test
 	cblogger.Debug(config.Ncp.NcpAccessKeyID, " ", config.Ncp.Region)

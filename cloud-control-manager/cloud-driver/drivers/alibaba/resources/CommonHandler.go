@@ -285,6 +285,49 @@ func DescribeAvailableSystemDisksByInstanceType(client *ecs.Client, regionId str
 	return result.AvailableZones, nil
 }
 
+// Check if a specific instanceType is available in a given region and zone
+// Used by AnyCall
+func checkInstanceTypeAvailability(client *ecs.Client, regionId string, zoneId string, instanceType string) (bool, error) {
+	request := ecs.CreateDescribeAvailableResourceRequest()
+	request.Scheme = "https"
+	request.RegionId = regionId
+	request.ZoneId = zoneId
+	request.ResourceType = "instance"
+	request.DestinationResource = "InstanceType"
+	request.InstanceType = instanceType
+
+	result, err := client.DescribeAvailableResource(request)
+	cblogger.Debug(result)
+	if err != nil {
+		cblogger.Errorf("DescribeAvailableResource %v.", err)
+		return false, err
+	}
+
+	metaValue := reflect.ValueOf(result).Elem()
+	fieldAvailableZones := metaValue.FieldByName("AvailableZones")
+	if fieldAvailableZones == (reflect.Value{}) {
+		cblogger.Errorf("Field not exist")
+		cblogger.Errorf("Not available in this region")
+		return false, errors.New("Not available in this region")
+	}
+
+	availableZones := result.AvailableZones.AvailableZone
+	for _, zone := range availableZones {
+		if zone.ZoneId == zoneId {
+			for _, resource := range zone.AvailableResources.AvailableResource {
+				if resource.Type == "InstanceType" {
+					for _, value := range resource.SupportedResources.SupportedResource {
+						if value.Value == instanceType {
+							return true, nil
+						}
+					}
+				}
+			}
+		}
+	}
+	return false, nil
+}
+
 /*
 *
 Instance에 Disk Attach

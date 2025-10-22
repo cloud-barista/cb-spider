@@ -6,7 +6,6 @@
 //
 // This is a Cloud Driver Tester Example.
 //
-// by ETRI, 2020.09.
 // Updated by ETRI, 2024.11.
 
 package main
@@ -14,23 +13,23 @@ package main
 import (
 	"os"
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
+	"github.com/davecgh/go-spew/spew"
 
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 	cblog "github.com/cloud-barista/cb-log"
 
 	// ncpdrv "github.com/cloud-barista/ncp/ncp"  // For local test
-	ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp"	
+	ncpdrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/drivers/ncp"
 )
 
 var cblogger *logrus.Logger
 
 func init() {
 	// cblog is a global variable.
-	cblogger = cblog.GetLogger("NCP Resource Test")
+	cblogger = cblog.GetLogger("NCP VPC Resource Test")
 	cblog.SetLevel("info")
 }
 
@@ -46,40 +45,58 @@ func handleVPC() {
 	handler := ResourceHandler.(irs.VPCHandler)
 
 	for {
-		cblogger.Info("\n============================================================================================")
-		cblogger.Info("[ VPC Resource Test ]")
-		cblogger.Info("1. CreateVPC()")
-		cblogger.Info("2. ListVPC()")
-		cblogger.Info("3. GetVPC()")
-		cblogger.Info("4. DeleteVPC()")
-		cblogger.Info("5. ListIID()")
-		cblogger.Info("0. Exit")
-		cblogger.Info("\n   Select a number above!! : ")
-		cblogger.Info("============================================================================================")
-
-		subnetReqName := "myTest-subnet-03"
-		vpcIId := irs.IID{NameId: "ncp-vpc-0-cjo2smhjcupp70i7acu0"}
-
-		var subnetInfoList []irs.SubnetInfo
-		subnetInfo := irs.SubnetInfo{
-			IId: irs.IID{
-				NameId: subnetReqName,
-			},
-			IPv4_CIDR: "10.0.0.0/24",
-		}
-		subnetInfoList = append(subnetInfoList, subnetInfo)
-
-		// vpcReqInfo := irs.VPCReqInfo{
-		// 	IId: irs.IID{NameId: reqVPCName, SystemId: vpcId},
-		// }
+		fmt.Println("\n============================================================================================")
+		fmt.Println("[ VPC Resource Test ]")
+		fmt.Println("1. CreateVPC()")
+		fmt.Println("2. ListVPC()")
+		fmt.Println("3. GetVPC()")
+		fmt.Println("4. AddSubnet()")
+		fmt.Println("5. RemoveSubnet()")
+		fmt.Println("6. DeleteVPC()")
+		fmt.Println("7. ListIID()")
+		fmt.Println("0. Exit")
+		fmt.Println("\n   Select a number above!! : ")
+		fmt.Println("============================================================================================")
 		
-		vpcReqInfo := irs.VPCReqInfo{
-			IId:            vpcIId,
-			IPv4_CIDR:      "10.0.0.0/16",
-			SubnetInfoList: subnetInfoList,
+		reqVPCName := "ncp-vpc-01"
+		vpcId := "40859"
+		subnetId := "3176"
+
+		vpcIId := irs.IID{NameId: reqVPCName, SystemId: vpcId}
+		subnetIId := irs.IID{SystemId: subnetId}
+
+		cblogger.Info("reqVPCName : ", reqVPCName)
+
+		vpcReqInfo := irs.VPCReqInfo {
+			IId: irs.IID {NameId: reqVPCName, SystemId: vpcId},
+			IPv4_CIDR: "10.0.0.0/16",
+			// IPv4_CIDR: "172.16.0.0/24",
+			SubnetInfoList: []irs.SubnetInfo {
+				{
+					IId: irs.IID{
+						NameId: "ncp-subnet-for-vm",
+					},
+					IPv4_CIDR: "10.0.0.0/28",
+					// IPv4_CIDR: "172.16.0.0/28",
+				},
+				// {
+				// 	IId: irs.IID{
+				// 		NameId: "ncp-subnet-04",
+				// 	},
+				// 	IPv4_CIDR: "172.16.1.0/28",
+				// },
+			},
 		}
+
+		subnetInfo := irs.SubnetInfo {
+				IId: irs.IID{
+					NameId: "ncp-subnet-05",
+				},
+				IPv4_CIDR: "172.16.2.0/24",
+			}
 
 		var commandNum int
+
 		inputCnt, err := fmt.Scan(&commandNum)
 		if err != nil {
 			panic(err)
@@ -88,7 +105,7 @@ func handleVPC() {
 		if inputCnt == 1 {
 			switch commandNum {
 			case 1:
-				cblogger.Info("Start CreateVPC() ...")
+				fmt.Println("Start CreateVPC() ...")
 				vpcInfo, err := handler.CreateVPC(vpcReqInfo)
 				if err != nil {
 					//panic(err)
@@ -99,10 +116,10 @@ func handleVPC() {
 					spew.Dump(vpcInfo)
 					cblogger.Debug(vpcInfo)
 				}
-				cblogger.Info("\nCreateVPC() Test Finished")
+				fmt.Println("\nCreateVPC() Test Finished")
 
 			case 2:
-				cblogger.Info("Start ListVPC() ...")
+				fmt.Println("Start ListVPC() ...")
 				result, err := handler.ListVPC()
 				if err != nil {
 					cblogger.Error("Failed to retrieve VPC list: ", err)
@@ -112,10 +129,10 @@ func handleVPC() {
 					cblogger.Debug(result)
 					cblogger.Infof("Total list count : [%d]", len(result))
 				}
-				cblogger.Info("\nListVPC() Test Finished")
+				fmt.Println("\nListVPC() Test Finished")
 				
 			case 3:
-				cblogger.Info("Start GetVPC() ...")
+				fmt.Println("Start GetVPC() ...")
 				if vpcInfo, err := handler.GetVPC(vpcIId); err != nil {
 					cblogger.Error(err)
 					cblogger.Error("Failed to retrieve VPC information: ", err)
@@ -123,10 +140,33 @@ func handleVPC() {
 					cblogger.Info("Successfully retrieved VPC information!!")
 					spew.Dump(vpcInfo)
 				}
-				cblogger.Info("\nGetVPC() Test Finished")
+				fmt.Println("\nGetVPC() Test Finished")
+
 
 			case 4:
-				cblogger.Info("Start DeleteVPC() ...")
+				fmt.Println("Start AddSubnet() ...")
+				if result, err := handler.AddSubnet(vpcIId, subnetInfo); err != nil {
+					cblogger.Error(err)
+					cblogger.Error("Failed to add Subnet: ", err)
+				} else {
+					cblogger.Info("Successfully added Subnet!!")
+					spew.Dump(result)
+				}
+				fmt.Println("\nAddSubnet() Test Finished")
+
+			case 5:
+				fmt.Println("Start RemoveSubnet() ...")
+				if result, err := handler.RemoveSubnet(vpcIId, subnetIId); err != nil {
+					cblogger.Error(err)
+					cblogger.Error("Failed to remove Subnet: ", err)
+				} else {
+					cblogger.Info("Successfully removed Subnet!!")
+					spew.Dump(result)
+				}
+				fmt.Println("\nRemoveSubnet() Test Finished")
+
+			case 6:
+				fmt.Println("Start DeleteVPC() ...")
 				if result, err := handler.DeleteVPC(vpcIId); err != nil {
 					cblogger.Error(err)
 					cblogger.Error("Failed to delete VPC: ", err)
@@ -134,10 +174,10 @@ func handleVPC() {
 					cblogger.Info("Successfully deleted VPC!!")
 					spew.Dump(result)
 				}
-				cblogger.Info("\nDeleteVPC() Test Finished")
+				fmt.Println("\nDeleteVPC() Test Finished")
 
-			case 5:
-				cblogger.Info("Start ListIID() ...")
+			case 7:
+				fmt.Println("Start ListIID() ...")
 				result, err := handler.ListIID()
 				if err != nil {
 					cblogger.Error("Failed to retrieve VPC IID list: ", err)
@@ -158,7 +198,7 @@ func handleVPC() {
 }
 
 func main() {
-	cblogger.Info("NCP Resource Test")
+	cblogger.Info("NCP VPC Resource Test")
 
 	handleVPC()
 }
@@ -167,7 +207,7 @@ func main() {
 // (e.g.) ImageHandler.go -> "Image"
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
-	cloudDriver = new(ncpdrv.NcpDriver)
+	cloudDriver = new(ncpdrv.NcpVpcDriver)
 
 	config := readConfigFile()
 	connectionInfo := idrv.ConnectionInfo{
@@ -266,8 +306,7 @@ func readConfigFile() Config {
 	if err != nil {
 		panic(err)
 	}
-
-	cblogger.Info("Loaded ConfigFile...")
+	cblogger.Info("ConfigFile Loaded ...")
 
 	// Just for test
 	cblogger.Debug(config.Ncp.NcpAccessKeyID, " ", config.Ncp.Region)

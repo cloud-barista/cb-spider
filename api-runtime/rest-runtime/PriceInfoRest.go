@@ -28,7 +28,7 @@ type ProductFamilyListResponse struct {
 // @ID list-product-family
 // @Summary List Product Families
 // @Description Retrieve a list of Product Families associated with a specific connection and region. 🕷️ [[Concept Guide](https://github.com/cloud-barista/cb-spider/wiki/Price-Info-and-Cloud-Driver-API)], 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/RestAPI-Multi%E2%80%90Cloud-Price-Information-Guide)]
-// @Tags [Cloud Metadata] Price Info
+// @Tags [Cloud Metadata] VM Price Info
 // @Accept  json
 // @Produce  json
 // @Param ConnectionName query string true "The name of the Connection to list Product Families for"
@@ -78,10 +78,11 @@ type PriceInfoResponse struct {
 // @ID get-vmprice-info
 // @Summary Get VM Price Information
 // @Description Retrieve VM Price Information for a specific connection and region. 🕷️ [[User Guide](https://github.com/cloud-barista/cb-spider/wiki/VM-Price-Info-Guide)] <br> * example body: {"connectionName":"aws-connection","FilterList":[{"Key":"instanceType","Value":"t2.micro"}]}
-// @Tags [Cloud Metadata] Price Info
+// @Tags [Cloud Metadata] VM Price Info
 // @Accept  json
 // @Produce  json
 // @Param RegionName path string true "The name of the Region to retrieve vm price information for"
+// @Param simple query bool false "Return simplified VM specification information (only VMSpecName). Default: false"
 // @Param PriceInfoRequest body PriceInfoRequest false "The request body containing additional filters for vm price information"
 // @Success 200 {object} PriceInfoResponse "VM Price Information Details"
 // @Failure 400 {object} SimpleMsg "Bad Request, possibly due to invalid query parameter"
@@ -102,9 +103,18 @@ func GetVMPriceInfo(c echo.Context) error {
 		req.ConnectionName = c.QueryParam("ConnectionName")
 	}
 
+	// Parse simple mode query parameter
+	// If 'simple' parameter exists (regardless of value), enable simple mode
+	simpleVMSpecInfo := false
+
+	if c.Request().URL.Query().Has("simple") {
+		// If 'simple' parameter exists, enable simple mode regardless of value
+		simpleVMSpecInfo = true
+	}
+
 	// Call common-runtime API
-	// result, err := cmrt.GetPriceInfo(req.ConnectionName, c.Param("ProductFamily"), c.Param("RegionName"), req.FilterList)
-	result, err := cmrt.GetPriceInfo(req.ConnectionName, cres.RSTypeString(cres.VM), c.Param("RegionName"), req.FilterList)
+	// result, err := cmrt.GetPriceInfo(req.ConnectionName, c.Param("ProductFamily"), c.Param("RegionName"), req.FilterList, simpleVMSpecInfo)
+	result, err := cmrt.GetPriceInfo(req.ConnectionName, cres.RSTypeString(cres.VM), c.Param("RegionName"), req.FilterList, simpleVMSpecInfo)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}

@@ -2,7 +2,7 @@
 
 if [ "$1" = "" ]; then
         echo
-        echo -e 'usage: '$0' mock|aws|azure|gcp|alibaba|tencent|ibm|openstack|ncp|nhncloud'
+        echo -e 'usage: '$0' mock|aws|azure|gcp|alibaba|tencent|ibm|openstack|ncp|nhn'
         echo -e '\n\tex) '$0' aws'
         echo
         exit 0;
@@ -12,7 +12,7 @@ fi
 SETUP_PATH=$CBSPIDER_ROOT/test/vm-cb-user-validation-cli/common
 source $SETUP_PATH/setup.env $1
 
-if [ "$1" = "nhncloud" ]; then
+if [ "$1" = "nhn" ]; then
 curl -sX DELETE http://localhost:1024/spider/regsubnet/SPIDER-VM-SSH-Test-subnet-01 \
   -H 'Content-Type: application/json' \
   -d '{

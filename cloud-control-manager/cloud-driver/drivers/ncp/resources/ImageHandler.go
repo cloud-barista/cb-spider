@@ -1,10 +1,10 @@
 // Proof of Concepts for the Cloud-Barista Multi-Cloud Project.
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
-// NCP Image Handler
+// NCP VPC Image Handler
 //
-// by ETRI, 2020.09.
-// Updated by ETRI, 2025.02.
+// by ETRI, 2020.12.
+// Updated by ETRI, 2025.01.
 
 package resources
 
@@ -14,112 +14,136 @@ import (
 	"strings"
 
 	// "github.com/davecgh/go-spew/spew"
-
-	ncloud "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
-	server "github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/server"
-
+	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/ncloud"
+	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vserver"
 	cblog "github.com/cloud-barista/cb-log"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
-	"github.com/sirupsen/logrus"
 )
 
-type NcpImageHandler struct {
+type NcpVpcImageHandler struct {
 	CredentialInfo idrv.CredentialInfo
 	RegionInfo     idrv.RegionInfo
-	VMClient       *server.APIClient
+	VMClient       *vserver.APIClient
 }
-
-var cblogger2 *logrus.Logger
 
 func init() {
-	cblogger2 = cblog.GetLogger("NCP ImageHandler") // cblog is a global variable.
+	// cblog is a global variable.
+	cblogger = cblog.GetLogger("NCP VPC ImageHandler")
 }
 
-func (imageHandler *NcpImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
-	cblogger.Info("NCP Classic Cloud Driver: called GetImage()!!")
+func (imageHandler *NcpVpcImageHandler) GetImage(imageIID irs.IID) (irs.ImageInfo, error) {
+	cblogger.Info("NCP VPC Cloud driver: called GetImage()!!")
 	InitLog()
 	callLogInfo := GetCallLogScheme(imageHandler.RegionInfo.Zone, call.VMIMAGE, imageIID.SystemId, "GetImage()")
 
 	if strings.EqualFold(imageIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid Image SystemId")
+		newErr := fmt.Errorf("Invalid Image SystemId!!")
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return irs.ImageInfo{}, newErr
 	}
 
-	ncpImageInfo, err := imageHandler.getNcpImageInfo(imageIID)
+	ncpImage, err := imageHandler.getNcpVpcImage(imageIID.SystemId)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the Image Info from NCP : [%v]", err)
+		newErr := fmt.Errorf("Failed to Get the Image Info : [%v]", err)
 		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
 		return irs.ImageInfo{}, newErr
 	}
-	imageInfo := mappingImageInfo(*ncpImageInfo)
-	return imageInfo, nil
+	return mappingImageInfo(ncpImage), nil
 }
 
-func (imageHandler *NcpImageHandler) ListImage() ([]*irs.ImageInfo, error) {
-	cblogger.Info("NCP Classic Cloud Driver: called ListImage()!")
+func (imageHandler *NcpVpcImageHandler) ListImage() ([]*irs.ImageInfo, error) {
+	cblogger.Info("NCP VPC Cloud driver: called ListImage()!")
 	InitLog()
 	callLogInfo := GetCallLogScheme(imageHandler.RegionInfo.Zone, call.VMIMAGE, "ListImage()", "ListImage()")
 
-	vmHandler := NcpVMHandler{
-		RegionInfo: imageHandler.RegionInfo,
-		VMClient:   imageHandler.VMClient,
+	// // Search NCP VPC All Region
+	// if len(imageHandler.RegionInfo.Region) > 0 {
+	// 	regionListReq := vserver.GetRegionListRequest{}
+
+	// 	regionListResult, err := imageHandler.VMClient.V2Api.GetRegionList(&regionListReq)
+	// 	if err != nil {
+	// 		cblogger.Error(*regionListResult.ReturnMessage)
+	// 		newErr := fmt.Errorf("Failed to Get Region list!! : [%v]", err)
+	// 		cblogger.Error(newErr.Error())
+	// 		LoggingError(callLogInfo, newErr)
+	// 	}
+
+	// 	if *regionListResult.TotalRows < 1 {
+	// 		cblogger.Info("### Region info does Not Exist!!")
+	// 	}  else {
+	// 		cblogger.Infof("Succeeded in Getting NCP VPC Region list!! : ")
+	// 	}
+
+	// 	cblogger.Infof("# Supporting All Region (by NCP VPC) Count : [%d]", len(regionListResult.RegionList))
+	// 	cblogger.Info("\n# Supporting All Region (by NCP VPC) List : ")
+	// 	spew.Dump(regionListResult.RegionList)
+	// }
+
+	imageReq := vserver.GetServerImageListRequest{
+		RegionCode:              ncloud.String(imageHandler.RegionInfo.Region), // CAUTION!! : Searching VM Image Info by RegionCode (Not RegionNo)
+		ServerImageTypeCodeList: []*string{ncloud.String("NCP")},               // Options: SELF | NCP
 	}
-	regionNo, err := vmHandler.getRegionNo(imageHandler.RegionInfo.Region)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get NCP Region No of the Region Code: [%v]", err)
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return nil, newErr
-	}
-	imageReq := server.GetServerImageProductListRequest{
-		ProductCode: nil,
-		RegionNo:    regionNo, // CAUTION!! : When searching image Info by RegionNo
-	}
+
 	callLogStart := call.Start()
-	result, err := imageHandler.VMClient.V2Api.GetServerImageProductList(&imageReq)
+	result, err := imageHandler.VMClient.V2Api.GetServerImageList(&imageReq)
 	if err != nil {
-		cblogger.Error(*result.ReturnMessage)
-		newErr := fmt.Errorf("Failed to Find Image list from NCP VPC : [%v]", err)
+		newErr := fmt.Errorf("Failed to Get Image list from NCP VPC : [%v]", err)
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return nil, newErr
 	}
 	LoggingInfo(callLogInfo, callLogStart)
 
-	if len(result.ProductList) < 1 {
-		newErr := fmt.Errorf("Failed to Find Any Image Info.")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return nil, newErr
-	} else {
-		cblogger.Info("Succeeded in Getting NCP Image list.")
-	}
-
 	var vmImageList []*irs.ImageInfo
-	for _, image := range result.ProductList {
-		imageInfo := mappingImageInfo(*image)
-		vmImageList = append(vmImageList, &imageInfo)
+	if len(result.ServerImageList) < 1 {
+		cblogger.Info("### Image info does Not Exist!!")
+		return nil, nil
+	} else {
+		// cblogger.Info("Succeeded in Getting NCP VPC Image list.")
+		for _, image := range result.ServerImageList {
+			imageInfo := mappingImageInfo(image)
+			vmImageList = append(vmImageList, &imageInfo)
+		}
 	}
-	cblogger.Info("# Supported Image Product count : ", len(vmImageList))
+	// cblogger.Infof("# Supported image count : [%d]", len(vmImageList))
 	return vmImageList, nil
 }
 
-func mappingImageInfo(serverImage server.Product) irs.ImageInfo {
-	cblogger.Info("NCP Classic Cloud Driver: called mappingImageInfo()!")
+func mappingImageInfo(serverImage *vserver.ServerImage) irs.ImageInfo {
+	cblogger.Infof("Mapping Image Info!! ")
+	// spew.Dump(serverImage)
+
+	var architectureType irs.OSArchitecture
+	if serverImage.CpuArchitectureType != nil {
+		if serverImage.CpuArchitectureType.Code != nil {
+			if strings.EqualFold(*serverImage.CpuArchitectureType.Code, "arm64") {
+				architectureType = irs.ARM64
+			} else if strings.EqualFold(*serverImage.CpuArchitectureType.Code, "arm64_mac") {
+				architectureType = irs.ARM64_MAC
+			} else if strings.EqualFold(*serverImage.CpuArchitectureType.Code, "x86_64") {
+				architectureType = irs.X86_64
+			} else if strings.EqualFold(*serverImage.CpuArchitectureType.Code, "x86_64_mac") {
+				architectureType = irs.X86_64_MAC
+			}
+		} else {
+			architectureType = irs.ArchitectureNA
+		}
+	} else {
+		architectureType = irs.ArchitectureNA
+	}
 
 	var osPlatform irs.OSPlatform
-	if serverImage.ProductType != nil {
-		if serverImage.ProductType.Code != nil {
-			if strings.EqualFold(*serverImage.ProductType.Code, "WINNT") {
-				osPlatform = irs.Windows
+	if serverImage.OsCategoryType != nil {
+		if serverImage.OsCategoryType.CodeName != nil {
+			if strings.EqualFold(*serverImage.OsCategoryType.CodeName, "LINUX") {
+				osPlatform = irs.Linux_UNIX
 			} else {
-				osPlatform = irs.PlatformNA
+				osPlatform = irs.Windows
 			}
+
 		} else {
 			osPlatform = irs.PlatformNA
 		}
@@ -128,37 +152,62 @@ func mappingImageInfo(serverImage server.Product) irs.ImageInfo {
 	}
 
 	var guestOS string
-	if serverImage.OsInformation != nil {
-		guestOS = *serverImage.OsInformation
+	if serverImage.ServerImageName != nil {
+		guestOS = *serverImage.ServerImageName
 	} else {
 		guestOS = "NA"
 	}
 
+	// Note) *serverImage.ServerImageDescription => sometimes : "kernel version : 5.14.0-427.37.1.el9_4.x86_64",
+
+	var diskType string
+	if len(serverImage.BlockStorageMappingList) > 0 {
+		blockStorageMapping := serverImage.BlockStorageMappingList[0]
+		if blockStorageMapping.BlockStorageVolumeType != nil && blockStorageMapping.BlockStorageVolumeType.CodeName != nil {
+			diskType = *blockStorageMapping.BlockStorageVolumeType.CodeName
+		} else {
+			diskType = "NA"
+		}
+	} else {
+		diskType = "NA"
+	}
+
 	var blockStorageSize string
-	if *serverImage.BaseBlockStorageSize != 0 {
-		blockStorageSize = irs.ConvertByteToGBInt64(*serverImage.BaseBlockStorageSize)
+	if len(serverImage.BlockStorageMappingList) > 0 {
+		blockStorageMapping := serverImage.BlockStorageMappingList[0]
+		if blockStorageMapping.BlockStorageSize != nil {
+			blockStorageSize = irs.ConvertByteToGBInt64(*blockStorageMapping.BlockStorageSize)
+		} else {
+			blockStorageSize = "-1"
+		}
 	} else {
 		blockStorageSize = "-1"
 	}
 
 	var imageStatus irs.ImageStatus
-	if serverImage.ProductCode != nil {
-		imageStatus = irs.ImageAvailable
+	if serverImage.ServerImageStatusName != nil {
+		if strings.EqualFold(*serverImage.ServerImageStatusName, "created") {
+			imageStatus = irs.ImageAvailable
+		} else {
+			imageStatus = irs.ImageUnavailable
+		}
 	} else {
 		imageStatus = irs.ImageNA
 	}
 
+	// *serverImage.ServerImageNo : numeric type
+	// *serverImage.ServerImageProductCode : ex) "SW.VSVR.OS.LNX64.UBNTU.SVR22.G003"
 	imageInfo := irs.ImageInfo{
-		IId: irs.IID{ // NOTE 주의 : serverImage.ProductCode -> ProductName 으로
-			NameId:   *serverImage.ProductCode,
-			SystemId: *serverImage.ProductCode,
+		IId: irs.IID{
+			NameId:   *serverImage.ServerImageNo,
+			SystemId: *serverImage.ServerImageNo,
 		},
 
-		Name:           *serverImage.ProductCode,
-		OSArchitecture: irs.ArchitectureNA,
+		Name:           *serverImage.ServerImageNo,
+		OSArchitecture: architectureType,
 		OSPlatform:     osPlatform,
 		OSDistribution: guestOS,
-		OSDiskType:     "NA",
+		OSDiskType:     diskType,
 		OSDiskSizeGB:   blockStorageSize,
 		ImageStatus:    imageStatus,
 		KeyValueList:   irs.StructToKeyValueList(serverImage),
@@ -167,83 +216,90 @@ func mappingImageInfo(serverImage server.Product) irs.ImageInfo {
 	return imageInfo
 }
 
-func (imageHandler *NcpImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
-	cblogger.Info("NCP Classic Cloud Driver: called CreateImage()!")
+func (imageHandler *NcpVpcImageHandler) CreateImage(imageReqInfo irs.ImageReqInfo) (irs.ImageInfo, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called CreateImage()!")
 
 	return irs.ImageInfo{}, fmt.Errorf("Does not support CreateImage() yet!!")
 }
 
-func (imageHandler *NcpImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
-	cblogger.Info("NCP Classic Cloud Driver: called CheckWindowsImage()")
+func (imageHandler *NcpVpcImageHandler) CheckWindowsImage(imageIID irs.IID) (bool, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called CheckWindowsImage()")
 	InitLog()
-	callLogInfo := GetCallLogScheme(imageHandler.RegionInfo.Region, call.MYIMAGE, imageIID.SystemId, "CheckWindowsImage()")
+	callLogInfo := GetCallLogScheme(imageHandler.RegionInfo.Region, call.VMIMAGE, imageIID.SystemId, "CheckWindowsImage()")
 
 	if strings.EqualFold(imageIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid myImage SystemId!!")
+		newErr := fmt.Errorf("Invalid SystemId!!")
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return false, newErr
 	}
 
-	ncpImageInfo, err := imageHandler.getNcpImageInfo(imageIID)
+	ncpImage, err := imageHandler.getNcpVpcImage(imageIID.SystemId)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the Image Info from NCP : [%v]", err)
+		newErr := fmt.Errorf("Failed to Get the Image Info : [%v]", err)
 		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
 		return false, newErr
 	}
 
 	isWindowsImage := false
-	if ncpImageInfo.ProductType != nil {
-		if ncpImageInfo.ProductType.Code != nil {
-			if strings.EqualFold(*ncpImageInfo.ProductType.Code, "WINNT") {
-				isWindowsImage = true
-			}
-		}
+	if strings.Contains(strings.ToUpper(*ncpImage.ServerImageName), "WIN") { // Ex) "win-2019-64-en", "mssql(2019std)-win-2016-64-en"
+		isWindowsImage = true
 	}
 	return isWindowsImage, nil
 }
 
-func (imageHandler *NcpImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {
-	cblogger.Info("NCP Classic Cloud Driver: called DeleteImage()!")
+func (imageHandler *NcpVpcImageHandler) DeleteImage(imageIID irs.IID) (bool, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called DeleteImage()!")
 
-	return false, fmt.Errorf("Does not support DeleteImage() yet!!")
+	return true, fmt.Errorf("Does not support DeleteImage() yet!!")
 }
 
-func (imageHandler *NcpImageHandler) getNcpImageInfo(imageIID irs.IID) (*server.Product, error) {
-	cblogger.Info("NCP Classic Cloud Driver: called getNcpImageInfo()!!")
+func (imageHandler *NcpVpcImageHandler) isPublicImage(imageName string) (bool, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called isPublicImage()")
 	InitLog()
-	callLogInfo := GetCallLogScheme(imageHandler.RegionInfo.Zone, call.VMIMAGE, imageIID.SystemId, "getNcpImageInfo()")
+	callLogInfo := GetCallLogScheme(imageHandler.RegionInfo.Region, call.VMIMAGE, imageName, "isPublicImage()") // HisCall logging
 
-	if strings.EqualFold(imageIID.SystemId, "") {
-		createErr := fmt.Errorf("Invalid Image SystemId")
+	if strings.EqualFold(imageName, "") {
+		newErr := fmt.Errorf("Invalid SystemId!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return false, newErr
+	}
+
+	imageInfo, err := imageHandler.getNcpVpcImage(imageName) // ServerImageTypeCode : SELF | NCP (All types of image)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get the Image Info : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return false, newErr
+	}
+
+	isPublicImage := false
+	if strings.EqualFold(*imageInfo.ServerImageType.Code, "NCP") { // *imageInfo.ServerImageType.Code : SELF | NCP
+		isPublicImage = true
+	}
+	return isPublicImage, nil
+}
+
+func (imageHandler *NcpVpcImageHandler) getNcpVpcImage(imageName string) (*vserver.ServerImage, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called getNcpVpcImage()!!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(imageHandler.RegionInfo.Zone, call.VMIMAGE, imageName, "getNcpVpcImage()")
+
+	if strings.EqualFold(imageName, "") {
+		createErr := fmt.Errorf("Invalid Image Name!!")
 		cblogger.Error(createErr.Error())
 		LoggingError(callLogInfo, createErr)
 		return nil, createErr
 	}
 
-	// cblogger.Info("\n\n### imageIID : ")
-	// spew.Dump(imageIID)
-	// cblogger.Info("\n")
-
-	vmHandler := NcpVMHandler{
-		RegionInfo: imageHandler.RegionInfo,
-		VMClient:   imageHandler.VMClient,
-	}
-	regionNo, err := vmHandler.getRegionNo(imageHandler.RegionInfo.Region)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get NCP Region No of the Region Code : [%v]", err)
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return nil, newErr
-	}
-
-	imageReq := server.GetServerImageProductListRequest{
-		ProductCode: ncloud.String(imageIID.SystemId),
-		RegionNo:    regionNo,
+	imageReq := vserver.GetServerImageListRequest{
+		RegionCode:        ncloud.String(imageHandler.RegionInfo.Region),
+		ServerImageNoList: []*string{ncloud.String(imageName)},
+		// ServerImageTypeCodeList: 	[]*string{ncloud.String("NCP"),}, // <= Options: SELF | NCP. Need too include all types of image!!
 	}
 	callLogStart := call.Start()
-	result, err := imageHandler.VMClient.V2Api.GetServerImageProductList(&imageReq)
+	result, err := imageHandler.VMClient.V2Api.GetServerImageList(&imageReq)
 	if err != nil {
 		newErr := fmt.Errorf("Failed to Get Image list from NCP : [%v]", err)
 		cblogger.Error(newErr.Error())
@@ -252,39 +308,11 @@ func (imageHandler *NcpImageHandler) getNcpImageInfo(imageIID irs.IID) (*server.
 	}
 	LoggingInfo(callLogInfo, callLogStart)
 
-	if len(result.ProductList) < 1 {
-		newErr := fmt.Errorf("Failed to Find Any Image info with the SystemId : [%s]", imageIID.SystemId)
+	if len(result.ServerImageList) < 1 {
+		newErr := fmt.Errorf("Failed to Find Any Image Info from NCP!!")
 		cblogger.Error(newErr.Error())
 		LoggingError(callLogInfo, newErr)
 		return nil, newErr
 	}
-	cblogger.Info("Succeeded in Getting NCP Image info.")
-	return result.ProductList[0], nil
-}
-
-func (imageHandler *NcpImageHandler) isPublicImage(imageIID irs.IID) (bool, error) {
-	cblogger.Info("NCP Classic Cloud Driver: called isPublicImage()")
-	InitLog()
-	callLogInfo := GetCallLogScheme(imageHandler.RegionInfo.Region, call.MYIMAGE, imageIID.SystemId, "isPublicImage()") // HisCall logging
-
-	if strings.EqualFold(imageIID.SystemId, "") {
-		newErr := fmt.Errorf("Invalid Image SystemId!!")
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return false, newErr
-	}
-
-	ncpImageInfo, err := imageHandler.getNcpImageInfo(imageIID)
-	if err != nil {
-		newErr := fmt.Errorf("Failed to Get the Image Info from NCP : [%v]", err)
-		cblogger.Error(newErr.Error())
-		LoggingError(callLogInfo, newErr)
-		return false, nil // Caution!!
-	} else {
-		isPublicImage := false
-		if strings.EqualFold(*ncpImageInfo.ProductCode, imageIID.SystemId) {
-			isPublicImage = true
-		}
-		return isPublicImage, nil
-	}
+	return result.ServerImageList[0], nil
 }

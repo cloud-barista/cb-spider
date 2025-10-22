@@ -130,7 +130,7 @@ func (handler *MockPriceInfoHandler) ListProductFamily(regionName string) ([]str
 //     -> make global json for result string
 //
 // 3. return Spider price info
-func (handler *MockPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue) (string, error) {
+func (handler *MockPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue, simpleVMSpecInfo bool) (string, error) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mock Driver: called GetPriceInfo()!")
 
@@ -154,7 +154,7 @@ func (handler *MockPriceInfoHandler) GetPriceInfo(productFamily string, regionNa
 		return "", err
 	}
 
-	resultJson, err := transformPriceInfo(productFamily, regionName, data, filterList)
+	resultJson, err := transformPriceInfo(productFamily, regionName, data, filterList, simpleVMSpecInfo)
 	if err != nil {
 		cblogger.Error(err)
 		return "", err
@@ -163,7 +163,7 @@ func (handler *MockPriceInfoHandler) GetPriceInfo(productFamily string, regionNa
 	return resultJson, nil
 }
 
-func transformPriceInfo(productFamily string, regionName string, jsonData []*interface{}, filterList []irs.KeyValue) (string, error) {
+func transformPriceInfo(productFamily string, regionName string, jsonData []*interface{}, filterList []irs.KeyValue, simpleVMSpecInfo bool) (string, error) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mock Driver: called transformVMPriceInfo()!")
 
@@ -176,7 +176,7 @@ func transformPriceInfo(productFamily string, regionName string, jsonData []*int
 
 	for _, v := range jsonData {
 		// transform csp price info to Spider price info(Global view)
-		hasProductKey, gProductInfo, err := transformToProductInfo(productFamily, v, filterList)
+		hasProductKey, gProductInfo, err := transformToProductInfo(productFamily, v, filterList, simpleVMSpecInfo)
 		if err != nil {
 			cblogger.Error(err)
 			return "", err
@@ -221,7 +221,7 @@ func transformPriceInfo(productFamily string, regionName string, jsonData []*int
 // jsonData: mock any family's price info
 // gProductInfoTemplate: global view's productInfo template
 // return: global view's productInfo
-func transformToProductInfo(productFamily string, jsonData *interface{}, filterList []irs.KeyValue) (bool /*hasKey*/, *irs.ProductInfo, error) {
+func transformToProductInfo(productFamily string, jsonData *interface{}, filterList []irs.KeyValue, simpleVMSpecInfo bool) (bool /*hasKey*/, *irs.ProductInfo, error) {
 	cblogger := cblog.GetLogger("CB-SPIDER")
 	cblogger.Info("Mock Driver: called transformProductInfo()!")
 
@@ -231,12 +231,20 @@ func transformToProductInfo(productFamily string, jsonData *interface{}, filterL
 	case COMPUTE_INSTANCE:
 		json := (*jsonData).(InstanceData)
 		productInfo.ProductId = json.InstanceName
-		productInfo.VMSpecInfo.Name = json.InstanceInfo.InstanceType
-		productInfo.VMSpecInfo.VCpu.Count = json.InstanceInfo.Vcpu
-		productInfo.VMSpecInfo.MemSizeMiB = json.InstanceInfo.Memory
-		productInfo.VMSpecInfo.DiskSizeGB = json.InstanceInfo.Storage
-		productInfo.Description = json.InstanceInfo.ProcessorArchitecture + ", " +
-			json.InstanceInfo.ProcessorFeatures
+
+		if simpleVMSpecInfo {
+			productInfo.VMSpecName = json.InstanceName
+		} else {
+			memSize, _ := irs.ConvertGiBToMiB(json.InstanceInfo.Memory)
+			productInfo.VMSpecInfo = &irs.VMSpecInfo{
+				Region:     json.InstanceInfo.RegionName,
+				Name:       json.InstanceName,
+				VCpu:       irs.VCpuInfo{Count: json.InstanceInfo.Vcpu, ClockGHz: json.InstanceInfo.Clock},
+				MemSizeMiB: memSize,
+				DiskSizeGB: json.InstanceInfo.Storage,
+				Gpu:        nil,
+			}
+		}
 
 	case STORAGE:
 		json := (*jsonData).(StorageData)

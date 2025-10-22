@@ -33,10 +33,12 @@ import (
 	"github.com/aws/aws-sdk-go/service/cloudwatch"
 	"github.com/aws/aws-sdk-go/service/costexplorer"
 	"github.com/aws/aws-sdk-go/service/ec2"
+	"github.com/aws/aws-sdk-go/service/efs"
 	"github.com/aws/aws-sdk-go/service/eks"
 	"github.com/aws/aws-sdk-go/service/elbv2"
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/pricing"
+	"github.com/aws/aws-sdk-go/service/sts"
 	cblogger "github.com/cloud-barista/cb-log"
 )
 
@@ -71,9 +73,10 @@ func (AwsDriver) GetDriverCapability() idrv.DriverCapabilityInfo {
 	drvCapabilityInfo.MyImageHandler = true
 	drvCapabilityInfo.NLBHandler = true
 	drvCapabilityInfo.ClusterHandler = true
+	drvCapabilityInfo.FileSystemHandler = true
 
 	drvCapabilityInfo.TagHandler = true
-	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER}
+	drvCapabilityInfo.TagSupportResourceType = []ires.RSType{ires.VPC, ires.SUBNET, ires.SG, ires.KEY, ires.VM, ires.NLB, ires.DISK, ires.MYIMAGE, ires.CLUSTER, ires.FILESYSTEM}
 
 	drvCapabilityInfo.VPC_CIDR = true
 
@@ -278,6 +281,16 @@ func getIamClient(connectionInfo idrv.ConnectionInfo) (*iam.IAM, error) {
 	return iam.New(sess), nil
 }
 
+// Get STS client for STS processing
+func getStsClient(connectionInfo idrv.ConnectionInfo) (*sts.STS, error) {
+	sess, err := newAWSSession(connectionInfo, connectionInfo.RegionInfo.Region)
+	if err != nil {
+		cblog.Error("Could not create AWS session", err)
+		return nil, err
+	}
+	return sts.New(sess), nil
+}
+
 // AutoScaling 처리를 위한 autoScaling 클라이언트 획득
 func getAutoScalingClient(connectionInfo idrv.ConnectionInfo) (*autoscaling.AutoScaling, error) {
 
@@ -313,6 +326,16 @@ func getAutoScalingClient(connectionInfo idrv.ConnectionInfo) (*autoscaling.Auto
 	return autoscaling.New(sess), nil
 }
 
+// EFS 처리를 위한 EFS 클라이언트 획득
+func getEFSClient(connectionInfo idrv.ConnectionInfo) (*efs.EFS, error) {
+	sess, err := newAWSSession(connectionInfo, connectionInfo.RegionInfo.Region)
+	if err != nil {
+		cblog.Error("Could not create AWS session", err)
+		return nil, err
+	}
+	return efs.New(sess), nil
+}
+
 func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.CloudConnection, error) {
 	// 1. get info of credential and region for Test A Cloud from connectionInfo.
 	// 2. create a client object(or service  object) of Test A Cloud with credential info.
@@ -330,8 +353,10 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 	nlbClient, err := getNLBClient(connectionInfo)
 	eksClient, err := getEKSClient(connectionInfo)
 	iamClient, err := getIamClient(connectionInfo)
+	stsClient, err := getStsClient(connectionInfo)
 	pricingClient, err := getPricingClient(connectionInfo)
 	autoScalingClient, err := getAutoScalingClient(connectionInfo)
+	efsClient, err := getEFSClient(connectionInfo)
 	//vmClient, err := getVMClient(connectionInfo.RegionInfo)
 	if err != nil {
 		return nil, err
@@ -359,6 +384,7 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 
 		EKSClient:         eksClient,
 		IamClient:         iamClient,
+		StsClient:         stsClient,
 		AutoScalingClient: autoScalingClient,
 
 		RegionZoneClient: vmClient,
@@ -370,6 +396,7 @@ func (driver *AwsDriver) ConnectCloud(connectionInfo idrv.ConnectionInfo) (icon.
 		TagClient:          vmClient,
 		CostExplorerClient: costExplorerClient,
 		CloudWatchClient:   cloudwatchClient,
+		FileSystemClient:   efsClient,
 	}
 
 	return &iConn, nil // return type: (icon.CloudConnection, error)

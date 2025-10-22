@@ -144,6 +144,13 @@
                         {{end}}
                     </select>                    
                 </div>
+                <div class="form-group">
+                    <label for="simpleMode">VMSpec Display Mode</label>
+                    <select id="simpleMode" name="simpleMode">
+                        <option value="OFF">Detailed (Full VMSpecInfo)</option>
+                        <option value="ON">Simple (VMSpecName only)</option>
+                    </select>                    
+                </div>
             </div>
             <div class="form-group">
                 <div class="button-textarea-group">
@@ -227,12 +234,13 @@
             var region = document.getElementById('region').value;
             var connectionName = document.getElementById('connectionName').value;
             var filterList = document.getElementById('filter').value;
+            var simpleMode = document.getElementById('simpleMode').value;
 
             var fetchOverlayContent = document.getElementById('fetchOverlayContent');
             document.getElementById('fetchOverlay').style.display = 'block';
             fetchOverlayContent.src = 'about:blank'; // clear the iframe content
 
-            var url = `/spider/adminweb/priceinfotablelist/vm/${region}/${connectionName}?filterlist=${filterList}`;
+            var url = `/spider/adminweb/priceinfotablelist/vm/${region}/${connectionName}?filterlist=${filterList}&simplemode=${simpleMode}`;
 
             // logging the fetch URL
             var hostname = window.location.hostname;

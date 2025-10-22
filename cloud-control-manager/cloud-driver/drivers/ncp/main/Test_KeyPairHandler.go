@@ -6,7 +6,7 @@
 //
 // This is a Cloud Driver Tester Example.
 //
-// by ETRI, 2020.09.
+// Updated by ETRI, 2024.11.
 
 package main
 
@@ -30,14 +30,14 @@ var cblogger *logrus.Logger
 
 func init() {
 	// cblog is a global variable.
-	cblogger = cblog.GetLogger("NCP Resource Test")
+	cblogger = cblog.GetLogger("NCP VPC Resource Test")
 	cblog.SetLevel("info")
 }
 
 func testErr() error {
 	//return awserr.Error("")
 	return errors.New("")
-	// return ncloud.New("504", "Not found", nil)
+	// return ncloud.New("504", "Not Found", nil)
 }
 
 // Test KeyPair
@@ -66,7 +66,7 @@ func handleKeyPair() {
 		cblogger.Info("============================================================================================")
 
 		//keyPairName := config.Ncp.KeyName
-		keyPairName := "NCP-keypair-06"
+		keyPairName := "NCP-keypair-05"
 		var commandNum int
 
 		inputCnt, err := fmt.Scan(&commandNum)
@@ -146,7 +146,7 @@ func handleKeyPair() {
 }
 
 func main() {
-	cblogger.Info("NCP Resource Test")
+	cblogger.Info("NCP VPC Resource Test")
 
 	handleKeyPair()
 }
@@ -155,7 +155,7 @@ func main() {
 // (e.g.) ImageHandler.go -> "Image"
 func getResourceHandler(handlerType string) (interface{}, error) {
 	var cloudDriver idrv.CloudDriver
-	cloudDriver = new(ncpdrv.NcpDriver)
+	cloudDriver = new(ncpdrv.NcpVpcDriver)
 
 	config := readConfigFile()
 	connectionInfo := idrv.ConnectionInfo{
@@ -235,11 +235,11 @@ type Config struct {
 	} `yaml:"ncp"`
 }
 
+// Read the configuration file
+// You need to set the CBSPIDER_PATH environment variable and create the /config/config.yaml file under that folder.
 func readConfigFile() Config {
-	// # Set Environment Value of Project Root Path
-	// goPath := os.Getenv("GOPATH")
-	// rootPath := goPath + "/src/github.com/cloud-barista/ncp/ncp/main"
-	// cblogger.Debugf("Test Config file : [%]", rootPath+"/config/config.yaml")
+	// Set Environment Value of Project Root Path
+	// rootPath := os.Getenv("CBSPIDER_PATH")
 	rootPath 	:= os.Getenv("CBSPIDER_ROOT")
 	configPath 	:= rootPath + "/cloud-control-manager/cloud-driver/drivers/ncp/main/config/config.yaml"
 	cblogger.Debugf("Test Config file : [%s]", configPath)
@@ -256,8 +256,14 @@ func readConfigFile() Config {
 	}
 
 	cblogger.Info("Loaded ConfigFile...")
+	//spew.Dump(config)
+	//cblogger.Info(config)
 
-	// Just for test
+	// NOTE Just for test
+	//cblogger.Info(config.Ncp.NcpAccessKeyID)
+	//cblogger.Info(config.Ncp.NcpSecretKey)
+
+	// NOTE Just for test
 	cblogger.Debug(config.Ncp.NcpAccessKeyID, " ", config.Ncp.Region)
 
 	return config

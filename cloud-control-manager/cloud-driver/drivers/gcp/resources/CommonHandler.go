@@ -12,6 +12,7 @@
 package resources
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/json"
 	"errors"
@@ -21,11 +22,15 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	filestore "cloud.google.com/go/filestore/apiv1"
+	filestorepb "cloud.google.com/go/filestore/apiv1/filestorepb"
+	monitoring "cloud.google.com/go/monitoring/apiv3/v2"
 	cblog "github.com/cloud-barista/cb-log"
 	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
@@ -34,6 +39,7 @@ import (
 	compute "google.golang.org/api/compute/v1"
 	container "google.golang.org/api/container/v1"
 	"google.golang.org/api/googleapi"
+	"google.golang.org/api/iterator"
 )
 
 const (
@@ -127,7 +133,7 @@ func GetKeyValueList(i map[string]interface{}) []irs.KeyValue {
 	return keyValueList
 }
 
-// Cloud Object를 CB-KeyValue 형식으로 변환이 필요할 경우 이용
+// Use when Cloud Object needs to be converted to CB-KeyValue format
 func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 	//cblogger.Debug(v)
 	var keyValueList []irs.KeyValue
@@ -157,7 +163,7 @@ func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 		//value := fmt.Sprint(v)
 		value, errString := ConvertToString(v)
 		if errString != nil {
-			//cblogger.Debugf("Key[%s]의 값은 변환 불가 - [%s]", k, errString) //요구에 의해서 Error에서 Warn으로 낮춤
+			//cblogger.Debugf("Key[%s] value cannot be converted - [%s]", k, errString) //Changed from Error to Warn as requested
 			continue
 		}
 		keyValueList = append(keyValueList, irs.KeyValue{k, value})
@@ -165,7 +171,7 @@ func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 		/*
 			_, ok := v.(string)
 			if !ok {
-				cblogger.Errorf("Key[%s]의 값은 변환 불가", k)
+				cblogger.Errorf("Key[%s] value cannot be converted", k)
 				continue
 			}
 			keyValueList = append(keyValueList, irs.KeyValue{k, v.(string)})
@@ -177,7 +183,7 @@ func ConvertKeyValueList(v interface{}) ([]irs.KeyValue, error) {
 	return keyValueList, nil
 }
 
-// CB-KeyValue 등을 위해 String 타입으로 변환
+// Convert to String type for CB-KeyValue etc.
 func ConvertToString(value interface{}) (string, error) {
 	if value == nil {
 		if KEY_VALUE_CONVERT_DEBUG_INFO {
@@ -209,7 +215,7 @@ func ConvertToString(value interface{}) (string, error) {
 	return result, nil
 }
 
-// KeyPair 해시 생성 함수
+// KeyPair hash generation function
 func CreateHashString(credentialInfo idrv.CredentialInfo) (string, error) {
 	keyString := credentialInfo.ClientId + credentialInfo.ClientSecret + credentialInfo.TenantId + credentialInfo.SubscriptionId
 	hasher := md5.New()
@@ -220,7 +226,7 @@ func CreateHashString(credentialInfo idrv.CredentialInfo) (string, error) {
 	return fmt.Sprintf("%x", hasher.Sum(nil)), nil
 }
 
-// Public KeyPair 정보 가져오기
+// Get Public KeyPair information
 func GetPublicKey(credentialInfo idrv.CredentialInfo, keyPairName string) (string, error) {
 	keyPairPath := os.Getenv("CBSPIDER_ROOT") + CBKeyPairPath
 	hashString, err := CreateHashString(credentialInfo)
@@ -252,7 +258,7 @@ func hasInstanceGroup(client *compute.Service, credential idrv.CredentialInfo, r
 	return instanceGroupGet != nil, nil
 }
 
-// InstanceGroup의 인스턴스 목록 return
+// Return list of instances in InstanceGroup
 func GetInstancesOfInstanceGroup(client *compute.Service, credential idrv.CredentialInfo, region idrv.RegionInfo, instanceGroup string) ([]string, error) {
 	projectID := credential.ProjectID
 	zone := region.Zone
@@ -279,7 +285,7 @@ func GetInstancesOfInstanceGroup(client *compute.Service, credential idrv.Creden
 	return instanceList, nil
 }
 
-// Instance 정보조회
+// Get Instance information
 func GetInstance(client *compute.Service, credential idrv.CredentialInfo, region idrv.RegionInfo, instance string) (*compute.Instance, error) {
 	projectID := credential.ProjectID
 	zone := region.Zone
@@ -292,10 +298,10 @@ func GetInstance(client *compute.Service, credential idrv.CredentialInfo, region
 	return instanceInfo, nil
 }
 
-// Operation 이 완료 될 때까지 기다림.
+// Wait until Operation is complete.
 func WaitUntilComplete(client *compute.Service, project string, region string, resourceId string, isGlobalAction bool) error {
 	before_time := time.Now()
-	max_time := 300 //최대 300초간 체크
+	max_time := 300 //Check for maximum 300 seconds
 
 	var opSatus *compute.Operation
 	var err error
@@ -334,7 +340,7 @@ func WaitUntilComplete(client *compute.Service, project string, region string, r
 
 func WaitOperationComplete(client *compute.Service, project string, region string, zone string, resourceId string, operationType int) error {
 	before_time := time.Now()
-	max_time := 300 //최대 300초간 체크
+	max_time := 300 //Check for maximum 300 seconds
 
 	var opSatus *compute.Operation
 	var err error
@@ -374,13 +380,13 @@ func WaitOperationComplete(client *compute.Service, project string, region strin
 	return nil
 }
 
-// Get 공통으로 사용
+// Common Get function
 func GetDiskInfo(client *compute.Service, credential idrv.CredentialInfo, region idrv.RegionInfo, diskName string) (*compute.Disk, error) {
 	projectID := credential.ProjectID
 	zone := region.Zone
 	targetZone := region.TargetZone
 
-	// 대상 zone이 다른경우 targetZone을 사용
+	// Use targetZone if the target zone is different
 	if targetZone != "" {
 		zone = targetZone
 	}
@@ -408,7 +414,7 @@ func GetMachineImageInfo(client *compute.Service, projectId string, imageName st
 	return imageResp, nil
 }
 
-// IID 에서 systemID로 image 조회.  : systemID가 URL로 되어있어 필요한 값들을 추출하여 사용. projectId, imageName
+// Get image from IID systemID: systemID is in URL format, extract required values. projectId, imageName
 func GetPublicImageInfo(client *compute.Service, imageIID irs.IID) (*compute.Image, error) {
 	projectId := ""
 	imageName := ""
@@ -437,7 +443,7 @@ func GetPublicImageInfo(client *compute.Service, imageIID irs.IID) (*compute.Ima
 
 }
 
-// IID 에서 systemID로 image 조회.
+// Get image from IID systemID.
 func FindImageByID(client *compute.Service, imageIID irs.IID) (*compute.Image, error) {
 	reqImageName := imageIID.SystemId
 
@@ -445,9 +451,9 @@ func FindImageByID(client *compute.Service, imageIID irs.IID) (*compute.Image, e
 	arrImageProjectList := []string{
 		//"ubuntu-os-cloud",
 
-		"gce-uefi-images", // 보안 VM을 지원하는 이미지
+		"gce-uefi-images", // Images that support secure VMs
 
-		//보안 VM을 지원하지 않는 이미지들
+		//Images that do not support secure VMs
 		"centos-cloud",
 		"cos-cloud",
 		"coreos-cloud",
@@ -497,10 +503,10 @@ func FindImageByID(client *compute.Service, imageIID irs.IID) (*compute.Image, e
 
 }
 
-// container 의 operation
+// container operation
 func WaitContainerOperationComplete(client *container.Service, project string, region string, zone string, resourceId string, operationType int) error {
 	before_time := time.Now()
-	max_time := 300 //최대 300초간 체크
+	max_time := 300 //Check for maximum 300 seconds
 
 	var opSatus *container.Operation
 	var err error
@@ -538,7 +544,7 @@ func WaitContainerOperationComplete(client *container.Service, project string, r
 	return nil
 }
 
-// 30초동안 Fail 이 떨어지지 않으면 성공
+// Success if Fail does not occur for 30 seconds
 func WaitContainerOperationFail(client *container.Service, project string, region string, zone string, resourceId string, operationType int) error {
 	before_time := time.Now()
 	max_time := 30
@@ -583,7 +589,7 @@ func WaitContainerOperationFail(client *container.Service, project string, regio
 	return nil
 }
 
-// 20분
+// 20 minutes
 func WaitContainerOperationDone(client *container.Service, project string, region string, zone string, resourceId string, operationType int, maxTime int) error {
 	before_time := time.Now()
 
@@ -624,7 +630,7 @@ func WaitContainerOperationDone(client *container.Service, project string, regio
 	return nil
 }
 
-// 리전 목록 조회
+// Get region list
 func ListRegion(client *compute.Service, projectId string) (*compute.RegionList, error) {
 
 	if projectId == "" {
@@ -654,8 +660,8 @@ func ListRegion(client *compute.Service, projectId string) (*compute.RegionList,
 	return resp, nil
 }
 
-// region 조회
-// GCP에서 region은 regionName과 regionUri로 구분 됨. regionName으로 찾는 function임.
+// Get region
+// In GCP, regions are distinguished by regionName and regionUri. This function finds by regionName.
 func GetRegion(client *compute.Service, projectId string, regionName string) (*compute.Region, error) {
 
 	if projectId == "" {
@@ -690,14 +696,14 @@ func GetRegion(client *compute.Service, projectId string, regionName string) (*c
 
 }
 
-// region에 해당하는 zone 목록 조회
-// filter조건으로 사용하는 region조건은 regionUrl로 넘겨야 함.
-// filter조건 자체가 string이며 regionUrl에 특수문자가 있고 따옴표로 감싸야만 결과가 정상적으로 나옴
-// region="xxx/xxx/xxx" 형태로 보내야하며
-// ` ` 로 감싸야 함.
+// Get zone list for the region
+// The region condition used as filter condition must be passed as regionUrl.
+// The filter condition itself is a string and regionUrl has special characters, so it must be wrapped in quotes for normal results
+// Must be sent in the form region="xxx/xxx/xxx"
+// Must be wrapped in ` `.
 // filter := "region=https://www.googleapis.com/compute/v1/projects/xxx/regions/us-east1" -> error return.
-// filter := `region="https://www.googleapis.com/compute/v1/projects/xxx/regions/us-east1"` -> 조회결과 옴
-// filter := `region="us-east1"`// -> 조회결과 없음
+// filter := `region="https://www.googleapis.com/compute/v1/projects/xxx/regions/us-east1"` -> query results come
+// filter := `region="us-east1"`// -> no query results
 func GetZoneListByRegion(client *compute.Service, projectId string, regionUrl string) (*compute.ZoneList, error) {
 
 	if projectId == "" {
@@ -719,8 +725,28 @@ func GetZoneListByRegion(client *compute.Service, projectId string, regionUrl st
 	return resp, nil
 }
 
-// Available or Unavailable 로 return
-// Status of the zone, either UP or DOWN. (지원하지 않는 경우 NotSupported)
+func GetZonesByRegion(client *compute.Service, projectId string, region string) (*compute.ZoneList, error) {
+
+	// Create selflink for region and call GetZoneListByRegion
+	if projectId == "" {
+		return nil, errors.New("Project information not found")
+	}
+	if region == "" {
+		return nil, errors.New("Region information not found")
+	}
+
+	regionUrl := fmt.Sprintf("https://www.googleapis.com/compute/v1/projects/%s/regions/%s", projectId, region)
+	resp, err := GetZoneListByRegion(client, projectId, regionUrl)
+	if err != nil {
+		cblogger.Error(err)
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// Return Available or Unavailable
+// Status of the zone, either UP or DOWN. (NotSupported if not supported)
 func GetZoneStatus(status string) irs.ZoneStatus {
 	if status == "UP" {
 		return irs.ZoneAvailable
@@ -785,3 +811,650 @@ func GetZoneStatus(status string) irs.ZoneStatus {
  NullFields: ([]string) <nil>
 })
 */
+
+// GCP Filestore API Common Functions
+
+func ListFilestoreInstancesByRegionAndZones(filestoreClient *filestore.CloudFilestoreManagerClient, computeClient *compute.Service, credential idrv.CredentialInfo, region idrv.RegionInfo, ctx context.Context) ([]*filestorepb.Instance, error) {
+	var instances []*filestorepb.Instance
+	regionParent := FormatParentPath(credential.ProjectID, region.Region)
+	regionInstances, err := ListFilestoreInstances(filestoreClient, ctx, regionParent)
+	if err != nil {
+		cblogger.Error("error while listing file system instances")
+		return nil, err
+	}
+	cblogger.Debug("regionInstances", regionInstances)
+	instances = append(instances, regionInstances...)
+
+	// region for the corresponding connection
+	zonesByRegion, err := GetZonesByRegion(computeClient, credential.ProjectID, region.Region)
+	if err != nil {
+		cblogger.Error("error while listing zones by region")
+		return nil, err
+	}
+	cblogger.Debug("zonesByRegion ", zonesByRegion)
+
+	for _, zone := range zonesByRegion.Items {
+		//cblogger.Debug("zone", zone)
+		zoneParent := FormatParentPath(credential.ProjectID, zone.Name)
+		cblogger.Debug("zoneParent ", zoneParent)
+		zoneInstances, err := ListFilestoreInstances(filestoreClient, ctx, zoneParent)
+		if err != nil {
+			cblogger.Error("failed to listing file system instances")
+			continue
+		}
+		instances = append(instances, zoneInstances...)
+	}
+	return instances, nil
+}
+
+// ListFilestoreInstances lists all filestore instances in a given parent location
+func ListFilestoreInstances(filestoreClient *filestore.CloudFilestoreManagerClient, ctx context.Context, parent string) ([]*filestorepb.Instance, error) {
+	var instances []*filestorepb.Instance
+	//projects/csta-349809/locations/asia-northeast3/instances
+	cblogger.Debug("ListFilestoreInstances parent : ", parent)
+	req := &filestorepb.ListInstancesRequest{
+		Parent: parent,
+	}
+
+	it := filestoreClient.ListInstances(ctx, req)
+	for {
+		instance, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to iterate filestore instances: %v", err)
+		}
+		instances = append(instances, instance)
+	}
+
+	return instances, nil
+}
+
+// GetFilestoreInstance gets a specific filestore instance by name : must be a parent-structured name.
+func GetFilestoreInstance(filestoreClient *filestore.CloudFilestoreManagerClient, ctx context.Context, name string) (*filestorepb.Instance, error) {
+	cblogger.Debug("GetFilestoreInstance name: ", name)
+	req := &filestorepb.GetInstanceRequest{
+		Name: name,
+	}
+
+	instance, err := filestoreClient.GetInstance(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get filestore instance %s: %v", name, err)
+	}
+
+	return instance, nil
+}
+
+// CreateFilestoreInstance creates a new filestore instance
+func CreateFilestoreInstance(filestoreClient *filestore.CloudFilestoreManagerClient, ctx context.Context, req *filestorepb.CreateInstanceRequest) (*filestorepb.Instance, error) {
+
+	op, err := filestoreClient.CreateInstance(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create filestore instance: %v", err)
+	}
+
+	// Wait for operation to complete
+	result, err := op.Wait(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to wait for filestore instance creation: %v", err)
+	}
+
+	return result, nil
+}
+
+// DeleteFilestoreInstance deletes a filestore instance
+func DeleteFilestoreInstance(filestoreClient *filestore.CloudFilestoreManagerClient, ctx context.Context, name string) error {
+	req := &filestorepb.DeleteInstanceRequest{
+		Name: name,
+	}
+
+	// name
+	// name := "projects/csta-349809/locations/asia-northeast1-b/instances/testfs01"
+
+	op, err := filestoreClient.DeleteInstance(ctx, req)
+	if err != nil {
+		return fmt.Errorf("failed to delete filestore instance %s: %v", name, err)
+	}
+
+	// Wait for operation to complete
+	err = op.Wait(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to wait for filestore instance deletion: %v", err)
+	}
+
+	return nil
+}
+
+// FormatParentPath formats the parent path for filestore API calls
+// In filestore, parent is zone. In Filestore, locations map to Google Cloud zones, for example us-west1-b.
+func FormatParentPath(projectID, zone string) string {
+	return fmt.Sprintf("projects/%s/locations/%s", projectID, zone)
+}
+
+func FormatFilestoreInstanceName(projectID, zone, instanceName string) string {
+	return fmt.Sprintf("projects/%s/locations/%s/instances/%s", projectID, zone, instanceName)
+}
+
+// Extract the last part from the format "projects/%s/locations/%s/instances/%s"
+func ExtractFilestoreName(instanceName string) string {
+	parentName := strings.Split(instanceName, "/")
+	return parentName[len(parentName)-1]
+}
+
+// func extractFileSystemInfo(fs *filestorepb.Instance, vNetInfo *irs.VPCInfo) *irs.FileSystemInfo {
+// 	cblogger.Debug("extractFileSystemInfo")
+// 	fsInstanceName := fs.Name
+
+// 	parentFormat := regexp.MustCompile(`^projects/[^/]+/locations/([^/]+)/instances/([^/]+)$`)
+// 	matches := parentFormat.FindStringSubmatch(fsInstanceName)
+
+// 	if len(matches) != 3 {
+// 		cblogger.Error("invalid instance name format: %s", fsInstanceName)
+// 		return nil
+// 	}
+
+// 	location := matches[1]
+// 	fsName := matches[2]
+
+// 	fsType := irs.FileSystemType(fs.Tier)
+// 	fsCapacity := fs.FileShares[0].CapacityGb
+// 	fsLabels := fs.Labels
+// 	fsNetwork := fs.Networks[0]
+// 	fsEtag := fs.Etag
+// 	fsStatus := irs.FileSystemStatus(fs.State)
+
+// 	cblogger.Debug("extractFileSystemInfo")
+// 	cblogger.Debug("fsName: ", fsName)
+// 	cblogger.Debug("fsType: ", fsType)
+// 	cblogger.Debug("fsCapacity: ", fsCapacity)
+// 	cblogger.Debug("fsLabels: ", fsLabels)
+// 	cblogger.Debug("fsNetwork: ", fsNetwork)
+// 	cblogger.Debug("fsEtag: ", fsEtag)
+
+// 	// Tier는 hdd/ssd/ .
+// 	// Instance_TIER_UNSPECIFIED Instance_Tier = 0
+// 	// // STANDARD tier. BASIC_HDD is the preferred term for this tier.
+// 	// Instance_STANDARD Instance_Tier = 1
+// 	// // PREMIUM tier. BASIC_SSD is the preferred term for this tier.
+// 	// Instance_PREMIUM Instance_Tier = 2
+// 	// // BASIC instances offer a maximum capacity of 63.9 TB.
+// 	// // BASIC_HDD is an alias for STANDARD Tier, offering economical
+// 	// // performance backed by HDD.
+// 	// Instance_BASIC_HDD Instance_Tier = 3
+// 	// // BASIC instances offer a maximum capacity of 63.9 TB.
+// 	// // BASIC_SSD is an alias for PREMIUM Tier, and offers improved
+// 	// // performance backed by SSD.
+// 	// Instance_BASIC_SSD Instance_Tier = 4
+// 	// // HIGH_SCALE instances offer expanded capacity and performance scaling
+// 	// // capabilities.
+// 	// Instance_HIGH_SCALE_SSD Instance_Tier = 5
+// 	// // ENTERPRISE instances offer the features and availability needed for
+// 	// // mission-critical workloads.
+// 	// Instance_ENTERPRISE Instance_Tier = 6
+// 	// // ZONAL instances offer expanded capacity and performance scaling
+// 	// // capabilities.
+// 	// Instance_ZONAL Instance_Tier = 7
+// 	// // REGIONAL instances offer the features and availability needed for
+// 	// // mission-critical workloads.
+// 	// Instance_REGIONAL Instance_Tier = 8
+
+// 	fsRegion := ""
+// 	fsZone := ""
+
+// 	switch fs.Tier {
+// 	case filestorepb.Instance_ZONAL:
+// 		fsType = irs.ZoneType
+// 		fsRegion = location[:len(location)-2]
+// 		fsZone = location
+// 	case filestorepb.Instance_REGIONAL:
+// 		fsType = irs.RegionType
+// 		fsRegion = location
+// 		fsZone = ""
+// 	}
+
+// 	// vpc 조회
+// 	// subnetList
+// 	subnetList := []irs.IID{}
+// 	for _, subnet := range vNetInfo.SubnetInfoList {
+// 		subnetList = append(subnetList, subnet.IId)
+// 	}
+
+// 	fsNfsVersion := ""
+
+// 	switch fs.Protocol {
+// 	case filestorepb.Instance_NFS_V3:
+// 		fsNfsVersion = "3.0"
+// 	case filestorepb.Instance_NFS_V4_1:
+// 		fsNfsVersion = "4.1"
+// 	}
+
+// 	performanceInfo := map[string]string{}
+// 	pc := fs.PerformanceConfig
+// 	if pc.GetIopsPerTb() != nil {
+// 		performanceInfo["MaxIopsPerTiB"] = strconv.FormatInt(pc.GetIopsPerTb().GetMaxIopsPerTb(), 10)
+// 	}
+// 	if pc.GetFixedIops() != nil {
+// 		performanceInfo["MaxIops"] = strconv.FormatInt(pc.GetFixedIops().GetMaxIops(), 10)
+// 	}
+
+// 	pl := fs.PerformanceLimits
+// 	if pl != nil {
+// 		performanceInfo["Limit_MaxIops"] = strconv.FormatInt(pl.GetMaxIops(), 10)
+// 		performanceInfo["Limit_MaxReadIops"] = strconv.FormatInt(pl.GetMaxReadIops(), 10)
+// 		performanceInfo["Limit_MaxWriteIops"] = strconv.FormatInt(pl.GetMaxWriteIops(), 10)
+// 		performanceInfo["Limit_MaxReadThroughputBytePerSecond"] = strconv.FormatInt(pl.GetMaxReadThroughputBps(), 10)
+// 		performanceInfo["Limit_MaxWriteThroughputBytePerSecond"] = strconv.FormatInt(pl.GetMaxWriteThroughputBps(), 10)
+// 	}
+
+// 	// Performance options, e.g., {"Tier": "STANDARD"}, {"ThroughputMode": "provisioned", "Throughput": "128"}; CSP default if omitted
+
+// 	//
+// 	// UsedSizeGB      int64             `json:"UsedSizeGB" validate:"required" example:"256"` // Current used size in GB.
+// 	// MountTargetList []MountTargetInfo `json:"MountTargetList,omitempty"`
+
+// 	// CreatedTime  time.Time  `json:"CreatedTime" validate:"required"`
+
+// 	tagList := []irs.KeyValue{}
+// 	for key, value := range fsLabels {
+// 		tagList = append(tagList, irs.KeyValue{Key: key, Value: value})
+// 	}
+
+// 	fsInfo := irs.FileSystemInfo{
+// 		IId: irs.IID{
+// 			SystemId: fsName,
+// 		},
+// 		Region:           fsRegion,
+// 		Zone:             fsZone,
+// 		VpcIID:           vNetInfo.IId,
+// 		AccessSubnetList: subnetList,
+// 		Encryption:       true, // kmsKeyName을 이용하여 암호화 처리
+// 		// 	BackupSchedule : irs.FileSystemBackupInfo{
+// 		// 		FileSystemIID : fsName,
+// 		//	}
+// 		FileSystemType: fsType,
+// 		NFSVersion:     fsNfsVersion,
+// 		CapacityGB:     fsCapacity,
+
+// 		Status:  fsStatus,
+// 		TagList: tagList,
+// 	}
+// 	return &fsInfo
+// }
+
+// 	cblogger.Debug("extractFileSystemInfo")
+// 	fsInstanceName := fs.Name
+
+// 	parentFormat := regexp.MustCompile(`^projects/[^/]+/locations/([^/]+)/instances/([^/]+)$`)
+// 	matches := parentFormat.FindStringSubmatch(fsInstanceName)
+
+// 	if len(matches) != 3 {
+// 		cblogger.Error("invalid instance name format: %s", fsInstanceName)
+// 		return nil
+// 	}
+
+// 	location := matches[1]
+// 	fsName := matches[2]
+
+// 	fsType := irs.FileSystemType(fs.Tier)
+// 	fsCapacity := fs.FileShares[0].CapacityGb
+// 	fsLabels := fs.Labels
+// 	fsNetwork := fs.Networks[0]
+// 	fsEtag := fs.Etag
+// 	fsStatus := irs.FileSystemStatus(fs.State)
+
+// 	cblogger.Debug("extractFileSystemInfo")
+// 	cblogger.Debug("fsName: ", fsName)
+// 	cblogger.Debug("fsType: ", fsType)
+// 	cblogger.Debug("fsCapacity: ", fsCapacity)
+// 	cblogger.Debug("fsLabels: ", fsLabels)
+// 	cblogger.Debug("fsNetwork: ", fsNetwork)
+// 	cblogger.Debug("fsEtag: ", fsEtag)
+
+// 	// Tier is hdd/ssd/ .
+// 	// Instance_TIER_UNSPECIFIED Instance_Tier = 0
+// 	// // STANDARD tier. BASIC_HDD is the preferred term for this tier.
+// 	// Instance_STANDARD Instance_Tier = 1
+// 	// // PREMIUM tier. BASIC_SSD is the preferred term for this tier.
+// 	// Instance_PREMIUM Instance_Tier = 2
+// 	// // BASIC instances offer a maximum capacity of 63.9 TB.
+// 	// // BASIC_HDD is an alias for STANDARD Tier, offering economical
+// 	// // performance backed by HDD.
+// 	// Instance_BASIC_HDD Instance_Tier = 3
+// 	// // BASIC instances offer a maximum capacity of 63.9 TB.
+// 	// // BASIC_SSD is an alias for PREMIUM Tier, and offers improved
+// 	// // performance backed by SSD.
+// 	// Instance_BASIC_SSD Instance_Tier = 4
+// 	// // HIGH_SCALE instances offer expanded capacity and performance scaling
+// 	// // capabilities.
+// 	// Instance_HIGH_SCALE_SSD Instance_Tier = 5
+// 	// // ENTERPRISE instances offer the features and availability needed for
+// 	// // mission-critical workloads.
+// 	// Instance_ENTERPRISE Instance_Tier = 6
+// 	// // ZONAL instances offer expanded capacity and performance scaling
+// 	// // capabilities.
+// 	// Instance_ZONAL Instance_Tier = 7
+// 	// // REGIONAL instances offer the features and availability needed for
+// 	// // mission-critical workloads.
+// 	// Instance_REGIONAL Instance_Tier = 8
+
+// 	fsRegion := ""
+// 	fsZone := ""
+
+// 	switch fs.Tier {
+// 	case filestorepb.Instance_ZONAL:
+// 		fsType = irs.ZoneType
+// 		fsRegion = location[:len(location)-2]
+// 		fsZone = location
+// 	case filestorepb.Instance_REGIONAL:
+// 		fsType = irs.RegionType
+// 		fsRegion = location
+// 		fsZone = ""
+// 	}
+
+// 	// vpc 조회
+// 	// subnetList
+// 	subnetList := []irs.IID{}
+// 	for _, subnet := range vNetInfo.SubnetInfoList {
+// 		subnetList = append(subnetList, subnet.IId)
+// 	}
+
+// 	fsNfsVersion := ""
+
+// 	switch fs.Protocol {
+// 	case filestorepb.Instance_NFS_V3:
+// 		fsNfsVersion = "3.0"
+// 	case filestorepb.Instance_NFS_V4_1:
+// 		fsNfsVersion = "4.1"
+// 	}
+
+// 	performanceInfo := map[string]string{}
+// 	pc := fs.PerformanceConfig
+// 	if pc.GetIopsPerTb() != nil {
+// 		performanceInfo["MaxIopsPerTiB"] = strconv.FormatInt(pc.GetIopsPerTb().GetMaxIopsPerTb(), 10)
+// 	}
+// 	if pc.GetFixedIops() != nil {
+// 		performanceInfo["MaxIops"] = strconv.FormatInt(pc.GetFixedIops().GetMaxIops(), 10)
+// 	}
+
+// 	pl := fs.PerformanceLimits
+// 	if pl != nil {
+// 		performanceInfo["Limit_MaxIops"] = strconv.FormatInt(pl.GetMaxIops(), 10)
+// 		performanceInfo["Limit_MaxReadIops"] = strconv.FormatInt(pl.GetMaxReadIops(), 10)
+// 		performanceInfo["Limit_MaxWriteIops"] = strconv.FormatInt(pl.GetMaxWriteIops(), 10)
+// 		performanceInfo["Limit_MaxReadThroughputBytePerSecond"] = strconv.FormatInt(pl.GetMaxReadThroughputBps(), 10)
+// 		performanceInfo["Limit_MaxWriteThroughputBytePerSecond"] = strconv.FormatInt(pl.GetMaxWriteThroughputBps(), 10)
+// 	}
+
+// 	// Performance options, e.g., {"Tier": "STANDARD"}, {"ThroughputMode": "provisioned", "Throughput": "128"}; CSP default if omitted
+
+// 	//
+// 	// UsedSizeGB      int64             `json:"UsedSizeGB" validate:"required" example:"256"` // Current used size in GB.
+// 	// MountTargetList []MountTargetInfo `json:"MountTargetList,omitempty"`
+
+// 	// CreatedTime  time.Time  `json:"CreatedTime" validate:"required"`
+
+// 	tagList := []irs.KeyValue{}
+// 	for key, value := range fsLabels {
+// 		tagList = append(tagList, irs.KeyValue{Key: key, Value: value})
+// 	}
+
+// 	fsInfo := irs.FileSystemInfo{
+// 		IId: irs.IID{
+// 			SystemId: fsName,
+// 		},
+// 		Region:           fsRegion,
+// 		Zone:             fsZone,
+// 		VpcIID:           vNetInfo.IId,
+// 		AccessSubnetList: subnetList,
+// 		Encryption:       true, // kmsKeyName을 이용하여 암호화 처리
+// 		// 	BackupSchedule : irs.FileSystemBackupInfo{
+// 		// 		FileSystemIID : fsName,
+// 		//	}
+// 		FileSystemType: fsType,
+// 		NFSVersion:     fsNfsVersion,
+// 		CapacityGB:     fsCapacity,
+
+// 		Status:  fsStatus,
+// 		TagList: tagList,
+// 	}
+// 	return &fsInfo
+// }
+
+func GetVpcInfo(client *compute.Service, credential idrv.CredentialInfo, region idrv.RegionInfo, vpcIID irs.IID) (irs.VPCInfo, error) {
+	infoVPC, err := client.Networks.Get(credential.ProjectID, vpcIID.SystemId).Do()
+	if err != nil {
+		cblogger.Error(err)
+		return irs.VPCInfo{}, err
+	}
+
+	subnetInfoList := []irs.SubnetInfo{}
+	if infoVPC.Subnetworks != nil {
+		for _, item := range infoVPC.Subnetworks {
+			str := strings.Split(item, "/")
+			subnet := str[len(str)-1]
+			infoSubnet, err := GetSubnetListInfo(client, credential, region, subnet)
+			if err != nil {
+				cblogger.Error(err)
+				return irs.VPCInfo{}, err
+			}
+			subnetInfoList = append(subnetInfoList, mappingSubnet(infoSubnet))
+		}
+
+	}
+
+	vpcInfo := irs.VPCInfo{
+		IId: irs.IID{
+			NameId: infoVPC.Name,
+			//SystemId: strconv.FormatUint(infoVPC.Id, 10),
+			SystemId: infoVPC.Name,
+		},
+		IPv4_CIDR:      "GCP VPC does not support IPv4_CIDR",
+		SubnetInfoList: subnetInfoList,
+	}
+	// 2025-03-13 Changed to use StructToKeyValueList
+	vpcInfo.KeyValueList = irs.StructToKeyValueList(infoVPC)
+
+	return vpcInfo, nil
+}
+
+func GetSubnetListInfo(client *compute.Service, credential idrv.CredentialInfo, region idrv.RegionInfo, subnet string) (*compute.Subnetwork, error) {
+	infoSubnet, err := client.Subnetworks.Get(credential.ProjectID, region.Region, subnet).Do()
+	if err != nil {
+		cblogger.Error(err)
+		return nil, err
+	}
+
+	return infoSubnet, nil
+}
+
+func extractFileSystemInfo(
+	computeClient *compute.Service,
+	filestoreClient *filestore.CloudFilestoreManagerClient,
+	monitoringClient *monitoring.MetricClient,
+	credential idrv.CredentialInfo,
+	region idrv.RegionInfo,
+	fileStoreInstances []*filestorepb.Instance) ([]*irs.FileSystemInfo, error) {
+
+	fsInfoList := []*irs.FileSystemInfo{}
+	vpcInfoMap := make(map[string]irs.VPCInfo)
+	for _, instance := range fileStoreInstances {
+
+		// Set fileStore information
+		fsInstanceName := instance.Name
+		parentFormat := regexp.MustCompile(`^projects/[^/]+/locations/([^/]+)/instances/([^/]+)$`)
+		matches := parentFormat.FindStringSubmatch(fsInstanceName)
+
+		if len(matches) != 3 {
+			cblogger.Error("invalid instance name format: %s", fsInstanceName)
+			//return nil, errors.New("invalid instance name format: " + fsInstanceName)
+			continue
+		}
+
+		location := matches[1]
+		fsName := matches[2] // fileStoreName := ExtractFilestoreName(instance.Name) is also possible, but using location info and extracted value as is
+
+		fsType := irs.FileSystemType("")
+		if instance.Tier == filestorepb.Instance_ZONAL {
+			fsType = irs.ZoneType
+		} else if instance.Tier == filestorepb.Instance_REGIONAL {
+			fsType = irs.RegionType
+		}
+
+		fsCapacity := instance.FileShares[0].CapacityGb
+		fsLabels := instance.Labels
+		//fsNetwork := instance.Networks[0]
+		fsVPCNetworkName := instance.Networks[0].Network
+		fsFileStoreIP := instance.Networks[0].IpAddresses[0]
+		fsReservedIpRange := instance.Networks[0].ReservedIpRange
+
+		// Convert enum values to strings for joining
+		var modeStrings []string
+		for _, mode := range instance.Networks[0].Modes {
+			modeStrings = append(modeStrings, mode.String())
+		}
+		fsIPStackTypes := strings.Join(modeStrings, ",")
+
+		//fsEtag := instance.Etag
+		//fsStatus := irs.FileSystemStatus(instance.State)
+		fsStatus := irs.FileSystemStatus("")
+
+		if instance.State == filestorepb.Instance_CREATING {
+			fsStatus = irs.FileSystemCreating
+		} else if instance.State == filestorepb.Instance_READY {
+			fsStatus = irs.FileSystemAvailable
+		} else if instance.State == filestorepb.Instance_DELETING {
+			fsStatus = irs.FileSystemDeleting
+		} else if instance.State == filestorepb.Instance_ERROR {
+			fsStatus = irs.FileSystemError
+		}
+
+		cblogger.Debug("extractFileSystemInfo")
+		cblogger.Debug("fsName: ", fsName)
+		cblogger.Debug("fsType: ", fsType)
+		cblogger.Debug("fsCapacity: ", fsCapacity)
+		cblogger.Debug("fsLabels: ", fsLabels)
+		cblogger.Debug("fsVPCNetworkName: ", fsVPCNetworkName)
+		cblogger.Debug("fsFileStoreIP: ", fsFileStoreIP)
+		cblogger.Debug("fsReservedIpRange: ", fsReservedIpRange)
+		cblogger.Debug("fsStatus: ", fsStatus)
+
+		fsRegion := ""
+		fsZone := ""
+
+		switch instance.Tier { // Can distinguish whether location is region or zone based on Tier
+		case filestorepb.Instance_ZONAL:
+			fsType = irs.ZoneType
+			fsRegion = location[:len(location)-2]
+			fsZone = location
+		case filestorepb.Instance_REGIONAL:
+			fsType = irs.RegionType
+			fsRegion = location
+			fsZone = ""
+		}
+
+		cblogger.Debug("fsRegion: ", fsRegion)
+		cblogger.Debug("fsZone: ", fsZone)
+
+		// Get vpc
+		vpcSystemId := fsVPCNetworkName // Current version supports only 1 vpc. subnet cannot be specified
+		if _, ok := vpcInfoMap[vpcSystemId]; !ok {
+			vpcIID := irs.IID{SystemId: vpcSystemId}
+			vpcInfo, errVnet := GetVpcInfo(computeClient, credential, region, vpcIID)
+			if errVnet != nil {
+				cblogger.Error(errVnet)
+				//return nil, errVnet
+				continue
+			}
+			vpcInfoMap[vpcSystemId] = vpcInfo
+		}
+		currentVpcInfo := vpcInfoMap[vpcSystemId]
+		// subnetList
+		subnetList := []irs.IID{}
+		for _, subnet := range currentVpcInfo.SubnetInfoList {
+			subnetList = append(subnetList, subnet.IId)
+		}
+
+		// cblogger.Debug("VpcInfo: ", currentVpcInfo)
+		// cblogger.Debug("subnetList: ", subnetList)
+
+		fsNfsVersion := ""
+		switch instance.Protocol {
+		case filestorepb.Instance_NFS_V3:
+			fsNfsVersion = string(GCPNFSVersion(NFS_V3))
+		case filestorepb.Instance_NFS_V4_1:
+			fsNfsVersion = string(GCPNFSVersion(NFS_V4_1))
+		}
+		cblogger.Debug("fsNfsVersion: ", fsNfsVersion)
+
+		performanceInfo := map[string]string{}
+		pc := instance.PerformanceConfig
+		if pc.GetIopsPerTb() != nil {
+			performanceInfo["MaxIopsPerTiB"] = strconv.FormatInt(pc.GetIopsPerTb().GetMaxIopsPerTb(), 10)
+		}
+		if pc.GetFixedIops() != nil {
+			performanceInfo["MaxIops"] = strconv.FormatInt(pc.GetFixedIops().GetMaxIops(), 10)
+		}
+
+		pl := instance.PerformanceLimits
+		if pl != nil {
+			performanceInfo["Limit_MaxIops"] = strconv.FormatInt(pl.GetMaxIops(), 10)
+			performanceInfo["Limit_MaxReadIops"] = strconv.FormatInt(pl.GetMaxReadIops(), 10)
+			performanceInfo["Limit_MaxWriteIops"] = strconv.FormatInt(pl.GetMaxWriteIops(), 10)
+			performanceInfo["Limit_MaxReadThroughputBytePerSecond"] = strconv.FormatInt(pl.GetMaxReadThroughputBps(), 10)
+			performanceInfo["Limit_MaxWriteThroughputBytePerSecond"] = strconv.FormatInt(pl.GetMaxWriteThroughputBps(), 10)
+		}
+		cblogger.Debug("performanceInfo: ", performanceInfo)
+
+		// 	//
+		// 	// UsedSizeGB      int64             `json:"UsedSizeGB" validate:"required" example:"256"` // Current used size in GB.
+		// 	// MountTargetList []MountTargetInfo `json:"MountTargetList,omitempty"`
+
+		// 	// CreatedTime  time.Time  `json:"CreatedTime" validate:"required"`
+
+		endpoint := fsFileStoreIP + ":/" + fsName
+		mountTargetKeyList := []irs.KeyValue{
+			{Key: "ipRanges", Value: fsReservedIpRange},
+			{Key: "ipStackTypes", Value: fsIPStackTypes},
+			{Key: "ipAddresses", Value: fsFileStoreIP},
+		}
+
+		//subnetList
+		mountTarget := irs.MountTargetInfo{
+			// subnet cannot be mapped. Different from vpc's subnet. SecurityGroup also cannot be specified
+			//SecurityGroups:      ,
+			Endpoint:            endpoint, // instance connection ip
+			MountCommandExample: "sudo mount -o hard,intr,rw,vers=" + fsNfsVersion + ",tcp " + endpoint + " /mnt/" + fsName,
+			KeyValueList:        mountTargetKeyList,
+		}
+
+		tagList := []irs.KeyValue{}
+		for key, value := range fsLabels {
+			tagList = append(tagList, irs.KeyValue{Key: key, Value: value})
+		}
+		cblogger.Debug("tagList: ", tagList)
+
+		// fileShares
+		if len(instance.FileShares) > 0 {
+			// Set mount information: get from monitoring api
+		}
+
+		fsInfo := irs.FileSystemInfo{}
+		fsInfo.IId = irs.IID{SystemId: fsName}
+		fsInfo.Region = fsRegion
+		fsInfo.Zone = fsZone
+		fsInfo.VpcIID = currentVpcInfo.IId
+		fsInfo.AccessSubnetList = subnetList
+		fsInfo.Encryption = true
+		fsInfo.FileSystemType = fsType
+		fsInfo.NFSVersion = fsNfsVersion
+		fsInfo.CapacityGB = fsCapacity
+		fsInfo.Status = fsStatus
+		fsInfo.MountTargetList = []irs.MountTargetInfo{mountTarget}
+		fsInfo.TagList = tagList
+
+		fsInfoList = append(fsInfoList, &fsInfo)
+
+	} // end of for
+	return fsInfoList, nil
+}

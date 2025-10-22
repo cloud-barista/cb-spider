@@ -220,7 +220,7 @@ func (priceInfoHandler *AzurePriceInfoHandler) ListProductFamily(regionName stri
 	return serviceFamilyList, nil
 }
 
-func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue) (string, error) {
+func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string, regionName string, filterList []irs.KeyValue, simpleVMSpecInfo bool) (string, error) {
 	hiscallInfo := GetCallLogScheme(priceInfoHandler.Region, call.PRICEINFO, "PriceInfo", "ListProductFamily()")
 	start := call.Start()
 
@@ -247,7 +247,7 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 
 	var skuList []*armcompute.ResourceSKU
 
-	if strings.ToLower(productFamily) == "compute" {
+	if strings.ToLower(productFamily) == "compute" && !simpleVMSpecInfo {
 		pager := priceInfoHandler.ResourceSkusClient.NewListPager(&armcompute.ResourceSKUsClientListOptions{})
 
 		for pager.More() {
@@ -289,77 +289,87 @@ func (priceInfoHandler *AzurePriceInfoHandler) GetPriceInfo(productFamily string
 			continue
 		}
 
-		productInfo := irs.ProductInfo{
-			ProductId: value[0].SkuID,
-			VMSpecInfo: irs.VMSpecInfo{
-				Name: "NA",
-				VCpu: irs.VCpuInfo{
-					Count:    "-1",
-					ClockGHz: "-1",
+		var productInfo irs.ProductInfo
+
+		// Simple 모드일 때는 VMSpecName만 설정
+		if simpleVMSpecInfo {
+			productInfo = irs.ProductInfo{
+				ProductId:      value[0].SkuID,
+				VMSpecName:     value[0].ArmSkuName,
+				Description:    value[0].ProductName,
+				CSPProductInfo: value[0],
+			}
+		} else {
+			// Non-simple 모드일 때는 VMSpecInfo를 기본값으로 초기화 (SKU capability에서 설정됨)
+			productInfo = irs.ProductInfo{
+				ProductId: value[0].SkuID,
+				VMSpecInfo: &irs.VMSpecInfo{
+					Region:     "",
+					Name:       value[0].ArmSkuName,
+					VCpu:       irs.VCpuInfo{Count: "-1", ClockGHz: "-1"},
+					MemSizeMiB: "-1",
+					DiskSizeGB: "-1",
 				},
-				MemSizeMiB: "-1",
-				DiskSizeGB: "-1",
-			},
-			Description:    value[0].ProductName,
-			CSPProductInfo: value[0],
+				Description:    value[0].ProductName,
+				CSPProductInfo: value[0],
+			}
 		}
 
 		foundMatchingSku := false
 		if strings.ToLower(productFamily) == "compute" {
-			gpuInfo := parseGpuInfo(value[0].ArmSkuName)
-			if gpuInfo != nil {
-				if productInfo.VMSpecInfo.Gpu == nil {
-					productInfo.VMSpecInfo.Gpu = make([]irs.GpuInfo, 0)
+			if simpleVMSpecInfo {
+				// Simple mode에서는 SKU 처리를 건너뛰고 Name만 유지
+				foundMatchingSku = true
+			} else {
+				gpuInfo := parseGpuInfo(value[0].ArmSkuName)
+				if gpuInfo != nil {
+					if productInfo.VMSpecInfo.Gpu == nil {
+						productInfo.VMSpecInfo.Gpu = make([]irs.GpuInfo, 0)
+					}
+					productInfo.VMSpecInfo.Gpu = append(productInfo.VMSpecInfo.Gpu, *gpuInfo)
 				}
-				productInfo.VMSpecInfo.Gpu = append(productInfo.VMSpecInfo.Gpu, *gpuInfo)
-			}
 
-			for _, sku := range skuList {
-				if value[0].ArmSkuName == *sku.Name {
-					foundMatchingSku = true
+				for _, sku := range skuList {
+					if value[0].ArmSkuName == *sku.Name {
+						foundMatchingSku = true
 
-					for _, capability := range sku.Capabilities {
-						if capability.Name == nil || capability.Value == nil {
-							continue
-						}
+						for _, capability := range sku.Capabilities {
+							if capability.Name == nil || capability.Value == nil {
+								continue
+							}
 
-						name := *capability.Name
-						value := *capability.Value
+							name := *capability.Name
+							value := *capability.Value
 
-						switch name {
-						case "OSVhdSizeMB":
-							productInfo.VMSpecInfo.DiskSizeGB, _ = irs.ConvertMiBToGB(value)
-						case "vCPUs":
-							productInfo.VMSpecInfo.VCpu.Count = value
-							productInfo.VMSpecInfo.VCpu.ClockGHz = "-1"
-						case "MemoryGB":
-							productInfo.VMSpecInfo.MemSizeMiB, _ = irs.ConvertGiBToMiB(value)
-						case "GPUs":
-							if gpuInfo == nil {
-								productInfo.VMSpecInfo.Gpu = []irs.GpuInfo{
-									{
-										Count:          value,
-										MemSizeGB:      "-1",
-										TotalMemSizeGB: "-1",
-										Mfr:            "NA",
-										Model:          "NA",
-									},
+							switch name {
+							case "OSVhdSizeMB":
+								productInfo.VMSpecInfo.DiskSizeGB, _ = irs.ConvertMiBToGB(value)
+							case "vCPUs":
+								productInfo.VMSpecInfo.VCpu.Count = value
+								productInfo.VMSpecInfo.VCpu.ClockGHz = "-1"
+							case "MemoryGB":
+								productInfo.VMSpecInfo.MemSizeMiB, _ = irs.ConvertGiBToMiB(value)
+							case "GPUs":
+								if gpuInfo == nil {
+									productInfo.VMSpecInfo.Gpu = []irs.GpuInfo{
+										{
+											Count:          value,
+											MemSizeGB:      "-1",
+											TotalMemSizeGB: "-1",
+											Mfr:            "NA",
+											Model:          "NA",
+										},
+									}
 								}
 							}
 						}
+						break
 					}
-					break
 				}
-			}
 
-			if !foundMatchingSku {
-				continue
-			}
-
-			if value[0].ArmSkuName == "" {
-				productInfo.VMSpecInfo.Name = "NA"
-			} else {
-				productInfo.VMSpecInfo.Name = value[0].ArmSkuName
+				if !foundMatchingSku {
+					continue
+				}
 			}
 		}
 

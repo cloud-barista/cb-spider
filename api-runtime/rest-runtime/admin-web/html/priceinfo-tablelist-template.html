@@ -208,7 +208,13 @@
     {{ $fileName := .CachedFileName }}
 
     <div class="cloudHeader">
-        <h3>{{.Data.CloudName}}</h3>
+        <h3>{{.Data.CloudName}} 
+            {{if eq .SimpleMode "ON"}}
+                <span style="color: #0066cc; font-size: 14px;">[Simple Mode]</span>
+            {{else}}
+                <span style="color: #666; font-size: 14px;">[Detailed Mode]</span>
+            {{end}}
+        </h3>
         <button id="toggleButton-{{.Data.CloudName}}" onclick="toggleView('{{.Data.CloudName}}')">JSON View</button>
 
         <button onclick="conditionalDownload('{{.Data.CloudName}}', '{{$totalNum}}', '{{$fileName}}')">JSON Download</button>
@@ -237,7 +243,12 @@
             <td class="center-text">{{$.Data.RegionName}}/{{.ZoneName}}</td>
             <td>
                 <ul>
-                    {{if .ProductInfo.VMSpecInfo}}
+                    {{if and (eq $.SimpleMode "ON") .ProductInfo.VMSpecName}}
+                        <!-- Simple Mode: VMSpecName only -->
+                        <li><strong>VMSpec: {{.ProductInfo.VMSpecName}}</strong></li>
+                        <li><em>Simple mode - detailed specs not available</em></li>
+                    {{else if .ProductInfo.VMSpecInfo}}
+                        <!-- Detailed Mode: Full VMSpecInfo -->
                         <li><strong>VMSpec: {{.ProductInfo.VMSpecInfo.Name}}</strong></li>
                         <li>VCPU: {{.ProductInfo.VMSpecInfo.VCpu.Count}}</li>
                         <li>Memory(MiB): {{.ProductInfo.VMSpecInfo.MemSizeMiB}}</li>
@@ -249,6 +260,12 @@
                                 <li>GPU Total Memory(GB): {{.TotalMemSizeGB}}</li>
                             {{end}}
                         {{end}}
+                    {{else if .ProductInfo.VMSpecName}}
+                        <!-- Fallback: VMSpecName only when VMSpecInfo is not available -->
+                        <li><strong>VMSpec: {{.ProductInfo.VMSpecName}}</strong></li>
+                        <li><em>Simple mode - detailed specs not available</em></li>
+                    {{else}}
+                        <li><em>No VM specification information available</em></li>
                     {{end}}
                 </ul>
             </td>

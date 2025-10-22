@@ -43,7 +43,7 @@ func (t *TencentPriceInfoHandler) ListProductFamily(regionName string) ([]string
 	return pl, nil
 }
 
-func (t *TencentPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, additionalFilters []irs.KeyValue) (string, error) {
+func (t *TencentPriceInfoHandler) GetPriceInfo(productFamily string, regionName string, additionalFilters []irs.KeyValue, simpleVMSpecInfo bool) (string, error) {
 
 	filterKeyValueMap := mapToTencentFilter(additionalFilters)
 
@@ -62,7 +62,7 @@ func (t *TencentPriceInfoHandler) GetPriceInfo(productFamily string, regionName 
 			return "", err
 		}
 
-		res, err := mappingToComputeStruct(t.Client.GetRegion(), standardInfo, keyValueMap)
+		res, err := mappingToComputeStruct(t.Client.GetRegion(), standardInfo, keyValueMap, simpleVMSpecInfo)
 		if err != nil {
 			return "", err
 		}
@@ -120,7 +120,7 @@ func describeZoneInstanceConfigInfos(client *cvm.Client, filterMap map[string]*c
 	return res, nil
 }
 
-func mappingToComputeStruct(regionName string, standardInfo *cvm.DescribeZoneInstanceConfigInfosResponse, filterMap map[string]string) (*irs.CloudPrice, error) {
+func mappingToComputeStruct(regionName string, standardInfo *cvm.DescribeZoneInstanceConfigInfosResponse, filterMap map[string]string, simpleVMSpecInfo bool) (*irs.CloudPrice, error) {
 	priceMap := make(map[string]irs.Price)
 
 	if standardInfo != nil {
@@ -144,7 +144,7 @@ func mappingToComputeStruct(regionName string, standardInfo *cvm.DescribeZoneIns
 				priceMap[productId] = price
 
 			} else {
-				productInfo := mappingProductInfo(regionName, *v)
+				productInfo := mappingProductInfo(regionName, *v, simpleVMSpecInfo)
 				if productFilter(filterMap, &productInfo) {
 					continue
 				}
@@ -239,7 +239,7 @@ func priceFilter(policy *irs.OnDemand, filterMap map[string]string) bool {
 	return false
 }
 
-func mappingProductInfo(regionName string, i interface{}) irs.ProductInfo {
+func mappingProductInfo(regionName string, i interface{}, simpleVMSpecInfo bool) irs.ProductInfo {
 	productInfo := irs.ProductInfo{
 		CSPProductInfo: i,
 	}
@@ -248,27 +248,33 @@ func mappingProductInfo(regionName string, i interface{}) irs.ProductInfo {
 	case cvm.InstanceTypeQuotaItem:
 		vm := i.(cvm.InstanceTypeQuotaItem)
 		productInfo.ProductId = *vm.Zone + "_" + *vm.InstanceType
-		productInfo.VMSpecInfo.Name = strPtrNilCheck(vm.InstanceType)
 
-		productInfo.VMSpecInfo.VCpu.Count = intPtrNilCheck(vm.Cpu)
-		productInfo.VMSpecInfo.VCpu.ClockGHz = extractClockValue(*vm.Frequency)
-
-		productInfo.VMSpecInfo.MemSizeMiB = irs.ConvertGiBToMiBInt64(*vm.Memory)
-
-		if int(*vm.Gpu) > 0 {
-			productInfo.VMSpecInfo.Gpu = []irs.GpuInfo{
-				{
-					Count:          strconv.Itoa(int(*vm.Gpu)),
-					MemSizeGB:      "-1",
-					TotalMemSizeGB: "-1",
-					Mfr:            "NA",
-					Model:          "NA",
-				},
+		if simpleVMSpecInfo {
+			productInfo.VMSpecName = strPtrNilCheck(vm.InstanceType)
+		} else {
+			vmSpecInfo := irs.VMSpecInfo{
+				Name:       strPtrNilCheck(vm.InstanceType),
+				VCpu:       irs.VCpuInfo{Count: intPtrNilCheck(vm.Cpu), ClockGHz: extractClockValue(*vm.Frequency)},
+				MemSizeMiB: irs.ConvertGiBToMiBInt64(*vm.Memory),
+				DiskSizeGB: "-1",
 			}
-		}
-		productInfo.Description = strPtrNilCheck(vm.CpuType) + ", " + strPtrNilCheck(vm.Remark)
 
-		productInfo.VMSpecInfo.DiskSizeGB = "-1"
+			if int(*vm.Gpu) > 0 {
+				vmSpecInfo.Gpu = []irs.GpuInfo{
+					{
+						Count:          strconv.Itoa(int(*vm.Gpu)),
+						MemSizeGB:      "-1",
+						TotalMemSizeGB: "-1",
+						Mfr:            "NA",
+						Model:          "NA",
+					},
+				}
+			}
+
+			productInfo.VMSpecInfo = &vmSpecInfo
+		}
+
+		productInfo.Description = strPtrNilCheck(vm.CpuType) + ", " + strPtrNilCheck(vm.Remark)
 
 		return productInfo
 

@@ -1,402 +1,908 @@
-// Cloud Driver Interface of CB-Spider.
-// The CB-Spider is a sub-Framework of the Cloud-Barista Multi-Cloud Project.
-// The CB-Spider Mission is to connect all the clouds with a single interface.
-//
+// Proof of Concepts for the Cloud-Barista Multi-Cloud Project.
 //      * Cloud-Barista: https://github.com/cloud-barista
 //
 // NCP VPC Handler
 //
-// by ETRI, 2021.12.
-// Updated by ETRI, 2023.10.
+// by ETRI, 2020.10.
+// by ETRI, 2022.03. updated
 
 package resources
 
 import (
-	"encoding/json"
 	"fmt"
-	"io"
-	"os"
 	"strings"
 	"time"
-	"errors"
-
 	// "github.com/davecgh/go-spew/spew"
-	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/server"
+	"github.com/NaverCloudPlatform/ncloud-sdk-go-v2/services/vpc"
+
 	cblog "github.com/cloud-barista/cb-log"
+	call "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/call-log"
 	idrv "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces"
 	irs "github.com/cloud-barista/cb-spider/cloud-control-manager/cloud-driver/interfaces/resources"
 )
 
-type NcpVPCHandler struct {
+type NcpVpcVPCHandler struct {
 	CredentialInfo idrv.CredentialInfo
 	RegionInfo     idrv.RegionInfo
-	VMClient       *server.APIClient
+	VPCClient      *vpc.APIClient
 }
-
-const (
-	vpcDir string = "/cloud-driver-libs/.vpc-ncp/"
-)
 
 func init() {
 	// cblog is a global variable.
-	cblogger = cblog.GetLogger("NCP VPC Handler")
+	cblogger = cblog.GetLogger("NCP VPCHandler")
 }
 
-type VPC struct {
-	IID           IId        `json:"IId"`
-	Cidr          string     `json:"IPv4_CIDR"`
-	Subnet_List   []Subnet   `json:"SubnetInfoList"`
-	KeyValue_List []KeyValue `json:"KeyValueList"`
-}
+func (vpcHandler *NcpVpcVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called CreateVPC()!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, vpcReqInfo.IId.NameId, "CreateVPC()")
 
-type Subnet struct {
-	IID           IId        `json:"IId"`
-	Zone          string     `json:"Zone"`
-	Cidr          string     `json:"IPv4_CIDR"`
-	KeyValue_List []KeyValue `json:"KeyValueList"`
-}
-
-type KeyValue struct {
-	Key   string `json:"Key"`
-	Value string `json:"Value"`
-}
-
-type IId struct {
-	NameID   string `json:"NameId"`
-	SystemID string `json:"SystemId"`
-}
-
-func (VPCHandler *NcpVPCHandler) CreateVPC(vpcReqInfo irs.VPCReqInfo) (irs.VPCInfo, error) {
-	cblogger.Info("NCP Cloud Driver: called CreateVPC()!")
-
-	// Check if the VPC Name already Exists
-	vpcInfo, _ := VPCHandler.GetVPC(irs.IID{SystemId: vpcReqInfo.IId.NameId}) // '_' : For when there is no VPC.
-
-	if vpcInfo.IId.SystemId != "" {
-		newErr := fmt.Errorf("The VPC already exists.")
+	if strings.EqualFold(vpcReqInfo.IId.NameId, "") {
+		newErr := fmt.Errorf("Invalid VPC Name!!")
 		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
 		return irs.VPCInfo{}, newErr
 	}
 
-	zoneId := VPCHandler.RegionInfo.Zone
-	if zoneId == "" {
-		newErr := fmt.Errorf("Failed to Get Zone info. from the connection info..")
-		cblogger.Error(newErr.Error())
-		return irs.VPCInfo{}, newErr
-	} else {
-		cblogger.Infof("ZoneId : %s", zoneId)
+	// Check if the VPC Exists
+	vpcInfoList, err := vpcHandler.ListVPC()
+	if err != nil {
+		cblogger.Error(err.Error())
+		LoggingError(callLogInfo, err)
+		// return irs.VPCInfo{}, err   // Caution!!
 	}
 
-	currentTime := getSeoulCurrentTime()
-
-	var subnetList []irs.SubnetInfo
-	for _, curSubnet := range vpcReqInfo.SubnetInfoList {
-		cblogger.Infof("Subnet NameId : %s", curSubnet.IId.NameId)
-		newSubnet, subnetErr := VPCHandler.CreateSubnet(curSubnet)
-		if subnetErr != nil {
-			newErr := fmt.Errorf("Failed to Create the Subnet.[%v]", subnetErr)
+	for _, vpcInfo := range vpcInfoList {
+		if strings.EqualFold(vpcInfo.IId.NameId, vpcReqInfo.IId.NameId) {
+			newErr := fmt.Errorf("VPC with the name [%s] exists already!!", vpcReqInfo.IId.NameId)
 			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)
 			return irs.VPCInfo{}, newErr
 		}
-		subnetList = append(subnetList, newSubnet)
 	}
 
-	newVpcInfo := irs.VPCInfo{
-		IId: irs.IID{
-			NameId: vpcReqInfo.IId.NameId,
-			// Note!! : vpcReqInfo.IId.NameId -> SystemId
-			SystemId: vpcReqInfo.IId.NameId,
-		},
-		IPv4_CIDR:      vpcReqInfo.IPv4_CIDR,
-		SubnetInfoList: subnetList,
-		KeyValueList: []irs.KeyValue{
-			{Key: "NCP-VPC-info.", Value: "This VPC info. is temporary."},
-			{Key: "CreateTime", Value: currentTime},
-		},
+	// Create New VPC
+	var vpcInfo irs.VPCInfo
+	vpcReqName := strings.ToLower(vpcReqInfo.IId.NameId)
+
+	createVpcReq := vpc.CreateVpcRequest{
+		RegionCode:    &vpcHandler.RegionInfo.Region,
+		Ipv4CidrBlock: &vpcReqInfo.IPv4_CIDR,
+		VpcName:       &vpcReqName, // Allows only lowercase letters, numbers or special character "-". Start with an alphabet character.
 	}
-	// spew.Dump(newVpcInfo)
-
-	vpcPath := os.Getenv("CBSPIDER_ROOT") + vpcDir
-	vpcFilePath := vpcPath + zoneId + "/"
-	jsonFileName := vpcFilePath + vpcReqInfo.IId.NameId + ".json"
-	// cblogger.Infof("jsonFileName to Create : [%s]", jsonFileName)
-
-	// Check if the VPC Folder Exists, and Create it
-	if err := CheckFolderAndCreate(vpcPath); err != nil {
-		newErr := fmt.Errorf("Failed to Create the VPC File Dir : %s, [%v]"+vpcPath, err)
-		cblogger.Error(newErr.Error())
-		return irs.VPCInfo{}, newErr
-	}
-
-	// Check if the VPC Folder Exists, and Create it
-	if err := CheckFolderAndCreate(vpcFilePath); err != nil {
-		newErr := fmt.Errorf("Failed to Create the VPC File Path : %s, [%v]"+vpcFilePath, err)
-		cblogger.Error(newErr.Error())
-		return irs.VPCInfo{}, newErr
-	}
-
-	// Write 'newVpcInfo' to a JSON File
-	file, _ := json.MarshalIndent(newVpcInfo, "", " ")
-	writeErr := os.WriteFile(jsonFileName, file, 0644)
-	if writeErr != nil {
-		newErr := fmt.Errorf("Failed to write the file : %s, [%v]", jsonFileName, writeErr)
-		cblogger.Error(newErr.Error())
-		return irs.VPCInfo{}, newErr
-	}
-	time.Sleep(time.Second * 1)
-	// cblogger.Infof("Succeeded in writing the VPC info on file : [%s]", jsonFileName)
-	// cblogger.Infof("Succeeded in Creating the VPC : [%s]", newVpcInfo.IId.NameId)
-
-	// Because it's managed as a file, there's no SystemId created.
-	// Return the created SecurityGroup info.
-	vpcInfo, vpcErr := VPCHandler.GetVPC(irs.IID{SystemId: vpcReqInfo.IId.NameId})
-	if vpcErr != nil {
-		newErr := fmt.Errorf("Failed to Get the VPC Info : [%v]", vpcErr)
-		cblogger.Error(newErr.Error())
-		return irs.VPCInfo{}, newErr
-	}
-	return vpcInfo, nil
-}
-
-func (VPCHandler *NcpVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
-	cblogger.Info("NCP Cloud Driver: called GetVPC()!")
-
-	// Note!!
-	if vpcIID.SystemId != "" {
-		vpcIID.NameId = vpcIID.SystemId
-	}
-
-	zoneId := VPCHandler.RegionInfo.Zone
-	if zoneId == "" {
-		newErr := fmt.Errorf("Failed to Get Zone info. from the connection info.")
-		cblogger.Error(newErr.Error())
-		return irs.VPCInfo{}, newErr
-	} else {
-		cblogger.Infof("ZoneId : %s", zoneId)
-	}
-
-	vpcPath := os.Getenv("CBSPIDER_ROOT") + vpcDir
-	vpcFilePath := vpcPath + zoneId + "/"
-	jsonFileName := vpcFilePath + vpcIID.NameId + ".json"
-
-	// cblogger.Infof("vpcIID.NameId : %s", vpcIID.NameId)
-	// cblogger.Infof("jsonFileName : %s", jsonFileName)
-
-	// Check if the VPC Folder Exists, and Create it
-	if err := CheckFolderAndCreate(vpcPath); err != nil {
-		newErr := fmt.Errorf("Failed to Create the VPC File Dir : %s, [%v]", vpcPath, err)
-		cblogger.Error(newErr.Error())
-		return irs.VPCInfo{}, newErr
-	}
-
-	// Check if the VPC Folder Exists, and Create it
-	if err := CheckFolderAndCreate(vpcFilePath); err != nil {
-		newErr := fmt.Errorf("Failed to Create the VPC File Path : %s, [%v]", vpcFilePath, err)
-		cblogger.Error(newErr.Error())
-		return irs.VPCInfo{}, newErr
-	}
-
-	jsonFile, err := os.Open(jsonFileName)
+	callLogStart := call.Start()
+	vpcResult, err := vpcHandler.VPCClient.V2Api.CreateVpc(&createVpcReq)
 	if err != nil {
-		newErr := fmt.Errorf("Failed to Find the VPC file : %s, [%v]", jsonFileName, err)
-		cblogger.Debug(newErr.Error()) // This is for checking if there is the specified VPC.
+		newErr := fmt.Errorf("Failed to Create requested VPC : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
 		return irs.VPCInfo{}, newErr
 	}
-	defer jsonFile.Close()
-	// cblogger.Info("Succeeded in Finding and Opening the VPC file: "+ jsonFileName)
+	LoggingInfo(callLogInfo, callLogStart)
 
-	var vpcJSON VPC
-	byteValue, readErr := io.ReadAll(jsonFile)
-	if readErr != nil {
-		newErr := fmt.Errorf("Failed to Read the VPC file : %s, [%v]", jsonFileName, readErr)
+	if len(vpcResult.VpcList) < 1 {
+		newErr := fmt.Errorf("Failed to Create any VPC. Neww VPC does Not Exist!!")
 		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VPCInfo{}, newErr
+	} else {
+		cblogger.Infof("Succeeded in Creating the VPC!! : [%s]", vpcReqInfo.IId.NameId)
+	}
+
+	// $$$ Uses Default NetworkACL of the Created VPC $$$
+	/*
+		// Create NetworkACL
+		netAclReqName := vpcReqName  // vpcReqName : length of 30 from CB-Spider Server
+		// Caution!!
+		// # Only lower case letter(No upper case).
+		// # Length constraints: Minimum length of 3. Maximum length of 30.
+
+		createNetAclReq := vpc.CreateNetworkAclRequest {
+			RegionCode: 		&vpcHandler.RegionInfo.Region,
+			NetworkAclName:     &netAclReqName, // Allows only lowercase letters, numbers or special character "-". Start with an alphabet character.
+			VpcNo: 				vpcResult.VpcList[0].VpcNo,
+		}
+
+		netAclResult, err := vpcHandler.VPCClient.V2Api.CreateNetworkAcl(&createNetAclReq)
+		if err != nil {
+			cblogger.Errorf("Failed to Create the NetworkACL : [%v]", err)
+			LoggingError(callLogInfo, err)
+			return irs.VPCInfo{}, err
+		}
+
+		if *netAclResult.TotalRows < 1 {
+			cblogger.Error("Failed to Create any NetworkACL!!")
+			return irs.VPCInfo{}, errors.New("Failed to Create any NetworkACL!!")
+		} else {
+			cblogger.Infof("Succeeded in Creating the NetworkACL!! : [%s]", netAclReqName)
+		}
+
+		// Create Subnet
+		for _, subnetInfo := range vpcReqInfo.SubnetInfoList {
+			_, err := vpcHandler.CreateSubnet(vpcResult.VpcList[0].VpcNo, netAclResult.NetworkAclList[0].NetworkAclNo, subnetInfo)
+			if err != nil {
+				newErr := fmt.Errorf("Failed to Create New Subnet : [%v]", err)
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return irs.VPCInfo{}, newErr
+			}
+		}
+	*/
+
+	newVpcIID := irs.IID{SystemId: *vpcResult.VpcList[0].VpcNo}
+
+	cblogger.Infof("# Waitting while Creating New VPC and Default NetworkACL!!")
+	vpcStatus, err := vpcHandler.waitForCreateVPC(newVpcIID)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Wait for VPC Creation : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
 		return irs.VPCInfo{}, newErr
 	}
-	json.Unmarshal(byteValue, &vpcJSON)
+	cblogger.Infof("===> # Status of New VPC [%s] : [%s]", newVpcIID.SystemId, vpcStatus)
 
-	vpcInfo, vpcInfoErr := VPCHandler.MappingVPCInfo(vpcJSON)
-	if vpcInfoErr != nil {
-		newErr := fmt.Errorf("Failed to Map the VPC Info : [%v]", vpcInfoErr)
+	// Add Requested Subnets
+	for _, subnetReqInfo := range vpcReqInfo.SubnetInfoList {
+		_, err := vpcHandler.AddSubnet(newVpcIID, subnetReqInfo) // Waitting time Included
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Create New Subnet : [%v]", err)
+			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)
+			return irs.VPCInfo{}, newErr
+		}
+	}
+
+	vpcInfo, getErr := vpcHandler.GetVPC(newVpcIID)
+	if getErr != nil {
+		newErr := fmt.Errorf("Failed to Get VPC Info : [%v]", getErr)
 		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
 		return irs.VPCInfo{}, newErr
 	}
 	return vpcInfo, nil
 }
 
-func (VPCHandler *NcpVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
-	cblogger.Info("NCP Cloud Driver: called ListVPC()!")
+func (vpcHandler *NcpVpcVPCHandler) ListVPC() ([]*irs.VPCInfo, error) {
+	cblogger.Info("NCP VPC cloud driver: called ListVPC()!!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, "ListVPC()", "ListVPC()")
 
-	var vpcIID irs.IID
+	vpcListReq := vpc.GetVpcListRequest{
+		RegionCode: &vpcHandler.RegionInfo.Region,
+	}
+	callLogStart := call.Start()
+	result, err := vpcHandler.VPCClient.V2Api.GetVpcList(&vpcListReq)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get VPC List from NCP VPC : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+	LoggingInfo(callLogInfo, callLogStart)
+
 	var vpcInfoList []*irs.VPCInfo
-
-	zoneId := VPCHandler.RegionInfo.Zone
-	if zoneId == "" {
-		newErr := fmt.Errorf("Failed to Get Zone info. from the connection info.")
-		cblogger.Error(newErr.Error())
-		return nil, newErr
+	if len(result.VpcList) < 1 {
+		cblogger.Info("### VPC does Not Exist!!")
 	} else {
-		cblogger.Infof("ZoneId : %s", zoneId)
-	}
-
-	vpcFilePath := os.Getenv("CBSPIDER_ROOT") + vpcDir + zoneId + "/"
-	// File list on the local directory
-	dirFiles, readErr := os.ReadDir(vpcFilePath)
-	if readErr != nil {
-		newErr := fmt.Errorf("Failed to Read the VPC file : [%v]", readErr)
-		cblogger.Error(newErr.Error())
-		return nil, newErr
-	}
-
-	for _, file := range dirFiles {
-		fileName := strings.TrimSuffix(file.Name(), ".json") // 접미사 제거
-		vpcIID.NameId = fileName
-		cblogger.Infof("# VPC Name : [%s]", vpcIID.NameId)
-
-		vpcInfo, vpcErr := VPCHandler.GetVPC(irs.IID{SystemId: vpcIID.NameId})
-		if vpcErr != nil {
-			newErr := fmt.Errorf("Failed to Get the VPC Info : [%v]", vpcErr)
-			cblogger.Error(newErr.Error())
-			return nil, newErr
+		for _, vpc := range result.VpcList {
+			vpcInfo, err := vpcHandler.mappingVpcInfo(vpc)
+			if err != nil {
+				newErr := fmt.Errorf("Failed to Map the VPC Info : [%v]", err)
+				cblogger.Error(newErr.Error())
+				LoggingError(callLogInfo, newErr)
+				return nil, newErr
+			}
+			vpcInfoList = append(vpcInfoList, vpcInfo)
 		}
-		vpcInfoList = append(vpcInfoList, &vpcInfo)
 	}
 	return vpcInfoList, nil
 }
 
-func (VPCHandler *NcpVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
-	cblogger.Info("NCP Cloud Driver: called DeleteVPC()!")
+func (vpcHandler *NcpVpcVPCHandler) GetVPC(vpcIID irs.IID) (irs.VPCInfo, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called GetVPC()!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, vpcIID.SystemId, "GetVPC()")
 
-	if vpcIID.SystemId != "" {
-		vpcIID.NameId = vpcIID.SystemId
+	if strings.EqualFold(vpcIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid VPC SystemId!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VPCInfo{}, newErr
 	}
 
-	//To check whether the VPC exists.
-	_, vpcErr := VPCHandler.GetVPC(irs.IID{SystemId: vpcIID.NameId})
-	if vpcErr != nil {
-		newErr := fmt.Errorf("Failed to Get the VPC Info : [%v]", vpcErr)
+	ncpVpcInfo, err := vpcHandler.getNcpVpcInfo(&vpcIID.SystemId)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get NCP VPC Info with the SystemId : [%v]", err)
 		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VPCInfo{}, newErr
+	}
+
+	vpcInfo, err := vpcHandler.mappingVpcInfo(ncpVpcInfo)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Map the VPC Info : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VPCInfo{}, newErr
+	}
+	return *vpcInfo, nil
+}
+
+func (vpcHandler *NcpVpcVPCHandler) GetSubnet(sunbnetIID irs.IID) (irs.SubnetInfo, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called GetSubnet()!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, sunbnetIID.SystemId, "GetSubnet()")
+
+	if strings.EqualFold(sunbnetIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid Subnet SystemId!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.SubnetInfo{}, newErr
+	}
+
+	ncpSubnetInfo, err := vpcHandler.getNcpSubnetInfo(&sunbnetIID.SystemId)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get NCP Subnet Info with the SystemId : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.SubnetInfo{}, newErr
+	}
+
+	subnetInfo := vpcHandler.mappingSubnetInfo(ncpSubnetInfo)
+	return *subnetInfo, nil
+}
+
+func (vpcHandler *NcpVpcVPCHandler) DeleteVPC(vpcIID irs.IID) (bool, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called DeleteVPC()!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, vpcIID.SystemId, "DeleteVPC()")
+
+	if strings.EqualFold(vpcIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid VPC SystemId!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
 		return false, newErr
 	}
 
-	zoneId := VPCHandler.RegionInfo.Zone
-	if zoneId == "" {
-		newErr := fmt.Errorf("Failed to Get Zone info. from the connection info.")
+	// Check if the VPC exists
+	vpcInfo, err := vpcHandler.GetVPC(vpcIID)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Find any VPC info. with the SystemId : [%s] : [%v]", vpcIID.SystemId, err)
 		cblogger.Error(newErr.Error())
-		return false, newErr
-	} else {
-		cblogger.Infof("ZoneId : %s", zoneId)
-	}
-
-	vpcPath := os.Getenv("CBSPIDER_ROOT") + vpcDir
-	vpcFilePath := vpcPath + zoneId + "/"
-	jsonFileName := vpcFilePath + vpcIID.NameId + ".json"
-
-	cblogger.Infof("VPC info file to Delete : [%s]", jsonFileName)
-
-	// Check if the VPC Folder Exists, and Create it
-	if err := CheckFolderAndCreate(vpcPath); err != nil {
-		newErr := fmt.Errorf("Failed to Create the VPC File Dir : %s, [%v]"+vpcPath, err)
-		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
 		return false, newErr
 	}
 
-	// Check if the VPC Folder Exists, and Create it
-	if err := CheckFolderAndCreate(vpcFilePath); err != nil {
-		newErr := fmt.Errorf("Failed to Create the VPC File Path : %s, [%v]"+vpcFilePath, err)
+	// Get SubnetList to Delete
+	subnetInfoList, err := vpcHandler.ListSubnet(&vpcIID.SystemId)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get SubnetList with the SystemId : [%s] : [%v]", vpcIID.SystemId, err)
 		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
 		return false, newErr
 	}
 
-	// To Remove the VPC file on the Local machine.
-	delErr := os.Remove(jsonFileName)
+
+	// 	nicNo := "5005759"
+	// 	delReq := vserver.DeleteNetworkInterfaceRequest{
+	// 		NetworkInterfaceNo:        &nicNo,
+	// 	}
+	// 	delResult, err := vmHandler.VMClient.V2Api.DeleteNetworkInterface(&delReq)
+	// 	if err != nil {
+	// 		newErr := fmt.Errorf("Failed to Get VM Instance List from NCP VPC!! : [%v]", err)
+	// 		cblogger.Error(newErr.Error())
+	// 		return nil, newErr
+	// 	}
+	// cblogger.Info("\n\n### delResult : ")
+	// spew.Dump(delResult)
+	// cblogger.Info("\n\n")
+
+
+	
+	var lastSubnetNo string
+	// Remove All Subnets belonging to the VPC
+	for _, subnet := range subnetInfoList {
+		// Remove the Subnet
+		delReq := vpc.DeleteSubnetRequest{
+			RegionCode: &vpcHandler.RegionInfo.Region,
+			SubnetNo:   &subnet.IId.SystemId,
+		}
+
+		callLogStart := call.Start()
+		_, err := vpcHandler.VPCClient.V2Api.DeleteSubnet(&delReq)
+		if err != nil {
+			newErr := fmt.Errorf("Failed to Remove the Subnet with the SystemId : [%s] : [%v]", subnet.IId.SystemId, err)
+			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)
+			return false, newErr
+		}
+		LoggingInfo(callLogInfo, callLogStart)
+		cblogger.Infof("# That subnet [%s] is being removed.", subnet.IId.SystemId)
+
+		lastSubnetNo = subnet.IId.SystemId
+	}
+	lastSubentIID := irs.IID{SystemId: lastSubnetNo}
+
+	cblogger.Infof("# Waitting while Deleting All Subnets belonging to the VPC!!")
+	_, delErr := vpcHandler.waitForDeleteSubnet(vpcIID.SystemId, lastSubentIID)
 	if delErr != nil {
-		newErr := fmt.Errorf("Failed to Delete the file : %s, [%v]", jsonFileName, delErr)
+		if strings.Contains(delErr.Error(), "Failed to Get any Subnet Info") {
+			cblogger.Debug(delErr.Error()) // For Termination Completion of a Subnet
+			// return false, err
+		} else {
+			newErr := fmt.Errorf("Failed to Wait for Subnet Deletion : [%v]", err)
+			cblogger.Error(newErr.Error())
+			return false, newErr
+		}
+	}
+
+	// Delete the VPC
+	cblogger.Infof("# Start to Delete the VPC!! : [%s]", vpcInfo.IId.NameId)
+	delReq := vpc.DeleteVpcRequest{
+		RegionCode: &vpcHandler.RegionInfo.Region,
+		VpcNo:      &vpcIID.SystemId,
+	}
+	callLogStart := call.Start()
+	_, delVpcErr := vpcHandler.VPCClient.V2Api.DeleteVpc(&delReq)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Delete the VPC with the SystemId : [%s] : [%v]", vpcIID.SystemId, delVpcErr)
 		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
 		return false, newErr
 	}
-	cblogger.Infof("Succeeded in Deleting the VPC : " + vpcIID.NameId)
+	LoggingInfo(callLogInfo, callLogStart)
 
+	cblogger.Infof("Succeeded in Deleting the VPC!! : [%s]", vpcIID.SystemId)
 	return true, nil
 }
 
-func (VPCHandler *NcpVPCHandler) AddSubnet(vpcIID irs.IID, subnetInfo irs.SubnetInfo) (irs.VPCInfo, error) {
-	cblogger.Info("NCP cloud driver: called AddSubnet()!!")
-	return irs.VPCInfo{}, errors.New("Does not support AddSubnet() yet!!")
-}
+// Only When any Subnet exists already(because of NetworkACLNo)
+func (vpcHandler *NcpVpcVPCHandler) AddSubnet(vpcIID irs.IID, subnetReqInfo irs.SubnetInfo) (irs.VPCInfo, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called AddSubnet()!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, subnetReqInfo.IId.NameId, "AddSubnet()")
 
-func (VPCHandler *NcpVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
-	cblogger.Info("NCP cloud driver: called GetImage()!!")
-	return true, errors.New("Does not support RemoveSubnet() yet!!")
-}
-
-func (VPCHandler *NcpVPCHandler) CreateSubnet(subnetReqInfo irs.SubnetInfo) (irs.SubnetInfo, error) {
-	cblogger.Info("NCP cloud driver: called CreateSubnet()!!")
-
-	if subnetReqInfo.Zone == "" {
-		subnetReqInfo.Zone = VPCHandler.RegionInfo.Zone
+	if strings.EqualFold(vpcIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid VPC SystemId!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VPCInfo{}, newErr
 	}
 
-	currentTime := getSeoulCurrentTime()
-
-	newSubnetInfo := irs.SubnetInfo{
-		IId: irs.IID{
-			NameId: subnetReqInfo.IId.NameId,
-			// Note!! : subnetReqInfo.IId.NameId -> SystemId
-			SystemId: subnetReqInfo.IId.NameId,
-		},
-		Zone:      subnetReqInfo.Zone,
-		IPv4_CIDR: subnetReqInfo.IPv4_CIDR,
-		KeyValueList: []irs.KeyValue{
-			{Key: "NCP-Subnet-info.", Value: "This Subnet info. is temporary."},
-			{Key: "CreateTime", Value: currentTime},
-		},
+	// Check if the VPC exists
+	vpcInfo, err := vpcHandler.GetVPC(vpcIID)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Find any VPC info. with the SystemId : [%s]", vpcIID.SystemId)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VPCInfo{}, newErr
 	}
-	return newSubnetInfo, nil
-}
 
-func (VPCHandler *NcpVPCHandler) MappingVPCInfo(vpcJSON VPC) (irs.VPCInfo, error) {
-	cblogger.Info("NCP cloud driver: called MappingVPCInfo()!!")
+	cblogger.Infof("VPC NameId to Add the Subnet : [%s]", vpcInfo.IId.NameId)
 
-	var subnetInfoList []irs.SubnetInfo
-	var subnetInfo irs.SubnetInfo
-	var subnetKeyValue irs.KeyValue
-	var subnetKeyValueList []irs.KeyValue
-	var vpcKeyValue irs.KeyValue
-	var vpcKeyValueList []irs.KeyValue
+	// Check if the SubnetName Exists
+	subnetInfoList, err := vpcHandler.ListSubnet(&vpcIID.SystemId)
+	if err != nil {
+		cblogger.Error(err.Error())
+		LoggingError(callLogInfo, err)
+		// return irs.VPCInfo{}, err    // Caution!!
+	}
 
-	for i := 0; i < len(vpcJSON.Subnet_List); i++ {
-		subnetInfo.IId.NameId = vpcJSON.Subnet_List[i].IID.NameID
-		subnetInfo.IId.SystemId = vpcJSON.Subnet_List[i].IID.SystemID
-		subnetInfo.Zone = vpcJSON.Subnet_List[i].Zone
-		subnetInfo.IPv4_CIDR = vpcJSON.Subnet_List[i].Cidr
-
-		for j := 0; j < len(vpcJSON.Subnet_List[i].KeyValue_List); j++ {
-			subnetKeyValue.Key = vpcJSON.Subnet_List[i].KeyValue_List[j].Key
-			subnetKeyValue.Value = vpcJSON.Subnet_List[i].KeyValue_List[j].Value
-			subnetKeyValueList = append(subnetKeyValueList, subnetKeyValue)
+	for _, subnet := range subnetInfoList {
+		if strings.EqualFold(subnet.IId.NameId, subnetReqInfo.IId.NameId) {
+			newErr := fmt.Errorf("Subnet with the name [%s] exists already!!", subnetReqInfo.IId.NameId)
+			cblogger.Error(newErr.Error())
+			LoggingError(callLogInfo, newErr)
+			return irs.VPCInfo{}, newErr
 		}
-		subnetInfo.KeyValueList = subnetKeyValueList
-		subnetInfoList = append(subnetInfoList, subnetInfo)
 	}
 
-	for k := 0; k < len(vpcJSON.KeyValue_List); k++ {
-		vpcKeyValue.Key = vpcJSON.KeyValue_List[k].Key
-		vpcKeyValue.Value = vpcJSON.KeyValue_List[k].Value
-		vpcKeyValueList = append(vpcKeyValueList, vpcKeyValue)
+	netAclNo, getNoErr := vpcHandler.getDefaultNetworkAclNo(vpcIID)
+	if getNoErr != nil {
+		newErr := fmt.Errorf("Failed to Get Network ACL No of the VPC : [%v]", getNoErr)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VPCInfo{}, newErr
 	}
 
-	vpcInfo := irs.VPCInfo{
-		// Since the VPC information is managed as a file, the systemID is the same as the nameID.
-		IId:            irs.IID{NameId: vpcJSON.IID.NameID, SystemId: vpcJSON.IID.NameID},
-		IPv4_CIDR:      vpcJSON.Cidr,
-		SubnetInfoList: subnetInfoList,
-		KeyValueList:   vpcKeyValueList,
+	// Note : subnetUsageType : 'GEN' (general) | 'LOADB' (Load balancer only) | 'BM' (Bare metal only)
+	subnetUsageType := "GEN"
+	ncpSubnetInfo, err := vpcHandler.CreateSubnet(vpcIID, netAclNo, &subnetUsageType, subnetReqInfo)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Create the Subnet for General Purpose : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VPCInfo{}, newErr
+	}
+	cblogger.Infof("New Subnet SubnetNo : [%s]", *ncpSubnetInfo.SubnetNo)
+
+	subnetStatus, err := vpcHandler.waitForCreateSubnet(ncpSubnetInfo.SubnetNo)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Wait for Creating the subnet : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return irs.VPCInfo{}, newErr
+	}
+	cblogger.Infof("# Subnet Status : [%s]", subnetStatus)
+
+	vpcInfo, getErr := vpcHandler.GetVPC(irs.IID{SystemId: vpcIID.SystemId})
+	if getErr != nil {
+		cblogger.Error(getErr.Error())
+		LoggingError(callLogInfo, getErr)
+		return irs.VPCInfo{}, getErr
 	}
 	return vpcInfo, nil
 }
 
-func (vpcHandler *NcpVPCHandler) getSubnetZone(vpcIID irs.IID, subnetIID irs.IID) (string, error) {
-	cblogger.Info("NCP cloud driver: called getSubnetZone()!!")
+func (vpcHandler *NcpVpcVPCHandler) RemoveSubnet(vpcIID irs.IID, subnetIID irs.IID) (bool, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called RemoveSubnet()!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, subnetIID.SystemId, "RemoveSubnet()")
+
+	if strings.EqualFold(subnetIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid Subnet SystemId!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return false, newErr
+	}
+
+	// Check if the Subnet Exists
+	subnetInfoList, err := vpcHandler.ListSubnet(&vpcIID.SystemId)
+	if err != nil {
+		cblogger.Error(err.Error())
+		LoggingError(callLogInfo, err)
+		return false, err
+	}
+
+	var subnetName string
+	for _, subnetInfo := range subnetInfoList {
+		if strings.EqualFold(subnetInfo.IId.SystemId, subnetIID.SystemId) {
+			subnetName = subnetInfo.IId.NameId
+			break
+		}
+	}
+	if strings.EqualFold(subnetName, "") {
+		return false, fmt.Errorf("Failed to Find the Subnet!! : [%s]", subnetIID.SystemId)
+	}
+
+	delReq := vpc.DeleteSubnetRequest{
+		RegionCode: &vpcHandler.RegionInfo.Region,
+		SubnetNo:   &subnetIID.SystemId,
+	}
+	callLogStart := call.Start()
+	delResult, err := vpcHandler.VPCClient.V2Api.DeleteSubnet(&delReq)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Remove the Requested Subnet : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return false, newErr
+	}
+	LoggingInfo(callLogInfo, callLogStart)
+	cblogger.Infof("# That subnet [%s] is being removed.", *delResult.SubnetList[0].SubnetName)
+
+	cblogger.Infof("# Waitting while Deleting All Subnets belonging to the VPC!!")
+	_, delErr := vpcHandler.waitForDeleteSubnet(vpcIID.SystemId, subnetIID)
+	if delErr != nil {
+		if strings.Contains(delErr.Error(), "Failed to Get any Subnet Info") {
+			cblogger.Debug(delErr.Error()) // For Termination Completion of a Subnet
+			// return false, err
+		} else {
+			newErr := fmt.Errorf("Failed to Wait for Subnet Deletion : [%v]", err)
+			cblogger.Error(newErr.Error())
+			return false, newErr
+		}		
+	}
+	cblogger.Infof(" Succeeded in Removing the Subnet!! : [%s]", subnetIID.SystemId)
+
+	return true, nil
+}
+
+func (vpcHandler *NcpVpcVPCHandler) CreateSubnet(vpcIID irs.IID, netAclNo *string, subnetUsageType *string, subnetReqInfo irs.SubnetInfo) (*vpc.Subnet, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called CreateSubnet()!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, subnetReqInfo.IId.NameId, "CreateSubnet()")
+
+	if strings.EqualFold(vpcIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid VPC SystemId!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+
+	if strings.EqualFold(subnetReqInfo.IId.NameId, "") {
+		newErr := fmt.Errorf("Invalid Requested Subnet NameId!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+
+	// vpcInfo, err := vpcHandler.GetVPC(vpcIID) 	// Don't Need to Check if the VPC exists
+	if subnetReqInfo.Zone == "" {
+		subnetReqInfo.Zone = vpcHandler.RegionInfo.Zone
+	}
+
+	subnetReqName := strings.ToLower(subnetReqInfo.IId.NameId)
+	subnetTypeCode := "PUBLIC" // 'PUBLIC' (for Internet Gateway) | 'PRIVATE'
+	// subnetUsageType : 'GEN' (general) | 'LOADB' (Load balancer only) | 'BM' (Bare metal only)
+	createSubnetReq := vpc.CreateSubnetRequest{
+		RegionCode:     &vpcHandler.RegionInfo.Region,
+		SubnetTypeCode: &subnetTypeCode,
+		UsageTypeCode:  subnetUsageType,
+		NetworkAclNo:   netAclNo,
+		Subnet:         &subnetReqInfo.IPv4_CIDR,
+		SubnetName:     &subnetReqName, // Allows only lowercase letters, numbers or special character "-". Start with an alphabet character.
+		VpcNo:          &vpcIID.SystemId,
+		ZoneCode:       &subnetReqInfo.Zone,
+	}
+
+	callLogStart := call.Start()
+	subnet, err := vpcHandler.VPCClient.V2Api.CreateSubnet(&createSubnetReq)
+	if err != nil {
+		cblogger.Errorf("Failed to Create the Subnet : [%v]", err)
+		LoggingError(callLogInfo, err)
+		return nil, err
+	}
+	LoggingInfo(callLogInfo, callLogStart)
+
+	if len(subnet.SubnetList) < 1 {
+		newErr := fmt.Errorf("Failed to Create the Subnet. New Subnet does Not Exist!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	} else {
+		cblogger.Infof("Succeeded in Creating the Subnet!! : [%s]", *subnet.SubnetList[0].SubnetName)
+	}
+	return subnet.SubnetList[0], nil
+}
+
+func (vpcHandler *NcpVpcVPCHandler) getNcpVpcInfo(vpcId *string) (*vpc.Vpc, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called getNcpVpcInfo()!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, *vpcId, "getNcpVpcInfo()")
+
+	if strings.EqualFold(*vpcId, "") {
+		newErr := fmt.Errorf("Invalid VPC SystemId!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+
+	vpcInfoReq := vpc.GetVpcDetailRequest{
+		RegionCode: &vpcHandler.RegionInfo.Region,
+		VpcNo:      vpcId,
+	}
+	callLogStart := call.Start()
+	result, err := vpcHandler.VPCClient.V2Api.GetVpcDetail(&vpcInfoReq)
+	if err != nil {
+		cblogger.Errorf("Failed to Find the VPC Info from NCP VPC : [%v]", err)
+		LoggingError(callLogInfo, err)
+		return nil, err
+	}
+	LoggingInfo(callLogInfo, callLogStart)
+
+	if len(result.VpcList) < 1 {
+		newErr := fmt.Errorf("Failed to Find Any VPC Info with the ID!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	} else {
+		cblogger.Infof("Succeeded in Getting the VPC Info from NCP VPC!!")
+	}
+	return result.VpcList[0], nil
+}
+
+func (vpcHandler *NcpVpcVPCHandler) getNcpSubnetInfo(sunbnetId *string) (*vpc.Subnet, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called getNcpSubnetInfo()!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, *sunbnetId, "getNcpSubnetInfo()")
+
+	if strings.EqualFold(*sunbnetId, "") {
+		newErr := fmt.Errorf("Invalid Subnet ID!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+
+	subnetInfoReq := vpc.GetSubnetDetailRequest{
+		RegionCode: &vpcHandler.RegionInfo.Region,
+		SubnetNo:   sunbnetId,
+	}
+	callLogStart := call.Start()
+	result, err := vpcHandler.VPCClient.V2Api.GetSubnetDetail(&subnetInfoReq)
+	if err != nil {
+		cblogger.Errorf("Failed to Get the Subnet Info from NCP VPC : [%v]", err)
+		LoggingError(callLogInfo, err)
+		return nil, err
+	}
+	LoggingInfo(callLogInfo, callLogStart)
+
+	if len(result.SubnetList) < 1 {
+		newErr := fmt.Errorf("Failed to Get any Subnet Info with the ID!!")
+		cblogger.Debug(newErr.Error()) // For Termination Completion of a Subnet
+		return nil, newErr
+	} else {
+		cblogger.Infof("Succeeded in Getting the Subnet Info from NCP VPC!!")
+	}
+	return result.SubnetList[0], nil
+}
+
+func (vpcHandler *NcpVpcVPCHandler) ListSubnet(vpcNo *string) ([]*irs.SubnetInfo, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called ListSubnet()!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, "ListSubnet()", "ListSubnet()")
+
+	subnetListReq := vpc.GetSubnetListRequest{
+		RegionCode: &vpcHandler.RegionInfo.Region,
+		VpcNo:      vpcNo,
+	}
+	result, err := vpcHandler.VPCClient.V2Api.GetSubnetList(&subnetListReq)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get subnetList : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+
+	var subnetInfoList []*irs.SubnetInfo
+	if len(result.SubnetList) < 1 {
+		cblogger.Infof("### The VPC has No Subnet!!")
+	} else {
+		// cblogger.Infof("Succeeded in Getting SubnetList!! : ")
+		for _, subnet := range result.SubnetList { // To Get Subnet info list
+			subnetInfo := vpcHandler.mappingSubnetInfo(subnet)
+			subnetInfoList = append(subnetInfoList, subnetInfo)
+		}
+	}
+	return subnetInfoList, nil
+}
+
+func (vpcHandler *NcpVpcVPCHandler) getDefaultNetworkAclNo(vpcIID irs.IID) (*string, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called getDefaultNetworkAclNo()!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, vpcIID.SystemId, "getDefaultNetworkAclNo()")
+
+	if strings.EqualFold(vpcIID.SystemId, "") {
+		newErr := fmt.Errorf("Invalid VPC SystemId!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+
+	// # Caution!! : Infinite Loop
+	// vpcInfo, err := vpcHandler.GetVPC(vpcIID)  	// Check if the VPC exists
+
+	// Get the Default NetworkACL of the VPC
+	getReq := vpc.GetNetworkAclListRequest{
+		RegionCode: &vpcHandler.RegionInfo.Region,
+		VpcNo:      &vpcIID.SystemId,
+	}
+	callLogStart := call.Start()
+	netAclResult, err := vpcHandler.VPCClient.V2Api.GetNetworkAclList(&getReq)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get NetworkACL List!! : [%v]", err)
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+	LoggingInfo(callLogInfo, callLogStart)
+
+	var netACLNo *string
+	if len(netAclResult.NetworkAclList) < 1 {
+		cblogger.Info("# NetworkACL does Not Exist!!")
+	} else {
+		for _, netACL := range netAclResult.NetworkAclList {
+			if strings.Contains(*netACL.NetworkAclName, "default-network-acl") { // When Contains "default-network-acl" in NetworkAclName
+				netACLNo = netACL.NetworkAclNo
+				break
+			}
+		}
+	}
+
+	if strings.EqualFold(*netACLNo, "") {
+		newErr := fmt.Errorf("Failed to Get the Default NetworkACL No of the VPC!!")
+		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
+		return nil, newErr
+	}
+	return netACLNo, nil
+}
+
+func (vpcHandler *NcpVpcVPCHandler) mappingVpcInfo(vpc *vpc.Vpc) (*irs.VPCInfo, error) {
+	cblogger.Info("NCP VPC Cloud Driver: called mappingVpcInfo()!")
+
+	// VPC info mapping
+	vpcInfo := irs.VPCInfo{
+		IId: irs.IID{
+			NameId:   	*vpc.VpcName,
+			SystemId: 	*vpc.VpcNo,
+		},
+		IPv4_CIDR: 		*vpc.Ipv4CidrBlock,
+		KeyValueList:   irs.StructToKeyValueList(vpc),
+	}
+
+	subnetList, err := vpcHandler.ListSubnet(vpc.VpcNo)
+	if err != nil {
+		cblogger.Errorf("Failed to Get subnet List : [%v]", err) // Caution!!
+		// return nil   // Caution!!
+	}
+
+	var subnetInfoList []irs.SubnetInfo
+	if len(subnetList) > 0 {
+		for _, subnetInfo := range subnetList { // Ref) var subnetList []*irs.SubnetInfo
+			cblogger.Infof("# Subnet NameId : [%s]", subnetInfo.IId.NameId)
+			subnetInfoList = append(subnetInfoList, *subnetInfo)
+		}
+		vpcInfo.SubnetInfoList = subnetInfoList
+	}
+
+	// cblogger.Infof("vpcInfo.SubnetInfoList : ")
+	// spew.Dump(vpcInfo.SubnetInfoList)
+
+	/*
+		// Get the Default NetworkACL of the VPC
+		netAclNo, getNoErr := vpcHandler.getDefaultNetworkAclNo(irs.IID{SystemId: *vpc.VpcNo})
+		if getNoErr != nil {
+			newErr := fmt.Errorf("Failed to Get Network ACL No of the VPC : [%v]", getNoErr)
+			cblogger.Error(newErr.Error())
+			return nil, newErr
+		}
+
+		keyValue := irs.KeyValue{Key: "DefaultNetworkACLNo", Value: *netAclNo}
+		vpcInfo.KeyValueList = append(vpcInfo.KeyValueList, keyValue)
+	*/
+
+	return &vpcInfo, nil
+}
+
+func (vpcHandler *NcpVpcVPCHandler) mappingSubnetInfo(subnet *vpc.Subnet) *irs.SubnetInfo {
+	cblogger.Info("NCP VPC Cloud Driver: called mappingSubnetInfo()!")
+	// spew.Dump(*subnet)
+
+	// Subnet info mapping
+	subnetInfo := irs.SubnetInfo{
+		IId: irs.IID{
+			NameId:   	*subnet.SubnetName,
+			SystemId: 	*subnet.SubnetNo,
+		},
+		Zone:      		*subnet.ZoneCode,
+		IPv4_CIDR: 		*subnet.Subnet,
+		KeyValueList: 	irs.StructToKeyValueList(subnet),
+	}
+	return &subnetInfo
+}
+
+// Waiting for up to 600 seconds until VPC and Network ACL Creation processes are Finished.
+func (vpcHandler *NcpVpcVPCHandler) waitForCreateVPC(vpcIID irs.IID) (string, error) {
+	cblogger.Info("======> As Subnet cannot be Created Immediately after VPC Creation Call, it waits until VPC and Network ACL Creation processes are Finished.")
+
+	curRetryCnt := 0
+	maxRetryCnt := 600
+
+	for {
+		ncpVpcInfo, getErr := vpcHandler.getNcpVpcInfo(&vpcIID.SystemId)
+		if getErr != nil {
+			newErr := fmt.Errorf("Failed to Get VPC Info : [%v]", getErr)
+			cblogger.Error(newErr.Error())
+			return "", newErr
+		} else {
+			cblogger.Infof("Succeeded in Getting the VPC Info of [%s]", vpcIID.SystemId)
+		}
+
+		vpcStatus := *ncpVpcInfo.VpcStatus.Code
+		cblogger.Infof("### VPC Status [%s] : ", vpcStatus)
+
+		if strings.EqualFold(vpcStatus, "CREATING") {
+			curRetryCnt++
+			cblogger.Infof("The VPC and Network ACL are still [%s], so wait for a second more before Creating Subnet.", vpcStatus)
+			time.Sleep(time.Second * 3)
+			if curRetryCnt > maxRetryCnt {
+				newErr := fmt.Errorf("Despite waiting for a long time(%d sec), the VPC status is '%s', so it is forcibly finishied.", maxRetryCnt, vpcStatus)
+				return "", newErr
+			}
+		} else {
+			cblogger.Infof("The VPC and Network ACL Creation processes are Finished.")
+
+			// Wait More
+			time.Sleep(time.Second * 5)
+			return vpcStatus, nil
+		}
+	}
+}
+
+// Waiting for up to 600 seconds until VPC and Network ACL Creation processes are Finished.
+func (vpcHandler *NcpVpcVPCHandler) waitForDeleteSubnet(vpcNo string, subnetIID irs.IID) (string, error) {
+	cblogger.Info("======> As VPC cannot be Deleted Immediately after Subnet Deletion Call, it waits until Subnet Deletion processes are Finished.")
+
+	curRetryCnt := 0
+	maxRetryCnt := 600
+
+	subnetList, err := vpcHandler.ListSubnet(&vpcNo)
+	if err != nil {
+		cblogger.Errorf("Failed to Get subnet List : [%v]", err) // Caution!!
+		// return nil   // Caution!!
+	}
+
+	if len(subnetList) > 0 {
+		for {
+			ncpSubnetInfo, getErr := vpcHandler.getNcpSubnetInfo(&subnetIID.SystemId)
+			if getErr != nil {
+				if strings.Contains(getErr.Error(), "Failed to Get any Subnet Info") {
+					cblogger.Debug(getErr.Error()) // For Termination Completion of a Subnet
+					return "", getErr
+				} else {
+					newErr := fmt.Errorf("Failed to Get the Subnet Info : [%v]", getErr)
+					cblogger.Error(newErr.Error())
+					return "", newErr
+				}				
+			} else {
+				cblogger.Infof("Succeeded in Getting the Subnet Info of [%s]", subnetIID.SystemId)
+			}
+
+			subnetStatus := *ncpSubnetInfo.SubnetStatus.Code
+			cblogger.Infof("### Subnet Status [%s] : ", subnetStatus)
+
+			if strings.EqualFold(subnetStatus, "TERMTING") || strings.EqualFold(subnetStatus, "CREATING") {
+				curRetryCnt++
+				cblogger.Infof("The Suntnet is still [%s], so wait for a second more before Deleting VPC.", subnetStatus)
+				time.Sleep(time.Second * 3)
+				if curRetryCnt > maxRetryCnt {
+					newErr := fmt.Errorf("Despite waiting for a long time(%d sec), the Subnet status is '%s', so it is forcibly finishied.", maxRetryCnt, subnetStatus)
+					return "", newErr
+				}
+			} else {
+				cblogger.Infof("The Subnet Deletion processes are Finished.")
+
+				// Wait More
+				time.Sleep(time.Second * 5)
+
+				return subnetStatus, nil
+			}
+		}
+	} else {
+		return "This VPC has No Subnet!!", nil
+	}
+}
+
+// Waiting for up to 600 seconds until Subnet Creation processes are Finished.
+func (vpcHandler *NcpVpcVPCHandler) waitForCreateSubnet(subnetId *string) (string, error) {
+	cblogger.Info("======> As Subnet cannot be Created Immediately after VPC Creation Call, it waits until VPC and Network ACL Creation processes are Finished.")
+
+	curRetryCnt := 0
+	maxRetryCnt := 600
+
+	for {
+		ncpSubnetInfo, getErr := vpcHandler.getNcpSubnetInfo(subnetId)
+		if getErr != nil {
+			newErr := fmt.Errorf("Failed to Get the Subnet Info : [%v]", getErr)
+			cblogger.Error(newErr.Error())
+			return "", newErr
+		} else {
+			cblogger.Infof("Succeeded in Getting the Subnet Info of [%s]", *subnetId)
+		}
+
+		subnetStatus := *ncpSubnetInfo.SubnetStatus.Code
+		cblogger.Infof("### Subnet Status [%s] : ", subnetStatus)
+
+		if strings.EqualFold(subnetStatus, "CREATING") {
+			curRetryCnt++
+			cblogger.Infof("The Subnet is still [%s], so wait for a second more before Getting VPC Info.", subnetStatus)
+			time.Sleep(time.Second * 3)
+			if curRetryCnt > maxRetryCnt {
+				newErr := fmt.Errorf("Despite waiting for a long time(%d sec), the Subnet status is '%s', so it is forcibly finishied.", maxRetryCnt, subnetStatus)
+				return "", newErr
+			}
+		} else {
+			cblogger.Infof("The Subnet Creation processes are Finished.")
+
+			// Wait More
+			time.Sleep(time.Second * 3)
+			return subnetStatus, nil
+		}
+	}
+}
+
+func (vpcHandler *NcpVpcVPCHandler) getSubnetZone(vpcIID irs.IID, subnetIID irs.IID) (string, error) {
+	cblogger.Info("NCP VPC cloud driver: called getSubnetZone()!!")
 
 	if strings.EqualFold(vpcIID.SystemId, "") && strings.EqualFold(vpcIID.NameId, "") {
 		newErr := fmt.Errorf("Invalid VPC Id!!")
@@ -437,49 +943,35 @@ func (vpcHandler *NcpVPCHandler) getSubnetZone(vpcIID irs.IID, subnetIID irs.IID
 	return subnetZone, nil
 }
 
-func (vpcHandler *NcpVPCHandler) ListIID() ([]*irs.IID, error) {
-	cblogger.Info("NCP Cloud Driver: called vpcHandler ListIID()!")
+func (vpcHandler *NcpVpcVPCHandler) ListIID() ([]*irs.IID, error) {
+	cblogger.Info("NCP VPC cloud driver: called vpcHandler ListIID()!!")
+	InitLog()
+	callLogInfo := GetCallLogScheme(vpcHandler.RegionInfo.Zone, call.VPCSUBNET, "ListIID()", "ListIID()")
 
-	zoneId := vpcHandler.RegionInfo.Zone
-	if zoneId == "" {
-		newErr := fmt.Errorf("Failed to Get Zone info. from the connection info.")
-		cblogger.Error(newErr.Error())
-		return nil, newErr
-	} else {
-		cblogger.Infof("ZoneId : %s", zoneId)
+	vpcListReq := vpc.GetVpcListRequest{
+		RegionCode: &vpcHandler.RegionInfo.Region,
 	}
 
-	vpcFilePath := os.Getenv("CBSPIDER_ROOT") + vpcDir + zoneId + "/"
-	// File list on the local directory
-	dirFiles, readErr := os.ReadDir(vpcFilePath)
-	if readErr != nil {
-		newErr := fmt.Errorf("Failed to Read the VPC file : [%v]", readErr)
+	callLogStart := call.Start()
+	result, err := vpcHandler.VPCClient.V2Api.GetVpcList(&vpcListReq)
+	if err != nil {
+		newErr := fmt.Errorf("Failed to Get VPC List from NCP VPC : [%v]", err)
 		cblogger.Error(newErr.Error())
+		LoggingError(callLogInfo, newErr)
 		return nil, newErr
 	}
+	LoggingInfo(callLogInfo, callLogStart)
 
-	var vpcIID irs.IID
 	var iidList []*irs.IID
-	if len(dirFiles) < 1 {
+	if len(result.VpcList) < 1 {
 		cblogger.Debug("### VPC does Not Exist!!")
 		return nil, nil
 	} else {
-		for _, file := range dirFiles {
-			fileName := strings.TrimSuffix(file.Name(), ".json") // Remove suffix
-			vpcIID.NameId = fileName
-			cblogger.Infof("# VPC Name : [%s]", vpcIID.NameId)
-
-			vpcInfo, vpcErr := vpcHandler.GetVPC(irs.IID{SystemId: vpcIID.NameId})
-			if vpcErr != nil {
-				newErr := fmt.Errorf("Failed to Get the VPC Info : [%v]", vpcErr)
-				cblogger.Error(newErr.Error())
-				return nil, newErr
-			}
-
+		for _, vpc := range result.VpcList {
 			var iid irs.IID
-			iid.NameId = vpcInfo.IId.NameId
-			iid.SystemId = vpcInfo.IId.NameId
-
+			iid.NameId = *vpc.VpcName
+			iid.SystemId = *vpc.VpcNo
+	
 			iidList = append(iidList, &iid)
 		}
 	}

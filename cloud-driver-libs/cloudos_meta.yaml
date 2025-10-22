@@ -65,7 +65,7 @@ TENCENT:
   disktype: CLOUD_PREMIUM / CLOUD_SSD / CLOUD_HSSD / CLOUD_BASIC / CLOUD_TSSD
   disksize: CLOUD_PREMIUM|10|32000|GB / CLOUD_SSD|20|32000|GB / CLOUD_HSSD|20|32000|GB / CLOUD_BASIC|10|32000|GB / CLOUD_TSSD|10|32000|GB
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster / FileSystem
-  idmaxlength: 60 / 60 / 60 / 25 / 88 / 60 / 60 / 60 /50
+  idmaxlength: 60 / 60 / 60 / 25 / 88 / 60 / 60 / 60 / 50
   defaultregiontoquery: ap-seoul / ap-seoul-1
 
 IBM:
@@ -73,7 +73,7 @@ IBM:
   credential: ApiKey
   credentialcsp: ApiKey
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster / FileSystem
-  idmaxlength: 63 / 63 / 63 / 63 / 63 / 63 / 63 / 63 / 63
+  idmaxlength: 63 / 63 / 63 / 63 / 63 / 63 / 63 / 63 / 32 / 63
   defaultregiontoquery: us-south / us-south-1
 
 OPENSTACK:
@@ -81,30 +81,20 @@ OPENSTACK:
   credential: IdentityEndpoint / Username / Password / DomainName / ProjectID
   credentialcsp: IdentityEndpoint / Username / Password / DomainName / ProjectID
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster / FileSystem
-  idmaxlength: 255 / 255 / 255 / 255 / 255 / 255 / 255 / 255 / 0  
+  idmaxlength: 255 / 255 / 255 / 255 / 255 / 255 / 255 / 255 / 0
+  
 NCP:
   region: Region / Zone
   credential: ClientId / ClientSecret
   credentialcsp: ncloud_access_key / ncloud_secret_key
-  rootdisktype: SSD / HDD
-  rootdisksize: SSD|50|100|GB / HDD|50|100|GB
-  disktype: SSD / HDD
-  disksize: SSD|10|2000|GB / HDD|10|2000|GB
-  # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
-  idmaxlength: 30 / 30 / 30 / 30 / 30 / 30 / 30 / 30 / 0
-
-NCPVPC:
-  region: Region / Zone
-  credential: ClientId / ClientSecret
-  credentialcsp: ncloud_access_key / ncloud_secret_key
-  rootdisktype: SSD / HDD
-  rootdisksize: SSD|50|100|GB / HDD|50|100|GB
+  rootdisktype: HDD
+  rootdisksize: HDD|10|2000|GB
   disktype: SSD / HDD
   disksize: SSD|100|16380|GB / HDD|100|16380|GB
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster / FileSystem
   idmaxlength: 30 / 30 / 30 / 30 / 30 / 30 / 30 / 30 / 20
 
-NHNCLOUD:
+NHN:
   region: Region / Zone
   credential: IdentityEndpoint / Username / Password / DomainName / TenantId
   credentialcsp: IdentityEndpoint / Username / Password / DomainName / TenantId
@@ -115,7 +105,7 @@ NHNCLOUD:
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster / FileSystem
   idmaxlength: 32 / 32 / 255 / 32 / 90 / 255 / 80 / 255 / 32
 
-KTCLOUD:
+KTCLASSIC:
   region: Region / Zone
   credential: ClientId / ClientSecret
   credentialcsp: API_Key / Secret_Key
@@ -126,7 +116,7 @@ KTCLOUD:
   # idmaxlength: VPC / Subnet / SecurityGroup / KeyPair / VM / Disk / NLB / MyImage / Cluster
   idmaxlength: 30 / 30 / 30 / 100 / 63 / 50 / 30 / 32 / 0
 
-KTCLOUDVPC:
+KT:
   region: Region / Zone
   credential: IdentityEndpoint / Username / Password / DomainName / ProjectID
   credentialcsp: IdentityEndpoint / Username / Password / DomainName / ProjectID
