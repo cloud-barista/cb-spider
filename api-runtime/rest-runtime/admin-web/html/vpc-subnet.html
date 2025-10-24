@@ -1042,7 +1042,7 @@
 
         vpcNameInput.value = `${region}-vpc-${Math.random().toString(36).substring(2, 5)}`;
         vpcCIDRInput.value = '10.0.0.0/16';
-        disableGCPCIDR(connConfig);
+        disableVPCCIDRForProviders(connConfig);
         zoneInput.value = zone;
         subnetNameInput.value = `${region}-${zone}-subnet-${Math.random().toString(36).substring(2, 5)}`;
         subnetCIDRInput.value = '10.0.1.0/24';
@@ -1728,10 +1728,10 @@
         selection.removeAllRanges();
     }
 
-    // Disable VPC CIDR Input in GCP
-    function disableGCPCIDR(connConfig){
+    // Disable VPC CIDR Input for providers that don't support it (GCP and IBM)
+    function disableVPCCIDRForProviders(connConfig){
         const vpcCIDRInput = document.getElementById('vpcCIDR');
-        if (currentProvider == 'GCP') {
+        if (currentProvider == 'GCP' || currentProvider == 'IBM') {
             vpcCIDRInput.disabled = true;
             vpcCIDRInput.value = 'NA';
             vpcCIDRInput.style.color = 'gray';
