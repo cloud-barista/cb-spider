@@ -1464,7 +1464,7 @@ func handlePriceInfo() {
 				productFamily := "ecs"
 				regionName := ""
 
-				result, err := handler.GetPriceInfo(productFamily, regionName, []irs.KeyValue{})
+				result, err := handler.GetPriceInfo(productFamily, regionName, []irs.KeyValue{}, false)
 				if err != nil {
 					cblogger.Info("Fail to retrieve PriceInfo : ", err)
 				} else {
@@ -1777,18 +1777,26 @@ func handleCluster() {
 	if err != nil {
 		//panic(err)
 		cblogger.Error(err)
+		return
 	}
 	handler := ResourceHandler.(irs.ClusterHandler)
-	cblogger.Info(handler)
 
-	vpcID := "vpc-j6ctiyol6osnuy9sfj2xm"
-	vswitchID := "vsw-j6cgu2z3paapkojcj918q"
-	securityGroupIIDs := "sg-j6cauy6gbpy261k9k74c"
+	if handler == nil {
+		fmt.Println("handler nil")
+		cblogger.Error("ClusterHandler is nil")
+		return
+	}
+
+	vpcID := "vpc-6weua85b8bmwduzec8bvj"
+	vswitchID := "vsw-6wemkeefn461cmrqi5fbl" // ap-northeast-1a
+	// vswitchID = "vsw-6wedv6if561rm7uhgiw2b"  // ap-northeast-1b
+	securityGroupIIDs := "sg-6we1c2udzlw614guuo8o"
 
 	tag1 := irs.KeyValue{Key: "caa", Value: "cbb"}
 
 	clusterReqInfo := irs.ClusterInfo{
-		IId: irs.IID{NameId: "tagtestcluster22"},
+		IId:     irs.IID{NameId: "testcluster22"},
+		Version: "1.34.1-aliyun.1", // Kubernetes Version (valid: 1.34.1-aliyun.1, 1.33.3-aliyun.1, 1.32.7-aliyun.1)
 		Network: irs.NetworkInfo{
 			VpcIID: irs.IID{SystemId: vpcID},
 			SubnetIIDs: []irs.IID{
@@ -1797,85 +1805,209 @@ func handleCluster() {
 			SecurityGroupIIDs: []irs.IID{
 				{SystemId: securityGroupIIDs},
 			},
-			// Optionally, add other network-related fields if necessary
 		},
 		TagList: []irs.KeyValue{tag1},
 	}
 
+	// clusterReqInfo.IId.SystemId will be set after cluster creation
+	clusterReqInfo.IId.SystemId = "c0f37e89291534278b59447d6a6060729"
+
+	reqNodeGroupInfo := irs.NodeGroupInfo{
+		IId: irs.IID{NameId: "cb-ack-node-test"},
+
+		// Use default ACK-optimized image
+		ImageIID:     irs.IID{NameId: "default"},
+		VMSpecName:   "ecs.g7.xlarge",
+		RootDiskType: "cloud_essd", // ⚠️ IMPORTANT: Must use cloud_essd (cloud_efficiency fails!)
+		RootDiskSize: "40",
+		KeyPairIID:   irs.IID{SystemId: ""},
+
+		// Scaling config
+		OnAutoScaling:   true,
+		DesiredNodeSize: 2,
+		MinNodeSize:     1,
+		MaxNodeSize:     3,
+	}
+
 	for {
-		fmt.Println("Handler Management")
+		fmt.Println("ClusterHandler Management")
 		fmt.Println("0. Quit")
 		fmt.Println("1. Cluster List")
-		fmt.Println("2. GetCluster ")
-		fmt.Println("3. CreateCluster")
+		fmt.Println("2. Cluster Create")
+		fmt.Println("3. Cluster Get")
+		fmt.Println("4. Cluster Delete")
+		fmt.Println("5. List IID")
+		fmt.Println("")
+		fmt.Println("6. Generate Cluster Token")
+		fmt.Println("")
+		fmt.Println("7. Add NodeGroup")
+		fmt.Println("8. Set NodeGroup AutoScaling")
+		fmt.Println("9. Change NodeGroup Scaling")
+		fmt.Println("10. Remove NodeGroup")
+		fmt.Println("")
+		fmt.Println("11. Upgrade Cluster")
 
 		var commandNum int
 		inputCnt, err := fmt.Scan(&commandNum)
 		if err != nil {
 			panic(err)
 		}
-		// resourceType := irs.RSType("disk")
-		resourceIID := irs.IID{NameId: "", SystemId: "i-j6cd7rv72uwjyx8qy304"}
-		// resourceType := irs.RSType("CLUSTER")
-		// resourceIID := irs.IID{NameId: "cs-issue-test", SystemId: ""}
 
 		if inputCnt == 1 {
 			switch commandNum {
 			case 0:
 				return
-			case 1:
 
+			case 1:
+				cblogger.Info("Start ListCluster() ...")
 				result, err := handler.ListCluster()
 				if err != nil {
-					cblogger.Infof("Failed to retrieve Cluster list : ", err)
+					cblogger.Error("Failed to retrieve Cluster list : ", err)
 				} else {
 					cblogger.Info("Result of Cluster list retrieval")
-					spew.Dump(result)
+					cblogger.Info("Number of Clusters : ", len(result))
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					}
+
+					// Update clusterReqInfo.IId for subsequent operations
+					if result != nil && len(result) > 0 {
+						clusterReqInfo.IId = result[0].IId
+						cblogger.Infof("---> Req IID changed to : %v", clusterReqInfo.IId)
+					}
 				}
+
 			case 2:
-				// tagName := "tagntest3"
-				// tagName = ""
-				result, err := handler.GetCluster(resourceIID)
-				if err != nil {
-					cblogger.Info("Failed to retrieve Cluster : ", err)
-				} else {
-					cblogger.Info("Result of GetCluster retrieval")
-					//spew.Dump(result)
-					cblogger.Info(result)
-				}
-			case 3:
-				// tagName := "tagntest3"
-				// tagName = ""
+				cblogger.Infof("[%s] Cluster Create Test", clusterReqInfo.IId.NameId)
 				result, err := handler.CreateCluster(clusterReqInfo)
 				if err != nil {
-					cblogger.Info("Failed to create Cluster : ", err)
+					cblogger.Error("Failed to create Cluster : ", err)
 				} else {
 					cblogger.Info("Result of CreateCluster")
-					//spew.Dump(result)
-					cblogger.Info(result)
+					clusterReqInfo.IId = result.IId // Update for subsequent operations
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					} else {
+						cblogger.Info(result)
+					}
 				}
-				// case 4:
-				// 	newTag := irs.KeyValue{}
-				// 	newTag.Key = "addKeyT1"
-				// 	newTag.Value = "addValueT1"
-				// 	result, err := handler.AddTag(resourceType, resourceIID, newTag)
-				// 	if err != nil {
-				// 		cblogger.Info("Failed to retrieve Tag : ", err)
-				// 	} else {
-				// 		cblogger.Info("Result of AddTag")
-				// 		//spew.Dump(result)
-				// 		cblogger.Info(result)
-				// 	}
-				// case 5:
-				// 	tagName := "addKeyT1"
-				// 	result, err := handler.RemoveTag(resourceType, resourceIID, tagName)
-				// 	if err != nil {
-				// 		cblogger.Info("Failed to retrieve Tag : ", err)
-				// 	} else {
-				// 		cblogger.Info("Result of RemoveTag")
-				// 		//spew.Dump(result)
-				// 		cblogger.Info(result)
-				// 	}
+
+			case 3:
+				cblogger.Infof("[%s] Cluster Get Test", clusterReqInfo.IId)
+				result, err := handler.GetCluster(clusterReqInfo.IId)
+				if err != nil {
+					cblogger.Error("Failed to retrieve Cluster : ", err)
+				} else {
+					cblogger.Info("Result of GetCluster retrieval")
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					} else {
+						cblogger.Info(result)
+					}
+				}
+
+			case 4:
+				cblogger.Infof("[%s] Cluster Delete Test", clusterReqInfo.IId.NameId)
+				result, err := handler.DeleteCluster(clusterReqInfo.IId)
+				if err != nil {
+					cblogger.Error("Failed to delete Cluster : ", err)
+				} else {
+					cblogger.Infof("Cluster Delete Success : %v", result)
+				}
+
+			case 5:
+				cblogger.Info("Start ListIID() ...")
+				result, err := handler.ListIID()
+				if err != nil {
+					cblogger.Error("Failed to retrieve Cluster IID list : ", err)
+				} else {
+					cblogger.Info("Result of Cluster IID list")
+					for _, iid := range result {
+						cblogger.Infof("IID: %+v", iid)
+					}
+				}
+
+			case 6:
+				cblogger.Infof("[%s] Generate Cluster Token Test", clusterReqInfo.IId)
+				result, err := handler.GenerateClusterToken(clusterReqInfo.IId)
+				if err != nil {
+					cblogger.Error("Failed to generate Cluster Token : ", err)
+				} else {
+					cblogger.Info("Result of Generate Cluster Token")
+					cblogger.Info("Token : ", result)
+				}
+
+			case 7:
+				cblogger.Infof("[%s] Add NodeGroup Test", clusterReqInfo.IId)
+				result, err := handler.AddNodeGroup(clusterReqInfo.IId, reqNodeGroupInfo)
+				if err != nil {
+					cblogger.Error("Failed to add NodeGroup : ", err)
+				} else {
+					cblogger.Info("Result of Add NodeGroup")
+					reqNodeGroupInfo.IId = result.IId // Update for subsequent operations
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					} else {
+						cblogger.Info(result)
+					}
+				}
+
+			case 8:
+				cblogger.Infof("[%s] Set NodeGroup AutoScaling Test - NodeGroup: %s", clusterReqInfo.IId, reqNodeGroupInfo.IId)
+				// Toggle AutoScaling (if currently true, set to false, and vice versa)
+				newAutoScalingSetting := !reqNodeGroupInfo.OnAutoScaling
+				result, err := handler.SetNodeGroupAutoScaling(clusterReqInfo.IId, reqNodeGroupInfo.IId, newAutoScalingSetting)
+				if err != nil {
+					cblogger.Error("Failed to set NodeGroup AutoScaling : ", err)
+				} else {
+					cblogger.Infof("NodeGroup AutoScaling set to %v : %v", newAutoScalingSetting, result)
+					reqNodeGroupInfo.OnAutoScaling = newAutoScalingSetting
+				}
+
+			case 9:
+				cblogger.Infof("[%s] Change NodeGroup Scaling Test - NodeGroup: %s", clusterReqInfo.IId, reqNodeGroupInfo.IId)
+				// Change scaling: DesiredNodeSize=3, MinNodeSize=2, MaxNodeSize=5
+				newDesired := 3
+				newMin := 2
+				newMax := 5
+				result, err := handler.ChangeNodeGroupScaling(clusterReqInfo.IId, reqNodeGroupInfo.IId, newDesired, newMin, newMax)
+				if err != nil {
+					cblogger.Error("Failed to change NodeGroup Scaling : ", err)
+				} else {
+					cblogger.Info("Result of Change NodeGroup Scaling")
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					} else {
+						cblogger.Info(result)
+					}
+				}
+
+			case 10:
+				cblogger.Infof("[%s] Remove NodeGroup Test - NodeGroup: %s", clusterReqInfo.IId, reqNodeGroupInfo.IId)
+				result, err := handler.RemoveNodeGroup(clusterReqInfo.IId, reqNodeGroupInfo.IId)
+				if err != nil {
+					cblogger.Error("Failed to remove NodeGroup : ", err)
+				} else {
+					cblogger.Infof("NodeGroup Remove Success : %v", result)
+				}
+
+			case 11:
+				cblogger.Infof("[%s] Upgrade Cluster Test", clusterReqInfo.IId)
+				newVersion := "1.33.3-aliyun.1" // Update to desired Kubernetes version (valid: 1.34.1-aliyun.1, 1.33.3-aliyun.1, 1.32.7-aliyun.1)
+				result, err := handler.UpgradeCluster(clusterReqInfo.IId, newVersion)
+				if err != nil {
+					cblogger.Error("Failed to upgrade Cluster : ", err)
+				} else {
+					cblogger.Info("Result of Upgrade Cluster")
+					if cblogger.Level.String() == "debug" {
+						spew.Dump(result)
+					} else {
+						cblogger.Info(result)
+					}
+				}
+
+			default:
+				fmt.Println("Unknown command")
 			}
 		}
 	}
@@ -2101,14 +2233,14 @@ func main() {
 	// handleNLB()
 	// handleDisk()
 	// handleMyImage()
-	// handleCluster()
-	handleFileSystem() // FileSystem (NAS)
+	handleCluster()
+	// handleFileSystem() // FileSystem (NAS)
 	//handlePublicIP()
 
 	//handleVNic() //Lancard
 	//handleRegionZone()
 	//handlePriceInfo()
-	handleTagInfo()
+	//handleTagInfo()
 	/*
 	   //StartTime := "2020-05-07T01:35:00Z"
 	   StartTime := "2020-05-07T01:35Z"
