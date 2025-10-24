@@ -27,6 +27,7 @@ import (
 	ecs2014 "github.com/alibabacloud-go/ecs-20140526/v4/client"
 	"github.com/alibabacloud-go/tea/tea"
 	vpc2016 "github.com/alibabacloud-go/vpc-20160428/v6/client"
+	"github.com/aliyun/alibaba-cloud-sdk-go/services/ecs"
 
 	"github.com/Masterminds/semver/v3"
 )
@@ -44,9 +45,9 @@ import (
 
 const (
 	defaultClusterType        = "ManagedKubernetes"
-	defaultClusterSpec        = "ack.pro.small"
+	defaultClusterSpec        = "ack.pro.small" // Pro cluster: no quota limit, ~$65/month, 99.95% SLA
 	defaultClusterRuntimeName = "containerd"
-	defaultNodePoolImageType  = "AliyunLinux3" // AliyunLinux2 was expired
+	defaultNodePoolImageType  = "AliyunLinux3ContainerOptimized" // ACK-optimized image (required for node pools)
 
 	tagKeyAckAliyunCom        = "ack.aliyun.com"
 	tagKeyCbSpiderPmksCluster = "CB-SPIDER:PMKS:CLUSTER"
@@ -477,6 +478,61 @@ func (ach *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqI
 	}
 
 	//
+	// Validate RootDiskType availability
+	//
+	if nodeGroupReqInfo.RootDiskType != "" {
+		// Create ECS client for disk type validation
+		ecsClient, err := ecs.NewClientWithAccessKey(
+			tea.StringValue(cluster.RegionId),
+			ach.CredentialInfo.ClientId,
+			ach.CredentialInfo.ClientSecret,
+		)
+		if err != nil {
+			err = fmt.Errorf("Failed to create ECS client for disk validation: %v", err)
+			cblogger.Error(err)
+			LoggingError(hiscallInfo, err)
+			return emptyNodeGroupInfo, err
+		}
+
+		// Query available disk types
+		availableDiskTypes, err := GetAvailableSystemDiskTypesForCluster(
+			ecsClient,
+			tea.StringValue(cluster.RegionId),
+			tea.StringValue(cluster.ZoneId),
+			instanceType,
+		)
+		if err != nil {
+			cblogger.Warnf("Failed to query available disk types: %v", err)
+			// Continue without validation if query fails
+		} else {
+			// Check if requested disk type is available
+			diskTypeAvailable := false
+			for _, availType := range availableDiskTypes {
+				if availType == nodeGroupReqInfo.RootDiskType {
+					diskTypeAvailable = true
+					break
+				}
+			}
+
+			if !diskTypeAvailable {
+				err = fmt.Errorf(
+					"RootDiskType '%s' is not supported for ACK node pools in zone '%s' with instance type '%s'.\n"+
+						"Note: Only the following disk types are available in this zone: %v",
+					nodeGroupReqInfo.RootDiskType,
+					tea.StringValue(cluster.ZoneId),
+					instanceType,
+					availableDiskTypes,
+				)
+				cblogger.Error(err)
+				LoggingError(hiscallInfo, err)
+				return emptyNodeGroupInfo, err
+			}
+
+			cblogger.Infof("RootDiskType '%s' is available and supported", nodeGroupReqInfo.RootDiskType)
+		}
+	}
+
+	//
 	// Create Node Group
 	//
 	name := nodeGroupReqInfo.IId.NameId
@@ -486,12 +542,20 @@ func (ach *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqI
 	instanceTypes := []string{nodeGroupReqInfo.VMSpecName}
 	systemDiskCategory := nodeGroupReqInfo.RootDiskType
 	systemDiskSize, _ := strconv.ParseInt(nodeGroupReqInfo.RootDiskSize, 10, 64)
-	keyPair := nodeGroupReqInfo.KeyPairIID.NameId
-	imageId := nodeGroupReqInfo.ImageIID.NameId
+
+	// KeyPair: Alibaba uses KeyPairName as both NameId and SystemId, so use SystemId
+	keyPair := nodeGroupReqInfo.KeyPairIID.SystemId
+
+	// Image: Alibaba uses ImageId as SystemId
+	imageId := nodeGroupReqInfo.ImageIID.SystemId
+
 	imageType := ""
 	if strings.EqualFold(imageId, "") || strings.EqualFold(imageId, "default") {
 		imageId = ""
 		imageType = defaultNodePoolImageType
+		cblogger.Debugf("Using default image type: %s", imageType)
+	} else {
+		cblogger.Debugf("Using specified image ID: %s", imageId)
 	}
 	desiredSize := int64(nodeGroupReqInfo.DesiredNodeSize)
 
@@ -519,6 +583,23 @@ func (ach *AlibabaClusterHandler) AddNodeGroup(clusterIID irs.IID, nodeGroupReqI
 	LoggingInfo(hiscallInfo, start)
 
 	cblogger.Infof("Adding NodeGroup(Name=%s, ID=%s) to Cluster(%s).", nodeGroupInfo.IId.NameId, nodeGroupInfo.IId.SystemId, clusterId)
+
+	// Log detailed nodepool status for debugging
+	nodepool, err := aliDescribeClusterNodePoolDetail(ach.CsClient, clusterId, tea.StringValue(nodepoolId))
+	if err == nil && nodepool != nil && nodepool.Status != nil {
+		cblogger.Infof("NodePool Status: State=%s, TotalNodes=%d, FailedNodes=%d, HealthyNodes=%d",
+			tea.StringValue(nodepool.Status.State),
+			tea.Int64Value(nodepool.Status.TotalNodes),
+			tea.Int64Value(nodepool.Status.FailedNodes),
+			tea.Int64Value(nodepool.Status.HealthyNodes))
+
+		// If there are failed nodes, log a warning
+		if tea.Int64Value(nodepool.Status.FailedNodes) > 0 {
+			cblogger.Warnf("⚠️  NodePool has %d failed nodes. Check Alibaba Cloud Console for detailed error messages.",
+				tea.Int64Value(nodepool.Status.FailedNodes))
+			cblogger.Warn("Common causes: 1) Image not available in the zone, 2) Instance type not available, 3) Insufficient quota")
+		}
+	}
 
 	return *nodeGroupInfo, nil
 }
@@ -894,9 +975,16 @@ func (ach *AlibabaClusterHandler) getNodeGroupInfo(clusterId, nodeGroupId string
 		ngiStatus = irs.NodeGroupUpdating
 	}
 
-	if len(nodepool.ScalingGroup.InstanceTypes) == 0 {
-		err = fmt.Errorf("failed to get NodeGroupInfo: invalid InstanceTypes")
-		return nil, err
+	// Handle case where InstanceTypes might be empty (e.g., failed node pools)
+	vmSpecName := ""
+	if len(nodepool.ScalingGroup.InstanceTypes) > 0 {
+		vmSpecName = tea.StringValue(nodepool.ScalingGroup.InstanceTypes[0])
+	} else {
+		cblogger.Warnf("NodePool %s has empty InstanceTypes (State: %s)",
+			tea.StringValue(nodepool.NodepoolInfo.Name),
+			tea.StringValue(nodepool.Status.State))
+		// Log the raw nodepool data for debugging
+		cblogger.Debugf("Raw NodePool Data: %+v", nodepool)
 	}
 
 	nodeGroupInfo := &irs.NodeGroupInfo{
@@ -908,7 +996,7 @@ func (ach *AlibabaClusterHandler) getNodeGroupInfo(clusterId, nodeGroupId string
 			NameId:   tea.StringValue(nodepool.ScalingGroup.ImageType),
 			SystemId: tea.StringValue(nodepool.ScalingGroup.ImageId),
 		},
-		VMSpecName:   tea.StringValue(nodepool.ScalingGroup.InstanceTypes[0]),
+		VMSpecName:   vmSpecName,
 		RootDiskType: tea.StringValue(nodepool.ScalingGroup.SystemDiskCategory),
 		RootDiskSize: strconv.FormatInt(tea.Int64Value(nodepool.ScalingGroup.SystemDiskSize), 10),
 		KeyPairIID: irs.IID{
@@ -1135,14 +1223,20 @@ func getLatestRuntime(csClient *cs2015.Client, regionId, clusterType, k8sVersion
 	runtimeName := defaultClusterRuntimeName
 	invalidVersion, _ := semver.NewVersion("0.0.0")
 	latestVersion := invalidVersion
+
+	// Debug: Log all available runtimes
+	cblogger.Debugf("Available runtimes for K8s %s:", k8sVersion)
 	for _, rt := range metadata[0].Runtimes {
+		cblogger.Debugf("  - Runtime: %s, Version: %s", tea.StringValue(rt.Name), tea.StringValue(rt.Version))
 		if strings.EqualFold(tea.StringValue(rt.Name), runtimeName) {
 			rtVersion, err := semver.NewVersion(tea.StringValue(rt.Version))
 			if err != nil {
+				cblogger.Warnf("  - Failed to parse version %s: %v", tea.StringValue(rt.Version), err)
 				continue
 			}
 			if latestVersion.LessThan(rtVersion) {
 				latestVersion = rtVersion
+				cblogger.Debugf("  - New latest version: %s", rtVersion.String())
 			}
 		}
 	}
@@ -1152,6 +1246,8 @@ func getLatestRuntime(csClient *cs2015.Client, regionId, clusterType, k8sVersion
 		return "", "", err
 	}
 	runtimeVersion := latestVersion.String()
+
+	cblogger.Infof("Selected latest runtime: %s version %s", runtimeName, runtimeVersion)
 
 	return runtimeName, runtimeVersion, nil
 }
@@ -1262,31 +1358,6 @@ func aliCreateCluster(csClient *cs2015.Client, name, regionId, clusterType, clus
 	return createClusterResponse.Body.ClusterId, nil
 }
 
-func waitUntilClusterIsState(csClient *cs2015.Client, clusterId, state string) error {
-	apiCallCount := 0
-	maxAPICallCount := 20
-
-	var waitingErr error
-	for {
-		cluster, err := aliDescribeClusterDetail(csClient, clusterId)
-		if err != nil {
-			maxAPICallCount = maxAPICallCount / 2
-		}
-		if strings.EqualFold(tea.StringValue(cluster.State), state) {
-			return nil
-		}
-		apiCallCount++
-		if apiCallCount >= maxAPICallCount {
-			waitingErr = fmt.Errorf("failed to get cluster: The maximum number of verification requests has been exceeded while waiting for availability of that resource")
-			break
-		}
-		time.Sleep(5 * time.Second)
-		cblogger.Infof("Wait until cluster's state is %s", state)
-	}
-
-	return waitingErr
-}
-
 func aliDescribeVpcAttribute(vpcClient *vpc2016.Client, regionId, vpcId string) (*vpc2016.DescribeVpcAttributeResponseBody, error) {
 	describeVpcAttributeRequest := &vpc2016.DescribeVpcAttributeRequest{
 		RegionId: tea.String(regionId),
@@ -1362,7 +1433,46 @@ func aliDescribeKubernetesVersionMetadata(csClient *cs2015.Client, regionId, clu
 	return describeKubernetesVersionMetadataResponse.Body, nil
 }
 
+// extractRuntimeFromMetadata extracts runtime name and version from cluster metadata
+func extractRuntimeFromMetadata(metaData string) (string, string, error) {
+	// Parse metadata JSON string
+	var metadata map[string]interface{}
+	if err := json.Unmarshal([]byte(metaData), &metadata); err != nil {
+		return "", "", fmt.Errorf("failed to parse metadata JSON: %v", err)
+	}
+
+	// Extract Runtime and RuntimeVersion
+	runtime, ok := metadata["Runtime"].(string)
+	if !ok || runtime == "" {
+		return "", "", fmt.Errorf("Runtime not found in metadata")
+	}
+
+	runtimeVersion, ok := metadata["RuntimeVersion"].(string)
+	if !ok || runtimeVersion == "" {
+		return "", "", fmt.Errorf("RuntimeVersion not found in metadata")
+	}
+
+	return runtime, runtimeVersion, nil
+}
+
 func aliCreateClusterNodePool(csClient *cs2015.Client, clusterId, name string, autoScalingEnable bool, maxInstances, minInstances int64, vswitchIds, instanceTypes []string, systemDiskCategory string, systemDiskSize int64, keyPair, imageId, imageType string, desiredSize int64) (*string, error) {
+	// Note: KubernetesConfig is optional - Alibaba automatically uses cluster's runtime if not specified
+	// The code below can be uncommented if you need to explicitly set runtime version
+
+	// Get cluster information to extract runtime configuration
+	// cluster, err := aliDescribeClusterDetail(csClient, clusterId)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to get cluster details: %v", err)
+	// }
+
+	// Extract runtime information from cluster's metadata
+	// metaData := tea.StringValue(cluster.MetaData)
+	// runtimeName, runtimeVersion, err := extractRuntimeFromMetadata(metaData)
+	// if err != nil {
+	// 	return nil, fmt.Errorf("failed to extract runtime from cluster metadata: %v", err)
+	// }
+	// cblogger.Debugf("Using cluster's existing runtime: %s version %s", runtimeName, runtimeVersion)
+
 	createClusterNodePoolRequest := &cs2015.CreateClusterNodePoolRequest{
 		NodepoolInfo: &cs2015.CreateClusterNodePoolRequestNodepoolInfo{
 			Name: tea.String(name),
@@ -1372,6 +1482,11 @@ func aliCreateClusterNodePool(csClient *cs2015.Client, clusterId, name string, a
 			MaxInstances: tea.Int64(maxInstances),
 			MinInstances: tea.Int64(minInstances),
 		},
+		// KubernetesConfig is optional - uncomment if you need to explicitly set runtime
+		// KubernetesConfig: &cs2015.CreateClusterNodePoolRequestKubernetesConfig{
+		// 	Runtime:        tea.String(runtimeName),
+		// 	RuntimeVersion: tea.String(runtimeVersion),
+		// },
 		ScalingGroup: &cs2015.CreateClusterNodePoolRequestScalingGroup{
 			VswitchIds:         tea.StringSlice(vswitchIds),
 			InstanceTypes:      tea.StringSlice(instanceTypes),
@@ -1414,6 +1529,44 @@ func aliDeleteClusterNodepool(csClient *cs2015.Client, clusterId, nodepoolId str
 	//cblogger.Debug(deleteClusterNodepoolResponse.Body)
 
 	return deleteClusterNodepoolResponse.Body, nil
+}
+
+// GetAvailableSystemDiskTypesForCluster queries available system disk types for a specific zone and instance type
+// This is useful for ACK node pool creation as disk type availability varies by region/zone
+func GetAvailableSystemDiskTypesForCluster(ecsClient *ecs.Client, regionId, zoneId, instanceType string) ([]string, error) {
+	request := ecs.CreateDescribeAvailableResourceRequest()
+	request.Scheme = "https"
+	request.RegionId = regionId
+	request.ZoneId = zoneId
+	request.DestinationResource = "SystemDisk"
+	request.InstanceType = instanceType
+	request.InstanceChargeType = "PostPaid"
+
+	response, err := ecsClient.DescribeAvailableResource(request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query available system disk types: %v", err)
+	}
+
+	var diskTypes []string
+	for _, zone := range response.AvailableZones.AvailableZone {
+		if zone.ZoneId == zoneId {
+			for _, resource := range zone.AvailableResources.AvailableResource {
+				if resource.Type == "SystemDisk" {
+					for _, disk := range resource.SupportedResources.SupportedResource {
+						if disk.Status == "Available" {
+							diskTypes = append(diskTypes, disk.Value)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if len(diskTypes) == 0 {
+		return nil, fmt.Errorf("no available system disk types found for zone %s with instance type %s", zoneId, instanceType)
+	}
+
+	return diskTypes, nil
 }
 
 func aliDescribeClusterUserKubeconfig(csClient *cs2015.Client, clusterId string) (string, error) {
@@ -1777,15 +1930,32 @@ func validateAtAddNodeGroup(clusterIID irs.IID, nodeGroupInfo irs.NodeGroupInfo)
 	if nodeGroupInfo.IId.NameId == "" {
 		return fmt.Errorf("Node Group's name is required")
 	}
-	if nodeGroupInfo.MaxNodeSize < 1 {
-		return fmt.Errorf("MaxNodeSize cannot be smaller than 1")
+
+	// Alibaba API behavior:
+	// - OnAutoScaling = true:  Uses MinNodeSize/MaxNodeSize (DesiredNodeSize is ignored)
+	// - OnAutoScaling = false: Uses DesiredNodeSize (MinNodeSize/MaxNodeSize are ignored)
+
+	if nodeGroupInfo.OnAutoScaling {
+		// When auto-scaling is enabled, MinNodeSize and MaxNodeSize are required
+		if nodeGroupInfo.MaxNodeSize < 1 {
+			return fmt.Errorf("MaxNodeSize cannot be smaller than 1 when auto-scaling is enabled")
+		}
+		if nodeGroupInfo.MinNodeSize < 1 {
+			return fmt.Errorf("MinNodeSize cannot be smaller than 1 when auto-scaling is enabled")
+		}
+		if nodeGroupInfo.MinNodeSize > nodeGroupInfo.MaxNodeSize {
+			return fmt.Errorf("MinNodeSize cannot be greater than MaxNodeSize")
+		}
+		// Note: DesiredNodeSize is ignored when auto-scaling is enabled
+	} else {
+		// When auto-scaling is disabled, only DesiredNodeSize is used
+		if nodeGroupInfo.DesiredNodeSize < 0 {
+			return fmt.Errorf("DesiredNodeSize cannot be negative when auto-scaling is disabled")
+		}
+		// Note: MinNodeSize and MaxNodeSize are ignored when auto-scaling is disabled
+		// They can be 0 or any value - Alibaba API will ignore them
 	}
-	if nodeGroupInfo.MinNodeSize < 1 {
-		return fmt.Errorf("MaxNodeSize cannot be smaller than 1")
-	}
-	if nodeGroupInfo.DesiredNodeSize < 1 {
-		return fmt.Errorf("DesiredNodeSize cannot be smaller than 1")
-	}
+
 	if nodeGroupInfo.VMSpecName == "" {
 		return fmt.Errorf("VM Spec Name is required")
 	}
