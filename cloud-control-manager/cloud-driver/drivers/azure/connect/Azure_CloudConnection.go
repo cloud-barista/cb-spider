@@ -13,6 +13,7 @@ package connect
 import (
 	"context"
 	"errors"
+
 	"github.com/Azure/azure-sdk-for-go/sdk/monitor/azquery"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v6"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice/v6"
@@ -150,7 +151,12 @@ func (cloudConn *AzureCloudConnection) CreateVMHandler() (irs.VMHandler, error) 
 
 func (cloudConn *AzureCloudConnection) CreateVMSpecHandler() (irs.VMSpecHandler, error) {
 	cblogger.Info("Azure Cloud Driver: called CreateVMSpecHandler()!")
-	vmSpecHandler := azrs.AzureVmSpecHandler{cloudConn.Region, cloudConn.Ctx, cloudConn.VmSpecClient}
+	vmSpecHandler := azrs.AzureVmSpecHandler{
+		Region:             cloudConn.Region,
+		Ctx:                cloudConn.Ctx,
+		Client:             cloudConn.VmSpecClient,
+		ResourceSKUsClient: cloudConn.ResourceSKUsClient,
+	}
 	return &vmSpecHandler, nil
 }
 
