@@ -20,9 +20,10 @@ const (
 )
 
 type AzureVmSpecHandler struct {
-	Region idrv.RegionInfo
-	Ctx    context.Context
-	Client *armcompute.VirtualMachineSizesClient
+	Region             idrv.RegionInfo
+	Ctx                context.Context
+	Client             *armcompute.VirtualMachineSizesClient
+	ResourceSKUsClient *armcompute.ResourceSKUsClient
 }
 
 func getGpuCount(vmSize string) (ea float32, memory int) {
@@ -499,14 +500,95 @@ func formatGpuCountValue(value float32) string {
 	return fmt.Sprintf("%.3f", value)
 }
 
-func setterVmSpec(region string, vmSpec *armcompute.VirtualMachineSize) *irs.VMSpecInfo {
+func setterVmSpec(region string, vmSpec *armcompute.VirtualMachineSize, resourceSKU *armcompute.ResourceSKU) *irs.VMSpecInfo {
 	var keyValueList []irs.KeyValue
 
 	if vmSpec.Name == nil {
 		return nil
 	}
 
+	// Add basic VM spec info to KeyValueList
 	keyValueList = irs.StructToKeyValueList(vmSpec)
+
+	// Add ResourceSKU capabilities if available
+	if resourceSKU != nil && resourceSKU.Capabilities != nil {
+		for _, capability := range resourceSKU.Capabilities {
+			if capability.Name != nil && capability.Value != nil {
+				keyValueList = append(keyValueList, irs.KeyValue{
+					Key:   *capability.Name,
+					Value: *capability.Value,
+				})
+			}
+		}
+
+		// Add LocationInfo if available
+		if resourceSKU.LocationInfo != nil {
+			for i, locationInfo := range resourceSKU.LocationInfo {
+				if locationInfo.Location != nil {
+					keyValueList = append(keyValueList, irs.KeyValue{
+						Key:   fmt.Sprintf("LocationInfo_%d_Location", i),
+						Value: *locationInfo.Location,
+					})
+				}
+				if locationInfo.Zones != nil {
+					for j, zone := range locationInfo.Zones {
+						keyValueList = append(keyValueList, irs.KeyValue{
+							Key:   fmt.Sprintf("LocationInfo_%d_Zone_%d", i, j),
+							Value: *zone,
+						})
+					}
+				}
+				if locationInfo.ZoneDetails != nil {
+					for j, zoneDetail := range locationInfo.ZoneDetails {
+						if zoneDetail.Name != nil {
+							for k, zoneName := range zoneDetail.Name {
+								keyValueList = append(keyValueList, irs.KeyValue{
+									Key:   fmt.Sprintf("LocationInfo_%d_ZoneDetail_%d_Name_%d", i, j, k),
+									Value: *zoneName,
+								})
+							}
+						}
+						if zoneDetail.Capabilities != nil {
+							for k, capability := range zoneDetail.Capabilities {
+								if capability.Name != nil && capability.Value != nil {
+									keyValueList = append(keyValueList, irs.KeyValue{
+										Key:   fmt.Sprintf("LocationInfo_%d_ZoneDetail_%d_Capability_%d_%s", i, j, k, *capability.Name),
+										Value: *capability.Value,
+									})
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// Add family, tier, size, and resourceType if available
+		if resourceSKU.Family != nil {
+			keyValueList = append(keyValueList, irs.KeyValue{
+				Key:   "Family",
+				Value: *resourceSKU.Family,
+			})
+		}
+		if resourceSKU.Tier != nil {
+			keyValueList = append(keyValueList, irs.KeyValue{
+				Key:   "Tier",
+				Value: *resourceSKU.Tier,
+			})
+		}
+		if resourceSKU.Size != nil {
+			keyValueList = append(keyValueList, irs.KeyValue{
+				Key:   "Size",
+				Value: *resourceSKU.Size,
+			})
+		}
+		if resourceSKU.ResourceType != nil {
+			keyValueList = append(keyValueList, irs.KeyValue{
+				Key:   "ResourceType",
+				Value: *resourceSKU.ResourceType,
+			})
+		}
+	}
 
 	gpuInfoList := make([]irs.GpuInfo, 0)
 	gpuInfo := parseGpuInfo(*vmSpec.Name)
@@ -551,11 +633,39 @@ func (vmSpecHandler *AzureVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error)
 		}
 	}
 
+	// Get ResourceSKU information for enhanced capabilities
+	var skuMap map[string]*armcompute.ResourceSKU
+	if vmSpecHandler.ResourceSKUsClient != nil {
+		skuMap = make(map[string]*armcompute.ResourceSKU)
+
+		skuPager := vmSpecHandler.ResourceSKUsClient.NewListPager(&armcompute.ResourceSKUsClientListOptions{
+			Filter: toStrPtr(fmt.Sprintf("location eq '%s'", vmSpecHandler.Region.Region)),
+		})
+
+		for skuPager.More() {
+			skuPage, err := skuPager.NextPage(vmSpecHandler.Ctx)
+			if err != nil {
+				cblogger.Warnf("Failed to get ResourceSKU information for region %s: %s", vmSpecHandler.Region.Region, err)
+				break
+			}
+
+			for _, sku := range skuPage.Value {
+				if sku.Name != nil && sku.ResourceType != nil && *sku.ResourceType == "virtualMachines" {
+					skuMap[*sku.Name] = sku
+				}
+			}
+		}
+	}
+
 	LoggingInfo(hiscallInfo, start)
 
 	vmSpecInfoList := make([]*irs.VMSpecInfo, len(vmSpecList))
 	for i, spec := range vmSpecList {
-		vmSpecInfoList[i] = setterVmSpec(vmSpecHandler.Region.Region, spec)
+		var resourceSKU *armcompute.ResourceSKU
+		if spec.Name != nil && skuMap != nil {
+			resourceSKU = skuMap[*spec.Name]
+		}
+		vmSpecInfoList[i] = setterVmSpec(vmSpecHandler.Region.Region, spec, resourceSKU)
 	}
 	return vmSpecInfoList, nil
 }
@@ -584,10 +694,36 @@ func (vmSpecHandler *AzureVmSpecHandler) GetVMSpec(Name string) (irs.VMSpecInfo,
 		}
 	}
 
+	// Get ResourceSKU information for the specific VM
+	var resourceSKU *armcompute.ResourceSKU
+	if vmSpecHandler.ResourceSKUsClient != nil {
+		skuPager := vmSpecHandler.ResourceSKUsClient.NewListPager(&armcompute.ResourceSKUsClientListOptions{
+			Filter: toStrPtr(fmt.Sprintf("location eq '%s' and name eq '%s'", vmSpecHandler.Region.Region, Name)),
+		})
+
+		for skuPager.More() {
+			skuPage, err := skuPager.NextPage(vmSpecHandler.Ctx)
+			if err != nil {
+				cblogger.Warnf("Failed to get ResourceSKU information for %s: %s", Name, err)
+				break
+			}
+
+			for _, sku := range skuPage.Value {
+				if sku.Name != nil && *sku.Name == Name && sku.ResourceType != nil && *sku.ResourceType == "virtualMachines" {
+					resourceSKU = sku
+					break
+				}
+			}
+			if resourceSKU != nil {
+				break
+			}
+		}
+	}
+
 	for _, spec := range vmSpecList {
 		if Name == *spec.Name {
 			LoggingInfo(hiscallInfo, start)
-			vmSpecInfo := setterVmSpec(vmSpecHandler.Region.Region, spec)
+			vmSpecInfo := setterVmSpec(vmSpecHandler.Region.Region, spec, resourceSKU)
 			return *vmSpecInfo, nil
 		}
 	}
