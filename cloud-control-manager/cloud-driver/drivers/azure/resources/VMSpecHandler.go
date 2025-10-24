@@ -645,7 +645,7 @@ func (vmSpecHandler *AzureVmSpecHandler) ListVMSpec() ([]*irs.VMSpecInfo, error)
 		for skuPager.More() {
 			skuPage, err := skuPager.NextPage(vmSpecHandler.Ctx)
 			if err != nil {
-				cblogger.Warnf("Failed to get ResourceSKU information: %s", err)
+				cblogger.Warnf("Failed to get ResourceSKU information for region %s: %s", vmSpecHandler.Region.Region, err)
 				break
 			}
 
