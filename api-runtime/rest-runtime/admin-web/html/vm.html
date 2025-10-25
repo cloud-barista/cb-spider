@@ -664,7 +664,7 @@ THE SOFTWARE.
         margin-right: 5px;
     }
 
-    #dataDiskSelect {
+    #dataDiskSelect, #securityGroupSelect {
         border: 1px solid black;
         padding: 10px;
         width: 60%;
@@ -673,6 +673,10 @@ THE SOFTWARE.
         margin: 0 auto;
         white-space: normal;
         max-height:300px;
+    }
+
+    #securityGroupSelect {
+        background-color: #faeded;
     }
 
     #diskSelect p {
@@ -783,7 +787,7 @@ THE SOFTWARE.
                             vpcName: '{{$vm.VpcIID.NameId}}',
                             subnetName: '{{$vm.SubnetIID.NameId}}',
                             zone: '{{$vm.Region.Zone}}',
-                            securityGroupName: ['{{range $index, $sg := $vm.SecurityGroupIIds}}{{if $index}},{{end}}{{$sg.NameId}}{{end}}'],
+                            securityGroupName: ['{{range $index, $sg := $vm.SecurityGroupIIds}}{{if $index}}, {{end}}{{$sg.NameId}}{{end}}'],
                             keypairName: '{{$vm.KeyPairIId.NameId}}',
                             vmUserId: '{{$vm.VMUserId}}',
                             imageType: '{{$vm.ImageType}}',
@@ -793,7 +797,7 @@ THE SOFTWARE.
                             rootDiskType: '{{$vm.RootDiskType}}',
                             rootDiskSize: '{{$vm.RootDiskSize}}',
                             rootDeviceName: '{{$vm.RootDeviceName}}',
-                            dataDisks: ['{{range $index, $disk := $vm.DataDiskIIDs}}{{if $index}},{{end}}{{$disk.NameId}}{{end}}'],
+                            dataDisks: ['{{range $index, $disk := $vm.DataDiskIIDs}}{{if $index}}, {{end}}{{$disk.NameId}}{{end}}'],
                             networkInterface: '{{$vm.NetworkInterface}}',
                             publicIP: '{{$vm.PublicIP}}',
                             publicDNS: '{{$vm.PublicDNS}}',
@@ -858,9 +862,8 @@ THE SOFTWARE.
                 </div>
                 
                 <div class="form-group">
-                    <label for="securityGroupSelect">Security Group:</label>
-                    <select id="securityGroupSelect" name="securityGroupSelect" required style="background-color: #faeded;">
-                    </select>
+                    <label for="securityGroupSelect">Security Groups:</label>
+                    <div id="securityGroupSelect" name="securityGroupSelect"></div>
                 </div>
                 
                 <div class="form-group">
@@ -1045,7 +1048,7 @@ THE SOFTWARE.
                         vpcName: '${vmData.VpcIID.NameId}',
                         subnetName: '${vmData.SubnetIID.NameId}',
                         zone: '${vmData.Region.Zone}',
-                        securityGroupName: ['${vmData.SecurityGroupIIds.map(sg => sg.NameId).join("','")}'],
+                        securityGroupName: ['${vmData.SecurityGroupIIds.map(sg => sg.NameId).join("', '")}'],
                         keypairName: '${vmData.KeyPairIId.NameId}',
                         vmUserId: '${vmData.VMUserId}',
                         imageType: '${vmData.ImageType}',
@@ -1055,7 +1058,7 @@ THE SOFTWARE.
                         rootDiskType: '${vmData.RootDiskType}',
                         rootDiskSize: '${vmData.RootDiskSize}',
                         rootDeviceName: '${vmData.RootDeviceName}',
-                        dataDisks: ['${vmData.DataDiskIIDs.map(disk => disk.NameId).join("','")}'],
+                        dataDisks: ['${vmData.DataDiskIIDs.map(disk => disk.NameId).join("', '")}'],
                         networkInterface: '${vmData.NetworkInterface}',
                         publicIP: '${vmData.PublicIP}',
                         publicDNS: '${vmData.PublicDNS}',
@@ -1266,6 +1269,13 @@ THE SOFTWARE.
             }
         }
 
+        // Validate that at least one security group is selected
+        const selectedSecurityGroups = document.querySelectorAll('#securityGroupSelect input[type="checkbox"]:checked');
+        if (selectedSecurityGroups.length === 0) {
+            alert('Please select at least one Security Group.');
+            return;
+        }
+
         const connConfig = document.getElementById('connConfig').value;
 
         const vmPromises = Array.from({ length: vmCount }).map((_, index) => {
@@ -1280,7 +1290,7 @@ THE SOFTWARE.
                     VMSpecName: document.getElementById('vmSpecName').value,
                     VPCName: document.getElementById('vpcSelect').options[document.getElementById('vpcSelect').selectedIndex].text.split(' ')[0],
                     SubnetName: document.getElementById('subnetSelect').value,
-                    SecurityGroupNames: [document.getElementById('securityGroupSelect').value],
+                    SecurityGroupNames: Array.from(document.querySelectorAll('#securityGroupSelect input[type="checkbox"]:checked')).map(checkbox => checkbox.value),
                     RootDiskType: document.getElementById('rootDiskType').value,
                     RootDiskSize: document.getElementById('rootDiskSize').value || undefined,  
                     DataDiskNames: Array.from(document.querySelectorAll('#dataDiskSelect input[type="checkbox"]:checked')).map(checkbox => checkbox.value),    
@@ -1804,13 +1814,27 @@ THE SOFTWARE.
 
             if (data.securitygroup && data.securitygroup.length > 0) {
                 data.securitygroup.forEach(sg => {
-                    const option = document.createElement('option');
-                    option.value = sg.IId.NameId;
-                    option.textContent = `${sg.IId.NameId}`;
-                    securityGroupSelect.appendChild(option);
+                    const checkboxWrapper = document.createElement('div');
+                    checkboxWrapper.className = 'checkbox-wrapper';
+                    
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.value = sg.IId.NameId;
+                    checkbox.id = `sg-${sg.IId.NameId}`;
+                    checkbox.name = 'securityGroupCheckbox';
+                    
+                    const label = document.createElement('label');
+                    label.htmlFor = `sg-${sg.IId.NameId}`;
+                    label.textContent = sg.IId.NameId;
+                    
+                    checkboxWrapper.appendChild(checkbox);
+                    checkboxWrapper.appendChild(label);
+                    securityGroupSelect.appendChild(checkboxWrapper);
                 });
             } else {
-                securityGroupSelect.innerHTML = '<option>No security groups available.</option>';
+                const noSGMessage = document.createElement('p');
+                noSGMessage.textContent = 'No security groups available for this VPC.';
+                securityGroupSelect.appendChild(noSGMessage);
             }
         })
         .catch(error => {
