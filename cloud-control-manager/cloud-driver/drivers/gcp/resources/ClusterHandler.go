@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"runtime/debug"
 	"strconv"
@@ -46,6 +47,27 @@ const (
 	GCP_SET_AUTOSCALING_ENABLE   = "SET_AUTOSCALING_ENABLE"
 	GCP_SET_AUTOSCALING_NODESIZE = "SET_AUTOSCALING_NODESIZE"
 )
+
+// getServerAddress returns the Spider server address from SERVER_ADDRESS env variable
+func getServerAddress() string {
+	hostEnv := os.Getenv("SERVER_ADDRESS")
+	if hostEnv == "" {
+		return "localhost:1024"
+	}
+
+	// "1.2.3.4" or "localhost"
+	if !strings.Contains(hostEnv, ":") {
+		return hostEnv + ":1024"
+	}
+
+	// ":31024" => "localhost:31024"
+	if strings.HasPrefix(hostEnv, ":") {
+		return "localhost" + hostEnv
+	}
+
+	// "1.2.3.4:31024" or "localhost:31024"
+	return hostEnv
+}
 
 type GCPClusterHandler struct {
 	Region          idrv.RegionInfo
@@ -1420,6 +1442,9 @@ users:
 func getDynamicKubeConfig(cluster *container.Cluster) string {
 	configName := fmt.Sprintf("gke_%s_%s", cluster.Location, cluster.Name)
 
+	// Get Spider server address from environment variable
+	serverAddr := getServerAddress()
+
 	// Generate kubeconfig content with exec-based dynamic token
 	kubeconfigContent := fmt.Sprintf(`apiVersion: v1
 kind: Config
@@ -1443,8 +1468,8 @@ users:
       command: curl
       args:
       - -s
-      - "http://localhost:1024/spider/cluster/CLUSTER_NAME_PLACEHOLDER/token?ConnectionName=CONNECTION_NAME_PLACEHOLDER"
-`, cluster.Endpoint, cluster.MasterAuth.ClusterCaCertificate, configName, configName, configName, configName)
+      - "http://%s/spider/cluster/CLUSTER_NAME_PLACEHOLDER/token?ConnectionName=CONNECTION_NAME_PLACEHOLDER"
+`, cluster.Endpoint, cluster.MasterAuth.ClusterCaCertificate, configName, configName, configName, configName, serverAddr)
 
 	return kubeconfigContent
 }
