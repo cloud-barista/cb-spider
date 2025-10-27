@@ -7,7 +7,8 @@
 
 
 - CB-Spider is a sub-framework of the Cloud-Barista Multi-Cloud Platform.<br>
-- CB-Spider provides a unified interface and view for multi-cloud management.
+- CB-Spider implements multi-cloud infrastructure abstraction and integration technology.<br>
+- CB-Spider provides a unified interface and view for efficient multi-cloud management.
 
 <p align="center">
   <img width="850" alt="image" src="https://github.com/user-attachments/assets/c1e5328b-151d-4b24-ad62-947e8bfcbbcf">
@@ -44,9 +45,9 @@ If you encounter any difficulties while using Cloud-Barista, please let us know.
 
 #### 1. Recommended Environment
 
-- OS: Ubuntu 22.04  
+- OS: Ubuntu 24.04  
 - Build: Go 1.25, Swag v1.16.3  
-- Container: Docker v19.03  
+- Container: Docker v28.0.0  
 
 ---
 
