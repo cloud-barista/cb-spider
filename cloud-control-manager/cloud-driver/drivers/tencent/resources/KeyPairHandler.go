@@ -72,6 +72,10 @@ func ExtractKeyPairDescribeInfo(keyPair *cvm.KeyPair) (irs.KeyPairInfo, error) {
 		IId: irs.IID{NameId: *keyPair.KeyName, SystemId: *keyPair.KeyId},
 		//PublicKey: *keyPair.PublicKey,
 	}
+	if keyPair.PrivateKey != nil {
+		keyPairInfo.PrivateKey = *keyPair.PrivateKey
+	}
+
 	cblogger.Info(" keyPair.Tags", keyPair.Tags)
 	if keyPair.Tags != nil {
 		var tagList []irs.KeyValue
